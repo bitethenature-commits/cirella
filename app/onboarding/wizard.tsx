@@ -1,0 +1,504 @@
+"use client";
+
+import { ArrowLeft, ArrowRight, Check, CreditCard, Loader2, Lock, ShieldCheck, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { CreatorPageView, type PublicProduct } from "@/components/creator-page/creator-page-view";
+import { TemplatePreview } from "@/components/template-preview";
+import { ImageUpload } from "@/components/ui/image-upload";
+import { formatMoney, parseMoneyToCents } from "@/lib/money";
+import type { PageConfig } from "@/lib/page-config";
+import { TEMPLATES, type TemplateKey } from "@/lib/templates";
+import { DEFAULT_CTA, PRODUCT_TYPE_HINT, PRODUCT_TYPE_LABEL, PRODUCT_TYPES, type ProductType } from "@/lib/types";
+import {
+  checkUsername,
+  connectPayments,
+  publishOnboarding,
+  saveAvatar,
+  saveCategory,
+  saveFirstProduct,
+  saveProfile,
+  saveTemplate,
+  saveUsername,
+} from "./actions";
+
+export type WizardInit = {
+  step: number;
+  host: string;
+  username: string;
+  config: PageConfig;
+  categoryId: string | null;
+  categories: { id: string; name: string; emoji: string | null; defaultTemplate: string }[];
+  templates: TemplateKey[];
+  product: { productId: string | null; type: ProductType; title: string; summary: string; emoji: string | null; imageUrl: string | null; price: string; durationMin: number };
+  allowedTypes: ProductType[];
+  commissionBps: number;
+  planName: string;
+  payoutConnected: boolean;
+  creatorId: string | null;
+};
+
+const TOTAL = 10;
+const EMOJIS = ["🌙", "✨", "🔮", "🧬", "🔑", "💫", "🌿", "🧘", "🪷", "📖", "🎧", "☀️"];
+const PRICE_SUGGESTIONS = [19, 29, 49, 79, 120];
+
+export function OnboardingWizard({ init }: { init: WizardInit }) {
+  const [step, setStep] = useState(init.step);
+  const [username, setUsername] = useState(init.username);
+  const [usernameStatus, setUsernameStatus] = useState<{ ok: boolean; msg?: string } | null>(null);
+  const [cfg, setCfg] = useState<PageConfig>(init.config);
+  const [categoryId, setCategoryId] = useState(init.categoryId);
+  const [product, setProduct] = useState(init.product);
+  const [payout, setPayout] = useState(init.payoutConnected);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  // Comprobación de disponibilidad del nombre de usuario (con retardo)
+  useEffect(() => {
+    if (step !== 2 || !username) return setUsernameStatus(null);
+    const t = setTimeout(async () => {
+      const r = await checkUsername(username);
+      setUsernameStatus(r.ok ? { ok: true } : { ok: false, msg: r.error });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [username, step]);
+
+  const run = (fn: () => Promise<{ ok: boolean; error?: string; data?: Record<string, unknown> }>, onOk?: (data?: Record<string, unknown>) => void) => {
+    setError(null);
+    start(async () => {
+      const r = await fn();
+      if (!r.ok) return setError(r.error ?? "Algo ha fallado");
+      onOk?.(r.data);
+      setStep((s) => Math.min(TOTAL, s + 1));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  };
+
+  const next = () => {
+    switch (step) {
+      case 2:
+        return run(() => saveUsername(username), (d) => setUsername(String(d?.username ?? username)));
+      case 3:
+        return run(() => saveAvatar(cfg.avatarUrl));
+      case 4:
+        return run(() => saveProfile({ displayName: cfg.displayName, tagline: cfg.tagline, bio: cfg.bio, avatarUrl: cfg.avatarUrl }));
+      case 5:
+        if (!categoryId) return setError("Elige una categoría");
+        return run(
+          () => saveCategory(categoryId),
+          (d) => {
+            const suggested = d?.suggestedTemplate as TemplateKey | undefined;
+            if (suggested && init.templates.includes(suggested) && cfg.template === init.config.template) setCfg((c) => ({ ...c, template: suggested }));
+          },
+        );
+      case 6:
+        return run(() => saveTemplate(cfg.template));
+      case 7:
+        return run(
+          () => saveFirstProduct({ productId: product.productId, type: product.type, title: product.title, summary: product.summary, emoji: product.emoji, imageUrl: product.imageUrl }),
+          (d) => setProduct((p) => ({ ...p, productId: String(d?.productId) })),
+        );
+      case 8:
+        return run(() =>
+          saveFirstProduct({ ...product, productId: product.productId, price: product.price, durationMin: product.type === "SESSION" ? product.durationMin : null }),
+        );
+      case 9:
+        return setStep(10);
+      case 10:
+        setError(null);
+        start(async () => {
+          const r = await publishOnboarding();
+          if (r && !r.ok) setError(r.error);
+        });
+        return;
+    }
+  };
+
+  const canContinue =
+    (step === 2 && usernameStatus?.ok) ||
+    step === 3 ||
+    (step === 4 && cfg.displayName.trim().length > 0) ||
+    (step === 5 && !!categoryId) ||
+    step === 6 ||
+    (step === 7 && product.title.trim().length >= 2) ||
+    (step === 8 && parseMoneyToCents(product.price) >= 100) ||
+    step === 9 ||
+    step === 10;
+
+  const priceCents = parseMoneyToCents(product.price);
+  const net = priceCents - Math.round((priceCents * init.commissionBps) / 10000);
+
+  const previewProducts: PublicProduct[] = useMemo(
+    () =>
+      product.title
+        ? [
+            {
+              id: "preview",
+              type: product.type,
+              slug: "preview",
+              title: product.title,
+              emoji: product.emoji,
+              summary: product.summary,
+              imageUrl: product.imageUrl,
+              priceCents: priceCents || 0,
+              currency: "EUR",
+              billingInterval: product.type === "MEMBERSHIP" ? "month" : null,
+              ctaLabel: DEFAULT_CTA[product.type],
+              featured: false,
+              meta: product.type === "SESSION" ? `${product.durationMin} min` : null,
+            },
+          ]
+        : [],
+    [product, priceCents],
+  );
+
+  const preview = (
+    <CreatorPageView
+      creatorId={init.creatorId ?? "preview"}
+      username={username || "tunombre"}
+      config={cfg}
+      products={previewProducts}
+      allowCustom={false}
+      showPoweredBy
+      platformName="Cirella"
+      preview
+    />
+  );
+
+  return (
+    <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-[1fr_minmax(420px,0.8fr)]">
+      <div className="flex min-h-dvh min-w-0 flex-col">
+        {/* Progreso */}
+        <div className="sticky top-0 z-20 border-b border-line bg-paper/90 px-5 py-3 backdrop-blur sm:px-10">
+          <div className="mx-auto flex max-w-xl items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setStep((s) => Math.max(2, s - 1))}
+              disabled={step === 2 || pending}
+              className="grid h-9 w-9 place-items-center rounded-full text-muted transition hover:bg-sand disabled:opacity-30"
+              aria-label="Atrás"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-sand">
+              <div className="h-full rounded-full bg-ink transition-all duration-500" style={{ width: `${(step / TOTAL) * 100}%` }} />
+            </div>
+            <span className="w-12 text-right text-xs tabular-nums text-muted">
+              {step}/{TOTAL}
+            </span>
+          </div>
+        </div>
+
+        <div className="mx-auto w-full max-w-xl flex-1 px-5 pb-32 pt-8 sm:px-10 sm:pt-12">
+          <div key={step} className="animate-fade-up">
+            {step === 2 && (
+              <Step title="Elige tu nombre de usuario" text="Será tu enlace para la bio de Instagram, TikTok o Telegram.">
+                <label className="flex h-14 items-center rounded-2xl border border-line bg-white pl-4 text-base focus-within:border-lavender-deep focus-within:ring-4 focus-within:ring-lavender-deep/10">
+                  <span className="text-muted">{init.host}/</span>
+                  <input
+                    autoFocus
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s/g, ""))}
+                    placeholder="tunombre"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    className="h-full min-w-0 flex-1 bg-transparent pr-4 font-medium outline-none"
+                  />
+                  {usernameStatus && (
+                    <span className={`mr-4 text-xs font-medium ${usernameStatus.ok ? "text-success" : "text-rose"}`}>
+                      {usernameStatus.ok ? "✓ Disponible" : ""}
+                    </span>
+                  )}
+                </label>
+                {usernameStatus && !usernameStatus.ok && <p className="mt-2 text-sm text-rose">{usernameStatus.msg}</p>}
+                <p className="mt-3 text-xs text-muted">Usa el mismo nombre que en Instagram para que te encuentren fácilmente.</p>
+              </Step>
+            )}
+
+            {step === 3 && (
+              <Step title="Sube tu foto" text="Una foto donde se te vea la cara genera confianza. Puedes cambiarla cuando quieras.">
+                <ImageUpload shape="circle" value={cfg.avatarUrl} onChange={(url) => setCfg((c) => ({ ...c, avatarUrl: url }))} label="Elegir foto" />
+                {!cfg.avatarUrl && <p className="mt-6 text-center text-sm text-muted">¿Ahora no? Pulsa «Continuar» y la añades más tarde.</p>}
+              </Step>
+            )}
+
+            {step === 4 && (
+              <Step title="¿Cómo te presentas?" text="Tu nombre y una línea que explique a qué te dedicas.">
+                <div className="space-y-4">
+                  <div>
+                    <label className="field-label">Nombre</label>
+                    <input className="input" value={cfg.displayName} onChange={(e) => setCfg((c) => ({ ...c, displayName: e.target.value }))} placeholder="Ana Luna" maxLength={80} />
+                  </div>
+                  <div>
+                    <label className="field-label">Descripción corta</label>
+                    <input className="input" value={cfg.tagline} onChange={(e) => setCfg((c) => ({ ...c, tagline: e.target.value }))} placeholder="Astrología · Human Design · Gene Keys" maxLength={120} />
+                  </div>
+                  <div>
+                    <label className="field-label">Sobre ti <span className="font-normal text-muted">(opcional)</span></label>
+                    <textarea className="input" rows={4} value={cfg.bio} onChange={(e) => setCfg((c) => ({ ...c, bio: e.target.value }))} placeholder="Acompaño a mujeres a…" maxLength={600} />
+                  </div>
+                </div>
+              </Step>
+            )}
+
+            {step === 5 && (
+              <Step title="¿A qué te dedicas?" text="Adaptaremos el diseño y los textos a tu sector.">
+                <div className="grid grid-cols-2 gap-2.5">
+                  {init.categories.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setCategoryId(c.id)}
+                      className={`flex items-center gap-2.5 rounded-2xl border px-3.5 py-3.5 text-left text-sm transition ${
+                        categoryId === c.id ? "border-ink bg-ink text-cream" : "border-line bg-white hover:border-ink/30"
+                      }`}
+                    >
+                      <span className="text-lg">{c.emoji}</span>
+                      <span className="font-medium">{c.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </Step>
+            )}
+
+            {step === 6 && (
+              <Step title="Elige tu estilo" text="Podrás cambiarlo cuando quieras sin perder nada.">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {init.templates.map((t) => (
+                    <button key={t} type="button" onClick={() => setCfg((c) => ({ ...c, template: t }))} className="text-left">
+                      <div className={`overflow-hidden rounded-2xl ring-offset-2 ring-offset-paper transition ${cfg.template === t ? "ring-2 ring-ink" : "ring-1 ring-line"}`}>
+                        <TemplatePreview template={t} name={cfg.displayName || "Tu nombre"} tagline={cfg.tagline || "Tu especialidad"} />
+                      </div>
+                      <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold">
+                        {cfg.template === t && <Check className="h-4 w-4" />} {TEMPLATES[t].name}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </Step>
+            )}
+
+            {step === 7 && (
+              <Step title="Tu primer producto" text="Empieza por lo que más vendes por mensaje privado.">
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  {PRODUCT_TYPES.map((t) => {
+                    const locked = !init.allowedTypes.includes(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => setProduct((p) => ({ ...p, type: t }))}
+                        className={`relative rounded-2xl border p-4 text-left transition ${
+                          product.type === t ? "border-ink bg-white ring-1 ring-ink" : "border-line bg-white hover:border-ink/30"
+                        } ${locked ? "opacity-55" : ""}`}
+                      >
+                        <p className="text-sm font-semibold">{PRODUCT_TYPE_LABEL[t]}</p>
+                        <p className="mt-1 text-xs text-muted">{PRODUCT_TYPE_HINT[t]}</p>
+                        {locked && (
+                          <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-sand px-2 py-0.5 text-[0.65rem] font-semibold">
+                            <Lock className="h-3 w-3" /> {t === "SESSION" ? "Creator" : "Pro"}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-6 space-y-4">
+                  <div>
+                    <label className="field-label">Nombre del producto</label>
+                    <input className="input" value={product.title} onChange={(e) => setProduct((p) => ({ ...p, title: e.target.value }))} placeholder="Lectura de Astrología" maxLength={100} />
+                  </div>
+                  <div>
+                    <label className="field-label">Descripción breve</label>
+                    <textarea className="input" rows={3} value={product.summary} onChange={(e) => setProduct((p) => ({ ...p, summary: e.target.value }))} placeholder="Qué recibe tu clienta y por qué le va a ayudar." maxLength={240} />
+                  </div>
+                  <div>
+                    <label className="field-label">Icono</label>
+                    <div className="flex flex-wrap gap-2">
+                      {EMOJIS.map((e) => (
+                        <button
+                          key={e}
+                          type="button"
+                          onClick={() => setProduct((p) => ({ ...p, emoji: e }))}
+                          className={`grid h-10 w-10 place-items-center rounded-xl border text-lg transition ${product.emoji === e ? "border-ink bg-white" : "border-line bg-white/60"}`}
+                        >
+                          {e}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="field-label">Imagen <span className="font-normal text-muted">(opcional)</span></label>
+                    <ImageUpload value={product.imageUrl} onChange={(url) => setProduct((p) => ({ ...p, imageUrl: url }))} />
+                  </div>
+                </div>
+              </Step>
+            )}
+
+            {step === 8 && (
+              <Step title="Configura el precio" text={`¿Cuánto cuesta «${product.title}»?`}>
+                <label className="flex h-20 items-center rounded-3xl border border-line bg-white px-6 focus-within:border-lavender-deep">
+                  <input
+                    autoFocus
+                    inputMode="decimal"
+                    value={product.price}
+                    onChange={(e) => setProduct((p) => ({ ...p, price: e.target.value.replace(/[^\d,.]/g, "") }))}
+                    placeholder="49"
+                    className="h-full min-w-0 flex-1 bg-transparent text-4xl font-semibold tracking-tight outline-none"
+                  />
+                  <span className="text-2xl text-muted">€{product.type === "MEMBERSHIP" ? "/mes" : ""}</span>
+                </label>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {PRICE_SUGGESTIONS.map((v) => (
+                    <button key={v} type="button" onClick={() => setProduct((p) => ({ ...p, price: String(v) }))} className="chip h-8 bg-white ring-1 ring-line hover:ring-ink/30">
+                      {v} €
+                    </button>
+                  ))}
+                </div>
+                {product.type === "SESSION" && (
+                  <div className="mt-6">
+                    <label className="field-label">Duración de la sesión</label>
+                    <div className="flex flex-wrap gap-2">
+                      {[30, 45, 60, 75, 90].map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => setProduct((p) => ({ ...p, durationMin: d }))}
+                          className={`chip h-9 px-4 ${product.durationMin === d ? "!bg-ink !text-cream" : "bg-white ring-1 ring-line"}`}
+                        >
+                          {d} min
+                        </button>
+                      ))}
+                    </div>
+                    <p className="field-hint">Tu horario disponible lo ajustas luego en «Reservas».</p>
+                  </div>
+                )}
+                {priceCents >= 100 && (
+                  <div className="mt-6 rounded-2xl bg-sand/70 p-4 text-sm">
+                    <p>
+                      Recibirás <strong>{formatMoney(net, "EUR", { decimals: true })}</strong> por cada venta.
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      Plan {init.planName}: comisión del {(init.commissionBps / 100).toLocaleString("es-ES")} %. Baja al 2 % con el plan Pro.
+                    </p>
+                  </div>
+                )}
+              </Step>
+            )}
+
+            {step === 9 && (
+              <Step title="Conecta tu método de pago" text="Para recibir el dinero de tus ventas directamente en tu cuenta.">
+                <div className="card p-6">
+                  <div className="flex items-center gap-3">
+                    <div className="grid h-11 w-11 place-items-center rounded-full bg-ink text-cream">
+                      <CreditCard className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Cuenta de cobro</p>
+                      <p className="text-xs text-muted">Tarjeta, Apple Pay y Google Pay</p>
+                    </div>
+                  </div>
+                  {payout ? (
+                    <p className="mt-5 flex items-center gap-2 rounded-xl bg-[#f1f8f3] px-3 py-2.5 text-sm font-medium text-success">
+                      <Check className="h-4 w-4" /> Conectada · ya puedes recibir pagos
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() =>
+                        start(async () => {
+                          const r = await connectPayments();
+                          if (r.ok) setPayout(true);
+                          else setError(r.error);
+                        })
+                      }
+                      className="btn btn-primary mt-5 w-full"
+                    >
+                      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Conectar cuenta de cobro
+                    </button>
+                  )}
+                  <p className="mt-4 flex items-start gap-2 text-xs text-muted">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                    Modo demostración: la conexión y los pagos son simulados. La integración real usará Stripe Connect.
+                  </p>
+                </div>
+                {!payout && <p className="mt-4 text-center text-xs text-muted">Puedes hacerlo más tarde, pero hasta entonces nadie podrá comprar.</p>}
+              </Step>
+            )}
+
+            {step === 10 && (
+              <Step title="Todo listo ✨" text="Revisa tu página y publícala. Podrás editarla siempre que quieras.">
+                <ul className="space-y-2.5 text-sm">
+                  {[
+                    [`${init.host}/${username}`, true],
+                    [cfg.avatarUrl ? "Foto de perfil" : "Foto de perfil (pendiente)", !!cfg.avatarUrl],
+                    [`Estilo ${TEMPLATES[cfg.template].name}`, true],
+                    [product.title ? `${product.title} · ${formatMoney(priceCents)}` : "Primer producto", !!product.productId],
+                    [payout ? "Pagos activados" : "Pagos sin conectar", payout],
+                  ].map(([label, ok]) => (
+                    <li key={String(label)} className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3">
+                      <span className={`grid h-6 w-6 place-items-center rounded-full ${ok ? "bg-ink text-cream" : "bg-sand text-muted"}`}>
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-6 overflow-hidden rounded-3xl border border-line lg:hidden" style={{ height: 520 }}>
+                  <div className="pointer-events-none origin-top-left" style={{ width: 390, transform: "scale(0.82)" }}>
+                    {preview}
+                  </div>
+                </div>
+              </Step>
+            )}
+
+            {error && <p className="mt-6 rounded-xl bg-[#fdf3f1] px-4 py-3 text-sm text-[#8a3b31]">{error}</p>}
+          </div>
+        </div>
+
+        {/* Acciones */}
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-paper/95 px-5 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4 backdrop-blur lg:right-auto lg:w-[calc(100%-max(420px,44.44%))]">
+          <div className="mx-auto flex max-w-xl gap-3">
+            <button
+              type="button"
+              onClick={next}
+              disabled={!canContinue || pending}
+              className="btn btn-primary btn-lg flex-1"
+            >
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : step === 10 ? <Sparkles className="h-4 w-4" /> : null}
+              {step === 10 ? "Publicar mi página" : step === 9 && !payout ? "Lo haré más tarde" : "Continuar"}
+              {step < 10 && !pending && <ArrowRight className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Vista previa en vivo (escritorio) */}
+      <aside className="sticky top-0 hidden h-dvh items-center justify-center overflow-hidden bg-ink lg:flex">
+        <div className="starfield absolute inset-0 opacity-40" />
+        <div className="relative">
+          <p className="mb-4 text-center text-xs uppercase tracking-[0.2em] text-cream/50">Vista previa en vivo</p>
+          <div className="rounded-[2.6rem] border border-white/15 bg-black/60 p-2.5 shadow-2xl">
+            <div className="relative h-[640px] w-[320px] overflow-y-auto overflow-x-hidden rounded-[2.1rem] scrollbar-none">
+              <div className="pointer-events-none origin-top-left" style={{ width: 390, transform: "scale(0.8205)" }}>
+                {preview}
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function Step({ title, text, children }: { title: string; text: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h1 className="display text-[2.4rem] leading-[1.05] sm:text-[2.9rem]">{title}</h1>
+      <p className="mt-2 text-[0.95rem] text-muted">{text}</p>
+      <div className="mt-8">{children}</div>
+    </section>
+  );
+}

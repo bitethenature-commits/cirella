@@ -1,0 +1,24 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
+import { homeFor } from "@/lib/home";
+import { SignupForm } from "./signup-form";
+
+export const metadata: Metadata = { title: "Crea tu página · Cirella" };
+
+export default async function RegistroPage({ searchParams }: { searchParams: Promise<{ ref?: string; username?: string; plan?: string }> }) {
+  const sp = await searchParams;
+  const user = await getCurrentUser();
+  if (user) redirect(await homeFor(user.id));
+  return (
+    <>
+      <p className="eyebrow">Paso 1 de 10</p>
+      <h1 className="display mt-2 text-[2.6rem]">Crea tu cuenta</h1>
+      <p className="mt-2 text-sm text-muted">En 5 minutos tendrás tu página lista para compartir en tu bio.</p>
+      {sp.ref && <p className="mt-4 rounded-xl bg-sand px-3 py-2 text-xs text-ink">✦ Te ha invitado una creadora: tu código <strong>{sp.ref.toUpperCase()}</strong> queda aplicado.</p>}
+      <div className="mt-8">
+        <SignupForm refCode={sp.ref} username={sp.username} plan={sp.plan} />
+      </div>
+    </>
+  );
+}

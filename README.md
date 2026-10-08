@@ -1,0 +1,155 @@
+# Cirella
+
+> **Convierte tu perfil social en tu negocio completo, desde un solo enlace.**
+
+Plataforma SaaS multi-tenant para profesionales independientes (astrología, Human Design, Gene Keys, espiritualidad, wellness, coaching, terapias holísticas y creadoras de contenido). Cada creadora obtiene en minutos su espacio en `cirella.app/su-nombre`: link-in-bio premium, tienda, reservas, cursos, membresías, pagos, entrega automática, área de clientes y estadísticas.
+
+«Cirella» es el nombre provisional y se cambia en **/admin/ajustes**.
+
+---
+
+## Puesta en marcha
+
+Requisitos: Node 20+ (probado con Node 22).
+
+```bash
+npm install
+cp .env.example .env
+npm run setup        # crea la BD SQLite y siembra la demo
+npm run dev          # http://localhost:3000
+```
+
+`npm run db:seed` vuelve a dejar los datos de demostración como al principio.
+
+### Cuentas de demostración
+
+Contraseña de todas: `demo1234`. También hay botones de acceso rápido en **/entrar**.
+
+| Cuenta | Rol | Qué ver |
+|---|---|---|
+| `ana@cirella.app` | Creadora · plan Pro | Panel, editor, productos, curso, reservas, estadísticas |
+| `laura@example.com` | Clienta de Ana | «Hola, Laura»: curso al 43 %, sesión del 12 oct a las 17:00, PDF de Gene Keys |
+| `admin@cirella.app` | Superadmin | Planes, comisiones, creadoras, ventas, reportes |
+| `maria@cirella.app` | Creadora · plan Creator | Otro tenant (wellness, plantilla Minimal) |
+
+### Recorrido sugerido
+
+1. **`/`** · landing con precios leídos de la BD y una demo en vivo de Ana.
+2. **`/ana`** · página pública (plantilla Mystical) → un producto → **checkout** (tarjeta `4242…`; `4000 0000 0000 0002` simula un rechazo) → «Compra completada» → **`/cuenta`**.
+3. **`/registro`** · crea una creadora nueva: onboarding de 10 pasos → «Tu página está lista».
+4. **`/panel`** (como Ana) · métricas «Este mes / Últimos 30 días / Total», editor visual con vista previa en vivo, productos por tipo, reservas, automatizaciones, plan, referidos.
+5. **`/admin`** · todo lo de la plataforma: planes editables, comisiones, bloqueos, reportes CSV.
+6. **`/dev/correo`** · buzón de demostración con todos los emails que «envía» la plataforma (recibos, enlaces mágicos, recordatorios programados). El botón «Ejecutar tareas programadas» simula el cron.
+
+Otras páginas de ejemplo: `/maria` (Minimal, plan Creator) y `/sofia` (Luxury, plan Free con «Powered by»).
+
+---
+
+## Qué incluye el MVP
+
+El flujo **Instagram → página → producto → pago → entrega → clienta recurrente** funciona de extremo a extremo y está cubierto por pruebas automáticas.
+
+| Área | Estado |
+|---|---|
+| Landing, registro, login con contraseña o enlace mágico | ✅ |
+| Onboarding de 10 pasos + «Tu página está lista» con copiar / Instagram / WhatsApp / Telegram / ver página | ✅ |
+| Página pública mobile-first con 5 plantillas, secciones activables y ordenables, SEO, Open Graph y favicon por creadora, Schema.org | ✅ |
+| Productos: digital (archivos privados), sesión (duración, margen, antelación), curso (módulos y lecciones de vídeo, audio, PDF, texto o ejercicio), membresía (contenido privado) | ✅ |
+| Checkout sin cuenta previa, cuenta automática o enlace mágico tras pagar | ✅ (pago simulado) |
+| Área de cliente: compras, cursos con progreso, sesiones (elegir / cambiar fecha, .ics), membresías (cancelar / reactivar), archivos, perfil, soporte | ✅ |
+| Reservas: disponibilidad semanal, días bloqueados, zona horaria, huecos libres en tiempo real | ✅ |
+| Panel: ventas, ingresos, clientes, conversión, visitas, top productos, MRR, reservas, suscripciones | ✅ |
+| Editor visual: foto, nombre, textos, colores, tipografía, fondo, portada, orden, botones, secciones, redes · Guardar / Vista previa / Publicar | ✅ |
+| Analytics: visitas, visitantes únicos, vistas y clics de producto, checkouts, compras, conversión, ingresos, fuentes de tráfico | ✅ |
+| Automatizaciones: arquitectura completa + 8 emails (bienvenida, compra, acceso al curso, confirmación y recordatorio de sesión, nueva suscripción, cancelación, compra abandonada) | ✅ (envío simulado) |
+| Superadmin: creadoras, clientes, ventas, comisiones, transacciones, suscripciones, productos, planes, categorías, diseños, bloqueados, reportes | ✅ |
+| Viral loop: «Powered by» con código de referido, programa de referidos con recompensa configurable | ✅ |
+
+### Simulado en el MVP (con el punto de integración preparado)
+
+| Pieza | Hoy | Para producción |
+|---|---|---|
+| Pagos | `lib/payments/simulated.ts` | Stripe Connect: implementar `lib/payments/stripe.ts` y llamar a `fulfillOrder()` desde el webhook |
+| Emails | Bandeja `EmailMessage` + `/dev/correo` | Resend/Postmark dentro de `deliver()` en `lib/email/outbox.ts` |
+| Calendario | `lib/calendar.ts` sin proveedor | Google Calendar: implementar `CalendarProvider` (freebusy + events.insert) |
+| Archivos | Disco local (`STORAGE_DIR`) | S3/R2 manteniendo las funciones de `lib/storage.ts` |
+| Cron | Botón en `/dev/correo` | Llamar a `GET /api/cron` con `Authorization: Bearer $CRON_SECRET` cada 5–15 min |
+| Base de datos | SQLite | PostgreSQL: cambiar `provider` en `prisma/schema.prisma` |
+
+---
+
+## Arquitectura
+
+**Stack:** Next.js 15 (App Router, Server Components y Server Actions) · TypeScript · Prisma · SQLite/PostgreSQL · Tailwind CSS 4 · Zod. Sin librerías de UI ni de gráficos: el bundle inicial ronda los 108 kB.
+
+```
+app/
+  page.tsx                 landing
+  (auth)/registro, entrar  autenticación
+  onboarding/              asistente de 10 pasos y «Tu página está lista»
+  [username]/              página pública, producto, checkout, gracias, OG image, favicon
+  panel/                   panel de la creadora (tenant)
+  cuenta/                  área de cliente
+  admin/                   superadmin
+  api/                     track, upload, download, slots, cron
+  dev/correo/              buzón de demostración
+components/
+  creator-page/            renderizador de la página pública (también usado en la vista previa del editor)
+lib/
+  tenant.ts                aislamiento multi-tenant
+  orders.ts                checkout y entrega automática
+  plans.ts                 entitlements de los planes
+  automations.ts           eventos de dominio → emails
+  booking.ts, tz.ts        cálculo de huecos con zonas horarias
+  templates.ts             sistema de diseño de las páginas públicas
+  page-config.ts           esquema del contenido editable de la página
+prisma/
+  schema.prisma            modelo de datos
+  seed.ts                  datos de demostración
+```
+
+### Multi-tenant
+
+Base de datos compartida con columna `creatorId` en **todas** las tablas de negocio (productos, archivos, lecciones, clientes, pedidos, transacciones, accesos, reservas, suscripciones, analytics, automatizaciones, emails), siempre indexada.
+
+- **`tenantDb(creatorId)`** (`lib/tenant.ts`) es un cliente Prisma extendido que inyecta `creatorId` en el `where` de cada lectura, actualización, borrado, conteo y agregado, y en el `data` de cada creación. Todo el panel usa este cliente: aunque llegue un id manipulado (un producto de María en una petición de Ana) la consulta no encuentra nada.
+- La identidad es global (`User`) y la relación comercial vive en `Customer`, una fila por cada par creadora–compradora. Si Carmen compra a Ana y a María, cada una ve solo su propia ficha de Carmen.
+- El contenido de pago solo se sirve a través de `/api/download/[id]`, que comprueba un `Access` vigente o la propiedad del archivo.
+- `npm run test:isolation` comprueba lecturas, agregados, actualizaciones, borrados y creaciones cruzadas. La prueba e2e lo verifica también por HTTP: 404 en el panel y 403 en las descargas ajenas.
+
+### Monetización configurable
+
+Precios, comisión, límite de productos y funcionalidades de cada plan son **datos** (`Plan.features` en JSON) que se editan en **/admin/planes**. Se pueden crear planes nuevos sin tocar código. La comisión se guarda como foto fija en cada pedido (`commissionBps`) y todo movimiento queda en el libro `Transaction` (cobros, renovaciones y cuotas de plan), así que cambiar el modelo no altera el histórico.
+
+Valores iniciales (editables):
+
+| Plan | Precio | Comisión | Productos | Incluye |
+|---|---|---|---|---|
+| Free | 0 € | 10 % | 3 | Productos digitales, métricas básicas, «Powered by» |
+| Creator | 12 €/mes | 5 % | 15 | + reservas, personalización visual, estadísticas, sin marca |
+| Pro | 29 €/mes | 2 % | Ilimitados | + cursos, membresías, área de clientes, automatizaciones, estadísticas avanzadas |
+
+### Entrega automática
+
+`fulfillOrder()` (`lib/orders.ts`) es idempotente y es el único punto que convierte un pago en acceso: marca el pedido, registra la transacción, crea la clienta del tenant y concede un `Access` (descarga o curso), una `Booking` (sesión) o una `Subscription` con acceso caducable (membresía). Después emite eventos de dominio que las automatizaciones convierten en emails.
+
+---
+
+## Pruebas
+
+```bash
+npm run test:isolation          # aislamiento multi-tenant a nivel de datos
+npm run build && npm run test:e2e   # flujo completo en un iPhone simulado
+```
+
+La prueba e2e recorre: landing → registro → onboarding de 10 pasos → publicar → compra como invitada → cuenta creada automáticamente → la venta aparece en el panel → la clienta de demo ve su curso al 43 %, su sesión y su PDF → Ana no puede abrir datos ni archivos de María. Si Playwright no encuentra Chromium, indica la ruta con `PW_CHROMIUM_PATH`.
+
+---
+
+## Decisiones tomadas
+
+- **El plan Free puede vender productos digitales.** El briefing sitúa «Productos digitales» en Creator, pero sin ello el plan gratuito no podría validar el flujo de venta. Las sesiones quedan en Creator y los cursos y membresías en Pro, y todo es configurable desde el admin.
+- **Datos de la demo.** Se han creado 3 clientas, 2 reservas y los 6 productos pedidos. Para que el área de cliente coincida con el ejemplo del briefing (un curso al 43 %, una sesión el 12 de octubre a las 17:00 y el PDF de Gene Keys), Laura tiene 3 compras, así que hay 5 pedidos en total.
+- **La Lectura de Human Design es una sesión** (como en el ejemplo «Mis sesiones») y la Lectura de Astrología y Gene Keys son productos digitales.
+- **Imágenes generadas**, sin fotos de terceros: `scripts/generate-demo-images.py` crea la luna, el eclipse, las nebulosas, el bodygraph y el hexagrama. El seed genera además PDF, audio y vídeo reales para las descargas y el curso.
+- **Las sesiones se pueden reservar antes o después de pagar:** la clienta elige hora en el checkout o marca «elegir la fecha después» y reserva desde su cuenta.

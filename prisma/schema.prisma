@@ -1,0 +1,548 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Cirella — esquema de datos
+//
+// Modelo multi-tenant de base de datos compartida:
+//   · Cada creadora es un "tenant" (modelo Creator).
+//   · TODA tabla que contiene datos de negocio de una creadora lleva `creatorId`
+//     y un índice que empieza por `creatorId`.
+//   · El código del panel accede a esas tablas exclusivamente a través de
+//     `tenantDb(creatorId)` (lib/tenant.ts), que inyecta el filtro en cada consulta.
+//   · La identidad (User) es global: una misma persona puede comprar a varias
+//     creadoras. La relación comercial con cada creadora vive en Customer
+//     (scoped por creatorId), de modo que Ana nunca ve los clientes de María.
+//
+// Los "enums" se guardan como String (SQLite) y se validan en lib/types.ts.
+// Para producción: cambia provider a "postgresql"; el esquema es compatible.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Identidad ─────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  passwordHash String?
+  isAdmin      Boolean   @default(false)
+  status       String    @default("ACTIVE") // ACTIVE | BLOCKED
+  createdAt    DateTime  @default(now())
+  lastLoginAt  DateTime?
+
+  creator    Creator?
+  sessions   Session[]
+  customerOf Customer[]
+  accesses   Access[]
+  progress   LessonProgress[]
+}
+
+model Session {
+  id        String   @id // sha256(token); el token en claro solo vive en la cookie
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model LoginToken {
+  id         String    @id @default(cuid())
+  email      String
+  tokenHash  String    @unique
+  redirectTo String?
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email])
+}
+
+// ─────────────────────── Configuración de plataforma ───────────────────────
+// Todo lo relacionado con monetización es dato, no código: precios, comisiones,
+// límites y funcionalidades de cada plan se editan desde /admin/planes.
+
+model Plan {
+  id                String    @id @default(cuid())
+  key               String    @unique // free | creator | pro | ...
+  name              String
+  tagline           String?
+  priceMonthlyCents Int       @default(0)
+  currency          String    @default("EUR")
+  commissionBps     Int // 1000 = 10,00 %
+  maxProducts       Int? // null = ilimitados
+  features          Json // ver lib/plans.ts → PlanFeatures
+  highlighted       Boolean   @default(false)
+  isDefault         Boolean   @default(false)
+  active            Boolean   @default(true)
+  sortOrder         Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  creators          Creator[]
+}
+
+model Category {
+  id              String    @id @default(cuid())
+  slug            String    @unique
+  name            String
+  emoji           String?
+  defaultTemplate String    @default("mystical")
+  active          Boolean   @default(true)
+  sortOrder       Int       @default(0)
+  creators        Creator[]
+}
+
+model Template {
+  id          String  @id @default(cuid())
+  key         String  @unique // mystical | minimal | luxury | cosmic | editorial
+  name        String
+  description String?
+  active      Boolean @default(true)
+  sortOrder   Int     @default(0)
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ───────────────────────────── Tenant ─────────────────────────────
+
+model Creator {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username    String  @unique
+  displayName String
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  planId      String
+  plan        Plan    @relation(fields: [planId], references: [id])
+  planRenewsAt DateTime?
+  status      String  @default("ACTIVE") // ACTIVE | BLOCKED
+
+  // Página: el editor trabaja sobre el borrador; "Publicar" lo copia a publicada.
+  pageDraft     Json
+  pagePublished Json?
+  published     Boolean   @default(false)
+  publishedAt   DateTime?
+
+  seoTitle       String?
+  seoDescription String?
+  contactEmail   String?
+  timezone       String  @default("Europe/Madrid")
+  currency       String  @default("EUR")
+  onboardedAt    DateTime?
+
+  // Cobros (pasarela simulada en el MVP; preparado para Stripe Connect)
+  payoutProvider    String?
+  payoutAccountId   String?
+  payoutConnectedAt DateTime?
+
+  // Calendario externo (preparado para Google Calendar)
+  calendarProvider  String?
+  calendarAccountId String?
+
+  // Programa de referidos y beneficios
+  referralCode          String    @unique
+  referredById          String?
+  referredBy            Creator?  @relation("CreatorReferrals", fields: [referredById], references: [id])
+  referred              Creator[] @relation("CreatorReferrals")
+  creditCents           Int       @default(0)
+  commissionDiscountBps Int       @default(0)
+  commissionDiscountUntil DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products          Product[]
+  customers         Customer[]
+  orders            Order[]
+  transactions      Transaction[]
+  accesses          Access[]
+  bookings          Booking[]
+  availability      AvailabilityRule[]
+  blockedDates      BlockedDate[]
+  subscriptions     Subscription[]
+  events            AnalyticsEvent[]
+  automations       Automation[]
+  referralsMade     Referral[] @relation("ReferralReferrer")
+  referralReceived  Referral?  @relation("ReferralReferred")
+
+  @@index([planId])
+}
+
+// ───────────────────────────── Catálogo ─────────────────────────────
+
+model Product {
+  id              String   @id @default(cuid())
+  creatorId       String
+  creator         Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  type            String // DIGITAL | SESSION | COURSE | MEMBERSHIP
+  slug            String
+  title           String
+  emoji           String?
+  summary         String?
+  description     String?
+  imageUrl        String?
+  priceCents      Int
+  currency        String   @default("EUR")
+  billingInterval String? // "month" | "year" (solo membresías)
+  ctaLabel        String?
+  status          String   @default("PUBLISHED") // DRAFT | PUBLISHED | ARCHIVED
+  featured        Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  instructions    String? // qué recibe / próximos pasos tras la compra
+
+  // Sesiones
+  durationMin    Int?
+  bufferMin      Int?
+  minNoticeHours Int?
+  meetingUrl     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  files         ProductFile[]
+  modules       CourseModule[]
+  lessons       Lesson[]
+  posts         MembershipPost[]
+  orders        Order[]
+  accesses      Access[]
+  bookings      Booking[]
+  subscriptions Subscription[]
+
+  @@unique([creatorId, slug])
+  @@index([creatorId, status, sortOrder])
+}
+
+model ProductFile {
+  id         String   @id @default(cuid())
+  creatorId  String
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name       String
+  kind       String // PDF | AUDIO | VIDEO | IMAGE | LINK | OTHER
+  storageKey String? // ruta privada en STORAGE_DIR/private
+  url        String? // enlace externo (kind = LINK)
+  mimeType   String?
+  sizeBytes  Int?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  lessons    Lesson[]
+
+  @@index([creatorId, productId])
+}
+
+model CourseModule {
+  id        String   @id @default(cuid())
+  creatorId String
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  title     String
+  sortOrder Int      @default(0)
+  lessons   Lesson[]
+
+  @@index([creatorId, productId])
+}
+
+model Lesson {
+  id          String       @id @default(cuid())
+  creatorId   String
+  productId   String
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  moduleId    String
+  module      CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title       String
+  kind        String // VIDEO | AUDIO | PDF | TEXT | EXERCISE
+  body        String?
+  mediaUrl    String? // vídeo/audio externo (YouTube, Vimeo…)
+  fileId      String?
+  file        ProductFile? @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  durationMin Int?
+  sortOrder   Int          @default(0)
+  progress    LessonProgress[]
+
+  @@index([creatorId, productId])
+  @@index([moduleId])
+}
+
+model LessonProgress {
+  id          String   @id @default(cuid())
+  creatorId   String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId   String
+  lessonId    String
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completedAt DateTime @default(now())
+
+  @@unique([userId, lessonId])
+  @@index([creatorId, productId])
+}
+
+model MembershipPost {
+  id          String   @id @default(cuid())
+  creatorId   String
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  title       String
+  body        String
+  kind        String   @default("TEXT") // TEXT | AUDIO | VIDEO | EVENT
+  mediaUrl    String?
+  publishedAt DateTime @default(now())
+
+  @@index([creatorId, productId, publishedAt])
+}
+
+// ───────────────────────────── Clientes y ventas ─────────────────────────────
+
+model Customer {
+  id              String    @id @default(cuid())
+  creatorId       String
+  creator         Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email           String
+  name            String?
+  marketingOptIn  Boolean   @default(false)
+  totalSpentCents Int       @default(0)
+  ordersCount     Int       @default(0)
+  firstPurchaseAt DateTime?
+  lastPurchaseAt  DateTime?
+  createdAt       DateTime  @default(now())
+
+  orders        Order[]
+  bookings      Booking[]
+  subscriptions Subscription[]
+
+  @@unique([creatorId, userId])
+  @@index([creatorId, createdAt])
+}
+
+model Order {
+  id               String    @id @default(cuid())
+  creatorId        String
+  creator          Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  customerId       String?
+  customer         Customer? @relation(fields: [customerId], references: [id])
+  productId        String
+  product          Product   @relation(fields: [productId], references: [id])
+  productTitle     String // instantánea en el momento de la compra
+  productType      String
+  buyerEmail       String
+  buyerName        String?
+  status           String    @default("PENDING") // PENDING | PAID | FAILED | REFUNDED | ABANDONED
+  amountCents      Int
+  currency         String    @default("EUR")
+  commissionBps    Int
+  platformFeeCents Int
+  netCents         Int
+  paymentProvider  String
+  paymentRef       String?
+  metadata         Json? // p. ej. { slotStart } para sesiones
+  visitorId        String?
+  source           String?
+  recoveryEmailedAt DateTime?
+  createdAt        DateTime  @default(now())
+  paidAt           DateTime?
+
+  transactions Transaction[]
+  bookings     Booking[]
+
+  @@index([creatorId, status, createdAt])
+  @@index([buyerEmail])
+}
+
+// Libro de movimientos: cargos, reembolsos, renovaciones y cuotas de plan.
+model Transaction {
+  id               String   @id @default(cuid())
+  creatorId        String
+  creator          Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  orderId          String?
+  order            Order?   @relation(fields: [orderId], references: [id])
+  subscriptionId   String?
+  type             String // CHARGE | REFUND | RENEWAL | PLAN_FEE
+  description      String?
+  amountCents      Int
+  platformFeeCents Int      @default(0)
+  netCents         Int      @default(0)
+  currency         String   @default("EUR")
+  provider         String
+  providerRef      String?
+  status           String   @default("SUCCEEDED") // SUCCEEDED | FAILED
+  createdAt        DateTime @default(now())
+
+  @@index([creatorId, createdAt])
+  @@index([type, createdAt])
+}
+
+// Derecho de acceso de un usuario al contenido de un producto.
+// Es la pieza que hace posible la "entrega automática": el pago lo concede,
+// la cancelación de una suscripción lo caduca.
+model Access {
+  id             String    @id @default(cuid())
+  creatorId      String
+  creator        Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderId        String?
+  subscriptionId String?
+  status         String    @default("ACTIVE") // ACTIVE | REVOKED
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@unique([userId, productId])
+  @@index([creatorId, productId])
+}
+
+// ───────────────────────────── Reservas ─────────────────────────────
+
+model Booking {
+  id              String    @id @default(cuid())
+  creatorId       String
+  creator         Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id])
+  customerId      String
+  customer        Customer  @relation(fields: [customerId], references: [id])
+  userId          String
+  orderId         String?
+  order           Order?    @relation(fields: [orderId], references: [id])
+  startAt         DateTime? // null = pagada, pendiente de elegir fecha
+  endAt           DateTime?
+  status          String    @default("PENDING_SCHEDULE") // PENDING_SCHEDULE | CONFIRMED | CANCELLED | COMPLETED
+  meetingUrl      String?
+  customerNotes   String?
+  externalEventId String? // id del evento en Google Calendar (futuro)
+  createdAt       DateTime  @default(now())
+
+  @@index([creatorId, startAt])
+  @@index([userId])
+}
+
+model AvailabilityRule {
+  id          String  @id @default(cuid())
+  creatorId   String
+  creator     Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  weekday     Int // 0 = domingo … 6 = sábado
+  startMinute Int // minutos desde las 00:00 en la zona horaria de la creadora
+  endMinute   Int
+
+  @@index([creatorId, weekday])
+}
+
+model BlockedDate {
+  id        String  @id @default(cuid())
+  creatorId String
+  creator   Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  date      String // YYYY-MM-DD
+  reason    String?
+
+  @@unique([creatorId, date])
+}
+
+// ───────────────────────────── Membresías ─────────────────────────────
+
+model Subscription {
+  id                 String    @id @default(cuid())
+  creatorId          String
+  creator            Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  productId          String
+  product            Product   @relation(fields: [productId], references: [id])
+  customerId         String
+  customer           Customer  @relation(fields: [customerId], references: [id])
+  userId             String
+  status             String    @default("ACTIVE") // ACTIVE | CANCELED | PAST_DUE
+  priceCents         Int
+  interval           String    @default("month")
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean   @default(false)
+  canceledAt         DateTime?
+  provider           String
+  providerRef        String?
+  createdAt          DateTime  @default(now())
+
+  @@index([creatorId, status])
+  @@index([userId])
+}
+
+// ───────────────────────────── Analytics ─────────────────────────────
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  creatorId   String
+  creator     Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  type        String // PAGE_VIEW | PRODUCT_VIEW | PRODUCT_CLICK | CHECKOUT_STARTED | PURCHASE
+  productId   String?
+  visitorId   String
+  source      String? // instagram | tiktok | telegram | whatsapp | direct | other
+  referrer    String?
+  amountCents Int?
+  createdAt   DateTime @default(now())
+
+  @@index([creatorId, type, createdAt])
+  @@index([creatorId, createdAt])
+}
+
+// ───────────────────────────── Automatizaciones ─────────────────────────────
+
+// Preferencias por creadora de cada automatización (ver lib/automations.ts).
+model Automation {
+  id           String  @id @default(cuid())
+  creatorId    String
+  creator      Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  trigger      String // WELCOME | PURCHASE_RECEIPT | COURSE_ACCESS | SESSION_REMINDER | BOOKING_CONFIRMED | NEW_SUBSCRIPTION | SUBSCRIPTION_CANCELED | ABANDONED_CHECKOUT
+  enabled      Boolean @default(true)
+  delayMinutes Int     @default(0)
+  subject      String?
+  message      String?
+
+  @@unique([creatorId, trigger])
+}
+
+// Bandeja de salida: todo email pasa por aquí (se procesa en /api/cron).
+model EmailMessage {
+  id        String    @id @default(cuid())
+  creatorId String?
+  userId    String?
+  to        String
+  subject   String
+  html      String
+  template  String
+  status    String    @default("QUEUED") // QUEUED | SENT | FAILED | CANCELED
+  sendAt    DateTime  @default(now())
+  sentAt    DateTime?
+  error     String?
+  dedupeKey String?   @unique
+  createdAt DateTime  @default(now())
+
+  @@index([status, sendAt])
+  @@index([creatorId, createdAt])
+}
+
+// ───────────────────────────── Referidos ─────────────────────────────
+
+model Referral {
+  id          String    @id @default(cuid())
+  referrerId  String
+  referrer    Creator   @relation("ReferralReferrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredId  String    @unique
+  referred    Creator   @relation("ReferralReferred", fields: [referredId], references: [id], onDelete: Cascade)
+  status      String    @default("PENDING") // PENDING | REWARDED
+  rewardType  String? // FREE_MONTH | CREDIT | COMMISSION_DISCOUNT
+  rewardValue Int?
+  createdAt   DateTime  @default(now())
+  rewardedAt  DateTime?
+}

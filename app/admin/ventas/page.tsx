@@ -1,0 +1,36 @@
+import { requireAdmin } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { formatMoney } from "@/lib/money";
+import { ORDER_STATUS_LABEL } from "@/lib/types";
+import { Badge, PageHeader, Stat } from "../../panel/ui";
+import { AdminTable, td } from "../ui";
+
+export default async function AdminSales() {
+  await requireAdmin();
+  const orders = await prisma.order.findMany({ orderBy: { createdAt: "desc" }, take: 300, include: { creator: { select: { displayName: true, username: true } } } });
+  const paid = orders.filter((o) => o.status === "PAID");
+  return (
+    <div>
+      <PageHeader title="Ventas" subtitle="Todos los pedidos de todas las creadoras (últimos 300)." />
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="GMV" value={formatMoney(paid.reduce((a, o) => a + o.amountCents, 0))} accent />
+        <Stat label="Comisiones" value={formatMoney(paid.reduce((a, o) => a + o.platformFeeCents, 0), "EUR", { decimals: true })} />
+        <Stat label="Pedidos pagados" value={paid.length} />
+        <Stat label="Sin completar" value={orders.length - paid.length} />
+      </div>
+      <AdminTable head={["Fecha", "Creadora", "Producto", "Comprador", "Importe", "Comisión", "Estado"]} minWidth={900}>
+        {orders.map((o) => (
+          <tr key={o.id}>
+            <td className={`${td} text-muted`}>{o.createdAt.toLocaleDateString("es-ES", { day: "numeric", month: "short" })}</td>
+            <td className={td}>{o.creator.displayName}</td>
+            <td className={td}>{o.productTitle}</td>
+            <td className={`${td} text-muted`}>{o.buyerEmail}</td>
+            <td className={`${td} tabular-nums`}>{formatMoney(o.amountCents, o.currency, { decimals: true })}</td>
+            <td className={`${td} tabular-nums text-muted`}>{formatMoney(o.platformFeeCents, o.currency, { decimals: true })} <span className="text-xs">({o.commissionBps / 100} %)</span></td>
+            <td className={`${td} text-right`}><Badge tone={o.status === "PAID" ? "success" : o.status === "FAILED" ? "danger" : "neutral"}>{ORDER_STATUS_LABEL[o.status]}</Badge></td>
+          </tr>
+        ))}
+      </AdminTable>
+    </div>
+  );
+}
