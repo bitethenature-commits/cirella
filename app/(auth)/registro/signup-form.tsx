@@ -9,13 +9,13 @@ export function SignupForm({ refCode, username, plan }: { refCode?: string; user
   const [state, action] = useActionState<FormState, FormData>(signUp, undefined);
   return (
     <form action={action} className="space-y-4">
-      <Flash error={state?.error} />
+      <Flash ok={state?.ok} error={state?.error} />
       <input type="hidden" name="ref" value={refCode ?? ""} />
       <input type="hidden" name="username" value={username ?? ""} />
       <input type="hidden" name="plan" value={plan ?? ""} />
       <div>
         <label className="field-label" htmlFor="email">Email</label>
-        <input id="email" name="email" type="email" autoComplete="email" required className="input" placeholder="tu@email.com" />
+        <input id="email" name="email" type="email" autoComplete="email" required className="input" placeholder="tu@email.com" defaultValue={state?.email} />
       </div>
       <div>
         <label className="field-label" htmlFor="password">Contraseña</label>

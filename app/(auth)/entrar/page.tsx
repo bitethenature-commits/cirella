@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, safeNext } from "@/lib/auth";
 import { isDemoMode } from "@/lib/env";
 import { homeFor } from "@/lib/home";
 import { demoSignIn } from "../actions";
@@ -23,7 +23,7 @@ const DEMO = [
 export default async function EntrarPage({ searchParams }: { searchParams: Promise<{ next?: string; error?: string }> }) {
   const sp = await searchParams;
   const user = await getCurrentUser();
-  if (user && !sp.error) redirect(sp.next?.startsWith("/") && !sp.next.startsWith("//") ? sp.next : await homeFor(user.id));
+  if (user && !sp.error) redirect(safeNext(sp.next, "") || (await homeFor(user.id)));
   const demo = isDemoMode();
   return (
     <>

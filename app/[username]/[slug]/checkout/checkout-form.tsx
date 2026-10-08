@@ -69,6 +69,10 @@ export function CheckoutForm({
   const [day, setDay] = useState<string | null>(null);
   const [slot, setSlot] = useState<string>("");
   const [later, setLater] = useState(false);
+  // Campos controlados: React resetea los formularios con acción tras cada envío y
+  // no queremos que un pago rechazado borre el nombre y el email.
+  const [name, setName] = useState(prefill.name);
+  const [email, setEmail] = useState(prefill.email);
   const isSession = product.type === "SESSION";
   const price = formatPrice(product.priceCents, product.currency, product.billingInterval);
 
@@ -175,11 +179,11 @@ export function CheckoutForm({
         <SectionTitle n={++n} title="Tus datos" />
         <div>
           <label className="mb-1.5 block text-xs font-medium" htmlFor="name">Nombre</label>
-          <input id="name" name="name" required minLength={2} autoComplete="name" defaultValue={prefill.name} className="cp-input" placeholder="Tu nombre" />
+          <input id="name" name="name" required minLength={2} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className="cp-input" placeholder="Tu nombre" />
         </div>
         <div>
           <label className="mb-1.5 block text-xs font-medium" htmlFor="email">Email</label>
-          <input id="email" name="email" type="email" required autoComplete="email" defaultValue={prefill.email} className="cp-input" placeholder="tu@email.com" />
+          <input id="email" name="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="cp-input" placeholder="tu@email.com" />
           <p className="cp-faint mt-1.5 text-xs">Aquí recibirás el acceso. No necesitas crear una cuenta ni contraseña.</p>
         </div>
       </section>

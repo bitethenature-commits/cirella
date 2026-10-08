@@ -22,6 +22,7 @@ type Result = { ok: true; data?: Record<string, unknown> } | { ok: false; error:
 async function currentCreator() {
   const user = await requireUser("/onboarding");
   const creator = await prisma.creator.findUnique({ where: { userId: user.id }, include: { plan: true } });
+  if (creator?.status === "BLOCKED") redirect("/entrar?error=bloqueada");
   return { user, creator };
 }
 
@@ -62,7 +63,9 @@ export async function saveProfile(input: z.infer<typeof profileSchema>): Promise
   if (!creator) return { ok: false, error: "Primero elige tu nombre de usuario" };
   const parsed = profileSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
-  await updateDraft(creator.id, (c) => ({ ...c, ...parsed.data }));
+  const a = parsed.data.avatarUrl;
+  const avatarUrl = a && (a.startsWith("/media/") || a.startsWith("/demo/")) ? a : null;
+  await updateDraft(creator.id, (c) => ({ ...c, ...parsed.data, avatarUrl }));
   return { ok: true };
 }
 
@@ -136,6 +139,8 @@ export async function saveFirstProduct(input: z.infer<typeof productSchema>): Pr
     await db.product.update({ where: { id: existing.id }, data: { ...data, slug } });
     return { ok: true, data: { productId: existing.id } };
   }
+  // El onboarding solo crea el primer producto; el resto se crea desde el panel (con sus límites).
+  if (creator.onboardedAt || (await db.product.count()) > 0) return { ok: false, error: "Crea tus productos desde el panel" };
   const product = await db.product.create({
     data: { ...data, priceCents: priceCents ?? 0, slug: await uniqueProductSlug(creator.id, p.title), sortOrder: 1, featured: true, creatorId: creator.id },
   });

@@ -1,15 +1,14 @@
 "use client";
 import { CalendarDays, Headphones, PenLine, Trash2, Video } from "lucide-react";
-import { useActionState, useEffect, useRef } from "react";
+import { startTransition, useActionState, useEffect, useRef } from "react";
 import { Flash } from "@/components/ui/flash";
-import { SubmitButton } from "@/components/ui/submit-button";
 import { addPost, deletePost, type ActionState } from "../actions";
 
 type Post = { id: string; title: string; body: string; kind: string; publishedAt: string };
 const ICON: Record<string, typeof PenLine> = { TEXT: PenLine, AUDIO: Headphones, VIDEO: Video, EVENT: CalendarDays };
 
 export function PostsManager({ productId, posts, members }: { productId: string; posts: Post[]; members: number }) {
-  const [state, action] = useActionState<ActionState, FormData>(addPost, undefined);
+  const [state, action, isPending] = useActionState<ActionState, FormData>(addPost, undefined);
   const form = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok) form.current?.reset();
@@ -18,7 +17,15 @@ export function PostsManager({ productId, posts, members }: { productId: string;
     <section className="card p-5 sm:p-6">
       <h3 className="font-semibold">Contenido privado</h3>
       <p className="text-xs text-muted">Solo lo ven tus {members} {members === 1 ? "miembro activo" : "miembros activos"} desde su área de cliente.</p>
-      <form ref={form} action={action} className="mt-4 space-y-3 rounded-2xl border border-line bg-paper p-4">
+      <form
+        ref={form}
+        onSubmit={(e) => {
+          e.preventDefault();
+          const fd = new FormData(e.currentTarget);
+          startTransition(() => action(fd));
+        }}
+        className="mt-4 space-y-3 rounded-2xl border border-line bg-paper p-4"
+      >
         <Flash ok={state?.ok} error={state?.error} />
         <input type="hidden" name="productId" value={productId} />
         <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
@@ -32,7 +39,7 @@ export function PostsManager({ productId, posts, members }: { productId: string;
         </div>
         <textarea name="body" rows={4} placeholder="Escribe para tu comunidad…" className="input text-sm" required />
         <input name="mediaUrl" type="url" placeholder="Enlace opcional (directo, audio, vídeo…)" className="input h-10 text-sm" />
-        <SubmitButton className="btn btn-primary btn-sm" pendingLabel="Publicando…">Publicar en la comunidad</SubmitButton>
+        <button type="submit" className="btn btn-primary btn-sm" disabled={isPending}>{isPending ? "Publicando…" : "Publicar en la comunidad"}</button>
       </form>
       <ul className="mt-4 divide-y divide-line">
         {posts.map((p) => {

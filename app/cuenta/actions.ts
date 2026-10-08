@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { hashPassword, requireUser } from "@/lib/auth";
+import { hashPassword, requireUser, revokeOtherSessions, sendMagicLink } from "@/lib/auth";
 import { emit } from "@/lib/automations";
-import { isSlotAvailable } from "@/lib/booking";
+import { hasBookingClash, isSlotAvailable } from "@/lib/booking";
 import { hasAccess } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { syncBookingToCalendar } from "@/lib/orders";
@@ -34,15 +34,20 @@ export async function scheduleBooking(bookingId: string, slotStart: string) {
   if (!z.string().datetime().safeParse(slotStart).success || !(await isSlotAvailable(booking.product, slotStart)))
     return { ok: false as const, error: "Ese horario ya no está disponible" };
   const start = new Date(slotStart);
-  await prisma.booking.update({
-    where: { id: booking.id },
-    data: { status: "CONFIRMED", startAt: start, endAt: new Date(start.getTime() + (booking.product.durationMin ?? 60) * 60000), externalEventId: null },
+  const end = new Date(start.getTime() + (booking.product.durationMin ?? 60) * 60000);
+  const taken = await prisma.$transaction(async (tx) => {
+    if (await hasBookingClash(tx, booking.creatorId, start, end, booking.product.bufferMin ?? 15, booking.id)) return true;
+    await tx.booking.update({ where: { id: booking.id }, data: { status: "CONFIRMED", startAt: start, endAt: end, externalEventId: null } });
+    return false;
   });
-  // Si cambia de fecha, los recordatorios antiguos se cancelan.
+  if (taken) return { ok: false as const, error: "Ese horario acaba de ocuparse. Elige otro, por favor." };
+  // Si cambia de fecha, los recordatorios antiguos se cancelan y las confirmaciones previas
+  // liberan su clave, para que volver a una hora anterior genere avisos nuevos.
   await prisma.emailMessage.updateMany({
     where: { template: "SESSION_REMINDER", status: "QUEUED", dedupeKey: { startsWith: `reminder:${booking.id}:` } },
-    data: { status: "CANCELED" },
+    data: { status: "CANCELED", dedupeKey: null },
   });
+  await prisma.emailMessage.updateMany({ where: { dedupeKey: { startsWith: `booking:${booking.id}:` } }, data: { dedupeKey: null } });
   await syncBookingToCalendar(booking.id);
   await emit({ type: "booking.confirmed", bookingId: booking.id });
   revalidatePath(`/cuenta/sesiones/${booking.id}`);
@@ -69,7 +74,13 @@ export async function updateProfile(_: ProfileState, form: FormData): Promise<Pr
   const password = String(form.get("password") ?? "");
   if (!name) return { error: "Escribe tu nombre" };
   if (password && password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres" };
+  if (password && !user.sessionVerified) {
+    // Sesión creada en un checkout: antes de fijar contraseña hay que demostrar que el email es suyo.
+    await sendMagicLink(user.email, "/cuenta/perfil");
+    return { error: "Para crear tu contraseña, entra con el enlace que acabamos de enviarte por email." };
+  }
   await prisma.user.update({ where: { id: user.id }, data: { name, ...(password ? { passwordHash: await hashPassword(password) } : {}) } });
+  if (password) await revokeOtherSessions(user.id);
   await prisma.customer.updateMany({ where: { userId: user.id }, data: { name } });
   revalidatePath("/cuenta", "layout");
   return { ok: password ? "Perfil y contraseña actualizados" : "Perfil actualizado" };

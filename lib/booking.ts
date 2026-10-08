@@ -81,6 +81,34 @@ export async function getAvailableSlots(product: SessionProduct, opts: { days?: 
   return { timezone: tz, durationMin: duration, days: out };
 }
 
+type BookingClient = Pick<typeof prisma, "booking">;
+
+/**
+ * ¿Choca [start, end) (± margen) con otra reserva confirmada de la creadora?
+ * Acepta el cliente de una transacción para comprobarlo justo antes de escribir.
+ */
+export async function hasBookingClash(
+  client: BookingClient,
+  creatorId: string,
+  start: Date,
+  end: Date,
+  bufferMin: number,
+  excludeBookingId?: string,
+) {
+  const buf = bufferMin * 60000;
+  const clash = await client.booking.findFirst({
+    where: {
+      creatorId,
+      status: "CONFIRMED",
+      startAt: { lt: new Date(end.getTime() + buf) },
+      endAt: { gt: new Date(start.getTime() - buf) },
+      ...(excludeBookingId ? { NOT: { id: excludeBookingId } } : {}),
+    },
+    select: { id: true },
+  });
+  return !!clash;
+}
+
 export async function isSlotAvailable(product: SessionProduct, startIso: string) {
   const { days } = await getAvailableSlots(product);
   return days.some((d) => d.slots.some((s) => s.start === startIso));

@@ -7,6 +7,5 @@ export async function GET(req: Request) {
   const result = await consumeMagicLink(token);
   if (!result) return NextResponse.redirect(new URL("/entrar?error=enlace", url));
   await createSession(result.user.id);
-  const dest = result.redirectTo.startsWith("/") && !result.redirectTo.startsWith("//") ? result.redirectTo : "/cuenta";
-  return NextResponse.redirect(new URL(dest, url));
+  return NextResponse.redirect(new URL(result.redirectTo, url));
 }

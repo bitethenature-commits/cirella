@@ -9,7 +9,15 @@ export const metadata: Metadata = { title: "Crea tu página · Cirella" };
 export default async function RegistroPage({ searchParams }: { searchParams: Promise<{ ref?: string; username?: string; plan?: string }> }) {
   const sp = await searchParams;
   const user = await getCurrentUser();
-  if (user) redirect(await homeFor(user.id));
+  if (user) {
+    // Una clienta con sesión (p. ej. tras comprar) que quiere crear su página: continúa al
+    // onboarding conservando el código de referido y el plan elegido.
+    if (!user.creator && !user.isAdmin) {
+      const q = new URLSearchParams(Object.entries(sp).filter(([, v]) => typeof v === "string") as [string, string][]);
+      redirect(`/auth/crear-pagina${q.size ? `?${q}` : ""}`);
+    }
+    redirect(await homeFor(user.id));
+  }
   return (
     <>
       <p className="eyebrow">Paso 1 de 10</p>

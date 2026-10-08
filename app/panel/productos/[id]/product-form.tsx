@@ -1,8 +1,8 @@
 "use client";
-import { useActionState, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { startTransition, useActionState, useState } from "react";
 import { Flash } from "@/components/ui/flash";
 import { ImageUpload } from "@/components/ui/image-upload";
-import { SubmitButton } from "@/components/ui/submit-button";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import { updateProduct, type ActionState } from "../actions";
 
@@ -30,7 +30,7 @@ export type EditableProduct = {
 const EMOJIS = ["🌙", "✨", "🔮", "🧬", "🔑", "💫", "🌿", "🧘", "🪷", "📖", "🎧", "☀️", "🌸", "🕯️"];
 
 export function ProductForm({ product, host, username, commissionBps }: { product: EditableProduct; host: string; username: string; commissionBps: number }) {
-  const [state, action] = useActionState<ActionState, FormData>(updateProduct, undefined);
+  const [state, action, isPending] = useActionState<ActionState, FormData>(updateProduct, undefined);
   const [image, setImage] = useState(product.imageUrl);
   const [emoji, setEmoji] = useState(product.emoji ?? "");
   const [price, setPrice] = useState(product.priceCents ? String(product.priceCents / 100).replace(".", ",") : "");
@@ -39,7 +39,15 @@ export function ProductForm({ product, host, username, commissionBps }: { produc
   const isMembership = product.type === "MEMBERSHIP";
 
   return (
-    <form action={action} className="grid gap-5 lg:grid-cols-[1fr_320px]">
+    <form
+      // onSubmit en lugar de action={}: así un error de validación no borra lo escrito.
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        startTransition(() => action(fd));
+      }}
+      className="grid gap-5 lg:grid-cols-[1fr_320px]"
+    >
       <input type="hidden" name="id" value={product.id} />
       <input type="hidden" name="imageUrl" value={image ?? ""} />
       <input type="hidden" name="emoji" value={emoji} />
@@ -145,7 +153,7 @@ export function ProductForm({ product, host, username, commissionBps }: { produc
             <input type="checkbox" name="featured" defaultChecked={product.featured} className="h-4 w-4 accent-[#0E1024]" />
             Destacar en mi página
           </label>
-          <SubmitButton className="btn btn-primary w-full" pendingLabel="Guardando…">Guardar</SubmitButton>
+          <button type="submit" className="btn btn-primary w-full" disabled={isPending}>{isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</> : "Guardar"}</button>
         </section>
         <section className="card p-5">
           <label className="field-label">Imagen</label>

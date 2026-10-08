@@ -128,4 +128,55 @@ test.describe.serial("Flujo principal", () => {
     await demoLogin(page, "Laura Martín");
     expect((await page.request.get(`/api/download/${file.id}`)).status()).toBe(403);
   });
+
+  test("6. Seguridad: registrarse con el email de una compradora no da acceso a su cuenta", async ({ page }) => {
+    // Carmen compró como invitada: su cuenta no tiene contraseña.
+    await page.goto("/registro");
+    await page.fill("#email", "carmen@example.com");
+    await page.fill("#password", "intrusa1234");
+    await page.getByRole("button", { name: "Crear mi cuenta" }).click();
+    await expect(page.getByText(/Ya tienes una cuenta con este email/)).toBeVisible();
+    await expect(page).toHaveURL(/\/registro/);
+    await page.goto("/cuenta");
+    await expect(page).toHaveURL(/\/entrar/);
+  });
+
+  test("7. Panel móvil: el menú «Más» abre sin errores", async ({ page }) => {
+    await demoLogin(page, "Ana Luna");
+    const res = await page.goto("/panel/mas");
+    expect(res?.status()).toBe(200);
+    await expect(page.getByRole("heading", { name: "Más" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Automatizaciones/ })).toBeVisible();
+  });
+
+  test("8. Membresías: no se puede pagar dos veces la misma suscripción", async ({ page }) => {
+    // Lucía ya es miembro del Círculo de Ana.
+    await page.goto("/ana/comunidad-privada/checkout");
+    await page.fill("#name", "Lucía Torres");
+    await page.fill("#email", "lucia@example.com");
+    await page.getByRole("button", { name: /Unirme/ }).click();
+    await expect(page.getByText(/Ya eres miembro/)).toBeVisible();
+  });
+
+  test("9. Checkout: tras un pago rechazado se conservan los datos y se reserva la hora elegida al reintentar", async ({ page }) => {
+    await page.goto("/ana/sesion-1-1/checkout");
+    const days = page.locator("section button.w-\\[3\\.9rem\\]");
+    await expect(days.first()).toBeVisible();
+    await days.nth(1).click();
+    await page.locator("section .grid.grid-cols-3 button").first().click();
+    await page.fill("#name", "Rocío Reintento");
+    await page.fill("#email", `rocio${stamp}@example.com`);
+    await page.fill("input[name=cardNumber]", "4000 0000 0000 0002");
+    await page.getByRole("button", { name: /Reservar y pagar/ }).click();
+    await expect(page.getByText(/rechazado/)).toBeVisible();
+    await expect(page.locator("#name")).toHaveValue("Rocío Reintento");
+    // Cambia de día antes de reintentar: la reserva debe quedar en el día nuevo.
+    await days.nth(2).click();
+    const dayNumber = (await days.nth(2).locator("span").nth(1).textContent())!.trim();
+    await page.locator("section .grid.grid-cols-3 button").first().click();
+    await page.fill("input[name=cardNumber]", "4242 4242 4242 4242");
+    await page.getByRole("button", { name: /Reservar y pagar/ }).click();
+    await page.waitForURL("**/ana/gracias**");
+    await expect(page.getByText(new RegExp(`, ${dayNumber} de `))).toBeVisible();
+  });
 });

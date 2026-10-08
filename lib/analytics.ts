@@ -15,16 +15,22 @@ export const SOURCE_LABEL: Record<Source, string> = {
   other: "Otros",
 };
 
-/** Deduce el canal a partir de ?utm_source / ?ref o del referrer. */
-export function detectSource(referrer?: string | null, utm?: string | null): Source {
-  const s = `${utm ?? ""} ${referrer ?? ""}`.toLowerCase();
-  if (!s.trim()) return "direct";
-  if (s.includes("instagram") || s.includes(" ig") || s.startsWith("ig")) return "instagram";
-  if (s.includes("tiktok")) return "tiktok";
-  if (s.includes("telegram") || s.includes("t.me")) return "telegram";
-  if (s.includes("whatsapp") || s.includes("wa.me")) return "whatsapp";
-  if (s.includes("youtube")) return "youtube";
-  if (s.includes("google")) return "google";
+const isDomain = (host: string, domain: string) => host === domain || host.endsWith(`.${domain}`);
+
+/**
+ * Deduce el canal a partir de ?utm_source / ?ref o del dominio que envía la visita.
+ * Los dominios se comparan exactos o como subdominio (about.me no es t.me).
+ */
+export function detectSource(referrerHost?: string | null, utm?: string | null): Source {
+  const u = (utm ?? "").trim().toLowerCase();
+  const h = (referrerHost ?? "").trim().toLowerCase().replace(/^www\./, "");
+  if (!u && !h) return "direct";
+  if (u === "ig" || u.includes("instagram") || isDomain(h, "instagram.com") || h === "l.instagram.com") return "instagram";
+  if (u.includes("tiktok") || isDomain(h, "tiktok.com")) return "tiktok";
+  if (u.includes("telegram") || isDomain(h, "t.me") || isDomain(h, "telegram.org") || isDomain(h, "telegram.me")) return "telegram";
+  if (u.includes("whatsapp") || isDomain(h, "wa.me") || isDomain(h, "whatsapp.com")) return "whatsapp";
+  if (u.includes("youtube") || isDomain(h, "youtube.com") || isDomain(h, "youtu.be")) return "youtube";
+  if (u.includes("google") || /(^|\.)google\.[a-z.]+$/.test(h)) return "google";
   return "other";
 }
 

@@ -21,6 +21,8 @@ npm run dev          # http://localhost:3000
 
 `npm run db:seed` vuelve a dejar los datos de demostración como al principio.
 
+El modo demo (accesos rápidos, buzón `/dev/correo`, pagos simulados) solo se activa con `DEMO_MODE="true"`, como viene en `.env.example`. En una instalación real no lo definas: así ni el buzón ni los accesos rápidos existen.
+
 ### Cuentas de demostración
 
 Contraseña de todas: `demo1234`. También hay botones de acceso rápido en **/entrar**.
@@ -138,11 +140,12 @@ Valores iniciales (editables):
 ## Pruebas
 
 ```bash
+npm run test:unit               # funciones puras: precios en formato español, origen del tráfico, redirecciones
 npm run test:isolation          # aislamiento multi-tenant a nivel de datos
 npm run build && npm run test:e2e   # flujo completo en un iPhone simulado
 ```
 
-La prueba e2e recorre: landing → registro → onboarding de 10 pasos → publicar → compra como invitada → cuenta creada automáticamente → la venta aparece en el panel → la clienta de demo ve su curso al 43 %, su sesión y su PDF → Ana no puede abrir datos ni archivos de María. Si Playwright no encuentra Chromium, indica la ruta con `PW_CHROMIUM_PATH`.
+La prueba e2e recorre: landing → registro → onboarding de 10 pasos → publicar → compra como invitada → cuenta creada automáticamente → la venta aparece en el panel → la clienta de demo ve su curso al 43 %, su sesión y su PDF → Ana no puede abrir datos ni archivos de María. También cubre casos que fallaron en la revisión: registrarse con el email de otra compradora no da acceso a su cuenta, el menú «Más» del panel móvil, no pagar dos veces la misma membresía y reintentar un pago rechazado cambiando de hora. Si Playwright no encuentra Chromium, indica la ruta con `PW_CHROMIUM_PATH`.
 
 ---
 

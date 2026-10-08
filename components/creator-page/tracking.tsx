@@ -5,11 +5,25 @@ import type { EventType } from "@/lib/types";
 
 type TrackPayload = { creatorId: string; type: EventType; productId?: string | null };
 
+/** ¿Es la primera página de esta creadora que se ve en la sesión del navegador? */
+function isLanding(creatorId: string) {
+  try {
+    const key = `cv_landed_${creatorId}`;
+    const seen = sessionStorage.getItem(key);
+    sessionStorage.setItem(key, "1");
+    return !seen;
+  } catch {
+    return false;
+  }
+}
+
 export function track(p: TrackPayload) {
   try {
     const params = new URLSearchParams(window.location.search);
+    const landing = p.type === "PAGE_VIEW" || p.type === "PRODUCT_VIEW" ? isLanding(p.creatorId) : false;
     const body = JSON.stringify({
       ...p,
+      landing,
       referrer: document.referrer || null,
       utm: params.get("utm_source") || params.get("ref") || null,
     });

@@ -8,6 +8,9 @@ import { prisma } from "./db";
 import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
 import { magicLinkEmail } from "./email/templates";
+import { safeNext } from "./auth-utils";
+
+export { safeNext };
 
 export const SESSION_COOKIE = "cirella_session";
 const SESSION_DAYS = 30;
@@ -26,11 +29,17 @@ export async function verifyPassword(password: string, hash: string | null | und
   return bcrypt.compare(password, hash);
 }
 
-/** Crea una sesión y la guarda en una cookie httpOnly. Solo en Server Actions / Route Handlers. */
-export async function createSession(userId: string) {
+/**
+ * Crea una sesión y la guarda en una cookie httpOnly. Solo en Server Actions / Route Handlers.
+ * `verified: false` se usa para la cuenta creada automáticamente en un checkout: quien
+ * compra no ha demostrado todavía que el email es suyo.
+ */
+export async function createSession(userId: string, opts: { verified?: boolean; ttlHours?: number } = {}) {
   const token = randomBytes(32).toString("base64url");
-  const expiresAt = new Date(Date.now() + SESSION_DAYS * 86400_000);
-  await prisma.session.create({ data: { id: hashToken(token), userId, expiresAt } });
+  const verified = opts.verified ?? true;
+  const ttlMs = opts.ttlHours ? opts.ttlHours * 3600_000 : SESSION_DAYS * 86400_000;
+  const expiresAt = new Date(Date.now() + ttlMs);
+  await prisma.session.create({ data: { id: hashToken(token), userId, expiresAt, verified } });
   await prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, {
@@ -40,6 +49,13 @@ export async function createSession(userId: string) {
     path: "/",
     expires: expiresAt,
   });
+}
+
+/** Cierra todas las demás sesiones del usuario (al fijar o cambiar la contraseña). */
+export async function revokeOtherSessions(userId: string) {
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  await prisma.session.deleteMany({ where: { userId, ...(token ? { NOT: { id: hashToken(token) } } : {}) } });
 }
 
 export async function destroySession() {
@@ -60,7 +76,7 @@ export const getCurrentUser = cache(async () => {
   });
   if (!session || session.expiresAt < new Date()) return null;
   if (session.user.status === "BLOCKED") return null;
-  return session.user;
+  return { ...session.user, sessionVerified: session.verified };
 });
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
@@ -114,11 +130,9 @@ export async function consumeMagicLink(token: string) {
     create: { email: record.email },
   });
   if (user.status === "BLOCKED") return null;
-  return { user, redirectTo: record.redirectTo ?? "/cuenta" };
+  // Quien abre el enlace demuestra que el email es suyo: las sesiones no verificadas
+  // (p. ej. de un checkout hecho por otra persona con este email) dejan de valer.
+  await prisma.session.deleteMany({ where: { userId: user.id, verified: false } });
+  return { user, redirectTo: safeNext(record.redirectTo, "/cuenta") };
 }
 
-/** Solo acepta redirecciones internas (evita open redirects). */
-export function safeNext(next: string | null | undefined, fallback = "/cuenta") {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return fallback;
-  return next;
-}

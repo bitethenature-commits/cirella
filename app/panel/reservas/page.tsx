@@ -17,7 +17,7 @@ export default async function BookingsPage() {
     return (
       <div>
         <PageHeader title="Reservas" />
-        <Locked plan="Creator" title="Vende sesiones con reserva" text="Tus clientas pagan y eligen día y hora según tu disponibilidad. Recordatorios automáticos incluidos." />
+        <Locked plan="Creator" title="Vende sesiones con reserva" text="Tus clientas pagan y eligen día y hora según tu disponibilidad, con confirmación por email. Con Pro, además, recordatorios automáticos." />
       </div>
     );
   const db = tenantDb(creator.id);

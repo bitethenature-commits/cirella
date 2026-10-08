@@ -149,6 +149,10 @@ async function handle(event: DomainEvent) {
       const tz = s.creator.timezone;
       const when = b.startAt ? formatSessionDate(b.startAt, tz) : null;
       const url = `${base}/cuenta/sesiones/${b.id}`;
+      // El recordatorio se calcula antes para que la confirmación solo lo prometa si existe.
+      const r = await setting(b.creatorId, "SESSION_REMINDER");
+      const reminderAt = b.startAt ? new Date(b.startAt.getTime() - r.delayMinutes * 60000) : null;
+      const reminderScheduled = !!(b.startAt && r.enabled && reminderAt && reminderAt > new Date());
       if (s.enabled)
         await enqueueEmail({
           to: b.customer.email,
@@ -156,26 +160,29 @@ async function handle(event: DomainEvent) {
           template: "BOOKING_CONFIRMED",
           dedupeKey: `booking:${b.id}:${b.startAt?.toISOString() ?? "pending"}`,
           ...withCustomSubject(
-            T.bookingConfirmedEmail({ creatorName: s.creator.displayName, productTitle: b.product.title, when, url, meetingUrl: b.meetingUrl }),
+            T.bookingConfirmedEmail({
+              creatorName: s.creator.displayName,
+              productTitle: b.product.title,
+              when,
+              url,
+              meetingUrl: b.meetingUrl,
+              reminderMinutes: reminderScheduled ? r.delayMinutes : null,
+            }),
             s.subject,
           ),
         });
-      if (b.startAt) {
-        const r = await setting(b.creatorId, "SESSION_REMINDER");
-        const sendAt = new Date(b.startAt.getTime() - r.delayMinutes * 60000);
-        if (r.enabled && sendAt > new Date())
-          await enqueueEmail({
-            to: b.customer.email,
-            creatorId: b.creatorId,
-            template: "SESSION_REMINDER",
-            dedupeKey: `reminder:${b.id}:${b.startAt.toISOString()}`,
-            sendAt,
-            ...withCustomSubject(
-              T.sessionReminderEmail({ creatorName: s.creator.displayName, productTitle: b.product.title, when: when!, url, meetingUrl: b.meetingUrl }),
-              r.subject,
-            ),
-          });
-      }
+      if (reminderScheduled)
+        await enqueueEmail({
+          to: b.customer.email,
+          creatorId: b.creatorId,
+          template: "SESSION_REMINDER",
+          dedupeKey: `reminder:${b.id}:${b.startAt!.toISOString()}`,
+          sendAt: reminderAt!,
+          ...withCustomSubject(
+            T.sessionReminderEmail({ creatorName: s.creator.displayName, productTitle: b.product.title, when: when!, url, meetingUrl: b.meetingUrl }),
+            r.subject,
+          ),
+        });
       return;
     }
 

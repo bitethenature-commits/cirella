@@ -25,7 +25,10 @@ type EnqueueInput = {
 export async function enqueueEmail(input: EnqueueInput) {
   if (input.dedupeKey) {
     const exists = await prisma.emailMessage.findUnique({ where: { dedupeKey: input.dedupeKey } });
-    if (exists) return exists;
+    // Un email cancelado (p. ej. el recordatorio de una sesión que cambió de hora y luego
+    // volvió a la hora original) libera su clave para poder programarse de nuevo.
+    if (exists && exists.status === "CANCELED") await prisma.emailMessage.update({ where: { id: exists.id }, data: { dedupeKey: null } });
+    else if (exists) return exists;
   }
   const msg = await prisma.emailMessage.create({
     data: {

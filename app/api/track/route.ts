@@ -14,6 +14,7 @@ const schema = z.object({
   productId: z.string().max(40).nullish(),
   referrer: z.string().max(500).nullish(),
   utm: z.string().max(60).nullish(),
+  landing: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -47,13 +48,19 @@ export async function POST(req: Request) {
   const ownHost = new URL(req.url).hostname;
   if (referrerHost === ownHost) referrerHost = null;
 
+  const source = detectSource(referrerHost, data.utm);
+  // Quien entra directamente a la ficha de un producto (sin pasar por la página de la
+  // creadora) también es una visita: si es la primera página de la sesión, registramos
+  // además un PAGE_VIEW para que cuente en visitas, visitantes, fuentes y conversión.
+  if (data.type === "PRODUCT_VIEW" && data.landing)
+    await recordEvent({ creatorId: creator.id, type: "PAGE_VIEW", visitorId, referrer: referrerHost, source });
   await recordEvent({
     creatorId: creator.id,
     type: data.type,
     productId: data.productId ?? null,
     visitorId,
     referrer: referrerHost,
-    source: detectSource(referrerHost, data.utm),
+    source,
   });
   return res;
 }

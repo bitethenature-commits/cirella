@@ -53,9 +53,14 @@ export async function getDashboardStats(creatorId: string, range: RangeKey, tz: 
       db.product.findMany({ select: { id: true, title: true, emoji: true, imageUrl: true, type: true } }),
     ]);
 
-  const revenue = orders.reduce((a, o) => a + o.amountCents, 0);
-  const net = orders.reduce((a, o) => a + o.netCents, 0);
-  const fees = orders.reduce((a, o) => a + o.platformFeeCents, 0);
+  // Las renovaciones de membresías también son ingresos (transacciones RENEWAL sin pedido).
+  const renewals = await db.transaction.findMany({
+    where: { type: "RENEWAL", ...(when ? { createdAt: when } : {}) },
+    select: { amountCents: true, netCents: true, platformFeeCents: true, createdAt: true },
+  });
+  const revenue = orders.reduce((a, o) => a + o.amountCents, 0) + renewals.reduce((a, t) => a + t.amountCents, 0);
+  const net = orders.reduce((a, o) => a + o.netCents, 0) + renewals.reduce((a, t) => a + t.netCents, 0);
+  const fees = orders.reduce((a, o) => a + o.platformFeeCents, 0) + renewals.reduce((a, t) => a + t.platformFeeCents, 0);
   const uniqueVisitors = visitorGroups.length;
   const mrr = subs.filter((s) => !s.cancelAtPeriodEnd).reduce((a, s) => a + (s.interval === "year" ? Math.round(s.priceCents / 12) : s.priceCents), 0);
 
@@ -93,6 +98,7 @@ export async function getDashboardStats(creatorId: string, range: RangeKey, tz: 
     }
     const idx = new Map(series.map((s, i) => [s.key, i]));
     for (const o of orders) { const i = idx.get(dateKeyInTz(o.paidAt!, tz).slice(0, 7)); if (i != null) { series[i].revenue += o.amountCents; series[i].sales++; } }
+    for (const t of renewals) { const i = idx.get(dateKeyInTz(t.createdAt, tz).slice(0, 7)); if (i != null) series[i].revenue += t.amountCents; }
     for (const e of visitsEvents) { const i = idx.get(dateKeyInTz(e.createdAt, tz).slice(0, 7)); if (i != null) series[i].visits++; }
   } else {
     const startKey = dateKeyInTz(since!, tz);
@@ -102,6 +108,7 @@ export async function getDashboardStats(creatorId: string, range: RangeKey, tz: 
     }
     const idx = new Map(series.map((s, i) => [s.key, i]));
     for (const o of orders) { const i = idx.get(dateKeyInTz(o.paidAt!, tz)); if (i != null) { series[i].revenue += o.amountCents; series[i].sales++; } }
+    for (const t of renewals) { const i = idx.get(dateKeyInTz(t.createdAt, tz)); if (i != null) series[i].revenue += t.amountCents; }
     for (const e of visitsEvents) { const i = idx.get(dateKeyInTz(e.createdAt, tz)); if (i != null) series[i].visits++; }
   }
 

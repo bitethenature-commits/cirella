@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSession, getCurrentUser, sendMagicLink } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { CheckoutError, createPendingOrder, payOrder } from "@/lib/orders";
+import { isSlotAvailable } from "@/lib/booking";
+import { CheckoutError, createPendingOrder, getPurchasableProduct, payOrder } from "@/lib/orders";
 
 export type CheckoutState = { error?: string; orderId?: string } | undefined;
 
@@ -29,9 +30,23 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
 
   let orderId = input.orderId;
   try {
-    // Reintento tras un pago rechazado: reutilizamos el pedido pendiente si es del mismo comprador.
+    // Reintento tras un pago rechazado: solo reutilizamos el pedido si es exactamente la misma
+    // compra (mismo producto, comprador, hueco y precio) y el producto sigue disponible.
     const existing = orderId ? await prisma.order.findUnique({ where: { id: orderId } }) : null;
-    if (!existing || existing.productId !== input.productId || existing.buyerEmail !== input.email || existing.status === "PAID") {
+    const prevSlot = (existing?.metadata as { slotStart?: string } | null)?.slotStart ?? "";
+    let reusable =
+      !!existing &&
+      existing.status !== "PAID" &&
+      existing.productId === input.productId &&
+      existing.buyerEmail === input.email &&
+      prevSlot === (input.slotStart || "");
+    if (reusable) {
+      const product = await getPurchasableProduct(input.productId);
+      reusable = !!product && product.priceCents === existing!.amountCents;
+      if (reusable && input.slotStart && !(await isSlotAvailable(product!, input.slotStart)))
+        throw new CheckoutError("Ese horario acaba de ocuparse. Elige otro, por favor.");
+    }
+    if (!reusable) {
       const product = await prisma.product.findUnique({ where: { id: input.productId }, select: { creatorId: true } });
       const lastVisit = visitorId && product
         ? await prisma.analyticsEvent.findFirst({ where: { creatorId: product.creatorId, visitorId, type: "PAGE_VIEW" }, orderBy: { createdAt: "desc" } })
@@ -49,14 +64,16 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
     const result = await payOrder(orderId!, { method: input.method, cardNumber: input.cardNumber });
     if (!result.ok) return { error: result.error, orderId };
 
-    // Cuenta automática: si el email es nuevo, la compradora queda dentro sin contraseña.
-    // Si ya existía y no es quien tiene la sesión, le enviamos un enlace mágico (nunca
-    // iniciamos sesión en una cuenta existente solo por conocer su email).
+    // Cuenta automática: si el email es nuevo, la compradora queda dentro sin contraseña con
+    // una sesión corta y "no verificada" (no puede fijar contraseña y se revoca cuando la
+    // dueña del email entra con un enlace mágico). Si la cuenta ya existía y no es quien
+    // tiene la sesión, le enviamos un enlace mágico: nunca iniciamos sesión en una cuenta
+    // existente solo por conocer su email.
     const current = await getCurrentUser();
     const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { creator: true } });
     let access: "session" | "magic" = "session";
     if (current?.id === result.userId) access = "session";
-    else if (result.isNewUser && !current) await createSession(result.userId);
+    else if (result.isNewUser && !current) await createSession(result.userId, { verified: false, ttlHours: 24 });
     else {
       access = "magic";
       await sendMagicLink(order.buyerEmail, "/cuenta", { creatorName: order.creator.displayName, creatorId: order.creatorId });

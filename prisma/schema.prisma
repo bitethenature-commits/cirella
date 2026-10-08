@@ -48,6 +48,9 @@ model Session {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
+  // false = sesión creada automáticamente tras un checkout (email no verificado):
+  // dura poco, no puede fijar contraseña y se revoca al entrar con enlace mágico.
+  verified  Boolean  @default(true)
   createdAt DateTime @default(now())
 
   @@index([userId])

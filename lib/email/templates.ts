@@ -45,7 +45,7 @@ export function welcomeCreatorEmail(o: { name: string; pageUrl: string; panelUrl
   return {
     subject: `Bienvenida a ${PLATFORM}, ${o.name}`,
     html: layout({
-      title: `Bienvenida, ${esc(o.name)} ✨`,
+      title: `Bienvenida, ${o.name} ✨`,
       body: p("Tu espacio ya está creado. Desde tu panel puedes añadir productos, personalizar tu página y ver tus ventas.") +
         p(`Tu enlace para la bio: <strong>${esc(o.pageUrl.replace(/^https?:\/\//, ""))}</strong>`),
       cta: { label: "Ir a mi panel", url: o.panelUrl },
@@ -58,7 +58,7 @@ export function welcomeCustomerEmail(o: { name?: string | null; creatorName: str
     subject: `Bienvenida a la comunidad de ${o.creatorName}`,
     html: layout({
       brand: o.creatorName,
-      title: `Hola${o.name ? `, ${esc(o.name)}` : ""}`,
+      title: `Hola${o.name ? `, ${o.name}` : ""}`,
       body: p(esc(o.message || `Gracias por confiar en ${o.creatorName}. Todo lo que compres estará siempre disponible en tu cuenta.`)),
       cta: { label: "Ver mi cuenta", url: o.accountUrl },
     }),
@@ -105,7 +105,20 @@ export function courseAccessEmail(o: { creatorName: string; courseTitle: string;
   };
 }
 
-export function bookingConfirmedEmail(o: { creatorName: string; productTitle: string; when: string | null; url: string; meetingUrl?: string | null }) {
+function reminderText(minutes: number) {
+  if (minutes % 1440 === 0) return minutes === 1440 ? "24 horas" : `${minutes / 1440} días`;
+  if (minutes % 60 === 0) return minutes === 60 ? "1 hora" : `${minutes / 60} horas`;
+  return `${minutes} minutos`;
+}
+
+export function bookingConfirmedEmail(o: {
+  creatorName: string;
+  productTitle: string;
+  when: string | null;
+  url: string;
+  meetingUrl?: string | null;
+  reminderMinutes?: number | null;
+}) {
   return {
     subject: o.when ? `Reserva confirmada · ${o.when}` : `Elige la fecha de tu sesión`,
     html: layout({
@@ -114,7 +127,7 @@ export function bookingConfirmedEmail(o: { creatorName: string; productTitle: st
       body: o.when
         ? p(`<strong>${esc(o.productTitle)}</strong><br>${esc(o.when)}`) +
           (o.meetingUrl ? p(`Enlace de la videollamada: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : "") +
-          p("Te enviaremos un recordatorio 24 horas antes.")
+          (o.reminderMinutes ? p(`Te enviaremos un recordatorio ${reminderText(o.reminderMinutes)} antes.`) : "")
         : p(`Tu pago de <strong>${esc(o.productTitle)}</strong> está confirmado. Entra en tu cuenta para elegir el día y la hora que mejor te vengan.`),
       cta: { label: o.when ? "Ver detalles" : "Elegir fecha", url: o.url },
     }),
@@ -123,7 +136,7 @@ export function bookingConfirmedEmail(o: { creatorName: string; productTitle: st
 
 export function sessionReminderEmail(o: { creatorName: string; productTitle: string; when: string; url: string; meetingUrl?: string | null }) {
   return {
-    subject: `Recordatorio: mañana tienes tu sesión`,
+    subject: `Recordatorio: tu sesión ${o.when}`,
     html: layout({
       brand: o.creatorName,
       title: "Nos vemos pronto",

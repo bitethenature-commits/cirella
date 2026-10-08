@@ -61,8 +61,8 @@ export function FilesManager({ productId, files, title, hint }: { productId: str
       </ul>
       <form action={addLinkFile} className="mt-3 flex flex-col gap-2 sm:flex-row">
         <input type="hidden" name="productId" value={productId} />
-        <input name="name" placeholder="Nombre del enlace (p. ej. Grabación en Vimeo)" className="input h-10 text-sm sm:flex-1" />
-        <input name="url" type="url" placeholder="https://…" className="input h-10 text-sm sm:flex-1" />
+        <input name="name" required placeholder="Nombre del enlace (p. ej. Grabación en Vimeo)" className="input h-10 text-sm sm:flex-1" />
+        <input name="url" type="url" required placeholder="https://…" className="input h-10 text-sm sm:flex-1" />
         <button className="btn btn-ghost btn-sm shrink-0"><Link2 className="h-4 w-4" /> Añadir enlace</button>
       </form>
     </section>

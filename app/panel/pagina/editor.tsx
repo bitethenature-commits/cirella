@@ -99,12 +99,20 @@ export function PageEditor(props: Props) {
 
   const run = (kind: "save" | "publish" | "preview") => {
     setBusyAction(kind);
+    // Las filas que se añadieron y se dejaron vacías no deben bloquear el guardado.
+    const clean: PageConfig = {
+      ...cfg,
+      links: cfg.links.filter((l) => l.label.trim() || l.url.trim()),
+      testimonials: cfg.testimonials.filter((t) => t.quote.trim() || t.author.trim()),
+      faqs: cfg.faqs.filter((f) => f.q.trim() || f.a.trim()),
+    };
     start(async () => {
-      const r = kind === "publish" ? await publishDraft(cfg) : await saveDraft(cfg);
+      const r = kind === "publish" ? await publishDraft(clean) : await saveDraft(clean);
       setBusyAction(null);
       if (!r.ok) return flash(false, r.error ?? "No se pudo guardar");
-      setSaved(JSON.stringify(cfg));
-      if (kind === "publish") setPublishedJson(JSON.stringify(cfg));
+      setCfg(clean);
+      setSaved(JSON.stringify(clean));
+      if (kind === "publish") setPublishedJson(JSON.stringify(clean));
       if (kind === "preview") window.open(`/${props.username}?preview=1`, "_blank");
       else flash(true, r.message ?? "Guardado");
     });
@@ -335,6 +343,7 @@ export function PageEditor(props: Props) {
                               const fd = new FormData();
                               fd.set("id", p.id);
                               fd.set("dir", dir);
+                              fd.set("visible", "1");
                               await moveProduct(fd);
                               router.refresh();
                             })

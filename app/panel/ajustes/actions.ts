@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { hashPassword, requireCreator, verifyPassword } from "@/lib/auth";
+import { hashPassword, requireCreator, revokeOtherSessions, verifyPassword } from "@/lib/auth";
 import { isUsernameAvailable } from "@/lib/creator";
 import { prisma } from "@/lib/db";
 import { paymentProvider } from "@/lib/payments";
@@ -53,6 +53,8 @@ export async function changePassword(form: FormData) {
   const next = String(form.get("next") ?? "");
   if (next.length < 8) back("error", "La nueva contraseña debe tener al menos 8 caracteres");
   if (user.passwordHash && !(await verifyPassword(current, user.passwordHash))) back("error", "La contraseña actual no es correcta");
+  if (!user.passwordHash && !user.sessionVerified) back("error", "Entra con el enlace mágico de tu email para crear tu contraseña");
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(next) } });
-  back("ok", "Contraseña actualizada");
+  await revokeOtherSessions(user.id);
+  back("ok", "Contraseña actualizada. Hemos cerrado tus otras sesiones.");
 }

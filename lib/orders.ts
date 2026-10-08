@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "./db";
 import { emit, type DomainEvent } from "./automations";
-import { isSlotAvailable } from "./booking";
+import { hasBookingClash, isSlotAvailable } from "./booking";
 import { paymentProvider, type PaymentMethodInput } from "./payments";
 import { canSellType, effectiveCommissionBps } from "./plans";
 import { pushBookingEvent } from "./calendar";
@@ -72,6 +72,18 @@ export async function payOrder(orderId: string, payment: PaymentMethodInput) {
   if (order.status === "PAID") return { ok: true as const, ...(await fulfillOrder(order.id, order.paymentRef ?? "")) };
   if (order.status !== "PENDING" && order.status !== "FAILED" && order.status !== "ABANDONED")
     throw new CheckoutError("Este pedido ya no se puede pagar.");
+  if (order.productType === "MEMBERSHIP") {
+    // Una suscripción activa por persona y membresía: nunca cobrar una segunda.
+    const existingSub = await prisma.subscription.findFirst({
+      where: { productId: order.productId, status: "ACTIVE", customer: { email: order.buyerEmail } },
+    });
+    if (existingSub)
+      throw new CheckoutError(
+        existingSub.cancelAtPeriodEnd
+          ? "Ya eres miembro. Puedes reactivar tu suscripción desde tu cuenta."
+          : "Ya eres miembro de esta comunidad. Entra desde tu cuenta.",
+      );
+  }
   const result = await paymentProvider().charge({
     orderId: order.id,
     amountCents: order.amountCents,
@@ -190,7 +202,12 @@ export async function fulfillOrder(orderId: string, paymentRef: string) {
     }
     if (p.type === "SESSION") {
       const start = slotStart ? new Date(slotStart) : null;
-      const stillFree = slotStillFree;
+      // Segunda comprobación dentro de la transacción: si otra compra ha confirmado el
+      // mismo hueco mientras tanto, esta reserva queda pendiente de elegir fecha.
+      const stillFree =
+        slotStillFree &&
+        !!start &&
+        !(await hasBookingClash(tx, order.creatorId, start, new Date(start.getTime() + (p.durationMin ?? 60) * 60000), p.bufferMin ?? 15));
       const booking = await tx.booking.create({
         data: {
           creatorId: order.creatorId,

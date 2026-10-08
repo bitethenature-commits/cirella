@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, ExternalLink, Trash2 } from "lucide-react";
+import { ConfirmForm } from "@/components/ui/confirm-form";
 import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
 import { appHost } from "@/lib/env";
@@ -50,10 +51,10 @@ export default async function EditProductPage({ params, searchParams }: { params
           {product.status === "PUBLISHED" && (
             <Link href={`/${creator.username}/${product.slug}`} target="_blank" className="btn btn-outline btn-sm"><ExternalLink className="h-4 w-4" /> Ver</Link>
           )}
-          <form action={deleteProduct}>
+          <ConfirmForm action={deleteProduct} message={product._count.orders > 0 ? null : "¿Eliminar este producto y todo su contenido? No se puede deshacer."}>
             <input type="hidden" name="id" value={product.id} />
             <button className="btn btn-danger btn-sm"><Trash2 className="h-4 w-4" /> {product._count.orders > 0 ? "Archivar" : "Eliminar"}</button>
-          </form>
+          </ConfirmForm>
         </div>
       </div>
       {sp.nuevo && <Flash ok="Producto creado como borrador. Completa los datos, pon precio y publícalo." />}

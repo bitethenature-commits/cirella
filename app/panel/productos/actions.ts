@@ -84,6 +84,10 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
   const d = parsed.data;
   const product = await db.product.findFirst({ where: { id: d.id } });
   if (!product) return { error: "Producto no encontrado" };
+  if (product.status === "ARCHIVED" && creator.plan.maxProducts != null) {
+    const active = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
+    if (active >= creator.plan.maxProducts) return { error: `Has llegado al límite de ${creator.plan.maxProducts} productos de tu plan. Archiva otro o mejora tu plan.` };
+  }
   const priceCents = parseMoneyToCents(d.price);
   if (d.status === "PUBLISHED" && priceCents < 100) return { error: "Pon un precio de al menos 1 € para publicarlo" };
   if (d.status === "PUBLISHED" && !canSellType(creator.plan, product.type as ProductType))
@@ -125,7 +129,9 @@ export async function moveProduct(form: FormData) {
   const dir = form.get("dir") === "up" ? -1 : 1;
   const list = await db.product.findMany({ where: { status: { not: "ARCHIVED" } }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] });
   const i = list.findIndex((p) => p.id === id);
-  const j = i + dir;
+  let j = i + dir;
+  // Desde el editor solo se ven los productos publicados: saltamos los ocultos.
+  if (form.get("visible") === "1") while (j >= 0 && j < list.length && list[j].status !== "PUBLISHED") j += dir;
   if (i < 0 || j < 0 || j >= list.length) return;
   [list[i], list[j]] = [list[j], list[i]];
   await Promise.all(list.map((p, idx) => db.product.update({ where: { id: p.id }, data: { sortOrder: idx + 1 } })));
@@ -138,6 +144,10 @@ export async function setProductStatus(form: FormData) {
   const status = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).parse(form.get("status"));
   const product = await db.product.findFirst({ where: { id } });
   if (!product) return;
+  if (product.status === "ARCHIVED" && status !== "ARCHIVED" && creator.plan.maxProducts != null) {
+    const active = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
+    if (active >= creator.plan.maxProducts) redirect("/panel/productos?limite=1");
+  }
   if (status === "PUBLISHED" && (product.priceCents < 100 || !canSellType(creator.plan, product.type as ProductType))) redirect(`/panel/productos/${id}`);
   await db.product.update({ where: { id }, data: { status } });
   refresh(id);

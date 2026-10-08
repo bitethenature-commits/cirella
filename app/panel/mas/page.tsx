@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronRight, LogOut } from "lucide-react";
-import { PANEL_NAV } from "../nav";
+import { PANEL_NAV } from "../nav-items";
 
 export default function MorePage() {
   return (

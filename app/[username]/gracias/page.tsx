@@ -32,6 +32,9 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
   const user = await getCurrentUser();
   const signedIn = user?.email === order.buyerEmail;
   const booking = order.bookings[0];
+  const reminder = booking?.startAt
+    ? await prisma.emailMessage.findFirst({ where: { status: "QUEUED", dedupeKey: { startsWith: `reminder:${booking.id}:` } } })
+    : null;
 
   const next =
     order.productType === "COURSE"
@@ -68,7 +71,9 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
             <CalendarCheck className="cp-gold h-5 w-5 shrink-0" />
             <span>
               <span className="block font-semibold">{capitalize(formatSessionDate(booking.startAt, data.creator.timezone))}</span>
-              <span className="cp-muted">Te hemos enviado la confirmación y un recordatorio llegará antes de la sesión.</span>
+              <span className="cp-muted">
+                Te hemos enviado la confirmación por email{reminder ? " y te recordaremos la sesión antes de que empiece" : ""}.
+              </span>
             </span>
           </div>
         )}

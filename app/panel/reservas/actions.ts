@@ -54,6 +54,6 @@ export async function setBookingStatus(form: FormData) {
   if (!b) return;
   await db.booking.update({ where: { id }, data: { status } });
   if (status === "CANCELLED")
-    await db.emailMessage.updateMany({ where: { status: "QUEUED", dedupeKey: { startsWith: `reminder:${id}:` } }, data: { status: "CANCELED" } });
+    await db.emailMessage.updateMany({ where: { status: "QUEUED", dedupeKey: { startsWith: `reminder:${id}:` } }, data: { status: "CANCELED", dedupeKey: null } });
   revalidatePath("/panel/reservas");
 }

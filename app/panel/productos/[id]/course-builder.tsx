@@ -1,8 +1,7 @@
 "use client";
-import { ArrowDown, ArrowUp, FileText, Headphones, Pencil, PlayCircle, Plus, Sparkles, Trash2 } from "lucide-react";
-import { useActionState, useEffect, useState } from "react";
+import { ArrowDown, ArrowUp, FileText, Headphones, Loader2, Pencil, PlayCircle, Plus, Sparkles, Trash2 } from "lucide-react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 import { Flash } from "@/components/ui/flash";
-import { SubmitButton } from "@/components/ui/submit-button";
 import { LESSON_KIND_LABEL, LESSON_KINDS, type LessonKind } from "@/lib/types";
 import { addModule, deleteLesson, deleteModule, moveLesson, renameModule, saveLesson, type ActionState } from "../actions";
 
@@ -13,13 +12,20 @@ type FileOpt = { id: string; name: string; kind: string };
 const ICON: Record<string, typeof FileText> = { VIDEO: PlayCircle, AUDIO: Headphones, PDF: FileText, TEXT: FileText, EXERCISE: Sparkles };
 
 function LessonForm({ moduleId, lesson, files, onDone }: { moduleId: string; lesson?: Lesson; files: FileOpt[]; onDone: () => void }) {
-  const [state, action] = useActionState<ActionState, FormData>(saveLesson, undefined);
+  const [state, action, isPending] = useActionState<ActionState, FormData>(saveLesson, undefined);
   const [kind, setKind] = useState<LessonKind>((lesson?.kind as LessonKind) ?? "VIDEO");
   useEffect(() => {
     if (state?.ok) onDone();
   }, [state, onDone]);
   return (
-    <form action={action} className="space-y-3 rounded-2xl border border-line bg-paper p-4">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        startTransition(() => action(fd));
+      }}
+      className="space-y-3 rounded-2xl border border-line bg-paper p-4"
+    >
       <Flash error={state?.error} />
       <input type="hidden" name="moduleId" value={moduleId} />
       {lesson && <input type="hidden" name="id" value={lesson.id} />}
@@ -28,7 +34,7 @@ function LessonForm({ moduleId, lesson, files, onDone }: { moduleId: string; les
         <select name="kind" value={kind} onChange={(e) => setKind(e.target.value as LessonKind)} className="input h-10 text-sm">
           {LESSON_KINDS.map((k) => <option key={k} value={k}>{LESSON_KIND_LABEL[k]}</option>)}
         </select>
-        <input name="durationMin" type="number" min={0} defaultValue={lesson?.durationMin ?? ""} placeholder="Min" className="input h-10 text-sm" />
+        <input name="durationMin" type="number" min={0} max={600} defaultValue={lesson?.durationMin ?? ""} placeholder="Min" className="input h-10 text-sm" />
       </div>
       {(kind === "VIDEO" || kind === "AUDIO" || kind === "PDF" || kind === "EXERCISE") && (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -36,12 +42,12 @@ function LessonForm({ moduleId, lesson, files, onDone }: { moduleId: string; les
             <option value="">— Archivo del curso —</option>
             {files.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
-          {kind === "VIDEO" && <input name="mediaUrl" defaultValue={lesson?.mediaUrl ?? ""} placeholder="o enlace de YouTube / Vimeo" className="input h-10 text-sm" />}
+          {kind === "VIDEO" && <input name="mediaUrl" type="url" defaultValue={lesson?.mediaUrl ?? ""} placeholder="o enlace de YouTube / Vimeo" className="input h-10 text-sm" />}
         </div>
       )}
       <textarea name="body" defaultValue={lesson?.body ?? ""} rows={4} placeholder="Texto de la lección, instrucciones del ejercicio…" className="input text-sm" />
       <div className="flex gap-2">
-        <SubmitButton className="btn btn-primary btn-sm">Guardar lección</SubmitButton>
+        <button type="submit" className="btn btn-primary btn-sm" disabled={isPending}>{isPending && <Loader2 className="h-4 w-4 animate-spin" />} Guardar lección</button>
         <button type="button" onClick={onDone} className="btn btn-ghost btn-sm">Cancelar</button>
       </div>
     </form>

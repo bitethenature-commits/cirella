@@ -49,10 +49,10 @@ const color = z
   .nullable()
   .optional();
 
-const shortText = (max: number) => z.string().trim().max(max);
+const shortText = (max: number) => z.string().trim().max(max, `Máximo ${max} caracteres`);
 
 export const pageConfigSchema = z.object({
-  displayName: shortText(80).min(1),
+  displayName: shortText(80).min(1, "Escribe tu nombre"),
   tagline: shortText(120).default(""),
   headline: shortText(140).default(""),
   bio: shortText(600).default(""),
@@ -79,8 +79,8 @@ export const pageConfigSchema = z.object({
     .array(
       z.object({
         id: z.string().max(40),
-        label: shortText(60).min(1),
-        url: shortText(500).min(1),
+        label: shortText(60).min(1, "Cada botón necesita un texto"),
+        url: shortText(500).min(1, "Cada botón necesita un enlace"),
         highlight: z.boolean().optional(),
       }),
     )

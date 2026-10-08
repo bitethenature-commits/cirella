@@ -32,10 +32,12 @@ export function bpsToPercent(bps: number) {
   return `${(bps / 100).toLocaleString("es-ES", { maximumFractionDigits: 2 })} %`;
 }
 
-/** Convierte "49", "49,90" o "49.90" a céntimos. */
+/** Convierte "49", "49,90", "49.90", "1.200" o "1.234,56" (formato español) a céntimos. */
 export function parseMoneyToCents(input: string | number): number {
   if (typeof input === "number") return Math.round(input * 100);
-  const clean = input.replace(/[^\d,.-]/g, "").replace(",", ".");
-  const n = Number.parseFloat(clean);
+  let s = input.replace(/[^\d,.-]/g, "");
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", "."); // 1.234,56 → 1234.56
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, ""); // 1.200 → 1200
+  const n = Number.parseFloat(s);
   return Number.isFinite(n) ? Math.round(n * 100) : 0;
 }

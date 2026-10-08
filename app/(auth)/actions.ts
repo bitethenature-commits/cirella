@@ -24,16 +24,24 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
     password: form.get("password"),
     name: form.get("name") || undefined,
   });
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return { error: parsed.error.issues[0].message, email: String(form.get("email") ?? "") };
   const { email, password, name } = parsed.data;
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing?.passwordHash) return { error: "Ya existe una cuenta con este email. Entra con tu contraseña." };
-  const passwordHash = await hashPassword(password);
-  // Si ya compró antes (cuenta creada en un checkout), le añadimos contraseña.
-  const user = existing
-    ? await prisma.user.update({ where: { id: existing.id }, data: { passwordHash, name: existing.name ?? name } })
-    : await prisma.user.create({ data: { email, passwordHash, name } });
+  if (existing) {
+    // Nunca se fija contraseña ni se abre sesión sobre una cuenta existente sin probar
+    // que el email es de quien lo escribe: se envía un enlace mágico al propio email.
+    if (existing.passwordHash) return { error: "Ya existe una cuenta con este email. Entra con tu contraseña o con un enlace mágico.", email };
+    await setSignupCookie(form);
+    await sendMagicLink(email, "/onboarding");
+    return { ok: "Ya tienes una cuenta con este email (de una compra anterior). Te hemos enviado un enlace para entrar y seguir creando tu página.", email };
+  }
+  const user = await prisma.user.create({ data: { email, passwordHash: await hashPassword(password), name } });
   await createSession(user.id);
+  await setSignupCookie(form);
+  redirect("/onboarding");
+}
+
+async function setSignupCookie(form: FormData) {
   const jar = await cookies();
   jar.set(
     SIGNUP_COOKIE,
@@ -44,7 +52,6 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
     }),
     { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 },
   );
-  redirect("/onboarding");
 }
 
 export async function signIn(_: FormState, form: FormData): Promise<FormState> {
