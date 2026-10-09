@@ -12,8 +12,8 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   const db = tenantDb(creator.id);
   const [customers, total, subs] = await Promise.all([
     db.customer.findMany({
-      where: q ? { OR: [{ email: { contains: q.toLowerCase() } }, { name: { contains: q } }] } : {},
-      orderBy: { lastPurchaseAt: "desc" },
+      where: q ? { OR: [{ email: { contains: q, mode: "insensitive" } }, { name: { contains: q, mode: "insensitive" } }] } : {},
+      orderBy: { lastPurchaseAt: { sort: "desc", nulls: "last" } },
       take: 200,
       include: { subscriptions: { where: { status: "ACTIVE" }, select: { id: true } } },
     }),

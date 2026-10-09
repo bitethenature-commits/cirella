@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "./db";
 import { emit, type DomainEvent } from "./automations";
-import { hasBookingClash, isSlotAvailable } from "./booking";
+import { hasBookingClash, isBookingOverlapError, isSlotAvailable } from "./booking";
 import { paymentProvider, type PaymentMethodInput } from "./payments";
 import { canSellType, effectiveCommissionBps } from "./plans";
 import { pushBookingEvent } from "./calendar";
@@ -115,12 +115,30 @@ function addInterval(date: Date, interval: string) {
  */
 export async function fulfillOrder(orderId: string, paymentRef: string) {
   const events: DomainEvent[] = [];
-  // La comprobación del hueco se hace fuera de la transacción (SQLite usa una sola conexión).
-  const pre = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { product: true } });
-  const slotStart = (pre.metadata as { slotStart?: string } | null)?.slotStart;
-  const slotStillFree = pre.status !== "PAID" && pre.product.type === "SESSION" && slotStart ? await isSlotAvailable(pre.product, slotStart) : false;
+  let result;
+  try {
+    result = await fulfillInTransaction(orderId, paymentRef, events, { confirmSlot: true });
+  } catch (e) {
+    // La regla Booking_no_overlap de la BD ha rechazado la reserva (otra compra confirmó el
+    // mismo hueco por un camino sin cerrojo): la venta sigue adelante y la reserva queda
+    // pendiente de elegir fecha, igual que cuando el hueco ya estaba ocupado.
+    if (!isBookingOverlapError(e)) throw e;
+    result = await fulfillInTransaction(orderId, paymentRef, events, { confirmSlot: false });
+  }
 
-  const result = await prisma.$transaction(async (tx) => {
+  // Efectos externos fuera de la transacción.
+  for (const e of events) {
+    if (e.type === "booking.confirmed") await syncBookingToCalendar(e.bookingId);
+    await emit(e);
+  }
+  return result;
+}
+
+async function fulfillInTransaction(orderId: string, paymentRef: string, events: DomainEvent[], opts: { confirmSlot: boolean }) {
+  // Tiempo máximo amplio (15 s): con dos compras a la vez de la misma creadora, la segunda
+  // espera el cerrojo de reservas (hasBookingClash) hasta que la primera termina.
+  return prisma.$transaction(async (tx) => {
+    events.length = 0;
     const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { product: true } });
     const existingUser = await tx.user.findUnique({ where: { email: order.buyerEmail } });
     if (order.status === "PAID") {
@@ -201,13 +219,17 @@ export async function fulfillOrder(orderId: string, paymentRef: string) {
       events.push({ type: "subscription.created", subscriptionId: sub.id });
     }
     if (p.type === "SESSION") {
+      const slotStart = (order.metadata as { slotStart?: string } | null)?.slotStart;
       const start = slotStart ? new Date(slotStart) : null;
-      // Segunda comprobación dentro de la transacción: si otra compra ha confirmado el
-      // mismo hueco mientras tanto, esta reserva queda pendiente de elegir fecha.
+      // Bajo el cerrojo de reservas de la creadora (lo toma hasBookingClash): el hueco no
+      // choca con otra reserva y sigue dentro de su horario. Si otra compra lo ha ocupado
+      // mientras tanto, esta reserva queda pendiente de elegir fecha.
       const stillFree =
-        slotStillFree &&
+        opts.confirmSlot &&
+        !!slotStart &&
         !!start &&
-        !(await hasBookingClash(tx, order.creatorId, start, new Date(start.getTime() + (p.durationMin ?? 60) * 60000), p.bufferMin ?? 15));
+        !(await hasBookingClash(tx, order.creatorId, start, new Date(start.getTime() + (p.durationMin ?? 60) * 60000), p.bufferMin ?? 15)) &&
+        (await isSlotAvailable(p, slotStart, { client: tx }));
       const booking = await tx.booking.create({
         data: {
           creatorId: order.creatorId,
@@ -240,14 +262,7 @@ export async function fulfillOrder(orderId: string, paymentRef: string) {
     });
     events.unshift({ type: "order.paid", orderId: order.id });
     return { order: paid, userId: user.id, isNewUser: !existingUser };
-  });
-
-  // Efectos externos fuera de la transacción.
-  for (const e of events) {
-    if (e.type === "booking.confirmed") await syncBookingToCalendar(e.bookingId);
-    await emit(e);
-  }
-  return result;
+  }, { timeout: 15_000 });
 }
 
 export async function syncBookingToCalendar(bookingId: string) {

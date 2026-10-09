@@ -41,7 +41,7 @@ export async function getCustomerLibrary(userId: string) {
     prisma.lessonProgress.groupBy({ by: ["productId"], where: { userId }, _count: { _all: true } }),
     prisma.booking.findMany({
       where: { userId, status: { in: ["CONFIRMED", "PENDING_SCHEDULE", "COMPLETED"] } },
-      orderBy: [{ startAt: "asc" }],
+      orderBy: [{ startAt: { sort: "asc", nulls: "first" } }], // pendientes de fecha primero
       include: { product: true, creator: true },
     }),
     prisma.subscription.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, include: { product: true, creator: true } }),

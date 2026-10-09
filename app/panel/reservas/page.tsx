@@ -25,7 +25,7 @@ export default async function BookingsPage() {
   const [upcoming, pending, past, rules, blocked] = await Promise.all([
     db.booking.findMany({ where: { status: "CONFIRMED", startAt: { gte: now } }, orderBy: { startAt: "asc" }, include: { product: true, customer: true } }),
     db.booking.findMany({ where: { status: "PENDING_SCHEDULE" }, orderBy: { createdAt: "desc" }, include: { product: true, customer: true } }),
-    db.booking.findMany({ where: { OR: [{ startAt: { lt: now } }, { status: { in: ["COMPLETED", "CANCELLED"] } }] }, orderBy: { startAt: "desc" }, take: 20, include: { product: true, customer: true } }),
+    db.booking.findMany({ where: { OR: [{ startAt: { lt: now } }, { status: { in: ["COMPLETED", "CANCELLED"] } }] }, orderBy: { startAt: { sort: "desc", nulls: "last" } }, take: 20, include: { product: true, customer: true } }),
     db.availabilityRule.findMany({ orderBy: [{ weekday: "asc" }, { startMinute: "asc" }] }),
     db.blockedDate.findMany({ orderBy: { date: "asc" } }),
   ]);

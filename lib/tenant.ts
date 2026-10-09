@@ -37,6 +37,9 @@ export const TENANT_MODELS = new Set<Prisma.ModelName>([
   "AnalyticsEvent",
   "Automation",
   "EmailMessage",
+  "Refund",
+  "LegalSnapshot",
+  "Invoice",
 ]);
 
 const WHERE_OPS = new Set([

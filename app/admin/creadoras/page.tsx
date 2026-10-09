@@ -12,7 +12,7 @@ export default async function AdminCreators({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   const [creators, plans, gmv] = await Promise.all([
     prisma.creator.findMany({
-      where: sp.q ? { OR: [{ username: { contains: sp.q.toLowerCase() } }, { displayName: { contains: sp.q } }] } : {},
+      where: sp.q ? { OR: [{ username: { contains: sp.q, mode: "insensitive" } }, { displayName: { contains: sp.q, mode: "insensitive" } }] } : {},
       orderBy: { createdAt: "desc" },
       include: { plan: true, user: { select: { email: true } }, category: true, _count: { select: { products: true, customers: true } } },
     }),

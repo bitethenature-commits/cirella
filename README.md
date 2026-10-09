@@ -10,16 +10,22 @@ Plataforma SaaS multi-tenant para profesionales independientes (astrología, Hum
 
 ## Puesta en marcha
 
-Requisitos: Node 20+ (probado con Node 22).
+Requisitos: Node 20+ (probado con Node 22) y PostgreSQL 16 (con Docker o instalado en local).
 
 ```bash
 npm install
 cp .env.example .env
-npm run setup        # crea la BD SQLite y siembra la demo
-npm run dev          # http://localhost:3000
+docker compose up -d db   # Postgres 16 con usuario, contraseña y BD «cirella» (o npm run db:up)
+npm run setup             # aplica las migraciones y siembra la demo
+npm run dev               # http://localhost:3000
 ```
 
-`npm run db:seed` vuelve a dejar los datos de demostración como al principio.
+Sin Docker sirve cualquier Postgres 16 local: crea el usuario y la base de datos `cirella` (contraseña `cirella`) o cambia `DATABASE_URL` y `DIRECT_URL` en `.env`.
+
+- `npm run db:reset` (o `npm run db:seed`) vuelve a dejar los datos de demostración como al principio: el seed vacía las tablas antes de sembrar.
+- `npm run db:migrate` crea una migración nueva en `prisma/migrations` tras cambiar `prisma/schema.prisma` (nunca se edita una migración ya publicada).
+- En producción, `npm run db:deploy` (`prisma migrate deploy`) aplica las migraciones pendientes sin tocar los datos. `DATABASE_URL` es la conexión de la aplicación (la del pooler, si lo hay) y `DIRECT_URL` la conexión directa que usan las migraciones.
+- `npm run db:check` comprueba que las migraciones y el esquema coinciden. Necesita una BD vacía de usar y tirar en `SHADOW_DATABASE_URL`, que se pasa al ejecutar (no se lee de `.env`): `SHADOW_DATABASE_URL="postgresql://cirella:cirella@localhost:5432/cirella_shadow" npm run db:check`.
 
 El modo demo (accesos rápidos, buzón `/dev/correo`, pagos simulados) solo se activa con `DEMO_MODE="true"`, como viene en `.env.example`. En una instalación real no lo definas: así ni el buzón ni los accesos rápidos existen.
 
@@ -76,13 +82,12 @@ El flujo **Instagram → página → producto → pago → entrega → clienta r
 | Calendario | `lib/calendar.ts` sin proveedor | Google Calendar: implementar `CalendarProvider` (freebusy + events.insert) |
 | Archivos | Disco local (`STORAGE_DIR`) | S3/R2 manteniendo las funciones de `lib/storage.ts` |
 | Cron | Botón en `/dev/correo` | Llamar a `GET /api/cron` con `Authorization: Bearer $CRON_SECRET` cada 5–15 min |
-| Base de datos | SQLite | PostgreSQL: cambiar `provider` en `prisma/schema.prisma` |
 
 ---
 
 ## Arquitectura
 
-**Stack:** Next.js 15 (App Router, Server Components y Server Actions) · TypeScript · Prisma · SQLite/PostgreSQL · Tailwind CSS 4 · Zod. Sin librerías de UI ni de gráficos: el bundle inicial ronda los 108 kB.
+**Stack:** Next.js 15 (App Router, Server Components y Server Actions) · TypeScript · Prisma (PostgreSQL, Prisma Migrate) · Tailwind CSS 4 · Zod. Sin librerías de UI ni de gráficos: el bundle inicial ronda los 108 kB.
 
 ```
 app/
@@ -107,6 +112,7 @@ lib/
   page-config.ts           esquema del contenido editable de la página
 prisma/
   schema.prisma            modelo de datos
+  migrations/              migraciones de Prisma Migrate (SQL)
   seed.ts                  datos de demostración
 ```
 
@@ -135,15 +141,20 @@ Valores iniciales (editables):
 
 `fulfillOrder()` (`lib/orders.ts`) es idempotente y es el único punto que convierte un pago en acceso: marca el pedido, registra la transacción, crea la clienta del tenant y concede un `Access` (descarga o curso), una `Booking` (sesión) o una `Subscription` con acceso caducable (membresía). Después emite eventos de dominio que las automatizaciones convierten en emails.
 
+Las reservas no se pisan aunque dos personas paguen el mismo hueco a la vez: la comprobación se hace dentro de la transacción bajo un cerrojo por creadora (`hasBookingClash` en `lib/booking.ts`), y la restricción `Booking_no_overlap` de Postgres impide dos reservas confirmadas solapadas aunque algún camino se salte el cerrojo. Quien llega tarde conserva su compra con la reserva pendiente de elegir fecha.
+
 ---
 
 ## Pruebas
 
 ```bash
-npm run test:unit               # funciones puras: precios en formato español, origen del tráfico, redirecciones
+npm run test:unit               # funciones puras (scripts/unit-tests.ts y scripts/unit/*.test.ts)
 npm run test:isolation          # aislamiento multi-tenant a nivel de datos
+npm run test:concurrency        # dos compras simultáneas del mismo hueco → una sola reserva confirmada
 npm run build && npm run test:e2e   # flujo completo en un iPhone simulado
 ```
+
+Las pruebas de aislamiento, concurrencia y e2e usan el Postgres de `.env` con la demo sembrada (`npm run db:reset`).
 
 La prueba e2e recorre: landing → registro → onboarding de 10 pasos → publicar → compra como invitada → cuenta creada automáticamente → la venta aparece en el panel → la clienta de demo ve su curso al 43 %, su sesión y su PDF → Ana no puede abrir datos ni archivos de María. También cubre casos que fallaron en la revisión: registrarse con el email de otra compradora no da acceso a su cuenta, el menú «Más» del panel móvil, no pagar dos veces la misma membresía y reintentar un pago rechazado cambiando de hora. Si Playwright no encuentra Chromium, indica la ruta con `PW_CHROMIUM_PATH`.
 

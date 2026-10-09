@@ -1,6 +1,7 @@
 /**
  * Datos de demostración.
- *   npm run db:reset   → recrea la BD y ejecuta este seed
+ *   npm run db:reset   → aplica las migraciones pendientes y ejecuta este seed
+ *                        (el seed vacía las tablas antes de sembrar)
  *
  * Cuentas (contraseña para todas: demo1234):
  *   ana@cirella.app    creadora · plan Pro     · /ana
@@ -48,16 +49,29 @@ async function reset() {
   // Los archivos subidos pertenecen a los registros que vamos a borrar.
   rmSync(path.join(STORAGE, "private"), { recursive: true, force: true });
   rmSync(path.join(STORAGE, "public"), { recursive: true, force: true });
-  // Orden inverso de dependencias
+  // Orden inverso de dependencias (claves foráneas de Postgres)
   await prisma.$transaction([
     prisma.emailMessage.deleteMany(),
+    prisma.outboxEvent.deleteMany(),
+    prisma.paymentEvent.deleteMany(),
+    prisma.rateLimit.deleteMany(),
+    prisma.jobLock.deleteMany(),
+    prisma.analyticsSalt.deleteMany(),
     prisma.analyticsEvent.deleteMany(),
     prisma.lessonProgress.deleteMany(),
     prisma.access.deleteMany(),
+    // Las facturas se enlazan entre sí (F3 → F2, rectificativas) con ON DELETE RESTRICT.
+    prisma.invoice.updateMany({ data: { relatedInvoiceId: null } }),
+    prisma.invoice.deleteMany(),
+    prisma.invoiceSeries.deleteMany(),
     prisma.transaction.deleteMany(),
+    prisma.refund.deleteMany(),
     prisma.booking.deleteMany(),
     prisma.subscription.deleteMany(),
+    prisma.orderLink.deleteMany(),
+    prisma.session.deleteMany(),
     prisma.order.deleteMany(),
+    prisma.legalSnapshot.deleteMany(),
     prisma.customer.deleteMany(),
     prisma.lesson.deleteMany(),
     prisma.courseModule.deleteMany(),
@@ -69,7 +83,6 @@ async function reset() {
     prisma.blockedDate.deleteMany(),
     prisma.referral.deleteMany(),
     prisma.creator.deleteMany(),
-    prisma.session.deleteMany(),
     prisma.loginToken.deleteMany(),
     prisma.user.deleteMany(),
     prisma.plan.deleteMany(),
@@ -136,11 +149,11 @@ async function main() {
     await prisma.template.create({ data: { key, name, description, sortOrder: i } });
 
   // ───────────── Usuarios ─────────────
-  await prisma.user.create({ data: { email: "admin@cirella.app", name: "Equipo Cirella", passwordHash: password, isAdmin: true } });
-  const anaUser = await prisma.user.create({ data: { email: "ana@cirella.app", name: "Ana Luna", passwordHash: password, createdAt: daysAgo(75) } });
-  const mariaUser = await prisma.user.create({ data: { email: "maria@cirella.app", name: "María Sol", passwordHash: password, createdAt: daysAgo(48) } });
-  const sofiaUser = await prisma.user.create({ data: { email: "sofia@cirella.app", name: "Sofía Vidal", passwordHash: password, createdAt: daysAgo(9) } });
-  const laura = await prisma.user.create({ data: { email: "laura@example.com", name: "Laura Martín", passwordHash: password, createdAt: daysAgo(20) } });
+  await prisma.user.create({ data: { email: "admin@cirella.app", name: "Equipo Cirella", passwordHash: password, isAdmin: true, emailVerifiedAt: daysAgo(90) } });
+  const anaUser = await prisma.user.create({ data: { email: "ana@cirella.app", name: "Ana Luna", passwordHash: password, createdAt: daysAgo(75), emailVerifiedAt: daysAgo(75) } });
+  const mariaUser = await prisma.user.create({ data: { email: "maria@cirella.app", name: "María Sol", passwordHash: password, createdAt: daysAgo(48), emailVerifiedAt: daysAgo(48) } });
+  const sofiaUser = await prisma.user.create({ data: { email: "sofia@cirella.app", name: "Sofía Vidal", passwordHash: password, createdAt: daysAgo(9), emailVerifiedAt: daysAgo(9) } });
+  const laura = await prisma.user.create({ data: { email: "laura@example.com", name: "Laura Martín", passwordHash: password, createdAt: daysAgo(20), emailVerifiedAt: daysAgo(20) } });
   const carmen = await prisma.user.create({ data: { email: "carmen@example.com", name: "Carmen Ruiz", createdAt: daysAgo(8) } });
   const lucia = await prisma.user.create({ data: { email: "lucia@example.com", name: "Lucía Torres", createdAt: daysAgo(16) } });
 
@@ -187,6 +200,7 @@ async function main() {
       seoTitle: "Ana Luna · Astrología, Human Design y Gene Keys",
       seoDescription: "Lecturas de astrología, Human Design y Gene Keys, sesiones 1:1, curso y comunidad privada. Conócete. Compréndete. Transfórmate.",
       payoutProvider: "simulated", payoutAccountId: "sim_acct_ana001", payoutConnectedAt: daysAgo(74),
+      payoutStatus: "ACTIVE", payoutChargesEnabled: true, payoutPayoutsEnabled: true, payoutStatusUpdatedAt: daysAgo(74),
       referralCode: "ANALUNA", createdAt: daysAgo(75),
     },
   });
@@ -229,7 +243,7 @@ async function main() {
 
   const pAstro = await prisma.product.create({
     data: {
-      creatorId: ana.id, type: "DIGITAL", slug: "lectura-astrologia", title: "Lectura de Astrología", emoji: "🌙",
+      creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", slug: "lectura-astrologia", title: "Lectura de Astrología", emoji: "🌙",
       summary: "Tu carta natal interpretada: Sol, Luna, Ascendente y casas. Guía PDF + audio explicativo.",
       description: "Una lectura escrita y en audio de tu carta natal para entender tus talentos, tus ritmos emocionales y los temas que se repiten en tu vida.\n\nIncluye:\n• Guía de lectura de tu carta natal (PDF)\n• Audio de introducción (25 min)\n• Informe personalizado en 72 h tras enviar tus datos de nacimiento",
       imageUrl: "/demo/astrologia.webp", priceCents: 4900, ctaLabel: "Comprar", sortOrder: 1,
@@ -239,7 +253,7 @@ async function main() {
   });
   const pHD = await prisma.product.create({
     data: {
-      creatorId: ana.id, type: "SESSION", slug: "lectura-human-design", title: "Lectura de Human Design", emoji: "🧬",
+      creatorId: ana.id, type: "SESSION", status: "PUBLISHED", slug: "lectura-human-design", title: "Lectura de Human Design", emoji: "🧬",
       summary: "75 minutos por videollamada para descubrir tu tipo, estrategia y autoridad.",
       description: "Una sesión en directo para leer juntas tu carta de Human Design (bodygraph) y aterrizarla a tu día a día: trabajo, relaciones y decisiones.\n\nIncluye:\n• Sesión de 75 minutos por videollamada\n• Grabación de la sesión\n• Resumen escrito con tus claves",
       imageUrl: "/demo/human-design.webp", priceCents: 7900, ctaLabel: "Reservar", sortOrder: 2,
@@ -249,7 +263,7 @@ async function main() {
   });
   const pGK = await prisma.product.create({
     data: {
-      creatorId: ana.id, type: "DIGITAL", slug: "gene-keys", title: "Gene Keys", emoji: "🔑",
+      creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", slug: "gene-keys", title: "Gene Keys", emoji: "🔑",
       summary: "Guía PDF de tu Perfil Hologenético: sombra, don y siddhi de tus llaves principales.",
       description: "Una guía práctica para empezar a contemplar tu Perfil Hologenético y tu Secuencia de Activación.\n\nIncluye:\n• Guía «Tu Perfil Hologenético» (PDF)\n• Ejercicios de contemplación semanales",
       imageUrl: "/demo/gene-keys.webp", priceCents: 5900, ctaLabel: "Comprar", sortOrder: 3, createdAt: daysAgo(60),
@@ -257,7 +271,7 @@ async function main() {
   });
   const pCourse = await prisma.product.create({
     data: {
-      creatorId: ana.id, type: "COURSE", slug: "curso-conocete-tu-energia", title: "Conócete a través de tu energía", emoji: "✨",
+      creatorId: ana.id, type: "COURSE", status: "PUBLISHED", slug: "curso-conocete-tu-energia", title: "Conócete a través de tu energía", emoji: "✨",
       summary: "Curso online: integra astrología, Human Design y Gene Keys en un mapa práctico para tu vida.",
       description: "Un recorrido a tu ritmo en 3 módulos para unir las tres herramientas en un único mapa de autoconocimiento.\n\nIncluye:\n• 7 lecciones en vídeo, audio y lectura\n• Cuaderno de trabajo descargable\n• Meditación de integración\n• Acceso de por vida",
       imageUrl: "/demo/curso.webp", priceCents: 14900, ctaLabel: "Ver curso", sortOrder: 4, featured: true, createdAt: daysAgo(55),
@@ -265,7 +279,7 @@ async function main() {
   });
   const p11 = await prisma.product.create({
     data: {
-      creatorId: ana.id, type: "SESSION", slug: "sesion-1-1", title: "Sesión 1:1", emoji: "🔮",
+      creatorId: ana.id, type: "SESSION", status: "PUBLISHED", slug: "sesion-1-1", title: "Sesión 1:1", emoji: "🔮",
       summary: "Una hora a solas para tu pregunta: tránsitos, decisiones, relaciones o propósito.",
       description: "Una sesión abierta para trabajar el tema que más te importa ahora, combinando astrología, Human Design y Gene Keys.\n\nIncluye:\n• 60 minutos por videollamada\n• Grabación de la sesión",
       imageUrl: "/demo/sesion.webp", priceCents: 12000, ctaLabel: "Reservar", sortOrder: 5,
@@ -274,7 +288,7 @@ async function main() {
   });
   const pCircle = await prisma.product.create({
     data: {
-      creatorId: ana.id, type: "MEMBERSHIP", slug: "comunidad-privada", title: "Comunidad privada", emoji: "💫",
+      creatorId: ana.id, type: "MEMBERSHIP", status: "PUBLISHED", slug: "comunidad-privada", title: "Comunidad privada", emoji: "💫",
       summary: "El Círculo Lunar: rituales de luna nueva, un directo al mes y meditaciones exclusivas.",
       description: "Un espacio íntimo para vivir el cielo mes a mes.\n\nIncluye:\n• Ritual de luna nueva y luna llena\n• Directo mensual con los tránsitos del mes\n• Meditaciones exclusivas\n• Cancela cuando quieras",
       imageUrl: "/demo/comunidad.webp", priceCents: 1900, billingInterval: "month", ctaLabel: "Unirme", sortOrder: 6, createdAt: daysAgo(40),
@@ -536,19 +550,20 @@ async function main() {
       pageDraft: mariaPage as unknown as Prisma.InputJsonValue, pagePublished: mariaPage as unknown as Prisma.InputJsonValue,
       published: true, publishedAt: daysAgo(45), onboardedAt: daysAgo(47), contactEmail: "maria@cirella.app",
       payoutProvider: "simulated", payoutAccountId: "sim_acct_maria01", payoutConnectedAt: daysAgo(47),
+      payoutStatus: "ACTIVE", payoutChargesEnabled: true, payoutPayoutsEnabled: true, payoutStatusUpdatedAt: daysAgo(47),
       referralCode: "MARIASOL", createdAt: daysAgo(48),
     },
   });
   const medMaria = storePrivate(maria.id, "meditacion-dormir.wav", makeWav(30));
   const mMed = await prisma.product.create({
-    data: { creatorId: maria.id, type: "DIGITAL", slug: "meditacion-dormir", title: "Meditación guiada para dormir", emoji: "🌙", summary: "20 minutos para soltar el día y dormir profundo.", description: "Audio de meditación guiada con respiración 4-7-8.", imageUrl: "/demo/maria-meditacion.webp", priceCents: 1200, sortOrder: 1 },
+    data: { creatorId: maria.id, type: "DIGITAL", status: "PUBLISHED", slug: "meditacion-dormir", title: "Meditación guiada para dormir", emoji: "🌙", summary: "20 minutos para soltar el día y dormir profundo.", description: "Audio de meditación guiada con respiración 4-7-8.", imageUrl: "/demo/maria-meditacion.webp", priceCents: 1200, sortOrder: 1 },
   });
   await prisma.productFile.create({ data: { creatorId: maria.id, productId: mMed.id, name: "Meditación para dormir.wav", kind: "AUDIO", mimeType: "audio/wav", ...medMaria } });
   await prisma.product.create({
-    data: { creatorId: maria.id, type: "DIGITAL", slug: "programa-respira-21", title: "Programa Respira · 21 días", emoji: "🌿", summary: "Una práctica corta al día para regular tu sistema nervioso.", imageUrl: "/demo/maria-respira.webp", priceCents: 3900, sortOrder: 2 },
+    data: { creatorId: maria.id, type: "DIGITAL", status: "PUBLISHED", slug: "programa-respira-21", title: "Programa Respira · 21 días", emoji: "🌿", summary: "Una práctica corta al día para regular tu sistema nervioso.", imageUrl: "/demo/maria-respira.webp", priceCents: 3900, sortOrder: 2 },
   });
   const mSes = await prisma.product.create({
-    data: { creatorId: maria.id, type: "SESSION", slug: "yoga-terapeutico", title: "Yoga terapéutico 1:1", emoji: "🧘", summary: "Sesión individual adaptada a tu cuerpo y tu momento.", imageUrl: "/demo/maria-sesion.webp", priceCents: 5500, durationMin: 60, bufferMin: 15, minNoticeHours: 12, sortOrder: 3 },
+    data: { creatorId: maria.id, type: "SESSION", status: "PUBLISHED", slug: "yoga-terapeutico", title: "Yoga terapéutico 1:1", emoji: "🧘", summary: "Sesión individual adaptada a tu cuerpo y tu momento.", imageUrl: "/demo/maria-sesion.webp", priceCents: 5500, durationMin: 60, bufferMin: 15, minNoticeHours: 12, sortOrder: 3 },
   });
   await prisma.availabilityRule.createMany({ data: [2, 4].map((wd) => ({ creatorId: maria.id, weekday: wd, startMinute: 540, endMinute: 780 })) });
   const carmenMaria = await prisma.customer.create({
@@ -596,13 +611,14 @@ async function main() {
       pageDraft: sofiaPage as unknown as Prisma.InputJsonValue, pagePublished: sofiaPage as unknown as Prisma.InputJsonValue,
       published: true, publishedAt: daysAgo(8), onboardedAt: daysAgo(8), contactEmail: "sofia@cirella.app",
       payoutProvider: "simulated", payoutAccountId: "sim_acct_sofia01", payoutConnectedAt: daysAgo(8),
+      payoutStatus: "ACTIVE", payoutChargesEnabled: true, payoutPayoutsEnabled: true, payoutStatusUpdatedAt: daysAgo(8),
       referralCode: "SOFIAV", referredById: ana.id, createdAt: daysAgo(9),
     },
   });
   await prisma.product.createMany({
     data: [
-      { creatorId: sofia.id, type: "DIGITAL", slug: "guia-bio-instagram", title: "Guía: tu bio de Instagram que vende", emoji: "✍️", summary: "Plantillas y ejemplos para escribir una bio clara en 15 minutos.", priceCents: 1900, sortOrder: 1 },
-      { creatorId: sofia.id, type: "DIGITAL", slug: "workbook-mensaje", title: "Workbook: encuentra tu mensaje", emoji: "📓", summary: "30 preguntas para definir qué haces, para quién y por qué.", priceCents: 2700, sortOrder: 2 },
+      { creatorId: sofia.id, type: "DIGITAL", status: "PUBLISHED", slug: "guia-bio-instagram", title: "Guía: tu bio de Instagram que vende", emoji: "✍️", summary: "Plantillas y ejemplos para escribir una bio clara en 15 minutos.", priceCents: 1900, sortOrder: 1 },
+      { creatorId: sofia.id, type: "DIGITAL", status: "PUBLISHED", slug: "workbook-mensaje", title: "Workbook: encuentra tu mensaje", emoji: "📓", summary: "30 preguntas para definir qué haces, para quién y por qué.", priceCents: 2700, sortOrder: 2 },
     ],
   });
   await prisma.referral.create({

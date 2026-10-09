@@ -16,7 +16,7 @@ export default async function CustomerDetail({ params }: { params: Promise<{ id:
     where: { id },
     include: {
       orders: { orderBy: { createdAt: "desc" } },
-      bookings: { orderBy: { startAt: "desc" }, include: { product: true } },
+      bookings: { orderBy: { startAt: { sort: "desc", nulls: "last" } }, include: { product: true } },
       subscriptions: { include: { product: true } },
     },
   });

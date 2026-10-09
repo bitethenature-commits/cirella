@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
+import { isBookingOverlapError } from "@/lib/booking";
 import { prisma } from "@/lib/db";
 import { tenantDb } from "@/lib/tenant";
 
@@ -52,7 +53,14 @@ export async function setBookingStatus(form: FormData) {
   const status = z.enum(["COMPLETED", "CANCELLED", "CONFIRMED"]).parse(form.get("status"));
   const b = await db.booking.findFirst({ where: { id } });
   if (!b) return;
-  await db.booking.update({ where: { id }, data: { status } });
+  try {
+    await db.booking.update({ where: { id }, data: { status } });
+  } catch (e) {
+    // Volver a confirmar una reserva cuyo hueco ya ocupa otra: la regla Booking_no_overlap
+    // de la BD lo impide y la reserva se queda como estaba.
+    if (isBookingOverlapError(e)) return;
+    throw e;
+  }
   if (status === "CANCELLED")
     await db.emailMessage.updateMany({ where: { status: "QUEUED", dedupeKey: { startsWith: `reminder:${id}:` } }, data: { status: "CANCELED", dedupeKey: null } });
   revalidatePath("/panel/reservas");

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { hashPassword, requireUser, revokeOtherSessions, sendMagicLink } from "@/lib/auth";
 import { emit } from "@/lib/automations";
-import { hasBookingClash, isSlotAvailable } from "@/lib/booking";
+import { hasBookingClash, isBookingOverlapError, isSlotAvailable } from "@/lib/booking";
 import { hasAccess } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { syncBookingToCalendar } from "@/lib/orders";
@@ -35,11 +35,17 @@ export async function scheduleBooking(bookingId: string, slotStart: string) {
     return { ok: false as const, error: "Ese horario ya no está disponible" };
   const start = new Date(slotStart);
   const end = new Date(start.getTime() + (booking.product.durationMin ?? 60) * 60000);
-  const taken = await prisma.$transaction(async (tx) => {
-    if (await hasBookingClash(tx, booking.creatorId, start, end, booking.product.bufferMin ?? 15, booking.id)) return true;
-    await tx.booking.update({ where: { id: booking.id }, data: { status: "CONFIRMED", startAt: start, endAt: end, externalEventId: null } });
-    return false;
-  });
+  const taken = await prisma
+    .$transaction(async (tx) => {
+      if (await hasBookingClash(tx, booking.creatorId, start, end, booking.product.bufferMin ?? 15, booking.id)) return true;
+      await tx.booking.update({ where: { id: booking.id }, data: { status: "CONFIRMED", startAt: start, endAt: end, externalEventId: null } });
+      return false;
+    })
+    // La regla Booking_no_overlap de la BD es la última red de seguridad: mismo mensaje que un choque.
+    .catch((e) => {
+      if (isBookingOverlapError(e)) return true;
+      throw e;
+    });
   if (taken) return { ok: false as const, error: "Ese horario acaba de ocuparse. Elige otro, por favor." };
   // Si cambia de fecha, los recordatorios antiguos se cancelan y las confirmaciones previas
   // liberan su clave, para que volver a una hora anterior genere avisos nuevos.

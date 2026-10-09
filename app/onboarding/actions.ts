@@ -142,7 +142,15 @@ export async function saveFirstProduct(input: z.infer<typeof productSchema>): Pr
   // El onboarding solo crea el primer producto; el resto se crea desde el panel (con sus límites).
   if (creator.onboardedAt || (await db.product.count()) > 0) return { ok: false, error: "Crea tus productos desde el panel" };
   const product = await db.product.create({
-    data: { ...data, priceCents: priceCents ?? 0, slug: await uniqueProductSlug(creator.id, p.title), sortOrder: 1, featured: true, creatorId: creator.id },
+    data: {
+      ...data,
+      priceCents: priceCents ?? 0,
+      slug: await uniqueProductSlug(creator.id, p.title),
+      sortOrder: 1,
+      featured: true,
+      status: "PUBLISHED", // el primer producto sale publicado con la página
+      creatorId: creator.id,
+    },
   });
   return { ok: true, data: { productId: product.id } };
 }

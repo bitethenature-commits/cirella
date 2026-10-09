@@ -1,4 +1,4 @@
-import type { Product } from "@prisma/client";
+import type { Prisma, Product } from "@prisma/client";
 import { prisma } from "./db";
 import { getBusyIntervals } from "./calendar";
 import { addDaysToKey, dateKeyInTz, formatInTz, weekdayOfKey, zonedTimeToUtc } from "./tz";
@@ -13,6 +13,9 @@ export type DaySlots = {
 
 type SessionProduct = Pick<Product, "id" | "creatorId" | "durationMin" | "bufferMin" | "minNoticeHours">;
 
+/** Cliente con el que se leen los huecos: `prisma` o el de una transacción. */
+type SlotsClient = Pick<Prisma.TransactionClient, "creator" | "availabilityRule" | "blockedDate" | "booking">;
+
 export const SESSION_DEFAULTS = { durationMin: 60, bufferMin: 15, minNoticeHours: 24 };
 
 /**
@@ -20,10 +23,11 @@ export const SESSION_DEFAULTS = { durationMin: 60, bufferMin: 15, minNoticeHours
  * − días bloqueados − anticipación mínima − reservas existentes (± margen)
  * − ocupado en calendario externo.
  */
-export async function getAvailableSlots(product: SessionProduct, opts: { days?: number; now?: Date } = {}) {
+export async function getAvailableSlots(product: SessionProduct, opts: { days?: number; now?: Date; client?: SlotsClient } = {}) {
   const days = opts.days ?? 28;
   const now = opts.now ?? new Date();
-  const creator = await prisma.creator.findUniqueOrThrow({
+  const db = opts.client ?? prisma;
+  const creator = await db.creator.findUniqueOrThrow({
     where: { id: product.creatorId },
     select: { timezone: true, calendarProvider: true, calendarAccountId: true },
   });
@@ -35,9 +39,9 @@ export async function getAvailableSlots(product: SessionProduct, opts: { days?: 
   const horizon = new Date(now.getTime() + (days + 1) * 86400_000);
 
   const [rules, blocked, bookings, external] = await Promise.all([
-    prisma.availabilityRule.findMany({ where: { creatorId: product.creatorId } }),
-    prisma.blockedDate.findMany({ where: { creatorId: product.creatorId } }),
-    prisma.booking.findMany({
+    db.availabilityRule.findMany({ where: { creatorId: product.creatorId } }),
+    db.blockedDate.findMany({ where: { creatorId: product.creatorId } }),
+    db.booking.findMany({
       where: { creatorId: product.creatorId, status: "CONFIRMED", startAt: { gte: new Date(now.getTime() - 86400_000), lte: horizon } },
       select: { startAt: true, endAt: true },
     }),
@@ -81,11 +85,25 @@ export async function getAvailableSlots(product: SessionProduct, opts: { days?: 
   return { timezone: tz, durationMin: duration, days: out };
 }
 
-type BookingClient = Pick<typeof prisma, "booking">;
+type BookingClient = Pick<Prisma.TransactionClient, "booking" | "$executeRaw">;
+
+/**
+ * Cerrojo de reservas de una creadora: dura hasta el final de la transacción en curso,
+ * así que dos compras o reprogramaciones simultáneas de la misma creadora se comprueban
+ * y se escriben una detrás de otra. Las de creadoras distintas no se esperan entre sí.
+ * Tomarlo dos veces en la misma transacción no bloquea (es reentrante).
+ */
+export async function lockCreatorBookings(client: Pick<Prisma.TransactionClient, "$executeRaw">, creatorId: string) {
+  // $executeRaw y no $queryRaw: pg_advisory_xact_lock devuelve void, que $queryRaw no sabe leer.
+  await client.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`booking:${creatorId}`}, 0))`;
+}
 
 /**
  * ¿Choca [start, end) (± margen) con otra reserva confirmada de la creadora?
- * Acepta el cliente de una transacción para comprobarlo justo antes de escribir.
+ *
+ * Toma el cerrojo de reservas de la creadora (lockCreatorBookings), que dura hasta el final
+ * de la transacción: dos compras o reprogramaciones simultáneas se comprueban una detrás de
+ * otra. Llamar siempre dentro de prisma.$transaction y antes de escribir la reserva.
  */
 export async function hasBookingClash(
   client: BookingClient,
@@ -95,6 +113,7 @@ export async function hasBookingClash(
   bufferMin: number,
   excludeBookingId?: string,
 ) {
+  await lockCreatorBookings(client, creatorId);
   const buf = bufferMin * 60000;
   const clash = await client.booking.findFirst({
     where: {
@@ -109,7 +128,17 @@ export async function hasBookingClash(
   return !!clash;
 }
 
-export async function isSlotAvailable(product: SessionProduct, startIso: string) {
-  const { days } = await getAvailableSlots(product);
+/** ¿Sigue ofreciéndose ese hueco? Con `client` = la transacción, se lee bajo su cerrojo. */
+export async function isSlotAvailable(product: SessionProduct, startIso: string, opts: { client?: SlotsClient } = {}) {
+  const { days } = await getAvailableSlots(product, { client: opts.client });
   return days.some((d) => d.slots.some((s) => s.start === startIso));
+}
+
+/**
+ * ¿El error viene de la regla Booking_no_overlap de la base de datos? Es la última red de
+ * seguridad (dos reservas CONFIRMED solapadas de la misma creadora): si salta, la transacción
+ * ya está anulada y quien llama decide qué hacer (p. ej. dejar la reserva pendiente de fecha).
+ */
+export function isBookingOverlapError(e: unknown) {
+  return e instanceof Error && /23P01|Booking_no_overlap/.test(e.message);
 }

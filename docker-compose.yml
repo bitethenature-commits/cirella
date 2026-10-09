@@ -1,0 +1,20 @@
+# Postgres para desarrollo local: `docker compose up -d db` (o `npm run db:up`).
+# Mismos datos que DATABASE_URL en .env.example.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cirella
+      POSTGRES_PASSWORD: cirella
+      POSTGRES_DB: cirella
+    ports:
+      - "5432:5432"
+    volumes:
+      - cirella-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cirella"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  cirella-db: {}
