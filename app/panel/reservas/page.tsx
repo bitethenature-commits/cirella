@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { CalendarDays, CalendarX, Check, X } from "lucide-react";
+import { CalendarClock, CalendarDays, CalendarX, Check, X } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty";
-import { SubmitButton } from "@/components/ui/submit-button";
+import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
 import { canSellType } from "@/lib/plans";
 import { tenantDb } from "@/lib/tenant";
@@ -11,8 +11,16 @@ import { Badge, Locked, PageHeader } from "../ui";
 import { addBlockedDate, removeBlockedDate, setBookingStatus } from "./actions";
 import { AvailabilityEditor } from "./availability";
 
-export default async function BookingsPage() {
+const OK: Record<string, string> = {
+  propuesta: "Hemos enviado a la clienta un enlace para elegir otra fecha.",
+  cancelada: "Sesión cancelada. Hemos avisado a la clienta.",
+  reembolsada: "Sesión cancelada y reembolsada. Hemos avisado a la clienta.",
+  reembolso_en_curso: "Sesión cancelada. El reembolso está en curso; te avisaremos si falla.",
+};
+
+export default async function BookingsPage({ searchParams }: { searchParams: Promise<{ ok?: string }> }) {
   const { creator } = await requireCreator();
+  const sp = await searchParams;
   if (!canSellType(creator.plan, "SESSION"))
     return (
       <div>
@@ -25,7 +33,12 @@ export default async function BookingsPage() {
   const [upcoming, pending, past, rules, blocked] = await Promise.all([
     db.booking.findMany({ where: { status: "CONFIRMED", startAt: { gte: now } }, orderBy: { startAt: "asc" }, include: { product: true, customer: true } }),
     db.booking.findMany({ where: { status: "PENDING_SCHEDULE" }, orderBy: { createdAt: "desc" }, include: { product: true, customer: true } }),
-    db.booking.findMany({ where: { OR: [{ startAt: { lt: now } }, { status: { in: ["COMPLETED", "CANCELLED"] } }] }, orderBy: { startAt: { sort: "desc", nulls: "last" } }, take: 20, include: { product: true, customer: true } }),
+    db.booking.findMany({
+      where: { OR: [{ startAt: { lt: now } }, { status: { in: ["COMPLETED", "CANCELLED"] } }] },
+      orderBy: [{ startAt: { sort: "desc", nulls: "last" } }, { cancelledAt: { sort: "desc", nulls: "last" } }],
+      take: 20,
+      include: { product: true, customer: true, order: { select: { refundedCents: true } } },
+    }),
     db.availabilityRule.findMany({ orderBy: [{ weekday: "asc" }, { startMinute: "asc" }] }),
     db.blockedDate.findMany({ orderBy: { date: "asc" } }),
   ]);
@@ -33,6 +46,7 @@ export default async function BookingsPage() {
   return (
     <div className="space-y-10">
       <PageHeader title="Reservas" subtitle={`${upcoming.length} sesiones próximas · ${pending.length} pagadas sin fecha`} />
+      {sp.ok && OK[sp.ok] && <div className="-mb-5"><Flash ok={OK[sp.ok]} /></div>}
 
       <section>
         <h2 className="eyebrow mb-3 !text-ink">Próximas sesiones</h2>
@@ -52,7 +66,7 @@ export default async function BookingsPage() {
               </div>
               <div className="flex gap-2">
                 {b.meetingUrl && <a href={b.meetingUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">Videollamada</a>}
-                <form action={setBookingStatus}><input type="hidden" name="id" value={b.id} /><input type="hidden" name="status" value="CANCELLED" /><SubmitButton className="btn btn-ghost btn-sm text-rose"><X className="h-4 w-4" /> Cancelar</SubmitButton></form>
+                <Link href={`/panel/reservas/${b.id}`} className="btn btn-ghost btn-sm"><CalendarClock className="h-4 w-4" /> Cambiar o cancelar</Link>
               </div>
             </div>
           ))}
@@ -65,9 +79,17 @@ export default async function BookingsPage() {
           <h2 className="eyebrow mb-3 !text-ink">Pagadas, pendientes de fecha</h2>
           <div className="card divide-y divide-line">
             {pending.map((b) => (
-              <div key={b.id} className="flex items-center justify-between gap-3 p-4 text-sm">
-                <span><strong>{b.customer.name ?? b.customer.email}</strong> · {b.product.title}</span>
-                <a href={`mailto:${b.customer.email}`} className="btn btn-ghost btn-sm">Recordar por email</a>
+              <div key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 p-4 text-sm">
+                <span className="min-w-0 flex-1">
+                  <strong>{b.customer.name ?? b.customer.email}</strong> · {b.product.title}
+                  {b.rescheduleRequestedAt && (
+                    <span className="chip ml-2">Nueva fecha propuesta · {b.rescheduleRequestedAt.toLocaleDateString("es-ES", { day: "numeric", month: "short", timeZone: creator.timezone })}</span>
+                  )}
+                </span>
+                <span className="flex gap-1">
+                  <a href={`mailto:${b.customer.email}`} className="btn btn-ghost btn-sm">Recordar por email</a>
+                  <Link href={`/panel/reservas/${b.id}`} className="btn btn-ghost btn-sm"><CalendarClock className="h-4 w-4" /> Cambiar o cancelar</Link>
+                </span>
               </div>
             ))}
           </div>
@@ -115,8 +137,12 @@ export default async function BookingsPage() {
           <div className="card divide-y divide-line">
             {past.map((b) => (
               <div key={b.id} className="flex flex-wrap items-center gap-3 p-4 text-sm">
-                <span className="min-w-0 flex-1"><strong>{b.customer.name ?? b.customer.email}</strong> · {b.product.title}{b.startAt && ` · ${capitalize(formatSessionDate(b.startAt, creator.timezone, false))}`}</span>
+                <span className="min-w-0 flex-1">
+                  <strong>{b.customer.name ?? b.customer.email}</strong> · {b.product.title}{b.startAt && ` · ${capitalize(formatSessionDate(b.startAt, creator.timezone, false))}`}
+                  {b.status === "CANCELLED" && b.cancelReason && <span className="block text-xs text-muted">«{b.cancelReason}»</span>}
+                </span>
                 <Badge tone={b.status === "COMPLETED" ? "success" : b.status === "CANCELLED" ? "danger" : "neutral"}>{BOOKING_STATUS_LABEL[b.status]}</Badge>
+                {b.status === "CANCELLED" && (b.order?.refundedCents ?? 0) > 0 && <Badge>Reembolsada</Badge>}
                 {b.status === "CONFIRMED" && (
                   <form action={setBookingStatus}><input type="hidden" name="id" value={b.id} /><input type="hidden" name="status" value="COMPLETED" /><button className="btn btn-ghost btn-sm"><Check className="h-4 w-4" /> Completada</button></form>
                 )}
@@ -125,7 +151,7 @@ export default async function BookingsPage() {
           </div>
         </section>
       )}
-      <p className="text-xs text-muted">¿Necesitas cambiar una sesión? Tus clientas pueden reprogramarla hasta 24 h antes desde su área. <Link href="/panel/automatizaciones" className="underline">Configura los recordatorios</Link>.</p>
+      <p className="text-xs text-muted">Tus clientas pueden cambiar la fecha hasta 24 h antes desde su área. Si necesitas cambiarla tú, usa «Cambiar o cancelar». <Link href="/panel/automatizaciones" className="underline">Configura los recordatorios</Link>.</p>
     </div>
   );
 }

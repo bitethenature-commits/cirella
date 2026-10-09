@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarPlus, Clock, Mail, MessageCircle, Video } from "lucide-react";
+import { ArrowLeft, CalendarPlus, CalendarX, Clock, Mail, MessageCircle, Video } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { creatorBrief } from "@/lib/customer";
 import { prisma } from "@/lib/db";
+import { formatMoney } from "@/lib/money";
 import { socialHref } from "@/lib/page-config";
 import { BOOKING_STATUS_LABEL } from "@/lib/types";
 import { capitalize, formatSessionDate } from "@/lib/tz";
@@ -13,7 +14,10 @@ import { Scheduler } from "./scheduler";
 export default async function BookingDetail({ params }: { params: Promise<{ bookingId: string }> }) {
   const { bookingId } = await params;
   const user = await requireUser(`/cuenta/sesiones/${bookingId}`);
-  const b = await prisma.booking.findFirst({ where: { id: bookingId, userId: user.id }, include: { product: true, creator: true } });
+  const b = await prisma.booking.findFirst({
+    where: { id: bookingId, userId: user.id },
+    include: { product: true, creator: true, order: { select: { refundedCents: true, currency: true } } },
+  });
   if (!b) notFound();
   const c = creatorBrief(b.creator);
   const canReschedule = b.status === "CONFIRMED" && b.startAt && b.startAt.getTime() - Date.now() > 24 * 3600_000;
@@ -30,7 +34,20 @@ export default async function BookingDetail({ params }: { params: Promise<{ book
         </div>
       </div>
 
-      {b.startAt ? (
+      {b.status === "CANCELLED" ? (
+        <div className="card mt-6 p-6">
+          <span className="chip"><CalendarX className="h-3.5 w-3.5" /> Sesión cancelada</span>
+          <p className="mt-3">
+            {b.cancelledBy === "CUSTOMER"
+              ? "Cancelaste la sesión."
+              : `${c.displayName} canceló la sesión${b.startAt ? ` del ${formatSessionDate(b.startAt, c.timezone)}` : ""}.`}
+          </p>
+          {b.cancelReason && <p className="mt-2 text-sm text-muted">Motivo: «{b.cancelReason}»</p>}
+          {b.order && b.order.refundedCents > 0 && (
+            <p className="mt-2 text-sm">Te hemos devuelto <strong>{formatMoney(b.order.refundedCents, b.order.currency, { decimals: true })}</strong>.</p>
+          )}
+        </div>
+      ) : b.startAt ? (
         <div className="card mt-6 p-6">
           <span className="chip">{BOOKING_STATUS_LABEL[b.status]}</span>
           <p className="display mt-3 text-[1.9rem] leading-tight">{capitalize(formatSessionDate(b.startAt, c.timezone))}</p>
@@ -50,8 +67,20 @@ export default async function BookingDetail({ params }: { params: Promise<{ book
         </div>
       ) : (
         <div className="card mt-6 p-6">
-          <p className="font-semibold">Elige el día y la hora de tu sesión</p>
-          <p className="mt-1 text-sm text-muted">Tu pago está confirmado. Reserva el hueco que mejor te venga.</p>
+          {b.rescheduleRequestedAt ? (
+            <>
+              <p className="font-semibold">{c.displayName} te propone cambiar la fecha</p>
+              <p className="mt-1 text-sm text-muted">
+                {b.previousStartAt ? `Tu sesión del ${formatSessionDate(b.previousStartAt, c.timezone)} ha quedado libre. ` : ""}Elige otro hueco:
+              </p>
+              {b.rescheduleNote && <p className="mt-2 text-sm italic">«{b.rescheduleNote}»</p>}
+            </>
+          ) : (
+            <>
+              <p className="font-semibold">Elige el día y la hora de tu sesión</p>
+              <p className="mt-1 text-sm text-muted">Tu pago está confirmado. Reserva el hueco que mejor te venga.</p>
+            </>
+          )}
           <div className="mt-5">
             <Scheduler bookingId={b.id} productId={b.productId} />
           </div>

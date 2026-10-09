@@ -1,3 +1,4 @@
+import { orderFigures } from "./refund-math";
 import { tenantDb } from "./tenant";
 import { addDaysToKey, dateKeyInTz, zonedTimeToUtc, formatInTz } from "./tz";
 
@@ -28,11 +29,11 @@ export async function getDashboardStats(creatorId: string, range: RangeKey, tz: 
   const since = rangeStart(range, tz, now);
   const when = since ? { gte: since } : undefined;
 
-  const [orders, newCustomers, totalCustomers, pageViews, visitorGroups, productViews, clicks, checkouts, subs, upcoming, pendingSchedule, bookingsInRange, products] =
+  const [settledOrders, newCustomers, totalCustomers, pageViews, visitorGroups, productViews, clicks, checkouts, subs, upcoming, pendingSchedule, bookingsInRange, products] =
     await Promise.all([
       db.order.findMany({
-        where: { status: "PAID", ...(when ? { paidAt: when } : {}) },
-        select: { amountCents: true, netCents: true, platformFeeCents: true, productId: true, productTitle: true, paidAt: true },
+        where: { status: { in: ["PAID", "REFUNDED"] }, ...(when ? { paidAt: when } : {}) },
+        select: { status: true, amountCents: true, platformFeeCents: true, refundedCents: true, refundedFeeCents: true, productId: true, productTitle: true, paidAt: true },
       }),
       db.customer.count({ where: when ? { createdAt: when } : {} }),
       db.customer.count(),
@@ -52,6 +53,14 @@ export async function getDashboardStats(creatorId: string, range: RangeKey, tz: 
       db.booking.count({ where: { status: { in: ["CONFIRMED", "COMPLETED", "PENDING_SCHEDULE"] }, ...(when ? { createdAt: when } : {}) } }),
       db.product.findMany({ select: { id: true, title: true, emoji: true, imageUrl: true, type: true } }),
     ]);
+
+  // Ventas netas de reembolsos. Un reembolso se resta del periodo de la venta original (no del día en
+  // que se devuelve): así cada mes refleja lo que de verdad se quedó, aunque una cifra pasada pueda
+  // bajar después de un reembolso. Las devueltas del todo dejan de contar como venta.
+  const orders = settledOrders
+    .map((o) => ({ ...o, f: orderFigures(o) }))
+    .filter((o) => o.f.counts)
+    .map((o) => ({ ...o, amountCents: o.f.gross, netCents: o.f.net, platformFeeCents: o.f.fee }));
 
   // Las renovaciones de membresías también son ingresos (transacciones RENEWAL sin pedido).
   const renewals = await db.transaction.findMany({
@@ -160,7 +169,9 @@ export async function getAdvancedStats(creatorId: string, range: RangeKey, tz: s
   const perProduct = products.map((p) => {
     const rows = byProduct.filter((r) => r.productId === p.id);
     const get = (t: string) => rows.find((r) => r.type === t)?._count._all ?? 0;
-    const revenue = rows.find((r) => r.type === "PURCHASE")?._sum.amountCents ?? 0;
+    // Ingresos del producto menos lo devuelto (eventos REFUND, que solo escribe el servidor).
+    const sum = (t: string) => rows.find((r) => r.type === t)?._sum.amountCents ?? 0;
+    const revenue = sum("PURCHASE") - sum("REFUND");
     const views = get("PRODUCT_VIEW");
     const purchases = get("PURCHASE");
     return { ...p, views, clicks: get("PRODUCT_CLICK"), checkouts: get("CHECKOUT_STARTED"), purchases, revenue, conversion: views ? purchases / views : 0 };

@@ -1,20 +1,22 @@
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
-import { DISPUTE_STATUS_LABEL, ORDER_STATUS_LABEL } from "@/lib/types";
+import { orderFigures, orderStatusLabel } from "@/lib/refund-math";
+import { DISPUTE_STATUS_LABEL } from "@/lib/types";
 import { Badge, PageHeader, Stat } from "../../panel/ui";
 import { AdminTable, td } from "../ui";
 
 export default async function AdminSales() {
   await requireAdmin();
   const orders = await prisma.order.findMany({ orderBy: { createdAt: "desc" }, take: 300, include: { creator: { select: { displayName: true, username: true } } } });
-  const paid = orders.filter((o) => o.status === "PAID");
+  // Cifras netas de reembolsos; un pedido devuelto del todo ya no cuenta como pagado.
+  const paid = orders.map(orderFigures).filter((f) => f.counts);
   return (
     <div>
       <PageHeader title="Ventas" subtitle="Todos los pedidos de todas las creadoras (últimos 300)." />
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="GMV" value={formatMoney(paid.reduce((a, o) => a + o.amountCents, 0))} accent />
-        <Stat label="Comisiones" value={formatMoney(paid.reduce((a, o) => a + o.platformFeeCents, 0), "EUR", { decimals: true })} />
+        <Stat label="GMV" value={formatMoney(paid.reduce((a, f) => a + f.gross, 0))} accent />
+        <Stat label="Comisiones" value={formatMoney(paid.reduce((a, f) => a + f.fee, 0), "EUR", { decimals: true })} />
         <Stat label="Pedidos pagados" value={paid.length} />
         <Stat label="Sin completar" value={orders.length - paid.length} />
       </div>
@@ -29,7 +31,7 @@ export default async function AdminSales() {
             <td className={`${td} tabular-nums text-muted`}>{formatMoney(o.platformFeeCents, o.currency, { decimals: true })} <span className="text-xs">({o.commissionBps / 100} %)</span></td>
             <td className={`${td} text-right`}>
               <span className="inline-flex flex-wrap justify-end gap-1.5">
-                <Badge tone={o.status === "PAID" ? "success" : o.status === "FAILED" ? "danger" : o.status === "PROCESSING" ? "warning" : "neutral"}>{ORDER_STATUS_LABEL[o.status] ?? o.status}</Badge>
+                <Badge tone={o.status === "PAID" ? (o.refundedCents > 0 ? "warning" : "success") : o.status === "FAILED" ? "danger" : o.status === "PROCESSING" ? "warning" : "neutral"}>{orderStatusLabel(o)}</Badge>
                 {o.disputeStatus && <Badge tone={o.disputeStatus === "WON" ? "neutral" : "danger"}>{DISPUTE_STATUS_LABEL[o.disputeStatus]}</Badge>}
               </span>
             </td>

@@ -43,11 +43,24 @@ export default async function AdminCreators({ searchParams }: { searchParams: Pr
       include: { plan: true, user: { select: { email: true } }, category: true, _count: { select: { products: true, customers: true } } },
     }),
     prisma.plan.findMany({ orderBy: { sortOrder: "asc" } }),
-    prisma.order.groupBy({ by: ["creatorId"], where: { status: "PAID" }, _sum: { amountCents: true, platformFeeCents: true } }),
+    // Neto de reembolsos: lo vendido menos lo devuelto (los pedidos REFUNDED suman 0).
+    prisma.order.groupBy({
+      by: ["creatorId"],
+      where: { status: { in: ["PAID", "REFUNDED"] } },
+      _sum: { amountCents: true, platformFeeCents: true, refundedCents: true, refundedFeeCents: true },
+    }),
     prisma.creator.groupBy({ by: ["payoutStatus"], _count: { _all: true } }),
   ]);
   const funnelCount = new Map(funnel.map((f) => [f.payoutStatus, f._count._all]));
-  const g = new Map(gmv.map((x) => [x.creatorId, x._sum]));
+  const g = new Map(
+    gmv.map((x) => [
+      x.creatorId,
+      {
+        amountCents: (x._sum.amountCents ?? 0) - (x._sum.refundedCents ?? 0),
+        platformFeeCents: (x._sum.platformFeeCents ?? 0) - (x._sum.refundedFeeCents ?? 0),
+      },
+    ]),
+  );
   return (
     <div>
       <PageHeader title="Creadoras" subtitle={`${creators.length} espacios`} />

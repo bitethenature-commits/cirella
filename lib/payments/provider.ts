@@ -82,7 +82,8 @@ export type RefundUpdateStatus = "pending" | "succeeded" | "failed" | "canceled"
 /** Un aviso de la pasarela traducido a algo que no depende de Stripe. */
 export type PaymentUpdate =
   | { kind: "payment"; status: PaymentStatus }
-  | { kind: "refund"; paymentRef: string; refundRef: string; amountCents: number; status: RefundUpdateStatus }
+  // refundId: nuestro Refund.id (metadatos del reembolso), si lo pidió Cirella
+  | { kind: "refund"; paymentRef: string; refundRef: string; refundId?: string; amountCents: number; status: RefundUpdateStatus }
   | { kind: "dispute"; paymentRef: string; disputeRef: string; status: "OPEN" | "WON" | "LOST"; amountCents: number; reason?: string }
   | { kind: "account"; accountId: string }
   | { kind: "ignored" };
@@ -94,6 +95,8 @@ export type RefundInput = {
   /** ¿Devuelve Cirella también su comisión? (decisión pendiente, ver docs/pagos-stripe.md) */
   refundApplicationFee: boolean;
   idempotencyKey: string;
+  /** Motivo que ve la pasarela (Stripe lo usa en sus avisos de fraude). */
+  reason?: "requested_by_customer" | "duplicate";
   metadata?: Record<string, string>;
 };
 

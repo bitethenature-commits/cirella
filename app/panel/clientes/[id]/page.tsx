@@ -4,7 +4,8 @@ import { ArrowLeft, Mail } from "lucide-react";
 import { requireCreator } from "@/lib/auth";
 import { formatMoney, formatPrice } from "@/lib/money";
 import { tenantDb } from "@/lib/tenant";
-import { BOOKING_STATUS_LABEL, ORDER_STATUS_LABEL } from "@/lib/types";
+import { orderStatusLabel } from "@/lib/refund-math";
+import { BOOKING_STATUS_LABEL } from "@/lib/types";
 import { capitalize, formatSessionDate } from "@/lib/tz";
 import { Badge, Stat } from "../../ui";
 
@@ -80,8 +81,8 @@ export default async function CustomerDetail({ params }: { params: Promise<{ id:
         <h2 className="font-semibold">Pedidos</h2>
         {c.orders.map((o) => (
           <p key={o.id} className="mt-2 flex items-center justify-between gap-3 text-sm">
-            <span className="min-w-0 truncate">{o.productTitle} <span className="text-muted">· {o.createdAt.toLocaleDateString("es-ES", { day: "numeric", month: "short" })}</span></span>
-            <span className="shrink-0 font-semibold tabular-nums">{formatMoney(o.amountCents, o.currency, { decimals: true })} <span className="font-normal text-muted">{ORDER_STATUS_LABEL[o.status]}</span></span>
+            <span className="min-w-0 truncate"><Link href={`/panel/ventas/${o.id}`} className="hover:underline">{o.productTitle}</Link> <span className="text-muted">· {o.createdAt.toLocaleDateString("es-ES", { day: "numeric", month: "short" })}</span></span>
+            <span className="shrink-0 font-semibold tabular-nums">{formatMoney(o.amountCents, o.currency, { decimals: true })} <span className="font-normal text-muted">{orderStatusLabel(o)}</span></span>
           </p>
         ))}
       </section>

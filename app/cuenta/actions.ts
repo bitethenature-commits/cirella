@@ -5,6 +5,7 @@ import { z } from "zod";
 import { hashPassword, requireUser, revokeOtherSessions, sendMagicLink } from "@/lib/auth";
 import { emit } from "@/lib/automations";
 import { hasBookingClash, isBookingOverlapError, isSlotAvailable } from "@/lib/booking";
+import { notifyRescheduled, releaseBookingEmails } from "@/lib/booking-changes";
 import { hasAccess } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { syncBookingToCalendar } from "@/lib/orders";
@@ -35,27 +36,30 @@ export async function scheduleBooking(bookingId: string, slotStart: string) {
     return { ok: false as const, error: "Ese horario ya no está disponible" };
   const start = new Date(slotStart);
   const end = new Date(start.getTime() + (booking.product.durationMin ?? 60) * 60000);
-  const taken = await prisma
+  const outcome = await prisma
     .$transaction(async (tx) => {
-      if (await hasBookingClash(tx, booking.creatorId, start, end, booking.product.bufferMin ?? 15, booking.id)) return true;
-      await tx.booking.update({ where: { id: booking.id }, data: { status: "CONFIRMED", startAt: start, endAt: end, externalEventId: null } });
-      return false;
+      if (await hasBookingClash(tx, booking.creatorId, start, end, booking.product.bufferMin ?? 15, booking.id)) return "taken" as const;
+      // Condicionado al estado leído: si la creadora la acaba de cancelar, no se resucita.
+      const c = await tx.booking.updateMany({
+        where: { id: booking.id, status: booking.status },
+        data: { status: "CONFIRMED", startAt: start, endAt: end, externalEventId: null },
+      });
+      return c.count ? ("ok" as const) : ("changed" as const);
     })
     // La regla Booking_no_overlap de la BD es la última red de seguridad: mismo mensaje que un choque.
     .catch((e) => {
-      if (isBookingOverlapError(e)) return true;
+      if (isBookingOverlapError(e)) return "taken" as const;
       throw e;
     });
-  if (taken) return { ok: false as const, error: "Ese horario acaba de ocuparse. Elige otro, por favor." };
+  if (outcome === "taken") return { ok: false as const, error: "Ese horario acaba de ocuparse. Elige otro, por favor." };
+  if (outcome === "changed") return { ok: false as const, error: "Esta reserva ya no se puede cambiar. Escribe a la creadora." };
   // Si cambia de fecha, los recordatorios antiguos se cancelan y las confirmaciones previas
   // liberan su clave, para que volver a una hora anterior genere avisos nuevos.
-  await prisma.emailMessage.updateMany({
-    where: { template: "SESSION_REMINDER", status: "QUEUED", dedupeKey: { startsWith: `reminder:${booking.id}:` } },
-    data: { status: "CANCELED", dedupeKey: null },
-  });
-  await prisma.emailMessage.updateMany({ where: { dedupeKey: { startsWith: `booking:${booking.id}:` } }, data: { dedupeKey: null } });
+  await releaseBookingEmails(booking.id);
   await syncBookingToCalendar(booking.id);
   await emit({ type: "booking.confirmed", bookingId: booking.id });
+  // Si la creadora había propuesto otra fecha, le avisamos de la que ha elegido.
+  await notifyRescheduled(booking.id);
   revalidatePath(`/cuenta/sesiones/${booking.id}`);
   return { ok: true as const };
 }

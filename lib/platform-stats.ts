@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "./db";
+import { orderFigures } from "./refund-math";
 import { dateKeyInTz } from "./tz";
 
 const TZ = "Europe/Madrid";
@@ -26,8 +27,11 @@ export function monthLabel(key: string) {
 
 /** Métricas globales de la plataforma (solo superadmin: sin aislamiento por tenant). */
 export async function getPlatformOverview() {
-  const [orders, txs, creators, plans, customers, activeSubs, blockedUsers] = await Promise.all([
-    prisma.order.findMany({ where: { status: "PAID" }, select: { amountCents: true, platformFeeCents: true, paidAt: true, creatorId: true } }),
+  const [settledOrders, txs, creators, plans, customers, activeSubs, blockedUsers] = await Promise.all([
+    prisma.order.findMany({
+      where: { status: { in: ["PAID", "REFUNDED"] } },
+      select: { status: true, amountCents: true, platformFeeCents: true, refundedCents: true, refundedFeeCents: true, paidAt: true, creatorId: true },
+    }),
     prisma.transaction.findMany({ where: { type: { in: ["PLAN_FEE", "RENEWAL"] } }, select: { type: true, amountCents: true, platformFeeCents: true, createdAt: true, creatorId: true } }),
     prisma.creator.findMany({ select: { id: true, planId: true, status: true, published: true, createdAt: true, displayName: true, username: true } }),
     prisma.plan.findMany({ orderBy: { sortOrder: "asc" } }),
@@ -35,6 +39,12 @@ export async function getPlatformOverview() {
     prisma.subscription.count({ where: { status: "ACTIVE" } }),
     prisma.user.count({ where: { status: "BLOCKED" } }),
   ]);
+  // Pedidos netos de reembolsos (Order.refundedCents). Las filas REFUND del libro no se suman aquí:
+  // contarían dos veces lo mismo.
+  const orders = settledOrders
+    .map((o) => ({ ...o, f: orderFigures(o) }))
+    .filter((o) => o.f.counts)
+    .map((o) => ({ ...o, amountCents: o.f.gross, platformFeeCents: o.f.fee }));
   // El volumen vendido incluye las renovaciones de membresías (no generan pedido, solo transacción).
   const renewals = txs.filter((t) => t.type === "RENEWAL");
   const gmv = orders.reduce((a, o) => a + o.amountCents, 0) + renewals.reduce((a, t) => a + t.amountCents, 0);

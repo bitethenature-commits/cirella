@@ -111,7 +111,11 @@ export function mapEvent(evt: Stripe.Event): PaymentUpdate[] {
       const re = obj as Stripe.Refund;
       const paymentRef = idOf(re.payment_intent);
       if (!paymentRef) return [{ kind: "ignored" }];
-      return [{ kind: "refund", paymentRef, refundRef: re.id, amountCents: re.amount, status: evt.type === "refund.failed" ? "failed" : mapRefundStatus(re.status) }];
+      const status = evt.type === "refund.failed" ? "failed" : mapRefundStatus(re.status);
+      // Los reembolsos que pide Cirella llevan su Refund.id: así el aviso los encuentra aunque llegue
+      // antes de que hayamos guardado la referencia re_….
+      const refundId = re.metadata?.refundId;
+      return [{ kind: "refund", paymentRef, refundRef: re.id, ...(refundId ? { refundId } : {}), amountCents: re.amount, status }];
     }
     case "charge.dispute.created":
     case "charge.dispute.updated":

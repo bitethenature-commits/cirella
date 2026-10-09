@@ -23,6 +23,15 @@ export function paymentProvider(): PaymentProvider {
   return providers[selectPaymentProviderKey(env().PAYMENT_PROVIDER, appEnv())];
 }
 
+/**
+ * La pasarela con la que se cobró algo (Order.paymentProvider): un reembolso siempre va por ella,
+ * aunque PAYMENT_PROVIDER haya cambiado después. Sin alternativa silenciosa: una clave desconocida lanza.
+ */
+export function paymentProviderByKey(key: string): PaymentProvider {
+  if (key !== "simulated" && key !== "stripe") throw new Error(`Pasarela de pago desconocida: «${key}».`);
+  return providers[key];
+}
+
 export type {
   PaymentMethodInput,
   PaymentProvider,

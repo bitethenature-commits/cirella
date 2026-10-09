@@ -146,6 +146,7 @@ export function createStripeProvider(client: StripeLike = stripeClient(), cfg: S
             // Cargos de destino: se recupera de la cuenta de la creadora lo que se le transfirió.
             reverse_transfer: true,
             refund_application_fee: i.refundApplicationFee,
+            reason: i.reason,
             metadata: i.metadata,
           },
           { idempotencyKey: i.idempotencyKey },

@@ -11,7 +11,11 @@ import { prisma } from "../lib/db";
 import { yearOf } from "../lib/dac7";
 import { dac7ForCreator, dac7Report } from "../lib/dac7-data";
 import { createPendingOrder } from "../lib/orders";
+import { cancelBooking, requestReschedule } from "../lib/booking-changes";
 import { applyPaymentUpdate } from "../lib/payments/events";
+import type { PaymentProvider } from "../lib/payments/provider";
+import { simulatedProvider } from "../lib/payments/simulated";
+import { refundOrder, withdrawOrder } from "../lib/refunds";
 import { syncPayoutAccount } from "../lib/payouts";
 import { findPastDueSubscription } from "../lib/subscriptions";
 import { TENANT_MODELS, tenantDb } from "../lib/tenant";
@@ -92,6 +96,7 @@ async function main() {
   try {
     check("condiciones legales de María invisibles", (await db.legalSnapshot.findFirst({ where: { id: snapshot.id } })) === null);
     check("reembolsos de María invisibles", (await db.refund.findUnique({ where: { id: refund.id } })) === null);
+    check("findMany/count de reembolsos: solo los de Ana", (await db.refund.findMany()).every((r) => r.creatorId === ana.id) && (await db.refund.count()) === (await prisma.refund.count({ where: { creatorId: ana.id } })));
     check("facturas de María invisibles", (await db.invoice.findFirst({ where: { id: invoice.id } })) === null);
     check("count de facturas no incluye las de otras", (await db.invoice.count()) === (await prisma.invoice.count({ where: { creatorId: ana.id } })));
     const ur = await db.refund.updateMany({ where: { id: refund.id }, data: { status: "SUCCEEDED" } });
@@ -105,6 +110,7 @@ async function main() {
   }
 
   await paymentsIsolation(ana, maria);
+  await refundsIsolation(ana, maria);
 
   console.log(failures ? `\n${failures} comprobaciones fallidas` : "\nAislamiento multi-tenant correcto ✓");
   process.exit(failures ? 1 : 0);
@@ -172,6 +178,52 @@ async function paymentsIsolation(ana: CreatorRow, maria: CreatorRow) {
   } finally {
     await prisma.order.delete({ where: { id: order.id } });
     await prisma.creator.update({ where: { id: ana.id }, data: { ...anaPayout, payoutRequirements: anaPayout.payoutRequirements ?? Prisma.DbNull } });
+  }
+}
+
+/** Reembolsos, desistimientos y cambios de reserva: Ana no toca nada de María; Laura, nada de Carmen. */
+async function refundsIsolation(ana: CreatorRow, maria: CreatorRow) {
+  let providerCalls = 0;
+  const provider: PaymentProvider = {
+    ...simulatedProvider,
+    async refund() {
+      providerCalls++;
+      return { ok: true, refundRef: `sim_re_isolation_${Date.now()}`, status: "succeeded" };
+    },
+  };
+  const mariaOrder = await prisma.order.findFirstOrThrow({ where: { creatorId: maria.id, status: "PAID" }, include: { customer: true } });
+  const before = { status: mariaOrder.status, refundedCents: mariaOrder.refundedCents };
+  const r = await refundOrder(
+    { orderId: mariaOrder.id, actor: { kind: "creator", creatorId: ana.id, userId: ana.userId }, reason: "OTHER", revokeAccess: true, cancelBooking: true },
+    { provider },
+  );
+  const after = await prisma.order.findUniqueOrThrow({ where: { id: mariaOrder.id } });
+  check("Ana no puede reembolsar un pedido de María (NOT_FOUND)", !r.ok && r.code === "NOT_FOUND");
+  check("…ni se llama a la pasarela ni se crea un Refund", providerCalls === 0 && (await prisma.refund.count({ where: { orderId: mariaOrder.id } })) === 0);
+  check("…y el pedido de María sigue igual", after.status === before.status && after.refundedCents === before.refundedCents);
+
+  // Laura no puede desistir de la compra de Carmen a María.
+  const laura = await prisma.user.findUniqueOrThrow({ where: { email: "laura@example.com" } });
+  const w = await withdrawOrder({ orderId: mariaOrder.id, userId: laura.id, email: laura.email }, { provider });
+  check("Laura no puede desistir de una compra de Carmen (NOT_FOUND)", !w.ok && w.code === "NOT_FOUND" && providerCalls === 0);
+
+  // Reserva temporal de María: Ana no puede cancelarla ni moverla.
+  const start = new Date(Date.now() + 40 * 86_400_000);
+  const mariaProduct = await prisma.product.findFirstOrThrow({ where: { creatorId: maria.id } });
+  const booking = await prisma.booking.create({
+    data: {
+      creatorId: maria.id, productId: mariaProduct.id, customerId: mariaOrder.customerId!, userId: mariaOrder.customer!.userId,
+      status: "CONFIRMED", startAt: start, endAt: new Date(start.getTime() + 3_600_000),
+    },
+  });
+  try {
+    const c = await cancelBooking({ creatorId: ana.id, bookingId: booking.id, by: "CREATOR", reason: "intento", notify: true });
+    const m = await requestReschedule({ creatorId: ana.id, bookingId: booking.id, note: null });
+    const still = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+    check("Ana no puede cancelar ni mover una reserva de María", !c.ok && !m.ok);
+    check("…y la reserva de María sigue intacta", still.status === "CONFIRMED" && still.startAt?.getTime() === start.getTime() && !still.rescheduleRequestedAt);
+  } finally {
+    await prisma.booking.delete({ where: { id: booking.id } });
   }
 }
 

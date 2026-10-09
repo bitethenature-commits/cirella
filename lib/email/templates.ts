@@ -5,11 +5,13 @@
 
 const PLATFORM = "Cirella";
 
-function esc(s: string) {
+/** Escapa texto para HTML. Todo lo que escribe una persona (nombres, mensajes) pasa por aquí. */
+export function esc(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
-function layout(opts: { brand?: string; title: string; body: string; cta?: { label: string; url: string }; footer?: string }) {
+/** Plantilla con la marca (lib/email/refund-templates.ts la reutiliza). */
+export function layout(opts: { brand?: string; title: string; body: string; cta?: { label: string; url: string }; footer?: string }) {
   const brand = esc(opts.brand ?? PLATFORM);
   const cta = opts.cta
     ? `<p style="margin:28px 0 8px"><a href="${esc(opts.cta.url)}" style="display:inline-block;background:#0E1024;color:#F6F1E7;text-decoration:none;padding:13px 22px;border-radius:999px;font-weight:600;font-size:14px">${esc(opts.cta.label)}</a></p>`
@@ -26,7 +28,7 @@ function layout(opts: { brand?: string; title: string; body: string; cta?: { lab
 </div></body></html>`;
 }
 
-const p = (s: string) => `<p style="margin:0 0 12px">${s}</p>`;
+export const p = (s: string) => `<p style="margin:0 0 12px">${s}</p>`;
 
 export function magicLinkEmail(o: { url: string; creatorName?: string }) {
   return {

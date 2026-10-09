@@ -25,7 +25,12 @@ export type DomainEvent =
   | { type: "booking.confirmed"; bookingId: string }
   | { type: "subscription.created"; subscriptionId: string }
   | { type: "subscription.canceled"; subscriptionId: string }
-  | { type: "checkout.abandoned"; orderId: string };
+  | { type: "checkout.abandoned"; orderId: string }
+  // Reembolsos y cambios de reserva (lib/refunds.ts, lib/booking-changes.ts). Sus emails se envían
+  // directamente; los eventos quedan para quien tenga que reaccionar (p. ej. la factura rectificativa).
+  | { type: "order.refunded"; orderId: string; refundId: string }
+  | { type: "booking.cancelled"; bookingId: string }
+  | { type: "booking.reschedule_requested"; bookingId: string };
 
 /** Cuánto puede tardar un intento antes de que otro proceso lo dé por caído y lo retome. */
 const LEASE_MS = 5 * 60_000;

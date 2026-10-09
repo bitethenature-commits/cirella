@@ -7,7 +7,7 @@ import { formatPrice } from "../money";
 import { captureAlert, captureError } from "../monitoring";
 import { fulfillOrder } from "../orders";
 import { syncPayoutAccount } from "../payouts";
-import { applyProviderRefund } from "../refunds";
+import { syncProviderRefund } from "../refunds";
 import { truncateError } from "../reliability";
 import { applyRenewal, recordRenewalFailure } from "../subscriptions";
 import { paymentProvider } from "./index";
@@ -33,10 +33,18 @@ export async function applyPaymentUpdate(u: PaymentUpdate, providerKey: string):
       if (u.status.metadata.orderId) return applyOrderPayment(u.status, providerKey);
       if (u.status.metadata.subscriptionId) return applySubscriptionPayment(u.status);
       return { ignored: true };
-    case "refund":
-      if (u.status !== "succeeded") return { ignored: true };
-      await applyProviderRefund({ paymentRef: u.paymentRef, refundRef: u.refundRef, amountCents: u.amountCents, reason: "PROVIDER" });
-      return {};
+    case "refund": {
+      // Reembolsos pedidos desde Cirella (cambian de estado) o hechos desde el panel de Stripe.
+      const r = await syncProviderRefund({
+        provider: providerKey,
+        paymentRef: u.paymentRef,
+        providerRef: u.refundRef,
+        refundId: u.refundId,
+        amountCents: u.amountCents,
+        status: u.status,
+      });
+      return r ?? { ignored: true };
+    }
     case "dispute":
       return applyDispute(u);
     case "account": {
@@ -176,7 +184,16 @@ async function applyDispute(u: Extract<PaymentUpdate, { kind: "dispute" }>): Pro
     for (const r of recipients)
       await enqueueEmail({ to: r.email, userId: r.id, creatorId: r.creatorId, fromName: null, replyTo: null, template: "DISPUTE_OPENED", dedupeKey: `dispute:${u.disputeRef}:${r.id}`, ...mail });
   }
-  if (u.status === "LOST") await applyProviderRefund({ paymentRef: u.paymentRef, refundRef: u.disputeRef, amountCents: u.amountCents, reason: "DISPUTE_LOST" });
+  // Contracargo perdido: el banco ya le ha devuelto el dinero; se registra como reembolso.
+  if (u.status === "LOST")
+    await syncProviderRefund({
+      provider: order.paymentProvider,
+      paymentRef: u.paymentRef,
+      providerRef: u.disputeRef,
+      amountCents: u.amountCents,
+      status: "succeeded",
+      reason: "DISPUTE_LOST",
+    });
   return ids;
 }
 

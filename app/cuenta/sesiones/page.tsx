@@ -17,7 +17,7 @@ export default async function MySessions() {
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold">{b.product.title}</p>
-        <p className="text-sm text-muted">{b.startAt ? capitalize(formatSessionDate(b.startAt, b.creatorBrief.timezone)) : "Pendiente de elegir fecha"}</p>
+        <p className="text-sm text-muted">{b.startAt ? capitalize(formatSessionDate(b.startAt, b.creatorBrief.timezone)) : b.rescheduleRequestedAt ? `${b.creatorBrief.displayName} te propone otra fecha: elígela` : "Pendiente de elegir fecha"}</p>
         <CreatorTag name={b.creatorBrief.displayName} avatarUrl={b.creatorBrief.avatarUrl} />
       </div>
       <span className="chip shrink-0">{BOOKING_STATUS_LABEL[b.status]}</span>

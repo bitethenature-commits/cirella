@@ -24,6 +24,7 @@
     "test:concurrency": "tsx --conditions=react-server scripts/booking-concurrency-test.ts",
     "test:reliability": "tsx --conditions=react-server scripts/reliability-test.ts",
     "test:payments": "tsx --conditions=react-server scripts/payments-test.ts",
+    "test:refunds": "tsx --conditions=react-server scripts/refunds-test.ts",
     "test:seed-guard": "tsx scripts/seed-guard-test.ts",
     "test:startup": "tsx scripts/startup-guard-test.ts",
     "test:e2e": "playwright test"

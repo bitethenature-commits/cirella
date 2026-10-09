@@ -39,8 +39,10 @@ de `account.updated` y de la vuelta del formulario. **Solo se puede vender con l
 (`canAcceptPayments`: Stripe permite cobrar y la cuenta es de la pasarela actual). El embudo está
 en /admin/creadoras.
 
-**Reembolsos y contracargos**: los reembolsos hechos en el panel de Stripe (`refund.*`) y los
-contracargos perdidos se registran con `applyProviderRefund` (lib/refunds.ts, punto #6). Los
+**Reembolsos y contracargos**: los reembolsos se piden desde el panel (`refundOrder`,
+lib/refunds.ts) y sus avisos (`refund.*`) actualizan su estado; los hechos directamente en el panel
+de Stripe y los contracargos perdidos se registran como reembolsos de la pasarela
+(`syncProviderRefund`), con los mismos efectos (acceso, sesión, libro y estadísticas). Los
 contracargos se anotan en el pedido (`disputeStatus`) y se avisa por email a la creadora y a las
 administradoras.
 
@@ -120,8 +122,19 @@ Esas páginas no existen con Stripe real.
   de Cirella. Con el plan Pro (2 %) y tickets pequeños Cirella pierde dinero: en una venta de 10 €
   la comisión es 0,20 € y Stripe cobra ≈ 0,40 €. Decidir comisión mínima por venta, otra comisión o
   repercutir la tarifa.
-- **Reembolsos**: ¿devuelve Cirella su comisión al reembolsar? (`refund_application_fee`, lo usa
-  el punto #6). `reverse_transfer` va siempre activado.
+- **Reembolsos** (lib/refunds.ts): hoy Cirella devuelve su comisión en proporción
+  (`refund_application_fee: true`) y `reverse_transfer` va siempre activado. Stripe no devuelve su
+  propia tarifa: con cargos de destino la pierde Cirella. Decidir si se mantiene, si la comisión se
+  queda en los reembolsos que inicia la creadora y quién absorbe la tarifa de Stripe. Fuera de
+  alcance por ahora: reembolsar renovaciones de membresía (no tienen pedido) y reembolsos desde /admin.
+- **Desistimiento (abogada)**: reglas en `withdrawalEligibility` (lib/refund-math.ts): 14 días
+  naturales desde el pago; no cabe si la sesión ya empezó o se hizo, ni en digital/cursos/membresías
+  con renuncia expresa en el checkout (`Order.waiverAcceptedAt`, punto #3); si cabe, se devuelve todo
+  lo que queda (también en membresías, sin prorrateo: el art. 108.3 TRLGDCU permitiría cobrar la
+  parte disfrutada). Confirmar también si la creadora puede «Cancelar sin reembolso» una sesión
+  pagada (hoy sí, con motivo obligatorio y aviso) o solo cuando la clienta no se presentó.
+- **Factura rectificativa (asesoría, punto #4)**: cada reembolso completado emite el evento
+  `order.refunded` {orderId, refundId} para engancharla.
 - **Bizum**: Stripe no lo ofrece. Lo construido es tarjeta + Apple Pay + Google Pay (sin SEPA:
   una reserva no puede esperar días). Bizum necesitaría Redsys más adelante; el estado
   «pago pendiente» ya lo admitiría.
