@@ -56,10 +56,12 @@ test.describe.serial("Flujo principal", () => {
     await page.getByPlaceholder("49").fill("29");
     await expect(page.getByText(/Recibirás/)).toBeVisible();
     await next.click();
-    // 9. Pago
-    await page.getByRole("button", { name: "Conectar cuenta de cobro" }).click();
-    await expect(page.getByText(/Conectada/)).toBeVisible();
-    await next.click();
+    // 9. Cuenta de cobro: formulario de Stripe (simulado) y vuelta al onboarding, ya en el paso 10
+    await page.getByRole("button", { name: "Conectar con Stripe" }).click();
+    await page.waitForURL("**/pago-simulado/cuenta**");
+    await page.getByRole("button", { name: "Verificar al instante" }).click();
+    await page.waitForURL("**/onboarding");
+    await expect(page.getByText("Pagos activados")).toBeVisible();
     // 10. Publicar
     await page.getByRole("button", { name: "Publicar mi página" }).click();
     await page.waitForURL("**/onboarding/lista");

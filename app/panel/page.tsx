@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Check, Palette, Plus, Sparkles, TrendingUp } from "lucide-react";
 import { BarChart } from "@/components/charts";
+import { Dac7Banner, PayoutBanner } from "@/components/panel/payout-status";
 import { requireCreator } from "@/lib/auth";
+import { dac7Missing } from "@/lib/dac7";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import { readPageConfig } from "@/lib/page-config";
 import { planFeatures } from "@/lib/plans";
+import { getSettings } from "@/lib/settings";
 import { getDashboardStats, parseRange, RANGES } from "@/lib/stats";
 import { tenantDb } from "@/lib/tenant";
 import { capitalize, formatSessionDate } from "@/lib/tz";
@@ -18,6 +21,12 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
   const cfg = readPageConfig(creator.pageDraft, creator.displayName);
   const db = tenantDb(creator.id);
   const productCount = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
+  // DAC7: el aviso sale si faltan datos y ya se le han pedido o vende algo declarable.
+  const dac7Missed = dac7Missing(creator);
+  const { dac7ReportableTypes } = await getSettings();
+  const showDac7 =
+    dac7Missed.length > 0 &&
+    (!!creator.dac7RequestedAt || (await db.product.count({ where: { status: "PUBLISHED", type: { in: dac7ReportableTypes } } })) > 0);
   const first = cfg.displayName.split(" ")[0];
   const rangeLabel = { month: "este mes", "30d": "en los últimos 30 días", all: "en total" }[range];
   const top = s.topProducts[0];
@@ -25,7 +34,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
   const checklist = [
     { done: !!cfg.avatarUrl, label: "Sube tu foto", href: "/panel/pagina" },
     { done: productCount >= 2, label: "Añade un segundo producto", href: "/panel/productos/nuevo" },
-    { done: !!creator.payoutConnectedAt, label: "Conecta tu método de cobro", href: "/panel/ajustes" },
+    { done: creator.payoutStatus === "ACTIVE", label: "Activa tus cobros", href: "/panel/ajustes/cobros" },
     { done: cfg.links.length > 0 || Object.keys(cfg.socials).length > 0, label: "Añade tus redes y enlaces", href: "/panel/pagina" },
     { done: s.pageViews > 0, label: "Comparte tu enlace en tu bio", href: "/panel/ajustes#compartir" },
   ];
@@ -38,6 +47,11 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
         subtitle={<>Así va tu negocio {rangeLabel}.</>}
         actions={<RangeTabs current={range} base="/panel" />}
       />
+
+      <div className="space-y-2 empty:hidden">
+        <PayoutBanner creator={creator} />
+        <Dac7Banner missing={dac7Missed} show={showDac7} />
+      </div>
 
       {/* Frases resumen */}
       <div className="grid gap-3 md:grid-cols-2">

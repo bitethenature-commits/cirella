@@ -60,7 +60,9 @@ Para la cuenta de administración: regístrate de forma normal en `/registro` co
 | `DATABASE_URL` / `DIRECT_URL` | Obligatorias | `postgresql://…`. La primera es la conexión de la aplicación (la del pooler, si lo hay); la segunda, la directa para las migraciones. |
 | `DEMO_MODE` | Prohibido `true` | `"true"` o `"false"`. Con `true` en producción la app no arranca. |
 | `PAYMENT_PROVIDER` | `stripe` | Obligatoria en todos los entornos, sin valor por defecto: si falta, las compras fallan en vez de entregarse gratis. `simulated` solo en local y pruebas. |
-| `STRIPE_SECRET_KEY` · `STRIPE_PUBLISHABLE_KEY` · `STRIPE_WEBHOOK_SECRET` | Obligatorias | `sk_live_`/`rk_live_`, `pk_live_` y `whsec_` en producción; claves `_test_` en el resto. |
+| `STRIPE_SECRET_KEY` · `STRIPE_PUBLISHABLE_KEY` · `STRIPE_WEBHOOK_SECRET` | Obligatorias | `sk_live_`/`rk_live_`, `pk_live_` y `whsec_` en producción; claves `_test_` en el resto. `STRIPE_WEBHOOK_SECRET` es el del endpoint de plataforma de `/api/webhooks/stripe` (ver [docs/pagos-stripe.md](docs/pagos-stripe.md)). |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Obligatoria | `whsec_…` del segundo endpoint, el de «eventos en cuentas conectadas» (`account.updated`): sin él no sabremos cuándo Stripe verifica a una creadora. |
+| `STRIPE_ON_BEHALF_OF` | Opcional | `true` hace a la creadora comerciante de liquidación (su nombre en el extracto de la tarjeta). Por defecto `false`; pendiente de decidir con la asesoría. |
 | `CRON_SECRET` | Obligatoria | 32+ caracteres aleatorios (`openssl rand -hex 32`). Token de `GET /api/cron`; con ella, `/api/health` vigila además que el cron no esté parado. |
 | `APP_SECRET` | Obligatoria | 32+ caracteres aleatorios. Firma de enlaces, los billetes de subida y las URLs temporales de descarga. Fuera de producción hay una fija de desarrollo. |
 | `EMAIL_PROVIDER` | `resend` | `log` (local, se ve en `/dev/correo`; las direcciones con `+fallo` o `+rebote` simulan fallos del proveedor) o `resend`. Con `resend`: `RESEND_API_KEY` y `EMAIL_FROM` (`Cirella <hola@tudominio.com>`, en un dominio verificado en Resend). Los emails a clientas salen desde esa dirección con el nombre de la creadora y responden a su email de contacto. |
@@ -82,7 +84,7 @@ Contraseña de todas: `demo1234`. También hay botones de acceso rápido en **/e
 ### Recorrido sugerido
 
 1. **`/`** · landing con precios leídos de la BD y una demo en vivo de Ana.
-2. **`/ana`** · página pública (plantilla Mystical) → un producto → **checkout** (tarjeta `4242…`; `4000 0000 0000 0002` simula un rechazo) → «Compra completada» → **`/cuenta`**.
+2. **`/ana`** · página pública (plantilla Mystical) → un producto → **checkout** (tarjeta `4242…`; `4000 0000 0000 0002` simula un rechazo y `4000 0027 6000 3184` la confirmación en la app del banco, con «El banco tarda» para ver el pago pendiente) → «Compra completada» → **`/cuenta`**.
 3. **`/registro`** · crea una creadora nueva: onboarding de 10 pasos → «Tu página está lista».
 4. **`/panel`** (como Ana) · métricas «Este mes / Últimos 30 días / Total», editor visual con vista previa en vivo, productos por tipo, reservas, automatizaciones, plan, referidos.
 5. **`/admin`** · todo lo de la plataforma: planes editables, comisiones, bloqueos, reportes CSV.
@@ -102,7 +104,9 @@ El flujo **Instagram → página → producto → pago → entrega → clienta r
 | Onboarding de 10 pasos + «Tu página está lista» con copiar / Instagram / WhatsApp / Telegram / ver página | ✅ |
 | Página pública mobile-first con 5 plantillas, secciones activables y ordenables, SEO, Open Graph y favicon por creadora, Schema.org | ✅ |
 | Productos: digital (archivos privados), sesión (duración, margen, antelación), curso (módulos y lecciones de vídeo, audio, PDF, texto o ejercicio), membresía (contenido privado) | ✅ |
-| Checkout sin cuenta previa, cuenta automática o enlace mágico tras pagar | ✅ (pago simulado) |
+| Checkout sin cuenta previa, cuenta automática o enlace mágico tras pagar | ✅ |
+| Cobros con Stripe Connect Express (Checkout alojado, cargos de destino, confirmación del banco y pago pendiente, tarjeta guardada para renovar membresías, contracargos) y verificación de la cuenta de cobro de cada creadora | ✅ (simulador en la demo; ver [docs/pagos-stripe.md](docs/pagos-stripe.md)) |
+| DAC7: datos fiscales de las creadoras, recordatorios, informe trimestral y CSV del modelo 238 | ✅ (criterios por confirmar con la asesoría) |
 | Área de cliente: compras, cursos con progreso, sesiones (elegir / cambiar fecha, .ics), membresías (cancelar / reactivar), archivos, perfil, soporte | ✅ |
 | Reservas: disponibilidad semanal, días bloqueados, zona horaria, huecos libres en tiempo real | ✅ |
 | Panel: ventas, ingresos, clientes, conversión, visitas, top productos, MRR, reservas, suscripciones | ✅ |
@@ -116,7 +120,7 @@ El flujo **Instagram → página → producto → pago → entrega → clienta r
 
 | Pieza | Hoy | Para producción |
 |---|---|---|
-| Pagos | `lib/payments/simulated.ts` | Stripe Connect: implementar `lib/payments/stripe.ts` y llamar a `fulfillOrder()` desde el webhook |
+| Pagos | `lib/payments/simulated.ts` (mismo ciclo de vida que Stripe) | Stripe ya integrado (`PAYMENT_PROVIDER=stripe`): crear la cuenta y los webhooks y probarlo en modo prueba con la CLI de Stripe ([docs/pagos-stripe.md](docs/pagos-stripe.md)). Las cuotas de los planes de las creadoras siguen simuladas. |
 | Emails | Bandeja `EmailMessage` + `/dev/correo` (proveedor `log`) | Resend ya integrado (`EMAIL_PROVIDER=resend`, `lib/email/providers/resend.ts`) |
 | Calendario | `lib/calendar.ts` sin proveedor | Google Calendar: implementar `CalendarProvider` (freebusy + events.insert) |
 | Archivos | Disco local (`STORAGE_DIR`) | S3/R2 manteniendo las funciones de `lib/storage.ts` |
@@ -137,13 +141,17 @@ app/
   panel/                   panel de la creadora (tenant)
   cuenta/                  área de cliente
   admin/                   superadmin
-  api/                     track, upload, download, slots, cron, health
+  api/                     track, upload, download, slots, cron, health, webhooks/stripe, payments (vuelta de la pasarela)
+  pago-simulado/           «Stripe» y «banco» del simulador (solo con PAYMENT_PROVIDER=simulated)
   dev/correo/              buzón de demostración
 components/
   creator-page/            renderizador de la página pública (también usado en la vista previa del editor)
 lib/
   tenant.ts                aislamiento multi-tenant
   orders.ts                checkout y entrega automática
+  payments/                pasarelas (simulada y Stripe Connect), avisos de la pasarela (events.ts) y reintentos de renovación
+  payouts.ts               cuenta de cobro de cada creadora: estado, requisitos de Stripe y avisos
+  dac7.ts, dac7-data.ts    DAC7 / modelo 238: datos fiscales, recordatorios e informe trimestral
   plans.ts                 entitlements de los planes
   events.ts                eventos de dominio (outbox transaccional) → event-handlers.ts
   automations.ts           qué emails envía cada evento
@@ -187,6 +195,10 @@ Valores iniciales (editables):
 
 Las reservas no se pisan aunque dos personas paguen el mismo hueco a la vez: la comprobación se hace dentro de la transacción bajo un cerrojo por creadora (`hasBookingClash` en `lib/booking.ts`), y la restricción `Booking_no_overlap` de Postgres impide dos reservas confirmadas solapadas aunque algún camino se salte el cerrojo. Quien llega tarde conserva su compra con la reserva pendiente de elegir fecha.
 
+### Cobros (Stripe Connect)
+
+Cada venta es un Checkout alojado de Stripe con **cargo de destino**: cobra la cuenta de Cirella, su comisión es `application_fee_amount` y el resto va a la cuenta Express de la creadora. Ningún dato de tarjeta pasa por nuestro servidor. El aviso de Stripe (`/api/webhooks/stripe`, guardado en `PaymentEvent` para no aplicarlo dos veces) y la vuelta de la compradora (`/api/payments/return`) acaban en `applyPaymentUpdate` (`lib/payments/events.ts`), que comprueba importe, moneda y cuenta de destino antes de entregar. Si el banco tarda, el pedido queda «Pago pendiente» (`PROCESSING`) y la página de gracias se actualiza sola; un segundo cobro del mismo pedido se reembolsa. Una creadora solo vende con su cuenta de cobro activada (`canAcceptPayments`, `lib/payouts.ts`); su estado y lo que le falta están en **/panel/ajustes/cobros** y el embudo en **/admin/creadoras**. Las membresías guardan la tarjeta y se renuevan sin la clienta delante; si falla, «Pago pendiente» con reintentos a 1 y 3 días y «Pagar ahora». Configuración, eventos, pruebas y decisiones pendientes: [docs/pagos-stripe.md](docs/pagos-stripe.md).
+
 ### Fiabilidad y monitorización
 
 Ningún recibo, acceso ni error se pierde en silencio:
@@ -212,14 +224,15 @@ npm run test:unit               # funciones puras (scripts/unit-tests.ts y scrip
 npm run test:isolation          # aislamiento multi-tenant a nivel de datos y del almacenamiento (billetes de subida)
 npm run test:concurrency        # dos compras simultáneas del mismo hueco → una sola reserva confirmada
 npm run test:reliability        # reintentos de emails, outbox de eventos, cerrojo del cron, renovaciones idempotentes, vigilante
+npm run test:payments           # entrega única ante avisos repetidos, guardián de importe, renovaciones fallidas, cuenta de cobro y DAC7
 npm run test:seed-guard         # el seed no borra BD reales; datos base idempotentes; admin:promote
 npm run build && npm run test:startup   # `next start` no arranca con una configuración de producción insegura
 npm run build && npm run test:e2e   # flujo completo en un iPhone simulado
 ```
 
-Las pruebas de aislamiento, concurrencia, fiabilidad y e2e usan el Postgres de `.env` con la demo sembrada (`npm run db:reset`). `test:seed-guard` crea y borra su propia base de datos (`cirella_guardtest`) en ese mismo Postgres. Playwright arranca `next start` con `APP_ENV=test`, modo demo y pagos simulados.
+Las pruebas de aislamiento, concurrencia, fiabilidad, pagos y e2e usan el Postgres de `.env` con la demo sembrada (`npm run db:reset`). `test:seed-guard` crea y borra su propia base de datos (`cirella_guardtest`) en ese mismo Postgres. Playwright arranca `next start` con `APP_ENV=test`, modo demo y pagos simulados.
 
-La prueba e2e recorre: landing → registro → onboarding de 10 pasos → publicar → compra como invitada → cuenta creada automáticamente → la venta aparece en el panel → la clienta de demo ve su curso al 43 %, su sesión y su PDF → Ana no puede abrir datos ni archivos de María. También cubre casos que fallaron en la revisión: registrarse con el email de otra compradora no da acceso a su cuenta, el menú «Más» del panel móvil, no pagar dos veces la misma membresía y reintentar un pago rechazado cambiando de hora. `e2e/entorno-demo.spec.ts` comprueba que el buzón `/dev/correo` solo lo ve la administradora, `e2e/infra.spec.ts` la subida directa, las imágenes WebP sin EXIF, las descargas firmadas, las cabeceras de seguridad y el peso de la página pública, y `e2e/fiabilidad.spec.ts` que un fallo del email no rompe la compra, que el envío aparece en el panel y en `/admin/envios` (reintentar y descartar), las páginas de error y 404 con la marca de la creadora y `/api/health`. Si Playwright no encuentra Chromium, indica la ruta con `PW_CHROMIUM_PATH`.
+La prueba e2e recorre: landing → registro → onboarding de 10 pasos → publicar → compra como invitada → cuenta creada automáticamente → la venta aparece en el panel → la clienta de demo ve su curso al 43 %, su sesión y su PDF → Ana no puede abrir datos ni archivos de María. También cubre casos que fallaron en la revisión: registrarse con el email de otra compradora no da acceso a su cuenta, el menú «Más» del panel móvil, no pagar dos veces la misma membresía y reintentar un pago rechazado cambiando de hora. `e2e/entorno-demo.spec.ts` comprueba que el buzón `/dev/correo` solo lo ve la administradora, `e2e/infra.spec.ts` la subida directa, las imágenes WebP sin EXIF, las descargas firmadas, las cabeceras de seguridad y el peso de la página pública, `e2e/pagos.spec.ts` la confirmación en el banco (3DS), el pago pendiente, cancelar y reintentar, los estados de la cuenta de cobro, «Pagar ahora» de una renovación y los datos e informe de DAC7, y `e2e/fiabilidad.spec.ts` que un fallo del email no rompe la compra, que el envío aparece en el panel y en `/admin/envios` (reintentar y descartar), las páginas de error y 404 con la marca de la creadora y `/api/health`. Si Playwright no encuentra Chromium, indica la ruta con `PW_CHROMIUM_PATH`.
 
 ---
 

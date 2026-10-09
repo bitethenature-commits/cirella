@@ -1,15 +1,17 @@
-import { CreditCard, Gift, KeyRound, Link2, Search, Share2 } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, CreditCard, Gift, KeyRound, Link2, Search, Share2 } from "lucide-react";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireCreator } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { appHost, appUrl } from "@/lib/env";
+import { payoutView } from "@/lib/payouts";
 import { REWARD_LABEL } from "@/lib/referrals";
 import { getSettings } from "@/lib/settings";
 import { ShareButtons } from "@/app/onboarding/lista/share-buttons";
 import { Badge, PageHeader } from "../ui";
-import { changePassword, togglePayments, updateAccount } from "./actions";
+import { changePassword, updateAccount } from "./actions";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const { creator, user } = await requireCreator();
@@ -18,6 +20,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     prisma.referral.findMany({ where: { referrerId: creator.id }, include: { referred: { select: { displayName: true, username: true, published: true } } }, orderBy: { createdAt: "desc" } }),
     getSettings(),
   ]);
+  const payout = payoutView(creator, { supportEmail: settings.supportEmail });
   const pageUrl = `${appUrl()}/${creator.username}`;
   const refUrl = `${appUrl()}/?ref=${creator.referralCode}`;
   const rewardText =
@@ -63,18 +66,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       <section className="card p-5 sm:p-6">
         <h2 className="flex items-center gap-2 font-semibold"><CreditCard className="h-4 w-4" /> Cobros</h2>
-        {creator.payoutConnectedAt ? (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm">Conectada desde el {creator.payoutConnectedAt.toLocaleDateString("es-ES")} · <span className="font-mono text-xs text-muted">{creator.payoutAccountId}</span></p>
-            <form action={togglePayments}><input type="hidden" name="action" value="disconnect" /><SubmitButton className="btn btn-danger btn-sm">Desconectar</SubmitButton></form>
-          </div>
-        ) : (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted">Sin cuenta de cobro: tus productos no se pueden comprar.</p>
-            <form action={togglePayments}><SubmitButton className="btn btn-primary btn-sm">Conectar cuenta de cobro</SubmitButton></form>
-          </div>
-        )}
-        <p className="mt-3 text-xs text-muted">Modo demostración: pagos simulados. Preparado para Stripe Connect (cobros directos a tu cuenta con la comisión de la plataforma descontada).</p>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="flex min-w-0 items-center gap-2 text-sm">
+            <Badge tone={payout.tone}>{payout.label}</Badge>
+            <span className="text-muted">{payout.canSell ? "Tus clientas ya pueden comprar." : "Nadie puede comprar hasta que se active."}</span>
+          </p>
+          <Link href="/panel/ajustes/cobros" className="btn btn-outline btn-sm">Gestionar cobros <ArrowRight className="h-3.5 w-3.5" /></Link>
+        </div>
       </section>
 
       <form action={updateAccount} className="card space-y-4 p-5 sm:p-6">

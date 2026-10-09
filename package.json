@@ -20,9 +20,10 @@
     "check:env": "tsx scripts/check-env.ts",
     "admin:promote": "tsx scripts/make-admin.ts",
     "test:unit": "tsx scripts/unit-tests.ts",
-    "test:isolation": "tsx scripts/tenant-isolation-test.ts && tsx scripts/storage-isolation-test.ts",
+    "test:isolation": "tsx --conditions=react-server scripts/tenant-isolation-test.ts && tsx scripts/storage-isolation-test.ts",
     "test:concurrency": "tsx --conditions=react-server scripts/booking-concurrency-test.ts",
     "test:reliability": "tsx --conditions=react-server scripts/reliability-test.ts",
+    "test:payments": "tsx --conditions=react-server scripts/payments-test.ts",
     "test:seed-guard": "tsx scripts/seed-guard-test.ts",
     "test:startup": "tsx scripts/startup-guard-test.ts",
     "test:e2e": "playwright test"

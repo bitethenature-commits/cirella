@@ -17,7 +17,7 @@ explica de dónde sale cada valor.
 | Base de datos | **Neon** Postgres 16 | `aws-eu-central-1` (Fráncfort) | Todos los datos; restauración a cualquier momento de los últimos 7 días |
 | Archivos | **Cloudflare R2** | Jurisdicción UE | Imágenes de las páginas, contenido de pago, copias manuales de la BD |
 | Emails | Resend | UE (`eu-west-1`) | Emails transaccionales |
-| Pagos | Stripe | — | Cobros y pagos a las creadoras |
+| Pagos | Stripe | — | Cobros y pagos a las creadoras (configuración: [pagos-stripe.md](pagos-stripe.md)) |
 
 El servidor nunca guarda archivos en disco (Vercel no tiene disco persistente):
 
@@ -155,6 +155,8 @@ borra de verdad.
 | `MIGRATE_ON_BUILD` | — | `true` |
 | `PAYMENT_PROVIDER` | `stripe` | `stripe` |
 | `STRIPE_SECRET_KEY` · `STRIPE_PUBLISHABLE_KEY` · `STRIPE_WEBHOOK_SECRET` | claves live | claves de prueba |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | secreto del endpoint de Connect (live) | ídem, de prueba |
+| `STRIPE_ON_BEHALF_OF` | según decida la asesoría (`false` por defecto) | ídem |
 | `APP_SECRET` | `openssl rand -hex 32` | otro distinto |
 | `CRON_SECRET` | `openssl rand -hex 32` | otro distinto |
 | `EMAIL_PROVIDER` | `resend` | `resend` |

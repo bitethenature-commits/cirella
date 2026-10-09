@@ -53,12 +53,20 @@ function SectionTitle({ n, title }: { n: number; title: string }) {
 export function CheckoutForm({
   product,
   payoutReady,
+  collectsCardOnSite,
+  initialOrderId,
+  notice,
   prefill,
   demo,
   creatorName,
 }: {
   product: Product;
   payoutReady: boolean;
+  /** true solo con el simulador; con Stripe la tarjeta se pide en su página. */
+  collectsCardOnSite: boolean;
+  /** Pedido que se reintenta (vuelta desde la pasarela o desde el email). */
+  initialOrderId?: string;
+  notice?: string;
   prefill: { name: string; email: string };
   demo: boolean;
   creatorName: string;
@@ -94,8 +102,8 @@ export function CheckoutForm({
   return (
     <form action={action} className="space-y-6">
       <input type="hidden" name="productId" value={product.id} />
-      <input type="hidden" name="orderId" value={state?.orderId ?? ""} />
-      <input type="hidden" name="method" value={method} />
+      <input type="hidden" name="orderId" value={state?.orderId ?? initialOrderId ?? ""} />
+      {collectsCardOnSite && <input type="hidden" name="method" value={method} />}
       <input type="hidden" name="slotStart" value={later ? "" : slot} />
 
       <div>
@@ -190,36 +198,46 @@ export function CheckoutForm({
 
       <section className="cp-card space-y-4 p-5">
         <SectionTitle n={++n} title="Método de pago" />
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { key: "card" as const, label: "Tarjeta", icon: CreditCard },
-            { key: "wallet" as const, label: "Apple / Google Pay", icon: Smartphone },
-          ].map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              onClick={() => setMethod(m.key)}
-              className="flex h-12 items-center justify-center gap-2 rounded-xl border text-sm font-medium transition"
-              style={method === m.key ? { borderColor: "var(--c-accent)", boxShadow: "0 0 0 1px var(--c-accent)" } : { borderColor: "var(--c-line)" }}
-            >
-              <m.icon className="h-4 w-4" /> {m.label}
-            </button>
-          ))}
-        </div>
-        {method === "card" ? (
-          <div className="space-y-3">
-            <input name="cardNumber" inputMode="numeric" autoComplete="cc-number" className="cp-input tabular-nums" placeholder="Número de tarjeta" defaultValue={demo ? "4242 4242 4242 4242" : ""} />
-            <div className="grid grid-cols-2 gap-3">
-              <input inputMode="numeric" autoComplete="cc-exp" className="cp-input" placeholder="MM/AA" defaultValue={demo ? "12/29" : ""} />
-              <input inputMode="numeric" autoComplete="cc-csc" className="cp-input" placeholder="CVC" defaultValue={demo ? "123" : ""} />
+        {collectsCardOnSite ? (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { key: "card" as const, label: "Tarjeta", icon: CreditCard },
+                { key: "wallet" as const, label: "Apple / Google Pay", icon: Smartphone },
+              ].map((m) => (
+                <button
+                  key={m.key}
+                  type="button"
+                  onClick={() => setMethod(m.key)}
+                  className="flex h-12 items-center justify-center gap-2 rounded-xl border text-sm font-medium transition"
+                  style={method === m.key ? { borderColor: "var(--c-accent)", boxShadow: "0 0 0 1px var(--c-accent)" } : { borderColor: "var(--c-line)" }}
+                >
+                  <m.icon className="h-4 w-4" /> {m.label}
+                </button>
+              ))}
             </div>
-          </div>
+            {method === "card" ? (
+              <div className="space-y-3">
+                <input name="cardNumber" inputMode="numeric" autoComplete="cc-number" className="cp-input tabular-nums" placeholder="Número de tarjeta" defaultValue={demo ? "4242 4242 4242 4242" : ""} />
+                <div className="grid grid-cols-2 gap-3">
+                  <input inputMode="numeric" autoComplete="cc-exp" className="cp-input" placeholder="MM/AA" defaultValue={demo ? "12/29" : ""} />
+                  <input inputMode="numeric" autoComplete="cc-csc" className="cp-input" placeholder="CVC" defaultValue={demo ? "123" : ""} />
+                </div>
+              </div>
+            ) : (
+              <p className="cp-muted text-sm">Confirmarás el pago con Face ID, huella o tu código en el siguiente paso.</p>
+            )}
+          </>
         ) : (
-          <p className="cp-muted text-sm">Confirmarás el pago con Face ID, huella o tu código en el siguiente paso.</p>
+          <p className="cp-muted flex items-start gap-2.5 text-sm">
+            <CreditCard className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Pagarás con tarjeta, Apple Pay o Google Pay en la página segura de Stripe. Si tu banco lo pide, confirmarás el pago en su app.</span>
+          </p>
         )}
         {demo && (
           <p className="rounded-xl px-3 py-2 text-xs" style={{ background: "color-mix(in oklab, var(--c-gold) 16%, transparent)" }}>
-            Modo demostración: no se cobra dinero real. Usa <span className="font-mono">4000 0000 0000 0002</span> para simular un pago rechazado.
+            Modo demostración: no se cobra dinero real. Usa <span className="font-mono">4000 0000 0000 0002</span> para simular un pago rechazado y{" "}
+            <span className="font-mono">4000 0027 6000 3184</span> para simular la confirmación en la app del banco.
           </p>
         )}
       </section>
@@ -233,9 +251,12 @@ export function CheckoutForm({
           <input type="checkbox" name="acceptTerms" defaultChecked className="mt-0.5 h-4 w-4 accent-[var(--c-accent)]" />
           Acepto las condiciones de compra{product.billingInterval ? " y la renovación mensual hasta que cancele" : ""}.
         </label>
-        {state?.error && (
+        {product.type === "MEMBERSHIP" && (
+          <p className="cp-faint px-1 text-xs">Guardaremos tu tarjeta de forma segura para las renovaciones; puedes cancelar cuando quieras desde tu cuenta.</p>
+        )}
+        {(state?.error ?? (state ? null : notice)) && (
           <p role="alert" className="rounded-xl border px-4 py-3 text-sm" style={{ borderColor: "#e8b4ab", background: "color-mix(in oklab, #e05a47 12%, transparent)" }}>
-            {state.error}
+            {state?.error ?? notice}
           </p>
         )}
         {!payoutReady && <p className="cp-muted text-center text-sm">Las compras de este producto aún no están disponibles.</p>}

@@ -3,15 +3,26 @@ import { notFound } from "next/navigation";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { TrackOnMount } from "@/components/creator-page/tracking";
 import { getCurrentUser } from "@/lib/auth";
+import { dac7SalesPaused } from "@/lib/dac7-data";
+import { prisma } from "@/lib/db";
 import { isDemoMode } from "@/lib/env";
 import { getPurchasableProduct } from "@/lib/orders";
+import { paymentProvider } from "@/lib/payments";
+import { canAcceptPayments } from "@/lib/payouts";
 import { getPublicProduct } from "@/lib/product-page";
 import { CheckoutForm } from "./checkout-form";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
 
-export default async function CheckoutPage({ params }: { params: Promise<{ username: string; slug: string }> }) {
+export default async function CheckoutPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ username: string; slug: string }>;
+  searchParams: Promise<{ pedido?: string; cancelado?: string }>;
+}) {
   const { username, slug } = await params;
+  const sp = await searchParams;
   const data = await getPublicProduct(username, slug);
   if (!data) notFound();
   const user = await getCurrentUser();
@@ -19,6 +30,16 @@ export default async function CheckoutPage({ params }: { params: Promise<{ usern
   const purchasable = await getPurchasableProduct(data.product.id);
   if (!purchasable && !isOwner) notFound();
   const p = data.product;
+  const provider = paymentProvider();
+  const payoutReady =
+    !!purchasable && canAcceptPayments(data.creator, provider.key) && !(await dac7SalesPaused(data.creator, p.type));
+  // Vuelta desde la pasarela (cancelado) o desde el email de «pago no completado»: se reintenta el mismo pedido.
+  const previous = sp.pedido
+    ? await prisma.order.findFirst({
+        where: { id: sp.pedido, productId: p.id, status: { in: ["PENDING", "FAILED", "ABANDONED"] } },
+        select: { id: true, buyerName: true, buyerEmail: true, paymentError: true },
+      })
+    : null;
 
   return (
     <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom}>
@@ -36,8 +57,15 @@ export default async function CheckoutPage({ params }: { params: Promise<{ usern
             durationMin: p.durationMin,
             ctaLabel: p.ctaLabel,
           }}
-          payoutReady={!!data.creator.payoutConnectedAt && !!purchasable}
-          prefill={{ name: user?.name ?? "", email: user?.email ?? "" }}
+          payoutReady={payoutReady}
+          collectsCardOnSite={provider.collectsCardOnSite}
+          initialOrderId={previous?.id}
+          notice={
+            sp.cancelado === "1" && previous
+              ? ["No se ha completado el pago.", previous.paymentError, "Puedes intentarlo de nuevo cuando quieras."].filter(Boolean).join(" ")
+              : undefined
+          }
+          prefill={{ name: previous?.buyerName ?? user?.name ?? "", email: previous?.buyerEmail ?? user?.email ?? "" }}
           demo={isDemoMode()}
           creatorName={data.config.displayName}
         />

@@ -20,11 +20,17 @@ export default async function MyMemberships() {
               <p className="truncate font-semibold">{m.product.title}</p>
               <p className="text-sm text-muted">
                 {formatPrice(m.priceCents, "EUR", m.interval)} ·{" "}
-                {m.status !== "ACTIVE" ? "Finalizada" : m.cancelAtPeriodEnd ? `Activa hasta el ${m.currentPeriodEnd.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}` : `Se renueva el ${m.currentPeriodEnd.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}`}
+                {m.status === "PAST_DUE"
+                  ? "Pago pendiente · actualiza tu tarjeta"
+                  : m.status !== "ACTIVE"
+                    ? "Finalizada"
+                    : m.cancelAtPeriodEnd
+                      ? `Activa hasta el ${m.currentPeriodEnd.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}`
+                      : `Se renueva el ${m.currentPeriodEnd.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}`}
               </p>
               <CreatorTag name={m.creatorBrief.displayName} avatarUrl={m.creatorBrief.avatarUrl} />
             </div>
-            {m.status === "ACTIVE" && (
+            {(m.status === "ACTIVE" || m.status === "PAST_DUE") && (
               <Link href={`/cuenta/membresias/${m.productId}`} className="btn btn-primary btn-sm shrink-0">Entrar</Link>
             )}
           </div>

@@ -24,10 +24,32 @@ export const DEFAULT_CTA: Record<ProductType, string> = {
 
 export const ORDER_STATUS_LABEL: Record<string, string> = {
   PENDING: "Pendiente",
+  PROCESSING: "Pago pendiente",
   PAID: "Pagado",
   FAILED: "Fallido",
   REFUNDED: "Reembolsado",
   ABANDONED: "Abandonado",
+};
+
+export const PAYOUT_STATUS_LABEL: Record<string, string> = {
+  NONE: "Sin conectar",
+  PENDING: "Pendiente",
+  VERIFYING: "Verificando",
+  ACTION_REQUIRED: "Falta algo",
+  ACTIVE: "Activada",
+  REJECTED: "Rechazada",
+};
+
+export const DISPUTE_STATUS_LABEL: Record<string, string> = {
+  OPEN: "Contracargo abierto",
+  WON: "Contracargo ganado",
+  LOST: "Contracargo perdido",
+};
+
+export const SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
+  ACTIVE: "Activa",
+  PAST_DUE: "Pago pendiente",
+  CANCELED: "Cancelada",
 };
 
 export const BOOKING_STATUS_LABEL: Record<string, string> = {

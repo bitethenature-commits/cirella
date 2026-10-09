@@ -192,3 +192,105 @@ export function abandonedCheckoutEmail(o: { creatorName: string; productTitle: s
     }),
   };
 }
+
+// ── Cobros (Stripe Connect), pagos pendientes, renovaciones, contracargos y DAC7 ──
+
+export function payoutActiveEmail(o: { name: string; panelUrl: string }) {
+  return {
+    subject: "Ya puedes cobrar tus ventas ✨",
+    html: layout({
+      title: `Todo listo, ${o.name}`,
+      body:
+        p("Stripe ha verificado tu cuenta de cobro: desde ahora tus clientas ya pueden comprar y el dinero de cada venta llega a tu banco automáticamente.") +
+        p(`<span style="color:#8A8698;font-size:13px">El primer ingreso suele tardar unos 7 días; después, Stripe te transfiere a diario.</span>`),
+      cta: { label: "Ver mis cobros", url: o.panelUrl },
+    }),
+  };
+}
+
+export function payoutActionRequiredEmail(o: { name: string; missing: string[]; deadline?: string | null; url: string }) {
+  const items = o.missing.length ? `<ul style="margin:0 0 12px;padding-left:20px">${o.missing.map((m) => `<li>${esc(m)}</li>`).join("")}</ul>` : "";
+  return {
+    subject: "Stripe necesita un dato más para activar tus cobros",
+    html: layout({
+      title: `${o.name}, te falta un paso`,
+      body:
+        p(`Stripe, la plataforma con la que cobras, necesita ${o.missing.length === 1 ? "esto" : "estos datos"} para ${o.deadline ? `antes del ${esc(o.deadline)}` : "poder activar tus cobros"}:`) +
+        items +
+        p("Hasta entonces nadie puede comprar tus productos. Son un par de minutos."),
+      cta: { label: "Completar en Stripe", url: o.url },
+    }),
+  };
+}
+
+export function payoutRejectedEmail(o: { name: string; supportEmail: string }) {
+  return {
+    subject: "Hay un problema con tu cuenta de cobro",
+    html: layout({
+      title: "Stripe no ha podido verificar tu cuenta",
+      body:
+        p(`Hola, ${esc(o.name)}. Stripe ha rechazado la verificación de tu cuenta de cobro, así que de momento no podemos aceptar pagos en tu página.`) +
+        p(`Escríbenos a <a href="mailto:${esc(o.supportEmail)}">${esc(o.supportEmail)}</a> y lo revisamos contigo.`),
+    }),
+  };
+}
+
+export function paymentFailedEmail(o: { creatorName: string; productTitle: string; retryUrl: string }) {
+  return {
+    subject: "Tu pago no se ha completado",
+    html: layout({
+      brand: o.creatorName,
+      title: "El pago no se ha completado",
+      body:
+        p(`Tu banco no ha confirmado el pago de <strong>${esc(o.productTitle)}</strong>, así que no se te ha cobrado nada.`) +
+        p("Puedes intentarlo de nuevo con la misma tarjeta o con otra."),
+      cta: { label: "Intentarlo de nuevo", url: o.retryUrl },
+    }),
+  };
+}
+
+export function renewalFailedEmail(o: { creatorName: string; productTitle: string; payUrl: string; nextAttempt?: string | null }) {
+  return {
+    subject: "No hemos podido renovar tu membresía",
+    html: layout({
+      brand: o.creatorName,
+      title: "Tu renovación no se ha podido cobrar",
+      body:
+        p(`Tu banco ha rechazado el cobro de la renovación de <strong>${esc(o.productTitle)}</strong>.`) +
+        p(
+          o.nextAttempt
+            ? `Mantienes el acceso: volveremos a intentarlo el ${esc(o.nextAttempt)}. Si prefieres, puedes pagar ahora con otra tarjeta.`
+            : "Puedes pagar ahora con otra tarjeta para no perder el acceso.",
+        ),
+      cta: { label: "Pagar ahora", url: o.payUrl },
+    }),
+  };
+}
+
+export function disputeOpenedEmail(o: { productTitle: string; amount: string; buyer: string; url: string }) {
+  return {
+    subject: "Una clienta ha reclamado un cargo a su banco",
+    html: layout({
+      title: "Contracargo abierto",
+      body:
+        p(`<strong>${esc(o.buyer)}</strong> ha pedido a su banco que anule el cargo de <strong>${esc(o.productTitle)}</strong> (${esc(o.amount)}).`) +
+        p("Stripe nos pedirá pruebas de la entrega (emails, accesos, reserva). Si tienes conversaciones con la clienta, guárdalas: te escribiremos si las necesitamos."),
+      cta: { label: "Ver la venta", url: o.url },
+    }),
+  };
+}
+
+export function dac7RequestEmail(o: { name: string; url: string; reminder: number; deadline: string }) {
+  const lead = o.reminder === 0 ? "" : o.reminder === 1 ? "Te lo recordamos: " : "Último aviso: ";
+  return {
+    subject: `${o.reminder ? "Recordatorio: n" : "N"}ecesitamos tus datos fiscales (obligatorio por ley)`,
+    html: layout({
+      title: "Completa tus datos fiscales",
+      body:
+        p(`${lead}Hola, ${esc(o.name)}. Por la normativa europea DAC7, Cirella debe informar cada año a Hacienda de lo que cobras por tus sesiones y otros servicios personales (modelo 238).`) +
+        p("Necesitamos tu nombre legal, NIF, dirección, fecha de nacimiento y el IBAN donde cobras. Solo los usamos para esa declaración.") +
+        p(`Si no los tenemos antes del <strong>${esc(o.deadline)}</strong>, tendremos que pausar la venta de tus sesiones hasta que los completes.`),
+      cta: { label: "Completar mis datos", url: o.url },
+    }),
+  };
+}

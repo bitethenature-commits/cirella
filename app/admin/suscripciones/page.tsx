@@ -38,7 +38,7 @@ export default async function AdminSubscriptions() {
               <td className={td}>{s.creator.displayName}</td>
               <td className={td}>{formatPrice(s.priceCents, "EUR", s.interval)}</td>
               <td className={`${td} text-muted`}>hasta {s.currentPeriodEnd.toLocaleDateString("es-ES")}</td>
-              <td className={`${td} text-right`}><Badge tone={s.status === "ACTIVE" ? (s.cancelAtPeriodEnd ? "warning" : "success") : "neutral"}>{s.status === "ACTIVE" ? (s.cancelAtPeriodEnd ? "Cancela al final" : "Activa") : "Finalizada"}</Badge></td>
+              <td className={`${td} text-right`}><Badge tone={s.status === "ACTIVE" ? (s.cancelAtPeriodEnd ? "warning" : "success") : s.status === "PAST_DUE" ? "danger" : "neutral"}>{s.status === "ACTIVE" ? (s.cancelAtPeriodEnd ? "Cancela al final" : "Activa") : s.status === "PAST_DUE" ? "Pago pendiente" : "Finalizada"}</Badge></td>
             </tr>
           ))}
         </AdminTable>

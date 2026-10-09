@@ -7,7 +7,8 @@ import { env } from "./env";
  * formato estructurado. Sin SDK de navegador: el bundle del cliente no cambia.
  *
  * Privacidad: a Sentry solo van ids (pedido, email, evento), nunca emails ni nombres;
- * sendDefaultPii está desactivado y beforeSend borra cookies y cabeceras de autorización.
+ * sendDefaultPii está desactivado y beforeSend borra cookies, cabeceras de autorización y el
+ * cuerpo de las peticiones (formularios con IBAN o NIF).
  */
 
 type Sentry = typeof import("@sentry/nextjs");
@@ -29,6 +30,8 @@ export async function initMonitoring() {
       beforeSend(event) {
         if (event.request) {
           delete event.request.cookies;
+          // Los cuerpos de formulario pueden llevar datos fiscales (IBAN, NIF, fecha de nacimiento).
+          delete event.request.data;
           if (event.request.headers) {
             delete event.request.headers.cookie;
             delete event.request.headers.authorization;

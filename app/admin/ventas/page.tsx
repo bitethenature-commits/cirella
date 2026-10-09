@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
-import { ORDER_STATUS_LABEL } from "@/lib/types";
+import { DISPUTE_STATUS_LABEL, ORDER_STATUS_LABEL } from "@/lib/types";
 import { Badge, PageHeader, Stat } from "../../panel/ui";
 import { AdminTable, td } from "../ui";
 
@@ -27,7 +27,12 @@ export default async function AdminSales() {
             <td className={`${td} text-muted`}>{o.buyerEmail}</td>
             <td className={`${td} tabular-nums`}>{formatMoney(o.amountCents, o.currency, { decimals: true })}</td>
             <td className={`${td} tabular-nums text-muted`}>{formatMoney(o.platformFeeCents, o.currency, { decimals: true })} <span className="text-xs">({o.commissionBps / 100} %)</span></td>
-            <td className={`${td} text-right`}><Badge tone={o.status === "PAID" ? "success" : o.status === "FAILED" ? "danger" : "neutral"}>{ORDER_STATUS_LABEL[o.status]}</Badge></td>
+            <td className={`${td} text-right`}>
+              <span className="inline-flex flex-wrap justify-end gap-1.5">
+                <Badge tone={o.status === "PAID" ? "success" : o.status === "FAILED" ? "danger" : o.status === "PROCESSING" ? "warning" : "neutral"}>{ORDER_STATUS_LABEL[o.status] ?? o.status}</Badge>
+                {o.disputeStatus && <Badge tone={o.disputeStatus === "WON" ? "neutral" : "danger"}>{DISPUTE_STATUS_LABEL[o.disputeStatus]}</Badge>}
+              </span>
+            </td>
           </tr>
         ))}
       </AdminTable>

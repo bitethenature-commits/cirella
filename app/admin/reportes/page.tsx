@@ -1,4 +1,5 @@
-import { Download } from "lucide-react";
+import Link from "next/link";
+import { Download, FileText } from "lucide-react";
 import { requireAdmin } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { getPlatformOverview } from "@/lib/platform-stats";
@@ -10,7 +11,12 @@ export default async function AdminReports() {
   const s = await getPlatformOverview();
   return (
     <div>
-      <PageHeader title="Reportes" subtitle="Evolución mensual de la plataforma (últimos 6 meses)." actions={<a href="/admin/reportes/csv" className="btn btn-outline"><Download className="h-4 w-4" /> Exportar CSV</a>} />
+      <PageHeader title="Reportes" subtitle="Evolución mensual de la plataforma (últimos 6 meses)." actions={
+          <>
+            <Link href="/admin/reportes/dac7" className="btn btn-outline"><FileText className="h-4 w-4" /> DAC7 (modelo 238)</Link>
+            <a href="/admin/reportes/csv" className="btn btn-outline"><Download className="h-4 w-4" /> Exportar CSV</a>
+          </>
+        } />
       <AdminTable head={["Mes", "Nuevas creadoras", "Nuevas clientas", "Pedidos", "GMV", "Comisiones", "Cuotas de plan", "Ingresos plataforma"]} minWidth={900}>
         {[...s.series].reverse().map((m) => (
           <tr key={m.key}>

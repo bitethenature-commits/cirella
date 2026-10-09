@@ -10,7 +10,8 @@ import { appUrl } from "@/lib/env";
 import { enqueueEmail } from "@/lib/email/outbox";
 import { welcomeCreatorEmail } from "@/lib/email/templates";
 import { parseMoneyToCents } from "@/lib/money";
-import { paymentProvider } from "@/lib/payments";
+import { captureError } from "@/lib/monitoring";
+import { canAcceptPayments, payoutOnboardingLink } from "@/lib/payouts";
 import { canSellType } from "@/lib/plans";
 import { normalizeUsername } from "@/lib/slug";
 import { TEMPLATE_KEYS } from "@/lib/templates";
@@ -155,17 +156,17 @@ export async function saveFirstProduct(input: z.infer<typeof productSchema>): Pr
   return { ok: true, data: { productId: product.id } };
 }
 
+/** Paso 9: lleva a la creadora al formulario de Stripe (o al simulador). La vuelta llega a /onboarding. */
 export async function connectPayments(): Promise<Result> {
   const { creator } = await currentCreator();
   if (!creator) return { ok: false, error: "Primero elige tu nombre de usuario" };
-  if (creator.payoutConnectedAt) return { ok: true };
-  const provider = paymentProvider();
-  const { accountId } = await provider.connectAccount(creator.id);
-  await prisma.creator.update({
-    where: { id: creator.id },
-    data: { payoutProvider: provider.key, payoutAccountId: accountId, payoutConnectedAt: new Date() },
-  });
-  return { ok: true };
+  if (canAcceptPayments(creator)) return { ok: true };
+  try {
+    return { ok: true, data: { url: await payoutOnboardingLink(creator.id, "onboarding") } };
+  } catch (e) {
+    captureError(e, { area: "payments", tags: { op: "cuenta-alta" }, extra: { creatorId: creator.id } });
+    return { ok: false, error: "No hemos podido conectar con Stripe. Inténtalo de nuevo en unos minutos." };
+  }
 }
 
 export async function publishOnboarding(): Promise<Result> {

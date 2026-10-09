@@ -66,7 +66,7 @@ async function main() {
   const valid = await start(
     {
       APP_ENV: "production", APP_URL: "https://cirella.app", DEMO_MODE: "false", PAYMENT_PROVIDER: "stripe",
-      STRIPE_SECRET_KEY: "sk_live_prueba", STRIPE_PUBLISHABLE_KEY: "pk_live_prueba", STRIPE_WEBHOOK_SECRET: "whsec_prueba",
+      STRIPE_SECRET_KEY: "sk_live_prueba", STRIPE_PUBLISHABLE_KEY: "pk_live_prueba", STRIPE_WEBHOOK_SECRET: "whsec_prueba", STRIPE_CONNECT_WEBHOOK_SECRET: "whsec_connect",
       CRON_SECRET: secret, APP_SECRET: secret, EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_prueba", EMAIL_FROM: "Cirella <hola@cirella.app>",
       STORAGE_DRIVER: "s3", S3_ENDPOINT: "https://cuenta.r2.cloudflarestorage.com", S3_BUCKET: "cirella", S3_ACCESS_KEY_ID: "id", S3_SECRET_ACCESS_KEY: "secreto",
     },

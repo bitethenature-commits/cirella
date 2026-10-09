@@ -2,7 +2,10 @@ import "server-only";
 import { prisma } from "./db";
 import { dispatchEvents, recordEvents, type DomainEvent } from "./events";
 import { hasBookingClash, isBookingOverlapError, isSlotAvailable } from "./booking";
+import { dac7SalesPaused } from "./dac7-data";
+import { appUrl } from "./env";
 import { paymentProvider, type PaymentMethodInput } from "./payments";
+import { canAcceptPayments } from "./payouts";
 import { canSellType, effectiveCommissionBps } from "./plans";
 import { pushBookingEvent } from "./calendar";
 import { captureError } from "./monitoring";
@@ -11,7 +14,10 @@ import type { ProductType } from "./types";
 
 export class CheckoutError extends Error {}
 
-/** Producto comprable: publicado, creadora activa y publicada, plan lo permite, cobros conectados. */
+/**
+ * Producto visible para comprar: publicado, creadora activa y publicada, y su plan lo permite.
+ * Que se pueda pagar ya (cobros activados, datos de DAC7) lo comprueba createPendingOrder.
+ */
 export async function getPurchasableProduct(productId: string) {
   const product = await prisma.product.findUnique({
     where: { id: productId },
@@ -40,7 +46,9 @@ export async function createPendingOrder(input: {
 }) {
   const product = await getPurchasableProduct(input.productId);
   if (!product) throw new CheckoutError("Este producto no está disponible ahora mismo.");
-  if (!product.creator.payoutConnectedAt) throw new CheckoutError("La creadora todavía no ha activado los pagos.");
+  if (!canAcceptPayments(product.creator)) throw new CheckoutError("La creadora todavía no ha activado los pagos.");
+  if (await dac7SalesPaused(product.creator, product.type))
+    throw new CheckoutError("Este servicio no está disponible temporalmente. Vuelve a intentarlo en unos días.");
   if (product.type === "SESSION" && input.slotStart) {
     if (!(await isSlotAvailable(product, input.slotStart)))
       throw new CheckoutError("Ese horario acaba de ocuparse. Elige otro, por favor.");
@@ -68,16 +76,35 @@ export async function createPendingOrder(input: {
   });
 }
 
-/** Paso 2: cobra el pedido con la pasarela y, si va bien, lo entrega. */
-export async function payOrder(orderId: string, payment: PaymentMethodInput) {
-  const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { creator: true } });
-  if (order.status === "PAID") return { ok: true as const, ...(await fulfillOrder(order.id, order.paymentRef ?? "")) };
-  if (order.status !== "PENDING" && order.status !== "FAILED" && order.status !== "ABANDONED")
-    throw new CheckoutError("Este pedido ya no se puede pagar.");
+export type StartOrderPaymentResult =
+  | { kind: "paid"; userId: string; isNewUser: boolean }
+  | { kind: "redirect"; url: string }
+  | { kind: "processing" }
+  | { kind: "failed"; error: string };
+
+/** Estados desde los que un pedido se puede (volver a) pagar. */
+const PAYABLE = ["PENDING", "FAILED", "ABANDONED"];
+
+/**
+ * Paso 2: inicia el pago con la pasarela.
+ *   · paid: cobrado al momento (simulador) y ya entregado.
+ *   · redirect: la compradora sigue en la página de pago de Stripe o en la de su banco; la entrega
+ *     llega por el aviso de la pasarela o al volver (lib/payments/events.ts).
+ *   · processing: el banco aún no ha confirmado («pago pendiente»).
+ *   · failed: rechazado; el pedido queda FAILED y se puede reintentar.
+ */
+export async function startOrderPayment(orderId: string, payment: PaymentMethodInput): Promise<StartOrderPaymentResult> {
+  const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { creator: true, product: { select: { slug: true } } } });
+  if (order.status === "PAID") {
+    const r = await fulfillOrder(order.id, order.paymentRef ?? "");
+    return { kind: "paid", userId: r.userId, isNewUser: r.isNewUser };
+  }
+  if (order.status === "PROCESSING") throw new CheckoutError("Tu pago se está confirmando. Te avisaremos por email.");
+  if (!PAYABLE.includes(order.status)) throw new CheckoutError("Este pedido ya no se puede pagar.");
   if (order.productType === "MEMBERSHIP") {
-    // Una suscripción activa por persona y membresía: nunca cobrar una segunda.
+    // Una suscripción viva por persona y membresía (también con una renovación pendiente de pago).
     const existingSub = await prisma.subscription.findFirst({
-      where: { productId: order.productId, status: "ACTIVE", customer: { email: order.buyerEmail } },
+      where: { productId: order.productId, status: { in: ["ACTIVE", "PAST_DUE"] }, customer: { email: order.buyerEmail } },
     });
     if (existingSub)
       throw new CheckoutError(
@@ -86,7 +113,13 @@ export async function payOrder(orderId: string, payment: PaymentMethodInput) {
           : "Ya eres miembro de esta comunidad. Entra desde tu cuenta.",
       );
   }
-  const result = await paymentProvider().charge({
+  const provider = paymentProvider();
+  if (!order.creator.payoutAccountId || !canAcceptPayments(order.creator, provider.key))
+    throw new CheckoutError("La creadora todavía no ha activado los pagos.");
+  // Un checkout anterior de este pedido que siga abierto se cancela: así no se puede pagar dos veces.
+  if (order.checkoutRef) await provider.cancelCheckout(order.checkoutRef).catch((e) => captureError(e, { area: "checkout", extra: { orderId } }));
+
+  const result = await provider.startPayment({
     orderId: order.id,
     amountCents: order.amountCents,
     currency: order.currency,
@@ -94,20 +127,42 @@ export async function payOrder(orderId: string, payment: PaymentMethodInput) {
     customerEmail: order.buyerEmail,
     platformFeeCents: order.platformFeeCents,
     destinationAccount: order.creator.payoutAccountId,
+    statementSuffix: order.creator.username.toUpperCase(),
+    saveForFutureUse: order.productType === "MEMBERSHIP",
     payment,
+    returnUrl: `${appUrl()}/api/payments/return?ref={REF}`,
+    cancelUrl: `${appUrl()}/${order.creator.username}/${order.product.slug}/checkout?pedido=${order.id}&cancelado=1`,
+    metadata: { orderId: order.id, creatorId: order.creatorId },
   });
-  if (!result.ok) {
-    await prisma.order.update({ where: { id: order.id }, data: { status: "FAILED" } });
-    return { ok: false as const, error: result.error };
-  }
-  // El cobro queda anotado antes de entregar: si la entrega falla tras cobrar, el vigilante
-  // del cron (lib/watchdog.ts) la reintenta a partir de Order.chargedAt.
-  await prisma.order.update({ where: { id: order.id }, data: { chargedAt: new Date(), paymentRef: result.ref } });
-  try {
-    return { ok: true as const, ...(await fulfillOrder(order.id, result.ref)) };
-  } catch (e) {
-    captureError(e, { area: "checkout", extra: { orderId: order.id } });
-    throw e;
+
+  switch (result.state) {
+    case "failed":
+      await prisma.order.update({ where: { id: order.id }, data: { status: "FAILED", paymentError: result.error } });
+      return { kind: "failed", error: result.error };
+    case "requires_action":
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { status: "PENDING", checkoutRef: result.checkoutRef, checkoutExpiresAt: result.expiresAt, paymentError: null },
+      });
+      return { kind: "redirect", url: result.redirectUrl };
+    case "processing":
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { status: "PROCESSING", paymentRef: result.ref, checkoutRef: result.checkoutRef ?? order.checkoutRef, paymentError: null },
+      });
+      return { kind: "processing" };
+    case "succeeded": {
+      // El cobro queda anotado antes de entregar: si la entrega falla tras cobrar, el vigilante
+      // del cron (lib/watchdog.ts) la reintenta a partir de Order.chargedAt.
+      await prisma.order.update({ where: { id: order.id }, data: { chargedAt: new Date(), paymentRef: result.ref } });
+      try {
+        const r = await fulfillOrder(order.id, result.ref, { customerRef: result.customerRef, paymentMethodRef: result.paymentMethodRef });
+        return { kind: "paid", userId: r.userId, isNewUser: r.isNewUser };
+      } catch (e) {
+        captureError(e, { area: "checkout", extra: { orderId: order.id } });
+        throw e;
+      }
+    }
   }
 }
 
@@ -118,22 +173,29 @@ function addInterval(date: Date, interval: string) {
   return d;
 }
 
+/** Referencias de la tarjeta guardada (membresías) que devuelve la pasarela al cobrar. */
+type SavedPayment = { customerRef?: string; paymentMethodRef?: string };
+
+/** Pedidos que se pueden entregar. PAID, REFUNDED (y los estados de reembolso) nunca se entregan otra vez. */
+const FULFILLABLE = ["PENDING", "PROCESSING", "FAILED", "ABANDONED"];
+
 /**
- * Entrega automática. Idempotente: un webhook repetido no duplica nada.
+ * Entrega automática. Idempotente también cuando dos llamadas coinciden (el aviso de la pasarela y
+ * la vuelta de la compradora): solo una entrega y la otra recibe `alreadyPaid: true`.
  * Marca el pedido como pagado, registra la transacción y concede el acceso
  * según el tipo de producto (descarga, curso, reserva o suscripción).
  */
-export async function fulfillOrder(orderId: string, paymentRef: string) {
+export async function fulfillOrder(orderId: string, paymentRef: string, opts: SavedPayment = {}) {
   const events: DomainEvent[] = [];
   let result: Awaited<ReturnType<typeof fulfillInTransaction>>;
   try {
-    result = await fulfillInTransaction(orderId, paymentRef, events, { confirmSlot: true });
+    result = await fulfillInTransaction(orderId, paymentRef, opts, events, { confirmSlot: true });
   } catch (e) {
     // La regla Booking_no_overlap de la BD ha rechazado la reserva (otra compra confirmó el
     // mismo hueco por un camino sin cerrojo): la venta sigue adelante y la reserva queda
     // pendiente de elegir fecha, igual que cuando el hueco ya estaba ocupado.
     if (!isBookingOverlapError(e)) throw e;
-    result = await fulfillInTransaction(orderId, paymentRef, events, { confirmSlot: false });
+    result = await fulfillInTransaction(orderId, paymentRef, opts, events, { confirmSlot: false });
   }
 
   // Los avisos (recibo, acceso, reserva, calendario) se guardan en la misma transacción que el
@@ -143,18 +205,20 @@ export async function fulfillOrder(orderId: string, paymentRef: string) {
   return fulfilled;
 }
 
-async function fulfillInTransaction(orderId: string, paymentRef: string, events: DomainEvent[], opts: { confirmSlot: boolean }) {
+async function fulfillInTransaction(orderId: string, paymentRef: string, saved: SavedPayment, events: DomainEvent[], opts: { confirmSlot: boolean }) {
   // Tiempo máximo amplio (15 s): con dos compras a la vez de la misma creadora, la segunda
   // espera el cerrojo de reservas (hasBookingClash) hasta que la primera termina.
   return prisma.$transaction(async (tx) => {
     events.length = 0;
-    // Bloquea la fila del pedido: dos entregas simultáneas (redirección + webhook, o el vigilante)
-    // se ponen en fila y la segunda ya lo ve PAID. La clave única charge:{orderId} es la última red.
+    // Bloquea la fila del pedido: dos entregas simultáneas (aviso de la pasarela + vuelta de la
+    // compradora, o el vigilante) se ponen en fila y la segunda, al leerlo ya PAID, no hace nada.
+    // En Postgres (READ COMMITTED) la segunda espera aquí a que la primera haga commit.
+    // La clave única charge:{orderId} es la última red.
     await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`;
     const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { product: true } });
     const existingUser = await tx.user.findUnique({ where: { email: order.buyerEmail } });
-    if (order.status === "PAID") {
-      return { order, userId: existingUser!.id, isNewUser: false, eventIds: [] as string[] };
+    if (!FULFILLABLE.includes(order.status)) {
+      return { order, userId: existingUser?.id ?? "", isNewUser: false, alreadyPaid: true, eventIds: [] as string[] };
     }
     const now = new Date();
     const user =
@@ -189,7 +253,15 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, events:
 
     const paid = await tx.order.update({
       where: { id: order.id },
-      data: { status: "PAID", paidAt: now, paymentRef, customerId: customer.id },
+      data: {
+        status: "PAID",
+        paidAt: now,
+        paymentRef,
+        paymentError: null,
+        chargedAt: order.chargedAt ?? now,
+        customerId: customer.id,
+        createdBuyerAccount: !existingUser,
+      },
       include: { product: true },
     });
     await tx.transaction.create({
@@ -225,6 +297,8 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, events:
           currentPeriodEnd: end,
           provider: order.paymentProvider,
           providerRef: paymentRef,
+          providerCustomerRef: saved.customerRef ?? null,
+          providerPaymentMethodRef: saved.paymentMethodRef ?? null,
         },
       });
       subscriptionId = sub.id;
@@ -275,7 +349,7 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, events:
     });
     events.unshift({ type: "order.paid", orderId: order.id });
     const eventIds = await recordEvents(tx, events);
-    return { order: paid, userId: user.id, isNewUser: !existingUser, eventIds };
+    return { order: paid, userId: user.id, isNewUser: !existingUser, alreadyPaid: false, eventIds };
   }, { timeout: 15_000 });
 }
 

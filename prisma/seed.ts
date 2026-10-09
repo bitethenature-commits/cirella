@@ -533,6 +533,9 @@ async function main() {
       published: true, publishedAt: daysAgo(45), onboardedAt: daysAgo(47), contactEmail: "maria@cirella.app",
       payoutProvider: "simulated", payoutAccountId: "sim_acct_maria01", payoutConnectedAt: daysAgo(47),
       payoutStatus: "ACTIVE", payoutChargesEnabled: true, payoutPayoutsEnabled: true, payoutStatusUpdatedAt: daysAgo(47),
+      // Datos fiscales completos (DAC7). Los de Ana se dejan sin completar para ver el aviso y el informe con «Faltan».
+      legalName: "María Sol Ruiz", legalTaxId: "12345678Z", legalAddress: "Calle del Pez 12, 2º B", legalPostalCode: "28004", legalCity: "Madrid",
+      birthDate: new Date("1988-04-12T00:00:00Z"), iban: "ES9121000418450200051332", dac7ConfirmedAt: daysAgo(40),
       referralCode: "MARIASOL", createdAt: daysAgo(48),
     },
   });

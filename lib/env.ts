@@ -45,6 +45,8 @@ const schema = z.object({
   STRIPE_SECRET_KEY: text,
   STRIPE_PUBLISHABLE_KEY: text,
   STRIPE_WEBHOOK_SECRET: text,
+  STRIPE_CONNECT_WEBHOOK_SECRET: text,
+  STRIPE_ON_BEHALF_OF: oneOf("STRIPE_ON_BEHALF_OF", ["true", "false"]),
   EMAIL_PROVIDER: oneOf("EMAIL_PROVIDER", ["log", "resend"]),
   RESEND_API_KEY: text,
   EMAIL_FROM: text,
@@ -132,6 +134,11 @@ export function validateEnv(raw: RawEnv): EnvValidation {
     else if (!/^pk_(test|live)_/.test(p.STRIPE_PUBLISHABLE_KEY)) errors.push("STRIPE_PUBLISHABLE_KEY no parece una clave publicable de Stripe (pk_…).");
     if (!p.STRIPE_WEBHOOK_SECRET) errors.push("Falta STRIPE_WEBHOOK_SECRET.");
     else if (!p.STRIPE_WEBHOOK_SECRET.startsWith("whsec_")) errors.push("STRIPE_WEBHOOK_SECRET no parece un secreto de webhook de Stripe (whsec_…).");
+    // Segundo endpoint (eventos de las cuentas conectadas: account.updated). Obligatorio en producción.
+    if (p.STRIPE_CONNECT_WEBHOOK_SECRET && !p.STRIPE_CONNECT_WEBHOOK_SECRET.startsWith("whsec_"))
+      errors.push("STRIPE_CONNECT_WEBHOOK_SECRET no parece un secreto de webhook de Stripe (whsec_…).");
+    else if (!p.STRIPE_CONNECT_WEBHOOK_SECRET && prod)
+      errors.push("Falta STRIPE_CONNECT_WEBHOOK_SECRET: sin el webhook de cuentas conectadas no sabremos cuándo Stripe verifica a una creadora.");
   }
 
   if (p.EMAIL_PROVIDER === "resend") {

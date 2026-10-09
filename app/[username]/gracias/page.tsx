@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, CalendarCheck, Check, Mail } from "lucide-react";
+import { AlertCircle, ArrowRight, CalendarCheck, Check, Loader2, Mail } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { ProductImage } from "@/components/creator-page/product-art";
 import { Reveal } from "@/components/reveal";
+import { AutoRefresh } from "@/components/ui/auto-refresh";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isDemoMode } from "@/lib/env";
@@ -25,10 +26,46 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
   const data = await getPublicCreator(username);
   if (!data || !sp.pedido) notFound();
   const order = await prisma.order.findFirst({
-    where: { id: sp.pedido, creatorId: data.creator.id, status: "PAID" },
+    where: { id: sp.pedido, creatorId: data.creator.id },
     include: { product: true, bookings: true },
   });
-  if (!order) notFound();
+  if (!order || !["PAID", "PENDING", "PROCESSING", "FAILED"].includes(order.status)) notFound();
+  const pending = order.status === "PROCESSING" || (order.status === "PENDING" && !!order.checkoutRef);
+  if (pending || order.status === "FAILED" || order.status === "PENDING")
+    return (
+      <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} back={false}>
+        <main className="mx-auto max-w-md px-5 pb-20 pt-12 text-center">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full" style={{ background: "var(--c-line)" }}>
+            {pending ? <Loader2 className="h-8 w-8 animate-spin" /> : <AlertCircle className="h-8 w-8" />}
+          </div>
+          <h1 className="cp-display mt-6 text-[2.4rem] leading-tight">{pending ? "Pago pendiente de confirmar" : "El pago no se ha completado"}</h1>
+          <p className="cp-muted mt-3 text-[1.02rem]">
+            {pending
+              ? "Tu banco está confirmando el pago. En cuanto llegue la confirmación te enviaremos el acceso por email; no hace falta que esperes aquí."
+              : (order.paymentError ?? "Tu banco no ha confirmado el pago. No se te ha cobrado nada.")}
+          </p>
+          <div className="cp-card mt-8 flex items-center gap-4 p-3 text-left">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden" style={{ borderRadius: "calc(var(--r-card) * 0.6)" }}>
+              <ProductImage src={order.product.imageUrl} emoji={order.product.emoji} title={order.productTitle} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="cp-display truncate text-[1.25rem]">{order.productTitle}</p>
+              <p className="cp-muted text-sm">{formatPrice(order.amountCents, order.currency, order.product.billingInterval)} · Pedido {order.id.slice(-8).toUpperCase()}</p>
+            </div>
+          </div>
+          {pending ? (
+            <AutoRefresh seconds={4} maxSeconds={120} />
+          ) : (
+            <Link href={`/${username}/${order.product.slug}/checkout?pedido=${order.id}`} className="cp-btn mt-8 h-14 w-full text-base">
+              Intentarlo de nuevo <ArrowRight className="h-4 w-4" />
+            </Link>
+          )}
+          <Link href={`/${username}`} className="cp-muted mt-6 inline-block text-sm underline-offset-4 hover:underline">
+            Volver a la página de {data.config.displayName}
+          </Link>
+        </main>
+      </CreatorShell>
+    );
   const user = await getCurrentUser();
   const signedIn = user?.email === order.buyerEmail;
   const booking = order.bookings[0];

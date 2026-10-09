@@ -6,7 +6,6 @@ import { z } from "zod";
 import { hashPassword, requireCreator, revokeOtherSessions, verifyPassword } from "@/lib/auth";
 import { isUsernameAvailable } from "@/lib/creator";
 import { prisma } from "@/lib/db";
-import { paymentProvider } from "@/lib/payments";
 import { normalizeUsername } from "@/lib/slug";
 
 const back = (k: "ok" | "error", msg: string) => redirect(`/panel/ajustes?${k}=${encodeURIComponent(msg)}`);
@@ -33,18 +32,6 @@ export async function updateAccount(form: FormData) {
   });
   revalidatePath("/panel", "layout");
   back("ok", "Ajustes guardados");
-}
-
-export async function togglePayments(form: FormData) {
-  const { creator } = await requireCreator();
-  if (form.get("action") === "disconnect") {
-    await prisma.creator.update({ where: { id: creator.id }, data: { payoutConnectedAt: null, payoutAccountId: null } });
-    back("ok", "Cuenta de cobro desconectada. Nadie podrá comprar hasta que la vuelvas a conectar.");
-  }
-  const provider = paymentProvider();
-  const { accountId } = await provider.connectAccount(creator.id);
-  await prisma.creator.update({ where: { id: creator.id }, data: { payoutProvider: provider.key, payoutAccountId: accountId, payoutConnectedAt: new Date() } });
-  back("ok", "Cuenta de cobro conectada");
 }
 
 export async function changePassword(form: FormData) {

@@ -1,5 +1,6 @@
 import "server-only";
 import { emitAbandoned } from "./abandoned";
+import { processDac7Reminders } from "./dac7-data";
 import { processOutbox } from "./email/outbox";
 import { processEvents } from "./events";
 import { withJobLock } from "./job-lock";
@@ -28,6 +29,8 @@ export async function runScheduledJobs(): Promise<CronResult> {
         ["abandonados", () => emitAbandoned()],
         ["renovaciones", () => processRenewals()],
         ["cuotasPlan", () => processPlanRenewals()],
+        // Petición y recordatorios de los datos fiscales de DAC7 (solo actúa cuando toca: 0, +20 y +40 días).
+        ["dac7", () => processDac7Reminders()],
         ["vigilancia", async () => {
           const w = await runWatchdog();
           return w.refulfilled + w.paidUndelivered;

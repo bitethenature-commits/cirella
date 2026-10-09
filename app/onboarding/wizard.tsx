@@ -7,6 +7,7 @@ import { TemplatePreview } from "@/components/template-preview";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import type { PageConfig } from "@/lib/page-config";
+import type { PayoutView } from "@/lib/payouts";
 import { TEMPLATES, type TemplateKey } from "@/lib/templates";
 import { DEFAULT_CTA, PRODUCT_TYPE_HINT, PRODUCT_TYPE_LABEL, PRODUCT_TYPES, type ProductType } from "@/lib/types";
 import {
@@ -33,7 +34,9 @@ export type WizardInit = {
   allowedTypes: ProductType[];
   commissionBps: number;
   planName: string;
-  payoutConnected: boolean;
+  /** Estado de la cuenta de cobro (lib/payouts.ts → payoutView). */
+  payout: PayoutView;
+  demo: boolean;
   creatorId: string | null;
 };
 
@@ -48,7 +51,8 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
   const [cfg, setCfg] = useState<PageConfig>(init.config);
   const [categoryId, setCategoryId] = useState(init.categoryId);
   const [product, setProduct] = useState(init.product);
-  const [payout, setPayout] = useState(init.payoutConnected);
+  const payout = init.payout;
+  const payoutActive = payout.status === "ACTIVE";
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -388,7 +392,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
             )}
 
             {step === 9 && (
-              <Step title="Conecta tu método de pago" text="Para recibir el dinero de tus ventas directamente en tu cuenta.">
+              <Step title="Conecta tu cuenta de cobro" text="El dinero de tus ventas llega directamente a tu banco.">
                 <div className="card p-6">
                   <div className="flex items-center gap-3">
                     <div className="grid h-11 w-11 place-items-center rounded-full bg-ink text-cream">
@@ -399,32 +403,50 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                       <p className="text-xs text-muted">Tarjeta, Apple Pay y Google Pay</p>
                     </div>
                   </div>
-                  {payout ? (
+                  {payoutActive ? (
                     <p className="mt-5 flex items-center gap-2 rounded-xl bg-[#f1f8f3] px-3 py-2.5 text-sm font-medium text-success">
-                      <Check className="h-4 w-4" /> Conectada · ya puedes recibir pagos
+                      <Check className="h-4 w-4" /> Activada · ya puedes recibir pagos
                     </p>
+                  ) : payout.status === "NONE" || payout.status === "PENDING" ? (
+                    <div className="mt-5 space-y-3 text-sm">
+                      <p>Te llevamos a Stripe, la plataforma de pagos con la que cobrarás. Ten a mano tu DNI o NIE, tu IBAN y tu dirección: son unos 5 minutos.</p>
+                      <p className="text-muted">
+                        Normalmente la verificación es inmediata. A veces Stripe revisa un documento y tarda uno o dos días hábiles: puedes publicar tu página mientras tanto y te avisaremos cuando puedas vender.
+                      </p>
+                    </div>
                   ) : (
+                    <div className="mt-5 rounded-xl bg-[#f8efdc] px-4 py-3 text-sm text-[#8a6420]">
+                      <p className="font-semibold">{payout.title}</p>
+                      <p className="mt-1">{payout.body}</p>
+                    </div>
+                  )}
+                  {!payoutActive && payout.cta && (
                     <button
                       type="button"
                       disabled={pending}
                       onClick={() =>
                         start(async () => {
+                          setError(null);
                           const r = await connectPayments();
-                          if (r.ok) setPayout(true);
-                          else setError(r.error);
+                          if (!r.ok) return setError(r.error);
+                          if (typeof r.data?.url === "string") window.location.href = r.data.url;
                         })
                       }
                       className="btn btn-primary mt-5 w-full"
                     >
-                      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Conectar cuenta de cobro
+                      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} {payout.cta}
                     </button>
                   )}
                   <p className="mt-4 flex items-start gap-2 text-xs text-muted">
                     <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-                    Modo demostración: la conexión y los pagos son simulados. La integración real usará Stripe Connect.
+                    {init.demo
+                      ? "Modo demostración: Stripe se simula y no se pide ningún documento real."
+                      : "Stripe guarda tus datos bancarios y de identidad; Cirella no los ve."}
                   </p>
                 </div>
-                {!payout && <p className="mt-4 text-center text-xs text-muted">Puedes hacerlo más tarde, pero hasta entonces nadie podrá comprar.</p>}
+                {(payout.status === "NONE" || payout.status === "PENDING") && (
+                  <p className="mt-4 text-center text-xs text-muted">Puedes hacerlo más tarde, pero hasta entonces nadie podrá comprar.</p>
+                )}
               </Step>
             )}
 
@@ -436,7 +458,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                     [cfg.avatarUrl ? "Foto de perfil" : "Foto de perfil (pendiente)", !!cfg.avatarUrl],
                     [`Estilo ${TEMPLATES[cfg.template].name}`, true],
                     [product.title ? `${product.title} · ${formatMoney(priceCents)}` : "Primer producto", !!product.productId],
-                    [payout ? "Pagos activados" : "Pagos sin conectar", payout],
+                    [payoutActive ? "Pagos activados" : payout.status === "VERIFYING" ? "Pagos en verificación" : "Pagos sin conectar", payoutActive],
                   ].map(([label, ok]) => (
                     <li key={String(label)} className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3">
                       <span className={`grid h-6 w-6 place-items-center rounded-full ${ok ? "bg-ink text-cream" : "bg-sand text-muted"}`}>
@@ -468,7 +490,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
               className="btn btn-primary btn-lg flex-1"
             >
               {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : step === 10 ? <Sparkles className="h-4 w-4" /> : null}
-              {step === 10 ? "Publicar mi página" : step === 9 && !payout ? "Lo haré más tarde" : "Continuar"}
+              {step === 10 ? "Publicar mi página" : step === 9 && payout.status === "NONE" ? "Lo haré más tarde" : "Continuar"}
               {step < 10 && !pending && <ArrowRight className="h-4 w-4" />}
             </button>
           </div>

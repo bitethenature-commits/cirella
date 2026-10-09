@@ -8,6 +8,12 @@
 import "./load-env";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/db";
+import { yearOf } from "../lib/dac7";
+import { dac7ForCreator, dac7Report } from "../lib/dac7-data";
+import { createPendingOrder } from "../lib/orders";
+import { applyPaymentUpdate } from "../lib/payments/events";
+import { syncPayoutAccount } from "../lib/payouts";
+import { findPastDueSubscription } from "../lib/subscriptions";
 import { TENANT_MODELS, tenantDb } from "../lib/tenant";
 
 // Tablas con creatorId que NO son de negocio de una creadora: autenticación (la marca del email
@@ -98,8 +104,75 @@ async function main() {
     await prisma.legalSnapshot.delete({ where: { id: snapshot.id } });
   }
 
+  await paymentsIsolation(ana, maria);
+
   console.log(failures ? `\n${failures} comprobaciones fallidas` : "\nAislamiento multi-tenant correcto ✓");
   process.exit(failures ? 1 : 0);
+}
+
+type CreatorRow = Awaited<ReturnType<typeof prisma.creator.findUniqueOrThrow>>;
+
+/** Cobros: un pago, una cuenta de cobro o un informe de DAC7 nunca cruzan de una creadora a otra. */
+async function paymentsIsolation(ana: CreatorRow, maria: CreatorRow) {
+  const tag = `isolation-pago-${Date.now()}`;
+  const mariaDigital = await prisma.product.findFirstOrThrow({ where: { creatorId: maria.id, type: "DIGITAL", status: "PUBLISHED" } });
+  const order = await createPendingOrder({ productId: mariaDigital.id, buyerEmail: `${tag}@example.com`, buyerName: "Prueba" });
+  const payoutFields = { payoutStatus: true, payoutChargesEnabled: true, payoutPayoutsEnabled: true, payoutRequirements: true, payoutStatusUpdatedAt: true, payoutConnectedAt: true } as const;
+  const anaPayout = await prisma.creator.findUniqueOrThrow({ where: { id: ana.id }, select: payoutFields });
+  const mariaPayout = await prisma.creator.findUniqueOrThrow({ where: { id: maria.id }, select: payoutFields });
+  try {
+    // Un pago del pedido de María que va a la cuenta de Ana (metadatos manipulados) no se entrega.
+    await applyPaymentUpdate(
+      {
+        kind: "payment",
+        status: { state: "succeeded", ref: `sim_ch_${tag}`, amountCents: order.amountCents, currency: order.currency, destinationAccount: ana.payoutAccountId, metadata: { orderId: order.id } },
+      },
+      "simulated",
+    );
+    const after = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    check("pago hacia la cuenta de otra creadora: el pedido no se paga", after.status === "PENDING");
+    check("…ni da acceso ni crea clienta en ningún tenant", (await prisma.access.count({ where: { orderId: order.id } })) === 0 && (await prisma.customer.count({ where: { email: `${tag}@example.com` } })) === 0);
+
+    // La cuenta de cobro de Ana solo cambia la fila de Ana.
+    await syncPayoutAccount(ana.payoutAccountId!, {
+      accountId: ana.payoutAccountId!, chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true,
+      currentlyDue: [], pastDue: [], eventuallyDue: ["individual.id_number"], pendingVerification: [], disabledReason: null, currentDeadline: null,
+    });
+    const anaNow = await prisma.creator.findUniqueOrThrow({ where: { id: ana.id }, select: payoutFields });
+    const mariaNow = await prisma.creator.findUniqueOrThrow({ where: { id: maria.id }, select: payoutFields });
+    check("sincronizar la cuenta de Ana actualiza a Ana", anaNow.payoutStatus === "ACTIVE" && anaNow.payoutRequirements !== null);
+    check("…y deja la cuenta de cobro de María intacta", JSON.stringify(mariaNow) === JSON.stringify(mariaPayout));
+
+    // DAC7: los totales de cada creadora son solo sus movimientos.
+    const year = yearOf(new Date());
+    const ownSessions = (creatorId: string) =>
+      prisma.transaction.count({ where: { creatorId, type: "CHARGE", status: "SUCCEEDED", order: { productType: "SESSION", paidAt: { gte: new Date(Date.UTC(year, 0, 1) - 3_600_000) } } } });
+    const anaDac7 = await dac7ForCreator(ana.id, year);
+    check("DAC7 de Ana: solo cuenta sus sesiones", anaDac7.agg.total.activities === (await ownSessions(ana.id)));
+    const report = await dac7Report(year);
+    const ids = report.map((r) => r.creator.id);
+    check("informe DAC7: una fila por creadora", new Set(ids).size === ids.length);
+    const anaRow = report.find((r) => r.creator.id === ana.id);
+    const mariaRow = report.find((r) => r.creator.id === maria.id);
+    check("informe DAC7: la fila de Ana coincide con su panel", !!anaRow && JSON.stringify(anaRow.agg) === JSON.stringify(anaDac7.agg));
+    check("informe DAC7: la fila de María solo tiene lo suyo", (mariaRow?.agg.total.activities ?? 0) === (await ownSessions(maria.id)));
+
+    // «Pagar ahora» busca la suscripción por la usuaria de la sesión: con otra usuaria, nada.
+    const sub = await prisma.subscription.findFirst({ where: { creatorId: ana.id } });
+    if (sub) {
+      await prisma.subscription.update({ where: { id: sub.id }, data: { status: "PAST_DUE" } });
+      try {
+        const intruder = await prisma.user.findFirstOrThrow({ where: { id: { not: sub.userId }, email: { not: "" } } });
+        check("«Pagar ahora» no encuentra la suscripción de otra persona", (await findPastDueSubscription(intruder.id, sub.productId)) === null);
+        check("…pero sí la de su dueña", (await findPastDueSubscription(sub.userId, sub.productId))?.id === sub.id);
+      } finally {
+        await prisma.subscription.update({ where: { id: sub.id }, data: { status: sub.status } });
+      }
+    }
+  } finally {
+    await prisma.order.delete({ where: { id: order.id } });
+    await prisma.creator.update({ where: { id: ana.id }, data: { ...anaPayout, payoutRequirements: anaPayout.payoutRequirements ?? Prisma.DbNull } });
+  }
 }
 
 main().finally(() => prisma.$disconnect());

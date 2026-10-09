@@ -5,10 +5,10 @@ import { requireCreator } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { rangeStart, parseRange } from "@/lib/stats";
 import { tenantDb } from "@/lib/tenant";
-import { ORDER_STATUS_LABEL, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
+import { DISPUTE_STATUS_LABEL, ORDER_STATUS_LABEL, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { Badge, PageHeader, RangeTabs, Stat } from "../ui";
 
-const TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = { PAID: "success", PENDING: "warning", FAILED: "danger", ABANDONED: "neutral", REFUNDED: "neutral" };
+const TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = { PAID: "success", PENDING: "warning", PROCESSING: "warning", FAILED: "danger", ABANDONED: "neutral", REFUNDED: "neutral" };
 
 export default async function SalesPage({ searchParams }: { searchParams: Promise<{ rango?: string; estado?: string }> }) {
   const { creator } = await requireCreator();
@@ -60,7 +60,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
               <span className="hidden text-muted md:block">{o.createdAt.toLocaleDateString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
               <span className="text-right font-semibold tabular-nums">{formatMoney(o.amountCents, o.currency, { decimals: true })}</span>
               <span className="hidden text-right tabular-nums text-muted md:block">{o.status === "PAID" ? formatMoney(o.netCents, o.currency, { decimals: true }) : "—"}</span>
-              <span className="col-span-2 flex justify-start md:col-span-1 md:justify-end"><Badge tone={TONE[o.status]}>{ORDER_STATUS_LABEL[o.status]}</Badge><span className="ml-2 text-xs text-faint md:hidden">{PRODUCT_TYPE_LABEL[o.productType as ProductType]}</span></span>
+              <span className="col-span-2 flex justify-start md:col-span-1 md:justify-end"><Badge tone={TONE[o.status]}>{ORDER_STATUS_LABEL[o.status]}</Badge>{o.disputeStatus && <span className="ml-1.5"><Badge tone={o.disputeStatus === "WON" ? "neutral" : "danger"}>{DISPUTE_STATUS_LABEL[o.disputeStatus]}</Badge></span>}<span className="ml-2 text-xs text-faint md:hidden">{PRODUCT_TYPE_LABEL[o.productType as ProductType]}</span></span>
             </li>
           ))}
         </ul>

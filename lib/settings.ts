@@ -10,6 +10,8 @@ export const SETTING_DEFAULTS = {
   referralRewardType: "FREE_MONTH" as "FREE_MONTH" | "CREDIT" | "COMMISSION_DISCOUNT",
   referralRewardValue: 1, // meses gratis | céntimos de crédito | puntos básicos de descuento
   referralDiscountMonths: 3, // duración del descuento de comisión
+  // DAC7 / modelo 238: tipos de producto que cuentan como «servicios personales» (a confirmar con la asesoría)
+  dac7ReportableTypes: ["SESSION"] as string[],
 };
 
 export type PlatformSettings = typeof SETTING_DEFAULTS;

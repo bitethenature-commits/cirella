@@ -3,7 +3,9 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { appHost } from "@/lib/env";
+import { appHost, isDemoMode } from "@/lib/env";
+import { payoutView } from "@/lib/payouts";
+import { getSettings } from "@/lib/settings";
 import { defaultPageConfig, readPageConfig } from "@/lib/page-config";
 import { planFeatures } from "@/lib/plans";
 import { TEMPLATE_KEYS, type TemplateKey } from "@/lib/templates";
@@ -20,10 +22,11 @@ export default async function OnboardingPage() {
   });
   if (creator?.onboardedAt) redirect("/panel");
 
-  const [categories, templates, defaultPlan] = await Promise.all([
+  const [categories, templates, defaultPlan, settings] = await Promise.all([
     prisma.category.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     prisma.template.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     prisma.plan.findFirst({ where: { isDefault: true } }),
+    getSettings(),
   ]);
   const plan = creator?.plan ?? defaultPlan!;
   const jar = await cookies();
@@ -33,7 +36,7 @@ export default async function OnboardingPage() {
   } catch {}
 
   const p = creator?.products[0];
-  const step = !creator ? 2 : !creator.categoryId ? 3 : !p ? 6 : p.priceCents === 0 ? 8 : !creator.payoutConnectedAt ? 9 : 10;
+  const step = !creator ? 2 : !creator.categoryId ? 3 : !p ? 6 : p.priceCents === 0 ? 8 : creator.payoutStatus !== "ACTIVE" ? 9 : 10;
   const config = creator ? readPageConfig(creator.pageDraft, creator.displayName) : { ...defaultPageConfig({ displayName: "Mi página" }), displayName: user.name ?? "" };
   const features = planFeatures(plan);
 
@@ -58,7 +61,10 @@ export default async function OnboardingPage() {
     allowedTypes: features.productTypes,
     commissionBps: plan.commissionBps,
     planName: plan.name,
-    payoutConnected: !!creator?.payoutConnectedAt,
+    payout: creator
+      ? payoutView(creator, { supportEmail: settings.supportEmail })
+      : payoutView({ status: "ACTIVE", payoutProvider: null, payoutStatus: "NONE", payoutChargesEnabled: false, payoutPayoutsEnabled: false, payoutRequirements: null }),
+    demo: isDemoMode(),
     creatorId: creator?.id ?? null,
   };
   return <OnboardingWizard init={init} />;

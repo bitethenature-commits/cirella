@@ -16,6 +16,7 @@ const PROD_OK: Raw = {
   STRIPE_SECRET_KEY: "sk_live_x",
   STRIPE_PUBLISHABLE_KEY: "pk_live_x",
   STRIPE_WEBHOOK_SECRET: "whsec_x",
+  STRIPE_CONNECT_WEBHOOK_SECRET: "whsec_y",
   CRON_SECRET: SECRET,
   APP_SECRET: SECRET,
   EMAIL_PROVIDER: "resend",

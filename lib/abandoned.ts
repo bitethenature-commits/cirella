@@ -9,7 +9,9 @@ import { dispatchEvents, recordEvents } from "./events";
  *
  * El cambio de estado y el evento van en la misma transacción, con un UPDATE condicional: si dos
  * ejecuciones del cron coinciden, solo una marca el pedido y envía el email. Un pedido ya cobrado
- * (chargedAt) nunca se da por abandonado: lo entrega el vigilante.
+ * (chargedAt) nunca se da por abandonado: lo entrega el vigilante. Tampoco uno cuya página de pago
+ * sigue abierta (checkoutExpiresAt futuro: puede estar confirmando en la app de su banco) ni uno con
+ * el pago pendiente (PROCESSING), que resuelve el aviso de la pasarela.
  */
 export async function emitAbandoned(floorMinutes = 5) {
   const now = Date.now();
@@ -19,6 +21,7 @@ export async function emitAbandoned(floorMinutes = 5) {
       createdAt: { lte: new Date(now - floorMinutes * 60000) },
       recoveryEmailedAt: null,
       chargedAt: null,
+      OR: [{ checkoutExpiresAt: null }, { checkoutExpiresAt: { lt: new Date(now) } }],
     },
     orderBy: { createdAt: "asc" },
     take: 200,
