@@ -8,12 +8,18 @@ import { formatDateTime } from "@/lib/tz";
 import { Badge, Locked, PageHeader } from "../ui";
 import { saveAutomation } from "./actions";
 
-const STATUS: Record<string, { label: string; tone: "success" | "warning" | "neutral" | "danger" }> = {
+type Tone = "success" | "warning" | "neutral" | "danger";
+
+const STATUS: Record<string, { label: string; tone: Tone }> = {
   SENT: { label: "Enviado", tone: "success" },
   QUEUED: { label: "Programado", tone: "warning" },
+  SENDING: { label: "Enviando", tone: "warning" },
   CANCELED: { label: "Cancelado", tone: "neutral" },
-  FAILED: { label: "Error", tone: "danger" },
+  FAILED: { label: "No entregado", tone: "danger" },
 };
+
+const RETRYING = { label: "Reintentando", tone: "warning" as Tone };
+const FAILED_NOTE = "No se pudo entregar: la dirección lo rechazó o falló 6 veces seguidas. El equipo de Cirella ya está avisado.";
 
 export default async function AutomationsPage() {
   const { creator } = await requireCreator();
@@ -74,16 +80,25 @@ export default async function AutomationsPage() {
       <section>
         <h2 className="eyebrow mb-3 !text-ink">Últimos emails</h2>
         <div className="card divide-y divide-line">
-          {log.map((m) => (
-            <div key={m.id} className="flex items-center gap-3 px-4 py-3 text-sm">
-              <Mail className="h-4 w-4 shrink-0 text-muted" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{m.subject}</p>
-                <p className="truncate text-xs text-muted">{m.to} · {formatDateTime(m.status === "SENT" && m.sentAt ? m.sentAt : m.sendAt)}</p>
+          {log.map((m) => {
+            // En cola tras algún intento fallido: se está reintentando, no está «programado».
+            const retrying = m.status === "QUEUED" && m.attempts > 0;
+            const st = retrying ? RETRYING : (STATUS[m.status] ?? { label: m.status, tone: "neutral" as Tone });
+            return (
+              <div key={m.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                <Mail className="h-4 w-4 shrink-0 text-muted" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{m.subject}</p>
+                  <p className="truncate text-xs text-muted">{m.to} · {formatDateTime(m.status === "SENT" && m.sentAt ? m.sentAt : m.sendAt)}</p>
+                  {m.status === "FAILED" && <p className="mt-0.5 text-xs text-[#9a3a2e]">{FAILED_NOTE}</p>}
+                  {retrying && <p className="mt-0.5 text-xs text-muted">El proveedor de email ha fallado; se reintenta solo ({formatDateTime(m.sendAt)}).</p>}
+                </div>
+                <span title={m.status === "FAILED" ? FAILED_NOTE : undefined}>
+                  <Badge tone={st.tone}>{st.label}</Badge>
+                </span>
               </div>
-              <Badge tone={STATUS[m.status]?.tone}>{STATUS[m.status]?.label ?? m.status}</Badge>
-            </div>
-          ))}
+            );
+          })}
           {log.length === 0 && <p className="p-5 text-sm text-muted">Aún no se ha enviado ningún email.</p>}
         </div>
       </section>

@@ -40,6 +40,9 @@ export function TrackOnMount(p: TrackPayload & { disabled?: boolean }) {
   useEffect(() => {
     if (p.disabled || sent.current) return;
     sent.current = true;
+    // La página pública está cacheada y no puede leer ?embed=1 en el servidor: la vista previa
+    // incrustada en la portada de Cirella (/ana?embed=1) no cuenta como visita.
+    if (new URLSearchParams(window.location.search).get("embed") === "1") return;
     track(p);
   }, [p]);
   return null;

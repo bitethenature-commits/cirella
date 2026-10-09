@@ -20,7 +20,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       <aside className="sticky top-0 hidden h-dvh flex-col border-r border-line bg-cream/40 px-4 py-5 lg:flex">
         <Logo href="/panel" />
         <div className="mt-6 flex items-center gap-2.5 rounded-2xl border border-line bg-white p-2.5" style={{ ["--c-accent" as string]: "#0E1024", ["--c-accent-text" as string]: "#F6F1E7" }}>
-          <Avatar src={cfg.avatarUrl} name={cfg.displayName} className="h-9 w-9 text-xs" />
+          <Avatar src={cfg.avatarUrl} name={cfg.displayName} className="h-9 w-9 text-xs" sizes="36px" />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{cfg.displayName}</p>
             <p className="truncate text-xs text-muted">Plan {creator.plan.name}</p>
@@ -49,7 +49,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
             </div>
             <div className="flex items-center gap-1.5">
               <CopyButton text={url} label="Copiar enlace" className="btn btn-outline btn-sm hidden sm:inline-flex" />
-              <Link href={`/${creator.username}`} target="_blank" className="btn btn-primary btn-sm">
+              <Link href={creator.published ? `/${creator.username}` : "/vista-previa"} target="_blank" className="btn btn-primary btn-sm">
                 <ExternalLink className="h-3.5 w-3.5" /> Ver página
               </Link>
             </div>

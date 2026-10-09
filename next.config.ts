@@ -1,22 +1,18 @@
 import type { NextConfig } from "next";
+import { securityHeaderOptionsFromEnv, securityHeaders } from "./lib/security-headers";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   eslint: { ignoreDuringBuilds: true },
+  // Sentry se carga solo con SENTRY_DSN (import dinámico en lib/monitoring.ts): fuera del bundle.
+  serverExternalPackages: ["@sentry/nextjs"],
   experimental: {
     serverActions: { bodySizeLimit: "2mb" },
   },
   async headers() {
-    return [
-      {
-        source: "/:path*",
-        headers: [
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
-        ],
-      },
-    ];
+    // CSP, HSTS y demás (lib/security-headers.ts). Se calculan al hacer `next build` con las
+    // variables de ese momento: en Vercel cada entorno se construye con las suyas.
+    return [{ source: "/:path*", headers: securityHeaders(securityHeaderOptionsFromEnv()) }];
   },
 };
 

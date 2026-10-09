@@ -1,10 +1,12 @@
 import "server-only";
 import { prisma } from "./db";
-import { emit, type DomainEvent } from "./automations";
+import { dispatchEvents, recordEvents, type DomainEvent } from "./events";
 import { hasBookingClash, isBookingOverlapError, isSlotAvailable } from "./booking";
 import { paymentProvider, type PaymentMethodInput } from "./payments";
 import { canSellType, effectiveCommissionBps } from "./plans";
 import { pushBookingEvent } from "./calendar";
+import { captureError } from "./monitoring";
+import { chargeKey } from "./reliability";
 import type { ProductType } from "./types";
 
 export class CheckoutError extends Error {}
@@ -98,7 +100,15 @@ export async function payOrder(orderId: string, payment: PaymentMethodInput) {
     await prisma.order.update({ where: { id: order.id }, data: { status: "FAILED" } });
     return { ok: false as const, error: result.error };
   }
-  return { ok: true as const, ...(await fulfillOrder(order.id, result.ref)) };
+  // El cobro queda anotado antes de entregar: si la entrega falla tras cobrar, el vigilante
+  // del cron (lib/watchdog.ts) la reintenta a partir de Order.chargedAt.
+  await prisma.order.update({ where: { id: order.id }, data: { chargedAt: new Date(), paymentRef: result.ref } });
+  try {
+    return { ok: true as const, ...(await fulfillOrder(order.id, result.ref)) };
+  } catch (e) {
+    captureError(e, { area: "checkout", extra: { orderId: order.id } });
+    throw e;
+  }
 }
 
 function addInterval(date: Date, interval: string) {
@@ -115,7 +125,7 @@ function addInterval(date: Date, interval: string) {
  */
 export async function fulfillOrder(orderId: string, paymentRef: string) {
   const events: DomainEvent[] = [];
-  let result;
+  let result: Awaited<ReturnType<typeof fulfillInTransaction>>;
   try {
     result = await fulfillInTransaction(orderId, paymentRef, events, { confirmSlot: true });
   } catch (e) {
@@ -126,12 +136,11 @@ export async function fulfillOrder(orderId: string, paymentRef: string) {
     result = await fulfillInTransaction(orderId, paymentRef, events, { confirmSlot: false });
   }
 
-  // Efectos externos fuera de la transacción.
-  for (const e of events) {
-    if (e.type === "booking.confirmed") await syncBookingToCalendar(e.bookingId);
-    await emit(e);
-  }
-  return result;
+  // Los avisos (recibo, acceso, reserva, calendario) se guardan en la misma transacción que el
+  // pedido y se envían ya, tras el commit. Si el proceso cae justo después, /api/cron los envía.
+  const { eventIds, ...fulfilled } = result;
+  await dispatchEvents(eventIds);
+  return fulfilled;
 }
 
 async function fulfillInTransaction(orderId: string, paymentRef: string, events: DomainEvent[], opts: { confirmSlot: boolean }) {
@@ -139,10 +148,13 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, events:
   // espera el cerrojo de reservas (hasBookingClash) hasta que la primera termina.
   return prisma.$transaction(async (tx) => {
     events.length = 0;
+    // Bloquea la fila del pedido: dos entregas simultáneas (redirección + webhook, o el vigilante)
+    // se ponen en fila y la segunda ya lo ve PAID. La clave única charge:{orderId} es la última red.
+    await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`;
     const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { product: true } });
     const existingUser = await tx.user.findUnique({ where: { email: order.buyerEmail } });
     if (order.status === "PAID") {
-      return { order, userId: existingUser!.id, isNewUser: false };
+      return { order, userId: existingUser!.id, isNewUser: false, eventIds: [] as string[] };
     }
     const now = new Date();
     const user =
@@ -192,6 +204,7 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, events:
         currency: order.currency,
         provider: order.paymentProvider,
         providerRef: paymentRef,
+        idempotencyKey: chargeKey(order.id),
       },
     });
 
@@ -261,7 +274,8 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, events:
       },
     });
     events.unshift({ type: "order.paid", orderId: order.id });
-    return { order: paid, userId: user.id, isNewUser: !existingUser };
+    const eventIds = await recordEvents(tx, events);
+    return { order: paid, userId: user.id, isNewUser: !existingUser, eventIds };
   }, { timeout: 15_000 });
 }
 

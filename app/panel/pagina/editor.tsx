@@ -113,7 +113,7 @@ export function PageEditor(props: Props) {
       setCfg(clean);
       setSaved(JSON.stringify(clean));
       if (kind === "publish") setPublishedJson(JSON.stringify(clean));
-      if (kind === "preview") window.open(`/${props.username}?preview=1`, "_blank");
+      if (kind === "preview") window.open("/vista-previa", "_blank");
       else flash(true, r.message ?? "Guardado");
     });
   };

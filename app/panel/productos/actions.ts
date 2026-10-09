@@ -7,6 +7,7 @@ import { requireCreator } from "@/lib/auth";
 import { uniqueProductSlug } from "@/lib/creator";
 import { parseMoneyToCents } from "@/lib/money";
 import { canSellType } from "@/lib/plans";
+import { privateKey, storage } from "@/lib/storage";
 import { tenantDb } from "@/lib/tenant";
 import { DEFAULT_CTA, LESSON_KINDS, PRODUCT_TYPES, type ProductType } from "@/lib/types";
 
@@ -20,6 +21,14 @@ async function ctx() {
 function refresh(id?: string) {
   revalidatePath("/panel/productos");
   if (id) revalidatePath(`/panel/productos/${id}`);
+  // La página pública está cacheada (ISR): reordenar, archivar o borrar debe verse ya.
+  revalidatePath("/[username]", "page");
+}
+
+/** Borra del almacenamiento los archivos de unos ProductFile ya eliminados. Si falla, quedan huérfanos (no rompe nada). */
+async function deleteStoredFiles(storageKeys: (string | null)[]) {
+  const keys = storageKeys.filter((k): k is string => !!k).map(privateKey);
+  if (keys.length) await storage().delete(keys).catch(() => {});
 }
 
 // ───────────── Productos ─────────────
@@ -159,7 +168,11 @@ export async function deleteProduct(form: FormData) {
   const orders = await db.order.count({ where: { productId: id } });
   // Con ventas no se borra (las clientas mantienen su acceso): se archiva.
   if (orders > 0) await db.product.update({ where: { id }, data: { status: "ARCHIVED", featured: false } });
-  else await db.product.deleteMany({ where: { id } });
+  else {
+    const files = await db.productFile.findMany({ where: { productId: id, storageKey: { not: null } }, select: { storageKey: true } });
+    await db.product.deleteMany({ where: { id } });
+    await deleteStoredFiles(files.map((f) => f.storageKey));
+  }
   refresh();
   redirect("/panel/productos");
 }
@@ -172,6 +185,7 @@ export async function deleteFile(form: FormData) {
   const file = await db.productFile.findFirst({ where: { id } });
   if (!file) return;
   await db.productFile.deleteMany({ where: { id } });
+  await deleteStoredFiles([file.storageKey]);
   refresh(file.productId);
 }
 

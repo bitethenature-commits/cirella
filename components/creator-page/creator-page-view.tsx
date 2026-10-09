@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Mail, MessageCircle, Plus, Quote, UserRound } from "lucide-react";
+import { imageSrcSet } from "@/lib/media-url";
 import { formatPrice } from "@/lib/money";
 import {
   SOCIAL_KEYS,
@@ -198,7 +199,15 @@ export function CreatorPageView(props: Props) {
       {config.coverUrl ? (
         <div className="relative h-[34vh] min-h-[220px] w-full overflow-hidden sm:h-[42vh]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={config.coverUrl} alt="" className="h-full w-full scale-105 object-cover" />
+          <img
+            src={config.coverUrl}
+            srcSet={imageSrcSet(config.coverUrl)}
+            sizes="100vw"
+            fetchPriority="high"
+            decoding="async"
+            alt=""
+            className="h-full w-full scale-105 object-cover"
+          />
           <div className="cp-cover-fade absolute inset-0" />
         </div>
       ) : (

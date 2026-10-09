@@ -5,19 +5,26 @@ import * as T from "./email/templates";
 import { formatPrice } from "./money";
 import { planFeatures } from "./plans";
 import { formatSessionDate } from "./tz";
+import type { DomainEvent } from "./events";
+
+// Compatibilidad: el código de negocio sigue importando emit y DomainEvent desde aquí.
+export { emit } from "./events";
+export type { DomainEvent } from "./events";
 
 /**
  * Automatizaciones = eventos de dominio → acciones (hoy: emails).
  *
- * El código de negocio solo llama a `emit({ type: ... })`. Aquí se decide qué
- * hacer con cada evento según:
+ * El código de negocio guarda eventos de dominio (lib/events.ts, en la misma transacción que
+ * el cambio); el outbox los entrega a lib/event-handlers.ts, que llama a `handleAutomation`.
+ * Aquí se decide qué hacer con cada evento según:
  *   · el catálogo de automatizaciones (AUTOMATIONS),
  *   · el plan de la creadora (las "pro" requieren la palanca `automations`),
  *   · la configuración de la creadora (tabla Automation: activada, retraso, texto).
  *
  * Añadir una automatización nueva = una entrada en AUTOMATIONS + un `case` en
- * `emit`. Para otros canales (WhatsApp, webhooks, Zapier) se añade otra acción
- * junto a `enqueueEmail` sin tocar el resto del sistema.
+ * `handleAutomation`. Si algo falla, lanza: el outbox reintenta el evento, así que cada acción
+ * tiene que ser idempotente (todos los emails llevan dedupeKey). Para otros canales (WhatsApp,
+ * webhooks, Zapier) se añade otra acción junto a `enqueueEmail` sin tocar el resto del sistema.
  */
 
 export const AUTOMATIONS = {
@@ -32,14 +39,6 @@ export const AUTOMATIONS = {
 } as const;
 
 export type AutomationTrigger = keyof typeof AUTOMATIONS;
-
-export type DomainEvent =
-  | { type: "order.paid"; orderId: string }
-  | { type: "customer.created"; customerId: string }
-  | { type: "booking.confirmed"; bookingId: string }
-  | { type: "subscription.created"; subscriptionId: string }
-  | { type: "subscription.canceled"; subscriptionId: string }
-  | { type: "checkout.abandoned"; orderId: string };
 
 async function setting(creatorId: string, trigger: AutomationTrigger) {
   const [row, creator] = await Promise.all([
@@ -62,16 +61,7 @@ function withCustomSubject<T extends { subject: string }>(mail: T, subject: stri
   return subject ? { ...mail, subject } : mail;
 }
 
-export async function emit(event: DomainEvent) {
-  try {
-    await handle(event);
-  } catch (e) {
-    // Una automatización nunca debe romper un pago o una reserva.
-    console.error("[automations]", event.type, e);
-  }
-}
-
-async function handle(event: DomainEvent) {
+export async function handleAutomation(event: DomainEvent) {
   const base = appUrl();
   switch (event.type) {
     case "order.paid": {

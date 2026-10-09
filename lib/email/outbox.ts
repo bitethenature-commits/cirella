@@ -1,4 +1,8 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
+import { captureAlert, captureError } from "../monitoring";
+import { nextAttemptAt, truncateError } from "../reliability";
+import { emailProvider } from "./provider";
 
 /**
  * Bandeja de salida de emails.
@@ -6,8 +10,16 @@ import { prisma } from "../db";
  * Todo email se guarda primero en EmailMessage (con fecha de envío). Así:
  *   · los emails programados (recordatorios, carritos abandonados) son filas
  *     con `sendAt` futuro que procesa /api/cron;
- *   · cambiar de proveedor (Resend, Postmark, SES…) solo afecta a `deliver`;
- *   · en modo demo los emails se pueden leer en /dev/correo.
+ *   · el envío pasa por un proveedor intercambiable (lib/email/provider.ts: Resend en
+ *     producción, registro local en desarrollo y demo, que se lee en /dev/correo);
+ *   · ningún email se pierde en silencio: si el proveedor falla, se reintenta a 1 min, 5 min,
+ *     30 min, 2 h y 12 h (`sendAt` es la hora del siguiente intento). Tras 6 intentos, o si la
+ *     dirección se rechaza, queda FAILED («No entregado»), se avisa y aparece en /admin/envios.
+ *
+ * Estados: QUEUED → SENDING (reclamado por un proceso, con lease de 2 min) → SENT | QUEUED
+ * (reintento) | FAILED. CANCELED = descartado. Reclamar la fila con un UPDATE condicional evita
+ * que la entrega en línea y el cron envíen el mismo email dos veces; si un proceso cae a mitad,
+ * el lease caduca y el cron lo retoma (Resend no lo duplica gracias a la Idempotency-Key).
  */
 
 type EnqueueInput = {
@@ -20,7 +32,14 @@ type EnqueueInput = {
   sendAt?: Date;
   dedupeKey?: string;
   sendNow?: boolean;
+  /** Nombre visible del remitente. Por defecto, el de la creadora si hay creatorId. */
+  fromName?: string | null;
+  /** Dirección de respuesta. Por defecto, la de contacto de la creadora (salvo avisos a ella misma). */
+  replyTo?: string | null;
 };
+
+/** Tiempo que un proceso tiene reservado un email mientras lo envía. */
+const LEASE_MS = 2 * 60_000;
 
 export async function enqueueEmail(input: EnqueueInput) {
   if (input.dedupeKey) {
@@ -30,45 +49,137 @@ export async function enqueueEmail(input: EnqueueInput) {
     if (exists && exists.status === "CANCELED") await prisma.emailMessage.update({ where: { id: exists.id }, data: { dedupeKey: null } });
     else if (exists) return exists;
   }
-  const msg = await prisma.emailMessage.create({
-    data: {
-      to: input.to.toLowerCase(),
-      subject: input.subject,
-      html: input.html,
-      template: input.template,
-      creatorId: input.creatorId ?? null,
-      userId: input.userId ?? null,
-      sendAt: input.sendAt ?? new Date(),
-      dedupeKey: input.dedupeKey,
-    },
-  });
-  if (input.sendNow !== false && msg.sendAt <= new Date()) await deliver(msg.id);
+  const to = input.to.toLowerCase();
+  const sender = await senderFor(input, to);
+  let msg;
+  try {
+    msg = await prisma.emailMessage.create({
+      data: {
+        to,
+        subject: input.subject,
+        html: input.html,
+        template: input.template,
+        creatorId: input.creatorId ?? null,
+        userId: input.userId ?? null,
+        sendAt: input.sendAt ?? new Date(),
+        dedupeKey: input.dedupeKey,
+        fromName: sender.fromName,
+        replyTo: sender.replyTo,
+      },
+    });
+  } catch (e) {
+    // Otro proceso ha creado el mismo email a la vez (misma dedupeKey): nos quedamos con ese.
+    if (input.dedupeKey && e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      const existing = await prisma.emailMessage.findUnique({ where: { dedupeKey: input.dedupeKey } });
+      if (existing) return existing;
+    }
+    throw e;
+  }
+  if (input.sendNow !== false && msg.sendAt <= new Date()) {
+    try {
+      await deliverEmail(msg.id);
+    } catch (e) {
+      // El email ya está guardado: si la entrega en línea falla, el cron lo envía.
+      captureError(e, { area: "email", tags: { template: msg.template }, extra: { emailId: msg.id } });
+    }
+  }
   return msg;
 }
 
-/** Proveedor de envío. MVP: registro local. Producción: conectar aquí Resend/Postmark. */
-async function deliver(id: string) {
-  const msg = await prisma.emailMessage.findUnique({ where: { id } });
-  if (!msg || msg.status !== "QUEUED") return;
-  try {
-    // if (process.env.RESEND_API_KEY) await resend.emails.send({ ... })
-    if (process.env.NODE_ENV === "development") {
-      console.info(`[email] → ${msg.to} · ${msg.subject}`);
-    }
-    await prisma.emailMessage.update({ where: { id }, data: { status: "SENT", sentAt: new Date() } });
-  } catch (e) {
-    await prisma.emailMessage.update({ where: { id }, data: { status: "FAILED", error: String(e) } });
-  }
+/** Remitente y reply-to: la creadora firma los emails a sus clientas; los avisos a ella, la plataforma. */
+async function senderFor(input: EnqueueInput, to: string) {
+  if (input.fromName !== undefined || input.replyTo !== undefined || !input.creatorId)
+    return { fromName: input.fromName ?? null, replyTo: input.replyTo ?? null };
+  const creator = await prisma.creator.findUnique({
+    where: { id: input.creatorId },
+    select: { displayName: true, contactEmail: true, user: { select: { email: true } } },
+  });
+  if (!creator) return { fromName: null, replyTo: null };
+  const replyTo = (creator.contactEmail || creator.user.email).toLowerCase();
+  if (replyTo === to) return { fromName: null, replyTo: null };
+  return { fromName: creator.displayName, replyTo };
 }
 
-/** Envía todo lo pendiente cuya hora ha llegado. Lo llama /api/cron. */
-export async function processOutbox(limit = 100) {
+/**
+ * Intenta enviar un email. Solo lo envía quien consigue reclamarlo (QUEUED → SENDING), así que
+ * llamarlo a la vez desde varios sitios es seguro.
+ */
+export async function deliverEmail(id: string, now = new Date()): Promise<"sent" | "retry" | "failed" | "skipped"> {
+  const claim = await prisma.emailMessage.updateMany({
+    where: { id, status: "QUEUED", sendAt: { lte: now } },
+    data: { status: "SENDING", lockedUntil: new Date(now.getTime() + LEASE_MS), attempts: { increment: 1 }, lastAttemptAt: now },
+  });
+  if (!claim.count) return "skipped";
+  const msg = await prisma.emailMessage.findUniqueOrThrow({ where: { id } });
+
+  let result;
+  try {
+    result = await emailProvider().send({ id: msg.id, to: msg.to, subject: msg.subject, html: msg.html, fromName: msg.fromName, replyTo: msg.replyTo });
+  } catch (e) {
+    result = { ok: false as const, kind: "retry" as const, error: truncateError(e) };
+  }
+
+  if (result.ok) {
+    await prisma.emailMessage.update({
+      where: { id },
+      data: { status: "SENT", sentAt: new Date(), providerId: result.providerId ?? null, error: null, lockedUntil: null },
+    });
+    return "sent";
+  }
+
+  const next = result.kind === "permanent" ? null : nextAttemptAt(msg.attempts, now);
+  if (next) {
+    await prisma.emailMessage.update({ where: { id }, data: { status: "QUEUED", sendAt: next, error: truncateError(result.error), lockedUntil: null } });
+    return "retry";
+  }
+  await prisma.emailMessage.update({ where: { id }, data: { status: "FAILED", error: truncateError(result.error), lockedUntil: null } });
+  captureAlert("Email no entregado tras los reintentos", {
+    area: "email",
+    level: "error",
+    fingerprint: ["email-fallido", msg.template],
+    extra: { emailId: msg.id, template: msg.template, creatorId: msg.creatorId, attempts: msg.attempts },
+  });
+  return "failed";
+}
+
+/** Envía todo lo pendiente cuya hora ha llegado (también los reintentos). Lo llama /api/cron. */
+export async function processOutbox(limit = 100, now = new Date()) {
+  // Emails que un proceso reclamó y no terminó (se cayó a mitad): vuelven a la cola.
+  await prisma.emailMessage.updateMany({
+    where: { status: "SENDING", lockedUntil: { lt: now } },
+    data: { status: "QUEUED", lockedUntil: null },
+  });
   const due = await prisma.emailMessage.findMany({
-    where: { status: "QUEUED", sendAt: { lte: new Date() } },
+    where: { status: "QUEUED", sendAt: { lte: now } },
     orderBy: { sendAt: "asc" },
     take: limit,
     select: { id: true },
   });
-  for (const m of due) await deliver(m.id);
+  for (const m of due) {
+    try {
+      await deliverEmail(m.id, now);
+    } catch (e) {
+      captureError(e, { area: "email", extra: { emailId: m.id } });
+    }
+  }
   return due.length;
+}
+
+/** «Reintentar ahora» (/admin/envios): vuelve a empezar la cuenta de intentos y lo envía ya. */
+export async function retryEmail(id: string) {
+  const r = await prisma.emailMessage.updateMany({
+    where: { id, status: { in: ["FAILED", "QUEUED"] }, attempts: { gt: 0 } },
+    data: { status: "QUEUED", attempts: 0, sendAt: new Date(), error: null },
+  });
+  if (r.count) await deliverEmail(id);
+  return r.count > 0;
+}
+
+/** «Descartar» (/admin/envios): un envío fallido o en reintento deja de intentarse. */
+export async function discardEmail(id: string) {
+  const r = await prisma.emailMessage.updateMany({
+    where: { id, status: { in: ["FAILED", "QUEUED"] }, attempts: { gt: 0 } },
+    data: { status: "CANCELED", lockedUntil: null },
+  });
+  return r.count > 0;
 }

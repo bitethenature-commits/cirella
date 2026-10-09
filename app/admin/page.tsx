@@ -1,19 +1,35 @@
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import { BarChart, HBars } from "@/components/charts";
 import { Flash } from "@/components/ui/flash";
 import { requireAdmin } from "@/lib/auth";
 import { formatMoney, formatNumber } from "@/lib/money";
 import { getPlatformOverview } from "@/lib/platform-stats";
+import { getDeliveryHealth } from "@/lib/watchdog";
 import { PageHeader, Stat } from "../panel/ui";
 
 export default async function AdminHome({ searchParams }: { searchParams: Promise<{ ok?: string }> }) {
   await requireAdmin();
   const sp = await searchParams;
-  const s = await getPlatformOverview();
+  const [s, delivery] = await Promise.all([getPlatformOverview(), getDeliveryHealth()]);
+  const pending = delivery.failedEmails + delivery.deadEvents;
   return (
     <div className="space-y-6">
       <PageHeader title="Resumen de la plataforma" subtitle="Todas las creadoras, ventas e ingresos." />
       <Flash ok={sp.ok} />
+      {(pending > 0 || delivery.cronStopped) && (
+        <div role="alert" className="card flex flex-col gap-3 border-[#ecd2cd] bg-[#fdf3f1] p-4 text-sm text-[#8a3b31] sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex items-start gap-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              {[pending > 0 && `${pending} ${pending === 1 ? "envío necesita" : "envíos necesitan"} revisión`, delivery.cronStopped && "Las tareas automáticas están paradas"]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          </p>
+          <Link href="/admin/envios" className="btn btn-outline btn-sm shrink-0">Ver envíos fallidos</Link>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Ingresos de la plataforma" value={formatMoney(s.platformRevenue)} hint={`${formatMoney(s.commissions)} comisiones · ${formatMoney(s.planRevenue)} planes`} accent />
         <Stat label="Volumen vendido (GMV)" value={formatMoney(s.gmv)} hint={`${formatNumber(s.orders)} pedidos`} />

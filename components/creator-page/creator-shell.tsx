@@ -13,7 +13,8 @@ export function CreatorShell({
   back = true,
 }: {
   username: string;
-  config: PageConfig;
+  /** Solo lo que pinta la cabecera y el tema (también lo usan las páginas de error, en cliente). */
+  config: Pick<PageConfig, "displayName" | "avatarUrl" | "template" | "theme">;
   allowCustom: boolean;
   children: React.ReactNode;
   back?: boolean;

@@ -13,6 +13,9 @@ import { PRODUCT_TYPES } from "@/lib/types";
 
 const done = (path: string, msg: string) => {
   revalidatePath("/admin", "layout");
+  // Las acciones de admin son raras y pueden cambiar cualquier página pública cacheada
+  // (bloqueo, planes, nombre de la plataforma): se invalida todo.
+  revalidatePath("/", "layout");
   redirect(`${path}?ok=${encodeURIComponent(msg)}`);
 };
 

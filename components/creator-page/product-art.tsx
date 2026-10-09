@@ -1,3 +1,5 @@
+import { imageSrcSet } from "@/lib/media-url";
+
 /** Imagen de producto o, si no hay, una composición generativa con el emoji. */
 export function ProductImage({
   src,
@@ -14,7 +16,17 @@ export function ProductImage({
 }) {
   if (src)
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={title} loading="lazy" decoding="async" sizes={sizes} className={`cp-img h-full w-full object-cover ${className}`} />;
+    return (
+      <img
+        src={src}
+        srcSet={imageSrcSet(src)}
+        sizes={sizes ?? "(min-width: 768px) 360px, 85vw"}
+        alt={title}
+        loading="lazy"
+        decoding="async"
+        className={`cp-img h-full w-full object-cover ${className}`}
+      />
+    );
   return (
     <div
       className={`cp-img relative grid h-full w-full place-items-center overflow-hidden ${className}`}
@@ -32,7 +44,17 @@ export function ProductImage({
   );
 }
 
-export function Avatar({ src, name, className = "h-24 w-24" }: { src?: string | null; name: string; className?: string }) {
+export function Avatar({
+  src,
+  name,
+  className = "h-24 w-24",
+  sizes = "128px",
+}: {
+  src?: string | null;
+  name: string;
+  className?: string;
+  sizes?: string;
+}) {
   const initials = name
     .split(/\s+/)
     .slice(0, 2)
@@ -40,7 +62,7 @@ export function Avatar({ src, name, className = "h-24 w-24" }: { src?: string | 
     .join("");
   if (src)
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={name} className={`${className} rounded-full object-cover`} />;
+    return <img src={src} srcSet={imageSrcSet(src)} sizes={sizes} alt={name} decoding="async" className={`${className} rounded-full object-cover`} />;
   return (
     <div
       className={`${className} grid place-items-center rounded-full`}

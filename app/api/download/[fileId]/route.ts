@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { readStored } from "@/lib/storage";
+import { DOWNLOAD_TTL_SEC, INLINE_MEDIA_TTL_SEC, privateKey, storage } from "@/lib/storage";
 
 /**
  * Entrega protegida de contenido de pago. Solo responde si:
  *   · quien lo pide es la creadora propietaria, o
  *   · tiene un Access activo (y no caducado) al producto del archivo.
- * Soporta peticiones Range para que audio y vídeo se puedan adelantar.
+ * Comprueba el acceso y redirige a un enlace temporal del almacenamiento (10 min; 3 h para
+ * reproducir vídeo/audio del curso). El servidor nunca carga el archivo en memoria.
  */
 export async function GET(req: Request, { params }: { params: Promise<{ fileId: string }> }) {
   const { fileId } = await params;
@@ -25,24 +26,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ fileId: 
   if (file.kind === "LINK" && file.url) return NextResponse.redirect(file.url);
   if (!file.storageKey) return new NextResponse("No encontrado", { status: 404 });
 
-  const { data, size } = await readStored("private", file.storageKey);
   const inline = new URL(req.url).searchParams.get("inline") === "1";
-  const headers: Record<string, string> = {
-    "Content-Type": file.mimeType ?? "application/octet-stream",
-    "Content-Disposition": `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(file.name)}`,
-    "Cache-Control": "private, no-store",
-    "Accept-Ranges": "bytes",
-  };
-  const range = req.headers.get("range");
-  const m = range?.match(/bytes=(\d*)-(\d*)/);
-  if (m) {
-    const start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
-    const end = m[1] && m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
-    if (start >= size || start > end) return new NextResponse(null, { status: 416, headers: { "Content-Range": `bytes */${size}` } });
-    return new NextResponse(new Uint8Array(data.subarray(start, end + 1)), {
-      status: 206,
-      headers: { ...headers, "Content-Range": `bytes ${start}-${end}/${size}`, "Content-Length": String(end - start + 1) },
-    });
-  }
-  return new NextResponse(new Uint8Array(data), { headers: { ...headers, "Content-Length": String(size) } });
+  const media = file.kind === "VIDEO" || file.kind === "AUDIO";
+  const url = await storage().presignGet(privateKey(file.storageKey), {
+    expiresInSec: inline && media ? INLINE_MEDIA_TTL_SEC : DOWNLOAD_TTL_SEC,
+    filename: file.name,
+    inline,
+    contentType: file.mimeType,
+  });
+  return NextResponse.redirect(new URL(url, req.url), { status: 302, headers: { "Cache-Control": "private, no-store" } });
 }

@@ -1,15 +1,13 @@
 "use client";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { useRef, useState } from "react";
+import { uploadFile } from "./upload-client";
 
-export async function uploadImage(file: File): Promise<string> {
-  const fd = new FormData();
-  fd.append("file", file);
-  fd.append("kind", "image");
-  const res = await fetch("/api/upload", { method: "POST", body: fd });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error ?? "No se pudo subir la imagen");
-  return json.url as string;
+/** Sube una imagen (se optimiza en el servidor) y devuelve su URL /media/…. */
+export async function uploadImage(file: File, onProgress?: (pct: number) => void): Promise<string> {
+  const { url } = await uploadFile(file, { purpose: "image", onProgress });
+  if (!url) throw new Error("No se pudo subir la imagen");
+  return url;
 }
 
 /** Selector de imagen con vista previa. `shape="circle"` para avatares. */
@@ -28,6 +26,7 @@ export function ImageUpload({
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [pct, setPct] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const box =
     shape === "circle" ? "h-36 w-36 rounded-full" : shape === "wide" ? "aspect-[16/7] w-full rounded-2xl" : "aspect-[4/3] w-full rounded-2xl";
@@ -49,8 +48,9 @@ export function ImageUpload({
             </span>
           )}
           {busy && (
-            <span className="absolute inset-0 grid place-items-center bg-white/70">
-              <Loader2 className="h-6 w-6 animate-spin text-ink" />
+            <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-white/75 text-xs font-medium text-ink" aria-live="polite">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              {pct < 100 ? `${pct} %` : "Optimizando…"}
             </span>
           )}
           {value && !busy && (
@@ -80,9 +80,10 @@ export function ImageUpload({
           e.target.value = "";
           if (!f) return;
           setBusy(true);
+          setPct(0);
           setError(null);
           try {
-            onChange(await uploadImage(f));
+            onChange(await uploadImage(f, setPct));
           } catch (err) {
             setError(err instanceof Error ? err.message : "Error al subir");
           } finally {

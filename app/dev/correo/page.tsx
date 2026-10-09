@@ -48,6 +48,7 @@ export default async function DevMailbox({ searchParams }: { searchParams: Promi
         <aside className="card max-h-[75dvh] overflow-y-auto">
           <p className="border-b border-line px-4 py-3 text-xs text-muted">
             Emails generados por la plataforma. En producción se envían con el proveedor configurado (Resend).
+            Para probar los reintentos, usa una dirección con +fallo (fallo temporal) o +rebote (rechazada).
             {sp.to && <> Filtrando: <strong>{sp.to}</strong> · <Link href="/dev/correo" className="underline">ver todos</Link></>}
           </p>
           <ul className="divide-y divide-line">
@@ -56,7 +57,9 @@ export default async function DevMailbox({ searchParams }: { searchParams: Promi
                 <Link href={q(m.id)} className={`block px-4 py-3 text-sm transition hover:bg-paper ${selected?.id === m.id ? "bg-sand/60" : ""}`}>
                   <span className="flex items-center justify-between gap-2">
                     <span className="truncate font-semibold">{m.subject}</span>
-                    {m.status === "QUEUED" && <span className="shrink-0 rounded-full bg-gold-soft px-2 py-0.5 text-[0.65rem] font-semibold">Programado</span>}
+                    {m.status === "QUEUED" && <span className="shrink-0 rounded-full bg-gold-soft px-2 py-0.5 text-[0.65rem] font-semibold">{m.attempts > 0 ? "Reintentando" : "Programado"}</span>}
+                    {m.status === "SENDING" && <span className="shrink-0 rounded-full bg-gold-soft px-2 py-0.5 text-[0.65rem] font-semibold">Enviando</span>}
+                    {m.status === "FAILED" && <span className="shrink-0 rounded-full bg-[#fbe9e6] px-2 py-0.5 text-[0.65rem] font-semibold text-[#9a3a2e]">Fallido</span>}
                     {m.status === "CANCELED" && <span className="shrink-0 rounded-full bg-sand px-2 py-0.5 text-[0.65rem] font-semibold">Cancelado</span>}
                   </span>
                   <span className="block truncate text-xs text-muted">{m.to} · {formatDateTime(m.status === "QUEUED" ? m.sendAt : m.createdAt)}</span>
@@ -72,6 +75,7 @@ export default async function DevMailbox({ searchParams }: { searchParams: Promi
               <div className="border-b border-line px-5 py-3 text-sm">
                 <p className="font-semibold">{selected.subject}</p>
                 <p className="text-xs text-muted">Para: {selected.to} · {selected.template} · {selected.status === "QUEUED" ? `se enviará ${formatDateTime(selected.sendAt)}` : formatDateTime(selected.createdAt)}</p>
+                {selected.error && <p className="mt-1 text-xs text-[#9a3a2e]">Último error: {selected.error}</p>}
               </div>
               <iframe title="Email" srcDoc={selected.html} sandbox="allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation" className="h-[70dvh] w-full bg-[#F6F1E7]" />
             </>

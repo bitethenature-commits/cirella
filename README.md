@@ -33,6 +33,8 @@ El modo demo (accesos rápidos en `/entrar`, buzón `/dev/correo`) solo se activ
 
 ### Desplegar en producción
 
+La guía completa (Vercel en Fráncfort, Neon, Cloudflare R2 en la UE, staging, copias y restauración, subencargados) está en [docs/despliegue.md](docs/despliegue.md).
+
 En el hosting se definen las variables de la tabla [Configuración](#configuración) (nunca un `.env` copiado de local) y el paso de publicación ejecuta:
 
 ```bash
@@ -40,6 +42,8 @@ npm run deploy   # check:env → prisma migrate deploy → datos base (planes, c
 ```
 
 `deploy` no carga datos de ejemplo ni crea cuentas: solo añade los planes, categorías y diseños que falten, sin tocar lo editado en `/admin`. Nunca se ejecuta `npm run setup`, `db:seed` ni `db:reset` en producción (además se niegan). Necesita las dependencias de desarrollo (`prisma` y `tsx`) instaladas.
+
+Después del primer despliegue, programa `GET /api/cron` **cada 5 minutos** con la cabecera `Authorization: Bearer $CRON_SECRET` (Vercel Cron, GitHub Actions o el cron del servidor): envía los emails y sus reintentos, procesa los avisos pendientes, las renovaciones y los abandonos, y vuelve a entregar los pedidos cobrados que no se entregaron. Opcionalmente, apunta un monitor de disponibilidad (BetterStack, UptimeRobot…) a `GET /api/health`: responde 503 si la base de datos no responde o si el cron lleva más de 20 minutos sin ejecutarse (el cuerpo JSON dice cuál de las dos cosas falla). Ver [Fiabilidad y monitorización](#fiabilidad-y-monitorización).
 
 Para la cuenta de administración: regístrate de forma normal en `/registro` con el email elegido y después, en el servidor, `npm run admin:promote -- tu@email.com`. Ninguna contraseña pasa por la terminal ni existe ninguna cuenta `demo1234` en producción.
 
@@ -57,11 +61,11 @@ Para la cuenta de administración: regístrate de forma normal en `/registro` co
 | `DEMO_MODE` | Prohibido `true` | `"true"` o `"false"`. Con `true` en producción la app no arranca. |
 | `PAYMENT_PROVIDER` | `stripe` | Obligatoria en todos los entornos, sin valor por defecto: si falta, las compras fallan en vez de entregarse gratis. `simulated` solo en local y pruebas. |
 | `STRIPE_SECRET_KEY` · `STRIPE_PUBLISHABLE_KEY` · `STRIPE_WEBHOOK_SECRET` | Obligatorias | `sk_live_`/`rk_live_`, `pk_live_` y `whsec_` en producción; claves `_test_` en el resto. |
-| `CRON_SECRET` | Obligatoria | 32+ caracteres aleatorios (`openssl rand -hex 32`). Token de `GET /api/cron`. |
-| `APP_SECRET` | Obligatoria | 32+ caracteres aleatorios. Firma de enlaces y URLs de descarga. Fuera de producción hay una fija de desarrollo. |
-| `EMAIL_PROVIDER` | `resend` | `log` (local, se ve en `/dev/correo`) o `resend`. Con `resend`: `RESEND_API_KEY` y `EMAIL_FROM` (dominio verificado en Resend). |
-| `STORAGE_DRIVER` | `s3` | `local` (carpeta `STORAGE_DIR`, por defecto `./storage`) o `s3` (Cloudflare R2). Con `s3`: `S3_ENDPOINT` (https), `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`; opcionales `S3_REGION` (`auto`) y `S3_PUBLIC_URL`. |
-| `SENTRY_DSN` | Opcional | URL del proyecto de Sentry. |
+| `CRON_SECRET` | Obligatoria | 32+ caracteres aleatorios (`openssl rand -hex 32`). Token de `GET /api/cron`; con ella, `/api/health` vigila además que el cron no esté parado. |
+| `APP_SECRET` | Obligatoria | 32+ caracteres aleatorios. Firma de enlaces, los billetes de subida y las URLs temporales de descarga. Fuera de producción hay una fija de desarrollo. |
+| `EMAIL_PROVIDER` | `resend` | `log` (local, se ve en `/dev/correo`; las direcciones con `+fallo` o `+rebote` simulan fallos del proveedor) o `resend`. Con `resend`: `RESEND_API_KEY` y `EMAIL_FROM` (`Cirella <hola@tudominio.com>`, en un dominio verificado en Resend). Los emails a clientas salen desde esa dirección con el nombre de la creadora y responden a su email de contacto. |
+| `STORAGE_DRIVER` | `s3` | `local` (carpeta `STORAGE_DIR`, por defecto `./storage`) o `s3` (Cloudflare R2). Con `s3`: `S3_ENDPOINT` (en R2 con jurisdicción UE, `https://<cuenta>.eu.r2.cloudflarestorage.com`), `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`; opcional `S3_REGION` (`auto`). `S3_PUBLIC_URL` no se usa: los buckets son privados. |
+| `SENTRY_DSN` | Opcional | DSN del proyecto de Sentry en la región UE (`…ingest.de.sentry.io/…`). Sin DSN, Sentry ni se carga y los errores quedan en el log del servidor. El entorno que se informa es `APP_ENV`. |
 | `TURNSTILE_SITE_KEY` · `TURNSTILE_SECRET_KEY` | Opcionales | Las dos o ninguna. |
 
 ### Cuentas de demostración
@@ -113,10 +117,10 @@ El flujo **Instagram → página → producto → pago → entrega → clienta r
 | Pieza | Hoy | Para producción |
 |---|---|---|
 | Pagos | `lib/payments/simulated.ts` | Stripe Connect: implementar `lib/payments/stripe.ts` y llamar a `fulfillOrder()` desde el webhook |
-| Emails | Bandeja `EmailMessage` + `/dev/correo` | Resend/Postmark dentro de `deliver()` en `lib/email/outbox.ts` |
+| Emails | Bandeja `EmailMessage` + `/dev/correo` (proveedor `log`) | Resend ya integrado (`EMAIL_PROVIDER=resend`, `lib/email/providers/resend.ts`) |
 | Calendario | `lib/calendar.ts` sin proveedor | Google Calendar: implementar `CalendarProvider` (freebusy + events.insert) |
 | Archivos | Disco local (`STORAGE_DIR`) | S3/R2 manteniendo las funciones de `lib/storage.ts` |
-| Cron | Botón en `/dev/correo` | Llamar a `GET /api/cron` con `Authorization: Bearer $CRON_SECRET` cada 5–15 min |
+| Cron | Botón en `/dev/correo` | Llamar a `GET /api/cron` con `Authorization: Bearer $CRON_SECRET` cada 5 min |
 
 ---
 
@@ -133,7 +137,7 @@ app/
   panel/                   panel de la creadora (tenant)
   cuenta/                  área de cliente
   admin/                   superadmin
-  api/                     track, upload, download, slots, cron
+  api/                     track, upload, download, slots, cron, health
   dev/correo/              buzón de demostración
 components/
   creator-page/            renderizador de la página pública (también usado en la vista previa del editor)
@@ -141,7 +145,12 @@ lib/
   tenant.ts                aislamiento multi-tenant
   orders.ts                checkout y entrega automática
   plans.ts                 entitlements de los planes
-  automations.ts           eventos de dominio → emails
+  events.ts                eventos de dominio (outbox transaccional) → event-handlers.ts
+  automations.ts           qué emails envía cada evento
+  email/                   bandeja de salida con reintentos y proveedores (log, Resend)
+  cron.ts, job-lock.ts     tareas programadas con cerrojo y latido
+  watchdog.ts              vigilante de pedidos cobrados sin entregar
+  monitoring.ts            errores y alertas (Sentry opcional)
   booking.ts, tz.ts        cálculo de huecos con zonas horarias
   templates.ts             sistema de diseño de las páginas públicas
   page-config.ts           esquema del contenido editable de la página
@@ -174,9 +183,25 @@ Valores iniciales (editables):
 
 ### Entrega automática
 
-`fulfillOrder()` (`lib/orders.ts`) es idempotente y es el único punto que convierte un pago en acceso: marca el pedido, registra la transacción, crea la clienta del tenant y concede un `Access` (descarga o curso), una `Booking` (sesión) o una `Subscription` con acceso caducable (membresía). Después emite eventos de dominio que las automatizaciones convierten en emails.
+`fulfillOrder()` (`lib/orders.ts`) es idempotente y es el único punto que convierte un pago en acceso: marca el pedido, registra la transacción, crea la clienta del tenant y concede un `Access` (descarga o curso), una `Booking` (sesión) o una `Subscription` con acceso caducable (membresía). Los eventos de dominio (pago completado, clienta nueva, reserva, suscripción) se guardan en la misma transacción y las automatizaciones los convierten en emails (ver abajo).
 
 Las reservas no se pisan aunque dos personas paguen el mismo hueco a la vez: la comprobación se hace dentro de la transacción bajo un cerrojo por creadora (`hasBookingClash` en `lib/booking.ts`), y la restricción `Booking_no_overlap` de Postgres impide dos reservas confirmadas solapadas aunque algún camino se salte el cerrojo. Quien llega tarde conserva su compra con la reserva pendiente de elegir fecha.
+
+### Fiabilidad y monitorización
+
+Ningún recibo, acceso ni error se pierde en silencio:
+
+- **Outbox de eventos** (`OutboxEvent`, `lib/events.ts`). Los eventos de dominio se guardan en la misma transacción que el cambio de negocio (el pedido pagado y su «pago completado» se guardan juntos o no se guarda ninguno). Se procesan al momento tras el commit (`lib/event-handlers.ts`: primero los emails, después el calendario) y, si algo falla o el proceso cae, el cron los reintenta. Tras 6 intentos quedan descartados (DEAD), con alerta. Todos los handlers son idempotentes (los emails llevan `dedupeKey`; el calendario, `externalEventId`).
+- **Bandeja de emails con reintentos** (`EmailMessage`, `lib/email/outbox.ts`). Cada envío se reclama con un UPDATE condicional (QUEUED → SENDING, lease de 2 min), así que nunca sale dos veces aunque el cron y la entrega en línea coincidan. Si el proveedor falla, se reintenta a 1 min, 5 min, 30 min, 2 h y 12 h; una dirección rechazada (400/422) no se reintenta. Tras 6 intentos queda «No entregado», con alerta. Resend recibe una `Idempotency-Key` por email.
+- **Cron cada 5 min** (`/api/cron`, `lib/cron.ts`) con cerrojo (`JobLock`, un `INSERT … ON CONFLICT` atómico con lease de 10 min), que además hace de latido. Cada tarea aísla sus errores. Las renovaciones y las cuotas de plan son idempotentes (UPDATE condicional sobre el periodo + `Transaction.idempotencyKey` única).
+- **Vigilante** (`lib/watchdog.ts`). Si la pasarela confirmó un cobro (`Order.chargedAt`) y el pedido sigue sin entregar a los 10 min, vuelve a entregarlo y avisa. Avisa también si un pago completado lleva 15 min sin recibo.
+- **Monitorización** (`lib/monitoring.ts`). Sentry es opcional (`SENTRY_DSN`, región UE) y se carga solo con DSN: errores de servidor (`onRequestError` en `instrumentation.ts`), alertas agrupadas y Cron Monitor `cirella-cron` (avisa si pasan 20 min sin ejecutarse). A Sentry solo van ids, nunca emails ni cookies. `GET /api/health` comprueba la base de datos y el cron.
+- **Páginas de error**: genéricas (`app/error.tsx`, `app/global-error.tsx`, panel y cuenta) y con la plantilla de la creadora en su página pública, el checkout y la confirmación, con un aviso tranquilizador tras pagar. Un producto retirado muestra un 404 con su marca y un enlace a su página.
+- **`/admin/envios` («Envíos fallidos»)**: emails no entregados o en reintento y eventos con problemas, con «Reintentar ahora», «Descartar» y «Reprocesar», y el estado del cron. La portada de `/admin` avisa si hay algo que revisar. La creadora ve en Automatizaciones qué emails se están reintentando o no se han entregado.
+
+### Almacenamiento e imágenes
+
+Los archivos viven en disco (`./storage`) en desarrollo y en Cloudflare R2 (jurisdicción UE) en producción (`lib/storage/`), siempre detrás de URLs firmadas: los buckets son privados. El navegador sube directamente al almacenamiento en tres pasos (`/api/upload/sign` → `PUT` → `/api/upload/complete`) con un billete firmado que solo sirve para la carpeta de su creadora; máximo 1 GB por archivo y 25 MB por imagen. Las imágenes se enderezan, pierden los datos EXIF/GPS y se convierten a WebP (máximo 1600 px) con variantes de 400, 800 y 1200 px que la página sirve con `srcset`. Las descargas comprueban el acceso y redirigen a un enlace temporal de 10 min (3 h para el vídeo y el audio de los cursos), sin pasar el archivo por la memoria del servidor. La página pública de cada creadora se cachea (ISR de 60 s); la vista previa del borrador está en `/vista-previa`.
 
 ---
 
@@ -184,16 +209,17 @@ Las reservas no se pisan aunque dos personas paguen el mismo hueco a la vez: la 
 
 ```bash
 npm run test:unit               # funciones puras (scripts/unit-tests.ts y scripts/unit/*.test.ts)
-npm run test:isolation          # aislamiento multi-tenant a nivel de datos
+npm run test:isolation          # aislamiento multi-tenant a nivel de datos y del almacenamiento (billetes de subida)
 npm run test:concurrency        # dos compras simultáneas del mismo hueco → una sola reserva confirmada
+npm run test:reliability        # reintentos de emails, outbox de eventos, cerrojo del cron, renovaciones idempotentes, vigilante
 npm run test:seed-guard         # el seed no borra BD reales; datos base idempotentes; admin:promote
 npm run build && npm run test:startup   # `next start` no arranca con una configuración de producción insegura
 npm run build && npm run test:e2e   # flujo completo en un iPhone simulado
 ```
 
-Las pruebas de aislamiento, concurrencia y e2e usan el Postgres de `.env` con la demo sembrada (`npm run db:reset`). `test:seed-guard` crea y borra su propia base de datos (`cirella_guardtest`) en ese mismo Postgres. Playwright arranca `next start` con `APP_ENV=test`, modo demo y pagos simulados.
+Las pruebas de aislamiento, concurrencia, fiabilidad y e2e usan el Postgres de `.env` con la demo sembrada (`npm run db:reset`). `test:seed-guard` crea y borra su propia base de datos (`cirella_guardtest`) en ese mismo Postgres. Playwright arranca `next start` con `APP_ENV=test`, modo demo y pagos simulados.
 
-La prueba e2e recorre: landing → registro → onboarding de 10 pasos → publicar → compra como invitada → cuenta creada automáticamente → la venta aparece en el panel → la clienta de demo ve su curso al 43 %, su sesión y su PDF → Ana no puede abrir datos ni archivos de María. También cubre casos que fallaron en la revisión: registrarse con el email de otra compradora no da acceso a su cuenta, el menú «Más» del panel móvil, no pagar dos veces la misma membresía y reintentar un pago rechazado cambiando de hora. `e2e/entorno-demo.spec.ts` comprueba que el buzón `/dev/correo` solo lo ve la administradora. Si Playwright no encuentra Chromium, indica la ruta con `PW_CHROMIUM_PATH`.
+La prueba e2e recorre: landing → registro → onboarding de 10 pasos → publicar → compra como invitada → cuenta creada automáticamente → la venta aparece en el panel → la clienta de demo ve su curso al 43 %, su sesión y su PDF → Ana no puede abrir datos ni archivos de María. También cubre casos que fallaron en la revisión: registrarse con el email de otra compradora no da acceso a su cuenta, el menú «Más» del panel móvil, no pagar dos veces la misma membresía y reintentar un pago rechazado cambiando de hora. `e2e/entorno-demo.spec.ts` comprueba que el buzón `/dev/correo` solo lo ve la administradora, `e2e/infra.spec.ts` la subida directa, las imágenes WebP sin EXIF, las descargas firmadas, las cabeceras de seguridad y el peso de la página pública, y `e2e/fiabilidad.spec.ts` que un fallo del email no rompe la compra, que el envío aparece en el panel y en `/admin/envios` (reintentar y descartar), las páginas de error y 404 con la marca de la creadora y `/api/health`. Si Playwright no encuentra Chromium, indica la ruta con `PW_CHROMIUM_PATH`.
 
 ---
 
