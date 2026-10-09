@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSession, destroySession, hashPassword, safeNext, sendMagicLink, verifyPassword } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { isDemoMode } from "@/lib/env";
 import { homeFor } from "@/lib/home";
 
 export type FormState = { error?: string; ok?: string; email?: string } | undefined;
@@ -73,17 +72,6 @@ export async function requestMagicLink(_: FormState, form: FormData): Promise<Fo
   // Respuesta idéntica exista o no la cuenta (no revelamos qué emails están registrados).
   await sendMagicLink(parsed.data, next || "/auth/continuar");
   return { ok: "Te hemos enviado un enlace de acceso. Revisa tu bandeja de entrada.", email: parsed.data };
-}
-
-export async function demoSignIn(form: FormData) {
-  if (!isDemoMode()) redirect("/entrar");
-  const email = String(form.get("email"));
-  const allowed = ["ana@cirella.app", "laura@example.com", "admin@cirella.app", "maria@cirella.app"];
-  if (!allowed.includes(email)) redirect("/entrar");
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) redirect("/entrar?error=demo");
-  await createSession(user.id);
-  redirect(await homeFor(user.id));
 }
 
 export async function signOut() {

@@ -26,6 +26,15 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: true,
     timeout: 120_000,
-    env: { APP_URL: `http://localhost:${PORT}`, DEMO_MODE: "true" },
+    // `next start` valida la configuración al arrancar (instrumentation.ts): entorno de pruebas con
+    // demo, pagos simulados, emails en el buzón y archivos en disco.
+    env: {
+      APP_ENV: "test",
+      APP_URL: `http://localhost:${PORT}`,
+      DEMO_MODE: "true",
+      PAYMENT_PROVIDER: "simulated",
+      EMAIL_PROVIDER: "log",
+      STORAGE_DRIVER: "local",
+    },
   },
 });

@@ -14,11 +14,16 @@
     "db:deploy": "prisma migrate deploy",
     "db:check": "prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url \"$SHADOW_DATABASE_URL\" --exit-code",
     "db:seed": "tsx prisma/seed.ts",
-    "db:reset": "prisma migrate deploy && tsx prisma/seed.ts",
-    "setup": "prisma migrate deploy && tsx prisma/seed.ts",
+    "db:reset": "tsx scripts/assert-local-db.ts && prisma migrate deploy && tsx prisma/seed.ts",
+    "setup": "tsx scripts/assert-local-db.ts && prisma migrate deploy && tsx prisma/seed.ts",
+    "deploy": "tsx scripts/check-env.ts && prisma migrate deploy && tsx prisma/bootstrap.ts",
+    "check:env": "tsx scripts/check-env.ts",
+    "admin:promote": "tsx scripts/make-admin.ts",
     "test:unit": "tsx scripts/unit-tests.ts",
     "test:isolation": "tsx scripts/tenant-isolation-test.ts",
     "test:concurrency": "tsx --conditions=react-server scripts/booking-concurrency-test.ts",
+    "test:seed-guard": "tsx scripts/seed-guard-test.ts",
+    "test:startup": "tsx scripts/startup-guard-test.ts",
     "test:e2e": "playwright test"
   },
   "prisma": {

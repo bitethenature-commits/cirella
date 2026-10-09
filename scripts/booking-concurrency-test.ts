@@ -9,6 +9,7 @@
  *     sin afectar a otras creadoras, a sesiones seguidas ni a reservas sin fecha.
  * Borra todo lo que crea.
  */
+import "./load-env";
 import { prisma } from "../lib/db";
 import { getAvailableSlots, hasBookingClash, isBookingOverlapError } from "../lib/booking";
 import { createPendingOrder, fulfillOrder } from "../lib/orders";

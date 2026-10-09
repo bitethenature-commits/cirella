@@ -1,7 +1,9 @@
 /**
- * Datos de demostración.
+ * Datos de demostración. Solo en local: se niega a ejecutarse en producción, contra una base de
+ * datos que no esté en esta máquina o contra una que tenga cuentas que no creó él mismo
+ * (ver prisma/seed-guard.ts). Para la base de datos real: `npm run deploy` (prisma/bootstrap.ts).
  *   npm run db:reset   → aplica las migraciones pendientes y ejecuta este seed
- *                        (el seed vacía las tablas antes de sembrar)
+ *   npm run db:seed    → solo el seed (vacía las tablas antes de sembrar)
  *
  * Cuentas (contraseña para todas: demo1234):
  *   ana@cirella.app    creadora · plan Pro     · /ana
@@ -10,15 +12,19 @@
  *   laura@example.com  clienta de Ana (curso, PDF y sesión)
  *   admin@cirella.app  superadmin
  */
+import "../scripts/load-env";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { PrismaClient, type Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { ensureBaseData } from "./base-data";
 import { makePdf, makeVideo, makeWav } from "./demo-files";
+import { DEMO_MARKER_KEY, assertSafeToSeed } from "./seed-guard";
+import { appUrl, storageDir } from "../lib/env";
 import { defaultSections, type PageConfig } from "../lib/page-config";
 
 const prisma = new PrismaClient();
-const STORAGE = path.resolve(process.cwd(), process.env.STORAGE_DIR || "./storage");
+const STORAGE = path.resolve(process.cwd(), storageDir());
 const NOW = new Date();
 const DAY = 86400_000;
 const daysAgo = (d: number, h = 12, m = 0) => {
@@ -93,60 +99,15 @@ async function reset() {
 }
 
 async function main() {
+  await assertSafeToSeed(prisma);
   console.log("🌙 Sembrando datos de demostración…");
   await reset();
+  // Marca de «BD creada por el seed»: permite volver a sembrarla sin que la protección lo impida.
+  await prisma.platformSetting.create({ data: { key: DEMO_MARKER_KEY, value: { seededAt: new Date().toISOString() } } });
   const password = await bcrypt.hash("demo1234", 10);
 
   // ───────────── Plataforma ─────────────
-  const [free, creatorPlan, pro] = await Promise.all([
-    prisma.plan.create({
-      data: {
-        key: "free", name: "Free", tagline: "Para empezar a vender hoy", priceMonthlyCents: 0, commissionBps: 1000, maxProducts: 3,
-        isDefault: true, sortOrder: 1,
-        features: { productTypes: ["DIGITAL"], customDesign: false, removeBranding: false, analytics: "basic", customerArea: false, automations: false },
-      },
-    }),
-    prisma.plan.create({
-      data: {
-        key: "creator", name: "Creator", tagline: "Para profesionales que ya venden", priceMonthlyCents: 1200, commissionBps: 500, maxProducts: 15,
-        highlighted: true, sortOrder: 2,
-        features: { productTypes: ["DIGITAL", "SESSION"], customDesign: true, removeBranding: true, analytics: "full", customerArea: false, automations: false },
-      },
-    }),
-    prisma.plan.create({
-      data: {
-        key: "pro", name: "Pro", tagline: "Tu negocio completo", priceMonthlyCents: 2900, commissionBps: 200, maxProducts: null, sortOrder: 3,
-        features: { productTypes: ["DIGITAL", "SESSION", "COURSE", "MEMBERSHIP"], customDesign: true, removeBranding: true, analytics: "advanced", customerArea: true, automations: true },
-      },
-    }),
-  ]);
-
-  const categories = [
-    ["astrologia", "Astrología", "🌙", "mystical"],
-    ["human-design", "Human Design", "🧬", "mystical"],
-    ["gene-keys", "Gene Keys", "🔑", "cosmic"],
-    ["tarot", "Tarot y oráculos", "🔮", "mystical"],
-    ["espiritualidad", "Espiritualidad", "✨", "cosmic"],
-    ["wellness", "Wellness", "🌿", "minimal"],
-    ["yoga", "Yoga y meditación", "🧘", "minimal"],
-    ["terapias", "Terapias holísticas", "🪷", "minimal"],
-    ["coaching", "Coaching", "🌱", "luxury"],
-    ["contenido", "Creadora de contenido", "📸", "editorial"],
-  ] as const;
-  const cat: Record<string, string> = {};
-  for (const [i, [slug, name, emoji, tpl]] of categories.entries()) {
-    const c = await prisma.category.create({ data: { slug, name, emoji, defaultTemplate: tpl, sortOrder: i } });
-    cat[slug] = c.id;
-  }
-  const templates = [
-    ["mystical", "Mystical", "Astrología · azul noche, crema, lavanda y destellos dorados"],
-    ["minimal", "Minimal", "Wellness · arena, salvia y mucho aire"],
-    ["luxury", "Luxury", "Marca personal · marfil, negro y oro"],
-    ["cosmic", "Cosmic", "Oscuro · negro profundo con auroras violeta"],
-    ["editorial", "Editorial", "Femenino · rubor, terracota y serif con carácter"],
-  ];
-  for (const [i, [key, name, description]] of templates.entries())
-    await prisma.template.create({ data: { key, name, description, sortOrder: i } });
+  const { plans: { free, creator: creatorPlan, pro }, categories: cat } = await ensureBaseData(prisma);
 
   // ───────────── Usuarios ─────────────
   await prisma.user.create({ data: { email: "admin@cirella.app", name: "Equipo Cirella", passwordHash: password, isAdmin: true, emailVerifiedAt: daysAgo(90) } });
@@ -462,7 +423,7 @@ async function main() {
   await prisma.access.create({ data: { creatorId: ana.id, userId: lucia.id, productId: pCircle.id, orderId: o5.order.id, subscriptionId: sub.id, expiresAt: periodEnd } });
 
   // Emails enviados / programados (visibles en /dev/correo)
-  const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  const base = appUrl();
   await prisma.emailMessage.createMany({
     data: [
       { creatorId: ana.id, to: laura.email, subject: "Compra confirmada: Lectura de Human Design", template: "PURCHASE_RECEIPT", status: "SENT", sentAt: daysAgo(5, 18, 48), sendAt: daysAgo(5, 18, 48), html: `<p>Hola Laura, gracias por tu compra. <a href="${base}/cuenta">Acceder a mi contenido</a></p>` },

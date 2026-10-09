@@ -5,6 +5,7 @@
  * Comprueba que el cliente `tenantDb(ana)` jamás lee, modifica ni borra datos
  * de otra creadora (María), aunque se le pasen sus ids directamente.
  */
+import "./load-env";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/db";
 import { TENANT_MODELS, tenantDb } from "../lib/tenant";

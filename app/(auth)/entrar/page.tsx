@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser, safeNext } from "@/lib/auth";
 import { isDemoMode } from "@/lib/env";
 import { homeFor } from "@/lib/home";
-import { demoSignIn } from "../actions";
+import { demoSignIn } from "../demo-actions";
 import { LoginForms } from "./login-forms";
 
 export const metadata: Metadata = { title: "Entrar · Cirella" };
@@ -43,6 +43,7 @@ export default async function EntrarPage({ searchParams }: { searchParams: Promi
             {DEMO.map((d) => (
               <form key={d.email} action={demoSignIn}>
                 <input type="hidden" name="email" value={d.email} />
+                <input type="hidden" name="next" value={safeNext(sp.next, "")} />
                 <button className="flex w-full items-center justify-between rounded-xl border border-line bg-white px-3.5 py-2.5 text-left text-sm transition hover:border-ink/30">
                   <span>
                     <span className="font-semibold">{d.label}</span>

@@ -4,21 +4,26 @@ import { notFound } from "next/navigation";
 import { Inbox, Play } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isDemoMode } from "@/lib/env";
 import { formatDateTime } from "@/lib/tz";
 import { runJobsNow } from "./actions";
+import { AdminOnly } from "./admin-only";
 
 export const metadata: Metadata = { title: "Buzón de demostración", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 /**
  * Buzón de demostración: muestra los emails que la plataforma "envía"
- * (enlaces mágicos, recibos, recordatorios…). Solo existe con DEMO_MODE.
+ * (enlaces mágicos, recibos, recordatorios…). Solo existe con DEMO_MODE (prohibido en
+ * producción) y solo para administradoras: enseña los enlaces de acceso de todas las cuentas.
  */
 export default async function DevMailbox({ searchParams }: { searchParams: Promise<{ id?: string; to?: string }> }) {
   if (!isDemoMode()) notFound();
   const sp = await searchParams;
+  const user = await getCurrentUser();
+  if (!user?.isAdmin) return <AdminOnly next={sp.to ? `/dev/correo?${new URLSearchParams({ to: sp.to })}` : "/dev/correo"} />;
   const messages = await prisma.emailMessage.findMany({
     where: sp.to ? { to: sp.to.toLowerCase() } : {},
     orderBy: { createdAt: "desc" },
@@ -42,7 +47,7 @@ export default async function DevMailbox({ searchParams }: { searchParams: Promi
       <div className="mx-auto grid max-w-6xl gap-4 px-4 py-6 lg:grid-cols-[360px_1fr]">
         <aside className="card max-h-[75dvh] overflow-y-auto">
           <p className="border-b border-line px-4 py-3 text-xs text-muted">
-            Emails generados por la plataforma. En producción se enviarían con un proveedor real (Resend, Postmark…).
+            Emails generados por la plataforma. En producción se envían con el proveedor configurado (Resend).
             {sp.to && <> Filtrando: <strong>{sp.to}</strong> · <Link href="/dev/correo" className="underline">ver todos</Link></>}
           </p>
           <ul className="divide-y divide-line">
