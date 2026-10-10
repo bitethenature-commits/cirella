@@ -190,12 +190,16 @@ async function main() {
   check("…y envía el recibo", !!(await prisma.emailMessage.findUnique({ where: { dedupeKey: `receipt:${orphan.id}` } })));
 
   // ── 13. Abandonos concurrentes ──
-  const stale = await createPendingOrder({ productId: digital.id, buyerEmail: email("abandono"), buyerName: "Prueba", visitorId: TAG });
+  const stale = await createPendingOrder({ productId: digital.id, buyerEmail: email("abandono"), buyerName: "Prueba", visitorId: `${TAG}-abandono` });
   const charged = await createPendingOrder({ productId: digital.id, buyerEmail: email("cobrado"), buyerName: "Prueba", visitorId: TAG });
   created.orders.push(stale.id, charged.id);
   const old = new Date(Date.now() - 3 * 3600_000);
   await prisma.order.update({ where: { id: stale.id }, data: { createdAt: old } });
   await prisma.order.update({ where: { id: charged.id }, data: { createdAt: old, chargedAt: new Date() } });
+  // Solo se recupera a quien abrió el checkout, con su propia visita (lib/recovery-guard.ts).
+  await prisma.analyticsEvent.create({
+    data: { creatorId: ana.id, type: "CHECKOUT_STARTED", productId: digital.id, visitorId: stale.visitorId!, createdAt: new Date(old.getTime() - MIN) },
+  });
   await Promise.all([emitAbandoned(0), emitAbandoned(0)]);
   const abandonedEvents = await prisma.outboxEvent.count({ where: { type: "checkout.abandoned", payload: { path: ["orderId"], equals: stale.id } } });
   check("dos ejecuciones a la vez: un solo aviso de compra abandonada", abandonedEvents === 1, abandonedEvents);
@@ -226,7 +230,7 @@ async function cleanup() {
   await prisma.$transaction([
     prisma.outboxEvent.deleteMany({ where: { OR: [{ id: { in: created.events } }, ...byPayload] } }),
     prisma.emailMessage.deleteMany({ where: { OR: [{ id: { in: created.emails } }, { to: { startsWith: TAG } }, ...orderIds.map((id) => ({ dedupeKey: { contains: id } }))] } }),
-    prisma.analyticsEvent.deleteMany({ where: { visitorId: TAG } }),
+    prisma.analyticsEvent.deleteMany({ where: { visitorId: { startsWith: TAG } } }),
     prisma.access.deleteMany({ where: { userId: { in: userIds } } }),
     // Facturas de las compras de prueba (primero se sueltan las F3/rectificativas de su original).
     prisma.invoice.updateMany({ where: { recipientEmail: { startsWith: TAG } }, data: { relatedInvoiceId: null } }),

@@ -61,6 +61,7 @@ const schema = z.object({
   SENTRY_DSN: z.preprocess(blankToUndefined, z.string().url({ message: "SENTRY_DSN debe ser una URL." }).optional()),
   TURNSTILE_SITE_KEY: text,
   TURNSTILE_SECRET_KEY: text,
+  CLIENT_IP_HEADER: text,
 });
 type Parsed = z.output<typeof schema>;
 
@@ -155,6 +156,8 @@ export function validateEnv(raw: RawEnv): EnvValidation {
   }
 
   if (!p.TURNSTILE_SITE_KEY !== !p.TURNSTILE_SECRET_KEY) errors.push("Configura las dos claves de Turnstile o ninguna.");
+  if (p.CLIENT_IP_HEADER && !/^[a-z0-9-]+$/i.test(p.CLIENT_IP_HEADER))
+    errors.push("CLIENT_IP_HEADER debe ser el nombre de una cabecera (p. ej. cf-connecting-ip).");
 
   if (prod) {
     // ── staging y production ──
@@ -186,6 +189,12 @@ export function validateEnv(raw: RawEnv): EnvValidation {
       if (!secret || secret.length < 32 || PLACEHOLDER_SECRET.test(secret))
         errors.push(`${key} debe tener al menos 32 caracteres aleatorios (genera uno con: openssl rand -hex 32).`);
     }
+    // Los límites de intentos cuentan por conexión: con la cabecera equivocada todas las clientas
+    // compartirían contador (o cualquiera podría inventarse la IP).
+    if (!p.CLIENT_IP_HEADER)
+      errors.push(
+        "Falta CLIENT_IP_HEADER: la cabecera con la IP real de la clienta que fija tu proxy (cf-connecting-ip con Cloudflare delante; x-real-ip, fly-client-ip… según la plataforma).",
+      );
     if (p.EMAIL_PROVIDER !== "resend")
       errors.push("En producción los emails deben enviarse de verdad: pon EMAIL_PROVIDER=resend con RESEND_API_KEY y EMAIL_FROM.");
     if (p.STORAGE_DRIVER !== "s3")

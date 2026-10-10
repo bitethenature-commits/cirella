@@ -3,6 +3,7 @@ import { prisma } from "../db";
 import { appUrl } from "../env";
 import { enqueueEmail } from "../email/outbox";
 import { disputeOpenedEmail, paymentFailedEmail } from "../email/templates";
+import { noteCheckoutFailure } from "../limits";
 import { formatPrice } from "../money";
 import { captureAlert, captureError } from "../monitoring";
 import { fulfillOrder } from "../orders";
@@ -114,6 +115,8 @@ async function applyOrderPayment(s: PaymentStatus, providerKey: string): Promise
     const error =
       s.error ?? (s.state === "canceled" ? "La página de pago ha caducado." : "Tu banco no ha confirmado el pago. No se te ha cobrado nada.");
     const c = await prisma.order.updateMany({ where: { id: order.id, status: { in: ["PENDING", "PROCESSING"] } }, data: { status: "FAILED", paymentError: error } });
+    // Un rechazo que llega por el aviso cuenta para los límites del checkout, con la IP de quien pagó.
+    if (c.count && s.state === "failed") await noteCheckoutFailure({ email: order.buyerEmail, ipHash: order.ipHash });
     // Si estaba «pago pendiente», la compradora ya se fue confiando en que saldría bien: se le avisa.
     if (c.count && order.status === "PROCESSING")
       await enqueueEmail({

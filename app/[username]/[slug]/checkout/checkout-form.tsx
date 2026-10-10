@@ -4,6 +4,7 @@ import { CalendarClock, Check, CreditCard, Loader2, Lock, ShieldCheck, Smartphon
 import { startTransition, useActionState, useEffect, useState } from "react";
 import { BillingFields, VatBreakdown, type BillingPrefill, type CheckoutTaxInfo } from "@/components/checkout/billing-fields";
 import { ProductImage } from "@/components/creator-page/product-art";
+import { Turnstile } from "@/components/ui/turnstile";
 import type { DaySlots } from "@/lib/booking";
 import { checkoutDeliveryBadge } from "@/lib/delivery";
 import { sessionChangePolicyText } from "@/lib/legal";
@@ -102,6 +103,12 @@ export function CheckoutForm({
   const [name, setName] = useState(prefill.name);
   const [email, setEmail] = useState(prefill.email);
   const [country, setCountry] = useState(defaultCountry);
+  const [slotsError, setSlotsError] = useState(false);
+  // Captcha tras varios pagos rechazados: cada token sirve una vez, así que tras cada intento se
+  // vuelve a montar la comprobación con un token nuevo.
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaRound, setCaptchaRound] = useState(0);
+  const needsCaptcha = !!(state?.needsCaptcha && state.captchaSiteKey);
   const isSession = product.type === "SESSION";
   const price = formatPrice(product.priceCents, product.currency, product.billingInterval);
   const withVat = vatIncluded(
@@ -114,14 +121,23 @@ export function CheckoutForm({
   );
 
   useEffect(() => {
+    setCaptchaToken("");
+    setCaptchaRound((r) => r + 1);
+  }, [state]);
+
+  useEffect(() => {
     if (!isSession) return;
     fetch(`/api/slots?productId=${product.id}`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((d) => {
         setSlots(d);
         if (d.days?.[0]) setDay(d.days[0].date);
       })
-      .catch(() => setSlots({ days: [], timezone: "" }));
+      .catch(() => {
+        // 404, 429 (demasiadas peticiones) o sin conexión: se avisa sin romper la página.
+        setSlots({ days: [], timezone: "" });
+        setSlotsError(true);
+      });
   }, [isSession, product.id]);
 
   const selectedDay = slots?.days.find((d) => d.date === day);
@@ -143,6 +159,7 @@ export function CheckoutForm({
       <input type="hidden" name="orderId" value={state?.orderId ?? initialOrderId ?? ""} />
       {collectsCardOnSite && <input type="hidden" name="method" value={method} />}
       <input type="hidden" name="slotStart" value={later ? "" : slot} />
+      <input type="hidden" name="turnstileToken" value={captchaToken} />
 
       <div>
         <p className="cp-eyebrow">Checkout seguro</p>
@@ -175,6 +192,8 @@ export function CheckoutForm({
           <SectionTitle n={++n} title="Elige fecha y hora" />
           {!slots ? (
             <p className="cp-muted flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Cargando disponibilidad…</p>
+          ) : slotsError ? (
+            <p className="cp-muted text-sm">No hemos podido cargar los horarios. Recarga la página en unos segundos.</p>
           ) : slots.days.length === 0 ? (
             <p className="cp-muted text-sm">No hay huecos disponibles ahora mismo. Puedes reservar y elegir la fecha más adelante.</p>
           ) : (
@@ -315,6 +334,7 @@ export function CheckoutForm({
         {product.type === "MEMBERSHIP" && (
           <p className="cp-faint px-1 text-xs">Guardaremos tu tarjeta de forma segura para las renovaciones; puedes cancelar cuando quieras desde tu cuenta.</p>
         )}
+        {needsCaptcha && <Turnstile key={captchaRound} siteKey={state!.captchaSiteKey!} onToken={setCaptchaToken} />}
         {(state?.error ?? (state ? null : notice)) && (
           <p role="alert" className="rounded-xl border px-4 py-3 text-sm" style={{ borderColor: "#e8b4ab", background: "color-mix(in oklab, #e05a47 12%, transparent)" }}>
             {state?.error ?? notice}
@@ -322,7 +342,12 @@ export function CheckoutForm({
         )}
         {!payoutReady && <p className="cp-muted text-center text-sm">Las compras de este producto aún no están disponibles.</p>}
         {isSession && !sessionReady && <p className="cp-muted text-center text-xs">Elige una hora o marca «elegir la fecha después».</p>}
-        <PayButton label={isSession ? `Reservar y pagar · ${price}` : product.type === "MEMBERSHIP" ? `Unirme · ${price}` : `Pagar ${price}`} disabled={!payoutReady || !sessionReady} pending={pending} />
+        {needsCaptcha && !captchaToken && <p className="cp-muted text-center text-xs">Comprobando tu conexión…</p>}
+        <PayButton
+          label={isSession ? `Reservar y pagar · ${price}` : product.type === "MEMBERSHIP" ? `Unirme · ${price}` : `Pagar ${price}`}
+          disabled={!payoutReady || !sessionReady || (needsCaptcha && !captchaToken)}
+          pending={pending}
+        />
         <div className="cp-faint flex items-center justify-center gap-4 text-xs">
           <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Pago cifrado</span>
           <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5" /> {checkoutDeliveryBadge(product.type, product.deliveryMode)}</span>

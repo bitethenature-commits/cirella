@@ -13,6 +13,9 @@ import { prisma } from "../lib/db";
 import { yearOf } from "../lib/dac7";
 import { dac7ForCreator, dac7Report } from "../lib/dac7-data";
 import { listDeliveryIssues, productDeliveryIssue } from "../lib/delivery";
+import { RULES, limitUpload } from "../lib/limits";
+import { resetKey, rlKey } from "../lib/rate-limit";
+import { recoveryFacts } from "../lib/recovery-guard";
 import { canViewInvoice } from "../lib/invoices/access";
 import { nextInvoiceNumber } from "../lib/invoices/numbering";
 import { createPendingOrder } from "../lib/orders";
@@ -123,6 +126,7 @@ async function main() {
   await invoicesIsolation(ana, maria);
   await invoiceNumbering();
   await deliveryIsolation(ana, maria);
+  await limitsIsolation(ana, maria);
 
   console.log(failures ? `\n${failures} comprobaciones fallidas` : "\nAislamiento multi-tenant correcto ✓");
   process.exit(failures ? 1 : 0);
@@ -387,6 +391,34 @@ async function deliveryIsolation(ana: CreatorRow, maria: CreatorRow) {
     check("productDeliveryIssue(Ana) con el id de un producto de María → null", (await productDeliveryIssue(tenantDb(ana.id), mariaDraft.id)) === null);
   } finally {
     await prisma.product.deleteMany({ where: { id: { in: [anaDraft.id, mariaDraft.id] } } });
+  }
+}
+
+/** Límites de intentos: el cupo de subidas es de cada creadora y la regla de recuperación no cruza tenants. */
+async function limitsIsolation(ana: CreatorRow, maria: CreatorRow) {
+  const uploadKeys = [ana, maria].map((c) => rlKey("upload", c.id));
+  await Promise.all(uploadKeys.map(resetKey));
+  try {
+    const anaUploads = [];
+    for (let i = 0; i < RULES.uploadCreator.limit + 1; i++) anaUploads.push(await limitUpload(ana.id));
+    check("limitUpload: Ana agota sus 30 subidas y la 31.ª se deniega", anaUploads.slice(0, 30).every((v) => v.ok) && !anaUploads[30].ok);
+    check("…mientras María sigue pudiendo subir", (await limitUpload(maria.id)).ok);
+  } finally {
+    await Promise.all(uploadKeys.map(resetKey));
+  }
+
+  // Un pedido de Ana cuya visitante solo abrió el checkout en la página de María (mismo id de
+  // producto incluso): no cuenta como checkout real para el email de recuperación de Ana.
+  const visitorId = `isolation-recovery-${Date.now()}`;
+  const anaProduct = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL" } });
+  await prisma.analyticsEvent.create({ data: { creatorId: maria.id, type: "CHECKOUT_STARTED", productId: anaProduct.id, visitorId, createdAt: new Date(Date.now() - 60_000) } });
+  try {
+    const facts = await recoveryFacts({
+      id: visitorId, creatorId: ana.id, productId: anaProduct.id, buyerEmail: `${visitorId}@example.com`, visitorId, ipHash: null, createdAt: new Date(),
+    });
+    check("recuperación: el checkout abierto en el tenant de María no vale para un pedido de Ana", facts.hasVisitor && !facts.startedCheckout);
+  } finally {
+    await prisma.analyticsEvent.deleteMany({ where: { visitorId } });
   }
 }
 

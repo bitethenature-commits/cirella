@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
+import { limitUpload } from "@/lib/limits";
 import { UploadError, createUpload } from "@/lib/uploads";
 
 const schema = z.object({
@@ -21,6 +22,9 @@ export async function POST(req: Request) {
   const user = await getCurrentUser();
   const creator = user?.creator;
   if (!creator || creator.status !== "ACTIVE") return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  // Se cuenta al pedir la URL de subida, no al completarla.
+  const limit = await limitUpload(creator.id);
+  if (!limit.ok) return NextResponse.json({ error: limit.message }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } });
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Falta el archivo" }, { status: 400 });
   try {

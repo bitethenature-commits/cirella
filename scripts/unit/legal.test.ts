@@ -174,8 +174,7 @@ test("isLandingReferrer: desde la propia web no; directa o desde fuera, sí", ()
   eq(isLandingReferrer(null, "cirella.app"), true);
   eq(isLandingReferrer("instagram.com", "cirella.app"), true);
 });
-test("clientIp: primera de X-Forwarded-For, si no X-Real-IP, si no 0.0.0.0", () => {
-  eq(clientIp(new Headers({ "x-forwarded-for": "9.9.9.9, 10.0.0.1" })), "9.9.9.9");
-  eq(clientIp(new Headers({ "x-real-ip": "8.8.8.8" })), "8.8.8.8");
-  eq(clientIp(new Headers()), "0.0.0.0");
+test("clientIp: la misma regla que los límites (sin CLIENT_IP_HEADER, la última de X-Forwarded-For)", () => {
+  eq(clientIp(new Headers({ "x-forwarded-for": "9.9.9.9, 10.0.0.1" })), "10.0.0.1");
+  eq(clientIp(new Headers()), "unknown");
 });

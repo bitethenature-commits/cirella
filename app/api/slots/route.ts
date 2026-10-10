@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getBuyerSession } from "@/lib/buyer-access";
 import { getAvailableSlots } from "@/lib/booking";
+import { requestClient } from "@/lib/client-ip";
 import { prisma } from "@/lib/db";
+import { limitSlots } from "@/lib/limits";
 
 /**
  * Huecos libres de una sesión (datos públicos: no expone reservas ajenas).
@@ -9,6 +11,8 @@ import { prisma } from "@/lib/db";
  * pendiente de fecha o confirmada, para que pueda elegir o cambiar su hora.
  */
 export async function GET(req: Request) {
+  const limit = await limitSlots((await requestClient()).ipHash);
+  if (!limit.ok) return NextResponse.json({ error: limit.message }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } });
   const productId = new URL(req.url).searchParams.get("productId") ?? "";
   const product = await prisma.product.findFirst({ where: { id: productId, type: "SESSION" } });
   if (!product) return NextResponse.json({ error: "No encontrado" }, { status: 404 });

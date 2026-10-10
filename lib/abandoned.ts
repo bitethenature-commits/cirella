@@ -1,6 +1,7 @@
 import { prisma } from "./db";
 import { AUTOMATIONS } from "./automations";
 import { dispatchEvents, recordEvents } from "./events";
+import { claimRecoveryEmail, recoveryDecision, recoveryFacts } from "./recovery-guard";
 
 /**
  * Pedidos sin pagar cuyo plazo de recuperación ha vencido → abandonados (+ email de
@@ -12,6 +13,10 @@ import { dispatchEvents, recordEvents } from "./events";
  * (chargedAt) nunca se da por abandonado: lo entrega el vigilante. Tampoco uno cuya página de pago
  * sigue abierta (checkoutExpiresAt futuro: puede estar confirmando en la app de su banco) ni uno con
  * el pago pendiente (PROCESSING), que resuelve el aviso de la pasarela.
+ *
+ * Solo recuperamos a quien abrió el checkout de verdad: así nadie puede usar los pagos fallidos
+ * para enviar emails con el nombre de la creadora a direcciones ajenas (lib/recovery-guard.ts).
+ * El motivo de cada email que no se envía queda en Order.recoverySkipped.
  */
 export async function emitAbandoned(floorMinutes = 5) {
   const now = Date.now();
@@ -39,13 +44,19 @@ export async function emitAbandoned(floorMinutes = 5) {
     const bought = await prisma.order.findFirst({
       where: { buyerEmail: o.buyerEmail, productId: o.productId, status: "PAID", createdAt: { gte: o.createdAt } },
     });
+    const decision = bought ? null : recoveryDecision(await recoveryFacts(o));
     const marked = await prisma.$transaction(async (tx) => {
       const c = await tx.order.updateMany({
         where: { id: o.id, status: { in: ["PENDING", "FAILED"] }, recoveryEmailedAt: null, chargedAt: null },
-        data: { status: "ABANDONED", recoveryEmailedAt: bought ? new Date() : null },
+        data: { status: "ABANDONED", recoveryEmailedAt: bought ? new Date() : null, recoverySkipped: decision && !decision.send ? decision.reason : null },
       });
-      if (!c.count) return false;
-      if (!bought) eventIds.push(...(await recordEvents(tx, [{ type: "checkout.abandoned", orderId: o.id }])));
+      if (!c.count || !decision?.send) return c.count > 0;
+      // El tope por destinatario se gasta solo aquí, con el pedido ya marcado por esta ejecución.
+      if (!(await claimRecoveryEmail(o.buyerEmail, tx)).ok) {
+        await tx.order.update({ where: { id: o.id }, data: { recoverySkipped: "ya-avisada" } });
+        return true;
+      }
+      eventIds.push(...(await recordEvents(tx, [{ type: "checkout.abandoned", orderId: o.id }])));
       return true;
     });
     if (marked) processed++;

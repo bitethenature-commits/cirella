@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { BOT_UA, detectSource, isLandingReferrer, recordEvent } from "@/lib/analytics";
 import { getCurrentUser } from "@/lib/auth";
+import { requestClient } from "@/lib/client-ip";
 import { prisma } from "@/lib/db";
+import { shouldRecordTrack } from "@/lib/limits";
 import { EVENT_TYPES } from "@/lib/types";
 import { currentVisitorId } from "@/lib/visitor";
 
@@ -51,15 +53,20 @@ export async function POST(req: Request) {
   if (referrerHost === ownHost) referrerHost = null;
 
   const source = detectSource(referrerHost, data.utm);
-  if (landing)
+  // Sin duplicados ni ráfagas (lib/limits.ts): lo que se descarta responde igual, en silencio.
+  const client = await requestClient();
+  const counts = (type: string, productId: string | null) =>
+    shouldRecordTrack({ creatorId: creator.id, type, productId, ipHash: client.ipHash, ua: client.ua });
+  if (landing && (await counts("PAGE_VIEW", null)))
     await recordEvent({ creatorId: creator.id, type: "PAGE_VIEW", visitorId, referrer: referrerHost, source });
-  await recordEvent({
-    creatorId: creator.id,
-    type: data.type,
-    productId: data.productId ?? null,
-    visitorId,
-    referrer: referrerHost,
-    source,
-  });
+  if (await counts(data.type, data.productId ?? null))
+    await recordEvent({
+      creatorId: creator.id,
+      type: data.type,
+      productId: data.productId ?? null,
+      visitorId,
+      referrer: referrerHost,
+      source,
+    });
   return res;
 }

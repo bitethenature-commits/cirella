@@ -167,9 +167,14 @@ borra de verdad.
 | `S3_ACCESS_KEY_ID` · `S3_SECRET_ACCESS_KEY` | token de `cirella-prod` | token de `cirella-staging` |
 | `SENTRY_DSN` | opcional | opcional |
 | `TURNSTILE_SITE_KEY` · `TURNSTILE_SECRET_KEY` | opcionales (las dos o ninguna) | ídem |
+| `CLIENT_IP_HEADER` | `x-real-ip` (Vercel); `cf-connecting-ip` si Cloudflare hace de proxy delante | ídem |
 
    `APP_SECRET` firma los enlaces temporales y los billetes de subida: si se cambia, los enlaces
    ya enviados dejan de valer (no se pierde nada más).
+
+   `CLIENT_IP_HEADER` es la cabecera de la que salen las IP para los límites de intentos (README,
+   «Límites de intentos»). Tiene que ser la que fija el proxy en el que entra la petición; con la
+   equivocada todas las clientas compartirían contador y se bloquearían entre ellas.
 
 6. Las **cabeceras de seguridad** (CSP) se calculan al construir con estas variables: si cambias
    `S3_ENDPOINT`, las claves de Stripe, Turnstile o Sentry, **vuelve a desplegar** para que la

@@ -5,8 +5,10 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSession, destroySession, getCurrentUser, hashPassword, revokeOtherSessions, safeNext, sendMagicLink, verifyPassword } from "@/lib/auth";
 import { sessionSatisfies } from "@/lib/auth-utils";
+import { requestClient } from "@/lib/client-ip";
 import { prisma } from "@/lib/db";
 import { homeFor } from "@/lib/home";
+import { clearLoginLimit, limitLogin, limitMagicLink, limitSignup } from "@/lib/limits";
 
 export type FormState = { error?: string; ok?: string; email?: string } | undefined;
 
@@ -26,10 +28,15 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message, email: String(form.get("email") ?? "") };
   const { email, password, name } = parsed.data;
+  const { ipHash } = await requestClient();
+  const signupLimit = await limitSignup(ipHash);
+  if (!signupLimit.ok) return { error: signupLimit.message, email };
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     // Nunca se fija contraseña ni se abre sesión sobre una cuenta existente sin probar que el email
     // es de quien lo escribe: se envía un enlace al propio email. Mismo mensaje haya o no contraseña.
+    const linkLimit = await limitMagicLink(email, ipHash);
+    if (!linkLimit.ok) return { error: linkLimit.message, email };
     await setSignupCookie(form);
     await sendMagicLink(email, existing.passwordHash ? "/auth/continuar" : "/contrasena?next=%2Fonboarding");
     return { ok: "Ya tienes una cuenta con este email. Te hemos enviado un enlace para entrar (y crear tu contraseña si aún no la tienes).", email };
@@ -56,13 +63,21 @@ async function setSignupCookie(form: FormData) {
   );
 }
 
+/** Hash ficticio: igualamos el tiempo de respuesta exista o no la cuenta (bcrypt siempre se ejecuta). */
+const DUMMY_HASH = "$2b$10$Sgz8oEVRljB0oWxR6NRZveN43Onq8qYgAaggGdjJ8Bn0NRni4UERO";
+
 export async function signIn(_: FormState, form: FormData): Promise<FormState> {
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
+  if (!z.string().email().safeParse(email).success) return { error: "Email o contraseña incorrectos.", email };
+  const { ipHash } = await requestClient();
+  const limit = await limitLogin(email, ipHash);
+  if (!limit.ok) return { error: limit.message, email };
   const user = await prisma.user.findUnique({ where: { email } });
   if (user && !user.passwordHash) return { error: "Esta cuenta no tiene contraseña. Entra con un enlace por email.", email };
-  if (!user || !(await verifyPassword(password, user.passwordHash)))
-    return { error: "Email o contraseña incorrectos.", email };
+  const valid = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
+  if (!user || !valid) return { error: "Email o contraseña incorrectos.", email };
+  await clearLoginLimit(email);
   if (user.status === "BLOCKED") return { error: "Esta cuenta está bloqueada. Escríbenos si crees que es un error.", email };
   // La contraseña solo «verifica» la sesión si el email ya está confirmado.
   const verified = !!user.emailVerifiedAt;
@@ -83,6 +98,9 @@ export async function requestMagicLink(_: FormState, form: FormData): Promise<Fo
   // `c` (usuario de la creadora) solo pone su marca al email y a la pantalla «Entrar».
   const username = String(form.get("c") ?? "").trim().toLowerCase().slice(0, 30);
   const creator = username ? await prisma.creator.findUnique({ where: { username }, select: { id: true } }) : null;
+  const { ipHash } = await requestClient();
+  const limit = await limitMagicLink(parsed.data, ipHash);
+  if (!limit.ok) return { error: limit.message, email: parsed.data };
   // Respuesta idéntica exista o no la cuenta (no revelamos qué emails están registrados).
   await sendMagicLink(parsed.data, next, { creatorId: creator?.id });
   return { ok: MAGIC_LINK_SENT, email: parsed.data };
@@ -106,6 +124,8 @@ export async function resendVerification(_: FormState): Promise<FormState> {
   const user = await getCurrentUser();
   if (!user) redirect("/entrar");
   if (user.emailVerifiedAt) return { ok: "Tu email ya está confirmado." };
+  const limit = await limitMagicLink(user.email, (await requestClient()).ipHash);
+  if (!limit.ok) return { error: limit.message };
   await sendMagicLink(user.email, "/panel", { purpose: "VERIFY_SIGNUP" });
   return { ok: `Te hemos enviado el enlace a ${user.email}.` };
 }

@@ -45,6 +45,8 @@ export async function createPendingOrder(input: {
   buyerName: string;
   slotStart?: string | null;
   visitorId?: string | null;
+  /** HMAC de la IP de quien paga (límites y antiabuso del email de recuperación); nunca la IP. */
+  ipHash?: string | null;
   source?: string | null;
   /** País de residencia declarado en el checkout (decide el IVA cuando vende Cirella). */
   buyerCountry?: string | null;
@@ -102,6 +104,7 @@ export async function createPendingOrder(input: {
       paymentProvider: paymentProvider().key,
       metadata: input.slotStart ? { slotStart: input.slotStart } : undefined,
       visitorId: input.visitorId ?? null,
+      ipHash: input.ipHash ?? null,
       source: input.source ?? null,
     },
   });

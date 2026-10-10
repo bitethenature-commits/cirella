@@ -7,14 +7,17 @@ import { claimOrderSession, rememberCheckout } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isSlotAvailable } from "@/lib/booking";
 import { parseCheckoutConsents } from "@/lib/checkout-consents";
+import { requestClient } from "@/lib/client-ip";
 import { ensureLegalSnapshot } from "@/lib/legal-snapshot";
+import { checkoutGate, noteCheckoutFailure } from "@/lib/limits";
 import { CheckoutError, createPendingOrder, getPurchasableProduct, startOrderPayment } from "@/lib/orders";
 import { isKnownCountry } from "@/lib/tax/rates";
 import { ipCountry } from "@/lib/tax/server";
 import { isPlausibleTaxId, normalizeTaxId } from "@/lib/tax/tax-id";
 import { currentVisitorId } from "@/lib/visitor";
 
-export type CheckoutState = { error?: string; orderId?: string } | undefined;
+/** needsCaptcha: el siguiente intento necesita la comprobación de Turnstile (tras varios rechazos). */
+export type CheckoutState = { error?: string; orderId?: string; needsCaptcha?: boolean; captchaSiteKey?: string } | undefined;
 
 const schema = z.object({
   productId: z.string().min(1),
@@ -50,6 +53,10 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
   if (!product) return { error: "Este producto no está disponible ahora mismo.", orderId: input.orderId || undefined };
   const consents = parseCheckoutConsents(Object.fromEntries(form), product.type);
   if (!consents.ok) return { error: consents.error, orderId: input.orderId || undefined };
+  // Límites de intentos y, tras varios rechazos, el captcha (el token no va en el esquema: es de un solo uso).
+  const client = await requestClient();
+  const gate = await checkoutGate({ email: input.email, ip: client.ip, ipHash: client.ipHash, turnstileToken: String(form.get("turnstileToken") ?? "") || null });
+  if (!gate.ok) return { error: gate.message, orderId: input.orderId || undefined, needsCaptcha: gate.needsCaptcha, captchaSiteKey: gate.captchaSiteKey };
   const visitorId = await currentVisitorId(product.creatorId);
 
   let orderId = input.orderId;
@@ -87,6 +94,7 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
         buyerName: input.name,
         slotStart: input.slotStart || null,
         visitorId,
+        ipHash: client.ipHash,
         source: lastVisit?.source ?? null,
         buyerCountry: input.country,
         ipCountry: ipCountry(await headers()),
@@ -114,7 +122,11 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
     // volver de la pasarela o del banco (lib/payments/return.ts).
     await rememberCheckout(orderId!);
     const result = await startOrderPayment(orderId!, { method: input.method, cardNumber: input.cardNumber });
-    if (result.kind === "failed") return { error: result.error, orderId };
+    if (result.kind === "failed") {
+      // Solo cuenta el rechazo; un pago que queda pendiente o en la app del banco, no.
+      const f = await noteCheckoutFailure({ email: input.email, ipHash: client.ipHash });
+      return { error: result.error, orderId, needsCaptcha: f.needsCaptcha, captchaSiteKey: f.captchaSiteKey };
+    }
     if (result.kind === "redirect") redirect(result.url);
     const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { creator: true } });
     const thanks = `/${order.creator.username}/gracias?pedido=${order.id}`;

@@ -27,6 +27,7 @@ const PROD_OK: Raw = {
   S3_BUCKET: "cirella",
   S3_ACCESS_KEY_ID: "id",
   S3_SECRET_ACCESS_KEY: "secret",
+  CLIENT_IP_HEADER: "cf-connecting-ip",
 };
 /** Configuración local como la de .env.example. */
 const DEV_OK: Raw = {
