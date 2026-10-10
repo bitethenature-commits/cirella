@@ -12,6 +12,8 @@ import { scopeAllows } from "../lib/auth-utils";
 import { prisma } from "../lib/db";
 import { yearOf } from "../lib/dac7";
 import { dac7ForCreator, dac7Report } from "../lib/dac7-data";
+import { canViewInvoice } from "../lib/invoices/access";
+import { nextInvoiceNumber } from "../lib/invoices/numbering";
 import { createPendingOrder } from "../lib/orders";
 import { cancelBooking, requestReschedule } from "../lib/booking-changes";
 import { ensureLegalSnapshot, getLegalSnapshot } from "../lib/legal-snapshot";
@@ -117,6 +119,8 @@ async function main() {
   await paymentsIsolation(ana, maria);
   await refundsIsolation(ana, maria);
   await buyerScopeIsolation(ana, maria);
+  await invoicesIsolation(ana, maria);
+  await invoiceNumbering();
 
   console.log(failures ? `\n${failures} comprobaciones fallidas` : "\nAislamiento multi-tenant correcto ✓");
   process.exit(failures ? 1 : 0);
@@ -145,6 +149,56 @@ async function legalIsolation(ana: CreatorRow, maria: CreatorRow) {
   } finally {
     if (forgedId) await prisma.legalSnapshot.delete({ where: { id: forgedId } });
     if (!before.has(mariaSnap.id)) await prisma.legalSnapshot.deleteMany({ where: { id: mariaSnap.id, orders: { none: {} } } });
+  }
+}
+
+/** Facturas (las de cuotas del seed): Ana nunca ve, cambia ni crea facturas de María. */
+async function invoicesIsolation(ana: CreatorRow, maria: CreatorRow) {
+  const db = tenantDb(ana.id);
+  const mariaInvoice = await prisma.invoice.findFirst({ where: { creatorId: maria.id, kind: "FEES" } });
+  const anaInvoice = await prisma.invoice.findFirst({ where: { creatorId: ana.id, kind: "FEES" } });
+  check("el seed tiene facturas de cuotas de Ana y de María", !!mariaInvoice && !!anaInvoice);
+  if (!mariaInvoice || !anaInvoice) return;
+  check("findMany de facturas: solo las de Ana", (await db.invoice.findMany()).every((i) => i.creatorId === ana.id));
+  check("findUnique con el id de una factura de María → null", (await db.invoice.findUnique({ where: { id: mariaInvoice.id } })) === null);
+  check("count de facturas = las de Ana", (await db.invoice.count()) === (await prisma.invoice.count({ where: { creatorId: ana.id } })));
+  const u = await db.invoice.updateMany({ where: { id: mariaInvoice.id }, data: { taxNote: "manipulada" } });
+  check("updateMany sobre una factura de María afecta 0 filas", u.count === 0 && (await prisma.invoice.findUniqueOrThrow({ where: { id: mariaInvoice.id } })).taxNote === mariaInvoice.taxNote);
+  const tag = `isolation-fees-${Date.now()}`;
+  const forged = await db.invoice.create({
+    data: {
+      creatorId: maria.id, kind: "FEES", type: "F2", issuer: "PLATFORM", issuerKey: tag, seriesCode: "S", year: 2000, number: 1,
+      fullNumber: tag, issuerName: "Cirella", issuerCountry: "ES", lines: [], baseCents: 0, taxRateBps: 0, taxCents: 0, totalCents: 0, dedupeKey: tag,
+    },
+  });
+  try {
+    check("create de una factura con creatorId de María se reasigna a Ana", forged.creatorId === ana.id);
+  } finally {
+    await prisma.invoice.delete({ where: { id: forged.id } });
+  }
+  // /facturas/[id]: Ana (creadora) no abre la factura de cuotas de María.
+  const asAna = { userId: ana.userId, isAdmin: false, creatorId: ana.id, email: "ana@cirella.app" };
+  check("canViewInvoice: Ana no ve la factura de cuotas de María", !canViewInvoice(asAna, mariaInvoice) && canViewInvoice(asAna, anaInvoice));
+}
+
+/** Numeración correlativa: sin repetidos con 20 facturas a la vez y sin huecos si se deshace la transacción. */
+async function invoiceNumbering() {
+  const key = `test-iso-${Date.now()}`;
+  try {
+    const numbers = await Promise.all(Array.from({ length: 20 }, () => prisma.$transaction((tx) => nextInvoiceNumber(tx, key, "V", 2099))));
+    check("20 números a la vez: 1..20 sin repetir", [...numbers].sort((a, b) => a - b).join(",") === Array.from({ length: 20 }, (_, i) => i + 1).join(","));
+    await prisma
+      .$transaction(async (tx) => {
+        await nextInvoiceNumber(tx, key, "V", 2099);
+        throw new Error("deshacer");
+      })
+      .catch(() => null);
+    const next = await prisma.$transaction((tx) => nextInvoiceNumber(tx, key, "V", 2099));
+    check("una transacción deshecha no consume número", next === 21);
+    const other = await prisma.$transaction((tx) => nextInvoiceNumber(tx, key, "S", 2099));
+    check("cada serie numera por separado", other === 1);
+  } finally {
+    await prisma.invoiceSeries.deleteMany({ where: { issuerKey: key } });
   }
 }
 

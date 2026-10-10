@@ -102,6 +102,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           <h1 className="cp-display mt-3 text-[2.5rem] sm:text-[3rem]">{p.title}</h1>
           {p.summary && <p className="cp-muted mt-3 text-[1.02rem] leading-relaxed">{p.summary}</p>}
           <p className="mt-6 text-3xl font-semibold tracking-tight">{price}</p>
+          <p className="cp-muted text-xs">{data.summary.vatIncluded ? "IVA incluido" : "Precio final"}</p>
           {creator.legalName && (
             <p className="cp-faint mt-2 text-xs">
               Vende: {sellerLine(creator)} ·{" "}

@@ -1,9 +1,12 @@
-import { Check, Gift } from "lucide-react";
+import Link from "next/link";
+import { Check, FileText, Gift } from "lucide-react";
 import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireCreator } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
+import { FEE_TX_SELECT, FEE_TX_WHERE, buildFeeInvoiceLines, monthPeriod } from "@/lib/invoices/fees";
+import { periodLabel } from "@/lib/invoices/format";
 import { planBullets } from "@/lib/plans";
 import { tenantDb } from "@/lib/tenant";
 import { PageHeader } from "../ui";
@@ -12,11 +15,17 @@ import { changePlan } from "./actions";
 export default async function PlanPage({ searchParams }: { searchParams: Promise<{ elegir?: string; ok?: string; error?: string }> }) {
   const { creator } = await requireCreator();
   const sp = await searchParams;
-  const [plans, products, fees] = await Promise.all([
+  const db = tenantDb(creator.id);
+  const month = monthPeriod(new Date());
+  const [plans, products, invoices, monthTxs] = await Promise.all([
     prisma.plan.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
-    tenantDb(creator.id).product.count({ where: { status: { not: "ARCHIVED" } } }),
-    tenantDb(creator.id).transaction.findMany({ where: { type: "PLAN_FEE" }, orderBy: { createdAt: "desc" }, take: 6 }),
+    db.product.count({ where: { status: { not: "ARCHIVED" } } }),
+    db.invoice.findMany({ where: { kind: "FEES" }, orderBy: { issuedAt: "desc" }, take: 24 }),
+    // Lo que lleva este mes: vista previa de la próxima factura (la emite el cron el día 1).
+    db.transaction.findMany({ where: { createdAt: { gte: month.from, lt: month.to }, ...FEE_TX_WHERE }, orderBy: { createdAt: "asc" }, select: FEE_TX_SELECT }),
   ]);
+  const monthTotal = buildFeeInvoiceLines(monthTxs, creator.plan.name).reduce((a, l) => a + l.totalCents, 0);
+  const nextMonth = periodLabel(monthPeriod(new Date(), 1).period);
   const discountActive = creator.commissionDiscountBps > 0 && (!creator.commissionDiscountUntil || creator.commissionDiscountUntil > new Date());
   return (
     <div>
@@ -43,7 +52,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
               {current && <span className="absolute -top-3 left-6 rounded-full bg-gold px-3 py-1 text-xs font-semibold text-ink">Tu plan</span>}
               <p className="display text-3xl">{p.name}</p>
               <p className={`text-sm ${current ? "text-cream/60" : "text-muted"}`}>{p.tagline}</p>
-              <p className="mt-5 text-3xl font-semibold tracking-tight">{formatMoney(p.priceMonthlyCents)}<span className={`text-base font-normal ${current ? "text-cream/60" : "text-muted"}`}>/mes</span></p>
+              <p className="mt-5 text-3xl font-semibold tracking-tight">{formatMoney(p.priceMonthlyCents)}<span className={`text-base font-normal ${current ? "text-cream/60" : "text-muted"}`}>/mes</span>{p.priceMonthlyCents > 0 && <span className={`ml-1 text-xs font-normal ${current ? "text-cream/60" : "text-muted"}`}>IVA incluido</span>}</p>
               <ul className="mt-5 flex-1 space-y-2 text-sm">
                 {planBullets(p).map((b) => (
                   <li key={b} className="flex gap-2"><Check className={`mt-0.5 h-4 w-4 shrink-0 ${current ? "text-gold" : "text-sage"}`} />{b}</li>
@@ -61,20 +70,34 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           );
         })}
       </div>
-      <p className="mt-4 text-xs text-muted">Pago de la suscripción simulado en esta demo. Si cambias a un plan con menos funciones, tus productos se conservan: los que no estén incluidos se ocultan de tu página hasta que vuelvas a mejorar.</p>
-      {fees.length > 0 && (
-        <section className="mt-10">
-          <h2 className="eyebrow mb-3 !text-ink">Facturas del plan</h2>
+      <p className="mt-4 text-xs text-muted">Los precios incluyen IVA. Pago de la suscripción simulado en esta demo. Si cambias a un plan con menos funciones, tus productos se conservan: los que no estén incluidos se ocultan de tu página hasta que vuelvas a mejorar.</p>
+      <section className="mt-10">
+        <h2 className="eyebrow mb-3 !text-ink">Facturas de Cirella</h2>
+        {invoices.length > 0 ? (
           <div className="card divide-y divide-line">
-            {fees.map((f) => (
-              <div key={f.id} className="flex items-center justify-between px-4 py-3 text-sm">
-                <span>{f.description}</span>
-                <span className="text-muted">{f.createdAt.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })} · <strong className="text-ink">{formatMoney(f.amountCents, "EUR", { decimals: true })}</strong></span>
+            {invoices.map((inv) => (
+              <div key={inv.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-sm">
+                <span className="flex min-w-0 items-center gap-2">
+                  <FileText className="h-4 w-4 shrink-0 text-muted" />
+                  <span className="font-mono text-xs">{inv.fullNumber}</span>
+                  <span className="text-muted">· {inv.period ? periodLabel(inv.period) : inv.issuedAt.toLocaleDateString("es-ES")}</span>
+                </span>
+                <span className="flex items-center gap-3">
+                  <strong className="tabular-nums">{formatMoney(inv.totalCents, inv.currency, { decimals: true })}</strong>
+                  <Link href={`/facturas/${inv.id}`} className="btn btn-ghost btn-sm">Ver factura</Link>
+                </span>
               </div>
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <p className="text-sm text-muted">Tu primera factura se emitirá el día 1 del mes que viene.</p>
+        )}
+        {monthTotal > 0 && (
+          <p className="mt-3 text-xs text-muted">
+            Este mes llevas {formatMoney(monthTotal, "EUR", { decimals: true })} en cuota y comisiones. La factura se emite el día 1 de {nextMonth}.
+          </p>
+        )}
+      </section>
     </div>
   );
 }

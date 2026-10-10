@@ -286,6 +286,9 @@ async function cleanup() {
       },
     }),
     prisma.access.deleteMany({ where: { userId: { in: userIds } } }),
+    // Facturas de las compras de prueba (primero se sueltan las F3/rectificativas de su original).
+    prisma.invoice.updateMany({ where: { recipientEmail: { startsWith: TAG } }, data: { relatedInvoiceId: null } }),
+    prisma.invoice.deleteMany({ where: { recipientEmail: { startsWith: TAG } } }),
     prisma.transaction.deleteMany({ where: { OR: [{ orderId: { in: orderIds } }, { subscriptionId: { in: subs } }] } }),
     prisma.refund.deleteMany({ where: { orderId: { in: orderIds } } }),
     prisma.booking.deleteMany({ where: { id: { in: bookingIds } } }),

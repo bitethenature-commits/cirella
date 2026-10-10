@@ -8,6 +8,7 @@ import { legalIdentityComplete } from "@/lib/legal";
 import { legalIdentityOf } from "@/lib/legal-snapshot";
 import { payoutView } from "@/lib/payouts";
 import { getSettings } from "@/lib/settings";
+import { asTaxMode, asVatStatus } from "@/lib/tax";
 import { defaultPageConfig, readPageConfig } from "@/lib/page-config";
 import { planFeatures } from "@/lib/plans";
 import { TEMPLATE_KEYS, type TemplateKey } from "@/lib/templates";
@@ -63,6 +64,7 @@ export default async function OnboardingPage() {
     allowedTypes: features.productTypes,
     commissionBps: plan.commissionBps,
     planName: plan.name,
+    tax: { mode: asTaxMode(settings.taxMode), country: creator?.legalCountry ?? "ES", vatStatus: asVatStatus(creator?.vatStatus) },
     payout: creator
       ? payoutView(creator, { supportEmail: settings.supportEmail })
       : payoutView({ status: "ACTIVE", payoutProvider: null, payoutStatus: "NONE", payoutChargesEnabled: false, payoutPayoutsEnabled: false, payoutRequirements: null }),

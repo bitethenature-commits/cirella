@@ -3,7 +3,9 @@ import { prisma } from "./db";
 import { dispatchEvents, recordEvents, type DomainEvent } from "./events";
 import { hasBookingClash, isBookingOverlapError, isSlotAvailable } from "./booking";
 import { dac7SalesPaused } from "./dac7-data";
-import { appUrl } from "./env";
+import { appUrl, isDemoMode } from "./env";
+import { canInvoiceSale, issueSaleInvoiceTx } from "./invoices/issue";
+import { getPlatformIssuer } from "./invoices/issuer";
 import { legalIdentityComplete } from "./legal";
 import { paymentProvider, type PaymentMethodInput } from "./payments";
 import { canAcceptPayments } from "./payouts";
@@ -11,6 +13,8 @@ import { canSellType, effectiveCommissionBps } from "./plans";
 import { pushBookingEvent } from "./calendar";
 import { captureError } from "./monitoring";
 import { chargeKey } from "./reliability";
+import { computeSaleAmounts, decideTax, platformRetainedCents } from "./tax";
+import { getTaxMode } from "./tax/server";
 import type { ProductType } from "./types";
 
 export class CheckoutError extends Error {}
@@ -31,12 +35,10 @@ export async function getPurchasableProduct(productId: string) {
   return product;
 }
 
-export function computeFees(amountCents: number, commissionBps: number) {
-  const platformFeeCents = Math.round((amountCents * commissionBps) / 10000);
-  return { platformFeeCents, netCents: amountCents - platformFeeCents };
-}
-
-/** Paso 1: crea el pedido pendiente (permite medir abandonos y recuperarlos). */
+/**
+ * Paso 1: crea el pedido pendiente (permite medir abandonos y recuperarlos). Guarda la instantánea
+ * fiscal de la venta (lib/tax): quién vende a efectos de IVA, país, tipo e IVA incluido en el precio.
+ */
 export async function createPendingOrder(input: {
   productId: string;
   buyerEmail: string;
@@ -44,6 +46,12 @@ export async function createPendingOrder(input: {
   slotStart?: string | null;
   visitorId?: string | null;
   source?: string | null;
+  /** País de residencia declarado en el checkout (decide el IVA cuando vende Cirella). */
+  buyerCountry?: string | null;
+  /** País según la IP (segunda prueba de localización). */
+  ipCountry?: string | null;
+  /** «Necesito factura con mi NIF» (NIF ya normalizado y validado). */
+  billing?: { name: string; taxId: string; address: string } | null;
 }) {
   const product = await getPurchasableProduct(input.productId);
   if (!product) throw new CheckoutError("Este producto no está disponible ahora mismo.");
@@ -56,8 +64,19 @@ export async function createPendingOrder(input: {
     if (!(await isSlotAvailable(product, input.slotStart)))
       throw new CheckoutError("Ese horario acaba de ocuparse. Elige otro, por favor.");
   }
+  const tax = decideTax({
+    mode: await getTaxMode(),
+    productType: product.type,
+    buyerCountry: input.buyerCountry ?? null,
+    creator: { country: product.creator.legalCountry, vatStatus: product.creator.vatStatus, vatExemptionNote: product.creator.vatExemptionNote },
+  });
+  // Si vende Cirella tiene que poder facturar: sin sus datos fiscales no se vende (fuera de la demo).
+  if (tax.seller === "PLATFORM" && !isDemoMode() && !(await getPlatformIssuer()).complete)
+    throw new CheckoutError("Las compras no están disponibles en este momento.");
   const commissionBps = effectiveCommissionBps(product.creator.plan, product.creator);
-  const { platformFeeCents, netCents } = computeFees(product.priceCents, commissionBps);
+  const amounts = computeSaleAmounts(product.priceCents, commissionBps, tax);
+  // Sin factura posible (vende una creadora que no repercute IVA) no se guardan datos de facturación.
+  const billing = input.billing && canInvoiceSale(tax.seller, product.creator) ? input.billing : null;
   return prisma.order.create({
     data: {
       creatorId: product.creatorId,
@@ -69,8 +88,17 @@ export async function createPendingOrder(input: {
       amountCents: product.priceCents,
       currency: product.currency,
       commissionBps,
-      platformFeeCents,
-      netCents,
+      platformFeeCents: amounts.platformFeeCents,
+      netCents: amounts.netCents,
+      taxSeller: tax.seller,
+      taxCountry: tax.country,
+      taxRateBps: amounts.taxRateBps,
+      taxCents: amounts.taxCents,
+      buyerCountry: input.buyerCountry ?? null,
+      ipCountry: input.ipCountry ?? null,
+      billingName: billing?.name ?? null,
+      billingTaxId: billing?.taxId ?? null,
+      billingAddress: billing?.address ?? null,
       paymentProvider: paymentProvider().key,
       metadata: input.slotStart ? { slotStart: input.slotStart } : undefined,
       visitorId: input.visitorId ?? null,
@@ -130,7 +158,8 @@ export async function startOrderPayment(orderId: string, payment: PaymentMethodI
     currency: order.currency,
     description: order.productTitle,
     customerEmail: order.buyerEmail,
-    platformFeeCents: order.platformFeeCents,
+    // Comisión y, si vende Cirella, también el IVA: ese dinero no es de la creadora.
+    platformFeeCents: platformRetainedCents(order),
     destinationAccount: order.creator.payoutAccountId,
     statementSuffix: order.creator.username.toUpperCase(),
     saveForFutureUse: order.productType === "MEMBERSHIP",
@@ -274,7 +303,7 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
       },
       include: { product: true },
     });
-    await tx.transaction.create({
+    const charge = await tx.transaction.create({
       data: {
         creatorId: order.creatorId,
         orderId: order.id,
@@ -284,11 +313,17 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
         platformFeeCents: order.platformFeeCents,
         netCents: order.netCents,
         currency: order.currency,
+        taxSeller: order.taxSeller,
+        taxCountry: order.taxCountry,
+        taxRateBps: order.taxRateBps,
+        taxCents: order.taxCents,
         provider: order.paymentProvider,
         providerRef: paymentRef,
         idempotencyKey: chargeKey(order.id),
       },
     });
+    // Factura (o nada: justificante) en la misma transacción que el cobro: numeración sin huecos.
+    await issueSaleInvoiceTx(tx, { transactionId: charge.id });
 
     const p = order.product;
     let subscriptionId: string | null = null;
@@ -301,6 +336,8 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
           productId: p.id,
           customerId: customer.id,
           userId: user.id,
+          orderId: order.id,
+          buyerCountry: order.buyerCountry,
           priceCents: order.amountCents,
           interval: p.billingInterval ?? "month",
           currentPeriodStart: now,

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Receipt } from "lucide-react";
+import { Download, Receipt } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty";
 import { requireCreator } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
@@ -31,18 +31,24 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
       where: { ...filter, ...(since ? { createdAt: { gte: since } } : {}) },
       orderBy: { createdAt: "desc" },
       take: 200,
-      include: { product: { select: { emoji: true } } },
+      include: {
+        product: { select: { emoji: true } },
+        invoices: { where: { type: { in: ["F1", "F2", "F3"] } }, orderBy: { issuedAt: "desc" }, take: 1, select: { fullNumber: true } },
+      },
     }),
     // Cifras del periodo descontando los reembolsos (se restan del mes de la venta).
     db.order.findMany({
       where: { status: { in: ["PAID", "REFUNDED"] }, ...(since ? { paidAt: { gte: since } } : {}) },
-      select: { status: true, amountCents: true, platformFeeCents: true, refundedCents: true, refundedFeeCents: true },
+      select: { status: true, amountCents: true, platformFeeCents: true, refundedCents: true, refundedFeeCents: true, taxCents: true, taxSeller: true },
     }),
   ]);
   const figures = settled.map(orderFigures);
   const gross = figures.reduce((a, f) => a + f.gross, 0);
   const fees = figures.reduce((a, f) => a + f.fee, 0);
   const refunded = figures.reduce((a, f) => a + f.refunded, 0);
+  // «Recibes» descuenta la comisión y el IVA que declara Cirella cuando vende ella (lib/tax).
+  const net = figures.reduce((a, f) => a + f.net, 0);
+  const platformTax = figures.reduce((a, f) => a + f.platformTax, 0);
   const filters = [
     ["pagados", "Pagados"],
     ["reembolsados", "Reembolsados"],
@@ -52,11 +58,23 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
   const current = sp.estado ?? "pagados";
   return (
     <div>
-      <PageHeader title="Ventas" subtitle="Cada pedido, su comisión y lo que recibes." actions={<RangeTabs current={range} base="/panel/ventas" />} />
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Ingresos brutos" value={formatMoney(gross)} accent hint={refunded > 0 ? `−${formatMoney(refunded, "EUR", { decimals: true })} reembolsados` : undefined} />
+      <PageHeader
+        title="Ventas"
+        subtitle="Cada pedido, su comisión y lo que recibes."
+        actions={
+          <>
+            <RangeTabs current={range} base="/panel/ventas" />
+            <a href={`/panel/ventas/csv?rango=${range}`} className="btn btn-outline btn-sm" download>
+              <Download className="h-4 w-4" /> Descargar CSV
+            </a>
+          </>
+        }
+      />
+      <div className={`mb-6 grid grid-cols-2 gap-3 ${platformTax > 0 ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
+        <Stat label="Ingresos brutos" value={formatMoney(gross)} accent hint={refunded > 0 ? `−${formatMoney(refunded, "EUR", { decimals: true })} reembolsados` : "IVA incluido"} />
+        {platformTax > 0 && <Stat label="IVA" value={formatMoney(platformTax, "EUR", { decimals: true })} hint="Lo ingresa Cirella" />}
         <Stat label="Comisión plataforma" value={formatMoney(fees, "EUR", { decimals: true })} hint={`Plan ${creator.plan.name}`} />
-        <Stat label="Recibes" value={formatMoney(gross - fees, "EUR", { decimals: true })} />
+        <Stat label="Recibes" value={formatMoney(net, "EUR", { decimals: true })} />
         <Stat label="Pedidos" value={figures.filter((f) => f.counts).length} />
       </div>
       <div className="mb-4 flex flex-wrap gap-1.5">
@@ -79,7 +97,10 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                   <span className="min-w-0 truncate font-medium">{o.product.emoji} {o.productTitle}<span className="block text-xs font-normal text-muted md:hidden">{o.buyerName ?? o.buyerEmail} · {o.createdAt.toLocaleDateString("es-ES", { day: "numeric", month: "short" })}</span></span>
                   <span className="hidden min-w-0 truncate text-muted md:block">{o.buyerName ?? o.buyerEmail}</span>
                   <span className="hidden text-muted md:block">{o.createdAt.toLocaleDateString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
-                  <span className="text-right font-semibold tabular-nums">{formatMoney(o.amountCents, o.currency, { decimals: true })}</span>
+                  <span className="text-right font-semibold tabular-nums">
+                    {formatMoney(o.amountCents, o.currency, { decimals: true })}
+                    {o.invoices[0] && <span className="block font-mono text-[0.68rem] font-normal text-faint">{o.invoices[0].fullNumber}</span>}
+                  </span>
                   <span className="hidden text-right tabular-nums text-muted md:block">{o.status === "PAID" || o.status === "REFUNDED" ? formatMoney(f.net, o.currency, { decimals: true }) : "—"}</span>
                   <span className="col-span-2 flex justify-start md:col-span-1 md:justify-end"><Badge tone={f.partial ? "warning" : TONE[o.status]}>{orderStatusLabel(o)}</Badge>{o.disputeStatus && <span className="ml-1.5"><Badge tone={o.disputeStatus === "WON" ? "neutral" : "danger"}>{DISPUTE_STATUS_LABEL[o.disputeStatus]}</Badge></span>}<span className="ml-2 text-xs text-faint md:hidden">{PRODUCT_TYPE_LABEL[o.productType as ProductType]}</span></span>
                 </Link>

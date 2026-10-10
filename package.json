@@ -27,6 +27,7 @@
     "test:refunds": "tsx --conditions=react-server scripts/refunds-test.ts",
     "test:access": "tsx --conditions=react-server scripts/access-test.ts",
     "test:legal": "tsx --conditions=react-server scripts/legal-test.ts",
+    "test:invoices": "DEMO_MODE=false tsx --conditions=react-server scripts/invoices-test.ts",
     "test:seed-guard": "tsx scripts/seed-guard-test.ts",
     "test:startup": "tsx scripts/startup-guard-test.ts",
     "test:e2e": "playwright test"

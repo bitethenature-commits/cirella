@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Creator, Plan, Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
@@ -8,8 +8,11 @@ import { captureError } from "./monitoring";
 import { paymentProvider } from "./payments";
 import { nextRenewalAttempt, renewalPeriodKey } from "./payments/renewal";
 import { canAcceptPayments } from "./payouts";
+import { issueSaleInvoiceTx } from "./invoices/issue";
 import { effectiveCommissionBps } from "./plans";
 import { planFeeKey, renewalKey } from "./reliability";
+import { computeSaleAmounts, decideTax, type TaxMode } from "./tax";
+import { getTaxMode } from "./tax/server";
 
 /** Suscripciones vivas: al día o con una renovación pendiente de cobro (con acceso mientras se reintenta). */
 const LIVE = ["ACTIVE", "PAST_DUE"];
@@ -52,6 +55,24 @@ function addInterval(date: Date, interval: string) {
   return d;
 }
 
+/**
+ * Importes de una renovación con la política de IVA vigente y el país que declaró la compradora:
+ * IVA incluido, comisión (sobre la base sin IVA) y lo que retiene Cirella.
+ */
+export async function renewalAmounts(
+  sub: { priceCents: number; buyerCountry: string | null; creator: Creator & { plan: Plan } },
+  now: Date,
+  mode?: TaxMode,
+) {
+  const tax = decideTax({
+    mode: mode ?? (await getTaxMode()),
+    productType: "MEMBERSHIP",
+    buyerCountry: sub.buyerCountry,
+    creator: { country: sub.creator.legalCountry, vatStatus: sub.creator.vatStatus, vatExemptionNote: sub.creator.vatExemptionNote },
+  });
+  return { tax, ...computeSaleAmounts(sub.priceCents, effectiveCommissionBps(sub.creator.plan, sub.creator, now), tax) };
+}
+
 type DueSubscription = Prisma.SubscriptionGetPayload<{ include: { creator: { include: { plan: true } }; product: true; customer: true } }>;
 
 /**
@@ -79,9 +100,10 @@ export async function processRenewals(now = new Date()) {
     take: 200,
   });
   let done = 0;
+  const mode = due.length ? await getTaxMode() : "PLATFORM_DIGITAL";
   for (const sub of due) {
     try {
-      if (await renewOne(sub, now)) done++;
+      if (await renewOne(sub, now, mode)) done++;
     } catch (e) {
       captureError(e, { area: "renovaciones", extra: { subscriptionId: sub.id } });
     }
@@ -89,7 +111,7 @@ export async function processRenewals(now = new Date()) {
   return done;
 }
 
-async function renewOne(sub: DueSubscription, now: Date) {
+async function renewOne(sub: DueSubscription, now: Date, mode: TaxMode) {
   if (sub.cancelAtPeriodEnd) {
     // La condición sobre currentPeriodEnd hace de cerrojo: en Postgres (READ COMMITTED) la segunda
     // ejecución espera a la primera, vuelve a evaluar el WHERE y no actualiza nada.
@@ -109,7 +131,7 @@ async function renewOne(sub: DueSubscription, now: Date) {
     return recordRenewalFailure(sub.id, "La creadora tiene los cobros pausados.", now, guard);
   }
   const periodKey = renewalPeriodKey(sub.currentPeriodEnd);
-  const fee = Math.round((sub.priceCents * effectiveCommissionBps(sub.creator.plan, sub.creator, now)) / 10000);
+  const amounts = await renewalAmounts(sub, now, mode);
   const r = await provider.chargeSaved({
     subscriptionId: sub.id,
     periodKey,
@@ -117,7 +139,8 @@ async function renewOne(sub: DueSubscription, now: Date) {
     currency: sub.product.currency,
     description: `Renovación · ${sub.product.title}`,
     customerEmail: sub.customer.email,
-    platformFeeCents: fee,
+    // Comisión y, si vende Cirella, también el IVA (no es dinero de la creadora).
+    platformFeeCents: amounts.platformRetainedCents,
     destinationAccount: sub.creator.payoutAccountId,
     statementSuffix: sub.creator.username.toUpperCase(),
     customerRef: sub.providerCustomerRef,
@@ -153,7 +176,7 @@ export async function applyRenewal(
   if (!sub) return false;
   const now = new Date();
   const next = addInterval(periodEnd, sub.interval);
-  const fee = Math.round((sub.priceCents * effectiveCommissionBps(sub.creator.plan, sub.creator, now)) / 10000);
+  const amounts = await renewalAmounts(sub, now);
   return prisma.$transaction(async (tx) => {
     const c = await tx.subscription.updateMany({
       where: { id: subscriptionId, currentPeriodEnd: periodEnd, status: { in: LIVE } },
@@ -171,20 +194,25 @@ export async function applyRenewal(
     if (!c.count) return false;
     await tx.access.updateMany({ where: { subscriptionId }, data: { expiresAt: next, status: "ACTIVE" } });
     await tx.customer.update({ where: { id: sub.customerId }, data: { totalSpentCents: { increment: sub.priceCents }, lastPurchaseAt: periodEnd } });
-    await tx.transaction.create({
+    const renewal = await tx.transaction.create({
       data: {
         creatorId: sub.creatorId,
         subscriptionId,
         type: "RENEWAL",
         description: "Renovación de membresía",
         amountCents: sub.priceCents,
-        platformFeeCents: fee,
-        netCents: sub.priceCents - fee,
+        platformFeeCents: amounts.platformFeeCents,
+        netCents: amounts.netCents,
+        taxSeller: amounts.tax.seller,
+        taxCountry: amounts.tax.country,
+        taxRateBps: amounts.taxRateBps,
+        taxCents: amounts.taxCents,
         provider: sub.provider,
         providerRef: paymentRef || null,
         idempotencyKey: renewalKey(subscriptionId, periodEnd),
       },
     });
+    await issueSaleInvoiceTx(tx, { transactionId: renewal.id });
     return true;
   });
 }

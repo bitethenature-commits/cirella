@@ -15,6 +15,7 @@ export const ADMIN_NAV = [
   ["/admin/categorias", "Categorías"],
   ["/admin/disenos", "Diseños"],
   ["/admin/bloqueados", "Bloqueados"],
+  ["/admin/impuestos", "Impuestos"],
   ["/admin/reportes", "Reportes"],
   ["/admin/ajustes", "Ajustes"],
 ] as const;

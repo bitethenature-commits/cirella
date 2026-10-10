@@ -25,6 +25,8 @@ import { storeProcessedImage } from "../lib/images";
 import { mimeFromExt, privateKey, storage } from "../lib/storage";
 import { PLATFORM_TERMS_VERSION, WAIVER_TEXT, waiverKindFor } from "../lib/legal";
 import { defaultSections, type PageConfig } from "../lib/page-config";
+import { prisma as appPrisma } from "../lib/db";
+import { issueMonthlyPlatformInvoices } from "../lib/invoices/fees";
 
 const prisma = new PrismaClient();
 const STORAGE = path.resolve(process.cwd(), storageDir());
@@ -131,6 +133,8 @@ async function main() {
       legalAddress: "Calle de Alcalá 100, 28009 Madrid (España)",
       legalRegistry: "Registro Mercantil de Madrid, tomo 0000, folio 0, hoja M-000000 (datos de demostración)",
       privacyEmail: "privacidad@cirella.app",
+      // Política de IVA (opción A): Cirella vende los productos digitales, cursos y membresías.
+      taxMode: "PLATFORM_DIGITAL",
     }).map(([key, value]) => ({ key, value })),
   });
   const password = await bcrypt.hash("demo1234", 10);
@@ -196,6 +200,8 @@ async function main() {
       // IBAN) se dejan sin completar para ver el aviso y el informe con «Faltan».
       legalName: "Ana Luna Pérez", legalTaxId: "12345678Z", legalAddress: "Calle de la Luna 7, 2.º B", legalPostalCode: "28004",
       legalCity: "Madrid", legalCountry: "ES", legalEmail: "hola@analuna.es",
+      // Autónoma con IVA: sus sesiones llevan IVA y Cirella emite la factura en su nombre.
+      vatStatus: "STANDARD",
       termsAcceptedAt: daysAgo(75), termsVersion: PLATFORM_TERMS_VERSION,
       referralCode: "ANALUNA", createdAt: daysAgo(75),
     },
@@ -638,6 +644,11 @@ async function main() {
   });
   await prisma.creator.update({ where: { id: ana.id }, data: { creditCents: 2900 } });
 
+  // Facturas mensuales de Cirella (serie S) del mes pasado, a partir de las cuotas sembradas.
+  // María no repercute IVA (vatStatus NONE, el valor por defecto). Los pedidos sembrados no tienen
+  // instantánea fiscal: son anteriores a la facturación y solo tienen justificante.
+  await issueMonthlyPlatformInvoices(NOW);
+
   const counts = {
     usuarios: await prisma.user.count(),
     creadoras: await prisma.creator.count(),
@@ -645,6 +656,7 @@ async function main() {
     pedidos: await prisma.order.count(),
     reservas: await prisma.booking.count(),
     eventos: await prisma.analyticsEvent.count(),
+    facturas: await prisma.invoice.count(),
   };
   console.log("✓ Listo:", counts);
   console.log("  Cuentas demo (contraseña demo1234): ana@cirella.app · laura@example.com · admin@cirella.app");
@@ -655,4 +667,4 @@ main()
     console.error(e);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  .finally(() => Promise.all([prisma.$disconnect(), appPrisma.$disconnect()]));

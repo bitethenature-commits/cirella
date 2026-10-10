@@ -4,6 +4,7 @@ import { startTransition, useActionState, useState } from "react";
 import { Flash } from "@/components/ui/flash";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
+import { estimateNet, type TaxMode, type VatStatus } from "@/lib/tax";
 import { updateProduct, type ActionState } from "../actions";
 
 export type EditableProduct = {
@@ -29,7 +30,20 @@ export type EditableProduct = {
 
 const EMOJIS = ["🌙", "✨", "🔮", "🧬", "🔑", "💫", "🌿", "🧘", "🪷", "📖", "🎧", "☀️", "🌸", "🕯️"];
 
-export function ProductForm({ product, host, username, commissionBps }: { product: EditableProduct; host: string; username: string; commissionBps: number }) {
+export function ProductForm({
+  product,
+  host,
+  username,
+  commissionBps,
+  taxPreview,
+}: {
+  product: EditableProduct;
+  host: string;
+  username: string;
+  commissionBps: number;
+  /** Para «Recibes X»: el IVA depende de la política de la plataforma y de tu situación de IVA. */
+  taxPreview: { mode: TaxMode; country: string; vatStatus: VatStatus };
+}) {
   const [state, action, isPending] = useActionState<ActionState, FormData>(updateProduct, undefined);
   const [image, setImage] = useState(product.imageUrl);
   const [emoji, setEmoji] = useState(product.emoji ?? "");
@@ -37,6 +51,7 @@ export function ProductForm({ product, host, username, commissionBps }: { produc
   const cents = parseMoneyToCents(price);
   const isSession = product.type === "SESSION";
   const isMembership = product.type === "MEMBERSHIP";
+  const estimate = estimateNet({ priceCents: cents, commissionBps, productType: product.type, mode: taxPreview.mode, creator: taxPreview });
 
   return (
     <form
@@ -84,10 +99,13 @@ export function ProductForm({ product, host, username, commissionBps }: { produc
           <h3 className="font-semibold">Precio</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="field-label">Precio (€){isMembership ? " por periodo" : ""}</label>
+              <label className="field-label">Precio final (€, IVA incluido){isMembership ? " por periodo" : ""}</label>
               <input name="price" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d,.]/g, ""))} inputMode="decimal" className="input text-lg font-semibold" placeholder="49" />
               {cents >= 100 && (
-                <p className="field-hint">Recibes {formatMoney(cents - Math.round((cents * commissionBps) / 10000), "EUR", { decimals: true })} por venta (comisión {(commissionBps / 100).toLocaleString("es-ES")} %).</p>
+                <p className="field-hint">
+                  Recibes {formatMoney(estimate.netCents, "EUR", { decimals: true })} por venta en España (
+                  {estimate.taxCents > 0 ? `IVA ${formatMoney(estimate.taxCents, "EUR", { decimals: true })} · ` : ""}comisión {(commissionBps / 100).toLocaleString("es-ES")} %).
+                </p>
               )}
             </div>
             {isMembership && (

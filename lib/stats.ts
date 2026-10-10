@@ -33,7 +33,7 @@ export async function getDashboardStats(creatorId: string, range: RangeKey, tz: 
     await Promise.all([
       db.order.findMany({
         where: { status: { in: ["PAID", "REFUNDED"] }, ...(when ? { paidAt: when } : {}) },
-        select: { status: true, amountCents: true, platformFeeCents: true, refundedCents: true, refundedFeeCents: true, productId: true, productTitle: true, paidAt: true },
+        select: { status: true, amountCents: true, platformFeeCents: true, refundedCents: true, refundedFeeCents: true, taxCents: true, taxSeller: true, productId: true, productTitle: true, paidAt: true },
       }),
       db.customer.count({ where: when ? { createdAt: when } : {} }),
       db.customer.count(),

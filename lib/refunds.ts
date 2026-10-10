@@ -6,6 +6,7 @@ import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
 import * as RT from "./email/refund-templates";
 import { dispatchEvents, recordEvents } from "./events";
+import { issueCorrectiveInvoiceTx } from "./invoices/issue";
 import { formatMoney } from "./money";
 import { revokeOrderAccess } from "./order-links";
 import { captureAlert, captureError } from "./monitoring";
@@ -23,6 +24,7 @@ import {
   type WithdrawalBlock,
 } from "./refund-math";
 import { truncateError } from "./reliability";
+import { refundTaxFields } from "./tax";
 import { formatDate, formatSessionDate } from "./tz";
 
 /**
@@ -280,9 +282,11 @@ export async function markRefundSucceeded(refundId: string): Promise<boolean> {
     const refund = await tx.refund.findUniqueOrThrow({ where: { id: refundId } });
     const order = await tx.order.findUniqueOrThrow({ where: { id: refund.orderId }, include: { customer: { select: { userId: true } } } });
     const full = order.refundedCents + refund.amountCents >= order.amountCents;
-    const taxCents = order.amountCents ? Math.round((order.taxCents * refund.amountCents) / order.amountCents) : 0;
+    // IVA devuelto en proporción. Si vende Cirella, ese IVA sale de su cuenta y no de la creadora.
+    const tax = refundTaxFields(order, refund.amountCents);
+    const platformTax = order.taxSeller === "PLATFORM" ? tax.taxCents : 0;
     // Libro: importes en negativo, así las sumas son netas (lib/dac7-data.ts cuenta con ello).
-    await tx.transaction.create({
+    const refundTx = await tx.transaction.create({
       data: {
         creatorId: order.creatorId,
         orderId: order.id,
@@ -291,16 +295,16 @@ export async function markRefundSucceeded(refundId: string): Promise<boolean> {
         description: `Reembolso · ${order.productTitle}`,
         amountCents: -refund.amountCents,
         platformFeeCents: -refund.platformFeeCents,
-        netCents: -(refund.amountCents - refund.platformFeeCents),
+        netCents: -(refund.amountCents - refund.platformFeeCents) - platformTax,
         currency: refund.currency,
-        taxSeller: order.taxSeller,
-        taxCountry: order.taxCountry,
-        taxRateBps: order.taxRateBps,
-        taxCents: -taxCents,
+        ...tax,
         provider: refund.provider,
         providerRef: refund.providerRef,
       },
     });
+    // Rectificativa de la factura de la venta (si la tenía), en la misma transacción.
+    const charge = await tx.transaction.findFirst({ where: { orderId: order.id, type: "CHARGE" }, orderBy: { createdAt: "asc" }, select: { id: true } });
+    if (charge) await issueCorrectiveInvoiceTx(tx, { refundTransactionId: refundTx.id, originalTransactionId: charge.id });
     await tx.order.update({
       where: { id: order.id },
       data: {

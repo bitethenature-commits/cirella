@@ -85,6 +85,19 @@ export function welcomeCustomerEmail(o: { name?: string | null; creatorName: str
   };
 }
 
+/** Factura mensual de Cirella a la creadora (cuota del plan y comisiones). */
+export function monthlyInvoiceEmail(o: { creatorName: string; periodLabel: string; number: string; total: string; url: string }) {
+  return {
+    subject: `Tu factura de ${PLATFORM} · ${o.periodLabel}`,
+    html: layout({
+      title: "Tu factura ya está disponible",
+      body: p(`Hola, ${esc(o.creatorName)}. Ya tienes disponible la factura <strong>${esc(o.number)}</strong> por tu cuota y comisiones de ${esc(o.periodLabel)}: <strong>${esc(o.total)}</strong>.`) +
+        p("También la encontrarás siempre en tu panel, en «Tu plan»."),
+      cta: { label: "Ver factura", url: o.url },
+    }),
+  };
+}
+
 export function purchaseReceiptEmail(o: {
   name?: string | null;
   creatorName: string;
@@ -103,6 +116,14 @@ export function purchaseReceiptEmail(o: {
   legalUrl?: string;
   /** Copia de las condiciones en soporte duradero, al final del email (texto plano). */
   conditions?: { terms: string; refunds: string };
+  /** «IVA incluido (21 %): 13,71 €» (solo si la venta lleva IVA). */
+  taxLine?: string | null;
+  /** Número de la factura emitida (si no hay, la compradora tiene un justificante). */
+  invoiceNumber?: string | null;
+  /** Quién cobra y factura a efectos de IVA cuando no es quien vende (opción A: Cirella). */
+  taxSellerLine?: string | null;
+  /** Detalle de la compra con la factura o el justificante. */
+  receiptUrl?: string | null;
 }) {
   const row = (label: string, value: string) =>
     `<tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE;vertical-align:top">${label}</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE">${value}</td></tr>`;
@@ -128,12 +149,19 @@ export function purchaseReceiptEmail(o: {
           <tr><td style="padding:8px 0;color:#8A8698">Producto</td><td style="padding:8px 0;text-align:right">${esc(o.productTitle)}</td></tr>
           <tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE">Total</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE"><strong>${esc(o.amount)}</strong></td></tr>
           <tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE">Pedido</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE;font-family:monospace;font-size:12px">${esc(o.orderId.slice(-10).toUpperCase())}</td></tr>
+          ${o.taxLine ? row("IVA", esc(o.taxLine)) : ""}
+          ${o.invoiceNumber ? row("Factura", `<span style="font-family:monospace;font-size:12px">${esc(o.invoiceNumber)}</span>`) : ""}
           ${o.seller ? row("Vende", [o.seller.line, o.seller.address, o.seller.email].filter(Boolean).map(esc).join("<br>")) : ""}
         </table>` +
+        (o.taxSellerLine ? p(`<span style="color:#8A8698;font-size:12px">${esc(o.taxSellerLine)}</span>`) : "") +
         p("Pulsa el botón para abrir tu compra. No necesitas contraseña.") +
         (o.instructions ? p(`<em>${esc(o.instructions)}</em>`) : ""),
       cta: { label: "Acceder a mi contenido", url: o.accountUrl },
-      afterCta: note(o.linkNote) + legal + appendix,
+      afterCta:
+        note(o.linkNote) +
+        (o.receiptUrl ? p(`<a href="${esc(o.receiptUrl)}" style="color:#3B3950;font-size:14px">Ver tu factura o justificante</a>`) : "") +
+        legal +
+        appendix,
     }),
   };
 }

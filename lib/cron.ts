@@ -4,6 +4,7 @@ import { purgeExpiredAuth } from "./auth-tokens";
 import { processDac7Reminders } from "./dac7-data";
 import { processOutbox } from "./email/outbox";
 import { processEvents } from "./events";
+import { issueMonthlyPlatformInvoices } from "./invoices/fees";
 import { withJobLock } from "./job-lock";
 import { captureError, withCronMonitor } from "./monitoring";
 import { processPlanRenewals, processRenewals } from "./subscriptions";
@@ -30,6 +31,8 @@ export async function runScheduledJobs(): Promise<CronResult> {
         ["abandonados", () => emitAbandoned()],
         ["renovaciones", () => processRenewals()],
         ["cuotasPlan", () => processPlanRenewals()],
+        // Factura mensual de Cirella a cada creadora (cuota y comisiones del mes anterior; solo las que falten).
+        ["facturasCuotas", () => issueMonthlyPlatformInvoices()],
         // Petición y recordatorios de los datos fiscales de DAC7 (solo actúa cuando toca: 0, +20 y +40 días).
         ["dac7", () => processDac7Reminders()],
         ["vigilancia", async () => {

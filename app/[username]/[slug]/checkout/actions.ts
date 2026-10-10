@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { claimOrderSession, rememberCheckout } from "@/lib/auth";
@@ -8,6 +9,9 @@ import { isSlotAvailable } from "@/lib/booking";
 import { parseCheckoutConsents } from "@/lib/checkout-consents";
 import { ensureLegalSnapshot } from "@/lib/legal-snapshot";
 import { CheckoutError, createPendingOrder, getPurchasableProduct, startOrderPayment } from "@/lib/orders";
+import { isKnownCountry } from "@/lib/tax/rates";
+import { ipCountry } from "@/lib/tax/server";
+import { isPlausibleTaxId, normalizeTaxId } from "@/lib/tax/tax-id";
 import { currentVisitorId } from "@/lib/visitor";
 
 export type CheckoutState = { error?: string; orderId?: string } | undefined;
@@ -22,12 +26,26 @@ const schema = z.object({
   method: z.enum(["card", "wallet"]).optional(),
   cardNumber: z.string().max(30).optional(),
   // Las casillas (acceptTerms, waiver, newsletter) las valida parseCheckoutConsents según el producto.
+  // IVA: país de residencia y, si pide factura, sus datos fiscales.
+  country: z.string().trim().min(2, "Elige tu país").max(5).refine(isKnownCountry, "Elige tu país"),
+  wantsInvoice: z.literal("on").optional(),
+  billingName: z.string().trim().max(120).optional(),
+  billingTaxId: z.string().max(30).optional(),
+  billingAddress: z.string().trim().max(300).optional(),
+}).superRefine((d, ctx) => {
+  if (!d.wantsInvoice) return;
+  if ((d.billingName ?? "").length < 2) ctx.addIssue({ code: "custom", path: ["billingName"], message: "Escribe el nombre o la razón social" });
+  else if (!isPlausibleTaxId(d.billingTaxId ?? "", d.country)) ctx.addIssue({ code: "custom", path: ["billingTaxId"], message: "Revisa el NIF: no es válido" });
+  else if ((d.billingAddress ?? "").length < 8) ctx.addIssue({ code: "custom", path: ["billingAddress"], message: "Escribe la dirección fiscal" });
 });
 
 export async function placeOrder(_: CheckoutState, form: FormData): Promise<CheckoutState> {
   const parsed = schema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message, orderId: String(form.get("orderId") ?? "") || undefined };
   const input = parsed.data;
+  const billing = input.wantsInvoice
+    ? { name: input.billingName!, taxId: normalizeTaxId(input.billingTaxId!), address: input.billingAddress! }
+    : null;
   const product = await prisma.product.findUnique({ where: { id: input.productId }, select: { creatorId: true, type: true } });
   if (!product) return { error: "Este producto no está disponible ahora mismo.", orderId: input.orderId || undefined };
   const consents = parseCheckoutConsents(Object.fromEntries(form), product.type);
@@ -46,7 +64,12 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
       existing.status !== "PAID" &&
       existing.productId === input.productId &&
       existing.buyerEmail === input.email &&
-      prevSlot === (input.slotStart || "");
+      prevSlot === (input.slotStart || "") &&
+      // El IVA y la factura dependen del país y de los datos fiscales: si cambian, pedido nuevo.
+      existing.buyerCountry === input.country &&
+      existing.billingTaxId === (billing?.taxId ?? null) &&
+      existing.billingName === (billing?.name ?? null) &&
+      existing.billingAddress === (billing?.address ?? null);
     if (reusable) {
       const purchasable = await getPurchasableProduct(input.productId);
       reusable = !!purchasable && purchasable.priceCents === existing!.amountCents;
@@ -65,6 +88,9 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
         slotStart: input.slotStart || null,
         visitorId,
         source: lastVisit?.source ?? null,
+        buyerCountry: input.country,
+        ipCountry: ipCountry(await headers()),
+        billing,
       });
       orderId = order.id;
     }

@@ -10,9 +10,11 @@ import { appHost, appUrl } from "@/lib/env";
 import { payoutView } from "@/lib/payouts";
 import { REWARD_LABEL } from "@/lib/referrals";
 import { getSettings } from "@/lib/settings";
+import { asTaxMode } from "@/lib/tax";
 import { ShareButtons } from "@/app/onboarding/lista/share-buttons";
 import { Badge, PageHeader } from "../ui";
 import { changePassword, updateAccount } from "./actions";
+import { VatCard } from "./vat-card";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const { creator, user } = await requireCreator();
@@ -75,6 +77,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <Link href="/panel/ajustes/legal" className="btn btn-outline btn-sm">Editar <ArrowRight className="h-3.5 w-3.5" /></Link>
         </div>
       </section>
+
+      <VatCard creator={creator} taxMode={asTaxMode(settings.taxMode)} platformName={settings.platformName} />
 
       <section className="card p-5 sm:p-6">
         <h2 className="flex items-center gap-2 font-semibold"><CreditCard className="h-4 w-4" /> Cobros</h2>

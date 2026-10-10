@@ -4,6 +4,7 @@ import { prisma } from "./db";
 import { readPageConfig } from "./page-config";
 import { canSellType, planFeatures } from "./plans";
 import { getSettings } from "./settings";
+import { asTaxMode, decideTax, vatIncluded } from "./tax";
 import type { ProductType } from "./types";
 import type { PublicProduct } from "@/components/creator-page/creator-page-view";
 
@@ -22,6 +23,10 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     include: { _count: { select: { lessons: true } } },
   });
+  const settings = await getSettings();
+  // «IVA incluido» con una compradora de España (el precio es el mismo en todos los países).
+  const mode = asTaxMode(settings.taxMode);
+  const taxCreator = { country: creator.legalCountry, vatStatus: creator.vatStatus, vatExemptionNote: creator.vatExemptionNote };
   const products: PublicProduct[] = rows
     .filter((p) => canSellType(creator.plan, p.type as ProductType))
     .map((p) => ({
@@ -43,8 +48,8 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
           : p.type === "COURSE" && p._count.lessons
             ? `${p._count.lessons} lecciones`
             : null,
+      vatIncluded: vatIncluded(decideTax({ mode, productType: p.type, buyerCountry: "ES", creator: taxCreator })),
     }));
-  const settings = await getSettings();
   return {
     creator,
     config,

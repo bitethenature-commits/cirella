@@ -127,14 +127,28 @@ export function withdrawalEligibility(
  * Cifras de un pedido descontando lo reembolsado. `counts` = cuenta como venta en las estadísticas
  * (pagado y no devuelto del todo). Lo usan el panel, el admin y los informes (DAC7, facturas).
  */
-export function orderFigures(o: { status: string; amountCents: number; platformFeeCents: number; refundedCents: number; refundedFeeCents: number }) {
+export function orderFigures(o: {
+  status: string;
+  amountCents: number;
+  platformFeeCents: number;
+  refundedCents: number;
+  refundedFeeCents: number;
+  /** IVA incluido en el precio y quién lo declara (lib/tax). Si vende Cirella, no es de la creadora. */
+  taxCents?: number;
+  taxSeller?: string | null;
+}) {
   const settled = o.status === "PAID" || o.status === "REFUNDED";
   const gross = settled ? o.amountCents - o.refundedCents : 0;
   const fee = settled ? o.platformFeeCents - o.refundedFeeCents : 0;
+  // IVA de lo que queda tras los reembolsos (se devuelve en proporción).
+  const tax = o.taxCents && o.amountCents ? Math.round((o.taxCents * gross) / o.amountCents) : 0;
+  const platformTax = o.taxSeller === "PLATFORM" ? tax : 0;
   return {
     gross,
     fee,
-    net: gross - fee,
+    tax,
+    platformTax,
+    net: gross - fee - platformTax,
     refunded: o.refundedCents,
     partial: o.status === "PAID" && o.refundedCents > 0,
     counts: settled && gross > 0,

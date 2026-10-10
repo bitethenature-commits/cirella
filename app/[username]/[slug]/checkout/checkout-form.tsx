@@ -1,12 +1,13 @@
 "use client";
 
 import { CalendarClock, Check, CreditCard, Loader2, Lock, ShieldCheck, Smartphone } from "lucide-react";
-import { useActionState, useEffect, useState } from "react";
-import { useFormStatus } from "react-dom";
+import { startTransition, useActionState, useEffect, useState } from "react";
+import { BillingFields, VatBreakdown, type BillingPrefill, type CheckoutTaxInfo } from "@/components/checkout/billing-fields";
 import { ProductImage } from "@/components/creator-page/product-art";
 import type { DaySlots } from "@/lib/booking";
 import { sessionChangePolicyText } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
+import { decideTax, vatIncluded } from "@/lib/tax";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { placeOrder, type CheckoutState } from "./actions";
 import { CheckoutConsents, PrivacyNotice } from "./consents";
@@ -24,8 +25,7 @@ type Product = {
   ctaLabel: string | null;
 };
 
-function PayButton({ label, disabled }: { label: string; disabled?: boolean }) {
-  const { pending } = useFormStatus();
+function PayButton({ label, disabled, pending }: { label: string; disabled?: boolean; pending: boolean }) {
   return (
     <button type="submit" disabled={pending || disabled} className="cp-btn h-14 w-full text-base disabled:opacity-60">
       {pending ? (
@@ -63,6 +63,10 @@ export function CheckoutForm({
   creatorName,
   seller,
   platformName,
+  taxInfo,
+  canInvoice,
+  defaultCountry,
+  billingPrefill,
 }: {
   product: Product;
   payoutReady: boolean;
@@ -77,8 +81,15 @@ export function CheckoutForm({
   /** Quién vende: nombre fiscal, «Nombre · NIF …» y su página legal (/{usuario}/legal). */
   seller: { name: string; line: string; legalHref: string };
   platformName: string;
+  /** Política de IVA y situación de la creadora: el desglose se calcula aquí según el país elegido. */
+  taxInfo: CheckoutTaxInfo;
+  /** ¿Se puede pedir factura con NIF? (vende Cirella, o la creadora repercute IVA y tiene sus datos). */
+  canInvoice: boolean;
+  /** País de la IP o del idioma del navegador. */
+  defaultCountry: string;
+  billingPrefill?: BillingPrefill;
 }) {
-  const [state, action] = useActionState<CheckoutState, FormData>(placeOrder, undefined);
+  const [state, action, pending] = useActionState<CheckoutState, FormData>(placeOrder, undefined);
   const [method, setMethod] = useState<"card" | "wallet">("card");
   const [slots, setSlots] = useState<{ days: DaySlots[]; timezone: string } | null>(null);
   const [day, setDay] = useState<string | null>(null);
@@ -88,8 +99,17 @@ export function CheckoutForm({
   // no queremos que un pago rechazado borre el nombre y el email.
   const [name, setName] = useState(prefill.name);
   const [email, setEmail] = useState(prefill.email);
+  const [country, setCountry] = useState(defaultCountry);
   const isSession = product.type === "SESSION";
   const price = formatPrice(product.priceCents, product.currency, product.billingInterval);
+  const withVat = vatIncluded(
+    decideTax({
+      mode: taxInfo.mode,
+      productType: product.type,
+      buyerCountry: country,
+      creator: { country: taxInfo.creatorCountry, vatStatus: taxInfo.creatorVatStatus, vatExemptionNote: taxInfo.creatorVatNote },
+    }),
+  );
 
   useEffect(() => {
     if (!isSession) return;
@@ -107,7 +127,16 @@ export function CheckoutForm({
   let n = 0;
 
   return (
-    <form action={action} className="space-y-6">
+    <form
+      // onSubmit en lugar de action={}: React vacía el formulario tras cada envío y un pago rechazado
+      // o un NIF mal escrito desmarcaría las casillas (que siguen marcadas en el estado).
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        startTransition(() => action(fd));
+      }}
+      className="space-y-6"
+    >
       <input type="hidden" name="productId" value={product.id} />
       <input type="hidden" name="orderId" value={state?.orderId ?? initialOrderId ?? ""} />
       {collectsCardOnSite && <input type="hidden" name="method" value={method} />}
@@ -132,7 +161,10 @@ export function CheckoutForm({
         <div className="min-w-0 flex-1">
           <p className="cp-muted text-xs">{PRODUCT_TYPE_LABEL[product.type as ProductType]}{isSession && product.durationMin ? ` · ${product.durationMin} min` : ""}</p>
           <p className="cp-display truncate text-[1.35rem]">{product.title}</p>
-          <p className="text-sm font-semibold">{price}</p>
+          <p className="text-sm font-semibold">
+            {price}
+            {withVat && <span className="cp-muted font-normal"> · IVA incluido</span>}
+          </p>
         </div>
       </div>
 
@@ -208,6 +240,7 @@ export function CheckoutForm({
           <p className="cp-faint mt-1.5 text-xs">Aquí recibirás el acceso. No necesitas crear una cuenta ni contraseña.</p>
           <PrivacyNotice sellerName={seller.name} legalHref={seller.legalHref} platformName={platformName} />
         </div>
+        <BillingFields country={country} onCountryChange={setCountry} canInvoice={canInvoice} prefill={billingPrefill} />
       </section>
 
       <section className="cp-card space-y-4 p-5">
@@ -261,6 +294,7 @@ export function CheckoutForm({
           <span className="cp-muted text-sm">Total</span>
           <span className="text-2xl font-semibold tracking-tight">{price}</span>
         </div>
+        <VatBreakdown amountCents={product.priceCents} currency={product.currency} productType={product.type} taxInfo={taxInfo} country={country} platformName={platformName} />
         {isSession && (
           <p className="cp-faint -mt-2 px-1 text-xs">
             {sessionChangePolicyText()} ·{" "}
@@ -286,7 +320,7 @@ export function CheckoutForm({
         )}
         {!payoutReady && <p className="cp-muted text-center text-sm">Las compras de este producto aún no están disponibles.</p>}
         {isSession && !sessionReady && <p className="cp-muted text-center text-xs">Elige una hora o marca «elegir la fecha después».</p>}
-        <PayButton label={isSession ? `Reservar y pagar · ${price}` : product.type === "MEMBERSHIP" ? `Unirme · ${price}` : `Pagar ${price}`} disabled={!payoutReady || !sessionReady} />
+        <PayButton label={isSession ? `Reservar y pagar · ${price}` : product.type === "MEMBERSHIP" ? `Unirme · ${price}` : `Pagar ${price}`} disabled={!payoutReady || !sessionReady} pending={pending} />
         <div className="cp-faint flex items-center justify-center gap-4 text-xs">
           <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Pago cifrado</span>
           <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5" /> Acceso inmediato</span>

@@ -6,6 +6,8 @@ import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
 import { appHost } from "@/lib/env";
 import { canSellType } from "@/lib/plans";
+import { asVatStatus } from "@/lib/tax";
+import { getTaxMode } from "@/lib/tax/server";
 import { tenantDb } from "@/lib/tenant";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { deleteProduct } from "../actions";
@@ -65,6 +67,7 @@ export default async function EditProductPage({ params, searchParams }: { params
         host={appHost()}
         username={creator.username}
         commissionBps={creator.plan.commissionBps}
+        taxPreview={{ mode: await getTaxMode(), country: creator.legalCountry, vatStatus: asVatStatus(creator.vatStatus) }}
       />
 
       <div className="mt-5 space-y-5 lg:max-w-[calc(100%-340px)]">

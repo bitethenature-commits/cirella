@@ -31,6 +31,8 @@ export type PublicProduct = {
   ctaLabel: string | null;
   featured: boolean;
   meta?: string | null; // "75 min", "7 lecciones"…
+  /** El precio lleva IVA (lib/tax). Las vistas previas del editor no lo pasan. */
+  vatIncluded?: boolean;
 };
 
 const TYPE_EYEBROW: Record<ProductType, string> = {
@@ -310,7 +312,10 @@ function ProductCard({ p, large = false, username, trackCreatorId }: { p: Public
           {p.summary && <p className={`cp-muted mt-2 leading-relaxed ${large ? "text-[0.95rem]" : "line-clamp-2 text-[0.88rem]"}`}>{p.summary}</p>}
         </Link>
         <div className="mt-auto flex items-center justify-between gap-3 pt-5">
-          <p className="text-lg font-semibold tracking-tight">{formatPrice(p.priceCents, p.currency, p.billingInterval)}</p>
+          <p className="text-lg font-semibold tracking-tight">
+            {formatPrice(p.priceCents, p.currency, p.billingInterval)}
+            {p.vatIncluded && <span className="cp-faint block text-[0.7rem] font-normal">IVA incluido</span>}
+          </p>
           <TrackedLink href={`${productHref}/checkout`} event={event} className="cp-btn" ariaLabel={`${cta}: ${p.title}`}>
             {cta}
             <ArrowRight className="h-4 w-4" />

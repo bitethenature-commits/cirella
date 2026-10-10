@@ -5,7 +5,8 @@ import { enqueueEmail } from "./email/outbox";
 import * as T from "./email/templates";
 import { formatLegalAddress, sellerLine, sessionChangePolicyText, type LegalIdentity } from "./legal";
 import type { LegalSnapshotContent } from "./legal-snapshot";
-import { formatPrice } from "./money";
+import { getPlatformIssuer } from "./invoices/issuer";
+import { bpsToPercent, formatMoney, formatPrice } from "./money";
 import { createOrderLink, emailAlreadyQueued, orderLinkNote } from "./order-links";
 import { planFeatures } from "./plans";
 import { formatSessionDate } from "./tz";
@@ -84,7 +85,15 @@ export async function handleAutomation(event: DomainEvent) {
       const name = s.creator.displayName;
       const receiptKey = `receipt:${order.id}`;
       if (s.enabled && !(await emailAlreadyQueued(receiptKey))) {
-        const link = await createOrderLink({ orderId: order.id, path: orderTargetPath(order, order.bookings[0]?.id) });
+        const target = orderTargetPath(order, order.bookings[0]?.id);
+        const link = await createOrderLink({ orderId: order.id, path: target });
+        // «Recibo y factura» está en el detalle de la compra. Si el botón ya lleva allí, es el mismo
+        // enlace personal; si no, la dirección normal: la sesión que abre el botón (limitada a este
+        // pedido) también la cubre y, sin ella, se pide un enlace de acceso.
+        const receiptPath = `/cuenta/pedidos/${order.id}`;
+        const receiptUrl = target === receiptPath ? link.url : `${base}${receiptPath}#factura`;
+        const invoice = await prisma.invoice.findFirst({ where: { orderId: order.id, kind: "SALE", type: { in: ["F1", "F2"] } }, orderBy: { issuedAt: "asc" } });
+        const platformIssuer = order.taxSeller === "PLATFORM" ? await getPlatformIssuer() : null;
         await enqueueEmail({
           to: order.buyerEmail,
           creatorId: order.creatorId,
@@ -113,6 +122,15 @@ export async function handleAutomation(event: DomainEvent) {
               changePolicy: order.productType === "SESSION" ? `${sessionChangePolicyText()} desde tu área de cliente.` : null,
               legalUrl: order.legalSnapshotId ? `${base}/${s.creator.username}/legal?v=${order.legalSnapshotId}` : undefined,
               conditions: snapshot ? { terms: snapshot.terms, refunds: snapshot.refunds } : undefined,
+              taxLine:
+                order.taxCents > 0
+                  ? `IVA incluido (${bpsToPercent(order.taxRateBps)}): ${formatMoney(order.taxCents, order.currency, { decimals: true })}`
+                  : null,
+              invoiceNumber: invoice?.fullNumber ?? null,
+              taxSellerLine: platformIssuer
+                ? `Cobro y factura: ${platformIssuer.name}${platformIssuer.taxId ? ` · NIF ${platformIssuer.taxId}` : ""}, que vende el contenido digital a efectos de IVA.`
+                : null,
+              receiptUrl,
             }),
             s.subject,
           ),

@@ -11,6 +11,7 @@ import type { LegalIdentity } from "@/lib/legal";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import type { PageConfig } from "@/lib/page-config";
 import type { PayoutView } from "@/lib/payouts";
+import { estimateNet, type TaxMode, type VatStatus } from "@/lib/tax";
 import { TEMPLATES, type TemplateKey } from "@/lib/templates";
 import { DEFAULT_CTA, PRODUCT_TYPE_HINT, PRODUCT_TYPE_LABEL, PRODUCT_TYPES, type ProductType } from "@/lib/types";
 import {
@@ -37,6 +38,8 @@ export type WizardInit = {
   allowedTypes: ProductType[];
   commissionBps: number;
   planName: string;
+  /** IVA: política de la plataforma y situación de la creadora, para «Recibirás X». */
+  tax: { mode: TaxMode; country: string; vatStatus: VatStatus };
   /** Estado de la cuenta de cobro (lib/payouts.ts → payoutView). */
   payout: PayoutView;
   demo: boolean;
@@ -138,7 +141,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
     step === 10;
 
   const priceCents = parseMoneyToCents(product.price);
-  const net = priceCents - Math.round((priceCents * init.commissionBps) / 10000);
+  const estimate = estimateNet({ priceCents, commissionBps: init.commissionBps, productType: product.type, mode: init.tax.mode, creator: init.tax });
 
   const previewProducts: PublicProduct[] = useMemo(
     () =>
@@ -372,6 +375,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                   />
                   <span className="text-2xl text-muted">€{product.type === "MEMBERSHIP" ? "/mes" : ""}</span>
                 </label>
+                <p className="field-hint">Es el precio final que paga tu clienta, con IVA incluido si corresponde.</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {PRICE_SUGGESTIONS.map((v) => (
                     <button key={v} type="button" onClick={() => setProduct((p) => ({ ...p, price: String(v) }))} className="chip h-8 bg-white ring-1 ring-line hover:ring-ink/30">
@@ -400,10 +404,13 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                 {priceCents >= 100 && (
                   <div className="mt-6 rounded-2xl bg-sand/70 p-4 text-sm">
                     <p>
-                      Recibirás <strong>{formatMoney(net, "EUR", { decimals: true })}</strong> por cada venta.
+                      Recibirás <strong>{formatMoney(estimate.netCents, "EUR", { decimals: true })}</strong> por cada venta.
                     </p>
                     <p className="mt-1 text-xs text-muted">
-                      Plan {init.planName}: comisión del {(init.commissionBps / 100).toLocaleString("es-ES")} %. Baja al 2 % con el plan Pro.
+                      {estimate.taxCents > 0
+                        ? `De ${formatMoney(priceCents, "EUR", { decimals: true })}: ${formatMoney(estimate.taxCents, "EUR", { decimals: true })} de IVA (${estimate.seller === "PLATFORM" ? "lo declara e ingresa Cirella" : "lo declaras tú"}) y ${formatMoney(estimate.feeCents, "EUR", { decimals: true })} de comisión (${(init.commissionBps / 100).toLocaleString("es-ES")} % sobre el precio sin IVA). `
+                        : `Plan ${init.planName}: comisión del ${(init.commissionBps / 100).toLocaleString("es-ES")} %. `}
+                      Baja al 2 % con el plan Pro.
                     </p>
                   </div>
                 )}

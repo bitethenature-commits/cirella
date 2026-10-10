@@ -7,8 +7,7 @@ import { captureError } from "@/lib/monitoring";
 import { paymentProvider } from "@/lib/payments";
 import { renewalPeriodKey } from "@/lib/payments/renewal";
 import { canAcceptPayments } from "@/lib/payouts";
-import { effectiveCommissionBps } from "@/lib/plans";
-import { applyRenewal, findPastDueSubscription } from "@/lib/subscriptions";
+import { applyRenewal, findPastDueSubscription, renewalAmounts } from "@/lib/subscriptions";
 
 /**
  * «Pagar ahora»: la renovación no se pudo cobrar con la tarjeta guardada y la clienta la paga con
@@ -28,7 +27,7 @@ export async function payRenewalNow(form: FormData) {
     back("error", "Ahora mismo no se pueden hacer pagos a esta creadora. Inténtalo más tarde.");
 
   const periodKey = renewalPeriodKey(sub.currentPeriodEnd);
-  const fee = Math.round((sub.priceCents * effectiveCommissionBps(sub.creator.plan, sub.creator)) / 10000);
+  const amounts = await renewalAmounts(sub, new Date());
   // Sin kind=renewal: si este pago falla no cuenta como intento automático fallido.
   const metadata = { subscriptionId: sub.id, periodKey };
   const r = await provider.startPayment({
@@ -39,7 +38,7 @@ export async function payRenewalNow(form: FormData) {
     description: `Renovación · ${sub.product.title}`,
     customerEmail: sub.customer.email,
     customerRef: sub.providerCustomerRef,
-    platformFeeCents: fee,
+    platformFeeCents: amounts.platformRetainedCents,
     destinationAccount: sub.creator.payoutAccountId!,
     statementSuffix: sub.creator.username.toUpperCase(),
     saveForFutureUse: true,

@@ -66,6 +66,11 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
                   </p>
                 </div>
               </Link>
+              <div className="-mt-2 px-4 pb-3 pl-20">
+                <Link href={`/cuenta/pedidos/${o.id}#factura`} className="text-xs font-medium text-muted underline underline-offset-2 hover:text-ink">
+                  Recibo y factura
+                </Link>
+              </div>
               {w.eligible && (
                 <div className="-mt-1 flex flex-wrap items-center justify-between gap-2 px-4 pb-4 pl-20">
                   <p className="text-xs text-muted">Puedes desistir hasta el {formatDate(w.deadline, { day: "numeric", month: "long" })}</p>

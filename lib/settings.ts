@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import type { TaxMode } from "./tax";
 
 /**
  * Ajustes globales editables desde /admin/ajustes (clave → JSON).
@@ -19,6 +20,9 @@ export const SETTING_DEFAULTS = {
   legalAddress: "",
   legalRegistry: "",
   privacyEmail: "", // si está vacío, se muestra supportEmail
+  // Política de IVA (/admin/impuestos): PLATFORM_DIGITAL = Cirella vende los productos digitales,
+  // cursos y membresías (opción A); CREATOR = cada creadora vende lo suyo. Ver lib/tax.
+  taxMode: "PLATFORM_DIGITAL" as TaxMode,
 };
 
 export type PlatformSettings = typeof SETTING_DEFAULTS;
