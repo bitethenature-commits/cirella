@@ -2,8 +2,10 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, Check, Palette, Plus, Sparkles, TrendingUp } from "lucide-react";
 import { BarChart } from "@/components/charts";
 import { Dac7Banner, PayoutBanner } from "@/components/panel/payout-status";
+import { DeliveryAlert } from "@/components/ui/delivery-alert";
 import { requireCreator } from "@/lib/auth";
 import { dac7Missing } from "@/lib/dac7";
+import { deliveryIssueCopy, deliveryIssueHref, listDeliveryIssues } from "@/lib/delivery";
 import { legalIdentityComplete } from "@/lib/legal";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import { readPageConfig } from "@/lib/page-config";
@@ -22,6 +24,8 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
   const cfg = readPageConfig(creator.pageDraft, creator.displayName);
   const db = tenantDb(creator.id);
   const productCount = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
+  // Productos que no tienen nada que entregar (o una membresía publicada y vacía).
+  const deliveryIssues = await listDeliveryIssues(db);
   // DAC7: el aviso sale si faltan datos y ya se le han pedido o vende algo declarable.
   const dac7Missed = dac7Missing(creator);
   const { dac7ReportableTypes } = await getSettings();
@@ -54,6 +58,29 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
         <PayoutBanner creator={creator} />
         <Dac7Banner missing={dac7Missed} show={showDac7} />
       </div>
+
+      {deliveryIssues.length > 0 && (
+        <div className="space-y-2">
+          {deliveryIssues.slice(0, 3).map(({ product, issue }) => {
+            const copy = deliveryIssueCopy(issue, product.title);
+            return (
+              <DeliveryAlert
+                key={product.id}
+                title={copy.title}
+                text={copy.text}
+                cta={copy.cta}
+                href={deliveryIssueHref(product.id, issue)}
+                tone={issue.blocking ? "block" : "warn"}
+              />
+            );
+          })}
+          {deliveryIssues.length > 3 && (
+            <Link href="/panel/productos" className="inline-block text-sm font-semibold text-muted hover:text-ink">
+              Ver los {deliveryIssues.length} productos con avisos
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Frases resumen */}
       <div className="grid gap-3 md:grid-cols-2">

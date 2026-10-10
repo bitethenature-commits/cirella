@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { DELIVERY_COUNT, deliveryFacts, deliveryIssue, deliveryIssueCopy } from "@/lib/delivery";
 import { DEFAULT_FEATURES, type PlanFeatures } from "@/lib/plans";
 import { setSetting } from "@/lib/settings";
 import { slugify } from "@/lib/slug";
@@ -46,8 +47,15 @@ export async function setCreatorPlan(form: FormData) {
 
 export async function setProductStatusAdmin(form: FormData) {
   await requireAdmin();
+  const id = String(form.get("id"));
   const status = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).parse(form.get("status"));
-  await prisma.product.update({ where: { id: String(form.get("id")) }, data: { status } });
+  if (status === "PUBLISHED") {
+    // La misma regla que en el panel: no se publica nada que no tenga qué entregar (lib/delivery.ts).
+    const p = await prisma.product.findUniqueOrThrow({ where: { id }, include: DELIVERY_COUNT });
+    const issue = deliveryIssue(deliveryFacts(p));
+    if (issue?.blocking) redirect(`/admin/productos?error=${encodeURIComponent(`No se puede publicar: ${deliveryIssueCopy(issue, p.title).title}`)}`);
+  }
+  await prisma.product.update({ where: { id }, data: { status } });
   done("/admin/productos", "Producto actualizado");
 }
 

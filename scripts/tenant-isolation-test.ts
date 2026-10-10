@@ -12,6 +12,7 @@ import { scopeAllows } from "../lib/auth-utils";
 import { prisma } from "../lib/db";
 import { yearOf } from "../lib/dac7";
 import { dac7ForCreator, dac7Report } from "../lib/dac7-data";
+import { listDeliveryIssues, productDeliveryIssue } from "../lib/delivery";
 import { canViewInvoice } from "../lib/invoices/access";
 import { nextInvoiceNumber } from "../lib/invoices/numbering";
 import { createPendingOrder } from "../lib/orders";
@@ -121,6 +122,7 @@ async function main() {
   await buyerScopeIsolation(ana, maria);
   await invoicesIsolation(ana, maria);
   await invoiceNumbering();
+  await deliveryIsolation(ana, maria);
 
   console.log(failures ? `\n${failures} comprobaciones fallidas` : "\nAislamiento multi-tenant correcto ✓");
   process.exit(failures ? 1 : 0);
@@ -359,6 +361,32 @@ async function buyerScopeIsolation(ana: CreatorRow, maria: CreatorRow) {
     await prisma.session.deleteMany({ where: { id: { in: sessions.map((x) => x.id) } } });
     const hashes = [link, other].map((l) => createHash("sha256").update(new URL(l.url).searchParams.get("t")!).digest("hex"));
     await prisma.orderLink.deleteMany({ where: { tokenHash: { in: hashes } } });
+  }
+}
+
+/** Avisos de entrega (lib/delivery.ts): cada creadora solo ve los suyos, y la semilla no publica nada vacío. */
+async function deliveryIsolation(ana: CreatorRow, maria: CreatorRow) {
+  const creators = await prisma.creator.findMany({ select: { id: true, username: true } });
+  const broken: string[] = [];
+  for (const c of creators)
+    for (const x of await listDeliveryIssues(tenantDb(c.id)))
+      if (x.issue.blocking && x.product.status === "PUBLISHED") broken.push(`${c.username}/${x.product.title}`);
+  check(`ningún producto publicado sin nada que entregar${broken.length ? ` (${broken.join(", ")})` : ""}`, broken.length === 0);
+
+  const tag = `isolation-delivery-${Date.now()}`;
+  const [anaDraft, mariaDraft] = await Promise.all(
+    [ana, maria].map((c) =>
+      prisma.product.create({ data: { creatorId: c.id, type: "DIGITAL", status: "DRAFT", slug: `${tag}-${c.username}`, title: "Tirada de 3 cartas", priceCents: 1900 } }),
+    ),
+  );
+  try {
+    const issues = await listDeliveryIssues(tenantDb(ana.id));
+    const owners = await prisma.product.findMany({ where: { id: { in: issues.map((x) => x.product.id) } }, select: { creatorId: true } });
+    check("listDeliveryIssues(Ana) incluye su borrador sin entrega", issues.some((x) => x.product.id === anaDraft.id && x.issue.code === "NO_CONTENT"));
+    check("…y solo productos de Ana", owners.length === issues.length && owners.every((o) => o.creatorId === ana.id));
+    check("productDeliveryIssue(Ana) con el id de un producto de María → null", (await productDeliveryIssue(tenantDb(ana.id), mariaDraft.id)) === null);
+  } finally {
+    await prisma.product.deleteMany({ where: { id: { in: [anaDraft.id, mariaDraft.id] } } });
   }
 }
 

@@ -5,10 +5,11 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
 import { uniqueProductSlug } from "@/lib/creator";
+import { DELIVERY_MODES, deliveryIssueCopy, normalizeDeliveryMode, productDeliveryIssue } from "@/lib/delivery";
 import { parseMoneyToCents } from "@/lib/money";
 import { canSellType } from "@/lib/plans";
 import { privateKey, storage } from "@/lib/storage";
-import { tenantDb } from "@/lib/tenant";
+import { tenantDb, type TenantDb } from "@/lib/tenant";
 import { DEFAULT_CTA, LESSON_KINDS, PRODUCT_TYPES, type ProductType } from "@/lib/types";
 
 export type ActionState = { ok?: string; error?: string } | undefined;
@@ -84,6 +85,7 @@ const productSchema = z.object({
   minNoticeHours: z.coerce.number().int().min(0).max(24 * 30).optional(),
   meetingUrl: z.string().trim().max(300).optional(),
   billingInterval: z.enum(["month", "year"]).optional(),
+  deliveryMode: z.enum(DELIVERY_MODES).optional(),
 });
 
 export async function updateProduct(_: ActionState, form: FormData): Promise<ActionState> {
@@ -101,6 +103,13 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
   if (d.status === "PUBLISHED" && priceCents < 100) return { error: "Pon un precio de al menos 1 € para publicarlo" };
   if (d.status === "PUBLISHED" && !canSellType(creator.plan, product.type as ProductType))
     return { error: "Tu plan actual no permite publicar este tipo de producto" };
+  const deliveryMode = normalizeDeliveryMode(product.type, d.deliveryMode ?? product.deliveryMode);
+  // Publicar exige algo que entregar (lib/delivery.ts), con el modo y las instrucciones que llegan en el formulario.
+  // Un borrador se guarda aunque esté incompleto.
+  if (d.status === "PUBLISHED") {
+    const r = await productDeliveryIssue(db, product.id, { deliveryMode, instructions: d.instructions || null });
+    if (r?.issue?.blocking) return { error: deliveryIssueCopy(r.issue, d.title).publishError };
+  }
   const wantedSlug = d.slug ? d.slug.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") : product.slug;
   const slug = wantedSlug !== product.slug ? await uniqueProductSlug(creator.id, wantedSlug, product.id) : product.slug;
   if (d.meetingUrl && !/^https?:\/\//.test(d.meetingUrl)) return { error: "El enlace de videollamada debe empezar por https://" };
@@ -120,6 +129,7 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
       status: d.status,
       featured,
       instructions: d.instructions || null,
+      deliveryMode,
       slug,
       ...(product.type === "SESSION"
         ? { durationMin: d.durationMin ?? 60, bufferMin: d.bufferMin ?? 15, minNoticeHours: d.minNoticeHours ?? 24, meetingUrl: d.meetingUrl || null }
@@ -158,6 +168,10 @@ export async function setProductStatus(form: FormData) {
     if (active >= creator.plan.maxProducts) redirect("/panel/productos?limite=1");
   }
   if (status === "PUBLISHED" && (product.priceCents < 100 || !canSellType(creator.plan, product.type as ProductType))) redirect(`/panel/productos/${id}`);
+  if (status === "PUBLISHED") {
+    const issue = (await productDeliveryIssue(db, id))?.issue;
+    if (issue?.blocking) redirect(`/panel/productos/${id}?error=sin-entrega#${issue.anchor}`);
+  }
   await db.product.update({ where: { id }, data: { status } });
   refresh(id);
 }
@@ -177,6 +191,15 @@ export async function deleteProduct(form: FormData) {
   redirect("/panel/productos");
 }
 
+/**
+ * Un producto publicado no puede quedarse sin nada que entregar: primero se sube el nuevo, luego se
+ * borra el viejo. Si el borrado lo dejaría vacío, vuelve al editor con el aviso y no borra nada.
+ */
+async function guardLastDeliverable(db: TenantDb, productId: string, minus: { files?: number; lessons?: number }, anchor: string) {
+  const r = await productDeliveryIssue(db, productId, { minus });
+  if (r?.product.status === "PUBLISHED" && r.issue?.blocking) redirect(`/panel/productos/${productId}?error=ultimo-contenido#${anchor}`);
+}
+
 // ───────────── Archivos ─────────────
 
 export async function deleteFile(form: FormData) {
@@ -184,6 +207,7 @@ export async function deleteFile(form: FormData) {
   const id = String(form.get("id"));
   const file = await db.productFile.findFirst({ where: { id } });
   if (!file) return;
+  await guardLastDeliverable(db, file.productId, { files: 1 }, "entrega");
   await db.productFile.deleteMany({ where: { id } });
   await deleteStoredFiles([file.storageKey]);
   refresh(file.productId);
@@ -225,6 +249,7 @@ export async function deleteModule(form: FormData) {
   const { db } = await ctx();
   const m = await db.courseModule.findFirst({ where: { id: String(form.get("id")) } });
   if (!m) return;
+  await guardLastDeliverable(db, m.productId, { lessons: await db.lesson.count({ where: { moduleId: m.id } }) }, "lecciones");
   await db.courseModule.deleteMany({ where: { id: m.id } });
   refresh(m.productId);
 }
@@ -266,6 +291,7 @@ export async function deleteLesson(form: FormData) {
   const { db } = await ctx();
   const l = await db.lesson.findFirst({ where: { id: String(form.get("id")) } });
   if (!l) return;
+  await guardLastDeliverable(db, l.productId, { lessons: 1 }, "lecciones");
   await db.lesson.deleteMany({ where: { id: l.id } });
   refresh(l.productId);
 }

@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, Clock, Download, FileText, Headphones, Infinity as InfinityIcon, Lock, PlayCircle, RefreshCcw, ShieldCheck, Sparkles, Video, Zap } from "lucide-react";
+import { CalendarDays, Clock, Download, FileText, Headphones, Infinity as InfinityIcon, Lock, Mail, PlayCircle, RefreshCcw, ShieldCheck, Sparkles, Video, Zap } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { ProductImage } from "@/components/creator-page/product-art";
 import { TrackedLink, TrackOnMount } from "@/components/creator-page/tracking";
 import { getCurrentUser } from "@/lib/auth";
+import { digitalContentText, isInstantDelivery } from "@/lib/delivery";
 import { appUrl } from "@/lib/env";
 import { creatorLegalHref, sellerLine, sessionChangePolicyText } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
@@ -76,10 +77,16 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const clickEvent = isOwner ? null : { creatorId: creator.id, type: "PRODUCT_CLICK" as const, productId: p.id };
   const lessons = p.modules.reduce((a, m) => a + m.lessons.length, 0);
   const minutes = p.modules.reduce((a, m) => a + m.lessons.reduce((x, l) => x + (l.durationMin ?? 0), 0), 0);
+  // Lo que se promete tiene que ser verdad: archivos y enlaces por separado, y «preparado para ti» si lo hace la creadora.
+  const personal = type === "DIGITAL" && !isInstantDelivery(type, p.deliveryMode);
+  const content = digitalContentText(p.files);
+  const contentPerk = content ? [{ icon: Download, text: content }] : [];
 
   const perks: { icon: typeof Zap; text: string }[] =
     type === "DIGITAL"
-      ? [{ icon: Zap, text: "Acceso inmediato tras el pago" }, { icon: Download, text: `${p.files.length || "Contenido"} ${p.files.length === 1 ? "archivo descargable" : "archivos descargables"}` }, { icon: InfinityIcon, text: "Disponible siempre en tu cuenta" }]
+      ? personal
+        ? [{ icon: Sparkles, text: "Preparado personalmente para ti" }, { icon: Mail, text: "Recibirás los siguientes pasos por email al pagar" }, ...contentPerk]
+        : [{ icon: Zap, text: "Acceso inmediato tras el pago" }, ...contentPerk, { icon: InfinityIcon, text: "Disponible siempre en tu cuenta" }]
       : type === "SESSION"
         ? [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: "Por videollamada" }, { icon: CalendarDays, text: "Eliges día y hora al reservar" }, { icon: RefreshCcw, text: sessionChangePolicyText() }]
         : type === "COURSE"
@@ -137,6 +144,13 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
             </section>
           )}
 
+          {personal && p.instructions && (
+            <section className="mt-12 max-w-2xl">
+              <h2 className="cp-display text-[1.9rem]">Cómo lo recibes</h2>
+              <p className="cp-muted mt-4 whitespace-pre-line leading-relaxed">{p.instructions}</p>
+            </section>
+          )}
+
           {type === "COURSE" && p.modules.length > 0 && (
             <section className="mt-12 max-w-2xl">
               <h2 className="cp-display text-[1.9rem]">Programa</h2>
@@ -168,7 +182,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
           {type === "DIGITAL" && p.files.length > 0 && (
             <section className="mt-12 max-w-2xl">
-              <h2 className="cp-display text-[1.9rem]">Archivos</h2>
+              <h2 className="cp-display text-[1.9rem]">{p.files.some((f) => f.kind === "LINK") ? "Qué recibes" : "Archivos"}</h2>
               <ul className="mt-4 space-y-2">
                 {p.files.map((f) => {
                   const Icon = KIND_ICON[f.kind] ?? FileText;

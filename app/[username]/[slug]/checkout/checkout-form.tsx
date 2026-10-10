@@ -5,6 +5,7 @@ import { startTransition, useActionState, useEffect, useState } from "react";
 import { BillingFields, VatBreakdown, type BillingPrefill, type CheckoutTaxInfo } from "@/components/checkout/billing-fields";
 import { ProductImage } from "@/components/creator-page/product-art";
 import type { DaySlots } from "@/lib/booking";
+import { checkoutDeliveryBadge } from "@/lib/delivery";
 import { sessionChangePolicyText } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
 import { decideTax, vatIncluded } from "@/lib/tax";
@@ -23,6 +24,7 @@ type Product = {
   billingInterval: string | null;
   durationMin: number | null;
   ctaLabel: string | null;
+  deliveryMode: string;
 };
 
 function PayButton({ label, disabled, pending }: { label: string; disabled?: boolean; pending: boolean }) {
@@ -323,7 +325,7 @@ export function CheckoutForm({
         <PayButton label={isSession ? `Reservar y pagar · ${price}` : product.type === "MEMBERSHIP" ? `Unirme · ${price}` : `Pagar ${price}`} disabled={!payoutReady || !sessionReady} pending={pending} />
         <div className="cp-faint flex items-center justify-center gap-4 text-xs">
           <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Pago cifrado</span>
-          <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5" /> Acceso inmediato</span>
+          <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5" /> {checkoutDeliveryBadge(product.type, product.deliveryMode)}</span>
           <span className="flex items-center gap-1.5"><CalendarClock className="h-3.5 w-3.5" /> Soporte directo</span>
         </div>
       </div>

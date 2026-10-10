@@ -8,14 +8,14 @@ import { Badge, PageHeader } from "../../panel/ui";
 import { setProductStatusAdmin } from "../actions";
 import { AdminTable, td } from "../ui";
 
-export default async function AdminProducts({ searchParams }: { searchParams: Promise<{ ok?: string }> }) {
+export default async function AdminProducts({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   await requireAdmin();
   const sp = await searchParams;
   const products = await prisma.product.findMany({ orderBy: { createdAt: "desc" }, include: { creator: { select: { displayName: true, username: true } }, _count: { select: { orders: { where: { status: "PAID" } } } } } });
   return (
     <div>
       <PageHeader title="Productos" subtitle={`${products.length} productos en la plataforma · moderación`} />
-      <Flash ok={sp.ok} />
+      <Flash ok={sp.ok} error={sp.error} />
       <AdminTable head={["Producto", "Creadora", "Tipo", "Precio", "Ventas", "Estado", ""]} minWidth={900}>
         {products.map((p) => (
           <tr key={p.id}>

@@ -24,7 +24,7 @@ async function acceptConsents(page: Page) {
 }
 
 test.describe.serial("Flujo principal", () => {
-  test("1. Landing → registro → onboarding de 10 pasos → «Tu página está lista»", async ({ page }) => {
+  test("1. Landing → registro → onboarding de 11 pasos → «Tu página está lista»", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toContainText("negocio completo");
     await page.getByRole("link", { name: "Crear mi página" }).first().click();
@@ -65,8 +65,17 @@ test.describe.serial("Flujo principal", () => {
     await page.getByPlaceholder("49").fill("29");
     await expect(page.getByText(/Recibirás/)).toBeVisible();
     await next.click();
-    // 9. Datos legales de quien vende (obligatorios) y cuenta de cobro: formulario de Stripe
-    // (simulado) y vuelta al onboarding, ya en el paso 10
+    // 9. Cómo se entrega: sin nada que entregar no se puede seguir (salvo «Lo añado más tarde»)
+    await expect(page.getByRole("heading", { name: "¿Cómo lo entregas?" })).toBeVisible();
+    await expect(next).toBeDisabled();
+    await page.getByRole("button", { name: /Poner un enlace/ }).click();
+    await page.getByLabel("Nombre").fill("Tirada en PDF");
+    await page.getByLabel("Enlace").fill("https://example.com/tirada.pdf");
+    await page.getByRole("button", { name: "Añadir enlace" }).click();
+    await expect(page.getByText("Tirada en PDF")).toBeVisible();
+    await next.click();
+    // 10. Datos legales de quien vende (obligatorios) y cuenta de cobro: formulario de Stripe
+    // (simulado) y vuelta al onboarding, ya en el paso 11
     await page.getByRole("button", { name: "Conectar con Stripe" }).click();
     await expect(page.getByText("Completa tus datos legales para activar los cobros")).toBeVisible();
     await page.getByLabel("Nombre y apellidos").fill("Luna Prueba García");
@@ -82,7 +91,8 @@ test.describe.serial("Flujo principal", () => {
     await page.getByRole("button", { name: "Verificar al instante" }).click();
     await page.waitForURL("**/onboarding");
     await expect(page.getByText("Pagos activados")).toBeVisible();
-    // 10. Publicar
+    await expect(page.getByText("1 enlace")).toBeVisible();
+    // 11. Publicar
     await page.getByRole("button", { name: "Publicar mi página" }).click();
     await page.waitForURL("**/onboarding/lista");
     await expect(page.getByRole("heading", { name: "Tu página está lista" })).toBeVisible();

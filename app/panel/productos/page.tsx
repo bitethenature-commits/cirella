@@ -4,6 +4,7 @@ import { ProductImage } from "@/components/creator-page/product-art";
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
+import { deliveryFacts, deliveryIssue } from "@/lib/delivery";
 import { formatPrice } from "@/lib/money";
 import { tenantDb } from "@/lib/tenant";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
@@ -17,7 +18,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const products = await db.product.findMany({
     where: { status: { not: "ARCHIVED" } },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    include: { _count: { select: { orders: { where: { status: "PAID" } } } } },
+    include: { _count: { select: { orders: { where: { status: "PAID" } }, files: true, lessons: true, posts: true } } },
   });
   const archived = await db.product.count({ where: { status: "ARCHIVED" } });
   const max = creator.plan.maxProducts;
@@ -65,8 +66,9 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
               <p className="mt-0.5 truncate text-xs text-muted">
                 {PRODUCT_TYPE_LABEL[p.type as ProductType]} · {formatPrice(p.priceCents, p.currency, p.billingInterval)} · {p._count.orders} {p._count.orders === 1 ? "venta" : "ventas"}
               </p>
-              <div className="mt-1.5">
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {p.status === "PUBLISHED" ? <Badge tone="success">Publicado</Badge> : <Badge tone="warning">Borrador</Badge>}
+                {deliveryIssue(deliveryFacts(p))?.blocking && <Badge tone="danger">Sin entrega</Badge>}
               </div>
             </Link>
             <div className="flex shrink-0 gap-1">

@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import { startTransition, useActionState, useState } from "react";
 import { Flash } from "@/components/ui/flash";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { MIN_PERSONAL_INSTRUCTIONS, normalizeDeliveryMode, type DeliveryMode } from "@/lib/delivery";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import { estimateNet, type TaxMode, type VatStatus } from "@/lib/tax";
 import { updateProduct, type ActionState } from "../actions";
@@ -26,7 +27,17 @@ export type EditableProduct = {
   minNoticeHours: number | null;
   meetingUrl: string | null;
   billingInterval: string | null;
+  deliveryMode: string;
 };
+
+const DELIVERY_OPTIONS: { mode: DeliveryMode; label: string; hint: string }[] = [
+  {
+    mode: "AUTOMATIC",
+    label: "Archivos o enlaces · acceso inmediato",
+    hint: "Tus clientas los descargan desde su cuenta justo después de pagar. Súbelos en «Archivos que se entregan», más abajo.",
+  },
+  { mode: "PERSONAL", label: "Lo preparo yo para cada clienta", hint: "Para lecturas e informes personalizados: tú se lo envías después." },
+];
 
 const EMOJIS = ["🌙", "✨", "🔮", "🧬", "🔑", "💫", "🌿", "🧘", "🪷", "📖", "🎧", "☀️", "🌸", "🕯️"];
 
@@ -51,6 +62,9 @@ export function ProductForm({
   const cents = parseMoneyToCents(price);
   const isSession = product.type === "SESSION";
   const isMembership = product.type === "MEMBERSHIP";
+  const isDigital = product.type === "DIGITAL";
+  const [mode, setMode] = useState<DeliveryMode>(normalizeDeliveryMode(product.type, product.deliveryMode));
+  const personal = isDigital && mode === "PERSONAL";
   const estimate = estimateNet({ priceCents: cents, commissionBps, productType: product.type, mode: taxPreview.mode, creator: taxPreview });
 
   return (
@@ -149,11 +163,47 @@ export function ProductForm({
           </section>
         )}
 
-        <section className="card space-y-4 p-5 sm:p-6">
-          <h3 className="font-semibold">Después de la compra</h3>
+        <section id={isDigital ? "entrega" : undefined} className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
+          <h3 className="font-semibold">{isDigital ? "Entrega" : "Después de la compra"}</h3>
+          {isDigital ? (
+            <div className="grid gap-2.5 sm:grid-cols-2" role="radiogroup" aria-label="Cómo se entrega">
+              {DELIVERY_OPTIONS.map((o) => (
+                <label
+                  key={o.mode}
+                  className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm transition ${mode === o.mode ? "border-ink bg-white ring-1 ring-ink" : "border-line bg-white hover:border-ink/30"}`}
+                >
+                  <input type="radio" name="deliveryMode" value={o.mode} checked={mode === o.mode} onChange={() => setMode(o.mode)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0E1024]" />
+                  <span>
+                    <span className="block font-semibold">{o.label}</span>
+                    <span className="mt-1 block text-xs text-muted">{o.hint}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <input type="hidden" name="deliveryMode" value="AUTOMATIC" />
+          )}
           <div>
-            <label className="field-label">Instrucciones para tu clienta <span className="font-normal text-muted">(opcional)</span></label>
-            <textarea name="instructions" defaultValue={product.instructions ?? ""} className="input" rows={3} maxLength={1000} placeholder="Ej.: Responde al email con tu fecha, hora y lugar de nacimiento." />
+            {personal ? (
+              <label className="field-label" htmlFor="instructions">¿Qué recibirá y cuándo?</label>
+            ) : (
+              <label className="field-label" htmlFor="instructions">Instrucciones para tu clienta <span className="font-normal text-muted">(opcional)</span></label>
+            )}
+            <textarea
+              id="instructions"
+              name="instructions"
+              defaultValue={product.instructions ?? ""}
+              className="input"
+              rows={3}
+              maxLength={1000}
+              minLength={personal ? MIN_PERSONAL_INSTRUCTIONS : undefined}
+              placeholder={
+                personal
+                  ? "Te enviaré la interpretación en PDF por email en un máximo de 3 días. Después de pagar, responde al email con tu pregunta."
+                  : "Ej.: Responde al email con tu fecha, hora y lugar de nacimiento."
+              }
+            />
+            {personal && <p className="field-hint">Lo verá en la ficha del producto, en el email de compra y en su cuenta. Tú se lo envías por email.</p>}
           </div>
         </section>
       </div>

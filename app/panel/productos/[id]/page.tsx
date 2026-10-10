@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, ExternalLink, Trash2 } from "lucide-react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
+import { DeliveryAlert } from "@/components/ui/delivery-alert";
 import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
+import { deliveryFacts, deliveryIssue, deliveryIssueCopy } from "@/lib/delivery";
 import { appHost } from "@/lib/env";
 import { canSellType } from "@/lib/plans";
 import { asVatStatus } from "@/lib/tax";
@@ -17,7 +19,7 @@ import { FilesManager } from "./files-manager";
 import { PostsManager } from "./posts-manager";
 import { ProductForm } from "./product-form";
 
-export default async function EditProductPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ nuevo?: string }> }) {
+export default async function EditProductPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ nuevo?: string; error?: string }> }) {
   const { id } = await params;
   const sp = await searchParams;
   const { creator } = await requireCreator();
@@ -34,6 +36,13 @@ export default async function EditProductPage({ params, searchParams }: { params
   if (!product) notFound();
   const type = product.type as ProductType;
   const members = type === "MEMBERSHIP" ? await db.subscription.count({ where: { productId: id, status: "ACTIVE" } }) : 0;
+  const issue = deliveryIssue(
+    deliveryFacts({
+      ...product,
+      _count: { files: product.files.length, lessons: product.modules.reduce((a, m) => a + m.lessons.length, 0), posts: product.posts.length },
+    }),
+  );
+  const issueCopy = issue ? deliveryIssueCopy(issue, product.title) : null;
 
   return (
     <div>
@@ -61,6 +70,15 @@ export default async function EditProductPage({ params, searchParams }: { params
       </div>
       {sp.nuevo && <Flash ok="Producto creado como borrador. Completa los datos, pon precio y publícalo." />}
       {!canSellType(creator.plan, type) && <Flash error={`Tu plan ${creator.plan.name} no incluye ${PRODUCT_TYPE_LABEL[type].toLowerCase()}s. Mejora tu plan para publicarlo.`} />}
+      {sp.error === "ultimo-contenido" && (
+        <Flash error="Es lo último que entregas en un producto publicado. Sube otro antes de borrarlo o pasa el producto a borrador." />
+      )}
+      {sp.error === "sin-entrega" && issueCopy?.publishError && <Flash error={issueCopy.publishError} />}
+      {issue && issueCopy && (
+        <div className="mb-5">
+          <DeliveryAlert title={issueCopy.title} text={issueCopy.text} cta={issueCopy.cta} href={`#${issue.anchor}`} tone={issue.blocking ? "block" : "warn"} />
+        </div>
+      )}
 
       <ProductForm
         product={{ ...product }}
@@ -77,19 +95,23 @@ export default async function EditProductPage({ params, searchParams }: { params
         {type === "COURSE" && (
           <>
             <FilesManager productId={product.id} files={product.files} title="Materiales del curso" hint="Sube vídeos, audios y PDF y asígnalos a cada lección." />
-            <CourseBuilder
-              productId={product.id}
-              modules={product.modules.map((m) => ({ id: m.id, title: m.title, lessons: m.lessons }))}
-              files={product.files.map((f) => ({ id: f.id, name: f.name, kind: f.kind }))}
-            />
+            <div id="lecciones" className="scroll-mt-24">
+              <CourseBuilder
+                productId={product.id}
+                modules={product.modules.map((m) => ({ id: m.id, title: m.title, lessons: m.lessons }))}
+                files={product.files.map((f) => ({ id: f.id, name: f.name, kind: f.kind }))}
+              />
+            </div>
           </>
         )}
         {type === "MEMBERSHIP" && (
-          <PostsManager
-            productId={product.id}
-            members={members}
-            posts={product.posts.map((p) => ({ id: p.id, title: p.title, body: p.body, kind: p.kind, publishedAt: p.publishedAt.toLocaleDateString("es-ES", { day: "numeric", month: "long" }) }))}
-          />
+          <div id="publicaciones" className="scroll-mt-24">
+            <PostsManager
+              productId={product.id}
+              members={members}
+              posts={product.posts.map((p) => ({ id: p.id, title: p.title, body: p.body, kind: p.kind, publishedAt: p.publishedAt.toLocaleDateString("es-ES", { day: "numeric", month: "long" }) }))}
+            />
+          </div>
         )}
         {type === "SESSION" && (
           <section className="card flex flex-wrap items-center gap-4 p-5">

@@ -574,8 +574,12 @@ async function main() {
     data: { creatorId: maria.id, type: "DIGITAL", status: "PUBLISHED", slug: "meditacion-dormir", title: "Meditación guiada para dormir", emoji: "🌙", summary: "20 minutos para soltar el día y dormir profundo.", description: "Audio de meditación guiada con respiración 4-7-8.", imageUrl: await demoImage(maria.id, "/demo/maria-meditacion.webp"), priceCents: 1200, sortOrder: 1 },
   });
   await prisma.productFile.create({ data: { creatorId: maria.id, productId: mMed.id, name: "Meditación para dormir.wav", kind: "AUDIO", mimeType: "audio/wav", ...medMaria } });
-  await prisma.product.create({
+  // Ningún producto publicado sin nada que entregar (lib/delivery.ts): el programa se entrega con un enlace.
+  const mRespira = await prisma.product.create({
     data: { creatorId: maria.id, type: "DIGITAL", status: "PUBLISHED", slug: "programa-respira-21", title: "Programa Respira · 21 días", emoji: "🌿", summary: "Una práctica corta al día para regular tu sistema nervioso.", imageUrl: await demoImage(maria.id, "/demo/maria-respira.webp"), priceCents: 3900, sortOrder: 2 },
+  });
+  await prisma.productFile.create({
+    data: { creatorId: maria.id, productId: mRespira.id, name: "Las 21 prácticas (vídeo)", kind: "LINK", url: "https://example.com/respira-21" },
   });
   const mSes = await prisma.product.create({
     data: { creatorId: maria.id, type: "SESSION", status: "PUBLISHED", slug: "yoga-terapeutico", title: "Yoga terapéutico 1:1", emoji: "🧘", summary: "Sesión individual adaptada a tu cuerpo y tu momento.", imageUrl: await demoImage(maria.id, "/demo/maria-sesion.webp"), priceCents: 5500, durationMin: 60, bufferMin: 15, minNoticeHours: 12, sortOrder: 3 },
@@ -633,11 +637,17 @@ async function main() {
       referralCode: "SOFIAV", referredById: ana.id, createdAt: daysAgo(9),
     },
   });
-  await prisma.product.createMany({
-    data: [
-      { creatorId: sofia.id, type: "DIGITAL", status: "PUBLISHED", slug: "guia-bio-instagram", title: "Guía: tu bio de Instagram que vende", emoji: "✍️", summary: "Plantillas y ejemplos para escribir una bio clara en 15 minutos.", priceCents: 1900, sortOrder: 1 },
-      { creatorId: sofia.id, type: "DIGITAL", status: "PUBLISHED", slug: "workbook-mensaje", title: "Workbook: encuentra tu mensaje", emoji: "📓", summary: "30 preguntas para definir qué haces, para quién y por qué.", priceCents: 2700, sortOrder: 2 },
-    ],
+  const sGuia = await prisma.product.create({
+    data: { creatorId: sofia.id, type: "DIGITAL", status: "PUBLISHED", slug: "guia-bio-instagram", title: "Guía: tu bio de Instagram que vende", emoji: "✍️", summary: "Plantillas y ejemplos para escribir una bio clara en 15 minutos.", priceCents: 1900, sortOrder: 1 },
+  });
+  await prisma.productFile.create({ data: { creatorId: sofia.id, productId: sGuia.id, name: "Guía en Google Docs", kind: "LINK", url: "https://example.com/guia-bio" } });
+  // Demostración de la entrega personal: Sofía prepara los comentarios para cada clienta.
+  await prisma.product.create({
+    data: {
+      creatorId: sofia.id, type: "DIGITAL", status: "PUBLISHED", slug: "workbook-mensaje", title: "Workbook: encuentra tu mensaje", emoji: "📓", summary: "30 preguntas para definir qué haces, para quién y por qué.", priceCents: 2700, sortOrder: 2,
+      deliveryMode: "PERSONAL",
+      instructions: "Después de pagar te envío por email el workbook rellenable y, en 48 h, mis comentarios sobre tus respuestas.",
+    },
   });
   await prisma.referral.create({
     data: { referrerId: ana.id, referredId: sofia.id, status: "REWARDED", rewardType: "FREE_MONTH", rewardValue: 2900, rewardedAt: daysAgo(8) },

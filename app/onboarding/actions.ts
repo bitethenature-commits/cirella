@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { createCreatorSpace, isUsernameAvailable, publishPage, uniqueProductSlug, updateDraft } from "@/lib/creator";
 import { prisma } from "@/lib/db";
+import { DELIVERY_COUNT, deliveryFacts, deliveryIssue, MIN_PERSONAL_INSTRUCTIONS } from "@/lib/delivery";
 import { appUrl } from "@/lib/env";
 import { enqueueEmail } from "@/lib/email/outbox";
 import { legalIdentityComplete, PLATFORM_TERMS_VERSION } from "@/lib/legal";
@@ -15,9 +16,10 @@ import { captureError } from "@/lib/monitoring";
 import { canAcceptPayments, payoutOnboardingLink } from "@/lib/payouts";
 import { canSellType } from "@/lib/plans";
 import { normalizeUsername } from "@/lib/slug";
+import { privateKey, storage } from "@/lib/storage";
 import { TEMPLATE_KEYS } from "@/lib/templates";
 import { tenantDb } from "@/lib/tenant";
-import { DEFAULT_CTA, PRODUCT_TYPES } from "@/lib/types";
+import { DEFAULT_CTA, PRODUCT_TYPES, type ProductType } from "@/lib/types";
 
 type Result = { ok: true; data?: Record<string, unknown> } | { ok: false; error: string };
 
@@ -135,6 +137,8 @@ export async function saveFirstProduct(input: z.infer<typeof productSchema>): Pr
     durationMin: p.type === "SESSION" ? (p.durationMin ?? 60) : null,
     bufferMin: p.type === "SESSION" ? 15 : null,
     minNoticeHours: p.type === "SESSION" ? 24 : null,
+    // Solo un producto digital puede entregarse «a mano»: si cambia de tipo, vuelve a automático.
+    deliveryMode: p.type === "DIGITAL" ? undefined : "AUTOMATIC",
     ...(priceCents !== undefined ? { priceCents } : {}),
   };
   if (p.productId) {
@@ -153,14 +157,15 @@ export async function saveFirstProduct(input: z.infer<typeof productSchema>): Pr
       slug: await uniqueProductSlug(creator.id, p.title),
       sortOrder: 1,
       featured: true,
-      status: "PUBLISHED", // el primer producto sale publicado con la página
+      // El primer producto nace en borrador; se publica al final si tiene algo que entregar.
+      status: "DRAFT",
       creatorId: creator.id,
     },
   });
   return { ok: true, data: { productId: product.id } };
 }
 
-/** Paso 9: lleva a la creadora al formulario de Stripe (o al simulador). La vuelta llega a /onboarding. */
+/** Paso 10: lleva a la creadora al formulario de Stripe (o al simulador). La vuelta llega a /onboarding. */
 export async function connectPayments(): Promise<Result> {
   const { creator } = await currentCreator();
   if (!creator) return { ok: false, error: "Primero elige tu nombre de usuario" };
@@ -178,6 +183,16 @@ export async function connectPayments(): Promise<Result> {
 export async function publishOnboarding(): Promise<Result> {
   const { user, creator } = await currentCreator();
   if (!creator) return { ok: false, error: "Primero elige tu nombre de usuario" };
+  if (!creator.onboardedAt) {
+    // El primer producto solo sale a la venta si se puede vender y tiene algo que entregar (lib/delivery.ts);
+    // si no, se queda en borrador y el panel avisa de lo que falta.
+    const db = tenantDb(creator.id);
+    const first = await db.product.findFirst({ where: { status: { not: "ARCHIVED" } }, orderBy: { createdAt: "asc" }, include: DELIVERY_COUNT });
+    if (first) {
+      const sellable = first.priceCents >= 100 && canSellType(creator.plan, first.type as ProductType) && !deliveryIssue(deliveryFacts(first))?.blocking;
+      await db.product.update({ where: { id: first.id }, data: { status: sellable ? "PUBLISHED" : "DRAFT" } });
+    }
+  }
   await publishPage(creator.id);
   if (!creator.onboardedAt) {
     await prisma.creator.update({ where: { id: creator.id }, data: { onboardedAt: new Date() } });
@@ -190,4 +205,80 @@ export async function publishOnboarding(): Promise<Result> {
     });
   }
   redirect("/onboarding/lista");
+}
+
+// ───────────── Paso 9: cómo se entrega el primer producto ─────────────
+// Solo durante el onboarding: después, todo pasa por el panel (y su comprobación al publicar).
+
+async function onboardingProductDb(productId: string) {
+  const { creator } = await currentCreator();
+  if (!creator) return { ok: false as const, error: "Primero elige tu nombre de usuario" };
+  if (creator.onboardedAt) return { ok: false as const, error: "Hazlo desde el panel" };
+  const db = tenantDb(creator.id);
+  const product = await db.product.findFirst({ where: { id: productId }, include: DELIVERY_COUNT });
+  if (!product) return { ok: false as const, error: "Producto no encontrado" };
+  return { ok: true as const, creator, db, product };
+}
+
+const deliverySchema = z.object({
+  productId: z.string().min(1),
+  choice: z.enum(["FILES", "PERSONAL", "LATER"]),
+  instructions: z.string().trim().max(1000).optional(),
+});
+
+export async function saveDelivery(input: z.infer<typeof deliverySchema>): Promise<Result> {
+  const parsed = deliverySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Elige cómo lo entregas" };
+  const d = parsed.data;
+  const ctx = await onboardingProductDb(d.productId);
+  if (!ctx.ok) return ctx;
+  const { db, product } = ctx;
+  if (product.type !== "DIGITAL") return { ok: true, data: { deliverable: !deliveryIssue(deliveryFacts(product))?.blocking } };
+  let data: { deliveryMode: string; instructions?: string };
+  if (d.choice === "FILES") {
+    if (product._count.files === 0) return { ok: false, error: "Sube un archivo o añade un enlace para continuar" };
+    data = { deliveryMode: "AUTOMATIC" };
+  } else if (d.choice === "PERSONAL") {
+    const instructions = d.instructions ?? "";
+    if (instructions.length < MIN_PERSONAL_INSTRUCTIONS) return { ok: false, error: "Cuenta en una frase qué recibirá tu clienta y cuándo" };
+    data = { deliveryMode: "PERSONAL", instructions };
+  } else {
+    data = { deliveryMode: "AUTOMATIC" };
+  }
+  await db.product.update({ where: { id: product.id }, data });
+  const issue = deliveryIssue(deliveryFacts({ ...product, ...data, instructions: data.instructions ?? product.instructions }));
+  return { ok: true, data: { deliverable: !issue?.blocking } };
+}
+
+const linkSchema = z.object({
+  productId: z.string().min(1),
+  name: z.string().trim().min(1, "Ponle un nombre al enlace").max(120),
+  url: z.string().trim().max(500).regex(/^https?:\/\//, "El enlace debe empezar por https://"),
+});
+
+export async function addDeliveryLink(input: z.infer<typeof linkSchema>): Promise<Result> {
+  const parsed = linkSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const d = parsed.data;
+  const ctx = await onboardingProductDb(d.productId);
+  if (!ctx.ok) return ctx;
+  const { creator, db, product } = ctx;
+  if (product.type !== "DIGITAL") return { ok: false, error: "Este producto no se entrega con enlaces" };
+  const file = await db.productFile.create({
+    data: { creatorId: creator.id, productId: product.id, name: d.name, kind: "LINK", url: d.url, sortOrder: product._count.files },
+  });
+  return { ok: true, data: { file: { id: file.id, name: file.name, kind: file.kind, sizeBytes: null } } };
+}
+
+/** Quita un archivo o enlace añadido en el paso 9 (el objeto guardado, si lo hay, se limpia como en el panel). */
+export async function removeDeliveryFile(fileId: string): Promise<Result> {
+  const { creator } = await currentCreator();
+  if (!creator) return { ok: false, error: "Primero elige tu nombre de usuario" };
+  if (creator.onboardedAt) return { ok: false, error: "Hazlo desde el panel" };
+  const db = tenantDb(creator.id);
+  const file = await db.productFile.findFirst({ where: { id: String(fileId) } });
+  if (!file) return { ok: true };
+  await db.productFile.deleteMany({ where: { id: file.id } });
+  if (file.storageKey) await storage().delete([privateKey(file.storageKey)]).catch(() => {});
+  return { ok: true };
 }

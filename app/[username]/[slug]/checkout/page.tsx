@@ -72,6 +72,7 @@ export default async function CheckoutPage({
             billingInterval: p.billingInterval,
             durationMin: p.durationMin,
             ctaLabel: p.ctaLabel,
+            deliveryMode: p.deliveryMode,
           }}
           payoutReady={payoutReady}
           collectsCardOnSite={provider.collectsCardOnSite}

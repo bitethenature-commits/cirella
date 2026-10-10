@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertCircle, ArrowRight, CalendarCheck, Check, Loader2, Mail } from "lucide-react";
+import { AlertCircle, ArrowRight, CalendarCheck, Check, Loader2, Mail, Sparkles } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { ProductImage } from "@/components/creator-page/product-art";
 import { Reveal } from "@/components/reveal";
@@ -9,6 +9,7 @@ import { AutoRefresh } from "@/components/ui/auto-refresh";
 import { getSession, hasCheckoutCookie } from "@/lib/auth";
 import { maskEmail, orderTargetPath } from "@/lib/auth-utils";
 import { prisma } from "@/lib/db";
+import { isInstantDelivery } from "@/lib/delivery";
 import { isDemoMode } from "@/lib/env";
 import { formatPrice } from "@/lib/money";
 import { getPublicCreator } from "@/lib/public";
@@ -75,8 +76,12 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
     ? await prisma.emailMessage.findFirst({ where: { status: "QUEUED", dedupeKey: { startsWith: `reminder:${booking.id}:` } } })
     : null;
 
+  // Producto digital que la creadora prepara a mano: no hay nada que descargar todavía.
+  const personal = order.productType === "DIGITAL" && !isInstantDelivery(order.productType, order.product.deliveryMode);
   const label =
-    order.productType === "COURSE"
+    personal
+      ? "Ver mi compra"
+      : order.productType === "COURSE"
       ? "Empezar el curso"
       : order.productType === "MEMBERSHIP"
         ? "Entrar en la comunidad"
@@ -93,7 +98,8 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
         </div>
         <h1 className="cp-display mt-6 text-[2.8rem] animate-fade-up">Compra completada</h1>
         <p className="cp-muted mt-3 text-[1.02rem] animate-fade-up">
-          {order.buyerName ? `Gracias, ${order.buyerName.split(" ")[0]}. ` : "Gracias. "}Tu contenido está disponible en tu cuenta.
+          {order.buyerName ? `Gracias, ${order.buyerName.split(" ")[0]}. ` : "Gracias. "}
+          {personal ? `${data.config.displayName} lo prepara personalmente para ti.` : "Tu contenido está disponible en tu cuenta."}
         </p>
 
         <div className="cp-card mt-8 flex items-center gap-4 p-3 text-left" data-reveal>
@@ -114,6 +120,16 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
               <span className="cp-muted">
                 Te hemos enviado la confirmación por email{reminder ? " y te recordaremos la sesión antes de que empiece" : ""}.
               </span>
+            </span>
+          </div>
+        )}
+
+        {personal && order.product.instructions && (
+          <div className="cp-card mt-3 flex items-start gap-3 p-4 text-left text-sm" data-reveal>
+            <Sparkles className="cp-gold mt-0.5 h-5 w-5 shrink-0" />
+            <span>
+              <span className="block font-semibold">Siguientes pasos</span>
+              <span className="cp-muted whitespace-pre-line">{order.product.instructions}</span>
             </span>
           </div>
         )}

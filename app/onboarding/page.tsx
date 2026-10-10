@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { DELIVERY_COUNT, deliveryFacts, deliveryIssue } from "@/lib/delivery";
 import { appHost, isDemoMode } from "@/lib/env";
 import { legalIdentityComplete } from "@/lib/legal";
 import { legalIdentityOf } from "@/lib/legal-snapshot";
@@ -21,7 +22,10 @@ export default async function OnboardingPage() {
   const user = await requireUser("/onboarding");
   const creator = await prisma.creator.findUnique({
     where: { userId: user.id },
-    include: { plan: true, products: { orderBy: { createdAt: "asc" }, take: 1 } },
+    include: {
+      plan: true,
+      products: { orderBy: { createdAt: "asc" }, take: 1, include: { files: { orderBy: { sortOrder: "asc" } }, ...DELIVERY_COUNT } },
+    },
   });
   if (creator?.onboardedAt) redirect("/panel");
 
@@ -39,7 +43,17 @@ export default async function OnboardingPage() {
   } catch {}
 
   const p = creator?.products[0];
-  const step = !creator ? 2 : !creator.categoryId ? 3 : !p ? 6 : p.priceCents === 0 ? 8 : creator.payoutStatus !== "ACTIVE" ? 9 : 10;
+  // Dónde retomar el asistente. Paso 9 si al digital le falta la entrega y aún no ha empezado con
+  // los cobros (al volver del formulario de Stripe sigue en el paso 10 aunque eligiera «más tarde»).
+  const resumeStep = () => {
+    if (!creator) return 2;
+    if (!creator.categoryId) return 3;
+    if (!p) return 6;
+    if (p.priceCents === 0) return 8;
+    if (p.type === "DIGITAL" && deliveryIssue(deliveryFacts(p))?.blocking && creator.payoutStatus === "NONE") return 9;
+    return creator.payoutStatus !== "ACTIVE" ? 10 : 11;
+  };
+  const step = resumeStep();
   const config = creator ? readPageConfig(creator.pageDraft, creator.displayName) : { ...defaultPageConfig({ displayName: "Mi página" }), displayName: user.name ?? "" };
   const features = planFeatures(plan);
 
@@ -60,6 +74,11 @@ export default async function OnboardingPage() {
       imageUrl: p?.imageUrl ?? null,
       price: p && p.priceCents ? String(p.priceCents / 100).replace(".", ",") : "",
       durationMin: p?.durationMin ?? 60,
+    },
+    delivery: {
+      mode: p?.deliveryMode === "PERSONAL" ? "PERSONAL" : "AUTOMATIC",
+      instructions: p?.instructions ?? "",
+      files: (p?.files ?? []).map((f) => ({ id: f.id, name: f.name, kind: f.kind, sizeBytes: f.sizeBytes })),
     },
     allowedTypes: features.productTypes,
     commissionBps: plan.commissionBps,

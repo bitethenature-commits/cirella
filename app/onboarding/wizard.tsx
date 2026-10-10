@@ -7,6 +7,7 @@ import { TemplatePreview } from "@/components/template-preview";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { saveLegalIdentity } from "@/app/panel/ajustes/legal/actions";
 import { LegalIdentityFields } from "@/app/panel/ajustes/legal/legal-identity-fields";
+import { deliveryIssue, digitalContentText, MIN_PERSONAL_INSTRUCTIONS } from "@/lib/delivery";
 import type { LegalIdentity } from "@/lib/legal";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import type { PageConfig } from "@/lib/page-config";
@@ -20,11 +21,13 @@ import {
   publishOnboarding,
   saveAvatar,
   saveCategory,
+  saveDelivery,
   saveFirstProduct,
   saveProfile,
   saveTemplate,
   saveUsername,
 } from "./actions";
+import { DeliveryStep, type DeliveryState } from "./delivery-step";
 
 export type WizardInit = {
   step: number;
@@ -35,6 +38,8 @@ export type WizardInit = {
   categories: { id: string; name: string; emoji: string | null; defaultTemplate: string }[];
   templates: TemplateKey[];
   product: { productId: string | null; type: ProductType; title: string; summary: string; emoji: string | null; imageUrl: string | null; price: string; durationMin: number };
+  /** Cómo se entrega el primer producto (paso 9). */
+  delivery: { mode: "AUTOMATIC" | "PERSONAL"; instructions: string; files: { id: string; name: string; kind: string; sizeBytes: number | null }[] };
   allowedTypes: ProductType[];
   commissionBps: number;
   planName: string;
@@ -46,11 +51,11 @@ export type WizardInit = {
   creatorId: string | null;
   /** Ya aceptó los Términos del servicio (paso 2). */
   termsAccepted: boolean;
-  /** Identidad legal de quien vende: obligatoria antes de conectar la cuenta de cobro (paso 9). */
+  /** Identidad legal de quien vende: obligatoria antes de conectar la cuenta de cobro (paso 10). */
   legal: { defaults: Partial<LegalIdentity>; contactFallback: string; complete: boolean };
 };
 
-const TOTAL = 10;
+const TOTAL = 11;
 const EMOJIS = ["🌙", "✨", "🔮", "🧬", "🔑", "💫", "🌿", "🧘", "🪷", "📖", "🎧", "☀️"];
 const PRICE_SUGGESTIONS = [19, 29, 49, 79, 120];
 
@@ -61,6 +66,11 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
   const [cfg, setCfg] = useState<PageConfig>(init.config);
   const [categoryId, setCategoryId] = useState(init.categoryId);
   const [product, setProduct] = useState(init.product);
+  const [delivery, setDelivery] = useState<DeliveryState>({
+    choice: init.delivery.mode === "PERSONAL" ? "PERSONAL" : init.delivery.files.length ? "FILES" : null,
+    instructions: init.delivery.instructions,
+    files: init.delivery.files,
+  });
   const payout = init.payout;
   const payoutActive = payout.status === "ACTIVE";
   const [error, setError] = useState<string | null>(null);
@@ -118,8 +128,16 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
           saveFirstProduct({ ...product, productId: product.productId, price: product.price, durationMin: product.type === "SESSION" ? product.durationMin : null }),
         );
       case 9:
-        return setStep(10);
+        return run(() =>
+          saveDelivery({
+            productId: product.productId ?? "",
+            choice: product.type !== "DIGITAL" ? "LATER" : (delivery.choice ?? (delivery.files.length ? "FILES" : "LATER")),
+            instructions: delivery.instructions,
+          }),
+        );
       case 10:
+        return setStep(11);
+      case 11:
         setError(null);
         start(async () => {
           const r = await publishOnboarding();
@@ -137,8 +155,36 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
     step === 6 ||
     (step === 7 && product.title.trim().length >= 2) ||
     (step === 8 && parseMoneyToCents(product.price) >= 100) ||
-    step === 9 ||
-    step === 10;
+    (step === 9 &&
+      (product.type !== "DIGITAL" ||
+        delivery.files.length > 0 ||
+        (delivery.choice === "PERSONAL" && delivery.instructions.trim().length >= MIN_PERSONAL_INSTRUCTIONS) ||
+        delivery.choice === "LATER")) ||
+    step === 10 ||
+    step === 11;
+
+  // Qué recibirá quien compre, para el resumen final: la misma regla que al publicar (lib/delivery.ts).
+  // Un curso recién creado aún no tiene lecciones; se preparan en el panel.
+  const deliverable = !deliveryIssue({
+    type: product.type,
+    deliveryMode: delivery.choice === "PERSONAL" ? "PERSONAL" : "AUTOMATIC",
+    instructions: delivery.instructions,
+    files: delivery.files.length,
+    lessons: 0,
+    posts: 0,
+  })?.blocking;
+  const deliveryLabel =
+    product.type === "DIGITAL" && delivery.choice === "PERSONAL"
+      ? "Entrega: lo preparas tú"
+      : delivery.files.length > 0 && product.type === "DIGITAL"
+        ? (digitalContentText(delivery.files) ?? "Entrega lista")
+        : product.type === "SESSION"
+          ? "Reservas con día y hora"
+          : product.type === "MEMBERSHIP"
+            ? "Espacio privado para tus miembros"
+            : product.type === "COURSE"
+              ? "Lecciones pendientes (en tu panel)"
+              : "Entrega pendiente";
 
   const priceCents = parseMoneyToCents(product.price);
   const estimate = estimateNet({ priceCents, commissionBps: init.commissionBps, productType: product.type, mode: init.tax.mode, creator: init.tax });
@@ -418,6 +464,12 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
             )}
 
             {step === 9 && (
+              <Step title="¿Cómo lo entregas?" text={`Lo que recibe quien compre «${product.title}».`}>
+                <DeliveryStep productId={product.productId} type={product.type} title={product.title} value={delivery} onChange={setDelivery} />
+              </Step>
+            )}
+
+            {step === 10 && (
               <Step title="Datos de cobro" text="La ley exige mostrar quién vende. Estos datos aparecerán en tu aviso legal y en los recibos.">
                 {/* Datos legales (lib/legal.ts): sin ellos no se puede conectar la cuenta de cobro. */}
                 {!payoutActive && payout.cta && (
@@ -492,7 +544,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
               </Step>
             )}
 
-            {step === 10 && (
+            {step === 11 && (
               <Step title="Todo listo ✨" text="Revisa tu página y publícala. Podrás editarla siempre que quieras.">
                 <ul className="space-y-2.5 text-sm">
                   {[
@@ -500,6 +552,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                     [cfg.avatarUrl ? "Foto de perfil" : "Foto de perfil (pendiente)", !!cfg.avatarUrl],
                     [`Estilo ${TEMPLATES[cfg.template].name}`, true],
                     [product.title ? `${product.title} · ${formatMoney(priceCents)}` : "Primer producto", !!product.productId],
+                    [deliveryLabel, deliverable],
                     [payoutActive ? "Pagos activados" : payout.status === "VERIFYING" ? "Pagos en verificación" : "Pagos sin conectar", payoutActive],
                   ].map(([label, ok]) => (
                     <li key={String(label)} className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3">
@@ -510,6 +563,11 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                     </li>
                   ))}
                 </ul>
+                {product.productId && !deliverable && (
+                  <p className="mt-4 rounded-xl bg-[#fdf7ec] px-4 py-3 text-sm text-[#8a6420]">
+                    «{product.title}» se guardará como borrador hasta que añadas qué entregas. Tu página se publica igualmente.
+                  </p>
+                )}
                 <div className="mt-6 overflow-hidden rounded-3xl border border-line lg:hidden" style={{ height: 520 }}>
                   <div className="pointer-events-none origin-top-left" style={{ width: 390, transform: "scale(0.82)" }}>
                     {preview}
@@ -531,9 +589,9 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
               disabled={!canContinue || pending}
               className="btn btn-primary btn-lg flex-1"
             >
-              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : step === 10 ? <Sparkles className="h-4 w-4" /> : null}
-              {step === 10 ? "Publicar mi página" : step === 9 && payout.status === "NONE" ? "Lo haré más tarde" : "Continuar"}
-              {step < 10 && !pending && <ArrowRight className="h-4 w-4" />}
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : step === 11 ? <Sparkles className="h-4 w-4" /> : null}
+              {step === 11 ? "Publicar mi página" : step === 10 && payout.status === "NONE" ? "Lo haré más tarde" : "Continuar"}
+              {step < 11 && !pending && <ArrowRight className="h-4 w-4" />}
             </button>
           </div>
         </div>
