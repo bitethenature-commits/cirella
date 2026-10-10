@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty";
-import { requireUser } from "@/lib/auth";
+import { requireBuyerFull } from "@/lib/buyer-access";
 import { getCustomerLibrary } from "@/lib/customer";
 import { BOOKING_STATUS_LABEL } from "@/lib/types";
 import { capitalize, formatSessionDate } from "@/lib/tz";
 import { CreatorTag, SectionHeader } from "../ui";
 
 export default async function MySessions() {
-  const user = await requireUser();
+  const user = await requireBuyerFull("/cuenta/sesiones");
   const { upcoming, past } = await getCustomerLibrary(user.id);
   const Row = ({ b }: { b: (typeof upcoming)[number] }) => (
     <Link href={`/cuenta/sesiones/${b.id}`} className="card flex items-center gap-4 p-4 transition hover:shadow-lift">

@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { bindCheckoutToBrowser, grantPostCheckoutAccess } from "@/lib/checkout-access";
+import { claimOrderSession, rememberCheckout } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isSlotAvailable } from "@/lib/booking";
 import { CheckoutError, createPendingOrder, getPurchasableProduct, startOrderPayment } from "@/lib/orders";
@@ -63,21 +63,20 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
       });
       orderId = order.id;
     }
+    // Este navegador es el que paga: solo él podrá abrir la sesión limitada al pedido, también al
+    // volver de la pasarela o del banco (lib/payments/return.ts).
+    await rememberCheckout(orderId!);
     const result = await startOrderPayment(orderId!, { method: input.method, cardNumber: input.cardNumber });
     if (result.kind === "failed") return { error: result.error, orderId };
-
-    // Este navegador es el que paga: al volver de la pasarela podrá entrar sin contraseña.
-    await bindCheckoutToBrowser(orderId!);
     if (result.kind === "redirect") redirect(result.url);
     const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { creator: true } });
     const thanks = `/${order.creator.username}/gracias?pedido=${order.id}`;
     if (result.kind === "processing") redirect(thanks);
 
-    // Cuenta automática: si el email es nuevo, la compradora queda dentro sin contraseña con
-    // una sesión corta y "no verificada"; si la cuenta ya existía y no es quien tiene la sesión,
-    // le enviamos un enlace mágico (lib/checkout-access.ts).
-    const access = await grantPostCheckoutAccess(order.id, { sameBrowser: true });
-    redirect(`${thanks}${access === "magic" ? "&acceso=email" : ""}`);
+    // La sesión tras pagar solo abre ESTE pedido (24 h) y solo en el navegador que pagó. Para ver
+    // el resto de la cuenta se pide un enlace al email; el recibo lleva además un enlace personal.
+    await claimOrderSession(order.id);
+    redirect(thanks);
   } catch (e) {
     if (e instanceof CheckoutError) return { error: e.message, orderId };
     throw e;

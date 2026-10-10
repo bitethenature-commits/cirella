@@ -11,7 +11,7 @@ export function esc(s: string) {
 }
 
 /** Plantilla con la marca (lib/email/refund-templates.ts la reutiliza). */
-export function layout(opts: { brand?: string; title: string; body: string; cta?: { label: string; url: string }; footer?: string }) {
+export function layout(opts: { brand?: string; title: string; body: string; cta?: { label: string; url: string }; afterCta?: string; footer?: string }) {
   const brand = esc(opts.brand ?? PLATFORM);
   const cta = opts.cta
     ? `<p style="margin:28px 0 8px"><a href="${esc(opts.cta.url)}" style="display:inline-block;background:#0E1024;color:#F6F1E7;text-decoration:none;padding:13px 22px;border-radius:999px;font-weight:600;font-size:14px">${esc(opts.cta.label)}</a></p>`
@@ -22,7 +22,7 @@ export function layout(opts: { brand?: string; title: string; body: string; cta?
   <div style="background:#FFFFFF;border-radius:20px;padding:32px 28px;border:1px solid #E9E2D3">
     <h1 style="font-family:Georgia,serif;font-weight:400;font-size:26px;line-height:1.25;margin:0 0 16px;color:#0E1024">${esc(opts.title)}</h1>
     <div style="font-size:15px;line-height:1.65;color:#3B3950">${opts.body}</div>
-    ${cta}
+    ${cta}${opts.afterCta ? `<div style="font-size:15px;line-height:1.65;color:#3B3950">${opts.afterCta}</div>` : ""}
   </div>
   <p style="font-size:12px;color:#8A8698;margin:24px 4px 0;line-height:1.6">${opts.footer ?? `Enviado con ${PLATFORM} · Convierte tu perfil social en tu negocio.`}</p>
 </div></body></html>`;
@@ -30,14 +30,30 @@ export function layout(opts: { brand?: string; title: string; body: string; cta?
 
 export const p = (s: string) => `<p style="margin:0 0 12px">${s}</p>`;
 
-export function magicLinkEmail(o: { url: string; creatorName?: string }) {
+/** Nota en gris bajo el botón (p. ej. «Este enlace es personal…» de los enlaces personales). */
+const note = (s?: string | null) => (s ? p(`<span style="color:#8A8698;font-size:13px">${esc(s)}</span>`) : "");
+
+export function magicLinkEmail(o: { url: string; creatorName?: string; purpose?: "LOGIN" | "VERIFY_SIGNUP" }) {
+  if (o.purpose === "VERIFY_SIGNUP")
+    return {
+      subject: "Confirma tu email en Cirella",
+      html: layout({
+        brand: o.creatorName,
+        title: "Confirma que este email es tuyo",
+        body:
+          p("Se acaba de crear una cuenta de Cirella con este email. Confírmalo para proteger tu cuenta y poder recuperarla si olvidas la contraseña.") +
+          note("¿No has sido tú? Abre el enlace y pulsa «No he sido yo»: cerraremos ese acceso."),
+        cta: { label: "Confirmar mi email", url: o.url },
+      }),
+    };
   return {
-    subject: "Tu enlace de acceso",
+    subject: "Tu enlace para entrar",
     html: layout({
       brand: o.creatorName,
-      title: "Accede a tu cuenta",
-      body: p("Pulsa el botón para entrar. El enlace caduca en 30 minutos y solo puede usarse una vez.") +
-        p(`<span style="color:#8A8698;font-size:13px">Si no lo has solicitado, ignora este mensaje.</span>`),
+      title: "Entra a tu cuenta",
+      body:
+        p("Pulsa el botón y después «Entrar». El enlace funciona durante 1 hora y solo una vez.") +
+        note("Si no lo has pedido tú, ignora este mensaje: nadie podrá entrar sin abrirlo."),
       cta: { label: "Entrar a mi cuenta", url: o.url },
     }),
   };
@@ -75,6 +91,7 @@ export function purchaseReceiptEmail(o: {
   orderId: string;
   accountUrl: string;
   instructions?: string | null;
+  linkNote?: string;
 }) {
   return {
     subject: `Compra confirmada: ${o.productTitle}`,
@@ -88,14 +105,15 @@ export function purchaseReceiptEmail(o: {
           <tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE">Total</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE"><strong>${esc(o.amount)}</strong></td></tr>
           <tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE">Pedido</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE;font-family:monospace;font-size:12px">${esc(o.orderId.slice(-10).toUpperCase())}</td></tr>
         </table>` +
-        p("Tu contenido está disponible en tu cuenta.") +
+        p("Pulsa el botón para abrir tu compra. No necesitas contraseña.") +
         (o.instructions ? p(`<em>${esc(o.instructions)}</em>`) : ""),
       cta: { label: "Acceder a mi contenido", url: o.accountUrl },
+      afterCta: note(o.linkNote),
     }),
   };
 }
 
-export function courseAccessEmail(o: { creatorName: string; courseTitle: string; url: string }) {
+export function courseAccessEmail(o: { creatorName: string; courseTitle: string; url: string; linkNote?: string }) {
   return {
     subject: `Ya tienes acceso a «${o.courseTitle}»`,
     html: layout({
@@ -103,6 +121,7 @@ export function courseAccessEmail(o: { creatorName: string; courseTitle: string;
       title: "Tu curso te espera",
       body: p(`Ya puedes empezar <strong>${esc(o.courseTitle)}</strong>. Avanza a tu ritmo: tu progreso se guarda automáticamente.`),
       cta: { label: "Empezar el curso", url: o.url },
+      afterCta: note(o.linkNote),
     }),
   };
 }
@@ -120,6 +139,7 @@ export function bookingConfirmedEmail(o: {
   url: string;
   meetingUrl?: string | null;
   reminderMinutes?: number | null;
+  linkNote?: string;
 }) {
   return {
     subject: o.when ? `Reserva confirmada · ${o.when}` : `Elige la fecha de tu sesión`,
@@ -132,11 +152,12 @@ export function bookingConfirmedEmail(o: {
           (o.reminderMinutes ? p(`Te enviaremos un recordatorio ${reminderText(o.reminderMinutes)} antes.`) : "")
         : p(`Tu pago de <strong>${esc(o.productTitle)}</strong> está confirmado. Entra en tu cuenta para elegir el día y la hora que mejor te vengan.`),
       cta: { label: o.when ? "Ver detalles" : "Elegir fecha", url: o.url },
+      afterCta: note(o.linkNote),
     }),
   };
 }
 
-export function sessionReminderEmail(o: { creatorName: string; productTitle: string; when: string; url: string; meetingUrl?: string | null }) {
+export function sessionReminderEmail(o: { creatorName: string; productTitle: string; when: string; url: string; meetingUrl?: string | null; linkNote?: string }) {
   return {
     subject: `Recordatorio: tu sesión ${o.when}`,
     html: layout({
@@ -146,6 +167,7 @@ export function sessionReminderEmail(o: { creatorName: string; productTitle: str
         p(`Te recordamos tu sesión <strong>${esc(o.productTitle)}</strong>: ${esc(o.when)}.`) +
         (o.meetingUrl ? p(`Enlace: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : ""),
       cta: { label: "Ver detalles", url: o.url },
+      afterCta: note(o.linkNote),
     }),
   };
 }

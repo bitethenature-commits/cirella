@@ -23,6 +23,7 @@ type Tab = (typeof TABS)[number][0];
 
 const SYSTEM_TEMPLATES: Record<string, string> = {
   MAGIC_LINK: "Enlace de acceso",
+  VERIFY_EMAIL: "Confirmación de email",
   NEW_SALE: "Aviso de venta",
   WELCOME_CREATOR: "Bienvenida a la creadora",
 };

@@ -4,12 +4,13 @@ import { ConfirmForm } from "@/components/ui/confirm-form";
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { requireBuyerFull } from "@/lib/buyer-access";
 import { formatMoney } from "@/lib/money";
 import { orderStatusLabel, toWithdrawalInput, withdrawalEligibility } from "@/lib/refund-math";
 import { formatDate } from "@/lib/tz";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
+import { orderTargetPath } from "@/lib/auth-utils";
 import { Thumb } from "../ui";
 import { withdrawPurchase } from "./actions";
 
@@ -17,14 +18,13 @@ const OK: Record<string, string> = {
   desistido: "Hemos tramitado tu desistimiento. El reembolso llegará a tu tarjeta en 5-10 días hábiles.",
 };
 const ERROR: Record<string, string> = {
-  verificar: "Para desistir, entra con el enlace que acabamos de enviarte por email.",
   "no-desistible": "Esta compra ya no se puede desistir. Si tienes dudas, escribe a la creadora.",
   "no-encontrado": "No encontramos esa compra en tu cuenta.",
   pasarela: "No hemos podido hacer el reembolso ahora mismo. Inténtalo más tarde o escribe a la creadora.",
 };
 
 export default async function MyPurchases({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
-  const user = await requireUser("/cuenta/compras");
+  const user = await requireBuyerFull("/cuenta/compras");
   const sp = await searchParams;
   const orders = await prisma.order.findMany({
     where: { buyerEmail: user.email, status: { in: ["PAID", "REFUNDED"] } },
@@ -38,7 +38,7 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
   });
   const now = new Date();
   const link = (o: (typeof orders)[number]) =>
-    o.productType === "COURSE" ? `/cuenta/cursos/${o.productId}` : o.productType === "MEMBERSHIP" ? `/cuenta/membresias/${o.productId}` : o.productType === "SESSION" && o.bookings[0] ? `/cuenta/sesiones/${o.bookings[0].id}` : "/cuenta/archivos";
+    orderTargetPath(o, o.bookings[0]?.id);
   return (
     <div>
       <h1 className="display text-[2.4rem]">Mis compras</h1>

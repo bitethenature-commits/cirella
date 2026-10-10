@@ -6,12 +6,15 @@
  * de otra creadora (María), aunque se le pasen sus ids directamente.
  */
 import "./load-env";
+import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
+import { scopeAllows } from "../lib/auth-utils";
 import { prisma } from "../lib/db";
 import { yearOf } from "../lib/dac7";
 import { dac7ForCreator, dac7Report } from "../lib/dac7-data";
 import { createPendingOrder } from "../lib/orders";
 import { cancelBooking, requestReschedule } from "../lib/booking-changes";
+import { createOrderLink, resolveOrderLink, revokeOrderAccess } from "../lib/order-links";
 import { applyPaymentUpdate } from "../lib/payments/events";
 import type { PaymentProvider } from "../lib/payments/provider";
 import { simulatedProvider } from "../lib/payments/simulated";
@@ -111,6 +114,7 @@ async function main() {
 
   await paymentsIsolation(ana, maria);
   await refundsIsolation(ana, maria);
+  await buyerScopeIsolation(ana, maria);
 
   console.log(failures ? `\n${failures} comprobaciones fallidas` : "\nAislamiento multi-tenant correcto ✓");
   process.exit(failures ? 1 : 0);
@@ -224,6 +228,57 @@ async function refundsIsolation(ana: CreatorRow, maria: CreatorRow) {
     check("…y la reserva de María sigue intacta", still.status === "CONFIRMED" && still.startAt?.getTime() === start.getTime() && !still.rescheduleRequestedAt);
   } finally {
     await prisma.booking.delete({ where: { id: booking.id } });
+  }
+}
+
+/**
+ * Alcance de comprador: una sesión limitada a un pedido (tras pagar o desde un enlace personal) solo
+ * abre ese pedido, nunca lo de otra creadora; los enlaces personales llevan a la compra correcta y
+ * se revocan sin tocar los de otros pedidos.
+ */
+async function buyerScopeIsolation(ana: CreatorRow, maria: CreatorRow) {
+  const carmen = await prisma.user.findUniqueOrThrow({ where: { email: "carmen@example.com" } });
+  const mariaOrder = await prisma.order.findFirstOrThrow({ where: { creatorId: maria.id, status: "PAID", customer: { userId: carmen.id } }, include: { customer: true } });
+  // Otro pedido pagado (de Ana) para comprobar que revocar uno no toca los demás.
+  const anaOrder = await prisma.order.findFirstOrThrow({ where: { creatorId: ana.id, status: "PAID", customerId: { not: null } }, include: { customer: true } });
+  const anaProduct = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id } });
+  const anaBooking = await prisma.booking.findFirstOrThrow({ where: { creatorId: ana.id, userId: carmen.id } });
+  const scope = { orderId: mariaOrder.id, productId: mariaOrder.productId };
+  check("alcance del pedido de Carmen a María: abre ese pedido y su producto", scopeAllows(scope, { orderId: mariaOrder.id }) && scopeAllows(scope, { productId: mariaOrder.productId }));
+  check("…pero no un producto de Ana", !scopeAllows(scope, { productId: anaProduct.id }));
+  check("…ni la reserva de Carmen con Ana (otro pedido)", anaBooking.orderId !== mariaOrder.id && !scopeAllows(scope, { bookingOrderId: anaBooking.orderId }));
+  check("…ni otro pedido de Ana", !scopeAllows(scope, { orderId: anaOrder.id }));
+
+  const link = await createOrderLink({ orderId: mariaOrder.id, path: `/cuenta/pedidos/${mariaOrder.id}` });
+  const other = await createOrderLink({ orderId: anaOrder.id, path: "//evil.example/robo" });
+  const tag = `isolation-scope-${Date.now()}`;
+  const sessions = await Promise.all(
+    [mariaOrder, anaOrder].map((o, i) =>
+      prisma.session.create({ data: { id: `${tag}-${i}`, userId: o.customer!.userId, orderId: o.id, verified: false, expiresAt: new Date(Date.now() + 3_600_000) } }),
+    ),
+  );
+  try {
+    const res = await resolveOrderLink(new URL(link.url).searchParams.get("t")!);
+    check("el enlace personal resuelve al pedido de María", res?.status === "ok" && res.order.creatorId === maria.id && res.order.id === mariaOrder.id);
+    check("…con una ruta interna", res?.status === "ok" && res.link.path === `/cuenta/pedidos/${mariaOrder.id}`);
+    const forged = await resolveOrderLink(new URL(other.url).searchParams.get("t")!);
+    check("una ruta externa se sustituye por la de la compra", forged?.status === "ok" && forged.link.path === `/cuenta/pedidos/${anaOrder.id}`);
+    check("un token inventado no resuelve nada", (await resolveOrderLink("inventado")) === null);
+
+    await revokeOrderAccess(mariaOrder.id);
+    const left = {
+      links: await prisma.orderLink.count({ where: { orderId: mariaOrder.id } }),
+      sessions: await prisma.session.count({ where: { orderId: mariaOrder.id } }),
+    };
+    check("revokeOrderAccess borra los enlaces y las sesiones de ese pedido", left.links === 0 && left.sessions === 0);
+    check(
+      "…y no toca los de otros pedidos",
+      (await prisma.orderLink.count({ where: { orderId: anaOrder.id } })) >= 1 && (await prisma.session.count({ where: { id: sessions[1].id } })) === 1,
+    );
+  } finally {
+    await prisma.session.deleteMany({ where: { id: { in: sessions.map((x) => x.id) } } });
+    const hashes = [link, other].map((l) => createHash("sha256").update(new URL(l.url).searchParams.get("t")!).digest("hex"));
+    await prisma.orderLink.deleteMany({ where: { tokenHash: { in: hashes } } });
   }
 }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getBuyerSession } from "@/lib/buyer-access";
 import { getAvailableSlots } from "@/lib/booking";
 import { prisma } from "@/lib/db";
 
@@ -13,7 +13,8 @@ export async function GET(req: Request) {
   const product = await prisma.product.findFirst({ where: { id: productId, type: "SESSION" } });
   if (!product) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   if (product.status !== "PUBLISHED") {
-    const user = await getCurrentUser();
+    // Vale también la sesión limitada al pedido: es quien acaba de pagar y elige hora.
+    const user = (await getBuyerSession())?.user;
     const holder = user
       ? await prisma.booking.findFirst({ where: { productId, userId: user.id, status: { in: ["PENDING_SCHEDULE", "CONFIRMED"] } } })
       : null;

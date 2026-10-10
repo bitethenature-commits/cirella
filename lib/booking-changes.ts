@@ -5,6 +5,7 @@ import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
 import { bookingCancelledEmail, rescheduledCreatorEmail, rescheduleProposalEmail } from "./email/refund-templates";
 import { emit, recordEvents } from "./events";
+import { createOrderLink } from "./order-links";
 import { formatSessionDate } from "./tz";
 
 /**
@@ -111,7 +112,8 @@ export async function requestReschedule(i: { creatorId: string; bookingId: strin
       productTitle: b.product.title,
       previousWhen: formatSessionDate(b.startAt, b.creator.timezone),
       note,
-      url: `${appUrl()}/cuenta/sesiones/${b.id}`,
+      // Enlace personal (solo abre este pedido) para que pueda elegir sin contraseña.
+      url: b.orderId ? (await createOrderLink({ orderId: b.orderId, path: `/cuenta/sesiones/${b.id}` })).url : `${appUrl()}/cuenta/sesiones/${b.id}`,
     }),
   });
   await emit({ type: "booking.reschedule_requested", bookingId: b.id });

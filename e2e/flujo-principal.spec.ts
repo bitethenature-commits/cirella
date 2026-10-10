@@ -81,11 +81,15 @@ test.describe.serial("Flujo principal", () => {
     await page.waitForURL(`**/${username}/gracias**`);
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
     await expect(page.getByText("Tu contenido está disponible en tu cuenta.")).toBeVisible();
-    // Cuenta creada automáticamente tras la compra
+    // Cuenta creada automáticamente tras la compra: la sesión solo abre ESTA compra.
     await page.getByRole("link", { name: /Acceder a mi contenido/ }).click();
-    await page.waitForURL("**/cuenta");
-    await expect(page.getByRole("heading", { name: "Hola, Paula" })).toBeVisible();
-    await expect(page.getByText("Tirada de tarot en PDF")).toBeVisible();
+    await page.waitForURL("**/cuenta/pedidos/**");
+    await expect(page.getByRole("heading", { name: "Tirada de tarot en PDF" })).toBeVisible();
+    await expect(page.getByText("Estás viendo solo esta compra.")).toBeVisible();
+    // Para ver todas sus compras tiene que demostrar que el email es suyo.
+    await page.goto("/cuenta/compras");
+    await expect(page).toHaveURL(/\/entrar/);
+    await expect(page.getByText("Para ver todas tus compras")).toBeVisible();
   });
 
   test("3. La venta aparece en el panel de la creadora", async ({ page }) => {

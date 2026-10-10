@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Download, Sparkles } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty";
-import { requireUser } from "@/lib/auth";
+import { requireBuyerFull } from "@/lib/buyer-access";
 import { getCustomerLibrary } from "@/lib/customer";
 import { formatPrice } from "@/lib/money";
 import { capitalize, formatSessionDate } from "@/lib/tz";
 import { CreatorTag, Progress, SectionHeader, Thumb } from "./ui";
 
 export default async function AccountHome() {
-  const user = await requireUser();
+  // Una sesión limitada a un pedido que llega aquí va directa a su compra.
+  const user = await requireBuyerFull("/cuenta", { scopedToTarget: true });
   const lib = await getCustomerLibrary(user.id);
   const first = (user.name ?? user.email.split("@")[0]).split(" ")[0];
   const activeMemberships = lib.memberships.filter((m) => m.status === "ACTIVE");

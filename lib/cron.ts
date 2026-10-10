@@ -1,5 +1,6 @@
 import "server-only";
 import { emitAbandoned } from "./abandoned";
+import { purgeExpiredAuth } from "./auth-tokens";
 import { processDac7Reminders } from "./dac7-data";
 import { processOutbox } from "./email/outbox";
 import { processEvents } from "./events";
@@ -36,6 +37,8 @@ export async function runScheduledJobs(): Promise<CronResult> {
           return w.refulfilled + w.paidUndelivered;
         }],
         ["emails", () => processOutbox()],
+        // Sesiones, enlaces mágicos y enlaces personales caducados.
+        ["accesos", () => purgeExpiredAuth()],
       ];
       const results: Record<string, number> = {};
       const errors: string[] = [];

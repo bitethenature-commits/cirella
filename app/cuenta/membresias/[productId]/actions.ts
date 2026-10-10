@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireUser } from "@/lib/auth";
+import { requireBuyerFor } from "@/lib/buyer-access";
 import { appUrl } from "@/lib/env";
 import { captureError } from "@/lib/monitoring";
 import { paymentProvider } from "@/lib/payments";
@@ -16,8 +16,9 @@ import { applyRenewal, findPastDueSubscription } from "@/lib/subscriptions";
  * La suscripción se busca por la usuaria de la sesión: nadie puede pagar (ni ver) la de otra.
  */
 export async function payRenewalNow(form: FormData) {
-  const user = await requireUser();
   const productId = String(form.get("productId") ?? "");
+  // También desde el enlace personal del email (sesión limitada al pedido de esta membresía).
+  const { user } = await requireBuyerFor({ productId }, `/cuenta/membresias/${productId}`);
   const back = (k: "ok" | "error", msg: string) => redirect(`/cuenta/membresias/${productId}?${k === "ok" ? "pago=ok" : `error=${encodeURIComponent(msg)}`}`);
   const sub = await findPastDueSubscription(user.id, productId);
   if (!sub) redirect(`/cuenta/membresias/${productId}`);

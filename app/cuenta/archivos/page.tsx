@@ -1,6 +1,6 @@
 import { Download, FileText, FolderOpen, Headphones, Video } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty";
-import { requireUser } from "@/lib/auth";
+import { requireBuyerFull } from "@/lib/buyer-access";
 import { getCustomerLibrary } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { CreatorTag } from "../ui";
@@ -13,7 +13,7 @@ function size(bytes: number | null) {
 }
 
 export default async function MyFiles() {
-  const user = await requireUser();
+  const user = await requireBuyerFull("/cuenta/archivos");
   const lib = await getCustomerLibrary(user.id);
   // También los materiales descargables de los cursos
   const courseFiles = lib.courses.length

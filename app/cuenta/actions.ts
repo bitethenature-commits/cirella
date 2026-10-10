@@ -2,19 +2,25 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { hashPassword, requireUser, revokeOtherSessions, sendMagicLink } from "@/lib/auth";
+import { hashPassword, revokeOtherSessions } from "@/lib/auth";
+import { scopeAllows } from "@/lib/auth-utils";
 import { emit } from "@/lib/automations";
 import { hasBookingClash, isBookingOverlapError, isSlotAvailable } from "@/lib/booking";
 import { notifyRescheduled, releaseBookingEmails } from "@/lib/booking-changes";
+import { getBuyerSession, requireBuyerFor, requireBuyerFull } from "@/lib/buyer-access";
 import { hasAccess } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { syncBookingToCalendar } from "@/lib/orders";
 import { cancelSubscription, resumeSubscription } from "@/lib/subscriptions";
 
 export async function toggleLessonComplete(lessonId: string, complete: boolean) {
-  const user = await requireUser();
+  const b = await getBuyerSession();
+  if (!b) return { ok: false };
+  const user = b.user;
   const lesson = await prisma.lesson.findUnique({ where: { id: lessonId } });
   if (!lesson || !(await hasAccess(user.id, lesson.productId))) return { ok: false };
+  // Una sesión limitada solo avanza el curso de su pedido; una de cuenta, si está verificada.
+  if (b.scope ? !scopeAllows(b.scope, { productId: lesson.productId }) : !b.verified) return { ok: false };
   if (complete)
     await prisma.lessonProgress.upsert({
       where: { userId_lessonId: { userId: user.id, lessonId } },
@@ -27,7 +33,8 @@ export async function toggleLessonComplete(lessonId: string, complete: boolean) 
 }
 
 export async function scheduleBooking(bookingId: string, slotStart: string) {
-  const user = await requireUser();
+  // Elegir hora es justo lo que hace quien acaba de comprar: vale la sesión limitada a su pedido.
+  const { user } = await requireBuyerFor({ bookingId }, `/cuenta/sesiones/${bookingId}`);
   const booking = await prisma.booking.findFirst({ where: { id: bookingId, userId: user.id }, include: { product: true } });
   if (!booking) return { ok: false as const, error: "Reserva no encontrada" };
   const canReschedule = booking.status === "PENDING_SCHEDULE" || (booking.status === "CONFIRMED" && booking.startAt && booking.startAt.getTime() - Date.now() > 24 * 3600_000);
@@ -65,13 +72,13 @@ export async function scheduleBooking(bookingId: string, slotStart: string) {
 }
 
 export async function cancelMembership(form: FormData) {
-  const user = await requireUser();
+  const user = await requireBuyerFull("/cuenta/membresias");
   await cancelSubscription(String(form.get("subscriptionId")), user.id);
   revalidatePath("/cuenta", "layout");
 }
 
 export async function resumeMembership(form: FormData) {
-  const user = await requireUser();
+  const user = await requireBuyerFull("/cuenta/membresias");
   await resumeSubscription(String(form.get("subscriptionId")), user.id);
   revalidatePath("/cuenta", "layout");
 }
@@ -79,16 +86,12 @@ export async function resumeMembership(form: FormData) {
 export type ProfileState = { ok?: string; error?: string } | undefined;
 
 export async function updateProfile(_: ProfileState, form: FormData): Promise<ProfileState> {
-  const user = await requireUser();
+  // Sesión verificada: fijar o cambiar la contraseña exige haber demostrado que el email es suyo.
+  const user = await requireBuyerFull("/cuenta/perfil");
   const name = String(form.get("name") ?? "").trim().slice(0, 80);
   const password = String(form.get("password") ?? "");
   if (!name) return { error: "Escribe tu nombre" };
   if (password && password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres" };
-  if (password && !user.sessionVerified) {
-    // Sesión creada en un checkout: antes de fijar contraseña hay que demostrar que el email es suyo.
-    await sendMagicLink(user.email, "/cuenta/perfil");
-    return { error: "Para crear tu contraseña, entra con el enlace que acabamos de enviarte por email." };
-  }
   await prisma.user.update({ where: { id: user.id }, data: { name, ...(password ? { passwordHash: await hashPassword(password) } : {}) } });
   if (password) await revokeOtherSessions(user.id);
   await prisma.customer.updateMany({ where: { userId: user.id }, data: { name } });

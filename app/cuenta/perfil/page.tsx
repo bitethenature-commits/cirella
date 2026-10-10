@@ -1,8 +1,8 @@
-import { requireUser } from "@/lib/auth";
+import { requireBuyerFull } from "@/lib/buyer-access";
 import { ProfileForm } from "./form";
 
 export default async function ProfilePage() {
-  const user = await requireUser();
+  const user = await requireBuyerFull("/cuenta/perfil");
   return (
     <div>
       <h1 className="display text-[2.4rem]">Mi perfil</h1>

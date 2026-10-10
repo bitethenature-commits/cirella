@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { UsersRound } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty";
-import { requireUser } from "@/lib/auth";
+import { requireBuyerFull } from "@/lib/buyer-access";
 import { getCustomerLibrary } from "@/lib/customer";
 import { formatPrice } from "@/lib/money";
 import { CreatorTag, Thumb } from "../ui";
 
 export default async function MyMemberships() {
-  const user = await requireUser();
+  const user = await requireBuyerFull("/cuenta/membresias");
   const { memberships } = await getCustomerLibrary(user.id);
   return (
     <div>

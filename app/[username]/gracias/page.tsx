@@ -6,7 +6,8 @@ import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { ProductImage } from "@/components/creator-page/product-art";
 import { Reveal } from "@/components/reveal";
 import { AutoRefresh } from "@/components/ui/auto-refresh";
-import { getCurrentUser } from "@/lib/auth";
+import { getSession, hasCheckoutCookie } from "@/lib/auth";
+import { maskEmail, orderTargetPath } from "@/lib/auth-utils";
 import { prisma } from "@/lib/db";
 import { isDemoMode } from "@/lib/env";
 import { formatPrice } from "@/lib/money";
@@ -15,19 +16,14 @@ import { capitalize, formatSessionDate } from "@/lib/tz";
 
 export const metadata: Metadata = { title: "Compra completada", robots: { index: false } };
 
-function maskEmail(email: string) {
-  const [u, d] = email.split("@");
-  return `${u.slice(0, 2)}${"•".repeat(Math.max(1, u.length - 2))}@${d}`;
-}
-
-export default async function ThankYouPage({ params, searchParams }: { params: Promise<{ username: string }>; searchParams: Promise<{ pedido?: string; acceso?: string }> }) {
+export default async function ThankYouPage({ params, searchParams }: { params: Promise<{ username: string }>; searchParams: Promise<{ pedido?: string }> }) {
   const { username } = await params;
   const sp = await searchParams;
   const data = await getPublicCreator(username);
   if (!data || !sp.pedido) notFound();
   const order = await prisma.order.findFirst({
     where: { id: sp.pedido, creatorId: data.creator.id },
-    include: { product: true, bookings: true },
+    include: { product: true, bookings: { orderBy: { createdAt: "asc" } }, customer: { select: { userId: true } } },
   });
   if (!order || !["PAID", "PENDING", "PROCESSING", "FAILED"].includes(order.status)) notFound();
   const pending = order.status === "PROCESSING" || (order.status === "PENDING" && !!order.checkoutRef);
@@ -66,21 +62,28 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
         </main>
       </CreatorShell>
     );
-  const user = await getCurrentUser();
-  const signedIn = user?.email === order.buyerEmail;
+  // Ve el botón quien tiene la sesión de este pedido (tras pagar o desde el enlace del email) o la
+  // sesión verificada de la compradora. El navegador que pagó y aún no tiene sesión la abre en
+  // /auth/pedido (claimOrderSession nunca sustituye una sesión de cuenta abierta); cualquier otro
+  // recibe el enlace personal en el recibo.
+  const s = await getSession();
+  const scoped = s?.orderId === order.id;
+  const canSee = scoped || (!!s && !s.orderId && s.verified && s.user.id === order.customer?.userId);
+  const claimable = !canSee && (!s || !!s.orderId) && (await hasCheckoutCookie(order.id));
   const booking = order.bookings[0];
   const reminder = booking?.startAt
     ? await prisma.emailMessage.findFirst({ where: { status: "QUEUED", dedupeKey: { startsWith: `reminder:${booking.id}:` } } })
     : null;
 
-  const next =
+  const label =
     order.productType === "COURSE"
-      ? { href: `/cuenta/cursos/${order.productId}`, label: "Empezar el curso" }
+      ? "Empezar el curso"
       : order.productType === "MEMBERSHIP"
-        ? { href: `/cuenta/membresias/${order.productId}`, label: "Entrar en la comunidad" }
+        ? "Entrar en la comunidad"
         : order.productType === "SESSION" && booking
-          ? { href: `/cuenta/sesiones/${booking.id}`, label: booking.startAt ? "Ver mi reserva" : "Elegir fecha y hora" }
-          : { href: "/cuenta", label: "Acceder a mi contenido" };
+          ? booking.startAt ? "Ver mi reserva" : "Elegir fecha y hora"
+          : "Acceder a mi contenido";
+  const next = { href: canSee ? orderTargetPath(order, booking?.id) : `/auth/pedido/${order.id}`, label };
 
   return (
     <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} back={false}>
@@ -115,17 +118,29 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
           </div>
         )}
 
-        {signedIn ? (
-          <Link href={next.href} className="cp-btn mt-8 h-14 w-full text-base" data-reveal>
-            {next.label} <ArrowRight className="h-4 w-4" />
-          </Link>
+        {canSee || claimable ? (
+          <>
+            {canSee ? (
+              <Link href={next.href} className="cp-btn mt-8 h-14 w-full text-base" data-reveal>
+                {next.label} <ArrowRight className="h-4 w-4" />
+              </Link>
+            ) : (
+              // Navegación completa: /auth/pedido es un route handler que abre la sesión (cookie).
+              <a href={next.href} className="cp-btn mt-8 h-14 w-full text-base" data-reveal>
+                {next.label} <ArrowRight className="h-4 w-4" />
+              </a>
+            )}
+            {(scoped || claimable) && (
+              <p className="cp-muted mt-3 text-xs">Este acceso dura 24 horas en este dispositivo. El enlace del email te servirá después.</p>
+            )}
+          </>
         ) : (
           <div className="cp-card mt-8 p-5 text-left" data-reveal>
             <p className="flex items-center gap-2 font-semibold">
               <Mail className="cp-gold h-4 w-4" /> Revisa tu email
             </p>
             <p className="cp-muted mt-2 text-sm">
-              Hemos enviado a <strong>{maskEmail(order.buyerEmail)}</strong> un enlace para entrar a tu cuenta, sin contraseña.
+              Hemos enviado a <strong>{maskEmail(order.buyerEmail)}</strong> el recibo con un enlace directo a tu compra. No necesitas contraseña.
             </p>
             {isDemoMode() && (
               <Link href="/dev/correo" className="cp-btn mt-4 w-full">

@@ -2,19 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireUser, sendMagicLink } from "@/lib/auth";
+import { requireBuyerFull } from "@/lib/buyer-access";
 import { withdrawOrder } from "@/lib/refunds";
 
 /**
- * «Desistir» de una compra (14 días). Hace falta una sesión verificada: una sesión abierta en un
- * checkout (sin demostrar que el email es suyo) recibe antes un enlace de acceso por email.
+ * «Desistir» de una compra (14 días). Hace falta una sesión verificada (requireBuyerFull): una
+ * sesión limitada a un pedido o sin confirmar el email va antes al login con un enlace.
  */
 export async function withdrawPurchase(form: FormData) {
-  const user = await requireUser("/cuenta/compras");
-  if (!user.sessionVerified) {
-    await sendMagicLink(user.email, "/cuenta/compras");
-    redirect("/cuenta/compras?error=verificar");
-  }
+  const user = await requireBuyerFull("/cuenta/compras");
   const r = await withdrawOrder({ orderId: String(form.get("orderId") ?? ""), userId: user.id, email: user.email });
   revalidatePath("/cuenta", "layout");
   // Solo códigos conocidos en la URL: el texto se elige en la página, nunca se refleja.

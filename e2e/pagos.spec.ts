@@ -50,7 +50,7 @@ test.describe.serial("Pagos", () => {
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
     // La cookie del checkout demuestra que es el mismo navegador: entra sin contraseña.
     await page.getByRole("link", { name: /Acceder a mi contenido/ }).click();
-    await page.waitForURL("**/cuenta");
+    await page.waitForURL("**/cuenta/pedidos/**");
     await expect(page.getByText("Lectura de Astrología").first()).toBeVisible();
   });
 
@@ -140,7 +140,8 @@ test.describe.serial("Pagos", () => {
     const sub = await prisma.subscription.findFirstOrThrow({ where: { userId: lucia.id, status: "ACTIVE" } });
     const access = await prisma.access.findFirstOrThrow({ where: { subscriptionId: sub.id } });
     try {
-      await prisma.user.update({ where: { id: lucia.id }, data: { passwordHash: await hash("demo1234", 10) } });
+      // Con el email confirmado: la contraseña sola no abre el área de cliente de una cuenta sin confirmar.
+      await prisma.user.update({ where: { id: lucia.id }, data: { passwordHash: await hash("demo1234", 10), emailVerifiedAt: new Date() } });
       await prisma.subscription.update({
         where: { id: sub.id },
         data: { status: "PAST_DUE", renewalAttempts: 1, nextRenewalAttemptAt: new Date(Date.now() + 86_400_000), lastRenewalError: "La tarjeta ha sido rechazada." },
@@ -171,7 +172,7 @@ test.describe.serial("Pagos", () => {
         },
       });
       await prisma.access.update({ where: { id: access.id }, data: { expiresAt: access.expiresAt, status: access.status } });
-      await prisma.user.update({ where: { id: lucia.id }, data: { passwordHash: lucia.passwordHash } });
+      await prisma.user.update({ where: { id: lucia.id }, data: { passwordHash: lucia.passwordHash, emailVerifiedAt: lucia.emailVerifiedAt } });
     }
   });
 

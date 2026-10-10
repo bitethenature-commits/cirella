@@ -23,7 +23,7 @@ export default async function DevMailbox({ searchParams }: { searchParams: Promi
   if (!isDemoMode()) notFound();
   const sp = await searchParams;
   const user = await getCurrentUser();
-  if (!user?.isAdmin) return <AdminOnly next={sp.to ? `/dev/correo?${new URLSearchParams({ to: sp.to })}` : "/dev/correo"} />;
+  if (!user?.isAdmin || !user.sessionVerified) return <AdminOnly next={sp.to ? `/dev/correo?${new URLSearchParams({ to: sp.to })}` : "/dev/correo"} />;
   const messages = await prisma.emailMessage.findMany({
     where: sp.to ? { to: sp.to.toLowerCase() } : {},
     orderBy: { createdAt: "desc" },

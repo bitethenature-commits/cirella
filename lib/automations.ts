@@ -1,8 +1,10 @@
+import { orderTargetPath } from "./auth-utils";
 import { prisma } from "./db";
 import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
 import * as T from "./email/templates";
 import { formatPrice } from "./money";
+import { createOrderLink, emailAlreadyQueued, orderLinkNote } from "./order-links";
 import { planFeatures } from "./plans";
 import { formatSessionDate } from "./tz";
 import type { DomainEvent } from "./events";
@@ -25,6 +27,10 @@ export type { DomainEvent } from "./events";
  * `handleAutomation`. Si algo falla, lanza: el outbox reintenta el evento, así que cada acción
  * tiene que ser idempotente (todos los emails llevan dedupeKey). Para otros canales (WhatsApp,
  * webhooks, Zapier) se añade otra acción junto a `enqueueEmail` sin tocar el resto del sistema.
+ *
+ * Los emails de una compra llevan un enlace personal (lib/order-links.ts): abre solo ese pedido
+ * (sesión limitada de 7 días), nunca la cuenta completa. Se crea solo si el email se va a crear de
+ * verdad (dedupeKey libre), para no dejar enlaces que nadie recibe al reprocesar un evento.
  */
 
 export const AUTOMATIONS = {
@@ -65,15 +71,20 @@ export async function handleAutomation(event: DomainEvent) {
   const base = appUrl();
   switch (event.type) {
     case "order.paid": {
-      const order = await prisma.order.findUniqueOrThrow({ where: { id: event.orderId }, include: { product: true } });
+      const order = await prisma.order.findUniqueOrThrow({
+        where: { id: event.orderId },
+        include: { product: true, bookings: { select: { id: true }, orderBy: { createdAt: "asc" } } },
+      });
       const s = await setting(order.creatorId, "PURCHASE_RECEIPT");
       const name = s.creator.displayName;
-      if (s.enabled) {
+      const receiptKey = `receipt:${order.id}`;
+      if (s.enabled && !(await emailAlreadyQueued(receiptKey))) {
+        const link = await createOrderLink({ orderId: order.id, path: orderTargetPath(order, order.bookings[0]?.id) });
         await enqueueEmail({
           to: order.buyerEmail,
           creatorId: order.creatorId,
           template: "PURCHASE_RECEIPT",
-          dedupeKey: `receipt:${order.id}`,
+          dedupeKey: receiptKey,
           ...withCustomSubject(
             T.purchaseReceiptEmail({
               name: order.buyerName,
@@ -81,7 +92,8 @@ export async function handleAutomation(event: DomainEvent) {
               productTitle: order.productTitle,
               amount: formatPrice(order.amountCents, order.currency, order.product.billingInterval),
               orderId: order.id,
-              accountUrl: `${base}/cuenta`,
+              accountUrl: link.url,
+              linkNote: orderLinkNote(link.expiresAt),
               instructions: order.product.instructions,
             }),
             s.subject,
@@ -103,14 +115,20 @@ export async function handleAutomation(event: DomainEvent) {
       });
       if (order.productType === "COURSE") {
         const c = await setting(order.creatorId, "COURSE_ACCESS");
-        if (c.enabled)
+        const courseKey = `course:${order.id}`;
+        if (c.enabled && !(await emailAlreadyQueued(courseKey))) {
+          const link = await createOrderLink({ orderId: order.id, path: `/cuenta/cursos/${order.productId}` });
           await enqueueEmail({
             to: order.buyerEmail,
             creatorId: order.creatorId,
             template: "COURSE_ACCESS",
-            dedupeKey: `course:${order.id}`,
-            ...withCustomSubject(T.courseAccessEmail({ creatorName: name, courseTitle: order.productTitle, url: `${base}/cuenta/cursos/${order.productId}` }), c.subject),
+            dedupeKey: courseKey,
+            ...withCustomSubject(
+              T.courseAccessEmail({ creatorName: name, courseTitle: order.productTitle, url: link.url, linkNote: orderLinkNote(link.expiresAt) }),
+              c.subject,
+            ),
           });
+        }
       }
       return;
     }
@@ -126,7 +144,8 @@ export async function handleAutomation(event: DomainEvent) {
         dedupeKey: `welcome:${customer.id}`,
         sendAt: new Date(Date.now() + s.delayMinutes * 60000),
         ...withCustomSubject(
-          T.welcomeCustomerEmail({ name: customer.name, creatorName: s.creator.displayName, accountUrl: `${base}/cuenta`, message: s.message }),
+          // Sin pedido concreto: el login con su marca (enlace por email, sin contraseña).
+          T.welcomeCustomerEmail({ name: customer.name, creatorName: s.creator.displayName, accountUrl: `${base}/${s.creator.username}/entrar?next=%2Fcuenta`, message: s.message }),
           s.subject,
         ),
       });
@@ -138,38 +157,47 @@ export async function handleAutomation(event: DomainEvent) {
       const s = await setting(b.creatorId, "BOOKING_CONFIRMED");
       const tz = s.creator.timezone;
       const when = b.startAt ? formatSessionDate(b.startAt, tz) : null;
-      const url = `${base}/cuenta/sesiones/${b.id}`;
+      const path = `/cuenta/sesiones/${b.id}`;
+      // Con pedido, enlace personal; una reserva creada a mano (sin pedido) va al login con la marca.
+      const access = async (validFrom?: Date) => {
+        if (!b.orderId) return { url: `${base}/${s.creator.username}/entrar?next=${encodeURIComponent(path)}`, linkNote: undefined };
+        const link = await createOrderLink({ orderId: b.orderId, path, validFrom });
+        return { url: link.url, linkNote: orderLinkNote(link.expiresAt) };
+      };
       // El recordatorio se calcula antes para que la confirmación solo lo prometa si existe.
       const r = await setting(b.creatorId, "SESSION_REMINDER");
       const reminderAt = b.startAt ? new Date(b.startAt.getTime() - r.delayMinutes * 60000) : null;
       const reminderScheduled = !!(b.startAt && r.enabled && reminderAt && reminderAt > new Date());
-      if (s.enabled)
+      const confirmKey = `booking:${b.id}:${b.startAt?.toISOString() ?? "pending"}`;
+      if (s.enabled && !(await emailAlreadyQueued(confirmKey)))
         await enqueueEmail({
           to: b.customer.email,
           creatorId: b.creatorId,
           template: "BOOKING_CONFIRMED",
-          dedupeKey: `booking:${b.id}:${b.startAt?.toISOString() ?? "pending"}`,
+          dedupeKey: confirmKey,
           ...withCustomSubject(
             T.bookingConfirmedEmail({
               creatorName: s.creator.displayName,
               productTitle: b.product.title,
               when,
-              url,
+              ...(await access()),
               meetingUrl: b.meetingUrl,
               reminderMinutes: reminderScheduled ? r.delayMinutes : null,
             }),
             s.subject,
           ),
         });
-      if (reminderScheduled)
+      const reminderKey = reminderScheduled ? `reminder:${b.id}:${b.startAt!.toISOString()}` : null;
+      if (reminderKey && !(await emailAlreadyQueued(reminderKey)))
         await enqueueEmail({
           to: b.customer.email,
           creatorId: b.creatorId,
           template: "SESSION_REMINDER",
-          dedupeKey: `reminder:${b.id}:${b.startAt!.toISOString()}`,
+          dedupeKey: reminderKey,
           sendAt: reminderAt!,
           ...withCustomSubject(
-            T.sessionReminderEmail({ creatorName: s.creator.displayName, productTitle: b.product.title, when: when!, url, meetingUrl: b.meetingUrl }),
+            // El enlace del recordatorio cuenta desde su envío: si la sesión es dentro de semanas, no llega caducado.
+            T.sessionReminderEmail({ creatorName: s.creator.displayName, productTitle: b.product.title, when: when!, ...(await access(reminderAt!)), meetingUrl: b.meetingUrl }),
             r.subject,
           ),
         });

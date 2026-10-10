@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarPlus, CalendarX, Clock, Mail, MessageCircle, Video } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireBuyerFor } from "@/lib/buyer-access";
 import { creatorBrief } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -13,7 +13,7 @@ import { Scheduler } from "./scheduler";
 
 export default async function BookingDetail({ params }: { params: Promise<{ bookingId: string }> }) {
   const { bookingId } = await params;
-  const user = await requireUser(`/cuenta/sesiones/${bookingId}`);
+  const { user, scoped } = await requireBuyerFor({ bookingId }, `/cuenta/sesiones/${bookingId}`);
   const b = await prisma.booking.findFirst({
     where: { id: bookingId, userId: user.id },
     include: { product: true, creator: true, order: { select: { refundedCents: true, currency: true } } },
@@ -23,9 +23,17 @@ export default async function BookingDetail({ params }: { params: Promise<{ book
   const canReschedule = b.status === "CONFIRMED" && b.startAt && b.startAt.getTime() - Date.now() > 24 * 3600_000;
   return (
     <div className="max-w-2xl">
-      <Link href="/cuenta/sesiones" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Mis sesiones
-      </Link>
+      {scoped ? (
+        b.orderId && (
+          <Link href={`/cuenta/pedidos/${b.orderId}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+            <ArrowLeft className="h-4 w-4" /> Tu compra
+          </Link>
+        )
+      ) : (
+        <Link href="/cuenta/sesiones" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+          <ArrowLeft className="h-4 w-4" /> Mis sesiones
+        </Link>
+      )}
       <div className="mt-5 flex items-center gap-4">
         <Thumb src={b.product.imageUrl} emoji={b.product.emoji} className="h-16 w-16" />
         <div>

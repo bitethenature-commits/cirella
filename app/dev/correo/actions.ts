@@ -8,7 +8,7 @@ import { isDemoMode } from "@/lib/env";
 export async function runJobsNow() {
   if (!isDemoMode()) return;
   const user = await getCurrentUser();
-  if (!user?.isAdmin) return;
+  if (!user?.isAdmin || !user.sessionVerified) return;
   await runScheduledJobs();
   revalidatePath("/dev/correo");
 }

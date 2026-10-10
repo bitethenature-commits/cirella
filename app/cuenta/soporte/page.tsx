@@ -1,5 +1,5 @@
 import { LifeBuoy, Mail, MessageCircle } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireBuyerFull } from "@/lib/buyer-access";
 import { creatorBrief } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { socialHref } from "@/lib/page-config";
@@ -13,7 +13,7 @@ const FAQ = [
 ];
 
 export default async function SupportPage() {
-  const user = await requireUser();
+  const user = await requireBuyerFull("/cuenta/soporte");
   const [customers, settings] = await Promise.all([
     prisma.customer.findMany({ where: { userId: user.id }, include: { creator: true } }),
     getSettings(),

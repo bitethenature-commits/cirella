@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ExternalLink, LogOut } from "lucide-react";
+import { VerifyEmailBanner } from "@/components/auth/verify-email-banner";
 import { Logo } from "@/components/logo";
 import { Avatar } from "@/components/creator-page/product-art";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -55,7 +56,10 @@ export default async function PanelLayout({ children }: { children: React.ReactN
             </div>
           </div>
         </header>
-        <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 lg:pb-16 lg:pt-8">{children}</main>
+        <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 lg:pb-16 lg:pt-8">
+          <VerifyEmailBanner />
+          {children}
+        </main>
       </div>
       <BottomNav />
     </div>

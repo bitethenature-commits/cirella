@@ -84,7 +84,7 @@ Contraseña de todas: `demo1234`. También hay botones de acceso rápido en **/e
 ### Recorrido sugerido
 
 1. **`/`** · landing con precios leídos de la BD y una demo en vivo de Ana.
-2. **`/ana`** · página pública (plantilla Mystical) → un producto → **checkout** (tarjeta `4242…`; `4000 0000 0000 0002` simula un rechazo y `4000 0027 6000 3184` la confirmación en la app del banco, con «El banco tarda» para ver el pago pendiente) → «Compra completada» → **`/cuenta`**.
+2. **`/ana`** · página pública (plantilla Mystical) → un producto → **checkout** (tarjeta `4242…`; `4000 0000 0000 0002` simula un rechazo y `4000 0027 6000 3184` la confirmación en la app del banco, con «El banco tarda» para ver el pago pendiente) → «Compra completada» → **«Tu compra»** (`/cuenta/pedidos/…`, solo ese pedido; para ver todas las compras se entra con un enlace al email).
 3. **`/registro`** · crea una creadora nueva: onboarding de 10 pasos → «Tu página está lista».
 4. **`/panel`** (como Ana) · métricas «Este mes / Últimos 30 días / Total», editor visual con vista previa en vivo, productos por tipo, reservas, automatizaciones, plan, referidos.
 5. **`/admin`** · todo lo de la plataforma: planes editables, comisiones, bloqueos, reportes CSV.
@@ -100,11 +100,11 @@ El flujo **Instagram → página → producto → pago → entrega → clienta r
 
 | Área | Estado |
 |---|---|
-| Landing, registro, login con contraseña o enlace mágico | ✅ |
+| Landing, registro, login con contraseña o enlace mágico (con pantalla «Entrar» y la marca de la creadora), «Confirma tu email» | ✅ |
 | Onboarding de 10 pasos + «Tu página está lista» con copiar / Instagram / WhatsApp / Telegram / ver página | ✅ |
 | Página pública mobile-first con 5 plantillas, secciones activables y ordenables, SEO, Open Graph y favicon por creadora, Schema.org | ✅ |
 | Productos: digital (archivos privados), sesión (duración, margen, antelación), curso (módulos y lecciones de vídeo, audio, PDF, texto o ejercicio), membresía (contenido privado) | ✅ |
-| Checkout sin cuenta previa, cuenta automática o enlace mágico tras pagar | ✅ |
+| Checkout sin cuenta previa: acceso inmediato a esa compra en el navegador que pagó y enlace personal en el recibo | ✅ |
 | Cobros con Stripe Connect Express (Checkout alojado, cargos de destino, confirmación del banco y pago pendiente, tarjeta guardada para renovar membresías, contracargos) y verificación de la cuenta de cobro de cada creadora | ✅ (simulador en la demo; ver [docs/pagos-stripe.md](docs/pagos-stripe.md)) |
 | DAC7: datos fiscales de las creadoras, recordatorios, informe trimestral y CSV del modelo 238 | ✅ (criterios por confirmar con la asesoría) |
 | Área de cliente: compras, cursos con progreso, sesiones (elegir / cambiar fecha, .ics), membresías (cancelar / reactivar), archivos, perfil, soporte | ✅ |
@@ -136,7 +136,8 @@ El flujo **Instagram → página → producto → pago → entrega → clienta r
 ```
 app/
   page.tsx                 landing
-  (auth)/registro, entrar  autenticación
+  (auth)/registro, entrar  autenticación («Crea tu contraseña» en (auth)/contrasena)
+  auth/                    enlace mágico (magic), enlaces personales (enlace), acceso tras pagar (pedido)
   onboarding/              asistente de 10 pasos y «Tu página está lista»
   [username]/              página pública, producto, checkout, gracias, OG image, favicon
   panel/                   panel de la creadora (tenant)
@@ -149,6 +150,8 @@ components/
   creator-page/            renderizador de la página pública (también usado en la vista previa del editor)
 lib/
   tenant.ts                aislamiento multi-tenant
+  auth.ts, buyer-access.ts sesiones, verificación del email y guardas del área de cliente
+  magic-links.ts, order-links.ts  enlaces mágicos y enlaces personales de los emails
   orders.ts                checkout y entrega automática
   payments/                pasarelas (simulada y Stripe Connect), avisos de la pasarela (events.ts) y reintentos de renovación
   payouts.ts               cuenta de cobro de cada creadora: estado, requisitos de Stripe y avisos
@@ -169,13 +172,27 @@ prisma/
   seed.ts                  datos de demostración
 ```
 
+### Acceso a la cuenta
+
+Nadie entra en la cuenta de otra persona solo por conocer su email:
+
+- **Email confirmado.** `User.emailVerifiedAt` se fija la primera vez que alguien demuestra que el email es suyo (enlace mágico o «Sí, he sido yo» en el email «Confirma tu email» que llega tras darse de alta con contraseña). Una sesión es **verificada** solo si se abrió con un enlace mágico o con contraseña sobre un email ya confirmado, y solo las verificadas abren el área de cliente completa y `/admin`. El alta con contraseña entra directa al onboarding (no frena la conversión) y el panel muestra «Confirma tu email» hasta que se confirma.
+- **Recuperación.** La primera prueba de propiedad (o «No he sido yo») borra la contraseña creada sin esa prueba y todas las sesiones, y pide crear una nueva en `/contrasena`. Así, quien registre antes el email de una futura clienta pierde el acceso en cuanto ella abre un enlace.
+- **Enlace mágico en dos pasos.** `/auth/magic` solo enseña el botón «Entrar» (los antivirus del correo abren los enlaces con GET y ya no los gastan); el POST lo gasta de forma atómica. Dura 1 hora (72 h el de «Confirma tu email»), lleva la marca de la creadora si se pidió desde su página y la página no envía `Referer`.
+- **Sesiones limitadas a un pedido** (`Session.orderId`). Al pagar, el navegador que hizo el pedido (cookie httpOnly `cirella_compra` con el hash en `Order.claimTokenHash`) recibe una sesión de 24 h que solo abre esa compra: su producto, sus archivos y su reserva. También al volver de la pasarela o del banco (`claimOrderSession`). Nunca sustituye una sesión de cuenta abierta ni abre `/cuenta` completa, `/panel`, `/onboarding` ni `/admin`.
+- **Enlaces personales** (`OrderLink`, `lib/order-links.ts`) en el recibo, el acceso al curso, la confirmación y el recordatorio de la sesión y la propuesta de otra fecha: llevan directos a la compra sin contraseña, sirven varias veces durante 14 días (el del recordatorio cuenta desde su envío) y abren una sesión limitada de 7 días. Nunca confirman el email. Al reembolsar con retirada de acceso se revocan junto con las sesiones del pedido; caducados, llevan al login con la marca de la creadora.
+- **Login con marca** en `/[username]/entrar` (solo enlace por email). `/entrar` pasa a modo clienta cuando el destino es `/cuenta` y, si la ruta dice de qué creadora es, redirige a su login. Si el navegador ya tiene otra cuenta abierta, `/auth/enlace/cambiar` pregunta antes de cambiar.
+- Las guardas viven en `lib/buyer-access.ts` (`requireBuyerFull`, `requireBuyerFor`, `checkProductAccess`) y el cron borra las sesiones, enlaces mágicos y enlaces personales caducados.
+
+Plazos propuestos (pendientes de confirmar): enlace mágico 60 min, «Confirma tu email» 72 h, enlace personal 14 días, sesión del enlace personal 7 días y sesión tras comprar 24 h.
+
 ### Multi-tenant
 
 Base de datos compartida con columna `creatorId` en **todas** las tablas de negocio (productos, archivos, lecciones, clientes, pedidos, transacciones, accesos, reservas, suscripciones, analytics, automatizaciones, emails), siempre indexada.
 
 - **`tenantDb(creatorId)`** (`lib/tenant.ts`) es un cliente Prisma extendido que inyecta `creatorId` en el `where` de cada lectura, actualización, borrado, conteo y agregado, y en el `data` de cada creación. Todo el panel usa este cliente: aunque llegue un id manipulado (un producto de María en una petición de Ana) la consulta no encuentra nada.
 - La identidad es global (`User`) y la relación comercial vive en `Customer`, una fila por cada par creadora–compradora. Si Carmen compra a Ana y a María, cada una ve solo su propia ficha de Carmen.
-- El contenido de pago solo se sirve a través de `/api/download/[id]`, que comprueba un `Access` vigente o la propiedad del archivo.
+- El contenido de pago solo se sirve a través de `/api/download/[id]`, que comprueba un `Access` vigente (con una sesión verificada o limitada a ese producto) o la propiedad del archivo.
 - `npm run test:isolation` comprueba lecturas, agregados, actualizaciones, borrados y creaciones cruzadas. La prueba e2e lo verifica también por HTTP: 404 en el panel y 403 en las descargas ajenas.
 
 ### Monetización configurable
@@ -233,14 +250,15 @@ npm run test:concurrency        # dos compras simultáneas del mismo hueco → u
 npm run test:reliability        # reintentos de emails, outbox de eventos, cerrojo del cron, renovaciones idempotentes, vigilante
 npm run test:payments           # entrega única ante avisos repetidos, guardián de importe, renovaciones fallidas, cuenta de cobro y DAC7
 npm run test:refunds            # reembolsos (a la vez, pendientes, fallidos, avisos de la pasarela), desistimiento y cambios de reserva
+npm run test:access             # enlaces mágicos (un solo uso, recuperación de la cuenta, «Sí/No he sido yo»), enlaces personales y limpieza
 npm run test:seed-guard         # el seed no borra BD reales; datos base idempotentes; admin:promote
 npm run build && npm run test:startup   # `next start` no arranca con una configuración de producción insegura
 npm run build && npm run test:e2e   # flujo completo en un iPhone simulado
 ```
 
-Las pruebas de aislamiento, concurrencia, fiabilidad, pagos, reembolsos y e2e usan el Postgres de `.env` con la demo sembrada (`npm run db:reset`). `test:seed-guard` crea y borra su propia base de datos (`cirella_guardtest`) en ese mismo Postgres. Playwright arranca `next start` con `APP_ENV=test`, modo demo y pagos simulados.
+Las pruebas de aislamiento, concurrencia, fiabilidad, pagos, reembolsos, acceso y e2e usan el Postgres de `.env` con la demo sembrada (`npm run db:reset`). `test:seed-guard` crea y borra su propia base de datos (`cirella_guardtest`) en ese mismo Postgres. Playwright arranca `next start` con `APP_ENV=test`, modo demo y pagos simulados.
 
-La prueba e2e recorre: landing → registro → onboarding de 10 pasos → publicar → compra como invitada → cuenta creada automáticamente → la venta aparece en el panel → la clienta de demo ve su curso al 43 %, su sesión y su PDF → Ana no puede abrir datos ni archivos de María. También cubre casos que fallaron en la revisión: registrarse con el email de otra compradora no da acceso a su cuenta, el menú «Más» del panel móvil, no pagar dos veces la misma membresía y reintentar un pago rechazado cambiando de hora. `e2e/entorno-demo.spec.ts` comprueba que el buzón `/dev/correo` solo lo ve la administradora, `e2e/infra.spec.ts` la subida directa, las imágenes WebP sin EXIF, las descargas firmadas, las cabeceras de seguridad y el peso de la página pública, `e2e/pagos.spec.ts` la confirmación en el banco (3DS), el pago pendiente, cancelar y reintentar, los estados de la cuenta de cobro, «Pagar ahora» de una renovación y los datos e informe de DAC7, `e2e/reembolsos.spec.ts` cancelar y reembolsar una sesión (con y sin aceptar la confirmación), proponer otra fecha, un reembolso parcial y el desistimiento de una clienta, y `e2e/fiabilidad.spec.ts` que un fallo del email no rompe la compra, que el envío aparece en el panel y en `/admin/envios` (reintentar y descartar), las páginas de error y 404 con la marca de la creadora y `/api/health`. Si Playwright no encuentra Chromium, indica la ruta con `PW_CHROMIUM_PATH`.
+La prueba e2e recorre: landing → registro → onboarding de 10 pasos → publicar → compra como invitada → «Tu compra» (solo ese pedido) → la venta aparece en el panel → la clienta de demo ve su curso al 43 %, su sesión y su PDF → Ana no puede abrir datos ni archivos de María. También cubre casos que fallaron en la revisión: registrarse con el email de otra compradora no da acceso a su cuenta, el menú «Más» del panel móvil, no pagar dos veces la misma membresía y reintentar un pago rechazado cambiando de hora. `e2e/entorno-demo.spec.ts` comprueba que el buzón `/dev/correo` solo lo ve la administradora, `e2e/infra.spec.ts` la subida directa, las imágenes WebP sin EXIF, las descargas firmadas, las cabeceras de seguridad y el peso de la página pública, `e2e/pagos.spec.ts` la confirmación en el banco (3DS), el pago pendiente, cancelar y reintentar, los estados de la cuenta de cobro, «Pagar ahora» de una renovación y los datos e informe de DAC7, `e2e/reembolsos.spec.ts` cancelar y reembolsar una sesión (con y sin aceptar la confirmación), proponer otra fecha, un reembolso parcial y el desistimiento de una clienta, y `e2e/fiabilidad.spec.ts` que un fallo del email no rompe la compra, que el envío aparece en el panel y en `/admin/envios` (reintentar y descartar), las páginas de error y 404 con la marca de la creadora y `/api/health`, y `e2e/acceso-cuenta.spec.ts` que la sesión de una compra solo abre ese pedido, que un GET no gasta el enlace mágico, el enlace personal del recibo (y su caducidad con marca), el login con la marca de la creadora, «Crea tu contraseña», «No he sido yo» / «Sí, he sido yo», que cambiar la contraseña cierra las demás sesiones y el aviso de enlace de otra cuenta. Si Playwright no encuentra Chromium, indica la ruta con `PW_CHROMIUM_PATH`.
 
 ---
 

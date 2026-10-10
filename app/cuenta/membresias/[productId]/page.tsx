@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { AlertTriangle, ArrowLeft, CalendarDays, Headphones, PenLine } from "lucide-react";
 import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { requireUser } from "@/lib/auth";
+import { requireBuyerFor } from "@/lib/buyer-access";
 import { creatorBrief, hasAccess } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { formatPrice } from "@/lib/money";
@@ -24,7 +24,7 @@ export default async function MembershipFeed({
 }) {
   const { productId } = await params;
   const sp = await searchParams;
-  const user = await requireUser(`/cuenta/membresias/${productId}`);
+  const { user, scoped } = await requireBuyerFor({ productId }, `/cuenta/membresias/${productId}`);
   const sub = await prisma.subscription.findFirst({
     where: { userId: user.id, productId, status: { in: ["ACTIVE", "PAST_DUE"] } },
     orderBy: { createdAt: "desc" },
@@ -40,9 +40,11 @@ export default async function MembershipFeed({
   const c = creatorBrief(product.creator);
   return (
     <div className="max-w-2xl">
-      <Link href="/cuenta/membresias" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Mis membresías
-      </Link>
+      {!scoped && (
+        <Link href="/cuenta/membresias" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+          <ArrowLeft className="h-4 w-4" /> Mis membresías
+        </Link>
+      )}
       <div className="relative mt-5 overflow-hidden rounded-3xl bg-ink p-7 text-cream">
         {product.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -105,12 +107,16 @@ export default async function MembershipFeed({
               ? `cancelada: mantienes el acceso hasta el ${shortDate(sub.currentPeriodEnd)}`
               : `próxima renovación el ${shortDate(sub.currentPeriodEnd)}`}
           </p>
-          <form action={sub.cancelAtPeriodEnd ? resumeMembership : cancelMembership} className="mt-4">
-            <input type="hidden" name="subscriptionId" value={sub.id} />
-            <SubmitButton className={`btn btn-sm ${sub.cancelAtPeriodEnd ? "btn-primary" : "btn-danger"}`}>
-              {sub.cancelAtPeriodEnd ? "Reactivar suscripción" : "Cancelar suscripción"}
-            </SubmitButton>
-          </form>
+          {scoped ? (
+            <p className="mt-3 text-sm text-muted">Para gestionar tu suscripción, entra con el enlace de tu email.</p>
+          ) : (
+            <form action={sub.cancelAtPeriodEnd ? resumeMembership : cancelMembership} className="mt-4">
+              <input type="hidden" name="subscriptionId" value={sub.id} />
+              <SubmitButton className={`btn btn-sm ${sub.cancelAtPeriodEnd ? "btn-primary" : "btn-danger"}`}>
+                {sub.cancelAtPeriodEnd ? "Reactivar suscripción" : "Cancelar suscripción"}
+              </SubmitButton>
+            </form>
+          )}
         </div>
       )}
       <div className="mt-4"><CreatorTag name={c.displayName} avatarUrl={c.avatarUrl} /></div>

@@ -187,7 +187,7 @@ export function CreatorPageView(props: Props) {
           @{username}
         </span>
         <Link
-          href="/cuenta"
+          href={`/${username}/entrar?next=%2Fcuenta`}
           className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium"
           style={{ background: "color-mix(in oklab, var(--c-bg) 55%, transparent)", backdropFilter: "blur(10px)" }}
         >
@@ -260,7 +260,7 @@ export function CreatorPageView(props: Props) {
         {config.sections.filter((s) => s.enabled && s.key !== "links").map((s) => renderSection(s.key))}
 
         <footer className="mt-20 flex flex-col items-center gap-4 text-center text-xs">
-          <Link href="/cuenta" className="cp-muted underline-offset-4 hover:underline">
+          <Link href={`/${username}/entrar?next=%2Fcuenta`} className="cp-muted underline-offset-4 hover:underline">
             ¿Ya compraste? Accede a tu área de cliente
           </Link>
           {props.showPoweredBy && (

@@ -7,6 +7,7 @@ import { enqueueEmail } from "./email/outbox";
 import * as RT from "./email/refund-templates";
 import { dispatchEvents, recordEvents } from "./events";
 import { formatMoney } from "./money";
+import { revokeOrderAccess } from "./order-links";
 import { captureAlert, captureError } from "./monitoring";
 import { paymentProviderByKey, type PaymentProvider } from "./payments";
 import type { RefundUpdateStatus } from "./payments/provider";
@@ -217,6 +218,8 @@ async function applyEffects(refund: Refund) {
     }
     return ids;
   });
+  // Sin acceso al contenido, tampoco valen los enlaces personales ni las sesiones limitadas al pedido.
+  if (refund.revokeAccess) await revokeOrderAccess(order.id);
   await dispatchEvents(eventIds);
   return cancelled;
 }

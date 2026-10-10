@@ -16,6 +16,6 @@ export async function demoSignIn(form: FormData): Promise<never> {
   const next = safeNext(String(form.get("next") ?? ""), "");
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) redirect("/entrar?error=demo");
-  await createSession(user.id);
+  await createSession(user.id, { verified: true });
   redirect(next || (await homeFor(user.id)));
 }

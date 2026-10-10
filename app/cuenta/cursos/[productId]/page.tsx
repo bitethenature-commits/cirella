@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, Circle, Download, FileText, Headphones, PlayCircle, Sparkles } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireBuyerFor } from "@/lib/buyer-access";
 import { creatorBrief, hasAccess } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { LESSON_KIND_LABEL, type LessonKind } from "@/lib/types";
@@ -21,8 +21,7 @@ function embedUrl(url: string) {
 export default async function CoursePlayer({ params, searchParams }: { params: Promise<{ productId: string }>; searchParams: Promise<{ leccion?: string }> }) {
   const { productId } = await params;
   const { leccion } = await searchParams;
-  const user = await requireUser(`/cuenta/cursos/${productId}`);
-  const isOwner = !!user.creator && (await prisma.product.count({ where: { id: productId, creatorId: user.creator.id } })) > 0;
+  const { user, isOwner, scoped } = await requireBuyerFor({ productId }, `/cuenta/cursos/${productId}`);
   if (!isOwner && !(await hasAccess(user.id, productId))) redirect("/cuenta/cursos");
 
   const course = await prisma.product.findUnique({
@@ -45,9 +44,11 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
 
   return (
     <div>
-      <Link href="/cuenta/cursos" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Mis cursos
-      </Link>
+      {!scoped && (
+        <Link href="/cuenta/cursos" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+          <ArrowLeft className="h-4 w-4" /> Mis cursos
+        </Link>
+      )}
       <div className="mt-4 flex flex-col gap-1">
         <CreatorTag name={creator.displayName} avatarUrl={creator.avatarUrl} />
         <h1 className="display text-[2.2rem] leading-tight sm:text-[2.8rem]">{course.title}</h1>

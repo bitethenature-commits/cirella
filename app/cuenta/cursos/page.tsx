@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty";
-import { requireUser } from "@/lib/auth";
+import { requireBuyerFull } from "@/lib/buyer-access";
 import { getCustomerLibrary } from "@/lib/customer";
 import { CreatorTag, Progress } from "../ui";
 
 export default async function MyCourses() {
-  const user = await requireUser();
+  const user = await requireBuyerFull("/cuenta/cursos");
   const { courses } = await getCustomerLibrary(user.id);
   return (
     <div>
