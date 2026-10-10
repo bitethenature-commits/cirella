@@ -33,6 +33,17 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
             <label className="text-sm">Meses de descuento de comisión<input name="referralDiscountMonths" defaultValue={s.referralDiscountMonths} inputMode="numeric" className="input mt-1.5" /></label>
           </div>
         </fieldset>
+        <fieldset className="space-y-3 rounded-2xl border border-line p-4">
+          <legend className="px-1 text-sm font-semibold">Datos legales de la plataforma</legend>
+          <p className="text-xs text-muted">Aparecen en /aviso-legal, /privacidad y /terminos.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-sm">Razón social<input name="legalCompanyName" defaultValue={s.legalCompanyName} maxLength={200} className="input mt-1.5" /></label>
+            <label className="text-sm">NIF/CIF<input name="legalTaxId" defaultValue={s.legalTaxId} maxLength={200} className="input mt-1.5" /></label>
+          </div>
+          <label className="block text-sm">Domicilio social<input name="legalAddress" defaultValue={s.legalAddress} maxLength={400} className="input mt-1.5" /></label>
+          <label className="block text-sm">Datos registrales (Registro Mercantil…)<input name="legalRegistry" defaultValue={s.legalRegistry} maxLength={200} className="input mt-1.5" /></label>
+          <label className="block text-sm">Email de privacidad<input name="privacyEmail" type="email" defaultValue={s.privacyEmail} maxLength={200} className="input mt-1.5" placeholder={s.supportEmail} /></label>
+        </fieldset>
         <SubmitButton>Guardar ajustes</SubmitButton>
       </form>
     </div>

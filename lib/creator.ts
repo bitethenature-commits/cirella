@@ -24,7 +24,14 @@ async function uniqueReferralCode(base: string) {
 }
 
 /** Crea el espacio (tenant) de una creadora con plan por defecto y disponibilidad inicial. */
-export async function createCreatorSpace(input: { userId: string; username: string; displayName: string; referralCode?: string | null }) {
+export async function createCreatorSpace(input: {
+  userId: string;
+  username: string;
+  displayName: string;
+  referralCode?: string | null;
+  /** Versión de los Términos del servicio que acepta al crear la página (lib/legal.ts). */
+  termsVersion?: string;
+}) {
   const plan = (await prisma.plan.findFirst({ where: { isDefault: true, active: true } })) ?? (await prisma.plan.findFirstOrThrow({ orderBy: { sortOrder: "asc" } }));
   const page = defaultPageConfig({ displayName: input.displayName });
   const creator = await prisma.creator.create({
@@ -35,6 +42,7 @@ export async function createCreatorSpace(input: { userId: string; username: stri
       planId: plan.id,
       pageDraft: page as unknown as Prisma.InputJsonValue,
       referralCode: await uniqueReferralCode(input.username),
+      ...(input.termsVersion ? { termsAcceptedAt: new Date(), termsVersion: input.termsVersion } : {}),
     },
   });
   // Disponibilidad por defecto: L–V 10:00–14:00 y 16:00–19:00 (editable en Reservas)

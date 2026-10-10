@@ -3,6 +3,8 @@
  * HTML sencillo con estilos en línea (compatibles con clientes de correo).
  */
 
+import { legalTextToPlain } from "../legal-templates";
+
 const PLATFORM = "Cirella";
 
 /** Escapa texto para HTML. Todo lo que escribe una persona (nombres, mensajes) pasa por aquí. */
@@ -92,7 +94,29 @@ export function purchaseReceiptEmail(o: {
   accountUrl: string;
   instructions?: string | null;
   linkNote?: string;
+  /** Quién vende (LSSI art. 10): «Nombre · NIF …», domicilio y email. */
+  seller?: { line: string; address: string; email: string };
+  /** Casilla de renuncia al desistimiento que marcó, con su fecha (TRLGDCU art. 98.7). */
+  waiver?: { text: string; at: string };
+  changePolicy?: string | null;
+  /** Versión exacta de las condiciones aceptadas (/{usuario}/legal?v=…). */
+  legalUrl?: string;
+  /** Copia de las condiciones en soporte duradero, al final del email (texto plano). */
+  conditions?: { terms: string; refunds: string };
 }) {
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE;vertical-align:top">${label}</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE">${value}</td></tr>`;
+  const legal =
+    (o.waiver ? p(`<span style="font-size:13px">El ${esc(o.waiver.at)} marcaste: «${esc(o.waiver.text)}»</span>`) : "") +
+    (o.changePolicy ? p(`<span style="font-size:13px">${esc(o.changePolicy)}</span>`) : "") +
+    (o.legalUrl
+      ? p(`<span style="font-size:13px">Condiciones aceptadas: <a href="${esc(o.legalUrl)}" style="color:#3B3950">ver la versión que aceptaste</a></span>`)
+      : "");
+  const appendix = o.conditions
+    ? `<div style="font-size:11px;line-height:1.5;color:#8A8698;white-space:pre-wrap;border-top:1px solid #EEE;margin-top:24px;padding-top:12px">${esc(
+        `CONDICIONES DE VENTA\n\n${legalTextToPlain(o.conditions.terms)}\n\nCAMBIOS Y REEMBOLSOS\n\n${legalTextToPlain(o.conditions.refunds)}`,
+      )}</div>`
+    : "";
   return {
     subject: `Compra confirmada: ${o.productTitle}`,
     html: layout({
@@ -104,11 +128,12 @@ export function purchaseReceiptEmail(o: {
           <tr><td style="padding:8px 0;color:#8A8698">Producto</td><td style="padding:8px 0;text-align:right">${esc(o.productTitle)}</td></tr>
           <tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE">Total</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE"><strong>${esc(o.amount)}</strong></td></tr>
           <tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE">Pedido</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE;font-family:monospace;font-size:12px">${esc(o.orderId.slice(-10).toUpperCase())}</td></tr>
+          ${o.seller ? row("Vende", [o.seller.line, o.seller.address, o.seller.email].filter(Boolean).map(esc).join("<br>")) : ""}
         </table>` +
         p("Pulsa el botón para abrir tu compra. No necesitas contraseña.") +
         (o.instructions ? p(`<em>${esc(o.instructions)}</em>`) : ""),
       cta: { label: "Acceder a mi contenido", url: o.accountUrl },
-      afterCta: note(o.linkNote),
+      afterCta: note(o.linkNote) + legal + appendix,
     }),
   };
 }

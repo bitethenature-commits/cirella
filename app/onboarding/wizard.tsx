@@ -1,10 +1,13 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, Check, CreditCard, Loader2, Lock, ShieldCheck, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CreatorPageView, type PublicProduct } from "@/components/creator-page/creator-page-view";
 import { TemplatePreview } from "@/components/template-preview";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { saveLegalIdentity } from "@/app/panel/ajustes/legal/actions";
+import { LegalIdentityFields } from "@/app/panel/ajustes/legal/legal-identity-fields";
+import type { LegalIdentity } from "@/lib/legal";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import type { PageConfig } from "@/lib/page-config";
 import type { PayoutView } from "@/lib/payouts";
@@ -38,6 +41,10 @@ export type WizardInit = {
   payout: PayoutView;
   demo: boolean;
   creatorId: string | null;
+  /** Ya aceptó los Términos del servicio (paso 2). */
+  termsAccepted: boolean;
+  /** Identidad legal de quien vende: obligatoria antes de conectar la cuenta de cobro (paso 9). */
+  legal: { defaults: Partial<LegalIdentity>; contactFallback: string; complete: boolean };
 };
 
 const TOTAL = 10;
@@ -55,6 +62,8 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
   const payoutActive = payout.status === "ACTIVE";
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [acceptTerms, setAcceptTerms] = useState(init.termsAccepted);
+  const legalForm = useRef<HTMLFormElement>(null);
 
   // Comprobación de disponibilidad del nombre de usuario (con retardo)
   useEffect(() => {
@@ -80,7 +89,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
   const next = () => {
     switch (step) {
       case 2:
-        return run(() => saveUsername(username), (d) => setUsername(String(d?.username ?? username)));
+        return run(() => saveUsername(username, acceptTerms), (d) => setUsername(String(d?.username ?? username)));
       case 3:
         return run(() => saveAvatar(cfg.avatarUrl));
       case 4:
@@ -118,7 +127,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
   };
 
   const canContinue =
-    (step === 2 && usernameStatus?.ok) ||
+    (step === 2 && usernameStatus?.ok && acceptTerms) ||
     step === 3 ||
     (step === 4 && cfg.displayName.trim().length > 0) ||
     (step === 5 && !!categoryId) ||
@@ -216,6 +225,16 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                 </label>
                 {usernameStatus && !usernameStatus.ok && <p className="mt-2 text-sm text-rose">{usernameStatus.msg}</p>}
                 <p className="mt-3 text-xs text-muted">Usa el mismo nombre que en Instagram para que te encuentren fácilmente.</p>
+                <label className="mt-6 flex min-h-11 cursor-pointer items-start gap-3 rounded-2xl border border-line bg-white p-4 text-sm leading-relaxed">
+                  <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-ink" />
+                  <span>
+                    Acepto los{" "}
+                    <a href="/terminos" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Términos del servicio</a> y el{" "}
+                    <a href="/terminos#encargo" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Encargo de tratamiento de datos</a> de
+                    Cirella y he leído la{" "}
+                    <a href="/privacidad" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Política de privacidad</a>.
+                  </span>
+                </label>
               </Step>
             )}
 
@@ -392,7 +411,14 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
             )}
 
             {step === 9 && (
-              <Step title="Conecta tu cuenta de cobro" text="El dinero de tus ventas llega directamente a tu banco.">
+              <Step title="Datos de cobro" text="La ley exige mostrar quién vende. Estos datos aparecerán en tu aviso legal y en los recibos.">
+                {/* Datos legales (lib/legal.ts): sin ellos no se puede conectar la cuenta de cobro. */}
+                {!payoutActive && payout.cta && (
+                  <form ref={legalForm} onSubmit={(e) => e.preventDefault()} className="card mb-4 p-6">
+                    <p className="mb-4 font-semibold">Quién vende</p>
+                    <LegalIdentityFields defaults={init.legal.defaults} contactFallback={init.legal.contactFallback} />
+                  </form>
+                )}
                 <div className="card p-6">
                   <div className="flex items-center gap-3">
                     <div className="grid h-11 w-11 place-items-center rounded-full bg-ink text-cream">
@@ -427,6 +453,15 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                       onClick={() =>
                         start(async () => {
                           setError(null);
+                          const form = legalForm.current;
+                          if (form) {
+                            if (!form.checkValidity()) {
+                              form.reportValidity();
+                              return setError("Completa tus datos legales para activar los cobros");
+                            }
+                            const saved = await saveLegalIdentity(new FormData(form));
+                            if (!saved.ok) return setError(saved.error);
+                          }
                           const r = await connectPayments();
                           if (!r.ok) return setError(r.error);
                           if (typeof r.data?.url === "string") window.location.href = r.data.url;

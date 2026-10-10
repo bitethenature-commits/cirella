@@ -180,6 +180,9 @@ async function main() {
       payoutProvider: "simulated",
       payoutAccountId: accountId,
       payoutStatus: "PENDING",
+      // Identidad legal completa (sin ella no se vende); los datos de DAC7 siguen sin completar.
+      legalName: "Creadora de Prueba", legalTaxId: "12345678Z", legalAddress: "Calle de Prueba 1", legalPostalCode: "28001",
+      legalCity: "Madrid", legalEmail: email("legal"),
     },
   });
   created.creatorId = creator.id;

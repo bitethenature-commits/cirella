@@ -40,10 +40,17 @@ async function lastEmailLink(to: string, template: string, label: string, since:
   return { url: href.replace(/&amp;/g, "&"), html: m.html };
 }
 
+/** Casillas obligatorias del checkout: condiciones de venta y renuncia al desistimiento. */
+async function acceptConsents(page: Page) {
+  await page.getByLabel(/He leído y acepto/).check();
+  await page.getByLabel(/Quiero acceder ya|Solicito que la sesión/).check();
+}
+
 async function buy(page: Page, path: string, name: string, email: string) {
   await page.goto(path);
   await page.fill("#name", name);
   await page.fill("#email", email);
+  await acceptConsents(page);
   await page.getByRole("button", { name: /Pagar/ }).click();
   await page.waitForURL("**/gracias**");
   await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();

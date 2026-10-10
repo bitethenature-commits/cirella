@@ -16,11 +16,18 @@ async function demoLogin(page: Page, label: string) {
   await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
 }
 
+/** Casillas obligatorias del checkout: condiciones de venta y renuncia al desistimiento. */
+async function acceptConsents(page: Page) {
+  await page.getByLabel(/He leído y acepto/).check();
+  await page.getByLabel(/Quiero acceder ya|Solicito que la sesión/).check();
+}
+
 test.describe.serial("Fiabilidad", () => {
   test("una compra se completa aunque el email del recibo falle", async ({ page }) => {
     await page.goto("/ana/gene-keys/checkout");
     await page.fill("#name", "Paula Fallo");
     await page.fill("#email", buyerEmail);
+    await acceptConsents(page);
     await page.getByRole("button", { name: /Pagar/ }).click();
     await page.waitForURL("**/ana/gracias**");
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();

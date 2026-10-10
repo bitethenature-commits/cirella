@@ -14,6 +14,7 @@ import { yearOf } from "../lib/dac7";
 import { dac7ForCreator, dac7Report } from "../lib/dac7-data";
 import { createPendingOrder } from "../lib/orders";
 import { cancelBooking, requestReschedule } from "../lib/booking-changes";
+import { ensureLegalSnapshot, getLegalSnapshot } from "../lib/legal-snapshot";
 import { createOrderLink, resolveOrderLink, revokeOrderAccess } from "../lib/order-links";
 import { applyPaymentUpdate } from "../lib/payments/events";
 import type { PaymentProvider } from "../lib/payments/provider";
@@ -112,6 +113,7 @@ async function main() {
     await prisma.legalSnapshot.delete({ where: { id: snapshot.id } });
   }
 
+  await legalIsolation(ana, maria);
   await paymentsIsolation(ana, maria);
   await refundsIsolation(ana, maria);
   await buyerScopeIsolation(ana, maria);
@@ -121,6 +123,30 @@ async function main() {
 }
 
 type CreatorRow = Awaited<ReturnType<typeof prisma.creator.findUniqueOrThrow>>;
+
+/** Condiciones aceptadas (LegalSnapshot): /ana/legal?v={id de María} nunca enseña los textos de María. */
+async function legalIsolation(ana: CreatorRow, maria: CreatorRow) {
+  const before = new Set((await prisma.legalSnapshot.findMany({ where: { creatorId: { in: [ana.id, maria.id] } }, select: { id: true } })).map((r) => r.id));
+  const mariaSnap = await ensureLegalSnapshot(maria.id);
+  const again = await ensureLegalSnapshot(maria.id);
+  const db = tenantDb(ana.id);
+  let forgedId: string | null = null;
+  try {
+    check("condiciones sin cambios: se reutiliza la misma versión", again.id === mariaSnap.id);
+    check("getLegalSnapshot(ana, versión de María) → null", (await getLegalSnapshot(ana.id, mariaSnap.id)) === null);
+    check("getLegalSnapshot(maria, su versión) → sus textos", (await getLegalSnapshot(maria.id, mariaSnap.id))?.identity.legalName === maria.legalName);
+    check("findFirst de la versión de María → null", (await db.legalSnapshot.findFirst({ where: { id: mariaSnap.id } })) === null);
+    check("findMany de versiones: solo las de Ana", (await db.legalSnapshot.findMany()).every((r) => r.creatorId === ana.id));
+    const forged = await db.legalSnapshot.create({ data: { creatorId: maria.id, hash: `isolation-${Date.now()}`, content: {} } });
+    forgedId = forged.id;
+    check("create de una versión con creatorId ajeno se reasigna a Ana", forged.creatorId === ana.id);
+    const del = await db.legalSnapshot.deleteMany({ where: { id: mariaSnap.id } });
+    check("deleteMany sobre la versión de María afecta 0 filas", del.count === 0);
+  } finally {
+    if (forgedId) await prisma.legalSnapshot.delete({ where: { id: forgedId } });
+    if (!before.has(mariaSnap.id)) await prisma.legalSnapshot.deleteMany({ where: { id: mariaSnap.id, orders: { none: {} } } });
+  }
+}
 
 /** Cobros: un pago, una cuenta de cobro o un informe de DAC7 nunca cruzan de una creadora a otra. */
 async function paymentsIsolation(ana: CreatorRow, maria: CreatorRow) {

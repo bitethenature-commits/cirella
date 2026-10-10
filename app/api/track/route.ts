@@ -1,20 +1,21 @@
-import { randomUUID } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { BOT_UA, detectSource, recordEvent } from "@/lib/analytics";
+import { BOT_UA, detectSource, isLandingReferrer, recordEvent } from "@/lib/analytics";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { EVENT_TYPES } from "@/lib/types";
+import { currentVisitorId } from "@/lib/visitor";
 
-const VISITOR_COOKIE = "cv_id";
+/** Cookie de visitante de versiones anteriores (1 año): ya no se usa y se borra si llega. */
+const LEGACY_VISITOR_COOKIE = "cv_id";
 const schema = z.object({
   creatorId: z.string().min(1).max(40),
   type: z.enum(EVENT_TYPES).exclude(["PURCHASE"]), // las compras solo las registra el servidor
   productId: z.string().max(40).nullish(),
   referrer: z.string().max(500).nullish(),
   utm: z.string().max(60).nullish(),
-  landing: z.boolean().optional(),
+  landing: z.boolean().optional(), // lo mandaban versiones anteriores; se ignora
 });
 
 export async function POST(req: Request) {
@@ -34,25 +35,23 @@ export async function POST(req: Request) {
     if (!ok) return new NextResponse(null, { status: 400 });
   }
 
-  const jar = await cookies();
-  let visitorId = jar.get(VISITOR_COOKIE)?.value;
+  // Sin cookies ni nada guardado en el navegador: el visitante del día se calcula en el servidor.
+  const visitorId = await currentVisitorId(creator.id);
   const res = new NextResponse(null, { status: 204 });
-  if (!visitorId || !/^[a-f0-9-]{36}$/.test(visitorId)) {
-    visitorId = randomUUID();
-    res.cookies.set(VISITOR_COOKIE, visitorId, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 * 365 });
-  }
+  if ((await cookies()).has(LEGACY_VISITOR_COOKIE)) res.cookies.delete(LEGACY_VISITOR_COOKIE);
   let referrerHost: string | null = null;
   try {
     referrerHost = data.referrer ? new URL(data.referrer).hostname : null;
   } catch {}
   const ownHost = new URL(req.url).hostname;
+  // Quien entra directamente a la ficha de un producto (sin pasar por la página de la creadora)
+  // también es una visita: si llega de fuera, registramos además un PAGE_VIEW para que cuente en
+  // visitas, visitantes, fuentes y conversión.
+  const landing = data.type === "PRODUCT_VIEW" && isLandingReferrer(referrerHost, ownHost);
   if (referrerHost === ownHost) referrerHost = null;
 
   const source = detectSource(referrerHost, data.utm);
-  // Quien entra directamente a la ficha de un producto (sin pasar por la página de la
-  // creadora) también es una visita: si es la primera página de la sesión, registramos
-  // además un PAGE_VIEW para que cuente en visitas, visitantes, fuentes y conversión.
-  if (data.type === "PRODUCT_VIEW" && data.landing)
+  if (landing)
     await recordEvent({ creatorId: creator.id, type: "PAGE_VIEW", visitorId, referrer: referrerHost, source });
   await recordEvent({
     creatorId: creator.id,

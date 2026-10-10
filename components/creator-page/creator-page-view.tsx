@@ -13,6 +13,7 @@ import {
 import { resolveTheme, themeStyle } from "@/lib/templates";
 import { DEFAULT_CTA, type ProductType } from "@/lib/types";
 import { SocialIcon } from "../social-icons";
+import { LegalLinks } from "./legal-links";
 import { Avatar, ProductImage } from "./product-art";
 import { TrackedLink } from "./tracking";
 
@@ -55,6 +56,8 @@ type Props = {
   showPoweredBy: boolean;
   platformName: string;
   referralCode?: string;
+  /** Nombre fiscal de quien vende (pie de página). */
+  sellerName?: string | null;
   /** Vista previa del editor: sin tracking y sin animaciones de entrada. */
   preview?: boolean;
 };
@@ -263,6 +266,7 @@ export function CreatorPageView(props: Props) {
           <Link href={`/${username}/entrar?next=%2Fcuenta`} className="cp-muted underline-offset-4 hover:underline">
             ¿Ya compraste? Accede a tu área de cliente
           </Link>
+          <LegalLinks username={username} sellerName={props.sellerName} />
           {props.showPoweredBy && (
             <a
               href={`/?ref=${props.referralCode ?? ""}&utm_source=powered_by`}

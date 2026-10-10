@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { appHost, isDemoMode } from "@/lib/env";
+import { legalIdentityComplete } from "@/lib/legal";
+import { legalIdentityOf } from "@/lib/legal-snapshot";
 import { payoutView } from "@/lib/payouts";
 import { getSettings } from "@/lib/settings";
 import { defaultPageConfig, readPageConfig } from "@/lib/page-config";
@@ -66,6 +68,13 @@ export default async function OnboardingPage() {
       : payoutView({ status: "ACTIVE", payoutProvider: null, payoutStatus: "NONE", payoutChargesEnabled: false, payoutPayoutsEnabled: false, payoutRequirements: null }),
     demo: isDemoMode(),
     creatorId: creator?.id ?? null,
+    termsAccepted: !!creator?.termsAcceptedAt,
+    legal: {
+      // Solo los campos legales: el resto de la fila (IBAN, cuenta de cobro…) no va al navegador.
+      defaults: creator ? legalIdentityOf(creator) : {},
+      contactFallback: creator?.contactEmail ?? user.email,
+      complete: !!creator && legalIdentityComplete(creator),
+    },
   };
   return <OnboardingWizard init={init} />;
 }

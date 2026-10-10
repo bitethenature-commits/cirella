@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import type { PageConfig } from "@/lib/page-config";
 import { resolveTheme, themeStyle } from "@/lib/templates";
+import { LegalLinks } from "./legal-links";
 import { Avatar } from "./product-art";
 
 /** Envoltorio con la identidad visual de la creadora para producto, checkout y confirmación. */
@@ -11,6 +12,7 @@ export function CreatorShell({
   allowCustom,
   children,
   back = true,
+  sellerName,
 }: {
   username: string;
   /** Solo lo que pinta la cabecera y el tema (también lo usan las páginas de error, en cliente). */
@@ -18,6 +20,8 @@ export function CreatorShell({
   allowCustom: boolean;
   children: React.ReactNode;
   back?: boolean;
+  /** Nombre fiscal de quien vende, para el pie («Vende: …»). */
+  sellerName?: string | null;
 }) {
   const theme = resolveTheme(config.template, config.theme, allowCustom);
   return (
@@ -39,6 +43,10 @@ export function CreatorShell({
         </div>
       </header>
       {children}
+      {/* El margen inferior deja sitio al botón fijo de compra de la ficha en móvil. */}
+      <footer className="mx-auto max-w-5xl px-4 pb-28 pt-10 text-center md:pb-10">
+        <LegalLinks username={username} sellerName={sellerName} />
+      </footer>
     </div>
   );
 }

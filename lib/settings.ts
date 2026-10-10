@@ -12,6 +12,13 @@ export const SETTING_DEFAULTS = {
   referralDiscountMonths: 3, // duración del descuento de comisión
   // DAC7 / modelo 238: tipos de producto que cuentan como «servicios personales» (a confirmar con la asesoría)
   dac7ReportableTypes: ["SESSION"] as string[],
+  // Identidad legal de la plataforma (LSSI art. 10): /aviso-legal, /privacidad y /terminos.
+  // Vacíos = «Pendiente de completar».
+  legalCompanyName: "",
+  legalTaxId: "",
+  legalAddress: "",
+  legalRegistry: "",
+  privacyEmail: "", // si está vacío, se muestra supportEmail
 };
 
 export type PlatformSettings = typeof SETTING_DEFAULTS;

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, CreditCard, Gift, KeyRound, Link2, Search, Share2 } from "lucide-react";
+import { ArrowRight, CreditCard, Gift, KeyRound, Link2, Scale, Search, Share2 } from "lucide-react";
+import { LegalIdentityStatus } from "@/components/panel/legal-status";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -62,6 +63,17 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           ))}
           {referrals.length === 0 && <li className="py-2.5 text-muted">Aún no has invitado a nadie.</li>}
         </ul>
+      </section>
+
+      <section className="card p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 font-semibold"><Scale className="h-4 w-4" /> Datos legales y condiciones</h2>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0 space-y-2">
+            <LegalIdentityStatus creator={creator} />
+            <p className="text-sm text-muted">Tu nombre fiscal, NIF y dirección aparecen en tu aviso legal y en cada compra.</p>
+          </div>
+          <Link href="/panel/ajustes/legal" className="btn btn-outline btn-sm">Editar <ArrowRight className="h-3.5 w-3.5" /></Link>
+        </div>
       </section>
 
       <section className="card p-5 sm:p-6">

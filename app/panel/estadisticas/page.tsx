@@ -25,7 +25,7 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
       <PageHeader title="Estadísticas" subtitle="Page views, visitantes, clics, checkouts, compras e ingresos." actions={<RangeTabs current={range} base="/panel/estadisticas" />} />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Visitas" value={formatNumber(s.pageViews)} accent />
-        <Stat label="Visitantes únicos" value={formatNumber(s.uniqueVisitors)} />
+        <Stat label="Visitantes únicos" value={formatNumber(s.uniqueVisitors)} hint="Personas distintas cada día, medidas sin cookies" />
         <Stat label="Conversión" value={formatPercent(s.conversion)} hint="Compras / visitantes" />
         <Stat label="Ingresos" value={formatMoney(s.revenue)} hint={`${s.sales} compras`} />
       </div>

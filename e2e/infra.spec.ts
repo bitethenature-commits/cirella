@@ -63,6 +63,8 @@ test.describe.serial("Infraestructura", () => {
     await page.goto("/ana/lectura-astrologia/checkout");
     await page.fill("#name", "Prueba CSP");
     await page.fill("#email", `csp${stamp}@example.com`);
+    await page.getByLabel(/He leído y acepto/).check();
+    await page.getByLabel(/Quiero acceder ya/).check();
     await page.getByRole("button", { name: /Pagar/ }).click();
     await page.waitForURL("**/ana/gracias**");
     await page.context().clearCookies();

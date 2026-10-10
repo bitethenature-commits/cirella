@@ -4,6 +4,7 @@ import { dispatchEvents, recordEvents, type DomainEvent } from "./events";
 import { hasBookingClash, isBookingOverlapError, isSlotAvailable } from "./booking";
 import { dac7SalesPaused } from "./dac7-data";
 import { appUrl } from "./env";
+import { legalIdentityComplete } from "./legal";
 import { paymentProvider, type PaymentMethodInput } from "./payments";
 import { canAcceptPayments } from "./payouts";
 import { canSellType, effectiveCommissionBps } from "./plans";
@@ -47,6 +48,8 @@ export async function createPendingOrder(input: {
   const product = await getPurchasableProduct(input.productId);
   if (!product) throw new CheckoutError("Este producto no está disponible ahora mismo.");
   if (!canAcceptPayments(product.creator)) throw new CheckoutError("La creadora todavía no ha activado los pagos.");
+  // Sin la identidad legal de quien vende no se vende (LSSI art. 10; lib/legal.ts).
+  if (!legalIdentityComplete(product.creator)) throw new CheckoutError("La creadora todavía no ha activado los pagos.");
   if (await dac7SalesPaused(product.creator, product.type))
     throw new CheckoutError("Este servicio no está disponible temporalmente. Vuelve a intentarlo en unos días.");
   if (product.type === "SESSION" && input.slotStart) {
@@ -101,6 +104,8 @@ export async function startOrderPayment(orderId: string, payment: PaymentMethodI
   }
   if (order.status === "PROCESSING") throw new CheckoutError("Tu pago se está confirmando. Te avisaremos por email.");
   if (!PAYABLE.includes(order.status)) throw new CheckoutError("Este pedido ya no se puede pagar.");
+  // Los consentimientos se guardan en el pedido antes de cobrar (acción del checkout).
+  if (!order.termsAcceptedAt) throw new CheckoutError("Acepta las condiciones de venta para continuar");
   if (order.productType === "MEMBERSHIP") {
     // Una suscripción viva por persona y membresía (también con una renovación pendiente de pago).
     const existingSub = await prisma.subscription.findFirst({
@@ -241,12 +246,17 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
         ordersCount: 1,
         firstPurchaseAt: now,
         lastPurchaseAt: now,
+        // Novedades por email: solo con la casilla marcada en el checkout (RGPD art. 7).
+        marketingOptIn: order.marketingOptIn,
+        marketingOptInAt: order.marketingOptIn ? now : null,
       },
       update: {
         totalSpentCents: { increment: order.amountCents },
         ordersCount: { increment: 1 },
         lastPurchaseAt: now,
         name: prevCustomer?.name ?? order.buyerName ?? user.name,
+        // Una compra sin la casilla no retira un consentimiento anterior: solo se retira desde /cuenta/perfil.
+        ...(order.marketingOptIn && !prevCustomer?.marketingOptIn ? { marketingOptIn: true, marketingOptInAt: now } : {}),
       },
     });
     if (!prevCustomer) events.push({ type: "customer.created", customerId: customer.id });

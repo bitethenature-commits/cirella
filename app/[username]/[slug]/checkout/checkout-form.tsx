@@ -5,9 +5,11 @@ import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ProductImage } from "@/components/creator-page/product-art";
 import type { DaySlots } from "@/lib/booking";
+import { sessionChangePolicyText } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { placeOrder, type CheckoutState } from "./actions";
+import { CheckoutConsents, PrivacyNotice } from "./consents";
 
 type Product = {
   id: string;
@@ -59,6 +61,8 @@ export function CheckoutForm({
   prefill,
   demo,
   creatorName,
+  seller,
+  platformName,
 }: {
   product: Product;
   payoutReady: boolean;
@@ -70,6 +74,9 @@ export function CheckoutForm({
   prefill: { name: string; email: string };
   demo: boolean;
   creatorName: string;
+  /** Quién vende: nombre fiscal, «Nombre · NIF …» y su página legal (/{usuario}/legal). */
+  seller: { name: string; line: string; legalHref: string };
+  platformName: string;
 }) {
   const [state, action] = useActionState<CheckoutState, FormData>(placeOrder, undefined);
   const [method, setMethod] = useState<"card" | "wallet">("card");
@@ -109,6 +116,12 @@ export function CheckoutForm({
       <div>
         <p className="cp-eyebrow">Checkout seguro</p>
         <h1 className="cp-display mt-2 text-[2.2rem]">Completa tu compra</h1>
+        <p className="cp-muted mt-2 text-xs">
+          Vende: {seller.line} ·{" "}
+          <a href={`${seller.legalHref}#condiciones`} target="_blank" rel="noopener" className="underline underline-offset-2">
+            Condiciones
+          </a>
+        </p>
       </div>
 
       {/* Resumen */}
@@ -193,6 +206,7 @@ export function CheckoutForm({
           <label className="mb-1.5 block text-xs font-medium" htmlFor="email">Email</label>
           <input id="email" name="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="cp-input" placeholder="tu@email.com" />
           <p className="cp-faint mt-1.5 text-xs">Aquí recibirás el acceso. No necesitas crear una cuenta ni contraseña.</p>
+          <PrivacyNotice sellerName={seller.name} legalHref={seller.legalHref} platformName={platformName} />
         </div>
       </section>
 
@@ -247,10 +261,21 @@ export function CheckoutForm({
           <span className="cp-muted text-sm">Total</span>
           <span className="text-2xl font-semibold tracking-tight">{price}</span>
         </div>
-        <label className="flex items-start gap-2.5 px-1 text-xs" style={{ color: "var(--c-muted)" }}>
-          <input type="checkbox" name="acceptTerms" defaultChecked className="mt-0.5 h-4 w-4 accent-[var(--c-accent)]" />
-          Acepto las condiciones de compra{product.billingInterval ? " y la renovación mensual hasta que cancele" : ""}.
-        </label>
+        {isSession && (
+          <p className="cp-faint -mt-2 px-1 text-xs">
+            {sessionChangePolicyText()} ·{" "}
+            <a href={`${seller.legalHref}#reembolsos`} target="_blank" rel="noopener" className="underline underline-offset-2">
+              Política de cambios
+            </a>
+          </p>
+        )}
+        <CheckoutConsents
+          productType={product.type}
+          billingInterval={product.billingInterval}
+          price={price}
+          seller={{ name: seller.name, legalHref: seller.legalHref }}
+          creatorDisplayName={creatorName}
+        />
         {product.type === "MEMBERSHIP" && (
           <p className="cp-faint px-1 text-xs">Guardaremos tu tarjeta de forma segura para las renovaciones; puedes cancelar cuando quieras desde tu cuenta.</p>
         )}

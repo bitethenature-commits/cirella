@@ -124,5 +124,11 @@ export async function saveSettings(form: FormData) {
   await setSetting("referralRewardType", z.enum(["FREE_MONTH", "CREDIT", "COMMISSION_DISCOUNT"]).parse(form.get("referralRewardType")));
   await setSetting("referralRewardValue", Math.max(0, Number(form.get("referralRewardValue") ?? 0) || 0));
   await setSetting("referralDiscountMonths", Math.max(1, Number(form.get("referralDiscountMonths") ?? 3) || 3));
+  const text = (key: string, max: number) => String(form.get(key) ?? "").trim().slice(0, max);
+  await setSetting("legalCompanyName", text("legalCompanyName", 200));
+  await setSetting("legalTaxId", text("legalTaxId", 200).toUpperCase());
+  await setSetting("legalAddress", text("legalAddress", 400));
+  await setSetting("legalRegistry", text("legalRegistry", 200));
+  await setSetting("privacyEmail", text("privacyEmail", 200).toLowerCase());
   done("/admin/ajustes", "Ajustes guardados");
 }

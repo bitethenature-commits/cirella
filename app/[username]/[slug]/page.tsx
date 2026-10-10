@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, Clock, Download, FileText, Headphones, Infinity as InfinityIcon, Lock, PlayCircle, RefreshCcw, ShieldCheck, Sparkles, Video, Zap } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
@@ -6,6 +7,7 @@ import { ProductImage } from "@/components/creator-page/product-art";
 import { TrackedLink, TrackOnMount } from "@/components/creator-page/tracking";
 import { getCurrentUser } from "@/lib/auth";
 import { appUrl } from "@/lib/env";
+import { creatorLegalHref, sellerLine, sessionChangePolicyText } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
 import { getPublicProduct } from "@/lib/product-page";
 import { DEFAULT_CTA, LESSON_KIND_LABEL, PRODUCT_TYPE_LABEL, type LessonKind, type ProductType } from "@/lib/types";
@@ -79,13 +81,13 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     type === "DIGITAL"
       ? [{ icon: Zap, text: "Acceso inmediato tras el pago" }, { icon: Download, text: `${p.files.length || "Contenido"} ${p.files.length === 1 ? "archivo descargable" : "archivos descargables"}` }, { icon: InfinityIcon, text: "Disponible siempre en tu cuenta" }]
       : type === "SESSION"
-        ? [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: "Por videollamada" }, { icon: CalendarDays, text: "Eliges día y hora al reservar" }]
+        ? [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: "Por videollamada" }, { icon: CalendarDays, text: "Eliges día y hora al reservar" }, { icon: RefreshCcw, text: sessionChangePolicyText() }]
         : type === "COURSE"
           ? [{ icon: PlayCircle, text: `${lessons} lecciones${minutes ? ` · ${Math.round(minutes / 6) / 10} h` : ""}` }, { icon: Sparkles, text: "A tu ritmo, con progreso guardado" }, { icon: InfinityIcon, text: "Acceso de por vida" }]
           : [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, { icon: RefreshCcw, text: "Cancela cuando quieras" }, { icon: Lock, text: "Acceso privado mientras estés suscrita" }];
 
   return (
-    <CreatorShell username={username} config={config} allowCustom={data.allowCustom}>
+    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} sellerName={creator.legalName}>
       <main className="mx-auto max-w-5xl px-4 pb-36 pt-4 md:grid md:grid-cols-[1.1fr_0.9fr] md:gap-10 md:pb-20 md:pt-10">
         <div>
           <div className="cp-card relative aspect-[4/3] overflow-hidden">
@@ -100,6 +102,13 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           <h1 className="cp-display mt-3 text-[2.5rem] sm:text-[3rem]">{p.title}</h1>
           {p.summary && <p className="cp-muted mt-3 text-[1.02rem] leading-relaxed">{p.summary}</p>}
           <p className="mt-6 text-3xl font-semibold tracking-tight">{price}</p>
+          {creator.legalName && (
+            <p className="cp-faint mt-2 text-xs">
+              Vende: {sellerLine(creator)} ·{" "}
+              <Link href={creatorLegalHref(username, "condiciones")} className="underline underline-offset-4">Condiciones</Link> ·{" "}
+              <Link href={creatorLegalHref(username, "reembolsos")} className="underline underline-offset-4">Reembolsos</Link>
+            </p>
+          )}
 
           <TrackedLink href={checkoutHref} event={clickEvent} className="cp-btn mt-6 hidden w-full md:flex">
             {cta} · {price}
@@ -199,7 +208,11 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           )}
 
           <p className="cp-muted mt-10 flex items-center gap-2 text-xs">
-            <ShieldCheck className="h-4 w-4" /> Pago seguro · No necesitas crear una cuenta para comprar
+            <ShieldCheck className="h-4 w-4" />
+            <span>
+              Pago seguro · No necesitas crear una cuenta para comprar ·{" "}
+              <Link href={creatorLegalHref(username, "condiciones")} className="underline underline-offset-4">Condiciones de venta</Link>
+            </span>
           </p>
         </div>
       </main>

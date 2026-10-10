@@ -7,6 +7,7 @@ import { requireCreator } from "@/lib/auth";
 import { yearOf } from "@/lib/dac7";
 import { dac7ForCreator } from "@/lib/dac7-data";
 import { prisma } from "@/lib/db";
+import { legalIdentityComplete } from "@/lib/legal";
 import { formatMoney } from "@/lib/money";
 import { getSettings } from "@/lib/settings";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
@@ -33,6 +34,12 @@ export default async function PayoutsPage({ searchParams }: { searchParams: Prom
 
       <section className="card p-5 sm:p-6">
         <h2 className="mb-4 flex items-center gap-2 font-semibold"><CreditCard className="h-4 w-4" /> Cuenta de cobro</h2>
+        {!legalIdentityComplete(creator) && (
+          <p className="mb-4 rounded-xl bg-[#f8efdc] px-4 py-3 text-sm text-[#8a6420]">
+            Antes de activar los cobros, <Link href="/panel/ajustes/legal" className="font-semibold underline underline-offset-2">completa tus datos legales</Link>: la
+            ley obliga a mostrar quién vende.
+          </p>
+        )}
         <PayoutStatusCard creator={creator} supportEmail={settings.supportEmail} />
         {creator.payoutStatus === "ACTIVE" && (
           <form action={openPayoutDashboard} className="mt-4">

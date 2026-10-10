@@ -10,6 +10,7 @@ import { capitalize, formatSessionDate } from "@/lib/tz";
 import { Badge, Locked, PageHeader } from "../ui";
 import { addBlockedDate, removeBlockedDate, setBookingStatus } from "./actions";
 import { AvailabilityEditor } from "./availability";
+import { SESSION_CHANGE_NOTICE_HOURS } from "@/lib/legal";
 
 const OK: Record<string, string> = {
   propuesta: "Hemos enviado a la clienta un enlace para elegir otra fecha.",
@@ -151,7 +152,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
           </div>
         </section>
       )}
-      <p className="text-xs text-muted">Tus clientas pueden cambiar la fecha hasta 24 h antes desde su área. Si necesitas cambiarla tú, usa «Cambiar o cancelar». <Link href="/panel/automatizaciones" className="underline">Configura los recordatorios</Link>.</p>
+      <p className="text-xs text-muted">Tus clientas pueden cambiar la fecha hasta {SESSION_CHANGE_NOTICE_HOURS} h antes desde su área. Si necesitas cambiarla tú, usa «Cambiar o cancelar». <Link href="/panel/automatizaciones" className="underline">Configura los recordatorios</Link>.</p>
     </div>
   );
 }

@@ -32,6 +32,11 @@ export default async function CustomerDetail({ params }: { params: Promise<{ id:
         <div className="flex-1">
           <h1 className="display text-[2.2rem] leading-tight">{c.name ?? c.email}</h1>
           <p className="text-sm text-muted">{c.email} · clienta desde {c.createdAt.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}</p>
+          <p className="mt-0.5 text-xs text-muted">
+            {c.marketingOptIn
+              ? `Acepta novedades por email${c.marketingOptInAt ? ` desde el ${c.marketingOptInAt.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}` : ""}`
+              : "No ha aceptado recibir novedades"}
+          </p>
         </div>
         <a href={`mailto:${c.email}`} className="btn btn-outline btn-sm"><Mail className="h-4 w-4" /> Escribir</a>
       </div>

@@ -77,6 +77,8 @@ test.describe.serial("Reembolsos y cambios", () => {
     await page.fill("#name", buyerName);
     await page.fill("#email", buyerEmail);
     await page.fill("input[name=cardNumber]", "4242 4242 4242 4242");
+    await page.getByLabel(/He leído y acepto/).check();
+    await page.getByLabel(/Solicito que la sesión/).check();
     await page.getByRole("button", { name: /Reservar y pagar/ }).click();
     await page.waitForURL("**/ana/gracias**");
     // El mismo navegador entra en su cuenta sin contraseña (cookie del checkout).

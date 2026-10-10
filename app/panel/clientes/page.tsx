@@ -43,6 +43,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
               <p className="truncate font-semibold">{c.name ?? c.email}</p>
               <p className="truncate text-xs text-muted">{c.email}</p>
             </div>
+            {c.marketingOptIn && <Badge tone="success">Novedades ✓</Badge>}
             <div className="hidden sm:block">{c.subscriptions.length > 0 && <Badge tone="dark">Miembro</Badge>}</div>
             <div className="text-right text-sm">
               <p className="font-semibold tabular-nums">{formatMoney(c.totalSpentCents)}</p>

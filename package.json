@@ -26,6 +26,7 @@
     "test:payments": "tsx --conditions=react-server scripts/payments-test.ts",
     "test:refunds": "tsx --conditions=react-server scripts/refunds-test.ts",
     "test:access": "tsx --conditions=react-server scripts/access-test.ts",
+    "test:legal": "tsx --conditions=react-server scripts/legal-test.ts",
     "test:seed-guard": "tsx scripts/seed-guard-test.ts",
     "test:startup": "tsx scripts/startup-guard-test.ts",
     "test:e2e": "playwright test"

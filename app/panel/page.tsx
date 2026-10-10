@@ -4,6 +4,7 @@ import { BarChart } from "@/components/charts";
 import { Dac7Banner, PayoutBanner } from "@/components/panel/payout-status";
 import { requireCreator } from "@/lib/auth";
 import { dac7Missing } from "@/lib/dac7";
+import { legalIdentityComplete } from "@/lib/legal";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import { readPageConfig } from "@/lib/page-config";
 import { planFeatures } from "@/lib/plans";
@@ -34,6 +35,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
   const checklist = [
     { done: !!cfg.avatarUrl, label: "Sube tu foto", href: "/panel/pagina" },
     { done: productCount >= 2, label: "Añade un segundo producto", href: "/panel/productos/nuevo" },
+    { done: legalIdentityComplete(creator), label: "Completa tus datos legales", href: "/panel/ajustes/legal" },
     { done: creator.payoutStatus === "ACTIVE", label: "Activa tus cobros", href: "/panel/ajustes/cobros" },
     { done: cfg.links.length > 0 || Object.keys(cfg.socials).length > 0, label: "Añade tus redes y enlaces", href: "/panel/pagina" },
     { done: s.pageViews > 0, label: "Comparte tu enlace en tu bio", href: "/panel/ajustes#compartir" },

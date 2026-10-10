@@ -67,6 +67,7 @@ export default async function CreatorPublicPage({ params }: { params: Promise<Pa
         showPoweredBy={data.showPoweredBy}
         platformName={data.platformName}
         referralCode={creator.referralCode}
+        sellerName={creator.legalName}
       />
       {/* Las visitas de la propia creadora se descartan en /api/track; las de ?embed=1, en el navegador. */}
       <TrackOnMount creatorId={creator.id} type="PAGE_VIEW" />

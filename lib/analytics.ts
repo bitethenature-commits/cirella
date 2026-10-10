@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { prisma } from "./db";
 import type { EventType } from "./types";
 
@@ -57,3 +58,16 @@ export async function recordEvent(e: {
 }
 
 export const BOT_UA = /bot|crawler|spider|crawling|facebookexternalhit|preview|headless|lighthouse|slurp/i;
+
+// Medición sin cookies: la sal diaria se borra, así que no se puede seguir a nadie entre días.
+// Las funciones con BD y cabeceras están en lib/visitor.ts; estas son puras (pruebas unitarias).
+
+/** Identificador de visitante del día: sha256(sal + creadora + IP + navegador), 32 caracteres. */
+export function visitorHash(salt: string, creatorId: string, ip: string, ua: string): string {
+  return createHash("sha256").update(`${salt}|${creatorId}|${ip}|${ua}`).digest("hex").slice(0, 32);
+}
+
+/** ¿La visita llega de fuera (otra web, una app o directa)? Entonces es la primera página que ve. */
+export function isLandingReferrer(referrerHost: string | null, ownHost: string): boolean {
+  return referrerHost !== ownHost;
+}

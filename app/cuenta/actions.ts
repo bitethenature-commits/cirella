@@ -12,6 +12,7 @@ import { hasAccess } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { syncBookingToCalendar } from "@/lib/orders";
 import { cancelSubscription, resumeSubscription } from "@/lib/subscriptions";
+import { SESSION_CHANGE_NOTICE_HOURS } from "@/lib/legal";
 
 export async function toggleLessonComplete(lessonId: string, complete: boolean) {
   const b = await getBuyerSession();
@@ -37,7 +38,7 @@ export async function scheduleBooking(bookingId: string, slotStart: string) {
   const { user } = await requireBuyerFor({ bookingId }, `/cuenta/sesiones/${bookingId}`);
   const booking = await prisma.booking.findFirst({ where: { id: bookingId, userId: user.id }, include: { product: true } });
   if (!booking) return { ok: false as const, error: "Reserva no encontrada" };
-  const canReschedule = booking.status === "PENDING_SCHEDULE" || (booking.status === "CONFIRMED" && booking.startAt && booking.startAt.getTime() - Date.now() > 24 * 3600_000);
+  const canReschedule = booking.status === "PENDING_SCHEDULE" || (booking.status === "CONFIRMED" && booking.startAt && booking.startAt.getTime() - Date.now() > SESSION_CHANGE_NOTICE_HOURS * 3600_000);
   if (!canReschedule) return { ok: false as const, error: "Esta reserva ya no se puede cambiar. Escribe a la creadora." };
   if (!z.string().datetime().safeParse(slotStart).success || !(await isSlotAvailable(booking.product, slotStart)))
     return { ok: false as const, error: "Ese horario ya no está disponible" };

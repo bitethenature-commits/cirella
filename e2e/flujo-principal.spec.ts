@@ -17,6 +17,12 @@ async function demoLogin(page: Page, label: string) {
   await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
 }
 
+/** Casillas obligatorias del checkout: condiciones de venta y renuncia al desistimiento. */
+async function acceptConsents(page: Page) {
+  await page.getByLabel(/He leído y acepto/).check();
+  await page.getByLabel(/Quiero acceder ya|Solicito que la sesión/).check();
+}
+
 test.describe.serial("Flujo principal", () => {
   test("1. Landing → registro → onboarding de 10 pasos → «Tu página está lista»", async ({ page }) => {
     await page.goto("/");
@@ -33,6 +39,9 @@ test.describe.serial("Flujo principal", () => {
     // 2. Usuario
     await page.getByPlaceholder("tunombre").fill(username);
     await expect(page.getByText("✓ Disponible")).toBeVisible();
+    // Sin aceptar los Términos del servicio no se puede seguir.
+    await expect(next).toBeDisabled();
+    await page.getByLabel(/Acepto los Términos del servicio/).check();
     await next.click();
     // 3. Foto (se puede omitir)
     await expect(page.getByText("Sube tu foto")).toBeVisible();
@@ -56,7 +65,18 @@ test.describe.serial("Flujo principal", () => {
     await page.getByPlaceholder("49").fill("29");
     await expect(page.getByText(/Recibirás/)).toBeVisible();
     await next.click();
-    // 9. Cuenta de cobro: formulario de Stripe (simulado) y vuelta al onboarding, ya en el paso 10
+    // 9. Datos legales de quien vende (obligatorios) y cuenta de cobro: formulario de Stripe
+    // (simulado) y vuelta al onboarding, ya en el paso 10
+    await page.getByRole("button", { name: "Conectar con Stripe" }).click();
+    await expect(page.getByText("Completa tus datos legales para activar los cobros")).toBeVisible();
+    await page.getByLabel("Nombre y apellidos").fill("Luna Prueba García");
+    await page.getByLabel("NIF / NIE / CIF").fill("12345678A");
+    await page.getByLabel("Dirección").fill("Calle Mayor 1, 3.º A");
+    await page.getByLabel("Código postal").fill("28001");
+    await page.getByLabel("Ciudad").fill("Madrid");
+    await page.getByRole("button", { name: "Conectar con Stripe" }).click();
+    await expect(page.getByText("Revisa el NIF: la letra no coincide")).toBeVisible();
+    await page.getByLabel("NIF / NIE / CIF").fill("12345678Z");
     await page.getByRole("button", { name: "Conectar con Stripe" }).click();
     await page.waitForURL("**/pago-simulado/cuenta**");
     await page.getByRole("button", { name: "Verificar al instante" }).click();
@@ -77,6 +97,7 @@ test.describe.serial("Flujo principal", () => {
     await page.waitForURL(`**/${username}/**/checkout`);
     await page.fill("#name", "Paula Compradora");
     await page.fill("#email", buyerEmail);
+    await acceptConsents(page);
     await page.getByRole("button", { name: /Pagar 29/ }).click();
     await page.waitForURL(`**/${username}/gracias**`);
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
@@ -160,6 +181,7 @@ test.describe.serial("Flujo principal", () => {
     await page.goto("/ana/comunidad-privada/checkout");
     await page.fill("#name", "Lucía Torres");
     await page.fill("#email", "lucia@example.com");
+    await acceptConsents(page);
     await page.getByRole("button", { name: /Unirme/ }).click();
     await expect(page.getByText(/Ya eres miembro/)).toBeVisible();
   });
@@ -173,9 +195,11 @@ test.describe.serial("Flujo principal", () => {
     await page.fill("#name", "Rocío Reintento");
     await page.fill("#email", `rocio${stamp}@example.com`);
     await page.fill("input[name=cardNumber]", "4000 0000 0000 0002");
+    await acceptConsents(page);
     await page.getByRole("button", { name: /Reservar y pagar/ }).click();
     await expect(page.getByText(/rechazado/)).toBeVisible();
     await expect(page.locator("#name")).toHaveValue("Rocío Reintento");
+    await expect(page.getByLabel(/He leído y acepto/)).toBeChecked();
     // Cambia de día antes de reintentar: la reserva debe quedar en el día nuevo.
     await days.nth(2).click();
     const dayNumber = (await days.nth(2).locator("span").nth(1).textContent())!.trim();

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { requireCreator } from "@/lib/auth";
+import { legalIdentityComplete } from "@/lib/legal";
 import { captureError } from "@/lib/monitoring";
 import { paymentProvider } from "@/lib/payments";
 import { payoutOnboardingLink } from "@/lib/payouts";
@@ -11,6 +12,8 @@ const back = (k: "ok" | "error", msg: string) => redirect(`/panel/ajustes/cobros
 /** Conectar o completar la cuenta de cobro: al formulario de Stripe (o al simulador). */
 export async function startPayoutOnboarding() {
   const { creator } = await requireCreator();
+  // Sin datos legales no se puede vender (LSSI art. 10): primero /panel/ajustes/legal.
+  if (!legalIdentityComplete(creator)) back("error", "Completa tus datos legales para activar los cobros");
   let url: string;
   try {
     url = await payoutOnboardingLink(creator.id, "panel");

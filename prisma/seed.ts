@@ -23,6 +23,7 @@ import { DEMO_MARKER_KEY, assertSafeToSeed } from "./seed-guard";
 import { appUrl, storageDir } from "../lib/env";
 import { storeProcessedImage } from "../lib/images";
 import { mimeFromExt, privateKey, storage } from "../lib/storage";
+import { PLATFORM_TERMS_VERSION, WAIVER_TEXT, waiverKindFor } from "../lib/legal";
 import { defaultSections, type PageConfig } from "../lib/page-config";
 
 const prisma = new PrismaClient();
@@ -122,6 +123,16 @@ async function main() {
   await reset();
   // Marca de «BD creada por el seed»: permite volver a sembrarla sin que la protección lo impida.
   await prisma.platformSetting.create({ data: { key: DEMO_MARKER_KEY, value: { seededAt: new Date().toISOString() } } });
+  // Identidad legal de la plataforma de demostración (/aviso-legal, /privacidad, /terminos).
+  await prisma.platformSetting.createMany({
+    data: Object.entries({
+      legalCompanyName: "Cirella Demo S.L.",
+      legalTaxId: "B12345674",
+      legalAddress: "Calle de Alcalá 100, 28009 Madrid (España)",
+      legalRegistry: "Registro Mercantil de Madrid, tomo 0000, folio 0, hoja M-000000 (datos de demostración)",
+      privacyEmail: "privacidad@cirella.app",
+    }).map(([key, value]) => ({ key, value })),
+  });
   const password = await bcrypt.hash("demo1234", 10);
 
   // ───────────── Plataforma ─────────────
@@ -181,6 +192,11 @@ async function main() {
       seoDescription: "Lecturas de astrología, Human Design y Gene Keys, sesiones 1:1, curso y comunidad privada. Conócete. Compréndete. Transfórmate.",
       payoutProvider: "simulated", payoutAccountId: "sim_acct_ana001", payoutConnectedAt: daysAgo(74),
       payoutStatus: "ACTIVE", payoutChargesEnabled: true, payoutPayoutsEnabled: true, payoutStatusUpdatedAt: daysAgo(74),
+      // Identidad legal completa (obligatoria para vender). Los datos de DAC7 (fecha de nacimiento,
+      // IBAN) se dejan sin completar para ver el aviso y el informe con «Faltan».
+      legalName: "Ana Luna Pérez", legalTaxId: "12345678Z", legalAddress: "Calle de la Luna 7, 2.º B", legalPostalCode: "28004",
+      legalCity: "Madrid", legalCountry: "ES", legalEmail: "hola@analuna.es",
+      termsAcceptedAt: daysAgo(75), termsVersion: PLATFORM_TERMS_VERSION,
       referralCode: "ANALUNA", createdAt: daysAgo(75),
     },
   });
@@ -365,6 +381,11 @@ async function main() {
   });
 
   // ───────────── Clientas, pedidos y reservas de Ana ─────────────
+  /** Consentimientos del checkout de un pedido pagado (condiciones y renuncia según el tipo). */
+  const consents = (type: string, at: Date) => {
+    const kind = waiverKindFor(type);
+    return { termsAcceptedAt: at, waiverKind: kind, waiverText: kind ? WAIVER_TEXT[kind] : null, waiverAcceptedAt: kind ? at : null };
+  };
   type Buy = { user: typeof laura; product: typeof pAstro; at: Date; visitor: string; source: string };
   const fee = (cents: number) => Math.round((cents * pro.commissionBps) / 10000);
   const customers = new Map<string, string>();
@@ -373,7 +394,7 @@ async function main() {
     if (!customerId) {
       const c = await prisma.customer.create({
         data: {
-          creatorId: ana.id, userId: b.user.id, email: b.user.email, name: b.user.name, marketingOptIn: true,
+          creatorId: ana.id, userId: b.user.id, email: b.user.email, name: b.user.name, marketingOptIn: true, marketingOptInAt: b.at,
           totalSpentCents: 0, ordersCount: 0, firstPurchaseAt: b.at, lastPurchaseAt: b.at, createdAt: b.at,
         },
       });
@@ -391,6 +412,7 @@ async function main() {
         commissionBps: pro.commissionBps, platformFeeCents: fee(b.product.priceCents), netCents: b.product.priceCents - fee(b.product.priceCents),
         paymentProvider: "simulated", paymentRef: `sim_ch_seed_${b.product.slug}`, visitorId: b.visitor, source: b.source,
         createdAt: new Date(b.at.getTime() - 4 * 60000), paidAt: b.at,
+        ...consents(b.product.type, b.at),
       },
     });
     await prisma.transaction.create({
@@ -533,8 +555,9 @@ async function main() {
       published: true, publishedAt: daysAgo(45), onboardedAt: daysAgo(47), contactEmail: "maria@cirella.app",
       payoutProvider: "simulated", payoutAccountId: "sim_acct_maria01", payoutConnectedAt: daysAgo(47),
       payoutStatus: "ACTIVE", payoutChargesEnabled: true, payoutPayoutsEnabled: true, payoutStatusUpdatedAt: daysAgo(47),
-      // Datos fiscales completos (DAC7). Los de Ana se dejan sin completar para ver el aviso y el informe con «Faltan».
-      legalName: "María Sol Ruiz", legalTaxId: "12345678Z", legalAddress: "Calle del Pez 12, 2º B", legalPostalCode: "28004", legalCity: "Madrid",
+      // Identidad legal y datos fiscales completos (DAC7).
+      legalName: "María Sol Ruiz", legalTaxId: "87654321X", legalAddress: "Calle del Pez 12, 2.º B", legalPostalCode: "28004", legalCity: "Madrid",
+      legalCountry: "ES", legalEmail: "hola@mariasol.yoga", termsAcceptedAt: daysAgo(48), termsVersion: PLATFORM_TERMS_VERSION,
       birthDate: new Date("1988-04-12T00:00:00Z"), iban: "ES9121000418450200051332", dac7ConfirmedAt: daysAgo(40),
       referralCode: "MARIASOL", createdAt: daysAgo(48),
     },
@@ -559,6 +582,7 @@ async function main() {
     data: {
       creatorId: maria.id, customerId: carmenMaria.id, productId: mMed.id, productTitle: mMed.title, productType: "DIGITAL", buyerEmail: carmen.email, buyerName: carmen.name,
       status: "PAID", amountCents: 1200, commissionBps: creatorPlan.commissionBps, platformFeeCents: 60, netCents: 1140, paymentProvider: "simulated", paymentRef: "sim_ch_seed_maria", createdAt: daysAgo(8), paidAt: daysAgo(8),
+      ...consents("DIGITAL", daysAgo(8)),
     },
   });
   await prisma.transaction.create({ data: { creatorId: maria.id, orderId: mOrder.id, type: "CHARGE", description: mMed.title, amountCents: 1200, platformFeeCents: 60, netCents: 1140, provider: "simulated", createdAt: daysAgo(8) } });
@@ -598,6 +622,8 @@ async function main() {
       published: true, publishedAt: daysAgo(8), onboardedAt: daysAgo(8), contactEmail: "sofia@cirella.app",
       payoutProvider: "simulated", payoutAccountId: "sim_acct_sofia01", payoutConnectedAt: daysAgo(8),
       payoutStatus: "ACTIVE", payoutChargesEnabled: true, payoutPayoutsEnabled: true, payoutStatusUpdatedAt: daysAgo(8),
+      legalName: "Sofía Vidal Romero", legalTaxId: "11111111H", legalAddress: "Avenida del Mar 21, 4.º", legalPostalCode: "46011", legalCity: "Valencia",
+      legalCountry: "ES", legalEmail: "sofia@cirella.app", termsAcceptedAt: daysAgo(9), termsVersion: PLATFORM_TERMS_VERSION,
       referralCode: "SOFIAV", referredById: ana.id, createdAt: daysAgo(9),
     },
   });

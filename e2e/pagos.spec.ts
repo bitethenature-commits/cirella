@@ -19,6 +19,12 @@ async function demoLogin(page: Page, label: string) {
   await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
 }
 
+/** Casillas obligatorias del checkout: condiciones de venta y renuncia al desistimiento. */
+async function acceptConsents(page: Page) {
+  await page.getByLabel(/He leído y acepto/).check();
+  await page.getByLabel(/Quiero acceder ya|Solicito que la sesión/).check();
+}
+
 async function passwordLogin(page: Page, email: string) {
   await page.goto("/entrar");
   await page.fill("#email", email);
@@ -32,6 +38,7 @@ async function startCheckout(page: Page, path: string, name: string, email: stri
   await page.fill("#name", name);
   await page.fill("#email", email);
   await page.getByPlaceholder("Número de tarjeta").fill(card);
+  await acceptConsents(page);
   await page.getByRole("button", { name: /Pagar/ }).click();
 }
 
@@ -78,6 +85,7 @@ test.describe.serial("Pagos", () => {
     await expect(page.locator("#name")).toHaveValue("Nerea Cancela");
     await expect(page.locator("#email")).toHaveValue(email);
     await page.getByPlaceholder("Número de tarjeta").fill("4242 4242 4242 4242");
+    await acceptConsents(page);
     await page.getByRole("button", { name: /Pagar/ }).click();
     await page.waitForURL("**/ana/gracias**");
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
@@ -201,7 +209,8 @@ test.describe.serial("Pagos", () => {
       await expect(page.getByRole("heading", { name: `DAC7 · ${year}` })).toBeVisible();
       const row = page.locator("tr", { hasText: "@ana" });
       await expect(row).toBeVisible();
-      await expect(row.getByText(/Faltan:/)).toBeVisible();
+      // Con la identidad legal del seed y el IBAN, la fecha y la confirmación de arriba, ya están completos.
+      await expect(row.getByText("Completos")).toBeVisible();
       const csv = await page.request.get(`/admin/reportes/dac7/csv?anio=${year}`);
       expect(csv.status()).toBe(200);
       expect(csv.headers()["content-type"]).toContain("text/csv");

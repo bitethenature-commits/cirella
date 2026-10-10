@@ -12,6 +12,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   });
   return [
     { url: base, changeFrequency: "weekly", priority: 1 },
+    ...["/terminos", "/privacidad", "/aviso-legal"].map((path) => ({ url: `${base}${path}`, changeFrequency: "monthly" as const, priority: 0.3 })),
     ...creators.flatMap((c) => [
       { url: `${base}/${c.username}`, lastModified: c.updatedAt, priority: 0.8 },
       ...c.products.map((p) => ({ url: `${base}/${c.username}/${p.slug}`, lastModified: p.updatedAt, priority: 0.6 })),

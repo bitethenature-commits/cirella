@@ -4,12 +4,13 @@ import { creatorBrief } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { socialHref } from "@/lib/page-config";
 import { getSettings } from "@/lib/settings";
+import { SESSION_CHANGE_NOTICE_HOURS } from "@/lib/legal";
 
 const FAQ = [
   ["¿Dónde está lo que compré?", "Todo está en tu cuenta: los cursos en «Mis cursos», las sesiones en «Mis sesiones» y los archivos en «Mis archivos»."],
   ["No me llega el email de acceso", "Revisa la carpeta de spam o promociones. También puedes pedir un nuevo enlace desde «Entrar»."],
   ["¿Cómo cancelo una membresía?", "En «Mis membresías», entra en la comunidad y pulsa «Cancelar suscripción». Mantendrás el acceso hasta el final del periodo pagado."],
-  ["¿Puedo cambiar la fecha de una sesión?", "Sí, hasta 24 horas antes desde el detalle de la sesión. Si queda menos tiempo, escribe directamente a la creadora."],
+  ["¿Puedo cambiar la fecha de una sesión?", `Sí, hasta ${SESSION_CHANGE_NOTICE_HOURS} horas antes desde el detalle de la sesión. Si queda menos tiempo, escribe directamente a la creadora.`],
 ];
 
 export default async function SupportPage() {

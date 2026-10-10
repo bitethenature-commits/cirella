@@ -25,7 +25,9 @@ export function SignupForm({ refCode, username, plan }: { refCode?: string; user
         Crear mi cuenta
       </SubmitButton>
       <p className="text-center text-xs text-muted">
-        Al continuar aceptas los términos del servicio. ¿Ya tienes cuenta?{" "}
+        Al crear tu cuenta aceptas los{" "}
+        <Link href="/terminos" className="underline underline-offset-2">Términos del servicio</Link> y has leído la{" "}
+        <Link href="/privacidad" className="underline underline-offset-2">Política de privacidad</Link>. ¿Ya tienes cuenta?{" "}
         <Link href="/entrar" className="font-semibold text-ink underline-offset-2 hover:underline">
           Entrar
         </Link>

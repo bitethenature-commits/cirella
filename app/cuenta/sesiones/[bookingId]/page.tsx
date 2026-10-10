@@ -10,6 +10,7 @@ import { BOOKING_STATUS_LABEL } from "@/lib/types";
 import { capitalize, formatSessionDate } from "@/lib/tz";
 import { CreatorTag, Thumb } from "../../ui";
 import { Scheduler } from "./scheduler";
+import { SESSION_CHANGE_NOTICE_HOURS } from "@/lib/legal";
 
 export default async function BookingDetail({ params }: { params: Promise<{ bookingId: string }> }) {
   const { bookingId } = await params;
@@ -20,7 +21,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ book
   });
   if (!b) notFound();
   const c = creatorBrief(b.creator);
-  const canReschedule = b.status === "CONFIRMED" && b.startAt && b.startAt.getTime() - Date.now() > 24 * 3600_000;
+  const canReschedule = b.status === "CONFIRMED" && b.startAt && b.startAt.getTime() - Date.now() > SESSION_CHANGE_NOTICE_HOURS * 3600_000;
   return (
     <div className="max-w-2xl">
       {scoped ? (
@@ -98,7 +99,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ book
       {canReschedule && (
         <details className="card mt-4 p-5">
           <summary className="cursor-pointer text-sm font-semibold">Cambiar fecha</summary>
-          <p className="mt-2 text-xs text-muted">Puedes cambiarla hasta 24 horas antes.</p>
+          <p className="mt-2 text-xs text-muted">Puedes cambiarla hasta {SESSION_CHANGE_NOTICE_HOURS} horas antes.</p>
           <div className="mt-4">
             <Scheduler bookingId={b.id} productId={b.productId} label="Cambiar a esta fecha" />
           </div>

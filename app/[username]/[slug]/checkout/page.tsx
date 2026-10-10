@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { dac7SalesPaused } from "@/lib/dac7-data";
 import { prisma } from "@/lib/db";
 import { isDemoMode } from "@/lib/env";
+import { creatorLegalHref, legalIdentityComplete, sellerLine } from "@/lib/legal";
 import { getPurchasableProduct } from "@/lib/orders";
 import { paymentProvider } from "@/lib/payments";
 import { canAcceptPayments } from "@/lib/payouts";
@@ -31,8 +32,12 @@ export default async function CheckoutPage({
   if (!purchasable && !isOwner) notFound();
   const p = data.product;
   const provider = paymentProvider();
+  // Sin la identidad legal de quien vende no se puede vender (LSSI art. 10).
   const payoutReady =
-    !!purchasable && canAcceptPayments(data.creator, provider.key) && !(await dac7SalesPaused(data.creator, p.type));
+    !!purchasable &&
+    canAcceptPayments(data.creator, provider.key) &&
+    legalIdentityComplete(data.creator) &&
+    !(await dac7SalesPaused(data.creator, p.type));
   // Vuelta desde la pasarela (cancelado) o desde el email de «pago no completado»: se reintenta el mismo pedido.
   const previous = sp.pedido
     ? await prisma.order.findFirst({
@@ -42,7 +47,7 @@ export default async function CheckoutPage({
     : null;
 
   return (
-    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom}>
+    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} sellerName={data.creator.legalName}>
       <main className="mx-auto max-w-xl px-4 pb-16 pt-6 sm:pt-10">
         <CheckoutForm
           product={{
@@ -68,6 +73,12 @@ export default async function CheckoutPage({
           prefill={{ name: previous?.buyerName ?? user?.name ?? "", email: previous?.buyerEmail ?? user?.email ?? "" }}
           demo={isDemoMode()}
           creatorName={data.config.displayName}
+          seller={{
+            name: data.creator.legalName ?? data.config.displayName,
+            line: data.creator.legalName ? sellerLine(data.creator) : data.config.displayName,
+            legalHref: creatorLegalHref(username),
+          }}
+          platformName={data.platformName}
         />
       </main>
       <TrackOnMount creatorId={data.creator.id} type="CHECKOUT_STARTED" productId={p.id} disabled={isOwner} />

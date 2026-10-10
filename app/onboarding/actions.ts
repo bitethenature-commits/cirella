@@ -8,6 +8,7 @@ import { createCreatorSpace, isUsernameAvailable, publishPage, uniqueProductSlug
 import { prisma } from "@/lib/db";
 import { appUrl } from "@/lib/env";
 import { enqueueEmail } from "@/lib/email/outbox";
+import { legalIdentityComplete, PLATFORM_TERMS_VERSION } from "@/lib/legal";
 import { welcomeCreatorEmail } from "@/lib/email/templates";
 import { parseMoneyToCents } from "@/lib/money";
 import { captureError } from "@/lib/monitoring";
@@ -33,13 +34,16 @@ export async function checkUsername(raw: string): Promise<Result> {
   return res.ok ? { ok: true } : res;
 }
 
-export async function saveUsername(raw: string): Promise<Result> {
+/** Paso 2: nombre de usuario y aceptación de los Términos del servicio y del encargo de tratamiento. */
+export async function saveUsername(raw: string, acceptTerms: boolean): Promise<Result> {
   const { user, creator } = await currentCreator();
+  if (!acceptTerms && !creator?.termsAcceptedAt) return { ok: false, error: "Acepta los términos para crear tu página" };
   const username = normalizeUsername(raw);
   const res = await isUsernameAvailable(username, creator?.id);
   if (!res.ok) return res;
   if (creator) {
-    await prisma.creator.update({ where: { id: creator.id }, data: { username } });
+    const terms = creator.termsAcceptedAt ? {} : { termsAcceptedAt: new Date(), termsVersion: PLATFORM_TERMS_VERSION };
+    await prisma.creator.update({ where: { id: creator.id }, data: { username, ...terms } });
   } else {
     const jar = await cookies();
     let ref: string | null = null;
@@ -47,7 +51,7 @@ export async function saveUsername(raw: string): Promise<Result> {
       ref = JSON.parse(jar.get("cirella_signup")?.value ?? "{}").ref || null;
     } catch {}
     const name = user.name || username.charAt(0).toUpperCase() + username.slice(1);
-    await createCreatorSpace({ userId: user.id, username, displayName: name, referralCode: ref });
+    await createCreatorSpace({ userId: user.id, username, displayName: name, referralCode: ref, termsVersion: PLATFORM_TERMS_VERSION });
   }
   return { ok: true, data: { username } };
 }
@@ -161,6 +165,8 @@ export async function connectPayments(): Promise<Result> {
   const { creator } = await currentCreator();
   if (!creator) return { ok: false, error: "Primero elige tu nombre de usuario" };
   if (canAcceptPayments(creator)) return { ok: true };
+  // Sin datos legales no se puede vender (LSSI art. 10): se piden antes de la cuenta de cobro.
+  if (!legalIdentityComplete(creator)) return { ok: false, error: "Completa tus datos legales para activar los cobros" };
   try {
     return { ok: true, data: { url: await payoutOnboardingLink(creator.id, "onboarding") } };
   } catch (e) {

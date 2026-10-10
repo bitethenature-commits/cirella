@@ -3,6 +3,8 @@ import { prisma } from "./db";
 import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
 import * as T from "./email/templates";
+import { formatLegalAddress, sellerLine, sessionChangePolicyText, type LegalIdentity } from "./legal";
+import type { LegalSnapshotContent } from "./legal-snapshot";
 import { formatPrice } from "./money";
 import { createOrderLink, emailAlreadyQueued, orderLinkNote } from "./order-links";
 import { planFeatures } from "./plans";
@@ -73,9 +75,12 @@ export async function handleAutomation(event: DomainEvent) {
     case "order.paid": {
       const order = await prisma.order.findUniqueOrThrow({
         where: { id: event.orderId },
-        include: { product: true, bookings: { select: { id: true }, orderBy: { createdAt: "asc" } } },
+        include: { product: true, bookings: { select: { id: true }, orderBy: { createdAt: "asc" } }, legalSnapshot: true },
       });
       const s = await setting(order.creatorId, "PURCHASE_RECEIPT");
+      // Lo que aceptó (LegalSnapshot): quién vende, la renuncia marcada y las condiciones exactas.
+      const snapshot = order.legalSnapshot?.content as LegalSnapshotContent | undefined;
+      const identity: Partial<LegalIdentity> = snapshot?.identity ?? s.creator;
       const name = s.creator.displayName;
       const receiptKey = `receipt:${order.id}`;
       if (s.enabled && !(await emailAlreadyQueued(receiptKey))) {
@@ -95,6 +100,19 @@ export async function handleAutomation(event: DomainEvent) {
               accountUrl: link.url,
               linkNote: orderLinkNote(link.expiresAt),
               instructions: order.product.instructions,
+              seller: identity.legalName
+                ? { line: sellerLine(identity), address: formatLegalAddress(identity), email: identity.legalEmail ?? "" }
+                : undefined,
+              waiver:
+                order.waiverText && order.waiverAcceptedAt
+                  ? {
+                      text: order.waiverText,
+                      at: order.waiverAcceptedAt.toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short", timeZone: s.creator.timezone }),
+                    }
+                  : undefined,
+              changePolicy: order.productType === "SESSION" ? `${sessionChangePolicyText()} desde tu área de cliente.` : null,
+              legalUrl: order.legalSnapshotId ? `${base}/${s.creator.username}/legal?v=${order.legalSnapshotId}` : undefined,
+              conditions: snapshot ? { terms: snapshot.terms, refunds: snapshot.refunds } : undefined,
             }),
             s.subject,
           ),
