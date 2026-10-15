@@ -95,6 +95,8 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
     await page.getByLabel(/Quiero recibir novedades/).check();
     await page.getByRole("button", { name: /Quiero el mini-curso/ }).click();
     await expect(page.getByText("¡Listo! Revisa tu email")).toBeVisible();
+    // En la demo los emails no salen: el buzón de demostración está a un clic.
+    await expect(page.getByRole("link", { name: /Abrir el buzón de demostración/ })).toHaveAttribute("href", "/dev/correo");
 
     const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail: lucia }, include: { transactions: true, invoices: true } });
     expect(order.paymentProvider).toBe("free");
@@ -183,6 +185,9 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
     await page.fill("#grant-email", eva);
     await page.getByRole("button", { name: "Dar acceso" }).click();
     await expect(page.getByText(`${eva} ya tiene acceso`)).toBeVisible();
+    // El formulario se vacía para la siguiente persona.
+    await expect(page.locator("#grant-name")).toHaveValue("");
+    await expect(page.locator("#grant-email")).toHaveValue("");
     const manual = await prisma.order.findFirstOrThrow({ where: { buyerEmail: eva }, include: { customer: true } });
     expect(manual.paymentProvider).toBe("manual");
     expect(manual.amountCents).toBe(0);

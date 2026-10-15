@@ -66,6 +66,7 @@ export default async function EntrarPage({ searchParams }: { searchParams: Promi
         <LoginForms
           next={next || undefined}
           demo={demo}
+          personal={personal}
           initialError={sp.error ? ERRORS[sp.error] : undefined}
           notice={motivo ? MOTIVOS[motivo] : undefined}
           defaultMode={(buyer && sp.modo !== "contrasena") || sp.modo === "enlace" || motivo === "confirmar" ? "magic" : "password"}

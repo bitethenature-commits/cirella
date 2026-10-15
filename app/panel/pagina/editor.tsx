@@ -171,13 +171,13 @@ export function PageEditor(props: Props) {
       <div className="min-w-0">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="display text-[2.3rem] leading-none sm:text-[2.7rem]">Mi página</h1>
+            <h1 className="display whitespace-nowrap text-[2.3rem] leading-none sm:text-[2.7rem]">Mi página</h1>
             <p className="mt-2 flex items-center gap-2 text-sm text-muted">
               <span className={`h-2 w-2 rounded-full ${dirty ? "bg-gold" : unpublished ? "bg-lavender-deep" : "bg-success"}`} />
               {dirty ? "Cambios sin guardar" : unpublished ? "Borrador guardado · sin publicar" : "Todo publicado"}
             </p>
           </div>
-          <div className="hidden gap-2 sm:flex">
+          <div className="hidden flex-wrap justify-end gap-2 sm:flex">
             <button type="button" onClick={() => run("save")} disabled={pending || !dirty} className="btn btn-outline">
               {busyAction === "save" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Guardar
             </button>

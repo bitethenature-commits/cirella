@@ -85,17 +85,25 @@ export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscoun
       {code.description && <p className="cp-muted mt-3 text-[0.9rem] leading-relaxed">{code.description}</p>}
       <div className="mt-auto pt-4">
         <div className="flex flex-wrap items-stretch gap-2">
-          {/* Sin truncate: un código largo (hasta 40 caracteres) se parte en varias líneas y se ve entero, nunca recortado. */}
+          {/* Sin truncate: un código largo (hasta 40 caracteres) se parte en varias líneas y se ve entero, nunca recortado.
+              Uno corto cabe siempre en una línea: si no hay sitio al lado, el botón pasa debajo. */}
           <code
             ref={codeRef}
-            className={`flex min-w-[7.5rem] flex-1 select-all items-center justify-center break-all rounded-xl border border-dashed px-3 py-2 text-center font-mono text-base font-semibold ${code.code.length > 16 ? "tracking-[0.04em]" : "tracking-[0.12em]"}`}
-            style={{ borderColor: "color-mix(in oklab, var(--c-text) 35%, transparent)" }}
+            className={`flex flex-1 select-all items-center justify-center break-all rounded-xl border border-dashed px-3 py-2 text-center font-mono text-base font-semibold ${code.code.length > 16 ? "tracking-[0.04em]" : "tracking-[0.12em]"}`}
+            style={{ borderColor: "color-mix(in oklab, var(--c-text) 35%, transparent)", minWidth: `min(100%, ${Math.ceil(code.code.length * 1.2) + 3}ch)` }}
           >
             {code.code}
           </code>
           <button type="button" onClick={onCopy} className="cp-btn-ghost shrink-0" aria-label={state === "copied" ? `Copiado: ${code.code}` : `Copiar código ${code.code}`}>
-            {state === "copied" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            {state === "copied" ? "Copiado" : "Copiar código"}
+            {/* Los dos textos ocupan el mismo sitio: el botón no cambia de ancho al copiar y nada salta de línea. */}
+            <span className="grid place-items-center">
+              <span className={`col-start-1 row-start-1 inline-flex items-center gap-1.5 ${state === "copied" ? "invisible" : ""}`}>
+                <Copy className="h-4 w-4" /> Copiar código
+              </span>
+              <span className={`col-start-1 row-start-1 inline-flex items-center gap-1.5 ${state === "copied" ? "" : "invisible"}`}>
+                <Check className="h-4 w-4" /> Copiado
+              </span>
+            </span>
           </button>
         </div>
         <p className="cp-faint mt-1.5 min-h-[1rem] text-xs" aria-live="polite">

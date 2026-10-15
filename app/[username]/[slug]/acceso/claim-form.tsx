@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { CheckCircle2, Loader2, Mail } from "lucide-react";
 import { useActionState, useState } from "react";
 import { claimAccess, type ClaimState } from "./actions";
@@ -17,6 +18,7 @@ export function ClaimForm({
   privacyHref,
   processorName,
   creatorDisplayName,
+  demo = false,
 }: {
   productId: string;
   productTitle: string;
@@ -27,6 +29,8 @@ export function ClaimForm({
   /** Plataforma que trata los datos por encargo (null en la web personal: allí no hay plataforma). */
   processorName: string | null;
   creatorDisplayName: string;
+  /** Modo demo: los emails no salen, se leen en el buzón de demostración. */
+  demo?: boolean;
 }) {
   const [state, action, pending] = useActionState<ClaimState, FormData>(claimAccess, undefined);
   const [name, setName] = useState("");
@@ -44,6 +48,11 @@ export function ClaimForm({
         <p className="cp-muted mt-2 text-sm leading-relaxed">
           Te hemos enviado el acceso a «{productTitle}» a {state.email}. Si no lo ves en unos minutos, mira en la carpeta de spam o de promociones.
         </p>
+        {demo && (
+          <Link href="/dev/correo" className="mt-4 inline-block text-sm font-semibold underline-offset-2 hover:underline">
+            Abrir el buzón de demostración →
+          </Link>
+        )}
       </div>
     );
 

@@ -6,7 +6,7 @@ import { keyHash } from "./rate-limit";
  * IP real de quien hace la petición, para los límites de intentos y la medición de visitas.
  *
  *   · CLIENT_IP_HEADER (obligatoria en producción): la cabecera que fija nuestro proxy de confianza,
- *     x-real-ip en Vercel o fly-client-ip en Fly. Solo es fiable si TODOS los caminos hasta la web
+ *     x-real-ip en Vercel y Railway, o fly-client-ip en Fly. Solo es fiable si TODOS los caminos hasta la web
  *     la sobrescriben: cf-connecting-ip delante de Vercel no lo es (Vercel la deja pasar y la web
  *     también responde en *.vercel.app), así que cualquiera podría inventársela.
  *   · Sin ella, el último valor de X-Forwarded-For: el valor más a la derecha lo añade nuestro proxy;

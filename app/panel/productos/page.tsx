@@ -7,6 +7,7 @@ import { asAccessMode, externalHost } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { deliveryFacts, deliveryIssue } from "@/lib/delivery";
 import { formatPrice } from "@/lib/money";
+import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { Badge, PageHeader } from "../ui";
@@ -38,12 +39,16 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   });
   const archived = await db.product.count({ where: { status: "ARCHIVED" } });
   const max = creator.plan.maxProducts;
+  // Web personal: sin planes, y lo que se cobraba en la web no se ve (la ficha da 404).
+  const personal = isPersonalMode();
+  const hidden = (p: { accessMode: string }) => personal && asAccessMode(p.accessMode) === "PAID";
+  const count = `${products.length} ${products.length === 1 ? "producto" : "productos"}`;
 
   return (
     <div>
       <PageHeader
         title="Productos"
-        subtitle={max != null ? `${products.length} de ${max} productos en tu plan ${creator.plan.name}` : `${products.length} productos · ilimitados en tu plan ${creator.plan.name}`}
+        subtitle={personal ? count : max != null ? `${products.length} de ${max} productos en tu plan ${creator.plan.name}` : `${count} · ilimitados en tu plan ${creator.plan.name}`}
         actions={
           <Link href="/panel/productos/nuevo" className="btn btn-primary">
             <Plus className="h-4 w-4" /> Nuevo producto
@@ -83,12 +88,18 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                 {PRODUCT_TYPE_LABEL[p.type as ProductType]} · {priceLine(p)}
               </p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {p.status === "PUBLISHED" ? <Badge tone="success">Publicado</Badge> : <Badge tone="warning">Borrador</Badge>}
+                {hidden(p) ? (
+                  <Badge tone="warning">Oculto: se cobraba en la web</Badge>
+                ) : p.status === "PUBLISHED" ? (
+                  <Badge tone="success">Publicado</Badge>
+                ) : (
+                  <Badge tone="warning">Borrador</Badge>
+                )}
                 {deliveryIssue(deliveryFacts(p))?.blocking && <Badge tone="danger">Sin entrega</Badge>}
               </div>
             </Link>
             <div className="flex shrink-0 gap-1">
-              {p.status === "PUBLISHED" && (
+              {p.status === "PUBLISHED" && !hidden(p) && (
                 <Link href={`/${creator.username}/${p.slug}`} target="_blank" className="btn btn-ghost btn-sm hidden sm:inline-flex" aria-label="Ver">
                   <ExternalLink className="h-4 w-4" />
                 </Link>

@@ -223,7 +223,7 @@ export function validateEnv(raw: RawEnv): EnvValidation {
     // compartirían contador (o cualquiera podría inventarse la IP).
     if (!p.CLIENT_IP_HEADER)
       errors.push(
-        "Falta CLIENT_IP_HEADER: la cabecera con la IP real de la clienta que tu plataforma sobrescribe siempre (x-real-ip en Vercel; fly-client-ip en Fly…). cf-connecting-ip solo si a la web únicamente se llega a través de Cloudflare.",
+        "Falta CLIENT_IP_HEADER: la cabecera con la IP real de la clienta que tu plataforma sobrescribe siempre (x-real-ip en Vercel y en Railway; fly-client-ip en Fly…). cf-connecting-ip solo si a la web únicamente se llega a través de Cloudflare.",
       );
     if (p.EMAIL_PROVIDER !== "resend")
       errors.push("En producción los emails deben enviarse de verdad: pon EMAIL_PROVIDER=resend con RESEND_API_KEY y EMAIL_FROM.");

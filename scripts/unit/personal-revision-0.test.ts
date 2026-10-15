@@ -21,9 +21,15 @@ test("el cron de vercel.json se ejecuta antes de que /api/health lo dé por retr
   ok(Number(m[1]) < CRON_STALE_MINUTES, "el intervalo del cron debe ser menor que CRON_STALE_MINUTES");
 });
 
-test("la guía del modo personal explica cómo pasar el cron de vercel.json a diario", () => {
+// El modo personal se despliega en Railway (docs/modo-personal.md): las migraciones van en el
+// Pre-deploy Command (en el build no hay red privada hasta la BD), las tareas programadas en
+// cron-job.org con margen frente a /api/health, y la IP real en x-real-ip.
+test("la guía del modo personal (Railway): migraciones antes de arrancar, cron con margen e IP real", () => {
   const guide = read("docs/modo-personal.md");
-  ok(guide.includes("`*/5 * * * *` por `0 5 * * *`"), "falta el paso de cambiar el horario en vercel.json");
+  ok(/Pre-deploy Command[\s\S]{0,80}npm run deploy/.test(guide), "falta npm run deploy en el Pre-deploy Command");
+  ok(guide.includes("**Every 5 minutes**") && 5 < CRON_STALE_MINUTES, "el cron de la guía debe ir más rápido que CRON_STALE_MINUTES");
+  ok(guide.includes('CLIENT_IP_HEADER="x-real-ip"'), "falta CLIENT_IP_HEADER=x-real-ip");
+  ok(!guide.includes("`*/5 * * * *` por `0 5 * * *`"), "la guía ya no cambia vercel.json (Railway no lo usa)");
 });
 
 // La página «no encontrada» se genera estática en el build, antes de que exista la cuenta de la

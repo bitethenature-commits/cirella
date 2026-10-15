@@ -35,7 +35,7 @@ test("hostsContent: todo menos las sesiones", () => eq(["DIGITAL", "COURSE", "ME
 
 test("resolveAccessMode: web personal, el elegido si está permitido", () => eq(resolveAccessMode("EXTERNAL", "FREE_EMAIL", "personal", "COURSE"), "EXTERNAL"));
 test("resolveAccessMode: web personal, PAID pedido → se queda el actual permitido", () => eq(resolveAccessMode("PAID", "FREE_EMAIL", "personal", "COURSE"), "FREE_EMAIL"));
-test("resolveAccessMode: web personal, un producto de pago pasa al primero permitido", () => eq(resolveAccessMode(undefined, "PAID", "personal", "DIGITAL"), "FREE_EMAIL"));
+test("resolveAccessMode: web personal, un producto de pago no cambia sin elegirlo (sin modo en el formulario)", () => eq(resolveAccessMode(undefined, "PAID", "personal", "DIGITAL"), "PAID"));
 test("resolveAccessMode: web personal, una sesión gratis pedida → externa", () => eq(resolveAccessMode("FREE_EMAIL", "PAID", "personal", "SESSION"), "EXTERNAL"));
 test("resolveAccessMode: plataforma, PAID sigue PAID", () => eq(resolveAccessMode(undefined, "PAID", "platform", "COURSE"), "PAID"));
 test("resolveAccessMode: plataforma, un gratis existente (demo) conserva su modo", () => eq(resolveAccessMode(undefined, "FREE_EMAIL", "platform", "COURSE"), "FREE_EMAIL"));

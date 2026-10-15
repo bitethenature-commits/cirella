@@ -3,7 +3,17 @@ import { Loader2 } from "lucide-react";
 import { startTransition, useActionState, useState } from "react";
 import { Flash } from "@/components/ui/flash";
 import { ImageUpload } from "@/components/ui/image-upload";
-import { ACCESS_MODE_HINT, ACCESS_MODE_LABEL, asAccessMode, defaultExternalLabel, EXTERNAL_LABEL_MAX, type AccessMode } from "@/lib/access-mode";
+import {
+  ACCESS_MODE_HINT,
+  ACCESS_MODE_LABEL,
+  accessModeOptions,
+  asAccessMode,
+  defaultExternalLabel,
+  EXTERNAL_LABEL_MAX,
+  HIDDEN_PAID_HINT,
+  HIDDEN_PAID_LABEL,
+  type AccessMode,
+} from "@/lib/access-mode";
 import { MIN_PERSONAL_INSTRUCTIONS, normalizeDeliveryMode, type DeliveryMode } from "@/lib/delivery";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import { estimateNet, type TaxMode, type VatStatus } from "@/lib/tax";
@@ -73,11 +83,15 @@ export function ProductForm({
   const [mode, setMode] = useState<DeliveryMode>(normalizeDeliveryMode(product.type, product.deliveryMode));
   const personal = isDigital && mode === "PERSONAL";
   const estimate = estimateNet({ priceCents: cents, commissionBps, productType: product.type, deliveryMode: mode, mode: taxPreview.mode, creator: taxPreview });
-  // Cómo se consigue. Si el modo actual no se puede elegir aquí (p. ej. un producto de pago en la web
-  // personal), se propone el primero permitido; en la plataforma se conserva el que tenga.
+  // Cómo se consigue. Siempre parte del modo que tiene: un producto de pago en la web personal
+  // aparece como «Oculto» (sigue así hasta que se elija otra opción, nunca se regala al guardar).
   const current = asAccessMode(product.accessMode);
-  const [access, setAccess] = useState<AccessMode>(accessModes.includes(current) || (accessModes.length === 1 && accessModes[0] === "PAID") ? current : accessModes[0]);
+  const hiddenPaid = current === "PAID" && !accessModes.includes("PAID");
+  const options = accessModeOptions(accessModes, current);
+  const [access, setAccess] = useState<AccessMode>(accessModes.includes(current) || (accessModes.length === 1 && accessModes[0] === "PAID") ? current : hiddenPaid ? "PAID" : accessModes[0]);
   const choosable = accessModes.length > 1 || !accessModes.includes("PAID");
+  const optionLabel = (m: AccessMode) => (hiddenPaid && m === "PAID" ? HIDDEN_PAID_LABEL : ACCESS_MODE_LABEL[m]);
+  const optionHint = (m: AccessMode) => (hiddenPaid && m === "PAID" ? HIDDEN_PAID_HINT : ACCESS_MODE_HINT[m]);
   const free = access === "FREE_EMAIL";
   const external = access === "EXTERNAL";
   const [externalUrl, setExternalUrl] = useState(product.externalUrl ?? "");
@@ -129,28 +143,28 @@ export function ProductForm({
         {choosable && (
           <section id="acceso" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
             <h3 className="font-semibold">Cómo se consigue</h3>
-            {accessModes.length > 1 ? (
-              <div className="grid gap-2.5 sm:grid-cols-2" role="radiogroup" aria-label="Cómo se consigue">
-                {accessModes.map((m) => (
+            {options.length > 1 ? (
+              <div className={`grid gap-2.5 ${options.length > 2 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`} role="radiogroup" aria-label="Cómo se consigue">
+                {options.map((m) => (
                   <label
                     key={m}
                     className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm transition ${access === m ? "border-ink bg-white ring-1 ring-ink" : "border-line bg-white hover:border-ink/30"}`}
                   >
                     <input type="radio" name="accessModeChoice" value={m} checked={access === m} onChange={() => setAccess(m)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0E1024]" />
                     <span>
-                      <span className="block font-semibold">{ACCESS_MODE_LABEL[m]}</span>
-                      <span className="mt-1 block text-xs text-muted">{ACCESS_MODE_HINT[m]}</span>
+                      <span className="block font-semibold">{optionLabel(m)}</span>
+                      <span className="mt-1 block text-xs text-muted">{optionHint(m)}</span>
                     </span>
                   </label>
                 ))}
               </div>
             ) : (
               <p className="text-sm text-muted">
-                <strong className="text-ink">{ACCESS_MODE_LABEL[access]}.</strong> {ACCESS_MODE_HINT[access]}
+                <strong className="text-ink">{optionLabel(access)}.</strong> {optionHint(access)}
               </p>
             )}
-            {current === "PAID" && !accessModes.includes("PAID") && (
-              <p className="rounded-xl bg-sand px-3 py-2 text-xs text-muted">En tu web no se cobra nada: guarda este producto como gratis o con el enlace a la web donde se paga para que se vea.</p>
+            {hiddenPaid && access === "PAID" && (
+              <p className="rounded-xl bg-sand px-3 py-2 text-xs text-muted">Este producto se cobraba en la web. En tu web no se cobra nada: elige «{ACCESS_MODE_LABEL[accessModes[0]]}»{accessModes.length > 1 ? ` o «${ACCESS_MODE_LABEL[accessModes[1]]}»` : ""} y guarda para que se vea.</p>
             )}
           </section>
         )}
@@ -191,9 +205,9 @@ export function ProductForm({
           <h3 className="font-semibold">Precio</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="field-label">Precio final (€, IVA incluido){isMembership ? " por periodo" : ""}</label>
+              <label className="field-label">Precio final (€{hiddenPaid ? "" : ", IVA incluido"}){isMembership ? " por periodo" : ""}</label>
               <input name="price" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d,.]/g, ""))} inputMode="decimal" className="input text-lg font-semibold" placeholder="49" />
-              {cents >= 100 && (
+              {cents >= 100 && !hiddenPaid && (
                 <p className="field-hint">
                   Recibes {formatMoney(estimate.netCents, "EUR", { decimals: true })} por venta en España (
                   {estimate.taxCents > 0 ? `IVA ${formatMoney(estimate.taxCents, "EUR", { decimals: true })} · ` : ""}comisión {(commissionBps / 100).toLocaleString("es-ES")} %).

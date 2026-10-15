@@ -62,18 +62,29 @@ export function defaultAccessMode(mode: SiteMode, type: string): AccessMode {
 }
 
 /**
- * Modo que se guarda al editar: el pedido si está permitido; si no, el actual si lo está; si no,
- * el primero permitido. En la plataforma un producto gratis o externo ya existente (p. ej. de la
- * demo) conserva su modo: el formulario no lo enseña y no se cambia sin querer.
+ * Modo que se guarda al editar: el pedido si está permitido o si es el que ya tiene; si no, el
+ * actual si lo está; si no, el primero permitido. Nada cambia de modo sin elegirlo: en la plataforma
+ * un producto gratis o externo ya existente (p. ej. de la demo) conserva su modo, y en la web
+ * personal un producto de pago en la web sigue de pago (y oculto) hasta que la dueña elija otro,
+ * en vez de regalarse al guardar cualquier otro cambio.
  */
 export function resolveAccessMode(requested: string | null | undefined, current: string | null | undefined, mode: SiteMode, type: string): AccessMode {
   const allowed = accessModesFor(mode, type);
   const want = requested ? asAccessMode(requested) : null;
-  if (want && allowed.includes(want)) return want;
   const now = asAccessMode(current);
-  if (allowed.includes(now) || mode !== "personal") return now;
+  if (want && (allowed.includes(want) || want === now)) return want;
+  if (allowed.includes(now) || mode !== "personal" || !want) return now;
   return allowed[0];
 }
+
+/** Modos que enseña el formulario: los permitidos y, si no lo está, el que ya tiene (para conservarlo). */
+export function accessModeOptions(allowed: readonly AccessMode[], current: AccessMode): AccessMode[] {
+  return allowed.includes(current) ? [...allowed] : [current, ...allowed];
+}
+
+/** En la web personal, lo que se cobraba en la web no se ve: se explica así en el formulario. */
+export const HIDDEN_PAID_LABEL = "Oculto: se cobraba en la web";
+export const HIDDEN_PAID_HINT = "En tu web no se cobra nada, así que nadie lo ve. Elige otra opción para que aparezca.";
 
 /** Error al publicar por el precio (null si vale). Gratis y externo no exigen precio. */
 export function publishPriceError(accessMode: AccessMode, priceCents: number): string | null {
@@ -131,4 +142,28 @@ export function externalButtonLabel(p: { type: string; externalLabel: string | n
 /** Reenvío del enlace de acceso: como mucho uno por minuto y pedido (dos clics seguidos no mandan dos). */
 export function resendDedupeKey(orderId: string, now = new Date()): string {
   return `access:${orderId}:reenvio:${Math.floor(now.getTime() / 60_000)}`;
+}
+
+/**
+ * ¿Lleva este enlace a la ficha de uno de estos productos de la creadora? («/ana/slug»,
+ * «/ana/slug/checkout» o, si se conoce la dirección de la web, «https://tudominio.com/ana/slug»).
+ * En la web personal así no se enseñan botones que llevan a un producto oculto («no encontrada»).
+ */
+export function linksToProduct(url: string, username: string, slugs: ReadonlySet<string>, siteOrigin?: string | null): boolean {
+  if (!slugs.size) return false;
+  const value = url.trim();
+  let path: string;
+  if (value.startsWith("/") && !value.startsWith("//")) path = value;
+  else {
+    if (!siteOrigin) return false;
+    try {
+      const u = new URL(value);
+      if (u.host.toLowerCase() !== new URL(siteOrigin).host.toLowerCase()) return false;
+      path = u.pathname;
+    } catch {
+      return false;
+    }
+  }
+  const [user, slug] = path.split(/[?#]/)[0].split("/").filter(Boolean);
+  return !!user && !!slug && user.toLowerCase() === username.toLowerCase() && slugs.has(slug.toLowerCase());
 }

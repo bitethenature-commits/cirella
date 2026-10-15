@@ -8,7 +8,7 @@ import { TrackedLink, TrackOnMount } from "@/components/creator-page/tracking";
 import { asAccessMode, externalButtonLabel, externalHost } from "@/lib/access-mode";
 import { getCurrentUser } from "@/lib/auth";
 import { digitalContentText, isInstantDelivery } from "@/lib/delivery";
-import { appUrl } from "@/lib/env";
+import { appUrl, isDemoMode } from "@/lib/env";
 import { getPlatformIssuer } from "@/lib/invoices/issuer";
 import { creatorLegalHref, legalIdentityComplete, sellerStatement, sessionChangePolicyText } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
@@ -16,7 +16,7 @@ import { getPublicProduct } from "@/lib/product-page";
 import { isPersonalMode } from "@/lib/site-mode";
 import { decideTax } from "@/lib/tax";
 import { getTaxMode } from "@/lib/tax/server";
-import { DEFAULT_CTA, LESSON_KIND_LABEL, PRODUCT_TYPE_LABEL, type LessonKind, type ProductType } from "@/lib/types";
+import { DEFAULT_CTA, formatCourseLength, LESSON_KIND_LABEL, PRODUCT_TYPE_LABEL, type LessonKind, type ProductType } from "@/lib/types";
 import { formatDate } from "@/lib/tz";
 import { ClaimForm } from "./acceso/claim-form";
 import { ExternalButton } from "./acceso/external-button";
@@ -126,7 +126,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           : [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: "Por videollamada" }, { icon: CalendarDays, text: "Eliges día y hora al reservar" }, { icon: RefreshCcw, text: sessionChangePolicyText() }]
         : type === "COURSE"
           ? [
-              { icon: PlayCircle, text: `${lessons} lecciones${minutes ? ` · ${Math.round(minutes / 6) / 10} h` : ""}` },
+              { icon: PlayCircle, text: `${lessons} ${lessons === 1 ? "lección" : "lecciones"}${minutes ? ` · ${formatCourseLength(minutes)}` : ""}` },
               { icon: Sparkles, text: "A tu ritmo, con progreso guardado" },
               ...(external ? externalPerk : [{ icon: InfinityIcon, text: free ? "Gratis y para siempre" : "Acceso de por vida" }]),
             ]
@@ -157,6 +157,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
       privacyHref={creatorLegalHref(username, "privacidad")}
       processorName={personalSite ? null : data.platformName}
       creatorDisplayName={config.displayName}
+      demo={isDemoMode()}
     />
   );
 

@@ -180,6 +180,9 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
   });
   refresh(product.id);
   revalidatePath(`/${creator.username}`);
+  // En la web personal lo que se cobraba en la web se guarda tal cual, pero no se ve: se dice.
+  if (accessMode === "PAID" && siteMode() === "personal")
+    return { ok: "Guardado. No se ve en tu página: en tu web no se cobra nada. Elige «Gratis con email» o «Pago en otra web» para que aparezca." };
   return { ok: d.status === "PUBLISHED" ? "Guardado y publicado en tu página" : "Guardado como borrador" };
 }
 

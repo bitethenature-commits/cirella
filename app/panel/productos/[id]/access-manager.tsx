@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, UserMinus, UserPlus } from "lucide-react";
-import { startTransition, useActionState, useState } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { Flash } from "@/components/ui/flash";
 import { grantAccess, revokeAccess, type ActionState } from "../actions";
@@ -24,6 +24,13 @@ export function AccessManager({ productId, rows, total, external }: { productId:
   const [state, action, pending] = useActionState<ActionState, FormData>(grantAccess, undefined);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  // Acceso dado: el formulario se vacía para la siguiente persona (con un error, se conserva lo escrito).
+  useEffect(() => {
+    if (state?.ok) {
+      setName("");
+      setEmail("");
+    }
+  }, [state]);
 
   return (
     <section id="accesos" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">

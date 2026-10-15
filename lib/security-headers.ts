@@ -86,3 +86,37 @@ export function securityHeaderOptionsFromEnv(env: NodeJS.ProcessEnv = process.en
     sentryOrigin: originOf(env.SENTRY_DSN || env.NEXT_PUBLIC_SENTRY_DSN),
   };
 }
+
+/**
+ * Lo que `next build` deja fijado con las variables de ese momento: las cabeceras de seguridad
+ * (dirección de la web, almacenamiento, Stripe, Turnstile, Sentry) y el modo del sitio de la página
+ * de error. Se guarda al compilar (next.config.ts → CIRELLA_BUILD_ENV) y se compara al arrancar.
+ */
+export function buildEnvSnapshot(env: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  const o = securityHeaderOptionsFromEnv(env);
+  return {
+    APP_URL: o.appUrl,
+    "STORAGE_DRIVER/S3_ENDPOINT": o.storageOrigin ?? "",
+    "PAYMENT_PROVIDER/STRIPE_SECRET_KEY": String(o.stripe),
+    TURNSTILE_SITE_KEY: String(o.turnstile),
+    SENTRY_DSN: o.sentryOrigin ?? "",
+    SITE_MODE: env.SITE_MODE?.trim() || "platform",
+  };
+}
+
+/**
+ * Variables que han cambiado desde que se compiló la web (vacío si ninguna o si no se sabe). Si
+ * cambian sin volver a compilar, la CSP bloquea, por ejemplo, las subidas al nuevo almacenamiento:
+ * hay que volver a desplegar (con build) para que cuenten.
+ */
+export function buildEnvDrift(built: string | undefined, env: NodeJS.ProcessEnv = process.env): string[] {
+  if (!built) return [];
+  let then: Record<string, string>;
+  try {
+    then = JSON.parse(built);
+  } catch {
+    return [];
+  }
+  const now = buildEnvSnapshot(env);
+  return Object.keys(now).filter((k) => k in then && then[k] !== now[k]);
+}

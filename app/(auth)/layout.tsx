@@ -1,6 +1,10 @@
 import { BrandLogo } from "@/components/brand-logo";
 import { getSiteBrand } from "@/lib/site-brand";
 
+// Pantallas de cada visita (leen la sesión y la marca de la BD): nunca se generan al compilar, así
+// el build no necesita la base de datos (en Railway, por ejemplo, no llega a ella durante el build).
+export const dynamic = "force-dynamic";
+
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   const brand = await getSiteBrand();
   return (

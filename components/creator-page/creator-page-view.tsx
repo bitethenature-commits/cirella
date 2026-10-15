@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, ExternalLink, Mail, MessageCircle, Plus, Quote, UserRound } from "lucide-react";
-import { externalButtonLabel } from "@/lib/access-mode";
+import { externalButtonLabel, linksToProduct } from "@/lib/access-mode";
 import { imageSrcSet } from "@/lib/media-url";
 import { formatPrice } from "@/lib/money";
 import {
@@ -107,11 +107,16 @@ type Props = {
    * pago en la web, ni «Powered by», ni las condiciones de venta en el pie.
    */
   personal?: boolean;
+  /** Dirección de la web (APP_URL), para reconocer los enlaces absolutos a sus propios productos. */
+  siteOrigin?: string;
 };
 
 export function CreatorPageView(props: Props) {
   const { config, username, preview, personal } = props;
   const products = personal ? props.products.filter((p) => (p.accessMode ?? "PAID") !== "PAID") : props.products;
+  // Ni un botón hacia lo que no se ve: en la web personal, un enlace a un producto oculto daría 404.
+  const hiddenSlugs = new Set(personal ? props.products.filter((p) => (p.accessMode ?? "PAID") === "PAID").map((p) => p.slug.toLowerCase()) : []);
+  const links = config.links.filter((l) => !linksToProduct(l.url, username, hiddenSlugs, props.siteOrigin));
   const posts = props.posts ?? [];
   const codes = props.discountCodes ?? [];
   const theme = resolveTheme(config.template, config.theme, props.allowCustom);
@@ -212,10 +217,10 @@ export function CreatorPageView(props: Props) {
         );
       }
       case "links":
-        if (!config.links.length) return null;
+        if (!links.length) return null;
         return (
           <section key={key} className="mt-9 space-y-3" {...reveal}>
-            {config.links.map((l) => (
+            {links.map((l) => (
               <a key={l.id} href={safeHref(l.url)} className="cp-link" data-highlight={l.highlight ? "true" : "false"} {...(l.url.startsWith("/") ? {} : { target: "_blank", rel: "noopener noreferrer" })}>
                 <span>{l.label}</span>
                 <ArrowUpRight className="h-4 w-4 shrink-0 opacity-70" />

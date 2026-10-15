@@ -131,9 +131,9 @@ borra de verdad.
 1. Plan **Pro** (el plan gratuito no permite uso comercial y solo ejecuta las tareas programadas
    una vez al día).
 2. Importa el repositorio. En *Settings → Functions* la región debe ser **Frankfurt (fra1)**
-   (`vercel.json` ya la fija, junto con la tarea programada de cada 5 minutos). El modo personal,
-   que usa el plan gratuito, cambia ese horario a uno diario: ver
-   [modo-personal.md](modo-personal.md).
+   (`vercel.json` ya la fija, junto con la tarea programada de cada 5 minutos). El modo personal
+   se despliega en Railway, con las tareas programadas en cron-job.org y las migraciones en el
+   *Pre-deploy Command*: ver [modo-personal.md](modo-personal.md).
 3. **Dominios**: `cirella.app` para producción y `staging.cirella.app` asignado a la rama
    `staging` (*Settings → Domains → Git Branch*).
 4. **Comando de build** (*Settings → Build and Deployment → Build Command*):

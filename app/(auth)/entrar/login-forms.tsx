@@ -8,6 +8,7 @@ import { signIn, type FormState } from "../actions";
 export function LoginForms({
   next,
   demo,
+  personal = false,
   initialError,
   notice,
   defaultMode = "password",
@@ -15,6 +16,8 @@ export function LoginForms({
 }: {
   next?: string;
   demo: boolean;
+  /** Web personal: aquí no se compra nada (la gente se apunta o recibe el acceso). */
+  personal?: boolean;
   initialError?: string;
   /** Aviso informativo (p. ej. «Confirma tu email para continuar»). */
   notice?: string;
@@ -51,7 +54,7 @@ export function LoginForms({
           </div>
           <SubmitButton className="btn btn-primary btn-lg w-full" pendingLabel="Entrando…">Entrar</SubmitButton>
           <p className="text-center text-sm text-muted">
-            ¿Compraste sin contraseña?{" "}
+            {personal ? "¿No tienes contraseña?" : "¿Compraste sin contraseña?"}{" "}
             <button type="button" onClick={() => setMode("magic")} className="font-medium text-ink underline underline-offset-4">
               Pide un enlace para entrar
             </button>
@@ -60,7 +63,7 @@ export function LoginForms({
       ) : (
         <div className="space-y-4">
           <Flash error={initialError} ok={initialError ? null : notice} />
-          <p className="text-sm text-muted">¿Compraste sin contraseña? Te enviamos un enlace para entrar.</p>
+          <p className="text-sm text-muted">{personal ? "¿No tienes contraseña?" : "¿Compraste sin contraseña?"} Te enviamos un enlace para entrar.</p>
           <MagicLinkForm next={next} demo={demo} defaultEmail={defaultEmail} />
         </div>
       )}
