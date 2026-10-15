@@ -7,12 +7,17 @@
  *   · repetir con el mismo email no crea otro pedido: reenvía el enlace; a la vez, tampoco;
  *   · lo de pago y lo externo no se piden gratis; lo gratis no tiene checkout;
  *   · acceso a mano (manual), quitarlo (enlaces fuera) y devolverlo; no hay reembolso de 0 €;
- *   · las estadísticas cuentan inscripciones aparte de las ventas.
+ *   · las estadísticas cuentan inscripciones aparte de las ventas;
+ *   · sin datos legales completos no se puede apuntar nadie;
+ *   · quitar el acceso de algo gratis no se deshace volviendo a apuntarse (solo la dueña lo devuelve);
+ *   · las novedades no cuentan hasta confirmarlas desde el email (también al repetir el formulario);
+ *   · el nombre del formulario no llega al saludo del email ni a una cuenta que ya existía;
+ *   · una membresía gratis sobre una suscripción vieja (sin renovar y caducada) da el acceso.
  * Usa emails y productos temporales de Ana y deja la BD como estaba.
  */
 import "./load-env";
 import { prisma } from "../lib/db";
-import { claimFreeAccess, FreeAccessError, getClaimableProduct, grantManualAccess, revokeManualAccess } from "../lib/free-access";
+import { claimFreeAccess, confirmNewsletter, FreeAccessError, getClaimableProduct, grantManualAccess, revokeManualAccess } from "../lib/free-access";
 import { CheckoutError, createPendingOrder } from "../lib/orders";
 import { refundOrder } from "../lib/refunds";
 import { getDashboardStats } from "../lib/stats";
@@ -46,6 +51,12 @@ async function main() {
       accessMode: "EXTERNAL", externalUrl: "https://pay.hotmart.com/prueba",
     },
   });
+  const freeMembership = await prisma.product.create({
+    data: {
+      creatorId: ana.id, type: "MEMBERSHIP", slug: `${TAG}-membresia`, title: "Círculo gratis de prueba", priceCents: 0, status: "PUBLISHED",
+      accessMode: "FREE_EMAIL",
+    },
+  });
   const before = await getDashboardStats(ana.id, "all", ana.timezone);
   try {
     // ── Gratis con email ──
@@ -66,13 +77,21 @@ async function main() {
     check("sin transacción de cobro ni factura", order.transactions.length === 0 && order.invoices.length === 0);
     check("sin referencia de pago (no hay nada que reembolsar)", order.paymentRef === null);
     check("guarda la versión de los textos legales y la privacidad aceptada", !!order.legalSnapshotId && !!(order.metadata as { privacyAcceptedAt?: string })?.privacyAcceptedAt);
-    check("la casilla de novedades llega a la clienta", order.customer?.marketingOptIn === true);
+    check("la casilla de novedades no es consentimiento todavía", order.customer?.marketingOptIn === false && order.marketingOptIn === false, order.customer);
+    check("…queda pedida, pendiente de confirmar", (order.metadata as { newsletterRequested?: boolean })?.newsletterRequested === true);
     const access = await prisma.access.findFirst({ where: { userId: order.customer!.userId, productId: free.id } });
     check("acceso activo y sin caducidad", access?.status === "ACTIVE" && access.expiresAt === null && access.orderId === order.id, access);
     const mails = await prisma.emailMessage.findMany({ where: { to: lucia } });
     const accessMail = mails.find((m) => m.template === "ACCESS_GRANTED");
     check("email «Ya tienes acceso a «X»»", accessMail?.subject === `Ya tienes acceso a «${free.title}»`, mails.map((m) => m.subject));
     check("con el enlace personal directo al curso", !!accessMail && /\/auth\/enlace\?t=/.test(accessMail.html) && (await prisma.orderLink.count({ where: { orderId: order.id, path: `/cuenta/cursos/${free.id}` } })) === 1);
+    check("el email de acceso lleva el botón para confirmar las novedades", !!accessMail?.html.includes("Confirmar que quiero recibir novedades") &&
+      (await prisma.orderLink.count({ where: { orderId: order.id, path: `/cuenta/novedades/confirmar?pedido=${order.id}` } })) === 1);
+    check("…y no saluda con el nombre escrito en el formulario", !!accessMail && !accessMail.html.includes("Lucía"));
+    check("otra persona no puede confirmar sus novedades", !(await confirmNewsletter({ orderId: order.id, userId: ana.userId })));
+    check("confirmarlas desde su sesión", await confirmNewsletter({ orderId: order.id, userId: order.customer!.userId }));
+    const confirmed = await prisma.customer.findUniqueOrThrow({ where: { id: order.customerId! } });
+    check("…ahora sí recibe novedades", confirmed.marketingOptIn === true && !!confirmed.marketingOptInAt);
     check("ni recibo, ni email de curso aparte", !mails.some((m) => ["PURCHASE_RECEIPT", "COURSE_ACCESS"].includes(m.template)));
     check("ni aviso de venta a la creadora", (await prisma.emailMessage.count({ where: { template: "NEW_SALE", dedupeKey: `sale:${order.id}` } })) === 0);
     check("métricas: SIGNUP, no PURCHASE", (await prisma.analyticsEvent.count({ where: { creatorId: ana.id, productId: free.id, type: "SIGNUP", visitorId: { contains: order.customer!.userId } } })) === 1 &&
@@ -83,6 +102,49 @@ async function main() {
     check("no duplica el pedido", (await prisma.order.count({ where: { productId: free.id, buyerEmail: lucia } })) === 1);
     check("segundo email de acceso (reenvío)", (await prisma.emailMessage.count({ where: { to: lucia, template: "ACCESS_GRANTED" } })) === 2);
     check("desmarcar novedades al repetir no retira el consentimiento", (await prisma.customer.findUniqueOrThrow({ where: { id: order.customerId! } })).marketingOptIn === true);
+
+    // Novedades marcadas al repetir: no se pierden, quedan pendientes y el reenvío lleva el botón.
+    const later = email("despues");
+    const l1 = await claimFreeAccess({ productId: free.id, name: "Luego", email: later, newsletter: false });
+    const l1Order = await prisma.order.findUniqueOrThrow({ where: { id: l1.orderId } });
+    check("sin la casilla: nada pendiente", !(l1Order.metadata as { newsletterRequested?: boolean })?.newsletterRequested);
+    const l2 = await claimFreeAccess({ productId: free.id, name: "Luego", email: later, newsletter: true });
+    const l2Order = await prisma.order.findUniqueOrThrow({ where: { id: l2.orderId }, include: { customer: true } });
+    check("repetir marcando novedades: queda pedida en el mismo pedido", l2.orderId === l1.orderId && (l2Order.metadata as { newsletterRequested?: boolean })?.newsletterRequested === true && !!(l2Order.metadata as { privacyAcceptedAt?: string })?.privacyAcceptedAt, l2Order.metadata);
+    const resent = await prisma.emailMessage.findFirst({ where: { to: later, template: "ACCESS_GRANTED" }, orderBy: { createdAt: "desc" } });
+    check("…y el reenvío lleva el botón para confirmarlas", !!resent?.html.includes("Confirmar que quiero recibir novedades") && l2Order.customer?.marketingOptIn === false);
+
+    // El nombre del formulario no se pone en una cuenta que ya existía.
+    const known = email("conocida");
+    const knownUser = await prisma.user.create({ data: { email: known } });
+    await claimFreeAccess({ productId: free.id, name: "Has ganado 500 € en premio-ya.com", email: known, newsletter: false });
+    check("una cuenta sin nombre no toma el del formulario", (await prisma.user.findUniqueOrThrow({ where: { id: knownUser.id } })).name === null);
+
+    // Sin datos legales completos, nadie puede apuntarse (la privacidad no diría quién trata los datos).
+    await prisma.creator.update({ where: { id: ana.id }, data: { legalTaxId: null } });
+    try {
+      check("sin datos legales: no se puede pedir", (await getClaimableProduct(free.id)) === null);
+      check(
+        "…ni apuntarse",
+        await rejects(() => claimFreeAccess({ productId: free.id, name: "Sin", email: email("sin-legal"), newsletter: false }), FreeAccessError, /no está disponible/),
+      );
+    } finally {
+      await prisma.creator.update({ where: { id: ana.id }, data: { legalTaxId: ana.legalTaxId } });
+    }
+
+    // Membresía gratis sobre una suscripción vieja que no se renueva (modo personal): da el acceso.
+    const stale = email("suscripcion-vieja");
+    const staleUser = await prisma.user.create({ data: { email: stale, name: "Socia" } });
+    const staleCustomer = await prisma.customer.create({ data: { creatorId: ana.id, userId: staleUser.id, email: stale, name: "Socia" } });
+    const longAgo = new Date(Date.now() - 40 * 86_400_000);
+    const ended = new Date(Date.now() - 10 * 86_400_000);
+    const staleSub = await prisma.subscription.create({
+      data: { creatorId: ana.id, productId: freeMembership.id, customerId: staleCustomer.id, userId: staleUser.id, priceCents: 900, currentPeriodStart: longAgo, currentPeriodEnd: ended, provider: "simulated" },
+    });
+    await prisma.access.create({ data: { creatorId: ana.id, userId: staleUser.id, productId: freeMembership.id, subscriptionId: staleSub.id, expiresAt: ended } });
+    const sm = await claimFreeAccess({ productId: freeMembership.id, name: "Socia", email: stale, newsletter: false });
+    const staleAccess = await prisma.access.findFirstOrThrow({ where: { userId: staleUser.id, productId: freeMembership.id } });
+    check("suscripción vieja caducada + membresía gratis: acceso activo y sin caducidad a la primera", sm.status === "granted" && staleAccess.status === "ACTIVE" && staleAccess.expiresAt === null && staleAccess.orderId === sm.orderId, staleAccess);
 
     const twin = email("a-la-vez");
     const both = await Promise.all([0, 1, 2].map(() => claimFreeAccess({ productId: free.id, name: "Doble", email: twin, newsletter: false })));
@@ -125,10 +187,23 @@ async function main() {
     check("darlo otra vez: mismo pedido, acceso devuelto", g2.status === "resent" && g2.orderId === manual.id &&
       (await prisma.access.findFirst({ where: { userId: manual.customer!.userId, productId: extDigital.id } }))?.status === "ACTIVE");
 
+    // ── Quitar el acceso de algo gratis: volver a apuntarse no lo devuelve ──
+    const userOf = async (orderId: string) => (await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { customer: true } })).customer!.userId;
+    const luciaUser = await userOf(order.id);
+    const freeAccessOf = async () => (await prisma.access.findFirst({ where: { userId: luciaUser, productId: free.id } }))?.status;
+    check("quitar el acceso a una inscripción gratis", await revokeManualAccess({ creatorId: ana.id, orderId: order.id }));
+    const mailsBefore = await prisma.emailMessage.count({ where: { to: lucia, template: "ACCESS_GRANTED" } });
+    const again = await claimFreeAccess({ productId: free.id, name: "Lucía", email: lucia, newsletter: true });
+    check("volver a apuntarse con el mismo email no hace nada", again.status === "blocked" && (await freeAccessOf()) === "REVOKED", again);
+    check("…ni le manda otro enlace", (await prisma.emailMessage.count({ where: { to: lucia, template: "ACCESS_GRANTED" } })) === mailsBefore);
+    const back = await grantManualAccess({ creatorId: ana.id, productId: free.id, name: "Lucía", email: lucia, grantedByUserId: ana.userId });
+    check("la dueña sí lo devuelve dándolo a mano", back.status === "resent" && back.orderId === order.id && (await freeAccessOf()) === "ACTIVE", back);
+    check("…y desde entonces el formulario vuelve a reenviar el enlace", (await claimFreeAccess({ productId: free.id, name: "Lucía", email: lucia, newsletter: false })).status === "resent");
+
     // ── Estadísticas ──
     const after = await getDashboardStats(ana.id, "all", ana.timezone);
     check("las inscripciones no cuentan como ventas", after.sales === before.sales && after.revenue === before.revenue, { before: before.sales, after: after.sales });
-    check("se cuentan aparte (3 inscripciones nuevas: 2 del formulario y 1 a mano)", after.signups - before.signups === 3 && after.formSignups - before.formSignups === 2, {
+    check("se cuentan aparte (6 inscripciones nuevas: 5 del formulario y 1 a mano)", after.signups - before.signups === 6 && after.formSignups - before.formSignups === 5, {
       signups: [before.signups, after.signups],
       form: [before.formSignups, after.formSignups],
     });
@@ -139,15 +214,16 @@ async function main() {
     const userIds = users.map((u) => u.id);
     await prisma.emailMessage.deleteMany({ where: { to: { startsWith: TAG } } });
     if (ids.length) await prisma.outboxEvent.deleteMany({ where: { OR: ids.map((id) => ({ payload: { path: ["orderId"], equals: id } })) } });
-    await prisma.analyticsEvent.deleteMany({ where: { OR: [{ productId: extDigital.id }, { visitorId: { in: userIds.map((u) => `user:${u}`) } }] } });
+    await prisma.analyticsEvent.deleteMany({ where: { OR: [{ productId: { in: [extDigital.id, freeMembership.id] } }, { visitorId: { in: userIds.map((u) => `user:${u}`) } }] } });
     await prisma.access.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.subscription.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.orderLink.deleteMany({ where: { orderId: { in: ids } } });
     await prisma.session.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.order.deleteMany({ where: { id: { in: ids } } });
     await prisma.customer.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     await prisma.productFile.deleteMany({ where: { productId: extDigital.id } });
-    await prisma.product.delete({ where: { id: extDigital.id } });
+    await prisma.product.deleteMany({ where: { id: { in: [extDigital.id, freeMembership.id] } } });
   }
   console.log(failures ? `\n${failures} comprobaciones fallidas` : "\nAcceso gratis, externo y a mano correcto ✓");
   process.exit(failures ? 1 : 0);

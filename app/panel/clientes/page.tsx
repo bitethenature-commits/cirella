@@ -37,7 +37,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Stat label="Personas" value={total} accent />
           <Stat label="Repiten" value={repeat} hint="Apuntadas a más de una cosa" />
-          <Stat label="Quieren novedades" value={optIns} hint="Marcaron la casilla" />
+          <Stat label="Quieren novedades" value={optIns} hint="Lo confirmaron por email" />
         </div>
       ) : (
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">

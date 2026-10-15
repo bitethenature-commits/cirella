@@ -9,6 +9,7 @@ import { tenantDb } from "@/lib/tenant";
 import { CODE_EVENT_TYPES } from "@/lib/types";
 import { Badge, PageHeader } from "../ui";
 import { moveDiscountCode, toggleDiscountCode } from "./actions";
+import { createdFlash } from "./saved-note";
 
 export const metadata: Metadata = { title: "Códigos de descuento" };
 
@@ -43,7 +44,7 @@ export default async function DiscountCodesPage({ searchParams }: { searchParams
           </Link>
         }
       />
-      {sp.guardado && <Flash ok="Código añadido. Ya se ve en tu página." />}
+      {sp.guardado && <Flash ok={createdFlash(sp.guardado)} />}
       {sp.borrado && <Flash ok="Código borrado." />}
 
       {codes.length === 0 ? (

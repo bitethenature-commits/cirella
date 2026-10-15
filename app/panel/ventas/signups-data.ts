@@ -1,5 +1,6 @@
 import "server-only";
 import { NO_CHARGE_LABEL, NO_CHARGE_PROVIDERS, type NoChargeProvider } from "@/lib/access-mode";
+import { newsletterPending } from "@/lib/free-access-rules";
 import { tenantDb } from "@/lib/tenant";
 
 /** Inscripciones que se listan como mucho (la descarga CSV no tiene tope). */
@@ -16,6 +17,8 @@ export type SignupRow = {
   paidAt: Date | null;
   origin: string;
   newsletter: boolean;
+  /** Marcó la casilla de novedades en el formulario y todavía no lo ha confirmado desde su email. */
+  newsletterPending: boolean;
   active: boolean;
 };
 
@@ -44,6 +47,7 @@ export async function listSignups(creatorId: string, opts: { since: Date | null;
         productTitle: true,
         paidAt: true,
         paymentProvider: true,
+        metadata: true,
         customerId: true,
         product: { select: { emoji: true } },
         customer: { select: { userId: true, marketingOptIn: true } },
@@ -72,6 +76,7 @@ export async function listSignups(creatorId: string, opts: { since: Date | null;
     paidAt: o.paidAt,
     origin: NO_CHARGE_LABEL[o.paymentProvider as NoChargeProvider] ?? o.paymentProvider,
     newsletter: !!o.customer?.marketingOptIn,
+    newsletterPending: newsletterPending(o.metadata, !!o.customer?.marketingOptIn),
     active: !!o.customer && live.has(`${o.customer.userId}:${o.productId}`),
   }));
   return { rows, total };

@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
-import { discountCodeFormSchema, expiryFromDateKey, parseShopUrl } from "@/lib/discount-codes";
+import { codeState, discountCodeFormSchema, expiryFromDateKey, parseShopUrl } from "@/lib/discount-codes";
 import { ownImageUrl } from "@/lib/posts";
 import { tenantDb } from "@/lib/tenant";
+import { savedFlash, savedParam } from "./saved-note";
 
 export type CodeActionState = { ok?: string; error?: string } | undefined;
 
@@ -41,11 +42,12 @@ export async function saveDiscountCode(_: CodeActionState, form: FormData): Prom
     const last = await db.discountCode.findFirst({ orderBy: { sortOrder: "desc" }, select: { sortOrder: true } });
     await db.discountCode.create({ data: { creatorId: creator.id, ...data, sortOrder: (last?.sortOrder ?? 0) + 1 } });
     refresh(creator.username);
-    redirect("/panel/codigos?guardado=1");
+    // El aviso dice si se ve de verdad: oculto o ya caducado, no.
+    redirect(`/panel/codigos?guardado=${savedParam(codeState(data))}`);
   }
   await db.discountCode.update({ where: { id: current.id }, data });
   refresh(creator.username, current.id);
-  return { ok: data.active ? "Guardado. Ya se ve en tu página." : "Guardado. Está oculto: no se ve en tu página." };
+  return { ok: savedFlash(codeState(data)) };
 }
 
 export async function deleteDiscountCode(form: FormData) {

@@ -7,6 +7,7 @@ import { publishPage } from "@/lib/creator";
 import { prisma } from "@/lib/db";
 import { pageConfigSchema, type PageConfig } from "@/lib/page-config";
 import { planFeatures } from "@/lib/plans";
+import { isPersonalMode } from "@/lib/site-mode";
 
 const ownImage = (u: string | null | undefined) => (u && (u.startsWith("/media/") || u.startsWith("/demo/")) ? u : null);
 
@@ -44,5 +45,8 @@ export async function publishDraft(cfg: PageConfig) {
   await publishPage(r.creator.id);
   revalidatePath(`/${r.creator.username}`);
   revalidatePath("/panel", "layout");
+  // En modo personal su nombre y su foto también salen en la página «no encontrada» compartida,
+  // que se genera estática al desplegar (cuando su cuenta aún no existía): se regenera al publicar.
+  if (isPersonalMode()) revalidatePath("/", "layout");
   return { ok: true, message: "¡Publicado! Tu página ya muestra los cambios." };
 }

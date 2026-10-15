@@ -28,6 +28,9 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
   const productCount = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
   // Productos que no tienen nada que entregar (o una membresía publicada y vacía).
   const deliveryIssues = await listDeliveryIssues(db);
+  // Gratis con email publicado sin datos legales: nadie puede apuntarse (lib/free-access.ts).
+  const freeBlocked =
+    !legalIdentityComplete(creator) && (await db.product.count({ where: { status: "PUBLISHED", accessMode: "FREE_EMAIL", type: { not: "SESSION" } } })) > 0;
   const first = cfg.displayName.split(" ")[0];
   const rangeLabel = { month: "este mes", "30d": "en los últimos 30 días", all: "en total" }[range];
   // Modo personal: aquí no se cobra nada (sin cobros, DAC7 ni ingresos); se cuentan visitas e inscripciones.
@@ -52,6 +55,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
         showBookings={flags.showBookings}
         checklist={steps}
         deliveryIssues={deliveryIssues}
+        freeBlocked={freeBlocked}
       />
     );
   }
@@ -86,6 +90,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
         <Dac7Banner missing={dac7Missed} show={showDac7} />
       </div>
 
+      {freeBlocked && <FreeSignupsBlockedAlert />}
       <DeliveryAlerts issues={deliveryIssues} />
 
       {/* Frases resumen */}
@@ -228,6 +233,18 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
   );
 }
 
+/** Hay productos gratis con email publicados, pero sin datos legales nadie puede apuntarse. */
+function FreeSignupsBlockedAlert() {
+  return (
+    <DeliveryAlert
+      title="Nadie puede apuntarse a tus productos gratis"
+      text="Hasta que completes tus datos legales, el formulario no se muestra: tu política de privacidad tiene que decir quién trata los datos."
+      cta="Completar mis datos legales"
+      href="/panel/ajustes/legal"
+    />
+  );
+}
+
 type DeliveryIssues = Awaited<ReturnType<typeof listDeliveryIssues>>;
 
 /** Productos que no tienen nada que entregar (o una membresía publicada y vacía). */
@@ -273,6 +290,7 @@ function PersonalHome({
   showBookings,
   checklist,
   deliveryIssues,
+  freeBlocked,
 }: {
   first: string;
   range: keyof typeof RANGES;
@@ -282,6 +300,7 @@ function PersonalHome({
   showBookings: boolean;
   checklist: ChecklistItem[];
   deliveryIssues: DeliveryIssues;
+  freeBlocked: boolean;
 }) {
   const pending = checklist.filter((c) => !c.done);
   const top = s.topSignups[0];
@@ -289,6 +308,7 @@ function PersonalHome({
     <div className="space-y-8">
       <PageHeader title={`Hola, ${first}`} subtitle={<>Así va tu página {rangeLabel}.</>} actions={<RangeTabs current={range} base="/panel" />} />
 
+      {freeBlocked && <FreeSignupsBlockedAlert />}
       <DeliveryAlerts issues={deliveryIssues} />
 
       <div className="grid gap-3 md:grid-cols-2">

@@ -156,7 +156,7 @@ test("caducidad: vale todo el día elegido en la zona de la creadora", () => {
   eq(isCodeVisible({ active: true, expiresAt: exp }, new Date("2026-12-31T23:00:00Z")), false);
   eq(isCodeVisible({ active: false, expiresAt: null }), false);
   eq(codeState({ active: false, expiresAt: new Date("2020-01-01") }), "EXPIRED");
-  eq(expiryLabel(exp, TZ), "Válido hasta el 31 de diciembre");
+  eq(expiryLabel(exp, TZ, new Date("2026-10-15T10:00:00Z")), "Válido hasta el 31 de diciembre");
 });
 
 // ── Bloques de texto y secciones nuevas ──

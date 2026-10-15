@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
         r.email,
         r.productTitle,
         r.origin,
-        r.newsletter ? "sí" : "no",
+        r.newsletter ? "sí" : r.newsletterPending ? "pendiente de confirmar" : "no",
         r.active ? "con acceso" : "retirado",
         orderRef(r.orderId),
       ]);

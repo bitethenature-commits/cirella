@@ -3,6 +3,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { requireCreator } from "@/lib/auth";
 import { AUTOMATIONS, type AutomationTrigger } from "@/lib/automations";
 import { planFeatures } from "@/lib/plans";
+import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
 import { formatDateTime } from "@/lib/tz";
 import { Badge, Locked, PageHeader } from "../ui";
@@ -20,10 +21,13 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
 
 const RETRYING = { label: "Reintentando", tone: "warning" as Tone };
 const FAILED_NOTE = "No se pudo entregar: la dirección lo rechazó o falló 6 veces seguidas. El equipo de Cirella ya está avisado.";
+// Web personal: no hay equipo de la plataforma detrás; queda en Envíos fallidos para revisarlo.
+const FAILED_NOTE_PERSONAL = "No se pudo entregar: la dirección lo rechazó o falló 6 veces seguidas. Ha quedado registrado para revisarlo.";
 
 export default async function AutomationsPage() {
   const { creator } = await requireCreator();
   const pro = planFeatures(creator.plan).automations;
+  const failedNote = isPersonalMode() ? FAILED_NOTE_PERSONAL : FAILED_NOTE;
   const db = tenantDb(creator.id);
   const [rows, log] = await Promise.all([
     db.automation.findMany(),
@@ -92,10 +96,10 @@ export default async function AutomationsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{m.subject}</p>
                   <p className="truncate text-xs text-muted">{m.to} · {formatDateTime(m.status === "SENT" && m.sentAt ? m.sentAt : m.sendAt)}</p>
-                  {m.status === "FAILED" && <p className="mt-0.5 text-xs text-[#9a3a2e]">{FAILED_NOTE}</p>}
+                  {m.status === "FAILED" && <p className="mt-0.5 text-xs text-[#9a3a2e]">{failedNote}</p>}
                   {retrying && <p className="mt-0.5 text-xs text-muted">El proveedor de email ha fallado; se reintenta solo ({formatDateTime(m.sendAt)}).</p>}
                 </div>
-                <span title={m.status === "FAILED" ? FAILED_NOTE : undefined}>
+                <span title={m.status === "FAILED" ? failedNote : undefined}>
                   <Badge tone={st.tone}>{st.label}</Badge>
                 </span>
               </div>

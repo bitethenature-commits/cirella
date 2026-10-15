@@ -155,6 +155,20 @@ export function currentPersonalPrivacy(c: { displayName: string; legalPrivacy: s
   return c.legalPrivacy ?? renderPersonalPrivacy({ displayName: c.displayName });
 }
 
+/**
+ * Textos que se guardan como versión aceptada (LegalSnapshot): los mismos que enseña la página
+ * legal. En la web personal, solo la privacidad personal (aquí no se vende nada: sin condiciones de
+ * venta ni reembolsos, y sin plataforma ni pasarela de pago).
+ */
+export function acceptedLegalDocs(
+  c: LegalIdentity & { displayName: string; legalTerms: string | null; legalRefunds: string | null; legalPrivacy: string | null },
+  platformName: string,
+  personal: boolean,
+): CreatorLegalDocs {
+  if (personal) return { terms: "", refunds: "", privacy: currentPersonalPrivacy(c) };
+  return currentLegalDocs(c, platformName);
+}
+
 /** Primer apartado de la privacidad, generado al mostrarla a partir de la identidad. */
 export function privacyResponsibleLine(i: Partial<LegalIdentity>): string {
   const parts = [i.legalName, i.legalTaxId, formatLegalAddress(i), i.legalEmail].map((s) => s?.trim()).filter(Boolean);

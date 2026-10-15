@@ -63,6 +63,8 @@ export function postSlugBase(title: string, slug?: string | null): string {
  *   · borrador: la elegida (o null) — no se ve hasta publicarla;
  *   · publicada: la elegida (a las 9:00 en la zona de la creadora; hoy → ahora mismo), o la que ya
  *     tenía, o ahora.
+ * Si la fecha llega vacía del formulario (`publishedOn: ""`), solo se conserva la que ya tenía si es
+ * pasada; una futura se descarta. Sin `publishedOn` (botón de la lista) se conserva tal cual.
  */
 export function resolvePublishedAt(input: {
   status: PostStatus;
@@ -81,8 +83,10 @@ export function resolvePublishedAt(input: {
     if (input.current && dateKeyInTz(input.current, input.timeZone) === day) return input.current;
     return zonedTimeToUtc(day, 9 * 60, input.timeZone);
   }
-  if (input.status === "DRAFT") return input.current;
-  return input.current ?? now;
+  // Fecha vaciada en el formulario: no se conserva una fecha futura (sería programarla sin querer).
+  const keep = input.publishedOn === "" ? (input.current && input.current <= now ? input.current : null) : input.current;
+  if (input.status === "DRAFT") return keep;
+  return keep ?? now;
 }
 
 /** ¿Se ve en la página pública? */

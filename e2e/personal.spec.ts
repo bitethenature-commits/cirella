@@ -62,6 +62,17 @@ test.describe.serial("Modo personal", () => {
       await expect(page.getByRole("heading", { name: "No encontramos esta página" })).toBeVisible();
       expect(await visibleText(page)).not.toContain("Cirella");
     }
+    // La imagen para redes: la de Ana existe; la de otra creadora, no (nada de una tarjeta «Cirella»).
+    const og = await page.request.get("/ana/opengraph-image");
+    expect(og.status()).toBe(200);
+    expect(og.headers()["content-type"]).toContain("image/png");
+    expect((await page.request.get("/maria/opengraph-image")).status()).toBe(404);
+  });
+
+  test("el favicon de las páginas de la web (login, panel…) es el de Ana", async ({ page }) => {
+    await page.goto("/entrar");
+    await expect(page.locator('link[rel="icon"]').first()).toHaveAttribute("href", /\/ana\/icon/);
+    await expect(page.locator('link[rel="icon"][href*="icon.svg"]')).toHaveCount(0);
   });
 
   test("registro cerrado y login con la marca de Ana", async ({ page }) => {

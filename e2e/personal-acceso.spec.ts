@@ -124,6 +124,23 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
     expect(await prisma.emailMessage.count({ where: { to: lucia, template: "ACCESS_GRANTED" } })).toBe(2);
   });
 
+  test("las novedades solo cuentan cuando las confirma desde su email", async ({ page }) => {
+    // Marcó la casilla en el formulario: queda pendiente, sin consentimiento todavía.
+    const customer = () => prisma.customer.findFirstOrThrow({ where: { email: lucia } });
+    expect((await customer()).marketingOptIn).toBe(false);
+    const access = await accessEmailLink(lucia, "Empezar el curso");
+    const confirm = await accessEmailLink(lucia, "Confirmar que quiero recibir novedades");
+    // El enlace de novedades va después del botón principal.
+    expect(access.html.indexOf("Empezar el curso")).toBeLessThan(access.html.indexOf("Confirmar que quiero recibir novedades"));
+    await page.goto(confirm.url);
+    await page.waitForURL("**/cuenta/novedades/confirmar?pedido=**");
+    // Abrir el enlace no confirma nada: hace falta el botón.
+    expect((await customer()).marketingOptIn).toBe(false);
+    await page.getByRole("button", { name: "Sí, quiero recibir novedades" }).click();
+    await expect(page.getByRole("heading", { name: "Listo, recibirás sus novedades" })).toBeVisible();
+    expect((await customer()).marketingOptIn).toBe(true);
+  });
+
   test("pago en otra web: botón a la web externa con el clic medido y sin «IVA incluido»", async ({ page, context }) => {
     // La web externa no se visita de verdad.
     await context.route("https://calendly.com/**", (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<p>Calendly</p>" }));
@@ -190,5 +207,37 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
     expect(body.split("\n")[0]).toContain("quiere_novedades");
     expect(body).toContain(lucia);
     expect(body).toContain(eva);
+  });
+
+  test("si le quitas el acceso gratis, volver a apuntarse no lo devuelve", async ({ page }) => {
+    const rosa = email("rosa");
+    await page.goto(FREE);
+    await page.fill("#claim-name", "Rosa Prueba");
+    await page.fill("#claim-email", rosa);
+    await page.getByLabel(/política de privacidad/).check();
+    await page.getByRole("button", { name: /Quiero el mini-curso/ }).click();
+    await expect(page.getByText("¡Listo! Revisa tu email")).toBeVisible();
+    const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail: rosa }, include: { customer: true } });
+    expect(await prisma.emailMessage.count({ where: { to: rosa, template: "ACCESS_GRANTED" } })).toBe(1);
+
+    await ownerLogin(page);
+    await page.goto(`/panel/productos/${order.productId}`);
+    page.once("dialog", (d) => d.accept());
+    await page.getByRole("button", { name: `Quitar acceso a ${rosa}` }).click();
+    await expect(page.getByText("Acceso retirado. Sus enlaces ya no funcionan.")).toBeVisible();
+    const where = { userId: order.customer!.userId, productId: order.productId };
+    expect((await prisma.access.findFirstOrThrow({ where })).status).toBe("REVOKED");
+
+    // Otra vez el formulario con el mismo email (sin sesión): respuesta neutra, sin acceso ni email.
+    await page.context().clearCookies();
+    await page.goto(FREE);
+    await page.fill("#claim-name", "Rosa Prueba");
+    await page.fill("#claim-email", rosa);
+    await page.getByLabel(/política de privacidad/).check();
+    await page.getByRole("button", { name: /Quiero el mini-curso/ }).click();
+    await expect(page.getByText("¡Listo! Revisa tu email")).toBeVisible();
+    expect((await prisma.access.findFirstOrThrow({ where })).status).toBe("REVOKED");
+    expect(await prisma.emailMessage.count({ where: { to: rosa, template: "ACCESS_GRANTED" } })).toBe(1);
+    expect(await prisma.order.count({ where: { buyerEmail: rosa } })).toBe(1);
   });
 });

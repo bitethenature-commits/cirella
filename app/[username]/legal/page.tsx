@@ -32,7 +32,8 @@ const COOKIES_TEXT =
  *
  * Modo personal (aquí no se vende nada: lo de pago se compra en otras webs): aviso legal,
  * privacidad, cookies y un aviso sobre los enlaces y códigos de otras marcas. Sin condiciones de
- * venta ni reembolsos y sin la línea de la plataforma. Las versiones aceptadas (?v=) se muestran enteras.
+ * venta ni reembolsos y sin la línea de la plataforma. Una versión aceptada (?v=) se muestra como se
+ * aceptó: la de la web personal (LegalSnapshotContent.personal) así; una de la plataforma, entera.
  */
 export default async function CreatorLegalPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ v?: string }> }) {
   const { username } = await params;
@@ -51,9 +52,10 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
   if (sp.v && !snapshot) notFound();
   const identity = snapshot?.identity ?? legalIdentityOf(creator);
   const docs = snapshot ?? currentLegalDocs(creator, platformName);
-  // Sin ventas en la web: solo lo que aplica a una página personal (salvo una versión aceptada).
-  const personal = isPersonalMode() && !snapshot;
-  const privacy = personal ? currentPersonalPrivacy(creator) : docs.privacy;
+  // Sin ventas en la web: solo lo que aplica a una página personal. Una versión aceptada se pinta
+  // como se aceptó: la de la web personal (marca `personal`) igual, con su privacidad exacta.
+  const personal = snapshot ? snapshot.personal === true : isPersonalMode();
+  const privacy = snapshot ? snapshot.privacy : personal ? currentPersonalPrivacy(creator) : docs.privacy;
   const complete = legalIdentityComplete(identity);
 
   const rows: [string, string][] = [
@@ -72,7 +74,7 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
 
         {snapshot && (
           <p className="cp-card mt-6 px-4 py-3 text-sm">
-            <strong>Versión aceptada en tu compra</strong> · en vigor desde el{" "}
+            <strong>{snapshot.personal ? "Versión aceptada al apuntarte" : "Versión aceptada en tu compra"}</strong> · en vigor desde el{" "}
             {snapshot.createdAt.toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short", timeZone: creator.timezone })}. Es la copia exacta de lo que
             aceptaste; la versión actual puede ser distinta. <Link href={`/${username}/legal`} className="underline underline-offset-4">Ver la versión actual</Link>
           </p>

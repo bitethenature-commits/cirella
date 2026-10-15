@@ -20,6 +20,7 @@ import { FreeAccessError, grantManualAccess, revokeManualAccess } from "@/lib/fr
 import { parseMoneyToCents } from "@/lib/money";
 import { canSellType } from "@/lib/plans";
 import { siteMode } from "@/lib/site-mode";
+import { RESERVED_PRODUCT_SLUGS } from "@/lib/slug";
 import { privateKey, storage } from "@/lib/storage";
 import { tenantDb, type TenantDb } from "@/lib/tenant";
 import { DEFAULT_CTA, LESSON_KINDS, PRODUCT_TYPES, type ProductType } from "@/lib/types";
@@ -144,7 +145,11 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
     if (r?.issue?.blocking) return { error: deliveryIssueCopy(r.issue, d.title).publishError };
   }
   const wantedSlug = d.slug ? d.slug.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") : product.slug;
-  const slug = wantedSlug !== product.slug ? await uniqueProductSlug(creator.id, wantedSlug, product.id) : product.slug;
+  // Un slug que ha pasado a estar reservado (p. ej. «novedades») se recalcula aunque no cambie.
+  const slug =
+    wantedSlug !== product.slug || RESERVED_PRODUCT_SLUGS.has(wantedSlug)
+      ? await uniqueProductSlug(creator.id, wantedSlug, product.id)
+      : product.slug;
   if (d.meetingUrl && !/^https?:\/\//.test(d.meetingUrl)) return { error: "El enlace de videollamada debe empezar por https://" };
   if (d.imageUrl && !d.imageUrl.startsWith("/media/") && !d.imageUrl.startsWith("/demo/")) return { error: "Imagen no válida" };
   const featured = d.featured === "on";

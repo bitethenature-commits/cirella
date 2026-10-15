@@ -10,7 +10,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { digitalContentText, isInstantDelivery } from "@/lib/delivery";
 import { appUrl } from "@/lib/env";
 import { getPlatformIssuer } from "@/lib/invoices/issuer";
-import { creatorLegalHref, sellerStatement, sessionChangePolicyText } from "@/lib/legal";
+import { creatorLegalHref, legalIdentityComplete, sellerStatement, sessionChangePolicyText } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
 import { getPublicProduct } from "@/lib/product-page";
 import { isPersonalMode } from "@/lib/site-mode";
@@ -136,8 +136,19 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
               ? [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, ...externalPerk]
               : [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, { icon: RefreshCcw, text: "Cancela cuando quieras" }, { icon: Lock, text: "Acceso privado mientras estés suscrita" }];
   const buttonClass = "cp-btn mt-6 hidden w-full md:flex";
-  // Un solo formulario: en móvil queda justo bajo el precio y la barra fija lleva a él.
-  const claim = free ? (
+  // Un solo formulario: en móvil queda justo bajo el precio y la barra fija lleva a él. Sin los
+  // datos legales completos no se ofrece: la privacidad que se acepta no diría quién trata los datos
+  // (el servidor tampoco lo admite, lib/free-access.ts).
+  const claim = !free ? null : !legalIdentityComplete(creator) ? (
+    <div className="cp-card px-4 py-3 text-sm">
+      <p>Todavía no puedes apuntarte: falta completar los datos legales de esta página.</p>
+      {isOwner && (
+        <Link href="/panel/ajustes/legal" className="mt-2 inline-block font-semibold underline underline-offset-4">
+          Completar mis datos legales
+        </Link>
+      )}
+    </div>
+  ) : (
     <ClaimForm
       productId={p.id}
       productTitle={p.title}
@@ -147,7 +158,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
       processorName={personalSite ? null : data.platformName}
       creatorDisplayName={config.displayName}
     />
-  ) : null;
+  );
 
   return (
     <CreatorShell username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} sellerName={paid && (creator.legalName || seller.platformSells) ? seller.name : null}>

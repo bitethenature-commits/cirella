@@ -3,10 +3,11 @@ import Link from "next/link";
 import { useCreatorBranding, usePersonalMode } from "@/components/creator-page/branding-context";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { LogoMark } from "@/components/logo";
+import { SiteMark } from "@/components/site-brand-context";
 
 /**
  * 404 dentro de /{usuaria}. Si la creadora existe (p. ej. un producto retirado), con su plantilla
- * y un enlace a su página; si no, la página neutra de Cirella.
+ * y un enlace a su página; si no, la página neutra de Cirella (en la web personal, con la marca de la dueña).
  */
 export default function CreatorNotFound() {
   const branding = useCreatorBranding();
@@ -28,7 +29,7 @@ export default function CreatorNotFound() {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-ink px-6 text-center text-cream">
       <div>
-        <LogoMark className="mx-auto h-10 w-10" />
+        {personal ? <SiteMark className="h-10 w-10" dark /> : <LogoMark className="mx-auto h-10 w-10" />}
         <h1 className="display mt-6 text-4xl">Esta página no existe… todavía</h1>
         <p className="mx-auto mt-3 max-w-sm text-sm text-cream/70">Puede que el enlace esté mal escrito o que la página ya no esté disponible.</p>
         {personal ? (

@@ -16,7 +16,7 @@ import { captureError } from "@/lib/monitoring";
 import { canAcceptPayments, payoutOnboardingLink } from "@/lib/payouts";
 import { canSellType } from "@/lib/plans";
 import { isPersonalMode } from "@/lib/site-mode";
-import { normalizeUsername } from "@/lib/slug";
+import { normalizeUsername, RESERVED_PRODUCT_SLUGS } from "@/lib/slug";
 import { privateKey, storage } from "@/lib/storage";
 import { TEMPLATE_KEYS } from "@/lib/templates";
 import { tenantDb } from "@/lib/tenant";
@@ -152,7 +152,8 @@ export async function saveFirstProduct(input: z.infer<typeof productSchema>): Pr
     if (!existing) return { ok: false, error: "Producto no encontrado" };
     // Un producto que ya no está en borrador no cambia de tipo (pedidos, accesos y reservas dependen de él).
     if (existing.status !== "DRAFT" && existing.type !== p.type) return { ok: false, error: "Hazlo desde el panel" };
-    const slug = existing.title !== p.title ? await uniqueProductSlug(creator.id, p.title, existing.id) : existing.slug;
+    // Un slug que ha pasado a estar reservado (p. ej. «novedades») se recalcula aunque no cambie el título.
+    const slug = existing.title !== p.title || RESERVED_PRODUCT_SLUGS.has(existing.slug) ? await uniqueProductSlug(creator.id, p.title, existing.id) : existing.slug;
     await db.product.update({ where: { id: existing.id }, data: { ...data, slug } });
     return { ok: true, data: { productId: existing.id } };
   }

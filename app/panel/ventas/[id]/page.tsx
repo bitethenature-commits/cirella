@@ -4,6 +4,7 @@ import { ArrowLeft, UserMinus } from "lucide-react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { isNoChargeOrder, NO_CHARGE_LABEL, type NoChargeProvider } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
+import { newsletterPending } from "@/lib/free-access-rules";
 import { formatMoney } from "@/lib/money";
 import { orderBreakdown } from "@/lib/order-breakdown";
 import { orderRef } from "@/lib/order-ref";
@@ -161,7 +162,13 @@ async function SignupDetail({ creatorId, orderId }: { creatorId: string; orderId
         {o.paidAt && <Row label="Fecha">{formatDateTime(o.paidAt)}</Row>}
         <Row label="Origen">{NO_CHARGE_LABEL[o.paymentProvider as NoChargeProvider] ?? o.paymentProvider}</Row>
         <Row label="Importe">Gratis</Row>
-        <Row label="Novedades por email">{o.customer?.marketingOptIn ? "Sí, marcó la casilla" : "No"}</Row>
+        <Row label="Novedades por email">
+          {o.customer?.marketingOptIn
+            ? "Sí"
+            : newsletterPending(o.metadata, false)
+              ? "Marcó la casilla; pendiente de que lo confirme desde su email"
+              : "No"}
+        </Row>
         <Row label="Referencia"><span className="font-mono text-xs">{orderRef(o.id)}</span></Row>
       </dl>
       <section className="mt-8 flex flex-wrap items-center gap-3">

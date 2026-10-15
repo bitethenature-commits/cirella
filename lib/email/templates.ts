@@ -207,6 +207,8 @@ export function accessGrantedEmail(o: {
   url: string;
   linkNote?: string;
   instructions?: string | null;
+  /** Pidió las novedades en el formulario: botón para confirmarlo (hasta entonces no cuenta). */
+  newsletterUrl?: string | null;
 }) {
   const what =
     o.productType === "COURSE"
@@ -225,7 +227,12 @@ export function accessGrantedEmail(o: {
         p("Pulsa el botón para abrirlo. No necesitas contraseña.") +
         (o.instructions ? p(`<em>${esc(o.instructions)}</em>`) : ""),
       cta: { label, url: o.url },
-      afterCta: note(o.linkNote),
+      afterCta:
+        note(o.linkNote) +
+        (o.newsletterUrl
+          ? p(`Marcaste que quieres recibir las novedades de ${esc(o.creatorName)} por email. Confírmalo aquí (si no lo pediste tú, no hagas nada y no recibirás ninguna):`) +
+            p(`<a href="${esc(o.newsletterUrl)}" style="color:#0E1024;font-weight:600">Confirmar que quiero recibir novedades</a>`)
+          : ""),
     }),
   };
 }

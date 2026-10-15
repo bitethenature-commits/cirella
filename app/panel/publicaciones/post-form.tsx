@@ -1,7 +1,7 @@
 "use client";
 import { Eye, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { startTransition, useActionState, useState } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 import { Flash } from "@/components/ui/flash";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { POST_BODY_MAX, POST_EXCERPT_MAX, POST_TITLE_MAX } from "@/lib/posts";
@@ -26,6 +26,10 @@ export function PostForm({ post, host, username, initialMessage }: { post: Edita
   const [image, setImage] = useState(post.imageUrl);
   const [title, setTitle] = useState(post.title);
   const [slug, setSlug] = useState(post.slug);
+  // Tras guardar, el campo muestra la dirección guardada de verdad (p. ej. «-2» si ya la usaba otra).
+  useEffect(() => {
+    if (state?.slug) setSlug(state.slug);
+  }, [state]);
   const [status, setStatus] = useState(post.status);
   const shownSlug = slug || slugify(title) || "…";
 

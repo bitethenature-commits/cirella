@@ -302,8 +302,14 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
     const user =
       existingUser ??
       (await tx.user.create({ data: { email: order.buyerEmail, name: order.buyerName } }));
-    if (existingUser && !existingUser.name && order.buyerName)
+    // El nombre del formulario gratis lo escribe cualquiera con cualquier email: no se pone en una
+    // cuenta que ya existía (sí en la ficha de clienta de esta creadora).
+    if (existingUser && !existingUser.name && order.buyerName && order.paymentProvider !== "free")
       await tx.user.update({ where: { id: user.id }, data: { name: order.buyerName } });
+    // Novedades: solo con la casilla marcada en el checkout (RGPD art. 7). En el formulario gratis
+    // no hay pago que demuestre quién escribe el email: se confirman desde el email
+    // (lib/free-access.ts, confirmNewsletter), nunca aquí.
+    const optIn = order.marketingOptIn && order.paymentProvider !== "free";
 
     const prevCustomer = await tx.customer.findUnique({
       where: { creatorId_userId: { creatorId: order.creatorId, userId: user.id } },
@@ -319,9 +325,8 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
         ordersCount: 1,
         firstPurchaseAt: now,
         lastPurchaseAt: now,
-        // Novedades por email: solo con la casilla marcada en el checkout (RGPD art. 7).
-        marketingOptIn: order.marketingOptIn,
-        marketingOptInAt: order.marketingOptIn ? now : null,
+        marketingOptIn: optIn,
+        marketingOptInAt: optIn ? now : null,
       },
       update: {
         totalSpentCents: { increment: order.amountCents },
@@ -329,7 +334,7 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
         lastPurchaseAt: now,
         name: prevCustomer?.name ?? order.buyerName ?? user.name,
         // Una compra sin la casilla no retira un consentimiento anterior: solo se retira desde /cuenta/perfil.
-        ...(order.marketingOptIn && !prevCustomer?.marketingOptIn ? { marketingOptIn: true, marketingOptInAt: now } : {}),
+        ...(optIn && !prevCustomer?.marketingOptIn ? { marketingOptIn: true, marketingOptInAt: now } : {}),
       },
     });
     if (!prevCustomer) events.push({ type: "customer.created", customerId: customer.id });
@@ -434,8 +439,17 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
       });
       events.push({ type: "booking.confirmed", bookingId: booking.id });
     }
-    // El acceso de una membresía duplicada sigue siendo el de la suscripción que ya tenía.
-    if (!liveMembership)
+    // El acceso de una membresía duplicada sigue siendo el de la suscripción que ya tenía. Sin cobro,
+    // la suscripción viva solo cuenta si su acceso sigue vigente: en la web sin pasarela (modo
+    // personal) no se renueva y su acceso caduca aunque siga ACTIVE; entonces vale el acceso gratis.
+    const keepCurrentAccess =
+      liveMembership &&
+      (!noCharge ||
+        !!(await tx.access.findFirst({
+          where: { userId: user.id, productId: p.id, status: "ACTIVE", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+          select: { id: true },
+        })));
+    if (!keepCurrentAccess)
       await tx.access.upsert({
         where: { userId_productId: { userId: user.id, productId: p.id } },
         create: { creatorId: order.creatorId, userId: user.id, productId: p.id, orderId: order.id, subscriptionId, expiresAt },

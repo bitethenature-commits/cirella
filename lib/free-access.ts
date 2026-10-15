@@ -4,6 +4,8 @@ import { asAccessMode, hostsContent, resendDedupeKey, type NoChargeProvider, NO_
 import { sendAccessEmail } from "./automations";
 import { prisma } from "./db";
 import { deliveryFacts, deliveryIssue, DELIVERY_COUNT } from "./delivery";
+import { newsletterRequested, publicClaimBlocked, revokedByOwner } from "./free-access-rules";
+import { legalIdentityComplete } from "./legal";
 import { ensureLegalSnapshot } from "./legal-snapshot";
 import { revokeOrderAccess } from "./order-links";
 import { fulfillOrder } from "./orders";
@@ -18,18 +20,28 @@ import { fulfillOrder } from "./orders";
  * transacción de cobro) y entregan por el mismo camino que una compra (fulfillOrder): clienta, acceso
  * y el email «Ya tienes acceso a «X»» con el enlace personal que lleva directo al contenido.
  *
- * Idempotente por email + producto: si ya lo tiene, no se crea otro pedido; se reenvía el enlace
- * (y, si se le había quitado el acceso, se le devuelve). Dos envíos a la vez del mismo email esperan
- * al mismo cerrojo de la BD, así que nunca hay dos pedidos.
+ * Idempotente por email + producto: si ya lo tiene, no se crea otro pedido; se reenvía el enlace.
+ * Si la dueña le quitó el acceso, solo ella lo devuelve (dándolo otra vez a mano): volver a
+ * apuntarse con el formulario no hace nada (Order.metadata.revokedAt, lib/free-access-rules.ts).
+ * Dos envíos a la vez del mismo email esperan al mismo cerrojo de la BD, así que nunca hay dos pedidos.
+ *
+ * Novedades: la casilla del formulario no es consentimiento todavía (cualquiera puede escribir un
+ * email ajeno). Se anota como pedida y el email de acceso lleva un botón para confirmarla
+ * (confirmNewsletter, desde /cuenta/novedades/confirmar).
  */
 
 export class FreeAccessError extends Error {}
 
-export type GrantResult = { status: "granted" | "resent"; orderId: string };
+/** «blocked»: petición del formulario sobre un acceso que la dueña quitó; no se hace nada. */
+export type GrantResult = { status: "granted" | "resent" | "blocked"; orderId: string };
 
 type ProductForGrant = Pick<Product, "id" | "creatorId" | "title" | "type" | "currency">;
 
-/** Producto gratis con email que se puede pedir ahora: publicado y de una creadora activa y publicada. */
+/**
+ * Producto gratis con email que se puede pedir ahora: publicado y de una creadora activa, publicada
+ * y con sus datos legales completos (sin ellos la privacidad que se acepta no dice quién trata los
+ * datos; igual que el checkout de pago, lib/orders.ts).
+ */
 export async function getClaimableProduct(productId: string) {
   const p = await prisma.product.findUnique({
     where: { id: productId },
@@ -37,7 +49,7 @@ export async function getClaimableProduct(productId: string) {
   });
   if (!p || p.status !== "PUBLISHED" || asAccessMode(p.accessMode) !== "FREE_EMAIL" || !hostsContent(p.type)) return null;
   const c = p.creator;
-  if (c.status !== "ACTIVE" || !c.published || c.user.status !== "ACTIVE") return null;
+  if (c.status !== "ACTIVE" || !c.published || c.user.status !== "ACTIVE" || !legalIdentityComplete(c)) return null;
   return p;
 }
 
@@ -59,14 +71,20 @@ export async function claimFreeAccess(input: {
   return grantNoCharge(product, "free", {
     email: input.email,
     name: input.name,
+    origin: "public",
+    newsletter: input.newsletter,
     data: {
-      marketingOptIn: input.newsletter,
+      // Las novedades no cuentan hasta que las confirma desde su email (confirmNewsletter).
+      marketingOptIn: false,
       legalSnapshotId: snapshot.id,
       termsAcceptedAt: now,
       visitorId: input.visitorId ?? null,
       ipHash: input.ipHash ?? null,
       source: input.source ?? null,
-      metadata: { privacyAcceptedAt: now.toISOString() },
+      metadata: {
+        privacyAcceptedAt: now.toISOString(),
+        ...(input.newsletter ? { newsletterRequested: true, newsletterRequestedAt: now.toISOString() } : {}),
+      },
     },
   });
 }
@@ -91,13 +109,15 @@ export async function grantManualAccess(input: { creatorId: string; productId: s
   return grantNoCharge(product, "manual", {
     email: input.email,
     name: input.name,
+    origin: "owner",
     data: { metadata: { grantedByUserId: input.grantedByUserId } },
   });
 }
 
 /**
  * Quita el acceso a un producto: el acceso pasa a REVOKED y se cortan sus enlaces personales y
- * sesiones limitadas. El pedido de 0 € se queda (es el registro de la inscripción).
+ * sesiones limitadas. El pedido de 0 € se queda (es el registro de la inscripción) con la marca
+ * revokedAt: el formulario público ya no lo devuelve; solo la dueña, dándolo otra vez a mano.
  */
 export async function revokeManualAccess(input: { creatorId: string; orderId: string }): Promise<boolean> {
   const order = await prisma.order.findFirst({
@@ -109,8 +129,36 @@ export async function revokeManualAccess(input: { creatorId: string; orderId: st
     where: { creatorId: input.creatorId, userId: order.customer.userId, productId: order.productId, orderId: order.id },
     data: { status: "REVOKED" },
   });
+  await mergeOrderMetadata(prisma, order.id, { revokedAt: new Date().toISOString() });
   await revokeOrderAccess(order.id);
   return true;
+}
+
+/**
+ * «Sí, quiero recibir novedades» del email de acceso (/cuenta/novedades/confirmar): la persona que
+ * abre su email confirma lo que marcó en el formulario. Solo su propio pedido y solo si lo pidió.
+ * Nunca retira un consentimiento (eso, desde /cuenta/perfil o el enlace de cada email).
+ */
+export async function confirmNewsletter(input: { orderId: string; userId: string }): Promise<boolean> {
+  const order = await prisma.order.findUnique({
+    where: { id: input.orderId },
+    select: { id: true, status: true, metadata: true, customer: { select: { id: true, userId: true } } },
+  });
+  if (!order?.customer || order.customer.userId !== input.userId || order.status !== "PAID" || !newsletterRequested(order.metadata)) return false;
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    await tx.customer.updateMany({ where: { id: order.customer!.id, marketingOptIn: false }, data: { marketingOptIn: true, marketingOptInAt: now } });
+    await mergeOrderMetadata(tx, order.id, { newsletterConfirmedAt: now.toISOString() });
+  });
+  return true;
+}
+
+/** Añade claves a Order.metadata sin pisar las demás (markFirstAccess escribe ahí a la vez). */
+function mergeOrderMetadata(db: Prisma.TransactionClient, orderId: string, patch: Record<string, unknown>, remove: string[] = []) {
+  return db.$executeRaw`
+    UPDATE "Order"
+    SET "metadata" = (COALESCE("metadata", '{}'::jsonb) - ${remove}::text[]) || ${JSON.stringify(patch)}::jsonb
+    WHERE "id" = ${orderId}`;
 }
 
 /** Pedidos de 0 € de este producto y email que cuentan como «ya apuntada» (o a medio entregar). */
@@ -118,14 +166,22 @@ function existingNoChargeOrder(tx: Prisma.TransactionClient, productId: string, 
   return tx.order.findFirst({
     where: { productId, buyerEmail: email, paymentProvider: { in: [...NO_CHARGE_PROVIDERS] }, status: { in: ["PAID", "PENDING"] } },
     orderBy: { createdAt: "asc" },
-    select: { id: true, status: true },
+    select: { id: true, status: true, metadata: true },
   });
 }
 
 async function grantNoCharge(
   product: ProductForGrant,
   provider: NoChargeProvider,
-  input: { email: string; name: string; data: Omit<Prisma.OrderUncheckedCreateInput, "creatorId" | "productId" | "productTitle" | "productType" | "buyerEmail" | "buyerName" | "amountCents" | "commissionBps" | "platformFeeCents" | "netCents" | "paymentProvider"> },
+  input: {
+    email: string;
+    name: string;
+    /** public: el formulario de la ficha; owner: la dueña desde el panel. */
+    origin: "public" | "owner";
+    /** Marcó «Quiero recibir novedades» (se anota como pedida en un pedido que ya existía). */
+    newsletter?: boolean;
+    data: Omit<Prisma.OrderUncheckedCreateInput, "creatorId" | "productId" | "productTitle" | "productType" | "buyerEmail" | "buyerName" | "amountCents" | "commissionBps" | "platformFeeCents" | "netCents" | "paymentProvider">;
+  },
 ): Promise<GrantResult> {
   const email = input.email.trim().toLowerCase();
   const found = await prisma.$transaction(async (tx) => {
@@ -133,11 +189,21 @@ async function grantNoCharge(
     // $executeRaw y no $queryRaw: pg_advisory_xact_lock devuelve void.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`free-access:${product.id}:${email}`}, 0))`;
     const existing = await existingNoChargeOrder(tx, product.id, email);
-    if (existing) return { orderId: existing.id, fresh: existing.status !== "PAID" };
+    if (existing) {
+      // La dueña le quitó el acceso: el formulario no lo devuelve (y responde lo mismo de siempre).
+      if (input.origin === "public" && publicClaimBlocked(existing)) return { orderId: existing.id, fresh: false, blocked: true };
+      // La dueña lo da otra vez: vuelve a valer también el formulario.
+      if (input.origin === "owner" && revokedByOwner(existing.metadata)) await mergeOrderMetadata(tx, existing.id, {}, ["revokedAt"]);
+      if (input.newsletter) await requestNewsletter(tx, existing.id);
+      return { orderId: existing.id, fresh: existing.status !== "PAID" };
+    }
     // Ya tenía acceso por una compra anterior: se le reenvía ese enlace, sin pedido nuevo.
     const user = await tx.user.findUnique({ where: { email }, select: { id: true } });
     const access = user ? await tx.access.findUnique({ where: { userId_productId: { userId: user.id, productId: product.id } } }) : null;
-    if (access?.status === "ACTIVE" && access.orderId && (!access.expiresAt || access.expiresAt > new Date())) return { orderId: access.orderId, fresh: false };
+    if (access?.status === "ACTIVE" && access.orderId && (!access.expiresAt || access.expiresAt > new Date())) {
+      if (input.newsletter) await requestNewsletter(tx, access.orderId);
+      return { orderId: access.orderId, fresh: false };
+    }
     const order = await tx.order.create({
       data: {
         ...input.data,
@@ -165,6 +231,7 @@ async function grantNoCharge(
     return { orderId: order.id, fresh: true };
   });
 
+  if ("blocked" in found) return { status: "blocked", orderId: found.orderId };
   if (found.fresh) {
     await fulfillOrder(found.orderId, "");
     return { status: "granted", orderId: found.orderId };
@@ -174,7 +241,19 @@ async function grantNoCharge(
   return { status: "resent", orderId: found.orderId };
 }
 
-/** Si se le quitó el acceso de un pedido de 0 €, volver a apuntarse (o que se lo den) lo devuelve. */
+/**
+ * Novedades marcadas al repetir el formulario: se anotan como pedidas en el pedido que ya tenía y
+ * el email que se reenvía lleva el botón para confirmarlas. Si ya las había confirmado y luego se
+ * dio de baja, vuelve a quedar pendiente de confirmar.
+ */
+function requestNewsletter(tx: Prisma.TransactionClient, orderId: string) {
+  return mergeOrderMetadata(tx, orderId, { newsletterRequested: true, newsletterRequestedAt: new Date().toISOString() }, ["newsletterConfirmedAt"]);
+}
+
+/**
+ * Si el acceso de un pedido de 0 € ya no está activo (caducado o quitado), lo devuelve. No llega
+ * aquí una petición del formulario sobre un acceso que quitó la dueña (grantNoCharge la para).
+ */
 async function restoreAccess(orderId: string) {
   const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { customer: { select: { userId: true } } } });
   if (!order.customer || !NO_CHARGE_PROVIDERS.includes(order.paymentProvider as NoChargeProvider)) return;

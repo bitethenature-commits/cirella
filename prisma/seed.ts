@@ -207,6 +207,8 @@ async function main() {
         id: "sobre-mi",
         title: "Cómo trabajo",
         body: "Cada lectura parte de tu carta natal y de tu diseño humano, sin fórmulas genéricas.\n\nTrabajo por videollamada y te envío la grabación y un resumen escrito después de cada sesión.",
+        buttonLabel: "Ver mi agenda",
+        buttonUrl: "https://calendly.com/ana-luna",
         enabled: true,
       },
     ],

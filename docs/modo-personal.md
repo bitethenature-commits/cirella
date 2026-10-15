@@ -152,8 +152,15 @@ Tienen que tener **al menos 32 caracteres**.
 
 ## Paso 5 · La web (Vercel)
 
-1. Entra en [vercel.com](https://vercel.com) con tu cuenta de GitHub.
-2. **Add New → Project** → elige el repositorio de Cirella → **Import**. Antes de pulsar
+1. **Primero, un cambio pequeño en GitHub.** El código viene preparado para el plan Pro, que
+   lanza las tareas automáticas cada 5 minutos; el plan gratuito de Vercel **no deja publicar**
+   la web con ese horario (el despliegue falla con un aviso sobre *cron jobs*). En tu repositorio
+   de GitHub abre el archivo **`vercel.json`**, pulsa el lápiz (*Edit this file*) y cambia
+   `*/5 * * * *` por `0 5 * * *` (una vez al día, a las 5 de la mañana), sin tocar nada más:
+   ni las comillas ni las comas. Pulsa **Commit changes** (dos veces) para guardarlo. Las tareas
+   de verdad las despierta cron-job.org (paso 7). Si usas el plan Pro, sáltate este punto.
+2. Entra en [vercel.com](https://vercel.com) con tu cuenta de GitHub.
+3. **Add New → Project** → elige el repositorio de Cirella → **Import**. Antes de pulsar
    *Deploy*, abre **Environment Variables** y añade estas, una a una (*Key* a la izquierda,
    *Value* a la derecha):
 
@@ -181,7 +188,7 @@ Tienen que tener **al menos 32 caracteres**.
 
    No hacen falta las claves de Stripe ni de Turnstile.
 
-3. Abre **Build and Output Settings** (o, después, *Settings → Build and Deployment*) y en
+4. Abre **Build and Output Settings** (o, después, *Settings → Build and Deployment*) y en
    **Build Command** activa *Override* y pega:
 
    ```bash
@@ -198,11 +205,11 @@ Tienen que tener **al menos 32 caracteres**.
    ```bash
    if [ "$VERCEL_ENV" = production ]; then exit 1; else exit 0; fi
    ```
-4. Pulsa **Deploy** y espera (unos 3–5 minutos).
-5. **Dominio**: *Settings → Domains → Add* → escribe `tudominio.com` y sigue las instrucciones
+5. Pulsa **Deploy** y espera (unos 3–5 minutos).
+6. **Dominio**: *Settings → Domains → Add* → escribe `tudominio.com` y sigue las instrucciones
    (Vercel te dice qué registro DNS poner en tu proveedor). Añade también `www.tudominio.com`
    para que redirija al principal.
-6. En *Settings → Functions* comprueba que la región es **Frankfurt (fra1)** (el archivo
+7. En *Settings → Functions* comprueba que la región es **Frankfurt (fra1)** (el archivo
    `vercel.json` ya la elige).
 
 **Comprobación:** el despliegue termina en verde. Si abres tu dominio verás una página de «no
@@ -257,8 +264,8 @@ tu panel. Tu página ya se ve en `https://tudominio.com`.
 ## Paso 7 · Tareas automáticas (cron-job.org)
 
 La web tiene tareas que se ejecutan solas: reintentar un email que falló, los recordatorios de
-las sesiones, borrar los enlaces de acceso caducados… Vercel gratuito solo las lanza **una vez al día** (ya está configurado
-en `vercel.json`), así que las despertamos cada 15 minutos con un servicio gratuito:
+las sesiones, borrar los enlaces de acceso caducados… Vercel gratuito solo las lanza **una vez al día** (es el cambio
+de `vercel.json` del paso 5), así que las despertamos cada 15 minutos con un servicio gratuito:
 
 1. Crea una cuenta en [cron-job.org](https://cron-job.org).
 2. **Create cronjob**:
@@ -284,10 +291,14 @@ Desde tu panel (`https://tudominio.com/panel`, también en el móvil):
    (`tudominio.com/<tu usuario>/legal`), que se enlaza en el pie de tu página. La privacidad
    parte de una plantilla que puedes adaptar; revísala con tu asesoría.
 2. **Mi página**: foto, nombre, frase, enlaces, redes, bloques de texto (sobre mí, servicios…) y
-   el diseño. El nombre de tu página es el que se ve en el login, el panel y los emails.
+   el diseño. El nombre de tu página es el que se ve en el login, el panel y los emails. Al
+   pulsar **Publicar** también pasa a la página «no encontrada» (la que sale si alguien escribe
+   mal una dirección).
 3. **Productos**: elige cómo se consigue cada uno:
    - **Gratis con email**: un curso, una guía, una meditación… La persona deja su nombre y su
-     email y entra al momento.
+     email y entra al momento. Hasta que completes el paso 1 (datos legales) el formulario no
+     aparece y nadie puede apuntarse; el panel te avisa. Si marca la casilla de novedades, solo
+     cuenta cuando lo confirma con el botón que le llega en el email de acceso.
    - **Pago en otra web**: pega el enlace (Hotmart, PayPal, Calendly…) y el texto del botón
      (por ejemplo «Comprar en Hotmart» o «Reservar en Calendly»). El precio es opcional. Si el
      contenido está aquí (un curso), en la ficha del producto usa **«Dar acceso a una persona»**
@@ -295,7 +306,7 @@ Desde tu panel (`https://tudominio.com/panel`, también en el móvil):
 4. **Publicaciones**: tus novedades con fecha. En tu página salen las tres últimas.
 5. **Códigos**: los descuentos de otras marcas (marca, código, descripción, enlace y, si
    quieres, caducidad). Los caducados se ocultan solos.
-6. **Inscripciones**: quién se ha apuntado a qué.
+6. **Inscripciones**: quién se ha apuntado a qué y quién ha confirmado que quiere tus novedades.
 7. Copia tu enlace (**Ajustes → Comparte tu página**) y ponlo en tu bio.
 
 ---
@@ -335,5 +346,6 @@ Cuando quieras abrir Cirella a otras creadoras: en Vercel cambia `SITE_MODE` a `
 bórrala), configura Stripe (`PAYMENT_PROVIDER=stripe` y sus claves, ver
 [pagos-stripe.md](pagos-stripe.md)), revisa los datos legales de la plataforma en `/admin` y
 vuelve a desplegar. Tu página pasará a estar en `tudominio.com/<tu usuario>` y la portada será
-la de la plataforma. Para el cron de cada 5 minutos que necesita la plataforma, ver
+la de la plataforma. La plataforma necesita las tareas automáticas cada 5 minutos: con el plan
+Pro, deshaz el cambio de `vercel.json` del paso 5 (vuelve a `*/5 * * * *`); ver
 [despliegue.md](despliegue.md).

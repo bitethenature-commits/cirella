@@ -85,9 +85,10 @@ export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscoun
       {code.description && <p className="cp-muted mt-3 text-[0.9rem] leading-relaxed">{code.description}</p>}
       <div className="mt-auto pt-4">
         <div className="flex flex-wrap items-stretch gap-2">
+          {/* Sin truncate: un código largo (hasta 40 caracteres) se parte en varias líneas y se ve entero, nunca recortado. */}
           <code
             ref={codeRef}
-            className="flex min-w-[7.5rem] flex-1 select-all items-center justify-center truncate rounded-xl border border-dashed px-3 py-2 font-mono text-base font-semibold tracking-[0.12em]"
+            className={`flex min-w-[7.5rem] flex-1 select-all items-center justify-center break-all rounded-xl border border-dashed px-3 py-2 text-center font-mono text-base font-semibold ${code.code.length > 16 ? "tracking-[0.04em]" : "tracking-[0.12em]"}`}
             style={{ borderColor: "color-mix(in oklab, var(--c-text) 35%, transparent)" }}
           >
             {code.code}

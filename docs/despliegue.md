@@ -13,7 +13,7 @@ explica de dónde sale cada valor.
 
 | Pieza | Servicio | Región | Para qué |
 |---|---|---|---|
-| Web y API | **Vercel** (plan Pro) | `fra1` (Fráncfort) | Next.js, tareas programadas (`/api/cron` cada 5 min: `*/5` en `vercel.json` con Pro, o un cron externo) |
+| Web y API | **Vercel** (plan Pro) | `fra1` (Fráncfort) | Next.js, tareas programadas (`/api/cron` cada 5 min) |
 | Base de datos | **Neon** Postgres 16 | `aws-eu-central-1` (Fráncfort) | Todos los datos; restauración a cualquier momento de los últimos 7 días |
 | Archivos | **Cloudflare R2** | Jurisdicción UE | Imágenes de las páginas, contenido de pago, copias manuales de la BD |
 | Emails | Resend | UE (`eu-west-1`) | Emails transaccionales |
@@ -131,10 +131,9 @@ borra de verdad.
 1. Plan **Pro** (el plan gratuito no permite uso comercial y solo ejecuta las tareas programadas
    una vez al día).
 2. Importa el repositorio. En *Settings → Functions* la región debe ser **Frankfurt (fra1)**
-   (`vercel.json` ya la fija, junto con una tarea programada **diaria**: es lo único que acepta el
-   plan gratuito, que usa el modo personal). En la plataforma, con el plan Pro, cambia en
-   `vercel.json` el `schedule` a `*/5 * * * *` o programa `/api/cron` cada 5 minutos fuera
-   (cron-job.org, GitHub Actions).
+   (`vercel.json` ya la fija, junto con la tarea programada de cada 5 minutos). El modo personal,
+   que usa el plan gratuito, cambia ese horario a uno diario: ver
+   [modo-personal.md](modo-personal.md).
 3. **Dominios**: `cirella.app` para producción y `staging.cirella.app` asignado a la rama
    `staging` (*Settings → Domains → Git Branch*).
 4. **Comando de build** (*Settings → Build and Deployment → Build Command*):
@@ -196,8 +195,7 @@ borra de verdad.
    `S3_ENDPOINT`, las claves de Stripe, Turnstile o Sentry, **vuelve a desplegar** para que la
    política las incluya.
 
-Vercel llama a `/api/cron` con la cabecera `Authorization: Bearer $CRON_SECRET` automáticamente
-con el horario de `vercel.json` (diario tal como viene; ver el punto 2),
+Vercel llama a `/api/cron` con la cabecera `Authorization: Bearer $CRON_SECRET` automáticamente,
 **solo en producción** (las tareas programadas de Vercel nunca se ejecutan en las
 previsualizaciones, y staging lo es). Para staging, ver «Entorno de pruebas».
 

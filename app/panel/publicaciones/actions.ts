@@ -7,8 +7,10 @@ import { requireCreator } from "@/lib/auth";
 import { ownImageUrl, postFormSchema, postSlugBase, resolvePublishedAt } from "@/lib/posts";
 import { randomCode } from "@/lib/slug";
 import { tenantDb, type TenantDb } from "@/lib/tenant";
+import { slugTakenNotice } from "./slug-notice";
 
-export type PostActionState = { ok?: string; error?: string } | undefined;
+/** `slug`: la dirección guardada de verdad (puede no ser la escrita si ya la usaba otra publicación). */
+export type PostActionState = { ok?: string; error?: string; slug?: string } | undefined;
 
 /** Slug libre entre las publicaciones de la creadora (eclipse, eclipse-2, eclipse-3…). */
 async function uniquePostSlug(db: TenantDb, base: string, exceptId?: string) {
@@ -59,8 +61,14 @@ export async function savePost(_: PostActionState, form: FormData): Promise<Post
   await db.post.update({ where: { id: current.id }, data });
   refreshPublic(creator.username, [slug, current.slug]);
   revalidatePath(`/panel/publicaciones/${current.id}`);
-  if (d.status === "DRAFT") return { ok: "Borrador guardado. No se ve en tu página hasta que la publiques." };
-  return { ok: publishedAt && publishedAt > new Date() ? "Guardada: se publicará sola en la fecha que has elegido." : "Publicada: ya se ve en tu página." };
+  const ok =
+    d.status === "DRAFT"
+      ? "Borrador guardado. No se ve en tu página hasta que la publiques."
+      : publishedAt && publishedAt > new Date()
+        ? "Guardada: se publicará sola en la fecha que has elegido."
+        : "Publicada: ya se ve en tu página.";
+  const notice = slugTakenNotice(d.slug, slug);
+  return { ok: notice ? `${ok} ${notice}` : ok, slug };
 }
 
 export async function deletePost(form: FormData) {

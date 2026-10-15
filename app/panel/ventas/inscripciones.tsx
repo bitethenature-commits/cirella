@@ -69,7 +69,8 @@ export async function SignupsView({
         <Stat label="Inscripciones" value={formatNumber(total)} accent />
         <Stat label="Personas" value={formatNumber(people)} hint={total > rows.length ? `En las ${rows.length} últimas` : undefined} />
         <Stat label="Con el formulario" value={formatNumber(fromForm)} hint="El resto se lo diste tú" />
-        <Stat label="Quieren novedades" value={formatNumber(newsletter)} hint="Marcaron la casilla" />
+        {/* En el formulario gratis la casilla solo cuenta cuando la persona lo confirma desde su email. */}
+        <Stat label="Quieren novedades" value={formatNumber(newsletter)} hint={personal ? "Lo confirmaron por email" : "Marcaron la casilla"} />
       </div>
       {products.length > 1 && (
         <div className="mb-4 flex flex-wrap gap-1.5">
@@ -102,7 +103,7 @@ export async function SignupsView({
                   <span className="block truncate font-medium">{r.name ?? r.email}</span>
                   <span className="block truncate text-xs text-muted">
                     {r.name ? r.email : ""}
-                    {r.newsletter ? `${r.name ? " · " : ""}Quiere novedades` : ""}
+                    {r.newsletter ? `${r.name ? " · " : ""}Quiere novedades` : r.newsletterPending ? `${r.name ? " · " : ""}Novedades: pendiente de confirmar` : ""}
                   </span>
                 </span>
                 <span className="hidden min-w-0 truncate md:block">{r.productEmoji} {r.productTitle}</span>

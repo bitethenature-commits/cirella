@@ -5,8 +5,9 @@ import { expect, test, type Page } from "@playwright/test";
  * Modo personal · contenido de la página (servidor en modo personal, puerto 3101, web de Ana):
  *   · «Novedades» con las últimas publicaciones y «Ver todas», la lista y cada publicación con su
  *     SEO (canonical, og:type article) y el texto sin HTML, con enlaces automáticos;
+ *   · «Bloques de texto»: el de la demo con su título, su texto y su botón a una web de fuera;
  *   · «Códigos de descuento»: «Copiar código» (aviso «Copiado» y portapapeles) e «Ir a la tienda»,
- *     los dos medidos en /api/track; los caducados y los ocultos no se ven;
+ *     los dos registrados por /api/track (y contados en el panel); los caducados y los ocultos no se ven;
  *   · tarjetas de producto: «Gratis» y «Pago en <dominio>», sin «Powered by»;
  *   · panel: crear, publicar y borrar una publicación; crear y borrar un código; bloques de texto
  *     en el editor (vista previa, sin guardar).
@@ -27,10 +28,15 @@ async function demoLogin(page: Page, label: string) {
   await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
 }
 
-/** Espera el POST a /api/track de un tipo de evento y devuelve su cuerpo. */
-function trackRequest(page: Page, type: string) {
-  return page.waitForRequest((r) => r.url().endsWith("/api/track") && r.method() === "POST" && (r.postData() ?? "").includes(`"type":"${type}"`));
+/** Espera la respuesta de /api/track a un evento de ese tipo (así se sabe qué contestó el servidor). */
+function trackResponse(page: Page, type: string) {
+  return page.waitForResponse(
+    (r) => r.url().endsWith("/api/track") && r.request().method() === "POST" && (r.request().postData() ?? "").includes(`"type":"${type}"`),
+  );
 }
+
+/** Desde cuándo cuentan los eventos de códigos de esta prueba (se borran al acabar). */
+let trackSince: Date | null = null;
 
 test.afterAll(async () => {
   // Por si una prueba falló a medias: nada de lo creado aquí se queda en la demo.
@@ -38,6 +44,8 @@ test.afterAll(async () => {
   if (ana) {
     await prisma.post.deleteMany({ where: { creatorId: ana.id, title: POST_TITLE } });
     await prisma.discountCode.deleteMany({ where: { creatorId: ana.id, code: CODE } });
+    if (trackSince)
+      await prisma.analyticsEvent.deleteMany({ where: { creatorId: ana.id, type: { in: ["CODE_COPY", "CODE_CLICK"] }, createdAt: { gte: trackSince } } });
   }
   await prisma.$disconnect();
 });
@@ -53,6 +61,16 @@ test.describe.serial("Modo personal · contenido", () => {
     const codes = page.locator("#codigos");
     await expect(codes.getByRole("heading", { name: "Códigos de descuento" })).toBeVisible();
     await expect(codes.getByText("ANALUNA15")).toBeVisible();
+
+    // Bloque fijo de la demo: título, texto y botón a una web de fuera (en otra pestaña).
+    const blocks = page.locator("#bloques");
+    await expect(blocks.getByRole("heading", { name: "Cómo trabajo" })).toBeVisible();
+    await expect(blocks.getByText(/Cada lectura parte de tu carta natal/)).toBeVisible();
+    await expect(blocks.getByText(/te envío la grabación/)).toBeVisible();
+    const blockButton = blocks.getByRole("link", { name: /Ver mi agenda/ });
+    await expect(blockButton).toHaveAttribute("href", "https://calendly.com/ana-luna");
+    await expect(blockButton).toHaveAttribute("target", "_blank");
+    await expect(blockButton).toHaveAttribute("rel", "noopener noreferrer");
 
     const free = page.locator("article", { hasText: "Mini-curso gratis" }).first();
     await expect(free.getByText("Gratis", { exact: true })).toBeVisible();
@@ -75,31 +93,45 @@ test.describe.serial("Modo personal · contenido", () => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: PERSONAL });
     // La tienda es de fuera: no salimos a internet.
     await context.route("https://example.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<h1>Tienda</h1>" }));
+    const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" }, select: { id: true } });
+    // Sin duplicados en 30 minutos (lib/limits.ts): se olvidan los de antes para que esta vez cuente.
+    // Las claves llevan hash, así que se borran por el prefijo (solo en la BD local de e2e).
+    await prisma.rateLimit.deleteMany({ where: { key: { startsWith: "track:" } } });
+    const since = new Date();
+    trackSince ??= since;
+    const recorded = (type: string, codeId: string) =>
+      prisma.analyticsEvent.count({ where: { creatorId: ana.id, type, productId: codeId, createdAt: { gte: since } } });
     await page.goto("/");
     const card = page.getByRole("article", { name: "Código de descuento de Velas Alba" });
     await card.scrollIntoViewIfNeeded();
 
-    const copied = trackRequest(page, "CODE_COPY");
+    const copied = trackResponse(page, "CODE_COPY");
     await card.getByRole("button", { name: "Copiar código ANALUNA15" }).click();
     await expect(card.getByRole("button", { name: /Copiado/ })).toBeVisible();
     await expect(card.getByText("Código copiado.")).toBeVisible();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("ANALUNA15");
-    const copyBody = JSON.parse((await copied).postData() ?? "{}");
+    const copyRes = await copied;
+    expect(copyRes.status()).toBe(204);
+    const copyBody = JSON.parse(copyRes.request().postData() ?? "{}");
     expect(copyBody.codeId).toBeTruthy();
     expect(copyBody.productId).toBeUndefined();
+    // El servidor lo ha guardado de verdad, con el código como objeto del evento.
+    expect(await recorded("CODE_COPY", copyBody.codeId)).toBe(1);
 
     const shop = card.getByRole("link", { name: /Ir a la tienda/ });
     await expect(shop).toHaveAttribute("href", "https://example.com/velas-alba");
     await expect(shop).toHaveAttribute("rel", /noopener/);
     await expect(shop).toHaveAttribute("rel", /sponsored/);
-    const clicked = trackRequest(page, "CODE_CLICK");
+    const clicked = trackResponse(page, "CODE_CLICK");
     const popup = page.waitForEvent("popup");
     await shop.click();
-    await clicked;
+    const clickRes = await clicked;
     await (await popup).close();
+    expect(clickRes.status()).toBe(204);
+    expect(JSON.parse(clickRes.request().postData() ?? "{}").codeId).toBe(copyBody.codeId);
+    expect(await recorded("CODE_CLICK", copyBody.codeId)).toBe(1);
 
     // /api/track solo acepta códigos de esa creadora.
-    const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" }, select: { id: true } });
     const bad = await page.request.post("/api/track", { data: { creatorId: ana.id, type: "CODE_COPY", codeId: "no-existe" } });
     expect(bad.status()).toBe(400);
     const signup = await page.request.post("/api/track", { data: { creatorId: ana.id, type: "SIGNUP" } });
@@ -179,6 +211,15 @@ test.describe.serial("Modo personal · contenido", () => {
     await demoLogin(page, "Ana Luna");
     await page.goto("/panel/codigos");
     await expect(page.getByRole("heading", { name: "Códigos de descuento" })).toBeVisible();
+    // Las copias y los clics de los últimos 30 días se cuentan en la lista (los de la prueba anterior incluidos).
+    const velas = await prisma.discountCode.findFirstOrThrow({ where: { code: "ANALUNA15" }, select: { id: true } });
+    const month = new Date(Date.now() - 30 * 86_400_000);
+    const used = (type: string) => prisma.analyticsEvent.count({ where: { type, productId: velas.id, createdAt: { gte: month } } });
+    const [copies, clicks] = [await used("CODE_COPY"), await used("CODE_CLICK")];
+    expect(copies).toBeGreaterThan(0);
+    await expect(page.locator("li", { hasText: "ANALUNA15" })).toContainText(
+      `${copies} ${copies === 1 ? "copia" : "copias"} · ${clicks} ${clicks === 1 ? "clic" : "clics"} en 30 días`,
+    );
     await page.getByRole("link", { name: "Nuevo código" }).first().click();
 
     const yesterday = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
@@ -190,7 +231,10 @@ test.describe.serial("Modo personal · contenido", () => {
     await expect(page.getByText("El enlace de la tienda debe empezar por https://")).toBeVisible();
     await page.getByLabel("Enlace a la tienda").fill("https://example.com/prueba");
     await page.getByRole("button", { name: "Añadir código" }).click();
-    await page.waitForURL("**/panel/codigos?guardado=1");
+    // Ya caducado al crearlo: el aviso no dice que se vea.
+    await page.waitForURL("**/panel/codigos?guardado=expired");
+    await expect(page.getByText("Código añadido. Ha caducado: no se ve en tu página.")).toBeVisible();
+    await expect(page.getByText(/Ya se ve en tu página/)).toHaveCount(0);
     const row = page.locator("li", { hasText: CODE });
     await expect(row.getByText("Caducado")).toBeVisible();
 

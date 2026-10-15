@@ -7,7 +7,7 @@
  *   · El enlace a la tienda es obligatorio y con https.
  */
 import { z } from "zod";
-import { addDaysToKey, dateKeyInTz, formatInTz, zonedTimeToUtc } from "./tz";
+import { addDaysToKey, dateKeyInTz, formatInTz, zonedParts, zonedTimeToUtc } from "./tz";
 
 export const CODE_BRAND_MAX = 60;
 export const CODE_CODE_MAX = 40;
@@ -100,10 +100,12 @@ export const CODE_STATE_LABEL: Record<CodeState, string> = {
   EXPIRED: "Caducado",
 };
 
-/** «Válido hasta el 31 de diciembre» (último día en que vale). null si no caduca. */
-export function expiryLabel(expiresAt: Date | null, timeZone: string): string | null {
+/** «Válido hasta el 31 de diciembre» (último día en que vale; con el año si no es el actual). null si no caduca. */
+export function expiryLabel(expiresAt: Date | null, timeZone: string, now = new Date()): string | null {
   if (!expiresAt) return null;
-  return `Válido hasta el ${formatInTz(new Date(expiresAt.getTime() - 1), timeZone, { day: "numeric", month: "long" })}`;
+  const last = new Date(expiresAt.getTime() - 1);
+  const sameYear = zonedParts(last, timeZone).year === zonedParts(now, timeZone).year;
+  return `Válido hasta el ${formatInTz(last, timeZone, { day: "numeric", month: "long", ...(sameYear ? {} : { year: "numeric" }) })}`;
 }
 
 /** «tienda.com» de «https://www.tienda.com/…». */
