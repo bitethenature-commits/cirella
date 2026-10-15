@@ -115,6 +115,7 @@ export function CheckoutForm({
     decideTax({
       mode: taxInfo.mode,
       productType: product.type,
+      deliveryMode: product.deliveryMode,
       buyerCountry: country,
       creator: { country: taxInfo.creatorCountry, vatStatus: taxInfo.creatorVatStatus, vatExemptionNote: taxInfo.creatorVatNote },
     }),
@@ -315,7 +316,7 @@ export function CheckoutForm({
           <span className="cp-muted text-sm">Total</span>
           <span className="text-2xl font-semibold tracking-tight">{price}</span>
         </div>
-        <VatBreakdown amountCents={product.priceCents} currency={product.currency} productType={product.type} taxInfo={taxInfo} country={country} platformName={platformName} />
+        <VatBreakdown amountCents={product.priceCents} currency={product.currency} productType={product.type} deliveryMode={product.deliveryMode} taxInfo={taxInfo} country={country} platformName={platformName} />
         {isSession && (
           <p className="cp-faint -mt-2 px-1 text-xs">
             {sessionChangePolicyText()} ·{" "}
@@ -326,6 +327,7 @@ export function CheckoutForm({
         )}
         <CheckoutConsents
           productType={product.type}
+          deliveryMode={product.deliveryMode}
           billingInterval={product.billingInterval}
           price={price}
           seller={{ name: seller.name, legalHref: seller.legalHref }}

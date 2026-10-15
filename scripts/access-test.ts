@@ -87,13 +87,29 @@ async function main() {
 
   // ── «Sí, he sido yo» ──
   {
+    // Desde el navegador donde se creó la cuenta (su sesión viaja con la confirmación).
     const user = await unverifiedUser("si");
+    const own = await prisma.session.findFirstOrThrow({ where: { userId: user.id } });
+    const other = await session(user.id, { verified: false });
     const t = await token(user.email, "VERIFY_SIGNUP");
-    const r = await consumeMagicLink(t, "yes");
+    const r = await consumeMagicLink(t, "yes", { currentSessionId: own.id });
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     check("«Sí, he sido yo» confirma el email y conserva la contraseña", !!after.emailVerifiedAt && after.passwordHash === user.passwordHash);
-    check("…y sus sesiones de cuenta pasan a verificadas", (await prisma.session.count({ where: { userId: user.id, verified: false } })) === 0);
+    check("…solo su sesión pasa a verificada", (await prisma.session.findUnique({ where: { id: own.id } }))?.verified === true);
+    check("…y las demás sin confirmar dejan de valer", (await prisma.session.count({ where: { id: other.id } })) === 0);
     check("…sin desvío a «Crea tu contraseña»", r?.redirectTo === "/auth/continuar", r?.redirectTo);
+  }
+
+  // ── «Sí, he sido yo» desde otro navegador: no prueba que la contraseña sea suya ──
+  {
+    // Alguien registró este email con su contraseña; su dueña, desde su correo, pulsa «Sí».
+    const user = await unverifiedUser("si-otro");
+    const t = await token(user.email, "VERIFY_SIGNUP");
+    const r = await consumeMagicLink(t, "yes", { currentSessionId: null });
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    check("«Sí» sin la sesión de quien registró: confirma el email pero borra la contraseña", !!after.emailVerifiedAt && after.passwordHash === null);
+    check("…y cierra las sesiones de quien la registró", (await prisma.session.count({ where: { userId: user.id } })) === 0);
+    check("…y pide crear una contraseña nueva", r?.redirectTo.startsWith("/contrasena?motivo=seguridad") === true, r?.redirectTo);
   }
 
   // ── «No he sido yo» ──

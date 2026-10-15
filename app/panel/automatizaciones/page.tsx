@@ -27,7 +27,9 @@ export default async function AutomationsPage() {
   const db = tenantDb(creator.id);
   const [rows, log] = await Promise.all([
     db.automation.findMany(),
-    db.emailMessage.findMany({ orderBy: { sendAt: "desc" }, take: 25 }),
+    // Los enlaces para entrar y confirmar el email son de la plataforma, no emails de la creadora:
+    // cualquiera puede pedirlos desde su página y no deben enseñarle direcciones que no son clientas.
+    db.emailMessage.findMany({ where: { template: { notIn: ["MAGIC_LINK", "VERIFY_EMAIL"] } }, orderBy: { sendAt: "desc" }, take: 25 }),
   ]);
   const byTrigger = new Map(rows.map((r) => [r.trigger, r]));
   return (

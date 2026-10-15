@@ -65,7 +65,7 @@ export function ProductForm({
   const isDigital = product.type === "DIGITAL";
   const [mode, setMode] = useState<DeliveryMode>(normalizeDeliveryMode(product.type, product.deliveryMode));
   const personal = isDigital && mode === "PERSONAL";
-  const estimate = estimateNet({ priceCents: cents, commissionBps, productType: product.type, mode: taxPreview.mode, creator: taxPreview });
+  const estimate = estimateNet({ priceCents: cents, commissionBps, productType: product.type, deliveryMode: mode, mode: taxPreview.mode, creator: taxPreview });
 
   return (
     <form

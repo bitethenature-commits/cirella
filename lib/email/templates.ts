@@ -41,10 +41,11 @@ export function magicLinkEmail(o: { url: string; creatorName?: string; purpose?:
       subject: "Confirma tu email en Cirella",
       html: layout({
         brand: o.creatorName,
-        title: "Confirma que este email es tuyo",
+        title: "¿Has creado tú esta cuenta?",
         body:
-          p("Se acaba de crear una cuenta de Cirella con este email. Confírmalo para proteger tu cuenta y poder recuperarla si olvidas la contraseña.") +
-          note("¿No has sido tú? Abre el enlace y pulsa «No he sido yo»: cerraremos ese acceso."),
+          p("Alguien acaba de crear una cuenta de Cirella con este email y una contraseña. Si has sido tú, confírmalo para proteger tu cuenta y poder recuperarla si olvidas la contraseña.") +
+          note("¿No has sido tú? Abre el enlace y pulsa «No he sido yo»: cerraremos ese acceso y entrarás tú con este email."),
+        // La etiqueta la buscan las pruebas (scripts/unit/acceso.test.ts, e2e/acceso-cuenta.spec.ts).
         cta: { label: "Confirmar mi email", url: o.url },
       }),
     };
@@ -86,12 +87,14 @@ export function welcomeCustomerEmail(o: { name?: string | null; creatorName: str
 }
 
 /** Factura mensual de Cirella a la creadora (cuota del plan y comisiones). */
-export function monthlyInvoiceEmail(o: { creatorName: string; periodLabel: string; number: string; total: string; url: string }) {
+export function monthlyInvoiceEmail(o: { creatorName: string; periodLabel: string; number: string; total: string; url: string; corrective?: boolean }) {
   return {
     subject: `Tu factura de ${PLATFORM} · ${o.periodLabel}`,
     html: layout({
       title: "Tu factura ya está disponible",
-      body: p(`Hola, ${esc(o.creatorName)}. Ya tienes disponible la factura <strong>${esc(o.number)}</strong> por tu cuota y comisiones de ${esc(o.periodLabel)}: <strong>${esc(o.total)}</strong>.`) +
+      body: (o.corrective
+        ? p(`Hola, ${esc(o.creatorName)}. En ${esc(o.periodLabel)} te devolvimos más comisión de la que se cobró, así que hemos emitido la factura rectificativa <strong>${esc(o.number)}</strong> por <strong>${esc(o.total)}</strong>.`)
+        : p(`Hola, ${esc(o.creatorName)}. Ya tienes disponible la factura <strong>${esc(o.number)}</strong> por tu cuota y comisiones de ${esc(o.periodLabel)}: <strong>${esc(o.total)}</strong>.`)) +
         p("También la encontrarás siempre en tu panel, en «Tu plan»."),
       cta: { label: "Ver factura", url: o.url },
     }),
@@ -258,7 +261,11 @@ export function subscriptionCanceledCreatorEmail(o: { productTitle: string; buye
   };
 }
 
-export function abandonedCheckoutEmail(o: { creatorName: string; productTitle: string; url: string; message?: string | null }) {
+/**
+ * Recordatorio de compra abandonada. El enlace de baja va en el pie, fuera del mensaje que la
+ * creadora puede personalizar, para que siempre esté (LSSI art. 21.2).
+ */
+export function abandonedCheckoutEmail(o: { creatorName: string; productTitle: string; url: string; message?: string | null; optOutUrl: string }) {
   return {
     subject: `¿Te quedaste a medias con «${o.productTitle}»?`,
     html: layout({
@@ -266,6 +273,7 @@ export function abandonedCheckoutEmail(o: { creatorName: string; productTitle: s
       title: "Lo guardamos para ti",
       body: p(esc(o.message || `Vimos que empezaste a comprar ${o.productTitle} pero no terminaste. Si tuviste alguna duda, responde a este email.`)),
       cta: { label: "Completar mi compra", url: o.url },
+      footer: `Te escribimos porque empezaste una compra con ${esc(o.creatorName)}. ¿No quieres más recordatorios así? <a href="${esc(o.optOutUrl)}" style="color:#8A8698">Darme de baja</a>.`,
     }),
   };
 }

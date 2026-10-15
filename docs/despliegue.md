@@ -141,8 +141,16 @@ borra de verdad.
    ```
 
    `npm run deploy` comprueba la configuración, aplica las migraciones pendientes y crea los datos
-   base que falten (planes, categorías, diseños). Así migran **producción** y **staging**; el
-   resto de previsualizaciones nunca toca la base de datos.
+   base que falten (planes, categorías, diseños). Así migran **producción** y **staging**.
+   **Solo se despliegan `main` y `staging`**: en *Settings → Git → Ignored Build Step* pon
+
+   ```bash
+   if [ "$VERCEL_ENV" = production ] || [ "$VERCEL_GIT_COMMIT_REF" = staging ]; then exit 1; else exit 0; fi
+   ```
+
+   (con la convención de Vercel, `exit 0` se salta el build y `exit 1` construye). Las demás ramas
+   no pueden arrancar: sin `APP_ENV` ni `APP_URL` cuentan como producción y no pasan la comprobación
+   de la configuración (el build fallaría en cada push y mandaría un aviso de error).
 5. **Variables de entorno** (*Settings → Environment Variables*). En *Production*, y en
    *Preview* limitadas a la rama `staging`:
 
@@ -167,20 +175,27 @@ borra de verdad.
 | `S3_ACCESS_KEY_ID` · `S3_SECRET_ACCESS_KEY` | token de `cirella-prod` | token de `cirella-staging` |
 | `SENTRY_DSN` | opcional | opcional |
 | `TURNSTILE_SITE_KEY` · `TURNSTILE_SECRET_KEY` | opcionales (las dos o ninguna) | ídem |
-| `CLIENT_IP_HEADER` | `x-real-ip` (Vercel); `cf-connecting-ip` si Cloudflare hace de proxy delante | ídem |
+| `CLIENT_IP_HEADER` | `x-real-ip` | ídem |
 
    `APP_SECRET` firma los enlaces temporales y los billetes de subida: si se cambia, los enlaces
    ya enviados dejan de valer (no se pierde nada más).
 
    `CLIENT_IP_HEADER` es la cabecera de la que salen las IP para los límites de intentos (README,
-   «Límites de intentos»). Tiene que ser la que fija el proxy en el que entra la petición; con la
-   equivocada todas las clientas compartirían contador y se bloquearían entre ellas.
+   «Límites de intentos»). Tiene que ser una que la plataforma **sobrescriba siempre**: en Vercel,
+   `x-real-ip`. No pongas Cloudflare como proxy delante de Vercel (en su DNS, nube gris, «DNS
+   only»): Vercel no borra `cf-connecting-ip` y a la web se puede llegar sin pasar por Cloudflare
+   (`*.vercel.app`), así que cualquiera podría inventarse esa cabecera y saltarse los límites; y
+   con `x-real-ip` detrás de Cloudflare todas las clientas compartirían la IP de Cloudflare y se
+   bloquearían entre ellas. `cf-connecting-ip` solo vale en un servidor al que únicamente se
+   llega a través de Cloudflare.
 
 6. Las **cabeceras de seguridad** (CSP) se calculan al construir con estas variables: si cambias
    `S3_ENDPOINT`, las claves de Stripe, Turnstile o Sentry, **vuelve a desplegar** para que la
    política las incluya.
 
-Vercel llama a `/api/cron` con la cabecera `Authorization: Bearer $CRON_SECRET` automáticamente.
+Vercel llama a `/api/cron` con la cabecera `Authorization: Bearer $CRON_SECRET` automáticamente,
+**solo en producción** (las tareas programadas de Vercel nunca se ejecutan en las
+previsualizaciones, y staging lo es). Para staging, ver «Entorno de pruebas».
 
 ---
 
@@ -195,6 +210,12 @@ Vercel llama a `/api/cron` con la cabecera `Authorization: Bearer $CRON_SECRET` 
   `staging`. Ojo: los archivos de R2 no se copian, así que las imágenes y descargas antiguas no
   estarán en `cirella-staging`. Nunca se usa con creadoras ni clientas reales.
 - El seed de demostración no se ejecuta nunca fuera de local (se niega).
+- **La tarea programada no se ejecuta sola en staging**: Vercel Cron solo llama a producción.
+  Prográmala fuera (GitHub Actions con `schedule: '*/5 * * * *'` o cron-job.org) con
+  `curl -fsS -H "Authorization: Bearer $CRON_SECRET_STAGING" https://staging.cirella.app/api/cron`.
+  Si la *Deployment Protection* de Vercel cubre las previsualizaciones, añade también la cabecera
+  `x-vercel-protection-bypass: <secreto>`. Sin esto, en staging no salen los emails programados
+  ni los reintentos, no se renuevan membresías y `/api/health` responde 503 («retrasado»).
 
 ---
 

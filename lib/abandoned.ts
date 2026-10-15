@@ -1,7 +1,8 @@
 import { prisma } from "./db";
 import { AUTOMATIONS } from "./automations";
 import { dispatchEvents, recordEvents } from "./events";
-import { claimRecoveryEmail, recoveryDecision, recoveryFacts } from "./recovery-guard";
+import { hasOptedOut } from "./recovery-optout";
+import { claimRecoveryEmail, recoveryDecision, recoveryFacts, type RecoverySkip } from "./recovery-guard";
 
 /**
  * Pedidos sin pagar cuyo plazo de recuperación ha vencido → abandonados (+ email de
@@ -16,7 +17,8 @@ import { claimRecoveryEmail, recoveryDecision, recoveryFacts } from "./recovery-
  *
  * Solo recuperamos a quien abrió el checkout de verdad: así nadie puede usar los pagos fallidos
  * para enviar emails con el nombre de la creadora a direcciones ajenas (lib/recovery-guard.ts).
- * El motivo de cada email que no se envía queda en Order.recoverySkipped.
+ * Quien se dio de baja con el enlace del email (lib/recovery-optout.ts) no recibe más de esa
+ * creadora. El motivo de cada email que no se envía queda en Order.recoverySkipped.
  */
 export async function emitAbandoned(floorMinutes = 5) {
   const now = Date.now();
@@ -44,7 +46,23 @@ export async function emitAbandoned(floorMinutes = 5) {
     const bought = await prisma.order.findFirst({
       where: { buyerEmail: o.buyerEmail, productId: o.productId, status: "PAID", createdAt: { gte: o.createdAt } },
     });
-    const decision = bought ? null : recoveryDecision(await recoveryFacts(o));
+    // Ya es miembro (el pago se bloqueó con «Ya eres miembro»): un «¿Te quedaste a medias?» la
+    // llevaría otra vez al mismo error.
+    const member =
+      o.productType === "MEMBERSHIP" && !bought
+        ? await prisma.subscription.findFirst({
+            where: { productId: o.productId, status: { in: ["ACTIVE", "PAST_DUE"] }, customer: { email: o.buyerEmail } },
+            select: { id: true },
+          })
+        : null;
+    const optedOut = !bought && !member && (await hasOptedOut(o.creatorId, o.buyerEmail));
+    const decision: { send: true } | { send: false; reason: RecoverySkip } | null = bought
+      ? null
+      : member
+        ? { send: false, reason: "ya-miembro" }
+        : optedOut
+          ? { send: false, reason: "opuesta" }
+          : recoveryDecision(await recoveryFacts(o));
     const marked = await prisma.$transaction(async (tx) => {
       const c = await tx.order.updateMany({
         where: { id: o.id, status: { in: ["PENDING", "FAILED"] }, recoveryEmailedAt: null, chargedAt: null },

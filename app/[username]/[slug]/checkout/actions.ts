@@ -3,14 +3,16 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { claimOrderSession, rememberCheckout } from "@/lib/auth";
+import { claimOrderSession, holdsCheckout, rememberCheckout } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isSlotAvailable } from "@/lib/booking";
 import { parseCheckoutConsents } from "@/lib/checkout-consents";
 import { requestClient } from "@/lib/client-ip";
 import { ensureLegalSnapshot } from "@/lib/legal-snapshot";
 import { checkoutGate, noteCheckoutFailure } from "@/lib/limits";
+import { captureError } from "@/lib/monitoring";
 import { CheckoutError, createPendingOrder, getPurchasableProduct, startOrderPayment } from "@/lib/orders";
+import { paymentProvider } from "@/lib/payments";
 import { isKnownCountry } from "@/lib/tax/rates";
 import { ipCountry } from "@/lib/tax/server";
 import { isPlausibleTaxId, normalizeTaxId } from "@/lib/tax/tax-id";
@@ -49,9 +51,9 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
   const billing = input.wantsInvoice
     ? { name: input.billingName!, taxId: normalizeTaxId(input.billingTaxId!), address: input.billingAddress! }
     : null;
-  const product = await prisma.product.findUnique({ where: { id: input.productId }, select: { creatorId: true, type: true } });
+  const product = await prisma.product.findUnique({ where: { id: input.productId }, select: { creatorId: true, type: true, deliveryMode: true } });
   if (!product) return { error: "Este producto no está disponible ahora mismo.", orderId: input.orderId || undefined };
-  const consents = parseCheckoutConsents(Object.fromEntries(form), product.type);
+  const consents = parseCheckoutConsents(Object.fromEntries(form), product.type, product.deliveryMode);
   if (!consents.ok) return { error: consents.error, orderId: input.orderId || undefined };
   // Límites de intentos y, tras varios rechazos, el captcha (el token no va en el esquema: es de un solo uso).
   const client = await requestClient();
@@ -66,8 +68,12 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
     // Si ese pedido tiene el pago pendiente de confirmar, startOrderPayment lo dice en vez de cobrar otra vez.
     const existing = orderId ? await prisma.order.findUnique({ where: { id: orderId } }) : null;
     const prevSlot = (existing?.metadata as { slotStart?: string } | null)?.slotStart ?? "";
+    // Solo el navegador que hizo el pedido puede reintentarlo: con el id de otra persona (una URL
+    // compartida) se crea un pedido nuevo y no se toca el suyo (ni su permiso de compra).
+    const ownsExisting = !!existing && (await holdsCheckout(existing.id, existing.claimTokenHash));
     let reusable =
       !!existing &&
+      ownsExisting &&
       existing.status !== "PAID" &&
       existing.productId === input.productId &&
       existing.buyerEmail === input.email &&
@@ -84,6 +90,14 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
         throw new CheckoutError("Ese horario acaba de ocuparse. Elige otro, por favor.");
     }
     if (!reusable) {
+      // Se sustituye un pedido de este navegador (cambió el país, los datos fiscales…): su página de
+      // pago, si sigue abierta, se cancela para que no se puedan pagar las dos.
+      if (existing && ownsExisting && existing.status === "PENDING" && existing.checkoutRef) {
+        await paymentProvider()
+          .cancelCheckout(existing.checkoutRef)
+          .catch((e) => captureError(e, { area: "checkout", extra: { orderId: existing.id } }));
+        await prisma.order.updateMany({ where: { id: existing.id, status: "PENDING" }, data: { status: "ABANDONED", recoverySkipped: "sustituido" } });
+      }
       const lastVisit = await prisma.analyticsEvent.findFirst({
         where: { creatorId: product.creatorId, visitorId, type: "PAGE_VIEW" },
         orderBy: { createdAt: "desc" },

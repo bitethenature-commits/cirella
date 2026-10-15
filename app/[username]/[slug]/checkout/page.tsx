@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { TrackOnMount } from "@/components/creator-page/tracking";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, holdsCheckout } from "@/lib/auth";
 import { dac7SalesPaused } from "@/lib/dac7-data";
 import { prisma } from "@/lib/db";
 import { isDemoMode } from "@/lib/env";
@@ -12,6 +12,7 @@ import { getPurchasableProduct } from "@/lib/orders";
 import { paymentProvider } from "@/lib/payments";
 import { canAcceptPayments } from "@/lib/payouts";
 import { canInvoiceSale } from "@/lib/invoices/issue";
+import { getPlatformIssuer } from "@/lib/invoices/issuer";
 import { getPublicProduct } from "@/lib/product-page";
 import { asVatStatus, decideTax } from "@/lib/tax";
 import { isKnownCountry } from "@/lib/tax/rates";
@@ -37,23 +38,49 @@ export default async function CheckoutPage({
   if (!purchasable && !isOwner) notFound();
   const p = data.product;
   const provider = paymentProvider();
+  // IVA: quién vende según la política y el tipo de producto. El país lo elige la compradora.
+  const c = data.creator;
+  const taxInfo = { mode: await getTaxMode(), creatorCountry: c.legalCountry, creatorVatStatus: asVatStatus(c.vatStatus), creatorVatNote: c.vatExemptionNote };
+  const seller = decideTax({
+    mode: taxInfo.mode,
+    productType: p.type,
+    deliveryMode: p.deliveryMode,
+    buyerCountry: null,
+    creator: { country: c.legalCountry, vatStatus: c.vatStatus },
+  }).seller;
+  // Si vende Cirella tiene que poder facturar: la misma regla que createPendingOrder (lib/orders.ts),
+  // para no dejar rellenar el formulario y fallar al enviarlo.
+  const platformCanSell = seller !== "PLATFORM" || isDemoMode() || (await getPlatformIssuer()).complete;
   // Sin la identidad legal de quien vende no se puede vender (LSSI art. 10).
   const payoutReady =
     !!purchasable &&
     canAcceptPayments(data.creator, provider.key) &&
     legalIdentityComplete(data.creator) &&
+    platformCanSell &&
     !(await dac7SalesPaused(data.creator, p.type));
-  // Vuelta desde la pasarela (cancelado) o desde el email de «pago no completado»: se reintenta el mismo pedido.
-  const previous = sp.pedido
+  // Vuelta desde la pasarela (cancelado) o desde el email de «pago no completado»: se reintenta el
+  // mismo pedido. Sus datos (email, NIF, dirección) solo se rellenan en el navegador que lo hizo o
+  // para la compradora con su cuenta abierta: la URL con el id se comparte y no debe enseñarlos.
+  const found = sp.pedido
     ? await prisma.order.findFirst({
         where: { id: sp.pedido, productId: p.id, status: { in: ["PENDING", "FAILED", "ABANDONED"] } },
-        select: { id: true, buyerName: true, buyerEmail: true, paymentError: true, buyerCountry: true, billingName: true, billingTaxId: true, billingAddress: true },
+        select: {
+          id: true,
+          buyerName: true,
+          buyerEmail: true,
+          paymentError: true,
+          buyerCountry: true,
+          billingName: true,
+          billingTaxId: true,
+          billingAddress: true,
+          claimTokenHash: true,
+        },
       })
     : null;
-  // IVA: quién vende según la política y el tipo de producto. El país lo elige la compradora.
-  const c = data.creator;
-  const taxInfo = { mode: await getTaxMode(), creatorCountry: c.legalCountry, creatorVatStatus: asVatStatus(c.vatStatus), creatorVatNote: c.vatExemptionNote };
-  const seller = decideTax({ mode: taxInfo.mode, productType: p.type, buyerCountry: null, creator: { country: c.legalCountry, vatStatus: c.vatStatus } }).seller;
+  const previous =
+    found && ((user?.sessionVerified && user.email === found.buyerEmail) || (!!found.claimTokenHash && (await holdsCheckout(found.id, found.claimTokenHash))))
+      ? found
+      : null;
   const guessed = headerCountry(await headers());
   const defaultCountry = previous?.buyerCountry ?? (guessed ? (isKnownCountry(guessed) ? guessed : "XX") : "ES");
 

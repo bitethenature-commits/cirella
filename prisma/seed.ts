@@ -27,6 +27,7 @@ import { PLATFORM_TERMS_VERSION, WAIVER_TEXT, waiverKindFor } from "../lib/legal
 import { defaultSections, type PageConfig } from "../lib/page-config";
 import { prisma as appPrisma } from "../lib/db";
 import { issueMonthlyPlatformInvoices } from "../lib/invoices/fees";
+import { addDaysToKey, dateKeyInTz, formatSessionDate, weekdayOfKey, zonedTimeToUtc } from "../lib/tz";
 
 const prisma = new PrismaClient();
 const STORAGE = path.resolve(process.cwd(), storageDir());
@@ -37,8 +38,17 @@ const daysAgo = (d: number, h = 12, m = 0) => {
   x.setUTCHours(h - 2, m, 0, 0); // hora de Madrid (CEST, UTC+2)
   return x;
 };
-/** Fecha concreta en hora de Madrid (octubre → UTC+2). */
-const madrid = (iso: string) => new Date(`${iso}:00+02:00`);
+const TZ = "Europe/Madrid";
+const TODAY = dateKeyInTz(NOW, TZ);
+/**
+ * Las reservas de la demo son siempre futuras, se siembre cuando se siembre: el primer `weekday`
+ * (0 = domingo) a partir de dentro de `minDays` días, a la hora `minutes` de Madrid.
+ */
+const upcoming = (weekday: number, minDays: number, minutes: number) => {
+  let key = addDaysToKey(TODAY, minDays);
+  while (weekdayOfKey(key) !== weekday) key = addDaysToKey(key, 1);
+  return zonedTimeToUtc(key, minutes, TZ);
+};
 
 function rng(seed: number) {
   let s = seed;
@@ -371,8 +381,8 @@ async function main() {
   await prisma.availabilityRule.createMany({ data: rules });
   await prisma.blockedDate.createMany({
     data: [
-      { creatorId: ana.id, date: "2026-10-20", reason: "Retiro de otoño" },
-      { creatorId: ana.id, date: "2026-10-21", reason: "Retiro de otoño" },
+      { creatorId: ana.id, date: addDaysToKey(TODAY, 10), reason: "Retiro de otoño" },
+      { creatorId: ana.id, date: addDaysToKey(TODAY, 11), reason: "Retiro de otoño" },
     ],
   });
 
@@ -443,10 +453,13 @@ async function main() {
 
   const o3 = await buy({ user: laura, product: pHD, at: daysAgo(5, 18, 47), visitor: "v_laura", source: "telegram" });
   await prisma.access.create({ data: { creatorId: ana.id, userId: laura.id, productId: pHD.id, orderId: o3.order.id } });
+  // Lunes a las 17:00 (como el ejemplo del briefing) y jueves a las 10:00, siempre por venir.
+  const lauraAt = upcoming(1, 2, 17 * 60);
+  const carmenAt = upcoming(4, 2, 10 * 60);
   const bLaura = await prisma.booking.create({
     data: {
       creatorId: ana.id, productId: pHD.id, customerId: o3.customerId, userId: laura.id, orderId: o3.order.id, status: "CONFIRMED",
-      startAt: madrid("2026-10-12T17:00"), endAt: madrid("2026-10-12T18:15"), meetingUrl: pHD.meetingUrl,
+      startAt: lauraAt, endAt: new Date(lauraAt.getTime() + 75 * 60000), meetingUrl: pHD.meetingUrl,
       customerNotes: "Nací el 3 de marzo de 1991 a las 06:40 en Valencia.", createdAt: daysAgo(5, 18, 47),
     },
   });
@@ -456,7 +469,7 @@ async function main() {
   const bCarmen = await prisma.booking.create({
     data: {
       creatorId: ana.id, productId: p11.id, customerId: o4.customerId, userId: carmen.id, orderId: o4.order.id, status: "CONFIRMED",
-      startAt: madrid("2026-10-15T10:00"), endAt: madrid("2026-10-15T11:00"), meetingUrl: p11.meetingUrl, createdAt: daysAgo(3, 13, 5),
+      startAt: carmenAt, endAt: new Date(carmenAt.getTime() + 60 * 60000), meetingUrl: p11.meetingUrl, createdAt: daysAgo(3, 13, 5),
     },
   });
 
@@ -473,12 +486,14 @@ async function main() {
 
   // Emails enviados / programados (visibles en /dev/correo)
   const base = appUrl();
+  const lauraWhen = formatSessionDate(lauraAt, TZ);
+  const carmenWhen = formatSessionDate(carmenAt, TZ);
   await prisma.emailMessage.createMany({
     data: [
       { creatorId: ana.id, to: laura.email, subject: "Compra confirmada: Lectura de Human Design", template: "PURCHASE_RECEIPT", status: "SENT", sentAt: daysAgo(5, 18, 48), sendAt: daysAgo(5, 18, 48), html: `<p>Hola Laura, gracias por tu compra. <a href="${base}/cuenta">Acceder a mi contenido</a></p>` },
-      { creatorId: ana.id, to: laura.email, subject: "Reserva confirmada · lunes, 12 de octubre · 17:00", template: "BOOKING_CONFIRMED", status: "SENT", sentAt: daysAgo(5, 18, 48), sendAt: daysAgo(5, 18, 48), html: `<p>Tu sesión está reservada: lunes, 12 de octubre · 17:00. <a href="${base}/cuenta/sesiones/${bLaura.id}">Ver detalles</a></p>` },
-      { creatorId: ana.id, to: laura.email, subject: "Recordatorio: mañana tienes tu sesión", template: "SESSION_REMINDER", status: "QUEUED", sendAt: madrid("2026-10-11T17:00"), dedupeKey: `reminder:${bLaura.id}:${bLaura.startAt!.toISOString()}`, html: `<p>Te recordamos tu sesión Lectura de Human Design: lunes, 12 de octubre · 17:00.</p>` },
-      { creatorId: ana.id, to: carmen.email, subject: "Recordatorio: mañana tienes tu sesión", template: "SESSION_REMINDER", status: "QUEUED", sendAt: madrid("2026-10-14T10:00"), dedupeKey: `reminder:${bCarmen.id}:${bCarmen.startAt!.toISOString()}`, html: `<p>Te recordamos tu Sesión 1:1: jueves, 15 de octubre · 10:00.</p>` },
+      { creatorId: ana.id, to: laura.email, subject: `Reserva confirmada · ${lauraWhen}`, template: "BOOKING_CONFIRMED", status: "SENT", sentAt: daysAgo(5, 18, 48), sendAt: daysAgo(5, 18, 48), html: `<p>Tu sesión está reservada: ${lauraWhen}. <a href="${base}/cuenta/sesiones/${bLaura.id}">Ver detalles</a></p>` },
+      { creatorId: ana.id, to: laura.email, subject: "Recordatorio: mañana tienes tu sesión", template: "SESSION_REMINDER", status: "QUEUED", sendAt: new Date(lauraAt.getTime() - DAY), dedupeKey: `reminder:${bLaura.id}:${bLaura.startAt!.toISOString()}`, html: `<p>Te recordamos tu sesión Lectura de Human Design: ${lauraWhen}.</p>` },
+      { creatorId: ana.id, to: carmen.email, subject: "Recordatorio: mañana tienes tu sesión", template: "SESSION_REMINDER", status: "QUEUED", sendAt: new Date(carmenAt.getTime() - DAY), dedupeKey: `reminder:${bCarmen.id}:${bCarmen.startAt!.toISOString()}`, html: `<p>Te recordamos tu Sesión 1:1: ${carmenWhen}.</p>` },
       { creatorId: ana.id, to: "ana@cirella.app", subject: "Nueva suscripción a Comunidad privada", template: "NEW_SUBSCRIPTION", status: "SENT", sentAt: daysAgo(16, 22, 11), sendAt: daysAgo(16, 22, 11), html: `<p>Lucía Torres se ha unido a Comunidad privada.</p>` },
     ],
   });

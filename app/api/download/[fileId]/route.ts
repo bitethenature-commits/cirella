@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buyerLoginPath, checkProductAccess } from "@/lib/buyer-access";
+import { buyerLoginPath, checkProductAccess, markFirstAccess } from "@/lib/buyer-access";
 import { prisma } from "@/lib/db";
 import { DOWNLOAD_TTL_SEC, INLINE_MEDIA_TTL_SEC, privateKey, storage } from "@/lib/storage";
 
@@ -19,6 +19,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ fileId: 
   if (!access.ok && access.reason === "login")
     return NextResponse.redirect(new URL(await buyerLoginPath("/cuenta/archivos", { creatorId: file.creatorId }), req.url));
   if (!access.ok) return new NextResponse("No tienes acceso a este contenido", { status: 403 });
+  // Desde la primera descarga o reproducción vale su renuncia al desistimiento (acceso inmediato).
+  if (!access.isOwner) await markFirstAccess(access.userId, file.productId);
   if (file.kind === "LINK" && file.url) return NextResponse.redirect(file.url);
   if (!file.storageKey) return new NextResponse("No encontrado", { status: 404 });
 

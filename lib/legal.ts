@@ -6,10 +6,12 @@
  * lanzar (ver README, «Cumplimiento legal»).
  */
 
+import { normalizeDeliveryMode } from "./delivery";
+
 /** Versión de las plantillas de textos legales de las creadoras (lib/legal-templates.ts). */
-export const LEGAL_TEMPLATE_VERSION = "2026-10";
+export const LEGAL_TEMPLATE_VERSION = "2026-10b";
 /** Versión de los Términos del servicio de la plataforma que aceptan las creadoras. */
-export const PLATFORM_TERMS_VERSION = "2026-10-01";
+export const PLATFORM_TERMS_VERSION = "2026-10-15";
 /** La clienta puede cambiar la fecha de una sesión gratis hasta estas horas antes. */
 export const SESSION_CHANGE_NOTICE_HOURS = 24;
 
@@ -144,8 +146,13 @@ export function sellerLine(c: Partial<LegalIdentity>): string {
 
 export type WaiverKind = "DIGITAL_IMMEDIATE" | "SERVICE_IN_PERIOD";
 
-/** Renuncia que pide cada tipo de producto: acceso inmediato (art. 103.m) o servicio en plazo (art. 103.a). */
-export function waiverKindFor(productType: string): WaiverKind | null {
+/**
+ * Renuncia que pide cada tipo de producto: acceso inmediato (art. 103.m) o servicio en plazo (art. 103.a).
+ * Un producto digital que la creadora prepara a mano («Lo preparo yo») no se entrega al momento: no
+ * hay acceso inmediato al que renunciar, así que no se pide ninguna renuncia y se puede desistir.
+ */
+export function waiverKindFor(productType: string, deliveryMode?: string | null): WaiverKind | null {
+  if (productType === "DIGITAL" && normalizeDeliveryMode(productType, deliveryMode) === "PERSONAL") return null;
   if (productType === "DIGITAL" || productType === "COURSE" || productType === "MEMBERSHIP") return "DIGITAL_IMMEDIATE";
   if (productType === "SESSION") return "SERVICE_IN_PERIOD";
   return null;

@@ -202,7 +202,11 @@ test.describe.serial("Acceso a la cuenta", () => {
     await page.goto("/onboarding");
     await expect(page).toHaveURL(/\/entrar/);
     await passwordLogin(page, email, "secreto123");
-    await expect(page.getByText("Esta cuenta no tiene contraseña. Entra con un enlace por email.")).toBeVisible();
+    // La contraseña borrada ya no entra. El mensaje es el genérico (no revela que la cuenta existe
+    // sin contraseña) y la pista para entrar con un enlace está siempre en el formulario.
+    await expect(page.getByText("Email o contraseña incorrectos.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pide un enlace para entrar" })).toBeVisible();
+    await expect(page).toHaveURL(/\/entrar/);
   });
 
   test("alta normal: «Sí, he sido yo» sigue dentro y quita el aviso «Confirma tu email» del panel", async ({ page }) => {

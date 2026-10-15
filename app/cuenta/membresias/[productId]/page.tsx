@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { AlertTriangle, ArrowLeft, CalendarDays, Headphones, PenLine } from "lucide-react";
 import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { requireBuyerFor } from "@/lib/buyer-access";
+import { markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
 import { creatorBrief, hasAccess } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { formatPrice } from "@/lib/money";
@@ -33,6 +33,8 @@ export default async function MembershipFeed({
   // Con la renovación pendiente de pago se puede entrar a pagarla aunque el periodo de gracia haya vencido.
   const access = await hasAccess(user.id, productId);
   if (!access && !pastDue) redirect("/cuenta/membresias");
+  // Ver las publicaciones es empezar a acceder: desde aquí vale su renuncia al desistimiento.
+  if (access) await markFirstAccess(user.id, productId);
   const product = await prisma.product.findUniqueOrThrow({
     where: { id: productId },
     include: { creator: true, posts: access ? { orderBy: { publishedAt: "desc" } } : { take: 0 } },

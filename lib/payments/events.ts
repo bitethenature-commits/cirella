@@ -8,10 +8,10 @@ import { formatPrice } from "../money";
 import { captureAlert, captureError } from "../monitoring";
 import { fulfillOrder } from "../orders";
 import { syncPayoutAccount } from "../payouts";
-import { syncProviderRefund } from "../refunds";
+import { findRenewalCharge, syncProviderRefund } from "../refunds";
 import { truncateError } from "../reliability";
-import { applyRenewal, recordRenewalFailure } from "../subscriptions";
-import { paymentProvider } from "./index";
+import { recordRenewalFailure, settleRenewalCharge } from "../subscriptions";
+import { paymentProvider, paymentProviderByKey } from "./index";
 import { WebhookSignatureError, type PaymentState, type PaymentStatus, type PaymentUpdate } from "./provider";
 
 /**
@@ -87,6 +87,14 @@ async function applyOrderPayment(s: PaymentStatus, providerKey: string): Promise
     if (!s.ref) return ids;
     if (SETTLED.includes(order.status)) {
       if (order.paymentRef !== s.ref) await refundDuplicate(order.id, s.ref);
+      // Mismo cobro avisado otra vez (p. ej. payment_intent.succeeded tras checkout.session.completed):
+      // si trae la tarjeta guardada y la membresía aún no la tenía, se completa. Sin ella las
+      // renovaciones fallarían y la membresía acabaría cancelada.
+      else if (s.paymentMethodRef)
+        await prisma.subscription.updateMany({
+          where: { orderId: order.id, providerPaymentMethodRef: null },
+          data: { providerPaymentMethodRef: s.paymentMethodRef, ...(s.customerRef ? { providerCustomerRef: s.customerRef } : {}) },
+        });
       return ids;
     }
     // Anotado antes de entregar: si la entrega falla, el vigilante del cron la reintenta.
@@ -159,7 +167,7 @@ async function applySubscriptionPayment(s: PaymentStatus): Promise<Applied> {
   const periodEnd = new Date(s.metadata.periodKey ?? "");
   if (Number.isNaN(periodEnd.getTime())) return { ...ids, ignored: true };
   if (s.state === "succeeded" && s.ref) {
-    await applyRenewal(sub.id, periodEnd, s.ref, { customerRef: s.customerRef, paymentMethodRef: s.paymentMethodRef });
+    await settleRenewalCharge(sub.id, periodEnd, s.ref, { customerRef: s.customerRef, paymentMethodRef: s.paymentMethodRef });
   } else if (s.state === "failed" && s.metadata.kind === "renewal") {
     // Solo los cobros automáticos cuentan como intento fallido; un «Pagar ahora» rechazado no.
     await recordRenewalFailure(sub.id, s.error ?? "Tu banco ha rechazado la renovación.", new Date(), {
@@ -172,23 +180,18 @@ async function applySubscriptionPayment(s: PaymentStatus): Promise<Applied> {
 
 async function applyDispute(u: Extract<PaymentUpdate, { kind: "dispute" }>): Promise<Applied> {
   const order = await prisma.order.findFirst({ where: { paymentRef: u.paymentRef }, include: { creator: { include: { user: true } } } });
-  if (!order) return { ignored: true };
+  if (!order) return applyRenewalDispute(u);
   const ids = { orderId: order.id, creatorId: order.creatorId };
   await prisma.order.update({ where: { id: order.id }, data: { disputeStatus: u.status, disputedAt: order.disputedAt ?? new Date() } });
-  if (u.status === "OPEN") {
-    const admins = await prisma.user.findMany({ where: { isAdmin: true, status: "ACTIVE" }, select: { id: true, email: true } });
-    const mail = disputeOpenedEmail({
+  if (u.status === "OPEN")
+    await notifyDispute(u, {
       productTitle: order.productTitle,
-      amount: formatPrice(u.amountCents, order.currency),
+      currency: order.currency,
       buyer: order.buyerName || order.buyerEmail,
-      url: `${appUrl()}/panel/ventas?estado=todos`,
+      creator: { id: order.creatorId, userId: order.creator.userId, email: order.creator.user.email },
     });
-    const recipients = [{ id: order.creator.userId, email: order.creator.user.email, creatorId: order.creatorId }, ...admins.map((a) => ({ ...a, creatorId: null }))];
-    for (const r of recipients)
-      await enqueueEmail({ to: r.email, userId: r.id, creatorId: r.creatorId, fromName: null, replyTo: null, template: "DISPUTE_OPENED", dedupeKey: `dispute:${u.disputeRef}:${r.id}`, ...mail });
-  }
   // Contracargo perdido: el banco ya le ha devuelto el dinero; se registra como reembolso.
-  if (u.status === "LOST")
+  if (u.status === "LOST") {
     await syncProviderRefund({
       provider: order.paymentProvider,
       paymentRef: u.paymentRef,
@@ -197,7 +200,79 @@ async function applyDispute(u: Extract<PaymentUpdate, { kind: "dispute" }>): Pro
       status: "succeeded",
       reason: "DISPUTE_LOST",
     });
+    await recoverLostDispute(u, order.paymentProvider, { orderId: order.id });
+  }
   return ids;
+}
+
+/** Contracargo de una renovación de membresía: su cobro no tiene pedido, se busca en el libro. */
+async function applyRenewalDispute(u: Extract<PaymentUpdate, { kind: "dispute" }>): Promise<Applied> {
+  const provider = paymentProvider().key;
+  const renewal = await findRenewalCharge(provider, u.paymentRef);
+  if (!renewal) {
+    captureAlert("Contracargo de un cobro que no es de ningún pedido ni renovación", {
+      area: "payments",
+      level: "error",
+      fingerprint: ["contracargo-desconocido"],
+      extra: { paymentRef: u.paymentRef, disputeRef: u.disputeRef, status: u.status },
+    });
+    return { ignored: true };
+  }
+  const ids = { creatorId: renewal.creatorId };
+  if (u.status === "OPEN") {
+    const sub = renewal.subscriptionId
+      ? await prisma.subscription.findUnique({ where: { id: renewal.subscriptionId }, include: { product: { select: { title: true } }, customer: true } })
+      : null;
+    await notifyDispute(u, {
+      productTitle: `Renovación · ${sub?.product.title ?? "membresía"}`,
+      currency: renewal.currency,
+      buyer: sub ? sub.customer.name || sub.customer.email : "—",
+      creator: { id: renewal.creatorId, userId: renewal.creator.userId, email: renewal.creator.user.email },
+    });
+  }
+  if (u.status === "LOST") {
+    await syncProviderRefund({ provider, paymentRef: u.paymentRef, providerRef: u.disputeRef, amountCents: u.amountCents, status: "succeeded", reason: "DISPUTE_LOST" });
+    await recoverLostDispute(u, provider, { transactionId: renewal.id });
+  }
+  return ids;
+}
+
+/** Aviso de contracargo abierto a la creadora y a administración (tienen días para responder). */
+async function notifyDispute(
+  u: Extract<PaymentUpdate, { kind: "dispute" }>,
+  d: { productTitle: string; currency: string; buyer: string; creator: { id: string; userId: string; email: string } },
+) {
+  const admins = await prisma.user.findMany({ where: { isAdmin: true, status: "ACTIVE" }, select: { id: true, email: true } });
+  const mail = disputeOpenedEmail({
+    productTitle: d.productTitle,
+    amount: formatPrice(u.amountCents, d.currency),
+    buyer: d.buyer,
+    url: `${appUrl()}/panel/ventas?estado=todos`,
+  });
+  const recipients = [{ id: d.creator.userId, email: d.creator.email, creatorId: d.creator.id as string | null }, ...admins.map((a) => ({ ...a, creatorId: null }))];
+  for (const r of recipients)
+    await enqueueEmail({ to: r.email, userId: r.id, creatorId: r.creatorId, fromName: null, replyTo: null, template: "DISPUTE_OPENED", dedupeKey: `dispute:${u.disputeRef}:${r.id}`, ...mail });
+}
+
+/**
+ * Contracargo perdido: el libro lo carga a la creadora (fila REFUND con su parte en netCents), pero
+ * con cargos de destino el banco se lo cobra a Cirella y la transferencia a la creadora no se
+ * revierte sola. Se recupera su parte; si no se puede, aviso para hacerlo a mano.
+ */
+async function recoverLostDispute(u: Extract<PaymentUpdate, { kind: "dispute" }>, providerKey: string, ctx: Record<string, string>) {
+  const booked = await prisma.transaction.findFirst({ where: { type: "REFUND", providerRef: u.disputeRef, provider: providerKey }, select: { netCents: true } });
+  const creatorShare = booked ? -booked.netCents : 0;
+  if (creatorShare <= 0) return;
+  const provider = paymentProviderByKey(providerKey);
+  if (!provider.recoverDispute) return; // el simulador no mueve dinero real
+  const r = await provider.recoverDispute({ paymentRef: u.paymentRef, disputeRef: u.disputeRef, amountCents: creatorShare });
+  if (!r.ok)
+    captureAlert("Contracargo perdido sin recuperar de la creadora", {
+      area: "payments",
+      level: "error",
+      fingerprint: ["contracargo-sin-recuperar"],
+      extra: { ...ctx, disputeRef: u.disputeRef, amountCents: creatorShare, error: r.error },
+    });
 }
 
 /**
@@ -256,8 +331,10 @@ export async function processWebhook(providerKey: "stripe", rawBody: string, hea
     parsed = await provider.parseWebhook(rawBody, headers);
   } catch (e) {
     if (e instanceof WebhookSignatureError) return { status: 400, body: "Firma no válida" };
+    // Firma buena pero no se pudo completar (p. ej. Stripe no respondió al pedir la sesión con su
+    // PaymentIntent): 500 para que la pasarela lo reintente.
     captureError(e, { area: "payments", tags: { op: "webhook" } });
-    return { status: 400, body: "Aviso no válido" };
+    return { status: 500, body: "No se ha podido leer el aviso" };
   }
   try {
     const r = await processPaymentEvent(providerKey, parsed.eventId, parsed.type, parsed.accountId, parsed.updates);

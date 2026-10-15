@@ -19,9 +19,11 @@ const WAIVER_REQUIRED_ERROR: Record<WaiverKind, string> = {
 export function parseCheckoutConsents(
   input: Record<string, unknown>,
   productType: string,
+  /** Entrega del producto digital: «Lo preparo yo» (PERSONAL) no pide la renuncia de acceso inmediato. */
+  deliveryMode?: string | null,
 ): { ok: true; consents: CheckoutConsents } | { ok: false; error: string } {
   if (input.acceptTerms !== "on") return { ok: false, error: TERMS_REQUIRED_ERROR };
-  const kind = waiverKindFor(productType);
+  const kind = waiverKindFor(productType, deliveryMode);
   if (kind && input.waiver !== "on") return { ok: false, error: WAIVER_REQUIRED_ERROR[kind] };
   return {
     ok: true,

@@ -1,4 +1,20 @@
+import { PrismaClient } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
+import { formatSessionDate } from "../lib/tz";
+
+/** La sesión de Laura de la demo: el seed la pone siempre en el futuro (el próximo lunes a las 17:00). */
+async function lauraSessionLabel() {
+  const db = new PrismaClient();
+  try {
+    const b = await db.booking.findFirstOrThrow({
+      where: { customer: { email: "laura@example.com" }, product: { title: "Lectura de Human Design" } },
+      orderBy: { createdAt: "asc" },
+    });
+    return formatSessionDate(b.startAt!, "Europe/Madrid", false);
+  } finally {
+    await db.$disconnect();
+  }
+}
 
 /**
  * Reembolsar, cancelar y cambiar de fecha avisando a la clienta:
@@ -146,7 +162,7 @@ test.describe.serial("Reembolsos y cambios", () => {
     await expect(reading.getByRole("button", { name: "Desistir" })).toHaveCount(0);
 
     await page.goto("/cuenta/sesiones");
-    await expect(page.getByText(/12 de octubre · 17:00/)).toHaveCount(0);
+    await expect(page.getByText(await lauraSessionLabel())).toHaveCount(0);
 
     await expectMail(page, "laura@example.com", /Hemos recibido tu desistimiento/);
     await page.goto(`/dev/correo?to=ana@cirella.app`);

@@ -7,7 +7,7 @@ import { captureError } from "@/lib/monitoring";
 import { paymentProvider } from "@/lib/payments";
 import { renewalPeriodKey } from "@/lib/payments/renewal";
 import { canAcceptPayments } from "@/lib/payouts";
-import { applyRenewal, findPastDueSubscription, renewalAmounts } from "@/lib/subscriptions";
+import { findPastDueSubscription, renewalAmounts, settleRenewalCharge } from "@/lib/subscriptions";
 
 /**
  * «Pagar ahora»: la renovación no se pudo cobrar con la tarjeta guardada y la clienta la paga con
@@ -53,12 +53,15 @@ export async function payRenewalNow(form: FormData) {
   if (r.state === "failed") back("error", r.error);
   if (r.state === "processing") back("error", "Tu banco está confirmando el pago. Te avisaremos por email.");
   if (r.state === "succeeded") {
+    let settled;
     try {
-      await applyRenewal(sub.id, sub.currentPeriodEnd, r.ref, { customerRef: r.customerRef, paymentMethodRef: r.paymentMethodRef });
+      // Si el cron cobró este periodo mientras tanto, este segundo cobro se devuelve.
+      settled = await settleRenewalCharge(sub.id, sub.currentPeriodEnd, r.ref, { customerRef: r.customerRef, paymentMethodRef: r.paymentMethodRef });
     } catch (e) {
       captureError(e, { area: "renovaciones", extra: { subscriptionId: sub.id } });
       throw e;
     }
+    if (settled === "refunded") back("error", "Esta renovación ya estaba pagada: te hemos devuelto este cobro.");
   }
   back("ok", "");
 }

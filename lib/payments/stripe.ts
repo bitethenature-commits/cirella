@@ -4,6 +4,8 @@ import { WebhookSignatureError, type PaymentProvider, type StartPaymentResult } 
 import { stripeClient, stripeConfig, type StripeConfig } from "./stripe-client";
 import { mapAccount, mapEvent, mapIntent, mapIntentState, mapSession } from "./stripe-map";
 
+const idOf = (v: string | { id: string } | null | undefined) => (typeof v === "string" ? v : (v?.id ?? undefined));
+
 /**
  * Stripe: Checkout alojado + Connect Express con cargos de destino.
  *   · El cobro lo hace la cuenta de Cirella; `application_fee_amount` es su comisión y
@@ -19,12 +21,16 @@ export type StripeLike = {
   checkout: { sessions: Pick<Stripe["checkout"]["sessions"], "create" | "retrieve" | "expire"> };
   paymentIntents: Pick<Stripe["paymentIntents"], "create" | "retrieve">;
   refunds: Pick<Stripe["refunds"], "create">;
+  /** Solo para recuperar de la creadora un contracargo perdido (recoverDispute). */
+  transfers?: Pick<Stripe["transfers"], "retrieve" | "createReversal">;
   accounts: Pick<Stripe["accounts"], "create" | "retrieve" | "createLoginLink">;
   accountLinks: Pick<Stripe["accountLinks"], "create">;
   webhooks: Pick<Stripe["webhooks"], "constructEvent">;
 };
 
-const CHECKOUT_MINUTES = 30;
+// Stripe exige que expires_at quede al menos 30 min después de SU hora de creación de la sesión:
+// un minuto de margen por la latencia y el redondeo a segundos (con 30 justos la rechaza).
+const CHECKOUT_MINUTES = 31;
 const DECLINED = "Tu banco ha rechazado el pago. Prueba con otra tarjeta.";
 const UNAVAILABLE = "No hemos podido conectar con la pasarela de pago. Inténtalo de nuevo en unos minutos.";
 
@@ -49,7 +55,10 @@ export function createStripeProvider(client: StripeLike = stripeClient(), cfg: S
     collectsCardOnSite: false,
 
     async startPayment(i) {
-      const expiresAt = new Date(Date.now() + CHECKOUT_MINUTES * 60_000);
+      // Un único valor para Stripe y para Order.checkoutExpiresAt: el pedido no cuenta como
+      // abandonado mientras la página de pago siga abierta de verdad.
+      const expiresSec = Math.floor(Date.now() / 1000) + CHECKOUT_MINUTES * 60;
+      const expiresAt = new Date(expiresSec * 1000);
       const owner = i.orderId ?? i.subscriptionId ?? "x";
       try {
         const session = await client.checkout.sessions.create(
@@ -76,7 +85,7 @@ export function createStripeProvider(client: StripeLike = stripeClient(), cfg: S
             metadata: i.metadata,
             success_url: i.returnUrl.replace("{REF}", "{CHECKOUT_SESSION_ID}"),
             cancel_url: i.cancelUrl,
-            expires_at: Math.floor(expiresAt.getTime() / 1000),
+            expires_at: expiresSec,
           },
           { idempotencyKey: `checkout:${owner}:${Date.now()}` },
         );
@@ -159,6 +168,30 @@ export function createStripeProvider(client: StripeLike = stripeClient(), cfg: S
       }
     },
 
+    async recoverDispute(i) {
+      // Cargos de destino: Stripe cobra el contracargo perdido a la cuenta de Cirella y NO revierte
+      // la transferencia a la creadora. Se recupera su parte con una reversión de la transferencia.
+      if (!client.transfers) return { ok: false, error: "Cliente de Stripe sin transferencias" };
+      try {
+        const pi = await client.paymentIntents.retrieve(i.paymentRef, { expand: ["latest_charge"] });
+        const charge = typeof pi.latest_charge === "object" ? pi.latest_charge : null;
+        const transferId = charge ? idOf(charge.transfer) : undefined;
+        if (!transferId) return { ok: false, error: "El cobro no tiene transferencia a la creadora" };
+        const transfer = await client.transfers.retrieve(transferId);
+        const amount = Math.min(i.amountCents, transfer.amount - transfer.amount_reversed);
+        if (amount <= 0) return { ok: true, reversalRef: null };
+        const rev = await client.transfers.createReversal(
+          transferId,
+          { amount, metadata: { disputeRef: i.disputeRef } },
+          { idempotencyKey: `dispute-reversal:${i.disputeRef}` },
+        );
+        return { ok: true, reversalRef: rev.id };
+      } catch (e) {
+        captureError(e, { area: "payments", tags: { op: "contracargo" }, extra: { paymentRef: i.paymentRef, disputeRef: i.disputeRef } });
+        return { ok: false, error: asStripeError(e).message ?? UNAVAILABLE };
+      }
+    },
+
     async createPayoutAccount(i) {
       const acct = await client.accounts.create(
         {
@@ -205,6 +238,17 @@ export function createStripeProvider(client: StripeLike = stripeClient(), cfg: S
         } catch {}
       }
       if (!evt) throw new WebhookSignatureError("La firma del aviso no es válida");
+      // Stripe nunca expande objetos en los avisos: en checkout.session.* el PaymentIntent llega
+      // como id y sin él no sabríamos la tarjeta guardada (membresías) ni la cuenta de destino.
+      // Se pide la sesión con el PaymentIntent expandido. Si falla, lanza un error que no es de
+      // firma: processWebhook responde 500 y Stripe reintenta.
+      if (evt.type.startsWith("checkout.session.")) {
+        const s = evt.data.object as Stripe.Checkout.Session;
+        if (typeof s.payment_intent === "string") {
+          const full = await client.checkout.sessions.retrieve(s.id, { expand: ["payment_intent"] });
+          evt = { ...evt, data: { ...evt.data, object: full } } as unknown as Stripe.Event;
+        }
+      }
       return { eventId: evt.id, type: evt.type, accountId: evt.account ?? null, updates: mapEvent(evt) };
     },
   };
@@ -223,6 +267,7 @@ export const stripeProvider: PaymentProvider = {
   cancelCheckout: (ref) => real().cancelCheckout(ref),
   chargeSaved: (i) => real().chargeSaved(i),
   refund: (i) => real().refund(i),
+  recoverDispute: (i) => real().recoverDispute!(i),
   createPayoutAccount: (i) => real().createPayoutAccount(i),
   payoutOnboardingUrl: (i) => real().payoutOnboardingUrl(i),
   getPayoutAccount: (id) => real().getPayoutAccount(id),

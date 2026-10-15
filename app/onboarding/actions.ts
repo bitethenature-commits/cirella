@@ -118,6 +118,9 @@ const productSchema = z.object({
 export async function saveFirstProduct(input: z.infer<typeof productSchema>): Promise<Result> {
   const { creator } = await currentCreator();
   if (!creator) return { ok: false, error: "Primero elige tu nombre de usuario" };
+  // Tras el onboarding todo pasa por el panel: aquí se podría cambiar el tipo de un producto ya
+  // publicado o vendido y saltarse la comprobación de entrega.
+  if (creator.onboardedAt) return { ok: false, error: "Hazlo desde el panel" };
   const parsed = productSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
   const p = parsed.data;
@@ -144,12 +147,14 @@ export async function saveFirstProduct(input: z.infer<typeof productSchema>): Pr
   if (p.productId) {
     const existing = await db.product.findFirst({ where: { id: p.productId } });
     if (!existing) return { ok: false, error: "Producto no encontrado" };
+    // Un producto que ya no está en borrador no cambia de tipo (pedidos, accesos y reservas dependen de él).
+    if (existing.status !== "DRAFT" && existing.type !== p.type) return { ok: false, error: "Hazlo desde el panel" };
     const slug = existing.title !== p.title ? await uniqueProductSlug(creator.id, p.title, existing.id) : existing.slug;
     await db.product.update({ where: { id: existing.id }, data: { ...data, slug } });
     return { ok: true, data: { productId: existing.id } };
   }
   // El onboarding solo crea el primer producto; el resto se crea desde el panel (con sus límites).
-  if (creator.onboardedAt || (await db.product.count()) > 0) return { ok: false, error: "Crea tus productos desde el panel" };
+  if ((await db.product.count()) > 0) return { ok: false, error: "Crea tus productos desde el panel" };
   const product = await db.product.create({
     data: {
       ...data,

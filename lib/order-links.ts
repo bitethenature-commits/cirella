@@ -13,7 +13,8 @@ import { formatDate } from "./tz";
  * Abren una sesión limitada a ESE pedido (7 días) sin contraseña: nunca la cuenta completa ni
  * confirman el email, así que un enlace reenviado o guardado por un antivirus solo deja ver esa
  * compra. Sirven varias veces hasta que caducan (14 días desde el envío) y se revocan al
- * reembolsar (revokeOrderAccess). En la BD solo se guarda el hash del token.
+ * reembolsar (revokeOrderAccess). En la BD solo se guarda el hash del token (la copia del email
+ * en EmailMessage.html lo lleva hasta que se envía; después deliverEmail lo tacha).
  */
 export const ORDER_LINK_DAYS = 14;
 export const ORDER_LINK_SESSION_DAYS = 7;

@@ -37,6 +37,8 @@ export function renderCreatorLegalTemplates(i: {
   const terms = `## 1. Quién vende
 Estas condiciones regulan las compras en la página de ${displayName}. La vendedora es la titular identificada en el aviso legal. ${platformName} solo presta la tecnología de la página y de los pagos; no es parte del contrato.
 
+Cuando el resumen de la compra lo indica (productos digitales, cursos y membresías), ${platformName} cobra el pago y emite la factura en su nombre como proveedora a efectos del IVA (art. 9 bis del Reglamento de Ejecución (UE) 282/2011).
+
 ## 2. Productos y precios
 Cada ficha describe qué incluye el producto. Los precios se muestran en euros e incluyen los impuestos aplicables.
 
@@ -48,6 +50,7 @@ Tarjeta, Apple Pay o Google Pay a través de una pasarela segura. Ni la vendedor
 
 ## 5. Entrega
 • Productos digitales: acceso inmediato en tu área de cliente.
+• Productos que la vendedora prepara para ti: te llegan en el plazo y por el medio indicados en la ficha. Mientras no los recibas, puedes desistir.
 • Cursos: acceso de por vida mientras el curso exista.
 • Sesiones: por videollamada en la fecha reservada.
 • Membresías: se renuevan automáticamente y puedes cancelarlas desde tu cuenta; mantienes el acceso hasta el final del periodo pagado.
@@ -83,7 +86,7 @@ Desde tu área de cliente, escribiendo al email del aviso legal o enviando el fo
 Te devolvemos el dinero en un máximo de 14 días desde que nos comunicas tu decisión, por el mismo medio de pago que usaste.`;
 
   const privacy = `## Quién más trata tus datos
-${platformName} trata tus datos por encargo de la vendedora para alojar la página, gestionar las compras y enviarte los emails. Stripe trata los datos del pago como responsable independiente.
+${platformName} trata tus datos por encargo de la vendedora para alojar la página, gestionar las compras y enviarte los emails. Cuando ${platformName} emite la factura en su nombre (lo indica el resumen de la compra), es responsable de los datos de esa factura y de los registros fiscales que debe conservar. Stripe trata los datos del pago como responsable independiente.
 
 ## Qué datos
 Nombre, email, compras, reservas y los mensajes que nos envíes.

@@ -48,6 +48,24 @@ export function buildFeeInvoiceLines(txs: FeeTx[], planName?: string): { descrip
   return lines;
 }
 
+/**
+ * Tipo y serie de la factura mensual según su total:
+ *   · positivo → factura normal de la serie S (F1 con NIF, F2 sin él);
+ *   · negativo (las devoluciones del mes devolvieron más comisión de la que se cobró) → rectificativa
+ *     de la serie R de la última factura mensual: la base de lo ya facturado ha bajado (art. 15 RD
+ *     1619/2012). Sin factura anterior que rectificar, no hay nada que emitir;
+ *   · cero → nada.
+ */
+export function feeInvoiceKind(
+  totalCents: number,
+  hasTaxId: boolean,
+  previous: { id: string; type: string } | null,
+): { type: string; seriesCode: string; relatedInvoiceId: string | null } | null {
+  if (totalCents > 0) return { type: hasTaxId ? "F1" : "F2", seriesCode: "S", relatedInvoiceId: null };
+  if (totalCents === 0 || !previous) return null;
+  return { type: previous.type === "F2" ? "R5" : "R1", seriesCode: "R", relatedInvoiceId: previous.id };
+}
+
 /** Mes natural en España: «2026-09» y sus límites [from, to). `offset` = -1 para el mes anterior. */
 export function monthPeriod(now: Date, offset = 0) {
   const p = zonedParts(now, INVOICE_TIMEZONE);
@@ -87,7 +105,13 @@ export async function issueMonthlyPlatformInvoices(now = new Date()): Promise<nu
     const creator = await prisma.creator.findUniqueOrThrow({ where: { id: creatorId }, include: { plan: true, user: { select: { email: true } } } });
     const lines = buildFeeInvoiceLines(byCreator.get(creatorId)!, creator.plan.name);
     const total = lines.reduce((a, l) => a + l.totalCents, 0);
-    if (total <= 0) {
+    // Un mes en negativo rectifica la última factura mensual (la comisión devuelta baja su base).
+    const previous =
+      total < 0
+        ? await prisma.invoice.findFirst({ where: { creatorId, kind: "FEES", seriesCode: "S" }, orderBy: { issuedAt: "desc" }, select: { id: true, type: true } })
+        : null;
+    const kind = feeInvoiceKind(total, !!creator.legalTaxId, previous);
+    if (!kind) {
       console.log(`[facturas] ${creator.username} · ${period}: nada que facturar (${total} céntimos).`);
       continue;
     }
@@ -101,10 +125,11 @@ export async function issueMonthlyPlatformInvoices(now = new Date()): Promise<nu
       return createNumberedInvoiceTx(tx, {
         creatorId,
         kind: "FEES",
-        type: creator.legalTaxId ? "F1" : "F2",
+        type: kind.type,
         issuer: "PLATFORM",
         issuerKey: "platform",
-        seriesCode: "S",
+        seriesCode: kind.seriesCode,
+        relatedInvoiceId: kind.relatedInvoiceId,
         period,
         operationDate,
         issuerName: issuer.name,
@@ -142,6 +167,7 @@ export async function issueMonthlyPlatformInvoices(now = new Date()): Promise<nu
         periodLabel: periodLabel(period),
         number: invoice.fullNumber,
         total: formatMoney(total, invoice.currency, { decimals: true }),
+        corrective: total < 0,
         url: `${appUrl()}/facturas/${invoice.id}`,
       }),
     });

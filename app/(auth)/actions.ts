@@ -74,9 +74,11 @@ export async function signIn(_: FormState, form: FormData): Promise<FormState> {
   const limit = await limitLogin(email, ipHash);
   if (!limit.ok) return { error: limit.message, email };
   const user = await prisma.user.findUnique({ where: { email } });
-  if (user && !user.passwordHash) return { error: "Esta cuenta no tiene contraseña. Entra con un enlace por email.", email };
-  const valid = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
-  if (!user || !valid) return { error: "Email o contraseña incorrectos.", email };
+  // Mismo mensaje y mismo tiempo exista o no la cuenta, y tenga o no contraseña: si no, cualquiera
+  // podría comprobar en silencio si un email ha comprado en Cirella. La pista para quien compró
+  // sin contraseña está siempre visible en el formulario.
+  const valid = await verifyPassword(password, user?.passwordHash || DUMMY_HASH);
+  if (!user || !user.passwordHash || !valid) return { error: "Email o contraseña incorrectos.", email };
   await clearLoginLimit(email);
   if (user.status === "BLOCKED") return { error: "Esta cuenta está bloqueada. Escríbenos si crees que es un error.", email };
   // La contraseña solo «verifica» la sesión si el email ya está confirmado.

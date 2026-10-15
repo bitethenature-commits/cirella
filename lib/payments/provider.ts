@@ -118,6 +118,12 @@ export interface PaymentProvider {
   cancelCheckout(checkoutRef: string): Promise<void>;
   chargeSaved(i: ChargeSavedInput): Promise<StartPaymentResult>;
   refund(i: RefundInput): Promise<{ ok: true; refundRef: string; status: "pending" | "succeeded" } | { ok: false; error: string }>;
+  /**
+   * Contracargo perdido: recupera de la creadora su parte (lo que se le transfirió), porque con
+   * cargos de destino el banco se lo cobra a Cirella. Opcional: sin él (simulador) se avisa a
+   * administración para hacerlo a mano. amountCents = parte de la creadora.
+   */
+  recoverDispute?(i: { paymentRef: string; disputeRef: string; amountCents: number }): Promise<{ ok: true; reversalRef: string | null } | { ok: false; error: string }>;
   createPayoutAccount(i: { creatorId: string; email: string; country: string; pageUrl: string }): Promise<{ accountId: string }>;
   payoutOnboardingUrl(i: { accountId: string; returnUrl: string; refreshUrl: string }): Promise<string>;
   getPayoutAccount(accountId: string): Promise<PayoutAccountSnapshot>;

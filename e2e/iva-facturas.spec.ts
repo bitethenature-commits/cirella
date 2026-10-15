@@ -107,7 +107,8 @@ test.describe.serial("IVA y facturas", () => {
     await page.fill("#fi-name", "Société Lune SARL");
     await page.fill("#fi-taxid", "FR12345678901");
     await page.fill("#fi-address", "1 rue de la Paix, 75002 Paris");
-    await page.selectOption("#fi-country", "FR");
+    // El país es el de la compra (con el que se calculó el IVA): se muestra, no se elige.
+    await expect(page.locator("#fi-country")).toHaveText("Francia");
     await page.getByRole("button", { name: "Pedir factura" }).click();
     await expect(page.getByText(/Hemos emitido tu factura V\d{4}-\d{6}\./)).toBeVisible();
     await expect(page.getByText(/^Factura V\d{4}-\d{6}$/)).toBeVisible();

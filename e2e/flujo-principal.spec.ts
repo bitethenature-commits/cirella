@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
+import { formatSessionDate } from "../lib/tz";
 
 /**
  * Instagram → página → producto → pago → entrega → clienta recurrente.
@@ -10,6 +11,20 @@ const stamp = Date.now().toString().slice(-6);
 const username = `luna${stamp}`;
 const creatorEmail = `creadora${stamp}@example.com`;
 const buyerEmail = `compradora${stamp}@example.com`;
+
+/** La sesión de Laura de la demo: el seed la pone siempre en el futuro (el próximo lunes a las 17:00). */
+async function lauraSessionLabel() {
+  const db = new PrismaClient();
+  try {
+    const b = await db.booking.findFirstOrThrow({
+      where: { customer: { email: "laura@example.com" }, product: { title: "Lectura de Human Design" } },
+      orderBy: { createdAt: "asc" },
+    });
+    return formatSessionDate(b.startAt!, "Europe/Madrid", false);
+  } finally {
+    await db.$disconnect();
+  }
+}
 
 async function demoLogin(page: Page, label: string) {
   await page.goto("/entrar");
@@ -139,7 +154,7 @@ test.describe.serial("Flujo principal", () => {
     await demoLogin(page, "Laura Martín");
     await expect(page.getByRole("heading", { name: "Hola, Laura" })).toBeVisible();
     await expect(page.getByText("Progreso 43%")).toBeVisible();
-    await expect(page.getByText(/12 de octubre · 17:00/)).toBeVisible();
+    await expect(page.getByText(await lauraSessionLabel())).toBeVisible();
     const download = page.getByRole("link", { name: "Descargar" }).first();
     await expect(download).toBeVisible();
     const res = await page.request.get((await download.getAttribute("href"))!);

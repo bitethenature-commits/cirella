@@ -47,7 +47,8 @@ export default async function MagicLinkPage({ searchParams }: { searchParams: Pr
                 No he sido yo
               </SubmitButton>
               <p className={`text-xs ${branded ? "cp-muted" : "text-muted"}`}>
-                Si no has sido tú, cerraremos el acceso de quien la creó y entrarás tú con este email.
+                Si no has sido tú, cerraremos el acceso de quien la creó y entrarás tú con este email. Si la creaste en otro
+                navegador o dispositivo, por seguridad te pediremos que elijas la contraseña de nuevo.
               </p>
             </div>
           ) : (

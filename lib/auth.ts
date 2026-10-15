@@ -137,6 +137,19 @@ export async function hasCheckoutCookie(orderId: string) {
   return value.startsWith(`${orderId}.`);
 }
 
+/**
+ * ¿Es este navegador el que tiene el permiso de compra vigente de este pedido? (cookie con el token
+ * cuyo hash guarda el pedido). Un pedido que nunca se ha intentado pagar no es de nadie todavía.
+ * Sin efectos: solo compara.
+ */
+export async function holdsCheckout(orderId: string, claimTokenHash: string | null) {
+  if (!claimTokenHash) return true;
+  const value = (await cookies()).get(CHECKOUT_COOKIE)?.value ?? "";
+  const dot = value.indexOf(".");
+  const token = dot > 0 && value.slice(0, dot) === orderId ? value.slice(dot + 1) : "";
+  return !!token && sameHash(hashToken(token), claimTokenHash);
+}
+
 function sameHash(a: string, b: string) {
   const x = Buffer.from(a);
   const y = Buffer.from(b);

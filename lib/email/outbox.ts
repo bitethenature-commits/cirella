@@ -122,7 +122,16 @@ export async function deliverEmail(id: string, now = new Date()): Promise<"sent"
   if (result.ok) {
     await prisma.emailMessage.update({
       where: { id },
-      data: { status: "SENT", sentAt: new Date(), providerId: result.providerId ?? null, error: null, lockedUntil: null },
+      data: {
+        status: "SENT",
+        sentAt: new Date(),
+        providerId: result.providerId ?? null,
+        error: null,
+        lockedUntil: null,
+        // Enviado de verdad: la copia guardada ya no necesita los tokens de los enlaces (en la BD
+        // solo debe quedar su hash). Con el proveedor "log" se conservan: /dev/correo los abre.
+        ...(emailProvider().key !== "log" ? { html: redactLoginTokens(msg.html) } : {}),
+      },
     });
     return "sent";
   }
@@ -177,9 +186,20 @@ export async function retryEmail(id: string) {
 
 /** «Descartar» (/admin/envios): un envío fallido o en reintento deja de intentarse. */
 export async function discardEmail(id: string) {
+  const msg = await prisma.emailMessage.findUnique({ where: { id }, select: { html: true } });
+  if (!msg) return false;
   const r = await prisma.emailMessage.updateMany({
     where: { id, status: { in: ["FAILED", "QUEUED"] }, attempts: { gt: 0 } },
-    data: { status: "CANCELED", lockedUntil: null },
+    // Descartado ya no se envía: fuera los tokens de sus enlaces.
+    data: { status: "CANCELED", lockedUntil: null, html: redactLoginTokens(msg.html) },
   });
   return r.count > 0;
+}
+
+/**
+ * Quita de un email ya enviado (o descartado) los tokens de los enlaces personales y mágicos:
+ * una copia de la BD no debe servir para entrar en la cuenta de nadie.
+ */
+export function redactLoginTokens(html: string) {
+  return html.replace(/(\/auth\/(?:enlace\?t|magic\?token)=)[A-Za-z0-9_-]+/g, "$1[redactado]");
 }

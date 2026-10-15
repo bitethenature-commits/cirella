@@ -13,7 +13,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { storeProcessedImage } from "./images";
-import { IMAGE_TYPES, PRIVATE_TYPES, signToken, storage, storageSecret, verifyToken } from "./storage";
+import { IMAGE_TYPES, PRIVATE_TYPES, privateFileType, signToken, storage, storageSecret, verifyToken } from "./storage";
 import { tenantDb } from "./tenant";
 
 export type UploadPurpose = "image" | "file";
@@ -34,7 +34,8 @@ export async function createUpload(
   creatorId: string,
   input: { purpose: UploadPurpose; productId?: string; name: string; contentType: string; size: number },
 ): Promise<{ uploadUrl: string; headers: Record<string, string>; ticket: string }> {
-  const { purpose, contentType, size } = input;
+  const { purpose, size } = input;
+  let { contentType } = input;
   if (!Number.isInteger(size) || size <= 0) throw new UploadError("El archivo está vacío");
 
   let key: string;
@@ -43,12 +44,15 @@ export async function createUpload(
     if (size > UPLOAD_LIMITS.image) throw new UploadError("La imagen supera 25 MB");
     key = `incoming/${creatorId}/${randomBytes(12).toString("hex")}`;
   } else {
-    const type = PRIVATE_TYPES[contentType];
-    if (!type) throw new UploadError("Formato no admitido (PDF, MP3, M4A, WAV, MP4, JPG, PNG, EPUB, ZIP)");
+    // Tipo canónico: es el que se firma para el PUT, va en el billete y acaba en ProductFile.mimeType.
+    const canonical = privateFileType(contentType, input.name);
+    const type = canonical ? PRIVATE_TYPES[canonical] : undefined;
+    if (!canonical || !type) throw new UploadError("Formato no admitido (PDF, MP3, M4A, WAV, MP4, JPG, PNG, EPUB, ZIP)");
     if (size > UPLOAD_LIMITS.file) throw new UploadError("El archivo supera 1 GB");
     if (!input.productId || !(await tenantDb(creatorId).product.findFirst({ where: { id: input.productId }, select: { id: true } })))
       throw new UploadError("Producto no encontrado");
     key = `private/${creatorId}/${randomBytes(12).toString("hex")}.${type.ext}`;
+    contentType = canonical;
   }
 
   const put = await storage().presignPut(key, { contentType, contentLength: size, expiresInSec: PUT_TTL_SEC });

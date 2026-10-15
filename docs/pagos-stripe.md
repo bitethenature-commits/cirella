@@ -46,6 +46,23 @@ de Stripe y los contracargos perdidos se registran como reembolsos de la pasarel
 contracargos se anotan en el pedido (`disputeStatus`) y se avisa por email a la creadora y a las
 administradoras.
 
+Las **renovaciones** de membresía no tienen pedido: un reembolso hecho en el panel de Stripe o un
+contracargo perdido sobre una renovación se contabiliza contra su movimiento RENEWAL (fila REFUND,
+rectificativa de su factura y, si se devuelve entera la renovación en curso, fin de la membresía),
+y un contracargo abierto avisa igual a la creadora y a las administradoras. Un **contracargo
+perdido** se carga en el libro a la creadora; como con cargos de destino Stripe se lo cobra a
+Cirella y no revierte la transferencia, se recupera su parte con una reversión de la
+transferencia (`recoverDispute`, clave `dispute-reversal:<id>`); si no se puede, alerta para
+hacerlo a mano. Un **segundo cobro del mismo periodo** de renovación («Pagar ahora» a la vez que
+el reintento automático, o pagar una suscripción que acaba de cancelarse) se devuelve solo
+(`settleRenewalCharge`), y una segunda membresía pagada por la misma persona (dos páginas de pago
+abiertas) no crea otra suscripción: ese pedido se reembolsa entero.
+
+Los avisos `checkout.session.*` llegan sin el PaymentIntent expandido: `parseWebhook` pide la
+sesión con `expand: ['payment_intent']` para saber la tarjeta guardada de las membresías (si Stripe
+no responde, el aviso devuelve 500 y Stripe lo reintenta). Las sesiones de Checkout caducan a los
+31 minutos: Stripe exige al menos 30 desde su propia hora de creación.
+
 ---
 
 ## Configuración en Stripe (antes de lanzar)
@@ -114,7 +131,8 @@ Esas páginas no existen con Stripe real.
 - **Quién es el comerciante.** Lo construido son cargos de destino: la cuenta de Cirella es la que
   cobra, paga las comisiones de Stripe y responde en primera instancia de reembolsos y
   contracargos (los reembolsos se recuperan de la creadora con `reverse_transfer`; los
-  contracargos, no automáticamente). Con Express, Cirella responde además de los saldos negativos
+  contracargos perdidos, con una reversión de la transferencia por su parte; la tarifa de Stripe
+  por contracargo, ≈ 15 €, la absorbe Cirella). Con Express, Cirella responde además de los saldos negativos
   de las cuentas conectadas. `STRIPE_ON_BEHALF_OF=true` hace a la creadora comerciante de
   liquidación (su nombre en el extracto). Si la asesoría quiere que la creadora sea la
   comerciante completa (cargos directos), es otro cambio y no está hecho.
@@ -126,10 +144,13 @@ Esas páginas no existen con Stripe real.
   (`refund_application_fee: true`) y `reverse_transfer` va siempre activado. Stripe no devuelve su
   propia tarifa: con cargos de destino la pierde Cirella. Decidir si se mantiene, si la comisión se
   queda en los reembolsos que inicia la creadora y quién absorbe la tarifa de Stripe. Fuera de
-  alcance por ahora: reembolsar renovaciones de membresía (no tienen pedido) y reembolsos desde /admin.
+  alcance por ahora: un botón para reembolsar renovaciones de membresía desde el panel (los
+  reembolsos hechos en Stripe sí se contabilizan) y reembolsos desde /admin.
 - **Desistimiento (abogada)**: reglas en `withdrawalEligibility` (lib/refund-math.ts): 14 días
   naturales desde el pago; no cabe si la sesión ya empezó o se hizo, ni en digital/cursos/membresías
-  con renuncia expresa en el checkout (`Order.waiverAcceptedAt`, punto #3); si cabe, se devuelve todo
+  con renuncia expresa en el checkout (`Order.waiverAcceptedAt`, punto #3) una vez empezado el
+  acceso (primera descarga, reproducción o visita a las publicaciones: `Order.metadata.firstAccessAt`);
+  los productos digitales que prepara la creadora («Lo preparo yo») no piden renuncia; si cabe, se devuelve todo
   lo que queda (también en membresías, sin prorrateo: el art. 108.3 TRLGDCU permitiría cobrar la
   parte disfrutada). Confirmar también si la creadora puede «Cancelar sin reembolso» una sesión
   pagada (hoy sí, con motivo obligatorio y aviso) o solo cuando la clienta no se presentó.

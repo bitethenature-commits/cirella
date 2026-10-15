@@ -14,7 +14,7 @@ export type RecoveryFacts = {
   distinctEmailsFromVisitor: number;
   distinctEmailsFromIp: number;
 };
-export type RecoverySkip = "sin-visita" | "sin-checkout" | "muchos-emails" | "ya-avisada";
+export type RecoverySkip = "sin-visita" | "sin-checkout" | "muchos-emails" | "ya-avisada" | "ya-miembro" | "opuesta";
 
 /** Más emails distintos que esto en 24 h desde la misma visitante (o IP) es sospechoso. */
 const MAX_EMAILS_PER_VISITOR = 2;

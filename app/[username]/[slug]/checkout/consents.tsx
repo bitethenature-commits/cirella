@@ -23,12 +23,15 @@ function Check({ name, checked, onChange, children }: { name: string; checked: b
  */
 export function CheckoutConsents({
   productType,
+  deliveryMode,
   billingInterval,
   price,
   seller,
   creatorDisplayName,
 }: {
   productType: string;
+  /** «Lo preparo yo»: sin acceso inmediato no se pide la renuncia al desistimiento. */
+  deliveryMode?: string | null;
   billingInterval: string | null;
   price: string;
   seller: { name: string; legalHref: string };
@@ -37,7 +40,7 @@ export function CheckoutConsents({
   const [terms, setTerms] = useState(false);
   const [waiver, setWaiver] = useState(false);
   const [newsletter, setNewsletter] = useState(false);
-  const kind = waiverKindFor(productType);
+  const kind = waiverKindFor(productType, deliveryMode);
 
   // El texto sale de lib/legal.ts (el mismo que se valida y se cita en el recibo); aquí solo se
   // enlazan las dos políticas.
@@ -76,7 +79,8 @@ export function PrivacyNotice({ sellerName, legalHref, platformName }: { sellerN
   return (
     <p className="cp-faint mt-1.5 text-xs leading-relaxed">
       Responsable: {sellerName}. Usamos tu nombre y email para gestionar tu compra y darte acceso; {platformName} los trata por encargo suyo. Puedes
-      acceder, rectificar o suprimir tus datos. Más información en la{" "}
+      acceder, rectificar o suprimir tus datos. Si no terminas la compra, puede que te enviemos un recordatorio por email, con un enlace para darte de
+      baja. Más información en la{" "}
       <a href={`${legalHref}#privacidad`} target="_blank" rel="noopener" className="underline underline-offset-2">
         política de privacidad
       </a>

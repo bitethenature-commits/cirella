@@ -67,13 +67,24 @@ export type WithdrawalInput = {
   productType: string;
   amountCents: number;
   refundedCents: number;
-  /** La compradora renunció expresamente al desistimiento en el checkout (acceso inmediato). */
+  /** La compradora renunció expresamente al desistimiento en el checkout y ya ha empezado a acceder. */
   withdrawalWaived: boolean;
   hasPendingRefund: boolean;
   booking?: { status: string; startAt: Date | null } | null;
 };
 
 export type WithdrawalBlock = "NOT_PAID" | "EXPIRED" | "WAIVED" | "SESSION_HELD" | "ALREADY_REFUNDED" | "PENDING";
+
+/**
+ * Primer acceso de la compradora al contenido (descarga, reproducción o publicaciones), anotado en
+ * Order.metadata.firstAccessAt por markFirstAccess (lib/buyer-access.ts). null si aún no ha entrado.
+ */
+export function accessStartedAt(metadata: unknown): Date | null {
+  const raw = metadata && typeof metadata === "object" ? (metadata as { firstAccessAt?: unknown }).firstAccessAt : null;
+  if (typeof raw !== "string") return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 /** Datos de un pedido (con sus reservas y reembolsos) → lo que mira withdrawalEligibility. */
 export function toWithdrawalInput(o: {
@@ -83,6 +94,7 @@ export function toWithdrawalInput(o: {
   amountCents: number;
   refundedCents: number;
   waiverAcceptedAt: Date | null;
+  metadata?: unknown;
   bookings: { status: string; startAt: Date | null }[];
   refunds: { status: string }[];
 }): WithdrawalInput {
@@ -92,7 +104,9 @@ export function toWithdrawalInput(o: {
     productType: o.productType,
     amountCents: o.amountCents,
     refundedCents: o.refundedCents,
-    withdrawalWaived: !!o.waiverAcceptedAt,
+    // La renuncia de acceso inmediato solo cuenta «al empezar el acceso o la descarga» (es lo que
+    // aceptó, art. 103.m): si aún no ha abierto nada, puede desistir. En las sesiones manda la reserva.
+    withdrawalWaived: !!o.waiverAcceptedAt && (o.productType === "SESSION" || accessStartedAt(o.metadata) !== null),
     hasPendingRefund: o.refunds.some((r) => r.status === "PENDING"),
     booking: o.bookings[0] ?? null,
   };
@@ -103,7 +117,7 @@ export function toWithdrawalInput(o: {
  *   · 14 días naturales desde el pago;
  *   · una sesión ya empezada o realizada no admite desistimiento;
  *   · el contenido digital, los cursos y las membresías tampoco si renunció expresamente al
- *     desistimiento para tener acceso inmediato;
+ *     desistimiento para tener acceso inmediato y ya ha empezado a acceder;
  *   · si se puede, se devuelve todo lo que queda por devolver.
  */
 export function withdrawalEligibility(

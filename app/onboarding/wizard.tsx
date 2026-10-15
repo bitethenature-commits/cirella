@@ -135,8 +135,21 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
             instructions: delivery.instructions,
           }),
         );
-      case 10:
+      case 10: {
+        // «Quién vende» se guarda también al seguir sin conectar los cobros: si no, lo escrito se
+        // perdería y tendría que repetirlo en el panel. Email, país y tipo vienen rellenos: solo
+        // cuenta como empezado si ha escrito algo en los demás campos.
+        const form = legalForm.current;
+        if (!form) return setStep(11);
+        if (form.checkValidity()) return run(() => saveLegalIdentity(new FormData(form)));
+        const data = new FormData(form);
+        const typed = ["legalName", "legalTaxId", "legalAddress", "legalPostalCode", "legalCity"].some((n) => String(data.get(n) ?? "").trim());
+        if (typed) {
+          form.reportValidity();
+          return setError("Completa tus datos legales o déjalos en blanco para hacerlo más tarde");
+        }
         return setStep(11);
+      }
       case 11:
         setError(null);
         start(async () => {
@@ -187,7 +200,14 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
               : "Entrega pendiente";
 
   const priceCents = parseMoneyToCents(product.price);
-  const estimate = estimateNet({ priceCents, commissionBps: init.commissionBps, productType: product.type, mode: init.tax.mode, creator: init.tax });
+  const estimate = estimateNet({
+    priceCents,
+    commissionBps: init.commissionBps,
+    productType: product.type,
+    deliveryMode: delivery.choice === "PERSONAL" ? "PERSONAL" : "AUTOMATIC",
+    mode: init.tax.mode,
+    creator: init.tax,
+  });
 
   const previewProducts: PublicProduct[] = useMemo(
     () =>

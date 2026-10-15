@@ -54,6 +54,35 @@ export const PRIVATE_TYPES: Record<string, { ext: string; kind: string }> = {
   "application/zip": { ext: "zip", kind: "OTHER" },
 };
 
+/**
+ * Tipos que algunos navegadores y sistemas dan a los mismos formatos (Chrome y Edge en Windows
+ * llaman «application/x-zip-compressed» al ZIP, otros «audio/wave» al WAV…).
+ */
+const PRIVATE_TYPE_ALIASES: Record<string, string> = {
+  "application/x-zip-compressed": "application/zip",
+  "application/x-zip": "application/zip",
+  "audio/wave": "audio/wav",
+  "audio/vnd.wave": "audio/wav",
+  "audio/mp3": "audio/mpeg",
+  "audio/x-mpeg": "audio/mpeg",
+};
+
+/**
+ * Tipo canónico (clave de PRIVATE_TYPES) de un archivo de producto, o null si no se admite.
+ * Si el navegador no sabe el tipo (vacío o «application/octet-stream», p. ej. un EPUB en un
+ * Windows sin lector), lo deduce de la extensión del nombre.
+ */
+export function privateFileType(contentType: string, name: string): string | null {
+  const ct = contentType.split(";")[0].trim().toLowerCase();
+  if (PRIVATE_TYPES[ct]) return ct;
+  if (PRIVATE_TYPE_ALIASES[ct]) return PRIVATE_TYPE_ALIASES[ct];
+  if (ct === "" || ct === "application/octet-stream") {
+    const guess = mimeFromExt(name);
+    if (PRIVATE_TYPES[guess]) return guess;
+  }
+  return null;
+}
+
 /** Enlace de descarga: 10 minutos. */
 export const DOWNLOAD_TTL_SEC = 600;
 /** Vídeo y audio de un curso reproducidos en la página: 3 horas, para poder pausar y adelantar. */

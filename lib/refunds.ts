@@ -376,7 +376,7 @@ export type ProviderRefundUpdate = {
  * Devuelve el pedido afectado, o null si el aviso no es de ningún pedido (p. ej. el reembolso
  * automático de un cobro duplicado).
  */
-export async function syncProviderRefund(i: ProviderRefundUpdate): Promise<{ orderId: string; creatorId: string } | null> {
+export async function syncProviderRefund(i: ProviderRefundUpdate): Promise<{ orderId?: string; creatorId: string } | null> {
   const known = await findKnownRefund(i);
   if (known) {
     if (i.status === "succeeded") {
@@ -390,7 +390,8 @@ export async function syncProviderRefund(i: ProviderRefundUpdate): Promise<{ ord
   if (i.status === "failed" || i.status === "canceled") return null;
 
   const order = await prisma.order.findFirst({ where: { paymentRef: i.paymentRef, paymentProvider: i.provider } });
-  if (!order) return null;
+  // Sin pedido: puede ser una renovación de membresía (su cobro no tiene pedido propio).
+  if (!order) return i.status === "succeeded" ? syncRenewalRefund(i) : null;
   const ids = { orderId: order.id, creatorId: order.creatorId };
   let reserved;
   try {
@@ -414,6 +415,93 @@ export async function syncProviderRefund(i: ProviderRefundUpdate): Promise<{ ord
   await settleAccepted(reserved.refund, reserved.partial, i.status === "succeeded");
   return ids;
 }
+
+/** Cobro de una renovación de membresía (movimiento RENEWAL) por su referencia en la pasarela. */
+export function findRenewalCharge(provider: string, paymentRef: string) {
+  return prisma.transaction.findFirst({
+    where: { type: "RENEWAL", providerRef: paymentRef, provider },
+    include: { creator: { include: { user: true } } },
+  });
+}
+
+/**
+ * Reembolso (desde el panel de Stripe) o contracargo perdido de una RENOVACIÓN. Las renovaciones no
+ * tienen pedido ni fila Refund (Refund.orderId es obligatorio), así que se contabiliza directamente:
+ * fila REFUND en negativo, rectificativa de la factura de la renovación, gasto de la clienta y, si
+ * se devuelve entera la del periodo en curso, fin de la membresía y del acceso. Idempotente por la
+ * clave única refund:{renovación}:{referencia}. null si el cobro no es de ninguna renovación.
+ */
+async function syncRenewalRefund(i: ProviderRefundUpdate): Promise<{ creatorId: string } | null> {
+  const renewal = await findRenewalCharge(i.provider, i.paymentRef);
+  if (!renewal) return null;
+  const ids = { creatorId: renewal.creatorId };
+  const key = `refund:${renewal.id}:${i.providerRef}`;
+  try {
+    const booked = await prisma.$transaction(async (tx) => {
+      // Bloquea la renovación: dos avisos a la vez nunca devuelven más de lo cobrado.
+      await tx.$queryRaw`SELECT "id" FROM "Transaction" WHERE "id" = ${renewal.id} FOR UPDATE`;
+      if (await tx.transaction.findUnique({ where: { idempotencyKey: key }, select: { id: true } })) return false;
+      const prev = await tx.transaction.aggregate({
+        where: { type: "REFUND", idempotencyKey: { startsWith: `refund:${renewal.id}:` } },
+        _sum: { amountCents: true, platformFeeCents: true },
+      });
+      const reservedCents = -(prev._sum.amountCents ?? 0);
+      const reservedFeeCents = -(prev._sum.platformFeeCents ?? 0);
+      const amount = Math.min(i.amountCents, refundableCents({ amountCents: renewal.amountCents, reservedCents }));
+      if (amount <= 0) return false;
+      const split = computeRefundSplit({ amountCents: renewal.amountCents, platformFeeCents: renewal.platformFeeCents, reservedCents, reservedFeeCents }, amount);
+      const tax = refundTaxFields(renewal, amount);
+      const platformTax = renewal.taxSeller === "PLATFORM" ? -tax.taxCents : 0;
+      const sub = renewal.subscriptionId ? await tx.subscription.findUnique({ where: { id: renewal.subscriptionId } }) : null;
+      const refundTx = await tx.transaction.create({
+        data: {
+          creatorId: renewal.creatorId,
+          subscriptionId: renewal.subscriptionId,
+          type: "REFUND",
+          description: i.reason === "DISPUTE_LOST" ? "Contracargo perdido · renovación de membresía" : "Reembolso · renovación de membresía",
+          amountCents: -amount,
+          platformFeeCents: -split.feeCents,
+          netCents: -(amount - split.feeCents) - platformTax,
+          currency: renewal.currency,
+          ...tax,
+          provider: renewal.provider,
+          providerRef: i.providerRef,
+          idempotencyKey: key,
+        },
+      });
+      await issueCorrectiveInvoiceTx(tx, { refundTransactionId: refundTx.id, originalTransactionId: renewal.id });
+      if (sub) {
+        await tx.customer.update({ where: { id: sub.customerId }, data: { totalSpentCents: { decrement: amount } } });
+        await tx.analyticsEvent.create({
+          data: { creatorId: renewal.creatorId, type: "REFUND", productId: sub.productId, visitorId: `user:${sub.userId}`, amountCents: amount },
+        });
+        // Devuelta entera la renovación del periodo en curso: la membresía termina ya (como un
+        // reembolso total de un pedido). Una renovación antigua no toca el periodo actual.
+        const latest = await tx.transaction.findFirst({ where: { subscriptionId: sub.id, type: "RENEWAL" }, orderBy: { createdAt: "desc" }, select: { id: true } });
+        const full = reservedCents + amount >= renewal.amountCents;
+        if (full && latest?.id === renewal.id && LIVE_SUBSCRIPTION.includes(sub.status)) {
+          await tx.subscription.update({ where: { id: sub.id }, data: { status: "CANCELED", canceledAt: new Date(), cancelAtPeriodEnd: false, nextRenewalAttemptAt: null } });
+          await tx.access.updateMany({ where: { creatorId: sub.creatorId, subscriptionId: sub.id }, data: { status: "REVOKED" } });
+        }
+      }
+      return true;
+    });
+    if (!booked) return ids;
+  } catch (e) {
+    // Dos avisos del mismo reembolso a la vez: el otro ya lo ha contabilizado.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return ids;
+    throw e;
+  }
+  captureAlert(i.reason === "DISPUTE_LOST" ? "Contracargo perdido de una renovación de membresía" : "Reembolso de una renovación hecho fuera de Cirella", {
+    area: "payments",
+    level: "warning",
+    fingerprint: ["reembolso-renovacion"],
+    extra: { transactionId: renewal.id, ref: i.paymentRef, providerRef: i.providerRef, amountCents: i.amountCents },
+  });
+  return ids;
+}
+
+const LIVE_SUBSCRIPTION = ["ACTIVE", "PAST_DUE"];
 
 async function findKnownRefund(i: ProviderRefundUpdate) {
   const byRef = await prisma.refund.findUnique({ where: { providerRef: i.providerRef } });
@@ -456,7 +544,7 @@ export function withdrawalBlockMessage(reason: WithdrawalBlock, paidAt: Date | n
     case "EXPIRED":
       return `El plazo de ${WITHDRAWAL_DAYS} días para desistir terminó el ${formatDate(new Date((paidAt ?? new Date()).getTime() + WITHDRAWAL_DAYS * 86_400_000), { day: "numeric", month: "long" })}.`;
     case "WAIVED":
-      return "Renunciaste al desistimiento al recibir el acceso inmediato.";
+      return "Renunciaste al desistimiento para tener acceso inmediato y ya has empezado a usar el contenido.";
     case "SESSION_HELD":
       return "La sesión ya se ha realizado.";
     case "PENDING":

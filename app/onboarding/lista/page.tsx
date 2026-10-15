@@ -6,8 +6,12 @@ import { LogoMark } from "@/components/logo";
 import { CopyButton } from "@/components/ui/copy-button";
 import { requireCreator } from "@/lib/auth";
 import { DELIVERY_COUNT, deliveryFacts, deliveryIssue, deliveryIssueCopy, deliveryIssueHref } from "@/lib/delivery";
-import { appHost, appUrl } from "@/lib/env";
+import { appHost, appUrl, isDemoMode } from "@/lib/env";
+import { getPlatformIssuer } from "@/lib/invoices/issuer";
+import { legalIdentityComplete } from "@/lib/legal";
 import { canAcceptPayments } from "@/lib/payouts";
+import { decideTax } from "@/lib/tax";
+import { getTaxMode } from "@/lib/tax/server";
 import { tenantDb } from "@/lib/tenant";
 import { ShareButtons } from "./share-buttons";
 
@@ -30,7 +34,13 @@ export default async function ReadyPage() {
   });
   const issue = first ? deliveryIssue(deliveryFacts(first)) : null;
   const payoutsReady = canAcceptPayments(creator);
-  const canSell = first?.status === "PUBLISHED" && payoutsReady;
+  // Las mismas reglas que el checkout: sus datos legales y, si vende Cirella (IVA de lo digital),
+  // los datos fiscales de la plataforma.
+  const seller = first
+    ? decideTax({ mode: await getTaxMode(), productType: first.type, deliveryMode: first.deliveryMode, buyerCountry: null, creator: { country: creator.legalCountry, vatStatus: creator.vatStatus } }).seller
+    : null;
+  const platformCanSell = seller !== "PLATFORM" || isDemoMode() || (await getPlatformIssuer()).complete;
+  const canSell = first?.status === "PUBLISHED" && payoutsReady && legalIdentityComplete(creator) && platformCanSell;
   const pendingItems: { title: string; text?: string; href: string; cta: string }[] = [];
   if (!first) pendingItems.push({ title: "Añade tu primer producto", href: "/panel/productos/nuevo", cta: "Añadir producto" });
   else if (issue?.blocking) {

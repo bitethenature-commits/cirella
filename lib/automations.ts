@@ -9,6 +9,7 @@ import { getPlatformIssuer } from "./invoices/issuer";
 import { bpsToPercent, formatMoney, formatPrice } from "./money";
 import { createOrderLink, emailAlreadyQueued, orderLinkNote } from "./order-links";
 import { planFeatures } from "./plans";
+import { hasOptedOut, optOutUrl } from "./recovery-optout";
 import { formatSessionDate } from "./tz";
 import type { DomainEvent } from "./events";
 
@@ -265,6 +266,8 @@ export async function handleAutomation(event: DomainEvent) {
       const order = await prisma.order.findUniqueOrThrow({ where: { id: event.orderId }, include: { product: true, creator: true } });
       const s = await setting(order.creatorId, "ABANDONED_CHECKOUT");
       if (!s.enabled) return;
+      // Se dio de baja entre el cron y el envío: no sale.
+      if (await hasOptedOut(order.creatorId, order.buyerEmail)) return;
       await enqueueEmail({
         to: order.buyerEmail,
         creatorId: order.creatorId,
@@ -276,6 +279,7 @@ export async function handleAutomation(event: DomainEvent) {
             productTitle: order.productTitle,
             url: `${base}/${order.creator.username}/${order.product.slug}/checkout`,
             message: s.message,
+            optOutUrl: optOutUrl(order.id),
           }),
           s.subject,
         ),

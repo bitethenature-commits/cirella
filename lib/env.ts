@@ -157,7 +157,13 @@ export function validateEnv(raw: RawEnv): EnvValidation {
 
   if (!p.TURNSTILE_SITE_KEY !== !p.TURNSTILE_SECRET_KEY) errors.push("Configura las dos claves de Turnstile o ninguna.");
   if (p.CLIENT_IP_HEADER && !/^[a-z0-9-]+$/i.test(p.CLIENT_IP_HEADER))
-    errors.push("CLIENT_IP_HEADER debe ser el nombre de una cabecera (p. ej. cf-connecting-ip).");
+    errors.push("CLIENT_IP_HEADER debe ser el nombre de una cabecera (p. ej. x-real-ip).");
+
+  // Vercel fija VERCEL_ENV y no se puede declarar a mano: si dice producción, APP_ENV tiene que decir
+  // lo mismo. Si no, un .env.example pegado tal cual (APP_ENV=development, DEMO_MODE=true, pagos
+  // simulados) arrancaría la web real en modo demo.
+  if (raw.VERCEL_ENV?.trim() === "production" && appEnv !== "production")
+    errors.push(`Este despliegue es la producción de Vercel (VERCEL_ENV=production) pero APP_ENV=${appEnv}: pon APP_ENV=production.`);
 
   if (prod) {
     // ── staging y production ──
@@ -193,7 +199,7 @@ export function validateEnv(raw: RawEnv): EnvValidation {
     // compartirían contador (o cualquiera podría inventarse la IP).
     if (!p.CLIENT_IP_HEADER)
       errors.push(
-        "Falta CLIENT_IP_HEADER: la cabecera con la IP real de la clienta que fija tu proxy (cf-connecting-ip con Cloudflare delante; x-real-ip, fly-client-ip… según la plataforma).",
+        "Falta CLIENT_IP_HEADER: la cabecera con la IP real de la clienta que tu plataforma sobrescribe siempre (x-real-ip en Vercel; fly-client-ip en Fly…). cf-connecting-ip solo si a la web únicamente se llega a través de Cloudflare.",
       );
     if (p.EMAIL_PROVIDER !== "resend")
       errors.push("En producción los emails deben enviarse de verdad: pon EMAIL_PROVIDER=resend con RESEND_API_KEY y EMAIL_FROM.");
@@ -247,7 +253,8 @@ export function isProductionLike() {
 
 /** Modo demo (accesos rápidos, buzón /dev/correo): solo si se activa explícitamente y nunca en producción. */
 export function isDemoMode() {
-  return env().DEMO_MODE === "true" && !isProductionLike();
+  // VERCEL_ENV lo fija la plataforma: en la producción de Vercel nunca hay demo, diga lo que diga APP_ENV.
+  return env().DEMO_MODE === "true" && !isProductionLike() && process.env.VERCEL_ENV !== "production";
 }
 
 /** Dirección pública sin barra final. En producción no hay valor por defecto: sin APP_URL, error. */

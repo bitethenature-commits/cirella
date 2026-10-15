@@ -48,7 +48,7 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
           : p.type === "COURSE" && p._count.lessons
             ? `${p._count.lessons} lecciones`
             : null,
-      vatIncluded: vatIncluded(decideTax({ mode, productType: p.type, buyerCountry: "ES", creator: taxCreator })),
+      vatIncluded: vatIncluded(decideTax({ mode, productType: p.type, deliveryMode: p.deliveryMode, buyerCountry: "ES", creator: taxCreator })),
     }));
   return {
     creator,

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, Circle, Download, FileText, Headphones, PlayCircle, Sparkles } from "lucide-react";
-import { requireBuyerFor } from "@/lib/buyer-access";
+import { markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
 import { creatorBrief, hasAccess } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { LESSON_KIND_LABEL, type LessonKind } from "@/lib/types";
@@ -39,6 +39,9 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
   const prev = idx > 0 ? lessons[idx - 1] : null;
   const next = idx >= 0 && idx < lessons.length - 1 ? lessons[idx + 1] : null;
   const percent = lessons.length ? Math.round((done.size / lessons.length) * 100) : 0;
+  // Ver una lección es acceder al contenido (las de texto o vídeo incrustado no pasan por
+  // /api/download): desde aquí vale su renuncia al desistimiento.
+  if (current && !isOwner) await markFirstAccess(user.id, productId);
   const creator = creatorBrief(course.creator);
   const base = `/cuenta/cursos/${productId}`;
 

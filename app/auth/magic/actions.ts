@@ -1,7 +1,8 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { consumeMagicLink, createSession } from "@/lib/auth";
+import { SESSION_COOKIE, consumeMagicLink, createSession, hashToken } from "@/lib/auth";
 
 /**
  * «Entrar» de la pantalla del enlace mágico. Solo aquí (un POST) se gasta el enlace: los antivirus
@@ -11,7 +12,9 @@ export async function confirmMagicLink(form: FormData) {
   const token = String(form.get("token") ?? "");
   const raw = form.get("choice");
   const choice = raw === "no" ? "no" : raw === "yes" ? "yes" : undefined;
-  const r = await consumeMagicLink(token, choice);
+  // «Sí, he sido yo» conserva la contraseña solo desde el navegador donde se creó la cuenta.
+  const session = (await cookies()).get(SESSION_COOKIE)?.value;
+  const r = await consumeMagicLink(token, choice, { currentSessionId: session ? hashToken(session) : null });
   if (!r) redirect("/entrar?error=enlace");
   await createSession(r.user.id, { verified: true });
   redirect(r.redirectTo);

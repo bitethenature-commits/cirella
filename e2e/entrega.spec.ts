@@ -175,7 +175,8 @@ test.describe("Entrega de productos", () => {
     await buyer.fill("#name", "Irene Compradora");
     await buyer.fill("#email", `irene-${username}@example.com`);
     await buyer.getByLabel(/He leído y acepto/).check();
-    await buyer.getByLabel(/Quiero acceder ya/).check();
+    // Hecho para ella: no hay acceso inmediato al que renunciar, así que no se pide la renuncia.
+    await expect(buyer.getByLabel(/Quiero acceder ya/)).toHaveCount(0);
     await buyer.getByRole("button", { name: /Pagar 19/ }).click();
     await buyer.waitForURL(`**/${username}/gracias**`);
     await expect(buyer.getByRole("heading", { name: "Compra completada" })).toBeVisible();

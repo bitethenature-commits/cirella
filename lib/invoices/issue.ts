@@ -154,6 +154,10 @@ export async function issueFullInvoiceForOrder(orderId: string, billing: Billing
     const order = await tx.order.findUnique({ where: { id: orderId }, include: { creator: true, customer: { select: { userId: true } } } });
     if (!order || order.status !== "PAID") throw new InvoiceError("Esta compra no admite factura.");
     if (order.refundedCents > 0) throw new InvoiceError("Esta compra tiene devoluciones: escribe a la creadora para pedir la factura.");
+    // El IVA se calculó con el país de la compra: una factura con otro país se contradiría (lugar
+    // de la operación) y no casaría con lo declarado.
+    if (order.buyerCountry && billing.country !== order.buyerCountry)
+      throw new InvoiceError("El país de la factura debe ser el de la compra. Si es otro, escríbenos y lo revisamos.");
     const dedupeKey = `full:${orderId}`;
     const already = await tx.invoice.findUnique({ where: { dedupeKey } });
     if (already) return already;

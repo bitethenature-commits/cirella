@@ -5,7 +5,8 @@ export const RESERVED_USERNAMES = new Set([
   "terminos", "privacidad", "blog", "app", "www", "static", "public", "assets",
   "demo", "explorar", "login", "signup", "settings", "dashboard", "_next",
   "favicon.ico", "robots.txt", "sitemap.xml", "cirella", "plataforma", "pedido",
-  "vista-previa", "aviso-legal", "cookies", "facturas", "factura",
+  "vista-previa", "aviso-legal", "cookies", "facturas", "factura", "contrasena", "pago-simulado",
+  "icon.svg", "baja",
 ]);
 
 // Segmentos que no pueden usarse como slug de producto (colisionan con rutas).

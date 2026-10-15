@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getSession, type CurrentSession } from "./auth";
 import { cuentaRefFromPath, orderTargetPath, scopeAllows } from "./auth-utils";
 import { prisma } from "./db";
+import { captureError } from "./monitoring";
 
 /**
  * Guardas del área de cliente (/cuenta, descargas, .ics, huecos).
@@ -126,4 +127,23 @@ export async function checkProductAccess(
   const access = await prisma.access.findUnique({ where: { userId_productId: { userId: s.user.id, productId } } });
   const valid = access && access.status === "ACTIVE" && (!access.expiresAt || access.expiresAt > new Date());
   return valid ? { ok: true, userId: s.user.id, isOwner: false } : { ok: false, reason: "forbidden" };
+}
+
+/**
+ * Anota el primer acceso de la compradora al contenido de un producto (en el pedido que se lo dio,
+ * Order.metadata.firstAccessAt). Desde ese momento vale su renuncia al desistimiento (acceso
+ * inmediato): antes puede desistir. Una sola vez y sin bloquear: si falla, no impide el acceso.
+ */
+export async function markFirstAccess(userId: string, productId: string) {
+  try {
+    const access = await prisma.access.findUnique({ where: { userId_productId: { userId, productId } }, select: { orderId: true } });
+    if (!access?.orderId) return;
+    const now = new Date().toISOString();
+    await prisma.$executeRaw`
+      UPDATE "Order"
+      SET "metadata" = COALESCE("metadata", '{}'::jsonb) || jsonb_build_object('firstAccessAt', ${now}::text)
+      WHERE "id" = ${access.orderId} AND ("metadata" IS NULL OR "metadata"->>'firstAccessAt' IS NULL)`;
+  } catch (e) {
+    captureError(e, { area: "acceso", extra: { userId, productId } });
+  }
 }

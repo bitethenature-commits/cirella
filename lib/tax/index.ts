@@ -1,3 +1,4 @@
+import { normalizeDeliveryMode } from "../delivery";
 import type { ProductType } from "../types";
 import { EU_VAT_STANDARD_BPS, countryName, isEuVatCountry, isSpanishSpecialTerritory } from "./rates";
 
@@ -13,6 +14,9 @@ import { EU_VAT_STANDARD_BPS, countryName, isEuVatCountry, isSpanishSpecialTerri
  *   · PLATFORM_DIGITAL (opción A, por defecto): Cirella es la vendedora de los productos digitales,
  *     cursos y membresías (art. 9 bis del Reglamento de Ejecución 282/2011): repercute el IVA del
  *     país de la compradora y lo declara (OSS). Las sesiones en directo las vende la creadora.
+ *     Un producto digital que la creadora prepara a mano («Lo preparo yo», p. ej. una lectura
+ *     personal) no es un servicio electrónico (art. 7 del mismo Reglamento: casi automático y con
+ *     una intervención humana mínima): lo vende ella, como las sesiones.
  *   · CREATOR: la creadora vende todo; su IVA depende de su situación (vatStatus).
  */
 
@@ -56,10 +60,16 @@ function consumerTax(country: string): Omit<TaxDecision, "seller"> {
 export function decideTax(i: {
   mode: TaxMode;
   productType: ProductType | string;
+  /** Entrega de un producto digital: PERSONAL (lo prepara la creadora) no lo vende Cirella. */
+  deliveryMode?: string | null;
   buyerCountry: string | null;
   creator: { country: string | null; vatStatus: VatStatus | string; vatExemptionNote?: string | null };
 }): TaxDecision {
-  if (i.mode === "PLATFORM_DIGITAL" && PLATFORM_DIGITAL_TYPES.includes(i.productType as ProductType)) {
+  if (
+    i.mode === "PLATFORM_DIGITAL" &&
+    PLATFORM_DIGITAL_TYPES.includes(i.productType as ProductType) &&
+    normalizeDeliveryMode(i.productType, i.deliveryMode) !== "PERSONAL"
+  ) {
     return { seller: "PLATFORM", ...consumerTax(i.buyerCountry ?? "ES") };
   }
   const country = i.creator.country ?? "ES";
@@ -125,10 +135,11 @@ export function estimateNet(i: {
   priceCents: number;
   commissionBps: number;
   productType: ProductType | string;
+  deliveryMode?: string | null;
   mode: TaxMode;
   creator: { country: string | null; vatStatus: VatStatus | string };
 }) {
-  const d = decideTax({ mode: i.mode, productType: i.productType, buyerCountry: "ES", creator: i.creator });
+  const d = decideTax({ mode: i.mode, productType: i.productType, deliveryMode: i.deliveryMode, buyerCountry: "ES", creator: i.creator });
   const a = computeSaleAmounts(i.priceCents, i.commissionBps, d);
   return { taxCents: a.taxCents, feeCents: a.platformFeeCents, netCents: a.netCents, rateBps: d.rateBps, seller: d.seller };
 }

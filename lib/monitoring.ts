@@ -7,9 +7,50 @@ import { env } from "./env";
  * formato estructurado. Sin SDK de navegador: el bundle del cliente no cambia.
  *
  * Privacidad: a Sentry solo van ids (pedido, email, evento), nunca emails ni nombres;
- * sendDefaultPii está desactivado y beforeSend borra cookies, cabeceras de autorización y el
- * cuerpo de las peticiones (formularios con IBAN o NIF).
+ * sendDefaultPii está desactivado y beforeSend (scrubEvent) borra cookies, cabeceras de
+ * autorización, el cuerpo de las peticiones (formularios con IBAN o NIF) y la query de las URLs
+ * (los enlaces personales y mágicos llevan el token ahí: /auth/enlace?t=…, /auth/magic?token=…).
  */
+
+type ScrubbableEvent = {
+  request?: { url?: string; query_string?: unknown; cookies?: unknown; data?: unknown; headers?: Record<string, string> };
+  contexts?: { [key: string]: Record<string, unknown> | undefined };
+};
+
+const withoutQuery = (s: unknown) => (typeof s === "string" ? s.split("?")[0] : s);
+
+/** Limpia un evento antes de mandarlo a Sentry (ver arriba). Exportada para las pruebas. */
+export function scrubEvent<E extends ScrubbableEvent>(event: E): E {
+  const nextjs = event.contexts?.nextjs;
+  // captureRequestError (onRequestError) guarda aquí la ruta con su query.
+  if (nextjs && typeof nextjs.request_path === "string") nextjs.request_path = withoutQuery(nextjs.request_path);
+  if (event.request) {
+    if (event.request.url) event.request.url = withoutQuery(event.request.url) as string;
+    delete event.request.query_string;
+    delete event.request.cookies;
+    // Los cuerpos de formulario pueden llevar datos fiscales (IBAN, NIF, fecha de nacimiento).
+    delete event.request.data;
+    if (event.request.headers) {
+      delete event.request.headers.cookie;
+      delete event.request.headers.authorization;
+      // La página anterior puede ser la URL de un enlace con su token.
+      delete event.request.headers.referer;
+    }
+  }
+  return event;
+}
+
+/**
+ * Sentry manda los eventos en segundo plano. En Vercel la función puede congelarse en cuanto
+ * responde y la alerta se perdería: con `after` (Next) sigue viva hasta vaciar la cola (máx. 2 s).
+ * Fuera de una petición (scripts, arranque) `after` lanza y no se hace nada; el cron espera a mano
+ * en withCronMonitor.
+ */
+function flushAfterResponse(s: Sentry) {
+  import("next/server")
+    .then(({ after }) => after(() => s.flush(2000).then(() => undefined)))
+    .catch(() => {});
+}
 
 type Sentry = typeof import("@sentry/nextjs");
 // En globalThis y no en una variable del módulo: Next compila instrumentation.ts y las rutas en
@@ -27,18 +68,7 @@ export async function initMonitoring() {
       environment: env().APP_ENV,
       tracesSampleRate: 0,
       sendDefaultPii: false,
-      beforeSend(event) {
-        if (event.request) {
-          delete event.request.cookies;
-          // Los cuerpos de formulario pueden llevar datos fiscales (IBAN, NIF, fecha de nacimiento).
-          delete event.request.data;
-          if (event.request.headers) {
-            delete event.request.headers.cookie;
-            delete event.request.headers.authorization;
-          }
-        }
-        return event;
-      },
+      beforeSend: (event) => scrubEvent(event),
     });
     holder.__cirellaSentry = mod;
     console.info("[cirella] Monitorización de errores activa (Sentry).");
@@ -66,6 +96,7 @@ export function captureError(error: unknown, ctx: ErrorContext) {
       if (ctx.extra) scope.setExtras(ctx.extra);
       s.captureException(error);
     });
+    flushAfterResponse(s);
   } catch (e) {
     console.error("[monitoring] No se pudo informar a Sentry", e);
   }
@@ -85,6 +116,7 @@ export function captureAlert(message: string, ctx: AlertContext) {
   if (!s) return;
   try {
     s.captureMessage(message, { level, tags: { area: ctx.area }, fingerprint: ctx.fingerprint, extra: ctx.extra });
+    flushAfterResponse(s);
   } catch (e) {
     console.error("[monitoring] No se pudo informar a Sentry", e);
   }
@@ -108,6 +140,10 @@ export async function withCronMonitor<T extends { ok: boolean }>(slug: string, f
   } catch (e) {
     s.captureCheckIn({ checkInId, monitorSlug: slug, status: "error" });
     throw e;
+  } finally {
+    // Antes de responder: el check-in y las alertas de las tareas (emails no entregados, pedidos
+    // sin entregar…) salen ya, no cuando Vercel vuelva a despertar la función (o nunca).
+    await s.flush(2000).catch(() => {});
   }
 }
 

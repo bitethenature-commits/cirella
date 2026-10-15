@@ -3,11 +3,20 @@
 import { Loader2 } from "lucide-react";
 import { startTransition, useActionState, useState } from "react";
 import { Flash } from "@/components/ui/flash";
-import { COUNTRIES } from "@/lib/tax/rates";
+import { COUNTRIES, countryName } from "@/lib/tax/rates";
 import { requestFullInvoice, type FullInvoiceState } from "./actions";
 
 /** Pide la factura completa con NIF de una compra ya pagada (sustituye a la simplificada). */
-export function FullInvoiceForm({ orderId, defaultCountry }: { orderId: string; defaultCountry: string }) {
+export function FullInvoiceForm({
+  orderId,
+  defaultCountry,
+  lockedCountry,
+}: {
+  orderId: string;
+  defaultCountry: string;
+  /** País de la compra: el IVA se calculó con él, así que la factura no puede llevar otro. */
+  lockedCountry?: string | null;
+}) {
   const [state, action, pending] = useActionState<FullInvoiceState, FormData>(requestFullInvoice.bind(null, orderId), undefined);
   // Controlados: un NIF mal escrito no debe borrar el resto.
   const [name, setName] = useState("");
@@ -42,11 +51,19 @@ export function FullInvoiceForm({ orderId, defaultCountry }: { orderId: string; 
       </div>
       <div>
         <label className="field-label" htmlFor="fi-country">País</label>
-        <select id="fi-country" name="country" value={country} onChange={(e) => setCountry(e.target.value)} className="input">
-          {COUNTRIES.map((c) => (
-            <option key={c.code} value={c.code}>{c.name}</option>
-          ))}
-        </select>
+        {lockedCountry ? (
+          <>
+            <input type="hidden" name="country" value={lockedCountry} />
+            <p id="fi-country" className="input flex items-center bg-paper">{countryName(lockedCountry)}</p>
+            <p className="mt-1 text-xs text-muted">Es el país con el que compraste. Si es otro, escríbenos y lo revisamos.</p>
+          </>
+        ) : (
+          <select id="fi-country" name="country" value={country} onChange={(e) => setCountry(e.target.value)} className="input">
+            {COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>{c.name}</option>
+            ))}
+          </select>
+        )}
       </div>
       <button type="submit" disabled={pending} className="btn btn-primary">
         {pending && <Loader2 className="h-4 w-4 animate-spin" />}

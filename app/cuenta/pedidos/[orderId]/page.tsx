@@ -11,7 +11,8 @@ import { prisma } from "@/lib/db";
 import { INVOICE_TYPE_LABEL } from "@/lib/invoices/format";
 import { canInvoiceSale } from "@/lib/invoices/issue";
 import { getPlatformIssuer } from "@/lib/invoices/issuer";
-import { formatLegalAddress, sellerLine } from "@/lib/legal";
+import { formatLegalAddress, sellerLine, type LegalIdentity } from "@/lib/legal";
+import type { LegalSnapshotContent } from "@/lib/legal-snapshot";
 import { bpsToPercent, formatMoney, formatPrice } from "@/lib/money";
 import { formatDate } from "@/lib/tz";
 import { CreatorTag, Thumb } from "../../ui";
@@ -35,10 +36,14 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
       creator: true,
       product: { include: { files: { orderBy: { sortOrder: "asc" } } } },
       bookings: { orderBy: { createdAt: "asc" } },
+      legalSnapshot: { select: { content: true } },
     },
   });
   if (!order || order.customer?.userId !== user.id || !["PAID", "REFUNDED"].includes(order.status)) notFound();
   const c = creatorBrief(order.creator);
+  // Quién vendió: la identidad aceptada al comprar (instantánea del pedido), no la de hoy (la creadora
+  // puede haber cambiado de NIF o de domicilio). Los pedidos sin instantánea usan la actual.
+  const seller: Partial<LegalIdentity> = (order.legalSnapshot?.content as LegalSnapshotContent | null | undefined)?.identity ?? order.creator;
   // Recibo y factura: facturas de la venta (la simplificada, su sustituta y las rectificativas).
   const [invoices, taxedCharge, platform] = await Promise.all([
     prisma.invoice.findMany({
@@ -54,8 +59,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const invoiceable = !!taxedCharge && canInvoiceSale(order.taxSeller, order.creator);
   const soldBy = platform
     ? `${platform.name}${platform.taxId ? ` · NIF ${platform.taxId}` : ""}`
-    : order.creator.legalName
-      ? sellerLine(order.creator)
+    : seller.legalName
+      ? sellerLine(seller)
       : order.creator.displayName;
   const booking = order.bookings[0];
   const refunded = order.status === "REFUNDED";
@@ -166,7 +171,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
               <dt className="text-muted">Compradora</dt>
               <dd>{[order.buyerName, order.buyerEmail].filter(Boolean).join(" · ")}</dd>
               <dt className="text-muted">Vende</dt>
-              <dd>{order.creator.legalName ? `${sellerLine(order.creator)} · ${formatLegalAddress(order.creator)}` : order.creator.displayName}</dd>
+              <dd>{seller.legalName ? `${sellerLine(seller)} · ${formatLegalAddress(seller)}` : order.creator.displayName}</dd>
               <dt className="text-muted">Total</dt>
               <dd className="font-semibold">{formatMoney(order.amountCents, order.currency, { decimals: true })}</dd>
             </dl>
@@ -176,10 +181,10 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         )}
         {!fullInvoice && order.status === "PAID" && order.refundedCents === 0 && (
           invoiceable ? (
-            <div className="print:hidden"><FullInvoiceForm orderId={order.id} defaultCountry={order.buyerCountry ?? "ES"} /></div>
+            <div className="print:hidden"><FullInvoiceForm orderId={order.id} defaultCountry={order.buyerCountry ?? "ES"} lockedCountry={order.buyerCountry} /></div>
           ) : (
             <p className="text-sm text-muted print:hidden">
-              {taxedCharge ? `${order.creator.legalName ?? order.creator.displayName} no emite facturas con IVA por esta venta.` : "Esta compra no admite factura con NIF."} Puedes usar el justificante de compra.
+              {taxedCharge ? `${seller.legalName ?? order.creator.displayName} no emite facturas con IVA por esta venta.` : "Esta compra no admite factura con NIF."} Puedes usar el justificante de compra.
             </p>
           )
         )}

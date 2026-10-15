@@ -11,7 +11,7 @@ import { paymentProvider, type PaymentMethodInput } from "./payments";
 import { canAcceptPayments } from "./payouts";
 import { canSellType, effectiveCommissionBps } from "./plans";
 import { pushBookingEvent } from "./calendar";
-import { captureError } from "./monitoring";
+import { captureAlert, captureError } from "./monitoring";
 import { chargeKey } from "./reliability";
 import { computeSaleAmounts, decideTax, platformRetainedCents } from "./tax";
 import { getTaxMode } from "./tax/server";
@@ -69,6 +69,7 @@ export async function createPendingOrder(input: {
   const tax = decideTax({
     mode: await getTaxMode(),
     productType: product.type,
+    deliveryMode: product.deliveryMode,
     buyerCountry: input.buyerCountry ?? null,
     creator: { country: product.creator.legalCountry, vatStatus: product.creator.vatStatus, vatExemptionNote: product.creator.vatExemptionNote },
   });
@@ -237,9 +238,38 @@ export async function fulfillOrder(orderId: string, paymentRef: string, opts: Sa
 
   // Los avisos (recibo, acceso, reserva, calendario) se guardan en la misma transacción que el
   // pedido y se envían ya, tras el commit. Si el proceso cae justo después, /api/cron los envía.
-  const { eventIds, ...fulfilled } = result;
+  const { eventIds, duplicateMembership, ...fulfilled } = result;
   await dispatchEvents(eventIds);
+  if (duplicateMembership) await refundDuplicateMembership(orderId);
   return fulfilled;
+}
+
+/**
+ * Segunda membresía pagada para alguien que ya tiene una viva: se devuelve entera por el flujo
+ * normal de reembolsos (libro, rectificativa y email a la compradora). Si la pasarela falla, aviso
+ * a administración: el pedido ya está pagado y no se vuelve a intentar solo.
+ */
+async function refundDuplicateMembership(orderId: string) {
+  captureAlert("Membresía pagada dos veces por la misma persona: se reembolsa el segundo pedido", {
+    area: "payments",
+    level: "warning",
+    fingerprint: ["membresia-duplicada"],
+    extra: { orderId },
+  });
+  try {
+    const { refundOrder } = await import("./refunds");
+    const r = await refundOrder({
+      orderId,
+      actor: { kind: "provider" },
+      reason: "DUPLICATE",
+      note: "Ya eras miembro: te devolvemos este segundo pago.",
+      revokeAccess: false,
+      cancelBooking: false,
+    });
+    if (!r.ok) throw new Error(r.error);
+  } catch (e) {
+    captureAlert("No se ha podido reembolsar una membresía duplicada", { area: "payments", level: "error", fingerprint: ["membresia-duplicada-sin-reembolso"], extra: { orderId, error: String(e) } });
+  }
 }
 
 async function fulfillInTransaction(orderId: string, paymentRef: string, saved: SavedPayment, events: DomainEvent[], opts: { confirmSlot: boolean }) {
@@ -255,7 +285,7 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
     const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { product: true } });
     const existingUser = await tx.user.findUnique({ where: { email: order.buyerEmail } });
     if (!FULFILLABLE.includes(order.status)) {
-      return { order, userId: existingUser?.id ?? "", isNewUser: false, alreadyPaid: true, eventIds: [] as string[] };
+      return { order, userId: existingUser?.id ?? "", isNewUser: false, alreadyPaid: true, duplicateMembership: false, eventIds: [] as string[] };
     }
     const now = new Date();
     const user =
@@ -331,7 +361,14 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
     const p = order.product;
     let subscriptionId: string | null = null;
     let expiresAt: Date | null = null;
-    if (p.type === "MEMBERSHIP") {
+    // Una suscripción viva por persona y membresía. startOrderPayment ya lo comprueba antes de
+    // cobrar, pero dos páginas de pago abiertas (dos pestañas, o un pedido sustituido) pueden
+    // cobrarse las dos: la segunda no crea otra suscripción (se renovarían las dos cada mes); el
+    // pedido queda pagado y fulfillOrder lo reembolsa entero.
+    const duplicateMembership =
+      p.type === "MEMBERSHIP" &&
+      !!(await tx.subscription.findFirst({ where: { productId: p.id, customerId: customer.id, status: { in: ["ACTIVE", "PAST_DUE"] } }, select: { id: true } }));
+    if (p.type === "MEMBERSHIP" && !duplicateMembership) {
       const end = addInterval(now, p.billingInterval ?? "month");
       const sub = await tx.subscription.create({
         data: {
@@ -382,11 +419,13 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
       });
       events.push({ type: "booking.confirmed", bookingId: booking.id });
     }
-    await tx.access.upsert({
-      where: { userId_productId: { userId: user.id, productId: p.id } },
-      create: { creatorId: order.creatorId, userId: user.id, productId: p.id, orderId: order.id, subscriptionId, expiresAt },
-      update: { status: "ACTIVE", orderId: order.id, subscriptionId, expiresAt },
-    });
+    // El acceso de una membresía duplicada sigue siendo el de la suscripción que ya tenía.
+    if (!duplicateMembership)
+      await tx.access.upsert({
+        where: { userId_productId: { userId: user.id, productId: p.id } },
+        create: { creatorId: order.creatorId, userId: user.id, productId: p.id, orderId: order.id, subscriptionId, expiresAt },
+        update: { status: "ACTIVE", orderId: order.id, subscriptionId, expiresAt },
+      });
     await tx.analyticsEvent.create({
       data: {
         creatorId: order.creatorId,
@@ -399,7 +438,7 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
     });
     events.unshift({ type: "order.paid", orderId: order.id });
     const eventIds = await recordEvents(tx, events);
-    return { order: paid, userId: user.id, isNewUser: !existingUser, alreadyPaid: false, eventIds };
+    return { order: paid, userId: user.id, isNewUser: !existingUser, alreadyPaid: false, duplicateMembership, eventIds };
   }, { timeout: 15_000 });
 }
 

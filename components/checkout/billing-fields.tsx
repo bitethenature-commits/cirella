@@ -88,6 +88,7 @@ export function VatBreakdown({
   amountCents,
   currency,
   productType,
+  deliveryMode,
   taxInfo,
   country,
   platformName,
@@ -95,6 +96,7 @@ export function VatBreakdown({
   amountCents: number;
   currency: string;
   productType: string;
+  deliveryMode?: string | null;
   taxInfo: CheckoutTaxInfo;
   country: string;
   platformName: string;
@@ -102,6 +104,7 @@ export function VatBreakdown({
   const d = decideTax({
     mode: taxInfo.mode,
     productType,
+    deliveryMode,
     buyerCountry: country,
     creator: { country: taxInfo.creatorCountry, vatStatus: taxInfo.creatorVatStatus, vatExemptionNote: taxInfo.creatorVatNote },
   });

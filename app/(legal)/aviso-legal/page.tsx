@@ -3,6 +3,7 @@ import Link from "next/link";
 import { LegalProse, Pending } from "@/components/legal-prose";
 import { appHost } from "@/lib/env";
 import { getSettings } from "@/lib/settings";
+import { asTaxMode } from "@/lib/tax";
 
 export const metadata: Metadata = { title: "Aviso legal" };
 export const dynamic = "force-dynamic";
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic";
 export default async function AvisoLegalPage() {
   const s = await getSettings();
   const email = s.privacyEmail || s.supportEmail;
+  // Con la política de IVA por defecto, Cirella cobra y factura lo digital como proveedora (art. 9 bis).
+  const platformSellsDigital = asTaxMode(s.taxMode) === "PLATFORM_DIGITAL";
   return (
     <LegalProse title="Aviso legal">
       <h2>Titular del sitio</h2>
@@ -26,7 +29,14 @@ export default async function AvisoLegalPage() {
       <h2>Qué es {s.platformName}</h2>
       <p>
         {s.platformName} ({appHost()}) es una herramienta para que creadoras y profesionales publiquen su página, vendan productos digitales, cursos, sesiones
-        y membresías y atiendan a sus clientas. {s.platformName} presta el servicio tecnológico; no vende esos productos.
+        y membresías y atiendan a sus clientas. {s.platformName} presta el servicio tecnológico y quien vende cada producto es su creadora.
+        {platformSellsDigital && (
+          <>
+            {" "}
+            En los productos digitales, cursos y membresías, {s.platformName} cobra el pago y emite la factura en su nombre como proveedora a efectos del IVA
+            (art. 9 bis del Reglamento de Ejecución (UE) 282/2011); así se indica en el resumen de cada compra.
+          </>
+        )}
       </p>
 
       <h2>Contenido de las creadoras</h2>

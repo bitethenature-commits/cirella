@@ -4,7 +4,7 @@ import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
 import { renewalFailedEmail } from "./email/templates";
 import { dispatchEvents, recordEvents } from "./events";
-import { captureError } from "./monitoring";
+import { captureAlert, captureError } from "./monitoring";
 import { paymentProvider } from "./payments";
 import { nextRenewalAttempt, renewalPeriodKey } from "./payments/renewal";
 import { canAcceptPayments } from "./payouts";
@@ -148,7 +148,9 @@ async function renewOne(sub: DueSubscription, now: Date, mode: TaxMode) {
     metadata: { subscriptionId: sub.id, periodKey, attempt: String(sub.renewalAttempts), kind: "renewal" },
     idempotencyKey: `renewal:${sub.id}:${periodKey}:${sub.renewalAttempts}`,
   });
-  if (r.state === "succeeded") return applyRenewal(sub.id, sub.currentPeriodEnd, r.ref);
+  // settleRenewalCharge y no applyRenewal: si mientras se cobraba la clienta pagó el mismo periodo
+  // con «Pagar ahora», este segundo cobro se devuelve en vez de quedárnoslo.
+  if (r.state === "succeeded") return (await settleRenewalCharge(sub.id, sub.currentPeriodEnd, r.ref)) === "applied";
   if (r.state === "processing") {
     // El banco confirmará más tarde: lo resuelve el aviso de la pasarela. Por si no llega,
     // se vuelve a mirar mañana (con la misma clave de idempotencia, no se cobra dos veces).
@@ -215,6 +217,47 @@ export async function applyRenewal(
     await issueSaleInvoiceTx(tx, { transactionId: renewal.id });
     return true;
   });
+}
+
+/**
+ * Cobro de una renovación confirmado (cron, aviso de la pasarela, vuelta de «Pagar ahora»). Si no
+ * se puede aplicar (el periodo ya está cobrado por otra vía o la suscripción se canceló mientras
+ * pagaba) y no es un aviso repetido del mismo cobro, es un segundo cobro del mismo periodo: se
+ * devuelve entero. Si lanza, el aviso queda FAILED y se reintenta (la clave dup: lo hace idempotente).
+ */
+export async function settleRenewalCharge(
+  subscriptionId: string,
+  periodEnd: Date,
+  ref: string,
+  saved: { customerRef?: string | null; paymentMethodRef?: string | null } = {},
+): Promise<"applied" | "already" | "refunded"> {
+  if (await applyRenewal(subscriptionId, periodEnd, ref, saved)) return "applied";
+  // Una renovación ya aplicada con este mismo cobro (aviso repetido, o el cron y el aviso a la vez).
+  const already = await prisma.transaction.findFirst({
+    where: { subscriptionId, type: "RENEWAL", providerRef: ref },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (already) {
+    // Aviso repetido de una renovación ya aplicada (el de la sesión llegó primero sin la tarjeta):
+    // si es la última renovación, se guarda la tarjeta con la que se pagó (puede ser una nueva).
+    const latest = await prisma.transaction.findFirst({ where: { subscriptionId, type: "RENEWAL" }, orderBy: { createdAt: "desc" }, select: { id: true } });
+    if (saved.paymentMethodRef && latest?.id === already.id)
+      await prisma.subscription.updateMany({
+        where: { id: subscriptionId, status: { in: LIVE } },
+        data: { providerPaymentMethodRef: saved.paymentMethodRef, ...(saved.customerRef ? { providerCustomerRef: saved.customerRef } : {}) },
+      });
+    return "already";
+  }
+  captureAlert("Cobro de renovación para un periodo ya cobrado o una suscripción cancelada: se reembolsa", {
+    area: "payments",
+    level: "error",
+    fingerprint: ["renovacion-duplicada"],
+    extra: { subscriptionId, ref },
+  });
+  const r = await paymentProvider().refund({ paymentRef: ref, refundApplicationFee: true, idempotencyKey: `dup:${ref}`, reason: "duplicate", metadata: { subscriptionId, reason: "duplicado" } });
+  if (!r.ok) throw new Error(`No se ha podido reembolsar el cobro duplicado ${ref}: ${r.error}`);
+  return "refunded";
 }
 
 /**

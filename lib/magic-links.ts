@@ -77,7 +77,12 @@ export async function magicLinkCreatorId(token: string) {
  * La primera prueba de que el email es suyo anula lo que se hizo antes sin esa prueba (contraseña
  * y sesiones de quien registró el email). Con «No he sido yo» se anula siempre.
  */
-export async function consumeMagicLink(token: string, choice?: "yes" | "no"): Promise<{ user: { id: string; email: string }; redirectTo: string } | null> {
+export async function consumeMagicLink(
+  token: string,
+  choice?: "yes" | "no",
+  /** sha256 de la cookie de sesión del navegador que confirma (Session.id), si tiene. */
+  ctx: { currentSessionId?: string | null } = {},
+): Promise<{ user: { id: string; email: string }; redirectTo: string } | null> {
   if (!token) return null;
   const now = new Date();
   const tokenHash = hashToken(token);
@@ -92,10 +97,18 @@ export async function consumeMagicLink(token: string, choice?: "yes" | "no"): Pr
   if (user.status === "BLOCKED") return null;
 
   let resetPassword = false;
-  if (record.purpose === "VERIFY_SIGNUP" && choice === "yes" && !user.emailVerifiedAt) {
-    // «Sí, he sido yo»: la cuenta y sus sesiones de cuenta pasan a estar confirmadas.
+  // «Sí, he sido yo» solo conserva la contraseña si se confirma desde el navegador donde se creó la
+  // cuenta (su sesión). Si no, nada prueba que quien la puso sea quien abre el email (alguien pudo
+  // registrar este email antes que su dueña): se trata como una recuperación.
+  const ownSession =
+    record.purpose === "VERIFY_SIGNUP" && choice === "yes" && !user.emailVerifiedAt && ctx.currentSessionId
+      ? await prisma.session.findFirst({ where: { id: ctx.currentSessionId, userId: user.id, orderId: null, expiresAt: { gt: now } }, select: { id: true } })
+      : null;
+  if (ownSession) {
+    // Solo esa sesión pasa a estar confirmada; cualquier otra sin confirmar deja de valer.
     user = await prisma.user.update({ where: { id: user.id }, data: { emailVerifiedAt: now } });
-    await prisma.session.updateMany({ where: { userId: user.id, orderId: null }, data: { verified: true } });
+    await prisma.session.update({ where: { id: ownSession.id }, data: { verified: true } });
+    await prisma.session.deleteMany({ where: { userId: user.id, verified: false } });
   } else if (choice === "no" || !user.emailVerifiedAt) {
     // Recuperación: fuera la contraseña creada sin probar el email y todas las sesiones previas.
     resetPassword = !!user.passwordHash;

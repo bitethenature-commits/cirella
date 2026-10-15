@@ -259,6 +259,7 @@ model Creator {
   legalSnapshots   LegalSnapshot[]
   invoices         Invoice[]
   refunds          Refund[]
+  recoveryOptOuts  RecoveryOptOut[]
 
   @@index([planId])
   @@index([payoutStatus])
@@ -722,6 +723,18 @@ model Automation {
   message      String?
 
   @@unique([creatorId, trigger])
+}
+
+// Bajas del email de compra abandonada (LSSI art. 21.2), por creadora: quien se da de baja con el
+// enlace del email no vuelve a recibir recordatorios de esa creadora. Solo guardamos el hash del email.
+model RecoveryOptOut {
+  id        String   @id @default(cuid())
+  creatorId String
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  emailHash String // sha256 del email en minúsculas (lib/recovery-optout.ts)
+  createdAt DateTime @default(now())
+
+  @@unique([creatorId, emailHash])
 }
 
 // Bandeja de salida: todo email pasa por aquí (se procesa en /api/cron) con

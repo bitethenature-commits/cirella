@@ -50,6 +50,12 @@ export function LoginForms({
             <input id="password" name="password" type="password" autoComplete="current-password" required className="input" />
           </div>
           <SubmitButton className="btn btn-primary btn-lg w-full" pendingLabel="Entrando…">Entrar</SubmitButton>
+          <p className="text-center text-sm text-muted">
+            ¿Compraste sin contraseña?{" "}
+            <button type="button" onClick={() => setMode("magic")} className="font-medium text-ink underline underline-offset-4">
+              Pide un enlace para entrar
+            </button>
+          </p>
         </form>
       ) : (
         <div className="space-y-4">

@@ -152,7 +152,7 @@ test("Stripe startPayment (membresía): Checkout alojado con cargo de destino y 
   eq(p.line_items?.[0].price_data?.currency, "eur");
   ok(p.success_url?.includes("ref={CHECKOUT_SESSION_ID}"), p.success_url);
   const minutes = ((p.expires_at ?? 0) * 1000 - before) / 60_000;
-  ok(minutes > 29 && minutes < 31, `expires_at a ${minutes} min`);
+  ok(minutes > 30 && minutes < 32, `expires_at a ${minutes} min (Stripe exige más de 30)`);
   ok(String((calls[0].opts as { idempotencyKey?: string }).idempotencyKey).startsWith("checkout:ord_1:"));
 });
 
