@@ -1,0 +1,933 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Cirella — esquema de datos
+//
+// Modelo multi-tenant de base de datos compartida:
+//   · Cada creadora es un "tenant" (modelo Creator).
+//   · TODA tabla que contiene datos de negocio de una creadora lleva `creatorId`
+//     y un índice que empieza por `creatorId`.
+//   · El código del panel accede a esas tablas exclusivamente a través de
+//     `tenantDb(creatorId)` (lib/tenant.ts), que inyecta el filtro en cada consulta.
+//   · La identidad (User) es global: una misma persona puede comprar a varias
+//     creadoras. La relación comercial con cada creadora vive en Customer
+//     (scoped por creatorId), de modo que Ana nunca ve los clientes de María.
+//
+// Los "enums" se guardan como String y se validan en lib/types.ts.
+//
+// Base de datos: PostgreSQL en todos los entornos. Los cambios de esquema se
+// hacen con Prisma Migrate (`npm run db:migrate` en desarrollo, que crea una
+// migración en prisma/migrations; `npm run db:deploy` en producción). Nunca se
+// edita una migración ya publicada: se añade otra.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// DATABASE_URL: conexión de la aplicación (en producción, la del pooler).
+// DIRECT_URL: conexión directa para las migraciones. En local son la misma.
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ───────────────────────────── Identidad ─────────────────────────────
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String?
+  passwordHash    String?
+  isAdmin         Boolean   @default(false)
+  status          String    @default("ACTIVE") // ACTIVE | BLOCKED
+  createdAt       DateTime  @default(now())
+  lastLoginAt     DateTime?
+  // Momento en que alguien demostró por primera vez que el email es suyo (enlace mágico o «Sí, he sido yo»).
+  // null = cuenta creada con contraseña o por un checkout y aún sin confirmar.
+  emailVerifiedAt DateTime?
+
+  creator    Creator?
+  sessions   Session[]
+  customerOf Customer[]
+  accesses   Access[]
+  progress   LessonProgress[]
+}
+
+model Session {
+  id        String   @id // sha256(token); el token en claro solo vive en la cookie
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  // true = quien abrió la sesión demostró que el email es suyo (enlace mágico, o contraseña
+  // sobre un email ya confirmado). Solo las verificadas ven el área de cliente completa.
+  // false = p. ej. la sesión creada automáticamente tras un checkout: dura poco, no puede
+  // fijar contraseña y se revoca al entrar con enlace mágico. createSession lo indica siempre.
+  verified  Boolean  @default(false)
+  // Sesión limitada a un pedido (tras pagar o desde un enlace personal de un email):
+  // solo abre ese pedido. getCurrentUser() la ignora.
+  orderId   String?
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([expiresAt])
+}
+
+model LoginToken {
+  id         String    @id @default(cuid())
+  email      String
+  tokenHash  String    @unique
+  purpose    String    @default("LOGIN") // LOGIN | VERIFY_SIGNUP
+  // Solo para la marca del email y de la pantalla «Entrar» (no da permisos). Sin relación
+  // con Creator a propósito: es una tabla de autenticación.
+  creatorId  String?
+  redirectTo String?
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+// Enlace personal de un email (recibo, curso, reserva). De varios usos hasta que caduca.
+// Abre una sesión limitada al pedido; nunca la cuenta completa ni confirma el email.
+// Tabla de autenticación (como Session/LoginToken): el panel nunca la lee, por eso no
+// lleva creatorId; la creadora se obtiene del pedido.
+model OrderLink {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  orderId    String
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  path       String // destino interno validado con safeNext: /cuenta/cursos/…, /cuenta/sesiones/…, /cuenta/pedidos/…
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([orderId])
+  @@index([expiresAt])
+}
+
+// ─────────────────────── Configuración de plataforma ───────────────────────
+// Todo lo relacionado con monetización es dato, no código: precios, comisiones,
+// límites y funcionalidades de cada plan se editan desde /admin/planes.
+
+model Plan {
+  id                String    @id @default(cuid())
+  key               String    @unique // free | creator | pro | ...
+  name              String
+  tagline           String?
+  priceMonthlyCents Int       @default(0)
+  currency          String    @default("EUR")
+  commissionBps     Int // 1000 = 10,00 %
+  maxProducts       Int? // null = ilimitados
+  features          Json // ver lib/plans.ts → PlanFeatures
+  highlighted       Boolean   @default(false)
+  isDefault         Boolean   @default(false)
+  active            Boolean   @default(true)
+  sortOrder         Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  creators          Creator[]
+}
+
+model Category {
+  id              String    @id @default(cuid())
+  slug            String    @unique
+  name            String
+  emoji           String?
+  defaultTemplate String    @default("mystical")
+  active          Boolean   @default(true)
+  sortOrder       Int       @default(0)
+  creators        Creator[]
+}
+
+model Template {
+  id          String  @id @default(cuid())
+  key         String  @unique // mystical | minimal | luxury | cosmic | editorial
+  name        String
+  description String?
+  active      Boolean @default(true)
+  sortOrder   Int     @default(0)
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ───────────────────────────── Tenant ─────────────────────────────
+
+model Creator {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username     String    @unique
+  displayName  String
+  categoryId   String?
+  category     Category? @relation(fields: [categoryId], references: [id])
+  planId       String
+  plan         Plan      @relation(fields: [planId], references: [id])
+  planRenewsAt DateTime?
+  status       String    @default("ACTIVE") // ACTIVE | BLOCKED
+
+  // Página: el editor trabaja sobre el borrador; "Publicar" lo copia a publicada.
+  pageDraft     Json
+  pagePublished Json?
+  published     Boolean   @default(false)
+  publishedAt   DateTime?
+
+  seoTitle       String?
+  seoDescription String?
+  contactEmail   String?
+  timezone       String    @default("Europe/Madrid")
+  currency       String    @default("EUR")
+  onboardedAt    DateTime?
+
+  // Cobros: Stripe Connect Express (o simulador en demo). Ver lib/payouts.ts.
+  payoutProvider        String?
+  payoutAccountId       String?   @unique
+  payoutStatus          String    @default("NONE") // NONE | PENDING | VERIFYING | ACTION_REQUIRED | ACTIVE | REJECTED
+  payoutChargesEnabled  Boolean   @default(false) // la pasarela permite cobrar → se puede vender
+  payoutPayoutsEnabled  Boolean   @default(false) // la pasarela permite transferir al banco
+  payoutRequirements    Json? // { currentlyDue[], pastDue[], eventuallyDue[], pendingVerification[], disabledReason, currentDeadline }
+  payoutStatusUpdatedAt DateTime?
+  payoutConnectedAt     DateTime? // primera vez que la pasarela permitió cobrar (antes: «conectada»)
+
+  // Identidad legal de quien vende (LSSI art. 10). Obligatoria para cobrar: ver legalIdentityComplete()
+  // en lib/legal.ts. La usan también las facturas (IVA) y los datos de DAC7.
+  legalEntityType String    @default("INDIVIDUAL") // INDIVIDUAL | COMPANY
+  legalName       String? // nombre y apellidos o razón social
+  legalTaxId      String? // NIF / NIE / CIF normalizado (mayúsculas, sin espacios ni guiones)
+  legalAddress    String? // calle, número, piso
+  legalPostalCode String?
+  legalCity       String?
+  legalCountry    String    @default("ES") // ISO 3166-1 alfa-2
+  legalEmail      String? // email público de contacto (aviso legal y recibos)
+  legalRegistry   String? // datos registrales o colegio profesional (opcional)
+  // Textos legales personalizados; null = plantilla de lib/legal-templates.ts
+  legalTerms      String?
+  legalRefunds    String?
+  legalPrivacy    String?
+  // Aceptación de los términos de Cirella (incluye el encargo de tratamiento, art. 28 RGPD)
+  termsAcceptedAt DateTime?
+  termsVersion    String?
+
+  // Situación de IVA (la identidad fiscal es la de arriba: legalName, legalTaxId, legalAddress…)
+  vatStatus        String  @default("NONE") // NONE (no repercute IVA) | STANDARD (repercute) | EXEMPT (exenta)
+  vatExemptionNote String? // motivo de la exención que se imprime en sus facturas
+
+  // DAC7 / modelo 238: solo lo que no aportan los datos legales de arriba
+  birthDate          DateTime? @db.Date
+  iban               String? // normalizado sin espacios, en mayúsculas; nunca se muestra completo
+  dac7RequestedAt    DateTime? // primera petición de datos (primera venta declarable del año)
+  dac7RemindersSent  Int       @default(0)
+  dac7LastReminderAt DateTime?
+  dac7ConfirmedAt    DateTime? // la creadora confirmó que sus datos son correctos
+
+  // Calendario externo (preparado para Google Calendar)
+  calendarProvider  String?
+  calendarAccountId String?
+
+  // Programa de referidos y beneficios
+  referralCode            String    @unique
+  referredById            String?
+  referredBy              Creator?  @relation("CreatorReferrals", fields: [referredById], references: [id])
+  referred                Creator[] @relation("CreatorReferrals")
+  creditCents             Int       @default(0)
+  commissionDiscountBps   Int       @default(0)
+  commissionDiscountUntil DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products         Product[]
+  customers        Customer[]
+  orders           Order[]
+  transactions     Transaction[]
+  accesses         Access[]
+  bookings         Booking[]
+  availability     AvailabilityRule[]
+  blockedDates     BlockedDate[]
+  subscriptions    Subscription[]
+  events           AnalyticsEvent[]
+  automations      Automation[]
+  referralsMade    Referral[]         @relation("ReferralReferrer")
+  referralReceived Referral?          @relation("ReferralReferred")
+  legalSnapshots   LegalSnapshot[]
+  invoices         Invoice[]
+  refunds          Refund[]
+  recoveryOptOuts  RecoveryOptOut[]
+
+  @@index([planId])
+  @@index([payoutStatus])
+}
+
+// ───────────────────────────── Catálogo ─────────────────────────────
+
+model Product {
+  id              String  @id @default(cuid())
+  creatorId       String
+  creator         Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  type            String // DIGITAL | SESSION | COURSE | MEMBERSHIP
+  slug            String
+  title           String
+  emoji           String?
+  summary         String?
+  description     String?
+  imageUrl        String?
+  priceCents      Int
+  currency        String  @default("EUR")
+  billingInterval String? // "month" | "year" (solo membresías)
+  ctaLabel        String?
+  // DRAFT | PUBLISHED | ARCHIVED — por defecto borrador: publicar es siempre explícito y pasa por la comprobación de entrega
+  status          String  @default("DRAFT")
+  // AUTOMATIC (archivos/enlaces/lecciones, acceso inmediato) | PERSONAL (la creadora lo prepara para cada clienta;
+  // solo DIGITAL, exige `instructions`)
+  deliveryMode    String  @default("AUTOMATIC")
+  featured        Boolean @default(false)
+  sortOrder       Int     @default(0)
+  instructions    String? // qué recibe / próximos pasos tras la compra
+
+  // Sesiones
+  durationMin    Int?
+  bufferMin      Int?
+  minNoticeHours Int?
+  meetingUrl     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  files         ProductFile[]
+  modules       CourseModule[]
+  lessons       Lesson[]
+  posts         MembershipPost[]
+  orders        Order[]
+  accesses      Access[]
+  bookings      Booking[]
+  subscriptions Subscription[]
+
+  @@unique([creatorId, slug])
+  @@index([creatorId, status, sortOrder])
+}
+
+model ProductFile {
+  id         String   @id @default(cuid())
+  creatorId  String
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name       String
+  kind       String // PDF | AUDIO | VIDEO | IMAGE | LINK | OTHER
+  storageKey String? // clave relativa a «private/» en el almacenamiento (disco local o R2): {creatorId}/{hex}.{ext}
+  url        String? // enlace externo (kind = LINK)
+  mimeType   String?
+  sizeBytes  Int? // ≤ 1 GB (límite de subida), cabe en Int
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  lessons    Lesson[]
+
+  @@index([creatorId, productId])
+}
+
+model CourseModule {
+  id        String   @id @default(cuid())
+  creatorId String
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  title     String
+  sortOrder Int      @default(0)
+  lessons   Lesson[]
+
+  @@index([creatorId, productId])
+}
+
+model Lesson {
+  id          String           @id @default(cuid())
+  creatorId   String
+  productId   String
+  product     Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  moduleId    String
+  module      CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title       String
+  kind        String // VIDEO | AUDIO | PDF | TEXT | EXERCISE
+  body        String?
+  mediaUrl    String? // vídeo/audio externo (YouTube, Vimeo…)
+  fileId      String?
+  file        ProductFile?     @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  durationMin Int?
+  sortOrder   Int              @default(0)
+  progress    LessonProgress[]
+
+  @@index([creatorId, productId])
+  @@index([moduleId])
+}
+
+model LessonProgress {
+  id          String   @id @default(cuid())
+  creatorId   String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId   String
+  lessonId    String
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completedAt DateTime @default(now())
+
+  @@unique([userId, lessonId])
+  @@index([creatorId, productId])
+}
+
+model MembershipPost {
+  id          String   @id @default(cuid())
+  creatorId   String
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  title       String
+  body        String
+  kind        String   @default("TEXT") // TEXT | AUDIO | VIDEO | EVENT
+  mediaUrl    String?
+  publishedAt DateTime @default(now())
+
+  @@index([creatorId, productId, publishedAt])
+}
+
+// ───────────────────────────── Clientes y ventas ─────────────────────────────
+
+model Customer {
+  id               String    @id @default(cuid())
+  creatorId        String
+  creator          Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email            String
+  name             String?
+  marketingOptIn   Boolean   @default(false)
+  marketingOptInAt DateTime? // cuándo dio el consentimiento (null si nunca o si lo retiró)
+  totalSpentCents  Int       @default(0)
+  ordersCount      Int       @default(0)
+  firstPurchaseAt  DateTime?
+  lastPurchaseAt   DateTime?
+  createdAt        DateTime  @default(now())
+
+  orders        Order[]
+  bookings      Booking[]
+  subscriptions Subscription[]
+
+  @@unique([creatorId, userId])
+  @@index([creatorId, createdAt])
+}
+
+model Order {
+  id               String    @id @default(cuid())
+  creatorId        String
+  creator          Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  customerId       String?
+  customer         Customer? @relation(fields: [customerId], references: [id])
+  productId        String
+  product          Product   @relation(fields: [productId], references: [id])
+  productTitle     String // instantánea en el momento de la compra
+  productType      String
+  buyerEmail       String
+  buyerName        String?
+  // PENDING | PROCESSING (pago pendiente de confirmar) | PAID | FAILED | REFUNDED | ABANDONED
+  status           String    @default("PENDING")
+  amountCents      Int // precio final, SIEMPRE con IVA incluido
+  currency         String    @default("EUR")
+  commissionBps    Int
+  platformFeeCents Int
+  netCents         Int
+
+  // ── Impuestos: instantánea fiscal de la venta ──
+  taxSeller      String  @default("CREATOR") // PLATFORM | CREATOR: quién vende a efectos de IVA
+  taxCountry     String? // país de tributación (ISO alfa-2; ES-CN | ES-CE | ES-ML = Canarias, Ceuta, Melilla)
+  taxRateBps     Int     @default(0) // 2100 = 21 %
+  taxCents       Int     @default(0) // IVA incluido en amountCents
+  buyerCountry   String? // país declarado por la compradora
+  ipCountry      String? // país según la IP (prueba de localización OSS)
+  // Datos para «Necesito factura con mi NIF» (null = factura simplificada)
+  billingName    String?
+  billingTaxId   String?
+  billingAddress String?
+
+  // ── Pago ──
+  paymentProvider     String
+  paymentRef          String? // referencia final del cobro (pi_… / sim_ch_…): reembolsos y contracargos
+  checkoutRef         String?   @unique // sesión de pago del proveedor (cs_… en Stripe, sim_cs_… en el simulador)
+  checkoutExpiresAt   DateTime? // mientras no venza, el pedido no cuenta como abandonado
+  paymentError        String? // último motivo de rechazo legible
+  chargedAt           DateTime? // el proveedor confirmó el cobro; si sigue sin PAID, el vigilante reintenta la entrega
+  createdBuyerAccount Boolean   @default(false) // fulfillOrder creó la User de la compradora (sesión post-pago)
+  disputeStatus       String? // OPEN | WON | LOST (contracargo)
+  disputedAt          DateTime?
+  // sha256 del token de la cookie httpOnly «cirella_compra» del navegador que hizo el pedido:
+  // solo ese navegador puede abrir la sesión limitada a este pedido (claimOrderSession).
+  claimTokenHash      String?
+
+  // ── Reembolsos: suma de los Refund SUCCEEDED. status pasa a REFUNDED cuando
+  // refundedCents == amountCents; con un reembolso parcial sigue en PAID ──
+  refundedCents    Int       @default(0)
+  refundedFeeCents Int       @default(0)
+  refundedAt       DateTime?
+
+  // ── Consentimientos del checkout (TRLGDCU arts. 98.7 y 103.a/m; RGPD art. 7) ──
+  legalSnapshotId  String?
+  legalSnapshot    LegalSnapshot? @relation(fields: [legalSnapshotId], references: [id])
+  termsAcceptedAt  DateTime?
+  waiverKind       String? // DIGITAL_IMMEDIATE | SERVICE_IN_PERIOD
+  waiverText       String? // texto literal de la casilla marcada
+  waiverAcceptedAt DateTime?
+  marketingOptIn   Boolean        @default(false)
+
+  metadata          Json? // p. ej. { slotStart } para sesiones
+  visitorId         String?
+  source            String?
+  ipHash            String? // HMAC de la IP de quien inició el pago (límites y antiabuso); nunca la IP en claro
+  recoveryEmailedAt DateTime?
+  // motivo por el que no se envió el email de recuperación: sin-visita | sin-checkout | muchos-emails | ya-avisada
+  recoverySkipped   String?
+  createdAt         DateTime  @default(now())
+  paidAt            DateTime?
+
+  transactions Transaction[]
+  bookings     Booking[]
+  sessions     Session[]
+  links        OrderLink[]
+  invoices     Invoice[]
+  refunds      Refund[]
+
+  @@index([creatorId, status, createdAt])
+  @@index([buyerEmail])
+  @@index([paymentRef])
+  @@index([chargedAt])
+  @@index([legalSnapshotId])
+  @@index([visitorId, createdAt])
+  @@index([ipHash, createdAt])
+}
+
+// Libro de movimientos: cargos, reembolsos, renovaciones y cuotas de plan.
+model Transaction {
+  id               String   @id @default(cuid())
+  creatorId        String
+  creator          Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  orderId          String?
+  order            Order?   @relation(fields: [orderId], references: [id])
+  subscriptionId   String?
+  type             String // CHARGE | REFUND | RENEWAL | PLAN_FEE
+  description      String?
+  // type REFUND: importes en NEGATIVO (amountCents = -reembolso, platformFeeCents = -comisión devuelta,
+  // netCents = -(reembolso - comisión devuelta)), así las sumas del libro son netas.
+  amountCents      Int
+  platformFeeCents Int      @default(0)
+  netCents         Int      @default(0)
+  currency         String   @default("EUR")
+  taxSeller        String? // PLATFORM | CREATOR (null en PLAN_FEE)
+  taxCountry       String?
+  taxRateBps       Int      @default(0)
+  taxCents         Int      @default(0) // REFUND: negativo, como el resto de importes
+  provider         String
+  providerRef      String?
+  status           String   @default("SUCCEEDED") // SUCCEEDED | FAILED
+  refundId         String?  @unique
+  refund           Refund?  @relation(fields: [refundId], references: [id])
+  // Red de seguridad contra cobros duplicados (también es la idempotencyKey de la pasarela):
+  // charge:{orderId} | renewal:{subId}:{periodEndISO} | plan:{creatorId}:{renewsAtISO}
+  idempotencyKey   String?  @unique
+  createdAt        DateTime @default(now())
+
+  @@index([creatorId, createdAt])
+  @@index([type, createdAt])
+}
+
+// Derecho de acceso de un usuario al contenido de un producto.
+// Es la pieza que hace posible la "entrega automática": el pago lo concede,
+// la cancelación de una suscripción lo caduca.
+model Access {
+  id             String    @id @default(cuid())
+  creatorId      String
+  creator        Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderId        String?
+  subscriptionId String?
+  status         String    @default("ACTIVE") // ACTIVE | REVOKED
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@unique([userId, productId])
+  @@index([creatorId, productId])
+}
+
+// Reembolso de un pedido (total o parcial). Los efectos (retirar acceso, cancelar
+// reserva/suscripción) se aplican al solicitarlo; el dinero (libro, estadísticas)
+// se contabiliza cuando la pasarela lo confirma (status SUCCEEDED).
+// El id es la clave de idempotencia que se envía a la pasarela.
+model Refund {
+  id                String       @id @default(cuid())
+  creatorId         String
+  creator           Creator      @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  orderId           String
+  order             Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amountCents       Int
+  platformFeeCents  Int          @default(0) // parte de la comisión de Cirella que se devuelve
+  currency          String       @default("EUR")
+  status            String       @default("PENDING") // PENDING | SUCCEEDED | FAILED
+  reason            String // CUSTOMER_REQUEST | WITHDRAWAL | SESSION_CANCELLED | DUPLICATE | OTHER
+  note              String? // mensaje para la clienta
+  initiatedBy       String // CREATOR | CUSTOMER | PROVIDER | ADMIN
+  initiatedByUserId String?
+  revokeAccess      Boolean      @default(false)
+  cancelBooking     Boolean      @default(false)
+  provider          String
+  providerRef       String?      @unique // re_… en Stripe, sim_re_… en simulado
+  error             String?
+  createdAt         DateTime     @default(now())
+  completedAt       DateTime?
+  transaction       Transaction?
+
+  @@index([creatorId, createdAt])
+  @@index([orderId, status])
+}
+
+// ───────────────────────────── Reservas ─────────────────────────────
+
+// Restricción en BD (migración): dos reservas CONFIRMED de la misma creadora no pueden
+// solaparse (Booking_no_overlap, tsrange [start,end)). El margen (bufferMin) lo aplica
+// hasBookingClash bajo un cerrojo por creadora.
+model Booking {
+  id                    String    @id @default(cuid())
+  creatorId             String
+  creator               Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  productId             String
+  product               Product   @relation(fields: [productId], references: [id])
+  customerId            String
+  customer              Customer  @relation(fields: [customerId], references: [id])
+  userId                String
+  orderId               String?
+  order                 Order?    @relation(fields: [orderId], references: [id])
+  startAt               DateTime? // null = pagada, pendiente de elegir fecha
+  endAt                 DateTime?
+  status                String    @default("PENDING_SCHEDULE") // PENDING_SCHEDULE | CONFIRMED | CANCELLED | COMPLETED
+  meetingUrl            String?
+  customerNotes         String?
+  externalEventId       String? // id del evento en Google Calendar (futuro)
+  cancelledAt           DateTime?
+  cancelledBy           String? // CREATOR | CUSTOMER | SYSTEM
+  cancelReason          String? // texto que ve la clienta
+  rescheduleRequestedAt DateTime? // la creadora ha propuesto otra fecha (status vuelve a PENDING_SCHEDULE)
+  rescheduleNote        String?
+  previousStartAt       DateTime? // fecha liberada al proponer otra
+  createdAt             DateTime  @default(now())
+
+  @@index([creatorId, startAt])
+  @@index([userId])
+}
+
+model AvailabilityRule {
+  id          String  @id @default(cuid())
+  creatorId   String
+  creator     Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  weekday     Int // 0 = domingo … 6 = sábado
+  startMinute Int // minutos desde las 00:00 en la zona horaria de la creadora
+  endMinute   Int
+
+  @@index([creatorId, weekday])
+}
+
+model BlockedDate {
+  id        String  @id @default(cuid())
+  creatorId String
+  creator   Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  date      String // YYYY-MM-DD
+  reason    String?
+
+  @@unique([creatorId, date])
+}
+
+// ───────────────────────────── Membresías ─────────────────────────────
+
+model Subscription {
+  id                       String    @id @default(cuid())
+  creatorId                String
+  creator                  Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  productId                String
+  product                  Product   @relation(fields: [productId], references: [id])
+  customerId               String
+  customer                 Customer  @relation(fields: [customerId], references: [id])
+  userId                   String
+  orderId                  String? // pedido inicial (datos de facturación para las renovaciones)
+  status                   String    @default("ACTIVE") // ACTIVE | PAST_DUE | CANCELED
+  priceCents               Int
+  interval                 String    @default("month")
+  buyerCountry             String? // país declarado, para calcular el IVA de cada renovación
+  currentPeriodStart       DateTime
+  currentPeriodEnd         DateTime
+  cancelAtPeriodEnd        Boolean   @default(false)
+  canceledAt               DateTime?
+  provider                 String
+  providerRef              String?
+  // Tarjeta guardada para las renovaciones sin la clienta delante, y reintentos si fallan (PAST_DUE)
+  providerCustomerRef      String? // cus_… / sim_cus_…
+  providerPaymentMethodRef String? // pm_… / sim_pm_<últimos4>
+  renewalAttempts          Int       @default(0)
+  nextRenewalAttemptAt     DateTime?
+  lastRenewalError         String?
+  createdAt                DateTime  @default(now())
+
+  @@index([creatorId, status])
+  @@index([userId])
+  @@index([status, nextRenewalAttemptAt])
+}
+
+// ───────────────────────────── Analytics ─────────────────────────────
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  creatorId   String
+  creator     Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  // PAGE_VIEW | PRODUCT_VIEW | PRODUCT_CLICK | CHECKOUT_STARTED | PURCHASE
+  // | REFUND (solo servidor; amountCents = importe devuelto)
+  type        String
+  productId   String?
+  visitorId   String
+  source      String? // instagram | tiktok | telegram | whatsapp | direct | other
+  referrer    String?
+  amountCents Int?
+  createdAt   DateTime @default(now())
+
+  @@index([creatorId, type, createdAt])
+  @@index([creatorId, createdAt])
+}
+
+// Sal diaria para medir visitas sin cookies: visitorId = sha256(sal + creatorId + IP + navegador).
+// Se borra al día siguiente: los hashes de días distintos no se pueden enlazar. Tabla global.
+model AnalyticsSalt {
+  day       String   @id // YYYY-MM-DD (UTC)
+  salt      String
+  createdAt DateTime @default(now())
+}
+
+// ───────────────────────────── Automatizaciones ─────────────────────────────
+
+// Preferencias por creadora de cada automatización (ver lib/automations.ts).
+model Automation {
+  id           String  @id @default(cuid())
+  creatorId    String
+  creator      Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  trigger      String // WELCOME | PURCHASE_RECEIPT | COURSE_ACCESS | SESSION_REMINDER | BOOKING_CONFIRMED | NEW_SUBSCRIPTION | SUBSCRIPTION_CANCELED | ABANDONED_CHECKOUT
+  enabled      Boolean @default(true)
+  delayMinutes Int     @default(0)
+  subject      String?
+  message      String?
+
+  @@unique([creatorId, trigger])
+}
+
+// Bajas del email de compra abandonada (LSSI art. 21.2), por creadora: quien se da de baja con el
+// enlace del email no vuelve a recibir recordatorios de esa creadora. Solo guardamos el hash del email.
+model RecoveryOptOut {
+  id        String   @id @default(cuid())
+  creatorId String
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  emailHash String // sha256 del email en minúsculas (lib/recovery-optout.ts)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt // última vez que confirmó la baja
+
+  @@unique([creatorId, emailHash])
+}
+
+// Bandeja de salida: todo email pasa por aquí (se procesa en /api/cron) con
+// reintentos y backoff (sendAt es el próximo intento) y entrega concurrente segura.
+model EmailMessage {
+  id            String    @id @default(cuid())
+  creatorId     String?
+  userId        String?
+  to            String
+  subject       String
+  html          String
+  template      String
+  status        String    @default("QUEUED") // QUEUED | SENDING | SENT | FAILED | CANCELED
+  sendAt        DateTime  @default(now())
+  sentAt        DateTime?
+  error         String?
+  dedupeKey     String?   @unique
+  attempts      Int       @default(0) // intentos de entrega realizados (máx. 6)
+  lastAttemptAt DateTime?
+  lockedUntil   DateTime? // lease mientras está en SENDING
+  providerId    String? // id del mensaje en el proveedor (Resend)
+  fromName      String? // nombre visible del remitente (p. ej. la creadora)
+  replyTo       String? // respuestas → email de contacto de la creadora
+  headers       Json? // cabeceras extra (List-Unsubscribe de los recordatorios, RFC 8058)
+  createdAt     DateTime  @default(now())
+
+  @@index([status, sendAt])
+  @@index([status, lockedUntil])
+  @@index([creatorId, createdAt])
+}
+
+// Eventos de dominio guardados en la misma transacción que el cambio de negocio.
+// Se procesan al momento tras el commit y, si algo falla, /api/cron los reintenta.
+// Infraestructura: sin creatorId (el panel nunca la lee).
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  type        String // order.paid | customer.created | booking.confirmed | subscription.created | subscription.canceled | checkout.abandoned | …
+  payload     Json // el DomainEvent completo
+  status      String    @default("PENDING") // PENDING | PROCESSING | DONE | DEAD
+  attempts    Int       @default(0)
+  runAt       DateTime  @default(now())
+  lockedUntil DateTime?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([status, runAt])
+  @@index([type, status, createdAt])
+}
+
+// ───────────────────────────── Referidos ─────────────────────────────
+
+model Referral {
+  id          String    @id @default(cuid())
+  referrerId  String
+  referrer    Creator   @relation("ReferralReferrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredId  String    @unique
+  referred    Creator   @relation("ReferralReferred", fields: [referredId], references: [id], onDelete: Cascade)
+  status      String    @default("PENDING") // PENDING | REWARDED
+  rewardType  String? // FREE_MONTH | CREDIT | COMMISSION_DISCOUNT
+  rewardValue Int?
+  createdAt   DateTime  @default(now())
+  rewardedAt  DateTime?
+}
+
+// ───────────────────────────── Legal ─────────────────────────────
+
+// Versión exacta (textos + identidad) de las condiciones de una creadora que aceptó cada compra.
+// Direccionada por contenido: solo se crea una fila nueva cuando cambia algo.
+model LegalSnapshot {
+  id        String   @id @default(cuid())
+  creatorId String
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  hash      String // sha256 hex del JSON canónico de content
+  content   Json // { identity, terms, refunds, privacy, templateVersion }
+  createdAt DateTime @default(now())
+  orders    Order[]
+
+  @@unique([creatorId, hash])
+}
+
+// ───────────────────────────── Facturación ─────────────────────────────
+
+// Facturas emitidas. Inmutables: los errores se corrigen con rectificativas (R1/R5)
+// y una simplificada se sustituye con una F3. Tipos según VERI*FACTU.
+model Invoice {
+  id               String    @id @default(cuid())
+  creatorId        String // tenant: la creadora de la venta o la destinataria de la factura de cuotas
+  creator          Creator   @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  kind             String // SALE (venta a compradora) | FEES (Cirella → creadora: cuota y comisiones)
+  type             String // F1 completa | F2 simplificada | F3 sustituye a F2 | R1 rectificativa | R5 rectificativa de simplificada
+  issuer           String // PLATFORM | CREATOR
+  issuerKey        String // "platform" o creatorId: ámbito de la numeración
+  seriesCode       String // V | S | R (Cirella) · CIR | CIRR (en nombre de la creadora)
+  year             Int
+  number           Int
+  fullNumber       String // V2026-000123
+  issuedAt         DateTime  @default(now())
+  operationDate    DateTime? // fecha de la operación si difiere (cuotas: último día del mes)
+  period           String? // "2026-10" en las facturas FEES
+  orderId          String?
+  order            Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  transactionId    String?
+  buyerUserId      String? // compradora (acceso desde /cuenta)
+  relatedInvoiceId String? // F3 → F2 sustituida · R1/R5 → factura rectificada
+  related          Invoice?  @relation("InvoiceRelated", fields: [relatedInvoiceId], references: [id], onDelete: Restrict)
+  relatedFrom      Invoice[] @relation("InvoiceRelated")
+  // Instantáneas: la factura no cambia aunque cambien los datos
+  issuerName       String
+  issuerTaxId      String?
+  issuerAddress    String?
+  issuerCountry    String
+  recipientName    String?
+  recipientTaxId   String?
+  recipientAddress String?
+  recipientCountry String?
+  recipientEmail   String?
+  currency         String    @default("EUR")
+  lines            Json // [{ description, baseCents, taxCents, totalCents }]
+  baseCents        Int
+  taxRateBps       Int
+  taxCents         Int
+  totalCents       Int
+  taxCountry       String?
+  taxNote          String?
+  // Registro en un sistema VERI*FACTU o servicio certificado (pendiente de decisión: quedan a null)
+  registryRef      String?
+  registryQrUrl    String?
+  dedupeKey        String    @unique // sale:<txId> | full:<orderId> | refund:<txId> | fees:<creatorId>:<yyyy-mm>
+  createdAt        DateTime  @default(now())
+
+  @@unique([issuerKey, seriesCode, year, number])
+  @@index([creatorId, issuedAt])
+  @@index([buyerUserId])
+  @@index([orderId])
+  @@index([issuer, issuedAt])
+}
+
+// Contador correlativo sin huecos: se incrementa en la MISMA transacción que crea la factura
+// (INSERT … ON CONFLICT DO UPDATE … RETURNING). No es de tenant: solo lo usa lib/invoices.
+model InvoiceSeries {
+  id         String @id @default(cuid())
+  issuerKey  String // "platform" | creatorId
+  code       String // V | S | R | CIR | CIRR
+  year       Int
+  nextNumber Int    @default(1)
+
+  @@unique([issuerKey, code, year])
+}
+
+// ───────────────────────────── Infraestructura ─────────────────────────────
+
+// Avisos de la pasarela (webhooks y confirmaciones del simulador): evita procesar dos veces
+// el mismo aviso y deja rastro para soporte. No es una tabla de tenant (como EmailMessage
+// en el panel, nunca se lee filtrando por creadora).
+model PaymentEvent {
+  id          String    @id @default(cuid())
+  provider    String // stripe | simulated
+  eventId     String // evt_… del proveedor
+  type        String // payment_intent.succeeded, account.updated…
+  accountId   String? // cuenta conectada (Connect), si aplica
+  orderId     String?
+  creatorId   String?
+  status      String    @default("RECEIVED") // RECEIVED | PROCESSED | IGNORED | FAILED
+  error       String?
+  attempts    Int       @default(1)
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+
+  @@unique([provider, eventId])
+  @@index([status, receivedAt])
+  @@index([orderId])
+}
+
+// Contadores de límites de intentos (ventana fija). Tabla de infraestructura como Session: sin creatorId.
+// La clave nunca contiene datos personales en claro: "<ámbito>:<hmac>".
+model RateLimit {
+  key     String   @id
+  count   Int      @default(0)
+  resetAt DateTime
+
+  @@index([resetAt])
+}
+
+// Bloqueo con lease para tareas programadas + latido para la monitorización.
+model JobLock {
+  name           String    @id
+  lockedUntil    DateTime
+  lockedBy       String?
+  lastStartedAt  DateTime?
+  lastFinishedAt DateTime?
+  lastOkAt       DateTime?
+  lastError      String?
+  lastResult     Json?
+}
