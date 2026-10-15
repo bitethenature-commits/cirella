@@ -66,7 +66,9 @@ de unos 200 MB son unos 100 GB, alrededor de 1,5 $ al mes.
 3. Ten a mano tu **dominio**. Si aún no tienes, cómpralo en cualquier proveedor de dominios.
 4. Crea una cuenta en **GitHub** (github.com) si no tienes. La persona que tiene el código de
    Cirella te lo pasará a tu cuenta (un *fork* o una copia del repositorio). Railway lo leerá de
-   ahí.
+   ahí. La copia tiene que incluir la rama **`main`**: si haces un *fork*, quita la marca de
+   «Copy the … branch only» (o pide a quien te pasa el código que ponga `main` como rama
+   principal antes).
 5. Ten a mano una **tarjeta**: Railway y Cloudflare te la pedirán al darte de alta.
 
 ---
@@ -254,8 +256,9 @@ se conecta el código.
 
    Si los puntos 3 o 4 no te aparecen todavía, hazlos justo después del siguiente.
 5. En **Settings → Source**, conecta tu repositorio de GitHub (el de Cirella) y comprueba que la
-   rama es **`main`**. Si Railway te pide permiso para ver tus repositorios de GitHub, dáselo
-   (basta con el de Cirella).
+   rama es **`main`** (si no aparece, tu copia no la tiene: mira el punto 4 de «Antes de
+   empezar»). Si Railway te pide permiso para ver tus repositorios de GitHub, dáselo (basta con
+   el de Cirella).
 
    Railway solo publica esa rama: cada vez que cambie en GitHub, vuelve a publicar la web él
    solo. Lo que se pruebe en otras ramas no se publica ni toca tu base de datos.
@@ -329,9 +332,18 @@ funciones). Se puede repetir sin miedo: no duplica nada (sirve también para cam
 3. En Railway, abre **Postgres → Variables** y copia el valor de **`DATABASE_PUBLIC_URL`**. Es
    la dirección de tu base de datos para conectarte desde fuera de Railway (la otra,
    `DATABASE_URL`, solo funciona dentro de Railway).
-4. Dentro de la carpeta del código crea un archivo de texto llamado exactamente **`.env`** (con
-   el punto delante, sin `.txt` al final; en el Bloc de notas de Windows, *Guardar como* → tipo
-   *Todos los archivos*) con estas cinco líneas, con tus valores:
+4. Abre una terminal en la carpeta del código (Mac: clic derecho sobre la carpeta → *Nuevo
+   terminal en la carpeta*; Windows: dentro de la carpeta, escribe `cmd` en la barra de
+   direcciones y pulsa Intro).
+5. Crea en esa carpeta un archivo de texto llamado exactamente **`.env`** (con el punto delante y
+   nada detrás):
+   - **Mac**: en la terminal escribe `touch .env && open -e .env`. Se abre vacío en TextEdit, ya
+     como texto simple.
+   - **Windows**: en la terminal escribe `notepad .env` y di que sí cuando pregunte si quieres
+     crearlo.
+
+   **Pega** (no lo escribas a mano: TextEdit cambia las comillas) estas cinco líneas, cambia los
+   valores por los tuyos y guarda (Cmd+S o Ctrl+S):
 
    ```bash
    DATABASE_URL="la DATABASE_PUBLIC_URL de Railway"
@@ -341,9 +353,7 @@ funciones). Se puede repetir sin miedo: no duplica nada (sirve también para cam
    APP_URL="https://tudominio.com"
    ```
 
-5. Abre una terminal en esa carpeta (Mac: clic derecho sobre la carpeta → *Nuevo terminal en la
-   carpeta*; Windows: dentro de la carpeta, escribe `cmd` en la barra de direcciones y pulsa
-   Intro) y escribe:
+6. En la misma terminal escribe:
 
    ```bash
    npm install
@@ -352,8 +362,8 @@ funciones). Se puede repetir sin miedo: no duplica nada (sirve también para cam
 
    Te pedirá una **contraseña** (mínimo 8 caracteres) dos veces. Mientras la escribes no se ve
    nada en la pantalla: es normal.
-6. Verás tres líneas con ✓. **Borra el archivo `.env`** de tu ordenador cuando termines (tiene la
-   dirección de tu base de datos).
+7. Verás tres líneas con ✓. **Borra el archivo `.env`** cuando termines (tiene la dirección de tu
+   base de datos): en la misma terminal, `rm .env` en Mac o `del .env` en Windows.
 
 **Comprobación:** entra en `https://tudominio.com/entrar` con tu email y tu contraseña. Llegas a
 tu panel. Tu página ya se ve en `https://tudominio.com`.
@@ -442,9 +452,15 @@ servicio en Railway → **Deployments → View logs**: el registro dice qué fal
 clave o la versión de `PG_VERSION`).
 
 **Restaurar una copia** es una tarea técnica. Si algún día hace falta, quien te ayude descarga
-ese archivo y lo vuelca en la base de datos con `pg_restore` o `psql`, usando tu
-`DATABASE_PUBLIC_URL`. Tiene más detalle en «Copias de seguridad» de
-[despliegue.md](despliegue.md).
+de `mi-web-copias` el archivo `.tar.gz` del día que quieras, lo descomprime y lo vuelca con un
+`pg_restore` de la misma versión que tu Postgres (o más nueva), usando tu `DATABASE_PUBLIC_URL`:
+
+```bash
+gunzip backup-….tar.gz
+pg_restore --clean --if-exists --no-owner -d "tu DATABASE_PUBLIC_URL" backup-….tar
+```
+
+(La copia es un `pg_dump` en formato *tar*: con `psql` no se puede restaurar.)
 
 ---
 
@@ -459,7 +475,8 @@ Desde tu panel (`https://tudominio.com/panel`, también en el móvil):
 2. **Mi página**: foto, nombre, frase, enlaces, redes, bloques de texto (sobre mí, servicios…) y
    el diseño. El nombre de tu página es el que se ve en el login, el panel y los emails. Al
    pulsar **Publicar** también pasa a la página «no encontrada» (la que sale si alguien escribe
-   mal una dirección).
+   mal una dirección). Tras cada actualización de la web, esa página se pone al día sola en
+   unos minutos (con las tareas automáticas del paso 8).
 3. **Productos**: elige cómo se consigue cada uno:
    - **Gratis con email**: un curso, una guía, una meditación… La persona deja su nombre y su
      email y entra al momento. Hasta que completes el punto 1 (datos legales) el formulario no

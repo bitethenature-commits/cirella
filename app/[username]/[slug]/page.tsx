@@ -16,7 +16,7 @@ import { getPublicProduct } from "@/lib/product-page";
 import { isPersonalMode } from "@/lib/site-mode";
 import { decideTax } from "@/lib/tax";
 import { getTaxMode } from "@/lib/tax/server";
-import { DEFAULT_CTA, formatCourseLength, LESSON_KIND_LABEL, PRODUCT_TYPE_LABEL, type LessonKind, type ProductType } from "@/lib/types";
+import { DEFAULT_CTA, formatCourseLength, LESSON_KIND_LABEL, lessonsLabel, PRODUCT_TYPE_LABEL, type LessonKind, type ProductType } from "@/lib/types";
 import { formatDate } from "@/lib/tz";
 import { ClaimForm } from "./acceso/claim-form";
 import { ExternalButton } from "./acceso/external-button";
@@ -126,8 +126,13 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           : [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: "Por videollamada" }, { icon: CalendarDays, text: "Eliges día y hora al reservar" }, { icon: RefreshCcw, text: sessionChangePolicyText() }]
         : type === "COURSE"
           ? [
-              { icon: PlayCircle, text: `${lessons} ${lessons === 1 ? "lección" : "lecciones"}${minutes ? ` · ${formatCourseLength(minutes)}` : ""}` },
-              { icon: Sparkles, text: "A tu ritmo, con progreso guardado" },
+              // Un curso que se paga fuera puede no tener lecciones aquí: entonces no se prometen.
+              ...(lessons > 0
+                ? [
+                    { icon: PlayCircle, text: `${lessonsLabel(lessons)}${minutes ? ` · ${formatCourseLength(minutes)}` : ""}` },
+                    { icon: Sparkles, text: "A tu ritmo, con progreso guardado" },
+                  ]
+                : []),
               ...(external ? externalPerk : [{ icon: InfinityIcon, text: free ? "Gratis y para siempre" : "Acceso de por vida" }]),
             ]
           : free

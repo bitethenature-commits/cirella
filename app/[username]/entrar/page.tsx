@@ -21,6 +21,12 @@ const MOTIVOS: Record<string, string> = {
   confirmar: "Confirma tu email para ver tus compras.",
 };
 
+/** Web personal: aquí no se compra nada (la gente se apunta o recibe el acceso). */
+const MOTIVOS_PERSONAL: Record<string, string> = {
+  completa: "Para ver todo lo tuyo, confirma que eres tú con un enlace a tu email.",
+  confirmar: "Confirma tu email para ver tu contenido.",
+};
+
 /**
  * Login de las compradoras con la marca de la creadora: solo enlace por email, sin contraseñas ni
  * «crea tu página». Llegan aquí desde su página («Mi área»), desde un enlace caducado o cuando una
@@ -41,14 +47,15 @@ export default async function CreatorLoginPage({
   const s = await getSession();
   if (s?.verified && !s.orderId && !sp.error && !sp.motivo) redirect(next);
   const error = sp.error && Object.hasOwn(ERRORS, sp.error) ? ERRORS[sp.error] : null;
-  const notice = sp.motivo && Object.hasOwn(MOTIVOS, sp.motivo) ? MOTIVOS[sp.motivo] : null;
+  const motivos = data.personal ? MOTIVOS_PERSONAL : MOTIVOS;
+  const notice = sp.motivo && Object.hasOwn(motivos, sp.motivo) ? motivos[sp.motivo] : null;
 
   return (
     <CreatorShell username={data.creator.username} config={data.config} allowCustom={data.allowCustom} personal={data.personal}>
       <main className="mx-auto max-w-md px-5 pb-20 pt-12">
         <h1 className="cp-display text-[2.6rem] leading-tight">Entra a tu área</h1>
         <p className="cp-muted mt-3 text-[1.02rem]">
-          Te enviamos un enlace a tu email para ver lo que compraste a {data.config.displayName}. Sin contraseñas.
+          Te enviamos un enlace a tu email para ver {data.personal ? "tu contenido de" : "lo que compraste a"} {data.config.displayName}. Sin contraseñas.
         </p>
         <div className="cp-card mt-8 p-5">
           <Flash error={error} ok={error ? null : notice} />

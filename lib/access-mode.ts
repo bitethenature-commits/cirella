@@ -9,6 +9,7 @@
  * Puro (sin BD ni `server-only`): lo usan el panel, la ficha pública, los componentes de cliente y
  * las pruebas unitarias.
  */
+import { safeHref } from "./page-config";
 import type { SiteMode } from "./site-mode";
 
 export const ACCESS_MODES = ["PAID", "FREE_EMAIL", "EXTERNAL"] as const;
@@ -146,19 +147,22 @@ export function resendDedupeKey(orderId: string, now = new Date()): string {
 
 /**
  * ¿Lleva este enlace a la ficha de uno de estos productos de la creadora? («/ana/slug»,
- * «/ana/slug/checkout» o, si se conoce la dirección de la web, «https://tudominio.com/ana/slug»).
- * En la web personal así no se enseñan botones que llevan a un producto oculto («no encontrada»).
+ * «/ana/slug/checkout» o, si se conoce la dirección de la web, «https://tudominio.com/ana/slug»,
+ * «tudominio.com/ana/slug» o con www). Se lee como lo pintará la página (safeHref). En la web
+ * personal así no se enseñan botones que llevan a un producto oculto («no encontrada»).
  */
 export function linksToProduct(url: string, username: string, slugs: ReadonlySet<string>, siteOrigin?: string | null): boolean {
   if (!slugs.size) return false;
-  const value = url.trim();
+  const href = safeHref(url);
   let path: string;
-  if (value.startsWith("/") && !value.startsWith("//")) path = value;
+  if (href.startsWith("/") && !href.startsWith("//")) path = href;
   else {
     if (!siteOrigin) return false;
     try {
-      const u = new URL(value);
-      if (u.host.toLowerCase() !== new URL(siteOrigin).host.toLowerCase()) return false;
+      const origin = new URL(siteOrigin);
+      const u = new URL(href, origin);
+      const bare = (host: string) => host.toLowerCase().replace(/^www\./, "");
+      if (!u.host || bare(u.host) !== bare(origin.host)) return false;
       path = u.pathname;
     } catch {
       return false;

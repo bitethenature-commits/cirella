@@ -48,6 +48,8 @@ type Props = {
   discountCodes: PublicDiscountCode[];
   /** Web personal: sin «Powered by» ni planes. */
   personal: boolean;
+  /** Dirección de la web (APP_URL): la vista previa quita los mismos enlaces que la página publicada. */
+  siteOrigin?: string;
   templates: TemplateKey[];
   allowCustom: boolean;
   allowRemoveBranding: boolean;
@@ -102,6 +104,8 @@ export function PageEditor(props: Props) {
   const [pending, start] = useTransition();
   const [busyAction, setBusyAction] = useState<"save" | "publish" | "preview" | null>(null);
   const router = useRouter();
+  // «Orden de productos»: lo que se ve en la página (en la web personal, sin lo que se cobraba en la web).
+  const orderable = props.personal ? props.products.filter((p) => (p.accessMode ?? "PAID") !== "PAID") : props.products;
 
   const dirty = JSON.stringify(cfg) !== saved;
   const unpublished = JSON.stringify(cfg) !== publishedJson;
@@ -155,6 +159,7 @@ export function PageEditor(props: Props) {
         postCount={props.postCount}
         discountCodes={props.discountCodes}
         personal={props.personal}
+        siteOrigin={props.siteOrigin}
         allowCustom={props.allowCustom}
         showPoweredBy={!props.personal && !(props.allowRemoveBranding && cfg.hidePoweredBy)}
         platformName={props.platformName}
@@ -363,7 +368,7 @@ export function PageEditor(props: Props) {
                   <Link href="/panel/productos" className="btn btn-ghost btn-sm">Gestionar</Link>
                 </div>
                 <ul className="mt-4 space-y-1.5">
-                  {props.products.map((p, i) => (
+                  {orderable.map((p, i) => (
                     <li key={p.id} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm">
                       <span>{p.emoji}</span>
                       <span className="min-w-0 flex-1 truncate">{p.title}</span>
@@ -371,7 +376,7 @@ export function PageEditor(props: Props) {
                         <button
                           key={dir}
                           type="button"
-                          disabled={(dir === "up" && i === 0) || (dir === "down" && i === props.products.length - 1)}
+                          disabled={(dir === "up" && i === 0) || (dir === "down" && i === orderable.length - 1)}
                           onClick={() =>
                             start(async () => {
                               const fd = new FormData();

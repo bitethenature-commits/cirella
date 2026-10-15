@@ -68,7 +68,7 @@ export default async function EntrarPage({ searchParams }: { searchParams: Promi
           demo={demo}
           personal={personal}
           initialError={sp.error ? ERRORS[sp.error] : undefined}
-          notice={motivo ? MOTIVOS[motivo] : undefined}
+          notice={motivo ? (personal && motivo === "completa" ? "Para ver todo lo tuyo, confirma que eres tú con un enlace a tu email." : MOTIVOS[motivo]) : undefined}
           defaultMode={(buyer && sp.modo !== "contrasena") || sp.modo === "enlace" || motivo === "confirmar" ? "magic" : "password"}
           defaultEmail={motivo === "confirmar" && s ? s.user.email : undefined}
         />

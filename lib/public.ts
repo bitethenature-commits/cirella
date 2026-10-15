@@ -11,7 +11,7 @@ import { getSettings } from "./settings";
 import { isPersonalMode, ownerUsername } from "./site-mode";
 import { asTaxMode, decideTax, vatIncluded } from "./tax";
 import { formatDate } from "./tz";
-import { PRODUCT_TYPES, type ProductType } from "./types";
+import { lessonsLabel, PRODUCT_TYPES, type ProductType } from "./types";
 import type { PublicDiscountCode, PublicPost, PublicProduct } from "@/components/creator-page/creator-page-view";
 
 /** La dueña de la web personal tiene todo desbloqueado (sin planes): lo que pinta su página. */
@@ -82,7 +82,7 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
           p.type === "SESSION" && p.durationMin
             ? `${p.durationMin} min`
             : p.type === "COURSE" && p._count.lessons
-              ? `${p._count.lessons} lecciones`
+              ? lessonsLabel(p._count.lessons)
               : null,
         // Lo gratuito y lo que se paga fuera no llevan IVA aquí (no se cobra en esta web).
         vatIncluded:

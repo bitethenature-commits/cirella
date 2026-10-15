@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CreatorPageView } from "@/components/creator-page/creator-page-view";
 import { Reveal } from "@/components/reveal";
 import { requireCreator } from "@/lib/auth";
+import { appUrl } from "@/lib/env";
 import { getPublicCreator } from "@/lib/public";
 
 /**
@@ -42,6 +43,7 @@ export default async function DraftPreviewPage() {
         postCount={data.postCount}
         discountCodes={data.discountCodes}
         personal={data.personal}
+        siteOrigin={appUrl()}
       />
       <Reveal />
     </>

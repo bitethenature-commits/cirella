@@ -157,7 +157,8 @@ export function CreatorPageView(props: Props) {
           <section key={key} id="bloques" className="mt-14 space-y-4" {...reveal}>
             {heading && <SectionHeading title={heading} />}
             {blocks.map((b) => {
-              const href = b.buttonUrl ? safeHref(b.buttonUrl) : null;
+              // Sin botón hacia lo que no se ve (un producto oculto en la web personal); el texto se queda.
+              const href = b.buttonUrl && !linksToProduct(b.buttonUrl, username, hiddenSlugs, props.siteOrigin) ? safeHref(b.buttonUrl) : null;
               // Las webs de fuera, en otra pestaña; los enlaces internos y mailto:/tel:, en la misma.
               const newTab = !!href && /^https?:/i.test(href);
               return (

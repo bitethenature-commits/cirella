@@ -99,6 +99,11 @@ export function isCodeEvent(type: string): type is CodeEventType {
   return (CODE_EVENT_TYPES as readonly string[]).includes(type);
 }
 
+/** «1 lección», «3 lecciones». */
+export function lessonsLabel(n: number): string {
+  return `${n} ${n === 1 ? "lección" : "lecciones"}`;
+}
+
 /** Duración de un curso: «45 min», «1 h», «1,5 h» (coma decimal, como el resto de la web). */
 export function formatCourseLength(minutes: number): string {
   if (minutes < 60) return `${Math.max(1, Math.round(minutes))} min`;

@@ -5,7 +5,7 @@
  */
 import { accessModeOptions, linksToProduct, resolveAccessMode } from "../../lib/access-mode";
 import { buildEnvDrift, buildEnvSnapshot } from "../../lib/security-headers";
-import { formatCourseLength } from "../../lib/types";
+import { formatCourseLength, lessonsLabel } from "../../lib/types";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { eq, ok, test } from "./harness";
@@ -31,6 +31,13 @@ test("enlace relativo con más ruta, consulta o mayúsculas", () =>
   ));
 test("enlace absoluto a la propia web (con la dirección de la web)", () =>
   eq(linksToProduct("https://tudominio.com/ana/curso-conocete-tu-energia", "ana", hidden, "https://tudominio.com"), true));
+test("enlace a la propia web sin https://, con // o con www (la página lo pinta así)", () =>
+  eq(
+    ["tudominio.com/ana/curso-conocete-tu-energia", "//tudominio.com/ana/curso-conocete-tu-energia", "https://www.tudominio.com/ana/curso-conocete-tu-energia", "www.tudominio.com/ana/curso-conocete-tu-energia"].map((u) =>
+      linksToProduct(u, "ana", hidden, "https://tudominio.com"),
+    ),
+    [true, true, true, true],
+  ));
 test("enlace absoluto a otra web con la misma ruta: no es de aquí", () =>
   eq(linksToProduct("https://otra.com/ana/curso-conocete-tu-energia", "ana", hidden, "https://tudominio.com"), false));
 test("enlace absoluto sin conocer la dirección de la web: no se toca", () => eq(linksToProduct("https://tudominio.com/ana/curso-conocete-tu-energia", "ana", hidden), false));
@@ -43,6 +50,7 @@ test("sin productos ocultos, ningún enlace se quita", () => eq(linksToProduct("
 
 // ── Duración del curso ──
 test("duración: minutos por debajo de una hora", () => eq([formatCourseLength(30), formatCourseLength(45), formatCourseLength(0.4)], ["30 min", "45 min", "1 min"]));
+test("lecciones: singular y plural", () => eq([lessonsLabel(1), lessonsLabel(3)], ["1 lección", "3 lecciones"]));
 test("duración: horas con coma decimal", () => eq([formatCourseLength(60), formatCourseLength(90), formatCourseLength(135)], ["1 h", "1,5 h", "2,3 h"]));
 
 // ── Variables que fija el build ──

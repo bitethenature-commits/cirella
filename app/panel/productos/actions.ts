@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
+  ACCESS_MODE_LABEL,
   ACCESS_MODES,
+  accessModesFor,
   asAccessMode,
   defaultAccessMode,
   EXTERNAL_LABEL_MAX,
@@ -181,8 +183,10 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
   refresh(product.id);
   revalidatePath(`/${creator.username}`);
   // En la web personal lo que se cobraba en la web se guarda tal cual, pero no se ve: se dice.
-  if (accessMode === "PAID" && siteMode() === "personal")
-    return { ok: "Guardado. No se ve en tu página: en tu web no se cobra nada. Elige «Gratis con email» o «Pago en otra web» para que aparezca." };
+  if (accessMode === "PAID" && siteMode() === "personal") {
+    const choices = accessModesFor("personal", product.type).map((m) => `«${ACCESS_MODE_LABEL[m]}»`).join(" o ");
+    return { ok: `Guardado. No se ve en tu página: en tu web no se cobra nada. Elige ${choices} para que aparezca.` };
+  }
   return { ok: d.status === "PUBLISHED" ? "Guardado y publicado en tu página" : "Guardado como borrador" };
 }
 
@@ -193,8 +197,10 @@ export async function moveProduct(form: FormData) {
   const list = await db.product.findMany({ where: { status: { not: "ARCHIVED" } }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] });
   const i = list.findIndex((p) => p.id === id);
   let j = i + dir;
-  // Desde el editor solo se ven los productos publicados: saltamos los ocultos.
-  if (form.get("visible") === "1") while (j >= 0 && j < list.length && list[j].status !== "PUBLISHED") j += dir;
+  // Desde el editor solo se ven los productos de la página: saltamos los ocultos (borradores y, en la
+  // web personal, lo que se cobraba en la web).
+  const hidden = (p: (typeof list)[number]) => p.status !== "PUBLISHED" || (siteMode() === "personal" && asAccessMode(p.accessMode) === "PAID");
+  if (form.get("visible") === "1") while (j >= 0 && j < list.length && hidden(list[j])) j += dir;
   if (i < 0 || j < 0 || j >= list.length) return;
   [list[i], list[j]] = [list[j], list[i]];
   await Promise.all(list.map((p, idx) => db.product.update({ where: { id: p.id }, data: { sortOrder: idx + 1 } })));
