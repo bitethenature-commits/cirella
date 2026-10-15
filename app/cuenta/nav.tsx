@@ -13,11 +13,13 @@ const ITEMS = [
   { href: "/cuenta/soporte", label: "Soporte" },
 ];
 
-export function AccountNav() {
+/** `personal`: web personal (SITE_MODE=personal), donde no se compra: «Mis compras» es «Mi historial». */
+export function AccountNav({ personal = false }: { personal?: boolean } = {}) {
   const path = usePathname();
+  const items = personal ? ITEMS.map((i) => (i.href === "/cuenta/compras" ? { ...i, label: "Mi historial" } : i)) : ITEMS;
   return (
     <nav className="-mx-5 flex gap-1 overflow-x-auto px-5 scrollbar-none" aria-label="Área de cliente">
-      {ITEMS.map((i) => {
+      {items.map((i) => {
         const active = i.href === "/cuenta" ? path === "/cuenta" : path.startsWith(i.href);
         return (
           <Link

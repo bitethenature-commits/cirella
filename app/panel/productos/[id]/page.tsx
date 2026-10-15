@@ -4,23 +4,35 @@ import { ArrowLeft, CalendarDays, ExternalLink, Trash2 } from "lucide-react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { DeliveryAlert } from "@/components/ui/delivery-alert";
 import { Flash } from "@/components/ui/flash";
+import { accessModesFor, asAccessMode, hostsContent, NO_CHARGE_LABEL, NO_CHARGE_PROVIDERS, type NoChargeProvider } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { deliveryFacts, deliveryIssue, deliveryIssueCopy } from "@/lib/delivery";
 import { appHost } from "@/lib/env";
 import { canSellType } from "@/lib/plans";
+import { siteMode } from "@/lib/site-mode";
 import { asVatStatus } from "@/lib/tax";
 import { getTaxMode } from "@/lib/tax/server";
 import { tenantDb } from "@/lib/tenant";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { deleteProduct } from "../actions";
 import { Badge } from "../../ui";
+import { AccessManager } from "./access-manager";
 import { CourseBuilder } from "./course-builder";
 import { FilesManager } from "./files-manager";
 import { PostsManager } from "./posts-manager";
 import { ProductForm } from "./product-form";
 import { formatDate } from "@/lib/tz";
 
-export default async function EditProductPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ nuevo?: string; error?: string }> }) {
+/** Cuántas personas con acceso se listan en la ficha (el resto, en Inscripciones). */
+const ACCESS_ROWS = 50;
+
+export default async function EditProductPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ nuevo?: string; error?: string; acceso?: string }>;
+}) {
   const { id } = await params;
   const sp = await searchParams;
   const { creator } = await requireCreator();
@@ -44,6 +56,38 @@ export default async function EditProductPage({ params, searchParams }: { params
     }),
   );
   const issueCopy = issue ? deliveryIssueCopy(issue, product.title) : null;
+  const mode = siteMode();
+  const accessMode = asAccessMode(product.accessMode);
+  // Gratis o pagado fuera, con contenido aquí: se ve quién tiene acceso y se puede dar o quitar.
+  const managesAccess = accessMode !== "PAID" && hostsContent(type);
+  const noCharge = { productId: id, paymentProvider: { in: [...NO_CHARGE_PROVIDERS] }, status: "PAID" };
+  const [accessOrders, accessTotal, paidSales] = managesAccess
+    ? await Promise.all([
+        db.order.findMany({
+          where: noCharge,
+          orderBy: { paidAt: "desc" },
+          take: ACCESS_ROWS,
+          select: { id: true, buyerName: true, buyerEmail: true, paidAt: true, paymentProvider: true, customer: { select: { userId: true } } },
+        }),
+        db.order.count({ where: noCharge }),
+        db.order.count({ where: { productId: id, status: "PAID", paymentProvider: { notIn: [...NO_CHARGE_PROVIDERS] } } }),
+      ])
+    : [[], 0, product._count.orders];
+  const activeAccess = managesAccess
+    ? await db.access.findMany({
+        where: { productId: id, status: "ACTIVE", orderId: { in: accessOrders.map((o) => o.id) } },
+        select: { orderId: true },
+      })
+    : [];
+  const activeOrders = new Set(activeAccess.map((a) => a.orderId));
+  const accessRows = accessOrders.map((o) => ({
+    orderId: o.id,
+    name: o.buyerName,
+    email: o.buyerEmail,
+    date: o.paidAt ? formatDate(o.paidAt, { day: "numeric", month: "short", year: "numeric" }, creator.timezone) : "—",
+    origin: NO_CHARGE_LABEL[o.paymentProvider as NoChargeProvider] ?? o.paymentProvider,
+    active: activeOrders.has(o.id),
+  }));
 
   return (
     <div>
@@ -56,7 +100,11 @@ export default async function EditProductPage({ params, searchParams }: { params
           <h1 className="display mt-1 text-[2.3rem] leading-tight">{product.emoji} {product.title}</h1>
           <div className="mt-2 flex items-center gap-2">
             {product.status === "PUBLISHED" ? <Badge tone="success">Publicado</Badge> : product.status === "ARCHIVED" ? <Badge>Archivado</Badge> : <Badge tone="warning">Borrador</Badge>}
-            <span className="text-xs text-muted">{product._count.orders} ventas</span>
+            <span className="text-xs text-muted">
+              {managesAccess
+                ? `${accessTotal} ${accessTotal === 1 ? "persona con acceso" : "personas con acceso"}${paidSales ? ` · ${paidSales} ${paidSales === 1 ? "venta" : "ventas"}` : ""}`
+                : `${product._count.orders} ventas`}
+            </span>
           </div>
         </div>
         <div className="flex gap-2">
@@ -75,6 +123,8 @@ export default async function EditProductPage({ params, searchParams }: { params
         <Flash error="Es lo último que entregas en un producto publicado. Sube otro antes de borrarlo o pasa el producto a borrador." />
       )}
       {sp.error === "sin-entrega" && issueCopy?.publishError && <Flash error={issueCopy.publishError} />}
+      {sp.acceso === "quitado" && <Flash ok="Acceso retirado. Sus enlaces ya no funcionan." />}
+      {sp.error === "acceso" && <Flash error="No hemos encontrado ese acceso." />}
       {issue && issueCopy && (
         <div className="mb-5">
           <DeliveryAlert title={issueCopy.title} text={issueCopy.text} cta={issueCopy.cta} href={`#${issue.anchor}`} tone={issue.blocking ? "block" : "warn"} />
@@ -87,9 +137,11 @@ export default async function EditProductPage({ params, searchParams }: { params
         username={creator.username}
         commissionBps={creator.plan.commissionBps}
         taxPreview={{ mode: await getTaxMode(), country: creator.legalCountry, vatStatus: asVatStatus(creator.vatStatus) }}
+        accessModes={accessModesFor(mode, type)}
       />
 
       <div className="mt-5 space-y-5 lg:max-w-[calc(100%-340px)]">
+        {managesAccess && <AccessManager productId={product.id} rows={accessRows} total={accessTotal} external={accessMode === "EXTERNAL"} />}
         {type === "DIGITAL" && (
           <FilesManager productId={product.id} files={product.files} title="Archivos que se entregan" hint="PDF, audio, vídeo, ebook… Tus clientas los descargan desde su cuenta justo después de pagar." />
         )}
@@ -114,7 +166,7 @@ export default async function EditProductPage({ params, searchParams }: { params
             />
           </div>
         )}
-        {type === "SESSION" && (
+        {type === "SESSION" && accessMode !== "EXTERNAL" && (
           <section className="card flex flex-wrap items-center gap-4 p-5">
             <CalendarDays className="h-6 w-6 text-lavender-deep" />
             <div className="min-w-0 flex-1">

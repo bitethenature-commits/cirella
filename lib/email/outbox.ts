@@ -1,9 +1,13 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
+import { appHost } from "../env";
 import { captureAlert, captureError } from "../monitoring";
+import { readPageConfig } from "../page-config";
+import { getOwnerCreator, isPersonalMode } from "../site-mode";
 import { nextAttemptAt, truncateError } from "../reliability";
 import { storedHeaders } from "./headers";
 import { emailProvider } from "./provider";
+import { esc, SITE_NAME_TOKEN } from "./templates";
 
 /**
  * Bandeja de salida de emails.
@@ -53,14 +57,17 @@ export async function enqueueEmail(input: EnqueueInput) {
     else if (exists) return exists;
   }
   const to = input.to.toLowerCase();
-  const sender = await senderFor(input, to);
+  const site = await personalSiteName();
+  const sender = await senderFor(input, to, site);
+  const subject = site ? input.subject.replaceAll(SITE_NAME_TOKEN, site) : input.subject;
+  const html = site ? input.html.replaceAll(SITE_NAME_TOKEN, esc(site)) : input.html;
   let msg;
   try {
     msg = await prisma.emailMessage.create({
       data: {
         to,
-        subject: input.subject,
-        html: input.html,
+        subject,
+        html,
         template: input.template,
         creatorId: input.creatorId ?? null,
         userId: input.userId ?? null,
@@ -90,17 +97,32 @@ export async function enqueueEmail(input: EnqueueInput) {
   return msg;
 }
 
-/** Remitente y reply-to: la creadora firma los emails a sus clientas; los avisos a ella, la plataforma. */
-async function senderFor(input: EnqueueInput, to: string) {
+/**
+ * Web personal (SITE_MODE=personal): el nombre de la página de la dueña, que sustituye a «Cirella»
+ * en los emails (SITE_NAME_TOKEN de lib/email/templates.ts) y firma los que no son de una creadora.
+ * null en la plataforma.
+ */
+async function personalSiteName(): Promise<string | null> {
+  if (!isPersonalMode()) return null;
+  const owner = await getOwnerCreator().catch(() => null);
+  if (!owner) return appHost();
+  return readPageConfig(owner.pagePublished ?? owner.pageDraft, owner.displayName).displayName || owner.displayName;
+}
+
+/**
+ * Remitente y reply-to: la creadora firma los emails a sus clientas; los avisos a ella, la plataforma
+ * (en la web personal, el nombre de su página: allí no aparece Cirella).
+ */
+async function senderFor(input: EnqueueInput, to: string, site: string | null) {
   if (input.fromName !== undefined || input.replyTo !== undefined || !input.creatorId)
-    return { fromName: input.fromName ?? null, replyTo: input.replyTo ?? null };
+    return { fromName: input.fromName ?? site ?? null, replyTo: input.replyTo ?? null };
   const creator = await prisma.creator.findUnique({
     where: { id: input.creatorId },
     select: { displayName: true, contactEmail: true, user: { select: { email: true } } },
   });
-  if (!creator) return { fromName: null, replyTo: null };
+  if (!creator) return { fromName: site, replyTo: null };
   const replyTo = (creator.contactEmail || creator.user.email).toLowerCase();
-  if (replyTo === to) return { fromName: null, replyTo: null };
+  if (replyTo === to) return { fromName: site, replyTo: null };
   return { fromName: creator.displayName, replyTo };
 }
 

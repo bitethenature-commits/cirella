@@ -6,11 +6,13 @@ import { legalIdentityComplete } from "@/lib/legal";
 import { captureError } from "@/lib/monitoring";
 import { paymentProvider } from "@/lib/payments";
 import { payoutOnboardingLink } from "@/lib/payouts";
+import { isPersonalMode } from "@/lib/site-mode";
 
 const back = (k: "ok" | "error", msg: string) => redirect(`/panel/ajustes/cobros?${k}=${encodeURIComponent(msg)}`);
 
 /** Conectar o completar la cuenta de cobro: al formulario de Stripe (o al simulador). */
 export async function startPayoutOnboarding() {
+  if (isPersonalMode()) redirect("/panel/ajustes");
   const { creator } = await requireCreator();
   // Sin datos legales no se puede vender (LSSI art. 10): primero /panel/ajustes/legal.
   if (!legalIdentityComplete(creator)) back("error", "Completa tus datos legales para activar los cobros");
@@ -26,6 +28,7 @@ export async function startPayoutOnboarding() {
 
 /** Panel Express de Stripe: ingresos, transferencias y datos bancarios de la creadora. */
 export async function openPayoutDashboard() {
+  if (isPersonalMode()) redirect("/panel/ajustes");
   const { creator } = await requireCreator();
   if (!creator.payoutAccountId) back("error", "Aún no tienes cuenta de cobro.");
   let url: string | null = null;

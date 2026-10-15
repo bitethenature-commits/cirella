@@ -9,6 +9,7 @@ import { PAYOUT_STATUS_LABEL } from "@/lib/types";
 import { Badge, PageHeader } from "../../panel/ui";
 import { setCreatorPlan, setCreatorStatus } from "../actions";
 import { AdminTable, td } from "../ui";
+import { platformOnly } from "../platform-only";
 
 const PAYOUT_TONE: Record<PayoutStatus, "success" | "warning" | "danger" | "neutral"> = {
   ACTIVE: "success",
@@ -30,6 +31,7 @@ const FUNNEL: [PayoutStatus, string][] = [
 ];
 
 export default async function AdminCreators({ searchParams }: { searchParams: Promise<{ ok?: string; q?: string; cobros?: string }> }) {
+  platformOnly();
   await requireAdmin();
   const sp = await searchParams;
   const payoutFilter = (PAYOUT_STATUSES as string[]).includes(sp.cobros ?? "") ? sp.cobros : undefined;

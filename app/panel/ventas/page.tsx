@@ -1,27 +1,37 @@
 import Link from "next/link";
 import { Download, Receipt } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty";
+import { NO_CHARGE_PROVIDERS } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { orderBreakdown } from "@/lib/order-breakdown";
 import { orderStatusLabel } from "@/lib/refund-math";
+import { isPersonalMode } from "@/lib/site-mode";
 import { rangeStart, parseRange } from "@/lib/stats";
 import { tenantDb } from "@/lib/tenant";
 import { DISPUTE_STATUS_LABEL, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { Badge, PageHeader, RangeTabs, Stat } from "../ui";
 import { formatDate } from "@/lib/tz";
+import { SignupsView } from "./inscripciones";
 
 /** Filas REFUND del libro de cada pedido: el IVA que se devolvió con cada reembolso. */
 const REFUND_ROWS = { where: { type: "REFUND", refundId: { not: null } }, select: { amountCents: true, taxCents: true } } as const;
 
 const TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = { PAID: "success", PENDING: "warning", PROCESSING: "warning", FAILED: "danger", ABANDONED: "neutral", REFUNDED: "neutral" };
 
-export default async function SalesPage({ searchParams }: { searchParams: Promise<{ rango?: string; estado?: string }> }) {
+/** Ventas = pedidos con cobro. Los de 0 € (gratis con email o acceso dado a mano) van en Inscripciones. */
+const CHARGED = { paymentProvider: { notIn: [...NO_CHARGE_PROVIDERS] } };
+
+export default async function SalesPage({ searchParams }: { searchParams: Promise<{ rango?: string; estado?: string; producto?: string }> }) {
   const { creator } = await requireCreator();
   const sp = await searchParams;
   const range = parseRange(sp.rango);
   const since = rangeStart(range, creator.timezone);
   const db = tenantDb(creator.id);
+  // Web personal: no se vende nada aquí, «Ventas» es la lista de inscripciones.
+  const personal = isPersonalMode();
+  if (personal || sp.estado === "inscripciones")
+    return <SignupsView creatorId={creator.id} timezone={creator.timezone} range={range} since={since} productId={sp.producto || null} personal={personal} />;
   // «Pagados» incluye los reembolsados en parte (siguen PAID); «Reembolsados», todo lo que tiene devoluciones.
   const filter =
     sp.estado === "todos"
@@ -31,9 +41,9 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         : sp.estado === "reembolsados"
           ? { refundedCents: { gt: 0 } }
           : { status: "PAID" };
-  const [orders, settled] = await Promise.all([
+  const [orders, settled, signups] = await Promise.all([
     db.order.findMany({
-      where: { ...filter, ...(since ? { createdAt: { gte: since } } : {}) },
+      where: { ...filter, ...CHARGED, ...(since ? { createdAt: { gte: since } } : {}) },
       orderBy: { createdAt: "desc" },
       take: 200,
       include: {
@@ -44,7 +54,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
     }),
     // Cifras del periodo descontando los reembolsos (se restan del mes de la venta).
     db.order.findMany({
-      where: { status: { in: ["PAID", "REFUNDED"] }, ...(since ? { paidAt: { gte: since } } : {}) },
+      where: { status: { in: ["PAID", "REFUNDED"] }, ...CHARGED, ...(since ? { paidAt: { gte: since } } : {}) },
       select: {
         status: true,
         amountCents: true,
@@ -56,6 +66,8 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         transactions: REFUND_ROWS,
       },
     }),
+    // ¿Hay inscripciones gratis (productos gratis con email)? Entonces, su pestaña.
+    db.order.count({ where: { status: "PAID", paymentProvider: { in: [...NO_CHARGE_PROVIDERS] } } }),
   ]);
   // Mismo desglose que el detalle del pedido (lib/order-breakdown): brutos − IVA de Cirella − comisión = recibes.
   const figures = settled.map((o) => orderBreakdown(o, o.transactions));
@@ -70,6 +82,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
     ["reembolsados", "Reembolsados"],
     ["abandonados", "Sin completar"],
     ["todos", "Todos"],
+    ...(signups > 0 ? [["inscripciones", "Inscripciones gratis"]] : []),
   ];
   const current = sp.estado ?? "pagados";
   return (

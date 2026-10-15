@@ -11,10 +11,12 @@ import { PRODUCT_TYPE_LABEL, PRODUCT_TYPES } from "@/lib/types";
 import { Badge, PageHeader } from "../../../panel/ui";
 import { AdminTable, td } from "../../ui";
 import { saveDac7Types } from "./actions";
+import { platformOnly } from "../../platform-only";
 
 const eur = (cents: number) => formatMoney(cents, "EUR", { decimals: true });
 
 export default async function AdminDac7({ searchParams }: { searchParams: Promise<{ anio?: string; ok?: string }> }) {
+  platformOnly();
   await requireAdmin();
   const sp = await searchParams;
   const year = parseDac7Year(sp.anio);

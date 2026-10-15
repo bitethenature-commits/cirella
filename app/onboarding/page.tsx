@@ -12,6 +12,7 @@ import { getSettings } from "@/lib/settings";
 import { asTaxMode, asVatStatus } from "@/lib/tax";
 import { defaultPageConfig, readPageConfig } from "@/lib/page-config";
 import { planFeatures } from "@/lib/plans";
+import { isPersonalMode } from "@/lib/site-mode";
 import { TEMPLATE_KEYS, type TemplateKey } from "@/lib/templates";
 import type { ProductType } from "@/lib/types";
 import { OnboardingWizard, type WizardInit } from "./wizard";
@@ -28,6 +29,8 @@ export default async function OnboardingPage() {
     },
   });
   if (creator?.onboardedAt) redirect("/panel");
+  // Modo personal: nadie crea páginas nuevas (la cuenta de la dueña la crea `npm run personal:setup`).
+  if (isPersonalMode()) redirect("/entrar?error=cerrado");
 
   const [categories, templates, defaultPlan, settings] = await Promise.all([
     prisma.category.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),

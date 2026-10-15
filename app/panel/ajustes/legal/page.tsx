@@ -8,8 +8,9 @@ import { requireCreator } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { creatorLegalHref } from "@/lib/legal";
 import { legalIdentityOf } from "@/lib/legal-snapshot";
-import { currentLegalDocs } from "@/lib/legal-templates";
+import { currentLegalDocs, currentPersonalPrivacy } from "@/lib/legal-templates";
 import { getSettings } from "@/lib/settings";
+import { isPersonalMode } from "@/lib/site-mode";
 import { PageHeader } from "../../ui";
 import { saveLegalIdentityForm } from "./actions";
 import { LegalDocsEditor } from "./legal-docs-editor";
@@ -23,6 +24,9 @@ export default async function LegalSettingsPage({ searchParams }: { searchParams
   // Se lee la fila actual: la de la sesión puede ser anterior al último guardado.
   const [creator, { platformName }] = await Promise.all([prisma.creator.findUniqueOrThrow({ where: { id: session.id } }), getSettings()]);
   const docs = currentLegalDocs(creator, platformName);
+  // Modo personal: aquí no se vende nada; solo aviso legal y privacidad (con su propia plantilla).
+  const personal = isPersonalMode();
+  if (personal) docs.privacy = currentPersonalPrivacy(creator);
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -31,7 +35,11 @@ export default async function LegalSettingsPage({ searchParams }: { searchParams
       </Link>
       <PageHeader
         title="Datos legales"
-        subtitle="La ley obliga a mostrar quién vende en tu página y en cada compra. Sin estos datos no se pueden activar los cobros."
+        subtitle={
+          personal
+            ? "La ley obliga a identificar a la titular de una web con actividad profesional: tu nombre, NIF, dirección y email salen en tu aviso legal."
+            : "La ley obliga a mostrar quién vende en tu página y en cada compra. Sin estos datos no se pueden activar los cobros."
+        }
         actions={
           <a href={creatorLegalHref(creator.username)} target="_blank" rel="noopener" className="btn btn-outline btn-sm">
             Ver mi página legal <ExternalLink className="h-3.5 w-3.5" />
@@ -42,7 +50,7 @@ export default async function LegalSettingsPage({ searchParams }: { searchParams
 
       <form action={saveLegalIdentityForm} className="card space-y-4 p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 font-semibold"><Scale className="h-4 w-4" /> Quién vende</h2>
+          <h2 className="flex items-center gap-2 font-semibold"><Scale className="h-4 w-4" /> {personal ? "Titular de la web" : "Quién vende"}</h2>
           <LegalIdentityStatus creator={creator} />
         </div>
         <LegalIdentityFields defaults={legalIdentityOf(creator)} contactFallback={creator.contactEmail ?? user.email} />
@@ -51,7 +59,7 @@ export default async function LegalSettingsPage({ searchParams }: { searchParams
 
       <section className="card space-y-4 p-5 sm:p-6">
         <div>
-          <h2 className="flex items-center gap-2 font-semibold"><FileText className="h-4 w-4" /> Tus condiciones y políticas</h2>
+          <h2 className="flex items-center gap-2 font-semibold"><FileText className="h-4 w-4" /> {personal ? "Tu política de privacidad" : "Tus condiciones y políticas"}</h2>
           <p className="mt-1 text-sm text-muted">
             Partimos de plantillas pensadas para España. Puedes adaptarlas; te recomendamos revisarlas con tu asesoría. Lo que escribas aquí es responsabilidad tuya.
           </p>
@@ -59,6 +67,7 @@ export default async function LegalSettingsPage({ searchParams }: { searchParams
         <LegalDocsEditor
           docs={docs}
           custom={{ terms: creator.legalTerms !== null, refunds: creator.legalRefunds !== null, privacy: creator.legalPrivacy !== null }}
+          only={personal ? ["privacy"] : undefined}
         />
       </section>
     </div>

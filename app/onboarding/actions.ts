@@ -15,7 +15,8 @@ import { parseMoneyToCents } from "@/lib/money";
 import { captureError } from "@/lib/monitoring";
 import { canAcceptPayments, payoutOnboardingLink } from "@/lib/payouts";
 import { canSellType } from "@/lib/plans";
-import { normalizeUsername } from "@/lib/slug";
+import { isPersonalMode } from "@/lib/site-mode";
+import { normalizeUsername, RESERVED_PRODUCT_SLUGS } from "@/lib/slug";
 import { privateKey, storage } from "@/lib/storage";
 import { TEMPLATE_KEYS } from "@/lib/templates";
 import { tenantDb } from "@/lib/tenant";
@@ -24,6 +25,8 @@ import { DEFAULT_CTA, PRODUCT_TYPES, type ProductType } from "@/lib/types";
 type Result = { ok: true; data?: Record<string, unknown> } | { ok: false; error: string };
 
 async function currentCreator() {
+  // Modo personal: el asistente está cerrado (ver app/onboarding/page.tsx).
+  if (isPersonalMode()) redirect("/entrar?error=cerrado");
   const user = await requireUser("/onboarding");
   const creator = await prisma.creator.findUnique({ where: { userId: user.id }, include: { plan: true } });
   if (creator?.status === "BLOCKED") redirect("/entrar?error=bloqueada");
@@ -149,7 +152,8 @@ export async function saveFirstProduct(input: z.infer<typeof productSchema>): Pr
     if (!existing) return { ok: false, error: "Producto no encontrado" };
     // Un producto que ya no está en borrador no cambia de tipo (pedidos, accesos y reservas dependen de él).
     if (existing.status !== "DRAFT" && existing.type !== p.type) return { ok: false, error: "Hazlo desde el panel" };
-    const slug = existing.title !== p.title ? await uniqueProductSlug(creator.id, p.title, existing.id) : existing.slug;
+    // Un slug que ha pasado a estar reservado (p. ej. «novedades») se recalcula aunque no cambie el título.
+    const slug = existing.title !== p.title || RESERVED_PRODUCT_SLUGS.has(existing.slug) ? await uniqueProductSlug(creator.id, p.title, existing.id) : existing.slug;
     await db.product.update({ where: { id: existing.id }, data: { ...data, slug } });
     return { ok: true, data: { productId: existing.id } };
   }

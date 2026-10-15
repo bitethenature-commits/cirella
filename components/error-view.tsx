@@ -3,11 +3,12 @@ import { startTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RotateCw } from "lucide-react";
-import { LogoMark } from "@/components/logo";
+import { SiteMark } from "@/components/site-brand-context";
 
 /**
  * Pantalla de error genérica (solo presentación). La usan los error.tsx de la app:
- * siempre ofrece reintentar y una salida, y muestra el código del error para soporte.
+ * siempre ofrece reintentar y una salida, y muestra el código del error para soporte. El símbolo es
+ * el de la marca del sitio (en modo personal, el de la dueña) salvo que se pase `mark` (null = ninguno).
  */
 export function ErrorView({
   title,
@@ -19,6 +20,7 @@ export function ErrorView({
   homeLabel,
   dark = false,
   fullScreen = true,
+  mark,
 }: {
   title: string;
   text: string;
@@ -30,6 +32,7 @@ export function ErrorView({
   dark?: boolean;
   /** false dentro de un layout con navegación (panel, cuenta): no ocupa toda la pantalla. */
   fullScreen?: boolean;
+  mark?: React.ReactNode;
 }) {
   const Root = fullScreen ? "main" : "div";
   return (
@@ -38,7 +41,7 @@ export function ErrorView({
         dark ? "bg-ink text-cream" : fullScreen ? "bg-paper" : ""
       }`}
     >
-      <LogoMark className="h-10 w-10" />
+      {mark === undefined ? <SiteMark className="h-10 w-10" dark={dark} /> : mark}
       <h1 className="display mt-6 text-balance text-3xl sm:text-4xl">{title}</h1>
       <p className={`mt-3 max-w-sm text-sm ${dark ? "text-cream/70" : "text-muted"}`}>{text}</p>
       {extra && <div className={`mt-3 max-w-sm text-sm ${dark ? "text-cream/70" : "text-muted"}`}>{extra}</div>}

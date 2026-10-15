@@ -20,7 +20,17 @@ export async function register() {
     process.exit(1);
   }
   console.info(`[cirella] Entorno ${e.APP_ENV} · pagos: ${e.PAYMENT_PROVIDER} · email: ${e.EMAIL_PROVIDER} · archivos: ${e.STORAGE_DRIVER}`);
-  if (e.DEMO_MODE === "true") console.warn("[cirella] Modo demo activo: pagos simulados, buzón /dev/correo y accesos rápidos.");
+  if (e.APP_ENV === "production") {
+    // Lo que el build dejó fijado (cabeceras de seguridad, modo del sitio) frente a las variables de ahora.
+    const { buildEnvDrift } = await import("./lib/security-headers");
+    const drift = buildEnvDrift(process.env.CIRELLA_BUILD_ENV);
+    if (drift.length)
+      console.error(
+        `[cirella] Estas variables han cambiado desde que se compiló la web: ${drift.join(", ")}. Vuelve a desplegar con build para que cuenten (en Railway, «Deploy» de los cambios pendientes o «Redeploy»; en Vercel, «Redeploy»): hasta entonces, por ejemplo, la subida de archivos o las cabeceras de seguridad pueden fallar.`,
+      );
+  }
+  if (e.DEMO_MODE === "true")
+    console.warn(`[cirella] Modo demo activo: ${e.PAYMENT_PROVIDER === "simulated" ? "pagos simulados, " : ""}buzón /dev/correo y accesos rápidos.`);
   const { initMonitoring } = await import("./lib/monitoring");
   await initMonitoring();
 }

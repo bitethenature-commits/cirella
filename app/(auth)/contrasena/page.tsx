@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Flash } from "@/components/ui/flash";
 import { getCurrentUser, safeNext } from "@/lib/auth";
+import { getSiteBrand } from "@/lib/site-brand";
 import { PasswordForm } from "./password-form";
 
-export const metadata: Metadata = { title: "Crea tu contraseña · Cirella", robots: { index: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: `Crea tu contraseña · ${(await getSiteBrand()).name}`, robots: { index: false } };
+}
 
 export default async function CreatePasswordPage({ searchParams }: { searchParams: Promise<{ next?: string; motivo?: string }> }) {
   const sp = await searchParams;

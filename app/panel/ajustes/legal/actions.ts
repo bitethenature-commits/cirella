@@ -6,9 +6,10 @@ import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { normalizeTaxId, SESSION_CHANGE_NOTICE_HOURS, validatePostalCode, validateTaxId } from "@/lib/legal";
-import { renderCreatorLegalTemplates, type CreatorLegalDocs } from "@/lib/legal-templates";
+import { renderCreatorLegalTemplates, renderPersonalPrivacy, type CreatorLegalDocs } from "@/lib/legal-templates";
 import { legalIdentityOf } from "@/lib/legal-snapshot";
 import { getSettings } from "@/lib/settings";
+import { isPersonalMode } from "@/lib/site-mode";
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -84,6 +85,8 @@ export async function saveLegalDocs(form: FormData) {
     platformName,
     changeNoticeHours: SESSION_CHANGE_NOTICE_HOURS,
   });
+  // Modo personal: la privacidad parte de su propia plantilla (sin plataforma ni pagos aquí).
+  if (isPersonalMode()) template.privacy = renderPersonalPrivacy({ displayName: creator.displayName });
   const reset = String(form.get("reset") ?? "");
   if (reset) {
     const key = DOC_KEYS.find((k) => k === reset);

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { VAT_STATUSES } from "@/lib/tax";
+import { isPersonalMode } from "@/lib/site-mode";
 
 const schema = z
   .object({
@@ -16,6 +17,7 @@ const schema = z
 
 /** Situación de IVA de la creadora (decide el IVA de las ventas en las que vende ella). */
 export async function saveVatStatus(form: FormData) {
+  if (isPersonalMode()) redirect("/panel/ajustes");
   const { creator } = await requireCreator();
   const parsed = schema.safeParse(Object.fromEntries(form));
   if (!parsed.success) redirect(`/panel/ajustes?error=${encodeURIComponent(parsed.error.issues[0].message)}#iva`);

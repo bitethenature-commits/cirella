@@ -3,13 +3,30 @@ import { ArrowDown, ArrowUp, ExternalLink, LayoutGrid, Pencil, Plus, Star } from
 import { ProductImage } from "@/components/creator-page/product-art";
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
+import { asAccessMode, externalHost } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { deliveryFacts, deliveryIssue } from "@/lib/delivery";
 import { formatPrice } from "@/lib/money";
+import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { Badge, PageHeader } from "../ui";
 import { moveProduct } from "./actions";
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** «49 € · 3 ventas», «Gratis · 12 inscripciones» o «65 € · pago en calendly.com». */
+function priceLine(p: { accessMode: string; priceCents: number; currency: string; billingInterval: string | null; externalUrl: string | null; _count: { orders: number } }) {
+  const mode = asAccessMode(p.accessMode);
+  const n = p._count.orders;
+  if (mode === "FREE_EMAIL") return `Gratis · ${plural(n, "inscripción", "inscripciones")}`;
+  if (mode === "EXTERNAL") {
+    const host = externalHost(p.externalUrl);
+    const price = p.priceCents > 0 ? `${formatPrice(p.priceCents, p.currency, p.billingInterval)} · ` : "";
+    return `${price}${host ? `pago en ${host}` : "falta el enlace de pago"}${n ? ` · ${plural(n, "persona con acceso", "personas con acceso")}` : ""}`;
+  }
+  return `${formatPrice(p.priceCents, p.currency, p.billingInterval)} · ${plural(n, "venta", "ventas")}`;
+}
 
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<{ limite?: string }> }) {
   const { creator } = await requireCreator();
@@ -22,12 +39,16 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   });
   const archived = await db.product.count({ where: { status: "ARCHIVED" } });
   const max = creator.plan.maxProducts;
+  // Web personal: sin planes, y lo que se cobraba en la web no se ve (la ficha da 404).
+  const personal = isPersonalMode();
+  const hidden = (p: { accessMode: string }) => personal && asAccessMode(p.accessMode) === "PAID";
+  const count = `${products.length} ${products.length === 1 ? "producto" : "productos"}`;
 
   return (
     <div>
       <PageHeader
         title="Productos"
-        subtitle={max != null ? `${products.length} de ${max} productos en tu plan ${creator.plan.name}` : `${products.length} productos · ilimitados en tu plan ${creator.plan.name}`}
+        subtitle={personal ? count : max != null ? `${products.length} de ${max} productos en tu plan ${creator.plan.name}` : `${count} · ilimitados en tu plan ${creator.plan.name}`}
         actions={
           <Link href="/panel/productos/nuevo" className="btn btn-primary">
             <Plus className="h-4 w-4" /> Nuevo producto
@@ -64,15 +85,21 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                 {p.title}
               </p>
               <p className="mt-0.5 truncate text-xs text-muted">
-                {PRODUCT_TYPE_LABEL[p.type as ProductType]} · {formatPrice(p.priceCents, p.currency, p.billingInterval)} · {p._count.orders} {p._count.orders === 1 ? "venta" : "ventas"}
+                {PRODUCT_TYPE_LABEL[p.type as ProductType]} · {priceLine(p)}
               </p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {p.status === "PUBLISHED" ? <Badge tone="success">Publicado</Badge> : <Badge tone="warning">Borrador</Badge>}
+                {hidden(p) ? (
+                  <Badge tone="warning">Oculto: se cobraba en la web</Badge>
+                ) : p.status === "PUBLISHED" ? (
+                  <Badge tone="success">Publicado</Badge>
+                ) : (
+                  <Badge tone="warning">Borrador</Badge>
+                )}
                 {deliveryIssue(deliveryFacts(p))?.blocking && <Badge tone="danger">Sin entrega</Badge>}
               </div>
             </Link>
             <div className="flex shrink-0 gap-1">
-              {p.status === "PUBLISHED" && (
+              {p.status === "PUBLISHED" && !hidden(p) && (
                 <Link href={`/${creator.username}/${p.slug}`} target="_blank" className="btn btn-ghost btn-sm hidden sm:inline-flex" aria-label="Ver">
                   <ExternalLink className="h-4 w-4" />
                 </Link>

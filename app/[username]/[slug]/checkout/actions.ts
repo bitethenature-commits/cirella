@@ -12,7 +12,7 @@ import { ensureLegalSnapshot } from "@/lib/legal-snapshot";
 import { checkoutGate, noteCheckoutFailure } from "@/lib/limits";
 import { captureError } from "@/lib/monitoring";
 import { CheckoutError, createPendingOrder, getPurchasableProduct, startOrderPayment } from "@/lib/orders";
-import { paymentProvider } from "@/lib/payments";
+import { NO_ONLINE_PAYMENTS, paidCheckoutOpen, paymentProvider } from "@/lib/payments";
 import { isKnownCountry } from "@/lib/tax/rates";
 import { ipCountry } from "@/lib/tax/server";
 import { isPlausibleTaxId, normalizeTaxId } from "@/lib/tax/tax-id";
@@ -45,6 +45,8 @@ const schema = z.object({
 });
 
 export async function placeOrder(_: CheckoutState, form: FormData): Promise<CheckoutState> {
+  // Web personal o sin pasarela: ni pedido ni límites de intentos, solo el aviso.
+  if (!paidCheckoutOpen()) return { error: NO_ONLINE_PAYMENTS };
   const parsed = schema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message, orderId: String(form.get("orderId") ?? "") || undefined };
   const input = parsed.data;

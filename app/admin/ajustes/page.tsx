@@ -1,14 +1,40 @@
 import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireAdmin } from "@/lib/auth";
+import Link from "next/link";
 import { getSettings } from "@/lib/settings";
+import { isPersonalMode } from "@/lib/site-mode";
 import { PageHeader } from "../../panel/ui";
-import { saveSettings } from "../actions";
+import { savePersonalSettings, saveSettings } from "../actions";
 
 export default async function AdminSettings({ searchParams }: { searchParams: Promise<{ ok?: string }> }) {
   await requireAdmin();
   const sp = await searchParams;
   const s = await getSettings();
+  // Modo personal: la marca es la de su página (nombre, foto y diseño se cambian en «Mi página»).
+  if (isPersonalMode())
+    return (
+      <div className="max-w-2xl">
+        <PageHeader title="Ajustes de la web" />
+        <Flash ok={sp.ok} />
+        <form action={savePersonalSettings} className="card space-y-5 p-6">
+          <label className="block text-sm font-medium">
+            Email de contacto
+            <input name="supportEmail" type="email" defaultValue={s.supportEmail} className="input mt-1.5" />
+            <span className="field-hint">Para las incidencias técnicas (por ejemplo, si a alguien no le llega un email).</span>
+          </label>
+          <SubmitButton>Guardar ajustes</SubmitButton>
+        </form>
+        <div className="card mt-4 space-y-2 p-6 text-sm text-muted">
+          <p>
+            El nombre, la foto y el diseño de tu web se cambian en <Link href="/panel/pagina" className="font-semibold text-ink underline-offset-2 hover:underline">Mi página</Link>: es lo que se ve al entrar, en tu panel y en los emails.
+          </p>
+          <p>
+            Tu aviso legal y tu privacidad, en <Link href="/panel/ajustes/legal" className="font-semibold text-ink underline-offset-2 hover:underline">Ajustes › Datos legales</Link>.
+          </p>
+        </div>
+      </div>
+    );
   return (
     <div className="max-w-2xl">
       <PageHeader title="Ajustes de la plataforma" />

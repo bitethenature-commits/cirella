@@ -4,7 +4,7 @@ import { prisma } from "./db";
 import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
 import { payoutActionRequiredEmail, payoutActiveEmail, payoutRejectedEmail } from "./email/templates";
-import { paymentProvider } from "./payments";
+import { paymentProvider, paymentProviderKey } from "./payments";
 import type { PayoutAccountSnapshot } from "./payments/provider";
 import { getSettings, SETTING_DEFAULTS } from "./settings";
 
@@ -81,11 +81,12 @@ type PayoutFields = Pick<Creator, "status" | "payoutProvider" | "payoutStatus" |
 
 /**
  * ¿Puede vender? La creadora está activa, Stripe le permite cobrar y su cuenta es de la pasarela
- * con la que cobramos ahora (las cuentas simuladas del seed nunca venden con Stripe).
+ * con la que cobramos ahora (las cuentas simuladas del seed nunca venden con Stripe). Sin pasarela
+ * (PAYMENT_PROVIDER=none) ninguna cuenta coincide: nadie puede cobrar.
  */
 export function canAcceptPayments(
   c: { payoutChargesEnabled: boolean; payoutProvider: string | null; status: string },
-  providerKey: string = paymentProvider().key,
+  providerKey: string = paymentProviderKey(),
 ): boolean {
   return c.status === "ACTIVE" && c.payoutChargesEnabled && c.payoutProvider === providerKey;
 }

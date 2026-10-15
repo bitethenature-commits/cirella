@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeft, CreditCard, ExternalLink, FileText, Landmark } from "lucide-react";
 import { PayoutStatusCard } from "@/components/panel/payout-status";
 import { Flash } from "@/components/ui/flash";
@@ -14,8 +15,11 @@ import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { PageHeader } from "../../ui";
 import { openPayoutDashboard } from "./actions";
 import { Dac7Form } from "./dac7-form";
+import { isPersonalMode } from "@/lib/site-mode";
 
 export default async function PayoutsPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
+  // Modo personal: aquí no se cobra nada (lo de pago se cobra en otras webs).
+  if (isPersonalMode()) redirect("/panel/ajustes");
   const { creator: session } = await requireCreator();
   const sp = await searchParams;
   // La sesión puede ser de antes del último aviso de Stripe: se lee la fila actual.

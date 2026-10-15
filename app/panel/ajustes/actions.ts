@@ -6,6 +6,7 @@ import { z } from "zod";
 import { hashPassword, requireCreator, revokeOtherSessions, verifyPassword } from "@/lib/auth";
 import { isUsernameAvailable } from "@/lib/creator";
 import { prisma } from "@/lib/db";
+import { isPersonalMode } from "@/lib/site-mode";
 import { normalizeUsername } from "@/lib/slug";
 
 const back = (k: "ok" | "error", msg: string) => redirect(`/panel/ajustes?${k}=${encodeURIComponent(msg)}`);
@@ -21,7 +22,8 @@ export async function updateAccount(form: FormData) {
   const parsed = schema.safeParse(Object.fromEntries(form));
   if (!parsed.success) back("error", parsed.error.issues[0].message);
   const d = parsed.data!;
-  const username = normalizeUsername(d.username);
+  // Modo personal: el usuario de la dueña lo fija OWNER_USERNAME; no se cambia desde aquí.
+  const username = isPersonalMode() ? creator.username : normalizeUsername(d.username);
   if (username !== creator.username) {
     const ok = await isUsernameAvailable(username, creator.id);
     if (!ok.ok) back("error", ok.error);

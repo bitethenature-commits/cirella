@@ -3,6 +3,7 @@ import { requireCreator } from "@/lib/auth";
 import { SOURCE_LABEL, type Source } from "@/lib/analytics";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import { planFeatures } from "@/lib/plans";
+import { isPersonalMode } from "@/lib/site-mode";
 import { getAdvancedStats, getDashboardStats, parseRange } from "@/lib/stats";
 import { Locked, PageHeader, RangeTabs, Stat } from "../ui";
 
@@ -19,15 +20,30 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
     );
   const [s, adv] = await Promise.all([getDashboardStats(creator.id, range, creator.timezone), getAdvancedStats(creator.id, range, creator.timezone)]);
   const advanced = f.analytics === "advanced";
+  // Modo personal: aquí no hay ventas; el final del recorrido son las inscripciones y los clics al botón.
+  const personal = isPersonalMode();
   const first = adv.funnel[0].value || 1;
   return (
     <div className="space-y-6">
-      <PageHeader title="Estadísticas" subtitle="Page views, visitantes, clics, checkouts, compras e ingresos." actions={<RangeTabs current={range} base="/panel/estadisticas" />} />
+      <PageHeader
+        title="Estadísticas"
+        subtitle={personal ? "Visitas, visitantes, clics e inscripciones." : "Page views, visitantes, clics, checkouts, compras e ingresos."}
+        actions={<RangeTabs current={range} base="/panel/estadisticas" />}
+      />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Visitas" value={formatNumber(s.pageViews)} accent />
         <Stat label="Visitantes únicos" value={formatNumber(s.uniqueVisitors)} hint="Personas distintas cada día, medidas sin cookies" />
-        <Stat label="Conversión" value={formatPercent(s.conversion)} hint="Compras / visitantes" />
-        <Stat label="Ingresos" value={formatMoney(s.revenue)} hint={`${s.sales} compras`} />
+        {personal ? (
+          <>
+            <Stat label="Inscripciones" value={formatNumber(s.signups)} hint={`${formatPercent(s.signupConversion)} de los visitantes`} />
+            <Stat label="Clics en productos" value={formatNumber(s.clicks)} hint="Incluye los botones a otras webs" />
+          </>
+        ) : (
+          <>
+            <Stat label="Conversión" value={formatPercent(s.conversion)} hint="Compras / visitantes" />
+            <Stat label="Ingresos" value={formatMoney(s.revenue)} hint={`${s.sales} compras`} />
+          </>
+        )}
       </div>
       <section className="card p-5 sm:p-6">
         <h2 className="mb-5 font-semibold">Visitas</h2>
@@ -37,8 +53,8 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
         <>
           <div className="grid gap-4 lg:grid-cols-2">
             <section className="card p-5 sm:p-6">
-              <h2 className="font-semibold">Embudo de venta</h2>
-              <p className="mb-5 text-xs text-muted">Del primer vistazo a la compra.</p>
+              <h2 className="font-semibold">{personal ? "Recorrido" : "Embudo de venta"}</h2>
+              <p className="mb-5 text-xs text-muted">{personal ? "Del primer vistazo a la inscripción." : "Del primer vistazo a la compra."}</p>
               <HBars rows={adv.funnel.map((r) => ({ label: r.label, value: r.value, display: formatNumber(r.value), sub: r.key === "PAGE_VIEW" ? undefined : formatPercent(r.value / first) }))} />
             </section>
             <section className="card p-5 sm:p-6">
@@ -56,10 +72,16 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
                     <th className="px-5 py-2.5 text-left font-semibold sm:px-6">Producto</th>
                     <th className="px-3 py-2.5 text-right font-semibold">Vistas</th>
                     <th className="px-3 py-2.5 text-right font-semibold">Clics</th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Checkouts</th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Compras</th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Conversión</th>
-                    <th className="px-5 py-2.5 text-right font-semibold sm:px-6">Ingresos</th>
+                    {personal ? (
+                      <th className="px-3 py-2.5 text-right font-semibold">Inscripciones</th>
+                    ) : (
+                      <>
+                        <th className="px-3 py-2.5 text-right font-semibold">Checkouts</th>
+                        <th className="px-3 py-2.5 text-right font-semibold">Compras</th>
+                      </>
+                    )}
+                    <th className={`px-3 py-2.5 text-right font-semibold ${personal ? "pr-5 sm:pr-6" : ""}`}>Conversión</th>
+                    {!personal && <th className="px-5 py-2.5 text-right font-semibold sm:px-6">Ingresos</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -68,10 +90,16 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
                       <td className="px-5 py-3 sm:px-6">{p.emoji} {p.title}</td>
                       <td className="px-3 py-3 text-right tabular-nums">{p.views}</td>
                       <td className="px-3 py-3 text-right tabular-nums">{p.clicks}</td>
-                      <td className="px-3 py-3 text-right tabular-nums">{p.checkouts}</td>
-                      <td className="px-3 py-3 text-right tabular-nums">{p.purchases}</td>
-                      <td className="px-3 py-3 text-right tabular-nums">{formatPercent(p.conversion)}</td>
-                      <td className="px-5 py-3 text-right font-semibold tabular-nums sm:px-6">{formatMoney(p.revenue)}</td>
+                      {personal ? (
+                        <td className="px-3 py-3 text-right tabular-nums">{p.signups}</td>
+                      ) : (
+                        <>
+                          <td className="px-3 py-3 text-right tabular-nums">{p.checkouts}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{p.purchases}</td>
+                        </>
+                      )}
+                      <td className={`px-3 py-3 text-right tabular-nums ${personal ? "pr-5 sm:pr-6" : ""}`}>{formatPercent(p.conversion)}</td>
+                      {!personal && <td className="px-5 py-3 text-right font-semibold tabular-nums sm:px-6">{formatMoney(p.revenue)}</td>}
                     </tr>
                   ))}
                 </tbody>

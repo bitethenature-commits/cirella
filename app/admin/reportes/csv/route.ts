@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getPlatformOverview } from "@/lib/platform-stats";
+import { platformOnly } from "../../platform-only";
 
 export async function GET() {
+  platformOnly();
   const user = await getCurrentUser();
   if (!user?.isAdmin || !user.sessionVerified) return new NextResponse("No autorizado", { status: 403 });
   const s = await getPlatformOverview();

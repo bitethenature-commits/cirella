@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AuthFrame } from "@/components/auth/auth-frame";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { getCurrentUser } from "@/lib/auth";
+import { isNoChargeOrder } from "@/lib/access-mode";
 import { maskEmail } from "@/lib/auth-utils";
 import { homeFor } from "@/lib/home";
 import { resolveOrderLink } from "@/lib/order-links";
@@ -28,7 +29,7 @@ export default async function SwitchAccountPage({ searchParams }: { searchParams
         <div className="text-center">
           <h1 className={branded ? "cp-display text-[2.2rem] leading-tight" : "display text-[2.4rem] leading-tight"}>Este enlace es de otra cuenta</h1>
           <p className={`mt-3 ${branded ? "cp-muted" : "text-sm text-muted"}`}>
-            Ahora mismo has entrado como <strong>{user.email}</strong>. El enlace es de la compra de <strong>{maskEmail(res.order.buyerEmail)}</strong>.
+            Ahora mismo has entrado como <strong>{user.email}</strong>. El enlace es {isNoChargeOrder(res.order) ? "del acceso" : "de la compra"} de <strong>{maskEmail(res.order.buyerEmail)}</strong>.
           </p>
           <form action={switchToLink} className="mt-8">
             <input type="hidden" name="t" value={t} />

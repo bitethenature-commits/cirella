@@ -12,10 +12,19 @@ const DOCS: { key: keyof CreatorLegalDocs; title: string }[] = [
  * Editor de los tres textos legales. Cada uno se puede adaptar o volver a la plantilla; un texto
  * sin cambios sigue a la plantilla (se guarda como null).
  */
-export function LegalDocsEditor({ docs, custom }: { docs: CreatorLegalDocs; custom: Record<keyof CreatorLegalDocs, boolean> }) {
+export function LegalDocsEditor({
+  docs,
+  custom,
+  only,
+}: {
+  docs: CreatorLegalDocs;
+  custom: Record<keyof CreatorLegalDocs, boolean>;
+  /** Textos que se editan (modo personal: solo la privacidad, porque aquí no se vende). */
+  only?: (keyof CreatorLegalDocs)[];
+}) {
   return (
     <form action={saveLegalDocs} className="space-y-3">
-      {DOCS.map((d) => (
+      {DOCS.filter((d) => !only || only.includes(d.key)).map((d) => (
         <details key={d.key} className="group rounded-2xl border border-line bg-white">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-semibold">
             {d.title}

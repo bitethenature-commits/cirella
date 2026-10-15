@@ -33,7 +33,7 @@ async function demoData() {
   try {
     const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
     const astro = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, slug: "lectura-astrologia" } });
-    const course = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "COURSE" } });
+    const course = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "COURSE", accessMode: "PAID" } });
     const video = await prisma.productFile.findFirst({ where: { creatorId: ana.id, kind: "VIDEO" } });
     return { ana, astro, course, video };
   } finally {

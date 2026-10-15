@@ -1,5 +1,8 @@
 import { ImageResponse } from "next/og";
+import { notFound } from "next/navigation";
+import { appHost } from "@/lib/env";
 import { getPublicCreator } from "@/lib/public";
+import { isPersonalMode } from "@/lib/site-mode";
 import { getTemplate } from "@/lib/templates";
 
 export const size = { width: 1200, height: 630 };
@@ -9,6 +12,8 @@ export const alt = "Página de creadora";
 export default async function OgImage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
   const data = await getPublicCreator(username);
+  // Web personal: solo existe la imagen de la dueña; nada de tarjetas genéricas con la marca de la plataforma.
+  if (!data && isPersonalMode()) notFound();
   const t = getTemplate(data?.config.template);
   const c = t.colors;
   const name = data?.config.displayName ?? "Cirella";
@@ -24,7 +29,9 @@ export default async function OgImage({ params }: { params: Promise<{ username: 
           flexDirection: "column",
           justifyContent: "space-between",
           padding: 72,
-          background: `radial-gradient(circle at 80% 0%, ${c.accent}55, transparent 55%), radial-gradient(circle at 0% 100%, ${c.gold}44, transparent 50%), ${c.bg}`,
+          // Satori (next/og) no acepta un color suelto como capa de `background`: color y degradados van aparte.
+          backgroundColor: c.bg,
+          backgroundImage: `radial-gradient(circle at 80% 0%, ${c.accent}55, transparent 55%), radial-gradient(circle at 0% 100%, ${c.gold}44, transparent 50%)`,
           color: c.text,
           fontFamily: "serif",
         }}
@@ -34,7 +41,7 @@ export default async function OgImage({ params }: { params: Promise<{ username: 
           <div style={{ fontSize: 110, lineHeight: 1 }}>{name}</div>
           <div style={{ fontSize: 44, marginTop: 24, fontStyle: "italic", color: c.accent }}>{headline}</div>
         </div>
-        <div style={{ display: "flex", fontSize: 26, opacity: 0.7 }}>{`${data?.platformName ?? "Cirella"} · /${username}`}</div>
+        <div style={{ display: "flex", fontSize: 26, opacity: 0.7 }}>{data?.personal ? appHost() : `${data?.platformName ?? "Cirella"} · /${username}`}</div>
       </div>
     ),
     size,

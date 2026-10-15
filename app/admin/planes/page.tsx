@@ -6,6 +6,7 @@ import { DEFAULT_FEATURES, planFeatures, type PlanFeatures } from "@/lib/plans";
 import { PRODUCT_TYPE_LABEL, PRODUCT_TYPES } from "@/lib/types";
 import { PageHeader } from "../../panel/ui";
 import { savePlan } from "../actions";
+import { platformOnly } from "../platform-only";
 
 type PlanRow = Awaited<ReturnType<typeof prisma.plan.findMany>>[number];
 
@@ -58,6 +59,7 @@ function PlanForm({ plan, count }: { plan?: PlanRow; count?: number }) {
 }
 
 export default async function AdminPlans({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
+  platformOnly();
   await requireAdmin();
   const sp = await searchParams;
   const [plans, counts] = await Promise.all([

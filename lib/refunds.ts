@@ -1,5 +1,6 @@
 import "server-only";
 import { Prisma, type Order, type Refund } from "@prisma/client";
+import { isNoChargeOrder } from "./access-mode";
 import { cancelBooking, type BookingCanceller } from "./booking-changes";
 import { prisma } from "./db";
 import { appUrl } from "./env";
@@ -65,6 +66,8 @@ type RefundError = Extract<RefundResult, { ok: false }>;
 
 const NOT_FOUND: RefundError = { ok: false, code: "NOT_FOUND", error: "Pedido no encontrado" };
 const NOT_REFUNDABLE: RefundError = { ok: false, code: "NOT_REFUNDABLE", error: "Este pedido no se puede reembolsar." };
+/** Pedido de 0 € (acceso gratis o dado a mano, lib/access-mode.ts): no hubo pago que devolver. */
+const NO_CHARGE: RefundError = { ok: false, code: "NOT_REFUNDABLE", error: "Este acceso es gratuito: no hay ningún pago que devolver. Si quieres, quítale el acceso desde el producto." };
 
 const money = (cents: number, currency: string) => formatMoney(cents, currency, { decimals: true });
 
@@ -134,6 +137,7 @@ async function reserveRefund(orderId: string, r: Reservation): Promise<{ ok: tru
 export async function refundOrder(req: RefundRequest, deps: { provider?: PaymentProvider } = {}): Promise<RefundResult> {
   const order = await prisma.order.findUnique({ where: { id: req.orderId }, include: { customer: { select: { userId: true } } } });
   if (!order || !canAct(order, req.actor)) return NOT_FOUND;
+  if (isNoChargeOrder(order)) return NO_CHARGE;
   if (order.status !== "PAID" || !order.paymentRef) return NOT_REFUNDABLE;
 
   const reserved = await reserveRefund(order.id, {
@@ -566,6 +570,7 @@ export async function withdrawOrder(i: { orderId: string; userId: string; email:
     include: { bookings: { select: { status: true, startAt: true } }, refunds: { select: { status: true } } },
   });
   if (!order) return NOT_FOUND;
+  if (isNoChargeOrder(order)) return NO_CHARGE;
   const e = withdrawalEligibility(toWithdrawalInput(order), i.now ?? new Date());
   if (!e.eligible) return { ok: false, code: "NOT_REFUNDABLE", error: withdrawalBlockMessage(e.reason, order.paidAt) };
   return refundOrder(

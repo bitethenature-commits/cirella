@@ -39,6 +39,11 @@ export const RULES = {
   trackIpCreator: { limit: 300, windowSec: HOUR },
   // Email de compra abandonada: uno por destinatario cada 24 h, sea de la creadora que sea.
   recoveryRecipient: { limit: 1, windowSec: 24 * HOUR },
+  // Acceso gratis con email (formulario de la ficha): cada intento manda un email a cualquier buzón.
+  // Por email: el primero da el acceso y los siguientes reenvían el enlace. Por conexión, holgado
+  // (CGNAT de las operadoras móviles, una clase que se apunta desde la misma wifi).
+  freeClaimEmail: { limit: 5, windowSec: HOUR },
+  freeClaimIp: { limit: 20, windowSec: HOUR },
 } satisfies Record<string, Rule>;
 
 /** Pagos rechazados a partir de los cuales el checkout pide el captcha (si está configurado). */
@@ -146,6 +151,18 @@ export async function noteCheckoutFailure(i: { email: string; ipHash: string | n
   const byIp = i.ipHash && !isLocalDevIp(i.ipHash) ? await hit(failIpKey(i.ipHash), RULES.checkoutFail) : null;
   const needsCaptcha = captchaRequired(Math.max(byEmail.count, byIp?.count ?? 0), turnstileEnabled());
   return needsCaptcha ? { needsCaptcha, captchaSiteKey: turnstileSiteKey() ?? undefined } : { needsCaptcha };
+}
+
+// ── Acceso gratis con email ──
+
+/** Antes de cada «Quiero el acceso» de la ficha: por conexión y por email (en todos los productos). */
+export async function limitFreeClaim(email: string, ipHash: string): Promise<Verdict> {
+  const ip = await hitConnection("free-claim-ip", ipHash, RULES.freeClaimIp);
+  if (!ip.ok) return denied((t) => `Demasiadas solicitudes desde esta conexión. Prueba de nuevo en ${t}.`, ip.retryAfterSec);
+  const byEmail = await hit(rlKey("free-claim-email", email), RULES.freeClaimEmail);
+  if (!byEmail.ok)
+    return denied((t) => `Ya te hemos enviado el enlace varias veces. Revisa tu bandeja de entrada y la carpeta de spam, o vuelve a pedirlo en ${t}.`, byEmail.retryAfterSec);
+  return OK;
 }
 
 // ── Subidas, horarios y visitas ──

@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { isPersonalMode } from "./site-mode";
 
 /** Destino natural de un usuario tras iniciar sesión. */
 export async function homeFor(userId: string) {
@@ -6,7 +7,8 @@ export async function homeFor(userId: string) {
     where: { id: userId },
     include: { creator: true, _count: { select: { customerOf: true } } },
   });
-  if (user.isAdmin) return "/admin";
+  // Web personal: la dueña también es admin, pero su sitio natural es su panel.
+  if (user.isAdmin && !(isPersonalMode() && user.creator?.onboardedAt)) return "/admin";
   if (user.creator) return user.creator.onboardedAt ? "/panel" : "/onboarding";
   if (user._count.customerOf > 0) return "/cuenta";
   return "/onboarding";

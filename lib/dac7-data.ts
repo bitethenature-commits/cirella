@@ -1,4 +1,5 @@
 import type { Creator } from "@prisma/client";
+import { NO_CHARGE_PROVIDERS } from "./access-mode";
 import { prisma } from "./db";
 import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
@@ -62,7 +63,16 @@ function toRows(ledger: LedgerRow[]): Dac7Row[] {
   }));
 }
 
-const ledgerWhere = (year: number) => ({ type: { in: ["CHARGE", "RENEWAL", "REFUND"] }, status: "SUCCEEDED", createdAt: yearWindow(year) });
+/**
+ * Movimientos del año. Los accesos sin cobro (gratis con email o dados a mano) no tienen
+ * transacción; por si acaso, nada de «free»/«manual» cuenta como contraprestación.
+ */
+const ledgerWhere = (year: number) => ({
+  type: { in: ["CHARGE", "RENEWAL", "REFUND"] },
+  status: "SUCCEEDED",
+  provider: { notIn: [...NO_CHARGE_PROVIDERS] },
+  createdAt: yearWindow(year),
+});
 
 export type Dac7ReportRow = { creator: Creator; missing: string[]; agg: Dac7Aggregate };
 

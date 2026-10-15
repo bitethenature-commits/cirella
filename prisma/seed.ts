@@ -6,7 +6,9 @@
  *   npm run db:seed    → solo el seed (vacía las tablas antes de sembrar)
  *
  * Cuentas (contraseña para todas: demo1234):
- *   ana@cirella.app    creadora · plan Pro     · /ana
+ *   ana@cirella.app    creadora · plan Pro     · /ana (también la dueña del modo personal: OWNER_USERNAME=ana,
+ *                      con un mini-curso gratis con email, una sesión que se reserva en Calendly,
+ *                      publicaciones y códigos de descuento)
  *   maria@cirella.app  creadora · plan Creator · /maria
  *   sofia@cirella.app  creadora · plan Free    · /sofia
  *   laura@example.com  clienta de Ana (curso, PDF y sesión)
@@ -119,6 +121,8 @@ async function reset() {
     prisma.product.deleteMany(),
     prisma.automation.deleteMany(),
     prisma.recoveryOptOut.deleteMany(),
+    prisma.post.deleteMany(),
+    prisma.discountCode.deleteMany(),
     prisma.availabilityRule.deleteMany(),
     prisma.blockedDate.deleteMany(),
     prisma.referral.deleteMany(),
@@ -197,6 +201,17 @@ async function main() {
       { id: "f4", q: "¿Puedo cancelar la membresía?", a: "Cuando quieras, desde tu área de cliente. Mantienes el acceso hasta el final del mes pagado." },
     ],
     contact: { email: "hola@analuna.es", whatsapp: "+34600000000", message: "¿Dudas sobre qué lectura es para ti? Escríbeme y te oriento." },
+    // Bloque fijo de texto (sección «Bloques de texto»).
+    blocks: [
+      {
+        id: "sobre-mi",
+        title: "Cómo trabajo",
+        body: "Cada lectura parte de tu carta natal y de tu diseño humano, sin fórmulas genéricas.\n\nTrabajo por videollamada y te envío la grabación y un resumen escrito después de cada sesión.",
+        buttonLabel: "Ver mi agenda",
+        buttonUrl: "https://calendly.com/ana-luna",
+        enabled: true,
+      },
+    ],
     hidePoweredBy: false,
   };
   const ana = await prisma.creator.create({
@@ -378,6 +393,65 @@ async function main() {
         body: `Nos vemos el ${liveDay} a las 19:00 (hora de Madrid) para repasar los tránsitos del mes y cómo aprovecharlos en tu día a día. La grabación quedará aquí.` },
       { creatorId: ana.id, productId: pCircle.id, title: "Meditación de luna llena", kind: "AUDIO", publishedAt: daysAgo(18),
         body: "Una meditación de 15 minutos para soltar lo que ya no necesitas. Escúchala la noche de luna llena o en los tres días siguientes." },
+    ],
+  });
+
+  // ───────────── Modo personal: lo gratuito con email, lo que se paga fuera y el contenido de la página ─────────────
+  // Mini-curso gratis con email: nombre + email → acceso inmediato y un email con el enlace.
+  const pFree = await prisma.product.create({
+    data: {
+      creatorId: ana.id, type: "COURSE", status: "PUBLISHED", accessMode: "FREE_EMAIL", slug: "mini-curso-tu-carta-en-3-pasos",
+      title: "Mini-curso gratis: tu carta natal en 3 pasos", emoji: "🎁",
+      summary: "Tres lecciones cortas para leer tu Sol, tu Luna y tu Ascendente sin perderte.",
+      description: "Un mini-curso gratuito para dar tus primeros pasos con la carta natal. Déjame tu nombre y tu email y te llega el acceso al momento.\n\nIncluye:\n• 3 lecciones de lectura (10 minutos cada una)\n• Un ejercicio práctico para cerrar",
+      imageUrl: await demoImage(ana.id, "/demo/astrologia.webp"), priceCents: 0, ctaLabel: "Quiero el mini-curso", sortOrder: 7, createdAt: daysAgo(20),
+    },
+  });
+  const freeModule = await prisma.courseModule.create({ data: { creatorId: ana.id, productId: pFree.id, title: "Tu carta en 3 pasos", sortOrder: 0 } });
+  const freeLessons = [
+    { title: "Paso 1 · Tu Sol: dónde brillas", body: "Busca en tu carta el símbolo del Sol (un círculo con un punto). Fíjate en el signo y en la casa en la que está. El signo describe cómo expresas tu energía vital; la casa, el área de la vida donde más se nota.\n\nEscribe una frase que empiece por «Yo brillo cuando…» y complétala pensando en ese signo y esa casa." },
+    { title: "Paso 2 · Tu Luna: lo que te hace sentir en casa", body: "La Luna habla de tus necesidades emocionales. Localízala en tu carta y anota su signo.\n\nPregúntate: ¿qué necesito para sentirme a salvo? ¿Qué me calma cuando todo se mueve? Compara tu respuesta con las palabras clave de ese signo." },
+    { title: "Paso 3 · Tu Ascendente y un pequeño ejercicio", body: "El Ascendente es el signo que aparece en el horizonte este en el momento en que naciste: tu manera de empezar las cosas.\n\nPara cerrar: escribe tres palabras para tu Sol, tres para tu Luna y tres para tu Ascendente. Léelas juntas. Ese es tu primer mapa." },
+  ];
+  for (const [i, l] of freeLessons.entries())
+    await prisma.lesson.create({ data: { creatorId: ana.id, productId: pFree.id, moduleId: freeModule.id, title: l.title, kind: "TEXT", body: l.body, durationMin: 10, sortOrder: i } });
+
+  // Sesión que se reserva y se paga fuera (Calendly): el botón lleva a la web externa.
+  await prisma.product.create({
+    data: {
+      creatorId: ana.id, type: "SESSION", status: "PUBLISHED", accessMode: "EXTERNAL", slug: "revolucion-solar",
+      title: "Revolución solar: tu año que empieza", emoji: "☀️",
+      summary: "Una sesión de 60 minutos para leer tu año astrológico, de cumpleaños a cumpleaños.",
+      description: "Leemos juntas tu revolución solar: los temas que se activan este año, los meses clave y cómo aprovecharlos.\n\nLa reserva y el pago se hacen en Calendly.",
+      imageUrl: await demoImage(ana.id, "/demo/sesion.webp"), priceCents: 6500, durationMin: 60, sortOrder: 8, createdAt: daysAgo(15),
+      externalUrl: "https://calendly.com/ana-luna/revolucion-solar", externalLabel: "Reservar en Calendly",
+    },
+  });
+
+  await prisma.post.createMany({
+    data: [
+      {
+        creatorId: ana.id, slug: "eclipse-de-octubre", status: "PUBLISHED", publishedAt: daysAgo(3, 9),
+        title: "Eclipse de octubre: qué cierra y qué empieza",
+        excerpt: "Los eclipses aceleran los finales que ya estaban en marcha. Te cuento cómo vivir este con calma.",
+        body: "Los eclipses no traen cosas nuevas de la nada: aceleran procesos que ya estaban en marcha. Si llevas meses sintiendo que algo tenía que cambiar, es muy posible que este eclipse lo haga evidente.\n\nMi consejo para estos días: no tomes decisiones grandes en caliente. Observa, apunta lo que aparece y deja que pasen al menos dos semanas antes de mover ficha.\n\nSi quieres ver en qué casa de tu carta cae el eclipse, empieza por el mini-curso gratis: en el paso 1 aprenderás a leer las casas.",
+        imageUrl: await demoImage(ana.id, "/demo/ana-cover.webp"), createdAt: daysAgo(3, 9),
+      },
+      {
+        creatorId: ana.id, slug: "nuevo-circulo-lunar", status: "PUBLISHED", publishedAt: daysAgo(12, 18),
+        title: "Abro plazas en el Círculo Lunar",
+        excerpt: "Rituales de luna nueva, un directo al mes y meditaciones exclusivas. Te cuento cómo funciona.",
+        body: "Después de un verano de pausa, vuelvo a abrir el Círculo Lunar: un espacio pequeño para vivir el cielo mes a mes.\n\nCada luna nueva comparto un ritual de intención, una vez al mes hacemos un directo para repasar los tránsitos y tendrás meditaciones que solo están allí.\n\nToda la información está en la ficha de la comunidad. Si tienes dudas, escríbeme a hola@analuna.es.",
+        createdAt: daysAgo(12, 18),
+      },
+    ],
+  });
+
+  await prisma.discountCode.createMany({
+    data: [
+      { creatorId: ana.id, brand: "Velas Alba", code: "ANALUNA15", description: "15 % en velas de soja para tus rituales de luna nueva.", url: "https://example.com/velas-alba", sortOrder: 1, expiresAt: new Date(NOW.getTime() + 75 * DAY) },
+      { creatorId: ana.id, brand: "Cuarzo & Co.", code: "LUNA10", description: "10 % en cuarzos y piedras naturales (pedido mínimo 20 €).", url: "https://example.com/cuarzo-co", sortOrder: 2 },
+      { creatorId: ana.id, brand: "Té de la Luna", code: "CIELO20", description: "20 % en infusiones ecológicas. Mis favoritas para las noches de luna llena.", url: "https://example.com/te-de-la-luna", sortOrder: 3 },
     ],
   });
 
@@ -705,6 +779,8 @@ async function main() {
     reservas: await prisma.booking.count(),
     eventos: await prisma.analyticsEvent.count(),
     facturas: await prisma.invoice.count(),
+    publicaciones: await prisma.post.count(),
+    códigos: await prisma.discountCode.count(),
   };
   console.log("✓ Listo:", counts);
   console.log("  Cuentas demo (contraseña demo1234): ana@cirella.app · laura@example.com · admin@cirella.app");

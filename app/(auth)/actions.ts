@@ -9,6 +9,7 @@ import { requestClient } from "@/lib/client-ip";
 import { prisma } from "@/lib/db";
 import { homeFor } from "@/lib/home";
 import { clearLoginLimit, limitLogin, limitMagicLink, limitSignup } from "@/lib/limits";
+import { isPersonalMode } from "@/lib/site-mode";
 
 export type FormState = { error?: string; ok?: string; email?: string } | undefined;
 
@@ -21,6 +22,8 @@ const signupSchema = z.object({
 });
 
 export async function signUp(_: FormState, form: FormData): Promise<FormState> {
+  // Modo personal: registro cerrado (el formulario ni se muestra; esto cubre llamadas directas).
+  if (isPersonalMode()) redirect("/entrar");
   const parsed = signupSchema.safeParse({
     email: form.get("email"),
     password: form.get("password"),

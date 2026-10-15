@@ -18,10 +18,20 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { CreatorPageView, type PublicProduct } from "@/components/creator-page/creator-page-view";
+import { CreatorPageView, type PublicDiscountCode, type PublicPost, type PublicProduct } from "@/components/creator-page/creator-page-view";
 import { TemplatePreview } from "@/components/template-preview";
 import { ImageUpload } from "@/components/ui/image-upload";
-import { SECTION_META, SOCIAL_KEYS, SOCIAL_LABEL, type PageConfig, type SectionKey } from "@/lib/page-config";
+import {
+  SECTION_MANAGE_HREF,
+  SECTION_META,
+  SOCIAL_KEYS,
+  SOCIAL_LABEL,
+  TEXT_BLOCK_BODY_MAX,
+  TEXT_BLOCKS_MAX,
+  type PageConfig,
+  type SectionKey,
+  type TextBlock,
+} from "@/lib/page-config";
 import { FONT_PAIRS, RADIUS, TEMPLATES, type FontPairKey, type RadiusKey, type TemplateKey } from "@/lib/templates";
 import { moveProduct } from "../productos/actions";
 import { publishDraft, saveDraft } from "./actions";
@@ -32,6 +42,12 @@ type Props = {
   creatorId: string;
   username: string;
   products: PublicProduct[];
+  /** Lo que sale en «Novedades» y «Códigos de descuento» (se gestionan en su propia pantalla). */
+  posts: PublicPost[];
+  postCount: number;
+  discountCodes: PublicDiscountCode[];
+  /** Web personal: sin «Powered by» ni planes. */
+  personal: boolean;
   templates: TemplateKey[];
   allowCustom: boolean;
   allowRemoveBranding: boolean;
@@ -44,6 +60,7 @@ const TABS = [
   { key: "diseno", label: "Diseño" },
   { key: "secciones", label: "Secciones" },
   { key: "enlaces", label: "Botones y redes" },
+  { key: "bloques", label: "Bloques de texto" },
   { key: "contenido", label: "Testimonios y FAQ" },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
@@ -105,6 +122,7 @@ export function PageEditor(props: Props) {
       links: cfg.links.filter((l) => l.label.trim() || l.url.trim()),
       testimonials: cfg.testimonials.filter((t) => t.quote.trim() || t.author.trim()),
       faqs: cfg.faqs.filter((f) => f.q.trim() || f.a.trim()),
+      blocks: (cfg.blocks ?? []).filter((b) => b.title.trim() || b.body.trim() || b.buttonLabel?.trim() || b.buttonUrl?.trim()),
     };
     start(async () => {
       const r = kind === "publish" ? await publishDraft(clean) : await saveDraft(clean);
@@ -133,8 +151,12 @@ export function PageEditor(props: Props) {
         username={props.username}
         config={cfg}
         products={props.products}
+        posts={props.posts}
+        postCount={props.postCount}
+        discountCodes={props.discountCodes}
+        personal={props.personal}
         allowCustom={props.allowCustom}
-        showPoweredBy={!(props.allowRemoveBranding && cfg.hidePoweredBy)}
+        showPoweredBy={!props.personal && !(props.allowRemoveBranding && cfg.hidePoweredBy)}
         platformName={props.platformName}
         referralCode={props.referralCode}
         preview
@@ -149,13 +171,13 @@ export function PageEditor(props: Props) {
       <div className="min-w-0">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="display text-[2.3rem] leading-none sm:text-[2.7rem]">Mi página</h1>
+            <h1 className="display whitespace-nowrap text-[2.3rem] leading-none sm:text-[2.7rem]">Mi página</h1>
             <p className="mt-2 flex items-center gap-2 text-sm text-muted">
               <span className={`h-2 w-2 rounded-full ${dirty ? "bg-gold" : unpublished ? "bg-lavender-deep" : "bg-success"}`} />
               {dirty ? "Cambios sin guardar" : unpublished ? "Borrador guardado · sin publicar" : "Todo publicado"}
             </p>
           </div>
-          <div className="hidden gap-2 sm:flex">
+          <div className="hidden flex-wrap justify-end gap-2 sm:flex">
             <button type="button" onClick={() => run("save")} disabled={pending || !dirty} className="btn btn-outline">
               {busyAction === "save" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Guardar
             </button>
@@ -296,11 +318,23 @@ export function PageEditor(props: Props) {
                         <button type="button" onClick={() => moveSection(i, 1)} disabled={i === cfg.sections.length - 1} className="text-muted disabled:opacity-20" aria-label="Bajar"><ArrowDown className="h-3.5 w-3.5" /></button>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold">{SECTION_META[s.key as SectionKey].label}</p>
+                        <p className="flex items-center gap-2 text-sm font-semibold">
+                          {SECTION_META[s.key as SectionKey].label}
+                          {SECTION_MANAGE_HREF[s.key as SectionKey] && (
+                            <Link href={SECTION_MANAGE_HREF[s.key as SectionKey]!.href} className="text-xs font-normal text-muted underline underline-offset-2 hover:text-ink">
+                              Gestionar
+                            </Link>
+                          )}
+                          {s.key === "blocks" && (
+                            <button type="button" onClick={() => setTab("bloques")} className="text-xs font-normal text-muted underline underline-offset-2 hover:text-ink">
+                              Editar
+                            </button>
+                          )}
+                        </p>
                         {s.key !== "links" && (
                           <input
                             value={s.title ?? ""}
-                            placeholder={SECTION_META[s.key as SectionKey].defaultTitle}
+                            placeholder={SECTION_META[s.key as SectionKey].defaultTitle || "Sin título (opcional)"}
                             onChange={(e) => set("sections", cfg.sections.map((x) => (x.key === s.key ? { ...x, title: e.target.value } : x)))}
                             className="mt-0.5 w-full bg-transparent text-xs text-muted outline-none placeholder:text-faint focus:text-ink"
                             aria-label="Título de la sección"
@@ -415,21 +449,25 @@ export function PageEditor(props: Props) {
                   <input className="input h-10 text-sm" placeholder="WhatsApp" value={cfg.contact.whatsapp ?? ""} onChange={(e) => set("contact", { ...cfg.contact, whatsapp: e.target.value })} />
                 </div>
               </section>
-              <section className="card flex items-center justify-between gap-4 p-5 sm:p-6">
-                <div>
-                  <p className="font-semibold">Mostrar «Powered by {props.platformName}»</p>
-                  <p className="text-xs text-muted">{props.allowRemoveBranding ? "Tu plan te permite ocultarlo." : "Disponible para ocultar en los planes de pago."}</p>
-                </div>
-                {props.allowRemoveBranding ? (
-                  <button type="button" onClick={() => set("hidePoweredBy", !cfg.hidePoweredBy)} className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-semibold ${cfg.hidePoweredBy ? "bg-sand text-muted" : "bg-ink text-cream"}`}>
-                    {cfg.hidePoweredBy ? "Oculto" : "Visible"}
-                  </button>
-                ) : (
-                  <Link href="/panel/plan" className="btn btn-outline btn-sm"><Lock className="h-3.5 w-3.5" /> Mejorar</Link>
-                )}
-              </section>
+              {!props.personal && (
+                <section className="card flex items-center justify-between gap-4 p-5 sm:p-6">
+                  <div>
+                    <p className="font-semibold">Mostrar «Powered by {props.platformName}»</p>
+                    <p className="text-xs text-muted">{props.allowRemoveBranding ? "Tu plan te permite ocultarlo." : "Disponible para ocultar en los planes de pago."}</p>
+                  </div>
+                  {props.allowRemoveBranding ? (
+                    <button type="button" onClick={() => set("hidePoweredBy", !cfg.hidePoweredBy)} className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-semibold ${cfg.hidePoweredBy ? "bg-sand text-muted" : "bg-ink text-cream"}`}>
+                      {cfg.hidePoweredBy ? "Oculto" : "Visible"}
+                    </button>
+                  ) : (
+                    <Link href="/panel/plan" className="btn btn-outline btn-sm"><Lock className="h-3.5 w-3.5" /> Mejorar</Link>
+                  )}
+                </section>
+              )}
             </>
           )}
+
+          {tab === "bloques" && <TextBlocksEditor blocks={cfg.blocks ?? []} onChange={(b) => set("blocks", b)} />}
 
           {tab === "contenido" && (
             <>
@@ -509,5 +547,92 @@ export function PageEditor(props: Props) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * «Bloques de texto»: textos fijos de la página (sobre mí, servicios, cómo trabajo…), cada uno con
+ * título, texto y un botón opcional. Se ordenan, se ocultan y se borran como los botones.
+ */
+function TextBlocksEditor({ blocks, onChange }: { blocks: TextBlock[]; onChange: (b: TextBlock[]) => void }) {
+  const update = (id: string, patch: Partial<TextBlock>) => onChange(blocks.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= blocks.length) return;
+    const a = [...blocks];
+    [a[i], a[j]] = [a[j], a[i]];
+    onChange(a);
+  };
+  return (
+    <section className="card p-5 sm:p-6">
+      <h3 className="font-semibold">Bloques de texto</h3>
+      <p className="text-xs text-muted">
+        Textos fijos en tu página: sobre mí, tus servicios, cómo trabajas… Deja una línea en blanco entre párrafos; los enlaces se convierten solos. Muévelos
+        entre las demás secciones en «Secciones».
+      </p>
+      <div className="mt-4 space-y-3">
+        {blocks.map((b, i) => (
+          <div key={b.id} className={`space-y-2 rounded-xl border p-3 ${b.enabled ? "border-line bg-white" : "border-dashed border-line bg-paper"}`}>
+            <input
+              className="input h-10 text-sm font-semibold"
+              placeholder="Título (p. ej. Sobre mí)"
+              aria-label="Título del bloque"
+              value={b.title}
+              maxLength={80}
+              onChange={(e) => update(b.id, { title: e.target.value })}
+            />
+            <textarea
+              className="input text-sm leading-relaxed"
+              rows={5}
+              placeholder="Texto del bloque"
+              aria-label="Texto del bloque"
+              value={b.body}
+              maxLength={TEXT_BLOCK_BODY_MAX}
+              onChange={(e) => update(b.id, { body: e.target.value })}
+            />
+            <div className="grid gap-2 sm:grid-cols-2">
+              <input
+                className="input h-10 text-sm"
+                placeholder="Texto del botón (opcional)"
+                aria-label="Texto del botón"
+                value={b.buttonLabel ?? ""}
+                maxLength={40}
+                onChange={(e) => update(b.id, { buttonLabel: e.target.value })}
+              />
+              <input
+                className="input h-10 text-sm"
+                placeholder="https://… o /ana/producto"
+                aria-label="Enlace del botón"
+                value={b.buttonUrl ?? ""}
+                maxLength={500}
+                onChange={(e) => update(b.id, { buttonUrl: e.target.value })}
+              />
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => update(b.id, { enabled: !b.enabled })}
+                className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 font-semibold ${b.enabled ? "bg-ink text-cream" : "bg-sand text-muted"}`}
+              >
+                {b.enabled ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                {b.enabled ? "Visible" : "Oculto"}
+              </button>
+              <span className="flex-1" />
+              <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Subir bloque"><ArrowUp className="h-3.5 w-3.5" /></button>
+              <button type="button" disabled={i === blocks.length - 1} onClick={() => move(i, 1)} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Bajar bloque"><ArrowDown className="h-3.5 w-3.5" /></button>
+              <button type="button" onClick={() => onChange(blocks.filter((x) => x.id !== b.id))} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Eliminar bloque"><Trash2 className="h-3.5 w-3.5" /></button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange([...blocks, { id: uid(), title: "", body: "", enabled: true }])}
+        disabled={blocks.length >= TEXT_BLOCKS_MAX}
+        className="btn btn-outline btn-sm mt-3"
+      >
+        <Plus className="h-4 w-4" /> Añadir bloque de texto
+      </button>
+    </section>
   );
 }

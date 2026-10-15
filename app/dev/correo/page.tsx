@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Inbox, Play } from "lucide-react";
-import { Logo } from "@/components/logo";
+import { BrandLogo } from "@/components/brand-logo";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -38,7 +38,7 @@ export default async function DevMailbox({ searchParams }: { searchParams: Promi
       <header className="border-b border-line bg-white">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4">
           <div className="flex items-center gap-3">
-            <Logo />
+            <BrandLogo />
             <span className="hidden rounded-full bg-gold-soft px-2.5 py-0.5 text-xs font-semibold sm:inline">Buzón de demostración</span>
           </div>
           <form action={runJobsNow}>
@@ -49,7 +49,7 @@ export default async function DevMailbox({ searchParams }: { searchParams: Promi
       <div className="mx-auto grid max-w-6xl gap-4 px-4 py-6 lg:grid-cols-[360px_1fr]">
         <aside className="card max-h-[75dvh] overflow-y-auto">
           <p className="border-b border-line px-4 py-3 text-xs text-muted">
-            Emails generados por la plataforma. En producción se envían con el proveedor configurado (Resend).
+            Emails generados por la web. En producción se envían con el proveedor configurado (Resend).
             Para probar los reintentos, usa una dirección con +fallo (fallo temporal) o +rebote (rechazada).
             {sp.to && <> Filtrando: <strong>{sp.to}</strong> · <Link href="/dev/correo" className="underline">ver todos</Link></>}
           </p>

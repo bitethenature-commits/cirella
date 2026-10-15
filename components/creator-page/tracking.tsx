@@ -3,7 +3,8 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import type { EventType } from "@/lib/types";
 
-type TrackPayload = { creatorId: string; type: EventType; productId?: string | null };
+/** `codeId`: el código de descuento de CODE_COPY / CODE_CLICK (lib/types.ts). */
+type TrackPayload = { creatorId: string; type: EventType; productId?: string | null; codeId?: string | null };
 
 /**
  * Envía un evento de métricas. No guarda nada en el navegador (ni cookies ni sessionStorage): el
@@ -65,5 +66,37 @@ export function TrackedLink({
     >
       {children}
     </Link>
+  );
+}
+
+/** Enlace a otra web (p. ej. «Comprar en Hotmart») que registra el clic y abre en otra pestaña. */
+export function TrackedAnchor({
+  href,
+  event,
+  className,
+  children,
+  ariaLabel,
+  rel = "noopener noreferrer",
+}: {
+  href: string;
+  event?: TrackPayload | null;
+  className?: string;
+  children: React.ReactNode;
+  ariaLabel?: string;
+  rel?: string;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel={rel}
+      className={className}
+      aria-label={ariaLabel}
+      onClick={() => {
+        if (event) track(event);
+      }}
+    >
+      {children}
+    </a>
   );
 }

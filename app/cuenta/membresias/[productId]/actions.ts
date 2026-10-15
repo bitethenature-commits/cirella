@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { requireBuyerFor } from "@/lib/buyer-access";
 import { appUrl } from "@/lib/env";
 import { captureError } from "@/lib/monitoring";
-import { paymentProvider } from "@/lib/payments";
+import { NO_ONLINE_PAYMENTS, paidCheckoutOpen, paymentProvider } from "@/lib/payments";
 import { renewalPeriodKey } from "@/lib/payments/renewal";
 import { canAcceptPayments } from "@/lib/payouts";
 import { findPastDueSubscription, renewalAmounts, settleRenewalCharge } from "@/lib/subscriptions";
@@ -21,6 +21,7 @@ export async function payRenewalNow(form: FormData) {
   const back = (k: "ok" | "error", msg: string) => redirect(`/cuenta/membresias/${productId}?${k === "ok" ? "pago=ok" : `error=${encodeURIComponent(msg)}`}`);
   const sub = await findPastDueSubscription(user.id, productId);
   if (!sub) redirect(`/cuenta/membresias/${productId}`);
+  if (!paidCheckoutOpen()) back("error", NO_ONLINE_PAYMENTS);
 
   const provider = paymentProvider();
   if (!sub.creator.payoutAccountId || !canAcceptPayments(sub.creator, provider.key))

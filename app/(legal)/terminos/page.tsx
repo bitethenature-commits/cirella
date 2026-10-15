@@ -3,6 +3,7 @@ import Link from "next/link";
 import { LegalProse, Pending } from "@/components/legal-prose";
 import { getSettings } from "@/lib/settings";
 import { asTaxMode } from "@/lib/tax";
+import { redirectToOwnerLegal } from "../personal-redirect";
 
 export const metadata: Metadata = { title: "Términos del servicio" };
 export const dynamic = "force-dynamic";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 // BORRADOR: revisar con la asesoría antes de lanzar (README, «Cumplimiento legal»). Si cambian,
 // sube PLATFORM_TERMS_VERSION (lib/legal.ts) y avisa a las creadoras con 30 días de antelación.
 export default async function TerminosPage() {
+  redirectToOwnerLegal("aviso");
   const s = await getSettings();
   const p = s.platformName;
   const email = s.privacyEmail || s.supportEmail;

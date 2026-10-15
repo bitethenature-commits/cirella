@@ -14,11 +14,21 @@ export type CreatorBranding = {
 } | null;
 
 const CreatorBrandingContext = createContext<CreatorBranding>(null);
+/** Web personal (SITE_MODE=personal): la portada es la página de la dueña y no hay registro. */
+const PersonalModeContext = createContext(false);
 
-export function CreatorBrandingProvider({ value, children }: { value: CreatorBranding; children: React.ReactNode }) {
-  return <CreatorBrandingContext.Provider value={value}>{children}</CreatorBrandingContext.Provider>;
+export function CreatorBrandingProvider({ value, personal = false, children }: { value: CreatorBranding; personal?: boolean; children: React.ReactNode }) {
+  return (
+    <PersonalModeContext.Provider value={personal}>
+      <CreatorBrandingContext.Provider value={value}>{children}</CreatorBrandingContext.Provider>
+    </PersonalModeContext.Provider>
+  );
 }
 
 export function useCreatorBranding() {
   return useContext(CreatorBrandingContext);
+}
+
+export function usePersonalMode() {
+  return useContext(PersonalModeContext);
 }

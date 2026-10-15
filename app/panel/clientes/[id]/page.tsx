@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Mail } from "lucide-react";
+import { isNoChargeOrder, NO_CHARGE_LABEL, type NoChargeProvider } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { formatMoney, formatPrice } from "@/lib/money";
+import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
 import { orderStatusLabel } from "@/lib/refund-math";
 import { BOOKING_STATUS_LABEL } from "@/lib/types";
@@ -24,14 +26,15 @@ export default async function CustomerDetail({ params }: { params: Promise<{ id:
   if (!c) notFound();
   const courseIds = (await db.access.findMany({ where: { userId: c.userId, product: { type: "COURSE" } }, select: { productId: true, product: { select: { title: true, _count: { select: { lessons: true } } } } } }));
   const progress = await db.lessonProgress.groupBy({ by: ["productId"], where: { userId: c.userId }, _count: { _all: true } });
+  const personal = isPersonalMode();
   return (
     <div className="max-w-3xl">
-      <Link href="/panel/clientes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> Clientes</Link>
+      <Link href="/panel/clientes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> {personal ? "Personas" : "Clientes"}</Link>
       <div className="mt-4 flex flex-wrap items-center gap-4">
         <div className="grid h-14 w-14 place-items-center rounded-full bg-ink text-xl text-cream">{(c.name ?? c.email)[0].toUpperCase()}</div>
         <div className="flex-1">
           <h1 className="display text-[2.2rem] leading-tight">{c.name ?? c.email}</h1>
-          <p className="text-sm text-muted">{c.email} · clienta desde {formatDate(c.createdAt, { day: "numeric", month: "long", year: "numeric" }, creator.timezone)}</p>
+          <p className="text-sm text-muted">{c.email} · {personal ? "desde" : "clienta desde"} {formatDate(c.createdAt, { day: "numeric", month: "long", year: "numeric" }, creator.timezone)}</p>
           <p className="mt-0.5 text-xs text-muted">
             {c.marketingOptIn
               ? `Acepta novedades por email${c.marketingOptInAt ? ` desde el ${formatDate(c.marketingOptInAt, { day: "numeric", month: "long", year: "numeric" }, creator.timezone)}` : ""}`
@@ -40,11 +43,18 @@ export default async function CustomerDetail({ params }: { params: Promise<{ id:
         </div>
         <a href={`mailto:${c.email}`} className="btn btn-outline btn-sm"><Mail className="h-4 w-4" /> Escribir</a>
       </div>
-      <div className="mt-6 grid grid-cols-3 gap-3">
-        <Stat label="Total gastado" value={formatMoney(c.totalSpentCents)} accent />
-        <Stat label="Compras" value={c.ordersCount} />
-        <Stat label="Última compra" value={(c.lastPurchaseAt ? formatDate(c.lastPurchaseAt, { day: "numeric", month: "short" }, creator.timezone) : undefined) ?? "—"} />
-      </div>
+      {personal ? (
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <Stat label="Inscripciones" value={c.ordersCount} accent />
+          <Stat label="Última" value={(c.lastPurchaseAt ? formatDate(c.lastPurchaseAt, { day: "numeric", month: "short" }, creator.timezone) : undefined) ?? "—"} />
+        </div>
+      ) : (
+        <div className="mt-6 grid grid-cols-3 gap-3">
+          <Stat label="Total gastado" value={formatMoney(c.totalSpentCents)} accent />
+          <Stat label="Compras" value={c.ordersCount} />
+          <Stat label="Última compra" value={(c.lastPurchaseAt ? formatDate(c.lastPurchaseAt, { day: "numeric", month: "short" }, creator.timezone) : undefined) ?? "—"} />
+        </div>
+      )}
       {courseIds.length > 0 && (
         <section className="card mt-6 p-5">
           <h2 className="font-semibold">Progreso en cursos</h2>
@@ -83,11 +93,15 @@ export default async function CustomerDetail({ params }: { params: Promise<{ id:
         </section>
       )}
       <section className="card mt-4 p-5">
-        <h2 className="font-semibold">Pedidos</h2>
+        <h2 className="font-semibold">{personal ? "Inscripciones" : "Pedidos"}</h2>
         {c.orders.map((o) => (
           <p key={o.id} className="mt-2 flex items-center justify-between gap-3 text-sm">
             <span className="min-w-0 truncate"><Link href={`/panel/ventas/${o.id}`} className="hover:underline">{o.productTitle}</Link> <span className="text-muted">· {formatDate(o.createdAt, { day: "numeric", month: "short" }, creator.timezone)}</span></span>
-            <span className="shrink-0 font-semibold tabular-nums">{formatMoney(o.amountCents, o.currency, { decimals: true })} <span className="font-normal text-muted">{orderStatusLabel(o)}</span></span>
+            {isNoChargeOrder(o) ? (
+              <span className="shrink-0 text-muted">Gratis · {NO_CHARGE_LABEL[o.paymentProvider as NoChargeProvider]}</span>
+            ) : (
+              <span className="shrink-0 font-semibold tabular-nums">{formatMoney(o.amountCents, o.currency, { decimals: true })} <span className="font-normal text-muted">{orderStatusLabel(o)}</span></span>
+            )}
           </p>
         ))}
       </section>

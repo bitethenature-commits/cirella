@@ -1,7 +1,9 @@
+import { isNoChargeOrder } from "./access-mode";
 import { orderTargetPath } from "./auth-utils";
 import { prisma } from "./db";
 import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
+import { accessEmailGreetingName, newsletterConfirmPath, newsletterPending } from "./free-access-rules";
 import * as T from "./email/templates";
 import { formatLegalAddress, sellerStatement, sessionChangePolicyText, type LegalIdentity } from "./legal";
 import type { LegalSnapshotContent } from "./legal-snapshot";
@@ -71,6 +73,42 @@ function withCustomSubject<T extends { subject: string }>(mail: T, subject: stri
   return subject ? { ...mail, subject } : mail;
 }
 
+/**
+ * «Ya tienes acceso a «X»» con el enlace personal que lleva directo al contenido. Es el único email
+ * de un pedido sin cobro (gratis con email o acceso dado a mano: ni recibo, ni factura, ni aviso de
+ * venta) y el del reenvío cuando alguien vuelve a pedir un acceso que ya tiene (lib/free-access.ts).
+ * Esencial: no depende de las automatizaciones.
+ */
+export async function sendAccessEmail(orderId: string, dedupeKey: string) {
+  if (await emailAlreadyQueued(dedupeKey)) return;
+  const order = await prisma.order.findUniqueOrThrow({
+    where: { id: orderId },
+    include: { product: true, creator: true, customer: { select: { marketingOptIn: true } }, bookings: { select: { id: true }, orderBy: { createdAt: "asc" } } },
+  });
+  const link = await createOrderLink({ orderId: order.id, path: orderTargetPath(order, order.bookings[0]?.id) });
+  // Marcó «Quiero recibir novedades» en el formulario: no cuenta hasta que lo confirma desde aquí.
+  const newsletter = newsletterPending(order.metadata, !!order.customer?.marketingOptIn)
+    ? await createOrderLink({ orderId: order.id, path: newsletterConfirmPath(order.id) })
+    : null;
+  await enqueueEmail({
+    to: order.buyerEmail,
+    creatorId: order.creatorId,
+    template: "ACCESS_GRANTED",
+    dedupeKey,
+    ...T.accessGrantedEmail({
+      // Sin el nombre que escribió cualquiera en el formulario gratis (sale del dominio de la dueña).
+      name: accessEmailGreetingName(order),
+      creatorName: order.creator.displayName,
+      productTitle: order.productTitle,
+      productType: order.productType,
+      url: link.url,
+      newsletterUrl: newsletter?.url ?? null,
+      linkNote: orderLinkNote(link.expiresAt),
+      instructions: order.product.instructions,
+    }),
+  });
+}
+
 export async function handleAutomation(event: DomainEvent) {
   const base = appUrl();
   switch (event.type) {
@@ -79,6 +117,11 @@ export async function handleAutomation(event: DomainEvent) {
         where: { id: event.orderId },
         include: { product: true, bookings: { select: { id: true }, orderBy: { createdAt: "asc" } }, legalSnapshot: true },
       });
+      // Sin cobro (0 €): solo el email de acceso. Ni recibo con IVA, ni curso aparte, ni «¡Nueva venta!».
+      if (isNoChargeOrder(order)) {
+        await sendAccessEmail(order.id, `access:${order.id}`);
+        return;
+      }
       const s = await setting(order.creatorId, "PURCHASE_RECEIPT");
       // Lo que aceptó (LegalSnapshot): quién vende, la renuncia marcada y las condiciones exactas.
       const snapshot = order.legalSnapshot?.content as LegalSnapshotContent | undefined;

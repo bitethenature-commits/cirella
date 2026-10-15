@@ -1,21 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, Clock, Download, FileText, Headphones, Infinity as InfinityIcon, Lock, Mail, PlayCircle, RefreshCcw, ShieldCheck, Sparkles, Video, Zap } from "lucide-react";
+import { CalendarDays, Clock, Download, ExternalLink, FileText, Headphones, Infinity as InfinityIcon, Lock, Mail, PlayCircle, RefreshCcw, ShieldCheck, Sparkles, Video, Zap } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { ProductImage } from "@/components/creator-page/product-art";
 import { TrackedLink, TrackOnMount } from "@/components/creator-page/tracking";
+import { asAccessMode, externalButtonLabel, externalHost } from "@/lib/access-mode";
 import { getCurrentUser } from "@/lib/auth";
 import { digitalContentText, isInstantDelivery } from "@/lib/delivery";
-import { appUrl } from "@/lib/env";
+import { appUrl, isDemoMode } from "@/lib/env";
 import { getPlatformIssuer } from "@/lib/invoices/issuer";
-import { creatorLegalHref, sellerStatement, sessionChangePolicyText } from "@/lib/legal";
+import { creatorLegalHref, legalIdentityComplete, sellerStatement, sessionChangePolicyText } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
 import { getPublicProduct } from "@/lib/product-page";
+import { isPersonalMode } from "@/lib/site-mode";
 import { decideTax } from "@/lib/tax";
 import { getTaxMode } from "@/lib/tax/server";
-import { DEFAULT_CTA, LESSON_KIND_LABEL, PRODUCT_TYPE_LABEL, type LessonKind, type ProductType } from "@/lib/types";
+import { DEFAULT_CTA, formatCourseLength, LESSON_KIND_LABEL, PRODUCT_TYPE_LABEL, type LessonKind, type ProductType } from "@/lib/types";
 import { formatDate } from "@/lib/tz";
+import { ClaimForm } from "./acceso/claim-form";
+import { ExternalButton } from "./acceso/external-button";
 
 type Params = { username: string; slug: string };
 
@@ -75,8 +79,19 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
   const { product: p, config, creator } = data;
   const type = p.type as ProductType;
-  const cta = p.ctaLabel || DEFAULT_CTA[type];
-  const price = formatPrice(p.priceCents, p.currency, p.billingInterval);
+  // Cómo se consigue (lib/access-mode.ts): pago aquí, gratis con email o pago en otra web.
+  const accessMode = asAccessMode(p.accessMode);
+  const personalSite = isPersonalMode();
+  // En la web personal nada se cobra aquí: un producto de pago en la web no se ofrece.
+  if (personalSite && accessMode === "PAID" && !isOwner) notFound();
+  const paid = accessMode === "PAID" && !personalSite;
+  const free = accessMode === "FREE_EMAIL";
+  const external = accessMode === "EXTERNAL" && !!p.externalUrl;
+  const externalSite = external ? externalHost(p.externalUrl) : null;
+  const cta = free ? p.ctaLabel || "Quiero el acceso gratis" : external ? externalButtonLabel(p) : p.ctaLabel || DEFAULT_CTA[type];
+  const price = free ? "Gratis" : formatPrice(p.priceCents, p.currency, p.billingInterval);
+  // El precio de lo que se paga fuera es informativo y opcional: sin precio, no se muestra.
+  const showPrice = !external || p.priceCents > 0;
   const checkoutHref = `/${username}/${p.slug}/checkout`;
   const clickEvent = isOwner ? null : { creatorId: creator.id, type: "PRODUCT_CLICK" as const, productId: p.id };
   const lessons = p.modules.reduce((a, m) => a + m.lessons.length, 0);
@@ -95,19 +110,59 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   }).seller;
   const seller = sellerStatement(taxSeller, { ...creator, displayName: config.displayName }, taxSeller === "PLATFORM" ? await getPlatformIssuer() : null);
 
+  // Lo que pasa al pulsar el botón, según cómo se consigue.
+  const afterCta = free ? "con tu email" : "tras el pago";
+  const externalPerk = externalSite ? [{ icon: ExternalLink, text: `${type === "SESSION" ? "Reserva y pago" : "Pago"} en ${externalSite}` }] : [];
   const perks: { icon: typeof Zap; text: string }[] =
     type === "DIGITAL"
       ? personal
-        ? [{ icon: Sparkles, text: "Preparado personalmente para ti" }, { icon: Mail, text: "Recibirás los siguientes pasos por email al pagar" }, ...contentPerk]
-        : [{ icon: Zap, text: "Acceso inmediato tras el pago" }, ...contentPerk, { icon: InfinityIcon, text: "Disponible siempre en tu cuenta" }]
+        ? [{ icon: Sparkles, text: "Preparado personalmente para ti" }, { icon: Mail, text: `Recibirás los siguientes pasos por email${free ? "" : " al pagar"}` }, ...contentPerk, ...externalPerk]
+        : external
+          ? [...contentPerk, ...externalPerk]
+          : [{ icon: Zap, text: `Acceso inmediato ${afterCta}` }, ...contentPerk, { icon: InfinityIcon, text: "Disponible siempre en tu cuenta" }]
       : type === "SESSION"
-        ? [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: "Por videollamada" }, { icon: CalendarDays, text: "Eliges día y hora al reservar" }, { icon: RefreshCcw, text: sessionChangePolicyText() }]
+        ? external
+          ? [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: "Por videollamada" }, ...externalPerk]
+          : [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: "Por videollamada" }, { icon: CalendarDays, text: "Eliges día y hora al reservar" }, { icon: RefreshCcw, text: sessionChangePolicyText() }]
         : type === "COURSE"
-          ? [{ icon: PlayCircle, text: `${lessons} lecciones${minutes ? ` · ${Math.round(minutes / 6) / 10} h` : ""}` }, { icon: Sparkles, text: "A tu ritmo, con progreso guardado" }, { icon: InfinityIcon, text: "Acceso de por vida" }]
-          : [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, { icon: RefreshCcw, text: "Cancela cuando quieras" }, { icon: Lock, text: "Acceso privado mientras estés suscrita" }];
+          ? [
+              { icon: PlayCircle, text: `${lessons} ${lessons === 1 ? "lección" : "lecciones"}${minutes ? ` · ${formatCourseLength(minutes)}` : ""}` },
+              { icon: Sparkles, text: "A tu ritmo, con progreso guardado" },
+              ...(external ? externalPerk : [{ icon: InfinityIcon, text: free ? "Gratis y para siempre" : "Acceso de por vida" }]),
+            ]
+          : free
+            ? [{ icon: Sparkles, text: "Contenido exclusivo para la comunidad" }, { icon: Mail, text: "Entras con tu email" }, { icon: Lock, text: "Acceso privado" }]
+            : external
+              ? [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, ...externalPerk]
+              : [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, { icon: RefreshCcw, text: "Cancela cuando quieras" }, { icon: Lock, text: "Acceso privado mientras estés suscrita" }];
+  const buttonClass = "cp-btn mt-6 hidden w-full md:flex";
+  // Un solo formulario: en móvil queda justo bajo el precio y la barra fija lleva a él. Sin los
+  // datos legales completos no se ofrece: la privacidad que se acepta no diría quién trata los datos
+  // (el servidor tampoco lo admite, lib/free-access.ts).
+  const claim = !free ? null : !legalIdentityComplete(creator) ? (
+    <div className="cp-card px-4 py-3 text-sm">
+      <p>Todavía no puedes apuntarte: falta completar los datos legales de esta página.</p>
+      {isOwner && (
+        <Link href="/panel/ajustes/legal" className="mt-2 inline-block font-semibold underline underline-offset-4">
+          Completar mis datos legales
+        </Link>
+      )}
+    </div>
+  ) : (
+    <ClaimForm
+      productId={p.id}
+      productTitle={p.title}
+      cta={cta}
+      responsible={creator.legalName || config.displayName}
+      privacyHref={creatorLegalHref(username, "privacidad")}
+      processorName={personalSite ? null : data.platformName}
+      creatorDisplayName={config.displayName}
+      demo={isDemoMode()}
+    />
+  );
 
   return (
-    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} sellerName={creator.legalName || seller.platformSells ? seller.name : null}>
+    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} sellerName={paid && (creator.legalName || seller.platformSells) ? seller.name : null}>
       <main className="mx-auto max-w-5xl px-4 pb-36 pt-4 md:grid md:grid-cols-[1.1fr_0.9fr] md:gap-10 md:pb-20 md:pt-10">
         <div>
           <div className="cp-card relative aspect-[4/3] overflow-hidden">
@@ -121,9 +176,18 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           </p>
           <h1 className="cp-display mt-3 text-[2.5rem] sm:text-[3rem]">{p.title}</h1>
           {p.summary && <p className="cp-muted mt-3 text-[1.02rem] leading-relaxed">{p.summary}</p>}
-          <p className="mt-6 text-3xl font-semibold tracking-tight">{price}</p>
-          <p className="cp-muted text-xs">{data.summary.vatIncluded ? "IVA incluido" : "Precio final"}</p>
-          {(creator.legalName || seller.platformSells) && (
+          {showPrice && <p className="mt-6 text-3xl font-semibold tracking-tight">{price}</p>}
+          {paid ? (
+            <p className="cp-muted text-xs">{data.summary.vatIncluded ? "IVA incluido" : "Precio final"}</p>
+          ) : external && externalSite ? (
+            <p className={`cp-muted text-xs ${showPrice ? "" : "mt-6"}`}>Pago en {externalSite}</p>
+          ) : null}
+          {personalSite && accessMode === "PAID" && (
+            <p className="mt-4 rounded-xl px-3 py-2.5 text-sm" style={{ background: "var(--c-line)" }}>
+              Solo lo ves tú: en tu web los productos no se cobran aquí. Edítalo y elige «Gratis con email» o «Pago en otra web» para mostrarlo.
+            </p>
+          )}
+          {paid && (creator.legalName || seller.platformSells) && (
             <p className="cp-faint mt-2 text-xs">
               Vende: {seller.line} ·{" "}
               <Link href={creatorLegalHref(username, "condiciones")} className="underline underline-offset-4">Condiciones</Link> ·{" "}
@@ -131,9 +195,18 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
             </p>
           )}
 
-          <TrackedLink href={checkoutHref} event={clickEvent} className="cp-btn mt-6 hidden w-full md:flex">
-            {cta} · {price}
-          </TrackedLink>
+          {paid ? (
+            <TrackedLink href={checkoutHref} event={clickEvent} className={buttonClass}>
+              {cta} · {price}
+            </TrackedLink>
+          ) : external ? (
+            <ExternalButton href={p.externalUrl!} label={cta} className={buttonClass} event={clickEvent} />
+          ) : null}
+          {claim && (
+            <div id="acceso" className="mt-6 scroll-mt-20">
+              {claim}
+            </div>
+          )}
 
           <ul className="mt-7 grid gap-2.5">
             {perks.map((k) => (
@@ -237,10 +310,19 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
           <p className="cp-muted mt-10 flex items-center gap-2 text-xs">
             <ShieldCheck className="h-4 w-4" />
-            <span>
-              Pago seguro · No necesitas crear una cuenta para comprar ·{" "}
-              <Link href={creatorLegalHref(username, "condiciones")} className="underline underline-offset-4">Condiciones de venta</Link>
-            </span>
+            {paid ? (
+              <span>
+                Pago seguro · No necesitas crear una cuenta para comprar ·{" "}
+                <Link href={creatorLegalHref(username, "condiciones")} className="underline underline-offset-4">Condiciones de venta</Link>
+              </span>
+            ) : free ? (
+              <span>
+                Gratis · Solo necesitas tu email ·{" "}
+                <Link href={creatorLegalHref(username, "privacidad")} className="underline underline-offset-4">Privacidad</Link>
+              </span>
+            ) : (
+              <span>{externalSite ? `El pago se hace en ${externalSite}, fuera de esta web.` : "El pago se hace fuera de esta web."}</span>
+            )}
           </p>
         </div>
       </main>
@@ -253,11 +335,19 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs" style={{ color: "var(--c-muted)" }}>{p.title}</p>
-            <p className="text-lg font-semibold">{price}</p>
+            {showPrice ? <p className="text-lg font-semibold">{price}</p> : externalSite && <p className="text-sm font-semibold">Pago en {externalSite}</p>}
           </div>
-          <TrackedLink href={checkoutHref} event={clickEvent} className="cp-btn">
-            {cta}
-          </TrackedLink>
+          {paid ? (
+            <TrackedLink href={checkoutHref} event={clickEvent} className="cp-btn">
+              {cta}
+            </TrackedLink>
+          ) : external ? (
+            <ExternalButton href={p.externalUrl!} label={cta} className="cp-btn" event={clickEvent} />
+          ) : free ? (
+            <a href="#acceso" className="cp-btn">
+              {cta}
+            </a>
+          ) : null}
         </div>
       </div>
       <TrackOnMount creatorId={creator.id} type="PRODUCT_VIEW" productId={p.id} disabled={isOwner || sp.embed === "1"} />

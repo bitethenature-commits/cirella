@@ -4,12 +4,14 @@ import { LegalProse, Pending } from "@/components/legal-prose";
 import { appHost } from "@/lib/env";
 import { getSettings } from "@/lib/settings";
 import { asTaxMode } from "@/lib/tax";
+import { redirectToOwnerLegal } from "../personal-redirect";
 
 export const metadata: Metadata = { title: "Aviso legal" };
 export const dynamic = "force-dynamic";
 
 // BORRADOR: revisar con la asesoría antes de lanzar (README, «Cumplimiento legal»).
 export default async function AvisoLegalPage() {
+  redirectToOwnerLegal("aviso");
   const s = await getSettings();
   const email = s.privacyEmail || s.supportEmail;
   // Con la política de IVA por defecto, Cirella cobra y factura lo digital como proveedora (art. 9 bis).

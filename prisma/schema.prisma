@@ -260,6 +260,8 @@ model Creator {
   invoices         Invoice[]
   refunds          Refund[]
   recoveryOptOuts  RecoveryOptOut[]
+  posts            Post[]
+  discountCodes    DiscountCode[]
 
   @@index([planId])
   @@index([payoutStatus])
@@ -290,6 +292,12 @@ model Product {
   featured        Boolean @default(false)
   sortOrder       Int     @default(0)
   instructions    String? // qué recibe / próximos pasos tras la compra
+
+  // Cómo se consigue: PAID (pago en la web; solo modo plataforma) | FREE_EMAIL (gratis con nombre + email)
+  // | EXTERNAL (se paga fuera: el botón lleva a externalUrl, p. ej. Hotmart o Calendly)
+  accessMode    String  @default("PAID")
+  externalUrl   String? // https obligatoria (EXTERNAL)
+  externalLabel String? // texto del botón (p. ej. «Comprar en Hotmart», «Reservar en Calendly»)
 
   // Sesiones
   durationMin    Int?
@@ -390,6 +398,44 @@ model MembershipPost {
   publishedAt DateTime @default(now())
 
   @@index([creatorId, productId, publishedAt])
+}
+
+// Publicaciones con fecha de la página pública (novedades / blog).
+model Post {
+  id          String    @id @default(cuid())
+  creatorId   String
+  creator     Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  slug        String
+  title       String
+  excerpt     String?
+  body        String // texto con párrafos; los enlaces se convierten al mostrarlo
+  imageUrl    String?
+  status      String    @default("DRAFT") // DRAFT | PUBLISHED
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([creatorId, slug])
+  @@index([creatorId, status, publishedAt])
+}
+
+// Códigos de descuento de otras marcas que la creadora recomienda en su página.
+model DiscountCode {
+  id          String    @id @default(cuid())
+  creatorId   String
+  creator     Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  brand       String
+  code        String
+  description String?
+  url         String // enlace a la tienda (https)
+  imageUrl    String? // logo o imagen de la marca
+  expiresAt   DateTime? // los caducados no se muestran
+  active      Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([creatorId, active, sortOrder])
 }
 
 // ───────────────────────────── Clientes y ventas ─────────────────────────────
@@ -687,9 +733,11 @@ model AnalyticsEvent {
   id          String   @id @default(cuid())
   creatorId   String
   creator     Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  // PAGE_VIEW | PRODUCT_VIEW | PRODUCT_CLICK | CHECKOUT_STARTED | PURCHASE
-  // | REFUND (solo servidor; amountCents = importe devuelto)
+  // PAGE_VIEW | PRODUCT_VIEW | PRODUCT_CLICK | CHECKOUT_STARTED | PURCHASE | CODE_COPY | CODE_CLICK
+  // | REFUND (solo servidor; amountCents = importe devuelto) | SIGNUP (solo servidor; acceso gratis)
   type        String
+  // En CODE_COPY / CODE_CLICK guarda el id del DiscountCode (no es una relación; las estadísticas
+  // de productos filtran por ids de producto).
   productId   String?
   visitorId   String
   source      String? // instagram | tiktok | telegram | whatsapp | direct | other

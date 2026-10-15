@@ -1,4 +1,6 @@
+import { NO_CHARGE_PROVIDERS } from "./access-mode";
 import { orderFigures } from "./refund-math";
+import { isPersonalMode } from "./site-mode";
 import { tenantDb } from "./tenant";
 import { addDaysToKey, dateKeyInTz, zonedTimeToUtc, formatInTz } from "./tz";
 
@@ -20,20 +22,32 @@ export function rangeStart(range: RangeKey, tz: string, now = new Date()): Date 
   return zonedTimeToUtc(key, 0, tz);
 }
 
-type SeriesPoint = { key: string; label: string; revenue: number; visits: number; sales: number };
+type SeriesPoint = { key: string; label: string; revenue: number; visits: number; sales: number; signups: number };
 
-/** Métricas del panel de la creadora. Todas las consultas pasan por tenantDb. */
+/** Ventas = pedidos con cobro. Los de 0 € (gratis con email o acceso dado a mano) son inscripciones. */
+const CHARGED = { paymentProvider: { notIn: [...NO_CHARGE_PROVIDERS] } };
+const NO_CHARGE = { paymentProvider: { in: [...NO_CHARGE_PROVIDERS] } };
+
+/**
+ * Métricas del panel de la creadora. Todas las consultas pasan por tenantDb.
+ * Las inscripciones (accesos sin cobro) se cuentan aparte de las ventas: `signups` (todas) y
+ * `formSignups` (solo las del formulario de la ficha, que son las que convierten visitas).
+ */
 export async function getDashboardStats(creatorId: string, range: RangeKey, tz: string) {
   const db = tenantDb(creatorId);
   const now = new Date();
   const since = rangeStart(range, tz, now);
   const when = since ? { gte: since } : undefined;
 
-  const [settledOrders, newCustomers, totalCustomers, pageViews, visitorGroups, productViews, clicks, checkouts, subs, upcoming, pendingSchedule, bookingsInRange, products] =
+  const [settledOrders, signupOrders, newCustomers, totalCustomers, pageViews, visitorGroups, productViews, clicks, checkouts, subs, upcoming, pendingSchedule, bookingsInRange, products] =
     await Promise.all([
       db.order.findMany({
-        where: { status: { in: ["PAID", "REFUNDED"] }, ...(when ? { paidAt: when } : {}) },
+        where: { status: { in: ["PAID", "REFUNDED"] }, ...CHARGED, ...(when ? { paidAt: when } : {}) },
         select: { status: true, amountCents: true, platformFeeCents: true, refundedCents: true, refundedFeeCents: true, taxCents: true, taxSeller: true, productId: true, productTitle: true, paidAt: true },
+      }),
+      db.order.findMany({
+        where: { status: "PAID", ...NO_CHARGE, ...(when ? { paidAt: when } : {}) },
+        select: { paymentProvider: true, productId: true, paidAt: true },
       }),
       db.customer.count({ where: when ? { createdAt: when } : {} }),
       db.customer.count(),
@@ -103,26 +117,40 @@ export async function getDashboardStats(creatorId: string, range: RangeKey, tz: 
     }
     for (const k of keys) {
       const ref = zonedTimeToUtc(`${k}-15`, 720, tz);
-      series.push({ key: k, label: formatInTz(ref, tz, { month: "short" }).replace(".", ""), revenue: 0, visits: 0, sales: 0 });
+      series.push({ key: k, label: formatInTz(ref, tz, { month: "short" }).replace(".", ""), revenue: 0, visits: 0, sales: 0, signups: 0 });
     }
     const idx = new Map(series.map((s, i) => [s.key, i]));
     for (const o of orders) { const i = idx.get(dateKeyInTz(o.paidAt!, tz).slice(0, 7)); if (i != null) { series[i].revenue += o.amountCents; series[i].sales++; } }
     for (const t of renewals) { const i = idx.get(dateKeyInTz(t.createdAt, tz).slice(0, 7)); if (i != null) series[i].revenue += t.amountCents; }
     for (const e of visitsEvents) { const i = idx.get(dateKeyInTz(e.createdAt, tz).slice(0, 7)); if (i != null) series[i].visits++; }
+    for (const o of signupOrders) { const i = idx.get(dateKeyInTz(o.paidAt!, tz).slice(0, 7)); if (i != null) series[i].signups++; }
   } else {
     const startKey = dateKeyInTz(since!, tz);
     const endKey = dateKeyInTz(now, tz);
     for (let k = startKey, n = 0; k <= endKey && n < 32; k = addDaysToKey(k, 1), n++) {
-      series.push({ key: k, label: String(Number(k.slice(8))), revenue: 0, visits: 0, sales: 0 });
+      series.push({ key: k, label: String(Number(k.slice(8))), revenue: 0, visits: 0, sales: 0, signups: 0 });
     }
     const idx = new Map(series.map((s, i) => [s.key, i]));
     for (const o of orders) { const i = idx.get(dateKeyInTz(o.paidAt!, tz)); if (i != null) { series[i].revenue += o.amountCents; series[i].sales++; } }
     for (const t of renewals) { const i = idx.get(dateKeyInTz(t.createdAt, tz)); if (i != null) series[i].revenue += t.amountCents; }
     for (const e of visitsEvents) { const i = idx.get(dateKeyInTz(e.createdAt, tz)); if (i != null) series[i].visits++; }
+    for (const o of signupOrders) { const i = idx.get(dateKeyInTz(o.paidAt!, tz)); if (i != null) series[i].signups++; }
   }
+
+  const formSignups = signupOrders.filter((o) => o.paymentProvider === "free").length;
+  const signupsByProduct = new Map<string, number>();
+  for (const o of signupOrders) signupsByProduct.set(o.productId, (signupsByProduct.get(o.productId) ?? 0) + 1);
+  const topSignups = [...signupsByProduct.entries()]
+    .map(([id, count]) => ({ id, count, product: productMap.get(id) }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
 
   return {
     sales: orders.length,
+    signups: signupOrders.length,
+    formSignups,
+    signupConversion: uniqueVisitors ? formSignups / uniqueVisitors : 0,
+    topSignups,
     revenue,
     net,
     fees,
@@ -156,13 +184,24 @@ export async function getAdvancedStats(creatorId: string, range: RangeKey, tz: s
     db.product.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, title: true, emoji: true, type: true, priceCents: true } }),
   ]);
   const count = (t: string) => byType.find((x) => x.type === t)?._count._all ?? 0;
-  const funnel = [
-    { key: "PAGE_VIEW", label: "Visitas", value: count("PAGE_VIEW") },
-    { key: "PRODUCT_VIEW", label: "Vistas de producto", value: count("PRODUCT_VIEW") },
-    { key: "PRODUCT_CLICK", label: "Clics en comprar", value: count("PRODUCT_CLICK") },
-    { key: "CHECKOUT_STARTED", label: "Checkout iniciado", value: count("CHECKOUT_STARTED") },
-    { key: "PURCHASE", label: "Compras", value: count("PURCHASE") },
-  ];
+  // Web personal: no hay checkout ni compras aquí; el final del embudo son las inscripciones
+  // (SIGNUP, gratis con email) y los clics que llevan a la web externa donde se paga.
+  const funnel = isPersonalMode()
+    ? [
+        { key: "PAGE_VIEW", label: "Visitas", value: count("PAGE_VIEW") },
+        { key: "PRODUCT_VIEW", label: "Vistas de producto", value: count("PRODUCT_VIEW") },
+        { key: "PRODUCT_CLICK", label: "Clics en el botón", value: count("PRODUCT_CLICK") },
+        { key: "SIGNUP", label: "Inscripciones", value: count("SIGNUP") },
+      ]
+    : [
+        { key: "PAGE_VIEW", label: "Visitas", value: count("PAGE_VIEW") },
+        { key: "PRODUCT_VIEW", label: "Vistas de producto", value: count("PRODUCT_VIEW") },
+        { key: "PRODUCT_CLICK", label: "Clics en comprar", value: count("PRODUCT_CLICK") },
+        { key: "CHECKOUT_STARTED", label: "Checkout iniciado", value: count("CHECKOUT_STARTED") },
+        { key: "PURCHASE", label: "Compras", value: count("PURCHASE") },
+        // Inscripciones gratis (productos gratis con email): aparte, nunca como compras.
+        ...(count("SIGNUP") > 0 ? [{ key: "SIGNUP", label: "Inscripciones gratis", value: count("SIGNUP") }] : []),
+      ];
   const sources = bySource
     .map((s) => ({ source: s.source ?? "direct", value: s._count._all }))
     .sort((a, b) => b.value - a.value);
@@ -174,7 +213,9 @@ export async function getAdvancedStats(creatorId: string, range: RangeKey, tz: s
     const revenue = sum("PURCHASE") - sum("REFUND");
     const views = get("PRODUCT_VIEW");
     const purchases = get("PURCHASE");
-    return { ...p, views, clicks: get("PRODUCT_CLICK"), checkouts: get("CHECKOUT_STARTED"), purchases, revenue, conversion: views ? purchases / views : 0 };
+    const signups = get("SIGNUP");
+    // Conversión: compras o, en un producto gratis, inscripciones por cada vista.
+    return { ...p, views, clicks: get("PRODUCT_CLICK"), checkouts: get("CHECKOUT_STARTED"), purchases, signups, revenue, conversion: views ? (purchases + signups) / views : 0 };
   });
   return { funnel, sources, perProduct };
 }

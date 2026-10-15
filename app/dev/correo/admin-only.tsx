@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { demoSignIn } from "@/app/(auth)/demo-actions";
-import { Logo } from "@/components/logo";
+import { BrandLogo } from "@/components/brand-logo";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 /**
@@ -11,7 +11,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 export function AdminOnly({ next }: { next: string }) {
   return (
     <div className="flex min-h-dvh flex-col bg-paper px-4 py-6">
-      <Logo />
+      <BrandLogo />
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-10">
         <div className="card p-6">
           <span className="grid h-10 w-10 place-items-center rounded-full bg-gold-soft">

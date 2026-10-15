@@ -4,6 +4,7 @@ import { LegalProse, Pending } from "@/components/legal-prose";
 import { CHECKOUT_COOKIE, SESSION_COOKIE } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { asTaxMode } from "@/lib/tax";
+import { redirectToOwnerLegal } from "../personal-redirect";
 
 export const metadata: Metadata = { title: "Política de privacidad" };
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 // BORRADOR: revisar con la asesoría antes de lanzar (README, «Cumplimiento legal»). Los
 // subencargados y sus regiones los decide la fundadora.
 export default async function PrivacidadPage() {
+  redirectToOwnerLegal("privacidad");
   const s = await getSettings();
   const email = s.privacyEmail || s.supportEmail;
   // Con la política de IVA por defecto, Cirella factura en su nombre lo digital: esos datos son suyos.

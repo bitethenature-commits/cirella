@@ -1,12 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { NO_CHARGE_PROVIDERS } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { centsToCsv, toCsv } from "@/lib/csv";
 import { orderRef } from "@/lib/order-ref";
 import { orderBreakdown } from "@/lib/order-breakdown";
+import { isPersonalMode } from "@/lib/site-mode";
 import { parseRange, rangeStart } from "@/lib/stats";
 import { tenantDb } from "@/lib/tenant";
 import { ORDER_STATUS_LABEL, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
-import { dateKeyInTz } from "@/lib/tz";
+import { dateKeyInTz, formatInTz } from "@/lib/tz";
+import { listSignups } from "../signups-data";
 
 /**
  * «Descargar CSV» de /panel/ventas: ventas pagadas y reembolsadas del periodo con su desglose
@@ -15,10 +18,31 @@ import { dateKeyInTz } from "@/lib/tz";
  */
 export async function GET(req: NextRequest) {
   const { creator } = await requireCreator();
-  const range = parseRange(req.nextUrl.searchParams.get("rango"));
+  const params = req.nextUrl.searchParams;
+  const range = parseRange(params.get("rango"));
   const since = rangeStart(range, creator.timezone);
+  // Web personal (o la pestaña «Inscripciones gratis»): quién se ha apuntado a qué.
+  if (isPersonalMode() || params.get("tipo") === "inscripciones") {
+    const { rows: signups } = await listSignups(creator.id, { since, productId: params.get("producto") || null });
+    const rows: (string | number | null)[][] = [["fecha", "hora", "nombre", "email", "producto", "origen", "quiere_novedades", "acceso", "pedido"]];
+    for (const r of signups)
+      rows.push([
+        r.paidAt ? dateKeyInTz(r.paidAt, creator.timezone) : "",
+        r.paidAt ? formatInTz(r.paidAt, creator.timezone, { hour: "2-digit", minute: "2-digit" }) : "",
+        r.name,
+        r.email,
+        r.productTitle,
+        r.origin,
+        r.newsletter ? "sí" : r.newsletterPending ? "pendiente de confirmar" : "no",
+        r.active ? "con acceso" : "retirado",
+        orderRef(r.orderId),
+      ]);
+    return new NextResponse(toCsv(rows), {
+      headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="inscripciones-${creator.username}.csv"` },
+    });
+  }
   const orders = await tenantDb(creator.id).order.findMany({
-    where: { status: { in: ["PAID", "REFUNDED"] }, ...(since ? { paidAt: { gte: since } } : {}) },
+    where: { status: { in: ["PAID", "REFUNDED"] }, paymentProvider: { notIn: [...NO_CHARGE_PROVIDERS] }, ...(since ? { paidAt: { gte: since } } : {}) },
     orderBy: { paidAt: "desc" },
     include: {
       invoices: { where: { type: { in: ["F1", "F2", "F3"] } }, orderBy: { issuedAt: "desc" }, take: 1, select: { fullNumber: true } },

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Check, FileText, Gift } from "lucide-react";
 import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -12,8 +13,11 @@ import { tenantDb } from "@/lib/tenant";
 import { PageHeader } from "../ui";
 import { changePlan } from "./actions";
 import { formatDate } from "@/lib/tz";
+import { isPersonalMode } from "@/lib/site-mode";
 
 export default async function PlanPage({ searchParams }: { searchParams: Promise<{ elegir?: string; ok?: string; error?: string }> }) {
+  // Modo personal: sin planes (la dueña tiene el plan «Personal», sin comisión y con todo).
+  if (isPersonalMode()) redirect("/panel");
   const { creator } = await requireCreator();
   const sp = await searchParams;
   const db = tenantDb(creator.id);

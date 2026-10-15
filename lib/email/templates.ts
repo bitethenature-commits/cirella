@@ -1,12 +1,30 @@
 /**
  * Plantillas de email transaccional. Devuelven { subject, html }.
  * HTML sencillo con estilos en línea (compatibles con clientes de correo).
+ *
+ * Marca: en la plataforma, «Cirella» y el pie «Enviado con Cirella». En la web personal
+ * (SITE_MODE=personal) no aparece Cirella: donde iría su nombre va SITE_NAME_TOKEN, que
+ * enqueueEmail (lib/email/outbox.ts) cambia por el nombre de la página de la dueña, y no hay pie.
  */
 
 import { legalTextToPlain } from "../legal-templates";
 import { orderRef } from "../order-ref";
+import { siteMode, type SiteMode } from "../site-mode";
 
-const PLATFORM = "Cirella";
+/** Marcador del nombre de la web personal en asuntos y cuerpos (lo sustituye enqueueEmail). */
+export const SITE_NAME_TOKEN = "{{nombre-de-la-web}}";
+
+/** Nombre de la marca y pie por defecto de los emails según el modo del sitio. Puro. */
+export function emailBranding(mode: SiteMode): { name: string; footer: string } {
+  return mode === "personal"
+    ? { name: SITE_NAME_TOKEN, footer: "" }
+    : { name: "Cirella", footer: "Enviado con Cirella · Convierte tu perfil social en tu negocio." };
+}
+
+/** Nombre de la web en los emails: «Cirella» en la plataforma, el de la dueña en la web personal. */
+function platformName() {
+  return emailBranding(siteMode()).name;
+}
 
 /** Escapa texto para HTML. Todo lo que escribe una persona (nombres, mensajes) pasa por aquí. */
 export function esc(s: string) {
@@ -15,7 +33,9 @@ export function esc(s: string) {
 
 /** Plantilla con la marca (lib/email/refund-templates.ts la reutiliza). */
 export function layout(opts: { brand?: string; title: string; body: string; cta?: { label: string; url: string }; afterCta?: string; footer?: string }) {
-  const brand = esc(opts.brand ?? PLATFORM);
+  const branding = emailBranding(siteMode());
+  const brand = esc(opts.brand ?? branding.name);
+  const footer = opts.footer ?? branding.footer;
   const cta = opts.cta
     ? `<p style="margin:28px 0 8px"><a href="${esc(opts.cta.url)}" style="display:inline-block;background:#0E1024;color:#F6F1E7;text-decoration:none;padding:13px 22px;border-radius:999px;font-weight:600;font-size:14px">${esc(opts.cta.label)}</a></p>`
     : "";
@@ -27,7 +47,7 @@ export function layout(opts: { brand?: string; title: string; body: string; cta?
     <div style="font-size:15px;line-height:1.65;color:#3B3950">${opts.body}</div>
     ${cta}${opts.afterCta ? `<div style="font-size:15px;line-height:1.65;color:#3B3950">${opts.afterCta}</div>` : ""}
   </div>
-  <p style="font-size:12px;color:#8A8698;margin:24px 4px 0;line-height:1.6">${opts.footer ?? `Enviado con ${PLATFORM} · Convierte tu perfil social en tu negocio.`}</p>
+  ${footer ? `<p style="font-size:12px;color:#8A8698;margin:24px 4px 0;line-height:1.6">${footer}</p>` : ""}
 </div></body></html>`;
 }
 
@@ -39,12 +59,12 @@ const note = (s?: string | null) => (s ? p(`<span style="color:#8A8698;font-size
 export function magicLinkEmail(o: { url: string; creatorName?: string; purpose?: "LOGIN" | "VERIFY_SIGNUP" }) {
   if (o.purpose === "VERIFY_SIGNUP")
     return {
-      subject: "Confirma tu email en Cirella",
+      subject: `Confirma tu email en ${platformName()}`,
       html: layout({
         brand: o.creatorName,
         title: "¿Has creado tú esta cuenta?",
         body:
-          p("Alguien acaba de crear una cuenta de Cirella con este email y una contraseña. Si has sido tú, confírmalo para proteger tu cuenta y poder recuperarla si olvidas la contraseña.") +
+          p(`Alguien acaba de crear una cuenta de ${esc(platformName())} con este email y una contraseña. Si has sido tú, confírmalo para proteger tu cuenta y poder recuperarla si olvidas la contraseña.`) +
           note("¿No has sido tú? Abre el enlace y pulsa «No he sido yo»: cerraremos ese acceso y entrarás tú con este email."),
         // La etiqueta la buscan las pruebas (scripts/unit/acceso.test.ts, e2e/acceso-cuenta.spec.ts).
         cta: { label: "Confirmar mi email", url: o.url },
@@ -65,7 +85,7 @@ export function magicLinkEmail(o: { url: string; creatorName?: string; purpose?:
 
 export function welcomeCreatorEmail(o: { name: string; pageUrl: string; panelUrl: string }) {
   return {
-    subject: `Bienvenida a ${PLATFORM}, ${o.name}`,
+    subject: `Bienvenida a ${platformName()}, ${o.name}`,
     html: layout({
       title: `Bienvenida, ${o.name} ✨`,
       body: p("Tu espacio ya está creado. Desde tu panel puedes añadir productos, personalizar tu página y ver tus ventas.") +
@@ -81,7 +101,15 @@ export function welcomeCustomerEmail(o: { name?: string | null; creatorName: str
     html: layout({
       brand: o.creatorName,
       title: `Hola${o.name ? `, ${o.name}` : ""}`,
-      body: p(esc(o.message || `Gracias por confiar en ${o.creatorName}. Todo lo que compres estará siempre disponible en tu cuenta.`)),
+      // En la web personal no se compra (gratis con email o pagado fuera): «todo lo tuyo».
+      body: p(
+        esc(
+          o.message ||
+            (siteMode() === "personal"
+              ? `Gracias por confiar en ${o.creatorName}. Todo lo tuyo estará siempre disponible en tu cuenta.`
+              : `Gracias por confiar en ${o.creatorName}. Todo lo que compres estará siempre disponible en tu cuenta.`),
+        ),
+      ),
       cta: { label: "Ver mi cuenta", url: o.accountUrl },
     }),
   };
@@ -90,7 +118,7 @@ export function welcomeCustomerEmail(o: { name?: string | null; creatorName: str
 /** Factura mensual de Cirella a la creadora (cuota del plan y comisiones). */
 export function monthlyInvoiceEmail(o: { creatorName: string; periodLabel: string; number: string; total: string; url: string; corrective?: boolean }) {
   return {
-    subject: `Tu factura de ${PLATFORM} · ${o.periodLabel}`,
+    subject: `Tu factura de ${platformName()} · ${o.periodLabel}`,
     html: layout({
       title: "Tu factura ya está disponible",
       body: (o.corrective
@@ -166,6 +194,45 @@ export function purchaseReceiptEmail(o: {
         (o.receiptUrl ? p(`<a href="${esc(o.receiptUrl)}" style="color:#3B3950;font-size:14px">Ver tu factura o justificante</a>`) : "") +
         legal +
         appendix,
+    }),
+  };
+}
+
+/** Acceso sin cobro (gratis con email o dado a mano) y su reenvío: directo al contenido, sin recibo. */
+export function accessGrantedEmail(o: {
+  name?: string | null;
+  creatorName: string;
+  productTitle: string;
+  productType: string;
+  url: string;
+  linkNote?: string;
+  instructions?: string | null;
+  /** Pidió las novedades en el formulario: botón para confirmarlo (hasta entonces no cuenta). */
+  newsletterUrl?: string | null;
+}) {
+  const what =
+    o.productType === "COURSE"
+      ? "Avanza a tu ritmo: tu progreso se guarda automáticamente."
+      : o.productType === "MEMBERSHIP"
+        ? "Ya formas parte de la comunidad: entra cuando quieras para ver lo último."
+        : "Lo tienes listo para descargar o abrir cuando quieras.";
+  const label = o.productType === "COURSE" ? "Empezar el curso" : o.productType === "MEMBERSHIP" ? "Entrar en la comunidad" : "Acceder a mi contenido";
+  return {
+    subject: `Ya tienes acceso a «${o.productTitle}»`,
+    html: layout({
+      brand: o.creatorName,
+      title: "Ya tienes acceso",
+      body:
+        p(`Hola${o.name ? ` ${esc(o.name)}` : ""}, ya puedes entrar en <strong>${esc(o.productTitle)}</strong>. ${what}`) +
+        p("Pulsa el botón para abrirlo. No necesitas contraseña.") +
+        (o.instructions ? p(`<em>${esc(o.instructions)}</em>`) : ""),
+      cta: { label, url: o.url },
+      afterCta:
+        note(o.linkNote) +
+        (o.newsletterUrl
+          ? p(`Marcaste que quieres recibir las novedades de ${esc(o.creatorName)} por email. Confírmalo aquí (si no lo pediste tú, no hagas nada y no recibirás ninguna):`) +
+            p(`<a href="${esc(o.newsletterUrl)}" style="color:#0E1024;font-weight:600">Confirmar que quiero recibir novedades</a>`)
+          : ""),
     }),
   };
 }
@@ -373,7 +440,7 @@ export function dac7RequestEmail(o: { name: string; url: string; reminder: numbe
     html: layout({
       title: "Completa tus datos fiscales",
       body:
-        p(`${lead}Hola, ${esc(o.name)}. Por la normativa europea DAC7, Cirella debe informar cada año a Hacienda de lo que cobras por tus sesiones y otros servicios personales (modelo 238).`) +
+        p(`${lead}Hola, ${esc(o.name)}. Por la normativa europea DAC7, ${esc(platformName())} debe informar cada año a Hacienda de lo que cobras por tus sesiones y otros servicios personales (modelo 238).`) +
         p("Necesitamos tu nombre legal, NIF, dirección, fecha de nacimiento y el IBAN donde cobras. Solo los usamos para esa declaración.") +
         p(`Si no los tenemos antes del <strong>${esc(o.deadline)}</strong>, tendremos que pausar la venta de tus sesiones hasta que los completes.`),
       cta: { label: "Completar mis datos", url: o.url },

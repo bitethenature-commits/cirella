@@ -5,9 +5,11 @@ import { redirect } from "next/navigation";
 import { requireCreator } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { tenantDb } from "@/lib/tenant";
+import { isPersonalMode } from "@/lib/site-mode";
 
 /** Cambio de plan con cobro simulado (aplica primero el crédito de referidos). */
 export async function changePlan(form: FormData) {
+  if (isPersonalMode()) redirect("/panel");
   const { creator } = await requireCreator();
   const plan = await prisma.plan.findFirst({ where: { key: String(form.get("plan")), active: true } });
   if (!plan || plan.id === creator.planId) redirect("/panel/plan");

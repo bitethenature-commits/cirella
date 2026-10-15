@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { TrackOnMount } from "@/components/creator-page/tracking";
 import { getCurrentUser, holdsCheckout } from "@/lib/auth";
@@ -9,7 +9,8 @@ import { prisma } from "@/lib/db";
 import { isDemoMode } from "@/lib/env";
 import { creatorLegalHref, legalIdentityComplete, sellerStatement } from "@/lib/legal";
 import { getPurchasableProduct } from "@/lib/orders";
-import { paymentProvider } from "@/lib/payments";
+import { asAccessMode } from "@/lib/access-mode";
+import { paidCheckoutOpen, paymentProvider } from "@/lib/payments";
 import { canAcceptPayments } from "@/lib/payouts";
 import { canInvoiceSale } from "@/lib/invoices/issue";
 import { getPlatformIssuer } from "@/lib/invoices/issuer";
@@ -29,9 +30,14 @@ export default async function CheckoutPage({
   searchParams: Promise<{ pedido?: string; cancelado?: string }>;
 }) {
   const { username, slug } = await params;
+  const productHref = `/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`;
+  // Web personal o sin pasarela: no hay checkout de pago, de vuelta a la ficha del producto.
+  if (!paidCheckoutOpen()) redirect(productHref);
   const sp = await searchParams;
   const data = await getPublicProduct(username, slug);
   if (!data) notFound();
+  // Lo gratuito con email y lo que se paga fuera se consiguen desde la ficha, nunca aquí.
+  if (asAccessMode(data.product.accessMode) !== "PAID") redirect(productHref);
   const user = await getCurrentUser();
   const isOwner = user?.id === data.creator.userId;
   const purchasable = await getPurchasableProduct(data.product.id);
@@ -88,7 +94,7 @@ export default async function CheckoutPage({
   const defaultCountry = previous?.buyerCountry ?? (guessed ? (isKnownCountry(guessed) ? guessed : "XX") : "ES");
 
   return (
-    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} sellerName={statement.name}>
+    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} sellerName={statement.name}>
       <main className="mx-auto max-w-xl px-4 pb-16 pt-6 sm:pt-10">
         <CheckoutForm
           product={{

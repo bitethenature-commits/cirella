@@ -128,6 +128,7 @@ async function main() {
   await deliveryIsolation(ana, maria);
   await limitsIsolation(ana, maria);
   await optOutIsolation(ana, maria);
+  await contentIsolation(ana, maria);
 
   console.log(failures ? `\n${failures} comprobaciones fallidas` : "\nAislamiento multi-tenant correcto ✓");
   process.exit(failures ? 1 : 0);
@@ -148,6 +149,44 @@ async function optOutIsolation(ana: CreatorRow, maria: CreatorRow) {
     check("deleteMany sobre una baja de María afecta 0 filas", dm.count === 0);
   } finally {
     await prisma.recoveryOptOut.deleteMany({ where: { id: row.id } });
+  }
+}
+
+/** Publicaciones y códigos de descuento: los de María no se ven, cambian ni borran desde el panel de Ana. */
+async function contentIsolation(ana: CreatorRow, maria: CreatorRow) {
+  const db = tenantDb(ana.id);
+  const tag = `isolation-contenido-${Date.now()}`;
+  const post = await prisma.post.create({ data: { creatorId: maria.id, slug: tag, title: "Novedad de María", body: "Texto", status: "PUBLISHED", publishedAt: new Date() } });
+  const code = await prisma.discountCode.create({ data: { creatorId: maria.id, brand: "Marca", code: "MARIA10", url: "https://example.com" } });
+  const forged: string[] = [];
+  try {
+    check("publicaciones de María invisibles", (await db.post.findFirst({ where: { id: post.id } })) === null);
+    check("findUnique de una publicación de María por (creadora, slug) → null", (await db.post.findUnique({ where: { creatorId_slug: { creatorId: maria.id, slug: tag } } })) === null);
+    check("findMany de publicaciones: solo las de Ana", (await db.post.findMany()).every((p) => p.creatorId === ana.id));
+    check("count de publicaciones = las de Ana", (await db.post.count()) === (await prisma.post.count({ where: { creatorId: ana.id } })));
+    const up = await db.post.updateMany({ where: { id: post.id }, data: { title: "hackeada" } });
+    check("updateMany sobre una publicación de María afecta 0 filas", up.count === 0);
+    const dp = await db.post.deleteMany({ where: { id: post.id } });
+    check("deleteMany sobre una publicación de María afecta 0 filas", dp.count === 0);
+    const fp = await db.post.create({ data: { creatorId: maria.id, slug: tag, title: "Intento", body: "x" } });
+    forged.push(fp.id);
+    check("create de una publicación con creatorId ajeno se reasigna a Ana", fp.creatorId === ana.id);
+
+    check("códigos de María invisibles", (await db.discountCode.findFirst({ where: { id: code.id } })) === null);
+    check("findMany de códigos: solo los de Ana", (await db.discountCode.findMany()).every((c) => c.creatorId === ana.id));
+    check("count de códigos = los de Ana", (await db.discountCode.count()) === (await prisma.discountCode.count({ where: { creatorId: ana.id } })));
+    const uc = await db.discountCode.updateMany({ where: { id: code.id }, data: { code: "HACK" } });
+    check("updateMany sobre un código de María afecta 0 filas", uc.count === 0);
+    const dc = await db.discountCode.deleteMany({ where: { id: code.id } });
+    check("deleteMany sobre un código de María afecta 0 filas", dc.count === 0);
+    const fc = await db.discountCode.create({ data: { creatorId: maria.id, brand: "Intento", code: "X", url: "https://example.com" } });
+    check("create de un código con creatorId ajeno se reasigna a Ana", fc.creatorId === ana.id);
+    await prisma.discountCode.delete({ where: { id: fc.id } });
+    const still = await Promise.all([prisma.post.findUniqueOrThrow({ where: { id: post.id } }), prisma.discountCode.findUniqueOrThrow({ where: { id: code.id } })]);
+    check("la publicación y el código de María siguen intactos", still[0].title === post.title && still[1].code === code.code);
+  } finally {
+    await prisma.post.deleteMany({ where: { id: { in: [post.id, ...forged] } } });
+    await prisma.discountCode.deleteMany({ where: { id: code.id } });
   }
 }
 
