@@ -88,8 +88,13 @@ export function formatSessionDate(date: Date, timeZone: string, withWeekday = tr
   return `${day} · ${time}`;
 }
 
-export function formatDate(date: Date, opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" }) {
-  return new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", ...opts }).format(date);
+/** Fecha en la zona horaria de la creadora (por defecto, la de la plataforma), nunca en la del servidor. */
+export function formatDate(
+  date: Date,
+  opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" },
+  timeZone = "Europe/Madrid",
+) {
+  return new Intl.DateTimeFormat("es-ES", { timeZone, ...opts }).format(date);
 }
 
 export function formatDateTime(date: Date) {

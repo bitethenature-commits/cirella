@@ -117,7 +117,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
           {blocked.map((d) => (
             <form key={d.id} action={removeBlockedDate} className="inline-flex items-center gap-2 rounded-full border border-line bg-white py-1 pl-3 pr-1 text-sm">
               <input type="hidden" name="id" value={d.id} />
-              {new Date(`${d.date}T12:00:00Z`).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" })}
+              {new Date(`${d.date}T12:00:00Z`).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })}
               {d.reason && <span className="text-muted">· {d.reason}</span>}
               <button className="grid h-6 w-6 place-items-center rounded-full hover:bg-sand" aria-label="Desbloquear"><X className="h-3 w-3" /></button>
             </form>

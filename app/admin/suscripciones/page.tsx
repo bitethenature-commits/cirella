@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { formatMoney, formatPrice } from "@/lib/money";
 import { Badge, PageHeader } from "../../panel/ui";
 import { AdminTable, td } from "../ui";
+import { formatDate } from "@/lib/tz";
 
 export default async function AdminSubscriptions() {
   await requireAdmin();
@@ -22,7 +23,7 @@ export default async function AdminSubscriptions() {
               <td className={td}><Badge tone="dark">{c.plan.name}</Badge></td>
               <td className={td}>{formatPrice(c.plan.priceMonthlyCents, "EUR", "month")}</td>
               <td className={td}>{c.plan.commissionBps / 100} %</td>
-              <td className={`${td} text-muted`}>{c.planRenewsAt?.toLocaleDateString("es-ES") ?? "—"}</td>
+              <td className={`${td} text-muted`}>{(c.planRenewsAt ? formatDate(c.planRenewsAt, { day: "numeric", month: "numeric", year: "numeric" }) : undefined) ?? "—"}</td>
               <td className={`${td} text-right`}>{c.creditCents ? formatMoney(c.creditCents, "EUR", { decimals: true }) : "—"}</td>
             </tr>
           ))}
@@ -37,7 +38,7 @@ export default async function AdminSubscriptions() {
               <td className={td}>{s.product.title}</td>
               <td className={td}>{s.creator.displayName}</td>
               <td className={td}>{formatPrice(s.priceCents, "EUR", s.interval)}</td>
-              <td className={`${td} text-muted`}>hasta {s.currentPeriodEnd.toLocaleDateString("es-ES")}</td>
+              <td className={`${td} text-muted`}>hasta {formatDate(s.currentPeriodEnd, { day: "numeric", month: "numeric", year: "numeric" })}</td>
               <td className={`${td} text-right`}><Badge tone={s.status === "ACTIVE" ? (s.cancelAtPeriodEnd ? "warning" : "success") : s.status === "PAST_DUE" ? "danger" : "neutral"}>{s.status === "ACTIVE" ? (s.cancelAtPeriodEnd ? "Cancela al final" : "Activa") : s.status === "PAST_DUE" ? "Pago pendiente" : "Finalizada"}</Badge></td>
             </tr>
           ))}

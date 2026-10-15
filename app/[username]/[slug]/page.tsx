@@ -15,6 +15,7 @@ import { getPublicProduct } from "@/lib/product-page";
 import { decideTax } from "@/lib/tax";
 import { getTaxMode } from "@/lib/tax/server";
 import { DEFAULT_CTA, LESSON_KIND_LABEL, PRODUCT_TYPE_LABEL, type LessonKind, type ProductType } from "@/lib/types";
+import { formatDate } from "@/lib/tz";
 
 type Params = { username: string; slug: string };
 
@@ -218,7 +219,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                   <li key={post.id} className="cp-card flex items-center gap-3 px-4 py-3.5 text-sm">
                     <Lock className="cp-gold h-4 w-4" />
                     <span className="flex-1">{post.title}</span>
-                    <span className="cp-faint text-xs">{post.publishedAt.toLocaleDateString("es-ES", { day: "numeric", month: "short" })}</span>
+                    <span className="cp-faint text-xs">{formatDate(post.publishedAt, { day: "numeric", month: "short" }, creator.timezone)}</span>
                   </li>
                 ))}
               </ul>

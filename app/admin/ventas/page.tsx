@@ -5,6 +5,7 @@ import { orderFigures, orderStatusLabel } from "@/lib/refund-math";
 import { DISPUTE_STATUS_LABEL } from "@/lib/types";
 import { Badge, PageHeader, Stat } from "../../panel/ui";
 import { AdminTable, td } from "../ui";
+import { formatDate } from "@/lib/tz";
 
 export default async function AdminSales() {
   await requireAdmin();
@@ -23,7 +24,7 @@ export default async function AdminSales() {
       <AdminTable head={["Fecha", "Creadora", "Producto", "Comprador", "Importe", "Comisión", "Estado"]} minWidth={900}>
         {orders.map((o) => (
           <tr key={o.id}>
-            <td className={`${td} text-muted`}>{o.createdAt.toLocaleDateString("es-ES", { day: "numeric", month: "short" })}</td>
+            <td className={`${td} text-muted`}>{formatDate(o.createdAt, { day: "numeric", month: "short" })}</td>
             <td className={td}>{o.creator.displayName}</td>
             <td className={td}>{o.productTitle}</td>
             <td className={`${td} text-muted`}>{o.buyerEmail}</td>

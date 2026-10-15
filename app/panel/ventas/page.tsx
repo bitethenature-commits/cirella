@@ -9,6 +9,7 @@ import { rangeStart, parseRange } from "@/lib/stats";
 import { tenantDb } from "@/lib/tenant";
 import { DISPUTE_STATUS_LABEL, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { Badge, PageHeader, RangeTabs, Stat } from "../ui";
+import { formatDate } from "@/lib/tz";
 
 /** Filas REFUND del libro de cada pedido: el IVA que se devolvió con cada reembolso. */
 const REFUND_ROWS = { where: { type: "REFUND", refundId: { not: null } }, select: { amountCents: true, taxCents: true } } as const;
@@ -110,9 +111,9 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
             return (
               <li key={o.id}>
                 <Link href={`/panel/ventas/${o.id}`} className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 px-4 py-3.5 text-sm transition hover:bg-paper md:grid-cols-[1.4fr_1fr_0.8fr_0.7fr_0.7fr_0.8fr] md:items-center md:px-5">
-                  <span className="min-w-0 truncate font-medium">{o.product.emoji} {o.productTitle}<span className="block text-xs font-normal text-muted md:hidden">{o.buyerName ?? o.buyerEmail} · {o.createdAt.toLocaleDateString("es-ES", { day: "numeric", month: "short" })}</span></span>
+                  <span className="min-w-0 truncate font-medium">{o.product.emoji} {o.productTitle}<span className="block text-xs font-normal text-muted md:hidden">{o.buyerName ?? o.buyerEmail} · {formatDate(o.paidAt ?? o.createdAt, { day: "numeric", month: "short" }, creator.timezone)}</span></span>
                   <span className="hidden min-w-0 truncate text-muted md:block">{o.buyerName ?? o.buyerEmail}</span>
-                  <span className="hidden text-muted md:block">{o.createdAt.toLocaleDateString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                  <span className="hidden text-muted md:block">{formatDate(o.paidAt ?? o.createdAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }, creator.timezone)}</span>
                   <span className="text-right font-semibold tabular-nums">
                     {formatMoney(o.amountCents, o.currency, { decimals: true })}
                     {f.refunded > 0 && <span className="block text-[0.68rem] font-normal text-muted">−{formatMoney(f.refunded, o.currency, { decimals: true })} reemb.</span>}

@@ -11,6 +11,7 @@ import { planBullets } from "@/lib/plans";
 import { tenantDb } from "@/lib/tenant";
 import { PageHeader } from "../ui";
 import { changePlan } from "./actions";
+import { formatDate } from "@/lib/tz";
 
 export default async function PlanPage({ searchParams }: { searchParams: Promise<{ elegir?: string; ok?: string; error?: string }> }) {
   const { creator } = await requireCreator();
@@ -31,7 +32,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
     <div>
       <PageHeader
         title="Tu plan"
-        subtitle={<>Estás en <strong>{creator.plan.name}</strong> · {products}{creator.plan.maxProducts != null ? ` de ${creator.plan.maxProducts}` : ""} productos · comisión {(creator.plan.commissionBps / 100).toLocaleString("es-ES")} %{creator.planRenewsAt ? ` · se renueva el ${creator.planRenewsAt.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}` : ""}</>}
+        subtitle={<>Estás en <strong>{creator.plan.name}</strong> · {products}{creator.plan.maxProducts != null ? ` de ${creator.plan.maxProducts}` : ""} productos · comisión {(creator.plan.commissionBps / 100).toLocaleString("es-ES")} %{creator.planRenewsAt ? ` · se renueva el ${formatDate(creator.planRenewsAt, { day: "numeric", month: "long" }, creator.timezone)}` : ""}</>}
       />
       <Flash ok={sp.ok} error={sp.error} />
       {(creator.creditCents > 0 || discountActive) && (
@@ -39,7 +40,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           <Gift className="h-5 w-5 text-gold" />
           <span>
             {creator.creditCents > 0 && <>Tienes <strong>{formatMoney(creator.creditCents, "EUR", { decimals: true })}</strong> de crédito por referidos. </>}
-            {discountActive && <>Comisión reducida en {(creator.commissionDiscountBps / 100).toLocaleString("es-ES")} puntos hasta el {creator.commissionDiscountUntil?.toLocaleDateString("es-ES")}.</>}
+            {discountActive && <>Comisión reducida en {(creator.commissionDiscountBps / 100).toLocaleString("es-ES")} puntos hasta el {(creator.commissionDiscountUntil ? formatDate(creator.commissionDiscountUntil, { day: "numeric", month: "numeric", year: "numeric" }, creator.timezone) : undefined)}.</>}
           </span>
         </div>
       )}
@@ -80,7 +81,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                 <span className="flex min-w-0 items-center gap-2">
                   <FileText className="h-4 w-4 shrink-0 text-muted" />
                   <span className="font-mono text-xs">{inv.fullNumber}</span>
-                  <span className="text-muted">· {inv.period ? periodLabel(inv.period) : inv.issuedAt.toLocaleDateString("es-ES")}</span>
+                  <span className="text-muted">· {inv.period ? periodLabel(inv.period) : formatDate(inv.issuedAt, { day: "numeric", month: "numeric", year: "numeric" }, creator.timezone)}</span>
                 </span>
                 <span className="flex items-center gap-3">
                   <strong className="tabular-nums">{formatMoney(inv.totalCents, inv.currency, { decimals: true })}</strong>

@@ -56,7 +56,7 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{o.productTitle}</p>
                   <p className="text-xs text-muted">
-                    {PRODUCT_TYPE_LABEL[o.productType as ProductType]} · {o.creator.displayName} · {o.paidAt?.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}
+                    {PRODUCT_TYPE_LABEL[o.productType as ProductType]} · {o.creator.displayName} · {(o.paidAt ? formatDate(o.paidAt, { day: "numeric", month: "short", year: "numeric" }) : undefined)}
                   </p>
                 </div>
                 <div className="text-right">

@@ -3,14 +3,14 @@ import { prisma } from "./db";
 import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
 import * as T from "./email/templates";
-import { formatLegalAddress, sellerLine, sessionChangePolicyText, type LegalIdentity } from "./legal";
+import { formatLegalAddress, sellerStatement, sessionChangePolicyText, type LegalIdentity } from "./legal";
 import type { LegalSnapshotContent } from "./legal-snapshot";
 import { getPlatformIssuer } from "./invoices/issuer";
 import { bpsToPercent, formatMoney, formatPrice } from "./money";
 import { createOrderLink, emailAlreadyQueued, orderLinkNote } from "./order-links";
 import { planFeatures } from "./plans";
 import { hasOptedOut, optOutHeaders, optOutUrl } from "./recovery-optout";
-import { formatSessionDate } from "./tz";
+import { formatSessionDate, formatDate } from "./tz";
 import type { DomainEvent } from "./events";
 
 // Compatibilidad: el código de negocio sigue importando emit y DomainEvent desde aquí.
@@ -110,9 +110,21 @@ export async function handleAutomation(event: DomainEvent) {
               accountUrl: link.url,
               linkNote: orderLinkNote(link.expiresAt),
               instructions: order.product.instructions,
-              seller: identity.legalName
-                ? { line: sellerLine(identity), address: formatLegalAddress(identity), email: identity.legalEmail ?? "" }
-                : undefined,
+              // Quién vende, igual que en el checkout y en la compra: Cirella por cuenta de la creadora
+              // cuando vende ella a efectos de IVA (con su domicilio) y, si no, la identidad de la creadora.
+              seller: platformIssuer
+                ? {
+                    line: sellerStatement(order.taxSeller, { ...identity, displayName: name }, platformIssuer).line,
+                    address: platformIssuer.address ?? "",
+                    email: identity.legalEmail ?? "",
+                  }
+                : identity.legalName
+                  ? {
+                      line: sellerStatement(order.taxSeller, { ...identity, displayName: name }, null).line,
+                      address: formatLegalAddress(identity),
+                      email: identity.legalEmail ?? "",
+                    }
+                  : undefined,
               waiver:
                 order.waiverText && order.waiverAcceptedAt
                   ? {
@@ -129,7 +141,7 @@ export async function handleAutomation(event: DomainEvent) {
                   : null,
               invoiceNumber: invoice?.fullNumber ?? null,
               taxSellerLine: platformIssuer
-                ? `Cobro y factura: ${platformIssuer.name}${platformIssuer.taxId ? ` · NIF ${platformIssuer.taxId}` : ""}, que vende el contenido digital a efectos de IVA.`
+                ? `${platformIssuer.name} vende este contenido digital a efectos de IVA y emite la factura; ${name} lo crea y te atiende.`
                 : null,
               receiptUrl,
             }),
@@ -255,7 +267,7 @@ export async function handleAutomation(event: DomainEvent) {
           : T.subscriptionCanceledCreatorEmail({
               productTitle: sub.product.title,
               buyer,
-              until: sub.currentPeriodEnd.toLocaleDateString("es-ES", { day: "numeric", month: "long" }),
+              until: formatDate(sub.currentPeriodEnd, { day: "numeric", month: "long" }, s.creator.timezone),
               url: `${base}/panel/clientes`,
             });
       await enqueueEmail({ to, creatorId: sub.creatorId, template: trigger, dedupeKey: `${trigger}:${sub.id}`, ...mail });

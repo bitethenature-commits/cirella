@@ -10,10 +10,11 @@ import { formatPrice } from "@/lib/money";
 import { cancelMembership, resumeMembership } from "../../actions";
 import { CreatorTag } from "../../ui";
 import { payRenewalNow } from "./actions";
+import { formatDate } from "@/lib/tz";
 
 const KIND = { TEXT: { icon: PenLine, label: "Publicación" }, AUDIO: { icon: Headphones, label: "Audio" }, VIDEO: { icon: Headphones, label: "Vídeo" }, EVENT: { icon: CalendarDays, label: "Directo" } } as const;
 
-const shortDate = (d: Date) => d.toLocaleDateString("es-ES", { day: "numeric", month: "long" });
+const shortDate = (d: Date) => formatDate(d, { day: "numeric", month: "long" });
 
 export default async function MembershipFeed({
   params,
@@ -85,7 +86,7 @@ export default async function MembershipFeed({
           return (
             <article key={post.id} className="card p-6">
               <p className="flex items-center gap-2 text-xs text-muted">
-                <k.icon className="h-3.5 w-3.5" /> {k.label} · {post.publishedAt.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}
+                <k.icon className="h-3.5 w-3.5" /> {k.label} · {formatDate(post.publishedAt, { day: "numeric", month: "long" })}
               </p>
               <h2 className="display mt-2 text-[1.6rem] leading-tight">{post.title}</h2>
               <p className="mt-3 whitespace-pre-line text-[0.98rem] leading-relaxed text-ink/80">{post.body}</p>

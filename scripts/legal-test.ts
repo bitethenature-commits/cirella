@@ -16,6 +16,7 @@ import "./load-env";
 import { prisma } from "../lib/db";
 import { parseCheckoutConsents } from "../lib/checkout-consents";
 import { ensureLegalSnapshot, getLegalSnapshot } from "../lib/legal-snapshot";
+import { getPlatformIssuer } from "../lib/invoices/issuer";
 import { CheckoutError, createPendingOrder, startOrderPayment } from "../lib/orders";
 import { paymentProvider } from "../lib/payments";
 import { getDailySalt } from "../lib/visitor";
@@ -89,11 +90,20 @@ async function main() {
   check("la clienta acepta novedades, con fecha", customer.marketingOptIn && !!customer.marketingOptInAt);
   const optInAt = customer.marketingOptInAt;
 
+  const platform = await getPlatformIssuer();
   const receipt = await prisma.emailMessage.findFirst({ where: { to: email("novedades"), template: "PURCHASE_RECEIPT" } });
   const html = receipt?.html ?? "";
   for (const [label, text] of [
-    ["quién vende", "Ana Luna Pérez · NIF 12345678Z"],
-    ["el domicilio", "28004 Madrid"],
+    // Con la política por defecto (PLATFORM_DIGITAL) lo digital lo vende Cirella por cuenta de Ana, como dice el checkout.
+    ...(first.order.taxSeller === "PLATFORM"
+      ? ([
+          ["quién vende", `${platform.name}${platform.taxId ? ` · NIF ${platform.taxId}` : ""}, por cuenta de Ana Luna Pérez`],
+          ["el domicilio", platform.address ?? ""],
+        ] as const)
+      : ([
+          ["quién vende", "Ana Luna Pérez · NIF 12345678Z"],
+          ["el domicilio", "28004 Madrid"],
+        ] as const)),
     ["la renuncia marcada", "marcaste: «Quiero acceder ya al contenido"],
     ["la versión aceptada", `/ana/legal?v=${first.snapshot.id}`],
     ["las condiciones", "CONDICIONES DE VENTA"],

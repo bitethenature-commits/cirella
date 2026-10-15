@@ -18,6 +18,7 @@ import { CourseBuilder } from "./course-builder";
 import { FilesManager } from "./files-manager";
 import { PostsManager } from "./posts-manager";
 import { ProductForm } from "./product-form";
+import { formatDate } from "@/lib/tz";
 
 export default async function EditProductPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ nuevo?: string; error?: string }> }) {
   const { id } = await params;
@@ -109,7 +110,7 @@ export default async function EditProductPage({ params, searchParams }: { params
             <PostsManager
               productId={product.id}
               members={members}
-              posts={product.posts.map((p) => ({ id: p.id, title: p.title, body: p.body, kind: p.kind, publishedAt: p.publishedAt.toLocaleDateString("es-ES", { day: "numeric", month: "long" }) }))}
+              posts={product.posts.map((p) => ({ id: p.id, title: p.title, body: p.body, kind: p.kind, publishedAt: formatDate(p.publishedAt, { day: "numeric", month: "long" }, creator.timezone) }))}
             />
           </div>
         )}

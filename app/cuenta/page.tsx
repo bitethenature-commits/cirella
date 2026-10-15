@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/ui/empty";
 import { requireBuyerFull } from "@/lib/buyer-access";
 import { getCustomerLibrary } from "@/lib/customer";
 import { formatPrice } from "@/lib/money";
-import { capitalize, formatSessionDate } from "@/lib/tz";
+import { capitalize, formatSessionDate, formatDate } from "@/lib/tz";
 import { CreatorTag, Progress, SectionHeader, Thumb } from "./ui";
 
 export default async function AccountHome() {
@@ -64,8 +64,8 @@ export default async function AccountHome() {
                 <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-ink text-cream">
                   {b.startAt ? (
                     <div className="text-center leading-none">
-                      <p className="text-lg font-semibold">{b.startAt.toLocaleDateString("es-ES", { day: "numeric", timeZone: b.creatorBrief.timezone })}</p>
-                      <p className="mt-0.5 text-[0.65rem] uppercase tracking-wider text-cream/70">{b.startAt.toLocaleDateString("es-ES", { month: "short", timeZone: b.creatorBrief.timezone }).replace(".", "")}</p>
+                      <p className="text-lg font-semibold">{formatDate(b.startAt, { day: "numeric", timeZone: b.creatorBrief.timezone })}</p>
+                      <p className="mt-0.5 text-[0.65rem] uppercase tracking-wider text-cream/70">{formatDate(b.startAt, { month: "short", timeZone: b.creatorBrief.timezone }).replace(".", "")}</p>
                     </div>
                   ) : (
                     <CalendarDays className="h-5 w-5" />
@@ -98,7 +98,7 @@ export default async function AccountHome() {
                   <p className="truncate font-semibold">{m.product.title}</p>
                   <p className="text-sm text-muted">
                     {formatPrice(m.priceCents, "EUR", m.interval)} · {m.cancelAtPeriodEnd ? "termina" : "se renueva"} el{" "}
-                    {m.currentPeriodEnd.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}
+                    {formatDate(m.currentPeriodEnd, { day: "numeric", month: "long" })}
                   </p>
                 </div>
                 <Link href={`/cuenta/membresias/${m.productId}`} className="btn btn-primary btn-sm shrink-0">

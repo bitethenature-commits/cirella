@@ -115,7 +115,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Ingresos" value={formatMoney(s.revenue)} hint={`Neto ${formatMoney(s.net)} tras comisión`} accent />
+        <Stat label="Ingresos" value={formatMoney(s.revenue)} hint={`Recibes ${formatMoney(s.net)} en tu cuenta`} accent />
         <Stat label="Ventas" value={formatNumber(s.sales)} hint="Productos vendidos" />
         <Stat label="Clientes" value={formatNumber(range === "all" ? s.totalCustomers : s.newCustomers)} hint={range === "all" ? "En total" : `${s.totalCustomers} en total`} />
         <Stat label="Conversión" value={formatPercent(s.conversion)} hint={`${formatNumber(s.uniqueVisitors)} visitantes únicos`} />

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { Badge, PageHeader } from "../../panel/ui";
 import { AdminTable, td } from "../ui";
+import { formatDate } from "@/lib/tz";
 
 const TYPE: Record<string, string> = { CHARGE: "Cobro", REFUND: "Reembolso", RENEWAL: "Renovación", PLAN_FEE: "Cuota de plan" };
 
@@ -15,7 +16,7 @@ export default async function AdminTransactions() {
       <AdminTable head={["Fecha", "Tipo", "Creadora", "Concepto", "Importe", "Plataforma", "Creadora recibe", "Referencia"]} minWidth={1000}>
         {txs.map((t) => (
           <tr key={t.id}>
-            <td className={`${td} text-muted`}>{t.createdAt.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "2-digit" })}</td>
+            <td className={`${td} text-muted`}>{formatDate(t.createdAt, { day: "numeric", month: "short", year: "2-digit" })}</td>
             <td className={td}><Badge tone={t.type === "PLAN_FEE" ? "dark" : t.type === "REFUND" ? "danger" : "neutral"}>{TYPE[t.type] ?? t.type}</Badge></td>
             <td className={td}>{t.creator.displayName}</td>
             <td className={`${td} text-muted`}>{t.description}</td>

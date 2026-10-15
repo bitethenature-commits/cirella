@@ -61,7 +61,8 @@ test.describe.serial("Cumplimiento legal", () => {
 
   test("el recibo dice quién vende, qué marcó y enlaza a la versión aceptada", async ({ page }) => {
     const m = await prisma.emailMessage.findFirstOrThrow({ where: { to: buyerEmail, template: "PURCHASE_RECEIPT" }, orderBy: { createdAt: "desc" } });
-    for (const text of ["Ana Luna Pérez", "12345678Z", "Quiero acceder ya al contenido", "CONDICIONES DE VENTA"]) expect(m.html).toContain(text);
+    // Gene Keys lo vende Cirella a efectos de IVA (PLATFORM_DIGITAL), por cuenta de Ana, como en el checkout.
+    for (const text of ["por cuenta de Ana Luna Pérez", "B12345674", "Quiero acceder ya al contenido", "CONDICIONES DE VENTA"]) expect(m.html).toContain(text);
     const href = m.html.match(/href="([^"]*\/ana\/legal\?v=[^"]+)"/)?.[1];
     expect(href).toBeTruthy();
     await page.goto(href!.replace(/&amp;/g, "&"));

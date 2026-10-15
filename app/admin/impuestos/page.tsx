@@ -13,6 +13,7 @@ import { countryName } from "@/lib/tax/rates";
 import { Badge, PageHeader } from "../../panel/ui";
 import { AdminTable, td } from "../ui";
 import { saveTaxSettings } from "./actions";
+import { formatDate } from "@/lib/tz";
 
 const MODES: [TaxMode, string, string][] = [
   [
@@ -83,7 +84,7 @@ export default async function AdminTaxes({ searchParams }: { searchParams: Promi
           {invoices.map((i) => (
             <tr key={i.id}>
               <td className={`${td} font-mono text-xs`}>{i.fullNumber}</td>
-              <td className={`${td} text-muted`}>{i.issuedAt.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "2-digit" })}</td>
+              <td className={`${td} text-muted`}>{formatDate(i.issuedAt, { day: "numeric", month: "short", year: "2-digit" })}</td>
               <td className={td}><Badge tone={i.kind === "FEES" ? "dark" : i.type.startsWith("R") ? "danger" : "neutral"}>{i.kind === "FEES" ? "Cuotas" : INVOICE_TYPE_LABEL[i.type]}</Badge></td>
               <td className={td}>{i.issuer === "PLATFORM" ? "Cirella" : i.creator.displayName}</td>
               <td className={`${td} text-muted`}>{i.recipientName ?? i.recipientEmail ?? "Consumidor final"}</td>

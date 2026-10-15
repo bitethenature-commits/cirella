@@ -4,6 +4,7 @@ import { requireBuyerFull } from "@/lib/buyer-access";
 import { prisma } from "@/lib/db";
 import { ProfileForm } from "./form";
 import { withdrawMarketing } from "./marketing-actions";
+import { formatDate } from "@/lib/tz";
 
 export default async function ProfilePage() {
   const user = await requireBuyerFull("/cuenta/perfil");
@@ -28,7 +29,7 @@ export default async function ProfilePage() {
                 <span>
                   {c.creator.displayName}
                   {c.marketingOptInAt && (
-                    <span className="text-muted"> · desde {c.marketingOptInAt.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}</span>
+                    <span className="text-muted"> · desde {formatDate(c.marketingOptInAt, { day: "numeric", month: "long", year: "numeric" })}</span>
                   )}
                 </span>
                 <form action={withdrawMarketing}>

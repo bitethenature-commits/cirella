@@ -5,6 +5,7 @@ import { requireBuyerFull } from "@/lib/buyer-access";
 import { getCustomerLibrary } from "@/lib/customer";
 import { formatPrice } from "@/lib/money";
 import { CreatorTag, Thumb } from "../ui";
+import { formatDate } from "@/lib/tz";
 
 export default async function MyMemberships() {
   const user = await requireBuyerFull("/cuenta/membresias");
@@ -25,8 +26,8 @@ export default async function MyMemberships() {
                   : m.status !== "ACTIVE"
                     ? "Finalizada"
                     : m.cancelAtPeriodEnd
-                      ? `Activa hasta el ${m.currentPeriodEnd.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}`
-                      : `Se renueva el ${m.currentPeriodEnd.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}`}
+                      ? `Activa hasta el ${formatDate(m.currentPeriodEnd, { day: "numeric", month: "long" })}`
+                      : `Se renueva el ${formatDate(m.currentPeriodEnd, { day: "numeric", month: "long" })}`}
               </p>
               <CreatorTag name={m.creatorBrief.displayName} avatarUrl={m.creatorBrief.avatarUrl} />
             </div>

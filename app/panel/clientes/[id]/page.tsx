@@ -6,7 +6,7 @@ import { formatMoney, formatPrice } from "@/lib/money";
 import { tenantDb } from "@/lib/tenant";
 import { orderStatusLabel } from "@/lib/refund-math";
 import { BOOKING_STATUS_LABEL } from "@/lib/types";
-import { capitalize, formatSessionDate } from "@/lib/tz";
+import { capitalize, formatSessionDate, formatDate } from "@/lib/tz";
 import { Badge, Stat } from "../../ui";
 
 export default async function CustomerDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -31,10 +31,10 @@ export default async function CustomerDetail({ params }: { params: Promise<{ id:
         <div className="grid h-14 w-14 place-items-center rounded-full bg-ink text-xl text-cream">{(c.name ?? c.email)[0].toUpperCase()}</div>
         <div className="flex-1">
           <h1 className="display text-[2.2rem] leading-tight">{c.name ?? c.email}</h1>
-          <p className="text-sm text-muted">{c.email} · clienta desde {c.createdAt.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}</p>
+          <p className="text-sm text-muted">{c.email} · clienta desde {formatDate(c.createdAt, { day: "numeric", month: "long", year: "numeric" }, creator.timezone)}</p>
           <p className="mt-0.5 text-xs text-muted">
             {c.marketingOptIn
-              ? `Acepta novedades por email${c.marketingOptInAt ? ` desde el ${c.marketingOptInAt.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}` : ""}`
+              ? `Acepta novedades por email${c.marketingOptInAt ? ` desde el ${formatDate(c.marketingOptInAt, { day: "numeric", month: "long", year: "numeric" }, creator.timezone)}` : ""}`
               : "No ha aceptado recibir novedades"}
           </p>
         </div>
@@ -43,7 +43,7 @@ export default async function CustomerDetail({ params }: { params: Promise<{ id:
       <div className="mt-6 grid grid-cols-3 gap-3">
         <Stat label="Total gastado" value={formatMoney(c.totalSpentCents)} accent />
         <Stat label="Compras" value={c.ordersCount} />
-        <Stat label="Última compra" value={c.lastPurchaseAt?.toLocaleDateString("es-ES", { day: "numeric", month: "short" }) ?? "—"} />
+        <Stat label="Última compra" value={(c.lastPurchaseAt ? formatDate(c.lastPurchaseAt, { day: "numeric", month: "short" }, creator.timezone) : undefined) ?? "—"} />
       </div>
       {courseIds.length > 0 && (
         <section className="card mt-6 p-5">
@@ -86,7 +86,7 @@ export default async function CustomerDetail({ params }: { params: Promise<{ id:
         <h2 className="font-semibold">Pedidos</h2>
         {c.orders.map((o) => (
           <p key={o.id} className="mt-2 flex items-center justify-between gap-3 text-sm">
-            <span className="min-w-0 truncate"><Link href={`/panel/ventas/${o.id}`} className="hover:underline">{o.productTitle}</Link> <span className="text-muted">· {o.createdAt.toLocaleDateString("es-ES", { day: "numeric", month: "short" })}</span></span>
+            <span className="min-w-0 truncate"><Link href={`/panel/ventas/${o.id}`} className="hover:underline">{o.productTitle}</Link> <span className="text-muted">· {formatDate(o.createdAt, { day: "numeric", month: "short" }, creator.timezone)}</span></span>
             <span className="shrink-0 font-semibold tabular-nums">{formatMoney(o.amountCents, o.currency, { decimals: true })} <span className="font-normal text-muted">{orderStatusLabel(o)}</span></span>
           </p>
         ))}
