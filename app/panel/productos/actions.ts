@@ -3,11 +3,23 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import {
+  ACCESS_MODES,
+  asAccessMode,
+  defaultAccessMode,
+  EXTERNAL_LABEL_MAX,
+  parseExternalUrl,
+  publishPriceError,
+  resolveAccessMode,
+  storedPriceCents,
+} from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { uniqueProductSlug } from "@/lib/creator";
 import { DELIVERY_MODES, deliveryIssueCopy, normalizeDeliveryMode, productDeliveryIssue } from "@/lib/delivery";
+import { FreeAccessError, grantManualAccess, revokeManualAccess } from "@/lib/free-access";
 import { parseMoneyToCents } from "@/lib/money";
 import { canSellType } from "@/lib/plans";
+import { siteMode } from "@/lib/site-mode";
 import { privateKey, storage } from "@/lib/storage";
 import { tenantDb, type TenantDb } from "@/lib/tenant";
 import { DEFAULT_CTA, LESSON_KINDS, PRODUCT_TYPES, type ProductType } from "@/lib/types";
@@ -46,6 +58,8 @@ export async function createProduct(form: FormData) {
     COURSE: "Nuevo curso",
     MEMBERSHIP: "Nueva membresía",
   };
+  // En la web personal nada se cobra aquí: gratis con email (o, una sesión, pago en otra web).
+  const accessMode = defaultAccessMode(siteMode(), type);
   const product = await db.product.create({
     data: {
       creatorId: creator.id,
@@ -54,7 +68,8 @@ export async function createProduct(form: FormData) {
       slug: await uniqueProductSlug(creator.id, titles[type]),
       priceCents: 0,
       status: "DRAFT",
-      ctaLabel: DEFAULT_CTA[type],
+      accessMode,
+      ctaLabel: accessMode === "FREE_EMAIL" ? FREE_CTA : DEFAULT_CTA[type],
       sortOrder: count + 1,
       billingInterval: type === "MEMBERSHIP" ? "month" : null,
       durationMin: type === "SESSION" ? 60 : null,
@@ -66,6 +81,9 @@ export async function createProduct(form: FormData) {
   if (type === "COURSE") await db.courseModule.create({ data: { creatorId: creator.id, productId: product.id, title: "Módulo 1", sortOrder: 0 } });
   redirect(`/panel/productos/${product.id}?nuevo=1`);
 }
+
+/** Botón por defecto de un producto gratis con email. */
+const FREE_CTA = "Quiero el acceso gratis";
 
 const productSchema = z.object({
   id: z.string(),
@@ -86,6 +104,10 @@ const productSchema = z.object({
   meetingUrl: z.string().trim().max(300).optional(),
   billingInterval: z.enum(["month", "year"]).optional(),
   deliveryMode: z.enum(DELIVERY_MODES).optional(),
+  // Cómo se consigue (lib/access-mode.ts). En la plataforma el formulario no lo envía: se conserva.
+  accessMode: z.enum(ACCESS_MODES).optional(),
+  externalUrl: z.string().trim().max(600).optional(),
+  externalLabel: z.string().trim().max(EXTERNAL_LABEL_MAX, `El texto del botón admite ${EXTERNAL_LABEL_MAX} caracteres`).optional(),
 });
 
 export async function updateProduct(_: ActionState, form: FormData): Promise<ActionState> {
@@ -99,15 +121,26 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
     const active = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
     if (active >= creator.plan.maxProducts) return { error: `Has llegado al límite de ${creator.plan.maxProducts} productos de tu plan. Archiva otro o mejora tu plan.` };
   }
-  const priceCents = parseMoneyToCents(d.price);
-  if (d.status === "PUBLISHED" && priceCents < 100) return { error: "Pon un precio de al menos 1 € para publicarlo" };
+  const accessMode = resolveAccessMode(d.accessMode, product.accessMode, siteMode(), product.type);
+  const priceCents = storedPriceCents(accessMode, parseMoneyToCents(d.price));
+  const priceError = d.status === "PUBLISHED" ? publishPriceError(accessMode, priceCents) : null;
+  if (priceError) return { error: priceError };
+  // Pago en otra web: el enlace (https) es obligatorio también en borrador, para no guardar uno roto.
+  let externalUrl: string | null = product.externalUrl;
+  let externalLabel: string | null = product.externalLabel;
+  if (accessMode === "EXTERNAL") {
+    const url = parseExternalUrl(d.externalUrl ?? product.externalUrl);
+    if (!url.ok) return { error: url.error };
+    externalUrl = url.url;
+    externalLabel = d.externalLabel !== undefined ? d.externalLabel || null : product.externalLabel;
+  }
   if (d.status === "PUBLISHED" && !canSellType(creator.plan, product.type as ProductType))
     return { error: "Tu plan actual no permite publicar este tipo de producto" };
   const deliveryMode = normalizeDeliveryMode(product.type, d.deliveryMode ?? product.deliveryMode);
   // Publicar exige algo que entregar (lib/delivery.ts), con el modo y las instrucciones que llegan en el formulario.
-  // Un borrador se guarda aunque esté incompleto.
+  // Un borrador se guarda aunque esté incompleto. Lo que se paga fuera lo entrega la otra web.
   if (d.status === "PUBLISHED") {
-    const r = await productDeliveryIssue(db, product.id, { deliveryMode, instructions: d.instructions || null });
+    const r = await productDeliveryIssue(db, product.id, { deliveryMode, instructions: d.instructions || null, accessMode });
     if (r?.issue?.blocking) return { error: deliveryIssueCopy(r.issue, d.title).publishError };
   }
   const wantedSlug = d.slug ? d.slug.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") : product.slug;
@@ -125,7 +158,10 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
       description: d.description || null,
       imageUrl: d.imageUrl || null,
       priceCents,
-      ctaLabel: d.ctaLabel || DEFAULT_CTA[product.type as ProductType],
+      ctaLabel: d.ctaLabel || (accessMode === "FREE_EMAIL" ? FREE_CTA : DEFAULT_CTA[product.type as ProductType]),
+      accessMode,
+      externalUrl,
+      externalLabel,
       status: d.status,
       featured,
       instructions: d.instructions || null,
@@ -167,7 +203,14 @@ export async function setProductStatus(form: FormData) {
     const active = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
     if (active >= creator.plan.maxProducts) redirect("/panel/productos?limite=1");
   }
-  if (status === "PUBLISHED" && (product.priceCents < 100 || !canSellType(creator.plan, product.type as ProductType))) redirect(`/panel/productos/${id}`);
+  const accessMode = asAccessMode(product.accessMode);
+  if (
+    status === "PUBLISHED" &&
+    (publishPriceError(accessMode, product.priceCents) ||
+      (accessMode === "EXTERNAL" && !product.externalUrl) ||
+      !canSellType(creator.plan, product.type as ProductType))
+  )
+    redirect(`/panel/productos/${id}`);
   if (status === "PUBLISHED") {
     const issue = (await productDeliveryIssue(db, id))?.issue;
     if (issue?.blocking) redirect(`/panel/productos/${id}?error=sin-entrega#${issue.anchor}`);
@@ -198,6 +241,48 @@ export async function deleteProduct(form: FormData) {
 async function guardLastDeliverable(db: TenantDb, productId: string, minus: { files?: number; lessons?: number }, anchor: string) {
   const r = await productDeliveryIssue(db, productId, { minus });
   if (r?.product.status === "PUBLISHED" && r.issue?.blocking) redirect(`/panel/productos/${productId}?error=ultimo-contenido#${anchor}`);
+}
+
+// ───────────── Acceso a mano (gratis o pagado fuera) ─────────────
+
+const grantSchema = z.object({
+  productId: z.string().min(1),
+  name: z.string().trim().min(2, "Escribe su nombre").max(80),
+  email: z.string().trim().toLowerCase().max(200).email("Revisa el email"),
+});
+
+/**
+ * «Dar acceso a una persona»: pedido de 0 € (paymentProvider «manual») y el mismo email de acceso
+ * que recibe quien se apunta gratis. Si ya lo tenía, se le reenvía el enlace.
+ */
+export async function grantAccess(_: ActionState, form: FormData): Promise<ActionState> {
+  const { user, creator } = await requireCreator();
+  const parsed = grantSchema.safeParse(Object.fromEntries(form));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const d = parsed.data;
+  try {
+    const r = await grantManualAccess({ creatorId: creator.id, productId: d.productId, name: d.name, email: d.email, grantedByUserId: user.id });
+    refresh(d.productId);
+    revalidatePath("/panel/ventas");
+    revalidatePath("/panel/clientes");
+    return {
+      ok: r.status === "granted" ? `Listo: ${d.email} ya tiene acceso y le hemos enviado el enlace.` : `${d.email} ya tenía acceso: le hemos vuelto a enviar el enlace.`,
+    };
+  } catch (e) {
+    if (e instanceof FreeAccessError) return { error: e.message };
+    throw e;
+  }
+}
+
+/** «Quitar acceso»: el acceso de esa persona pasa a retirado y sus enlaces dejan de funcionar. */
+export async function revokeAccess(form: FormData) {
+  const { creator } = await ctx();
+  const orderId = String(form.get("orderId") ?? "");
+  const productId = String(form.get("productId") ?? "");
+  const done = await revokeManualAccess({ creatorId: creator.id, orderId });
+  refresh(productId || undefined);
+  revalidatePath("/panel/ventas");
+  redirect(`/panel/productos/${encodeURIComponent(productId)}?${done ? "acceso=quitado" : "error=acceso"}#accesos`);
 }
 
 // ───────────── Archivos ─────────────

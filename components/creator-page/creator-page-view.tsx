@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, Mail, MessageCircle, Plus, Quote, UserRound } from "lucide-react";
+import { ArrowRight, ArrowUpRight, ExternalLink, Mail, MessageCircle, Plus, Quote, UserRound } from "lucide-react";
+import { externalButtonLabel } from "@/lib/access-mode";
 import { imageSrcSet } from "@/lib/media-url";
 import { formatPrice } from "@/lib/money";
 import {
@@ -7,15 +8,19 @@ import {
   safeHref,
   sectionTitle,
   socialHref,
+  visibleTextBlocks,
   type PageConfig,
   type SectionKey,
 } from "@/lib/page-config";
+import { postPath } from "@/lib/posts";
 import { resolveTheme, themeStyle } from "@/lib/templates";
 import { DEFAULT_CTA, type ProductType } from "@/lib/types";
 import { SocialIcon } from "../social-icons";
+import { DiscountCodeCard } from "./discount-code-card";
 import { LegalLinks } from "./legal-links";
 import { Avatar, ProductImage } from "./product-art";
-import { TrackedLink } from "./tracking";
+import { RichText } from "./rich-text";
+import { TrackedAnchor, TrackedLink } from "./tracking";
 
 export type PublicProduct = {
   id: string;
@@ -33,6 +38,36 @@ export type PublicProduct = {
   meta?: string | null; // "75 min", "7 lecciones"…
   /** El precio lleva IVA (lib/tax). Las vistas previas del editor no lo pasan. */
   vatIncluded?: boolean;
+  /** Cómo se consigue (lib/access-mode.ts). Sin valor: pago en la web (PAID). */
+  accessMode?: string;
+  /** Pago fuera (EXTERNAL): la web externa, el texto del botón y su dominio («hotmart.com»). */
+  externalUrl?: string | null;
+  externalLabel?: string | null;
+  externalHost?: string | null;
+};
+
+/** Publicación de la sección «Novedades» (lib/public.ts). */
+export type PublicPost = {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  imageUrl: string | null;
+  publishedAt: Date;
+  /** «12 de octubre de 2026», ya en la zona horaria de la creadora. */
+  dateLabel: string;
+};
+
+/** Código de descuento de otra marca (lib/public.ts): solo los activos y sin caducar. */
+export type PublicDiscountCode = {
+  id: string;
+  brand: string;
+  code: string;
+  description: string | null;
+  url: string;
+  imageUrl: string | null;
+  /** «Válido hasta el 31 de diciembre» o null si no caduca. */
+  expiresLabel: string | null;
 };
 
 const TYPE_EYEBROW: Record<ProductType, string> = {
@@ -62,10 +97,23 @@ type Props = {
   sellerName?: string | null;
   /** Vista previa del editor: sin tracking y sin animaciones de entrada. */
   preview?: boolean;
+  /** Las últimas publicaciones (sección «Novedades») y cuántas hay en total. */
+  posts?: PublicPost[];
+  postCount?: number;
+  /** Códigos de descuento visibles (sección «Códigos de descuento»). */
+  discountCodes?: PublicDiscountCode[];
+  /**
+   * Web personal (SITE_MODE=personal): nada se cobra aquí, así que no se enseñan los productos de
+   * pago en la web, ni «Powered by», ni las condiciones de venta en el pie.
+   */
+  personal?: boolean;
 };
 
 export function CreatorPageView(props: Props) {
-  const { config, products, username, preview } = props;
+  const { config, username, preview, personal } = props;
+  const products = personal ? props.products.filter((p) => (p.accessMode ?? "PAID") !== "PAID") : props.products;
+  const posts = props.posts ?? [];
+  const codes = props.discountCodes ?? [];
   const theme = resolveTheme(config.template, config.theme, props.allowCustom);
   const featured = products.find((p) => p.featured);
   const reveal = preview ? {} : { "data-reveal": "" };
@@ -96,6 +144,73 @@ export function CreatorPageView(props: Props) {
       );
     }
     switch (key) {
+      case "blocks": {
+        const blocks = visibleTextBlocks(config);
+        if (!blocks.length) return null;
+        const heading = sectionTitle(config, key);
+        return (
+          <section key={key} id="bloques" className="mt-14 space-y-4" {...reveal}>
+            {heading && <SectionHeading title={heading} />}
+            {blocks.map((b) => {
+              const href = b.buttonUrl ? safeHref(b.buttonUrl) : null;
+              // Las webs de fuera, en otra pestaña; los enlaces internos y mailto:/tel:, en la misma.
+              const newTab = !!href && /^https?:/i.test(href);
+              return (
+                <div key={b.id} className="cp-card p-6 sm:p-7">
+                  {b.title && (heading ? <h3 className="cp-display text-[1.6rem] leading-tight">{b.title}</h3> : <h2 className="cp-display text-[1.75rem] leading-tight sm:text-[2rem]">{b.title}</h2>)}
+                  {b.body && <RichText text={b.body} className={`cp-muted space-y-3 text-[0.95rem] leading-relaxed ${b.title ? "mt-3" : ""}`} />}
+                  {href && b.buttonLabel && (
+                    <a href={href} className="cp-btn-ghost mt-5" {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+                      {b.buttonLabel}
+                      <ArrowUpRight className="h-4 w-4 opacity-70" />
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </section>
+        );
+      }
+      case "posts": {
+        if (!posts.length) return null;
+        const total = Math.max(props.postCount ?? posts.length, posts.length);
+        return (
+          <section key={key} id="novedades" className="mt-16" {...reveal}>
+            <div className="flex items-end justify-between gap-4">
+              <h2 className="cp-display text-[2rem] sm:text-[2.3rem]">{sectionTitle(config, key)}</h2>
+              <Link href={`/${username}/novedades`} className="cp-muted inline-flex shrink-0 items-center gap-1 pb-1.5 text-sm font-medium underline-offset-4 hover:underline">
+                Ver todas{total > posts.length ? ` (${total})` : ""} <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+            <div className="mt-5 space-y-3">
+              {posts.map((p) => (
+                <PostCard key={p.id} post={p} username={username} />
+              ))}
+            </div>
+          </section>
+        );
+      }
+      case "codes": {
+        if (!codes.length) return null;
+        return (
+          <section key={key} id="codigos" className="mt-16" {...reveal}>
+            <SectionHeading title={sectionTitle(config, key)} count={codes.length} />
+            {codes.length === 1 ? (
+              <div className="mt-5">
+                <DiscountCodeCard code={codes[0]} trackCreatorId={trackId} />
+              </div>
+            ) : (
+              <div className="-mx-5 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 scrollbar-none md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0">
+                {codes.map((c) => (
+                  <div key={c.id} className="w-[86%] shrink-0 snap-center sm:w-[60%] md:w-auto">
+                    <DiscountCodeCard code={c} trackCreatorId={trackId} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        );
+      }
       case "links":
         if (!config.links.length) return null;
         return (
@@ -266,10 +381,10 @@ export function CreatorPageView(props: Props) {
 
         <footer className="mt-20 flex flex-col items-center gap-4 text-center text-xs">
           <Link href={`/${username}/entrar?next=%2Fcuenta`} className="cp-muted underline-offset-4 hover:underline">
-            ¿Ya compraste? Accede a tu área de cliente
+            {personal ? "¿Ya tienes acceso? Entra en tu área" : "¿Ya compraste? Accede a tu área de cliente"}
           </Link>
-          <LegalLinks username={username} sellerName={props.sellerName} />
-          {props.showPoweredBy && (
+          <LegalLinks username={username} sellerName={props.sellerName} personal={personal} />
+          {props.showPoweredBy && !personal && (
             <a
               href={`/?ref=${props.referralCode ?? ""}&utm_source=powered_by`}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 transition hover:opacity-100"
@@ -285,9 +400,19 @@ export function CreatorPageView(props: Props) {
 }
 
 function ProductCard({ p, large = false, username, trackCreatorId }: { p: PublicProduct; large?: boolean; username: string; trackCreatorId: string | null }) {
-  const cta = p.ctaLabel || DEFAULT_CTA[p.type as ProductType] || "Comprar";
+  const mode = p.accessMode ?? "PAID";
+  const free = mode === "FREE_EMAIL";
+  const external = mode === "EXTERNAL" && !!p.externalUrl;
+  const cta = free
+    ? p.ctaLabel || "Acceder gratis"
+    : external
+      ? externalButtonLabel({ type: p.type, externalLabel: p.externalLabel ?? null, externalUrl: p.externalUrl ?? null })
+      : p.ctaLabel || DEFAULT_CTA[p.type as ProductType] || "Comprar";
   const productHref = `/${username}/${p.slug}`;
   const event = trackCreatorId ? { creatorId: trackCreatorId, type: "PRODUCT_CLICK" as const, productId: p.id } : null;
+  // Gratis: «Gratis». Pago fuera: el precio (informativo, si lo hay) y dónde se paga. Pago aquí: precio e IVA.
+  const price = free ? "Gratis" : external && p.priceCents <= 0 ? null : formatPrice(p.priceCents, p.currency, p.billingInterval);
+  const priceNote = external ? (p.externalHost ? `Pago en ${p.externalHost}` : "Pago en otra web") : !free && p.vatIncluded ? "IVA incluido" : null;
   return (
     <article className="cp-card cp-card-hover group flex h-full flex-col">
       <Link href={productHref} className={`relative block overflow-hidden ${large ? "aspect-[16/11] sm:aspect-[16/9]" : "aspect-[4/3]"}`}>
@@ -312,17 +437,52 @@ function ProductCard({ p, large = false, username, trackCreatorId }: { p: Public
           {p.summary && <p className={`cp-muted mt-2 leading-relaxed ${large ? "text-[0.95rem]" : "line-clamp-2 text-[0.88rem]"}`}>{p.summary}</p>}
         </Link>
         <div className="mt-auto flex items-center justify-between gap-3 pt-5">
-          <p className="text-lg font-semibold tracking-tight">
-            {formatPrice(p.priceCents, p.currency, p.billingInterval)}
-            {p.vatIncluded && <span className="cp-faint block text-[0.7rem] font-normal">IVA incluido</span>}
+          <p className="min-w-0 text-lg font-semibold tracking-tight">
+            {price}
+            {priceNote && <span className={`cp-faint block font-normal ${price ? "text-[0.7rem]" : "text-xs"}`}>{priceNote}</span>}
           </p>
-          <TrackedLink href={`${productHref}/checkout`} event={event} className="cp-btn" ariaLabel={`${cta}: ${p.title}`}>
-            {cta}
-            <ArrowRight className="h-4 w-4" />
-          </TrackedLink>
+          {external ? (
+            <TrackedAnchor href={p.externalUrl!} event={event} className="cp-btn shrink-0" ariaLabel={`${cta}: ${p.title}`}>
+              {cta}
+              <ExternalLink className="h-4 w-4" />
+            </TrackedAnchor>
+          ) : (
+            <TrackedLink href={free ? productHref : `${productHref}/checkout`} event={event} className="cp-btn shrink-0" ariaLabel={`${cta}: ${p.title}`}>
+              {cta}
+              <ArrowRight className="h-4 w-4" />
+            </TrackedLink>
+          )}
         </div>
       </div>
     </article>
+  );
+}
+
+function PostCard({ post, username }: { post: PublicPost; username: string }) {
+  return (
+    <Link href={postPath(username, post.slug)} className="cp-card cp-card-hover group flex items-stretch gap-4 overflow-hidden p-3 sm:p-4">
+      {post.imageUrl && (
+        <span className="relative block w-24 shrink-0 overflow-hidden rounded-[calc(var(--r-card)*0.7)] sm:w-32">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={post.imageUrl}
+            srcSet={imageSrcSet(post.imageUrl)}
+            sizes="128px"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="cp-img absolute inset-0 h-full w-full object-cover transition duration-500"
+          />
+        </span>
+      )}
+      <span className="min-w-0 flex-1 py-1">
+        <time dateTime={new Date(post.publishedAt).toISOString()} className="cp-eyebrow block">
+          {post.dateLabel}
+        </time>
+        <span className="cp-display mt-1.5 block text-[1.35rem] leading-tight">{post.title}</span>
+        {post.excerpt && <span className="cp-muted mt-1.5 line-clamp-2 block text-[0.86rem] leading-relaxed">{post.excerpt}</span>}
+      </span>
+    </Link>
   );
 }
 

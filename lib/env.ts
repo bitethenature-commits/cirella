@@ -7,6 +7,10 @@
  * staging y production son «de producción»: se exigen https, Stripe, Resend, R2/S3 y secretos
  * largos, y el modo demo está prohibido.
  *
+ * Modo del sitio (SITE_MODE, ver lib/site-mode.ts): platform (por defecto) o personal, la web de una
+ * sola dueña (OWNER_USERNAME, obligatorio). Solo en modo personal se admite en producción
+ * PAYMENT_PROVIDER=none (sin cobros en la web), y entonces no hacen falta las claves de Stripe.
+ *
  *   validateEnv(raw)  → todas las reglas, con todos los errores a la vez (función pura).
  *   assertEnv()       → la llama instrumentation.ts al arrancar: si algo falla, Next no arranca.
  *   env()             → lectura tolerante (tipos y valores por defecto) para que `next build`
@@ -15,6 +19,7 @@
  * Sin `server-only`: también lo importan los scripts de tsx (seed, bootstrap, check-env…).
  */
 import { z } from "zod";
+import { normalizeUsername, validateUsername } from "./slug";
 
 const APP_ENVS = ["development", "test", "staging", "production"] as const;
 export type AppEnv = (typeof APP_ENVS)[number];
@@ -41,7 +46,9 @@ const schema = z.object({
   DEMO_MODE: oneOf("DEMO_MODE", ["true", "false"]),
   APP_SECRET: text,
   CRON_SECRET: text,
-  PAYMENT_PROVIDER: oneOf("PAYMENT_PROVIDER", ["simulated", "stripe"]),
+  SITE_MODE: oneOf("SITE_MODE", ["platform", "personal"]),
+  OWNER_USERNAME: text,
+  PAYMENT_PROVIDER: oneOf("PAYMENT_PROVIDER", ["simulated", "stripe", "none"]),
   STRIPE_SECRET_KEY: text,
   STRIPE_PUBLISHABLE_KEY: text,
   STRIPE_WEBHOOK_SECRET: text,
@@ -126,8 +133,22 @@ export function validateEnv(raw: RawEnv): EnvValidation {
   if (!p.DIRECT_URL) errors.push("Falta DIRECT_URL: la conexión directa que usan las migraciones (en local, la misma que DATABASE_URL).");
   else if (!isPostgresUrl(p.DIRECT_URL)) errors.push("DIRECT_URL debe ser una conexión de PostgreSQL (postgresql://…).");
 
+  const personal = p.SITE_MODE === "personal";
+  if (personal) {
+    if (!p.OWNER_USERNAME)
+      errors.push("Falta OWNER_USERNAME: el usuario de la dueña de la web (SITE_MODE=personal), el mismo de su página (p. ej. ana).");
+    else {
+      const problem = validateUsername(normalizeUsername(p.OWNER_USERNAME));
+      if (problem) errors.push(`OWNER_USERNAME no es un usuario válido: ${problem.toLowerCase()}.`);
+    }
+  }
+
   if (!p.PAYMENT_PROVIDER && !raw.PAYMENT_PROVIDER?.trim())
-    errors.push("Falta PAYMENT_PROVIDER («simulated» en local, «stripe» en producción).");
+    errors.push(
+      personal
+        ? "Falta PAYMENT_PROVIDER («none» en modo personal: esta web no cobra pagos online)."
+        : "Falta PAYMENT_PROVIDER («simulated» en local, «stripe» en producción).",
+    );
   if (p.PAYMENT_PROVIDER === "stripe") {
     if (!p.STRIPE_SECRET_KEY) errors.push("Falta STRIPE_SECRET_KEY.");
     else if (!/^(sk|rk)_(test|live)_/.test(p.STRIPE_SECRET_KEY)) errors.push("STRIPE_SECRET_KEY no parece una clave secreta de Stripe (sk_… o rk_…).");
@@ -184,6 +205,9 @@ export function validateEnv(raw: RawEnv): EnvValidation {
       );
     if (p.PAYMENT_PROVIDER === "simulated")
       errors.push("PAYMENT_PROVIDER=simulated está prohibido en producción: los pagos no se cobrarían y el contenido se entregaría gratis. Usa PAYMENT_PROVIDER=stripe.");
+    // Sin pasarela solo en la web personal; en la plataforma las creadoras tienen que poder cobrar.
+    if (p.PAYMENT_PROVIDER === "none" && !personal)
+      errors.push("PAYMENT_PROVIDER=none (sin cobros) solo se admite en modo personal (SITE_MODE=personal). En la plataforma usa PAYMENT_PROVIDER=stripe.");
     if (appEnv === "production" && p.PAYMENT_PROVIDER === "stripe") {
       if (p.STRIPE_SECRET_KEY && !/^(sk|rk)_live_/.test(p.STRIPE_SECRET_KEY))
         errors.push("En producción STRIPE_SECRET_KEY debe ser una clave live (sk_live_… o rk_live_…).");

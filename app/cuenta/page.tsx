@@ -4,7 +4,9 @@ import { EmptyState } from "@/components/ui/empty";
 import { requireBuyerFull } from "@/lib/buyer-access";
 import { getCustomerLibrary } from "@/lib/customer";
 import { formatPrice } from "@/lib/money";
+import { isPersonalMode } from "@/lib/site-mode";
 import { capitalize, formatSessionDate, formatDate } from "@/lib/tz";
+import { freeMemberships } from "./free-memberships";
 import { CreatorTag, Progress, SectionHeader, Thumb } from "./ui";
 
 export default async function AccountHome() {
@@ -13,18 +15,22 @@ export default async function AccountHome() {
   const lib = await getCustomerLibrary(user.id);
   const first = (user.name ?? user.email.split("@")[0]).split(" ")[0];
   const activeMemberships = lib.memberships.filter((m) => m.status === "ACTIVE");
-  const nothing = !lib.courses.length && !lib.digital.length && !lib.upcoming.length && !lib.memberships.length && !lib.past.length;
+  // Membresías gratis o dadas a mano: acceso sin suscripción (no se renuevan).
+  const free = await freeMemberships(user.id);
+  const nothing = !lib.courses.length && !lib.digital.length && !lib.upcoming.length && !lib.memberships.length && !lib.past.length && !free.length;
+  // Web personal: aquí no se compra, se consigue gratis o se paga fuera.
+  const personal = isPersonalMode();
 
   return (
     <div className="space-y-12">
       <section>
         <h1 className="display text-[2.8rem] leading-none sm:text-[3.4rem]">Hola, {first}</h1>
-        <p className="mt-2 text-muted">Todo lo que has comprado, siempre a mano.</p>
+        <p className="mt-2 text-muted">{personal ? "Todo lo tuyo, siempre a mano." : "Todo lo que has comprado, siempre a mano."}</p>
       </section>
 
       {nothing && (
-        <EmptyState icon={<Sparkles className="h-5 w-5" />} title="Aún no tienes compras">
-          Cuando compres un producto, curso o sesión aparecerá aquí automáticamente.
+        <EmptyState icon={<Sparkles className="h-5 w-5" />} title={personal ? "Aún no tienes nada aquí" : "Aún no tienes compras"}>
+          {personal ? "Cuando consigas un curso o un contenido aparecerá aquí automáticamente." : "Cuando compres un producto, curso o sesión aparecerá aquí automáticamente."}
         </EmptyState>
       )}
 
@@ -87,10 +93,22 @@ export default async function AccountHome() {
         </section>
       )}
 
-      {activeMemberships.length > 0 && (
+      {activeMemberships.length + free.length > 0 && (
         <section>
           <SectionHeader title="Mis membresías" href="/cuenta/membresias" />
           <div className="space-y-2.5">
+            {free.map((m) => (
+              <div key={m.id} className="card flex items-center gap-4 p-4">
+                <Thumb src={m.product.imageUrl} emoji={m.product.emoji} className="h-14 w-14" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">{m.product.title}</p>
+                  <p className="text-sm text-muted">Acceso gratuito</p>
+                </div>
+                <Link href={`/cuenta/membresias/${m.productId}`} className="btn btn-primary btn-sm shrink-0">
+                  Entrar
+                </Link>
+              </div>
+            ))}
             {activeMemberships.map((m) => (
               <div key={m.id} className="card flex items-center gap-4 p-4">
                 <Thumb src={m.product.imageUrl} emoji={m.product.emoji} className="h-14 w-14" />
@@ -112,7 +130,7 @@ export default async function AccountHome() {
 
       {lib.digital.length > 0 && (
         <section>
-          <SectionHeader title="Mis compras" href="/cuenta/compras" />
+          <SectionHeader title={personal ? "Mis descargas" : "Mis compras"} href="/cuenta/compras" />
           <div className="space-y-2.5">
             {lib.digital.map((d) => (
               <div key={d.product.id} className="card p-4">

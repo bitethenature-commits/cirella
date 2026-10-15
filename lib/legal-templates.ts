@@ -116,6 +116,45 @@ export function currentLegalDocs(
   return { terms: c.legalTerms ?? t.terms, refunds: c.legalRefunds ?? t.refunds, privacy: c.legalPrivacy ?? t.privacy };
 }
 
+/**
+ * Modo personal (una sola dueña, sin ventas en la web): privacidad de su página. No hay plataforma
+ * de por medio ni pagos aquí; lo de pago se cobra en otras webs, que tratan esos datos por su cuenta.
+ * BORRADOR igual que el resto: revisar con una asesoría de protección de datos.
+ */
+export function renderPersonalPrivacy(i: { displayName: string }): string {
+  return `## Qué datos
+Tu nombre y tu email cuando te apuntas a un contenido gratuito o cuando ${i.displayName} te da acceso a algo que compraste en otra web, los contenidos a los que tienes acceso, tu progreso en los cursos y los mensajes que envíes.
+
+## Para qué y con qué base
+• Darte acceso al contenido que pides y enviarte el enlace para entrar: ejecución de lo que solicitas.
+• Enviarte novedades, solo si marcas la casilla: consentimiento. Puedes retirarlo cuando quieras desde el enlace de cada email o desde tu cuenta.
+• Contar las visitas de la página de forma agregada y anónima, sin cookies: interés legítimo.
+
+## Pagos en otras webs
+Aquí no se cobra nada ni se guardan datos de tarjetas. Lo que es de pago se compra en la web que indica cada producto (por ejemplo Hotmart, PayPal o Calendly), que trata tus datos de pago como responsable independiente, con su propia política de privacidad.
+
+## Proveedores
+Para alojar la web, guardar los archivos y enviar los emails se usan proveedores tecnológicos que tratan los datos solo por encargo y con las garantías del Reglamento General de Protección de Datos.
+
+## Cuánto tiempo
+Mientras mantengas el acceso a los contenidos o hasta que pidas que se borren tus datos. Los de las novedades, hasta que retires tu consentimiento.
+
+## Tus derechos
+Puedes pedir el acceso, la rectificación, la supresión, la oposición, la limitación y la portabilidad de tus datos escribiendo al email del aviso legal. También puedes reclamar ante la Agencia Española de Protección de Datos (www.aepd.es).`;
+}
+
+/** Aviso de la página legal en modo personal sobre los enlaces y códigos de otras marcas. */
+export const PERSONAL_THIRD_PARTY_TEXT = `## Enlaces y códigos de descuento
+Los enlaces y los códigos de descuento de otras marcas llevan a webs que no son de esta página: cada una tiene sus propias condiciones y su propia política de privacidad. Algunos pueden ser enlaces de afiliación: si compras con ellos, puede que se reciba una comisión, sin que te cueste nada más.
+
+## Productos de pago
+Los productos de pago se compran en la web que indica su ficha (por ejemplo Hotmart, PayPal o Calendly). Las condiciones de venta, los pagos, los reembolsos y las facturas son los de esa compra.`;
+
+/** Privacidad vigente en modo personal: la personalizada por la dueña o, si no, la plantilla. */
+export function currentPersonalPrivacy(c: { displayName: string; legalPrivacy: string | null }): string {
+  return c.legalPrivacy ?? renderPersonalPrivacy({ displayName: c.displayName });
+}
+
 /** Primer apartado de la privacidad, generado al mostrarla a partir de la identidad. */
 export function privacyResponsibleLine(i: Partial<LegalIdentity>): string {
   const parts = [i.legalName, i.legalTaxId, formatLegalAddress(i), i.legalEmail].map((s) => s?.trim()).filter(Boolean);

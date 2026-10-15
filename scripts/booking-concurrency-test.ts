@@ -29,7 +29,7 @@ const buyerEmails = [1, 2].map((n) => `${TAG}-${n}@example.com`);
 async function main() {
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
   const maria = await prisma.creator.findUniqueOrThrow({ where: { username: "maria" } });
-  const session = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "SESSION", status: "PUBLISHED" }, orderBy: { sortOrder: "asc" } });
+  const session = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "SESSION", status: "PUBLISHED", accessMode: "PAID" }, orderBy: { sortOrder: "asc" } });
   const mariaSession = await prisma.product.findFirstOrThrow({ where: { creatorId: maria.id, type: "SESSION" } });
   const anaCustomer = await prisma.customer.findFirstOrThrow({ where: { creatorId: ana.id } });
   const mariaCustomer = await prisma.customer.findFirstOrThrow({ where: { creatorId: maria.id } });

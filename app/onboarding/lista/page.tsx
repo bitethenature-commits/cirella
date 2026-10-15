@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ExternalLink, Sparkles } from "lucide-react";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { LogoMark } from "@/components/logo";
 import { CopyButton } from "@/components/ui/copy-button";
 import { requireCreator } from "@/lib/auth";
@@ -12,12 +13,15 @@ import { legalIdentityComplete } from "@/lib/legal";
 import { canAcceptPayments } from "@/lib/payouts";
 import { decideTax } from "@/lib/tax";
 import { getTaxMode } from "@/lib/tax/server";
+import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
 import { ShareButtons } from "./share-buttons";
 
 export const metadata: Metadata = { title: "Tu página está lista · Cirella" };
 
 export default async function ReadyPage() {
+  // Modo personal: sin asistente de alta; la dueña va directa a su panel.
+  if (isPersonalMode()) redirect("/panel");
   const { creator } = await requireCreator();
   const url = `${appUrl()}/${creator.username}`;
   const pretty = `${appHost()}/${creator.username}`;

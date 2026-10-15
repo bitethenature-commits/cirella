@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LogOut, Store } from "lucide-react";
-import { Logo } from "@/components/logo";
+import { BrandLogo } from "@/components/brand-logo";
 import { getBuyerSession } from "@/lib/buyer-access";
+import { isPersonalMode } from "@/lib/site-mode";
 import { AccountNav } from "./nav";
 import { ScopeBanner } from "./scope-banner";
 
@@ -19,7 +20,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
       {b && (
         <header className="sticky top-0 z-30 border-b border-line bg-paper/90 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-5">
-            <Logo href="/cuenta" />
+            <BrandLogo href="/cuenta" />
             <div className="flex items-center gap-1">
               {!b.scope && b.user.creator && (
                 <Link href="/panel" className="btn btn-ghost btn-sm" title="Ir a mi panel de creadora">
@@ -33,7 +34,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
               </form>
             </div>
           </div>
-          <div className="mx-auto max-w-4xl px-5 pb-2.5">{b.scope ? <ScopeBanner creatorId={b.creatorId} /> : <AccountNav />}</div>
+          <div className="mx-auto max-w-4xl px-5 pb-2.5">{b.scope ? <ScopeBanner creatorId={b.creatorId} /> : <AccountNav personal={isPersonalMode()} />}</div>
         </header>
       )}
       <main className="mx-auto max-w-4xl px-5 pb-20 pt-8 animate-fade-in">{children}</main>

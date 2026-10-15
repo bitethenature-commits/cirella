@@ -6,8 +6,10 @@ import { readPageConfig } from "@/lib/page-config";
 import { TEMPLATE_KEYS, type TemplateKey } from "@/lib/templates";
 import { PageHeader } from "../../panel/ui";
 import { saveTemplateAdmin } from "../actions";
+import { platformOnly } from "../platform-only";
 
 export default async function AdminTemplates({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
+  platformOnly();
   await requireAdmin();
   const sp = await searchParams;
   const [templates, creators] = await Promise.all([prisma.template.findMany({ orderBy: { sortOrder: "asc" } }), prisma.creator.findMany({ select: { pagePublished: true, pageDraft: true, displayName: true } })]);

@@ -1,5 +1,5 @@
 import { CreatorShell } from "@/components/creator-page/creator-shell";
-import { Logo } from "@/components/logo";
+import { BrandLogo } from "@/components/brand-logo";
 import { getPublicCreator } from "@/lib/public";
 
 /**
@@ -11,13 +11,13 @@ export async function AuthFrame({ username, children }: { username?: string | nu
   const data = username ? await getPublicCreator(username) : null;
   if (data)
     return (
-      <CreatorShell username={data.creator.username} config={data.config} allowCustom={data.allowCustom} back={false}>
+      <CreatorShell username={data.creator.username} config={data.config} allowCustom={data.allowCustom} back={false} personal={data.personal}>
         <main className="mx-auto max-w-md px-5 pb-20 pt-12">{children(true)}</main>
       </CreatorShell>
     );
   return (
     <div className="flex min-h-dvh flex-col bg-paper px-5 pb-10 pt-6 sm:px-10">
-      <Logo />
+      <BrandLogo />
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10 animate-fade-up">{children(false)}</main>
     </div>
   );

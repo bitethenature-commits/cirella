@@ -6,16 +6,19 @@ import { LegalText } from "@/components/legal-text";
 import { getCurrentUser } from "@/lib/auth";
 import { formatLegalAddress, legalIdentityComplete, taxIdLabel } from "@/lib/legal";
 import { getLegalSnapshot, legalIdentityOf } from "@/lib/legal-snapshot";
-import { currentLegalDocs, privacyResponsibleLine, WITHDRAWAL_FORM_TEXT } from "@/lib/legal-templates";
+import { currentLegalDocs, currentPersonalPrivacy, PERSONAL_THIRD_PARTY_TEXT, privacyResponsibleLine, WITHDRAWAL_FORM_TEXT } from "@/lib/legal-templates";
 import { getPublicCreator } from "@/lib/public";
+import { isPublicUsernameAllowed } from "@/lib/personal-routing";
+import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
 
 type Params = { username: string };
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { username } = await params;
-  const data = await getPublicCreator(username);
+  const data = isPublicUsernameAllowed(username, ownerUsername()) ? await getPublicCreator(username) : null;
+  const heading = isPersonalMode() ? "Aviso legal y privacidad" : "Aviso legal y condiciones";
   return {
-    title: data ? `Aviso legal y condiciones · ${data.config.displayName}` : "Aviso legal",
+    title: data ? `${heading} · ${data.config.displayName}` : "Aviso legal",
     robots: { index: false },
   };
 }
@@ -26,10 +29,16 @@ const COOKIES_TEXT =
 /**
  * Aviso legal, condiciones de venta, cambios y reembolsos, privacidad y cookies de una creadora.
  * Con ?v={id}, la versión exacta que aceptó una compra (LegalSnapshot), aunque luego haya cambiado.
+ *
+ * Modo personal (aquí no se vende nada: lo de pago se compra en otras webs): aviso legal,
+ * privacidad, cookies y un aviso sobre los enlaces y códigos de otras marcas. Sin condiciones de
+ * venta ni reembolsos y sin la línea de la plataforma. Las versiones aceptadas (?v=) se muestran enteras.
  */
 export default async function CreatorLegalPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ v?: string }> }) {
   const { username } = await params;
   const sp = await searchParams;
+  // Modo personal: solo la dueña (el layout también lo comprueba, pero la página se pinta a la vez).
+  if (!isPublicUsernameAllowed(username, ownerUsername())) notFound();
   const data = await getPublicCreator(username);
   if (!data) notFound();
   const { creator, config, platformName } = data;
@@ -42,6 +51,9 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
   if (sp.v && !snapshot) notFound();
   const identity = snapshot?.identity ?? legalIdentityOf(creator);
   const docs = snapshot ?? currentLegalDocs(creator, platformName);
+  // Sin ventas en la web: solo lo que aplica a una página personal (salvo una versión aceptada).
+  const personal = isPersonalMode() && !snapshot;
+  const privacy = personal ? currentPersonalPrivacy(creator) : docs.privacy;
   const complete = legalIdentityComplete(identity);
 
   const rows: [string, string][] = [
@@ -53,10 +65,10 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
   ];
 
   return (
-    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} sellerName={identity.legalName}>
+    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} sellerName={identity.legalName}>
       <main className="mx-auto max-w-2xl px-4 pb-10 pt-8 sm:pt-12">
         <p className="cp-eyebrow">Información legal</p>
-        <h1 className="cp-display mt-2 text-[2.4rem] leading-tight">Aviso legal y condiciones</h1>
+        <h1 className="cp-display mt-2 text-[2.4rem] leading-tight">{personal ? "Aviso legal y privacidad" : "Aviso legal y condiciones"}</h1>
 
         {snapshot && (
           <p className="cp-card mt-6 px-4 py-3 text-sm">
@@ -68,7 +80,7 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
 
         {!complete && (
           <div className="cp-card mt-6 px-4 py-3 text-sm">
-            <p>Esta creadora todavía no ha completado sus datos legales.</p>
+            <p>{personal ? "Los datos legales de esta página todavía no están completos." : "Esta creadora todavía no ha completado sus datos legales."}</p>
             {isOwner && (
               <Link href="/panel/ajustes/legal" className="mt-2 inline-block font-semibold underline underline-offset-4">
                 Completar mis datos legales
@@ -89,33 +101,39 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
                   </div>
                 ))}
               </dl>
-              <p className="cp-muted mt-3 text-sm">
-                Plataforma: <Link href="/aviso-legal" className="underline underline-offset-4">{platformName}</Link> presta el servicio tecnológico de esta página y
-                de los pagos; no es parte de las compras.
-              </p>
+              {!personal && (
+                <p className="cp-muted mt-3 text-sm">
+                  Plataforma: <Link href="/aviso-legal" className="underline underline-offset-4">{platformName}</Link> presta el servicio tecnológico de esta página y
+                  de los pagos; no es parte de las compras.
+                </p>
+              )}
             </section>
 
-            <section id="condiciones" className="scroll-mt-20">
-              <h2 className="cp-display text-[1.8rem]">Condiciones de venta</h2>
-              <div className="mt-4">
-                <LegalText text={docs.terms} />
-              </div>
-            </section>
+            {!personal && (
+              <>
+                <section id="condiciones" className="scroll-mt-20">
+                  <h2 className="cp-display text-[1.8rem]">Condiciones de venta</h2>
+                  <div className="mt-4">
+                    <LegalText text={docs.terms} />
+                  </div>
+                </section>
 
-            <section id="reembolsos" className="scroll-mt-20">
-              <h2 className="cp-display text-[1.8rem]">Cambios y reembolsos</h2>
-              <div className="mt-4">
-                <LegalText text={docs.refunds} />
-              </div>
-              <h3 className="mt-8 text-[0.95rem] font-semibold">Formulario de desistimiento</h3>
-              <p className="cp-muted mt-1 text-sm">Puedes copiarlo y enviarlo por email. No es obligatorio usarlo.</p>
-              <pre className="cp-card mt-3 whitespace-pre-wrap p-4 font-sans text-sm">{WITHDRAWAL_FORM_TEXT}</pre>
-            </section>
+                <section id="reembolsos" className="scroll-mt-20">
+                  <h2 className="cp-display text-[1.8rem]">Cambios y reembolsos</h2>
+                  <div className="mt-4">
+                    <LegalText text={docs.refunds} />
+                  </div>
+                  <h3 className="mt-8 text-[0.95rem] font-semibold">Formulario de desistimiento</h3>
+                  <p className="cp-muted mt-1 text-sm">Puedes copiarlo y enviarlo por email. No es obligatorio usarlo.</p>
+                  <pre className="cp-card mt-3 whitespace-pre-wrap p-4 font-sans text-sm">{WITHDRAWAL_FORM_TEXT}</pre>
+                </section>
+              </>
+            )}
 
             <section id="privacidad" className="scroll-mt-20">
               <h2 className="cp-display text-[1.8rem]">Privacidad</h2>
               <div className="mt-4">
-                <LegalText text={`${privacyResponsibleLine(identity)}\n\n${docs.privacy}`} />
+                <LegalText text={`${privacyResponsibleLine(identity)}\n\n${privacy}`} />
               </div>
             </section>
 
@@ -124,7 +142,16 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
               <p className="mt-4 text-[0.92rem] leading-relaxed">{COOKIES_TEXT}</p>
             </section>
 
-            <p className="cp-faint text-xs">Estos textos los publica la vendedora y son responsabilidad suya.</p>
+            {personal && (
+              <section id="otras-webs" className="scroll-mt-20">
+                <h2 className="cp-display text-[1.8rem]">Otras webs</h2>
+                <div className="mt-4">
+                  <LegalText text={PERSONAL_THIRD_PARTY_TEXT} />
+                </div>
+              </section>
+            )}
+
+            <p className="cp-faint text-xs">{personal ? "Estos textos los publica la titular de esta página y son responsabilidad suya." : "Estos textos los publica la vendedora y son responsabilidad suya."}</p>
           </div>
         )}
       </main>

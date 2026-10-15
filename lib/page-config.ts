@@ -7,12 +7,16 @@ import { FONT_PAIRS, TEMPLATE_KEYS, type FontPairKey, type RadiusKey } from "./t
  * Es independiente de la plantilla: cambiar de diseño no toca el contenido.
  */
 
+/** Orden por defecto de las secciones de una página nueva (y sitio donde entra una sección nueva). */
 export const SECTION_KEYS = [
   "links",
+  "blocks",
   "products",
   "sessions",
   "courses",
   "memberships",
+  "posts",
+  "codes",
   "testimonials",
   "faq",
   "contact",
@@ -21,14 +25,26 @@ export type SectionKey = (typeof SECTION_KEYS)[number];
 
 export const SECTION_META: Record<SectionKey, { label: string; defaultTitle: string; hint: string }> = {
   links: { label: "Botones principales", defaultTitle: "", hint: "Enlaces destacados bajo tu presentación" },
+  blocks: { label: "Bloques de texto", defaultTitle: "", hint: "Sobre mí, servicios, cómo trabajo…" },
   products: { label: "Productos digitales", defaultTitle: "Lecturas y recursos", hint: "PDF, audios, guías…" },
   sessions: { label: "Sesiones y servicios", defaultTitle: "Sesiones", hint: "Reservas 1:1" },
   courses: { label: "Cursos", defaultTitle: "Formación", hint: "Tus programas" },
   memberships: { label: "Membresías", defaultTitle: "Comunidad", hint: "Suscripciones mensuales" },
+  posts: { label: "Novedades", defaultTitle: "Novedades", hint: "Tus 3 últimas publicaciones" },
+  codes: { label: "Códigos de descuento", defaultTitle: "Códigos de descuento", hint: "Descuentos en marcas que recomiendas" },
   testimonials: { label: "Testimonios", defaultTitle: "Lo que dicen", hint: "Opiniones de clientas" },
   faq: { label: "Preguntas frecuentes", defaultTitle: "Preguntas frecuentes", hint: "Resuelve dudas antes de comprar" },
   contact: { label: "Contacto", defaultTitle: "Hablemos", hint: "Email, WhatsApp…" },
 };
+
+/** Secciones que se gestionan fuera del editor (tienen su propia pantalla en el panel). */
+export const SECTION_MANAGE_HREF: Partial<Record<SectionKey, { href: string; label: string }>> = {
+  posts: { href: "/panel/publicaciones", label: "Publicaciones" },
+  codes: { href: "/panel/codigos", label: "Códigos" },
+};
+
+export const TEXT_BLOCKS_MAX = 12;
+export const TEXT_BLOCK_BODY_MAX = 2000;
 
 export const SOCIAL_KEYS = ["instagram", "tiktok", "telegram", "youtube", "whatsapp", "email", "website"] as const;
 export type SocialKey = (typeof SOCIAL_KEYS)[number];
@@ -98,10 +114,33 @@ export const pageConfigSchema = z.object({
   contact: z
     .object({ email: shortText(200).optional(), whatsapp: shortText(40).optional(), message: shortText(300).optional() })
     .default({}),
+  // Bloques fijos de texto (sobre mí, servicios…): título, texto y un botón opcional.
+  blocks: z
+    .array(
+      z
+        .object({
+          id: z.string().max(40),
+          title: shortText(80).default(""),
+          body: shortText(TEXT_BLOCK_BODY_MAX).default(""),
+          buttonLabel: shortText(40).optional(),
+          buttonUrl: shortText(500).optional(),
+          enabled: z.boolean().default(true),
+        })
+        .superRefine((b, ctx) => {
+          if (!b.title && !b.body) ctx.addIssue({ code: "custom", message: "Cada bloque de texto necesita un título o un texto" });
+          if (b.buttonLabel && !b.buttonUrl) ctx.addIssue({ code: "custom", message: `Falta el enlace del botón «${b.buttonLabel}»` });
+          if (b.buttonUrl && !b.buttonLabel) ctx.addIssue({ code: "custom", message: "Escribe el texto del botón del bloque de texto" });
+        }),
+    )
+    .max(TEXT_BLOCKS_MAX, `Máximo ${TEXT_BLOCKS_MAX} bloques de texto`)
+    // Opcional en el tipo para no obligar a reescribir las páginas guardadas antes de existir;
+    // readPageConfig siempre lo devuelve (vacío si no hay).
+    .optional(),
   hidePoweredBy: z.boolean().default(false),
 });
 
 export type PageConfig = z.infer<typeof pageConfigSchema>;
+export type TextBlock = NonNullable<PageConfig["blocks"]>[number];
 export type ThemeConfig = PageConfig["theme"];
 export type RadiusChoice = RadiusKey;
 
@@ -129,10 +168,45 @@ export function readPageConfig(raw: unknown, fallbackName = "Mi página"): PageC
   let cfg: PageConfig;
   if (parsed.success) cfg = parsed.data;
   else cfg = defaultPageConfig({ displayName: (raw as { displayName?: string })?.displayName || fallbackName });
-  // Asegura que todas las secciones existen (si añadimos una nueva en el futuro).
-  const present = new Set(cfg.sections.map((s) => s.key));
-  for (const key of SECTION_KEYS) if (!present.has(key)) cfg.sections.push({ key, enabled: false });
+  cfg.sections = withAllSections(cfg.sections);
+  cfg.blocks ??= [];
   return cfg;
+}
+
+/**
+ * Asegura que están todas las secciones, sin duplicados. Una sección que no existía cuando se guardó
+ * la página (p. ej. Novedades o Bloques de texto) entra visible justo detrás de la que la precede en
+ * el orden por defecto: no pinta nada hasta que tenga contenido, y así aparece sola en cuanto se
+ * publica la primera novedad o el primer código.
+ */
+export function withAllSections(sections: PageConfig["sections"]): PageConfig["sections"] {
+  const out: PageConfig["sections"] = [];
+  const seen = new Set<SectionKey>();
+  for (const s of sections) {
+    if (seen.has(s.key)) continue;
+    seen.add(s.key);
+    out.push(s);
+  }
+  SECTION_KEYS.forEach((key, i) => {
+    if (seen.has(key)) return;
+    seen.add(key);
+    // Detrás de la sección anterior en el orden por defecto que ya esté; si no hay, al principio.
+    let at = 0;
+    for (let j = i - 1; j >= 0; j--) {
+      const prev = out.findIndex((s) => s.key === SECTION_KEYS[j]);
+      if (prev >= 0) {
+        at = prev + 1;
+        break;
+      }
+    }
+    out.splice(at, 0, { key, enabled: true });
+  });
+  return out;
+}
+
+/** Bloques de texto que se ven en la página (visibles y con algo que mostrar). */
+export function visibleTextBlocks(cfg: Pick<PageConfig, "blocks">): TextBlock[] {
+  return (cfg.blocks ?? []).filter((b) => b.enabled && (b.title.trim() || b.body.trim()));
 }
 
 export function sectionTitle(cfg: PageConfig, key: SectionKey) {

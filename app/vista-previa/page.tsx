@@ -37,6 +37,11 @@ export default async function DraftPreviewPage() {
         showPoweredBy={data.showPoweredBy}
         platformName={data.platformName}
         referralCode={data.creator.referralCode}
+        sellerName={data.creator.legalName}
+        posts={data.posts}
+        postCount={data.postCount}
+        discountCodes={data.discountCodes}
+        personal={data.personal}
       />
       <Reveal />
     </>

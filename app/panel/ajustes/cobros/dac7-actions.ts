@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
 import { isValidIban, normalizeIban } from "@/lib/dac7";
 import { prisma } from "@/lib/db";
+import { isPersonalMode } from "@/lib/site-mode";
 
 const back = (k: "ok" | "error", msg: string) => redirect(`/panel/ajustes/cobros?${k}=${encodeURIComponent(msg)}#datos-fiscales`);
 
@@ -27,6 +28,7 @@ const schema = z.object({
 
 /** Datos de DAC7 que no están en los datos legales: fecha de nacimiento, IBAN y la confirmación. */
 export async function saveDac7Data(form: FormData) {
+  if (isPersonalMode()) redirect("/panel/ajustes");
   const { creator } = await requireCreator();
   const parsed = schema.safeParse(Object.fromEntries(form));
   if (!parsed.success) back("error", parsed.error.issues[0].message);

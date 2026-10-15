@@ -151,7 +151,7 @@ async function main() {
 
   // ── Enlaces personales de los emails de una compra ──
   {
-    const course = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "COURSE", status: "PUBLISHED" } });
+    const course = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "COURSE", status: "PUBLISHED", accessMode: "PAID" } });
     const o = await createPendingOrder({ productId: course.id, buyerEmail: email("curso"), buyerName: "Prueba curso" });
     created.orders.push(o.id);
     await applyPaymentUpdate(

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { paymentProvider } from "@/lib/payments";
+import { paymentProviderKey } from "@/lib/payments";
 import { processWebhook } from "@/lib/payments/events";
 
 export const runtime = "nodejs";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
  * Ver docs/pagos-stripe.md para la lista de eventos.
  */
 export async function POST(req: Request) {
-  if (paymentProvider().key !== "stripe") return new NextResponse("No encontrado", { status: 404 });
+  if (paymentProviderKey() !== "stripe") return new NextResponse("No encontrado", { status: 404 });
   const raw = await req.text();
   const r = await processWebhook("stripe", raw, req.headers);
   return new NextResponse(r.body, { status: r.status });

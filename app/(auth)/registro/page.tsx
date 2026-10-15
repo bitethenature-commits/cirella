@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { homeFor } from "@/lib/home";
+import { isPersonalMode } from "@/lib/site-mode";
 import { SignupForm } from "./signup-form";
 
 export const metadata: Metadata = { title: "Crea tu página · Cirella" };
 
 export default async function RegistroPage({ searchParams }: { searchParams: Promise<{ ref?: string; username?: string; plan?: string }> }) {
+  // Modo personal: la web es de una sola dueña; nadie más crea páginas aquí.
+  if (isPersonalMode()) redirect("/entrar");
   const sp = await searchParams;
   const user = await getCurrentUser();
   if (user) {

@@ -7,8 +7,10 @@ import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { Badge, PageHeader } from "../../panel/ui";
 import { setProductStatusAdmin } from "../actions";
 import { AdminTable, td } from "../ui";
+import { platformOnly } from "../platform-only";
 
 export default async function AdminProducts({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
+  platformOnly();
   await requireAdmin();
   const sp = await searchParams;
   const products = await prisma.product.findMany({ orderBy: { createdAt: "desc" }, include: { creator: { select: { displayName: true, username: true } }, _count: { select: { orders: { where: { status: "PAID" } } } } } });

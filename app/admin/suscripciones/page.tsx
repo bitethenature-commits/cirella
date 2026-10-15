@@ -4,8 +4,10 @@ import { formatMoney, formatPrice } from "@/lib/money";
 import { Badge, PageHeader } from "../../panel/ui";
 import { AdminTable, td } from "../ui";
 import { formatDate } from "@/lib/tz";
+import { platformOnly } from "../platform-only";
 
 export default async function AdminSubscriptions() {
+  platformOnly();
   await requireAdmin();
   const [memberships, paying] = await Promise.all([
     prisma.subscription.findMany({ orderBy: { createdAt: "desc" }, include: { product: true, creator: { select: { displayName: true } }, customer: true } }),

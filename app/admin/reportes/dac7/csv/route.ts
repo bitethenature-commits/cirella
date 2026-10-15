@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { DAC7_CSV_HEADER, dac7CsvRow, toCsv } from "@/lib/dac7";
 import { dac7Report, parseDac7Year } from "@/lib/dac7-data";
+import { platformOnly } from "../../../platform-only";
 
 export const dynamic = "force-dynamic";
 
 /** GET /admin/reportes/dac7/csv?anio=AAAA: una fila por vendedora con los datos del modelo 238. */
 export async function GET(req: Request) {
+  platformOnly();
   const user = await getCurrentUser();
   if (!user?.isAdmin || !user.sessionVerified) return new NextResponse("No autorizado", { status: 403 });
   const year = parseDac7Year(new URL(req.url).searchParams.get("anio"));

@@ -194,3 +194,58 @@ test("selectPaymentProviderKey simulated en producción → lanza", () => throws
 test("selectPaymentProviderKey simulated en staging → lanza", () => throws(() => selectPaymentProviderKey("simulated", "staging"), /prohibido/));
 test("selectPaymentProviderKey simulated en test", () => eq(selectPaymentProviderKey("simulated", "test"), "simulated"));
 test("selectPaymentProviderKey stripe en producción", () => eq(selectPaymentProviderKey("stripe", "production"), "stripe"));
+test("selectPaymentProviderKey none en desarrollo", () => eq(selectPaymentProviderKey("none", "development"), "none"));
+test("selectPaymentProviderKey none en test (plataforma)", () => eq(selectPaymentProviderKey("none", "test", "platform"), "none"));
+test("selectPaymentProviderKey none en producción (plataforma) → lanza", () => throws(() => selectPaymentProviderKey("none", "production"), /modo personal/));
+test("selectPaymentProviderKey none en staging (plataforma) → lanza", () => throws(() => selectPaymentProviderKey("none", "staging", "platform"), /modo personal/));
+test("selectPaymentProviderKey none en producción (personal)", () => eq(selectPaymentProviderKey("none", "production", "personal"), "none"));
+test("selectPaymentProviderKey simulated en producción (personal) → lanza", () => throws(() => selectPaymentProviderKey("simulated", "production", "personal"), /prohibido/));
+
+// ── Modo personal (SITE_MODE=personal) ──
+/** Producción de la web personal: sin Stripe ni Turnstile, todo lo demás igual de estricto. */
+const PERSONAL_OK: Raw = {
+  ...Object.fromEntries(Object.entries(PROD_OK).filter(([k]) => !k.startsWith("STRIPE_"))),
+  SITE_MODE: "personal",
+  OWNER_USERNAME: "ana",
+  PAYMENT_PROVIDER: "none",
+};
+test("modo personal en producción sin Stripe ni Turnstile → válido", () => isValid(PERSONAL_OK));
+test("modo personal en staging → válido", () => isValid({ ...PERSONAL_OK, APP_ENV: "staging" }));
+test("modo personal con Stripe completo → válido", () => isValid({ ...PROD_OK, SITE_MODE: "personal", OWNER_USERNAME: "ana" }));
+test("modo personal en local con none → válido", () => isValid({ ...DEV_OK, SITE_MODE: "personal", OWNER_USERNAME: "ana", PAYMENT_PROVIDER: "none" }));
+test("modo personal en local con pagos simulados → válido", () => isValid({ ...DEV_OK, SITE_MODE: "personal", OWNER_USERNAME: "ana" }));
+test("OWNER_USERNAME con @ y mayúsculas se normaliza → válido", () => isValid({ ...PERSONAL_OK, OWNER_USERNAME: "@Ana" }));
+test("modo personal sin OWNER_USERNAME → error", () => hasError({ ...PERSONAL_OK, OWNER_USERNAME: undefined }, "Falta OWNER_USERNAME"));
+test("modo personal con OWNER_USERNAME en blanco → error", () => hasError({ ...PERSONAL_OK, OWNER_USERNAME: "  " }, "Falta OWNER_USERNAME"));
+test("modo personal en local sin OWNER_USERNAME → error", () =>
+  hasError({ ...DEV_OK, SITE_MODE: "personal", PAYMENT_PROVIDER: "none" }, "Falta OWNER_USERNAME"));
+for (const [user, fragment] of [["ab", "mínimo 3"], ["ana luna!", "solo letras"], ["admin", "reservado"]] as const)
+  test(`OWNER_USERNAME=${user} → error`, () => hasError({ ...PERSONAL_OK, OWNER_USERNAME: user }, fragment));
+test("modo personal sin PAYMENT_PROVIDER → error que sugiere none", () =>
+  hasError({ ...PERSONAL_OK, PAYMENT_PROVIDER: undefined }, "«none» en modo personal"));
+test("modo personal en producción con pagos simulados → prohibido", () =>
+  hasError({ ...PERSONAL_OK, PAYMENT_PROVIDER: "simulated" }, "PAYMENT_PROVIDER=simulated está prohibido"));
+test("modo personal en producción con DEMO_MODE=true → prohibido", () => hasError({ ...PERSONAL_OK, DEMO_MODE: "true" }, "DEMO_MODE=true está prohibido"));
+test("modo personal en producción con email de log → error", () => hasError({ ...PERSONAL_OK, EMAIL_PROVIDER: "log" }, "EMAIL_PROVIDER=resend"));
+test("modo personal en producción sin S3 → error", () => hasError({ ...PERSONAL_OK, STORAGE_DRIVER: undefined }, "STORAGE_DRIVER=s3"));
+test("modo personal en producción sin CLIENT_IP_HEADER → error", () => hasError({ ...PERSONAL_OK, CLIENT_IP_HEADER: undefined }, "Falta CLIENT_IP_HEADER"));
+test("modo personal en producción con secretos cortos → error", () => hasError({ ...PERSONAL_OK, APP_SECRET: "corto" }, "APP_SECRET debe tener"));
+test("modo personal en producción con APP_URL http → error", () => hasError({ ...PERSONAL_OK, APP_URL: "http://analuna.es" }, "https://"));
+test("modo personal: solo una clave de Turnstile → error", () => hasError({ ...PERSONAL_OK, TURNSTILE_SITE_KEY: "x" }, "las dos claves de Turnstile"));
+test("modo personal con Stripe a medias → error", () =>
+  hasError({ ...PERSONAL_OK, PAYMENT_PROVIDER: "stripe" }, "Falta STRIPE_SECRET_KEY"));
+
+// ── Plataforma con PAYMENT_PROVIDER=none ──
+test("plataforma en producción con none → error", () =>
+  hasError({ ...PROD_OK, PAYMENT_PROVIDER: "none" }, "PAYMENT_PROVIDER=none (sin cobros) solo se admite en modo personal"));
+test("plataforma explícita en producción con none → error", () =>
+  hasError({ ...PROD_OK, SITE_MODE: "platform", PAYMENT_PROVIDER: "none" }, "solo se admite en modo personal"));
+test("plataforma en staging con none → error", () => hasError({ ...PROD_OK, APP_ENV: "staging", PAYMENT_PROVIDER: "none" }, "solo se admite en modo personal"));
+test("plataforma en local con none → válido", () => isValid({ ...DEV_OK, PAYMENT_PROVIDER: "none" }));
+test("plataforma no exige OWNER_USERNAME", () => isValid({ ...PROD_OK, SITE_MODE: "platform" }));
+test("SITE_MODE desconocido → error", () => hasError({ ...DEV_OK, SITE_MODE: "solo" }, "SITE_MODE solo admite"));
+test("validateEnv guarda SITE_MODE y OWNER_USERNAME", () => {
+  const r = validateEnv(PERSONAL_OK);
+  ok(r.ok, JSON.stringify(r));
+  eq([r.env.SITE_MODE, r.env.OWNER_USERNAME, r.env.PAYMENT_PROVIDER], ["personal", "ana", "none"]);
+});

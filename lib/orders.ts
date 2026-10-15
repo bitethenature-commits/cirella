@@ -1,4 +1,5 @@
 import "server-only";
+import { asAccessMode, isNoChargeOrder } from "./access-mode";
 import { prisma } from "./db";
 import { dispatchEvents, recordEvents, type DomainEvent } from "./events";
 import { hasBookingClash, isBookingOverlapError, isSlotAvailable } from "./booking";
@@ -7,7 +8,7 @@ import { appUrl, isDemoMode } from "./env";
 import { canInvoiceSale, issueSaleInvoiceTx } from "./invoices/issue";
 import { getPlatformIssuer } from "./invoices/issuer";
 import { legalIdentityComplete } from "./legal";
-import { paymentProvider, type PaymentMethodInput } from "./payments";
+import { NO_ONLINE_PAYMENTS, paidCheckoutOpen, paymentProvider, type PaymentMethodInput } from "./payments";
 import { canAcceptPayments } from "./payouts";
 import { canSellType, effectiveCommissionBps } from "./plans";
 import { pushBookingEvent } from "./calendar";
@@ -20,15 +21,16 @@ import type { ProductType } from "./types";
 export class CheckoutError extends Error {}
 
 /**
- * Producto visible para comprar: publicado, creadora activa y publicada, y su plan lo permite.
- * Que se pueda pagar ya (cobros activados, datos de DAC7) lo comprueba createPendingOrder.
+ * Producto visible para comprar: de pago en la web (accessMode PAID), publicado, creadora activa y
+ * publicada, y su plan lo permite. Lo gratuito con email y lo que se paga fuera no tienen checkout
+ * (lib/free-access.ts). Que se pueda pagar ya (cobros activados, datos de DAC7) lo comprueba createPendingOrder.
  */
 export async function getPurchasableProduct(productId: string) {
   const product = await prisma.product.findUnique({
     where: { id: productId },
     include: { creator: { include: { plan: true } } },
   });
-  if (!product || product.status !== "PUBLISHED") return null;
+  if (!product || product.status !== "PUBLISHED" || asAccessMode(product.accessMode) !== "PAID") return null;
   const c = product.creator;
   if (c.status !== "ACTIVE" || !c.published) return null;
   if (!canSellType(c.plan, product.type as ProductType)) return null;
@@ -55,6 +57,8 @@ export async function createPendingOrder(input: {
   /** «Necesito factura con mi NIF» (NIF ya normalizado y validado). */
   billing?: { name: string; taxId: string; address: string } | null;
 }) {
+  // Modo personal o sin pasarela (PAYMENT_PROVIDER=none): no hay compras en la web, se cierra aquí.
+  if (!paidCheckoutOpen()) throw new CheckoutError(NO_ONLINE_PAYMENTS);
   const product = await getPurchasableProduct(input.productId);
   if (!product) throw new CheckoutError("Este producto no está disponible ahora mismo.");
   if (!canAcceptPayments(product.creator)) throw new CheckoutError("La creadora todavía no ha activado los pagos.");
@@ -129,7 +133,9 @@ const PAYABLE = ["PENDING", "FAILED", "ABANDONED"];
  *   · failed: rechazado; el pedido queda FAILED y se puede reintentar.
  */
 export async function startOrderPayment(orderId: string, payment: PaymentMethodInput): Promise<StartOrderPaymentResult> {
+  if (!paidCheckoutOpen()) throw new CheckoutError(NO_ONLINE_PAYMENTS);
   const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { creator: true, product: { select: { slug: true } } } });
+  if (isNoChargeOrder(order)) throw new CheckoutError("Este pedido no se paga.");
   if (order.status === "PAID") {
     const r = await fulfillOrder(order.id, order.paymentRef ?? "");
     return { kind: "paid", userId: r.userId, isNewUser: r.isNewUser };
@@ -222,6 +228,9 @@ const FULFILLABLE = ["PENDING", "PROCESSING", "FAILED", "ABANDONED"];
  * la vuelta de la compradora): solo una entrega y la otra recibe `alreadyPaid: true`.
  * Marca el pedido como pagado, registra la transacción y concede el acceso
  * según el tipo de producto (descarga, curso, reserva o suscripción).
+ *
+ * Los pedidos sin cobro (gratis con email o acceso dado a mano, lib/free-access.ts) pasan por aquí
+ * igual, pero sin transacción de cobro, factura ni suscripción: el acceso no caduca y no se renueva.
  */
 export async function fulfillOrder(orderId: string, paymentRef: string, opts: SavedPayment = {}) {
   const events: DomainEvent[] = [];
@@ -288,6 +297,8 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
       return { order, userId: existingUser?.id ?? "", isNewUser: false, alreadyPaid: true, duplicateMembership: false, eventIds: [] as string[] };
     }
     const now = new Date();
+    // 0 €, sin cobro (lib/access-mode.ts): ni transacción, ni factura, ni suscripción que renovar.
+    const noCharge = isNoChargeOrder(order);
     const user =
       existingUser ??
       (await tx.user.create({ data: { email: order.buyerEmail, name: order.buyerName } }));
@@ -328,7 +339,7 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
       data: {
         status: "PAID",
         paidAt: now,
-        paymentRef,
+        paymentRef: noCharge ? null : paymentRef,
         paymentError: null,
         chargedAt: order.chargedAt ?? now,
         customerId: customer.id,
@@ -336,27 +347,29 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
       },
       include: { product: true },
     });
-    const charge = await tx.transaction.create({
-      data: {
-        creatorId: order.creatorId,
-        orderId: order.id,
-        type: "CHARGE",
-        description: order.productTitle,
-        amountCents: order.amountCents,
-        platformFeeCents: order.platformFeeCents,
-        netCents: order.netCents,
-        currency: order.currency,
-        taxSeller: order.taxSeller,
-        taxCountry: order.taxCountry,
-        taxRateBps: order.taxRateBps,
-        taxCents: order.taxCents,
-        provider: order.paymentProvider,
-        providerRef: paymentRef,
-        idempotencyKey: chargeKey(order.id),
-      },
-    });
+    const charge = noCharge
+      ? null
+      : await tx.transaction.create({
+        data: {
+          creatorId: order.creatorId,
+          orderId: order.id,
+          type: "CHARGE",
+          description: order.productTitle,
+          amountCents: order.amountCents,
+          platformFeeCents: order.platformFeeCents,
+          netCents: order.netCents,
+          currency: order.currency,
+          taxSeller: order.taxSeller,
+          taxCountry: order.taxCountry,
+          taxRateBps: order.taxRateBps,
+          taxCents: order.taxCents,
+          provider: order.paymentProvider,
+          providerRef: paymentRef,
+          idempotencyKey: chargeKey(order.id),
+        },
+      });
     // Factura (o nada: justificante) en la misma transacción que el cobro: numeración sin huecos.
-    await issueSaleInvoiceTx(tx, { transactionId: charge.id });
+    if (charge) await issueSaleInvoiceTx(tx, { transactionId: charge.id });
 
     const p = order.product;
     let subscriptionId: string | null = null;
@@ -365,10 +378,12 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
     // cobrar, pero dos páginas de pago abiertas (dos pestañas, o un pedido sustituido) pueden
     // cobrarse las dos: la segunda no crea otra suscripción (se renovarían las dos cada mes); el
     // pedido queda pagado y fulfillOrder lo reembolsa entero.
-    const duplicateMembership =
+    // Sin cobro no hay nada que reembolsar: si ya tenía una suscripción viva, se queda con su acceso.
+    const liveMembership =
       p.type === "MEMBERSHIP" &&
       !!(await tx.subscription.findFirst({ where: { productId: p.id, customerId: customer.id, status: { in: ["ACTIVE", "PAST_DUE"] } }, select: { id: true } }));
-    if (p.type === "MEMBERSHIP" && !duplicateMembership) {
+    const duplicateMembership = liveMembership && !noCharge;
+    if (p.type === "MEMBERSHIP" && !duplicateMembership && !noCharge) {
       const end = addInterval(now, p.billingInterval ?? "month");
       const sub = await tx.subscription.create({
         data: {
@@ -420,22 +435,25 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
       events.push({ type: "booking.confirmed", bookingId: booking.id });
     }
     // El acceso de una membresía duplicada sigue siendo el de la suscripción que ya tenía.
-    if (!duplicateMembership)
+    if (!liveMembership)
       await tx.access.upsert({
         where: { userId_productId: { userId: user.id, productId: p.id } },
         create: { creatorId: order.creatorId, userId: user.id, productId: p.id, orderId: order.id, subscriptionId, expiresAt },
         update: { status: "ACTIVE", orderId: order.id, subscriptionId, expiresAt },
       });
-    await tx.analyticsEvent.create({
-      data: {
-        creatorId: order.creatorId,
-        type: "PURCHASE",
-        productId: p.id,
-        visitorId: order.visitorId ?? `user:${user.id}`,
-        source: order.source,
-        amountCents: order.amountCents,
-      },
-    });
+    // Métricas: una compra es PURCHASE; quien se apunta gratis con el formulario, SIGNUP (se cuenta
+    // aparte, lib/stats.ts). El acceso que da la dueña a mano no es una conversión de la página.
+    if (order.paymentProvider !== "manual")
+      await tx.analyticsEvent.create({
+        data: {
+          creatorId: order.creatorId,
+          type: noCharge ? "SIGNUP" : "PURCHASE",
+          productId: p.id,
+          visitorId: order.visitorId ?? `user:${user.id}`,
+          source: order.source,
+          amountCents: order.amountCents,
+        },
+      });
     events.unshift({ type: "order.paid", orderId: order.id });
     const eventIds = await recordEvents(tx, events);
     return { order: paid, userId: user.id, isNewUser: !existingUser, alreadyPaid: false, duplicateMembership, eventIds };

@@ -7,6 +7,7 @@
  *   · COURSE              → al menos una lección;
  *   · MEMBERSHIP          → sin publicaciones solo es un aviso (una comunidad nueva puede empezar vacía);
  *   · SESSION             → se entrega sola (la reserva).
+ * Un producto que se paga fuera (accessMode EXTERNAL) lo entrega la otra web: nunca bloquea.
  *
  * Puro salvo los dos ayudantes de BD del final, que reciben el cliente del tenant: sin `prisma` ni
  * `server-only`, así lo importan los componentes de cliente y las pruebas unitarias.
@@ -19,7 +20,16 @@ export type DeliveryMode = (typeof DELIVERY_MODES)[number];
 /** Longitud mínima de las instrucciones de una entrega personal («Te lo envío por email en 3 días»). */
 export const MIN_PERSONAL_INSTRUCTIONS = 10;
 
-export type DeliveryFacts = { type: string; deliveryMode: string; instructions: string | null; files: number; lessons: number; posts: number };
+export type DeliveryFacts = {
+  type: string;
+  deliveryMode: string;
+  instructions: string | null;
+  files: number;
+  lessons: number;
+  posts: number;
+  /** Product.accessMode; sin él, PAID (lo de siempre). */
+  accessMode?: string | null;
+};
 export type DeliveryIssueCode = "NO_CONTENT" | "NO_INSTRUCTIONS" | "NO_LESSONS" | "NO_POSTS";
 export type DeliveryIssue = { code: DeliveryIssueCode; blocking: boolean; anchor: "entrega" | "lecciones" | "publicaciones" };
 
@@ -29,6 +39,9 @@ export function normalizeDeliveryMode(type: string, mode: string | null | undefi
 }
 
 export function deliveryIssue(f: DeliveryFacts): DeliveryIssue | null {
+  // Pago fuera: lo entrega la otra web (Hotmart, Calendly…). Si además el contenido está aquí, se da
+  // el acceso a mano desde el panel, que comprueba antes que haya algo (lib/free-access.ts).
+  if (f.accessMode === "EXTERNAL") return null;
   switch (f.type) {
     case "DIGITAL":
       if (normalizeDeliveryMode(f.type, f.deliveryMode) === "PERSONAL")
@@ -116,9 +129,18 @@ export function deliveryFacts(p: {
   type: string;
   deliveryMode: string;
   instructions: string | null;
+  accessMode?: string | null;
   _count: { files: number; lessons: number; posts: number };
 }): DeliveryFacts {
-  return { type: p.type, deliveryMode: p.deliveryMode, instructions: p.instructions, files: p._count.files, lessons: p._count.lessons, posts: p._count.posts };
+  return {
+    type: p.type,
+    deliveryMode: p.deliveryMode,
+    instructions: p.instructions,
+    files: p._count.files,
+    lessons: p._count.lessons,
+    posts: p._count.posts,
+    accessMode: p.accessMode ?? null,
+  };
 }
 
 /**
@@ -128,13 +150,14 @@ export function deliveryFacts(p: {
 export async function productDeliveryIssue(
   db: TenantDb,
   productId: string,
-  override?: { deliveryMode?: string; instructions?: string | null; minus?: { files?: number; lessons?: number } },
+  override?: { deliveryMode?: string; instructions?: string | null; accessMode?: string; minus?: { files?: number; lessons?: number } },
 ): Promise<{ product: { id: string; title: string; status: string; type: string }; issue: DeliveryIssue | null } | null> {
   const p = await db.product.findFirst({ where: { id: productId }, include: DELIVERY_COUNT });
   if (!p) return null;
   const facts = deliveryFacts(p);
   if (override?.deliveryMode !== undefined) facts.deliveryMode = override.deliveryMode;
   if (override?.instructions !== undefined) facts.instructions = override.instructions;
+  if (override?.accessMode !== undefined) facts.accessMode = override.accessMode;
   facts.files = Math.max(0, facts.files - (override?.minus?.files ?? 0));
   facts.lessons = Math.max(0, facts.lessons - (override?.minus?.lessons ?? 0));
   return { product: { id: p.id, title: p.title, status: p.status, type: p.type }, issue: deliveryIssue(facts) };
@@ -147,7 +170,7 @@ export async function listDeliveryIssues(
   const products = await db.product.findMany({
     where: { status: { not: "ARCHIVED" }, type: { in: ["DIGITAL", "COURSE", "MEMBERSHIP"] } },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    select: { id: true, title: true, emoji: true, type: true, status: true, deliveryMode: true, instructions: true, ...DELIVERY_COUNT },
+    select: { id: true, title: true, emoji: true, type: true, status: true, deliveryMode: true, instructions: true, accessMode: true, ...DELIVERY_COUNT },
   });
   return products.flatMap((p) => {
     const issue = deliveryIssue(deliveryFacts(p));

@@ -1,4 +1,5 @@
 import type { Creator, Invoice, Prisma } from "@prisma/client";
+import { isNoChargeOrder } from "../access-mode";
 import { prisma } from "../db";
 import { isDemoMode } from "../env";
 import { getSettings } from "../settings";
@@ -97,6 +98,8 @@ export async function issueSaleInvoiceTx(tx: Prisma.TransactionClient, i: { tran
     include: { creator: true, order: { include: { customer: { select: { userId: true } } } } },
   });
   if (!t || !t.taxSeller || (t.type !== "CHARGE" && t.type !== "RENEWAL")) return null;
+  // 0 € (acceso gratis o dado a mano, lib/access-mode.ts): no hay venta que facturar.
+  if (t.amountCents <= 0 || (t.order && isNoChargeOrder(t.order))) return null;
   const from = await saleIssuer(t.taxSeller, t.creator);
   if (!from) return null;
 
@@ -152,7 +155,7 @@ export async function issueFullInvoiceForOrder(orderId: string, billing: Billing
     // Bloquea el pedido: dos peticiones a la vez no emiten dos facturas completas.
     await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`;
     const order = await tx.order.findUnique({ where: { id: orderId }, include: { creator: true, customer: { select: { userId: true } } } });
-    if (!order || order.status !== "PAID") throw new InvoiceError("Esta compra no admite factura.");
+    if (!order || order.status !== "PAID" || isNoChargeOrder(order) || order.amountCents <= 0) throw new InvoiceError("Esta compra no admite factura.");
     if (order.refundedCents > 0) throw new InvoiceError("Esta compra tiene devoluciones: escribe a la creadora para pedir la factura.");
     // El IVA se calculó con el país de la compra: una factura con otro país se contradiría (lugar
     // de la operación) y no casaría con lo declarado.

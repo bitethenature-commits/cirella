@@ -6,6 +6,7 @@ import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { ProductImage } from "@/components/creator-page/product-art";
 import { Reveal } from "@/components/reveal";
 import { AutoRefresh } from "@/components/ui/auto-refresh";
+import { isNoChargeOrder } from "@/lib/access-mode";
 import { getSession, hasCheckoutCookie } from "@/lib/auth";
 import { maskEmail, orderTargetPath } from "@/lib/auth-utils";
 import { prisma } from "@/lib/db";
@@ -30,6 +31,8 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
     include: { product: true, bookings: { orderBy: { createdAt: "asc" } }, customer: { select: { userId: true } } },
   });
   if (!order || !["PAID", "PENDING", "PROCESSING", "FAILED"].includes(order.status)) notFound();
+  // Un acceso sin cobro (gratis con email o dado a mano) no pasa por aquí: llega por email.
+  if (isNoChargeOrder(order)) notFound();
   // Pie «Vende: …» con quién vende este pedido (instantánea fiscal), como en el checkout y el recibo.
   const sellerName = sellerStatement(
     order.taxSeller,
@@ -39,7 +42,7 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
   const pending = order.status === "PROCESSING" || (order.status === "PENDING" && !!order.checkoutRef);
   if (pending || order.status === "FAILED" || order.status === "PENDING")
     return (
-      <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} back={false} sellerName={sellerName}>
+      <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} back={false} personal={data.personal} sellerName={sellerName}>
         <main className="mx-auto max-w-md px-5 pb-20 pt-12 text-center">
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-full" style={{ background: "var(--c-line)" }}>
             {pending ? <Loader2 className="h-8 w-8 animate-spin" /> : <AlertCircle className="h-8 w-8" />}
@@ -100,7 +103,7 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
   const next = { href: canSee ? orderTargetPath(order, booking?.id) : `/auth/pedido/${order.id}`, label };
 
   return (
-    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} back={false} sellerName={sellerName}>
+    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} back={false} personal={data.personal} sellerName={sellerName}>
       <main className="mx-auto max-w-md px-5 pb-20 pt-12 text-center">
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-full animate-fade-up" style={{ background: "var(--c-accent)", color: "var(--c-accent-text)" }}>
           <Check className="h-8 w-8" strokeWidth={2.5} />

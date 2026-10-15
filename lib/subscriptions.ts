@@ -5,7 +5,7 @@ import { enqueueEmail } from "./email/outbox";
 import { renewalFailedEmail } from "./email/templates";
 import { dispatchEvents, recordEvents } from "./events";
 import { captureAlert, captureError } from "./monitoring";
-import { paymentProvider } from "./payments";
+import { hasPaymentProvider, paymentProvider } from "./payments";
 import { nextRenewalAttempt, renewalPeriodKey } from "./payments/renewal";
 import { canAcceptPayments } from "./payouts";
 import { issueSaleInvoiceTx } from "./invoices/issue";
@@ -126,6 +126,9 @@ async function renewOne(sub: DueSubscription, now: Date, mode: TaxMode) {
     });
   }
   const guard = { periodEnd: sub.currentPeriodEnd, attempts: sub.renewalAttempts };
+  // Web sin pasarela (modo personal): no se cobra ni se cuenta como intento fallido (eso acabaría
+  // cancelando la suscripción y avisando a la clienta de un pago que nunca se intentó).
+  if (!hasPaymentProvider()) return false;
   const provider = paymentProvider();
   if (!sub.creator.payoutAccountId || !canAcceptPayments(sub.creator, provider.key)) {
     return recordRenewalFailure(sub.id, "La creadora tiene los cobros pausados.", now, guard);

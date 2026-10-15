@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { useCreatorBranding } from "@/components/creator-page/branding-context";
+import { useCreatorBranding, usePersonalMode } from "@/components/creator-page/branding-context";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { ErrorView, useErrorRetry } from "@/components/error-view";
 
@@ -10,6 +10,7 @@ const AFTER_PAYMENT = "Si acababas de pagar, tu compra está a salvo: en unos mi
 /** Error en la página pública de una creadora (ficha, checkout, confirmación): con su plantilla. */
 export default function CreatorError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const branding = useCreatorBranding();
+  const personal = usePersonalMode();
   const pathname = usePathname();
   const params = useParams<{ username: string }>();
   const onRetry = useErrorRetry(error, reset);
@@ -24,14 +25,14 @@ export default function CreatorError({ error, reset }: { error: Error & { digest
         extra={afterPayment ? AFTER_PAYMENT : undefined}
         digest={error.digest}
         onRetry={onRetry}
-        homeHref={`/${params.username ?? ""}`}
+        homeHref={personal ? "/" : `/${params.username ?? ""}`}
         homeLabel="Volver"
       />
     );
 
   const { username, config, allowCustom } = branding;
   return (
-    <CreatorShell username={username} config={config} allowCustom={allowCustom} back={false}>
+    <CreatorShell username={username} config={config} allowCustom={allowCustom} back={false} personal={personal}>
       <main className="relative mx-auto max-w-md px-6 py-20 text-center">
         <h1 className="cp-display text-3xl">Vaya, algo ha fallado al cargar esta página</h1>
         <p className="cp-muted mt-3">No es culpa tuya. Vuelve a intentarlo en unos segundos.</p>
@@ -39,7 +40,7 @@ export default function CreatorError({ error, reset }: { error: Error & { digest
         <button type="button" className="cp-btn mt-8" onClick={onRetry}>
           Reintentar
         </button>
-        <Link href={`/${username}`} className="mt-4 block text-sm underline">
+        <Link href={personal ? "/" : `/${username}`} className="mt-4 block text-sm underline">
           Volver a la página de {config.displayName}
         </Link>
         {error.digest && <p className="cp-muted mt-8 text-xs">Código del error: {error.digest}</p>}

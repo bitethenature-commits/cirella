@@ -140,3 +140,11 @@ export async function saveSettings(form: FormData) {
   await setSetting("privacyEmail", text("privacyEmail", 200).toLowerCase());
   done("/admin/ajustes", "Ajustes guardados");
 }
+
+/** Modo personal: solo el email de contacto (la marca sale de la página de la dueña). */
+export async function savePersonalSettings(form: FormData) {
+  await requireAdmin();
+  const email = z.string().trim().toLowerCase().email().safeParse(form.get("supportEmail"));
+  if (email.success) await setSetting("supportEmail", email.data.slice(0, 120));
+  done("/admin/ajustes", email.success ? "Ajustes guardados" : "El email no es válido: no se ha cambiado");
+}

@@ -4,8 +4,10 @@ import { prisma } from "@/lib/db";
 import { TEMPLATES, TEMPLATE_KEYS } from "@/lib/templates";
 import { PageHeader } from "../../panel/ui";
 import { saveCategory } from "../actions";
+import { platformOnly } from "../platform-only";
 
 export default async function AdminCategories({ searchParams }: { searchParams: Promise<{ ok?: string }> }) {
+  platformOnly();
   await requireAdmin();
   const sp = await searchParams;
   const cats = await prisma.category.findMany({ orderBy: { sortOrder: "asc" }, include: { _count: { select: { creators: true } } } });

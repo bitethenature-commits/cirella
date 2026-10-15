@@ -63,17 +63,28 @@ async function main() {
   // Control: con una configuración de producción completa sí arranca (las claves son de mentira:
   // solo se valida su formato, no se conecta a ningún servicio).
   const secret = "0123456789abcdef".repeat(4);
-  const valid = await start(
-    {
-      APP_ENV: "production", APP_URL: "https://cirella.app", DEMO_MODE: "false", PAYMENT_PROVIDER: "stripe",
-      STRIPE_SECRET_KEY: "sk_live_prueba", STRIPE_PUBLISHABLE_KEY: "pk_live_prueba", STRIPE_WEBHOOK_SECRET: "whsec_prueba", STRIPE_CONNECT_WEBHOOK_SECRET: "whsec_connect",
-      CRON_SECRET: secret, APP_SECRET: secret, EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_prueba", EMAIL_FROM: "Cirella <hola@cirella.app>",
-      STORAGE_DRIVER: "s3", S3_ENDPOINT: "https://cuenta.r2.cloudflarestorage.com", S3_BUCKET: "cirella", S3_ACCESS_KEY_ID: "id", S3_SECRET_ACCESS_KEY: "secreto",
-      CLIENT_IP_HEADER: "cf-connecting-ip",
-    },
-    "[cirella] Entorno production",
-  );
+  const common = {
+    APP_ENV: "production", APP_URL: "https://cirella.app", DEMO_MODE: "false",
+    CRON_SECRET: secret, APP_SECRET: secret, EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_prueba", EMAIL_FROM: "Cirella <hola@cirella.app>",
+    STORAGE_DRIVER: "s3", S3_ENDPOINT: "https://cuenta.r2.cloudflarestorage.com", S3_BUCKET: "cirella", S3_ACCESS_KEY_ID: "id", S3_SECRET_ACCESS_KEY: "secreto",
+    CLIENT_IP_HEADER: "cf-connecting-ip",
+  };
+  const stripe = { STRIPE_SECRET_KEY: "sk_live_prueba", STRIPE_PUBLISHABLE_KEY: "pk_live_prueba", STRIPE_WEBHOOK_SECRET: "whsec_prueba", STRIPE_CONNECT_WEBHOOK_SECRET: "whsec_connect" };
+  const noStripe = { STRIPE_SECRET_KEY: "", STRIPE_PUBLISHABLE_KEY: "", STRIPE_WEBHOOK_SECRET: "", STRIPE_CONNECT_WEBHOOK_SECRET: "", TURNSTILE_SITE_KEY: "", TURNSTILE_SECRET_KEY: "" };
+  const valid = await start({ ...common, ...stripe, PAYMENT_PROVIDER: "stripe", SITE_MODE: "", OWNER_USERNAME: "" }, "[cirella] Entorno production");
   check("con una configuración de producción completa sí arranca", valid.ready, valid.output);
+
+  // Modo personal: sin cobros (PAYMENT_PROVIDER=none) y sin claves de Stripe ni Turnstile.
+  const personal = await start({ ...common, ...noStripe, PAYMENT_PROVIDER: "none", SITE_MODE: "personal", OWNER_USERNAME: "ana" }, "[cirella] Entorno production");
+  check("modo personal en producción sin pasarela ni claves de Stripe: sí arranca", personal.ready, personal.output);
+
+  const noneInPlatform = await start({ ...common, ...noStripe, PAYMENT_PROVIDER: "none", SITE_MODE: "", OWNER_USERNAME: "" });
+  check("plataforma en producción con PAYMENT_PROVIDER=none: no arranca", !noneInPlatform.timedOut && noneInPlatform.code !== 0, noneInPlatform.timedOut ? "siguió arrancado 30 s" : noneInPlatform.output);
+  check("explica que none solo vale en modo personal", noneInPlatform.output.includes("solo se admite en modo personal"), noneInPlatform.output);
+
+  const noOwner = await start({ ...common, ...noStripe, PAYMENT_PROVIDER: "none", SITE_MODE: "personal", OWNER_USERNAME: "" });
+  check("modo personal sin OWNER_USERNAME: no arranca", !noOwner.timedOut && noOwner.code !== 0, noOwner.timedOut ? "siguió arrancado 30 s" : noOwner.output);
+  check("explica que falta OWNER_USERNAME", noOwner.output.includes("Falta OWNER_USERNAME"), noOwner.output);
 
   console.log(failures ? `\n${failures} comprobaciones fallidas` : "\nLa web no arranca con una configuración de producción insegura ✓");
   process.exit(failures ? 1 : 0);

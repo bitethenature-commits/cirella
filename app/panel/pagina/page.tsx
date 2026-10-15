@@ -20,6 +20,10 @@ export default async function EditorPage() {
       creatorId={creator.id}
       username={creator.username}
       products={data?.products ?? []}
+      posts={data?.posts ?? []}
+      postCount={data?.postCount ?? 0}
+      discountCodes={data?.discountCodes ?? []}
+      personal={data?.personal ?? false}
       templates={templates.map((t) => t.key).filter((k): k is TemplateKey => (TEMPLATE_KEYS as readonly string[]).includes(k))}
       allowCustom={data?.features.customDesign ?? false}
       allowRemoveBranding={data?.features.removeBranding ?? false}

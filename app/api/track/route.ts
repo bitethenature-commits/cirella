@@ -6,15 +6,16 @@ import { getCurrentUser } from "@/lib/auth";
 import { requestClient } from "@/lib/client-ip";
 import { prisma } from "@/lib/db";
 import { shouldRecordTrack } from "@/lib/limits";
-import { EVENT_TYPES } from "@/lib/types";
+import { EVENT_TYPES, isCodeEvent, SERVER_ONLY_EVENT_TYPES } from "@/lib/types";
 import { currentVisitorId } from "@/lib/visitor";
 
 /** Cookie de visitante de versiones anteriores (1 año): ya no se usa y se borra si llega. */
 const LEGACY_VISITOR_COOKIE = "cv_id";
 const schema = z.object({
   creatorId: z.string().min(1).max(40),
-  type: z.enum(EVENT_TYPES).exclude(["PURCHASE"]), // las compras solo las registra el servidor
+  type: z.enum(EVENT_TYPES).exclude(SERVER_ONLY_EVENT_TYPES), // compras e inscripciones: solo el servidor
   productId: z.string().max(40).nullish(),
+  codeId: z.string().max(40).nullish(), // CODE_COPY / CODE_CLICK: el código de descuento
   referrer: z.string().max(500).nullish(),
   utm: z.string().max(60).nullish(),
   landing: z.boolean().optional(), // lo mandaban versiones anteriores; se ignora
@@ -36,6 +37,15 @@ export async function POST(req: Request) {
     const ok = await prisma.product.count({ where: { id: data.productId, creatorId: creator.id } });
     if (!ok) return new NextResponse(null, { status: 400 });
   }
+  // Los clics de un código de descuento llevan el código (de esta creadora) y nada más; se guarda en
+  // productId, la columna del «objeto» del evento (lib/types.ts).
+  let objectId = data.productId ?? null;
+  if (isCodeEvent(data.type)) {
+    if (!data.codeId || data.productId) return new NextResponse(null, { status: 400 });
+    const ok = await prisma.discountCode.count({ where: { id: data.codeId, creatorId: creator.id } });
+    if (!ok) return new NextResponse(null, { status: 400 });
+    objectId = data.codeId;
+  } else if (data.codeId) return new NextResponse(null, { status: 400 });
 
   // Sin cookies ni nada guardado en el navegador: el visitante del día se calcula en el servidor.
   const visitorId = await currentVisitorId(creator.id);
@@ -59,11 +69,11 @@ export async function POST(req: Request) {
     shouldRecordTrack({ creatorId: creator.id, type, productId, ipHash: client.ipHash, ua: client.ua });
   if (landing && (await counts("PAGE_VIEW", null)))
     await recordEvent({ creatorId: creator.id, type: "PAGE_VIEW", visitorId, referrer: referrerHost, source });
-  if (await counts(data.type, data.productId ?? null))
+  if (await counts(data.type, objectId))
     await recordEvent({
       creatorId: creator.id,
       type: data.type,
-      productId: data.productId ?? null,
+      productId: objectId,
       visitorId,
       referrer: referrerHost,
       source,

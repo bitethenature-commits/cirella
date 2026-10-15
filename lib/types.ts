@@ -69,11 +69,32 @@ export const LESSON_KIND_LABEL: Record<LessonKind, string> = {
   EXERCISE: "Ejercicio",
 };
 
+/**
+ * Eventos de métricas (AnalyticsEvent.type). Sin cookies: el visitante del día lo calcula el servidor.
+ *   · PURCHASE y SIGNUP (inscripción gratis con email) solo los registra el servidor.
+ *   · CODE_COPY / CODE_CLICK: «Copiar código» e «Ir a la tienda» de un código de descuento. El id del
+ *     código viaja como `codeId` y se guarda en AnalyticsEvent.productId (el «objeto» del evento):
+ *     esa columna no es una relación, y las métricas de productos solo miran ids de productos.
+ */
 export const EVENT_TYPES = [
   "PAGE_VIEW",
   "PRODUCT_VIEW",
   "PRODUCT_CLICK",
   "CHECKOUT_STARTED",
   "PURCHASE",
+  "SIGNUP",
+  "CODE_COPY",
+  "CODE_CLICK",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
+
+/** Eventos que solo escribe el servidor: /api/track los rechaza. */
+export const SERVER_ONLY_EVENT_TYPES = ["PURCHASE", "SIGNUP"] as const satisfies readonly EventType[];
+
+/** Eventos que se refieren a un código de descuento (llevan `codeId`). */
+export const CODE_EVENT_TYPES = ["CODE_COPY", "CODE_CLICK"] as const satisfies readonly EventType[];
+export type CodeEventType = (typeof CODE_EVENT_TYPES)[number];
+
+export function isCodeEvent(type: string): type is CodeEventType {
+  return (CODE_EVENT_TYPES as readonly string[]).includes(type);
+}

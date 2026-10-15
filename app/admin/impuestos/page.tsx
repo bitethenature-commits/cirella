@@ -14,6 +14,7 @@ import { Badge, PageHeader } from "../../panel/ui";
 import { AdminTable, td } from "../ui";
 import { saveTaxSettings } from "./actions";
 import { formatDate } from "@/lib/tz";
+import { platformOnly } from "../platform-only";
 
 const MODES: [TaxMode, string, string][] = [
   [
@@ -30,6 +31,7 @@ const MODES: [TaxMode, string, string][] = [
  * se añadirán cuando la asesoría diga qué formato necesita.
  */
 export default async function AdminTaxes({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
+  platformOnly();
   await requireAdmin();
   const sp = await searchParams;
   const [settings, issuer, invoices] = await Promise.all([

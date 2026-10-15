@@ -16,11 +16,15 @@ export function LogoMark({ className = "h-6 w-6" }: { className?: string }) {
   );
 }
 
-export function Logo({ href = "/", light = false, name = "Cirella" }: { href?: string; light?: boolean; name?: string }) {
+/**
+ * Logo con nombre. `mark` sustituye al símbolo de la plataforma (en modo personal, la foto de la
+ * dueña: ver components/brand-logo.tsx).
+ */
+export function Logo({ href = "/", light = false, name = "Cirella", mark }: { href?: string; light?: boolean; name?: string; mark?: React.ReactNode }) {
   return (
-    <Link href={href} className="inline-flex items-center gap-2" aria-label={`${name} inicio`}>
-      <LogoMark />
-      <span className={`display text-[1.55rem] leading-none ${light ? "text-cream" : "text-ink"}`}>{name}</span>
+    <Link href={href} className="inline-flex min-w-0 items-center gap-2" aria-label={`${name} inicio`}>
+      {mark ?? <LogoMark />}
+      <span className={`display truncate text-[1.55rem] leading-none ${light ? "text-cream" : "text-ink"}`}>{name}</span>
     </Link>
   );
 }

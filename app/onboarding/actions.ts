@@ -15,6 +15,7 @@ import { parseMoneyToCents } from "@/lib/money";
 import { captureError } from "@/lib/monitoring";
 import { canAcceptPayments, payoutOnboardingLink } from "@/lib/payouts";
 import { canSellType } from "@/lib/plans";
+import { isPersonalMode } from "@/lib/site-mode";
 import { normalizeUsername } from "@/lib/slug";
 import { privateKey, storage } from "@/lib/storage";
 import { TEMPLATE_KEYS } from "@/lib/templates";
@@ -24,6 +25,8 @@ import { DEFAULT_CTA, PRODUCT_TYPES, type ProductType } from "@/lib/types";
 type Result = { ok: true; data?: Record<string, unknown> } | { ok: false; error: string };
 
 async function currentCreator() {
+  // Modo personal: el asistente está cerrado (ver app/onboarding/page.tsx).
+  if (isPersonalMode()) redirect("/entrar?error=cerrado");
   const user = await requireUser("/onboarding");
   const creator = await prisma.creator.findUnique({ where: { userId: user.id }, include: { plan: true } });
   if (creator?.status === "BLOCKED") redirect("/entrar?error=bloqueada");

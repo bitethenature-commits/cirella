@@ -4,10 +4,12 @@ import { formatMoney } from "@/lib/money";
 import { Badge, PageHeader } from "../../panel/ui";
 import { AdminTable, td } from "../ui";
 import { formatDate } from "@/lib/tz";
+import { platformOnly } from "../platform-only";
 
 const TYPE: Record<string, string> = { CHARGE: "Cobro", REFUND: "Reembolso", RENEWAL: "Renovación", PLAN_FEE: "Cuota de plan" };
 
 export default async function AdminTransactions() {
+  platformOnly();
   await requireAdmin();
   const txs = await prisma.transaction.findMany({ orderBy: { createdAt: "desc" }, take: 300, include: { creator: { select: { displayName: true } } } });
   return (

@@ -1,17 +1,17 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MOBILE_NAV as MOBILE, PANEL_NAV } from "./nav-items";
+import { mobileNav, panelNav, PANEL_NAV, PLATFORM_NAV_FLAGS, type PanelNavFlags } from "./nav-items";
 
 export { PANEL_NAV };
 
 const isActive = (path: string, href: string) => (href === "/panel" ? path === "/panel" : path.startsWith(href));
 
-export function SideNav() {
+export function SideNav({ flags = PLATFORM_NAV_FLAGS }: { flags?: PanelNavFlags }) {
   const path = usePathname();
   return (
     <nav className="space-y-0.5">
-      {PANEL_NAV.map((i) => (
+      {panelNav(flags).map((i) => (
         <Link
           key={i.href}
           href={i.href}
@@ -27,13 +27,14 @@ export function SideNav() {
   );
 }
 
-export function BottomNav() {
+export function BottomNav({ flags = PLATFORM_NAV_FLAGS }: { flags?: PanelNavFlags }) {
   const path = usePathname();
-  const moreActive = !MOBILE.slice(0, 4).some((m) => isActive(path, m.href));
+  const items = mobileNav(flags);
+  const moreActive = !items.slice(0, 4).some((m) => isActive(path, m.href));
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
       <div className="grid grid-cols-5">
-        {MOBILE.map((i) => {
+        {items.map((i) => {
           const active = i.href === "/panel/mas" ? moreActive : isActive(path, i.href);
           return (
             <Link key={i.href} href={i.href} className={`flex flex-col items-center gap-1 py-2.5 text-[0.68rem] ${active ? "text-ink" : "text-faint"}`}>

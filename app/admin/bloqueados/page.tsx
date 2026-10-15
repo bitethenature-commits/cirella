@@ -4,8 +4,10 @@ import { PageHeader } from "../../panel/ui";
 import { setCreatorStatus, setUserStatus } from "../actions";
 import { AdminTable, td } from "../ui";
 import { formatDate } from "@/lib/tz";
+import { platformOnly } from "../platform-only";
 
 export default async function AdminBlocked() {
+  platformOnly();
   await requireAdmin();
   const [users, creators] = await Promise.all([
     prisma.user.findMany({ where: { status: "BLOCKED" }, orderBy: { createdAt: "desc" } }),

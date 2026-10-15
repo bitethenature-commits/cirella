@@ -19,6 +19,7 @@
     "deploy": "tsx scripts/check-env.ts && prisma migrate deploy && tsx prisma/bootstrap.ts",
     "check:env": "tsx scripts/check-env.ts",
     "admin:promote": "tsx scripts/make-admin.ts",
+    "personal:setup": "tsx scripts/personal-setup.ts",
     "test:unit": "tsx scripts/unit-tests.ts",
     "test:isolation": "tsx --conditions=react-server scripts/tenant-isolation-test.ts && tsx scripts/storage-isolation-test.ts",
     "test:concurrency": "tsx --conditions=react-server scripts/booking-concurrency-test.ts",
@@ -33,6 +34,7 @@
     "test:seed-guard": "tsx scripts/seed-guard-test.ts",
     "test:startup": "tsx scripts/startup-guard-test.ts",
     "test:optout": "tsx --conditions=react-server scripts/optout-test.ts",
+    "test:free-access": "tsx --conditions=react-server scripts/free-access-test.ts",
     "test:revision": "for f in scripts/revision-*-test.ts; do echo \"── $f\"; tsx --conditions=react-server \"$f\" || exit 1; done",
     "test:e2e": "playwright test"
   },

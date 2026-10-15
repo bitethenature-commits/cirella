@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -23,9 +24,17 @@ import { appHost } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
 import { planBullets } from "@/lib/plans";
 import { getSettings } from "@/lib/settings";
+import { ownerUsername } from "@/lib/site-mode";
 import { TEMPLATES, type TemplateKey } from "@/lib/templates";
+import { CreatorPublicPage, creatorPageMetadata } from "./[username]/public-page";
 
 export const dynamic = "force-dynamic";
+
+/** Modo personal: la portada es la página de la dueña (con su título, su imagen para redes y su favicon). */
+export async function generateMetadata(): Promise<Metadata> {
+  const owner = ownerUsername();
+  return owner ? creatorPageMetadata(owner, { root: true }) : {};
+}
 
 const FLOW = [
   { icon: Link2, title: "Instagram", text: "Un solo enlace en tu bio, TikTok o Telegram." },
@@ -49,7 +58,14 @@ const FEATURES = [
 
 const AUDIENCE = ["Astrología", "Human Design", "Gene Keys", "Tarot", "Coaching", "Terapias holísticas", "Yoga y meditación", "Wellness", "Creadoras de contenido"];
 
-export default async function Landing({ searchParams }: { searchParams: Promise<{ ref?: string }> }) {
+export default async function Home({ searchParams }: { searchParams: Promise<{ ref?: string }> }) {
+  // Modo personal: el mismo render que /<dueña> (que redirige aquí). Sin landing de la plataforma.
+  const owner = ownerUsername();
+  if (owner) return <CreatorPublicPage username={owner} />;
+  return <Landing searchParams={searchParams} />;
+}
+
+async function Landing({ searchParams }: { searchParams: Promise<{ ref?: string }> }) {
   const { ref } = await searchParams;
   const [plans, settings] = await Promise.all([
     prisma.plan.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),

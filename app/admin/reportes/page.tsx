@@ -5,8 +5,10 @@ import { formatMoney } from "@/lib/money";
 import { getPlatformOverview } from "@/lib/platform-stats";
 import { PageHeader } from "../../panel/ui";
 import { AdminTable, td } from "../ui";
+import { platformOnly } from "../platform-only";
 
 export default async function AdminReports() {
+  platformOnly();
   await requireAdmin();
   const s = await getPlatformOverview();
   return (

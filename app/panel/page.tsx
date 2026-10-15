@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Check, Palette, Plus, Sparkles, TrendingUp } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, Newspaper, Palette, Plus, Sparkles, TrendingUp } from "lucide-react";
 import { BarChart } from "@/components/charts";
 import { Dac7Banner, PayoutBanner } from "@/components/panel/payout-status";
 import { DeliveryAlert } from "@/components/ui/delivery-alert";
@@ -11,9 +11,11 @@ import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import { readPageConfig } from "@/lib/page-config";
 import { planFeatures } from "@/lib/plans";
 import { getSettings } from "@/lib/settings";
+import { isPersonalMode } from "@/lib/site-mode";
 import { getDashboardStats, parseRange, RANGES } from "@/lib/stats";
 import { tenantDb } from "@/lib/tenant";
 import { capitalize, formatSessionDate } from "@/lib/tz";
+import { panelNavFlags } from "./nav-flags";
 import { PageHeader, RangeTabs, Stat } from "./ui";
 
 export default async function PanelHome({ searchParams }: { searchParams: Promise<{ rango?: string }> }) {
@@ -26,14 +28,39 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
   const productCount = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
   // Productos que no tienen nada que entregar (o una membresía publicada y vacía).
   const deliveryIssues = await listDeliveryIssues(db);
+  const first = cfg.displayName.split(" ")[0];
+  const rangeLabel = { month: "este mes", "30d": "en los últimos 30 días", all: "en total" }[range];
+  // Modo personal: aquí no se cobra nada (sin cobros, DAC7 ni ingresos); se cuentan visitas e inscripciones.
+  const personal = isPersonalMode();
+  if (personal) {
+    const [posts, codes, flags] = await Promise.all([db.post.count(), db.discountCode.count(), panelNavFlags(creator.id)]);
+    const steps = [
+      { done: !!cfg.avatarUrl, label: "Sube tu foto", href: "/panel/pagina" },
+      { done: legalIdentityComplete(creator), label: "Completa tu aviso legal", href: "/panel/ajustes/legal" },
+      { done: cfg.links.length > 0 || Object.keys(cfg.socials).length > 0, label: "Añade tus redes y enlaces", href: "/panel/pagina" },
+      { done: posts > 0, label: "Escribe tu primera publicación", href: "/panel/publicaciones" },
+      { done: codes > 0, label: "Añade un código de descuento", href: "/panel/codigos" },
+      { done: s.pageViews > 0, label: "Pon tu enlace en tu bio", href: "/panel/ajustes#compartir" },
+    ];
+    return (
+      <PersonalHome
+        first={first}
+        range={range}
+        rangeLabel={rangeLabel}
+        s={s}
+        timezone={creator.timezone}
+        showBookings={flags.showBookings}
+        checklist={steps}
+        deliveryIssues={deliveryIssues}
+      />
+    );
+  }
   // DAC7: el aviso sale si faltan datos y ya se le han pedido o vende algo declarable.
   const dac7Missed = dac7Missing(creator);
   const { dac7ReportableTypes } = await getSettings();
   const showDac7 =
     dac7Missed.length > 0 &&
     (!!creator.dac7RequestedAt || (await db.product.count({ where: { status: "PUBLISHED", type: { in: dac7ReportableTypes } } })) > 0);
-  const first = cfg.displayName.split(" ")[0];
-  const rangeLabel = { month: "este mes", "30d": "en los últimos 30 días", all: "en total" }[range];
   const top = s.topProducts[0];
 
   const checklist = [
@@ -59,28 +86,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
         <Dac7Banner missing={dac7Missed} show={showDac7} />
       </div>
 
-      {deliveryIssues.length > 0 && (
-        <div className="space-y-2">
-          {deliveryIssues.slice(0, 3).map(({ product, issue }) => {
-            const copy = deliveryIssueCopy(issue, product.title);
-            return (
-              <DeliveryAlert
-                key={product.id}
-                title={copy.title}
-                text={copy.text}
-                cta={copy.cta}
-                href={deliveryIssueHref(product.id, issue)}
-                tone={issue.blocking ? "block" : "warn"}
-              />
-            );
-          })}
-          {deliveryIssues.length > 3 && (
-            <Link href="/panel/productos" className="inline-block text-sm font-semibold text-muted hover:text-ink">
-              Ver los {deliveryIssues.length} productos con avisos
-            </Link>
-          )}
-        </div>
-      )}
+      <DeliveryAlerts issues={deliveryIssues} />
 
       {/* Frases resumen */}
       <div className="grid gap-3 md:grid-cols-2">
@@ -216,6 +222,184 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
         </Link>
         <Link href={features.analytics === "basic" ? "/panel/plan" : "/panel/estadisticas"} className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
           <TrendingUp className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Estadísticas</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+type DeliveryIssues = Awaited<ReturnType<typeof listDeliveryIssues>>;
+
+/** Productos que no tienen nada que entregar (o una membresía publicada y vacía). */
+function DeliveryAlerts({ issues: deliveryIssues }: { issues: DeliveryIssues }) {
+  if (deliveryIssues.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      {deliveryIssues.slice(0, 3).map(({ product, issue }) => {
+        const copy = deliveryIssueCopy(issue, product.title);
+        return (
+          <DeliveryAlert
+            key={product.id}
+            title={copy.title}
+            text={copy.text}
+            cta={copy.cta}
+            href={deliveryIssueHref(product.id, issue)}
+            tone={issue.blocking ? "block" : "warn"}
+          />
+        );
+      })}
+      {deliveryIssues.length > 3 && (
+        <Link href="/panel/productos" className="inline-block text-sm font-semibold text-muted hover:text-ink">
+          Ver los {deliveryIssues.length} productos con avisos
+        </Link>
+      )}
+    </div>
+  );
+}
+
+type Stats = Awaited<ReturnType<typeof getDashboardStats>>;
+type ChecklistItem = { done: boolean; label: string; href: string };
+
+/**
+ * Inicio del panel en modo personal: visitas, inscripciones (lo gratuito con email y los accesos que
+ * da la dueña) y clics, sin ingresos, cobros ni planes.
+ */
+function PersonalHome({
+  first,
+  range,
+  rangeLabel,
+  s,
+  timezone,
+  showBookings,
+  checklist,
+  deliveryIssues,
+}: {
+  first: string;
+  range: keyof typeof RANGES;
+  rangeLabel: string;
+  s: Stats;
+  timezone: string;
+  showBookings: boolean;
+  checklist: ChecklistItem[];
+  deliveryIssues: DeliveryIssues;
+}) {
+  const pending = checklist.filter((c) => !c.done);
+  const top = s.topSignups[0];
+  return (
+    <div className="space-y-8">
+      <PageHeader title={`Hola, ${first}`} subtitle={<>Así va tu página {rangeLabel}.</>} actions={<RangeTabs current={range} base="/panel" />} />
+
+      <DeliveryAlerts issues={deliveryIssues} />
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="relative overflow-hidden rounded-3xl bg-ink p-6 text-cream">
+          <div className="starfield absolute inset-0 opacity-40" />
+          <div className="relative">
+            <p className="eyebrow !text-cream/50">{RANGES[range]}</p>
+            <p className="display mt-2 text-[1.9rem] leading-tight">
+              Tu página recibió <span className="text-gold">{formatNumber(s.pageViews)} visitas</span> {rangeLabel}.
+            </p>
+            <p className="mt-2 text-sm text-cream/65">
+              {formatNumber(s.uniqueVisitors)} personas distintas · {formatNumber(s.clicks)} clics en tus productos.
+            </p>
+          </div>
+        </div>
+        <div className="rounded-3xl border border-line bg-white p-6">
+          <p className="eyebrow">Lo más pedido</p>
+          {top?.product ? (
+            <>
+              <p className="display mt-2 text-[1.9rem] leading-tight">
+                <span className="italic">{top.product.title}</span>
+              </p>
+              <p className="mt-2 text-sm text-muted">
+                {top.count} {top.count === 1 ? "inscripción" : "inscripciones"} {rangeLabel}
+              </p>
+            </>
+          ) : (
+            <p className="display mt-2 text-[1.9rem] leading-tight text-muted">Tu primera inscripción está cerca. Comparte tu enlace ✨</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Visitas" value={formatNumber(s.pageViews)} hint={`${formatNumber(s.productViews)} vistas de producto`} accent />
+        <Stat label="Personas distintas" value={formatNumber(s.uniqueVisitors)} hint="Medidas sin cookies" />
+        <Stat label="Inscripciones" value={formatNumber(s.signups)} hint={`${formatPercent(s.signupConversion)} de las visitas`} />
+        <Stat label="Clientes" value={formatNumber(range === "all" ? s.totalCustomers : s.newCustomers)} hint={range === "all" ? "En total" : `${s.totalCustomers} en total`} />
+      </div>
+
+      <div className={`grid gap-4 ${showBookings ? "lg:grid-cols-[1.4fr_1fr]" : ""}`}>
+        <section className="card p-5 sm:p-6">
+          <div className="mb-5 flex items-baseline justify-between">
+            <h2 className="font-semibold">Visitas</h2>
+            <span className="text-xs text-muted">{range === "all" ? "Por mes" : "Por día"}</span>
+          </div>
+          <BarChart
+            title="Visitas"
+            color="var(--color-gold)"
+            data={s.series.map((p) => ({ key: p.key, label: p.label, value: p.visits, display: `${p.visits} visitas` }))}
+          />
+          <div className="mb-4 mt-8 flex items-baseline justify-between">
+            <h2 className="font-semibold">Inscripciones</h2>
+          </div>
+          <BarChart
+            title="Inscripciones"
+            height={110}
+            data={s.series.map((p) => ({ key: p.key, label: p.label, value: p.signups, display: `${p.signups} ${p.signups === 1 ? "inscripción" : "inscripciones"}` }))}
+          />
+        </section>
+
+        {showBookings && (
+          <section className="card p-5 sm:p-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold">Próximas sesiones</h2>
+              <Link href="/panel/reservas" className="text-xs font-semibold text-muted hover:text-ink">Ver todas</Link>
+            </div>
+            <ul className="mt-4 space-y-3">
+              {s.upcoming.map((b) => (
+                <li key={b.id} className="flex items-center gap-3">
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sand"><CalendarDays className="h-4 w-4" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{b.customer.name ?? b.customer.email}</p>
+                    <p className="truncate text-xs text-muted">{b.product.title} · {capitalize(formatSessionDate(b.startAt!, timezone, false))}</p>
+                  </div>
+                </li>
+              ))}
+              {s.upcoming.length === 0 && <li className="text-sm text-muted">No hay sesiones próximas.</li>}
+            </ul>
+          </section>
+        )}
+      </div>
+
+      {pending.length > 0 && (
+        <section className="card p-5 sm:p-6">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-gold" />
+            <h2 className="font-semibold">Siguientes pasos</h2>
+            <span className="text-xs text-muted">{checklist.length - pending.length}/{checklist.length}</span>
+          </div>
+          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+            {checklist.map((c) => (
+              <li key={c.label}>
+                <Link href={c.href} className={`flex items-center gap-3 rounded-xl border px-3.5 py-3 text-sm transition hover:border-ink/30 ${c.done ? "border-line bg-paper text-muted line-through" : "border-line bg-white"}`}>
+                  <span className={`grid h-5 w-5 place-items-center rounded-full ${c.done ? "bg-ink text-cream" : "border border-line"}`}>{c.done && <Check className="h-3 w-3" />}</span>
+                  {c.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Link href="/panel/productos/nuevo" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
+          <Plus className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Nuevo producto</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
+        </Link>
+        <Link href="/panel/publicaciones" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
+          <Newspaper className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Nueva publicación</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
+        </Link>
+        <Link href="/panel/pagina" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
+          <Palette className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Editar mi página</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
         </Link>
       </div>
     </div>

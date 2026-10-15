@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Download, ExternalLink, FileText, Mail } from "lucide-react";
 import { PrintButton } from "@/components/invoice/print-button";
 import { Flash } from "@/components/ui/flash";
+import { isNoChargeOrder } from "@/lib/access-mode";
 import { orderTargetPath } from "@/lib/auth-utils";
 import { requireBuyerFor } from "@/lib/buyer-access";
 import { creatorBrief, hasAccess } from "@/lib/customer";
@@ -61,6 +62,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   // «Vende: …» como en la ficha del producto y el checkout (lib/legal.ts → sellerStatement).
   const soldBy = sellerStatement(order.taxSeller, { ...seller, displayName: order.creator.displayName }, platform);
   const booking = order.bookings[0];
+  // Gratis o dado a mano: no hubo pago, así que ni recibo, ni factura, ni justificante.
+  const noCharge = isNoChargeOrder(order);
   const refunded = order.status === "REFUNDED";
   const access = !refunded && (await hasAccess(user.id, order.productId));
   const cta =
@@ -87,7 +90,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         </div>
       </div>
       <p className="mt-3 text-sm text-muted">
-        {formatPrice(order.amountCents, order.currency, order.product.billingInterval)} · Pedido {orderRef(order.id)}
+        {noCharge ? "Gratis" : formatPrice(order.amountCents, order.currency, order.product.billingInterval)} · {noCharge ? "Referencia" : "Pedido"} {orderRef(order.id)}
         {order.paidAt && ` · ${formatDate(order.paidAt)}`}
       </p>
 
@@ -125,6 +128,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
 
       {!refunded && order.product.instructions && <p className="mt-5 rounded-xl bg-sand/60 px-4 py-3 text-sm italic">{order.product.instructions}</p>}
 
+      {!noCharge && (
       <section id="factura" className="mt-10 scroll-mt-20 space-y-4">
         <h2 className="eyebrow !text-ink print:hidden">Recibo y factura</h2>
         {sp.factura === "emitida" && fullInvoice && <Flash ok={`Hemos emitido tu factura ${fullInvoice.fullNumber}.`} />}
@@ -187,6 +191,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
           )
         )}
       </section>
+      )}
 
       {c.email && (
         <div className="mt-8 flex flex-wrap items-center gap-3 rounded-2xl border border-line p-5 text-sm print:hidden">

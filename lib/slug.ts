@@ -6,11 +6,12 @@ export const RESERVED_USERNAMES = new Set([
   "demo", "explorar", "login", "signup", "settings", "dashboard", "_next",
   "favicon.ico", "robots.txt", "sitemap.xml", "cirella", "plataforma", "pedido",
   "vista-previa", "aviso-legal", "cookies", "facturas", "factura", "contrasena", "pago-simulado",
-  "icon.svg", "baja",
+  "icon.svg", "baja", "novedades",
 ]);
 
 // Segmentos que no pueden usarse como slug de producto (colisionan con rutas).
-export const RESERVED_PRODUCT_SLUGS = new Set(["gracias", "checkout", "opengraph-image", "icon", "cuenta", "entrar", "legal"]);
+// «novedades» es la lista de publicaciones (/<usuaria>/novedades).
+export const RESERVED_PRODUCT_SLUGS = new Set(["gracias", "checkout", "opengraph-image", "icon", "cuenta", "entrar", "legal", "novedades"]);
 
 export function slugify(input: string) {
   return input

@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import { startTransition, useActionState, useState } from "react";
 import { Flash } from "@/components/ui/flash";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { ACCESS_MODE_HINT, ACCESS_MODE_LABEL, asAccessMode, defaultExternalLabel, EXTERNAL_LABEL_MAX, type AccessMode } from "@/lib/access-mode";
 import { MIN_PERSONAL_INSTRUCTIONS, normalizeDeliveryMode, type DeliveryMode } from "@/lib/delivery";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import { estimateNet, type TaxMode, type VatStatus } from "@/lib/tax";
@@ -28,6 +29,9 @@ export type EditableProduct = {
   meetingUrl: string | null;
   billingInterval: string | null;
   deliveryMode: string;
+  accessMode: string;
+  externalUrl: string | null;
+  externalLabel: string | null;
 };
 
 const DELIVERY_OPTIONS: { mode: DeliveryMode; label: string; hint: string }[] = [
@@ -47,6 +51,7 @@ export function ProductForm({
   username,
   commissionBps,
   taxPreview,
+  accessModes,
 }: {
   product: EditableProduct;
   host: string;
@@ -54,6 +59,8 @@ export function ProductForm({
   commissionBps: number;
   /** Para «Recibes X»: el IVA depende de la política de la plataforma y de tu situación de IVA. */
   taxPreview: { mode: TaxMode; country: string; vatStatus: VatStatus };
+  /** Modos que se pueden elegir (lib/access-mode.ts → accessModesFor): en la plataforma, solo PAID. */
+  accessModes: AccessMode[];
 }) {
   const [state, action, isPending] = useActionState<ActionState, FormData>(updateProduct, undefined);
   const [image, setImage] = useState(product.imageUrl);
@@ -66,6 +73,15 @@ export function ProductForm({
   const [mode, setMode] = useState<DeliveryMode>(normalizeDeliveryMode(product.type, product.deliveryMode));
   const personal = isDigital && mode === "PERSONAL";
   const estimate = estimateNet({ priceCents: cents, commissionBps, productType: product.type, deliveryMode: mode, mode: taxPreview.mode, creator: taxPreview });
+  // Cómo se consigue. Si el modo actual no se puede elegir aquí (p. ej. un producto de pago en la web
+  // personal), se propone el primero permitido; en la plataforma se conserva el que tenga.
+  const current = asAccessMode(product.accessMode);
+  const [access, setAccess] = useState<AccessMode>(accessModes.includes(current) || (accessModes.length === 1 && accessModes[0] === "PAID") ? current : accessModes[0]);
+  const choosable = accessModes.length > 1 || !accessModes.includes("PAID");
+  const free = access === "FREE_EMAIL";
+  const external = access === "EXTERNAL";
+  const [externalUrl, setExternalUrl] = useState(product.externalUrl ?? "");
+  const externalSession = external && isSession;
 
   return (
     <form
@@ -109,6 +125,68 @@ export function ProductForm({
           </div>
         </section>
 
+        {choosable && <input type="hidden" name="accessMode" value={access} />}
+        {choosable && (
+          <section id="acceso" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
+            <h3 className="font-semibold">Cómo se consigue</h3>
+            {accessModes.length > 1 ? (
+              <div className="grid gap-2.5 sm:grid-cols-2" role="radiogroup" aria-label="Cómo se consigue">
+                {accessModes.map((m) => (
+                  <label
+                    key={m}
+                    className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm transition ${access === m ? "border-ink bg-white ring-1 ring-ink" : "border-line bg-white hover:border-ink/30"}`}
+                  >
+                    <input type="radio" name="accessModeChoice" value={m} checked={access === m} onChange={() => setAccess(m)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0E1024]" />
+                    <span>
+                      <span className="block font-semibold">{ACCESS_MODE_LABEL[m]}</span>
+                      <span className="mt-1 block text-xs text-muted">{ACCESS_MODE_HINT[m]}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted">
+                <strong className="text-ink">{ACCESS_MODE_LABEL[access]}.</strong> {ACCESS_MODE_HINT[access]}
+              </p>
+            )}
+            {current === "PAID" && !accessModes.includes("PAID") && (
+              <p className="rounded-xl bg-sand px-3 py-2 text-xs text-muted">En tu web no se cobra nada: guarda este producto como gratis o con el enlace a la web donde se paga para que se vea.</p>
+            )}
+          </section>
+        )}
+
+        {free ? (
+          <section className="card space-y-4 p-5 sm:p-6">
+            <h3 className="font-semibold">Precio</h3>
+            <input type="hidden" name="price" value="0" />
+            <p className="text-sm text-muted"><strong className="text-ink">Gratis.</strong> Quien deje su nombre y su email recibe el acceso al momento y un email con su enlace.</p>
+            <div className="sm:max-w-xs">
+              <label className="field-label">Texto del botón</label>
+              <input name="ctaLabel" defaultValue={product.ctaLabel ?? ""} className="input" maxLength={30} placeholder="Quiero el acceso gratis" />
+            </div>
+          </section>
+        ) : external ? (
+          <section className="card space-y-4 p-5 sm:p-6">
+            <h3 className="font-semibold">Dónde se paga</h3>
+            <div>
+              <label className="field-label" htmlFor="externalUrl">Enlace de la web de pago o reserva</label>
+              <input id="externalUrl" name="externalUrl" type="url" value={externalUrl} onChange={(e) => setExternalUrl(e.target.value)} className="input" placeholder="https://pay.hotmart.com/…" required />
+              <p className="field-hint">Hotmart, PayPal, Bizum, Calendly… El botón de tu página abre este enlace.</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="field-label" htmlFor="externalLabel">Texto del botón</label>
+                <input id="externalLabel" name="externalLabel" defaultValue={product.externalLabel ?? ""} className="input" maxLength={EXTERNAL_LABEL_MAX} placeholder={defaultExternalLabel(product.type, externalUrl)} />
+              </div>
+              <div>
+                <label className="field-label">Precio <span className="font-normal text-muted">(opcional, informativo)</span>{isMembership ? " por periodo" : ""}</label>
+                <input name="price" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d,.]/g, ""))} inputMode="decimal" className="input" placeholder="Sin precio" />
+                <p className="field-hint">Se muestra en tu página con «Pago en …». Si lo dejas vacío, solo se ve el botón.</p>
+              </div>
+            </div>
+            {isMembership && <input type="hidden" name="billingInterval" value={product.billingInterval ?? "month"} />}
+          </section>
+        ) : (
         <section className="card space-y-4 p-5 sm:p-6">
           <h3 className="font-semibold">Precio</h3>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -137,8 +215,20 @@ export function ProductForm({
             </div>
           </div>
         </section>
+        )}
 
-        {isSession && (
+        {isSession && externalSession && (
+          <section className="card space-y-4 p-5 sm:p-6">
+            <h3 className="font-semibold">Sesión</h3>
+            <div className="sm:max-w-[12rem]">
+              <label className="field-label">Duración (min)</label>
+              <input name="durationMin" type="number" min={10} max={480} defaultValue={product.durationMin ?? 60} className="input" />
+            </div>
+            <p className="field-hint">La fecha, la hora y la videollamada las gestiona la web de reservas.</p>
+          </section>
+        )}
+
+        {isSession && !externalSession && (
           <section className="card space-y-4 p-5 sm:p-6">
             <h3 className="font-semibold">Sesión</h3>
             <div className="grid gap-4 sm:grid-cols-3">
@@ -163,8 +253,14 @@ export function ProductForm({
           </section>
         )}
 
+        {externalSession ? (
+          <>
+            <input type="hidden" name="deliveryMode" value="AUTOMATIC" />
+            <input type="hidden" name="instructions" value={product.instructions ?? ""} />
+          </>
+        ) : (
         <section id={isDigital ? "entrega" : undefined} className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
-          <h3 className="font-semibold">{isDigital ? "Entrega" : "Después de la compra"}</h3>
+          <h3 className="font-semibold">{isDigital ? "Entrega" : free ? "Después de apuntarse" : "Después de la compra"}</h3>
           {isDigital ? (
             <div className="grid gap-2.5 sm:grid-cols-2" role="radiogroup" aria-label="Cómo se entrega">
               {DELIVERY_OPTIONS.map((o) => (
@@ -203,9 +299,10 @@ export function ProductForm({
                   : "Ej.: Responde al email con tu fecha, hora y lugar de nacimiento."
               }
             />
-            {personal && <p className="field-hint">Lo verá en la ficha del producto, en el email de compra y en su cuenta. Tú se lo envías por email.</p>}
+            {personal && <p className="field-hint">Lo verá en la ficha del producto, en el email {free || external ? "de acceso" : "de compra"} y en su cuenta. Tú se lo envías por email.</p>}
           </div>
         </section>
+        )}
       </div>
 
       <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">

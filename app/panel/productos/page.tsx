@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ExternalLink, LayoutGrid, Pencil, Plus, Star } from
 import { ProductImage } from "@/components/creator-page/product-art";
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
+import { asAccessMode, externalHost } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { deliveryFacts, deliveryIssue } from "@/lib/delivery";
 import { formatPrice } from "@/lib/money";
@@ -10,6 +11,21 @@ import { tenantDb } from "@/lib/tenant";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { Badge, PageHeader } from "../ui";
 import { moveProduct } from "./actions";
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** «49 € · 3 ventas», «Gratis · 12 inscripciones» o «65 € · pago en calendly.com». */
+function priceLine(p: { accessMode: string; priceCents: number; currency: string; billingInterval: string | null; externalUrl: string | null; _count: { orders: number } }) {
+  const mode = asAccessMode(p.accessMode);
+  const n = p._count.orders;
+  if (mode === "FREE_EMAIL") return `Gratis · ${plural(n, "inscripción", "inscripciones")}`;
+  if (mode === "EXTERNAL") {
+    const host = externalHost(p.externalUrl);
+    const price = p.priceCents > 0 ? `${formatPrice(p.priceCents, p.currency, p.billingInterval)} · ` : "";
+    return `${price}${host ? `pago en ${host}` : "falta el enlace de pago"}${n ? ` · ${plural(n, "persona con acceso", "personas con acceso")}` : ""}`;
+  }
+  return `${formatPrice(p.priceCents, p.currency, p.billingInterval)} · ${plural(n, "venta", "ventas")}`;
+}
 
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<{ limite?: string }> }) {
   const { creator } = await requireCreator();
@@ -64,7 +80,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                 {p.title}
               </p>
               <p className="mt-0.5 truncate text-xs text-muted">
-                {PRODUCT_TYPE_LABEL[p.type as ProductType]} · {formatPrice(p.priceCents, p.currency, p.billingInterval)} · {p._count.orders} {p._count.orders === 1 ? "venta" : "ventas"}
+                {PRODUCT_TYPE_LABEL[p.type as ProductType]} · {priceLine(p)}
               </p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {p.status === "PUBLISHED" ? <Badge tone="success">Publicado</Badge> : <Badge tone="warning">Borrador</Badge>}

@@ -6,8 +6,10 @@ import { DISPUTE_STATUS_LABEL } from "@/lib/types";
 import { Badge, PageHeader, Stat } from "../../panel/ui";
 import { AdminTable, td } from "../ui";
 import { formatDate } from "@/lib/tz";
+import { platformOnly } from "../platform-only";
 
 export default async function AdminSales() {
+  platformOnly();
   await requireAdmin();
   const orders = await prisma.order.findMany({ orderBy: { createdAt: "desc" }, take: 300, include: { creator: { select: { displayName: true, username: true } } } });
   // Cifras netas de reembolsos; un pedido devuelto del todo ya no cuenta como pagado.
