@@ -11,9 +11,10 @@ import { prisma } from "@/lib/db";
 import { INVOICE_TYPE_LABEL } from "@/lib/invoices/format";
 import { canInvoiceSale } from "@/lib/invoices/issue";
 import { getPlatformIssuer } from "@/lib/invoices/issuer";
-import { formatLegalAddress, sellerLine, type LegalIdentity } from "@/lib/legal";
+import { formatLegalAddress, sellerLine, sellerStatement, type LegalIdentity } from "@/lib/legal";
 import type { LegalSnapshotContent } from "@/lib/legal-snapshot";
 import { bpsToPercent, formatMoney, formatPrice } from "@/lib/money";
+import { orderRef } from "@/lib/order-ref";
 import { formatDate } from "@/lib/tz";
 import { CreatorTag, Thumb } from "../../ui";
 import { FullInvoiceForm } from "./full-invoice-form";
@@ -57,11 +58,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const fullInvoice = invoices.find((i) => i.type === "F1" || i.type === "F3");
   // Los pedidos anteriores a la facturación (sin instantánea fiscal en el cobro) solo tienen justificante.
   const invoiceable = !!taxedCharge && canInvoiceSale(order.taxSeller, order.creator);
-  const soldBy = platform
-    ? `${platform.name}${platform.taxId ? ` · NIF ${platform.taxId}` : ""}`
-    : seller.legalName
-      ? sellerLine(seller)
-      : order.creator.displayName;
+  // «Vende: …» como en la ficha del producto y el checkout (lib/legal.ts → sellerStatement).
+  const soldBy = sellerStatement(order.taxSeller, { ...seller, displayName: order.creator.displayName }, platform);
   const booking = order.bookings[0];
   const refunded = order.status === "REFUNDED";
   const access = !refunded && (await hasAccess(user.id, order.productId));
@@ -89,7 +87,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         </div>
       </div>
       <p className="mt-3 text-sm text-muted">
-        {formatPrice(order.amountCents, order.currency, order.product.billingInterval)} · Pedido {order.id.slice(-8).toUpperCase()}
+        {formatPrice(order.amountCents, order.currency, order.product.billingInterval)} · Pedido {orderRef(order.id)}
         {order.paidAt && ` · ${formatDate(order.paidAt)}`}
       </p>
 
@@ -141,7 +139,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                 </p>
               )}
               {invoices[0].taxNote && <p className="text-xs italic text-muted">{invoices[0].taxNote.replace(/ ?Factura expedida por .*$/, "")}</p>}
-              <p className="pt-1 text-xs text-muted">Vendido por {soldBy}</p>
+              <p className="pt-1 text-xs text-muted">Vende: {soldBy.line}</p>
             </div>
             <ul className="card divide-y divide-line">
               {invoices.map((inv) => (
@@ -167,11 +165,11 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
               <dt className="text-muted">Fecha</dt>
               <dd>{order.paidAt ? formatDate(order.paidAt, { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}</dd>
               <dt className="text-muted">Pedido</dt>
-              <dd className="font-mono text-xs leading-5">{order.id.slice(-10).toUpperCase()}</dd>
+              <dd className="font-mono text-xs leading-5">{orderRef(order.id)}</dd>
               <dt className="text-muted">Compradora</dt>
               <dd>{[order.buyerName, order.buyerEmail].filter(Boolean).join(" · ")}</dd>
               <dt className="text-muted">Vende</dt>
-              <dd>{seller.legalName ? `${sellerLine(seller)} · ${formatLegalAddress(seller)}` : order.creator.displayName}</dd>
+              <dd>{soldBy.platformSells ? soldBy.line : seller.legalName ? `${sellerLine(seller)} · ${formatLegalAddress(seller)}` : order.creator.displayName}</dd>
               <dt className="text-muted">Total</dt>
               <dd className="font-semibold">{formatMoney(order.amountCents, order.currency, { decimals: true })}</dd>
             </dl>

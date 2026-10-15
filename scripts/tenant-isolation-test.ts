@@ -127,12 +127,29 @@ async function main() {
   await invoiceNumbering();
   await deliveryIsolation(ana, maria);
   await limitsIsolation(ana, maria);
+  await optOutIsolation(ana, maria);
 
   console.log(failures ? `\n${failures} comprobaciones fallidas` : "\nAislamiento multi-tenant correcto ✓");
   process.exit(failures ? 1 : 0);
 }
 
 type CreatorRow = Awaited<ReturnType<typeof prisma.creator.findUniqueOrThrow>>;
+
+/** Bajas de los recordatorios (RecoveryOptOut): las de María no se ven ni se tocan desde el panel de Ana. */
+async function optOutIsolation(ana: CreatorRow, maria: CreatorRow) {
+  const db = tenantDb(ana.id);
+  const hash = createHash("sha256").update(`aislamiento-baja-${Date.now()}@example.com`).digest("hex");
+  const row = await prisma.recoveryOptOut.create({ data: { creatorId: maria.id, emailHash: hash } });
+  try {
+    check("bajas de María invisibles", (await db.recoveryOptOut.findFirst({ where: { id: row.id } })) === null);
+    check("findUnique de una baja de María por (creadora, hash) → null", (await db.recoveryOptOut.findUnique({ where: { creatorId_emailHash: { creatorId: maria.id, emailHash: hash } } })) === null);
+    check("count de bajas no incluye las de otras", (await db.recoveryOptOut.count()) === (await prisma.recoveryOptOut.count({ where: { creatorId: ana.id } })));
+    const dm = await db.recoveryOptOut.deleteMany({ where: { id: row.id } });
+    check("deleteMany sobre una baja de María afecta 0 filas", dm.count === 0);
+  } finally {
+    await prisma.recoveryOptOut.deleteMany({ where: { id: row.id } });
+  }
+}
 
 /** Condiciones aceptadas (LegalSnapshot): /ana/legal?v={id de María} nunca enseña los textos de María. */
 async function legalIsolation(ana: CreatorRow, maria: CreatorRow) {

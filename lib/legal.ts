@@ -144,6 +144,39 @@ export function sellerLine(c: Partial<LegalIdentity>): string {
   return `${c.legalName ?? ""} · ${taxIdLabel(c.legalEntityType)} ${c.legalTaxId ?? ""}`.trim();
 }
 
+/** Datos de la plataforma como vendedora (lib/invoices/issuer.ts → getPlatformIssuer). */
+export type PlatformSeller = { name: string; taxId: string | null };
+
+/**
+ * Quién vende, dicho igual en la ficha del producto, el checkout, el pie de las páginas de compra
+ * y «Tu compra» (y en los mismos términos que la factura).
+ *
+ * Con la política de IVA PLATFORM_DIGITAL, los productos digitales que se entregan solos, los cursos
+ * y las membresías los vende la plataforma (art. 9 bis del Reglamento de Ejecución (UE) 282/2011:
+ * actúa en nombre propio y por cuenta de la creadora, cobra, factura y declara el IVA). Las sesiones
+ * y lo que la creadora prepara a mano los vende ella. `taxSeller` es la decisión de lib/tax
+ * (decideTax) o la instantánea del pedido (Order.taxSeller).
+ *
+ *   · name: corto, para el pie («Cirella Demo S.L., por cuenta de Ana Luna Pérez»).
+ *   · line: con los NIF, para la ficha, el checkout y el recibo.
+ */
+export function sellerStatement(
+  taxSeller: string | null | undefined,
+  creator: Partial<LegalIdentity> & { displayName: string },
+  platform: PlatformSeller | null,
+): { name: string; line: string; platformSells: boolean } {
+  const creatorName = creator.legalName?.trim() || creator.displayName;
+  if (taxSeller === "PLATFORM" && platform) {
+    const name = platform.name.trim();
+    return {
+      name: `${name}, por cuenta de ${creatorName}`,
+      line: `${name}${platform.taxId ? ` · NIF ${platform.taxId}` : ""}, por cuenta de ${creatorName}`,
+      platformSells: true,
+    };
+  }
+  return { name: creatorName, line: creator.legalName?.trim() ? sellerLine(creator) : creatorName, platformSells: false };
+}
+
 export type WaiverKind = "DIGITAL_IMMEDIATE" | "SERVICE_IN_PERIOD";
 
 /**

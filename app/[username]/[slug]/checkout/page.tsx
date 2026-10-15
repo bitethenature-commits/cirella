@@ -7,7 +7,7 @@ import { getCurrentUser, holdsCheckout } from "@/lib/auth";
 import { dac7SalesPaused } from "@/lib/dac7-data";
 import { prisma } from "@/lib/db";
 import { isDemoMode } from "@/lib/env";
-import { creatorLegalHref, legalIdentityComplete, sellerLine } from "@/lib/legal";
+import { creatorLegalHref, legalIdentityComplete, sellerStatement } from "@/lib/legal";
 import { getPurchasableProduct } from "@/lib/orders";
 import { paymentProvider } from "@/lib/payments";
 import { canAcceptPayments } from "@/lib/payouts";
@@ -50,7 +50,10 @@ export default async function CheckoutPage({
   }).seller;
   // Si vende Cirella tiene que poder facturar: la misma regla que createPendingOrder (lib/orders.ts),
   // para no dejar rellenar el formulario y fallar al enviarlo.
-  const platformCanSell = seller !== "PLATFORM" || isDemoMode() || (await getPlatformIssuer()).complete;
+  const platform = seller === "PLATFORM" ? await getPlatformIssuer() : null;
+  const platformCanSell = !platform || isDemoMode() || platform.complete;
+  // «Vende: …» igual que en la ficha del producto, el pie y «Tu compra» (lib/legal.ts).
+  const statement = sellerStatement(seller, { ...c, displayName: data.config.displayName }, platform);
   // Sin la identidad legal de quien vende no se puede vender (LSSI art. 10).
   const payoutReady =
     !!purchasable &&
@@ -85,7 +88,7 @@ export default async function CheckoutPage({
   const defaultCountry = previous?.buyerCountry ?? (guessed ? (isKnownCountry(guessed) ? guessed : "XX") : "ES");
 
   return (
-    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} sellerName={data.creator.legalName}>
+    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} sellerName={statement.name}>
       <main className="mx-auto max-w-xl px-4 pb-16 pt-6 sm:pt-10">
         <CheckoutForm
           product={{
@@ -114,7 +117,7 @@ export default async function CheckoutPage({
           creatorName={data.config.displayName}
           seller={{
             name: data.creator.legalName ?? data.config.displayName,
-            line: data.creator.legalName ? sellerLine(data.creator) : data.config.displayName,
+            line: statement.line,
             legalHref: creatorLegalHref(username),
           }}
           platformName={data.platformName}

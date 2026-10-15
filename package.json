@@ -32,6 +32,7 @@
     "test:limits": "TURNSTILE_SITE_KEY=1x00000000000000000000AA TURNSTILE_SECRET_KEY=prueba-limites tsx --conditions=react-server scripts/rate-limit-test.ts",
     "test:seed-guard": "tsx scripts/seed-guard-test.ts",
     "test:startup": "tsx scripts/startup-guard-test.ts",
+    "test:optout": "tsx --conditions=react-server scripts/optout-test.ts",
     "test:revision": "for f in scripts/revision-*-test.ts; do echo \"── $f\"; tsx --conditions=react-server \"$f\" || exit 1; done",
     "test:e2e": "playwright test"
   },

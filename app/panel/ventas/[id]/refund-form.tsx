@@ -1,6 +1,6 @@
 "use client";
 import { Loader2 } from "lucide-react";
-import { startTransition, useActionState, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { Flash } from "@/components/ui/flash";
 import { formatMoney } from "@/lib/money";
 import { CREATOR_REFUND_REASONS, REFUND_REASONS, parseRefundAmount } from "@/lib/refund-math";
@@ -28,6 +28,16 @@ export function RefundForm({
   const [mode, setMode] = useState<"full" | "partial">("full");
   const [amount, setAmount] = useState("");
   const [revoke, setRevoke] = useState(true);
+  const formRef = useRef<HTMLFormElement>(null);
+  // Tras un reembolso correcto el formulario vuelve a «Todo», sin importe ni mensaje: otro
+  // reembolso tiene que escribirse a propósito. Si falla, lo escrito se conserva.
+  useEffect(() => {
+    if (!state?.ok) return;
+    formRef.current?.reset();
+    setMode("full");
+    setAmount("");
+    setRevoke(true);
+  }, [state]);
   const parsed = parseRefundAmount(mode, amount, refundable);
   const label = parsed.ok ? formatMoney(parsed.cents, "EUR", { decimals: true }) : null;
 
@@ -41,6 +51,7 @@ export function RefundForm({
 
   return (
     <form
+      ref={formRef}
       // onSubmit: la confirmación va antes de enviar y, si hay un error, lo escrito se conserva.
       onSubmit={(e) => {
         e.preventDefault();

@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireCreator } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
-import { REFUND_REASONS, REFUND_STATUS_LABEL, orderFigures, orderStatusLabel, refundableCents, type RefundReason } from "@/lib/refund-math";
+import { orderBreakdown } from "@/lib/order-breakdown";
+import { orderRef } from "@/lib/order-ref";
+import { REFUND_REASONS, REFUND_STATUS_LABEL, orderStatusLabel, refundableCents, type RefundReason } from "@/lib/refund-math";
 import { tenantDb } from "@/lib/tenant";
 import { DISPUTE_STATUS_LABEL, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { capitalize, formatDateTime, formatSessionDate } from "@/lib/tz";
@@ -17,10 +19,17 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
   const { creator } = await requireCreator();
   const o = await tenantDb(creator.id).order.findFirst({
     where: { id },
-    include: { product: { select: { emoji: true } }, bookings: true, refunds: { orderBy: { createdAt: "desc" } } },
+    include: {
+      product: { select: { emoji: true } },
+      bookings: true,
+      refunds: { orderBy: { createdAt: "desc" } },
+      // IVA devuelto con cada reembolso, tal y como quedó en el libro.
+      transactions: { where: { type: "REFUND", refundId: { not: null } }, select: { amountCents: true, taxCents: true } },
+    },
   });
   if (!o) notFound();
-  const f = orderFigures(o);
+  // Cada línea del desglose sale de lo guardado; «Recibes» es exactamente su resta.
+  const f = orderBreakdown(o, o.transactions);
   const money = (cents: number) => formatMoney(cents, o.currency, { decimals: true });
   const reserved = o.refunds.filter((r) => r.status !== "FAILED").reduce((a, r) => a + r.amountCents, 0);
   const refundable = refundableCents({ amountCents: o.amountCents, reservedCents: reserved });
@@ -36,14 +45,14 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
       : o.productType === "MEMBERSHIP"
         ? "Cancelar la membresía y retirar el acceso"
         : `Retirar el acceso a «${o.productTitle}»`;
-  const settled = o.status === "PAID" || o.status === "REFUNDED";
+  const settled = f.settled;
 
   return (
     <div className="max-w-2xl">
       <Link href="/panel/ventas" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> Ventas</Link>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <h1 className="display min-w-0 flex-1 text-[2rem] leading-tight">{o.product.emoji} {o.productTitle}</h1>
-        <Badge tone={f.partial ? "warning" : o.status === "PAID" ? "success" : o.status === "FAILED" ? "danger" : "neutral"}>{orderStatusLabel(o)}</Badge>
+        <Badge tone={o.status === "PAID" && o.refundedCents > 0 ? "warning" : o.status === "PAID" ? "success" : o.status === "FAILED" ? "danger" : "neutral"}>{orderStatusLabel(o)}</Badge>
         {o.disputeStatus && <Badge tone={o.disputeStatus === "WON" ? "neutral" : "danger"}>{DISPUTE_STATUS_LABEL[o.disputeStatus]}</Badge>}
       </div>
 
@@ -51,12 +60,31 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
         <Row label="Clienta">
           {o.customerId ? <Link href={`/panel/clientes/${o.customerId}`} className="underline underline-offset-2">{o.buyerName ?? o.buyerEmail}</Link> : o.buyerEmail}
         </Row>
+        <Row label="Pedido"><span className="font-mono text-xs">{orderRef(o.id)}</span></Row>
         <Row label="Tipo">{PRODUCT_TYPE_LABEL[o.productType as ProductType] ?? o.productType}</Row>
         {o.paidAt && <Row label="Fecha de pago">{formatDateTime(o.paidAt)}</Row>}
-        <Row label="Importe">{money(o.amountCents)}</Row>
-        {o.refundedCents > 0 && <Row label="Reembolsado">−{money(o.refundedCents)}</Row>}
-        <Row label="Comisión de Cirella">{money(settled ? f.fee : o.platformFeeCents)}</Row>
-        <Row label="Recibes"><strong>{settled ? money(f.net) : "—"}</strong></Row>
+        <Row label="Importe" hint={f.saleTax > 0 ? "IVA incluido" : undefined}>{money(o.amountCents)}</Row>
+        {settled ? (
+          <>
+            {f.refunded > 0 && <Row label="Reembolsado">−{money(f.refunded)}</Row>}
+            {o.taxSeller === "PLATFORM" && f.saleTax > 0 && (
+              <Row
+                label="IVA que ingresa Cirella"
+                hint={f.refundedTax > 0 ? `${money(f.saleTax)} de la venta − ${money(f.refundedTax)} devuelto` : "Cirella vende este producto y declara su IVA"}
+              >
+                −{money(f.platformTax)}
+              </Row>
+            )}
+            <Row label="Comisión de Cirella" hint={f.refundedFee > 0 ? `${money(f.saleFee)} − ${money(f.refundedFee)} devuelta con el reembolso` : undefined}>
+              −{money(f.fee)}
+            </Row>
+            <Row label="Recibes" hint={o.taxSeller !== "PLATFORM" && f.tax > 0 ? `Incluye ${money(f.tax)} de IVA que declaras tú` : undefined}>
+              <strong>{money(f.net)}</strong>
+            </Row>
+          </>
+        ) : (
+          <Row label="Recibes">—</Row>
+        )}
         {o.paymentRef && <Row label="Referencia del pago"><span className="font-mono text-xs">{o.paymentRef}</span></Row>}
         {o.bookings[0] && (
           <Row label="Sesión">
@@ -104,11 +132,14 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-4 px-5 py-3">
-      <dt className="text-muted">{label}</dt>
-      <dd className="min-w-0 text-right">{children}</dd>
+      <dt className="text-muted">
+        {label}
+        {hint && <span className="block text-xs text-faint">{hint}</span>}
+      </dt>
+      <dd className="min-w-0 text-right tabular-nums">{children}</dd>
     </div>
   );
 }

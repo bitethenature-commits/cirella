@@ -1,20 +1,5 @@
-import { PrismaClient } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
-import { formatSessionDate } from "../lib/tz";
-
-/** La sesión de Laura de la demo: el seed la pone siempre en el futuro (el próximo lunes a las 17:00). */
-async function lauraSessionLabel() {
-  const db = new PrismaClient();
-  try {
-    const b = await db.booking.findFirstOrThrow({
-      where: { customer: { email: "laura@example.com" }, product: { title: "Lectura de Human Design" } },
-      orderBy: { createdAt: "asc" },
-    });
-    return formatSessionDate(b.startAt!, "Europe/Madrid", false);
-  } finally {
-    await db.$disconnect();
-  }
-}
+import { lauraSessionLabel } from "./demo-data";
 
 /**
  * Reembolsar, cancelar y cambiar de fecha avisando a la clienta:

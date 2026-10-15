@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
-import { formatSessionDate } from "../lib/tz";
+import { lauraSessionLabel } from "./demo-data";
 
 /**
  * Instagram → página → producto → pago → entrega → clienta recurrente.
@@ -11,20 +11,6 @@ const stamp = Date.now().toString().slice(-6);
 const username = `luna${stamp}`;
 const creatorEmail = `creadora${stamp}@example.com`;
 const buyerEmail = `compradora${stamp}@example.com`;
-
-/** La sesión de Laura de la demo: el seed la pone siempre en el futuro (el próximo lunes a las 17:00). */
-async function lauraSessionLabel() {
-  const db = new PrismaClient();
-  try {
-    const b = await db.booking.findFirstOrThrow({
-      where: { customer: { email: "laura@example.com" }, product: { title: "Lectura de Human Design" } },
-      orderBy: { createdAt: "asc" },
-    });
-    return formatSessionDate(b.startAt!, "Europe/Madrid", false);
-  } finally {
-    await db.$disconnect();
-  }
-}
 
 async function demoLogin(page: Page, label: string) {
   await page.goto("/entrar");
@@ -39,7 +25,7 @@ async function acceptConsents(page: Page) {
 }
 
 test.describe.serial("Flujo principal", () => {
-  test("1. Landing → registro → onboarding de 11 pasos → «Tu página está lista»", async ({ page }) => {
+  test("1. Landing → registro → onboarding de 10 pasos → «Tu página está lista»", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toContainText("negocio completo");
     await page.getByRole("link", { name: "Crear mi página" }).first().click();
@@ -47,8 +33,10 @@ test.describe.serial("Flujo principal", () => {
 
     await page.fill("#email", creatorEmail);
     await page.fill("#password", "secreto123");
+    await expect(page.getByText("Paso 1 de 10")).toBeVisible();
     await page.getByRole("button", { name: "Crear mi cuenta" }).click();
     await page.waitForURL("**/onboarding");
+    await expect(page.getByText("2/10", { exact: true })).toBeVisible();
 
     const next = page.getByRole("button", { name: /Continuar|Lo haré más tarde/ });
     // 2. Usuario
@@ -72,15 +60,17 @@ test.describe.serial("Flujo principal", () => {
     await expect(page.getByText("Elige tu estilo")).toBeVisible();
     await page.getByRole("button", { name: /Editorial/ }).click();
     await next.click();
-    // 7. Primer producto
+    // 7. Tu primer producto: nombre, descripción y precio en el mismo paso (sin precio no se sigue)
+    await expect(page.getByRole("heading", { name: "Tu primer producto" })).toBeVisible();
+    await expect(page.getByText("7/10", { exact: true })).toBeVisible();
     await page.getByPlaceholder("Lectura de Astrología").fill("Tirada de tarot en PDF");
     await page.getByPlaceholder("Qué recibe tu clienta").fill("Tres cartas y su interpretación.");
-    await next.click();
-    // 8. Precio
+    await expect(next).toBeDisabled();
     await page.getByPlaceholder("49").fill("29");
     await expect(page.getByText(/Recibirás/)).toBeVisible();
+    await expect(page.getByText(/IVA incluido/).first()).toBeVisible();
     await next.click();
-    // 9. Cómo se entrega: sin nada que entregar no se puede seguir (salvo «Lo añado más tarde»)
+    // 8. Cómo se entrega: sin nada que entregar no se puede seguir (salvo «Lo añado más tarde»)
     await expect(page.getByRole("heading", { name: "¿Cómo lo entregas?" })).toBeVisible();
     await expect(next).toBeDisabled();
     await page.getByRole("button", { name: /Poner un enlace/ }).click();
@@ -89,8 +79,8 @@ test.describe.serial("Flujo principal", () => {
     await page.getByRole("button", { name: "Añadir enlace" }).click();
     await expect(page.getByText("Tirada en PDF")).toBeVisible();
     await next.click();
-    // 10. Datos legales de quien vende (obligatorios) y cuenta de cobro: formulario de Stripe
-    // (simulado) y vuelta al onboarding, ya en el paso 11
+    // 9. Datos legales de quien vende (obligatorios) y cuenta de cobro: formulario de Stripe
+    // (simulado) y vuelta al onboarding, ya en el paso 10
     await page.getByRole("button", { name: "Conectar con Stripe" }).click();
     await expect(page.getByText("Completa tus datos legales para activar los cobros")).toBeVisible();
     await page.getByLabel("Nombre y apellidos").fill("Luna Prueba García");
@@ -107,7 +97,8 @@ test.describe.serial("Flujo principal", () => {
     await page.waitForURL("**/onboarding");
     await expect(page.getByText("Pagos activados")).toBeVisible();
     await expect(page.getByText("1 enlace")).toBeVisible();
-    // 11. Publicar
+    await expect(page.getByText("10/10", { exact: true })).toBeVisible();
+    // 10. Publicar
     await page.getByRole("button", { name: "Publicar mi página" }).click();
     await page.waitForURL("**/onboarding/lista");
     await expect(page.getByRole("heading", { name: "Tu página está lista" })).toBeVisible();

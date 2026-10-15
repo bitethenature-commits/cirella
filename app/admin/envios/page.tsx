@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { requireAdmin } from "@/lib/auth";
 import { AUTOMATIONS } from "@/lib/automations";
 import { prisma } from "@/lib/db";
+import { emailAttemptLabel } from "@/lib/email-status";
 import { MAX_ATTEMPTS } from "@/lib/reliability";
 import { formatDateTime } from "@/lib/tz";
 import { getDeliveryHealth } from "@/lib/watchdog";
@@ -138,6 +139,8 @@ function Empty() {
 }
 
 function EmailRow({ m, ver, creator }: { m: EmailMessage; ver: Tab; creator: string | null }) {
+  // Un rebote definitivo no se reintenta: el contador «Intento n de 6» solo para lo que sigue en cola.
+  const attempt = emailAttemptLabel(m);
   return (
     <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 space-y-1 text-sm">
@@ -146,9 +149,7 @@ function EmailRow({ m, ver, creator }: { m: EmailMessage; ver: Tab; creator: str
         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
           <Badge>{templateLabel(m.template)}</Badge>
           <Badge tone="dark">{creator ? `@${creator}` : "Plataforma"}</Badge>
-          <Badge tone={m.status === "FAILED" ? "danger" : "warning"}>
-            Intento {m.attempts} de {MAX_ATTEMPTS}
-          </Badge>
+          <Badge tone={attempt.retryable ? "warning" : "danger"}>{attempt.text}</Badge>
         </div>
         {m.error && <p className="line-clamp-2 text-xs text-[#9a3a2e]">Último error: {m.error}</p>}
         {ver === "reintentando" && m.status === "QUEUED" && <p className="text-xs text-muted">Próximo intento: {formatDateTime(m.sendAt)}</p>}
@@ -178,9 +179,7 @@ function EventRow({ e }: { e: OutboxEvent }) {
         {subject && <p className="truncate font-mono text-xs text-muted">{subject}</p>}
         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
           <Badge tone={e.status === "DEAD" ? "danger" : "warning"}>{e.status === "DEAD" ? "Descartado" : "Reintentando"}</Badge>
-          <Badge>
-            Intento {e.attempts} de {MAX_ATTEMPTS}
-          </Badge>
+          <Badge>{e.status === "DEAD" ? `Sin más reintentos · ${e.attempts} intentos` : `Intento ${e.attempts} de ${MAX_ATTEMPTS}`}</Badge>
           <span className="text-xs text-muted">{formatDateTime(e.createdAt)}</span>
         </div>
         {e.lastError && <p className="line-clamp-2 text-xs text-[#9a3a2e]">Último error: {e.lastError}</p>}

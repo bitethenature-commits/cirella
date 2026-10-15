@@ -17,7 +17,7 @@ function formatSize(bytes: number) {
 }
 
 /**
- * Paso 9 del onboarding: «¿Cómo lo entregas?». Controlado por el asistente (wizard.tsx), que guarda
+ * Paso 8 del onboarding: «¿Cómo lo entregas?». Controlado por el asistente (wizard.tsx), que guarda
  * la elección al continuar (saveDelivery). Los archivos y enlaces se guardan al momento.
  */
 export function DeliveryStep({

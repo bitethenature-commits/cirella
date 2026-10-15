@@ -43,15 +43,16 @@ export default async function OnboardingPage() {
   } catch {}
 
   const p = creator?.products[0];
-  // Dónde retomar el asistente. Paso 9 si al digital le falta la entrega y aún no ha empezado con
-  // los cobros (al volver del formulario de Stripe sigue en el paso 10 aunque eligiera «más tarde»).
+  // Dónde retomar el asistente (10 pasos: 1 es /registro). Paso 7 si el producto aún no tiene
+  // precio; paso 8 si al digital le falta la entrega y aún no ha empezado con los cobros (al volver
+  // del formulario de Stripe sigue en el paso 9 aunque eligiera «más tarde»).
   const resumeStep = () => {
     if (!creator) return 2;
     if (!creator.categoryId) return 3;
     if (!p) return 6;
-    if (p.priceCents === 0) return 8;
-    if (p.type === "DIGITAL" && deliveryIssue(deliveryFacts(p))?.blocking && creator.payoutStatus === "NONE") return 9;
-    return creator.payoutStatus !== "ACTIVE" ? 10 : 11;
+    if (p.priceCents === 0) return 7;
+    if (p.type === "DIGITAL" && deliveryIssue(deliveryFacts(p))?.blocking && creator.payoutStatus === "NONE") return 8;
+    return creator.payoutStatus !== "ACTIVE" ? 9 : 10;
   };
   const step = resumeStep();
   const config = creator ? readPageConfig(creator.pageDraft, creator.displayName) : { ...defaultPageConfig({ displayName: "Mi página" }), displayName: user.name ?? "" };

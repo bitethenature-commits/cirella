@@ -19,6 +19,9 @@ const OK: Record<string, string> = {
   reembolso_en_curso: "Sesión cancelada. El reembolso está en curso; te avisaremos si falla.",
 };
 
+/** «1 sesión próxima», «3 sesiones próximas». */
+const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
 export default async function BookingsPage({ searchParams }: { searchParams: Promise<{ ok?: string }> }) {
   const { creator } = await requireCreator();
   const sp = await searchParams;
@@ -46,7 +49,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   const today = new Date().toISOString().slice(0, 10);
   return (
     <div className="space-y-10">
-      <PageHeader title="Reservas" subtitle={`${upcoming.length} sesiones próximas · ${pending.length} pagadas sin fecha`} />
+      <PageHeader title="Reservas" subtitle={`${count(upcoming.length, "sesión próxima", "sesiones próximas")} · ${count(pending.length, "pagada sin fecha", "pagadas sin fecha")}`} />
       {sp.ok && OK[sp.ok] && <div className="-mb-5"><Flash ok={OK[sp.ok]} /></div>}
 
       <section>

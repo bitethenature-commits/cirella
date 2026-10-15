@@ -9,7 +9,7 @@ import { getPlatformIssuer } from "./invoices/issuer";
 import { bpsToPercent, formatMoney, formatPrice } from "./money";
 import { createOrderLink, emailAlreadyQueued, orderLinkNote } from "./order-links";
 import { planFeatures } from "./plans";
-import { hasOptedOut, optOutUrl } from "./recovery-optout";
+import { hasOptedOut, optOutHeaders, optOutUrl } from "./recovery-optout";
 import { formatSessionDate } from "./tz";
 import type { DomainEvent } from "./events";
 
@@ -266,13 +266,18 @@ export async function handleAutomation(event: DomainEvent) {
       const order = await prisma.order.findUniqueOrThrow({ where: { id: event.orderId }, include: { product: true, creator: true } });
       const s = await setting(order.creatorId, "ABANDONED_CHECKOUT");
       if (!s.enabled) return;
-      // Se dio de baja entre el cron y el envío: no sale.
-      if (await hasOptedOut(order.creatorId, order.buyerEmail)) return;
+      // Se dio de baja entre el cron y el envío: no sale, y queda el motivo como en lib/abandoned.ts.
+      if (await hasOptedOut(order.creatorId, order.buyerEmail)) {
+        await prisma.order.update({ where: { id: order.id }, data: { recoverySkipped: "opuesta" } });
+        return;
+      }
       await enqueueEmail({
         to: order.buyerEmail,
         creatorId: order.creatorId,
         template: "ABANDONED_CHECKOUT",
         dedupeKey: `abandoned:${order.id}`,
+        // Botón «Cancelar suscripción» del propio gestor de correo (baja en un clic, RFC 8058).
+        headers: optOutHeaders(order.id),
         ...withCustomSubject(
           T.abandonedCheckoutEmail({
             creatorName: s.creator.displayName,

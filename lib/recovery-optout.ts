@@ -6,7 +6,8 @@ import { signToken, verifyToken } from "./storage/signing";
 /**
  * Baja de los emails de compra abandonada (LSSI art. 21.2: cada comunicación comercial lleva un
  * medio sencillo y gratuito para oponerse). Cada email de recuperación lleva un enlace firmado a
- * /baja/recordatorios; la baja vale para todos los recordatorios de esa creadora a ese email.
+ * /baja/recordatorios y las cabeceras List-Unsubscribe de la baja en un clic; la baja vale para
+ * todos los recordatorios de esa creadora a ese email.
  *
  * El enlace solo lleva el id del pedido (no el email) y está firmado con APP_SECRET, así que no se
  * puede dar de baja a otra persona. Guardamos el sha256 del email, no el email.
@@ -28,6 +29,22 @@ export function optOutUrl(orderId: string) {
   return `${appUrl()}/baja/recordatorios?t=${encodeURIComponent(optOutToken(orderId))}`;
 }
 
+/** Dirección de la baja «en un clic» (RFC 8058): el gestor de correo hace un POST, sin abrir la página. */
+export function optOutOneClickUrl(orderId: string) {
+  return `${appUrl()}/baja/recordatorios/un-clic?t=${encodeURIComponent(optOutToken(orderId))}`;
+}
+
+/**
+ * Cabeceras List-Unsubscribe y List-Unsubscribe-Post (RFC 2369 y 8058): Gmail, Outlook o Apple Mail
+ * enseñan su propio botón «Cancelar suscripción», que da de baja sin salir del buzón.
+ */
+export function optOutHeaders(orderId: string): Record<string, string> {
+  return {
+    "List-Unsubscribe": `<${optOutOneClickUrl(orderId)}>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  };
+}
+
 /** El id del pedido del enlace, o null si el token está manipulado, caducado o es de otro uso. */
 export function readOptOutToken(token: string | null | undefined, now = Date.now()): string | null {
   const t = verifyToken<{ p?: unknown; o?: unknown }>(token, appSecret(), now);
@@ -45,13 +62,13 @@ export async function optOutTarget(token: string | null | undefined) {
   return order ? { creatorId: order.creatorId, email: order.buyerEmail, creatorName: order.creator.displayName, username: order.creator.username } : null;
 }
 
-/** Registra la baja (idempotente). */
+/** Registra la baja (idempotente: repetirla solo actualiza updatedAt). */
 export async function recordOptOut(creatorId: string, email: string) {
   const emailHash = optOutEmailHash(email);
   await prisma.recoveryOptOut.upsert({
     where: { creatorId_emailHash: { creatorId, emailHash } },
     create: { creatorId, emailHash },
-    update: {},
+    update: { updatedAt: new Date() },
   });
 }
 

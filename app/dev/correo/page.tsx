@@ -6,6 +6,8 @@ import { Logo } from "@/components/logo";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { storedHeaders } from "@/lib/email/headers";
+import { previewEmailHtml } from "@/lib/email/preview";
 import { isDemoMode } from "@/lib/env";
 import { formatDateTime } from "@/lib/tz";
 import { runJobsNow } from "./actions";
@@ -76,8 +78,12 @@ export default async function DevMailbox({ searchParams }: { searchParams: Promi
                 <p className="font-semibold">{selected.subject}</p>
                 <p className="text-xs text-muted">Para: {selected.to} · {selected.template} · {selected.status === "QUEUED" ? `se enviará ${formatDateTime(selected.sendAt)}` : formatDateTime(selected.createdAt)}</p>
                 {selected.error && <p className="mt-1 text-xs text-[#9a3a2e]">Último error: {selected.error}</p>}
+                {storedHeaders(selected.headers)?.["List-Unsubscribe-Post"] && (
+                  <p className="mt-1 text-xs text-muted">Lleva baja en un clic (List-Unsubscribe): el gestor de correo enseña su botón de cancelar la suscripción.</p>
+                )}
               </div>
-              <iframe title="Email" srcDoc={selected.html} sandbox="allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation" className="h-[70dvh] w-full bg-[#F6F1E7]" />
+              {/* Los enlaces del email abren la página fuera del iframe (lib/email/preview.ts). */}
+              <iframe title="Email" srcDoc={previewEmailHtml(selected.html)} sandbox="allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation" className="h-[70dvh] w-full bg-[#F6F1E7]" />
             </>
           ) : (
             <p className="p-6 text-sm text-muted">Selecciona un email.</p>

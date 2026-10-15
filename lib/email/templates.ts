@@ -4,6 +4,7 @@
  */
 
 import { legalTextToPlain } from "../legal-templates";
+import { orderRef } from "../order-ref";
 
 const PLATFORM = "Cirella";
 
@@ -151,7 +152,7 @@ export function purchaseReceiptEmail(o: {
         `<table style="width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:14px">
           <tr><td style="padding:8px 0;color:#8A8698">Producto</td><td style="padding:8px 0;text-align:right">${esc(o.productTitle)}</td></tr>
           <tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE">Total</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE"><strong>${esc(o.amount)}</strong></td></tr>
-          <tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE">Pedido</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE;font-family:monospace;font-size:12px">${esc(o.orderId.slice(-10).toUpperCase())}</td></tr>
+          <tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE">Pedido</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE;font-family:monospace;font-size:12px">${esc(orderRef(o.orderId))}</td></tr>
           ${o.taxLine ? row("IVA", esc(o.taxLine)) : ""}
           ${o.invoiceNumber ? row("Factura", `<span style="font-family:monospace;font-size:12px">${esc(o.invoiceNumber)}</span>`) : ""}
           ${o.seller ? row("Vende", [o.seller.line, o.seller.address, o.seller.email].filter(Boolean).map(esc).join("<br>")) : ""}

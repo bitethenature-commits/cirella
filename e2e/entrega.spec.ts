@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 /**
  * No publicar productos que no tienen nada que entregar (lib/delivery.ts).
- *   · Paso 9 del onboarding «¿Cómo lo entregas?»: subir el archivo, poner un enlace, «Lo preparo yo
+ *   · Paso 8 del onboarding «¿Cómo lo entregas?»: subir el archivo, poner un enlace, «Lo preparo yo
  *     para cada clienta» o «Lo añado más tarde» (borrador, fuera de la página y con aviso).
  *   · El editor del panel no publica un producto sin entrega ni deja borrar lo último que entrega.
  *   · La ficha, el checkout y la página de gracias prometen lo que de verdad se entrega.
@@ -19,8 +19,8 @@ const SLUG = "tirada-de-3-cartas";
 const INSTRUCTIONS = "Te envío la interpretación en PDF por email en 3 días";
 
 /**
- * Alta de una creadora con un producto digital de 19 € hasta el resumen final (paso 11), con los
- * cobros conectados. En el paso 9 ejecuta `delivery`.
+ * Alta de una creadora con un producto digital de 19 € hasta el resumen final (paso 10), con los
+ * cobros conectados. En el paso 8 ejecuta `delivery`.
  */
 async function onboard(page: Page, username: string, email: string, delivery: (page: Page) => Promise<void>) {
   await page.goto("/registro");
@@ -44,17 +44,16 @@ async function onboard(page: Page, username: string, email: string, delivery: (p
   await next.click();
   await page.getByPlaceholder("Lectura de Astrología").fill(TITLE);
   await page.getByPlaceholder("Qué recibe tu clienta").fill("Pasado, presente y futuro con su interpretación.");
-  await next.click();
   await page.getByPlaceholder("49").fill("19");
   await next.click();
 
-  // 9. ¿Cómo lo entregas?
+  // 8. ¿Cómo lo entregas?
   await expect(page.getByRole("heading", { name: "¿Cómo lo entregas?" })).toBeVisible();
   await expect(next).toBeDisabled();
   await delivery(page);
   await next.click();
 
-  // 10. Datos legales y cuenta de cobro (simulada); la vuelta de Stripe deja el asistente en el paso 11.
+  // 9. Datos legales y cuenta de cobro (simulada); la vuelta de Stripe deja el asistente en el paso 10.
   await page.getByLabel("Nombre y apellidos").fill("Vera Tarot Gómez");
   await page.getByLabel("NIF / NIE / CIF").fill("12345678Z");
   await page.getByLabel("Dirección").fill("Calle Luna 3");

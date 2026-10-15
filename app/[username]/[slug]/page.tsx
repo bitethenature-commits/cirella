@@ -8,9 +8,12 @@ import { TrackedLink, TrackOnMount } from "@/components/creator-page/tracking";
 import { getCurrentUser } from "@/lib/auth";
 import { digitalContentText, isInstantDelivery } from "@/lib/delivery";
 import { appUrl } from "@/lib/env";
-import { creatorLegalHref, sellerLine, sessionChangePolicyText } from "@/lib/legal";
+import { getPlatformIssuer } from "@/lib/invoices/issuer";
+import { creatorLegalHref, sellerStatement, sessionChangePolicyText } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
 import { getPublicProduct } from "@/lib/product-page";
+import { decideTax } from "@/lib/tax";
+import { getTaxMode } from "@/lib/tax/server";
 import { DEFAULT_CTA, LESSON_KIND_LABEL, PRODUCT_TYPE_LABEL, type LessonKind, type ProductType } from "@/lib/types";
 
 type Params = { username: string; slug: string };
@@ -81,6 +84,15 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const personal = type === "DIGITAL" && !isInstantDelivery(type, p.deliveryMode);
   const content = digitalContentText(p.files);
   const contentPerk = content ? [{ icon: Download, text: content }] : [];
+  // Quién vende este producto según la política de IVA (lo mismo que dirán el checkout y el recibo).
+  const taxSeller = decideTax({
+    mode: await getTaxMode(),
+    productType: p.type,
+    deliveryMode: p.deliveryMode,
+    buyerCountry: null,
+    creator: { country: creator.legalCountry, vatStatus: creator.vatStatus },
+  }).seller;
+  const seller = sellerStatement(taxSeller, { ...creator, displayName: config.displayName }, taxSeller === "PLATFORM" ? await getPlatformIssuer() : null);
 
   const perks: { icon: typeof Zap; text: string }[] =
     type === "DIGITAL"
@@ -94,7 +106,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           : [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, { icon: RefreshCcw, text: "Cancela cuando quieras" }, { icon: Lock, text: "Acceso privado mientras estés suscrita" }];
 
   return (
-    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} sellerName={creator.legalName}>
+    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} sellerName={creator.legalName || seller.platformSells ? seller.name : null}>
       <main className="mx-auto max-w-5xl px-4 pb-36 pt-4 md:grid md:grid-cols-[1.1fr_0.9fr] md:gap-10 md:pb-20 md:pt-10">
         <div>
           <div className="cp-card relative aspect-[4/3] overflow-hidden">
@@ -110,9 +122,9 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           {p.summary && <p className="cp-muted mt-3 text-[1.02rem] leading-relaxed">{p.summary}</p>}
           <p className="mt-6 text-3xl font-semibold tracking-tight">{price}</p>
           <p className="cp-muted text-xs">{data.summary.vatIncluded ? "IVA incluido" : "Precio final"}</p>
-          {creator.legalName && (
+          {(creator.legalName || seller.platformSells) && (
             <p className="cp-faint mt-2 text-xs">
-              Vende: {sellerLine(creator)} ·{" "}
+              Vende: {seller.line} ·{" "}
               <Link href={creatorLegalHref(username, "condiciones")} className="underline underline-offset-4">Condiciones</Link> ·{" "}
               <Link href={creatorLegalHref(username, "reembolsos")} className="underline underline-offset-4">Reembolsos</Link>
             </p>

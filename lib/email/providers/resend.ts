@@ -28,6 +28,7 @@ export function buildResendRequest(msg: OutgoingEmail, cfg: ResendConfig) {
         subject: msg.subject,
         html: msg.html,
         ...(msg.replyTo ? { reply_to: msg.replyTo } : {}),
+        ...(msg.headers && Object.keys(msg.headers).length ? { headers: msg.headers } : {}),
       }),
     } satisfies RequestInit,
   };

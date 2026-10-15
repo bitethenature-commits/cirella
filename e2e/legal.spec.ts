@@ -31,7 +31,7 @@ async function demoLogin(page: Page, label: string) {
 test.describe.serial("Cumplimiento legal", () => {
   test("checkout: quién vende, privacidad y casillas obligatorias sin marcar", async ({ page }) => {
     await page.goto("/ana/gene-keys/checkout");
-    await expect(page.getByText("Vende: Ana Luna Pérez · NIF 12345678Z")).toBeVisible();
+    await expect(page.getByText("Vende: Cirella Demo S.L. · NIF B12345674, por cuenta de Ana Luna Pérez")).toBeVisible();
     await expect(page.getByRole("link", { name: "Condiciones", exact: true }).first()).toHaveAttribute("href", "/ana/legal#condiciones");
     await expect(page.getByText(/Responsable: Ana Luna Pérez/)).toBeVisible();
 

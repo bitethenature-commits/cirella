@@ -170,7 +170,7 @@ export async function saveFirstProduct(input: z.infer<typeof productSchema>): Pr
   return { ok: true, data: { productId: product.id } };
 }
 
-/** Paso 10: lleva a la creadora al formulario de Stripe (o al simulador). La vuelta llega a /onboarding. */
+/** Paso 9: lleva a la creadora al formulario de Stripe (o al simulador). La vuelta llega a /onboarding. */
 export async function connectPayments(): Promise<Result> {
   const { creator } = await currentCreator();
   if (!creator) return { ok: false, error: "Primero elige tu nombre de usuario" };
@@ -212,7 +212,7 @@ export async function publishOnboarding(): Promise<Result> {
   redirect("/onboarding/lista");
 }
 
-// ───────────── Paso 9: cómo se entrega el primer producto ─────────────
+// ───────────── Paso 8: cómo se entrega el primer producto ─────────────
 // Solo durante el onboarding: después, todo pasa por el panel (y su comprobación al publicar).
 
 async function onboardingProductDb(productId: string) {
@@ -275,7 +275,7 @@ export async function addDeliveryLink(input: z.infer<typeof linkSchema>): Promis
   return { ok: true, data: { file: { id: file.id, name: file.name, kind: file.kind, sizeBytes: null } } };
 }
 
-/** Quita un archivo o enlace añadido en el paso 9 (el objeto guardado, si lo hay, se limpia como en el panel). */
+/** Quita un archivo o enlace añadido en el paso 8 (el objeto guardado, si lo hay, se limpia como en el panel). */
 export async function removeDeliveryFile(fileId: string): Promise<Result> {
   const { creator } = await currentCreator();
   if (!creator) return { ok: false, error: "Primero elige tu nombre de usuario" };

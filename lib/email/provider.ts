@@ -19,6 +19,8 @@ export type OutgoingEmail = {
   /** Nombre visible del remitente (p. ej. la creadora). La dirección es siempre la de la plataforma. */
   fromName?: string | null;
   replyTo?: string | null;
+  /** Cabeceras extra (List-Unsubscribe…). Resend las envía tal cual; el registro local las ignora. */
+  headers?: Record<string, string>;
 };
 
 export type SendResult = { ok: true; providerId?: string } | { ok: false; kind: "retry" | "permanent"; error: string };

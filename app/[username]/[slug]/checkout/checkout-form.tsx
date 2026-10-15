@@ -81,7 +81,10 @@ export function CheckoutForm({
   prefill: { name: string; email: string };
   demo: boolean;
   creatorName: string;
-  /** Quién vende: nombre fiscal, «Nombre · NIF …» y su página legal (/{usuario}/legal). */
+  /**
+   * name: nombre fiscal de la creadora (sus condiciones y su aviso de privacidad); line: «Vende: …»
+   * según quién vende este producto (lib/legal.ts → sellerStatement); su página legal (/{usuario}/legal).
+   */
   seller: { name: string; line: string; legalHref: string };
   platformName: string;
   /** Política de IVA y situación de la creadora: el desglose se calcula aquí según el país elegido. */

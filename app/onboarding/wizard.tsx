@@ -38,7 +38,7 @@ export type WizardInit = {
   categories: { id: string; name: string; emoji: string | null; defaultTemplate: string }[];
   templates: TemplateKey[];
   product: { productId: string | null; type: ProductType; title: string; summary: string; emoji: string | null; imageUrl: string | null; price: string; durationMin: number };
-  /** Cómo se entrega el primer producto (paso 9). */
+  /** Cómo se entrega el primer producto (paso 8). */
   delivery: { mode: "AUTOMATIC" | "PERSONAL"; instructions: string; files: { id: string; name: string; kind: string; sizeBytes: number | null }[] };
   allowedTypes: ProductType[];
   commissionBps: number;
@@ -51,11 +51,12 @@ export type WizardInit = {
   creatorId: string | null;
   /** Ya aceptó los Términos del servicio (paso 2). */
   termsAccepted: boolean;
-  /** Identidad legal de quien vende: obligatoria antes de conectar la cuenta de cobro (paso 10). */
+  /** Identidad legal de quien vende: obligatoria antes de conectar la cuenta de cobro (paso 9). */
   legal: { defaults: Partial<LegalIdentity>; contactFallback: string; complete: boolean };
 };
 
-const TOTAL = 11;
+/** Pasos del alta: 1 es /registro y el asistente va del 2 al 10. */
+const TOTAL = 10;
 const EMOJIS = ["🌙", "✨", "🔮", "🧬", "🔑", "💫", "🌿", "🧘", "🪷", "📖", "🎧", "☀️"];
 const PRICE_SUGGESTIONS = [19, 29, 49, 79, 120];
 
@@ -119,15 +120,22 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
       case 6:
         return run(() => saveTemplate(cfg.template));
       case 7:
+        // Producto y precio en un solo paso: se crea (o se actualiza) ya con su precio.
         return run(
-          () => saveFirstProduct({ productId: product.productId, type: product.type, title: product.title, summary: product.summary, emoji: product.emoji, imageUrl: product.imageUrl }),
+          () =>
+            saveFirstProduct({
+              productId: product.productId,
+              type: product.type,
+              title: product.title,
+              summary: product.summary,
+              emoji: product.emoji,
+              imageUrl: product.imageUrl,
+              price: product.price,
+              durationMin: product.type === "SESSION" ? product.durationMin : null,
+            }),
           (d) => setProduct((p) => ({ ...p, productId: String(d?.productId) })),
         );
       case 8:
-        return run(() =>
-          saveFirstProduct({ ...product, productId: product.productId, price: product.price, durationMin: product.type === "SESSION" ? product.durationMin : null }),
-        );
-      case 9:
         return run(() =>
           saveDelivery({
             productId: product.productId ?? "",
@@ -135,12 +143,12 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
             instructions: delivery.instructions,
           }),
         );
-      case 10: {
+      case 9: {
         // «Quién vende» se guarda también al seguir sin conectar los cobros: si no, lo escrito se
         // perdería y tendría que repetirlo en el panel. Email, país y tipo vienen rellenos: solo
         // cuenta como empezado si ha escrito algo en los demás campos.
         const form = legalForm.current;
-        if (!form) return setStep(11);
+        if (!form) return setStep(10);
         if (form.checkValidity()) return run(() => saveLegalIdentity(new FormData(form)));
         const data = new FormData(form);
         const typed = ["legalName", "legalTaxId", "legalAddress", "legalPostalCode", "legalCity"].some((n) => String(data.get(n) ?? "").trim());
@@ -148,9 +156,9 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
           form.reportValidity();
           return setError("Completa tus datos legales o déjalos en blanco para hacerlo más tarde");
         }
-        return setStep(11);
+        return setStep(10);
       }
-      case 11:
+      case 10:
         setError(null);
         start(async () => {
           const r = await publishOnboarding();
@@ -166,15 +174,14 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
     (step === 4 && cfg.displayName.trim().length > 0) ||
     (step === 5 && !!categoryId) ||
     step === 6 ||
-    (step === 7 && product.title.trim().length >= 2) ||
-    (step === 8 && parseMoneyToCents(product.price) >= 100) ||
-    (step === 9 &&
+    (step === 7 && product.title.trim().length >= 2 && parseMoneyToCents(product.price) >= 100) ||
+    (step === 8 &&
       (product.type !== "DIGITAL" ||
         delivery.files.length > 0 ||
         (delivery.choice === "PERSONAL" && delivery.instructions.trim().length >= MIN_PERSONAL_INSTRUCTIONS) ||
         delivery.choice === "LATER")) ||
-    step === 10 ||
-    step === 11;
+    step === 9 ||
+    step === 10;
 
   // Qué recibirá quien compre, para el resumen final: la misma regla que al publicar (lib/delivery.ts).
   // Un curso recién creado aún no tiene lecciones; se preparan en el panel.
@@ -371,7 +378,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
             )}
 
             {step === 7 && (
-              <Step title="Tu primer producto" text="Empieza por lo que más vendes por mensaje privado.">
+              <Step title="Tu primer producto" text="Empieza por lo que más vendes por mensaje privado: qué es y cuánto cuesta.">
                 <div className="grid gap-2.5 sm:grid-cols-2">
                   {PRODUCT_TYPES.map((t) => {
                     const locked = !init.allowedTypes.includes(t);
@@ -406,6 +413,59 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                     <textarea className="input" rows={3} value={product.summary} onChange={(e) => setProduct((p) => ({ ...p, summary: e.target.value }))} placeholder="Qué recibe tu clienta y por qué le va a ayudar." maxLength={240} />
                   </div>
                   <div>
+                    <label className="field-label" htmlFor="onb-price">Precio</label>
+                    <div className="flex h-16 items-center rounded-3xl border border-line bg-white px-5 focus-within:border-lavender-deep">
+                      <input
+                        id="onb-price"
+                        inputMode="decimal"
+                        value={product.price}
+                        onChange={(e) => setProduct((p) => ({ ...p, price: e.target.value.replace(/[^\d,.]/g, "") }))}
+                        placeholder="49"
+                        className="h-full min-w-0 flex-1 bg-transparent text-3xl font-semibold tracking-tight outline-none"
+                      />
+                      <span className="text-xl text-muted">€{product.type === "MEMBERSHIP" ? "/mes" : ""}</span>
+                    </div>
+                    <p className="field-hint">Es el precio final que paga tu clienta, con IVA incluido si corresponde.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {PRICE_SUGGESTIONS.map((v) => (
+                        <button key={v} type="button" onClick={() => setProduct((p) => ({ ...p, price: String(v) }))} className="chip h-8 bg-white ring-1 ring-line hover:ring-ink/30">
+                          {v} €
+                        </button>
+                      ))}
+                    </div>
+                    {priceCents >= 100 && (
+                      <div className="mt-4 rounded-2xl bg-sand/70 p-4 text-sm">
+                        <p>
+                          Recibirás <strong>{formatMoney(estimate.netCents, "EUR", { decimals: true })}</strong> por cada venta.
+                        </p>
+                        <p className="mt-1 text-xs text-muted">
+                          {estimate.taxCents > 0
+                            ? `De ${formatMoney(priceCents, "EUR", { decimals: true })}, IVA incluido: ${formatMoney(estimate.taxCents, "EUR", { decimals: true })} de IVA (${estimate.seller === "PLATFORM" ? "lo declara e ingresa Cirella" : "lo declaras tú"}) y ${formatMoney(estimate.feeCents, "EUR", { decimals: true })} de comisión (${(init.commissionBps / 100).toLocaleString("es-ES")} % sobre el precio sin IVA). `
+                            : `Plan ${init.planName}: comisión del ${(init.commissionBps / 100).toLocaleString("es-ES")} %. `}
+                          Baja al 2 % con el plan Pro.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {product.type === "SESSION" && (
+                    <div>
+                      <label className="field-label">Duración de la sesión</label>
+                      <div className="flex flex-wrap gap-2">
+                        {[30, 45, 60, 75, 90].map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => setProduct((p) => ({ ...p, durationMin: d }))}
+                            className={`chip h-9 px-4 ${product.durationMin === d ? "!bg-ink !text-cream" : "bg-white ring-1 ring-line"}`}
+                          >
+                            {d} min
+                          </button>
+                        ))}
+                      </div>
+                      <p className="field-hint">Tu horario disponible lo ajustas luego en «Reservas».</p>
+                    </div>
+                  )}
+                  <div>
                     <label className="field-label">Icono</label>
                     <div className="flex flex-wrap gap-2">
                       {EMOJIS.map((e) => (
@@ -429,67 +489,12 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
             )}
 
             {step === 8 && (
-              <Step title="Configura el precio" text={`¿Cuánto cuesta «${product.title}»?`}>
-                <label className="flex h-20 items-center rounded-3xl border border-line bg-white px-6 focus-within:border-lavender-deep">
-                  <input
-                    autoFocus
-                    inputMode="decimal"
-                    value={product.price}
-                    onChange={(e) => setProduct((p) => ({ ...p, price: e.target.value.replace(/[^\d,.]/g, "") }))}
-                    placeholder="49"
-                    className="h-full min-w-0 flex-1 bg-transparent text-4xl font-semibold tracking-tight outline-none"
-                  />
-                  <span className="text-2xl text-muted">€{product.type === "MEMBERSHIP" ? "/mes" : ""}</span>
-                </label>
-                <p className="field-hint">Es el precio final que paga tu clienta, con IVA incluido si corresponde.</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {PRICE_SUGGESTIONS.map((v) => (
-                    <button key={v} type="button" onClick={() => setProduct((p) => ({ ...p, price: String(v) }))} className="chip h-8 bg-white ring-1 ring-line hover:ring-ink/30">
-                      {v} €
-                    </button>
-                  ))}
-                </div>
-                {product.type === "SESSION" && (
-                  <div className="mt-6">
-                    <label className="field-label">Duración de la sesión</label>
-                    <div className="flex flex-wrap gap-2">
-                      {[30, 45, 60, 75, 90].map((d) => (
-                        <button
-                          key={d}
-                          type="button"
-                          onClick={() => setProduct((p) => ({ ...p, durationMin: d }))}
-                          className={`chip h-9 px-4 ${product.durationMin === d ? "!bg-ink !text-cream" : "bg-white ring-1 ring-line"}`}
-                        >
-                          {d} min
-                        </button>
-                      ))}
-                    </div>
-                    <p className="field-hint">Tu horario disponible lo ajustas luego en «Reservas».</p>
-                  </div>
-                )}
-                {priceCents >= 100 && (
-                  <div className="mt-6 rounded-2xl bg-sand/70 p-4 text-sm">
-                    <p>
-                      Recibirás <strong>{formatMoney(estimate.netCents, "EUR", { decimals: true })}</strong> por cada venta.
-                    </p>
-                    <p className="mt-1 text-xs text-muted">
-                      {estimate.taxCents > 0
-                        ? `De ${formatMoney(priceCents, "EUR", { decimals: true })}: ${formatMoney(estimate.taxCents, "EUR", { decimals: true })} de IVA (${estimate.seller === "PLATFORM" ? "lo declara e ingresa Cirella" : "lo declaras tú"}) y ${formatMoney(estimate.feeCents, "EUR", { decimals: true })} de comisión (${(init.commissionBps / 100).toLocaleString("es-ES")} % sobre el precio sin IVA). `
-                        : `Plan ${init.planName}: comisión del ${(init.commissionBps / 100).toLocaleString("es-ES")} %. `}
-                      Baja al 2 % con el plan Pro.
-                    </p>
-                  </div>
-                )}
-              </Step>
-            )}
-
-            {step === 9 && (
               <Step title="¿Cómo lo entregas?" text={`Lo que recibe quien compre «${product.title}».`}>
                 <DeliveryStep productId={product.productId} type={product.type} title={product.title} value={delivery} onChange={setDelivery} />
               </Step>
             )}
 
-            {step === 10 && (
+            {step === 9 && (
               <Step title="Datos de cobro" text="La ley exige mostrar quién vende. Estos datos aparecerán en tu aviso legal y en los recibos.">
                 {/* Datos legales (lib/legal.ts): sin ellos no se puede conectar la cuenta de cobro. */}
                 {!payoutActive && payout.cta && (
@@ -564,7 +569,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
               </Step>
             )}
 
-            {step === 11 && (
+            {step === 10 && (
               <Step title="Todo listo ✨" text="Revisa tu página y publícala. Podrás editarla siempre que quieras.">
                 <ul className="space-y-2.5 text-sm">
                   {[
@@ -609,9 +614,9 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
               disabled={!canContinue || pending}
               className="btn btn-primary btn-lg flex-1"
             >
-              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : step === 11 ? <Sparkles className="h-4 w-4" /> : null}
-              {step === 11 ? "Publicar mi página" : step === 10 && payout.status === "NONE" ? "Lo haré más tarde" : "Continuar"}
-              {step < 11 && !pending && <ArrowRight className="h-4 w-4" />}
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : step === 10 ? <Sparkles className="h-4 w-4" /> : null}
+              {step === 10 ? "Publicar mi página" : step === 9 && payout.status === "NONE" ? "Lo haré más tarde" : "Continuar"}
+              {step < 10 && !pending && <ArrowRight className="h-4 w-4" />}
             </button>
           </div>
         </div>

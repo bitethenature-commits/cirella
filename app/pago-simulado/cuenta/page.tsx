@@ -4,28 +4,27 @@ import { BadgeCheck, Clock, FileWarning, ShieldCheck } from "lucide-react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireCreator } from "@/lib/auth";
 import { simulateVerification } from "./actions";
+import { simulatedIdentityFields } from "./identity";
 
 /** Formulario de alta de Stripe Connect, simulado: la creadora elige qué responde Stripe. */
 export default async function SimulatedConnectPage({ searchParams }: { searchParams: Promise<{ vuelta?: string }> }) {
   const { creator } = await requireCreator({ allowIncompleteOnboarding: true });
   if (creator.payoutProvider !== "simulated" || !creator.payoutAccountId) redirect("/panel/ajustes/cobros");
   const { vuelta = "" } = await searchParams;
+  const fields = simulatedIdentityFields(creator);
   return (
     <div className="card p-6 sm:p-8">
       <p className="eyebrow">Stripe (simulado)</p>
       <h1 className="display mt-2 text-[2rem] leading-tight">Verifica tu identidad</h1>
       <p className="mt-2 text-sm text-muted">
-        Así es el formulario de Stripe que rellenará {creator.displayName}. En la demostración los datos no se envían a ningún sitio.
+        Así es el formulario de Stripe que rellenará {creator.displayName}. Es una simulación: mostramos los datos legales que ya
+        tienes en Cirella (sin el documento ni el IBAN completos) y no se envían a ningún sitio.
       </p>
       <div className="mt-6 space-y-3">
-        {[
-          ["DNI o NIE", "12345678Z"],
-          ["IBAN", "ES91 2100 0418 4502 0005 1332"],
-          ["Dirección", "Calle Mayor 1, 28013 Madrid"],
-        ].map(([label, value]) => (
-          <div key={label}>
-            <label className="field-label">{label}</label>
-            <input className="input" value={value} readOnly disabled />
+        {fields.map((f) => (
+          <div key={f.label}>
+            <label className="field-label">{f.label}</label>
+            <input className="input" value={f.value ?? ""} placeholder={f.placeholder} aria-label={f.label} readOnly disabled />
           </div>
         ))}
       </div>

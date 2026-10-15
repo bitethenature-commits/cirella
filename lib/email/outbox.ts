@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { captureAlert, captureError } from "../monitoring";
 import { nextAttemptAt, truncateError } from "../reliability";
+import { storedHeaders } from "./headers";
 import { emailProvider } from "./provider";
 
 /**
@@ -36,6 +37,8 @@ type EnqueueInput = {
   fromName?: string | null;
   /** Dirección de respuesta. Por defecto, la de contacto de la creadora (salvo avisos a ella misma). */
   replyTo?: string | null;
+  /** Cabeceras extra (p. ej. List-Unsubscribe de los recordatorios). Solo pasan las de lib/email/headers.ts. */
+  headers?: Record<string, string> | null;
 };
 
 /** Tiempo que un proceso tiene reservado un email mientras lo envía. */
@@ -65,6 +68,7 @@ export async function enqueueEmail(input: EnqueueInput) {
         dedupeKey: input.dedupeKey,
         fromName: sender.fromName,
         replyTo: sender.replyTo,
+        headers: storedHeaders(input.headers),
       },
     });
   } catch (e) {
@@ -114,7 +118,15 @@ export async function deliverEmail(id: string, now = new Date()): Promise<"sent"
 
   let result;
   try {
-    result = await emailProvider().send({ id: msg.id, to: msg.to, subject: msg.subject, html: msg.html, fromName: msg.fromName, replyTo: msg.replyTo });
+    result = await emailProvider().send({
+      id: msg.id,
+      to: msg.to,
+      subject: msg.subject,
+      html: msg.html,
+      fromName: msg.fromName,
+      replyTo: msg.replyTo,
+      headers: storedHeaders(msg.headers),
+    });
   } catch (e) {
     result = { ok: false as const, kind: "retry" as const, error: truncateError(e) };
   }

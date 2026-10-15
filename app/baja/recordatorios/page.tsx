@@ -6,11 +6,12 @@ import { hasOptedOut, optOutTarget } from "@/lib/recovery-optout";
 import { confirmOptOut } from "./actions";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Darme de baja de los recordatorios", robots: { index: false }, referrer: "no-referrer" };
+export const metadata: Metadata = { title: "Dejar de recibir recordatorios de compra", robots: { index: false }, referrer: "no-referrer" };
 
 /**
  * Baja de los emails de compra abandonada (enlace del pie del email). Abrir el enlace no da de baja
- * (los antivirus del correo abren los enlaces): hay que pulsar el botón.
+ * (los antivirus del correo abren los enlaces): hay que pulsar el botón. La baja «en un clic» del
+ * propio gestor de correo (cabecera List-Unsubscribe) va a ./un-clic.
  */
 export default async function RecoveryOptOutPage({ searchParams }: { searchParams: Promise<{ t?: string; hecho?: string }> }) {
   const sp = await searchParams;
@@ -41,7 +42,7 @@ export default async function RecoveryOptOutPage({ searchParams }: { searchParam
           );
         return (
           <div className="text-center">
-            <h1 className={h1}>¿Dejamos de recordártelo?</h1>
+            <h1 className={h1}>Dejar de recibir recordatorios de compra de {target.creatorName}</h1>
             <p className={`mt-3 ${muted}`}>
               Dejarás de recibir recordatorios de compras a medias de {target.creatorName} en <strong>{maskEmail(target.email)}</strong>. Los emails de tus
               compras (recibos y accesos) te seguirán llegando.

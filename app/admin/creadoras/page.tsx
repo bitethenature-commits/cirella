@@ -81,32 +81,42 @@ export default async function AdminCreators({ searchParams }: { searchParams: Pr
         <input name="q" defaultValue={sp.q} placeholder="Buscar por nombre o usuario" className="input h-10 max-w-xs text-sm" />
         {payoutFilter && <input type="hidden" name="cobros" value={payoutFilter} />}
       </form>
-      <AdminTable head={["Creadora", "Categoría", "Plan", "Productos", "Clientes", "GMV / comisión", "Cobros", "Estado", "Acciones"]} minWidth={1100}>
+      {/* Cabe en 1280 px (área de ~984 px junto a la barra lateral): datos secundarios bajo el nombre,
+          productos y clientes juntos, estado y cobros en la misma columna. Más estrecho, se desplaza
+          dentro de su propia caja. */}
+      <AdminTable head={["Creadora", "Plan", "Productos / clientes", "GMV / comisión", "Estado y cobros", "Acciones"]} minWidth={860}>
         {creators.map((c) => (
           <tr key={c.id}>
             <td className={td}>
-              <Link href={`/${c.username}`} target="_blank" className="font-semibold hover:underline">{c.displayName}</Link>
-              <span className="block text-xs text-muted">/{c.username} · {c.user.email}</span>
+              <div className="max-w-[16rem]">
+                <Link href={`/${c.username}`} target="_blank" className="font-semibold hover:underline">{c.displayName}</Link>
+                <span className="block break-all text-xs text-muted">/{c.username} · {c.user.email}</span>
+                {c.category && <span className="block text-xs text-muted">{`${c.category.emoji ?? ""} ${c.category.name}`.trim()}</span>}
+              </div>
             </td>
-            <td className={`${td} text-muted`}>{c.category ? `${c.category.emoji ?? ""} ${c.category.name}` : "—"}</td>
             <td className={td}>
               <form action={setCreatorPlan} className="flex items-center gap-1">
                 <input type="hidden" name="id" value={c.id} />
-                <select name="planId" defaultValue={c.planId} className="input h-8 w-28 text-xs">
+                <select name="planId" defaultValue={c.planId} aria-label={`Plan de ${c.displayName}`} className="input h-8 w-24 text-xs">
                   {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
                 <button className="btn btn-ghost btn-sm !h-8 !px-2 text-xs">OK</button>
               </form>
             </td>
-            <td className={td}>{c._count.products}</td>
-            <td className={td}>{c._count.customers}</td>
-            <td className={`${td} tabular-nums`}>{formatMoney(g.get(c.id)?.amountCents ?? 0)}<span className="block text-xs text-muted">{formatMoney(g.get(c.id)?.platformFeeCents ?? 0, "EUR", { decimals: true })}</span></td>
-            <td className={td}>
-              <Badge tone={PAYOUT_TONE[c.payoutStatus as PayoutStatus] ?? "neutral"}>{PAYOUT_STATUS_LABEL[c.payoutStatus] ?? c.payoutStatus}</Badge>
-              {c.payoutStatusUpdatedAt && <span className="block text-xs text-muted">{formatDate(c.payoutStatusUpdatedAt)}</span>}
+            <td className={`${td} whitespace-nowrap tabular-nums`}>
+              {c._count.products}
+              <span className="text-muted"> · {c._count.customers}</span>
             </td>
+            <td className={`${td} whitespace-nowrap tabular-nums`}>{formatMoney(g.get(c.id)?.amountCents ?? 0)}<span className="block text-xs text-muted">{formatMoney(g.get(c.id)?.platformFeeCents ?? 0, "EUR", { decimals: true })}</span></td>
             <td className={td}>
-              {c.status === "BLOCKED" ? <Badge tone="danger">Bloqueada</Badge> : c.published ? <Badge tone="success">Publicada</Badge> : <Badge tone="warning">Sin publicar</Badge>}
+              <div className="flex flex-col items-start gap-1">
+                {c.status === "BLOCKED" ? <Badge tone="danger">Bloqueada</Badge> : c.published ? <Badge tone="success">Publicada</Badge> : <Badge tone="warning">Sin publicar</Badge>}
+                <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted">
+                  <span>Cobros</span>
+                  <Badge tone={PAYOUT_TONE[c.payoutStatus as PayoutStatus] ?? "neutral"}>{PAYOUT_STATUS_LABEL[c.payoutStatus] ?? c.payoutStatus}</Badge>
+                  {c.payoutStatusUpdatedAt && <span className="whitespace-nowrap">{formatDate(c.payoutStatusUpdatedAt)}</span>}
+                </span>
+              </div>
             </td>
             <td className={`${td} text-right`}>
               <form action={setCreatorStatus}>
