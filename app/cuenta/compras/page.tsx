@@ -8,7 +8,7 @@ import { isNoChargeOrder } from "@/lib/access-mode";
 import { prisma } from "@/lib/db";
 import { requireBuyerFull } from "@/lib/buyer-access";
 import { formatMoney } from "@/lib/money";
-import { isPersonalMode } from "@/lib/site-mode";
+import { signupsOnly } from "@/lib/commerce";
 import { orderStatusLabel, toWithdrawalInput, withdrawalEligibility } from "@/lib/refund-math";
 import { formatDate } from "@/lib/tz";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
@@ -39,7 +39,7 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
     },
   });
   const now = new Date();
-  const personal = isPersonalMode();
+  const personal = signupsOnly();
   const link = (o: (typeof orders)[number]) =>
     orderTargetPath(o, o.bookings[0]?.id);
   return (

@@ -45,3 +45,6 @@ entrar y probarlo todo, pero tus alumnas no recibirían su acceso hasta que pong
   **Environment** la variable `APP_URL` con `https://tudominio.com`, cambia `EMAIL_FROM` a tu
   dominio (verificado en Resend) y añade el dominio a la regla CORS de R2.
 - **Actualizaciones:** cada cambio en la rama `main` se publica solo.
+- **Cobrar en tu web con tarjeta y PayPal:** en **mi-web → Environment** cambia `PAYMENT_PROVIDER`
+  a `stripe,paypal` y añade las claves de Stripe y PayPal. Paso a paso:
+  [cobros-stripe-paypal.md](cobros-stripe-paypal.md).

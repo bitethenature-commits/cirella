@@ -29,7 +29,7 @@ export default async function PostPreviewPage({ params }: { params: Promise<{ id
           Volver a editar
         </Link>
       </div>
-      <CreatorShell username={creator.username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} back={false}>
+      <CreatorShell username={creator.username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} back={false}>
         <PostArticle
           post={{ ...post, publishedAt: post.publishedAt }}
           dateLabel={state === "DRAFT" && !post.publishedAt ? "Borrador" : formatDate(date, { day: "numeric", month: "long", year: "numeric" }, creator.timezone)}

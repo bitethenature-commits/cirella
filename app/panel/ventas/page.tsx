@@ -6,6 +6,7 @@ import { requireCreator } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { orderBreakdown } from "@/lib/order-breakdown";
 import { orderStatusLabel } from "@/lib/refund-math";
+import { signupsOnly } from "@/lib/commerce";
 import { isPersonalMode } from "@/lib/site-mode";
 import { rangeStart, parseRange } from "@/lib/stats";
 import { tenantDb } from "@/lib/tenant";
@@ -28,10 +29,12 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
   const range = parseRange(sp.rango);
   const since = rangeStart(range, creator.timezone);
   const db = tenantDb(creator.id);
-  // Web personal: no se vende nada aquí, «Ventas» es la lista de inscripciones.
+  // Web personal sin cobros: no se vende nada aquí, «Ventas» es la lista de inscripciones. Si cobra,
+  // es como en la plataforma (con la pestaña de inscripciones) pero sin comisión.
   const personal = isPersonalMode();
-  if (personal || sp.estado === "inscripciones")
-    return <SignupsView creatorId={creator.id} timezone={creator.timezone} range={range} since={since} productId={sp.producto || null} personal={personal} />;
+  const onlySignups = signupsOnly();
+  if (onlySignups || sp.estado === "inscripciones")
+    return <SignupsView creatorId={creator.id} timezone={creator.timezone} range={range} since={since} productId={sp.producto || null} personal={onlySignups} />;
   // «Pagados» incluye los reembolsados en parte (siguen PAID); «Reembolsados», todo lo que tiene devoluciones.
   const filter =
     sp.estado === "todos"
@@ -89,7 +92,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
     <div>
       <PageHeader
         title="Ventas"
-        subtitle="Cada pedido, su comisión y lo que recibes."
+        subtitle={personal ? "Cada pedido, su IVA y lo que recibes." : "Cada pedido, su comisión y lo que recibes."}
         actions={
           <>
             <RangeTabs current={range} base="/panel/ventas" />
@@ -99,10 +102,10 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
           </>
         }
       />
-      <div className={`mb-6 grid grid-cols-2 gap-3 ${platformTax > 0 ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
+      <div className={`mb-6 grid grid-cols-2 gap-3 ${personal ? "sm:grid-cols-3" : platformTax > 0 ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
         <Stat label="Ingresos brutos" value={formatMoney(gross)} accent hint={refunded > 0 ? `−${formatMoney(refunded, "EUR", { decimals: true })} reembolsados` : "IVA incluido"} />
         {platformTax > 0 && <Stat label="IVA" value={formatMoney(platformTax, "EUR", { decimals: true })} hint="Lo ingresa Cirella" />}
-        <Stat label="Comisión plataforma" value={formatMoney(fees, "EUR", { decimals: true })} hint={`Plan ${creator.plan.name}`} />
+        {!personal && <Stat label="Comisión plataforma" value={formatMoney(fees, "EUR", { decimals: true })} hint={`Plan ${creator.plan.name}`} />}
         <Stat label="Recibes" value={formatMoney(net, "EUR", { decimals: true })} />
         <Stat label="Pedidos" value={figures.filter((f) => f.amount - f.refunded > 0).length} />
       </div>

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { useCreatorBranding, usePersonalMode } from "@/components/creator-page/branding-context";
+import { useCreatorBranding, usePersonalMode, useSignupsOnly } from "@/components/creator-page/branding-context";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { ErrorView, useErrorRetry } from "@/components/error-view";
 
@@ -11,6 +11,7 @@ const AFTER_PAYMENT = "Si acababas de pagar, tu compra está a salvo: en unos mi
 export default function CreatorError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const branding = useCreatorBranding();
   const personal = usePersonalMode();
+  const signupsOnly = useSignupsOnly();
   const pathname = usePathname();
   const params = useParams<{ username: string }>();
   const onRetry = useErrorRetry(error, reset);
@@ -32,7 +33,7 @@ export default function CreatorError({ error, reset }: { error: Error & { digest
 
   const { username, config, allowCustom } = branding;
   return (
-    <CreatorShell username={username} config={config} allowCustom={allowCustom} back={false} personal={personal}>
+    <CreatorShell username={username} config={config} allowCustom={allowCustom} back={false} personal={personal} signupsOnly={signupsOnly}>
       <main className="relative mx-auto max-w-md px-6 py-20 text-center">
         <h1 className="cp-display text-3xl">Vaya, algo ha fallado al cargar esta página</h1>
         <p className="cp-muted mt-3">No es culpa tuya. Vuelve a intentarlo en unos segundos.</p>

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { CreatorBrandingProvider, type CreatorBranding } from "@/components/creator-page/branding-context";
 import { isPublicUsernameAllowed } from "@/lib/personal-routing";
 import { getPublicCreator } from "@/lib/public";
+import { signupsOnly } from "@/lib/commerce";
 import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
 
 /**
@@ -28,5 +29,9 @@ export default async function CreatorLayout({ children, params }: { children: Re
     // error.tsx no captura los errores del layout de su propio segmento: sin marca, la página
     // (o su error.tsx) sigue funcionando con el aspecto genérico.
   }
-  return <CreatorBrandingProvider value={branding} personal={isPersonalMode()}>{children}</CreatorBrandingProvider>;
+  return (
+    <CreatorBrandingProvider value={branding} personal={isPersonalMode()} signupsOnly={signupsOnly()}>
+      {children}
+    </CreatorBrandingProvider>
+  );
 }

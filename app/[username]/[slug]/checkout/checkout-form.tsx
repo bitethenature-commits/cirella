@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock, Check, CreditCard, Loader2, Lock, ShieldCheck, Smartphone } from "lucide-react";
+import { CalendarClock, Check, CreditCard, Loader2, Lock, ShieldCheck, Smartphone, Wallet } from "lucide-react";
 import { startTransition, useActionState, useEffect, useState } from "react";
 import { BillingFields, VatBreakdown, type BillingPrefill, type CheckoutTaxInfo } from "@/components/checkout/billing-fields";
 import { ProductImage } from "@/components/creator-page/product-art";
@@ -9,6 +9,7 @@ import type { DaySlots } from "@/lib/booking";
 import { checkoutDeliveryBadge } from "@/lib/delivery";
 import { sessionChangePolicyText } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
+import type { CheckoutMethod } from "@/lib/payments";
 import { decideTax, vatIncluded } from "@/lib/tax";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { placeOrder, type CheckoutState } from "./actions";
@@ -55,10 +56,18 @@ function SectionTitle({ n, title }: { n: number; title: string }) {
   );
 }
 
+/** Cómo se llama cada pasarela en el checkout. */
+const METHOD_COPY: Record<CheckoutMethod["key"], { label: string; hint: string }> = {
+  stripe: { label: "Tarjeta", hint: "Visa, Mastercard, Apple Pay o Google Pay" },
+  simulated: { label: "Tarjeta", hint: "Visa, Mastercard, Apple Pay o Google Pay" },
+  paypal: { label: "PayPal", hint: "Con tu cuenta de PayPal" },
+};
+
 export function CheckoutForm({
   product,
   payoutReady,
-  collectsCardOnSite,
+  methods,
+  defaultMethod,
   initialOrderId,
   notice,
   prefill,
@@ -73,8 +82,12 @@ export function CheckoutForm({
 }: {
   product: Product;
   payoutReady: boolean;
-  /** true solo con el simulador; con Stripe la tarjeta se pide en su página. */
-  collectsCardOnSite: boolean;
+  /**
+   * Métodos de pago (una pasarela cada uno). Con varios, la compradora elige. collectsCardOnSite:
+   * true solo con el simulador; con Stripe la tarjeta se pide en su página y con PayPal, en PayPal.
+   */
+  methods: CheckoutMethod[];
+  defaultMethod: CheckoutMethod["key"] | null;
   /** Pedido que se reintenta (vuelta desde la pasarela o desde el email). */
   initialOrderId?: string;
   notice?: string;
@@ -86,7 +99,8 @@ export function CheckoutForm({
    * según quién vende este producto (lib/legal.ts → sellerStatement); su página legal (/{usuario}/legal).
    */
   seller: { name: string; line: string; legalHref: string };
-  platformName: string;
+  /** null en la web personal (no hay plataforma de por medio). */
+  platformName: string | null;
   /** Política de IVA y situación de la creadora: el desglose se calcula aquí según el país elegido. */
   taxInfo: CheckoutTaxInfo;
   /** ¿Se puede pedir factura con NIF? (vende Cirella, o la creadora repercute IVA y tiene sus datos). */
@@ -97,6 +111,10 @@ export function CheckoutForm({
 }) {
   const [state, action, pending] = useActionState<CheckoutState, FormData>(placeOrder, undefined);
   const [method, setMethod] = useState<"card" | "wallet">("card");
+  const [payWith, setPayWith] = useState<CheckoutMethod["key"] | null>(defaultMethod);
+  const chosen = methods.find((m) => m.key === payWith) ?? methods[0] ?? null;
+  const collectsCardOnSite = !!chosen?.collectsCardOnSite;
+  const isPaypal = chosen?.key === "paypal";
   const [slots, setSlots] = useState<{ days: DaySlots[]; timezone: string } | null>(null);
   const [day, setDay] = useState<string | null>(null);
   const [slot, setSlot] = useState<string>("");
@@ -161,6 +179,7 @@ export function CheckoutForm({
     >
       <input type="hidden" name="productId" value={product.id} />
       <input type="hidden" name="orderId" value={state?.orderId ?? initialOrderId ?? ""} />
+      {chosen && <input type="hidden" name="payWith" value={chosen.key} />}
       {collectsCardOnSite && <input type="hidden" name="method" value={method} />}
       <input type="hidden" name="slotStart" value={later ? "" : slot} />
       <input type="hidden" name="turnstileToken" value={captchaToken} />
@@ -270,7 +289,36 @@ export function CheckoutForm({
 
       <section className="cp-card space-y-4 p-5">
         <SectionTitle n={++n} title="Método de pago" />
-        {collectsCardOnSite ? (
+        {methods.length > 1 && (
+          <div role="radiogroup" aria-label="Método de pago" className="grid grid-cols-2 gap-2">
+            {methods.map((m) => {
+              const on = chosen?.key === m.key;
+              const Icon = m.key === "paypal" ? Wallet : CreditCard;
+              return (
+                <button
+                  key={m.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setPayWith(m.key)}
+                  className="flex min-h-14 flex-col items-start justify-center gap-0.5 rounded-xl border px-3 py-2 text-left transition"
+                  style={on ? { borderColor: "var(--c-accent)", boxShadow: "0 0 0 1px var(--c-accent)" } : { borderColor: "var(--c-line)" }}
+                >
+                  <span className="flex items-center gap-2 text-sm font-semibold">
+                    <Icon className="h-4 w-4" /> {METHOD_COPY[m.key].label}
+                  </span>
+                  <span className="cp-muted text-[0.7rem] leading-snug">{METHOD_COPY[m.key].hint}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {isPaypal ? (
+          <p className="cp-muted flex items-start gap-2.5 text-sm">
+            <Wallet className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Te llevaremos a PayPal para pagar con tu cuenta. Al terminar vuelves aquí y recibes el acceso al momento.</span>
+          </p>
+        ) : collectsCardOnSite ? (
           <>
             <div className="grid grid-cols-2 gap-2">
               {[
@@ -306,7 +354,7 @@ export function CheckoutForm({
             <span>Pagarás con tarjeta, Apple Pay o Google Pay en la página segura de Stripe. Si tu banco lo pide, confirmarás el pago en su app.</span>
           </p>
         )}
-        {demo && (
+        {demo && collectsCardOnSite && (
           <p className="rounded-xl px-3 py-2 text-xs" style={{ background: "color-mix(in oklab, var(--c-gold) 16%, transparent)" }}>
             Modo demostración: no se cobra dinero real. Usa <span className="font-mono">4000 0000 0000 0002</span> para simular un pago rechazado y{" "}
             <span className="font-mono">4000 0027 6000 3184</span> para simular la confirmación en la app del banco.
@@ -319,7 +367,7 @@ export function CheckoutForm({
           <span className="cp-muted text-sm">Total</span>
           <span className="text-2xl font-semibold tracking-tight">{price}</span>
         </div>
-        <VatBreakdown amountCents={product.priceCents} currency={product.currency} productType={product.type} deliveryMode={product.deliveryMode} taxInfo={taxInfo} country={country} platformName={platformName} />
+        <VatBreakdown amountCents={product.priceCents} currency={product.currency} productType={product.type} deliveryMode={product.deliveryMode} taxInfo={taxInfo} country={country} platformName={platformName ?? ""} />
         {isSession && (
           <p className="cp-faint -mt-2 px-1 text-xs">
             {sessionChangePolicyText()} ·{" "}
@@ -337,7 +385,11 @@ export function CheckoutForm({
           creatorDisplayName={creatorName}
         />
         {product.type === "MEMBERSHIP" && (
-          <p className="cp-faint px-1 text-xs">Guardaremos tu tarjeta de forma segura para las renovaciones; puedes cancelar cuando quieras desde tu cuenta.</p>
+          <p className="cp-faint px-1 text-xs">
+            {isPaypal
+              ? "PayPal guardará tu autorización para cobrar las renovaciones; puedes cancelar cuando quieras desde tu cuenta."
+              : "Guardaremos tu tarjeta de forma segura para las renovaciones; puedes cancelar cuando quieras desde tu cuenta."}
+          </p>
         )}
         {needsCaptcha && <Turnstile key={captchaRound} siteKey={state!.captchaSiteKey!} onToken={setCaptchaToken} />}
         {(state?.error ?? (state ? null : notice)) && (
@@ -349,7 +401,15 @@ export function CheckoutForm({
         {isSession && !sessionReady && <p className="cp-muted text-center text-xs">Elige una hora o marca «elegir la fecha después».</p>}
         {needsCaptcha && !captchaToken && <p className="cp-muted text-center text-xs">Comprobando tu conexión…</p>}
         <PayButton
-          label={isSession ? `Reservar y pagar · ${price}` : product.type === "MEMBERSHIP" ? `Unirme · ${price}` : `Pagar ${price}`}
+          label={
+            isPaypal
+              ? `Pagar con PayPal · ${price}`
+              : isSession
+                ? `Reservar y pagar · ${price}`
+                : product.type === "MEMBERSHIP"
+                  ? `Unirme · ${price}`
+                  : `Pagar ${price}`
+          }
           disabled={!payoutReady || !sessionReady || (needsCaptcha && !captchaToken)}
           pending={pending}
         />

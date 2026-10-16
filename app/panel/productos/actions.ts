@@ -21,6 +21,7 @@ import { DELIVERY_MODES, deliveryIssueCopy, normalizeDeliveryMode, productDelive
 import { FreeAccessError, grantManualAccess, revokeManualAccess } from "@/lib/free-access";
 import { parseMoneyToCents } from "@/lib/money";
 import { canSellType } from "@/lib/plans";
+import { hasPaymentProvider } from "@/lib/payments";
 import { siteMode } from "@/lib/site-mode";
 import { RESERVED_PRODUCT_SLUGS } from "@/lib/slug";
 import { privateKey, storage } from "@/lib/storage";
@@ -61,8 +62,9 @@ export async function createProduct(form: FormData) {
     COURSE: "Nuevo curso",
     MEMBERSHIP: "Nueva membresía",
   };
-  // En la web personal nada se cobra aquí: gratis con email (o, una sesión, pago en otra web).
-  const accessMode = defaultAccessMode(siteMode(), type);
+  // En la web personal con cobros, de pago en la web; sin cobros, gratis con email (o, una sesión,
+  // pago en otra web).
+  const accessMode = defaultAccessMode(siteMode(), type, hasPaymentProvider());
   const product = await db.product.create({
     data: {
       creatorId: creator.id,
@@ -124,7 +126,7 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
     const active = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
     if (active >= creator.plan.maxProducts) return { error: `Has llegado al límite de ${creator.plan.maxProducts} productos de tu plan. Archiva otro o mejora tu plan.` };
   }
-  const accessMode = resolveAccessMode(d.accessMode, product.accessMode, siteMode(), product.type);
+  const accessMode = resolveAccessMode(d.accessMode, product.accessMode, siteMode(), product.type, hasPaymentProvider());
   const priceCents = storedPriceCents(accessMode, parseMoneyToCents(d.price));
   const priceError = d.status === "PUBLISHED" ? publishPriceError(accessMode, priceCents) : null;
   if (priceError) return { error: priceError };
@@ -182,8 +184,8 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
   });
   refresh(product.id);
   revalidatePath(`/${creator.username}`);
-  // En la web personal lo que se cobraba en la web se guarda tal cual, pero no se ve: se dice.
-  if (accessMode === "PAID" && siteMode() === "personal") {
+  // En la web personal sin cobros lo que se cobraba en la web se guarda tal cual, pero no se ve: se dice.
+  if (accessMode === "PAID" && siteMode() === "personal" && !hasPaymentProvider()) {
     const choices = accessModesFor("personal", product.type).map((m) => `«${ACCESS_MODE_LABEL[m]}»`).join(" o ");
     return { ok: `Guardado. No se ve en tu página: en tu web no se cobra nada. Elige ${choices} para que aparezca.` };
   }
@@ -199,7 +201,8 @@ export async function moveProduct(form: FormData) {
   let j = i + dir;
   // Desde el editor solo se ven los productos de la página: saltamos los ocultos (borradores y, en la
   // web personal, lo que se cobraba en la web).
-  const hidden = (p: (typeof list)[number]) => p.status !== "PUBLISHED" || (siteMode() === "personal" && asAccessMode(p.accessMode) === "PAID");
+  const signupsOnly = siteMode() === "personal" && !hasPaymentProvider();
+  const hidden = (p: (typeof list)[number]) => p.status !== "PUBLISHED" || (signupsOnly && asAccessMode(p.accessMode) === "PAID");
   if (form.get("visible") === "1") while (j >= 0 && j < list.length && hidden(list[j])) j += dir;
   if (i < 0 || j < 0 || j >= list.length) return;
   [list[i], list[j]] = [list[j], list[i]];

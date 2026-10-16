@@ -7,6 +7,7 @@ import { readPageConfig } from "./page-config";
 import { planFeatures, type PlanFeatures } from "./plans";
 import { POSTS_ON_PAGE, POSTS_PER_PAGE, postExcerpt, publicPostWhere } from "./posts";
 import { isPublicUsernameAllowed } from "./personal-routing";
+import { hasPaymentProvider } from "./payments";
 import { getSettings } from "./settings";
 import { isPersonalMode, ownerUsername } from "./site-mode";
 import { asTaxMode, decideTax, vatIncluded } from "./tax";
@@ -35,6 +36,8 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
   if (!creator || creator.status !== "ACTIVE" || creator.user.status !== "ACTIVE") return null;
   // Web personal: solo la dueña tiene página (las demás ya dan 404 antes de llegar aquí).
   const personal = isPersonalMode() && ownerUsername() === creator.username;
+  // Web personal sin cobros: lo de pago en la web no se ofrece (ni condiciones de venta en el pie).
+  const signupsOnly = personal && !hasPaymentProvider();
   const features = personal ? ALL_FEATURES : planFeatures(creator.plan);
   const raw = draft ? creator.pageDraft : (creator.pagePublished ?? creator.pageDraft);
   const config = readPageConfig(raw, creator.displayName);
@@ -114,6 +117,7 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
     discountCodes,
     features,
     personal,
+    signupsOnly,
     allowCustom: features.customDesign,
     // Web personal: nunca «Powered by».
     showPoweredBy: !personal && !(features.removeBranding && config.hidePoweredBy),

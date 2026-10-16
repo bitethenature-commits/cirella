@@ -17,6 +17,7 @@ import {
   type Dac7Row,
 } from "./dac7";
 import { getSettings } from "./settings";
+import { isPersonalMode } from "./site-mode";
 import { tenantDb } from "./tenant";
 
 /**
@@ -102,8 +103,12 @@ export async function dac7ForCreator(creatorId: string, year: number) {
 
 type Dac7Creator = Dac7CreatorFields & { dac7RequestedAt: Date | null; dac7RemindersSent: number };
 
-/** ¿Están pausadas las ventas de este tipo de producto por faltar los datos de DAC7? */
+/**
+ * ¿Están pausadas las ventas de este tipo de producto por faltar los datos de DAC7? Nunca en la web
+ * personal: DAC7 obliga a las plataformas que venden por cuenta de otras, y allí vende la dueña.
+ */
 export async function dac7SalesPaused(creator: Dac7Creator, productType: string, now = new Date()) {
+  if (isPersonalMode()) return false;
   const missing = dac7Missing(creator);
   if (!missing.length) return false;
   const { dac7ReportableTypes } = await getSettings();
@@ -117,6 +122,7 @@ export async function dac7SalesPaused(creator: Dac7Creator, productType: string,
  * Devuelve cuántos emails se han puesto en cola.
  */
 export async function processDac7Reminders(now = new Date()): Promise<number> {
+  if (isPersonalMode()) return 0; // la web personal no es una plataforma (DAC7 no aplica)
   const year = yearOf(now, DAC7_TZ);
   const { dac7ReportableTypes } = await getSettings();
   const sellers = await prisma.order.groupBy({

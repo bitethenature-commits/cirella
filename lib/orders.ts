@@ -8,8 +8,9 @@ import { appUrl, isDemoMode } from "./env";
 import { canInvoiceSale, issueSaleInvoiceTx } from "./invoices/issue";
 import { getPlatformIssuer } from "./invoices/issuer";
 import { legalIdentityComplete } from "./legal";
-import { NO_ONLINE_PAYMENTS, paidCheckoutOpen, paymentProvider, type PaymentMethodInput } from "./payments";
-import { canAcceptPayments } from "./payouts";
+import { NO_ONLINE_PAYMENTS, chooseCheckoutProvider, isPaymentProviderEnabled, paidCheckoutOpen, paymentProviderByKey, type PaymentMethodInput } from "./payments";
+import { canAcceptPayments, chargeDestination } from "./payouts";
+import { isPersonalMode } from "./site-mode";
 import { canSellType, effectiveCommissionBps } from "./plans";
 import { pushBookingEvent } from "./calendar";
 import { captureAlert, captureError } from "./monitoring";
@@ -56,12 +57,16 @@ export async function createPendingOrder(input: {
   ipCountry?: string | null;
   /** «Necesito factura con mi NIF» (NIF ya normalizado y validado). */
   billing?: { name: string; taxId: string; address: string } | null;
+  /** Pasarela elegida en el checkout (tarjeta o PayPal). Sin elegir, la principal. */
+  paymentMethod?: string | null;
 }) {
-  // Modo personal o sin pasarela (PAYMENT_PROVIDER=none): no hay compras en la web, se cierra aquí.
+  // Sin pasarela (PAYMENT_PROVIDER=none): no hay compras en la web, se cierra aquí.
   if (!paidCheckoutOpen()) throw new CheckoutError(NO_ONLINE_PAYMENTS);
+  const providerKey = chooseCheckoutProvider(input.paymentMethod);
+  if (!providerKey) throw new CheckoutError("Ese método de pago no está disponible. Elige otro.");
   const product = await getPurchasableProduct(input.productId);
   if (!product) throw new CheckoutError("Este producto no está disponible ahora mismo.");
-  if (!canAcceptPayments(product.creator)) throw new CheckoutError("La creadora todavía no ha activado los pagos.");
+  if (!canAcceptPayments(product.creator, providerKey)) throw new CheckoutError("La creadora todavía no ha activado los pagos.");
   // Sin la identidad legal de quien vende no se vende (LSSI art. 10; lib/legal.ts).
   if (!legalIdentityComplete(product.creator)) throw new CheckoutError("La creadora todavía no ha activado los pagos.");
   if (await dac7SalesPaused(product.creator, product.type))
@@ -80,7 +85,8 @@ export async function createPendingOrder(input: {
   // Si vende Cirella tiene que poder facturar: sin sus datos fiscales no se vende (fuera de la demo).
   if (tax.seller === "PLATFORM" && !isDemoMode() && !(await getPlatformIssuer()).complete)
     throw new CheckoutError("Las compras no están disponibles en este momento.");
-  const commissionBps = effectiveCommissionBps(product.creator.plan, product.creator);
+  // La web personal cobra con las cuentas de la dueña: sin comisión, sea cual sea su plan.
+  const commissionBps = isPersonalMode() ? 0 : effectiveCommissionBps(product.creator.plan, product.creator);
   const amounts = computeSaleAmounts(product.priceCents, commissionBps, tax);
   // Sin factura posible (vende una creadora que no repercute IVA) no se guardan datos de facturación.
   const billing = input.billing && canInvoiceSale(tax.seller, product.creator) ? input.billing : null;
@@ -106,7 +112,7 @@ export async function createPendingOrder(input: {
       billingName: billing?.name ?? null,
       billingTaxId: billing?.taxId ?? null,
       billingAddress: billing?.address ?? null,
-      paymentProvider: paymentProvider().key,
+      paymentProvider: providerKey,
       metadata: input.slotStart ? { slotStart: input.slotStart } : undefined,
       visitorId: input.visitorId ?? null,
       ipHash: input.ipHash ?? null,
@@ -156,9 +162,11 @@ export async function startOrderPayment(orderId: string, payment: PaymentMethodI
           : "Ya eres miembro de esta comunidad. Entra desde tu cuenta.",
       );
   }
-  const provider = paymentProvider();
-  if (!order.creator.payoutAccountId || !canAcceptPayments(order.creator, provider.key))
-    throw new CheckoutError("La creadora todavía no ha activado los pagos.");
+  // Cada pedido se cobra con la pasarela que eligió la compradora (si se desactivó, pedido nuevo).
+  if (!isPaymentProviderEnabled(order.paymentProvider)) throw new CheckoutError("Ese método de pago ya no está disponible. Elige otro.");
+  const provider = paymentProviderByKey(order.paymentProvider);
+  const target = chargeDestination(order.creator, provider.key);
+  if (!target) throw new CheckoutError("La creadora todavía no ha activado los pagos.");
   // Un checkout anterior de este pedido que siga abierto se cancela: así no se puede pagar dos veces.
   if (order.checkoutRef) await provider.cancelCheckout(order.checkoutRef).catch((e) => captureError(e, { area: "checkout", extra: { orderId } }));
 
@@ -170,11 +178,11 @@ export async function startOrderPayment(orderId: string, payment: PaymentMethodI
     customerEmail: order.buyerEmail,
     // Comisión y, si vende Cirella, también el IVA: ese dinero no es de la creadora.
     platformFeeCents: platformRetainedCents(order),
-    destinationAccount: order.creator.payoutAccountId,
+    destinationAccount: target.destination,
     statementSuffix: order.creator.username.toUpperCase(),
     saveForFutureUse: order.productType === "MEMBERSHIP",
     payment,
-    returnUrl: `${appUrl()}/api/payments/return?ref={REF}`,
+    returnUrl: `${appUrl()}/api/payments/return?via=${provider.key}&ref={REF}`,
     cancelUrl: `${appUrl()}/${order.creator.username}/${order.product.slug}/checkout?pedido=${order.id}&cancelado=1`,
     metadata: { orderId: order.id, creatorId: order.creatorId },
   });

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, BookOpen, CalendarDays, Download, Lock, UsersRound } from "lucide-react";
 import { requireCreator } from "@/lib/auth";
 import { canSellType } from "@/lib/plans";
+import { hasPaymentProvider } from "@/lib/payments";
 import { isPersonalMode } from "@/lib/site-mode";
 import { PRODUCT_TYPE_HINT, PRODUCT_TYPE_LABEL, PRODUCT_TYPES } from "@/lib/types";
 import { createProduct } from "../actions";
@@ -17,15 +18,22 @@ const EXAMPLES = {
 
 export default async function NewProductPage() {
   const { creator } = await requireCreator();
-  // Web personal: nada se cobra aquí (gratis con email o con el enlace a la web donde se paga).
+  // Web personal sin cobros: nada se cobra aquí (gratis con email o con el enlace a la web donde se
+  // paga). Si cobra, se puede vender aquí también.
   const personal = isPersonalMode();
+  const sells = hasPaymentProvider();
   return (
     <div className="max-w-3xl">
       <Link href="/panel/productos" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
         <ArrowLeft className="h-4 w-4" /> Productos
       </Link>
       <div className="mt-4">
-        {personal ? (
+        {personal && sells ? (
+          <PageHeader
+            title="¿Qué quieres publicar?"
+            subtitle="Elige el tipo. Después decides si se paga aquí (tarjeta o PayPal), si se consigue gratis con email o si el botón lleva a otra web (por ejemplo, Calendly)."
+          />
+        ) : personal ? (
           <PageHeader
             title="¿Qué quieres publicar?"
             subtitle="Elige el tipo. Después decides si se consigue gratis con email o con un botón a la web donde se paga (Hotmart, PayPal, Calendly…)."

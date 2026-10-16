@@ -158,6 +158,7 @@ export async function refundOrder(req: RefundRequest, deps: { provider?: Payment
     result = await provider.refund({
       paymentRef: order.paymentRef,
       amountCents: refund.amountCents,
+      currency: order.currency,
       refundApplicationFee: true,
       idempotencyKey: `refund_${refund.id}`,
       reason: stripeReason(req.reason),

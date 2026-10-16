@@ -12,7 +12,7 @@ import { ensureLegalSnapshot } from "@/lib/legal-snapshot";
 import { checkoutGate, noteCheckoutFailure } from "@/lib/limits";
 import { captureError } from "@/lib/monitoring";
 import { CheckoutError, createPendingOrder, getPurchasableProduct, startOrderPayment } from "@/lib/orders";
-import { NO_ONLINE_PAYMENTS, paidCheckoutOpen, paymentProvider } from "@/lib/payments";
+import { NO_ONLINE_PAYMENTS, chooseCheckoutProvider, paidCheckoutOpen, paymentProviderByKey } from "@/lib/payments";
 import { isKnownCountry } from "@/lib/tax/rates";
 import { ipCountry } from "@/lib/tax/server";
 import { isPlausibleTaxId, normalizeTaxId } from "@/lib/tax/tax-id";
@@ -27,6 +27,8 @@ const schema = z.object({
   name: z.string().trim().min(2, "Escribe tu nombre").max(80),
   email: z.string().trim().toLowerCase().email("Revisa tu email"),
   slotStart: z.string().datetime().optional().or(z.literal("")),
+  // Pasarela elegida (tarjeta o PayPal) cuando la web tiene varias.
+  payWith: z.string().max(20).optional(),
   // Solo el simulador pide la tarjeta en nuestra página; con Stripe se paga en la suya.
   method: z.enum(["card", "wallet"]).optional(),
   cardNumber: z.string().max(30).optional(),
@@ -50,6 +52,8 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
   const parsed = schema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message, orderId: String(form.get("orderId") ?? "") || undefined };
   const input = parsed.data;
+  const payWith = chooseCheckoutProvider(input.payWith);
+  if (!payWith) return { error: "Ese método de pago no está disponible. Elige otro.", orderId: input.orderId || undefined };
   const billing = input.wantsInvoice
     ? { name: input.billingName!, taxId: normalizeTaxId(input.billingTaxId!), address: input.billingAddress! }
     : null;
@@ -79,6 +83,8 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
       existing.status !== "PAID" &&
       existing.productId === input.productId &&
       existing.buyerEmail === input.email &&
+      // Otro método de pago (de tarjeta a PayPal o al revés): pedido nuevo, y el anterior se cancela.
+      existing.paymentProvider === payWith &&
       prevSlot === (input.slotStart || "") &&
       // El IVA y la factura dependen del país y de los datos fiscales: si cambian, pedido nuevo.
       existing.buyerCountry === input.country &&
@@ -92,13 +98,16 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
         throw new CheckoutError("Ese horario acaba de ocuparse. Elige otro, por favor.");
     }
     if (!reusable) {
-      // Se sustituye un pedido de este navegador (cambió el país, los datos fiscales…): su página de
-      // pago, si sigue abierta, se cancela para que no se puedan pagar las dos.
-      if (existing && ownsExisting && existing.status === "PENDING" && existing.checkoutRef) {
-        await paymentProvider()
-          .cancelCheckout(existing.checkoutRef)
-          .catch((e) => captureError(e, { area: "checkout", extra: { orderId: existing.id } }));
-        await prisma.order.updateMany({ where: { id: existing.id, status: "PENDING" }, data: { status: "ABANDONED", recoverySkipped: "sustituido" } });
+      // Se sustituye un pedido de este navegador (cambió el país, los datos fiscales, el método de
+      // pago…): su página de pago, si sigue abierta, se cancela para que no se puedan pagar las dos.
+      // PayPal no deja cancelar: el pedido queda «sustituido» y un pago que se apruebe después en esa
+      // pestaña no se cobra (lib/payments/events.ts).
+      if (existing && ownsExisting && (existing.status === "PENDING" || existing.status === "ABANDONED") && existing.checkoutRef) {
+        if (existing.status === "PENDING")
+          await paymentProviderByKey(existing.paymentProvider)
+            .cancelCheckout(existing.checkoutRef)
+            .catch((e) => captureError(e, { area: "checkout", extra: { orderId: existing.id } }));
+        await prisma.order.updateMany({ where: { id: existing.id, status: { in: ["PENDING", "ABANDONED"] } }, data: { status: "ABANDONED", recoverySkipped: "sustituido" } });
       }
       const lastVisit = await prisma.analyticsEvent.findFirst({
         where: { creatorId: product.creatorId, visitorId, type: "PAGE_VIEW" },
@@ -115,6 +124,7 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
         buyerCountry: input.country,
         ipCountry: ipCountry(await headers()),
         billing,
+        paymentMethod: payWith,
       });
       orderId = order.id;
     }

@@ -10,10 +10,10 @@ const LINKS: [LegalSection, string][] = [
 
 /**
  * Enlaces legales del pie de las páginas de la creadora y, si se conoce, quién vende.
- * En la web personal no se vende nada aquí: sin «Condiciones» (su página legal no las tiene).
+ * En la web personal sin cobros no se vende nada aquí: sin «Condiciones» (su página legal no las tiene).
  */
-export function LegalLinks({ username, sellerName, personal = false }: { username: string; sellerName?: string | null; personal?: boolean }) {
-  const links = personal ? LINKS.filter(([section]) => section !== "condiciones") : LINKS;
+export function LegalLinks({ username, sellerName, signupsOnly = false }: { username: string; sellerName?: string | null; signupsOnly?: boolean }) {
+  const links = signupsOnly ? LINKS.filter(([section]) => section !== "condiciones") : LINKS;
   return (
     <div className="cp-faint flex flex-col items-center gap-1.5 text-xs">
       <nav aria-label="Información legal" className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1">
@@ -24,7 +24,7 @@ export function LegalLinks({ username, sellerName, personal = false }: { usernam
           </span>
         ))}
       </nav>
-      {sellerName && <p>{personal ? "Responsable" : "Vende"}: {sellerName}</p>}
+      {sellerName && <p>{signupsOnly ? "Responsable" : "Vende"}: {sellerName}</p>}
     </div>
   );
 }

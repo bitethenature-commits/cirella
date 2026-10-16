@@ -25,6 +25,7 @@ export default async function EditorPage() {
       postCount={data?.postCount ?? 0}
       discountCodes={data?.discountCodes ?? []}
       personal={data?.personal ?? false}
+      signupsOnly={data?.signupsOnly ?? false}
       siteOrigin={appUrl()}
       templates={templates.map((t) => t.key).filter((k): k is TemplateKey => (TEMPLATE_KEYS as readonly string[]).includes(k))}
       allowCustom={data?.features.customDesign ?? false}

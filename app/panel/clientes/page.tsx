@@ -3,7 +3,7 @@ import { Search, Users } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty";
 import { requireCreator } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
-import { isPersonalMode } from "@/lib/site-mode";
+import { signupsOnly } from "@/lib/commerce";
 import { tenantDb } from "@/lib/tenant";
 import { Badge, PageHeader, Stat } from "../ui";
 
@@ -24,7 +24,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   const ltv = customers.reduce((a, c) => a + c.totalSpentCents, 0) / Math.max(1, customers.length);
   const repeat = customers.filter((c) => c.ordersCount > 1).length;
   // Web personal: aquí no se compra, se apunta (gratis con email) o le das acceso tú.
-  const personal = isPersonalMode();
+  const personal = signupsOnly();
   const optIns = personal ? await db.customer.count({ where: { marketingOptIn: true } }) : 0;
   return (
     <div>

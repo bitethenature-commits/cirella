@@ -29,11 +29,15 @@ export function normalizeUsername(input: string) {
   return input.trim().toLowerCase().replace(/^@/, "").replace(/\s+/g, "");
 }
 
-export function validateUsername(username: string): string | null {
+/** Reservados por ser la marca de la plataforma, no una ruta: la web personal (sin plataforma) sí puede usarlos. */
+export const BRAND_USERNAMES = new Set(["cirella", "plataforma"]);
+
+/** `personal`: usuario de la dueña de una web personal (puede llamarse como la marca de la plataforma). */
+export function validateUsername(username: string, opts: { personal?: boolean } = {}): string | null {
   if (username.length < 3) return "Mínimo 3 caracteres";
   if (username.length > 30) return "Máximo 30 caracteres";
   if (!USERNAME_RE.test(username)) return "Solo letras minúsculas, números, puntos, guiones y guiones bajos";
-  if (RESERVED_USERNAMES.has(username)) return "Este nombre está reservado";
+  if (RESERVED_USERNAMES.has(username) && !(opts.personal && BRAND_USERNAMES.has(username))) return "Este nombre está reservado";
   return null;
 }
 

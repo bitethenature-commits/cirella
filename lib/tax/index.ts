@@ -17,16 +17,24 @@ import { EU_VAT_STANDARD_BPS, countryName, isEuVatCountry, isSpanishSpecialTerri
  *     Un producto digital que la creadora prepara a mano («Lo preparo yo», p. ej. una lectura
  *     personal) no es un servicio electrónico (art. 7 del mismo Reglamento: casi automático y con
  *     una intervención humana mínima): lo vende ella, como las sesiones.
- *   · CREATOR: la creadora vende todo; su IVA depende de su situación (vatStatus).
+ *   · CREATOR: la creadora vende todo; su IVA depende de su situación (vatStatus). Es la única
+ *     opción de la web personal (vende la dueña con sus propias cuentas de Stripe y PayPal).
+ *   · OSS_NON_UNION (situación de una empresa de fuera de la UE, p. ej. una LLC de EE. UU., dada de
+ *     alta en la ventanilla única «no Unión»): los servicios electrónicos (productos digitales,
+ *     cursos y membresías) a consumidores de la UE llevan el IVA del país de la compradora desde el
+ *     primer euro; fuera de la UE, nada. Las sesiones en directo y lo que prepara a mano los presta
+ *     desde fuera de la UE: no sujetos al IVA de la UE (art. 45 de la Directiva 2006/112/CE).
+ *     Pendiente de confirmar con su asesoría (reglas de «uso y disfrute» de algunos países, IVA
+ *     británico…).
  */
 
 export type TaxMode = "PLATFORM_DIGITAL" | "CREATOR";
-export type VatStatus = "NONE" | "STANDARD" | "EXEMPT";
+export type VatStatus = "NONE" | "STANDARD" | "EXEMPT" | "OSS_NON_UNION";
 export type TaxSeller = "PLATFORM" | "CREATOR";
 export type TaxDecision = { seller: TaxSeller; country: string | null; rateBps: number; note: string | null };
 
 export const TAX_MODES: TaxMode[] = ["PLATFORM_DIGITAL", "CREATOR"];
-export const VAT_STATUSES: VatStatus[] = ["NONE", "STANDARD", "EXEMPT"];
+export const VAT_STATUSES: VatStatus[] = ["NONE", "STANDARD", "EXEMPT", "OSS_NON_UNION"];
 
 /** Productos que vende Cirella con la opción A (servicios prestados por vía electrónica). */
 export const PLATFORM_DIGITAL_TYPES: ProductType[] = ["DIGITAL", "COURSE", "MEMBERSHIP"];
@@ -36,7 +44,7 @@ export function asTaxMode(v: unknown): TaxMode {
 }
 
 export function asVatStatus(v: unknown): VatStatus {
-  return v === "STANDARD" || v === "EXEMPT" ? v : "NONE";
+  return v === "STANDARD" || v === "EXEMPT" || v === "OSS_NON_UNION" ? v : "NONE";
 }
 
 export const NOTE_SPECIAL_TERRITORY = "Operación no sujeta al IVA español (Canarias, Ceuta o Melilla).";
@@ -44,6 +52,7 @@ export const NOTE_OUTSIDE_EU = "Operación no sujeta al IVA de la Unión Europea
 export const NOTE_EXEMPT = "Operación exenta de IVA.";
 export const NOTE_REVERSE_CHARGE = "Inversión del sujeto pasivo (art. 196 de la Directiva 2006/112/CE).";
 export const NOTE_SERVICE_OUTSIDE_EU = "Operación no sujeta al IVA español (art. 69 de la Ley 37/1992).";
+export const NOTE_NON_UNION_SELLER = "Servicio prestado por una empresa establecida fuera de la Unión Europea: no sujeto al IVA de la UE.";
 
 export function ossNote(country: string) {
   return `Operación sujeta a IVA en ${countryName(country)} (régimen de ventanilla única, OSS).`;
@@ -56,6 +65,30 @@ function consumerTax(country: string): Omit<TaxDecision, "seller"> {
   return { country, rateBps: EU_VAT_STANDARD_BPS[country], note: country === "ES" ? null : ossNote(country) };
 }
 
+/** ¿Es un servicio prestado por vía electrónica? (digital casi automático, curso o membresía). */
+export function isElectronicService(productType: ProductType | string, deliveryMode?: string | null): boolean {
+  return PLATFORM_DIGITAL_TYPES.includes(productType as ProductType) && normalizeDeliveryMode(productType, deliveryMode) !== "PERSONAL";
+}
+
+/** IVA de una empresa de fuera de la UE dada de alta en la ventanilla única «no Unión». */
+function nonUnionSellerTax(productType: ProductType | string, deliveryMode: string | null | undefined, buyerCountry: string | null): Omit<TaxDecision, "seller"> {
+  const country = buyerCountry && buyerCountry !== "XX" ? buyerCountry : null;
+  if (country && isSpanishSpecialTerritory(country)) return { country, rateBps: 0, note: NOTE_SPECIAL_TERRITORY };
+  if (!country || !isEuVatCountry(country)) return { country, rateBps: 0, note: NOTE_OUTSIDE_EU };
+  if (!isElectronicService(productType, deliveryMode)) return { country, rateBps: 0, note: NOTE_NON_UNION_SELLER };
+  return { country, rateBps: EU_VAT_STANDARD_BPS[country], note: ossNote(country) };
+}
+
+/** Nota fiscal de una venta de la creadora ya hecha (factura): la misma que decidió decideTax. */
+export function creatorSaleNote(c: { vatStatus: VatStatus | string; vatExemptionNote?: string | null }, country: string | null, rateBps: number): string | null {
+  if (asVatStatus(c.vatStatus) === "OSS_NON_UNION") {
+    if (rateBps) return country ? ossNote(country) : null;
+    if (country && isSpanishSpecialTerritory(country)) return NOTE_SPECIAL_TERRITORY;
+    return country && isEuVatCountry(country) ? NOTE_NON_UNION_SELLER : NOTE_OUTSIDE_EU;
+  }
+  return rateBps ? null : c.vatExemptionNote?.trim() || NOTE_EXEMPT;
+}
+
 /** Quién vende una venta a efectos de IVA y a qué tipo. */
 export function decideTax(i: {
   mode: TaxMode;
@@ -65,15 +98,12 @@ export function decideTax(i: {
   buyerCountry: string | null;
   creator: { country: string | null; vatStatus: VatStatus | string; vatExemptionNote?: string | null };
 }): TaxDecision {
-  if (
-    i.mode === "PLATFORM_DIGITAL" &&
-    PLATFORM_DIGITAL_TYPES.includes(i.productType as ProductType) &&
-    normalizeDeliveryMode(i.productType, i.deliveryMode) !== "PERSONAL"
-  ) {
+  if (i.mode === "PLATFORM_DIGITAL" && isElectronicService(i.productType, i.deliveryMode)) {
     return { seller: "PLATFORM", ...consumerTax(i.buyerCountry ?? "ES") };
   }
   const country = i.creator.country ?? "ES";
   const status = asVatStatus(i.creator.vatStatus);
+  if (status === "OSS_NON_UNION") return { seller: "CREATOR", ...nonUnionSellerTax(i.productType, i.deliveryMode, i.buyerCountry) };
   if (status === "NONE") return { seller: "CREATOR", country, rateBps: 0, note: null };
   if (status === "EXEMPT") return { seller: "CREATOR", country, rateBps: 0, note: i.creator.vatExemptionNote?.trim() || NOTE_EXEMPT };
   // Repercute IVA: el de su país (por debajo del umbral de 10.000 € de ventas a otros países de la UE).

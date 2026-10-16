@@ -6,17 +6,26 @@ import { LegalText } from "@/components/legal-text";
 import { getCurrentUser } from "@/lib/auth";
 import { formatLegalAddress, legalIdentityComplete, taxIdLabel } from "@/lib/legal";
 import { getLegalSnapshot, legalIdentityOf } from "@/lib/legal-snapshot";
-import { currentLegalDocs, currentPersonalPrivacy, PERSONAL_THIRD_PARTY_TEXT, privacyResponsibleLine, WITHDRAWAL_FORM_TEXT } from "@/lib/legal-templates";
+import { currentLegalKind, signupsOnly } from "@/lib/commerce";
+import {
+  acceptedLegalDocs,
+  PERSONAL_SALES_THIRD_PARTY_TEXT,
+  PERSONAL_THIRD_PARTY_TEXT,
+  privacyResponsibleLine,
+  WITHDRAWAL_FORM_TEXT,
+  type LegalKind,
+} from "@/lib/legal-templates";
+import { paymentProviderKeys } from "@/lib/payments";
 import { getPublicCreator } from "@/lib/public";
 import { isPublicUsernameAllowed } from "@/lib/personal-routing";
-import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
+import { ownerUsername } from "@/lib/site-mode";
 
 type Params = { username: string };
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { username } = await params;
   const data = isPublicUsernameAllowed(username, ownerUsername()) ? await getPublicCreator(username) : null;
-  const heading = isPersonalMode() ? "Aviso legal y privacidad" : "Aviso legal y condiciones";
+  const heading = signupsOnly() ? "Aviso legal y privacidad" : "Aviso legal y condiciones";
   return {
     title: data ? `${heading} · ${data.config.displayName}` : "Aviso legal",
     robots: { index: false },
@@ -30,10 +39,11 @@ const COOKIES_TEXT =
  * Aviso legal, condiciones de venta, cambios y reembolsos, privacidad y cookies de una creadora.
  * Con ?v={id}, la versión exacta que aceptó una compra (LegalSnapshot), aunque luego haya cambiado.
  *
- * Modo personal (aquí no se vende nada: lo de pago se compra en otras webs): aviso legal,
- * privacidad, cookies y un aviso sobre los enlaces y códigos de otras marcas. Sin condiciones de
- * venta ni reembolsos y sin la línea de la plataforma. Una versión aceptada (?v=) se muestra como se
- * aceptó: la de la web personal (LegalSnapshotContent.personal) así; una de la plataforma, entera.
+ * Modo personal sin cobros (lo de pago se compra en otras webs): aviso legal, privacidad, cookies y
+ * un aviso sobre los enlaces y códigos de otras marcas. Sin condiciones de venta ni reembolsos y sin
+ * la línea de la plataforma. Modo personal que cobra (Stripe/PayPal de la dueña): además sus
+ * condiciones de venta y reembolsos, también sin plataforma. Una versión aceptada (?v=) se muestra
+ * como se aceptó (LegalSnapshotContent.personal / .sales).
  */
 export default async function CreatorLegalPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ v?: string }> }) {
   const { username } = await params;
@@ -51,11 +61,13 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
   const snapshot = sp.v ? await getLegalSnapshot(creator.id, sp.v) : null;
   if (sp.v && !snapshot) notFound();
   const identity = snapshot?.identity ?? legalIdentityOf(creator);
-  const docs = snapshot ?? currentLegalDocs(creator, platformName);
-  // Sin ventas en la web: solo lo que aplica a una página personal. Una versión aceptada se pinta
-  // como se aceptó: la de la web personal (marca `personal`) igual, con su privacidad exacta.
-  const personal = snapshot ? snapshot.personal === true : isPersonalMode();
-  const privacy = snapshot ? snapshot.privacy : personal ? currentPersonalPrivacy(creator) : docs.privacy;
+  // Una versión aceptada se pinta como se aceptó (con sus textos exactos); si no, los vigentes.
+  const kind: LegalKind = snapshot ? (snapshot.personal ? (snapshot.sales ? "personal-sales" : "personal") : "platform") : currentLegalKind();
+  const docs = snapshot ?? acceptedLegalDocs(creator, platformName, kind, paymentProviderKeys());
+  const personal = kind !== "platform";
+  // Sin ventas en la web (personal sin cobros): ni condiciones de venta ni reembolsos.
+  const sells = kind !== "personal";
+  const privacy = docs.privacy;
   const complete = legalIdentityComplete(identity);
 
   const rows: [string, string][] = [
@@ -67,14 +79,14 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
   ];
 
   return (
-    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} sellerName={identity.legalName}>
+    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} sellerName={identity.legalName}>
       <main className="mx-auto max-w-2xl px-4 pb-10 pt-8 sm:pt-12">
         <p className="cp-eyebrow">Información legal</p>
-        <h1 className="cp-display mt-2 text-[2.4rem] leading-tight">{personal ? "Aviso legal y privacidad" : "Aviso legal y condiciones"}</h1>
+        <h1 className="cp-display mt-2 text-[2.4rem] leading-tight">{sells ? "Aviso legal y condiciones" : "Aviso legal y privacidad"}</h1>
 
         {snapshot && (
           <p className="cp-card mt-6 px-4 py-3 text-sm">
-            <strong>{snapshot.personal ? "Versión aceptada al apuntarte" : "Versión aceptada en tu compra"}</strong> · en vigor desde el{" "}
+            <strong>{snapshot.personal && !snapshot.sales ? "Versión aceptada al apuntarte" : "Versión aceptada en tu compra"}</strong> · en vigor desde el{" "}
             {snapshot.createdAt.toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short", timeZone: creator.timezone })}. Es la copia exacta de lo que
             aceptaste; la versión actual puede ser distinta. <Link href={`/${username}/legal`} className="underline underline-offset-4">Ver la versión actual</Link>
           </p>
@@ -111,7 +123,7 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
               )}
             </section>
 
-            {!personal && (
+            {sells && (
               <>
                 <section id="condiciones" className="scroll-mt-20">
                   <h2 className="cp-display text-[1.8rem]">Condiciones de venta</h2>
@@ -148,7 +160,7 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
               <section id="otras-webs" className="scroll-mt-20">
                 <h2 className="cp-display text-[1.8rem]">Otras webs</h2>
                 <div className="mt-4">
-                  <LegalText text={PERSONAL_THIRD_PARTY_TEXT} />
+                  <LegalText text={sells ? PERSONAL_SALES_THIRD_PARTY_TEXT : PERSONAL_THIRD_PARTY_TEXT} />
                 </div>
               </section>
             )}

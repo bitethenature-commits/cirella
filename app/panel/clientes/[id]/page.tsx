@@ -4,7 +4,7 @@ import { ArrowLeft, Mail } from "lucide-react";
 import { isNoChargeOrder, NO_CHARGE_LABEL, type NoChargeProvider } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { formatMoney, formatPrice } from "@/lib/money";
-import { isPersonalMode } from "@/lib/site-mode";
+import { signupsOnly } from "@/lib/commerce";
 import { tenantDb } from "@/lib/tenant";
 import { orderStatusLabel } from "@/lib/refund-math";
 import { BOOKING_STATUS_LABEL } from "@/lib/types";
@@ -26,7 +26,7 @@ export default async function CustomerDetail({ params }: { params: Promise<{ id:
   if (!c) notFound();
   const courseIds = (await db.access.findMany({ where: { userId: c.userId, product: { type: "COURSE" } }, select: { productId: true, product: { select: { title: true, _count: { select: { lessons: true } } } } } }));
   const progress = await db.lessonProgress.groupBy({ by: ["productId"], where: { userId: c.userId }, _count: { _all: true } });
-  const personal = isPersonalMode();
+  const personal = signupsOnly();
   return (
     <div className="max-w-3xl">
       <Link href="/panel/clientes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> {personal ? "Personas" : "Clientes"}</Link>

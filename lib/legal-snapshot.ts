@@ -3,9 +3,10 @@ import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { LEGAL_TEMPLATE_VERSION, type LegalIdentity } from "./legal";
+import { currentLegalKind } from "./commerce";
 import { acceptedLegalDocs } from "./legal-templates";
+import { paymentProviderKeys } from "./payments";
 import { getSettings } from "./settings";
-import { isPersonalMode } from "./site-mode";
 import { tenantDb } from "./tenant";
 
 /** Lo que aceptó la compradora: identidad de la vendedora y textos exactos en ese momento. */
@@ -15,8 +16,10 @@ export type LegalSnapshotContent = {
   refunds: string;
   privacy: string;
   templateVersion: string;
-  /** Aceptada en la web personal: solo aviso legal y privacidad (la página legal la pinta así). */
+  /** Aceptada en la web personal: solo aviso legal y privacidad (la página legal la pinta así)… */
   personal?: boolean;
+  /** …salvo si la web personal cobra: entonces también sus condiciones de venta (sin plataforma). */
+  sales?: boolean;
 };
 
 /** Identidad campo a campo y en orden fijo: el hash depende del orden de las claves. */
@@ -39,12 +42,13 @@ export function legalIdentityOf(c: LegalIdentity): LegalIdentity {
  * cambiado desde la última compra se reutiliza la misma fila. La enlaza cada pedido
  * (Order.legalSnapshotId) y se puede ver en /{usuario}/legal?v={id}.
  * En la web personal guarda la privacidad que se ve allí (y la marca `personal`, que cambia el hash:
- * nunca reutiliza una versión de la plataforma).
+ * nunca reutiliza una versión de la plataforma) y, si cobra, sus condiciones de venta (marca `sales`).
  */
 export async function ensureLegalSnapshot(creatorId: string): Promise<{ id: string; content: LegalSnapshotContent }> {
   const [c, { platformName }] = await Promise.all([prisma.creator.findUniqueOrThrow({ where: { id: creatorId } }), getSettings()]);
-  const personal = isPersonalMode();
-  const docs = acceptedLegalDocs(c, platformName, personal);
+  const kind = currentLegalKind();
+  const personal = kind !== "platform";
+  const docs = acceptedLegalDocs(c, platformName, kind, paymentProviderKeys());
   const content: LegalSnapshotContent = {
     identity: legalIdentityOf(c),
     terms: docs.terms,
@@ -53,6 +57,7 @@ export async function ensureLegalSnapshot(creatorId: string): Promise<{ id: stri
     templateVersion: LEGAL_TEMPLATE_VERSION,
     // Solo en la web personal: las versiones de la plataforma conservan su hash de siempre.
     ...(personal ? { personal: true } : {}),
+    ...(kind === "personal-sales" ? { sales: true } : {}),
   };
   const hash = createHash("sha256").update(JSON.stringify(content)).digest("hex");
   const db = tenantDb(creatorId);

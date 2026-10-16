@@ -1,19 +1,31 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ownerRootRedirect, personalOwnerFromEnv } from "@/lib/personal-routing";
+import { isForeignCreatorPath, ownerRootRedirect, personalOwnerFromEnv } from "@/lib/personal-routing";
+
+/** Usuario que no existe en ninguna web (no tiene forma de usuario): su página siempre es un 404. */
+const NOT_FOUND_PATH = "/_no-existe";
 
 /**
- * Solo actúa en modo personal (SITE_MODE=personal): /<dueña> → «/», que es donde vive su página.
- * Va en el middleware (antes de la caché de páginas) para que nunca se sirva una copia cacheada
- * de /<dueña>. Redirección temporal (307): si un día la web vuelve a ser plataforma, el enlace
- * antiguo sigue funcionando. En modo plataforma no hace nada.
+ * Solo actúa en modo personal (SITE_MODE=personal). Va en el middleware (antes de la caché de
+ * páginas) para que nunca se sirva una copia cacheada:
+ *   · /<dueña> → «/», que es donde vive su página. Redirección temporal (307): si un día la web
+ *     vuelve a ser plataforma, el enlace antiguo sigue funcionando.
+ *   · /<otra usuaria>[/…] → 404 (la página de «no encontrado» de la web).
+ * En modo plataforma no hace nada.
  */
 export function middleware(req: NextRequest) {
-  const to = ownerRootRedirect(req.nextUrl.pathname, personalOwnerFromEnv(process.env.SITE_MODE, process.env.OWNER_USERNAME));
-  if (!to) return NextResponse.next();
+  const owner = personalOwnerFromEnv(process.env.SITE_MODE, process.env.OWNER_USERNAME);
+  if (!owner) return NextResponse.next();
   const url = req.nextUrl.clone();
+  if (isForeignCreatorPath(req.nextUrl.pathname, owner)) {
+    url.pathname = NOT_FOUND_PATH;
+    url.search = "";
+    return NextResponse.rewrite(url);
+  }
+  const to = ownerRootRedirect(req.nextUrl.pathname, owner);
+  if (!to) return NextResponse.next();
   url.pathname = to;
   return NextResponse.redirect(url);
 }
 
-// Solo rutas de un segmento (/ana, /panel…): el resto ni pasa por aquí.
-export const config = { matcher: ["/:username"] };
+// Todo menos los archivos internos de Next.
+export const config = { matcher: ["/((?!_next/).*)"] };

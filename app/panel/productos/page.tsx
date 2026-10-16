@@ -7,6 +7,7 @@ import { asAccessMode, externalHost } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { deliveryFacts, deliveryIssue } from "@/lib/delivery";
 import { formatPrice } from "@/lib/money";
+import { signupsOnly } from "@/lib/commerce";
 import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
@@ -39,9 +40,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   });
   const archived = await db.product.count({ where: { status: "ARCHIVED" } });
   const max = creator.plan.maxProducts;
-  // Web personal: sin planes, y lo que se cobraba en la web no se ve (la ficha da 404).
+  // Web personal: sin planes, y si no cobra, lo que se cobraba en la web no se ve (la ficha da 404).
   const personal = isPersonalMode();
-  const hidden = (p: { accessMode: string }) => personal && asAccessMode(p.accessMode) === "PAID";
+  const onlySignups = signupsOnly();
+  const hidden = (p: { accessMode: string }) => onlySignups && asAccessMode(p.accessMode) === "PAID";
   const count = `${products.length} ${products.length === 1 ? "producto" : "productos"}`;
 
   return (

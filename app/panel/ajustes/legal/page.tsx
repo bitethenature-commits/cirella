@@ -8,7 +8,9 @@ import { requireCreator } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { creatorLegalHref } from "@/lib/legal";
 import { legalIdentityOf } from "@/lib/legal-snapshot";
-import { currentLegalDocs, currentPersonalPrivacy } from "@/lib/legal-templates";
+import { currentLegalKind } from "@/lib/commerce";
+import { acceptedLegalDocs } from "@/lib/legal-templates";
+import { paymentProviderKeys } from "@/lib/payments";
 import { getSettings } from "@/lib/settings";
 import { isPersonalMode } from "@/lib/site-mode";
 import { PageHeader } from "../../ui";
@@ -23,10 +25,11 @@ export default async function LegalSettingsPage({ searchParams }: { searchParams
   const sp = await searchParams;
   // Se lee la fila actual: la de la sesión puede ser anterior al último guardado.
   const [creator, { platformName }] = await Promise.all([prisma.creator.findUniqueOrThrow({ where: { id: session.id } }), getSettings()]);
-  const docs = currentLegalDocs(creator, platformName);
-  // Modo personal: aquí no se vende nada; solo aviso legal y privacidad (con su propia plantilla).
+  // Modo personal sin cobros: aquí no se vende nada; solo aviso legal y privacidad (con su propia
+  // plantilla). Si cobra, sus condiciones de venta (sin plataforma) además.
+  const kind = currentLegalKind();
   const personal = isPersonalMode();
-  if (personal) docs.privacy = currentPersonalPrivacy(creator);
+  const docs = acceptedLegalDocs(creator, platformName, kind, paymentProviderKeys());
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -59,7 +62,7 @@ export default async function LegalSettingsPage({ searchParams }: { searchParams
 
       <section className="card space-y-4 p-5 sm:p-6">
         <div>
-          <h2 className="flex items-center gap-2 font-semibold"><FileText className="h-4 w-4" /> {personal ? "Tu política de privacidad" : "Tus condiciones y políticas"}</h2>
+          <h2 className="flex items-center gap-2 font-semibold"><FileText className="h-4 w-4" /> {kind === "personal" ? "Tu política de privacidad" : "Tus condiciones y políticas"}</h2>
           <p className="mt-1 text-sm text-muted">
             Partimos de plantillas pensadas para España. Puedes adaptarlas; te recomendamos revisarlas con tu asesoría. Lo que escribas aquí es responsabilidad tuya.
           </p>
@@ -67,7 +70,7 @@ export default async function LegalSettingsPage({ searchParams }: { searchParams
         <LegalDocsEditor
           docs={docs}
           custom={{ terms: creator.legalTerms !== null, refunds: creator.legalRefunds !== null, privacy: creator.legalPrivacy !== null }}
-          only={personal ? ["privacy"] : undefined}
+          only={kind === "personal" ? ["privacy"] : undefined}
         />
       </section>
     </div>

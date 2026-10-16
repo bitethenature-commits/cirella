@@ -48,6 +48,8 @@ type Props = {
   discountCodes: PublicDiscountCode[];
   /** Web personal: sin «Powered by» ni planes. */
   personal: boolean;
+  /** Web personal sin cobros: lo que se cobraba en la web no se ve. */
+  signupsOnly?: boolean;
   /** Dirección de la web (APP_URL): la vista previa quita los mismos enlaces que la página publicada. */
   siteOrigin?: string;
   templates: TemplateKey[];
@@ -104,8 +106,8 @@ export function PageEditor(props: Props) {
   const [pending, start] = useTransition();
   const [busyAction, setBusyAction] = useState<"save" | "publish" | "preview" | null>(null);
   const router = useRouter();
-  // «Orden de productos»: lo que se ve en la página (en la web personal, sin lo que se cobraba en la web).
-  const orderable = props.personal ? props.products.filter((p) => (p.accessMode ?? "PAID") !== "PAID") : props.products;
+  // «Orden de productos»: lo que se ve en la página (en la web personal sin cobros, sin lo que se cobraba en la web).
+  const orderable = props.signupsOnly ? props.products.filter((p) => (p.accessMode ?? "PAID") !== "PAID") : props.products;
 
   const dirty = JSON.stringify(cfg) !== saved;
   const unpublished = JSON.stringify(cfg) !== publishedJson;
@@ -159,6 +161,7 @@ export function PageEditor(props: Props) {
         postCount={props.postCount}
         discountCodes={props.discountCodes}
         personal={props.personal}
+        signupsOnly={props.signupsOnly}
         siteOrigin={props.siteOrigin}
         allowCustom={props.allowCustom}
         showPoweredBy={!props.personal && !(props.allowRemoveBranding && cfg.hidePoweredBy)}

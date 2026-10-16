@@ -51,7 +51,7 @@ export default async function CreatorLoginPage({
   const notice = sp.motivo && Object.hasOwn(motivos, sp.motivo) ? motivos[sp.motivo] : null;
 
   return (
-    <CreatorShell username={data.creator.username} config={data.config} allowCustom={data.allowCustom} personal={data.personal}>
+    <CreatorShell username={data.creator.username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly}>
       <main className="mx-auto max-w-md px-5 pb-20 pt-12">
         <h1 className="cp-display text-[2.6rem] leading-tight">Entra a tu área</h1>
         <p className="cp-muted mt-3 text-[1.02rem]">

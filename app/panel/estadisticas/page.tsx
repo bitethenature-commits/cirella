@@ -3,7 +3,7 @@ import { requireCreator } from "@/lib/auth";
 import { SOURCE_LABEL, type Source } from "@/lib/analytics";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import { planFeatures } from "@/lib/plans";
-import { isPersonalMode } from "@/lib/site-mode";
+import { signupsOnly } from "@/lib/commerce";
 import { getAdvancedStats, getDashboardStats, parseRange } from "@/lib/stats";
 import { Locked, PageHeader, RangeTabs, Stat } from "../ui";
 
@@ -20,8 +20,9 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
     );
   const [s, adv] = await Promise.all([getDashboardStats(creator.id, range, creator.timezone), getAdvancedStats(creator.id, range, creator.timezone)]);
   const advanced = f.analytics === "advanced";
-  // Modo personal: aquí no hay ventas; el final del recorrido son las inscripciones y los clics al botón.
-  const personal = isPersonalMode();
+  // Modo personal sin cobros: aquí no hay ventas; el final del recorrido son las inscripciones y los
+  // clics al botón. Si cobra, las estadísticas de siempre.
+  const personal = signupsOnly();
   const first = adv.funnel[0].value || 1;
   return (
     <div className="space-y-6">

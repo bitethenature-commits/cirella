@@ -28,6 +28,7 @@ export default async function SupportPage() {
     prisma.customer.findMany({ where: { userId: user.id }, include: { creator: true } }),
     getSettings(),
   ]);
+  // Web personal (cobre o no): sin plataforma aparte, para todo se escribe a la dueña.
   const personal = isPersonalMode();
   return (
     <div className="max-w-2xl">

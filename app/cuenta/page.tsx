@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/ui/empty";
 import { requireBuyerFull } from "@/lib/buyer-access";
 import { getCustomerLibrary } from "@/lib/customer";
 import { formatPrice } from "@/lib/money";
-import { isPersonalMode } from "@/lib/site-mode";
+import { signupsOnly } from "@/lib/commerce";
 import { capitalize, formatSessionDate, formatDate } from "@/lib/tz";
 import { freeMemberships } from "./free-memberships";
 import { CreatorTag, Progress, SectionHeader, Thumb } from "./ui";
@@ -19,7 +19,7 @@ export default async function AccountHome() {
   const free = await freeMemberships(user.id);
   const nothing = !lib.courses.length && !lib.digital.length && !lib.upcoming.length && !lib.memberships.length && !lib.past.length && !free.length;
   // Web personal: aquí no se compra, se consigue gratis o se paga fuera.
-  const personal = isPersonalMode();
+  const personal = signupsOnly();
 
   return (
     <div className="space-y-12">

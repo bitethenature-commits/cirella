@@ -150,6 +150,121 @@ Los enlaces y los códigos de descuento de otras marcas llevan a webs que no son
 ## Productos de pago
 Los productos de pago se compran en la web que indica su ficha (por ejemplo Hotmart, PayPal o Calendly). Las condiciones de venta, los pagos, los reembolsos y las facturas son los de esa compra.`;
 
+/** El mismo aviso en la web personal que cobra: solo lo que se compra fuera va por su cuenta. */
+export const PERSONAL_SALES_THIRD_PARTY_TEXT = `## Enlaces y códigos de descuento
+Los enlaces y los códigos de descuento de otras marcas llevan a webs que no son de esta página: cada una tiene sus propias condiciones y su propia política de privacidad. Algunos pueden ser enlaces de afiliación: si compras con ellos, puede que se reciba una comisión, sin que te cueste nada más.
+
+## Productos que se compran en otra web
+Si la ficha de un producto lleva a otra web para pagar o reservar (por ejemplo Calendly), las condiciones de venta, los pagos, los reembolsos y las facturas de esa compra son los de esa web.`;
+
+/**
+ * Cómo se paga en la web personal, según las pasarelas activas (lib/payments): «tarjeta (también
+ * Apple Pay y Google Pay), a través de Stripe, o PayPal».
+ */
+export function personalPaymentMethodsText(keys: readonly string[]): string {
+  const parts: string[] = [];
+  if (keys.includes("stripe") || keys.includes("simulated")) parts.push("con tarjeta (también Apple Pay y Google Pay) a través de Stripe");
+  if (keys.includes("paypal")) parts.push("con PayPal");
+  return parts.length ? parts.join(" o ") : "con los medios de pago que se indican al comprar";
+}
+
+/** Quién procesa los pagos (privacidad de la web personal que cobra). */
+function personalProcessorsText(keys: readonly string[]): string {
+  const names = [keys.includes("stripe") || keys.includes("simulated") ? "Stripe" : null, keys.includes("paypal") ? "PayPal" : null].filter(Boolean);
+  if (!names.length) return "Los pagos los procesan pasarelas de pago seguras";
+  return `Los pagos los procesa${names.length > 1 ? "n" : ""} ${names.join(" y ")}`;
+}
+
+/**
+ * Modo personal con cobros en la web (la dueña vende con sus propias cuentas de Stripe y/o PayPal,
+ * sin plataforma de por medio): condiciones de venta, cambios y reembolsos y privacidad.
+ * BORRADOR igual que el resto: revisar con una asesoría de consumo y protección de datos.
+ */
+export function renderPersonalSalesTemplates(i: { displayName: string; changeNoticeHours: number; paymentKeys: readonly string[] }): CreatorLegalDocs {
+  const methods = personalPaymentMethodsText(i.paymentKeys);
+  const terms = `## 1. Quién vende
+Estas condiciones regulan las compras en la web de ${i.displayName}. La vendedora es la titular identificada en el aviso legal.
+
+## 2. Productos y precios
+Cada ficha describe qué incluye el producto. Los precios se muestran en euros e incluyen los impuestos aplicables, que se detallan en el resumen de la compra.
+
+## 3. Cómo se compra
+El contrato se perfecciona cuando se confirma el pago. Recibirás por email la confirmación con estas condiciones.
+
+## 4. Pago
+Se paga ${methods}, en sus páginas seguras. En esta web no se guardan los datos de tu tarjeta ni de tu cuenta de PayPal. Las membresías se renuevan con el mismo medio de pago con el que te uniste.
+
+## 5. Entrega
+• Productos digitales: acceso inmediato en tu área de cliente.
+• Productos que la vendedora prepara para ti: te llegan en el plazo y por el medio indicados en la ficha. Mientras no los recibas, puedes desistir.
+• Cursos: acceso de por vida mientras el curso exista.
+• Sesiones: por videollamada en la fecha reservada.
+• Membresías: se renuevan automáticamente y puedes cancelarlas desde tu cuenta; mantienes el acceso hasta el final del periodo pagado.
+
+## 6. Desistimiento, cambios y reembolsos
+Consulta la sección «Cambios y reembolsos».
+
+## 7. Atención y reclamaciones
+Escribe al email del aviso legal. Responderemos en un máximo de 30 días.
+
+## 8. Ley aplicable
+Si eres consumidora, conservas siempre la protección que te dan las leyes de tu país de residencia y puedes reclamar ante los tribunales de tu domicilio.`;
+
+  const refunds = renderCreatorLegalTemplates({
+    identity: {} as LegalIdentity,
+    displayName: i.displayName,
+    platformName: "",
+    changeNoticeHours: i.changeNoticeHours,
+  }).refunds;
+
+  const privacy = `## Qué datos
+Tu nombre y tu email; tus compras, reservas y membresías; los contenidos a los que tienes acceso y tu progreso en los cursos; el país que indicas al pagar (para calcular los impuestos); los datos fiscales que escribas si pides factura, y los mensajes que envíes.
+
+## Para qué y con qué base
+• Gestionar tu compra o tu reserva, darte acceso y enviarte el enlace para entrar: ejecución del contrato.
+• Darte acceso a los contenidos gratuitos que pides: ejecución de lo que solicitas.
+• Cumplir las obligaciones legales y fiscales (facturas, impuestos): obligación legal.
+• Recordarte una vez una compra que dejaste a medias: interés legítimo. Puedes oponerte en cualquier momento.
+• Enviarte novedades, solo si marcas la casilla: consentimiento. Puedes retirarlo cuando quieras desde el enlace de cada email o desde tu cuenta.
+• Contar las visitas de la página de forma agregada y anónima, sin cookies: interés legítimo.
+
+## Pagos
+${personalProcessorsText(i.paymentKeys)} como responsables independientes, con su propia política de privacidad. Aquí no se guardan los datos de tu tarjeta ni de tu cuenta de PayPal.
+
+## Proveedores
+Para alojar la web, guardar los archivos y enviar los emails se usan proveedores tecnológicos que tratan los datos solo por encargo y con las garantías del Reglamento General de Protección de Datos. Si alguno está fuera del Espacio Económico Europeo, la transferencia se hace con esas garantías (cláusulas contractuales tipo o el Marco de Privacidad de Datos UE-EE. UU.).
+
+## Cuánto tiempo
+Los datos de las compras, el tiempo que exigen las obligaciones mercantiles y fiscales (en general, 6 años). El resto, mientras mantengas el acceso a los contenidos o hasta que pidas que se borren tus datos. Los de las novedades, hasta que retires tu consentimiento.
+
+## Tus derechos
+Puedes pedir el acceso, la rectificación, la supresión, la oposición, la limitación y la portabilidad de tus datos escribiendo al email del aviso legal. También puedes reclamar ante la autoridad de protección de datos de tu país (en España, la Agencia Española de Protección de Datos, www.aepd.es).`;
+
+  return { terms, refunds, privacy };
+}
+
+/** Textos vigentes de la web personal que cobra: los personalizados por la dueña o, si no, la plantilla. */
+export function currentPersonalSalesDocs(
+  c: { displayName: string; legalTerms: string | null; legalRefunds: string | null; legalPrivacy: string | null },
+  paymentKeys: readonly string[],
+  changeNoticeHours: number = SESSION_CHANGE_NOTICE_HOURS,
+): CreatorLegalDocs {
+  const t = renderPersonalSalesTemplates({ displayName: c.displayName, changeNoticeHours, paymentKeys });
+  return { terms: c.legalTerms ?? t.terms, refunds: c.legalRefunds ?? t.refunds, privacy: c.legalPrivacy ?? t.privacy };
+}
+
+/**
+ * Qué textos legales tiene una página:
+ *   · platform: condiciones, reembolsos y privacidad de la plataforma (vende la creadora, Cirella de por medio);
+ *   · personal: web personal sin cobros, solo aviso legal y privacidad;
+ *   · personal-sales: web personal que cobra con sus propias cuentas (condiciones sin plataforma).
+ */
+export type LegalKind = "platform" | "personal" | "personal-sales";
+
+export function legalKind(personal: boolean, paymentKeys: readonly string[]): LegalKind {
+  return !personal ? "platform" : paymentKeys.length ? "personal-sales" : "personal";
+}
+
 /** Privacidad vigente en modo personal: la personalizada por la dueña o, si no, la plantilla. */
 export function currentPersonalPrivacy(c: { displayName: string; legalPrivacy: string | null }): string {
   return c.legalPrivacy ?? renderPersonalPrivacy({ displayName: c.displayName });
@@ -157,15 +272,18 @@ export function currentPersonalPrivacy(c: { displayName: string; legalPrivacy: s
 
 /**
  * Textos que se guardan como versión aceptada (LegalSnapshot): los mismos que enseña la página
- * legal. En la web personal, solo la privacidad personal (aquí no se vende nada: sin condiciones de
- * venta ni reembolsos, y sin plataforma ni pasarela de pago).
+ * legal. En la web personal sin cobros, solo la privacidad personal (aquí no se vende nada: sin
+ * condiciones de venta ni reembolsos, y sin plataforma ni pasarela de pago); si cobra, sus
+ * condiciones de venta sin plataforma.
  */
 export function acceptedLegalDocs(
   c: LegalIdentity & { displayName: string; legalTerms: string | null; legalRefunds: string | null; legalPrivacy: string | null },
   platformName: string,
-  personal: boolean,
+  kind: LegalKind,
+  paymentKeys: readonly string[] = [],
 ): CreatorLegalDocs {
-  if (personal) return { terms: "", refunds: "", privacy: currentPersonalPrivacy(c) };
+  if (kind === "personal") return { terms: "", refunds: "", privacy: currentPersonalPrivacy(c) };
+  if (kind === "personal-sales") return currentPersonalSalesDocs(c, paymentKeys);
   return currentLegalDocs(c, platformName);
 }
 

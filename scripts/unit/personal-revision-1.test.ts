@@ -89,7 +89,7 @@ const creator: LegalIdentity & { displayName: string; legalTerms: string | null;
 };
 
 test("acceptedLegalDocs: en la web personal guarda la privacidad personal, sin condiciones de venta", () => {
-  const docs = acceptedLegalDocs(creator, "Cirella", true);
+  const docs = acceptedLegalDocs(creator, "Cirella", "personal");
   eq(docs.terms, "");
   eq(docs.refunds, "");
   eq(docs.privacy, currentPersonalPrivacy(creator));
@@ -97,9 +97,9 @@ test("acceptedLegalDocs: en la web personal guarda la privacidad personal, sin c
 });
 
 test("acceptedLegalDocs: la privacidad personalizada por la dueña es la que se guarda", () => {
-  eq(acceptedLegalDocs({ ...creator, legalPrivacy: "Mi privacidad" }, "Cirella", true).privacy, "Mi privacidad");
+  eq(acceptedLegalDocs({ ...creator, legalPrivacy: "Mi privacidad" }, "Cirella", "personal").privacy, "Mi privacidad");
 });
 
 test("acceptedLegalDocs: en la plataforma, los textos de siempre", () => {
-  eq(acceptedLegalDocs(creator, "Cirella", false), currentLegalDocs(creator, "Cirella"));
+  eq(acceptedLegalDocs(creator, "Cirella", "platform"), currentLegalDocs(creator, "Cirella"));
 });

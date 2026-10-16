@@ -46,8 +46,10 @@ export type PanelNavItem = (typeof PANEL_NAV)[number];
  * cliente como datos simples: los iconos no se pueden pasar del servidor al cliente.
  */
 export type PanelNavFlags = {
-  /** Modo personal: web de una sola dueña, sin cobros ni planes. */
+  /** Modo personal: web de una sola dueña, sin planes. */
   personal: boolean;
+  /** Modo personal que cobra en la web (Stripe/PayPal): «Ventas» en vez de «Inscripciones». */
+  sales?: boolean;
   /** Enseñar «Reservas» (en modo personal, solo si hay sesiones que se reservan aquí). */
   showBookings: boolean;
 };
@@ -81,13 +83,17 @@ const PERSONAL_MOBILE_NAV: PanelNavItem[] = [
   { href: "/panel/mas", label: "Más", icon: Menu },
 ];
 
+/** En la web personal que cobra, «Inscripciones» vuelve a ser «Ventas» (incluye también las inscripciones). */
+const withSalesLabel = (items: PanelNavItem[], sales?: boolean) =>
+  sales ? items.map((i) => (i.href === "/panel/ventas" ? { ...i, label: "Ventas", icon: Receipt } : i)) : items;
+
 /** Menú completo (barra lateral y /panel/mas). En la plataforma, el de siempre. */
 export function panelNav(flags: PanelNavFlags): PanelNavItem[] {
   if (!flags.personal) return PANEL_NAV;
-  return PERSONAL_NAV.filter((i) => flags.showBookings || i.href !== "/panel/reservas");
+  return withSalesLabel(PERSONAL_NAV.filter((i) => flags.showBookings || i.href !== "/panel/reservas"), flags.sales);
 }
 
 /** Barra inferior del móvil (4 accesos + «Más»). */
 export function mobileNav(flags: PanelNavFlags): PanelNavItem[] {
-  return flags.personal ? PERSONAL_MOBILE_NAV : MOBILE_NAV;
+  return flags.personal ? withSalesLabel(PERSONAL_MOBILE_NAV, flags.sales) : MOBILE_NAV;
 }

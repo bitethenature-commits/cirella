@@ -82,9 +82,9 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   // Cómo se consigue (lib/access-mode.ts): pago aquí, gratis con email o pago en otra web.
   const accessMode = asAccessMode(p.accessMode);
   const personalSite = isPersonalMode();
-  // En la web personal nada se cobra aquí: un producto de pago en la web no se ofrece.
-  if (personalSite && accessMode === "PAID" && !isOwner) notFound();
-  const paid = accessMode === "PAID" && !personalSite;
+  // En la web personal sin cobros nada se cobra aquí: un producto de pago en la web no se ofrece.
+  if (data.signupsOnly && accessMode === "PAID" && !isOwner) notFound();
+  const paid = accessMode === "PAID" && !data.signupsOnly;
   const free = accessMode === "FREE_EMAIL";
   const external = accessMode === "EXTERNAL" && !!p.externalUrl;
   const externalSite = external ? externalHost(p.externalUrl) : null;
@@ -167,7 +167,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   );
 
   return (
-    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} sellerName={paid && (creator.legalName || seller.platformSells) ? seller.name : null}>
+    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} sellerName={paid && (creator.legalName || seller.platformSells) ? seller.name : null}>
       <main className="mx-auto max-w-5xl px-4 pb-36 pt-4 md:grid md:grid-cols-[1.1fr_0.9fr] md:gap-10 md:pb-20 md:pt-10">
         <div>
           <div className="cp-card relative aspect-[4/3] overflow-hidden">
@@ -187,9 +187,9 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           ) : external && externalSite ? (
             <p className={`cp-muted text-xs ${showPrice ? "" : "mt-6"}`}>Pago en {externalSite}</p>
           ) : null}
-          {personalSite && accessMode === "PAID" && (
+          {data.signupsOnly && accessMode === "PAID" && (
             <p className="mt-4 rounded-xl px-3 py-2.5 text-sm" style={{ background: "var(--c-line)" }}>
-              Solo lo ves tú: en tu web los productos no se cobran aquí. Edítalo y elige «Gratis con email» o «Pago en otra web» para mostrarlo.
+              Solo lo ves tú: tu web no tiene activados los cobros. Edítalo y elige «Gratis con email» o «Pago en otra web» para mostrarlo.
             </p>
           )}
           {paid && (creator.legalName || seller.platformSells) && (

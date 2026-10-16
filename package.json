@@ -35,6 +35,7 @@
     "test:startup": "tsx scripts/startup-guard-test.ts",
     "test:optout": "tsx --conditions=react-server scripts/optout-test.ts",
     "test:free-access": "tsx --conditions=react-server scripts/free-access-test.ts",
+    "test:personal-sales": "tsx --conditions=react-server scripts/personal-sales-test.ts",
     "test:revision": "for f in scripts/revision-*-test.ts; do echo \"── $f\"; tsx --conditions=react-server \"$f\" || exit 1; done",
     "test:e2e": "playwright test"
   },

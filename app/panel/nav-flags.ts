@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { hasPaymentProvider } from "@/lib/payments";
 import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
 import { PLATFORM_NAV_FLAGS, type PanelNavFlags } from "./nav-items";
@@ -16,5 +17,5 @@ export const panelNavFlags = cache(async (creatorId: string): Promise<PanelNavFl
     db.product.count({ where: { type: "SESSION", status: { not: "ARCHIVED" }, accessMode: { not: "EXTERNAL" } } }),
     db.booking.count({ where: { OR: [{ status: "PENDING_SCHEDULE" }, { status: "CONFIRMED", startAt: { gte: new Date() } }] } }),
   ]);
-  return { personal: true, showBookings: internalSessions + upcoming > 0 };
+  return { personal: true, sales: hasPaymentProvider(), showBookings: internalSessions + upcoming > 0 };
 });

@@ -5,7 +5,7 @@
  * process.env y decide aquí. La regla del modo es la misma que resolveSiteMode: «personal» solo si
  * se pide expresamente; cualquier otro valor es la plataforma.
  */
-import { normalizeUsername } from "./slug";
+import { normalizeUsername, RESERVED_USERNAMES, USERNAME_RE } from "./slug";
 
 /** Usuario de la dueña si la web está en modo personal; null en la plataforma o si falta. */
 export function personalOwnerFromEnv(siteMode: string | undefined, ownerUsername: string | undefined): string | null {
@@ -29,6 +29,25 @@ export function ownerRootRedirect(pathname: string, owner: string | null): strin
     return null;
   }
   return normalizeUsername(first) === owner ? "/" : null;
+}
+
+/**
+ * En modo personal, ¿la ruta es la página (o un producto, la página legal, la imagen…) de otra
+ * usuaria? Su primer tramo tiene forma de usuario, no es una ruta de la web (RESERVED_USERNAMES) ni
+ * la dueña. El middleware la responde con un 404 antes de la caché de páginas: así nunca se sirve
+ * una copia cacheada de cuando la web era plataforma (o de otro servidor con la misma compilación).
+ */
+export function isForeignCreatorPath(pathname: string, owner: string | null): boolean {
+  if (!owner) return false;
+  const first = pathname.split("/").filter(Boolean)[0];
+  if (!first) return false;
+  let seg: string;
+  try {
+    seg = normalizeUsername(decodeURIComponent(first));
+  } catch {
+    return false;
+  }
+  return seg !== owner && !RESERVED_USERNAMES.has(seg) && USERNAME_RE.test(seg);
 }
 
 /** ¿Este usuario puede tener página pública en esta web? En modo personal, solo la dueña. */

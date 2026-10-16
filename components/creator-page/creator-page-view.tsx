@@ -102,20 +102,22 @@ type Props = {
   postCount?: number;
   /** Códigos de descuento visibles (sección «Códigos de descuento»). */
   discountCodes?: PublicDiscountCode[];
-  /**
-   * Web personal (SITE_MODE=personal): nada se cobra aquí, así que no se enseñan los productos de
-   * pago en la web, ni «Powered by», ni las condiciones de venta en el pie.
-   */
+  /** Web personal (SITE_MODE=personal): sin «Powered by». */
   personal?: boolean;
+  /**
+   * Web personal sin cobros (PAYMENT_PROVIDER=none): nada se cobra aquí, así que no se enseñan los
+   * productos de pago en la web ni las condiciones de venta en el pie.
+   */
+  signupsOnly?: boolean;
   /** Dirección de la web (APP_URL), para reconocer los enlaces absolutos a sus propios productos. */
   siteOrigin?: string;
 };
 
 export function CreatorPageView(props: Props) {
-  const { config, username, preview, personal } = props;
-  const products = personal ? props.products.filter((p) => (p.accessMode ?? "PAID") !== "PAID") : props.products;
-  // Ni un botón hacia lo que no se ve: en la web personal, un enlace a un producto oculto daría 404.
-  const hiddenSlugs = new Set(personal ? props.products.filter((p) => (p.accessMode ?? "PAID") === "PAID").map((p) => p.slug.toLowerCase()) : []);
+  const { config, username, preview, personal, signupsOnly } = props;
+  const products = signupsOnly ? props.products.filter((p) => (p.accessMode ?? "PAID") !== "PAID") : props.products;
+  // Ni un botón hacia lo que no se ve: en la web personal sin cobros, un enlace a un producto oculto daría 404.
+  const hiddenSlugs = new Set(signupsOnly ? props.products.filter((p) => (p.accessMode ?? "PAID") === "PAID").map((p) => p.slug.toLowerCase()) : []);
   const links = config.links.filter((l) => !linksToProduct(l.url, username, hiddenSlugs, props.siteOrigin));
   const posts = props.posts ?? [];
   const codes = props.discountCodes ?? [];
@@ -389,7 +391,7 @@ export function CreatorPageView(props: Props) {
           <Link href={`/${username}/entrar?next=%2Fcuenta`} className="cp-muted underline-offset-4 hover:underline">
             {personal ? "¿Ya tienes acceso? Entra en tu área" : "¿Ya compraste? Accede a tu área de cliente"}
           </Link>
-          <LegalLinks username={username} sellerName={props.sellerName} personal={personal} />
+          <LegalLinks username={username} sellerName={props.sellerName} signupsOnly={signupsOnly} />
           {props.showPoweredBy && !personal && (
             <a
               href={`/?ref=${props.referralCode ?? ""}&utm_source=powered_by`}

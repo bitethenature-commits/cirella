@@ -53,6 +53,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
         s={s}
         timezone={creator.timezone}
         showBookings={flags.showBookings}
+        sales={!!flags.sales}
         checklist={steps}
         deliveryIssues={deliveryIssues}
         freeBlocked={freeBlocked}
@@ -288,6 +289,7 @@ function PersonalHome({
   s,
   timezone,
   showBookings,
+  sales,
   checklist,
   deliveryIssues,
   freeBlocked,
@@ -298,6 +300,8 @@ function PersonalHome({
   s: Stats;
   timezone: string;
   showBookings: boolean;
+  /** La web cobra (Stripe/PayPal): ingresos y ventas además de visitas e inscripciones. */
+  sales: boolean;
   checklist: ChecklistItem[];
   deliveryIssues: DeliveryIssues;
   freeBlocked: boolean;
@@ -342,10 +346,21 @@ function PersonalHome({
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Visitas" value={formatNumber(s.pageViews)} hint={`${formatNumber(s.productViews)} vistas de producto`} accent />
-        <Stat label="Personas distintas" value={formatNumber(s.uniqueVisitors)} hint="Medidas sin cookies" />
-        <Stat label="Inscripciones" value={formatNumber(s.signups)} hint={`${formatPercent(s.signupConversion)} de las visitas`} />
-        <Stat label="Clientes" value={formatNumber(range === "all" ? s.totalCustomers : s.newCustomers)} hint={range === "all" ? "En total" : `${s.totalCustomers} en total`} />
+        {sales ? (
+          <>
+            <Stat label="Ingresos" value={formatMoney(s.revenue)} hint="IVA incluido, antes de las comisiones de Stripe y PayPal" accent />
+            <Stat label="Ventas" value={formatNumber(s.sales)} hint="Productos vendidos" />
+            <Stat label="Inscripciones" value={formatNumber(s.signups)} hint={`${formatPercent(s.signupConversion)} de las visitas`} />
+            <Stat label="Visitas" value={formatNumber(s.pageViews)} hint={`${formatNumber(s.uniqueVisitors)} personas distintas`} />
+          </>
+        ) : (
+          <>
+            <Stat label="Visitas" value={formatNumber(s.pageViews)} hint={`${formatNumber(s.productViews)} vistas de producto`} accent />
+            <Stat label="Personas distintas" value={formatNumber(s.uniqueVisitors)} hint="Medidas sin cookies" />
+            <Stat label="Inscripciones" value={formatNumber(s.signups)} hint={`${formatPercent(s.signupConversion)} de las visitas`} />
+            <Stat label="Clientes" value={formatNumber(range === "all" ? s.totalCustomers : s.newCustomers)} hint={range === "all" ? "En total" : `${s.totalCustomers} en total`} />
+          </>
+        )}
       </div>
 
       <div className={`grid gap-4 ${showBookings ? "lg:grid-cols-[1.4fr_1fr]" : ""}`}>

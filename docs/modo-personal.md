@@ -1,7 +1,9 @@
 # Tu web personal con Cirella («modo personal»)
 
 Esta guía es para poner Cirella en internet **solo para ti**: una única web, tu enlace de la bio,
-sin comisiones, sin planes, sin IVA y sin cobros dentro de la web. Está escrita para hacerla sin
+sin comisiones ni planes. Primero la publicas sin cobros dentro de la web y, cuando quieras,
+activas los cobros con tarjeta (Stripe) y PayPal con tus propias cuentas
+([cobros-stripe-paypal.md](cobros-stripe-paypal.md)). Está escrita para hacerla sin
 saber programar. Calcula **una tarde** la primera vez y ve paso a paso: cada apartado termina
 con una comprobación para que sepas que va bien.
 
@@ -18,7 +20,10 @@ con una comprobación para que sepas que va bien.
   descuento. Es el enlace que pones en Instagram, TikTok o Telegram.
 - **Cursos y contenidos gratis con email**: la persona deja su nombre y su email, entra al
   momento y le llega un email con su enlace de acceso.
-- **Productos de pago que se cobran fuera** (Hotmart, PayPal, Bizum, Calendly…): la ficha
+- **Cobros en tu web con tarjeta y PayPal** (cuando los actives, con tus cuentas de Stripe y
+  PayPal): cursos, descargas, lecturas con fecha y membresías que se pagan aquí y se desbloquean
+  solas, con su email, renovaciones y reembolsos ([cobros-stripe-paypal.md](cobros-stripe-paypal.md)).
+- **Productos de pago que se cobran fuera** (Hotmart, Calendly…): la ficha
   enseña el precio y un botón que lleva a esa web. Si el contenido está alojado aquí (por ejemplo
   un curso), desde tu panel le das acceso a quien te haya pagado.
 - **Publicaciones con fecha** (novedades, tipo blog) y **códigos de descuento** de otras marcas,
@@ -26,9 +31,9 @@ con una comprobación para que sepas que va bien.
 - **Tu panel** (`/panel`) para gestionarlo todo desde el móvil, y una **administración** mínima
   (`/admin`) para ver si algún email no ha llegado.
 
-Lo que **no** hay en modo personal: registro de otras creadoras, planes, comisiones, IVA,
-facturas, Stripe, el «Powered by Cirella» ni las páginas legales de la plataforma. Tu web enseña
-tu nombre (el de tu página) en todas partes.
+Lo que **no** hay en modo personal: registro de otras creadoras, planes, comisiones de la web,
+el «Powered by Cirella» ni las páginas legales de la plataforma. Tu web enseña tu nombre (el de tu
+página) en todas partes. El IVA y las facturas solo aparecen si activas los cobros en tu web.
 
 ---
 
@@ -241,7 +246,7 @@ se conecta el código.
    | `OWNER_USERNAME` | tu usuario (paso «Antes de empezar»), p. ej. `analuna` |
    | `OWNER_EMAIL` | tu email: con él entrarás en tu panel (paso 7) |
    | `OWNER_NAME` | tu nombre, el que se verá en tu página (lo puedes cambiar después) |
-   | `PAYMENT_PROVIDER` | `none` |
+   | `PAYMENT_PROVIDER` | `none` (sin cobros en la web; cuando tengas Stripe y PayPal, `stripe,paypal`: ver [cobros-stripe-paypal.md](cobros-stripe-paypal.md)) |
    | `DEMO_MODE` | `false` |
    | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}`, escrito tal cual |
    | `DIRECT_URL` | `${{Postgres.DATABASE_URL}}`, la misma |
@@ -264,7 +269,8 @@ se conecta el código.
    - `CLIENT_IP_HEADER` le dice a la web dónde mira Railway la dirección (IP) de cada visita;
      Railway la pone siempre él mismo, así que nadie la puede falsear. Sirve para frenar a
      quien intente adivinar contraseñas.
-   - No hacen falta las claves de Stripe ni de Turnstile.
+   - Con `PAYMENT_PROVIDER="none"` no hacen falta las claves de Stripe, PayPal ni Turnstile. Los
+     cobros se activan después, cuando quieras ([cobros-stripe-paypal.md](cobros-stripe-paypal.md)).
    - El archivo `vercel.json` que hay en el código es para otro hosting: Railway no lo usa y no
      hay que tocarlo.
 

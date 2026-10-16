@@ -14,6 +14,7 @@ export function CreatorShell({
   back = true,
   sellerName,
   personal = false,
+  signupsOnly = false,
 }: {
   username: string;
   /** Solo lo que pinta la cabecera y el tema (también lo usan las páginas de error, en cliente). */
@@ -23,8 +24,10 @@ export function CreatorShell({
   back?: boolean;
   /** Nombre fiscal de quien vende, para el pie («Vende: …»). */
   sellerName?: string | null;
-  /** Web personal: la página de la dueña es la portada («/») y el pie no lleva condiciones de venta. */
+  /** Web personal: la página de la dueña es la portada («/»). */
   personal?: boolean;
+  /** Web personal sin cobros: el pie no lleva condiciones de venta. */
+  signupsOnly?: boolean;
 }) {
   const theme = resolveTheme(config.template, config.theme, allowCustom);
   const home = personal ? "/" : `/${username}`;
@@ -49,7 +52,7 @@ export function CreatorShell({
       {children}
       {/* El margen inferior deja sitio al botón fijo de compra de la ficha en móvil. */}
       <footer className="mx-auto max-w-5xl px-4 pb-28 pt-10 text-center md:pb-10">
-        <LegalLinks username={username} sellerName={sellerName} personal={personal} />
+        <LegalLinks username={username} sellerName={sellerName} signupsOnly={signupsOnly} />
       </footer>
     </div>
   );

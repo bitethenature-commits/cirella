@@ -43,6 +43,7 @@ export default async function DraftPreviewPage() {
         postCount={data.postCount}
         discountCodes={data.discountCodes}
         personal={data.personal}
+        signupsOnly={data.signupsOnly}
         siteOrigin={appUrl()}
       />
       <Reveal />

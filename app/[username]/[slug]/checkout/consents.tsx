@@ -74,11 +74,15 @@ export function CheckoutConsents({
   );
 }
 
-/** Primera capa de información de privacidad, bajo el email (RGPD art. 13). */
-export function PrivacyNotice({ sellerName, legalHref, platformName }: { sellerName: string; legalHref: string; platformName: string }) {
+/**
+ * Primera capa de información de privacidad, bajo el email (RGPD art. 13). platformName null en la
+ * web personal: no hay plataforma que trate los datos por encargo.
+ */
+export function PrivacyNotice({ sellerName, legalHref, platformName }: { sellerName: string; legalHref: string; platformName: string | null }) {
   return (
     <p className="cp-faint mt-1.5 text-xs leading-relaxed">
-      Responsable: {sellerName}. Usamos tu nombre y email para gestionar tu compra y darte acceso; {platformName} los trata por encargo suyo. Puedes
+      Responsable: {sellerName}. Usamos tu nombre y email para gestionar tu compra y darte acceso
+      {platformName ? `; ${platformName} los trata por encargo suyo` : ""}. Puedes
       acceder, rectificar o suprimir tus datos. Si no terminas la compra, puede que te enviemos un recordatorio por email, con un enlace para darte de
       baja. Más información en la{" "}
       <a href={`${legalHref}#privacidad`} target="_blank" rel="noopener" className="underline underline-offset-2">

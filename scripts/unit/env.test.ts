@@ -91,7 +91,7 @@ test("producción con PAYMENT_PROVIDER=simulated → prohibido", () =>
   hasError({ ...PROD_OK, PAYMENT_PROVIDER: "simulated" }, "PAYMENT_PROVIDER=simulated está prohibido"));
 test("sin PAYMENT_PROVIDER → error", () => hasError({ ...PROD_OK, PAYMENT_PROVIDER: undefined }, "Falta PAYMENT_PROVIDER"));
 test("sin PAYMENT_PROVIDER también en local", () => hasError({ ...DEV_OK, PAYMENT_PROVIDER: "" }, "Falta PAYMENT_PROVIDER"));
-test("PAYMENT_PROVIDER desconocido → error", () => hasError({ ...DEV_OK, PAYMENT_PROVIDER: "paypal" }, "PAYMENT_PROVIDER solo admite"));
+test("PAYMENT_PROVIDER desconocido → error", () => hasError({ ...DEV_OK, PAYMENT_PROVIDER: "bizum" }, "PAYMENT_PROVIDER solo admite"));
 
 // ── APP_URL en producción ──
 for (const [url, fragment] of [
@@ -189,7 +189,7 @@ test("seedGuardErrors: BD local de la demo → sin errores", () =>
 
 // ── Pasarela de pago ──
 test("selectPaymentProviderKey sin valor → lanza", () => throws(() => selectPaymentProviderKey(undefined, "development"), /Falta PAYMENT_PROVIDER/));
-test("selectPaymentProviderKey desconocida → lanza", () => throws(() => selectPaymentProviderKey("paypal", "development"), /no existe/));
+test("selectPaymentProviderKey desconocida → lanza", () => throws(() => selectPaymentProviderKey("bizum", "development"), /no existe/));
 test("selectPaymentProviderKey simulated en producción → lanza", () => throws(() => selectPaymentProviderKey("simulated", "production"), /prohibido/));
 test("selectPaymentProviderKey simulated en staging → lanza", () => throws(() => selectPaymentProviderKey("simulated", "staging"), /prohibido/));
 test("selectPaymentProviderKey simulated en test", () => eq(selectPaymentProviderKey("simulated", "test"), "simulated"));
@@ -222,7 +222,7 @@ test("modo personal en local sin OWNER_USERNAME → error", () =>
 for (const [user, fragment] of [["ab", "mínimo 3"], ["ana luna!", "solo letras"], ["admin", "reservado"]] as const)
   test(`OWNER_USERNAME=${user} → error`, () => hasError({ ...PERSONAL_OK, OWNER_USERNAME: user }, fragment));
 test("modo personal sin PAYMENT_PROVIDER → error que sugiere none", () =>
-  hasError({ ...PERSONAL_OK, PAYMENT_PROVIDER: undefined }, "«none» en modo personal"));
+  hasError({ ...PERSONAL_OK, PAYMENT_PROVIDER: undefined }, "«none» si esta web no cobra"));
 test("modo personal en producción con pagos simulados → prohibido", () =>
   hasError({ ...PERSONAL_OK, PAYMENT_PROVIDER: "simulated" }, "PAYMENT_PROVIDER=simulated está prohibido"));
 test("modo personal en producción con DEMO_MODE=true → prohibido", () => hasError({ ...PERSONAL_OK, DEMO_MODE: "true" }, "DEMO_MODE=true está prohibido"));

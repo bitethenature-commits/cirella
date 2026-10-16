@@ -7,6 +7,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { requireCreator } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { appHost, appUrl } from "@/lib/env";
+import { paymentProviderKeys } from "@/lib/payments";
 import { payoutView } from "@/lib/payouts";
 import { REWARD_LABEL } from "@/lib/referrals";
 import { getSettings } from "@/lib/settings";
@@ -20,8 +21,11 @@ import { VatCard } from "./vat-card";
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const { creator, user } = await requireCreator();
   const sp = await searchParams;
-  // Modo personal: sin referidos, IVA ni cobros; su página es la portada de la web.
+  // Modo personal: sin referidos ni cuenta de cobro de la plataforma; su página es la portada de la
+  // web. Si cobra (Stripe/PayPal), su IVA y sus métodos de pago.
   const personal = isPersonalMode();
+  // Web personal: cobra con sus propias cuentas (Stripe y/o PayPal), sin Connect ni «Cobros».
+  const methods = personal ? paymentProviderKeys() : [];
   const [referrals, settings] = await Promise.all([
     personal ? [] : prisma.referral.findMany({ where: { referrerId: creator.id }, include: { referred: { select: { displayName: true, username: true, published: true } } }, orderBy: { createdAt: "desc" } }),
     getSettings(),
@@ -78,14 +82,18 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <div className="min-w-0 space-y-2">
             <LegalIdentityStatus creator={creator} />
             <p className="text-sm text-muted">
-              {personal ? "Tu nombre, NIF y dirección aparecen en tu aviso legal (obligatorio en una web con actividad profesional)." : "Tu nombre fiscal, NIF y dirección aparecen en tu aviso legal y en cada compra."}
+              {personal && !methods.length
+                ? "Tu nombre, NIF y dirección aparecen en tu aviso legal (obligatorio en una web con actividad profesional)."
+                : "Tu nombre fiscal, NIF y dirección aparecen en tu aviso legal y en cada compra."}
             </p>
           </div>
           <Link href="/panel/ajustes/legal" className="btn btn-outline btn-sm">Editar <ArrowRight className="h-3.5 w-3.5" /></Link>
         </div>
       </section>
 
-      {!personal && <VatCard creator={creator} taxMode={asTaxMode(settings.taxMode)} platformName={settings.platformName} />}
+      {(!personal || methods.length > 0) && <VatCard creator={creator} taxMode={asTaxMode(settings.taxMode)} platformName={settings.platformName} personal={personal} />}
+
+      {personal && methods.length > 0 && <PersonalPaymentsCard methods={methods} />}
 
       {!personal && (
         <section className="card p-5 sm:p-6">
@@ -121,7 +129,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </div>
         )}
         <div>
-          <label className="field-label">{personal ? "Email para avisos de inscripciones" : "Email para avisos de ventas"}</label>
+          <label className="field-label">{personal && !methods.length ? "Email para avisos de inscripciones" : "Email para avisos de ventas"}</label>
           <input name="contactEmail" type="email" defaultValue={creator.contactEmail ?? user.email} className="input" />
         </div>
         <h3 className="flex items-center gap-2 pt-2 font-semibold"><Search className="h-4 w-4" /> SEO</h3>
@@ -150,5 +158,55 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <SubmitButton className="btn btn-outline">{user.passwordHash ? "Cambiar contraseña" : "Crear contraseña"}</SubmitButton>
       </form>
     </div>
+  );
+}
+
+const METHOD_INFO: Record<string, { name: string; detail: string; dashboard: string | null; webhook: string | null }> = {
+  stripe: { name: "Tarjeta (Stripe)", detail: "Visa, Mastercard, Apple Pay y Google Pay", dashboard: "https://dashboard.stripe.com/", webhook: "/api/webhooks/stripe" },
+  paypal: { name: "PayPal", detail: "Con la cuenta de PayPal de tus clientas", dashboard: "https://www.paypal.com/businesswallet/", webhook: "/api/webhooks/paypal" },
+  simulated: { name: "Pagos simulados", detail: "Modo de pruebas: no se cobra dinero real", dashboard: null, webhook: null },
+};
+
+/**
+ * Web personal que cobra: qué métodos de pago tiene activos (PAYMENT_PROVIDER) y la dirección de
+ * los avisos de cada pasarela, que es lo que hay que pegar en Stripe y PayPal (docs/modo-personal.md).
+ */
+function PersonalPaymentsCard({ methods }: { methods: string[] }) {
+  return (
+    <section className="card p-5 sm:p-6">
+      <h2 className="flex items-center gap-2 font-semibold"><CreditCard className="h-4 w-4" /> Cobros en tu web</h2>
+      <p className="mt-1 text-sm text-muted">
+        Cobras con tus propias cuentas: el dinero llega directamente a ellas, sin comisión de la web. Las compras se entregan solas y los reembolsos se
+        hacen desde cada venta.
+      </p>
+      <ul className="mt-4 divide-y divide-line text-sm">
+        {methods.map((m) => {
+          const info = METHOD_INFO[m] ?? { name: m, detail: "", dashboard: null, webhook: null };
+          return (
+            <li key={m} className="space-y-2 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  <span className="font-medium">{info.name}</span> <span className="text-muted">· {info.detail}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <Badge tone="success">Activo</Badge>
+                  {info.dashboard && (
+                    <a href={info.dashboard} target="_blank" rel="noopener" className="btn btn-outline btn-sm">
+                      Abrir {m === "paypal" ? "PayPal" : "Stripe"}
+                    </a>
+                  )}
+                </span>
+              </div>
+              {info.webhook && (
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-line bg-paper py-1.5 pl-3 pr-1.5">
+                  <span className="min-w-0 truncate text-xs text-muted">Avisos (webhook): {appUrl()}{info.webhook}</span>
+                  <CopyButton text={`${appUrl()}${info.webhook}`} label="Copiar" className="btn btn-outline btn-sm shrink-0" />
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

@@ -3,7 +3,8 @@ import { isNoChargeOrder } from "../access-mode";
 import { prisma } from "../db";
 import { isDemoMode } from "../env";
 import { getSettings } from "../settings";
-import { NOTE_EXEMPT, decideTax } from "../tax";
+import { isPersonalMode } from "../site-mode";
+import { creatorSaleNote, decideTax } from "../tax";
 import { isPlausibleTaxId, normalizeTaxId } from "../tax/tax-id";
 import { zonedParts } from "../tz";
 import { INVOICE_TIMEZONE, formatInvoiceNumber, invoiceYear, periodLabel, type InvoiceLine } from "./format";
@@ -30,6 +31,11 @@ export { formatInvoiceNumber };
 
 const SALE_SERIES: Record<string, string> = { PLATFORM: "V", CREATOR: "CIR" };
 const REFUND_SERIES: Record<string, string> = { PLATFORM: "R", CREATOR: "CIRR" };
+/** En la web personal la factura es solo de la dueña: sus series no llevan la marca de la plataforma. */
+const PERSONAL_SALE_SERIES = "F";
+const PERSONAL_REFUND_SERIES = "R";
+const saleSeries = (seller: string) => (isPersonalMode() && seller === "CREATOR" ? PERSONAL_SALE_SERIES : SALE_SERIES[seller]);
+const refundSeries = (issuer: string) => (isPersonalMode() && issuer === "CREATOR" ? PERSONAL_REFUND_SERIES : REFUND_SERIES[issuer]);
 
 type CreatorFiscal = Pick<
   Creator,
@@ -46,6 +52,8 @@ async function saleIssuer(seller: string, creator: CreatorFiscal): Promise<{ iss
   }
   const issuer = creatorIssuer(creator);
   if (!issuer) return null;
+  // En la web personal la factura la expide la propia dueña desde su web: no hay terceros.
+  if (isPersonalMode()) return { issuer, issuerKey: creator.id, mention: null };
   const { platformName } = await getSettings();
   return {
     issuer,
@@ -62,7 +70,7 @@ export function canInvoiceSale(taxSeller: string, creator: Parameters<typeof cre
 /** Nota fiscal de una venta (OSS, no sujeta, exenta…), la misma que mostró el checkout. */
 function saleTaxNote(seller: string, country: string | null, rateBps: number, creator: CreatorFiscal): string | null {
   if (seller === "PLATFORM") return decideTax({ mode: "PLATFORM_DIGITAL", productType: "DIGITAL", buyerCountry: country, creator: { country: null, vatStatus: "NONE" } }).note;
-  return rateBps ? null : creator.vatExemptionNote?.trim() || NOTE_EXEMPT;
+  return creatorSaleNote(creator, country, rateBps);
 }
 
 const joinNotes = (...notes: (string | null | undefined)[]) => notes.filter(Boolean).join(" ") || null;
@@ -120,7 +128,7 @@ export async function issueSaleInvoiceTx(tx: Prisma.TransactionClient, i: { tran
     type: full ? "F1" : "F2",
     issuer: t.taxSeller,
     issuerKey: from.issuerKey,
-    seriesCode: SALE_SERIES[t.taxSeller],
+    seriesCode: saleSeries(t.taxSeller),
     orderId: order?.id ?? null,
     transactionId: t.id,
     buyerUserId: order?.customer?.userId ?? sub?.userId ?? null,
@@ -182,7 +190,7 @@ export async function issueFullInvoiceForOrder(orderId: string, billing: Billing
       type: sale ? "F3" : "F1",
       issuer: charge.taxSeller,
       issuerKey: from.issuerKey,
-      seriesCode: SALE_SERIES[charge.taxSeller],
+      seriesCode: saleSeries(charge.taxSeller),
       orderId,
       transactionId: null,
       buyerUserId: order.customer?.userId ?? null,
@@ -237,7 +245,7 @@ export async function issueCorrectiveInvoiceTx(
     type: original.type === "F2" ? "R5" : "R1",
     issuer: original.issuer,
     issuerKey: original.issuerKey,
-    seriesCode: REFUND_SERIES[original.issuer],
+    seriesCode: refundSeries(original.issuer),
     orderId: original.orderId,
     transactionId: refund.id,
     buyerUserId: original.buyerUserId,

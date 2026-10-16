@@ -1,9 +1,14 @@
 import "server-only";
 import { getSettings } from "../settings";
+import { isPersonalMode } from "../site-mode";
 import { asTaxMode, type TaxMode } from ".";
 
-/** Política de IVA vigente (/admin/impuestos). */
+/**
+ * Política de IVA vigente (/admin/impuestos). En la web personal no hay plataforma que venda: vende
+ * siempre la dueña (CREATOR), con su situación de IVA (/panel/ajustes#iva).
+ */
 export async function getTaxMode(): Promise<TaxMode> {
+  if (isPersonalMode()) return "CREATOR";
   return asTaxMode((await getSettings()).taxMode);
 }
 

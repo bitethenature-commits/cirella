@@ -42,7 +42,7 @@ export default async function NovedadesPage({ params, searchParams }: { params: 
   if (page > pages) notFound();
 
   return (
-    <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal}>
+    <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly}>
       <main className="mx-auto max-w-2xl px-4 pb-10 pt-8 sm:pt-12">
         <p className="cp-eyebrow">{config.displayName}</p>
         <h1 className="cp-display mt-2 text-[2.6rem] leading-tight">Novedades</h1>

@@ -71,8 +71,8 @@ export async function CreatorPublicPage({ username }: { username: string }) {
     url,
     image: config.avatarUrl ? `${appUrl()}${config.avatarUrl}` : undefined,
     sameAs: Object.values(config.socials).filter((v) => v?.startsWith("http")),
-    // Lo mismo que enseñan las tarjetas: en la web personal no se ofrece nada de pago aquí.
-    makesOffer: products.filter((p) => !personal || p.accessMode !== "PAID").map((p) => ({
+    // Lo mismo que enseñan las tarjetas: en la web personal sin cobros no se ofrece nada de pago aquí.
+    makesOffer: products.filter((p) => !data.signupsOnly || p.accessMode !== "PAID").map((p) => ({
       "@type": "Offer",
       name: p.title,
       price: (p.priceCents / 100).toFixed(2),
@@ -97,6 +97,7 @@ export async function CreatorPublicPage({ username }: { username: string }) {
         postCount={data.postCount}
         discountCodes={data.discountCodes}
         personal={personal}
+        signupsOnly={data.signupsOnly}
         siteOrigin={appUrl()}
       />
       {/* Las visitas de la propia creadora se descartan en /api/track; las de ?embed=1, en el navegador. */}

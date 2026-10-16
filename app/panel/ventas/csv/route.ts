@@ -4,7 +4,7 @@ import { requireCreator } from "@/lib/auth";
 import { centsToCsv, toCsv } from "@/lib/csv";
 import { orderRef } from "@/lib/order-ref";
 import { orderBreakdown } from "@/lib/order-breakdown";
-import { isPersonalMode } from "@/lib/site-mode";
+import { signupsOnly } from "@/lib/commerce";
 import { parseRange, rangeStart } from "@/lib/stats";
 import { tenantDb } from "@/lib/tenant";
 import { ORDER_STATUS_LABEL, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
   const range = parseRange(params.get("rango"));
   const since = rangeStart(range, creator.timezone);
-  // Web personal (o la pestaña «Inscripciones gratis»): quién se ha apuntado a qué.
-  if (isPersonalMode() || params.get("tipo") === "inscripciones") {
+  // Web personal sin cobros (o la pestaña «Inscripciones gratis»): quién se ha apuntado a qué.
+  if (signupsOnly() || params.get("tipo") === "inscripciones") {
     const { rows: signups } = await listSignups(creator.id, { since, productId: params.get("producto") || null });
     const rows: (string | number | null)[][] = [["fecha", "hora", "nombre", "email", "producto", "origen", "quiere_novedades", "acceso", "pedido"]];
     for (const r of signups)

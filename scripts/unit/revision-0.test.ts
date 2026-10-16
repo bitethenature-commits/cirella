@@ -23,7 +23,7 @@ import { eq, ok, test } from "./harness";
 type Call = { method: string; params: unknown; opts?: unknown };
 const realStripe = new Stripe("sk_test_sin_red");
 const WHSEC = "whsec_revision_cero";
-const cfg = { webhookSecrets: [WHSEC], onBehalfOf: false };
+const cfg = { webhookSecrets: [WHSEC], onBehalfOf: false, connect: true };
 
 function fakeStripe(over: Partial<Record<string, (params: unknown, opts?: unknown) => unknown>> = {}) {
   const calls: Call[] = [];

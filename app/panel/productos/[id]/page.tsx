@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarDays, ExternalLink, Trash2 } from "lucide-react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { DeliveryAlert } from "@/components/ui/delivery-alert";
 import { Flash } from "@/components/ui/flash";
+import { hasPaymentProvider } from "@/lib/payments";
 import { accessModesFor, asAccessMode, hostsContent, NO_CHARGE_LABEL, NO_CHARGE_PROVIDERS, type NoChargeProvider } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { deliveryFacts, deliveryIssue, deliveryIssueCopy } from "@/lib/delivery";
@@ -135,9 +136,9 @@ export default async function EditProductPage({
         product={{ ...product }}
         host={appHost()}
         username={creator.username}
-        commissionBps={creator.plan.commissionBps}
+        commissionBps={mode === "personal" ? 0 : creator.plan.commissionBps}
         taxPreview={{ mode: await getTaxMode(), country: creator.legalCountry, vatStatus: asVatStatus(creator.vatStatus) }}
-        accessModes={accessModesFor(mode, type)}
+        accessModes={accessModesFor(mode, type, hasPaymentProvider())}
       />
 
       <div className="mt-5 space-y-5 lg:max-w-[calc(100%-340px)]">

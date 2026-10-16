@@ -5,9 +5,10 @@ import { enqueueEmail } from "./email/outbox";
 import { renewalFailedEmail } from "./email/templates";
 import { dispatchEvents, recordEvents } from "./events";
 import { captureAlert, captureError } from "./monitoring";
-import { hasPaymentProvider, paymentProvider } from "./payments";
+import { hasPaymentProvider, isPaymentProviderEnabled, paymentProviderByKey } from "./payments";
 import { nextRenewalAttempt, renewalPeriodKey } from "./payments/renewal";
-import { canAcceptPayments } from "./payouts";
+import { chargeDestination } from "./payouts";
+import { isPersonalMode } from "./site-mode";
 import { issueSaleInvoiceTx } from "./invoices/issue";
 import { effectiveCommissionBps } from "./plans";
 import { planFeeKey, renewalKey } from "./reliability";
@@ -70,7 +71,9 @@ export async function renewalAmounts(
     buyerCountry: sub.buyerCountry,
     creator: { country: sub.creator.legalCountry, vatStatus: sub.creator.vatStatus, vatExemptionNote: sub.creator.vatExemptionNote },
   });
-  return { tax, ...computeSaleAmounts(sub.priceCents, effectiveCommissionBps(sub.creator.plan, sub.creator, now), tax) };
+  // La web personal cobra con las cuentas de la dueña: sin comisión.
+  const commissionBps = isPersonalMode() ? 0 : effectiveCommissionBps(sub.creator.plan, sub.creator, now);
+  return { tax, ...computeSaleAmounts(sub.priceCents, commissionBps, tax) };
 }
 
 type DueSubscription = Prisma.SubscriptionGetPayload<{ include: { creator: { include: { plan: true } }; product: true; customer: true } }>;
@@ -129,10 +132,12 @@ async function renewOne(sub: DueSubscription, now: Date, mode: TaxMode) {
   // Web sin pasarela (modo personal): no se cobra ni se cuenta como intento fallido (eso acabaría
   // cancelando la suscripción y avisando a la clienta de un pago que nunca se intentó).
   if (!hasPaymentProvider()) return false;
-  const provider = paymentProvider();
-  if (!sub.creator.payoutAccountId || !canAcceptPayments(sub.creator, provider.key)) {
+  // Cada membresía se renueva con la pasarela con la que se pagó (tarjeta o PayPal).
+  const target = isPaymentProviderEnabled(sub.provider) ? chargeDestination(sub.creator, sub.provider) : null;
+  if (!target) {
     return recordRenewalFailure(sub.id, "La creadora tiene los cobros pausados.", now, guard);
   }
+  const provider = paymentProviderByKey(sub.provider);
   const periodKey = renewalPeriodKey(sub.currentPeriodEnd);
   const amounts = await renewalAmounts(sub, now, mode);
   const r = await provider.chargeSaved({
@@ -144,7 +149,7 @@ async function renewOne(sub: DueSubscription, now: Date, mode: TaxMode) {
     customerEmail: sub.customer.email,
     // Comisión y, si vende Cirella, también el IVA (no es dinero de la creadora).
     platformFeeCents: amounts.platformRetainedCents,
-    destinationAccount: sub.creator.payoutAccountId,
+    destinationAccount: target.destination,
     statementSuffix: sub.creator.username.toUpperCase(),
     customerRef: sub.providerCustomerRef,
     paymentMethodRef: sub.providerPaymentMethodRef,
@@ -258,7 +263,9 @@ export async function settleRenewalCharge(
     fingerprint: ["renovacion-duplicada"],
     extra: { subscriptionId, ref },
   });
-  const r = await paymentProvider().refund({ paymentRef: ref, refundApplicationFee: true, idempotencyKey: `dup:${ref}`, reason: "duplicate", metadata: { subscriptionId, reason: "duplicado" } });
+  const sub = await prisma.subscription.findUnique({ where: { id: subscriptionId }, select: { provider: true } });
+  if (!sub) throw new Error(`Suscripción desconocida al reembolsar el cobro duplicado ${ref}`);
+  const r = await paymentProviderByKey(sub.provider).refund({ paymentRef: ref, refundApplicationFee: true, idempotencyKey: `dup:${ref}`, reason: "duplicate", metadata: { subscriptionId, reason: "duplicado" } });
   if (!r.ok) throw new Error(`No se ha podido reembolsar el cobro duplicado ${ref}: ${r.error}`);
   return "refunded";
 }

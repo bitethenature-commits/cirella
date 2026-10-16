@@ -13,12 +13,16 @@ export type SecurityHeaderOptions = {
   /** Origen del almacenamiento (R2) al que el navegador sube y del que descarga con URLs firmadas. */
   storageOrigin?: string | null;
   stripe?: boolean;
+  /** PayPal activo (web personal): se sale a su página de pago. */
+  paypal?: boolean;
   turnstile?: boolean;
   sentryOrigin?: string | null;
 };
 
 const STRIPE_JS = "https://js.stripe.com";
 const TURNSTILE = "https://challenges.cloudflare.com";
+/** Páginas de pago de PayPal (live y sandbox): la compradora va ahí desde el checkout. */
+const PAYPAL_CHECKOUT = "https://www.paypal.com https://www.sandbox.paypal.com";
 
 /**
  * Content-Security-Policy.
@@ -45,7 +49,7 @@ export function buildCsp(o: SecurityHeaderOptions): string {
       o.turnstile && TURNSTILE,
     ),
     "frame-ancestors 'self'",
-    join("form-action 'self'", o.stripe && "https://checkout.stripe.com"),
+    join("form-action 'self'", o.stripe && "https://checkout.stripe.com", o.paypal && PAYPAL_CHECKOUT),
     "base-uri 'self'",
     "object-src 'none'",
     "worker-src 'self' blob:",
@@ -67,6 +71,11 @@ export function securityHeaders(o: SecurityHeaderOptions): { key: string; value:
   return headers;
 }
 
+/** Pasarelas de PAYMENT_PROVIDER («stripe,paypal» → ["stripe", "paypal"]), sin validar. */
+function paymentKeys(value: string | undefined): string[] {
+  return (value ?? "").split(",").map((s) => s.trim().toLowerCase());
+}
+
 function originOf(url: string | undefined) {
   if (!url) return null;
   try {
@@ -82,7 +91,8 @@ export function securityHeaderOptionsFromEnv(env: NodeJS.ProcessEnv = process.en
     appUrl: env.APP_URL || env.RENDER_EXTERNAL_URL || "http://localhost:3000",
     isDev: env.NODE_ENV !== "production",
     storageOrigin: env.STORAGE_DRIVER === "s3" ? originOf(env.S3_ENDPOINT) : null,
-    stripe: env.PAYMENT_PROVIDER === "stripe" || !!env.STRIPE_SECRET_KEY,
+    stripe: paymentKeys(env.PAYMENT_PROVIDER).includes("stripe") || !!env.STRIPE_SECRET_KEY,
+    paypal: paymentKeys(env.PAYMENT_PROVIDER).includes("paypal"),
     turnstile: !!(env.TURNSTILE_SITE_KEY || env.NEXT_PUBLIC_TURNSTILE_SITE_KEY),
     sentryOrigin: originOf(env.SENTRY_DSN || env.NEXT_PUBLIC_SENTRY_DSN),
   };
@@ -99,6 +109,7 @@ export function buildEnvSnapshot(env: NodeJS.ProcessEnv = process.env): Record<s
     APP_URL: o.appUrl,
     "STORAGE_DRIVER/S3_ENDPOINT": o.storageOrigin ?? "",
     "PAYMENT_PROVIDER/STRIPE_SECRET_KEY": String(o.stripe),
+    "PAYMENT_PROVIDER/PAYPAL": String(o.paypal),
     TURNSTILE_SITE_KEY: String(o.turnstile),
     SENTRY_DSN: o.sentryOrigin ?? "",
     SITE_MODE: env.SITE_MODE?.trim() || "platform",

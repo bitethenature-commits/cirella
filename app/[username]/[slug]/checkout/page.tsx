@@ -10,7 +10,7 @@ import { isDemoMode } from "@/lib/env";
 import { creatorLegalHref, legalIdentityComplete, sellerStatement } from "@/lib/legal";
 import { getPurchasableProduct } from "@/lib/orders";
 import { asAccessMode } from "@/lib/access-mode";
-import { paidCheckoutOpen, paymentProvider } from "@/lib/payments";
+import { checkoutMethods, paidCheckoutOpen } from "@/lib/payments";
 import { canAcceptPayments } from "@/lib/payouts";
 import { canInvoiceSale } from "@/lib/invoices/issue";
 import { getPlatformIssuer } from "@/lib/invoices/issuer";
@@ -43,7 +43,8 @@ export default async function CheckoutPage({
   const purchasable = await getPurchasableProduct(data.product.id);
   if (!purchasable && !isOwner) notFound();
   const p = data.product;
-  const provider = paymentProvider();
+  // Métodos de pago: uno por pasarela activa con la que esta creadora puede cobrar (tarjeta, PayPal).
+  const methods = checkoutMethods().filter((m) => canAcceptPayments(data.creator, m.key));
   // IVA: quién vende según la política y el tipo de producto. El país lo elige la compradora.
   const c = data.creator;
   const taxInfo = { mode: await getTaxMode(), creatorCountry: c.legalCountry, creatorVatStatus: asVatStatus(c.vatStatus), creatorVatNote: c.vatExemptionNote };
@@ -63,7 +64,7 @@ export default async function CheckoutPage({
   // Sin la identidad legal de quien vende no se puede vender (LSSI art. 10).
   const payoutReady =
     !!purchasable &&
-    canAcceptPayments(data.creator, provider.key) &&
+    methods.length > 0 &&
     legalIdentityComplete(data.creator) &&
     platformCanSell &&
     !(await dac7SalesPaused(data.creator, p.type));
@@ -78,6 +79,7 @@ export default async function CheckoutPage({
           buyerName: true,
           buyerEmail: true,
           paymentError: true,
+          paymentProvider: true,
           buyerCountry: true,
           billingName: true,
           billingTaxId: true,
@@ -94,7 +96,7 @@ export default async function CheckoutPage({
   const defaultCountry = previous?.buyerCountry ?? (guessed ? (isKnownCountry(guessed) ? guessed : "XX") : "ES");
 
   return (
-    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} sellerName={statement.name}>
+    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} sellerName={statement.name}>
       <main className="mx-auto max-w-xl px-4 pb-16 pt-6 sm:pt-10">
         <CheckoutForm
           product={{
@@ -111,7 +113,8 @@ export default async function CheckoutPage({
             deliveryMode: p.deliveryMode,
           }}
           payoutReady={payoutReady}
-          collectsCardOnSite={provider.collectsCardOnSite}
+          methods={methods}
+          defaultMethod={methods.find((m) => m.key === previous?.paymentProvider)?.key ?? methods[0]?.key ?? null}
           initialOrderId={previous?.id}
           notice={
             sp.cancelado === "1" && previous
@@ -126,7 +129,7 @@ export default async function CheckoutPage({
             line: statement.line,
             legalHref: creatorLegalHref(username),
           }}
-          platformName={data.platformName}
+          platformName={data.personal ? null : data.platformName}
           taxInfo={taxInfo}
           canInvoice={canInvoiceSale(seller, c)}
           defaultCountry={defaultCountry}
