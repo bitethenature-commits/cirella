@@ -73,6 +73,35 @@ de unos 200 MB son unos 100 GB, alrededor de 1,5 $ al mes.
 
 ---
 
+## Atajo: publícala primero sin dominio
+
+Si aún no tienes dominio, o quieres verla funcionando antes de decidir, puedes publicarla en una
+dirección gratuita de Railway (`algo.up.railway.app`) y añadir tu dominio más adelante. Sigue los
+pasos normales con estos cambios:
+
+- **Paso 1 (R2):** deja la regla CORS para el final del paso 5, cuando sepas tu dirección de
+  Railway, y pon esa en `AllowedOrigins` (por ejemplo `"https://mi-web.up.railway.app"`).
+- **Paso 2 (Resend):** crea la cuenta **con tu email** y salta lo del dominio (puntos 2 y 3). Crea
+  la clave (punto 4) y usa este remitente, que funciona sin dominio:
+  `EMAIL_FROM="Tu Nombre <onboarding@resend.dev>"`. Mientras no verifiques un dominio, Resend solo
+  entrega emails **a tu propio email** (el de tu cuenta de Resend): pon ese en `OWNER_EMAIL`. Tú
+  podrás entrar y probarlo todo; los emails a otras personas (por ejemplo, el de acceso a un curso
+  gratis) no saldrán hasta que pongas el dominio.
+- **Paso 5 (Railway):** antes de conectar el código, en **Settings → Networking** pulsa
+  **Generate Domain** y copia la dirección que te da: es tu `APP_URL`
+  (`https://mi-web.up.railway.app`, sin barra al final). Si todavía no te deja generarla, conecta
+  el código igualmente, genérala, pon `APP_URL` y pulsa **Deploy** otra vez.
+- **Salta el paso 6 (dominio)** y, si quieres, el 9 (copias) hasta que la uses de verdad. El paso 8
+  (tareas automáticas) hazlo igualmente: son dos minutos.
+- En todos los pasos, donde ponga `https://tudominio.com` usa tu dirección de Railway.
+
+**Cuando tengas dominio:** haz el paso 6, verifica el dominio en Resend (paso 2, puntos 2 y 3) y
+cambia en Railway `APP_URL` por `https://tudominio.com` y `EMAIL_FROM` por un remitente de tu
+dominio; en R2 añade el dominio a la regla CORS, y en cron-job.org cambia la dirección. Pulsa
+**Deploy** y listo: tu contenido sigue ahí.
+
+---
+
 ## Paso 1 · Archivos (Cloudflare R2)
 
 1. Entra en [cloudflare.com](https://dash.cloudflare.com) y crea una cuenta. En el menú de la
@@ -159,8 +188,8 @@ caracteres cada una.
    pendientes, pulsa su botón **Deploy** para aplicarlos.
 
 **Comprobación:** en tu proyecto está el servicio **Postgres** y, en su pestaña **Variables**,
-aparecen (entre otras) `DATABASE_URL` y `DATABASE_PUBLIC_URL`. No hace falta copiarlas ahora:
-la web leerá la primera por su nombre, y la segunda la usarás en el paso 7.
+aparecen (entre otras) `DATABASE_URL` y `DATABASE_PUBLIC_URL`. No hace falta copiarlas: la web
+leerá la primera por su nombre (la segunda solo hace falta para la alternativa del paso 7).
 
 ---
 
@@ -175,7 +204,7 @@ se conecta el código.
    nombre a `web`.
 2. Abre su pestaña **Variables**, pulsa **Raw Editor** (para pegarlas todas de una vez) y pega
    este bloque. Antes, cambia cada `PEGA_AQUI_…` por el valor que apuntaste con ese nombre, y
-   `tudominio.com`, `analuna`, `Ana Luna` y `mi-web-archivos` por los tuyos. Deja las comillas
+   `tudominio.com`, `analuna`, `tu@email.com`, `Ana Luna` y `mi-web-archivos` por los tuyos. Deja las comillas
    y no toques las líneas de `DATABASE_URL` y `DIRECT_URL`. Después, guarda.
 
    ```bash
@@ -183,6 +212,8 @@ se conecta el código.
    APP_URL="https://tudominio.com"
    SITE_MODE="personal"
    OWNER_USERNAME="analuna"
+   OWNER_EMAIL="tu@email.com"
+   OWNER_NAME="Ana Luna"
    PAYMENT_PROVIDER="none"
    DEMO_MODE="false"
    DATABASE_URL="${{Postgres.DATABASE_URL}}"
@@ -208,6 +239,8 @@ se conecta el código.
    | `APP_URL` | `https://tudominio.com`: tu dominio de verdad, sin barra al final |
    | `SITE_MODE` | `personal` |
    | `OWNER_USERNAME` | tu usuario (paso «Antes de empezar»), p. ej. `analuna` |
+   | `OWNER_EMAIL` | tu email: con él entrarás en tu panel (paso 7) |
+   | `OWNER_NAME` | tu nombre, el que se verá en tu página (lo puedes cambiar después) |
    | `PAYMENT_PROVIDER` | `none` |
    | `DEMO_MODE` | `false` |
    | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}`, escrito tal cual |
@@ -275,8 +308,8 @@ se conecta el código.
 **Comprobación:** en **Deployments**, el último despliegue sale en verde. Abre
 `https://<tu-dirección>.up.railway.app/api/health`: tiene que poner `"db":"ok"` (la web habla
 con la base de datos). De momento verás también `"ok":false` y `"retrasado"`: es normal hasta
-el paso 8. Si abres esa dirección sin más, verás una página de «no encontrada»: también es
-normal, tu cuenta todavía no existe (paso 7).
+el paso 8. Si abres esa dirección sin más, verás tu página, todavía con el contenido de ejemplo
+(en el registro del despliegue sale «✓ Cuenta de tu@email.com y página … creadas y publicadas»).
 
 Si el despliegue sale en rojo, ábrelo en **Deployments → View logs**: al final del registro
 está qué variable revisar. Corrígela en **Variables** y pulsa **Deploy** otra vez.
@@ -320,11 +353,30 @@ con tu contraseña, porque para el navegador son dos webs distintas.)
 
 ---
 
-## Paso 7 · Crear tu cuenta
+## Paso 7 · Entrar por primera vez
 
-Esto se hace **una vez**, desde tu ordenador. Crea tu usuario (con tu contraseña), te hace
-administradora, crea tu página publicada y te pone el plan «Personal» (comisión 0 y todas las
-funciones). Se puede repetir sin miedo: no duplica nada (sirve también para cambiar la contraseña).
+No tienes que instalar nada: tu cuenta se crea sola en el primer despliegue (con `OWNER_EMAIL` y
+`OWNER_NAME` del paso 5). Eres la administradora, tu página está publicada y tienes el plan
+«Personal» (comisión 0 y todas las funciones). Los despliegues siguientes ya no la tocan.
+
+1. Abre `https://tudominio.com/entrar` y pulsa **«Pide un enlace para entrar»**.
+2. Escribe tu email (el de `OWNER_EMAIL`) y abre el email que te llega: el botón te deja dentro
+   de tu panel.
+3. Si quieres entrar también con contraseña: **Ajustes → Contraseña → Crear contraseña**.
+
+**Comprobación:** estás en tu panel y tu página se ve en `https://tudominio.com` (todavía con
+el contenido de ejemplo: en el paso 10 la preparas).
+
+> El usuario de tu página es el de `OWNER_USERNAME` y no se cambia desde el panel. Si algún día
+> quieres otro, cámbialo en Railway (servicio **web** → **Variables**) y pulsa **Deploy**: con
+> `OWNER_EMAIL` puesto, tu página pasa al usuario nuevo con todo su contenido. Los enlaces a tus
+> productos cambian (`tudominio.com/<usuario nuevo>/…`): actualiza los que tengas compartidos.
+
+<details>
+<summary>Alternativa: crear la cuenta desde tu ordenador (con contraseña)</summary>
+
+Solo si prefieres no usar `OWNER_EMAIL`. Sirve también para cambiar la contraseña si no puedes
+entrar por email.
 
 1. Instala **Node.js** (versión «LTS») desde [nodejs.org](https://nodejs.org).
 2. Descarga el código: en GitHub, en tu repositorio, botón verde **Code → Download ZIP**.
@@ -365,13 +417,7 @@ funciones). Se puede repetir sin miedo: no duplica nada (sirve también para cam
 7. Verás tres líneas con ✓. **Borra el archivo `.env`** cuando termines (tiene la dirección de tu
    base de datos): en la misma terminal, `rm .env` en Mac o `del .env` en Windows.
 
-**Comprobación:** entra en `https://tudominio.com/entrar` con tu email y tu contraseña. Llegas a
-tu panel. Tu página ya se ve en `https://tudominio.com`.
-
-> El usuario de tu página es el de `OWNER_USERNAME` y no se cambia desde el panel. Si algún día
-> quieres otro, cambia la variable en Railway (servicio **web** → **Variables**), vuelve a
-> ejecutar este paso con el mismo email (y el usuario nuevo en tu `.env`) y pulsa **Deploy** en
-> la barra de cambios pendientes: Railway vuelve a publicar la web.
+</details>
 
 ---
 

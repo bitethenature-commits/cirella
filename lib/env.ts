@@ -48,6 +48,10 @@ const schema = z.object({
   CRON_SECRET: text,
   SITE_MODE: oneOf("SITE_MODE", ["platform", "personal"]),
   OWNER_USERNAME: text,
+  // Opcionales (modo personal): con OWNER_EMAIL, `npm run deploy` crea la cuenta de la dueña si aún
+  // no existe (prisma/bootstrap.ts), sin tener que ejecutar nada desde su ordenador.
+  OWNER_EMAIL: text,
+  OWNER_NAME: text,
   PAYMENT_PROVIDER: oneOf("PAYMENT_PROVIDER", ["simulated", "stripe", "none"]),
   STRIPE_SECRET_KEY: text,
   STRIPE_PUBLISHABLE_KEY: text,
@@ -141,6 +145,9 @@ export function validateEnv(raw: RawEnv): EnvValidation {
       const problem = validateUsername(normalizeUsername(p.OWNER_USERNAME));
       if (problem) errors.push(`OWNER_USERNAME no es un usuario válido: ${problem.toLowerCase()}.`);
     }
+    if (p.OWNER_EMAIL && !z.string().email().safeParse(p.OWNER_EMAIL.trim()).success)
+      errors.push("OWNER_EMAIL no es un email válido: pon el email con el que entrarás en tu panel (p. ej. tu@email.com).");
+    if (p.OWNER_NAME && p.OWNER_NAME.trim().length > 80) errors.push("OWNER_NAME es demasiado largo (máximo 80 caracteres).");
   }
 
   if (!p.PAYMENT_PROVIDER && !raw.PAYMENT_PROVIDER?.trim())

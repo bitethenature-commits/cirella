@@ -243,6 +243,10 @@ test("plataforma explícita en producción con none → error", () =>
 test("plataforma en staging con none → error", () => hasError({ ...PROD_OK, APP_ENV: "staging", PAYMENT_PROVIDER: "none" }, "solo se admite en modo personal"));
 test("plataforma en local con none → válido", () => isValid({ ...DEV_OK, PAYMENT_PROVIDER: "none" }));
 test("plataforma no exige OWNER_USERNAME", () => isValid({ ...PROD_OK, SITE_MODE: "platform" }));
+// OWNER_EMAIL / OWNER_NAME (opcionales): con ellos, `npm run deploy` crea la cuenta de la dueña.
+test("modo personal con OWNER_EMAIL y OWNER_NAME → válido", () => isValid({ ...PERSONAL_OK, OWNER_EMAIL: "ana@example.com", OWNER_NAME: "Ana Luna" }));
+test("modo personal con OWNER_EMAIL mal escrito → error", () => hasError({ ...PERSONAL_OK, OWNER_EMAIL: "ana@" }, "OWNER_EMAIL no es un email válido"));
+test("modo personal con OWNER_NAME de más de 80 caracteres → error", () => hasError({ ...PERSONAL_OK, OWNER_NAME: "a".repeat(81) }, "OWNER_NAME es demasiado largo"));
 test("SITE_MODE desconocido → error", () => hasError({ ...DEV_OK, SITE_MODE: "solo" }, "SITE_MODE solo admite"));
 test("validateEnv guarda SITE_MODE y OWNER_USERNAME", () => {
   const r = validateEnv(PERSONAL_OK);

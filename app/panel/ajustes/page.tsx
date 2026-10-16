@@ -139,12 +139,15 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       <form action={changePassword} className="card space-y-4 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 font-semibold"><KeyRound className="h-4 w-4" /> Contraseña</h2>
-        <p className="text-sm text-muted">Cuenta: {user.email}</p>
+        <p className="text-sm text-muted">
+          Cuenta: {user.email}
+          {!user.passwordHash && " · Aún no tienes contraseña: entras con un enlace por email. Si quieres, crea una aquí."}
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <input name="current" type="password" placeholder="Contraseña actual" className="input" autoComplete="current-password" />
-          <input name="next" type="password" placeholder="Nueva contraseña" minLength={8} className="input" autoComplete="new-password" />
+          {user.passwordHash && <input name="current" type="password" placeholder="Contraseña actual" className="input" autoComplete="current-password" />}
+          <input name="next" type="password" placeholder={user.passwordHash ? "Nueva contraseña" : "Tu contraseña (mínimo 8 caracteres)"} minLength={8} className="input" autoComplete="new-password" />
         </div>
-        <SubmitButton className="btn btn-outline">Cambiar contraseña</SubmitButton>
+        <SubmitButton className="btn btn-outline">{user.passwordHash ? "Cambiar contraseña" : "Crear contraseña"}</SubmitButton>
       </form>
     </div>
   );
