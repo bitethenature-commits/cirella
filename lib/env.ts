@@ -97,7 +97,17 @@ export function resolveAppEnv(raw: RawEnv): AppEnv {
 const productionLike = (e: AppEnv) => e === "staging" || e === "production";
 
 /** Lee cada variable por separado para poder informar de todos los errores de una vez. */
-function parseFields(raw: RawEnv) {
+/**
+ * APP_URL vacía en Render: su dirección pública (RENDER_EXTERNAL_URL, https://…onrender.com, que
+ * Render pone en el build y al arrancar). Con dominio propio, APP_URL manda.
+ */
+export function withHostingDefaults(raw: RawEnv): RawEnv {
+  if (raw.APP_URL?.trim() || !raw.RENDER_EXTERNAL_URL?.trim()) return raw;
+  return { ...raw, APP_URL: raw.RENDER_EXTERNAL_URL.trim() };
+}
+
+function parseFields(input: RawEnv) {
+  const raw = withHostingDefaults(input);
   const data: Record<string, unknown> = {};
   const errors: string[] = [];
   for (const [key, field] of Object.entries(schema.shape)) {

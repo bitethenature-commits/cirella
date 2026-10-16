@@ -78,7 +78,8 @@ function originOf(url: string | undefined) {
 
 export function securityHeaderOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): SecurityHeaderOptions {
   return {
-    appUrl: env.APP_URL || "http://localhost:3000",
+    // En Render, sin APP_URL, su dirección pública (lib/env.ts → withHostingDefaults).
+    appUrl: env.APP_URL || env.RENDER_EXTERNAL_URL || "http://localhost:3000",
     isDev: env.NODE_ENV !== "production",
     storageOrigin: env.STORAGE_DRIVER === "s3" ? originOf(env.S3_ENDPOINT) : null,
     stripe: env.PAYMENT_PROVIDER === "stripe" || !!env.STRIPE_SECRET_KEY,
