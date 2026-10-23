@@ -10,6 +10,7 @@ import { requireCreator } from "@/lib/auth";
 import { deliveryFacts, deliveryIssue, deliveryIssueCopy } from "@/lib/delivery";
 import { appHost } from "@/lib/env";
 import { uploadPolicy } from "@/lib/file-types";
+import { fileUsage, lessonPartViews } from "@/lib/lesson-parts";
 import { canSellType } from "@/lib/plans";
 import { siteMode } from "@/lib/site-mode";
 import { asVatStatus } from "@/lib/tax";
@@ -33,7 +34,7 @@ export default async function EditProductPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ nuevo?: string; error?: string; acceso?: string }>;
+  searchParams: Promise<{ nuevo?: string; error?: string; acceso?: string; leccion?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -43,7 +44,15 @@ export default async function EditProductPage({
     where: { id },
     include: {
       files: { orderBy: { sortOrder: "asc" } },
-      modules: { orderBy: { sortOrder: "asc" }, include: { lessons: { orderBy: { sortOrder: "asc" } } } },
+      modules: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          lessons: {
+            orderBy: { sortOrder: "asc" },
+            include: { parts: { orderBy: { sortOrder: "asc" }, select: { kind: true, fileId: true, file: { select: { kind: true } } } } },
+          },
+        },
+      },
       posts: { orderBy: { publishedAt: "desc" } },
       _count: { select: { orders: { where: { status: "PAID" } } } },
     },
@@ -126,6 +135,7 @@ export default async function EditProductPage({
       )}
       {sp.error === "sin-entrega" && issueCopy?.publishError && <Flash error={issueCopy.publishError} />}
       {sp.acceso === "quitado" && <Flash ok="Acceso retirado. Sus enlaces ya no funcionan." />}
+      {sp.leccion === "eliminada" && <Flash ok="Lección eliminada." />}
       {sp.error === "acceso" && <Flash error="No hemos encontrado ese acceso." />}
       {issue && issueCopy && (
         <div className="mb-5">
@@ -149,12 +159,22 @@ export default async function EditProductPage({
         )}
         {type === "COURSE" && (
           <>
-            <FilesManager productId={product.id} files={product.files} limitsLabel={uploadPolicy(mode === "personal").label} title="Materiales del curso" hint="Sube vídeos, audios, PDF e imágenes y asígnalos a cada lección." />
+            <FilesManager
+              productId={product.id}
+              files={product.files}
+              limitsLabel={uploadPolicy(mode === "personal").label}
+              title="Materiales del curso"
+              hint="Vídeos (MP4 o MOV), audios (M4A o MP3), PDF e imágenes. También puedes subirlos desde cada lección."
+              usage={fileUsage(product.modules.flatMap((m) => m.lessons.flatMap((l) => l.parts.map((p) => ({ fileId: p.fileId, lessonId: l.id })))))}
+            />
             <div id="lecciones" className="scroll-mt-24">
               <CourseBuilder
                 productId={product.id}
-                modules={product.modules.map((m) => ({ id: m.id, title: m.title, lessons: m.lessons }))}
-                files={product.files.map((f) => ({ id: f.id, name: f.name, kind: f.kind, durationSec: f.durationSec, videoCodec: f.videoCodec }))}
+                modules={product.modules.map((m) => ({
+                  id: m.id,
+                  title: m.title,
+                  lessons: m.lessons.map((l) => ({ id: l.id, title: l.title, durationMin: l.durationMin, views: lessonPartViews(l.parts) })),
+                }))}
               />
             </div>
           </>

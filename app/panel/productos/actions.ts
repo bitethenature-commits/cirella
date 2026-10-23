@@ -19,6 +19,8 @@ import { requireCreator } from "@/lib/auth";
 import { uniqueProductSlug } from "@/lib/creator";
 import { DELIVERY_MODES, deliveryIssueCopy, normalizeDeliveryMode, productDeliveryIssue } from "@/lib/delivery";
 import { FreeAccessError, grantManualAccess, revokeManualAccess } from "@/lib/free-access";
+import { LESSON_PARTS_JSON_MAX, parseLessonParts } from "@/lib/lesson-parts";
+import { LessonSaveError, saveLessonWithParts } from "@/lib/lessons";
 import { parseMoneyToCents } from "@/lib/money";
 import { cleanRichInput, formatToStore, normalizeNewlines, parseTextFormat } from "@/lib/rich-text";
 import { canSellType } from "@/lib/plans";
@@ -27,7 +29,7 @@ import { siteMode } from "@/lib/site-mode";
 import { RESERVED_PRODUCT_SLUGS } from "@/lib/slug";
 import { privateKey, storage } from "@/lib/storage";
 import { tenantDb, type TenantDb } from "@/lib/tenant";
-import { DEFAULT_CTA, LESSON_KINDS, PRODUCT_TYPES, type ProductType } from "@/lib/types";
+import { DEFAULT_CTA, PRODUCT_TYPES, type ProductType } from "@/lib/types";
 
 export type ActionState = { ok?: string; error?: string } | undefined;
 
@@ -363,51 +365,52 @@ export async function deleteModule(form: FormData) {
 }
 
 const lessonSchema = z.object({
-  id: z.string().optional(),
-  moduleId: z.string(),
-  title: z.string().trim().min(1, "Ponle un título a la lección").max(140),
-  kind: z.enum(LESSON_KINDS),
-  body: z.string().max(20000).optional(),
-  bodyFormat: z.string().max(8).optional().transform(parseTextFormat),
-  mediaUrl: z.string().trim().max(500).optional(),
-  fileId: z.string().optional(),
-  durationMin: z.coerce.number().int().min(0).max(600).optional(),
+  id: z.string().max(40).optional(),
+  moduleId: z.string().min(1, "Módulo no encontrado").max(40),
+  title: z.string().trim().min(1, "Ponle un título a la lección").max(140, "El título admite 140 caracteres"),
+  // "" = automática (la suma de los vídeos y audios).
+  durationMin: z.union([z.literal(""), z.coerce.number().int().min(0, "Revisa la duración").max(600, "La duración admite hasta 600 minutos")]).optional(),
+  version: z.coerce.number().int().min(0).optional(),
+  parts: z.string().max(LESSON_PARTS_JSON_MAX + 1),
 });
 
-export async function saveLesson(_: ActionState, form: FormData): Promise<ActionState> {
-  const { creator, db } = await ctx();
+export type LessonActionState = { ok?: string; error?: string; warning?: string; lessonId?: string; version?: number } | undefined;
+
+/** Lo que enviaba el editor de antes (una pestaña abierta desde antes de actualizar). */
+const OLD_LESSON_FORM = "Hemos actualizado el editor de lecciones. Recarga la página para seguir.";
+
+/**
+ * Guarda una lección con sus partes (vídeo, audio, texto, PDF, imágenes…) desde el editor de
+ * /panel/productos/<id>/lecciones/…. Toda la validación está en lib/lessons.ts.
+ */
+export async function saveLesson(_: LessonActionState, form: FormData): Promise<LessonActionState> {
+  const { creator } = await ctx();
+  if (!form.has("parts")) return { error: OLD_LESSON_FORM };
   const parsed = lessonSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
-  const mod = await db.courseModule.findFirst({ where: { id: d.moduleId } });
-  if (!mod) return { error: "Módulo no encontrado" };
-  if (d.fileId && !(await db.productFile.findFirst({ where: { id: d.fileId, productId: mod.productId } }))) return { error: "Archivo no válido" };
-  if (d.mediaUrl && !/^https?:\/\//.test(d.mediaUrl)) return { error: "El enlace debe empezar por https://" };
-  const lesson = d.id ? await db.lesson.findFirst({ where: { id: d.id } }) : null;
-  if (d.id && !lesson) return { error: "Lección no encontrada" };
-  // El enlace se guarda tal cual (con el código de privacidad de Vimeo); si no es de YouTube ni de
-  // Vimeo, el formulario avisa y las alumnas verán «Abrir el vídeo».
-  const body = d.body ? normalizeNewlines(d.body) : null;
-  const bodyFormat = formatToStore(body, d.bodyFormat, lesson?.bodyFormat ?? null);
-  const data = {
-    title: d.title,
-    kind: d.kind,
-    body: body && bodyFormat ? cleanRichInput(body, { creatorId: creator.id, images: true }) : body,
-    bodyFormat,
-    mediaUrl: d.mediaUrl || null,
-    fileId: d.fileId || null,
-    durationMin: d.durationMin || null,
-  };
-  if (lesson) {
-    await db.lesson.update({ where: { id: lesson.id }, data });
-  } else {
-    const count = await db.lesson.count({ where: { moduleId: mod.id } });
-    await db.lesson.create({ data: { ...data, creatorId: creator.id, productId: mod.productId, moduleId: mod.id, sortOrder: count } });
+  const parts = parseLessonParts(d.parts);
+  if (!parts.ok) return { error: parts.error };
+  try {
+    const r = await saveLessonWithParts(creator.id, {
+      id: d.id || undefined,
+      moduleId: d.moduleId,
+      title: d.title,
+      durationMin: typeof d.durationMin === "number" && d.durationMin > 0 ? d.durationMin : null,
+      version: d.version ?? null,
+      parts: parts.parts,
+    });
+    refresh(r.productId);
+    revalidatePath(`/panel/productos/${r.productId}/lecciones/${r.lessonId}`);
+    revalidatePath(`/cuenta/cursos/${r.productId}`);
+    return { ok: "Lección guardada", lessonId: r.lessonId, version: r.version, warning: r.warning ?? undefined };
+  } catch (e) {
+    if (e instanceof LessonSaveError) return { error: e.message };
+    throw e;
   }
-  refresh(mod.productId);
-  return { ok: "Lección guardada" };
 }
 
+/** Elimina una lección (y su progreso). Con back=curso, vuelve al programa del curso. */
 export async function deleteLesson(form: FormData) {
   const { db } = await ctx();
   const l = await db.lesson.findFirst({ where: { id: String(form.get("id")) } });
@@ -415,6 +418,7 @@ export async function deleteLesson(form: FormData) {
   await guardLastDeliverable(db, l.productId, { lessons: 1 }, "lecciones");
   await db.lesson.deleteMany({ where: { id: l.id } });
   refresh(l.productId);
+  if (form.get("back") === "curso") redirect(`/panel/productos/${l.productId}?leccion=eliminada#lecciones`);
 }
 
 export async function moveLesson(form: FormData) {

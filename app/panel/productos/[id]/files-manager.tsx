@@ -2,8 +2,10 @@
 import { FileImage, FileText, Headphones, Link2, Loader2, Trash2, Upload, Video } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { ConfirmForm } from "@/components/ui/confirm-form";
 import { UPLOAD_CANCELLED, uploadFile } from "@/components/ui/upload-client";
-import { PRIVATE_ACCEPT, videoWeight } from "@/lib/file-types";
+import { formatDuration, formatSize, MediaHealth } from "@/components/media/media-health";
+import { PRIVATE_ACCEPT } from "@/lib/file-types";
 import { addLinkFile, deleteFile } from "../actions";
 
 type F = {
@@ -20,42 +22,7 @@ type F = {
 const PREVIEWABLE = new Set(["VIDEO", "AUDIO", "PDF", "IMAGE"]);
 const ICON: Record<string, typeof FileText> = { PDF: FileText, AUDIO: Headphones, VIDEO: Video, LINK: Link2, IMAGE: FileImage };
 
-export function formatSize(bytes: number) {
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toLocaleString("es-ES", { maximumFractionDigits: 1 })} GB`;
-  return `${(bytes / (1024 * 1024)).toLocaleString("es-ES", { maximumFractionDigits: 1 })} MB`;
-}
-
-/** «23 min» (o «45 s» si no llega al minuto). */
-export function formatDuration(sec: number) {
-  return sec < 60 ? `${sec} s` : `${Math.round(sec / 60)} min`;
-}
-
-/** Aviso que se despliega con su explicación (sin tecnicismos salvo la palabra HEVC). */
-function Chip({ label, tone = "neutral", help }: { label: string; tone?: "neutral" | "warn"; help?: string }) {
-  const cls = tone === "warn" ? "border-[#ecdcb8] bg-[#fbf5e8] text-[#7a5a1c]" : "border-line bg-sand/60 text-muted";
-  if (!help) return <span className={`inline-flex rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold ${cls}`}>{label}</span>;
-  return (
-    <details className="group">
-      <summary className={`inline-flex cursor-pointer list-none rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold ${cls}`}>{label}</summary>
-      <p className="mt-1.5 max-w-md text-xs leading-relaxed text-muted">{help}</p>
-    </details>
-  );
-}
-
-const HEVC_HELP =
-  "Se ve en iPhone, iPad y Mac; puede no verse en algunos navegadores. Para que se vea en todas partes: expórtalo con InShot (MP4) o activa Ajustes › Cámara › Formatos › Más compatible.";
-const HEAVY_HELP = "Expórtalo en 1080p (o 720p) con InShot: tus alumnas lo verán sin cortes con datos.";
-
-function FileChips({ f }: { f: F }) {
-  if (f.kind !== "VIDEO" && f.kind !== "AUDIO") return null;
-  const chips = [];
-  if (f.durationSec) chips.push(<Chip key="d" label={formatDuration(f.durationSec)} />);
-  if (f.kind === "VIDEO" && f.width && f.height && f.height > f.width) chips.push(<Chip key="v" label="Vertical" />);
-  if (f.videoCodec === "HEVC") chips.push(<Chip key="h" label="HEVC" tone="warn" help={HEVC_HELP} />);
-  if (f.kind === "VIDEO" && videoWeight(f.sizeBytes, f.durationSec) === "heavy") chips.push(<Chip key="p" label="Muy pesado para el móvil" tone="warn" help={HEAVY_HELP} />);
-  return chips.length ? <div className="flex flex-wrap items-start gap-1.5 pt-1">{chips}</div> : null;
-}
+export { formatDuration, formatSize };
 
 export function FilesManager({
   productId,
@@ -63,6 +30,7 @@ export function FilesManager({
   title,
   hint,
   limitsLabel = "Hasta 1 GB por archivo.",
+  usage,
 }: {
   productId: string;
   files: F[];
@@ -70,6 +38,8 @@ export function FilesManager({
   hint: string;
   /** uploadPolicy(isPersonalMode()).label */
   limitsLabel?: string;
+  /** Cursos: en cuántas lecciones está cada archivo (lib/lesson-parts.ts → fileUsage). */
+  usage?: Record<string, number>;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -157,7 +127,12 @@ export function FilesManager({
               <Icon className="h-4 w-4 shrink-0 text-muted" />
               <div className="min-w-0 flex-1">
                 <span className="block truncate">{f.name}</span>
-                <FileChips f={f} />
+                <MediaHealth file={f} />
+                {!!usage?.[f.id] && (
+                  <span className="mt-1 inline-flex rounded-full border border-line bg-paper px-2 py-0.5 text-[0.7rem] font-semibold text-muted">
+                    {usage[f.id] === 1 ? "En 1 lección" : `En ${usage[f.id]} lecciones`}
+                  </span>
+                )}
               </div>
               <span className="shrink-0 text-xs text-faint">{f.kind === "LINK" ? "Enlace" : f.sizeBytes ? formatSize(f.sizeBytes) : ""}</span>
               {/* «Ver» abre o descarga el archivo (como siempre); «Vista previa», el visor de las alumnas. */}
@@ -167,10 +142,14 @@ export function FilesManager({
                   Vista previa
                 </a>
               )}
-              <form action={deleteFile}>
+              {/* Si está en lecciones, se pregunta: al borrarlo desaparece de ellas. */}
+              <ConfirmForm
+                action={deleteFile}
+                message={usage?.[f.id] ? `Este archivo está en ${usage[f.id] === 1 ? "1 lección" : `${usage[f.id]} lecciones`}. Si lo borras, desaparece de ${usage[f.id] === 1 ? "ella" : "ellas"}. ¿Borrarlo?` : null}
+              >
                 <input type="hidden" name="id" value={f.id} />
-                <button className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Eliminar"><Trash2 className="h-3.5 w-3.5" /></button>
-              </form>
+                <button className="grid h-10 w-10 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label={`Eliminar ${f.name}`}><Trash2 className="h-4 w-4" /></button>
+              </ConfirmForm>
             </li>
           );
         })}
