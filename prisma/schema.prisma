@@ -344,7 +344,8 @@ model ProductFile {
   height      Int?
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
-  lessons     Lesson[]
+  lessons     Lesson[] // obsoleto: Lesson.fileId (copia de compatibilidad, ver Lesson)
+  lessonParts LessonPart[]
 
   @@index([creatorId, productId])
 }
@@ -369,18 +370,49 @@ model Lesson {
   moduleId    String
   module      CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   title       String
-  kind        String // VIDEO | AUDIO | PDF | TEXT | EXERCISE
+  // ── Copia de compatibilidad ──
+  // kind, body, bodyFormat, mediaUrl y fileId se calculan al guardar a partir de las partes
+  // (lib/lesson-parts.ts, legacyLessonColumns). Nadie los lee: sirven para volver a la versión
+  // anterior del código sin perder lo que se ve. Se borrarán en una migración posterior.
+  kind        String // tipo principal: VIDEO | AUDIO | PDF | TEXT | EXERCISE (este último solo en lecciones antiguas)
   body        String?
   bodyFormat  String? // null = texto de antes | "MD" = texto con formato
-  mediaUrl    String? // vídeo/audio externo (YouTube, Vimeo…)
+  mediaUrl    String? // vídeo externo (YouTube, Vimeo…)
   fileId      String?
   file        ProductFile?     @relation(fields: [fileId], references: [id], onDelete: SetNull)
   durationMin Int?
   sortOrder   Int              @default(0)
+  // Versión del contenido para no pisar cambios hechos desde otro dispositivo (iPhone y Mac a la vez):
+  // el editor envía la que abrió y solo se guarda si sigue siendo la misma. Reordenar no la cambia.
+  version     Int              @default(0)
+  parts       LessonPart[]
   progress    LessonProgress[]
 
   @@index([creatorId, productId])
   @@index([moduleId])
+}
+
+/// Una parte de una lección: vídeo, audio, texto, PDF, imagen, enlace de YouTube/Vimeo u otro archivo.
+/// La lección entera, con todas sus partes, es un solo punto de progreso (LessonProgress no cambia).
+model LessonPart {
+  id         String       @id @default(cuid())
+  creatorId  String
+  productId  String // el curso, como en LessonProgress: saber qué archivos se usan sin pasar por la lección
+  lessonId   String
+  lesson     Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  sortOrder  Int          @default(0)
+  kind       String // TEXT | FILE | EMBED
+  body       String? // TEXT
+  bodyFormat String? // TEXT: null = texto de antes (párrafos) | "MD" = texto con formato (lib/rich-text.ts)
+  // FILE: un archivo de los materiales del mismo curso. Cómo se ve lo decide ProductFile.kind
+  // (VIDEO, AUDIO, PDF, IMAGE → visor; LINK, OTHER → botón). Si se borra el archivo, la parte también.
+  fileId     String?
+  file       ProductFile? @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  url        String? // EMBED: enlace de YouTube o Vimeo (https)
+
+  @@index([creatorId, productId])
+  @@index([lessonId, sortOrder])
+  @@index([fileId])
 }
 
 model LessonProgress {

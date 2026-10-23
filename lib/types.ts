@@ -59,6 +59,10 @@ export const BOOKING_STATUS_LABEL: Record<string, string> = {
   COMPLETED: "Completada",
 };
 
+/**
+ * Solo para Lesson.kind (copia de compatibilidad calculada desde las partes, ver lib/lesson-parts.ts).
+ * La interfaz usa partView/partsLabel.
+ */
 export const LESSON_KINDS = ["VIDEO", "AUDIO", "PDF", "TEXT", "EXERCISE"] as const;
 export type LessonKind = (typeof LESSON_KINDS)[number];
 export const LESSON_KIND_LABEL: Record<LessonKind, string> = {
