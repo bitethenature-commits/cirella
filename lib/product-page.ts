@@ -11,7 +11,16 @@ export async function getPublicProduct(username: string, slug: string, draft = f
   const product = await prisma.product.findUniqueOrThrow({
     where: { id: summary.id },
     include: {
-      modules: { orderBy: { sortOrder: "asc" }, include: { lessons: { orderBy: { sortOrder: "asc" }, select: { id: true, title: true, kind: true, durationMin: true } } } },
+      // De cada lección, solo el tipo de sus partes y de sus archivos: ni ids, ni nombres, ni textos.
+      modules: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          lessons: {
+            orderBy: { sortOrder: "asc" },
+            select: { id: true, title: true, durationMin: true, parts: { orderBy: { sortOrder: "asc" }, select: { kind: true, file: { select: { kind: true } } } } },
+          },
+        },
+      },
       files: { orderBy: { sortOrder: "asc" }, select: { id: true, name: true, kind: true } },
       posts: { orderBy: { publishedAt: "desc" }, take: 3, select: { id: true, title: true, publishedAt: true } },
     },

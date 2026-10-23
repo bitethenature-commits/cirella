@@ -2,8 +2,7 @@ import Link from "next/link";
 import { Download, Eye, FileImage, FileText, FolderOpen, Headphones, Video } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty";
 import { requireBuyerFull } from "@/lib/buyer-access";
-import { getCustomerLibrary } from "@/lib/customer";
-import { prisma } from "@/lib/db";
+import { courseMaterials, getCustomerLibrary } from "@/lib/customer";
 import { CreatorTag } from "../ui";
 
 const ICON = { PDF: FileText, AUDIO: Headphones, VIDEO: Video, IMAGE: FileImage } as const;
@@ -17,17 +16,8 @@ function size(bytes: number | null) {
 export default async function MyFiles() {
   const user = await requireBuyerFull("/cuenta/archivos");
   const lib = await getCustomerLibrary(user.id);
-  // También los materiales descargables de los cursos
-  const courseFiles = lib.courses.length
-    ? await prisma.productFile.findMany({ where: { productId: { in: lib.courses.map((c) => c.product.id) }, kind: { in: ["PDF", "AUDIO", "IMAGE"] } } })
-    : [];
-  const files = [
-    ...lib.files,
-    ...courseFiles.map((f) => {
-      const c = lib.courses.find((x) => x.product.id === f.productId)!;
-      return { ...f, productTitle: c.product.title, creator: c.creator };
-    }),
-  ];
+  // También los materiales de los cursos, con la lección que los usa (los vídeos se ven en la lección).
+  const files: ((typeof lib.files)[number] & { lesson?: { title: string; href: string } | null })[] = [...lib.files, ...(await courseMaterials(lib.courses))];
   return (
     <div>
       <h1 className="display text-[2.4rem]">Mis archivos</h1>
@@ -41,6 +31,11 @@ export default async function MyFiles() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{f.name}</p>
                 <p className="truncate text-xs text-muted">{f.productTitle} {size(f.sizeBytes) && `· ${size(f.sizeBytes)}`}</p>
+                {f.lesson && (
+                  <Link href={f.lesson.href} className="block truncate text-xs font-medium text-lavender-deep hover:underline">
+                    Lección: {f.lesson.title}
+                  </Link>
+                )}
                 <CreatorTag name={f.creator.displayName} avatarUrl={f.creator.avatarUrl} />
               </div>
               {VIEWABLE.has(f.kind) && (

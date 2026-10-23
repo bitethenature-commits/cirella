@@ -17,7 +17,9 @@ import { getPublicProduct } from "@/lib/product-page";
 import { isPersonalMode } from "@/lib/site-mode";
 import { decideTax } from "@/lib/tax";
 import { getTaxMode } from "@/lib/tax/server";
-import { DEFAULT_CTA, formatCourseLength, LESSON_KIND_LABEL, lessonsLabel, PRODUCT_TYPE_LABEL, type LessonKind, type ProductType } from "@/lib/types";
+import { DEFAULT_CTA, formatCourseLength, lessonsLabel, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
+import { lessonPartViews, partsLabel } from "@/lib/lesson-parts";
+import { PART_ICON } from "@/components/media/part-icons";
 import { formatDate } from "@/lib/tz";
 import { ClaimForm } from "./acceso/claim-form";
 import { ExternalButton } from "./acceso/external-button";
@@ -224,14 +226,15 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                     <p className="cp-display mt-1 text-[1.4rem]">{m.title}</p>
                     <ul className="mt-3 space-y-2">
                       {m.lessons.map((l) => {
-                        const Icon = KIND_ICON[l.kind] ?? FileText;
+                        const views = lessonPartViews(l.parts);
+                        const Icon = views[0] ? PART_ICON[views[0]] : FileText;
+                        const label = partsLabel(views);
                         return (
                           <li key={l.id} className="flex items-center gap-3 text-sm">
                             <Icon className="cp-muted h-4 w-4 shrink-0" />
                             <span className="flex-1">{l.title}</span>
                             <span className="cp-faint text-xs">
-                              {LESSON_KIND_LABEL[l.kind as LessonKind]}
-                              {l.durationMin ? ` · ${l.durationMin} min` : ""}
+                              {[label, l.durationMin ? `${l.durationMin} min` : ""].filter(Boolean).join(" · ")}
                             </span>
                           </li>
                         );

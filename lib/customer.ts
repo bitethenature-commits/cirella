@@ -73,3 +73,35 @@ export async function hasAccess(userId: string, productId: string) {
   const a = await prisma.access.findFirst({ where: { ...activeAccess(userId), productId } });
   return !!a;
 }
+
+/**
+ * Materiales de los cursos para «Mis archivos»: PDF, audios, imágenes y otros archivos (los vídeos
+ * se ven en la lección y los enlaces no se descargan), cada uno con la primera lección que lo usa
+ * (por orden de módulo y de lección). `courses` viene de getCustomerLibrary (acceso ya comprobado).
+ */
+export async function courseMaterials(courses: { product: { id: string; title: string }; creator: ReturnType<typeof creatorBrief> }[]) {
+  const ids = courses.map((c) => c.product.id);
+  if (!ids.length) return [];
+  const files = await prisma.productFile.findMany({
+    where: { productId: { in: ids }, kind: { in: ["PDF", "AUDIO", "IMAGE", "OTHER"] } },
+    orderBy: [{ productId: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  const uses = files.length
+    ? await prisma.lessonPart.findMany({
+        where: { productId: { in: ids }, kind: "FILE", fileId: { in: files.map((f) => f.id) } },
+        select: { fileId: true, lesson: { select: { id: true, title: true, sortOrder: true, module: { select: { sortOrder: true } } } } },
+      })
+    : [];
+  const first = new Map<string, (typeof uses)[number]["lesson"]>();
+  for (const u of uses) {
+    const had = first.get(u.fileId!);
+    const before = !had || u.lesson.module.sortOrder < had.module.sortOrder || (u.lesson.module.sortOrder === had.module.sortOrder && u.lesson.sortOrder < had.sortOrder);
+    if (before) first.set(u.fileId!, u.lesson);
+  }
+  const byId = new Map(courses.map((c) => [c.product.id, c]));
+  return files.map((f) => {
+    const c = byId.get(f.productId)!;
+    const l = first.get(f.id);
+    return { ...f, productTitle: c.product.title, creator: c.creator, lesson: l ? { id: l.id, title: l.title, href: `/cuenta/cursos/${f.productId}?leccion=${l.id}` } : null };
+  });
+}
