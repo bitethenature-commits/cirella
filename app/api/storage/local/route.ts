@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { type LocalDriver, contentDisposition, parseRange, storage } from "@/lib/storage";
+import { type LocalDriver, storage } from "@/lib/storage";
+import { streamObjectResponse } from "@/lib/storage/stream";
 
 /**
  * URLs firmadas del almacenamiento en disco (solo con STORAGE_DRIVER=local): hace en desarrollo
@@ -21,25 +22,7 @@ export async function GET(req: Request) {
   const t = driver.verify(new URL(req.url).searchParams.get("t"));
   if (!t || t.op !== "get") return denied();
 
-  const info = await driver.head(t.k);
-  if (!info) return new NextResponse("No encontrado", { status: 404 });
-  const headers: Record<string, string> = {
-    "Content-Type": t.ct || "application/octet-stream",
-    "Content-Disposition": contentDisposition(t.fn, !!t.inl),
-    "Accept-Ranges": "bytes",
-    "Cache-Control": "private, no-store",
-    "X-Content-Type-Options": "nosniff",
-  };
-  const range = parseRange(req.headers.get("range"), info.size);
-  if (range === "invalid") return new NextResponse(null, { status: 416, headers: { "Content-Range": `bytes */${info.size}` } });
-  const obj = await driver.getStream(t.k, range ?? undefined);
-  if (!obj) return new NextResponse("No encontrado", { status: 404 });
-  if (range)
-    return new NextResponse(obj.body, {
-      status: 206,
-      headers: { ...headers, "Content-Range": `bytes ${range.start}-${range.end}/${obj.size}`, "Content-Length": String(range.end - range.start + 1) },
-    });
-  return new NextResponse(obj.body, { headers: { ...headers, "Content-Length": String(obj.size) } });
+  return streamObjectResponse(req, { key: t.k, contentType: t.ct || "application/octet-stream", filename: t.fn, disposition: t.inl ? "inline" : "attachment" });
 }
 
 export async function PUT(req: Request) {

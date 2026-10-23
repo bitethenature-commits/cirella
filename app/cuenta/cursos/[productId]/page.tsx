@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, Circle, Download, FileText, Headphones, PlayCircle, Sparkles } from "lucide-react";
+import { MediaView } from "@/components/media/media-view";
 import { RichContent } from "@/components/rich-text/rich-content";
 import { markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
 import { creatorBrief, hasAccess } from "@/lib/customer";
@@ -67,18 +68,22 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
           <article className="min-w-0">
             <div className="overflow-hidden rounded-3xl bg-ink">
               {current.kind === "VIDEO" && current.file ? (
-                <video key={current.id} controls playsInline preload="metadata" poster={course.imageUrl ?? undefined} className="aspect-video w-full bg-black" src={`/api/download/${current.file.id}?inline=1`} />
+                <MediaView key={current.id} file={current.file} title={current.title} poster={course.imageUrl} />
               ) : current.kind === "VIDEO" && current.mediaUrl && embedUrl(current.mediaUrl) ? (
                 <iframe src={embedUrl(current.mediaUrl)!} className="aspect-video w-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen title={current.title} />
               ) : (
-                <div className="relative grid aspect-[16/7] place-items-center overflow-hidden text-cream">
+                <div className={`relative grid place-items-center overflow-hidden text-cream ${current.kind === "AUDIO" && current.file ? "min-h-[16rem] py-8" : "aspect-[16/7]"}`}>
                   {course.imageUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={course.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" />
                   )}
                   <div className="relative px-6 text-center">
                     <p className="eyebrow !text-cream/70">{LESSON_KIND_LABEL[current.kind as LessonKind]} · Lección {idx + 1} de {lessons.length}</p>
-                    {current.kind === "AUDIO" && current.file && <audio key={current.id} controls preload="metadata" className="mx-auto mt-5 w-full max-w-sm" src={`/api/download/${current.file.id}?inline=1`} />}
+                    {current.kind === "AUDIO" && current.file && (
+                      <div className="mt-5">
+                        <MediaView key={current.id} file={current.file} title={`${current.title} · ${course.title}`} artwork={course.imageUrl} />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
