@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { lauraSessionLabel } from "./demo-data";
+import { freeTimes, pickDay } from "./slots";
 
 /**
  * Reembolsar, cancelar y cambiar de fecha avisando a la clienta:
@@ -71,10 +72,8 @@ test.describe.serial("Reembolsos y cambios", () => {
   test("Proponer otra fecha: la compradora vuelve a elegir y recibe el enlace", async ({ page, browser }) => {
     // Compra de una sesión con fecha (tarjeta 4242).
     await page.goto("/ana/sesion-1-1/checkout");
-    const days = page.locator("section button.w-\\[3\\.9rem\\]");
-    await expect(days.first()).toBeVisible();
-    await days.nth(4).click();
-    await page.locator("section .grid.grid-cols-3 button").last().click();
+    await pickDay(page, 4);
+    await freeTimes(page).last().click();
     await page.fill("#name", buyerName);
     await page.fill("#email", buyerEmail);
     await page.fill("input[name=cardNumber]", "4242 4242 4242 4242");

@@ -43,6 +43,7 @@
     "test:rich-text": "tsx --conditions=react-server scripts/rich-text-test.ts",
     "test:media": "tsx --conditions=react-server scripts/media-test.ts",
     "test:lessons": "tsx --conditions=react-server scripts/lessons-test.ts",
+    "test:calendar": "tsx --conditions=react-server scripts/calendar-test.ts",
     "test:e2e": "playwright test"
   },
   "prisma": {

@@ -74,7 +74,7 @@ test.describe.serial("Acceso a la cuenta", () => {
     // Nada de lo que Laura ya tenía: ni su reserva (con su videollamada), ni su curso, ni su PDF.
     await page.goto(`/cuenta/sesiones/${booking.id}`);
     await expect(page).toHaveURL(/\/ana\/entrar/);
-    await expect(page.getByText("Enlace de la videollamada")).toHaveCount(0);
+    await expect(page.getByText(/Enlace de (la videollamada|Zoom)/)).toHaveCount(0);
     await page.goto(`/cuenta/cursos/${course.id}`);
     await expect(page).toHaveURL(/\/ana\/entrar/);
     expect((await page.request.get(`/api/download/${oldPdf.id}`, { maxRedirects: 0 })).status()).not.toBe(200);

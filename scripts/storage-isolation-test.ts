@@ -43,6 +43,7 @@ async function main() {
   const maria = await prisma.creator.findUniqueOrThrow({ where: { username: "maria" } });
   const anaProduct = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL" } });
   const mariaProduct = await prisma.product.findFirstOrThrow({ where: { creatorId: maria.id } });
+  const mariaOrder = await prisma.order.findFirstOrThrow({ where: { creatorId: maria.id } });
   const s = storage();
   const keyOf = (uploadUrl: string) => s.name === "local" && (s as import("../lib/storage").LocalDriver).verify(new URL(uploadUrl, "http://x").searchParams.get("t"))?.k;
   const created: string[] = [];
@@ -116,6 +117,18 @@ async function main() {
     check("un billete con la clave de Ana y el id de María no vale", await rejects(() => signUploadParts(maria.id, crossMp, [1]), /caducado/));
     check("Ana sí puede firmar sus partes", (await signUploadParts(ana.id, mp.ticket, [1, 2])).length === 2);
     await abortUpload(ana.id, mp.ticket);
+
+    // ── Entregas de un pedido (lectura, grabación): solo pedidos propios y entregables ──
+    const anaDelivery = await prisma.orderFile.findFirstOrThrow({ where: { creatorId: ana.id } });
+    check("María no puede pedir una subida para un pedido de Ana", await rejects(() => createUpload(maria.id, { purpose: "delivery", orderId: anaDelivery.orderId, name: "x.pdf", contentType: "application/pdf", size: 10 }), /Pedido no encontrado/));
+    const notDeliverable = await prisma.order.findFirstOrThrow({ where: { creatorId: ana.id, productType: "COURSE", status: "PAID" } });
+    check("un pedido que no es una lectura ni una sesión no admite entregas", await rejects(() => createUpload(ana.id, { purpose: "delivery", orderId: notDeliverable.id, name: "x.pdf", contentType: "application/pdf", size: 10 }), /Pedido no encontrado/));
+    const del = (await createUpload(ana.id, { purpose: "delivery", orderId: anaDelivery.orderId, name: "resumen.pdf", contentType: "application/pdf", size: pdf.length })) as SingleUpload;
+    const delKey = keyOf(del.uploadUrl) || "";
+    check("la entrega va bajo private/<Ana>/", delKey.startsWith(`private/${ana.id}/`));
+    await s.put(delKey, pdf, { contentType: "application/pdf" });
+    const forgedOid = signToken({ k: delKey, c: ana.id, p: "delivery", oid: mariaOrder.id, n: "x.pdf", ct: "application/pdf", s: pdf.length }, storageSecret(), 600);
+    check("un billete con un pedido de María (oid) se rechaza", await rejects(() => completeUpload(ana.id, forgedOid), /Pedido no encontrado/));
   } finally {
     if (created.length) await prisma.productFile.deleteMany({ where: { id: { in: created } } });
     await prisma.$disconnect();

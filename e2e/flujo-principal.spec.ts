@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
 import { lauraSessionLabel } from "./demo-data";
+import { freeTimes, pickDay } from "./slots";
 
 /**
  * Instagram → página → producto → pago → entrega → clienta recurrente.
@@ -204,10 +205,8 @@ test.describe.serial("Flujo principal", () => {
 
   test("9. Checkout: tras un pago rechazado se conservan los datos y se reserva la hora elegida al reintentar", async ({ page }) => {
     await page.goto("/ana/sesion-1-1/checkout");
-    const days = page.locator("section button.w-\\[3\\.9rem\\]");
-    await expect(days.first()).toBeVisible();
-    await days.nth(1).click();
-    await page.locator("section .grid.grid-cols-3 button").first().click();
+    await pickDay(page, 1);
+    await freeTimes(page).first().click();
     await page.fill("#name", "Rocío Reintento");
     await page.fill("#email", `rocio${stamp}@example.com`);
     await page.fill("input[name=cardNumber]", "4000 0000 0000 0002");
@@ -217,9 +216,8 @@ test.describe.serial("Flujo principal", () => {
     await expect(page.locator("#name")).toHaveValue("Rocío Reintento");
     await expect(page.getByLabel(/He leído y acepto/)).toBeChecked();
     // Cambia de día antes de reintentar: la reserva debe quedar en el día nuevo.
-    await days.nth(2).click();
-    const dayNumber = (await days.nth(2).locator("span").nth(1).textContent())!.trim();
-    await page.locator("section .grid.grid-cols-3 button").first().click();
+    const dayNumber = await pickDay(page, 2);
+    await freeTimes(page).first().click();
     await page.fill("input[name=cardNumber]", "4242 4242 4242 4242");
     await page.getByRole("button", { name: /Reservar y pagar/ }).click();
     await page.waitForURL("**/ana/gracias**");

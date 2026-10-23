@@ -551,6 +551,41 @@ Desde tu panel (`https://tudominio.com/panel`, también en el móvil):
 tu página como la verá cualquiera. Apúntate a un producto gratis con otro email tuyo: te llega
 el email con el enlace de acceso.
 
+### Tus lecturas y tu calendario
+
+Con los cobros activados, tus sesiones se reservan y se pagan en tu web, con tu propio calendario:
+no hace falta Calendly ni Google Calendar. Tú trabajas con tu enlace de Zoom y todo se avisa por email.
+
+1. **Tu horario** (**Reservas → Tu horario**): las franjas de cada día de la semana y tu zona
+   horaria. Si viajas, en **Fechas especiales** pon desde qué día hasta cuál trabajas y en qué
+   horas, en la zona del sitio donde estés («de 9:00 a 13:00, hora de Bali»): esos días no se usa
+   tu horario semanal. Para unas vacaciones, **Bloquear días** (desde–hasta); para un médico,
+   **Bloquear unas horas**. Si tu móvil está en otra zona, el panel te lo recuerda.
+2. **Tu enlace de Zoom**: en la app de Zoom, **Reuniones → tu sala personal → Copiar
+   invitación**, y pega solo el enlace (`https://…zoom.us/j/…`) en cada sesión (**Productos →
+   la sesión → Enlace de Zoom**). Le llega a tu clienta con la confirmación y los recordatorios.
+   En cada reserva puedes poner otro y marcar «Avisar por email».
+3. **Datos de nacimiento**: en cada sesión o lectura, **Datos que pides**: fecha, hora y lugar de
+   nacimiento (no / opcional / obligatorio) y hasta 8 preguntas tuyas. Se piden al pagar; tu
+   clienta los puede corregir desde su área y tú los ves en la reserva con **Copiar** (para tu
+   programa de astrología). Si tu texto de privacidad es personalizado, añade que los pides.
+4. **Cuánto por delante**: en cada sesión, **Se puede reservar hasta** (2 semanas a 6 meses).
+5. **Dar una sesión** (**Reservas → Dar una sesión o lectura**): para un regalo o algo que te
+   pagaron por Bizum o transferencia (la factura la emites tú). Elige un hueco de tu agenda,
+   cualquier otra hora o «que la elija ella». Le llega el email con su enlace.
+6. **Enviar una lectura grabada**: en la reserva, **Enviar la grabación** (o en **Reservas →
+   Lecturas por entregar**). Sube el audio o el vídeo desde **Fotos** o **Archivos** del iPhone
+   (hasta 4 GB; no cierres la pantalla mientras sube), escribe un mensaje y pulsa **Enviar**. Tu
+   clienta la escucha en su área y le llega «Tu lectura está lista».
+7. **Talleres**: **Productos → Nuevo → Taller en directo**: fecha, hora, plazas y Zoom. Ves las
+   asistentes en el producto; después sube la grabación y pulsa **Avisar de la grabación**.
+8. **Avisos** (**Automatizaciones**): «Aviso de reservas» (te avisa de cada reserva, cambio de
+   fecha y datos nuevos) y «Segundo recordatorio» (60 minutos antes, con el Zoom) vienen
+   activados; puedes cambiar los minutos o desactivarlos.
+
+Mientras una clienta está pagando en Stripe o PayPal, esa hora queda guardada (hasta unos 30
+minutos): así dos personas no pagan la misma hora. Si el pago falla, la hora vuelve a estar libre.
+
 ### Vídeos y audios desde el iPhone
 
 - **Formato**: en el iPhone, **Ajustes → Cámara → Formatos → Más compatible** y **Vídeo HDR**

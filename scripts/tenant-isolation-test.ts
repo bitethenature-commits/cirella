@@ -69,6 +69,14 @@ async function main() {
   check("aggregate de ventas = solo ventas de Ana", agg._sum.amountCents === real._sum.amountCents);
   const groups = await db.analyticsEvent.groupBy({ by: ["creatorId"] });
   check("groupBy de analytics solo ve el tenant de Ana", groups.length === 1 && groups[0].creatorId === ana.id);
+  // Calendario propio: fechas especiales y entregas de Ana (sembradas) invisibles para María.
+  const mariaDb = tenantDb(maria.id);
+  const anaOverride = await prisma.availabilityOverride.findFirstOrThrow({ where: { creatorId: ana.id } });
+  const anaOrderFile = await prisma.orderFile.findFirstOrThrow({ where: { creatorId: ana.id } });
+  check("María no ve las fechas especiales de Ana", (await mariaDb.availabilityOverride.findFirst({ where: { id: anaOverride.id } })) === null);
+  check("María no ve las entregas de Ana", (await mariaDb.orderFile.findFirst({ where: { id: anaOrderFile.id } })) === null);
+  check("María no puede borrar una fecha especial de Ana", (await mariaDb.availabilityOverride.deleteMany({ where: { id: anaOverride.id } })).count === 0);
+  check("María no puede marcar como enviada una entrega de Ana", (await mariaDb.orderFile.updateMany({ where: { id: anaOrderFile.id }, data: { name: "x" } })).count === 0);
   check("count de reservas no incluye las de otras", (await db.booking.count()) === (await prisma.booking.count({ where: { creatorId: ana.id } })));
 
   // Escrituras (el siguiente "prisma:error" es esperado: Prisma rechaza el update)

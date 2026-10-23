@@ -35,6 +35,8 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     ...devices["iPhone 13"],
     browserName: "chromium",
+    // Las horas del calendario se enseñan en la zona del navegador: la de Ana, como en la demo.
+    timezoneId: "Europe/Madrid",
     trace: "retain-on-failure",
     launchOptions: process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : undefined,
   },
