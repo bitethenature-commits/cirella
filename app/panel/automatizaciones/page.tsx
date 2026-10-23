@@ -1,4 +1,5 @@
 import { Mail } from "lucide-react";
+import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireCreator } from "@/lib/auth";
 import { AUTOMATIONS, type AutomationTrigger } from "@/lib/automations";
@@ -70,9 +71,21 @@ export default async function AutomationsPage() {
                         {t === "SESSION_REMINDER" ? "minutos antes" : "minutos"}
                       </label>
                     )}
-                    <input name="subject" defaultValue={row?.subject ?? ""} placeholder="Asunto personalizado (opcional)" className="input h-9 text-sm" />
+                    <input name="subject" defaultValue={row?.subject ?? ""} placeholder="Asunto personalizado (opcional)" className="input h-9 text-base sm:text-sm" />
                     {(t === "WELCOME" || t === "ABANDONED_CHECKOUT") && (
-                      <textarea name="message" defaultValue={row?.message ?? ""} rows={3} placeholder="Tu mensaje (opcional)" className="input text-sm" />
+                      <RichTextEditor
+                        name="message"
+                        ariaLabel="Tu mensaje"
+                        formatName="messageFormat"
+                        defaultValue={row?.message ?? ""}
+                        initialFormat={row?.messageFormat ?? null}
+                        maxLength={2000}
+                        tools="basic"
+                        tone="account"
+                        legacy="links"
+                        rows={3}
+                        placeholder="Tu mensaje (opcional)"
+                      />
                     )}
                     <SubmitButton className="btn btn-primary btn-sm">Guardar</SubmitButton>
                   </div>

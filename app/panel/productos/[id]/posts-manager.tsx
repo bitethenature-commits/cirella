@@ -1,10 +1,12 @@
 "use client";
 import { CalendarDays, Headphones, PenLine, Trash2, Video } from "lucide-react";
 import { startTransition, useActionState, useEffect, useRef } from "react";
+import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { Flash } from "@/components/ui/flash";
+import { richToPlain } from "@/lib/rich-text";
 import { addPost, deletePost, type ActionState } from "../actions";
 
-type Post = { id: string; title: string; body: string; kind: string; publishedAt: string };
+type Post = { id: string; title: string; body: string; bodyFormat: string | null; kind: string; publishedAt: string };
 const ICON: Record<string, typeof PenLine> = { TEXT: PenLine, AUDIO: Headphones, VIDEO: Video, EVENT: CalendarDays };
 
 export function PostsManager({ productId, posts, members }: { productId: string; posts: Post[]; members: number }) {
@@ -29,16 +31,30 @@ export function PostsManager({ productId, posts, members }: { productId: string;
         <Flash ok={state?.ok} error={state?.error} />
         <input type="hidden" name="productId" value={productId} />
         <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
-          <input name="title" placeholder="Título (p. ej. Ritual de luna nueva)" className="input h-10 text-sm" required />
-          <select name="kind" className="input h-10 text-sm">
+          <input name="title" placeholder="Título (p. ej. Ritual de luna nueva)" className="input h-10 text-base sm:text-sm" required />
+          <select name="kind" className="input h-10 text-base sm:text-sm">
             <option value="TEXT">Publicación</option>
             <option value="AUDIO">Audio</option>
             <option value="VIDEO">Vídeo</option>
             <option value="EVENT">Directo / evento</option>
           </select>
         </div>
-        <textarea name="body" rows={4} placeholder="Escribe para tu comunidad…" className="input text-sm" required />
-        <input name="mediaUrl" type="url" placeholder="Enlace opcional (directo, audio, vídeo…)" className="input h-10 text-sm" />
+        <RichTextEditor
+          name="body"
+          ariaLabel="Texto de la publicación"
+          formatName="bodyFormat"
+          initialFormat="MD"
+          required
+          maxLength={10000}
+          tools="full"
+          images
+          tone="account"
+          headingLevel={3}
+          legacy="preline"
+          rows={4}
+          placeholder="Escribe para tu comunidad…"
+        />
+        <input name="mediaUrl" type="url" placeholder="Enlace opcional (directo, audio, vídeo…)" className="input h-10 text-base sm:text-sm" />
         <button type="submit" className="btn btn-primary btn-sm" disabled={isPending}>{isPending ? "Publicando…" : "Publicar en la comunidad"}</button>
       </form>
       <ul className="mt-4 divide-y divide-line">
@@ -49,7 +65,7 @@ export function PostsManager({ productId, posts, members }: { productId: string;
               <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{p.title}</p>
-                <p className="line-clamp-2 text-xs text-muted">{p.body}</p>
+                <p className="line-clamp-2 text-xs text-muted">{richToPlain(p.body, p.bodyFormat)}</p>
                 <p className="mt-0.5 text-[0.7rem] text-faint">{p.publishedAt}</p>
               </div>
               <form action={deletePost} onSubmit={(e) => { if (!confirm("¿Eliminar la publicación?")) e.preventDefault(); }}>

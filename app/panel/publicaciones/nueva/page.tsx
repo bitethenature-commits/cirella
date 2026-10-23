@@ -19,7 +19,7 @@ export default async function NewPostPage() {
       <PostForm
         host={appHost()}
         username={creator.username}
-        post={{ id: null, title: "", slug: "", excerpt: "", body: "", imageUrl: null, status: "DRAFT", publishedOn: "" }}
+        post={{ id: null, title: "", slug: "", excerpt: "", body: "", bodyFormat: "MD", imageUrl: null, status: "DRAFT", publishedOn: "" }}
       />
     </div>
   );

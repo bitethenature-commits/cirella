@@ -7,6 +7,7 @@ import { publishPage } from "@/lib/creator";
 import { prisma } from "@/lib/db";
 import { pageConfigSchema, type PageConfig } from "@/lib/page-config";
 import { planFeatures } from "@/lib/plans";
+import { cleanRichInput } from "@/lib/rich-text";
 import { isPersonalMode } from "@/lib/site-mode";
 
 const ownImage = (u: string | null | undefined) => (u && (u.startsWith("/media/") || u.startsWith("/demo/")) ? u : null);
@@ -22,6 +23,8 @@ async function save(input: PageConfig) {
     coverUrl: ownImage(parsed.data.coverUrl),
     theme: { ...parsed.data.theme, backgroundImageUrl: ownImage(parsed.data.theme.backgroundImageUrl) },
     hidePoweredBy: features.removeBranding ? parsed.data.hidePoweredBy : false,
+    // Bloques con formato: sin caracteres de control ni imágenes (los bloques no admiten imágenes).
+    blocks: parsed.data.blocks?.map((b) => (b.format === "MD" ? { ...b, body: cleanRichInput(b.body, { creatorId: creator.id, images: false }) } : b)),
   };
   const tpl = await prisma.template.findFirst({ where: { key: cfg.template, active: true } });
   if (!tpl) return { ok: false as const, error: "Ese diseño no está disponible", creator };

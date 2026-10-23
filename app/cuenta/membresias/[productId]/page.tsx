@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertTriangle, ArrowLeft, CalendarDays, Headphones, PenLine } from "lucide-react";
+import { RichContent } from "@/components/rich-text/rich-content";
 import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
@@ -89,7 +90,7 @@ export default async function MembershipFeed({
                 <k.icon className="h-3.5 w-3.5" /> {k.label} · {formatDate(post.publishedAt, { day: "numeric", month: "long" })}
               </p>
               <h2 className="display mt-2 text-[1.6rem] leading-tight">{post.title}</h2>
-              <p className="mt-3 whitespace-pre-line text-[0.98rem] leading-relaxed text-ink/80">{post.body}</p>
+              <RichContent text={post.body} format={post.bodyFormat} legacy="preline" tone="account" headingLevel={3} className="mt-3 space-y-3 text-[0.98rem] leading-relaxed text-ink/80" />
               {post.mediaUrl && (
                 <a href={post.mediaUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm mt-4">
                   {post.kind === "EVENT" ? "Unirme al directo" : "Abrir"}

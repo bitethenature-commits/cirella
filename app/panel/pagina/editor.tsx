@@ -19,6 +19,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { CreatorPageView, type PublicDiscountCode, type PublicPost, type PublicProduct } from "@/components/creator-page/creator-page-view";
+import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { TemplatePreview } from "@/components/template-preview";
 import { ImageUpload } from "@/components/ui/image-upload";
 import {
@@ -589,14 +590,20 @@ function TextBlocksEditor({ blocks, onChange }: { blocks: TextBlock[]; onChange:
               maxLength={80}
               onChange={(e) => update(b.id, { title: e.target.value })}
             />
-            <textarea
-              className="input text-sm leading-relaxed"
-              rows={5}
+            {/* Solo los bloques que se editan pasan a tener formato (los demás se ven como siempre). */}
+            <RichTextEditor
+              ariaLabel="Texto del bloque"
               placeholder="Texto del bloque"
-              aria-label="Texto del bloque"
               value={b.body}
+              initialFormat={b.format ?? null}
+              onChange={(body) => update(b.id, { body, format: "MD" })}
               maxLength={TEXT_BLOCK_BODY_MAX}
-              onChange={(e) => update(b.id, { body: e.target.value })}
+              tools="basic"
+              headings
+              preview={false}
+              tone="page"
+              headingLevel={3}
+              rows={5}
             />
             <div className="grid gap-2 sm:grid-cols-2">
               <input

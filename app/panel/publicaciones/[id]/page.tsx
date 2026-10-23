@@ -53,6 +53,7 @@ export default async function EditPostPage({ params, searchParams }: { params: P
           slug: post.slug,
           excerpt: post.excerpt ?? "",
           body: post.body,
+          bodyFormat: post.bodyFormat,
           imageUrl: post.imageUrl,
           status: post.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT",
           publishedOn: post.publishedAt ? dateKeyInTz(post.publishedAt, creator.timezone) : "",

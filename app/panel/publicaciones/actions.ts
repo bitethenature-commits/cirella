@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
 import { ownImageUrl, postFormSchema, postSlugBase, resolvePublishedAt } from "@/lib/posts";
+import { cleanRichInput, formatToStore, normalizeNewlines } from "@/lib/rich-text";
 import { randomCode } from "@/lib/slug";
 import { tenantDb, type TenantDb } from "@/lib/tenant";
 import { slugTakenNotice } from "./slug-notice";
@@ -43,11 +44,14 @@ export async function savePost(_: PostActionState, form: FormData): Promise<Post
 
   const slug = await uniquePostSlug(db, postSlugBase(d.title, d.slug || current?.slug), current?.id);
   const publishedAt = resolvePublishedAt({ status: d.status, publishedOn: d.publishedOn, current: current?.publishedAt ?? null, timeZone: creator.timezone });
+  // Formato del texto: sin tocar el texto llega el que tenía (un texto antiguo se guarda igual).
+  const bodyFormat = formatToStore(d.body, d.bodyFormat, current?.bodyFormat ?? null);
   const data = {
     title: d.title,
     slug,
     excerpt: d.excerpt,
-    body: d.body,
+    body: bodyFormat ? cleanRichInput(d.body, { creatorId: creator.id, images: true }) : normalizeNewlines(d.body),
+    bodyFormat,
     imageUrl: ownImageUrl(d.imageUrl),
     status: d.status,
     publishedAt,

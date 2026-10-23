@@ -122,6 +122,9 @@ export const pageConfigSchema = z.object({
           id: z.string().max(40),
           title: shortText(80).default(""),
           body: shortText(TEXT_BLOCK_BODY_MAX).default(""),
+          // Formato del texto (lib/rich-text.ts): ausente o desconocido = bloque de antes (párrafos y
+          // enlaces automáticos). Nunca invalida la página entera (readPageConfig volvería a la de por defecto).
+          format: z.literal("MD").optional().catch(undefined),
           buttonLabel: shortText(40).optional(),
           buttonUrl: shortText(500).optional(),
           enabled: z.boolean().default(true),

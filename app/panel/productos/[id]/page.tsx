@@ -163,7 +163,7 @@ export default async function EditProductPage({
             <PostsManager
               productId={product.id}
               members={members}
-              posts={product.posts.map((p) => ({ id: p.id, title: p.title, body: p.body, kind: p.kind, publishedAt: formatDate(p.publishedAt, { day: "numeric", month: "long" }, creator.timezone) }))}
+              posts={product.posts.map((p) => ({ id: p.id, title: p.title, body: p.body, bodyFormat: p.bodyFormat, kind: p.kind, publishedAt: formatDate(p.publishedAt, { day: "numeric", month: "long" }, creator.timezone) }))}
             />
           </div>
         )}

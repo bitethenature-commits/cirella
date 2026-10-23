@@ -125,10 +125,10 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
   };
 });
 
-const POST_CARD_SELECT = { id: true, slug: true, title: true, excerpt: true, body: true, imageUrl: true, publishedAt: true } as const;
+const POST_CARD_SELECT = { id: true, slug: true, title: true, excerpt: true, body: true, bodyFormat: true, imageUrl: true, publishedAt: true } as const;
 
 function toPublicPost(
-  p: { id: string; slug: string; title: string; excerpt: string | null; body: string; imageUrl: string | null; publishedAt: Date | null },
+  p: { id: string; slug: string; title: string; excerpt: string | null; body: string; bodyFormat?: string | null; imageUrl: string | null; publishedAt: Date | null },
   timeZone: string,
 ): PublicPost {
   const publishedAt = p.publishedAt ?? new Date(0);

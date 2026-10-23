@@ -8,7 +8,7 @@
  *     queda «programada» y aparece sola ese día).
  */
 import { z } from "zod";
-import { plainText, truncateWords } from "./rich-text";
+import { parseTextFormat, plainText, richToPlain, truncateWords } from "./rich-text";
 import { slugify } from "./slug";
 import { dateKeyInTz, zonedTimeToUtc } from "./tz";
 
@@ -38,6 +38,8 @@ export const postFormSchema = z.object({
   slug: z.string().trim().max(80).optional(),
   excerpt: optionalText(POST_EXCERPT_MAX, `El extracto admite ${POST_EXCERPT_MAX} caracteres`),
   body: z.string().trim().min(1, "Escribe el texto de la publicación").max(POST_BODY_MAX, `El texto admite ${POST_BODY_MAX.toLocaleString("es-ES")} caracteres`),
+  // Formato del texto (lib/rich-text.ts): tolerante, "" o desconocido = texto de antes; ausente = el guardado.
+  bodyFormat: z.string().max(8).optional().transform(parseTextFormat),
   imageUrl: z.string().max(500).optional(),
   status: z.enum(POST_STATUSES, { errorMap: () => ({ message: "Elige si es un borrador o se publica" }) }),
   publishedOn: z
@@ -113,13 +115,13 @@ export const POST_STATE_LABEL: Record<PostState, string> = {
 };
 
 /** Extracto para tarjetas y SEO: el escrito o el principio del texto. */
-export function postExcerpt(p: { excerpt: string | null; body: string }, max = 180): string {
-  return p.excerpt?.trim() ? truncateWords(p.excerpt, max) : truncateWords(plainText(p.body), max);
+export function postExcerpt(p: { excerpt: string | null; body: string; bodyFormat?: string | null }, max = 180): string {
+  return p.excerpt?.trim() ? truncateWords(p.excerpt, max) : truncateWords(plainText(richToPlain(p.body, p.bodyFormat)), max);
 }
 
 /** Minutos de lectura (≈ 200 palabras por minuto; mínimo 1). */
-export function readingMinutes(body: string): number {
-  const words = plainText(body).split(" ").filter(Boolean).length;
+export function readingMinutes(body: string, format?: string | null): number {
+  const words = plainText(richToPlain(body, format)).split(" ").filter(Boolean).length;
   return Math.max(1, Math.round(words / 200));
 }
 

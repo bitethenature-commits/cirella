@@ -359,7 +359,12 @@ async function main() {
     {
       title: "Tu propósito",
       lessons: [
-        { title: "Gene Keys: sombra, don y siddhi", kind: "TEXT", durationMin: 14, body: "Cada Gene Key describe un espectro de consciencia. La sombra es el patrón automático; el don, la creatividad que aparece cuando miramos la sombra con amabilidad; el siddhi, la expresión más elevada.\n\nElige tu llave de Propósito y contémplala durante una semana. Anota cada día una situación en la que la reconozcas." },
+        {
+          title: "Gene Keys: sombra, don y siddhi", kind: "TEXT", durationMin: 14,
+          // Texto con formato (lib/rich-text.ts): el resto de la demo es texto de antes, como prueba de que se ve igual.
+          bodyFormat: "MD",
+          body: "Cada Gene Key describe un espectro de consciencia. La **sombra** es el patrón automático; el **don**, la creatividad que aparece cuando miramos la sombra con amabilidad; el **siddhi**, la expresión más elevada.\n\n## Tu práctica de la semana\n\nElige tu llave de Propósito y contémplala durante una semana. Anota cada día una situación en la que la reconozcas.",
+        },
         { title: "Meditación de integración", kind: "AUDIO", fileId: fMedit.id, durationMin: 12, body: "Cierra el curso con esta meditación. Busca un lugar tranquilo, cierra los ojos y deja que el sonido del cuenco te acompañe." },
       ],
     },
@@ -372,7 +377,7 @@ async function main() {
         data: {
           creatorId: ana.id, productId: pCourse.id, moduleId: mod.id, title: l.title,
           kind: l.kind === "VIDEO" && !l.fileId ? "TEXT" : l.kind,
-          body: l.body, fileId: l.fileId ?? null, durationMin: l.durationMin, sortOrder: li,
+          body: l.body, bodyFormat: "bodyFormat" in l ? (l.bodyFormat as string) : null, fileId: l.fileId ?? null, durationMin: l.durationMin, sortOrder: li,
         },
       });
       lessonIds.push(lesson.id);
@@ -434,7 +439,8 @@ async function main() {
         creatorId: ana.id, slug: "eclipse-de-octubre", status: "PUBLISHED", publishedAt: daysAgo(3, 9),
         title: "Eclipse de octubre: qué cierra y qué empieza",
         excerpt: "Los eclipses aceleran los finales que ya estaban en marcha. Te cuento cómo vivir este con calma.",
-        body: "Los eclipses no traen cosas nuevas de la nada: aceleran procesos que ya estaban en marcha. Si llevas meses sintiendo que algo tenía que cambiar, es muy posible que este eclipse lo haga evidente.\n\nMi consejo para estos días: no tomes decisiones grandes en caliente. Observa, apunta lo que aparece y deja que pasen al menos dos semanas antes de mover ficha.\n\nSi quieres ver en qué casa de tu carta cae el eclipse, empieza por el mini-curso gratis: en el paso 1 aprenderás a leer las casas.",
+        bodyFormat: "MD",
+        body: "Los eclipses no traen cosas nuevas de la nada: aceleran procesos que ya estaban en marcha. Si llevas meses sintiendo que algo tenía que cambiar, es muy posible que este eclipse lo haga evidente.\n\n## Mi consejo para estos días\n\n**No tomes decisiones grandes en caliente.** Observa, apunta lo que aparece y deja que pasen al menos dos semanas antes de mover ficha.\n\nSi quieres ver en qué casa de tu carta cae el eclipse, empieza por el mini-curso gratis: en el paso 1 aprenderás a leer las casas.",
         imageUrl: await demoImage(ana.id, "/demo/ana-cover.webp"), createdAt: daysAgo(3, 9),
       },
       {

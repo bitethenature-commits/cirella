@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, Circle, Download, FileText, Headphones, PlayCircle, Sparkles } from "lucide-react";
+import { RichContent } from "@/components/rich-text/rich-content";
 import { markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
 import { creatorBrief, hasAccess } from "@/lib/customer";
 import { prisma } from "@/lib/db";
@@ -85,11 +86,14 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
             <p className="eyebrow mt-6">Lección {idx + 1}{current.durationMin ? ` · ${current.durationMin} min` : ""}</p>
             <h2 className="display mt-2 text-[2rem] leading-tight">{current.title}</h2>
             {current.body && (
-              <div className="mt-4 space-y-4 text-[1.02rem] leading-relaxed text-ink/85">
-                {current.body.split(/\n{2,}/).map((p, i) => (
-                  <p key={i}>{p}</p>
-                ))}
-              </div>
+              <RichContent
+                text={current.body}
+                format={current.bodyFormat}
+                legacy="paragraphs"
+                tone="account"
+                headingLevel={3}
+                className="mt-4 space-y-4 text-[1.02rem] leading-relaxed text-ink/85"
+              />
             )}
             {current.file && (current.kind === "PDF" || current.kind === "EXERCISE" || current.kind === "AUDIO") && (
               <a href={`/api/download/${current.file.id}`} className="card mt-6 flex items-center gap-3 p-4 transition hover:shadow-lift">

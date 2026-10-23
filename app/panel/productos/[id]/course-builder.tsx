@@ -1,11 +1,12 @@
 "use client";
 import { ArrowDown, ArrowUp, FileText, Headphones, Loader2, Pencil, PlayCircle, Plus, Sparkles, Trash2 } from "lucide-react";
 import { startTransition, useActionState, useEffect, useState } from "react";
+import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { Flash } from "@/components/ui/flash";
 import { LESSON_KIND_LABEL, LESSON_KINDS, type LessonKind } from "@/lib/types";
 import { addModule, deleteLesson, deleteModule, moveLesson, renameModule, saveLesson, type ActionState } from "../actions";
 
-type Lesson = { id: string; title: string; kind: string; body: string | null; mediaUrl: string | null; fileId: string | null; durationMin: number | null };
+type Lesson = { id: string; title: string; kind: string; body: string | null; bodyFormat: string | null; mediaUrl: string | null; fileId: string | null; durationMin: number | null };
 type Module = { id: string; title: string; lessons: Lesson[] };
 type FileOpt = { id: string; name: string; kind: string };
 
@@ -30,22 +31,36 @@ function LessonForm({ moduleId, lesson, files, onDone }: { moduleId: string; les
       <input type="hidden" name="moduleId" value={moduleId} />
       {lesson && <input type="hidden" name="id" value={lesson.id} />}
       <div className="grid gap-3 sm:grid-cols-[1fr_160px_110px]">
-        <input name="title" defaultValue={lesson?.title} placeholder="Título de la lección" className="input h-10 text-sm" required />
-        <select name="kind" value={kind} onChange={(e) => setKind(e.target.value as LessonKind)} className="input h-10 text-sm">
+        <input name="title" defaultValue={lesson?.title} placeholder="Título de la lección" className="input h-10 text-base sm:text-sm" required />
+        <select name="kind" value={kind} onChange={(e) => setKind(e.target.value as LessonKind)} className="input h-10 text-base sm:text-sm">
           {LESSON_KINDS.map((k) => <option key={k} value={k}>{LESSON_KIND_LABEL[k]}</option>)}
         </select>
-        <input name="durationMin" type="number" min={0} max={600} defaultValue={lesson?.durationMin ?? ""} placeholder="Min" className="input h-10 text-sm" />
+        <input name="durationMin" type="number" min={0} max={600} defaultValue={lesson?.durationMin ?? ""} placeholder="Min" className="input h-10 text-base sm:text-sm" />
       </div>
       {(kind === "VIDEO" || kind === "AUDIO" || kind === "PDF" || kind === "EXERCISE") && (
         <div className="grid gap-3 sm:grid-cols-2">
-          <select name="fileId" defaultValue={lesson?.fileId ?? ""} className="input h-10 text-sm">
+          <select name="fileId" defaultValue={lesson?.fileId ?? ""} className="input h-10 text-base sm:text-sm">
             <option value="">— Archivo del curso —</option>
             {files.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
-          {kind === "VIDEO" && <input name="mediaUrl" type="url" defaultValue={lesson?.mediaUrl ?? ""} placeholder="o enlace de YouTube / Vimeo" className="input h-10 text-sm" />}
+          {kind === "VIDEO" && <input name="mediaUrl" type="url" defaultValue={lesson?.mediaUrl ?? ""} placeholder="o enlace de YouTube / Vimeo" className="input h-10 text-base sm:text-sm" />}
         </div>
       )}
-      <textarea name="body" defaultValue={lesson?.body ?? ""} rows={4} placeholder="Texto de la lección, instrucciones del ejercicio…" className="input text-sm" />
+      <RichTextEditor
+        name="body"
+        ariaLabel="Texto de la lección"
+        formatName="bodyFormat"
+        defaultValue={lesson?.body ?? ""}
+        initialFormat={lesson ? lesson.bodyFormat : "MD"}
+        maxLength={20000}
+        tools="full"
+        images
+        tone="account"
+        headingLevel={3}
+        legacy="paragraphs"
+        rows={4}
+        placeholder="Texto de la lección, instrucciones del ejercicio…"
+      />
       <div className="flex gap-2">
         <button type="submit" className="btn btn-primary btn-sm" disabled={isPending}>{isPending && <Loader2 className="h-4 w-4 animate-spin" />} Guardar lección</button>
         <button type="button" onClick={onDone} className="btn btn-ghost btn-sm">Cancelar</button>

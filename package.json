@@ -37,6 +37,7 @@
     "test:free-access": "tsx --conditions=react-server scripts/free-access-test.ts",
     "test:personal-sales": "tsx --conditions=react-server scripts/personal-sales-test.ts",
     "test:revision": "for f in scripts/revision-*-test.ts; do echo \"── $f\"; tsx --conditions=react-server \"$f\" || exit 1; done",
+    "test:rich-text": "tsx --conditions=react-server scripts/rich-text-test.ts",
     "test:e2e": "playwright test"
   },
   "prisma": {

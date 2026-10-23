@@ -65,6 +65,7 @@ async function setting(creatorId: string, trigger: AutomationTrigger) {
     delayMinutes: row?.delayMinutes ?? meta.defaultDelay,
     subject: row?.subject || null,
     message: row?.message || null,
+    messageFormat: row?.message ? (row.messageFormat ?? null) : null,
     creator,
   };
 }
@@ -237,7 +238,7 @@ export async function handleAutomation(event: DomainEvent) {
         sendAt: new Date(Date.now() + s.delayMinutes * 60000),
         ...withCustomSubject(
           // Sin pedido concreto: el login con su marca (enlace por email, sin contraseña).
-          T.welcomeCustomerEmail({ name: customer.name, creatorName: s.creator.displayName, accountUrl: `${base}/${s.creator.username}/entrar?next=%2Fcuenta`, message: s.message }),
+          T.welcomeCustomerEmail({ name: customer.name, creatorName: s.creator.displayName, accountUrl: `${base}/${s.creator.username}/entrar?next=%2Fcuenta`, message: s.message, messageFormat: s.messageFormat }),
           s.subject,
         ),
       });
@@ -339,6 +340,7 @@ export async function handleAutomation(event: DomainEvent) {
             productTitle: order.productTitle,
             url: `${base}/${order.creator.username}/${order.product.slug}/checkout`,
             message: s.message,
+            messageFormat: s.messageFormat,
             optOutUrl: optOutUrl(order.id),
           }),
           s.subject,

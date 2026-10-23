@@ -19,7 +19,7 @@ import { SocialIcon } from "../social-icons";
 import { DiscountCodeCard } from "./discount-code-card";
 import { LegalLinks } from "./legal-links";
 import { Avatar, ProductImage } from "./product-art";
-import { RichText } from "./rich-text";
+import { RichContent } from "@/components/rich-text/rich-content";
 import { TrackedAnchor, TrackedLink } from "./tracking";
 
 export type PublicProduct = {
@@ -166,7 +166,16 @@ export function CreatorPageView(props: Props) {
               return (
                 <div key={b.id} className="cp-card p-6 sm:p-7">
                   {b.title && (heading ? <h3 className="cp-display text-[1.6rem] leading-tight">{b.title}</h3> : <h2 className="cp-display text-[1.75rem] leading-tight sm:text-[2rem]">{b.title}</h2>)}
-                  {b.body && <RichText text={b.body} className={`cp-muted space-y-3 text-[0.95rem] leading-relaxed ${b.title ? "mt-3" : ""}`} />}
+                  {b.body && (
+                    <RichContent
+                      text={b.body}
+                      format={b.format}
+                      legacy="links"
+                      tone="page"
+                      headingLevel={heading ? 4 : 3}
+                      className={`cp-muted space-y-3 text-[0.95rem] leading-relaxed ${b.title ? "mt-3" : ""}`}
+                    />
+                  )}
                   {href && b.buttonLabel && (
                     <a href={href} className="cp-btn-ghost mt-5" {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
                       {b.buttonLabel}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, Clock, Download, ExternalLink, FileText, Headphones, Infinity as InfinityIcon, Lock, Mail, PlayCircle, RefreshCcw, ShieldCheck, Sparkles, Video, Zap } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
+import { RichContent } from "@/components/rich-text/rich-content";
 import { ProductImage } from "@/components/creator-page/product-art";
 import { TrackedLink, TrackOnMount } from "@/components/creator-page/tracking";
 import { asAccessMode, externalButtonLabel, externalHost } from "@/lib/access-mode";
@@ -38,35 +39,6 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 }
 
 const KIND_ICON: Record<string, typeof Video> = { VIDEO: Video, AUDIO: Headphones, PDF: FileText, TEXT: FileText, EXERCISE: Sparkles, IMAGE: FileText, LINK: Download, OTHER: Download };
-
-/** Pinta el texto de la descripción respetando párrafos y viñetas «•». */
-function RichText({ text }: { text: string }) {
-  const blocks = text.split(/\n{2,}/);
-  return (
-    <div className="space-y-4">
-      {blocks.map((b, i) => {
-        const lines = b.split("\n");
-        const bullets = lines.filter((l) => l.trim().startsWith("•"));
-        const intro = lines.filter((l) => !l.trim().startsWith("•"));
-        return (
-          <div key={i}>
-            {intro.length > 0 && <p className="cp-muted leading-relaxed">{intro.join(" ")}</p>}
-            {bullets.length > 0 && (
-              <ul className="mt-3 space-y-2">
-                {bullets.map((l, j) => (
-                  <li key={j} className="flex gap-3">
-                    <span className="cp-gold mt-[0.35rem] text-xs">✦</span>
-                    <span>{l.replace(/^\s*•\s*/, "")}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 export default async function ProductPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ embed?: string }> }) {
   const { username, slug } = await params;
@@ -230,7 +202,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
             <section className="mt-12 max-w-2xl">
               <h2 className="cp-display text-[1.9rem]">Qué incluye</h2>
               <div className="mt-4 text-[0.98rem]">
-                <RichText text={p.description} />
+                <RichContent text={p.description} format={p.descriptionFormat} legacy="description" tone="page" headingLevel={3} listMarker="star" className="space-y-4" />
               </div>
             </section>
           )}

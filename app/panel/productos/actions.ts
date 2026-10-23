@@ -20,6 +20,7 @@ import { uniqueProductSlug } from "@/lib/creator";
 import { DELIVERY_MODES, deliveryIssueCopy, normalizeDeliveryMode, productDeliveryIssue } from "@/lib/delivery";
 import { FreeAccessError, grantManualAccess, revokeManualAccess } from "@/lib/free-access";
 import { parseMoneyToCents } from "@/lib/money";
+import { cleanRichInput, formatToStore, normalizeNewlines, parseTextFormat } from "@/lib/rich-text";
 import { canSellType } from "@/lib/plans";
 import { hasPaymentProvider } from "@/lib/payments";
 import { siteMode } from "@/lib/site-mode";
@@ -96,6 +97,8 @@ const productSchema = z.object({
   emoji: z.string().max(8).optional(),
   summary: z.string().trim().max(240).optional(),
   description: z.string().trim().max(5000).optional(),
+  // Formato de la descripción (lib/rich-text.ts): tolerante; "" = texto de antes, ausente = el guardado.
+  descriptionFormat: z.string().max(8).optional().transform(parseTextFormat),
   imageUrl: z.string().max(500).optional(),
   price: z.string(),
   ctaLabel: z.string().trim().max(30).optional(),
@@ -156,6 +159,8 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
       : product.slug;
   if (d.meetingUrl && !/^https?:\/\//.test(d.meetingUrl)) return { error: "El enlace de videollamada debe empezar por https://" };
   if (d.imageUrl && !d.imageUrl.startsWith("/media/") && !d.imageUrl.startsWith("/demo/")) return { error: "Imagen no válida" };
+  const description = d.description ? normalizeNewlines(d.description) : null;
+  const descriptionFormat = formatToStore(description, d.descriptionFormat, product.descriptionFormat);
   const featured = d.featured === "on";
   if (featured && !product.featured) await db.product.updateMany({ where: { featured: true }, data: { featured: false } });
   await db.product.update({
@@ -164,7 +169,8 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
       title: d.title,
       emoji: d.emoji || null,
       summary: d.summary || null,
-      description: d.description || null,
+      description: description && descriptionFormat ? cleanRichInput(description, { creatorId: creator.id, images: true }) : description,
+      descriptionFormat,
       imageUrl: d.imageUrl || null,
       priceCents,
       ctaLabel: d.ctaLabel || (accessMode === "FREE_EMAIL" ? FREE_CTA : DEFAULT_CTA[product.type as ProductType]),
@@ -362,6 +368,7 @@ const lessonSchema = z.object({
   title: z.string().trim().min(1, "Ponle un título a la lección").max(140),
   kind: z.enum(LESSON_KINDS),
   body: z.string().max(20000).optional(),
+  bodyFormat: z.string().max(8).optional().transform(parseTextFormat),
   mediaUrl: z.string().trim().max(500).optional(),
   fileId: z.string().optional(),
   durationMin: z.coerce.number().int().min(0).max(600).optional(),
@@ -376,10 +383,22 @@ export async function saveLesson(_: ActionState, form: FormData): Promise<Action
   if (!mod) return { error: "Módulo no encontrado" };
   if (d.fileId && !(await db.productFile.findFirst({ where: { id: d.fileId, productId: mod.productId } }))) return { error: "Archivo no válido" };
   if (d.mediaUrl && !/^https?:\/\//.test(d.mediaUrl)) return { error: "El enlace debe empezar por https://" };
-  const data = { title: d.title, kind: d.kind, body: d.body || null, mediaUrl: d.mediaUrl || null, fileId: d.fileId || null, durationMin: d.durationMin || null };
-  if (d.id) {
-    const lesson = await db.lesson.findFirst({ where: { id: d.id } });
-    if (!lesson) return { error: "Lección no encontrada" };
+  const lesson = d.id ? await db.lesson.findFirst({ where: { id: d.id } }) : null;
+  if (d.id && !lesson) return { error: "Lección no encontrada" };
+  // El enlace se guarda tal cual (con el código de privacidad de Vimeo); si no es de YouTube ni de
+  // Vimeo, el formulario avisa y las alumnas verán «Abrir el vídeo».
+  const body = d.body ? normalizeNewlines(d.body) : null;
+  const bodyFormat = formatToStore(body, d.bodyFormat, lesson?.bodyFormat ?? null);
+  const data = {
+    title: d.title,
+    kind: d.kind,
+    body: body && bodyFormat ? cleanRichInput(body, { creatorId: creator.id, images: true }) : body,
+    bodyFormat,
+    mediaUrl: d.mediaUrl || null,
+    fileId: d.fileId || null,
+    durationMin: d.durationMin || null,
+  };
+  if (lesson) {
     await db.lesson.update({ where: { id: lesson.id }, data });
   } else {
     const count = await db.lesson.count({ where: { moduleId: mod.id } });
@@ -417,13 +436,16 @@ export async function addPost(_: ActionState, form: FormData): Promise<ActionSta
   const { creator, db } = await ctx();
   const productId = String(form.get("productId"));
   const title = String(form.get("title") ?? "").trim().slice(0, 160);
-  const body = String(form.get("body") ?? "").trim().slice(0, 10000);
+  const body = normalizeNewlines(String(form.get("body") ?? "")).trim().slice(0, 10000);
   const kind = z.enum(["TEXT", "AUDIO", "VIDEO", "EVENT"]).catch("TEXT").parse(form.get("kind"));
   const mediaUrl = String(form.get("mediaUrl") ?? "").trim();
   if (!title || !body) return { error: "Escribe un título y un texto" };
   if (mediaUrl && !/^https?:\/\//.test(mediaUrl)) return { error: "El enlace debe empezar por https://" };
   if (!(await db.product.findFirst({ where: { id: productId, type: "MEMBERSHIP" } }))) return { error: "Membresía no encontrada" };
-  await db.membershipPost.create({ data: { creatorId: creator.id, productId, title, body, kind, mediaUrl: mediaUrl || null } });
+  const bodyFormat = formatToStore(body, parseTextFormat(form.get("bodyFormat") ?? undefined), null);
+  await db.membershipPost.create({
+    data: { creatorId: creator.id, productId, title, body: bodyFormat ? cleanRichInput(body, { creatorId: creator.id, images: true }) : body, bodyFormat, kind, mediaUrl: mediaUrl || null },
+  });
   refresh(productId);
   return { ok: "Publicado para tus miembros" };
 }

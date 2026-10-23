@@ -10,6 +10,8 @@
 import { legalTextToPlain } from "../legal-templates";
 import { orderRef } from "../order-ref";
 import { siteMode, type SiteMode } from "../site-mode";
+import { esc, p } from "./html";
+import { richToEmailHtml } from "./rich-html";
 
 /** Marcador del nombre de la web personal en asuntos y cuerpos (lo sustituye enqueueEmail). */
 export const SITE_NAME_TOKEN = "{{nombre-de-la-web}}";
@@ -26,10 +28,8 @@ function platformName() {
   return emailBranding(siteMode()).name;
 }
 
-/** Escapa texto para HTML. Todo lo que escribe una persona (nombres, mensajes) pasa por aquí. */
-export function esc(s: string) {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-}
+// esc() y p() viven en ./html (rich-html.ts también los usa); se reexportan para los imports de siempre.
+export { esc, p };
 
 /** Plantilla con la marca (lib/email/refund-templates.ts la reutiliza). */
 export function layout(opts: { brand?: string; title: string; body: string; cta?: { label: string; url: string }; afterCta?: string; footer?: string }) {
@@ -51,7 +51,6 @@ export function layout(opts: { brand?: string; title: string; body: string; cta?
 </div></body></html>`;
 }
 
-export const p = (s: string) => `<p style="margin:0 0 12px">${s}</p>`;
 
 /** Nota en gris bajo el botón (p. ej. «Este enlace es personal…» de los enlaces personales). */
 const note = (s?: string | null) => (s ? p(`<span style="color:#8A8698;font-size:13px">${esc(s)}</span>`) : "");
@@ -95,21 +94,23 @@ export function welcomeCreatorEmail(o: { name: string; pageUrl: string; panelUrl
   };
 }
 
-export function welcomeCustomerEmail(o: { name?: string | null; creatorName: string; accountUrl: string; message?: string | null }) {
+export function welcomeCustomerEmail(o: { name?: string | null; creatorName: string; accountUrl: string; message?: string | null; messageFormat?: string | null }) {
   return {
     subject: `Bienvenida a la comunidad de ${o.creatorName}`,
     html: layout({
       brand: o.creatorName,
       title: `Hola${o.name ? `, ${o.name}` : ""}`,
       // En la web personal no se compra (gratis con email o pagado fuera): «todo lo tuyo».
-      body: p(
-        esc(
-          o.message ||
-            (siteMode() === "personal"
-              ? `Gracias por confiar en ${o.creatorName}. Todo lo tuyo estará siempre disponible en tu cuenta.`
-              : `Gracias por confiar en ${o.creatorName}. Todo lo que compres estará siempre disponible en tu cuenta.`),
-        ),
-      ),
+      // El mensaje de la creadora puede llevar formato (lib/email/rich-html.ts); el de siempre, no.
+      body: o.message
+        ? richToEmailHtml(o.message, o.messageFormat)
+        : p(
+            esc(
+              siteMode() === "personal"
+                ? `Gracias por confiar en ${o.creatorName}. Todo lo tuyo estará siempre disponible en tu cuenta.`
+                : `Gracias por confiar en ${o.creatorName}. Todo lo que compres estará siempre disponible en tu cuenta.`,
+            ),
+          ),
       cta: { label: "Ver mi cuenta", url: o.accountUrl },
     }),
   };
@@ -333,13 +334,15 @@ export function subscriptionCanceledCreatorEmail(o: { productTitle: string; buye
  * Recordatorio de compra abandonada. El enlace de baja va en el pie, fuera del mensaje que la
  * creadora puede personalizar, para que siempre esté (LSSI art. 21.2).
  */
-export function abandonedCheckoutEmail(o: { creatorName: string; productTitle: string; url: string; message?: string | null; optOutUrl: string }) {
+export function abandonedCheckoutEmail(o: { creatorName: string; productTitle: string; url: string; message?: string | null; messageFormat?: string | null; optOutUrl: string }) {
   return {
     subject: `¿Te quedaste a medias con «${o.productTitle}»?`,
     html: layout({
       brand: o.creatorName,
       title: "Lo guardamos para ti",
-      body: p(esc(o.message || `Vimos que empezaste a comprar ${o.productTitle} pero no terminaste. Si tuviste alguna duda, responde a este email.`)),
+      body: o.message
+        ? richToEmailHtml(o.message, o.messageFormat)
+        : p(esc(`Vimos que empezaste a comprar ${o.productTitle} pero no terminaste. Si tuviste alguna duda, responde a este email.`)),
       cta: { label: "Completar mi compra", url: o.url },
       footer: `Te escribimos porque empezaste una compra con ${esc(o.creatorName)}. ¿No quieres más recordatorios así? <a href="${esc(o.optOutUrl)}" style="color:#8A8698">Darme de baja</a>.`,
     }),

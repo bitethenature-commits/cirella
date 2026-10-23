@@ -2,11 +2,11 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { imageSrcSet } from "@/lib/media-url";
 import { readingMinutes } from "@/lib/posts";
-import { RichText } from "./rich-text";
+import { RichContent } from "@/components/rich-text/rich-content";
 
 /**
  * Una publicación entera (página pública /<usuaria>/novedades/<slug> y vista previa del panel).
- * El cuerpo se pinta sin HTML (components/creator-page/rich-text.tsx).
+ * El cuerpo se pinta sin HTML (components/rich-text/rich-content.tsx), con o sin formato.
  */
 export function PostArticle({
   post,
@@ -15,7 +15,7 @@ export function PostArticle({
   older,
   newer,
 }: {
-  post: { title: string; excerpt: string | null; body: string; imageUrl: string | null; publishedAt: Date | null };
+  post: { title: string; excerpt: string | null; body: string; bodyFormat?: string | null; imageUrl: string | null; publishedAt: Date | null };
   /** «12 de octubre de 2026» (o «Borrador» en la vista previa). */
   dateLabel: string;
   /** Enlace a la lista de novedades (null en la vista previa). */
@@ -23,7 +23,7 @@ export function PostArticle({
   older?: { href: string; title: string } | null;
   newer?: { href: string; title: string } | null;
 }) {
-  const minutes = readingMinutes(post.body);
+  const minutes = readingMinutes(post.body, post.bodyFormat);
   return (
     <article className="mx-auto max-w-2xl px-4 pb-10 pt-8 sm:pt-12">
       <p className="cp-eyebrow">
@@ -54,7 +54,7 @@ export function PostArticle({
           />
         </div>
       )}
-      <RichText text={post.body} className="mt-8 space-y-5 text-[1.02rem] leading-[1.75]" />
+      <RichContent text={post.body} format={post.bodyFormat} legacy="links" tone="page" headingLevel={2} className="mt-8 space-y-5 text-[1.02rem] leading-[1.75]" />
 
       {(older || newer || listHref) && (
         <nav aria-label="Más novedades" className="mt-12 grid gap-3 border-t pt-8 sm:grid-cols-2" style={{ borderColor: "var(--c-line)" }}>

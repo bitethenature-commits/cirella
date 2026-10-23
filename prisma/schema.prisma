@@ -270,28 +270,31 @@ model Creator {
 // ───────────────────────────── Catálogo ─────────────────────────────
 
 model Product {
-  id              String  @id @default(cuid())
-  creatorId       String
-  creator         Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  type            String // DIGITAL | SESSION | COURSE | MEMBERSHIP
-  slug            String
-  title           String
-  emoji           String?
-  summary         String?
-  description     String?
-  imageUrl        String?
-  priceCents      Int
-  currency        String  @default("EUR")
-  billingInterval String? // "month" | "year" (solo membresías)
-  ctaLabel        String?
+  id                String  @id @default(cuid())
+  creatorId         String
+  creator           Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  type              String // DIGITAL | SESSION | COURSE | MEMBERSHIP
+  slug              String
+  title             String
+  emoji             String?
+  summary           String?
+  description       String?
+  // Formato de `description`: null = texto de antes (párrafos y viñetas «•», se pinta exactamente como siempre);
+  // "MD" = texto con formato (lib/rich-text.ts). Pasa a "MD" cuando la creadora edita el texto con el editor.
+  descriptionFormat String?
+  imageUrl          String?
+  priceCents        Int
+  currency          String  @default("EUR")
+  billingInterval   String? // "month" | "year" (solo membresías)
+  ctaLabel          String?
   // DRAFT | PUBLISHED | ARCHIVED — por defecto borrador: publicar es siempre explícito y pasa por la comprobación de entrega
-  status          String  @default("DRAFT")
+  status            String  @default("DRAFT")
   // AUTOMATIC (archivos/enlaces/lecciones, acceso inmediato) | PERSONAL (la creadora lo prepara para cada clienta;
   // solo DIGITAL, exige `instructions`)
-  deliveryMode    String  @default("AUTOMATIC")
-  featured        Boolean @default(false)
-  sortOrder       Int     @default(0)
-  instructions    String? // qué recibe / próximos pasos tras la compra
+  deliveryMode      String  @default("AUTOMATIC")
+  featured          Boolean @default(false)
+  sortOrder         Int     @default(0)
+  instructions      String? // qué recibe / próximos pasos tras la compra
 
   // Cómo se consigue: PAID (pago en la web; solo modo plataforma) | FREE_EMAIL (gratis con nombre + email)
   // | EXTERNAL (se paga fuera: el botón lleva a externalUrl, p. ej. Hotmart o Calendly)
@@ -322,19 +325,26 @@ model Product {
 }
 
 model ProductFile {
-  id         String   @id @default(cuid())
-  creatorId  String
-  productId  String
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name       String
-  kind       String // PDF | AUDIO | VIDEO | IMAGE | LINK | OTHER
-  storageKey String? // clave relativa a «private/» en el almacenamiento (disco local o R2): {creatorId}/{hex}.{ext}
-  url        String? // enlace externo (kind = LINK)
-  mimeType   String?
-  sizeBytes  Int? // ≤ 1 GB (límite de subida), cabe en Int
-  sortOrder  Int      @default(0)
-  createdAt  DateTime @default(now())
-  lessons    Lesson[]
+  id          String   @id @default(cuid())
+  creatorId   String
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name        String
+  kind        String // PDF | AUDIO | VIDEO | IMAGE | LINK | OTHER
+  storageKey  String? // clave relativa a «private/» en el almacenamiento (disco local o R2): {creatorId}/{hex}.{ext}
+  url         String? // enlace externo (kind = LINK)
+  mimeType    String?
+  // Vídeos de hasta 4 GB en la web personal: ya no cabe en Int. Float (DOUBLE PRECISION) es exacto
+  // hasta 2^53 y sigue siendo un number de JS (sin los problemas de BigInt al pasarlo a JSON).
+  sizeBytes   Float?
+  // Leído del propio archivo al completar la subida (lib/media-probe.ts); null = no se pudo leer o no aplica.
+  durationSec Int? // vídeo y audio MP4/MOV/M4A/WAV, en segundos
+  videoCodec  String? // H264 | HEVC | OTHER (solo vídeo). HEVC = formato del iPhone: puede no verse en todos los navegadores
+  width       Int? // tamaño del vídeo tal y como se ve (ya girado: un vertical del iPhone es 1080×1920)
+  height      Int?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  lessons     Lesson[]
 
   @@index([creatorId, productId])
 }
@@ -361,6 +371,7 @@ model Lesson {
   title       String
   kind        String // VIDEO | AUDIO | PDF | TEXT | EXERCISE
   body        String?
+  bodyFormat  String? // null = texto de antes | "MD" = texto con formato
   mediaUrl    String? // vídeo/audio externo (YouTube, Vimeo…)
   fileId      String?
   file        ProductFile?     @relation(fields: [fileId], references: [id], onDelete: SetNull)
@@ -393,6 +404,7 @@ model MembershipPost {
   product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   title       String
   body        String
+  bodyFormat  String? // null = texto de antes (saltos de línea tal cual) | "MD"
   kind        String   @default("TEXT") // TEXT | AUDIO | VIDEO | EVENT
   mediaUrl    String?
   publishedAt DateTime @default(now())
@@ -409,6 +421,7 @@ model Post {
   title       String
   excerpt     String?
   body        String // texto con párrafos; los enlaces se convierten al mostrarlo
+  bodyFormat  String? // null = texto de antes | "MD"
   imageUrl    String?
   status      String    @default("DRAFT") // DRAFT | PUBLISHED
   publishedAt DateTime?
@@ -761,14 +774,15 @@ model AnalyticsSalt {
 
 // Preferencias por creadora de cada automatización (ver lib/automations.ts).
 model Automation {
-  id           String  @id @default(cuid())
-  creatorId    String
-  creator      Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  trigger      String // WELCOME | PURCHASE_RECEIPT | COURSE_ACCESS | SESSION_REMINDER | BOOKING_CONFIRMED | NEW_SUBSCRIPTION | SUBSCRIPTION_CANCELED | ABANDONED_CHECKOUT
-  enabled      Boolean @default(true)
-  delayMinutes Int     @default(0)
-  subject      String?
-  message      String?
+  id            String  @id @default(cuid())
+  creatorId     String
+  creator       Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  trigger       String // WELCOME | PURCHASE_RECEIPT | COURSE_ACCESS | SESSION_REMINDER | BOOKING_CONFIRMED | NEW_SUBSCRIPTION | SUBSCRIPTION_CANCELED | ABANDONED_CHECKOUT
+  enabled       Boolean @default(true)
+  delayMinutes  Int     @default(0)
+  subject       String?
+  message       String?
+  messageFormat String? // null = texto de antes (un párrafo) | "MD"
 
   @@unique([creatorId, trigger])
 }

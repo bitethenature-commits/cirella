@@ -17,6 +17,7 @@ import {
 import { MIN_PERSONAL_INSTRUCTIONS, normalizeDeliveryMode, type DeliveryMode } from "@/lib/delivery";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import { estimateNet, type TaxMode, type VatStatus } from "@/lib/tax";
+import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { updateProduct, type ActionState } from "../actions";
 
 export type EditableProduct = {
@@ -26,6 +27,8 @@ export type EditableProduct = {
   emoji: string | null;
   summary: string | null;
   description: string | null;
+  /** null = texto de antes | "MD" = con formato (lib/rich-text.ts). */
+  descriptionFormat: string | null;
   imageUrl: string | null;
   priceCents: number;
   ctaLabel: string | null;
@@ -123,9 +126,23 @@ export function ProductForm({
             <textarea name="summary" defaultValue={product.summary ?? ""} className="input" rows={2} maxLength={240} />
           </div>
           <div>
-            <label className="field-label">Descripción completa</label>
-            <textarea name="description" defaultValue={product.description ?? ""} className="input" rows={7} maxLength={5000} placeholder={"Qué es, para quién es y qué incluye.\n\nIncluye:\n• Primer punto\n• Segundo punto"} />
-            <p className="field-hint">Empieza las líneas con «•» para mostrarlas como lista.</p>
+            <label className="field-label" htmlFor="product-description">Descripción completa</label>
+            <RichTextEditor
+              id="product-description"
+              name="description"
+              formatName="descriptionFormat"
+              defaultValue={product.description ?? ""}
+              initialFormat={product.descriptionFormat}
+              maxLength={5000}
+              tools="full"
+              images
+              tone="account"
+              headingLevel={3}
+              listMarker="star"
+              legacy="description"
+              rows={7}
+              placeholder={"Qué es, para quién es y qué incluye.\n\nIncluye:\n- Primer punto\n- Segundo punto"}
+            />
           </div>
           <div>
             <label className="field-label">Icono</label>
