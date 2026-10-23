@@ -558,6 +558,8 @@ export function withdrawalBlockMessage(reason: WithdrawalBlock, paidAt: Date | n
       return "Esta compra ya está reembolsada.";
     case "NOT_PAID":
       return "Esta compra no se puede desistir.";
+    case "DELIVERED":
+      return "Ya has recibido tu lectura preparada para ti: no se puede desistir.";
   }
 }
 

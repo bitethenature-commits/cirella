@@ -14,12 +14,15 @@ import { DISPUTE_STATUS_LABEL, PRODUCT_TYPE_LABEL, type ProductType } from "@/li
 import { capitalize, formatDateTime, formatSessionDate } from "@/lib/tz";
 import { revokeAccess } from "../../productos/actions";
 import { Badge } from "../../ui";
+import { OrderExtras } from "./order-extras";
 import { RefundForm } from "./refund-form";
+import { Flash } from "@/components/ui/flash";
 
 const REFUND_TONE: Record<string, "success" | "warning" | "danger"> = { SUCCEEDED: "success", PENDING: "warning", FAILED: "danger" };
 
-export default async function OrderDetail({ params }: { params: Promise<{ id: string }> }) {
+export default async function OrderDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string }> }) {
   const { id } = await params;
+  const sp = await searchParams;
   const { creator } = await requireCreator();
   const o = await tenantDb(creator.id).order.findFirst({
     where: { id },
@@ -32,7 +35,7 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
     },
   });
   if (!o) notFound();
-  if (isNoChargeOrder(o)) return <SignupDetail creatorId={creator.id} orderId={o.id} />;
+  if (isNoChargeOrder(o)) return <SignupDetail creatorId={creator.id} orderId={o.id} given={sp.ok === "dada"} />;
   // Cada línea del desglose sale de lo guardado; «Recibes» es exactamente su resta.
   const f = orderBreakdown(o, o.transactions);
   const money = (cents: number) => formatMoney(cents, o.currency, { decimals: true });
@@ -99,6 +102,8 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
         )}
       </dl>
 
+      <OrderExtras creatorId={creator.id} orderId={o.id} />
+
       {o.refunds.length > 0 && (
         <section className="mt-8">
           <h2 className="eyebrow mb-3 !text-ink">Reembolsos</h2>
@@ -138,17 +143,19 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
 }
 
 /** Una inscripción (pedido de 0 €): sin importes, comisión ni reembolsos; se puede quitar el acceso. */
-async function SignupDetail({ creatorId, orderId }: { creatorId: string; orderId: string }) {
+async function SignupDetail({ creatorId, orderId, given }: { creatorId: string; orderId: string; given?: boolean }) {
   const db = tenantDb(creatorId);
   const o = await db.order.findFirstOrThrow({
     where: { id: orderId },
-    include: { product: { select: { emoji: true } }, customer: { select: { id: true, userId: true, marketingOptIn: true } } },
+    include: { product: { select: { emoji: true } }, customer: { select: { id: true, userId: true, marketingOptIn: true } }, bookings: { select: { id: true, startAt: true }, orderBy: { createdAt: "asc" } } },
   });
+  const meta = (o.metadata ?? {}) as { manual?: string; paidNote?: string };
   const access = o.customer ? await db.access.findFirst({ where: { userId: o.customer.userId, productId: o.productId } }) : null;
   const active = !!access && access.status === "ACTIVE" && (!access.expiresAt || access.expiresAt > new Date());
   return (
     <div className="max-w-2xl">
       <Link href="/panel/ventas" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> Inscripciones</Link>
+      {given && <div className="mt-4"><Flash ok="Hecho. Le hemos enviado un email con su enlace." /></div>}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <h1 className="display min-w-0 flex-1 text-[2rem] leading-tight">{o.product.emoji} {o.productTitle}</h1>
         <Badge tone={active ? "success" : "neutral"}>{active ? "Con acceso" : "Acceso retirado"}</Badge>
@@ -160,7 +167,14 @@ async function SignupDetail({ creatorId, orderId }: { creatorId: string; orderId
         <Row label="Email">{o.buyerEmail}</Row>
         <Row label="Tipo">{PRODUCT_TYPE_LABEL[o.productType as ProductType] ?? o.productType}</Row>
         {o.paidAt && <Row label="Fecha">{formatDateTime(o.paidAt)}</Row>}
-        <Row label="Origen">{NO_CHARGE_LABEL[o.paymentProvider as NoChargeProvider] ?? o.paymentProvider}</Row>
+        <Row label="Origen">
+          {meta.manual === "gift" ? "Regalo" : meta.manual === "paid_elsewhere" ? `Pagada fuera${meta.paidNote ? ` · ${meta.paidNote}` : ""}` : (NO_CHARGE_LABEL[o.paymentProvider as NoChargeProvider] ?? o.paymentProvider)}
+        </Row>
+        {o.bookings[0] && (
+          <Row label="Sesión">
+            <Link href={`/panel/reservas/${o.bookings[0].id}`} className="underline underline-offset-2">Ver la reserva</Link>
+          </Row>
+        )}
         <Row label="Importe">Gratis</Row>
         <Row label="Novedades por email">
           {o.customer?.marketingOptIn
@@ -181,6 +195,7 @@ async function SignupDetail({ creatorId, orderId }: { creatorId: string; orderId
         )}
         <Link href={`/panel/productos/${o.productId}#accesos`} className="btn btn-ghost btn-sm">Ver el producto</Link>
       </section>
+      <OrderExtras creatorId={creatorId} orderId={o.id} />
     </div>
   );
 }

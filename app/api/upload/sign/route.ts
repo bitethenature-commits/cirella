@@ -5,8 +5,9 @@ import { limitUpload } from "@/lib/limits";
 import { UploadError, createUpload } from "@/lib/uploads";
 
 const schema = z.object({
-  purpose: z.enum(["image", "file"]),
+  purpose: z.enum(["image", "file", "delivery"]),
   productId: z.string().max(40).optional(),
+  orderId: z.string().max(40).optional(),
   name: z.string().min(1).max(200),
   contentType: z.string().max(100),
   size: z.number().int().positive(),
@@ -17,6 +18,7 @@ const schema = z.object({
  * el archivo directamente y el billete para completarla.
  *   { purpose: "image" }                → imagen pública (avatar, portada, producto)
  *   { purpose: "file", productId }      → contenido privado de un producto
+ *   { purpose: "delivery", orderId }    → entrega de un pedido (lectura preparada, grabación)
  */
 export async function POST(req: Request) {
   const user = await getCurrentUser();

@@ -71,9 +71,11 @@ export type WithdrawalInput = {
   withdrawalWaived: boolean;
   hasPendingRefund: boolean;
   booking?: { status: string; startAt: Date | null } | null;
+  /** La dueña ya le ha entregado la lectura preparada para ella (Order.deliveredAt). */
+  delivered?: boolean;
 };
 
-export type WithdrawalBlock = "NOT_PAID" | "EXPIRED" | "WAIVED" | "SESSION_HELD" | "ALREADY_REFUNDED" | "PENDING";
+export type WithdrawalBlock = "NOT_PAID" | "EXPIRED" | "WAIVED" | "SESSION_HELD" | "ALREADY_REFUNDED" | "PENDING" | "DELIVERED";
 
 /**
  * Primer acceso de la compradora al contenido (descarga, reproducción o publicaciones), anotado en
@@ -95,6 +97,7 @@ export function toWithdrawalInput(o: {
   refundedCents: number;
   waiverAcceptedAt: Date | null;
   metadata?: unknown;
+  deliveredAt?: Date | null;
   bookings: { status: string; startAt: Date | null }[];
   refunds: { status: string }[];
 }): WithdrawalInput {
@@ -109,6 +112,7 @@ export function toWithdrawalInput(o: {
     withdrawalWaived: !!o.waiverAcceptedAt && (o.productType === "SESSION" || accessStartedAt(o.metadata) !== null),
     hasPendingRefund: o.refunds.some((r) => r.status === "PENDING"),
     booking: o.bookings[0] ?? null,
+    ...(o.deliveredAt ? { delivered: true } : {}),
   };
 }
 
@@ -131,6 +135,8 @@ export function withdrawalEligibility(
   if (now > deadline) return { eligible: false, reason: "EXPIRED" };
   if (o.productType === "SESSION" && o.booking && (o.booking.status === "COMPLETED" || (o.booking.startAt && o.booking.startAt <= now)))
     return { eligible: false, reason: "SESSION_HELD" };
+  // Lectura preparada para ella y ya entregada: sus condiciones dicen «mientras no la recibas».
+  if (o.productType === "DIGITAL" && o.delivered) return { eligible: false, reason: "DELIVERED" };
   if (["DIGITAL", "COURSE", "MEMBERSHIP"].includes(o.productType) && o.withdrawalWaived) return { eligible: false, reason: "WAIVED" };
   const amountCents = o.amountCents - o.refundedCents;
   if (amountCents <= 0) return { eligible: false, reason: "ALREADY_REFUNDED" };
