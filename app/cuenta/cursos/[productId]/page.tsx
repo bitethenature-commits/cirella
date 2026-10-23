@@ -1,24 +1,18 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, ArrowRight, CheckCircle2, Circle, Download, FileText, Headphones, PlayCircle, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Circle, Download, ExternalLink, FileText, Headphones, PlayCircle, Sparkles } from "lucide-react";
 import { MediaView } from "@/components/media/media-view";
+import { VideoEmbed } from "@/components/media/video-embed";
 import { RichContent } from "@/components/rich-text/rich-content";
 import { markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
 import { creatorBrief, hasAccess } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { LESSON_KIND_LABEL, type LessonKind } from "@/lib/types";
+import { videoEmbed } from "@/lib/video-embed";
 import { CreatorTag, Progress } from "../../ui";
 import { CompleteButton } from "./complete-button";
 
 const ICON = { VIDEO: PlayCircle, AUDIO: Headphones, PDF: FileText, TEXT: FileText, EXERCISE: Sparkles } as const;
-
-function embedUrl(url: string) {
-  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{6,})/);
-  if (yt) return `https://www.youtube-nocookie.com/embed/${yt[1]}`;
-  const vimeo = url.match(/vimeo\.com\/(\d+)/);
-  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
-  return null;
-}
 
 export default async function CoursePlayer({ params, searchParams }: { params: Promise<{ productId: string }>; searchParams: Promise<{ leccion?: string }> }) {
   const { productId } = await params;
@@ -69,8 +63,8 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
             <div className="overflow-hidden rounded-3xl bg-ink">
               {current.kind === "VIDEO" && current.file ? (
                 <MediaView key={current.id} file={current.file} title={current.title} poster={course.imageUrl} />
-              ) : current.kind === "VIDEO" && current.mediaUrl && embedUrl(current.mediaUrl) ? (
-                <iframe src={embedUrl(current.mediaUrl)!} className="aspect-video w-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen title={current.title} />
+              ) : current.kind === "VIDEO" && current.mediaUrl && videoEmbed(current.mediaUrl) ? (
+                <VideoEmbed url={current.mediaUrl} title={current.title} />
               ) : (
                 <div className={`relative grid place-items-center overflow-hidden text-cream ${current.kind === "AUDIO" && current.file ? "min-h-[16rem] py-8" : "aspect-[16/7]"}`}>
                   {course.imageUrl && (
@@ -79,6 +73,12 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
                   )}
                   <div className="relative px-6 text-center">
                     <p className="eyebrow !text-cream/70">{LESSON_KIND_LABEL[current.kind as LessonKind]} · Lección {idx + 1} de {lessons.length}</p>
+                    {/* Enlace de vídeo que no es de YouTube ni Vimeo (Loom, Drive…): se abre fuera. */}
+                    {current.kind === "VIDEO" && !current.file && current.mediaUrl && /^https:\/\//.test(current.mediaUrl) && (
+                      <a href={current.mediaUrl} target="_blank" rel="noopener noreferrer" className="btn btn-light btn-sm mt-5">
+                        <ExternalLink className="h-4 w-4" /> Abrir el vídeo
+                      </a>
+                    )}
                     {current.kind === "AUDIO" && current.file && (
                       <div className="mt-5">
                         <MediaView key={current.id} file={current.file} title={`${current.title} · ${course.title}`} artwork={course.imageUrl} />

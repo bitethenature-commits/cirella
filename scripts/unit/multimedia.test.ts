@@ -143,3 +143,28 @@ test("needsMediaRefresh: recién firmada no; a 14 min de caducar sí; con el rel
   eq(needsMediaRefresh(t0, ttl, t0 + (ttl - 14 * 60) * 1000), true);
   eq(needsMediaRefresh(t0, ttl, t0 - 5000), false);
 });
+
+// ── YouTube y Vimeo ──
+import { videoEmbed } from "../../lib/video-embed";
+
+test("videoEmbed: YouTube (watch, youtu.be, shorts, live, embed, m.) con inicio", () => {
+  const id = "dQw4w9WgXcQ";
+  for (const u of [`https://www.youtube.com/watch?v=${id}`, `https://youtu.be/${id}`, `https://youtube.com/shorts/${id}`, `https://www.youtube.com/live/${id}`, `https://www.youtube.com/embed/${id}`, `https://m.youtube.com/watch?v=${id}&feature=share`])
+    eq(videoEmbed(u)?.src, `https://www.youtube-nocookie.com/embed/${id}?rel=0&playsinline=1`, u);
+  eq(videoEmbed(`https://youtu.be/${id}?t=1m30s`)?.src, `https://www.youtube-nocookie.com/embed/${id}?rel=0&playsinline=1&start=90`);
+  eq(videoEmbed(`https://www.youtube.com/watch?v=${id}&t=75`)?.src.endsWith("&start=75"), true);
+});
+
+test("videoEmbed: Vimeo con y sin código de privacidad", () => {
+  eq(videoEmbed("https://vimeo.com/123456789")?.src, "https://player.vimeo.com/video/123456789?dnt=1&title=0&byline=0&portrait=0");
+  eq(videoEmbed("https://vimeo.com/123456789/abcdef1234")?.src, "https://player.vimeo.com/video/123456789?h=abcdef1234&dnt=1&title=0&byline=0&portrait=0");
+  eq(videoEmbed("https://player.vimeo.com/video/123456789?h=abc123def0")?.src, "https://player.vimeo.com/video/123456789?h=abc123def0&dnt=1&title=0&byline=0&portrait=0");
+  for (const u of ["https://vimeo.com/showcase/1234567/video/123456789", "https://vimeo.com/channels/staffpicks/123456789", "https://vimeo.com/manage/videos/123456789/abcdef1234", "https://vimeo.com/groups/astro/videos/123456789"])
+    eq(videoEmbed(u)?.id, "123456789", u);
+  eq(videoEmbed("https://vimeo.com/manage/videos/123456789/abcdef1234")?.src.includes("h=abcdef1234"), true);
+});
+
+test("videoEmbed: rechaza dominios falsos, javascript: y texto", () => {
+  for (const u of ["https://vimeo.com.evil.io/123456789", "https://youtube.com@evil.io/watch?v=dQw4w9WgXcQ", "javascript:alert(1)", "hola", "https://www.loom.com/share/abc", "https://evil.io/youtube.com/watch?v=dQw4w9WgXcQ"])
+    eq(videoEmbed(u), null, u);
+});

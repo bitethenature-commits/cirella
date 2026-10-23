@@ -4,6 +4,7 @@ import { startTransition, useActionState, useEffect, useRef, useState } from "re
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { Flash } from "@/components/ui/flash";
 import { LESSON_KIND_LABEL, LESSON_KINDS, type LessonKind } from "@/lib/types";
+import { videoEmbed } from "@/lib/video-embed";
 import { addModule, deleteLesson, deleteModule, moveLesson, renameModule, saveLesson, type ActionState } from "../actions";
 
 type Lesson = { id: string; title: string; kind: string; body: string | null; bodyFormat: string | null; mediaUrl: string | null; fileId: string | null; durationMin: number | null };
@@ -20,10 +21,34 @@ function fileLabel(f: FileOpt) {
 
 const ICON: Record<string, typeof FileText> = { VIDEO: PlayCircle, AUDIO: Headphones, PDF: FileText, TEXT: FileText, EXERCISE: Sparkles };
 
+/** Aviso en vivo bajo el enlace del vídeo: se ve dentro del curso o se abrirá fuera. */
+function VideoLinkHint({ url }: { url: string }) {
+  const u = url.trim();
+  if (!u)
+    return (
+      <p className="field-hint">
+        Vimeo: para un vídeo oculto, copia el enlace completo (Compartir › Copiar enlace, con el código del final) y permite tu web en Vimeo › Privacidad › Dónde se puede insertar.
+      </p>
+    );
+  const v = videoEmbed(u);
+  if (v)
+    return (
+      <p className="text-xs font-medium text-success" aria-live="polite">
+        {v.provider === "youtube" ? "YouTube" : v.src.includes("h=") ? "Vimeo · oculto" : "Vimeo"} ✓ Se verá dentro del curso.
+      </p>
+    );
+  return (
+    <p className="rounded-lg border border-[#ecdcb8] bg-[#fbf5e8] px-3 py-2 text-xs text-[#7a5a1c]" aria-live="polite" data-video-warning>
+      Este enlace no se puede ver dentro del curso: tus alumnas verán un botón «Abrir el vídeo». Para verlo aquí, usa YouTube o Vimeo (Compartir › Copiar enlace, con el código del final si es oculto).
+    </p>
+  );
+}
+
 function LessonForm({ moduleId, lesson, files, onDone }: { moduleId: string; lesson?: Lesson; files: FileOpt[]; onDone: () => void }) {
   const [state, action, isPending] = useActionState<ActionState, FormData>(saveLesson, undefined);
   const [kind, setKind] = useState<LessonKind>((lesson?.kind as LessonKind) ?? "VIDEO");
   const minutes = useRef<HTMLInputElement>(null);
+  const [mediaUrl, setMediaUrl] = useState(lesson?.mediaUrl ?? "");
   useEffect(() => {
     if (state?.ok) onDone();
   }, [state, onDone]);
@@ -62,9 +87,20 @@ function LessonForm({ moduleId, lesson, files, onDone }: { moduleId: string; les
             <option value="">— Archivo del curso —</option>
             {files.map((f) => <option key={f.id} value={f.id}>{fileLabel(f)}</option>)}
           </select>
-          {kind === "VIDEO" && <input name="mediaUrl" type="url" defaultValue={lesson?.mediaUrl ?? ""} placeholder="o enlace de YouTube / Vimeo" className="input h-10 text-base sm:text-sm" />}
+          {kind === "VIDEO" && (
+            <input
+              name="mediaUrl"
+              type="url"
+              value={mediaUrl}
+              onChange={(e) => setMediaUrl(e.target.value)}
+              placeholder="o enlace de YouTube / Vimeo"
+              aria-label="Enlace del vídeo"
+              className="input h-10 text-base sm:text-sm"
+            />
+          )}
         </div>
       )}
+      {kind === "VIDEO" && <VideoLinkHint url={mediaUrl} />}
       <RichTextEditor
         name="body"
         ariaLabel="Texto de la lección"
