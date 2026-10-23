@@ -28,3 +28,12 @@ export function imageSrcSet(url: string | null | undefined): string | undefined 
 export function isMediaPath(rel: string) {
   return MEDIA_PATH_RE.test(rel);
 }
+
+/**
+ * ¿Hay que renovar ya una URL firmada de vídeo o audio? Sí cuando le quedan menos de `marginSec`
+ * (15 min por defecto). Con el reloj del móvil atrasado respecto a la firma (now < issuedAt), no.
+ */
+export function needsMediaRefresh(issuedAtMs: number, ttlSec: number, nowMs: number, marginSec = 900): boolean {
+  if (nowMs < issuedAtMs) return false;
+  return nowMs >= issuedAtMs + (ttlSec - marginSec) * 1000;
+}

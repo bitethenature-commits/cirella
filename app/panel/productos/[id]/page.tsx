@@ -9,6 +9,7 @@ import { accessModesFor, asAccessMode, hostsContent, NO_CHARGE_LABEL, NO_CHARGE_
 import { requireCreator } from "@/lib/auth";
 import { deliveryFacts, deliveryIssue, deliveryIssueCopy } from "@/lib/delivery";
 import { appHost } from "@/lib/env";
+import { uploadPolicy } from "@/lib/file-types";
 import { canSellType } from "@/lib/plans";
 import { siteMode } from "@/lib/site-mode";
 import { asVatStatus } from "@/lib/tax";
@@ -144,16 +145,16 @@ export default async function EditProductPage({
       <div className="mt-5 space-y-5 lg:max-w-[calc(100%-340px)]">
         {managesAccess && <AccessManager productId={product.id} rows={accessRows} total={accessTotal} external={accessMode === "EXTERNAL"} />}
         {type === "DIGITAL" && (
-          <FilesManager productId={product.id} files={product.files} title="Archivos que se entregan" hint="PDF, audio, vídeo, ebook… Tus clientas los descargan desde su cuenta justo después de pagar." />
+          <FilesManager productId={product.id} files={product.files} limitsLabel={uploadPolicy(mode === "personal").label} title="Archivos que se entregan" hint="PDF, audio, vídeo, ebook… Tus clientas los descargan desde su cuenta justo después de pagar." />
         )}
         {type === "COURSE" && (
           <>
-            <FilesManager productId={product.id} files={product.files} title="Materiales del curso" hint="Sube vídeos, audios y PDF y asígnalos a cada lección." />
+            <FilesManager productId={product.id} files={product.files} limitsLabel={uploadPolicy(mode === "personal").label} title="Materiales del curso" hint="Sube vídeos, audios, PDF e imágenes y asígnalos a cada lección." />
             <div id="lecciones" className="scroll-mt-24">
               <CourseBuilder
                 productId={product.id}
                 modules={product.modules.map((m) => ({ id: m.id, title: m.title, lessons: m.lessons }))}
-                files={product.files.map((f) => ({ id: f.id, name: f.name, kind: f.kind }))}
+                files={product.files.map((f) => ({ id: f.id, name: f.name, kind: f.kind, durationSec: f.durationSec, videoCodec: f.videoCodec }))}
               />
             </div>
           </>

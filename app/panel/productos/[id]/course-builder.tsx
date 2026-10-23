@@ -1,6 +1,6 @@
 "use client";
 import { ArrowDown, ArrowUp, FileText, Headphones, Loader2, Pencil, PlayCircle, Plus, Sparkles, Trash2 } from "lucide-react";
-import { startTransition, useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { Flash } from "@/components/ui/flash";
 import { LESSON_KIND_LABEL, LESSON_KINDS, type LessonKind } from "@/lib/types";
@@ -8,13 +8,22 @@ import { addModule, deleteLesson, deleteModule, moveLesson, renameModule, saveLe
 
 type Lesson = { id: string; title: string; kind: string; body: string | null; bodyFormat: string | null; mediaUrl: string | null; fileId: string | null; durationMin: number | null };
 type Module = { id: string; title: string; lessons: Lesson[] };
-type FileOpt = { id: string; name: string; kind: string };
+type FileOpt = { id: string; name: string; kind: string; durationSec?: number | null; videoCodec?: string | null };
+
+const FILE_KIND = { VIDEO: "vídeo", AUDIO: "audio", PDF: "PDF", IMAGE: "imagen" } as Record<string, string>;
+
+/** «Clase 3 (vídeo · 23 min)». */
+function fileLabel(f: FileOpt) {
+  const bits = [FILE_KIND[f.kind], f.durationSec ? `${Math.max(1, Math.round(f.durationSec / 60))} min` : null].filter(Boolean);
+  return bits.length ? `${f.name} (${bits.join(" · ")})` : f.name;
+}
 
 const ICON: Record<string, typeof FileText> = { VIDEO: PlayCircle, AUDIO: Headphones, PDF: FileText, TEXT: FileText, EXERCISE: Sparkles };
 
 function LessonForm({ moduleId, lesson, files, onDone }: { moduleId: string; lesson?: Lesson; files: FileOpt[]; onDone: () => void }) {
   const [state, action, isPending] = useActionState<ActionState, FormData>(saveLesson, undefined);
   const [kind, setKind] = useState<LessonKind>((lesson?.kind as LessonKind) ?? "VIDEO");
+  const minutes = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (state?.ok) onDone();
   }, [state, onDone]);
@@ -35,13 +44,23 @@ function LessonForm({ moduleId, lesson, files, onDone }: { moduleId: string; les
         <select name="kind" value={kind} onChange={(e) => setKind(e.target.value as LessonKind)} className="input h-10 text-base sm:text-sm">
           {LESSON_KINDS.map((k) => <option key={k} value={k}>{LESSON_KIND_LABEL[k]}</option>)}
         </select>
-        <input name="durationMin" type="number" min={0} max={600} defaultValue={lesson?.durationMin ?? ""} placeholder="Min" className="input h-10 text-base sm:text-sm" />
+        <input ref={minutes} name="durationMin" type="number" min={0} max={600} defaultValue={lesson?.durationMin ?? ""} placeholder="Min" aria-label="Minutos" className="input h-10 text-base sm:text-sm" />
       </div>
       {(kind === "VIDEO" || kind === "AUDIO" || kind === "PDF" || kind === "EXERCISE") && (
         <div className="grid gap-3 sm:grid-cols-2">
-          <select name="fileId" defaultValue={lesson?.fileId ?? ""} className="input h-10 text-base sm:text-sm">
+          <select
+            name="fileId"
+            defaultValue={lesson?.fileId ?? ""}
+            className="input h-10 text-base sm:text-sm"
+            aria-label="Archivo del curso"
+            onChange={(e) => {
+              // «Min» vacío: se rellena con la duración del archivo (leída al subirlo).
+              const f = files.find((x) => x.id === e.target.value);
+              if (f?.durationSec && minutes.current && !minutes.current.value) minutes.current.value = String(Math.ceil(f.durationSec / 60));
+            }}
+          >
             <option value="">— Archivo del curso —</option>
-            {files.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+            {files.map((f) => <option key={f.id} value={f.id}>{fileLabel(f)}</option>)}
           </select>
           {kind === "VIDEO" && <input name="mediaUrl" type="url" defaultValue={lesson?.mediaUrl ?? ""} placeholder="o enlace de YouTube / Vimeo" className="input h-10 text-base sm:text-sm" />}
         </div>

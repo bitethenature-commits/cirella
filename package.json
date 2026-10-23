@@ -20,6 +20,7 @@
     "check:env": "tsx scripts/check-env.ts",
     "admin:promote": "tsx scripts/make-admin.ts",
     "personal:setup": "tsx scripts/personal-setup.ts",
+    "media:probe": "tsx scripts/probe-media.ts",
     "test:unit": "tsx scripts/unit-tests.ts",
     "test:isolation": "tsx --conditions=react-server scripts/tenant-isolation-test.ts && tsx scripts/storage-isolation-test.ts",
     "test:concurrency": "tsx --conditions=react-server scripts/booking-concurrency-test.ts",
@@ -38,6 +39,7 @@
     "test:personal-sales": "tsx --conditions=react-server scripts/personal-sales-test.ts",
     "test:revision": "for f in scripts/revision-*-test.ts; do echo \"── $f\"; tsx --conditions=react-server \"$f\" || exit 1; done",
     "test:rich-text": "tsx --conditions=react-server scripts/rich-text-test.ts",
+    "test:media": "tsx --conditions=react-server scripts/media-test.ts",
     "test:e2e": "playwright test"
   },
   "prisma": {

@@ -1,4 +1,5 @@
 import { isLocalDevIp } from "./client-ip";
+import { isPersonalMode } from "./site-mode";
 import { hit, peek, resetKey, retryAfterText, rlKey, type Rule } from "./rate-limit";
 import { turnstileEnabled, turnstileSiteKey, verifyTurnstile } from "./turnstile";
 
@@ -31,6 +32,10 @@ export const RULES = {
   checkoutFail: { limit: 5, windowSec: 10 * MIN },
   // Subidas por creadora (montar un curso con muchas lecciones son muchas subidas seguidas).
   uploadCreator: { limit: 30, windowSec: HOUR },
+  // Web personal: una sola dueña que paga su propio R2 y monta cursos enteros de una sentada.
+  uploadCreatorPersonal: { limit: 120, windowSec: HOUR },
+  // Partes de las subidas por partes (web personal): un vídeo de 4 GB son 256 partes.
+  uploadParts: { limit: 600, windowSec: HOUR },
   // Horarios de una sesión (calcula 28 días de huecos en cada petición).
   slotsIp: { limit: 60, windowSec: MIN },
   // Visitas: el mismo evento de la misma persona cuenta una vez cada 30 minutos…
@@ -169,8 +174,15 @@ export async function limitFreeClaim(email: string, ipHash: string): Promise<Ver
 
 /** Se cuenta al pedir la URL de subida (/api/upload/sign), no al completarla. */
 export async function limitUpload(creatorId: string): Promise<Verdict> {
-  const r = await hit(rlKey("upload", creatorId), RULES.uploadCreator);
+  const r = await hit(rlKey("upload", creatorId), isPersonalMode() ? RULES.uploadCreatorPersonal : RULES.uploadCreator);
   if (!r.ok) return denied((t) => `Has subido muchos archivos en poco tiempo. Espera ${t} y sigue subiendo.`, r.retryAfterSec);
+  return OK;
+}
+
+/** Firmas de partes de una subida por partes (web personal). */
+export async function limitUploadParts(creatorId: string): Promise<Verdict> {
+  const r = await hit(rlKey("upload-parts", creatorId), RULES.uploadParts);
+  if (!r.ok) return denied((t) => `Demasiadas partes en poco tiempo. Espera ${t} y vuelve a intentarlo.`, r.retryAfterSec);
   return OK;
 }
 
