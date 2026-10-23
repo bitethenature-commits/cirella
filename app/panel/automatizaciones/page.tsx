@@ -2,7 +2,7 @@ import { Mail } from "lucide-react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireCreator } from "@/lib/auth";
-import { AUTOMATIONS, type AutomationTrigger } from "@/lib/automations";
+import { AUTOMATIONS, automationDefaultOn, type AutomationTrigger } from "@/lib/automations";
 import { planFeatures } from "@/lib/plans";
 import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
@@ -45,7 +45,7 @@ export default async function AutomationsPage() {
         {(Object.keys(AUTOMATIONS) as AutomationTrigger[]).map((t) => {
           const meta = AUTOMATIONS[t];
           const row = byTrigger.get(t);
-          const enabled = meta.essential || (pro && (row ? row.enabled : true));
+          const enabled = meta.essential || (pro && (row ? row.enabled : automationDefaultOn(t)));
           const editable = pro;
           return (
             <form key={t} action={saveAutomation} className={`card flex flex-col p-5 ${!meta.essential && !pro ? "opacity-60" : ""}`}>
@@ -64,11 +64,11 @@ export default async function AutomationsPage() {
                     {!meta.essential && (
                       <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="enabled" defaultChecked={enabled} className="accent-[#0E1024]" /> Activada</label>
                     )}
-                    {(t === "WELCOME" || t === "SESSION_REMINDER" || t === "ABANDONED_CHECKOUT") && (
+                    {(t === "WELCOME" || t === "SESSION_REMINDER" || t === "SESSION_REMINDER_SOON" || t === "ABANDONED_CHECKOUT") && (
                       <label className="flex items-center gap-2 text-sm">
-                        {t === "SESSION_REMINDER" ? "Enviar" : "Esperar"}
-                        <input type="number" name="delayMinutes" min={0} defaultValue={row?.delayMinutes ?? meta.defaultDelay} className="input h-9 w-24 text-sm" />
-                        {t === "SESSION_REMINDER" ? "minutos antes" : "minutos"}
+                        {t === "SESSION_REMINDER" || t === "SESSION_REMINDER_SOON" ? "Enviar" : "Esperar"}
+                        <input type="number" name="delayMinutes" min={t === "SESSION_REMINDER_SOON" ? 5 : 0} defaultValue={row?.delayMinutes ?? meta.defaultDelay} className="input h-9 w-24 text-sm" />
+                        {t === "SESSION_REMINDER" || t === "SESSION_REMINDER_SOON" ? "minutos antes" : "minutos"}
                       </label>
                     )}
                     <input name="subject" defaultValue={row?.subject ?? ""} placeholder="Asunto personalizado (opcional)" className="input h-9 text-base sm:text-sm" />

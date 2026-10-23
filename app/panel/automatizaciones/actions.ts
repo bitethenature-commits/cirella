@@ -20,7 +20,10 @@ export async function saveAutomation(form: FormData) {
   const messageFormat = formatToStore(message, parseTextFormat(form.get("messageFormat") ?? undefined), row?.messageFormat ?? null);
   const data = {
     enabled: meta.essential ? true : form.get("enabled") === "on",
-    delayMinutes: Math.max(0, Math.min(60 * 24 * 14, Number(form.get("delayMinutes") ?? meta.defaultDelay) || 0)),
+    delayMinutes:
+      trigger === "SESSION_REMINDER_SOON"
+        ? Math.max(5, Math.min(1440, Number(form.get("delayMinutes") ?? meta.defaultDelay) || meta.defaultDelay))
+        : Math.max(0, Math.min(60 * 24 * 14, Number(form.get("delayMinutes") ?? meta.defaultDelay) || 0)),
     subject: String(form.get("subject") ?? "").trim().slice(0, 150) || null,
     message: message && messageFormat ? cleanRichInput(message, { creatorId: creator.id, images: false }) : message,
     messageFormat,

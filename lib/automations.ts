@@ -12,8 +12,14 @@ import { bpsToPercent, formatMoney, formatPrice } from "./money";
 import { createOrderLink, emailAlreadyQueued, orderLinkNote } from "./order-links";
 import { planFeatures } from "./plans";
 import { hasOptedOut, optOutHeaders, optOutUrl } from "./recovery-optout";
-import { formatSessionDate, formatDate } from "./tz";
-import type { DomainEvent } from "./events";
+import { clientTimeNote, formatDate, formatSessionDate, sessionWhen } from "./tz";
+import type { BookingChange, DomainEvent } from "./events";
+import { createHash } from "node:crypto";
+import { intakeLines, intakeMissing, readIntakeAnswers, readIntakeConfig } from "./intake";
+import { meetingLabel } from "./meeting-url";
+import { icsUrl } from "./ics";
+import { isPersonalMode } from "./site-mode";
+import * as BT from "./email/booking-templates";
 
 // Compatibilidad: el código de negocio sigue importando emit y DomainEvent desde aquí.
 export { emit } from "./events";
@@ -39,18 +45,8 @@ export type { DomainEvent } from "./events";
  * verdad (dedupeKey libre), para no dejar enlaces que nadie recibe al reprocesar un evento.
  */
 
-export const AUTOMATIONS = {
-  PURCHASE_RECEIPT: { label: "Email de compra", description: "Recibo y acceso al contenido para quien compra", audience: "Clienta", essential: true, defaultDelay: 0 },
-  COURSE_ACCESS: { label: "Acceso al curso", description: "Enlace directo al curso tras la compra", audience: "Clienta", essential: true, defaultDelay: 0 },
-  BOOKING_CONFIRMED: { label: "Confirmación de reserva", description: "Fecha, hora y enlace de la sesión", audience: "Clienta", essential: true, defaultDelay: 0 },
-  NEW_SUBSCRIPTION: { label: "Aviso de nueva suscripción", description: "Te avisamos cuando alguien se une a tu membresía", audience: "Tú", essential: true, defaultDelay: 0 },
-  SUBSCRIPTION_CANCELED: { label: "Aviso de cancelación", description: "Te avisamos cuando alguien cancela su membresía", audience: "Tú", essential: true, defaultDelay: 0 },
-  WELCOME: { label: "Email de bienvenida", description: "Mensaje personal tras la primera compra de una clienta nueva", audience: "Clienta", essential: false, defaultDelay: 10 },
-  SESSION_REMINDER: { label: "Recordatorio de sesión", description: "Se envía antes de cada sesión (minutos de antelación)", audience: "Clienta", essential: false, defaultDelay: 1440 },
-  ABANDONED_CHECKOUT: { label: "Recuperación de compra abandonada", description: "Si alguien empieza a pagar y no termina", audience: "Clienta", essential: false, defaultDelay: 60 },
-} as const;
-
-export type AutomationTrigger = keyof typeof AUTOMATIONS;
+export { AUTOMATIONS, automationDefaultOn, type AutomationTrigger } from "./automation-catalog";
+import { AUTOMATIONS, automationDefaultOn, type AutomationTrigger } from "./automation-catalog";
 
 async function setting(creatorId: string, trigger: AutomationTrigger) {
   const [row, creator] = await Promise.all([
@@ -59,7 +55,7 @@ async function setting(creatorId: string, trigger: AutomationTrigger) {
   ]);
   const meta = AUTOMATIONS[trigger];
   const allowed = meta.essential || planFeatures(creator.plan).automations;
-  const enabled = allowed && (row ? row.enabled || meta.essential : true);
+  const enabled = allowed && (row ? row.enabled || meta.essential : automationDefaultOn(trigger));
   return {
     enabled,
     delayMinutes: row?.delayMinutes ?? meta.defaultDelay,
@@ -106,6 +102,7 @@ export async function sendAccessEmail(orderId: string, dedupeKey: string) {
       newsletterUrl: newsletter?.url ?? null,
       linkNote: orderLinkNote(link.expiresAt),
       instructions: order.product.instructions,
+      deliveryMode: order.product.deliveryMode,
     }),
   });
 }
@@ -119,8 +116,9 @@ export async function handleAutomation(event: DomainEvent) {
         include: { product: true, bookings: { select: { id: true }, orderBy: { createdAt: "asc" } }, legalSnapshot: true },
       });
       // Sin cobro (0 €): solo el email de acceso. Ni recibo con IVA, ni curso aparte, ni «¡Nueva venta!».
+      // Una sesión sin cobro (dada a mano) ya tiene el suyo: el de la reserva (booking.confirmed).
       if (isNoChargeOrder(order)) {
-        await sendAccessEmail(order.id, `access:${order.id}`);
+        if (order.productType !== "SESSION") await sendAccessEmail(order.id, `access:${order.id}`);
         return;
       }
       const s = await setting(order.creatorId, "PURCHASE_RECEIPT");
@@ -193,19 +191,24 @@ export async function handleAutomation(event: DomainEvent) {
           ),
         });
       }
-      // Aviso de venta a la creadora (notificación de sistema).
-      await enqueueEmail({
-        to: s.creator.contactEmail || s.creator.user.email,
-        creatorId: order.creatorId,
-        template: "NEW_SALE",
-        dedupeKey: `sale:${order.id}`,
-        ...T.newSaleCreatorEmail({
-          productTitle: order.productTitle,
-          amount: formatPrice(order.amountCents, order.currency),
-          buyer: order.buyerName || order.buyerEmail,
-          url: `${base}/panel/ventas`,
-        }),
-      });
+      // Aviso de venta a la creadora (notificación de sistema). En la web personal, la de una sesión va
+      // en el aviso de la reserva (un solo email por reserva pagada) si lo tiene activado.
+      const merged = order.productType === "SESSION" && isPersonalMode() && (await setting(order.creatorId, "BOOKING_OWNER_NOTICE")).enabled;
+      const answers = readIntakeAnswers(order.intake);
+      if (!merged)
+        await enqueueEmail({
+          to: s.creator.contactEmail || s.creator.user.email,
+          creatorId: order.creatorId,
+          template: "NEW_SALE",
+          dedupeKey: `sale:${order.id}`,
+          ...T.newSaleCreatorEmail({
+            productTitle: order.productTitle,
+            amount: formatPrice(order.amountCents, order.currency),
+            buyer: order.buyerName || order.buyerEmail,
+            url: answers && order.productType !== "SESSION" ? `${base}/panel/ventas/${order.id}#entrega` : `${base}/panel/ventas`,
+            details: answers && order.productType !== "SESSION" ? intakeLines(answers) : undefined,
+          }),
+        });
       if (order.productType === "COURSE") {
         const c = await setting(order.creatorId, "COURSE_ACCESS");
         const courseKey = `course:${order.id}`;
@@ -246,54 +249,84 @@ export async function handleAutomation(event: DomainEvent) {
     }
 
     case "booking.confirmed": {
-      const b = await prisma.booking.findUniqueOrThrow({ where: { id: event.bookingId }, include: { product: true, customer: true } });
-      const s = await setting(b.creatorId, "BOOKING_CONFIRMED");
-      const tz = s.creator.timezone;
-      const when = b.startAt ? formatSessionDate(b.startAt, tz) : null;
-      const path = `/cuenta/sesiones/${b.id}`;
-      // Con pedido, enlace personal; una reserva creada a mano (sin pedido) va al login con la marca.
-      const access = async (validFrom?: Date) => {
-        if (!b.orderId) return { url: `${base}/${s.creator.username}/entrar?next=${encodeURIComponent(path)}`, linkNote: undefined };
-        const link = await createOrderLink({ orderId: b.orderId, path, validFrom });
-        return { url: link.url, linkNote: orderLinkNote(link.expiresAt) };
-      };
-      // El recordatorio se calcula antes para que la confirmación solo lo prometa si existe.
-      const r = await setting(b.creatorId, "SESSION_REMINDER");
-      const reminderAt = b.startAt ? new Date(b.startAt.getTime() - r.delayMinutes * 60000) : null;
-      const reminderScheduled = !!(b.startAt && r.enabled && reminderAt && reminderAt > new Date());
-      const confirmKey = `booking:${b.id}:${b.startAt?.toISOString() ?? "pending"}`;
-      if (s.enabled && !(await emailAlreadyQueued(confirmKey)))
+      await sendBookingConfirmation(event.bookingId, event.change);
+      await scheduleSessionReminders(event.bookingId);
+      await notifyOwnerOfBooking(event.bookingId, event.change);
+      return;
+    }
+
+    case "booking.cancelled": {
+      // Solo las cancelaciones del sistema (reembolso o contracargo desde la pasarela): las de la dueña
+      // las hace ella y el desistimiento de la clienta ya le llega con su propio email.
+      const b = await prisma.booking.findUnique({ where: { id: event.bookingId }, include: { product: true, customer: true } });
+      if (!b || b.cancelledBy !== "SYSTEM") return;
+      const s = await setting(b.creatorId, "BOOKING_OWNER_NOTICE");
+      if (!s.enabled) return;
+      await enqueueEmail({
+        to: s.creator.contactEmail || s.creator.user.email,
+        creatorId: b.creatorId,
+        template: "BOOKING_OWNER_CANCELLED",
+        dedupeKey: `owner-cancel:${b.id}`,
+        ...BT.ownerCancelledEmail({
+          buyer: b.customer.name || b.customer.email,
+          productTitle: b.product.title,
+          when: b.startAt ? formatSessionDate(b.startAt, s.creator.timezone) : null,
+          reason: b.cancelReason ?? "El pago se ha devuelto desde la pasarela.",
+          url: `${base}/panel/reservas`,
+        }),
+      });
+      return;
+    }
+
+    case "booking.updated": {
+      const b = await prisma.booking.findUnique({ where: { id: event.bookingId }, include: { product: true, customer: true, creator: true } });
+      if (!b || b.status !== "CONFIRMED" || !b.startAt || b.startAt <= new Date()) return;
+      const key = `meeting:${b.id}:${createHash("sha1").update(b.meetingUrl ?? "").digest("hex").slice(0, 12)}`;
+      if (!(await emailAlreadyQueued(key))) {
+        const a = await bookingAccess(b, base);
         await enqueueEmail({
           to: b.customer.email,
           creatorId: b.creatorId,
-          template: "BOOKING_CONFIRMED",
-          dedupeKey: confirmKey,
-          ...withCustomSubject(
-            T.bookingConfirmedEmail({
-              creatorName: s.creator.displayName,
-              productTitle: b.product.title,
-              when,
-              ...(await access()),
-              meetingUrl: b.meetingUrl,
-              reminderMinutes: reminderScheduled ? r.delayMinutes : null,
-            }),
-            s.subject,
-          ),
+          template: "MEETING_LINK_CHANGED",
+          dedupeKey: key,
+          ...BT.meetingLinkChangedEmail({
+            creatorName: b.creator.displayName,
+            productTitle: b.product.title,
+            when: sessionWhen(b.startAt, b.customerTimezone, b.creator.timezone),
+            meetingUrl: b.meetingUrl,
+            meetingLabel: meetingLabel(b.meetingUrl),
+            ...a,
+          }),
         });
-      const reminderKey = reminderScheduled ? `reminder:${b.id}:${b.startAt!.toISOString()}` : null;
-      if (reminderKey && !(await emailAlreadyQueued(reminderKey)))
-        await enqueueEmail({
-          to: b.customer.email,
-          creatorId: b.creatorId,
-          template: "SESSION_REMINDER",
-          dedupeKey: reminderKey,
-          sendAt: reminderAt!,
-          ...withCustomSubject(
-            // El enlace del recordatorio cuenta desde su envío: si la sesión es dentro de semanas, no llega caducado.
-            T.sessionReminderEmail({ creatorName: s.creator.displayName, productTitle: b.product.title, when: when!, ...(await access(reminderAt!)), meetingUrl: b.meetingUrl }),
-            r.subject,
-          ),
-        });
+      }
+      // Los recordatorios guardan su HTML al programarse: se vuelven a hacer con el enlace nuevo.
+      const { cancelQueuedReminders } = await import("./booking-changes");
+      await cancelQueuedReminders(b.id);
+      await scheduleSessionReminders(b.id);
+      return;
+    }
+
+    case "intake.updated": {
+      const order = await prisma.order.findUnique({ where: { id: event.orderId }, include: { bookings: { select: { id: true }, orderBy: { createdAt: "asc" } } } });
+      const answers = readIntakeAnswers(order?.intake);
+      if (!order || !answers) return;
+      const s = await setting(order.creatorId, "BOOKING_OWNER_NOTICE");
+      if (!s.enabled) return;
+      // Varias correcciones seguidas mandan un solo aviso (ventana de 10 minutos).
+      const slot = Math.floor((order.intakeUpdatedAt ?? new Date()).getTime() / 600_000);
+      await enqueueEmail({
+        to: s.creator.contactEmail || s.creator.user.email,
+        creatorId: order.creatorId,
+        template: "INTAKE_UPDATED",
+        dedupeKey: `intake:${order.id}:${slot}`,
+        ...BT.intakeUpdatedOwnerEmail({
+          buyer: order.buyerName || order.buyerEmail,
+          productTitle: order.productTitle,
+          first: event.first,
+          lines: intakeLines(answers),
+          url: order.bookings[0] ? `${base}/panel/reservas/${order.bookings[0].id}` : `${base}/panel/ventas/${order.id}`,
+        }),
+      });
       return;
     }
 
@@ -350,4 +383,171 @@ export async function handleAutomation(event: DomainEvent) {
       return;
     }
   }
+}
+
+type BookingFull = NonNullable<Awaited<ReturnType<typeof loadBooking>>>;
+
+function loadBooking(bookingId: string) {
+  return prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { product: true, customer: true, creator: { include: { user: true } }, order: true },
+  });
+}
+
+/** Enlace personal a la reserva (con pedido) o el login con su marca (reserva sin pedido). */
+async function bookingAccess(b: { id: string; orderId: string | null; creator: { username: string } }, base: string, validFrom?: Date, hash = "") {
+  const path = `/cuenta/sesiones/${b.id}${hash}`;
+  if (!b.orderId) return { url: `${base}/${b.creator.username}/entrar?next=${encodeURIComponent(path)}`, linkNote: undefined };
+  const link = await createOrderLink({ orderId: b.orderId, path, validFrom });
+  return { url: link.url, linkNote: orderLinkNote(link.expiresAt) };
+}
+
+/** ¿Le faltan datos obligatorios para la lectura? Entonces sus emails llevan el enlace para completarlos. */
+function missingIntake(b: BookingFull) {
+  const cfg = readIntakeConfig(b.product.intake);
+  return !!b.order && intakeMissing(cfg, readIntakeAnswers(b.order.intake));
+}
+
+/**
+ * Confirmación a la clienta, con la hora en su zona: la de siempre, la de una plaza de taller, la de un
+ * taller que cambia de fecha o la de una sesión que la dueña le da a mano (con su mensaje).
+ */
+export async function sendBookingConfirmation(bookingId: string, change?: BookingChange) {
+  const b = await loadBooking(bookingId);
+  if (!b || (b.status !== "CONFIRMED" && b.status !== "PENDING_SCHEDULE")) return;
+  const base = appUrl();
+  const s = await setting(b.creatorId, "BOOKING_CONFIRMED");
+  const tz = s.creator.timezone;
+  const when = b.startAt ? sessionWhen(b.startAt, b.customerTimezone, tz) : null;
+  const confirmKey = `booking:${b.id}:${b.startAt?.toISOString() ?? "pending"}`;
+  if (!s.enabled || (await emailAlreadyQueued(confirmKey))) return;
+  const r = await setting(b.creatorId, "SESSION_REMINDER");
+  const reminderAt = b.startAt ? new Date(b.startAt.getTime() - r.delayMinutes * 60000) : null;
+  const reminderScheduled = !!(b.startAt && r.enabled && reminderAt && reminderAt > new Date());
+  const access = await bookingAccess(b, base);
+  const intakeUrl = missingIntake(b) ? (await bookingAccess(b, base, undefined, "#datos")).url : null;
+  const ics = b.startAt ? icsUrl(b.id) : null;
+  const meta = (b.order?.metadata ?? {}) as { manual?: string; message?: string };
+  if (change === "manual" && b.order?.paymentProvider === "manual") {
+    await enqueueEmail({
+      to: b.customer.email,
+      creatorId: b.creatorId,
+      template: "BOOKING_CONFIRMED",
+      dedupeKey: confirmKey,
+      ...BT.manualSessionEmail({
+        creatorName: s.creator.displayName,
+        productTitle: b.product.title,
+        when,
+        gift: meta.manual === "gift",
+        message: meta.message ?? null,
+        meetingUrl: b.meetingUrl,
+        meetingLabel: meetingLabel(b.meetingUrl),
+        intakeUrl,
+        icsUrl: ics,
+        ...access,
+      }),
+    });
+    return;
+  }
+  await enqueueEmail({
+    to: b.customer.email,
+    creatorId: b.creatorId,
+    template: "BOOKING_CONFIRMED",
+    dedupeKey: confirmKey,
+    ...withCustomSubject(
+      T.bookingConfirmedEmail({
+        creatorName: s.creator.displayName,
+        productTitle: b.product.title,
+        when,
+        ...access,
+        meetingUrl: b.meetingUrl,
+        reminderMinutes: reminderScheduled ? r.delayMinutes : null,
+        // Lo nuevo solo cuando aplica: los emails de siempre salen igual que antes.
+        ...(b.meetingUrl && meetingLabel(b.meetingUrl) !== "Enlace de la videollamada" ? { meetingLabel: meetingLabel(b.meetingUrl) } : {}),
+        ...(intakeUrl ? { intakeUrl } : {}),
+        ...(change && ics ? { icsUrl: ics } : {}),
+        ...(change === "moved" ? { variant: "moved" as const } : b.groupSeat ? { variant: "seat" as const } : {}),
+      }),
+      s.subject,
+    ),
+  });
+}
+
+/** Recordatorios de una reserva confirmada: el de siempre (24 h) y el segundo (60 min, con el enlace). */
+export async function scheduleSessionReminders(bookingId: string) {
+  const b = await loadBooking(bookingId);
+  if (!b || b.status !== "CONFIRMED" || !b.startAt) return;
+  const base = appUrl();
+  const tz = b.creator.timezone;
+  const when = sessionWhen(b.startAt, b.customerTimezone, tz);
+  const intake = missingIntake(b);
+  for (const [trigger, suffix] of [["SESSION_REMINDER", ""], ["SESSION_REMINDER_SOON", ":soon"]] as const) {
+    const r = await setting(b.creatorId, trigger);
+    const at = new Date(b.startAt.getTime() - r.delayMinutes * 60000);
+    if (!r.enabled || at <= new Date()) continue;
+    const key = `reminder:${b.id}:${b.startAt.toISOString()}${suffix}`;
+    if (await emailAlreadyQueued(key)) continue;
+    // El enlace del recordatorio cuenta desde su envío: si la sesión es dentro de semanas, no llega caducado.
+    const a = await bookingAccess(b, base, at);
+    await enqueueEmail({
+      to: b.customer.email,
+      creatorId: b.creatorId,
+      template: "SESSION_REMINDER",
+      dedupeKey: key,
+      sendAt: at,
+      ...withCustomSubject(
+        T.sessionReminderEmail({
+          creatorName: r.creator.displayName,
+          productTitle: b.product.title,
+          when,
+          ...a,
+          meetingUrl: b.meetingUrl,
+          ...(b.meetingUrl && meetingLabel(b.meetingUrl) !== "Enlace de la videollamada" ? { meetingLabel: meetingLabel(b.meetingUrl) } : {}),
+          ...(intake ? { intakeUrl: (await bookingAccess(b, base, at, "#datos")).url } : {}),
+        }),
+        r.subject,
+      ),
+    });
+  }
+}
+
+/**
+ * Aviso a la dueña de una reserva nueva, de una fecha elegida o de un cambio de fecha, con la hora en su
+ * zona y en la de la clienta y sus datos para la lectura. No para lo que hace ella (a mano, mover un
+ * taller), ni para la respuesta a «Proponer otra fecha» (ya tiene su aviso), ni para eventos antiguos.
+ */
+export async function notifyOwnerOfBooking(bookingId: string, change?: BookingChange) {
+  if (change !== "new" && change !== "scheduled" && change !== "rescheduled") return;
+  const b = await loadBooking(bookingId);
+  if (!b || (b.status !== "CONFIRMED" && b.status !== "PENDING_SCHEDULE")) return;
+  const s = await setting(b.creatorId, "BOOKING_OWNER_NOTICE");
+  if (!s.enabled) return;
+  const tz = s.creator.timezone;
+  const answers = readIntakeAnswers(b.order?.intake);
+  const paid = b.order && !isNoChargeOrder(b.order) && change === "new";
+  const seats = b.groupSeat
+    ? {
+        taken: await prisma.booking.count({ where: { productId: b.productId, groupSeat: true, status: { in: ["CONFIRMED", "COMPLETED"] } } }),
+        capacity: b.product.capacity,
+      }
+    : null;
+  await enqueueEmail({
+    to: s.creator.contactEmail || s.creator.user.email,
+    creatorId: b.creatorId,
+    template: "BOOKING_OWNER",
+    dedupeKey: `owner-booking:${b.id}:${b.startAt?.toISOString() ?? "pending"}`,
+    ...BT.ownerBookingEmail({
+      kind: change,
+      buyer: b.customer.name || b.customer.email,
+      productTitle: b.product.title,
+      when: b.startAt ? formatSessionDate(b.startAt, tz) : null,
+      clientNote: b.startAt ? clientTimeNote(b.startAt, tz, b.customerTimezone) : "",
+      previousWhen: change === "rescheduled" && b.previousStartAt ? formatSessionDate(b.previousStartAt, tz) : null,
+      amount: paid ? formatPrice(b.order!.amountCents, b.order!.currency) : null,
+      seats,
+      intake: answers ? intakeLines(answers) : [],
+      intakeMissing: missingIntake(b),
+      url: `${appUrl()}/panel/reservas/${b.id}`,
+    }),
+  });
 }

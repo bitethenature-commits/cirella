@@ -210,14 +210,18 @@ export function accessGrantedEmail(o: {
   instructions?: string | null;
   /** Pidió las novedades en el formulario: botón para confirmarlo (hasta entonces no cuenta). */
   newsletterUrl?: string | null;
+  /** PERSONAL: lo prepara la creadora para ella (lectura «Lo preparo yo»). */
+  deliveryMode?: string;
 }) {
-  const what =
-    o.productType === "COURSE"
+  const prepared = o.productType === "DIGITAL" && o.deliveryMode === "PERSONAL";
+  const what = prepared
+    ? `${esc(o.creatorName)} la está preparando; te avisaremos cuando esté lista.`
+    : o.productType === "COURSE"
       ? "Avanza a tu ritmo: tu progreso se guarda automáticamente."
       : o.productType === "MEMBERSHIP"
         ? "Ya formas parte de la comunidad: entra cuando quieras para ver lo último."
         : "Lo tienes listo para descargar o abrir cuando quieras.";
-  const label = o.productType === "COURSE" ? "Empezar el curso" : o.productType === "MEMBERSHIP" ? "Entrar en la comunidad" : "Acceder a mi contenido";
+  const label = prepared ? "Ver mi compra" : o.productType === "COURSE" ? "Empezar el curso" : o.productType === "MEMBERSHIP" ? "Entrar en la comunidad" : "Acceder a mi contenido";
   return {
     subject: `Ya tienes acceso a «${o.productTitle}»`,
     html: layout({
@@ -265,24 +269,52 @@ export function bookingConfirmedEmail(o: {
   meetingUrl?: string | null;
   reminderMinutes?: number | null;
   linkNote?: string;
+  /** «Enlace de Zoom» cuando el enlace es de Zoom (por defecto, «Enlace de la videollamada»). */
+  meetingLabel?: string;
+  /** Faltan sus datos para la lectura: enlace para completarlos. */
+  intakeUrl?: string | null;
+  /** .ics firmado para añadirla a su calendario. */
+  icsUrl?: string | null;
+  /** seat: plaza de un taller · moved: el taller cambia de fecha. */
+  variant?: "seat" | "moved";
 }) {
+  const extra =
+    (o.intakeUrl ? p(`<strong>Completa tus datos para la lectura.</strong> <a href="${esc(o.intakeUrl)}">Enviar mis datos</a>`) : "") +
+    (o.icsUrl ? p(`<a href="${esc(o.icsUrl)}" style="color:#0E1024">Añadir a mi calendario</a>`) : "");
   return {
-    subject: o.when ? `Reserva confirmada · ${o.when}` : `Elige la fecha de tu sesión`,
+    subject:
+      o.variant === "moved" && o.when
+        ? `Tu taller cambia de fecha · ${o.when}`
+        : o.variant === "seat" && o.when
+          ? `Tu plaza en «${o.productTitle}» · ${o.when}`
+          : o.when
+            ? `Reserva confirmada · ${o.when}`
+            : `Elige la fecha de tu sesión`,
     html: layout({
       brand: o.creatorName,
-      title: o.when ? "Tu sesión está reservada" : "Elige fecha para tu sesión",
+      title: o.variant === "moved" ? "Tu taller cambia de fecha" : o.variant === "seat" ? "Tienes tu plaza" : o.when ? "Tu sesión está reservada" : "Elige fecha para tu sesión",
       body: o.when
         ? p(`<strong>${esc(o.productTitle)}</strong><br>${esc(o.when)}`) +
-          (o.meetingUrl ? p(`Enlace de la videollamada: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : "") +
-          (o.reminderMinutes ? p(`Te enviaremos un recordatorio ${reminderText(o.reminderMinutes)} antes.`) : "")
-        : p(`Tu pago de <strong>${esc(o.productTitle)}</strong> está confirmado. Entra en tu cuenta para elegir el día y la hora que mejor te vengan.`),
+          (o.meetingUrl ? p(`${esc(o.meetingLabel ?? "Enlace de la videollamada")}: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : "") +
+          (o.reminderMinutes ? p(`Te enviaremos un recordatorio ${reminderText(o.reminderMinutes)} antes.`) : "") +
+          extra
+        : p(`Tu pago de <strong>${esc(o.productTitle)}</strong> está confirmado. Entra en tu cuenta para elegir el día y la hora que mejor te vengan.`) + extra,
       cta: { label: o.when ? "Ver detalles" : "Elegir fecha", url: o.url },
       afterCta: note(o.linkNote),
     }),
   };
 }
 
-export function sessionReminderEmail(o: { creatorName: string; productTitle: string; when: string; url: string; meetingUrl?: string | null; linkNote?: string }) {
+export function sessionReminderEmail(o: {
+  creatorName: string;
+  productTitle: string;
+  when: string;
+  url: string;
+  meetingUrl?: string | null;
+  linkNote?: string;
+  meetingLabel?: string;
+  intakeUrl?: string | null;
+}) {
   return {
     subject: `Recordatorio: tu sesión ${o.when}`,
     html: layout({
@@ -290,19 +322,25 @@ export function sessionReminderEmail(o: { creatorName: string; productTitle: str
       title: "Nos vemos pronto",
       body:
         p(`Te recordamos tu sesión <strong>${esc(o.productTitle)}</strong>: ${esc(o.when)}.`) +
-        (o.meetingUrl ? p(`Enlace: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : ""),
+        (o.meetingUrl ? p(`${o.meetingLabel ? esc(o.meetingLabel) : "Enlace"}: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : "") +
+        (o.intakeUrl ? p(`<strong>Todavía faltan tus datos para la lectura.</strong> <a href="${esc(o.intakeUrl)}">Enviar mis datos</a>`) : ""),
       cta: { label: "Ver detalles", url: o.url },
       afterCta: note(o.linkNote),
     }),
   };
 }
 
-export function newSaleCreatorEmail(o: { productTitle: string; amount: string; buyer: string; url: string }) {
+export function newSaleCreatorEmail(o: { productTitle: string; amount: string; buyer: string; url: string; details?: { label: string; value: string }[] }) {
+  const rows = o.details?.length
+    ? `<table role="presentation" style="width:100%;border-collapse:collapse;margin:4px 0 14px;font-size:14px">${o.details
+        .map((l) => `<tr><td style="padding:6px 10px 6px 0;color:#8A8698;vertical-align:top">${esc(l.label)}</td><td style="padding:6px 0;white-space:pre-line">${esc(l.value)}</td></tr>`)
+        .join("")}</table>`
+    : "";
   return {
     subject: `Nueva venta: ${o.productTitle} · ${o.amount}`,
     html: layout({
       title: "¡Nueva venta! 🎉",
-      body: p(`<strong>${esc(o.buyer)}</strong> ha comprado <strong>${esc(o.productTitle)}</strong> por ${esc(o.amount)}.`),
+      body: p(`<strong>${esc(o.buyer)}</strong> ha comprado <strong>${esc(o.productTitle)}</strong> por ${esc(o.amount)}.`) + rows,
       cta: { label: "Ver en mi panel", url: o.url },
     }),
   };
