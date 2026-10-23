@@ -91,6 +91,26 @@ async function main() {
   const still = await prisma.product.findUniqueOrThrow({ where: { id: mariaProduct.id } });
   check("el producto de María sigue intacto", still.title === mariaProduct.title);
 
+  // Partes de las lecciones (LessonPart): María con un curso temporal; Ana solo ve las suyas y una
+  // parte creada con el creatorId de María se queda a nombre de Ana.
+  {
+    const t = `isolation-lp-${Date.now()}`;
+    const mc = await prisma.product.create({ data: { creatorId: maria.id, type: "COURSE", slug: t, title: "Curso de María", priceCents: 0 } });
+    try {
+      const mm = await prisma.courseModule.create({ data: { creatorId: maria.id, productId: mc.id, title: "M", sortOrder: 0 } });
+      const ml = await prisma.lesson.create({ data: { creatorId: maria.id, productId: mc.id, moduleId: mm.id, title: "L", kind: "TEXT", sortOrder: 0 } });
+      const mp = await prisma.lessonPart.create({ data: { creatorId: maria.id, productId: mc.id, lessonId: ml.id, sortOrder: 0, kind: "TEXT", body: "de María" } });
+      const anaParts = await db.lessonPart.findMany();
+      check("partes de lección: Ana solo ve las suyas (y María tiene alguna)", anaParts.length > 0 && anaParts.every((p) => p.creatorId === ana.id) && !anaParts.some((p) => p.id === mp.id));
+      check("findFirst de una parte de María → null", (await db.lessonPart.findFirst({ where: { id: mp.id } })) === null);
+      check("deleteMany de una parte de María → 0 filas", (await db.lessonPart.deleteMany({ where: { id: mp.id } })).count === 0);
+      const fp = await db.lessonPart.create({ data: { creatorId: maria.id, productId: mc.id, lessonId: ml.id, sortOrder: 1, kind: "TEXT", body: "intento" } });
+      check("create de una parte con creatorId ajeno se reasigna a Ana", fp.creatorId === ana.id);
+    } finally {
+      await prisma.product.delete({ where: { id: mc.id } });
+    }
+  }
+
   // Tablas de reembolsos, condiciones legales y facturas: filas de María invisibles para Ana
   const tag = `isolation-${Date.now()}`;
   const snapshot = await prisma.legalSnapshot.create({ data: { creatorId: maria.id, hash: tag, content: { terms: "x" } } });

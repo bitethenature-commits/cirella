@@ -42,6 +42,7 @@
     "test:revision": "for f in scripts/revision-*-test.ts; do echo \"── $f\"; tsx --conditions=react-server \"$f\" || exit 1; done",
     "test:rich-text": "tsx --conditions=react-server scripts/rich-text-test.ts",
     "test:media": "tsx --conditions=react-server scripts/media-test.ts",
+    "test:lessons": "tsx --conditions=react-server scripts/lessons-test.ts",
     "test:e2e": "playwright test"
   },
   "prisma": {

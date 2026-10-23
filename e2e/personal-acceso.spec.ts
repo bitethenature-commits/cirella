@@ -111,7 +111,7 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
     // El enlace personal abre una sesión limitada a este acceso y lleva directo al curso.
     await page.goto(mail.url);
     await page.waitForURL(`**/cuenta/cursos/${order.productId}**`);
-    await expect(page.getByText("Paso 1 · Tu Sol: dónde brillas").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Paso 1 · Tu Sol: dónde brillas", level: 2 })).toBeVisible();
   });
 
   test("repetir con el mismo email reenvía el enlace y no duplica", async ({ page }) => {

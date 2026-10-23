@@ -47,7 +47,18 @@ async function caretAt(field: ReturnType<Page["locator"]>, text: string) {
 }
 
 let anaId = "";
-const restore: { lessons: { id: string; title: string; body: string | null; bodyFormat: string | null }[]; welcome: unknown } = { lessons: [], welcome: undefined };
+type SavedPart = { creatorId: string; productId: string; lessonId: string; sortOrder: number; kind: string; body: string | null; bodyFormat: string | null; fileId: string | null; url: string | null };
+type SavedLesson = { id: string; title: string; kind: string; body: string | null; bodyFormat: string | null; fileId: string | null; version: number; parts: SavedPart[] };
+const restore: { lessons: SavedLesson[]; welcome: unknown } = { lessons: [], welcome: undefined };
+
+/** La lección y sus partes tal y como están, para dejarlas igual al acabar. */
+async function snapshotLesson(id: string): Promise<SavedLesson> {
+  const l = await prisma.lesson.findUniqueOrThrow({ where: { id }, include: { parts: { orderBy: { sortOrder: "asc" } } } });
+  return {
+    id: l.id, title: l.title, kind: l.kind, body: l.body, bodyFormat: l.bodyFormat, fileId: l.fileId, version: l.version,
+    parts: l.parts.map(({ creatorId, productId, lessonId, sortOrder, kind, body, bodyFormat, fileId, url }) => ({ creatorId, productId, lessonId, sortOrder, kind, body, bodyFormat, fileId, url })),
+  };
+}
 
 test.beforeAll(async () => {
   anaId = (await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } })).id;
@@ -56,7 +67,11 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await prisma.post.deleteMany({ where: { creatorId: anaId, OR: [{ title: POST_TITLE }, { slug: { startsWith: TAG } }] } });
   await prisma.lesson.deleteMany({ where: { creatorId: anaId, title: { startsWith: TAG } } });
-  for (const l of restore.lessons) await prisma.lesson.update({ where: { id: l.id }, data: { title: l.title, body: l.body, bodyFormat: l.bodyFormat } });
+  for (const l of restore.lessons) {
+    await prisma.lesson.update({ where: { id: l.id }, data: { title: l.title, kind: l.kind, body: l.body, bodyFormat: l.bodyFormat, fileId: l.fileId, version: l.version } });
+    await prisma.lessonPart.deleteMany({ where: { lessonId: l.id } });
+    await prisma.lessonPart.createMany({ data: l.parts });
+  }
   const w = restore.welcome as { id: string; enabled: boolean; delayMinutes: number; subject: string | null; message: string | null; messageFormat: string | null } | null | undefined;
   if (w) await prisma.automation.update({ where: { id: w.id }, data: { enabled: w.enabled, delayMinutes: w.delayMinutes, subject: w.subject, message: w.message, messageFormat: w.messageFormat } });
   else if (w === null) await prisma.automation.deleteMany({ where: { creatorId: anaId, trigger: "WELCOME" } });
@@ -146,7 +161,7 @@ test.describe.serial("Texto con formato", () => {
     expect(dialogs).toHaveLength(0);
   });
 
-  test("lo de antes se guarda igual sin tocar el texto; una lección de vídeo sin texto se guarda", async ({ page }) => {
+  test("lo de antes se guarda igual sin tocar el texto; una lección sin texto se guarda", async ({ page }) => {
     // Publicación de antes en borrador: pasarla a «Publicada» sin tocar el texto.
     const legacy = await prisma.post.create({
       data: { creatorId: anaId, slug: `${TAG}-antes`, title: `Antes ${stamp}`, body: "Texto de antes con **asteriscos** tal cual.", status: "DRAFT" },
@@ -162,43 +177,46 @@ test.describe.serial("Texto con formato", () => {
     expect(saved.bodyFormat).toBeNull();
     expect(saved.body).toBe(legacy.body);
 
-    // Lección de vídeo sin texto, y una lección de antes a la que solo se cambia el título.
+    // Lección nueva sin texto (solo el título), y una lección de antes a la que solo se cambia el título.
     const course = await prisma.product.findFirstOrThrow({ where: { creatorId: anaId, slug: "curso-conocete-tu-energia" }, include: { modules: { orderBy: { sortOrder: "asc" }, include: { lessons: { orderBy: { sortOrder: "asc" } } } } } });
     await page.goto(`/panel/productos/${course.id}`);
-    const firstModule = page.locator("#lecciones .rounded-2xl.border").first();
-    await firstModule.getByRole("button", { name: "Añadir lección" }).click();
-    await page.getByPlaceholder("Título de la lección").fill(`${TAG} vídeo`);
+    const firstModule = page.locator("#lecciones [data-module]").first();
+    await firstModule.getByRole("link", { name: "Añadir lección" }).click();
+    await page.getByLabel("Título de la lección").fill(`${TAG} vídeo`);
     await page.getByRole("button", { name: "Guardar lección" }).click();
-    await expect(page.getByText(`${TAG} vídeo`)).toBeVisible();
-    const created = await prisma.lesson.findFirstOrThrow({ where: { creatorId: anaId, title: `${TAG} vídeo` } });
+    await expect(page.getByText("Lección guardada")).toBeVisible();
+    const created = await prisma.lesson.findFirstOrThrow({ where: { creatorId: anaId, title: `${TAG} vídeo` }, include: { parts: true } });
     expect(created.body).toBeNull();
     expect(created.bodyFormat).toBeNull();
+    expect(created.parts).toHaveLength(0);
 
     const legacyLesson = course.modules[0].lessons.find((l) => l.title === "Sol, Luna y Ascendente")!;
-    restore.lessons.push({ id: legacyLesson.id, title: legacyLesson.title, body: legacyLesson.body, bodyFormat: legacyLesson.bodyFormat });
-    const row = page.locator("li", { hasText: "Sol, Luna y Ascendente" });
-    await row.getByRole("button", { name: "Editar" }).click();
-    const title = page.locator(`input[name="title"][value="Sol, Luna y Ascendente"]`);
-    await title.fill("Sol, Luna y Ascendente (editada)");
+    restore.lessons.push(await snapshotLesson(legacyLesson.id));
+    await page.goto(`/panel/productos/${course.id}/lecciones/${legacyLesson.id}`);
+    await expect(page.getByText(/Este texto es de antes del formato/)).toBeVisible();
+    await page.getByLabel("Título de la lección").fill("Sol, Luna y Ascendente (editada)");
     await page.getByRole("button", { name: "Guardar lección" }).click();
-    await expect(page.getByText("Sol, Luna y Ascendente (editada)")).toBeVisible();
-    const after = await prisma.lesson.findUniqueOrThrow({ where: { id: legacyLesson.id } });
+    await expect(page.getByText("Lección guardada")).toBeVisible();
+    const after = await prisma.lesson.findUniqueOrThrow({ where: { id: legacyLesson.id }, include: { parts: true } });
+    expect(after.title).toBe("Sol, Luna y Ascendente (editada)");
     expect(after.bodyFormat).toBeNull();
     expect(after.body).toBe(legacyLesson.body);
+    expect(after.parts.map((p) => [p.body, p.bodyFormat])).toEqual([[legacyLesson.body, null]]);
   });
 
   test("lección con formato: Laura ve h3 y lista numerada; la de antes, igual que siempre", async ({ page }) => {
     const course = await prisma.product.findFirstOrThrow({ where: { creatorId: anaId, slug: "curso-conocete-tu-energia" } });
     const lesson = await prisma.lesson.findFirstOrThrow({ where: { productId: course.id, title: "Ejercicio: dibuja tu mapa" } });
-    restore.lessons.push({ id: lesson.id, title: lesson.title, body: lesson.body, bodyFormat: lesson.bodyFormat });
+    restore.lessons.push(await snapshotLesson(lesson.id));
     await demoLogin(page, "Ana Luna");
-    await page.goto(`/panel/productos/${course.id}`);
-    await page.locator("li", { hasText: "Ejercicio: dibuja tu mapa" }).getByRole("button", { name: "Editar" }).click();
-    const body = page.getByLabel("Texto de la lección");
+    await page.goto(`/panel/productos/${course.id}/lecciones/${lesson.id}`);
+    const body = page.getByLabel("Texto (parte 1)");
     await body.fill("## Cómo hacerlo\n\n1. Descarga el cuaderno\n2. Completa el ejercicio 1");
     await page.getByRole("button", { name: "Guardar lección" }).click();
-    await expect(page.getByLabel("Texto de la lección")).toHaveCount(0);
-    expect((await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } })).bodyFormat).toBe("MD");
+    await expect(page.getByText("Lección guardada")).toBeVisible();
+    const saved = await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id }, include: { parts: { orderBy: { sortOrder: "asc" } } } });
+    expect(saved.bodyFormat).toBe("MD");
+    expect(saved.parts[0].bodyFormat).toBe("MD");
 
     await demoLogin(page, "Laura Martín");
     await page.goto(`/cuenta/cursos/${course.id}?leccion=${lesson.id}`);
@@ -207,7 +225,7 @@ test.describe.serial("Texto con formato", () => {
 
     const legacyLesson = await prisma.lesson.findFirstOrThrow({ where: { productId: course.id, title: { startsWith: "Sol, Luna y Ascendente" } } });
     await page.goto(`/cuenta/cursos/${course.id}?leccion=${legacyLesson.id}`);
-    const paragraphs = page.locator("article div.mt-4.space-y-4 > p");
+    const paragraphs = page.locator("article div.space-y-4 > p");
     await expect(paragraphs).toHaveCount(2);
     expect(await page.locator("article [data-rich]").count()).toBe(0);
     expect(await paragraphs.first().innerHTML()).toBe(legacyLesson.body!.split(/\n{2,}/)[0].replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"));

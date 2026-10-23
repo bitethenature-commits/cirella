@@ -70,9 +70,11 @@ async function privateFile(name: string, kind: string, mimeType: string, bytes: 
   return f;
 }
 
-async function lessonWith(data: { title: string; kind: string; fileId?: string; mediaUrl?: string }) {
+/** Lección con un vídeo de YouTube/Vimeo (una parte EMBED y su copia en Lesson.mediaUrl). */
+async function lessonWith(data: { title: string; kind: string; mediaUrl: string }) {
   const mod = await prisma.courseModule.findFirstOrThrow({ where: { productId: courseId }, orderBy: { sortOrder: "asc" } });
   const l = await prisma.lesson.create({ data: { creatorId: anaId, productId: courseId, moduleId: mod.id, sortOrder: 90, ...data } });
+  await prisma.lessonPart.create({ data: { creatorId: anaId, productId: courseId, lessonId: l.id, sortOrder: 0, kind: "EMBED", url: data.mediaUrl } });
   created.lessons.push(l.id);
   return l;
 }
@@ -95,13 +97,16 @@ test.describe.serial("Multimedia", () => {
     created.files.push(saved.id);
     expect([saved.videoCodec, saved.width, saved.height, saved.durationSec, saved.mimeType]).toEqual(["HEVC", 1080, 1920, 125, "video/quicktime"]);
 
-    // Lección nueva con el archivo: «Min» se rellena con la duración.
-    await page.locator("#lecciones").getByRole("button", { name: "Añadir lección" }).first().click();
-    await page.getByPlaceholder("Título de la lección").fill(`${TAG} lección HEVC`);
-    await page.getByLabel("Archivo del curso").selectOption(saved.id);
-    await expect(page.getByLabel("Minutos")).toHaveValue("3");
+    // Lección nueva con el archivo de los materiales: la duración sale sola del vídeo.
+    await page.locator("#lecciones").getByRole("link", { name: "Añadir lección" }).first().click();
+    await page.getByLabel("Título de la lección").fill(`${TAG} lección HEVC`);
+    await page.getByRole("button", { name: "Vídeo", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: new RegExp(`${TAG}-vertical\\.mov`) }).click();
+    const card = page.locator('[data-part="VIDEO"]');
+    await expect(card.getByText("HEVC", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Duración (min)")).toHaveAttribute("placeholder", "Auto · 3");
     await page.getByRole("button", { name: "Guardar lección" }).click();
-    await expect(page.getByText(`${TAG} lección HEVC`)).toBeVisible();
+    await expect(page.getByText("Lección guardada")).toBeVisible();
     const lesson = await prisma.lesson.findFirstOrThrow({ where: { creatorId: anaId, title: `${TAG} lección HEVC` } });
     created.lessons.push(lesson.id);
     expect(lesson.durationMin).toBe(3);
@@ -262,17 +267,21 @@ test.describe.serial("Multimedia", () => {
     // El panel avisa del enlace de Loom pero lo guarda.
     await demoLogin(page, "Ana Luna");
     await page.goto(`/panel/productos/${courseId}`);
-    await page.locator("#lecciones").getByRole("button", { name: "Añadir lección" }).first().click();
-    await page.getByPlaceholder("Título de la lección").fill(`${TAG} Loom`);
-    await page.getByLabel("Enlace del vídeo").fill("https://vimeo.com/76979871/abcdef1234");
+    await page.locator("#lecciones").getByRole("link", { name: "Añadir lección" }).first().click();
+    await page.getByLabel("Título de la lección").fill(`${TAG} Loom`);
+    await page.getByRole("button", { name: "Vídeo", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Pegar un enlace de YouTube o Vimeo" }).click();
+    await page.getByLabel("Enlace de YouTube o Vimeo").fill("https://vimeo.com/76979871/abcdef1234");
     await expect(page.getByText(/Vimeo · oculto ✓/)).toBeVisible();
-    await page.getByLabel("Enlace del vídeo").fill("https://www.loom.com/share/abc123");
+    await page.getByLabel("Enlace de YouTube o Vimeo").fill("https://www.loom.com/share/abc123");
     await expect(page.locator("[data-video-warning]")).toBeVisible();
     await page.getByRole("button", { name: "Guardar lección" }).click();
-    await expect(page.getByText(`${TAG} Loom`)).toBeVisible();
-    const loom = await prisma.lesson.findFirstOrThrow({ where: { creatorId: anaId, title: `${TAG} Loom` } });
+    await expect(page.getByText("Lección guardada")).toBeVisible();
+    await expect(page.getByText(/No reconocemos el enlace del vídeo/)).toBeVisible();
+    const loom = await prisma.lesson.findFirstOrThrow({ where: { creatorId: anaId, title: `${TAG} Loom` }, include: { parts: true } });
     created.lessons.push(loom.id);
     expect(loom.mediaUrl).toBe("https://www.loom.com/share/abc123");
+    expect(loom.parts.map((p) => [p.kind, p.url])).toEqual([["EMBED", "https://www.loom.com/share/abc123"]]);
 
     await demoLogin(page, "Laura Martín");
     await page.goto(`/cuenta/cursos/${courseId}?leccion=${vimeo.id}`);
