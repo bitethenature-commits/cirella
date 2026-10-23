@@ -125,7 +125,8 @@ function parseMoov(moov: Buffer): MediaInfo | null {
           current.tkH = Math.round(buf.readUInt32BE(m + 40) / 65536);
         }
       } else if (type === "hdlr" && current) {
-        current.handler = buf.toString("latin1", body + 8, body + 12);
+        // En un .mov (QuickTime) hay otro hdlr dentro de minf, «dhlr» (alis/url): no dice el tipo de pista.
+        if (buf.toString("latin1", body + 4, body + 8) !== "dhlr") current.handler = buf.toString("latin1", body + 8, body + 12);
       } else if (type === "stsd" && current) {
         const entry = body + 8;
         if (entry + 8 <= bodyEnd) {

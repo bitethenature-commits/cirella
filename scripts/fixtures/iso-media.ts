@@ -53,8 +53,9 @@ function tkhd(id: number, durationSec: number, o: { width?: number; height?: num
   );
 }
 
-function hdlr(handler: "vide" | "soun") {
-  return box("hdlr", zeros(4), zeros(4), ascii(handler), zeros(12), Buffer.from([0]));
+/** QuickTime (.mov del iPhone o del Mac): «mhlr» en mdia y, además, un «dhlr alis» dentro de minf. */
+function hdlr(handler: "vide" | "soun" | "alis", component?: "mhlr" | "dhlr") {
+  return box("hdlr", zeros(4), component ? ascii(component) : zeros(4), ascii(handler), zeros(12), Buffer.from([0]));
 }
 
 function visualEntry(codec: string, width: number, height: number) {
@@ -65,11 +66,12 @@ function audioEntry() {
   return box("mp4a", zeros(6), u16(1), zeros(8), u16(2), u16(16), zeros(4), u32(44100 * 65536));
 }
 
-function trak(id: number, durationSec: number, kind: "vide" | "soun", o: { codec?: string; width?: number; height?: number; rotation?: number } = {}) {
+function trak(id: number, durationSec: number, kind: "vide" | "soun", o: { codec?: string; width?: number; height?: number; rotation?: number; qt?: boolean } = {}) {
   const entry = kind === "vide" ? visualEntry(o.codec ?? "avc1", o.width ?? 0, o.height ?? 0) : audioEntry();
   const stsd = box("stsd", zeros(4), u32(1), entry);
   const mdhd = box("mdhd", zeros(4), zeros(8), u32(1000), u32(durationSec * 1000), zeros(4));
-  return box("trak", tkhd(id, durationSec, kind === "vide" ? o : {}), box("mdia", mdhd, hdlr(kind), box("minf", box("stbl", stsd))));
+  const minf = o.qt ? box("minf", hdlr("alis", "dhlr"), box("stbl", stsd)) : box("minf", box("stbl", stsd));
+  return box("trak", tkhd(id, durationSec, kind === "vide" ? o : {}), box("mdia", mdhd, hdlr(kind, o.qt ? "mhlr" : undefined), minf));
 }
 
 export function mp4(o: {
@@ -87,8 +89,9 @@ export function mp4(o: {
 }): Buffer {
   const d = o.durationSec ?? 42;
   const ftyp = box("ftyp", ascii(o.brand ?? "isom"), u32(0x200), ascii("isomiso2mp41"));
-  const traks = [trak(1, d, "vide", { codec: o.codec ?? "avc1", width: o.width ?? 1920, height: o.height ?? 1080, rotation: o.rotation })];
-  if (o.audio !== false) traks.push(trak(2, d, "soun"));
+  const qt = o.brand === "qt  ";
+  const traks = [trak(1, d, "vide", { codec: o.codec ?? "avc1", width: o.width ?? 1920, height: o.height ?? 1080, rotation: o.rotation, qt })];
+  if (o.audio !== false) traks.push(trak(2, d, "soun", { qt }));
   const moov = box("moov", mvhd(d), ...traks);
   const payload = zeros(o.mdatBytes ?? 1024);
   const mdat = o.largeMdat
