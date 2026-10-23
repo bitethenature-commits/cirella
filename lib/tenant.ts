@@ -34,6 +34,8 @@ export const TENANT_MODELS = new Set<Prisma.ModelName>([
   "Booking",
   "AvailabilityRule",
   "BlockedDate",
+  "AvailabilityOverride",
+  "OrderFile",
   "Subscription",
   "AnalyticsEvent",
   "Automation",

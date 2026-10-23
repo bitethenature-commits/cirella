@@ -98,6 +98,29 @@ async function main() {
       await create({ ...base, creatorId: ana.id, startAt: null, endAt: null });
     }),
   );
+  // Talleres: sus plazas comparten hora (fuera de la regla), pero no protegen un solape 1:1.
+  const seatAt = new Date(start.getTime() + 24 * HOUR);
+  const seatEnd = new Date(seatAt.getTime() + HOUR);
+  const seat = (extra: object = {}) => prisma.booking.create({ data: { ...base, creatorId: ana.id, status: "CONFIRMED", startAt: seatAt, endAt: seatEnd, groupSeat: true, ...extra } }).then((b) => bookingIds.push(b.id));
+  check("tres plazas de taller a la misma hora se admiten", await succeeds(async () => {
+    await seat();
+    await seat();
+    await seat();
+  }));
+  await create({ ...base, creatorId: ana.id, startAt: seatAt, endAt: seatEnd });
+  let oneToOne: unknown = null;
+  try {
+    await create({ ...base, creatorId: ana.id, startAt: new Date(seatAt.getTime() + 15 * 60000), endAt: new Date(seatEnd.getTime() + 15 * 60000) });
+  } catch (e) {
+    oneToOne = e;
+  }
+  check("las plazas no tapan un solape entre dos sesiones 1:1", isBookingOverlapError(oneToOne));
+  const workshop = await prisma.product.create({
+    data: { creatorId: ana.id, type: "SESSION", title: `${TAG} taller`, slug: `${TAG}-taller`, priceCents: 0, groupSession: true, eventStartAt: new Date(start.getTime() + 48 * HOUR), durationMin: 60 },
+  });
+  const wClash = await prisma.$transaction((tx) => hasBookingClash(tx, ana.id, workshop.eventStartAt!, new Date(workshop.eventStartAt!.getTime() + HOUR), 0));
+  await prisma.product.delete({ where: { id: workshop.id } });
+  check("hasBookingClash ve un taller aunque no tenga plazas vendidas", wClash);
   check("una reserva cancelada no ocupa el hueco", await succeeds(async () => {
     const b = await create({ ...base, creatorId: ana.id, startAt: new Date(start.getTime() - 3 * HOUR), endAt: new Date(start.getTime() - 2 * HOUR) });
     await prisma.booking.update({ where: { id: b.id }, data: { status: "CANCELLED" } });

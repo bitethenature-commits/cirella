@@ -4,20 +4,29 @@
  * las reservas se guardan en UTC.
  */
 
+import { sameOffset, tzCity } from "./timezones";
+
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+/** Un formateador por zona: crearlos es lo caro y el calendario calcula miles de horas. */
+const partsFormatters = new Map<string, Intl.DateTimeFormat>();
+
 export function zonedParts(date: Date, timeZone: string) {
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    weekday: "short",
-  });
+  let fmt = partsFormatters.get(timeZone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      weekday: "short",
+    });
+    partsFormatters.set(timeZone, fmt);
+  }
   const parts = Object.fromEntries(fmt.formatToParts(date).map((p) => [p.type, p.value]));
   return {
     year: Number(parts.year),
@@ -86,6 +95,39 @@ export function formatSessionDate(date: Date, timeZone: string, withWeekday = tr
   });
   const time = formatInTz(date, timeZone, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
   return `${day} · ${time}`;
+}
+
+/**
+ * La hora de una sesión para la clienta, en su zona: «martes, 12 de noviembre · 11:00 (hora de Bogotá)».
+ * Sin «(hora de …)» cuando su zona tiene la misma hora que la de la dueña en ese momento.
+ */
+export function sessionWhen(start: Date, tz: string | null | undefined, ownerTz: string) {
+  const zone = tz || ownerTz;
+  const base = formatSessionDate(start, zone);
+  return sameOffset(zone, ownerTz, start) ? base : `${base} (hora de ${tzCity(zone)})`;
+}
+
+/** Solo la hora en una zona: «11:00». */
+export function timeInTz(start: Date, tz: string) {
+  return formatInTz(start, tz, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+}
+
+/**
+ * La hora de una sesión para la dueña, en la suya, y la de la clienta si es distinta:
+ * «jueves, 13 de noviembre · 17:00 · para ella, 11:00 en Bogotá».
+ */
+export function ownerWhen(start: Date, ownerTz: string, clientTz: string | null | undefined) {
+  const base = formatSessionDate(start, ownerTz);
+  if (!clientTz || sameOffset(clientTz, ownerTz, start)) return base;
+  return `${base} · ${clientTimeNote(start, ownerTz, clientTz)}`;
+}
+
+/** «para ella, 11:00 en Bogotá» (con el día si cambia: «para ella, mié 12, 23:00 en Bogotá»). Vacío si es la misma hora. */
+export function clientTimeNote(start: Date, ownerTz: string, clientTz: string | null | undefined) {
+  if (!clientTz || sameOffset(clientTz, ownerTz, start)) return "";
+  const sameDay = dateKeyInTz(start, clientTz) === dateKeyInTz(start, ownerTz);
+  const day = sameDay ? "" : `${formatInTz(start, clientTz, { weekday: "short", day: "numeric" }).replace(".", "")}, `;
+  return `para ella, ${day}${timeInTz(start, clientTz)} en ${tzCity(clientTz)}`;
 }
 
 /** Fecha en la zona horaria de la creadora (por defecto, la de la plataforma), nunca en la del servidor. */

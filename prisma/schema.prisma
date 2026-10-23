@@ -243,25 +243,27 @@ model Creator {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  products         Product[]
-  customers        Customer[]
-  orders           Order[]
-  transactions     Transaction[]
-  accesses         Access[]
-  bookings         Booking[]
-  availability     AvailabilityRule[]
-  blockedDates     BlockedDate[]
-  subscriptions    Subscription[]
-  events           AnalyticsEvent[]
-  automations      Automation[]
-  referralsMade    Referral[]         @relation("ReferralReferrer")
-  referralReceived Referral?          @relation("ReferralReferred")
-  legalSnapshots   LegalSnapshot[]
-  invoices         Invoice[]
-  refunds          Refund[]
-  recoveryOptOuts  RecoveryOptOut[]
-  posts            Post[]
-  discountCodes    DiscountCode[]
+  products              Product[]
+  customers             Customer[]
+  orders                Order[]
+  transactions          Transaction[]
+  accesses              Access[]
+  bookings              Booking[]
+  availability          AvailabilityRule[]
+  blockedDates          BlockedDate[]
+  subscriptions         Subscription[]
+  events                AnalyticsEvent[]
+  automations           Automation[]
+  referralsMade         Referral[]             @relation("ReferralReferrer")
+  referralReceived      Referral?              @relation("ReferralReferred")
+  legalSnapshots        LegalSnapshot[]
+  invoices              Invoice[]
+  refunds               Refund[]
+  recoveryOptOuts       RecoveryOptOut[]
+  posts                 Post[]
+  discountCodes         DiscountCode[]
+  availabilityOverrides AvailabilityOverride[]
+  orderFiles            OrderFile[]
 
   @@index([planId])
   @@index([payoutStatus])
@@ -306,7 +308,18 @@ model Product {
   durationMin    Int?
   bufferMin      Int?
   minNoticeHours Int?
-  meetingUrl     String?
+  meetingUrl     String? // https (lib/meeting-url.ts): su enlace de Zoom de siempre; cada reserva puede llevar otro
+  // Cuántos días por delante se puede reservar (null = 28, lib/slots.ts → HORIZON_DEFAULT_DAYS; máx. 180).
+  // El mismo horizonte sirve para listar huecos y para volver a comprobarlos al pagar.
+  horizonDays    Int?
+  // Taller en directo: una sesión para varias personas con fecha fija. Cada plaza es una Booking con
+  // groupSeat = true. capacity null = sin límite de plazas.
+  groupSession   Boolean   @default(false)
+  eventStartAt   DateTime?
+  capacity       Int?
+  // Lo que se pregunta al reservar o comprar (lib/intake.ts → IntakeConfig): datos de nacimiento
+  // (off | optional | required) y hasta 8 preguntas suyas. null = nada. Solo SESSION y DIGITAL «Lo preparo yo».
+  intake         Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -325,10 +338,10 @@ model Product {
 }
 
 model ProductFile {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   creatorId   String
   productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
   name        String
   kind        String // PDF | AUDIO | VIDEO | IMAGE | LINK | OTHER
   storageKey  String? // clave relativa a «private/» en el almacenamiento (disco local o R2): {creatorId}/{hex}.{ext}
@@ -342,8 +355,8 @@ model ProductFile {
   videoCodec  String? // H264 | HEVC | OTHER (solo vídeo). HEVC = formato del iPhone: puede no verse en todos los navegadores
   width       Int? // tamaño del vídeo tal y como se ve (ya girado: un vertical del iPhone es 1080×1920)
   height      Int?
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
+  sortOrder   Int          @default(0)
+  createdAt   DateTime     @default(now())
   lessons     Lesson[] // obsoleto: Lesson.fileId (copia de compatibilidad, ver Lesson)
   lessonParts LessonPart[]
 
@@ -570,15 +583,24 @@ model Order {
   waiverAcceptedAt DateTime?
   marketingOptIn   Boolean        @default(false)
 
-  metadata          Json? // p. ej. { slotStart } para sesiones
-  visitorId         String?
-  source            String?
-  ipHash            String? // HMAC de la IP de quien inició el pago (límites y antiabuso); nunca la IP en claro
-  recoveryEmailedAt DateTime?
+  metadata              Json? // p. ej. { slotStart, buyerTz } para sesiones
+  // Respuestas de la clienta (lib/intake.ts → IntakeAnswers: fecha, hora y lugar de nacimiento y cada
+  // pregunta con su texto de ese momento). Solo las ven ella y la dueña. Se borran solas de los pedidos
+  // sin pagar a los 30 días (lib/cron.ts).
+  intake                Json?
+  intakeUpdatedAt       DateTime?
+  // Entrega personal (la lectura preparada o la grabación de la sesión): primera vez que se envió y el mensaje.
+  deliveredAt           DateTime?
+  deliveryMessage       String?
+  deliveryMessageFormat String? // null = texto sin formato | "MD" (lib/rich-text.ts)
+  visitorId             String?
+  source                String?
+  ipHash                String? // HMAC de la IP de quien inició el pago (límites y antiabuso); nunca la IP en claro
+  recoveryEmailedAt     DateTime?
   // motivo por el que no se envió el email de recuperación: sin-visita | sin-checkout | muchos-emails | ya-avisada
-  recoverySkipped   String?
-  createdAt         DateTime  @default(now())
-  paidAt            DateTime?
+  recoverySkipped       String?
+  createdAt             DateTime  @default(now())
+  paidAt                DateTime?
 
   transactions Transaction[]
   bookings     Booking[]
@@ -586,6 +608,7 @@ model Order {
   links        OrderLink[]
   invoices     Invoice[]
   refunds      Refund[]
+  files        OrderFile[]
 
   @@index([creatorId, status, createdAt])
   @@index([buyerEmail])
@@ -686,7 +709,8 @@ model Refund {
 
 // Restricción en BD (migración): dos reservas CONFIRMED de la misma creadora no pueden
 // solaparse (Booking_no_overlap, tsrange [start,end)). El margen (bufferMin) lo aplica
-// hasBookingClash bajo un cerrojo por creadora.
+// hasBookingClash bajo un cerrojo por creadora. Las plazas de un taller (groupSeat) comparten hora y
+// quedan fuera de la regla: el hueco del taller lo bloquean lib/booking.ts y hasBookingClash.
 model Booking {
   id                    String    @id @default(cuid())
   creatorId             String
@@ -709,7 +733,12 @@ model Booking {
   cancelReason          String? // texto que ve la clienta
   rescheduleRequestedAt DateTime? // la creadora ha propuesto otra fecha (status vuelve a PENDING_SCHEDULE)
   rescheduleNote        String?
-  previousStartAt       DateTime? // fecha liberada al proponer otra
+  previousStartAt       DateTime? // fecha liberada al proponer otra (o la anterior cuando la clienta la cambia)
+  // Zona horaria de la clienta (IANA): la de su navegador al reservar o la que puso la dueña. Sus emails,
+  // su área y la página de gracias enseñan la hora en esa zona. null = la de la dueña (reservas de antes).
+  customerTimezone      String?
+  // Plaza de un taller (Product.groupSession): comparte hora con las demás plazas.
+  groupSeat             Boolean   @default(false)
   createdAt             DateTime  @default(now())
 
   @@index([creatorId, startAt])
@@ -735,6 +764,50 @@ model BlockedDate {
   reason    String?
 
   @@unique([creatorId, date])
+}
+
+// Horario de un día concreto (viajes, días especiales). HOURS = franjas disponibles que SUSTITUYEN al
+// horario semanal de ese día; BLOCK = horas que se quitan de lo disponible ese día. La fecha y los minutos
+// van en `timezone`, que puede no ser la de la creadora («de 9:00 a 13:00, hora de Bali»).
+// Los días enteros siguen siendo BlockedDate.
+model AvailabilityOverride {
+  id          String   @id @default(cuid())
+  creatorId   String
+  creator     Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  date        String // YYYY-MM-DD en `timezone`
+  kind        String // HOURS | BLOCK
+  startMinute Int // minutos desde las 00:00 de `date` en `timezone`
+  endMinute   Int // ≤ 1440, al menos 15 min después de startMinute
+  timezone    String // zona IANA canónica (lib/timezones.ts → canonicalTimezone)
+  note        String? // «Bali», «Retiro»… (máx. 80)
+  createdAt   DateTime @default(now())
+
+  @@index([creatorId, date])
+}
+
+// Archivo o enlace que la dueña entrega a UNA clienta (la lectura que prepara, la grabación de su sesión).
+// Nunca es contenido del producto: solo lo ven la clienta de ese pedido y la dueña (lib/order-files.ts).
+model OrderFile {
+  id          String    @id @default(cuid())
+  creatorId   String
+  creator     Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  orderId     String
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  name        String
+  kind        String // PDF | AUDIO | VIDEO | IMAGE | LINK | OTHER
+  storageKey  String? // como ProductFile: relativa a «private/», {creatorId}/{hex}.{ext}
+  url         String? // LINK (https)
+  mimeType    String?
+  sizeBytes   Float?
+  durationSec Int?
+  videoCodec  String?
+  width       Int?
+  height      Int?
+  sentAt      DateTime? // null = borrador: la clienta todavía no lo ve
+  createdAt   DateTime  @default(now())
+
+  @@index([creatorId, orderId])
+  @@index([orderId, sentAt])
 }
 
 // ───────────────────────────── Membresías ─────────────────────────────
@@ -809,7 +882,7 @@ model Automation {
   id            String  @id @default(cuid())
   creatorId     String
   creator       Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  trigger       String // WELCOME | PURCHASE_RECEIPT | COURSE_ACCESS | SESSION_REMINDER | BOOKING_CONFIRMED | NEW_SUBSCRIPTION | SUBSCRIPTION_CANCELED | ABANDONED_CHECKOUT
+  trigger       String // WELCOME | PURCHASE_RECEIPT | COURSE_ACCESS | SESSION_REMINDER | BOOKING_CONFIRMED | NEW_SUBSCRIPTION | SUBSCRIPTION_CANCELED | ABANDONED_CHECKOUT | BOOKING_OWNER_NOTICE | SESSION_REMINDER_SOON
   enabled       Boolean @default(true)
   delayMinutes  Int     @default(0)
   subject       String?
