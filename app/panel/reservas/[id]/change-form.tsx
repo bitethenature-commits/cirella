@@ -10,21 +10,39 @@ type Intent = "reschedule" | "cancel_refund" | "cancel_only";
  * Tres opciones para una sesión ya pagada, siempre con confirmación: proponer otra fecha, cancelar
  * y reembolsar, o cancelar sin reembolso (con un motivo que verá la clienta).
  */
-export function ChangeForm({ bookingId, name, when, refundable, refundLabel }: { bookingId: string; name: string; when: string | null; refundable: number; refundLabel: string }) {
+export function ChangeForm({
+  bookingId,
+  name,
+  when,
+  refundable,
+  refundLabel,
+  canPropose = true,
+  personal = false,
+}: {
+  bookingId: string;
+  name: string;
+  when: string | null;
+  refundable: number;
+  refundLabel: string;
+  /** Una plaza de taller tiene fecha fija: no se le propone otra. */
+  canPropose?: boolean;
+  /** Web personal: sin comisión de la plataforma de por medio. */
+  personal?: boolean;
+}) {
   const [state, action, isPending] = useActionState<ChangeState, FormData>(changeBooking, undefined);
-  const [intent, setIntent] = useState<Intent>(when ? "reschedule" : refundable > 0 ? "cancel_refund" : "cancel_only");
+  const [intent, setIntent] = useState<Intent>(when && canPropose ? "reschedule" : refundable > 0 ? "cancel_refund" : "cancel_only");
 
   const options: { key: Intent; title: string; help: string; disabled?: string; hidden?: boolean }[] = [
     {
       key: "reschedule",
       title: "Proponer otra fecha",
       help: `Liberamos este hueco y ${name} recibe un email para elegir otro día de tu agenda. El pago se mantiene.`,
-      hidden: !when,
+      hidden: !when || !canPropose,
     },
     {
       key: "cancel_refund",
       title: "Cancelar y reembolsar",
-      help: `Cancelamos la sesión y devolvemos ${refundLabel} a su tarjeta, incluida la comisión de Cirella. Le llegará en 5-10 días.`,
+      help: `Cancelamos la sesión y devolvemos ${refundLabel} a su tarjeta${personal ? "" : ", incluida la comisión de Cirella"}. Le llegará en 5-10 días.`,
       disabled: refundable > 0 ? undefined : "Este pedido ya está reembolsado",
     },
     {
@@ -54,7 +72,7 @@ export function ChangeForm({ bookingId, name, when, refundable, refundLabel }: {
         const fd = new FormData(e.currentTarget);
         startTransition(() => action(fd));
       }}
-      className="mt-6 space-y-3"
+      className="space-y-3"
     >
       <input type="hidden" name="id" value={bookingId} />
       <Flash error={state?.error} />

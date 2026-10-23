@@ -24,7 +24,10 @@ import { CourseBuilder } from "./course-builder";
 import { FilesManager } from "./files-manager";
 import { PostsManager } from "./posts-manager";
 import { ProductForm } from "./product-form";
-import { formatDate } from "@/lib/tz";
+import { dateKeyInTz, formatDate, minutesToLabel, zonedParts } from "@/lib/tz";
+import { readIntakeConfig } from "@/lib/intake";
+import { notifyWorkshopReplay } from "../actions";
+import { WorkshopAttendees } from "./workshop-attendees";
 
 /** Cuántas personas con acceso se listan en la ficha (el resto, en Inscripciones). */
 const ACCESS_ROWS = 50;
@@ -34,7 +37,7 @@ export default async function EditProductPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ nuevo?: string; error?: string; acceso?: string; leccion?: string }>;
+  searchParams: Promise<{ nuevo?: string; error?: string; acceso?: string; leccion?: string; avisadas?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -143,8 +146,18 @@ export default async function EditProductPage({
         </div>
       )}
 
+      {sp.error === "sin-fecha" && <Flash error="Pon una fecha futura del taller para publicarlo." />}
+      {sp.avisadas !== undefined && <Flash ok={`Aviso de la grabación enviado a ${sp.avisadas} ${sp.avisadas === "1" ? "asistente" : "asistentes"}.`} />}
       <ProductForm
-        product={{ ...product }}
+        product={{
+          ...product,
+          eventDate: product.eventStartAt ? dateKeyInTz(product.eventStartAt, creator.timezone) : "",
+          eventTime: product.eventStartAt ? (() => { const z = zonedParts(product.eventStartAt!, creator.timezone); return minutesToLabel(z.hour * 60 + z.minute); })() : "",
+          intake: readIntakeConfig(product.intake),
+          hasBookings: type === "SESSION" && (await db.booking.count({ where: { productId: id } })) > 0,
+          customPrivacy: !!creator.legalPrivacy,
+          ownerTimezone: creator.timezone,
+        }}
         host={appHost()}
         username={creator.username}
         commissionBps={mode === "personal" ? 0 : creator.plan.commissionBps}
@@ -188,14 +201,26 @@ export default async function EditProductPage({
             />
           </div>
         )}
-        {type === "SESSION" && accessMode !== "EXTERNAL" && (
+        {type === "SESSION" && product.groupSession && (
+          <>
+            <WorkshopAttendees creatorId={creator.id} productId={product.id} capacity={product.capacity} />
+            <FilesManager productId={product.id} files={product.files} limitsLabel={uploadPolicy(mode === "personal").label} title="Grabación y materiales" hint="Lo verán solo las asistentes de este taller en su área." />
+            {product.files.length > 0 && product.eventStartAt && product.eventStartAt < new Date() && (
+              <ConfirmForm action={notifyWorkshopReplay} message="¿Enviar a cada asistente un email con la grabación? Solo se envía una vez a cada una.">
+                <input type="hidden" name="id" value={product.id} />
+                <button className="btn btn-outline h-11">Avisar de la grabación</button>
+              </ConfirmForm>
+            )}
+          </>
+        )}
+        {type === "SESSION" && accessMode !== "EXTERNAL" && !product.groupSession && (
           <section className="card flex flex-wrap items-center gap-4 p-5">
             <CalendarDays className="h-6 w-6 text-lavender-deep" />
             <div className="min-w-0 flex-1">
               <p className="font-semibold">Disponibilidad</p>
               <p className="text-sm text-muted">Tus días, horarios y días bloqueados se aplican a todas tus sesiones.</p>
             </div>
-            <Link href="/panel/reservas#disponibilidad" className="btn btn-outline btn-sm">Configurar horario</Link>
+            <Link href="/panel/reservas/horario" className="btn btn-outline btn-sm">Configurar horario</Link>
           </section>
         )}
       </div>

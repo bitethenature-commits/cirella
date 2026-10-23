@@ -1,3 +1,4 @@
+import { formatInTz } from "./tz";
 import "server-only";
 import { cache } from "react";
 import { asAccessMode, externalHost } from "./access-mode";
@@ -66,6 +67,8 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
   const taxCreator = { country: creator.legalCountry, vatStatus: creator.vatStatus, vatExemptionNote: creator.vatExemptionNote };
   const products: PublicProduct[] = rows
     .filter((p) => features.productTypes.includes(p.type as ProductType))
+    // Un taller ya celebrado no se ofrece en la página.
+    .filter((p) => !(p.type === "SESSION" && p.groupSession && (!p.eventStartAt || p.eventStartAt <= now)))
     .map((p) => {
       const accessMode = asAccessMode(p.accessMode);
       return {
@@ -82,7 +85,9 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
         ctaLabel: p.ctaLabel,
         featured: p.featured,
         meta:
-          p.type === "SESSION" && p.durationMin
+          p.type === "SESSION" && p.groupSession && p.eventStartAt
+            ? `Taller · ${formatInTz(p.eventStartAt, creator.timezone, { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "")} · ${formatInTz(p.eventStartAt, creator.timezone, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}`
+            : p.type === "SESSION" && p.durationMin
             ? `${p.durationMin} min`
             : p.type === "COURSE" && p._count.lessons
               ? lessonsLabel(p._count.lessons)

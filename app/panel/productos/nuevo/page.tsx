@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, BookOpen, CalendarDays, Download, Lock, UsersRound } from "lucide-react";
+import { ArrowLeft, BookOpen, CalendarDays, Download, Lock, Moon, UsersRound } from "lucide-react";
 import { requireCreator } from "@/lib/auth";
 import { canSellType } from "@/lib/plans";
 import { hasPaymentProvider } from "@/lib/payments";
@@ -66,6 +66,18 @@ export default async function NewProductPage() {
             </Link>
           );
         })}
+        {canSellType(creator.plan, "SESSION") && (personal ? sells : true) && (
+          <form action={createProduct}>
+            <input type="hidden" name="type" value="SESSION" />
+            <input type="hidden" name="group" value="1" />
+            <button className="card group h-full w-full p-5 text-left transition hover:-translate-y-0.5 hover:shadow-lift">
+              <Moon className="h-6 w-6 text-lavender-deep" />
+              <p className="display mt-4 text-[1.6rem]">Taller en directo</p>
+              <p className="mt-1 text-sm text-muted">Una sesión en grupo con fecha fija y plazas: cada persona paga su plaza y recibe el enlace de Zoom.</p>
+              <p className="mt-3 text-xs text-faint">Ej.: Taller de Luna Nueva por Zoom, 12 plazas</p>
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

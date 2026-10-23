@@ -22,6 +22,11 @@ import { lessonPartViews, partsLabel } from "@/lib/lesson-parts";
 import { PART_ICON } from "@/components/media/part-icons";
 import { formatDate } from "@/lib/tz";
 import { ClaimForm } from "./acceso/claim-form";
+import { LocalDateTime } from "@/components/booking/local-date-time";
+import { isGroupSession, seatsTaken } from "@/lib/booking";
+import { prisma } from "@/lib/db";
+import { meetingProvider } from "@/lib/meeting-url";
+import { Users } from "lucide-react";
 import { ExternalButton } from "./acceso/external-button";
 
 type Params = { username: string; slug: string };
@@ -86,6 +91,11 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
   // Lo que pasa al pulsar el botón, según cómo se consigue.
   const afterCta = free ? "con tu email" : "tras el pago";
+  // Taller en directo: fecha fija y plazas (la página es dinámica: plazas al momento).
+  const workshop = isGroupSession(p) && p.eventStartAt ? { at: p.eventStartAt, past: p.eventStartAt <= new Date() } : null;
+  const seatsLeft = workshop && p.capacity != null ? Math.max(0, p.capacity - (await seatsTaken(prisma, p.id))) : null;
+  const full = seatsLeft === 0;
+  const videoText = meetingProvider(p.meetingUrl) === "zoom" ? "Por Zoom" : "Por videollamada";
   const externalPerk = externalSite ? [{ icon: ExternalLink, text: `${type === "SESSION" ? "Reserva y pago" : "Pago"} en ${externalSite}` }] : [];
   const perks: { icon: typeof Zap; text: string }[] =
     type === "DIGITAL"
@@ -97,7 +107,13 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
       : type === "SESSION"
         ? external
           ? [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: "Por videollamada" }, ...externalPerk]
-          : [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: "Por videollamada" }, { icon: CalendarDays, text: "Eliges día y hora al reservar" }, { icon: RefreshCcw, text: sessionChangePolicyText() }]
+          : workshop
+            ? [
+                { icon: Clock, text: `${p.durationMin ?? 60} minutos` },
+                { icon: Video, text: `${videoText}, en directo` },
+                ...(seatsLeft !== null && !workshop.past ? [{ icon: Users, text: full ? "Completo" : `Quedan ${seatsLeft} ${seatsLeft === 1 ? "plaza" : "plazas"}` }] : []),
+              ]
+            : [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: videoText }, { icon: CalendarDays, text: "Eliges día y hora al reservar" }, { icon: RefreshCcw, text: sessionChangePolicyText() }]
         : type === "COURSE"
           ? [
               // Un curso que se paga fuera puede no tener lecciones aquí: entonces no se prometen.
@@ -174,7 +190,16 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
             </p>
           )}
 
-          {paid ? (
+          {workshop && (
+            <p className="mt-4 flex items-center gap-2 text-[1.02rem] font-semibold">
+              <CalendarDays className="cp-gold h-5 w-5" /> <LocalDateTime iso={workshop.at.toISOString()} ownerTz={creator.timezone} />
+            </p>
+          )}
+          {workshop && (workshop.past || full) ? (
+            <p className="mt-6 rounded-xl px-4 py-3 text-sm font-semibold" style={{ background: "var(--c-line)" }}>
+              {workshop.past ? "Este taller ya se celebró." : "Completo: no quedan plazas."}
+            </p>
+          ) : paid ? (
             <TrackedLink href={checkoutHref} event={clickEvent} className={buttonClass}>
               {cta} · {price}
             </TrackedLink>

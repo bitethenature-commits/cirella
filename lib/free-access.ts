@@ -97,7 +97,7 @@ export async function grantManualAccess(input: { creatorId: string; productId: s
   const product = await prisma.product.findFirst({ where: { id: input.productId, creatorId: input.creatorId }, include: DELIVERY_COUNT });
   if (!product || product.status === "ARCHIVED") throw new FreeAccessError("Producto no encontrado");
   if (asAccessMode(product.accessMode) === "PAID") throw new FreeAccessError("Este producto se cobra en la web: no se puede dar acceso a mano.");
-  if (!hostsContent(product.type)) throw new FreeAccessError("Las sesiones se reservan en la otra web: aquí no hay nada a lo que dar acceso.");
+  if (!hostsContent(product.type)) throw new FreeAccessError("Las sesiones se dan desde Reservas → «Dar una sesión o lectura».");
   // Lo que se ve aquí tiene que existir (como si fuera gratis: un externo nunca bloquea al publicar).
   const issue = deliveryIssue({ ...deliveryFacts(product), accessMode: "FREE_EMAIL" });
   if (issue?.blocking)

@@ -29,6 +29,13 @@ import { siteMode } from "@/lib/site-mode";
 import { RESERVED_PRODUCT_SLUGS } from "@/lib/slug";
 import { privateKey, storage } from "@/lib/storage";
 import { tenantDb, type TenantDb } from "@/lib/tenant";
+import { Prisma } from "@prisma/client";
+import { applyProductMeetingUrl } from "@/lib/booking-changes";
+import { parseIntakeConfigInput } from "@/lib/intake";
+import { parseMeetingUrl } from "@/lib/meeting-url";
+import { HORIZON_CHOICES } from "@/lib/slots";
+import { labelToMinutes, zonedTimeToUtc } from "@/lib/tz";
+import { moveWorkshop, notifyReplay, workshopClash } from "@/lib/workshops";
 import { DEFAULT_CTA, PRODUCT_TYPES, type ProductType } from "@/lib/types";
 
 export type ActionState = { ok?: string; error?: string } | undefined;
@@ -56,6 +63,8 @@ async function deleteStoredFiles(storageKeys: (string | null)[]) {
 export async function createProduct(form: FormData) {
   const { creator, db } = await ctx();
   const type = z.enum(PRODUCT_TYPES).parse(form.get("type"));
+  // «Taller en directo»: una sesión con fecha fija para varias personas.
+  const group = type === "SESSION" && form.get("group") === "1";
   if (!canSellType(creator.plan, type)) redirect("/panel/plan");
   const count = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
   if (creator.plan.maxProducts != null && count >= creator.plan.maxProducts) redirect("/panel/productos?limite=1");
@@ -68,12 +77,14 @@ export async function createProduct(form: FormData) {
   // En la web personal con cobros, de pago en la web; sin cobros, gratis con email (o, una sesión,
   // pago en otra web).
   const accessMode = defaultAccessMode(siteMode(), type, hasPaymentProvider());
+  const title = group ? "Nuevo taller en directo" : titles[type];
   const product = await db.product.create({
     data: {
       creatorId: creator.id,
       type,
-      title: titles[type],
-      slug: await uniqueProductSlug(creator.id, titles[type]),
+      title,
+      slug: await uniqueProductSlug(creator.id, title),
+      groupSession: group,
       priceCents: 0,
       status: "DRAFT",
       accessMode,
@@ -82,8 +93,8 @@ export async function createProduct(form: FormData) {
       billingInterval: type === "MEMBERSHIP" ? "month" : null,
       durationMin: type === "SESSION" ? 60 : null,
       bufferMin: type === "SESSION" ? 15 : null,
-      minNoticeHours: type === "SESSION" ? 24 : null,
-      emoji: { DIGITAL: "✨", SESSION: "🔮", COURSE: "📖", MEMBERSHIP: "💫" }[type],
+      minNoticeHours: type === "SESSION" ? (group ? 0 : 24) : null,
+      emoji: group ? "🌙" : { DIGITAL: "✨", SESSION: "🔮", COURSE: "📖", MEMBERSHIP: "💫" }[type],
     },
   });
   if (type === "COURSE") await db.courseModule.create({ data: { creatorId: creator.id, productId: product.id, title: "Módulo 1", sortOrder: 0 } });
@@ -111,7 +122,14 @@ const productSchema = z.object({
   durationMin: z.coerce.number().int().min(10).max(480).optional(),
   bufferMin: z.coerce.number().int().min(0).max(240).optional(),
   minNoticeHours: z.coerce.number().int().min(0).max(24 * 30).optional(),
-  meetingUrl: z.string().trim().max(300).optional(),
+  meetingUrl: z.string().trim().max(600).optional(),
+  // Calendario propio (lib/slots.ts, lib/intake.ts, talleres).
+  horizonDays: z.string().max(4).optional(),
+  groupSession: z.string().optional(),
+  eventDate: z.string().max(10).optional(),
+  eventTime: z.string().max(5).optional(),
+  capacity: z.string().max(4).optional(),
+  intake: z.string().max(4000, "Demasiadas preguntas o demasiado largas").optional(),
   billingInterval: z.enum(["month", "year"]).optional(),
   deliveryMode: z.enum(DELIVERY_MODES).optional(),
   // Cómo se consigue (lib/access-mode.ts). En la plataforma el formulario no lo envía: se conserva.
@@ -159,7 +177,37 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
     wantedSlug !== product.slug || RESERVED_PRODUCT_SLUGS.has(wantedSlug)
       ? await uniqueProductSlug(creator.id, wantedSlug, product.id)
       : product.slug;
-  if (d.meetingUrl && !/^https?:\/\//.test(d.meetingUrl)) return { error: "El enlace de videollamada debe empezar por https://" };
+  // Sesiones: enlace de Zoom (solo https), horizonte, taller y datos que se piden.
+  const meeting = parseMeetingUrl(d.meetingUrl);
+  if (product.type === "SESSION" && !meeting.ok) return { error: meeting.error };
+  const meetingUrl = meeting.ok ? meeting.url : null;
+  const horizonDays = d.horizonDays && (HORIZON_CHOICES as readonly number[]).includes(Number(d.horizonDays)) ? Number(d.horizonDays) : null;
+  const seatsSold = product.type === "SESSION" ? await db.booking.count({ where: { productId: product.id, status: { in: ["CONFIRMED", "COMPLETED", "PENDING_SCHEDULE"] } } }) : 0;
+  const wantsGroup = product.type === "SESSION" && (d.groupSession === undefined ? product.groupSession : d.groupSession === "on");
+  if (product.type === "SESSION" && wantsGroup !== product.groupSession && seatsSold > 0)
+    return { error: wantsGroup ? "Esta sesión ya tiene reservas: crea un taller nuevo." : "Este taller ya tiene plazas vendidas: no se puede convertir en sesión individual." };
+  let eventStartAt: Date | null = product.eventStartAt;
+  let capacity: number | null = product.capacity;
+  if (wantsGroup) {
+    if (d.eventDate || d.eventTime) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d.eventDate ?? "") || !/^\d{2}:\d{2}$/.test(d.eventTime ?? "")) return { error: "Escribe el día y la hora del taller" };
+      eventStartAt = zonedTimeToUtc(d.eventDate!, labelToMinutes(d.eventTime!), creator.timezone);
+    }
+    capacity = d.capacity ? Number(d.capacity) : null;
+    if (capacity !== null && (!Number.isInteger(capacity) || capacity < 1 || capacity > 500)) return { error: "Las plazas van de 1 a 500 (vacío = sin límite)" };
+    if (d.status === "PUBLISHED" && (!eventStartAt || eventStartAt <= new Date())) return { error: "Pon una fecha futura del taller para publicarlo" };
+  }
+  const dateChanged = wantsGroup && !!eventStartAt && eventStartAt.getTime() !== product.eventStartAt?.getTime();
+  if (dateChanged) {
+    const clash = await workshopClash(creator.id, eventStartAt!, new Date(eventStartAt!.getTime() + (d.durationMin ?? 60) * 60000), product.id);
+    if (clash) return { error: `Esa hora choca con ${clash.label}` };
+  }
+  let intakeJson: Prisma.InputJsonValue | typeof Prisma.DbNull | undefined;
+  if (d.intake !== undefined) {
+    const cfg = parseIntakeConfigInput(d.intake);
+    if (!cfg.ok) return { error: cfg.error };
+    intakeJson = cfg.value ? (cfg.value as unknown as Prisma.InputJsonObject) : Prisma.DbNull;
+  }
   if (d.imageUrl && !d.imageUrl.startsWith("/media/") && !d.imageUrl.startsWith("/demo/")) return { error: "Imagen no válida" };
   const description = d.description ? normalizeNewlines(d.description) : null;
   const descriptionFormat = formatToStore(description, d.descriptionFormat, product.descriptionFormat);
@@ -185,13 +233,35 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
       deliveryMode,
       slug,
       ...(product.type === "SESSION"
-        ? { durationMin: d.durationMin ?? 60, bufferMin: d.bufferMin ?? 15, minNoticeHours: d.minNoticeHours ?? 24, meetingUrl: d.meetingUrl || null }
+        ? {
+            durationMin: d.durationMin ?? 60,
+            bufferMin: d.bufferMin ?? 15,
+            minNoticeHours: d.minNoticeHours ?? (wantsGroup ? 0 : 24),
+            meetingUrl,
+            horizonDays,
+            groupSession: wantsGroup,
+            eventStartAt: wantsGroup ? (dateChanged && seatsSold > 0 ? product.eventStartAt : eventStartAt) : null,
+            capacity: wantsGroup ? capacity : null,
+          }
         : {}),
+      ...(intakeJson !== undefined && (product.type === "SESSION" || product.type === "DIGITAL") ? { intake: intakeJson } : {}),
       ...(product.type === "MEMBERSHIP" ? { billingInterval: d.billingInterval ?? "month" } : {}),
     },
   });
+  // Con plazas vendidas, mover el taller avisa a cada asistente (lib/workshops.ts).
+  const notes: string[] = [];
+  if (dateChanged && seatsSold > 0) {
+    const m = await moveWorkshop({ creatorId: creator.id, productId: product.id, startAt: eventStartAt! });
+    if (!m.ok) return { error: m.error };
+    notes.push(`Hemos avisado del cambio de fecha a ${m.moved} ${m.moved === 1 ? "asistente" : "asistentes"}.`);
+  }
+  if (product.type === "SESSION" && meetingUrl !== product.meetingUrl) {
+    const n = await applyProductMeetingUrl({ creatorId: creator.id, productId: product.id, previous: product.meetingUrl, next: meetingUrl });
+    if (n) notes.push(`Hemos enviado el enlace nuevo a ${n} ${n === 1 ? "clienta" : "clientas"}.`);
+  }
   refresh(product.id);
   revalidatePath(`/${creator.username}`);
+  if (notes.length) return { ok: `${d.status === "PUBLISHED" ? "Guardado y publicado." : "Guardado."} ${notes.join(" ")}` };
   // En la web personal sin cobros lo que se cobraba en la web se guarda tal cual, pero no se ve: se dice.
   if (accessMode === "PAID" && siteMode() === "personal" && !hasPaymentProvider()) {
     const choices = accessModesFor("personal", product.type).map((m) => `«${ACCESS_MODE_LABEL[m]}»`).join(" o ");
@@ -236,6 +306,8 @@ export async function setProductStatus(form: FormData) {
       !canSellType(creator.plan, product.type as ProductType))
   )
     redirect(`/panel/productos/${id}`);
+  // Un taller sin fecha futura no se publica.
+  if (status === "PUBLISHED" && product.groupSession && (!product.eventStartAt || product.eventStartAt <= new Date())) redirect(`/panel/productos/${id}?error=sin-fecha#sesion`);
   if (status === "PUBLISHED") {
     const issue = (await productDeliveryIssue(db, id))?.issue;
     if (issue?.blocking) redirect(`/panel/productos/${id}?error=sin-entrega#${issue.anchor}`);
@@ -460,4 +532,13 @@ export async function deletePost(form: FormData) {
   if (!p) return;
   await db.membershipPost.deleteMany({ where: { id: p.id } });
   refresh(p.productId);
+}
+
+/** «Avisar de la grabación» de un taller: un email a cada asistente. */
+export async function notifyWorkshopReplay(form: FormData) {
+  const { creator } = await ctx();
+  const id = String(form.get("id") ?? "");
+  const r = await notifyReplay({ creatorId: creator.id, productId: id });
+  refresh(id);
+  redirect(`/panel/productos/${id}?avisadas=${r.sent}#asistentes`);
 }

@@ -18,6 +18,9 @@ import { MIN_PERSONAL_INSTRUCTIONS, normalizeDeliveryMode, type DeliveryMode } f
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import { estimateNet, type TaxMode, type VatStatus } from "@/lib/tax";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
+import { IntakeConfigEditor } from "@/components/booking/intake-config-editor";
+import type { IntakeConfig } from "@/lib/intake";
+import { HORIZON_CHOICES, HORIZON_DEFAULT_DAYS, horizonLabel } from "@/lib/slots";
 import { updateProduct, type ActionState } from "../actions";
 
 export type EditableProduct = {
@@ -45,6 +48,18 @@ export type EditableProduct = {
   accessMode: string;
   externalUrl: string | null;
   externalLabel: string | null;
+  horizonDays: number | null;
+  groupSession: boolean;
+  /** Fecha y hora del taller en la zona de la dueña (YYYY-MM-DD, HH:MM). */
+  eventDate: string;
+  eventTime: string;
+  capacity: number | null;
+  intake: IntakeConfig;
+  /** Tiene reservas: un taller ya no se puede convertir en sesión individual ni al revés. */
+  hasBookings: boolean;
+  /** Su texto de privacidad es personalizado (aviso al pedir datos de nacimiento). */
+  customPrivacy: boolean;
+  ownerTimezone: string;
 };
 
 const DELIVERY_OPTIONS: { mode: DeliveryMode; label: string; hint: string }[] = [
@@ -99,6 +114,8 @@ export function ProductForm({
   const external = access === "EXTERNAL";
   const [externalUrl, setExternalUrl] = useState(product.externalUrl ?? "");
   const externalSession = external && isSession;
+  const [group, setGroup] = useState(product.groupSession);
+  const asksData = isSession || personal;
 
   return (
     <form
@@ -260,27 +277,85 @@ export function ProductForm({
         )}
 
         {isSession && !externalSession && (
-          <section className="card space-y-4 p-5 sm:p-6">
-            <h3 className="font-semibold">Sesión</h3>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <label className="field-label">Duración (min)</label>
-                <input name="durationMin" type="number" min={10} max={480} defaultValue={product.durationMin ?? 60} className="input" />
-              </div>
-              <div>
-                <label className="field-label">Margen entre sesiones</label>
-                <input name="bufferMin" type="number" min={0} max={240} defaultValue={product.bufferMin ?? 15} className="input" />
-              </div>
-              <div>
-                <label className="field-label">Antelación mínima (h)</label>
-                <input name="minNoticeHours" type="number" min={0} max={720} defaultValue={product.minNoticeHours ?? 24} className="input" />
-              </div>
+          <section id="sesion" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
+            <h3 className="font-semibold">{group ? "Taller en directo" : "Sesión"}</h3>
+            <input type="hidden" name="groupSession" value={group ? "on" : ""} />
+            <div role="radiogroup" aria-label="Tipo de sesión" className="inline-flex rounded-full bg-sand p-1 text-sm">
+              {[
+                { v: false, label: "Individual" },
+                { v: true, label: "Taller en grupo" },
+              ].map((o) => (
+                <button
+                  key={String(o.v)}
+                  type="button"
+                  role="radio"
+                  aria-checked={group === o.v}
+                  disabled={product.hasBookings && group !== o.v}
+                  onClick={() => setGroup(o.v)}
+                  className={`h-9 rounded-full px-4 font-medium transition disabled:opacity-40 ${group === o.v ? "bg-white shadow-soft" : "text-muted"}`}
+                >
+                  {o.label}
+                </button>
+              ))}
             </div>
+            {product.hasBookings && <p className="field-hint">Ya tiene reservas: no se puede cambiar entre individual y taller.</p>}
+            {group ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="field-label" htmlFor="event-date">Fecha</label>
+                  <input id="event-date" name="eventDate" type="date" defaultValue={product.eventDate} className="input h-11" />
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="event-time">Hora (tu zona: {product.ownerTimezone.split("/").pop()?.replace(/_/g, " ")})</label>
+                  <input id="event-time" name="eventTime" type="time" step={300} defaultValue={product.eventTime} className="input h-11" />
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="event-duration">Duración (min)</label>
+                  <input id="event-duration" name="durationMin" type="number" min={10} max={480} defaultValue={product.durationMin ?? 90} className="input h-11" />
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="event-capacity">Plazas <span className="font-normal text-muted">(vacío = sin límite)</span></label>
+                  <input id="event-capacity" name="capacity" type="number" min={1} max={500} defaultValue={product.capacity ?? ""} className="input h-11" />
+                </div>
+                <input type="hidden" name="bufferMin" value={product.bufferMin ?? 15} />
+                <input type="hidden" name="minNoticeHours" value={0} />
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="field-label">Duración (min)</label>
+                  <input name="durationMin" type="number" min={10} max={480} defaultValue={product.durationMin ?? 60} className="input h-11" />
+                </div>
+                <div>
+                  <label className="field-label">Margen entre sesiones</label>
+                  <input name="bufferMin" type="number" min={0} max={240} defaultValue={product.bufferMin ?? 15} className="input h-11" />
+                </div>
+                <div>
+                  <label className="field-label">Antelación mínima (h)</label>
+                  <input name="minNoticeHours" type="number" min={0} max={720} defaultValue={product.minNoticeHours ?? 24} className="input h-11" />
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="horizon">Se puede reservar hasta</label>
+                  <select id="horizon" name="horizonDays" defaultValue={String(product.horizonDays ?? HORIZON_DEFAULT_DAYS)} className="input h-11">
+                    {HORIZON_CHOICES.map((d) => (
+                      <option key={d} value={d}>{horizonLabel(d)} por delante</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
             <div>
-              <label className="field-label">Enlace de videollamada</label>
-              <input name="meetingUrl" type="url" defaultValue={product.meetingUrl ?? ""} className="input" placeholder="https://meet.google.com/…" />
-              <p className="field-hint">Se envía a la clienta con la confirmación. Tus días y horarios se configuran en Reservas.</p>
+              <label className="field-label" htmlFor="meeting">Enlace de Zoom</label>
+              <input id="meeting" name="meetingUrl" type="url" inputMode="url" defaultValue={product.meetingUrl ?? ""} className="input h-11" placeholder="https://us02web.zoom.us/j/…" />
+              <p className="field-hint">Se envía con la confirmación y los recordatorios. Puedes poner otro en cada reserva. {group ? "" : "Tus días y horarios se configuran en Reservas → Tu horario."}</p>
             </div>
+          </section>
+        )}
+
+        {asksData && !externalSession && (
+          <section id="datos" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
+            <h3 className="font-semibold">Datos que pides</h3>
+            <IntakeConfigEditor initial={product.intake} customPrivacy={product.customPrivacy} />
           </section>
         )}
 

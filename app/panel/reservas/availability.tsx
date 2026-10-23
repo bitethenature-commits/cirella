@@ -1,13 +1,13 @@
 "use client";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
+import { TimezoneSelect } from "@/components/booking/timezone-select";
 import { labelToMinutes, minutesToLabel } from "@/lib/tz";
 import { saveAvailability } from "./actions";
 
 type Rule = { weekday: number; startMinute: number; endMinute: number };
 const DAYS = [1, 2, 3, 4, 5, 6, 0];
 const NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-const ZONES = ["Europe/Madrid", "Atlantic/Canary", "Europe/Lisbon", "America/Mexico_City", "America/Bogota", "America/Argentina/Buenos_Aires", "America/Santiago", "America/Lima", "America/New_York"];
 
 export function AvailabilityEditor({ initial, timezone }: { initial: Rule[]; timezone: string }) {
   const [rules, setRules] = useState<Rule[]>(initial);
@@ -43,10 +43,8 @@ export function AvailabilityEditor({ initial, timezone }: { initial: Rule[]; tim
       </div>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="sm:w-72">
-          <label className="field-label">Zona horaria</label>
-          <select value={tz} onChange={(e) => setTz(e.target.value)} className="input h-10 text-sm">
-            {[...new Set([tz, ...ZONES])].map((z) => <option key={z} value={z}>{z.replace(/_/g, " ")}</option>)}
-          </select>
+          <label className="field-label" htmlFor="owner-tz">Zona horaria</label>
+          <TimezoneSelect id="owner-tz" value={tz} onChange={setTz} className="input h-11 text-sm" />
         </div>
         <button
           type="button"
@@ -57,7 +55,7 @@ export function AvailabilityEditor({ initial, timezone }: { initial: Rule[]; tim
               setMsg(r.ok ? { ok: true, text: "Horario guardado" } : { ok: false, text: r.error ?? "Error" });
             })
           }
-          className="btn btn-primary"
+          className="btn btn-primary h-11"
         >
           {pending && <Loader2 className="h-4 w-4 animate-spin" />} Guardar horario
         </button>
