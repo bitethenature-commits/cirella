@@ -5,7 +5,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, open, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -177,11 +177,13 @@ export function createLocalDriver(rootDir: string, secret: () => string): LocalD
       await mkdir(path.dirname(full), { recursive: true });
       const tmp = tempPath(full);
       try {
-        const out = createWriteStream(tmp);
-        for (const n of names) {
-          await pipeline(createReadStream(path.join(dir, String(n))), out, { end: false });
+        // Escrituras esperadas una a una: el archivo está entero antes de moverlo a su sitio.
+        const fh = await open(tmp, "w");
+        try {
+          for (const n of names) for await (const chunk of createReadStream(path.join(dir, String(n)))) await fh.write(chunk as Buffer);
+        } finally {
+          await fh.close();
         }
-        await new Promise<void>((resolve, reject) => out.end((e?: Error | null) => (e ? reject(e) : resolve())));
         await rename(tmp, full);
       } catch (e) {
         await rm(tmp, { force: true });

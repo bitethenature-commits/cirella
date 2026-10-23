@@ -27,5 +27,6 @@ export function middleware(req: NextRequest) {
   return NextResponse.redirect(url);
 }
 
-// Todo menos los archivos internos de Next.
-export const config = { matcher: ["/((?!_next/).*)"] };
+// Todo menos los archivos internos de Next y /api: las rutas de /api no son páginas de nadie y, si
+// pasaran por el middleware, Next cortaría su cuerpo a 10 MB (las subidas al disco local y sus partes).
+export const config = { matcher: ["/((?!_next/|api/).*)"] };
