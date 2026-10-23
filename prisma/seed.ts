@@ -25,11 +25,14 @@ import path from "node:path";
 import { PrismaClient, type Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { ensureBaseData } from "./base-data";
-import { makePdf, makeVideo, makeWav } from "./demo-files";
+import sharp from "sharp";
+import { makeM4a, makePdf, makeVideo, makeWav } from "./demo-files";
 import { DEMO_MARKER_KEY, assertSafeToSeed } from "./seed-guard";
 import { appUrl, storageDir } from "../lib/env";
 import { storeProcessedImage } from "../lib/images";
 import { mimeFromExt, privateKey, storage } from "../lib/storage";
+import { legacyLessonColumns } from "../lib/lesson-parts";
+import { parseMediaInfo } from "../lib/media-probe";
 import { PLATFORM_TERMS_VERSION, WAIVER_TEXT, waiverKindFor } from "../lib/legal";
 import { defaultSections, type PageConfig } from "../lib/page-config";
 import { prisma as appPrisma } from "../lib/db";
@@ -67,6 +70,41 @@ async function storePrivate(creatorId: string, name: string, data: Buffer) {
   const rel = `${creatorId}/${name}`;
   await storage().put(privateKey(rel), data, { contentType: mimeFromExt(rel) });
   return { storageKey: rel, sizeBytes: data.length };
+}
+
+/** Duración, códec y tamaño de un vídeo o audio de la demo (como al completar una subida real). */
+async function mediaFields(data: Buffer, mime: string) {
+  const info = await parseMediaInfo(async (o, l) => data.subarray(o, o + l), data.length, mime);
+  return {
+    durationSec: info?.durationSec ?? null,
+    videoCodec: info?.video?.codec ?? null,
+    width: info?.video?.width ?? null,
+    height: info?.video?.height ?? null,
+  };
+}
+
+type SeedPart = { text: string; format?: "MD" } | { file: { id: string; kind: string } } | { embed: string };
+
+/**
+ * Lección por partes (lib/lesson-parts.ts), con la copia de compatibilidad en Lesson calculada
+ * igual que al guardar desde el panel (legacyLessonColumns).
+ */
+async function seedLesson(o: { creatorId: string; productId: string; moduleId: string; sortOrder: number; title: string; durationMin: number | null; parts: SeedPart[] }) {
+  const parts = o.parts.map((p) =>
+    "text" in p
+      ? { kind: "TEXT" as const, body: p.text, bodyFormat: p.format ?? null, fileId: null, url: null, fileKind: null }
+      : "file" in p
+        ? { kind: "FILE" as const, body: null, bodyFormat: null, fileId: p.file.id, url: null, fileKind: p.file.kind }
+        : { kind: "EMBED" as const, body: null, bodyFormat: null, fileId: null, url: p.embed, fileKind: null },
+  );
+  const lesson = await prisma.lesson.create({
+    data: { creatorId: o.creatorId, productId: o.productId, moduleId: o.moduleId, title: o.title, durationMin: o.durationMin, sortOrder: o.sortOrder, ...legacyLessonColumns(parts) },
+  });
+  if (parts.length)
+    await prisma.lessonPart.createMany({
+      data: parts.map((p, i) => ({ creatorId: o.creatorId, productId: o.productId, lessonId: lesson.id, sortOrder: i, kind: p.kind, body: p.body, bodyFormat: p.bodyFormat, fileId: p.fileId, url: p.url })),
+    });
+  return lesson;
 }
 
 /** Procesa una imagen de public/demo como una subida real: WebP con variantes en /media/…. */
@@ -114,6 +152,7 @@ async function reset() {
     prisma.order.deleteMany(),
     prisma.legalSnapshot.deleteMany(),
     prisma.customer.deleteMany(),
+    prisma.lessonPart.deleteMany(),
     prisma.lesson.deleteMany(),
     prisma.courseModule.deleteMany(),
     prisma.membershipPost.deleteMany(),
@@ -269,9 +308,15 @@ async function main() {
   const audioCarta = await storePrivate(ana.id, "audio-introduccion-carta.wav", makeWav(24));
   const videoData = makeVideo(path.resolve("public/demo/curso.webp"));
   const video = videoData ? await storePrivate(ana.id, "bienvenida-curso.mp4", videoData) : null;
-  const videoTipos = makeVideo(path.resolve("public/demo/human-design.webp"), 14);
-  const video2 = videoTipos ? await storePrivate(ana.id, "los-5-tipos.mp4", videoTipos) : null;
-  console.log(video ? "  ✓ vídeos de demo generados con ffmpeg" : "  · ffmpeg no disponible: lecciones de vídeo sin archivo");
+  // Como los de la dueña: el segundo vídeo es un .mov (iPhone) y el resumen, un .m4a (Zoom).
+  const videoTipos = makeVideo(path.resolve("public/demo/human-design.webp"), 14, "mov");
+  const video2 = videoTipos ? await storePrivate(ana.id, "los-5-tipos.mov", videoTipos) : null;
+  const resumenData = makeM4a(20);
+  const resumen = resumenData ? await storePrivate(ana.id, "resumen-5-tipos.m4a", resumenData) : null;
+  // Lámina privada (PNG) para ver con zoom en la lección.
+  const laminaData = await sharp(path.resolve("public/demo/human-design.webp")).resize(1200).png().toBuffer();
+  const lamina = await storePrivate(ana.id, "los-5-tipos.png", laminaData);
+  console.log(video ? "  ✓ vídeos y audio de demo generados con ffmpeg" : "  · ffmpeg no disponible: lecciones de vídeo sin archivo");
 
   const pAstro = await prisma.product.create({
     data: {
@@ -335,37 +380,51 @@ async function main() {
     ],
   });
   const fCuaderno = await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCourse.id, name: "Cuaderno de trabajo.pdf", kind: "PDF", mimeType: "application/pdf", ...cuaderno } });
-  const fMedit = await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCourse.id, name: "Meditación de integración.wav", kind: "AUDIO", mimeType: "audio/wav", ...meditacion } });
-  const fVideo = video ? await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCourse.id, name: "Bienvenida.mp4", kind: "VIDEO", mimeType: "video/mp4", ...video } }) : null;
-  const fVideo2 = video2 ? await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCourse.id, name: "Los 5 tipos.mp4", kind: "VIDEO", mimeType: "video/mp4", ...video2 } }) : null;
+  const fMedit = await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCourse.id, name: "Meditación de integración.wav", kind: "AUDIO", mimeType: "audio/wav", ...meditacion, ...(await mediaFields(makeWav(40), "audio/wav")) } });
+  const fVideo = video && videoData ? await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCourse.id, name: "Bienvenida.mp4", kind: "VIDEO", mimeType: "video/mp4", ...video, ...(await mediaFields(videoData, "video/mp4")) } }) : null;
+  const fVideo2 = video2 && videoTipos ? await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCourse.id, name: "Los 5 tipos.mov", kind: "VIDEO", mimeType: "video/quicktime", ...video2, ...(await mediaFields(videoTipos, "video/quicktime")) } }) : null;
+  const fResumen = resumen && resumenData ? await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCourse.id, name: "Resumen de los 5 tipos.m4a", kind: "AUDIO", mimeType: "audio/mp4", ...resumen, ...(await mediaFields(resumenData, "audio/mp4")) } }) : null;
+  const fLamina = await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCourse.id, name: "Los 5 tipos.png", kind: "IMAGE", mimeType: "image/png", ...lamina } });
+  for (const [i, f] of [fCuaderno, fMedit, fVideo, fVideo2, fResumen, fLamina].entries()) if (f) await prisma.productFile.update({ where: { id: f.id }, data: { sortOrder: i } });
 
-  // Curso: 3 módulos · 7 lecciones
-  const modules = [
+  // Curso: 3 módulos · 7 lecciones. Cada lección es un solo paso del progreso y lleva sus partes en
+  // orden (vídeo, audio, texto con formato, PDF, imagen…). «Los 5 tipos» lo lleva todo junto.
+  const t = (text: string, format?: "MD"): SeedPart => (format ? { text, format } : { text });
+  const f = (file: { id: string; kind: string } | null): SeedPart[] => (file ? [{ file }] : []);
+  const modules: { title: string; lessons: { title: string; durationMin: number; parts: SeedPart[] }[] }[] = [
     {
       title: "Tu mapa completo",
       lessons: [
-        { title: "Bienvenida: cómo aprovechar este curso", kind: "VIDEO", fileId: fVideo?.id, durationMin: 8, body: "En esta lección te cuento cómo está organizado el curso y cómo sacarle partido. Ten a mano tu carta natal y tu bodygraph de Human Design: los usaremos en todos los módulos." },
-        { title: "Sol, Luna y Ascendente", kind: "TEXT", durationMin: 12, body: "Tu carta natal tiene tres pilares. El Sol habla de tu propósito y de dónde brillas. La Luna describe tus necesidades emocionales: lo que te hace sentir en casa. El Ascendente es tu puerta de entrada a la vida, la manera en que inicias las cosas.\n\nObserva en tu carta en qué signo y casa está cada uno. Escribe tres palabras que asocies a cada pilar y fíjate en si se parecen o se contradicen. Las contradicciones no son errores: son los lugares donde tu carta te pide integración." },
-        { title: "Ejercicio: dibuja tu mapa", kind: "EXERCISE", fileId: fCuaderno.id, durationMin: 20, body: "Descarga el cuaderno de trabajo y completa el ejercicio 1. Te llevará unos 20 minutos. Hazlo sin prisa, con una infusión y algo de música suave." },
+        { title: "Bienvenida: cómo aprovechar este curso", durationMin: 8, parts: [...f(fVideo), t("En esta lección te cuento cómo está organizado el curso y cómo sacarle partido. Ten a mano tu carta natal y tu bodygraph de Human Design: los usaremos en todos los módulos.")] },
+        { title: "Sol, Luna y Ascendente", durationMin: 12, parts: [t("Tu carta natal tiene tres pilares. El Sol habla de tu propósito y de dónde brillas. La Luna describe tus necesidades emocionales: lo que te hace sentir en casa. El Ascendente es tu puerta de entrada a la vida, la manera en que inicias las cosas.\n\nObserva en tu carta en qué signo y casa está cada uno. Escribe tres palabras que asocies a cada pilar y fíjate en si se parecen o se contradicen. Las contradicciones no son errores: son los lugares donde tu carta te pide integración.")] },
+        { title: "Ejercicio: dibuja tu mapa", durationMin: 20, parts: [t("Descarga el cuaderno de trabajo y completa el ejercicio 1. Te llevará unos 20 minutos. Hazlo sin prisa, con una infusión y algo de música suave."), { file: fCuaderno }] },
       ],
     },
     {
       title: "Tu diseño energético",
       lessons: [
-        { title: "Los 5 tipos de Human Design", kind: "VIDEO", fileId: fVideo2?.id, durationMin: 15, body: "Manifestador, Generador, Generador Manifestante, Proyector y Reflector. Cada tipo tiene una estrategia distinta para tomar decisiones con menos resistencia." },
-        { title: "Estrategia y autoridad", kind: "AUDIO", fileId: fMedit.id, durationMin: 18, body: "Escucha este audio con tu bodygraph delante. Identificaremos tu autoridad interna y cómo reconocer su voz en el cuerpo." },
+        {
+          title: "Los 5 tipos de Human Design", durationMin: 15,
+          parts: [
+            ...f(fVideo2),
+            t("Manifestador, Generador, Generador Manifestante, Proyector y Reflector. Cada tipo tiene una estrategia distinta para tomar decisiones con **menos resistencia**.\n\n## Las cinco estrategias\n\n1. **Manifestador:** informar antes de actuar.\n2. **Generador:** esperar para responder.\n3. **Generador Manifestante:** responder e informar.\n4. **Proyector:** esperar la invitación.\n5. **Reflector:** esperar un ciclo lunar.\n\nEscucha el resumen cuando quieras repasarlo y guarda la lámina para tenerla a mano.", "MD"),
+            ...f(fResumen),
+            { file: fLamina },
+            { file: fCuaderno },
+          ],
+        },
+        { title: "Estrategia y autoridad", durationMin: 18, parts: [{ file: fMedit }, t("Escucha este audio con tu bodygraph delante. Identificaremos tu autoridad interna y cómo reconocer su voz en el cuerpo.")] },
       ],
     },
     {
       title: "Tu propósito",
       lessons: [
         {
-          title: "Gene Keys: sombra, don y siddhi", kind: "TEXT", durationMin: 14,
+          title: "Gene Keys: sombra, don y siddhi", durationMin: 14,
           // Texto con formato (lib/rich-text.ts): el resto de la demo es texto de antes, como prueba de que se ve igual.
-          bodyFormat: "MD",
-          body: "Cada Gene Key describe un espectro de consciencia. La **sombra** es el patrón automático; el **don**, la creatividad que aparece cuando miramos la sombra con amabilidad; el **siddhi**, la expresión más elevada.\n\n## Tu práctica de la semana\n\nElige tu llave de Propósito y contémplala durante una semana. Anota cada día una situación en la que la reconozcas.",
+          parts: [t("Cada Gene Key describe un espectro de consciencia. La **sombra** es el patrón automático; el **don**, la creatividad que aparece cuando miramos la sombra con amabilidad; el **siddhi**, la expresión más elevada.\n\n## Tu práctica de la semana\n\nElige tu llave de Propósito y contémplala durante una semana. Anota cada día una situación en la que la reconozcas.", "MD")],
         },
-        { title: "Meditación de integración", kind: "AUDIO", fileId: fMedit.id, durationMin: 12, body: "Cierra el curso con esta meditación. Busca un lugar tranquilo, cierra los ojos y deja que el sonido del cuenco te acompañe." },
+        { title: "Meditación de integración", durationMin: 12, parts: [{ file: fMedit }, t("Cierra el curso con esta meditación. Busca un lugar tranquilo, cierra los ojos y deja que el sonido del cuenco te acompañe.")] },
       ],
     },
   ];
@@ -373,13 +432,7 @@ async function main() {
   for (const [mi, m] of modules.entries()) {
     const mod = await prisma.courseModule.create({ data: { creatorId: ana.id, productId: pCourse.id, title: m.title, sortOrder: mi } });
     for (const [li, l] of m.lessons.entries()) {
-      const lesson = await prisma.lesson.create({
-        data: {
-          creatorId: ana.id, productId: pCourse.id, moduleId: mod.id, title: l.title,
-          kind: l.kind === "VIDEO" && !l.fileId ? "TEXT" : l.kind,
-          body: l.body, bodyFormat: "bodyFormat" in l ? (l.bodyFormat as string) : null, fileId: l.fileId ?? null, durationMin: l.durationMin, sortOrder: li,
-        },
-      });
+      const lesson = await seedLesson({ creatorId: ana.id, productId: pCourse.id, moduleId: mod.id, sortOrder: li, ...l });
       lessonIds.push(lesson.id);
     }
   }
@@ -418,8 +471,9 @@ async function main() {
     { title: "Paso 2 · Tu Luna: lo que te hace sentir en casa", body: "La Luna habla de tus necesidades emocionales. Localízala en tu carta y anota su signo.\n\nPregúntate: ¿qué necesito para sentirme a salvo? ¿Qué me calma cuando todo se mueve? Compara tu respuesta con las palabras clave de ese signo." },
     { title: "Paso 3 · Tu Ascendente y un pequeño ejercicio", body: "El Ascendente es el signo que aparece en el horizonte este en el momento en que naciste: tu manera de empezar las cosas.\n\nPara cerrar: escribe tres palabras para tu Sol, tres para tu Luna y tres para tu Ascendente. Léelas juntas. Ese es tu primer mapa." },
   ];
+  // Texto de antes (sin formato): se sigue viendo igual.
   for (const [i, l] of freeLessons.entries())
-    await prisma.lesson.create({ data: { creatorId: ana.id, productId: pFree.id, moduleId: freeModule.id, title: l.title, kind: "TEXT", body: l.body, durationMin: 10, sortOrder: i } });
+    await seedLesson({ creatorId: ana.id, productId: pFree.id, moduleId: freeModule.id, title: l.title, durationMin: 10, sortOrder: i, parts: [{ text: l.body }] });
 
   // Sesión que se reserva y se paga fuera (Calendly): el botón lleva a la web externa.
   await prisma.product.create({
