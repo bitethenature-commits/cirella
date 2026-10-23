@@ -283,4 +283,58 @@ test.describe.serial("Multimedia", () => {
     await page.goto(`/cuenta/cursos/${courseId}?leccion=${loom.id}`);
     await expect(page.getByRole("link", { name: "Abrir el vídeo" })).toHaveAttribute("href", "https://www.loom.com/share/abc123");
   });
+
+  test("subida por partes en la web personal (y «Cancelar»); en la plataforma, un solo PUT", async ({ page }) => {
+    const big = path.join(tmp, `${TAG}-grande.mp4`);
+    writeFileSync(big, Buffer.alloc(70 * 1024 * 1024, 1));
+    const calls = { parts: 0, complete: 0, abort: 0, partPuts: 0, puts: 0 };
+    page.on("request", (r) => {
+      const u = r.url();
+      if (u.includes("/api/upload/parts")) calls.parts++;
+      if (u.includes("/api/upload/complete")) calls.complete++;
+      if (u.includes("/api/upload/abort")) calls.abort++;
+      if (r.method() === "PUT" && u.includes("/api/storage/local")) calls.puts++;
+    });
+    await demoLogin(page, "Ana Luna");
+    await page.goto(`/panel/productos/${courseId}`);
+    await expect(page.getByText(/Vídeo MP4 o MOV hasta 4 GB/)).toBeVisible();
+    await page.locator('input[accept^=".pdf"]').first().setInputFiles(big);
+    const row = page.locator("li", { hasText: `${TAG}-grande.mp4` });
+    await expect(row).toBeVisible({ timeout: 60_000 });
+    await expect(row.getByText("70 MB", { exact: true })).toBeVisible();
+    expect(calls.parts).toBeGreaterThanOrEqual(1);
+    expect(calls.puts).toBe(5);
+    expect(calls.complete).toBe(1);
+
+    // «Cancelar» a mitad: se avisa a /api/upload/abort y no aparece el archivo.
+    const cancelled = path.join(tmp, `${TAG}-cancelada.mp4`);
+    writeFileSync(cancelled, Buffer.alloc(70 * 1024 * 1024, 2));
+    await page.route("**/api/storage/local?**", async (route) => {
+      if (route.request().method() === "PUT") await new Promise((r) => setTimeout(r, 4000));
+      await route.continue().catch(() => {});
+    });
+    const aborted = page.waitForRequest((r) => r.url().includes("/api/upload/abort"));
+    await page.locator('input[accept^=".pdf"]').first().setInputFiles(cancelled);
+    await expect(page.getByText(/No bloquees el iPhone/)).toBeVisible();
+    await page.getByRole("button", { name: "Cancelar", exact: true }).click();
+    await aborted;
+    await expect(page.getByText(/subida cancelada/)).toBeVisible();
+    await page.unroute("**/api/storage/local?**");
+    expect(await prisma.productFile.count({ where: { creatorId: anaId, name: `${TAG}-cancelada.mp4` } })).toBe(0);
+
+    // Plataforma: el mismo archivo va en un solo PUT, sin /api/upload/parts.
+    const plat = path.join(tmp, `${TAG}-plataforma.mp4`);
+    writeFileSync(plat, Buffer.alloc(70 * 1024 * 1024, 3));
+    await page.context().clearCookies();
+    await page.goto(`${PLATFORM}/entrar`);
+    await page.locator("form", { hasText: "Ana Luna" }).getByRole("button").click();
+    await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+    await page.goto(`${PLATFORM}/panel/productos/${courseId}`);
+    await expect(page.getByText(/Hasta 1 GB por archivo/).first()).toBeVisible();
+    const before = { ...calls };
+    await page.locator('input[accept^=".pdf"]').first().setInputFiles(plat);
+    await expect(page.locator("li", { hasText: `${TAG}-plataforma.mp4` })).toBeVisible({ timeout: 60_000 });
+    expect(calls.parts).toBe(before.parts);
+    expect(calls.puts - before.puts).toBe(1);
+  });
 });

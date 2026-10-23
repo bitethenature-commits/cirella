@@ -34,7 +34,7 @@ const TAG = `media-${Date.now()}`;
 async function main() {
   const { prisma } = await import("../lib/db");
   const { uploadPolicy, HEIC_ERROR } = await import("../lib/file-types");
-  const { createUpload, completeUpload, UploadError } = await import("../lib/uploads");
+  const { abortUpload, createUpload, completeUpload, signUploadParts, UploadError } = await import("../lib/uploads");
   const { storage, storageSecret, verifyToken } = await import("../lib/storage");
   const { streamObjectResponse } = await import("../lib/storage/stream");
   const { tenantDb } = await import("../lib/tenant");
@@ -72,11 +72,53 @@ async function main() {
       check(`personal: ${name} (${ct}) se admite en un curso`, (await errorOf(() => createUpload(ana.id, input(name, ct, 5 * MiB), personal))) === null);
     check("personal: HEIC se rechaza con su explicación", (await errorOf(() => createUpload(ana.id, input("foto.heic", "image/heic", MiB), personal))) === HEIC_ERROR);
     check("personal: un PDF de 1,5 GB se rechaza", /supera 1 GB/.test((await errorOf(() => createUpload(ana.id, input("libro.pdf", "application/pdf", 1.5 * GiB), personal))) ?? ""));
-    check("personal: un vídeo de 3 GB se admite", (await errorOf(() => createUpload(ana.id, input("clase.mov", "video/quicktime", 3 * GiB), personal))) === null);
+    const big3 = (await createUpload(ana.id, input("clase.mov", "video/quicktime", 3 * GiB), personal)) as { multipart?: { partSize: number; partCount: number } };
+    check("personal: un vídeo de 3 GB se sube por partes", big3.multipart?.partCount === 192 && big3.multipart.partSize === 16 * MiB, big3);
     check(
       "personal: un vídeo de 5 GB se rechaza con el consejo de InShot",
       /supera 4 GB.*InShot/.test((await errorOf(() => createUpload(ana.id, input("clase.mov", "video/quicktime", 5 * GiB), personal))) ?? ""),
     );
+
+    // ── Subida por partes (web personal) ──
+    const local = storage() as import("../lib/storage").LocalDriver;
+    const size = 70 * MiB;
+    const bytes = Buffer.alloc(size);
+    for (let i = 0; i < size; i += 4096) bytes[i] = (i / 4096) % 251;
+    const mp = (await createUpload(ana.id, input(`${TAG}-grande.mp4`, "video/mp4", size), personal)) as { multipart: { partSize: number; partCount: number }; ticket: string };
+    check("70 MB → 5 partes de 16 MiB", mp.multipart.partSize === 16 * MiB && mp.multipart.partCount === 5, mp.multipart);
+    const parts = await signUploadParts(ana.id, mp.ticket, [1, 2, 3, 4, 5]);
+    const tokens = parts.map((p) => local.verify(new URL(p.url, "http://x").searchParams.get("t")));
+    check("cada parte tiene su URL firmada del disco con su tamaño", tokens.every((t, i) => t?.op === "part" && t.n === i + 1 && t.max === (i < 4 ? 16 * MiB : 6 * MiB)), tokens);
+    check("las partes 0 y 6 no existen", !!(await errorOf(() => signUploadParts(ana.id, mp.ticket, [0]))) && !!(await errorOf(() => signUploadParts(ana.id, mp.ticket, [6]))));
+    check("como mucho 10 partes por petición", !!(await errorOf(() => signUploadParts(ana.id, mp.ticket, Array.from({ length: 11 }, (_, i) => i + 1)))));
+    check("sin todas las partes no se completa", /archivo completo/.test((await errorOf(() => completeUpload(ana.id, mp.ticket))) ?? ""));
+    for (const [i, t] of tokens.entries()) {
+      if (t?.op !== "part") continue;
+      const chunk = bytes.subarray(i * 16 * MiB, Math.min(size, (i + 1) * 16 * MiB));
+      await local.receivePart(t.uid, t.n, new Blob([chunk]).stream(), t.max);
+    }
+    const mpDone = (await completeUpload(ana.id, mp.ticket)) as { file: { id: string; sizeBytes: number } };
+    check("completa: un archivo de 73.400.320 bytes (number, JSON sin problemas)", mpDone.file.sizeBytes === 73400320 && JSON.stringify(mpDone).includes("73400320"), mpDone);
+    const row = await prisma.productFile.findUniqueOrThrow({ where: { id: mpDone.file.id } });
+    const { createHash } = await import("node:crypto");
+    const stored = await storage().getBuffer(`private/${row.storageKey}`, 100 * MiB);
+    check("las partes se juntan en orden", createHash("sha1").update(stored).digest("hex") === createHash("sha1").update(bytes).digest("hex"));
+    const again = (await completeUpload(ana.id, mp.ticket)) as { file: { id: string } };
+    check("repetir el paso 2 no duplica el archivo", again.file.id === mpDone.file.id && (await prisma.productFile.count({ where: { productId: course.id, name: `${TAG}-grande.mp4` } })) === 1);
+    const { existsSync, readdirSync } = await import("node:fs");
+    const mdir = path.join(dir, ".multipart");
+    const uid = tokens[0]?.op === "part" ? tokens[0].uid : "";
+    check("no quedan sus partes en .multipart", !!uid && !existsSync(path.join(mdir, uid)) && !readdirSync(mdir).includes(uid));
+    const cancel = (await createUpload(ana.id, input(`${TAG}-cancelada.mp4`, "video/mp4", size), personal)) as { ticket: string };
+    const [first] = await signUploadParts(ana.id, cancel.ticket, [1]);
+    const ft = local.verify(new URL(first.url, "http://x").searchParams.get("t"));
+    if (ft?.op === "part") await local.receivePart(ft.uid, ft.n, new Blob([bytes.subarray(0, 16 * MiB)]).stream(), ft.max);
+    check("…la parte recibida está en disco", ft?.op === "part" && existsSync(path.join(mdir, ft.uid, "1")));
+    await abortUpload(ana.id, cancel.ticket);
+    check("«Cancelar» borra las partes", ft?.op === "part" && !existsSync(path.join(mdir, ft.uid)));
+    check("y no se crea ningún archivo", (await prisma.productFile.count({ where: { productId: course.id, name: `${TAG}-cancelada.mp4` } })) === 0);
+    const plat = (await createUpload(ana.id, input("grande.mp4", "video/mp4", size), platform)) as { multipart?: unknown };
+    check("en la plataforma, nunca por partes", !plat.multipart);
 
     // ── Lectura al completar ──
     const hevc = (await uploadBytes("vertical.mov", "video/quicktime", mp4({ codec: "hvc1", width: 1920, height: 1080, rotation: 90, durationSec: 42, brand: "qt  " }))) as {

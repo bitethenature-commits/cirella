@@ -10,6 +10,7 @@
  * Sustituye el tenant por un doble en memoria y usa el driver local en una carpeta temporal:
  * no lee ni escribe en la BD ni en ./storage.
  */
+import type { SingleUpload } from "../lib/uploads";
 import "./load-env";
 import { mkdtempSync, rmSync } from "node:fs";
 import Module from "node:module";
@@ -61,7 +62,7 @@ async function main() {
       ["pista.wav", "audio/wave", "audio/wav", ".wav"],
     ] as const) {
       const body = Buffer.from(`contenido de ${name}`);
-      const up = await createUpload("c1", { purpose: "file", productId: "p1", name, contentType: sent, size: body.length });
+      const up = (await createUpload("c1", { purpose: "file", productId: "p1", name, contentType: sent, size: body.length })) as SingleUpload;
       const t = putToken(up.uploadUrl);
       const ticket = verifyToken<{ ct: string; k: string }>(up.ticket, storageSecret());
       check(`${name} (${sent || "sin tipo"}): las cabeceras del PUT llevan ${want}`, up.headers["Content-Type"] === want, up.headers);

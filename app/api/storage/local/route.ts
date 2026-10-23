@@ -29,6 +29,13 @@ export async function PUT(req: Request) {
   const driver = localDriver();
   if (!driver) return new NextResponse("No encontrado", { status: 404 });
   const t = driver.verify(new URL(req.url).searchParams.get("t"));
+  if (t?.op === "part") {
+    // Parte de una subida por partes: como mucho el tamaño firmado.
+    if (!req.body) return new NextResponse("Falta el archivo", { status: 400 });
+    const result = await driver.receivePart(t.uid, t.n, req.body, t.max);
+    if (result === "too-large") return new NextResponse("La parte es demasiado grande", { status: 413 });
+    return new NextResponse(null, { status: 200 });
+  }
   if (!t || t.op !== "put") return denied();
   if ((req.headers.get("content-type") ?? "").split(";")[0].trim() !== t.ct) return new NextResponse("Tipo de archivo distinto del firmado", { status: 400 });
   if (!req.body) return new NextResponse("Falta el archivo", { status: 400 });

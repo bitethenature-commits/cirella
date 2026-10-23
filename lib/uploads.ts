@@ -12,7 +12,7 @@
  * objeto, el producto ni el tamaño entre un paso y otro, ni usar el billete de otra creadora.
  */
 import { randomBytes } from "node:crypto";
-import { HEIC_ERROR, isHeic, uploadPolicy, type UploadPolicy } from "./file-types";
+import { HEIC_ERROR, isHeic, MULTIPART_THRESHOLD, planParts, uploadPolicy, type UploadPolicy } from "./file-types";
 import { storeProcessedImage } from "./images";
 import { probeStoredFile, type MediaInfo } from "./media-probe";
 import { isPersonalMode } from "./site-mode";
@@ -31,17 +31,26 @@ const PROBE_TIMEOUT_MS = 5000;
 export class UploadError extends Error {}
 
 /** Lo que firma el billete de subida. */
-type Ticket = { k: string; c: string; p: UploadPurpose; pid?: string; n: string; ct: string; s: number };
+/** `u`/`ps`: id de la subida por partes y tamaño de cada parte (solo en la web personal). */
+type Ticket = { k: string; c: string; p: UploadPurpose; pid?: string; n: string; ct: string; s: number; u?: string; ps?: number };
 
 /** La URL firmada de subida vale 15 minutos; el billete, 1 hora (subidas lentas de archivos grandes). */
 const PUT_TTL_SEC = 900;
 const TICKET_TTL_SEC = 3600;
+/** Por partes: el billete vale 6 h (un vídeo de 4 GB por wifi de casa) y cada URL de parte, 1 h. */
+const MULTIPART_TICKET_TTL_SEC = 6 * 3600;
+const PART_TTL_SEC = 3600;
+/** URLs de parte por petición a /api/upload/parts. */
+export const MAX_PARTS_PER_REQUEST = 10;
+
+export type SingleUpload = { uploadUrl: string; headers: Record<string, string>; ticket: string };
+export type MultipartUpload = { multipart: { partSize: number; partCount: number }; ticket: string };
 
 export async function createUpload(
   creatorId: string,
   input: { purpose: UploadPurpose; productId?: string; name: string; contentType: string; size: number },
   policy: UploadPolicy = uploadPolicy(isPersonalMode()),
-): Promise<{ uploadUrl: string; headers: Record<string, string>; ticket: string }> {
+): Promise<SingleUpload | MultipartUpload> {
   const { purpose, size } = input;
   let { contentType } = input;
   if (!Number.isInteger(size) || size <= 0) throw new UploadError("El archivo está vacío");
@@ -70,7 +79,6 @@ export async function createUpload(
     contentType = canonical;
   }
 
-  const put = await storage().presignPut(key, { contentType, contentLength: size, expiresInSec: PUT_TTL_SEC });
   const ticket: Ticket = {
     k: key,
     c: creatorId,
@@ -80,6 +88,16 @@ export async function createUpload(
     ct: contentType,
     s: size,
   };
+  // Web personal: lo grande va por partes (un corte de wifi solo repite la parte que falló).
+  if (purpose === "file" && policy.multipart && size > MULTIPART_THRESHOLD) {
+    const plan = planParts(size);
+    const { uploadId } = await storage().createMultipart(key, { contentType });
+    return {
+      multipart: { partSize: plan.partSize, partCount: plan.partCount },
+      ticket: signToken({ ...ticket, u: uploadId, ps: plan.partSize } satisfies Ticket, storageSecret(), MULTIPART_TICKET_TTL_SEC),
+    };
+  }
+  const put = await storage().presignPut(key, { contentType, contentLength: size, expiresInSec: PUT_TTL_SEC });
   return { uploadUrl: put.url, headers: put.headers, ticket: signToken(ticket, storageSecret(), TICKET_TTL_SEC) };
 }
 
@@ -101,12 +119,58 @@ async function probeWithTimeout(key: string, size: number, mime: string): Promis
   }
 }
 
-export async function completeUpload(creatorId: string, ticket: string): Promise<CompletedUpload> {
+/** Billete válido y de esta creadora (la clave, bajo su carpeta). */
+function readTicket(creatorId: string, ticket: string): Ticket {
   const t = verifyToken<Ticket>(ticket, storageSecret());
   if (!t || t.c !== creatorId || !t.k.startsWith(`${t.p === "image" ? "incoming" : "private"}/${creatorId}/`))
     throw new UploadError("La subida ha caducado. Vuelve a intentarlo.");
+  return t;
+}
+
+/** URLs firmadas de las partes pedidas (como mucho 10 por vez), cada una con su tamaño exacto. */
+export async function signUploadParts(creatorId: string, ticket: string, partNumbers: number[]): Promise<{ n: number; url: string; headers: Record<string, string> }[]> {
+  const t = readTicket(creatorId, ticket);
+  if (!t.u || !t.ps || t.p !== "file") throw new UploadError("Esta subida no es por partes");
+  const plan = planParts(t.s, t.ps);
+  if (!partNumbers.length || partNumbers.length > MAX_PARTS_PER_REQUEST) throw new UploadError("Pide entre 1 y 10 partes");
+  if (partNumbers.some((n) => !Number.isInteger(n) || n < 1 || n > plan.partCount)) throw new UploadError("Parte no válida");
+  const s = storage();
+  return Promise.all(
+    [...new Set(partNumbers)].map(async (n) => {
+      const r = await s.presignPart(t.k, t.u!, n, { contentLength: plan.sizeOf(n), expiresInSec: PART_TTL_SEC });
+      return { n, url: r.url, headers: r.headers };
+    }),
+  );
+}
+
+/** Cancela una subida (por partes: borra lo recibido). Sin errores: es lo último que hace el navegador. */
+export async function abortUpload(creatorId: string, ticket: string): Promise<void> {
+  const t = readTicket(creatorId, ticket);
+  const s = storage();
+  if (t.u) await s.abortMultipart(t.k, t.u).catch(() => {});
+  // Si ya se registró (se canceló tarde), no se borra un archivo que ya está en el producto.
+  if (t.p === "file" && (await tenantDb(creatorId).productFile.findFirst({ where: { storageKey: t.k.slice("private/".length) }, select: { id: true } }))) return;
+  await s.delete([t.k]).catch(() => {});
+}
+
+export async function completeUpload(creatorId: string, ticket: string): Promise<CompletedUpload> {
+  const t = readTicket(creatorId, ticket);
 
   const s = storage();
+  if (t.u) {
+    // Repetir el paso 2 de una subida por partes ya completada: el archivo ya está registrado.
+    const done = await tenantDb(creatorId).productFile.findFirst({ where: { productId: t.pid ?? "", storageKey: t.k.slice("private/".length) } });
+    if (done) return { file: fileOut(done) };
+    if (!(await tenantDb(creatorId).product.findFirst({ where: { id: t.pid ?? "" }, select: { id: true } }))) {
+      await s.abortMultipart(t.k, t.u).catch(() => {});
+      throw new UploadError("Producto no encontrado");
+    }
+    try {
+      await s.completeMultipart(t.k, t.u);
+    } catch {
+      throw new UploadError("No hemos recibido el archivo completo. Vuelve a intentarlo.");
+    }
+  }
   const head = await s.head(t.k);
   if (!head || head.size !== t.s) {
     if (head) await s.delete([t.k]);

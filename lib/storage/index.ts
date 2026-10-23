@@ -31,6 +31,15 @@ export interface StorageDriver {
   put(key: string, body: Buffer, o: { contentType: string; cacheControl?: string }): Promise<void>;
   /** Borra los objetos que existan; los que no, se ignoran. */
   delete(keys: string[]): Promise<void>;
+  // ── Subidas por partes (solo la web personal: vídeos de hasta 4 GB) ──
+  /** Empieza una subida por partes. */
+  createMultipart(key: string, o: { contentType: string }): Promise<{ uploadId: string }>;
+  /** URL firmada para subir la parte n (empieza en 1) con PUT, con su tamaño exacto firmado. */
+  presignPart(key: string, uploadId: string, n: number, o: { contentLength: number; expiresInSec: number }): Promise<{ url: string; headers: Record<string, string> }>;
+  /** Junta las partes recibidas (todas, de la 1 a la última, sin huecos) en el objeto final. */
+  completeMultipart(key: string, uploadId: string): Promise<void>;
+  /** Cancela la subida y borra las partes recibidas. */
+  abortMultipart(key: string, uploadId: string): Promise<void>;
 }
 
 // Tablas de tipos (sin dependencias de servidor, también las usa el panel): lib/file-types.ts.

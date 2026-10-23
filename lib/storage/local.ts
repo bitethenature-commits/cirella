@@ -5,7 +5,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -16,6 +16,7 @@ import { isSafeKey, signToken, verifyToken } from "./signing";
 /** Contenido de las URLs firmadas del driver local. */
 export type LocalToken =
   | { op: "put"; k: string; ct: string; max: number }
+  | { op: "part"; k: string; uid: string; n: number; max: number }
   | { op: "get"; k: string; ct?: string | null; fn?: string; inl?: boolean };
 
 export type LocalDriver = StorageDriver & {
@@ -27,7 +28,12 @@ export type LocalDriver = StorageDriver & {
    * escrito y devuelve "too-large"; si no, mueve el archivo a su sitio de una vez.
    */
   receive(key: string, body: ReadableStream<Uint8Array>, maxBytes: number): Promise<"ok" | "too-large">;
+  /** Guarda una parte de una subida por partes (como receive). */
+  receivePart(uploadId: string, n: number, body: ReadableStream<Uint8Array>, maxBytes: number): Promise<"ok" | "too-large">;
 };
+
+const UPLOAD_ID_RE = /^[a-f0-9]{24}$/;
+const MAX_PARTS = 10_000;
 
 const ENDPOINT = "/api/storage/local";
 
@@ -55,6 +61,38 @@ export function createLocalDriver(rootDir: string, secret: () => string): LocalD
   }
 
   const tempPath = (full: string) => `${full}.${randomBytes(6).toString("hex")}.part`;
+
+  /** Carpeta de las partes de una subida ({raíz}/.multipart/{id}); el id se valida (no se sale de la raíz). */
+  function partsDir(uploadId: string) {
+    if (!UPLOAD_ID_RE.test(uploadId)) throw new Error("Subida no válida");
+    return path.join(root, ".multipart", uploadId);
+  }
+  function partPath(uploadId: string, n: number) {
+    if (!Number.isInteger(n) || n < 1 || n > MAX_PARTS) throw new Error("Parte no válida");
+    return path.join(partsDir(uploadId), String(n));
+  }
+
+  /** Guarda un cuerpo en streaming en `full`, cortando si pasa de maxBytes. */
+  async function receiveTo(full: string, body: ReadableStream<Uint8Array>, maxBytes: number): Promise<"ok" | "too-large"> {
+    await mkdir(path.dirname(full), { recursive: true });
+    const tmp = tempPath(full);
+    let bytes = 0;
+    const limit = new Transform({
+      transform(chunk: Buffer, _enc, done) {
+        bytes += chunk.length;
+        done(bytes > maxBytes ? new TooLarge() : null, chunk);
+      },
+    });
+    try {
+      await pipeline(Readable.fromWeb(body as NodeWebReadableStream<Uint8Array>), limit, createWriteStream(tmp));
+    } catch (e) {
+      await rm(tmp, { force: true });
+      if (e instanceof TooLarge) return "too-large";
+      throw e;
+    }
+    await rename(tmp, full);
+    return "ok";
+  }
 
   return {
     name: "local",
@@ -110,25 +148,50 @@ export function createLocalDriver(rootDir: string, secret: () => string): LocalD
     },
 
     async receive(key, body, maxBytes) {
+      return receiveTo(fullPath(key), body, maxBytes);
+    },
+
+    async receivePart(uploadId, n, body, maxBytes) {
+      return receiveTo(partPath(uploadId, n), body, maxBytes);
+    },
+
+    async createMultipart(key) {
+      fullPath(key);
+      const uploadId = randomBytes(12).toString("hex");
+      await mkdir(partsDir(uploadId), { recursive: true });
+      return { uploadId };
+    },
+
+    async presignPart(key, uploadId, n, o) {
+      fullPath(key);
+      partPath(uploadId, n);
+      const t = signToken({ op: "part", k: key, uid: uploadId, n, max: o.contentLength } satisfies LocalToken, secret(), o.expiresInSec);
+      return { url: `${ENDPOINT}?t=${t}`, headers: {} };
+    },
+
+    async completeMultipart(key, uploadId) {
       const full = fullPath(key);
+      const dir = partsDir(uploadId);
+      const names = (await readdir(dir).catch(() => [] as string[])).filter((f) => /^\d+$/.test(f)).map(Number).sort((a, b) => a - b);
+      if (!names.length || names.some((n, i) => n !== i + 1)) throw new Error("Faltan partes de la subida");
       await mkdir(path.dirname(full), { recursive: true });
       const tmp = tempPath(full);
-      let bytes = 0;
-      const limit = new Transform({
-        transform(chunk: Buffer, _enc, done) {
-          bytes += chunk.length;
-          done(bytes > maxBytes ? new TooLarge() : null, chunk);
-        },
-      });
       try {
-        await pipeline(Readable.fromWeb(body as NodeWebReadableStream<Uint8Array>), limit, createWriteStream(tmp));
+        const out = createWriteStream(tmp);
+        for (const n of names) {
+          await pipeline(createReadStream(path.join(dir, String(n))), out, { end: false });
+        }
+        await new Promise<void>((resolve, reject) => out.end((e?: Error | null) => (e ? reject(e) : resolve())));
+        await rename(tmp, full);
       } catch (e) {
         await rm(tmp, { force: true });
-        if (e instanceof TooLarge) return "too-large";
         throw e;
       }
-      await rename(tmp, full);
-      return "ok";
+      await rm(dir, { recursive: true, force: true });
+    },
+
+    async abortMultipart(_key, uploadId) {
+      await rm(partsDir(uploadId), { recursive: true, force: true });
     },
   };
 }

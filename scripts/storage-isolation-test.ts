@@ -6,6 +6,7 @@
  * Comprueba que un billete de subida de Ana no sirve a María, que nadie sube archivos a un
  * producto ajeno (ni falsificando el billete) y que las claves siempre van en la carpeta de quien sube.
  */
+import type { SingleUpload } from "../lib/uploads";
 import "./load-env";
 import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
@@ -33,7 +34,8 @@ async function rejects(fn: () => Promise<unknown>, match: RegExp) {
 async function main() {
   // Después de fijar STORAGE_DIR: el driver se crea con la configuración del primer uso.
   const { prisma } = await import("../lib/db");
-  const { completeUpload, createUpload } = await import("../lib/uploads");
+  const { abortUpload, completeUpload, createUpload, signUploadParts } = await import("../lib/uploads");
+  const { uploadPolicy } = await import("../lib/file-types");
   const { privateKey, signToken, storage, storageSecret } = await import("../lib/storage");
   const sharp = (await import("sharp")).default;
 
@@ -48,7 +50,7 @@ async function main() {
   try {
     // ── Imagen: el billete de Ana no sirve a María ──
     const png = await sharp({ create: { width: 64, height: 48, channels: 3, background: "#c9a" } }).png().toBuffer();
-    const img = await createUpload(ana.id, { purpose: "image", name: "foto.png", contentType: "image/png", size: png.length });
+    const img = (await createUpload(ana.id, { purpose: "image", name: "foto.png", contentType: "image/png", size: png.length })) as SingleUpload;
     const imgKey = keyOf(img.uploadUrl) || "";
     check("la imagen se sube a incoming/<Ana>/", imgKey.startsWith(`incoming/${ana.id}/`));
     await s.put(imgKey, png, { contentType: "image/png" });
@@ -64,7 +66,7 @@ async function main() {
       await rejects(() => createUpload(ana.id, { purpose: "file", productId: mariaProduct.id, name: "x.pdf", contentType: "application/pdf", size: 10 }), /Producto no encontrado/),
     );
     const pdf = Buffer.from("%PDF-1.4 prueba de aislamiento");
-    const up = await createUpload(ana.id, { purpose: "file", productId: anaProduct.id, name: "guía.pdf", contentType: "application/pdf", size: pdf.length });
+    const up = (await createUpload(ana.id, { purpose: "file", productId: anaProduct.id, name: "guía.pdf", contentType: "application/pdf", size: pdf.length })) as SingleUpload;
     const fileKey = keyOf(up.uploadUrl) || "";
     check("el archivo se sube a private/<Ana>/", fileKey.startsWith(`private/${ana.id}/`) && fileKey.endsWith(".pdf"));
     await s.put(fileKey, pdf, { contentType: "application/pdf" });
@@ -91,11 +93,29 @@ async function main() {
     await s.delete([crossKey]);
 
     // ── Tamaño distinto del firmado ──
-    const short = await createUpload(ana.id, { purpose: "file", productId: anaProduct.id, name: "corto.pdf", contentType: "application/pdf", size: 1000 });
+    const short = (await createUpload(ana.id, { purpose: "file", productId: anaProduct.id, name: "corto.pdf", contentType: "application/pdf", size: 1000 })) as SingleUpload;
     const shortKey = keyOf(short.uploadUrl) || "";
     await s.put(shortKey, pdf, { contentType: "application/pdf" });
     check("si el archivo no llega entero, se rechaza", await rejects(() => completeUpload(ana.id, short.ticket), /archivo completo/));
     check("y se borra lo recibido", (await s.head(shortKey)) === null);
+
+    // ── Subida por partes (web personal): el billete es solo de Ana ──
+    const mp = (await createUpload(
+      ana.id,
+      { purpose: "file", productId: anaProduct.id, name: "clase.mp4", contentType: "video/mp4", size: 70 * 1024 * 1024 },
+      uploadPolicy(true),
+    )) as { multipart?: { partCount: number }; ticket: string };
+    const mpTicket = (await import("../lib/storage")).verifyToken<{ k: string; u?: string }>(mp.ticket, storageSecret());
+    check("por partes: la clave va bajo private/<Ana>/", !!mp.multipart && !!mpTicket?.u && mpTicket.k.startsWith(`private/${ana.id}/`));
+    check("María no puede firmar partes del billete de Ana", await rejects(() => signUploadParts(maria.id, mp.ticket, [1]), /caducado/));
+    check("…ni completarlo", await rejects(() => completeUpload(maria.id, mp.ticket), /caducado/));
+    check("…ni cancelarlo", await rejects(() => abortUpload(maria.id, mp.ticket), /caducado/));
+    const forgedMp = signToken({ ...mpTicket, c: maria.id }, "otra-clave", 600);
+    check("un billete falsificado no vale", await rejects(() => signUploadParts(maria.id, forgedMp, [1]), /caducado/));
+    const crossMp = signToken({ ...mpTicket, c: maria.id }, storageSecret(), 600);
+    check("un billete con la clave de Ana y el id de María no vale", await rejects(() => signUploadParts(maria.id, crossMp, [1]), /caducado/));
+    check("Ana sí puede firmar sus partes", (await signUploadParts(ana.id, mp.ticket, [1, 2])).length === 2);
+    await abortUpload(ana.id, mp.ticket);
   } finally {
     if (created.length) await prisma.productFile.deleteMany({ where: { id: { in: created } } });
     await prisma.$disconnect();
