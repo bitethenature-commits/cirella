@@ -133,6 +133,9 @@ dominio; en R2 añade el dominio a la regla CORS, y en cron-job.org cambia la di
    Sin esto, las fotos y archivos no se podrán subir desde tu panel.
 6. En **Settings → Object lifecycle rules → Add rule**: prefijo `incoming/`, borrar a **1 día**
    (son fotos que se empezaron a subir y no se terminaron).
+   Añade otra regla, sin prefijo: **Abort incomplete multipart uploads** a **1 día** (los vídeos
+   grandes se suben por partes; si una subida se corta y no se reintenta, sus partes se borran
+   solas). La regla CORS de arriba no cambia: las partes también se suben con `PUT`.
 7. No actives el acceso público del bucket: la web sirve las imágenes ella misma.
 
 En el paso 9 crearás un segundo bucket, solo para las copias de seguridad.
@@ -547,6 +550,23 @@ Desde tu panel (`https://tudominio.com/panel`, también en el móvil):
 **Comprobación:** abre `https://tudominio.com` en el móvil, en una ventana de incógnito, y ves
 tu página como la verá cualquiera. Apúntate a un producto gratis con otro email tuyo: te llega
 el email con el enlace de acceso.
+
+### Vídeos y audios desde el iPhone
+
+- **Formato**: en el iPhone, **Ajustes → Cámara → Formatos → Más compatible** y **Vídeo HDR**
+  desactivado. Así graba en MP4 (H.264), que se ve en todos los navegadores. Si un vídeo sale
+  con el aviso **«HEVC»** en Materiales, se ve en iPhone, iPad y Mac pero puede no verse en
+  algunos navegadores de ordenador o Android: expórtalo con **InShot** (MP4) o vuelve a grabarlo
+  con «Más compatible».
+- **Peso**: el aviso **«Muy pesado para el móvil»** sale cuando el vídeo pasa de unos 12 Mbps
+  (por ejemplo 2,3 GB en 10 minutos). Exporta en **1080p** (o 720p) con InShot: tus alumnas lo
+  verán sin cortes con datos.
+- **Subir**: hasta 4 GB por vídeo. Mejor desde la app **Archivos** o desde el Mac, con wifi; no
+  bloquees el iPhone ni cambies de app mientras sube (la barra lo recuerda y tiene «Cancelar»).
+- **Audio**: mejor M4A o MP3 que WAV (una hora en WAV son unos 635 MB).
+- **Vimeo**: para un vídeo oculto, copia el enlace completo (**Compartir → Copiar enlace**, con el
+  código del final) y en Vimeo → **Privacidad → Dónde se puede insertar** permite tu dominio.
+  Cualquier otro enlace (Loom, Drive…) se guarda, pero tus alumnas verán un botón «Abrir el vídeo».
 
 ---
 

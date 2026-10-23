@@ -295,7 +295,8 @@ Los contadores viven en Postgres (`RateLimit`, `lib/rate-limit.ts`) y los compar
 | Pagos rechazados | Cloudflare Turnstile invisible a partir del 2.º rechazo (si está configurado) y bloqueo tras 5 en 10 min, por conexión o por email | Un pago pendiente no cuenta; los rechazos que llegan por el aviso de la pasarela cuentan con la IP del pedido. Si Cloudflare no responde, el pago pasa (con aviso en el log) y siguen los límites |
 | Visitas (`/api/track`) | El mismo evento de la misma persona (IP + navegador) cuenta una vez cada 30 min; como mucho 300 eventos por hora por conexión y creadora | Nada: lo descartado responde 204 igual |
 | Horarios (`/api/slots`) | 60 peticiones por minuto por conexión | 429 con `Retry-After`; el checkout avisa «No hemos podido cargar los horarios…» sin romperse |
-| Subidas (`/api/upload/sign`) | 30 por hora por creadora (se cuenta al pedir la URL de subida) | «Has subido muchos archivos en poco tiempo…» |
+| Subidas (`/api/upload/sign`) | 30 por hora por creadora en la plataforma y 120 en la web personal (se cuenta al pedir la URL de subida) | «Has subido muchos archivos en poco tiempo…» |
+| Partes de una subida por partes (`/api/upload/parts`, solo web personal) | 600 por hora por creadora (un vídeo de 4 GB son 256 partes) | «Demasiadas partes en poco tiempo…» |
 
 **Email de compra abandonada** (`lib/recovery-guard.ts`): solo sale si esa visitante abrió el checkout de ese producto en la página de esa creadora (`CHECKOUT_STARTED`), si no ha escrito más de 2 emails distintos (más de 5 desde la misma conexión) en 24 h y como mucho uno por destinatario cada 24 h. Así nadie puede usar pagos fallidos para mandar emails con el nombre de la creadora a direcciones ajenas. El motivo de cada email no enviado queda en `Order.recoverySkipped` (`sin-visita`, `sin-checkout`, `muchos-emails` o `ya-avisada`).
 
@@ -305,7 +306,11 @@ Configuración: `CLIENT_IP_HEADER` (obligatoria en producción), `APP_SECRET` (e
 
 ### Almacenamiento e imágenes
 
-Los archivos viven en disco (`./storage`) en desarrollo y en Cloudflare R2 (jurisdicción UE) en producción (`lib/storage/`), siempre detrás de URLs firmadas: los buckets son privados. El navegador sube directamente al almacenamiento en tres pasos (`/api/upload/sign` → `PUT` → `/api/upload/complete`) con un billete firmado que solo sirve para la carpeta de su creadora; máximo 1 GB por archivo y 25 MB por imagen. Las imágenes se enderezan, pierden los datos EXIF/GPS y se convierten a WebP (máximo 1600 px) con variantes de 400, 800 y 1200 px que la página sirve con `srcset`. Las descargas comprueban el acceso y redirigen a un enlace temporal de 10 min (3 h para el vídeo y el audio de los cursos), sin pasar el archivo por la memoria del servidor. La página pública de cada creadora se cachea (ISR de 60 s); la vista previa del borrador está en `/vista-previa`.
+Los archivos viven en disco (`./storage`) en desarrollo y en Cloudflare R2 (jurisdicción UE) en producción (`lib/storage/`), siempre detrás de URLs firmadas: los buckets son privados. El navegador sube directamente al almacenamiento en tres pasos (`/api/upload/sign` → `PUT` → `/api/upload/complete`) con un billete firmado que solo sirve para la carpeta de su creadora; máximo 1 GB por archivo y 25 MB por imagen en la plataforma (un solo PUT). En la web personal los vídeos admiten hasta 4 GB y todo lo de más de 64 MiB se sube por partes de 16 MiB (`/api/upload/parts`, 3 a la vez, con reintentos por parte y `/api/upload/abort` al cancelar). Tipos admitidos y límites: `lib/file-types.ts` (MP4, MOV, M4V, MP3, M4A, WAV, PDF, JPG, PNG, WebP, GIF, EPUB, ZIP; HEIC se rechaza explicando cómo exportarlo). Al completar una subida de vídeo o audio se leen su duración, su códec (H264/HEVC) y su tamaño ya girado (`lib/media-probe.ts`, solo cabeceras); `npm run media:probe` lo hace para los archivos de antes. Las imágenes se enderezan, pierden los datos EXIF/GPS y se convierten a WebP (máximo 1600 px) con variantes de 400, 800 y 1200 px que la página sirve con `srcset`. Las descargas comprueban el acceso y redirigen a un enlace temporal de 10 min (3 h para el vídeo y el audio de los cursos), sin pasar el archivo por la memoria del servidor. La página pública de cada creadora se cachea (ISR de 60 s); la vista previa del borrador está en `/vista-previa`.
+
+**Visores** (`components/media`, punto de entrada `MediaView`): el vídeo usa la URL firmada de 3 h y la renueva solo (`/api/download/[id]?inline=1&format=json`); el PDF (pdf.js 6.3.289, recursos copiados a `public/assets/pdfjs/<versión>/` por `prebuild`/`predev`), las imágenes privadas y el audio de la web personal llegan por `GET /api/stream/[fileId]`, desde la misma web, comprobando el acceso en cada petición con Range (tramos de 8 MiB, tipo de la lista, `nosniff`, CORP `same-origin`, CSP `sandbox`). El visor de un archivo comprado es `/cuenta/archivos/[fileId]`. Los enlaces de YouTube y Vimeo se incrustan con `lib/video-embed.ts` (youtube-nocookie, código de privacidad de Vimeo y `dnt=1`); otro enlace se abre fuera («Abrir el vídeo»).
+
+**Texto con formato** (`lib/rich-text.ts`, «MD» al estilo de WhatsApp): `**negrita**`, `_cursiva_`, `## encabezado`, listas, citas, líneas, `[texto](enlace)` e imágenes propias. Se edita con `RichTextEditor` y se pinta con `RichContent` (web) o `richToEmailHtml` (emails, con el dominio real de cada enlace). Cada campo tiene su columna `…Format`: null = texto de antes, que se pinta exactamente igual que siempre.
 
 ---
 
@@ -313,7 +318,9 @@ Los archivos viven en disco (`./storage`) en desarrollo y en Cloudflare R2 (juri
 
 ```bash
 npm run test:unit               # funciones puras (scripts/unit-tests.ts y scripts/unit/*.test.ts)
-npm run test:isolation          # aislamiento multi-tenant a nivel de datos y del almacenamiento (billetes de subida)
+npm run test:isolation          # aislamiento multi-tenant a nivel de datos y del almacenamiento (billetes de subida, también por partes)
+npm run test:media              # límites de subida por modo, subida por partes, lectura de vídeos y audios y respuestas con Range
+npm run test:rich-text          # columnas de formato, extractos en texto plano y email de bienvenida con formato por la outbox
 npm run test:concurrency        # dos compras simultáneas del mismo hueco → una sola reserva confirmada
 npm run test:reliability        # reintentos de emails, outbox de eventos, cerrojo del cron, renovaciones idempotentes, vigilante
 npm run test:payments           # entrega única ante avisos repetidos, guardián de importe, renovaciones fallidas, cuenta de cobro y DAC7
