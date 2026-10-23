@@ -17,6 +17,7 @@ type F = {
   width?: number | null;
   height?: number | null;
 };
+const PREVIEWABLE = new Set(["VIDEO", "AUDIO", "PDF", "IMAGE"]);
 const ICON: Record<string, typeof FileText> = { PDF: FileText, AUDIO: Headphones, VIDEO: Video, LINK: Link2, IMAGE: FileImage };
 
 export function formatSize(bytes: number) {
@@ -159,7 +160,13 @@ export function FilesManager({
                 <FileChips f={f} />
               </div>
               <span className="shrink-0 text-xs text-faint">{f.kind === "LINK" ? "Enlace" : f.sizeBytes ? formatSize(f.sizeBytes) : ""}</span>
+              {/* «Ver» abre o descarga el archivo (como siempre); «Vista previa», el visor de las alumnas. */}
               <a href={f.kind === "LINK" ? f.url ?? "#" : `/api/download/${f.id}`} className="shrink-0 text-xs font-semibold text-muted hover:text-ink">Ver</a>
+              {PREVIEWABLE.has(f.kind) && (
+                <a href={`/cuenta/archivos/${f.id}`} className="shrink-0 text-xs font-semibold text-muted hover:text-ink">
+                  Vista previa
+                </a>
+              )}
               <form action={deleteFile}>
                 <input type="hidden" name="id" value={f.id} />
                 <button className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Eliminar"><Trash2 className="h-3.5 w-3.5" /></button>

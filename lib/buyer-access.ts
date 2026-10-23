@@ -39,7 +39,9 @@ async function usernameFor(next: string, creatorId?: string | null) {
         ? await prisma.booking.findUnique({ where: { id: ref.id }, select })
         : ref?.kind === "order"
           ? await prisma.order.findUnique({ where: { id: ref.id }, select })
-          : null;
+          : ref?.kind === "file"
+            ? ((await prisma.productFile.findUnique({ where: { id: ref.id }, select: { product: { select } } }))?.product ?? null)
+            : null;
   if (row) return row.creator.username;
   if (!creatorId) return null;
   return (await prisma.creator.findUnique({ where: { id: creatorId }, select: { username: true } }))?.username ?? null;

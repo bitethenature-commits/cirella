@@ -100,6 +100,11 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
                 className="mt-4 space-y-4 text-[1.02rem] leading-relaxed text-ink/85"
               />
             )}
+            {current.file && (current.kind === "PDF" || current.kind === "EXERCISE") && (current.file.kind === "PDF" || current.file.kind === "IMAGE") && (
+              <div className="mt-6">
+                <MediaView key={current.id} file={current.file} title={current.title} />
+              </div>
+            )}
             {current.file && (current.kind === "PDF" || current.kind === "EXERCISE" || current.kind === "AUDIO") && (
               <a href={`/api/download/${current.file.id}`} className="card mt-6 flex items-center gap-3 p-4 transition hover:shadow-lift">
                 <Download className="h-5 w-5 text-lavender-deep" />

@@ -4,7 +4,9 @@
   "private": true,
   "description": "Cirella — convierte tu perfil social en tu negocio completo, desde un solo enlace.",
   "scripts": {
+    "predev": "node scripts/copy-pdfjs-assets.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/copy-pdfjs-assets.mjs",
     "build": "next build",
     "start": "next start",
     "postinstall": "prisma generate",
@@ -54,6 +56,7 @@
     "bcryptjs": "^3.0.3",
     "lucide-react": "^1.53.0",
     "next": "^15.5.27",
+    "pdfjs-dist": "6.3.289",
     "react": "19.2",
     "react-dom": "19.2",
     "server-only": "^0.0.1",
@@ -71,5 +74,8 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "5.9"
+  },
+  "engines": {
+    "node": ">=22.13"
   }
 }

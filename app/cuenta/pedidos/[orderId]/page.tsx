@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight, Download, ExternalLink, FileText, Mail } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, ExternalLink, Eye, FileText, Mail } from "lucide-react";
 import { PrintButton } from "@/components/invoice/print-button";
 import { Flash } from "@/components/ui/flash";
 import { isNoChargeOrder } from "@/lib/access-mode";
@@ -18,6 +18,9 @@ import { bpsToPercent, formatMoney, formatPrice } from "@/lib/money";
 import { orderRef } from "@/lib/order-ref";
 import { formatDate } from "@/lib/tz";
 import { CreatorTag, Thumb } from "../../ui";
+
+/** Archivos que se pueden ver en la web (visor de /cuenta/archivos/[fileId]). */
+const VIEWABLE = new Set(["PDF", "IMAGE", "AUDIO", "VIDEO"]);
 import { FullInvoiceForm } from "./full-invoice-form";
 
 export const metadata: Metadata = { title: "Tu compra", robots: { index: false } };
@@ -114,9 +117,16 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                     <ExternalLink className="h-3.5 w-3.5" /> Abrir enlace
                   </a>
                 ) : (
-                  <a href={`/api/download/${f.id}`} className="btn btn-outline btn-sm shrink-0">
-                    <Download className="h-3.5 w-3.5" /> Descargar
-                  </a>
+                  <span className="flex shrink-0 gap-2">
+                    {VIEWABLE.has(f.kind) && (
+                      <Link href={`/cuenta/archivos/${f.id}`} className="btn btn-primary btn-sm">
+                        <Eye className="h-3.5 w-3.5" /> Ver
+                      </Link>
+                    )}
+                    <a href={`/api/download/${f.id}`} className="btn btn-outline btn-sm">
+                      <Download className="h-3.5 w-3.5" /> Descargar
+                    </a>
+                  </span>
                 )}
               </li>
             ))}

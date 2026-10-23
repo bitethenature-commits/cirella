@@ -1,11 +1,13 @@
-import { Download, FileText, FolderOpen, Headphones, Video } from "lucide-react";
+import Link from "next/link";
+import { Download, Eye, FileImage, FileText, FolderOpen, Headphones, Video } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty";
 import { requireBuyerFull } from "@/lib/buyer-access";
 import { getCustomerLibrary } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { CreatorTag } from "../ui";
 
-const ICON = { PDF: FileText, AUDIO: Headphones, VIDEO: Video } as const;
+const ICON = { PDF: FileText, AUDIO: Headphones, VIDEO: Video, IMAGE: FileImage } as const;
+const VIEWABLE = new Set(["PDF", "IMAGE", "AUDIO", "VIDEO"]);
 
 function size(bytes: number | null) {
   if (!bytes) return "";
@@ -17,7 +19,7 @@ export default async function MyFiles() {
   const lib = await getCustomerLibrary(user.id);
   // También los materiales descargables de los cursos
   const courseFiles = lib.courses.length
-    ? await prisma.productFile.findMany({ where: { productId: { in: lib.courses.map((c) => c.product.id) }, kind: { in: ["PDF", "AUDIO"] } } })
+    ? await prisma.productFile.findMany({ where: { productId: { in: lib.courses.map((c) => c.product.id) }, kind: { in: ["PDF", "AUDIO", "IMAGE"] } } })
     : [];
   const files = [
     ...lib.files,
@@ -29,7 +31,7 @@ export default async function MyFiles() {
   return (
     <div>
       <h1 className="display text-[2.4rem]">Mis archivos</h1>
-      <p className="mt-1 text-sm text-muted">PDF, audios y materiales de todas tus compras.</p>
+      <p className="mt-1 text-sm text-muted">PDF, audios, imágenes y materiales de todas tus compras.</p>
       <div className="card mt-6 divide-y divide-line">
         {files.map((f) => {
           const Icon = ICON[f.kind as keyof typeof ICON] ?? FileText;
@@ -41,6 +43,11 @@ export default async function MyFiles() {
                 <p className="truncate text-xs text-muted">{f.productTitle} {size(f.sizeBytes) && `· ${size(f.sizeBytes)}`}</p>
                 <CreatorTag name={f.creator.displayName} avatarUrl={f.creator.avatarUrl} />
               </div>
+              {VIEWABLE.has(f.kind) && (
+                <Link href={`/cuenta/archivos/${f.id}`} className="btn btn-outline btn-sm shrink-0" aria-label={`Ver ${f.name}`}>
+                  <Eye className="h-3.5 w-3.5" /> Ver
+                </Link>
+              )}
               <a href={`/api/download/${f.id}`} className="btn btn-outline btn-sm shrink-0"><Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Descargar</span></a>
             </div>
           );

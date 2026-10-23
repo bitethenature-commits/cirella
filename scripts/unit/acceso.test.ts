@@ -16,6 +16,8 @@ for (const [path, want] of [
   ["/cuenta/membresias/m1", { kind: "product", id: "m1" }],
   ["/cuenta/sesiones/b1/ics", { kind: "booking", id: "b1" }],
   ["/cuenta/pedidos/o1", { kind: "order", id: "o1" }],
+  ["/cuenta/archivos/f1", { kind: "file", id: "f1" }],
+  ["/cuenta/archivos", null],
   ["/cuenta", null],
   ["/cuenta/compras", null],
   ["/panel", null],

@@ -2,6 +2,8 @@ import { Download, FileText } from "lucide-react";
 import { deliveryFor } from "@/lib/file-types";
 import { isPersonalMode } from "@/lib/site-mode";
 import { AudioPlayer } from "./audio-player";
+import { ImageViewer } from "./image-viewer";
+import { PdfViewer } from "./pdf-viewer";
 import { VideoPlayer, type PlayerFile } from "./video-player";
 
 export type MediaFile = PlayerFile & { kind: string };
@@ -22,6 +24,8 @@ export function MediaView({ file, title, poster, artwork }: { file: MediaFile; t
     ) : (
       <AudioPlayer file={file} src={`/api/download/${file.id}?inline=1`} delivery="signed" title={title} artwork={artwork} />
     );
+  if (file.kind === "PDF") return <PdfViewer fileId={file.id} name={file.name} />;
+  if (file.kind === "IMAGE") return <ImageViewer file={file} />;
   return (
     <a href={`/api/download/${file.id}`} className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
       <FileText className="h-5 w-5 text-lavender-deep" />

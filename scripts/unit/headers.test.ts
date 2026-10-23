@@ -25,6 +25,10 @@ test("CSP en producción con todas las integraciones", () => {
   ok(/form-action [^;]*https:\/\/checkout\.stripe\.com/.test(csp));
   ok(csp.includes("upgrade-insecure-requests"));
   ok(!csp.includes("'unsafe-eval'"));
+  // Visores (pdf.js y /api/stream): sin eval ni WebAssembly, worker de 'self' e imágenes sin R2.
+  ok(!csp.includes("'wasm-unsafe-eval'"), "sin wasm-unsafe-eval");
+  ok(/worker-src [^;]*'self'/.test(csp), "worker-src 'self'");
+  ok(!/img-src [^;]*r2\.cloudflarestorage/.test(csp), "img-src sin R2");
   eq(header(list, "Strict-Transport-Security"), "max-age=63072000; includeSubDomains");
   eq(header(list, "Permissions-Policy"), "camera=(), microphone=(), geolocation=(), browsing-topics=()");
   eq(header(list, "X-Content-Type-Options"), "nosniff");

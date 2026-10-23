@@ -17,10 +17,10 @@ export function orderTargetPath(order: { id: string; productType: string; produc
 }
 
 /** A qué apunta una ruta de detalle de /cuenta (para saber de qué creadora es o si entra en un alcance). */
-export function cuentaRefFromPath(path: string): { kind: "product" | "booking" | "order"; id: string } | null {
-  const m = path.split(/[?#]/)[0].match(/^\/cuenta\/(cursos|membresias|sesiones|pedidos)\/([^/]+)(?:\/.*)?$/);
+export function cuentaRefFromPath(path: string): { kind: "product" | "booking" | "order" | "file"; id: string } | null {
+  const m = path.split(/[?#]/)[0].match(/^\/cuenta\/(cursos|membresias|sesiones|pedidos|archivos)\/([^/]+)(?:\/.*)?$/);
   if (!m) return null;
-  const kind = m[1] === "sesiones" ? "booking" : m[1] === "pedidos" ? "order" : "product";
+  const kind = m[1] === "sesiones" ? "booking" : m[1] === "pedidos" ? "order" : m[1] === "archivos" ? "file" : "product";
   return { kind, id: m[2] };
 }
 

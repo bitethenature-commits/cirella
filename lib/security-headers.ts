@@ -31,6 +31,14 @@ const PAYPAL_CHECKOUT = "https://www.paypal.com https://www.sandbox.paypal.com";
  * (un nonce por petición) obligaría a renderizar cada página en el servidor en cada visita y
  * rompería la caché de las páginas públicas. Lo que sí se bloquea: scripts de otros dominios,
  * <object>/<embed>, cambiar la <base>, enviar formularios fuera y que otra web nos incruste.
+ *
+ * Visores de archivos (components/media) sin tocar ninguna directiva:
+ *   · pdf.js: su «worker» y los decodificadores sin WebAssembly se cargan de 'self'
+ *     (/assets/pdfjs/<versión>/, scripts/copy-pdfjs-assets.mjs). Sin 'wasm-unsafe-eval' a propósito:
+ *     el visor usa useWasm: false. Tampoco hace falta 'unsafe-eval'.
+ *   · PDF, imágenes privadas y el audio de la web personal llegan de /api/stream (misma web): ni
+ *     img-src ni connect-src necesitan el origen de R2.
+ *   · media-src https: cubre el vídeo con URL firmada de R2.
  */
 export function buildCsp(o: SecurityHeaderOptions): string {
   const join = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" ");
