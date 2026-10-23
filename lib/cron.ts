@@ -4,6 +4,7 @@ import { purgeExpiredAuth } from "./auth-tokens";
 import { processDac7Reminders } from "./dac7-data";
 import { processOutbox } from "./email/outbox";
 import { processEvents } from "./events";
+import { purgeAbandonedIntake } from "./orders";
 import { issueMonthlyPlatformInvoices } from "./invoices/fees";
 import { withJobLock } from "./job-lock";
 import { captureError, withCronMonitor } from "./monitoring";
@@ -39,6 +40,8 @@ export async function runScheduledJobs(): Promise<CronResult> {
           const w = await runWatchdog();
           return w.refulfilled + w.paidUndelivered;
         }],
+        // Datos para la lectura de los pedidos que nunca se pagaron: fuera a los 30 días.
+        ["datosLecturas", () => purgeAbandonedIntake(new Date())],
         ["emails", () => processOutbox()],
         // Sesiones, enlaces mágicos y enlaces personales caducados.
         ["accesos", () => purgeExpiredAuth()],

@@ -13,6 +13,10 @@ import { prisma } from "@/lib/db";
 import { syncBookingToCalendar } from "@/lib/orders";
 import { cancelSubscription, resumeSubscription } from "@/lib/subscriptions";
 import { SESSION_CHANGE_NOTICE_HOURS } from "@/lib/legal";
+import { canonicalTimezone } from "@/lib/timezones";
+import { Prisma } from "@prisma/client";
+import { asksIntake, parseIntakeAnswers, readIntakeConfig } from "@/lib/intake";
+import { intakeLocked } from "@/lib/intake-lock";
 
 export async function toggleLessonComplete(lessonId: string, complete: boolean) {
   const b = await getBuyerSession();
@@ -33,15 +37,17 @@ export async function toggleLessonComplete(lessonId: string, complete: boolean) 
   return { ok: true };
 }
 
-export async function scheduleBooking(bookingId: string, slotStart: string) {
+export async function scheduleBooking(bookingId: string, slotStart: string, clientTz?: string | null) {
   // Elegir hora es justo lo que hace quien acaba de comprar: vale la sesión limitada a su pedido.
   const { user } = await requireBuyerFor({ bookingId }, `/cuenta/sesiones/${bookingId}`);
   const booking = await prisma.booking.findFirst({ where: { id: bookingId, userId: user.id }, include: { product: true } });
   if (!booking) return { ok: false as const, error: "Reserva no encontrada" };
+  if (booking.groupSeat) return { ok: false as const, error: "Es una plaza de un taller con fecha fija. Escribe a la creadora." };
   const canReschedule = booking.status === "PENDING_SCHEDULE" || (booking.status === "CONFIRMED" && booking.startAt && booking.startAt.getTime() - Date.now() > SESSION_CHANGE_NOTICE_HOURS * 3600_000);
   if (!canReschedule) return { ok: false as const, error: "Esta reserva ya no se puede cambiar. Escribe a la creadora." };
   if (!z.string().datetime().safeParse(slotStart).success || !(await isSlotAvailable(booking.product, slotStart)))
     return { ok: false as const, error: "Ese horario ya no está disponible" };
+  const tz = canonicalTimezone(clientTz);
   const start = new Date(slotStart);
   const end = new Date(start.getTime() + (booking.product.durationMin ?? 60) * 60000);
   const outcome = await prisma
@@ -50,7 +56,15 @@ export async function scheduleBooking(bookingId: string, slotStart: string) {
       // Condicionado al estado leído: si la creadora la acaba de cancelar, no se resucita.
       const c = await tx.booking.updateMany({
         where: { id: booking.id, status: booking.status },
-        data: { status: "CONFIRMED", startAt: start, endAt: end, externalEventId: null },
+        data: {
+          status: "CONFIRMED",
+          startAt: start,
+          endAt: end,
+          externalEventId: null,
+          // La fecha que deja (para el aviso a la dueña «antes …»).
+          ...(booking.status === "CONFIRMED" && booking.startAt ? { previousStartAt: booking.startAt } : {}),
+          ...(tz ? { customerTimezone: tz } : {}),
+        },
       });
       return c.count ? ("ok" as const) : ("changed" as const);
     })
@@ -65,11 +79,41 @@ export async function scheduleBooking(bookingId: string, slotStart: string) {
   // liberan su clave, para que volver a una hora anterior genere avisos nuevos.
   await releaseBookingEmails(booking.id);
   await syncBookingToCalendar(booking.id);
-  await emit({ type: "booking.confirmed", bookingId: booking.id });
+  const change = booking.rescheduleRequestedAt ? "proposal_answered" : booking.status === "CONFIRMED" ? "rescheduled" : "scheduled";
+  await emit({ type: "booking.confirmed", bookingId: booking.id, change });
   // Si la creadora había propuesto otra fecha, le avisamos de la que ha elegido.
   await notifyRescheduled(booking.id);
   revalidatePath(`/cuenta/sesiones/${booking.id}`);
   return { ok: true as const };
+}
+
+export type IntakeSaveState = { ok?: string; error?: string; field?: string } | undefined;
+
+/**
+ * La clienta completa o corrige sus datos para la lectura desde su área, hasta que empieza la sesión o
+ * hasta que recibe la lectura. La dueña recibe un aviso (agrupado si corrige varias veces seguidas).
+ */
+export async function saveIntake(_: IntakeSaveState, form: FormData): Promise<IntakeSaveState> {
+  const orderId = String(form.get("orderId") ?? "");
+  const { user } = await requireBuyerFor({ orderId }, `/cuenta/pedidos/${orderId}`);
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, customer: { userId: user.id } },
+    include: { product: { select: { intake: true, type: true, deliveryMode: true } }, bookings: { select: { startAt: true, groupSeat: true }, orderBy: { createdAt: "asc" } } },
+  });
+  if (!order || order.status !== "PAID") return { error: "Esta compra no está disponible" };
+  if (intakeLocked(order)) return { error: "Ya no se pueden cambiar. Si algo no está bien, escribe a la creadora." };
+  const cfg = readIntakeConfig(order.product.intake);
+  if (!asksIntake(order.product.type, order.product.deliveryMode, cfg)) return { error: "Esta compra no pide datos" };
+  const parsed = parseIntakeAnswers(cfg, Object.fromEntries(form));
+  if (!parsed.ok) return { error: parsed.error, field: parsed.field };
+  const first = !order.intake;
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { intake: parsed.value ? (parsed.value as unknown as Prisma.InputJsonObject) : Prisma.DbNull, intakeUpdatedAt: new Date() },
+  });
+  await emit({ type: "intake.updated", orderId: order.id, first });
+  revalidatePath("/cuenta", "layout");
+  return { ok: "Datos guardados. Se los hemos enviado." };
 }
 
 export async function cancelMembership(form: FormData) {

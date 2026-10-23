@@ -17,6 +17,12 @@ import type { LegalSnapshotContent } from "@/lib/legal-snapshot";
 import { bpsToPercent, formatMoney, formatPrice } from "@/lib/money";
 import { orderRef } from "@/lib/order-ref";
 import { formatDate } from "@/lib/tz";
+import { IntakeEditCard } from "@/components/booking/intake-edit-card";
+import { MediaView } from "@/components/media/media-view";
+import { RichContent } from "@/components/rich-text/rich-content";
+import { asksIntake, intakeMissing, readIntakeAnswers, readIntakeConfig } from "@/lib/intake";
+import { intakeLocked } from "@/lib/intake-lock";
+import { saveIntake } from "../../actions";
 import { CreatorTag, Thumb } from "../../ui";
 
 /** Archivos que se pueden ver en la web (visor de /cuenta/archivos/[fileId]). */
@@ -42,6 +48,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
       product: { include: { files: { orderBy: { sortOrder: "asc" } } } },
       bookings: { orderBy: { createdAt: "asc" } },
       legalSnapshot: { select: { content: true } },
+      files: { where: { sentAt: { not: null } }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!order || order.customer?.userId !== user.id || !["PAID", "REFUNDED"].includes(order.status)) notFound();
@@ -77,6 +84,11 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         : order.productType === "SESSION" && booking
           ? { label: booking.startAt ? "Ver mi reserva" : "Elegir fecha y hora", href: orderTargetPath(order, booking.id) }
           : null;
+  // Lectura «Lo preparo yo»: la prepara la creadora y la entrega aquí (mensaje y archivos).
+  const prepared = order.productType === "DIGITAL" && order.product.deliveryMode === "PERSONAL";
+  const intakeCfg = readIntakeConfig(order.product.intake);
+  const intakeAnswers = readIntakeAnswers(order.intake);
+  const showIntake = !refunded && order.status === "PAID" && asksIntake(order.product.type, order.product.deliveryMode, intakeCfg) && order.productType !== "SESSION";
 
   return (
     <div className="max-w-2xl">
@@ -102,6 +114,46 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
           <p className="font-semibold">Esta compra se reembolsó{order.refundedAt ? ` el ${formatDate(order.refundedAt, { day: "numeric", month: "long", year: "numeric" })}` : ""}.</p>
           <p className="mt-1 text-sm text-muted">El contenido ya no está disponible.</p>
         </div>
+      ) : prepared ? (
+        <section id="lectura" className="card mt-6 scroll-mt-24 space-y-4 p-5 sm:p-6">
+          <h2 className="font-semibold">Tu lectura</h2>
+          {order.deliveredAt && access ? (
+            <>
+              {order.deliveryMessage && <RichContent text={order.deliveryMessage} format={order.deliveryMessageFormat} legacy="paragraphs" tone="account" />}
+              {order.files.map((f) =>
+                f.kind === "LINK" && f.url ? (
+                  <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm h-11">
+                    <ExternalLink className="h-3.5 w-3.5" /> Abrir enlace · {f.name}
+                  </a>
+                ) : (
+                  <div key={f.id} className="space-y-2">
+                    {(f.kind === "AUDIO" || f.kind === "VIDEO") ? (
+                      <div className="overflow-hidden rounded-2xl bg-ink py-4">
+                        <MediaView file={f} title={`${f.name} · ${order.productTitle}`} artwork={order.product.imageUrl} poster={order.product.imageUrl} />
+                      </div>
+                    ) : (
+                      <p className="text-sm font-medium">{f.name}</p>
+                    )}
+                    <span className="flex flex-wrap gap-2">
+                      {VIEWABLE.has(f.kind) && f.kind !== "AUDIO" && f.kind !== "VIDEO" && (
+                        <Link href={`/cuenta/archivos/${f.id}`} className="btn btn-primary btn-sm">
+                          <Eye className="h-3.5 w-3.5" /> Ver
+                        </Link>
+                      )}
+                      <a href={`/api/download/${f.id}`} className="btn btn-outline btn-sm">
+                        <Download className="h-3.5 w-3.5" /> Descargar
+                      </a>
+                    </span>
+                  </div>
+                ),
+              )}
+            </>
+          ) : access ? (
+            <p className="text-sm text-muted">{c.displayName} la está preparando. Te avisaremos por email cuando esté lista.</p>
+          ) : (
+            <p className="text-sm text-muted">Ya no tienes acceso a este contenido. Si crees que es un error, escribe a {c.displayName}.</p>
+          )}
+        </section>
       ) : cta ? (
         <Link href={cta.href} className="btn btn-primary btn-lg mt-6 w-full sm:w-auto">
           {cta.label} <ArrowRight className="h-4 w-4" />
@@ -137,6 +189,21 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
       )}
 
       {!refunded && order.product.instructions && <p className="mt-5 rounded-xl bg-sand/60 px-4 py-3 text-sm italic">{order.product.instructions}</p>}
+
+      {showIntake && (
+        <div className="mt-5">
+          <IntakeEditCard
+            config={intakeCfg}
+            answers={intakeAnswers}
+            locked={intakeLocked({ deliveredAt: order.deliveredAt, bookings: [] })}
+            lockedText={`Si algo no está bien, escribe a ${c.displayName}.`}
+            action={saveIntake}
+            hidden={{ orderId: order.id }}
+            missing={intakeMissing(intakeCfg, intakeAnswers)}
+            ownerName={c.displayName}
+          />
+        </div>
+      )}
 
       {!noCharge && (
       <section id="factura" className="mt-10 scroll-mt-20 space-y-4">

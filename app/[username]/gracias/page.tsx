@@ -17,7 +17,8 @@ import { isDemoMode } from "@/lib/env";
 import { formatPrice } from "@/lib/money";
 import { orderRef } from "@/lib/order-ref";
 import { getPublicCreator } from "@/lib/public";
-import { capitalize, formatSessionDate } from "@/lib/tz";
+import { capitalize, sessionWhen } from "@/lib/tz";
+import { asksIntake, intakeMissing, readIntakeAnswers, readIntakeConfig } from "@/lib/intake";
 
 export const metadata: Metadata = { title: "Compra completada", robots: { index: false } };
 
@@ -100,7 +101,9 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
         : order.productType === "SESSION" && booking
           ? booking.startAt ? "Ver mi reserva" : "Elegir fecha y hora"
           : "Acceder a mi contenido";
-  const next = { href: canSee ? orderTargetPath(order, booking?.id) : `/auth/pedido/${order.id}`, label };
+  const intakeCfg = readIntakeConfig(order.product.intake);
+  const missingData = asksIntake(order.product.type, order.product.deliveryMode, intakeCfg) && intakeMissing(intakeCfg, readIntakeAnswers(order.intake));
+  const next = { href: canSee ? `${orderTargetPath(order, booking?.id)}${missingData ? "#datos" : ""}` : `/auth/pedido/${order.id}`, label };
 
   return (
     <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} back={false} personal={data.personal} signupsOnly={data.signupsOnly} sellerName={sellerName}>
@@ -128,10 +131,20 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
           <div className="cp-card mt-3 flex items-center gap-3 p-4 text-left text-sm" data-reveal>
             <CalendarCheck className="cp-gold h-5 w-5 shrink-0" />
             <span>
-              <span className="block font-semibold">{capitalize(formatSessionDate(booking.startAt, data.creator.timezone))}</span>
+              <span className="block font-semibold">{capitalize(sessionWhen(booking.startAt, booking.customerTimezone, data.creator.timezone))}</span>
               <span className="cp-muted">
                 Te hemos enviado la confirmación por email{reminder ? " y te recordaremos la sesión antes de que empiece" : ""}.
               </span>
+            </span>
+          </div>
+        )}
+
+        {missingData && (
+          <div className="cp-card mt-3 flex items-start gap-3 p-4 text-left text-sm" data-reveal style={{ borderColor: "var(--c-gold)" }}>
+            <Sparkles className="cp-gold mt-0.5 h-5 w-5 shrink-0" />
+            <span>
+              <span className="block font-semibold">Completa tus datos para la lectura</span>
+              <span className="cp-muted">Puedes enviarlos desde tu {booking ? "reserva" : "compra"} (el botón de abajo) o desde el enlace de tu email.</span>
             </span>
           </div>
         )}

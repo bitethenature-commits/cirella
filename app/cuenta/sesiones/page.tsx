@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/ui/empty";
 import { requireBuyerFull } from "@/lib/buyer-access";
 import { getCustomerLibrary } from "@/lib/customer";
 import { BOOKING_STATUS_LABEL } from "@/lib/types";
-import { capitalize, formatSessionDate } from "@/lib/tz";
+import { capitalize, sessionWhen } from "@/lib/tz";
 import { CreatorTag, SectionHeader } from "../ui";
 
 export default async function MySessions() {
@@ -17,10 +17,13 @@ export default async function MySessions() {
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold">{b.product.title}</p>
-        <p className="text-sm text-muted">{b.startAt ? capitalize(formatSessionDate(b.startAt, b.creatorBrief.timezone)) : b.rescheduleRequestedAt ? `${b.creatorBrief.displayName} te propone otra fecha: elígela` : "Pendiente de elegir fecha"}</p>
+        <p className="text-sm text-muted">{b.startAt ? capitalize(sessionWhen(b.startAt, b.customerTimezone, b.creatorBrief.timezone)) : b.rescheduleRequestedAt ? `${b.creatorBrief.displayName} te propone otra fecha: elígela` : "Pendiente de elegir fecha"}</p>
         <CreatorTag name={b.creatorBrief.displayName} avatarUrl={b.creatorBrief.avatarUrl} />
       </div>
-      <span className="chip shrink-0">{BOOKING_STATUS_LABEL[b.status]}</span>
+      <span className="flex shrink-0 flex-col items-end gap-1">
+        <span className="chip">{BOOKING_STATUS_LABEL[b.status]}</span>
+        {b.groupSeat && <span className="chip">Taller</span>}
+      </span>
     </Link>
   );
   return (

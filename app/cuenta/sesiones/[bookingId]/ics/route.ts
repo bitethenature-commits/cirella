@@ -2,9 +2,7 @@ import { NextResponse } from "next/server";
 import { scopeAllows } from "@/lib/auth-utils";
 import { buyerLoginPath, getBuyerSession } from "@/lib/buyer-access";
 import { prisma } from "@/lib/db";
-
-const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-const esc = (s: string) => s.replace(/[\;,]/g, (c) => `\\${c}`).replace(/\n/g, "\\n");
+import { buildIcs } from "@/lib/ics";
 
 /** Archivo .ics para añadir la sesión a Google Calendar, Apple Calendar u Outlook. */
 export async function GET(req: Request, { params }: { params: Promise<{ bookingId: string }> }) {
@@ -15,20 +13,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ bookingI
   // Sesión de cuenta: verificada; limitada: solo la reserva de su pedido.
   const allowed = b && (s.scope ? scopeAllows(s.scope, { bookingOrderId: b.orderId }) : s.verified);
   if (!allowed || !b.startAt || !b.endAt) return new NextResponse("No encontrado", { status: 404 });
-  const ics = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//Cirella//Reservas//ES",
-    "BEGIN:VEVENT",
-    `UID:${b.id}@cirella`,
-    `DTSTAMP:${fmt(new Date())}`,
-    `DTSTART:${fmt(b.startAt)}`,
-    `DTEND:${fmt(b.endAt)}`,
-    `SUMMARY:${esc(`${b.product.title} · ${b.creator.displayName}`)}`,
-    `DESCRIPTION:${esc(b.meetingUrl ? `Videollamada: ${b.meetingUrl}` : "Sesión reservada en Cirella")}`,
-    b.meetingUrl ? `URL:${b.meetingUrl}` : "",
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ].filter(Boolean).join("\r\n");
+  const ics = buildIcs({ id: b.id, startAt: b.startAt, endAt: b.endAt, meetingUrl: b.meetingUrl, productTitle: b.product.title, creatorName: b.creator.displayName });
   return new NextResponse(ics, { headers: { "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": `attachment; filename="sesion.ics"` } });
 }

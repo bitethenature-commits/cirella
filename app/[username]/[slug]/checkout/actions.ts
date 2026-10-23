@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { claimOrderSession, holdsCheckout, rememberCheckout } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { isSlotAvailable } from "@/lib/booking";
+import { Prisma } from "@prisma/client";
+import { isGroupSession, isSlotAvailable } from "@/lib/booking";
+import { asksIntake, parseIntakeAnswers, readIntakeConfig } from "@/lib/intake";
+import { canonicalTimezone } from "@/lib/timezones";
 import { parseCheckoutConsents } from "@/lib/checkout-consents";
 import { requestClient } from "@/lib/client-ip";
 import { ensureLegalSnapshot } from "@/lib/legal-snapshot";
@@ -19,7 +22,8 @@ import { isPlausibleTaxId, normalizeTaxId } from "@/lib/tax/tax-id";
 import { currentVisitorId } from "@/lib/visitor";
 
 /** needsCaptcha: el siguiente intento necesita la comprobación de Turnstile (tras varios rechazos). */
-export type CheckoutState = { error?: string; orderId?: string; needsCaptcha?: boolean; captchaSiteKey?: string } | undefined;
+/** field: campo con el error (datos para la lectura), para enfocarlo. */
+export type CheckoutState = { error?: string; field?: string; orderId?: string; needsCaptcha?: boolean; captchaSiteKey?: string } | undefined;
 
 const schema = z.object({
   productId: z.string().min(1),
@@ -27,6 +31,8 @@ const schema = z.object({
   name: z.string().trim().min(2, "Escribe tu nombre").max(80),
   email: z.string().trim().toLowerCase().email("Revisa tu email"),
   slotStart: z.string().datetime().optional().or(z.literal("")),
+  // Zona horaria del navegador (sesiones): la clienta verá su hora en los emails y en su área.
+  buyerTz: z.string().max(64).optional(),
   // Pasarela elegida (tarjeta o PayPal) cuando la web tiene varias.
   payWith: z.string().max(20).optional(),
   // Solo el simulador pide la tarjeta en nuestra página; con Stripe se paga en la suya.
@@ -57,8 +63,18 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
   const billing = input.wantsInvoice
     ? { name: input.billingName!, taxId: normalizeTaxId(input.billingTaxId!), address: input.billingAddress! }
     : null;
-  const product = await prisma.product.findUnique({ where: { id: input.productId }, select: { creatorId: true, type: true, deliveryMode: true } });
+  const product = await prisma.product.findUnique({
+    where: { id: input.productId },
+    select: { creatorId: true, type: true, deliveryMode: true, intake: true, groupSession: true },
+  });
   if (!product) return { error: "Este producto no está disponible ahora mismo.", orderId: input.orderId || undefined };
+  // Datos para la lectura (nacimiento y preguntas de la dueña): se validan aquí, con su configuración.
+  const intakeCfg = readIntakeConfig(product.intake);
+  const intake = asksIntake(product.type, product.deliveryMode, intakeCfg) ? parseIntakeAnswers(intakeCfg, Object.fromEntries(form)) : ({ ok: true, value: null } as const);
+  if (!intake.ok) return { error: intake.error, field: intake.field, orderId: input.orderId || undefined };
+  // Un taller tiene fecha fija: no se elige hueco.
+  const slotStart = isGroupSession(product) ? "" : input.slotStart || "";
+  const buyerTz = canonicalTimezone(input.buyerTz);
   const consents = parseCheckoutConsents(Object.fromEntries(form), product.type, product.deliveryMode);
   if (!consents.ok) return { error: consents.error, orderId: input.orderId || undefined };
   // Límites de intentos y, tras varios rechazos, el captcha (el token no va en el esquema: es de un solo uso).
@@ -85,7 +101,7 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
       existing.buyerEmail === input.email &&
       // Otro método de pago (de tarjeta a PayPal o al revés): pedido nuevo, y el anterior se cancela.
       existing.paymentProvider === payWith &&
-      prevSlot === (input.slotStart || "") &&
+      prevSlot === slotStart &&
       // El IVA y la factura dependen del país y de los datos fiscales: si cambian, pedido nuevo.
       existing.buyerCountry === input.country &&
       existing.billingTaxId === (billing?.taxId ?? null) &&
@@ -94,7 +110,8 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
     if (reusable) {
       const purchasable = await getPurchasableProduct(input.productId);
       reusable = !!purchasable && purchasable.priceCents === existing!.amountCents;
-      if (reusable && input.slotStart && !(await isSlotAvailable(purchasable!, input.slotStart)))
+      // Su propio pedido no le quita la hora que ya tenía guardada.
+      if (reusable && slotStart && !(await isSlotAvailable(purchasable!, slotStart, { ignoreOrderId: existing!.id })))
         throw new CheckoutError("Ese horario acaba de ocuparse. Elige otro, por favor.");
     }
     if (!reusable) {
@@ -117,7 +134,9 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
         productId: input.productId,
         buyerEmail: input.email,
         buyerName: input.name,
-        slotStart: input.slotStart || null,
+        slotStart: slotStart || null,
+        buyerTimezone: buyerTz,
+        intake: intake.value,
         visitorId,
         ipHash: client.ipHash,
         source: lastVisit?.source ?? null,
@@ -142,8 +161,15 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
         waiverText: consents.consents.waiverText,
         waiverAcceptedAt: consents.consents.waiverKind ? now : null,
         marketingOptIn: consents.consents.marketingOptIn,
+        // Corregir los datos de nacimiento al reintentar no obliga a hacer otro pedido.
+        intake: intake.value ? (intake.value as unknown as Prisma.InputJsonObject) : Prisma.DbNull,
+        intakeUpdatedAt: intake.value ? now : null,
       },
     });
+    if (buyerTz)
+      await prisma.$executeRaw`
+        UPDATE "Order" SET "metadata" = COALESCE("metadata", '{}'::jsonb) || jsonb_build_object('buyerTz', ${buyerTz}::text)
+        WHERE "id" = ${orderId!} AND "productType" = 'SESSION' AND "status" IN ('PENDING', 'FAILED', 'ABANDONED')`;
     // Este navegador es el que paga: solo él podrá abrir la sesión limitada al pedido, también al
     // volver de la pasarela o del banco (lib/payments/return.ts).
     await rememberCheckout(orderId!);

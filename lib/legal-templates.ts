@@ -89,16 +89,17 @@ Te devolvemos el dinero en un máximo de 14 días desde que nos comunicas tu dec
 ${platformName} trata tus datos por encargo de la vendedora para alojar la página, gestionar las compras y enviarte los emails. Cuando ${platformName} emite la factura en su nombre (lo indica el resumen de la compra), es responsable de los datos de esa factura y de los registros fiscales que debe conservar. Stripe trata los datos del pago como responsable independiente.
 
 ## Qué datos
-Nombre, email, compras, reservas y los mensajes que nos envíes.
+Nombre, email, compras, reservas y los mensajes que nos envíes. Si reservas una lectura, los datos de nacimiento (fecha, hora y lugar) y las respuestas que des para prepararla.
 
 ## Para qué y con qué base
 • Gestionar tu compra y darte acceso: ejecución del contrato.
+• Preparar tu lectura con tus datos de nacimiento y tus respuestas: ejecución del contrato.
 • Cumplir las obligaciones legales y fiscales: obligación legal.
 • Recordarte una vez una compra que dejaste a medias: interés legítimo. Puedes oponerte en cualquier momento.
 • Enviarte novedades, solo si marcas la casilla: consentimiento. Puedes retirarlo desde tu cuenta.
 
 ## Cuánto tiempo
-Los datos de las compras, 6 años (obligaciones mercantiles y fiscales). Los de las novedades, hasta que retires tu consentimiento.
+Los datos de las compras, 6 años (obligaciones mercantiles y fiscales). Los datos para la lectura, hasta que pidas que se borren (los de una compra que no se terminó, 30 días). Los de las novedades, hasta que retires tu consentimiento.
 
 ## Tus derechos
 Puedes pedir el acceso, la rectificación, la supresión, la oposición, la limitación y la portabilidad de tus datos escribiendo al email del aviso legal. También puedes reclamar ante la Agencia Española de Protección de Datos (www.aepd.es).`;
@@ -218,10 +219,11 @@ Si eres consumidora, conservas siempre la protección que te dan las leyes de tu
   }).refunds;
 
   const privacy = `## Qué datos
-Tu nombre y tu email; tus compras, reservas y membresías; los contenidos a los que tienes acceso y tu progreso en los cursos; el país que indicas al pagar (para calcular los impuestos); los datos fiscales que escribas si pides factura, y los mensajes que envíes.
+Tu nombre y tu email; tus compras, reservas y membresías; los contenidos a los que tienes acceso y tu progreso en los cursos; el país que indicas al pagar (para calcular los impuestos); los datos fiscales que escribas si pides factura; si reservas una lectura, los datos de nacimiento (fecha, hora y lugar) y las respuestas que des para prepararla, y los mensajes que envíes.
 
 ## Para qué y con qué base
 • Gestionar tu compra o tu reserva, darte acceso y enviarte el enlace para entrar: ejecución del contrato.
+• Preparar tu lectura con tus datos de nacimiento y tus respuestas: ejecución del contrato.
 • Darte acceso a los contenidos gratuitos que pides: ejecución de lo que solicitas.
 • Cumplir las obligaciones legales y fiscales (facturas, impuestos): obligación legal.
 • Recordarte una vez una compra que dejaste a medias: interés legítimo. Puedes oponerte en cualquier momento.
@@ -235,7 +237,7 @@ ${personalProcessorsText(i.paymentKeys)} como responsables independientes, con s
 Para alojar la web, guardar los archivos y enviar los emails se usan proveedores tecnológicos que tratan los datos solo por encargo y con las garantías del Reglamento General de Protección de Datos. Si alguno está fuera del Espacio Económico Europeo, la transferencia se hace con esas garantías (cláusulas contractuales tipo o el Marco de Privacidad de Datos UE-EE. UU.).
 
 ## Cuánto tiempo
-Los datos de las compras, el tiempo que exigen las obligaciones mercantiles y fiscales (en general, 6 años). El resto, mientras mantengas el acceso a los contenidos o hasta que pidas que se borren tus datos. Los de las novedades, hasta que retires tu consentimiento.
+Los datos de las compras, el tiempo que exigen las obligaciones mercantiles y fiscales (en general, 6 años). El resto, mientras mantengas el acceso a los contenidos o hasta que pidas que se borren tus datos; los datos para la lectura de una compra que no se terminó, 30 días. Los de las novedades, hasta que retires tu consentimiento.
 
 ## Tus derechos
 Puedes pedir el acceso, la rectificación, la supresión, la oposición, la limitación y la portabilidad de tus datos escribiendo al email del aviso legal. También puedes reclamar ante la autoridad de protección de datos de tu país (en España, la Agencia Española de Protección de Datos, www.aepd.es).`;

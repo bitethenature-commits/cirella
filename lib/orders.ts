@@ -2,7 +2,7 @@ import "server-only";
 import { asAccessMode, isNoChargeOrder } from "./access-mode";
 import { prisma } from "./db";
 import { dispatchEvents, recordEvents, type DomainEvent } from "./events";
-import { hasBookingClash, isBookingOverlapError, isSlotAvailable } from "./booking";
+import { hasBookingClash, isBookingOverlapError, isGroupSession, isSlotAvailable, lockCreatorBookings, lockProductSeats, seatsTaken } from "./booking";
 import { dac7SalesPaused } from "./dac7-data";
 import { appUrl, isDemoMode } from "./env";
 import { canInvoiceSale, issueSaleInvoiceTx } from "./invoices/issue";
@@ -18,6 +18,9 @@ import { chargeKey } from "./reliability";
 import { computeSaleAmounts, decideTax, platformRetainedCents } from "./tax";
 import { getTaxMode } from "./tax/server";
 import type { ProductType } from "./types";
+import type { IntakeAnswers } from "./intake";
+import { canonicalTimezone } from "./timezones";
+import { Prisma } from "@prisma/client";
 
 export class CheckoutError extends Error {}
 
@@ -35,8 +38,13 @@ export async function getPurchasableProduct(productId: string) {
   const c = product.creator;
   if (c.status !== "ACTIVE" || !c.published) return null;
   if (!canSellType(c.plan, product.type as ProductType)) return null;
+  // Un taller ya empezado (o sin fecha) no se vende.
+  if (isGroupSession(product) && (!product.eventStartAt || product.eventStartAt <= new Date())) return null;
   return product;
 }
+
+/** Lo que guarda Order.metadata de una sesión. ownerPlaced y manual solo cuentan en pedidos «manual». */
+export type SessionOrderMeta = { slotStart?: string; buyerTz?: string; ownerPlaced?: boolean; manual?: string; message?: string };
 
 /**
  * Paso 1: crea el pedido pendiente (permite medir abandonos y recuperarlos). Guarda la instantánea
@@ -59,6 +67,10 @@ export async function createPendingOrder(input: {
   billing?: { name: string; taxId: string; address: string } | null;
   /** Pasarela elegida en el checkout (tarjeta o PayPal). Sin elegir, la principal. */
   paymentMethod?: string | null;
+  /** Zona horaria del navegador de la compradora (sesiones): sus emails y su área le enseñan su hora. */
+  buyerTimezone?: string | null;
+  /** Datos para la lectura, ya validados con la configuración del producto (lib/intake.ts). */
+  intake?: IntakeAnswers | null;
 }) {
   // Sin pasarela (PAYMENT_PROVIDER=none): no hay compras en la web, se cierra aquí.
   if (!paidCheckoutOpen()) throw new CheckoutError(NO_ONLINE_PAYMENTS);
@@ -71,10 +83,6 @@ export async function createPendingOrder(input: {
   if (!legalIdentityComplete(product.creator)) throw new CheckoutError("La creadora todavía no ha activado los pagos.");
   if (await dac7SalesPaused(product.creator, product.type))
     throw new CheckoutError("Este servicio no está disponible temporalmente. Vuelve a intentarlo en unos días.");
-  if (product.type === "SESSION" && input.slotStart) {
-    if (!(await isSlotAvailable(product, input.slotStart)))
-      throw new CheckoutError("Ese horario acaba de ocuparse. Elige otro, por favor.");
-  }
   const tax = decideTax({
     mode: await getTaxMode(),
     productType: product.type,
@@ -90,7 +98,21 @@ export async function createPendingOrder(input: {
   const amounts = computeSaleAmounts(product.priceCents, commissionBps, tax);
   // Sin factura posible (vende una creadora que no repercute IVA) no se guardan datos de facturación.
   const billing = input.billing && canInvoiceSale(tax.seller, product.creator) ? input.billing : null;
-  return prisma.order.create({
+  const group = isGroupSession(product);
+  const slotStart = product.type === "SESSION" && !group ? input.slotStart || null : null;
+  const buyerTz = product.type === "SESSION" ? canonicalTimezone(input.buyerTimezone) : null;
+  const metadata: SessionOrderMeta = { ...(slotStart ? { slotStart } : {}), ...(buyerTz ? { buyerTz } : {}) };
+  // La comprobación del hueco (o de las plazas) y el pedido van juntos bajo el cerrojo: en la web
+  // personal el pedido guarda la hora mientras se paga, así que dos personas no pagan la misma.
+  return prisma.$transaction(async (tx) => {
+    if (group) {
+      await lockProductSeats(tx, product.id);
+      if (product.capacity != null && (await seatsTaken(tx, product.id)) >= product.capacity) throw new CheckoutError("No quedan plazas en este taller.");
+    } else if (slotStart) {
+      await lockCreatorBookings(tx, product.creatorId);
+      if (!(await isSlotAvailable(product, slotStart, { client: tx }))) throw new CheckoutError("Ese horario acaba de ocuparse. Elige otro, por favor.");
+    }
+    return tx.order.create({
     data: {
       creatorId: product.creatorId,
       productId: product.id,
@@ -113,11 +135,14 @@ export async function createPendingOrder(input: {
       billingTaxId: billing?.taxId ?? null,
       billingAddress: billing?.address ?? null,
       paymentProvider: providerKey,
-      metadata: input.slotStart ? { slotStart: input.slotStart } : undefined,
+      metadata: Object.keys(metadata).length ? metadata : undefined,
+      intake: input.intake ? (input.intake as unknown as Prisma.InputJsonObject) : undefined,
+      intakeUpdatedAt: input.intake ? new Date() : null,
       visitorId: input.visitorId ?? null,
       ipHash: input.ipHash ?? null,
       source: input.source ?? null,
     },
+  });
   });
 }
 
@@ -421,17 +446,42 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
       events.push({ type: "subscription.created", subscriptionId: sub.id });
     }
     if (p.type === "SESSION") {
-      const slotStart = (order.metadata as { slotStart?: string } | null)?.slotStart;
-      const start = slotStart ? new Date(slotStart) : null;
-      // Bajo el cerrojo de reservas de la creadora (lo toma hasBookingClash): el hueco no
-      // choca con otra reserva y sigue dentro de su horario. Si otra compra lo ha ocupado
-      // mientras tanto, esta reserva queda pendiente de elegir fecha.
-      const stillFree =
-        opts.confirmSlot &&
-        !!slotStart &&
-        !!start &&
-        !(await hasBookingClash(tx, order.creatorId, start, new Date(start.getTime() + (p.durationMin ?? 60) * 60000), p.bufferMin ?? 15)) &&
-        (await isSlotAvailable(p, slotStart, { client: tx }));
+      const meta = (order.metadata ?? {}) as SessionOrderMeta;
+      // Lo que la dueña decide al dar una sesión a mano solo vale en pedidos «manual»: el checkout
+      // nunca escribe esas claves, pero tampoco se leen en un pedido de pago.
+      const manual = order.paymentProvider === "manual";
+      const ownerPlaced = manual && !!meta.ownerPlaced;
+      const customerTimezone = canonicalTimezone(meta.buyerTz);
+      let status = "PENDING_SCHEDULE";
+      let start: Date | null = null;
+      let groupSeat = false;
+      if (isGroupSession(p)) {
+        // Plaza de un taller: siempre se confirma (nunca se rechaza una plaza pagada). Si una carrera
+        // supera el aforo, la dueña lo ve en su aviso y en la lista de asistentes.
+        groupSeat = true;
+        if (p.eventStartAt) {
+          status = "CONFIRMED";
+          start = p.eventStartAt;
+        } else captureAlert("Plaza de un taller sin fecha: queda pendiente", { area: "payments", level: "warning", fingerprint: ["taller-sin-fecha"], extra: { orderId } });
+      } else {
+        const slotStart = meta.slotStart;
+        const wanted = slotStart ? new Date(slotStart) : null;
+        // Bajo el cerrojo de reservas de la creadora (lo toma hasBookingClash): el hueco no
+        // choca con otra reserva ni con un taller y sigue dentro de su horario (salvo una hora que
+        // la dueña puso a mano). Si otra compra lo ha ocupado mientras tanto, esta reserva queda
+        // pendiente de elegir fecha. La antelación mínima cuenta desde que se hizo el pedido.
+        const stillFree =
+          opts.confirmSlot &&
+          !!slotStart &&
+          !!wanted &&
+          !Number.isNaN(wanted.getTime()) &&
+          !(await hasBookingClash(tx, order.creatorId, wanted, new Date(wanted.getTime() + (p.durationMin ?? 60) * 60000), p.bufferMin ?? 15)) &&
+          (ownerPlaced ? wanted > now : await isSlotAvailable(p, slotStart, { client: tx, ignoreOrderId: order.id, noticeFrom: order.createdAt }));
+        if (wanted && stillFree) {
+          status = "CONFIRMED";
+          start = wanted;
+        }
+      }
       const booking = await tx.booking.create({
         data: {
           creatorId: order.creatorId,
@@ -439,13 +489,15 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
           customerId: customer.id,
           userId: user.id,
           orderId: order.id,
-          status: start && stillFree ? "CONFIRMED" : "PENDING_SCHEDULE",
-          startAt: start && stillFree ? start : null,
-          endAt: start && stillFree ? new Date(start.getTime() + (p.durationMin ?? 60) * 60000) : null,
+          status,
+          startAt: start,
+          endAt: start ? new Date(start.getTime() + (p.durationMin ?? 60) * 60000) : null,
           meetingUrl: p.meetingUrl,
+          customerTimezone,
+          groupSeat,
         },
       });
-      events.push({ type: "booking.confirmed", bookingId: booking.id });
+      events.push({ type: "booking.confirmed", bookingId: booking.id, change: manual ? "manual" : "new" });
     }
     // El acceso de una membresía duplicada sigue siendo el de la suscripción que ya tenía. Sin cobro,
     // la suscripción viva solo cuenta si su acceso sigue vigente: en la web sin pasarela (modo
@@ -480,6 +532,18 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
     const eventIds = await recordEvents(tx, events);
     return { order: paid, userId: user.id, isNewUser: !existingUser, alreadyPaid: false, duplicateMembership, eventIds };
   }, { timeout: 15_000 });
+}
+
+/**
+ * Los datos para la lectura de un pedido que nunca se pagó no se guardan más de 30 días (RGPD:
+ * minimización). Devuelve cuántos pedidos se han limpiado.
+ */
+export async function purgeAbandonedIntake(now: Date = new Date()) {
+  const r = await prisma.order.updateMany({
+    where: { status: { in: ["PENDING", "FAILED", "ABANDONED"] }, createdAt: { lt: new Date(now.getTime() - 30 * 86400_000) }, NOT: { intake: { equals: Prisma.DbNull } } },
+    data: { intake: Prisma.DbNull, intakeUpdatedAt: null },
+  });
+  return r.count;
 }
 
 export async function syncBookingToCalendar(bookingId: string) {

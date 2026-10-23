@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Prisma } from "@prisma/client";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
@@ -18,6 +19,8 @@ import { getPublicProduct } from "@/lib/product-page";
 import { asVatStatus, decideTax } from "@/lib/tax";
 import { isKnownCountry } from "@/lib/tax/rates";
 import { getTaxMode, headerCountry } from "@/lib/tax/server";
+import { isGroupSession, seatsTaken } from "@/lib/booking";
+import { asksIntake, intakeFormValues, readIntakeAnswers, readIntakeConfig } from "@/lib/intake";
 import { CheckoutForm } from "./checkout-form";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
@@ -92,6 +95,29 @@ export default async function CheckoutPage({
     found && ((user?.sessionVerified && user.email === found.buyerEmail) || (!!found.claimTokenHash && (await holdsCheckout(found.id, found.claimTokenHash))))
       ? found
       : null;
+  // Taller: fecha fija y plazas que quedan (contando los pagos en curso de otras personas).
+  const workshop =
+    isGroupSession(p) && p.eventStartAt
+      ? {
+          startAt: p.eventStartAt.toISOString(),
+          ownerTz: data.creator.timezone,
+          seatsLeft: p.capacity == null ? null : Math.max(0, p.capacity - (await seatsTaken(prisma, p.id, { ignoreOrderId: previous?.id }))),
+        }
+      : null;
+  // Datos para la lectura: con la sesión verificada de la compradora, sus datos de nacimiento de la
+  // última vez (nunca con una sesión limitada a otro pedido ni para alguien sin sesión).
+  const intakeCfg = readIntakeConfig(p.intake);
+  const intake = asksIntake(p.type, p.deliveryMode, intakeCfg) ? intakeCfg : null;
+  const lastIntake =
+    intake && intake.birth !== "off" && user?.sessionVerified
+      ? await prisma.order.findFirst({
+          where: { creatorId: data.creator.id, buyerEmail: user.email, status: "PAID", NOT: { intake: { equals: Prisma.DbNull } } },
+          orderBy: { createdAt: "desc" },
+          select: { intake: true },
+        })
+      : null;
+  const lastBirth = readIntakeAnswers(lastIntake?.intake)?.birth;
+  const intakePrefill = lastBirth ? intakeFormValues({ v: 1, birth: lastBirth, answers: [] }) : undefined;
   const guessed = headerCountry(await headers());
   const defaultCountry = previous?.buyerCountry ?? (guessed ? (isKnownCountry(guessed) ? guessed : "XX") : "ES");
 
@@ -111,6 +137,9 @@ export default async function CheckoutPage({
             durationMin: p.durationMin,
             ctaLabel: p.ctaLabel,
             deliveryMode: p.deliveryMode,
+            workshop,
+            intake,
+            intakePrefill,
           }}
           payoutReady={payoutReady}
           methods={methods}

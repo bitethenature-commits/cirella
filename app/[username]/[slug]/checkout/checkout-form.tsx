@@ -1,11 +1,15 @@
 "use client";
 
 import { CalendarClock, Check, CreditCard, Loader2, Lock, ShieldCheck, Smartphone, Wallet } from "lucide-react";
-import { startTransition, useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { BillingFields, VatBreakdown, type BillingPrefill, type CheckoutTaxInfo } from "@/components/checkout/billing-fields";
 import { ProductImage } from "@/components/creator-page/product-art";
 import { Turnstile } from "@/components/ui/turnstile";
-import type { DaySlots } from "@/lib/booking";
+import { IntakeFields } from "@/components/booking/intake-fields";
+import { LocalDateTime } from "@/components/booking/local-date-time";
+import { SlotPicker } from "@/components/booking/slot-picker";
+import { browserTimezone } from "@/components/booking/timezone-select";
+import type { IntakeConfig } from "@/lib/intake";
 import { checkoutDeliveryBadge } from "@/lib/delivery";
 import { sessionChangePolicyText } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
@@ -27,6 +31,12 @@ type Product = {
   durationMin: number | null;
   ctaLabel: string | null;
   deliveryMode: string;
+  /** Taller en directo: fecha fija y plazas (null = sin límite). */
+  workshop?: { startAt: string; ownerTz: string; seatsLeft: number | null } | null;
+  /** Datos para la lectura que pide (null = nada). */
+  intake?: IntakeConfig | null;
+  /** Datos de nacimiento de su compra anterior (solo con su sesión verificada). */
+  intakePrefill?: Record<string, string | boolean>;
 };
 
 function PayButton({ label, disabled, pending }: { label: string; disabled?: boolean; pending: boolean }) {
@@ -115,22 +125,24 @@ export function CheckoutForm({
   const chosen = methods.find((m) => m.key === payWith) ?? methods[0] ?? null;
   const collectsCardOnSite = !!chosen?.collectsCardOnSite;
   const isPaypal = chosen?.key === "paypal";
-  const [slots, setSlots] = useState<{ days: DaySlots[]; timezone: string } | null>(null);
-  const [day, setDay] = useState<string | null>(null);
   const [slot, setSlot] = useState<string>("");
+  const [buyerTz, setBuyerTz] = useState<string>("");
+  const formRef = useRef<HTMLFormElement>(null);
+
   const [later, setLater] = useState(false);
   // Campos controlados: React resetea los formularios con acción tras cada envío y
   // no queremos que un pago rechazado borre el nombre y el email.
   const [name, setName] = useState(prefill.name);
   const [email, setEmail] = useState(prefill.email);
   const [country, setCountry] = useState(defaultCountry);
-  const [slotsError, setSlotsError] = useState(false);
   // Captcha tras varios pagos rechazados: cada token sirve una vez, así que tras cada intento se
   // vuelve a montar la comprobación con un token nuevo.
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaRound, setCaptchaRound] = useState(0);
   const needsCaptcha = !!(state?.needsCaptcha && state.captchaSiteKey);
   const isSession = product.type === "SESSION";
+  const workshop = product.workshop ?? null;
+  const full = !!workshop && workshop.seatsLeft !== null && workshop.seatsLeft <= 0;
   const price = formatPrice(product.priceCents, product.currency, product.billingInterval);
   const withVat = vatIncluded(
     decideTax({
@@ -148,28 +160,25 @@ export function CheckoutForm({
   }, [state]);
 
   useEffect(() => {
-    if (!isSession) return;
-    fetch(`/api/slots?productId=${product.id}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then((d) => {
-        setSlots(d);
-        if (d.days?.[0]) setDay(d.days[0].date);
-      })
-      .catch(() => {
-        // 404, 429 (demasiadas peticiones) o sin conexión: se avisa sin romper la página.
-        setSlots({ days: [], timezone: "" });
-        setSlotsError(true);
-      });
-  }, [isSession, product.id]);
+    if (!buyerTz) setBuyerTz(browserTimezone(""));
+  }, [buyerTz]);
 
-  const selectedDay = slots?.days.find((d) => d.date === day);
-  const sessionReady = !isSession || later || !!slot;
+  // El campo con el error de los datos para la lectura se enfoca y se lleva a la vista.
+  useEffect(() => {
+    if (!state?.field) return;
+    const el = formRef.current?.querySelector<HTMLElement>(`[name="${state.field}"]`);
+    el?.focus();
+    el?.scrollIntoView({ block: "center" });
+  }, [state]);
+
+  const sessionReady = !isSession || !!workshop || later || !!slot;
   let n = 0;
 
   return (
     <form
       // onSubmit en lugar de action={}: React vacía el formulario tras cada envío y un pago rechazado
       // o un NIF mal escrito desmarcaría las casillas (que siguen marcadas en el estado).
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
@@ -181,7 +190,8 @@ export function CheckoutForm({
       <input type="hidden" name="orderId" value={state?.orderId ?? initialOrderId ?? ""} />
       {chosen && <input type="hidden" name="payWith" value={chosen.key} />}
       {collectsCardOnSite && <input type="hidden" name="method" value={method} />}
-      <input type="hidden" name="slotStart" value={later ? "" : slot} />
+      <input type="hidden" name="slotStart" value={later || workshop ? "" : slot} />
+      {isSession && <input type="hidden" name="buyerTz" value={buyerTz} />}
       <input type="hidden" name="turnstileToken" value={captchaToken} />
 
       <div>
@@ -210,62 +220,32 @@ export function CheckoutForm({
         </div>
       </div>
 
-      {isSession && (
+      {isSession && workshop && (
+        <section className="cp-card space-y-2 p-5">
+          <SectionTitle n={++n} title="Fecha del taller" />
+          <p className="text-[1.05rem] font-semibold">
+            <LocalDateTime iso={workshop.startAt} ownerTz={workshop.ownerTz} />
+          </p>
+          <p className="cp-muted text-sm">
+            {full ? "Completo: no quedan plazas." : workshop.seatsLeft === null ? "En directo por videollamada." : `Quedan ${workshop.seatsLeft} ${workshop.seatsLeft === 1 ? "plaza" : "plazas"}.`}
+          </p>
+        </section>
+      )}
+
+      {isSession && !workshop && (
         <section className="cp-card space-y-4 p-5">
           <SectionTitle n={++n} title="Elige fecha y hora" />
-          {!slots ? (
-            <p className="cp-muted flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Cargando disponibilidad…</p>
-          ) : slotsError ? (
-            <p className="cp-muted text-sm">No hemos podido cargar los horarios. Recarga la página en unos segundos.</p>
-          ) : slots.days.length === 0 ? (
-            <p className="cp-muted text-sm">No hay huecos disponibles ahora mismo. Puedes reservar y elegir la fecha más adelante.</p>
-          ) : (
-            <div className={later ? "pointer-events-none opacity-40" : ""}>
-              <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 scrollbar-none">
-                {slots.days.map((d) => (
-                  <button
-                    key={d.date}
-                    type="button"
-                    onClick={() => {
-                      setDay(d.date);
-                      setSlot("");
-                    }}
-                    className="flex w-[3.9rem] shrink-0 flex-col items-center rounded-2xl border py-2.5 transition"
-                    style={
-                      day === d.date
-                        ? { background: "var(--c-accent)", color: "var(--c-accent-text)", borderColor: "transparent" }
-                        : { borderColor: "var(--c-line)" }
-                    }
-                  >
-                    <span className="text-[0.65rem] uppercase tracking-wider opacity-75">{d.weekday}</span>
-                    <span className="text-xl font-semibold leading-tight">{d.day}</span>
-                    <span className="text-[0.65rem] opacity-75">{d.month}</span>
-                  </button>
-                ))}
-              </div>
-              {selectedDay && (
-                <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {selectedDay.slots.map((s) => (
-                    <button
-                      key={s.start}
-                      type="button"
-                      onClick={() => setSlot(s.start)}
-                      className="h-11 rounded-xl border text-sm font-medium tabular-nums transition"
-                      style={
-                        slot === s.start
-                          ? { background: "var(--c-text)", color: "var(--c-bg)", borderColor: "transparent" }
-                          : { borderColor: "var(--c-line)" }
-                      }
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <p className="cp-faint mt-3 text-xs">Horario de {creatorName} ({slots.timezone.replace("_", " ")})</p>
-            </div>
-          )}
-          <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+          <SlotPicker
+            productId={product.id}
+            orderId={state?.orderId ?? initialOrderId}
+            value={slot}
+            onChange={setSlot}
+            onTimezoneChange={setBuyerTz}
+            theme="creator"
+            disabled={later}
+            emptyText="No hay huecos disponibles ahora mismo. Puedes reservar y elegir la fecha más adelante."
+          />
+          <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm">
             <input type="checkbox" checked={later} onChange={(e) => setLater(e.target.checked)} className="h-4 w-4 accent-[var(--c-accent)]" />
             Prefiero elegir la fecha después del pago
           </label>
@@ -286,6 +266,13 @@ export function CheckoutForm({
         </div>
         <BillingFields country={country} onCountryChange={setCountry} canInvoice={canInvoice} prefill={billingPrefill} />
       </section>
+
+      {product.intake && (
+        <section className="cp-card space-y-4 p-5" id="datos">
+          <SectionTitle n={++n} title="Datos para tu lectura" />
+          <IntakeFields config={product.intake} initial={product.intakePrefill} ownerName={creatorName} errorField={state?.field} />
+        </section>
+      )}
 
       <section className="cp-card space-y-4 p-5">
         <SectionTitle n={++n} title="Método de pago" />
@@ -404,13 +391,15 @@ export function CheckoutForm({
           label={
             isPaypal
               ? `Pagar con PayPal · ${price}`
-              : isSession
+              : full
+                ? "Completo"
+                : isSession
                 ? `Reservar y pagar · ${price}`
                 : product.type === "MEMBERSHIP"
                   ? `Unirme · ${price}`
                   : `Pagar ${price}`
           }
-          disabled={!payoutReady || !sessionReady || (needsCaptcha && !captchaToken)}
+          disabled={!payoutReady || !sessionReady || full || (needsCaptcha && !captchaToken)}
           pending={pending}
         />
         <div className="cp-faint flex items-center justify-center gap-4 text-xs">
