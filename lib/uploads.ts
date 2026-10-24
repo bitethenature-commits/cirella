@@ -13,15 +13,19 @@
  */
 import { randomBytes } from "node:crypto";
 import { HEIC_ERROR, isHeic, MULTIPART_THRESHOLD, planParts, uploadPolicy, type UploadPolicy } from "./file-types";
-import { storeProcessedImage } from "./images";
+import { storeImage } from "./images";
+import { PAGE_VIDEO_MAX, pageVideoUrl, type PageVideo } from "./page-blocks";
 import { probeStoredFile, type MediaInfo } from "./media-probe";
 import { isPersonalMode } from "./site-mode";
 import { IMAGE_TYPES, PRIVATE_TYPES, privateFileType, signToken, storage, storageSecret, verifyToken } from "./storage";
 import { deliverableOrder } from "./deliverable";
 import { tenantDb } from "./tenant";
 
-/** image: imagen pública · file: archivo de un producto · delivery: entrega de un pedido (lib/order-files.ts). */
-export type UploadPurpose = "image" | "file" | "delivery";
+/**
+ * image: imagen pública · file: archivo de un producto · delivery: entrega de un pedido (lib/order-files.ts)
+ * · video: vídeo público de la página (bloque «Vídeo»; solo la web personal).
+ */
+export type UploadPurpose = "image" | "file" | "delivery" | "video";
 
 /** Límites de la plataforma (alias de uploadPolicy(false)); la web personal admite vídeos de 4 GB. */
 export const UPLOAD_LIMITS = { image: uploadPolicy(false).imageMax, file: uploadPolicy(false).fileMax } as const;
@@ -34,7 +38,11 @@ export class UploadError extends Error {}
 
 /** Lo que firma el billete de subida. */
 /** `u`/`ps`: id de la subida por partes y tamaño de cada parte (solo en la web personal). */
-type Ticket = { k: string; c: string; p: UploadPurpose; pid?: string; oid?: string; n: string; ct: string; s: number; u?: string; ps?: number };
+/** `g`: imagen con el perfil «graphic» (gráficos de Canva, lib/images.ts). */
+type Ticket = { k: string; c: string; p: UploadPurpose; pid?: string; oid?: string; n: string; ct: string; s: number; u?: string; ps?: number; g?: 1 };
+
+/** Carpeta del almacenamiento de cada tipo de subida (el billete solo vale bajo la de su creadora). */
+const PREFIX: Record<UploadPurpose, string> = { image: "incoming", file: "private", delivery: "private", video: "public/video" };
 
 /** Pedido al que se puede entregar algo (de esta creadora: tenantDb). */
 async function deliverable(creatorId: string, orderId: string | undefined) {
@@ -57,7 +65,7 @@ export type MultipartUpload = { multipart: { partSize: number; partCount: number
 
 export async function createUpload(
   creatorId: string,
-  input: { purpose: UploadPurpose; productId?: string; orderId?: string; name: string; contentType: string; size: number },
+  input: { purpose: UploadPurpose; productId?: string; orderId?: string; name: string; contentType: string; size: number; graphic?: boolean },
   policy: UploadPolicy = uploadPolicy(isPersonalMode()),
 ): Promise<SingleUpload | MultipartUpload> {
   const { purpose, size } = input;
@@ -70,6 +78,17 @@ export async function createUpload(
     if (!IMAGE_TYPES[contentType]) throw new UploadError("Formato no admitido (usa JPG, PNG, WebP o GIF)");
     if (size > policy.imageMax) throw new UploadError("La imagen supera 25 MB");
     key = `incoming/${creatorId}/${randomBytes(12).toString("hex")}`;
+  } else if (purpose === "video") {
+    // Vídeo de la página: público (su dirección /media/video/… lleva 96 bits al azar) y solo en la
+    // web personal (en la plataforma, enlace de YouTube o Vimeo: ancho de banda y almacenamiento).
+    if (!isPersonalMode()) throw new UploadError("En tu página, los vídeos se añaden con un enlace de YouTube o Vimeo");
+    const canonical = privateFileType(contentType, input.name);
+    const type = canonical ? PRIVATE_TYPES[canonical] : undefined;
+    if (!canonical || type?.kind !== "VIDEO") throw new UploadError("Sube un vídeo MP4 o MOV");
+    if (size > PAGE_VIDEO_MAX) throw new UploadError("El vídeo supera 1 GB: expórtalo a 1080p");
+    const ext = /\.m4v$/i.test(input.name) ? "m4v" : type.ext;
+    key = `public/video/${creatorId}/${randomBytes(12).toString("hex")}.${ext}`;
+    contentType = canonical;
   } else {
     // Tipo canónico: es el que se firma para el PUT, va en el billete y acaba en ProductFile.mimeType.
     const canonical = privateFileType(contentType, input.name);
@@ -99,6 +118,7 @@ export async function createUpload(
     n: input.name.slice(0, 120),
     ct: contentType,
     s: size,
+    g: purpose === "image" && input.graphic ? 1 : undefined,
   };
   // Web personal: lo grande va por partes (un corte de wifi solo repite la parte que falló).
   if (purpose !== "image" && policy.multipart && size > MULTIPART_THRESHOLD) {
@@ -114,7 +134,9 @@ export async function createUpload(
 }
 
 export type CompletedFile = { id: string; name: string; kind: string; sizeBytes: number | null; durationSec: number | null; videoCodec: string | null };
-export type CompletedUpload = { url: string } | { file: CompletedFile };
+export type CompletedImage = { url: string; width: number; height: number };
+export type CompletedVideo = PageVideo;
+export type CompletedUpload = CompletedImage | { file: CompletedFile } | { video: CompletedVideo };
 
 const fileOut = (f: CompletedFile): CompletedFile => ({ id: f.id, name: f.name, kind: f.kind, sizeBytes: f.sizeBytes, durationSec: f.durationSec, videoCodec: f.videoCodec });
 
@@ -134,7 +156,7 @@ async function probeWithTimeout(key: string, size: number, mime: string): Promis
 /** Billete válido y de esta creadora (la clave, bajo su carpeta). */
 function readTicket(creatorId: string, ticket: string): Ticket {
   const t = verifyToken<Ticket>(ticket, storageSecret());
-  if (!t || t.c !== creatorId || !t.k.startsWith(`${t.p === "image" ? "incoming" : "private"}/${creatorId}/`))
+  if (!t || t.c !== creatorId || !PREFIX[t.p] || !t.k.startsWith(`${PREFIX[t.p]}/${creatorId}/`))
     throw new UploadError("La subida ha caducado. Vuelve a intentarlo.");
   return t;
 }
@@ -169,6 +191,7 @@ export async function abortUpload(creatorId: string, ticket: string): Promise<vo
 export async function completeUpload(creatorId: string, ticket: string): Promise<CompletedUpload> {
   const t = readTicket(creatorId, ticket);
   if (t.p === "delivery") return completeDelivery(creatorId, t);
+  if (t.p === "video") return completeVideo(t);
 
   const s = storage();
   if (t.u) {
@@ -193,8 +216,7 @@ export async function completeUpload(creatorId: string, ticket: string): Promise
 
   if (t.p === "image") {
     try {
-      const url = await storeProcessedImage(creatorId, await s.getBuffer(t.k, uploadPolicy(false).imageMax));
-      return { url };
+      return await storeImage(creatorId, await s.getBuffer(t.k, uploadPolicy(false).imageMax), { profile: t.g ? "graphic" : "photo" });
     } catch (e) {
       throw new UploadError(e instanceof Error ? e.message : "No hemos podido procesar la imagen");
     } finally {
@@ -233,6 +255,40 @@ export async function completeUpload(creatorId: string, ticket: string): Promise
     },
   });
   return { file: fileOut(record) };
+}
+
+/**
+ * Paso 2 del vídeo de la página: el objeto ya está en su sitio (public/video/…); se comprueba que
+ * llegó entero y se leen sus medidas, duración y códec para el bloque. Repetirlo con el mismo billete
+ * (doble clic, reintento) da lo mismo: el objeto ya existe.
+ */
+async function completeVideo(t: Ticket): Promise<CompletedUpload> {
+  const s = storage();
+  let head = await s.head(t.k);
+  if (t.u && (!head || head.size !== t.s)) {
+    try {
+      await s.completeMultipart(t.k, t.u);
+    } catch {
+      throw new UploadError("No hemos recibido el vídeo completo. Vuelve a intentarlo.");
+    }
+    head = await s.head(t.k);
+  }
+  if (!head || head.size !== t.s) {
+    if (head) await s.delete([t.k]);
+    throw new UploadError("No hemos recibido el vídeo completo. Vuelve a intentarlo.");
+  }
+  const info = await probeWithTimeout(t.k, t.s, t.ct);
+  const [cid, file] = t.k.slice("public/video/".length).split("/");
+  return {
+    video: {
+      src: pageVideoUrl(cid, file),
+      width: info?.video?.width ?? null,
+      height: info?.video?.height ?? null,
+      durationSec: info?.durationSec != null ? Math.round(info.durationSec) : null,
+      codec: info?.video?.codec ?? null,
+      sizeBytes: t.s,
+    },
+  };
 }
 
 /** Paso 2 de una entrega: el archivo queda en el pedido como borrador (la clienta no lo ve hasta enviarlo). */

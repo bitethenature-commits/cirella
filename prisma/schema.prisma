@@ -265,6 +265,7 @@ model Creator {
   recoveryOptOuts       RecoveryOptOut[]
   posts                 Post[]
   discountCodes         DiscountCode[]
+  sitePages             SitePage[]
   availabilityOverrides AvailabilityOverride[]
   orderFiles            OrderFile[]
 
@@ -579,6 +580,30 @@ model DiscountCode {
   updatedAt   DateTime  @updatedAt
 
   @@index([creatorId, active, sortOrder])
+}
+
+// Páginas extra de la web de una creadora («Sobre mí», «Preguntas frecuentes»…), cada una con su
+// dirección (/<usuaria>/p/<slug>; en la web personal, también /<slug>) y, como la página principal,
+// un borrador que se edita y una versión publicada, que es la que se ve. El contenido (título,
+// bloques, textos para redes) va en JSON: lib/site-pages.ts.
+model SitePage {
+  id             String    @id @default(cuid())
+  creatorId      String
+  creator        Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  slug           String // minúsculas, números y guiones (SITE_PAGE_SLUG_RE); nunca una ruta reservada de la web
+  title          String // título del borrador, para las listas del panel y las sugerencias de enlaces
+  publishedTitle String? // título de la versión publicada: el que sale en el pie de la web (sin leer el JSON)
+  draft          Json // SitePageContent
+  published      Json? // lo que se ve; null = nunca se ha publicado
+  status         String    @default("DRAFT") // DRAFT (no se ve) | PUBLISHED (se ve `published`). Despublicar conserva `published`.
+  publishedAt    DateTime?
+  showInNav      Boolean   @default(true) // enlace en el pie de su web mientras está publicada
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([creatorId, slug])
+  @@index([creatorId, status, sortOrder])
 }
 
 // ───────────────────────────── Clientes y ventas ─────────────────────────────

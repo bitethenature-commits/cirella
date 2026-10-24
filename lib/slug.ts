@@ -10,8 +10,8 @@ export const RESERVED_USERNAMES = new Set([
 ]);
 
 // Segmentos que no pueden usarse como slug de producto (colisionan con rutas).
-// «novedades» es la lista de publicaciones (/<usuaria>/novedades).
-export const RESERVED_PRODUCT_SLUGS = new Set(["gracias", "checkout", "opengraph-image", "icon", "cuenta", "entrar", "legal", "novedades"]);
+// «novedades» es la lista de publicaciones (/<usuaria>/novedades) y «p», las páginas extra (/<usuaria>/p/<página>).
+export const RESERVED_PRODUCT_SLUGS = new Set(["gracias", "checkout", "opengraph-image", "icon", "cuenta", "entrar", "legal", "novedades", "p"]);
 
 export function slugify(input: string) {
   return input
@@ -22,6 +22,9 @@ export function slugify(input: string) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
 }
+
+/** Dirección de una página extra (lib/site-pages.ts): minúsculas, números y guiones, sin puntos ni guiones bajos. */
+export const SITE_PAGE_SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$/;
 
 export const USERNAME_RE = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])?$/;
 

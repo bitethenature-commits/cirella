@@ -5,7 +5,8 @@ import { limitUpload } from "@/lib/limits";
 import { UploadError, createUpload } from "@/lib/uploads";
 
 const schema = z.object({
-  purpose: z.enum(["image", "file", "delivery"]),
+  purpose: z.enum(["image", "file", "delivery", "video"]),
+  graphic: z.boolean().optional(),
   productId: z.string().max(40).optional(),
   orderId: z.string().max(40).optional(),
   name: z.string().min(1).max(200),
@@ -19,6 +20,8 @@ const schema = z.object({
  *   { purpose: "image" }                → imagen pública (avatar, portada, producto)
  *   { purpose: "file", productId }      → contenido privado de un producto
  *   { purpose: "delivery", orderId }    → entrega de un pedido (lectura preparada, grabación)
+ *   { purpose: "video" }                → vídeo de un bloque de la página (solo la web personal)
+ *   graphic: true                       → imagen con el perfil «graphic» (gráficos de Canva)
  */
 export async function POST(req: Request) {
   const user = await getCurrentUser();

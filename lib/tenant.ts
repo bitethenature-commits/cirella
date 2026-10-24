@@ -49,6 +49,7 @@ export const TENANT_MODELS = new Set<Prisma.ModelName>([
   "RecoveryOptOut",
   "Post",
   "DiscountCode",
+  "SitePage",
 ]);
 
 const WHERE_OPS = new Set([

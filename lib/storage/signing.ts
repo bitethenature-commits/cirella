@@ -37,9 +37,12 @@ export function verifyToken<T extends object>(token: string | null | undefined, 
   }
 }
 
-const KEY_RE = /^(public|private|incoming)\/[a-z0-9]+\/[A-Za-z0-9._-]+$/;
+const KEY_RE = /^(?:(?:public|private|incoming)|public\/video)\/[a-z0-9]+\/[A-Za-z0-9._-]+$/;
 
-/** Clave de objeto válida: prefijo conocido, carpeta de la creadora y un nombre sin rutas. */
+/**
+ * Clave de objeto válida: prefijo conocido, carpeta de la creadora y un nombre sin rutas. Los
+ * vídeos de los bloques de la página van en public/video/<creadora>/ (lib/uploads.ts).
+ */
 export function isSafeKey(key: string) {
   return KEY_RE.test(key) && !key.includes("..");
 }

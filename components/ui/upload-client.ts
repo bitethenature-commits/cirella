@@ -10,6 +10,9 @@
  */
 export type UploadedFile = { id: string; name: string; kind: string; sizeBytes: number | null; durationSec?: number | null; videoCodec?: string | null };
 
+/** Vídeo subido a un bloque de la página (lib/page-blocks.ts → PageVideo). */
+export type UploadedPageVideo = { src: string; width: number | null; height: number | null; durationSec: number | null; codec: "H264" | "HEVC" | "OTHER" | null; sizeBytes: number | null };
+
 export type UploadProgress = (pct: number, loaded: number, total: number) => void;
 
 export const UPLOAD_CANCELLED = "Subida cancelada";
@@ -52,13 +55,13 @@ type SignAnswer = { uploadUrl: string; headers: Record<string, string>; ticket: 
 
 export async function uploadFile(
   file: File,
-  o: { purpose: "image" | "file" | "delivery"; productId?: string; orderId?: string; onProgress?: UploadProgress; signal?: AbortSignal },
-): Promise<{ url?: string; file?: UploadedFile }> {
+  o: { purpose: "image" | "file" | "delivery" | "video"; graphic?: boolean; productId?: string; orderId?: string; onProgress?: UploadProgress; signal?: AbortSignal },
+): Promise<{ url?: string; width?: number; height?: number; file?: UploadedFile; video?: UploadedPageVideo }> {
   const total = file.size;
   const report = (loaded: number) => o.onProgress?.(total ? Math.min(100, Math.round((loaded / total) * 100)) : 100, loaded, total);
   const signed = await postJson<SignAnswer>(
     "/api/upload/sign",
-    { purpose: o.purpose, productId: o.productId, orderId: o.orderId, name: file.name || "archivo", contentType: file.type, size: file.size },
+    { purpose: o.purpose, graphic: o.graphic || undefined, productId: o.productId, orderId: o.orderId, name: file.name || "archivo", contentType: file.type, size: file.size },
     o.signal,
   );
   try {

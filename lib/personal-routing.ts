@@ -5,7 +5,7 @@
  * process.env y decide aquí. La regla del modo es la misma que resolveSiteMode: «personal» solo si
  * se pide expresamente; cualquier otro valor es la plataforma.
  */
-import { normalizeUsername, RESERVED_USERNAMES, USERNAME_RE } from "./slug";
+import { normalizeUsername, RESERVED_USERNAMES, SITE_PAGE_SLUG_RE, USERNAME_RE } from "./slug";
 
 /** Usuario de la dueña si la web está en modo personal; null en la plataforma o si falta. */
 export function personalOwnerFromEnv(siteMode: string | undefined, ownerUsername: string | undefined): string | null {
@@ -29,6 +29,28 @@ export function ownerRootRedirect(pathname: string, owner: string | null): strin
     return null;
   }
   return normalizeUsername(first) === owner ? "/" : null;
+}
+
+/**
+ * En modo personal, las páginas extra de la dueña viven en la raíz: /sobre-mi → /<dueña>/p/sobre-mi
+ * (un rewrite: la dirección no cambia). Solo un tramo (con o sin barra final) con forma de dirección
+ * de página (SITE_PAGE_SLUG_RE: minúsculas, sin puntos ni guiones bajos), que no sea una ruta de la
+ * web (RESERVED_USERNAMES) ni la dueña. El destino siempre es de la dueña: nunca sirve datos de otra
+ * usuaria, y si no hay página publicada con esa dirección, la ruta responde 404 como antes.
+ * null = no hay que reescribir.
+ */
+export function ownerPageRewrite(pathname: string, owner: string | null): string | null {
+  if (!owner) return null;
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length !== 1 || !/^\/[^/]+\/?$/.test(pathname)) return null;
+  let seg: string;
+  try {
+    seg = decodeURIComponent(segments[0]);
+  } catch {
+    return null;
+  }
+  if (!SITE_PAGE_SLUG_RE.test(seg) || RESERVED_USERNAMES.has(seg) || seg === owner) return null;
+  return `/${owner}/p/${seg}`;
 }
 
 /**
