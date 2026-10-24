@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ArrowRight, ChevronDown } from "lucide-react";
 import { OnePlayerAtATime } from "@/components/media/one-player-at-a-time";
 import { markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
-import { creatorBrief, hasAccess } from "@/lib/customer";
+import { creatorBrief } from "@/lib/customer";
+import { accessSource } from "@/lib/membership-access";
 import { prisma } from "@/lib/db";
 import { lessonPartViews, partsLabel, partView, splitLead } from "@/lib/lesson-parts";
 import { LESSON_PART_FILE_SELECT } from "@/lib/lessons";
@@ -16,7 +17,9 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
   const { productId } = await params;
   const { leccion } = await searchParams;
   const { user, isOwner, scoped } = await requireBuyerFor({ productId }, `/cuenta/cursos/${productId}`);
-  if (!isOwner && !(await hasAccess(user.id, productId))) redirect("/cuenta/cursos");
+  // Directo o por una membresía que lo incluye (termina cuando termina la membresía).
+  const source = isOwner ? null : await accessSource(user.id, productId);
+  if (!isOwner && !source) redirect("/cuenta/cursos");
 
   // El programa, ligero (sin textos): para la lista, el progreso y los iconos.
   const course = await prisma.product.findUnique({
@@ -46,7 +49,7 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
   const percent = lessons.length ? Math.round((completed / lessons.length) * 100) : 0;
   // Ver una lección es acceder al contenido (las de texto o vídeo incrustado no pasan por
   // /api/download): desde aquí vale su renuncia al desistimiento.
-  if (current && !isOwner) await markFirstAccess(user.id, productId);
+  if (current && !isOwner) await markFirstAccess(user.id, source?.productId ?? productId);
   const creator = creatorBrief(course.creator);
   const base = `/cuenta/cursos/${productId}`;
 
@@ -68,6 +71,11 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
       <div className="mt-4 flex flex-col gap-1">
         <CreatorTag name={creator.displayName} avatarUrl={creator.avatarUrl} />
         <h1 className="display text-[2.2rem] leading-tight sm:text-[2.8rem]">{course.title}</h1>
+        {source?.via && (
+          <p className="text-sm text-muted">
+            Incluido en <Link href={`/cuenta/membresias/${source.via.productId}`} className="font-semibold text-ink underline-offset-2 hover:underline">«{source.via.title}»</Link> mientras tu membresía esté activa.
+          </p>
+        )}
         <div className="mt-2 flex max-w-sm items-center gap-3">
           <Progress value={percent} />
           <span className="shrink-0 text-xs font-semibold tabular-nums">Progreso {percent}%</span>

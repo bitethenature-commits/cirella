@@ -212,6 +212,8 @@ export function accessGrantedEmail(o: {
   newsletterUrl?: string | null;
   /** PERSONAL: lo prepara la creadora para ella (lectura «Lo preparo yo»). */
   deliveryMode?: string;
+  /** Acceso con fecha de fin: «17 de enero». */
+  until?: string | null;
 }) {
   const prepared = o.productType === "DIGITAL" && o.deliveryMode === "PERSONAL";
   const what = prepared
@@ -230,6 +232,7 @@ export function accessGrantedEmail(o: {
       body:
         p(`Hola${o.name ? ` ${esc(o.name)}` : ""}, ya puedes entrar en <strong>${esc(o.productTitle)}</strong>. ${what}`) +
         p("Pulsa el botón para abrirlo. No necesitas contraseña.") +
+        (o.until ? p(`Tu acceso dura hasta el <strong>${esc(o.until)}</strong> (incluido).`) : "") +
         (o.instructions ? p(`<em>${esc(o.instructions)}</em>`) : ""),
       cta: { label, url: o.url },
       afterCta:
@@ -485,6 +488,130 @@ export function dac7RequestEmail(o: { name: string; url: string; reminder: numbe
         p("Necesitamos tu nombre legal, NIF, dirección, fecha de nacimiento y el IBAN donde cobras. Solo los usamos para esa declaración.") +
         p(`Si no los tenemos antes del <strong>${esc(o.deadline)}</strong>, tendremos que pausar la venta de tus sesiones hasta que los completes.`),
       cta: { label: "Completar mis datos", url: o.url },
+    }),
+  };
+}
+
+// ── Comunidad: publicaciones, comentarios y fin de acceso ──
+
+/** Pie de los avisos de la comunidad: por qué le llega y cómo dejar de recibirlos (un clic). */
+function communityFooter(membershipTitle: string, optOutUrl: string) {
+  return `Recibes este aviso porque eres miembro de «${esc(membershipTitle)}». ¿No quieres más avisos de publicaciones? <a href="${esc(optOutUrl)}" style="color:#8A8698">Darme de baja</a>.`;
+}
+
+/**
+ * Aviso de una publicación nueva a cada miembro. Solo un extracto en texto plano (nunca el cuerpo
+ * entero ni su HTML) y el botón con su enlace personal.
+ */
+export function memberPostEmail(o: {
+  creatorName: string;
+  membershipTitle: string;
+  postTitle: string;
+  kindLabel?: string | null;
+  excerpt: string;
+  attachments?: string | null;
+  url: string;
+  linkNote?: string | null;
+  optOutUrl: string;
+}) {
+  return {
+    subject: `${o.postTitle} · ${o.membershipTitle}`,
+    html: layout({
+      brand: o.creatorName,
+      title: o.postTitle,
+      body:
+        p(`<span style="color:#8A8698;font-size:13px">${esc(o.kindLabel ? `${o.kindLabel} · ` : "")}${esc(o.creatorName)} ha publicado en «${esc(o.membershipTitle)}»</span>`) +
+        (o.excerpt ? p(esc(o.excerpt)) : "") +
+        (o.attachments ? p(`<strong>${esc(o.attachments)}</strong>`) : ""),
+      cta: { label: "Leer la publicación", url: o.url },
+      afterCta: note(o.linkNote),
+      footer: communityFooter(o.membershipTitle, o.optOutUrl),
+    }),
+  };
+}
+
+/** A la dueña: alguien ha comentado en su comunidad. */
+export function newCommentCreatorEmail(o: { membershipTitle: string; postTitle: string; author: string; excerpt: string; url: string }) {
+  return {
+    subject: `Nuevo comentario en «${o.postTitle}»`,
+    html: layout({
+      title: "Nuevo comentario",
+      body:
+        p(`<strong>${esc(o.author)}</strong> ha comentado en «${esc(o.postTitle)}» (${esc(o.membershipTitle)}):`) +
+        p(`<span style="white-space:pre-line">${esc(o.excerpt)}</span>`),
+      cta: { label: "Ver y responder", url: o.url },
+    }),
+  };
+}
+
+/** A la miembro: la dueña ha respondido a su comentario. */
+export function commentReplyEmail(o: { creatorName: string; membershipTitle: string; postTitle: string; excerpt: string; url: string; optOutUrl: string }) {
+  return {
+    subject: `${o.creatorName} ha respondido a tu comentario`,
+    html: layout({
+      brand: o.creatorName,
+      title: `${o.creatorName} te ha respondido`,
+      body: p(`En «${esc(o.postTitle)}»:`) + p(`<span style="white-space:pre-line">${esc(o.excerpt)}</span>`),
+      cta: { label: "Ver la conversación", url: o.url },
+      footer: communityFooter(o.membershipTitle, o.optOutUrl),
+    }),
+  };
+}
+
+/** 7 días antes del fin de un acceso con fecha. `cta`: dónde volver a conseguirlo (o null: que responda). */
+export function accessEndingEmail(o: { creatorName: string; productTitle: string; until: string; cta?: { label: string; url: string } | null }) {
+  return {
+    subject: `Tu acceso a «${o.productTitle}» termina el ${o.until}`,
+    html: layout({
+      brand: o.creatorName,
+      title: "Tu acceso termina pronto",
+      body:
+        p(`Tu acceso a <strong>${esc(o.productTitle)}</strong> termina el <strong>${esc(o.until)}</strong> (incluido). Hasta entonces puedes entrar como siempre.`) +
+        (o.cta ? "" : p(`Si quieres seguir, responde a este email y ${esc(o.creatorName)} te dirá cómo.`)),
+      cta: o.cta ?? undefined,
+    }),
+  };
+}
+
+/** El día que termina un acceso con fecha. */
+export function accessEndedEmail(o: { creatorName: string; productTitle: string; cta?: { label: string; url: string } | null }) {
+  return {
+    subject: `Tu acceso a «${o.productTitle}» ha terminado`,
+    html: layout({
+      brand: o.creatorName,
+      title: "Tu acceso ha terminado",
+      body:
+        p(`Tu acceso a <strong>${esc(o.productTitle)}</strong> ha terminado. Gracias por haber estado ahí.`) +
+        (o.cta ? "" : p(`Si quieres volver, responde a este email y ${esc(o.creatorName)} te dirá cómo.`)),
+      cta: o.cta ?? undefined,
+    }),
+  };
+}
+
+/** A la dueña: ha terminado el acceso con fecha de alguien. */
+export function accessEndedCreatorEmail(o: { productTitle: string; person: string; ended: string; url: string }) {
+  return {
+    subject: `Ha terminado el acceso de ${o.person} a «${o.productTitle}»`,
+    html: layout({
+      title: "Acceso terminado",
+      body: p(`El acceso de <strong>${esc(o.person)}</strong> a «${esc(o.productTitle)}» terminó el ${esc(o.ended)}, como pusiste al dárselo. Ya no puede entrar y le hemos avisado.`),
+      cta: { label: "Ampliar su acceso", url: o.url },
+    }),
+  };
+}
+
+/** A la miembro: su membresía de pago ha terminado (la canceló, o no se pudo cobrar la renovación). */
+export function membershipEndedEmail(o: { creatorName: string; productTitle: string; reason: "period_end" | "payment_failed"; rejoinUrl?: string | null }) {
+  const failed = o.reason === "payment_failed";
+  return {
+    subject: failed ? `Tu membresía «${o.productTitle}» se ha cancelado` : `Tu membresía «${o.productTitle}» ha terminado`,
+    html: layout({
+      brand: o.creatorName,
+      title: failed ? "Tu membresía se ha cancelado" : "Tu membresía ha terminado",
+      body: failed
+        ? p(`Tu membresía <strong>${esc(o.productTitle)}</strong> se ha cancelado porque no hemos podido cobrar la renovación. Ya no tienes acceso a su contenido ni a lo que incluía.`)
+        : p(`Tu membresía <strong>${esc(o.productTitle)}</strong> ha terminado, como pediste al cancelarla. Ya no tienes acceso a su contenido ni a lo que incluía.`),
+      cta: o.rejoinUrl ? { label: "Volver a unirme", url: o.rejoinUrl } : undefined,
     }),
   };
 }

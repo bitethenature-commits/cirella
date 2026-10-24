@@ -1,4 +1,4 @@
-import { checkProductAccess, markFirstAccess } from "@/lib/buyer-access";
+import { checkFileAccess, markFirstAccess } from "@/lib/buyer-access";
 import { prisma } from "@/lib/db";
 import { checkOrderFileAccess } from "@/lib/order-file-access";
 import { findOrderFile } from "@/lib/order-files";
@@ -31,7 +31,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ fileId: 
   const orderFile = productFile ? null : await findOrderFile(fileId);
   const file = productFile ?? orderFile;
   if (!file || file.kind === "LINK" || !file.storageKey) return text("No encontrado", 404);
-  const access = productFile ? await checkProductAccess(productFile.productId, productFile.creatorId) : await checkOrderFileAccess(orderFile!);
+  const access = productFile ? await checkFileAccess(productFile) : await checkOrderFileAccess(orderFile!);
   if (!access.ok) return text(access.reason === "login" ? "Inicia sesión para ver este contenido" : "No tienes acceso a este contenido", access.reason === "login" ? 401 : 403);
   if (deliveryFor(file.kind, isPersonalMode()) !== "stream") return text("No encontrado", 404);
   const contentType = file.mimeType && PRIVATE_TYPES[file.mimeType] ? file.mimeType : null;
@@ -39,7 +39,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ fileId: 
 
   // Desde el primer acceso vale su renuncia al desistimiento; solo al empezar, no en cada tramo.
   const range = req.headers.get("range");
-  if (productFile && !access.isOwner && (!range || /^bytes=0-/.test(range.trim()))) await markFirstAccess(access.userId, productFile.productId);
+  if (productFile && !access.isOwner && (!range || /^bytes=0-/.test(range.trim()))) await markFirstAccess(access.userId, ("accessProductId" in access ? String(access.accessProductId) : productFile.productId));
 
   return streamObjectResponse(req, {
     key: privateKey(file.storageKey),

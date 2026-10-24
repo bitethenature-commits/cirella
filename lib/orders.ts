@@ -2,6 +2,7 @@ import "server-only";
 import { asAccessMode, isNoChargeOrder } from "./access-mode";
 import { prisma } from "./db";
 import { dispatchEvents, recordEvents, type DomainEvent } from "./events";
+import { accessUntil } from "./free-access-rules";
 import { hasBookingClash, isBookingOverlapError, isGroupSession, isSlotAvailable, lockCreatorBookings, lockProductSeats, seatsTaken } from "./booking";
 import { dac7SalesPaused } from "./dac7-data";
 import { appUrl, isDemoMode } from "./env";
@@ -411,7 +412,8 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
 
     const p = order.product;
     let subscriptionId: string | null = null;
-    let expiresAt: Date | null = null;
+    // Acceso dado a mano con fecha de fin (lib/free-access.ts): termina solo ese día.
+    let expiresAt: Date | null = noCharge ? accessUntil(order.metadata) : null;
     // Una suscripción viva por persona y membresía. startOrderPayment ya lo comprueba antes de
     // cobrar, pero dos páginas de pago abiertas (dos pestañas, o un pedido sustituido) pueden
     // cobrarse las dos: la segunda no crea otra suscripción (se renovarían las dos cada mes); el

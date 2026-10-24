@@ -10,6 +10,7 @@ import { notifyRescheduled, releaseBookingEmails } from "@/lib/booking-changes";
 import { getBuyerSession, requireBuyerFor, requireBuyerFull } from "@/lib/buyer-access";
 import { hasAccess } from "@/lib/customer";
 import { prisma } from "@/lib/db";
+import { scopeCoversProduct } from "@/lib/membership-access";
 import { syncBookingToCalendar } from "@/lib/orders";
 import { cancelSubscription, resumeSubscription } from "@/lib/subscriptions";
 import { SESSION_CHANGE_NOTICE_HOURS } from "@/lib/legal";
@@ -25,7 +26,8 @@ export async function toggleLessonComplete(lessonId: string, complete: boolean) 
   const lesson = await prisma.lesson.findUnique({ where: { id: lessonId } });
   if (!lesson || !(await hasAccess(user.id, lesson.productId))) return { ok: false };
   // Una sesión limitada solo avanza el curso de su pedido; una de cuenta, si está verificada.
-  if (b.scope ? !scopeAllows(b.scope, { productId: lesson.productId }) : !b.verified) return { ok: false };
+  // (o un curso incluido en la membresía de su pedido).
+  if (b.scope ? !(scopeAllows(b.scope, { productId: lesson.productId }) || (await scopeCoversProduct(b.scope, lesson.productId))) : !b.verified) return { ok: false };
   if (complete)
     await prisma.lessonProgress.upsert({
       where: { userId_lessonId: { userId: user.id, lessonId } },

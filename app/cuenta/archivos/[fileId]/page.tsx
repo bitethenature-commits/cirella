@@ -5,7 +5,9 @@ import { ArrowLeft, Download } from "lucide-react";
 import { MediaView } from "@/components/media/media-view";
 import { getSession } from "@/lib/auth";
 import { markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
-import { creatorBrief, hasAccess } from "@/lib/customer";
+import { isMemberPostVisible } from "@/lib/community-rules";
+import { creatorBrief } from "@/lib/customer";
+import { accessSource } from "@/lib/membership-access";
 import { prisma } from "@/lib/db";
 import { checkOrderFileAccess } from "@/lib/order-file-access";
 import { findOrderFile } from "@/lib/order-files";
@@ -20,7 +22,7 @@ export const metadata: Metadata = { title: "Ver archivo", robots: { index: false
  */
 export default async function FileViewer({ params }: { params: Promise<{ fileId: string }> }) {
   const { fileId } = await params;
-  const file = await prisma.productFile.findUnique({ where: { id: fileId }, include: { product: { include: { creator: true } } } });
+  const file = await prisma.productFile.findUnique({ where: { id: fileId }, include: { product: { include: { creator: true } }, post: { select: { status: true, publishedAt: true } } } });
   if (!file) return <OrderFileViewer fileId={fileId} />;
   if (file.kind === "LINK" || !file.storageKey) notFound();
   const path = `/cuenta/archivos/${file.id}`;
@@ -32,7 +34,9 @@ export default async function FileViewer({ params }: { params: Promise<{ fileId:
       ? { href: `/panel/productos/${file.productId}`, label: "Volver al panel" }
       : { href: "/cuenta/archivos", label: "Mis archivos" };
   const creator = creatorBrief(file.product.creator);
-  const allowed = isOwner || (await hasAccess(user.id, file.productId));
+  // Directo o por una membresía que lo incluye; el adjunto de una publicación, solo si ya se ve.
+  const source = isOwner ? null : await accessSource(user.id, file.productId);
+  const allowed = isOwner || (!!source && (!file.post || isMemberPostVisible(file.post)));
 
   const header = (
     <>
@@ -55,7 +59,7 @@ export default async function FileViewer({ params }: { params: Promise<{ fileId:
       </div>
     );
 
-  if (!isOwner) await markFirstAccess(user.id, file.productId);
+  if (!isOwner) await markFirstAccess(user.id, source?.productId ?? file.productId);
   const dark = file.kind === "VIDEO" || file.kind === "AUDIO";
   return (
     <div>

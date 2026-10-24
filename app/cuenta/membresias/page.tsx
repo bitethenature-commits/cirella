@@ -7,6 +7,7 @@ import { formatPrice } from "@/lib/money";
 import { freeMemberships } from "../free-memberships";
 import { CreatorTag, Thumb } from "../ui";
 import { formatDate } from "@/lib/tz";
+import { lastDayText } from "@/lib/access-end";
 
 export default async function MyMemberships() {
   const user = await requireBuyerFull("/cuenta/membresias");
@@ -20,7 +21,9 @@ export default async function MyMemberships() {
             <Thumb src={m.product.imageUrl} emoji={m.product.emoji} className="h-14 w-14" />
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">{m.product.title}</p>
-              <p className="text-sm text-muted">Acceso gratuito</p>
+              <p className="text-sm text-muted">
+                {m.expiresAt ? `Acceso hasta el ${lastDayText(m.expiresAt, m.creatorBrief.timezone)}` : "Acceso gratuito"}
+              </p>
               <CreatorTag name={m.creatorBrief.displayName} avatarUrl={m.creatorBrief.avatarUrl} />
             </div>
             <Link href={`/cuenta/membresias/${m.productId}`} className="btn btn-primary btn-sm shrink-0">Entrar</Link>

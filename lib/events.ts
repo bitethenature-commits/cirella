@@ -38,6 +38,8 @@ export type DomainEvent =
   | { type: "intake.updated"; orderId: string; first: boolean }
   | { type: "subscription.created"; subscriptionId: string }
   | { type: "subscription.canceled"; subscriptionId: string }
+  // La suscripción ha terminado de verdad (y con ella el acceso): aviso a la miembro.
+  | { type: "subscription.ended"; subscriptionId: string; reason: "period_end" | "payment_failed" }
   | { type: "checkout.abandoned"; orderId: string }
   // Reembolsos y cambios de reserva (lib/refunds.ts, lib/booking-changes.ts). Sus emails se envían
   // directamente; los eventos quedan para quien tenga que reaccionar (p. ej. la factura rectificativa).

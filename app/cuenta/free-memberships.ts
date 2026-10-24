@@ -20,5 +20,5 @@ export async function freeMemberships(userId: string) {
     orderBy: { createdAt: "desc" },
     include: { product: { include: { creator: true } } },
   });
-  return rows.map((a) => ({ id: a.id, productId: a.productId, product: a.product, since: a.createdAt, creatorBrief: creatorBrief(a.product.creator) }));
+  return rows.map((a) => ({ id: a.id, productId: a.productId, product: a.product, since: a.createdAt, expiresAt: a.expiresAt, creatorBrief: creatorBrief(a.product.creator) }));
 }

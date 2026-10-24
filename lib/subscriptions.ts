@@ -118,15 +118,20 @@ async function renewOne(sub: DueSubscription, now: Date, mode: TaxMode) {
   if (sub.cancelAtPeriodEnd) {
     // La condición sobre currentPeriodEnd hace de cerrojo: en Postgres (READ COMMITTED) la segunda
     // ejecución espera a la primera, vuelve a evaluar el WHERE y no actualiza nada.
-    return prisma.$transaction(async (tx) => {
+    // El acceso ya terminó solo al llegar currentPeriodEnd (Access.expiresAt se comprueba en cada
+    // visita); aquí se cierra la suscripción y se avisa a la miembro.
+    const eventIds = await prisma.$transaction(async (tx) => {
       const c = await tx.subscription.updateMany({
         where: { id: sub.id, status: sub.status, currentPeriodEnd: sub.currentPeriodEnd },
         data: { status: "CANCELED", nextRenewalAttemptAt: null },
       });
-      if (!c.count) return false;
+      if (!c.count) return null;
       await tx.access.updateMany({ where: { subscriptionId: sub.id }, data: { status: "REVOKED" } });
-      return true;
+      return recordEvents(tx, [{ type: "subscription.ended", subscriptionId: sub.id, reason: "period_end" }]);
     });
+    if (!eventIds) return false;
+    await dispatchEvents(eventIds);
+    return true;
   }
   const guard = { periodEnd: sub.currentPeriodEnd, attempts: sub.renewalAttempts };
   // Web sin pasarela (modo personal): no se cobra ni se cuenta como intento fallido (eso acabaría
@@ -162,11 +167,17 @@ async function renewOne(sub: DueSubscription, now: Date, mode: TaxMode) {
   if (r.state === "processing") {
     // El banco confirmará más tarde: lo resuelve el aviso de la pasarela. Por si no llega,
     // se vuelve a mirar mañana (con la misma clave de idempotencia, no se cobra dos veces).
-    const c = await prisma.subscription.updateMany({
-      where: { id: sub.id, currentPeriodEnd: sub.currentPeriodEnd, renewalAttempts: sub.renewalAttempts },
-      data: { nextRenewalAttemptAt: new Date(now.getTime() + 86_400_000) },
+    // Mientras tanto mantiene el acceso hasta ese momento: un pago en camino no la deja fuera.
+    const next = new Date(now.getTime() + 86_400_000);
+    return prisma.$transaction(async (tx) => {
+      const c = await tx.subscription.updateMany({
+        where: { id: sub.id, currentPeriodEnd: sub.currentPeriodEnd, renewalAttempts: sub.renewalAttempts },
+        data: { nextRenewalAttemptAt: next },
+      });
+      if (!c.count) return false;
+      await tx.access.updateMany({ where: { subscriptionId: sub.id, status: "ACTIVE" }, data: { expiresAt: next } });
+      return true;
     });
-    return c.count > 0;
   }
   return recordRenewalFailure(sub.id, (r.state === "failed" && r.error) || "Tu banco pide confirmar el pago.", now, guard);
 }
@@ -297,7 +308,10 @@ export async function recordRenewalFailure(
       });
       if (!c.count) return null;
       await tx.access.updateMany({ where: { subscriptionId }, data: { status: "REVOKED" } });
-      return recordEvents(tx, [{ type: "subscription.canceled", subscriptionId }]);
+      return recordEvents(tx, [
+        { type: "subscription.canceled", subscriptionId },
+        { type: "subscription.ended", subscriptionId, reason: "payment_failed" },
+      ]);
     });
     if (!eventIds) return false;
     await dispatchEvents(eventIds);

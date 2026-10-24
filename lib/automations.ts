@@ -3,7 +3,8 @@ import { orderTargetPath } from "./auth-utils";
 import { prisma } from "./db";
 import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
-import { accessEmailGreetingName, newsletterConfirmPath, newsletterPending } from "./free-access-rules";
+import { accessEmailGreetingName, accessUntil, newsletterConfirmPath, newsletterPending } from "./free-access-rules";
+import { lastDayText } from "./access-end";
 import * as T from "./email/templates";
 import { formatLegalAddress, sellerStatement, sessionChangePolicyText, type LegalIdentity } from "./legal";
 import type { LegalSnapshotContent } from "./legal-snapshot";
@@ -47,6 +48,11 @@ export type { DomainEvent } from "./events";
 
 export { AUTOMATIONS, automationDefaultOn, type AutomationTrigger } from "./automation-catalog";
 import { AUTOMATIONS, automationDefaultOn, type AutomationTrigger } from "./automation-catalog";
+
+/** Configuración de una automatización para una creadora (también la usan el cron de caducidades y la comunidad). */
+export async function automationSetting(creatorId: string, trigger: AutomationTrigger) {
+  return setting(creatorId, trigger);
+}
 
 async function setting(creatorId: string, trigger: AutomationTrigger) {
   const [row, creator] = await Promise.all([
@@ -103,6 +109,10 @@ export async function sendAccessEmail(orderId: string, dedupeKey: string) {
       linkNote: orderLinkNote(link.expiresAt),
       instructions: order.product.instructions,
       deliveryMode: order.product.deliveryMode,
+      until: (() => {
+        const until = isNoChargeOrder(order) ? accessUntil(order.metadata) : null;
+        return until ? lastDayText(until, order.creator.timezone) : null;
+      })(),
     }),
   });
 }
@@ -348,6 +358,24 @@ export async function handleAutomation(event: DomainEvent) {
               url: `${base}/panel/clientes`,
             });
       await enqueueEmail({ to, creatorId: sub.creatorId, template: trigger, dedupeKey: `${trigger}:${sub.id}`, ...mail });
+      return;
+    }
+
+    case "subscription.ended": {
+      // A la miembro: su membresía de pago ha terminado (fin del periodo tras cancelar, o el último
+      // cobro fallido). Con «Volver a unirme» si se puede comprar otra vez.
+      const sub = await prisma.subscription.findUniqueOrThrow({ where: { id: event.subscriptionId }, include: { product: true, customer: true, creator: true } });
+      const s = await setting(sub.creatorId, "ACCESS_ENDING");
+      if (!s.enabled) return;
+      const rejoin = sub.product.status === "PUBLISHED" ? `${base}/${sub.creator.username}/${sub.product.slug}` : null;
+      await enqueueEmail({
+        to: sub.customer.email,
+        creatorId: sub.creatorId,
+        userId: sub.userId,
+        template: "MEMBERSHIP_ENDED",
+        dedupeKey: `sub-ended:${sub.id}`,
+        ...T.membershipEndedEmail({ creatorName: sub.creator.displayName, productTitle: sub.product.title, reason: event.reason, rejoinUrl: rejoin }),
+      });
       return;
     }
 
