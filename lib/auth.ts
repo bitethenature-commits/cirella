@@ -5,12 +5,12 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 import { prisma } from "./db";
 import { hashToken } from "./auth-tokens";
-import { deviceLabel, safeNext, sessionSatisfies, sessionUsable } from "./auth-utils";
+import { deviceLabel, HINT_COOKIE, safeNext, sessionSatisfies, sessionUsable } from "./auth-utils";
 import { homeFor } from "./home";
 import { createChallenge, isTrustedDevice, type LoginMethod } from "./two-factor";
 import { notifyNewLogin } from "./two-factor-notify";
 
-export { safeNext };
+export { HINT_COOKIE, safeNext };
 export { hashToken, purgeExpiredAuth } from "./auth-tokens";
 export { consumeMagicLink, magicLinkCreatorId, peekMagicLink, sendMagicLink, type MagicPurpose } from "./magic-links";
 
@@ -48,6 +48,7 @@ export async function createSession(userId: string, opts: { verified: boolean; o
   if (!opts.orderId) await prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, { ...cookieBase(), expires: expiresAt });
+  if (!opts.orderId) jar.set(HINT_COOKIE, "1", { ...cookieBase(), httpOnly: false, expires: expiresAt });
   return id;
 }
 
@@ -101,6 +102,7 @@ export async function destroySession() {
   const token = jar.get(SESSION_COOKIE)?.value;
   if (token) await prisma.session.deleteMany({ where: { id: hashToken(token) } });
   jar.delete(SESSION_COOKIE);
+  jar.delete(HINT_COOKIE);
 }
 
 /**

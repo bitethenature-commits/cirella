@@ -1,13 +1,13 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
-import { appHost } from "../env";
+import { appHost, appUrl } from "../env";
 import { captureAlert, captureError } from "../monitoring";
 import { readPageConfig } from "../page-config";
 import { getOwnerCreator, isPersonalMode } from "../site-mode";
 import { nextAttemptAt, truncateError } from "../reliability";
 import { storedHeaders } from "./headers";
 import { emailProvider } from "./provider";
-import { esc, SITE_NAME_TOKEN } from "./templates";
+import { AREA_LINK_TOKEN, areaLinkFooter, esc, SITE_NAME_TOKEN } from "./templates";
 
 /**
  * Bandeja de salida de emails.
@@ -63,7 +63,8 @@ export async function enqueueEmail(input: EnqueueInput) {
   const site = await personalSiteName();
   const sender = await senderFor(input, to, site);
   const subject = site ? input.subject.replaceAll(SITE_NAME_TOKEN, site) : input.subject;
-  const html = site ? input.html.replaceAll(SITE_NAME_TOKEN, esc(site)) : input.html;
+  const named = site ? input.html.replaceAll(SITE_NAME_TOKEN, esc(site)) : input.html;
+  const html = named.includes(AREA_LINK_TOKEN) ? named.replaceAll(AREA_LINK_TOKEN, (await isTeamAddress(to)) ? "" : areaLinkFooter(appUrl())) : named;
   let msg;
   try {
     msg = await prisma.emailMessage.create({
@@ -98,6 +99,12 @@ export async function enqueueEmail(input: EnqueueInput) {
     }
   }
   return msg;
+}
+
+/** ¿Es la dirección de la dueña o de la administración? (sus avisos no llevan «Tu área»). */
+async function isTeamAddress(to: string) {
+  const u = await prisma.user.findUnique({ where: { email: to }, select: { isAdmin: true, creator: { select: { id: true } } } });
+  return !!u && (u.isAdmin || !!u.creator);
 }
 
 /**

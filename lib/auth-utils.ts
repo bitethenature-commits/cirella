@@ -1,3 +1,10 @@
+/**
+ * Pista para la interfaz («Mi área» en vez de «Entrar» en la página pública, components/creator-page/
+ * account-entry.tsx). No es httpOnly ni lleva identidad: ninguna guarda la lee y falsearla solo
+ * cambia la etiqueta. Así la página pública sigue en caché (no lee cookies en el servidor).
+ */
+export const HINT_COOKIE = "cirella_hola";
+
 /** Solo acepta rutas internas (evita open redirects como "//x.com", "/\\x.com" o con caracteres de control). */
 export function safeNext(next: string | null | undefined, fallback = "/cuenta") {
   if (!next || !next.startsWith("/") || next.startsWith("//") || /[\\\u0000-\u001f\u007f]/.test(next)) return fallback;
@@ -105,4 +112,14 @@ export function deviceLabel(ua: string | null | undefined): string {
  */
 export function sessionUsable(s: { orderId: string | null; mfa: boolean; user: { totpEnabledAt: Date | null } }) {
   return !(!s.orderId && s.user.totpEnabledAt && !s.mfa);
+}
+
+/** ¿Lleva la cabecera Cookie la pista de sesión abierta? (solo para la etiqueta «Mi área»). */
+export function hasHintCookie(cookieHeader: string | null | undefined) {
+  return (cookieHeader ?? "").split(";").some((c) => c.trim() === `${HINT_COOKIE}=1`);
+}
+
+/** Enlace y etiqueta de la entrada al área de alumnas de la página pública. */
+export function accountEntryLink(username: string, signedIn: boolean) {
+  return signedIn ? { href: "/cuenta", label: "Mi área" } : { href: `/${username}/entrar?next=%2Fcuenta`, label: "Entrar" };
 }

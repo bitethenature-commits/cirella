@@ -11,5 +11,7 @@ export async function homeFor(userId: string) {
   if (user.isAdmin && !(isPersonalMode() && user.creator?.onboardedAt)) return "/admin";
   if (user.creator) return user.creator.onboardedAt ? "/panel" : "/onboarding";
   if (user._count.customerOf > 0) return "/cuenta";
+  // Web personal: no se crean páginas nuevas; quien no es la dueña es alumna (su área).
+  if (isPersonalMode()) return "/cuenta";
   return "/onboarding";
 }

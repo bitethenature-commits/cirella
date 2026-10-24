@@ -53,6 +53,9 @@ model User {
   totpEnabledAt   DateTime?
   // Último paso de 30 s aceptado: un código ya usado no vale otra vez (anti-repetición).
   totpLastStep    Int?
+  // Foto de perfil de la alumna (/media/{userId}/{hex}.webp, pública e inmutable como las de las
+  // creadoras). null = iniciales.
+  avatarUrl       String?
 
   creator             Creator?
   sessions            Session[]
@@ -142,11 +145,15 @@ model LoginToken {
   id         String    @id @default(cuid())
   email      String
   tokenHash  String    @unique
-  purpose    String    @default("LOGIN") // LOGIN | VERIFY_SIGNUP
+  purpose    String    @default("LOGIN") // LOGIN | VERIFY_SIGNUP | REGISTER | CHANGE_EMAIL
   // Solo para la marca del email y de la pantalla «Entrar» (no da permisos). Sin relación
   // con Creator a propósito: es una tabla de autenticación.
   creatorId  String?
   redirectTo String?
+  // Datos del paso que confirma el enlace (lib/magic-links.ts):
+  //   REGISTER     → { name, newsletter, creatorId } (alta de alumna en la web personal)
+  //   CHANGE_EMAIL → { userId, fromEmail } (email = la dirección nueva)
+  data       Json?
   expiresAt  DateTime
   usedAt     DateTime?
   createdAt  DateTime  @default(now())

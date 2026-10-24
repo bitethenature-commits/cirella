@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import type { PageConfig } from "@/lib/page-config";
 import { resolveTheme, themeStyle } from "@/lib/templates";
+import { AccountEntry } from "./account-entry";
 import { LegalLinks } from "./legal-links";
 import { Avatar } from "./product-art";
 import { SiteNav, type SiteNavPage } from "./site-nav";
@@ -18,6 +19,7 @@ export function CreatorShell({
   signupsOnly = false,
   pages,
   currentPath,
+  showAccount = true,
 }: {
   username: string;
   /** Solo lo que pinta la cabecera y el tema (también lo usan las páginas de error, en cliente). */
@@ -34,6 +36,8 @@ export function CreatorShell({
   /** Páginas extra publicadas (enlaces del pie) y la dirección de la que se está viendo. */
   pages?: SiteNavPage[];
   currentPath?: string;
+  /** Entrada «Entrar» / «Mi área» a la derecha de la cabecera (no en la propia pantalla de entrar). */
+  showAccount?: boolean;
 }) {
   const theme = resolveTheme(config.template, config.theme, allowCustom);
   const home = personal ? "/" : `/${username}`;
@@ -53,6 +57,7 @@ export function CreatorShell({
             <Avatar src={config.avatarUrl} name={config.displayName} className="h-8 w-8 text-xs" />
             <span className="truncate text-sm font-semibold">{config.displayName}</span>
           </Link>
+          {showAccount && <AccountEntry username={username} personal={personal} variant="header" />}
         </div>
       </header>
       {children}

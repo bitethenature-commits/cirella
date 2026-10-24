@@ -29,6 +29,8 @@ export const RULES = {
   twoFactorUser: { limit: 5, windowSec: 15 * MIN },
   twoFactorUserDay: { limit: 20, windowSec: 24 * HOUR },
   twoFactorIp: { limit: 30, windowSec: 15 * MIN },
+  // Cambios de email pedidos desde el perfil (cada uno manda dos emails).
+  emailChangeUser: { limit: 3, windowSec: 24 * HOUR },
   // Intentos de pago. El de conexión es holgado: con el CGNAT de las operadoras móviles muchas
   // compradoras comparten IP. Lo que de verdad frena el probar tarjetas son los rechazos.
   checkoutEmail: { limit: 5, windowSec: 10 * MIN },
@@ -119,6 +121,13 @@ export async function limitTwoFactor(userId: string, ipHash: string): Promise<Ve
 /** Al acertar el código vuelve a cero la ventana corta (la del día, no). */
 export async function clearTwoFactorLimit(userId: string): Promise<void> {
   await resetKey(rlKey("2fa-user", userId));
+}
+
+/** «Cambiar email» del perfil: por cuenta (3 al día). */
+export async function limitEmailChange(userId: string): Promise<Verdict> {
+  const r = await hit(rlKey("email-change", userId), RULES.emailChangeUser);
+  if (!r.ok) return denied((t) => `Ya has pedido varios cambios de email. Vuelve a intentarlo en ${t}.`, r.retryAfterSec);
+  return OK;
 }
 
 // ── Checkout ──

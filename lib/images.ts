@@ -75,3 +75,26 @@ export async function storeImage(creatorId: string, input: Buffer, o: { profile?
   ]);
   return { url: mediaUrl(creatorId, id), width: img.width, height: img.height };
 }
+
+/**
+ * Foto de perfil de una alumna: cuadrada de 256 px en WebP (sharp quita el EXIF con GPS), en
+ * /media/{userId}/{hex}.webp, pública e inmutable como las de las creadoras. Sin variantes.
+ */
+export async function storeAvatarImage(userId: string, input: Buffer): Promise<string> {
+  let data: Buffer;
+  try {
+    data = await sharp(input, { limitInputPixels: 80_000_000, failOn: "error" }).rotate().resize(256, 256, { fit: "cover" }).webp({ quality: 82 }).toBuffer();
+  } catch {
+    throw new Error(READ_ERROR);
+  }
+  const id = randomBytes(10).toString("hex");
+  await storage().put(publicKey(`${userId}/${id}.webp`), data, { contentType: "image/webp", cacheControl: IMMUTABLE });
+  return mediaUrl(userId, id);
+}
+
+/** Borra una foto de perfil (y sus variantes, si las hubiera). Sin errores: se intenta y ya. */
+export async function deleteAvatarImage(url: string | null | undefined): Promise<void> {
+  const m = url?.match(/^\/media\/([a-z0-9]+)\/([a-f0-9]{20})\.webp$/);
+  if (!m) return;
+  await storage().delete([publicKey(`${m[1]}/${m[2]}.webp`)]).catch(() => {});
+}

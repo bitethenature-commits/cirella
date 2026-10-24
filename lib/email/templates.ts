@@ -16,6 +16,18 @@ import { richToEmailHtml } from "./rich-html";
 /** Marcador del nombre de la web personal en asuntos y cuerpos (lo sustituye enqueueEmail). */
 export const SITE_NAME_TOKEN = "{{nombre-de-la-web}}";
 
+/**
+ * Web personal: marcador del pie «Tu área: tudominio.com/cuenta». enqueueEmail lo cambia por el
+ * enlace en los emails a clientas y lo quita en los que van a la dueña o a la administración.
+ */
+export const AREA_LINK_TOKEN = "{{tu-area}}";
+
+/** Pie «Tu área: …/cuenta» de la web personal (lo pone enqueueEmail en lugar de AREA_LINK_TOKEN). */
+export function areaLinkFooter(appUrl: string) {
+  const url = `${appUrl}/cuenta`;
+  return `<p style="font-size:13px;color:#8A8698;margin:20px 4px 0;line-height:1.6">Tu área: <a href="${esc(url)}" style="color:#3B3950">${esc(url.replace(/^https?:\/\//, ""))}</a></p>`;
+}
+
 /** Nombre de la marca y pie por defecto de los emails según el modo del sitio. Puro. */
 export function emailBranding(mode: SiteMode): { name: string; footer: string } {
   return mode === "personal"
@@ -47,7 +59,7 @@ export function layout(opts: { brand?: string; title: string; body: string; cta?
     <div style="font-size:15px;line-height:1.65;color:#3B3950">${opts.body}</div>
     ${cta}${opts.afterCta ? `<div style="font-size:15px;line-height:1.65;color:#3B3950">${opts.afterCta}</div>` : ""}
   </div>
-  ${footer ? `<p style="font-size:12px;color:#8A8698;margin:24px 4px 0;line-height:1.6">${footer}</p>` : ""}
+  ${footer ? `<p style="font-size:12px;color:#8A8698;margin:24px 4px 0;line-height:1.6">${footer}</p>` : ""}${siteMode() === "personal" ? AREA_LINK_TOKEN : ""}
 </div></body></html>`;
 }
 
@@ -55,7 +67,19 @@ export function layout(opts: { brand?: string; title: string; body: string; cta?
 /** Nota en gris bajo el botón (p. ej. «Este enlace es personal…» de los enlaces personales). */
 const note = (s?: string | null) => (s ? p(`<span style="color:#8A8698;font-size:13px">${esc(s)}</span>`) : "");
 
-export function magicLinkEmail(o: { url: string; creatorName?: string; purpose?: "LOGIN" | "VERIFY_SIGNUP" }) {
+export function magicLinkEmail(o: { url: string; creatorName?: string; purpose?: "LOGIN" | "VERIFY_SIGNUP" | "REGISTER"; name?: string | null }) {
+  if (o.purpose === "REGISTER")
+    return {
+      subject: "Confirma tu email para entrar",
+      html: layout({
+        brand: o.creatorName,
+        title: `Hola${o.name ? `, ${o.name}` : ""}`,
+        body:
+          p(`Confirma que este email es tuyo para crear tu área en ${esc(o.creatorName ?? platformName())}. Pulsa el botón y después «Confirmar y entrar».`) +
+          note("El enlace funciona durante 24 horas y solo una vez. Si no has sido tú, ignora este mensaje: no se creará nada."),
+        cta: { label: "Confirmar y entrar", url: o.url },
+      }),
+    };
   if (o.purpose === "VERIFY_SIGNUP")
     return {
       subject: `Confirma tu email en ${platformName()}`,
@@ -669,6 +693,60 @@ export function twoFactorFailuresEmail(o: { when: string; device: string; settin
         p(`<strong>${esc(o.device)}</strong> · ${esc(o.when)}`) +
         p("Si no has sido tú, cambia tu contraseña cuanto antes y revisa quién puede leer tu email."),
       cta: { label: "Cambiar mi contraseña", url: o.settingsUrl },
+    }),
+  };
+}
+
+// ── Cambio de email del área de alumnas (lib/magic-links.ts, app/cuenta/actions.ts) ──
+
+export function emailChangeConfirmEmail(o: { url: string; creatorName?: string }) {
+  return {
+    subject: "Confirma tu nuevo email",
+    html: layout({
+      brand: o.creatorName,
+      title: "Confirma tu nuevo email",
+      body:
+        p("Has pedido usar este email en tu cuenta. Pulsa el botón y después «Confirmar el cambio».") +
+        note("El enlace funciona durante 24 horas y solo una vez. Si no lo has pedido tú, ignora este mensaje: no cambiará nada."),
+      cta: { label: "Confirmar el cambio", url: o.url },
+    }),
+  };
+}
+
+/** Al email de antes, al pedir el cambio. */
+export function emailChangeRequestedEmail(o: { newEmailMasked: string }) {
+  return {
+    subject: "Se ha pedido cambiar el email de tu cuenta",
+    html: layout({
+      title: "Se ha pedido cambiar el email de tu cuenta",
+      body:
+        p(`Alguien con tu sesión abierta ha pedido cambiar el email de tu cuenta a <strong>${esc(o.newEmailMasked)}</strong>.`) +
+        p("El cambio solo se hará si se confirma desde ese email. Si no has sido tú, cambia tu contraseña y responde a este mensaje."),
+    }),
+  };
+}
+
+/** Al email de antes, cuando el cambio ya se ha hecho. */
+export function emailChangedEmail(o: { newEmailMasked: string }) {
+  return {
+    subject: "El email de tu cuenta ha cambiado",
+    html: layout({
+      title: "El email de tu cuenta ha cambiado",
+      body:
+        p(`Desde ahora tu cuenta usa <strong>${esc(o.newEmailMasked)}</strong> para entrar y para los avisos.`) +
+        p("¿No has sido tú? Responde a este email cuanto antes."),
+    }),
+  };
+}
+
+/** Al email nuevo cuando ya es de otra cuenta (no se dice en la web, para no revelar qué emails existen). */
+export function emailTakenEmail(o: { loginUrl: string }) {
+  return {
+    subject: "Ya tienes una cuenta con este email",
+    html: layout({
+      title: "Ya tienes una cuenta con este email",
+      body: p("Alguien ha intentado usar este email en otra cuenta, pero ya hay una cuenta con él. Si eres tú, entra con este email directamente: no hace falta cambiar nada."),
+      cta: { label: "Entrar", url: o.loginUrl },
     }),
   };
 }

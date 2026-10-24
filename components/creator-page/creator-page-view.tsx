@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, ExternalLink, Mail, MessageCircle, Plus, Quote, UserRound } from "lucide-react";
+import { ArrowRight, ArrowUpRight, ExternalLink, Mail, MessageCircle, Plus, Quote } from "lucide-react";
+import { AccountEntry } from "./account-entry";
 import { ContentBlocks } from "./content-blocks";
 import { SiteNav, type SiteNavPage } from "./site-nav";
 import { externalButtonLabel, linksToProduct } from "@/lib/access-mode";
@@ -300,13 +301,7 @@ export function CreatorPageView(props: Props) {
         <span className="rounded-full px-3 py-1.5 text-xs font-medium" style={{ background: "color-mix(in oklab, var(--c-bg) 55%, transparent)", backdropFilter: "blur(10px)" }}>
           @{username}
         </span>
-        <Link
-          href={`/${username}/entrar?next=%2Fcuenta`}
-          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium"
-          style={{ background: "color-mix(in oklab, var(--c-bg) 55%, transparent)", backdropFilter: "blur(10px)" }}
-        >
-          <UserRound className="h-3.5 w-3.5" /> Mi área
-        </Link>
+        <AccountEntry username={username} personal={personal} variant="pill" />
       </div>
 
       {/* Portada */}
@@ -375,9 +370,7 @@ export function CreatorPageView(props: Props) {
 
         <footer className="mt-20 flex flex-col items-center gap-4 text-center text-xs">
           <SiteNav pages={props.pages} />
-          <Link href={`/${username}/entrar?next=%2Fcuenta`} className="cp-muted underline-offset-4 hover:underline">
-            {personal ? "¿Ya tienes acceso? Entra en tu área" : "¿Ya compraste? Accede a tu área de cliente"}
-          </Link>
+          <AccountEntry username={username} personal={personal} variant="footer" />
           <LegalLinks username={username} sellerName={props.sellerName} signupsOnly={signupsOnly} />
           {props.showPoweredBy && !personal && (
             <a
