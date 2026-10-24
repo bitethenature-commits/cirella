@@ -43,6 +43,7 @@ import { effectiveCommissionBps } from "../lib/plans";
 import { chargeKey } from "../lib/reliability";
 import type { TaxMode } from "../lib/tax";
 import { addDaysToKey, dateKeyInTz, formatInTz, formatSessionDate, weekdayOfKey, zonedTimeToUtc } from "../lib/tz";
+import { addMonthsToKey } from "../lib/access-end";
 import { ANA_AVAILABILITY, DEMO_TZ, demoSchedule } from "./demo-dates";
 import { demoSaleFields } from "./demo-sales";
 
@@ -158,6 +159,9 @@ async function reset() {
     prisma.lessonPart.deleteMany(),
     prisma.lesson.deleteMany(),
     prisma.courseModule.deleteMany(),
+    prisma.membershipPostLike.deleteMany(),
+    prisma.membershipComment.deleteMany(),
+    prisma.productInclusion.deleteMany(),
     prisma.membershipPost.deleteMany(),
     prisma.productFile.deleteMany(),
     prisma.product.deleteMany(),
@@ -449,16 +453,44 @@ async function main() {
   const liveAt = zonedTimeToUtc(liveKey, 19 * 60, TZ);
   const liveDay = formatInTz(liveAt, TZ, { weekday: "long", day: "numeric", month: "long" }).replace(",", "");
   const liveMonth = formatInTz(liveAt, TZ, { month: "long" });
-  await prisma.membershipPost.createMany({
-    data: [
-      { creatorId: ana.id, productId: pCircle.id, title: "Luna nueva en Libra · ritual de intención", kind: "TEXT", publishedAt: daysAgo(6),
-        body: "Esta luna nueva nos invita a revisar el equilibrio entre lo que damos y lo que recibimos. Enciende una vela, escribe tres intenciones en presente y léelas en voz alta. Comparte (si quieres) una de ellas en el canal de Telegram del círculo." },
-      { creatorId: ana.id, productId: pCircle.id, title: `Directo de ${liveMonth}: los tránsitos del mes`, kind: "EVENT", publishedAt: daysAgo(2), mediaUrl: "https://meet.google.com/circulo-lunar",
-        body: `Nos vemos el ${liveDay} a las 19:00 (hora de Madrid) para repasar los tránsitos del mes y cómo aprovecharlos en tu día a día. La grabación quedará aquí.` },
-      { creatorId: ana.id, productId: pCircle.id, title: "Meditación de luna llena", kind: "AUDIO", publishedAt: daysAgo(18),
-        body: "Una meditación de 15 minutos para soltar lo que ya no necesitas. Escúchala la noche de luna llena o en los tres días siguientes." },
-    ],
+  // Comunidad: tres publicaciones ya avisadas (notifiedAt), la de luna nueva con sus archivos (audio,
+  // PDF e imagen), comentarios y «me gusta» (más abajo, cuando existen las miembros) y una programada.
+  const seen = (d: Date) => ({ notify: false, notifiedAt: d });
+  const lunaNuevaAt = daysAgo(6);
+  const postLunaNueva = await prisma.membershipPost.create({
+    data: { creatorId: ana.id, productId: pCircle.id, title: "Luna nueva en Libra · ritual de intención", kind: "AUDIO", publishedAt: lunaNuevaAt, ...seen(lunaNuevaAt), bodyFormat: "MD",
+      body: "Esta luna nueva nos invita a revisar el **equilibrio** entre lo que damos y lo que recibimos.\n\n- Enciende una vela.\n- Escribe tres intenciones en presente.\n- Léelas en voz alta y guárdalas hasta la luna llena.\n\nTe dejo la meditación guiada, la guía del ritual en PDF y la lámina para tener a mano. Cuéntame en los comentarios cómo te ha ido ✨" },
   });
+  const directoAt = daysAgo(2);
+  await prisma.membershipPost.create({
+    data: { creatorId: ana.id, productId: pCircle.id, title: `Directo de ${liveMonth}: los tránsitos del mes`, kind: "EVENT", publishedAt: directoAt, ...seen(directoAt), mediaUrl: "https://meet.google.com/circulo-lunar",
+      body: `Nos vemos el ${liveDay} a las 19:00 (hora de Madrid) para repasar los tránsitos del mes y cómo aprovecharlos en tu día a día. La grabación quedará aquí.` },
+  });
+  const lunaLlenaAt = daysAgo(18);
+  await prisma.membershipPost.create({
+    data: { creatorId: ana.id, productId: pCircle.id, title: "Meditación de luna llena", kind: "AUDIO", publishedAt: lunaLlenaAt, ...seen(lunaLlenaAt),
+      body: "Una meditación de 15 minutos para soltar lo que ya no necesitas. Escúchala la noche de luna llena o en los tres días siguientes." },
+  });
+  // Programada: se publica sola dentro de 3 días a las 9:00 (hora de Madrid) y entonces avisa por email.
+  await prisma.membershipPost.create({
+    data: { creatorId: ana.id, productId: pCircle.id, title: "Tránsitos de la semana: Venus entra en Escorpio", kind: "TEXT", bodyFormat: "MD", publishedAt: zonedTimeToUtc(addDaysToKey(TODAY, 3), 9 * 60, TZ),
+      body: "Venus cambia de signo y con ella **cómo nos relacionamos**. Te cuento qué mirar en tu carta esta semana y un pequeño ejercicio para el fin de semana." },
+  });
+  const ritualAudioData = makeM4a(36);
+  const ritualAudio = ritualAudioData ? await storePrivate(ana.id, "meditacion-luna-nueva.m4a", ritualAudioData) : await storePrivate(ana.id, "meditacion-luna-nueva.wav", makeWav(36));
+  const ritualPdf = await storePrivate(ana.id, "ritual-luna-nueva.pdf", makePdf({
+    title: "Ritual de luna nueva", subtitle: "Luna nueva en Libra", author: "Ana Luna · Círculo Lunar",
+    sections: [
+      { heading: "Prepara tu espacio", body: "Busca un rincón tranquilo, enciende una vela y ten a mano papel y bolígrafo. Apaga el móvil durante veinte minutos." },
+      { heading: "Tus tres intenciones", body: "Escríbelas en presente y en positivo, como si ya fueran verdad: «Me doy permiso para descansar», «Pido ayuda cuando la necesito»…" },
+      { heading: "Cierre", body: "Léelas en voz alta, dobla el papel y guárdalo hasta la próxima luna llena. Entonces las releeremos juntas en el círculo." },
+    ],
+  }));
+  const ritualImgData = await sharp(path.resolve("public/demo/comunidad.webp")).resize(1200).png().toBuffer();
+  const ritualImg = await storePrivate(ana.id, "lamina-luna-nueva.png", ritualImgData);
+  await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCircle.id, postId: postLunaNueva.id, name: ritualAudioData ? "Meditación de luna nueva.m4a" : "Meditación de luna nueva.wav", kind: "AUDIO", mimeType: ritualAudioData ? "audio/mp4" : "audio/wav", ...ritualAudio, ...(await mediaFields(ritualAudioData ?? makeWav(36), ritualAudioData ? "audio/mp4" : "audio/wav")), sortOrder: 0 } });
+  await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCircle.id, postId: postLunaNueva.id, name: "Ritual de luna nueva.pdf", kind: "PDF", mimeType: "application/pdf", ...ritualPdf, sortOrder: 1 } });
+  await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCircle.id, postId: postLunaNueva.id, name: "Lámina luna nueva.png", kind: "IMAGE", mimeType: "image/png", ...ritualImg, sortOrder: 2 } });
 
   // ───────────── Modo personal: lo gratuito con email, lo que se paga fuera y el contenido de la página ─────────────
   // Mini-curso gratis con email: nombre + email → acceso inmediato y un email con el enlace.
@@ -659,6 +691,36 @@ async function main() {
       creatorId: ana.id, productId: p11.id, customerId: o4.customerId, userId: carmen.id, orderId: o4.order.id, status: "CONFIRMED",
       startAt: carmenAt, endAt: new Date(carmenAt.getTime() + 60 * 60000), meetingUrl: p11.meetingUrl, createdAt: daysAgo(3, 13, 5),
     },
+  });
+
+  // Comunidad: Carmen entró al Círculo con un programa de 3 meses que le dio Ana a mano (pagó por
+  // Bizum): su acceso termina solo ese día. Comenta y da «me gusta» como Lucía (suscripción mensual).
+  const carmenGrantAt = daysAgo(30, 10, 0);
+  const carmenLastDay = addMonthsToKey(dateKeyInTz(carmenGrantAt, TZ), 3);
+  const carmenUntil = zonedTimeToUtc(addDaysToKey(carmenLastDay, 1), 0, TZ);
+  const carmenCircle = await prisma.order.create({
+    data: {
+      creatorId: ana.id, customerId: customers.get(`${ana.id}:${carmen.id}`)!, productId: pCircle.id, productTitle: pCircle.title, productType: pCircle.type,
+      buyerEmail: carmen.email, buyerName: carmen.name, status: "PAID", amountCents: 0, commissionBps: 0, platformFeeCents: 0, netCents: 0,
+      taxSeller: "CREATOR", taxRateBps: 0, taxCents: 0, paymentProvider: "manual", createdAt: carmenGrantAt, paidAt: carmenGrantAt, chargedAt: carmenGrantAt,
+      metadata: { grantedByUserId: anaUser.id, accessGrantedAt: carmenGrantAt.toISOString(), accessUntil: carmenUntil.toISOString() },
+    },
+  });
+  await prisma.access.create({ data: { creatorId: ana.id, userId: carmen.id, productId: pCircle.id, orderId: carmenCircle.id, expiresAt: carmenUntil, createdAt: carmenGrantAt } });
+  const cLucia = await prisma.membershipComment.create({
+    data: { creatorId: ana.id, productId: pCircle.id, postId: postLunaNueva.id, userId: lucia.id, authorName: "Lucía T.", body: "Mis tres intenciones ya están escritas ✨ La meditación me ha encantado.", createdAt: daysAgo(5, 21, 40) },
+  });
+  await prisma.membershipComment.create({
+    data: { creatorId: ana.id, productId: pCircle.id, postId: postLunaNueva.id, userId: anaUser.id, parentId: cLucia.id, authorName: "Ana Luna", byOwner: true, body: "¡Qué bonito, Lucía! Guárdalas hasta la luna llena y las releemos juntas en el directo.", createdAt: daysAgo(5, 22, 15) },
+  });
+  await prisma.membershipComment.create({
+    data: { creatorId: ana.id, productId: pCircle.id, postId: postLunaNueva.id, userId: carmen.id, authorName: "Carmen R.", body: "La lámina la tengo ya en la nevera 🌑", createdAt: daysAgo(4, 9, 5) },
+  });
+  await prisma.membershipPostLike.createMany({
+    data: [
+      { creatorId: ana.id, postId: postLunaNueva.id, userId: lucia.id, createdAt: daysAgo(5, 21, 38) },
+      { creatorId: ana.id, postId: postLunaNueva.id, userId: carmen.id, createdAt: daysAgo(4, 9, 3) },
+    ],
   });
 
   // Calendario propio: Lucía (desde Bogotá) tuvo su lectura de Human Design hace una semana y Ana
