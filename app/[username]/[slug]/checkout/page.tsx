@@ -122,7 +122,7 @@ export default async function CheckoutPage({
   const defaultCountry = previous?.buyerCountry ?? (guessed ? (isKnownCountry(guessed) ? guessed : "XX") : "ES");
 
   return (
-    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} sellerName={statement.name}>
+    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} sellerName={statement.name} showNewsletter={false}>
       <main className="mx-auto max-w-xl px-4 pb-16 pt-6 sm:pt-10">
         <CheckoutForm
           product={{

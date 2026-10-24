@@ -5,6 +5,7 @@ import { z } from "zod";
 import { hashPassword, revokeOtherSessions, sendMagicLink, verifyPassword } from "@/lib/auth";
 import { maskEmail } from "@/lib/auth-utils";
 import { requireBuyerFull } from "@/lib/buyer-access";
+import { syncConsent } from "@/lib/newsletter";
 import { requestClient } from "@/lib/client-ip";
 import { prisma } from "@/lib/db";
 import { enqueueEmail } from "@/lib/email/outbox";
@@ -119,6 +120,15 @@ export async function subscribeOwnerNews(form: FormData) {
     where: { creatorId_userId: { creatorId: owner.id, userId: user.id } },
     create: { creatorId: owner.id, userId: user.id, email: user.email, name: user.name, marketingOptIn: true, marketingOptInAt: now },
     update: { marketingOptIn: true, marketingOptInAt: now },
+  });
+  await syncConsent(prisma, {
+    creatorId: owner.id,
+    email: user.email,
+    name: user.name,
+    on: true,
+    source: "PROFILE",
+    consentText: "«Quiero recibir las novedades» desde su perfil, con la sesión verificada",
+    form: "perfil",
   });
   revalidatePath("/cuenta/perfil");
 }

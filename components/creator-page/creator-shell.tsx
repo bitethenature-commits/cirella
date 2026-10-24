@@ -3,7 +3,9 @@ import { ArrowLeft } from "lucide-react";
 import type { PageConfig } from "@/lib/page-config";
 import { resolveTheme, themeStyle } from "@/lib/templates";
 import { AccountEntry } from "./account-entry";
+import { creatorLegalHref } from "@/lib/legal";
 import { LegalLinks } from "./legal-links";
+import { NewsletterSignup } from "./newsletter-signup";
 import { Avatar } from "./product-art";
 import { SiteNav, type SiteNavPage } from "./site-nav";
 
@@ -20,10 +22,11 @@ export function CreatorShell({
   pages,
   currentPath,
   showAccount = true,
+  showNewsletter = true,
 }: {
   username: string;
   /** Solo lo que pinta la cabecera y el tema (también lo usan las páginas de error, en cliente). */
-  config: Pick<PageConfig, "displayName" | "avatarUrl" | "template" | "theme">;
+  config: Pick<PageConfig, "displayName" | "avatarUrl" | "template" | "theme"> & Partial<Pick<PageConfig, "newsletter">>;
   allowCustom: boolean;
   children: React.ReactNode;
   back?: boolean;
@@ -38,6 +41,8 @@ export function CreatorShell({
   currentPath?: string;
   /** Entrada «Entrar» / «Mi área» a la derecha de la cabecera (no en la propia pantalla de entrar). */
   showAccount?: boolean;
+  /** Formulario de la newsletter del pie (si lo activó): no en las pantallas de entrar, pagar o darse de baja. */
+  showNewsletter?: boolean;
 }) {
   const theme = resolveTheme(config.template, config.theme, allowCustom);
   const home = personal ? "/" : `/${username}`;
@@ -63,6 +68,9 @@ export function CreatorShell({
       {children}
       {/* El margen inferior deja sitio al botón fijo de compra de la ficha en móvil. */}
       <footer className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-4 pb-28 pt-10 text-center md:pb-10">
+        {personal && showNewsletter && config.newsletter?.footer && (
+          <NewsletterSignup variant="footer" button={config.newsletter.button} creatorName={config.displayName} privacyHref={creatorLegalHref(username, "privacidad")} />
+        )}
         <SiteNav pages={pages} current={currentPath} />
         <LegalLinks username={username} sellerName={sellerName} signupsOnly={signupsOnly} />
       </footer>

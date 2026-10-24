@@ -11,6 +11,7 @@ import { getPlatformIssuer } from "./invoices/issuer";
 import { legalIdentityComplete } from "./legal";
 import { NO_ONLINE_PAYMENTS, chooseCheckoutProvider, isPaymentProviderEnabled, paidCheckoutOpen, paymentProviderByKey, type PaymentMethodInput } from "./payments";
 import { canAcceptPayments, chargeDestination } from "./payouts";
+import { syncConsent } from "./newsletter";
 import { isPersonalMode } from "./site-mode";
 import { canSellType, effectiveCommissionBps } from "./plans";
 import { pushBookingEvent } from "./calendar";
@@ -372,6 +373,17 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
       },
     });
     if (!prevCustomer) events.push({ type: "customer.created", customerId: customer.id });
+    if (optIn)
+      await syncConsent(tx, {
+        creatorId: order.creatorId,
+        email: user.email,
+        name: customer.name,
+        on: true,
+        source: "CHECKOUT",
+        sourceRef: order.id,
+        consentText: "Casilla «Quiero recibir novedades» marcada al pagar",
+        form: "checkout",
+      });
 
     const paid = await tx.order.update({
       where: { id: order.id },

@@ -9,6 +9,7 @@ import { legalIdentityComplete } from "./legal";
 import { ensureLegalSnapshot } from "./legal-snapshot";
 import { revokeOrderAccess } from "./order-links";
 import { fulfillOrder } from "./orders";
+import { syncConsent } from "./newsletter";
 import { isPersonalMode } from "./site-mode";
 
 /**
@@ -160,13 +161,24 @@ export async function revokeManualAccess(input: { creatorId: string; orderId: st
 export async function confirmNewsletter(input: { orderId: string; userId: string }): Promise<boolean> {
   const order = await prisma.order.findUnique({
     where: { id: input.orderId },
-    select: { id: true, status: true, metadata: true, customer: { select: { id: true, userId: true } } },
+    select: { id: true, status: true, metadata: true, creatorId: true, productId: true, customer: { select: { id: true, userId: true, email: true, name: true } } },
   });
   if (!order?.customer || order.customer.userId !== input.userId || order.status !== "PAID" || !newsletterRequested(order.metadata)) return false;
   const now = new Date();
   await prisma.$transaction(async (tx) => {
     await tx.customer.updateMany({ where: { id: order.customer!.id, marketingOptIn: false }, data: { marketingOptIn: true, marketingOptInAt: now } });
     await mergeOrderMetadata(tx, order.id, { newsletterConfirmedAt: now.toISOString() });
+    // Y en su newsletter: el clic desde su email es la confirmación (doble opt-in).
+    await syncConsent(tx, {
+      creatorId: order.creatorId,
+      email: order.customer!.email,
+      name: order.customer!.name,
+      on: true,
+      source: "FREEBIE",
+      sourceRef: order.productId,
+      consentText: "Casilla «Quiero recibir novedades» del formulario del contenido gratis, confirmada desde su email",
+      form: "freebie",
+    });
   });
   return true;
 }

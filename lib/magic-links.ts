@@ -9,6 +9,7 @@ import { emailChangeConfirmEmail, magicLinkEmail } from "./email/templates";
 import { appUrl } from "./env";
 import { dispatchEvents, recordEvents } from "./events";
 import { readEmailChangeData, readRegisterData, type EmailChangeData, type RegisterData } from "./login-token-data";
+import { syncConsent } from "./newsletter";
 
 export { readEmailChangeData, readRegisterData, type EmailChangeData, type RegisterData };
 
@@ -173,6 +174,16 @@ async function applyRegistration(user: { id: string; email: string; name: string
       create: { creatorId: creator.id, userId: user.id, email: user.email, name, marketingOptIn: data.newsletter, marketingOptInAt: data.newsletter ? now : null },
       update: data.newsletter && !prev?.marketingOptIn ? { marketingOptIn: true, marketingOptInAt: now } : {},
     });
+    if (data.newsletter)
+      await syncConsent(tx, {
+        creatorId: creator.id,
+        email: user.email,
+        name,
+        on: true,
+        source: "SIGNUP",
+        consentText: "Casilla «Quiero recibir las novedades» al crear su cuenta, confirmada desde su email",
+        form: "alta-alumna",
+      });
     return prev ? [] : recordEvents(tx, [{ type: "customer.created", customerId: customer.id }]);
   });
   await dispatchEvents(eventIds);

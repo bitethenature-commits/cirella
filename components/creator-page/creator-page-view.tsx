@@ -7,6 +7,7 @@ import { externalButtonLabel, linksToProduct } from "@/lib/access-mode";
 import { imageSrcSet } from "@/lib/media-url";
 import { formatPrice } from "@/lib/money";
 import {
+  NEWSLETTER_FORM_DEFAULTS,
   SOCIAL_KEYS,
   safeHref,
   sectionTitle,
@@ -21,6 +22,8 @@ import { DEFAULT_CTA, type ProductType } from "@/lib/types";
 import { SocialIcon } from "../social-icons";
 import { DiscountCodeCard } from "./discount-code-card";
 import { LegalLinks } from "./legal-links";
+import { NewsletterSignup } from "./newsletter-signup";
+import { creatorLegalHref } from "@/lib/legal";
 import { Avatar, ProductImage } from "./product-art";
 import { TrackedAnchor, TrackedLink } from "./tracking";
 
@@ -255,6 +258,22 @@ export function CreatorPageView(props: Props) {
             </div>
           </section>
         );
+      case "newsletter":
+        // Solo en la web personal (la newsletter es suya y sale con su dominio).
+        if (!personal) return null;
+        return (
+          <section key={key} id="newsletter" className="mt-16" {...reveal}>
+            <NewsletterSignup
+              variant="section"
+              title={sectionTitle(config, key)}
+              text={config.newsletter?.text ?? NEWSLETTER_FORM_DEFAULTS.text}
+              button={config.newsletter?.button ?? NEWSLETTER_FORM_DEFAULTS.button}
+              creatorName={config.displayName}
+              privacyHref={creatorLegalHref(username, "privacidad")}
+              preview={preview}
+            />
+          </section>
+        );
       case "contact": {
         const c = config.contact;
         if (!c.email && !c.whatsapp) return null;
@@ -369,6 +388,15 @@ export function CreatorPageView(props: Props) {
         {config.sections.filter((s) => s.enabled && s.key !== "links").map((s) => renderSection(s.key))}
 
         <footer className="mt-20 flex flex-col items-center gap-4 text-center text-xs">
+          {personal && config.newsletter?.footer && !config.sections.some((s) => s.key === "newsletter" && s.enabled) && (
+            <NewsletterSignup
+              variant="footer"
+              button={config.newsletter.button}
+              creatorName={config.displayName}
+              privacyHref={creatorLegalHref(username, "privacidad")}
+              preview={preview}
+            />
+          )}
           <SiteNav pages={props.pages} />
           <AccountEntry username={username} personal={personal} variant="footer" />
           <LegalLinks username={username} sellerName={props.sellerName} signupsOnly={signupsOnly} />

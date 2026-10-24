@@ -57,6 +57,10 @@ export const RULES = {
   freeClaimEmail: { limit: 5, windowSec: HOUR },
   freeClaimIp: { limit: 20, windowSec: HOUR },
   // Comunidad: comentarios y «me gusta» por persona.
+  // Newsletter: el formulario de la página (por email y por conexión) y las pruebas de la dueña.
+  newsletterEmail: { limit: 5, windowSec: HOUR },
+  newsletterIp: { limit: 20, windowSec: HOUR },
+  newsletterTest: { limit: 10, windowSec: HOUR },
   commentUser: { limit: 20, windowSec: HOUR },
   likeUser: { limit: 300, windowSec: HOUR },
 } satisfies Record<string, Rule>;
@@ -201,6 +205,24 @@ export async function limitFreeClaim(email: string, ipHash: string): Promise<Ver
   const byEmail = await hit(rlKey("free-claim-email", email), RULES.freeClaimEmail);
   if (!byEmail.ok)
     return denied((t) => `Ya te hemos enviado el enlace varias veces. Revisa tu bandeja de entrada y la carpeta de spam, o vuelve a pedirlo en ${t}.`, byEmail.retryAfterSec);
+  return OK;
+}
+
+// ── Newsletter ──
+
+/** «Apuntarme» del formulario de la página: por conexión y por email. */
+export async function limitNewsletterSignup(email: string, ipHash: string): Promise<Verdict> {
+  const ip = await hitConnection("nl-signup-ip", ipHash, RULES.newsletterIp);
+  if (!ip.ok) return denied((t) => `Demasiados intentos desde esta conexión. Prueba de nuevo en ${t}.`, ip.retryAfterSec);
+  const byEmail = await hit(rlKey("nl-signup-email", email), RULES.newsletterEmail);
+  if (!byEmail.ok) return denied((t) => `Ya te hemos enviado el email de confirmación. Revisa tu bandeja de entrada y la carpeta de spam, o vuelve a intentarlo en ${t}.`, byEmail.retryAfterSec);
+  return OK;
+}
+
+/** «Enviarme una prueba» de la dueña. */
+export async function limitNewsletterTest(creatorId: string): Promise<Verdict> {
+  const r = await hit(rlKey("nl-test", creatorId), RULES.newsletterTest);
+  if (!r.ok) return denied((t) => `Has enviado muchas pruebas seguidas. Espera ${t}.`, r.retryAfterSec);
   return OK;
 }
 

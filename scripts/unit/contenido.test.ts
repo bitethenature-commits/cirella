@@ -163,13 +163,15 @@ test("caducidad: vale todo el día elegido en la zona de la creadora", () => {
 test("withAllSections: las secciones nuevas entran visibles tras la anterior del orden por defecto", () => {
   const old = ["links", "products", "sessions", "courses", "memberships", "testimonials", "faq", "contact"].map((key) => ({ key, enabled: true })) as never;
   const keys = withAllSections(old).map((s) => s.key);
-  eq(keys, ["links", "blocks", "products", "sessions", "courses", "memberships", "posts", "codes", "testimonials", "faq", "contact"]);
+  eq(keys, ["links", "blocks", "products", "sessions", "courses", "memberships", "posts", "codes", "testimonials", "faq", "newsletter", "contact"]);
   // Respeta el orden elegido y no duplica.
   const custom = withAllSections([{ key: "faq", enabled: false }, { key: "links", enabled: true }, { key: "faq", enabled: true }]);
   eq(custom.filter((s) => s.key === "faq").length, 1);
   eq(custom[0], { key: "faq", enabled: false });
   eq(custom.length, SECTION_KEYS.length);
-  ok(custom.filter((s) => s.key !== "faq" && s.key !== "links").every((s) => s.enabled), "las nuevas, visibles");
+  ok(custom.filter((s) => s.key !== "faq" && s.key !== "links" && s.key !== "newsletter").every((s) => s.enabled), "las nuevas, visibles");
+  // La de la newsletter entra oculta: la activa la dueña.
+  eq(custom.find((s) => s.key === "newsletter")?.enabled, false);
 });
 
 test("readPageConfig: una página guardada antes de los bloques sigue valiendo", () => {

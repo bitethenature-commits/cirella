@@ -56,7 +56,7 @@ export default async function CreatorLoginPage({
   const q = (modo?: string) => `/${data.creator.username}/entrar?next=${encodeURIComponent(next)}${modo ? `&modo=${modo}` : ""}`;
 
   return (
-    <CreatorShell username={data.creator.username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} showAccount={false}>
+    <CreatorShell username={data.creator.username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} showAccount={false} showNewsletter={false}>
       <main className="mx-auto max-w-md px-5 pb-20 pt-12">
         {data.personal && (
           <nav aria-label="Entrar o crear cuenta" className="cp-card mb-8 grid grid-cols-2 p-1 text-sm" style={{ borderRadius: 999 }}>

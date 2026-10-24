@@ -20,6 +20,7 @@ export const SECTION_KEYS = [
   "codes",
   "testimonials",
   "faq",
+  "newsletter",
   "contact",
 ] as const;
 export type SectionKey = (typeof SECTION_KEYS)[number];
@@ -35,7 +36,20 @@ export const SECTION_META: Record<SectionKey, { label: string; defaultTitle: str
   codes: { label: "Códigos de descuento", defaultTitle: "Códigos de descuento", hint: "Descuentos en marcas que recomiendas" },
   testimonials: { label: "Testimonios", defaultTitle: "Lo que dicen", hint: "Opiniones de clientas" },
   faq: { label: "Preguntas frecuentes", defaultTitle: "Preguntas frecuentes", hint: "Resuelve dudas antes de comprar" },
+  newsletter: { label: "Newsletter", defaultTitle: "Recibe mi newsletter", hint: "Formulario para apuntarse (con confirmación por email)" },
   contact: { label: "Contacto", defaultTitle: "Hablemos", hint: "Email, WhatsApp…" },
+};
+
+/**
+ * Secciones que entran ocultas (en una página nueva y en las guardadas antes de existir): la de la
+ * newsletter solo se enseña cuando la dueña la activa (y solo en la web personal).
+ */
+export const DEFAULT_OFF_SECTIONS: ReadonlySet<SectionKey> = new Set(["newsletter"]);
+
+/** Textos del formulario de la newsletter (sección «Newsletter» y pie de la web). */
+export const NEWSLETTER_FORM_DEFAULTS = {
+  text: "Te escribo de vez en cuando con lo que estoy preparando, lecturas y novedades. Sin spam.",
+  button: "Apuntarme",
 };
 
 /** Secciones que se gestionan fuera del editor (tienen su propia pantalla en el panel). */
@@ -126,6 +140,15 @@ export const pageConfigSchema = z.object({
     // readPageConfig siempre lo devuelve (vacío si no hay).
     .optional(),
   hidePoweredBy: z.boolean().default(false),
+  // Formulario de la newsletter: el texto y el botón de la sección, y si sale también en el pie de la
+  // web (todas las páginas). Solo en la web personal.
+  newsletter: z
+    .object({
+      text: shortText(300).default(NEWSLETTER_FORM_DEFAULTS.text),
+      button: shortText(30).default(NEWSLETTER_FORM_DEFAULTS.button),
+      footer: z.boolean().default(false),
+    })
+    .optional(),
 });
 
 export type PageConfig = z.infer<typeof pageConfigSchema>;
@@ -135,7 +158,7 @@ export type ThemeConfig = PageConfig["theme"];
 export type RadiusChoice = RadiusKey;
 
 export function defaultSections(): PageConfig["sections"] {
-  return SECTION_KEYS.map((key) => ({ key, enabled: true }));
+  return SECTION_KEYS.map((key) => ({ key, enabled: !DEFAULT_OFF_SECTIONS.has(key) }));
 }
 
 export function defaultPageConfig(input: { displayName: string; template?: PageConfig["template"]; tagline?: string; bio?: string }): PageConfig {
@@ -192,7 +215,7 @@ export function withAllSections(sections: PageConfig["sections"]): PageConfig["s
         break;
       }
     }
-    out.splice(at, 0, { key, enabled: true });
+    out.splice(at, 0, { key, enabled: !DEFAULT_OFF_SECTIONS.has(key) });
   });
   return out;
 }

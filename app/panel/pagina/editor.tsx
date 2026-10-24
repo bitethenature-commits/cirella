@@ -27,6 +27,7 @@ import { TemplatePreview } from "@/components/template-preview";
 import { ImageUpload } from "@/components/ui/image-upload";
 import {
   SECTION_MANAGE_HREF,
+  NEWSLETTER_FORM_DEFAULTS,
   SECTION_META,
   SOCIAL_KEYS,
   SOCIAL_LABEL,
@@ -332,7 +333,7 @@ export function PageEditor(props: Props) {
                 <h3 className="font-semibold">Secciones de tu página</h3>
                 <p className="text-xs text-muted">Activa, desactiva, ordena y renombra cada bloque.</p>
                 <ul className="mt-4 space-y-2">
-                  {cfg.sections.map((s, i) => (
+                  {cfg.sections.map((s, i) => (s.key === "newsletter" && !props.personal ? null : (
                     <li key={s.key} className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 transition ${s.enabled ? "border-line bg-white" : "border-dashed border-line bg-paper opacity-70"}`}>
                       <div className="flex flex-col">
                         <button type="button" onClick={() => moveSection(i, -1)} disabled={i === 0} className="text-muted disabled:opacity-20" aria-label="Subir"><ArrowUp className="h-3.5 w-3.5" /></button>
@@ -372,9 +373,49 @@ export function PageEditor(props: Props) {
                         {s.enabled ? "Visible" : "Oculta"}
                       </button>
                     </li>
-                  ))}
+                  )))}
                 </ul>
               </section>
+              {props.personal && (
+                <section className="card space-y-3 p-5 sm:p-6" aria-labelledby="nl-form-title">
+                  <div>
+                    <h3 id="nl-form-title" className="font-semibold">Formulario de la newsletter</h3>
+                    <p className="text-xs text-muted">
+                      Se enseña con la sección «Newsletter» (actívala arriba) y, si quieres, en el pie de todas tus páginas. Quien se apunta recibe un email para confirmarlo.{" "}
+                      <Link href="/panel/newsletter" className="underline underline-offset-2 hover:text-ink">Tu newsletter</Link>
+                    </p>
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor="nl-text">Texto</label>
+                    <textarea
+                      id="nl-text"
+                      className="input min-h-20 text-base sm:text-sm"
+                      maxLength={300}
+                      value={cfg.newsletter?.text ?? NEWSLETTER_FORM_DEFAULTS.text}
+                      onChange={(e) => set("newsletter", { ...NEWSLETTER_FORM_DEFAULTS, footer: false, ...cfg.newsletter, text: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor="nl-button">Texto del botón</label>
+                    <input
+                      id="nl-button"
+                      className="input text-base sm:text-sm"
+                      maxLength={30}
+                      value={cfg.newsletter?.button ?? NEWSLETTER_FORM_DEFAULTS.button}
+                      onChange={(e) => set("newsletter", { ...NEWSLETTER_FORM_DEFAULTS, footer: false, ...cfg.newsletter, button: e.target.value })}
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-[#0E1024]"
+                      checked={!!cfg.newsletter?.footer}
+                      onChange={(e) => set("newsletter", { ...NEWSLETTER_FORM_DEFAULTS, ...cfg.newsletter, footer: e.target.checked })}
+                    />
+                    También en el pie de todas mis páginas
+                  </label>
+                </section>
+              )}
               <section className="card p-5 sm:p-6">
                 <div className="flex items-center justify-between gap-3">
                   <div>
