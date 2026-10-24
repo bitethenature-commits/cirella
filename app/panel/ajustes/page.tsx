@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, CreditCard, Gift, KeyRound, Link2, Scale, Search, Share2 } from "lucide-react";
+import { ArrowRight, CreditCard, Gift, KeyRound, Link2, Scale, Search, Share2, ShieldCheck } from "lucide-react";
 import { LegalIdentityStatus } from "@/components/panel/legal-status";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Flash } from "@/components/ui/flash";
@@ -145,7 +145,19 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <SubmitButton pendingLabel="Guardando…">Guardar</SubmitButton>
       </form>
 
-      <form action={changePassword} className="card space-y-4 p-5 sm:p-6">
+      <section id="seguridad" className="card scroll-mt-20 p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 font-semibold"><ShieldCheck className="h-4 w-4" /> Seguridad</h2>
+        <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
+          Verificación en dos pasos:{" "}
+          {user.totpEnabledAt ? <Badge tone="success">Activada</Badge> : <Badge tone="warning">Sin activar</Badge>}
+        </p>
+        <p className="mt-2 text-sm text-muted">Un código de tu móvil además de la contraseña o del enlace: nadie entra en tu panel solo con tu contraseña o tu email.</p>
+        <Link href="/panel/ajustes/seguridad" className="btn btn-outline mt-4">
+          {user.totpEnabledAt ? "Gestionar" : "Activar"} <ArrowRight className="h-4 w-4" />
+        </Link>
+      </section>
+
+      <form id="contrasena" action={changePassword} className="card scroll-mt-20 space-y-4 p-5 sm:p-6">
         <h2 className="flex items-center gap-2 font-semibold"><KeyRound className="h-4 w-4" /> Contraseña</h2>
         <p className="text-sm text-muted">
           Cuenta: {user.email}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ExternalLink, LogOut, ShieldCheck } from "lucide-react";
+import { TwoFactorBanner } from "@/components/auth/two-factor-banner";
 import { VerifyEmailBanner } from "@/components/auth/verify-email-banner";
 import { BrandLogo } from "@/components/brand-logo";
 import { Avatar } from "@/components/creator-page/product-art";
@@ -73,6 +74,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
         </header>
         <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 lg:pb-16 lg:pt-8">
           <VerifyEmailBanner />
+          <TwoFactorBanner user={user} />
           {children}
         </main>
       </div>

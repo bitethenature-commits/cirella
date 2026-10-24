@@ -372,6 +372,9 @@ No tienes que instalar nada: tu cuenta se crea sola en el primer despliegue (con
 2. Escribe tu email (el de `OWNER_EMAIL`) y abre el email que te llega: el botón te deja dentro
    de tu panel.
 3. Si quieres entrar también con contraseña: **Ajustes → Contraseña → Crear contraseña**.
+4. Recomendado: activa la **verificación en dos pasos** (**Ajustes → Seguridad**), un código de
+   tu móvil además de la contraseña o del enlace. Cómo se configura en el iPhone y qué hacer si
+   pierdes el móvil: [seguridad-dos-pasos.md](seguridad-dos-pasos.md).
 
 **Comprobación:** estás en tu panel y tu página se ve en `https://tudominio.com` (todavía con
 el contenido de ejemplo: en el paso 10 la preparas).

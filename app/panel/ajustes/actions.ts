@@ -8,6 +8,8 @@ import { isUsernameAvailable } from "@/lib/creator";
 import { prisma } from "@/lib/db";
 import { isPersonalMode } from "@/lib/site-mode";
 import { normalizeUsername } from "@/lib/slug";
+import { forgetDevices } from "@/lib/two-factor";
+import { notifyTwoFactorChange } from "@/lib/two-factor-notify";
 
 const back = (k: "ok" | "error", msg: string) => redirect(`/panel/ajustes?${k}=${encodeURIComponent(msg)}`);
 
@@ -45,5 +47,7 @@ export async function changePassword(form: FormData) {
   if (!user.passwordHash && !user.sessionVerified) back("error", "Entra con el enlace mágico de tu email para crear tu contraseña");
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(next) } });
   await revokeOtherSessions(user.id);
+  // También olvida los dispositivos recordados de la verificación en dos pasos.
+  if ((await forgetDevices(user.id)) > 0 || user.totpEnabledAt) await notifyTwoFactorChange(user.id, "password");
   back("ok", "Contraseña actualizada. Hemos cerrado tus otras sesiones.");
 }
