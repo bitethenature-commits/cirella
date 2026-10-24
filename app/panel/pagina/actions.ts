@@ -7,7 +7,7 @@ import { publishPage } from "@/lib/creator";
 import { prisma } from "@/lib/db";
 import { pageConfigSchema, type PageConfig } from "@/lib/page-config";
 import { planFeatures } from "@/lib/plans";
-import { cleanRichInput } from "@/lib/rich-text";
+import { sanitizeBlocks } from "@/lib/page-blocks.server";
 import { isPersonalMode } from "@/lib/site-mode";
 
 const ownImage = (u: string | null | undefined) => (u && (u.startsWith("/media/") || u.startsWith("/demo/")) ? u : null);
@@ -17,14 +17,17 @@ async function save(input: PageConfig) {
   const parsed = pageConfigSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0].message, creator };
   const features = planFeatures(creator.plan);
+  // Bloques: imágenes y vídeos solo suyos, enlaces de vídeo reconocidos y el texto con
+  // formato sin caracteres de control ni imágenes (los bloques tienen sus propias imágenes).
+  const blocks = sanitizeBlocks(creator.id, parsed.data.blocks ?? []);
+  if ("error" in blocks) return { ok: false as const, error: blocks.error, creator };
   const cfg: PageConfig = {
     ...parsed.data,
     avatarUrl: ownImage(parsed.data.avatarUrl),
     coverUrl: ownImage(parsed.data.coverUrl),
     theme: { ...parsed.data.theme, backgroundImageUrl: ownImage(parsed.data.theme.backgroundImageUrl) },
     hidePoweredBy: features.removeBranding ? parsed.data.hidePoweredBy : false,
-    // Bloques con formato: sin caracteres de control ni imágenes (los bloques no admiten imágenes).
-    blocks: parsed.data.blocks?.map((b) => (b.format === "MD" ? { ...b, body: cleanRichInput(b.body, { creatorId: creator.id, images: false }) } : b)),
+    blocks: blocks.blocks,
   };
   const tpl = await prisma.template.findFirst({ where: { key: cfg.template, active: true } });
   if (!tpl) return { ok: false as const, error: "Ese diseño no está disponible", creator };

@@ -247,7 +247,7 @@ test.describe.serial("Texto con formato", () => {
   test("editor de la página: la negrita se ve en la vista previa del móvil sin guardar", async ({ page }) => {
     await demoLogin(page, "Ana Luna");
     await page.goto("/panel/pagina");
-    await page.getByRole("button", { name: "Bloques de texto", exact: true }).click();
+    await page.getByRole("button", { name: "Bloques", exact: true }).click();
     await page.getByRole("button", { name: "Añadir bloque de texto" }).click();
     await page.getByLabel("Título del bloque").last().fill(`Bloque ${stamp}`);
     await page.getByLabel("Texto del bloque").last().fill(`Texto con **fuerza ${stamp}** y más`);

@@ -455,10 +455,13 @@ test("parseRich: 20.000 caracteres patológicos en menos de 50 ms cada uno", () 
 test("page-config: format «MD» se lee; sin formato también; uno desconocido es de antes y no borra la página", () => {
   const block = { id: "b1", title: "Sobre mí", body: "Hola", enabled: true };
   const base = { displayName: "Ana", sections: [], links: [], socials: {}, testimonials: [], faqs: [] };
-  eq(pageConfigSchema.parse({ ...base, blocks: [{ ...block, format: "MD" }] }).blocks?.[0].format, "MD");
-  eq(pageConfigSchema.parse({ ...base, blocks: [block] }).blocks?.[0].format, undefined);
+  // Los bloques de antes (sin `kind`) son de texto (lib/page-blocks.ts).
+  const text = (b: unknown) => b as { kind: string; format?: string; body: string };
+  eq(text(pageConfigSchema.parse({ ...base, blocks: [{ ...block, format: "MD" }] }).blocks?.[0]).format, "MD");
+  eq(text(pageConfigSchema.parse({ ...base, blocks: [block] }).blocks?.[0]).format, undefined);
   const cfg = readPageConfig({ ...base, tagline: "Mi frase", blocks: [{ ...block, format: "HTML" }] });
   eq(cfg.tagline, "Mi frase", "no vuelve a la página por defecto");
-  eq(cfg.blocks?.[0].format, undefined);
-  eq(cfg.blocks?.[0].body, "Hola");
+  eq(text(cfg.blocks?.[0]).kind, "text");
+  eq(text(cfg.blocks?.[0]).format, undefined);
+  eq(text(cfg.blocks?.[0]).body, "Hola");
 });

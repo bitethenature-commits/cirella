@@ -17,6 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       updatedAt: true,
       products: { where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } },
       posts: { where: publicPostWhere(), select: { slug: true, updatedAt: true }, orderBy: { publishedAt: "desc" } },
+      sitePages: { where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } },
     },
   });
   return [
@@ -26,11 +27,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       { url: `${base}/${c.username}`, lastModified: c.updatedAt, priority: 0.8 },
       ...c.products.map((p) => ({ url: `${base}/${c.username}/${p.slug}`, lastModified: p.updatedAt, priority: 0.6 })),
       ...postEntries(base, c.username, c.posts),
+      ...c.sitePages.map((p) => ({ url: `${base}/${c.username}/p/${p.slug}`, lastModified: p.updatedAt, priority: 0.6 })),
     ]),
   ];
 }
 
-/** Modo personal: solo la web de la dueña (portada, productos y novedades). Sin páginas de la plataforma. */
+/** Modo personal: solo la web de la dueña (portada, páginas extra, productos y novedades). Sin páginas de la plataforma. */
 async function personalSitemap(base: string, owner: string): Promise<MetadataRoute.Sitemap> {
   const c = await prisma.creator.findFirst({
     where: { username: owner, published: true, status: "ACTIVE" },
@@ -39,11 +41,14 @@ async function personalSitemap(base: string, owner: string): Promise<MetadataRou
       // Lo de pago no se ofrece aquí: su ficha es un 404 para las visitas.
       products: { where: { status: "PUBLISHED", accessMode: { not: "PAID" } }, select: { slug: true, updatedAt: true } },
       posts: { where: publicPostWhere(), select: { slug: true, updatedAt: true }, orderBy: { publishedAt: "desc" } },
+      sitePages: { where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } },
     },
   });
   if (!c) return [{ url: `${base}/`, changeFrequency: "weekly", priority: 1 }];
   return [
     { url: `${base}/`, lastModified: c.updatedAt, changeFrequency: "weekly", priority: 1 },
+    // Sus páginas extra viven en la raíz (/sobre-mi), que es su dirección canónica.
+    ...c.sitePages.map((p) => ({ url: `${base}/${p.slug}`, lastModified: p.updatedAt, priority: 0.7 })),
     ...c.products.map((p) => ({ url: `${base}/${owner}/${p.slug}`, lastModified: p.updatedAt, priority: 0.7 })),
     ...postEntries(base, owner, c.posts),
   ];

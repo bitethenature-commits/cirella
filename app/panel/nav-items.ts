@@ -3,6 +3,7 @@ import {
   CalendarDays,
   ClipboardList,
   CreditCard,
+  FileText,
   Home,
   LayoutGrid,
   Menu,
@@ -58,12 +59,13 @@ export const PLATFORM_NAV_FLAGS: PanelNavFlags = { personal: false, showBookings
 
 /**
  * Menú en modo personal: sin Plan (ni nada de cobros), «Ventas» pasa a ser «Inscripciones» (quién
- * se ha apuntado a qué) y se añaden Publicaciones y Códigos. Reservas, solo si hay sesiones con
+ * se ha apuntado a qué) y se añaden Páginas (extra), Publicaciones y Códigos. Reservas, solo si hay sesiones con
  * reserva aquí.
  */
 const PERSONAL_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Inicio", icon: Home },
   { href: "/panel/pagina", label: "Mi página", icon: Palette },
+  { href: "/panel/paginas", label: "Páginas", icon: FileText },
   { href: "/panel/productos", label: "Productos", icon: LayoutGrid },
   { href: "/panel/publicaciones", label: "Publicaciones", icon: Newspaper },
   { href: "/panel/codigos", label: "Códigos", icon: TicketPercent },

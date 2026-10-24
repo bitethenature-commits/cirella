@@ -248,10 +248,11 @@ async function main() {
       { id: "f4", q: "¿Puedo cancelar la membresía?", a: "Cuando quieras, desde tu área de cliente. Mantienes el acceso hasta el final del mes pagado." },
     ],
     contact: { email: "hola@analuna.es", whatsapp: "+34600000000", message: "¿Dudas sobre qué lectura es para ti? Escríbeme y te oriento." },
-    // Bloque fijo de texto (sección «Bloques de texto»).
+    // Bloque fijo de texto (sección «Bloques»).
     blocks: [
       {
         id: "sobre-mi",
+        kind: "text",
         title: "Cómo trabajo",
         body: "Cada lectura parte de tu carta natal y de tu diseño humano, sin fórmulas genéricas.\n\nTrabajo por videollamada y te envío la grabación y un resumen escrito después de cada sesión.",
         buttonLabel: "Ver mi agenda",

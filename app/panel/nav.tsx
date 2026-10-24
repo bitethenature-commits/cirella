@@ -5,7 +5,8 @@ import { mobileNav, panelNav, PANEL_NAV, PLATFORM_NAV_FLAGS, type PanelNavFlags 
 
 export { PANEL_NAV };
 
-const isActive = (path: string, href: string) => (href === "/panel" ? path === "/panel" : path.startsWith(href));
+// Por tramos: «/panel/pagina» no se marca en «/panel/paginas».
+const isActive = (path: string, href: string) => (href === "/panel" ? path === "/panel" : path === href || path.startsWith(`${href}/`));
 
 export function SideNav({ flags = PLATFORM_NAV_FLAGS }: { flags?: PanelNavFlags }) {
   const path = usePathname();

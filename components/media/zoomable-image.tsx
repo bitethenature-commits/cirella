@@ -20,6 +20,8 @@ export function ZoomableImage({
   alt,
   className = "",
   imgClassName = "",
+  width,
+  height,
 }: {
   src: string;
   srcSet?: string;
@@ -27,6 +29,9 @@ export function ZoomableImage({
   alt: string;
   className?: string;
   imgClassName?: string;
+  /** Medidas reales (si se conocen): reservan el sitio de la imagen antes de que cargue. */
+  width?: number;
+  height?: number;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -133,7 +138,7 @@ export function ZoomableImage({
     <>
       <button ref={trigger} type="button" onClick={open} className={`block w-full cursor-zoom-in ${className}`} aria-label={alt ? `Ampliar imagen: ${alt}` : "Ampliar imagen"}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} srcSet={srcSet} sizes={sizes} alt={alt} loading="lazy" className={`h-auto w-full ${imgClassName}`} />
+        <img src={src} srcSet={srcSet} sizes={sizes} alt={alt} width={width} height={height} loading="lazy" decoding="async" className={`h-auto w-full ${imgClassName}`} />
       </button>
       <dialog
         ref={dialog}
@@ -157,6 +162,9 @@ export function ZoomableImage({
             srcSet={srcSet}
             sizes="100vw"
             alt={alt}
+            // Diferida: el <dialog> cerrado no se pinta y así su imagen grande no se descarga hasta abrirlo.
+            loading="lazy"
+            decoding="async"
             draggable={false}
             data-zoom-scale={view.s}
             className="max-h-full max-w-full object-contain"

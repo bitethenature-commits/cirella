@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, ExternalLink, Mail, MessageCircle, Plus, Quote, UserRound } from "lucide-react";
+import { ContentBlocks } from "./content-blocks";
+import { SiteNav, type SiteNavPage } from "./site-nav";
 import { externalButtonLabel, linksToProduct } from "@/lib/access-mode";
 import { imageSrcSet } from "@/lib/media-url";
 import { formatPrice } from "@/lib/money";
@@ -19,7 +21,6 @@ import { SocialIcon } from "../social-icons";
 import { DiscountCodeCard } from "./discount-code-card";
 import { LegalLinks } from "./legal-links";
 import { Avatar, ProductImage } from "./product-art";
-import { RichContent } from "@/components/rich-text/rich-content";
 import { TrackedAnchor, TrackedLink } from "./tracking";
 
 export type PublicProduct = {
@@ -111,6 +112,8 @@ type Props = {
   signupsOnly?: boolean;
   /** Dirección de la web (APP_URL), para reconocer los enlaces absolutos a sus propios productos. */
   siteOrigin?: string;
+  /** Páginas extra publicadas que salen en el pie («Sobre mí», «Preguntas frecuentes»…). */
+  pages?: SiteNavPage[];
 };
 
 export function CreatorPageView(props: Props) {
@@ -158,33 +161,7 @@ export function CreatorPageView(props: Props) {
         return (
           <section key={key} id="bloques" className="mt-14 space-y-4" {...reveal}>
             {heading && <SectionHeading title={heading} />}
-            {blocks.map((b) => {
-              // Sin botón hacia lo que no se ve (un producto oculto en la web personal); el texto se queda.
-              const href = b.buttonUrl && !linksToProduct(b.buttonUrl, username, hiddenSlugs, props.siteOrigin) ? safeHref(b.buttonUrl) : null;
-              // Las webs de fuera, en otra pestaña; los enlaces internos y mailto:/tel:, en la misma.
-              const newTab = !!href && /^https?:/i.test(href);
-              return (
-                <div key={b.id} className="cp-card p-6 sm:p-7">
-                  {b.title && (heading ? <h3 className="cp-display text-[1.6rem] leading-tight">{b.title}</h3> : <h2 className="cp-display text-[1.75rem] leading-tight sm:text-[2rem]">{b.title}</h2>)}
-                  {b.body && (
-                    <RichContent
-                      text={b.body}
-                      format={b.format}
-                      legacy="links"
-                      tone="page"
-                      headingLevel={heading ? 4 : 3}
-                      className={`cp-muted space-y-3 text-[0.95rem] leading-relaxed ${b.title ? "mt-3" : ""}`}
-                    />
-                  )}
-                  {href && b.buttonLabel && (
-                    <a href={href} className="cp-btn-ghost mt-5" {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
-                      {b.buttonLabel}
-                      <ArrowUpRight className="h-4 w-4 opacity-70" />
-                    </a>
-                  )}
-                </div>
-              );
-            })}
+            <ContentBlocks blocks={blocks} username={username} titleLevel={heading ? 3 : 2} hiddenSlugs={hiddenSlugs} siteOrigin={props.siteOrigin} />
           </section>
         );
       }
@@ -397,6 +374,7 @@ export function CreatorPageView(props: Props) {
         {config.sections.filter((s) => s.enabled && s.key !== "links").map((s) => renderSection(s.key))}
 
         <footer className="mt-20 flex flex-col items-center gap-4 text-center text-xs">
+          <SiteNav pages={props.pages} />
           <Link href={`/${username}/entrar?next=%2Fcuenta`} className="cp-muted underline-offset-4 hover:underline">
             {personal ? "¿Ya tienes acceso? Entra en tu área" : "¿Ya compraste? Accede a tu área de cliente"}
           </Link>

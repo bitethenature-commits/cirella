@@ -11,6 +11,7 @@ import { isPublicUsernameAllowed } from "./personal-routing";
 import { hasPaymentProvider } from "./payments";
 import { getSettings } from "./settings";
 import { isPersonalMode, ownerUsername } from "./site-mode";
+import { sitePagePath } from "./site-pages";
 import { asTaxMode, decideTax, vatIncluded } from "./tax";
 import { formatDate } from "./tz";
 import { lessonsLabel, PRODUCT_TYPES, type ProductType } from "./types";
@@ -43,7 +44,7 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
   const raw = draft ? creator.pageDraft : (creator.pagePublished ?? creator.pageDraft);
   const config = readPageConfig(raw, creator.displayName);
   const now = new Date();
-  const [rows, postRows, postCount, codeRows, settings] = await Promise.all([
+  const [rows, postRows, postCount, codeRows, settings, pageRows] = await Promise.all([
     prisma.product.findMany({
       where: { creatorId: creator.id, status: "PUBLISHED" },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -61,6 +62,12 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     }),
     getSettings(),
+    // Páginas extra publicadas que salen en el pie (solo título y dirección: nunca el contenido).
+    prisma.sitePage.findMany({
+      where: { creatorId: creator.id, status: "PUBLISHED", showInNav: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { slug: true, title: true, publishedTitle: true },
+    }),
   ]);
   // «IVA incluido» con una compradora de España (el precio es el mismo en todos los países).
   const mode = asTaxMode(settings.taxMode);
@@ -120,6 +127,8 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
     posts,
     postCount,
     discountCodes,
+    /** Páginas extra publicadas del pie de la web («Sobre mí», «Preguntas frecuentes»…). */
+    pages: pageRows.map((p) => ({ href: sitePagePath(creator.username, p.slug, personal), title: p.publishedTitle || p.title })),
     features,
     personal,
     signupsOnly,

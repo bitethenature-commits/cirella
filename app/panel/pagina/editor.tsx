@@ -6,6 +6,7 @@ import {
   Check,
   Eye,
   EyeOff,
+  FileText,
   Loader2,
   Lock,
   Plus,
@@ -17,9 +18,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useDeferredValue, useMemo, useState, useTransition } from "react";
 import { CreatorPageView, type PublicDiscountCode, type PublicPost, type PublicProduct } from "@/components/creator-page/creator-page-view";
-import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
+import { BlocksEditor, type BlocksUpdate } from "@/components/panel/blocks/blocks-editor";
+import { LinkInput, type LinkTarget } from "@/components/panel/blocks/link-input";
+import { useDesktop } from "@/components/panel/use-desktop";
 import { TemplatePreview } from "@/components/template-preview";
 import { ImageUpload } from "@/components/ui/image-upload";
 import {
@@ -31,8 +34,9 @@ import {
   TEXT_BLOCKS_MAX,
   type PageConfig,
   type SectionKey,
-  type TextBlock,
 } from "@/lib/page-config";
+import { isEmptyBlock } from "@/lib/page-blocks";
+import { SITE_PAGE_STATE_LABEL, type SitePageState } from "@/lib/site-pages";
 import { FONT_PAIRS, RADIUS, TEMPLATES, type FontPairKey, type RadiusKey, type TemplateKey } from "@/lib/templates";
 import { moveProduct } from "../productos/actions";
 import { publishDraft, saveDraft } from "./actions";
@@ -58,6 +62,9 @@ type Props = {
   allowRemoveBranding: boolean;
   platformName: string;
   referralCode: string;
+  /** Páginas extra (tarjeta «Páginas extra» de «Secciones») y sugerencias de los campos de enlace. */
+  pages: { id: string; title: string; state: SitePageState }[];
+  linkTargets: LinkTarget[];
 };
 
 const TABS = [
@@ -65,7 +72,7 @@ const TABS = [
   { key: "diseno", label: "Diseño" },
   { key: "secciones", label: "Secciones" },
   { key: "enlaces", label: "Botones y redes" },
-  { key: "bloques", label: "Bloques de texto" },
+  { key: "bloques", label: "Bloques" },
   { key: "contenido", label: "Testimonios y FAQ" },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
@@ -106,6 +113,8 @@ export function PageEditor(props: Props) {
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const [busyAction, setBusyAction] = useState<"save" | "publish" | "preview" | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const desktop = useDesktop();
   const router = useRouter();
   // «Orden de productos»: lo que se ve en la página (en la web personal sin cobros, sin lo que se cobraba en la web).
   const orderable = props.signupsOnly ? props.products.filter((p) => (p.accessMode ?? "PAID") !== "PAID") : props.products;
@@ -113,6 +122,7 @@ export function PageEditor(props: Props) {
   const dirty = JSON.stringify(cfg) !== saved;
   const unpublished = JSON.stringify(cfg) !== publishedJson;
   const set = <K extends keyof PageConfig>(k: K, v: PageConfig[K]) => setCfg((c) => ({ ...c, [k]: v }));
+  const setBlocks = useCallback((next: BlocksUpdate) => setCfg((c) => ({ ...c, blocks: typeof next === "function" ? next(c.blocks ?? []) : next })), []);
   const setTheme = (patch: Partial<PageConfig["theme"]>) => setCfg((c) => ({ ...c, theme: { ...c.theme, ...patch } }));
   const tpl = TEMPLATES[cfg.template];
 
@@ -129,7 +139,7 @@ export function PageEditor(props: Props) {
       links: cfg.links.filter((l) => l.label.trim() || l.url.trim()),
       testimonials: cfg.testimonials.filter((t) => t.quote.trim() || t.author.trim()),
       faqs: cfg.faqs.filter((f) => f.q.trim() || f.a.trim()),
-      blocks: (cfg.blocks ?? []).filter((b) => b.title.trim() || b.body.trim() || b.buttonLabel?.trim() || b.buttonUrl?.trim()),
+      blocks: (cfg.blocks ?? []).filter((b) => !isEmptyBlock(b)),
     };
     start(async () => {
       const r = kind === "publish" ? await publishDraft(clean) : await saveDraft(clean);
@@ -151,12 +161,14 @@ export function PageEditor(props: Props) {
     set("sections", s);
   };
 
+  // La vista previa se repinta con un respiro (useDeferredValue): escribir en el iPhone no espera a ella.
+  const shown = useDeferredValue(cfg);
   const preview = useMemo(
     () => (
       <CreatorPageView
         creatorId={props.creatorId}
         username={props.username}
-        config={cfg}
+        config={shown}
         products={props.products}
         posts={props.posts}
         postCount={props.postCount}
@@ -165,13 +177,13 @@ export function PageEditor(props: Props) {
         signupsOnly={props.signupsOnly}
         siteOrigin={props.siteOrigin}
         allowCustom={props.allowCustom}
-        showPoweredBy={!props.personal && !(props.allowRemoveBranding && cfg.hidePoweredBy)}
+        showPoweredBy={!props.personal && !(props.allowRemoveBranding && shown.hidePoweredBy)}
         platformName={props.platformName}
         referralCode={props.referralCode}
         preview
       />
     ),
-    [cfg, props],
+    [shown, props],
   );
 
   return (
@@ -193,7 +205,7 @@ export function PageEditor(props: Props) {
             <button type="button" onClick={() => run("preview")} disabled={pending} className="btn btn-outline">
               {busyAction === "preview" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />} Vista previa
             </button>
-            <button type="button" onClick={() => run("publish")} disabled={pending || !unpublished} className="btn btn-primary">
+            <button type="button" onClick={() => run("publish")} disabled={pending || uploading || !unpublished} className="btn btn-primary">
               {busyAction === "publish" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Publicar
             </button>
           </div>
@@ -364,6 +376,28 @@ export function PageEditor(props: Props) {
                 </ul>
               </section>
               <section className="card p-5 sm:p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold">Páginas extra</h3>
+                    <p className="text-xs text-muted">«Sobre mí», «Preguntas frecuentes»… Cada una con su dirección y en el pie de tu web.</p>
+                  </div>
+                  <Link href="/panel/paginas" className="btn btn-ghost btn-sm shrink-0">Gestionar páginas</Link>
+                </div>
+                {props.pages.length > 0 && (
+                  <ul className="mt-4 space-y-1.5">
+                    {props.pages.map((p) => (
+                      <li key={p.id}>
+                        <Link href={`/panel/paginas/${p.id}`} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm hover:border-ink/30">
+                          <FileText className="h-4 w-4 text-muted" />
+                          <span className="min-w-0 flex-1 truncate">{p.title}</span>
+                          <span className="text-xs text-muted">{SITE_PAGE_STATE_LABEL[p.state]}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              <section className="card p-5 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold">Orden de productos</h3>
@@ -414,7 +448,7 @@ export function PageEditor(props: Props) {
                     <div key={l.id} className="rounded-xl border border-line bg-white p-3">
                       <div className="grid gap-2 sm:grid-cols-2">
                         <input className="input h-10 text-sm" placeholder="Texto del botón" value={l.label} onChange={(e) => set("links", cfg.links.map((x) => (x.id === l.id ? { ...x, label: e.target.value } : x)))} />
-                        <input className="input h-10 text-sm" placeholder="https://… o /ana/producto" value={l.url} onChange={(e) => set("links", cfg.links.map((x) => (x.id === l.id ? { ...x, url: e.target.value } : x)))} />
+                        <LinkInput value={l.url} ariaLabel="Enlace del botón principal" placeholder="https://… o elige una de tus páginas" targets={props.linkTargets} onChange={(v) => set("links", cfg.links.map((x) => (x.id === l.id ? { ...x, url: v } : x)))} />
                       </div>
                       <div className="mt-2 flex items-center gap-2 text-xs">
                         <label className="flex items-center gap-1.5">
@@ -476,7 +510,21 @@ export function PageEditor(props: Props) {
             </>
           )}
 
-          {tab === "bloques" && <TextBlocksEditor blocks={cfg.blocks ?? []} onChange={(b) => set("blocks", b)} />}
+          {tab === "bloques" && (
+            <section className="card p-5 sm:p-6">
+              <h3 className="font-semibold">Bloques</h3>
+              <p className="mb-4 text-xs text-muted">Textos, imágenes de Canva, galerías y vídeos. Salen juntos donde esté «Bloques» en «Secciones».</p>
+              <BlocksEditor
+                blocks={cfg.blocks ?? []}
+                onChange={setBlocks}
+                personal={props.personal}
+                linkTargets={props.linkTargets}
+                bodyMax={TEXT_BLOCK_BODY_MAX}
+                max={TEXT_BLOCKS_MAX}
+                onUploadingChange={setUploading}
+              />
+            </section>
+          )}
 
           {tab === "contenido" && (
             <>
@@ -517,6 +565,7 @@ export function PageEditor(props: Props) {
       </div>
 
       {/* ───── Vista previa en vivo (escritorio) ───── */}
+      {desktop && (
       <aside className="hidden lg:block">
         <div className="sticky top-20">
           <p className="mb-3 text-center text-xs uppercase tracking-[0.2em] text-muted">Vista previa en vivo</p>
@@ -527,15 +576,16 @@ export function PageEditor(props: Props) {
           </div>
         </div>
       </aside>
+      )}
 
       {/* ───── Barra de acciones (móvil) ───── */}
-      <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+58px)] z-30 border-t border-line bg-paper/95 px-4 py-2.5 backdrop-blur sm:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+58px)] z-30 border-t border-line bg-paper/95 px-4 py-2.5 backdrop-blur sm:hidden" data-mobile-actions>
         <div className="grid grid-cols-3 gap-2">
           <button type="button" onClick={() => run("save")} disabled={pending || !dirty} className="btn btn-outline btn-sm">
             {busyAction === "save" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Guardar
           </button>
           <button type="button" onClick={() => setMobilePreview(true)} className="btn btn-outline btn-sm"><Eye className="h-4 w-4" /> Vista previa</button>
-          <button type="button" onClick={() => run("publish")} disabled={pending || !unpublished} className="btn btn-primary btn-sm">
+          <button type="button" onClick={() => run("publish")} disabled={pending || uploading || !unpublished} className="btn btn-primary btn-sm">
             {busyAction === "publish" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Publicar
           </button>
         </div>
@@ -556,98 +606,5 @@ export function PageEditor(props: Props) {
         </div>
       )}
     </div>
-  );
-}
-
-/**
- * «Bloques de texto»: textos fijos de la página (sobre mí, servicios, cómo trabajo…), cada uno con
- * título, texto y un botón opcional. Se ordenan, se ocultan y se borran como los botones.
- */
-function TextBlocksEditor({ blocks, onChange }: { blocks: TextBlock[]; onChange: (b: TextBlock[]) => void }) {
-  const update = (id: string, patch: Partial<TextBlock>) => onChange(blocks.map((b) => (b.id === id ? { ...b, ...patch } : b)));
-  const move = (i: number, dir: -1 | 1) => {
-    const j = i + dir;
-    if (j < 0 || j >= blocks.length) return;
-    const a = [...blocks];
-    [a[i], a[j]] = [a[j], a[i]];
-    onChange(a);
-  };
-  return (
-    <section className="card p-5 sm:p-6">
-      <h3 className="font-semibold">Bloques de texto</h3>
-      <p className="text-xs text-muted">
-        Textos fijos en tu página: sobre mí, tus servicios, cómo trabajas… Deja una línea en blanco entre párrafos; los enlaces se convierten solos. Muévelos
-        entre las demás secciones en «Secciones».
-      </p>
-      <div className="mt-4 space-y-3">
-        {blocks.map((b, i) => (
-          <div key={b.id} className={`space-y-2 rounded-xl border p-3 ${b.enabled ? "border-line bg-white" : "border-dashed border-line bg-paper"}`}>
-            <input
-              className="input h-10 text-sm font-semibold"
-              placeholder="Título (p. ej. Sobre mí)"
-              aria-label="Título del bloque"
-              value={b.title}
-              maxLength={80}
-              onChange={(e) => update(b.id, { title: e.target.value })}
-            />
-            {/* Solo los bloques que se editan pasan a tener formato (los demás se ven como siempre). */}
-            <RichTextEditor
-              ariaLabel="Texto del bloque"
-              placeholder="Texto del bloque"
-              value={b.body}
-              initialFormat={b.format ?? null}
-              onChange={(body) => update(b.id, { body, format: "MD" })}
-              maxLength={TEXT_BLOCK_BODY_MAX}
-              tools="basic"
-              headings
-              preview={false}
-              tone="page"
-              headingLevel={3}
-              rows={5}
-            />
-            <div className="grid gap-2 sm:grid-cols-2">
-              <input
-                className="input h-10 text-sm"
-                placeholder="Texto del botón (opcional)"
-                aria-label="Texto del botón"
-                value={b.buttonLabel ?? ""}
-                maxLength={40}
-                onChange={(e) => update(b.id, { buttonLabel: e.target.value })}
-              />
-              <input
-                className="input h-10 text-sm"
-                placeholder="https://… o /ana/producto"
-                aria-label="Enlace del botón"
-                value={b.buttonUrl ?? ""}
-                maxLength={500}
-                onChange={(e) => update(b.id, { buttonUrl: e.target.value })}
-              />
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => update(b.id, { enabled: !b.enabled })}
-                className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 font-semibold ${b.enabled ? "bg-ink text-cream" : "bg-sand text-muted"}`}
-              >
-                {b.enabled ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                {b.enabled ? "Visible" : "Oculto"}
-              </button>
-              <span className="flex-1" />
-              <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Subir bloque"><ArrowUp className="h-3.5 w-3.5" /></button>
-              <button type="button" disabled={i === blocks.length - 1} onClick={() => move(i, 1)} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Bajar bloque"><ArrowDown className="h-3.5 w-3.5" /></button>
-              <button type="button" onClick={() => onChange(blocks.filter((x) => x.id !== b.id))} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Eliminar bloque"><Trash2 className="h-3.5 w-3.5" /></button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <button
-        type="button"
-        onClick={() => onChange([...blocks, { id: uid(), title: "", body: "", enabled: true }])}
-        disabled={blocks.length >= TEXT_BLOCKS_MAX}
-        className="btn btn-outline btn-sm mt-3"
-      >
-        <Plus className="h-4 w-4" /> Añadir bloque de texto
-      </button>
-    </section>
   );
 }

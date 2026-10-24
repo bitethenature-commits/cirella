@@ -4,6 +4,7 @@ import type { PageConfig } from "@/lib/page-config";
 import { resolveTheme, themeStyle } from "@/lib/templates";
 import { LegalLinks } from "./legal-links";
 import { Avatar } from "./product-art";
+import { SiteNav, type SiteNavPage } from "./site-nav";
 
 /** Envoltorio con la identidad visual de la creadora para producto, checkout y confirmación. */
 export function CreatorShell({
@@ -15,6 +16,8 @@ export function CreatorShell({
   sellerName,
   personal = false,
   signupsOnly = false,
+  pages,
+  currentPath,
 }: {
   username: string;
   /** Solo lo que pinta la cabecera y el tema (también lo usan las páginas de error, en cliente). */
@@ -28,6 +31,9 @@ export function CreatorShell({
   personal?: boolean;
   /** Web personal sin cobros: el pie no lleva condiciones de venta. */
   signupsOnly?: boolean;
+  /** Páginas extra publicadas (enlaces del pie) y la dirección de la que se está viendo. */
+  pages?: SiteNavPage[];
+  currentPath?: string;
 }) {
   const theme = resolveTheme(config.template, config.theme, allowCustom);
   const home = personal ? "/" : `/${username}`;
@@ -51,7 +57,8 @@ export function CreatorShell({
       </header>
       {children}
       {/* El margen inferior deja sitio al botón fijo de compra de la ficha en móvil. */}
-      <footer className="mx-auto max-w-5xl px-4 pb-28 pt-10 text-center md:pb-10">
+      <footer className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-4 pb-28 pt-10 text-center md:pb-10">
+        <SiteNav pages={pages} current={currentPath} />
         <LegalLinks username={username} sellerName={sellerName} signupsOnly={signupsOnly} />
       </footer>
     </div>

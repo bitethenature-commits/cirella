@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { contentBlockSchema, HOME_BLOCKS_MAX, HOME_TEXT_MAX, readBlocks, visibleBlocks, type ContentBlock } from "./page-blocks";
 import { FONT_PAIRS, TEMPLATE_KEYS, type FontPairKey, type RadiusKey } from "./templates";
 
 /**
@@ -25,7 +26,7 @@ export type SectionKey = (typeof SECTION_KEYS)[number];
 
 export const SECTION_META: Record<SectionKey, { label: string; defaultTitle: string; hint: string }> = {
   links: { label: "Botones principales", defaultTitle: "", hint: "Enlaces destacados bajo tu presentación" },
-  blocks: { label: "Bloques de texto", defaultTitle: "", hint: "Sobre mí, servicios, cómo trabajo…" },
+  blocks: { label: "Bloques", defaultTitle: "", hint: "Textos, imágenes, galerías y vídeos" },
   products: { label: "Productos digitales", defaultTitle: "Lecturas y recursos", hint: "PDF, audios, guías…" },
   sessions: { label: "Sesiones y servicios", defaultTitle: "Sesiones", hint: "Reservas 1:1" },
   courses: { label: "Cursos", defaultTitle: "Formación", hint: "Tus programas" },
@@ -43,8 +44,10 @@ export const SECTION_MANAGE_HREF: Partial<Record<SectionKey, { href: string; lab
   codes: { href: "/panel/codigos", label: "Códigos" },
 };
 
-export const TEXT_BLOCKS_MAX = 12;
-export const TEXT_BLOCK_BODY_MAX = 2000;
+/** Bloques de la portada (lib/page-blocks.ts): textos, imágenes, galerías y vídeos. */
+export const TEXT_BLOCKS_MAX = HOME_BLOCKS_MAX;
+export const TEXT_BLOCK_BODY_MAX = HOME_TEXT_MAX;
+const homeBlockSchema = contentBlockSchema({ bodyMax: TEXT_BLOCK_BODY_MAX });
 
 export const SOCIAL_KEYS = ["instagram", "tiktok", "telegram", "youtube", "whatsapp", "email", "website"] as const;
 export type SocialKey = (typeof SOCIAL_KEYS)[number];
@@ -114,28 +117,11 @@ export const pageConfigSchema = z.object({
   contact: z
     .object({ email: shortText(200).optional(), whatsapp: shortText(40).optional(), message: shortText(300).optional() })
     .default({}),
-  // Bloques fijos de texto (sobre mí, servicios…): título, texto y un botón opcional.
+  // Bloques de la portada: texto con formato, imagen, galería y vídeo (lib/page-blocks.ts). Los de
+  // antes (sin `kind`) son de texto.
   blocks: z
-    .array(
-      z
-        .object({
-          id: z.string().max(40),
-          title: shortText(80).default(""),
-          body: shortText(TEXT_BLOCK_BODY_MAX).default(""),
-          // Formato del texto (lib/rich-text.ts): ausente o desconocido = bloque de antes (párrafos y
-          // enlaces automáticos). Nunca invalida la página entera (readPageConfig volvería a la de por defecto).
-          format: z.literal("MD").optional().catch(undefined),
-          buttonLabel: shortText(40).optional(),
-          buttonUrl: shortText(500).optional(),
-          enabled: z.boolean().default(true),
-        })
-        .superRefine((b, ctx) => {
-          if (!b.title && !b.body) ctx.addIssue({ code: "custom", message: "Cada bloque de texto necesita un título o un texto" });
-          if (b.buttonLabel && !b.buttonUrl) ctx.addIssue({ code: "custom", message: `Falta el enlace del botón «${b.buttonLabel}»` });
-          if (b.buttonUrl && !b.buttonLabel) ctx.addIssue({ code: "custom", message: "Escribe el texto del botón del bloque de texto" });
-        }),
-    )
-    .max(TEXT_BLOCKS_MAX, `Máximo ${TEXT_BLOCKS_MAX} bloques de texto`)
+    .array(homeBlockSchema)
+    .max(TEXT_BLOCKS_MAX, `Máximo ${TEXT_BLOCKS_MAX} bloques`)
     // Opcional en el tipo para no obligar a reescribir las páginas guardadas antes de existir;
     // readPageConfig siempre lo devuelve (vacío si no hay).
     .optional(),
@@ -143,7 +129,8 @@ export const pageConfigSchema = z.object({
 });
 
 export type PageConfig = z.infer<typeof pageConfigSchema>;
-export type TextBlock = NonNullable<PageConfig["blocks"]>[number];
+/** Alias de antes: los bloques de la portada ya no son solo de texto. */
+export type TextBlock = ContentBlock;
 export type ThemeConfig = PageConfig["theme"];
 export type RadiusChoice = RadiusKey;
 
@@ -167,6 +154,9 @@ export function defaultPageConfig(input: { displayName: string; template?: PageC
 
 /** Lee el JSON guardado tolerando datos antiguos o incompletos. */
 export function readPageConfig(raw: unknown, fallbackName = "Mi página"): PageConfig {
+  // Bloque a bloque: uno dañado (o de una versión futura) se descarta sin tumbar la página entera.
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && "blocks" in raw)
+    raw = { ...raw, blocks: readBlocks((raw as { blocks: unknown }).blocks, homeBlockSchema, TEXT_BLOCKS_MAX) };
   const parsed = pageConfigSchema.safeParse(raw);
   let cfg: PageConfig;
   if (parsed.success) cfg = parsed.data;
@@ -207,9 +197,9 @@ export function withAllSections(sections: PageConfig["sections"]): PageConfig["s
   return out;
 }
 
-/** Bloques de texto que se ven en la página (visibles y con algo que mostrar). */
-export function visibleTextBlocks(cfg: Pick<PageConfig, "blocks">): TextBlock[] {
-  return (cfg.blocks ?? []).filter((b) => b.enabled && (b.title.trim() || b.body.trim()));
+/** Bloques que se ven en la página (visibles y con algo que mostrar). */
+export function visibleTextBlocks(cfg: Pick<PageConfig, "blocks">): ContentBlock[] {
+  return visibleBlocks(cfg.blocks);
 }
 
 export function sectionTitle(cfg: PageConfig, key: SectionKey) {

@@ -227,7 +227,7 @@ export function RichTextEditor({
         role="toolbar"
         aria-label="Barra de formato"
         aria-controls={fieldId}
-        className="sticky top-14 z-20 flex w-0 min-w-full gap-1 overflow-x-auto rounded-t-xl border border-b-0 border-line bg-white/95 px-1 py-1 backdrop-blur [mask-image:linear-gradient(to_right,#000_92%,transparent)] [scrollbar-width:none]"
+        className="sticky top-[var(--rte-sticky-top,3.5rem)] z-20 flex w-0 min-w-full gap-1 overflow-x-auto rounded-t-xl border border-b-0 border-line bg-white/95 px-1 py-1 backdrop-blur [mask-image:linear-gradient(to_right,#000_92%,transparent)] [scrollbar-width:none]"
       >
         {list.map((tool) => {
           const { label, icon: Icon } = TOOL_INFO[tool];

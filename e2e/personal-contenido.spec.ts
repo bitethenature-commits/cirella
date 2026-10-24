@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
  * Modo personal · contenido de la página (servidor en modo personal, puerto 3101, web de Ana):
  *   · «Novedades» con las últimas publicaciones y «Ver todas», la lista y cada publicación con su
  *     SEO (canonical, og:type article) y el texto sin HTML, con enlaces automáticos;
- *   · «Bloques de texto»: el de la demo con su título, su texto y su botón a una web de fuera;
+ *   · «Bloques»: el de texto de la demo con su título, su texto y su botón a una web de fuera;
  *   · «Códigos de descuento»: «Copiar código» (aviso «Copiado» y portapapeles) e «Ir a la tienda»,
  *     los dos registrados por /api/track (y contados en el panel); los caducados y los ocultos no se ven;
  *   · tarjetas de producto: «Gratis» y «Pago en <dominio>», sin «Powered by»;
@@ -270,10 +270,10 @@ test.describe.serial("Modo personal · contenido", () => {
     await demoLogin(page, "Ana Luna");
     await page.goto("/panel/pagina");
     await page.getByRole("button", { name: "Secciones", exact: true }).click();
-    for (const label of ["Bloques de texto", "Novedades", "Códigos de descuento"]) await expect(page.getByText(label).filter({ visible: true }).first()).toBeVisible();
+    for (const label of ["Bloques", "Novedades", "Códigos de descuento"]) await expect(page.getByText(label).filter({ visible: true }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Gestionar" }).first()).toBeVisible();
 
-    await page.getByRole("button", { name: "Bloques de texto", exact: true }).click();
+    await page.getByRole("button", { name: "Bloques", exact: true }).click();
     await page.getByRole("button", { name: "Añadir bloque de texto" }).click();
     // La demo ya trae un bloque («Cómo trabajo»): el nuevo es el último.
     await page.getByLabel("Título del bloque").last().fill(`Sobre mí ${stamp}`);

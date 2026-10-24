@@ -79,7 +79,7 @@ export default async function PostPage({ params }: { params: Promise<Params> }) 
   };
 
   return (
-    <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly}>
+    <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
       <PostArticle
         post={{ ...post, publishedAt }}
         dateLabel={formatDate(publishedAt, { day: "numeric", month: "long", year: "numeric" }, creator.timezone)}

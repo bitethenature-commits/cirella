@@ -157,7 +157,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   );
 
   return (
-    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} sellerName={paid && (creator.legalName || seller.platformSells) ? seller.name : null}>
+    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages} sellerName={paid && (creator.legalName || seller.platformSells) ? seller.name : null}>
       <main className="mx-auto max-w-5xl px-4 pb-36 pt-4 md:grid md:grid-cols-[1.1fr_0.9fr] md:gap-10 md:pb-20 md:pt-10">
         <div>
           <div className="cp-card relative aspect-[4/3] overflow-hidden">

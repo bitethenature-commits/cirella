@@ -99,6 +99,7 @@ export async function CreatorPublicPage({ username }: { username: string }) {
         personal={personal}
         signupsOnly={data.signupsOnly}
         siteOrigin={appUrl()}
+        pages={data.pages}
       />
       {/* Las visitas de la propia creadora se descartan en /api/track; las de ?embed=1, en el navegador. */}
       <TrackOnMount creatorId={creator.id} type="PAGE_VIEW" />
