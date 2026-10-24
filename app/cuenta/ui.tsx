@@ -47,3 +47,22 @@ export function CreatorTag({ name, avatarUrl }: { name: string; avatarUrl: strin
     </span>
   );
 }
+
+/** Foto de perfil de la alumna o sus iniciales (cabecera del área, inicio y perfil). */
+export function UserAvatar({ src, name, className = "h-9 w-9 text-xs" }: { src: string | null | undefined; name: string; className?: string }) {
+  const initials =
+    name
+      .split(/[\s@.]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase())
+      .join("") || "·";
+  if (src)
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={src} alt="" data-testid="user-avatar" className={`${className} shrink-0 rounded-full object-cover`} />;
+  return (
+    <span aria-hidden className={`${className} grid shrink-0 place-items-center rounded-full bg-sand font-semibold text-ink`}>
+      {initials}
+    </span>
+  );
+}

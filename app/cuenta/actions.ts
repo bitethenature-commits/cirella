@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { hashPassword, revokeOtherSessions } from "@/lib/auth";
 import { scopeAllows } from "@/lib/auth-utils";
 import { emit } from "@/lib/automations";
 import { hasBookingClash, isBookingOverlapError, isSlotAvailable } from "@/lib/booking";
@@ -133,15 +132,13 @@ export async function resumeMembership(form: FormData) {
 export type ProfileState = { ok?: string; error?: string } | undefined;
 
 export async function updateProfile(_: ProfileState, form: FormData): Promise<ProfileState> {
-  // Sesión verificada: fijar o cambiar la contraseña exige haber demostrado que el email es suyo.
+  // Sesión verificada (como todo el perfil). La contraseña, la foto y el email tienen su propia
+  // tarjeta (app/cuenta/perfil/actions.ts).
   const user = await requireBuyerFull("/cuenta/perfil");
   const name = String(form.get("name") ?? "").trim().slice(0, 80);
-  const password = String(form.get("password") ?? "");
   if (!name) return { error: "Escribe tu nombre" };
-  if (password && password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres" };
-  await prisma.user.update({ where: { id: user.id }, data: { name, ...(password ? { passwordHash: await hashPassword(password) } : {}) } });
-  if (password) await revokeOtherSessions(user.id);
+  await prisma.user.update({ where: { id: user.id }, data: { name } });
   await prisma.customer.updateMany({ where: { userId: user.id }, data: { name } });
   revalidatePath("/cuenta", "layout");
-  return { ok: password ? "Perfil y contraseña actualizados" : "Perfil actualizado" };
+  return { ok: "Perfil actualizado" };
 }

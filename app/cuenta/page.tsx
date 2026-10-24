@@ -6,10 +6,22 @@ import { getCustomerLibrary } from "@/lib/customer";
 import { formatPrice } from "@/lib/money";
 import { signupsOnly } from "@/lib/commerce";
 import { capitalize, formatSessionDate, formatDate } from "@/lib/tz";
+import { getPublicCreator } from "@/lib/public";
+import { ownerUsername } from "@/lib/site-mode";
 import { freeMemberships } from "./free-memberships";
-import { CreatorTag, Progress, SectionHeader, Thumb } from "./ui";
+import { CreatorTag, Progress, SectionHeader, Thumb, UserAvatar } from "./ui";
+import { WelcomeCard } from "./welcome-card";
 
-export default async function AccountHome() {
+/** Web personal sin nada aún: hasta 3 productos de la dueña (lo gratis primero) para empezar. */
+async function ownerSuggestions() {
+  const owner = ownerUsername();
+  const data = owner ? await getPublicCreator(owner) : null;
+  if (!data) return null;
+  const products = [...data.products].sort((a, b) => Number(b.accessMode === "FREE_EMAIL") - Number(a.accessMode === "FREE_EMAIL")).slice(0, 3);
+  return { username: data.creator.username, displayName: data.config.displayName, products };
+}
+
+export default async function AccountHome({ searchParams }: { searchParams: Promise<{ bienvenida?: string }> }) {
   // Una sesión limitada a un pedido que llega aquí va directa a su compra.
   const user = await requireBuyerFull("/cuenta", { scopedToTarget: true });
   const lib = await getCustomerLibrary(user.id);
@@ -20,15 +32,46 @@ export default async function AccountHome() {
   const nothing = !lib.courses.length && !lib.digital.length && !lib.upcoming.length && !lib.memberships.length && !lib.past.length && !free.length;
   // Web personal: aquí no se compra, se consigue gratis o se paga fuera.
   const personal = signupsOnly();
+  const welcome = (await searchParams).bienvenida === "1";
+  const suggestions = nothing && ownerUsername() ? await ownerSuggestions() : null;
 
   return (
     <div className="space-y-12">
-      <section>
-        <h1 className="display text-[2.8rem] leading-none sm:text-[3.4rem]">Hola, {first}</h1>
-        <p className="mt-2 text-muted">{personal ? "Todo lo tuyo, siempre a mano." : "Todo lo que has comprado, siempre a mano."}</p>
+      <section className="flex items-center gap-4">
+        <UserAvatar src={user.avatarUrl} name={user.name ?? user.email} className="h-14 w-14 text-base" />
+        <div>
+          <h1 className="display text-[2.8rem] leading-none sm:text-[3.4rem]">Hola, {first}</h1>
+          <p className="mt-2 text-muted">{personal ? "Todo lo tuyo, siempre a mano." : "Todo lo que has comprado, siempre a mano."}</p>
+        </div>
       </section>
 
-      {nothing && (
+      {welcome && <WelcomeCard name={first} email={user.email} hasPassword={!!user.passwordHash} />}
+
+      {nothing && suggestions && (
+        <section aria-labelledby="vacio-t">
+          <div className="card p-6">
+            <Sparkles className="h-5 w-5" />
+            <h2 id="vacio-t" className="display mt-2 text-[1.9rem] leading-tight">Aún no tienes nada: mira los cursos</h2>
+            <p className="mt-1 text-sm text-muted">Mira los cursos y contenidos de {suggestions.displayName}. Lo que consigas aparecerá aquí.</p>
+          </div>
+          {suggestions.products.length > 0 && (
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              {suggestions.products.map((p) => (
+                <Link key={p.id} href={`/${suggestions.username}/${p.slug}`} className="card flex items-center gap-3 p-4 transition hover:border-ink/30">
+                  <Thumb src={p.imageUrl} emoji={p.emoji} className="h-14 w-14" />
+                  <span className="min-w-0">
+                    <span className="line-clamp-2 font-semibold leading-snug">{p.title}</span>
+                    <span className="block text-xs text-muted">{p.accessMode === "FREE_EMAIL" ? "Gratis" : formatPrice(p.priceCents, p.currency)}</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+          <Link href="/" className="btn btn-primary mt-4">Ver todo <ArrowRight className="h-3.5 w-3.5" /></Link>
+        </section>
+      )}
+
+      {nothing && !suggestions && (
         <EmptyState icon={<Sparkles className="h-5 w-5" />} title={personal ? "Aún no tienes nada aquí" : "Aún no tienes compras"}>
           {personal ? "Cuando consigas un curso o un contenido aparecerá aquí automáticamente." : "Cuando compres un producto, curso o sesión aparecerá aquí automáticamente."}
         </EmptyState>

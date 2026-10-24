@@ -4,23 +4,21 @@ import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { updateProfile, type ProfileState } from "../actions";
 
-export function ProfileForm({ name, email, hasPassword }: { name: string; email: string; hasPassword: boolean }) {
+/** «Tus datos»: el nombre (el email y la contraseña tienen su tarjeta). */
+export function ProfileForm({ name, email }: { name: string; email: string }) {
   const [state, action] = useActionState<ProfileState, FormData>(updateProfile, undefined);
   return (
-    <form action={action} className="card mt-6 max-w-lg space-y-4 p-6">
+    <form action={action} className="space-y-4">
       <Flash ok={state?.ok} error={state?.error} />
       <div>
-        <label className="field-label">Nombre</label>
-        <input name="name" defaultValue={name} className="input" required maxLength={80} />
+        <label className="field-label" htmlFor="perfil-name">Nombre</label>
+        <input id="perfil-name" name="name" defaultValue={name} className="input" required maxLength={80} autoComplete="name" style={{ fontSize: "1rem" }} />
       </div>
       <div>
-        <label className="field-label">Email</label>
-        <input value={email} disabled className="input bg-sand/50 text-muted" />
-        <p className="field-hint">Es el email con el que compraste. Para cambiarlo, escríbenos.</p>
-      </div>
-      <div>
-        <label className="field-label">{hasPassword ? "Cambiar contraseña" : "Crear contraseña"} <span className="font-normal text-muted">(opcional)</span></label>
-        <input name="password" type="password" minLength={8} autoComplete="new-password" className="input" placeholder={hasPassword ? "Nueva contraseña" : "Para entrar sin enlace mágico"} />
+        <p className="field-label">Email</p>
+        <p className="text-sm">
+          {email} · <a href="#email" className="font-medium underline underline-offset-4">Cambiar</a>
+        </p>
       </div>
       <SubmitButton pendingLabel="Guardando…">Guardar cambios</SubmitButton>
     </form>

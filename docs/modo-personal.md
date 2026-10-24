@@ -627,6 +627,24 @@ botones. Pega `tudominio.com/sobre-mi` en tu bio o en una historia.
 
 ---
 
+## Cómo entran tus alumnas
+
+- **Dónde está el botón**: arriba a la derecha de tu página (y de cada producto, checkout y
+  confirmación) hay un botón **«Entrar»**; si ya ha entrado antes en ese móvil, pone **«Mi área»**.
+  En el pie también: «¿Ya tienes acceso? Entra en tu área · ¿Aún no tienes cuenta? Créala». Los
+  emails que les llegan (accesos, recibos, recordatorios…) terminan con «Tu área: tudominio.com/cuenta».
+- **Crear su cuenta**: en «Entrar» hay una segunda pestaña, **«Crear mi cuenta»**: nombre, email y
+  la casilla (sin marcar) de tus novedades. Le llega un email «Confirma tu email para entrar»;
+  al pulsar «Confirmar y entrar» entra en su área y puede crear una contraseña si quiere. Nada se
+  crea hasta que confirma el email. Aparece en **Clientes** con «Se registró» y recibe tu email de
+  bienvenida (Automatizaciones), si lo tienes activado.
+- **Entrar**: con un enlace por email (sin contraseña) o con su contraseña, si se la ha creado.
+- **Sus compras e inscripciones**: todo lo que consiga con el mismo email aparece en su área,
+  también lo de antes de crear la cuenta.
+- **Su perfil** (**Mi perfil**): nombre, foto (opcional), cambiar el email (se confirma desde el
+  email nuevo y avisamos al de antes), contraseña y tus novedades (apuntarse o darse de baja).
+  Si quiere que se borren sus datos (RGPD), te escribe: el borrado desde su área aún no existe.
+
 ## Tu comunidad
 
 En **Productos → tu membresía → Publicaciones de la comunidad → Nueva publicación**:

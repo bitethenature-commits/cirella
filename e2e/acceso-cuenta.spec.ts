@@ -256,9 +256,10 @@ test.describe.serial("Acceso a la cuenta", () => {
       await other.waitForURL("**/cuenta");
 
       await page.goto("/cuenta/perfil");
-      await page.fill("input[name=password]", "nueva12345");
-      await page.getByRole("button", { name: "Guardar cambios" }).click();
-      await expect(page.getByText("Perfil y contraseña actualizados")).toBeVisible();
+      await page.getByLabel("Contraseña actual").fill("demo1234");
+      await page.getByLabel("Contraseña nueva").fill("nueva12345");
+      await page.getByRole("button", { name: "Cambiar contraseña" }).click();
+      await expect(page.getByText("Contraseña cambiada. Hemos cerrado tus otras sesiones.")).toBeVisible();
 
       await other.goto("/cuenta");
       await expect(other).toHaveURL(/\/entrar/);

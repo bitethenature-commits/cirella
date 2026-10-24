@@ -6,6 +6,7 @@ import { getBuyerSession } from "@/lib/buyer-access";
 import { signupsOnly } from "@/lib/commerce";
 import { AccountNav } from "./nav";
 import { ScopeBanner } from "./scope-banner";
+import { UserAvatar } from "./ui";
 
 export const metadata: Metadata = { title: "Mi cuenta", robots: { index: false } };
 
@@ -25,6 +26,11 @@ export default async function AccountLayout({ children }: { children: React.Reac
               {!b.scope && b.user.creator && (
                 <Link href="/panel" className="btn btn-ghost btn-sm" title="Ir a mi panel de creadora">
                   <Store className="h-4 w-4" /> <span className="hidden sm:inline">Mi panel</span>
+                </Link>
+              )}
+              {!b.scope && (
+                <Link href="/cuenta/perfil" className="grid h-11 w-11 place-items-center rounded-full" aria-label="Tu foto y perfil">
+                  <UserAvatar src={b.user.avatarUrl} name={b.user.name ?? b.user.email} className="h-8 w-8 text-[0.7rem]" />
                 </Link>
               )}
               <form action="/auth/salir" method="post">

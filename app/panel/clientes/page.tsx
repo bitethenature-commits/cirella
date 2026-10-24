@@ -16,7 +16,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
       where: q ? { OR: [{ email: { contains: q, mode: "insensitive" } }, { name: { contains: q, mode: "insensitive" } }] } : {},
       orderBy: { lastPurchaseAt: { sort: "desc", nulls: "last" } },
       take: 200,
-      include: { subscriptions: { where: { status: "ACTIVE" }, select: { id: true } } },
+      include: { subscriptions: { where: { status: "ACTIVE" }, select: { id: true } }, user: { select: { avatarUrl: true } } },
     }),
     db.customer.count(),
     db.subscription.count({ where: { status: "ACTIVE" } }),
@@ -54,11 +54,18 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
       <div className="card divide-y divide-line">
         {customers.map((c) => (
           <Link key={c.id} href={`/panel/clientes/${c.id}`} className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-paper sm:px-5">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sand text-sm font-semibold">{(c.name ?? c.email)[0].toUpperCase()}</div>
+            {c.user.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={c.user.avatarUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+            ) : (
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sand text-sm font-semibold">{(c.name ?? c.email)[0].toUpperCase()}</div>
+            )}
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">{c.name ?? c.email}</p>
               <p className="truncate text-xs text-muted">{c.email}</p>
             </div>
+            {/* Se creó la cuenta desde la web («Crear mi cuenta») y aún no tiene nada. */}
+            {c.ordersCount === 0 && c.subscriptions.length === 0 && <Badge>Se registró</Badge>}
             {c.marketingOptIn && <Badge tone="success">Novedades ✓</Badge>}
             <div className="hidden sm:block">{c.subscriptions.length > 0 && <Badge tone="dark">Miembro</Badge>}</div>
             {personal ? (
