@@ -55,13 +55,13 @@ type SignAnswer = { uploadUrl: string; headers: Record<string, string>; ticket: 
 
 export async function uploadFile(
   file: File,
-  o: { purpose: "image" | "file" | "delivery" | "video"; graphic?: boolean; productId?: string; orderId?: string; onProgress?: UploadProgress; signal?: AbortSignal },
+  o: { purpose: "image" | "file" | "delivery" | "video"; graphic?: boolean; email?: boolean; productId?: string; orderId?: string; onProgress?: UploadProgress; signal?: AbortSignal },
 ): Promise<{ url?: string; width?: number; height?: number; file?: UploadedFile; video?: UploadedPageVideo }> {
   const total = file.size;
   const report = (loaded: number) => o.onProgress?.(total ? Math.min(100, Math.round((loaded / total) * 100)) : 100, loaded, total);
   const signed = await postJson<SignAnswer>(
     "/api/upload/sign",
-    { purpose: o.purpose, graphic: o.graphic || undefined, productId: o.productId, orderId: o.orderId, name: file.name || "archivo", contentType: file.type, size: file.size },
+    { purpose: o.purpose, graphic: o.graphic || undefined, email: o.email || undefined, productId: o.productId, orderId: o.orderId, name: file.name || "archivo", contentType: file.type, size: file.size },
     o.signal,
   );
   try {

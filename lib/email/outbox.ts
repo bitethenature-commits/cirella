@@ -52,10 +52,10 @@ type EnqueueInput = {
 };
 
 /**
- * Emails masivos (avisos de publicaciones de la comunidad y la newsletter): se envían después de los
- * demás y solo dentro del cupo diario (bulkBudget).
+ * Emails masivos (avisos de publicaciones de la comunidad, la newsletter y las invitaciones a
+ * confirmar de una importación): se envían después de los demás y solo dentro del cupo diario.
  */
-export const BULK_TEMPLATES = ["MEMBER_POST", "NEWSLETTER"] as const;
+export const BULK_TEMPLATES = ["MEMBER_POST", "NEWSLETTER", "NEWSLETTER_INVITE"] as const;
 
 /** Resend admite 2 peticiones por segundo: con Resend, la bandeja espera esto entre un envío y otro. */
 export const SEND_SPACING_MS = 550;

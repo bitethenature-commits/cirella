@@ -6,6 +6,7 @@ import {
   FileText,
   Home,
   LayoutGrid,
+  Mail,
   Menu,
   Newspaper,
   Palette,
@@ -59,7 +60,7 @@ export const PLATFORM_NAV_FLAGS: PanelNavFlags = { personal: false, showBookings
 
 /**
  * Menú en modo personal: sin Plan (ni nada de cobros), «Ventas» pasa a ser «Inscripciones» (quién
- * se ha apuntado a qué) y se añaden Páginas (extra), Publicaciones y Códigos. Reservas, solo si hay sesiones con
+ * se ha apuntado a qué) y se añaden Páginas (extra), Publicaciones, Códigos y Newsletter. Reservas, solo si hay sesiones con
  * reserva aquí.
  */
 const PERSONAL_NAV: PanelNavItem[] = [
@@ -71,6 +72,7 @@ const PERSONAL_NAV: PanelNavItem[] = [
   { href: "/panel/codigos", label: "Códigos", icon: TicketPercent },
   { href: "/panel/ventas", label: "Inscripciones", icon: ClipboardList },
   { href: "/panel/clientes", label: "Clientes", icon: Users },
+  { href: "/panel/newsletter", label: "Newsletter", icon: Mail },
   { href: "/panel/reservas", label: "Reservas", icon: CalendarDays },
   { href: "/panel/estadisticas", label: "Estadísticas", icon: BarChart3 },
   { href: "/panel/automatizaciones", label: "Automatizaciones", icon: Zap },

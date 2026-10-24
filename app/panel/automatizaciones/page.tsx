@@ -2,7 +2,9 @@ import { Mail } from "lucide-react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireCreator } from "@/lib/auth";
+import Link from "next/link";
 import { AUTOMATIONS, automationDefaultOn, type AutomationTrigger } from "@/lib/automations";
+import { EDITABLE_EMAILS, visibleAutomations } from "@/lib/automation-catalog";
 import { planFeatures } from "@/lib/plans";
 import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
@@ -34,7 +36,8 @@ export default async function AutomationsPage() {
     db.automation.findMany(),
     // Los enlaces para entrar y confirmar el email son de la plataforma, no emails de la creadora:
     // cualquiera puede pedirlos desde su página y no deben enseñarle direcciones que no son clientas.
-    db.emailMessage.findMany({ where: { template: { notIn: ["MAGIC_LINK", "VERIFY_EMAIL", "MEMBER_POST"] } }, orderBy: { sendAt: "desc" }, take: 25 }),
+    // La newsletter tiene su propia pantalla (y son muchos): fuera de esta lista.
+    db.emailMessage.findMany({ where: { template: { notIn: ["MAGIC_LINK", "VERIFY_EMAIL", "MEMBER_POST", "NEWSLETTER", "NEWSLETTER_TEST", "NEWSLETTER_INVITE"] } }, orderBy: { sendAt: "desc" }, take: 25 }),
   ]);
   const byTrigger = new Map(rows.map((r) => [r.trigger, r]));
   return (
@@ -42,7 +45,7 @@ export default async function AutomationsPage() {
       <PageHeader title="Automatizaciones" subtitle="Emails que se envían solos en el momento justo." />
       {!pro && <Locked title="Automatiza tu relación con tus clientas" text="Bienvenida personalizada, recordatorios de sesión y recuperación de compras abandonadas. Los emails esenciales (compra, acceso y reservas) ya se envían en todos los planes." />}
       <div className="grid gap-3 md:grid-cols-2">
-        {(Object.keys(AUTOMATIONS) as AutomationTrigger[]).map((t) => {
+        {visibleAutomations(isPersonalMode()).map((t: AutomationTrigger) => {
           const meta = AUTOMATIONS[t];
           const row = byTrigger.get(t);
           const enabled = meta.essential || (pro && (row ? row.enabled : automationDefaultOn(t)));
@@ -57,6 +60,13 @@ export default async function AutomationsPage() {
                 </div>
                 {meta.essential ? <Badge tone="success">Siempre activa</Badge> : enabled ? <Badge tone="success">Activa</Badge> : <Badge>Desactivada</Badge>}
               </div>
+              {/* Web personal: el email se escribe con el editor visual (Newsletter › Emails automáticos). */}
+              {isPersonalMode() && EDITABLE_EMAILS[t] && (
+                <p className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <Link href={`/panel/newsletter/emails/${t}`} className="font-semibold underline underline-offset-2">Editar el email</Link>
+                  {(row?.design || row?.subject) && <Badge tone="dark">Tu versión</Badge>}
+                </p>
+              )}
               {editable && (
                 <details className="mt-3">
                   <summary className="cursor-pointer text-xs font-semibold text-muted hover:text-ink">Personalizar</summary>

@@ -142,7 +142,7 @@ const HOUR = 3_600_000;
  * Email «Confirma que quieres recibir la newsletter» (doble opt-in). Como mucho uno por hora a cada
  * dirección: el formulario no sirve para inundar el buzón de otra persona ni para gastar el cupo.
  */
-export async function sendConfirmation(subscriberId: string, now = new Date()): Promise<boolean> {
+export async function sendConfirmation(subscriberId: string, now = new Date(), o: { bulk?: boolean } = {}): Promise<boolean> {
   const s = await prisma.subscriber.findUnique({ where: { id: subscriberId }, include: { creator: true } });
   if (!s || s.status !== "PENDING") return false;
   if (s.confirmSentAt && now.getTime() - s.confirmSentAt.getTime() < HOUR) return false;
@@ -154,7 +154,9 @@ export async function sendConfirmation(subscriberId: string, now = new Date()): 
   await enqueueEmail({
     to: s.email,
     creatorId: s.creatorId,
-    template: "NEWSLETTER_CONFIRM",
+    // Las de una importación son muchas de golpe: masivas (dentro del cupo diario, tras los demás).
+    template: o.bulk ? "NEWSLETTER_INVITE" : "NEWSLETTER_CONFIRM",
+    ...(o.bulk ? { sendNow: false } : {}),
     dedupeKey: `nl-confirm:${s.id}:${Math.floor(now.getTime() / HOUR)}`,
     ...newsletterConfirmEmail({ creatorName: brandName(s.creator), url: confirmUrl(s.id), name: s.name }),
   });
@@ -321,7 +323,7 @@ export async function importSubscribers(
     else out.added++;
     if (res.needsConfirmation) toConfirm.push(res.subscriberId);
   }
-  for (const id of toConfirm) if (await sendConfirmation(id)) out.confirmationsSent++;
+  for (const id of toConfirm) if (await sendConfirmation(id, new Date(), { bulk: true })) out.confirmationsSent++;
   return out;
 }
 

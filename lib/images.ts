@@ -77,6 +77,30 @@ export async function storeImage(creatorId: string, input: Buffer, o: { profile?
 }
 
 /**
+ * Imagen de un email (newsletter y emails automáticos): JPEG (o PNG si tiene transparencia y pesa
+ * poco), máx. 1200 px de ancho, sin metadatos. Outlook y algunos buzones no enseñan WebP. En
+ * /media/{creadora}/{hex}.jpg|png, pública e inmutable.
+ */
+export async function storeEmailImage(creatorId: string, input: Buffer): Promise<{ url: string; width: number; height: number }> {
+  let out: { data: Buffer; ext: "jpg" | "png"; width: number; height: number };
+  try {
+    const base = sharp(input, { limitInputPixels: 80_000_000, failOn: "error" }).rotate().resize({ width: 1200, withoutEnlargement: true });
+    const meta = await sharp(input, { limitInputPixels: 80_000_000 }).metadata();
+    const png = meta.hasAlpha ? await base.clone().png({ compressionLevel: 9, palette: true }).toBuffer({ resolveWithObject: true }) : null;
+    if (png && png.data.length <= 1_500_000) out = { data: png.data, ext: "png", width: png.info.width, height: png.info.height };
+    else {
+      const jpg = await base.clone().flatten({ background: "#ffffff" }).jpeg({ quality: 82, progressive: true, mozjpeg: true }).toBuffer({ resolveWithObject: true });
+      out = { data: jpg.data, ext: "jpg", width: jpg.info.width, height: jpg.info.height };
+    }
+  } catch {
+    throw new Error(READ_ERROR);
+  }
+  const id = randomBytes(10).toString("hex");
+  await storage().put(publicKey(`${creatorId}/${id}.${out.ext}`), out.data, { contentType: out.ext === "png" ? "image/png" : "image/jpeg", cacheControl: IMMUTABLE });
+  return { url: `/media/${creatorId}/${id}.${out.ext}`, width: out.width, height: out.height };
+}
+
+/**
  * Foto de perfil de una alumna: cuadrada de 256 px en WebP (sharp quita el EXIF con GPS), en
  * /media/{userId}/{hex}.webp, pública e inmutable como las de las creadoras. Sin variantes.
  */

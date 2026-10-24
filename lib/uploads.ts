@@ -13,7 +13,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { HEIC_ERROR, isHeic, MULTIPART_THRESHOLD, planParts, uploadPolicy, type UploadPolicy } from "./file-types";
-import { storeImage } from "./images";
+import { storeEmailImage, storeImage } from "./images";
 import { PAGE_VIDEO_MAX, pageVideoUrl, type PageVideo } from "./page-blocks";
 import { probeStoredFile, type MediaInfo } from "./media-probe";
 import { isPersonalMode } from "./site-mode";
@@ -38,8 +38,8 @@ export class UploadError extends Error {}
 
 /** Lo que firma el billete de subida. */
 /** `u`/`ps`: id de la subida por partes y tamaño de cada parte (solo en la web personal). */
-/** `g`: imagen con el perfil «graphic» (gráficos de Canva, lib/images.ts). */
-type Ticket = { k: string; c: string; p: UploadPurpose; pid?: string; oid?: string; n: string; ct: string; s: number; u?: string; ps?: number; g?: 1 };
+/** `g`: imagen con el perfil «graphic» (gráficos de Canva, lib/images.ts). `e`: imagen para un email (JPEG/PNG). */
+type Ticket = { k: string; c: string; p: UploadPurpose; pid?: string; oid?: string; n: string; ct: string; s: number; u?: string; ps?: number; g?: 1; e?: 1 };
 
 /** Carpeta del almacenamiento de cada tipo de subida (el billete solo vale bajo la de su creadora). */
 const PREFIX: Record<UploadPurpose, string> = { image: "incoming", file: "private", delivery: "private", video: "public/video" };
@@ -65,7 +65,7 @@ export type MultipartUpload = { multipart: { partSize: number; partCount: number
 
 export async function createUpload(
   creatorId: string,
-  input: { purpose: UploadPurpose; productId?: string; orderId?: string; name: string; contentType: string; size: number; graphic?: boolean },
+  input: { purpose: UploadPurpose; productId?: string; orderId?: string; name: string; contentType: string; size: number; graphic?: boolean; email?: boolean },
   policy: UploadPolicy = uploadPolicy(isPersonalMode()),
 ): Promise<SingleUpload | MultipartUpload> {
   const { purpose, size } = input;
@@ -119,6 +119,7 @@ export async function createUpload(
     ct: contentType,
     s: size,
     g: purpose === "image" && input.graphic ? 1 : undefined,
+    e: purpose === "image" && input.email ? 1 : undefined,
   };
   // Web personal: lo grande va por partes (un corte de wifi solo repite la parte que falló).
   if (purpose !== "image" && policy.multipart && size > MULTIPART_THRESHOLD) {
@@ -216,7 +217,9 @@ export async function completeUpload(creatorId: string, ticket: string): Promise
 
   if (t.p === "image") {
     try {
-      return await storeImage(creatorId, await s.getBuffer(t.k, uploadPolicy(false).imageMax), { profile: t.g ? "graphic" : "photo" });
+      const buf = await s.getBuffer(t.k, uploadPolicy(false).imageMax);
+      if (t.e) return await storeEmailImage(creatorId, buf);
+      return await storeImage(creatorId, buf, { profile: t.g ? "graphic" : "photo" });
     } catch (e) {
       throw new UploadError(e instanceof Error ? e.message : "No hemos podido procesar la imagen");
     } finally {
