@@ -252,6 +252,22 @@ La creadora tiene su propia agenda, sin Google Calendar ni Calendly: trabaja con
 
 Si un pedido se borrara en cascada, sus archivos de entrega quedarían en R2 (como los de un producto).
 
+### Comunidad (membresías)
+
+Cada membresía tiene su comunidad privada: publicaciones de la dueña con comentarios y «me gusta» de sus miembros.
+
+- **Publicaciones** (`MembershipPost`, `lib/community.ts`, reglas puras en `lib/community-rules.ts`): texto con formato, hasta 10 archivos (audio, vídeo, PDF, imágenes; `ProductFile.postId`, la misma subida por partes que los cursos) y un enlace. «Cuándo»: publicar ahora, **programar** (día y hora en su zona) o borrador. Una programada se ve sola al llegar su hora (`visibleMemberPostWhere`, sin cron); sus archivos no se sirven antes (`checkFileAccess` en `/api/download`, `/api/stream` y `/cuenta/archivos`). La ficha pública nunca enseña borradores, programadas ni adjuntos. Editor en `/panel/productos/<id>/publicaciones/…`; las miembros, en `/cuenta/membresias/<id>` (feed de 15 en 15) y `/cuenta/membresias/<id>/<post>`.
+- **Aviso por email** (`lib/community-notify.ts`): al hacerse visible (después de responder al «Publicar ahora», o el cron `comunidad` para las programadas), un email a cada persona con acceso vigente, con su enlace personal, salvo la dueña y quien se dio de baja (`Customer.postEmailsOptOutAt`, `/baja/comunidad` y List-Unsubscribe en un clic, `lib/community-optout.ts`). Se reparte por páginas con cursor y `dedupeKey` por persona; los avisos de hace más de 7 días ya no salen. La bandeja envía primero los transaccionales y después los masivos (`BULK_TEMPLATES`).
+- **Comentarios y «me gusta»**: texto plano (≤ 2000, nunca HTML ni enlaces), un nivel de respuestas, nombre «Laura M.» (nunca el email). Comentar exige una sesión de cuenta (no el enlace de un email, que sí deja dar «me gusta»). La dueña borra cualquiera, cierra los comentarios de una publicación y deja sin comentar a una persona (`Customer.commentsBlockedAt`). Avisos: «Comentarios nuevos» a la dueña y respuesta de la dueña a la miembro. Límites: 20 comentarios y 300 «me gusta» por hora.
+- **Cursos incluidos** (`ProductInclusion`, `lib/membership-access.ts`): «Qué incluye esta membresía». El acceso al curso no se copia: se deduce del de la membresía en cada visita (`accessSource`, usado por `hasAccess`, `checkProductAccess` y las páginas), así que termina en el mismo instante que ella. El enlace personal de la membresía abre también sus cursos.
+
+### Fin del acceso
+
+El acceso termina solo y **se comprueba en cada visita** (`Access.expiresAt` > ahora), nunca solo por un cron:
+
+- **Membresía de pago**: `expiresAt` = fin del periodo pagado. Cancelada, mantiene el acceso hasta ese día; tras el tercer cobro fallido, se cancela. Al cerrarse se avisa a la miembro (`subscription.ended` → «Tu membresía ha terminado»). Mientras el banco confirma una renovación (`processing`) el acceso se alarga hasta el siguiente intento.
+- **Acceso a mano con fecha de fin** («Duración del acceso»: 1, 3, 6 meses, 1 año o un día concreto, `lib/access-end.ts`): el último día cuenta en la zona de la dueña. Se guarda en el pedido de 0 € (`metadata.accessUntil`) y en `Access.expiresAt`; «Cambiar fecha» la alarga, la quita o lo devuelve. En la web personal también vale para lo que se cobra en la web (Bizum, transferencia, regalos). El cron `caducidades` (`lib/access-expiry.ts`) avisa 7 días antes (si duraba 14 días o más) y al llegar lo marca `EXPIRED`, corta sus enlaces personales y avisa a ella y a la dueña. El formulario público no devuelve un acceso terminado por su fecha.
+
 ### Cumplimiento legal
 
 Una compra en la página de una creadora es un contrato entre ella y su clienta; Cirella solo presta la tecnología. Por eso:
@@ -339,6 +355,7 @@ npm run test:media              # límites de subida por modo, subida por partes
 npm run test:rich-text          # columnas de formato, extractos en texto plano y email de bienvenida con formato por la outbox
 npm run test:lessons            # lecciones por partes: relleno de la migración, guardar (versión, mover, aislamiento), cascadas y progreso
 npm run test:concurrency        # dos compras simultáneas del mismo hueco → una sola reserva confirmada; plazas de taller
+npm run test:community          # comunidad: cursos incluidos, fin de acceso (cron y en cada visita), publicaciones programadas, adjuntos, avisos por email, bajas, comentarios y «me gusta»
 npm run test:calendar           # calendario propio: fechas especiales, horizonte, horas guardadas al pagar, zona de la clienta, avisos, talleres, sesiones dadas a mano y entregas
 npm run test:reliability        # reintentos de emails, outbox de eventos, cerrojo del cron, renovaciones idempotentes, vigilante
 npm run test:payments           # entrega única ante avisos repetidos, guardián de importe, renovaciones fallidas, cuenta de cobro y DAC7

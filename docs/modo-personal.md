@@ -605,6 +605,34 @@ minutos): así dos personas no pagan la misma hora. Si el pago falla, la hora vu
 
 ---
 
+## Tu comunidad
+
+En **Productos → tu membresía → Publicaciones de la comunidad → Nueva publicación**:
+
+- Escribe el texto y añade **audios, vídeos, PDF o imágenes** (hasta 10) con «Añadir audio, vídeo,
+  PDF o imagen». Solo los ven tus miembros.
+- **Cuándo**: «Publicar ahora», «Programar» (eliges día y hora; se publica sola) o «Borrador».
+  Puedes editarla, cambiar la hora o borrarla cuando quieras. «Vista previa» te enseña cómo la ven.
+- **Avisar por email**: cada miembro recibe un email con el principio de la publicación y su
+  enlace directo. Quien no quiera más avisos se da de baja con el enlace del email (o desde su
+  comunidad). Con el plan gratuito de Resend (100 emails al día) caben unos 80 miembros por
+  publicación: si tienes más, pasa a Resend Pro o desmarca «Avisar por email».
+- **Comentarios**: tus miembros comentan y dan «me gusta»; tú respondes (sale «Autora»), borras
+  cualquier comentario o dejas sin comentar a alguien desde la publicación en el panel. Te llega un
+  email con cada comentario (lo puedes apagar en Automatizaciones → «Comentarios nuevos»).
+- **Qué incluye esta membresía**: marca tus cursos y tus miembros los tendrán en «Mis cursos»
+  mientras su membresía esté activa. Al terminar, dejan de verlos.
+- **Acceso con fecha de fin** (un programa de 3 meses, alguien que te paga por Bizum, un regalo):
+  en «Personas con acceso» elige «Duración del acceso». Le avisamos 7 días antes y ese día se cierra
+  solo; tú recibes un aviso con «Ampliar su acceso». «Cambiar fecha» la alarga o la quita.
+- Las membresías de pago terminan solas al final del periodo pagado si la cancelan, o si no se
+  puede cobrar la renovación.
+
+Te recomendamos añadir a tu texto de privacidad que en la comunidad se muestra tu nombre y el de
+quien comenta (nombre e inicial) y que enviamos avisos por email de las publicaciones.
+
+---
+
 ## Mantenimiento
 
 - **Actualizaciones**: cuando el código cambie en la rama `main` de tu repositorio de GitHub,

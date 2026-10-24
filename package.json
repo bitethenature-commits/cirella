@@ -44,6 +44,7 @@
     "test:media": "tsx --conditions=react-server scripts/media-test.ts",
     "test:lessons": "tsx --conditions=react-server scripts/lessons-test.ts",
     "test:calendar": "tsx --conditions=react-server scripts/calendar-test.ts",
+    "test:community": "tsx --conditions=react-server scripts/community-test.ts",
     "test:e2e": "playwright test"
   },
   "prisma": {

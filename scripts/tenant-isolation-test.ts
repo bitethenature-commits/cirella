@@ -77,6 +77,12 @@ async function main() {
   check("María no ve las entregas de Ana", (await mariaDb.orderFile.findFirst({ where: { id: anaOrderFile.id } })) === null);
   check("María no puede borrar una fecha especial de Ana", (await mariaDb.availabilityOverride.deleteMany({ where: { id: anaOverride.id } })).count === 0);
   check("María no puede marcar como enviada una entrega de Ana", (await mariaDb.orderFile.updateMany({ where: { id: anaOrderFile.id }, data: { name: "x" } })).count === 0);
+  // Comunidad: comentarios y «me gusta» sembrados de Ana invisibles e intocables para María.
+  const anaComment = await prisma.membershipComment.findFirstOrThrow({ where: { creatorId: ana.id } });
+  const anaLike = await prisma.membershipPostLike.findFirstOrThrow({ where: { creatorId: ana.id } });
+  check("María no ve los comentarios ni los «me gusta» de Ana", (await mariaDb.membershipComment.findFirst({ where: { id: anaComment.id } })) === null && (await mariaDb.membershipPostLike.count({ where: { id: anaLike.id } })) === 0);
+  check("María no puede borrar ni cambiar un comentario de Ana", (await mariaDb.membershipComment.updateMany({ where: { id: anaComment.id }, data: { body: "x" } })).count === 0 && (await mariaDb.membershipPostLike.deleteMany({ where: { id: anaLike.id } })).count === 0);
+  check("María no ve qué incluyen las membresías de Ana", (await mariaDb.productInclusion.count({ where: { creatorId: ana.id } })) === 0);
   check("count de reservas no incluye las de otras", (await db.booking.count()) === (await prisma.booking.count({ where: { creatorId: ana.id } })));
 
   // Escrituras (el siguiente "prisma:error" es esperado: Prisma rechaza el update)
