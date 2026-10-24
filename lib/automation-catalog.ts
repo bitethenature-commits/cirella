@@ -16,6 +16,10 @@ export const AUTOMATIONS = {
   // Calendario propio: activadas por defecto solo en la web personal (en la plataforma, como siempre).
   BOOKING_OWNER_NOTICE: { label: "Aviso de reservas", description: "Te avisamos de cada reserva, cambio de fecha, cancelación y datos nuevos de tus clientas", audience: "Tú", essential: false, defaultDelay: 0, defaultEnabled: "personal" },
   SESSION_REMINDER_SOON: { label: "Segundo recordatorio", description: "Poco antes de la sesión, con el enlace de Zoom (minutos de antelación)", audience: "Clienta", essential: false, defaultDelay: 60, defaultEnabled: "personal" },
+  // Comunidad y fin de acceso.
+  ACCESS_ENDING: { label: "Fin de acceso", description: "Avisa 7 días antes de que termine un acceso con fecha, el día que termina y cuando acaba una membresía de pago", audience: "Clienta", essential: false, defaultDelay: 0 },
+  MEMBER_ENDED: { label: "Aviso de fin de acceso", description: "Te avisamos cuando termina el acceso con fecha de alguien", audience: "Tú", essential: false, defaultDelay: 0 },
+  NEW_COMMENT: { label: "Comentarios nuevos", description: "Te avisamos cuando alguien comenta en tu comunidad", audience: "Tú", essential: false, defaultDelay: 0 },
 } as const;
 
 export type AutomationTrigger = keyof typeof AUTOMATIONS;

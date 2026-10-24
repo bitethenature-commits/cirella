@@ -46,11 +46,14 @@ model User {
   // null = cuenta creada con contraseña o por un checkout y aún sin confirmar.
   emailVerifiedAt DateTime?
 
-  creator    Creator?
-  sessions   Session[]
-  customerOf Customer[]
-  accesses   Access[]
-  progress   LessonProgress[]
+  creator        Creator?
+  sessions       Session[]
+  customerOf     Customer[]
+  accesses       Access[]
+  progress       LessonProgress[]
+  // Comunidad: comentarios y «me gusta» en las publicaciones de las membresías.
+  memberComments MembershipComment[]
+  memberLikes    MembershipPostLike[]
 }
 
 model Session {
@@ -332,16 +335,19 @@ model Product {
   accesses      Access[]
   bookings      Booking[]
   subscriptions Subscription[]
+  // Lo que incluye una membresía (sus cursos) y en qué membresías está incluido un curso. Ver ProductInclusion.
+  includes      ProductInclusion[] @relation("ProductIncludes")
+  includedIn    ProductInclusion[] @relation("ProductIncludedIn")
 
   @@unique([creatorId, slug])
   @@index([creatorId, status, sortOrder])
 }
 
 model ProductFile {
-  id          String       @id @default(cuid())
+  id          String          @id @default(cuid())
   creatorId   String
   productId   String
-  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product     Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   name        String
   kind        String // PDF | AUDIO | VIDEO | IMAGE | LINK | OTHER
   storageKey  String? // clave relativa a «private/» en el almacenamiento (disco local o R2): {creatorId}/{hex}.{ext}
@@ -355,12 +361,19 @@ model ProductFile {
   videoCodec  String? // H264 | HEVC | OTHER (solo vídeo). HEVC = formato del iPhone: puede no verse en todos los navegadores
   width       Int? // tamaño del vídeo tal y como se ve (ya girado: un vertical del iPhone es 1080×1920)
   height      Int?
-  sortOrder   Int          @default(0)
-  createdAt   DateTime     @default(now())
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
   lessons     Lesson[] // obsoleto: Lesson.fileId (copia de compatibilidad, ver Lesson)
   lessonParts LessonPart[]
+  // Adjunto de una publicación de la comunidad (null = archivo del producto: entregas, materiales del curso).
+  // Es un archivo de la membresía: lo abre quien tiene acceso a ella, y nunca si la publicación es un
+  // borrador o está programada (checkFileAccess). Una publicación nueva sube sus archivos antes de
+  // guardarse: los que quedan sin publicación más de 24 h se borran solos (purgeOrphanPostFiles).
+  postId      String?
+  post        MembershipPost? @relation(fields: [postId], references: [id], onDelete: SetNull)
 
   @@index([creatorId, productId])
+  @@index([postId])
 }
 
 model CourseModule {
@@ -443,18 +456,90 @@ model LessonProgress {
 }
 
 model MembershipPost {
-  id          String   @id @default(cuid())
-  creatorId   String
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  title       String
-  body        String
-  bodyFormat  String? // null = texto de antes (saltos de línea tal cual) | "MD"
-  kind        String   @default("TEXT") // TEXT | AUDIO | VIDEO | EVENT
-  mediaUrl    String?
-  publishedAt DateTime @default(now())
+  id            String    @id @default(cuid())
+  creatorId     String
+  productId     String
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  title         String
+  body          String
+  bodyFormat    String? // null = texto de antes (saltos de línea tal cual) | "MD"
+  kind          String    @default("TEXT") // TEXT | AUDIO | VIDEO | EVENT
+  mediaUrl      String?
+  // DRAFT: solo la ve la dueña. PUBLISHED: la ven sus miembros desde publishedAt; si es futura, está
+  // «programada» (lib/community-rules.ts → visibleMemberPostWhere: no hace falta ningún cron para verla).
+  status        String    @default("PUBLISHED")
+  publishedAt   DateTime  @default(now())
+  // Aviso por email al publicarse (lib/community-notify.ts). notifiedAt = ya se avisó (o no había que
+  // hacerlo); notifyCursor = último userId avisado (si se corta a mitad, sigue desde ahí);
+  // notifiedCount = emails creados.
+  notify        Boolean   @default(true)
+  notifiedAt    DateTime?
+  notifyCursor  String?
+  notifiedCount Int       @default(0)
+  commentsOpen  Boolean   @default(true)
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  files    ProductFile[]
+  comments MembershipComment[]
+  likes    MembershipPostLike[]
 
   @@index([creatorId, productId, publishedAt])
+  @@index([status, notifiedAt, publishedAt]) // cron de avisos
+}
+
+// Lo que incluye una membresía: cursos que sus miembros ven mientras la membresía siga activa. El
+// acceso NO se copia a Access: se deduce al consultar (lib/membership-access.ts), así que termina
+// exactamente cuando termina el de la membresía (fin del periodo pagado, fecha de fin, reembolso o
+// acceso retirado). Las dos puntas son de la misma creadora (lo garantiza saveInclusions con tenantDb).
+model ProductInclusion {
+  id                String   @id @default(cuid())
+  creatorId         String
+  productId         String // la membresía que incluye
+  product           Product  @relation("ProductIncludes", fields: [productId], references: [id], onDelete: Cascade)
+  includedProductId String // el curso incluido
+  includedProduct   Product  @relation("ProductIncludedIn", fields: [includedProductId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+
+  @@unique([productId, includedProductId])
+  @@index([creatorId, includedProductId])
+}
+
+// Comentario en una publicación de la comunidad. Texto plano (≤ 2000): se pinta como texto, nunca
+// como HTML ni con enlaces.
+model MembershipComment {
+  id         String              @id @default(cuid())
+  creatorId  String
+  productId  String // membresía de la publicación
+  postId     String
+  post       MembershipPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId   String? // respuesta a otro comentario (un solo nivel)
+  parent     MembershipComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies    MembershipComment[] @relation("CommentReplies")
+  body       String
+  // Nombre que ven las demás, fijado al comentar: «Laura M.» (nunca el email) o el de la dueña.
+  authorName String
+  byOwner    Boolean             @default(false)
+  status     String              @default("VISIBLE") // VISIBLE | REMOVED (el texto se vacía)
+  removedBy  String? // AUTHOR | OWNER
+  createdAt  DateTime            @default(now())
+
+  @@index([creatorId, postId, createdAt])
+  @@index([userId])
+}
+
+model MembershipPostLike {
+  id        String         @id @default(cuid())
+  creatorId String
+  postId    String
+  post      MembershipPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([postId, userId])
+  @@index([creatorId, postId])
 }
 
 // Publicaciones con fecha de la página pública (novedades / blog).
@@ -499,20 +584,25 @@ model DiscountCode {
 // ───────────────────────────── Clientes y ventas ─────────────────────────────
 
 model Customer {
-  id               String    @id @default(cuid())
-  creatorId        String
-  creator          Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  userId           String
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  email            String
-  name             String?
-  marketingOptIn   Boolean   @default(false)
-  marketingOptInAt DateTime? // cuándo dio el consentimiento (null si nunca o si lo retiró)
-  totalSpentCents  Int       @default(0)
-  ordersCount      Int       @default(0)
-  firstPurchaseAt  DateTime?
-  lastPurchaseAt   DateTime?
-  createdAt        DateTime  @default(now())
+  id                 String    @id @default(cuid())
+  creatorId          String
+  creator            Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email              String
+  name               String?
+  marketingOptIn     Boolean   @default(false)
+  marketingOptInAt   DateTime? // cuándo dio el consentimiento (null si nunca o si lo retiró)
+  totalSpentCents    Int       @default(0)
+  ordersCount        Int       @default(0)
+  firstPurchaseAt    DateTime?
+  lastPurchaseAt     DateTime?
+  // Avisos de la comunidad (publicaciones nuevas y respuestas de la dueña a sus comentarios): null = los
+  // recibe. Se da de baja con el enlace del email (lib/community-optout.ts) o desde su comunidad.
+  postEmailsOptOutAt DateTime?
+  // La dueña le ha quitado la posibilidad de comentar (sigue leyendo y dando «me gusta»).
+  commentsBlockedAt  DateTime?
+  createdAt          DateTime  @default(now())
 
   orders        Order[]
   bookings      Booking[]
@@ -666,12 +756,16 @@ model Access {
   product        Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   orderId        String?
   subscriptionId String?
-  status         String    @default("ACTIVE") // ACTIVE | REVOKED
+  status         String    @default("ACTIVE") // ACTIVE | REVOKED (quitado o reembolsado) | EXPIRED (llegó su fecha de fin)
+  // Fin del acceso: el del periodo pagado (suscripción) o el que puso la dueña al darlo a mano
+  // (Order.metadata.accessUntil). Se comprueba en CADA visita (expiresAt > ahora): el cron
+  // (lib/access-expiry.ts) solo pasa a EXPIRED los que no son de suscripción y avisa por email.
   expiresAt      DateTime?
   createdAt      DateTime  @default(now())
 
   @@unique([userId, productId])
   @@index([creatorId, productId])
+  @@index([status, expiresAt]) // cron de caducidades
 }
 
 // Reembolso de un pedido (total o parcial). Los efectos (retirar acceso, cancelar
