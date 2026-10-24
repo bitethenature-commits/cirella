@@ -65,3 +65,44 @@ export function maskEmail(email: string) {
 export function addDays(d: Date, n: number) {
   return new Date(d.getTime() + n * 86_400_000);
 }
+
+/**
+ * «iPhone · Safari», «Mac · Chrome», «Android · Chrome»… a partir del User-Agent, para los avisos de
+ * acceso y la lista de dispositivos recordados. Nunca lleva versiones ni la IP.
+ */
+export function deviceLabel(ua: string | null | undefined): string {
+  const s = ua ?? "";
+  if (!s.trim()) return "Navegador desconocido";
+  const os = /iPhone/.test(s)
+    ? "iPhone"
+    : /iPad/.test(s)
+      ? "iPad"
+      : /Android/.test(s)
+        ? "Android"
+        : /Macintosh|Mac OS X/.test(s)
+          ? "Mac"
+          : /Windows/.test(s)
+            ? "Windows"
+            : /Linux|CrOS/.test(s)
+              ? "Linux"
+              : null;
+  const browser = /Edg\//.test(s)
+    ? "Edge"
+    : /Firefox\/|FxiOS\//.test(s)
+      ? "Firefox"
+      : /CriOS\/|Chrome\//.test(s)
+        ? "Chrome"
+        : /Safari\//.test(s)
+          ? "Safari"
+          : null;
+  if (!os && !browser) return "Navegador desconocido";
+  return [os, browser].filter(Boolean).join(" · ");
+}
+
+/**
+ * ¿Cuenta esta sesión? Con la verificación en dos pasos activada, una sesión de cuenta sin el
+ * segundo factor (mfa) no vale; las limitadas a un pedido no abren el panel y no se tocan.
+ */
+export function sessionUsable(s: { orderId: string | null; mfa: boolean; user: { totpEnabledAt: Date | null } }) {
+  return !(!s.orderId && s.user.totpEnabledAt && !s.mfa);
+}

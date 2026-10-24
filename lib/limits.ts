@@ -24,6 +24,11 @@ export const RULES = {
   magicIp: { limit: 10, windowSec: HOUR },
   // Altas de cuenta nuevas.
   signupIp: { limit: 10, windowSec: HOUR },
+  // Verificación en dos pasos: códigos por cuenta (15 min y día) y por conexión. El del día no se
+  // reinicia al acertar: frena a quien alterna sus intentos con los aciertos de la dueña.
+  twoFactorUser: { limit: 5, windowSec: 15 * MIN },
+  twoFactorUserDay: { limit: 20, windowSec: 24 * HOUR },
+  twoFactorIp: { limit: 30, windowSec: 15 * MIN },
   // Intentos de pago. El de conexión es holgado: con el CGNAT de las operadoras móviles muchas
   // compradoras comparten IP. Lo que de verdad frena el probar tarjetas son los rechazos.
   checkoutEmail: { limit: 5, windowSec: 10 * MIN },
@@ -97,6 +102,23 @@ export async function limitSignup(ipHash: string): Promise<Verdict> {
   const ip = await hitConnection("signup-ip", ipHash, RULES.signupIp);
   if (!ip.ok) return denied((t) => `Demasiados registros desde esta conexión. Prueba de nuevo en ${t}.`, ip.retryAfterSec);
   return OK;
+}
+
+/** Antes de comprobar un código de la verificación en dos pasos (login y volver a confirmar). */
+export async function limitTwoFactor(userId: string, ipHash: string): Promise<Verdict> {
+  const msg = (t: string) => `Demasiados intentos. Espera ${t} y vuelve a probar.`;
+  const ip = await hitConnection("2fa-ip", ipHash, RULES.twoFactorIp);
+  if (!ip.ok) return denied(msg, ip.retryAfterSec);
+  const short = await hit(rlKey("2fa-user", userId), RULES.twoFactorUser);
+  if (!short.ok) return denied(msg, short.retryAfterSec);
+  const day = await hit(rlKey("2fa-user-day", userId), RULES.twoFactorUserDay);
+  if (!day.ok) return denied(msg, day.retryAfterSec);
+  return OK;
+}
+
+/** Al acertar el código vuelve a cero la ventana corta (la del día, no). */
+export async function clearTwoFactorLimit(userId: string): Promise<void> {
+  await resetKey(rlKey("2fa-user", userId));
 }
 
 // ── Checkout ──

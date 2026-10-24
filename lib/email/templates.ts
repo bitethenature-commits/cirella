@@ -615,3 +615,60 @@ export function membershipEndedEmail(o: { creatorName: string; productTitle: str
     }),
   };
 }
+
+// ── Verificación en dos pasos (lib/two-factor-notify.ts) ──
+// Solo informan: nunca llevan códigos ni enlaces que den acceso.
+
+export function loginAlertEmail(o: { when: string; device: string; settingsUrl: string }) {
+  return {
+    subject: "Nuevo acceso a tu panel",
+    html: layout({
+      title: "Nuevo acceso a tu panel",
+      body:
+        p(`Alguien ha entrado en tu panel de ${esc(platformName())}:`) +
+        p(`<strong>${esc(o.device)}</strong> · ${esc(o.when)}`) +
+        p("Si has sido tú, no tienes que hacer nada.") +
+        note("¿No has sido tú? Cambia tu contraseña ahora: cerraremos las demás sesiones. Y activa la verificación en dos pasos si aún no la tienes."),
+      cta: { label: "Revisar mi seguridad", url: o.settingsUrl },
+    }),
+  };
+}
+
+export type TwoFactorEvent = "enabled" | "disabled" | "codes" | "devices" | "reset" | "recovery_used" | "password";
+
+const TWO_FACTOR_COPY: Record<TwoFactorEvent, { subject: string; body: string }> = {
+  enabled: { subject: "Has activado la verificación en dos pasos", body: "Desde ahora, además de tu contraseña o del enlace, te pediremos el código de tu app al entrar. Hemos cerrado tus demás sesiones." },
+  disabled: { subject: "Has desactivado la verificación en dos pasos", body: "Ya no te pediremos el código de tu app al entrar. Puedes volver a activarla cuando quieras." },
+  codes: { subject: "Tienes códigos de recuperación nuevos", body: "Has generado códigos de recuperación nuevos: los anteriores ya no sirven. También hemos olvidado tus dispositivos recordados." },
+  devices: { subject: "Hemos olvidado tus dispositivos recordados", body: "La próxima vez que entres desde cualquier dispositivo te pediremos el código de tu app." },
+  reset: { subject: "Se ha desactivado la verificación en dos pasos desde el servidor", body: "Quien gestiona tu web ha desactivado la verificación en dos pasos y ha cerrado todas tus sesiones. Entra con tu contraseña o con un enlace y vuelve a activarla en Ajustes › Seguridad." },
+  recovery_used: { subject: "Has entrado con un código de recuperación", body: "Has usado uno de tus códigos de recuperación para entrar. Si has cambiado de móvil, vuelve a configurar la app de códigos." },
+  password: { subject: "Has cambiado tu contraseña", body: "Has cambiado tu contraseña y hemos olvidado tus dispositivos recordados: te pediremos el código de tu app la próxima vez." },
+};
+
+export function twoFactorChangedEmail(o: { event: TwoFactorEvent; remaining?: number; settingsUrl: string }) {
+  const copy = TWO_FACTOR_COPY[o.event];
+  const left = o.remaining !== undefined ? p(`Te ${o.remaining === 1 ? "queda" : "quedan"} <strong>${o.remaining}</strong> ${o.remaining === 1 ? "código" : "códigos"} de recuperación.`) : "";
+  return {
+    subject: copy.subject,
+    html: layout({
+      title: copy.subject,
+      body: p(esc(copy.body)) + left + note("¿No has sido tú? Cambia tu contraseña y revisa quién puede leer tu email."),
+      cta: { label: "Ver mi seguridad", url: o.settingsUrl },
+    }),
+  };
+}
+
+export function twoFactorFailuresEmail(o: { when: string; device: string; settingsUrl: string }) {
+  return {
+    subject: "Alguien ha intentado entrar en tu panel",
+    html: layout({
+      title: "Alguien ha intentado entrar en tu panel",
+      body:
+        p("Alguien ha escrito bien tu contraseña (o ha abierto tu enlace para entrar) pero no el código de tu app.") +
+        p(`<strong>${esc(o.device)}</strong> · ${esc(o.when)}`) +
+        p("Si no has sido tú, cambia tu contraseña cuanto antes y revisa quién puede leer tu email."),
+      cta: { label: "Cambiar mi contraseña", url: o.settingsUrl },
+    }),
+  };
+}

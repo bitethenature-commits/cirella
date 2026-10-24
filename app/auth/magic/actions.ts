@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE, consumeMagicLink, createSession, hashToken } from "@/lib/auth";
+import { SESSION_COOKIE, completeLogin, consumeMagicLink, hashToken } from "@/lib/auth";
 
 /**
  * «Entrar» de la pantalla del enlace mágico. Solo aquí (un POST) se gasta el enlace: los antivirus
@@ -16,6 +16,7 @@ export async function confirmMagicLink(form: FormData) {
   const session = (await cookies()).get(SESSION_COOKIE)?.value;
   const r = await consumeMagicLink(token, choice, { currentSessionId: session ? hashToken(session) : null });
   if (!r) redirect("/entrar?error=enlace");
-  await createSession(r.user.id, { verified: true });
-  redirect(r.redirectTo);
+  // El enlace ya está gastado: con la verificación en dos pasos se pide después el código, así un
+  // email reenviado o robado no basta para abrir el panel.
+  return completeLogin(r.user.id, { verified: true, next: r.redirectTo, method: "MAGIC_LINK" });
 }

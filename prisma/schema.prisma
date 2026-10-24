@@ -45,15 +45,27 @@ model User {
   // Momento en que alguien demostró por primera vez que el email es suyo (enlace mágico o «Sí, he sido yo»).
   // null = cuenta creada con contraseña o por un checkout y aún sin confirmar.
   emailVerifiedAt DateTime?
+  // Verificación en dos pasos (código de una app, lib/totp.ts). totpSecret va cifrado (AES-256-GCM con una
+  // clave derivada de APP_SECRET, «v1:<iv>:<tag>:<cifrado>»). Mientras se configura hay secreto pero
+  // totpEnabledAt es null.
+  totpSecret      String?
+  // null = desactivada. Con fecha, todo inicio de sesión completo pide el código (lib/auth.ts → completeLogin).
+  totpEnabledAt   DateTime?
+  // Último paso de 30 s aceptado: un código ya usado no vale otra vez (anti-repetición).
+  totpLastStep    Int?
 
-  creator        Creator?
-  sessions       Session[]
-  customerOf     Customer[]
-  accesses       Access[]
-  progress       LessonProgress[]
+  creator             Creator?
+  sessions            Session[]
+  customerOf          Customer[]
+  accesses            Access[]
+  progress            LessonProgress[]
   // Comunidad: comentarios y «me gusta» en las publicaciones de las membresías.
-  memberComments MembershipComment[]
-  memberLikes    MembershipPostLike[]
+  memberComments      MembershipComment[]
+  memberLikes         MembershipPostLike[]
+  // Verificación en dos pasos (lib/two-factor.ts).
+  twoFactorCodes      TwoFactorRecoveryCode[]
+  trustedDevices      TrustedDevice[]
+  twoFactorChallenges TwoFactorChallenge[]
 }
 
 model Session {
@@ -70,10 +82,59 @@ model Session {
   // solo abre ese pedido. getCurrentUser() la ignora.
   orderId   String?
   order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  // true = abierta tras pasar el segundo factor (o al activarlo desde esta sesión). Si la usuaria tiene
+  // la verificación en dos pasos, getSession() ignora las sesiones de cuenta con mfa = false.
+  mfa       Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([orderId])
+  @@index([expiresAt])
+}
+
+// Paso intermedio del login: primer factor correcto (contraseña o enlace), falta el código. Nunca es
+// una sesión: solo permite probar el código en /entrar/codigo desde el navegador con la cookie.
+model TwoFactorChallenge {
+  id         String    @id // sha256(token); el token en claro solo vive en la cookie cirella_2fa
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Lo que tendrá la sesión si se supera: verified (como en createSession) y adónde ir.
+  verified   Boolean
+  redirectTo String?
+  method     String // PASSWORD | MAGIC_LINK | DEMO
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Códigos de recuperación de un solo uso (10 por usuaria). Solo se guarda HMAC-SHA256(APP_SECRET, código).
+model TwoFactorRecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// «Recordar este dispositivo 30 días»: solo se salta el código, nunca la contraseña ni el enlace.
+model TrustedDevice {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique // sha256 del token de la cookie cirella_dispositivo
+  label      String // «iPhone · Safari» (lib/auth-utils.ts → deviceLabel)
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
   @@index([expiresAt])
 }
 

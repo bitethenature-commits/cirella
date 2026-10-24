@@ -19,6 +19,7 @@ const ERRORS: Record<string, string> = {
   enlace: "El enlace ha caducado o ya se usó. Pide uno nuevo.",
   caducado: "Este enlace personal ha caducado. Pide uno nuevo y te llegará al momento.",
   bloqueada: "Tu cuenta está bloqueada. Escríbenos si crees que es un error.",
+  codigo: "Ha pasado demasiado tiempo o ha habido demasiados intentos. Vuelve a entrar.",
   cerrado: "En esta web no se pueden crear páginas nuevas. Si ya tienes acceso a algún contenido, entra con tu email.",
 };
 
