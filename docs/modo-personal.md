@@ -527,8 +527,8 @@ Desde tu panel (`https://tudominio.com/panel`, también en el móvil):
    con actividad profesional y sale en tu **aviso legal y privacidad**
    (`tudominio.com/<tu usuario>/legal`), que se enlaza en el pie de tu página. La privacidad
    parte de una plantilla que puedes adaptar; revísala con tu asesoría.
-2. **Mi página**: foto, nombre, frase, enlaces, redes, bloques de texto (sobre mí, servicios…) y
-   el diseño. El nombre de tu página es el que se ve en el login, el panel y los emails. Al
+2. **Mi página**: foto, nombre, frase, enlaces, redes, bloques (textos, imágenes, galerías y
+   vídeos; ver «Tu página: imágenes de Canva, vídeos y páginas extra») y el diseño. El nombre de tu página es el que se ve en el login, el panel y los emails. Al
    pulsar **Publicar** también pasa a la página «no encontrada» (la que sale si alguien escribe
    mal una dirección). Tras cada actualización de la web, esa página se pone al día sola en
    unos minutos (con las tareas automáticas del paso 8).
@@ -585,6 +585,25 @@ no hace falta Calendly ni Google Calendar. Tú trabajas con tu enlace de Zoom y 
 
 Mientras una clienta está pagando en Stripe o PayPal, esa hora queda guardada (hasta unos 30
 minutos): así dos personas no pagan la misma hora. Si el pago falla, la hora vuelve a estar libre.
+
+### Tu página: imágenes de Canva, vídeos y páginas extra
+
+En **Mi página → Bloques** (y en cada página extra) añades, en el orden que quieras:
+
+- **Imagen**: un gráfico de Canva (**Compartir → Descargar → PNG**, mejor de 1080 px de ancho o
+  más). En «Descripción de la imagen» escribe el texto que sale en el gráfico: así lo leen Google
+  y quien usa lector de pantalla. Si no le pones enlace, al tocarla se abre en grande para leerla.
+- **Galería**: hasta 12 imágenes, en carrusel (se desliza) o en cuadrícula.
+- **Vídeo**: súbelo desde Fotos o Archivos (MP4 o MOV hasta 1 GB) o pega un enlace de YouTube o
+  Vimeo. Para un vídeo de bienvenida: menos de 2 minutos, el iPhone en **Más compatible** y
+  exportado a **1080p**. La portada sale sola de un fotograma; puedes cambiarla. Nunca se
+  reproduce solo: tu página abre rápido desde Instagram.
+
+**Páginas extra** (**Páginas → Nueva página**): «Sobre mí», «Preguntas frecuentes» o en blanco,
+con los mismos bloques. Cada una tiene su dirección (por ejemplo `tudominio.com/sobre-mi`, en
+**Ajustes** con «Copiar enlace»), su borrador y su **Publicar**. Las publicadas salen en el pie de
+tu web; con **«Añadir un botón a esta página en mi portada»** sale también arriba, entre tus
+botones. Pega `tudominio.com/sobre-mi` en tu bio o en una historia.
 
 ### Vídeos y audios desde el iPhone
 

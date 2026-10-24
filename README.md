@@ -99,6 +99,8 @@ Contraseña de todas: `demo1234`. También hay botones de acceso rápido en **/e
 5. **`/admin`** · todo lo de la plataforma: planes editables, comisiones, bloqueos, reportes CSV, política de IVA y facturas emitidas (`/admin/impuestos`).
 6. **`/dev/correo`** · buzón de demostración con todos los emails que «envía» la plataforma (recibos, enlaces mágicos, recordatorios programados), solo para la administradora: si entras sin sesión, ofrece entrar como superadmin y vuelve. El botón «Ejecutar tareas programadas» simula el cron.
 
+La portada de Ana lleva un bloque de cada tipo (su vídeo de bienvenida subido, un gráfico y una galería) y tiene dos páginas extra: **«Sobre mí»** publicada (`/ana/p/sobre-mi`; en la web personal, `/sobre-mi`) y **«Preguntas frecuentes»** en borrador; se editan en `/panel/paginas`.
+
 Otras páginas de ejemplo: `/maria` (Minimal, plan Creator) y `/sofia` (Luxury, plan Free con «Powered by»).
 
 ---
@@ -261,6 +263,13 @@ Cada membresía tiene su comunidad privada: publicaciones de la dueña con comen
 - **Comentarios y «me gusta»**: texto plano (≤ 2000, nunca HTML ni enlaces), un nivel de respuestas, nombre «Laura M.» (nunca el email). Comentar exige una sesión de cuenta (no el enlace de un email, que sí deja dar «me gusta»). La dueña borra cualquiera, cierra los comentarios de una publicación y deja sin comentar a una persona (`Customer.commentsBlockedAt`). Avisos: «Comentarios nuevos» a la dueña y respuesta de la dueña a la miembro. Límites: 20 comentarios y 300 «me gusta» por hora.
 - **Cursos incluidos** (`ProductInclusion`, `lib/membership-access.ts`): «Qué incluye esta membresía». El acceso al curso no se copia: se deduce del de la membresía en cada visita (`accessSource`, usado por `hasAccess`, `checkProductAccess` y las páginas), así que termina en el mismo instante que ella. El enlace personal de la membresía abre también sus cursos.
 
+### Mi página y páginas extra
+
+- **Bloques** (`lib/page-blocks.ts`, en `pageDraft/pagePublished.blocks` y en las páginas extra): texto con formato, **imagen**, **galería** (carrusel o cuadrícula, hasta 12) y **vídeo**. Los bloques de antes (sin `kind`) son de texto y se pintan igual; `readPageConfig` descarta un bloque dañado sin tumbar la página. Hasta 20 en la portada (2000 caracteres por texto) y 40 en cada página extra (10 000). Se editan con el mismo editor (`components/panel/blocks/`): el selector de fotos se abre en el mismo toque que «Añadir imagen», las subidas enseñan su progreso y la vista previa del teléfono solo se monta en escritorio. Al guardar, `sanitizeBlocks` (`lib/page-blocks.server.ts`) solo deja imágenes y vídeos de la propia creadora, enlaces de vídeo reconocidos y texto sin imágenes.
+- **Imágenes**: por `/api/upload` con el perfil **graphic** de `lib/images.ts` (hasta 1600 × 4000 px, WebP q88: una historia de Canva de 1080 × 1920 no se encoge). La subida devuelve el ancho y el alto, que se guardan en el bloque: la web pinta `width`/`height` (sin saltos), `srcset` con las variantes de `/media`, carga diferida y, sin enlace, se amplían al tocarlas (`ZoomableImage`).
+- **Vídeo**: enlace de YouTube o Vimeo (`lib/video-embed.ts`), que no carga nada de fuera hasta pulsar ▶ (`VideoFacade`, con portada opcional), o, solo en la web personal, **subido** (`purpose: "video"`: MP4/MOV/M4V hasta 1 GB, por partes si es grande, con duración, medidas y códec). Se guarda en `public/video/<creadora>/<24 hex>.<ext>` y la página lo pide a `/media/video/…`, que responde 302 a una URL firmada de 12 h (la redirección se cachea 10 min): el vídeo sale de R2, nunca del servidor. `<video playsInline>`, nunca en reproducción automática, con `preload="none"` si tiene portada (que el navegador saca de un fotograma al subirlo).
+- **Páginas extra** (`SitePage`, `lib/site-pages.ts` y `lib/site-pages.server.ts`): «Sobre mí», «Preguntas frecuentes» o en blanco, cada una con borrador y versión publicada (como la portada), título y descripción para buscadores y redes, y su dirección: `/<usuaria>/p/<slug>` en la plataforma y `/<slug>` en la web personal (rewrite del middleware, `ownerPageRewrite`; es la canónica). Una dirección nunca puede ser una ruta de la web (`RESERVED_USERNAMES`) ni la dueña, y «p» es un slug de producto reservado. Las publicadas salen en el pie de la web (portada, fichas, novedades, legal) en el orden del panel y en el sitemap. Son dinámicas: un 404 cuesta una consulta. Panel: `/panel/paginas` (en el menú de la web personal; en la plataforma, desde «Mi página › Secciones › Gestionar páginas»), con vista previa del borrador, despublicar, borrar y «Añadir un botón a esta página en mi portada».
+
 ### Fin del acceso
 
 El acceso termina solo y **se comprueba en cada visita** (`Access.expiresAt` > ahora), nunca solo por un cron:
@@ -355,6 +364,7 @@ npm run test:media              # límites de subida por modo, subida por partes
 npm run test:rich-text          # columnas de formato, extractos en texto plano y email de bienvenida con formato por la outbox
 npm run test:lessons            # lecciones por partes: relleno de la migración, guardar (versión, mover, aislamiento), cascadas y progreso
 npm run test:concurrency        # dos compras simultáneas del mismo hueco → una sola reserva confirmada; plazas de taller
+npm run test:pages              # páginas extra y bloques: aislamiento, direcciones, saneamiento, borrador/publicado, pie, botón en la portada y el vídeo de la página (web personal y plataforma)
 npm run test:community          # comunidad: cursos incluidos, fin de acceso (cron y en cada visita), publicaciones programadas, adjuntos, avisos por email, bajas, comentarios y «me gusta»
 npm run test:calendar           # calendario propio: fechas especiales, horizonte, horas guardadas al pagar, zona de la clienta, avisos, talleres, sesiones dadas a mano y entregas
 npm run test:reliability        # reintentos de emails, outbox de eventos, cerrojo del cron, renovaciones idempotentes, vigilante
