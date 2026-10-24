@@ -160,7 +160,9 @@ export async function consumeMagicLink(
  */
 async function applyRegistration(user: { id: string; email: string; name: string | null }, data: RegisterData | null, now: Date) {
   if (!data) return;
-  const creator = await prisma.creator.findUnique({ where: { id: data.creatorId }, select: { id: true } });
+  const found = await prisma.creator.findUnique({ where: { id: data.creatorId }, select: { id: true, userId: true } });
+  // La dueña no es clienta de sí misma (si se «registra» con su propio email, solo entra).
+  const creator = found && found.userId !== user.id ? found : null;
   const eventIds = await prisma.$transaction(async (tx) => {
     const name = user.name || data.name || null;
     if (!user.name && data.name) await tx.user.update({ where: { id: user.id }, data: { name: data.name } });
