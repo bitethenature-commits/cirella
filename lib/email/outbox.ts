@@ -45,6 +45,9 @@ type EnqueueInput = {
   headers?: Record<string, string> | null;
 };
 
+/** Emails masivos (avisos de publicaciones de la comunidad): se envían después de los demás. */
+export const BULK_TEMPLATES = ["MEMBER_POST"] as const;
+
 /** Tiempo que un proceso tiene reservado un email mientras lo envía. */
 const LEASE_MS = 2 * 60_000;
 
@@ -192,12 +195,19 @@ export async function processOutbox(limit = 100, now = new Date()) {
     where: { status: "SENDING", lockedUntil: { lt: now } },
     data: { status: "QUEUED", lockedUntil: null },
   });
-  const due = await prisma.emailMessage.findMany({
-    where: { status: "QUEUED", sendAt: { lte: now } },
-    orderBy: { sendAt: "asc" },
-    take: limit,
-    select: { id: true },
-  });
+  // Primero los transaccionales (recibos, accesos, recordatorios); los avisos masivos de la
+  // comunidad, con lo que quede: un aviso a cientos de miembros nunca retrasa un recibo.
+  const pick = (bulk: boolean, take: number) =>
+    take > 0
+      ? prisma.emailMessage.findMany({
+          where: { status: "QUEUED", sendAt: { lte: now }, template: bulk ? { in: [...BULK_TEMPLATES] } : { notIn: [...BULK_TEMPLATES] } },
+          orderBy: { sendAt: "asc" },
+          take,
+          select: { id: true },
+        })
+      : Promise.resolve([]);
+  const first = await pick(false, limit);
+  const due = [...first, ...(await pick(true, limit - first.length))];
   for (const m of due) {
     try {
       await deliverEmail(m.id, now);

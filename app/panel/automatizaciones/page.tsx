@@ -34,7 +34,7 @@ export default async function AutomationsPage() {
     db.automation.findMany(),
     // Los enlaces para entrar y confirmar el email son de la plataforma, no emails de la creadora:
     // cualquiera puede pedirlos desde su página y no deben enseñarle direcciones que no son clientas.
-    db.emailMessage.findMany({ where: { template: { notIn: ["MAGIC_LINK", "VERIFY_EMAIL"] } }, orderBy: { sendAt: "desc" }, take: 25 }),
+    db.emailMessage.findMany({ where: { template: { notIn: ["MAGIC_LINK", "VERIFY_EMAIL", "MEMBER_POST"] } }, orderBy: { sendAt: "desc" }, take: 25 }),
   ]);
   const byTrigger = new Map(rows.map((r) => [r.trigger, r]));
   return (

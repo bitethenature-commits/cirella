@@ -1,4 +1,5 @@
 import "server-only";
+import { visibleMemberPostWhere } from "./community-rules";
 import { prisma } from "./db";
 import { getPublicCreator } from "./public";
 
@@ -21,8 +22,15 @@ export async function getPublicProduct(username: string, slug: string, draft = f
           },
         },
       },
-      files: { orderBy: { sortOrder: "asc" }, select: { id: true, name: true, kind: true } },
-      posts: { orderBy: { publishedAt: "desc" }, take: 3, select: { id: true, title: true, publishedAt: true } },
+      // Los adjuntos de las publicaciones de la comunidad nunca se listan en la ficha.
+      files: { where: { postId: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, kind: true } },
+      // Solo las publicaciones ya visibles: nunca el título de un borrador o de una programada.
+      posts: { where: visibleMemberPostWhere(new Date()), orderBy: { publishedAt: "desc" }, take: 3, select: { id: true, title: true, publishedAt: true } },
+      // Cursos que incluye una membresía («Con esta membresía también tienes»).
+      includes: {
+        orderBy: { createdAt: "asc" },
+        select: { includedProduct: { select: { id: true, title: true, slug: true, type: true, status: true, emoji: true, creatorId: true, _count: { select: { lessons: true } } } } },
+      },
     },
   });
   return { ...data, product, summary };

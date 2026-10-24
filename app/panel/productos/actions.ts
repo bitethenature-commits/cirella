@@ -19,6 +19,7 @@ import { requireCreator } from "@/lib/auth";
 import { uniqueProductSlug } from "@/lib/creator";
 import { DELIVERY_MODES, deliveryIssueCopy, normalizeDeliveryMode, productDeliveryIssue } from "@/lib/delivery";
 import { FreeAccessError, grantManualAccess, revokeManualAccess } from "@/lib/free-access";
+import { accessEndFrom, asAccessEndChoice, lastDayText } from "@/lib/access-end";
 import { LESSON_PARTS_JSON_MAX, parseLessonParts } from "@/lib/lesson-parts";
 import { LessonSaveError, saveLessonWithParts } from "@/lib/lessons";
 import { parseMoneyToCents } from "@/lib/money";
@@ -346,6 +347,8 @@ const grantSchema = z.object({
   productId: z.string().min(1),
   name: z.string().trim().min(2, "Escribe su nombre").max(80),
   email: z.string().trim().toLowerCase().max(200).email("Revisa el email"),
+  accessEnd: z.unknown().transform(asAccessEndChoice),
+  accessEndDate: z.string().max(10).optional(),
 });
 
 /**
@@ -357,18 +360,65 @@ export async function grantAccess(_: ActionState, form: FormData): Promise<Actio
   const parsed = grantSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
+  // «Duración del acceso»: el último día (incluido) cuenta en su zona horaria.
+  const end = accessEndFrom({ choice: d.accessEnd, date: d.accessEndDate, now: new Date(), timeZone: creator.timezone });
+  if (!end.ok) return { error: end.error };
   try {
-    const r = await grantManualAccess({ creatorId: creator.id, productId: d.productId, name: d.name, email: d.email, grantedByUserId: user.id });
+    const r = await grantManualAccess({ creatorId: creator.id, productId: d.productId, name: d.name, email: d.email, grantedByUserId: user.id, until: end.until });
     refresh(d.productId);
     revalidatePath("/panel/ventas");
     revalidatePath("/panel/clientes");
+    const until = end.until ? ` hasta el ${lastDayText(end.until, creator.timezone)}` : "";
     return {
-      ok: r.status === "granted" ? `Listo: ${d.email} ya tiene acceso y le hemos enviado el enlace.` : `${d.email} ya tenía acceso: le hemos vuelto a enviar el enlace.`,
+      ok: r.status === "granted" ? `Listo: ${d.email} ya tiene acceso${until} y le hemos enviado el enlace.` : `${d.email} ya tenía acceso${until ? `: ahora lo tiene${until}` : ""}. Le hemos vuelto a enviar el enlace.`,
     };
   } catch (e) {
     if (e instanceof FreeAccessError) return { error: e.message };
     throw e;
   }
+}
+
+/**
+ * «Cambiar fecha» de un acceso dado a mano (o devolverlo tras terminar): lo vuelve a dar con la
+ * nueva fecha de fin (o sin fecha). Le llega otra vez el email con su enlace.
+ */
+export async function setAccessEnd(_: ActionState, form: FormData): Promise<ActionState> {
+  const { user, creator } = await requireCreator();
+  const db = tenantDb(creator.id);
+  const orderId = String(form.get("orderId") ?? "");
+  const order = await db.order.findFirst({ where: { id: orderId, paymentProvider: { in: ["free", "manual"] }, status: "PAID" }, select: { productId: true, buyerEmail: true, buyerName: true } });
+  if (!order) return { error: "No hemos encontrado ese acceso." };
+  const end = accessEndFrom({ choice: asAccessEndChoice(form.get("accessEnd")), date: String(form.get("accessEndDate") ?? ""), now: new Date(), timeZone: creator.timezone });
+  if (!end.ok) return { error: end.error };
+  try {
+    await grantManualAccess({ creatorId: creator.id, productId: order.productId, name: order.buyerName ?? order.buyerEmail, email: order.buyerEmail, grantedByUserId: user.id, until: end.until });
+  } catch (e) {
+    if (e instanceof FreeAccessError) return { error: e.message };
+    throw e;
+  }
+  refresh(order.productId);
+  revalidatePath("/panel/ventas");
+  return { ok: end.until ? `Fecha cambiada: ${order.buyerEmail} tiene acceso hasta el ${lastDayText(end.until, creator.timezone)}.` : `${order.buyerEmail} tiene acceso sin fecha de fin.` };
+}
+
+/**
+ * «Qué incluye esta membresía»: los cursos que tendrán sus miembros mientras la membresía siga
+ * activa. Solo cursos suyos (tenantDb) y no archivados; el acceso se deduce al consultar
+ * (lib/membership-access.ts), no se copia.
+ */
+export async function saveInclusions(_: ActionState, form: FormData): Promise<ActionState> {
+  const { creator, db } = await ctx();
+  const productId = String(form.get("productId") ?? "");
+  const membership = await db.product.findFirst({ where: { id: productId, type: "MEMBERSHIP" }, select: { id: true } });
+  if (!membership) return { error: "Membresía no encontrada" };
+  const wanted = [...new Set(form.getAll("included").map(String))].slice(0, 50);
+  const courses = wanted.length ? await db.product.findMany({ where: { id: { in: wanted }, type: "COURSE", status: { not: "ARCHIVED" } }, select: { id: true } }) : [];
+  await db.productInclusion.deleteMany({ where: { productId: membership.id } });
+  if (courses.length) await db.productInclusion.createMany({ data: courses.map((c) => ({ creatorId: creator.id, productId: membership.id, includedProductId: c.id })) });
+  refresh(membership.id);
+  for (const c of courses) revalidatePath(`/panel/productos/${c.id}`);
+  revalidatePath("/cuenta/cursos");
+  return { ok: courses.length ? "Guardado. Tus miembros ya ven estos cursos en «Mis cursos»." : "Guardado. Esta membresía no incluye ningún curso." };
 }
 
 /** «Quitar acceso»: el acceso de esa persona pasa a retirado y sus enlaces dejan de funcionar. */
@@ -507,32 +557,6 @@ export async function moveLesson(form: FormData) {
 }
 
 // ───────────── Membresía ─────────────
-
-export async function addPost(_: ActionState, form: FormData): Promise<ActionState> {
-  const { creator, db } = await ctx();
-  const productId = String(form.get("productId"));
-  const title = String(form.get("title") ?? "").trim().slice(0, 160);
-  const body = normalizeNewlines(String(form.get("body") ?? "")).trim().slice(0, 10000);
-  const kind = z.enum(["TEXT", "AUDIO", "VIDEO", "EVENT"]).catch("TEXT").parse(form.get("kind"));
-  const mediaUrl = String(form.get("mediaUrl") ?? "").trim();
-  if (!title || !body) return { error: "Escribe un título y un texto" };
-  if (mediaUrl && !/^https?:\/\//.test(mediaUrl)) return { error: "El enlace debe empezar por https://" };
-  if (!(await db.product.findFirst({ where: { id: productId, type: "MEMBERSHIP" } }))) return { error: "Membresía no encontrada" };
-  const bodyFormat = formatToStore(body, parseTextFormat(form.get("bodyFormat") ?? undefined), null);
-  await db.membershipPost.create({
-    data: { creatorId: creator.id, productId, title, body: bodyFormat ? cleanRichInput(body, { creatorId: creator.id, images: true }) : body, bodyFormat, kind, mediaUrl: mediaUrl || null },
-  });
-  refresh(productId);
-  return { ok: "Publicado para tus miembros" };
-}
-
-export async function deletePost(form: FormData) {
-  const { db } = await ctx();
-  const p = await db.membershipPost.findFirst({ where: { id: String(form.get("id")) } });
-  if (!p) return;
-  await db.membershipPost.deleteMany({ where: { id: p.id } });
-  refresh(p.productId);
-}
 
 /** «Avisar de la grabación» de un taller: un email a cada asistente. */
 export async function notifyWorkshopReplay(form: FormData) {

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, Clock, Download, ExternalLink, FileText, Headphones, Infinity as InfinityIcon, Lock, Mail, PlayCircle, RefreshCcw, ShieldCheck, Sparkles, Video, Zap } from "lucide-react";
+import { BookOpen, CalendarDays, Clock, Download, ExternalLink, FileText, Headphones, Infinity as InfinityIcon, Lock, Mail, PlayCircle, RefreshCcw, ShieldCheck, Sparkles, Video, Zap } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { RichContent } from "@/components/rich-text/rich-content";
 import { ProductImage } from "@/components/creator-page/product-art";
@@ -285,6 +285,35 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
                     </li>
                   );
                 })}
+              </ul>
+            </section>
+          )}
+
+          {type === "MEMBERSHIP" && p.includes.some((i) => i.includedProduct.status !== "ARCHIVED" && i.includedProduct.creatorId === p.creatorId) && (
+            <section className="mt-12 max-w-2xl">
+              <h2 className="cp-display text-[1.9rem]">Con esta membresía también tienes</h2>
+              <ul className="mt-4 space-y-2">
+                {p.includes
+                  .map((i) => i.includedProduct)
+                  .filter((ip) => ip.status !== "ARCHIVED" && ip.creatorId === p.creatorId)
+                  .map((ip) => {
+                    const label = (
+                      <>
+                        <BookOpen className="cp-gold h-4 w-4" />
+                        <span className="flex-1">Curso «{ip.title}» · {ip._count.lessons} {ip._count.lessons === 1 ? "lección" : "lecciones"}</span>
+                        {ip.status !== "PUBLISHED" && <span className="cp-faint text-xs">Exclusivo para miembros</span>}
+                      </>
+                    );
+                    return (
+                      <li key={ip.id}>
+                        {ip.status === "PUBLISHED" ? (
+                          <Link href={`/${creator.username}/${ip.slug}`} className="cp-card flex items-center gap-3 px-4 py-3.5 text-sm">{label}</Link>
+                        ) : (
+                          <div className="cp-card flex items-center gap-3 px-4 py-3.5 text-sm">{label}</div>
+                        )}
+                      </li>
+                    );
+                  })}
               </ul>
             </section>
           )}

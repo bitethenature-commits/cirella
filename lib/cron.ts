@@ -1,5 +1,8 @@
 import "server-only";
 import { emitAbandoned } from "./abandoned";
+import { processAccessExpiry } from "./access-expiry";
+import { purgeOrphanPostFiles } from "./community";
+import { processPostNotifications } from "./community-notify";
 import { purgeExpiredAuth } from "./auth-tokens";
 import { processDac7Reminders } from "./dac7-data";
 import { processOutbox } from "./email/outbox";
@@ -40,11 +43,17 @@ export async function runScheduledJobs(): Promise<CronResult> {
           const w = await runWatchdog();
           return w.refulfilled + w.paidUndelivered;
         }],
+        // Comunidad: aviso por email de las publicaciones que acaban de hacerse visibles (las programadas).
+        ["comunidad", () => processPostNotifications()],
+        // Accesos con fecha de fin: aviso 7 días antes y, al llegar, se cierran y se avisa.
+        ["caducidades", () => processAccessExpiry()],
         // Datos para la lectura de los pedidos que nunca se pagaron: fuera a los 30 días.
         ["datosLecturas", () => purgeAbandonedIntake(new Date())],
         ["emails", () => processOutbox()],
         // Sesiones, enlaces mágicos y enlaces personales caducados.
         ["accesos", () => purgeExpiredAuth()],
+        // Archivos subidos para una publicación que nunca se guardó.
+        ["adjuntosSueltos", () => purgeOrphanPostFiles(new Date())],
       ];
       const results: Record<string, number> = {};
       const errors: string[] = [];

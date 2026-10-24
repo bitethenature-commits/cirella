@@ -23,6 +23,11 @@ import { AccessManager } from "./access-manager";
 import { CourseBuilder } from "./course-builder";
 import { FilesManager } from "./files-manager";
 import { PostsManager } from "./posts-manager";
+import { IncludesManager } from "./includes-manager";
+import { accessEndText } from "@/lib/access-end";
+import { memberPostState, scheduleLabel } from "@/lib/community-rules";
+import { countActiveMembers } from "@/lib/membership-access";
+import { isPersonalMode } from "@/lib/site-mode";
 import { ProductForm } from "./product-form";
 import { dateKeyInTz, formatDate, minutesToLabel, zonedParts } from "@/lib/tz";
 import { readIntakeConfig } from "@/lib/intake";
@@ -37,7 +42,7 @@ export default async function EditProductPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ nuevo?: string; error?: string; acceso?: string; leccion?: string; avisadas?: string }>;
+  searchParams: Promise<{ nuevo?: string; error?: string; acceso?: string; leccion?: string; avisadas?: string; publicacion?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -56,13 +61,28 @@ export default async function EditProductPage({
           },
         },
       },
-      posts: { orderBy: { publishedAt: "desc" } },
+      posts: {
+        orderBy: { publishedAt: "desc" },
+        take: 50,
+        include: { _count: { select: { likes: true, files: true, comments: { where: { status: "VISIBLE" } } } } },
+      },
+      includes: { select: { includedProductId: true } },
+      includedIn: { select: { product: { select: { id: true, title: true } } } },
       _count: { select: { orders: { where: { status: "PAID" } } } },
     },
   });
   if (!product) notFound();
   const type = product.type as ProductType;
-  const members = type === "MEMBERSHIP" ? await db.subscription.count({ where: { productId: id, status: "ACTIVE" } }) : 0;
+  // Personas con acceso vigente (de pago, gratis o dado a mano), sin la dueña.
+  const members = type === "MEMBERSHIP" ? await countActiveMembers(creator.id, id) : 0;
+  const courseOptions =
+    type === "MEMBERSHIP"
+      ? await db.product.findMany({
+          where: { type: "COURSE", status: { not: "ARCHIVED" } },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          select: { id: true, title: true, emoji: true, status: true, _count: { select: { lessons: true } } },
+        })
+      : [];
   const issue = deliveryIssue(
     deliveryFacts({
       ...product,
@@ -72,8 +92,9 @@ export default async function EditProductPage({
   const issueCopy = issue ? deliveryIssueCopy(issue, product.title) : null;
   const mode = siteMode();
   const accessMode = asAccessMode(product.accessMode);
-  // Gratis o pagado fuera, con contenido aquí: se ve quién tiene acceso y se puede dar o quitar.
-  const managesAccess = accessMode !== "PAID" && hostsContent(type);
+  // Gratis o pagado fuera, con contenido aquí: se ve quién tiene acceso y se puede dar o quitar. En la
+  // web personal, también lo de pago (para quien paga por Bizum o transferencia, o para regalarlo).
+  const managesAccess = hostsContent(type) && (accessMode !== "PAID" || isPersonalMode());
   const noCharge = { productId: id, paymentProvider: { in: [...NO_CHARGE_PROVIDERS] }, status: "PAID" };
   const [accessOrders, accessTotal, paidSales] = managesAccess
     ? await Promise.all([
@@ -89,18 +110,24 @@ export default async function EditProductPage({
     : [[], 0, product._count.orders];
   const activeAccess = managesAccess
     ? await db.access.findMany({
-        where: { productId: id, status: "ACTIVE", orderId: { in: accessOrders.map((o) => o.id) } },
-        select: { orderId: true },
+        where: { productId: id, orderId: { in: accessOrders.map((o) => o.id) } },
+        select: { orderId: true, status: true, expiresAt: true },
       })
     : [];
-  const activeOrders = new Set(activeAccess.map((a) => a.orderId));
+  const now = new Date();
+  const accessByOrder = new Map(activeAccess.map((a) => [a.orderId, a]));
   const accessRows = accessOrders.map((o) => ({
     orderId: o.id,
     name: o.buyerName,
     email: o.buyerEmail,
     date: o.paidAt ? formatDate(o.paidAt, { day: "numeric", month: "short", year: "numeric" }, creator.timezone) : "—",
     origin: NO_CHARGE_LABEL[o.paymentProvider as NoChargeProvider] ?? o.paymentProvider,
-    active: activeOrders.has(o.id),
+    ...(() => {
+      const a = accessByOrder.get(o.id);
+      const live = !!a && a.status === "ACTIVE" && (!a.expiresAt || a.expiresAt > now);
+      const ended = !!a && !!a.expiresAt && a.expiresAt <= now && (a.status === "ACTIVE" || a.status === "EXPIRED");
+      return { active: live, ended, until: a?.expiresAt && (live || ended) ? accessEndText(a.expiresAt, creator.timezone, now) : null };
+    })(),
   }));
 
   return (
@@ -166,7 +193,20 @@ export default async function EditProductPage({
       />
 
       <div className="mt-5 space-y-5 lg:max-w-[calc(100%-340px)]">
-        {managesAccess && <AccessManager productId={product.id} rows={accessRows} total={accessTotal} external={accessMode === "EXTERNAL"} />}
+        {managesAccess && (
+          <AccessManager productId={product.id} rows={accessRows} total={accessTotal} external={accessMode === "EXTERNAL"} paid={accessMode === "PAID"} timeZone={creator.timezone} />
+        )}
+        {product.includedIn.length > 0 && (
+          <p className="rounded-2xl border border-line bg-paper px-4 py-3 text-sm text-muted">
+            Incluido en: {product.includedIn.map((i, n) => (
+              <span key={i.product.id}>
+                {n > 0 && ", "}
+                <Link href={`/panel/productos/${i.product.id}#incluye`} className="font-semibold text-ink underline-offset-2 hover:underline">«{i.product.title}»</Link>
+              </span>
+            ))}
+            . Sus miembros lo ven mientras su membresía esté activa.
+          </p>
+        )}
         {type === "DIGITAL" && (
           <FilesManager productId={product.id} files={product.files} limitsLabel={uploadPolicy(mode === "personal").label} title="Archivos que se entregan" hint="PDF, audio, vídeo, ebook… Tus clientas los descargan desde su cuenta justo después de pagar." />
         )}
@@ -193,13 +233,39 @@ export default async function EditProductPage({
           </>
         )}
         {type === "MEMBERSHIP" && (
-          <div id="publicaciones" className="scroll-mt-24">
-            <PostsManager
+          <>
+            <div id="publicaciones" className="scroll-mt-24">
+              <PostsManager
+                productId={product.id}
+                members={members}
+                flash={sp.publicacion === "borrada" ? "Publicación eliminada." : null}
+                posts={product.posts.map((p) => {
+                  const state = memberPostState(p, now);
+                  return {
+                    id: p.id,
+                    title: p.title,
+                    kind: p.kind,
+                    state,
+                    chip:
+                      state === "DRAFT"
+                        ? "Borrador"
+                        : state === "SCHEDULED"
+                          ? `Programada · ${scheduleLabel(p.publishedAt, creator.timezone)}`
+                          : `Publicada · ${formatDate(p.publishedAt, { day: "numeric", month: "short" }, creator.timezone)}`,
+                    likes: p._count.likes,
+                    comments: p._count.comments,
+                    files: p._count.files,
+                    notified: p.notify && p.notifiedAt ? p.notifiedCount : null,
+                  };
+                })}
+              />
+            </div>
+            <IncludesManager
               productId={product.id}
-              members={members}
-              posts={product.posts.map((p) => ({ id: p.id, title: p.title, body: p.body, bodyFormat: p.bodyFormat, kind: p.kind, publishedAt: formatDate(p.publishedAt, { day: "numeric", month: "long" }, creator.timezone) }))}
+              selected={product.includes.map((i) => i.includedProductId)}
+              options={courseOptions.map((c) => ({ id: c.id, title: c.title, emoji: c.emoji, draft: c.status !== "PUBLISHED", lessons: c._count.lessons }))}
             />
-          </div>
+          </>
         )}
         {type === "SESSION" && product.groupSession && (
           <>

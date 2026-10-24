@@ -1,81 +1,74 @@
-"use client";
-import { CalendarDays, Headphones, PenLine, Trash2, Video } from "lucide-react";
-import { startTransition, useActionState, useEffect, useRef } from "react";
-import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
-import { Flash } from "@/components/ui/flash";
-import { richToPlain } from "@/lib/rich-text";
-import { addPost, deletePost, type ActionState } from "../actions";
+import Link from "next/link";
+import { CalendarDays, ChevronRight, Eye, Headphones, PenLine, Plus, Video } from "lucide-react";
+import type { MemberPostState } from "@/lib/community-rules";
 
-type Post = { id: string; title: string; body: string; bodyFormat: string | null; kind: string; publishedAt: string };
+export type PanelPost = {
+  id: string;
+  title: string;
+  kind: string;
+  state: MemberPostState;
+  /** «Programada · jue 23 oct, 9:00» / «Publicada · 17 oct» / «Borrador» */
+  chip: string;
+  likes: number;
+  comments: number;
+  files: number;
+  notified: number | null;
+};
+
 const ICON: Record<string, typeof PenLine> = { TEXT: PenLine, AUDIO: Headphones, VIDEO: Video, EVENT: CalendarDays };
+const CHIP: Record<MemberPostState, string> = {
+  DRAFT: "border-line bg-sand/70 text-muted",
+  SCHEDULED: "border-[#ecdcb8] bg-[#fbf5e8] text-[#7a5a1c]",
+  PUBLISHED: "border-[#cfe3d6] bg-[#f1f8f3] text-[#2f5f43]",
+};
 
-export function PostsManager({ productId, posts, members }: { productId: string; posts: Post[]; members: number }) {
-  const [state, action, isPending] = useActionState<ActionState, FormData>(addPost, undefined);
-  const form = useRef<HTMLFormElement>(null);
-  useEffect(() => {
-    if (state?.ok) form.current?.reset();
-  }, [state]);
+/** «Publicaciones de la comunidad»: la lista (cada fila abre su editor) y «Nueva publicación». */
+export function PostsManager({ productId, posts, members, flash }: { productId: string; posts: PanelPost[]; members: number; flash?: string | null }) {
   return (
     <section className="card p-5 sm:p-6">
-      <h3 className="font-semibold">Contenido privado</h3>
-      <p className="text-xs text-muted">Solo lo ven tus {members} {members === 1 ? "miembro activo" : "miembros activos"} desde su área de cliente.</p>
-      <form
-        ref={form}
-        onSubmit={(e) => {
-          e.preventDefault();
-          const fd = new FormData(e.currentTarget);
-          startTransition(() => action(fd));
-        }}
-        className="mt-4 space-y-3 rounded-2xl border border-line bg-paper p-4"
-      >
-        <Flash ok={state?.ok} error={state?.error} />
-        <input type="hidden" name="productId" value={productId} />
-        <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
-          <input name="title" placeholder="Título (p. ej. Ritual de luna nueva)" className="input h-10 text-base sm:text-sm" required />
-          <select name="kind" className="input h-10 text-base sm:text-sm">
-            <option value="TEXT">Publicación</option>
-            <option value="AUDIO">Audio</option>
-            <option value="VIDEO">Vídeo</option>
-            <option value="EVENT">Directo / evento</option>
-          </select>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold">Publicaciones de la comunidad</h3>
+          <p className="text-xs text-muted">
+            Las ven tus {members} {members === 1 ? "miembro" : "miembros"} desde su área. Puedes adjuntar audios, vídeos, PDF e imágenes, programarlas y avisar por email.
+          </p>
         </div>
-        <RichTextEditor
-          name="body"
-          ariaLabel="Texto de la publicación"
-          formatName="bodyFormat"
-          initialFormat="MD"
-          required
-          maxLength={10000}
-          tools="full"
-          images
-          tone="account"
-          headingLevel={3}
-          legacy="preline"
-          rows={4}
-          placeholder="Escribe para tu comunidad…"
-        />
-        <input name="mediaUrl" type="url" placeholder="Enlace opcional (directo, audio, vídeo…)" className="input h-10 text-base sm:text-sm" />
-        <button type="submit" className="btn btn-primary btn-sm" disabled={isPending}>{isPending ? "Publicando…" : "Publicar en la comunidad"}</button>
-      </form>
-      <ul className="mt-4 divide-y divide-line">
-        {posts.map((p) => {
-          const Icon = ICON[p.kind] ?? PenLine;
-          return (
-            <li key={p.id} className="flex items-start gap-3 py-3">
-              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">{p.title}</p>
-                <p className="line-clamp-2 text-xs text-muted">{richToPlain(p.body, p.bodyFormat)}</p>
-                <p className="mt-0.5 text-[0.7rem] text-faint">{p.publishedAt}</p>
-              </div>
-              <form action={deletePost} onSubmit={(e) => { if (!confirm("¿Eliminar la publicación?")) e.preventDefault(); }}>
-                <input type="hidden" name="id" value={p.id} />
-                <button className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Eliminar"><Trash2 className="h-3.5 w-3.5" /></button>
-              </form>
-            </li>
-          );
-        })}
-      </ul>
+        <div className="flex gap-2">
+          <Link href={`/cuenta/membresias/${productId}`} className="btn btn-outline btn-sm min-h-10"><Eye className="h-4 w-4" /> Ver como miembro</Link>
+          <Link href={`/panel/productos/${productId}/publicaciones/nueva`} className="btn btn-primary btn-sm min-h-10"><Plus className="h-4 w-4" /> Nueva publicación</Link>
+        </div>
+      </div>
+      {flash && <p className="mt-3 text-sm text-[#2f5f43]" role="status">{flash}</p>}
+      {posts.length === 0 ? (
+        <p className="mt-4 rounded-2xl border border-dashed border-line px-4 py-6 text-center text-sm text-muted">Todavía no has publicado nada. Empieza con una bienvenida.</p>
+      ) : (
+        <ul className="mt-4 divide-y divide-line rounded-2xl border border-line">
+          {posts.map((p) => {
+            const Icon = ICON[p.kind] ?? PenLine;
+            const meta = [
+              p.files ? `${p.files} ${p.files === 1 ? "archivo" : "archivos"}` : null,
+              p.state === "PUBLISHED" ? `♥ ${p.likes}` : null,
+              p.state === "PUBLISHED" ? `${p.comments} ${p.comments === 1 ? "comentario" : "comentarios"}` : null,
+              p.notified != null ? `Aviso enviado a ${p.notified}` : null,
+            ].filter(Boolean);
+            return (
+              <li key={p.id}>
+                <Link href={`/panel/productos/${productId}/publicaciones/${p.id}`} className="flex min-h-14 items-center gap-3 px-4 py-3 transition hover:bg-sand/50">
+                  <Icon className="h-4 w-4 shrink-0 text-muted" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{p.title}</p>
+                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+                      <span className={`rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold ${CHIP[p.state]}`}>{p.chip}</span>
+                      {meta.length > 0 && <span>{meta.join(" · ")}</span>}
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }

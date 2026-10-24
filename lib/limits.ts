@@ -49,6 +49,9 @@ export const RULES = {
   // (CGNAT de las operadoras móviles, una clase que se apunta desde la misma wifi).
   freeClaimEmail: { limit: 5, windowSec: HOUR },
   freeClaimIp: { limit: 20, windowSec: HOUR },
+  // Comunidad: comentarios y «me gusta» por persona.
+  commentUser: { limit: 20, windowSec: HOUR },
+  likeUser: { limit: 300, windowSec: HOUR },
 } satisfies Record<string, Rule>;
 
 /** Pagos rechazados a partir de los cuales el checkout pide el captcha (si está configurado). */
@@ -167,6 +170,20 @@ export async function limitFreeClaim(email: string, ipHash: string): Promise<Ver
   const byEmail = await hit(rlKey("free-claim-email", email), RULES.freeClaimEmail);
   if (!byEmail.ok)
     return denied((t) => `Ya te hemos enviado el enlace varias veces. Revisa tu bandeja de entrada y la carpeta de spam, o vuelve a pedirlo en ${t}.`, byEmail.retryAfterSec);
+  return OK;
+}
+
+// ── Comunidad ──
+
+export async function limitComment(userId: string): Promise<Verdict> {
+  const r = await hit(rlKey("comment", userId), RULES.commentUser);
+  if (!r.ok) return denied((t) => `Has comentado mucho en poco tiempo. Espera ${t}.`, r.retryAfterSec);
+  return OK;
+}
+
+export async function limitLike(userId: string): Promise<Verdict> {
+  const r = await hit(rlKey("like", userId), RULES.likeUser);
+  if (!r.ok) return denied((t) => `Demasiados «me gusta» seguidos. Espera ${t}.`, r.retryAfterSec);
   return OK;
 }
 

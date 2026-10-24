@@ -1,7 +1,9 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireBuyerFor } from "@/lib/buyer-access";
+import { prisma } from "@/lib/db";
 import { appUrl } from "@/lib/env";
 import { captureError } from "@/lib/monitoring";
 import { NO_ONLINE_PAYMENTS, isPaymentProviderEnabled, paidCheckoutOpen, paymentProviderByKey } from "@/lib/payments";
@@ -67,4 +69,18 @@ export async function payRenewalNow(form: FormData) {
     if (settled === "refunded") back("error", "Esta renovación ya estaba pagada: te hemos devuelto este cobro.");
   }
   back("ok", "");
+}
+
+/**
+ * «Avisos por email de publicaciones nuevas: Activar / Desactivar». Vale también desde el enlace
+ * personal de un email (sesión limitada): es su propia preferencia en la comunidad de esa creadora.
+ */
+export async function setCommunityEmails(form: FormData) {
+  const productId = String(form.get("productId") ?? "");
+  const { user } = await requireBuyerFor({ productId }, `/cuenta/membresias/${productId}`);
+  const product = await prisma.product.findUnique({ where: { id: productId }, select: { creatorId: true } });
+  if (!product) return;
+  const on = form.get("on") === "1";
+  await prisma.customer.updateMany({ where: { creatorId: product.creatorId, userId: user.id }, data: { postEmailsOptOutAt: on ? null : new Date() } });
+  revalidatePath(`/cuenta/membresias/${productId}`);
 }

@@ -1,19 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AlertTriangle, ArrowLeft, CalendarDays, Headphones, PenLine } from "lucide-react";
-import { RichContent } from "@/components/rich-text/rich-content";
+import { AlertTriangle, ArrowLeft, ArrowRight, BookOpen, Mail } from "lucide-react";
 import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { lastDayText } from "@/lib/access-end";
 import { markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
-import { creatorBrief, hasAccess } from "@/lib/customer";
+import { loadFeed } from "@/lib/community";
+import { creatorBrief } from "@/lib/customer";
 import { prisma } from "@/lib/db";
+import { accessSource, includedProductIds } from "@/lib/membership-access";
 import { formatPrice } from "@/lib/money";
 import { cancelMembership, resumeMembership } from "../../actions";
 import { CreatorTag } from "../../ui";
-import { payRenewalNow } from "./actions";
+import { PostCard } from "../post-card";
+import { payRenewalNow, setCommunityEmails } from "./actions";
 import { formatDate } from "@/lib/tz";
-
-const KIND = { TEXT: { icon: PenLine, label: "Publicación" }, AUDIO: { icon: Headphones, label: "Audio" }, VIDEO: { icon: Headphones, label: "Vídeo" }, EVENT: { icon: CalendarDays, label: "Directo" } } as const;
 
 const shortDate = (d: Date) => formatDate(d, { day: "numeric", month: "long" });
 
@@ -22,26 +23,34 @@ export default async function MembershipFeed({
   searchParams,
 }: {
   params: Promise<{ productId: string }>;
-  searchParams: Promise<{ pago?: string; error?: string }>;
+  searchParams: Promise<{ pago?: string; error?: string; antes?: string; avisos?: string }>;
 }) {
   const { productId } = await params;
   const sp = await searchParams;
-  const { user, scoped } = await requireBuyerFor({ productId }, `/cuenta/membresias/${productId}`);
+  const { user, scoped, isOwner } = await requireBuyerFor({ productId }, `/cuenta/membresias/${productId}`);
   const sub = await prisma.subscription.findFirst({
     where: { userId: user.id, productId, status: { in: ["ACTIVE", "PAST_DUE"] } },
     orderBy: { createdAt: "desc" },
   });
   const pastDue = sub?.status === "PAST_DUE";
   // Con la renovación pendiente de pago se puede entrar a pagarla aunque el periodo de gracia haya vencido.
-  const access = await hasAccess(user.id, productId);
+  // La fecha de fin se comprueba ahora mismo: pasado el periodo pagado o la fecha que puso la dueña, no entra.
+  const source = isOwner ? null : await accessSource(user.id, productId);
+  const access = isOwner || !!source;
   if (!access && !pastDue) redirect("/cuenta/membresias");
   // Ver las publicaciones es empezar a acceder: desde aquí vale su renuncia al desistimiento.
-  if (access) await markFirstAccess(user.id, productId);
-  const product = await prisma.product.findUniqueOrThrow({
-    where: { id: productId },
-    include: { creator: true, posts: access ? { orderBy: { publishedAt: "desc" } } : { take: 0 } },
-  });
+  if (source) await markFirstAccess(user.id, source.productId);
+  const product = await prisma.product.findUniqueOrThrow({ where: { id: productId }, include: { creator: true } });
   const c = creatorBrief(product.creator);
+  const before = sp.antes && !Number.isNaN(Date.parse(sp.antes)) ? new Date(sp.antes) : null;
+  const feed = access ? await loadFeed({ productId, viewer: { userId: user.id, isOwner }, before }) : { posts: [], nextBefore: null };
+  const courseIds = access ? await includedProductIds(productId) : [];
+  const courses = courseIds.length
+    ? await prisma.product.findMany({ where: { id: { in: courseIds }, type: "COURSE", status: { not: "ARCHIVED" } }, select: { id: true, title: true, emoji: true, imageUrl: true, _count: { select: { lessons: true } } } })
+    : [];
+  const customer = isOwner ? null : await prisma.customer.findUnique({ where: { creatorId_userId: { creatorId: product.creatorId, userId: user.id } }, select: { postEmailsOptOutAt: true } });
+  // Acceso con fecha de fin sin suscripción (dado a mano o un programa de 3 meses).
+  const endsAt = !sub && source?.expiresAt ? source.expiresAt : null;
   return (
     <div className="max-w-2xl">
       {!scoped && (
@@ -81,26 +90,66 @@ export default async function MembershipFeed({
         </div>
       )}
 
+      {isOwner && (
+        <div className="rounded-2xl border border-line bg-sand/60 px-4 py-3 text-sm">
+          Así ven tu comunidad tus miembros. Los borradores y las programadas solo los ves tú.{" "}
+          <Link href={`/panel/productos/${productId}#publicaciones`} className="font-semibold underline-offset-2 hover:underline">Volver al panel</Link>
+        </div>
+      )}
+      {endsAt && (
+        <div className="rounded-2xl border border-line p-4 text-sm">
+          <p className="font-semibold">Tu acceso termina el {lastDayText(endsAt, product.creator.timezone)}</p>
+          <p className="mt-0.5 text-muted">Hasta ese día (incluido) puedes entrar cuando quieras{courses.length ? ", también a los cursos que incluye" : ""}.</p>
+        </div>
+      )}
+      {!endsAt && source?.via && <p className="text-sm text-muted">Incluida en «{source.via.title}».</p>}
+
+      {courses.length > 0 && (
+        <section className="mt-8">
+          <h2 className="eyebrow !text-ink">Incluido en tu membresía</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {courses.map((co) => (
+              <Link key={co.id} href={`/cuenta/cursos/${co.id}`} className="card flex min-h-11 items-center gap-3 p-4 transition hover:shadow-lift">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-sand text-xl">{co.emoji ?? <BookOpen className="h-5 w-5" />}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold">{co.title}</span>
+                  <span className="text-xs text-muted">Curso · {co._count.lessons} {co._count.lessons === 1 ? "lección" : "lecciones"}</span>
+                </span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-muted" />
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="mt-8 space-y-4">
-        {product.posts.map((post) => {
-          const k = KIND[post.kind as keyof typeof KIND] ?? KIND.TEXT;
-          return (
-            <article key={post.id} className="card p-6">
-              <p className="flex items-center gap-2 text-xs text-muted">
-                <k.icon className="h-3.5 w-3.5" /> {k.label} · {formatDate(post.publishedAt, { day: "numeric", month: "long" })}
-              </p>
-              <h2 className="display mt-2 text-[1.6rem] leading-tight">{post.title}</h2>
-              <RichContent text={post.body} format={post.bodyFormat} legacy="preline" tone="account" headingLevel={3} className="mt-3 space-y-3 text-[0.98rem] leading-relaxed text-ink/80" />
-              {post.mediaUrl && (
-                <a href={post.mediaUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm mt-4">
-                  {post.kind === "EVENT" ? "Unirme al directo" : "Abrir"}
-                </a>
-              )}
-            </article>
-          );
-        })}
-        {access && product.posts.length === 0 && <p className="text-sm text-muted">Pronto habrá contenido nuevo aquí.</p>}
+        {feed.posts.map((post) => (
+          <PostCard key={post.id} post={post} timeZone={product.creator.timezone} />
+        ))}
+        {access && feed.posts.length === 0 && <p className="text-sm text-muted">{before ? "No hay publicaciones anteriores." : "Pronto habrá contenido nuevo aquí."}</p>}
+        {feed.nextBefore && (
+          <Link href={`/cuenta/membresias/${productId}?antes=${encodeURIComponent(feed.nextBefore)}`} className="btn btn-outline min-h-11 w-full">
+            Ver publicaciones anteriores
+          </Link>
+        )}
+        {before && (
+          <Link href={`/cuenta/membresias/${productId}`} className="block text-center text-sm font-semibold text-muted hover:text-ink">
+            Volver a lo último
+          </Link>
+        )}
       </div>
+
+      {customer && access && (
+        <form action={setCommunityEmails} className="mt-8 flex flex-wrap items-center gap-3 rounded-2xl border border-line px-4 py-3 text-sm">
+          <Mail className="h-4 w-4 shrink-0 text-muted" />
+          <input type="hidden" name="productId" value={productId} />
+          <input type="hidden" name="on" value={customer.postEmailsOptOutAt ? "1" : "0"} />
+          <span className="min-w-0 flex-1">
+            Avisos por email de publicaciones nuevas: <strong>{customer.postEmailsOptOutAt ? "Desactivados" : "Activados"}</strong>
+          </span>
+          <SubmitButton className="btn btn-ghost btn-sm min-h-10">{customer.postEmailsOptOutAt ? "Activar" : "Desactivar"}</SubmitButton>
+        </form>
+      )}
 
       {sub && !pastDue && (
         <div className="mt-10 rounded-2xl border border-line p-5">
