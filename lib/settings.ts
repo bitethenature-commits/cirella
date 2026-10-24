@@ -23,6 +23,12 @@ export const SETTING_DEFAULTS = {
   // Política de IVA (/admin/impuestos): PLATFORM_DIGITAL = Cirella vende los productos digitales,
   // cursos y membresías (opción A); CREATOR = cada creadora vende lo suyo. Ver lib/tax.
   taxMode: "PLATFORM_DIGITAL" as TaxMode,
+  // Newsletter (lib/newsletter-send.ts y la bandeja de salida): emails al día que caben en el plan de
+  // Resend (el gratuito: 100 al día y 3000 al mes, contando TODOS los emails). null = automático:
+  // 100 en la web personal que envía con Resend, sin límite en lo demás (plataforma, demo y pruebas).
+  // 0 = sin límite. La reserva queda siempre para los transaccionales (accesos, recibos, enlaces).
+  emailDailyCap: null as number | null,
+  emailTransactionalReserve: 20,
 };
 
 export type PlatformSettings = typeof SETTING_DEFAULTS;

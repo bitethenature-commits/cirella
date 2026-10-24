@@ -3,6 +3,8 @@ import { prisma } from "../db";
 import { appHost, appUrl } from "../env";
 import { captureAlert, captureError } from "../monitoring";
 import { readPageConfig } from "../page-config";
+import { dailyBudget } from "../newsletter-rules";
+import { getSettings } from "../settings";
 import { getOwnerCreator, isPersonalMode } from "../site-mode";
 import { nextAttemptAt, truncateError } from "../reliability";
 import { storedHeaders } from "./headers";
@@ -43,10 +45,38 @@ type EnqueueInput = {
   replyTo?: string | null;
   /** Cabeceras extra (p. ej. List-Unsubscribe de los recordatorios). Solo pasan las de lib/email/headers.ts. */
   headers?: Record<string, string> | null;
+  /** tx = transaccional (EMAIL_FROM) | news = newsletter (NEWSLETTER_FROM si está configurado). */
+  stream?: "tx" | "news";
+  /** Newsletter de la que forma parte (sus estadísticas). */
+  campaignId?: string | null;
 };
 
-/** Emails masivos (avisos de publicaciones de la comunidad): se envían después de los demás. */
-export const BULK_TEMPLATES = ["MEMBER_POST"] as const;
+/**
+ * Emails masivos (avisos de publicaciones de la comunidad y la newsletter): se envían después de los
+ * demás y solo dentro del cupo diario (bulkBudget).
+ */
+export const BULK_TEMPLATES = ["MEMBER_POST", "NEWSLETTER"] as const;
+
+/** Resend admite 2 peticiones por segundo: con Resend, la bandeja espera esto entre un envío y otro. */
+export const SEND_SPACING_MS = 550;
+
+/**
+ * Límite diario efectivo (PlatformSetting emailDailyCap). Sin ajuste: 100 en la web personal que
+ * envía con Resend (su plan gratuito), sin límite en lo demás. 0 = sin límite.
+ */
+export function effectiveDailyCap(setting: number | null | undefined, o: { personal: boolean; provider: string }): number {
+  if (typeof setting === "number" && setting >= 0) return setting;
+  return o.personal && o.provider === "resend" ? 100 : 0;
+}
+
+/** Cupo diario: cuántos emails caben en las últimas 24 h (todos cuentan) y cuántos masivos quedan. */
+export async function sendingQuota(now = new Date()) {
+  const s = await getSettings();
+  const cap = effectiveDailyCap(s.emailDailyCap, { personal: isPersonalMode(), provider: emailProvider().key });
+  const reserve = Math.max(0, Number(s.emailTransactionalReserve) || 0);
+  const sentLast24h = cap > 0 ? await prisma.emailMessage.count({ where: { status: "SENT", sentAt: { gte: new Date(now.getTime() - 86_400_000) } } }) : 0;
+  return { cap, reserve, sentLast24h, bulk: dailyBudget({ cap, reserve, sentLast24h }) };
+}
 
 /** Tiempo que un proceso tiene reservado un email mientras lo envía. */
 const LEASE_MS = 2 * 60_000;
@@ -80,6 +110,8 @@ export async function enqueueEmail(input: EnqueueInput) {
         fromName: sender.fromName,
         replyTo: sender.replyTo,
         headers: storedHeaders(input.headers),
+        stream: input.stream ?? "tx",
+        campaignId: input.campaignId ?? null,
       },
     });
   } catch (e) {
@@ -158,6 +190,7 @@ export async function deliverEmail(id: string, now = new Date()): Promise<"sent"
       fromName: msg.fromName,
       replyTo: msg.replyTo,
       headers: storedHeaders(msg.headers),
+      stream: msg.stream === "news" ? "news" : "tx",
     });
   } catch (e) {
     result = { ok: false as const, kind: "retry" as const, error: truncateError(e) };
@@ -202,8 +235,9 @@ export async function processOutbox(limit = 100, now = new Date()) {
     where: { status: "SENDING", lockedUntil: { lt: now } },
     data: { status: "QUEUED", lockedUntil: null },
   });
-  // Primero los transaccionales (recibos, accesos, recordatorios); los avisos masivos de la
-  // comunidad, con lo que quede: un aviso a cientos de miembros nunca retrasa un recibo.
+  // Primero los transaccionales (recibos, accesos, recordatorios); los masivos (avisos de la
+  // comunidad, la newsletter), con lo que quede y sin pasar del cupo diario: un aviso a cientos de
+  // miembros nunca retrasa un recibo ni gasta lo que necesitan los enlaces para entrar.
   const pick = (bulk: boolean, take: number) =>
     take > 0
       ? prisma.emailMessage.findMany({
@@ -214,8 +248,12 @@ export async function processOutbox(limit = 100, now = new Date()) {
         })
       : Promise.resolve([]);
   const first = await pick(false, limit);
-  const due = [...first, ...(await pick(true, limit - first.length))];
-  for (const m of due) {
+  const quota = await sendingQuota(now);
+  const bulkTake = Math.min(limit - first.length, Math.max(0, quota.bulk - first.length));
+  const due = [...first, ...(await pick(true, bulkTake))];
+  const spacing = emailProvider().key === "resend" ? SEND_SPACING_MS : 0;
+  for (const [i, m] of due.entries()) {
+    if (spacing && i > 0) await new Promise((r) => setTimeout(r, spacing));
     try {
       await deliverEmail(m.id, now);
     } catch (e) {

@@ -7,12 +7,17 @@ import type { EmailProvider, OutgoingEmail } from "../provider";
  * (la ventana de 24 h cubre todos los reintentos, de 1 min a 12 h).
  */
 
-type ResendConfig = { apiKey: string; fromAddress: string; defaultFromName: string };
+type ResendConfig = { apiKey: string; fromAddress: string; defaultFromName: string; newsFromAddress?: string; newsFromName?: string };
 
 const TIMEOUT_MS = 10_000;
 
 /** Petición HTTP para enviar `msg` (pura, para poder probarla). */
 export function buildResendRequest(msg: OutgoingEmail, cfg: ResendConfig) {
+  // La newsletter, desde su propia dirección si la hay (NEWSLETTER_FROM): protege la reputación de
+  // los emails de acceso y recibos si una newsletter se marca como spam.
+  const news = msg.stream === "news" && cfg.newsFromAddress;
+  const fromAddress = news ? cfg.newsFromAddress! : cfg.fromAddress;
+  const fromName = msg.fromName || (news && cfg.newsFromName) || cfg.defaultFromName;
   return {
     url: "https://api.resend.com/emails",
     init: {
@@ -23,7 +28,7 @@ export function buildResendRequest(msg: OutgoingEmail, cfg: ResendConfig) {
         "Idempotency-Key": `email-${msg.id}`,
       },
       body: JSON.stringify({
-        from: formatFrom(msg.fromName || cfg.defaultFromName, cfg.fromAddress),
+        from: formatFrom(fromName, fromAddress),
         to: [msg.to],
         subject: msg.subject,
         html: msg.html,

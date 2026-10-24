@@ -21,6 +21,8 @@ import { meetingLabel } from "./meeting-url";
 import { icsUrl } from "./ics";
 import { isPersonalMode } from "./site-mode";
 import * as BT from "./email/booking-templates";
+import { readDesign, type EmailVars } from "./email-blocks";
+import { renderDesignHtml, renderSubject } from "./email/blocks-html";
 
 // Compatibilidad: el código de negocio sigue importando emit y DomainEvent desde aquí.
 export { emit } from "./events";
@@ -68,13 +70,28 @@ async function setting(creatorId: string, trigger: AutomationTrigger) {
     subject: row?.subject || null,
     message: row?.message || null,
     messageFormat: row?.message ? (row.messageFormat ?? null) : null,
+    /** Email editado con el editor visual (null = el original). */
+    design: readDesign(row?.design),
     creator,
   };
 }
 
+type Setting = Awaited<ReturnType<typeof setting>>;
+
 function withCustomSubject<T extends { subject: string }>(mail: T, subject: string | null) {
   return subject ? { ...mail, subject } : mail;
 }
+
+/**
+ * Lo que la dueña ha editado de un email automático (editor visual): su texto, ya en HTML seguro y con
+ * las variables puestas, y su asunto. null = lo de siempre.
+ */
+export function customEmail(s: Pick<Setting, "design" | "subject">, vars: EmailVars) {
+  const introHtml = s.design?.blocks.length ? renderDesignHtml(s.design, { baseUrl: appUrl(), vars }) : null;
+  return { introHtml, subject: s.subject ? renderSubject(s.subject, vars) || null : null };
+}
+
+const firstName = (name: string | null | undefined) => name?.trim().split(/\s+/)[0] || null;
 
 /**
  * «Ya tienes acceso a «X»» con el enlace personal que lleva directo al contenido. Es el único email
@@ -93,12 +110,18 @@ export async function sendAccessEmail(orderId: string, dedupeKey: string) {
   const newsletter = newsletterPending(order.metadata, !!order.customer?.marketingOptIn)
     ? await createOrderLink({ orderId: order.id, path: newsletterConfirmPath(order.id) })
     : null;
+  const custom = customEmail(await setting(order.creatorId, "ACCESS_GRANTED"), {
+    nombre: firstName(accessEmailGreetingName(order)),
+    mi_nombre: order.creator.displayName,
+    producto: order.productTitle,
+  });
   await enqueueEmail({
     to: order.buyerEmail,
     creatorId: order.creatorId,
     template: "ACCESS_GRANTED",
     dedupeKey,
-    ...T.accessGrantedEmail({
+    ...withCustomSubject(T.accessGrantedEmail({
+      introHtml: custom.introHtml,
       // Sin el nombre que escribió cualquiera en el formulario gratis (sale del dominio de la dueña).
       name: accessEmailGreetingName(order),
       creatorName: order.creator.displayName,
@@ -113,7 +136,7 @@ export async function sendAccessEmail(orderId: string, dedupeKey: string) {
         const until = isNoChargeOrder(order) ? accessUntil(order.metadata) : null;
         return until ? lastDayText(until, order.creator.timezone) : null;
       })(),
-    }),
+    }), custom.subject),
   });
 }
 
@@ -147,6 +170,7 @@ export async function handleAutomation(event: DomainEvent) {
         const receiptUrl = target === receiptPath ? link.url : `${base}${receiptPath}#factura`;
         const invoice = await prisma.invoice.findFirst({ where: { orderId: order.id, kind: "SALE", type: { in: ["F1", "F2"] } }, orderBy: { issuedAt: "asc" } });
         const platformIssuer = order.taxSeller === "PLATFORM" ? await getPlatformIssuer() : null;
+        const custom = customEmail(s, { nombre: firstName(order.buyerName), mi_nombre: name, producto: order.productTitle });
         await enqueueEmail({
           to: order.buyerEmail,
           creatorId: order.creatorId,
@@ -154,6 +178,7 @@ export async function handleAutomation(event: DomainEvent) {
           dedupeKey: receiptKey,
           ...withCustomSubject(
             T.purchaseReceiptEmail({
+              introHtml: custom.introHtml,
               name: order.buyerName,
               creatorName: name,
               productTitle: order.productTitle,
@@ -197,7 +222,7 @@ export async function handleAutomation(event: DomainEvent) {
                 : null,
               receiptUrl,
             }),
-            s.subject,
+            custom.subject,
           ),
         });
       }
@@ -224,14 +249,15 @@ export async function handleAutomation(event: DomainEvent) {
         const courseKey = `course:${order.id}`;
         if (c.enabled && !(await emailAlreadyQueued(courseKey))) {
           const link = await createOrderLink({ orderId: order.id, path: `/cuenta/cursos/${order.productId}` });
+          const custom = customEmail(c, { mi_nombre: name, producto: order.productTitle });
           await enqueueEmail({
             to: order.buyerEmail,
             creatorId: order.creatorId,
             template: "COURSE_ACCESS",
             dedupeKey: courseKey,
             ...withCustomSubject(
-              T.courseAccessEmail({ creatorName: name, courseTitle: order.productTitle, url: link.url, linkNote: orderLinkNote(link.expiresAt) }),
-              c.subject,
+              T.courseAccessEmail({ creatorName: name, courseTitle: order.productTitle, url: link.url, linkNote: orderLinkNote(link.expiresAt), introHtml: custom.introHtml }),
+              custom.subject,
             ),
           });
         }
@@ -243,6 +269,7 @@ export async function handleAutomation(event: DomainEvent) {
       const customer = await prisma.customer.findUniqueOrThrow({ where: { id: event.customerId } });
       const s = await setting(customer.creatorId, "WELCOME");
       if (!s.enabled) return;
+      const custom = customEmail(s, { nombre: firstName(customer.name), mi_nombre: s.creator.displayName });
       await enqueueEmail({
         to: customer.email,
         creatorId: customer.creatorId,
@@ -251,8 +278,15 @@ export async function handleAutomation(event: DomainEvent) {
         sendAt: new Date(Date.now() + s.delayMinutes * 60000),
         ...withCustomSubject(
           // Sin pedido concreto: el login con su marca (enlace por email, sin contraseña).
-          T.welcomeCustomerEmail({ name: customer.name, creatorName: s.creator.displayName, accountUrl: `${base}/${s.creator.username}/entrar?next=%2Fcuenta`, message: s.message, messageFormat: s.messageFormat }),
-          s.subject,
+          T.welcomeCustomerEmail({
+            name: customer.name,
+            creatorName: s.creator.displayName,
+            accountUrl: `${base}/${s.creator.username}/entrar?next=%2Fcuenta`,
+            message: s.message,
+            messageFormat: s.messageFormat,
+            introHtml: custom.introHtml,
+          }),
+          custom.subject,
         ),
       });
       return;
@@ -388,6 +422,7 @@ export async function handleAutomation(event: DomainEvent) {
         await prisma.order.update({ where: { id: order.id }, data: { recoverySkipped: "opuesta" } });
         return;
       }
+      const custom = customEmail(s, { mi_nombre: s.creator.displayName, producto: order.productTitle });
       await enqueueEmail({
         to: order.buyerEmail,
         creatorId: order.creatorId,
@@ -403,8 +438,9 @@ export async function handleAutomation(event: DomainEvent) {
             message: s.message,
             messageFormat: s.messageFormat,
             optOutUrl: optOutUrl(order.id),
+            introHtml: custom.introHtml,
           }),
-          s.subject,
+          custom.subject,
         ),
       });
       await prisma.order.update({ where: { id: order.id }, data: { recoveryEmailedAt: new Date() } });
@@ -477,6 +513,7 @@ export async function sendBookingConfirmation(bookingId: string, change?: Bookin
     });
     return;
   }
+  const custom = customEmail(s, { nombre: firstName(b.customer.name), mi_nombre: s.creator.displayName, producto: b.product.title, fecha: when });
   await enqueueEmail({
     to: b.customer.email,
     creatorId: b.creatorId,
@@ -484,6 +521,7 @@ export async function sendBookingConfirmation(bookingId: string, change?: Bookin
     dedupeKey: confirmKey,
     ...withCustomSubject(
       T.bookingConfirmedEmail({
+        introHtml: custom.introHtml,
         creatorName: s.creator.displayName,
         productTitle: b.product.title,
         when,
@@ -496,7 +534,7 @@ export async function sendBookingConfirmation(bookingId: string, change?: Bookin
         ...(change && ics ? { icsUrl: ics } : {}),
         ...(change === "moved" ? { variant: "moved" as const } : b.groupSeat ? { variant: "seat" as const } : {}),
       }),
-      s.subject,
+      custom.subject,
     ),
   });
 }
@@ -517,6 +555,7 @@ export async function scheduleSessionReminders(bookingId: string) {
     if (await emailAlreadyQueued(key)) continue;
     // El enlace del recordatorio cuenta desde su envío: si la sesión es dentro de semanas, no llega caducado.
     const a = await bookingAccess(b, base, at);
+    const custom = customEmail(r, { nombre: firstName(b.customer.name), mi_nombre: r.creator.displayName, producto: b.product.title, fecha: when });
     await enqueueEmail({
       to: b.customer.email,
       creatorId: b.creatorId,
@@ -525,6 +564,7 @@ export async function scheduleSessionReminders(bookingId: string) {
       sendAt: at,
       ...withCustomSubject(
         T.sessionReminderEmail({
+          introHtml: custom.introHtml,
           creatorName: r.creator.displayName,
           productTitle: b.product.title,
           when,
@@ -533,7 +573,7 @@ export async function scheduleSessionReminders(bookingId: string) {
           ...(b.meetingUrl && meetingLabel(b.meetingUrl) !== "Enlace de la videollamada" ? { meetingLabel: meetingLabel(b.meetingUrl) } : {}),
           ...(intake ? { intakeUrl: (await bookingAccess(b, base, at, "#datos")).url } : {}),
         }),
-        r.subject,
+        custom.subject,
       ),
     });
   }

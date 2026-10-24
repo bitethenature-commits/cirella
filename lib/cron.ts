@@ -6,6 +6,7 @@ import { processPostNotifications } from "./community-notify";
 import { purgeExpiredAuth } from "./auth-tokens";
 import { processDac7Reminders } from "./dac7-data";
 import { processOutbox } from "./email/outbox";
+import { processCampaigns } from "./newsletter-send";
 import { processEvents } from "./events";
 import { purgeAbandonedIntake } from "./orders";
 import { issueMonthlyPlatformInvoices } from "./invoices/fees";
@@ -49,6 +50,8 @@ export async function runScheduledJobs(): Promise<CronResult> {
         ["caducidades", () => processAccessExpiry()],
         // Datos para la lectura de los pedidos que nunca se pagaron: fuera a los 30 días.
         ["datosLecturas", () => purgeAbandonedIntake(new Date())],
+        // Newsletter: empieza las programadas y mete en la bandeja lo que cabe en el cupo de hoy.
+        ["newsletter", () => processCampaigns(new Date())],
         ["emails", () => processOutbox()],
         // Sesiones, enlaces mágicos y enlaces personales caducados.
         ["accesos", () => purgeExpiredAuth()],

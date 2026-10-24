@@ -109,6 +109,10 @@ const schema = z.object({
   EMAIL_PROVIDER: oneOf("EMAIL_PROVIDER", ["log", "resend"]),
   RESEND_API_KEY: text,
   EMAIL_FROM: text,
+  // Opcionales: remitente de la newsletter (si no, EMAIL_FROM) y secreto del webhook de Resend
+  // (rebotes y quejas: /api/webhooks/resend). docs/modo-personal.md › «Tu newsletter».
+  NEWSLETTER_FROM: text,
+  RESEND_WEBHOOK_SECRET: text,
   STORAGE_DRIVER: oneOf("STORAGE_DRIVER", ["local", "s3"]),
   STORAGE_DIR: text,
   S3_ENDPOINT: text,
@@ -246,6 +250,10 @@ export function validateEnv(raw: RawEnv): EnvValidation {
     if (!p.RESEND_API_KEY) errors.push("Falta RESEND_API_KEY (EMAIL_PROVIDER=resend).");
     if (!p.EMAIL_FROM) errors.push("Falta EMAIL_FROM, el remitente de los emails (p. ej. Cirella <hola@cirella.app>).");
   }
+  if (p.NEWSLETTER_FROM && !/^(?:[^<>]*<)?[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>?$/.test(p.NEWSLETTER_FROM.trim()))
+    errors.push("NEWSLETTER_FROM debe ser un remitente como «Ana Luna <novedades@tudominio.com>».");
+  if (p.RESEND_WEBHOOK_SECRET && !p.RESEND_WEBHOOK_SECRET.startsWith("whsec_"))
+    errors.push("RESEND_WEBHOOK_SECRET empieza por whsec_ (Resend › Webhooks › tu webhook › Signing secret).");
 
   if (p.STORAGE_DRIVER === "s3") {
     if (!p.S3_ENDPOINT) errors.push("Falta S3_ENDPOINT (STORAGE_DRIVER=s3).");

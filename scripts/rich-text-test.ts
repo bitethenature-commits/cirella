@@ -10,6 +10,7 @@
  * Usa datos temporales de Ana y deja la BD como estaba.
  */
 import "./load-env";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/db";
 import { esc, p } from "../lib/email/html";
 import { SITE_NAME_TOKEN } from "../lib/email/templates";
@@ -103,8 +104,8 @@ async function main() {
     await prisma.post.deleteMany({ where: { id: { in: created.posts } } });
     await prisma.product.deleteMany({ where: { id: { in: created.products } } });
     if (welcomeBefore) {
-      const { id: _id, creatorId: _c, trigger: _t, ...data } = welcomeBefore;
-      await prisma.automation.update({ where: { id: welcomeBefore.id }, data });
+      const { id: _id, creatorId: _c, trigger: _t, design, ...data } = welcomeBefore;
+      await prisma.automation.update({ where: { id: welcomeBefore.id }, data: { ...data, design: design ?? Prisma.DbNull } });
     } else await prisma.automation.deleteMany({ where: { creatorId: ana.id, trigger: "WELCOME" } });
   }
   console.log(failures ? `\n${failures} comprobaciones fallidas` : "\nTodo bien ✓");

@@ -44,22 +44,38 @@ function platformName() {
 export { esc, p };
 
 /** Plantilla con la marca (lib/email/refund-templates.ts la reutiliza). */
-export function layout(opts: { brand?: string; title: string; body: string; cta?: { label: string; url: string }; afterCta?: string; footer?: string }) {
+export function layout(opts: {
+  brand?: string;
+  /** Título grande de la tarjeta; vacío = sin título (la newsletter lleva el suyo en los bloques). */
+  title: string;
+  body: string;
+  cta?: { label: string; url: string };
+  afterCta?: string;
+  footer?: string;
+  /** Texto de vista previa que enseña el buzón junto al asunto (oculto en el email). */
+  preheader?: string | null;
+  /** false: sin el pie «Tu área» de la web personal (la newsletter: no todas tienen cuenta). */
+  areaLink?: boolean;
+}) {
   const branding = emailBranding(siteMode());
   const brand = esc(opts.brand ?? branding.name);
   const footer = opts.footer ?? branding.footer;
   const cta = opts.cta
     ? `<p style="margin:28px 0 8px"><a href="${esc(opts.cta.url)}" style="display:inline-block;background:#0E1024;color:#F6F1E7;text-decoration:none;padding:13px 22px;border-radius:999px;font-weight:600;font-size:14px">${esc(opts.cta.label)}</a></p>`
     : "";
+  const pre = opts.preheader
+    ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${esc(opts.preheader)}</div>\n`
+    : "";
+  const title = opts.title ? `<h1 style="font-family:Georgia,serif;font-weight:400;font-size:26px;line-height:1.25;margin:0 0 16px;color:#0E1024">${esc(opts.title)}</h1>` : "";
   return `<!doctype html><html><body style="margin:0;background:#F6F1E7;font-family:-apple-system,Segoe UI,Inter,Helvetica,Arial,sans-serif;color:#1B1A2E">
-<div style="max-width:520px;margin:0 auto;padding:36px 24px">
+${pre}<div style="max-width:520px;margin:0 auto;padding:36px 24px">
   <p style="font-family:Georgia,serif;font-size:20px;letter-spacing:.02em;margin:0 0 28px;color:#0E1024">${brand}</p>
   <div style="background:#FFFFFF;border-radius:20px;padding:32px 28px;border:1px solid #E9E2D3">
-    <h1 style="font-family:Georgia,serif;font-weight:400;font-size:26px;line-height:1.25;margin:0 0 16px;color:#0E1024">${esc(opts.title)}</h1>
+    ${title}
     <div style="font-size:15px;line-height:1.65;color:#3B3950">${opts.body}</div>
     ${cta}${opts.afterCta ? `<div style="font-size:15px;line-height:1.65;color:#3B3950">${opts.afterCta}</div>` : ""}
   </div>
-  ${footer ? `<p style="font-size:12px;color:#8A8698;margin:24px 4px 0;line-height:1.6">${footer}</p>` : ""}${siteMode() === "personal" ? AREA_LINK_TOKEN : ""}
+  ${footer ? `<p style="font-size:12px;color:#8A8698;margin:24px 4px 0;line-height:1.6">${footer}</p>` : ""}${siteMode() === "personal" && opts.areaLink !== false ? AREA_LINK_TOKEN : ""}
 </div></body></html>`;
 }
 
@@ -118,15 +134,21 @@ export function welcomeCreatorEmail(o: { name: string; pageUrl: string; panelUrl
   };
 }
 
-export function welcomeCustomerEmail(o: { name?: string | null; creatorName: string; accountUrl: string; message?: string | null; messageFormat?: string | null }) {
+/**
+ * `introHtml` (todas las que la dueña puede editar con el editor visual, lib/email/blocks-html.ts):
+ * su texto ya convertido en HTML seguro. Sustituye al saludo del email; la parte fija (botón, recibo,
+ * datos de la sesión, enlaces legales) sigue saliendo igual.
+ */
+export function welcomeCustomerEmail(o: { name?: string | null; creatorName: string; accountUrl: string; message?: string | null; messageFormat?: string | null; introHtml?: string | null }) {
   return {
     subject: `Bienvenida a la comunidad de ${o.creatorName}`,
     html: layout({
       brand: o.creatorName,
-      title: `Hola${o.name ? `, ${o.name}` : ""}`,
+      // Con su diseño, el email entero es suyo (también el saludo).
+      title: o.introHtml ? "" : `Hola${o.name ? `, ${o.name}` : ""}`,
       // En la web personal no se compra (gratis con email o pagado fuera): «todo lo tuyo».
       // El mensaje de la creadora puede llevar formato (lib/email/rich-html.ts); el de siempre, no.
-      body: o.message
+      body: o.introHtml ? o.introHtml : o.message
         ? richToEmailHtml(o.message, o.messageFormat)
         : p(
             esc(
@@ -181,6 +203,7 @@ export function purchaseReceiptEmail(o: {
   taxSellerLine?: string | null;
   /** Detalle de la compra con la factura o el justificante. */
   receiptUrl?: string | null;
+  introHtml?: string | null;
 }) {
   const row = (label: string, value: string) =>
     `<tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE;vertical-align:top">${label}</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE">${value}</td></tr>`;
@@ -201,7 +224,7 @@ export function purchaseReceiptEmail(o: {
       brand: o.creatorName,
       title: "Compra completada",
       body:
-        p(`Hola${o.name ? ` ${esc(o.name)}` : ""}, gracias por tu compra.`) +
+        (o.introHtml || p(`Hola${o.name ? ` ${esc(o.name)}` : ""}, gracias por tu compra.`)) +
         `<table style="width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:14px">
           <tr><td style="padding:8px 0;color:#8A8698">Producto</td><td style="padding:8px 0;text-align:right">${esc(o.productTitle)}</td></tr>
           <tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE">Total</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE"><strong>${esc(o.amount)}</strong></td></tr>
@@ -238,6 +261,7 @@ export function accessGrantedEmail(o: {
   deliveryMode?: string;
   /** Acceso con fecha de fin: «17 de enero». */
   until?: string | null;
+  introHtml?: string | null;
 }) {
   const prepared = o.productType === "DIGITAL" && o.deliveryMode === "PERSONAL";
   const what = prepared
@@ -254,7 +278,7 @@ export function accessGrantedEmail(o: {
       brand: o.creatorName,
       title: "Ya tienes acceso",
       body:
-        p(`Hola${o.name ? ` ${esc(o.name)}` : ""}, ya puedes entrar en <strong>${esc(o.productTitle)}</strong>. ${what}`) +
+        (o.introHtml || p(`Hola${o.name ? ` ${esc(o.name)}` : ""}, ya puedes entrar en <strong>${esc(o.productTitle)}</strong>. ${what}`)) +
         p("Pulsa el botón para abrirlo. No necesitas contraseña.") +
         (o.until ? p(`Tu acceso dura hasta el <strong>${esc(o.until)}</strong> (incluido).`) : "") +
         (o.instructions ? p(`<em>${esc(o.instructions)}</em>`) : ""),
@@ -269,13 +293,13 @@ export function accessGrantedEmail(o: {
   };
 }
 
-export function courseAccessEmail(o: { creatorName: string; courseTitle: string; url: string; linkNote?: string }) {
+export function courseAccessEmail(o: { creatorName: string; courseTitle: string; url: string; linkNote?: string; introHtml?: string | null }) {
   return {
     subject: `Ya tienes acceso a «${o.courseTitle}»`,
     html: layout({
       brand: o.creatorName,
       title: "Tu curso te espera",
-      body: p(`Ya puedes empezar <strong>${esc(o.courseTitle)}</strong>. Avanza a tu ritmo: tu progreso se guarda automáticamente.`),
+      body: o.introHtml || p(`Ya puedes empezar <strong>${esc(o.courseTitle)}</strong>. Avanza a tu ritmo: tu progreso se guarda automáticamente.`),
       cta: { label: "Empezar el curso", url: o.url },
       afterCta: note(o.linkNote),
     }),
@@ -304,6 +328,8 @@ export function bookingConfirmedEmail(o: {
   icsUrl?: string | null;
   /** seat: plaza de un taller · moved: el taller cambia de fecha. */
   variant?: "seat" | "moved";
+  /** Su texto, antes de los datos de la sesión (que siempre salen). */
+  introHtml?: string | null;
 }) {
   const extra =
     (o.intakeUrl ? p(`<strong>Completa tus datos para la lectura.</strong> <a href="${esc(o.intakeUrl)}">Enviar mis datos</a>`) : "") +
@@ -320,12 +346,12 @@ export function bookingConfirmedEmail(o: {
     html: layout({
       brand: o.creatorName,
       title: o.variant === "moved" ? "Tu taller cambia de fecha" : o.variant === "seat" ? "Tienes tu plaza" : o.when ? "Tu sesión está reservada" : "Elige fecha para tu sesión",
-      body: o.when
+      body: (o.introHtml ?? "") + (o.when
         ? p(`<strong>${esc(o.productTitle)}</strong><br>${esc(o.when)}`) +
           (o.meetingUrl ? p(`${esc(o.meetingLabel ?? "Enlace de la videollamada")}: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : "") +
           (o.reminderMinutes ? p(`Te enviaremos un recordatorio ${reminderText(o.reminderMinutes)} antes.`) : "") +
           extra
-        : p(`Tu pago de <strong>${esc(o.productTitle)}</strong> está confirmado. Entra en tu cuenta para elegir el día y la hora que mejor te vengan.`) + extra,
+        : p(`Tu pago de <strong>${esc(o.productTitle)}</strong> está confirmado. Entra en tu cuenta para elegir el día y la hora que mejor te vengan.`) + extra),
       cta: { label: o.when ? "Ver detalles" : "Elegir fecha", url: o.url },
       afterCta: note(o.linkNote),
     }),
@@ -341,6 +367,8 @@ export function sessionReminderEmail(o: {
   linkNote?: string;
   meetingLabel?: string;
   intakeUrl?: string | null;
+  /** Su texto, antes de los datos de la sesión (que siempre salen). */
+  introHtml?: string | null;
 }) {
   return {
     subject: `Recordatorio: tu sesión ${o.when}`,
@@ -348,6 +376,7 @@ export function sessionReminderEmail(o: {
       brand: o.creatorName,
       title: "Nos vemos pronto",
       body:
+        (o.introHtml ?? "") +
         p(`Te recordamos tu sesión <strong>${esc(o.productTitle)}</strong>: ${esc(o.when)}.`) +
         (o.meetingUrl ? p(`${o.meetingLabel ? esc(o.meetingLabel) : "Enlace"}: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : "") +
         (o.intakeUrl ? p(`<strong>Todavía faltan tus datos para la lectura.</strong> <a href="${esc(o.intakeUrl)}">Enviar mis datos</a>`) : ""),
@@ -399,13 +428,13 @@ export function subscriptionCanceledCreatorEmail(o: { productTitle: string; buye
  * Recordatorio de compra abandonada. El enlace de baja va en el pie, fuera del mensaje que la
  * creadora puede personalizar, para que siempre esté (LSSI art. 21.2).
  */
-export function abandonedCheckoutEmail(o: { creatorName: string; productTitle: string; url: string; message?: string | null; messageFormat?: string | null; optOutUrl: string }) {
+export function abandonedCheckoutEmail(o: { creatorName: string; productTitle: string; url: string; message?: string | null; messageFormat?: string | null; optOutUrl: string; introHtml?: string | null }) {
   return {
     subject: `¿Te quedaste a medias con «${o.productTitle}»?`,
     html: layout({
       brand: o.creatorName,
-      title: "Lo guardamos para ti",
-      body: o.message
+      title: o.introHtml ? "" : "Lo guardamos para ti",
+      body: o.introHtml ? o.introHtml : o.message
         ? richToEmailHtml(o.message, o.messageFormat)
         : p(esc(`Vimos que empezaste a comprar ${o.productTitle} pero no terminaste. Si tuviste alguna duda, responde a este email.`)),
       cta: { label: "Completar mi compra", url: o.url },

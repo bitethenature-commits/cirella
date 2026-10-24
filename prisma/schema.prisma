@@ -336,6 +336,9 @@ model Creator {
   sitePages             SitePage[]
   availabilityOverrides AvailabilityOverride[]
   orderFiles            OrderFile[]
+  subscribers           Subscriber[]
+  campaigns             Campaign[]
+  campaignRecipients    CampaignRecipient[]
 
   @@index([planId])
   @@index([payoutStatus])
@@ -1069,12 +1072,16 @@ model Automation {
   id            String  @id @default(cuid())
   creatorId     String
   creator       Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  trigger       String // WELCOME | PURCHASE_RECEIPT | COURSE_ACCESS | SESSION_REMINDER | BOOKING_CONFIRMED | NEW_SUBSCRIPTION | SUBSCRIPTION_CANCELED | ABANDONED_CHECKOUT | BOOKING_OWNER_NOTICE | SESSION_REMINDER_SOON
+  trigger       String // WELCOME | PURCHASE_RECEIPT | COURSE_ACCESS | SESSION_REMINDER | BOOKING_CONFIRMED | NEW_SUBSCRIPTION | SUBSCRIPTION_CANCELED | ABANDONED_CHECKOUT | BOOKING_OWNER_NOTICE | SESSION_REMINDER_SOON| ACCESS_GRANTED | NEWSLETTER_WELCOME
   enabled       Boolean @default(true)
   delayMinutes  Int     @default(0)
   subject       String?
   message       String?
   messageFormat String? // null = texto de antes (un párrafo) | "MD"
+  // Email editado con el editor visual (lib/email-blocks.ts → EmailDesign: bloques de texto, imagen,
+  // botón…). Sustituye al texto del email; la parte fija (botón de acceso, recibo, datos legales) se
+  // añade sola. null = el email original («Restaurar el original» lo vuelve a dejar en null).
+  design        Json?
 
   @@unique([creatorId, trigger])
 }
@@ -1114,11 +1121,23 @@ model EmailMessage {
   fromName      String? // nombre visible del remitente (p. ej. la creadora)
   replyTo       String? // respuestas → email de contacto de la creadora
   headers       Json? // cabeceras extra (List-Unsubscribe de los recordatorios, RFC 8058)
+  // tx = transaccional (EMAIL_FROM) | news = newsletter (NEWSLETTER_FROM, o EMAIL_FROM si no hay)
+  stream        String    @default("tx")
+  campaignId    String? // newsletter de la que forma parte (Campaign)
+  // Lo que cuenta el webhook de Resend (/api/webhooks/resend), si está configurado.
+  deliveredAt   DateTime?
+  bouncedAt     DateTime?
+  complainedAt  DateTime?
+  openedAt      DateTime? // solo si se activa el seguimiento de aperturas en Resend (desactivado por defecto)
+  clickedAt     DateTime? // ídem, clics
   createdAt     DateTime  @default(now())
 
   @@index([status, sendAt])
   @@index([status, lockedUntil])
   @@index([creatorId, createdAt])
+  @@index([campaignId, status])
+  @@index([providerId])
+  @@index([status, sentAt])
 }
 
 // Eventos de dominio guardados en la misma transacción que el cambio de negocio.
@@ -1284,4 +1303,79 @@ model JobLock {
   lastOkAt       DateTime?
   lastError      String?
   lastResult     Json?
+}
+
+// ───────────────────────────── Newsletter ─────────────────────────────
+
+// Persona apuntada a la newsletter de una creadora (con cuenta o sin ella). lib/newsletter.ts es el
+// único que la escribe y mantiene Customer.marketingOptIn como espejo (las pantallas de siempre).
+model Subscriber {
+  id                    String    @id @default(cuid())
+  creatorId             String
+  creator               Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  email                 String // minúsculas
+  name                  String?
+  status                String    @default("PENDING") // PENDING | CONFIRMED | UNSUBSCRIBED | BOUNCED | COMPLAINED
+  // FORM (formulario de la página) | FREEBIE | CHECKOUT | SIGNUP | PROFILE | IMPORT | MIGRATED | MANUAL
+  source                String
+  sourceRef             String? // producto, pedido o nombre del archivo importado
+  tags                  String[]  @default([])
+  // Prueba del consentimiento (RGPD art. 7.1): cuándo, con qué texto exacto y desde dónde.
+  consentAt             DateTime?
+  consentText           String?
+  consentMeta           Json? // { form, ipHash?, orderId?, file?, line?, declaredBy? }
+  confirmSentAt         DateTime? // último email de confirmación (doble opt-in)
+  confirmedAt           DateTime?
+  unsubscribedAt        DateTime?
+  unsubscribeVia        String? // LINK | ONE_CLICK | PROFILE | OWNER | BOUNCE | COMPLAINT
+  unsubscribeCampaignId String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  recipients CampaignRecipient[]
+
+  @@unique([creatorId, email])
+  @@index([creatorId, status])
+}
+
+// Una newsletter (campaña): asunto, bloques del editor visual y a quién va.
+model Campaign {
+  id              String    @id @default(cuid())
+  creatorId       String
+  creator         Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  subject         String
+  preheader       String?
+  design          Json // lib/email-blocks.ts → EmailDesign
+  // { kind: "all" } | { kind: "tag", tag } | { kind: "product", productId } | { kind: "member" }
+  segment         Json
+  status          String    @default("DRAFT") // DRAFT | SCHEDULED | SENDING | PAUSED | SENT | CANCELED
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  recipientsCount Int       @default(0)
+  version         Int       @default(1) // bloqueo optimista (edita desde el iPhone y el Mac)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  recipients CampaignRecipient[]
+
+  @@index([creatorId, status])
+  @@index([status, scheduledAt])
+}
+
+// Destinataria de una campaña, fijada al empezar el envío (la lista no cambia a mitad).
+model CampaignRecipient {
+  id             String     @id @default(cuid())
+  creatorId      String
+  creator        Creator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  campaignId     String
+  campaign       Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  subscriberId   String
+  subscriber     Subscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  status         String     @default("PENDING") // PENDING | QUEUED | SKIPPED
+  emailMessageId String?    @unique
+  createdAt      DateTime   @default(now())
+
+  @@unique([campaignId, subscriberId])
+  @@index([campaignId, status])
 }
