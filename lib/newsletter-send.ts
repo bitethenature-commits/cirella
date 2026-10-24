@@ -219,7 +219,8 @@ export async function campaignStats(creatorId: string, id: string): Promise<Camp
     prisma.emailMessage.count({ where: { ...base, complainedAt: { not: null } } }),
     prisma.emailMessage.count({ where: { ...base, openedAt: { not: null } } }),
     prisma.emailMessage.count({ where: { ...base, clickedAt: { not: null } } }),
-    prisma.subscriber.count({ where: { creatorId, unsubscribeCampaignId: id } }),
+    // Bajas pedidas por la persona desde esta newsletter (los rebotes y quejas van aparte).
+    prisma.subscriber.count({ where: { creatorId, unsubscribeCampaignId: id, unsubscribeVia: { in: ["LINK", "ONE_CLICK", "PROFILE", "OWNER"] } } }),
   ]);
   return { recipients, pending, queued, sent, delivered, failed, bounced, complained, opened, clicked, unsubscribed, skipped };
 }

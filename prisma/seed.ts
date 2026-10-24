@@ -30,7 +30,11 @@ import sharp from "sharp";
 import { makeM4a, makePdf, makeVideo, makeWav } from "./demo-files";
 import { DEMO_MARKER_KEY, assertSafeToSeed } from "./seed-guard";
 import { appUrl, storageDir } from "../lib/env";
-import { storeImage, storeProcessedImage } from "../lib/images";
+import { storeEmailImage, storeImage, storeProcessedImage } from "../lib/images";
+import { campaignEmail } from "../lib/email/newsletter-templates";
+import { unsubscribeHeaders, unsubscribeUrl } from "../lib/newsletter-tokens";
+import { newsletterConsentText } from "../lib/newsletter-rules";
+import { formatLegalAddress } from "../lib/legal";
 import { randomBytes } from "node:crypto";
 import { pageVideoUrl, type ContentBlock, type PageImage } from "../lib/page-blocks";
 import { type SitePageContent } from "../lib/site-pages";
@@ -239,6 +243,134 @@ async function seedAnaSitePages(creatorId: string) {
   await prisma.sitePage.create({ data: { creatorId, slug: "preguntas-frecuentes", title: faq.title, draft: json(faq), status: "DRAFT", sortOrder: 1, createdAt: daysAgo(2) } });
 }
 
+/**
+ * Newsletter de Ana (web personal): ~15 suscriptoras (sus clientas que aceptaron novedades y
+ * gente que se apuntó en la página o vino de su lista antigua, con algunas bajas, una sin confirmar y
+ * un rebote), una newsletter enviada hace 12 días con sus estadísticas, un borrador, una programada
+ * y su confirmación de reserva con un texto propio.
+ */
+async function seedAnaNewsletter(anaId: string, o: { circleId: string; astroId: string }) {
+  const ana = await prisma.creator.findUniqueOrThrow({ where: { id: anaId } });
+  const consent = newsletterConsentText("Ana Luna");
+  // Sus clientas con la casilla de novedades marcada (como las deja la migración).
+  const optIns = await prisma.customer.findMany({ where: { creatorId: anaId, marketingOptIn: true }, orderBy: { createdAt: "asc" } });
+  for (const c of optIns)
+    await prisma.subscriber.create({
+      data: {
+        creatorId: anaId, email: c.email.toLowerCase(), name: c.name, status: "CONFIRMED", source: "CHECKOUT", tags: ["clienta"],
+        consentAt: c.marketingOptInAt ?? c.createdAt, consentText: "Casilla «Quiero recibir novedades» marcada al pagar", consentMeta: { form: "checkout" },
+        confirmedAt: c.marketingOptInAt ?? c.createdAt, createdAt: c.marketingOptInAt ?? c.createdAt,
+      },
+    });
+  const extra: { email: string; name: string | null; status: string; source: string; tags: string[]; d: number; via?: string }[] = [
+    { email: "irene.navarro@example.com", name: "Irene Navarro", status: "CONFIRMED", source: "FORM", tags: [], d: 40 },
+    { email: "marta.gil@example.com", name: "Marta Gil", status: "CONFIRMED", source: "FORM", tags: ["talleres"], d: 33 },
+    { email: "paula.ortega@example.com", name: "Paula", status: "CONFIRMED", source: "IMPORT", tags: ["lista-antigua"], d: 60 },
+    { email: "noelia.santos@example.com", name: "Noelia Santos", status: "CONFIRMED", source: "IMPORT", tags: ["lista-antigua", "talleres"], d: 60 },
+    { email: "clara.vidal@example.com", name: null, status: "CONFIRMED", source: "FORM", tags: [], d: 18 },
+    { email: "rocio.mena@example.com", name: "Rocío Mena", status: "CONFIRMED", source: "FREEBIE", tags: ["talleres"], d: 9 },
+    { email: "elena.prieto@example.com", name: "Elena Prieto", status: "CONFIRMED", source: "FORM", tags: [], d: 4 },
+    { email: "sara.molina@example.com", name: "Sara", status: "PENDING", source: "FORM", tags: [], d: 1 },
+    { email: "beatriz.luna@example.com", name: "Beatriz", status: "UNSUBSCRIBED", source: "FORM", tags: [], d: 45, via: "LINK" },
+    { email: "alba.ruiz@example.com", name: "Alba Ruiz", status: "UNSUBSCRIBED", source: "IMPORT", tags: ["lista-antigua"], d: 60, via: "ONE_CLICK" },
+    { email: "rebote.antiguo@example.com", name: null, status: "BOUNCED", source: "IMPORT", tags: ["lista-antigua"], d: 60, via: "BOUNCE" },
+  ];
+  const subs: Record<string, string> = {};
+  for (const e of extra) {
+    const at = daysAgo(e.d, 11, 20);
+    const imported = e.source === "IMPORT";
+    const row = await prisma.subscriber.create({
+      data: {
+        creatorId: anaId, email: e.email, name: e.name, status: e.status, source: e.source, tags: e.tags,
+        consentAt: imported ? daysAgo(400) : at,
+        consentText: imported ? "Confirmo que estas personas aceptaron recibir mi newsletter y puedo demostrarlo." : consent,
+        consentMeta: imported ? { form: "import", file: "suscriptoras-mailerlite.csv", declaredBy: "ana@cirella.app" } : { form: e.source === "FREEBIE" ? "freebie" : "portada" },
+        sourceRef: imported ? "suscriptoras-mailerlite.csv" : null,
+        confirmSentAt: e.status === "PENDING" ? at : null,
+        confirmedAt: e.status === "PENDING" ? null : imported ? at : new Date(at.getTime() + 6 * 60_000),
+        unsubscribedAt: e.via ? daysAgo(e.via === "LINK" ? 11 : 30) : null,
+        unsubscribeVia: e.via ?? null,
+        createdAt: at,
+      },
+    });
+    subs[e.email] = row.id;
+  }
+
+  const base = appUrl();
+  const header = await storeEmailImage(anaId, await sharp(readFileSync(path.join("public", "/demo/hero.webp"))).jpeg().toBuffer());
+  const footerFor = (id: string | null, campaignId?: string) => ({
+    senderName: "Ana Luna", legalName: ana.legalName, legalAddress: formatLegalAddress(ana) || null, legalEmail: ana.legalEmail,
+    legalUrl: `${base}/${ana.username}/legal`, unsubscribeUrl: id ? unsubscribeUrl(id, campaignId) : null,
+  });
+  const sentDesign = {
+    v: 1,
+    blocks: [
+      { id: "cabecera", t: "image", url: header.url, alt: "Luna llena sobre el mar", width: "full" },
+      { id: "hola", t: "title", text: "Hola, {nombre}", align: "left" },
+      { id: "texto", t: "text", body: "Esta luna llena cae en **Tauro** y nos pide bajar el ritmo: cuerpo, casa, lo que de verdad nos sostiene.\n\nTe dejo tres preguntas para escribir esta semana:\n\n- ¿Qué necesito para sentirme a salvo?\n- ¿Qué estoy sosteniendo por costumbre?\n- ¿Qué quiero soltar antes de la luna nueva?\n\nUn abrazo,\n{mi_nombre}" },
+      { id: "boton", t: "button", label: "Reservar mi lectura", href: "/ana/lectura-de-human-design", align: "center" },
+    ],
+  };
+  const sentAt = daysAgo(12, 10, 0);
+  const sent = await prisma.campaign.create({
+    data: {
+      creatorId: anaId, subject: "La luna llena de octubre (y 3 preguntas para escribir)", preheader: "Lo que trae esta luna y un ejercicio de 10 minutos",
+      design: sentDesign, segment: { kind: "all" }, status: "SENT", startedAt: sentAt, finishedAt: new Date(sentAt.getTime() + 20 * 60_000), createdAt: daysAgo(14), updatedAt: sentAt,
+    },
+  });
+  // Quien estaba confirmada entonces (más Beatriz, que se dio de baja desde esta newsletter, y el rebote).
+  const all = await prisma.subscriber.findMany({ where: { creatorId: anaId, OR: [{ status: "CONFIRMED", createdAt: { lt: sentAt } }, { email: { in: ["beatriz.luna@example.com", "rebote.antiguo@example.com"] } }] } });
+  let n = 0;
+  for (const s of all) {
+    const bounced = s.email === "rebote.antiguo@example.com";
+    const mail = campaignEmail({ brand: "Ana Luna", subject: sent.subject, preheader: sent.preheader, design: sentDesign as never, baseUrl: base, vars: { nombre: s.name?.split(" ")[0] ?? null, mi_nombre: "Ana Luna" }, footer: footerFor(s.id, sent.id) });
+    const at = new Date(sentAt.getTime() + n++ * 60_000);
+    const msg = await prisma.emailMessage.create({
+      data: {
+        creatorId: anaId, to: s.email, subject: mail.subject, html: mail.html, template: "NEWSLETTER", stream: "news", campaignId: sent.id,
+        status: bounced ? "FAILED" : "SENT", sendAt: at, sentAt: bounced ? null : at, attempts: 1, error: bounced ? "Resend 422: la dirección no existe" : null,
+        dedupeKey: `nl:${sent.id}:${s.id}`, headers: unsubscribeHeaders(s.id, sent.id), fromName: "Ana Luna", replyTo: "ana@cirella.app",
+        deliveredAt: bounced ? null : new Date(at.getTime() + 4000), bouncedAt: bounced ? new Date(at.getTime() + 5000) : null, createdAt: at,
+      },
+    });
+    await prisma.campaignRecipient.create({ data: { creatorId: anaId, campaignId: sent.id, subscriberId: s.id, status: "QUEUED", emailMessageId: msg.id, createdAt: sentAt } });
+  }
+  await prisma.campaign.update({ where: { id: sent.id }, data: { recipientsCount: all.length } });
+  await prisma.subscriber.update({ where: { id: subs["beatriz.luna@example.com"] }, data: { unsubscribeCampaignId: sent.id } });
+  await prisma.subscriber.update({ where: { id: subs["rebote.antiguo@example.com"] }, data: { unsubscribeCampaignId: sent.id, unsubscribedAt: new Date(sentAt.getTime() + 60_000) } });
+
+  await prisma.campaign.create({
+    data: {
+      creatorId: anaId, subject: "Novedades de noviembre", preheader: "", segment: { kind: "all" }, createdAt: daysAgo(2), updatedAt: daysAgo(1),
+      design: { v: 1, blocks: [{ id: "hola", t: "title", text: "Hola, {nombre}", align: "left" }, { id: "texto", t: "text", body: "Noviembre viene con eclipse y con plazas nuevas para las lecturas.\n\n(Borrador: terminar el jueves)" }] },
+    },
+  });
+  await prisma.campaign.create({
+    data: {
+      creatorId: anaId, subject: "Taller de luna nueva: plazas abiertas", preheader: "Solo para quien se apuntó a los talleres",
+      segment: { kind: "tag", tag: "talleres" }, status: "SCHEDULED", scheduledAt: zonedTimeToUtc(addDaysToKey(TODAY, 3), 10 * 60, TZ), createdAt: daysAgo(3), updatedAt: daysAgo(1),
+      design: {
+        v: 1,
+        blocks: [
+          { id: "hola", t: "title", text: "¡Hola, {nombre}!", align: "left" },
+          { id: "texto", t: "text", body: "Abro las plazas del **taller de luna nueva** del mes que viene. Somos pocas, como siempre, para poder escucharnos." },
+          { id: "boton", t: "button", label: "Ver el taller", href: `/ana/${await prisma.product.findUniqueOrThrow({ where: { id: o.circleId } }).then((p) => p.slug)}`, align: "center" },
+        ],
+      },
+    },
+  });
+  // Su confirmación de reserva con un texto propio al principio (lo demás sale como siempre).
+  await prisma.automation.upsert({
+    where: { creatorId_trigger: { creatorId: anaId, trigger: "BOOKING_CONFIRMED" } },
+    create: {
+      creatorId: anaId, trigger: "BOOKING_CONFIRMED", enabled: true,
+      design: { v: 1, blocks: [{ id: "intro", t: "text", body: "¡Qué ilusión, {nombre}! Antes de la sesión busca un rato tranquilo y ten a mano tu **fecha, hora y lugar de nacimiento**." }] },
+    },
+    update: {},
+  });
+  void o.astroId;
+}
+
 async function reset() {
   // Los archivos subidos pertenecen a los registros que vamos a borrar. Solo en disco: un bucket
   // de R2 de pruebas se vacía a mano (el seed nunca borra en la nube).
@@ -246,6 +378,9 @@ async function reset() {
     for (const dir of ["private", "public", "incoming"]) rmSync(path.join(STORAGE, dir), { recursive: true, force: true });
   // Orden inverso de dependencias (claves foráneas de Postgres)
   await prisma.$transaction([
+    prisma.campaignRecipient.deleteMany(),
+    prisma.campaign.deleteMany(),
+    prisma.subscriber.deleteMany(),
     prisma.emailMessage.deleteMany(),
     prisma.outboxEvent.deleteMany(),
     prisma.paymentEvent.deleteMany(),
@@ -884,6 +1019,8 @@ async function main() {
       { creatorId: ana.id, to: "ana@cirella.app", subject: "Nueva suscripción a Comunidad privada", template: "NEW_SUBSCRIPTION", status: "SENT", sentAt: daysAgo(16, 22, 11), sendAt: daysAgo(16, 22, 11), html: `<p>Lucía Torres se ha unido a Comunidad privada.</p>` },
     ],
   });
+
+  await seedAnaNewsletter(ana.id, { circleId: pCircle.id, astroId: pAstro.id });
 
   // Analytics: ~60 días de tráfico con estacionalidad semanal y tendencia creciente
   const rand = rng(42);

@@ -28,6 +28,9 @@ con una comprobación para que sepas que va bien.
   un curso), desde tu panel le das acceso a quien te haya pagado.
 - **Publicaciones con fecha** (novedades, tipo blog) y **códigos de descuento** de otras marcas,
   con botón «Copiar código».
+- **Tu propia newsletter** (sin MailerLite ni nada aparte): formulario en tu página, lista de
+  suscriptoras con doble confirmación, campañas con un editor visual, y los emails automáticos
+  (bienvenida, compra, recordatorios…) escritos con tus palabras ([Tu newsletter](#tu-newsletter)).
 - **Tu panel** (`/panel`) para gestionarlo todo desde el móvil, y una **administración** mínima
   (`/admin`) para ver si algún email no ha llegado.
 
@@ -670,6 +673,122 @@ En **Productos → tu membresía → Publicaciones de la comunidad → Nueva pub
 
 Te recomendamos añadir a tu texto de privacidad que en la comunidad se muestra tu nombre y el de
 quien comenta (nombre e inicial) y que enviamos avisos por email de las publicaciones.
+
+---
+
+## Tu newsletter
+
+Tu newsletter sale **desde tu dominio, con Resend** (la misma cuenta del paso 2), sin ninguna
+herramienta más. Todo está en **Panel → Newsletter**:
+
+- **Campañas**: «Nueva newsletter» → asunto, «Texto de vista previa» y los bloques (título, texto
+  con negrita, listas y enlaces, imagen, botón, separador y espacio). Las imágenes de Canva se
+  suben desde Fotos o Archivos y se guardan en JPEG o PNG (Outlook no enseña WebP). Escribe
+  `{nombre}` y saldrá el nombre de cada persona (si no lo sabemos, «Hola, {nombre}» queda «Hola»).
+  «Vista previa» enseña el email tal cual (móvil y ordenador), «Enviarme una prueba» te lo manda a
+  ti con «[Prueba]» en el asunto, «A quién» elige todas, una etiqueta, quien compró un producto o
+  los miembros de la comunidad, y luego «Enviar ahora» o «Programar» (día y hora de Madrid).
+  Antes de enviar te dice a cuántas personas va y qué día terminará con tu límite diario.
+- **Suscriptoras**: quién está, desde cuándo y con qué texto aceptó (la prueba que pide el RGPD),
+  etiquetas, «Añadir a mano» (le llega un email para confirmar), **Importar CSV** de tu
+  herramienta anterior (columnas `email`, `nombre`, `fecha_consentimiento`, `etiquetas`; sin fecha
+  de consentimiento no se importa) y **Exportar CSV**.
+- **Emails automáticos**: la bienvenida, el email de compra, el de acceso a lo gratis, el del curso,
+  la confirmación de reserva, los recordatorios, el de compra abandonada y la bienvenida a la
+  newsletter. Cambias asunto y texto con el mismo editor (con `{nombre}`, `{producto}`, `{fecha}`…),
+  ves la vista previa con datos de ejemplo y, si te arrepientes, **«Restaurar el original»**. Lo
+  importante (el botón de acceso, el recibo, la fecha de la sesión, los enlaces legales) se añade
+  solo.
+- **El formulario para apuntarse**: Mi página → Secciones → activa **«Newsletter»** (y, si quieres,
+  «También en el pie de todas mis páginas»). Quien se apunta recibe «Confirma que quieres recibir la
+  newsletter» y no cuenta hasta que pulsa «Sí, quiero recibirla» (doble opt-in). Quien marca la
+  casilla de novedades al crear su cuenta, al pagar o en lo gratis también entra en la lista.
+
+### Los registros DNS en united-domains
+
+Tu correo está en united-domains y **sigue allí**: no toques tus registros MX ni el SPF que ya
+tiene tu dominio. Resend usa un subdominio propio (`send`) para los rebotes, así que no choca con tu
+buzón. En el paso 2 ya añadiste tu dominio a Resend; si no lo hiciste, hazlo ahora (**Domains → Add
+Domain**, región **Ireland (eu-west-1)**). Resend te enseña exactamente estos registros; cópialos
+en united-domains → **Portfolio** (tus dominios) → tu dominio → **DNS** (o «DNS-Einstellungen»)
+→ **Añadir registro**. En «Subdominio» (o «Host») va solo la parte de delante, sin tu dominio:
+
+| Tipo | Subdominio | Valor | Para qué |
+|---|---|---|---|
+| TXT | `resend._domainkey` | `p=MIGfMA0GCSq…` (la clave larga que te da Resend) | **DKIM**: firma tus emails |
+| MX | `send` | `feedback-smtp.eu-west-1.amazonses.com` (prioridad **10**) | rebotes (*Return-Path*) |
+| TXT | `send` | `v=spf1 include:amazonses.com ~all` | **SPF** del subdominio de envío |
+| TXT | `_dmarc` | `v=DMARC1; p=none; rua=mailto:hola@tudominio.com` | **DMARC** (Gmail y Yahoo lo exigen) |
+
+- Si Resend te enseña el DKIM como **CNAME** (algunas cuentas lo tienen así), crea los CNAME que
+  te dé, tal cual, en lugar del TXT.
+- **DMARC**: si ya tienes un registro `_dmarc`, no crees otro (solo puede haber uno). Empieza con
+  `p=none`; cuando lleves unas semanas enviando sin problemas puedes subirlo a `p=quarantine`.
+- **SPF**: el `include:amazonses.com` va en `send`, **no** en el registro de tu dominio a secas
+  (allí está el de tu correo de united-domains; solo puede haber un SPF por nombre).
+- Vuelve a Resend y pulsa **Verify**. Puede tardar de minutos a una hora. Cuando ponga
+  **Verified**, ya está.
+
+**Respuestas a tu buzón**: los emails salen desde la dirección de `EMAIL_FROM` (por ejemplo
+`Ana Luna <hola@tudominio.com>`) y llevan como *Responder a* tu **email de contacto**
+(Ajustes). Pon ahí tu buzón de united-domains y las respuestas a cualquier newsletter o email
+automático te llegarán a él.
+
+**Remitente propio para la newsletter (opcional)**: añade en Railway la variable
+`NEWSLETTER_FROM`, por ejemplo `Ana Luna <newsletter@tudominio.com>`, y la newsletter saldrá desde
+ahí (los emails de acceso y recibos siguen saliendo desde `EMAIL_FROM`). Con el plan gratuito de
+Resend usa una dirección del **mismo dominio** (solo admite un dominio); con Resend Pro puedes
+verificar un subdominio aparte (`news.tudominio.com`, con sus propios registros) para que una
+newsletter marcada como spam nunca afecte a tus emails de acceso.
+
+### Rebotes y quejas (webhook de Resend)
+
+Para que las direcciones que no existen y quien marca «es spam» se den de baja solas:
+
+1. Resend → **Webhooks → Add Endpoint**. URL: `https://tudominio.com/api/webhooks/resend`.
+   Eventos: `email.delivered`, `email.bounced` y `email.complained`.
+2. Abre el webhook y copia su **Signing Secret** (empieza por `whsec_`).
+3. En Railway, servicio **web** → **Variables**: `RESEND_WEBHOOK_SECRET` = ese valor. Se vuelve
+   a publicar sola.
+
+Con el webhook, cada campaña enseña **Entregadas, Rebotadas, Quejas y Bajas** (las bajas se cuentan
+siempre, con o sin webhook). Panel → Newsletter → **Envío** te dice si está activado.
+
+**Aperturas y clics**: vienen **desactivados**, a propósito. Medirlos usa un píxel y enlaces de
+seguimiento, que en España y Alemania necesitan el consentimiento expreso de quien lee (y Apple
+Mail abre todos los emails solo, así que las aperturas no dicen mucho). Si aun así los quieres,
+actívalos en Resend → tu dominio → *Open/Click tracking*, añade los eventos `email.opened` y
+`email.clicked` al webhook y menciónalo en tu texto de privacidad: el panel los enseñará.
+
+### Cuánto puedes enviar (plan gratuito de Resend)
+
+- **100 emails al día y 3000 al mes**, contando **todos** (accesos, recibos, recordatorios y
+  newsletter), **un dominio** y unas **2 peticiones por segundo**.
+- La web no se pasa: la newsletter sale **por tandas** dentro de un **límite diario de 100**, del
+  que siempre deja **20 para los emails importantes** (enlaces para entrar, accesos, recibos), que
+  nunca esperan. Lo que no cabe hoy sale mañana, solo (con las tareas automáticas del paso 8), y
+  entre email y email espera medio segundo para no pasar del límite por segundo de Resend.
+- Con 80 al día, una lista de 400 personas tarda 5 días. Cuando la lista crezca, **Resend Pro**
+  (unos 20 $/mes, 50 000 al mes, sin límite diario) y en Panel → Newsletter → **Envío** sube el
+  límite (o ponlo a 0: sin límite).
+- Los avisos de la comunidad y las invitaciones a confirmar de una importación también van por
+  tandas, dentro del mismo límite.
+
+### Lo legal
+
+- **Doble opt-in** en el formulario y en lo que añades a mano o importas sin prueba; se guarda la
+  fecha, el texto exacto que aceptó y desde dónde (lo ves en cada suscriptora).
+- **Cada newsletter lleva** «Darme de baja» en el pie y el botón «Cancelar suscripción» del propio
+  Gmail o Apple Mail (baja en un clic), y **quién la envía**: tu nombre legal, tu dirección y tu
+  email de Ajustes → **Datos legales**. Si facturas con una empresa (una LLC, una SL), pon ahí su
+  nombre y su dirección y saldrán en el pie de cada newsletter.
+- **Importar**: solo personas que aceptaron recibir tu newsletter y con la fecha en que lo hicieron.
+  Quien se dio de baja, rebotó o se quejó no se vuelve a añadir nunca.
+- **Tu texto de privacidad**: añade que usas el email de quien se apunta para enviarle tu newsletter
+  (base legal: su consentimiento), que se envía con Resend (proveedor de envío de emails, con los
+  datos en su región de Irlanda) y que puede darse de baja en
+  cualquier momento con el enlace de cada email.
+- Lo gratis **nunca** depende de apuntarse a la newsletter: la casilla es aparte y sin marcar.
 
 ---
 
