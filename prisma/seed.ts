@@ -8,7 +8,8 @@
  * Cuentas (contraseña para todas: demo1234):
  *   ana@cirella.app    creadora · plan Pro     · /ana (también la dueña del modo personal: OWNER_USERNAME=ana,
  *                      con un mini-curso gratis con email, una sesión que se reserva en Calendly,
- *                      publicaciones y códigos de descuento)
+ *                      publicaciones, códigos de descuento, bloques de imagen, galería y vídeo en su
+ *                      portada y las páginas extra «Sobre mí» (publicada) y «Preguntas frecuentes» (borrador))
  *   maria@cirella.app  creadora · plan Creator · /maria
  *   sofia@cirella.app  creadora · plan Free    · /sofia
  *   laura@example.com  clienta de Ana (curso, PDF y sesión)
@@ -29,7 +30,10 @@ import sharp from "sharp";
 import { makeM4a, makePdf, makeVideo, makeWav } from "./demo-files";
 import { DEMO_MARKER_KEY, assertSafeToSeed } from "./seed-guard";
 import { appUrl, storageDir } from "../lib/env";
-import { storeProcessedImage } from "../lib/images";
+import { storeImage, storeProcessedImage } from "../lib/images";
+import { randomBytes } from "node:crypto";
+import { pageVideoUrl, type ContentBlock, type PageImage } from "../lib/page-blocks";
+import { type SitePageContent } from "../lib/site-pages";
 import { mimeFromExt, privateKey, storage } from "../lib/storage";
 import { legacyLessonColumns } from "../lib/lesson-parts";
 import { parseMediaInfo } from "../lib/media-probe";
@@ -126,6 +130,115 @@ async function storePageImages(creatorId: string, page: PageConfig) {
   await prisma.creator.update({ where: { id: creatorId }, data: { pageDraft: json, pagePublished: json } });
 }
 
+/** Imagen de public/demo procesada como un gráfico subido a un bloque (con sus medidas). */
+async function demoBlockImage(creatorId: string, demoUrl: string, alt: string, caption?: string): Promise<PageImage> {
+  const img = await storeImage(creatorId, readFileSync(path.join("public", demoUrl)), { profile: "graphic" });
+  return { src: img.url, alt, width: img.width, height: img.height, ...(caption ? { caption } : {}) };
+}
+
+/**
+ * La portada de Ana con un bloque de cada tipo nuevo (tras «Cómo trabajo»): un gráfico, una galería
+ * en carrusel y su vídeo de bienvenida subido (como un vídeo de la página: public/video/…, con
+ * portada). Sin ffmpeg, el vídeo es un enlace de YouTube con portada.
+ */
+async function seedAnaHomeBlocks(creatorId: string) {
+  const image: ContentBlock = {
+    id: "grafico-luna",
+    kind: "image",
+    title: "",
+    image: await demoBlockImage(creatorId, "/demo/human-design.webp", "Los 5 tipos de Human Design: Manifestador, Generador, Generador Manifestante, Proyector y Reflector", "Mi guía rápida de los 5 tipos"),
+    href: "/ana/lectura-human-design",
+    enabled: true,
+  };
+  const gallery: ContentBlock = {
+    id: "galeria-lecturas",
+    kind: "gallery",
+    title: "Así son mis lecturas",
+    layout: "carousel",
+    images: [
+      await demoBlockImage(creatorId, "/demo/astrologia.webp", "Carta natal impresa con anotaciones"),
+      await demoBlockImage(creatorId, "/demo/gene-keys.webp", "Perfil de Gene Keys"),
+      await demoBlockImage(creatorId, "/demo/comunidad.webp", "Círculo lunar de la comunidad"),
+    ],
+    enabled: true,
+  };
+  const poster = (await demoBlockImage(creatorId, "/demo/curso.webp", "")).src;
+  const data = makeVideo(path.resolve("public/demo/curso.webp"), 8);
+  let video: ContentBlock;
+  if (data) {
+    const file = `${randomBytes(12).toString("hex")}.mp4`;
+    await storage().put(`public/video/${creatorId}/${file}`, data, { contentType: "video/mp4" });
+    const info = await mediaFields(data, "video/mp4");
+    video = {
+      id: "video-bienvenida",
+      kind: "video",
+      title: "Bienvenida",
+      caption: "Un minuto para conocerme antes de reservar.",
+      upload: { src: pageVideoUrl(creatorId, file), width: info.width, height: info.height, durationSec: info.durationSec != null ? Math.round(info.durationSec) : null, codec: info.videoCodec as "H264" | "HEVC" | "OTHER" | null, sizeBytes: data.length },
+      poster,
+      enabled: true,
+    };
+  } else {
+    video = { id: "video-bienvenida", kind: "video", title: "Bienvenida", embedUrl: "https://youtu.be/dQw4w9WgXcQ", upload: null, poster, enabled: true };
+  }
+  const c = await prisma.creator.findUniqueOrThrow({ where: { id: creatorId }, select: { pageDraft: true } });
+  const page = c.pageDraft as unknown as PageConfig;
+  const next = { ...page, blocks: [...(page.blocks ?? []), video, image, gallery] } as unknown as Prisma.InputJsonValue;
+  await prisma.creator.update({ where: { id: creatorId }, data: { pageDraft: next, pagePublished: next } });
+}
+
+/** Páginas extra de Ana: «Sobre mí» publicada (texto con formato, imagen y galería) y «Preguntas frecuentes» en borrador. */
+async function seedAnaSitePages(creatorId: string) {
+  const about: SitePageContent = {
+    title: "Sobre mí",
+    subtitle: "Astróloga, analista de Human Design y guía de Gene Keys. Te acompaño a leer tu mapa con calma.",
+    cover: await demoBlockImage(creatorId, "/demo/ana-cover.webp", "Ana Luna en su estudio"),
+    blocks: [
+      {
+        id: "historia",
+        kind: "text",
+        title: "Mi historia",
+        body: "Empecé a estudiar el cielo hace **8 años**, cuando una lectura me ayudó a entender por qué me costaba tanto descansar.\n\n## Lo que me mueve\n\n- Traducir el cielo a decisiones concretas\n- Que salgas de cada sesión con un plan\n- Cuidar a las mujeres que me confían su historia",
+        format: "MD",
+        buttonLabel: "Reserva tu lectura",
+        buttonUrl: "/ana/lectura-human-design",
+        enabled: true,
+      },
+      { id: "estudio", kind: "image", title: "", image: await demoBlockImage(creatorId, "/demo/sesion.webp", "Mi mesa de trabajo con la carta natal", "Donde preparo cada lectura"), enabled: true },
+      {
+        id: "formacion",
+        kind: "gallery",
+        title: "Mi formación",
+        layout: "grid",
+        images: [
+          await demoBlockImage(creatorId, "/demo/astrologia.webp", "Astrología psicológica"),
+          await demoBlockImage(creatorId, "/demo/human-design.webp", "Human Design"),
+          await demoBlockImage(creatorId, "/demo/gene-keys.webp", "Gene Keys"),
+        ],
+        enabled: true,
+      },
+    ],
+    seoTitle: "Sobre Ana Luna · Astrología y Human Design",
+    seoDescription: "Quién soy, cómo trabajo y mi formación en astrología, Human Design y Gene Keys.",
+  };
+  const faq: SitePageContent = {
+    title: "Preguntas frecuentes",
+    subtitle: "Lo que me preguntáis antes de reservar.",
+    cover: null,
+    blocks: [
+      { id: "hora", kind: "text", title: "¿Necesito mi hora de nacimiento?", body: "Sí, para la carta natal y Human Design la hora exacta es **importante**.", format: "MD", enabled: true },
+      { id: "online", kind: "text", title: "¿Las sesiones son online?", body: "Todas son por videollamada y te envío la grabación.", format: "MD", enabled: true },
+    ],
+    seoTitle: "",
+    seoDescription: "",
+  };
+  const json = (v: SitePageContent) => v as unknown as Prisma.InputJsonValue;
+  await prisma.sitePage.create({
+    data: { creatorId, slug: "sobre-mi", title: about.title, publishedTitle: about.title, draft: json(about), published: json(about), status: "PUBLISHED", publishedAt: daysAgo(30), sortOrder: 0, createdAt: daysAgo(31) },
+  });
+  await prisma.sitePage.create({ data: { creatorId, slug: "preguntas-frecuentes", title: faq.title, draft: json(faq), status: "DRAFT", sortOrder: 1, createdAt: daysAgo(2) } });
+}
+
 async function reset() {
   // Los archivos subidos pertenecen a los registros que vamos a borrar. Solo en disco: un bucket
   // de R2 de pruebas se vacía a mano (el seed nunca borra en la nube).
@@ -169,6 +282,7 @@ async function reset() {
     prisma.recoveryOptOut.deleteMany(),
     prisma.post.deleteMany(),
     prisma.discountCode.deleteMany(),
+    prisma.sitePage.deleteMany(),
     prisma.availabilityRule.deleteMany(),
     prisma.blockedDate.deleteMany(),
     prisma.availabilityOverride.deleteMany(),
@@ -248,7 +362,7 @@ async function main() {
       { id: "f4", q: "¿Puedo cancelar la membresía?", a: "Cuando quieras, desde tu área de cliente. Mantienes el acceso hasta el final del mes pagado." },
     ],
     contact: { email: "hola@analuna.es", whatsapp: "+34600000000", message: "¿Dudas sobre qué lectura es para ti? Escríbeme y te oriento." },
-    // Bloque fijo de texto (sección «Bloques»).
+    // Bloque fijo de texto (sección «Bloques»); los de imagen, galería y vídeo los añade seedAnaHomeBlocks.
     blocks: [
       {
         id: "sobre-mi",
@@ -284,6 +398,8 @@ async function main() {
   });
 
   await storePageImages(ana.id, anaPage);
+  await seedAnaHomeBlocks(ana.id);
+  await seedAnaSitePages(ana.id);
 
   // Archivos privados
   const guiaCarta = await storePrivate(ana.id, "guia-carta-natal.pdf", makePdf({
