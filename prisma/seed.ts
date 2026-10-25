@@ -959,6 +959,19 @@ async function main() {
     },
   });
   await prisma.access.create({ data: { creatorId: ana.id, userId: carmen.id, productId: pCircle.id, orderId: carmenCircle.id, expiresAt: carmenUntil, createdAt: carmenGrantAt } });
+  // Laura (la alumna de la demo) también está en el Círculo: Ana se lo regaló por seis meses, así su
+  // área enseña «Mis membresías» con contenido.
+  const lauraGrantAt = daysAgo(10, 11, 0);
+  const lauraUntil = zonedTimeToUtc(addDaysToKey(addMonthsToKey(dateKeyInTz(lauraGrantAt, TZ), 6), 1), 0, TZ);
+  const lauraCircle = await prisma.order.create({
+    data: {
+      creatorId: ana.id, customerId: customers.get(`${ana.id}:${laura.id}`)!, productId: pCircle.id, productTitle: pCircle.title, productType: pCircle.type,
+      buyerEmail: laura.email, buyerName: laura.name, status: "PAID", amountCents: 0, commissionBps: 0, platformFeeCents: 0, netCents: 0,
+      taxSeller: "CREATOR", taxRateBps: 0, taxCents: 0, paymentProvider: "manual", createdAt: lauraGrantAt, paidAt: lauraGrantAt, chargedAt: lauraGrantAt,
+      metadata: { grantedByUserId: anaUser.id, accessGrantedAt: lauraGrantAt.toISOString(), accessUntil: lauraUntil.toISOString() },
+    },
+  });
+  await prisma.access.create({ data: { creatorId: ana.id, userId: laura.id, productId: pCircle.id, orderId: lauraCircle.id, expiresAt: lauraUntil, createdAt: lauraGrantAt } });
   const cLucia = await prisma.membershipComment.create({
     data: { creatorId: ana.id, productId: pCircle.id, postId: postLunaNueva.id, userId: lucia.id, authorName: "Lucía T.", body: "Mis tres intenciones ya están escritas ✨ La meditación me ha encantado.", createdAt: daysAgo(5, 21, 40) },
   });

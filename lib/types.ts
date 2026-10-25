@@ -3,7 +3,7 @@ export type ProductType = (typeof PRODUCT_TYPES)[number];
 
 export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
   DIGITAL: "Producto digital",
-  SESSION: "Sesión / servicio",
+  SESSION: "Sesión",
   COURSE: "Curso",
   MEMBERSHIP: "Membresía",
 };

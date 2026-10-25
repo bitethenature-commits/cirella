@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { isPersonalMode } from "@/lib/site-mode";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Download, ExternalLink, Eye, FileText, Mail } from "lucide-react";
 import { PrintButton } from "@/components/invoice/print-button";
@@ -94,7 +95,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
     <div className="max-w-2xl">
       {!scoped && (
         <Link href="/cuenta/compras" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-          <ArrowLeft className="h-4 w-4" /> Mis compras
+          <ArrowLeft className="h-4 w-4" /> {isPersonalMode() ? "Mis canales" : "Mis compras"}
         </Link>
       )}
       <div className="mt-5 flex items-center gap-4">

@@ -126,4 +126,17 @@ test.describe.serial("Web personal que cobra con tarjeta y PayPal", () => {
     await page.goto("/panel/productos/nuevo");
     await expect(page.getByText(/si se paga aquí \(tarjeta o PayPal\)/)).toBeVisible();
   });
+
+  test("«Mis canales»: cada cosa en grande, sin importes ni facturas", async ({ page }) => {
+    await demoLogin(page, "Laura Martín");
+    await page.goto("/cuenta/compras");
+    await expect(page.getByRole("heading", { name: "Mis canales", level: 1 })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Mis canales" }).first()).toBeVisible();
+    const main = page.locator("main");
+    await expect(main.getByText("Curso", { exact: true })).toBeVisible();
+    await expect(main.getByText("Lectura", { exact: true })).toBeVisible();
+    await expect(main.getByText("Membresía", { exact: true })).toBeVisible();
+    await expect(main.getByText("Recibo y factura")).toHaveCount(0);
+    await expect(main.getByText(/€/)).toHaveCount(0);
+  });
 });

@@ -5,6 +5,7 @@ import { requireBuyerFull } from "@/lib/buyer-access";
 import { getCustomerLibrary } from "@/lib/customer";
 import { formatPrice } from "@/lib/money";
 import { signupsOnly } from "@/lib/commerce";
+import { isPersonalMode } from "@/lib/site-mode";
 import { capitalize, formatSessionDate, formatDate } from "@/lib/tz";
 import { getPublicCreator } from "@/lib/public";
 import { ownerUsername } from "@/lib/site-mode";
@@ -173,7 +174,7 @@ export default async function AccountHome({ searchParams }: { searchParams: Prom
 
       {lib.digital.length > 0 && (
         <section>
-          <SectionHeader title={personal ? "Mis descargas" : "Mis compras"} href="/cuenta/compras" />
+          <SectionHeader title={isPersonalMode() ? "Mis descargas" : "Mis compras"} href="/cuenta/compras" />
           <div className="space-y-2.5">
             {lib.digital.map((d) => (
               <div key={d.product.id} className="card p-4">

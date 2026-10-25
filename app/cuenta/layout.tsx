@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LogOut, Store } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { getBuyerSession } from "@/lib/buyer-access";
-import { signupsOnly } from "@/lib/commerce";
+import { isPersonalMode } from "@/lib/site-mode";
 import { AccountNav } from "./nav";
 import { ScopeBanner } from "./scope-banner";
 import { UserAvatar } from "./ui";
@@ -40,7 +40,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
               </form>
             </div>
           </div>
-          <div className="mx-auto max-w-4xl px-5 pb-2.5">{b.scope ? <ScopeBanner creatorId={b.creatorId} /> : <AccountNav personal={signupsOnly()} />}</div>
+          <div className="mx-auto max-w-4xl px-5 pb-2.5">{b.scope ? <ScopeBanner creatorId={b.creatorId} /> : <AccountNav personal={isPersonalMode()} />}</div>
         </header>
       )}
       <main className="mx-auto max-w-4xl px-5 pb-20 pt-8 animate-fade-in">{children}</main>

@@ -13,10 +13,10 @@ const ITEMS = [
   { href: "/cuenta/soporte", label: "Soporte" },
 ];
 
-/** `personal`: web personal (SITE_MODE=personal), donde no se compra: «Mis compras» es «Mi historial». */
+/** `personal`: web personal (SITE_MODE=personal): «Mis compras» es «Mis canales». */
 export function AccountNav({ personal = false }: { personal?: boolean } = {}) {
   const path = usePathname();
-  const items = personal ? ITEMS.map((i) => (i.href === "/cuenta/compras" ? { ...i, label: "Mi historial" } : i)) : ITEMS;
+  const items = personal ? ITEMS.map((i) => (i.href === "/cuenta/compras" ? { ...i, label: "Mis canales" } : i)) : ITEMS;
   return (
     <nav className="-mx-5 flex gap-1 overflow-x-auto px-5 scrollbar-none" aria-label="Área de cliente">
       {items.map((i) => {
