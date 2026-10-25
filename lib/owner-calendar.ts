@@ -6,7 +6,8 @@
  *     del siguiente para completar.
  *   · Un día es de 00:00 a 24:00 en la zona de la dueña (con cambio de hora, 23 o 25 horas).
  */
-import { astroEventsBetween, astroLabel, describeAstro, moonSignAt, SIGNS, type AstroEvent } from "./astro-calendar";
+import { astroEventsBetween, astroLabel, describeAstro, formatZodiac, moonSignAt, PLANET_ES, positionsAt, SIGNS, type AstroEvent } from "./astro-calendar";
+import { houseOf } from "./natal-chart";
 import { addDaysToKey, dateKeyInTz, timeInTz, weekdayOfKey, zonedTimeToUtc } from "./tz";
 
 export type YearMonth = { year: number; month: number };
@@ -61,9 +62,14 @@ export type AstroLine = {
   text: string;
   /** «22:47» en la zona de la dueña */
   time: string;
-  /** "new" | "full" para las lunas; "solar" | "lunar" para los eclipses. */
+  /** "new" | "full" para las lunas; "solar" | "lunar" para los eclipses; "retrograde" | "direct" para las estaciones. */
   detail?: string;
+  /** Casa natal por la que pasa (solo con carta natal). */
+  house?: number;
 };
+
+/** Dónde está cada cuerpo a las 12:00 de ese día: «Mercurio ℞ en Escorpio 20°52′ · Casa 5». */
+export type AstroPosition = { body: string; name: string; where: string; retro: boolean; house?: number };
 
 export type AstroDay = {
   lines: AstroLine[];
@@ -74,15 +80,28 @@ export type AstroDay = {
   eclipse: boolean;
   conjunctions: number;
   stations: number;
+  /** Sol a Lilith a las 12:00 (hora de la dueña). */
+  positions: AstroPosition[];
+  /** «Mercurio», «Saturno»… los que van retrógrados a las 12:00 (sin el nodo, que siempre lo va). */
+  retrograde: string[];
 };
 
-/** Lo del cielo de cada día de `keys` (consecutivos) en la zona `tz`. */
-export function astroByDay(keys: string[], tz: string): Map<string, AstroDay> {
+/** Lo del cielo de cada día de `keys` (consecutivos) en la zona `tz`; con `cusps`, la casa natal de cada cosa. */
+export function astroByDay(keys: string[], tz: string, cusps?: number[] | null): Map<string, AstroDay> {
   const out = new Map<string, AstroDay>();
   if (!keys.length) return out;
+  const house = (lon: number) => (cusps ? { house: houseOf(lon, cusps) } : {});
   for (const k of keys) {
     const sign = SIGNS[moonSignAt(zonedTimeToUtc(k, 0, tz))];
-    out.set(k, { lines: [], moon: { sign }, newMoon: false, fullMoon: false, eclipse: false, conjunctions: 0, stations: 0 });
+    const positions = positionsAt(zonedTimeToUtc(k, 720, tz)).map((p) => ({
+      body: p.body,
+      name: PLANET_ES[p.body],
+      where: formatZodiac(p.lon),
+      retro: p.retro,
+      ...house(p.lon),
+    }));
+    const retrograde = positions.filter((p) => p.retro && p.body !== "Node").map((p) => p.name);
+    out.set(k, { lines: [], moon: { sign }, newMoon: false, fullMoon: false, eclipse: false, conjunctions: 0, stations: 0, positions, retrograde });
   }
   const { from, to } = dayRangeUtc(keys[0], keys[keys.length - 1], tz);
   for (const e of astroEventsBetween(from, to)) {
@@ -99,7 +118,7 @@ export function astroByDay(keys: string[], tz: string): Map<string, AstroDay> {
     if (e.kind === "conjunction") day.conjunctions++;
     if (e.kind === "station") day.stations++;
     const detail = e.kind === "moon" ? e.phase : e.kind === "eclipse" ? e.body : e.kind === "station" ? e.direction : undefined;
-    day.lines.push({ kind: e.kind, label: astroLabel(e), text: describeAstro(e), time, ...(detail ? { detail } : {}) });
+    day.lines.push({ kind: e.kind, label: astroLabel(e), text: describeAstro(e), time, ...(detail ? { detail } : {}), ...house(e.lon) });
   }
   return out;
 }
