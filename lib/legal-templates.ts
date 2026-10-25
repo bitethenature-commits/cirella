@@ -7,8 +7,9 @@
  * vendedora (se remiten al aviso legal), así un texto editado nunca se queda desactualizado;
  * la línea «Responsable» de la privacidad se pinta al mostrarla (privacyResponsibleLine).
  *
- * BORRADORES: deben revisarse con una asesoría de consumo y protección de datos antes de lanzar.
- * Si cambias el contenido, sube LEGAL_TEMPLATE_VERSION (lib/legal.ts).
+ * BORRADORES: deben revisarse con una asesoría de consumo y protección de datos antes de lanzar
+ * (el panel lo dice en Ajustes › Datos legales). Si cambias el contenido, sube LEGAL_TEMPLATE_VERSION
+ * (lib/legal.ts). Las reglas del desistimiento que describen están en lib/withdrawal.ts y lib/legal.ts.
  */
 import { formatLegalAddress, SESSION_CHANGE_NOTICE_HOURS, type LegalIdentity } from "./legal";
 
@@ -50,9 +51,10 @@ Tarjeta, Apple Pay o Google Pay a través de una pasarela segura. Ni la vendedor
 
 ## 5. Entrega
 • Productos digitales: acceso inmediato en tu área de cliente.
-• Productos que la vendedora prepara para ti: te llegan en el plazo y por el medio indicados en la ficha. Mientras no los recibas, puedes desistir.
+• Productos que la vendedora prepara para ti: se empiezan a preparar en cuanto pagas y te llegan en el plazo y por el medio indicados en la ficha.
 • Cursos: acceso de por vida mientras el curso exista.
-• Sesiones: por videollamada en la fecha reservada.
+• Sesiones: por videollamada en la fecha reservada, siempre a partir del día 15 desde la compra.
+• Talleres: por videollamada en la fecha fija indicada en la ficha.
 • Membresías: se renuevan automáticamente y puedes cancelarlas desde tu cuenta; mantienes el acceso hasta el final del periodo pagado.
 
 ## 6. Desistimiento, cambios y reembolsos
@@ -65,13 +67,16 @@ Escribe al email del aviso legal. Responderemos en un máximo de 30 días.
 Ley española. Si eres consumidora, puedes acudir a los tribunales de tu domicilio.`;
 
   const refunds = `## Tu derecho de desistimiento
-Tienes 14 días naturales desde la compra para desistir sin dar explicaciones.
+Tienes 14 días naturales para desistir sin dar explicaciones. El día de la compra no cuenta: el plazo empieza al día siguiente y termina a las 23:59 del día 14 (hora de la vendedora).
 
-## Contenido digital, cursos y membresías
-Si pediste acceso inmediato y aceptaste expresamente perder el derecho de desistimiento, ya no podrás desistir una vez empezado el acceso o la descarga (art. 103.m del texto refundido de la Ley General para la Defensa de los Consumidores y Usuarios).
+## Contenido digital, cursos, membresías y lo que se prepara para ti
+Para comprarlos tienes que pedir el acceso inmediato (o, si la vendedora lo prepara para ti, que se empiece a preparar ya) y aceptar expresamente que con ello pierdes tu derecho de desistimiento (art. 103.m del texto refundido de la Ley General para la Defensa de los Consumidores y Usuarios). Sin esa casilla no se puede pagar y, una vez pagados, no se puede desistir. En el email de la compra te confirmamos lo que aceptaste, con la fecha y el texto exacto.
 
-## Sesiones
-Si pediste que la sesión se haga dentro del plazo de desistimiento, ya no podrás desistir una vez realizada (art. 103.a). Si desistes antes de la sesión, te devolvemos el importe completo.
+## Sesiones en directo
+Las sesiones que se pagan en esta web se reservan a partir del día 15 desde la compra: así nunca caen dentro de tus 14 días para desistir. La regla es la misma si eliges la fecha después de pagar, si la cambias o si la vendedora te propone otra (siempre contando desde el día en que pagaste). Durante esos 14 días puedes desistir desde tu área de cliente: te devolvemos el importe completo y se cancela la reserva. Las sesiones que la vendedora te da a mano (de regalo o pagadas por otra vía) no siguen esta regla.
+
+## Talleres con fecha fija
+Si cuando compras quedan 15 días o más para el taller, tienes tus 14 días para desistir con el reembolso completo. Si quedan menos, para comprarlo tienes que pedir expresamente que se realice dentro del plazo de desistimiento: puedes desistir hasta que empiece (te devolvemos el importe completo), pero una vez realizado por completo ya no podrás desistir (art. 103.a).
 
 ## Cambios de fecha
 Cambios gratis hasta ${changeNoticeHours} h antes desde tu área de cliente. Con menos antelación, escribe a la vendedora.
@@ -197,9 +202,10 @@ Se paga ${methods}, en sus páginas seguras. En esta web no se guardan los datos
 
 ## 5. Entrega
 • Productos digitales: acceso inmediato en tu área de cliente.
-• Productos que la vendedora prepara para ti: te llegan en el plazo y por el medio indicados en la ficha. Mientras no los recibas, puedes desistir.
+• Productos que la vendedora prepara para ti: se empiezan a preparar en cuanto pagas y te llegan en el plazo y por el medio indicados en la ficha.
 • Cursos: acceso de por vida mientras el curso exista.
-• Sesiones: por videollamada en la fecha reservada.
+• Sesiones: por videollamada en la fecha reservada, siempre a partir del día 15 desde la compra.
+• Talleres: por videollamada en la fecha fija indicada en la ficha.
 • Membresías: se renuevan automáticamente y puedes cancelarlas desde tu cuenta; mantienes el acceso hasta el final del periodo pagado.
 
 ## 6. Desistimiento, cambios y reembolsos

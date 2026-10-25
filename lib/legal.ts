@@ -10,7 +10,7 @@ import { normalizeDeliveryMode } from "./delivery";
 import { workshopInWithdrawalPeriod } from "./withdrawal";
 
 /** Versión de las plantillas de textos legales de las creadoras (lib/legal-templates.ts). */
-export const LEGAL_TEMPLATE_VERSION = "2026-10c";
+export const LEGAL_TEMPLATE_VERSION = "2026-10d";
 /** Versión de los Términos del servicio de la plataforma que aceptan las creadoras. */
 export const PLATFORM_TERMS_VERSION = "2026-10-15";
 /** La clienta puede cambiar la fecha de una sesión gratis hasta estas horas antes. */

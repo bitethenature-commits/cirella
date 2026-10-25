@@ -6,7 +6,7 @@ import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireCreator } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { creatorLegalHref } from "@/lib/legal";
+import { creatorLegalHref, LEGAL_TEMPLATE_VERSION } from "@/lib/legal";
 import { legalIdentityOf } from "@/lib/legal-snapshot";
 import { currentLegalKind } from "@/lib/commerce";
 import { acceptedLegalDocs } from "@/lib/legal-templates";
@@ -64,7 +64,11 @@ export default async function LegalSettingsPage({ searchParams }: { searchParams
         <div>
           <h2 className="flex items-center gap-2 font-semibold"><FileText className="h-4 w-4" /> {kind === "personal" ? "Tu política de privacidad" : "Tus condiciones y políticas"}</h2>
           <p className="mt-1 text-sm text-muted">
-            Partimos de plantillas pensadas para España. Puedes adaptarlas; te recomendamos revisarlas con tu asesoría. Lo que escribas aquí es responsabilidad tuya.
+            Partimos de plantillas pensadas para España. Puedes adaptarlas. Lo que escribas aquí es responsabilidad tuya.
+          </p>
+          <p role="note" className="mt-3 rounded-xl border border-gold bg-gold-soft px-3 py-2 text-sm text-ink">
+            <strong>Borrador: revísalo con tu asesoría</strong> antes de vender. Plantillas versión {LEGAL_TEMPLATE_VERSION}
+            {kind !== "personal" ? " (incluyen la renuncia obligatoria al desistimiento en lo digital, las sesiones a partir del día 15 y la regla de los talleres)" : ""}.
           </p>
         </div>
         <LegalDocsEditor
