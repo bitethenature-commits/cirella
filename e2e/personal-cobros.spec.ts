@@ -134,7 +134,8 @@ test.describe.serial("Web personal que cobra con tarjeta y PayPal", () => {
     await expect(page.getByRole("link", { name: "Mis canales" }).first()).toBeVisible();
     const main = page.locator("main");
     await expect(main.getByText("Curso", { exact: true })).toBeVisible();
-    await expect(main.getByText("Lectura", { exact: true })).toBeVisible();
+    // Puede haber más de una lectura: acceso-cuenta.spec.ts le compra otra a Laura antes.
+    await expect(main.getByText("Lectura", { exact: true }).first()).toBeVisible();
     await expect(main.getByText("Membresía", { exact: true })).toBeVisible();
     await expect(main.getByText("Recibo y factura")).toHaveCount(0);
     await expect(main.getByText(/€/)).toHaveCount(0);
