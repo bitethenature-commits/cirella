@@ -339,6 +339,8 @@ model Creator {
   subscribers           Subscriber[]
   campaigns             Campaign[]
   campaignRecipients    CampaignRecipient[]
+  calendarNotes         CalendarNote[]
+  natalChart            NatalChart?
 
   @@index([planId])
   @@index([payoutStatus])
@@ -973,6 +975,38 @@ model AvailabilityOverride {
   createdAt   DateTime @default(now())
 
   @@index([creatorId, date])
+}
+
+// Diario de la dueña en el calendario de Reservas: una nota por día (YYYY-MM-DD en su zona). Privada:
+// solo la ve ella en el panel.
+model CalendarNote {
+  id        String   @id @default(cuid())
+  creatorId String
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  date      String // YYYY-MM-DD en la zona de la dueña
+  body      String // texto con formato (lib/rich-text.ts); una nota vacía se borra
+  format    String   @default("MD")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([creatorId, date])
+}
+
+// Carta natal de la dueña, para ver por qué casa pasa cada tránsito del calendario (lib/natal-chart.ts).
+// Privada: en su propia tabla para que nada público que lea Creator la arrastre.
+model NatalChart {
+  id          String   @id @default(cuid())
+  creatorId   String   @unique
+  creator     Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  date        String // YYYY-MM-DD, local del lugar de nacimiento
+  time        String // HH:MM, local del lugar de nacimiento
+  place       String // «Valencia, España» (máx. 120)
+  lat         Float
+  lon         Float
+  timezone    String // zona IANA del lugar (el desfase de entonces sale de Intl)
+  houseSystem String   @default("placidus") // placidus | whole | equal
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // Archivo o enlace que la dueña entrega a UNA clienta (la lectura que prepara, la grabación de su sesión).

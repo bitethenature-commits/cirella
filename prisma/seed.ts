@@ -52,6 +52,7 @@ import { chargeKey } from "../lib/reliability";
 import type { TaxMode } from "../lib/tax";
 import { addDaysToKey, dateKeyInTz, formatInTz, formatSessionDate, weekdayOfKey, zonedTimeToUtc } from "../lib/tz";
 import { addMonthsToKey } from "../lib/access-end";
+import { moonPhasesBetween } from "../lib/astro-calendar";
 import { ANA_AVAILABILITY, DEMO_TZ, demoSchedule } from "./demo-dates";
 import { demoSaleFields } from "./demo-sales";
 
@@ -421,6 +422,8 @@ async function reset() {
     prisma.availabilityRule.deleteMany(),
     prisma.blockedDate.deleteMany(),
     prisma.availabilityOverride.deleteMany(),
+    prisma.calendarNote.deleteMany(),
+    prisma.natalChart.deleteMany(),
     prisma.referral.deleteMany(),
     prisma.creator.deleteMany(),
     prisma.loginToken.deleteMany(),
@@ -818,6 +821,23 @@ async function main() {
       { creatorId: ana.id, date: addDaysToKey(TODAY, 10), kind: "BLOCK", startMinute: 11 * 60, endMinute: 12 * 60, timezone: TZ, note: "Médico" },
     ],
   });
+
+  // Calendario de Reservas: su carta natal (para ver las casas de los tránsitos) y unas notas del
+  // diario este mes y el siguiente, una en la próxima luna nueva y otra en la próxima luna llena.
+  await prisma.natalChart.create({
+    data: { creatorId: ana.id, date: "1990-05-14", time: "10:30", place: "Valencia, España", lat: 39.474, lon: -0.38, timezone: "Europe/Madrid", houseSystem: "placidus" },
+  });
+  const phases = moonPhasesBetween(NOW, new Date(NOW.getTime() + 40 * DAY));
+  const nextNew = phases.find((e) => e.kind === "moon" && e.phase === "new")!;
+  const nextFull = phases.find((e) => e.kind === "moon" && e.phase === "full")!;
+  const nextMonth = `${addMonthsToKey(TODAY, 1).slice(0, 7)}-05`;
+  const notes = new Map<string, string>([
+    [nextMonth, "Revisar precios y preparar el programa del **taller de diciembre**."],
+    [dateKeyInTz(nextFull.at, TZ), "## Luna llena\n\nSoltar lo que ya no sirve. Directo en el Círculo a las 21:00 🌕"],
+    [dateKeyInTz(nextNew.at, TZ), "## Ritual de luna nueva\n\n- Escribir diez intenciones\n- Encender la vela de Velas Alba 🕯️\n- Tirada de tarot para el mes"],
+    [TODAY, "**Intención del día:** cerrar las lecturas pendientes antes del fin de semana.\n\n- Preparar la carta de Lucía\n- Grabar el audio del Círculo"],
+  ]);
+  await prisma.calendarNote.createMany({ data: [...notes].map(([date, body]) => ({ creatorId: ana.id, date, body, format: "MD" })) });
 
   // Automatizaciones (Ana es Pro: todas activas)
   const triggers = ["PURCHASE_RECEIPT", "COURSE_ACCESS", "BOOKING_CONFIRMED", "NEW_SUBSCRIPTION", "SUBSCRIPTION_CANCELED", "WELCOME", "SESSION_REMINDER", "ABANDONED_CHECKOUT"];

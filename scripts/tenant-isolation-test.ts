@@ -77,6 +77,15 @@ async function main() {
   check("María no ve las entregas de Ana", (await mariaDb.orderFile.findFirst({ where: { id: anaOrderFile.id } })) === null);
   check("María no puede borrar una fecha especial de Ana", (await mariaDb.availabilityOverride.deleteMany({ where: { id: anaOverride.id } })).count === 0);
   check("María no puede marcar como enviada una entrega de Ana", (await mariaDb.orderFile.updateMany({ where: { id: anaOrderFile.id }, data: { name: "x" } })).count === 0);
+  // Diario del calendario y carta natal de Ana (sembrados): privados.
+  const anaNote = await prisma.calendarNote.findFirstOrThrow({ where: { creatorId: ana.id } });
+  check("María no ve las notas del calendario de Ana", (await mariaDb.calendarNote.findFirst({ where: { id: anaNote.id } })) === null && (await mariaDb.calendarNote.count({ where: { date: anaNote.date } })) === 0);
+  check("María no puede cambiar ni borrar una nota de Ana", (await mariaDb.calendarNote.updateMany({ where: { id: anaNote.id }, data: { body: "x" } })).count === 0 && (await mariaDb.calendarNote.deleteMany({ where: { id: anaNote.id } })).count === 0);
+  check("María no ve la carta natal de Ana", (await mariaDb.natalChart.findFirst({ where: { creatorId: ana.id } })) === null && (await mariaDb.natalChart.findUnique({ where: { creatorId: ana.id } })) === null);
+  // Un upsert de María con la clave de Ana crea (o cambia) la nota de María, nunca la de Ana.
+  await mariaDb.calendarNote.upsert({ where: { creatorId_date: { creatorId: maria.id, date: anaNote.date } }, create: { creatorId: maria.id, date: anaNote.date, body: "de María" }, update: { body: "de María" } });
+  check("la nota de Ana sigue intacta tras el upsert de María", (await prisma.calendarNote.findUniqueOrThrow({ where: { id: anaNote.id } })).body === anaNote.body);
+  await prisma.calendarNote.deleteMany({ where: { creatorId: maria.id, date: anaNote.date } });
   // Comunidad: comentarios y «me gusta» sembrados de Ana invisibles e intocables para María.
   const anaComment = await prisma.membershipComment.findFirstOrThrow({ where: { creatorId: ana.id } });
   const anaLike = await prisma.membershipPostLike.findFirstOrThrow({ where: { creatorId: ana.id } });
