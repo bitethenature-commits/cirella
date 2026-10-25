@@ -423,7 +423,6 @@ async function reset() {
     prisma.blockedDate.deleteMany(),
     prisma.availabilityOverride.deleteMany(),
     prisma.calendarNote.deleteMany(),
-    prisma.natalChart.deleteMany(),
     prisma.referral.deleteMany(),
     prisma.creator.deleteMany(),
     prisma.loginToken.deleteMany(),
@@ -822,11 +821,8 @@ async function main() {
     ],
   });
 
-  // Calendario de Reservas: su carta natal (para ver las casas de los tránsitos) y unas notas del
-  // diario este mes y el siguiente, una en la próxima luna nueva y otra en la próxima luna llena.
-  await prisma.natalChart.create({
-    data: { creatorId: ana.id, date: "1990-05-14", time: "10:30", place: "Valencia, España", lat: 39.474, lon: -0.38, timezone: "Europe/Madrid", houseSystem: "placidus" },
-  });
+  // Calendario de Reservas: unas notas del diario este mes y el siguiente, una en la próxima luna
+  // nueva y otra en la próxima luna llena.
   const phases = moonPhasesBetween(NOW, new Date(NOW.getTime() + 40 * DAY));
   const nextNew = phases.find((e) => e.kind === "moon" && e.phase === "new")!;
   const nextFull = phases.find((e) => e.kind === "moon" && e.phase === "full")!;

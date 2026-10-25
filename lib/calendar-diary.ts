@@ -1,14 +1,13 @@
 import "server-only";
-import { canonicalTimezone, tzCity } from "./timezones";
+import { tzCity } from "./timezones";
 import { astroByDay, dayRangeUtc, monthGrid, type AstroDay, type YearMonth } from "./owner-calendar";
-import { natalChartSchema, natalHouses, readNatalChart, type Houses, type NatalChart } from "./natal-chart";
 import { tenantDb } from "./tenant";
 import { dateKeyInTz, minutesToLabel, timeInTz } from "./tz";
 
 /**
  * Calendario de Reservas (panel de la dueña): lo de cada día del mes (sesiones, talleres, días y horas
- * bloqueados, fechas especiales, su nota del diario y el cielo) y el guardado de las notas y de su
- * carta natal. Todo por tenantDb: es privado de la dueña.
+ * bloqueados, fechas especiales, su nota del diario y el cielo) y el guardado de las notas. Todo por
+ * tenantDb: es privado de la dueña.
  */
 
 export const NOTE_MAX = 20_000;
@@ -39,28 +38,6 @@ export async function saveDayNote(creatorId: string, date: unknown, body: unknow
   return { ok: true, savedAt: n.updatedAt };
 }
 
-/** Guarda la carta natal (valida fecha, hora, lugar, coordenadas y zona). */
-export async function saveNatalChart(creatorId: string, input: unknown): Promise<{ ok: true; chart: NatalChart } | { ok: false; error: string }> {
-  const parsed = natalChartSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Revisa la fecha, la hora y el lugar de nacimiento" };
-  const c = parsed.data;
-  if (!isDateKey(c.date) || c.date < "1900-01-01" || c.date > dateKeyInTz(new Date(), "UTC")) return { ok: false, error: "Fecha de nacimiento no válida" };
-  const timezone = canonicalTimezone(c.timezone);
-  if (!timezone) return { ok: false, error: "Zona horaria no válida" };
-  const data = { ...c, timezone };
-  await tenantDb(creatorId).natalChart.upsert({ where: { creatorId }, create: { creatorId, ...data }, update: data });
-  return { ok: true, chart: data };
-}
-
-export async function deleteNatalChart(creatorId: string) {
-  await tenantDb(creatorId).natalChart.deleteMany({});
-}
-
-export async function loadNatalChart(creatorId: string): Promise<NatalChart | null> {
-  const row = await tenantDb(creatorId).natalChart.findFirst({});
-  return row ? readNatalChart(row) : null;
-}
-
 export type DayBooking = { id: string; time: string; client: string; product: string; status: string };
 export type DayWorkshop = { productId: string; title: string; time: string; seats: number; capacity: number | null };
 export type DayData = {
@@ -81,7 +58,6 @@ export type DayData = {
 export type CalendarMonth = {
   month: YearMonth;
   days: DayData[];
-  chart: { place: string; system: Houses["system"]; polar: boolean; asc: number; mc: number } | null;
 };
 
 const hours = (a: number, b: number) => `${minutesToLabel(a)}–${b === 1440 ? "24:00" : minutesToLabel(b)}`;
@@ -92,7 +68,7 @@ export async function loadCalendarMonth(creator: { id: string; timezone: string 
   const keys = monthGrid(month);
   const { from, to } = dayRangeUtc(keys[0], keys[keys.length - 1], tz);
   const db = tenantDb(creator.id);
-  const [bookings, workshops, blocked, overrides, notes, chartRow] = await Promise.all([
+  const [bookings, workshops, blocked, overrides, notes] = await Promise.all([
     db.booking.findMany({
       where: { groupSeat: false, status: { in: ["CONFIRMED", "COMPLETED"] }, startAt: { gte: from, lt: to } },
       orderBy: { startAt: "asc" },
@@ -106,11 +82,8 @@ export async function loadCalendarMonth(creator: { id: string; timezone: string 
     db.blockedDate.findMany({ where: { date: { gte: keys[0], lte: keys[keys.length - 1] } } }),
     db.availabilityOverride.findMany({ where: { date: { gte: keys[0], lte: keys[keys.length - 1] } }, orderBy: { startMinute: "asc" } }),
     db.calendarNote.findMany({ where: { date: { gte: keys[0], lte: keys[keys.length - 1] } } }),
-    db.natalChart.findFirst({}),
   ]);
-  const chart = chartRow ? readNatalChart(chartRow) : null;
-  const houses = chart ? natalHouses(chart) : null;
-  const astro = astroByDay(keys, tz, houses?.cusps);
+  const astro = astroByDay(keys, tz);
   const prefix = `${month.year}-${String(month.month).padStart(2, "0")}`;
   const days = new Map<string, DayData>(
     keys.map((key) => [key, { key, inMonth: key.startsWith(prefix), bookings: [], workshops: [], blocked: null, blockedHours: [], special: [], note: null, astro: astro.get(key)! }]),
@@ -138,9 +111,5 @@ export async function loadCalendarMonth(creator: { id: string; timezone: string 
     const d = days.get(n.date);
     if (d) d.note = { body: n.body, updatedAt: n.updatedAt.toISOString() };
   }
-  return {
-    month,
-    days: [...days.values()],
-    chart: chart && houses ? { place: chart.place, system: houses.system, polar: houses.polar, asc: houses.asc, mc: houses.mc } : null,
-  };
+  return { month, days: [...days.values()] };
 }

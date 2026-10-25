@@ -6,9 +6,8 @@ import { addDaysToKey, dateKeyInTz } from "../lib/tz";
 /**
  * Calendario de Reservas en la web personal de Ana (puerto 3101, iPhone 13):
  *   · el mes con las marcas (su nota de hoy, la próxima luna llena), «Mes siguiente» y «Hoy»;
- *   · tocar un día abre su hoja: agenda, diario y cielo con las casas de su carta (sembrada);
+ *   · tocar un día abre su hoja: agenda, diario y cielo (sin casas);
  *   · escribir una nota en un día vacío, que se guarda sola, y seguir ahí al recargar;
- *   · «Mi carta natal» en Tu horario: el resumen y el buscador de ciudades.
  * Borra la nota que escribe.
  */
 
@@ -55,10 +54,11 @@ test("Ana ve el mes con sus marcas, abre un día, escribe su nota y sigue ahí a
   await expect(fullCell).toHaveAttribute("aria-label", /luna llena/);
   await fullCell.click();
   const fullSheet = page.locator(`dialog[data-day-sheet="${fullKey}"]`);
-  await expect(fullSheet.getByText(/Luna llena en \S+ \d+°\d\d′ · Casa \d+/)).toBeVisible();
+  await expect(fullSheet.getByText(/Luna llena en \S+ \d+°\d\d′/)).toBeVisible();
   await expect(fullSheet.getByText("Planetas retrógrados hoy:")).toBeVisible();
-  await expect(fullSheet.getByText("Hoy en tu carta")).toBeVisible();
-  await expect(fullSheet.getByText(/Quirón.* · Casa \d+/)).toBeVisible();
+  await expect(fullSheet.getByText("Hoy en el cielo")).toBeVisible();
+  await expect(fullSheet.getByText(/Quirón.* en \S+ \d+°/)).toBeVisible();
+  await expect(fullSheet.getByText(/Casa \d+/)).toHaveCount(0);
   await fullSheet.getByRole("button", { name: "Cerrar" }).click();
   await expect(fullSheet).toHaveCount(0);
 
@@ -83,16 +83,4 @@ test("Ana ve el mes con sus marcas, abre un día, escribe su nota y sigue ahí a
   await page.locator(`dialog[data-day-sheet="${empty}"]`).getByRole("button", { name: "Cerrar" }).click();
   if (empty.slice(0, 7) === today.slice(0, 7)) await expect(page.locator(`[data-day="${empty}"]`)).toHaveAttribute("aria-label", /nota/);
   expect((await prisma.calendarNote.findUnique({ where: { creatorId_date: { creatorId: ana.id, date: empty } } }))?.body).toBe(text);
-});
-
-test("«Mi carta natal»: el resumen de la carta de Ana y el buscador de ciudades", async ({ page }) => {
-  await demoLogin(page, "Ana Luna");
-  await page.goto("/panel/reservas/horario#carta-natal");
-  const card = page.locator("#carta-natal");
-  await expect(card.locator("[data-natal-summary]")).toContainText("Ascendente Cáncer 17°");
-  await expect(card.getByText("Valencia, España")).toBeVisible();
-  await card.getByLabel("Lugar de nacimiento").fill("bogo");
-  await expect(card.getByRole("list", { name: "Ciudades" }).getByRole("button", { name: /Bogotá/ }).first()).toBeVisible();
-  await card.getByRole("button", { name: "Introducir coordenadas" }).click();
-  await expect(card.getByLabel(/Latitud/)).toBeVisible();
 });

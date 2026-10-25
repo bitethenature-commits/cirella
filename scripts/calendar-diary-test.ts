@@ -1,10 +1,10 @@
 /**
- * Calendario de Reservas: diario (una nota por día), carta natal y el mes con todo (Postgres).
+ * Calendario de Reservas: diario (una nota por día) y el mes con todo (Postgres).
  *   npm run test:calendar-diary        (con la BD sembrada: npm run db:reset)
  *
  * Notas: guardar, cambiar, vaciar = borrar, días imposibles, límite de tamaño y aislamiento entre Ana
- * y María. Carta natal: validación, zona canónica y aislamiento. El mes: notas, reservas, bloqueos,
- * cielo y casas de la carta sembrada de Ana. Usa días de 2031 (sin datos sembrados) y los borra.
+ * y María. El mes: notas, reservas, bloqueos y el cielo de cada día. Usa días de 2031 (sin datos
+ * sembrados) y los borra.
  */
 import "./load-env";
 
@@ -24,15 +24,13 @@ let cleanup = async () => {};
 
 async function main() {
   const { prisma } = await import("../lib/db");
-  const { saveDayNote, saveNatalChart, deleteNatalChart, loadNatalChart, loadCalendarMonth, isDateKey, NOTE_MAX } = await import("../lib/calendar-diary");
+  const { saveDayNote, loadCalendarMonth, isDateKey, NOTE_MAX } = await import("../lib/calendar-diary");
   const { tenantDb } = await import("../lib/tenant");
   const { dateKeyInTz } = await import("../lib/tz");
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
   const maria = await prisma.creator.findUniqueOrThrow({ where: { username: "maria" } });
-  const mariaChartBefore = await prisma.natalChart.findUnique({ where: { creatorId: maria.id } });
   cleanup = async () => {
     await prisma.calendarNote.deleteMany({ where: { date: { startsWith: "2031-" } } });
-    if (!mariaChartBefore) await prisma.natalChart.deleteMany({ where: { creatorId: maria.id } });
     await prisma.$disconnect();
   };
 
@@ -61,27 +59,14 @@ async function main() {
   check("en el mes de María no está la nota de Ana", mariaMarch.days.every((d) => d.note === null));
   check("rejilla de marzo de 2031: de lunes 24-2 a domingo 6-4, con inMonth", anaMarch.days[0].key === "2031-02-24" && anaMarch.days.at(-1)!.key === "2031-04-06" && anaMarch.days.filter((d) => d.inMonth).length === 31);
 
-  // ── Carta natal ──
-  check("una carta sin hora válida se rechaza", !(await saveNatalChart(maria.id, { date: "1985-02-01", time: "7:5", place: "Madrid", lat: 40.4, lon: -3.7, timezone: "Europe/Madrid" })).ok);
-  check("una zona inventada se rechaza", !(await saveNatalChart(maria.id, { date: "1985-02-01", time: "07:05", place: "Madrid", lat: 40.4, lon: -3.7, timezone: "Marte/Olympus" })).ok);
-  check("una fecha futura se rechaza", !(await saveNatalChart(maria.id, { date: "2099-02-01", time: "07:05", place: "Madrid", lat: 40.4, lon: -3.7, timezone: "Europe/Madrid" })).ok);
-  const saved = await saveNatalChart(maria.id, { date: "1985-02-01", time: "07:05", place: "Madrid, España", lat: 40.4, lon: -3.7, timezone: "Europe/Madrid", houseSystem: "whole" });
-  check("guardar la carta de María (signos enteros)", saved.ok && (await loadNatalChart(maria.id))?.houseSystem === "whole");
-  const anaChart = await loadNatalChart(ana.id);
-  check("la carta de Ana (sembrada) no cambia", anaChart?.place === "Valencia, España" && anaChart.time === "10:30");
-  check("tenantDb(María) no ve la carta de Ana", (await tenantDb(maria.id).natalChart.findMany({})).every((c) => c.creatorId === maria.id));
-  await deleteNatalChart(maria.id);
-  check("borrar la carta de María deja la de Ana", (await prisma.natalChart.count({ where: { creatorId: maria.id } })) === 0 && (await prisma.natalChart.count({ where: { creatorId: ana.id } })) === 1);
-
   // ── El mes actual de Ana (sembrado) ──
   const today = dateKeyInTz(new Date(), ana.timezone);
   const ym = { year: Number(today.slice(0, 4)), month: Number(today.slice(5, 7)) };
   const month = await loadCalendarMonth(ana, ym);
   const all = new Map(month.days.map((d) => [d.key, d]));
-  check("el mes trae la carta de Ana con Plácidus", month.chart?.system === "placidus" && month.chart.place === "Valencia, España");
   check("hoy tiene la nota sembrada", all.get(today)?.note?.body.includes("Intención del día") === true);
-  check("el cielo de cada día trae posiciones con casa", month.days.every((d) => d.astro.positions.length >= 12 && d.astro.positions.every((p) => p.house! >= 1 && p.house! <= 12)));
-  check("hay al menos una luna nueva o llena con su casa", month.days.some((d) => d.astro.lines.some((l) => l.kind === "moon" && l.house)));
+  check("el cielo de cada día trae las posiciones, sin casas", month.days.every((d) => d.astro.positions.length >= 13 && d.astro.positions.every((p) => !("house" in p))));
+  check("hay al menos una luna nueva o llena, con signo y grado", month.days.some((d) => d.astro.lines.some((l) => l.kind === "moon" && /en \S+ \d+°\d\d′/.test(l.text))));
   const sessions = await prisma.booking.findMany({ where: { creatorId: ana.id, groupSeat: false, status: "CONFIRMED", startAt: { not: null } } });
   const inGrid = sessions.filter((b) => all.has(dateKeyInTz(b.startAt!, ana.timezone)));
   check("las sesiones confirmadas del mes salen en su día", inGrid.every((b) => all.get(dateKeyInTz(b.startAt!, ana.timezone))!.bookings.some((x) => x.id === b.id)), inGrid.length);

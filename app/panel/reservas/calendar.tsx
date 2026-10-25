@@ -150,8 +150,7 @@ export function OwnerCalendar({
         <li className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-sage" /> Fecha especial</li>
       </ul>
       <p className="mt-1.5 text-xs text-faint">
-        Horas en tu zona ({tzLabel}). Toca un día para ver todo y escribir tu nota.{" "}
-        <Link href="/panel/reservas/horario#carta-natal" className="underline">{data.chart ? "Mi carta natal" : "Añade tu carta natal para ver las casas"}</Link>
+        Horas en tu zona ({tzLabel}). Toca un día para ver todo y escribir tu nota.
       </p>
 
       {day && (
@@ -159,7 +158,6 @@ export function OwnerCalendar({
           key={day.key}
           day={day}
           note={notes[day.key] ?? null}
-          hasChart={!!data.chart}
           onSaved={(n) => setNotes((x) => ({ ...x, [day.key]: n }))}
           onClose={() => setOpen(null)}
           onPrev={idx > 0 ? () => setOpen(data.days[idx - 1].key) : null}
@@ -175,7 +173,6 @@ type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 function DaySheet({
   day,
   note,
-  hasChart,
   onSaved,
   onClose,
   onPrev,
@@ -183,7 +180,6 @@ function DaySheet({
 }: {
   day: DayData;
   note: { body: string; updatedAt: string } | null;
-  hasChart: boolean;
   onSaved: (n: { body: string; updatedAt: string } | null) => void;
   onClose: () => void;
   onPrev: (() => void) | null;
@@ -355,24 +351,18 @@ function DaySheet({
             <span className="font-semibold">Planetas retrógrados hoy: </span>
             {day.astro.retrograde.length ? day.astro.retrograde.map((r) => `${r} ℞`).join(", ") : "ninguno"}
           </p>
-          <details className="mt-3 rounded-2xl border border-line bg-white" open={hasChart}>
+          <details className="mt-3 rounded-2xl border border-line bg-white" open>
             <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 text-sm font-semibold">
-              <Sparkles className="h-4 w-4 text-lavender-deep" /> {hasChart ? "Hoy en tu carta" : "Posiciones de hoy"} <span className="font-normal text-muted">(a las 12:00)</span>
+              <Sparkles className="h-4 w-4 text-lavender-deep" /> Hoy en el cielo <span className="font-normal text-muted">(a las 12:00)</span>
             </summary>
             <ul className="grid gap-x-4 gap-y-1 px-3 pb-3 text-sm sm:grid-cols-2">
               {day.astro.positions.map((p) => (
                 <li key={p.body}>
                   <span className="font-medium">{p.name}{p.retro ? " ℞" : ""}</span> en {p.where}
-                  {p.house ? <span className="text-muted"> · Casa {p.house}</span> : null}
                 </li>
               ))}
             </ul>
           </details>
-          {!hasChart && (
-            <p className="mt-2 text-sm text-muted">
-              <Link href="/panel/reservas/horario#carta-natal" className="font-medium text-ink underline">Añade tu carta natal para ver las casas</Link> por las que pasa cada cosa.
-            </p>
-          )}
         </section>
       </div>
     </dialog>
@@ -388,7 +378,7 @@ function AstroItem({ line }: { line: AstroLine }) {
         <span className="block text-[0.68rem] font-semibold uppercase tracking-wider text-muted">{line.label}</span>
         <span className="block">
           {line.text}
-          {line.house ? ` · Casa ${line.house}` : ""} <span className="text-muted">· {line.time}</span>
+          {" "}<span className="text-muted">· {line.time}</span>
         </span>
       </span>
     </li>
