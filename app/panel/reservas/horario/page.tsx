@@ -2,9 +2,9 @@ import Link from "next/link";
 import { ArrowLeft, CalendarX, X } from "lucide-react";
 import { TzDriftNotice } from "@/components/booking/tz-drift-notice";
 import { requireCreator } from "@/lib/auth";
-import { tzCity } from "@/lib/timezones";
+import { specialHoursLabel } from "@/lib/special-hours";
 import { tenantDb } from "@/lib/tenant";
-import { dateKeyInTz, minutesToLabel } from "@/lib/tz";
+import { dateKeyInTz } from "@/lib/tz";
 import { PageHeader } from "../../ui";
 import { addBlockedDate, removeBlockedDate, removeOverride } from "../actions";
 import { AvailabilityEditor } from "../availability";
@@ -12,7 +12,6 @@ import { SpecialHoursForm, TimeBlockForm } from "./special-dates";
 
 const dayLabel = (key: string, opts: Intl.DateTimeFormatOptions = { weekday: "short", day: "numeric", month: "short" }) =>
   new Date(`${key}T12:00:00Z`).toLocaleDateString("es-ES", { ...opts, timeZone: "UTC" }).replace(/\./g, "");
-const hours = (a: number, b: number) => `${minutesToLabel(a).replace(/^0/, "")}–${b === 1440 ? "24:00" : minutesToLabel(b).replace(/^0/, "")}`;
 
 /** Tu horario: semanal, fechas especiales (viajes, días sueltos) y lo que bloqueas. */
 export default async function SchedulePage() {
@@ -48,8 +47,7 @@ export default async function SchedulePage() {
             {[...special.entries()].map(([date, rows]) => (
               <li key={date} className="flex items-center gap-3 p-3 text-sm">
                 <span className="min-w-0 flex-1">
-                  <strong>{dayLabel(date)}</strong> · {rows.map((r) => hours(r.startMinute, r.endMinute)).join(", ")}
-                  {rows[0].timezone !== creator.timezone && ` (hora de ${tzCity(rows[0].timezone)})`}
+                  <strong>{dayLabel(date)}</strong> · {specialHoursLabel(date, rows, rows[0].timezone, creator.timezone)}
                   {rows[0].note && <span className="text-muted"> · {rows[0].note}</span>}
                 </span>
                 <form action={removeOverride}>
@@ -93,7 +91,7 @@ export default async function SchedulePage() {
           {blocks.map((b) => (
             <form key={b.id} action={removeOverride} className="inline-flex items-center gap-2 rounded-full border border-line bg-white py-1 pl-3 pr-1 text-sm">
               <input type="hidden" name="id" value={b.id} />
-              {dayLabel(b.date)} · {hours(b.startMinute, b.endMinute)}
+              {dayLabel(b.date)} · {specialHoursLabel(b.date, [b], b.timezone, creator.timezone)}
               {b.note && <span className="text-muted">· {b.note}</span>}
               <button className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand" aria-label="Desbloquear horas"><X className="h-3 w-3" /></button>
             </form>

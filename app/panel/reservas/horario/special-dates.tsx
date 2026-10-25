@@ -3,6 +3,8 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
 import { browserTimezone, TimezoneSelect } from "@/components/booking/timezone-select";
 import { Flash } from "@/components/ui/flash";
+import { specialHoursLabel } from "@/lib/special-hours";
+import { labelToMinutes } from "@/lib/tz";
 import { addSpecialHours, addTimeBlock, type HorarioState } from "../actions";
 
 /**
@@ -53,6 +55,12 @@ export function SpecialHoursForm({ ownerTz, today }: { ownerTz: string; today: s
       <div>
         <label className="field-label" htmlFor="sp-tz">Zona horaria de esas horas</label>
         <TimezoneSelect id="sp-tz" name="timezone" value={tz} onChange={setTz} />
+        {/* En otra zona, cómo quedan esas horas en la suya («9:00–13:00 en Bali (2:00–6:00 en España)»). */}
+        {tz !== ownerTz && ranges.every((r) => r.start && r.end && r.end > r.start) && (
+          <p className="mt-1.5 text-sm text-muted" data-special-preview>
+            {specialHoursLabel(from || today, ranges.map((r) => ({ startMinute: labelToMinutes(r.start), endMinute: labelToMinutes(r.end) })), tz, ownerTz)}
+          </p>
+        )}
       </div>
       <div>
         <label className="field-label" htmlFor="sp-note">Nota <span className="font-normal text-muted">(solo la ves tú)</span></label>

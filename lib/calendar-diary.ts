@@ -1,8 +1,8 @@
 import "server-only";
-import { tzCity } from "./timezones";
+import { specialHoursLabel } from "./special-hours";
 import { astroByDay, dayRangeUtc, monthGrid, type AstroDay, type YearMonth } from "./owner-calendar";
 import { tenantDb } from "./tenant";
-import { dateKeyInTz, minutesToLabel, timeInTz } from "./tz";
+import { dateKeyInTz, timeInTz } from "./tz";
 
 /**
  * Calendario de Reservas (panel de la dueña): lo de cada día del mes (sesiones, talleres, días y horas
@@ -47,9 +47,9 @@ export type DayData = {
   workshops: DayWorkshop[];
   /** Día entero bloqueado (BlockedDate). */
   blocked: { reason: string | null } | null;
-  /** Horas bloqueadas: «11:00–12:00 · Médico». */
+  /** Horas bloqueadas: «11:00–12:00 · Médico» (en otra zona, también en la suya). */
   blockedHours: string[];
-  /** Fecha especial: «9:00–13:00 (hora de Bali) · Bali». */
+  /** Fecha especial: «9:00–13:00 en Bali (2:00–6:00 en España) · Bali». */
   special: string[];
   note: { body: string; updatedAt: string } | null;
   astro: AstroDay;
@@ -60,7 +60,6 @@ export type CalendarMonth = {
   days: DayData[];
 };
 
-const hours = (a: number, b: number) => `${minutesToLabel(a)}–${b === 1440 ? "24:00" : minutesToLabel(b)}`;
 
 /** Todo lo de la rejilla del mes (con los días de los meses vecinos que completan las semanas). */
 export async function loadCalendarMonth(creator: { id: string; timezone: string }, month: YearMonth): Promise<CalendarMonth> {
@@ -103,8 +102,7 @@ export async function loadCalendarMonth(creator: { id: string; timezone: string 
   for (const o of overrides) {
     const d = days.get(o.date);
     if (!d) continue;
-    const where = o.timezone !== tz ? ` (hora de ${tzCity(o.timezone)})` : "";
-    const text = `${hours(o.startMinute, o.endMinute)}${where}${o.note ? ` · ${o.note}` : ""}`;
+    const text = `${specialHoursLabel(o.date, [o], o.timezone, tz)}${o.note ? ` · ${o.note}` : ""}`;
     (o.kind === "BLOCK" ? d.blockedHours : d.special).push(text);
   }
   for (const n of notes) {

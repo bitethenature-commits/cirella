@@ -84,6 +84,12 @@ test("Ana ve el mes con sus marcas, abre un día, escribe su nota y sigue ahí a
   await expect(page.locator(`dialog[data-day-sheet="${moonKey}"]`).getByText(/☌ Luna – /).first()).toBeVisible();
   await page.locator(`dialog[data-day-sheet="${moonKey}"]`).getByRole("button", { name: "Cerrar" }).click();
 
+  // El viaje a Bali (sembrado): en «Tu agenda», sus horas en Bali y en España.
+  const bali = await prisma.availabilityOverride.findFirstOrThrow({ where: { creatorId: ana.id, kind: "HOURS", note: "Bali" }, orderBy: { date: "asc" } });
+  await page.goto(`/panel/reservas?dia=${bali.date}`);
+  await expect(page.locator(`dialog[data-day-sheet="${bali.date}"]`).getByText(/Fecha especial: trabajas 9:00–13:00 en Bali \(\d+:00–\d+:00( del día anterior)? en España\) · Bali/)).toBeVisible();
+  await page.locator(`dialog[data-day-sheet="${bali.date}"]`).getByRole("button", { name: "Cerrar" }).click();
+
   // «Mes siguiente» y «Hoy».
   await page.goto(`/panel/reservas?mes=${today.slice(0, 7)}`);
   await page.getByRole("link", { name: "Mes siguiente" }).click();

@@ -43,7 +43,7 @@ function dayLabel(d: DayData, hasNote: boolean, v: Visible) {
   if (marks.stations) bits.push(plural(marks.stations, "estación", "estaciones"));
   if (d.blocked) bits.push("día bloqueado");
   else if (d.blockedHours.length) bits.push("horas bloqueadas");
-  if (d.special.length) bits.push("fecha especial");
+  if (d.special.length) bits.push(`fecha especial: ${d.special.join("; ")}`);
   const [y, m, day] = d.key.split("-").map(Number);
   const wd = WEEKDAYS_LONG[(new Date(Date.UTC(y, m - 1, day)).getUTCDay() + 6) % 7];
   const date = new Date(`${d.key}T12:00:00Z`).toLocaleDateString("es-ES", { day: "numeric", month: "long", timeZone: "UTC" });
@@ -170,7 +170,11 @@ export function OwnerCalendar({
                   {m.conjunctions > 0 && <span className="font-semibold text-ink-3">☌{m.conjunctions > 1 ? m.conjunctions : ""}</span>}
                   {m.stations > 0 && <span className="font-semibold text-rose">℞</span>}
                   {(d.blocked || d.blockedHours.length > 0) && <Ban className="h-3 w-3 text-muted" />}
-                  {d.special.length > 0 && <Clock className="h-3 w-3 text-sage" />}
+                  {d.special.length > 0 && (
+                    <span title={`Fecha especial: ${d.special.join("; ")}`}>
+                      <Clock className="h-3 w-3 text-sage" />
+                    </span>
+                  )}
                 </span>
               </button>
             );

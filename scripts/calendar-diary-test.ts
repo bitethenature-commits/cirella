@@ -77,7 +77,7 @@ async function main() {
   const hoursBlock = await prisma.availabilityOverride.findFirstOrThrow({ where: { creatorId: ana.id, kind: "BLOCK" } });
   check("la hora bloqueada (Médico) sale en su día", (await dayOf(hoursBlock.date)).blockedHours.some((h) => h.includes("Médico")));
   const bali = await prisma.availabilityOverride.findFirstOrThrow({ where: { creatorId: ana.id, kind: "HOURS" } });
-  check("la fecha especial (Bali) sale con su zona", (await dayOf(bali.date)).special.some((h) => h.includes("Bali") && h.includes("hora de")));
+  check("la fecha especial (Bali) sale en Bali y en España", (await dayOf(bali.date)).special.some((h) => /^9:00–13:00 en Bali \(.+ en España\) · Bali$/.test(h)), (await dayOf(bali.date)).special);
   check("los días fuera del mes van marcados", month.days.some((d) => !d.inMonth) || month.days.length % 7 === 0);
 }
 

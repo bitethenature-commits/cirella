@@ -179,10 +179,12 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     await page.getByLabel("Desde las").fill("09:00");
     await page.getByLabel("Hasta las").fill("11:00");
     await page.getByLabel("Zona horaria de esas horas").selectOption("Asia/Makassar");
+    // Antes de guardar, cómo quedan en su hora de siempre.
+    await expect(page.locator("[data-special-preview]")).toHaveText(/^9:00–11:00 en Bali \(.+ en España\)$/);
     await page.getByLabel(/^Nota/).fill(TAG);
     await page.getByRole("button", { name: "Guardar fechas especiales" }).click();
     await expect(page.getByText("Fecha especial guardada")).toBeVisible();
-    await expect(page.getByText("(hora de Bali (Makassar))").first()).toBeVisible();
+    await expect(page.getByText(/9:00–11:00 en Bali \(\d+:00–\d+:00( del día anterior)? en España\)/).first()).toBeVisible();
 
     const prisma = new PrismaClient();
     const hd = await prisma.product.findFirstOrThrow({ where: { slug: "lectura-human-design" } });
