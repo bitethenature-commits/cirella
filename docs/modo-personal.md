@@ -589,6 +589,15 @@ no hace falta Calendly ni Google Calendar. Tú trabajas con tu enlace de Zoom y 
    fecha y datos nuevos) y «Segundo recordatorio» (60 minutos antes, con el Zoom) vienen
    activados; puedes cambiar los minutos o desactivarlos.
 
+9. **El calendario** (arriba en **Reservas**): el mes en tu zona horaria con lo que hay cada día
+   (sesiones, talleres, tus notas, días y horas bloqueados) y el cielo: lunas nuevas 🌑 y llenas 🌕,
+   eclipses, conjunciones ☌ (Sol, planetas, Quirón, Nodo Norte medio y Lilith media) y cuando un
+   planeta se pone retrógrado o directo ℞. Toca un día para ver todo con la hora, el signo y el
+   grado, los planetas retrógrados y dónde está cada cosa, y para escribir tu nota del día (se
+   guarda sola; solo la ves tú). Con tu carta natal (**Reservas → Tu horario → Mi carta natal**:
+   fecha, hora y lugar de nacimiento, y Plácidus, signos enteros o casas iguales) cada cosa dice
+   también por qué casa pasa.
+
 Mientras una clienta está pagando en Stripe o PayPal, esa hora queda guardada (hasta unos 30
 minutos): así dos personas no pagan la misma hora. Si el pago falla, la hora vuelve a estar libre.
 

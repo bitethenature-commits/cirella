@@ -351,6 +351,8 @@ Los archivos viven en disco (`./storage`) en desarrollo y en Cloudflare R2 (juri
 
 **Visores** (`components/media`, punto de entrada `MediaView`): el vídeo usa la URL firmada de 3 h y la renueva solo (`/api/download/[id]?inline=1&format=json`); el PDF (pdf.js 6.3.289, recursos copiados a `public/assets/pdfjs/<versión>/` por `prebuild`/`predev`), las imágenes privadas y el audio de la web personal llegan por `GET /api/stream/[fileId]`, desde la misma web, comprobando el acceso en cada petición con Range (tramos de 8 MiB, tipo de la lista, `nosniff`, CORP `same-origin`, CSP `sandbox`). El visor de un archivo comprado es `/cuenta/archivos/[fileId]`. Los enlaces de YouTube y Vimeo se incrustan con `lib/video-embed.ts` (youtube-nocookie, código de privacidad de Vimeo y `dnt=1`); otro enlace se abre fuera («Abrir el vídeo»).
 
+**Calendario de Reservas** (`app/panel/reservas/calendar.tsx`, datos en `lib/calendar-diary.ts`): el cielo sale de `lib/astro-calendar.ts` (astronomy-engine 2.1.19, MIT; geocéntrico y tropical; Quirón de una tabla de JPL Horizons 2000–2050 generada con `scripts/gen-chiron-table.ts`; Nodo Norte y Lilith medios con las fórmulas de Meeus) y las casas de `lib/natal-chart.ts` (Plácidus, signos enteros, iguales; Porfirio por encima del círculo polar). El lugar de nacimiento se busca en `lib/cities-data.ts`, generado con `scripts/gen-cities.ts` a partir de GeoNames (geonames.org, CC BY 4.0). Nada de esto consulta servicios de fuera en marcha.
+
 **Texto con formato** (`lib/rich-text.ts`, «MD» al estilo de WhatsApp): `**negrita**`, `_cursiva_`, `## encabezado`, listas, citas, líneas, `[texto](enlace)` e imágenes propias. Se edita con `RichTextEditor` y se pinta con `RichContent` (web) o `richToEmailHtml` (emails, con el dominio real de cada enlace). Cada campo tiene su columna `…Format`: null = texto de antes, que se pinta exactamente igual que siempre.
 
 ---
@@ -367,6 +369,7 @@ npm run test:concurrency        # dos compras simultáneas del mismo hueco → u
 npm run test:pages              # páginas extra y bloques: aislamiento, direcciones, saneamiento, borrador/publicado, pie, botón en la portada y el vídeo de la página (web personal y plataforma)
 npm run test:community          # comunidad: cursos incluidos, fin de acceso (cron y en cada visita), publicaciones programadas, adjuntos, avisos por email, bajas, comentarios y «me gusta»
 npm run test:calendar           # calendario propio: fechas especiales, horizonte, horas guardadas al pagar, zona de la clienta, avisos, talleres, sesiones dadas a mano y entregas
+npm run test:calendar-diary     # calendario de Reservas: notas del diario, carta natal y lo de cada día del mes (con aislamiento)
 npm run test:reliability        # reintentos de emails, outbox de eventos, cerrojo del cron, renovaciones idempotentes, vigilante
 npm run test:payments           # entrega única ante avisos repetidos, guardián de importe, renovaciones fallidas, cuenta de cobro y DAC7
 npm run test:refunds            # reembolsos (a la vez, pendientes, fallidos, avisos de la pasarela), desistimiento y cambios de reserva
