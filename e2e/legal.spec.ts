@@ -44,7 +44,8 @@ test.describe.serial("Cumplimiento legal", () => {
     await expect(page.getByText("Acepta las condiciones de venta para continuar")).toBeVisible();
     await terms.check();
     await pay.click();
-    await expect(page.getByText("Para acceder ahora necesitamos tu consentimiento de acceso inmediato")).toBeVisible();
+    await expect(page.getByText("Para pagar, marca la casilla de acceso inmediato y renuncia al desistimiento")).toBeVisible();
+    expect(await prisma.order.count({ where: { buyerEmail, status: "PAID" } })).toBe(0);
 
     await page.getByLabel(/Quiero acceder ya al contenido/).check();
     await page.getByLabel(/Quiero recibir novedades/).check();
@@ -55,6 +56,9 @@ test.describe.serial("Cumplimiento legal", () => {
     const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail } });
     expect(order.termsAcceptedAt).not.toBeNull();
     expect(order.waiverKind).toBe("DIGITAL_IMMEDIATE");
+    expect(order.waiverText).toMatch(/^Quiero acceder ya al contenido: doy mi consentimiento expreso/);
+    expect(order.waiverVersion).toMatch(/^\d{4}-\d{2}-\d{2}#[0-9a-f]{16}$/);
+    expect(order.waiverAcceptedAt).not.toBeNull();
     expect(order.marketingOptIn).toBe(true);
     expect(order.legalSnapshotId).not.toBeNull();
   });
@@ -62,7 +66,10 @@ test.describe.serial("Cumplimiento legal", () => {
   test("el recibo dice quién vende, qué marcó y enlaza a la versión aceptada", async ({ page }) => {
     const m = await prisma.emailMessage.findFirstOrThrow({ where: { to: buyerEmail, template: "PURCHASE_RECEIPT" }, orderBy: { createdAt: "desc" } });
     // Gene Keys lo vende Cirella a efectos de IVA (PLATFORM_DIGITAL), por cuenta de Ana, como en el checkout.
-    for (const text of ["por cuenta de Ana Luna Pérez", "B12345674", "Quiero acceder ya al contenido", "CONDICIONES DE VENTA"]) expect(m.html).toContain(text);
+    const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail } });
+    // La confirmación de la renuncia en soporte duradero: el texto exacto y su versión.
+    for (const text of ["por cuenta de Ana Luna Pérez", "B12345674", "Confirmación de tu consentimiento", "Quiero acceder ya al contenido", `texto ${order.waiverVersion}`, "CONDICIONES DE VENTA"])
+      expect(m.html).toContain(text);
     const href = m.html.match(/href="([^"]*\/ana\/legal\?v=[^"]+)"/)?.[1];
     expect(href).toBeTruthy();
     await page.goto(href!.replace(/&amp;/g, "&"));
@@ -78,7 +85,9 @@ test.describe.serial("Cumplimiento legal", () => {
     await expect(page.getByText("Cambios gratis hasta 24 h antes de la sesión")).toBeVisible();
     await page.goto("/ana/sesion-1-1/checkout");
     await expect(page.getByText(/Cambios gratis hasta 24 h antes/)).toBeVisible();
-    await expect(page.getByLabel(/Solicito que la sesión pueda realizarse/)).not.toBeChecked();
+    // Sin casilla de renuncia: se reserva a partir del día 15 y tiene sus 14 días para desistir.
+    await expect(page.getByText(/Tienes 14 días desde la compra para desistir/)).toBeVisible();
+    await expect(page.getByLabel(/Quiero acceder ya|Solicito expresamente/)).toHaveCount(0);
   });
 
   test("pie legal en la página de la creadora y página legal completa", async ({ page }) => {

@@ -41,6 +41,7 @@ async function main() {
   const { startPaypalMock } = await import("./paypal-mock");
   const { prisma } = await import("../lib/db");
   const { createPendingOrder, startOrderPayment } = await import("../lib/orders");
+  const { acceptedConsentFields } = await import("../lib/checkout-consents");
   const { paymentProviderKeys, checkoutMethods } = await import("../lib/payments");
   const { processWebhook, reconcileCheckout } = await import("../lib/payments/events");
   const { processRenewals } = await import("../lib/subscriptions");
@@ -95,7 +96,9 @@ async function main() {
     const newOrder = async (productId: string, label: string, paymentMethod: string, buyerEmail = email(label)) => {
       const o = await createPendingOrder({ productId, buyerEmail, buyerName: `Prueba ${label}`, buyerCountry: "ES", paymentMethod });
       created.orders.push(o.id);
-      await prisma.order.update({ where: { id: o.id }, data: { termsAcceptedAt: new Date() } });
+      // Las casillas obligatorias del checkout (condiciones y la renuncia de acceso inmediato).
+      const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+      await prisma.order.update({ where: { id: o.id }, data: acceptedConsentFields(product, new Date()) });
       return o;
     };
 

@@ -28,7 +28,8 @@ async function demoLogin(page: Page, label: string) {
 
 async function acceptConsents(page: Page) {
   await page.getByLabel(/He leído y acepto/).check();
-  const waiver = page.getByLabel(/Quiero acceder ya|Solicito que la sesión/);
+  // La renuncia la piden lo digital, los cursos, las membresías y los talleres a menos de 15 días (no las sesiones).
+  const waiver = page.getByLabel(/Quiero acceder ya|Quiero que se prepare ya|Solicito expresamente/);
   if (await waiver.count()) await waiver.check();
 }
 
@@ -172,7 +173,8 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
   });
 
   test("fechas especiales en hora de Bali: ese día solo esas horas", async ({ page }) => {
-    const day = await freeWorkday(5);
+    // A partir del día 15: antes, una sesión que se paga en la web no ofrece huecos (lib/withdrawal.ts).
+    const day = await freeWorkday(16);
     await demoLogin(page, "Ana Luna");
     await page.goto("/panel/reservas/horario");
     await page.getByLabel("Desde", { exact: true }).fill(day);

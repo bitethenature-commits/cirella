@@ -38,7 +38,9 @@ async function fillBuyer(page: Page, path: string, name: string, email: string, 
 
 async function acceptAndPay(page: Page) {
   await page.getByLabel(/He leído y acepto/).check();
-  await page.getByLabel(/Quiero acceder ya|Solicito que la sesión/).check();
+  // La renuncia la piden lo digital, los cursos, las membresías y los talleres a menos de 15 días (no las sesiones).
+  const waiver = page.getByLabel(/Quiero acceder ya|Quiero que se prepare ya|Solicito expresamente/);
+  if (await waiver.count()) await waiver.check();
   await page.getByRole("button", { name: /pagar/i }).click();
 }
 

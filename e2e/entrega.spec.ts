@@ -174,8 +174,12 @@ test.describe("Entrega de productos", () => {
     await buyer.fill("#name", "Irene Compradora");
     await buyer.fill("#email", `irene-${username}@example.com`);
     await buyer.getByLabel(/He leído y acepto/).check();
-    // Hecho para ella: no hay acceso inmediato al que renunciar, así que no se pide la renuncia.
+    // Hecho para ella: no hay acceso inmediato, pero se empieza a preparar al pagar y la renuncia
+    // (su propia casilla) es obligatoria.
     await expect(buyer.getByLabel(/Quiero acceder ya/)).toHaveCount(0);
+    await buyer.getByRole("button", { name: /Pagar 19/ }).click();
+    await expect(buyer.getByText("Para pagar, marca la casilla para que se prepare ya y renuncia al desistimiento")).toBeVisible();
+    await buyer.getByLabel(/Quiero que se prepare ya/).check();
     await buyer.getByRole("button", { name: /Pagar 19/ }).click();
     await buyer.waitForURL(`**/${username}/gracias**`);
     await expect(buyer.getByRole("heading", { name: "Compra completada" })).toBeVisible();

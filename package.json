@@ -45,6 +45,7 @@
     "test:media": "tsx --conditions=react-server scripts/media-test.ts",
     "test:lessons": "tsx --conditions=react-server scripts/lessons-test.ts",
     "test:calendar": "tsx --conditions=react-server scripts/calendar-test.ts",
+    "test:withdrawal": "tsx --conditions=react-server scripts/withdrawal-test.ts",
     "test:calendar-diary": "tsx --conditions=react-server scripts/calendar-diary-test.ts",
     "test:community": "tsx --conditions=react-server scripts/community-test.ts",
     "test:pages": "tsx --conditions=react-server scripts/site-pages-test.ts && tsx --conditions=react-server scripts/site-pages-test.ts platform",

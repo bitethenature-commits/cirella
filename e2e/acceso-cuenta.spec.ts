@@ -43,7 +43,9 @@ async function lastEmailLink(to: string, template: string, label: string, since:
 /** Casillas obligatorias del checkout: condiciones de venta y renuncia al desistimiento. */
 async function acceptConsents(page: Page) {
   await page.getByLabel(/He leído y acepto/).check();
-  await page.getByLabel(/Quiero acceder ya|Solicito que la sesión/).check();
+  // La renuncia la piden lo digital, los cursos, las membresías y los talleres a menos de 15 días (no las sesiones).
+  const waiver = page.getByLabel(/Quiero acceder ya|Quiero que se prepare ya|Solicito expresamente/);
+  if (await waiver.count()) await waiver.check();
 }
 
 async function buy(page: Page, path: string, name: string, email: string) {

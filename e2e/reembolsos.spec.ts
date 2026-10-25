@@ -78,7 +78,8 @@ test.describe.serial("Reembolsos y cambios", () => {
     await page.fill("#email", buyerEmail);
     await page.fill("input[name=cardNumber]", "4242 4242 4242 4242");
     await page.getByLabel(/He leído y acepto/).check();
-    await page.getByLabel(/Solicito que la sesión/).check();
+    // Una sesión se reserva a partir del día 15: no hay casilla de renuncia (tiene sus 14 días).
+    await expect(page.getByLabel(/Quiero acceder ya|Solicito expresamente/)).toHaveCount(0);
     await page.getByRole("button", { name: /Reservar y pagar/ }).click();
     await page.waitForURL("**/ana/gracias**");
     // El mismo navegador entra en su cuenta sin contraseña (cookie del checkout).
@@ -134,9 +135,12 @@ test.describe.serial("Reembolsos y cambios", () => {
     await page.goto("/cuenta/compras");
     const reading = page.locator(".card > div", { hasText: "Lectura de Human Design" });
     const course = page.locator(".card > div", { hasText: "Conócete a través de tu energía" });
+    const guide = page.locator(".card > div", { hasText: "Gene Keys" });
+    // Su lectura en directo es el día 15 desde la compra (la demo): aún está en sus 14 días.
     await expect(reading.getByRole("button", { name: "Desistir" })).toBeVisible();
-    // El curso se compró hace 20 días: fuera de plazo.
+    // El curso y la guía: renunció al desistimiento para tener acceso inmediato.
     await expect(course.getByRole("button", { name: "Desistir" })).toHaveCount(0);
+    await expect(guide.getByRole("button", { name: "Desistir" })).toHaveCount(0);
 
     page.once("dialog", (d) => d.accept());
     await reading.getByRole("button", { name: "Desistir" }).click();

@@ -19,6 +19,7 @@ import { issueMonthlyPlatformInvoices, monthPeriod } from "../lib/invoices/fees"
 import { invoiceLines } from "../lib/invoices/format";
 import { InvoiceError, issueFullInvoiceForOrder } from "../lib/invoices/issue";
 import { CheckoutError, createPendingOrder, startOrderPayment } from "../lib/orders";
+import { acceptedConsentFields } from "../lib/checkout-consents";
 import { paymentProvider } from "../lib/payments";
 import { markRefundSucceeded, refundOrder } from "../lib/refunds";
 import { processRenewals } from "../lib/subscriptions";
@@ -46,7 +47,9 @@ async function buy(productId: string, label: string, opts: { country?: string; b
     billing: opts.billing ?? null,
   });
   created.orders.push(order.id);
-  await prisma.order.update({ where: { id: order.id }, data: { termsAcceptedAt: new Date() } });
+  // Las casillas obligatorias del checkout (condiciones y, según el producto, la renuncia).
+  const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+  await prisma.order.update({ where: { id: order.id }, data: acceptedConsentFields(product, new Date()) });
   await startOrderPayment(order.id, { method: "card", cardNumber: "4242 4242 4242 4242" });
   return prisma.order.findUniqueOrThrow({ where: { id: order.id }, include: { transactions: true, invoices: { orderBy: { issuedAt: "asc" } } } });
 }

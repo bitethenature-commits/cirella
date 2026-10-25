@@ -146,11 +146,14 @@ Esas páginas no existen con Stripe real.
   queda en los reembolsos que inicia la creadora y quién absorbe la tarifa de Stripe. Fuera de
   alcance por ahora: un botón para reembolsar renovaciones de membresía desde el panel (los
   reembolsos hechos en Stripe sí se contabilizan) y reembolsos desde /admin.
-- **Desistimiento (abogada)**: reglas en `withdrawalEligibility` (lib/refund-math.ts): 14 días
-  naturales desde el pago; no cabe si la sesión ya empezó o se hizo, ni en digital/cursos/membresías
-  con renuncia expresa en el checkout (`Order.waiverAcceptedAt`, punto #3) una vez empezado el
-  acceso (primera descarga, reproducción o visita a las publicaciones: `Order.metadata.firstAccessAt`);
-  los productos digitales que prepara la creadora («Lo preparo yo») no piden renuncia; si cabe, se devuelve todo
+- **Desistimiento (abogada)**: reglas en `withdrawalEligibility` (lib/refund-math.ts) y
+  `lib/withdrawal.ts`: 14 días naturales (el del pago no cuenta; hasta las 23:59 del día 14 en la
+  zona de la dueña); no cabe si la sesión ya empezó o se hizo, ni en digital/cursos/membresías/«Lo
+  preparo yo», cuya renuncia es obligatoria en el checkout y cuenta desde el pago
+  (`Order.waiverAcceptedAt` + `waiverVersion`; las renuncias de antes, sin versión, solo cuentan
+  desde el primer acceso, `Order.metadata.firstAccessAt`). Las sesiones pagadas en la web se
+  reservan a partir del día 15; los talleres a menos de 15 días piden la casilla de servicio en
+  plazo (se puede desistir hasta que empiezan). Si cabe, se devuelve todo
   lo que queda (también en membresías, sin prorrateo: el art. 108.3 TRLGDCU permitiría cobrar la
   parte disfrutada). Confirmar también si la creadora puede «Cancelar sin reembolso» una sesión
   pagada (hoy sí, con motivo obligatorio y aviso) o solo cuando la clienta no se presentó.
