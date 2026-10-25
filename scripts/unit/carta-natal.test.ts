@@ -85,7 +85,7 @@ test("astroByDay con carta: casa de cada evento y de cada cuerpo; sin carta, sin
   eq(moon.house, houseOf(226.88, cusps)); // Luna nueva en Escorpio 16°53′ → casa 5 de Ana
   eq(moon.house, 5);
   ok(day.positions.every((p) => p.house! >= 1 && p.house! <= 12));
-  eq(day.positions.map((p) => p.name).slice(-3), ["Quirón", "Nodo Norte", "Lilith"]);
+  eq(day.positions.map((p) => p.name).slice(-3), ["Nodo Norte", "Nodo Sur", "Lilith"]);
   ok(day.retrograde.includes("Mercurio") && !day.retrograde.includes("Nodo Norte"));
   const bare = astroByDay(["2026-11-09"], "Europe/Madrid").get("2026-11-09")!;
   eq(bare.lines[0].house, undefined);

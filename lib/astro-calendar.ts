@@ -1,38 +1,44 @@
 /**
  * Cielo del mes para el calendario de la dueña: lunas nuevas y llenas, eclipses, conjunciones,
- * estaciones (cuando un planeta se pone retrógrado o directo) y los cambios de signo de la Luna.
- * Puro (astronomy-engine y una tabla de Quirón, sin red ni BD): lo usan la página de Reservas y las
- * pruebas unitarias.
+ * estaciones (cuando un cuerpo se pone retrógrado o directo) y los cambios de signo de la Luna.
+ * Puro (astronomy-engine y tablas de JPL Horizons, sin red ni BD): lo usan la página de Reservas y
+ * las pruebas unitarias.
  *
  *   · Posiciones geocéntricas, eclíptica verdadera de la fecha (zodiaco tropical), con aberración.
- *   · Cuerpos: Sol a Plutón (astronomy-engine), Quirón (tabla de JPL Horizons cada 2 días,
- *     lib/astro-chiron-table.ts, 2000–2050; fuera de esos años no sale), y dos puntos medios con las
- *     fórmulas de Meeus (Astronomical Algorithms, 2.ª ed., cap. 47): el Nodo Norte medio y Lilith
- *     (Luna Negra media = apogeo medio de la Luna = perigeo medio + 180°).
+ *   · Cuerpos: el Sol, la Luna y los planetas (astronomy-engine); Quirón, Ceres, Palas, Juno, Vesta y
+ *     Eris (tablas de JPL Horizons de 2000 a 2050 en lib/astro-tables.ts, interpoladas; fuera de esos
+ *     años no salen); y dos puntos medios con las fórmulas de Meeus (Astronomical Algorithms, 2.ª ed.,
+ *     cap. 47): el Nodo Norte medio y Lilith (Luna Negra media = apogeo medio = perigeo medio + 180°).
+ *     El Nodo Sur (Nodo Norte + 180°) solo sale en las posiciones del día: sus conjunciones serían las
+ *     oposiciones al Nodo Norte.
  *   · Conjunción = la diferencia de longitud de un par cruza 0°. Se muestrea cada 6 h, se afina por
  *     bisección hasta el minuto y, cerca de una estación (retrógrado), si la diferencia roza 0° sin
  *     cambiar de signo entre muestras se vuelve a mirar cada 15 min: así salen los dos cruces.
+ *     Sol–Luna no cuenta como conjunción: es la luna nueva.
  *   · Estación = la velocidad en longitud cruza 0 (se muestrea cada 12 h y se afina al minuto).
- *   · La Luna no entra en las conjunciones (saldría una cada dos días con cada planeta).
+ *   · Grupos (para «Qué mostrar» y las marcas del calendario): planetas, Luna, asteroides (con Eris)
+ *     y puntos (Quirón, Lilith y los nodos).
  *   · Los eventos van en UTC; agruparlos por día en la zona de la dueña es cosa de quien los pinta.
  *   · Se calcula por mes UTC y se guarda en memoria (pocos meses: lo que se mira son el actual y los
  *     vecinos).
  */
-import { Body, Ecliptic, GeoVector, MakeTime, NextGlobalSolarEclipse, NextLunarEclipse, NextMoonQuarter, SearchGlobalSolarEclipse, SearchLunarEclipse, SearchMoonQuarter } from "astronomy-engine";
-import { CHIRON_ALPHABET, CHIRON_DELTAS, CHIRON_START, CHIRON_START_LON, CHIRON_STEP_DAYS } from "./astro-chiron-table";
+import { Body as AEBody, Ecliptic, GeoVector, MakeTime, NextGlobalSolarEclipse, NextLunarEclipse, NextMoonQuarter, SearchGlobalSolarEclipse, SearchLunarEclipse, SearchMoonQuarter } from "astronomy-engine";
+import { BODY_TABLE_ALPHABET, BODY_TABLES } from "./astro-tables";
 
 export const SIGNS = ["Aries", "Tauro", "Géminis", "Cáncer", "Leo", "Virgo", "Libra", "Escorpio", "Sagitario", "Capricornio", "Acuario", "Piscis"] as const;
 export const SIGN_GLYPHS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"] as const;
 
 export const PLANETS = ["Sun", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"] as const;
 export type Planet = (typeof PLANETS)[number];
-/** Lo que entra en las conjunciones: los planetas, Quirón, el Nodo Norte medio y Lilith media. */
-export const POINTS = [...PLANETS, "Chiron", "Node", "Lilith"] as const;
-export type Point = (typeof POINTS)[number];
+export const ASTEROIDS = ["Ceres", "Pallas", "Juno", "Vesta", "Eris"] as const;
+export type TableBody = keyof typeof BODY_TABLES;
+/** Todo lo que entra en las conjunciones, en el orden en que se nombran los pares. */
+export const BODIES = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Chiron", ...ASTEROIDS, "Node", "Lilith"] as const;
+export type Point = (typeof BODIES)[number];
 /** Los que tienen estaciones (los puntos medios no: el nodo medio siempre va hacia atrás y Lilith hacia delante). */
-export const STATION_BODIES = ["Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Chiron"] as const;
+export const STATION_BODIES = ["Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Chiron", ...ASTEROIDS] as const;
 export type StationBody = (typeof STATION_BODIES)[number];
-export const PLANET_ES: Record<Point | "Moon", string> = {
+export const PLANET_ES: Record<Point | "SouthNode", string> = {
   Sun: "Sol",
   Moon: "Luna",
   Mercury: "Mercurio",
@@ -44,9 +50,27 @@ export const PLANET_ES: Record<Point | "Moon", string> = {
   Neptune: "Neptuno",
   Pluto: "Plutón",
   Chiron: "Quirón",
+  Ceres: "Ceres",
+  Pallas: "Palas",
+  Juno: "Juno",
+  Vesta: "Vesta",
+  Eris: "Eris",
   Node: "Nodo Norte",
+  SouthNode: "Nodo Sur",
   Lilith: "Lilith",
 };
+/** «Ceres se pone retrógrada». */
+const FEMININE = new Set<string>([...ASTEROIDS, "Lilith"]);
+
+export const ASTRO_GROUPS = ["planets", "moon", "asteroids", "points"] as const;
+export type AstroGroup = (typeof ASTRO_GROUPS)[number];
+export const ASTRO_GROUP_ES: Record<AstroGroup, string> = { planets: "Planetas", moon: "Luna", asteroids: "Asteroides", points: "Puntos" };
+export function groupOf(body: Point | "SouthNode"): AstroGroup {
+  if (body === "Moon") return "moon";
+  if ((ASTEROIDS as readonly string[]).includes(body)) return "asteroids";
+  if (body === "Chiron" || body === "Node" || body === "SouthNode" || body === "Lilith") return "points";
+  return "planets";
+}
 
 export type EclipseType = "penumbral" | "partial" | "annular" | "total";
 
@@ -80,25 +104,29 @@ export function meanLilith(at: Date) {
   return norm(83.3532465 + 4069.0137287 * T - 0.01032 * T * T - (T * T * T) / 80053 + (T * T * T * T) / 18999000 + 180);
 }
 
-/** Longitudes de Quirón de la tabla, en grados y sin dar la vuelta (para interpolar sin saltos). */
-let chironTable: Float64Array | null = null;
-function chironLons() {
-  if (chironTable) return chironTable;
-  const n = CHIRON_DELTAS.length / 2 + 1;
+/** Longitudes de cada tabla, en grados y sin dar la vuelta (para interpolar sin saltos). */
+const decoded = new Map<TableBody, Float64Array>();
+function tableLons(body: TableBody) {
+  const hit = decoded.get(body);
+  if (hit) return hit;
+  const { deltas, startLon } = BODY_TABLES[body];
+  const n = deltas.length / 2 + 1;
   const t = new Float64Array(n);
-  let v = CHIRON_START_LON;
+  let v = startLon;
   t[0] = v / 1000;
   for (let i = 1; i < n; i++) {
-    v += CHIRON_ALPHABET.indexOf(CHIRON_DELTAS[2 * i - 2]) * 64 + CHIRON_ALPHABET.indexOf(CHIRON_DELTAS[2 * i - 1]) - 2048;
+    v += BODY_TABLE_ALPHABET.indexOf(deltas[2 * i - 2]) * 64 + BODY_TABLE_ALPHABET.indexOf(deltas[2 * i - 1]) - 2048;
     t[i] = v / 1000;
   }
-  return (chironTable = t);
+  decoded.set(body, t);
+  return t;
 }
 
-/** Quirón interpolado (Lagrange de 4 puntos, cada 2 días); NaN fuera de la tabla (2000–2050). */
-export function chironLongitude(at: Date) {
-  const t = chironLons();
-  const x = (at.getTime() - CHIRON_START) / (CHIRON_STEP_DAYS * DAY);
+/** Cuerpo de tabla interpolado (Lagrange de 4 puntos); NaN fuera de la tabla (2000–2050). */
+export function tableLongitude(body: TableBody, at: Date) {
+  const t = tableLons(body);
+  const { start, stepDays } = BODY_TABLES[body];
+  const x = (at.getTime() - start) / (stepDays * DAY);
   const i = Math.floor(x);
   if (i < 1 || i + 2 >= t.length) return NaN;
   const u = x - i;
@@ -107,21 +135,25 @@ export function chironLongitude(at: Date) {
   return norm(v);
 }
 
+export const chironLongitude = (at: Date) => tableLongitude("Chiron", at);
+
+const isTable = (body: string): body is TableBody => body in BODY_TABLES;
+
 /** Longitud eclíptica geocéntrica aparente (tropical, de la fecha) en [0, 360). */
-export function longitude(body: Point | "Moon", at: Date): number {
-  if (body === "Chiron") return chironLongitude(at);
+export function longitude(body: Point, at: Date): number {
+  if (isTable(body)) return tableLongitude(body, at);
   if (body === "Node") return meanNode(at);
   if (body === "Lilith") return meanLilith(at);
-  return norm(Ecliptic(GeoVector(Body[body], at, true)).elon);
+  return norm(Ecliptic(GeoVector(AEBody[body], at, true)).elon);
 }
 
 /** Velocidad en longitud (grados al día); negativa = retrógrado. */
-export function speed(body: Point | "Moon", at: Date): number {
+export function speed(body: Point, at: Date): number {
   const h = HOUR;
   return lonDiff(longitude(body, new Date(at.getTime() + h)), longitude(body, new Date(at.getTime() - h))) / ((2 * h) / DAY);
 }
 
-export const isRetro = (body: Point | "Moon", at: Date) => speed(body, at) < 0;
+export const isRetro = (body: Point, at: Date) => speed(body, at) < 0;
 
 /** Diferencia a − b llevada a [−180, 180). */
 export function lonDiff(a: number, b: number) {
@@ -155,26 +187,27 @@ function bisect(f: (t: number) => number, t0: number, t1: number) {
   return new Date(Math.round((a + b) / 2 / MINUTE) * MINUTE);
 }
 
-/** Conjunciones entre los planetas, Quirón, el Nodo Norte y Lilith en [from, to). */
+/** Conjunciones entre todos los cuerpos y puntos (menos Sol–Luna, que es la luna nueva) en [from, to). */
 export function conjunctionsBetween(from: Date, to: Date, stepHours = 6): AstroEvent[] {
   const step = stepHours * HOUR;
   const times: number[] = [];
   for (let t = from.getTime() - step; t <= to.getTime() + step; t += step) times.push(t);
-  // Longitudes de cada planeta en cada muestra: se calculan una vez y sirven para los 36 pares.
-  const lons = new Map<Point, number[]>(POINTS.map((p) => [p, times.map((t) => longitude(p, new Date(t)))]));
+  // Longitudes de cada cuerpo en cada muestra: se calculan una vez y sirven para todos los pares.
+  const lons = new Map<Point, number[]>(BODIES.map((p) => [p, times.map((t) => longitude(p, new Date(t)))]));
   const out: AstroEvent[] = [];
   const found = (a: Point, b: Point, at: Date) => {
     if (at < from || at >= to) return;
     if (out.some((e) => e.kind === "conjunction" && e.a === a && e.b === b && Math.abs(e.at.getTime() - at.getTime()) < 2 * HOUR)) return;
     out.push({ kind: "conjunction", a, b, at, lon: longitude(a, at), aRetro: isRetro(a, at), bRetro: isRetro(b, at) });
   };
-  for (let i = 0; i < POINTS.length; i++) {
-    for (let j = i + 1; j < POINTS.length; j++) {
-      const a = POINTS[i];
-      const b = POINTS[j];
+  for (let i = 0; i < BODIES.length; i++) {
+    for (let j = i + 1; j < BODIES.length; j++) {
+      const a = BODIES[i];
+      const b = BODIES[j];
+      if (a === "Sun" && b === "Moon") continue;
       const la = lons.get(a)!;
       const lb = lons.get(b)!;
-      // Quirón fuera de su tabla: sin datos, sin conjunciones.
+      // Un cuerpo de tabla fuera de sus años: sin datos, sin conjunciones.
       if (la.some(Number.isNaN) || lb.some(Number.isNaN)) continue;
       const d = times.map((_, k) => lonDiff(la[k], lb[k]));
       const f = (t: number) => lonDiff(longitude(a, new Date(t)), longitude(b, new Date(t)));
@@ -199,7 +232,7 @@ export function conjunctionsBetween(from: Date, to: Date, stepHours = 6): AstroE
   return out;
 }
 
-/** Estaciones (se pone retrógrado / directo) de Mercurio a Plutón y Quirón en [from, to). */
+/** Estaciones (se pone retrógrado / directo) de Mercurio a Plutón, Quirón y los asteroides en [from, to). */
 export function stationsBetween(from: Date, to: Date): AstroEvent[] {
   const step = 12 * HOUR;
   const out: AstroEvent[] = [];
@@ -220,12 +253,16 @@ export function stationsBetween(from: Date, to: Date): AstroEvent[] {
   return out;
 }
 
-/** Posición de cada cuerpo en un instante, con ℞: lo que se enseña como «el cielo del día». */
-export function positionsAt(at: Date) {
-  const bodies = ["Sun", "Moon", ...PLANETS.slice(1), "Chiron", "Node", "Lilith"] as const;
-  return bodies
-    .map((body) => ({ body, lon: longitude(body, at), retro: body !== "Sun" && body !== "Moon" && isRetro(body, at) }))
-    .filter((p) => !Number.isNaN(p.lon));
+/** Posición de cada cuerpo en un instante, con ℞: lo que se enseña como «el cielo del día» (con el Nodo Sur). */
+export function positionsAt(at: Date): { body: Point | "SouthNode"; lon: number; retro: boolean }[] {
+  const out: { body: Point | "SouthNode"; lon: number; retro: boolean }[] = [];
+  for (const body of BODIES) {
+    const lon = longitude(body, at);
+    if (Number.isNaN(lon)) continue;
+    out.push({ body, lon, retro: body !== "Sun" && body !== "Moon" && isRetro(body, at) });
+    if (body === "Node") out.push({ body: "SouthNode", lon: norm(lon + 180), retro: out[out.length - 1].retro });
+  }
+  return out;
 }
 
 /** Lunas nuevas y llenas en [from, to). */
@@ -335,6 +372,23 @@ export function astroLabel(e: AstroEvent): string {
 
 const rx = (on: boolean) => (on ? " ℞" : "");
 
+/** Grupos de los cuerpos de un evento (para «Qué mostrar»). */
+export function astroGroups(e: AstroEvent): AstroGroup[] {
+  if (e.kind === "conjunction") return [...new Set([groupOf(e.a), groupOf(e.b)])];
+  if (e.kind === "station") return [groupOf(e.body)];
+  return ["moon"];
+}
+
+/**
+ * ¿Sale como marca en la rejilla del mes? Lunas, eclipses y conjunciones sí (menos las de la Luna,
+ * que serían casi a diario); estaciones, solo las de los planetas y Quirón. El resto, solo en el día.
+ */
+export function astroMarks(e: AstroEvent): boolean {
+  if (e.kind === "conjunction") return e.a !== "Moon" && e.b !== "Moon";
+  if (e.kind === "station") return groupOf(e.body) === "planets" || e.body === "Chiron";
+  return e.kind !== "moon-ingress";
+}
+
 /** Texto del evento (sin la hora): «Luna nueva en Escorpio 4°12′», «☌ Venus ℞ – Quirón en Aries 22°40′». */
 export function describeAstro(e: AstroEvent): string {
   switch (e.kind) {
@@ -345,7 +399,7 @@ export function describeAstro(e: AstroEvent): string {
     case "conjunction":
       return `☌ ${PLANET_ES[e.a]}${rx(e.aRetro)} – ${PLANET_ES[e.b]}${rx(e.bRetro)} en ${formatZodiac(e.lon)}`;
     case "station":
-      return `${PLANET_ES[e.body]} se pone ${e.direction === "retrograde" ? "retrógrado" : "directo"} en ${formatZodiac(e.lon)}`;
+      return `${PLANET_ES[e.body]} se pone ${e.direction === "retrograde" ? "retrógrad" : "direct"}${FEMININE.has(e.body) ? "a" : "o"} en ${formatZodiac(e.lon)}`;
     case "moon-ingress":
       return `La Luna entra en ${SIGNS[e.sign]}`;
   }

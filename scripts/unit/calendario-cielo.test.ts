@@ -9,7 +9,9 @@
  *     (QUANTITIES=31, paso de 1 minuto), y la Gran Conjunción del 21-12-2020 (0°29′ de Acuario).
  *   · Estaciones de Mercurio de 2026: máximo/mínimo de longitud en Horizons (paso de 10 min) y las
  *     posiciones publicadas (Piscis 22°33′ / 8°29′, Escorpio 20°58′ / 5°02′).
- *   · Quirón: Horizons (COMMAND='2060;') en fechas que no son de la tabla (interpolación ± 0,005°).
+ *   · Quirón, Ceres, Palas, Juno, Vesta y Eris: Horizons (COMMAND='2060;', '1;'… '136199;') en
+ *     instantes que no son de la tabla (interpolación ± 0,005°), y conjunciones y una estación de 2026
+ *     buscadas en Horizons con paso de 1 min (10 min para las lentas).
  *   · Nodo medio y Lilith media: Swiss Ephemeris 2.10 (pyswisseph, SE_MEAN_NODE y SE_MEAN_APOG).
  *     El nodo de Swiss Ephemeris lleva la nutación (± 0,01°); su apogeo medio tiene términos de más
  *     que la fórmula de Meeus, por eso Lilith va con ± 0,2°.
@@ -17,7 +19,9 @@
  * (Saturno–Neptuno se acercan ~0,04° al día) eso son horas, por eso cada caso tiene su margen.
  */
 import {
+  astroGroups,
   astroLabel,
+  astroMarks,
   astroMonth,
   chironLongitude,
   conjunctionsBetween,
@@ -25,6 +29,7 @@ import {
   eclipsesBetween,
   formatZodiac,
   isRetro,
+  longitude,
   meanLilith,
   meanNode,
   moonIngressesBetween,
@@ -108,12 +113,47 @@ test("Sol–Mercurio: 2 conjunciones por cada vuelta de Mercurio (6 en 2026), si
   eq(conj(conjunctionsBetween(Y2026.from, Y2026.to), "Sun", "Mercury").length, 6);
 });
 
-test("La Luna no sale en las conjunciones; cada mes, 11–14 cambios de signo de la Luna en el borde del signo", () => {
+test("Conjunciones de la Luna: con cada cuerpo (sin Sol–Luna, que es la luna nueva) y sin marca en el mes", () => {
   const nov = astroMonth(2026, 11);
-  ok(nov.every((e) => e.kind !== "conjunction" || (e.a !== ("Moon" as string) && e.b !== ("Moon" as string))));
+  const moon = nov.filter((e) => e.kind === "conjunction" && (e.a === "Moon" || e.b === "Moon"));
+  ok(moon.length >= 15, `${moon.length} conjunciones de la Luna`);
+  ok(moon.every((e) => e.kind === "conjunction" && e.a === "Moon" && e.b !== "Sun" && !astroMarks(e) && astroGroups(e).includes("moon")));
+  const jup = moon.find((e) => e.kind === "conjunction" && e.b === "Jupiter" && e.at.toISOString().startsWith("2026-11-02"));
+  near(jup?.at, "2026-11-02T22:51:00Z", 5, "Luna–Júpiter (Horizons)");
+});
+
+test("Cambios de signo de la Luna: 11–14 al mes, en el borde del signo", () => {
   const ing = moonIngressesBetween(new Date("2026-11-01T00:00Z"), new Date("2026-12-01T00:00Z"));
   ok(ing.length >= 11 && ing.length <= 14, `${ing.length} cambios`);
   eq(new Set(ing.map((e) => e.at.getTime())).size, ing.length);
+});
+
+test("Asteroides y Eris: tablas de Horizons interpoladas (± 0,005°) y NaN fuera de 2000–2050", () => {
+  const at = new Date("2026-10-25T12:00:00Z");
+  ok(Math.abs(longitude("Pallas", at) - 8.4116924) < 0.005, `Palas ${longitude("Pallas", at)}`);
+  ok(Math.abs(longitude("Eris", at) - 25.338079) < 0.005, `Eris ${longitude("Eris", at)}`);
+  ok(Number.isNaN(longitude("Vesta", new Date("1999-06-01T00:00Z"))));
+});
+
+test("Conjunciones con asteroides frente a Horizons (2026)", () => {
+  const ev = conjunctionsBetween(Y2026.from, Y2026.to);
+  const one = (a: string, b: string, when: string, mins: number, where: string) => {
+    const hit = conj(ev, a, b).find((e) => Math.abs(e.at.getTime() - new Date(when).getTime()) < 2 * 86_400_000);
+    near(hit?.at, when, mins, `${a}–${b}`);
+    ok(hit && describeAstro(hit).includes(where), `${a}–${b}: ${hit && describeAstro(hit)} (esperado ${where})`);
+  };
+  one("Sun", "Vesta", "2026-01-28T19:44:00Z", 5, "Acuario 8°53′");
+  one("Venus", "Ceres", "2026-04-06T19:22:00Z", 5, "Tauro 8°4");
+  one("Saturn", "Pallas", "2026-06-10T06:43:00Z", 30, "Aries 12°5");
+  one("Ceres", "Eris", "2026-03-01T06:10:00Z", 30, "Aries 24°49′");
+});
+
+test("Estaciones de los asteroides: solo en el día (sin marca); con nombre en femenino", () => {
+  const st = stationsBetween(new Date("2026-08-01T00:00Z"), new Date("2026-09-01T00:00Z")).find((e) => e.kind === "station" && e.body === "Vesta");
+  near(st?.at, "2026-08-25T18:00:00Z", 45, "Vesta se pone retrógrada (Horizons, paso de 10 min)");
+  eq(describeAstro(st!).startsWith("Vesta se pone retrógrada en Aries 27°"), true);
+  eq(astroMarks(st!), false);
+  eq(astroGroups(st!), ["asteroids"]);
 });
 
 test("astroMonth: se calcula una vez por mes (caché)", () => {
@@ -164,9 +204,9 @@ test("astroByDay: la luna llena del 26-10-2026 (04:12 UTC) cae el 26 en Madrid y
 
 test("astroByDay: conjunción Sol–Venus del 24-10-2026 con su hora en Madrid; signo de la Luna cada día", () => {
   const d = astroByDay(["2026-10-24"], "Europe/Madrid").get("2026-10-24")!;
-  eq(d.conjunctions, 1);
-  ok(d.lines[0].text.startsWith("☌ Sol – Venus ℞ en Escorpio 0°"), d.lines[0].text); // conjunción inferior: Venus va retrógrada
-  ok(/^05:\d\d$/.test(d.lines[0].time), d.lines[0].time);
+  const sv = d.lines.find((l) => l.text.startsWith("☌ Sol – Venus"));
+  ok(sv?.text.startsWith("☌ Sol – Venus ℞ en Escorpio 0°"), sv?.text); // conjunción inferior: Venus va retrógrada
+  ok(/^05:\d\d$/.test(sv!.time), sv!.time);
   ok(d.moon.sign.length > 0);
 });
 
@@ -212,9 +252,12 @@ test("Conjunciones con Quirón y el Nodo, con ℞ en el que va retrógrado", () 
   eq(astroLabel(mercNode), "Conjunción");
 });
 
-test("positionsAt: Sol a Lilith con ℞ (25-10-2026: Mercurio, Venus, Saturno… retrógrados)", () => {
+test("positionsAt: Sol a Lilith (con asteroides y Nodo Sur) y ℞ (25-10-2026: Mercurio, Venus, Saturno… retrógrados)", () => {
   const p = positionsAt(new Date("2026-10-25T12:00Z"));
-  eq(p.map((x) => x.body), ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Chiron", "Node", "Lilith"]);
-  eq(p.filter((x) => x.retro).map((x) => x.body), ["Mercury", "Venus", "Saturn", "Uranus", "Neptune", "Chiron", "Node"]);
+  eq(p.map((x) => x.body), ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Chiron", "Ceres", "Pallas", "Juno", "Vesta", "Eris", "Node", "SouthNode", "Lilith"]);
+  ok(["Mercury", "Venus", "Saturn", "Uranus", "Neptune", "Chiron", "Node", "SouthNode"].every((b) => p.find((x) => x.body === b)!.retro));
+  ok(!p.find((x) => x.body === "Jupiter")!.retro && !p.find((x) => x.body === "Lilith")!.retro);
+  const node = p.find((x) => x.body === "Node")!.lon;
+  ok(Math.abs(((p.find((x) => x.body === "SouthNode")!.lon - node + 360) % 360) - 180) < 1e-9, "Nodo Sur = Nodo Norte + 180°");
   eq(formatZodiac(p.find((x) => x.body === "Venus")!.lon), "Libra 29°55′");
 });
