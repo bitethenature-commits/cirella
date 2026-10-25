@@ -12,18 +12,12 @@
  */
 import { SiderealTime } from "astronomy-engine";
 import { z } from "zod";
+import { HOUSE_SYSTEMS, type HouseSystem } from "./house-systems";
 import { zonedTimeToUtc } from "./tz";
 
-export const HOUSE_SYSTEMS = ["placidus", "whole", "equal"] as const;
-export type HouseSystem = (typeof HOUSE_SYSTEMS)[number];
-export const HOUSE_SYSTEM_LABEL: Record<HouseSystem | "porphyry", string> = {
-  placidus: "Plácidus",
-  whole: "Signos enteros",
-  equal: "Casas iguales",
-  porphyry: "Porfirio",
-};
+export { HOUSE_SYSTEMS, HOUSE_SYSTEM_LABEL, type HouseSystem } from "./house-systems";
 
-/** Lo que se guarda en Creator.natalChart. */
+/** Lo que se guarda en NatalChart (una por dueña). */
 export const natalChartSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),

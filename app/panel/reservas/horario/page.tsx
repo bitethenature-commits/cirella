@@ -9,6 +9,10 @@ import { PageHeader } from "../../ui";
 import { addBlockedDate, removeBlockedDate, removeOverride } from "../actions";
 import { AvailabilityEditor } from "../availability";
 import { SpecialHoursForm, TimeBlockForm } from "./special-dates";
+import { NatalChartCard } from "./natal-chart-card";
+import { formatZodiac } from "@/lib/astro-calendar";
+import { loadNatalChart } from "@/lib/calendar-diary";
+import { HOUSE_SYSTEM_LABEL, natalHouses } from "@/lib/natal-chart";
 
 const dayLabel = (key: string, opts: Intl.DateTimeFormatOptions = { weekday: "short", day: "numeric", month: "short" }) =>
   new Date(`${key}T12:00:00Z`).toLocaleDateString("es-ES", { ...opts, timeZone: "UTC" }).replace(/\./g, "");
@@ -19,11 +23,18 @@ export default async function SchedulePage() {
   const { creator } = await requireCreator();
   const db = tenantDb(creator.id);
   const today = dateKeyInTz(new Date(), creator.timezone);
-  const [rules, blocked, overrides] = await Promise.all([
+  const [rules, blocked, overrides, chart] = await Promise.all([
     db.availabilityRule.findMany({ orderBy: [{ weekday: "asc" }, { startMinute: "asc" }] }),
     db.blockedDate.findMany({ where: { date: { gte: today } }, orderBy: { date: "asc" } }),
     db.availabilityOverride.findMany({ where: { date: { gte: today } }, orderBy: [{ date: "asc" }, { startMinute: "asc" }] }),
+    loadNatalChart(creator.id),
   ]);
+  const houses = chart ? natalHouses(chart) : null;
+  const summary = houses
+    ? `Ascendente ${formatZodiac(houses.asc)} · Medio Cielo ${formatZodiac(houses.mc)} · Casas ${HOUSE_SYSTEM_LABEL[houses.system]}${
+        houses.system === "porphyry" ? " (Plácidus no se puede calcular por encima del círculo polar)" : ""
+      }`
+    : null;
   const special = new Map<string, typeof overrides>();
   for (const o of overrides.filter((x) => x.kind === "HOURS")) special.set(o.date, [...(special.get(o.date) ?? []), o]);
   const blocks = overrides.filter((x) => x.kind === "BLOCK");
@@ -104,6 +115,14 @@ export default async function SchedulePage() {
           <p className="mb-3 text-sm font-semibold">Bloquear unas horas</p>
           <TimeBlockForm today={today} />
         </div>
+      </section>
+
+      <section id="carta-natal" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
+        <div>
+          <h2 className="font-semibold">Mi carta natal</h2>
+          <p className="mt-1 text-sm text-muted">Para ver en tu calendario por qué casa pasa cada tránsito. Solo la ves tú.</p>
+        </div>
+        <NatalChartCard initial={chart} summary={summary} />
       </section>
     </div>
   );

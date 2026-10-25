@@ -12,6 +12,10 @@ import { BOOKING_STATUS_LABEL } from "@/lib/types";
 import { addDaysToKey, capitalize, clientTimeNote, dateKeyInTz, formatInTz, formatSessionDate, timeInTz } from "@/lib/tz";
 import { Badge, Locked, PageHeader } from "../ui";
 import { setBookingStatus } from "./actions";
+import { OwnerCalendar } from "./calendar";
+import { loadCalendarMonth } from "@/lib/calendar-diary";
+import { monthParam, monthTitle, parseMonthParam, shiftMonth } from "@/lib/owner-calendar";
+import { tzCity } from "@/lib/timezones";
 import { SESSION_CHANGE_NOTICE_HOURS } from "@/lib/legal";
 
 const OK: Record<string, string> = {
@@ -40,7 +44,7 @@ function Chips({ order, productIntake }: { order: OrderBits; productIntake: unkn
   );
 }
 
-export default async function BookingsPage({ searchParams }: { searchParams: Promise<{ ok?: string }> }) {
+export default async function BookingsPage({ searchParams }: { searchParams: Promise<{ ok?: string; mes?: string; dia?: string }> }) {
   const { creator } = await requireCreator();
   const sp = await searchParams;
   if (!canSellType(creator.plan, "SESSION"))
@@ -73,6 +77,11 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   ]);
   const tz = creator.timezone;
   const todayKey = dateKeyInTz(now, tz);
+  // Calendario del mes (?mes=2026-11; ?dia=2026-11-09 abre ese día).
+  const dia = typeof sp.dia === "string" && /^\d{4}-\d{2}-\d{2}$/.test(sp.dia) ? sp.dia : null;
+  const month = parseMonthParam(sp.mes ?? dia?.slice(0, 7), todayKey);
+  const calendar = await loadCalendarMonth(creator, month);
+  const calHref = (m: typeof month) => `/panel/reservas?mes=${monthParam(m)}`;
   const dayTitle = (d: Date) => {
     const k = dateKeyInTz(d, tz);
     if (k === todayKey) return "Hoy";
@@ -119,6 +128,19 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
       />
       <TzDriftNotice ownerTz={tz} />
       {sp.ok && OK[sp.ok] && <div className="-mb-5"><Flash ok={OK[sp.ok]} /></div>}
+
+      <OwnerCalendar
+        key={monthParam(month)}
+        data={calendar}
+        title={monthTitle(month)}
+        todayKey={todayKey}
+        prevHref={calHref(shiftMonth(month, -1))}
+        nextHref={calHref(shiftMonth(month, 1))}
+        todayHref="/panel/reservas"
+        showToday={monthParam(month) !== todayKey.slice(0, 7)}
+        initialDay={dia}
+        tzLabel={tzCity(tz)}
+      />
 
       <section>
         <h2 className="eyebrow mb-3 !text-ink">Próximas sesiones</h2>
