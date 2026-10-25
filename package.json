@@ -49,6 +49,7 @@
     "test:pages": "tsx --conditions=react-server scripts/site-pages-test.ts && tsx --conditions=react-server scripts/site-pages-test.ts platform",
     "test:two-factor": "tsx --conditions=react-server scripts/two-factor-test.ts",
     "test:student-area": "tsx --conditions=react-server scripts/student-area-test.ts && SITE_MODE=personal OWNER_USERNAME=ana tsx --conditions=react-server scripts/student-area-test.ts",
+    "test:newsletter": "tsx --conditions=react-server scripts/newsletter-test.ts && SITE_MODE=personal OWNER_USERNAME=ana tsx --conditions=react-server scripts/newsletter-test.ts",
     "test:e2e": "playwright test"
   },
   "prisma": {
