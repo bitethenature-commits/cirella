@@ -24,6 +24,7 @@
  */
 import { Body as AEBody, Ecliptic, GeoVector, MakeTime, NextGlobalSolarEclipse, NextLunarEclipse, NextMoonQuarter, SearchGlobalSolarEclipse, SearchLunarEclipse, SearchMoonQuarter } from "astronomy-engine";
 import { BODY_TABLE_ALPHABET, BODY_TABLES } from "./astro-tables";
+import type { AstroGroup } from "./calendar-marks";
 
 export const SIGNS = ["Aries", "Tauro", "Géminis", "Cáncer", "Leo", "Virgo", "Libra", "Escorpio", "Sagitario", "Capricornio", "Acuario", "Piscis"] as const;
 export const SIGN_GLYPHS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"] as const;
@@ -62,9 +63,6 @@ export const PLANET_ES: Record<Point | "SouthNode", string> = {
 /** «Ceres se pone retrógrada». */
 const FEMININE = new Set<string>([...ASTEROIDS, "Lilith"]);
 
-export const ASTRO_GROUPS = ["planets", "moon", "asteroids", "points"] as const;
-export type AstroGroup = (typeof ASTRO_GROUPS)[number];
-export const ASTRO_GROUP_ES: Record<AstroGroup, string> = { planets: "Planetas", moon: "Luna", asteroids: "Asteroides", points: "Puntos" };
 export function groupOf(body: Point | "SouthNode"): AstroGroup {
   if (body === "Moon") return "moon";
   if ((ASTEROIDS as readonly string[]).includes(body)) return "asteroids";

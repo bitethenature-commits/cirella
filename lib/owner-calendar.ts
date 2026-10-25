@@ -6,7 +6,8 @@
  *     del siguiente para completar.
  *   · Un día es de 00:00 a 24:00 en la zona de la dueña (con cambio de hora, 23 o 25 horas).
  */
-import { astroEventsBetween, astroLabel, describeAstro, formatZodiac, moonSignAt, PLANET_ES, positionsAt, SIGNS, type AstroEvent } from "./astro-calendar";
+import { astroEventsBetween, astroGroups, astroLabel, astroMarks, describeAstro, formatZodiac, groupOf, moonSignAt, PLANET_ES, positionsAt, SIGNS, type AstroEvent } from "./astro-calendar";
+import type { AstroGroup } from "./calendar-marks";
 import { addDaysToKey, dateKeyInTz, timeInTz, weekdayOfKey, zonedTimeToUtc } from "./tz";
 
 export type YearMonth = { year: number; month: number };
@@ -63,24 +64,21 @@ export type AstroLine = {
   time: string;
   /** "new" | "full" para las lunas; "solar" | "lunar" para los eclipses; "retrograde" | "direct" para las estaciones. */
   detail?: string;
+  /** Grupos de sus cuerpos («Qué mostrar»). */
+  groups: AstroGroup[];
+  /** ¿Marca el día en la rejilla? (las conjunciones de la Luna y las estaciones de los asteroides, no). */
+  mark: boolean;
 };
 
 /** Dónde está cada cuerpo a las 12:00 de ese día: «Mercurio ℞ en Escorpio 20°52′». */
-export type AstroPosition = { body: string; name: string; where: string; retro: boolean };
+export type AstroPosition = { body: string; name: string; where: string; retro: boolean; group: AstroGroup };
 
 export type AstroDay = {
   lines: AstroLine[];
   /** Signo de la Luna a las 00:00 y, si cambia ese día, a cuál y a qué hora. */
   moon: { sign: string; enters?: { sign: string; time: string } };
-  newMoon: boolean;
-  fullMoon: boolean;
-  eclipse: boolean;
-  conjunctions: number;
-  stations: number;
-  /** Sol a Lilith a las 12:00 (hora de la dueña). */
+  /** Del Sol a Lilith (con el Nodo Sur) a las 12:00 (hora de la dueña). */
   positions: AstroPosition[];
-  /** «Mercurio», «Saturno»… los que van retrógrados a las 12:00 (sin el nodo, que siempre lo va). */
-  retrograde: string[];
 };
 
 /** Lo del cielo de cada día de `keys` (consecutivos) en la zona `tz`. */
@@ -94,9 +92,9 @@ export function astroByDay(keys: string[], tz: string): Map<string, AstroDay> {
       name: PLANET_ES[p.body],
       where: formatZodiac(p.lon),
       retro: p.retro,
+      group: groupOf(p.body),
     }));
-    const retrograde = positions.filter((p) => p.retro && p.body !== "Node").map((p) => p.name);
-    out.set(k, { lines: [], moon: { sign }, newMoon: false, fullMoon: false, eclipse: false, conjunctions: 0, stations: 0, positions, retrograde });
+    out.set(k, { lines: [], moon: { sign }, positions });
   }
   const { from, to } = dayRangeUtc(keys[0], keys[keys.length - 1], tz);
   for (const e of astroEventsBetween(from, to)) {
@@ -108,12 +106,8 @@ export function astroByDay(keys: string[], tz: string): Map<string, AstroDay> {
       day.moon.enters = { sign: SIGNS[e.sign], time };
       continue;
     }
-    if (e.kind === "moon") e.phase === "new" ? (day.newMoon = true) : (day.fullMoon = true);
-    if (e.kind === "eclipse") day.eclipse = true;
-    if (e.kind === "conjunction") day.conjunctions++;
-    if (e.kind === "station") day.stations++;
     const detail = e.kind === "moon" ? e.phase : e.kind === "eclipse" ? e.body : e.kind === "station" ? e.direction : undefined;
-    day.lines.push({ kind: e.kind, label: astroLabel(e), text: describeAstro(e), time, ...(detail ? { detail } : {}) });
+    day.lines.push({ kind: e.kind, label: astroLabel(e), text: describeAstro(e), time, ...(detail ? { detail } : {}), groups: astroGroups(e), mark: astroMarks(e) });
   }
   return out;
 }

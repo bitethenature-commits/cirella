@@ -40,6 +40,7 @@ import {
   type AstroEvent,
 } from "../../lib/astro-calendar";
 import { astroByDay, dayRangeUtc, monthGrid, monthTitle, parseMonthParam, shiftMonth } from "../../lib/owner-calendar";
+import { ALL_VISIBLE, dayMarks, parseVisible, serializeVisible } from "../../lib/calendar-marks";
 import { eq, ok, test } from "./harness";
 
 const MIN = 60_000;
@@ -195,10 +196,11 @@ test("dayRangeUtc: los días en la zona de la dueña (cambio de hora del 25-10-2
 test("astroByDay: la luna llena del 26-10-2026 (04:12 UTC) cae el 26 en Madrid y el 25 en Bogotá", () => {
   const keys = ["2026-10-25", "2026-10-26"];
   const madrid = astroByDay(keys, "Europe/Madrid");
-  ok(madrid.get("2026-10-26")!.fullMoon && !madrid.get("2026-10-25")!.fullMoon);
-  eq(madrid.get("2026-10-26")!.lines.find((l) => l.kind === "moon"), { kind: "moon", label: "Luna llena", text: "Luna llena en Tauro 2°46′", time: "05:12", detail: "full" });
+  const full = (d: { lines: Parameters<typeof dayMarks>[0] }) => dayMarks(d.lines, ALL_VISIBLE).fullMoon;
+  ok(full(madrid.get("2026-10-26")!) && !full(madrid.get("2026-10-25")!));
+  eq(madrid.get("2026-10-26")!.lines.find((l) => l.kind === "moon"), { kind: "moon", label: "Luna llena", text: "Luna llena en Tauro 2°46′", time: "05:12", detail: "full", groups: ["moon"], mark: true });
   const bogota = astroByDay(keys, "America/Bogota");
-  ok(bogota.get("2026-10-25")!.fullMoon);
+  ok(full(bogota.get("2026-10-25")!));
   eq(bogota.get("2026-10-25")!.lines.find((l) => l.kind === "moon")!.time, "23:12");
 });
 
@@ -260,4 +262,18 @@ test("positionsAt: Sol a Lilith (con asteroides y Nodo Sur) y ℞ (25-10-2026: M
   const node = p.find((x) => x.body === "Node")!.lon;
   ok(Math.abs(((p.find((x) => x.body === "SouthNode")!.lon - node + 360) % 360) - 180) < 1e-9, "Nodo Sur = Nodo Norte + 180°");
   eq(formatZodiac(p.find((x) => x.body === "Venus")!.lon), "Libra 29°55′");
+});
+
+test("Qué mostrar: marcas del día según los grupos (la Luna no marca conjunciones; asteroides fuera)", () => {
+  const lines = astroByDay(["2026-01-28"], "Europe/Madrid").get("2026-01-28")!.lines;
+  const all = dayMarks(lines, ALL_VISIBLE);
+  ok(lines.some((l) => l.text.startsWith("☌ Sol – Vesta")), "Sol–Vesta el 28-1-2026");
+  const sinAsteroides = dayMarks(lines, { ...ALL_VISIBLE, asteroids: false });
+  eq(all.conjunctions - sinAsteroides.conjunctions, lines.filter((l) => l.kind === "conjunction" && l.mark && l.groups.includes("asteroids")).length);
+  const moonConj = lines.filter((l) => l.kind === "conjunction" && l.groups.includes("moon"));
+  ok(moonConj.every((l) => !l.mark));
+  eq(parseVisible(serializeVisible({ ...ALL_VISIBLE, moon: false })), { ...ALL_VISIBLE, moon: false });
+  eq(parseVisible(null), ALL_VISIBLE);
+  eq(parseVisible("planetas,xx"), ALL_VISIBLE);
+  eq(parseVisible(""), { planets: false, moon: false, asteroids: false, points: false });
 });

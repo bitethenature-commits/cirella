@@ -591,10 +591,13 @@ no hace falta Calendly ni Google Calendar. Tú trabajas con tu enlace de Zoom y 
 
 9. **El calendario** (arriba en **Reservas**): el mes en tu zona horaria con lo que hay cada día
    (sesiones, talleres, tus notas, días y horas bloqueados) y el cielo: lunas nuevas 🌑 y llenas 🌕,
-   eclipses, conjunciones ☌ (Sol, planetas, Quirón, Nodo Norte medio y Lilith media) y cuando un
-   planeta se pone retrógrado o directo ℞. Toca un día para ver todo con la hora, el signo y el
-   grado, los planetas retrógrados y dónde está cada cosa, y para escribir tu nota del día (se
-   guarda sola; solo la ves tú).
+   eclipses, conjunciones ☌ (Sol, Luna, planetas, Quirón, Ceres, Palas, Juno, Vesta, Eris, Nodo
+   Norte medio y Lilith media) y cuando un planeta se pone retrógrado o directo ℞. Toca un día para
+   ver todo con la hora, el signo y el grado, lo que va retrógrado y dónde está cada cosa («Hoy en
+   el cielo»), y para escribir tu nota del día (se guarda sola; solo la ves tú). Las conjunciones de
+   la Luna y las estaciones de los asteroides solo salen al abrir el día. Con **Qué mostrar**
+   (Planetas · Luna · Asteroides · Puntos) escondes lo que no quieras ver; se recuerda en ese móvil
+   u ordenador.
 
 Mientras una clienta está pagando en Stripe o PayPal, esa hora queda guardada (hasta unos 30
 minutos): así dos personas no pagan la misma hora. Si el pago falla, la hora vuelve a estar libre.

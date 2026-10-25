@@ -4,6 +4,7 @@ import { Ban, ChevronLeft, ChevronRight, Clock, Loader2, NotebookPen, Sparkles, 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import type { CalendarMonth, DayData } from "@/lib/calendar-diary";
+import { ALL_VISIBLE, ASTRO_GROUPS, ASTRO_GROUP_ES, ASTRO_GROUP_HINT, dayMarks, lineVisible, parseVisible, serializeVisible, type Visible } from "@/lib/calendar-marks";
 import type { AstroLine } from "@/lib/owner-calendar";
 import { saveCalendarNote } from "./calendar-actions";
 
@@ -11,7 +12,12 @@ import { saveCalendarNote } from "./calendar-actions";
  * Calendario del mes en Reservas: cada día con sus marcas (sesiones, talleres, nota, lunas, eclipses,
  * conjunciones, estaciones y bloqueos) y, al tocarlo, su hoja: agenda, diario y cielo. En el móvil la
  * hoja sale desde abajo (<dialog> nativo) y en el ordenador, centrada.
+ *
+ * «Qué mostrar» (planetas, Luna, asteroides, puntos) se guarda en este navegador y filtra las marcas
+ * del mes y el cielo del día. Las conjunciones de la Luna y las estaciones de los asteroides no
+ * marcan el mes (serían casi a diario): solo salen en el día.
  */
+const SHOW_KEY = "cirella:calendario-mostrar";
 const WEEKDAYS = ["L", "M", "X", "J", "V", "S", "D"];
 const WEEKDAYS_LONG = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
 
@@ -24,16 +30,17 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 type Notes = Record<string, { body: string; updatedAt: string } | null>;
 
 /** Lo que dice el lector de pantalla de un día: «lunes 26 de octubre: 2 sesiones, luna llena, nota». */
-function dayLabel(d: DayData, hasNote: boolean) {
+function dayLabel(d: DayData, hasNote: boolean, v: Visible) {
+  const marks = dayMarks(d.astro.lines, v);
   const bits: string[] = [];
   if (d.bookings.length) bits.push(plural(d.bookings.length, "sesión", "sesiones"));
   if (d.workshops.length) bits.push(plural(d.workshops.length, "taller", "talleres"));
   if (hasNote) bits.push("nota");
-  if (d.astro.newMoon) bits.push("luna nueva");
-  if (d.astro.fullMoon) bits.push("luna llena");
-  if (d.astro.eclipse) bits.push("eclipse");
-  if (d.astro.conjunctions) bits.push(plural(d.astro.conjunctions, "conjunción", "conjunciones"));
-  if (d.astro.stations) bits.push(plural(d.astro.stations, "estación", "estaciones"));
+  if (marks.newMoon) bits.push("luna nueva");
+  if (marks.fullMoon) bits.push("luna llena");
+  if (marks.eclipse) bits.push("eclipse");
+  if (marks.conjunctions) bits.push(plural(marks.conjunctions, "conjunción", "conjunciones"));
+  if (marks.stations) bits.push(plural(marks.stations, "estación", "estaciones"));
   if (d.blocked) bits.push("día bloqueado");
   else if (d.blockedHours.length) bits.push("horas bloqueadas");
   if (d.special.length) bits.push("fecha especial");
@@ -67,6 +74,25 @@ export function OwnerCalendar({
   const [notes, setNotes] = useState<Notes>(() => Object.fromEntries(data.days.map((d) => [d.key, d.note])));
   const [open, setOpen] = useState<string | null>(initialDay && data.days.some((d) => d.key === initialDay) ? initialDay : null);
 
+  const [visible, setVisible] = useState<Visible>(ALL_VISIBLE);
+  useEffect(() => {
+    try {
+      setVisible(parseVisible(localStorage.getItem(SHOW_KEY)));
+    } catch {
+      /* sin almacenamiento: todo a la vista */
+    }
+  }, []);
+  const toggle = (g: keyof Visible) =>
+    setVisible((v) => {
+      const next = { ...v, [g]: !v[g] };
+      try {
+        localStorage.setItem(SHOW_KEY, serializeVisible(next));
+      } catch {
+        /* sin almacenamiento: solo esta vez */
+      }
+      return next;
+    });
+
   const day = open ? data.days.find((d) => d.key === open) ?? null : null;
   const idx = day ? data.days.indexOf(day) : -1;
 
@@ -92,6 +118,22 @@ export function OwnerCalendar({
         </Link>
       </div>
 
+      <div className="mb-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Qué mostrar">
+        <span className="mr-1 text-xs font-semibold text-muted">Qué mostrar</span>
+        {ASTRO_GROUPS.map((g) => (
+          <button
+            key={g}
+            type="button"
+            aria-pressed={visible[g]}
+            title={ASTRO_GROUP_HINT[g]}
+            onClick={() => toggle(g)}
+            className={`h-9 rounded-full border px-3 text-xs font-semibold ${visible[g] ? "border-ink bg-ink text-cream" : "border-line bg-white text-muted line-through"}`}
+          >
+            {ASTRO_GROUP_ES[g]}
+          </button>
+        ))}
+      </div>
+
       <div className="overflow-hidden rounded-2xl border border-line bg-white">
         <div className="grid grid-cols-7 border-b border-line bg-paper text-center text-[0.68rem] font-semibold uppercase tracking-wider text-muted" aria-hidden>
           {WEEKDAYS.map((w) => (
@@ -102,13 +144,14 @@ export function OwnerCalendar({
           {data.days.map((d, i) => {
             const hasNote = !!notes[d.key];
             const isToday = d.key === todayKey;
+            const m = dayMarks(d.astro.lines, visible);
             return (
               <button
                 key={d.key}
                 type="button"
                 data-day={d.key}
                 onClick={() => setOpen(d.key)}
-                aria-label={dayLabel(d, hasNote)}
+                aria-label={dayLabel(d, hasNote, visible)}
                 className={`relative flex min-h-[4.25rem] min-w-0 flex-col items-stretch gap-0.5 border-line p-1 text-left hover:bg-sand/60 focus-visible:z-10 sm:min-h-[5.5rem] sm:p-1.5 ${i % 7 ? "border-l" : ""} ${i >= 7 ? "border-t" : ""} ${
                   d.inMonth ? "" : "bg-paper/70 text-faint"
                 } ${d.blocked ? "bg-[repeating-linear-gradient(135deg,transparent_0_6px,rgb(14_16_36/0.05)_6px_8px)]" : ""}`}
@@ -116,18 +159,16 @@ export function OwnerCalendar({
                 <span className="flex items-center justify-between gap-0.5">
                   <span className={`grid h-6 min-w-6 place-items-center rounded-full text-xs font-semibold tabular-nums ${isToday ? "bg-ink text-cream" : ""}`}>{Number(d.key.slice(8))}</span>
                   <span className="text-[0.8rem] leading-none" aria-hidden>
-                    {d.astro.newMoon ? "🌑" : d.astro.fullMoon ? "🌕" : ""}
+                    {m.newMoon ? "🌑" : m.fullMoon ? "🌕" : ""}
                   </span>
                 </span>
                 <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[0.66rem] leading-none" aria-hidden>
                   {d.bookings.length > 0 && <span className="rounded-full bg-lavender-deep px-1.5 py-0.5 font-semibold text-white tabular-nums">{d.bookings.length}</span>}
                   {d.workshops.length > 0 && <Users className="h-3 w-3 text-lavender-deep" />}
                   {hasNote && <NotebookPen className="h-3 w-3 text-gold" />}
-                  {d.astro.eclipse && <span className="font-semibold text-rose">ECL</span>}
-                  {d.astro.conjunctions > 0 && (
-                    <span className="font-semibold text-ink-3">☌{d.astro.conjunctions > 1 ? d.astro.conjunctions : ""}</span>
-                  )}
-                  {d.astro.stations > 0 && <span className="font-semibold text-rose">℞</span>}
+                  {m.eclipse && <span className="font-semibold text-rose">ECL</span>}
+                  {m.conjunctions > 0 && <span className="font-semibold text-ink-3">☌{m.conjunctions > 1 ? m.conjunctions : ""}</span>}
+                  {m.stations > 0 && <span className="font-semibold text-rose">℞</span>}
                   {(d.blocked || d.blockedHours.length > 0) && <Ban className="h-3 w-3 text-muted" />}
                   {d.special.length > 0 && <Clock className="h-3 w-3 text-sage" />}
                 </span>
@@ -150,7 +191,8 @@ export function OwnerCalendar({
         <li className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-sage" /> Fecha especial</li>
       </ul>
       <p className="mt-1.5 text-xs text-faint">
-        Horas en tu zona ({tzLabel}). Toca un día para ver todo y escribir tu nota.
+        Horas en tu zona ({tzLabel}). Toca un día para ver todo y escribir tu nota. Las conjunciones de la Luna y las estaciones de los
+        asteroides solo salen al abrir el día.
       </p>
 
       {day && (
@@ -158,6 +200,7 @@ export function OwnerCalendar({
           key={day.key}
           day={day}
           note={notes[day.key] ?? null}
+          visible={visible}
           onSaved={(n) => setNotes((x) => ({ ...x, [day.key]: n }))}
           onClose={() => setOpen(null)}
           onPrev={idx > 0 ? () => setOpen(data.days[idx - 1].key) : null}
@@ -173,6 +216,7 @@ type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 function DaySheet({
   day,
   note,
+  visible,
   onSaved,
   onClose,
   onPrev,
@@ -180,6 +224,7 @@ function DaySheet({
 }: {
   day: DayData;
   note: { body: string; updatedAt: string } | null;
+  visible: Visible;
   onSaved: (n: { body: string; updatedAt: string } | null) => void;
   onClose: () => void;
   onPrev: (() => void) | null;
@@ -230,6 +275,10 @@ function DaySheet({
   useEffect(() => () => void save(), [save]);
 
   const close = () => dialog.current?.close();
+  const lines = day.astro.lines.filter((l) => lineVisible(l, visible));
+  const positions = day.astro.positions.filter((p) => visible[p.group]);
+  // Retrógrados (sin los nodos medios, que siempre lo van).
+  const retro = positions.filter((p) => p.retro && p.body !== "Node" && p.body !== "SouthNode").map((p) => `${p.name} ℞`);
   const agendaEmpty = !day.bookings.length && !day.workshops.length && !day.blocked && !day.blockedHours.length && !day.special.length;
 
   return (
@@ -337,26 +386,29 @@ function DaySheet({
         <section aria-label="El cielo">
           <h3 className="eyebrow mb-2 !text-ink">El cielo</h3>
           <ul className="space-y-1.5">
-            {day.astro.lines.map((l, i) => (
+            {lines.map((l, i) => (
               <AstroItem key={i} line={l} />
             ))}
-            <li className="rounded-2xl border border-line bg-white px-3 py-2 text-sm">
-              <span className="block text-[0.68rem] font-semibold uppercase tracking-wider text-muted">La Luna</span>
-              {day.astro.moon.enters
-                ? `Luna en ${day.astro.moon.sign} hasta las ${day.astro.moon.enters.time}; después, en ${day.astro.moon.enters.sign}`
-                : `Luna en ${day.astro.moon.sign}`}
-            </li>
+            {visible.moon && (
+              <li className="rounded-2xl border border-line bg-white px-3 py-2 text-sm">
+                <span className="block text-[0.68rem] font-semibold uppercase tracking-wider text-muted">La Luna</span>
+                {day.astro.moon.enters
+                  ? `Luna en ${day.astro.moon.sign} hasta las ${day.astro.moon.enters.time}; después, en ${day.astro.moon.enters.sign}`
+                  : `Luna en ${day.astro.moon.sign}`}
+              </li>
+            )}
           </ul>
+          {lines.length === 0 && !visible.moon && <p className="text-sm text-muted">Nada que mostrar con lo que tienes elegido en «Qué mostrar».</p>}
           <p className="mt-3 text-sm">
-            <span className="font-semibold">Planetas retrógrados hoy: </span>
-            {day.astro.retrograde.length ? day.astro.retrograde.map((r) => `${r} ℞`).join(", ") : "ninguno"}
+            <span className="font-semibold">Retrógrados hoy: </span>
+            {retro.length ? retro.join(", ") : "ninguno"}
           </p>
           <details className="mt-3 rounded-2xl border border-line bg-white" open>
             <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 text-sm font-semibold">
               <Sparkles className="h-4 w-4 text-lavender-deep" /> Hoy en el cielo <span className="font-normal text-muted">(a las 12:00)</span>
             </summary>
             <ul className="grid gap-x-4 gap-y-1 px-3 pb-3 text-sm sm:grid-cols-2">
-              {day.astro.positions.map((p) => (
+              {positions.map((p) => (
                 <li key={p.body}>
                   <span className="font-medium">{p.name}{p.retro ? " ℞" : ""}</span> en {p.where}
                 </li>

@@ -1,12 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
-import { moonPhasesBetween } from "../lib/astro-calendar";
+import { conjunctionsBetween, moonPhasesBetween } from "../lib/astro-calendar";
 import { addDaysToKey, dateKeyInTz } from "../lib/tz";
 
 /**
  * Calendario de Reservas en la web personal de Ana (puerto 3101, iPhone 13):
  *   · el mes con las marcas (su nota de hoy, la próxima luna llena), «Mes siguiente» y «Hoy»;
- *   · tocar un día abre su hoja: agenda, diario y cielo (sin casas);
+ *   · tocar un día abre su hoja: agenda, diario y cielo (sin casas), con las conjunciones de la Luna;
+ *   · «Qué mostrar»: esconder los asteroides se recuerda al recargar;
  *   · escribir una nota en un día vacío, que se guarda sola, y seguir ahí al recargar;
  * Borra la nota que escribe.
  */
@@ -55,12 +56,33 @@ test("Ana ve el mes con sus marcas, abre un día, escribe su nota y sigue ahí a
   await fullCell.click();
   const fullSheet = page.locator(`dialog[data-day-sheet="${fullKey}"]`);
   await expect(fullSheet.getByText(/Luna llena en \S+ \d+°\d\d′/)).toBeVisible();
-  await expect(fullSheet.getByText("Planetas retrógrados hoy:")).toBeVisible();
+  await expect(fullSheet.getByText("Retrógrados hoy:")).toBeVisible();
   await expect(fullSheet.getByText("Hoy en el cielo")).toBeVisible();
   await expect(fullSheet.getByText(/Quirón.* en \S+ \d+°/)).toBeVisible();
   await expect(fullSheet.getByText(/Casa \d+/)).toHaveCount(0);
+  await expect(fullSheet.getByText(/^Vesta( ℞)?$/)).toBeVisible();
   await fullSheet.getByRole("button", { name: "Cerrar" }).click();
   await expect(fullSheet).toHaveCount(0);
+
+  // «Qué mostrar»: sin asteroides, Vesta desaparece del día; se recuerda al recargar.
+  const asteroids = page.getByRole("group", { name: "Qué mostrar" }).getByRole("button", { name: "Asteroides" });
+  await expect(asteroids).toHaveAttribute("aria-pressed", "true");
+  await asteroids.click();
+  await expect(asteroids).toHaveAttribute("aria-pressed", "false");
+  await page.reload();
+  await expect(page.getByRole("group", { name: "Qué mostrar" }).getByRole("button", { name: "Asteroides" })).toHaveAttribute("aria-pressed", "false");
+  await page.locator(`[data-day="${fullKey}"]`).first().click();
+  await expect(fullSheet.getByText("Hoy en el cielo")).toBeVisible();
+  await expect(fullSheet.getByText(/^Vesta( ℞)?$/)).toHaveCount(0);
+  await fullSheet.getByRole("button", { name: "Cerrar" }).click();
+  await page.getByRole("group", { name: "Qué mostrar" }).getByRole("button", { name: "Asteroides" }).click();
+
+  // Una conjunción de la Luna (cada mes hay varias): sale en su día con la hora, no como marca.
+  const moonConj = conjunctionsBetween(new Date(), new Date(Date.now() + 10 * 86_400_000)).find((e) => e.kind === "conjunction" && e.a === "Moon")!;
+  const moonKey = dateKeyInTz(moonConj.at, TZ);
+  await page.goto(`/panel/reservas?dia=${moonKey}`);
+  await expect(page.locator(`dialog[data-day-sheet="${moonKey}"]`).getByText(/☌ Luna – /).first()).toBeVisible();
+  await page.locator(`dialog[data-day-sheet="${moonKey}"]`).getByRole("button", { name: "Cerrar" }).click();
 
   // «Mes siguiente» y «Hoy».
   await page.goto(`/panel/reservas?mes=${today.slice(0, 7)}`);
