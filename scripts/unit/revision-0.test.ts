@@ -10,7 +10,7 @@ import { magicLinkEmail, monthlyInvoiceEmail } from "../../lib/email/templates";
 import { validateEnv } from "../../lib/env";
 import { feeInvoiceKind } from "../../lib/invoices/fees";
 import { parseCheckoutConsents } from "../../lib/checkout-consents";
-import { waiverKindFor } from "../../lib/legal";
+import { WAIVER_TEXT, waiverKindFor } from "../../lib/legal";
 import { renderCreatorLegalTemplates } from "../../lib/legal-templates";
 import { scrubEvent } from "../../lib/monitoring";
 import { createStripeProvider, type StripeLike } from "../../lib/payments/stripe";
@@ -226,18 +226,19 @@ test("validateEnv: .env.example pegado en la producción de Vercel (VERCEL_ENV=p
 test("validateEnv: el mismo desarrollo con una BD alojada y sin Vercel sigue valiendo", () => ok(validateEnv(pastedExample).ok));
 test("validateEnv: en una previsualización de Vercel (VERCEL_ENV=preview) no se aplica", () => ok(validateEnv({ ...pastedExample, VERCEL_ENV: "preview" }).ok));
 
-// ── «Lo preparo yo»: sin renuncia de acceso inmediato y lo vende la creadora ──
+// ── «Lo preparo yo»: su propia renuncia (se prepara en cuanto paga) y lo vende la creadora ──
 
-test("waiverKindFor: digital preparado a mano → ninguna renuncia; automático → acceso inmediato", () => {
-  eq(waiverKindFor("DIGITAL", "PERSONAL"), null);
+test("waiverKindFor: digital preparado a mano → se prepara ya; automático → acceso inmediato", () => {
+  eq(waiverKindFor("DIGITAL", "PERSONAL"), "DIGITAL_PREPARED");
   eq(waiverKindFor("DIGITAL", "AUTOMATIC"), "DIGITAL_IMMEDIATE");
   eq(waiverKindFor("DIGITAL"), "DIGITAL_IMMEDIATE");
   eq(waiverKindFor("COURSE", "PERSONAL"), "DIGITAL_IMMEDIATE");
-  eq(waiverKindFor("SESSION"), "SERVICE_IN_PERIOD");
+  eq(waiverKindFor("SESSION"), null);
 });
-test("parseCheckoutConsents: un digital preparado a mano se compra sin la casilla de renuncia y no la guarda", () => {
-  const r = parseCheckoutConsents({ acceptTerms: "on" }, "DIGITAL", "PERSONAL");
-  ok(r.ok && r.consents.waiverKind === null && r.consents.waiverText === null, JSON.stringify(r));
+test("parseCheckoutConsents: un digital preparado a mano no se paga sin su casilla y la guarda literal", () => {
+  ok(!parseCheckoutConsents({ acceptTerms: "on" }, "DIGITAL", "PERSONAL").ok);
+  const r = parseCheckoutConsents({ acceptTerms: "on", waiver: "on" }, "DIGITAL", "PERSONAL");
+  ok(r.ok && r.consents.waiverKind === "DIGITAL_PREPARED" && r.consents.waiverText === WAIVER_TEXT.DIGITAL_PREPARED && !!r.consents.waiverVersion, JSON.stringify(r));
   ok(!parseCheckoutConsents({ acceptTerms: "on" }, "DIGITAL", "AUTOMATIC").ok);
 });
 test("la insignia del checkout de un digital personal no promete acceso inmediato", () => ok(!/inmediat/i.test(JSON.stringify(checkoutDeliveryBadge("DIGITAL", "PERSONAL") ?? ""))));
@@ -250,7 +251,7 @@ test("decideTax: digital preparado a mano con la opción A → lo vende la cread
   eq(estimateNet({ priceCents: 7900, commissionBps: 500, productType: "DIGITAL", deliveryMode: "PERSONAL", mode: "PLATFORM_DIGITAL", creator: none }).taxCents, 0);
 });
 
-// ── Desistimiento: la renuncia solo vale desde el primer acceso ──
+// ── Desistimiento: una renuncia de antes (sin versión) solo vale desde el primer acceso ──
 
 const paidAt = new Date("2026-10-01T10:00:00Z");
 const order = (o: Partial<Parameters<typeof toWithdrawalInput>[0]> = {}) =>
@@ -267,7 +268,11 @@ const order = (o: Partial<Parameters<typeof toWithdrawalInput>[0]> = {}) =>
     ...o,
   });
 const day2 = new Date("2026-10-03T10:00:00Z");
-test("desistimiento: curso con renuncia pero sin abrir → puede desistir", () => ok(withdrawalEligibility(order(), day2).eligible));
+test("desistimiento: curso con una renuncia de antes, sin abrir → puede desistir", () => ok(withdrawalEligibility(order(), day2).eligible));
+test("desistimiento: curso con la renuncia de ahora (con versión), sin abrir → WAIVED desde el pago", () =>
+  eq(withdrawalEligibility(order({ waiverVersion: "2026-10-25#abc" }), day2), { eligible: false, reason: "WAIVED" }));
+test("desistimiento: «Lo preparo yo» con su renuncia, aún sin entregar → WAIVED", () =>
+  eq(withdrawalEligibility(order({ productType: "DIGITAL", waiverVersion: "2026-10-25#abc" }), day2), { eligible: false, reason: "WAIVED" }));
 test("desistimiento: curso con renuncia y ya abierto → WAIVED", () =>
   eq(withdrawalEligibility(order({ metadata: { firstAccessAt: "2026-10-02T09:00:00Z" } }), day2), { eligible: false, reason: "WAIVED" }));
 test("accessStartedAt lee Order.metadata.firstAccessAt y tolera basura", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { termsCheckboxText, WAIVER_TEXT, waiverKindFor } from "@/lib/legal";
+import { termsCheckboxText, WAIVER_TEXT, type WaiverKind } from "@/lib/legal";
 
 const TERMS = "condiciones de venta";
 const REFUNDS = "política de cambios y reembolsos";
@@ -17,21 +17,22 @@ function Check({ name, checked, onChange, children }: { name: string; checked: b
 
 /**
  * Casillas del checkout: condiciones de venta (obligatoria, sin marcar de inicio), renuncia al
- * desistimiento según el producto y novedades por email (opcional). Controladas: React resetea
+ * desistimiento según el producto (obligatoria para pagar) y novedades por email (opcional). Controladas: React resetea
  * los formularios con acción tras cada envío y un pago rechazado no debe desmarcarlas.
  * Las valida lib/checkout-consents.ts en el servidor.
  */
 export function CheckoutConsents({
-  productType,
-  deliveryMode,
+  waiverKind,
   billingInterval,
   price,
   seller,
   creatorDisplayName,
 }: {
-  productType: string;
-  /** «Lo preparo yo»: sin acceso inmediato no se pide la renuncia al desistimiento. */
-  deliveryMode?: string | null;
+  /**
+   * Renuncia obligatoria (la calcula el servidor con lib/legal.ts → waiverKindFor): acceso inmediato,
+   * «Lo preparo yo» o taller a menos de 15 días. null: una sesión con los 14 días para desistir.
+   */
+  waiverKind: WaiverKind | null;
   billingInterval: string | null;
   price: string;
   seller: { name: string; legalHref: string };
@@ -40,7 +41,7 @@ export function CheckoutConsents({
   const [terms, setTerms] = useState(false);
   const [waiver, setWaiver] = useState(false);
   const [newsletter, setNewsletter] = useState(false);
-  const kind = waiverKindFor(productType, deliveryMode);
+  const kind = waiverKind;
 
   // El texto sale de lib/legal.ts (el mismo que se valida y se cita en el recibo); aquí solo se
   // enlazan las dos políticas.

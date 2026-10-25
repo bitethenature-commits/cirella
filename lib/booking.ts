@@ -1,14 +1,49 @@
 import type { Prisma, Product } from "@prisma/client";
+import { isNoChargeOrder } from "./access-mode";
 import { prisma } from "./db";
 import { getBusyIntervals } from "./calendar";
 import { isPersonalMode } from "./site-mode";
-import { computeSlots, groupSlotsByDay, horizonEnd, horizonOf, type DaySlots, type Interval } from "./slots";
+import { computeSlots, groupSlotsByDay, HORIZON_MAX_DAYS, horizonEnd, horizonOf, type DaySlots, type Interval } from "./slots";
+import { followsDay15Rule, startAfterDays, PAID_SESSION_SHORT_NOTICE_HOURS, paidSessionHorizon, paidSessionNoticeDays } from "./withdrawal";
 import { addDaysToKey, dateKeyInTz } from "./tz";
 
 export type { DaySlots } from "./slots";
 
 export type SessionProduct = Pick<Product, "id" | "creatorId" | "durationMin" | "bufferMin" | "minNoticeHours"> &
-  Partial<Pick<Product, "horizonDays" | "groupSession">>;
+  Partial<Pick<Product, "horizonDays" | "groupSession" | "accessMode">>;
+
+/**
+ * Regla de los huecos de una sesión:
+ *   · purchaseAt: fecha de la compra desde la que cuenta el día 15 (por defecto «ahora», quien está
+ *     comprando). Al elegir o cambiar la fecha después de pagar, la del pago del pedido.
+ *   · manual: la dueña da la sesión a mano («Dar una sesión o lectura») o la clienta elige la fecha
+ *     de una que se le dio así: sin regla del día 15, con la antelación de siempre (24 h).
+ */
+export type SlotRule = { purchaseAt?: Date; manual?: boolean };
+
+/**
+ * Regla para elegir o cambiar la fecha de una reserva ya hecha (también tras «Proponer otra fecha»):
+ * el día 15 cuenta desde el pago de SU pedido; una sesión dada a mano (pedido sin cobro) no la sigue.
+ */
+export function slotRuleForOrder(order: { paymentProvider: string; paidAt: Date | null; createdAt: Date } | null | undefined): SlotRule {
+  if (!order) return {};
+  return isNoChargeOrder(order) ? { manual: true } : { purchaseAt: order.paidAt ?? order.createdAt };
+}
+
+/** Antelación, días y horizonte de los huecos de una sesión según la regla del día 15 (lib/withdrawal.ts). */
+export function slotNotice(product: SessionProduct, rule: SlotRule = {}): { minNoticeHours: number; minNoticeDays?: number; horizonDays: number } {
+  const horizon = horizonOf(product);
+  const paidWeb = followsDay15Rule({ type: "SESSION", groupSession: product.groupSession, accessMode: product.accessMode });
+  if (paidWeb && !rule.manual) {
+    const days = paidSessionNoticeDays(product);
+    return { minNoticeHours: PAID_SESSION_SHORT_NOTICE_HOURS, minNoticeDays: days, horizonDays: Math.min(HORIZON_MAX_DAYS, paidSessionHorizon(horizon, days)) };
+  }
+  // A mano la dueña elige en su agenda: como mucho la antelación de siempre (24 h), aunque la de la
+  // sesión de pago sea de días.
+  const own = product.minNoticeHours ?? SESSION_DEFAULTS.minNoticeHours;
+  const hours = rule.manual ? Math.min(own, SESSION_DEFAULTS.minNoticeHours) : own;
+  return { minNoticeHours: hours, horizonDays: horizon };
+}
 
 /** Cliente con el que se leen los huecos: `prisma` o el de una transacción. */
 export type SlotsClient = Pick<Prisma.TransactionClient, "creator" | "availabilityRule" | "blockedDate" | "availabilityOverride" | "booking" | "order" | "product">;
@@ -81,7 +116,7 @@ export async function workshopIntervals(db: Pick<SlotsClient, "product">, creato
  */
 async function slotStarts(
   product: SessionProduct,
-  opts: { now?: Date; client?: SlotsClient; ignoreOrderId?: string; holds?: boolean; noticeFrom?: Date },
+  opts: { now?: Date; client?: SlotsClient; ignoreOrderId?: string; holds?: boolean; noticeFrom?: Date } & SlotRule,
 ) {
   const now = opts.now ?? new Date();
   const db = opts.client ?? prisma;
@@ -90,9 +125,12 @@ async function slotStarts(
     select: { timezone: true, calendarProvider: true, calendarAccountId: true },
   });
   const tz = creator.timezone;
-  const horizonDays = horizonOf(product);
+  const notice = slotNotice(product, opts);
+  const horizonDays = notice.horizonDays;
   const durationMin = product.durationMin ?? SESSION_DEFAULTS.durationMin;
-  if (product.groupSession) return { tz, durationMin, horizonDays, starts: [] as string[] };
+  // Primera hora posible por la regla del día 15 (null si no se aplica).
+  const notBefore = notice.minNoticeDays ? startAfterDays(opts.purchaseAt ?? now, notice.minNoticeDays, tz) : null;
+  if (product.groupSession) return { tz, durationMin, horizonDays, notBefore: null, starts: [] as string[] };
   const end = new Date(horizonEnd(now, tz, horizonDays));
   const from = new Date(now.getTime() - 86400_000);
   const todayKey = dateKeyInTz(now, tz);
@@ -122,7 +160,9 @@ async function slotStarts(
     timezone: tz,
     durationMin,
     bufferMin: product.bufferMin ?? SESSION_DEFAULTS.bufferMin,
-    minNoticeHours: product.minNoticeHours ?? SESSION_DEFAULTS.minNoticeHours,
+    minNoticeHours: notice.minNoticeHours,
+    minNoticeDays: notice.minNoticeDays,
+    firstDayFrom: opts.purchaseAt ?? now,
     horizonDays,
     rules,
     blockedDates: blocked.map((b) => b.date),
@@ -130,7 +170,7 @@ async function slotStarts(
     busy,
     noticeFrom: opts.noticeFrom,
   });
-  return { tz, durationMin, horizonDays, starts };
+  return { tz, durationMin, horizonDays, notBefore, starts };
 }
 
 /**
@@ -139,7 +179,7 @@ async function slotStarts(
  */
 export async function getAvailableSlots(
   product: SessionProduct,
-  opts: { now?: Date; client?: SlotsClient; viewerTz?: string | null; ignoreOrderId?: string; holds?: boolean } = {},
+  opts: { now?: Date; client?: SlotsClient; viewerTz?: string | null; ignoreOrderId?: string; holds?: boolean } & SlotRule = {},
 ) {
   const now = opts.now ?? new Date();
   const r = await slotStarts(product, { ...opts, now });
@@ -150,6 +190,8 @@ export async function getAvailableSlots(
     durationMin: r.durationMin,
     horizonDays: r.horizonDays,
     range: { from: dateKeyInTz(now, viewer), to: dateKeyInTz(new Date(horizonEnd(now, r.tz, r.horizonDays) - 1), viewer) },
+    /** Sesión pagada en la web: nada antes de esta hora (día 15 desde la compra). */
+    notBefore: r.notBefore ? r.notBefore.toISOString() : null,
     days: groupSlotsByDay(r.starts, viewer),
   };
 }
@@ -161,7 +203,7 @@ export async function getAvailableSlots(
 export async function isSlotAvailable(
   product: SessionProduct,
   startIso: string,
-  opts: { client?: SlotsClient; ignoreOrderId?: string; holds?: boolean; noticeFrom?: Date } = {},
+  opts: { now?: Date; client?: SlotsClient; ignoreOrderId?: string; holds?: boolean; noticeFrom?: Date } & SlotRule = {},
 ) {
   const t = Date.parse(startIso);
   if (Number.isNaN(t)) return false;

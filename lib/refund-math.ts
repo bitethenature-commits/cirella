@@ -1,5 +1,6 @@
 import { formatMoney, parseMoneyToCents } from "./money";
 import { ORDER_STATUS_LABEL } from "./types";
+import { DEFAULT_OWNER_TZ, WITHDRAWAL_DAYS, withdrawalDeadline } from "./withdrawal";
 
 /**
  * Cuentas de reembolsos y desistimientos. Puro (sin BD): lo usan el servicio de reembolsos
@@ -12,7 +13,7 @@ import { ORDER_STATUS_LABEL } from "./types";
  *   · Un reembolso parcial deja el pedido en PAID; el total lo pasa a REFUNDED.
  */
 
-export const WITHDRAWAL_DAYS = 14;
+export { WITHDRAWAL_DAYS };
 
 export type RefundReason = "CUSTOMER_REQUEST" | "WITHDRAWAL" | "SESSION_CANCELLED" | "DUPLICATE" | "DISPUTE_LOST" | "OTHER";
 
@@ -73,6 +74,8 @@ export type WithdrawalInput = {
   booking?: { status: string; startAt: Date | null } | null;
   /** La dueña ya le ha entregado la lectura preparada para ella (Order.deliveredAt). */
   delivered?: boolean;
+  /** Zona de la dueña: los 14 días se cuentan en ella (lib/withdrawal.ts). Por defecto, Madrid. */
+  timezone?: string | null;
 };
 
 export type WithdrawalBlock = "NOT_PAID" | "EXPIRED" | "WAIVED" | "SESSION_HELD" | "ALREADY_REFUNDED" | "PENDING" | "DELIVERED";
@@ -96,32 +99,42 @@ export function toWithdrawalInput(o: {
   amountCents: number;
   refundedCents: number;
   waiverAcceptedAt: Date | null;
+  /** Versión del texto aceptado: sin ella, es una renuncia de antes de 2026-10-25 (ver abajo). */
+  waiverVersion?: string | null;
   metadata?: unknown;
   deliveredAt?: Date | null;
   bookings: { status: string; startAt: Date | null }[];
   refunds: { status: string }[];
+  /** Zona de la dueña (Creator.timezone). */
+  timezone?: string | null;
 }): WithdrawalInput {
+  // Renuncia del checkout actual (con versión): «quiero acceder ya / que se prepare ya y pierdo el
+  // derecho», que cuenta desde el pago porque el acceso (o la preparación) empieza al pagar.
+  // Las de antes decían «al empezar el acceso o la descarga» (art. 103.m): solo cuentan desde que
+  // abrió algo. En las sesiones manda la reserva.
+  const waived =
+    !!o.waiverAcceptedAt && (o.productType === "SESSION" || !!o.waiverVersion || accessStartedAt(o.metadata) !== null);
   return {
     status: o.status,
     paidAt: o.paidAt,
     productType: o.productType,
     amountCents: o.amountCents,
     refundedCents: o.refundedCents,
-    // La renuncia de acceso inmediato solo cuenta «al empezar el acceso o la descarga» (es lo que
-    // aceptó, art. 103.m): si aún no ha abierto nada, puede desistir. En las sesiones manda la reserva.
-    withdrawalWaived: !!o.waiverAcceptedAt && (o.productType === "SESSION" || accessStartedAt(o.metadata) !== null),
+    withdrawalWaived: waived,
     hasPendingRefund: o.refunds.some((r) => r.status === "PENDING"),
     booking: o.bookings[0] ?? null,
     ...(o.deliveredAt ? { delivered: true } : {}),
+    ...(o.timezone ? { timezone: o.timezone } : {}),
   };
 }
 
 /**
  * ¿Puede la compradora desistir? (TRLGDCU arts. 102-108; pendiente de validar con la abogada)
- *   · 14 días naturales desde el pago;
+ *   · 14 días naturales desde el pago: hasta las 23:59 del día 14 (el del pago es el día 0) en la
+ *     zona de la dueña (lib/withdrawal.ts → withdrawalDeadline);
  *   · una sesión ya empezada o realizada no admite desistimiento;
- *   · el contenido digital, los cursos y las membresías tampoco si renunció expresamente al
- *     desistimiento para tener acceso inmediato y ya ha empezado a acceder;
+ *   · el contenido digital (también «Lo preparo yo»), los cursos y las membresías tampoco si
+ *     renunció expresamente al desistimiento en el checkout (obligatorio para pagarlos);
  *   · si se puede, se devuelve todo lo que queda por devolver.
  */
 export function withdrawalEligibility(
@@ -131,7 +144,7 @@ export function withdrawalEligibility(
   if (o.status === "REFUNDED") return { eligible: false, reason: "ALREADY_REFUNDED" };
   if (o.status !== "PAID" || !o.paidAt) return { eligible: false, reason: "NOT_PAID" };
   if (o.hasPendingRefund) return { eligible: false, reason: "PENDING" };
-  const deadline = new Date(o.paidAt.getTime() + WITHDRAWAL_DAYS * 86_400_000);
+  const deadline = withdrawalDeadline(o.paidAt, o.timezone || DEFAULT_OWNER_TZ);
   if (now > deadline) return { eligible: false, reason: "EXPIRED" };
   if (o.productType === "SESSION" && o.booking && (o.booking.status === "COMPLETED" || (o.booking.startAt && o.booking.startAt <= now)))
     return { eligible: false, reason: "SESSION_HELD" };

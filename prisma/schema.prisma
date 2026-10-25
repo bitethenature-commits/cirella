@@ -383,6 +383,8 @@ model Product {
   // Sesiones
   durationMin    Int?
   bufferMin      Int?
+  // Antelación mínima en horas. En las sesiones individuales que se pagan en la web es en días (× 24)
+  // y nunca menos de 15 días desde la compra (lib/withdrawal.ts → paidSessionNoticeDays).
   minNoticeHours Int?
   meetingUrl     String? // https (lib/meeting-url.ts): su enlace de Zoom de siempre; cada reserva puede llevar otro
   // Cuántos días por delante se puede reservar (null = 28, lib/slots.ts → HORIZON_DEFAULT_DAYS; máx. 180).
@@ -765,8 +767,9 @@ model Order {
   legalSnapshotId  String?
   legalSnapshot    LegalSnapshot? @relation(fields: [legalSnapshotId], references: [id])
   termsAcceptedAt  DateTime?
-  waiverKind       String? // DIGITAL_IMMEDIATE | SERVICE_IN_PERIOD
+  waiverKind       String? // DIGITAL_IMMEDIATE | DIGITAL_PREPARED | SERVICE_IN_PERIOD
   waiverText       String? // texto literal de la casilla marcada
+  waiverVersion    String? // versión de los textos y huella del texto aceptado: «2026-10-25#1a2b…» (lib/checkout-consents.ts)
   waiverAcceptedAt DateTime?
   marketingOptIn   Boolean        @default(false)
 

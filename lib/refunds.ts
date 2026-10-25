@@ -27,6 +27,7 @@ import {
 import { truncateError } from "./reliability";
 import { refundTaxFields } from "./tax";
 import { formatDate, formatSessionDate } from "./tz";
+import { DEFAULT_OWNER_TZ, withdrawalDeadline } from "./withdrawal";
 
 /**
  * Reembolsos (totales o parciales) y desistimientos.
@@ -544,12 +545,12 @@ async function reviveFailedRefund(r: Refund) {
 }
 
 /** Texto para la compradora cuando no puede desistir. */
-export function withdrawalBlockMessage(reason: WithdrawalBlock, paidAt: Date | null) {
+export function withdrawalBlockMessage(reason: WithdrawalBlock, paidAt: Date | null, timezone: string = DEFAULT_OWNER_TZ) {
   switch (reason) {
     case "EXPIRED":
-      return `El plazo de ${WITHDRAWAL_DAYS} días para desistir terminó el ${formatDate(new Date((paidAt ?? new Date()).getTime() + WITHDRAWAL_DAYS * 86_400_000), { day: "numeric", month: "long" })}.`;
+      return `El plazo de ${WITHDRAWAL_DAYS} días para desistir terminó el ${formatDate(withdrawalDeadline(paidAt ?? new Date(), timezone), { day: "numeric", month: "long" }, timezone)}.`;
     case "WAIVED":
-      return "Renunciaste al desistimiento para tener acceso inmediato y ya has empezado a usar el contenido.";
+      return "Al comprar pediste el acceso inmediato (o que se preparara ya) y renunciaste al desistimiento.";
     case "SESSION_HELD":
       return "La sesión ya se ha realizado.";
     case "PENDING":
@@ -570,12 +571,13 @@ export function withdrawalBlockMessage(reason: WithdrawalBlock, paidAt: Date | n
 export async function withdrawOrder(i: { orderId: string; userId: string; email: string; now?: Date }, deps: { provider?: PaymentProvider } = {}): Promise<RefundResult> {
   const order = await prisma.order.findFirst({
     where: { id: i.orderId, buyerEmail: i.email.toLowerCase(), customer: { userId: i.userId } },
-    include: { bookings: { select: { status: true, startAt: true } }, refunds: { select: { status: true } } },
+    include: { bookings: { select: { status: true, startAt: true } }, refunds: { select: { status: true } }, creator: { select: { timezone: true } } },
   });
   if (!order) return NOT_FOUND;
   if (isNoChargeOrder(order)) return NO_CHARGE;
-  const e = withdrawalEligibility(toWithdrawalInput(order), i.now ?? new Date());
-  if (!e.eligible) return { ok: false, code: "NOT_REFUNDABLE", error: withdrawalBlockMessage(e.reason, order.paidAt) };
+  const tz = order.creator.timezone;
+  const e = withdrawalEligibility(toWithdrawalInput({ ...order, timezone: tz }), i.now ?? new Date());
+  if (!e.eligible) return { ok: false, code: "NOT_REFUNDABLE", error: withdrawalBlockMessage(e.reason, order.paidAt, tz) };
   return refundOrder(
     { orderId: order.id, actor: { kind: "customer", userId: i.userId }, amountCents: e.amountCents, reason: "WITHDRAWAL", revokeAccess: true, cancelBooking: true },
     deps,

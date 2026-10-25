@@ -6,7 +6,16 @@ import { sameOffset, tzCity, tzOffsetLabel } from "@/lib/timezones";
 import { addDaysToKey, capitalize, formatInTz, timeInTz, weekdayOfKey } from "@/lib/tz";
 import { browserTimezone, TimezoneSelect } from "./timezone-select";
 
-type SlotsResponse = { timezone: string; ownerTimezone: string; durationMin: number; horizonDays: number; range: { from: string; to: string }; days: DaySlots[] };
+type SlotsResponse = {
+  timezone: string;
+  ownerTimezone: string;
+  durationMin: number;
+  horizonDays: number;
+  range: { from: string; to: string };
+  /** Sesión pagada en la web: primera hora posible (día 15 desde la compra, lib/withdrawal.ts). */
+  notBefore?: string | null;
+  days: DaySlots[];
+};
 
 /**
  * Calendario de huecos (checkout, «Elige fecha» del área de cliente y «Dar una sesión» del panel):
@@ -27,8 +36,14 @@ export function SlotPicker({
   disabled,
   emptyText = "No hay huecos disponibles ahora mismo.",
   viewer = "client",
+  bookingId,
+  manual,
 }: {
   productId: string;
+  /** Reserva de quien mira (elegir o cambiar su fecha): el día 15 cuenta desde el pago de su pedido. */
+  bookingId?: string;
+  /** La dueña da una sesión a mano: sin la regla del día 15. */
+  manual?: boolean;
   /** Pedido de este navegador (checkout que se reintenta): su propio pago en curso no le quita la hora. */
   orderId?: string;
   value: string;
@@ -66,6 +81,8 @@ export function SlotPicker({
     setError(false);
     const q = new URLSearchParams({ productId, tz });
     if (orderId) q.set("pedido", orderId);
+    if (bookingId) q.set("reserva", bookingId);
+    if (manual) q.set("manual", "1");
     fetch(`/api/slots?${q}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((d: SlotsResponse) => {
@@ -87,7 +104,7 @@ export function SlotPicker({
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, tz, orderId]);
+  }, [productId, tz, orderId, bookingId, manual]);
 
   const byDate = useMemo(() => new Map((data?.days ?? []).map((d) => [d.date, d])), [data]);
   const colors =
@@ -144,9 +161,18 @@ export function SlotPicker({
     </div>
   );
 
+  // Por qué no hay días antes: la sesión cae siempre fuera de los 14 días para desistir.
+  const day15Note = data.notBefore ? (
+    <p className={`${colors.muted} mb-3 text-xs leading-relaxed`} data-testid="dia-15">
+      Fechas a partir del {formatInTz(new Date(data.notBefore), data.ownerTimezone, { day: "numeric", month: "long" })}: las sesiones que se pagan
+      en la web se reservan desde el día 15 tras la compra, así nunca caen dentro de los 14 días en los que puedes desistir.
+    </p>
+  ) : null;
+
   if (data.days.length === 0)
     return (
       <div>
+        {day15Note}
         <p className={`${colors.muted} text-sm`}>{emptyText}</p>
         {zoneFooter}
       </div>
@@ -175,6 +201,7 @@ export function SlotPicker({
 
   return (
     <div className={disabled ? "pointer-events-none opacity-40" : ""}>
+      {day15Note}
       <div className="flex items-center justify-between">
         <button
           type="button"

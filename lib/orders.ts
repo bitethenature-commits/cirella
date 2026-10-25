@@ -8,7 +8,8 @@ import { dac7SalesPaused } from "./dac7-data";
 import { appUrl, isDemoMode } from "./env";
 import { canInvoiceSale, issueSaleInvoiceTx } from "./invoices/issue";
 import { getPlatformIssuer } from "./invoices/issuer";
-import { legalIdentityComplete } from "./legal";
+import { legalIdentityComplete, WAIVER_TEXT, waiverKindFor } from "./legal";
+import { WAIVER_REQUIRED_ERROR } from "./checkout-consents";
 import { NO_ONLINE_PAYMENTS, chooseCheckoutProvider, isPaymentProviderEnabled, paidCheckoutOpen, paymentProviderByKey, type PaymentMethodInput } from "./payments";
 import { canAcceptPayments, chargeDestination } from "./payouts";
 import { syncConsent } from "./newsletter";
@@ -167,7 +168,10 @@ const PAYABLE = ["PENDING", "FAILED", "ABANDONED"];
  */
 export async function startOrderPayment(orderId: string, payment: PaymentMethodInput): Promise<StartOrderPaymentResult> {
   if (!paidCheckoutOpen()) throw new CheckoutError(NO_ONLINE_PAYMENTS);
-  const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { creator: true, product: { select: { slug: true } } } });
+  const order = await prisma.order.findUniqueOrThrow({
+    where: { id: orderId },
+    include: { creator: true, product: { select: { slug: true, deliveryMode: true, groupSession: true, eventStartAt: true } } },
+  });
   if (isNoChargeOrder(order)) throw new CheckoutError("Este pedido no se paga.");
   if (order.status === "PAID") {
     const r = await fulfillOrder(order.id, order.paymentRef ?? "");
@@ -177,6 +181,17 @@ export async function startOrderPayment(orderId: string, payment: PaymentMethodI
   if (!PAYABLE.includes(order.status)) throw new CheckoutError("Este pedido ya no se puede pagar.");
   // Los consentimientos se guardan en el pedido antes de cobrar (acción del checkout).
   if (!order.termsAcceptedAt) throw new CheckoutError("Acepta las condiciones de venta para continuar");
+  // La renuncia al desistimiento obligatoria (todo lo de pago que no es una sesión en directo y los
+  // talleres a menos de 15 días) tiene que estar guardada con el texto vigente, sea cual sea la
+  // pasarela (tarjeta, PayPal, simulador) y también en las membresías.
+  const waiver = waiverKindFor(order.productType, order.product.deliveryMode, {
+    groupSession: order.product.groupSession,
+    eventStartAt: order.product.eventStartAt,
+    now: new Date(),
+    timezone: order.creator.timezone,
+  });
+  if (waiver && (!order.waiverAcceptedAt || order.waiverKind !== waiver || order.waiverText !== WAIVER_TEXT[waiver]))
+    throw new CheckoutError(WAIVER_REQUIRED_ERROR[waiver]);
   if (order.productType === "MEMBERSHIP") {
     // Una suscripción viva por persona y membresía (también con una renovación pendiente de pago).
     const existingSub = await prisma.subscription.findFirst({

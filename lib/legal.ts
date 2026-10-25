@@ -7,6 +7,7 @@
  */
 
 import { normalizeDeliveryMode } from "./delivery";
+import { workshopInWithdrawalPeriod } from "./withdrawal";
 
 /** Versión de las plantillas de textos legales de las creadoras (lib/legal-templates.ts). */
 export const LEGAL_TEMPLATE_VERSION = "2026-10c";
@@ -177,26 +178,48 @@ export function sellerStatement(
   return { name: creatorName, line: creator.legalName?.trim() ? sellerLine(creator) : creatorName, platformSells: false };
 }
 
-export type WaiverKind = "DIGITAL_IMMEDIATE" | "SERVICE_IN_PERIOD";
+export type WaiverKind = "DIGITAL_IMMEDIATE" | "DIGITAL_PREPARED" | "SERVICE_IN_PERIOD";
+
+/** Datos de un taller para saber si cae dentro del plazo de desistimiento (lib/withdrawal.ts). */
+export type WorkshopWaiverContext = { groupSession?: boolean | null; eventStartAt?: Date | string | null; now: Date; timezone?: string | null };
 
 /**
- * Renuncia que pide cada tipo de producto: acceso inmediato (art. 103.m) o servicio en plazo (art. 103.a).
- * Un producto digital que la creadora prepara a mano («Lo preparo yo») no se entrega al momento: no
- * hay acceso inmediato al que renunciar, así que no se pide ninguna renuncia y se puede desistir.
+ * Renuncia que pide cada compra de pago en la web (TRLGDCU art. 103):
+ *   · DIGITAL_IMMEDIATE: descargas, cursos y membresías. Acceso en cuanto se paga (art. 103.m).
+ *   · DIGITAL_PREPARED: lo que la dueña prepara a mano («Lo preparo yo»). Se empieza a preparar en
+ *     cuanto se paga y se entrega dentro del plazo (art. 103.m).
+ *   · SERVICE_IN_PERIOD: un taller con fecha fija que empieza antes del día 15 desde la compra:
+ *     se presta dentro del plazo a petición expresa (art. 103.a).
+ *   · null: las sesiones individuales (se reservan a partir del día 15, fuera del plazo) y los
+ *     talleres a 15 días o más: desistimiento normal de 14 días.
+ * Lo gratuito y lo que da la dueña a mano no pasan por el checkout.
  */
-export function waiverKindFor(productType: string, deliveryMode?: string | null): WaiverKind | null {
-  if (productType === "DIGITAL" && normalizeDeliveryMode(productType, deliveryMode) === "PERSONAL") return null;
+export function waiverKindFor(productType: string, deliveryMode?: string | null, workshop?: WorkshopWaiverContext | null): WaiverKind | null {
+  if (productType === "DIGITAL" && normalizeDeliveryMode(productType, deliveryMode) === "PERSONAL") return "DIGITAL_PREPARED";
   if (productType === "DIGITAL" || productType === "COURSE" || productType === "MEMBERSHIP") return "DIGITAL_IMMEDIATE";
-  if (productType === "SESSION") return "SERVICE_IN_PERIOD";
+  if (productType === "SESSION" && workshop?.groupSession) {
+    const at = workshop.eventStartAt ? new Date(workshop.eventStartAt) : null;
+    return workshopInWithdrawalPeriod(at, workshop.now, workshop.timezone || undefined) ? "SERVICE_IN_PERIOD" : null;
+  }
   return null;
 }
 
+/**
+ * Textos literales de las casillas (consentimiento expreso + conocimiento de la pérdida del derecho).
+ * Se guardan tal cual en el pedido con su versión (WAIVER_TEXT_VERSION) y se citan en el recibo.
+ * Si cambias alguno, sube WAIVER_TEXT_VERSION.
+ */
 export const WAIVER_TEXT: Record<WaiverKind, string> = {
   DIGITAL_IMMEDIATE:
-    "Quiero acceder ya al contenido y acepto que, al empezar el acceso o la descarga, pierdo mi derecho de desistimiento de 14 días.",
+    "Quiero acceder ya al contenido: doy mi consentimiento expreso para recibirlo en cuanto pague, dentro del plazo de desistimiento de 14 días, y acepto que con ello pierdo mi derecho de desistimiento.",
+  DIGITAL_PREPARED:
+    "Quiero que se prepare ya: doy mi consentimiento expreso para que se empiece a preparar en cuanto pague y se me entregue dentro del plazo de desistimiento de 14 días, y acepto que con ello pierdo mi derecho de desistimiento.",
   SERVICE_IN_PERIOD:
-    "Solicito que la sesión pueda realizarse dentro del plazo de desistimiento de 14 días. Sé que, una vez realizada, ya no podré desistir.",
+    "Solicito expresamente que el taller se realice dentro del plazo de desistimiento de 14 días. Sé que, una vez realizado por completo, perderé mi derecho de desistimiento.",
 };
+
+/** Versión de los textos de las casillas de renuncia (se guarda en Order.waiverVersion junto a su huella). */
+export const WAIVER_TEXT_VERSION = "2026-10-25";
 
 /** Texto de la casilla de condiciones; en suscripciones, con la renovación automática (mes o año). */
 export function termsCheckboxText(o: { sellerName: string; billingInterval: string | null; price: string }): string {

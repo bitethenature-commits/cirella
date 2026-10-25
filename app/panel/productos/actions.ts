@@ -37,6 +37,7 @@ import { parseMeetingUrl } from "@/lib/meeting-url";
 import { HORIZON_CHOICES } from "@/lib/slots";
 import { labelToMinutes, zonedTimeToUtc } from "@/lib/tz";
 import { moveWorkshop, notifyReplay, workshopClash } from "@/lib/workshops";
+import { followsDay15Rule, PAID_SESSION_MAX_NOTICE_DAYS, PAID_SESSION_MIN_NOTICE_DAYS, paidSessionNoticeDays } from "@/lib/withdrawal";
 import { DEFAULT_CTA, PRODUCT_TYPES, type ProductType } from "@/lib/types";
 
 export type ActionState = { ok?: string; error?: string } | undefined;
@@ -94,7 +95,8 @@ export async function createProduct(form: FormData) {
       billingInterval: type === "MEMBERSHIP" ? "month" : null,
       durationMin: type === "SESSION" ? 60 : null,
       bufferMin: type === "SESSION" ? 15 : null,
-      minNoticeHours: type === "SESSION" ? (group ? 0 : 24) : null,
+      // Sesión individual de pago en la web: 15 días desde la compra (lib/withdrawal.ts).
+      minNoticeHours: type === "SESSION" ? (group ? 0 : accessMode === "PAID" ? PAID_SESSION_MIN_NOTICE_DAYS * 24 : 24) : null,
       emoji: group ? "🌙" : { DIGITAL: "✨", SESSION: "🔮", COURSE: "📖", MEMBERSHIP: "💫" }[type],
     },
   });
@@ -123,6 +125,8 @@ const productSchema = z.object({
   durationMin: z.coerce.number().int().min(10).max(480).optional(),
   bufferMin: z.coerce.number().int().min(0).max(240).optional(),
   minNoticeHours: z.coerce.number().int().min(0).max(24 * 30).optional(),
+  // Sesión individual que se paga en la web: antelación en días desde la compra (mínimo 15).
+  minNoticeDays: z.coerce.number({ message: "Escribe la antelación en días" }).int("Escribe la antelación en días enteros").optional(),
   meetingUrl: z.string().trim().max(600).optional(),
   // Calendario propio (lib/slots.ts, lib/intake.ts, talleres).
   horizonDays: z.string().max(4).optional(),
@@ -198,6 +202,16 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
     if (capacity !== null && (!Number.isInteger(capacity) || capacity < 1 || capacity > 500)) return { error: "Las plazas van de 1 a 500 (vacío = sin límite)" };
     if (d.status === "PUBLISHED" && (!eventStartAt || eventStartAt <= new Date())) return { error: "Pon una fecha futura del taller para publicarlo" };
   }
+  // Antelación: en una sesión individual que se paga en la web, días desde la compra y nunca menos
+  // de 15 (lib/withdrawal.ts); en el resto, horas como siempre.
+  let minNoticeHours = d.minNoticeHours ?? (wantsGroup ? 0 : 24);
+  if (product.type === "SESSION" && followsDay15Rule({ type: product.type, groupSession: wantsGroup, accessMode })) {
+    const days = d.minNoticeDays ?? paidSessionNoticeDays(product);
+    if (days < PAID_SESSION_MIN_NOTICE_DAYS)
+      return { error: `La antelación mínima de una sesión que se paga en la web es de ${PAID_SESSION_MIN_NOTICE_DAYS} días: así nunca cae dentro de los 14 días en los que tu clienta puede desistir.` };
+    if (days > PAID_SESSION_MAX_NOTICE_DAYS) return { error: `La antelación mínima puede ser de ${PAID_SESSION_MAX_NOTICE_DAYS} días como mucho` };
+    minNoticeHours = days * 24;
+  }
   const dateChanged = wantsGroup && !!eventStartAt && eventStartAt.getTime() !== product.eventStartAt?.getTime();
   if (dateChanged) {
     const clash = await workshopClash(creator.id, eventStartAt!, new Date(eventStartAt!.getTime() + (d.durationMin ?? 60) * 60000), product.id);
@@ -237,7 +251,7 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
         ? {
             durationMin: d.durationMin ?? 60,
             bufferMin: d.bufferMin ?? 15,
-            minNoticeHours: d.minNoticeHours ?? (wantsGroup ? 0 : 24),
+            minNoticeHours,
             meetingUrl,
             horizonDays,
             groupSession: wantsGroup,

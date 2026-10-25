@@ -8,12 +8,14 @@
  *              − días con horario especial (sus franjas SUSTITUYEN a las semanales, cada una en su zona)
  *              − horas bloqueadas (BLOCK)
  *   huecos     = cada «duración + margen» desde el inicio de cada franja, desde ahora + antelación
- *                mínima hasta el horizonte, sin chocar (± margen) con lo ocupado: reservas, talleres,
+ *                mínima (y, en las sesiones que se pagan en la web, desde el día 15 de la compra)
+ *                hasta el horizonte, sin chocar (± margen) con lo ocupado: reservas, talleres,
  *                calendario externo y pagos en curso (solo en la web personal).
  *
  * Todas las horas internas van en milisegundos UTC: los cambios de hora (DST) no duplican ni pierden huecos.
  */
 import { addDaysToKey, dateKeyInTz, formatInTz, weekdayOfKey, zonedTimeToUtc } from "./tz";
+import { startAfterDays } from "./withdrawal";
 
 /** Intervalo [start, end) en milisegundos UTC. */
 export type Interval = { start: number; end: number };
@@ -39,6 +41,14 @@ export type SlotInput = {
    * del pedido: quien eligió a tiempo no pierde su hueco por tardar unos minutos en pagar.
    */
   noticeFrom?: Date;
+  /**
+   * Regla del día 15 (sesiones pagadas en la web, lib/withdrawal.ts): ningún hueco antes de las 00:00
+   * (zona de la dueña) del día `minNoticeDays` contando el de `firstDayFrom` (la compra) como día 0,
+   * ni antes de (minNoticeDays − 1) × 24 h desde la compra (startAfterDays).
+   */
+  minNoticeDays?: number;
+  /** Fecha de la compra para minNoticeDays (por defecto `now`: quien compra ahora). */
+  firstDayFrom?: Date;
 };
 
 export const HORIZON_DEFAULT_DAYS = 28;
@@ -125,7 +135,8 @@ export function computeSlots(i: SlotInput): string[] {
   const bufMs = i.bufferMin * 60000;
   const step = durMs + bufMs;
   const now = i.now.getTime();
-  const earliest = Math.max(now, (i.noticeFrom ?? i.now).getTime() + i.minNoticeHours * 3600_000);
+  let earliest = Math.max(now, (i.noticeFrom ?? i.now).getTime() + i.minNoticeHours * 3600_000);
+  if (i.minNoticeDays) earliest = Math.max(earliest, startAfterDays(i.firstDayFrom ?? i.now, i.minNoticeDays, i.timezone).getTime());
   const end = horizonEnd(i.now, i.timezone, i.horizonDays);
   const busy = i.busy.filter((b) => b.end > b.start);
   const out = new Set<number>();

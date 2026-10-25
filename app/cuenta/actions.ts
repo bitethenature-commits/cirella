@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { scopeAllows } from "@/lib/auth-utils";
 import { emit } from "@/lib/automations";
-import { hasBookingClash, isBookingOverlapError, isSlotAvailable } from "@/lib/booking";
+import { hasBookingClash, isBookingOverlapError, isSlotAvailable, slotRuleForOrder } from "@/lib/booking";
 import { notifyRescheduled, releaseBookingEmails } from "@/lib/booking-changes";
 import { getBuyerSession, requireBuyerFor, requireBuyerFull } from "@/lib/buyer-access";
 import { hasAccess } from "@/lib/customer";
@@ -41,12 +41,17 @@ export async function toggleLessonComplete(lessonId: string, complete: boolean) 
 export async function scheduleBooking(bookingId: string, slotStart: string, clientTz?: string | null) {
   // Elegir hora es justo lo que hace quien acaba de comprar: vale la sesión limitada a su pedido.
   const { user } = await requireBuyerFor({ bookingId }, `/cuenta/sesiones/${bookingId}`);
-  const booking = await prisma.booking.findFirst({ where: { id: bookingId, userId: user.id }, include: { product: true } });
+  const booking = await prisma.booking.findFirst({
+    where: { id: bookingId, userId: user.id },
+    include: { product: true, order: { select: { paymentProvider: true, paidAt: true, createdAt: true } } },
+  });
   if (!booking) return { ok: false as const, error: "Reserva no encontrada" };
   if (booking.groupSeat) return { ok: false as const, error: "Es una plaza de un taller con fecha fija. Escribe a la creadora." };
   const canReschedule = booking.status === "PENDING_SCHEDULE" || (booking.status === "CONFIRMED" && booking.startAt && booking.startAt.getTime() - Date.now() > SESSION_CHANGE_NOTICE_HOURS * 3600_000);
   if (!canReschedule) return { ok: false as const, error: "Esta reserva ya no se puede cambiar. Escribe a la creadora." };
-  if (!z.string().datetime().safeParse(slotStart).success || !(await isSlotAvailable(booking.product, slotStart)))
+  // Sesión pagada en la web: nada antes del día 15 desde el pago de su pedido (lib/withdrawal.ts),
+  // también al cambiarla o al elegir tras una propuesta de la dueña. Dada a mano: sin esa regla.
+  if (!z.string().datetime().safeParse(slotStart).success || !(await isSlotAvailable(booking.product, slotStart, slotRuleForOrder(booking.order))))
     return { ok: false as const, error: "Ese horario ya no está disponible" };
   const tz = canonicalTimezone(clientTz);
   const start = new Date(slotStart);

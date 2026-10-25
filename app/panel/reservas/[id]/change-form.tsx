@@ -36,7 +36,7 @@ export function ChangeForm({
     {
       key: "reschedule",
       title: "Proponer otra fecha",
-      help: `Liberamos este hueco y ${name} recibe un email para elegir otro día de tu agenda. El pago se mantiene.`,
+      help: `Liberamos este hueco y ${name} recibe un email para elegir otro día de tu agenda. El pago se mantiene. Si la pagó en la web, solo verá fechas a partir del día 15 desde su compra.`,
       hidden: !when || !canPropose,
     },
     {

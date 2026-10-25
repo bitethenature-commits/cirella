@@ -18,6 +18,7 @@ import { decideTax, vatIncluded } from "@/lib/tax";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { placeOrder, type CheckoutState } from "./actions";
 import { CheckoutConsents, PrivacyNotice } from "./consents";
+import type { WaiverKind } from "@/lib/legal";
 
 type Product = {
   id: string;
@@ -31,6 +32,8 @@ type Product = {
   durationMin: number | null;
   ctaLabel: string | null;
   deliveryMode: string;
+  /** Renuncia al desistimiento que pide esta compra (lib/legal.ts → waiverKindFor); null = ninguna. */
+  waiverKind: WaiverKind | null;
   /** Taller en directo: fecha fija y plazas (null = sin límite). */
   workshop?: { startAt: string; ownerTz: string; seatsLeft: number | null } | null;
   /** Datos para la lectura que pide (null = nada). */
@@ -357,15 +360,15 @@ export function CheckoutForm({
         <VatBreakdown amountCents={product.priceCents} currency={product.currency} productType={product.type} deliveryMode={product.deliveryMode} taxInfo={taxInfo} country={country} platformName={platformName ?? ""} />
         {isSession && (
           <p className="cp-faint -mt-2 px-1 text-xs">
-            {sessionChangePolicyText()} ·{" "}
+            {sessionChangePolicyText()}
+            {product.waiverKind ? "" : ". Tienes 14 días desde la compra para desistir desde tu área: te devolvemos todo"} ·{" "}
             <a href={`${seller.legalHref}#reembolsos`} target="_blank" rel="noopener" className="underline underline-offset-2">
               Política de cambios
             </a>
           </p>
         )}
         <CheckoutConsents
-          productType={product.type}
-          deliveryMode={product.deliveryMode}
+          waiverKind={product.waiverKind}
           billingInterval={product.billingInterval}
           price={price}
           seller={{ name: seller.name, legalHref: seller.legalHref }}

@@ -3,7 +3,7 @@
  * plantillas de los textos legales, recibo con las condiciones y medición de visitas sin cookies.
  */
 import { isLandingReferrer, visitorHash } from "../../lib/analytics";
-import { parseCheckoutConsents, TERMS_REQUIRED_ERROR } from "../../lib/checkout-consents";
+import { parseCheckoutConsents, TERMS_REQUIRED_ERROR, waiverVersionOf } from "../../lib/checkout-consents";
 import { purchaseReceiptEmail } from "../../lib/email/templates";
 import {
   creatorLegalHref,
@@ -17,6 +17,7 @@ import {
   validatePostalCode,
   validateTaxId,
   WAIVER_TEXT,
+  WAIVER_TEXT_VERSION,
   waiverKindFor,
   type LegalIdentity,
 } from "../../lib/legal";
@@ -83,10 +84,25 @@ test("creatorLegalHref", () => {
 
 // ── Casillas del checkout ──
 
-test("waiverKindFor: digital, curso y membresía → acceso inmediato; sesión → servicio en plazo", () => {
+test("waiverKindFor: digital, curso y membresía → acceso inmediato; «Lo preparo yo» → preparado; sesión individual → ninguna", () => {
   for (const t of ["DIGITAL", "COURSE", "MEMBERSHIP"]) eq(waiverKindFor(t), "DIGITAL_IMMEDIATE");
-  eq(waiverKindFor("SESSION"), "SERVICE_IN_PERIOD");
+  eq(waiverKindFor("DIGITAL", "PERSONAL"), "DIGITAL_PREPARED");
+  eq(waiverKindFor("SESSION"), null);
+  eq(waiverKindFor("SESSION", null, { groupSession: false, eventStartAt: null, now: new Date() }), null);
   eq(waiverKindFor("OTRO"), null);
+});
+test("waiverKindFor: taller a menos de 15 días → servicio en plazo; a 15 o más → ninguna", () => {
+  const now = new Date("2026-10-25T10:00:00Z"); // 12:00 en Madrid: día 0 = 25 de octubre
+  const ws = (iso: string) => waiverKindFor("SESSION", null, { groupSession: true, eventStartAt: new Date(iso), now, timezone: "Europe/Madrid" });
+  eq(ws("2026-11-08T22:59:00Z"), "SERVICE_IN_PERIOD"); // 8 nov 23:59 en Madrid (día 14)
+  eq(ws("2026-11-08T23:00:00Z"), null); // 9 nov 00:00 en Madrid (día 15)
+  eq(ws("2026-10-26T18:00:00Z"), "SERVICE_IN_PERIOD");
+  eq(ws("2026-12-01T18:00:00Z"), null);
+});
+test("textos de las renuncias: consentimiento expreso y pérdida del derecho", () => {
+  for (const k of ["DIGITAL_IMMEDIATE", "DIGITAL_PREPARED"] as const) ok(/consentimiento expreso/.test(WAIVER_TEXT[k]) && /pierdo mi derecho de desistimiento/.test(WAIVER_TEXT[k]), k);
+  ok(WAIVER_TEXT.DIGITAL_IMMEDIATE.startsWith("Quiero acceder ya"));
+  ok(/Solicito expresamente/.test(WAIVER_TEXT.SERVICE_IN_PERIOD) && /una vez realizado por completo, perderé/.test(WAIVER_TEXT.SERVICE_IN_PERIOD));
 });
 test("termsCheckboxText: renovación anual con «cada año» y sin «mensual»", () => {
   const t = termsCheckboxText({ sellerName: "Ana Luna Pérez", billingInterval: "year", price: "290 €/año" });
@@ -107,11 +123,33 @@ test("parseCheckoutConsents: digital sin la renuncia → error de acceso inmedia
   const r = parseCheckoutConsents({ acceptTerms: "on" }, "DIGITAL");
   ok(!r.ok && r.error.includes("acceso inmediato"), JSON.stringify(r));
 });
-test("parseCheckoutConsents: sesión con todo → SERVICE_IN_PERIOD con su texto literal", () =>
+test("parseCheckoutConsents: «Lo preparo yo» sin la renuncia → error", () => {
+  const r = parseCheckoutConsents({ acceptTerms: "on" }, "DIGITAL", "PERSONAL");
+  ok(!r.ok && r.error.includes("se prepare ya"), JSON.stringify(r));
+});
+test("parseCheckoutConsents: sesión individual → sin renuncia (aunque llegue marcada)", () =>
   eq(parseCheckoutConsents({ acceptTerms: "on", waiver: "on" }, "SESSION"), {
     ok: true,
-    consents: { waiverKind: "SERVICE_IN_PERIOD", waiverText: WAIVER_TEXT.SERVICE_IN_PERIOD, marketingOptIn: false },
+    consents: { waiverKind: null, waiverText: null, waiverVersion: null, marketingOptIn: false },
   }));
+test("parseCheckoutConsents: taller a menos de 15 días → la casilla obligatoria, con su texto y versión", () => {
+  const now = new Date("2026-10-25T10:00:00Z");
+  const workshop = { groupSession: true, eventStartAt: new Date("2026-10-30T18:00:00Z"), now, timezone: "Europe/Madrid" };
+  const no = parseCheckoutConsents({ acceptTerms: "on" }, "SESSION", null, workshop);
+  ok(!no.ok && no.error.includes("menos de 15 días"), JSON.stringify(no));
+  eq(parseCheckoutConsents({ acceptTerms: "on", waiver: "on" }, "SESSION", null, workshop), {
+    ok: true,
+    consents: { waiverKind: "SERVICE_IN_PERIOD", waiverText: WAIVER_TEXT.SERVICE_IN_PERIOD, waiverVersion: waiverVersionOf(WAIVER_TEXT.SERVICE_IN_PERIOD), marketingOptIn: false },
+  });
+  const far = parseCheckoutConsents({ acceptTerms: "on" }, "SESSION", null, { ...workshop, eventStartAt: new Date("2026-11-20T18:00:00Z") });
+  ok(far.ok && far.consents.waiverKind === null);
+});
+test("waiverVersionOf: versión de los textos y huella del texto exacto", () => {
+  const v = waiverVersionOf(WAIVER_TEXT.DIGITAL_IMMEDIATE);
+  ok(new RegExp(`^${WAIVER_TEXT_VERSION}#[0-9a-f]{16}$`).test(v), v);
+  ok(v !== waiverVersionOf(WAIVER_TEXT.DIGITAL_IMMEDIATE + " "));
+  eq(waiverVersionOf(WAIVER_TEXT.DIGITAL_IMMEDIATE), v);
+});
 test("parseCheckoutConsents: la casilla de novedades es opcional", () => {
   const r = parseCheckoutConsents({ acceptTerms: "on", waiver: "on", newsletter: "on" }, "COURSE");
   ok(r.ok && r.consents.marketingOptIn && r.consents.waiverKind === "DIGITAL_IMMEDIATE");
@@ -150,11 +188,11 @@ test("recibo: quién vende, la renuncia con su fecha, la versión aceptada y las
     orderId: "ord_123",
     accountUrl: "https://x.test/acceso",
     seller: { line: sellerLine(ana), address: formatLegalAddress(ana), email: "hola@analuna.es" },
-    waiver: { text: WAIVER_TEXT.DIGITAL_IMMEDIATE, at: "10 de octubre de 2026, 12:00" },
+    waiver: { text: WAIVER_TEXT.DIGITAL_IMMEDIATE, at: "10 de octubre de 2026, 12:00", version: "2026-10-25#abc" },
     legalUrl: "https://x.test/ana/legal?v=abc",
     conditions: { terms: "## Pago\n<b>Tarjeta</b>", refunds: templates.refunds },
   });
-  for (const s of ["Ana Luna Pérez · NIF 12345678Z", "Quiero acceder ya al contenido", "/ana/legal?v=abc", "CONDICIONES DE VENTA", "PAGO", "&lt;b&gt;Tarjeta"])
+  for (const s of ["Ana Luna Pérez · NIF 12345678Z", "Quiero acceder ya al contenido", "texto 2026-10-25#abc", "Confirmación de tu consentimiento", "/ana/legal?v=abc", "CONDICIONES DE VENTA", "PAGO", "&lt;b&gt;Tarjeta"])
     ok(html.includes(s), `falta ${s}`);
   ok(!html.includes("<b>Tarjeta"));
 });

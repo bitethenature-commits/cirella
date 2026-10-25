@@ -138,7 +138,7 @@ export function GiveForm({
           {when === "slot" && (
             <div className="pt-2">
               <input type="hidden" name="slotStart" value={slot} />
-              <SlotPicker key={productId} productId={productId} value={slot} onChange={setSlot} initialTz={ownerTz} viewer="owner" emptyText="No tienes huecos libres en tu horario. Elige «Otra fecha y hora»." />
+              <SlotPicker key={productId} productId={productId} manual value={slot} onChange={setSlot} initialTz={ownerTz} viewer="owner" emptyText="No tienes huecos libres en tu horario. Elige «Otra fecha y hora»." />
             </div>
           )}
           {when === "custom" && (

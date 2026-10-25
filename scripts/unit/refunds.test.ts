@@ -48,8 +48,17 @@ test("stripeReason: duplicado y el resto", () => eq([stripeReason("DUPLICATE"), 
 const paidAt = new Date("2026-10-01T10:00:00Z");
 const base: WithdrawalInput = { status: "PAID", paidAt, productType: "DIGITAL", amountCents: 5900, refundedCents: 0, withdrawalWaived: false, hasPendingRefund: false, booking: null };
 const at = (days: number) => new Date(paidAt.getTime() + days * DAY);
-test("desistimiento: digital sin renuncia el día 13 → se puede, plazo hasta el día 14", () =>
-  eq(withdrawalEligibility(base, at(13)), { eligible: true, deadline: at(14), amountCents: 5900 }));
+test("desistimiento: digital sin renuncia el día 13 → se puede, plazo hasta las 23:59 del día 14 (Madrid)", () =>
+  eq(withdrawalEligibility(base, at(13)), { eligible: true, deadline: new Date("2026-10-15T21:59:59.999Z"), amountCents: 5900 }));
+test("desistimiento: el día 14 a las 23:00 (Madrid) aún se puede; a las 00:00 del 15, no", () => {
+  eq(withdrawalEligibility(base, new Date("2026-10-15T21:00:00Z")).eligible, true);
+  eq(withdrawalEligibility(base, new Date("2026-10-15T22:00:00Z")), { eligible: false, reason: "EXPIRED" });
+});
+test("desistimiento: los días se cuentan en la zona de la dueña", () => {
+  // 1 de octubre a las 10:00 UTC = 05:00 en Bogotá: su día 14 acaba el 15 a las 23:59 de Bogotá.
+  const r = withdrawalEligibility({ ...base, timezone: "America/Bogota" }, at(13));
+  ok(r.eligible && r.deadline.toISOString() === "2026-10-16T04:59:59.999Z", JSON.stringify(r));
+});
 test("desistimiento: día 15 → EXPIRED", () => eq(withdrawalEligibility(base, at(15)), { eligible: false, reason: "EXPIRED" }));
 test("desistimiento: digital con renuncia → WAIVED", () => eq(withdrawalEligibility({ ...base, withdrawalWaived: true }, at(1)), { eligible: false, reason: "WAIVED" }));
 test("desistimiento: sesión futura → se puede", () =>

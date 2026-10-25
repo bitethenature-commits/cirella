@@ -8,7 +8,7 @@ import { getCurrentUser, holdsCheckout } from "@/lib/auth";
 import { dac7SalesPaused } from "@/lib/dac7-data";
 import { prisma } from "@/lib/db";
 import { isDemoMode } from "@/lib/env";
-import { creatorLegalHref, legalIdentityComplete, sellerStatement } from "@/lib/legal";
+import { creatorLegalHref, legalIdentityComplete, sellerStatement, waiverKindFor } from "@/lib/legal";
 import { getPurchasableProduct } from "@/lib/orders";
 import { asAccessMode } from "@/lib/access-mode";
 import { checkoutMethods, paidCheckoutOpen } from "@/lib/payments";
@@ -137,6 +137,8 @@ export default async function CheckoutPage({
             durationMin: p.durationMin,
             ctaLabel: p.ctaLabel,
             deliveryMode: p.deliveryMode,
+            // Casilla de renuncia obligatoria (la misma regla que valida la acción).
+            waiverKind: waiverKindFor(p.type, p.deliveryMode, { groupSession: p.groupSession, eventStartAt: p.eventStartAt, now: new Date(), timezone: data.creator.timezone }),
             workshop,
             intake,
             intakePrefill,

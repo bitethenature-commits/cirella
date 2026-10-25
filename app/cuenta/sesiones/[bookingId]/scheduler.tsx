@@ -16,6 +16,7 @@ export function Scheduler({ bookingId, productId, label = "Confirmar fecha", ini
     <div>
       <SlotPicker
         productId={productId}
+        bookingId={bookingId}
         value={slot}
         onChange={setSlot}
         initialTz={initialTz}

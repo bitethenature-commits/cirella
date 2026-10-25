@@ -65,7 +65,7 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
     : null;
   const product = await prisma.product.findUnique({
     where: { id: input.productId },
-    select: { creatorId: true, type: true, deliveryMode: true, intake: true, groupSession: true },
+    select: { creatorId: true, type: true, deliveryMode: true, intake: true, groupSession: true, eventStartAt: true, creator: { select: { timezone: true } } },
   });
   if (!product) return { error: "Este producto no está disponible ahora mismo.", orderId: input.orderId || undefined };
   // Datos para la lectura (nacimiento y preguntas de la dueña): se validan aquí, con su configuración.
@@ -75,7 +75,14 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
   // Un taller tiene fecha fija: no se elige hueco.
   const slotStart = isGroupSession(product) ? "" : input.slotStart || "";
   const buyerTz = canonicalTimezone(input.buyerTz);
-  const consents = parseCheckoutConsents(Object.fromEntries(form), product.type, product.deliveryMode);
+  // Renuncia obligatoria en todo lo de pago que no es una sesión en directo y en los talleres a menos
+  // de 15 días (lib/legal.ts → waiverKindFor). Vale para tarjeta y PayPal: el pago lo vuelve a comprobar.
+  const consents = parseCheckoutConsents(Object.fromEntries(form), product.type, product.deliveryMode, {
+    groupSession: product.groupSession,
+    eventStartAt: product.eventStartAt,
+    now: new Date(),
+    timezone: product.creator.timezone,
+  });
   if (!consents.ok) return { error: consents.error, orderId: input.orderId || undefined };
   // Límites de intentos y, tras varios rechazos, el captcha (el token no va en el esquema: es de un solo uso).
   const client = await requestClient();
@@ -159,6 +166,7 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
         termsAcceptedAt: now,
         waiverKind: consents.consents.waiverKind,
         waiverText: consents.consents.waiverText,
+        waiverVersion: consents.consents.waiverVersion,
         waiverAcceptedAt: consents.consents.waiverKind ? now : null,
         marketingOptIn: consents.consents.marketingOptIn,
         // Corregir los datos de nacimiento al reintentar no obliga a hacer otro pedido.

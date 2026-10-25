@@ -2,6 +2,7 @@
 import { Loader2 } from "lucide-react";
 import { startTransition, useActionState, useState } from "react";
 import { Flash } from "@/components/ui/flash";
+import { PAID_SESSION_MAX_NOTICE_DAYS, PAID_SESSION_MIN_NOTICE_DAYS, paidSessionNoticeDays } from "@/lib/withdrawal";
 import { ImageUpload } from "@/components/ui/image-upload";
 import {
   ACCESS_MODE_HINT,
@@ -330,10 +331,30 @@ export function ProductForm({
                   <label className="field-label">Margen entre sesiones</label>
                   <input name="bufferMin" type="number" min={0} max={240} defaultValue={product.bufferMin ?? 15} className="input h-11" />
                 </div>
-                <div>
-                  <label className="field-label">Antelación mínima (h)</label>
-                  <input name="minNoticeHours" type="number" min={0} max={720} defaultValue={product.minNoticeHours ?? 24} className="input h-11" />
-                </div>
+                {access === "PAID" ? (
+                  <div>
+                    <label className="field-label" htmlFor="notice-days">Antelación mínima (días desde la compra)</label>
+                    <input
+                      id="notice-days"
+                      name="minNoticeDays"
+                      type="number"
+                      min={PAID_SESSION_MIN_NOTICE_DAYS}
+                      max={PAID_SESSION_MAX_NOTICE_DAYS}
+                      defaultValue={paidSessionNoticeDays(product)}
+                      className="input h-11"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="field-label">Antelación mínima (h)</label>
+                    <input name="minNoticeHours" type="number" min={0} max={720} defaultValue={Math.min(product.minNoticeHours ?? 24, 720)} className="input h-11" />
+                  </div>
+                )}
+                {access === "PAID" && (
+                  <p className="field-hint sm:col-span-2">
+                    Las sesiones que se pagan en la web se pueden reservar a partir del día {PAID_SESSION_MIN_NOTICE_DAYS} desde la compra: así nunca caen dentro de los 14 días en los que tu clienta puede desistir. Las que das tú a mano no siguen esta regla.
+                  </p>
+                )}
                 <div>
                   <label className="field-label" htmlFor="horizon">Se puede reservar hasta</label>
                   <select id="horizon" name="horizonDays" defaultValue={String(product.horizonDays ?? HORIZON_DEFAULT_DAYS)} className="input h-11">

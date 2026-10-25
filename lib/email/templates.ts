@@ -188,8 +188,13 @@ export function purchaseReceiptEmail(o: {
   linkNote?: string;
   /** Quién vende (LSSI art. 10): «Nombre · NIF …», domicilio y email. */
   seller?: { line: string; address: string; email: string };
-  /** Casilla de renuncia al desistimiento que marcó, con su fecha (TRLGDCU art. 98.7). */
-  waiver?: { text: string; at: string };
+  /**
+   * Casilla de renuncia al desistimiento que marcó, con su fecha y la versión del texto: la
+   * confirmación en soporte duradero que exige el TRLGDCU (arts. 98.7 y 103.m).
+   */
+  waiver?: { text: string; at: string; version?: string | null };
+  /** Sesión con los 14 días para desistir: hasta cuándo («8 de noviembre»). */
+  withdrawalUntil?: string | null;
   changePolicy?: string | null;
   /** Versión exacta de las condiciones aceptadas (/{usuario}/legal?v=…). */
   legalUrl?: string;
@@ -208,7 +213,14 @@ export function purchaseReceiptEmail(o: {
   const row = (label: string, value: string) =>
     `<tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE;vertical-align:top">${label}</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE">${value}</td></tr>`;
   const legal =
-    (o.waiver ? p(`<span style="font-size:13px">El ${esc(o.waiver.at)} marcaste: «${esc(o.waiver.text)}»</span>`) : "") +
+    (o.waiver
+      ? p(
+          `<span style="font-size:13px">Confirmación de tu consentimiento sobre el desistimiento: el ${esc(o.waiver.at)} marcaste «${esc(o.waiver.text)}»${o.waiver.version ? ` (texto ${esc(o.waiver.version)})` : ""}.</span>`,
+        )
+      : "") +
+    (o.withdrawalUntil
+      ? p(`<span style="font-size:13px">Puedes desistir hasta el ${esc(o.withdrawalUntil)} (incluido) desde tu área: te devolvemos todo y se libera la fecha.</span>`)
+      : "") +
     (o.changePolicy ? p(`<span style="font-size:13px">${esc(o.changePolicy)}</span>`) : "") +
     (o.legalUrl
       ? p(`<span style="font-size:13px">Condiciones aceptadas: <a href="${esc(o.legalUrl)}" style="color:#3B3950">ver la versión que aceptaste</a></span>`)

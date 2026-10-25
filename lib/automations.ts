@@ -20,6 +20,7 @@ import { intakeLines, intakeMissing, readIntakeAnswers, readIntakeConfig } from 
 import { meetingLabel } from "./meeting-url";
 import { icsUrl } from "./ics";
 import { isPersonalMode } from "./site-mode";
+import { withdrawalDeadline } from "./withdrawal";
 import * as BT from "./email/booking-templates";
 import { readDesign, type EmailVars } from "./email-blocks";
 import { renderDesignHtml, renderSubject } from "./email/blocks-html";
@@ -207,8 +208,14 @@ export async function handleAutomation(event: DomainEvent) {
                   ? {
                       text: order.waiverText,
                       at: order.waiverAcceptedAt.toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short", timeZone: s.creator.timezone }),
+                      version: order.waiverVersion,
                     }
                   : undefined,
+              // Sesión pagada sin renuncia: los 14 días para desistir (la sesión es a partir del día 15).
+              withdrawalUntil:
+                order.productType === "SESSION" && !order.waiverAcceptedAt && order.paidAt && !isNoChargeOrder(order)
+                  ? formatDate(withdrawalDeadline(order.paidAt, s.creator.timezone), { day: "numeric", month: "long" }, s.creator.timezone)
+                  : null,
               changePolicy: order.productType === "SESSION" ? `${sessionChangePolicyText()} desde tu área de cliente.` : null,
               legalUrl: order.legalSnapshotId ? `${base}/${s.creator.username}/legal?v=${order.legalSnapshotId}` : undefined,
               conditions: snapshot ? { terms: snapshot.terms, refunds: snapshot.refunds } : undefined,

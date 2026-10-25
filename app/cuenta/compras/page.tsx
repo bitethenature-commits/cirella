@@ -35,7 +35,7 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
     orderBy: { paidAt: "desc" },
     include: {
       product: true,
-      creator: { select: { displayName: true, username: true } },
+      creator: { select: { displayName: true, username: true, timezone: true } },
       bookings: { select: { id: true, status: true, startAt: true } },
       refunds: { select: { status: true } },
     },
@@ -57,7 +57,7 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
         {orders.map((o) => {
           // Gratis o dado a mano: sin importe, factura ni desistimiento (no hubo pago).
           const noCharge = isNoChargeOrder(o);
-          const w = noCharge ? { eligible: false as const } : withdrawalEligibility(toWithdrawalInput(o), now);
+          const w = noCharge ? { eligible: false as const } : withdrawalEligibility(toWithdrawalInput({ ...o, timezone: o.creator.timezone }), now);
           const amount = formatMoney(o.amountCents - o.refundedCents, o.currency, { decimals: true });
           return (
             <div key={o.id}>
@@ -102,7 +102,7 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
               )}
               {w.eligible && (
                 <div className="-mt-1 flex flex-wrap items-center justify-between gap-2 px-4 pb-4 pl-20">
-                  <p className="text-xs text-muted">Puedes desistir hasta el {formatDate(w.deadline, { day: "numeric", month: "long" })}</p>
+                  <p className="text-xs text-muted">Puedes desistir hasta el {formatDate(w.deadline, { day: "numeric", month: "long" }, o.creator.timezone)} (incluido)</p>
                   <ConfirmForm
                     action={withdrawPurchase}
                     message={`¿Desistir de «${o.productTitle}»? Te devolveremos ${amount}${o.productType === "SESSION" ? " y se cancelará tu sesión" : " y perderás el acceso"}.`}
