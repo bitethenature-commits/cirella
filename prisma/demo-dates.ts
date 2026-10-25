@@ -3,7 +3,8 @@
  * siempre las mismas. Las usan también las pruebas e2e para saber qué fecha deben ver.
  * Puro (sin BD): se prueba en scripts/unit/seed.test.ts.
  */
-import { addDaysToKey, weekdayOfKey, zonedTimeToUtc } from "../lib/tz";
+import { addDaysToKey, dateKeyInTz, weekdayOfKey, zonedTimeToUtc } from "../lib/tz";
+import { PAID_SESSION_MIN_NOTICE_DAYS } from "../lib/withdrawal";
 
 export const DEMO_TZ = "Europe/Madrid";
 
@@ -58,4 +59,16 @@ export function demoSchedule(today: string) {
     lauraAt: zonedTimeToUtc(lauraDay, LAURA_SESSION.minutes, DEMO_TZ),
     carmenAt: zonedTimeToUtc(carmenDay, CARMEN_SESSION.minutes, DEMO_TZ),
   };
+}
+
+/**
+ * Hace cuántos días se compró una sesión de la demo que es en `sessionAt`: lo justo para que la
+ * sesión caiga el día 15 desde la compra (lib/withdrawal.ts), nunca dentro de sus 14 días para
+ * desistir, y que la compra sea de hace al menos un día. Con la sesión dentro de 3 días, la compra
+ * fue hace 12 y la clienta aún puede desistir 2 días más.
+ */
+export function demoPurchaseDaysAgo(today: string, sessionAt: Date): number {
+  const sessionDay = dateKeyInTz(sessionAt, DEMO_TZ);
+  const until = Math.round((Date.parse(`${sessionDay}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+  return Math.max(1, PAID_SESSION_MIN_NOTICE_DAYS - until);
 }

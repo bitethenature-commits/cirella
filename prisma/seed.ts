@@ -41,7 +41,8 @@ import { type SitePageContent } from "../lib/site-pages";
 import { mimeFromExt, privateKey, storage } from "../lib/storage";
 import { legacyLessonColumns } from "../lib/lesson-parts";
 import { parseMediaInfo } from "../lib/media-probe";
-import { PLATFORM_TERMS_VERSION, WAIVER_TEXT, waiverKindFor } from "../lib/legal";
+import { PLATFORM_TERMS_VERSION } from "../lib/legal";
+import { acceptedConsentFields } from "../lib/checkout-consents";
 import { defaultSections, type PageConfig } from "../lib/page-config";
 import { prisma as appPrisma } from "../lib/db";
 import { issueMonthlyPlatformInvoices } from "../lib/invoices/fees";
@@ -53,7 +54,7 @@ import type { TaxMode } from "../lib/tax";
 import { addDaysToKey, dateKeyInTz, formatInTz, formatSessionDate, weekdayOfKey, zonedTimeToUtc } from "../lib/tz";
 import { addMonthsToKey } from "../lib/access-end";
 import { moonPhasesBetween } from "../lib/astro-calendar";
-import { ANA_AVAILABILITY, DEMO_TZ, demoSchedule } from "./demo-dates";
+import { ANA_AVAILABILITY, DEMO_TZ, demoPurchaseDaysAgo, demoSchedule } from "./demo-dates";
 import { demoSaleFields } from "./demo-sales";
 
 const prisma = new PrismaClient();
@@ -66,6 +67,17 @@ const TODAY = dateKeyInTz(NOW, TZ);
 /** La sala de Zoom personal de Ana (la de todas sus sesiones). */
 const ANA_ZOOM = "https://us02web.zoom.us/j/81234567890?pwd=AnaLunaDemo";
 const daysAgo = (d: number, h = 12, m = 0) => zonedTimeToUtc(addDaysToKey(TODAY, -d), h * 60 + m, TZ);
+/**
+ * Días bloqueados y las dos sesiones que vienen (prisma/demo-dates.ts). Las sesiones pagadas en la
+ * web caen como pronto el día 15 desde la compra (lib/withdrawal.ts): las compras de Laura y Carmen
+ * son de hace los días justos para eso, así Laura aún puede desistir de la suya.
+ */
+const DEMO_SCHEDULE = demoSchedule(TODAY);
+const LAURA_HD_DAYS_AGO = demoPurchaseDaysAgo(TODAY, DEMO_SCHEDULE.lauraAt);
+const CARMEN_11_DAYS_AGO = demoPurchaseDaysAgo(TODAY, DEMO_SCHEDULE.carmenAt);
+/** Lucía tuvo su lectura hace 7 días: la compró 15 días antes. */
+const LUCIA_SESSION_DAYS_AGO = 7;
+const LUCIA_HD_DAYS_AGO = LUCIA_SESSION_DAYS_AGO + 15;
 /** Política de IVA de la demo (opción A): Cirella vende los productos digitales, cursos y membresías. */
 const TAX_MODE: TaxMode = "PLATFORM_DIGITAL";
 
@@ -463,8 +475,8 @@ async function main() {
   const mariaUser = await prisma.user.create({ data: { email: "maria@cirella.app", name: "María Sol", passwordHash: password, createdAt: daysAgo(48), emailVerifiedAt: daysAgo(48) } });
   const sofiaUser = await prisma.user.create({ data: { email: "sofia@cirella.app", name: "Sofía Vidal", passwordHash: password, createdAt: daysAgo(9), emailVerifiedAt: daysAgo(9) } });
   const laura = await prisma.user.create({ data: { email: "laura@example.com", name: "Laura Martín", passwordHash: password, createdAt: daysAgo(20), emailVerifiedAt: daysAgo(20) } });
-  const carmen = await prisma.user.create({ data: { email: "carmen@example.com", name: "Carmen Ruiz", createdAt: daysAgo(8) } });
-  const lucia = await prisma.user.create({ data: { email: "lucia@example.com", name: "Lucía Torres", createdAt: daysAgo(16) } });
+  const carmen = await prisma.user.create({ data: { email: "carmen@example.com", name: "Carmen Ruiz", createdAt: daysAgo(Math.max(8, CARMEN_11_DAYS_AGO), 13, 0) } });
+  const lucia = await prisma.user.create({ data: { email: "lucia@example.com", name: "Lucía Torres", createdAt: daysAgo(LUCIA_HD_DAYS_AGO, 20, 0) } });
 
   // ───────────── Ana Luna (Pro · Mystical) ─────────────
   const anaPage: PageConfig = {
@@ -596,7 +608,8 @@ async function main() {
       summary: "75 minutos por videollamada para descubrir tu tipo, estrategia y autoridad.",
       description: "Una sesión en directo para leer juntas tu carta de Human Design (bodygraph) y aterrizarla a tu día a día: trabajo, relaciones y decisiones.\n\nIncluye:\n• Sesión de 75 minutos por videollamada\n• Grabación de la sesión\n• Resumen escrito con tus claves",
       imageUrl: await demoImage(ana.id, "/demo/human-design.webp"), priceCents: 7900, ctaLabel: "Reservar", sortOrder: 2,
-      durationMin: 75, bufferMin: 15, minNoticeHours: 24, meetingUrl: ANA_ZOOM, horizonDays: 56,
+      // Se paga en la web: se reserva a partir del día 15 desde la compra (15 días = 360 h).
+      durationMin: 75, bufferMin: 15, minNoticeHours: 360, meetingUrl: ANA_ZOOM, horizonDays: 56,
       // Calendario propio: pide los datos de nacimiento (obligatorios) y una pregunta suya.
       intake: { birth: "required", questions: [{ id: "tema", label: "¿Qué te gustaría explorar?", long: true, required: false }] },
       instructions: "Antes de la sesión, envíame tu fecha, hora y lugar de nacimiento.", createdAt: daysAgo(70),
@@ -624,7 +637,7 @@ async function main() {
       summary: "Una hora a solas para tu pregunta: tránsitos, decisiones, relaciones o propósito.",
       description: "Una sesión abierta para trabajar el tema que más te importa ahora, combinando astrología, Human Design y Gene Keys.\n\nIncluye:\n• 60 minutos por videollamada\n• Grabación de la sesión",
       imageUrl: await demoImage(ana.id, "/demo/sesion.webp"), priceCents: 12000, ctaLabel: "Reservar", sortOrder: 5,
-      durationMin: 60, bufferMin: 15, minNoticeHours: 24, meetingUrl: ANA_ZOOM, createdAt: daysAgo(70),
+      durationMin: 60, bufferMin: 15, minNoticeHours: 360, meetingUrl: ANA_ZOOM, createdAt: daysAgo(70),
     },
   });
   const pCircle = await prisma.product.create({
@@ -809,7 +822,7 @@ async function main() {
 
   // Disponibilidad: L–J 10–14 y 17–20 · V 10–14. Dos días bloqueados dentro de dos semanas y las
   // dos reservas en los próximos días con horario (prisma/demo-dates.ts).
-  const schedule = demoSchedule(TODAY);
+  const schedule = DEMO_SCHEDULE;
   await prisma.availabilityRule.createMany({ data: ANA_AVAILABILITY.map((r) => ({ creatorId: ana.id, ...r })) });
   await prisma.blockedDate.createMany({ data: schedule.blocked.map((date) => ({ creatorId: ana.id, date, reason: "Retiro de otoño" })) });
   // Calendario propio: un viaje a Bali dentro de tres semanas (esos días trabaja de 9:00 a 13:00 hora
@@ -846,11 +859,12 @@ async function main() {
   });
 
   // ───────────── Clientas, pedidos y reservas de Ana ─────────────
-  /** Consentimientos del checkout de un pedido pagado (condiciones y renuncia según el tipo). */
-  const consents = (type: string, at: Date) => {
-    const kind = waiverKindFor(type);
-    return { termsAcceptedAt: at, waiverKind: kind, waiverText: kind ? WAIVER_TEXT[kind] : null, waiverAcceptedAt: kind ? at : null };
-  };
+  /**
+   * Consentimientos del checkout de un pedido pagado, como los guarda hoy (condiciones y la renuncia
+   * obligatoria según el producto, con su texto literal, su versión y la hora): lo digital, los cursos
+   * y las membresías la llevan; las sesiones individuales no (se reservan a partir del día 15).
+   */
+  const consents = (product: { type: string; deliveryMode?: string | null }, at: Date) => acceptedConsentFields(product, at, TZ);
   type SeedCreator = typeof ana;
   type Buy = {
     creator: SeedCreator; plan: typeof pro; user: typeof laura; product: typeof pAstro; at: Date;
@@ -874,9 +888,16 @@ async function main() {
       customerId = c.id;
       customers.set(key, c.id);
     }
+    const current = await prisma.customer.findUniqueOrThrow({ where: { id: customerId }, select: { firstPurchaseAt: true, lastPurchaseAt: true, createdAt: true } });
     await prisma.customer.update({
       where: { id: customerId },
-      data: { totalSpentCents: { increment: b.product.priceCents }, ordersCount: { increment: 1 }, lastPurchaseAt: b.at },
+      data: {
+        totalSpentCents: { increment: b.product.priceCents },
+        ordersCount: { increment: 1 },
+        // Las compras no se siembran por orden de fecha: la primera y la última, las de verdad.
+        ...(current.firstPurchaseAt && b.at < current.firstPurchaseAt ? { firstPurchaseAt: b.at, createdAt: b.at < current.createdAt ? b.at : current.createdAt } : {}),
+        lastPurchaseAt: current.lastPurchaseAt && current.lastPurchaseAt > b.at ? current.lastPurchaseAt : b.at,
+      },
     });
     // Mismos importes que el checkout: IVA según quién vende (compradora en España) y comisión sobre la base.
     const amounts = demoSaleFields({
@@ -892,7 +913,7 @@ async function main() {
         buyerEmail: b.user.email, buyerName: b.user.name, status: "PAID", ...amounts,
         paymentProvider: "simulated", paymentRef: `sim_ch_seed_${b.product.slug}`, visitorId: b.visitor, source: b.source,
         createdAt: new Date(b.at.getTime() - 4 * 60000), paidAt: b.at, chargedAt: b.at,
-        ...consents(b.product.type, b.at),
+        ...consents(b.product, b.at),
       },
     });
     const charge = await prisma.transaction.create({
@@ -931,33 +952,38 @@ async function main() {
   const o2 = await anaBuy({ user: laura, product: pGK, at: daysAgo(12, 10, 32), visitor: "v_laura", source: "instagram" });
   await prisma.access.create({ data: { creatorId: ana.id, userId: laura.id, productId: pGK.id, orderId: o2.order.id, createdAt: daysAgo(12, 10, 32) } });
 
-  const o3 = await anaBuy({ user: laura, product: pHD, at: daysAgo(5, 18, 47), visitor: "v_laura", source: "telegram" });
+  const lauraBoughtAt = daysAgo(LAURA_HD_DAYS_AGO, 18, 47);
+  const o3 = await anaBuy({ user: laura, product: pHD, at: lauraBoughtAt, visitor: "v_laura", source: "telegram" });
   // Sus datos para la lectura (los mismos que escribió en las notas de la reserva).
   await prisma.order.update({
     where: { id: o3.order.id },
     data: {
       intake: { v: 1, birth: { date: "1991-03-03", time: "06:40", timeUnknown: false, place: "Valencia, España" }, answers: [{ id: "tema", label: "¿Qué te gustaría explorar?", value: "Mi tipo energético y cómo tomar decisiones en el trabajo." }] },
-      intakeUpdatedAt: daysAgo(5, 18, 47),
+      intakeUpdatedAt: lauraBoughtAt,
+      metadata: { slotStart: DEMO_SCHEDULE.lauraAt.toISOString() },
     },
   });
   await prisma.access.create({ data: { creatorId: ana.id, userId: laura.id, productId: pHD.id, orderId: o3.order.id } });
   // Laura: el primer día con horario dentro de al menos 3 días, a las 17:00 (como el ejemplo del
-  // briefing); Carmen: el siguiente, a las 10:00. Nunca en un día bloqueado.
+  // briefing); Carmen: el siguiente, a las 10:00. Nunca en un día bloqueado. Las dos el día 15 (o
+  // después) desde su compra.
   const { lauraAt, carmenAt } = schedule;
   const bLaura = await prisma.booking.create({
     data: {
       creatorId: ana.id, productId: pHD.id, customerId: o3.customerId, userId: laura.id, orderId: o3.order.id, status: "CONFIRMED",
       startAt: lauraAt, endAt: new Date(lauraAt.getTime() + 75 * 60000), meetingUrl: pHD.meetingUrl,
-      customerNotes: "Nací el 3 de marzo de 1991 a las 06:40 en Valencia.", createdAt: daysAgo(5, 18, 47),
+      customerNotes: "Nací el 3 de marzo de 1991 a las 06:40 en Valencia.", createdAt: lauraBoughtAt,
     },
   });
 
-  const o4 = await anaBuy({ user: carmen, product: p11, at: daysAgo(3, 13, 5), visitor: "v_carmen", source: "instagram" });
+  const carmenBoughtAt = daysAgo(CARMEN_11_DAYS_AGO, 13, 5);
+  const o4 = await anaBuy({ user: carmen, product: p11, at: carmenBoughtAt, visitor: "v_carmen", source: "instagram" });
+  await prisma.order.update({ where: { id: o4.order.id }, data: { metadata: { slotStart: DEMO_SCHEDULE.carmenAt.toISOString() } } });
   await prisma.access.create({ data: { creatorId: ana.id, userId: carmen.id, productId: p11.id, orderId: o4.order.id } });
   const bCarmen = await prisma.booking.create({
     data: {
       creatorId: ana.id, productId: p11.id, customerId: o4.customerId, userId: carmen.id, orderId: o4.order.id, status: "CONFIRMED",
-      startAt: carmenAt, endAt: new Date(carmenAt.getTime() + 60 * 60000), meetingUrl: p11.meetingUrl, createdAt: daysAgo(3, 13, 5),
+      startAt: carmenAt, endAt: new Date(carmenAt.getTime() + 60 * 60000), meetingUrl: p11.meetingUrl, createdAt: carmenBoughtAt,
     },
   });
 
@@ -1006,15 +1032,16 @@ async function main() {
 
   // Calendario propio: Lucía (desde Bogotá) tuvo su lectura de Human Design hace una semana y Ana
   // ya le ha enviado la grabación y un resumen. Se ve en su área (Tu grabación, Mis archivos).
-  const o6 = await anaBuy({ user: lucia, product: pHD, at: daysAgo(12, 20, 15), visitor: "v_lucia", source: "instagram" });
+  const luciaBoughtAt = daysAgo(LUCIA_HD_DAYS_AGO, 20, 15);
+  const o6 = await anaBuy({ user: lucia, product: pHD, at: luciaBoughtAt, visitor: "v_lucia", source: "instagram" });
   await prisma.access.create({ data: { creatorId: ana.id, userId: lucia.id, productId: pHD.id, orderId: o6.order.id } });
-  const luciaAt = daysAgo(7, 17, 0);
+  const luciaAt = daysAgo(LUCIA_SESSION_DAYS_AGO, 17, 0);
   await prisma.order.update({
     where: { id: o6.order.id },
     data: {
       metadata: { slotStart: luciaAt.toISOString(), buyerTz: "America/Bogota" },
       intake: { v: 1, birth: { date: "1994-07-21", time: null, timeUnknown: true, place: "Medellín, Colombia" }, answers: [] },
-      intakeUpdatedAt: daysAgo(12, 20, 15),
+      intakeUpdatedAt: luciaBoughtAt,
       deliveredAt: daysAgo(6, 10, 30),
       deliveryMessage: "Gracias por la sesión, Lucía ✨\n\nAquí tienes la **grabación** y estas tres ideas para esta semana:\n\n- Espera a que tu cuerpo responda antes de decir que sí.\n- Descansa antes de estar agotada.\n- Escribe lo que sientes en la luna llena.",
       deliveryMessageFormat: "MD",
@@ -1023,7 +1050,7 @@ async function main() {
   await prisma.booking.create({
     data: {
       creatorId: ana.id, productId: pHD.id, customerId: o6.customerId, userId: lucia.id, orderId: o6.order.id, status: "COMPLETED",
-      startAt: luciaAt, endAt: new Date(luciaAt.getTime() + 75 * 60000), meetingUrl: ANA_ZOOM, customerTimezone: "America/Bogota", createdAt: daysAgo(12, 20, 15),
+      startAt: luciaAt, endAt: new Date(luciaAt.getTime() + 75 * 60000), meetingUrl: ANA_ZOOM, customerTimezone: "America/Bogota", createdAt: luciaBoughtAt,
     },
   });
   const grabacion = makeWav(30);
@@ -1041,8 +1068,8 @@ async function main() {
   const carmenWhen = formatSessionDate(carmenAt, TZ);
   await prisma.emailMessage.createMany({
     data: [
-      { creatorId: ana.id, to: laura.email, subject: "Compra confirmada: Lectura de Human Design", template: "PURCHASE_RECEIPT", status: "SENT", sentAt: daysAgo(5, 18, 48), sendAt: daysAgo(5, 18, 48), html: `<p>Hola Laura, gracias por tu compra. <a href="${base}/cuenta">Acceder a mi contenido</a></p>` },
-      { creatorId: ana.id, to: laura.email, subject: `Reserva confirmada · ${lauraWhen}`, template: "BOOKING_CONFIRMED", status: "SENT", sentAt: daysAgo(5, 18, 48), sendAt: daysAgo(5, 18, 48), html: `<p>Tu sesión está reservada: ${lauraWhen}. <a href="${base}/cuenta/sesiones/${bLaura.id}">Ver detalles</a></p>` },
+      { creatorId: ana.id, to: laura.email, subject: "Compra confirmada: Lectura de Human Design", template: "PURCHASE_RECEIPT", status: "SENT", sentAt: new Date(lauraBoughtAt.getTime() + 60_000), sendAt: new Date(lauraBoughtAt.getTime() + 60_000), html: `<p>Hola Laura, gracias por tu compra. <a href="${base}/cuenta">Acceder a mi contenido</a></p>` },
+      { creatorId: ana.id, to: laura.email, subject: `Reserva confirmada · ${lauraWhen}`, template: "BOOKING_CONFIRMED", status: "SENT", sentAt: new Date(lauraBoughtAt.getTime() + 60_000), sendAt: new Date(lauraBoughtAt.getTime() + 60_000), html: `<p>Tu sesión está reservada: ${lauraWhen}. <a href="${base}/cuenta/sesiones/${bLaura.id}">Ver detalles</a></p>` },
       { creatorId: ana.id, to: laura.email, subject: "Recordatorio: mañana tienes tu sesión", template: "SESSION_REMINDER", status: "QUEUED", sendAt: new Date(lauraAt.getTime() - DAY), dedupeKey: `reminder:${bLaura.id}:${bLaura.startAt!.toISOString()}`, html: `<p>Te recordamos tu sesión Lectura de Human Design: ${lauraWhen}.</p>` },
       { creatorId: ana.id, to: carmen.email, subject: "Recordatorio: mañana tienes tu sesión", template: "SESSION_REMINDER", status: "QUEUED", sendAt: new Date(carmenAt.getTime() - DAY), dedupeKey: `reminder:${bCarmen.id}:${bCarmen.startAt!.toISOString()}`, html: `<p>Te recordamos tu Sesión 1:1: ${carmenWhen}.</p>` },
       { creatorId: ana.id, to: "ana@cirella.app", subject: "Nueva suscripción a Comunidad privada", template: "NEW_SUBSCRIPTION", status: "SENT", sentAt: daysAgo(16, 22, 11), sendAt: daysAgo(16, 22, 11), html: `<p>Lucía Torres se ha unido a Comunidad privada.</p>` },
@@ -1150,7 +1177,7 @@ async function main() {
     data: { creatorId: maria.id, productId: mRespira.id, name: "Las 21 prácticas (vídeo)", kind: "LINK", url: "https://example.com/respira-21" },
   });
   const mSes = await prisma.product.create({
-    data: { creatorId: maria.id, type: "SESSION", status: "PUBLISHED", slug: "yoga-terapeutico", title: "Yoga terapéutico 1:1", emoji: "🧘", summary: "Sesión individual adaptada a tu cuerpo y tu momento.", imageUrl: await demoImage(maria.id, "/demo/maria-sesion.webp"), priceCents: 5500, durationMin: 60, bufferMin: 15, minNoticeHours: 12, sortOrder: 3 },
+    data: { creatorId: maria.id, type: "SESSION", status: "PUBLISHED", slug: "yoga-terapeutico", title: "Yoga terapéutico 1:1", emoji: "🧘", summary: "Sesión individual adaptada a tu cuerpo y tu momento.", imageUrl: await demoImage(maria.id, "/demo/maria-sesion.webp"), priceCents: 5500, durationMin: 60, bufferMin: 15, minNoticeHours: 360, sortOrder: 3 },
   });
   await prisma.availabilityRule.createMany({ data: [2, 4].map((wd) => ({ creatorId: maria.id, weekday: wd, startMinute: 540, endMinute: 780 })) });
   // Carmen compró la meditación de María (vende Cirella: IVA incluido y factura de la serie V).
