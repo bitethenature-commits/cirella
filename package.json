@@ -61,6 +61,7 @@
     "@next/env": "15.5.27",
     "@prisma/client": "^6.19.3",
     "@sentry/nextjs": "10.75.2",
+    "astronomy-engine": "2.1.19",
     "bcryptjs": "^3.0.3",
     "lucide-react": "^1.53.0",
     "next": "^15.5.27",
