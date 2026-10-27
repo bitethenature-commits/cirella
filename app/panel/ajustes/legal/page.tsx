@@ -68,7 +68,7 @@ export default async function LegalSettingsPage({ searchParams }: { searchParams
           </p>
           <p role="note" className="mt-3 rounded-xl border border-gold bg-gold-soft px-3 py-2 text-sm text-ink">
             <strong>Borrador: revísalo con tu asesoría</strong> antes de vender. Plantillas versión {LEGAL_TEMPLATE_VERSION}
-            {kind !== "personal" ? " (incluyen la renuncia obligatoria al desistimiento en lo digital, las sesiones a partir del día 15 y la regla de los talleres)" : ""}.
+            {kind !== "personal" ? " (incluyen la renuncia obligatoria al desistimiento en lo digital, las sesiones a partir del día 15, los talleres sin desistimiento y el reembolso proporcional de las membresías)" : ""}.
           </p>
         </div>
         <LegalDocsEditor

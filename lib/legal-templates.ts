@@ -54,8 +54,8 @@ Tarjeta, Apple Pay o Google Pay a través de una pasarela segura. Ni la vendedor
 • Productos que la vendedora prepara para ti: se empiezan a preparar en cuanto pagas y te llegan en el plazo y por el medio indicados en la ficha.
 • Cursos: acceso de por vida mientras el curso exista.
 • Sesiones: por videollamada en la fecha reservada, siempre a partir del día 15 desde la compra.
-• Talleres: por videollamada en la fecha fija indicada en la ficha.
-• Membresías: se renuevan automáticamente y puedes cancelarlas desde tu cuenta; mantienes el acceso hasta el final del periodo pagado.
+• Talleres: por videollamada en la fecha fija indicada en la ficha. Al tener una fecha de realización determinada, no admiten desistimiento (ver «Cambios y reembolsos»).
+• Membresías: empiezas en cuanto pagas, se renuevan automáticamente y puedes cancelarlas desde tu cuenta; mantienes el acceso hasta el final del periodo pagado. Si desistes en los 14 días siguientes al primer pago, te devolvemos la parte proporcional de los días que no hayas disfrutado.
 
 ## 6. Desistimiento, cambios y reembolsos
 Consulta la sección «Cambios y reembolsos».
@@ -69,20 +69,23 @@ Ley española. Si eres consumidora, puedes acudir a los tribunales de tu domicil
   const refunds = `## Tu derecho de desistimiento
 Tienes 14 días naturales para desistir sin dar explicaciones. El día de la compra no cuenta: el plazo empieza al día siguiente y termina a las 23:59 del día 14 (hora de la vendedora).
 
-## Contenido digital, cursos, membresías y lo que se prepara para ti
+## Contenido digital, cursos y lo que se prepara para ti
 Para comprarlos tienes que pedir el acceso inmediato (o, si la vendedora lo prepara para ti, que se empiece a preparar ya) y aceptar expresamente que con ello pierdes tu derecho de desistimiento (art. 103.m del texto refundido de la Ley General para la Defensa de los Consumidores y Usuarios). Sin esa casilla no se puede pagar y, una vez pagados, no se puede desistir. En el email de la compra te confirmamos lo que aceptaste, con la fecha y el texto exacto.
 
 ## Sesiones en directo
 Las sesiones que se pagan en esta web se reservan a partir del día 15 desde la compra: así nunca caen dentro de tus 14 días para desistir. La regla es la misma si eliges la fecha después de pagar, si la cambias o si la vendedora te propone otra (siempre contando desde el día en que pagaste). Durante esos 14 días puedes desistir desde tu área de cliente: te devolvemos el importe completo y se cancela la reserva. Las sesiones que la vendedora te da a mano (de regalo o pagadas por otra vía) no siguen esta regla.
 
 ## Talleres con fecha fija
-Si cuando compras quedan 15 días o más para el taller, tienes tus 14 días para desistir con el reembolso completo. Si quedan menos, para comprarlo tienes que pedir expresamente que se realice dentro del plazo de desistimiento: puedes desistir hasta que empiece (te devolvemos el importe completo), pero una vez realizado por completo ya no podrás desistir (art. 103.a).
+Los talleres son actividades de esparcimiento con una fecha de realización determinada: no tienen derecho de desistimiento, queden los días que queden hasta el taller (art. 103 l) del texto refundido de la Ley General para la Defensa de los Consumidores y Usuarios). Te lo indicamos en la ficha y en el pago, y para comprarlo marcas una casilla que lo confirma; en el email de la compra te confirmamos lo que marcaste, con la fecha y el texto exacto.
+
+## Membresías
+Al unirte pides expresamente empezar en cuanto pagas, dentro del plazo de desistimiento. Aun así, durante los 14 días siguientes al primer pago puedes desistir desde tu área de cliente: te devolvemos la parte proporcional de los días que no hayas disfrutado (importe pagado × días sin disfrutar ÷ días del periodo pagado, redondeado al céntimo hacia abajo; el día en que empezaste y el día en que desistes cuentan como disfrutados) y la membresía termina en ese momento (art. 108.3). Las renovaciones no dan un nuevo plazo de desistimiento.
 
 ## Cambios de fecha
 Cambios gratis hasta ${changeNoticeHours} h antes desde tu área de cliente. Con menos antelación, escribe a la vendedora.
 
 ## Cancelar una membresía
-Puedes cancelarla cuando quieras desde tu área de cliente. No se renovará y mantienes el acceso hasta el final del periodo pagado.
+Puedes cancelarla cuando quieras desde tu área de cliente. No se renovará y mantienes el acceso hasta el final del periodo pagado (cancelar no es desistir: no hay reembolso del periodo en curso).
 
 ## Cómo desistir
 Desde tu área de cliente, escribiendo al email del aviso legal o enviando el formulario de desistimiento que encontrarás más abajo. Basta con una declaración clara de tu decisión.
@@ -205,8 +208,8 @@ Se paga ${methods}, en sus páginas seguras. En esta web no se guardan los datos
 • Productos que la vendedora prepara para ti: se empiezan a preparar en cuanto pagas y te llegan en el plazo y por el medio indicados en la ficha.
 • Cursos: acceso de por vida mientras el curso exista.
 • Sesiones: por videollamada en la fecha reservada, siempre a partir del día 15 desde la compra.
-• Talleres: por videollamada en la fecha fija indicada en la ficha.
-• Membresías: se renuevan automáticamente y puedes cancelarlas desde tu cuenta; mantienes el acceso hasta el final del periodo pagado.
+• Talleres: por videollamada en la fecha fija indicada en la ficha. Al tener una fecha de realización determinada, no admiten desistimiento (ver «Cambios y reembolsos»).
+• Membresías: empiezas en cuanto pagas, se renuevan automáticamente y puedes cancelarlas desde tu cuenta; mantienes el acceso hasta el final del periodo pagado. Si desistes en los 14 días siguientes al primer pago, te devolvemos la parte proporcional de los días que no hayas disfrutado.
 
 ## 6. Desistimiento, cambios y reembolsos
 Consulta la sección «Cambios y reembolsos».
