@@ -860,11 +860,14 @@ async function main() {
 
   // ───────────── Clientas, pedidos y reservas de Ana ─────────────
   /**
-   * Consentimientos del checkout de un pedido pagado, como los guarda hoy (condiciones y la renuncia
-   * obligatoria según el producto, con su texto literal, su versión y la hora): lo digital, los cursos
-   * y las membresías la llevan; las sesiones individuales no (se reservan a partir del día 15).
+   * Consentimientos del checkout de un pedido pagado, como los guarda hoy (condiciones y la casilla
+   * obligatoria del desistimiento según el producto, con su texto literal, su versión y la hora): lo
+   * digital y los cursos, la renuncia; las membresías (Lucía), «Quiero empezar ya» con el reembolso
+   * proporcional; un taller, que tiene fecha fija y no admite desistimiento. Las sesiones
+   * individuales no la llevan (se reservan a partir del día 15). El acceso a la comunidad que Ana le
+   * regaló a Laura es a mano: no pasa por aquí.
    */
-  const consents = (product: { type: string; deliveryMode?: string | null }, at: Date) => acceptedConsentFields(product, at);
+  const consents = (product: { type: string; deliveryMode?: string | null; groupSession?: boolean | null }, at: Date) => acceptedConsentFields(product, at);
   type SeedCreator = typeof ana;
   type Buy = {
     creator: SeedCreator; plan: typeof pro; user: typeof laura; product: typeof pAstro; at: Date;
