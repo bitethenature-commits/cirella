@@ -195,6 +195,8 @@ export function purchaseReceiptEmail(o: {
   waiver?: { text: string; at: string; version?: string | null };
   /** Sesión con los 14 días para desistir: hasta cuándo («8 de noviembre»). */
   withdrawalUntil?: string | null;
+  /** Membresía: hasta cuándo puede desistir con el reembolso proporcional («8 de noviembre»). */
+  membershipWithdrawalUntil?: string | null;
   changePolicy?: string | null;
   /** Versión exacta de las condiciones aceptadas (/{usuario}/legal?v=…). */
   legalUrl?: string;
@@ -220,6 +222,11 @@ export function purchaseReceiptEmail(o: {
       : "") +
     (o.withdrawalUntil
       ? p(`<span style="font-size:13px">Puedes desistir hasta el ${esc(o.withdrawalUntil)} (incluido) desde tu área: te devolvemos todo y se libera la fecha.</span>`)
+      : "") +
+    (o.membershipWithdrawalUntil
+      ? p(
+          `<span style="font-size:13px">Puedes desistir hasta el ${esc(o.membershipWithdrawalUntil)} (incluido) desde tu área: te devolvemos la parte proporcional de los días que no hayas disfrutado y la membresía termina en ese momento. Las renovaciones no dan un nuevo plazo.</span>`,
+        )
       : "") +
     (o.changePolicy ? p(`<span style="font-size:13px">${esc(o.changePolicy)}</span>`) : "") +
     (o.legalUrl

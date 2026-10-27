@@ -62,8 +62,8 @@ export function earliestPaidSessionStart(purchaseAt: Date, tz: string = DEFAULT_
 
 /**
  * ¿La regla del día 15 se aplica a esta sesión? Solo a las individuales que se pagan en la web
- * (accessMode PAID; sin valor se trata como de pago). Los talleres tienen fecha fija (otra regla,
- * workshopInWithdrawalPeriod) y lo que se paga fuera no se reserva aquí. Las sesiones que da la
+ * (accessMode PAID; sin valor se trata como de pago). Los talleres tienen fecha fija y no admiten
+ * desistimiento (isWorkshopProduct) y lo que se paga fuera no se reserva aquí. Las sesiones que da la
  * dueña a mano («Dar una sesión o lectura») quedan fuera: quien llama lo indica (manual).
  */
 export function followsDay15Rule(p: { type: string; groupSession?: boolean | null; accessMode?: string | null }): boolean {
@@ -86,10 +86,57 @@ export function paidSessionHorizon(horizonDays: number, noticeDays: number): num
 }
 
 /**
- * ¿Un taller con fecha fija cae dentro del plazo de desistimiento si se compra en `now`? Es decir,
- * ¿empieza antes del día 15? Entonces la compra pide la casilla de servicio en plazo (art. 103.a).
+ * Talleres (sesiones en grupo con fecha fija): actividad de esparcimiento con fecha de ejecución
+ * específica, sin derecho de desistimiento (TRLGDCU art. 103 l), queden los días que queden. Al
+ * pagar se pide siempre la casilla que lo reconoce (lib/legal.ts → WORKSHOP_FIXED_DATE) y nunca hay
+ * «Desistir». Por eso mover la fecha de un taller no cambia nada del desistimiento.
  */
-export function workshopInWithdrawalPeriod(eventStartAt: Date | null | undefined, now: Date, tz: string = DEFAULT_OWNER_TZ): boolean {
-  if (!eventStartAt) return false;
-  return eventStartAt.getTime() < earliestPaidSessionStart(now, tz).getTime();
+export function isWorkshopProduct(p: { type: string; groupSession?: boolean | null }): boolean {
+  return p.type === "SESSION" && !!p.groupSession;
+}
+
+/** Días naturales entre dos claves «AAAA-MM-DD» (b − a). */
+function keyDiff(a: string, b: string): number {
+  return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+}
+
+export type MembershipRefund = {
+  /** Días del periodo pagado (del día de inicio al de fin, en la zona de la dueña). */
+  totalDays: number;
+  /** Días disfrutados: del día de inicio al de hoy, ambos incluidos. */
+  usedDays: number;
+  /** Días sin disfrutar: totalDays − usedDays. */
+  unusedDays: number;
+  /** Importe a devolver, en céntimos (redondeado hacia abajo). */
+  refundCents: number;
+};
+
+/**
+ * Desistimiento de una membresía (TRLGDCU art. 108.3). La membresía es un servicio continuado que
+ * nunca queda «completamente ejecutado» en 14 días: aunque la clienta pida empezar ya, conserva el
+ * derecho y, si desiste, paga solo la parte ya disfrutada. Se devuelve:
+ *
+ *   importe pagado × días sin disfrutar del periodo ÷ días del periodo   (hacia abajo, al céntimo)
+ *
+ * Los días se cuentan en la zona de la dueña. El día de inicio y el de hoy cuentan como disfrutados
+ * (ha tenido acceso esos días y el acceso termina ahora):
+ *
+ *   membresía de 12,00 € al mes pagada el 27 de octubre (periodo 27 oct → 27 nov: 31 días)
+ *   desiste el 3 de noviembre → disfrutados 8 (27 oct a 3 nov), sin disfrutar 23
+ *   devolución = 1200 × 23 ÷ 31 = 890,32 → 8,90 €
+ */
+export function membershipWithdrawalRefund(i: {
+  amountCents: number;
+  periodStart: Date;
+  periodEnd: Date;
+  now: Date;
+  timezone?: string | null;
+}): MembershipRefund {
+  const tz = i.timezone || DEFAULT_OWNER_TZ;
+  const startKey = dateKeyInTz(i.periodStart, tz);
+  const totalDays = Math.max(1, keyDiff(startKey, dateKeyInTz(i.periodEnd, tz)));
+  const usedDays = Math.min(totalDays, Math.max(1, keyDiff(startKey, dateKeyInTz(i.now, tz)) + 1));
+  const unusedDays = totalDays - usedDays;
+  const refundCents = Math.max(0, Math.floor((i.amountCents * unusedDays) / totalDays));
+  return { totalDays, usedDays, unusedDays, refundCents };
 }

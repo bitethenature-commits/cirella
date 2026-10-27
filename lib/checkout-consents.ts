@@ -2,8 +2,9 @@
  * Consentimientos del checkout (TRLGDCU arts. 98.7 y 103.a/m; RGPD art. 7). Puro: lo usan la
  * acción del checkout, el inicio del pago (lib/orders.ts) y las pruebas unitarias.
  *   · condiciones de venta: obligatorias;
- *   · renuncia al desistimiento: obligatoria según el producto (lib/legal.ts → waiverKindFor):
- *     todo lo de pago que no es una sesión en directo y los talleres a menos de 15 días;
+ *   · casilla del desistimiento: obligatoria según el producto (lib/legal.ts → waiverKindFor):
+ *     renuncia en descargas, cursos y «Lo preparo yo»; reconocimiento de que un taller no admite
+ *     desistimiento; petición de empezar ya una membresía (con reembolso proporcional si desiste);
  *   · novedades por email: opcional.
  *
  * Como prueba se guarda en el pedido el momento, el texto literal de la casilla y su versión
@@ -19,7 +20,8 @@ export const TERMS_REQUIRED_ERROR = "Acepta las condiciones de venta para contin
 export const WAIVER_REQUIRED_ERROR: Record<WaiverKind, string> = {
   DIGITAL_IMMEDIATE: "Para pagar, marca la casilla de acceso inmediato y renuncia al desistimiento",
   DIGITAL_PREPARED: "Para pagar, marca la casilla para que se prepare ya y renuncia al desistimiento",
-  SERVICE_IN_PERIOD: "El taller es dentro de menos de 15 días: marca la casilla sobre el plazo de desistimiento para reservar tu plaza",
+  WORKSHOP_FIXED_DATE: "Para reservar tu plaza, marca la casilla que confirma que el taller tiene fecha fija y no admite desistimiento",
+  MEMBERSHIP_START: "Para empezar tu membresía, marca la casilla para acceder en cuanto pagues (con reembolso proporcional si desistes)",
 };
 
 /** «2026-10-25#1a2b3c4d5e6f7a8b»: versión de los textos y huella del texto exacto aceptado. */
@@ -32,7 +34,7 @@ export function parseCheckoutConsents(
   productType: string,
   /** Entrega del producto digital: «Lo preparo yo» (PERSONAL) pide su propia casilla. */
   deliveryMode?: string | null,
-  /** Taller: su fecha y «ahora» (a menos de 15 días pide la casilla de servicio en plazo). */
+  /** Taller (sesión en grupo con fecha fija): pide siempre su casilla. */
   workshop?: WorkshopWaiverContext | null,
 ): { ok: true; consents: CheckoutConsents } | { ok: false; error: string } {
   if (input.acceptTerms !== "on") return { ok: false, error: TERMS_REQUIRED_ERROR };
@@ -50,16 +52,10 @@ export function parseCheckoutConsents(
  * del checkout). Lo usan la demo y las pruebas que pagan sin pasar por el formulario.
  */
 export function acceptedConsentFields(
-  product: { type: string; deliveryMode?: string | null; groupSession?: boolean | null; eventStartAt?: Date | null },
+  product: { type: string; deliveryMode?: string | null; groupSession?: boolean | null },
   at: Date,
-  timezone?: string | null,
 ) {
-  const r = parseCheckoutConsents({ acceptTerms: "on", waiver: "on" }, product.type, product.deliveryMode, {
-    groupSession: product.groupSession,
-    eventStartAt: product.eventStartAt,
-    now: at,
-    timezone,
-  });
+  const r = parseCheckoutConsents({ acceptTerms: "on", waiver: "on" }, product.type, product.deliveryMode, { groupSession: product.groupSession });
   if (!r.ok) throw new Error(r.error);
   const c = r.consents;
   return { termsAcceptedAt: at, waiverKind: c.waiverKind, waiverText: c.waiverText, waiverVersion: c.waiverVersion, waiverAcceptedAt: c.waiverKind ? at : null };

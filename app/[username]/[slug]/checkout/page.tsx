@@ -138,7 +138,7 @@ export default async function CheckoutPage({
             ctaLabel: p.ctaLabel,
             deliveryMode: p.deliveryMode,
             // Casilla de renuncia obligatoria (la misma regla que valida la acción).
-            waiverKind: waiverKindFor(p.type, p.deliveryMode, { groupSession: p.groupSession, eventStartAt: p.eventStartAt, now: new Date(), timezone: data.creator.timezone }),
+            waiverKind: waiverKindFor(p.type, p.deliveryMode, { groupSession: p.groupSession }),
             workshop,
             intake,
             intakePrefill,

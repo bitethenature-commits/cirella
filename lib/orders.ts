@@ -181,15 +181,10 @@ export async function startOrderPayment(orderId: string, payment: PaymentMethodI
   if (!PAYABLE.includes(order.status)) throw new CheckoutError("Este pedido ya no se puede pagar.");
   // Los consentimientos se guardan en el pedido antes de cobrar (acción del checkout).
   if (!order.termsAcceptedAt) throw new CheckoutError("Acepta las condiciones de venta para continuar");
-  // La renuncia al desistimiento obligatoria (todo lo de pago que no es una sesión en directo y los
-  // talleres a menos de 15 días) tiene que estar guardada con el texto vigente, sea cual sea la
-  // pasarela (tarjeta, PayPal, simulador) y también en las membresías.
-  const waiver = waiverKindFor(order.productType, order.product.deliveryMode, {
-    groupSession: order.product.groupSession,
-    eventStartAt: order.product.eventStartAt,
-    now: new Date(),
-    timezone: order.creator.timezone,
-  });
+  // La casilla obligatoria del desistimiento (renuncia en lo digital, reconocimiento en los talleres,
+  // empezar ya en las membresías) tiene que estar guardada con el texto vigente, sea cual sea la
+  // pasarela (tarjeta, PayPal, simulador).
+  const waiver = waiverKindFor(order.productType, order.product.deliveryMode, { groupSession: order.product.groupSession });
   if (waiver && (!order.waiverAcceptedAt || order.waiverKind !== waiver || order.waiverText !== WAIVER_TEXT[waiver]))
     throw new CheckoutError(WAIVER_REQUIRED_ERROR[waiver]);
   if (order.productType === "MEMBERSHIP") {

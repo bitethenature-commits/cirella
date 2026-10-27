@@ -3,7 +3,7 @@
  * plantillas de los textos legales, recibo con las condiciones y medición de visitas sin cookies.
  */
 import { isLandingReferrer, visitorHash } from "../../lib/analytics";
-import { parseCheckoutConsents, TERMS_REQUIRED_ERROR, waiverVersionOf } from "../../lib/checkout-consents";
+import { parseCheckoutConsents, TERMS_REQUIRED_ERROR, WAIVER_REQUIRED_ERROR, waiverVersionOf } from "../../lib/checkout-consents";
 import { purchaseReceiptEmail } from "../../lib/email/templates";
 import {
   creatorLegalHref,
@@ -18,7 +18,9 @@ import {
   validateTaxId,
   WAIVER_TEXT,
   WAIVER_TEXT_VERSION,
+  isWaiverOfRight,
   waiverKindFor,
+  withdrawalInfoLine,
   type LegalIdentity,
 } from "../../lib/legal";
 import { currentLegalDocs, legalTextToPlain, parseLegalText, privacyResponsibleLine, renderCreatorLegalTemplates } from "../../lib/legal-templates";
@@ -84,25 +86,34 @@ test("creatorLegalHref", () => {
 
 // ── Casillas del checkout ──
 
-test("waiverKindFor: digital, curso y membresía → acceso inmediato; «Lo preparo yo» → preparado; sesión individual → ninguna", () => {
-  for (const t of ["DIGITAL", "COURSE", "MEMBERSHIP"]) eq(waiverKindFor(t), "DIGITAL_IMMEDIATE");
+test("waiverKindFor: digital y curso → acceso inmediato; «Lo preparo yo» → preparado; membresía → empezar ya; sesión individual → ninguna", () => {
+  for (const t of ["DIGITAL", "COURSE"]) eq(waiverKindFor(t), "DIGITAL_IMMEDIATE");
+  eq(waiverKindFor("MEMBERSHIP"), "MEMBERSHIP_START");
   eq(waiverKindFor("DIGITAL", "PERSONAL"), "DIGITAL_PREPARED");
   eq(waiverKindFor("SESSION"), null);
-  eq(waiverKindFor("SESSION", null, { groupSession: false, eventStartAt: null, now: new Date() }), null);
+  eq(waiverKindFor("SESSION", null, { groupSession: false }), null);
   eq(waiverKindFor("OTRO"), null);
 });
-test("waiverKindFor: taller a menos de 15 días → servicio en plazo; a 15 o más → ninguna", () => {
-  const now = new Date("2026-10-25T10:00:00Z"); // 12:00 en Madrid: día 0 = 25 de octubre
-  const ws = (iso: string) => waiverKindFor("SESSION", null, { groupSession: true, eventStartAt: new Date(iso), now, timezone: "Europe/Madrid" });
-  eq(ws("2026-11-08T22:59:00Z"), "SERVICE_IN_PERIOD"); // 8 nov 23:59 en Madrid (día 14)
-  eq(ws("2026-11-08T23:00:00Z"), null); // 9 nov 00:00 en Madrid (día 15)
-  eq(ws("2026-10-26T18:00:00Z"), "SERVICE_IN_PERIOD");
-  eq(ws("2026-12-01T18:00:00Z"), null);
+test("waiverKindFor: un taller pide siempre su casilla (fecha fija, art. 103 l), queden los días que queden", () => {
+  eq(waiverKindFor("SESSION", null, { groupSession: true }), "WORKSHOP_FIXED_DATE");
+  eq(waiverKindFor("DIGITAL", null, { groupSession: true }), "DIGITAL_IMMEDIATE");
 });
-test("textos de las renuncias: consentimiento expreso y pérdida del derecho", () => {
-  for (const k of ["DIGITAL_IMMEDIATE", "DIGITAL_PREPARED"] as const) ok(/consentimiento expreso/.test(WAIVER_TEXT[k]) && /pierdo mi derecho de desistimiento/.test(WAIVER_TEXT[k]), k);
+test("textos de las casillas: renuncia en lo digital; reconocimiento en los talleres; empezar ya en las membresías", () => {
+  for (const k of ["DIGITAL_IMMEDIATE", "DIGITAL_PREPARED"] as const) {
+    ok(/consentimiento expreso/.test(WAIVER_TEXT[k]) && /pierdo mi derecho de desistimiento/.test(WAIVER_TEXT[k]), k);
+    ok(isWaiverOfRight(k), k);
+  }
   ok(WAIVER_TEXT.DIGITAL_IMMEDIATE.startsWith("Quiero acceder ya"));
-  ok(/Solicito expresamente/.test(WAIVER_TEXT.SERVICE_IN_PERIOD) && /una vez realizado por completo, perderé/.test(WAIVER_TEXT.SERVICE_IN_PERIOD));
+  ok(/fecha fija/.test(WAIVER_TEXT.WORKSHOP_FIXED_DATE) && /no tengo derecho de desistimiento \(art\. 103 l\)/.test(WAIVER_TEXT.WORKSHOP_FIXED_DATE));
+  ok(WAIVER_TEXT.MEMBERSHIP_START.startsWith("Quiero empezar ya: solicito expresamente") && /parte proporcional de los días que no haya disfrutado/.test(WAIVER_TEXT.MEMBERSHIP_START));
+  ok(!/pierdo/.test(WAIVER_TEXT.MEMBERSHIP_START), "la membresía no renuncia al derecho");
+  ok(!isWaiverOfRight("WORKSHOP_FIXED_DATE") && !isWaiverOfRight("MEMBERSHIP_START"));
+});
+test("withdrawalInfoLine: lo que se dice antes de pagar en talleres y membresías", () => {
+  ok(/no tiene derecho de desistimiento \(art\. 103 l\)/.test(withdrawalInfoLine("WORKSHOP_FIXED_DATE") ?? ""));
+  ok(/parte proporcional/.test(withdrawalInfoLine("MEMBERSHIP_START") ?? "") && /renovaciones no dan un nuevo plazo/.test(withdrawalInfoLine("MEMBERSHIP_START") ?? ""));
+  eq(withdrawalInfoLine("DIGITAL_IMMEDIATE"), null);
+  eq(withdrawalInfoLine(null), null);
 });
 test("termsCheckboxText: renovación anual con «cada año» y sin «mensual»", () => {
   const t = termsCheckboxText({ sellerName: "Ana Luna Pérez", billingInterval: "year", price: "290 €/año" });
@@ -132,17 +143,19 @@ test("parseCheckoutConsents: sesión individual → sin renuncia (aunque llegue 
     ok: true,
     consents: { waiverKind: null, waiverText: null, waiverVersion: null, marketingOptIn: false },
   }));
-test("parseCheckoutConsents: taller a menos de 15 días → la casilla obligatoria, con su texto y versión", () => {
-  const now = new Date("2026-10-25T10:00:00Z");
-  const workshop = { groupSession: true, eventStartAt: new Date("2026-10-30T18:00:00Z"), now, timezone: "Europe/Madrid" };
+test("parseCheckoutConsents: taller → la casilla obligatoria, con su texto y versión", () => {
+  const workshop = { groupSession: true };
   const no = parseCheckoutConsents({ acceptTerms: "on" }, "SESSION", null, workshop);
-  ok(!no.ok && no.error.includes("menos de 15 días"), JSON.stringify(no));
+  eq(no, { ok: false, error: WAIVER_REQUIRED_ERROR.WORKSHOP_FIXED_DATE });
   eq(parseCheckoutConsents({ acceptTerms: "on", waiver: "on" }, "SESSION", null, workshop), {
     ok: true,
-    consents: { waiverKind: "SERVICE_IN_PERIOD", waiverText: WAIVER_TEXT.SERVICE_IN_PERIOD, waiverVersion: waiverVersionOf(WAIVER_TEXT.SERVICE_IN_PERIOD), marketingOptIn: false },
+    consents: { waiverKind: "WORKSHOP_FIXED_DATE", waiverText: WAIVER_TEXT.WORKSHOP_FIXED_DATE, waiverVersion: waiverVersionOf(WAIVER_TEXT.WORKSHOP_FIXED_DATE), marketingOptIn: false },
   });
-  const far = parseCheckoutConsents({ acceptTerms: "on" }, "SESSION", null, { ...workshop, eventStartAt: new Date("2026-11-20T18:00:00Z") });
-  ok(far.ok && far.consents.waiverKind === null);
+});
+test("parseCheckoutConsents: membresía → casilla de empezar ya obligatoria", () => {
+  eq(parseCheckoutConsents({ acceptTerms: "on" }, "MEMBERSHIP"), { ok: false, error: WAIVER_REQUIRED_ERROR.MEMBERSHIP_START });
+  const r = parseCheckoutConsents({ acceptTerms: "on", waiver: "on" }, "MEMBERSHIP");
+  ok(r.ok && r.consents.waiverKind === "MEMBERSHIP_START" && r.consents.waiverText === WAIVER_TEXT.MEMBERSHIP_START);
 });
 test("waiverVersionOf: versión de los textos y huella del texto exacto", () => {
   const v = waiverVersionOf(WAIVER_TEXT.DIGITAL_IMMEDIATE);

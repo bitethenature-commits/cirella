@@ -864,7 +864,7 @@ async function main() {
    * obligatoria según el producto, con su texto literal, su versión y la hora): lo digital, los cursos
    * y las membresías la llevan; las sesiones individuales no (se reservan a partir del día 15).
    */
-  const consents = (product: { type: string; deliveryMode?: string | null }, at: Date) => acceptedConsentFields(product, at, TZ);
+  const consents = (product: { type: string; deliveryMode?: string | null }, at: Date) => acceptedConsentFields(product, at);
   type SeedCreator = typeof ana;
   type Buy = {
     creator: SeedCreator; plan: typeof pro; user: typeof laura; product: typeof pAstro; at: Date;

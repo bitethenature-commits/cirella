@@ -12,6 +12,7 @@ import { signupsOnly } from "@/lib/commerce";
 import { isPersonalMode } from "@/lib/site-mode";
 import { channelKindLabel } from "@/lib/channel-kind";
 import { orderStatusLabel, toWithdrawalInput, withdrawalEligibility } from "@/lib/refund-math";
+import { membershipTermsFor } from "@/lib/refunds";
 import { formatDate } from "@/lib/tz";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { orderTargetPath } from "@/lib/auth-utils";
@@ -25,6 +26,7 @@ const ERROR: Record<string, string> = {
   "no-desistible": "Esta compra ya no se puede desistir. Si tienes dudas, escribe a la creadora.",
   "no-encontrado": "No encontramos esa compra en tu cuenta.",
   pasarela: "No hemos podido hacer el reembolso ahora mismo. Inténtalo más tarde o escribe a la creadora.",
+  "importe-cambiado": "El importe a devolver ha cambiado desde que abriste la página (ha empezado otro día). Revisa el nuevo importe y vuelve a confirmarlo.",
 };
 
 export default async function MyPurchases({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
@@ -41,6 +43,8 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
     },
   });
   const now = new Date();
+  // Membresías: su suscripción decide si se puede desistir y cuánto se devuelve (proporcional).
+  const memberships = await membershipTermsFor(orders.filter((o) => o.productType === "MEMBERSHIP").map((o) => o.id));
   const personal = signupsOnly();
   // Web personal: «Mis canales», con lo que es cada cosa en grande y sin importes ni facturas (siguen
   // en el detalle de cada compra y en el email de compra).
@@ -57,8 +61,10 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
         {orders.map((o) => {
           // Gratis o dado a mano: sin importe, factura ni desistimiento (no hubo pago).
           const noCharge = isNoChargeOrder(o);
-          const w = noCharge ? { eligible: false as const } : withdrawalEligibility(toWithdrawalInput({ ...o, timezone: o.creator.timezone }), now);
-          const amount = formatMoney(o.amountCents - o.refundedCents, o.currency, { decimals: true });
+          const w = noCharge
+            ? { eligible: false as const }
+            : withdrawalEligibility(toWithdrawalInput({ ...o, timezone: o.creator.timezone, membership: memberships.get(o.id) ?? null }), now);
+          const refund = w.eligible ? formatMoney(w.amountCents, o.currency, { decimals: true }) : "";
           return (
             <div key={o.id}>
               {channels ? (
@@ -102,11 +108,19 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
               )}
               {w.eligible && (
                 <div className="-mt-1 flex flex-wrap items-center justify-between gap-2 px-4 pb-4 pl-20">
-                  <p className="text-xs text-muted">Puedes desistir hasta el {formatDate(w.deadline, { day: "numeric", month: "long" }, o.creator.timezone)} (incluido)</p>
+                  <p className="text-xs text-muted">
+                    Puedes desistir hasta el {formatDate(w.deadline, { day: "numeric", month: "long" }, o.creator.timezone)} (incluido)
+                    {w.proportional ? `: hoy te devolveríamos ${refund}, la parte de los días que no has disfrutado` : ""}
+                  </p>
                   <ConfirmForm
                     action={withdrawPurchase}
-                    message={`¿Desistir de «${o.productTitle}»? Te devolveremos ${amount}${o.productType === "SESSION" ? " y se cancelará tu sesión" : " y perderás el acceso"}.`}
+                    message={
+                      w.proportional
+                        ? `¿Desistir de «${o.productTitle}»? Te devolveremos ${refund}: la parte de los ${w.proportional.unusedDays} días que no has disfrutado de los ${w.proportional.totalDays} del periodo pagado (${formatMoney(o.amountCents, o.currency, { decimals: true })}). Tu membresía terminará ahora y perderás el acceso.`
+                        : `¿Desistir de «${o.productTitle}»? Te devolveremos ${refund}${o.productType === "SESSION" ? " y se cancelará tu sesión" : " y perderás el acceso"}.`
+                    }
                   >
+                    <input type="hidden" name="expectedCents" value={w.amountCents} />
                     <input type="hidden" name="orderId" value={o.id} />
                     <SubmitButton className="btn btn-ghost btn-sm" pendingLabel="Tramitando…">Desistir</SubmitButton>
                   </ConfirmForm>

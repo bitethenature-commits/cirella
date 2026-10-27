@@ -3,14 +3,16 @@
  * a punta.
  *   npm run test:withdrawal        (con la BD sembrada: npm run db:reset)
  *
- *   · lo digital, «Lo preparo yo», los cursos y las membresías no se pagan sin la renuncia, sea cual
- *     sea la pasarela (simulador, Stripe o PayPal), y luego no se puede desistir;
+ *   · lo digital, «Lo preparo yo» y los cursos no se pagan sin la renuncia, sea cual sea la pasarela
+ *     (simulador, Stripe o PayPal), y luego no se puede desistir;
  *   · las sesiones que se pagan en la web no tienen huecos antes del día 15 (ni al comprar ni al
  *     pedirlos a mano en el pedido), con la antelación de la dueña si es mayor;
  *   · elegir o cambiar la fecha, y tras «Proponer otra fecha», cuenta desde el pago del pedido;
  *   · desistir de una sesión dentro de los 14 días: reembolso, reserva cancelada y hueco libre;
  *   · las sesiones dadas a mano («Dar una sesión o lectura») no siguen la regla;
- *   · talleres: a menos de 15 días, la casilla de servicio en plazo es obligatoria; a 15 o más, no.
+ *   · talleres: a 5 o a 20 días, siempre la casilla de «fecha fija, sin desistimiento» y nunca «Desistir»;
+ *   · membresías: sin la casilla de empezar ya no se cobra; en los 14 días, «Desistir» devuelve la
+ *     parte proporcional y termina la suscripción; después de los 14 días o ya renovada, no.
  * Crea sus propios productos y pedidos y lo borra todo al terminar.
  */
 import "./load-env";
@@ -51,7 +53,7 @@ async function main() {
   const { toWithdrawalInput, withdrawalEligibility } = await import("../lib/refund-math");
   const { withdrawOrder } = await import("../lib/refunds");
   const { dateKeyInTz } = await import("../lib/tz");
-  const { earliestPaidSessionStart, withdrawalDeadline } = await import("../lib/withdrawal");
+  const { earliestPaidSessionStart, membershipWithdrawalRefund, withdrawalDeadline } = await import("../lib/withdrawal");
 
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
   const tz = ana.timezone;
@@ -62,21 +64,21 @@ async function main() {
     });
   const flat = (r: Awaited<ReturnType<typeof getAvailableSlots>>) => r.days.flatMap((d) => d.slots.map((s) => s.start));
   const orderOf = (id: string) => prisma.order.findUniqueOrThrow({ where: { id }, include: { bookings: true, refunds: true, customer: true } });
-  const eligibility = async (id: string, now = new Date()) => withdrawalEligibility(toWithdrawalInput({ ...(await orderOf(id)), timezone: tz }), now);
+  const { membershipTermsFor } = await import("../lib/refunds");
+  const eligibility = async (id: string, now = new Date()) =>
+    withdrawalEligibility(toWithdrawalInput({ ...(await orderOf(id)), timezone: tz, membership: (await membershipTermsFor([id])).get(id) ?? null }), now);
   const pending = (productId: string, label: string, slotStart?: string) =>
     createPendingOrder({ productId, buyerEmail: email(label), buyerName: `Prueba ${label}`, buyerCountry: "ES", slotStart });
   const onlyTerms = (id: string) => prisma.order.update({ where: { id }, data: { termsAcceptedAt: new Date() } });
 
-  // ── 1. Renuncia obligatoria en todo lo de pago que no es una sesión, con cualquier pasarela ──
+  // ── 1. Renuncia obligatoria en lo digital, con cualquier pasarela ──
   const digital = await mk({ type: "DIGITAL", deliveryMode: "AUTOMATIC" });
   const reading = await mk({ type: "DIGITAL", deliveryMode: "PERSONAL", instructions: "Te la envío en 72 horas." });
   const course = await mk({ type: "COURSE" });
-  const membership = await mk({ type: "MEMBERSHIP", billingInterval: "month", priceCents: 1900 });
   for (const [label, product, kind] of [
     ["descarga", digital, "DIGITAL_IMMEDIATE"],
     ["lectura «Lo preparo yo»", reading, "DIGITAL_PREPARED"],
     ["curso", course, "DIGITAL_IMMEDIATE"],
-    ["membresía", membership, "DIGITAL_IMMEDIATE"],
   ] as const) {
     const o = await pending(product.id, `w-${product.id}`);
     await onlyTerms(o.id);
@@ -88,7 +90,7 @@ async function main() {
     }
     await prisma.order.update({ where: { id: o.id }, data: { paymentProvider: "simulated", waiverKind: kind, waiverText: "Quiero acceder ya (texto de otra versión)", waiverAcceptedAt: new Date() } });
     check(`${label}: con un texto que no es el vigente tampoco`, (await errorOf(() => startOrderPayment(o.id, CARD))) === WAIVER_REQUIRED_ERROR[kind]);
-    await prisma.order.update({ where: { id: o.id }, data: acceptedConsentFields(product, new Date(), tz) });
+    await prisma.order.update({ where: { id: o.id }, data: acceptedConsentFields(product, new Date()) });
     const r = await startOrderPayment(o.id, CARD);
     const paid = await orderOf(o.id);
     check(
@@ -168,24 +170,103 @@ async function main() {
   const glSlots = await getAvailableSlots(P, glRule);
   check("a mano y «que la elija ella»: puede elegir antes del día 15", gl.ok && glRule.manual === true && glSlots.notBefore === null && flat(glSlots).some((s) => Date.parse(s) < day15.getTime()));
 
-  // ── 6. Talleres con fecha fija ──
+  // ── 6. Talleres con fecha fija: sin desistimiento (art. 103 l), queden los días que queden ──
   const at = (days: number) => new Date(Date.now() + days * DAY);
-  const W5 = await mk({ type: "SESSION", groupSession: true, eventStartAt: at(5), durationMin: 90, minNoticeHours: 0, title: `${TAG} taller 5` });
-  const W20 = await mk({ type: "SESSION", groupSession: true, eventStartAt: at(20), durationMin: 90, minNoticeHours: 0, title: `${TAG} taller 20` });
-  const t5 = await pending(W5.id, "taller5");
-  await onlyTerms(t5.id);
-  check("taller a 5 días: sin la casilla de servicio en plazo no se cobra", (await errorOf(() => startOrderPayment(t5.id, CARD))) === WAIVER_REQUIRED_ERROR.SERVICE_IN_PERIOD);
-  await prisma.order.update({ where: { id: t5.id }, data: acceptedConsentFields(W5, new Date(), tz) });
-  const rt5 = await startOrderPayment(t5.id, CARD);
-  const ot5 = await orderOf(t5.id);
-  check("taller a 5 días: con la casilla se paga y la guarda", rt5.kind === "paid" && ot5.waiverKind === "SERVICE_IN_PERIOD" && ot5.waiverText === WAIVER_TEXT.SERVICE_IN_PERIOD && !!ot5.waiverVersion);
-  check("taller a 5 días: puede desistir hasta que empiece", (await eligibility(t5.id)).eligible && !(await eligibility(t5.id, at(5.1))).eligible);
-  const t20 = await pending(W20.id, "taller20");
-  await onlyTerms(t20.id);
-  const rt20 = await startOrderPayment(t20.id, CARD);
-  const ot20 = await orderOf(t20.id);
-  const e20 = await eligibility(t20.id);
-  check("taller a 20 días: sin casilla, con sus 14 días para desistir", rt20.kind === "paid" && !ot20.waiverKind && e20.eligible && e20.deadline < W20.eventStartAt!);
+  for (const days of [5, 20]) {
+    const W = await mk({ type: "SESSION", groupSession: true, eventStartAt: at(days), durationMin: 90, minNoticeHours: 0, title: `${TAG} taller ${days}` });
+    const t = await pending(W.id, `taller${days}`);
+    await onlyTerms(t.id);
+    check(`taller a ${days} días: sin la casilla de fecha fija no se cobra`, (await errorOf(() => startOrderPayment(t.id, CARD))) === WAIVER_REQUIRED_ERROR.WORKSHOP_FIXED_DATE);
+    await prisma.order.update({ where: { id: t.id }, data: acceptedConsentFields(W, new Date()) });
+    const rt = await startOrderPayment(t.id, CARD);
+    const ot = await orderOf(t.id);
+    check(
+      `taller a ${days} días: con la casilla se paga y guarda la prueba (texto y versión)`,
+      rt.kind === "paid" && ot.waiverKind === "WORKSHOP_FIXED_DATE" && ot.waiverText === WAIVER_TEXT.WORKSHOP_FIXED_DATE && !!ot.waiverVersion && !!ot.waiverAcceptedAt,
+    );
+    const e = await eligibility(t.id);
+    check(`taller a ${days} días: sin «Desistir» desde el primer minuto`, !e.eligible && e.reason === "WORKSHOP", e);
+    const w = await withdrawOrder({ orderId: t.id, userId: ot.customer!.userId!, email: ot.buyerEmail });
+    check(`taller a ${days} días: el servidor rechaza el desistimiento`, !w.ok && w.code === "NOT_REFUNDABLE" && /fecha fija/.test(w.error) && (await orderOf(t.id)).refunds.length === 0, w);
+  }
+
+  // ── 7. Membresías: empezar ya y, si desiste en 14 días, la parte proporcional ──
+  const M = await mk({ type: "MEMBERSHIP", billingInterval: "month", priceCents: 1900, title: `${TAG} membresía` });
+  const subOf = (orderId: string) => prisma.subscription.findFirstOrThrow({ where: { orderId } });
+  const payMembership = async (label: string) => {
+    const o = await pending(M.id, label);
+    await prisma.order.update({ where: { id: o.id }, data: acceptedConsentFields(M, new Date()) });
+    await startOrderPayment(o.id, CARD);
+    return orderOf(o.id);
+  };
+  const m0 = await pending(M.id, "socia0");
+  await onlyTerms(m0.id);
+  for (const provider of ["simulated", "stripe", "paypal"]) {
+    await prisma.order.update({ where: { id: m0.id }, data: { paymentProvider: provider } });
+    const msg = await errorOf(() => startOrderPayment(m0.id, CARD));
+    check(`membresía con ${provider}: sin la casilla de empezar ya no se cobra`, msg === WAIVER_REQUIRED_ERROR.MEMBERSHIP_START && (await orderOf(m0.id)).status === "PENDING", msg);
+  }
+  // Una renuncia de las de antes (DIGITAL_IMMEDIATE) ya no vale para pagar una membresía.
+  await prisma.order.update({ where: { id: m0.id }, data: { paymentProvider: "simulated", ...acceptedConsentFields(digital, new Date()) } });
+  check("membresía: con la renuncia de lo digital tampoco", (await errorOf(() => startOrderPayment(m0.id, CARD))) === WAIVER_REQUIRED_ERROR.MEMBERSHIP_START);
+
+  const m1 = await payMembership("socia1");
+  const sub1 = await subOf(m1.id);
+  check("membresía: con la casilla se paga y la guarda", m1.status === "PAID" && m1.waiverKind === "MEMBERSHIP_START" && m1.waiverText === WAIVER_TEXT.MEMBERSHIP_START && !!m1.waiverVersion && sub1.status === "ACTIVE");
+  const expected = membershipWithdrawalRefund({ amountCents: 1900, periodStart: sub1.currentPeriodStart, periodEnd: sub1.currentPeriodEnd, now: new Date(), timezone: tz });
+  const em1 = await eligibility(m1.id);
+  check(
+    "membresía: «Desistir» con el importe proporcional (hoy cuenta como disfrutado)",
+    em1.eligible && em1.amountCents === expected.refundCents && expected.usedDays === 1 && expected.refundCents === Math.floor((1900 * (expected.totalDays - 1)) / expected.totalDays) && expected.refundCents < 1900,
+    { em1, expected },
+  );
+  const wrong = await withdrawOrder({ orderId: m1.id, userId: m1.customer!.userId!, email: m1.buyerEmail, expectedCents: 1900 });
+  check("membresía: si el importe que vio ya no es el de ahora, no se tramita", !wrong.ok && wrong.code === "AMOUNT" && (await orderOf(m1.id)).refunds.length === 0, wrong);
+  const wm1 = await withdrawOrder({ orderId: m1.id, userId: m1.customer!.userId!, email: m1.buyerEmail, expectedCents: expected.refundCents });
+  const after1 = await orderOf(m1.id);
+  const subAfter = await subOf(m1.id);
+  const access = await prisma.access.findMany({ where: { OR: [{ orderId: m1.id }, { subscriptionId: sub1.id }] } });
+  check(
+    "membresía: reembolso parcial de lo proporcional, suscripción cancelada ya y acceso retirado",
+    wm1.ok &&
+      wm1.amountCents === expected.refundCents &&
+      after1.status === "PAID" &&
+      after1.refundedCents === expected.refundCents &&
+      after1.refunds[0]?.reason === "WITHDRAWAL" &&
+      subAfter.status === "CANCELED" &&
+      !subAfter.cancelAtPeriodEnd &&
+      access.length > 0 &&
+      access.every((a) => a.status === "REVOKED"),
+    { wm1, status: after1.status, refunded: after1.refundedCents, sub: subAfter.status, access: access.map((a) => a.status) },
+  );
+  const mails = await prisma.emailMessage.findMany({ where: { OR: [{ dedupeKey: `withdrawal:${m1.id}` }, { to: m1.buyerEmail, template: "WITHDRAWAL_RECEIPT" }] } });
+  check(
+    "membresía: acuse a la compradora y aviso a la dueña, con la parte proporcional",
+    mails.some((m) => m.template === "WITHDRAWAL_RECEIPT" && /parte proporcional/.test(m.html)) && mails.some((m) => m.template === "WITHDRAWAL_CREATOR" && /membresía ha terminado/.test(m.html)),
+    mails.map((m) => m.template),
+  );
+  const again = await eligibility(m1.id);
+  check("membresía: después de desistir ya no hay «Desistir»", !again.eligible && again.reason === "MEMBERSHIP_ENDED", again);
+
+  // Pasados los 14 días desde el primer pago: no (aunque quede periodo).
+  const m2 = await payMembership("socia2");
+  const sub2 = await subOf(m2.id);
+  const day15m = new Date(withdrawalDeadline(m2.paidAt!, tz).getTime() + 1);
+  const e2 = await eligibility(m2.id, day15m);
+  const w2 = await withdrawOrder({ orderId: m2.id, userId: m2.customer!.userId!, email: m2.buyerEmail, now: day15m });
+  check("membresía: el día 15 desde el primer pago ya no se desiste", !e2.eligible && e2.reason === "EXPIRED" && !w2.ok && sub2.currentPeriodEnd > day15m, { e2, w2 });
+  const lastMinute = await eligibility(m2.id, withdrawalDeadline(m2.paidAt!, tz));
+  check("membresía: a las 23:59 del día 14 todavía sí", lastMinute.eligible && lastMinute.proportional?.usedDays === 15, lastMinute);
+
+  // Ya renovada (las renovaciones no dan derecho de desistimiento): no.
+  const m3 = await payMembership("socia3");
+  const sub3 = await subOf(m3.id);
+  await prisma.transaction.create({
+    data: { creatorId: ana.id, subscriptionId: sub3.id, type: "RENEWAL", description: "Renovación de membresía", amountCents: 1900, platformFeeCents: 0, netCents: 1900, provider: "simulated", idempotencyKey: `${TAG}-renewal` } as never,
+  });
+  const e3 = await eligibility(m3.id);
+  const w3 = await withdrawOrder({ orderId: m3.id, userId: m3.customer!.userId!, email: m3.buyerEmail });
+  check("membresía renovada: sin «Desistir» y el servidor lo rechaza", !e3.eligible && e3.reason === "RENEWED" && !w3.ok && (await subOf(m3.id)).status === "ACTIVE", { e3, w3 });
 }
 
 async function cleanup() {

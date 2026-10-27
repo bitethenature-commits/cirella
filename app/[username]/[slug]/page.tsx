@@ -11,7 +11,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { digitalContentText, isInstantDelivery } from "@/lib/delivery";
 import { appUrl, isDemoMode } from "@/lib/env";
 import { getPlatformIssuer } from "@/lib/invoices/issuer";
-import { creatorLegalHref, legalIdentityComplete, sellerStatement, sessionChangePolicyText } from "@/lib/legal";
+import { creatorLegalHref, legalIdentityComplete, sellerStatement, sessionChangePolicyText, waiverKindFor, withdrawalInfoLine } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
 import { getPublicProduct } from "@/lib/product-page";
 import { isPersonalMode } from "@/lib/site-mode";
@@ -130,6 +130,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
             : external
               ? [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, ...externalPerk]
               : [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, { icon: RefreshCcw, text: "Cancela cuando quieras" }, { icon: Lock, text: "Acceso privado mientras estés suscrita" }];
+  // Información previa sobre el desistimiento (talleres sin él, membresías con reembolso proporcional).
+  const withdrawalInfo = withdrawalInfoLine(waiverKindFor(type, p.deliveryMode, { groupSession: p.groupSession }));
   const buttonClass = "cp-btn mt-6 hidden w-full md:flex";
   // Un solo formulario: en móvil queda justo bajo el precio y la barra fija lleva a él. Sin los
   // datos legales completos no se ofrece: la privacidad que se acepta no diría quién trata los datos
@@ -187,6 +189,12 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
               Vende: {seller.line} ·{" "}
               <Link href={creatorLegalHref(username, "condiciones")} className="underline underline-offset-4">Condiciones</Link> ·{" "}
               <Link href={creatorLegalHref(username, "reembolsos")} className="underline underline-offset-4">Reembolsos</Link>
+            </p>
+          )}
+
+          {paid && withdrawalInfo && (
+            <p className="cp-muted mt-3 text-xs leading-relaxed" data-testid="withdrawal-info">
+              {withdrawalInfo}
             </p>
           )}
 

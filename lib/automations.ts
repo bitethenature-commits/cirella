@@ -216,6 +216,11 @@ export async function handleAutomation(event: DomainEvent) {
                 order.productType === "SESSION" && !order.waiverAcceptedAt && order.paidAt && !isNoChargeOrder(order)
                   ? formatDate(withdrawalDeadline(order.paidAt, s.creator.timezone), { day: "numeric", month: "long" }, s.creator.timezone)
                   : null,
+              // Membresía (primer pago): desistimiento con reembolso proporcional (art. 108.3).
+              membershipWithdrawalUntil:
+                order.productType === "MEMBERSHIP" && order.paidAt && !isNoChargeOrder(order)
+                  ? formatDate(withdrawalDeadline(order.paidAt, s.creator.timezone), { day: "numeric", month: "long" }, s.creator.timezone)
+                  : null,
               changePolicy: order.productType === "SESSION" ? `${sessionChangePolicyText()} desde tu área de cliente.` : null,
               legalUrl: order.legalSnapshotId ? `${base}/${s.creator.username}/legal?v=${order.legalSnapshotId}` : undefined,
               conditions: snapshot ? { terms: snapshot.terms, refunds: snapshot.refunds } : undefined,

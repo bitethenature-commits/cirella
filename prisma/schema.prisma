@@ -767,7 +767,7 @@ model Order {
   legalSnapshotId  String?
   legalSnapshot    LegalSnapshot? @relation(fields: [legalSnapshotId], references: [id])
   termsAcceptedAt  DateTime?
-  waiverKind       String? // DIGITAL_IMMEDIATE | DIGITAL_PREPARED | SERVICE_IN_PERIOD
+  waiverKind       String? // DIGITAL_IMMEDIATE | DIGITAL_PREPARED | WORKSHOP_FIXED_DATE | MEMBERSHIP_START (antes también SERVICE_IN_PERIOD)
   waiverText       String? // texto literal de la casilla marcada
   waiverVersion    String? // versión de los textos y huella del texto aceptado: «2026-10-25#1a2b…» (lib/checkout-consents.ts)
   waiverAcceptedAt DateTime?

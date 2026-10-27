@@ -7,7 +7,7 @@
  */
 
 import { normalizeDeliveryMode } from "./delivery";
-import { workshopInWithdrawalPeriod } from "./withdrawal";
+import { isWorkshopProduct } from "./withdrawal";
 
 /** Versión de las plantillas de textos legales de las creadoras (lib/legal-templates.ts). */
 export const LEGAL_TEMPLATE_VERSION = "2026-10d";
@@ -178,48 +178,77 @@ export function sellerStatement(
   return { name: creatorName, line: creator.legalName?.trim() ? sellerLine(creator) : creatorName, platformSells: false };
 }
 
-export type WaiverKind = "DIGITAL_IMMEDIATE" | "DIGITAL_PREPARED" | "SERVICE_IN_PERIOD";
-
-/** Datos de un taller para saber si cae dentro del plazo de desistimiento (lib/withdrawal.ts). */
-export type WorkshopWaiverContext = { groupSession?: boolean | null; eventStartAt?: Date | string | null; now: Date; timezone?: string | null };
+export type WaiverKind = "DIGITAL_IMMEDIATE" | "DIGITAL_PREPARED" | "WORKSHOP_FIXED_DATE" | "MEMBERSHIP_START";
 
 /**
- * Renuncia que pide cada compra de pago en la web (TRLGDCU art. 103):
- *   · DIGITAL_IMMEDIATE: descargas, cursos y membresías. Acceso en cuanto se paga (art. 103.m).
+ * Casillas de antes que pueden estar en pedidos antiguos (Order.waiverKind) pero ya no se piden:
+ * «SERVICE_IN_PERIOD» (talleres a menos de 15 días, hasta 2026-10-27; las membresías llevaban
+ * DIGITAL_IMMEDIATE). Esos pedidos siguen con las reglas que se les informaron.
+ */
+export const LEGACY_WAIVER_KINDS = ["SERVICE_IN_PERIOD"] as const;
+
+/** Datos del producto que deciden la casilla de un taller (sesión en grupo con fecha fija). */
+export type WorkshopWaiverContext = { groupSession?: boolean | null };
+
+/**
+ * Casilla obligatoria que pide cada compra de pago en la web (TRLGDCU arts. 103 y 108):
+ *   · DIGITAL_IMMEDIATE: descargas y cursos. Acceso en cuanto se paga y renuncia (art. 103.m).
  *   · DIGITAL_PREPARED: lo que la dueña prepara a mano («Lo preparo yo»). Se empieza a preparar en
- *     cuanto se paga y se entrega dentro del plazo (art. 103.m).
- *   · SERVICE_IN_PERIOD: un taller con fecha fija que empieza antes del día 15 desde la compra:
- *     se presta dentro del plazo a petición expresa (art. 103.a).
- *   · null: las sesiones individuales (se reservan a partir del día 15, fuera del plazo) y los
- *     talleres a 15 días o más: desistimiento normal de 14 días.
+ *     cuanto se paga y se entrega dentro del plazo; renuncia (art. 103.m).
+ *   · WORKSHOP_FIXED_DATE: un taller (sesión en grupo con fecha fija), queden los días que queden.
+ *     Actividad de esparcimiento con fecha de ejecución específica: no hay derecho de desistimiento
+ *     (art. 103.l); la casilla deja constancia de que se le informó antes de pagar.
+ *   · MEMBERSHIP_START: una membresía. Pide empezar ya, dentro del plazo (art. 98.8); NO es una
+ *     renuncia: si desiste en los 14 días se le devuelve la parte de los días no disfrutados
+ *     (art. 108.3, lib/withdrawal.ts → membershipWithdrawalRefund). Las renovaciones no pasan por el
+ *     checkout ni dan un nuevo plazo.
+ *   · null: las sesiones individuales (se reservan a partir del día 15, fuera del plazo): 14 días
+ *     para desistir con el reembolso completo.
  * Lo gratuito y lo que da la dueña a mano no pasan por el checkout.
  */
 export function waiverKindFor(productType: string, deliveryMode?: string | null, workshop?: WorkshopWaiverContext | null): WaiverKind | null {
   if (productType === "DIGITAL" && normalizeDeliveryMode(productType, deliveryMode) === "PERSONAL") return "DIGITAL_PREPARED";
-  if (productType === "DIGITAL" || productType === "COURSE" || productType === "MEMBERSHIP") return "DIGITAL_IMMEDIATE";
-  if (productType === "SESSION" && workshop?.groupSession) {
-    const at = workshop.eventStartAt ? new Date(workshop.eventStartAt) : null;
-    return workshopInWithdrawalPeriod(at, workshop.now, workshop.timezone || undefined) ? "SERVICE_IN_PERIOD" : null;
-  }
+  if (productType === "DIGITAL" || productType === "COURSE") return "DIGITAL_IMMEDIATE";
+  if (productType === "MEMBERSHIP") return "MEMBERSHIP_START";
+  if (isWorkshopProduct({ type: productType, groupSession: workshop?.groupSession })) return "WORKSHOP_FIXED_DATE";
   return null;
 }
 
+/** ¿La casilla es una renuncia al desistimiento (lo digital), y no un reconocimiento o una petición? */
+export function isWaiverOfRight(kind: string | null | undefined): boolean {
+  return kind === "DIGITAL_IMMEDIATE" || kind === "DIGITAL_PREPARED";
+}
+
 /**
- * Textos literales de las casillas (consentimiento expreso + conocimiento de la pérdida del derecho).
- * Se guardan tal cual en el pedido con su versión (WAIVER_TEXT_VERSION) y se citan en el recibo.
- * Si cambias alguno, sube WAIVER_TEXT_VERSION.
+ * Textos literales de las casillas. Se guardan tal cual en el pedido con su versión
+ * (WAIVER_TEXT_VERSION) y se citan en el recibo. Si cambias alguno, sube WAIVER_TEXT_VERSION.
  */
 export const WAIVER_TEXT: Record<WaiverKind, string> = {
   DIGITAL_IMMEDIATE:
     "Quiero acceder ya al contenido: doy mi consentimiento expreso para recibirlo en cuanto pague, dentro del plazo de desistimiento de 14 días, y acepto que con ello pierdo mi derecho de desistimiento.",
   DIGITAL_PREPARED:
     "Quiero que se prepare ya: doy mi consentimiento expreso para que se empiece a preparar en cuanto pague y se me entregue dentro del plazo de desistimiento de 14 días, y acepto que con ello pierdo mi derecho de desistimiento.",
-  SERVICE_IN_PERIOD:
-    "Solicito expresamente que el taller se realice dentro del plazo de desistimiento de 14 días. Sé que, una vez realizado por completo, perderé mi derecho de desistimiento.",
+  WORKSHOP_FIXED_DATE:
+    "Entiendo que este taller se celebra en una fecha fija y que, por ser una actividad de esparcimiento con fecha de realización determinada, no tengo derecho de desistimiento (art. 103 l) de la Ley General para la Defensa de los Consumidores y Usuarios).",
+  MEMBERSHIP_START:
+    "Quiero empezar ya: solicito expresamente acceder a la membresía en cuanto pague, dentro del plazo de desistimiento de 14 días. Sé que si desisto en ese plazo solo se me devolverá la parte proporcional de los días que no haya disfrutado.",
 };
 
+/**
+ * Lo que se dice antes de pagar (ficha del producto y checkout), además de la casilla: la
+ * información precontractual sobre el desistimiento (art. 97.1.l y m) según la casilla que pide
+ * (waiverKindFor). null = nada más que decir aquí.
+ */
+export function withdrawalInfoLine(kind: WaiverKind | null): string | null {
+  if (kind === "WORKSHOP_FIXED_DATE")
+    return "Taller con fecha fija: no tiene derecho de desistimiento (art. 103 l) de la Ley General para la Defensa de los Consumidores y Usuarios).";
+  if (kind === "MEMBERSHIP_START")
+    return "Empiezas en cuanto pagas. Si desistes en los 14 días siguientes al primer pago, te devolvemos la parte proporcional de los días que no hayas disfrutado y la membresía termina en ese momento. Las renovaciones no dan un nuevo plazo; puedes cancelar cuando quieras y mantienes el acceso hasta el final del periodo pagado.";
+  return null;
+}
+
 /** Versión de los textos de las casillas de renuncia (se guarda en Order.waiverVersion junto a su huella). */
-export const WAIVER_TEXT_VERSION = "2026-10-25";
+export const WAIVER_TEXT_VERSION = "2026-10-27";
 
 /** Texto de la casilla de condiciones; en suscripciones, con la renovación automática (mes o año). */
 export function termsCheckboxText(o: { sellerName: string; billingInterval: string | null; price: string }): string {

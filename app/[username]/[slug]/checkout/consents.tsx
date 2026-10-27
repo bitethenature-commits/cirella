@@ -29,8 +29,8 @@ export function CheckoutConsents({
   creatorDisplayName,
 }: {
   /**
-   * Renuncia obligatoria (la calcula el servidor con lib/legal.ts → waiverKindFor): acceso inmediato,
-   * «Lo preparo yo» o taller a menos de 15 días. null: una sesión con los 14 días para desistir.
+   * Casilla obligatoria (la calcula el servidor con lib/legal.ts → waiverKindFor): acceso inmediato,
+   * «Lo preparo yo», taller (sin desistimiento) o membresía (empezar ya). null: una sesión con los 14 días para desistir.
    */
   waiverKind: WaiverKind | null;
   billingInterval: string | null;

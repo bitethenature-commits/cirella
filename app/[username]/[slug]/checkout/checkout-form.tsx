@@ -11,7 +11,7 @@ import { SlotPicker } from "@/components/booking/slot-picker";
 import { browserTimezone } from "@/components/booking/timezone-select";
 import type { IntakeConfig } from "@/lib/intake";
 import { checkoutDeliveryBadge } from "@/lib/delivery";
-import { sessionChangePolicyText } from "@/lib/legal";
+import { sessionChangePolicyText, withdrawalInfoLine } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
 import type { CheckoutMethod } from "@/lib/payments";
 import { decideTax, vatIncluded } from "@/lib/tax";
@@ -32,7 +32,7 @@ type Product = {
   durationMin: number | null;
   ctaLabel: string | null;
   deliveryMode: string;
-  /** Renuncia al desistimiento que pide esta compra (lib/legal.ts → waiverKindFor); null = ninguna. */
+  /** Casilla del desistimiento que pide esta compra (lib/legal.ts → waiverKindFor); null = ninguna. */
   waiverKind: WaiverKind | null;
   /** Taller en directo: fecha fija y plazas (null = sin límite). */
   workshop?: { startAt: string; ownerTz: string; seatsLeft: number | null } | null;
@@ -144,6 +144,8 @@ export function CheckoutForm({
   const [captchaRound, setCaptchaRound] = useState(0);
   const needsCaptcha = !!(state?.needsCaptcha && state.captchaSiteKey);
   const isSession = product.type === "SESSION";
+  // Información previa sobre el desistimiento de talleres y membresías (además de la casilla).
+  const withdrawalInfo = withdrawalInfoLine(product.waiverKind);
   const workshop = product.workshop ?? null;
   const full = !!workshop && workshop.seatsLeft !== null && workshop.seatsLeft <= 0;
   const price = formatPrice(product.priceCents, product.currency, product.billingInterval);
@@ -358,7 +360,15 @@ export function CheckoutForm({
           <span className="text-2xl font-semibold tracking-tight">{price}</span>
         </div>
         <VatBreakdown amountCents={product.priceCents} currency={product.currency} productType={product.type} deliveryMode={product.deliveryMode} taxInfo={taxInfo} country={country} platformName={platformName ?? ""} />
-        {isSession && (
+        {withdrawalInfo && (
+          <p className="cp-faint -mt-2 px-1 text-xs" data-testid="withdrawal-info">
+            {withdrawalInfo} ·{" "}
+            <a href={`${seller.legalHref}#reembolsos`} target="_blank" rel="noopener" className="underline underline-offset-2">
+              Cambios y reembolsos
+            </a>
+          </p>
+        )}
+        {isSession && !workshop && (
           <p className="cp-faint -mt-2 px-1 text-xs">
             {sessionChangePolicyText()}
             {product.waiverKind ? "" : ". Tienes 14 días desde la compra para desistir desde tu área: te devolvemos todo"} ·{" "}

@@ -54,26 +54,29 @@ export function refundIssuedEmail(o: { creatorName: string; productTitle: string
 }
 
 /** Acuse de recibo del desistimiento (TRLGDCU art. 106.4: hay que confirmarlo sin demora). */
-export function withdrawalReceiptEmail(o: { creatorName: string; productTitle: string; amount: string; url: string }) {
+export function withdrawalReceiptEmail(o: { creatorName: string; productTitle: string; amount: string; url: string; membership?: boolean }) {
   return {
     subject: `Hemos recibido tu desistimiento de «${o.productTitle}»`,
     html: layout({
       brand: o.creatorName,
       title: "Desistimiento recibido",
       body:
-        p(`Has ejercido tu derecho de desistimiento de «${esc(o.productTitle)}». Te devolvemos <strong>${esc(o.amount)}</strong> por el mismo medio de pago; lo verás en 5-10 días hábiles.`) +
+        p(
+          `Has ejercido tu derecho de desistimiento de «${esc(o.productTitle)}». Te devolvemos <strong>${esc(o.amount)}</strong>${o.membership ? ", la parte proporcional de los días que no has disfrutado," : ""} por el mismo medio de pago; lo verás en 5-10 días hábiles.`,
+        ) +
+        (o.membership ? p("Tu membresía ha terminado hoy: ya no se renovará ni se te cobrará nada más.") : "") +
         p(muted("Guarda este email: es el acuse de recibo de tu desistimiento.")),
       cta: { label: "Ver mis compras", url: o.url },
     }),
   };
 }
 
-export function withdrawalCreatorEmail(o: { buyer: string; productTitle: string; amount: string; url: string }) {
+export function withdrawalCreatorEmail(o: { buyer: string; productTitle: string; amount: string; url: string; membership?: boolean }) {
   return {
     subject: `${o.buyer} ha desistido de «${o.productTitle}»`,
     html: layout({
       title: "Desistimiento de una compra",
-      body: p(`${esc(o.buyer)} ha ejercido su derecho de desistimiento de «${esc(o.productTitle)}» dentro del plazo de 14 días. Le hemos devuelto <strong>${esc(o.amount)}</strong> y retirado el acceso.`),
+      body: p(`${esc(o.buyer)} ha ejercido su derecho de desistimiento de «${esc(o.productTitle)}» dentro del plazo de 14 días. Le hemos devuelto <strong>${esc(o.amount)}</strong>${o.membership ? " (la parte proporcional de los días que no ha disfrutado) y su membresía ha terminado" : " y retirado el acceso"}.`),
       cta: { label: "Ver el pedido", url: o.url },
     }),
   };

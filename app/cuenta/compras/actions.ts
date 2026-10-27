@@ -11,8 +11,15 @@ import { withdrawOrder } from "@/lib/refunds";
  */
 export async function withdrawPurchase(form: FormData) {
   const user = await requireBuyerFull("/cuenta/compras");
-  const r = await withdrawOrder({ orderId: String(form.get("orderId") ?? ""), userId: user.id, email: user.email });
+  const expected = Number(form.get("expectedCents"));
+  const r = await withdrawOrder({
+    orderId: String(form.get("orderId") ?? ""),
+    userId: user.id,
+    email: user.email,
+    // El importe que vio en el aviso de confirmación: si ha cambiado (otro día), no se tramita.
+    expectedCents: Number.isInteger(expected) && expected > 0 ? expected : null,
+  });
   revalidatePath("/cuenta", "layout");
   // Solo códigos conocidos en la URL: el texto se elige en la página, nunca se refleja.
-  redirect(`/cuenta/compras?${r.ok ? "ok=desistido" : `error=${r.code === "NOT_FOUND" ? "no-encontrado" : r.code === "PROVIDER" ? "pasarela" : "no-desistible"}`}`);
+  redirect(`/cuenta/compras?${r.ok ? "ok=desistido" : `error=${r.code === "NOT_FOUND" ? "no-encontrado" : r.code === "PROVIDER" ? "pasarela" : r.code === "AMOUNT" ? "importe-cambiado" : "no-desistible"}`}`);
 }
