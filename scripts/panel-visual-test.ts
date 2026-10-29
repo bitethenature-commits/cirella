@@ -40,6 +40,8 @@ async function main() {
     const draftKinds = readDesign(draft?.design)?.blocks.map((b) => b.t) ?? [];
     check("el borrador de la demo también usa los bloques nuevos", ["hero", "spotlight", "video", "button"].every((k) => draftKinds.includes(k as never)), draftKinds);
     const mail = await prisma.emailMessage.findFirst({ where: { creatorId: ana.id, campaignId: sent?.id, template: "NEWSLETTER" } });
+    check("demo: un texto con palabras resaltadas y otro con fondo", JSON.stringify(sent?.design).includes("==bajar el ritmo==") && JSON.stringify(draft?.design).includes('"band":"#F1EEFB"'));
+    check("el email enviado lleva el resaltado", !!(await prisma.emailMessage.findFirst({ where: { creatorId: ana.id, campaignId: sent?.id } }))?.html.includes("background-color:#FCEFB4"));
     check(
       "su email enviado (buzón de la demo) es el del editor visual: foto de fondo, ▶ y la baja",
       !!mail?.html.includes('background="') && !!mail?.html.includes("v:rect") && !!mail?.html.includes("▶") && !!mail?.html.includes("/baja/newsletter"),

@@ -329,7 +329,7 @@ async function seedAnaNewsletter(anaId: string, o: { circleId: string; astroId: 
     blocks: [
       { id: "portada", t: "hero", image: header.url, alt: "Luna llena sobre el mar", overlay: "#14163A", opacity: 45, title: "Luna llena en Tauro", subtitle: "Lo que trae esta luna y un ejercicio de 10 minutos", color: "#F3ECDD", align: "center", height: "l" },
       { id: "hola", t: "title", text: "Hola, {nombre}", align: "left", size: "l" },
-      { id: "texto", t: "text", body: "Esta luna llena cae en **Tauro** y nos pide bajar el ritmo: cuerpo, casa, lo que de verdad nos sostiene." },
+      { id: "texto", t: "text", body: "Esta luna llena cae en **Tauro** y nos pide ==bajar el ritmo==: cuerpo, casa, lo que de verdad nos sostiene.", highlight: "#FCEFB4" },
       { id: "preguntas", t: "spotlight", icon: "🌕", title: "Tres preguntas para escribir esta semana", body: "- ¿Qué necesito para sentirme a salvo?\n- ¿Qué estoy sosteniendo por costumbre?\n- ¿Qué quiero soltar antes de la luna nueva?", bg: "#F1EEFB", accent: "#4B3FA0", border: "left" },
       { id: "video", ...video },
       { id: "estrellas", t: "divider", style: "stars", color: "#C8A86E" },
@@ -374,7 +374,7 @@ async function seedAnaNewsletter(anaId: string, o: { circleId: string; astroId: 
         blocks: [
           { id: "portada", t: "hero", image: "", alt: "", overlay: "#2B2160", opacity: 0, title: "Novedades de noviembre", subtitle: "Eclipse, lecturas nuevas y un regalo", color: "#F3ECDD", align: "center", height: "s" },
           { id: "hola", t: "title", text: "Hola, {nombre}", align: "left" },
-          { id: "texto", t: "text", body: "Noviembre viene con eclipse y con plazas nuevas para las lecturas.\n\n(Borrador: terminar el jueves)" },
+          { id: "texto", t: "text", body: "Noviembre viene con eclipse y con plazas nuevas para las lecturas.\n\n(Borrador: terminar el jueves)", band: "#F1EEFB", bandPad: "m", bandRound: true },
           { id: "eclipse", t: "spotlight", icon: "📅", title: "Eclipse del 7 de noviembre", body: "Te cuento cómo vivirlo según tu signo en el directo del jueves.", bg: "#FBF3E4", accent: "#C8A86E", border: "box" },
           { id: "video", ...video, title: "Así preparo tus lecturas" },
           { id: "boton", t: "button", label: "Ver las lecturas", href: "/ana", align: "center", style: "filled", full: true, bg: "#2B2160" },

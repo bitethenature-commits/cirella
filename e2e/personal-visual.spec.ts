@@ -4,8 +4,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 /**
  * Editor visual de la newsletter y «Personalizar mi panel» en la web personal (puerto 3101, iPhone 13):
- *   · la dueña monta una newsletter con portada (foto de fondo), destacado, vídeo (con su portada ▶)
- *     y un botón bonito, la ve en «Vista previa» y se manda una prueba con ese mismo HTML;
+ *   · la dueña monta una newsletter con portada (foto de fondo), un texto con palabras resaltadas y
+ *     fondo, destacado, vídeo (con su portada ▶) y un botón bonito con fondo detrás, la ve en «Vista previa» y se manda una prueba con ese mismo HTML;
  *   · en Ajustes elige los colores «Tierra», sube «Newsletter» al segundo puesto y oculta «Códigos»:
  *     al recargar sigue así (barra de abajo, «Más» y colores) y «Restaurar» lo deja como venía.
  * Deja los datos de demostración como estaban.
@@ -60,6 +60,17 @@ test.describe.serial("Editor visual y panel a su gusto", () => {
     await page.getByLabel("Subtítulo").fill("Lo que trae y cómo aprovecharla");
     await page.getByLabel("Qué se ve en la foto (texto alternativo)").fill("El cielo de noche");
 
+    // El texto de siempre: unas palabras resaltadas con «Resaltar» y fondo de color detrás del bloque.
+    const text = page.locator('[data-block="text"]').first();
+    const area = page.getByLabel("Texto", { exact: true });
+    await area.fill("Plazas abiertas para noviembre");
+    await area.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(0, 15));
+    await text.getByRole("button", { name: "Resaltar" }).click();
+    await expect(area).toHaveValue("==Plazas abiertas== para noviembre");
+    await text.getByText("Colores y letra").click();
+    await text.getByLabel("Fondo del bloque (código)").fill("#F1EEFB");
+    await text.getByLabel("Esquinas redondeadas").check();
+
     // Destacado.
     await addBlock(page, /^Destacado/);
     await page.getByLabel("Título del destacado").fill("Ritual de esta semana");
@@ -81,6 +92,7 @@ test.describe.serial("Editor visual y panel a su gusto", () => {
     await button.getByText("Forma y colores").click();
     await button.getByRole("button", { name: "Solo borde" }).click();
     await button.getByLabel("Todo el ancho").check();
+    await button.getByLabel("Fondo detrás del botón (código)").fill("#F4EFE4");
 
     // Ordenar con ↑: la portada, arriba del todo.
     const up = page.locator('[data-block="hero"]').getByRole("button", { name: "Subir" });
@@ -108,6 +120,9 @@ test.describe.serial("Editor visual y panel a su gusto", () => {
     expect(mail.html).toContain('href="https://youtu.be/dQw4w9WgXcQ"');
     expect(mail.html).toContain("border:2px solid");
     expect(mail.html).toContain("Cormorant+Garamond");
+    expect(mail.html).toContain('background-color:#FCEFB4;padding:0 2px;border-radius:3px">Plazas abiertas</span>');
+    expect(mail.html).toContain('bgcolor="#F1EEFB"');
+    expect(mail.html).toContain('bgcolor="#F4EFE4"');
   });
 
   test("Personalizar mi panel: colores «Tierra», Newsletter segunda y Códigos oculta; se mantiene al recargar", async ({ page }) => {
