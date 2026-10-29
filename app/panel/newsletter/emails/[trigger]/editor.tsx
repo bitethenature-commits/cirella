@@ -6,7 +6,7 @@ import { useEffect, useState, useTransition } from "react";
 import { BlockEditor } from "@/components/email-editor/block-editor";
 import { EmailPreview } from "@/components/email-editor/email-preview";
 import type { AutomationTrigger } from "@/lib/automation-catalog";
-import type { EmailDesign, EmailVars } from "@/lib/email-blocks";
+import type { EmailDesign, EmailVars, SocialNetwork } from "@/lib/email-blocks";
 import { previewAutomaticEmail, restoreOriginalEmail, saveAutomaticEmail, sendAutomaticTest } from "../actions";
 
 /**
@@ -22,6 +22,9 @@ export function AutomaticEmailEditor(p: {
   vars: (keyof EmailVars)[];
   mode: "body" | "intro";
   fixed: string;
+  palette: string[];
+  socials: Partial<Record<SocialNetwork, string>>;
+  siteUrl: string;
 }) {
   const router = useRouter();
   const [subject, setSubject] = useState(p.subject);
@@ -62,7 +65,8 @@ export function AutomaticEmailEditor(p: {
             <input id="auto-subject" className="input text-base" maxLength={150} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={p.defaultSubject} />
             <p className="mt-1.5 text-xs text-muted">Vacío: el de siempre («{p.defaultSubject}»).</p>
           </div>
-          <BlockEditor value={design} onChange={setDesign} vars={p.vars} />
+          {/* El estilo general (fondo, tarjeta, tipos de letra) solo cambia la bienvenida a la newsletter, que sale con su plantilla; los demás van dentro del email de siempre. */}
+          <BlockEditor value={design} onChange={setDesign} vars={p.vars} palette={p.palette} socials={p.socials} siteUrl={p.siteUrl} withStyle={p.trigger === "NEWSLETTER_WELCOME"} videoUploads />
           <p className="rounded-2xl border border-dashed border-line bg-paper px-4 py-3 text-xs text-muted">
             {p.mode === "intro" ? "Tu texto va al principio, en lugar del saludo. " : ""}
             {p.fixed}

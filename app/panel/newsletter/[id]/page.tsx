@@ -4,6 +4,8 @@ import { ArrowLeft } from "lucide-react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { readDesign } from "@/lib/email-blocks";
+import { brandPalette, brandSocials } from "@/lib/email-starters";
+import { appUrl } from "@/lib/env";
 import { sendingQuota } from "@/lib/email/outbox";
 import { formatNumber } from "@/lib/money";
 import { subscriberTags } from "@/lib/newsletter";
@@ -74,6 +76,9 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
           products={products}
           tags={tags}
           testTo={(creator.contactEmail || user.email).toLowerCase()}
+          palette={brandPalette(creator.pageDraft, creator.displayName)}
+          socials={brandSocials(creator.pageDraft, creator.displayName)}
+          siteUrl={`${appUrl()}/`}
         />
       </div>
     );

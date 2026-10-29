@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { AUTOMATIONS, EDITABLE_EMAILS, type AutomationTrigger } from "@/lib/automation-catalog";
 import { readDesign } from "@/lib/email-blocks";
+import { brandPalette, brandSocials } from "@/lib/email-starters";
+import { appUrl } from "@/lib/env";
 import { tenantDb } from "@/lib/tenant";
 import { PageHeader } from "../../../ui";
 import { requireNewsletterOwner } from "../../guard";
@@ -37,6 +39,9 @@ export default async function AutomaticEmailPage({ params }: { params: Promise<{
         vars={meta.vars}
         mode={meta.mode}
         fixed={meta.fixed}
+        palette={brandPalette(creator.pageDraft, creator.displayName)}
+        socials={brandSocials(creator.pageDraft, creator.displayName)}
+        siteUrl={`${appUrl()}/`}
       />
     </div>
   );

@@ -45,9 +45,11 @@ export function buildCsp(o: SecurityHeaderOptions): string {
   const directives = [
     "default-src 'self'",
     join("script-src 'self' 'unsafe-inline'", o.isDev && "'unsafe-eval'", o.stripe && STRIPE_JS, o.turnstile && TURNSTILE),
-    "style-src 'self' 'unsafe-inline'",
+    // Google Fonts: solo para la vista previa de la newsletter con tipos de letra «web» (Playfair,
+    // Cormorant, Lora, Montserrat), que así se ve como en el Mail del iPhone. La web no los usa.
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob:",
-    "font-src 'self' data:",
+    "font-src 'self' data: https://fonts.gstatic.com",
     // https: para los enlaces temporales del almacenamiento (vídeo y audio de los cursos).
     "media-src 'self' blob: https:",
     join("connect-src 'self'", o.storageOrigin, o.stripe && "https://api.stripe.com", o.turnstile && TURNSTILE, o.sentryOrigin, o.isDev && "ws:"),

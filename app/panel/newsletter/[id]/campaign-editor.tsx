@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { BlockEditor } from "@/components/email-editor/block-editor";
 import { EmailPreview } from "@/components/email-editor/email-preview";
-import type { EmailDesign } from "@/lib/email-blocks";
+import type { EmailDesign, SocialNetwork } from "@/lib/email-blocks";
 import { peopleCount, type Segment } from "@/lib/newsletter-rules";
 import { previewCampaign, saveCampaign, scheduleCampaign, segmentPreview, sendNow, sendSummary, sendTestCampaign, unscheduleCampaign } from "../actions";
 
@@ -24,6 +24,9 @@ type Props = {
   products: { id: string; title: string }[];
   tags: string[];
   testTo: string;
+  palette: string[];
+  socials: Partial<Record<SocialNetwork, string>>;
+  siteUrl: string;
 };
 
 type Notice = { kind: "ok" | "error"; text: string } | null;
@@ -151,7 +154,7 @@ export function CampaignEditor(p: Props) {
           </p>
         </div>
       </div>
-      <BlockEditor value={design} onChange={setDesign} vars={["nombre", "mi_nombre"]} />
+      <BlockEditor value={design} onChange={setDesign} vars={["nombre", "mi_nombre"]} palette={p.palette} socials={p.socials} siteUrl={p.siteUrl} withStyle videoUploads />
     </div>
   );
 
