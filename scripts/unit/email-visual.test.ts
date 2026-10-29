@@ -203,3 +203,41 @@ test("emails automáticos: la portada va con las esquinas de la tarjeta (sin san
   const out = renderDesignHtml(design([{ id: "h", t: "hero", image: IMG, alt: "", overlay: "#000000", opacity: 20, title: "Hola", subtitle: "", color: "#FFFFFF", align: "center", height: "s" }]), { baseUrl: BASE });
   ok(out.includes("width:416px") && out.includes("border-radius:20px"), out);
 });
+
+// ── Fondo de los bloques y resaltado ──
+
+test("«Fondo» de un bloque: franja con bgcolor y background-color, margen S/M/L y esquinas; solo hex", () => {
+  const out = html([{ id: "x", t: "text", body: "Hola", band: "#f4efe4", bandPad: "l", bandRound: true }]);
+  ok(out.includes('bgcolor="#F4EFE4"') && out.includes("background-color:#F4EFE4") && out.includes("padding:32px 36px") && out.includes("border-radius:16px"), out);
+  for (const t of [
+    { id: "b", t: "button", label: "Ir", href: "/x", align: "center", band: "#14163a" },
+    { id: "i", t: "image", url: IMG, alt: "x", width: "full", band: "#14163a" },
+    { id: "v", t: "video", url: "https://youtu.be/dQw4w9WgXcQ", src: "", cover: IMG, title: "Mira", band: "#14163a" },
+    { id: "c", t: "columns", image: IMG, alt: "x", side: "left", title: "T", body: "B", band: "#14163a" },
+    { id: "r", t: "social", links: { instagram: "@ana" }, align: "center", band: "#14163a" },
+  ])
+    ok(html([t]).includes('bgcolor="#14163A"'), t.t);
+  const bad = design([{ id: "x", t: "text", body: "Hola", band: "red;background:url(x)", bandPad: "xxl" }]).blocks[0] as { band?: string; bandPad?: string };
+  eq([bad.band, bad.bandPad], [undefined, undefined]);
+  ok(!html([{ id: "x", t: "text", body: "Hola", band: "url(x)" }]).includes("bgcolor"), "sin color válido no hay franja");
+  eq(html([{ id: "b", t: "button", label: "", href: "", align: "center", band: "#000000" }]), "", "un botón vacío no deja franja");
+});
+
+test("botón de solo borde sobre un fondo: el contraste se mira contra la franja", () => {
+  const w = lintDesign(design([{ id: "b", t: "button", label: "Reservar", href: "/x", align: "center", style: "outline", bg: "#14163A", band: "#14163A" }, { id: "x", t: "text", body: "Texto suficiente para que no sea solo imágenes en este email." }]), "S");
+  ok(w.some((x) => /contraste en el botón/.test(x)), w.join(" | "));
+});
+
+test("resaltar: ==palabras== con el color del bloque; marcas sueltas se quedan; texto plano sin marcas", () => {
+  const out = html([{ id: "x", t: "text", body: "Hola ==plazas **abiertas**== y 2==3", highlight: "#f9d9e3" }]);
+  ok(out.includes('<span style="background-color:#F9D9E3;padding:0 2px;border-radius:3px">plazas <strong style="font-weight:600">abiertas</strong></span>'), out);
+  ok(out.includes("2==3"), "la marca impar es texto");
+  ok(html([{ id: "x", t: "text", body: "Un ==resaltado==" }]).includes("background-color:#FCEFB4"), "amarillo por defecto");
+  ok(!html([{ id: "x", t: "text", body: "<b>==x==</b>" }]).includes("<b>"), "escapado");
+  ok(html([{ id: "s", t: "spotlight", icon: "", title: "", body: "a ==b==", bg: "#ffffff", accent: "#000000", border: "none" }]).includes("==b=="), "solo en el bloque Texto");
+  const d = design([{ id: "x", t: "text", body: "Hola ==plazas== abiertas" }]);
+  const m = campaignEmail({ brand: "Ana", subject: "S", design: d, baseUrl: BASE, vars: {}, footer: { senderName: "Ana", legalUrl: "l", unsubscribeUrl: null } });
+  ok(htmlToText(m.html).includes("Hola plazas abiertas"), htmlToText(m.html));
+  const w = lintDesign(design([{ id: "x", t: "text", body: "Hola ==plazas== abiertas, un texto largo para que no sea solo imágenes.", color: "#FFFFFF", band: "#000000", highlight: "#FFFFEE" }]), "S");
+  ok(w.some((x) => /texto resaltado/.test(x)) && !w.some((x) => /contraste en el texto \(/.test(x)), w.join(" | "));
+});

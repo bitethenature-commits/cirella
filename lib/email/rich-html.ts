@@ -65,6 +65,11 @@ export function richToEmailHtml(
     image?: (src: string) => string | null;
     /** Colores y tipo de letra del estilo del email (el editor visual); sin él, los de siempre. Solo hex y pilas de fuentes fijas. */
     theme?: { heading?: string; headingFont?: string; link?: string; rule?: string };
+    /**
+     * Color (hex) del «resaltar»: ==así== pone ese fondo detrás de esas palabras (solo el bloque
+     * «Texto» del editor visual). Sin él, «==» es texto normal.
+     */
+    highlight?: string;
   } = {},
 ): string {
   if (!isRich(format)) return p(esc(text));
@@ -75,27 +80,54 @@ export function richToEmailHtml(
   const base = (o.baseUrl ?? appUrl()).replace(/\/$/, "");
   const siteHost = hostOf(base) ?? "";
 
-  const inline = (nodes: RichInline[]): string =>
-    nodes
-      .map((n) => {
-        switch (n.t) {
-          case "text":
-            return esc(n.v);
-          case "br":
-            return "<br>";
-          case "b":
-            return `<strong style="font-weight:600">${inline(n.c)}</strong>`;
-          case "i":
-            return `<em>${inline(n.c)}</em>`;
-          case "a": {
-            const safe = safeLinkHref(n.href);
-            if (!safe) return esc(plain(n.c));
-            const href = safe.href.startsWith("/") ? `${base}${safe.href}` : safe.href;
-            return `<a href="${esc(href)}" style="${LINK_STYLE}">${emailLinkText(plain(n.c), safe.href.startsWith("/") ? safe.href : href, siteHost)}</a>`;
-          }
+  const one = (n: RichInline): string => {
+    switch (n.t) {
+      case "text":
+        return esc(n.v);
+      case "br":
+        return "<br>";
+      case "b":
+        return `<strong style="font-weight:600">${inline(n.c)}</strong>`;
+      case "i":
+        return `<em>${inline(n.c)}</em>`;
+      case "a": {
+        const safe = safeLinkHref(n.href);
+        if (!safe) return esc(plain(n.c));
+        const href = safe.href.startsWith("/") ? `${base}${safe.href}` : safe.href;
+        return `<a href="${esc(href)}" style="${LINK_STYLE}">${emailLinkText(plain(n.c), safe.href.startsWith("/") ? safe.href : href, siteHost)}</a>`;
+      }
+    }
+  };
+
+  // Resaltado: las marcas «==» de un mismo nivel (párrafo, negrita…) se emparejan de dos en dos; una
+  // suelta al final se queda como texto. El color es un hex ya comprobado.
+  const MARK_OPEN = o.highlight ? `<span style="background-color:${o.highlight};padding:0 2px;border-radius:3px">` : "";
+  function inline(nodes: RichInline[]): string {
+    if (!o.highlight) return nodes.map(one).join("");
+    const total = nodes.reduce((acc, n) => acc + (n.t === "text" ? n.v.split("==").length - 1 : 0), 0);
+    const usable = total - (total % 2);
+    let used = 0;
+    let open = false;
+    let out = "";
+    for (const n of nodes) {
+      if (n.t !== "text") {
+        out += one(n);
+        continue;
+      }
+      const parts = n.v.split("==");
+      parts.forEach((part, i) => {
+        if (i > 0) {
+          if (used < usable) {
+            out += open ? "</span>" : MARK_OPEN;
+            open = !open;
+            used++;
+          } else out += "==";
         }
-      })
-      .join("");
+        out += esc(part);
+      });
+    }
+    return open ? `${out}</span>` : out;
+  }
 
   const block = (b: RichBlock): string => {
     switch (b.t) {

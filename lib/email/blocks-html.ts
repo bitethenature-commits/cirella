@@ -18,7 +18,7 @@
  *     un enlace a YouTube/Vimeo o a la página «ver vídeo» de la web.
  *   · Dos columnas: bloques en línea de 50 % que se apilan solos en el móvil (y tabla para Outlook).
  */
-import { DEFAULT_EMAIL_STYLE, EMAIL_FONTS, RADIUS_PX, SOCIAL_NETWORKS, applyVars, buttonColors, emailImagePath, hexOr, videoWatchPath, type EmailBlock, type EmailDesign, type EmailFontKey, type EmailStyle, type EmailVars, type SocialNetwork } from "../email-blocks";
+import { DEFAULT_EMAIL_STYLE, DEFAULT_HIGHLIGHT, EMAIL_FONTS, RADIUS_PX, SOCIAL_NETWORKS, applyVars, buttonColors, emailImagePath, hexOr, videoWatchPath, type EmailBlock, type EmailDesign, type EmailFontKey, type EmailStyle, type EmailVars, type SocialNetwork } from "../email-blocks";
 import { contrastRatio, mixHex, rgba, textOn } from "../colors";
 import { socialHref } from "../page-config";
 import { safeLinkHref } from "../rich-text";
@@ -56,8 +56,29 @@ function absHref(raw: string | undefined, base: string): string | null {
   return safe.href.startsWith("/") ? `${base}${safe.href}` : safe.href;
 }
 
-const rich = (body: string, c: Ctx) =>
-  richToEmailHtml(body, "MD", { baseUrl: c.base, theme: { heading: c.s.heading, headingFont: fontStack(c.s.headingFont, "georgia"), link: c.s.link, rule: mixHex(c.s.content, c.s.text, 0.15) } });
+const rich = (body: string, c: Ctx, highlight?: string) =>
+  richToEmailHtml(body, "MD", {
+    baseUrl: c.base,
+    theme: { heading: c.s.heading, headingFont: fontStack(c.s.headingFont, "georgia"), link: c.s.link, rule: mixHex(c.s.content, c.s.text, 0.15) },
+    highlight,
+  });
+
+const BAND_PAD = { s: 12, m: 20, l: 32 } as const;
+
+/**
+ * «Fondo» de un bloque: una franja de color de todo el ancho (celda con bgcolor y background-color en
+ * línea, que entienden todos los buzones) con su margen interior y, si se pide, esquinas redondeadas
+ * (Outlook las deja rectas). Sin «Fondo», el bloque tal cual.
+ */
+function block(b: EmailBlock, c: Ctx): string {
+  const bandColor = "band" in b && b.band ? hexOr(b.band, "") : "";
+  if (!bandColor || !("band" in b)) return blockInner(b, c);
+  const pad = BAND_PAD[b.bandPad ?? "m"];
+  const html = blockInner(b, { ...c, inner: Math.max(120, c.inner - pad * 2) });
+  if (!html) return "";
+  const radius = b.bandRound ? `border-radius:${Math.max(8, Math.min(RADIUS_PX[c.s.radius], 16))}px;` : "";
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 16px"><tr><td bgcolor="${bandColor}" style="background-color:${bandColor};${radius}padding:${pad}px ${pad + 4}px">${html}</td></tr></table>`;
+}
 
 /** Botón «a prueba de balas»: tabla con bgcolor y el enlace dentro. */
 function button(o: { label: string; href: string; align: "left" | "center" | "right"; style?: "pill" | "filled" | "outline"; bg?: string; color?: string; full?: boolean; margin?: string }, c: Ctx): string {
@@ -205,7 +226,7 @@ function social(b: Extract<EmailBlock, { t: "social" }>, c: Ctx): string {
     .join(" ")}</p>`;
 }
 
-function block(b: EmailBlock, c: Ctx): string {
+function blockInner(b: EmailBlock, c: Ctx): string {
   const s = c.s;
   switch (b.t) {
     case "title": {
@@ -219,7 +240,7 @@ function block(b: EmailBlock, c: Ctx): string {
     }
     case "text": {
       if (!b.body.trim()) return "";
-      const html = rich(b.body, c);
+      const html = rich(b.body, c, b.body.includes("==") ? hexOr(b.highlight, DEFAULT_HIGHLIGHT) : undefined);
       if (!b.color && !b.font && !b.align && !b.size) return html;
       const style = [
         b.color ? `color:${hexOr(b.color, s.text)}` : "",

@@ -102,11 +102,28 @@ export const SOCIAL_NETWORK_LABEL: Record<SocialNetwork, string> = {
   email: "Email",
 };
 
+/**
+ * «Fondo» de un bloque: una franja de color de todo el ancho del contenido detrás del bloque, con su
+ * margen interior (S/M/L) y, si se quiere, esquinas redondeadas. Texto, Botón, Imagen, Vídeo, Dos
+ * columnas y Redes. (El Título y el Destacado tienen su propio fondo: `bg`.)
+ */
+export type Band = { band?: string; bandPad?: "s" | "m" | "l"; bandRound?: boolean };
+
 export type EmailBlock =
   | { id: string; t: "title"; text: string; align: Align; size?: TitleSize; color?: string; bg?: string; font?: EmailFontKey }
-  | { id: string; t: "text"; body: string; align?: Align; color?: string; font?: EmailFontKey; size?: "s" | "m" | "l" }
-  | { id: string; t: "image"; url: string; alt: string; href?: string; width: "full" | "narrow"; radius?: "none" | "s" | "l" }
-  | { id: string; t: "button"; label: string; href: string; align: Align; style?: "pill" | "filled" | "outline"; bg?: string; color?: string; full?: boolean }
+  | ({
+      id: string;
+      t: "text";
+      body: string;
+      align?: Align;
+      color?: string;
+      font?: EmailFontKey;
+      size?: "s" | "m" | "l";
+      /** Color del «resaltar» (==así==) de este texto. */
+      highlight?: string;
+    } & Band)
+  | ({ id: string; t: "image"; url: string; alt: string; href?: string; width: "full" | "narrow"; radius?: "none" | "s" | "l" } & Band)
+  | ({ id: string; t: "button"; label: string; href: string; align: Align; style?: "pill" | "filled" | "outline"; bg?: string; color?: string; full?: boolean } & Band)
   | { id: string; t: "divider"; color?: string; style?: "line" | "dashed" | "stars" }
   | { id: string; t: "spacer"; size: "s" | "m" | "l" }
   | {
@@ -131,7 +148,7 @@ export type EmailBlock =
       buttonColor?: string;
     }
   | { id: string; t: "spotlight"; icon: string; title: string; body: string; bg: string; accent: string; border: "left" | "box" | "none"; color?: string }
-  | {
+  | ({
       id: string;
       t: "video";
       /** Enlace de YouTube o Vimeo (o vacío si el vídeo está subido aquí). */
@@ -142,8 +159,8 @@ export type EmailBlock =
       cover: string;
       title: string;
       caption?: string;
-    }
-  | {
+    } & Band)
+  | ({
       id: string;
       t: "columns";
       image: string;
@@ -154,8 +171,14 @@ export type EmailBlock =
       body: string;
       buttonLabel?: string;
       buttonHref?: string;
-    }
-  | { id: string; t: "social"; links: Partial<Record<SocialNetwork, string>>; align: Align; color?: string };
+    } & Band)
+  | ({ id: string; t: "social"; links: Partial<Record<SocialNetwork, string>>; align: Align; color?: string } & Band);
+
+/** Bloques que admiten «Fondo» (Band). */
+export const BAND_BLOCKS = ["text", "button", "image", "video", "columns", "social"] as const;
+
+/** Color del resaltado si no elige ninguno: amarillo suave. */
+export const DEFAULT_HIGHLIGHT = "#FCEFB4";
 
 export type EmailBlockType = EmailBlock["t"];
 export type EmailDesign = { v: 1; blocks: EmailBlock[]; style?: EmailStyle };
@@ -189,6 +212,12 @@ const align3 = z.enum(["left", "center", "right"]);
 const imagePath = (msg = "Sube la imagen desde aquí") => z.string().trim().max(300).refine((v) => !v || !!emailImagePath(v), msg);
 const shortText = (max: number, msg?: string) => z.string().trim().max(max, msg ?? `Máximo ${max} caracteres`);
 
+const band = {
+  band: optColor,
+  bandPad: z.enum(["s", "m", "l"]).optional().catch(undefined),
+  bandRound: z.boolean().optional().catch(undefined),
+};
+
 const blockSchema = z.discriminatedUnion("t", [
   z.object({
     id,
@@ -208,6 +237,8 @@ const blockSchema = z.discriminatedUnion("t", [
     color: optColor,
     font,
     size: z.enum(["s", "m", "l"]).optional().catch(undefined),
+    highlight: optColor,
+    ...band,
   }),
   z.object({
     id,
@@ -217,6 +248,7 @@ const blockSchema = z.discriminatedUnion("t", [
     href: href.optional(),
     width: z.enum(["full", "narrow"]).catch("full"),
     radius: z.enum(["none", "s", "l"]).optional().catch(undefined),
+    ...band,
   }),
   z.object({
     id,
@@ -228,6 +260,7 @@ const blockSchema = z.discriminatedUnion("t", [
     bg: optColor,
     color: optColor,
     full: z.boolean().optional().catch(undefined),
+    ...band,
   }),
   z.object({ id, t: z.literal("divider"), color: optColor, style: z.enum(["line", "dashed", "stars"]).optional().catch(undefined) }),
   z.object({ id, t: z.literal("spacer"), size: z.enum(["s", "m", "l"]).catch("m") }),
@@ -277,6 +310,7 @@ const blockSchema = z.discriminatedUnion("t", [
     cover: imagePath("Sube la portada del vídeo desde aquí"),
     title: shortText(120, "El título del vídeo admite 120 caracteres"),
     caption: shortText(200).optional(),
+    ...band,
   }),
   z.object({
     id,
@@ -289,6 +323,7 @@ const blockSchema = z.discriminatedUnion("t", [
     body: z.string().max(2000, "El texto admite 2000 caracteres"),
     buttonLabel: shortText(40, "El botón admite 40 caracteres").optional(),
     buttonHref: href.optional(),
+    ...band,
   }),
   z.object({
     id,
@@ -296,6 +331,7 @@ const blockSchema = z.discriminatedUnion("t", [
     links: z.record(z.enum(SOCIAL_NETWORKS as [SocialNetwork, ...SocialNetwork[]]), shortText(300)).catch({}),
     align: align3.catch("center"),
     color: optColor,
+    ...band,
   }),
 ]);
 
@@ -451,31 +487,42 @@ function blockText(b: EmailBlock): string {
 
 /** Texto plano del diseño (para «solo imágenes», el extracto y las pruebas). */
 export function designText(d: EmailDesign): string {
-  return d.blocks.map(blockText).filter(Boolean).join("\n");
+  return d.blocks.map(blockText).filter(Boolean).join("\n").replace(/==/g, "");
 }
 
 /** Colores de texto y fondo de cada bloque (para avisar de poco contraste). */
 export function blockContrastPairs(b: EmailBlock, s: EmailStyle): { what: string; fg: string; bg: string; large?: boolean }[] {
+  // Con «Fondo», lo que va encima se lee contra la franja, no contra la tarjeta.
+  const under = "band" in b && b.band ? hexOr(b.band, s.content) : s.content;
   switch (b.t) {
     case "title":
       return [{ what: "el título", fg: hexOr(b.color, s.heading), bg: hexOr(b.bg, s.content), large: (b.size ?? "m") !== "s" }];
-    case "text":
-      return [{ what: "el texto", fg: hexOr(b.color, s.text), bg: s.content }];
+    case "text": {
+      const fg = hexOr(b.color, s.text);
+      const out = [{ what: "el texto", fg, bg: under }];
+      if (b.body.includes("==")) out.push({ what: "el texto resaltado", fg, bg: hexOr(b.highlight, DEFAULT_HIGHLIGHT) });
+      return out;
+    }
     case "button": {
       const c = buttonColors(b, s);
-      return [{ what: "el botón", fg: c.fg, bg: c.outline ? s.content : c.bg }];
+      return [{ what: "el botón", fg: c.fg, bg: c.outline ? under : c.bg }];
     }
     case "hero":
       // Con foto, la capa no es opaca: se mira contra la capa (lo que se ve si no carga la foto).
       return [{ what: "el texto de la portada", fg: b.color, bg: b.overlay, large: true }];
     case "spotlight":
       return [{ what: "el texto del destacado", fg: hexOr(b.color, s.text), bg: b.bg }];
+    case "columns":
+      return b.band ? [{ what: "el texto de las columnas", fg: s.text, bg: under }] : [];
+    case "video":
+      return b.band ? [{ what: "el enlace del vídeo", fg: s.accent, bg: under }] : [];
     case "social":
-      return [{ what: "los enlaces a tus redes", fg: hexOr(b.color, s.accent), bg: s.content }];
+      return [{ what: "los enlaces a tus redes", fg: hexOr(b.color, s.accent), bg: under }];
     default:
       return [];
   }
 }
+
 /** Colores de un botón: el suyo o el acento del estilo; el texto, el que mejor se lee si no lo elige. */
 export function buttonColors(b: { style?: "pill" | "filled" | "outline"; bg?: string; color?: string }, s: EmailStyle) {
   const bg = hexOr(b.bg, s.accent);

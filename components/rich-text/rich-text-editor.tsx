@@ -1,5 +1,5 @@
 "use client";
-import { Bold, ChevronDown, Heading2, Heading3, ImagePlus, Italic, Link2, List, ListOrdered, Loader2, Minus, Quote } from "lucide-react";
+import { Bold, ChevronDown, Highlighter, Heading2, Heading3, ImagePlus, Italic, Link2, List, ListOrdered, Loader2, Minus, Quote } from "lucide-react";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { uploadImage } from "@/components/ui/image-upload";
 import { RICH_IMAGE_ACCEPT } from "@/lib/file-types";
@@ -31,11 +31,12 @@ import { RichContent, type RichTone } from "./rich-content";
  * Los botones no quitan el foco (preventDefault en pointerdown) y los cambios se aplican con
  * execCommand("insertText") para que el «Deshacer» nativo funcione.
  */
-type Tool = "bold" | "italic" | "h2" | "h3" | "ul" | "ol" | "link" | "image" | "quote" | "hr";
+type Tool = "bold" | "italic" | "mark" | "h2" | "h3" | "ul" | "ol" | "link" | "image" | "quote" | "hr";
 
 const TOOL_INFO: Record<Tool, { label: string; icon: typeof Bold }> = {
   bold: { label: "Negrita", icon: Bold },
   italic: { label: "Cursiva", icon: Italic },
+  mark: { label: "Resaltar", icon: Highlighter },
   h2: { label: "Encabezado", icon: Heading2 },
   h3: { label: "Subencabezado", icon: Heading3 },
   ul: { label: "Lista", icon: List },
@@ -62,6 +63,7 @@ export function RichTextEditor({
   required,
   tools = "full",
   headings = false,
+  highlight = false,
   images = false,
   preview = true,
   tone = "account",
@@ -84,6 +86,8 @@ export function RichTextEditor({
   required?: boolean;
   tools?: "full" | "basic";
   headings?: boolean;
+  /** Botón «Resaltar» (==así==): solo el bloque «Texto» de los emails, que lo pinta con su color. */
+  highlight?: boolean;
   images?: boolean;
   preview?: boolean;
   tone?: RichTone;
@@ -187,6 +191,7 @@ export function RichTextEditor({
     const { v, s, e } = sel();
     if (tool === "bold") return apply(toggleInline(v, s, e, "**", "negrita"));
     if (tool === "italic") return apply(toggleInline(v, s, e, "_", "cursiva"));
+    if (tool === "mark") return apply(toggleInline(v, s, e, "==", "resaltado"));
     if (tool === "hr") return apply(insertDivider(v, s));
     if (tool === "link") {
       savedSel.current = { s, e };
@@ -215,7 +220,7 @@ export function RichTextEditor({
   const list: Tool[] =
     tools === "full"
       ? ["bold", "italic", "h2", "h3", "ul", "ol", "link", ...(images ? (["image"] as Tool[]) : []), "quote", "hr"]
-      : ["bold", "italic", ...(headings ? (["h2", "h3"] as Tool[]) : []), "ul", "link"];
+      : ["bold", "italic", ...(highlight ? (["mark"] as Tool[]) : []), ...(headings ? (["h2", "h3"] as Tool[]) : []), "ul", "link"];
 
   const format = touched ? RICH_TEXT_FORMAT : (initialFormat ?? "");
   const legacyText = !wasRich && !!defaultValue.trim();
@@ -368,7 +373,7 @@ export function RichTextEditor({
           )}
           {uploadError && <p className="text-rose" role="alert">{uploadError}</p>}
           {legacyText && <p className="text-[#7a5a1c]">Este texto es de antes del formato: revisa cómo queda antes de guardar.</p>}
-          <FormatHelp headings={tools === "full" || headings} />
+          <FormatHelp headings={tools === "full" || headings} highlight={highlight} />
         </div>
         {maxLength ? (
           <span className="tabular-nums" aria-live="off">
@@ -419,12 +424,12 @@ export function RichTextEditor({
   );
 }
 
-function FormatHelp({ headings }: { headings: boolean }): ReactNode {
+function FormatHelp({ headings, highlight }: { headings: boolean; highlight?: boolean }): ReactNode {
   return (
     <details className="group">
       <summary className="cursor-pointer select-none font-medium text-ink/70 hover:text-ink">Cómo dar formato</summary>
       <p className="mt-1 leading-relaxed">
-        **negrita** (o *negrita*, como en WhatsApp) · _cursiva_ ·{headings ? " ## Encabezado · ### Subencabezado ·" : ""} - lista · 1. lista · &gt; cita · --- línea ·
+        **negrita** (o *negrita*, como en WhatsApp) · _cursiva_ ·{highlight ? " ==resaltado== ·" : ""}{headings ? " ## Encabezado · ### Subencabezado ·" : ""} - lista · 1. lista · &gt; cita · --- línea ·
         [texto](https://…). Un hashtag sin espacio (#astrología) se queda como texto. Deja una línea en blanco entre párrafos.
       </p>
     </details>

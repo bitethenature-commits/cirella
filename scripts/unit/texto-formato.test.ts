@@ -465,3 +465,8 @@ test("page-config: format «MD» se lee; sin formato también; uno desconocido e
   eq(text(cfg.blocks?.[0]).format, undefined);
   eq(text(cfg.blocks?.[0]).body, "Hola");
 });
+
+test("«Resaltar» del editor: ==selección== y quitarlo", () => {
+  eq(applySplice("hola mundo", toggleInline("hola mundo", 5, 10, "==", "resaltado")), "hola ==mundo==");
+  eq(applySplice("hola ==mundo==", toggleInline("hola ==mundo==", 7, 12, "==", "resaltado")), "hola mundo");
+});

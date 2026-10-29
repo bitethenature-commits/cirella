@@ -28,6 +28,7 @@ import { videoCoverFromImage, videoCoverFromLink } from "@/app/panel/newsletter/
 import {
   BLOCK_LABEL,
   DEFAULT_EMAIL_STYLE,
+  DEFAULT_HIGHLIGHT,
   EMAIL_BLOCKS_MAX,
   EMAIL_TEXT_MAX,
   newBlock,
@@ -36,6 +37,7 @@ import {
   SOCIAL_NETWORKS,
   VARIABLE_HELP,
   type Align,
+  type Band,
   type EmailBlock,
   type EmailBlockType,
   type EmailDesign,
@@ -298,7 +300,7 @@ function BlockFields(p: { block: EmailBlock; style: EmailStyle; palette: string[
     case "text":
       return (
         <div className="space-y-2">
-          <RichTextEditor ariaLabel="Texto" value={b.body} initialFormat="MD" onChange={(body) => onChange({ body })} maxLength={EMAIL_TEXT_MAX} tools="basic" headings preview={false} rows={4} placeholder="Escribe aquí…" />
+          <RichTextEditor ariaLabel="Texto" value={b.body} initialFormat="MD" onChange={(body) => onChange({ body })} maxLength={EMAIL_TEXT_MAX} tools="basic" headings highlight preview={false} rows={4} placeholder="Escribe aquí…" />
           <More>
             <AlignPicker value={b.align ?? "left"} onChange={(align) => onChange({ align })} />
             <Segmented
@@ -311,8 +313,11 @@ function BlockFields(p: { block: EmailBlock; style: EmailStyle; palette: string[
               ]}
               onChange={(size) => onChange({ size: size === "m" ? undefined : size })}
             />
-            <ColorField label="Color de la letra" value={b.color} fallback={style.text} palette={palette} against={style.content} clearable onChange={(color) => onChange({ color })} />
+            <ColorField label="Color de la letra" value={b.color} fallback={style.text} palette={palette} against={b.band ?? style.content} clearable onChange={(color) => onChange({ color })} />
             <FontSelect label="Tipo de letra" value={b.font} allowDefault="La del texto" onChange={(font) => onChange({ font })} />
+            <ColorField label="Color del resaltado" value={b.highlight} fallback={DEFAULT_HIGHLIGHT} palette={[DEFAULT_HIGHLIGHT, "#F9D9E3", "#DDF2E3", "#E4DEFA", ...palette]} against={b.color ?? style.text} clearable onChange={(highlight) => onChange({ highlight })} />
+            <p className="text-xs text-muted">Para resaltar unas palabras, selecciónalas y pulsa «Resaltar» (o escríbelas entre ==así==).</p>
+            <BandFields block={b} style={style} palette={palette} onChange={onChange} />
           </More>
         </div>
       );
@@ -414,7 +419,7 @@ function ImagePicker({ value, onChange, label, testId, narrow, onUploaded }: { v
   );
 }
 
-function ImageFields({ block: b, onChange }: FieldProps<"image">) {
+function ImageFields({ block: b, style, palette, onChange }: FieldProps<"image">) {
   const fid = `blk-${b.id}`;
   return (
     <div className="space-y-2">
@@ -440,6 +445,9 @@ function ImageFields({ block: b, onChange }: FieldProps<"image">) {
           <option value="none">Esquinas rectas</option>
         </select>
       </div>
+      <More label="Fondo">
+        <BandFields block={b} style={style} palette={palette} onChange={onChange} />
+      </More>
     </div>
   );
 }
@@ -474,12 +482,13 @@ function ButtonFields({ block: b, style, palette, onChange }: FieldProps<"button
           <input type="checkbox" className="h-5 w-5" checked={!!b.full} onChange={(e) => onChange({ full: e.target.checked || undefined })} /> Todo el ancho
         </label>
         <ColorField label="Color del botón" value={b.bg} fallback={style.accent} palette={palette} clearable onChange={(bg) => onChange({ bg })} />
+        <BandFields block={b} style={style} palette={palette} onChange={onChange} label="Fondo detrás del botón" />
         <ColorField
           label="Color de la letra del botón"
           value={b.color}
           fallback={b.style === "outline" ? (b.bg ?? style.accent) : "#FFFFFF"}
           palette={palette}
-          against={b.style === "outline" ? style.content : (b.bg ?? style.accent)}
+          against={b.style === "outline" ? (b.band ?? style.content) : (b.bg ?? style.accent)}
           clearable
           onChange={(color) => onChange({ color })}
         />
@@ -593,7 +602,7 @@ function SpotlightFields({ block: b, style, palette, onChange }: FieldProps<"spo
   );
 }
 
-function VideoFields({ block: b, onChange, uploads }: FieldProps<"video"> & { uploads: boolean }) {
+function VideoFields({ block: b, style, palette, onChange, uploads }: FieldProps<"video"> & { uploads: boolean }) {
   const fid = `blk-${b.id}`;
   const [mode, setMode] = useState<"link" | "upload">(b.src ? "upload" : "link");
   const [busy, setBusy] = useState<string | null>(null);
@@ -723,11 +732,14 @@ function VideoFields({ block: b, onChange, uploads }: FieldProps<"video"> & { up
         <label className="field-label" htmlFor={`${fid}-caption`}>Nota debajo (opcional)</label>
         <input id={`${fid}-caption`} className="input text-base sm:text-sm" maxLength={200} value={b.caption ?? ""} placeholder="Dura 2 minutos" onChange={(e) => onChange({ caption: e.target.value || undefined })} />
       </div>
+      <More label="Fondo">
+        <BandFields block={b} style={style} palette={palette} onChange={onChange} />
+      </More>
     </div>
   );
 }
 
-function ColumnsFields({ block: b, onChange }: FieldProps<"columns">) {
+function ColumnsFields({ block: b, style, palette, onChange }: FieldProps<"columns">) {
   const fid = `blk-${b.id}`;
   return (
     <div className="space-y-3">
@@ -767,6 +779,9 @@ function ColumnsFields({ block: b, onChange }: FieldProps<"columns">) {
         </div>
       </div>
       <p className="text-xs text-muted">En el móvil, la imagen y el texto se ponen uno encima del otro.</p>
+      <More label="Fondo">
+        <BandFields block={b} style={style} palette={palette} onChange={onChange} />
+      </More>
     </div>
   );
 }
@@ -794,7 +809,39 @@ function SocialFields({ block: b, style, palette, onChange }: FieldProps<"social
         ))}
       </div>
       <AlignPicker value={b.align} onChange={(align) => onChange({ align })} />
-      <ColorField label="Color de los enlaces" value={b.color} fallback={style.accent} palette={palette} against={style.content} clearable onChange={(color) => onChange({ color })} />
+      <ColorField label="Color de los enlaces" value={b.color} fallback={style.accent} palette={palette} against={b.band ?? style.content} clearable onChange={(color) => onChange({ color })} />
+      <More label="Fondo">
+        <BandFields block={b} style={style} palette={palette} onChange={onChange} />
+      </More>
+    </div>
+  );
+}
+
+/**
+ * «Fondo» de un bloque (franja de color de todo el ancho, con margen interior y esquinas). Mientras no
+ * se elige color, el margen y las esquinas no salen.
+ */
+function BandFields({ block: b, style, palette, onChange, label = "Fondo del bloque" }: { block: Extract<EmailBlock, Band>; style: EmailStyle; palette: string[]; onChange: (patch: Partial<EmailBlock>) => void; label?: string }) {
+  return (
+    <div className="space-y-2" data-testid="band-fields">
+      <ColorField label={label} value={b.band} fallback={style.content} palette={palette} clearable onChange={(band) => onChange(band ? { band } : { band: undefined, bandPad: undefined, bandRound: undefined })} />
+      {b.band && (
+        <>
+          <Segmented
+            label="Margen del fondo"
+            value={b.bandPad ?? "m"}
+            options={[
+              { v: "s", label: "S" },
+              { v: "m", label: "M" },
+              { v: "l", label: "L" },
+            ]}
+            onChange={(bandPad) => onChange({ bandPad: bandPad === "m" ? undefined : bandPad })}
+          />
+          <label className="flex min-h-11 items-center gap-2 text-sm">
+            <input type="checkbox" className="h-5 w-5" checked={!!b.bandRound} onChange={(e) => onChange({ bandRound: e.target.checked || undefined })} /> Esquinas redondeadas
+          </label>
+        </>
+      )}
     </div>
   );
 }

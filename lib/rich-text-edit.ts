@@ -13,7 +13,7 @@ export function applySplice(v: string, sp: Splice): string {
 }
 
 /** Pone o quita «**» (negrita) o «_» (cursiva) alrededor de la selección. */
-export function toggleInline(v: string, s: number, e: number, mark: "**" | "_", placeholder: string): Splice {
+export function toggleInline(v: string, s: number, e: number, mark: "**" | "_" | "==", placeholder: string): Splice {
   const m = mark.length;
   const sel = v.slice(s, e);
   if (!sel) {
