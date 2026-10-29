@@ -475,7 +475,7 @@ function ButtonFields({ block: b, style, palette, onChange }: FieldProps<"button
         </label>
         <ColorField label="Color del botón" value={b.bg} fallback={style.accent} palette={palette} clearable onChange={(bg) => onChange({ bg })} />
         <ColorField
-          label="Color del texto del botón"
+          label="Color de la letra del botón"
           value={b.color}
           fallback={b.style === "outline" ? (b.bg ?? style.accent) : "#FFFFFF"}
           palette={palette}
@@ -544,7 +544,7 @@ function HeroFields({ block: b, style, palette, onChange }: FieldProps<"hero">) 
         {b.buttonLabel && (
           <>
             <ColorField label="Color del botón de la portada" value={b.buttonBg} fallback={b.color} palette={palette} clearable onChange={(buttonBg) => onChange({ buttonBg })} />
-            <ColorField label="Texto del botón de la portada" value={b.buttonColor} fallback={b.overlay} palette={palette} against={b.buttonBg ?? b.color} clearable onChange={(buttonColor) => onChange({ buttonColor })} />
+            <ColorField label="Letra del botón de la portada" value={b.buttonColor} fallback={b.overlay} palette={palette} against={b.buttonBg ?? b.color} clearable onChange={(buttonColor) => onChange({ buttonColor })} />
           </>
         )}
         <p className="text-xs text-muted">Si un buzón no enseña la foto (Outlook a veces), sale el color de la capa: elige uno con el que se lea el texto.</p>

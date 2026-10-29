@@ -21,7 +21,7 @@ export function EmailPreview({ html, subject, warnings = [], loading = false }: 
           ))}
         </ul>
       )}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         {subject !== undefined && (
           <p className="min-w-0 truncate text-sm">
             <span className="text-muted">Asunto: </span>
