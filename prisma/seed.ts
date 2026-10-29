@@ -30,7 +30,7 @@ import sharp from "sharp";
 import { makeM4a, makePdf, makeVideo, makeWav } from "./demo-files";
 import { DEMO_MARKER_KEY, assertSafeToSeed } from "./seed-guard";
 import { appUrl, storageDir } from "../lib/env";
-import { storeEmailImage, storeImage, storeProcessedImage } from "../lib/images";
+import { storeEmailImage, storeImage, storeProcessedImage, storeVideoCover } from "../lib/images";
 import { campaignEmail } from "../lib/email/newsletter-templates";
 import { unsubscribeHeaders, unsubscribeUrl } from "../lib/newsletter-tokens";
 import { newsletterConsentText } from "../lib/newsletter-rules";
@@ -315,13 +315,26 @@ async function seedAnaNewsletter(anaId: string, o: { circleId: string; astroId: 
     senderName: "Ana Luna", legalName: ana.legalName, legalAddress: formatLegalAddress(ana) || null, legalEmail: ana.legalEmail,
     legalUrl: `${base}/${ana.username}/legal`, unsubscribeUrl: id ? unsubscribeUrl(id, campaignId) : null,
   });
+  // Editor visual: portada con foto de fondo, destacado, vídeo con su portada (▶ dibujado) y botón
+  // bonito, con el estilo «Luna llena». El vídeo es el de bienvenida de su página si se subió (con
+  // ffmpeg); si no, un enlace de YouTube.
+  const cover = await storeVideoCover(anaId, readFileSync(path.join("public", "/demo/curso.webp")));
+  const pageVideo = ((ana.pageDraft as unknown as PageConfig).blocks ?? []).find((b) => b.kind === "video" && b.upload);
+  const videoSrc = pageVideo && pageVideo.kind === "video" && pageVideo.upload ? pageVideo.upload.src : "";
+  const video = { t: "video", url: videoSrc ? "" : "https://youtu.be/dQw4w9WgXcQ", src: videoSrc, cover: cover.url, title: "Mira la meditación de luna llena", caption: "Dura 8 minutos" };
+  const lunaStyle = { bg: "#14163A", content: "#FFFFFF", text: "#3B3950", heading: "#14163A", link: "#4B3FA0", accent: "#4B3FA0", headingFont: "cormorant", bodyFont: "georgia", radius: "l", width: 600 };
   const sentDesign = {
     v: 1,
+    style: lunaStyle,
     blocks: [
-      { id: "cabecera", t: "image", url: header.url, alt: "Luna llena sobre el mar", width: "full" },
-      { id: "hola", t: "title", text: "Hola, {nombre}", align: "left" },
-      { id: "texto", t: "text", body: "Esta luna llena cae en **Tauro** y nos pide bajar el ritmo: cuerpo, casa, lo que de verdad nos sostiene.\n\nTe dejo tres preguntas para escribir esta semana:\n\n- ¿Qué necesito para sentirme a salvo?\n- ¿Qué estoy sosteniendo por costumbre?\n- ¿Qué quiero soltar antes de la luna nueva?\n\nUn abrazo,\n{mi_nombre}" },
-      { id: "boton", t: "button", label: "Reservar mi lectura", href: "/ana/lectura-de-human-design", align: "center" },
+      { id: "portada", t: "hero", image: header.url, alt: "Luna llena sobre el mar", overlay: "#14163A", opacity: 45, title: "Luna llena en Tauro", subtitle: "Lo que trae esta luna y un ejercicio de 10 minutos", color: "#F3ECDD", align: "center", height: "l" },
+      { id: "hola", t: "title", text: "Hola, {nombre}", align: "left", size: "l" },
+      { id: "texto", t: "text", body: "Esta luna llena cae en **Tauro** y nos pide bajar el ritmo: cuerpo, casa, lo que de verdad nos sostiene." },
+      { id: "preguntas", t: "spotlight", icon: "🌕", title: "Tres preguntas para escribir esta semana", body: "- ¿Qué necesito para sentirme a salvo?\n- ¿Qué estoy sosteniendo por costumbre?\n- ¿Qué quiero soltar antes de la luna nueva?", bg: "#F1EEFB", accent: "#4B3FA0", border: "left" },
+      { id: "video", ...video },
+      { id: "estrellas", t: "divider", style: "stars", color: "#C8A86E" },
+      { id: "boton", t: "button", label: "Reservar mi lectura", href: "/ana/lectura-de-human-design", align: "center", style: "pill", bg: "#14163A", color: "#F3ECDD" },
+      { id: "firma", t: "text", body: "Un abrazo,\n{mi_nombre}", align: "center" },
     ],
   };
   const sentAt = daysAgo(12, 10, 0);
@@ -355,7 +368,18 @@ async function seedAnaNewsletter(anaId: string, o: { circleId: string; astroId: 
   await prisma.campaign.create({
     data: {
       creatorId: anaId, subject: "Novedades de noviembre", preheader: "", segment: { kind: "all" }, createdAt: daysAgo(2), updatedAt: daysAgo(1),
-      design: { v: 1, blocks: [{ id: "hola", t: "title", text: "Hola, {nombre}", align: "left" }, { id: "texto", t: "text", body: "Noviembre viene con eclipse y con plazas nuevas para las lecturas.\n\n(Borrador: terminar el jueves)" }] },
+      design: {
+        v: 1,
+        style: { ...lunaStyle, bg: "#F4F1EA", heading: "#2B2160", headingFont: "playfair", bodyFont: "helvetica", radius: "m" },
+        blocks: [
+          { id: "portada", t: "hero", image: "", alt: "", overlay: "#2B2160", opacity: 0, title: "Novedades de noviembre", subtitle: "Eclipse, lecturas nuevas y un regalo", color: "#F3ECDD", align: "center", height: "s" },
+          { id: "hola", t: "title", text: "Hola, {nombre}", align: "left" },
+          { id: "texto", t: "text", body: "Noviembre viene con eclipse y con plazas nuevas para las lecturas.\n\n(Borrador: terminar el jueves)" },
+          { id: "eclipse", t: "spotlight", icon: "📅", title: "Eclipse del 7 de noviembre", body: "Te cuento cómo vivirlo según tu signo en el directo del jueves.", bg: "#FBF3E4", accent: "#C8A86E", border: "box" },
+          { id: "video", ...video, title: "Así preparo tus lecturas" },
+          { id: "boton", t: "button", label: "Ver las lecturas", href: "/ana", align: "center", style: "filled", full: true, bg: "#2B2160" },
+        ],
+      },
     },
   });
   await prisma.campaign.create({
