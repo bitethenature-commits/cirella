@@ -9,6 +9,7 @@ import { deliveryIssueCopy, deliveryIssueHref, listDeliveryIssues } from "@/lib/
 import { legalIdentityComplete } from "@/lib/legal";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import { readPageConfig } from "@/lib/page-config";
+import { orderHome, readPanelPrefs } from "@/lib/panel-prefs";
 import { planFeatures } from "@/lib/plans";
 import { getSettings } from "@/lib/settings";
 import { isPersonalMode } from "@/lib/site-mode";
@@ -57,6 +58,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
         checklist={steps}
         deliveryIssues={deliveryIssues}
         freeBlocked={freeBlocked}
+        order={orderHome(readPanelPrefs(creator.panelPrefs).home)}
       />
     );
   }
@@ -293,6 +295,7 @@ function PersonalHome({
   checklist,
   deliveryIssues,
   freeBlocked,
+  order,
 }: {
   first: string;
   range: keyof typeof RANGES;
@@ -305,16 +308,14 @@ function PersonalHome({
   checklist: ChecklistItem[];
   deliveryIssues: DeliveryIssues;
   freeBlocked: boolean;
+  /** Orden de las tarjetas («Personalizar mi panel», lib/panel-prefs.ts HOME_CARDS). */
+  order: string[];
 }) {
   const pending = checklist.filter((c) => !c.done);
   const top = s.topSignups[0];
-  return (
-    <div className="space-y-8">
-      <PageHeader title={`Hola, ${first}`} subtitle={<>Así va tu página {rangeLabel}.</>} actions={<RangeTabs current={range} base="/panel" />} />
-
-      {freeBlocked && <FreeSignupsBlockedAlert />}
-      <DeliveryAlerts issues={deliveryIssues} />
-
+  const cards: Record<string, React.ReactNode> = {};
+  cards.resumen = (
+    <>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="relative overflow-hidden rounded-3xl bg-ink p-6 text-cream">
           <div className="starfield absolute inset-0 opacity-40" />
@@ -344,7 +345,10 @@ function PersonalHome({
           )}
         </div>
       </div>
-
+    </>
+  );
+  cards.cifras = (
+    <>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {sales ? (
           <>
@@ -362,7 +366,10 @@ function PersonalHome({
           </>
         )}
       </div>
-
+    </>
+  );
+  cards.graficos = (
+    <>
       <div className={`grid gap-4 ${showBookings ? "lg:grid-cols-[1.4fr_1fr]" : ""}`}>
         <section className="card p-5 sm:p-6">
           <div className="mb-5 flex items-baseline justify-between">
@@ -405,7 +412,10 @@ function PersonalHome({
           </section>
         )}
       </div>
-
+    </>
+  );
+  cards.pasos = (
+    <>
       {pending.length > 0 && (
         <section className="card p-5 sm:p-6">
           <div className="flex items-center gap-2">
@@ -425,7 +435,11 @@ function PersonalHome({
           </ul>
         </section>
       )}
-
+    </>
+  );
+  if (!pending.length) delete cards.pasos;
+  cards.atajos = (
+    <>
       <div className="grid gap-3 sm:grid-cols-3">
         <Link href="/panel/productos/nuevo" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
           <Plus className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Nuevo producto</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
@@ -437,6 +451,23 @@ function PersonalHome({
           <Palette className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Editar mi página</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
         </Link>
       </div>
+    </>
+  );
+
+  return (
+    <div className="space-y-8">
+      <PageHeader title={`Hola, ${first}`} subtitle={<>Así va tu página {rangeLabel}.</>} actions={<RangeTabs current={range} base="/panel" />} />
+
+      {freeBlocked && <FreeSignupsBlockedAlert />}
+      <DeliveryAlerts issues={deliveryIssues} />
+
+      {order
+        .filter((k) => cards[k])
+        .map((k) => (
+          <div key={k} data-home-card={k}>
+            {cards[k]}
+          </div>
+        ))}
     </div>
   );
 }

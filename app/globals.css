@@ -252,3 +252,26 @@
 /* Mockup de teléfono en la landing */
 .phone-frame { --phone-scale: calc(280 / 390); }
 @media (min-width: 1024px) { .phone-frame { --phone-scale: calc(300 / 390); } }
+
+/* ───────────── Panel: «Personalizar mi panel» (lib/panel-prefs.ts) ─────────────
+   Sin preferencias, las variables --panel-* no existen y todo sale con los colores de siempre. */
+@layer components {
+  .panel-side { background: var(--panel-side-bg, color-mix(in oklab, var(--color-cream) 40%, transparent)); color: var(--panel-side-text, var(--color-ink)); }
+  .panel-nav-link { color: color-mix(in oklab, var(--panel-side-text, var(--color-ink)) 75%, transparent); }
+  .panel-nav-link:hover { background: var(--panel-side-hover, var(--color-sand)); color: var(--panel-side-text, var(--color-ink)); }
+  .panel-nav-link[aria-current="page"] { background: var(--panel-accent, var(--color-ink)); color: var(--panel-accent-text, var(--color-cream)); }
+  .panel-root .btn-primary { background: var(--panel-accent, var(--color-ink)); color: var(--panel-accent-text, var(--color-cream)); }
+  .panel-root .btn-primary:hover { background: var(--panel-accent-hover, var(--color-ink-2)); }
+}
+
+/* Fondo oscuro: tarjetas, campos y botones blancos pasan a la «superficie» oscura. Fuera de las capas
+   a propósito: así ganan a las utilidades de Tailwind (bg-white), que van en @layer utilities. */
+[data-panel-tone="dark"] .card,
+[data-panel-tone="dark"] .input,
+[data-panel-tone="dark"] .btn-outline,
+[data-panel-tone="dark"] .btn-danger,
+[data-panel-tone="dark"] .bg-white { background-color: var(--panel-surface); }
+[data-panel-tone="dark"] [class*="bg-white/"] { background-color: color-mix(in oklab, var(--panel-surface) 92%, transparent); }
+[data-panel-tone="dark"] .btn-outline:hover { background-color: var(--color-sand); }
+[data-panel-tone="dark"] .btn-ghost:hover { background-color: rgb(255 255 255 / .06); }
+[data-panel-tone="dark"] { color-scheme: dark; }

@@ -253,6 +253,9 @@ model Creator {
   seoTitle       String?
   seoDescription String?
   contactEmail   String?
+  // «Personalizar mi panel» (Ajustes): colores del panel, orden y visibilidad del menú y de las
+  // tarjetas de Inicio. Solo del panel de la dueña, nunca de su web. Ver lib/panel-prefs.ts.
+  panelPrefs     Json?
   timezone       String    @default("Europe/Madrid")
   currency       String    @default("EUR")
   onboardedAt    DateTime?

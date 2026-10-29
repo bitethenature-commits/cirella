@@ -18,6 +18,8 @@ import {
   Zap,
 } from "lucide-react";
 
+import { bottomBarItems, orderNav, type PanelNavPrefs } from "@/lib/panel-prefs";
+
 // Datos de navegación del panel. Viven fuera del módulo "use client" para que también
 // los pueda usar un Server Component (p. ej. /panel/mas).
 export const PANEL_NAV = [
@@ -100,4 +102,25 @@ export function panelNav(flags: PanelNavFlags): PanelNavItem[] {
 /** Barra inferior del móvil (4 accesos + «Más»). */
 export function mobileNav(flags: PanelNavFlags): PanelNavItem[] {
   return flags.personal ? withSalesLabel(PERSONAL_MOBILE_NAV, flags.sales) : MOBILE_NAV;
+}
+
+/** Nombre corto en la barra de abajo (5 huecos en 375 px). */
+const SHORT_LABEL: Record<string, string> = { "/panel/pagina": "Página", "/panel/automatizaciones": "Automatiz.", "/panel/estadisticas": "Estadísticas" };
+const MORE: PanelNavItem = { href: "/panel/mas", label: "Más", icon: Menu };
+
+/**
+ * Menú con «Personalizar mi panel» (Ajustes): su orden, sin las secciones ocultas. Sin preferencias,
+ * el de siempre.
+ */
+export function panelNavFor(flags: PanelNavFlags, nav: PanelNavPrefs | null): PanelNavItem[] {
+  return orderNav(panelNav(flags), nav).visible;
+}
+
+/**
+ * Barra de abajo con sus preferencias: las 4 primeras secciones visibles de su orden y «Más» (el
+ * resto). Sin preferencias, la de siempre.
+ */
+export function mobileNavFor(flags: PanelNavFlags, nav: PanelNavPrefs | null): PanelNavItem[] {
+  if (!nav) return mobileNav(flags);
+  return [...bottomBarItems(panelNavFor(flags, nav)).map((i) => (SHORT_LABEL[i.href] ? { ...i, label: SHORT_LABEL[i.href] } : i)), MORE];
 }

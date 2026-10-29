@@ -14,7 +14,11 @@ import { getSettings } from "@/lib/settings";
 import { isPersonalMode } from "@/lib/site-mode";
 import { asTaxMode } from "@/lib/tax";
 import { ShareButtons } from "@/app/onboarding/lista/share-buttons";
+import { readPanelPrefs } from "@/lib/panel-prefs";
+import { mobileNav, panelNav } from "../nav-items";
+import { panelNavFlags } from "../nav-flags";
 import { Badge, PageHeader } from "../ui";
+import { PanelLook } from "./panel-look";
 import { changePassword, updateAccount } from "./actions";
 import { VatCard } from "./vat-card";
 
@@ -31,6 +35,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     getSettings(),
   ]);
   const payout = payoutView(creator, { supportEmail: settings.supportEmail });
+  const flags = await panelNavFlags(creator.id);
   const pageUrl = personal ? appUrl() : `${appUrl()}/${creator.username}`;
   const refUrl = `${appUrl()}/?ref=${creator.referralCode}`;
   const rewardText =
@@ -75,6 +80,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </ul>
         </section>
       )}
+
+      <PanelLook
+        initial={readPanelPrefs(creator.panelPrefs)}
+        nav={panelNav(flags).map((i) => ({ href: i.href, label: i.label }))}
+        home={personal}
+        currentBottom={mobileNav(flags).slice(0, 4).map((i) => i.label)}
+      />
 
       <section className="card p-5 sm:p-6">
         <h2 className="flex items-center gap-2 font-semibold"><Scale className="h-4 w-4" /> Datos legales y condiciones</h2>

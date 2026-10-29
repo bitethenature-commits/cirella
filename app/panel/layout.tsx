@@ -10,6 +10,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { requireCreator } from "@/lib/auth";
 import { appHost, appUrl } from "@/lib/env";
 import { readPageConfig } from "@/lib/page-config";
+import { panelThemeVars, readPanelPrefs } from "@/lib/panel-prefs";
 import { ownerUsername } from "@/lib/site-mode";
 import { BottomNav, SideNav } from "./nav";
 import { panelNavFlags } from "./nav-flags";
@@ -23,13 +24,20 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   if (owner && creator.username !== owner) redirect("/entrar?error=cerrado");
   const flags = await panelNavFlags(creator.id);
   const cfg = readPageConfig(creator.pageDraft, creator.displayName);
+  // «Personalizar mi panel» (Ajustes): colores (variables CSS) y orden del menú. Sin nada guardado, el de siempre.
+  const prefs = readPanelPrefs(creator.panelPrefs);
   // En modo personal su página es la portada de la web.
   const url = owner ? appUrl() : `${appUrl()}/${creator.username}`;
   const pretty = owner ? appHost() : `${appHost()}/${creator.username}`;
   const publicHref = owner ? "/" : `/${creator.username}`;
   return (
-    <div className="min-h-dvh bg-paper lg:grid lg:grid-cols-[248px_1fr]">
-      <aside className="sticky top-0 hidden h-dvh flex-col border-r border-line bg-cream/40 px-4 py-5 lg:flex">
+    <div
+      className="panel-root min-h-dvh bg-paper text-ink lg:grid lg:grid-cols-[248px_1fr]"
+      data-panel-root
+      data-panel-tone={prefs.theme?.tone}
+      style={panelThemeVars(prefs.theme) as React.CSSProperties}
+    >
+      <aside className="panel-side sticky top-0 hidden h-dvh flex-col border-r border-line px-4 py-5 lg:flex">
         <BrandLogo href="/panel" />
         <div className="mt-6 flex items-center gap-2.5 rounded-2xl border border-line bg-white p-2.5" style={{ ["--c-accent" as string]: "#0E1024", ["--c-accent-text" as string]: "#F6F1E7" }}>
           <Avatar src={cfg.avatarUrl} name={cfg.displayName} className="h-9 w-9 text-xs" sizes="36px" />
@@ -39,15 +47,15 @@ export default async function PanelLayout({ children }: { children: React.ReactN
           </div>
         </div>
         <div className="mt-5 flex-1 overflow-y-auto">
-          <SideNav flags={flags} />
+          <SideNav flags={flags} nav={prefs.nav} />
         </div>
         {owner && user.isAdmin && (
-          <Link href="/admin" className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted hover:bg-sand hover:text-ink">
+          <Link href="/admin" className="panel-nav-link flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm">
             <ShieldCheck className="h-4 w-4" /> Administración
           </Link>
         )}
         <form action="/auth/salir" method="post">
-          <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted hover:bg-sand hover:text-ink">
+          <button className="panel-nav-link flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm">
             <LogOut className="h-4 w-4" /> Cerrar sesión
           </button>
         </form>
@@ -78,7 +86,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
           {children}
         </main>
       </div>
-      <BottomNav flags={flags} />
+      <BottomNav flags={flags} nav={prefs.nav} />
     </div>
   );
 }

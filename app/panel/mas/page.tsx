@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ChevronRight, LogOut } from "lucide-react";
 import { requireCreator } from "@/lib/auth";
-import { panelNav } from "../nav-items";
+import { readPanelPrefs } from "@/lib/panel-prefs";
+import { panelNavFor } from "../nav-items";
 import { panelNavFlags } from "../nav-flags";
 
 export default async function MorePage() {
@@ -11,7 +12,7 @@ export default async function MorePage() {
     <div>
       <h1 className="display text-[2.4rem]">Más</h1>
       <div className="card mt-6 divide-y divide-line">
-        {panelNav(flags).map((i) => (
+        {panelNavFor(flags, readPanelPrefs(creator.panelPrefs).nav).map((i) => (
           <Link key={i.href} href={i.href} className="flex items-center gap-3 px-4 py-3.5 text-sm">
             <i.icon className="h-4 w-4 text-muted" />
             <span className="flex-1 font-medium">{i.label}</span>
