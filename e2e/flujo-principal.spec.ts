@@ -19,11 +19,11 @@ async function demoLogin(page: Page, label: string) {
   await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
 }
 
-/** Casillas obligatorias del checkout: condiciones de venta y renuncia al desistimiento. */
+/** Casillas obligatorias del checkout: condiciones de venta y la del desistimiento. */
 async function acceptConsents(page: Page) {
   await page.getByLabel(/He leído y acepto/).check();
-  // La renuncia la piden lo digital, los cursos, las membresías y los talleres a menos de 15 días (no las sesiones).
-  const waiver = page.getByLabel(/Quiero acceder ya|Quiero que se prepare ya|Solicito expresamente/);
+  // La casilla del desistimiento la piden lo digital, los cursos, las membresías y los talleres (no las sesiones individuales).
+  const waiver = page.getByLabel(/Quiero acceder ya|Quiero que se prepare ya|Entiendo que este taller|Quiero empezar ya/);
   if (await waiver.count()) await waiver.check();
 }
 

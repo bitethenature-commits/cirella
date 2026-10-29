@@ -79,7 +79,7 @@ test.describe.serial("Reembolsos y cambios", () => {
     await page.fill("input[name=cardNumber]", "4242 4242 4242 4242");
     await page.getByLabel(/He leído y acepto/).check();
     // Una sesión se reserva a partir del día 15: no hay casilla de renuncia (tiene sus 14 días).
-    await expect(page.getByLabel(/Quiero acceder ya|Solicito expresamente/)).toHaveCount(0);
+    await expect(page.getByLabel(/Quiero acceder ya|Entiendo que este taller|Quiero empezar ya/)).toHaveCount(0);
     await page.getByRole("button", { name: /Reservar y pagar/ }).click();
     await page.waitForURL("**/ana/gracias**");
     // El mismo navegador entra en su cuenta sin contraseña (cookie del checkout).

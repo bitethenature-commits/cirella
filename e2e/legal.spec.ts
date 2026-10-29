@@ -87,7 +87,7 @@ test.describe.serial("Cumplimiento legal", () => {
     await expect(page.getByText(/Cambios gratis hasta 24 h antes/)).toBeVisible();
     // Sin casilla de renuncia: se reserva a partir del día 15 y tiene sus 14 días para desistir.
     await expect(page.getByText(/Tienes 14 días desde la compra para desistir/)).toBeVisible();
-    await expect(page.getByLabel(/Quiero acceder ya|Solicito expresamente/)).toHaveCount(0);
+    await expect(page.getByLabel(/Quiero acceder ya|Entiendo que este taller|Quiero empezar ya/)).toHaveCount(0);
   });
 
   test("pie legal en la página de la creadora y página legal completa", async ({ page }) => {
