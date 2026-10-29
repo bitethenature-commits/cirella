@@ -122,3 +122,43 @@ export async function deleteAvatarImage(url: string | null | undefined): Promise
   if (!m) return;
   await storage().delete([publicKey(`${m[1]}/${m[2]}.webp`)]).catch(() => {});
 }
+
+/** Botón ▶ (círculo oscuro translúcido y triángulo blanco) del tamaño pedido, en SVG. */
+function playButtonSvg(size: number): Buffer {
+  const r = size / 2;
+  const t = size * 0.2;
+  return Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">` +
+      `<circle cx="${r}" cy="${r}" r="${r - 2}" fill="#0E1024" fill-opacity="0.62" stroke="#FFFFFF" stroke-opacity="0.9" stroke-width="${Math.max(2, size / 40)}"/>` +
+      `<path d="M ${r - t * 0.75} ${r - t} L ${r + t * 1.05} ${r} L ${r - t * 0.75} ${r + t} Z" fill="#FFFFFF"/>` +
+      `</svg>`,
+  );
+}
+
+/**
+ * Portada de un vídeo en un email (bloque «Vídeo» del editor visual): los buzones no reproducen
+ * vídeo, así que la portada lleva el ▶ dibujado en la propia imagen (sale igual en Gmail, Outlook y
+ * el iPhone, sin trucos de CSS). JPEG de hasta 1200 px, sin metadatos, en /media/{creadora}/{hex}.jpg.
+ */
+export async function storeVideoCover(creatorId: string, input: Buffer): Promise<{ url: string; width: number; height: number }> {
+  let out: { data: Buffer; width: number; height: number };
+  try {
+    const base = await sharp(input, { limitInputPixels: 80_000_000, failOn: "error" })
+      .rotate()
+      .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
+      .flatten({ background: "#0E1024" })
+      .toBuffer({ resolveWithObject: true });
+    const { width, height } = base.info;
+    const size = Math.max(48, Math.round(Math.min(width, height) * 0.26));
+    const jpg = await sharp(base.data)
+      .composite([{ input: playButtonSvg(size), left: Math.round((width - size) / 2), top: Math.round((height - size) / 2) }])
+      .jpeg({ quality: 82, progressive: true, mozjpeg: true })
+      .toBuffer({ resolveWithObject: true });
+    out = { data: jpg.data, width: jpg.info.width, height: jpg.info.height };
+  } catch {
+    throw new Error(READ_ERROR);
+  }
+  const id = randomBytes(10).toString("hex");
+  await storage().put(publicKey(`${creatorId}/${id}.jpg`), out.data, { contentType: "image/jpeg", cacheControl: IMMUTABLE });
+  return { url: `/media/${creatorId}/${id}.jpg`, width: out.width, height: out.height };
+}

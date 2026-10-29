@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Copy, ImagePlus, Loader2, Minus, MousePointerClick,
 import { useRef, useState } from "react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { uploadFile } from "@/components/ui/upload-client";
-import { BLOCK_LABEL, EMAIL_BLOCKS_MAX, EMAIL_TEXT_MAX, newBlock, newBlockId, VARIABLE_HELP, type EmailBlock, type EmailBlockType, type EmailDesign, type EmailVars } from "@/lib/email-blocks";
+import { type Align, BLOCK_LABEL, EMAIL_BLOCKS_MAX, EMAIL_TEXT_MAX, newBlock, newBlockId, VARIABLE_HELP, type EmailBlock, type EmailBlockType, type EmailDesign, type EmailVars } from "@/lib/email-blocks";
 import { RICH_IMAGE_ACCEPT } from "@/lib/file-types";
 import { normalizeLinkInput } from "@/lib/rich-text-edit";
 
@@ -13,7 +13,7 @@ import { normalizeLinkInput } from "@/lib/rich-text-edit";
  * ↑ ↓, duplicar y borrar (botones de 44 px, sin arrastrar) y «Añadir bloque» al final. Lo usan la
  * newsletter y los emails automáticos. Nunca se escribe HTML: son datos (lib/email-blocks.ts).
  */
-const ADD: { t: EmailBlockType; icon: typeof Type; hint: string }[] = [
+const ADD: { t: Exclude<EmailBlockType, "hero" | "spotlight" | "video" | "columns" | "social">; icon: typeof Type; hint: string }[] = [
   { t: "title", icon: Heading, hint: "Un titular" },
   { t: "text", icon: Type, hint: "Párrafos con negrita, listas y enlaces" },
   { t: "image", icon: ImagePlus, hint: "Tu imagen de Canva o una foto" },
@@ -185,7 +185,7 @@ function BlockFields({ block: b, onChange }: { block: EmailBlock; onChange: (pat
   }
 }
 
-function Align({ value, onChange }: { value: "left" | "center"; onChange: (v: "left" | "center") => void }) {
+function Align({ value, onChange }: { value: Align; onChange: (v: Align) => void }) {
   return (
     <div className="inline-flex rounded-full bg-sand p-1 text-xs">
       {(["left", "center"] as const).map((a) => (

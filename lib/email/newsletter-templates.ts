@@ -3,7 +3,8 @@
  * se manda la dueña. Puros: scripts/unit/newsletter.test.ts.
  */
 import type { EmailDesign, EmailVars } from "../email-blocks";
-import { renderDesignHtml, renderSubject } from "./blocks-html";
+import { renderSubject } from "./blocks-html";
+import { designEmailHtml } from "./design-layout";
 import { esc, p } from "./html";
 import { layout } from "./templates";
 
@@ -61,13 +62,15 @@ export function campaignEmail(o: {
   const subject = renderSubject(o.subject, o.vars) || "Newsletter";
   return {
     subject: o.test ? `[Prueba] ${subject}` : subject,
-    html: layout({
+    // Con el estilo del editor visual (lib/email/design-layout.ts); el pie legal, el de siempre.
+    html: designEmailHtml({
       brand: o.brand,
-      title: "",
-      body: renderDesignHtml(o.design, { baseUrl: o.baseUrl, vars: o.vars }),
+      subject,
+      design: o.design,
+      baseUrl: o.baseUrl,
+      vars: o.vars,
       footer: newsletterFooterHtml(o.footer),
       preheader: o.preheader ? renderSubject(o.preheader, o.vars) : null,
-      areaLink: false,
     }),
   };
 }

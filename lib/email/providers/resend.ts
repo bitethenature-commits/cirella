@@ -1,4 +1,5 @@
 import { classifyHttpFailure, formatFrom, truncateError } from "../../reliability";
+import { htmlToText } from "../plain-text";
 import type { EmailProvider, OutgoingEmail } from "../provider";
 
 /**
@@ -32,6 +33,8 @@ export function buildResendRequest(msg: OutgoingEmail, cfg: ResendConfig) {
         to: [msg.to],
         subject: msg.subject,
         html: msg.html,
+        // Siempre con su versión en texto plano (multipart/alternative).
+        text: htmlToText(msg.html),
         ...(msg.replyTo ? { reply_to: msg.replyTo } : {}),
         ...(msg.headers && Object.keys(msg.headers).length ? { headers: msg.headers } : {}),
       }),
