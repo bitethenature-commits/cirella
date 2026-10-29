@@ -699,6 +699,23 @@ herramienta más. Todo está en **Panel → Newsletter**:
   ti con «[Prueba]» en el asunto, «A quién» elige todas, una etiqueta, quien compró un producto o
   los miembros de la comunidad, y luego «Enviar ahora» o «Programar» (día y hora de Madrid).
   Antes de enviar te dice a cuántas personas va y qué día terminará con tu límite diario.
+- **Editor visual**: además de esos bloques, **Portada** (foto de fondo con una capa de color,
+  título, subtítulo y botón), **Destacado** (un recuadro de color con icono para lo importante),
+  **Vídeo**, **Dos columnas** (imagen y texto; en el móvil se ponen una encima de otra) y **Redes
+  sociales**. Cada bloque tiene «Colores y letra» (color, tamaño, alineación y tipo de letra) y los
+  botones, su forma (redondo, recto o solo borde) y «Todo el ancho». En **«Estilo del email»**
+  eliges los fondos, los colores del texto, los títulos, los enlaces y los botones, los tipos de
+  letra, las esquinas y el ancho; los colores de tu marca (Mi página) salen los primeros y, si un
+  texto no se va a leer bien sobre su fondo, te avisa. **«Plantillas»** te da tres diseños de
+  partida con tus colores: «Luna llena», «Novedades» y «Lanzamiento».
+- **Qué ve cada buzón**: los buzones no reproducen vídeo; en el email sale su portada con un ▶ y,
+  al pulsarla, se abre YouTube/Vimeo o, si lo subiste aquí, una página de tu web que lo reproduce
+  (con una dirección imposible de adivinar). La miniatura de YouTube y Vimeo se trae sola; si no se
+  puede, sube tú una portada. Los tipos de letra con ✦ (Playfair, Cormorant, Lora, Montserrat) se
+  ven en el Mail del iPhone y en Apple Mail; Gmail y Outlook enseñan uno parecido (Georgia o
+  Helvetica). Outlook de escritorio no redondea esquinas y a veces no enseña la capa de color de la
+  portada: por eso la portada siempre lleva su color de reserva. Cada email sale también en texto
+  plano (mejora la entrega).
 - **Suscriptoras**: quién está, desde cuándo y con qué texto aceptó (la prueba que pide el RGPD),
   etiquetas, «Añadir a mano» (le llega un email para confirmar), **Importar CSV** de tu
   herramienta anterior (columnas `email`, `nombre`, `fecha_consentimiento`, `etiquetas`; sin fecha
@@ -801,6 +818,18 @@ actívalos en Resend → tu dominio → *Open/Click tracking*, añade los evento
 - Lo gratis **nunca** depende de apuntarse a la newsletter: la casilla es aparte y sin marcar.
 
 ---
+
+## Tu panel a tu gusto
+
+En **Ajustes → Personalizar mi panel** cambias los colores **de tu panel** (tu web no cambia): el
+acento (botones y la sección en la que estás), el fondo (claro, crema u oscuro) y la barra lateral
+del ordenador, con cuatro estilos listos («Luna», «Tierra», «Lavanda» y «Noche») o tus colores. El
+texto encima se elige solo para que se lea. Mientras eliges, el panel entero ya se ve así; pulsa
+**«Guardar mi panel»** y se verá igual en el móvil y en el ordenador.
+
+Debajo ordenas el menú con ↑ y ↓ y ocultas con el ojo las secciones que no uses (Inicio y Ajustes
+no se pueden ocultar). En el móvil, **las 4 primeras van a la barra de abajo** y el resto, a
+«Más». También puedes ordenar las tarjetas de Inicio. **«Restaurar»** lo deja todo como venía.
 
 ## Mantenimiento
 
