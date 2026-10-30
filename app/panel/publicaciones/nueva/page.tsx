@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireCreator } from "@/lib/auth";
 import { appHost } from "@/lib/env";
+import { isPersonalMode } from "@/lib/site-mode";
+import { sitePageLinkTargets } from "@/lib/site-pages.server";
 import { PageHeader } from "../../ui";
 import { PostForm } from "../post-form";
 
@@ -19,7 +21,9 @@ export default async function NewPostPage() {
       <PostForm
         host={appHost()}
         username={creator.username}
-        post={{ id: null, title: "", slug: "", excerpt: "", body: "", bodyFormat: "MD", imageUrl: null, status: "DRAFT", publishedOn: "" }}
+        personal={isPersonalMode()}
+        linkTargets={await sitePageLinkTargets(creator.id, creator.username, isPersonalMode())}
+        post={{ id: null, title: "", slug: "", excerpt: "", body: "", bodyFormat: "MD", imageUrl: null, status: "DRAFT", publishedOn: "", media: null, ctaLabel: "", ctaUrl: "", ctaCode: "" }}
       />
     </div>
   );

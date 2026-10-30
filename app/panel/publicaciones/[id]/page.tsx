@@ -5,7 +5,9 @@ import { ArrowLeft, ExternalLink, Trash2 } from "lucide-react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { requireCreator } from "@/lib/auth";
 import { appHost } from "@/lib/env";
-import { POST_STATE_LABEL, postPath, postState } from "@/lib/posts";
+import { isPersonalMode } from "@/lib/site-mode";
+import { sitePageLinkTargets } from "@/lib/site-pages.server";
+import { POST_STATE_LABEL, postPath, postState, readPostMedia } from "@/lib/posts";
 import { tenantDb } from "@/lib/tenant";
 import { dateKeyInTz } from "@/lib/tz";
 import { Badge, PageHeader } from "../../ui";
@@ -46,6 +48,8 @@ export default async function EditPostPage({ params, searchParams }: { params: P
       <PostForm
         host={appHost()}
         username={creator.username}
+        personal={isPersonalMode()}
+        linkTargets={await sitePageLinkTargets(creator.id, creator.username, isPersonalMode())}
         initialMessage={sp.guardada ? (SAVED[sp.guardada] ?? null) : null}
         post={{
           id: post.id,
@@ -57,6 +61,10 @@ export default async function EditPostPage({ params, searchParams }: { params: P
           imageUrl: post.imageUrl,
           status: post.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT",
           publishedOn: post.publishedAt ? dateKeyInTz(post.publishedAt, creator.timezone) : "",
+          media: readPostMedia(post.mediaKind, post.media),
+          ctaLabel: post.ctaLabel ?? "",
+          ctaUrl: post.ctaUrl ?? "",
+          ctaCode: post.ctaCode ?? "",
         }}
       />
       <ConfirmForm action={deletePost} message="¿Borrar esta publicación? Desaparece de tu página y no se puede deshacer." className="mt-10 border-t border-line pt-6">

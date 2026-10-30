@@ -5,7 +5,9 @@ import { startTransition, useActionState, useEffect, useState } from "react";
 import { Flash } from "@/components/ui/flash";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { ImageUpload } from "@/components/ui/image-upload";
-import { POST_BODY_MAX, POST_EXCERPT_MAX, POST_TITLE_MAX } from "@/lib/posts";
+import { LinkInput, type LinkTarget } from "@/components/panel/blocks/link-input";
+import { PostMediaField } from "@/components/panel/post-media-field";
+import { POST_BODY_MAX, POST_CTA_CODE_MAX, POST_CTA_LABEL_MAX, POST_EXCERPT_MAX, POST_TITLE_MAX, type PostMedia } from "@/lib/posts";
 import { slugify } from "@/lib/slug";
 import { savePost, type PostActionState } from "./actions";
 
@@ -21,10 +23,32 @@ export type EditablePost = {
   status: "DRAFT" | "PUBLISHED";
   /** «AAAA-MM-DD» en la zona de la creadora, o vacío. */
   publishedOn: string;
+  /** Vídeo o audio (lib/posts.ts → PostMedia). */
+  media: PostMedia | null;
+  /** Llamada a la acción: texto del botón, enlace y código de descuento. */
+  ctaLabel: string;
+  ctaUrl: string;
+  ctaCode: string;
 };
 
 /** Formulario de una publicación: crear (sin id) o editar. */
-export function PostForm({ post, host, username, initialMessage }: { post: EditablePost; host: string; username: string; initialMessage?: string | null }) {
+export function PostForm({
+  post,
+  host,
+  username,
+  initialMessage,
+  personal,
+  linkTargets,
+}: {
+  post: EditablePost;
+  host: string;
+  username: string;
+  initialMessage?: string | null;
+  /** Web personal: se pueden subir vídeos y audios (en la plataforma, enlace de YouTube o Vimeo). */
+  personal: boolean;
+  /** Sugerencias del enlace del botón (productos y páginas). */
+  linkTargets: LinkTarget[];
+}) {
   const [state, action, pending] = useActionState<PostActionState, FormData>(savePost, initialMessage ? { ok: initialMessage } : undefined);
   const [image, setImage] = useState(post.imageUrl);
   const [title, setTitle] = useState(post.title);
@@ -34,6 +58,7 @@ export function PostForm({ post, host, username, initialMessage }: { post: Edita
     if (state?.slug) setSlug(state.slug);
   }, [state]);
   const [status, setStatus] = useState(post.status);
+  const [ctaUrl, setCtaUrl] = useState(post.ctaUrl);
   const shownSlug = slug || slugify(title) || "…";
 
   return (
@@ -80,6 +105,36 @@ export function PostForm({ post, host, username, initialMessage }: { post: Edita
         </div>
       </section>
 
+      <section className="card space-y-3 p-5 sm:p-6" aria-labelledby="post-media-title">
+        <div>
+          <h3 id="post-media-title" className="font-semibold">Vídeo o audio <span className="font-normal text-muted">(opcional)</span></h3>
+          <p className="text-xs text-muted">Sale en la publicación; en la tarjeta de tu portada se avisa con «Vídeo» o «Audio».</p>
+        </div>
+        <PostMediaField initial={post.media} personal={personal} />
+      </section>
+
+      <section className="card space-y-3 p-5 sm:p-6" aria-labelledby="post-cta-title">
+        <div>
+          <h3 id="post-cta-title" className="font-semibold">Botón <span className="font-normal text-muted">(opcional)</span></h3>
+          <p className="text-xs text-muted">Lleva a un producto, una página o una web. Si añades un código de descuento, sale al lado para copiarlo.</p>
+        </div>
+        <input type="hidden" name="ctaUrl" value={ctaUrl} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="field-label" htmlFor="post-cta-label">Texto del botón</label>
+            <input id="post-cta-label" name="ctaLabel" className="input" maxLength={POST_CTA_LABEL_MAX} defaultValue={post.ctaLabel} placeholder="Ver curso" />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="post-cta-code">Código de descuento</label>
+            <input id="post-cta-code" name="ctaCode" className="input uppercase" maxLength={POST_CTA_CODE_MAX} defaultValue={post.ctaCode} placeholder="LUNA15" />
+          </div>
+        </div>
+        <div>
+          <p className="field-label">Enlace del botón</p>
+          <LinkInput value={ctaUrl} onChange={setCtaUrl} ariaLabel="Enlace del botón de la publicación" targets={linkTargets} className="input" />
+        </div>
+      </section>
+
       <section className="card space-y-4 p-5 sm:p-6">
         <div>
           <p className="field-label">Imagen <span className="font-normal text-muted">(opcional)</span></p>
@@ -96,7 +151,7 @@ export function PostForm({ post, host, username, initialMessage }: { post: Edita
             <label className="field-label" htmlFor="post-slug">Dirección</label>
             <input id="post-slug" name="slug" className="input" maxLength={80} value={slug} onChange={(e) => setSlug(e.target.value)} placeholder={slugify(title) || "se-crea-con-el-titulo"} />
             <p className="field-hint break-all">
-              {host}/{username}/novedades/{shownSlug}
+              {host}/{username}/actualidades/{shownSlug}
             </p>
           </div>
         </div>
@@ -108,7 +163,7 @@ export function PostForm({ post, host, username, initialMessage }: { post: Edita
           {(
             [
               ["DRAFT", "Borrador", "Solo tú la ves (en la vista previa)."],
-              ["PUBLISHED", "Publicada", "Se ve en «Novedades» de tu página."],
+              ["PUBLISHED", "Publicada", "Se ve en «Actualidades» de tu página."],
             ] as const
           ).map(([value, label, hint]) => (
             <label key={value} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${status === value ? "border-ink bg-white ring-1 ring-ink" : "border-line bg-white"}`}>

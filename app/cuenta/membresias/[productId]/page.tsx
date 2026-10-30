@@ -8,7 +8,7 @@ import { markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
 import { loadFeed } from "@/lib/community";
 import { creatorBrief } from "@/lib/customer";
 import { prisma } from "@/lib/db";
-import { accessSource, includedProductIds } from "@/lib/membership-access";
+import { accessSource, includedMembershipIds, includedProductIds } from "@/lib/membership-access";
 import { formatPrice } from "@/lib/money";
 import { cancelMembership, resumeMembership } from "../../actions";
 import { CreatorTag } from "../../ui";
@@ -43,8 +43,11 @@ export default async function MembershipFeed({
   const product = await prisma.product.findUniqueOrThrow({ where: { id: productId }, include: { creator: true } });
   const c = creatorBrief(product.creator);
   const before = sp.antes && !Number.isNaN(Date.parse(sp.antes)) ? new Date(sp.antes) : null;
-  const feed = access ? await loadFeed({ productId, viewer: { userId: user.id, isOwner }, before }) : { posts: [], nextBefore: null };
+  // Un nivel superior lee también las publicaciones de los niveles que incluye (lib/tiers.ts).
+  const lowerTiers = access ? await includedMembershipIds(productId) : [];
+  const feed = access ? await loadFeed({ productId, alsoProductIds: lowerTiers, viewer: { userId: user.id, isOwner }, before }) : { posts: [], nextBefore: null };
   const courseIds = access ? await includedProductIds(productId) : [];
+  const tierRows = lowerTiers.length ? await prisma.product.findMany({ where: { id: { in: lowerTiers } }, select: { id: true, title: true } }) : [];
   const courses = courseIds.length
     ? await prisma.product.findMany({ where: { id: { in: courseIds }, type: "COURSE", status: { not: "ARCHIVED" } }, select: { id: true, title: true, emoji: true, imageUrl: true, _count: { select: { lessons: true } } } })
     : [];
@@ -104,6 +107,17 @@ export default async function MembershipFeed({
       )}
       {!endsAt && source?.via && <p className="text-sm text-muted">Incluida en «{source.via.title}».</p>}
 
+      {tierRows.length > 0 && (
+        <p className="mt-4 text-sm text-muted" data-included-tiers>
+          Tu nivel incluye también {tierRows.map((t, i) => (
+            <span key={t.id}>
+              {i > 0 && (i === tierRows.length - 1 ? " y " : ", ")}
+              <Link href={`/cuenta/membresias/${t.id}`} className="font-semibold text-ink underline-offset-2 hover:underline">«{t.title}»</Link>
+            </span>
+          ))}: sus publicaciones salen aquí también.
+        </p>
+      )}
+
       {courses.length > 0 && (
         <section className="mt-8">
           <h2 className="eyebrow !text-ink">Incluido en tu membresía</h2>
@@ -124,7 +138,7 @@ export default async function MembershipFeed({
 
       <div className="mt-8 space-y-4">
         {feed.posts.map((post) => (
-          <PostCard key={post.id} post={post} timeZone={product.creator.timezone} />
+          <PostCard key={post.id} post={post} timeZone={product.creator.timezone} tier={post.productId !== productId ? post.product.title : null} />
         ))}
         {access && feed.posts.length === 0 && <p className="text-sm text-muted">{before ? "No hay publicaciones anteriores." : "Pronto habrá contenido nuevo aquí."}</p>}
         {feed.nextBefore && (

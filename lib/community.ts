@@ -4,6 +4,7 @@ import {
   canDeleteComment,
   cleanCommentBody,
   FEED_PAGE,
+  isLivePostKind,
   isMemberPostVisible,
   memberPostState,
   notifyEditable,
@@ -21,6 +22,7 @@ import { readPageConfig } from "./page-config";
 import { cleanRichInput, formatToStore, normalizeNewlines } from "./rich-text";
 import { privateKey, storage } from "./storage";
 import { tenantDb } from "./tenant";
+import { labelToMinutes, zonedTimeToUtc } from "./tz";
 
 /**
  * La comunidad de una membresía: publicaciones (con adjuntos, borradores y programadas),
@@ -59,6 +61,8 @@ export async function saveMemberPost(creatorId: string, timeZone: string, input:
     bodyFormat,
     kind: input.kind,
     mediaUrl: input.mediaUrl || null,
+    // Directo, ceremonia o círculo: su fecha (en los demás tipos no se guarda).
+    eventAt: isLivePostKind(input.kind) && input.eventDate && input.eventTime ? zonedTimeToUtc(input.eventDate, labelToMinutes(input.eventTime), timeZone) : null,
     status: timing.status,
     publishedAt: timing.publishedAt,
     // Una vez visible, el aviso ya salió (o no se pidió): no se cambia al editar.
@@ -130,10 +134,14 @@ export type Viewer = { userId: string; isOwner: boolean };
 
 const FEED_FILE_SELECT = { id: true, name: true, kind: true, durationSec: true } as const;
 
-/** Publicaciones de una comunidad, de 15 en 15 (`before`: las anteriores a esa fecha). La dueña ve también borradores y programadas. */
-export async function loadFeed(i: { productId: string; viewer: Viewer; before?: Date | null; now?: Date }) {
+/**
+ * Publicaciones de una comunidad, de 15 en 15 (`before`: las anteriores a esa fecha). La dueña ve también
+ * borradores y programadas. `alsoProductIds`: los niveles de abajo que incluye esta membresía
+ * (lib/membership-access.ts → includedMembershipIds): un nivel superior lee también sus publicaciones.
+ */
+export async function loadFeed(i: { productId: string; alsoProductIds?: string[]; viewer: Viewer; before?: Date | null; now?: Date }) {
   const now = i.now ?? new Date();
-  const and: Prisma.MembershipPostWhereInput[] = [{ productId: i.productId }];
+  const and: Prisma.MembershipPostWhereInput[] = [{ productId: { in: [i.productId, ...(i.alsoProductIds ?? [])] } }];
   if (!i.viewer.isOwner) and.push(visibleMemberPostWhere(now));
   if (i.before) and.push({ publishedAt: { lt: i.before } });
   const rows = await prisma.membershipPost.findMany({
@@ -141,6 +149,7 @@ export async function loadFeed(i: { productId: string; viewer: Viewer; before?: 
     orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
     take: FEED_PAGE + 1,
     include: {
+      product: { select: { title: true } },
       files: { orderBy: { sortOrder: "asc" }, select: FEED_FILE_SELECT },
       likes: { where: { userId: i.viewer.userId }, select: { id: true } },
       _count: { select: { likes: true, comments: { where: { status: "VISIBLE" } } } },

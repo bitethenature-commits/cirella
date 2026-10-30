@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db";
 import { appUrl } from "@/lib/env";
-import { publicPostWhere } from "@/lib/posts";
+import { postPath, postsListPath, publicPostWhere } from "@/lib/posts";
+import { sectionPagePath } from "@/lib/site-sections";
 import { ownerUsername } from "@/lib/site-mode";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 }
 
-/** Modo personal: solo la web de la dueña (portada, páginas extra, productos y novedades). Sin páginas de la plataforma. */
+/** Modo personal: solo la web de la dueña (portada, páginas de la portada, páginas extra, productos y actualidades). Sin páginas de la plataforma. */
 async function personalSitemap(base: string, owner: string): Promise<MetadataRoute.Sitemap> {
   const c = await prisma.creator.findFirst({
     where: { username: owner, published: true, status: "ACTIVE" },
@@ -49,16 +50,18 @@ async function personalSitemap(base: string, owner: string): Promise<MetadataRou
     { url: `${base}/`, lastModified: c.updatedAt, changeFrequency: "weekly", priority: 1 },
     // Sus páginas extra viven en la raíz (/sobre-mi), que es su dirección canónica.
     ...c.sitePages.map((p) => ({ url: `${base}/${p.slug}`, lastModified: p.updatedAt, priority: 0.7 })),
+    // Las páginas de la portada nueva, también en la raíz (lib/site-sections.ts).
+    ...(["comunidad", "cursos", "lecturas", "sesiones", "portal"] as const).map((p) => ({ url: `${base}${sectionPagePath(owner, p, true)}`, priority: 0.6 })),
     ...c.products.map((p) => ({ url: `${base}/${owner}/${p.slug}`, lastModified: p.updatedAt, priority: 0.7 })),
-    ...postEntries(base, owner, c.posts),
+    ...postEntries(base, owner, c.posts, true),
   ];
 }
 
-/** Novedades de una creadora: la lista y cada publicación visible (nada si no tiene ninguna). */
-function postEntries(base: string, username: string, posts: { slug: string; updatedAt: Date }[]): MetadataRoute.Sitemap {
+/** Actualidades de una creadora: la lista y cada publicación visible (nada si no tiene ninguna). */
+function postEntries(base: string, username: string, posts: { slug: string; updatedAt: Date }[], personal = false): MetadataRoute.Sitemap {
   if (!posts.length) return [];
   return [
-    { url: `${base}/${username}/novedades`, lastModified: posts[0].updatedAt, changeFrequency: "weekly", priority: 0.6 },
-    ...posts.map((p) => ({ url: `${base}/${username}/novedades/${p.slug}`, lastModified: p.updatedAt, priority: 0.5 })),
+    { url: `${base}${postsListPath(username, personal)}`, lastModified: posts[0].updatedAt, changeFrequency: "weekly", priority: 0.6 },
+    ...posts.map((p) => ({ url: `${base}${postPath(username, p.slug)}`, lastModified: p.updatedAt, priority: 0.5 })),
   ];
 }

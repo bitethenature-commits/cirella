@@ -13,6 +13,9 @@ export type UploadedFile = { id: string; name: string; kind: string; sizeBytes: 
 /** Vídeo subido a un bloque de la página (lib/page-blocks.ts → PageVideo). */
 export type UploadedPageVideo = { src: string; width: number | null; height: number | null; durationSec: number | null; codec: "H264" | "HEVC" | "OTHER" | null; sizeBytes: number | null };
 
+/** Archivo privado del Portal de Noticias: un billete firmado que el formulario envía al guardar. */
+export type UploadedPortalMedia = { token: string; kind: "VIDEO" | "AUDIO" | "IMAGE"; name: string; sizeBytes: number };
+
 export type UploadProgress = (pct: number, loaded: number, total: number) => void;
 
 export const UPLOAD_CANCELLED = "Subida cancelada";
@@ -55,13 +58,13 @@ type SignAnswer = { uploadUrl: string; headers: Record<string, string>; ticket: 
 
 export async function uploadFile(
   file: File,
-  o: { purpose: "image" | "file" | "delivery" | "video"; graphic?: boolean; email?: boolean; productId?: string; orderId?: string; onProgress?: UploadProgress; signal?: AbortSignal },
-): Promise<{ url?: string; width?: number; height?: number; file?: UploadedFile; video?: UploadedPageVideo }> {
+  o: { purpose: "image" | "file" | "delivery" | "video" | "portal"; graphic?: boolean; email?: boolean; audio?: boolean; productId?: string; orderId?: string; onProgress?: UploadProgress; signal?: AbortSignal },
+): Promise<{ url?: string; width?: number; height?: number; file?: UploadedFile; video?: UploadedPageVideo; portal?: UploadedPortalMedia }> {
   const total = file.size;
   const report = (loaded: number) => o.onProgress?.(total ? Math.min(100, Math.round((loaded / total) * 100)) : 100, loaded, total);
   const signed = await postJson<SignAnswer>(
     "/api/upload/sign",
-    { purpose: o.purpose, graphic: o.graphic || undefined, email: o.email || undefined, productId: o.productId, orderId: o.orderId, name: file.name || "archivo", contentType: file.type, size: file.size },
+    { purpose: o.purpose, graphic: o.graphic || undefined, email: o.email || undefined, audio: o.audio || undefined, productId: o.productId, orderId: o.orderId, name: file.name || "archivo", contentType: file.type, size: file.size },
     o.signal,
   );
   try {

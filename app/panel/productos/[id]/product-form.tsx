@@ -22,6 +22,8 @@ import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { IntakeConfigEditor } from "@/components/booking/intake-config-editor";
 import type { IntakeConfig } from "@/lib/intake";
 import { HORIZON_CHOICES, HORIZON_DEFAULT_DAYS, horizonLabel } from "@/lib/slots";
+import { COURSE_CATEGORIES, COURSE_CATEGORY_LABEL } from "@/lib/course-categories";
+import { SALE_LABEL_MAX } from "@/lib/offers";
 import { updateProduct, type ActionState } from "../actions";
 
 export type EditableProduct = {
@@ -61,6 +63,15 @@ export type EditableProduct = {
   /** Su texto de privacidad es personalizado (aviso al pedir datos de nacimiento). */
   customPrivacy: boolean;
   ownerTimezone: string;
+  /** Oferta (lib/offers.ts): precio y días de inicio y fin (último día incluido) en su zona. */
+  salePrice: string;
+  saleStart: string;
+  saleEnd: string;
+  saleLabel: string | null;
+  salePriceCents: number | null;
+  /** Curso: método (lib/course-categories.ts). Taller: círculo de la luna. */
+  courseCategory: string | null;
+  moonCircle: boolean;
 };
 
 const DELIVERY_OPTIONS: { mode: DeliveryMode; label: string; hint: string }[] = [
@@ -117,6 +128,9 @@ export function ProductForm({
   const externalSession = external && isSession;
   const [group, setGroup] = useState(product.groupSession);
   const asksData = isSession || personal;
+  const [saleOn, setSaleOn] = useState(product.salePriceCents != null);
+  const [salePrice, setSalePrice] = useState(product.salePrice);
+  const saleCents = parseMoneyToCents(salePrice);
 
   return (
     <form
@@ -139,6 +153,20 @@ export function ProductForm({
             <label className="field-label">Título</label>
             <input name="title" defaultValue={product.title} className="input" required maxLength={100} />
           </div>
+          {product.type === "COURSE" && (
+            <div>
+              <label className="field-label" htmlFor="course-category">Método</label>
+              <select id="course-category" name="courseCategory" defaultValue={product.courseCategory ?? ""} className="input">
+                <option value="">Sin método</option>
+                {COURSE_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {COURSE_CATEGORY_LABEL[c]}
+                  </option>
+                ))}
+              </select>
+              <p className="field-hint">Tu página de cursos los agrupa por método.</p>
+            </div>
+          )}
           <div>
             <label className="field-label">Descripción corta <span className="font-normal text-muted">(aparece en la tarjeta)</span></label>
             <textarea name="summary" defaultValue={product.summary ?? ""} className="input" rows={2} maxLength={240} />
@@ -263,6 +291,38 @@ export function ProductForm({
               <input name="ctaLabel" defaultValue={product.ctaLabel ?? ""} className="input" maxLength={30} placeholder="Comprar" />
             </div>
           </div>
+          {/* Oferta (lib/offers.ts): el checkout cobra el precio de oferta mientras está activa. */}
+          <div className="rounded-2xl border border-line bg-paper p-4" id="oferta">
+            <input type="hidden" name="saleForm" value="1" />
+            <label className="flex items-center gap-2.5 text-sm font-semibold">
+              <input type="checkbox" name="saleOn" checked={saleOn} onChange={(e) => setSaleOn(e.target.checked)} className="h-4 w-4 accent-[#0E1024]" />
+              Poner en oferta
+            </label>
+            {saleOn && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="field-label" htmlFor="sale-price">Precio de oferta (€)</label>
+                  <input id="sale-price" name="salePrice" value={salePrice} onChange={(e) => setSalePrice(e.target.value.replace(/[^\d,.]/g, ""))} inputMode="decimal" className="input" placeholder="39" />
+                  {saleCents > 0 && cents > 0 && saleCents < cents && <p className="field-hint">−{Math.round((1 - saleCents / cents) * 100)} % sobre {formatMoney(cents)}</p>}
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="sale-label">Etiqueta <span className="font-normal text-muted">(opcional)</span></label>
+                  <input id="sale-label" name="saleLabel" defaultValue={product.saleLabel ?? ""} maxLength={SALE_LABEL_MAX} className="input" placeholder="Early Bird" />
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="sale-start">Empieza <span className="font-normal text-muted">(vacío = ya)</span></label>
+                  <input id="sale-start" name="saleStart" type="date" defaultValue={product.saleStart} className="input h-11" />
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="sale-end">Termina <span className="font-normal text-muted">(último día; vacío = sin fin)</span></label>
+                  <input id="sale-end" name="saleEnd" type="date" defaultValue={product.saleEnd} className="input h-11" />
+                </div>
+                <p className="field-hint sm:col-span-2">
+                  Se ve con el precio normal tachado en tu página, en la ficha y al pagar.{isMembership ? " En una membresía, el precio de oferta es el del primer pago: las renovaciones van al precio normal." : ""}
+                </p>
+              </div>
+            )}
+          </div>
         </section>
         )}
 
@@ -320,6 +380,10 @@ export function ProductForm({
                 </div>
                 <input type="hidden" name="bufferMin" value={product.bufferMin ?? 15} />
                 <input type="hidden" name="minNoticeHours" value={0} />
+                <label className="flex items-center gap-2.5 text-sm sm:col-span-2">
+                  <input type="checkbox" name="moonCircle" defaultChecked={product.moonCircle} className="h-4 w-4 accent-[#0E1024]" />
+                  Es un círculo de la luna (sale en tu portada para apuntarse sin ser miembro)
+                </label>
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
@@ -441,10 +505,6 @@ export function ProductForm({
               <option value="DRAFT">Borrador (oculto)</option>
             </select>
           </div>
-          <label className="flex items-center gap-2.5 text-sm">
-            <input type="checkbox" name="featured" defaultChecked={product.featured} className="h-4 w-4 accent-[#0E1024]" />
-            Destacar en mi página
-          </label>
           <button type="submit" className="btn btn-primary w-full" disabled={isPending}>{isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</> : "Guardar"}</button>
         </section>
         <section className="card p-5">

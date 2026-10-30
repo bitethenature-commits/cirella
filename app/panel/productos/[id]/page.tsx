@@ -78,9 +78,10 @@ export default async function EditProductPage({
   const courseOptions =
     type === "MEMBERSHIP"
       ? await db.product.findMany({
-          where: { type: "COURSE", status: { not: "ARCHIVED" } },
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-          select: { id: true, title: true, emoji: true, status: true, _count: { select: { lessons: true } } },
+          // Cursos y los otros niveles de la comunidad (membresías): un nivel incluye los de abajo.
+          where: { type: { in: ["COURSE", "MEMBERSHIP"] }, status: { not: "ARCHIVED" }, NOT: { id } },
+          orderBy: [{ type: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+          select: { id: true, type: true, title: true, emoji: true, status: true, _count: { select: { lessons: true } } },
         })
       : [];
   const issue = deliveryIssue(
@@ -181,6 +182,10 @@ export default async function EditProductPage({
           eventDate: product.eventStartAt ? dateKeyInTz(product.eventStartAt, creator.timezone) : "",
           eventTime: product.eventStartAt ? (() => { const z = zonedParts(product.eventStartAt!, creator.timezone); return minutesToLabel(z.hour * 60 + z.minute); })() : "",
           intake: readIntakeConfig(product.intake),
+          // Oferta (lib/offers.ts): fechas como días en su zona (el fin es el último día incluido).
+          salePrice: product.salePriceCents ? String(product.salePriceCents / 100).replace(".", ",") : "",
+          saleStart: product.saleStartsAt ? dateKeyInTz(product.saleStartsAt, creator.timezone) : "",
+          saleEnd: product.saleEndsAt ? dateKeyInTz(new Date(product.saleEndsAt.getTime() - 1), creator.timezone) : "",
           hasBookings: type === "SESSION" && (await db.booking.count({ where: { productId: id } })) > 0,
           customPrivacy: !!creator.legalPrivacy,
           ownerTimezone: creator.timezone,
@@ -263,7 +268,7 @@ export default async function EditProductPage({
             <IncludesManager
               productId={product.id}
               selected={product.includes.map((i) => i.includedProductId)}
-              options={courseOptions.map((c) => ({ id: c.id, title: c.title, emoji: c.emoji, draft: c.status !== "PUBLISHED", lessons: c._count.lessons }))}
+              options={courseOptions.map((c) => ({ id: c.id, type: c.type, title: c.title, emoji: c.emoji, draft: c.status !== "PUBLISHED", lessons: c._count.lessons }))}
             />
           </>
         )}

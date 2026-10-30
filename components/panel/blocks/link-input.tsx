@@ -4,7 +4,7 @@ import { useId } from "react";
 export type LinkTarget = { label: string; href: string };
 
 /**
- * Campo de enlace con sugerencias nativas (datalist): su portada, «Novedades», sus productos y sus
+ * Campo de enlace con sugerencias nativas (datalist): su portada, las páginas de la portada («Actualidades», «Cursos»…), sus productos y sus
  * páginas. Se puede escribir cualquier enlace igualmente.
  */
 export function LinkInput({

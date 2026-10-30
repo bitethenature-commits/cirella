@@ -8,11 +8,12 @@ import { VideoEmbed } from "@/components/media/video-embed";
 import { RichContent } from "@/components/rich-text/rich-content";
 import { buyerLoginPath, markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
 import { getMemberPost } from "@/lib/community";
-import { MEMBER_POST_KIND_LABEL, publicMemberName, scheduleLabel, type MemberPostKind } from "@/lib/community-rules";
+import { isLivePostKind, MEMBER_POST_KIND_LABEL, publicMemberName, scheduleLabel, type MemberPostKind } from "@/lib/community-rules";
 import { creatorBrief } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { accessSource } from "@/lib/membership-access";
-import { formatDate } from "@/lib/tz";
+import { tzCity } from "@/lib/timezones";
+import { formatDate, formatSessionDate } from "@/lib/tz";
 import { videoEmbed } from "@/lib/video-embed";
 import { CreatorTag } from "../../../ui";
 import { Comments, LikeButton, type ViewComment } from "./interactions";
@@ -74,6 +75,11 @@ export default async function MemberPostPage({ params }: { params: Promise<{ pro
           {kindLabel} · {formatDate(post.publishedAt, { day: "numeric", month: "long" }, tz)}
         </p>
         <h1 className="display mt-1 text-[2.1rem] leading-tight sm:text-[2.5rem]">{post.title}</h1>
+        {post.eventAt && (
+          <p className="mt-2 flex items-center gap-1.5 font-semibold" data-event-at>
+            <CalendarDays className="h-4 w-4" /> {formatSessionDate(post.eventAt, tz)} (hora de {tzCity(tz)})
+          </p>
+        )}
         {post.body && (
           <RichContent text={post.body} format={post.bodyFormat} legacy="preline" tone="account" headingLevel={3} className="mt-4 space-y-4 text-[1.02rem] leading-relaxed text-ink/85" />
         )}
@@ -94,7 +100,7 @@ export default async function MemberPostPage({ params }: { params: Promise<{ pro
         )}
         {post.mediaUrl && !embed && /^https:\/\//i.test(post.mediaUrl) && (
           <a href={post.mediaUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary mt-6 min-h-11">
-            {post.kind === "EVENT" ? <><CalendarDays className="h-4 w-4" /> Unirme al directo</> : <><ExternalLink className="h-4 w-4" /> Abrir el enlace</>}
+            {isLivePostKind(post.kind) ? <><CalendarDays className="h-4 w-4" /> {post.kind === "CEREMONIA" ? "Unirme a la ceremonia" : post.kind === "CIRCULO_LUNAR" ? "Unirme al círculo" : "Unirme al directo"}</> : <><ExternalLink className="h-4 w-4" /> Abrir el enlace</>}
           </a>
         )}
       </article>

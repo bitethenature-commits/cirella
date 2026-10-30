@@ -26,6 +26,7 @@ export default async function NewMemberPostPage({ params }: { params: Promise<{ 
         timeZone={creator.timezone}
         minAt={data.minAt}
         limitsLabel={data.limitsLabel}
+        moonDates={data.moonDates}
         notifiedNote={null}
       />
     </div>

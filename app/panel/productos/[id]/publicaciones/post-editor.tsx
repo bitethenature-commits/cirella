@@ -1,11 +1,11 @@
 "use client";
 
-import { Eye, Loader2 } from "lucide-react";
+import { CalendarDays, Eye, Loader2, Moon } from "lucide-react";
 import Link from "next/link";
 import { startTransition, useActionState, useCallback, useMemo, useState } from "react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { Flash } from "@/components/ui/flash";
-import { BODY_MAX, MEMBER_POST_KIND_LABEL, MEMBER_POST_KINDS, scheduleSentence, TITLE_MAX, type MemberPostWhen } from "@/lib/community-rules";
+import { BODY_MAX, isLivePostKind, MEMBER_POST_KIND_LABEL, MEMBER_POST_KINDS, scheduleSentence, TITLE_MAX, type MemberPostWhen } from "@/lib/community-rules";
 import { tzCity } from "@/lib/timezones";
 import { zonedTimeToUtc } from "@/lib/tz";
 import { saveMemberPostAction, type PostEditorState } from "./actions";
@@ -25,6 +25,9 @@ export type EditorPost = {
   notify: boolean;
   commentsOpen: boolean;
   files: Attachment[];
+  /** Directo, ceremonia o círculo: día y hora (zona de la dueña), o vacíos. */
+  eventDate: string;
+  eventTime: string;
 };
 
 const WHEN_LABEL: Record<MemberPostWhen, string> = { now: "Publicar ahora", schedule: "Programar", draft: "Borrador" };
@@ -42,7 +45,10 @@ export function PostEditor({
   minAt,
   limitsLabel,
   notifiedNote,
+  moonDates = [],
 }: {
+  /** Próximas lunas nueva y llena (lib/moon-dates.ts) para el círculo de la luna. */
+  moonDates?: { label: string; title: string; date: string; time: string }[];
   productId: string;
   post: EditorPost;
   members: number;
@@ -58,6 +64,9 @@ export function PostEditor({
   const [when, setWhen] = useState<MemberPostWhen>(post.state === "DRAFT" ? (post.id ? "draft" : "now") : post.state === "SCHEDULED" ? "schedule" : "now");
   const [at, setAt] = useState(post.at);
   const [kind, setKind] = useState(post.kind);
+  const [eventDate, setEventDate] = useState(post.eventDate);
+  const [eventTime, setEventTime] = useState(post.eventTime);
+  const [title, setTitle] = useState(post.title);
   const [uploading, setUploading] = useState(false);
   const onFirstMedia = useCallback((k: "AUDIO" | "VIDEO") => setKind((cur) => (cur === "TEXT" ? k : cur)), []);
 
@@ -89,7 +98,7 @@ export function PostEditor({
       <section className="card space-y-4 p-5 sm:p-6">
         <div>
           <label className="field-label" htmlFor="post-title">Título</label>
-          <input id="post-title" name="title" required minLength={2} maxLength={TITLE_MAX} defaultValue={post.title} className="input h-11 text-base" placeholder="P. ej. Meditación de luna llena" />
+          <input id="post-title" name="title" required minLength={2} maxLength={TITLE_MAX} value={title} onChange={(e) => setTitle(e.target.value)} className="input h-11 text-base" placeholder="P. ej. Meditación de luna llena" />
         </div>
         <div>
           <label className="field-label" htmlFor="post-kind">Tipo</label>
@@ -99,6 +108,36 @@ export function PostEditor({
             ))}
           </select>
         </div>
+        {isLivePostKind(kind) && (
+          <div className="space-y-2 rounded-2xl border border-line bg-paper p-3">
+            <p className="flex items-center gap-1.5 text-sm font-semibold">
+              <CalendarDays className="h-4 w-4" /> Cuándo es {kind === "CIRCULO_LUNAR" ? "el círculo" : kind === "CEREMONIA" ? "la ceremonia" : "el directo"} <span className="font-normal text-muted">(opcional)</span>
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <input name="eventDate" type="date" aria-label="Día del encuentro" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="input h-11" />
+              <input name="eventTime" type="time" step={300} aria-label="Hora del encuentro" value={eventTime} onChange={(e) => setEventTime(e.target.value)} className="input h-11" />
+            </div>
+            {kind === "CIRCULO_LUNAR" && moonDates.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="text-muted">Próximas lunas:</span>
+                {moonDates.map((m) => (
+                  <button
+                    key={m.date}
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      setEventDate(m.date);
+                      setEventTime(m.time);
+                      if (!title.trim()) setTitle(`Círculo de ${m.title.toLowerCase()}`);
+                    }}
+                  >
+                    <Moon className="h-3.5 w-3.5" /> {m.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div>
           <span className="field-label">Texto</span>
           <RichTextEditor

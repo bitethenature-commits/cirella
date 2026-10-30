@@ -30,12 +30,15 @@ import { siteMode } from "@/lib/site-mode";
 import { RESERVED_PRODUCT_SLUGS } from "@/lib/slug";
 import { privateKey, storage } from "@/lib/storage";
 import { tenantDb, type TenantDb } from "@/lib/tenant";
+import { wouldCreateCycle } from "@/lib/tiers";
+import { asCourseCategory } from "@/lib/course-categories";
+import { checkSaleInput, saleFormSchema, SALE_LABEL_MAX } from "@/lib/offers";
 import { Prisma } from "@prisma/client";
 import { applyProductMeetingUrl } from "@/lib/booking-changes";
 import { parseIntakeConfigInput } from "@/lib/intake";
 import { parseMeetingUrl } from "@/lib/meeting-url";
 import { HORIZON_CHOICES } from "@/lib/slots";
-import { labelToMinutes, zonedTimeToUtc } from "@/lib/tz";
+import { addDaysToKey, labelToMinutes, zonedTimeToUtc } from "@/lib/tz";
 import { moveWorkshop, notifyReplay, workshopClash } from "@/lib/workshops";
 import { followsDay15Rule, PAID_SESSION_MAX_NOTICE_DAYS, PAID_SESSION_MIN_NOTICE_DAYS, paidSessionNoticeDays } from "@/lib/withdrawal";
 import { DEFAULT_CTA, PRODUCT_TYPES, type ProductType } from "@/lib/types";
@@ -141,7 +144,10 @@ const productSchema = z.object({
   accessMode: z.enum(ACCESS_MODES).optional(),
   externalUrl: z.string().trim().max(600).optional(),
   externalLabel: z.string().trim().max(EXTERNAL_LABEL_MAX, `El texto del botón admite ${EXTERNAL_LABEL_MAX} caracteres`).optional(),
-});
+  // Cursos: método para la página /cursos. Talleres: «Círculo de la luna».
+  courseCategory: z.string().max(20).optional(),
+  moonCircle: z.string().optional(),
+}).merge(saleFormSchema);
 
 export async function updateProduct(_: ActionState, form: FormData): Promise<ActionState> {
   const { creator, db } = await ctx();
@@ -224,6 +230,22 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
     intakeJson = cfg.value ? (cfg.value as unknown as Prisma.InputJsonObject) : Prisma.DbNull;
   }
   if (d.imageUrl && !d.imageUrl.startsWith("/media/") && !d.imageUrl.startsWith("/demo/")) return { error: "Imagen no válida" };
+  // Oferta (lib/offers.ts): solo en lo que se paga en la web. Las fechas son días enteros en su zona:
+  // empieza a las 00:00 del día de inicio y termina al acabar el día de fin.
+  let saleData: { salePriceCents: number | null; saleStartsAt: Date | null; saleEndsAt: Date | null; saleLabel: string | null } | null = null;
+  if (accessMode === "PAID" && form.get("saleForm") === "1") {
+    const sale = checkSaleInput({
+      on: d.saleOn,
+      priceCents,
+      salePriceCents: d.salePrice ? parseMoneyToCents(d.salePrice) : null,
+      starts: d.saleStart ? zonedTimeToUtc(d.saleStart, 0, creator.timezone) : null,
+      ends: d.saleEnd ? zonedTimeToUtc(addDaysToKey(d.saleEnd, 1), 0, creator.timezone) : null,
+    });
+    if (!sale.ok) return { error: sale.error };
+    saleData = sale.value
+      ? { ...sale.value, saleLabel: d.saleLabel?.slice(0, SALE_LABEL_MAX) || null }
+      : { salePriceCents: null, saleStartsAt: null, saleEndsAt: null, saleLabel: null };
+  }
   const description = d.description ? normalizeNewlines(d.description) : null;
   const descriptionFormat = formatToStore(description, d.descriptionFormat, product.descriptionFormat);
   const featured = d.featured === "on";
@@ -260,6 +282,9 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
           }
         : {}),
       ...(intakeJson !== undefined && (product.type === "SESSION" || product.type === "DIGITAL") ? { intake: intakeJson } : {}),
+      ...(saleData ?? {}),
+      ...(product.type === "COURSE" && d.courseCategory !== undefined ? { courseCategory: asCourseCategory(d.courseCategory) } : {}),
+      ...(product.type === "SESSION" ? { moonCircle: wantsGroup && d.moonCircle === "on" } : {}),
       ...(product.type === "MEMBERSHIP" ? { billingInterval: d.billingInterval ?? "month" } : {}),
     },
   });
@@ -425,14 +450,26 @@ export async function saveInclusions(_: ActionState, form: FormData): Promise<Ac
   const productId = String(form.get("productId") ?? "");
   const membership = await db.product.findFirst({ where: { id: productId, type: "MEMBERSHIP" }, select: { id: true } });
   if (!membership) return { error: "Membresía no encontrada" };
-  const wanted = [...new Set(form.getAll("included").map(String))].slice(0, 50);
-  const courses = wanted.length ? await db.product.findMany({ where: { id: { in: wanted }, type: "COURSE", status: { not: "ARCHIVED" } }, select: { id: true } }) : [];
+  const wanted = [...new Set(form.getAll("included").map(String))].filter((id) => id !== membership.id).slice(0, 50);
+  // Cursos y otras membresías (niveles de abajo), suyos y no archivados.
+  const picked = wanted.length ? await db.product.findMany({ where: { id: { in: wanted }, type: { in: ["COURSE", "MEMBERSHIP"] }, status: { not: "ARCHIVED" } }, select: { id: true, type: true, title: true } }) : [];
+  // Sin ciclos: un nivel no puede incluir a otro que ya lo incluye (lib/tiers.ts).
+  const others = await db.productInclusion.findMany({ where: { NOT: { productId: membership.id } }, select: { productId: true, includedProductId: true } });
+  const loop = picked.find((p) => p.type === "MEMBERSHIP" && wouldCreateCycle(others, membership.id, p.id));
+  if (loop) return { error: `«${loop.title}» ya incluye esta membresía: no puede incluirse a la vez (sería un círculo).` };
   await db.productInclusion.deleteMany({ where: { productId: membership.id } });
-  if (courses.length) await db.productInclusion.createMany({ data: courses.map((c) => ({ creatorId: creator.id, productId: membership.id, includedProductId: c.id })) });
+  if (picked.length) await db.productInclusion.createMany({ data: picked.map((c) => ({ creatorId: creator.id, productId: membership.id, includedProductId: c.id })) });
   refresh(membership.id);
-  for (const c of courses) revalidatePath(`/panel/productos/${c.id}`);
+  for (const c of picked) revalidatePath(`/panel/productos/${c.id}`);
   revalidatePath("/cuenta/cursos");
-  return { ok: courses.length ? "Guardado. Tus miembros ya ven estos cursos en «Mis cursos»." : "Guardado. Esta membresía no incluye ningún curso." };
+  revalidatePath("/cuenta/membresias");
+  revalidatePath("/[username]/comunidad", "page");
+  const courses = picked.filter((p) => p.type === "COURSE").length;
+  const tiers = picked.length - courses;
+  if (!picked.length) return { ok: "Guardado. Esta membresía no incluye ningún curso ni otro nivel." };
+  return {
+    ok: `Guardado. ${[courses ? `Tus miembros ya ven ${courses === 1 ? "este curso" : "estos cursos"} en «Mis cursos»` : "", tiers ? `leen también ${tiers === 1 ? "el otro nivel" : "los otros niveles"}` : ""].filter(Boolean).join(" y ")}.`,
+  };
 }
 
 /** «Quitar acceso»: el acceso de esa persona pasa a retirado y sus enlaces dejan de funcionar. */

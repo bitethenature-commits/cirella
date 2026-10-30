@@ -41,6 +41,7 @@ export default async function EditMemberPostPage({ params, searchParams }: { par
         timeZone={creator.timezone}
         minAt={data.minAt}
         limitsLabel={data.limitsLabel}
+        moonDates={data.moonDates}
         notifiedNote={data.notifiedNote}
       />
       <div className="mt-6 space-y-5">

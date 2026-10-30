@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
-import { ownImageUrl, postFormSchema, postSlugBase, resolvePublishedAt } from "@/lib/posts";
+import { ownImageUrl, postFormSchema, postSlugBase, readPostMedia, resolvePublishedAt } from "@/lib/posts";
+import { Prisma } from "@prisma/client";
 import { cleanRichInput, formatToStore, normalizeNewlines } from "@/lib/rich-text";
 import { randomCode } from "@/lib/slug";
 import { tenantDb, type TenantDb } from "@/lib/tenant";
@@ -24,11 +25,12 @@ async function uniquePostSlug(db: TenantDb, base: string, exceptId?: string) {
   return `${base.slice(0, 50)}-${randomCode(4).toLowerCase()}`;
 }
 
-/** La página pública y las novedades están cacheadas (ISR): lo publicado debe verse ya. */
+/** La página pública y las actualidades están cacheadas (ISR): lo publicado debe verse ya. */
 function refreshPublic(username: string, slugs: string[]) {
   revalidatePath(`/${username}`);
-  revalidatePath(`/${username}/novedades`);
-  for (const s of new Set(slugs)) revalidatePath(`/${username}/novedades/${s}`);
+  revalidatePath("/");
+  revalidatePath(`/${username}/actualidades`);
+  for (const s of new Set(slugs)) revalidatePath(`/${username}/actualidades/${s}`);
   revalidatePath("/panel/publicaciones");
 }
 
@@ -39,6 +41,10 @@ export async function savePost(_: PostActionState, form: FormData): Promise<Post
   const parsed = postFormSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
+  // Vídeo o audio: solo archivos subidos aquí por ella o un enlace de YouTube/Vimeo (lo demás no se guarda).
+  const media = d.media ? readPostMedia(null, d.media, creator.id) : null;
+  if (d.media && d.media !== "null" && !media) return { error: "El vídeo o el audio no es válido: súbelo de nuevo o pega un enlace de YouTube o Vimeo" };
+  if ((d.ctaLabel && !d.ctaUrl) || (!d.ctaLabel && d.ctaUrl)) return { error: "El botón necesita un texto y un enlace" };
   const current = d.id ? await db.post.findFirst({ where: { id: d.id } }) : null;
   if (d.id && !current) return { error: "Esta publicación ya no existe" };
 
@@ -55,6 +61,11 @@ export async function savePost(_: PostActionState, form: FormData): Promise<Post
     imageUrl: ownImageUrl(d.imageUrl),
     status: d.status,
     publishedAt,
+    mediaKind: media?.kind ?? null,
+    media: media ? (media as unknown as Prisma.InputJsonObject) : Prisma.DbNull,
+    ctaLabel: d.ctaLabel,
+    ctaUrl: d.ctaUrl,
+    ctaCode: d.ctaCode,
   };
 
   if (!current) {

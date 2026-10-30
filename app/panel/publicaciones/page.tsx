@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Publicaciones" };
 
 const TONE = { DRAFT: "warning", SCHEDULED: "neutral", PUBLISHED: "success" } as const;
 
-/** Publicaciones con fecha («Novedades» de la página): lista, estado y accesos rápidos. */
+/** Publicaciones con fecha («Actualidades» de la página): lista, estado y accesos rápidos. */
 export default async function PostsPage({ searchParams }: { searchParams: Promise<{ borrada?: string }> }) {
   const { creator } = await requireCreator();
   const sp = await searchParams;
@@ -28,7 +28,7 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
     <div>
       <PageHeader
         title="Publicaciones"
-        subtitle="Novedades con fecha en tu página: avisos, artículos, lo que quieras contar. Las 3 últimas salen en tu página."
+        subtitle="«Actualidades» de tu página: avisos, artículos, vídeos o audios con fecha, con un botón y un código si quieres. Las 2 últimas salen en tu portada."
         actions={
           <Link href="/panel/publicaciones/nueva" className="btn btn-primary">
             <Plus className="h-4 w-4" /> Nueva publicación
@@ -43,7 +43,7 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
           title="Escribe tu primera publicación"
           action={<Link href="/panel/publicaciones/nueva" className="btn btn-primary">Nueva publicación</Link>}
         >
-          Cuenta una novedad, comparte un artículo o anuncia algo. Aparecerá en la sección «Novedades» de tu página.
+          Cuenta una novedad, comparte un artículo o anuncia algo. Aparecerá en la sección «Actualidades» de tu página.
         </EmptyState>
       ) : (
         <ul className="space-y-2.5">
@@ -93,7 +93,7 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
         </ul>
       )}
       <p className="mt-6 text-xs text-muted">
-        La sección «Novedades» se puede mover u ocultar desde <Link href="/panel/pagina" className="underline underline-offset-2">Mi página → Secciones</Link>.
+        La sección «Actualidades» se puede mover u ocultar desde <Link href="/panel/pagina" className="underline underline-offset-2">Mi página → Secciones</Link>.
       </p>
     </div>
   );

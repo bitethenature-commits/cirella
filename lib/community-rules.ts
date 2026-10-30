@@ -12,9 +12,22 @@ import { z } from "zod";
 import { parseTextFormat } from "./rich-text";
 import { dateKeyInTz, formatInTz, zonedParts, zonedTimeToUtc } from "./tz";
 
-export const MEMBER_POST_KINDS = ["TEXT", "AUDIO", "VIDEO", "EVENT"] as const;
+export const MEMBER_POST_KINDS = ["TEXT", "AUDIO", "VIDEO", "EVENT", "PODCAST", "CEREMONIA", "CIRCULO_LUNAR"] as const;
 export type MemberPostKind = (typeof MEMBER_POST_KINDS)[number];
-export const MEMBER_POST_KIND_LABEL: Record<MemberPostKind, string> = { TEXT: "Publicación", AUDIO: "Audio", VIDEO: "Vídeo", EVENT: "Directo / evento" };
+export const MEMBER_POST_KIND_LABEL: Record<MemberPostKind, string> = {
+  TEXT: "Publicación",
+  AUDIO: "Audio",
+  VIDEO: "Vídeo",
+  EVENT: "Directo / evento",
+  PODCAST: "Podcast",
+  CEREMONIA: "Ceremonia",
+  CIRCULO_LUNAR: "Círculo de la luna",
+};
+/** Tipos que son un encuentro en directo con fecha (Post.eventAt): directo, ceremonia y círculo de la luna. */
+export const LIVE_POST_KINDS: ReadonlySet<MemberPostKind> = new Set(["EVENT", "CEREMONIA", "CIRCULO_LUNAR"]);
+export function isLivePostKind(kind: string): boolean {
+  return LIVE_POST_KINDS.has(kind as MemberPostKind);
+}
 
 export const TITLE_MAX = 160;
 export const BODY_MAX = 10_000;
@@ -54,6 +67,17 @@ export const memberPostFormSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Elige el día y la hora")
       .optional()
       .or(z.literal("").transform(() => undefined)),
+    // Directo, ceremonia o círculo de la luna: cuándo es (día y hora en la zona de la dueña).
+    eventDate: z
+      .string()
+      .regex(/^(\d{4}-\d{2}-\d{2})?$/, "La fecha del encuentro no es válida")
+      .optional()
+      .transform((v) => v || undefined),
+    eventTime: z
+      .string()
+      .regex(/^(\d{2}:\d{2})?$/, "La hora del encuentro no es válida")
+      .optional()
+      .transform((v) => v || undefined),
     notify: checkbox,
     commentsOpen: checkbox,
     attachmentIds: z.array(z.string().min(1).max(40)).max(ATTACHMENTS_MAX, `Máximo ${ATTACHMENTS_MAX} archivos por publicación`).default([]),
@@ -61,6 +85,7 @@ export const memberPostFormSchema = z
   .superRefine((d, ctx) => {
     if (!d.body.trim() && !d.attachmentIds.length && !d.mediaUrl) ctx.addIssue({ code: "custom", path: ["body"], message: "Escribe un texto o añade un archivo" });
     if (d.when === "schedule" && !d.at) ctx.addIssue({ code: "custom", path: ["at"], message: "Elige el día y la hora" });
+    if (!!d.eventDate !== !!d.eventTime) ctx.addIssue({ code: "custom", path: ["eventDate"], message: "Elige el día y la hora del encuentro" });
   });
 
 export type MemberPostForm = z.infer<typeof memberPostFormSchema>;
