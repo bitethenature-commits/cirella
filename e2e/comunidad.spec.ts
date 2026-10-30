@@ -57,7 +57,7 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
 
   test.beforeAll(async () => {
     const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
-    circleId = (await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, slug: "comunidad-privada" } })).id;
+    circleId = (await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, slug: "luna-completa" } })).id;
     courseId = (await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, slug: "curso-conocete-tu-energia" } })).id;
     const u = await prisma.user.findUniqueOrThrow({ where: { email: "lucia@example.com" } });
     lucia = { id: u.id, passwordHash: u.passwordHash, emailVerifiedAt: u.emailVerifiedAt };
@@ -73,7 +73,8 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
     await prisma.membershipPost.deleteMany({ where: { id: { in: posts.map((p) => p.id) } } });
     await prisma.membershipComment.deleteMany({ where: { body: { contains: TAG } } });
     await prisma.membershipComment.deleteMany({ where: { createdAt: { gte: new Date(Date.now() - 3600_000) }, creatorId: ana.id } });
-    await prisma.productInclusion.deleteMany({ where: { productId: circleId } });
+    // Solo la inclusión del curso que añade la prueba: los niveles de abajo (Plena y Esencia) se quedan.
+    await prisma.productInclusion.deleteMany({ where: { productId: circleId, includedProductId: courseId } });
     await prisma.user.update({ where: { id: lucia.id }, data: { passwordHash: lucia.passwordHash, emailVerifiedAt: lucia.emailVerifiedAt } });
     await prisma.access.update({ where: { id: luciaAccess.id }, data: { expiresAt: luciaAccess.expiresAt, status: "ACTIVE" } });
     await prisma.customer.updateMany({ where: { creatorId: ana.id }, data: { postEmailsOptOutAt: null, commentsBlockedAt: null } });
@@ -246,7 +247,7 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
 
     await login(page, "lucia@example.com");
     await page.goto("/cuenta/cursos");
-    await expect(page.getByText("Incluido en «Comunidad privada» mientras tu membresía esté activa")).toBeVisible();
+    await expect(page.getByText("Incluido en «Luna completa» mientras tu membresía esté activa")).toBeVisible();
     await page.goto(`/cuenta/membresias/${circleId}`);
     await expect(page.getByText("Incluido en tu membresía")).toBeVisible();
     await page.goto(`/cuenta/cursos/${courseId}`);
@@ -259,7 +260,7 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
   });
 
   test("Plataforma: la ficha no enseña las programadas y la comunidad sembrada se ve", async ({ page }) => {
-    await page.goto(`${PLATFORM}/ana/comunidad-privada`);
+    await page.goto(`${PLATFORM}/ana/luna-completa`);
     await expect(page.getByText("Lo último en la comunidad")).toBeVisible();
     await expect(page.getByText("Venus entra en Escorpio")).toHaveCount(0);
 

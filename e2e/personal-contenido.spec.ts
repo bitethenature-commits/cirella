@@ -51,12 +51,12 @@ test.afterAll(async () => {
 });
 
 test.describe.serial("Modo personal · contenido", () => {
-  test("la portada muestra novedades, códigos y los precios de lo gratuito y lo externo", async ({ page }) => {
+  test("la portada muestra actualidades, códigos y los precios de lo gratuito y lo externo", async ({ page }) => {
     await page.goto("/");
-    const news = page.locator("#novedades");
-    await expect(news.getByRole("heading", { name: "Novedades" })).toBeVisible();
-    await expect(news.getByRole("link", { name: /Eclipse de octubre/ })).toHaveAttribute("href", "/ana/novedades/eclipse-de-octubre");
-    await expect(news.getByRole("link", { name: /Ver todas/ })).toHaveAttribute("href", "/ana/novedades");
+    const news = page.locator("#actualidades");
+    await expect(news.getByRole("heading", { name: "Actualidades" })).toBeVisible();
+    await expect(news.getByRole("link", { name: /Eclipse de octubre/ })).toHaveAttribute("href", "/ana/actualidades/eclipse-de-octubre");
+    await expect(news.getByRole("link", { name: /Ver todas/ })).toHaveAttribute("href", "/actualidades");
 
     const codes = page.locator("#codigos");
     await expect(codes.getByRole("heading", { name: "Códigos de descuento" })).toBeVisible();
@@ -74,15 +74,19 @@ test.describe.serial("Modo personal · contenido", () => {
 
     const free = page.locator("article", { hasText: "Mini-curso gratis" }).first();
     await expect(free.getByText("Gratis", { exact: true })).toBeVisible();
+    const text = await page.locator("body").innerText();
+    expect(text).not.toContain("Powered by");
+    expect(text).not.toContain("IVA incluido");
+    // Las sesiones (también las que se pagan fuera) están en su página, con los pasos para reservar.
+    await page.goto("/sesiones");
+    await expect(page.getByRole("heading", { name: "Cómo reservar" })).toBeVisible();
     const external = page.locator("article", { hasText: "Revolución solar" }).first();
     await expect(external.getByText("Pago en calendly.com")).toBeVisible();
     const button = external.getByRole("link", { name: /Reservar en Calendly/ });
     await expect(button).toHaveAttribute("href", "https://calendly.com/ana-luna/revolucion-solar");
     await expect(button).toHaveAttribute("target", "_blank");
+    await page.goto("/");
 
-    const text = await page.locator("body").innerText();
-    expect(text).not.toContain("Powered by");
-    expect(text).not.toContain("IVA incluido");
     // Sin condiciones de venta en el pie: aquí no se vende nada.
     const footer = page.getByRole("navigation", { name: "Información legal" });
     await expect(footer.getByRole("link", { name: "Privacidad" })).toBeVisible();
@@ -138,26 +142,26 @@ test.describe.serial("Modo personal · contenido", () => {
     expect(signup.status()).toBe(400);
   });
 
-  test("novedades: la lista y cada publicación con su SEO, sin HTML y con enlaces automáticos", async ({ page }) => {
-    await page.goto("/ana/novedades");
-    await expect(page.getByRole("heading", { name: "Novedades", level: 1 })).toBeVisible();
+  test("actualidades: la lista y cada publicación con su SEO, sin HTML y con enlaces automáticos", async ({ page }) => {
+    await page.goto("/actualidades");
+    await expect(page.getByRole("heading", { name: "Actualidades", level: 1 })).toBeVisible();
     await expect(page.getByRole("link", { name: /Abro plazas en el Círculo Lunar/ })).toBeVisible();
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${PERSONAL}/ana/novedades`);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${PERSONAL}/actualidades`);
 
     await page.getByRole("link", { name: /Eclipse de octubre/ }).click();
-    await page.waitForURL("**/ana/novedades/eclipse-de-octubre");
+    await page.waitForURL("**/ana/actualidades/eclipse-de-octubre");
     await expect(page.getByRole("heading", { name: "Eclipse de octubre: qué cierra y qué empieza", level: 1 })).toBeVisible();
     await expect(page).toHaveTitle(/Eclipse de octubre.*Ana Luna/);
     await expect(page.locator('meta[property="og:type"]')).toHaveAttribute("content", "article");
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${PERSONAL}/ana/novedades/eclipse-de-octubre`);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${PERSONAL}/ana/actualidades/eclipse-de-octubre`);
     await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(1);
     expect(await page.locator("body").innerText()).not.toContain("Powered by");
 
-    await page.goto("/ana/novedades/nuevo-circulo-lunar");
+    await page.goto("/ana/actualidades/nuevo-circulo-lunar");
     await expect(page.locator('a[href="mailto:hola@analuna.es"]')).toBeVisible();
 
-    expect((await page.request.get("/ana/novedades/no-existe")).status()).toBe(404);
-    expect((await page.request.get("/maria/novedades")).status()).toBe(404);
+    expect((await page.request.get("/ana/actualidades/no-existe")).status()).toBe(404);
+    expect((await page.request.get("/maria/actualidades")).status()).toBe(404);
   });
 
   test("panel: una publicación en borrador no se ve; publicada sí; borrada desaparece", async ({ page }) => {
@@ -174,7 +178,7 @@ test.describe.serial("Modo personal · contenido", () => {
     await expect(page.getByText("Borrador guardado")).toBeVisible();
     const editUrl = page.url().split("?")[0];
 
-    await page.goto("/ana/novedades");
+    await page.goto("/actualidades");
     await expect(page.getByText(POST_TITLE)).toHaveCount(0);
 
     // Vista previa del borrador (solo la dueña).
@@ -188,7 +192,7 @@ test.describe.serial("Modo personal · contenido", () => {
     await expect(page.getByText("Publicada: ya se ve en tu página.")).toBeVisible();
 
     await page.goto("/");
-    const card = page.locator("#novedades").getByRole("link", { name: new RegExp(POST_TITLE) });
+    const card = page.locator("#actualidades").getByRole("link", { name: new RegExp(POST_TITLE) });
     await expect(card).toBeVisible();
     await card.click();
     await expect(page.getByRole("heading", { name: POST_TITLE, level: 1 })).toBeVisible();
@@ -201,7 +205,7 @@ test.describe.serial("Modo personal · contenido", () => {
     await page.getByRole("button", { name: "Borrar publicación" }).click();
     await page.waitForURL("**/panel/publicaciones?borrada=1");
     await expect(page.getByText(POST_TITLE)).toHaveCount(0);
-    for (const path of ["/", "/ana/novedades"]) {
+    for (const path of ["/", "/actualidades"]) {
       await page.goto(path);
       await expect(page.getByText(POST_TITLE)).toHaveCount(0);
     }
@@ -270,7 +274,7 @@ test.describe.serial("Modo personal · contenido", () => {
     await demoLogin(page, "Ana Luna");
     await page.goto("/panel/pagina");
     await page.getByRole("button", { name: "Secciones", exact: true }).click();
-    for (const label of ["Bloques", "Novedades", "Códigos de descuento"]) await expect(page.getByText(label).filter({ visible: true }).first()).toBeVisible();
+    for (const label of ["Bloques", "Accesos", "Actualidades", "Portal de Noticias", "Ofertas", "Códigos de descuento"]) await expect(page.getByText(label).filter({ visible: true }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Gestionar" }).first()).toBeVisible();
 
     await page.getByRole("button", { name: "Bloques", exact: true }).click();

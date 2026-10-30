@@ -45,14 +45,32 @@ async function ownerLogin(page: Page) {
 }
 
 test.describe.serial("Modo personal · detalles de la demo", () => {
-  test("la página no enlaza los productos ocultos (el botón destacado de la demo lleva a un curso de pago)", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Ana Luna", level: 1 })).toBeVisible();
-    // «✨ Empieza aquí · Curso Conócete» → /ana/curso-conocete-tu-energia, que en la web personal da 404.
-    await expect(page.locator('a[href="/ana/curso-conocete-tu-energia"]')).toHaveCount(0);
-    await expect(page.getByText(/Empieza aquí/)).toHaveCount(0);
-    // Los demás botones siguen ahí.
-    await expect(page.getByRole("link", { name: /Podcast «Cielo interior»/ })).toBeVisible();
+  test("la página no enlaza los productos ocultos (botones principales y accesos a un curso de pago)", async ({ page }) => {
+    // La demo ya no trae botones principales: se añaden aquí uno a un curso de pago (oculto sin cobros) y otro normal.
+    const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
+    const before = ana.pagePublished;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cfg = structuredClone((before ?? ana.pageDraft) as any);
+    cfg.links = [
+      { id: "l1", label: `✨ Empieza aquí ${stamp}`, url: "/ana/curso-conocete-tu-energia", highlight: true },
+      { id: "l2", label: `Podcast «Cielo interior» ${stamp}`, url: "https://open.spotify.com" },
+    ];
+    cfg.bubbles = [...(cfg.bubbles ?? []).slice(0, 2), { id: "b-oculto", label: `Curso ${stamp}`, url: "/ana/curso-conocete-tu-energia", image: null }];
+    cfg.sections = cfg.sections.map((x: { key: string; enabled: boolean }) => (x.key === "links" ? { ...x, enabled: true } : x));
+    await prisma.creator.update({ where: { id: ana.id }, data: { pagePublished: cfg } });
+    try {
+      await page.goto("/");
+      await expect(page.getByRole("heading", { name: "Ana Luna", level: 1 })).toBeVisible();
+      // /ana/curso-conocete-tu-energia en la web personal sin cobros da 404: ni botón ni burbuja.
+      await expect(page.locator('a[href="/ana/curso-conocete-tu-energia"]')).toHaveCount(0);
+      await expect(page.getByText(/Empieza aquí/)).toHaveCount(0);
+      await expect(page.getByText(`Curso ${stamp}`)).toHaveCount(0);
+      // Los demás siguen ahí.
+      await expect(page.getByRole("link", { name: new RegExp(`Podcast «Cielo interior» ${stamp}`) })).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "Accesos" }).getByRole("link")).toHaveCount(2);
+    } finally {
+      await prisma.creator.update({ where: { id: ana.id }, data: { pagePublished: before === null ? Prisma.DbNull : (before as Prisma.InputJsonValue) } });
+    }
   });
 
   test("la duración del mini-curso se escribe en minutos", async ({ page }) => {

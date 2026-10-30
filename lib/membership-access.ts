@@ -156,22 +156,28 @@ export async function includedMembershipsForUser(userId: string, now = new Date(
 /**
  * Miembros con acceso vigente a una membresía (página de `take`, por userId ascendente desde
  * `afterUserId`), con su clienta (email, nombre, baja de los avisos) y el pedido que les dio el
- * acceso (para el enlace personal). Sin la dueña.
+ * acceso (para el enlace personal). Sin la dueña. Incluye a quien está en un nivel superior que la
+ * incluye (lib/tiers.ts): también lee sus publicaciones, así que también recibe el aviso (una vez).
  */
 export async function activeMembersPage(creatorId: string, productId: string, o: { afterUserId?: string | null; take: number; now?: Date }) {
   const now = o.now ?? new Date();
   const owner = await prisma.creator.findUnique({ where: { id: creatorId }, select: { userId: true } });
-  const rows = await prisma.access.findMany({
-    where: {
-      creatorId,
-      productId,
-      ...activeAccessWhere(now),
-      ...(o.afterUserId ? { userId: { gt: o.afterUserId } } : {}),
-      ...(owner ? { NOT: { userId: owner.userId } } : {}),
-    },
-    orderBy: { userId: "asc" },
-    take: o.take,
-    select: { userId: true, orderId: true },
+  const productIds = [productId, ...(await includingMemberships(productId)).map((m) => m.productId)];
+  const where = {
+    creatorId,
+    productId: { in: productIds },
+    ...activeAccessWhere(now),
+    ...(o.afterUserId ? { userId: { gt: o.afterUserId } } : {}),
+    ...(owner ? { NOT: { userId: owner.userId } } : {}),
+  };
+  // Una persona por fila aunque tenga dos niveles (GROUP BY en la BD, así la página tiene `take` personas).
+  const page = await prisma.access.groupBy({ by: ["userId"], where, orderBy: { userId: "asc" }, take: o.take });
+  if (!page.length) return [];
+  const accesses = await prisma.access.findMany({ where: { ...where, userId: { in: page.map((p) => p.userId) } }, select: { userId: true, orderId: true, productId: true } });
+  // El pedido del enlace personal: el de esta membresía si lo tiene; si no, el de su nivel superior.
+  const rows = page.map((p) => {
+    const mine = accesses.filter((a) => a.userId === p.userId);
+    return mine.find((a) => a.productId === productId) ?? mine[0];
   });
   if (!rows.length) return [];
   const customers = await prisma.customer.findMany({ where: { creatorId, userId: { in: rows.map((r) => r.userId) } }, include: { user: { select: { email: true, name: true } } } });

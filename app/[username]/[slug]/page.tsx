@@ -74,7 +74,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const onSale = !!sale?.active;
   const price = free ? "Gratis" : formatPrice(onSale ? sale!.priceCents : p.priceCents, p.currency, p.billingInterval);
   const regularPrice = onSale ? formatPrice(sale!.regularCents, p.currency, p.billingInterval) : null;
-  const saleLine = onSale ? [sale!.label, sale!.percentOff ? `−${sale!.percentOff} %` : null, saleEndsLabel(sale!.endsAt, creator.timezone)].filter(Boolean).join(" · ") : null;
+  const saleLine = onSale ? [sale!.label, sale!.percentOff && !sale!.label?.includes("%") ? `−${sale!.percentOff} %` : null, saleEndsLabel(sale!.endsAt, creator.timezone)].filter(Boolean).join(" · ") : null;
   // El precio de lo que se paga fuera es informativo y opcional: sin precio, no se muestra.
   const showPrice = !external || p.priceCents > 0;
   const checkoutHref = `/${username}/${p.slug}/checkout`;

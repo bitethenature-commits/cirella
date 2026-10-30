@@ -145,7 +145,7 @@ test.describe.serial("Texto con formato", () => {
     const post = await prisma.post.findFirstOrThrow({ where: { creatorId: anaId, title: POST_TITLE } });
     expect(post.bodyFormat).toBe("MD");
 
-    await page.goto(`/ana/novedades/${post.slug}`);
+    await page.goto(`/ana/actualidades/${post.slug}`);
     const article = page.locator("article");
     await expect(article.getByRole("heading", { name: "Mi consejo", level: 2 })).toBeVisible();
     await expect(article.locator("strong", { hasText: "mundo" })).toBeVisible();
@@ -237,7 +237,7 @@ test.describe.serial("Texto con formato", () => {
     await expect(includes.getByText("✦").first()).toBeVisible();
     await expect(includes.getByText("3 lecciones de lectura (10 minutos cada una)")).toBeVisible();
 
-    await page.goto("/ana/novedades/eclipse-de-octubre");
+    await page.goto("/ana/actualidades/eclipse-de-octubre");
     await expect(page.getByRole("heading", { name: "Mi consejo para estos días", level: 2 })).toBeVisible();
     await expect(page.locator("article strong", { hasText: "No tomes decisiones grandes en caliente." })).toBeVisible();
     const description = await page.locator('meta[name="description"]').getAttribute("content");

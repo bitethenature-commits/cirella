@@ -687,7 +687,8 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
 
 /** «Early Bird · −20 % · hasta el 10 de noviembre». */
 function saleTag(sale: NonNullable<PublicProduct["sale"]>) {
-  return [sale.label, sale.percentOff ? `−${sale.percentOff} %` : null, sale.endsLabel].filter(Boolean).join(" · ");
+  // Sin repetir la rebaja si la etiqueta ya la dice («1.er mes −50 %»).
+  return [sale.label, sale.percentOff && !sale.label?.includes("%") ? `−${sale.percentOff} %` : null, sale.endsLabel].filter(Boolean).join(" · ");
 }
 
 /** Tarjeta de la sección «Ofertas»: la etiqueta, el título y el precio de antes tachado. */

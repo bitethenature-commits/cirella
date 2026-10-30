@@ -196,8 +196,8 @@ test.describe.serial("Flujo principal", () => {
   });
 
   test("8. Membresías: no se puede pagar dos veces la misma suscripción", async ({ page }) => {
-    // Lucía ya es miembro del Círculo de Ana.
-    await page.goto("/ana/comunidad-privada/checkout");
+    // Lucía ya es miembro de «Luna completa» (el Círculo de Ana).
+    await page.goto("/ana/luna-completa/checkout");
     await page.fill("#name", "Lucía Torres");
     await page.fill("#email", "lucia@example.com");
     await acceptConsents(page);

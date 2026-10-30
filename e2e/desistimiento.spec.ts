@@ -126,7 +126,7 @@ test.describe.serial("Desistimiento", () => {
 
   test("membresía: sin «Quiero empezar ya» no se paga; «Desistir» devuelve lo proporcional y la termina", async ({ page }) => {
     const email = `${TAG}-socia@example.com`;
-    await page.goto("/ana/comunidad-privada/checkout");
+    await page.goto("/ana/luna-completa/checkout");
     await expect(page.getByTestId("withdrawal-info")).toContainText("te devolvemos la parte proporcional de los días que no hayas disfrutado");
     await page.fill("#name", "Sara Socia");
     await page.fill("#email", email);
@@ -154,7 +154,7 @@ test.describe.serial("Desistimiento", () => {
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
     await page.goto("/cuenta/compras");
-    const row = page.locator(".card > div", { hasText: "Comunidad privada" });
+    const row = page.locator(".card > div", { hasText: "Luna completa" });
     await expect(row).toContainText(`hoy te devolveríamos ${euros}`);
     let message = "";
     page.once("dialog", (d) => {
