@@ -95,6 +95,7 @@ export async function CreatorPublicPage({ username }: { username: string }) {
         sellerName={creator.legalName}
         posts={data.posts}
         postCount={data.postCount}
+        portal={data.portal}
         discountCodes={data.discountCodes}
         personal={personal}
         signupsOnly={data.signupsOnly}

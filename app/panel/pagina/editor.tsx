@@ -20,12 +20,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useDeferredValue, useMemo, useState, useTransition } from "react";
 import { CreatorPageView, type PublicDiscountCode, type PublicPost, type PublicProduct } from "@/components/creator-page/creator-page-view";
+import type { PublicPortalItem } from "@/lib/portal-rules";
 import { BlocksEditor, type BlocksUpdate } from "@/components/panel/blocks/blocks-editor";
 import { LinkInput, type LinkTarget } from "@/components/panel/blocks/link-input";
 import { useDesktop } from "@/components/panel/use-desktop";
 import { TemplatePreview } from "@/components/template-preview";
 import { ImageUpload } from "@/components/ui/image-upload";
 import {
+  BUBBLES_MAX,
+  READINGS_DEFAULTS,
+  STEPS_MAX,
+  SYSTEMS_MAX,
   SECTION_MANAGE_HREF,
   NEWSLETTER_FORM_DEFAULTS,
   SECTION_META,
@@ -48,9 +53,10 @@ type Props = {
   creatorId: string;
   username: string;
   products: PublicProduct[];
-  /** Lo que sale en «Novedades» y «Códigos de descuento» (se gestionan en su propia pantalla). */
+  /** Lo que sale en «Actualidades», el Portal y «Códigos de descuento» (se gestionan en su propia pantalla). */
   posts: PublicPost[];
   postCount: number;
+  portal: PublicPortalItem[];
   discountCodes: PublicDiscountCode[];
   /** Web personal: sin «Powered by» ni planes. */
   personal: boolean;
@@ -72,6 +78,7 @@ const TABS = [
   { key: "perfil", label: "Perfil" },
   { key: "diseno", label: "Diseño" },
   { key: "secciones", label: "Secciones" },
+  { key: "portada", label: "Accesos y tarjetas" },
   { key: "enlaces", label: "Botones y redes" },
   { key: "bloques", label: "Bloques" },
   { key: "contenido", label: "Testimonios y FAQ" },
@@ -141,6 +148,15 @@ export function PageEditor(props: Props) {
       testimonials: cfg.testimonials.filter((t) => t.quote.trim() || t.author.trim()),
       faqs: cfg.faqs.filter((f) => f.q.trim() || f.a.trim()),
       blocks: (cfg.blocks ?? []).filter((b) => !isEmptyBlock(b)),
+      bubbles: cfg.bubbles?.filter((b) => b.label.trim() || b.url.trim() || b.image),
+      systems: cfg.systems?.filter((x) => x.title.trim() || x.text.trim() || x.url.trim() || x.image),
+      readings: cfg.readings
+        ? {
+            ...cfg.readings,
+            reading: { ...cfg.readings.reading, steps: cfg.readings.reading.steps.map((x) => x.trim()).filter(Boolean) },
+            session: { ...cfg.readings.session, steps: cfg.readings.session.steps.map((x) => x.trim()).filter(Boolean) },
+          }
+        : cfg.readings,
     };
     start(async () => {
       const r = kind === "publish" ? await publishDraft(clean) : await saveDraft(clean);
@@ -173,6 +189,7 @@ export function PageEditor(props: Props) {
         products={props.products}
         posts={props.posts}
         postCount={props.postCount}
+        portal={props.portal}
         discountCodes={props.discountCodes}
         personal={props.personal}
         signupsOnly={props.signupsOnly}
@@ -352,6 +369,11 @@ export function PageEditor(props: Props) {
                               Editar
                             </button>
                           )}
+                          {(s.key === "bubbles" || s.key === "about" || s.key === "systems" || s.key === "readings") && (
+                            <button type="button" onClick={() => setTab("portada")} className="text-xs font-normal text-muted underline underline-offset-2 hover:text-ink">
+                              Editar
+                            </button>
+                          )}
                         </p>
                         {s.key !== "links" && (
                           <input
@@ -475,6 +497,122 @@ export function PageEditor(props: Props) {
                     </li>
                   ))}
                 </ul>
+              </section>
+            </>
+          )}
+
+          {tab === "portada" && (
+            <>
+              <section className="card p-5 sm:p-6" aria-labelledby="ed-bubbles">
+                <h3 id="ed-bubbles" className="font-semibold">Accesos</h3>
+                <p className="text-xs text-muted">Burbujas redondas con foto bajo tu presentación, en una fila (de 1 a {BUBBLES_MAX}). Por ejemplo: Sobre mí, Cursos, Hacerte miembro.</p>
+                <div className="mt-4 space-y-2.5">
+                  {(cfg.bubbles ?? []).map((b, i, all) => (
+                    <div key={b.id} className="grid gap-3 rounded-xl border border-line bg-white p-3 sm:grid-cols-[112px_1fr]">
+                      <ImageUpload shape="circle" value={b.image} onChange={(v) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, image: v } : x)))} label="Foto" />
+                      <div className="space-y-2">
+                        <input className="input h-10 text-sm" placeholder="Texto (p. ej. Sobre mí)" maxLength={30} value={b.label} aria-label="Texto de la burbuja" onChange={(e) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, label: e.target.value } : x)))} />
+                        <LinkInput value={b.url} ariaLabel="Enlace de la burbuja" targets={props.linkTargets} onChange={(v) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, url: v } : x)))} />
+                        <div className="flex items-center justify-end gap-1">
+                          <button type="button" disabled={i === 0} onClick={() => { const a = [...all]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; set("bubbles", a); }} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Subir"><ArrowUp className="h-3.5 w-3.5" /></button>
+                          <button type="button" disabled={i === all.length - 1} onClick={() => { const a = [...all]; [a[i + 1], a[i]] = [a[i], a[i + 1]]; set("bubbles", a); }} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Bajar"><ArrowDown className="h-3.5 w-3.5" /></button>
+                          <button type="button" onClick={() => set("bubbles", all.filter((x) => x.id !== b.id))} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Quitar burbuja"><Trash2 className="h-3.5 w-3.5" /></button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={() => set("bubbles", [...(cfg.bubbles ?? []), { id: uid(), label: "", url: "", image: null }])} disabled={(cfg.bubbles ?? []).length >= BUBBLES_MAX} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" /> Añadir burbuja</button>
+              </section>
+
+              <section className="card space-y-3 p-5 sm:p-6" aria-labelledby="ed-about">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 id="ed-about" className="font-semibold">Tarjeta «Sobre mí»</h3>
+                    <p className="text-xs text-muted">Tu foto a la derecha y un texto corto a la izquierda. Toda la tarjeta lleva a tu página «Sobre mí».</p>
+                  </div>
+                  {cfg.about ? (
+                    <button type="button" onClick={() => set("about", null)} className="btn btn-ghost btn-sm shrink-0">Quitar</button>
+                  ) : (
+                    <button type="button" onClick={() => set("about", { eyebrow: "Sobre mí", title: `Hola, soy ${cfg.displayName.split(" ")[0]}`, text: "", url: props.personal ? "/sobre-mi" : "", image: cfg.avatarUrl, linkLabel: "Conoce mi historia" })} className="btn btn-outline btn-sm shrink-0"><Plus className="h-4 w-4" /> Añadir</button>
+                  )}
+                </div>
+                {cfg.about && (
+                  <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
+                    <div className="space-y-2">
+                      <input className="input h-10 text-sm" placeholder="Título (p. ej. Hola, soy Ana)" maxLength={80} aria-label="Título de la tarjeta Sobre mí" value={cfg.about.title} onChange={(e) => set("about", { ...cfg.about!, title: e.target.value })} />
+                      <textarea className="input text-sm" rows={3} placeholder="Texto corto" maxLength={400} aria-label="Texto de la tarjeta Sobre mí" value={cfg.about.text} onChange={(e) => set("about", { ...cfg.about!, text: e.target.value })} />
+                      <LinkInput value={cfg.about.url} ariaLabel="Enlace de la tarjeta Sobre mí" targets={props.linkTargets} onChange={(v) => set("about", { ...cfg.about!, url: v })} />
+                      <input className="input h-10 text-sm" placeholder="Texto del enlace (Conoce mi historia)" maxLength={40} aria-label="Texto del enlace de Sobre mí" value={cfg.about.linkLabel} onChange={(e) => set("about", { ...cfg.about!, linkLabel: e.target.value })} />
+                    </div>
+                    <ImageUpload value={cfg.about.image} onChange={(v) => set("about", { ...cfg.about!, image: v })} label="Foto" />
+                  </div>
+                )}
+              </section>
+
+              <section className="card p-5 sm:p-6" aria-labelledby="ed-systems">
+                <h3 id="ed-systems" className="font-semibold">Sistemas con los que trabajo</h3>
+                <p className="text-xs text-muted">Tarjetas con foto a la izquierda y un texto corto, cada una a la página de ese método (crea las páginas en «Páginas»).</p>
+                <div className="mt-4 space-y-2.5">
+                  {(cfg.systems ?? []).map((sys, i, all) => (
+                    <div key={sys.id} className="grid gap-3 rounded-xl border border-line bg-white p-3 sm:grid-cols-[140px_1fr]">
+                      <ImageUpload value={sys.image} onChange={(v) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, image: v } : x)))} label="Foto" />
+                      <div className="space-y-2">
+                        <input className="input h-10 text-sm" placeholder="Título (p. ej. Human Design)" maxLength={60} aria-label="Título del sistema" value={sys.title} onChange={(e) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, title: e.target.value } : x)))} />
+                        <input className="input h-10 text-sm" placeholder="Texto corto" maxLength={200} aria-label="Texto del sistema" value={sys.text} onChange={(e) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, text: e.target.value } : x)))} />
+                        <LinkInput value={sys.url} ariaLabel="Enlace del sistema" targets={props.linkTargets} onChange={(v) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, url: v } : x)))} />
+                        <div className="flex items-center justify-end gap-1">
+                          <button type="button" disabled={i === 0} onClick={() => { const a = [...all]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; set("systems", a); }} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Subir"><ArrowUp className="h-3.5 w-3.5" /></button>
+                          <button type="button" disabled={i === all.length - 1} onClick={() => { const a = [...all]; [a[i + 1], a[i]] = [a[i], a[i + 1]]; set("systems", a); }} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Bajar"><ArrowDown className="h-3.5 w-3.5" /></button>
+                          <button type="button" onClick={() => set("systems", all.filter((x) => x.id !== sys.id))} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Quitar sistema"><Trash2 className="h-3.5 w-3.5" /></button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={() => set("systems", [...(cfg.systems ?? []), { id: uid(), title: "", text: "", url: "", image: null }])} disabled={(cfg.systems ?? []).length >= SYSTEMS_MAX} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" /> Añadir sistema</button>
+              </section>
+
+              <section className="card space-y-4 p-5 sm:p-6" aria-labelledby="ed-readings">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 id="ed-readings" className="font-semibold">Lecturas, sesiones y círculos</h3>
+                    <p className="text-xs text-muted">Dos tarjetas que explican cómo funciona cada cosa; cada una abre su página con los pasos y tus productos. Debajo salen tus próximos círculos de la luna (talleres marcados como círculo).</p>
+                  </div>
+                  {cfg.readings ? (
+                    <button type="button" onClick={() => set("readings", null)} className="btn btn-ghost btn-sm shrink-0">Quitar</button>
+                  ) : (
+                    <button type="button" onClick={() => set("readings", { reading: { ...READINGS_DEFAULTS.reading }, session: { ...READINGS_DEFAULTS.session }, circlesTitle: READINGS_DEFAULTS.circlesTitle })} className="btn btn-outline btn-sm shrink-0"><Plus className="h-4 w-4" /> Añadir</button>
+                  )}
+                </div>
+                {cfg.readings &&
+                  (["reading", "session"] as const).map((k) => {
+                    const card = cfg.readings![k];
+                    const put = (patch: Partial<typeof card>) => set("readings", { ...cfg.readings!, [k]: { ...card, ...patch } });
+                    return (
+                      <div key={k} className="space-y-2 rounded-xl border border-line bg-white p-3">
+                        <p className="text-sm font-semibold">{k === "reading" ? "Lectura (te la preparo yo)" : "Sesión (en directo)"}</p>
+                        <div className="grid gap-2 sm:grid-cols-[140px_1fr]">
+                          <input className="input h-10 text-sm" placeholder={READINGS_DEFAULTS[k].eyebrow} maxLength={30} aria-label="Etiqueta" value={card.eyebrow} onChange={(e) => put({ eyebrow: e.target.value })} />
+                          <input className="input h-10 text-sm" placeholder={READINGS_DEFAULTS[k].title} maxLength={60} aria-label="Título" value={card.title} onChange={(e) => put({ title: e.target.value })} />
+                        </div>
+                        <input className="input h-10 text-sm" placeholder={READINGS_DEFAULTS[k].text} maxLength={240} aria-label="Texto" value={card.text} onChange={(e) => put({ text: e.target.value })} />
+                        <label className="field-label !mb-0 !mt-1">Pasos para reservar (uno por línea, hasta {STEPS_MAX})</label>
+                        <textarea
+                          className="input text-sm"
+                          rows={4}
+                          aria-label="Pasos"
+                          value={card.steps.join("\n")}
+                          onChange={(e) => put({ steps: e.target.value.split("\n").slice(0, STEPS_MAX) })}
+                        />
+                      </div>
+                    );
+                  })}
+                {cfg.readings && (
+                  <Field label="Título de los círculos de la luna">
+                    <input className="input h-10 text-sm" placeholder={READINGS_DEFAULTS.circlesTitle} maxLength={80} value={cfg.readings.circlesTitle} onChange={(e) => set("readings", { ...cfg.readings!, circlesTitle: e.target.value })} />
+                  </Field>
+                )}
               </section>
             </>
           )}

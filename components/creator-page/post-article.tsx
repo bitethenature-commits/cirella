@@ -1,11 +1,16 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react";
 import { imageSrcSet } from "@/lib/media-url";
-import { readingMinutes } from "@/lib/posts";
+import { readingMinutes, readPostMedia } from "@/lib/posts";
+import { safeHref } from "@/lib/page-config";
 import { RichContent } from "@/components/rich-text/rich-content";
+import { CopyButton } from "@/components/ui/copy-button";
+import { PageVideo } from "./page-video";
+import { VideoFacade } from "./video-facade";
 
 /**
- * Una publicación entera (página pública /<usuaria>/novedades/<slug> y vista previa del panel).
+ * Una publicación entera (página pública /<usuaria>/actualidades/<slug> y vista previa del panel),
+ * con su vídeo o audio y su llamada a la acción (botón y código de descuento).
  * El cuerpo se pinta sin HTML (components/rich-text/rich-content.tsx), con o sin formato.
  */
 export function PostArticle({
@@ -15,24 +20,39 @@ export function PostArticle({
   older,
   newer,
 }: {
-  post: { title: string; excerpt: string | null; body: string; bodyFormat?: string | null; imageUrl: string | null; publishedAt: Date | null };
+  post: {
+    title: string;
+    excerpt: string | null;
+    body: string;
+    bodyFormat?: string | null;
+    imageUrl: string | null;
+    publishedAt: Date | null;
+    mediaKind?: string | null;
+    media?: unknown;
+    ctaLabel?: string | null;
+    ctaUrl?: string | null;
+    ctaCode?: string | null;
+  };
   /** «12 de octubre de 2026» (o «Borrador» en la vista previa). */
   dateLabel: string;
-  /** Enlace a la lista de novedades (null en la vista previa). */
+  /** Enlace a la lista de actualidades (null en la vista previa). */
   listHref: string | null;
   older?: { href: string; title: string } | null;
   newer?: { href: string; title: string } | null;
 }) {
   const minutes = readingMinutes(post.body, post.bodyFormat);
+  const media = readPostMedia(post.mediaKind, post.media);
+  const cta = post.ctaLabel && post.ctaUrl ? { label: post.ctaLabel, url: post.ctaUrl, code: post.ctaCode } : null;
+  const external = cta && !cta.url.startsWith("/");
   return (
     <article className="mx-auto max-w-2xl px-4 pb-10 pt-8 sm:pt-12">
       <p className="cp-eyebrow">
         {listHref ? (
           <Link href={listHref} className="underline-offset-4 hover:underline">
-            Novedades
+            Actualidades
           </Link>
         ) : (
-          "Novedades"
+          "Actualidades"
         )}
       </p>
       <h1 className="cp-display mt-3 text-[2.4rem] leading-[1.05] sm:text-[3rem]">{post.title}</h1>
@@ -40,7 +60,16 @@ export function PostArticle({
         {post.publishedAt ? <time dateTime={post.publishedAt.toISOString()}>{dateLabel}</time> : dateLabel} · {minutes} min de lectura
       </p>
       {post.excerpt && <p className="mt-5 text-[1.1rem] leading-relaxed">{post.excerpt}</p>}
-      {post.imageUrl && (
+      {media?.kind === "VIDEO" && (
+        <div className="cp-card mt-7 overflow-hidden" data-post-media="video">
+          {"embedUrl" in media ? (
+            <VideoFacade url={media.embedUrl} poster={post.imageUrl} title={post.title} />
+          ) : (
+            <PageVideo video={{ src: media.src, width: media.width ?? null, height: media.height ?? null, durationSec: media.durationSec ?? null, codec: null, sizeBytes: null }} poster={media.poster ?? post.imageUrl} title={post.title} />
+          )}
+        </div>
+      )}
+      {post.imageUrl && media?.kind !== "VIDEO" && (
         <div className="cp-card mt-7 overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -54,10 +83,28 @@ export function PostArticle({
           />
         </div>
       )}
+      {media?.kind === "AUDIO" && (
+        <div className="cp-card mt-6 p-4" data-post-media="audio">
+          <audio src={media.src} controls preload="none" controlsList="nodownload" className="w-full" aria-label={`Audio: ${post.title}`} />
+        </div>
+      )}
       <RichContent text={post.body} format={post.bodyFormat} legacy="links" tone="page" headingLevel={2} className="mt-8 space-y-5 text-[1.02rem] leading-[1.75]" />
+      {cta && (
+        <div className="cp-card mt-8 flex flex-wrap items-center gap-3 p-5" data-post-cta>
+          <a href={safeHref(cta.url)} className="cp-btn" {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+            {cta.label} {external ? <ArrowUpRight className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
+          </a>
+          {cta.code && (
+            <span className="inline-flex items-center gap-2">
+              <span className="cp-chip-code" aria-label={`Código de descuento ${cta.code}`}>{cta.code}</span>
+              <CopyButton text={cta.code} label="Copiar código" className="cp-btn-ghost !min-h-0 !px-3 !py-1.5 text-xs" />
+            </span>
+          )}
+        </div>
+      )}
 
       {(older || newer || listHref) && (
-        <nav aria-label="Más novedades" className="mt-12 grid gap-3 border-t pt-8 sm:grid-cols-2" style={{ borderColor: "var(--c-line)" }}>
+        <nav aria-label="Más actualidades" className="mt-12 grid gap-3 border-t pt-8 sm:grid-cols-2" style={{ borderColor: "var(--c-line)" }}>
           {newer ? (
             <Link href={newer.href} className="cp-card cp-card-hover block p-4">
               <span className="cp-faint flex items-center gap-1.5 text-xs">
@@ -78,7 +125,7 @@ export function PostArticle({
           )}
           {listHref && (
             <Link href={listHref} className="cp-btn-ghost justify-self-start sm:col-span-2">
-              Ver todas las novedades
+              Ver todas las actualidades
             </Link>
           )}
         </nav>

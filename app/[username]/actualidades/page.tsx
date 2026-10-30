@@ -3,11 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
+import { PostCard } from "@/components/creator-page/post-card";
 import { TrackOnMount } from "@/components/creator-page/tracking";
-import { imageSrcSet } from "@/lib/media-url";
-import { postPath } from "@/lib/posts";
+import { groupPostsByMonth } from "@/lib/posts";
 import { getPublicPostList } from "@/lib/public";
-import { novedadesData } from "./data";
+import { sectionPageData } from "../section-data";
 
 type Params = { username: string };
 type Search = { pagina?: string };
@@ -17,10 +17,10 @@ const pageOf = (raw?: string) => Math.max(1, Math.min(1000, Number.parseInt(raw 
 export async function generateMetadata({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<Search> }): Promise<Metadata> {
   const { username } = await params;
   const page = pageOf((await searchParams).pagina);
-  const data = await novedadesData(username);
+  const data = await sectionPageData(username);
   if (!data) return { title: "Página no encontrada" };
-  const title = `Novedades · ${data.config.displayName}`;
-  const description = `Las últimas publicaciones de ${data.config.displayName}.`;
+  const title = `Actualidades · ${data.config.displayName}`;
+  const description = `Todo lo que publica ${data.config.displayName}, por meses.`;
   const url = page > 1 ? `${data.listUrl}?pagina=${page}` : data.listUrl;
   return {
     title,
@@ -31,21 +31,25 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   };
 }
 
-/** Todas las publicaciones de una creadora, de la más reciente a la más antigua. */
-export default async function NovedadesPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<Search> }) {
+/**
+ * «Actualidades»: todas las publicaciones de una creadora, de la más reciente a la más antigua,
+ * agrupadas por mes y año (en su zona horaria), con la fecha grande en cada tarjeta.
+ */
+export default async function ActualidadesPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<Search> }) {
   const { username } = await params;
   const page = pageOf((await searchParams).pagina);
-  const data = await novedadesData(username);
+  const data = await sectionPageData(username);
   if (!data) notFound();
   const { creator, config } = data;
   const { posts, pages } = await getPublicPostList(creator.id, creator.timezone, page);
   if (page > pages) notFound();
+  const months = groupPostsByMonth(posts, creator.timezone);
 
   return (
     <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
-      <main className="mx-auto max-w-2xl px-4 pb-10 pt-8 sm:pt-12">
+      <main className="mx-auto max-w-3xl px-4 pb-10 pt-8 sm:pt-12">
         <p className="cp-eyebrow">{config.displayName}</p>
-        <h1 className="cp-display mt-2 text-[2.6rem] leading-tight">Novedades</h1>
+        <h1 className="cp-display mt-2 text-[2.6rem] leading-tight">Actualidades</h1>
 
         {posts.length === 0 ? (
           <div className="cp-card mt-8 p-6 text-center">
@@ -55,38 +59,22 @@ export default async function NovedadesPage({ params, searchParams }: { params: 
             </Link>
           </div>
         ) : (
-          <ol className="mt-8 space-y-4">
-            {posts.map((p) => (
-              <li key={p.id}>
-                <Link href={postPath(creator.username, p.slug)} className="cp-card cp-card-hover group block overflow-hidden">
-                  {p.imageUrl && (
-                    <span className="relative block aspect-[16/7] overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={p.imageUrl}
-                        srcSet={imageSrcSet(p.imageUrl)}
-                        sizes="(min-width: 672px) 640px, 100vw"
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        className="cp-img absolute inset-0 h-full w-full object-cover transition duration-500"
-                      />
-                    </span>
-                  )}
-                  <span className="block p-5 sm:p-6">
-                    <time dateTime={p.publishedAt.toISOString()} className="cp-eyebrow block">
-                      {p.dateLabel}
-                    </time>
-                    <span className="cp-display mt-2 block text-[1.7rem] leading-tight">{p.title}</span>
-                    {p.excerpt && <span className="cp-muted mt-2 block text-[0.92rem] leading-relaxed">{p.excerpt}</span>}
-                    <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold">
-                      Leer <ArrowRight className="h-3.5 w-3.5" />
-                    </span>
-                  </span>
-                </Link>
-              </li>
+          <div className="mt-8 space-y-10">
+            {months.map((m) => (
+              <section key={m.key} aria-labelledby={`mes-${m.key}`} data-month={m.key}>
+                <h2 id={`mes-${m.key}`} className="cp-display text-[1.7rem]">
+                  {m.label}
+                </h2>
+                <ol className="mt-4 grid gap-4 sm:grid-cols-2">
+                  {m.posts.map((p) => (
+                    <li key={p.id}>
+                      <PostCard post={p} username={creator.username} withDate />
+                    </li>
+                  ))}
+                </ol>
+              </section>
             ))}
-          </ol>
+          </div>
         )}
 
         {pages > 1 && (

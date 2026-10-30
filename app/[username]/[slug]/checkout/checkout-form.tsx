@@ -26,7 +26,10 @@ type Product = {
   title: string;
   emoji: string | null;
   imageUrl: string | null;
+  /** Lo que se cobra ahora (con la oferta si está activa; el servidor lo vuelve a calcular al pagar). */
   priceCents: number;
+  /** Oferta activa: el precio normal (tachado) y su etiqueta. */
+  sale?: { regularCents: number; label: string | null } | null;
   currency: string;
   billingInterval: string | null;
   durationMin: number | null;
@@ -216,12 +219,19 @@ export function CheckoutForm({
           <ProductImage src={product.imageUrl} emoji={product.emoji} title={product.title} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="cp-muted text-xs">{PRODUCT_TYPE_LABEL[product.type as ProductType]}{isSession && product.durationMin ? ` · ${product.durationMin} min` : ""}</p>
+          <p className="cp-muted text-xs">{product.type === "MEMBERSHIP" ? "Comunidad" : PRODUCT_TYPE_LABEL[product.type as ProductType]}{isSession && product.durationMin ? ` · ${product.durationMin} min` : ""}</p>
           <p className="cp-display truncate text-[1.35rem]">{product.title}</p>
           <p className="text-sm font-semibold">
+            {product.sale && <s className="cp-muted mr-1.5 font-normal">{formatPrice(product.sale.regularCents, product.currency)}</s>}
             {price}
             {withVat && <span className="cp-muted font-normal"> · IVA incluido</span>}
           </p>
+          {product.sale && (
+            <p className="cp-gold text-xs font-semibold" data-sale>
+              Oferta{product.sale.label ? ` · ${product.sale.label}` : ""}
+              {product.type === "MEMBERSHIP" ? " · primer pago; después, el precio normal" : ""}
+            </p>
+          )}
         </div>
       </div>
 

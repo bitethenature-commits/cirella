@@ -216,6 +216,31 @@
 .cp-input::placeholder { color: var(--c-faint); }
 .cp-input:focus { outline: none; border-color: var(--c-accent); box-shadow: 0 0 0 4px color-mix(in oklab, var(--c-accent) 22%, transparent); }
 
+/* Portada nueva: código de descuento, etiquetas, burbujas de «Accesos» y fecha grande de «Actualidades» */
+.cp-chip-code {
+  display: inline-flex; align-items: center; padding: .3rem .65rem; border-radius: min(var(--r-btn), 10px);
+  border: 1px dashed var(--c-gold); color: var(--c-gold); font-weight: 650; letter-spacing: .08em; font-size: .85rem;
+}
+.cp-tag {
+  display: inline-flex; align-items: center; gap: .35rem; align-self: flex-start; border-radius: 999px; padding: .22rem .65rem;
+  font-size: .66rem; font-weight: 650; letter-spacing: .1em; text-transform: uppercase;
+  background: var(--c-gold); color: var(--c-bg);
+}
+.cp-tag[data-tone="accent"] { background: var(--c-accent); color: var(--c-accent-text); }
+.cp-pill-on-img {
+  display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; padding: .3rem .7rem; font-size: .72rem; font-weight: 600;
+  background: color-mix(in oklab, var(--c-bg) 80%, transparent); color: var(--c-text); backdrop-filter: blur(10px);
+}
+.cp-date-badge {
+  position: absolute; left: .85rem; top: .85rem; border-radius: min(var(--r-card), 14px); padding: .45rem .7rem; text-align: center;
+  background: color-mix(in oklab, var(--c-bg) 88%, transparent); color: var(--c-text); backdrop-filter: blur(10px);
+}
+.cp-bubble-img {
+  width: 100%; aspect-ratio: 1; max-width: 6.5rem; border-radius: 999px; object-fit: cover; padding: 3px;
+  background: linear-gradient(135deg, var(--c-gold), var(--c-accent));
+}
+.cp-locked-cover { filter: blur(10px) brightness(.5); transform: scale(1.1); }
+
 /* Decoraciones por plantilla */
 .cp-decor { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
 .cp-decor-stars::before { content: ""; position: absolute; inset: 0; }

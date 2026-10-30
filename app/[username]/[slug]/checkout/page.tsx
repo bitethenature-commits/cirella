@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { effectivePriceCents, orderSaleMeta } from "@/lib/offers";
 import { Prisma } from "@prisma/client";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
@@ -131,7 +132,9 @@ export default async function CheckoutPage({
             title: p.title,
             emoji: p.emoji,
             imageUrl: p.imageUrl,
-            priceCents: p.priceCents,
+            // Con la oferta si está activa (lib/offers.ts); al pagar, el servidor lo vuelve a calcular.
+            priceCents: effectivePriceCents(p),
+            sale: orderSaleMeta(p),
             currency: p.currency,
             billingInterval: p.billingInterval,
             durationMin: p.durationMin,

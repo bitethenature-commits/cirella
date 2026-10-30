@@ -6,7 +6,10 @@ import { prisma } from "./db";
 import { expiryLabel, visibleCodeWhere } from "./discount-codes";
 import { readPageConfig } from "./page-config";
 import { planFeatures, type PlanFeatures } from "./plans";
-import { POSTS_ON_PAGE, POSTS_PER_PAGE, postExcerpt, publicPostWhere } from "./posts";
+import { POSTS_ON_PAGE, POSTS_PER_PAGE, postDateBadge, postExcerpt, publicPostWhere, readPostMedia } from "./posts";
+import { channelKindLabel } from "./channel-kind";
+import { saleEndsLabel, saleState } from "./offers";
+import { eventLabel, publicPortalItem, type PublicPortalItem } from "./portal-rules";
 import { isPublicUsernameAllowed } from "./personal-routing";
 import { hasPaymentProvider } from "./payments";
 import { getSettings } from "./settings";
@@ -44,7 +47,7 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
   const raw = draft ? creator.pageDraft : (creator.pagePublished ?? creator.pageDraft);
   const config = readPageConfig(raw, creator.displayName);
   const now = new Date();
-  const [rows, postRows, postCount, codeRows, settings, pageRows] = await Promise.all([
+  const [rows, postRows, postCount, codeRows, settings, pageRows, portalRows] = await Promise.all([
     prisma.product.findMany({
       where: { creatorId: creator.id, status: "PUBLISHED" },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -68,6 +71,12 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       select: { slug: true, title: true, publishedTitle: true },
     }),
+    // Portal de Noticias: solo lo que se puede enseñar bloqueado (la página está cacheada; lo
+    // desbloqueado lo pide el navegador a /api/portal con su sesión).
+    prisma.portalItem.findMany({
+      where: { creatorId: creator.id, status: "PUBLISHED" },
+      orderBy: [{ featured: "desc" }, { sortOrder: "asc" }, { createdAt: "desc" }],
+    }),
   ]);
   // «IVA incluido» con una compradora de España (el precio es el mismo en todos los países).
   const mode = asTaxMode(settings.taxMode);
@@ -78,6 +87,8 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
     .filter((p) => !(p.type === "SESSION" && p.groupSession && (!p.eventStartAt || p.eventStartAt <= now)))
     .map((p) => {
       const accessMode = asAccessMode(p.accessMode);
+      // Oferta: solo en lo que se paga en la web (lo gratuito y lo de fuera no se cobra aquí).
+      const sale = accessMode === "PAID" ? saleState(p, now) : null;
       return {
         id: p.id,
         type: p.type,
@@ -107,9 +118,19 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
         externalUrl: accessMode === "EXTERNAL" ? p.externalUrl : null,
         externalLabel: accessMode === "EXTERNAL" ? p.externalLabel : null,
         externalHost: accessMode === "EXTERNAL" ? externalHost(p.externalUrl) : null,
+        sale: sale?.active
+          ? { priceCents: sale.priceCents, regularCents: sale.regularCents, percentOff: sale.percentOff ?? 0, label: sale.label, endsLabel: saleEndsLabel(sale.endsAt, creator.timezone) }
+          : null,
+        courseCategory: p.courseCategory,
+        groupSession: p.groupSession,
+        moonCircle: p.groupSession && p.moonCircle,
+        eventLabel: p.groupSession && p.eventStartAt ? eventLabel(p.eventStartAt, creator.timezone) : null,
+        eventStartAt: p.groupSession && p.eventStartAt ? p.eventStartAt.toISOString() : null,
+        kindLabel: channelKindLabel(p),
       };
     });
   const posts = postRows.map((p) => toPublicPost(p, creator.timezone));
+  const portal: PublicPortalItem[] = portalRows.map((i) => publicPortalItem(i, false, creator.timezone));
   const discountCodes: PublicDiscountCode[] = codeRows.map((c) => ({
     id: c.id,
     brand: c.brand,
@@ -123,9 +144,11 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
     creator,
     config,
     products,
-    /** Las últimas publicaciones (sección «Novedades») y cuántas hay en total. */
+    /** Las últimas publicaciones (sección «Actualidades») y cuántas hay en total. */
     posts,
     postCount,
+    /** Portal de Noticias, siempre bloqueado aquí (página cacheada). */
+    portal,
     discountCodes,
     /** Páginas extra publicadas del pie de la web («Sobre mí», «Preguntas frecuentes»…). */
     pages: pageRows.map((p) => ({ href: sitePagePath(creator.username, p.slug, personal), title: p.publishedTitle || p.title })),
@@ -139,25 +162,57 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
   };
 });
 
-const POST_CARD_SELECT = { id: true, slug: true, title: true, excerpt: true, body: true, bodyFormat: true, imageUrl: true, publishedAt: true } as const;
+const POST_CARD_SELECT = {
+  id: true,
+  slug: true,
+  title: true,
+  excerpt: true,
+  body: true,
+  bodyFormat: true,
+  imageUrl: true,
+  publishedAt: true,
+  mediaKind: true,
+  media: true,
+  ctaLabel: true,
+  ctaUrl: true,
+  ctaCode: true,
+} as const;
 
 function toPublicPost(
-  p: { id: string; slug: string; title: string; excerpt: string | null; body: string; bodyFormat?: string | null; imageUrl: string | null; publishedAt: Date | null },
+  p: {
+    id: string;
+    slug: string;
+    title: string;
+    excerpt: string | null;
+    body: string;
+    bodyFormat?: string | null;
+    imageUrl: string | null;
+    publishedAt: Date | null;
+    mediaKind?: string | null;
+    media?: unknown;
+    ctaLabel?: string | null;
+    ctaUrl?: string | null;
+    ctaCode?: string | null;
+  },
   timeZone: string,
 ): PublicPost {
   const publishedAt = p.publishedAt ?? new Date(0);
+  const media = readPostMedia(p.mediaKind, p.media);
   return {
     id: p.id,
     slug: p.slug,
     title: p.title,
     excerpt: postExcerpt(p),
-    imageUrl: p.imageUrl,
+    imageUrl: p.imageUrl ?? (media && "poster" in media ? (media.poster ?? null) : null),
     publishedAt,
     dateLabel: formatDate(publishedAt, { day: "numeric", month: "long", year: "numeric" }, timeZone),
+    dateBadge: postDateBadge(publishedAt, timeZone),
+    mediaKind: media?.kind ?? null,
+    cta: p.ctaLabel && p.ctaUrl ? { label: p.ctaLabel, url: p.ctaUrl, code: p.ctaCode ?? null } : null,
   };
 }
 
-/** Lista de publicaciones visibles de una creadora (/<usuaria>/novedades), paginada. */
+/** Lista de publicaciones visibles de una creadora (/<usuaria>/actualidades), paginada. */
 export async function getPublicPostList(creatorId: string, timeZone: string, page = 1) {
   const now = new Date();
   const where = { creatorId, ...publicPostWhere(now) };

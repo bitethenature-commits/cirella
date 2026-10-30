@@ -7,7 +7,7 @@ import { appUrl } from "@/lib/env";
 import { postExcerpt, postPath } from "@/lib/posts";
 import { getAdjacentPosts, getPublicPost } from "@/lib/public";
 import { formatDate } from "@/lib/tz";
-import { novedadesData } from "../data";
+import { sectionPageData } from "../../section-data";
 
 type Params = { username: string; slug: string };
 
@@ -20,7 +20,7 @@ export function generateStaticParams(): Params[] {
 }
 
 async function load(username: string, slug: string) {
-  const data = await novedadesData(username);
+  const data = await sectionPageData(username);
   if (!data) return null;
   const post = await getPublicPost(data.creator.id, slug);
   return post ? { data, post } : null;
@@ -54,7 +54,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   };
 }
 
-/** Una publicación de la creadora («Novedades»). */
+/** Una publicación de la creadora («Actualidades»), con su vídeo o audio y su llamada a la acción. */
 export default async function PostPage({ params }: { params: Promise<Params> }) {
   const { username, slug } = await params;
   const found = await load(username, slug);

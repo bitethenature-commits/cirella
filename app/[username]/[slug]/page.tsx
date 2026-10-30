@@ -13,6 +13,7 @@ import { appUrl, isDemoMode } from "@/lib/env";
 import { getPlatformIssuer } from "@/lib/invoices/issuer";
 import { creatorLegalHref, legalIdentityComplete, sellerStatement, sessionChangePolicyText, waiverKindFor, withdrawalInfoLine } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
+import { saleEndsLabel, saleState } from "@/lib/offers";
 import { getPublicProduct } from "@/lib/product-page";
 import { isPersonalMode } from "@/lib/site-mode";
 import { decideTax } from "@/lib/tax";
@@ -68,7 +69,12 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const external = accessMode === "EXTERNAL" && !!p.externalUrl;
   const externalSite = external ? externalHost(p.externalUrl) : null;
   const cta = free ? p.ctaLabel || "Quiero el acceso gratis" : external ? externalButtonLabel(p) : p.ctaLabel || DEFAULT_CTA[type];
-  const price = free ? "Gratis" : formatPrice(p.priceCents, p.currency, p.billingInterval);
+  // Oferta activa (lib/offers.ts): solo en lo que se paga aquí. El checkout cobra lo mismo (calculado en el servidor).
+  const sale = paid ? saleState(p) : null;
+  const onSale = !!sale?.active;
+  const price = free ? "Gratis" : formatPrice(onSale ? sale!.priceCents : p.priceCents, p.currency, p.billingInterval);
+  const regularPrice = onSale ? formatPrice(sale!.regularCents, p.currency, p.billingInterval) : null;
+  const saleLine = onSale ? [sale!.label, sale!.percentOff ? `−${sale!.percentOff} %` : null, saleEndsLabel(sale!.endsAt, creator.timezone)].filter(Boolean).join(" · ") : null;
   // El precio de lo que se paga fuera es informativo y opcional: sin precio, no se muestra.
   const showPrice = !external || p.priceCents > 0;
   const checkoutHref = `/${username}/${p.slug}/checkout`;
@@ -169,11 +175,26 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
         <div className="mt-7 md:mt-0">
           <p className="cp-eyebrow">
-            {p.emoji} {PRODUCT_TYPE_LABEL[type]}
+            {p.emoji} {type === "MEMBERSHIP" ? "Comunidad" : PRODUCT_TYPE_LABEL[type]}
           </p>
           <h1 className="cp-display mt-3 text-[2.5rem] sm:text-[3rem]">{p.title}</h1>
           {p.summary && <p className="cp-muted mt-3 text-[1.02rem] leading-relaxed">{p.summary}</p>}
-          {showPrice && <p className="mt-6 text-3xl font-semibold tracking-tight">{price}</p>}
+          {showPrice && (
+            <p className="mt-6 text-3xl font-semibold tracking-tight" data-price>
+              {regularPrice && (
+                <s className="cp-muted mr-2 text-xl font-normal" data-regular-price>
+                  {regularPrice}
+                </s>
+              )}
+              {price}
+            </p>
+          )}
+          {saleLine && (
+            <p className="mt-2" data-sale>
+              <span className="cp-tag">Oferta · {saleLine}</span>
+            </p>
+          )}
+          {onSale && type === "MEMBERSHIP" && <p className="cp-muted mt-2 text-xs">El precio de oferta es el del primer pago. Las renovaciones van al precio normal ({regularPrice}).</p>}
           {paid ? (
             <p className="cp-muted text-xs">{data.summary.vatIncluded ? "IVA incluido" : "Precio final"}</p>
           ) : external && externalSite ? (
@@ -377,7 +398,14 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs" style={{ color: "var(--c-muted)" }}>{p.title}</p>
-            {showPrice ? <p className="text-lg font-semibold">{price}</p> : externalSite && <p className="text-sm font-semibold">Pago en {externalSite}</p>}
+            {showPrice ? (
+              <p className="text-lg font-semibold">
+                {regularPrice && <s className="cp-muted mr-1.5 text-sm font-normal">{regularPrice}</s>}
+                {price}
+              </p>
+            ) : (
+              externalSite && <p className="text-sm font-semibold">Pago en {externalSite}</p>
+            )}
           </div>
           {paid ? (
             <TrackedLink href={checkoutHref} event={clickEvent} className="cp-btn">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, ExternalLink, Mail, MessageCircle, Plus, Quote } from "lucide-react";
+import { ArrowRight, ArrowUpRight, ExternalLink, Mail, MessageCircle, Moon, Plus, Quote } from "lucide-react";
 import { AccountEntry } from "./account-entry";
 import { ContentBlocks } from "./content-blocks";
 import { SiteNav, type SiteNavPage } from "./site-nav";
@@ -16,7 +16,9 @@ import {
   type PageConfig,
   type SectionKey,
 } from "@/lib/page-config";
-import { postPath } from "@/lib/posts";
+import { READINGS_DEFAULTS } from "@/lib/page-config";
+import type { PublicPortalItem } from "@/lib/portal-rules";
+import { sectionPagePath } from "@/lib/site-sections";
 import { resolveTheme, themeStyle } from "@/lib/templates";
 import { DEFAULT_CTA, type ProductType } from "@/lib/types";
 import { SocialIcon } from "../social-icons";
@@ -25,6 +27,8 @@ import { LegalLinks } from "./legal-links";
 import { NewsletterSignup } from "./newsletter-signup";
 import { creatorLegalHref } from "@/lib/legal";
 import { Avatar, ProductImage } from "./product-art";
+import { PortalSection } from "./portal-section";
+import { PostCard } from "./post-card";
 import { TrackedAnchor, TrackedLink } from "./tracking";
 
 export type PublicProduct = {
@@ -43,6 +47,18 @@ export type PublicProduct = {
   meta?: string | null; // "75 min", "7 lecciones"…
   /** El precio lleva IVA (lib/tax). Las vistas previas del editor no lo pasan. */
   vatIncluded?: boolean;
+  /** Oferta activa (lib/offers.ts): el precio de ahora, el normal tachado, la etiqueta y hasta cuándo. */
+  sale?: { priceCents: number; regularCents: number; percentOff: number; label: string | null; endsLabel: string | null } | null;
+  /** Curso: su método (lib/course-categories.ts). */
+  courseCategory?: string | null;
+  /** Taller (sesión de grupo con fecha) y si es un círculo de la luna. */
+  groupSession?: boolean;
+  moonCircle?: boolean;
+  /** «Jue 5 nov · 20:00 (hora de España)» de un taller. */
+  eventLabel?: string | null;
+  eventStartAt?: string | null;
+  /** «Lectura», «Sesión», «Taller», «Curso»… (lib/channel-kind.ts). */
+  kindLabel?: string;
   /** Cómo se consigue (lib/access-mode.ts). Sin valor: pago en la web (PAID). */
   accessMode?: string;
   /** Pago fuera (EXTERNAL): la web externa, el texto del botón y su dominio («hotmart.com»). */
@@ -51,7 +67,7 @@ export type PublicProduct = {
   externalHost?: string | null;
 };
 
-/** Publicación de la sección «Novedades» (lib/public.ts). */
+/** Publicación de la sección «Actualidades» (lib/public.ts). */
 export type PublicPost = {
   id: string;
   slug: string;
@@ -61,6 +77,12 @@ export type PublicPost = {
   publishedAt: Date;
   /** «12 de octubre de 2026», ya en la zona horaria de la creadora. */
   dateLabel: string;
+  /** La fecha en grande de la tarjeta: «05» y «nov». */
+  dateBadge: { day: string; month: string };
+  /** Lleva vídeo o audio (se avisa en la portada de la tarjeta). */
+  mediaKind: "VIDEO" | "AUDIO" | null;
+  /** Llamada a la acción: botón con su enlace y código de descuento opcional. */
+  cta: { label: string; url: string; code: string | null } | null;
 };
 
 /** Código de descuento de otra marca (lib/public.ts): solo los activos y sin caducar. */
@@ -79,7 +101,7 @@ const TYPE_EYEBROW: Record<ProductType, string> = {
   DIGITAL: "Digital",
   SESSION: "Sesión",
   COURSE: "Curso",
-  MEMBERSHIP: "Membresía",
+  MEMBERSHIP: "Comunidad",
 };
 
 const SECTION_TYPE: Partial<Record<SectionKey, ProductType>> = {
@@ -102,9 +124,11 @@ type Props = {
   sellerName?: string | null;
   /** Vista previa del editor: sin tracking y sin animaciones de entrada. */
   preview?: boolean;
-  /** Las últimas publicaciones (sección «Novedades») y cuántas hay en total. */
+  /** Las últimas publicaciones (sección «Actualidades») y cuántas hay en total. */
   posts?: PublicPost[];
   postCount?: number;
+  /** Portal de Noticias, bloqueado (el navegador pide lo desbloqueado con su sesión). */
+  portal?: PublicPortalItem[];
   /** Códigos de descuento visibles (sección «Códigos de descuento»). */
   discountCodes?: PublicDiscountCode[];
   /** Web personal (SITE_MODE=personal): sin «Powered by». */
@@ -129,17 +153,25 @@ export function CreatorPageView(props: Props) {
   const posts = props.posts ?? [];
   const codes = props.discountCodes ?? [];
   const theme = resolveTheme(config.template, config.theme, props.allowCustom);
-  const featured = products.find((p) => p.featured);
   const reveal = preview ? {} : { "data-reveal": "" };
   const trackId = preview ? null : props.creatorId;
+  const path = (page: Parameters<typeof sectionPagePath>[1]) => sectionPagePath(username, page, !!personal);
+  const courseCount = products.filter((p) => p.type === "COURSE").length;
 
   const renderSection = (key: SectionKey) => {
     const type = SECTION_TYPE[key];
     if (type) {
-      const items = products.filter((p) => p.type === type && p.id !== featured?.id);
+      const items = products.filter((p) => p.type === type);
       if (!items.length) return null;
+      // Cursos: con más de uno, su página propia los agrupa por método (/cursos).
+      const more =
+        key === "courses" && courseCount > 1 ? (
+          <Link href={path("cursos")} className="cp-btn-ghost mt-5 w-full">
+            Ver todos los cursos por método <ArrowRight className="h-4 w-4" />
+          </Link>
+        ) : null;
       return (
-        <section key={key} id={key} className="mt-14" {...reveal}>
+        <section key={key} id={key === "courses" ? "cursos" : key} className="mt-14" {...reveal}>
           <SectionHeading title={sectionTitle(config, key)} count={items.length} />
           {items.length === 1 ? (
             <div className="mt-5">
@@ -154,6 +186,7 @@ export function CreatorPageView(props: Props) {
               ))}
             </div>
           )}
+          {more}
         </section>
       );
     }
@@ -169,22 +202,199 @@ export function CreatorPageView(props: Props) {
           </section>
         );
       }
+      case "bubbles": {
+        const bubbles = (config.bubbles ?? []).filter((b) => !linksToProduct(b.url, username, hiddenSlugs, props.siteOrigin));
+        if (!bubbles.length) return null;
+        return (
+          <nav key={key} aria-label="Accesos" className="mt-12 grid gap-3" style={{ gridTemplateColumns: `repeat(${bubbles.length}, minmax(0, 1fr))` }} {...reveal}>
+            {bubbles.map((b) => (
+              <a key={b.id} href={safeHref(b.url)} className="group flex flex-col items-center gap-2.5 text-center" {...(isExternal(b.url) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+                {b.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={b.image} srcSet={imageSrcSet(b.image)} sizes="104px" alt="" loading="lazy" decoding="async" className="cp-bubble-img transition duration-300 group-hover:-translate-y-0.5" />
+                ) : (
+                  <span className="cp-bubble-img grid place-items-center" aria-hidden>
+                    <span className="cp-display grid h-full w-full place-items-center rounded-full text-[1.8rem]" style={{ background: "var(--c-surface)" }}>
+                      {b.label.trim().charAt(0).toUpperCase()}
+                    </span>
+                  </span>
+                )}
+                <span className="text-[0.9rem] font-semibold leading-tight">{b.label}</span>
+              </a>
+            ))}
+          </nav>
+        );
+      }
       case "posts": {
         if (!posts.length) return null;
         const total = Math.max(props.postCount ?? posts.length, posts.length);
         return (
-          <section key={key} id="novedades" className="mt-16" {...reveal}>
+          <section key={key} id="actualidades" className="mt-16" {...reveal}>
             <div className="flex items-end justify-between gap-4">
               <h2 className="cp-display text-[2rem] sm:text-[2.3rem]">{sectionTitle(config, key)}</h2>
-              <Link href={`/${username}/novedades`} className="cp-muted inline-flex shrink-0 items-center gap-1 pb-1.5 text-sm font-medium underline-offset-4 hover:underline">
+              <Link href={path("actualidades")} className="cp-muted inline-flex shrink-0 items-center gap-1 pb-1.5 text-sm font-medium underline-offset-4 hover:underline">
                 Ver todas{total > posts.length ? ` (${total})` : ""} <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-            <div className="mt-5 space-y-3">
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
               {posts.map((p) => (
                 <PostCard key={p.id} post={p} username={username} />
               ))}
             </div>
+          </section>
+        );
+      }
+      case "portal": {
+        // Solo en la web personal: lo desbloquea su newsletter, que es de la dueña.
+        const items = props.portal ?? [];
+        if (!items.length || !personal) return null;
+        return (
+          <section key={key} id="portal" className="mt-16" {...reveal}>
+            <PortalSection
+              items={items}
+              title={sectionTitle(config, key)}
+              creatorName={config.displayName}
+              privacyHref={creatorLegalHref(username, "privacidad")}
+              portalHref={path("portal")}
+              username={username}
+              preview={!!preview}
+              home
+            />
+          </section>
+        );
+      }
+      case "offers": {
+        const onSale = products.filter((p) => p.sale);
+        if (!onSale.length) return null;
+        return (
+          <section key={key} id="ofertas" className="mt-16" {...reveal}>
+            <SectionHeading title={sectionTitle(config, key)} />
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              {onSale.map((p) => (
+                <OfferCard key={p.id} p={p} username={username} />
+              ))}
+            </div>
+          </section>
+        );
+      }
+      case "about": {
+        const a = config.about;
+        if (!a?.title) return null;
+        const href = a.url || path("actualidades");
+        return (
+          <section key={key} id="sobre-mi" className="mt-16" {...reveal}>
+            <a href={safeHref(href)} className="cp-card cp-card-hover group flex flex-col sm:flex-row-reverse sm:items-stretch" {...(isExternal(href) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+              {a.image && (
+                <span className="relative block aspect-[4/3] overflow-hidden sm:aspect-auto sm:w-[42%] sm:shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={a.image} srcSet={imageSrcSet(a.image)} sizes="(min-width: 640px) 290px, 92vw" alt="" loading="lazy" decoding="async" className="cp-img absolute inset-0 h-full w-full object-cover" />
+                </span>
+              )}
+              <span className="flex flex-1 flex-col justify-center gap-2 p-6 sm:p-8">
+                {a.eyebrow && <span className="cp-eyebrow">{a.eyebrow}</span>}
+                <span className="cp-display text-[2rem] leading-[1.05] sm:text-[2.3rem]">{a.title}</span>
+                {a.text && <span className="cp-muted text-[0.95rem] leading-relaxed">{a.text}</span>}
+                <span className="cp-gold mt-1 inline-flex items-center gap-1 text-sm font-semibold">
+                  {a.linkLabel || "Conoce mi historia"} <ArrowRight className="h-3.5 w-3.5" />
+                </span>
+              </span>
+            </a>
+          </section>
+        );
+      }
+      case "systems": {
+        const systems = config.systems ?? [];
+        if (!systems.length) return null;
+        return (
+          <section key={key} id="sistemas" className="mt-16" {...reveal}>
+            <SectionHeading title={sectionTitle(config, key)} />
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {systems.map((sys) => {
+                const inner = (
+                  <>
+                    <span className="relative block w-28 shrink-0 overflow-hidden sm:w-32">
+                      {sys.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={sys.image} srcSet={imageSrcSet(sys.image)} sizes="128px" alt="" loading="lazy" decoding="async" className="cp-img absolute inset-0 h-full w-full object-cover" />
+                      ) : (
+                        <span className="absolute inset-0" style={{ background: "linear-gradient(135deg, color-mix(in oklab, var(--c-accent) 45%, var(--c-bg)), color-mix(in oklab, var(--c-gold) 30%, var(--c-bg)))" }} />
+                      )}
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 p-4">
+                      <span className="cp-display text-[1.45rem] leading-tight">{sys.title}</span>
+                      {sys.text && <span className="cp-muted line-clamp-2 text-[0.84rem] leading-snug">{sys.text}</span>}
+                    </span>
+                    {sys.url && <ArrowRight className="mr-4 h-4 w-4 shrink-0 self-center opacity-60" />}
+                  </>
+                );
+                return sys.url ? (
+                  <a key={sys.id} href={safeHref(sys.url)} className="cp-card cp-card-hover group flex min-h-[7rem] items-stretch" {...(isExternal(sys.url) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+                    {inner}
+                  </a>
+                ) : (
+                  <div key={sys.id} className="cp-card flex min-h-[7rem] items-stretch">
+                    {inner}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      }
+      case "readings": {
+        const r = config.readings;
+        if (!r) return null;
+        const circles = products
+          .filter((p) => p.moonCircle && p.eventStartAt)
+          .sort((a, b) => (a.eventStartAt! < b.eventStartAt! ? -1 : 1))
+          .slice(0, 4);
+        const cards = [
+          { c: r.reading, d: READINGS_DEFAULTS.reading, href: path("lecturas") },
+          { c: r.session, d: READINGS_DEFAULTS.session, href: path("sesiones") },
+        ];
+        return (
+          <section key={key} id="lecturas" className="mt-16" {...reveal}>
+            <SectionHeading title={sectionTitle(config, key)} />
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              {cards.map(({ c, d, href }) => (
+                <Link key={href} href={href} className="cp-card cp-card-hover flex flex-col gap-2 p-6">
+                  <span className="cp-eyebrow">{c.eyebrow || d.eyebrow}</span>
+                  <span className="cp-display text-[1.7rem] leading-tight">{c.title || d.title}</span>
+                  <span className="cp-muted text-[0.9rem] leading-relaxed">{c.text || d.text}</span>
+                  <span className="cp-gold mt-auto inline-flex items-center gap-1 pt-2 text-sm font-semibold">
+                    Ver los pasos <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
+                </Link>
+              ))}
+            </div>
+            {circles.length > 0 && (
+              <div className="cp-card mt-4 p-5 sm:p-6" data-moon-circles>
+                <p className="cp-eyebrow flex items-center gap-1.5">
+                  <Moon className="h-3.5 w-3.5" /> {r.circlesTitle || READINGS_DEFAULTS.circlesTitle}
+                </p>
+                <ul className="mt-3 divide-y" style={{ borderColor: "var(--c-line)" }}>
+                  {circles.map((c) => (
+                    <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-3" style={{ borderColor: "var(--c-line)" }}>
+                      <span className="min-w-0">
+                        <Link href={`/${username}/${c.slug}`} className="block font-semibold underline-offset-4 hover:underline">
+                          {c.title}
+                        </Link>
+                        <span className="cp-muted block text-[0.82rem]">{c.eventLabel}</span>
+                        {c.sale && <span className="cp-gold block text-[0.78rem]">{formatPrice(c.sale.priceCents, c.currency)} · antes {formatPrice(c.sale.regularCents, c.currency)}</span>}
+                      </span>
+                      <TrackedLink
+                        href={(c.accessMode ?? "PAID") === "FREE_EMAIL" ? `/${username}/${c.slug}` : `/${username}/${c.slug}/checkout`}
+                        event={trackId ? { creatorId: trackId, type: "PRODUCT_CLICK" as const, productId: c.id } : null}
+                        className="cp-btn shrink-0 !min-h-[2.5rem] !text-[0.85rem]"
+                        ariaLabel={`Apuntarme: ${c.title}`}
+                      >
+                        Apuntarme
+                      </TrackedLink>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </section>
         );
       }
@@ -379,12 +589,7 @@ export function CreatorPageView(props: Props) {
 
         {config.sections.filter((s) => s.key === "links" && s.enabled).map((s) => renderSection(s.key))}
 
-        {featured && config.sections.find((s) => s.key === Object.entries(SECTION_TYPE).find(([, t]) => t === featured.type)?.[0])?.enabled !== false && (
-          <section className="mt-12" {...reveal}>
-            <ProductCard p={featured} large username={username} trackCreatorId={trackId} />
-          </section>
-        )}
-
+        {/* El antiguo «Destacado» ya no se pinta aparte: cada producto sale en su sección (Product.featured no hace nada aquí). */}
         {config.sections.filter((s) => s.enabled && s.key !== "links").map((s) => renderSection(s.key))}
 
         <footer className="mt-20 flex flex-col items-center gap-4 text-center text-xs">
@@ -415,7 +620,7 @@ export function CreatorPageView(props: Props) {
   );
 }
 
-function ProductCard({ p, large = false, username, trackCreatorId }: { p: PublicProduct; large?: boolean; username: string; trackCreatorId: string | null }) {
+export function ProductCard({ p, large = false, username, trackCreatorId }: { p: PublicProduct; large?: boolean; username: string; trackCreatorId: string | null }) {
   const mode = p.accessMode ?? "PAID";
   const free = mode === "FREE_EMAIL";
   const external = mode === "EXTERNAL" && !!p.externalUrl;
@@ -427,7 +632,7 @@ function ProductCard({ p, large = false, username, trackCreatorId }: { p: Public
   const productHref = `/${username}/${p.slug}`;
   const event = trackCreatorId ? { creatorId: trackCreatorId, type: "PRODUCT_CLICK" as const, productId: p.id } : null;
   // Gratis: «Gratis». Pago fuera: el precio (informativo, si lo hay) y dónde se paga. Pago aquí: precio e IVA.
-  const price = free ? "Gratis" : external && p.priceCents <= 0 ? null : formatPrice(p.priceCents, p.currency, p.billingInterval);
+  const price = free ? "Gratis" : external && p.priceCents <= 0 ? null : formatPrice(p.sale ? p.sale.priceCents : p.priceCents, p.currency, p.billingInterval);
   const priceNote = external ? (p.externalHost ? `Pago en ${p.externalHost}` : "Pago en otra web") : !free && p.vatIncluded ? "IVA incluido" : null;
   return (
     <article className="cp-card cp-card-hover group flex h-full flex-col">
@@ -454,7 +659,13 @@ function ProductCard({ p, large = false, username, trackCreatorId }: { p: Public
         </Link>
         <div className="mt-auto flex items-center justify-between gap-3 pt-5">
           <p className="min-w-0 text-lg font-semibold tracking-tight">
+            {p.sale && (
+              <s className="cp-muted mr-1.5 text-[0.85rem] font-normal" aria-label={`Antes ${formatPrice(p.sale.regularCents, p.currency, p.billingInterval)}`}>
+                {formatPrice(p.sale.regularCents, p.currency)}
+              </s>
+            )}
             {price}
+            {p.sale && <span className="cp-gold block text-[0.7rem] font-semibold">{saleTag(p.sale)}</span>}
             {priceNote && <span className={`cp-faint block font-normal ${price ? "text-[0.7rem]" : "text-xs"}`}>{priceNote}</span>}
           </p>
           {external ? (
@@ -474,32 +685,29 @@ function ProductCard({ p, large = false, username, trackCreatorId }: { p: Public
   );
 }
 
-function PostCard({ post, username }: { post: PublicPost; username: string }) {
+/** «Early Bird · −20 % · hasta el 10 de noviembre». */
+function saleTag(sale: NonNullable<PublicProduct["sale"]>) {
+  return [sale.label, sale.percentOff ? `−${sale.percentOff} %` : null, sale.endsLabel].filter(Boolean).join(" · ");
+}
+
+/** Tarjeta de la sección «Ofertas»: la etiqueta, el título y el precio de antes tachado. */
+function OfferCard({ p, username }: { p: PublicProduct; username: string }) {
+  const sale = p.sale!;
   return (
-    <Link href={postPath(username, post.slug)} className="cp-card cp-card-hover group flex items-stretch gap-4 overflow-hidden p-3 sm:p-4">
-      {post.imageUrl && (
-        <span className="relative block w-24 shrink-0 overflow-hidden rounded-[calc(var(--r-card)*0.7)] sm:w-32">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={post.imageUrl}
-            srcSet={imageSrcSet(post.imageUrl)}
-            sizes="128px"
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="cp-img absolute inset-0 h-full w-full object-cover transition duration-500"
-          />
-        </span>
-      )}
-      <span className="min-w-0 flex-1 py-1">
-        <time dateTime={new Date(post.publishedAt).toISOString()} className="cp-eyebrow block">
-          {post.dateLabel}
-        </time>
-        <span className="cp-display mt-1.5 block text-[1.35rem] leading-tight">{post.title}</span>
-        {post.excerpt && <span className="cp-muted mt-1.5 line-clamp-2 block text-[0.86rem] leading-relaxed">{post.excerpt}</span>}
+    <Link href={`/${username}/${p.slug}`} className="cp-card cp-card-hover flex flex-col gap-1.5 p-5" data-offer={p.slug}>
+      <span className="cp-tag">{saleTag(sale)}</span>
+      <span className="cp-display mt-1.5 text-[1.5rem] leading-tight">{p.title}</span>
+      <span className="text-[0.95rem]">
+        <s className="cp-muted">{formatPrice(sale.regularCents, p.currency, p.billingInterval)}</s>{" "}
+        <strong className="text-[1.15rem]">{formatPrice(sale.priceCents, p.currency, p.billingInterval)}</strong>
       </span>
+      {p.billingInterval && <span className="cp-faint text-[0.72rem]">El precio de oferta es el del primer pago; después, el normal.</span>}
     </Link>
   );
+}
+
+function isExternal(url: string) {
+  return /^https?:\/\//i.test(url.trim());
 }
 
 function SectionHeading({ title, count }: { title: string; count?: number }) {

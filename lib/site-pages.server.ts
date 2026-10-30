@@ -1,4 +1,5 @@
 import "server-only";
+import { SECTION_PAGE_TITLE, SECTION_PAGES, sectionPagePath } from "./site-sections";
 import type { Prisma } from "@prisma/client";
 import { cache } from "react";
 import { updateDraft } from "./creator";
@@ -173,7 +174,7 @@ export async function addSitePageButton(creatorId: string, id: string): Promise<
     : { ok: true, message: "Tu portada ya tiene un botón a esta página." };
 }
 
-/** Sugerencias de los campos de enlace del editor: portada, novedades, productos y páginas. */
+/** Sugerencias de los campos de enlace del editor: portada, las páginas de la portada, productos y páginas extra. */
 export async function sitePageLinkTargets(creatorId: string, username: string, personal: boolean): Promise<{ label: string; href: string }[]> {
   const db = tenantDb(creatorId);
   const [pages, products] = await Promise.all([
@@ -182,7 +183,7 @@ export async function sitePageLinkTargets(creatorId: string, username: string, p
   ]);
   return [
     { label: "Portada", href: personal ? "/" : `/${username}` },
-    { label: "Novedades", href: `/${username}/novedades` },
+    ...SECTION_PAGES.filter((p) => personal || p !== "portal").map((p) => ({ label: SECTION_PAGE_TITLE[p], href: sectionPagePath(username, p, personal) })),
     ...pages.map((p) => ({ label: `Página: ${p.title}`, href: sitePagePath(username, p.slug, personal) })),
     ...products.map((p) => ({ label: `Producto: ${p.title}`, href: `/${username}/${p.slug}` })),
   ];

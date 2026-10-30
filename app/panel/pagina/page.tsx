@@ -29,6 +29,7 @@ export default async function EditorPage() {
       products={data?.products ?? []}
       posts={data?.posts ?? []}
       postCount={data?.postCount ?? 0}
+      portal={data?.portal ?? []}
       discountCodes={data?.discountCodes ?? []}
       personal={data?.personal ?? false}
       signupsOnly={data?.signupsOnly ?? false}
