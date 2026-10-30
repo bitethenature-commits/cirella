@@ -336,6 +336,7 @@ model Creator {
   recoveryOptOuts       RecoveryOptOut[]
   posts                 Post[]
   discountCodes         DiscountCode[]
+  portalItems           PortalItem[]
   sitePages             SitePage[]
   availabilityOverrides AvailabilityOverride[]
   orderFiles            OrderFile[]
@@ -401,6 +402,19 @@ model Product {
   // Lo que se pregunta al reservar o comprar (lib/intake.ts → IntakeConfig): datos de nacimiento
   // (off | optional | required) y hasta 8 preguntas suyas. null = nada. Solo SESSION y DIGITAL «Lo preparo yo».
   intake         Json?
+  // Taller marcado como «Círculo de la luna» (luna nueva o llena): sale en la portada para apuntarse sin
+  // ser miembro. Solo talleres (groupSession).
+  moonCircle     Boolean   @default(false)
+
+  // Oferta (lib/offers.ts): precio rebajado mientras está activa (desde saleStartsAt, si la hay, hasta
+  // saleEndsAt, si la hay). El checkout cobra effectivePriceCents, calculado siempre en el servidor.
+  salePriceCents Int?
+  saleStartsAt   DateTime?
+  saleEndsAt     DateTime?
+  saleLabel      String? // «Early Bird», «Black Friday»…
+
+  // Cursos: método con el que se agrupa en /cursos (lib/course-categories.ts). null = sin categoría.
+  courseCategory String? // ASTROLOGIA | HUMAN_DESIGN | GENE_KEYS | MI_ENERGIA | ESPECIAL
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -541,7 +555,10 @@ model MembershipPost {
   title         String
   body          String
   bodyFormat    String? // null = texto de antes (saltos de línea tal cual) | "MD"
-  kind          String    @default("TEXT") // TEXT | AUDIO | VIDEO | EVENT
+  // TEXT | AUDIO | VIDEO | EVENT | PODCAST | CEREMONIA | CIRCULO_LUNAR (lib/community-rules.ts)
+  kind          String    @default("TEXT")
+  // Directo, ceremonia o círculo de la luna: cuándo es (lo enseña la publicación; null = sin fecha).
+  eventAt       DateTime?
   mediaUrl      String?
   // DRAFT: solo la ve la dueña. PUBLISHED: la ven sus miembros desde publishedAt; si es futura, está
   // «programada» (lib/community-rules.ts → visibleMemberPostWhere: no hace falta ningún cron para verla).
@@ -620,7 +637,7 @@ model MembershipPostLike {
   @@index([creatorId, postId])
 }
 
-// Publicaciones con fecha de la página pública (novedades / blog).
+// Publicaciones con fecha de la página pública («Actualidades», antes «Novedades»; tipo blog).
 model Post {
   id          String    @id @default(cuid())
   creatorId   String
@@ -631,6 +648,14 @@ model Post {
   body        String // texto con párrafos; los enlaces se convierten al mostrarlo
   bodyFormat  String? // null = texto de antes | "MD"
   imageUrl    String?
+  // Vídeo o audio (lib/posts.ts → PostMedia): VIDEO | AUDIO, y el archivo subido (/media/video/…) o un
+  // enlace de YouTube/Vimeo.
+  mediaKind   String?
+  media       Json?
+  // Llamada a la acción opcional: botón con su enlace (producto, página o web) y un código de descuento.
+  ctaLabel    String?
+  ctaUrl      String?
+  ctaCode     String?
   status      String    @default("DRAFT") // DRAFT | PUBLISHED
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -638,6 +663,32 @@ model Post {
 
   @@unique([creatorId, slug])
   @@index([creatorId, status, publishedAt])
+}
+
+// «Portal de Noticias» (lib/portal-rules.ts): lo que la dueña publica gratis solo para quien está
+// suscrita a su newsletter y tiene cuenta. Lo bloqueado (media, linkUrl, body) solo sale del servidor
+// a quien lo tiene desbloqueado; los archivos son privados (app/api/portal/[id]/[n]).
+model PortalItem {
+  id        String    @id @default(cuid())
+  creatorId String
+  creator   Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  kind      String // VIDEO | AUDIO | PHOTOS | LIVE | EARLY_BIRD
+  title     String
+  summary   String? // texto corto que se ve aunque esté bloqueado
+  body      String? // texto completo (bloqueado)
+  coverUrl  String? // portada pública (se ve desenfocada mientras está bloqueado)
+  // Archivos privados: [{ key, kind, mime, name, sizeBytes, width?, height?, durationSec? }]
+  media     Json      @default("[]")
+  linkUrl   String? // enlace de Zoom del directo o de la oferta Early Bird (bloqueado)
+  linkLabel String?
+  eventAt   DateTime? // directo: día y hora
+  featured  Boolean   @default(false) // el grande de arriba en la portada
+  sortOrder Int       @default(0)
+  status    String    @default("DRAFT") // DRAFT | PUBLISHED
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([creatorId, status, sortOrder])
 }
 
 // Códigos de descuento de otras marcas que la creadora recomienda en su página.

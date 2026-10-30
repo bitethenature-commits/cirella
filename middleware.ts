@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isForeignCreatorPath, ownerPageRewrite, ownerRootRedirect, personalOwnerFromEnv } from "@/lib/personal-routing";
+import { isForeignCreatorPath, legacyPostsRedirect, ownerPageRewrite, ownerRootRedirect, personalOwnerFromEnv } from "@/lib/personal-routing";
 
 /** Usuario que no existe en ninguna web (no tiene forma de usuario): su página siempre es un 404. */
 const NOT_FOUND_PATH = "/_no-existe";
@@ -12,10 +12,18 @@ const NOT_FOUND_PATH = "/_no-existe";
  *   · /sobre-mi → página extra de la dueña (/<dueña>/p/sobre-mi, sin cambiar la dirección). Si no
  *     hay una publicada con esa dirección, es el mismo 404 que antes (también /<otra usuaria>).
  *   · /<otra usuaria>/… → 404 (la página de «no encontrado» de la web).
- * En modo plataforma no hace nada.
+ *   · /novedades y /<usuaria>/novedades[/…] → «Actualidades» (redirección permanente, 308), también
+ *     en la plataforma.
+ * En modo plataforma solo hace lo último.
  */
 export function middleware(req: NextRequest) {
   const owner = personalOwnerFromEnv(process.env.SITE_MODE, process.env.OWNER_USERNAME);
+  const legacy = legacyPostsRedirect(req.nextUrl.pathname, owner);
+  if (legacy) {
+    const to = req.nextUrl.clone();
+    to.pathname = legacy;
+    return NextResponse.redirect(to, 308);
+  }
   if (!owner) return NextResponse.next();
   const url = req.nextUrl.clone();
   const page = ownerPageRewrite(req.nextUrl.pathname, owner);

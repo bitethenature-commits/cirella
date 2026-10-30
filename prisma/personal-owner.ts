@@ -67,7 +67,7 @@ export async function ensurePersonalOwner(
   let creator = existing?.creator ?? null;
   if (!creator) {
     const displayName = name ?? user.name ?? username;
-    const page = defaultPageConfig({ displayName }) as unknown as Prisma.InputJsonValue;
+    const page = defaultPageConfig({ displayName, personal: true }) as unknown as Prisma.InputJsonValue;
     creator = await prisma.creator.create({
       data: {
         userId: user.id,

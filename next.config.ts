@@ -17,11 +17,13 @@ const nextConfig: NextConfig = {
   async headers() {
     // CSP, HSTS y demás (lib/security-headers.ts). Se calculan al hacer `next build` con las
     // variables de ese momento: en Vercel cada entorno se construye con las suyas.
-    // /api/stream (bytes de archivos privados) lleva su propia CSP «sandbox»: la general no la pisa.
+    // /api/stream y /api/portal/<elemento>/<n> (bytes de archivos privados) llevan su propia CSP
+    // «sandbox»: la general no la pisa.
     const all = securityHeaders(securityHeaderOptionsFromEnv());
     return [
-      { source: "/((?!api/stream/).*)", headers: all },
+      { source: "/((?!api/stream/|api/portal/).*)", headers: all },
       { source: "/api/stream/:path*", headers: all.filter((h) => h.key !== "Content-Security-Policy").concat({ key: "Content-Security-Policy", value: "sandbox; default-src 'none'" }) },
+      { source: "/api/portal/:path*", headers: all.filter((h) => h.key !== "Content-Security-Policy").concat({ key: "Content-Security-Policy", value: "sandbox; default-src 'none'" }) },
     ];
   },
 };

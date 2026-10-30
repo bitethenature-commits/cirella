@@ -5,9 +5,10 @@ import { limitUpload } from "@/lib/limits";
 import { UploadError, createUpload } from "@/lib/uploads";
 
 const schema = z.object({
-  purpose: z.enum(["image", "file", "delivery", "video"]),
+  purpose: z.enum(["image", "file", "delivery", "video", "portal"]),
   graphic: z.boolean().optional(),
   email: z.boolean().optional(),
+  audio: z.boolean().optional(),
   productId: z.string().max(40).optional(),
   orderId: z.string().max(40).optional(),
   name: z.string().min(1).max(200),
@@ -22,6 +23,8 @@ const schema = z.object({
  *   { purpose: "file", productId }      → contenido privado de un producto
  *   { purpose: "delivery", orderId }    → entrega de un pedido (lectura preparada, grabación)
  *   { purpose: "video" }                → vídeo de un bloque de la página (solo la web personal)
+ *   { purpose: "video", audio: true }   → vídeo o audio de una publicación (solo la web personal)
+ *   { purpose: "portal" }               → vídeo, audio o foto privados del Portal de Noticias
  *   graphic: true                       → imagen con el perfil «graphic» (gráficos de Canva)
  *   email: true                         → imagen para un email (JPEG o PNG: Outlook no enseña WebP)
  */

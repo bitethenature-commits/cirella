@@ -1,4 +1,5 @@
 import "server-only";
+import { effectivePriceCents, orderSaleMeta, renewalPriceCents, type OrderSaleMeta } from "./offers";
 import { asAccessMode, isNoChargeOrder } from "./access-mode";
 import { prisma } from "./db";
 import { dispatchEvents, recordEvents, type DomainEvent } from "./events";
@@ -47,7 +48,7 @@ export async function getPurchasableProduct(productId: string) {
 }
 
 /** Lo que guarda Order.metadata de una sesión. ownerPlaced y manual solo cuentan en pedidos «manual». */
-export type SessionOrderMeta = { slotStart?: string; buyerTz?: string; ownerPlaced?: boolean; manual?: string; message?: string };
+export type SessionOrderMeta = { slotStart?: string; buyerTz?: string; ownerPlaced?: boolean; manual?: string; message?: string; sale?: OrderSaleMeta };
 
 /**
  * Paso 1: crea el pedido pendiente (permite medir abandonos y recuperarlos). Guarda la instantánea
@@ -98,13 +99,18 @@ export async function createPendingOrder(input: {
     throw new CheckoutError("Las compras no están disponibles en este momento.");
   // La web personal cobra con las cuentas de la dueña: sin comisión, sea cual sea su plan.
   const commissionBps = isPersonalMode() ? 0 : effectiveCommissionBps(product.creator.plan, product.creator);
-  const amounts = computeSaleAmounts(product.priceCents, commissionBps, tax);
+  // Oferta activa (lib/offers.ts): se cobra el precio rebajado. Lo calcula SIEMPRE el servidor con la
+  // hora de ahora; el pedido guarda el precio normal (metadata.sale) para el recibo y las renovaciones.
+  const now = new Date();
+  const priceCents = effectivePriceCents(product, now);
+  const sale = orderSaleMeta(product, now);
+  const amounts = computeSaleAmounts(priceCents, commissionBps, tax);
   // Sin factura posible (vende una creadora que no repercute IVA) no se guardan datos de facturación.
   const billing = input.billing && canInvoiceSale(tax.seller, product.creator) ? input.billing : null;
   const group = isGroupSession(product);
   const slotStart = product.type === "SESSION" && !group ? input.slotStart || null : null;
   const buyerTz = product.type === "SESSION" ? canonicalTimezone(input.buyerTimezone) : null;
-  const metadata: SessionOrderMeta = { ...(slotStart ? { slotStart } : {}), ...(buyerTz ? { buyerTz } : {}) };
+  const metadata: SessionOrderMeta = { ...(slotStart ? { slotStart } : {}), ...(buyerTz ? { buyerTz } : {}), ...(sale ? { sale } : {}) };
   // La comprobación del hueco (o de las plazas) y el pedido van juntos bajo el cerrojo: en la web
   // personal el pedido guarda la hora mientras se paga, así que dos personas no pagan la misma.
   return prisma.$transaction(async (tx) => {
@@ -123,7 +129,7 @@ export async function createPendingOrder(input: {
       productType: product.type,
       buyerEmail: input.buyerEmail.toLowerCase(),
       buyerName: input.buyerName || null,
-      amountCents: product.priceCents,
+      amountCents: priceCents,
       currency: product.currency,
       commissionBps,
       platformFeeCents: amounts.platformFeeCents,
@@ -455,7 +461,8 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
           userId: user.id,
           orderId: order.id,
           buyerCountry: order.buyerCountry,
-          priceCents: order.amountCents,
+          // Comprada en oferta: las renovaciones van al precio normal (lib/offers.ts → renewalPriceCents).
+          priceCents: renewalPriceCents(order),
           interval: p.billingInterval ?? "month",
           currentPeriodStart: now,
           currentPeriodEnd: end,

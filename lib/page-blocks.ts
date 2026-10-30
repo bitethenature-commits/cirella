@@ -38,7 +38,8 @@ const OWN_MEDIA_IMAGE = /^\/media\/([a-z0-9]+)\/[a-f0-9]{20}\.webp$/;
 const DEMO_IMAGE = /^\/demo\/[\w-]+\.(?:webp|jpg|png)$/;
 const VIDEO_URL = /^\/media\/video\/([a-z0-9]{10,40})\/([a-f0-9]{24}\.(?:mp4|mov|m4v))$/;
 const VIDEO_CID = /^[a-z0-9]{10,40}$/;
-const VIDEO_FILE = /^[a-f0-9]{24}\.(mp4|mov|m4v)$/;
+// También los audios de las publicaciones (lib/posts.ts → PostMedia), que viven en la misma carpeta pública.
+const VIDEO_FILE = /^[a-f0-9]{24}\.(mp4|mov|m4v|m4a|mp3|wav)$/;
 
 /**
  * Imagen subida aquí (/media/<creadora>/<20 hex>.webp, la del procesado con variantes) o de la demo.
@@ -62,13 +63,13 @@ export function isOwnVideoSrc(src: string, creatorId?: string): boolean {
 }
 
 /** Tramos de /media/video/<cid>/<archivo> → clave del almacenamiento (public/video/…), o null. */
-export function parsePageVideoPath(segments: string[]): { creatorId: string; file: string; ext: "mp4" | "mov" | "m4v"; key: string } | null {
+export function parsePageVideoPath(segments: string[]): { creatorId: string; file: string; ext: "mp4" | "mov" | "m4v" | "m4a" | "mp3" | "wav"; key: string } | null {
   if (segments.length !== 2) return null;
   const [creatorId, file] = segments;
   if (!VIDEO_CID.test(creatorId)) return null;
   const m = file.match(VIDEO_FILE);
   if (!m) return null;
-  return { creatorId, file, ext: m[1] as "mp4" | "mov" | "m4v", key: `public/video/${creatorId}/${file}` };
+  return { creatorId, file, ext: m[1] as "mp4" | "mov" | "m4v" | "m4a" | "mp3" | "wav", key: `public/video/${creatorId}/${file}` };
 }
 
 /** Error que ve la dueña al pegar un enlace de vídeo, o null si se reconoce (YouTube o Vimeo). */

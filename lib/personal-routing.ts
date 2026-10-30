@@ -5,6 +5,7 @@
  * process.env y decide aquí. La regla del modo es la misma que resolveSiteMode: «personal» solo si
  * se pide expresamente; cualquier otro valor es la plataforma.
  */
+import { isSectionPage } from "./site-sections";
 import { normalizeUsername, RESERVED_USERNAMES, SITE_PAGE_SLUG_RE, USERNAME_RE } from "./slug";
 
 /** Usuario de la dueña si la web está en modo personal; null en la plataforma o si falta. */
@@ -42,6 +43,12 @@ export function ownerRootRedirect(pathname: string, owner: string | null): strin
 export function ownerPageRewrite(pathname: string, owner: string | null): string | null {
   if (!owner) return null;
   const segments = pathname.split("/").filter(Boolean);
+  // Las páginas de la portada (lib/site-sections.ts) también: /actualidades → /<dueña>/actualidades y
+  // /actualidades/<publicación> → /<dueña>/actualidades/<publicación>.
+  if ((segments.length === 1 || segments.length === 2) && isSectionPage(segments[0])) {
+    if (segments.length === 2 && (segments[0] !== "actualidades" || !SITE_PAGE_SLUG_RE.test(segments[1]))) return null;
+    return `/${owner}/${segments.join("/")}`;
+  }
   if (segments.length !== 1 || !/^\/[^/]+\/?$/.test(pathname)) return null;
   let seg: string;
   try {
@@ -51,6 +58,24 @@ export function ownerPageRewrite(pathname: string, owner: string | null): string
   }
   if (!SITE_PAGE_SLUG_RE.test(seg) || RESERVED_USERNAMES.has(seg) || seg === owner) return null;
   return `/${owner}/p/${seg}`;
+}
+
+/**
+ * Direcciones de antes de «Actualidades» (web personal y plataforma): /novedades, /<usuaria>/novedades
+ * y /<usuaria>/novedades/<publicación> redirigen para siempre (308) a la dirección nueva. La
+ * confirmación de la newsletter (/novedades/confirmar) no es una de ellas. null = no hay que redirigir.
+ */
+export function legacyPostsRedirect(pathname: string, owner: string | null): string | null {
+  const segments = pathname.split("/").filter(Boolean);
+  if (owner && segments.length === 1 && segments[0] === "novedades") return "/actualidades";
+  if ((segments.length === 2 || segments.length === 3) && segments[1] === "novedades" && USERNAME_RE.test(normalizeUsername(segments[0])) && !RESERVED_USERNAMES.has(segments[0])) {
+    if (segments.length === 3 && !SITE_PAGE_SLUG_RE.test(segments[2])) return null;
+    const rest = segments.slice(2).map((s) => `/${s}`).join("");
+    // Web personal: la lista vive en la raíz; cada publicación, en /<dueña>/actualidades/<publicación>.
+    if (owner && normalizeUsername(segments[0]) === owner && !rest) return "/actualidades";
+    return `/${segments[0]}/actualidades${rest}`;
+  }
+  return null;
 }
 
 /**

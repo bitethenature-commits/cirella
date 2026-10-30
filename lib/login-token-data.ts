@@ -5,14 +5,24 @@ import { z } from "zod";
  * lib/magic-links.ts y las pruebas unitarias.
  */
 
-/** «Crear mi cuenta» (web personal): lo que se aplica al confirmar el email. */
-export type RegisterData = { name: string; newsletter: boolean; creatorId: string };
+/**
+ * «Crear mi cuenta» (web personal): lo que se aplica al confirmar el email. `via: "portal"` = viene
+ * del candado del Portal de Noticias: la newsletter es lo que pidió (con su texto de consentimiento) y
+ * el email habla del portal.
+ */
+export type RegisterData = { name: string; newsletter: boolean; creatorId: string; via?: "portal"; consentText?: string };
 /** Cambio de email: de qué cuenta y desde qué dirección (para no aplicar un cambio viejo). */
 export type EmailChangeData = { userId: string; fromEmail: string };
 
 // Se leen con .catch(): un dato estropeado nunca rompe el enlace (se trata como si no hubiera datos).
 const registerSchema = z
-  .object({ name: z.string().trim().max(80), newsletter: z.boolean(), creatorId: z.string().min(1) })
+  .object({
+    name: z.string().trim().max(80),
+    newsletter: z.boolean(),
+    creatorId: z.string().min(1),
+    via: z.literal("portal").optional(),
+    consentText: z.string().max(400).optional(),
+  })
   .nullable()
   .catch(null);
 const emailChangeSchema = z

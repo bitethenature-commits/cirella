@@ -48,6 +48,7 @@ export const TENANT_MODELS = new Set<Prisma.ModelName>([
   "Invoice",
   "RecoveryOptOut",
   "Post",
+  "PortalItem",
   "DiscountCode",
   "SitePage",
   "Subscriber",

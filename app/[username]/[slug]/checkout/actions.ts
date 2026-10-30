@@ -1,5 +1,6 @@
 "use server";
 
+import { effectivePriceCents } from "@/lib/offers";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -112,7 +113,8 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
       existing.billingAddress === (billing?.address ?? null);
     if (reusable) {
       const purchasable = await getPurchasableProduct(input.productId);
-      reusable = !!purchasable && purchasable.priceCents === existing!.amountCents;
+      // El precio de ahora (con la oferta si sigue activa): si la oferta empezó o terminó, pedido nuevo.
+      reusable = !!purchasable && effectivePriceCents(purchasable) === existing!.amountCents;
       // Su propio pedido no le quita la hora que ya tenía guardada.
       if (reusable && slotStart && !(await isSlotAvailable(purchasable!, slotStart, { ignoreOrderId: existing!.id })))
         throw new CheckoutError("Ese horario acaba de ocuparse. Elige otro, por favor.");

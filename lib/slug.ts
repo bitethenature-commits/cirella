@@ -7,11 +7,18 @@ export const RESERVED_USERNAMES = new Set([
   "favicon.ico", "robots.txt", "sitemap.xml", "cirella", "plataforma", "pedido",
   "vista-previa", "aviso-legal", "cookies", "facturas", "factura", "contrasena", "pago-simulado",
   "icon.svg", "baja", "novedades",
+  // Páginas de la web de la dueña en la raíz (web personal): lib/site-sections.ts.
+  "actualidades", "portal", "comunidad", "cursos", "lecturas", "sesiones",
 ]);
 
 // Segmentos que no pueden usarse como slug de producto (colisionan con rutas).
-// «novedades» es la lista de publicaciones (/<usuaria>/novedades) y «p», las páginas extra (/<usuaria>/p/<página>).
-export const RESERVED_PRODUCT_SLUGS = new Set(["gracias", "checkout", "opengraph-image", "icon", "cuenta", "entrar", "legal", "novedades", "p"]);
+// «actualidades» es la lista de publicaciones (/<usuaria>/actualidades; «novedades», su dirección de antes,
+// redirige allí), «p», las páginas extra (/<usuaria>/p/<página>), y el resto, las páginas de la portada
+// nueva (lib/site-sections.ts).
+export const RESERVED_PRODUCT_SLUGS = new Set([
+  "gracias", "checkout", "opengraph-image", "icon", "cuenta", "entrar", "legal", "novedades", "p",
+  "actualidades", "portal", "comunidad", "cursos", "lecturas", "sesiones",
+]);
 
 export function slugify(input: string) {
   return input

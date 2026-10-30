@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { prisma } from "./db";
+import { ancestorsOf, descendantsOf } from "./tiers";
 
 /**
  * Acceso a un producto, directo o a través de una membresía que lo incluye (ProductInclusion).
@@ -15,20 +16,49 @@ import { prisma } from "./db";
 
 export const activeAccessWhere = (now = new Date()) => ({ status: "ACTIVE", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] });
 
-/** Membresías (de la misma creadora) que incluyen este producto. */
-export const includingMemberships = cache(async (productId: string) => {
+/** Todas las inclusiones de una creadora (son pocas: los niveles de su comunidad y sus cursos). */
+const creatorEdges = cache(async (creatorId: string) => {
   const rows = await prisma.productInclusion.findMany({
-    where: { includedProductId: productId },
-    select: { productId: true, creatorId: true, product: { select: { title: true, creatorId: true, type: true } } },
+    where: { creatorId },
+    select: { productId: true, includedProductId: true, product: { select: { creatorId: true, type: true } }, includedProduct: { select: { creatorId: true } } },
   });
-  // Por si acaso: nunca una membresía de otra creadora (saveInclusions ya lo impide).
-  return rows.filter((r) => r.product.creatorId === r.creatorId && r.product.type === "MEMBERSHIP").map((r) => ({ productId: r.productId, title: r.product.title }));
+  // Por si acaso: nunca una inclusión entre creadoras distintas (saveInclusions ya lo impide), y solo
+  // las membresías incluyen.
+  return rows
+    .filter((r) => r.product.creatorId === creatorId && r.includedProduct.creatorId === creatorId && r.product.type === "MEMBERSHIP")
+    .map((r) => ({ productId: r.productId, includedProductId: r.includedProductId }));
 });
 
-/** Cursos que incluye una membresía. */
+const productCreator = cache(async (productId: string) => (await prisma.product.findUnique({ where: { id: productId }, select: { creatorId: true } }))?.creatorId ?? null);
+
+/**
+ * Membresías (de la misma creadora) que incluyen este producto, directa o indirectamente: un nivel
+ * superior de la comunidad incluye los de abajo y lo que estos incluyen (lib/tiers.ts).
+ */
+export const includingMemberships = cache(async (productId: string) => {
+  const creatorId = await productCreator(productId);
+  if (!creatorId) return [];
+  const ids = ancestorsOf(await creatorEdges(creatorId), productId);
+  if (!ids.length) return [];
+  const rows = await prisma.product.findMany({ where: { id: { in: ids }, creatorId, type: "MEMBERSHIP" }, select: { id: true, title: true } });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids.filter((id) => byId.has(id)).map((id) => ({ productId: id, title: byId.get(id)!.title }));
+});
+
+/** Lo que incluye una membresía, directa o indirectamente (cursos y membresías de los niveles de abajo). */
 export const includedProductIds = cache(async (membershipId: string) => {
-  const rows = await prisma.productInclusion.findMany({ where: { productId: membershipId }, select: { includedProductId: true } });
-  return rows.map((r) => r.includedProductId);
+  const creatorId = await productCreator(membershipId);
+  if (!creatorId) return [];
+  return descendantsOf(await creatorEdges(creatorId), membershipId);
+});
+
+/** Membresías de los niveles de abajo que incluye una membresía (para su comunidad y «Mis membresías»). */
+export const includedMembershipIds = cache(async (membershipId: string) => {
+  const ids = await includedProductIds(membershipId);
+  if (!ids.length) return [];
+  const rows = await prisma.product.findMany({ where: { id: { in: ids }, type: "MEMBERSHIP", status: { not: "ARCHIVED" } }, select: { id: true } });
+  const keep = new Set(rows.map((r) => r.id));
+  return ids.filter((id) => keep.has(id));
 });
 
 export type AccessSource = {
@@ -79,22 +109,48 @@ export async function includedProductsForUser(userId: string, now = new Date()) 
     select: { productId: true, expiresAt: true, product: { select: { title: true } } },
   });
   if (!memberships.length) return [];
-  const edges = await prisma.productInclusion.findMany({
-    where: { productId: { in: memberships.map((m) => m.productId) }, includedProduct: { type: "COURSE", status: { not: "ARCHIVED" } } },
-    include: { includedProduct: { include: { creator: true, _count: { select: { lessons: true } } } } },
+  // Cada membresía con todo lo que incluye por debajo (los niveles de abajo y sus cursos).
+  const reach = new Map<string, string[]>();
+  for (const m of memberships) reach.set(m.productId, await includedProductIds(m.productId));
+  const allIds = [...new Set([...reach.values()].flat())];
+  if (!allIds.length) return [];
+  const products = await prisma.product.findMany({
+    where: { id: { in: allIds }, type: "COURSE", status: { not: "ARCHIVED" } },
+    include: { creator: true, _count: { select: { lessons: true } } },
     orderBy: { createdAt: "asc" },
   });
-  const byMembership = new Map(memberships.map((m) => [m.productId, m]));
-  const out = new Map<string, { product: (typeof edges)[number]["includedProduct"]; via: { productId: string; title: string }; until: Date | null }>();
-  for (const e of edges) {
-    const m = byMembership.get(e.productId)!;
-    // Misma creadora en las dos puntas.
-    if (e.includedProduct.creatorId !== e.creatorId) continue;
-    const prev = out.get(e.includedProductId);
-    const until = m.expiresAt;
-    if (!prev || (prev.until && (!until || until > prev.until))) out.set(e.includedProductId, { product: e.includedProduct, via: { productId: m.productId, title: m.product.title }, until });
+  const out = new Map<string, { product: (typeof products)[number]; via: { productId: string; title: string }; until: Date | null }>();
+  for (const product of products) {
+    for (const m of memberships) {
+      if (!reach.get(m.productId)!.includes(product.id)) continue;
+      const prev = out.get(product.id);
+      const until = m.expiresAt;
+      if (!prev || (prev.until && (!until || until > prev.until))) out.set(product.id, { product, via: { productId: m.productId, title: m.product.title }, until });
+    }
   }
   return [...out.values()];
+}
+
+/**
+ * Membresías de niveles de abajo que una usuaria tiene por estar en un nivel superior (para «Mis
+ * membresías»), con el nivel por el que las tiene y hasta cuándo. Sin las que ya tiene directamente.
+ */
+export async function includedMembershipsForUser(userId: string, now = new Date()) {
+  const memberships = await prisma.access.findMany({
+    where: { userId, product: { type: "MEMBERSHIP" }, ...activeAccessWhere(now) },
+    select: { productId: true, expiresAt: true, product: { select: { title: true } } },
+  });
+  const own = new Set(memberships.map((m) => m.productId));
+  const out = new Map<string, { productId: string; via: { productId: string; title: string }; until: Date | null }>();
+  for (const m of memberships)
+    for (const id of await includedMembershipIds(m.productId)) {
+      if (own.has(id)) continue;
+      const prev = out.get(id);
+      if (!prev || (prev.until && (!m.expiresAt || m.expiresAt > prev.until))) out.set(id, { productId: id, via: { productId: m.productId, title: m.product.title }, until: m.expiresAt });
+    }
+  if (!out.size) return [];
+  const products = await prisma.product.findMany({ where: { id: { in: [...out.keys()] } }, include: { creator: true } });
+  return products.map((product) => ({ product, ...out.get(product.id)! }));
 }
 
 /**

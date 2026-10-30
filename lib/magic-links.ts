@@ -64,7 +64,7 @@ export async function sendMagicLink(
   const mail =
     purpose === "CHANGE_EMAIL"
       ? emailChangeConfirmEmail({ url, creatorName: creator?.displayName })
-      : magicLinkEmail({ url, creatorName: creator?.displayName, purpose, name: ctx.name });
+      : magicLinkEmail({ url, creatorName: creator?.displayName, purpose, name: ctx.name, via: ctx.data && "via" in ctx.data ? ctx.data.via : undefined });
   await enqueueEmail({
     to: email,
     template: purpose === "VERIFY_SIGNUP" ? "VERIFY_EMAIL" : purpose === "CHANGE_EMAIL" ? "EMAIL_CHANGE_CONFIRM" : purpose === "REGISTER" ? "REGISTER" : "MAGIC_LINK",
@@ -180,9 +180,13 @@ async function applyRegistration(user: { id: string; email: string; name: string
         email: user.email,
         name,
         on: true,
-        source: "SIGNUP",
-        consentText: "Casilla «Quiero recibir las novedades» al crear su cuenta, confirmada desde su email",
-        form: "alta-alumna",
+        // Desde el candado del Portal de Noticias: el formulario era el de la newsletter.
+        source: data.via === "portal" ? "FORM" : "SIGNUP",
+        consentText:
+          data.via === "portal"
+            ? `${data.consentText ?? "Formulario del Portal de Noticias"} (confirmado desde su email)`
+            : "Casilla «Quiero recibir las novedades» al crear su cuenta, confirmada desde su email",
+        form: data.via === "portal" ? "portal" : "alta-alumna",
       });
     return prev ? [] : recordEvents(tx, [{ type: "customer.created", customerId: customer.id }]);
   });
