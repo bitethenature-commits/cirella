@@ -43,7 +43,8 @@ import { legacyLessonColumns } from "../lib/lesson-parts";
 import { parseMediaInfo } from "../lib/media-probe";
 import { PLATFORM_TERMS_VERSION } from "../lib/legal";
 import { acceptedConsentFields } from "../lib/checkout-consents";
-import { defaultSections, type PageConfig } from "../lib/page-config";
+import { defaultSections, READINGS_DEFAULTS, type PageConfig } from "../lib/page-config";
+import { nextMoonDates } from "../lib/moon-dates";
 import { prisma as appPrisma } from "../lib/db";
 import { issueMonthlyPlatformInvoices } from "../lib/invoices/fees";
 import { invoiceYear } from "../lib/invoices/format";
@@ -51,7 +52,7 @@ import { issueSaleInvoiceTx } from "../lib/invoices/issue";
 import { effectiveCommissionBps } from "../lib/plans";
 import { chargeKey } from "../lib/reliability";
 import type { TaxMode } from "../lib/tax";
-import { addDaysToKey, dateKeyInTz, formatInTz, formatSessionDate, weekdayOfKey, zonedTimeToUtc } from "../lib/tz";
+import { addDaysToKey, dateKeyInTz, formatInTz, formatSessionDate, labelToMinutes, weekdayOfKey, zonedTimeToUtc } from "../lib/tz";
 import { addMonthsToKey } from "../lib/access-end";
 import { moonPhasesBetween } from "../lib/astro-calendar";
 import { ANA_AVAILABILITY, DEMO_TZ, demoPurchaseDaysAgo, demoSchedule } from "./demo-dates";
@@ -408,6 +409,221 @@ async function seedAnaNewsletter(anaId: string, o: { circleId: string; astroId: 
   void o.astroId;
 }
 
+type SeedProduct = { id: string; slug: string; title: string; priceCents: number };
+
+/**
+ * La portada nueva de Ana (lib/page-config.ts): cursos por método (/cursos) con uno nuevo en oferta
+ * Early Bird, una lectura que prepara ella en oferta, los círculos de la luna (talleres en las próximas
+ * luna nueva y luna llena, lib/astro-calendar.ts), publicaciones de cada nivel de la comunidad, las
+ * páginas de cada sistema, actualidades con vídeo y audio, el Portal de Noticias y los accesos, la
+ * tarjeta «Sobre mí», los sistemas y las lecturas de su portada.
+ */
+async function seedAnaPortada(o: {
+  anaId: string;
+  course: SeedProduct;
+  freeCourse: SeedProduct;
+  esencia: SeedProduct;
+  plena: SeedProduct;
+  lunaCompleta: SeedProduct;
+}) {
+  const anaId = o.anaId;
+  // ── Cursos por método ──
+  await prisma.product.update({ where: { id: o.course.id }, data: { courseCategory: "MI_ENERGIA" } });
+  await prisma.product.update({ where: { id: o.freeCourse.id }, data: { courseCategory: "ASTROLOGIA" } });
+  const saleEnd = (days: number) => zonedTimeToUtc(addDaysToKey(TODAY, days), 0, TZ);
+  const hd = await prisma.product.create({
+    data: {
+      creatorId: anaId, type: "COURSE", status: "PUBLISHED", slug: "human-design-desde-cero", title: "Human Design desde cero", emoji: "🧬", courseCategory: "HUMAN_DESIGN",
+      summary: "Tu tipo, tu estrategia y tu autoridad, paso a paso y con ejemplos.",
+      description: "Un curso corto para entender tu bodygraph sin perderte.\n\nIncluye:\n• 2 módulos en lectura y audio\n• Ejercicios para tu día a día\n• Acceso de por vida",
+      imageUrl: await demoImage(anaId, "/demo/human-design.webp"), priceCents: 9900, ctaLabel: "Ver curso", sortOrder: 11, createdAt: daysAgo(6),
+      // Early Bird (lib/offers.ts): 69 € hasta dentro de dos semanas.
+      salePriceCents: 6900, saleLabel: "Early Bird", saleEndsAt: saleEnd(14),
+    },
+  });
+  const hdModule = await prisma.courseModule.create({ data: { creatorId: anaId, productId: hd.id, title: "Tu diseño", sortOrder: 0 } });
+  await seedLesson({ creatorId: anaId, productId: hd.id, moduleId: hdModule.id, sortOrder: 0, title: "Qué es tu bodygraph", durationMin: 12, parts: [{ text: "Tu bodygraph es el mapa de cómo funciona tu energía. Hoy aprendes a leer sus **nueve centros**.", format: "MD" }] });
+  await seedLesson({ creatorId: anaId, productId: hd.id, moduleId: hdModule.id, sortOrder: 1, title: "Tu estrategia", durationMin: 15, parts: [{ text: "Cada tipo tiene una estrategia para decidir con menos resistencia. Busca la tuya y pruébala una semana." }] });
+  await prisma.product.create({
+    data: {
+      creatorId: anaId, type: "COURSE", status: "PUBLISHED", accessMode: "EXTERNAL", slug: "gene-keys-secuencia-de-activacion", title: "Gene Keys: tu Secuencia de Activación", emoji: "🔑", courseCategory: "GENE_KEYS",
+      summary: "Ocho semanas para contemplar tus cuatro llaves principales.",
+      description: "El curso se sigue en Hotmart, con sus vídeos y su comunidad.",
+      imageUrl: await demoImage(anaId, "/demo/gene-keys.webp"), priceCents: 12900, sortOrder: 12, createdAt: daysAgo(30),
+      externalUrl: "https://hotmart.com/es/ana-luna-gene-keys", externalLabel: "Comprar en Hotmart",
+    },
+  });
+  const special = await prisma.product.create({
+    data: {
+      creatorId: anaId, type: "COURSE", status: "PUBLISHED", accessMode: "FREE_EMAIL", slug: "especial-tu-ano-lunar", title: "Especial: tu año lunar", emoji: "🌙", courseCategory: "ESPECIAL",
+      summary: "Un pequeño especial para preparar las trece lunas del año que viene.",
+      description: "Un regalo para cerrar el año: dos lecciones para preparar tus intenciones luna a luna.",
+      imageUrl: await demoImage(anaId, "/demo/comunidad.webp"), priceCents: 0, ctaLabel: "Quiero el especial", sortOrder: 13, createdAt: daysAgo(4),
+    },
+  });
+  const spModule = await prisma.courseModule.create({ data: { creatorId: anaId, productId: special.id, title: "Tu año lunar", sortOrder: 0 } });
+  await seedLesson({ creatorId: anaId, productId: special.id, moduleId: spModule.id, sortOrder: 0, title: "Las trece lunas", durationMin: 8, parts: [{ text: "Apunta en tu calendario las lunas nuevas del año: cada una es un pequeño comienzo." }] });
+  await seedLesson({ creatorId: anaId, productId: special.id, moduleId: spModule.id, sortOrder: 1, title: "Tus intenciones", durationMin: 10, parts: [{ text: "Escribe una intención para cada luna nueva y léela en voz alta la noche de la luna." }] });
+
+  // ── Una lectura que prepara ella (lib/channel-kind.ts), en oferta ──
+  const yearReading = await prisma.product.create({
+    data: {
+      creatorId: anaId, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "PERSONAL", slug: "lectura-de-tu-ano", title: "Lectura de tu año", emoji: "☀️",
+      summary: "Tu revolución solar grabada en audio y en PDF, para empezar tu año con un plan.",
+      description: "Te preparo la lectura de tu año (de cumpleaños a cumpleaños) y te llega a tu área en audio y en PDF.\n\nIncluye:\n• Audio de unos 40 minutos\n• Resumen en PDF con los meses clave",
+      instructions: "Después de pagar, escribe tu fecha, hora y lugar de nacimiento. En 7 días tendrás tu lectura en tu área.",
+      imageUrl: await demoImage(anaId, "/demo/astrologia.webp"), priceCents: 9000, ctaLabel: "Quiero mi lectura", sortOrder: 14, createdAt: daysAgo(8),
+      salePriceCents: 7200, saleEndsAt: saleEnd(10),
+    },
+  });
+
+  // ── Círculos de la luna: talleres en la próxima luna nueva y la próxima luna llena (20:00, Madrid) ──
+  const moons = nextMoonDates(NOW, TZ, 4).filter((m) => zonedTimeToUtc(m.date, labelToMinutes(m.time), TZ).getTime() > NOW.getTime() + 3 * 3600_000).slice(0, 2);
+  const circles: { id: string; title: string; at: Date }[] = [];
+  for (const [i, m] of moons.entries()) {
+    const at = zonedTimeToUtc(m.date, labelToMinutes(m.time), TZ);
+    const c = await prisma.product.create({
+      data: {
+        creatorId: anaId, type: "SESSION", status: "PUBLISHED", groupSession: true, moonCircle: true, slug: `circulo-${m.phase === "new" ? "luna-nueva" : "luna-llena"}-${m.date}`,
+        title: `Círculo de ${m.title.toLowerCase()}`, emoji: m.phase === "new" ? "🌑" : "🌕",
+        summary: "Un círculo en directo por Zoom para vivir esta luna juntas. Sin ser miembro.",
+        description: "Nos juntamos por Zoom para un ritual guiado, un rato de escritura y una ronda para compartir.\n\nIncluye:\n• 90 minutos en directo\n• La grabación en tu área",
+        imageUrl: await demoImage(anaId, "/demo/comunidad.webp"), priceCents: 2200, ctaLabel: "Apuntarme", sortOrder: 20 + i,
+        durationMin: 90, bufferMin: 15, minNoticeHours: 0, meetingUrl: ANA_ZOOM, eventStartAt: at, capacity: 20, createdAt: daysAgo(3),
+      },
+    });
+    circles.push({ id: c.id, title: c.title, at });
+  }
+
+  // ── Publicaciones de cada nivel de la comunidad ──
+  const seen = (d: Date) => ({ notify: false, notifiedAt: d });
+  const post = (productId: string, d: number, title: string, kind: string, body: string, extra: Partial<{ eventAt: Date; mediaUrl: string }> = {}) =>
+    prisma.membershipPost.create({ data: { creatorId: anaId, productId, title, kind, body, bodyFormat: "MD", publishedAt: daysAgo(d, 9), ...seen(daysAgo(d, 9)), ...extra } });
+  await post(o.esencia.id, 2, "Texto energético de la semana: soltar el control", "TEXT", "Esta semana la Luna nos pide **soltar el control** de lo que no depende de nosotras. Escribe tres cosas que puedes dejar en manos del tiempo.");
+  await post(o.esencia.id, 9, "Texto energético: la energía de Escorpio", "TEXT", "El Sol entra en Escorpio: es momento de mirar hacia dentro, sin prisa y con honestidad.");
+  const ceremonyAt = zonedTimeToUtc(addDaysToKey(TODAY, 9), 19 * 60, TZ);
+  await post(o.plena.id, 1, "Ceremonia de cacao de noviembre", "CEREMONIA", "Prepara tu taza de cacao y un rincón tranquilo: abrimos el mes juntas con intención.", { eventAt: ceremonyAt, mediaUrl: ANA_ZOOM });
+  await post(o.plena.id, 4, "Podcast privado · Episodio 7: los ciclos del cuerpo", "PODCAST", "Hablamos de cómo los ciclos de la Luna y los del cuerpo se acompañan. Escúchalo con calma.");
+  await post(o.plena.id, 6, "Audio: meditación para el cambio de estación", "AUDIO", "Diez minutos para despedir el verano y abrir el otoño con suavidad.");
+  await post(o.plena.id, 11, "Sesión en directo: preguntas sobre tu carta", "EVENT", "Traed vuestras preguntas sobre la carta natal: las respondemos en directo y queda la grabación.", { eventAt: zonedTimeToUtc(addDaysToKey(TODAY, 6), 18 * 60, TZ), mediaUrl: ANA_ZOOM });
+  if (moons[0])
+    await post(o.lunaCompleta.id, 0, `Círculo de ${moons[0].title.toLowerCase()}`, "CIRCULO_LUNAR", "Nos vemos en el círculo para vivir esta luna juntas. Trae papel, una vela y tu intención.", { eventAt: zonedTimeToUtc(moons[0].date, labelToMinutes(moons[0].time), TZ), mediaUrl: ANA_ZOOM });
+
+  // ── Páginas de cada sistema (Sistemas con los que trabajo) ──
+  const systems = [
+    { slug: "human-design", title: "Human Design", img: "/demo/human-design.webp", text: "Tu manual de instrucciones energético.", body: "El **Human Design** une astrología, I Ching, cábala y el sistema de chakras en un único mapa: tu bodygraph.\n\nCon él descubres tu tipo, tu estrategia y tu autoridad para tomar decisiones con menos resistencia." },
+    { slug: "gene-keys", title: "Gene Keys", img: "/demo/gene-keys.webp", text: "Contempla tu sombra, tu don y tu siddhi.", body: "Las **Gene Keys** son 64 llaves de contemplación. Cada una describe un espectro: la sombra, el don y el siddhi.\n\nTrabajamos con tu Secuencia de Activación para encontrar tu genio creativo." },
+    { slug: "astrologia", title: "Astrología", img: "/demo/astrologia.webp", text: "Tu carta natal como mapa de tus ritmos.", body: "La **carta natal** es una foto del cielo cuando naciste. No te define: describe tus potenciales y tus ritmos.\n\nLeemos tu Sol, tu Luna, tu Ascendente y las casas para aterrizarlo a tu vida." },
+    { slug: "mi-energia", title: "Mi energía", img: "/demo/sesion.webp", text: "Cómo uno los tres sistemas en un solo mapa.", body: "Mi forma de trabajar une **astrología, Human Design y Gene Keys** en un mapa práctico.\n\nAsí cada lectura habla de tu energía completa, no de una parte." },
+  ];
+  const systemCards = [];
+  for (const [i, sys] of systems.entries()) {
+    const image = await demoBlockImage(anaId, sys.img, sys.title);
+    const content: SitePageContent = {
+      title: sys.title,
+      subtitle: sys.text,
+      cover: image,
+      blocks: [
+        { id: "que-es", kind: "text", title: `Qué es ${sys.title}`, body: sys.body, format: "MD", buttonLabel: "Ver mis lecturas", buttonUrl: "/ana/lecturas", enabled: true },
+        { id: "imagen", kind: "image", title: "", image: await demoBlockImage(anaId, sys.img, sys.title, `Así trabajo con ${sys.title}`), enabled: true },
+      ],
+      seoTitle: `${sys.title} · Ana Luna`,
+      seoDescription: sys.text,
+    };
+    const json = content as unknown as Prisma.InputJsonValue;
+    await prisma.sitePage.create({
+      data: { creatorId: anaId, slug: sys.slug, title: sys.title, publishedTitle: sys.title, draft: json, published: json, status: "PUBLISHED", publishedAt: daysAgo(20), showInNav: false, sortOrder: 10 + i, createdAt: daysAgo(21) },
+    });
+    systemCards.push({ id: `s-${sys.slug}`, title: sys.title, text: sys.text, url: `/ana/p/${sys.slug}`, image: await demoImage(anaId, sys.img) });
+  }
+
+  // ── Actualidades con vídeo y con audio ──
+  const poster = await demoImage(anaId, "/demo/hero.webp");
+  const videoData = makeVideo(path.resolve("public/demo/hero.webp"), 6);
+  let media: Prisma.InputJsonValue | undefined;
+  if (videoData) {
+    const file = `${randomBytes(12).toString("hex")}.mp4`;
+    await storage().put(`public/video/${anaId}/${file}`, videoData, { contentType: "video/mp4" });
+    const info = await mediaFields(videoData, "video/mp4");
+    media = { kind: "VIDEO", src: pageVideoUrl(anaId, file), poster, width: info.width, height: info.height, durationSec: info.durationSec };
+  } else media = { kind: "VIDEO", embedUrl: "https://youtu.be/dQw4w9WgXcQ" };
+  const audioData = makeM4a(20);
+  const audioFile = `${randomBytes(12).toString("hex")}.${audioData ? "m4a" : "wav"}`;
+  await storage().put(`public/video/${anaId}/${audioFile}`, audioData ?? makeWav(20), { contentType: audioData ? "audio/mp4" : "audio/wav" });
+  await prisma.post.create({
+    data: {
+      creatorId: anaId, slug: "luna-llena-que-soltar", status: "PUBLISHED", publishedAt: daysAgo(1, 10), createdAt: daysAgo(1, 10),
+      title: "Luna llena: qué soltar", excerpt: "Un vídeo corto para esta luna y el curso de Human Design con código.",
+      body: "Esta luna llena nos invita a **soltar** lo que ya no sostenemos. Te dejo un vídeo corto con un ejercicio de cinco minutos.", bodyFormat: "MD",
+      imageUrl: poster, mediaKind: "VIDEO", media, ctaLabel: "Ver curso", ctaUrl: `/ana/${hd.slug}`, ctaCode: "LUNA15",
+    },
+  });
+  await prisma.post.create({
+    data: {
+      creatorId: anaId, slug: "nueva-lectura-de-gene-keys", status: "PUBLISHED", publishedAt: daysAgo(40, 18), createdAt: daysAgo(40, 18),
+      title: "Nueva lectura de Gene Keys", excerpt: "Escucha cómo es por dentro.",
+      body: "He preparado un audio para que escuches cómo es una lectura de Gene Keys por dentro.", bodyFormat: "MD",
+      imageUrl: await demoImage(anaId, "/demo/gene-keys.webp"), mediaKind: "AUDIO", media: { kind: "AUDIO", src: pageVideoUrl(anaId, audioFile), durationSec: 20 },
+      ctaLabel: "Ver lectura", ctaUrl: `/ana/${yearReading.slug}`,
+    },
+  });
+
+  // ── Portal de Noticias (archivos privados) ──
+  const portalVideo = makeVideo(path.resolve("public/demo/comunidad.webp"), 6);
+  const ritual = portalVideo ? await storePrivate(anaId, `${randomBytes(8).toString("hex")}.mp4`, portalVideo) : await storePrivate(anaId, `${randomBytes(8).toString("hex")}.wav`, makeWav(12));
+  const ritualMedia = portalVideo
+    ? { key: ritual.storageKey, kind: "VIDEO", mime: "video/mp4", name: "Ritual de luna nueva.mp4", sizeBytes: ritual.sizeBytes, ...(await mediaFields(portalVideo, "video/mp4").then((f) => ({ width: f.width, height: f.height, durationSec: f.durationSec }))) }
+    : { key: ritual.storageKey, kind: "AUDIO", mime: "audio/wav", name: "Ritual de luna nueva.wav", sizeBytes: ritual.sizeBytes };
+  const altar = await storePrivate(anaId, `${randomBytes(8).toString("hex")}.png`, await sharp(path.resolve("public/demo/sesion.webp")).resize(900).png().toBuffer());
+  const liveAt = zonedTimeToUtc(addDaysToKey(TODAY, 5), 19 * 60, TZ);
+  await prisma.portalItem.createMany({
+    data: [
+      {
+        creatorId: anaId, kind: portalVideo ? "VIDEO" : "AUDIO", title: "Ritual de luna nueva", summary: "Un ritual guiado de 15 minutos para sembrar tus intenciones.",
+        body: "Enciende una vela, respira y sigue el vídeo. Al terminar, escribe tres intenciones en presente.", coverUrl: await demoImage(anaId, "/demo/comunidad.webp"),
+        media: [ritualMedia], featured: true, sortOrder: 0, status: "PUBLISHED", createdAt: daysAgo(2),
+      },
+      {
+        creatorId: anaId, kind: "EARLY_BIRD", title: "Curso Human Design −30 %", summary: "Precio Early Bird solo para suscriptoras, hasta que se acabe la oferta.",
+        body: "Te dejo el curso de Human Design con el precio Early Bird antes de que lo anuncie en redes.", linkUrl: `/ana/${hd.slug}`, linkLabel: "Ver el curso",
+        coverUrl: await demoImage(anaId, "/demo/human-design.webp"), sortOrder: 1, status: "PUBLISHED", createdAt: daysAgo(3),
+      },
+      {
+        creatorId: anaId, kind: "LIVE", title: "Live: tránsitos de noviembre", summary: "El enlace de Zoom llega al suscribirte.",
+        body: "Repasamos juntas los tránsitos del mes y respondo vuestras preguntas.", linkUrl: "https://us02web.zoom.us/j/89990001111?pwd=PortalAnaLuna", linkLabel: "Entrar al directo",
+        eventAt: liveAt, sortOrder: 2, status: "PUBLISHED", createdAt: daysAgo(1),
+      },
+      {
+        creatorId: anaId, kind: "PHOTOS", title: "Mi altar de luna llena", summary: "Fotos de cómo preparo mi altar.",
+        media: [{ key: altar.storageKey, kind: "IMAGE", mime: "image/png", name: "Altar.png", sizeBytes: altar.sizeBytes }],
+        coverUrl: await demoImage(anaId, "/demo/sesion.webp"), sortOrder: 3, status: "PUBLISHED", createdAt: daysAgo(5),
+      },
+    ],
+  });
+
+  // ── Portada: accesos, «Sobre mí», sistemas y lecturas ──
+  const c = await prisma.creator.findUniqueOrThrow({ where: { id: anaId }, select: { pageDraft: true } });
+  const page = c.pageDraft as unknown as PageConfig;
+  const next: PageConfig = {
+    ...page,
+    bubbles: [
+      { id: "b-sobre-mi", label: "Sobre mí", url: "/ana/p/sobre-mi", image: await demoImage(anaId, "/demo/ana-avatar.webp") },
+      { id: "b-cursos", label: "Cursos", url: "/ana/cursos", image: await demoImage(anaId, "/demo/curso.webp") },
+      { id: "b-comunidad", label: "Hacerte miembro", url: "/ana/comunidad", image: await demoImage(anaId, "/demo/comunidad.webp") },
+    ],
+    about: {
+      eyebrow: "Sobre mí", title: "Hola, soy Ana",
+      text: "Llegué a la astrología buscando respuestas para mí. Hoy acompaño a otras mujeres a encontrar las suyas.",
+      url: "/ana/p/sobre-mi", image: await demoImage(anaId, "/demo/ana-cover.webp"), linkLabel: "Conoce mi historia",
+    },
+    systems: systemCards,
+    readings: { reading: { ...READINGS_DEFAULTS.reading }, session: { ...READINGS_DEFAULTS.session }, circlesTitle: READINGS_DEFAULTS.circlesTitle },
+  };
+  const json = next as unknown as Prisma.InputJsonValue;
+  await prisma.creator.update({ where: { id: anaId }, data: { pageDraft: json, pagePublished: json } });
+  return { hd, special, yearReading, circles };
+}
+
 async function reset() {
   // Los archivos subidos pertenecen a los registros que vamos a borrar. Solo en disco: un bucket
   // de R2 de pruebas se vacía a mano (el seed nunca borra en la nube).
@@ -513,15 +729,16 @@ async function main() {
     coverUrl: "/demo/ana-cover.webp",
     template: "mystical",
     theme: {},
+    // La portada nueva (lib/page-config.ts → SECTION_KEYS): accesos, actualidades, portal, ofertas,
+    // sobre mí, sistemas, lecturas y sesiones, cursos y códigos. Las listas de productos de siempre
+    // (lecturas, sesiones, comunidad) quedan ocultas: sus productos salen en sus páginas.
     sections: defaultSections().map((s) => ({
       ...s,
-      title: { products: "Lecturas", sessions: "Sesiones privadas", courses: "Formación", memberships: "Comunidad" }[s.key as string],
+      enabled: s.enabled && !["products", "sessions", "memberships"].includes(s.key),
+      title: { products: "Lecturas", sessions: "Sesiones privadas", courses: "Cursos", memberships: "Comunidad" }[s.key as string],
     })),
-    links: [
-      { id: "l1", label: "✨ Empieza aquí · Curso Conócete", url: "/ana/curso-conocete-tu-energia", highlight: true },
-      { id: "l2", label: "Podcast «Cielo interior»", url: "https://open.spotify.com" },
-      { id: "l3", label: "Carta lunar gratuita cada mes", url: "https://substack.com" },
-    ],
+    // «Botones principales»: la sección sigue en el editor, pero la demo ya no trae ninguno.
+    links: [],
     socials: { instagram: "ana.luna.astro", tiktok: "analuna", telegram: "analunacielo", youtube: "analuna" },
     testimonials: [
       { id: "t1", author: "Laura M.", role: "Proyectora 2/4", quote: "Mi lectura de Human Design me dio permiso para descansar sin culpa. Fue como si alguien me explicara mi propio manual de instrucciones." },
@@ -664,13 +881,41 @@ async function main() {
       durationMin: 60, bufferMin: 15, minNoticeHours: 360, meetingUrl: ANA_ZOOM, createdAt: daysAgo(70),
     },
   });
+  // Comunidad en tres niveles (lib/tiers.ts): «Esencia» → «Plena» (incluye Esencia) → «Luna completa»
+  // (incluye Plena y Esencia). «Luna completa» es el Círculo Lunar de siempre (sus miembros, Laura,
+  // Carmen y Lucía, conservan su acceso y leen todo lo de los niveles de abajo).
   const pCircle = await prisma.product.create({
     data: {
-      creatorId: ana.id, type: "MEMBERSHIP", status: "PUBLISHED", slug: "comunidad-privada", title: "Comunidad privada", emoji: "💫",
-      summary: "El Círculo Lunar: rituales de luna nueva, un directo al mes y meditaciones exclusivas.",
-      description: "Un espacio íntimo para vivir el cielo mes a mes.\n\nIncluye:\n• Ritual de luna nueva y luna llena\n• Directo mensual con los tránsitos del mes\n• Meditaciones exclusivas\n• Cancela cuando quieras",
-      imageUrl: await demoImage(ana.id, "/demo/comunidad.webp"), priceCents: 1900, billingInterval: "month", ctaLabel: "Unirme", sortOrder: 6, createdAt: daysAgo(40),
+      creatorId: ana.id, type: "MEMBERSHIP", status: "PUBLISHED", slug: "luna-completa", title: "Luna completa", emoji: "🌕",
+      summary: "Todo lo de Plena y, además, los círculos de la luna: un directo en cada luna nueva y cada luna llena.",
+      description: "El nivel más completo de la comunidad: vivimos juntas cada luna.\n\nIncluye:\n• Círculos de la luna: directo en cada luna nueva y cada luna llena\n• Rituales y meditaciones de cada luna\n• Cancela cuando quieras",
+      imageUrl: await demoImage(ana.id, "/demo/comunidad.webp"), priceCents: 3300, billingInterval: "month", ctaLabel: "Unirme", sortOrder: 6, createdAt: daysAgo(40),
     },
+  });
+  const pEsencia = await prisma.product.create({
+    data: {
+      creatorId: ana.id, type: "MEMBERSHIP", status: "PUBLISHED", slug: "esencia", title: "Esencia", emoji: "🌱",
+      summary: "Textos energéticos cada semana para leer el cielo con calma.",
+      description: "La puerta de entrada a la comunidad.\n\nIncluye:\n• Textos energéticos semanales\n• Cancela cuando quieras",
+      imageUrl: await demoImage(ana.id, "/demo/astrologia.webp"), priceCents: 1100, billingInterval: "month", ctaLabel: "Unirme", sortOrder: 9, createdAt: daysAgo(35),
+    },
+  });
+  const pPlena = await prisma.product.create({
+    data: {
+      creatorId: ana.id, type: "MEMBERSHIP", status: "PUBLISHED", slug: "plena", title: "Plena", emoji: "🌗",
+      summary: "Todo lo de Esencia, más audios, sesiones en directo, el podcast privado y las ceremonias.",
+      description: "Para vivir la comunidad a fondo.\n\nIncluye:\n• Audios\n• Sesiones en directo\n• Podcast privado\n• Ceremonias",
+      imageUrl: await demoImage(ana.id, "/demo/human-design.webp"), priceCents: 2200, billingInterval: "month", ctaLabel: "Unirme", sortOrder: 10, createdAt: daysAgo(35),
+      // Oferta del primer mes (lib/offers.ts): las renovaciones van al precio normal.
+      salePriceCents: 1100, saleLabel: "1.er mes −50 %", saleEndsAt: zonedTimeToUtc(addDaysToKey(TODAY, 12), 0, TZ),
+    },
+  });
+  await prisma.productInclusion.createMany({
+    data: [
+      { creatorId: ana.id, productId: pPlena.id, includedProductId: pEsencia.id },
+      { creatorId: ana.id, productId: pCircle.id, includedProductId: pPlena.id },
+      { creatorId: ana.id, productId: pCircle.id, includedProductId: pEsencia.id },
+    ],
   });
 
   await prisma.productFile.createMany({
@@ -844,6 +1089,8 @@ async function main() {
     ],
   });
 
+  await seedAnaPortada({ anaId: ana.id, course: pCourse, freeCourse: pFree, esencia: pEsencia, plena: pPlena, lunaCompleta: pCircle });
+
   // Disponibilidad: L–J 10–14 y 17–20 · V 10–14. Dos días bloqueados dentro de dos semanas y las
   // dos reservas en los próximos días con horario (prisma/demo-dates.ts).
   const schedule = DEMO_SCHEDULE;
@@ -970,7 +1217,7 @@ async function main() {
   const sub = await prisma.subscription.create({
     data: {
       creatorId: ana.id, productId: pCircle.id, customerId: o5.customerId, userId: lucia.id, orderId: o5.order.id, buyerCountry: o5.order.buyerCountry,
-      status: "ACTIVE", priceCents: 1900, interval: "month", currentPeriodStart: daysAgo(16, 22, 10), currentPeriodEnd: periodEnd,
+      status: "ACTIVE", priceCents: pCircle.priceCents, interval: "month", currentPeriodStart: daysAgo(16, 22, 10), currentPeriodEnd: periodEnd,
       provider: "simulated", createdAt: daysAgo(16, 22, 10),
     },
   });
@@ -1099,7 +1346,7 @@ async function main() {
       { creatorId: ana.id, to: laura.email, subject: `Reserva confirmada · ${lauraWhen}`, template: "BOOKING_CONFIRMED", status: "SENT", sentAt: new Date(lauraBoughtAt.getTime() + 60_000), sendAt: new Date(lauraBoughtAt.getTime() + 60_000), html: `<p>Tu sesión está reservada: ${lauraWhen}. <a href="${base}/cuenta/sesiones/${bLaura.id}">Ver detalles</a></p>` },
       { creatorId: ana.id, to: laura.email, subject: "Recordatorio: mañana tienes tu sesión", template: "SESSION_REMINDER", status: "QUEUED", sendAt: new Date(lauraAt.getTime() - DAY), dedupeKey: `reminder:${bLaura.id}:${bLaura.startAt!.toISOString()}`, html: `<p>Te recordamos tu sesión Lectura de Human Design: ${lauraWhen}.</p>` },
       { creatorId: ana.id, to: carmen.email, subject: "Recordatorio: mañana tienes tu sesión", template: "SESSION_REMINDER", status: "QUEUED", sendAt: new Date(carmenAt.getTime() - DAY), dedupeKey: `reminder:${bCarmen.id}:${bCarmen.startAt!.toISOString()}`, html: `<p>Te recordamos tu Sesión 1:1: ${carmenWhen}.</p>` },
-      { creatorId: ana.id, to: "ana@cirella.app", subject: "Nueva suscripción a Comunidad privada", template: "NEW_SUBSCRIPTION", status: "SENT", sentAt: daysAgo(16, 22, 11), sendAt: daysAgo(16, 22, 11), html: `<p>Lucía Torres se ha unido a Comunidad privada.</p>` },
+      { creatorId: ana.id, to: "ana@cirella.app", subject: "Nueva suscripción a Luna completa", template: "NEW_SUBSCRIPTION", status: "SENT", sentAt: daysAgo(16, 22, 11), sendAt: daysAgo(16, 22, 11), html: `<p>Lucía Torres se ha unido a Luna completa.</p>` },
     ],
   });
 

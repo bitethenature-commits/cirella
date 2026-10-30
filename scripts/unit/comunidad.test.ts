@@ -107,7 +107,7 @@ test("memberPostFormSchema: enlace https, máximo 10 archivos, tipo desconocido 
   ok(!r.success && /https/.test(r.error.issues[0].message));
   const many = form({ attachmentIds: Array.from({ length: 11 }, (_, i) => `f${i}`) });
   ok(!many.success && /Máximo 10/.test(many.error.issues[0].message));
-  const k = form({ body: "x", kind: "PODCAST", bodyFormat: "" });
+  const k = form({ body: "x", kind: "RADIO", bodyFormat: "" });
   ok(k.success);
   eq(k.success && k.data.kind, "TEXT");
   eq(k.success && k.data.bodyFormat, null);

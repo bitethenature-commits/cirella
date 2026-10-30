@@ -163,7 +163,8 @@ test("caducidad: vale todo el día elegido en la zona de la creadora", () => {
 test("withAllSections: las secciones nuevas entran visibles tras la anterior del orden por defecto", () => {
   const old = ["links", "products", "sessions", "courses", "memberships", "testimonials", "faq", "contact"].map((key) => ({ key, enabled: true })) as never;
   const keys = withAllSections(old).map((s) => s.key);
-  eq(keys, ["links", "blocks", "products", "sessions", "courses", "memberships", "posts", "codes", "testimonials", "faq", "newsletter", "contact"]);
+  // Cada sección que falta entra detrás de la que la precede en el orden por defecto de la portada nueva.
+  eq(keys, ["links", "bubbles", "posts", "portal", "offers", "about", "systems", "readings", "products", "sessions", "courses", "codes", "blocks", "memberships", "testimonials", "faq", "newsletter", "contact"]);
   // Respeta el orden elegido y no duplica.
   const custom = withAllSections([{ key: "faq", enabled: false }, { key: "links", enabled: true }, { key: "faq", enabled: true }]);
   eq(custom.filter((s) => s.key === "faq").length, 1);
