@@ -183,9 +183,12 @@ test.describe.serial("Portada nueva", () => {
     const form = page.locator("#portal-form");
     await form.getByLabel("Tu nombre").fill("Nuria");
     await form.getByLabel("Tu email").fill(email);
+    // Sin la casilla de la newsletter no se envía (el navegador la exige).
+    await form.getByRole("button", { name: /Suscribirme/ }).click();
+    expect(await prisma.emailMessage.count({ where: { to: email } })).toBe(0);
+    await form.getByLabel(/Quiero recibir la newsletter de Ana Luna/).check();
     await form.getByRole("button", { name: /Suscribirme/ }).click();
     await expect(form.getByText(/Te hemos enviado un enlace/)).toBeVisible();
-    // Sin la casilla no se envía (el navegador la exige); con ella, el email del portal.
     const mail = await prisma.emailMessage.findFirstOrThrow({ where: { to: email, template: "REGISTER" } });
     expect(mail.subject).toBe("Confirma tu suscripción y entra al Portal de Noticias");
     expect(await prisma.subscriber.findFirst({ where: { creatorId: ana.id, email } })).toBeNull();
