@@ -7,6 +7,7 @@ import { asAccessMode, externalHost } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { deliveryFacts, deliveryIssue } from "@/lib/delivery";
 import { formatPrice } from "@/lib/money";
+import { saleState } from "@/lib/offers";
 import { signupsOnly } from "@/lib/commerce";
 import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
@@ -98,6 +99,11 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                   <Badge tone="warning">Borrador</Badge>
                 )}
                 {deliveryIssue(deliveryFacts(p))?.blocking && <Badge tone="danger">Sin entrega</Badge>}
+                {saleState(p).active ? (
+                  <Badge tone="dark">En oferta · {formatPrice(saleState(p).priceCents, p.currency)}</Badge>
+                ) : saleState(p).upcoming ? (
+                  <Badge tone="neutral">Oferta programada</Badge>
+                ) : null}
               </div>
             </Link>
             <div className="flex shrink-0 gap-1">

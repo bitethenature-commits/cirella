@@ -26,8 +26,9 @@ con una comprobación para que sepas que va bien.
 - **Productos de pago que se cobran fuera** (Hotmart, Calendly…): la ficha
   enseña el precio y un botón que lleva a esa web. Si el contenido está alojado aquí (por ejemplo
   un curso), desde tu panel le das acceso a quien te haya pagado.
-- **Publicaciones con fecha** (novedades, tipo blog) y **códigos de descuento** de otras marcas,
-  con botón «Copiar código».
+- **Publicaciones con fecha** («Actualidades», tipo blog, con vídeo o audio y un botón), un
+  **Portal de Noticias** gratis para tus suscriptoras, **ofertas** con fecha, tu **comunidad en
+  niveles** y **códigos de descuento** de otras marcas, con botón «Copiar código».
 - **Tu propia newsletter** (sin MailerLite ni nada aparte): formulario en tu página, lista de
   suscriptoras con doble confirmación, campañas con un editor visual, y los emails automáticos
   (bienvenida, compra, recordatorios…) escritos con tus palabras ([Tu newsletter](#tu-newsletter)).
@@ -620,6 +621,63 @@ con los mismos bloques. Cada una tiene su dirección (por ejemplo `tudominio.com
 **Ajustes** con «Copiar enlace»), su borrador y su **Publicar**. Las publicadas salen en el pie de
 tu web; con **«Añadir un botón a esta página en mi portada»** sale también arriba, entre tus
 botones. Pega `tudominio.com/sobre-mi` en tu bio o en una historia.
+
+### Tu portada: accesos, actualidades, portal, ofertas y más
+
+Tu portada, de arriba abajo (cada sección se puede mover u ocultar en **Mi página → Secciones**):
+tu presentación (portada, foto, nombre, frase y redes, como siempre), los **botones principales**
+(si los quieres), los **Accesos**, **Actualidades**, el **Portal de Noticias**, **Ofertas**, la
+tarjeta **Sobre mí**, **Sistemas con los que trabajo**, **Lecturas, sesiones y círculos**,
+**Cursos**, **Códigos de descuento** y, al final, testimonios, preguntas frecuentes, newsletter y
+contacto. Lo que no tiene contenido no se ve.
+
+- **Accesos** (**Mi página → Accesos y tarjetas**): de 1 a 4 burbujas redondas con foto, en una fila
+  también en el móvil. Por ejemplo «Sobre mí», «Cursos» (`/cursos`) y «Hacerte miembro»
+  (`/comunidad`). En el mismo sitio editas la tarjeta **Sobre mí** (foto a la derecha, título y texto
+  a la izquierda; toda la tarjeta lleva a tu página «Sobre mí»), los **Sistemas** (cada uno con su
+  foto, un texto corto y el enlace a su página: créala en **Páginas**) y los textos y pasos de
+  **Lecturas** y **Sesiones**.
+- **Actualidades** (antes «Novedades»; **Panel → Publicaciones**): tus 2 últimas salen en la portada
+  como tarjetas con la fecha en grande; «Ver todas» lleva a `tudominio.com/actualidades`, agrupadas
+  por meses. Cada publicación puede llevar un **vídeo o un audio** (súbelo o pega un enlace de YouTube
+  o Vimeo) y un **botón** a un producto, una página o una web, con un **código de descuento** al lado.
+  Las direcciones de antes (`/novedades`) llevan solas a las nuevas.
+- **Portal de Noticias** (**Panel → Portal de Noticias**): vídeos, audios, fotos, el enlace de un
+  directo de Zoom (con día y hora) o un aviso **Early Bird**, gratis pero solo para quien está
+  suscrita a tu newsletter **y** ha entrado en su cuenta. El **destacado** sale en grande en la
+  portada (con la portada desenfocada y el candado «Suscríbete a mi newsletter para ver el vídeo»)
+  y los dos siguientes, debajo; todo está en `tudominio.com/portal`. Quien rellena el candado
+  (nombre, email y la casilla de la newsletter) recibe un email: al pulsar «Confirmar y entrar»
+  queda suscrita, se crea su cuenta si no la tenía, entra y vuelve al portal ya abierto. Los
+  archivos y los enlaces nunca llegan a quien no lo tiene desbloqueado.
+- **Ofertas** (en cada producto, **Precio → Poner en oferta**): precio de oferta, fechas de inicio y
+  de fin (opcionales) y una etiqueta («Early Bird»). Mientras dura, tus tarjetas, la ficha y el
+  pago enseñan el precio de antes tachado, el de oferta y hasta cuándo, y se cobra el de oferta con
+  tarjeta y con PayPal (también en el recibo y la factura). La sección «Ofertas» de la portada
+  lista lo que está en oferta y desaparece sola cuando no hay nada. En una **membresía**, la oferta
+  es el precio del **primer pago**: las renovaciones van al precio normal.
+- **Lecturas, sesiones y círculos**: dos tarjetas («Lectura»: la preparas tú y le llega grabada o
+  en PDF; «Sesión»: en directo por Zoom, elige día y hora). Cada una abre su página
+  (`/lecturas`, `/sesiones`) con los pasos para reservar y tus productos de ese tipo. Debajo salen
+  los próximos **círculos de la luna**: talleres en directo marcados como «Es un círculo de la
+  luna» (en el producto del taller), con la fecha y la hora de España y «Apuntarme» (sin ser
+  miembro; el desistimiento de los talleres es el de siempre).
+- **Cursos**: con más de un curso, la portada lleva a `tudominio.com/cursos`, donde se agrupan por
+  **Método** (Astrología, Human Design, Gene Keys, Mi energía y Especiales; lo eliges en la ficha de
+  cada curso).
+
+### Comunidad en niveles
+
+`tudominio.com/comunidad` enseña tus membresías una al lado de otra, de la más sencilla a la más
+completa, con su precio, lo que incluye cada una (las líneas con viñeta de su descripción) e
+«Incluye todo lo de…» en las de arriba, y el botón para unirse (el pago de siempre).
+
+Para montar los niveles, en la membresía de arriba marca en **Qué incluye esta membresía** las de
+abajo (y los cursos que quieras). Quien está en un nivel lee también las publicaciones y los cursos
+de los niveles que incluye, mientras su acceso siga vigente (si termina, deja de verlos al momento).
+Un nivel no puede incluir a otro que ya lo incluye. Además de texto, audio, vídeo y directo, las
+publicaciones pueden ser **Podcast**, **Ceremonia** o **Círculo de la luna**, con su día y hora (el
+editor te propone las próximas luna nueva y luna llena).
 
 ### Vídeos y audios desde el iPhone
 
