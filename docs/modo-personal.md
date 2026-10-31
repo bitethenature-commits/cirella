@@ -622,6 +622,14 @@ con los mismos bloques. Cada una tiene su dirección (por ejemplo `tudominio.com
 tu web; con **«Añadir un botón a esta página en mi portada»** sale también arriba, entre tus
 botones. Pega `tudominio.com/sobre-mi` en tu bio o en una historia.
 
+**Modelo interactivo** («Añadir modelo interactivo» en los bloques): elige **Carta natal**,
+**Bodygraph (Human Design)**, **Gene Keys (perfil hologenético)**, **Ciclo lunar y calendario** o
+**Filosofía · geometría sagrada**, con un título y una frase opcionales. Quien visita tu página lo
+toca y se explica solo (también en el móvil); se carga aparte, así que no hace más lenta la página.
+El ciclo lunar usa el cielo real (fase de hoy, signo y próximas lunas). La geometría sagrada es una
+figura a trazo fino detrás de tu frase (eneagrama, cubo de Metatrón, flor de la vida…). Con
+«reducir movimiento» activado en el teléfono, nada se anima.
+
 ### Tu portada: accesos, actualidades, portal, ofertas y más
 
 Tu portada, de arriba abajo (cada sección se puede mover u ocultar en **Mi página → Secciones**):
@@ -663,7 +671,7 @@ contacto. Lo que no tiene contenido no se ve.
   luna» (en el producto del taller), con la fecha y la hora de España y «Apuntarme» (sin ser
   miembro; el desistimiento de los talleres es el de siempre).
 - **Cursos**: con más de un curso, la portada lleva a `tudominio.com/cursos`, donde se agrupan por
-  **Método** (Astrología, Human Design, Gene Keys, Mi energía y Especiales; lo eliges en la ficha de
+  **Método** (Astrología, Human Design, Gene Keys, Luna, Mi energía y Especiales; lo eliges en la ficha de
   cada curso).
 
 ### Comunidad en niveles

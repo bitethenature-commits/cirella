@@ -36,7 +36,7 @@ import { unsubscribeHeaders, unsubscribeUrl } from "../lib/newsletter-tokens";
 import { newsletterConsentText } from "../lib/newsletter-rules";
 import { formatLegalAddress } from "../lib/legal";
 import { randomBytes } from "node:crypto";
-import { pageVideoUrl, type PageImage } from "../lib/page-blocks";
+import { pageVideoUrl, type ContentBlock, type ModelKind, type PageImage } from "../lib/page-blocks";
 import { type SitePageContent } from "../lib/site-pages";
 import { mimeFromExt, privateKey, storage } from "../lib/storage";
 import { legacyLessonColumns } from "../lib/lesson-parts";
@@ -154,14 +154,29 @@ async function demoBlockImage(creatorId: string, demoUrl: string, alt: string, c
   return { src: img.url, alt, width: img.width, height: img.height, ...(caption ? { caption } : {}) };
 }
 
+type AnaSystem = {
+  slug: string;
+  title: string;
+  img: string;
+  photo: string;
+  text: string;
+  body: string;
+  /** Modelo interactivo de su página (components/models), con su título y su entradilla. */
+  model?: { kind: Exclude<ModelKind, "geometry">; title: string; intro: string };
+  /** Lecturas, cursos y demás (por defecto, la página del producto: /ana/<slug>). */
+  related: { slug: string; title: string; text: string; img: string; href?: string }[];
+};
+
 /**
  * Métodos de Ana: cada uno tiene su página (/<slug>), su tarjeta en «Sistemas con los que trabajo» de
- * la portada y en «Mis métodos» de «Sobre mí», y tarjetas hacia sus lecturas y cursos.
+ * la portada y en «Mis métodos» de «Sobre mí», su modelo interactivo y tarjetas hacia sus lecturas y
+ * cursos. «Mi energía» es su filosofía (la antigua página «Filosofía»): ver anaEnergyBlocks().
  */
-const ANA_SYSTEMS = [
+const ANA_SYSTEMS: AnaSystem[] = [
   {
     slug: "human-design", title: "Human Design", img: "/demo/human-design.webp", photo: "/demo/sesion.webp", text: "Tu manual de instrucciones energético.",
     body: "El **Human Design** une astrología, I Ching, cábala y el sistema de chakras en un único mapa: tu bodygraph.\n\nCon él descubres tu tipo, tu estrategia y tu autoridad para tomar decisiones con menos resistencia.",
+    model: { kind: "bodygraph", title: "Juega con un bodygraph", intro: "Enciende puertas y mira cómo se definen los canales y cambian el tipo, la estrategia y la autoridad. Empieza por los ejemplos de arriba." },
     related: [
       { slug: "lectura-human-design", title: "Lectura de Human Design", text: "Sesión en directo para leer juntas tu bodygraph.", img: "/demo/human-design.webp" },
       { slug: "human-design-desde-cero", title: "Human Design desde cero", text: "El curso para aprender a leer tu propio diseño.", img: "/demo/curso.webp" },
@@ -170,6 +185,7 @@ const ANA_SYSTEMS = [
   {
     slug: "gene-keys", title: "Gene Keys", img: "/demo/gene-keys.webp", photo: "/demo/sesion.webp", text: "Contempla tu sombra, tu don y tu siddhi.",
     body: "Las **Gene Keys** son 64 llaves de contemplación. Cada una describe un espectro: la sombra, el don y el siddhi.\n\nTrabajamos con tu Secuencia de Activación para encontrar tu genio creativo.",
+    model: { kind: "geneKeys", title: "Recorre un perfil hologenético", intro: "Trece esferas sobre el Camino Dorado. Toca una para leer su llave en sombra, don y siddhi, y cámbiala por otra para ver cómo se mueve el sentido." },
     related: [
       { slug: "gene-keys", title: "Lectura de Gene Keys", text: "Tu perfil hologenético explicado paso a paso.", img: "/demo/gene-keys.webp" },
       { slug: "gene-keys-secuencia-de-activacion", title: "Gene Keys: tu Secuencia de Activación", text: "El curso para contemplar tus cuatro primeras llaves.", img: "/demo/curso.webp" },
@@ -178,6 +194,7 @@ const ANA_SYSTEMS = [
   {
     slug: "astrologia", title: "Astrología", img: "/demo/astrologia.webp", photo: "/demo/sesion.webp", text: "Tu carta natal como mapa de tus ritmos.",
     body: "La **carta natal** es una foto del cielo cuando naciste. No te define: describe tus potenciales y tus ritmos.\n\nLeemos tu Sol, tu Luna, tu Ascendente y las casas para aterrizarlo a tu vida.",
+    model: { kind: "chart", title: "Explora una carta natal", intro: "Toca los signos, las casas, los planetas y las líneas de aspecto, y mueve el ascendente: así es como leo contigo tu propia carta." },
     related: [
       { slug: "lectura-astrologia", title: "Lectura de Astrología", text: "Tu carta natal grabada para escucharla con calma.", img: "/demo/astrologia.webp" },
       { slug: "lectura-de-tu-ano", title: "Lectura de tu año", text: "Los tránsitos que vienen y cómo aprovecharlos.", img: "/demo/hero.webp" },
@@ -185,14 +202,72 @@ const ANA_SYSTEMS = [
     ],
   },
   {
-    slug: "mi-energia", title: "Mi energía", img: "/demo/sesion.webp", photo: "/demo/ana-avatar.webp", text: "Cómo uno los tres sistemas en un solo mapa.",
-    body: "Mi forma de trabajar une **astrología, Human Design y Gene Keys** en un mapa práctico.\n\nAsí cada lectura habla de tu energía completa, no de una parte.",
+    slug: "luna", title: "Luna", img: "/demo/comunidad.webp", photo: "/demo/hero.webp", text: "Vive cada lunación con intención.",
+    body: "La **Luna** marca un ritmo que el cuerpo reconoce antes que la cabeza: sembrar en la luna nueva, ver en la llena, soltar en la menguante.\n\nEn los **círculos de la luna** nos juntamos en cada luna nueva y cada luna llena para vivirla con un ritual guiado y un rato para compartir.",
+    model: { kind: "lunar", title: "El ciclo de la luna", intro: "Mueve el ciclo o toca un día del calendario: verás por qué la luna se ve así, qué pide cada fase y cuándo llegan la próxima luna nueva y la próxima llena." },
+    // Más los círculos de la luna que haya en ese momento (seedAnaPortada los pone delante).
+    related: [
+      { slug: "luna-completa", title: "Luna completa", text: "La comunidad con un círculo en directo en cada luna nueva y cada luna llena.", img: "/demo/astrologia.webp" },
+      { slug: "comunidad", href: "/ana/comunidad", title: "La comunidad", text: "Esencia, Plena y Luna completa: elige cómo quieres acompañar tus lunas.", img: "/demo/comunidad.webp" },
+      { slug: "especial-tu-ano-lunar", title: "Especial: tu año lunar", text: "Dos lecciones gratis para preparar las trece lunas del año.", img: "/demo/curso.webp" },
+    ],
+  },
+  {
+    slug: "mi-energia", title: "Mi energía", img: "/demo/sesion.webp", photo: "/demo/ana-avatar.webp", text: "Mi forma de mirar: cinco principios y un ensayo.",
+    body: "Los métodos los aprendí; **mi energía** es lo que quedó después: cinco principios que sostienen cada lectura y una forma de acompañar sin prisa.\n\nPorque ningún sistema del mundo sustituye la experiencia propia.",
     related: [
       { slug: "curso-conocete-tu-energia", title: "Conócete a través de tu energía", text: "El curso que une los tres sistemas en tu mapa.", img: "/demo/curso.webp" },
       { slug: "sesion-1-1", title: "Sesión 1:1", text: "Una hora conmigo para mirar tu momento con los tres mapas.", img: "/demo/sesion.webp" },
     ],
   },
 ];
+
+/**
+ * «Mi energía»: la antigua página «Filosofía» contada por Ana. Todo son bloques que ella puede editar:
+ * la frase sobre la geometría sagrada (modelo «geometry»), por qué esta parte, los cinco principios
+ * (una trayectoria numerada I–V) y el ensayo de sus cuadernos (texto con formato).
+ */
+function anaEnergyBlocks(): ContentBlock[] {
+  return [
+    {
+      id: "geometria", kind: "model", model: "geometry", figure: "enneagram", enabled: true,
+      title: "Ningún sistema del mundo\nsustituye la experiencia\npropia.",
+      intro: "",
+    },
+    {
+      id: "por-que", kind: "text", title: "Por qué esta parte", format: "MD", enabled: true,
+      body:
+        "Los otros caminos los aprendí: la astrología, el Human Design, las Gene Keys, la luna. Este no. Es lo que quedó después de haberlo leído todo y seguir plantada ante las mismas preguntas. Para esta parte no puedo citar a nadie, y por eso es la única de la que respondo por completo.\n\n" +
+        "Lo que sigue no son dogmas. Son cinco cosas que, después de años acompañando a personas, creo que son ciertas, hasta que alguien me demuestre lo contrario.",
+    },
+    {
+      id: "principios", kind: "timeline", title: "Cinco principios", enabled: true,
+      items: [
+        { label: "I", title: "No hay atajo", text: "Todo lo que va rápido, o no era importante, o no se quedó. Un árbol que crece en un año tiene la madera blanda." },
+        { label: "II", title: "Entender no es sanar", text: "Puedes conocer perfectamente el origen de un patrón y seguir repitiéndolo cada día. La comprensión es el comienzo del trabajo, no su final." },
+        { label: "III", title: "Ningún sistema es la verdad", text: "La astrología, el Human Design, las Gene Keys: son idiomas. Los idiomas describen el mundo, no son el mundo. Quien toma un sistema por la verdad ha dejado de mirar." },
+        { label: "IV", title: "El dolor quiere ser atravesado", text: "No comprendido. La idea de que el sufrimiento trae un mensaje consuela, pero es una cuenta: si entiendo para qué sirvió, ya no tengo que sentirlo." },
+        { label: "V", title: "La presencia gana al consejo", text: "Una persona que se queda sin necesitar que estés mejor es algo raro. También es lo único que ayuda en las horas difíciles." },
+      ],
+    },
+    {
+      id: "ensayo", kind: "text", title: "Sobre la confianza en lo que todavía no es visible", format: "MD", enabled: true,
+      body: [
+        "*De mis cuadernos*",
+        "Hay un tiempo entre la decisión y la prueba de que fue acertada.",
+        "Ese tiempo es el verdadero lugar de la vida. Todo lo anterior es deliberación; todo lo posterior, recuerdo.",
+        "En ese tiempo nadie tiene razón. Ni quienes te advierten ni quienes te animan. No hay nada que saber: solo algo que sostener.",
+        "## Lo que la confianza no es",
+        "La confianza no es certeza en formato pequeño. Quien dice «confío en que todo saldrá bien» casi siempre quiere decir: *no quiero sentir que también podría no salir bien.*",
+        "La confianza de verdad incluye el otro extremo. Dice: voy, y no lo sé.",
+        "## Por qué merece la pena",
+        "Porque una vida en la que solo caminas cuando sabes es una vida muy corta.",
+        "Nunca llegarás a ningún sitio donde no hayas estado ya.",
+        "*— Ana*",
+      ].join("\n\n"),
+    },
+  ];
+}
 
 /**
  * Páginas extra de Ana: «Sobre mí» publicada (foto y texto, cita, tarjetas de métodos y de cómo
@@ -239,7 +314,7 @@ async function seedAnaSitePages(creatorId: string) {
         id: "metodos",
         kind: "text",
         title: "Mis métodos",
-        body: "Trabajo con cuatro miradas que se complementan. Te cuento qué es cada una y, debajo, tienes su página con todo el detalle.",
+        body: "Trabajo con cuatro sistemas que se complementan y con una forma de mirar que los une. Te cuento qué es cada uno y, debajo, tienes su página con todo el detalle.",
         format: "MD",
         enabled: true,
       },
@@ -511,7 +586,7 @@ async function seedAnaPortada(o: {
 
   // ── Círculos de la luna: talleres en la próxima luna nueva y la próxima luna llena (20:00, Madrid) ──
   const moons = nextMoonDates(NOW, TZ, 4).filter((m) => zonedTimeToUtc(m.date, labelToMinutes(m.time), TZ).getTime() > NOW.getTime() + 3 * 3600_000).slice(0, 2);
-  const circles: { id: string; title: string; at: Date }[] = [];
+  const circles: { id: string; slug: string; title: string; at: Date }[] = [];
   for (const [i, m] of moons.entries()) {
     const at = zonedTimeToUtc(m.date, labelToMinutes(m.time), TZ);
     const c = await prisma.product.create({
@@ -524,7 +599,7 @@ async function seedAnaPortada(o: {
         durationMin: 60, bufferMin: 15, minNoticeHours: 0, meetingUrl: ANA_ZOOM, eventStartAt: at, capacity: 20, createdAt: daysAgo(3),
       },
     });
-    circles.push({ id: c.id, title: c.title, at });
+    circles.push({ id: c.id, slug: c.slug, title: c.title, at });
   }
 
   // ── Publicaciones de cada nivel de la comunidad ──
@@ -541,27 +616,35 @@ async function seedAnaPortada(o: {
   if (moons[0])
     await post(o.lunaCompleta.id, 0, `Círculo de ${moons[0].title.toLowerCase()}`, "CIRCULO_LUNAR", "Nos vemos en el círculo para vivir esta luna juntas. Trae papel, una vela y tu intención.", { eventAt: zonedTimeToUtc(moons[0].date, labelToMinutes(moons[0].time), TZ), mediaUrl: ANA_ZOOM });
 
-  // ── Páginas de cada sistema (Sistemas con los que trabajo) ──
+  // ── Páginas de cada sistema (Sistemas con los que trabajo), con su modelo interactivo ──
   const systemCards = [];
+  const circleCards = circles.map((c) => ({ slug: c.slug, title: c.title, text: "Un círculo en directo por Zoom para vivir esta luna juntas.", img: "/demo/comunidad.webp" }));
   for (const [i, sys] of ANA_SYSTEMS.entries()) {
     const image = await demoBlockImage(anaId, sys.img, sys.title);
+    const related: AnaSystem["related"] = sys.slug === "luna" ? [...circleCards, ...sys.related] : sys.related;
+    const relatedBlock: ContentBlock = {
+      id: "relacionados", kind: "cards", title: sys.slug === "mi-energia" ? "Para llevarlo a tu vida" : sys.slug === "luna" ? "Círculos, comunidad y cursos de la luna" : `Lecturas y cursos de ${sys.title}`,
+      cards: await Promise.all(related.slice(0, 8).map(async (r) => ({ title: r.title, text: r.text, href: r.href ?? `/ana/${r.slug}`, image: await demoBlockImage(anaId, r.img, r.title) }))),
+      enabled: true,
+    };
+    const blocks: ContentBlock[] =
+      sys.slug === "mi-energia"
+        ? [...anaEnergyBlocks(), relatedBlock]
+        : [
+            {
+              id: "que-es", kind: "photoText", title: `Qué es ${sys.title === "Luna" ? "vivir la luna" : sys.title}`, body: sys.body, format: "MD", imageSide: "left",
+              image: await demoBlockImage(anaId, sys.photo, `Así trabajo con ${sys.title}`), buttonLabel: "Ver mis lecturas", buttonUrl: "/ana/lecturas", enabled: true,
+            },
+            ...(sys.model ? [{ id: "modelo", kind: "model" as const, model: sys.model.kind, title: sys.model.title, intro: sys.model.intro, figure: "enneagram" as const, enabled: true }] : []),
+            relatedBlock,
+          ];
     const content: SitePageContent = {
       title: sys.title,
-      subtitle: sys.text,
+      subtitle: sys.slug === "mi-energia" ? "Cinco principios y un ensayo: lo que creo después de haberlo leído todo." : sys.text,
       cover: image,
-      blocks: [
-        {
-          id: "que-es", kind: "photoText", title: `Qué es ${sys.title}`, body: sys.body, format: "MD", imageSide: "left",
-          image: await demoBlockImage(anaId, sys.photo, `Así trabajo con ${sys.title}`), buttonLabel: "Ver mis lecturas", buttonUrl: "/ana/lecturas", enabled: true,
-        },
-        {
-          id: "relacionados", kind: "cards", title: `Lecturas y cursos de ${sys.title}`,
-          cards: await Promise.all(sys.related.map(async (r) => ({ title: r.title, text: r.text, href: `/ana/${r.slug}`, image: await demoBlockImage(anaId, r.img, r.title) }))),
-          enabled: true,
-        },
-      ],
+      blocks,
       seoTitle: `${sys.title} · Ana Luna`,
-      seoDescription: sys.text,
+      seoDescription: sys.slug === "mi-energia" ? "Cinco principios y un ensayo sobre la confianza en lo que todavía no es visible." : sys.text,
     };
     const json = content as unknown as Prisma.InputJsonValue;
     await prisma.sitePage.create({

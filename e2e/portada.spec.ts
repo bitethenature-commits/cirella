@@ -96,7 +96,7 @@ test.describe.serial("Portada nueva", () => {
     // «Sobre mí»: la tarjeta entera lleva a su página; los sistemas, a la suya.
     await expect(page.locator("#sobre-mi a")).toHaveAttribute("href", "/ana/p/sobre-mi");
     await expect(page.locator("#sobre-mi")).toContainText("Hola, soy Ana");
-    for (const name of ["Human Design", "Gene Keys", "Astrología", "Mi energía"]) await expect(page.locator("#sistemas").getByRole("link", { name: new RegExp(name) })).toBeVisible();
+    for (const name of ["Human Design", "Gene Keys", "Astrología", "Luna", "Mi energía"]) await expect(page.locator("#sistemas").getByRole("link", { name: new RegExp(name) })).toBeVisible();
     await page.locator("#sistemas").getByRole("link", { name: /Human Design/ }).click();
     await expect(page.getByRole("heading", { name: "Human Design", level: 1 })).toBeVisible();
   });

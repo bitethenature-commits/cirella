@@ -4,13 +4,14 @@
  * pública y las pruebas unitarias.
  */
 
-export const COURSE_CATEGORIES = ["ASTROLOGIA", "HUMAN_DESIGN", "GENE_KEYS", "MI_ENERGIA", "ESPECIAL"] as const;
+export const COURSE_CATEGORIES = ["ASTROLOGIA", "HUMAN_DESIGN", "GENE_KEYS", "LUNA", "MI_ENERGIA", "ESPECIAL"] as const;
 export type CourseCategory = (typeof COURSE_CATEGORIES)[number];
 
 export const COURSE_CATEGORY_LABEL: Record<CourseCategory, string> = {
   ASTROLOGIA: "Astrología",
   HUMAN_DESIGN: "Human Design",
   GENE_KEYS: "Gene Keys",
+  LUNA: "Luna",
   MI_ENERGIA: "Mi energía",
   ESPECIAL: "Especiales",
 };

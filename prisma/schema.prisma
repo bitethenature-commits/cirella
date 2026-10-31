@@ -414,7 +414,7 @@ model Product {
   saleLabel      String? // «Early Bird», «Black Friday»…
 
   // Cursos: método con el que se agrupa en /cursos (lib/course-categories.ts). null = sin categoría.
-  courseCategory String? // ASTROLOGIA | HUMAN_DESIGN | GENE_KEYS | MI_ENERGIA | ESPECIAL
+  courseCategory String? // ASTROLOGIA | HUMAN_DESIGN | GENE_KEYS | LUNA | MI_ENERGIA | ESPECIAL
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
