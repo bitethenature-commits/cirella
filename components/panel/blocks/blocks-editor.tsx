@@ -1,13 +1,28 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Eye, EyeOff, Film, Image as ImageIcon, Images, Loader2, Plus, Trash2, Type, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Columns2, Eye, EyeOff, Film, Image as ImageIcon, Images, LayoutGrid, Loader2, Milestone, Plus, Quote, Trash2, Type, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { uploadImageInfo } from "@/components/ui/image-upload";
-import { BLOCK_LABEL, GALLERY_MAX, newBlock, type BlockKind, type ContentBlock, type GalleryBlock, type ImageBlock, type PageImage, type TextBlock } from "@/lib/page-blocks";
+import {
+  BLOCK_LABEL,
+  GALLERY_MAX,
+  newBlock,
+  type BlockKind,
+  type CardsBlock,
+  type ContentBlock,
+  type GalleryBlock,
+  type ImageBlock,
+  type PageImage,
+  type PhotoTextBlock,
+  type QuoteBlock,
+  type TextBlock,
+  type TimelineBlock,
+} from "@/lib/page-blocks";
 import { LinkInput, type LinkTarget } from "./link-input";
 import { ImageBlockFields } from "./image-block-fields";
 import { VideoBlockFields } from "./video-block-fields";
+import { CardsBlockFields, PhotoTextBlockFields, QuoteBlockFields, TimelineBlockFields } from "./rich-block-fields";
 
 /**
  * Editor de bloques compartido por «Mi página» (portada) y las páginas extra, pensado para el
@@ -17,7 +32,7 @@ import { VideoBlockFields } from "./video-block-fields";
  */
 export type BlocksUpdate = ContentBlock[] | ((prev: ContentBlock[]) => ContentBlock[]);
 
-const ICON: Record<BlockKind, typeof Type> = { text: Type, image: ImageIcon, gallery: Images, video: Film };
+const ICON: Record<BlockKind, typeof Type> = { text: Type, image: ImageIcon, gallery: Images, video: Film, photoText: Columns2, cards: LayoutGrid, quote: Quote, timeline: Milestone };
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -169,6 +184,10 @@ export function BlocksEditor({
               />
             )}
             {b.kind === "video" && <VideoBlockFields block={b} personal={personal} onPatch={(p) => update(b.id, (x) => ({ ...x, ...p }) as ContentBlock)} onStatus={(t) => setStatus(b.id, t)} />}
+            {b.kind === "photoText" && <PhotoTextBlockFields block={b} bodyMax={bodyMax} linkTargets={linkTargets} onUpdate={(fn) => update<PhotoTextBlock>(b.id, fn)} />}
+            {b.kind === "cards" && <CardsBlockFields block={b} linkTargets={linkTargets} onUpdate={(fn) => update<CardsBlock>(b.id, fn)} />}
+            {b.kind === "quote" && <QuoteBlockFields block={b} onUpdate={(fn) => update<QuoteBlock>(b.id, fn)} />}
+            {b.kind === "timeline" && <TimelineBlockFields block={b} onUpdate={(fn) => update<TimelineBlock>(b.id, fn)} />}
             {errors[b.id] && <p className="text-xs text-rose" role="alert">{errors[b.id]}</p>}
           </div>
         );
@@ -186,6 +205,18 @@ export function BlocksEditor({
         </button>
         <button type="button" onClick={() => add("video")} disabled={full} className="btn btn-outline h-11 text-sm">
           <Film className="h-4 w-4" /> Añadir vídeo
+        </button>
+        <button type="button" onClick={() => add("photoText")} disabled={full} className="btn btn-outline h-11 text-sm">
+          <Columns2 className="h-4 w-4" /> Añadir foto y texto
+        </button>
+        <button type="button" onClick={() => add("cards")} disabled={full} className="btn btn-outline h-11 text-sm">
+          <LayoutGrid className="h-4 w-4" /> Añadir tarjetas
+        </button>
+        <button type="button" onClick={() => add("quote")} disabled={full} className="btn btn-outline h-11 text-sm">
+          <Quote className="h-4 w-4" /> Añadir cita
+        </button>
+        <button type="button" onClick={() => add("timeline")} disabled={full} className="btn btn-outline h-11 text-sm">
+          <Milestone className="h-4 w-4" /> Añadir trayectoria
         </button>
       </div>
       {full && <p className="text-xs text-muted">Máximo {max} bloques</p>}

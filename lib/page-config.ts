@@ -111,7 +111,7 @@ export const READINGS_DEFAULTS = {
   circlesTitle: "Círculos de la luna · sin ser miembro",
 };
 
-/** Bloques de la portada (lib/page-blocks.ts): textos, imágenes, galerías y vídeos. */
+/** Bloques de la portada (lib/page-blocks.ts): textos, imágenes, galerías, vídeos, foto y texto, tarjetas, citas y trayectorias. */
 export const TEXT_BLOCKS_MAX = HOME_BLOCKS_MAX;
 export const TEXT_BLOCK_BODY_MAX = HOME_TEXT_MAX;
 const homeBlockSchema = contentBlockSchema({ bodyMax: TEXT_BLOCK_BODY_MAX });
@@ -221,8 +221,8 @@ export const pageConfigSchema = z.object({
   contact: z
     .object({ email: shortText(200).optional(), whatsapp: shortText(40).optional(), message: shortText(300).optional() })
     .default({}),
-  // Bloques de la portada: texto con formato, imagen, galería y vídeo (lib/page-blocks.ts). Los de
-  // antes (sin `kind`) son de texto.
+  // Bloques de la portada: texto con formato, imagen, galería, vídeo, foto y texto, tarjetas, cita y
+  // trayectoria (lib/page-blocks.ts). Los de antes (sin `kind`) son de texto.
   blocks: z
     .array(homeBlockSchema)
     .max(TEXT_BLOCKS_MAX, `Máximo ${TEXT_BLOCKS_MAX} bloques`)

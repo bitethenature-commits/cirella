@@ -19,7 +19,11 @@ import { VideoFacade } from "./video-facade";
  *     abre; sin enlace, se amplía al tocarla (pellizcar para leer el texto de un gráfico);
  *   · galería: carrusel deslizable o cuadrícula;
  *   · vídeo: subido (<video> nativo, sin reproducción automática) o de YouTube/Vimeo (no carga nada
- *     de fuera hasta pulsar ▶).
+ *     de fuera hasta pulsar ▶);
+ *   · foto y texto: la foto a un lado y el texto al otro (en el móvil, la foto encima);
+ *   · tarjetas: rejilla de 2 columnas (1 en el móvil); la tarjeta entera es el enlace;
+ *   · cita: una frase destacada con su autora;
+ *   · trayectoria: línea de tiempo con sus hitos.
  * Un src que no sea propio no se pinta (además de comprobarse al guardar).
  */
 export const BLOCK_IMAGE_SIZES = "(min-width: 768px) 704px, calc(100vw - 40px)";
@@ -40,6 +44,8 @@ export function ContentBlocks({
   siteOrigin?: string;
 }) {
   const linkTo = (url: string | undefined) => (url && !linksToProduct(url, username, hiddenSlugs, siteOrigin) ? safeHref(url) : null);
+  // Las webs de fuera, en otra pestaña; los enlaces internos y mailto:/tel:, en la misma.
+  const target = (href: string | null) => (href && /^https?:/i.test(href) ? { target: "_blank", rel: "noopener noreferrer" } : {});
   const title = (text: string) =>
     titleLevel === 3 ? <h3 className="cp-display text-[1.6rem] leading-tight">{text}</h3> : <h2 className="cp-display text-[1.75rem] leading-tight sm:text-[2rem]">{text}</h2>;
 
@@ -172,6 +178,124 @@ export function ContentBlocks({
               </figure>
             );
           }
+          case "photoText": {
+            if (!b.image || !isOwnImageSrc(b.image.src)) return null;
+            const href = linkTo(b.buttonUrl);
+            return (
+              <div key={b.id} className="cp-card grid sm:grid-cols-2" data-block="photo-text" data-side={b.imageSide}>
+                <div className={`relative aspect-[4/3] sm:aspect-auto sm:min-h-[20rem] ${b.imageSide === "right" ? "sm:order-last" : ""}`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={b.image.src}
+                    srcSet={imageSrcSet(b.image.src, b.image.width)}
+                    sizes="(min-width: 768px) 352px, calc(100vw - 40px)"
+                    alt={b.image.alt}
+                    width={b.image.width}
+                    height={b.image.height}
+                    loading="lazy"
+                    decoding="async"
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                </div>
+                <div className="flex flex-col justify-center p-6 sm:p-7">
+                  {b.title && title(b.title)}
+                  {b.body && (
+                    <RichContent
+                      text={b.body}
+                      format={b.format}
+                      legacy="links"
+                      tone="page"
+                      headingLevel={titleLevel === 3 ? 4 : 3}
+                      className={`cp-muted space-y-3 text-[0.95rem] leading-relaxed ${b.title ? "mt-3" : ""}`}
+                    />
+                  )}
+                  {href && b.buttonLabel && (
+                    <a href={href} className="cp-btn-ghost mt-5 self-start" {...target(href)}>
+                      {b.buttonLabel}
+                      <ArrowUpRight className="h-4 w-4 opacity-70" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          }
+          case "cards": {
+            if (!b.cards.length) return null;
+            return (
+              <section key={b.id} data-block="cards" aria-label={b.title || "Tarjetas"}>
+                {b.title && <div className="mb-4">{title(b.title)}</div>}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {b.cards.map((c, i) => {
+                    const href = linkTo(c.href);
+                    const img = c.image && isOwnImageSrc(c.image.src) ? c.image : null;
+                    const inner = (
+                      <>
+                        {img && (
+                          <div className="relative aspect-[4/3] overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={img.src}
+                              srcSet={imageSrcSet(img.src, img.width)}
+                              sizes="(min-width: 768px) 344px, calc(100vw - 40px)"
+                              alt={img.alt}
+                              width={img.width}
+                              height={img.height}
+                              loading="lazy"
+                              decoding="async"
+                              className="cp-img absolute inset-0 h-full w-full object-cover"
+                            />
+                          </div>
+                        )}
+                        <div className="flex flex-1 flex-col p-5">
+                          <span className="flex items-start justify-between gap-3">
+                            <span className="cp-display text-[1.3rem] leading-tight">{c.title}</span>
+                            {href && <ArrowUpRight className="cp-faint mt-1 h-4 w-4 shrink-0" aria-hidden />}
+                          </span>
+                          {c.text && <span className="cp-muted mt-2 text-[0.9rem] leading-relaxed">{c.text}</span>}
+                        </div>
+                      </>
+                    );
+                    return href ? (
+                      <a key={i} href={href} className="cp-card cp-card-hover flex flex-col" data-card {...target(href)}>
+                        {inner}
+                      </a>
+                    ) : (
+                      <div key={i} className="cp-card flex flex-col" data-card>
+                        {inner}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          }
+          case "quote":
+            return (
+              <figure key={b.id} className="cp-card relative px-7 pb-8 pt-12 text-center sm:px-12" data-block="quote">
+                <span aria-hidden className="cp-gold cp-display pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 text-[4.5rem] leading-none">
+                  “
+                </span>
+                <blockquote className="cp-display text-[1.45rem] leading-snug sm:text-[1.7rem]">{b.text}</blockquote>
+                {b.author && <figcaption className="cp-eyebrow mt-5">— {b.author}</figcaption>}
+              </figure>
+            );
+          case "timeline":
+            if (!b.items.length) return null;
+            return (
+              <section key={b.id} className="cp-card p-6 sm:p-7" data-block="timeline" aria-label={b.title || "Trayectoria"}>
+                {b.title && <div className="mb-6">{title(b.title)}</div>}
+                <ol className="cp-line relative ml-1.5 space-y-7 border-l">
+                  {b.items.map((it, i) => (
+                    <li key={i} className="relative pl-6">
+                      <span aria-hidden className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-[var(--c-gold)] shadow-[0_0_0_4px_color-mix(in_oklab,var(--c-gold)_22%,transparent)]" />
+                      {it.label && <p className="cp-eyebrow cp-gold">{it.label}</p>}
+                      <p className={`cp-display text-[1.2rem] leading-snug ${it.label ? "mt-1" : ""}`}>{it.title}</p>
+                      {it.text && <p className="cp-muted mt-1.5 text-[0.92rem] leading-relaxed">{it.text}</p>}
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            );
         }
       })}
     </>

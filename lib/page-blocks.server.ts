@@ -5,10 +5,11 @@ import { videoEmbed } from "./video-embed";
 
 /**
  * Saneamiento de los bloques al guardar la portada o una página extra (después del esquema):
- *   · imágenes (de imagen, galería y portada de vídeo): solo de esta creadora (o de la demo);
+ *   · imágenes (de imagen, galería, portada de vídeo, foto y texto, y tarjetas): solo de esta
+ *     creadora (o de la demo);
  *   · vídeo subido: solo suyo (solo se pueden subir en la web personal: lib/uploads.ts);
  *   · enlace de vídeo: recortado y reconocido (YouTube o Vimeo);
- *   · texto con formato: sin caracteres de control ni imágenes (cleanRichInput).
+ *   · texto con formato (texto y «Foto y texto»): sin caracteres de control ni imágenes (cleanRichInput).
  */
 export function sanitizeBlocks(creatorId: string, blocks: ContentBlock[]): { blocks: ContentBlock[] } | { error: string } {
   const out: ContentBlock[] = [];
@@ -16,6 +17,7 @@ export function sanitizeBlocks(creatorId: string, blocks: ContentBlock[]): { blo
     if (blockImages(b).some((src) => !isOwnImageSrc(src, creatorId))) return { error: "Una imagen no es tuya o ya no existe: vuelve a subirla" };
     switch (b.kind) {
       case "text":
+      case "photoText":
         out.push(b.format === "MD" ? { ...b, body: cleanRichInput(b.body, { creatorId, images: false }) } : b);
         break;
       case "video": {

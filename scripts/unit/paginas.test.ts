@@ -1,5 +1,6 @@
 /**
- * Editor de la página: bloques con tipo (texto, imagen, galería, vídeo), páginas extra y sus rutas.
+ * Editor de la página: bloques con tipo (texto, imagen, galería, vídeo, foto y texto, tarjetas, cita y
+ * trayectoria), páginas extra y sus rutas.
  * Funciones puras y render de los bloques (sin BD ni servidor).
  */
 import React, { createElement } from "react";
@@ -22,6 +23,7 @@ import {
   readBlocks,
   videoOrientation,
   visibleBlocks,
+  withoutEmptyBlocks,
   type ContentBlock,
 } from "../../lib/page-blocks";
 import { pageConfigSchema, readPageConfig, visibleTextBlocks } from "../../lib/page-config";
@@ -121,6 +123,27 @@ test("isEmptyBlock: los nuevos de imagen, galería y vídeo están vacíos; un t
   for (const k of ["image", "gallery", "video", "text"] as const) eq(isEmptyBlock(newBlock(k, k)), true, k);
   eq(isEmptyBlock({ ...(newBlock("text", "t") as Extract<ContentBlock, { kind: "text" }>), buttonUrl: "https://x.es" }), false);
   eq((newBlock("text", "t") as Extract<ContentBlock, { kind: "text" }>).format, "MD", "el texto nuevo nace con formato");
+});
+
+test("bloques: foto y texto, tarjetas, cita y trayectoria con sus errores", () => {
+  eq(err({ id: "p", kind: "photoText", title: "Mi historia" }), "Falta la foto de un bloque «Foto y texto»");
+  eq(err({ id: "p", kind: "photoText", image }), "Cada bloque «Foto y texto» necesita un título o un texto");
+  ok(parse({ id: "p", kind: "photoText", image, title: "T", imageSide: "arriba" }).success, "un lado desconocido se corrige");
+  ok(parse({ id: "p", kind: "photoText", image, title: "T" }).success, "el botón es opcional");
+  eq(err({ id: "c", kind: "cards", cards: [] }), "Añade al menos una tarjeta al bloque de tarjetas");
+  eq(err({ id: "c", kind: "cards", cards: [{ text: "x" }] }), "Cada tarjeta necesita un título");
+  ok(err({ id: "c", kind: "cards", cards: Array.from({ length: 9 }, () => ({ title: "x" })) })?.includes("Máximo 8"));
+  eq(err({ id: "q", kind: "quote", text: " " }), "Escribe la frase de la cita");
+  eq(err({ id: "t", kind: "timeline", items: [] }), "Añade al menos un hito a la trayectoria");
+  ok(parse({ id: "t", kind: "timeline", items: [{ label: "2020", title: "Certificación" }] }).success);
+});
+
+test("withoutEmptyBlocks: quita los bloques nuevos vacíos y las tarjetas e hitos en blanco", () => {
+  for (const k of ["photoText", "cards", "quote", "timeline"] as const) eq(isEmptyBlock(newBlock(k, k)), true, k);
+  const cards = { ...(newBlock("cards", "c") as Extract<ContentBlock, { kind: "cards" }>), cards: [{ image: null, title: "Uno", text: "" }, { image: null, title: "", text: "" }] };
+  const out = withoutEmptyBlocks([newBlock("timeline", "t"), cards]);
+  eq(out.map((b) => b.id), ["c"]);
+  eq((out[0] as Extract<ContentBlock, { kind: "cards" }>).cards.length, 1);
 });
 
 // ── Imágenes y vídeos propios ──
@@ -267,4 +290,19 @@ test("ContentBlocks: vídeo subido, YouTube sin cargar nada de fuera, y src ajen
 test("ContentBlocks: sin botón hacia un producto oculto (web personal sin cobros)", () => {
   const html = render([{ id: "a", title: "T", body: "x", buttonLabel: "Comprar", buttonUrl: "/ana/lectura" }], ["lectura"]);
   ok(!html.includes("Comprar"));
+});
+
+test("ContentBlocks: foto y texto, tarjetas enlazadas, cita y trayectoria", () => {
+  const html = render([
+    { id: "p", kind: "photoText", image, title: "Mi historia", body: "Hace **8 años**", format: "MD", imageSide: "right" },
+    { id: "c", kind: "cards", title: "Mis métodos", cards: [{ title: "Human Design", text: "Tu manual", href: "/ana/p/human-design", image }, { title: "Oculta", href: "/ana/lectura" }] },
+    { id: "q", kind: "quote", text: "Recordar quién eres", author: "Ana" },
+    { id: "t", kind: "timeline", title: "Mi trayectoria", items: [{ label: "2018", title: "Empiezo" }] },
+  ], ["lectura"]);
+  ok(html.includes('data-side="right"') && html.includes("sm:order-last"));
+  ok(html.includes("<strong>8 años</strong>"), html);
+  ok(/<a href="\/ana\/p\/human-design" class="cp-card cp-card-hover/.test(html), "la tarjeta entera es el enlace");
+  ok(!html.includes('href="/ana/lectura"'), "sin enlace hacia un producto oculto");
+  ok(html.includes("<blockquote") && html.includes("Ana</figcaption>"));
+  ok(html.includes("<ol") && html.includes("2018"));
 });

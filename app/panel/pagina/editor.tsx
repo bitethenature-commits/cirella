@@ -41,7 +41,7 @@ import {
   type PageConfig,
   type SectionKey,
 } from "@/lib/page-config";
-import { isEmptyBlock } from "@/lib/page-blocks";
+import { withoutEmptyBlocks } from "@/lib/page-blocks";
 import { SITE_PAGE_STATE_LABEL, type SitePageState } from "@/lib/site-pages";
 import { FONT_PAIRS, RADIUS, TEMPLATES, type FontPairKey, type RadiusKey, type TemplateKey } from "@/lib/templates";
 import { moveProduct } from "../productos/actions";
@@ -147,7 +147,7 @@ export function PageEditor(props: Props) {
       links: cfg.links.filter((l) => l.label.trim() || l.url.trim()),
       testimonials: cfg.testimonials.filter((t) => t.quote.trim() || t.author.trim()),
       faqs: cfg.faqs.filter((f) => f.q.trim() || f.a.trim()),
-      blocks: (cfg.blocks ?? []).filter((b) => !isEmptyBlock(b)),
+      blocks: withoutEmptyBlocks(cfg.blocks ?? []),
       bubbles: cfg.bubbles?.filter((b) => b.label.trim() || b.url.trim() || b.image),
       systems: cfg.systems?.filter((x) => x.title.trim() || x.text.trim() || x.url.trim() || x.image),
       readings: cfg.readings

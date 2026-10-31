@@ -18,8 +18,8 @@ export const dynamic = "force-dynamic";
 function description(content: SitePageContent): string {
   if (content.seoDescription) return content.seoDescription;
   if (content.subtitle) return content.subtitle.slice(0, 160);
-  const text = content.blocks.find((b) => b.kind === "text" && b.body.trim());
-  const plain = text && text.kind === "text" ? richToPlain(text.body, text.format).replace(/\s+/g, " ").trim() : "";
+  const text = content.blocks.find((b) => (b.kind === "text" || b.kind === "photoText") && b.body.trim());
+  const plain = text && (text.kind === "text" || text.kind === "photoText") ? richToPlain(text.body, text.format).replace(/\s+/g, " ").trim() : "";
   return plain.length > 160 ? `${plain.slice(0, 157).trimEnd()}…` : plain;
 }
 

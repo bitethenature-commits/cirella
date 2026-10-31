@@ -154,8 +154,53 @@ async function demoBlockImage(creatorId: string, demoUrl: string, alt: string, c
   return { src: img.url, alt, width: img.width, height: img.height, ...(caption ? { caption } : {}) };
 }
 
-/** Páginas extra de Ana: «Sobre mí» publicada (texto con formato, imagen y galería) y «Preguntas frecuentes» en borrador. */
+/**
+ * Métodos de Ana: cada uno tiene su página (/<slug>), su tarjeta en «Sistemas con los que trabajo» de
+ * la portada y en «Mis métodos» de «Sobre mí», y tarjetas hacia sus lecturas y cursos.
+ */
+const ANA_SYSTEMS = [
+  {
+    slug: "human-design", title: "Human Design", img: "/demo/human-design.webp", photo: "/demo/sesion.webp", text: "Tu manual de instrucciones energético.",
+    body: "El **Human Design** une astrología, I Ching, cábala y el sistema de chakras en un único mapa: tu bodygraph.\n\nCon él descubres tu tipo, tu estrategia y tu autoridad para tomar decisiones con menos resistencia.",
+    related: [
+      { slug: "lectura-human-design", title: "Lectura de Human Design", text: "Sesión en directo para leer juntas tu bodygraph.", img: "/demo/human-design.webp" },
+      { slug: "human-design-desde-cero", title: "Human Design desde cero", text: "El curso para aprender a leer tu propio diseño.", img: "/demo/curso.webp" },
+    ],
+  },
+  {
+    slug: "gene-keys", title: "Gene Keys", img: "/demo/gene-keys.webp", photo: "/demo/sesion.webp", text: "Contempla tu sombra, tu don y tu siddhi.",
+    body: "Las **Gene Keys** son 64 llaves de contemplación. Cada una describe un espectro: la sombra, el don y el siddhi.\n\nTrabajamos con tu Secuencia de Activación para encontrar tu genio creativo.",
+    related: [
+      { slug: "gene-keys", title: "Lectura de Gene Keys", text: "Tu perfil hologenético explicado paso a paso.", img: "/demo/gene-keys.webp" },
+      { slug: "gene-keys-secuencia-de-activacion", title: "Gene Keys: tu Secuencia de Activación", text: "El curso para contemplar tus cuatro primeras llaves.", img: "/demo/curso.webp" },
+    ],
+  },
+  {
+    slug: "astrologia", title: "Astrología", img: "/demo/astrologia.webp", photo: "/demo/sesion.webp", text: "Tu carta natal como mapa de tus ritmos.",
+    body: "La **carta natal** es una foto del cielo cuando naciste. No te define: describe tus potenciales y tus ritmos.\n\nLeemos tu Sol, tu Luna, tu Ascendente y las casas para aterrizarlo a tu vida.",
+    related: [
+      { slug: "lectura-astrologia", title: "Lectura de Astrología", text: "Tu carta natal grabada para escucharla con calma.", img: "/demo/astrologia.webp" },
+      { slug: "lectura-de-tu-ano", title: "Lectura de tu año", text: "Los tránsitos que vienen y cómo aprovecharlos.", img: "/demo/hero.webp" },
+      { slug: "mini-curso-tu-carta-en-3-pasos", title: "Mini-curso gratis: tu carta en 3 pasos", text: "Empieza a leer tu Sol, tu Luna y tu Ascendente.", img: "/demo/curso.webp" },
+    ],
+  },
+  {
+    slug: "mi-energia", title: "Mi energía", img: "/demo/sesion.webp", photo: "/demo/ana-avatar.webp", text: "Cómo uno los tres sistemas en un solo mapa.",
+    body: "Mi forma de trabajar une **astrología, Human Design y Gene Keys** en un mapa práctico.\n\nAsí cada lectura habla de tu energía completa, no de una parte.",
+    related: [
+      { slug: "curso-conocete-tu-energia", title: "Conócete a través de tu energía", text: "El curso que une los tres sistemas en tu mapa.", img: "/demo/curso.webp" },
+      { slug: "sesion-1-1", title: "Sesión 1:1", text: "Una hora conmigo para mirar tu momento con los tres mapas.", img: "/demo/sesion.webp" },
+    ],
+  },
+];
+
+/**
+ * Páginas extra de Ana: «Sobre mí» publicada (foto y texto, cita, tarjetas de métodos y de cómo
+ * acompaña, trayectoria, galería y un cierre suave sin empujar a reservar) y «Preguntas frecuentes»
+ * en borrador.
+ */
 async function seedAnaSitePages(creatorId: string) {
+  const card = async (title: string, text: string, href: string, img: string) => ({ title, text, href, image: await demoBlockImage(creatorId, img, title) });
   const about: SitePageContent = {
     title: "Sobre mí",
     subtitle: "Astróloga, analista de Human Design y guía de Gene Keys. Te acompaño a leer tu mapa con calma.",
@@ -163,15 +208,53 @@ async function seedAnaSitePages(creatorId: string) {
     blocks: [
       {
         id: "historia",
-        kind: "text",
+        kind: "photoText",
         title: "Mi historia",
         body: "Empecé a estudiar el cielo hace **8 años**, cuando una lectura me ayudó a entender por qué me costaba tanto descansar.\n\n## Lo que me mueve\n\n- Traducir el cielo a decisiones concretas\n- Que salgas de cada sesión con un plan\n- Cuidar a las mujeres que me confían su historia",
         format: "MD",
-        buttonLabel: "Reserva tu lectura",
-        buttonUrl: "/ana/lectura-human-design",
+        image: await demoBlockImage(creatorId, "/demo/ana-avatar.webp", "Ana Luna sonriendo"),
+        imageSide: "right",
         enabled: true,
       },
-      { id: "estudio", kind: "image", title: "", image: await demoBlockImage(creatorId, "/demo/sesion.webp", "Mi mesa de trabajo con la carta natal", "Donde preparo cada lectura"), enabled: true },
+      {
+        id: "cita",
+        kind: "quote",
+        text: "No vienes a que te digan quién eres: vienes a recordarlo. Yo solo te ayudo a leer el mapa con tus propios ojos.",
+        author: "Ana Luna",
+        enabled: true,
+      },
+      {
+        id: "metodos",
+        kind: "cards",
+        title: "Mis métodos",
+        cards: await Promise.all(ANA_SYSTEMS.map((sys) => card(sys.title, sys.text, `/ana/p/${sys.slug}`, sys.img))),
+        enabled: true,
+      },
+      {
+        id: "acompanarte",
+        kind: "cards",
+        title: "Cómo puedo acompañarte",
+        cards: [
+          await card("Lecturas", "Tu carta, tu diseño o tus llaves, grabadas o en directo, para mirarte con calma.", "/ana/lecturas", "/demo/astrologia.webp"),
+          await card("Sesiones", "Una hora conmigo por videollamada cuando quieres trabajar algo concreto.", "/ana/sesiones", "/demo/sesion.webp"),
+          await card("Cursos", "Aprende a leer tu propio mapa a tu ritmo, desde cero.", "/ana/cursos", "/demo/curso.webp"),
+          await card("Comunidad", "Círculos lunares, un texto cada semana y un espacio para practicar juntas.", "/ana/comunidad", "/demo/comunidad.webp"),
+        ],
+        enabled: true,
+      },
+      {
+        id: "trayectoria",
+        kind: "timeline",
+        title: "Mi trayectoria",
+        items: [
+          { label: "2018", title: "Empiezo a estudiar astrología", text: "Una lectura de mi carta me cambió la forma de mirarme. Esa misma semana me apunté a astrología psicológica." },
+          { label: "2020", title: "Me certifico en Human Design", text: "Dos años de formación como analista para leer el bodygraph con rigor." },
+          { label: "2021", title: "Mis primeras lecturas", text: "Empecé con amigas y amigas de amigas. Hoy llevo más de 1.200 lecturas." },
+          { label: "2022", title: "Guía de Gene Keys", text: "Me formo para acompañar la Secuencia de Activación y unir los tres sistemas." },
+          { label: "2024", title: "Nace la comunidad", text: "Abro los círculos lunares y un espacio para practicar juntas cada mes." },
+        ],
+        enabled: true,
+      },
       {
         id: "formacion",
         kind: "gallery",
@@ -182,6 +265,16 @@ async function seedAnaSitePages(creatorId: string) {
           await demoBlockImage(creatorId, "/demo/human-design.webp", "Human Design"),
           await demoBlockImage(creatorId, "/demo/gene-keys.webp", "Gene Keys"),
         ],
+        enabled: true,
+      },
+      {
+        id: "hablamos",
+        kind: "text",
+        title: "¿Hablamos?",
+        body: "No hace falta que sepas qué necesitas. Cuéntame en qué momento estás y te oriento **con calma y sin compromiso**.\n\nY si prefieres ir poco a poco, en mis actualidades comparto cada luna y lo que trae el cielo.",
+        format: "MD",
+        buttonLabel: "Escríbeme",
+        buttonUrl: "mailto:hola@analuna.es",
         enabled: true,
       },
     ],
@@ -459,22 +552,23 @@ async function seedAnaPortada(o: {
     await post(o.lunaCompleta.id, 0, `Círculo de ${moons[0].title.toLowerCase()}`, "CIRCULO_LUNAR", "Nos vemos en el círculo para vivir esta luna juntas. Trae papel, una vela y tu intención.", { eventAt: zonedTimeToUtc(moons[0].date, labelToMinutes(moons[0].time), TZ), mediaUrl: ANA_ZOOM });
 
   // ── Páginas de cada sistema (Sistemas con los que trabajo) ──
-  const systems = [
-    { slug: "human-design", title: "Human Design", img: "/demo/human-design.webp", text: "Tu manual de instrucciones energético.", body: "El **Human Design** une astrología, I Ching, cábala y el sistema de chakras en un único mapa: tu bodygraph.\n\nCon él descubres tu tipo, tu estrategia y tu autoridad para tomar decisiones con menos resistencia." },
-    { slug: "gene-keys", title: "Gene Keys", img: "/demo/gene-keys.webp", text: "Contempla tu sombra, tu don y tu siddhi.", body: "Las **Gene Keys** son 64 llaves de contemplación. Cada una describe un espectro: la sombra, el don y el siddhi.\n\nTrabajamos con tu Secuencia de Activación para encontrar tu genio creativo." },
-    { slug: "astrologia", title: "Astrología", img: "/demo/astrologia.webp", text: "Tu carta natal como mapa de tus ritmos.", body: "La **carta natal** es una foto del cielo cuando naciste. No te define: describe tus potenciales y tus ritmos.\n\nLeemos tu Sol, tu Luna, tu Ascendente y las casas para aterrizarlo a tu vida." },
-    { slug: "mi-energia", title: "Mi energía", img: "/demo/sesion.webp", text: "Cómo uno los tres sistemas en un solo mapa.", body: "Mi forma de trabajar une **astrología, Human Design y Gene Keys** en un mapa práctico.\n\nAsí cada lectura habla de tu energía completa, no de una parte." },
-  ];
   const systemCards = [];
-  for (const [i, sys] of systems.entries()) {
+  for (const [i, sys] of ANA_SYSTEMS.entries()) {
     const image = await demoBlockImage(anaId, sys.img, sys.title);
     const content: SitePageContent = {
       title: sys.title,
       subtitle: sys.text,
       cover: image,
       blocks: [
-        { id: "que-es", kind: "text", title: `Qué es ${sys.title}`, body: sys.body, format: "MD", buttonLabel: "Ver mis lecturas", buttonUrl: "/ana/lecturas", enabled: true },
-        { id: "imagen", kind: "image", title: "", image: await demoBlockImage(anaId, sys.img, sys.title, `Así trabajo con ${sys.title}`), enabled: true },
+        {
+          id: "que-es", kind: "photoText", title: `Qué es ${sys.title}`, body: sys.body, format: "MD", imageSide: "left",
+          image: await demoBlockImage(anaId, sys.photo, `Así trabajo con ${sys.title}`), buttonLabel: "Ver mis lecturas", buttonUrl: "/ana/lecturas", enabled: true,
+        },
+        {
+          id: "relacionados", kind: "cards", title: `Lecturas y cursos de ${sys.title}`,
+          cards: await Promise.all(sys.related.map(async (r) => ({ title: r.title, text: r.text, href: `/ana/${r.slug}`, image: await demoBlockImage(anaId, r.img, r.title) }))),
+          enabled: true,
+        },
       ],
       seoTitle: `${sys.title} · Ana Luna`,
       seoDescription: sys.text,

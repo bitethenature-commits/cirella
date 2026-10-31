@@ -3,8 +3,8 @@ import { videoEmbed } from "./video-embed";
 
 /**
  * Bloques de contenido de la portada (Creator.pageDraft/pagePublished.blocks) y de las páginas extra
- * (SitePage.draft/published.blocks): texto con formato, imagen, galería y vídeo. Puro y seguro en el
- * cliente (lo usan el editor, la vista previa, la web pública y el servidor al guardar).
+ * (SitePage.draft/published.blocks): texto con formato, imagen, galería, vídeo, foto y texto, tarjetas,
+ * cita y trayectoria. Puro y seguro en el cliente (lo usan el editor, la vista previa, la web pública y el servidor al guardar).
  *
  * Compatibilidad: los bloques guardados antes de existir los tipos no tienen `kind`; se leen como
  * «text» y se pintan exactamente igual que siempre. readBlocks() descarta solo el bloque que no
@@ -14,6 +14,9 @@ import { videoEmbed } from "./video-embed";
 export const HOME_BLOCKS_MAX = 20;
 export const PAGE_BLOCKS_MAX = 40;
 export const GALLERY_MAX = 12;
+/** Tarjetas de un bloque «Tarjetas» y pasos de una «Trayectoria». */
+export const CARDS_MAX = 8;
+export const TIMELINE_MAX = 12;
 /** Texto de un bloque de la portada y de una página extra. */
 export const HOME_TEXT_MAX = 2000;
 export const PAGE_TEXT_MAX = 10000;
@@ -22,7 +25,7 @@ export const PAGE_VIDEO_MAX = 1024 ** 3;
 /** La URL firmada a la que redirige /media/video/… vale 12 h (la redirección se cachea 10 min). */
 export const PAGE_VIDEO_URL_TTL_SEC = 43200;
 
-export const BLOCK_KINDS = ["text", "image", "gallery", "video"] as const;
+export const BLOCK_KINDS = ["text", "image", "gallery", "video", "photoText", "cards", "quote", "timeline"] as const;
 export type BlockKind = (typeof BLOCK_KINDS)[number];
 
 export const BLOCK_LABEL: Record<BlockKind, string> = {
@@ -30,6 +33,10 @@ export const BLOCK_LABEL: Record<BlockKind, string> = {
   image: "Imagen",
   gallery: "Galería",
   video: "Vídeo",
+  photoText: "Foto y texto",
+  cards: "Tarjetas",
+  quote: "Cita",
+  timeline: "Trayectoria",
 };
 
 // ── Imágenes y vídeos propios ──
@@ -154,11 +161,71 @@ const videoBlockShape = z.object({
   poster: z.string().max(500).refine((s) => isOwnImageSrc(s), "La portada del vídeo no es tuya: vuelve a subirla").nullable().default(null),
 });
 
+/** «Foto y texto»: una foto al lado de un título y un texto con formato (en el móvil, una encima del otro). */
+function photoTextBlockShape(bodyMax: number) {
+  return z.object({
+    ...base,
+    kind: z.literal("photoText"),
+    title: shortText(80).default(""),
+    body: shortText(bodyMax).default(""),
+    format: z.literal("MD").optional().catch(undefined),
+    image: pageImageSchema.nullable().default(null),
+    /** Lado de la foto en el ordenador. */
+    imageSide: z.enum(["left", "right"]).catch("left").default("left"),
+    buttonLabel: shortText(40).optional(),
+    buttonUrl: shortText(500).optional(),
+  });
+}
+
+export const blockCardSchema = z.object({
+  image: pageImageSchema.nullable().default(null),
+  title: shortText(80).default(""),
+  text: shortText(240).default(""),
+  href: shortText(500).optional(),
+});
+export type BlockCard = z.infer<typeof blockCardSchema>;
+
+/** «Tarjetas»: de 1 a 8 tarjetas (imagen, título, texto corto y enlace); la tarjeta entera se puede tocar. */
+const cardsBlockShape = z.object({
+  ...base,
+  kind: z.literal("cards"),
+  title: shortText(80).default(""),
+  cards: z.array(blockCardSchema).max(CARDS_MAX, `Máximo ${CARDS_MAX} tarjetas por bloque`).default([]),
+});
+
+/** «Cita»: una frase destacada y, si se quiere, quién la dijo. */
+const quoteBlockShape = z.object({
+  ...base,
+  kind: z.literal("quote"),
+  text: shortText(600).default(""),
+  author: shortText(120).optional(),
+});
+
+export const timelineItemSchema = z.object({
+  /** Etiqueta corta: un año, «Hoy», «2019–2021»… */
+  label: shortText(40).default(""),
+  title: shortText(100).default(""),
+  text: shortText(400).default(""),
+});
+export type TimelineItem = z.infer<typeof timelineItemSchema>;
+
+/** «Trayectoria»: una línea de tiempo con sus hitos. */
+const timelineBlockShape = z.object({
+  ...base,
+  kind: z.literal("timeline"),
+  title: shortText(80).default(""),
+  items: z.array(timelineItemSchema).max(TIMELINE_MAX, `Máximo ${TIMELINE_MAX} hitos por trayectoria`).default([]),
+});
+
 export type TextBlock = z.infer<ReturnType<typeof textBlockShape>>;
 export type ImageBlock = z.infer<typeof imageBlockShape>;
 export type GalleryBlock = z.infer<typeof galleryBlockShape>;
 export type VideoBlock = z.infer<typeof videoBlockShape>;
-export type ContentBlock = TextBlock | ImageBlock | GalleryBlock | VideoBlock;
+export type PhotoTextBlock = z.infer<ReturnType<typeof photoTextBlockShape>>;
+export type CardsBlock = z.infer<typeof cardsBlockShape>;
+export type QuoteBlock = z.infer<typeof quoteBlockShape>;
+export type TimelineBlock = z.infer<typeof timelineBlockShape>;
+export type ContentBlock = TextBlock | ImageBlock | GalleryBlock | VideoBlock | PhotoTextBlock | CardsBlock | QuoteBlock | TimelineBlock;
 
 /** Un bloque de antes (sin `kind`) es un bloque de texto. */
 function withKind(raw: unknown): unknown {
@@ -170,7 +237,17 @@ function withKind(raw: unknown): unknown {
 export function contentBlockSchema(o: { bodyMax: number }) {
   return z.preprocess(
     withKind,
-    z.discriminatedUnion("kind", [textBlockShape(o.bodyMax), imageBlockShape, galleryBlockShape, videoBlockShape]).superRefine((b, ctx) => {
+    z
+      .discriminatedUnion("kind", [
+        textBlockShape(o.bodyMax),
+        imageBlockShape,
+        galleryBlockShape,
+        videoBlockShape,
+        photoTextBlockShape(o.bodyMax),
+        cardsBlockShape,
+        quoteBlockShape,
+        timelineBlockShape,
+      ]).superRefine((b, ctx) => {
       const issue = (message: string) => ctx.addIssue({ code: "custom", message });
       switch (b.kind) {
         case "text":
@@ -188,6 +265,23 @@ export function contentBlockSchema(o: { bodyMax: number }) {
           if (!b.upload && !b.embedUrl) issue("Falta el vídeo: súbelo o pega un enlace de YouTube o Vimeo");
           else if (b.upload && b.embedUrl) issue("Elige subir el vídeo o pegar un enlace, no las dos cosas");
           else if (b.embedUrl && !videoEmbed(b.embedUrl)) issue("Ese enlace de vídeo no es de YouTube ni de Vimeo");
+          break;
+        case "photoText":
+          if (!b.image) issue("Falta la foto de un bloque «Foto y texto»");
+          if (!b.title && !b.body) issue("Cada bloque «Foto y texto» necesita un título o un texto");
+          if (b.buttonLabel && !b.buttonUrl) issue(`Falta el enlace del botón «${b.buttonLabel}»`);
+          if (b.buttonUrl && !b.buttonLabel) issue("Escribe el texto del botón del bloque «Foto y texto»");
+          break;
+        case "cards":
+          if (!b.cards.length) issue("Añade al menos una tarjeta al bloque de tarjetas");
+          if (b.cards.some((c) => !c.title)) issue("Cada tarjeta necesita un título");
+          break;
+        case "quote":
+          if (!b.text) issue("Escribe la frase de la cita");
+          break;
+        case "timeline":
+          if (!b.items.length) issue("Añade al menos un hito a la trayectoria");
+          if (b.items.some((i) => !i.title)) issue("Cada hito de la trayectoria necesita un título");
           break;
       }
     }),
@@ -222,6 +316,14 @@ export function visibleBlocks(blocks: ContentBlock[] | undefined): ContentBlock[
         return b.images.length > 0;
       case "video":
         return !!b.upload || (!!b.embedUrl && !!videoEmbed(b.embedUrl));
+      case "photoText":
+        return !!b.image && !!(b.title.trim() || b.body.trim());
+      case "cards":
+        return b.cards.length > 0;
+      case "quote":
+        return !!b.text.trim();
+      case "timeline":
+        return b.items.length > 0;
     }
   });
 }
@@ -237,7 +339,29 @@ export function isEmptyBlock(b: ContentBlock): boolean {
       return !b.images.length;
     case "video":
       return !b.upload && !b.embedUrl?.trim();
+    case "photoText":
+      return !(b.image || b.title.trim() || b.body.trim() || b.buttonLabel?.trim() || b.buttonUrl?.trim());
+    case "cards":
+      return !(b.title.trim() || b.cards.some((c) => c.image || c.title.trim() || c.text.trim() || c.href?.trim()));
+    case "quote":
+      return !(b.text.trim() || b.author?.trim());
+    case "timeline":
+      return !(b.title.trim() || b.items.some((i) => i.label.trim() || i.title.trim() || i.text.trim()));
   }
+}
+
+/**
+ * Lo que se guarda: sin los bloques recién añadidos y vacíos, y sin las tarjetas ni los hitos que se
+ * quedaron en blanco dentro de un bloque (no dan error al guardar).
+ */
+export function withoutEmptyBlocks(blocks: ContentBlock[]): ContentBlock[] {
+  return blocks
+    .map((b): ContentBlock => {
+      if (b.kind === "cards") return { ...b, cards: b.cards.filter((c) => c.image || c.title.trim() || c.text.trim() || c.href?.trim()) };
+      if (b.kind === "timeline") return { ...b, items: b.items.filter((i) => i.label.trim() || i.title.trim() || i.text.trim()) };
+      return b;
+    })
+    .filter((b) => !isEmptyBlock(b));
 }
 
 export function newBlock(kind: BlockKind, id: string): ContentBlock {
@@ -250,8 +374,19 @@ export function newBlock(kind: BlockKind, id: string): ContentBlock {
       return { id, kind, title: "", images: [], layout: "carousel", enabled: true };
     case "video":
       return { id, kind, title: "", upload: null, poster: null, enabled: true };
+    case "photoText":
+      return { id, kind, title: "", body: "", format: "MD", image: null, imageSide: "left", enabled: true };
+    case "cards":
+      return { id, kind, title: "", cards: [newCard()], enabled: true };
+    case "quote":
+      return { id, kind, text: "", enabled: true };
+    case "timeline":
+      return { id, kind, title: "", items: [newTimelineItem()], enabled: true };
   }
 }
+
+export const newCard = (): BlockCard => ({ image: null, title: "", text: "" });
+export const newTimelineItem = (): TimelineItem => ({ label: "", title: "", text: "" });
 
 /** Todas las imágenes de un bloque (para el saneamiento). */
 export function blockImages(b: ContentBlock): string[] {
@@ -262,6 +397,10 @@ export function blockImages(b: ContentBlock): string[] {
       return b.images.map((i) => i.src);
     case "video":
       return b.poster ? [b.poster] : [];
+    case "photoText":
+      return b.image ? [b.image.src] : [];
+    case "cards":
+      return b.cards.flatMap((c) => (c.image ? [c.image.src] : []));
     default:
       return [];
   }

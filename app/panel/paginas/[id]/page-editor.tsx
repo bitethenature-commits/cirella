@@ -11,7 +11,7 @@ import { useDesktop } from "@/components/panel/use-desktop";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { CopyButton } from "@/components/ui/copy-button";
 import { ImageUpload } from "@/components/ui/image-upload";
-import { isEmptyBlock, PAGE_BLOCKS_MAX, PAGE_TEXT_MAX } from "@/lib/page-blocks";
+import { PAGE_BLOCKS_MAX, PAGE_TEXT_MAX, withoutEmptyBlocks } from "@/lib/page-blocks";
 import type { PageConfig } from "@/lib/page-config";
 import { sitePagePath, type SitePageContent } from "@/lib/site-pages";
 import { slugify } from "@/lib/slug";
@@ -76,7 +76,7 @@ export function SitePageEditor(props: Props) {
 
   const run = (kind: "save" | "publish" | "preview") => {
     setBusy(kind);
-    const clean: SitePageContent = { ...content, blocks: content.blocks.filter((b) => !isEmptyBlock(b)) };
+    const clean: SitePageContent = { ...content, blocks: withoutEmptyBlocks(content.blocks) };
     start(async () => {
       const input = { content: clean, slug, showInNav };
       const r = kind === "publish" ? await publishSitePageAction(props.id, input) : await saveSitePageDraft(props.id, input);
