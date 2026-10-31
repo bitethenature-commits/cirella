@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Columns2, Eye, EyeOff, Film, Image as ImageIcon, Images, LayoutGrid, Loader2, Milestone, Plus, Quote, Trash2, Type, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Columns2, Eye, EyeOff, Film, Image as ImageIcon, Images, LayoutGrid, Loader2, Milestone, Orbit, Plus, Quote, Trash2, Type, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { uploadImageInfo } from "@/components/ui/image-upload";
@@ -13,6 +13,7 @@ import {
   type ContentBlock,
   type GalleryBlock,
   type ImageBlock,
+  type ModelBlock,
   type PageImage,
   type PhotoTextBlock,
   type QuoteBlock,
@@ -22,7 +23,7 @@ import {
 import { LinkInput, type LinkTarget } from "./link-input";
 import { ImageBlockFields } from "./image-block-fields";
 import { VideoBlockFields } from "./video-block-fields";
-import { CardsBlockFields, PhotoTextBlockFields, QuoteBlockFields, TimelineBlockFields } from "./rich-block-fields";
+import { CardsBlockFields, ModelBlockFields, PhotoTextBlockFields, QuoteBlockFields, TimelineBlockFields } from "./rich-block-fields";
 
 /**
  * Editor de bloques compartido por «Mi página» (portada) y las páginas extra, pensado para el
@@ -32,7 +33,7 @@ import { CardsBlockFields, PhotoTextBlockFields, QuoteBlockFields, TimelineBlock
  */
 export type BlocksUpdate = ContentBlock[] | ((prev: ContentBlock[]) => ContentBlock[]);
 
-const ICON: Record<BlockKind, typeof Type> = { text: Type, image: ImageIcon, gallery: Images, video: Film, photoText: Columns2, cards: LayoutGrid, quote: Quote, timeline: Milestone };
+const ICON: Record<BlockKind, typeof Type> = { text: Type, image: ImageIcon, gallery: Images, video: Film, photoText: Columns2, cards: LayoutGrid, quote: Quote, timeline: Milestone, model: Orbit };
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -188,6 +189,7 @@ export function BlocksEditor({
             {b.kind === "cards" && <CardsBlockFields block={b} linkTargets={linkTargets} onUpdate={(fn) => update<CardsBlock>(b.id, fn)} />}
             {b.kind === "quote" && <QuoteBlockFields block={b} onUpdate={(fn) => update<QuoteBlock>(b.id, fn)} />}
             {b.kind === "timeline" && <TimelineBlockFields block={b} onUpdate={(fn) => update<TimelineBlock>(b.id, fn)} />}
+            {b.kind === "model" && <ModelBlockFields block={b} onUpdate={(fn) => update<ModelBlock>(b.id, fn)} />}
             {errors[b.id] && <p className="text-xs text-rose" role="alert">{errors[b.id]}</p>}
           </div>
         );
@@ -217,6 +219,9 @@ export function BlocksEditor({
         </button>
         <button type="button" onClick={() => add("timeline")} disabled={full} className="btn btn-outline h-11 text-sm">
           <Milestone className="h-4 w-4" /> Añadir trayectoria
+        </button>
+        <button type="button" onClick={() => add("model")} disabled={full} className="btn btn-outline col-span-2 h-11 text-sm">
+          <Orbit className="h-4 w-4" /> Añadir modelo interactivo
         </button>
       </div>
       {full && <p className="text-xs text-muted">Máximo {max} bloques</p>}

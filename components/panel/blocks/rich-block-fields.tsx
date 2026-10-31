@@ -4,11 +4,18 @@ import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { ImageUpload } from "@/components/ui/image-upload";
 import {
   CARDS_MAX,
+  GEOMETRY_FIGURES,
+  GEOMETRY_LABEL,
+  MODEL_KINDS,
+  MODEL_LABEL,
   newCard,
   newTimelineItem,
   TIMELINE_MAX,
   type BlockCard,
   type CardsBlock,
+  type GeometryFigure,
+  type ModelBlock,
+  type ModelKind,
   type PageImage,
   type PhotoTextBlock,
   type QuoteBlock,
@@ -18,7 +25,7 @@ import {
 import { LinkInput, type LinkTarget } from "./link-input";
 
 /**
- * Campos de los bloques «Foto y texto», «Tarjetas», «Cita» y «Trayectoria» (editor de bloques).
+ * Campos de los bloques «Foto y texto», «Tarjetas», «Cita», «Trayectoria» y «Modelo interactivo» (editor de bloques).
  * Mismo aspecto que los demás: campos de 40 px, flechas para ordenar y «Añadir…» al final.
  * Los cambios llegan como función (bloque de ahora → siguiente): una foto que acaba de subir no pisa
  * lo escrito mientras en otra tarjeta.
@@ -169,6 +176,61 @@ export function TimelineBlockFields({ block: b, onUpdate }: { block: TimelineBlo
       <button type="button" onClick={() => setItems((items) => (items.length >= TIMELINE_MAX ? items : [...items, newTimelineItem()]))} disabled={b.items.length >= TIMELINE_MAX} className="btn btn-outline btn-sm h-10">
         <Plus className="h-4 w-4" /> Añadir hito
       </button>
+    </>
+  );
+}
+
+/** «Modelo interactivo»: qué modelo, y un título y una entradilla opcionales. */
+export function ModelBlockFields({ block: b, onUpdate }: { block: ModelBlock; onUpdate: Update<ModelBlock> }) {
+  const onPatch = (p: Partial<ModelBlock>) => onUpdate((x) => ({ ...x, ...p }));
+  const geometry = b.model === "geometry";
+  return (
+    <>
+      <label className="block">
+        <span className="field-label">Modelo</span>
+        <select className="input h-10 text-sm" aria-label="Modelo interactivo" value={b.model} onChange={(e) => onPatch({ model: e.target.value as ModelKind })}>
+          {MODEL_KINDS.map((m) => (
+            <option key={m} value={m}>
+              {MODEL_LABEL[m]}
+            </option>
+          ))}
+        </select>
+      </label>
+      {geometry && (
+        <label className="block">
+          <span className="field-label">Figura</span>
+          <select className="input h-10 text-sm" aria-label="Figura de la geometría sagrada" value={b.figure} onChange={(e) => onPatch({ figure: e.target.value as GeometryFigure })}>
+            {GEOMETRY_FIGURES.map((f) => (
+              <option key={f} value={f}>
+                {GEOMETRY_LABEL[f]}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {geometry ? (
+        <textarea
+          className="input text-sm"
+          rows={2}
+          placeholder="La frase que va sobre la figura (opcional)"
+          aria-label="Frase sobre la figura"
+          value={b.title}
+          maxLength={120}
+          onChange={(e) => onPatch({ title: e.target.value })}
+        />
+      ) : (
+        <input className="input h-10 text-sm font-semibold" placeholder="Título (opcional, p. ej. Explora tu carta)" aria-label="Título del modelo" value={b.title} maxLength={120} onChange={(e) => onPatch({ title: e.target.value })} />
+      )}
+      <textarea
+        className="input text-sm"
+        rows={2}
+        placeholder={geometry ? "Texto pequeño debajo (opcional)" : "Una frase para invitar a tocarlo (opcional)"}
+        aria-label="Entradilla del modelo"
+        value={b.intro}
+        maxLength={600}
+        onChange={(e) => onPatch({ intro: e.target.value })}
+      />
+      <p className="field-hint">{geometry ? "Una figura dibujada a trazo fino detrás de tu frase. Es decorativa." : "Tus visitantes lo tocan y se explica solo. En el móvil también se ve entero."}</p>
     </>
   );
 }

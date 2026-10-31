@@ -4,7 +4,8 @@ import { videoEmbed } from "./video-embed";
 /**
  * Bloques de contenido de la portada (Creator.pageDraft/pagePublished.blocks) y de las páginas extra
  * (SitePage.draft/published.blocks): texto con formato, imagen, galería, vídeo, foto y texto, tarjetas,
- * cita y trayectoria. Puro y seguro en el cliente (lo usan el editor, la vista previa, la web pública y el servidor al guardar).
+ * cita, trayectoria y modelo interactivo (carta natal, bodygraph, Gene Keys, ciclo lunar o geometría
+ * sagrada: components/models). Puro y seguro en el cliente (lo usan el editor, la vista previa, la web pública y el servidor al guardar).
  *
  * Compatibilidad: los bloques guardados antes de existir los tipos no tienen `kind`; se leen como
  * «text» y se pintan exactamente igual que siempre. readBlocks() descarta solo el bloque que no
@@ -25,7 +26,7 @@ export const PAGE_VIDEO_MAX = 1024 ** 3;
 /** La URL firmada a la que redirige /media/video/… vale 12 h (la redirección se cachea 10 min). */
 export const PAGE_VIDEO_URL_TTL_SEC = 43200;
 
-export const BLOCK_KINDS = ["text", "image", "gallery", "video", "photoText", "cards", "quote", "timeline"] as const;
+export const BLOCK_KINDS = ["text", "image", "gallery", "video", "photoText", "cards", "quote", "timeline", "model"] as const;
 export type BlockKind = (typeof BLOCK_KINDS)[number];
 
 export const BLOCK_LABEL: Record<BlockKind, string> = {
@@ -37,6 +38,28 @@ export const BLOCK_LABEL: Record<BlockKind, string> = {
   cards: "Tarjetas",
   quote: "Cita",
   timeline: "Trayectoria",
+  model: "Modelo interactivo",
+};
+
+/** Modelos del bloque «Modelo interactivo» (components/models). */
+export const MODEL_KINDS = ["chart", "bodygraph", "geneKeys", "lunar", "geometry"] as const;
+export type ModelKind = (typeof MODEL_KINDS)[number];
+export const MODEL_LABEL: Record<ModelKind, string> = {
+  chart: "Carta natal",
+  bodygraph: "Bodygraph (Human Design)",
+  geneKeys: "Gene Keys (perfil hologenético)",
+  lunar: "Ciclo lunar y calendario",
+  geometry: "Filosofía · geometría sagrada",
+};
+/** Figura de la geometría sagrada (solo el modelo «geometry»: ornamento detrás de una frase). */
+export const GEOMETRY_FIGURES = ["enneagram", "metatron", "flower", "vesica", "torus"] as const;
+export type GeometryFigure = (typeof GEOMETRY_FIGURES)[number];
+export const GEOMETRY_LABEL: Record<GeometryFigure, string> = {
+  enneagram: "Eneagrama",
+  metatron: "Cubo de Metatrón",
+  flower: "Flor de la vida",
+  vesica: "Vesica piscis",
+  torus: "Toro",
 };
 
 // ── Imágenes y vídeos propios ──
@@ -217,6 +240,19 @@ const timelineBlockShape = z.object({
   items: z.array(timelineItemSchema).max(TIMELINE_MAX, `Máximo ${TIMELINE_MAX} hitos por trayectoria`).default([]),
 });
 
+/**
+ * «Modelo interactivo»: uno de los modelos de components/models con un título y una entradilla
+ * opcionales (en la geometría sagrada, el título es la frase que va sobre la figura).
+ */
+const modelBlockShape = z.object({
+  ...base,
+  kind: z.literal("model"),
+  model: z.enum(MODEL_KINDS).catch("chart").default("chart"),
+  title: shortText(120).default(""),
+  intro: shortText(600).default(""),
+  figure: z.enum(GEOMETRY_FIGURES).catch("enneagram").default("enneagram"),
+});
+
 export type TextBlock = z.infer<ReturnType<typeof textBlockShape>>;
 export type ImageBlock = z.infer<typeof imageBlockShape>;
 export type GalleryBlock = z.infer<typeof galleryBlockShape>;
@@ -225,7 +261,8 @@ export type PhotoTextBlock = z.infer<ReturnType<typeof photoTextBlockShape>>;
 export type CardsBlock = z.infer<typeof cardsBlockShape>;
 export type QuoteBlock = z.infer<typeof quoteBlockShape>;
 export type TimelineBlock = z.infer<typeof timelineBlockShape>;
-export type ContentBlock = TextBlock | ImageBlock | GalleryBlock | VideoBlock | PhotoTextBlock | CardsBlock | QuoteBlock | TimelineBlock;
+export type ModelBlock = z.infer<typeof modelBlockShape>;
+export type ContentBlock = TextBlock | ImageBlock | GalleryBlock | VideoBlock | PhotoTextBlock | CardsBlock | QuoteBlock | TimelineBlock | ModelBlock;
 
 /** Un bloque de antes (sin `kind`) es un bloque de texto. */
 function withKind(raw: unknown): unknown {
@@ -247,6 +284,7 @@ export function contentBlockSchema(o: { bodyMax: number }) {
         cardsBlockShape,
         quoteBlockShape,
         timelineBlockShape,
+        modelBlockShape,
       ]).superRefine((b, ctx) => {
       const issue = (message: string) => ctx.addIssue({ code: "custom", message });
       switch (b.kind) {
@@ -324,6 +362,8 @@ export function visibleBlocks(blocks: ContentBlock[] | undefined): ContentBlock[
         return !!b.text.trim();
       case "timeline":
         return b.items.length > 0;
+      case "model":
+        return true;
     }
   });
 }
@@ -347,6 +387,9 @@ export function isEmptyBlock(b: ContentBlock): boolean {
       return !(b.text.trim() || b.author?.trim());
     case "timeline":
       return !(b.title.trim() || b.items.some((i) => i.label.trim() || i.title.trim() || i.text.trim()));
+    // Un modelo siempre tiene algo que enseñar, aunque no lleve título.
+    case "model":
+      return false;
   }
 }
 
@@ -382,6 +425,8 @@ export function newBlock(kind: BlockKind, id: string): ContentBlock {
       return { id, kind, text: "", enabled: true };
     case "timeline":
       return { id, kind, title: "", items: [newTimelineItem()], enabled: true };
+    case "model":
+      return { id, kind, model: "chart", title: "", intro: "", figure: "enneagram", enabled: true };
   }
 }
 

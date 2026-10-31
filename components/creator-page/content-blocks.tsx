@@ -3,7 +3,9 @@ import { ZoomableImage } from "@/components/media/zoomable-image";
 import { RichContent } from "@/components/rich-text/rich-content";
 import { linksToProduct } from "@/lib/access-mode";
 import { imageSrcSet } from "@/lib/media-url";
-import { isOwnImageSrc, isOwnVideoSrc, type ContentBlock, type PageImage } from "@/lib/page-blocks";
+import { InteractiveModel } from "@/components/models/interactive-model";
+import { SacredGeometry } from "@/components/models/sacred-geometry";
+import { MODEL_LABEL, isOwnImageSrc, isOwnVideoSrc, type ContentBlock, type PageImage } from "@/lib/page-blocks";
 import { safeHref } from "@/lib/page-config";
 import { videoEmbed } from "@/lib/video-embed";
 import { PageVideo } from "./page-video";
@@ -23,7 +25,9 @@ import { VideoFacade } from "./video-facade";
  *   · foto y texto: la foto a un lado y el texto al otro (en el móvil, la foto encima);
  *   · tarjetas: rejilla de 2 columnas (1 en el móvil); la tarjeta entera es el enlace;
  *   · cita: una frase destacada con su autora;
- *   · trayectoria: línea de tiempo con sus hitos.
+ *   · trayectoria: línea de tiempo con sus hitos;
+ *   · modelo interactivo: título y entradilla aquí (en el HTML) y el modelo, que se carga aparte y solo
+ *     en el navegador (components/models); la geometría sagrada es una frase grande sobre la figura.
  * Un src que no sea propio no se pinta (además de comprobarse al guardar).
  */
 export const BLOCK_IMAGE_SIZES = "(min-width: 768px) 704px, calc(100vw - 40px)";
@@ -294,6 +298,29 @@ export function ContentBlocks({
                     </li>
                   ))}
                 </ol>
+              </section>
+            );
+          case "model":
+            if (b.model === "geometry")
+              return (
+                <figure key={b.id} className="cp-card relative isolate flex min-h-[20rem] flex-col items-center justify-center px-6 py-16 text-center sm:px-12" data-block="model" data-model="geometry">
+                  <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center opacity-35">
+                    <div className="aspect-square w-[min(26rem,120%)]">
+                      <SacredGeometry figure={b.figure} />
+                    </div>
+                  </div>
+                  {b.title && <blockquote className="cp-display whitespace-pre-line text-[1.7rem] italic leading-snug sm:text-[2.2rem]">{b.title}</blockquote>}
+                  {(b.title || b.intro) && <span aria-hidden className="mt-8 block h-px w-20 bg-[var(--c-gold)] opacity-70" />}
+                  {b.intro && <figcaption className="cp-muted mt-6 max-w-md text-[0.95rem] leading-relaxed">{b.intro}</figcaption>}
+                </figure>
+              );
+            return (
+              <section key={b.id} className="cp-card p-5 sm:p-7" data-block="model" data-model={b.model} aria-label={b.title || MODEL_LABEL[b.model]}>
+                {b.title && title(b.title)}
+                {b.intro && <p className={`cp-muted text-[0.95rem] leading-relaxed ${b.title ? "mt-3" : ""}`}>{b.intro}</p>}
+                <div className={b.title || b.intro ? "mt-6" : ""}>
+                  <InteractiveModel model={b.model} />
+                </div>
               </section>
             );
         }
