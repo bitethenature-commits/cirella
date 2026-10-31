@@ -487,9 +487,9 @@ async function seedAnaPortada(o: {
         creatorId: anaId, type: "SESSION", status: "PUBLISHED", groupSession: true, moonCircle: true, slug: `circulo-${m.phase === "new" ? "luna-nueva" : "luna-llena"}-${m.date}`,
         title: `Círculo de ${m.title.toLowerCase()}`, emoji: m.phase === "new" ? "🌑" : "🌕",
         summary: "Un círculo en directo por Zoom para vivir esta luna juntas. Sin ser miembro.",
-        description: "Nos juntamos por Zoom para un ritual guiado, un rato de escritura y una ronda para compartir.\n\nIncluye:\n• 90 minutos en directo\n• La grabación en tu área",
+        description: "Nos juntamos por Zoom para un ritual guiado, un rato de escritura y una ronda para compartir.\n\nIncluye:\n• Una hora en directo\n• La grabación en tu área",
         imageUrl: await demoImage(anaId, "/demo/comunidad.webp"), priceCents: 2200, ctaLabel: "Apuntarme", sortOrder: 20 + i,
-        durationMin: 90, bufferMin: 15, minNoticeHours: 0, meetingUrl: ANA_ZOOM, eventStartAt: at, capacity: 20, createdAt: daysAgo(3),
+        durationMin: 60, bufferMin: 15, minNoticeHours: 0, meetingUrl: ANA_ZOOM, eventStartAt: at, capacity: 20, createdAt: daysAgo(3),
       },
     });
     circles.push({ id: c.id, title: c.title, at });
