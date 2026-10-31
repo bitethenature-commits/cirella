@@ -218,8 +218,15 @@ test.describe.serial("Flujo principal", () => {
     await expect(page.locator("#name")).toHaveValue("Rocío Reintento");
     await expect(page.getByLabel(/He leído y acepto/)).toBeChecked();
     // Cambia de día antes de reintentar: la reserva debe quedar en el día nuevo.
-    const dayNumber = await pickDay(page, 2);
+    // Tras el rechazo el formulario se vuelve a pintar con la hora del pedido: se elige el día nuevo
+    // cuando ya está quieto (si no, el clic puede perderse) y se comprueba que las horas son las suyas.
+    let dayNumber = "";
+    await expect(async () => {
+      dayNumber = await pickDay(page, 2);
+      await expect(page.getByRole("radiogroup", { name: new RegExp(`Horas libres el .*\\b${dayNumber} de `) })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20_000 });
     await freeTimes(page).first().click();
+    await expect(freeTimes(page).first()).toBeChecked();
     await page.fill("input[name=cardNumber]", "4242 4242 4242 4242");
     await page.getByRole("button", { name: /Reservar y pagar/ }).click();
     await page.waitForURL("**/ana/gracias**");
