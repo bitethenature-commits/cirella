@@ -103,7 +103,9 @@ test.describe.serial("Editor de la página y páginas extra", () => {
     await page.goto("/sobre-mi");
     await expect(page.getByRole("heading", { name: "Sobre mí", level: 1 })).toBeVisible();
     await expect(page.locator("main strong", { hasText: "8 años" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Mi formación" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Mis métodos" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Mi formación" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /Descubre Human Design/ })).toHaveAttribute("href", /human-design$/);
     await expect(page).toHaveTitle(/Sobre Ana Luna · Astrología y Human Design/);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${PERSONAL}/sobre-mi`);
     await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /Quién soy/);

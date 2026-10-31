@@ -3,7 +3,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 /**
  * Bloques de la portada para las pruebas. La demo ya no trae ninguno (la sección «Bloques» está
  * vacía): las pruebas que comprueban cómo se pintan los crean aquí, con imágenes y vídeo que la demo
- * ya tiene subidos (la galería de «Sobre mí» y el vídeo de la actualidad «Luna llena: qué soltar»).
+ * ya tiene subidos (las fotos de «Mis métodos» en «Sobre mí» y el vídeo de la actualidad «Luna llena: qué soltar»).
  */
 
 type Section = { key: string; enabled: boolean; title?: string };
@@ -23,7 +23,7 @@ export const COMO_TRABAJO = {
 /** Vídeo subido (con portada), gráfico de los 5 tipos y galería en carrusel de tres imágenes. */
 export async function mediaBlocks(prisma: PrismaClient, creatorId: string) {
   const about = await prisma.sitePage.findUniqueOrThrow({ where: { creatorId_slug: { creatorId, slug: "sobre-mi" } } });
-  const gallery = ((about.published ?? about.draft) as { blocks: { kind: string; images?: Img[] }[] }).blocks.find((b) => b.kind === "gallery")!.images!;
+  const gallery = ((about.published ?? about.draft) as { blocks: { kind: string; image?: Img }[] }).blocks.filter((b) => b.kind === "photoText" && b.image?.alt !== "Ana Luna sonriendo").slice(0, 3).map((b) => b.image!);
   const hd = gallery.find((i) => i.alt === "Human Design")!;
   const post = await prisma.post.findFirstOrThrow({ where: { creatorId, slug: "luna-llena-que-soltar" } });
   const media = post.media as { src?: string; poster?: string; width?: number; height?: number; durationSec?: number };

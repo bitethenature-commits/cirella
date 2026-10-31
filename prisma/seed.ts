@@ -200,7 +200,6 @@ const ANA_SYSTEMS = [
  * en borrador.
  */
 async function seedAnaSitePages(creatorId: string) {
-  const card = async (title: string, text: string, href: string, img: string) => ({ title, text, href, image: await demoBlockImage(creatorId, img, title) });
   const about: SitePageContent = {
     title: "Sobre mí",
     subtitle: "Astróloga, analista de Human Design y guía de Gene Keys. Te acompaño a leer tu mapa con calma.",
@@ -224,25 +223,6 @@ async function seedAnaSitePages(creatorId: string) {
         enabled: true,
       },
       {
-        id: "metodos",
-        kind: "cards",
-        title: "Mis métodos",
-        cards: await Promise.all(ANA_SYSTEMS.map((sys) => card(sys.title, sys.text, `/ana/p/${sys.slug}`, sys.img))),
-        enabled: true,
-      },
-      {
-        id: "acompanarte",
-        kind: "cards",
-        title: "Cómo puedo acompañarte",
-        cards: [
-          await card("Lecturas", "Tu carta, tu diseño o tus llaves, grabadas o en directo, para mirarte con calma.", "/ana/lecturas", "/demo/astrologia.webp"),
-          await card("Sesiones", "Una hora conmigo por videollamada cuando quieres trabajar algo concreto.", "/ana/sesiones", "/demo/sesion.webp"),
-          await card("Cursos", "Aprende a leer tu propio mapa a tu ritmo, desde cero.", "/ana/cursos", "/demo/curso.webp"),
-          await card("Comunidad", "Círculos lunares, un texto cada semana y un espacio para practicar juntas.", "/ana/comunidad", "/demo/comunidad.webp"),
-        ],
-        enabled: true,
-      },
-      {
         id: "trayectoria",
         kind: "timeline",
         title: "Mi trayectoria",
@@ -256,17 +236,27 @@ async function seedAnaSitePages(creatorId: string) {
         enabled: true,
       },
       {
-        id: "formacion",
-        kind: "gallery",
-        title: "Mi formación",
-        layout: "grid",
-        images: [
-          await demoBlockImage(creatorId, "/demo/astrologia.webp", "Astrología psicológica"),
-          await demoBlockImage(creatorId, "/demo/human-design.webp", "Human Design"),
-          await demoBlockImage(creatorId, "/demo/gene-keys.webp", "Gene Keys"),
-        ],
+        id: "metodos",
+        kind: "text",
+        title: "Mis métodos",
+        body: "Trabajo con cuatro miradas que se complementan. Te cuento qué es cada una y, debajo, tienes su página con todo el detalle.",
+        format: "MD",
         enabled: true,
       },
+      ...(await Promise.all(
+        ANA_SYSTEMS.map(async (sys, i) => ({
+          id: `metodo-${sys.slug}`,
+          kind: "photoText" as const,
+          title: sys.title,
+          body: sys.body,
+          format: "MD" as const,
+          image: await demoBlockImage(creatorId, sys.img, sys.title),
+          imageSide: i % 2 === 0 ? ("left" as const) : ("right" as const),
+          buttonLabel: `Descubre ${sys.title} →`,
+          buttonUrl: `/ana/p/${sys.slug}`,
+          enabled: true,
+        })),
+      )),
       {
         id: "hablamos",
         kind: "text",
@@ -279,7 +269,7 @@ async function seedAnaSitePages(creatorId: string) {
       },
     ],
     seoTitle: "Sobre Ana Luna · Astrología y Human Design",
-    seoDescription: "Quién soy, cómo trabajo y mi formación en astrología, Human Design y Gene Keys.",
+    seoDescription: "Quién soy, mi trayectoria y cómo trabajo con astrología, Human Design y Gene Keys.",
   };
   const faq: SitePageContent = {
     title: "Preguntas frecuentes",
