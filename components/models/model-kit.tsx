@@ -214,3 +214,26 @@ export function RangeField({
     </div>
   );
 }
+
+/**
+ * Azar de verdad para las tiradas (runas, oráculo): crypto.getRandomValues, sin el sesgo del módulo
+ * (se descartan los valores del último tramo incompleto). Nada se guarda ni se envía.
+ */
+export function randomInt(n: number): number {
+  const buf = new Uint32Array(1);
+  const limit = Math.floor(0x1_0000_0000 / n) * n;
+  for (;;) {
+    crypto.getRandomValues(buf);
+    if (buf[0] < limit) return buf[0] % n;
+  }
+}
+
+/** k índices distintos de 0…n-1, en orden aleatorio (Fisher–Yates parcial). */
+export function drawDistinct(n: number, k: number): number[] {
+  const pool = Array.from({ length: n }, (_, i) => i);
+  for (let i = 0; i < k; i++) {
+    const j = i + randomInt(n - i);
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, k);
+}

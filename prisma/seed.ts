@@ -225,7 +225,8 @@ const ANA_SYSTEMS: AnaSystem[] = [
 /**
  * «Mi energía»: la antigua página «Filosofía» contada por Ana. Todo son bloques que ella puede editar:
  * la frase sobre la geometría sagrada (modelo «geometry»), por qué esta parte, los cinco principios
- * (una trayectoria numerada I–V) y el ensayo de sus cuadernos (texto con formato).
+ * (una trayectoria numerada I–V), el ensayo de sus cuadernos (texto con formato) y, para jugar, una tirada
+ * de runas y su oráculo de la luna (modelos «runes» y «oracle»).
  */
 function anaEnergyBlocks(): ContentBlock[] {
   return [
@@ -265,6 +266,16 @@ function anaEnergyBlocks(): ContentBlock[] {
         "Nunca llegarás a ningún sitio donde no hayas estado ya.",
         "*— Ana*",
       ].join("\n\n"),
+    },
+    {
+      id: "runas", kind: "model", model: "runes", figure: "enneagram", enabled: true,
+      title: "Una tirada de runas",
+      intro: "Las runas fueron mi primer idioma antes que la astrología. No me dicen qué va a pasar: me ayudan a hacerme una pregunta mejor. Tira una para el día, o tres si quieres mirar de dónde vienes y hacia dónde vas.",
+    },
+    {
+      id: "oraculo", kind: "model", model: "oracle", figure: "enneagram", enabled: true,
+      title: "El oráculo de la luna",
+      intro: "Dibujé estas veintiocho cartas para mis círculos, una por cada noche del ciclo. Baraja, saca una o tres, y quédate más con la pregunta que con la respuesta.",
     },
   ];
 }

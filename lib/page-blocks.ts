@@ -4,7 +4,7 @@ import { videoEmbed } from "./video-embed";
 /**
  * Bloques de contenido de la portada (Creator.pageDraft/pagePublished.blocks) y de las páginas extra
  * (SitePage.draft/published.blocks): texto con formato, imagen, galería, vídeo, foto y texto, tarjetas,
- * cita, trayectoria y modelo interactivo (carta natal, bodygraph, Gene Keys, ciclo lunar o geometría
+ * cita, trayectoria y modelo interactivo (carta natal, bodygraph, Gene Keys, ciclo lunar, runas, oráculo o geometría
  * sagrada: components/models). Puro y seguro en el cliente (lo usan el editor, la vista previa, la web pública y el servidor al guardar).
  *
  * Compatibilidad: los bloques guardados antes de existir los tipos no tienen `kind`; se leen como
@@ -42,13 +42,15 @@ export const BLOCK_LABEL: Record<BlockKind, string> = {
 };
 
 /** Modelos del bloque «Modelo interactivo» (components/models). */
-export const MODEL_KINDS = ["chart", "bodygraph", "geneKeys", "lunar", "geometry"] as const;
+export const MODEL_KINDS = ["chart", "bodygraph", "geneKeys", "lunar", "runes", "oracle", "geometry"] as const;
 export type ModelKind = (typeof MODEL_KINDS)[number];
 export const MODEL_LABEL: Record<ModelKind, string> = {
   chart: "Carta natal",
   bodygraph: "Bodygraph (Human Design)",
   geneKeys: "Gene Keys (perfil hologenético)",
   lunar: "Ciclo lunar y calendario",
+  runes: "Tirada de runas",
+  oracle: "Oráculo",
   geometry: "Filosofía · geometría sagrada",
 };
 /** Figura de la geometría sagrada (solo el modelo «geometry»: ornamento detrás de una frase). */

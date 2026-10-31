@@ -20,6 +20,8 @@ const ChartModel = dynamic(() => import("./chart-model").then((m) => m.ChartMode
 const BodygraphModel = dynamic(() => import("./bodygraph-model").then((m) => m.BodygraphModel), { ssr: false, loading: Loading });
 const GeneKeysModel = dynamic(() => import("./gene-keys-model").then((m) => m.GeneKeysModel), { ssr: false, loading: Loading });
 const LunarModel = dynamic(() => import("./lunar-model").then((m) => m.LunarModel), { ssr: false, loading: Loading });
+const RunesModel = dynamic(() => import("./runes-model").then((m) => m.RunesModel), { ssr: false, loading: Loading });
+const OracleModel = dynamic(() => import("./oracle-model").then((m) => m.OracleModel), { ssr: false, loading: Loading });
 
 export function InteractiveModel({ model }: { model: Exclude<ModelKind, "geometry"> }) {
   switch (model) {
@@ -31,5 +33,9 @@ export function InteractiveModel({ model }: { model: Exclude<ModelKind, "geometr
       return <GeneKeysModel />;
     case "lunar":
       return <LunarModel />;
+    case "runes":
+      return <RunesModel />;
+    case "oracle":
+      return <OracleModel />;
   }
 }

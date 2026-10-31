@@ -278,8 +278,38 @@
 .cp-model-draw.is-shown [data-pop] { opacity: 1; transform: none; }
 .cp-model-svg [role="button"] { cursor: pointer; outline: none; }
 .cp-model-svg [role="button"]:focus-visible { outline: 1.5px solid var(--c-gold); outline-offset: 2px; }
+/* Tiradas (runas y oráculo): piedras que caen, cartas que se barajan y piezas que se dan la vuelta. */
+.cp-flip { perspective: 900px; -webkit-tap-highlight-color: transparent; }
+.cp-flip-inner { position: relative; display: block; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform .9s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0ms); }
+.cp-flip[data-open="true"] .cp-flip-inner { transform: rotateY(180deg); }
+.cp-flip-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.cp-flip-front { transform: rotateY(180deg); }
+.cp-flip:focus-visible { outline: none; }
+.cp-flip:focus-visible .cp-flip-inner { outline: 1.5px solid var(--c-gold); outline-offset: 4px; border-radius: 14px; }
+.cp-stone {
+  border: 1px solid color-mix(in oklab, var(--c-text) 16%, transparent);
+  background: radial-gradient(120% 100% at 32% 24%, color-mix(in oklab, var(--c-text) 24%, var(--c-bg)), color-mix(in oklab, var(--c-text) 9%, var(--c-bg)) 72%);
+  box-shadow: inset 0 -7px 14px rgb(0 0 0 / .2), inset 0 3px 6px rgb(255 255 255 / .06), 0 14px 24px -16px rgb(0 0 0 / .55);
+}
+.cp-rune-glyph {
+  font-family: var(--font-runic, "Noto Sans Runic"), "Noto Sans Runic", "Segoe UI Historic", "Segoe UI Symbol", "Apple Symbols", sans-serif;
+  font-variant-emoji: text; line-height: 1; color: var(--c-gold);
+  text-shadow: 0 1px 0 color-mix(in oklab, var(--c-bg) 55%, transparent), 0 -1px 0 rgb(0 0 0 / .3);
+}
+.cp-drop { animation: cp-drop .7s cubic-bezier(.2,.7,.2,1) both; animation-delay: var(--d, 0ms); }
+@keyframes cp-drop { from { opacity: 0; transform: translateY(-22px) rotate(-12deg) scale(.9); } to { opacity: 1; transform: none; } }
+.cp-deal { animation: cp-deal .65s cubic-bezier(.2,.7,.2,1) both; animation-delay: var(--d, 0ms); }
+@keyframes cp-deal { from { opacity: 0; transform: translateY(-28px) scale(.88) rotate(-4deg); } to { opacity: 1; transform: none; } }
+.cp-shuffle-l { animation: cp-shuffle-l .55s ease-in-out 3 both; animation-delay: var(--d, 0ms); }
+.cp-shuffle-r { animation: cp-shuffle-r .55s ease-in-out 3 both; animation-delay: var(--d, 0ms); }
+@keyframes cp-shuffle-l { 0%, 100% { transform: none; } 50% { transform: translateX(-58%) rotate(-8deg); } }
+@keyframes cp-shuffle-r { 0%, 100% { transform: none; } 50% { transform: translateX(58%) rotate(8deg); } }
+.cp-cut { animation: cp-cut .7s cubic-bezier(.6,0,.3,1) both; animation-delay: var(--d, 0ms); }
+@keyframes cp-cut { 0%, 100% { transform: none; } 45% { transform: translate(46%, -30%) rotate(5deg); } }
 @media (prefers-reduced-motion: reduce) {
   .cp-model-in { animation: none; }
+  .cp-flip-inner { transition: none; }
+  .cp-drop, .cp-deal, .cp-shuffle-l, .cp-shuffle-r, .cp-cut { animation: none; }
   .cp-model-draw [data-draw] { stroke-dashoffset: 0; transition: none; }
   .cp-model-draw [data-pop] { opacity: 1; transform: none; transition: none; }
 }
