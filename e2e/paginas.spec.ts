@@ -2,12 +2,14 @@ import { PrismaClient, type Prisma } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
 import sharp from "sharp";
 import { mp4 } from "../scripts/fixtures/iso-media";
+import { COMO_TRABAJO, mediaBlocks, withHomeBlocks } from "./home-blocks";
 
 /**
  * Editor de la página y páginas extra (servidor en modo personal, puerto 3101, web de Ana; y la
  * plataforma en el 3100):
- *   · la portada de la demo con su vídeo subido (302 firmado y Range → 206), su gráfico y su
- *     galería; «Sobre mí» en el pie y en /sobre-mi; la de borrador da 404;
+ *   · la portada con bloques de prueba (la demo no trae ninguno; e2e/home-blocks.ts): su vídeo
+ *     subido (302 firmado y Range → 206), su gráfico y su galería; «Sobre mí» en el pie y en
+ *     /sobre-mi; la de borrador da 404;
  *   · «Nueva página» de principio a fin desde el móvil: negrita, imagen de Canva (1080×1920 con sus
  *     medidas y srcset), publicar, /<slug> y /ana/p/<slug> con canonical a la raíz;
  *   · borrador y publicado, vista previa «solo tú la ves», despublicar (404) y el sitemap;
@@ -46,6 +48,11 @@ test.beforeAll(async () => {
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
   anaId = ana.id;
   homeBefore = { pageDraft: ana.pageDraft, pagePublished: ana.pagePublished };
+  // La demo no trae bloques en la portada: estas pruebas ponen los suyos (texto, vídeo subido,
+  // gráfico y galería) en el borrador, que es lo que se publica desde el editor, y en lo publicado.
+  // afterAll lo deja como estaba.
+  const blocks = [COMO_TRABAJO, ...(await mediaBlocks(prisma, anaId))];
+  await prisma.creator.update({ where: { id: anaId }, data: { pageDraft: withHomeBlocks(ana.pageDraft, blocks), pagePublished: withHomeBlocks(ana.pagePublished ?? ana.pageDraft, blocks) } });
 });
 
 test.afterAll(async () => {
@@ -59,7 +66,7 @@ test.afterAll(async () => {
 });
 
 test.describe.serial("Editor de la página y páginas extra", () => {
-  test("portada de la demo: vídeo subido, gráfico, galería y «Sobre mí» en el pie", async ({ page, request }) => {
+  test("portada con bloques: vídeo subido, gráfico, galería y «Sobre mí» en el pie", async ({ page, request }) => {
     await page.goto("/");
     const blocks = page.locator("#bloques");
     await expect(blocks.getByRole("heading", { name: "Cómo trabajo" })).toBeVisible();

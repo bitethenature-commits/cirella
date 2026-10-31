@@ -73,6 +73,10 @@ test.describe.serial("Portada nueva", () => {
     await expect(page.getByText(/Empieza aquí/)).toHaveCount(0);
     // El antiguo «Destacado» ya no sale.
     await expect(page.getByText("Destacado", { exact: true })).toHaveCount(0);
+    // Sin bloques en la demo: ni «Cómo trabajo» ni el vídeo, el gráfico o la galería de antes.
+    await expect(page.locator("#bloques")).toHaveCount(0);
+    await expect(page.getByText("Cómo trabajo")).toHaveCount(0);
+    await expect(page.getByText("Así son mis lecturas")).toHaveCount(0);
 
     const ids = ["actualidades", "portal", "sobre-mi", "sistemas", "lecturas", "cursos", "codigos"];
     const tops: number[] = [];

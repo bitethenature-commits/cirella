@@ -1,11 +1,13 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
+import { COMO_TRABAJO, withHomeBlocks } from "./home-blocks";
 import { expect, test, type Page } from "@playwright/test";
 
 /**
  * Modo personal · contenido de la página (servidor en modo personal, puerto 3101, web de Ana):
  *   · «Novedades» con las últimas publicaciones y «Ver todas», la lista y cada publicación con su
  *     SEO (canonical, og:type article) y el texto sin HTML, con enlaces automáticos;
- *   · «Bloques»: el de texto de la demo con su título, su texto y su botón a una web de fuera;
+ *   · «Bloques»: la demo no trae ninguno (no sale «Cómo trabajo»); con uno de texto puesto por la
+ *     prueba, su título, su texto y su botón a una web de fuera;
  *   · «Códigos de descuento»: «Copiar código» (aviso «Copiado» y portapapeles) e «Ir a la tienda»,
  *     los dos registrados por /api/track (y contados en el panel); los caducados y los ocultos no se ven;
  *   · tarjetas de producto: «Gratis» y «Pago en <dominio>», sin «Powered by»;
@@ -37,11 +39,22 @@ function trackResponse(page: Page, type: string) {
 
 /** Desde cuándo cuentan los eventos de códigos de esta prueba (se borran al acabar). */
 let trackSince: Date | null = null;
+/** La portada publicada de Ana antes de añadirle el bloque de prueba (afterAll la deja como estaba). */
+let publishedBefore: { value: Prisma.JsonValue } | null = null;
+
+/** Publica en la portada el bloque de texto «Cómo trabajo» (la demo no trae bloques). */
+async function addTextBlock() {
+  const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" }, select: { id: true, pageDraft: true, pagePublished: true } });
+  publishedBefore ??= { value: ana.pagePublished };
+  await prisma.creator.update({ where: { id: ana.id }, data: { pagePublished: withHomeBlocks(ana.pagePublished ?? ana.pageDraft, [COMO_TRABAJO]) } });
+}
 
 test.afterAll(async () => {
   // Por si una prueba falló a medias: nada de lo creado aquí se queda en la demo.
   const ana = await prisma.creator.findUnique({ where: { username: "ana" }, select: { id: true } });
   if (ana) {
+    if (publishedBefore)
+      await prisma.creator.update({ where: { id: ana.id }, data: { pagePublished: publishedBefore.value === null ? Prisma.DbNull : (publishedBefore.value as Prisma.InputJsonValue) } });
     await prisma.post.deleteMany({ where: { creatorId: ana.id, title: POST_TITLE } });
     await prisma.discountCode.deleteMany({ where: { creatorId: ana.id, code: CODE } });
     if (trackSince)
@@ -62,7 +75,14 @@ test.describe.serial("Modo personal · contenido", () => {
     await expect(codes.getByRole("heading", { name: "Códigos de descuento" })).toBeVisible();
     await expect(codes.getByText("ANALUNA15")).toBeVisible();
 
-    // Bloque fijo de la demo: título, texto y botón a una web de fuera (en otra pestaña).
+    // La demo no trae bloques: ni la sección ni «Cómo trabajo» salen en la portada.
+    await expect(page.locator("#bloques")).toHaveCount(0);
+    await expect(page.getByText("Cómo trabajo")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /Ver mi agenda/ })).toHaveCount(0);
+
+    // Con un bloque de texto: su título, su texto y su botón a una web de fuera (en otra pestaña).
+    await addTextBlock();
+    await page.reload();
     const blocks = page.locator("#bloques");
     await expect(blocks.getByRole("heading", { name: "Cómo trabajo" })).toBeVisible();
     await expect(blocks.getByText(/Cada lectura parte de tu carta natal/)).toBeVisible();
@@ -278,8 +298,10 @@ test.describe.serial("Modo personal · contenido", () => {
     await expect(page.getByRole("link", { name: "Gestionar" }).first()).toBeVisible();
 
     await page.getByRole("button", { name: "Bloques", exact: true }).click();
+    // La demo no trae bloques: el nuevo es el único.
+    await expect(page.getByLabel("Título del bloque")).toHaveCount(0);
     await page.getByRole("button", { name: "Añadir bloque de texto" }).click();
-    // La demo ya trae un bloque («Cómo trabajo»): el nuevo es el último.
+    await expect(page.getByLabel("Título del bloque")).toHaveCount(1);
     await page.getByLabel("Título del bloque").last().fill(`Sobre mí ${stamp}`);
     await page.getByLabel("Texto del bloque").last().fill("Soy astróloga.\n\nMás en https://example.com/sobre-mi");
     // Sin «Powered by» que ocultar en la web personal.
