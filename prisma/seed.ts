@@ -183,7 +183,7 @@ const ANA_SYSTEMS: AnaSystem[] = [
     ],
   },
   {
-    slug: "gene-keys", title: "Gene Keys", img: "/demo/gene-keys.webp", photo: "/demo/sesion.webp", text: "Contempla tu sombra, tu don y tu siddhi.",
+    slug: "metodo-gene-keys", title: "Gene Keys", img: "/demo/gene-keys.webp", photo: "/demo/sesion.webp", text: "Contempla tu sombra, tu don y tu siddhi.",
     body: "Las **Gene Keys** son 64 llaves de contemplación. Cada una describe un espectro: la sombra, el don y el siddhi.\n\nTrabajamos con tu Secuencia de Activación para encontrar tu genio creativo.",
     model: { kind: "geneKeys", title: "Recorre un perfil hologenético", intro: "Trece esferas sobre el Camino Dorado. Toca una para leer su llave en sombra, don y siddhi, y cámbiala por otra para ver cómo se mueve el sentido." },
     related: [
