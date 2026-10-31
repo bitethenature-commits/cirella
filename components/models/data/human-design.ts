@@ -3,10 +3,8 @@
  *  Diseño Humano — los datos estructurales completos de un bodygraph.
  *
  *  Nueve centros, las 64 puertas repartidas entre ellos y los 36 canales que
- *  los conectan. La posición de cada puerta está escrita a mano por centro,
- *  para que los canales salgan de cada figura por donde salen en una carta real.
- *
- *  Espacio de coordenadas: viewBox 0 0 420 660.
+ *  los conectan. Aquí no hay geometría: el dibujo (polígonos, números y trazos)
+ *  sale entero de ./bodygraph-layout.ts, el layout exportado del editor visual.
  * -------------------------------------------------------------------------- */
 
 export type CentreId =
@@ -28,11 +26,6 @@ export interface Centre {
   /** Nombre alternativo, tal como aparece en la mayoría de las cartas. */
   alias: string
   kind: CentreKind
-  shape: "triangle-up" | "triangle-down" | "triangle-left" | "triangle-right" | "square" | "diamond"
-  x: number
-  y: number
-  w: number
-  h: number
   hue: string
   /** De qué se ocupa el centro. */
   role: string
@@ -48,11 +41,6 @@ export const CENTRES: Centre[] = [
     name: "Cabeza",
     alias: "Head · Corona",
     kind: "pressure",
-    shape: "triangle-up",
-    x: 210,
-    y: 46,
-    w: 112,
-    h: 66,
     hue: "#8C6BB8",
     role: "Presión de inspiración. La fuente de todas las preguntas, no de las respuestas.",
     defined: "Definido: te habita un tipo de preguntas fiable y reconocible.",
@@ -63,11 +51,6 @@ export const CENTRES: Centre[] = [
     name: "Ajna",
     alias: "Ajna · Mente",
     kind: "awareness",
-    shape: "triangle-down",
-    x: 210,
-    y: 134,
-    w: 112,
-    h: 66,
     hue: "#3F4E8C",
     role: "Conceptualización. Cómo encuentran orden los pensamientos.",
     defined: "Definido: tu manera de pensar es fija y recurrente — fiable, pero nunca neutral.",
@@ -78,11 +61,6 @@ export const CENTRES: Centre[] = [
     name: "Garganta",
     alias: "Throat · Expresión",
     kind: "expression",
-    shape: "square",
-    x: 210,
-    y: 232,
-    w: 98,
-    h: 84,
     hue: "#4FB3C4",
     role: "Expresión y manifestación. Todo lo que sale hacia fuera pasa por aquí.",
     defined: "Definido: hablas desde una fuente estable y puedes contar con ella.",
@@ -93,11 +71,6 @@ export const CENTRES: Centre[] = [
     name: "Centro G",
     alias: "Identidad · Amor",
     kind: "identity",
-    shape: "diamond",
-    x: 210,
-    y: 354,
-    w: 106,
-    h: 106,
     hue: "#7FBB42",
     role: "Identidad, amor y dirección. El núcleo magnético.",
     defined: "Definido: sabes quién eres, aunque nadie te esté mirando.",
@@ -108,11 +81,6 @@ export const CENTRES: Centre[] = [
     name: "Corazón / Ego",
     alias: "Ego · Voluntad",
     kind: "motor",
-    shape: "triangle-left",
-    x: 314,
-    y: 374,
-    w: 66,
-    h: 58,
     hue: "#4E7A32",
     role: "Voluntad, valor y promesa. El motor más pequeño y más potente.",
     defined: "Definido: puedes proponerte algo y sostenerlo, en olas de trabajo y descanso.",
@@ -123,11 +91,6 @@ export const CENTRES: Centre[] = [
     name: "Bazo",
     alias: "Spleen · Intuición",
     kind: "awareness",
-    shape: "triangle-right",
-    x: 88,
-    y: 472,
-    w: 96,
-    h: 88,
     hue: "#E4CE96",
     role: "Intuición, salud, supervivencia. La inteligencia más antigua del cuerpo.",
     defined: "Definido: tu intuición habla una vez, bajito, en el ahora. Quien pregunta dos veces ya no oye nada.",
@@ -138,11 +101,6 @@ export const CENTRES: Centre[] = [
     name: "Sacral",
     alias: "Sacral · Vida",
     kind: "motor",
-    shape: "square",
-    x: 210,
-    y: 482,
-    w: 98,
-    h: 78,
     hue: "#E8862E",
     role: "Fuerza vital y respuesta. La energía que reacciona en lugar de iniciar.",
     defined: "Definido: tienes fuerza para aquello a lo que de verdad respondes — y ninguna para el resto.",
@@ -153,11 +111,6 @@ export const CENTRES: Centre[] = [
     name: "Plexo solar",
     alias: "Solar · Emociones",
     kind: "motor",
-    shape: "triangle-left",
-    x: 336,
-    y: 472,
-    w: 96,
-    h: 88,
     hue: "#EFC53F",
     role: "La emoción como ola. No un estado, sino un movimiento a lo largo del tiempo.",
     defined: "Definido: para ti no hay verdad en el momento. Solo verdad a lo largo del tiempo.",
@@ -168,11 +121,6 @@ export const CENTRES: Centre[] = [
     name: "Raíz",
     alias: "Root · Presión",
     kind: "pressure",
-    shape: "square",
-    x: 210,
-    y: 592,
-    w: 98,
-    h: 78,
     hue: "#D2564F",
     role: "Presión adrenalínica. El impulso bajo el que todo empieza y todo termina.",
     defined: "Definido: llevas tu propio ritmo de presión. Va y viene a rachas.",
@@ -194,95 +142,90 @@ export interface Gate {
   name: string
   /** Una línea sobre lo que aporta esta puerta. */
   theme: string
-  /** Posición dentro del viewBox 420×660. */
-  x: number
-  y: number
 }
 
-/* Las posiciones están escritas por borde de centro, para que cada canal salga
- * de su figura por donde lo dibuja una carta real. */
 export const GATES: Gate[] = [
   // ── Cabeza ─────────────────────────────────────────────────────────────
-  { n: 64, centre: "head", name: "Confusión", theme: "Imágenes sin orden, justo antes de tener sentido.", x: 178, y: 74 },
-  { n: 61, centre: "head", name: "Misterio", theme: "La presión por comprender lo inexplicable.", x: 210, y: 74 },
-  { n: 63, centre: "head", name: "Duda", theme: "La pregunta de si el patrón se sostiene de verdad.", x: 242, y: 74 },
+  { n: 64, centre: "head", name: "Confusión", theme: "Imágenes sin orden, justo antes de tener sentido." },
+  { n: 61, centre: "head", name: "Misterio", theme: "La presión por comprender lo inexplicable." },
+  { n: 63, centre: "head", name: "Duda", theme: "La pregunta de si el patrón se sostiene de verdad." },
 
   // ── Ajna ───────────────────────────────────────────────────────────────
-  { n: 47, centre: "ajna", name: "Comprensión", theme: "Del desorden nace, mirando atrás, el sentido.", x: 178, y: 106 },
-  { n: 24, centre: "ajna", name: "Racionalización", theme: "El mismo pensamiento vuelve hasta que madura.", x: 210, y: 106 },
-  { n: 4, centre: "ajna", name: "Formulación", theme: "Una respuesta posible — todavía no una prueba.", x: 242, y: 106 },
-  { n: 17, centre: "ajna", name: "Opiniones", theme: "La mirada que quiere compartirse.", x: 194, y: 152 },
-  { n: 43, centre: "ajna", name: "Perspicacia", theme: "El saber repentino que nadie ha explicado.", x: 210, y: 160 },
-  { n: 11, centre: "ajna", name: "Ideas", theme: "Imágenes que no te pertenecen, solo pasan por ti.", x: 226, y: 152 },
+  { n: 47, centre: "ajna", name: "Comprensión", theme: "Del desorden nace, mirando atrás, el sentido." },
+  { n: 24, centre: "ajna", name: "Racionalización", theme: "El mismo pensamiento vuelve hasta que madura." },
+  { n: 4, centre: "ajna", name: "Formulación", theme: "Una respuesta posible — todavía no una prueba." },
+  { n: 17, centre: "ajna", name: "Opiniones", theme: "La mirada que quiere compartirse." },
+  { n: 43, centre: "ajna", name: "Perspicacia", theme: "El saber repentino que nadie ha explicado." },
+  { n: 11, centre: "ajna", name: "Ideas", theme: "Imágenes que no te pertenecen, solo pasan por ti." },
 
   // ── Garganta ───────────────────────────────────────────────────────────
-  { n: 62, centre: "throat", name: "Detalles", theme: "Poner nombre a las cosas pequeñas.", x: 186, y: 192 },
-  { n: 23, centre: "throat", name: "Asimilación", theme: "Decir en una frase lo incomprensible.", x: 210, y: 192 },
-  { n: 56, centre: "throat", name: "Estímulo", theme: "La historia que los demás siguen contando.", x: 234, y: 192 },
-  { n: 16, centre: "throat", name: "Habilidades", theme: "El entusiasmo que se convierte en maestría.", x: 163, y: 210 },
-  { n: 20, centre: "throat", name: "El ahora", theme: "Hablar en el instante presente.", x: 163, y: 240 },
-  { n: 35, centre: "throat", name: "Cambio", theme: "El hambre de lo que aún no has vivido.", x: 257, y: 208 },
-  { n: 12, centre: "throat", name: "Cautela", theme: "Hablar solo cuando el ánimo acompaña.", x: 257, y: 232 },
-  { n: 45, centre: "throat", name: "El recolector", theme: "La voz que mantiene unido a un grupo.", x: 257, y: 256 },
-  { n: 31, centre: "throat", name: "Liderazgo", theme: "«Yo dirijo» — pero solo si me eligen.", x: 184, y: 272 },
-  { n: 8, centre: "throat", name: "Contribución", theme: "Aportar lo propio sin explicarlo.", x: 210, y: 272 },
-  { n: 33, centre: "throat", name: "Retiro", theme: "Contar lo que se reconoció en el silencio.", x: 236, y: 272 },
+  { n: 62, centre: "throat", name: "Detalles", theme: "Poner nombre a las cosas pequeñas." },
+  { n: 23, centre: "throat", name: "Asimilación", theme: "Decir en una frase lo incomprensible." },
+  { n: 56, centre: "throat", name: "Estímulo", theme: "La historia que los demás siguen contando." },
+  { n: 16, centre: "throat", name: "Habilidades", theme: "El entusiasmo que se convierte en maestría." },
+  { n: 20, centre: "throat", name: "El ahora", theme: "Hablar en el instante presente." },
+  { n: 35, centre: "throat", name: "Cambio", theme: "El hambre de lo que aún no has vivido." },
+  { n: 12, centre: "throat", name: "Cautela", theme: "Hablar solo cuando el ánimo acompaña." },
+  { n: 45, centre: "throat", name: "El recolector", theme: "La voz que mantiene unido a un grupo." },
+  { n: 31, centre: "throat", name: "Liderazgo", theme: "«Yo dirijo» — pero solo si me eligen." },
+  { n: 8, centre: "throat", name: "Contribución", theme: "Aportar lo propio sin explicarlo." },
+  { n: 33, centre: "throat", name: "Retiro", theme: "Contar lo que se reconoció en el silencio." },
 
   // ── Centro G ───────────────────────────────────────────────────────────
-  { n: 7, centre: "g", name: "El papel del yo", theme: "Liderazgo desde atrás, no sobre el escenario.", x: 192, y: 312 },
-  { n: 1, centre: "g", name: "Expresión del yo", theme: "Creación que no puede venir de nadie más.", x: 210, y: 302 },
-  { n: 13, centre: "g", name: "La que escucha", theme: "La gente te cuenta lo que no le cuenta a nadie.", x: 228, y: 312 },
-  { n: 10, centre: "g", name: "Conducta del yo", theme: "Quererse a una misma — como acto, no como sentimiento.", x: 170, y: 344 },
-  { n: 25, centre: "g", name: "Espíritu del yo", theme: "Un amor que no prefiere a nadie.", x: 244, y: 342 },
-  { n: 15, centre: "g", name: "Extremos", theme: "Ningún ritmo propio — a cambio, todos los humanos.", x: 192, y: 394 },
-  { n: 2, centre: "g", name: "Dirección del yo", theme: "La dirección te conoce antes de que tú la conozcas.", x: 210, y: 404 },
-  { n: 46, centre: "g", name: "Determinación del yo", theme: "En el lugar justo en el momento justo — dentro del cuerpo.", x: 228, y: 394 },
+  { n: 7, centre: "g", name: "El papel del yo", theme: "Liderazgo desde atrás, no sobre el escenario." },
+  { n: 1, centre: "g", name: "Expresión del yo", theme: "Creación que no puede venir de nadie más." },
+  { n: 13, centre: "g", name: "La que escucha", theme: "La gente te cuenta lo que no le cuenta a nadie." },
+  { n: 10, centre: "g", name: "Conducta del yo", theme: "Quererse a una misma — como acto, no como sentimiento." },
+  { n: 25, centre: "g", name: "Espíritu del yo", theme: "Un amor que no prefiere a nadie." },
+  { n: 15, centre: "g", name: "Extremos", theme: "Ningún ritmo propio — a cambio, todos los humanos." },
+  { n: 2, centre: "g", name: "Dirección del yo", theme: "La dirección te conoce antes de que tú la conozcas." },
+  { n: 46, centre: "g", name: "Determinación del yo", theme: "En el lugar justo en el momento justo — dentro del cuerpo." },
 
   // ── Corazón ────────────────────────────────────────────────────────────
-  { n: 21, centre: "heart", name: "La cazadora", theme: "Control sobre el propio territorio.", x: 300, y: 354 },
-  { n: 51, centre: "heart", name: "Conmoción", theme: "El golpe que despierta.", x: 292, y: 372 },
-  { n: 26, centre: "heart", name: "La egoísta", theme: "Convencer — con honestidad o nada.", x: 302, y: 392 },
-  { n: 40, centre: "heart", name: "Soledad", theme: "Dar y tener derecho a retirarse después.", x: 334, y: 390 },
+  { n: 21, centre: "heart", name: "La cazadora", theme: "Control sobre el propio territorio." },
+  { n: 51, centre: "heart", name: "Conmoción", theme: "El golpe que despierta." },
+  { n: 26, centre: "heart", name: "La egoísta", theme: "Convencer — con honestidad o nada." },
+  { n: 40, centre: "heart", name: "Soledad", theme: "Dar y tener derecho a retirarse después." },
 
   // ── Bazo ───────────────────────────────────────────────────────────────
-  { n: 48, centre: "spleen", name: "La profundidad", theme: "El pozo del que salen las soluciones.", x: 66, y: 442 },
-  { n: 57, centre: "spleen", name: "Intuición", theme: "Claridad en el oído, un segundo antes del pensamiento.", x: 90, y: 438 },
-  { n: 44, centre: "spleen", name: "Alerta", theme: "Hueles el pasado de una persona.", x: 114, y: 452 },
-  { n: 50, centre: "spleen", name: "Valores", theme: "La responsabilidad que nadie te dio.", x: 128, y: 476 },
-  { n: 32, centre: "spleen", name: "Continuidad", theme: "Reconocer lo que va a durar.", x: 106, y: 504 },
-  { n: 28, centre: "spleen", name: "La jugadora", theme: "La búsqueda de aquello por lo que merece la pena luchar.", x: 86, y: 510 },
-  { n: 18, centre: "spleen", name: "Corrección", theme: "El ojo para lo que podría estar mejor.", x: 64, y: 500 },
+  { n: 48, centre: "spleen", name: "La profundidad", theme: "El pozo del que salen las soluciones." },
+  { n: 57, centre: "spleen", name: "Intuición", theme: "Claridad en el oído, un segundo antes del pensamiento." },
+  { n: 44, centre: "spleen", name: "Alerta", theme: "Hueles el pasado de una persona." },
+  { n: 50, centre: "spleen", name: "Valores", theme: "La responsabilidad que nadie te dio." },
+  { n: 32, centre: "spleen", name: "Continuidad", theme: "Reconocer lo que va a durar." },
+  { n: 28, centre: "spleen", name: "La jugadora", theme: "La búsqueda de aquello por lo que merece la pena luchar." },
+  { n: 18, centre: "spleen", name: "Corrección", theme: "El ojo para lo que podría estar mejor." },
 
   // ── Sacral ─────────────────────────────────────────────────────────────
-  { n: 5, centre: "sacral", name: "Patrones fijos", theme: "Un ritmo que no quiere negociarse.", x: 182, y: 446 },
-  { n: 14, centre: "sacral", name: "Poder", theme: "Medios para lo que de verdad te importa.", x: 210, y: 446 },
-  { n: 29, centre: "sacral", name: "Decir sí", theme: "Entrega — la fuerza de mantenerse.", x: 238, y: 446 },
-  { n: 34, centre: "sacral", name: "Fuerza", theme: "Fuerza pura. Solo al hacer muestra para qué.", x: 163, y: 464 },
-  { n: 27, centre: "sacral", name: "Cuidado", theme: "Nutrir — a los demás y a ti.", x: 163, y: 502 },
-  { n: 59, centre: "sacral", name: "Sexualidad", theme: "La capacidad de atravesar barreras.", x: 257, y: 484 },
-  { n: 42, centre: "sacral", name: "Crecimiento", theme: "Llevar hasta el final lo que se empezó.", x: 182, y: 518 },
-  { n: 3, centre: "sacral", name: "Orden", theme: "La dificultad del principio de todo lo nuevo.", x: 210, y: 518 },
-  { n: 9, centre: "sacral", name: "Enfoque", theme: "La constancia para el detalle.", x: 238, y: 518 },
+  { n: 5, centre: "sacral", name: "Patrones fijos", theme: "Un ritmo que no quiere negociarse." },
+  { n: 14, centre: "sacral", name: "Poder", theme: "Medios para lo que de verdad te importa." },
+  { n: 29, centre: "sacral", name: "Decir sí", theme: "Entrega — la fuerza de mantenerse." },
+  { n: 34, centre: "sacral", name: "Fuerza", theme: "Fuerza pura. Solo al hacer muestra para qué." },
+  { n: 27, centre: "sacral", name: "Cuidado", theme: "Nutrir — a los demás y a ti." },
+  { n: 59, centre: "sacral", name: "Sexualidad", theme: "La capacidad de atravesar barreras." },
+  { n: 42, centre: "sacral", name: "Crecimiento", theme: "Llevar hasta el final lo que se empezó." },
+  { n: 3, centre: "sacral", name: "Orden", theme: "La dificultad del principio de todo lo nuevo." },
+  { n: 9, centre: "sacral", name: "Enfoque", theme: "La constancia para el detalle." },
 
   // ── Plexo solar ────────────────────────────────────────────────────────
-  { n: 37, centre: "solar", name: "Amistad", theme: "El contacto que sella una alianza.", x: 314, y: 442 },
-  { n: 22, centre: "solar", name: "Apertura", theme: "Gracia — escuchar cuando el ánimo acompaña.", x: 336, y: 434 },
-  { n: 36, centre: "solar", name: "Crisis", theme: "La experiencia que no se puede saltar.", x: 358, y: 442 },
-  { n: 6, centre: "solar", name: "Fricción", theme: "La puerta de la intimidad y del conflicto.", x: 314, y: 474 },
-  { n: 49, centre: "solar", name: "Principios", theme: "Donde tu no se vuelve definitivo.", x: 314, y: 502 },
-  { n: 55, centre: "solar", name: "Espíritu", theme: "Ánimo sin causa. Plenitud o vacío.", x: 336, y: 510 },
-  { n: 30, centre: "solar", name: "Sentimientos", theme: "Un anhelo que arde hasta que se vive.", x: 358, y: 502 },
+  { n: 37, centre: "solar", name: "Amistad", theme: "El contacto que sella una alianza." },
+  { n: 22, centre: "solar", name: "Apertura", theme: "Gracia — escuchar cuando el ánimo acompaña." },
+  { n: 36, centre: "solar", name: "Crisis", theme: "La experiencia que no se puede saltar." },
+  { n: 6, centre: "solar", name: "Fricción", theme: "La puerta de la intimidad y del conflicto." },
+  { n: 49, centre: "solar", name: "Principios", theme: "Donde tu no se vuelve definitivo." },
+  { n: 55, centre: "solar", name: "Espíritu", theme: "Ánimo sin causa. Plenitud o vacío." },
+  { n: 30, centre: "solar", name: "Sentimientos", theme: "Un anhelo que arde hasta que se vive." },
 
   // ── Raíz ───────────────────────────────────────────────────────────────
-  { n: 53, centre: "root", name: "Comienzo", theme: "La presión por empezar.", x: 182, y: 556 },
-  { n: 60, centre: "root", name: "Aceptación", theme: "Aceptar el límite — de ahí nace lo nuevo.", x: 210, y: 556 },
-  { n: 52, centre: "root", name: "Quietud", theme: "La presión por quedarse sentada.", x: 238, y: 556 },
-  { n: 54, centre: "root", name: "Ambición", theme: "El impulso hacia arriba.", x: 163, y: 574 },
-  { n: 38, centre: "root", name: "La luchadora", theme: "La resistencia que genera sentido.", x: 163, y: 602 },
-  { n: 58, centre: "root", name: "Vitalidad", theme: "La alegría de vivir como presión por mejorarlo.", x: 163, y: 630 },
-  { n: 19, centre: "root", name: "Querer", theme: "La necesidad de pertenecer.", x: 257, y: 574 },
-  { n: 39, centre: "root", name: "Provocación", theme: "El empujón que saca el sentimiento de los demás.", x: 257, y: 602 },
-  { n: 41, centre: "root", name: "Contracción", theme: "El inicio de toda experiencia. Fantasía bajo presión.", x: 257, y: 630 },
+  { n: 53, centre: "root", name: "Comienzo", theme: "La presión por empezar." },
+  { n: 60, centre: "root", name: "Aceptación", theme: "Aceptar el límite — de ahí nace lo nuevo." },
+  { n: 52, centre: "root", name: "Quietud", theme: "La presión por quedarse sentada." },
+  { n: 54, centre: "root", name: "Ambición", theme: "El impulso hacia arriba." },
+  { n: 38, centre: "root", name: "La luchadora", theme: "La resistencia que genera sentido." },
+  { n: 58, centre: "root", name: "Vitalidad", theme: "La alegría de vivir como presión por mejorarlo." },
+  { n: 19, centre: "root", name: "Querer", theme: "La necesidad de pertenecer." },
+  { n: 39, centre: "root", name: "Provocación", theme: "El empujón que saca el sentimiento de los demás." },
+  { n: 41, centre: "root", name: "Contracción", theme: "El inicio de toda experiencia. Fantasía bajo presión." },
 ]
 
 export const GATE_BY_N = new Map(GATES.map((g) => [g.n, g]))
