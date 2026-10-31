@@ -66,7 +66,7 @@ async function main() {
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" }, include: { user: true } });
   const anaActor = { kind: "creator" as const, creatorId: ana.id, userId: ana.userId };
   const session = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, slug: "sesion-1-1" } });
-  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED" } });
+  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "AUTOMATIC" } });
   const membership = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "MEMBERSHIP", status: "PUBLISHED" } });
   // Huecos del final de la agenda: lejos de los que usan las pruebas e2e.
   const slots = (await getAvailableSlots(session)).days.flatMap((d) => d.slots).reverse();

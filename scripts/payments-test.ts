@@ -59,7 +59,7 @@ async function newOrder(productId: string, label: string) {
 async function main() {
   check("la pasarela de la prueba es la simulada", paymentProvider().key === "simulated");
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
-  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED" } });
+  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "AUTOMATIC" } });
   const membership = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "MEMBERSHIP", status: "PUBLISHED" } });
   dac7Before = await prisma.creator.findMany({ select: { id: true, dac7RequestedAt: true, dac7RemindersSent: true, dac7LastReminderAt: true } });
 

@@ -44,7 +44,7 @@ async function main() {
   check("el proveedor de email de la prueba es «log»", emailProvider().key === "log");
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
   const maria = await prisma.creator.findUniqueOrThrow({ where: { username: "maria" } });
-  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED" } });
+  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "AUTOMATIC" } });
   const membership = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "MEMBERSHIP" } });
 
   // ── 1. Reintentos con backoff hasta FAILED ──

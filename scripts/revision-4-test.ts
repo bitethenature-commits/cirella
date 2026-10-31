@@ -47,7 +47,7 @@ async function main() {
   // ── BD ──
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
   const other = await prisma.creator.findFirstOrThrow({ where: { id: { not: ana.id } } });
-  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED" } });
+  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "AUTOMATIC" } });
   const newOrder = async (label: string) => {
     const o = await createPendingOrder({ productId: digital.id, buyerEmail: email(label), buyerName: `Prueba ${label}` });
     created.orders.push(o.id);

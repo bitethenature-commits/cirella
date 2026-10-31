@@ -61,7 +61,7 @@ async function buy(productId: string, label: string, form: Record<string, string
 async function main() {
   check("pasarela simulada", paymentProvider().key === "simulated");
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
-  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED" } });
+  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "AUTOMATIC" } });
   const before = new Set((await prisma.legalSnapshot.findMany({ where: { creatorId: ana.id }, select: { id: true } })).map((r) => r.id));
 
   // ── 1. Sin identidad legal no se vende ──

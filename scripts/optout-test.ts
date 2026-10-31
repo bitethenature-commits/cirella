@@ -38,7 +38,7 @@ const oneClick = (t: string, method: "GET" | "POST") =>
 
 async function main() {
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
-  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED" } });
+  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "AUTOMATIC" } });
   const newOrder = async (label: string) => {
     const o = await createPendingOrder({ productId: digital.id, buyerEmail: email(label), buyerName: `Prueba ${label}` });
     created.orders.push(o.id);
