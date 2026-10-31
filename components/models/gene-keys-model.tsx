@@ -14,7 +14,8 @@ import { GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeading, PanelIdle, P
 type Frequency = "shadow" | "gift" | "siddhi";
 
 const FREQUENCY_LABEL: Record<Frequency, string> = { shadow: "Sombra", gift: "Don", siddhi: "Siddhi" };
-const FREQUENCY_HUE: Record<Frequency, string> = { shadow: "#8A7468", gift: GOLD, siddhi: "var(--c-accent)" };
+/** Los tonos de la web antigua: sombra parda, don dorado, siddhi champán (el dorado de la plantilla aclarado hacia el texto). */
+const FREQUENCY_HUE: Record<Frequency, string> = { shadow: "#6E5B52", gift: GOLD, siddhi: "color-mix(in oklab, var(--c-gold) 45%, var(--c-text))" };
 
 export function GeneKeysModel() {
   const [profile, setProfile] = useState<Record<string, number>>({ ...EXAMPLE_PROFILE });
@@ -33,7 +34,7 @@ export function GeneKeysModel() {
     <svg
       ref={ref}
       viewBox="0 0 1000 1000"
-      className={`cp-model-svg cp-model-draw mx-auto block h-auto w-full max-w-[28rem] ${shown ? "is-shown" : ""}`}
+      className={`cp-model-svg cp-model-draw mx-auto block h-auto w-full max-w-[30rem] ${shown ? "is-shown" : ""}`}
       style={{ color: INK }}
       role="group"
       aria-label="Perfil hologenético con trece esferas sobre el Camino Dorado"
@@ -74,7 +75,7 @@ export function GeneKeysModel() {
               y2={b.y}
               stroke="url(#gk-ring)"
               strokeWidth={touched ? 4 : 2.4}
-              opacity={touched ? 1 : faded ? 0.12 : 0.45}
+              opacity={touched ? 1 : faded ? 0.12 : 0.4}
               pathLength={1}
               data-draw=""
               style={{ transition: `opacity 600ms, stroke-width 600ms, stroke-dashoffset 1.6s cubic-bezier(.16,1,.3,1) ${400 + i * 50}ms` }}
@@ -95,10 +96,10 @@ export function GeneKeysModel() {
                 {isSelected && <circle cx={s.x} cy={s.y} r={r * 1.9} fill="url(#gk-halo)" />}
                 <circle cx={s.x} cy={s.y} r={r} fill="url(#gk-sphere)" stroke="#F3C518" strokeWidth={isSelected ? 5 : 0} style={{ transition: "r 500ms cubic-bezier(0.16,1,0.3,1)" }} />
                 {/* El número de la llave va dentro de la esfera, como en un perfil real. */}
-                <text x={s.x} y={s.y - 6} textAnchor="middle" dominantBaseline="central" fontSize="30" fontWeight="600" fill="#2C0E14" className="pointer-events-none select-none">
+                <text x={s.x} y={s.y - 6} textAnchor="middle" dominantBaseline="central" fontSize="30" fontWeight="500" fill="#2C0E14" className="pointer-events-none select-none">
                   {key?.n ?? "–"}
                 </text>
-                <text x={s.x} y={s.y + 20} textAnchor="middle" dominantBaseline="central" fontSize="15" fill="#3A1A10" opacity="0.8" className="pointer-events-none select-none">
+                <text x={s.x} y={s.y + 20} textAnchor="middle" dominantBaseline="central" fontSize="15" fill="#3A1A10" opacity="0.75" className="pointer-events-none select-none">
                   {s.name}
                 </text>
               </g>
@@ -112,8 +113,8 @@ export function GeneKeysModel() {
   const panel = !selected ? (
     <PanelBody id="idle">
       <PanelIdle title="Toca una esfera.">
-        <p>Trece esferas, tres secuencias. Cada esfera lleva una de las 64 llaves, y cada llave, la misma fuerza a tres temperaturas: sombra, don y siddhi.</p>
-        <p>Con los botones de arriba puedes destacar una secuencia; dentro de cada esfera, cambiar la llave.</p>
+        <p>Trece esferas, tres secuencias. Cada esfera lleva una de las 64 llaves — y cada llave, la misma fuerza a tres temperaturas: sombra, don y siddhi.</p>
+        <p>Con los controles de arriba puedes destacar una secuencia o cambiar la frecuencia con la que lees el perfil.</p>
       </PanelIdle>
       <div className="mt-6 space-y-5">
         {sequenceSpheres.map(({ seq, spheres }) => (
@@ -127,7 +128,7 @@ export function GeneKeysModel() {
             <p className="cp-muted mt-2 text-[0.86rem] leading-relaxed">{seq.description}</p>
             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
               {spheres.map((s) => (
-                <button key={s.id} type="button" onClick={() => setSelectedId(s.id)} className="min-h-8 text-[0.82rem] underline decoration-dotted underline-offset-4 opacity-70 hover:opacity-100">
+                <button key={s.id} type="button" onClick={() => setSelectedId(s.id)} className="min-h-8 text-[0.8rem] underline-offset-4 opacity-60 hover:underline hover:opacity-100">
                   {s.name}
                 </button>
               ))}
@@ -140,13 +141,13 @@ export function GeneKeysModel() {
     <PanelBody id={selected.id}>
       <PanelHeading kicker={`${SEQUENCE_BY_ID[selected.sequence].name} · esfera ${selected.step}`} title={selected.name} tone={SEQUENCE_BY_ID[selected.sequence].hue} />
       <p className="mt-4 text-[0.95rem] leading-relaxed opacity-85">{selected.meaning}</p>
-      <p className="cp-display mt-5 border-l-2 pl-4 text-[1.2rem] italic leading-snug opacity-85" style={{ borderColor: GOLD }}>
+      <p className="cp-display mt-5 border-l pl-5 text-[1.2rem] italic leading-relaxed opacity-80" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 40%, transparent)" }}>
         {selected.contemplation}
       </p>
 
       {/* Las tres frecuencias de la llave que hay en esta esfera */}
       {selectedKey && (
-        <div className="mt-6 rounded-[calc(var(--r-card)*0.7)] border p-5" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 35%, transparent)", background: "color-mix(in oklab, var(--c-gold) 7%, transparent)" }}>
+        <div className="mt-6 rounded-[calc(var(--r-card)*0.7)] border p-5" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 25%, transparent)", background: "color-mix(in oklab, var(--c-gold) 5%, transparent)" }}>
           <p className="cp-eyebrow cp-gold">Llave {selectedKey.n}</p>
           <div className="mt-4 space-y-3">
             {(["shadow", "gift", "siddhi"] as Frequency[]).map((f) => (
@@ -155,7 +156,7 @@ export function GeneKeysModel() {
                 type="button"
                 onClick={() => setFrequency(f)}
                 aria-pressed={frequency === f}
-                className={cn("flex min-h-10 w-full items-baseline justify-between gap-4 border-l-2 pl-4 text-left transition-opacity duration-500", frequency === f ? "opacity-100" : "opacity-50 hover:opacity-80")}
+                className={cn("flex min-h-10 w-full items-baseline justify-between gap-4 border-l-2 pl-4 text-left transition-opacity duration-500", frequency === f ? "opacity-100" : "opacity-45 hover:opacity-80")}
                 style={{ borderColor: FREQUENCY_HUE[f] }}
               >
                 <span className="cp-eyebrow !text-[0.6rem]">{FREQUENCY_LABEL[f]}</span>
@@ -170,14 +171,14 @@ export function GeneKeysModel() {
 
       <dl className="mt-6">
         <PanelRow label="Secuencia" value={SEQUENCE_BY_ID[selected.sequence].name} />
-        <PanelRow label="Se calcula con" value={selected.source} />
+        <PanelRow label="Fuente" value={selected.source} />
       </dl>
 
       <div className="mt-6">
         <label htmlFor="gk-key" className="cp-eyebrow mb-2 block !text-[0.6rem]">
           Poner otra llave en esta esfera
         </label>
-        <select id="gk-key" value={profile[selected.id] ?? 1} onChange={(e) => setProfile((p) => ({ ...p, [selected.id]: Number(e.target.value) }))} className="cp-input text-[0.95rem] [&_option]:bg-[var(--c-bg)]">
+        <select id="gk-key" value={profile[selected.id] ?? 1} onChange={(e) => setProfile((p) => ({ ...p, [selected.id]: Number(e.target.value) }))} className="cp-line w-full rounded-none border-0 border-b bg-transparent px-0 pb-3 pt-2 text-[0.95rem] text-[var(--c-text)] focus:border-[color-mix(in_oklab,var(--c-gold)_70%,transparent)] focus:outline-none [&_option]:bg-[var(--c-bg)]">
           {GENE_KEYS.map((k) => (
             <option key={k.n} value={k.n}>
               {k.n} · {k.shadow} → {k.gift} → {k.siddhi}
@@ -195,7 +196,7 @@ export function GeneKeysModel() {
   return (
     <ModelFrame
       toolbar={
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {SEQUENCES.map((s) => (
             <ToolButton key={s.id} active={highlight === s.id} onClick={() => setHighlight(highlight === s.id ? null : s.id)}>
               {s.name.replace("Secuencia de la ", "").replace("Secuencia de ", "")}
@@ -214,7 +215,7 @@ export function GeneKeysModel() {
       }
       diagram={diagram}
       legend={
-        <div className="flex flex-wrap gap-x-5 gap-y-2">
+        <div className="flex flex-wrap gap-x-6 gap-y-2">
           {SEQUENCES.map((s) => (
             <LegendDot key={s.id} color={s.hue} label={s.name} />
           ))}

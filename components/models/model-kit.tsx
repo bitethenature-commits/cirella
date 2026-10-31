@@ -143,13 +143,13 @@ export function PanelIdle({ title, children }: { title: string; children: ReactN
 export function LegendDot({ color, label }: { color: string; label: string }) {
   return (
     <span className="inline-flex items-center gap-2">
-      <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-      <span className="cp-muted text-[0.72rem]">{label}</span>
+      <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+      <span className="cp-muted text-[0.62rem] uppercase tracking-[0.16em]">{label}</span>
     </span>
   );
 }
 
-/** Botón píldora de las botoneras (40 px de alto: cómodo con el dedo). */
+/** Botón píldora de las botoneras, como en la web antigua (versalitas espaciadas); 40 px de alto: cómodo con el dedo. */
 export function ToolButton({ children, active, onClick, title }: { children: ReactNode; active?: boolean; onClick: () => void; title?: string }) {
   return (
     <button
@@ -158,8 +158,10 @@ export function ToolButton({ children, active, onClick, title }: { children: Rea
       title={title}
       aria-pressed={active}
       className={cn(
-        "inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full border px-4 text-[0.78rem] font-semibold transition-colors duration-300",
-        active ? "border-[var(--c-gold)] bg-[color-mix(in_oklab,var(--c-gold)_16%,transparent)]" : "cp-line opacity-75 hover:opacity-100",
+        "inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full border px-4 text-[0.64rem] uppercase tracking-[0.16em] transition-colors duration-500",
+        active
+          ? "border-[color-mix(in_oklab,var(--c-gold)_55%,transparent)] bg-[color-mix(in_oklab,var(--c-gold)_10%,transparent)] text-[var(--c-gold)]"
+          : "border-[color-mix(in_oklab,var(--c-text)_15%,transparent)] text-[color-mix(in_oklab,var(--c-text)_60%,transparent)] hover:border-[color-mix(in_oklab,var(--c-gold)_35%,transparent)] hover:text-[var(--c-text)]",
       )}
     >
       {children}
