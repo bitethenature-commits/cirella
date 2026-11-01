@@ -86,7 +86,7 @@ Contraseña de todas: `demo1234`. También hay botones de acceso rápido en **/e
 | Cuenta | Rol | Qué ver |
 |---|---|---|
 | `ana@cirella.app` | Creadora · plan Pro | Panel, editor, productos, curso, reservas, estadísticas |
-| `laura@example.com` | Clienta de Ana | «Hola, Laura»: curso al 43 %, una sesión a las 17:00 dentro de unos días (siempre por venir), PDF de Gene Keys |
+| `laura@example.com` | Clienta de Ana | «Hola, Laura»: curso al 43 %, una sesión a las 17:00 dentro de unos días (siempre por venir), PDF de Gene Keys; «Mi energía» con sus datos de nacimiento y los de Mario |
 | `admin@cirella.app` | Superadmin | Planes, comisiones, creadoras, ventas, reportes |
 | `maria@cirella.app` | Creadora · plan Creator | Otro tenant (wellness, plantilla Minimal) |
 

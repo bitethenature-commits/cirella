@@ -67,7 +67,13 @@ export function toSavedProfile(r: BirthProfileRow): SavedBirthProfile {
     isOwn: r.isOwn,
     date: r.birthDate,
     time: r.birthTime,
-    place: { name: r.placeName, detail: r.placeDetail ?? undefined, lat: r.lat, lon: r.lon, tz: r.tz },
+    place: {
+      name: r.placeName,
+      detail: r.placeDetail ?? undefined,
+      lat: r.lat,
+      lon: r.lon,
+      tz: r.tz,
+    },
   };
 }
 
@@ -120,9 +126,16 @@ export const birthProfileInputSchema = z
       lon: z.number().finite().min(-180).max(180),
       tz: z.string().trim().min(1).max(64).refine(isZoneLike, "Esa zona horaria no se reconoce"),
     }),
-    consent: z.literal(true, { errorMap: () => ({ message: "Marca la casilla para poder guardar los datos" }) }),
+    consent: z.literal(true, {
+      errorMap: () => ({
+        message: "Marca la casilla para poder guardar los datos",
+      }),
+    }),
   })
-  .transform((d) => ({ ...d, relation: d.isOwn ? ("yo" as const) : d.relation === "yo" ? null : d.relation }));
+  .transform((d) => ({
+    ...d,
+    relation: d.isOwn ? ("yo" as const) : d.relation === "yo" ? null : d.relation,
+  }));
 export type BirthProfileInput = z.input<typeof birthProfileInputSchema>;
 
 /** Las columnas de la fila a partir de lo validado. */
@@ -144,7 +157,12 @@ export function profileColumns(d: z.output<typeof birthProfileInputSchema>) {
 /** «14 de noviembre de 1988». */
 export function longBirthDate(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
-  return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, d)));
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(y, m - 1, d)));
 }
 
 /** «14 nov 1988 · 07:45 · Sevilla» (o «hora desconocida»). */

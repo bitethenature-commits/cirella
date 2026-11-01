@@ -404,6 +404,47 @@ async function seedAnaOracleDeck(creatorId: string) {
   return deck;
 }
 
+/**
+ * «Mi energía» (/cuenta/mi-energia) en la demo: Laura y Carmen son suscriptoras confirmadas de la
+ * newsletter de Ana (si sus compras no las dejaron ya así), con sus datos de nacimiento guardados y los
+ * de una persona más, para que la página se vea completa al entrar con ellas. Datos inventados.
+ */
+async function seedEnergyProfiles(anaId: string, students: { id: string; email: string; name: string | null }[]) {
+  const extra: Record<string, { own: { date: string; time: string | null; place: [string, string, number, number] }; other: { name: string; relation: string; date: string; time: string | null; place: [string, string, number, number] } }> = {
+    "laura@example.com": {
+      own: { date: "1990-03-21", time: "08:30", place: ["Madrid", "Comunidad de Madrid, España", 40.4168, -3.7038] },
+      other: { name: "Mario", relation: "pareja", date: "1987-07-02", time: null, place: ["Valencia", "Comunidad Valenciana, España", 39.4699, -0.3763] },
+    },
+    "carmen@example.com": {
+      own: { date: "1984-11-08", time: "22:15", place: ["Sevilla", "Andalucía, España", 37.3891, -5.9845] },
+      other: { name: "Lucía", relation: "hijo", date: "2012-05-17", time: "06:40", place: ["Granada", "Andalucía, España", 37.1773, -3.5986] },
+    },
+  };
+  for (const u of students) {
+    const d = extra[u.email];
+    if (!d) continue;
+    const at = daysAgo(6, 19, 30);
+    const sub = await prisma.subscriber.findUnique({ where: { creatorId_email: { creatorId: anaId, email: u.email } } });
+    if (!sub)
+      await prisma.subscriber.create({
+        data: {
+          creatorId: anaId, email: u.email, name: u.name, status: "CONFIRMED", source: "FORM", tags: [],
+          consentAt: at, consentText: newsletterConsentText("Ana Luna"), consentMeta: { form: "carta" }, confirmedAt: new Date(at.getTime() + 4 * 60_000), createdAt: at,
+        },
+      });
+    else if (sub.status !== "CONFIRMED") await prisma.subscriber.update({ where: { id: sub.id }, data: { status: "CONFIRMED", confirmedAt: at, unsubscribedAt: null, unsubscribeVia: null } });
+    const row = (p: { date: string; time: string | null; place: [string, string, number, number] }) => ({
+      birthDate: p.date, birthTime: p.time, placeName: p.place[0], placeDetail: p.place[1], lat: p.place[2], lon: p.place[3], tz: "Europe/Madrid", consentAt: at, createdAt: at,
+    });
+    await prisma.birthProfile.createMany({
+      data: [
+        { creatorId: anaId, userId: u.id, name: (u.name ?? "Yo").split(" ")[0], relation: "yo", isOwn: true, ...row(d.own) },
+        { creatorId: anaId, userId: u.id, name: d.other.name, relation: d.other.relation, isOwn: false, ...row(d.other) },
+      ],
+    });
+  }
+}
+
 async function seedAnaNewsletter(anaId: string, o: { circleId: string; astroId: string }) {
   const ana = await prisma.creator.findUniqueOrThrow({ where: { id: anaId } });
   const consent = newsletterConsentText("Ana Luna");
@@ -1494,6 +1535,7 @@ async function main() {
   });
 
   await seedAnaNewsletter(ana.id, { circleId: pCircle.id, astroId: pAstro.id });
+  await seedEnergyProfiles(ana.id, [laura, carmen]);
 
   // Analytics: ~60 días de tráfico con estacionalidad semanal y tendencia creciente
   const rand = rng(42);
@@ -1684,6 +1726,7 @@ async function main() {
     publicaciones: await prisma.post.count(),
     códigos: await prisma.discountCode.count(),
     barajas: await prisma.oracleDeck.count(),
+    perfilesNacimiento: await prisma.birthProfile.count(),
   };
   console.log("✓ Listo:", counts);
   console.log("  Cuentas demo (contraseña demo1234): ana@cirella.app · laura@example.com · admin@cirella.app");

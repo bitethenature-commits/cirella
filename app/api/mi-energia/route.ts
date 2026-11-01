@@ -15,7 +15,17 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const username = new URL(req.url).searchParams.get("u") ?? "";
   const headers = { "Cache-Control": "private, no-store" };
-  const none = () => NextResponse.json({ unlocked: false, reason: "login", email: null, verified: false, profiles: [] }, { status: 404, headers });
+  const none = () =>
+    NextResponse.json(
+      {
+        unlocked: false,
+        reason: "login",
+        email: null,
+        verified: false,
+        profiles: [],
+      },
+      { status: 404, headers },
+    );
   if (!username || !isPublicUsernameAllowed(username, ownerUsername())) return none();
   const access = await energyAccess();
   if (!access || access.owner.username !== username.toLowerCase()) return none();

@@ -56,5 +56,13 @@ export async function energyAccess(): Promise<EnergyAccess | null> {
   const owner = await getOwnerCreator();
   if (!owner || owner.status !== "ACTIVE") return null;
   const viewer = await portalViewer(owner);
-  return { owner: { id: owner.id, userId: owner.userId, username: owner.username, displayName: owner.displayName }, viewer };
+  return {
+    owner: {
+      id: owner.id,
+      userId: owner.userId,
+      username: owner.username,
+      displayName: owner.displayName,
+    },
+    viewer,
+  };
 }
