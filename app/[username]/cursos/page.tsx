@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
+import { CourseGroups } from "@/components/creator-page/course-groups";
 import { ProductCard } from "@/components/creator-page/creator-page-view";
 import { TrackOnMount } from "@/components/creator-page/tracking";
 import { groupCourses } from "@/lib/course-categories";
@@ -33,31 +34,14 @@ export default async function CursosPage({ params }: { params: Promise<Params> }
         {groups.length === 0 ? (
           <p className="cp-muted mt-6">Pronto habrá cursos aquí.</p>
         ) : (
-          <>
-            {groups.length > 1 && (
-              <nav aria-label="Métodos" className="mt-5 flex flex-wrap gap-2">
-                {groups.map((g) => (
-                  <a key={g.key} href={`#${g.key.toLowerCase()}`} className="cp-btn-ghost !min-h-9 !px-3.5 text-sm">
-                    {g.label}
-                  </a>
-                ))}
-              </nav>
-            )}
-            <div className="mt-8 space-y-12">
-              {groups.map((g) => (
-                <section key={g.key} id={g.key.toLowerCase()} aria-labelledby={`metodo-${g.key}`} data-course-group={g.key} className="scroll-mt-20">
-                  <h2 id={`metodo-${g.key}`} className="cp-display text-[2rem]">
-                    {g.label}
-                  </h2>
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    {g.courses.map((p) => (
-                      <ProductCard key={p.id} p={p} username={creator.username} trackCreatorId={creator.id} />
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </>
+          <CourseGroups
+            groups={groups.map((g) => ({
+              key: g.key,
+              label: g.label,
+              count: g.courses.length,
+              cards: g.courses.map((p) => <ProductCard key={p.id} p={p} username={creator.username} trackCreatorId={creator.id} />),
+            }))}
+          />
         )}
       </main>
       <TrackOnMount creatorId={creator.id} type="PAGE_VIEW" />
