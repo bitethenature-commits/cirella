@@ -135,6 +135,11 @@ test.describe.serial("Modo personal · contenido", () => {
     await expect(card.getByRole("button", { name: /Copiado/ })).toBeVisible();
     await expect(card.getByText("Código copiado.")).toBeVisible();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("ANALUNA15");
+    // Copiar no despliega la fila; al desplegarla salen las fotos de lo que recomienda de la marca.
+    await expect(card.locator("details")).toHaveJSProperty("open", false);
+    await expect(card.locator("[data-code-more]")).toBeHidden();
+    await card.locator("summary").click();
+    await expect(card.getByRole("button", { name: /Ampliar imagen/ })).toHaveCount(3);
     const copyRes = await copied;
     expect(copyRes.status()).toBe(204);
     const copyBody = JSON.parse(copyRes.request().postData() ?? "{}");

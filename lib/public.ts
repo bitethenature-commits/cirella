@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { asAccessMode, externalHost } from "./access-mode";
 import { prisma } from "./db";
-import { expiryLabel, visibleCodeWhere } from "./discount-codes";
+import { expiryLabel, readCodePhotos, visibleCodeWhere } from "./discount-codes";
 import { readPageConfig } from "./page-config";
 import { planFeatures, type PlanFeatures } from "./plans";
 import { POSTS_ON_PAGE, POSTS_PER_PAGE, postDateBadge, postExcerpt, publicPostWhere, readPostMedia } from "./posts";
@@ -146,6 +146,7 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
     description: c.description,
     url: c.url,
     imageUrl: c.imageUrl,
+    photos: readCodePhotos(c.images),
     expiresLabel: expiryLabel(c.expiresAt, creator.timezone),
   }));
   return {

@@ -27,6 +27,7 @@ import { DiscountCodeCard } from "./discount-code-card";
 import { LegalLinks } from "./legal-links";
 import { NewsletterSignup } from "./newsletter-signup";
 import { creatorLegalHref } from "@/lib/legal";
+import type { CodePhoto } from "@/lib/discount-codes";
 import type { OracleDecks } from "@/components/models/data/oracle";
 import { Avatar, ProductImage } from "./product-art";
 import { PortalSection } from "./portal-section";
@@ -96,6 +97,8 @@ export type PublicDiscountCode = {
   description: string | null;
   url: string;
   imageUrl: string | null;
+  /** Fotos de lo que recomienda de la marca (al desplegar la fila). */
+  photos: CodePhoto[];
   /** «Válido hasta el 31 de diciembre» o null si no caduca. */
   expiresLabel: string | null;
 };
@@ -446,20 +449,13 @@ export function CreatorPageView(props: Props) {
         if (!codes.length) return null;
         return (
           <section key={key} id="codigos" className="mt-16" {...reveal}>
-            <SectionHeading title={sectionTitle(config, key)} count={codes.length} />
-            {codes.length === 1 ? (
-              <div className="mt-5">
-                <DiscountCodeCard code={codes[0]} trackCreatorId={trackId} />
-              </div>
-            ) : (
-              <div className="-mx-5 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 scrollbar-none md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0">
-                {codes.map((c) => (
-                  <div key={c.id} className="w-[86%] shrink-0 snap-center sm:w-[60%] md:w-auto">
-                    <DiscountCodeCard code={c} trackCreatorId={trackId} />
-                  </div>
-                ))}
-              </div>
-            )}
+            <SectionHeading title={sectionTitle(config, key)} />
+            {/* Filas compactas, una debajo de otra (dos columnas en el ordenador). */}
+            <div className="mt-5 grid grid-cols-[minmax(0,1fr)] items-start gap-3 md:grid-cols-[repeat(2,minmax(0,1fr))]">
+              {codes.map((c) => (
+                <DiscountCodeCard key={c.id} code={c} trackCreatorId={trackId} />
+              ))}
+            </div>
           </section>
         );
       }

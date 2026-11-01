@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { requireCreator } from "@/lib/auth";
-import { CODE_STATE_LABEL, codeState, dateKeyFromExpiry } from "@/lib/discount-codes";
+import { CODE_STATE_LABEL, codeState, dateKeyFromExpiry, readCodePhotos } from "@/lib/discount-codes";
 import { tenantDb } from "@/lib/tenant";
 import { Badge, PageHeader } from "../../ui";
 import { deleteDiscountCode } from "../actions";
@@ -32,6 +32,7 @@ export default async function EditDiscountCodePage({ params }: { params: Promise
           description: code.description ?? "",
           url: code.url,
           imageUrl: code.imageUrl,
+          images: readCodePhotos(code.images),
           expiresOn: dateKeyFromExpiry(code.expiresAt, creator.timezone),
           active: code.active,
         }}

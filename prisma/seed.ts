@@ -150,6 +150,16 @@ async function storePageImages(creatorId: string, page: PageConfig) {
 }
 
 /** Imagen de public/demo procesada como un gráfico subido a un bloque (con sus medidas). */
+/** Fotos de un código de descuento (DiscountCode.images), procesadas como una subida real. */
+async function codePhotos(creatorId: string, list: [string, string][]): Promise<Prisma.InputJsonArray> {
+  const out: { src: string; alt: string; width: number; height: number }[] = [];
+  for (const [demoUrl, alt] of list) {
+    const img = await demoBlockImage(creatorId, demoUrl, alt);
+    out.push({ src: img.src, alt: img.alt, width: img.width, height: img.height });
+  }
+  return out;
+}
+
 async function demoBlockImage(creatorId: string, demoUrl: string, alt: string, caption?: string): Promise<PageImage> {
   const img = await storeImage(creatorId, readFileSync(path.join("public", demoUrl)), { profile: "graphic" });
   return { src: img.url, alt, width: img.width, height: img.height, ...(caption ? { caption } : {}) };
@@ -1487,9 +1497,23 @@ async function main() {
 
   await prisma.discountCode.createMany({
     data: [
-      { creatorId: ana.id, brand: "Velas Alba", code: "ANALUNA15", description: "15 % en velas de soja para tus rituales de luna nueva.", url: "https://example.com/velas-alba", sortOrder: 1, expiresAt: new Date(NOW.getTime() + 75 * DAY) },
+      {
+        creatorId: ana.id, brand: "Velas Alba", code: "ANALUNA15", description: "15 % en velas de soja para tus rituales de luna nueva.", url: "https://example.com/velas-alba", sortOrder: 1, expiresAt: new Date(NOW.getTime() + 75 * DAY),
+        // Fotos de lo que recomienda de la marca: se ven al desplegar el código en la portada.
+        images: await codePhotos(ana.id, [
+          ["/demo/sesion.webp", "Mi vela de luna nueva encendida en el altar"],
+          ["/demo/comunidad.webp", "Velas de soja para el ritual de la noche"],
+          ["/demo/hero.webp", "Velas junto a la ventana en luna llena"],
+        ]),
+      },
       { creatorId: ana.id, brand: "Cuarzo & Co.", code: "LUNA10", description: "10 % en cuarzos y piedras naturales (pedido mínimo 20 €).", url: "https://example.com/cuarzo-co", sortOrder: 2 },
-      { creatorId: ana.id, brand: "Té de la Luna", code: "CIELO20", description: "20 % en infusiones ecológicas. Mis favoritas para las noches de luna llena.", url: "https://example.com/te-de-la-luna", sortOrder: 3 },
+      {
+        creatorId: ana.id, brand: "Té de la Luna", code: "CIELO20", description: "20 % en infusiones ecológicas. Mis favoritas para las noches de luna llena.", url: "https://example.com/te-de-la-luna", sortOrder: 3,
+        images: await codePhotos(ana.id, [
+          ["/demo/astrologia.webp", "Infusión de lavanda mientras miro mi carta"],
+          ["/demo/gene-keys.webp", "Mi taza favorita para las noches de luna llena"],
+        ]),
+      },
     ],
   });
 

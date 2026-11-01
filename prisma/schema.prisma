@@ -712,6 +712,9 @@ model DiscountCode {
   description String?
   url         String // enlace a la tienda (https)
   imageUrl    String? // logo o imagen de la marca
+  // Fotos de lo que recomienda de esa marca (se ven al desplegar el código en la portada):
+  // [{ src, alt, width, height }] (lib/discount-codes.ts → readCodePhotos).
+  images      Json      @default("[]")
   expiresAt   DateTime? // los caducados no se muestran
   active      Boolean   @default(true)
   sortOrder   Int       @default(0)

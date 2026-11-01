@@ -7,12 +7,43 @@
  *   · El enlace a la tienda es obligatorio y con https.
  */
 import { z } from "zod";
+import { isOwnImageSrc, pageImageSchema } from "./page-blocks";
 import { addDaysToKey, dateKeyInTz, formatInTz, zonedParts, zonedTimeToUtc } from "./tz";
 
 export const CODE_BRAND_MAX = 60;
 export const CODE_CODE_MAX = 40;
 export const CODE_DESCRIPTION_MAX = 200;
 export const CODE_URL_MAX = 500;
+/** Fotos de lo que recomienda de la marca (se ven al desplegar el código). */
+export const CODE_PHOTOS_MAX = 8;
+
+/** Foto de un código: subida aquí (o de la demo), con su texto alternativo y sus medidas. */
+export type CodePhoto = { src: string; alt: string; width: number; height: number };
+
+/** Lee DiscountCode.images sin fallar: lo que no vale se descarta. */
+export function readCodePhotos(raw: unknown): CodePhoto[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CodePhoto[] = [];
+  for (const x of raw) {
+    const r = pageImageSchema.safeParse(x);
+    if (r.success) out.push({ src: r.data.src, alt: r.data.alt, width: r.data.width, height: r.data.height });
+  }
+  return out.slice(0, CODE_PHOTOS_MAX);
+}
+
+/** Las fotos que llegan del formulario (JSON): solo imágenes de esta creadora, como mucho CODE_PHOTOS_MAX. */
+export function parseCodePhotos(json: string | null | undefined, creatorId: string): { ok: true; photos: CodePhoto[] } | { ok: false; error: string } {
+  let raw: unknown = [];
+  try {
+    raw = json ? JSON.parse(json) : [];
+  } catch {
+    return { ok: false, error: "No se han podido leer las fotos: vuelve a intentarlo" };
+  }
+  const r = z.array(pageImageSchema).max(CODE_PHOTOS_MAX, `Como mucho ${CODE_PHOTOS_MAX} fotos por código`).safeParse(raw);
+  if (!r.success) return { ok: false, error: r.error.issues[0].message };
+  if (r.data.some((p) => !isOwnImageSrc(p.src, creatorId))) return { ok: false, error: "Una foto no es tuya o ya no existe: vuelve a subirla" };
+  return { ok: true, photos: r.data.map((p) => ({ src: p.src, alt: p.alt, width: p.width, height: p.height })) };
+}
 
 /** Formulario del panel (FormData → objeto). La caducidad llega como «AAAA-MM-DD» (input date) o vacía. */
 export const discountCodeFormSchema = z.object({
@@ -32,6 +63,7 @@ export const discountCodeFormSchema = z.object({
     .transform((v) => v || null),
   url: z.string().trim().max(CODE_URL_MAX + 100).optional(),
   imageUrl: z.string().max(500).optional(),
+  images: z.string().max(20000).optional(),
   expiresOn: z
     .string()
     .trim()

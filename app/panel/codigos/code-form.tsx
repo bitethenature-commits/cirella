@@ -1,10 +1,12 @@
 "use client";
-import { Loader2 } from "lucide-react";
-import { startTransition, useActionState, useState } from "react";
+import { ArrowDown, ArrowUp, Loader2, Plus, X } from "lucide-react";
+import { startTransition, useActionState, useRef, useState } from "react";
 import { Flash } from "@/components/ui/flash";
-import { ImageUpload } from "@/components/ui/image-upload";
-import { CODE_BRAND_MAX, CODE_CODE_MAX, CODE_DESCRIPTION_MAX, CODE_URL_MAX } from "@/lib/discount-codes";
+import { ImageUpload, uploadImageInfo } from "@/components/ui/image-upload";
+import { CODE_BRAND_MAX, CODE_CODE_MAX, CODE_DESCRIPTION_MAX, CODE_PHOTOS_MAX, CODE_URL_MAX, type CodePhoto } from "@/lib/discount-codes";
 import { saveDiscountCode, type CodeActionState } from "./actions";
+
+const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
 
 export type EditableCode = {
   id: string | null;
@@ -13,6 +15,8 @@ export type EditableCode = {
   description: string;
   url: string;
   imageUrl: string | null;
+  /** Fotos de lo que recomienda de la marca. */
+  images: CodePhoto[];
   /** «AAAA-MM-DD» (último día en que vale) o vacío. */
   expiresOn: string;
   active: boolean;
@@ -22,6 +26,8 @@ export type EditableCode = {
 export function CodeForm({ code }: { code: EditableCode }) {
   const [state, action, pending] = useActionState<CodeActionState, FormData>(saveDiscountCode, undefined);
   const [image, setImage] = useState(code.imageUrl);
+  const [photos, setPhotos] = useState<CodePhoto[]>(code.images);
+  const [uploading, setUploading] = useState(false);
   return (
     <form
       // onSubmit en lugar de action={}: así un error de validación no borra lo escrito.
@@ -35,6 +41,7 @@ export function CodeForm({ code }: { code: EditableCode }) {
       <Flash ok={state?.ok} error={state?.error} />
       {code.id && <input type="hidden" name="id" value={code.id} />}
       <input type="hidden" name="imageUrl" value={image ?? ""} />
+      <input type="hidden" name="images" value={JSON.stringify(photos)} />
 
       <section className="card space-y-4 p-5 sm:p-6">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -90,10 +97,112 @@ export function CodeForm({ code }: { code: EditableCode }) {
         </div>
       </section>
 
-      <button type="submit" className="btn btn-primary" disabled={pending} aria-busy={pending}>
+      <section className="card space-y-3 p-5 sm:p-6">
+        <div>
+          <p className="field-label">Fotos de lo que te gusta de esta marca <span className="font-normal text-muted">(opcional)</span></p>
+          <p className="field-hint">Se ven al desplegar el código en tu página. Describe cada foto (para quien no puede verla).</p>
+        </div>
+        <CodePhotosField photos={photos} onChange={setPhotos} onUploading={setUploading} />
+      </section>
+
+      <button type="submit" className="btn btn-primary" disabled={pending || uploading} aria-busy={pending}>
         {pending && <Loader2 className="h-4 w-4 animate-spin" />}
         {code.id ? "Guardar cambios" : "Añadir código"}
       </button>
     </form>
+  );
+}
+
+/** Fotos del código: subir varias (de 2 en 2), su descripción, el orden y quitar. */
+function CodePhotosField({ photos, onChange, onUploading }: { photos: CodePhoto[]; onChange: (f: (prev: CodePhoto[]) => CodePhoto[]) => void; onUploading: (v: boolean) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const set = (f: (prev: CodePhoto[]) => CodePhoto[]) => onChange(f);
+  const move = (i: number, dir: -1 | 1) =>
+    set((prev) => {
+      const j = i + dir;
+      if (j < 0 || j >= prev.length) return prev;
+      const a = [...prev];
+      [a[i], a[j]] = [a[j], a[i]];
+      return a;
+    });
+
+  const upload = async (files: File[]) => {
+    const room = Math.max(0, CODE_PHOTOS_MAX - photos.length);
+    const list = files.slice(0, room);
+    setError(files.length > room ? `Como mucho ${CODE_PHOTOS_MAX} fotos: se han añadido las primeras` : null);
+    if (!list.length) return;
+    onUploading(true);
+    let next = 0;
+    let done = 0;
+    setStatus(`Subiendo 1 de ${list.length}…`);
+    const worker = async () => {
+      for (;;) {
+        const n = next++;
+        if (n >= list.length) return;
+        try {
+          const img = await uploadImageInfo(list[n]);
+          set((prev) => (prev.length >= CODE_PHOTOS_MAX ? prev : [...prev, { src: img.url, alt: "", width: img.width, height: img.height }]));
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "No se pudo subir una foto");
+        } finally {
+          done++;
+          setStatus(done < list.length ? `Subiendo ${done + 1} de ${list.length}…` : null);
+        }
+      }
+    };
+    await Promise.all([worker(), worker()]);
+    setStatus(null);
+    onUploading(false);
+  };
+
+  return (
+    <div className="space-y-3">
+      {photos.length > 0 && (
+        <ul className="space-y-2">
+          {photos.map((p, i) => (
+            <li key={`${p.src}-${i}`} className="flex items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.src} alt="" className="h-16 w-16 shrink-0 rounded-lg bg-sand object-cover" />
+              <input
+                className="input h-10 min-w-0 flex-1 text-sm"
+                placeholder="Descripción de la foto"
+                aria-label={`Descripción de la foto ${i + 1}`}
+                value={p.alt}
+                maxLength={300}
+                onChange={(e) => set((prev) => prev.map((x, n) => (n === i ? { ...x, alt: e.target.value } : x)))}
+              />
+              <div className="flex shrink-0 flex-col sm:flex-row">
+                <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Subir foto"><ArrowUp className="h-3.5 w-3.5" /></button>
+                <button type="button" disabled={i === photos.length - 1} onClick={() => move(i, 1)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Bajar foto"><ArrowDown className="h-3.5 w-3.5" /></button>
+              </div>
+              <button type="button" onClick={() => set((prev) => prev.filter((_, n) => n !== i))} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Quitar foto"><X className="h-4 w-4" /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {status ? (
+        <p className="flex items-center gap-2 text-xs font-medium" aria-live="polite"><Loader2 className="h-4 w-4 animate-spin" /> {status}</p>
+      ) : (
+        <button type="button" onClick={() => input.current?.click()} disabled={photos.length >= CODE_PHOTOS_MAX} className="btn btn-outline btn-sm h-10">
+          <Plus className="h-4 w-4" /> Añadir fotos
+        </button>
+      )}
+      {error && <p role="alert" className="text-xs font-medium text-rose">{error}</p>}
+      <p className="field-hint">Hasta {CODE_PHOTOS_MAX} fotos. PNG, JPG o WebP.</p>
+      <input
+        ref={input}
+        type="file"
+        accept={IMAGE_ACCEPT}
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          e.target.value = "";
+          if (files.length) void upload(files);
+        }}
+      />
+    </div>
   );
 }
