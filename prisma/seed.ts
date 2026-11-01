@@ -157,68 +157,264 @@ async function demoBlockImage(creatorId: string, demoUrl: string, alt: string, c
 
 type AnaSystem = {
   slug: string;
+  /** Nombre corto: tarjetas de la portada y de «Sobre mí». */
   title: string;
   img: string;
-  photo: string;
   text: string;
+  /** Resumen con formato para «Mis métodos» de «Sobre mí». */
   body: string;
-  /** Modelo interactivo de su página (components/models), con su título y su entradilla. */
+  /** Título largo de su página. */
+  pageTitle: string;
+  /** Entradilla de su página (debajo del título): dos o tres frases que explican de verdad. */
+  intro: string;
+  /**
+   * Bloques que explican el sistema (qué es, de dónde viene y sus partes), sin botones ni productos: un
+   * texto, o «Foto y texto» si lleva `photo`.
+   */
+  explain: { id: string; title: string; body: string; photo?: { src: string; alt: string }; side?: "left" | "right" }[];
+  /** Modelo interactivo de su página (components/models), en su versión rápida. */
   model?: { kind: Exclude<ModelKind, "geometry">; title: string; intro: string };
-  /** Lecturas, cursos y demás (por defecto, la página del producto: /ana/<slug>). */
-  related: { slug: string; title: string; text: string; img: string; href?: string }[];
+  /** Las tres burbujas del final: la comunidad, sus lecturas o sesiones y sus cursos. */
+  pills: { label: string; href: string }[];
 };
 
 /**
  * Métodos de Ana: cada uno tiene su página (/<slug>), su tarjeta en «Sistemas con los que trabajo» de
- * la portada y en «Mis métodos» de «Sobre mí», su modelo interactivo y tarjetas hacia sus lecturas y
- * cursos. «Mi energía» es su filosofía (la antigua página «Filosofía»): ver anaEnergyBlocks().
+ * la portada y en «Mis métodos» de «Sobre mí». La página no vende: título largo y entradilla, bloques
+ * que explican el sistema, su modelo interactivo en versión rápida («Calcular con mis datos» debajo) y
+ * tres burbujas hacia donde está todo lo de ese tema (la comunidad, lecturas o sesiones y cursos). La
+ * de la Luna termina con los dos próximos círculos; «Mi energía» es su filosofía (ver anaEnergyBlocks()).
  */
 const ANA_SYSTEMS: AnaSystem[] = [
   {
-    slug: "human-design", title: "Human Design", img: "/demo/human-design.webp", photo: "/demo/sesion.webp", text: "Tu manual de instrucciones energético.",
+    slug: "human-design", title: "Human Design", img: "/demo/human-design.webp", text: "Tu manual de instrucciones energético.",
     body: "El **Human Design** une astrología, I Ching, cábala y el sistema de chakras en un único mapa: tu bodygraph.\n\nCon él descubres tu tipo, tu estrategia y tu autoridad para tomar decisiones con menos resistencia.",
-    model: { kind: "bodygraph", title: "Juega con un bodygraph", intro: "Enciende puertas y mira cómo se definen los canales y cambian el tipo, la estrategia y la autoridad. Empieza por los ejemplos de arriba." },
-    related: [
-      { slug: "lectura-human-design", title: "Lectura de Human Design", text: "Sesión en directo para leer juntas tu bodygraph.", img: "/demo/human-design.webp" },
-      { slug: "human-design-desde-cero", title: "Human Design desde cero", text: "El curso para aprender a leer tu propio diseño.", img: "/demo/curso.webp" },
+    pageTitle: "Human Design: el manual de instrucciones de tu energía",
+    intro:
+      "El Human Design (Diseño Humano) calcula, con tu fecha, tu hora y tu lugar de nacimiento, un mapa llamado bodygraph. Une la astrología, el I Ching, la cábala y el sistema de chakras para responder a algo muy práctico: cómo funciona tu energía y cómo tomas buenas decisiones. No sirve para meterte en una caja, sino para que dejes de pelearte con tu propia naturaleza.",
+    explain: [
+      {
+        id: "origen", title: "De dónde viene",
+        body:
+          "El sistema lo describió **Ra Uru Hu** (Alan Krakower) a partir de una experiencia que vivió en Ibiza en enero de 1987, y lo enseñó hasta su muerte, en 2011. Es una síntesis: toma las **64 puertas** de los 64 hexagramas del I Ching, la estructura del Árbol de la Vida de la cábala, los centros de energía de la tradición de los chakras y el cálculo astrológico de los planetas.\n\n" +
+          "Tu bodygraph sale de **dos cálculos**: uno del momento en que naciste (la *personalidad*, lo consciente, que se dibuja en negro) y otro de unos tres meses antes, cuando el Sol estaba 88° más atrás (el *diseño*, lo inconsciente, en rojo). Lo que se enciende con los dos a la vez es lo que llevas a rayas.",
+      },
+      {
+        id: "tipo", title: "El tipo y la estrategia", photo: { src: "/demo/human-design.webp", alt: "Un bodygraph dibujado en un cuaderno" }, side: "right",
+        body:
+          "Según cómo estén conectados tus centros, eres uno de **cinco tipos**, y cada tipo tiene una **estrategia**: la forma de moverte por la vida con menos resistencia.\n\n" +
+          "- **Generador** (y **Generador Manifestante**, su variante rápida): casi siete de cada diez personas. Energía sostenida para lo que te enciende. Estrategia: *responder* a lo que llega (y, el manifestante, informar antes de actuar).\n" +
+          "- **Proyector**: una de cada cinco. Ves a los demás con mucha claridad. Estrategia: *esperar la invitación* para lo grande.\n" +
+          "- **Manifestador**: menos de una de cada diez. Inicias. Estrategia: *informar* antes de mover las cosas.\n" +
+          "- **Reflector**: muy pocas personas. Reflejas tu entorno. Estrategia: *esperar un ciclo lunar* (unos 28 días) antes de las decisiones importantes.",
+      },
+      {
+        id: "autoridad", title: "La autoridad: cómo decides tú",
+        body:
+          "La **autoridad** es el lugar del cuerpo desde el que tomas decisiones fiables. Casi nunca es la cabeza.\n\n" +
+          "- **Emocional** (plexo solar): la claridad llega con el tiempo, cuando pasa la ola. Nada de decidir en caliente.\n" +
+          "- **Sacral**: una respuesta visceral, un sí o un no del cuerpo en el momento.\n" +
+          "- **Esplénica**: una intuición rápida y suave que solo habla una vez.\n" +
+          "- **Del ego** (corazón): lo que de verdad quieres y estás dispuesta a sostener.\n" +
+          "- **Autoproyectada** (centro G): escucharte hablar en voz alta y notar qué suena a ti.\n" +
+          "- **Mental o del entorno** y **lunar**: en algunos Proyectores y en los Reflectores, la claridad llega hablando con personas de confianza y dejando pasar el tiempo.",
+      },
+      {
+        id: "centros", title: "Los nueve centros",
+        body:
+          "El bodygraph tiene **nueve centros**: Cabeza, Ajna, Garganta, G (identidad y dirección), Corazón o Ego, Sacro, Plexo Solar, Bazo y Raíz.\n\n" +
+          "Un centro **definido** (con color) es energía que tienes siempre y de la misma manera: es fiable y es tuya. Un centro **abierto** (en blanco) recibe y amplifica la energía de quienes te rodean. Ahí es donde más te condicionas, pero también donde, con los años, más sabiduría puedes tener sobre los demás.",
+      },
+      {
+        id: "puertas", title: "Puertas, canales y perfil", photo: { src: "/demo/sesion.webp", alt: "Ana leyendo un bodygraph en una sesión" }, side: "left",
+        body:
+          "Entre los centros hay **36 canales**, y cada canal une dos de las **64 puertas**. Cuando tienes las dos puertas de un canal, el canal se *define* y los dos centros que une se colorean.\n\n" +
+          "El **perfil** son dos números (de los doce posibles, como 1/3, 2/4 o 6/2) que salen de la línea de tu Sol consciente y la de tu Sol inconsciente. Cada línea es un papel: el investigador, el ermitaño, el que aprende probando, el que teje redes, el que proyectan los demás y el modelo a seguir. Dicen cómo vives tu propósito.",
+      },
+      {
+        id: "como", title: "Cómo lo uso yo",
+        body:
+          "No te pido que te lo creas: te propongo un **experimento**. Probar tu estrategia y tu autoridad en decisiones pequeñas durante unas semanas y mirar qué cambia. El Human Design no sustituye lo que sabes de ti; te da un idioma para entender por qué unas cosas te cuestan tanto y otras te salen solas.",
+      },
+    ],
+    model: { kind: "bodygraph", title: "Explora un bodygraph", intro: "Toca un centro, un canal o una puerta para ver qué es." },
+    pills: [
+      { label: "La comunidad", href: "/ana/comunidad" },
+      { label: "Lecturas y sesiones", href: "/ana/sesiones" },
+      { label: "Cursos de Human Design", href: "/ana/cursos#human_design" },
     ],
   },
   {
-    slug: "metodo-gene-keys", title: "Gene Keys", img: "/demo/gene-keys.webp", photo: "/demo/sesion.webp", text: "Contempla tu sombra, tu don y tu siddhi.",
+    slug: "metodo-gene-keys", title: "Gene Keys", img: "/demo/gene-keys.webp", text: "Contempla tu sombra, tu don y tu siddhi.",
     body: "Las **Gene Keys** son 64 llaves de contemplación. Cada una describe un espectro: la sombra, el don y el siddhi.\n\nTrabajamos con tu Secuencia de Activación para encontrar tu genio creativo.",
-    model: { kind: "geneKeys", title: "Recorre un perfil hologenético", intro: "Trece esferas sobre el Camino Dorado. Toca una para leer su llave en sombra, don y siddhi, y cámbiala por otra para ver cómo se mueve el sentido." },
-    related: [
-      { slug: "gene-keys", title: "Lectura de Gene Keys", text: "Tu perfil hologenético explicado paso a paso.", img: "/demo/gene-keys.webp" },
-      { slug: "gene-keys-secuencia-de-activacion", title: "Gene Keys: tu Secuencia de Activación", text: "El curso para contemplar tus cuatro primeras llaves.", img: "/demo/curso.webp" },
+    pageTitle: "Gene Keys: contemplar tu sombra para encontrar tu don",
+    intro:
+      "Las Gene Keys son 64 llaves de contemplación que escribió Richard Rudd sobre los mismos 64 hexagramas del I Ching que usa el Human Design. Tu fecha, tu hora y tu lugar de nacimiento colocan algunas de esas llaves en un mapa, tu perfil hologenético. No es un sistema para analizarse, sino para llevarlo contigo y dejar que te trabaje poco a poco.",
+    explain: [
+      {
+        id: "origen", title: "De dónde vienen",
+        body:
+          "**Richard Rudd** estudió Human Design en sus comienzos y, a partir de ahí, escribió su propio camino: el libro *The Gene Keys* se publicó en 2009. Toma los **64 arquetipos** del I Ching y los lee como 64 frecuencias de la conciencia humana (Rudd los compara, como metáfora, con los 64 codones del código genético).\n\n" +
+          "La diferencia con el Human Design es el tono: aquí no hay reglas que seguir, sino **contemplación**. Se lee una llave, se vuelve a ella, se observa en la vida diaria. Lo que entiendes con la cabeza es solo el principio.",
+      },
+      {
+        id: "espectro", title: "Sombra, don y siddhi", photo: { src: "/demo/gene-keys.webp", alt: "Las llaves escritas en tarjetas sobre la mesa" }, side: "right",
+        body:
+          "Cada llave es un **espectro** con tres frecuencias:\n\n" +
+          "- **La sombra**: el patrón de miedo, la forma en que esa energía se nos atasca.\n" +
+          "- **El don**: lo que aparece cuando miras la sombra sin pelearte con ella. Tu genio.\n" +
+          "- **El siddhi**: la expresión más alta, casi mística, de esa misma energía.\n\n" +
+          "Por ejemplo, la **llave 1** va de la *Entropía* (sentirte apagada, sin chispa) a la *Frescura* (crear desde lo que te mueve de verdad) y a la *Belleza*. No son tres cosas distintas: es la misma fuerza a tres temperaturas.",
+      },
+      {
+        id: "secuencias", title: "Las tres secuencias",
+        body:
+          "El perfil hologenético se recorre en tres viajes:\n\n" +
+          "- **La Secuencia de Activación** (Obra de vida, Evolución, Irradiación y Propósito): tu genio, cómo te haces visible y en qué maduras.\n" +
+          "- **La Secuencia de Venus** (Atracción, CI, CE, CS y Núcleo): tu corazón, tus patrones en las relaciones y lo que aprendiste en los primeros siete años.\n" +
+          "- **La Secuencia de la Perla** (Vocación, Cultura, Perla y Marca): tu prosperidad, que llega como efecto de la coherencia.\n\n" +
+          "Cada esfera lleva una llave y una línea, como el perfil del Human Design.",
+      },
+      {
+        id: "como", title: "Cómo trabajo con ellas",
+        body:
+          "Empezamos siempre por la **Secuencia de Activación**: tus cuatro primeras llaves. Te propongo leer una cada semana, volver a ella cuando algo te remueve y apuntar dónde aparece su sombra. Las Gene Keys piden paciencia: lo que cambia no es lo que sabes de ti, sino desde dónde lo vives.",
+      },
+    ],
+    model: { kind: "geneKeys", title: "Explora un perfil hologenético", intro: "Toca una esfera para ver su llave en sombra, don y siddhi." },
+    pills: [
+      { label: "La comunidad", href: "/ana/comunidad" },
+      { label: "Lecturas de Gene Keys", href: "/ana/lecturas" },
+      { label: "Cursos de Gene Keys", href: "/ana/cursos#gene_keys" },
     ],
   },
   {
-    slug: "astrologia", title: "Astrología", img: "/demo/astrologia.webp", photo: "/demo/sesion.webp", text: "Tu carta natal como mapa de tus ritmos.",
+    slug: "astrologia", title: "Astrología", img: "/demo/astrologia.webp", text: "Tu carta natal como mapa de tus ritmos.",
     body: "La **carta natal** es una foto del cielo cuando naciste. No te define: describe tus potenciales y tus ritmos.\n\nLeemos tu Sol, tu Luna, tu Ascendente y las casas para aterrizarlo a tu vida.",
-    model: { kind: "chart", title: "Explora una carta natal", intro: "Toca los signos, las casas, los planetas y las líneas de aspecto, y mueve el ascendente: así es como leo contigo tu propia carta." },
-    related: [
-      { slug: "lectura-astrologia", title: "Lectura de Astrología", text: "Tu carta natal grabada para escucharla con calma.", img: "/demo/astrologia.webp" },
-      { slug: "lectura-de-tu-ano", title: "Lectura de tu año", text: "Los tránsitos que vienen y cómo aprovecharlos.", img: "/demo/hero.webp" },
-      { slug: "mini-curso-tu-carta-en-3-pasos", title: "Mini-curso gratis: tu carta en 3 pasos", text: "Empieza a leer tu Sol, tu Luna y tu Ascendente.", img: "/demo/curso.webp" },
+    pageTitle: "Astrología: tu carta natal como mapa de tus ritmos",
+    intro:
+      "La astrología lee dónde estaban el Sol, la Luna y los planetas en el momento exacto en que naciste, vistos desde el lugar donde naciste. Esa foto del cielo es tu carta natal: no dicta lo que te va a pasar, describe tus ritmos, tus necesidades y las energías con las que vienes a trabajar. Aquí te cuento cómo se lee, pieza a pieza.",
+    explain: [
+      {
+        id: "origen", title: "De dónde viene",
+        body:
+          "La astrología nació en Mesopotamia, hace más de cuatro mil años, cuando se observaba el cielo para entender los ciclos de la tierra. En la Grecia helenística tomó la forma que conocemos (la carta individual con signos, planetas y casas) y **Ptolomeo** la ordenó en el siglo II.\n\n" +
+          "En el siglo XX, con **Dane Rudhyar** y la astrología psicológica de **Liz Greene**, dejó de ser un sistema para predecir y pasó a ser un lenguaje para conocerse. Es la que yo practico. Usamos el **zodiaco tropical**, el de las estaciones: 0° de Aries es el equinoccio de primavera.",
+      },
+      {
+        id: "signos", title: "Los doce signos: el cómo", photo: { src: "/demo/astrologia.webp", alt: "La rueda del zodiaco" }, side: "right",
+        body:
+          "Los signos son **doce tramos de 30°** del recorrido del Sol a lo largo del año. Describen *cómo* se expresa una energía. Cada uno combina:\n\n" +
+          "- un **elemento**: fuego (Aries, Leo, Sagitario), tierra (Tauro, Virgo, Capricornio), aire (Géminis, Libra, Acuario) o agua (Cáncer, Escorpio, Piscis);\n" +
+          "- y una **cualidad**: cardinal, que empieza; fija, que sostiene; o mutable, que adapta.\n\n" +
+          "Tu Sol en Leo y el de tu hermana en Virgo no os hacen mejores ni peores: os dan maneras distintas de brillar.",
+      },
+      {
+        id: "planetas", title: "Los planetas: el qué",
+        body:
+          "Los planetas son las **energías** de la carta, *qué* se mueve en ti:\n\n" +
+          "- el **Sol**: tu identidad, lo que vienes a desarrollar;\n" +
+          "- la **Luna**: tus necesidades emocionales, cómo te cuidas;\n" +
+          "- **Mercurio**: cómo piensas y te comunicas;\n" +
+          "- **Venus**: cómo amas y qué valoras;\n" +
+          "- **Marte**: tu deseo y tu forma de actuar;\n" +
+          "- **Júpiter** y **Saturno**: dónde creces y dónde maduras con esfuerzo;\n" +
+          "- **Urano**, **Neptuno** y **Plutón**: los lentos, que marcan generaciones y grandes transformaciones.\n\n" +
+          "Se suman puntos como **Quirón** (la herida que enseña) y los **nodos lunares** (de dónde vienes y hacia dónde creces).",
+      },
+      {
+        id: "casas", title: "Las casas: el dónde",
+        body:
+          "Las **doce casas** reparten el cielo según la hora y el lugar en que naciste. Dicen *dónde*, en qué área de tu vida, se juega cada energía: la casa 1 es tu forma de presentarte; la 4, tu hogar y tus raíces; la 7, la pareja y las alianzas; la 10, tu vocación y tu lugar en el mundo.\n\n" +
+          "Empiezan en el **Ascendente**, el signo que subía por el horizonte al nacer, y el **Medio Cielo** marca lo más alto. Por eso para leer las casas hace falta la **hora exacta**: cuatro minutos mueven el Ascendente un grado.",
+      },
+      {
+        id: "aspectos", title: "Los aspectos: cómo conversan", photo: { src: "/demo/sesion.webp", alt: "Una carta natal impresa con sus líneas de aspecto" }, side: "left",
+        body:
+          "Los **aspectos** son los ángulos entre los planetas, las líneas del centro de la rueda. Cuentan cómo dialogan tus energías:\n\n" +
+          "- **conjunción** (0°): se funden;\n" +
+          "- **sextil** (60°) y **trígono** (120°): se ayudan, fluyen;\n" +
+          "- **cuadratura** (90°) y **oposición** (180°): se tensan y te piden movimiento.\n\n" +
+          "Un aspecto tenso no es algo malo: casi siempre es donde más has crecido.",
+      },
+      {
+        id: "como", title: "Cómo la leo yo",
+        body:
+          "Leo la carta **sin fatalismo**: nada está escrito, todo es potencial. Empiezo por tu Sol, tu Luna y tu Ascendente, el triángulo que más se nota en el día a día, y desde ahí bajamos a lo concreto: qué necesitas, dónde te exiges de más y qué ritmo te sienta bien. Con los **tránsitos** miramos además qué se mueve ahora en el cielo y cómo toca tu carta.",
+      },
+    ],
+    model: { kind: "chart", title: "Explora una carta natal", intro: "Toca un planeta, un signo, una casa o una línea de aspecto." },
+    pills: [
+      { label: "La comunidad", href: "/ana/comunidad" },
+      { label: "Lecturas de astrología", href: "/ana/lecturas" },
+      { label: "Cursos de astrología", href: "/ana/cursos#astrologia" },
     ],
   },
   {
-    slug: "luna", title: "Luna", img: "/demo/comunidad.webp", photo: "/demo/hero.webp", text: "Vive cada lunación con intención.",
+    slug: "luna", title: "Luna", img: "/demo/comunidad.webp", text: "Vive cada lunación con intención.",
     body: "La **Luna** marca un ritmo que el cuerpo reconoce antes que la cabeza: sembrar en la luna nueva, ver en la llena, soltar en la menguante.\n\nEn los **círculos de la luna** nos juntamos en cada luna nueva y cada luna llena para vivirla con un ritual guiado y un rato para compartir.",
-    model: { kind: "lunar", title: "El ciclo de la luna", intro: "Mueve el ciclo o toca un día del calendario: verás por qué la luna se ve así, qué pide cada fase y cuándo llegan la próxima luna nueva y la próxima llena." },
-    // Más los círculos de la luna que haya en ese momento (seedAnaPortada los pone delante).
-    related: [
-      { slug: "luna-completa", title: "Luna completa", text: "La comunidad con un círculo en directo en cada luna nueva y cada luna llena.", img: "/demo/astrologia.webp" },
-      { slug: "comunidad", href: "/ana/comunidad", title: "La comunidad", text: "Esencia, Plena y Luna completa: elige cómo quieres acompañar tus lunas.", img: "/demo/comunidad.webp" },
-      { slug: "especial-tu-ano-lunar", title: "Especial: tu año lunar", text: "Dos lecciones gratis para preparar las trece lunas del año.", img: "/demo/curso.webp" },
+    pageTitle: "Luna: vivir cada lunación con intención",
+    intro:
+      "Cada veintinueve días y medio la Luna completa un ciclo de fases, de luna nueva a luna nueva: es la lunación, el mes lunar. Su ritmo de crecer, llenarse y menguar es el de muchos de nuestros procesos, y por eso desde siempre se ha usado para sembrar, recoger y descansar. Aquí te explico cómo funciona y cómo la vivo yo.",
+    explain: [
+      {
+        id: "fases-por-que", title: "Por qué cambia de forma",
+        body:
+          "La Luna no tiene luz propia: el Sol ilumina siempre **la mitad** que mira hacia él. Lo que cambia es el ángulo desde el que la vemos nosotras mientras gira alrededor de la Tierra.\n\n" +
+          "Cuando está entre la Tierra y el Sol, vemos su cara oscura: es la **luna nueva**. Cuando la Tierra queda en medio, vemos toda su cara iluminada: es la **luna llena**. De una luna nueva a la siguiente pasan unos **29,5 días** (el mes sinódico), y en ese tiempo la Luna recorre los doce signos: pasa unos dos días y medio en cada uno.",
+      },
+      {
+        id: "ocho-fases", title: "Las ocho fases de la lunación", photo: { src: "/demo/comunidad.webp", alt: "Las fases de la luna dibujadas en círculo" }, side: "right",
+        body:
+          "Dane Rudhyar dividió el ciclo en **ocho fases**, y cada una pide algo distinto:\n\n" +
+          "- **Luna nueva**: sembrar una intención.\n" +
+          "- **Creciente**: el primer impulso, sostener lo que empieza.\n" +
+          "- **Cuarto creciente**: decidir y actuar ante el primer obstáculo.\n" +
+          "- **Gibosa creciente**: ajustar, pulir.\n" +
+          "- **Luna llena**: ver con claridad, culminar, celebrar.\n" +
+          "- **Gibosa menguante**: compartir lo aprendido y agradecer.\n" +
+          "- **Cuarto menguante**: revisar y soltar lo que ya no sirve.\n" +
+          "- **Menguante** (balsámica): descansar y vaciarse antes de volver a empezar.",
+      },
+      {
+        id: "nueva-llena", title: "Luna nueva y luna llena",
+        body:
+          "En la **luna nueva** el Sol y la Luna están en el mismo signo: es un comienzo con el color de ese signo. Es el momento de escribir intenciones en presente, pocas y concretas.\n\n" +
+          "En la **luna llena** están en signos opuestos, y se ilumina un **eje**: lo que sembraste hace dos semanas se ve, para bien y para mal. Es momento de agradecer y de soltar.\n\n" +
+          "Dos veces al año, cuando la lunación cae cerca de los nodos, hay **eclipses**: lunas nuevas y llenas más intensas, que abren y cierran etapas.",
+      },
+      {
+        id: "como", title: "Cómo la vivo yo", photo: { src: "/demo/hero.webp", alt: "Una vela y un cuaderno junto a la ventana de noche" }, side: "left",
+        body:
+          "Llevo años escribiendo un **diario lunar**: una página en cada luna nueva y otra en cada llena. Es la práctica más sencilla que conozco y la que más me ha cambiado.\n\n" +
+          "En los **círculos de la luna** nos juntamos por Zoom en cada luna nueva y cada luna llena: un ritual guiado, un rato de escritura y una ronda para compartir. Y si conoces tu **luna natal** (el signo de tu Luna y la fase en la que naciste), puedes ver qué lunaciones te tocan más de cerca.",
+      },
+    ],
+    model: { kind: "lunar", title: "La luna, ahora", intro: "Mueve el ciclo para ver cómo cambia la fase." },
+    pills: [
+      { label: "La comunidad", href: "/ana/comunidad" },
+      { label: "Círculos y sesiones", href: "/ana/sesiones" },
+      { label: "Especiales de la luna", href: "/ana/cursos#especial" },
     ],
   },
   {
-    slug: "mi-energia", title: "Mi energía", img: "/demo/sesion.webp", photo: "/demo/ana-avatar.webp", text: "Mi forma de mirar: cinco principios y un ensayo.",
+    slug: "mi-energia", title: "Mi energía", img: "/demo/sesion.webp", text: "Mi forma de mirar: cinco principios y un ensayo.",
     body: "Los métodos los aprendí; **mi energía** es lo que quedó después: cinco principios que sostienen cada lectura y una forma de acompañar sin prisa.\n\nPorque ningún sistema del mundo sustituye la experiencia propia.",
-    related: [
-      { slug: "curso-conocete-tu-energia", title: "Conócete a través de tu energía", text: "El curso que une los tres sistemas en tu mapa.", img: "/demo/curso.webp" },
-      { slug: "sesion-1-1", title: "Sesión 1:1", text: "Una hora conmigo para mirar tu momento con los tres mapas.", img: "/demo/sesion.webp" },
+    pageTitle: "Mi energía: lo que creo después de haberlo leído todo",
+    intro:
+      "Los sistemas con los que trabajo los aprendí de otras personas; esta parte no. Es mi forma de mirar: cinco principios que sostienen cada lectura, un texto de mis cuadernos y dos herramientas sencillas, las runas y mi oráculo, para hacerte mejores preguntas. Las puedes usar sin registrarte.",
+    explain: [
+      {
+        id: "cuatro-mapas", title: "Cuatro mapas, una misma persona", photo: { src: "/demo/ana-avatar.webp", alt: "Ana Luna sonriendo" }, side: "right",
+        body:
+          "La astrología, el Human Design, las Gene Keys y la luna miran lo mismo desde sitios distintos. La carta natal cuenta tus ritmos; el bodygraph, cómo funciona tu energía y cómo decides; las Gene Keys, qué sombras esconden tus dones; la luna, el compás del mes.\n\n" +
+          "Cuando los juntamos no buscamos que coincidan, sino lo que **se repite**: eso suele ser lo que de verdad importa. Y siempre por delante, lo que tú ya sabes de tu vida.",
+      },
+    ],
+    pills: [
+      { label: "La comunidad", href: "/ana/comunidad" },
+      { label: "Sesión 1:1", href: "/ana/sesiones" },
+      { label: "Cursos de Mi energía", href: "/ana/cursos#mi_energia" },
     ],
   },
 ];
@@ -276,7 +472,7 @@ function anaEnergyBlocks(oracleDeckId?: string): ContentBlock[] {
     {
       id: "oraculo", kind: "model", model: "oracle", figure: "enneagram", enabled: true, deck: oracleDeckId,
       title: "El oráculo de la luna",
-      intro: "Dibujé estas veintiocho cartas para mis círculos, una por cada noche del ciclo. Baraja, saca una o tres, y quédate más con la pregunta que con la respuesta.",
+      intro: "Dibujé estas veintiocho cartas para mis círculos, una por cada noche del ciclo. Baraja, saca una o tres, y quédate más con la pregunta que con la respuesta. Si estás suscrita a mi newsletter, en «Más barajas» tienes las demás.",
     },
   ];
 }
@@ -401,6 +597,28 @@ async function seedAnaOracleDeck(creatorId: string) {
           : {}),
     })),
   });
+  return deck;
+}
+
+/** «Oráculo de los elementos»: una baraja corta publicada, la segunda que sale en «Más barajas». */
+async function seedAnaElementsDeck(creatorId: string) {
+  const cards: { name: string; keyword: string; message: string; question: string; motif: string }[] = [
+    { name: "El Fuego", keyword: "Impulso", motif: "fuego", message: "Hay algo que quiere empezar y no necesita más permiso. Da el primer paso aunque sea pequeño: el fuego crece con lo que le das.", question: "¿Qué harías hoy si no tuvieras que justificarlo?" },
+    { name: "La Tierra", keyword: "Cuerpo", motif: "montana", message: "Vuelve al cuerpo y a lo concreto. Lo que buscas no está en otra idea, está en el siguiente gesto repetido con paciencia.", question: "¿Qué necesita tu cuerpo de ti esta semana?" },
+    { name: "El Aire", keyword: "Claridad", motif: "espiral", message: "Ponle palabras. Lo que da vueltas dentro pierde fuerza en cuanto lo dices en voz alta o lo escribes.", question: "¿Qué conversación llevas tiempo aplazando?" },
+    { name: "El Agua", keyword: "Sentir", motif: "marea", message: "No hace falta entenderlo todavía. Deja que la emoción pase entera, como una ola, y mira qué queda en la orilla.", question: "¿Qué estás sintiendo que aún no te has permitido nombrar?" },
+    { name: "La Semilla", keyword: "Paciencia", motif: "semilla", message: "Lo que has sembrado está trabajando bajo tierra. Que no lo veas no quiere decir que no esté pasando.", question: "¿Qué estás intentando acelerar?" },
+    { name: "La Raíz", keyword: "Sostén", motif: "raiz", message: "Antes de crecer hacia fuera, mira qué te sostiene. Hay personas y hábitos que son tu suelo: cuídalos.", question: "¿Dónde te sientes en casa?" },
+    { name: "La Lluvia", keyword: "Limpieza", motif: "lluvia", message: "Algo se está llevando lo viejo. No lo retengas: lo que se va deja sitio.", question: "¿Qué ya no quieres seguir cargando?" },
+    { name: "El Silencio", keyword: "Escucha", motif: "silencio", message: "Hoy la respuesta no está en hacer más. Para un momento y escucha lo que ya sabes.", question: "¿Qué oirías si dejaras de buscar fuera?" },
+  ];
+  const deck = await prisma.oracleDeck.create({
+    data: {
+      creatorId, name: "Oráculo de los elementos", slug: "oraculo-de-los-elementos", status: "PUBLISHED", sortOrder: 1, createdAt: daysAgo(12),
+      description: "Ocho cartas sencillas para cuando necesitas volver a lo básico: fuego, tierra, aire y agua.",
+    },
+  });
+  await prisma.oracleCard.createMany({ data: cards.map((c, i) => ({ creatorId, deckId: deck.id, ...c, sortOrder: i })) });
   return deck;
 }
 
@@ -695,32 +913,34 @@ async function seedAnaPortada(o: {
   // (los mismos textos y, sin imagen, el mismo dibujo de cada carta; el código lo sigue teniendo de serie).
   const oracleDeck = await seedAnaOracleDeck(anaId);
 
-  // ── Páginas de cada sistema (Sistemas con los que trabajo), con su modelo interactivo ──
+  // Una segunda baraja publicada, para «Más barajas» (solo suscriptoras) en «Mi energía».
+  await seedAnaElementsDeck(anaId);
+
+  // ── Páginas de cada sistema (Sistemas con los que trabajo): explicación, modelo en versión rápida y burbujas ──
   const systemCards = [];
-  const circleCards = circles.map((c) => ({ slug: c.slug, title: c.title, text: "Un círculo en directo por Zoom para vivir esta luna juntas.", img: "/demo/comunidad.webp" }));
   for (const [i, sys] of ANA_SYSTEMS.entries()) {
-    const image = await demoBlockImage(anaId, sys.img, sys.title);
-    const related: AnaSystem["related"] = sys.slug === "luna" ? [...circleCards, ...sys.related] : sys.related;
-    const relatedBlock: ContentBlock = {
-      id: "relacionados", kind: "cards", title: sys.slug === "mi-energia" ? "Para llevarlo a tu vida" : sys.slug === "luna" ? "Círculos, comunidad y cursos de la luna" : `Lecturas y cursos de ${sys.title}`,
-      cards: await Promise.all(related.slice(0, 8).map(async (r) => ({ title: r.title, text: r.text, href: r.href ?? `/ana/${r.slug}`, image: await demoBlockImage(anaId, r.img, r.title) }))),
-      enabled: true,
-    };
+    const explain: ContentBlock[] = await Promise.all(
+      sys.explain.map(async (e): Promise<ContentBlock> =>
+        e.photo
+          ? { id: e.id, kind: "photoText", title: e.title, body: e.body, format: "MD", imageSide: e.side ?? "left", image: await demoBlockImage(anaId, e.photo.src, e.photo.alt), enabled: true }
+          : { id: e.id, kind: "text", title: e.title, body: e.body, format: "MD", enabled: true },
+      ),
+    );
+    const pills: ContentBlock = { id: "burbujas", kind: "pills", title: sys.slug === "mi-energia" ? "Para llevarlo a tu vida" : `Todo sobre ${sys.slug === "luna" ? "la luna" : sys.title}`, items: sys.pills, enabled: true };
     const blocks: ContentBlock[] =
       sys.slug === "mi-energia"
-        ? [...anaEnergyBlocks(oracleDeck.id), relatedBlock]
+        ? [...explain, ...anaEnergyBlocks(oracleDeck.id), pills]
         : [
-            {
-              id: "que-es", kind: "photoText", title: `Qué es ${sys.title === "Luna" ? "vivir la luna" : sys.title}`, body: sys.body, format: "MD", imageSide: "left",
-              image: await demoBlockImage(anaId, sys.photo, `Así trabajo con ${sys.title}`), buttonLabel: "Ver mis lecturas", buttonUrl: "/ana/lecturas", enabled: true,
-            },
-            ...(sys.model ? [{ id: "modelo", kind: "model" as const, model: sys.model.kind, title: sys.model.title, intro: sys.model.intro, figure: "enneagram" as const, enabled: true }] : []),
-            relatedBlock,
+            ...explain,
+            ...(sys.model ? [{ id: "modelo", kind: "model" as const, model: sys.model.kind, title: sys.model.title, intro: sys.model.intro, figure: "enneagram" as const, quick: true, enabled: true }] : []),
+            pills,
+            // La Luna termina con los dos próximos círculos (se eligen solos al pintar la página).
+            ...(sys.slug === "luna" ? [{ id: "circulos", kind: "moonCircles" as const, title: "Los próximos círculos", enabled: true }] : []),
           ];
     const content: SitePageContent = {
-      title: sys.title,
-      subtitle: sys.slug === "mi-energia" ? "Cinco principios y un ensayo: lo que creo después de haberlo leído todo." : sys.text,
-      cover: image,
+      title: sys.pageTitle,
+      subtitle: sys.intro,
+      cover: null,
       blocks,
       seoTitle: `${sys.title} · Ana Luna`,
       seoDescription: sys.slug === "mi-energia" ? "Cinco principios y un ensayo sobre la confianza en lo que todavía no es visible." : sys.text,
