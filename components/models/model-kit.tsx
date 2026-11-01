@@ -85,10 +85,11 @@ export function useShown<T extends Element>() {
 }
 
 /**
- * Marco de todos los modelos: botonera (deslizable en el móvil), diagrama, leyenda y la explicación.
+ * Marco de todos los modelos: botonera (deslizable en el móvil), diagrama, leyenda, la explicación y, si
+ * hace falta, un pie (tablas de consulta, como las de la carta natal).
  * Siempre en una columna: la página es estrecha y así se lee igual en el teléfono.
  */
-export function ModelFrame({ toolbar, diagram, legend, panel }: { toolbar?: ReactNode; diagram: ReactNode; legend?: ReactNode; panel: ReactNode }) {
+export function ModelFrame({ toolbar, diagram, legend, panel, footer }: { toolbar?: ReactNode; diagram: ReactNode; legend?: ReactNode; panel: ReactNode; footer?: ReactNode }) {
   return (
     <div>
       {toolbar && <div className="-mx-5 overflow-x-auto px-5 pb-1 scrollbar-none sm:-mx-7 sm:px-7">{toolbar}</div>}
@@ -97,6 +98,7 @@ export function ModelFrame({ toolbar, diagram, legend, panel }: { toolbar?: Reac
       <div className="cp-line mt-6 border-t pt-6" aria-live="polite">
         {panel}
       </div>
+      {footer && <div className="cp-line mt-8 border-t pt-6">{footer}</div>}
     </div>
   );
 }
