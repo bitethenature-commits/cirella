@@ -69,6 +69,8 @@ model User {
   twoFactorCodes      TwoFactorRecoveryCode[]
   trustedDevices      TrustedDevice[]
   twoFactorChallenges TwoFactorChallenge[]
+  // «Mi energía» (/cuenta/mi-energia): sus datos de nacimiento y los de otras personas.
+  birthProfiles       BirthProfile[]
 }
 
 model Session {
@@ -339,6 +341,7 @@ model Creator {
   portalItems           PortalItem[]
   oracleDecks           OracleDeck[]
   oracleCards           OracleCard[]
+  birthProfiles         BirthProfile[]
   sitePages             SitePage[]
   availabilityOverrides AvailabilityOverride[]
   orderFiles            OrderFile[]
@@ -779,6 +782,34 @@ model OracleCard {
 
   @@index([deckId, sortOrder])
   @@index([creatorId])
+}
+
+// Datos de nacimiento guardados por una alumna en «Mi energía» (lib/birth-profiles.ts): los suyos
+// (isOwn, como mucho uno por alumna y web) y los de otras personas, con su permiso. Se leen siempre
+// por creatorId (tenantDb) Y userId de la sesión: nunca los ve otra usuaria. Borrar quita la fila.
+model BirthProfile {
+  id          String   @id @default(cuid())
+  creatorId   String
+  creator     Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  relation    String? // yo | pareja | hijo | amiga | clienta | otro
+  isOwn       Boolean  @default(false)
+  birthDate   String // AAAA-MM-DD, fecha local del lugar de nacimiento
+  birthTime   String? // HH:MM local; null = no se sabe la hora
+  placeName   String
+  placeDetail String?
+  lat         Float
+  lon         Float
+  tz          String // zona IANA («Europe/Madrid») o desfase fijo («UTC+01:00»)
+  // Cuándo marcó la casilla de consentimiento al guardar (o al cambiar los datos).
+  consentAt   DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([creatorId, userId])
+  @@index([userId])
 }
 
 // ───────────────────────────── Clientes y ventas ─────────────────────────────

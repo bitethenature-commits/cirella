@@ -57,6 +57,7 @@ export const TENANT_MODELS = new Set<Prisma.ModelName>([
   "CalendarNote",
   "OracleDeck",
   "OracleCard",
+  "BirthProfile",
 ]);
 
 const WHERE_OPS = new Set([
