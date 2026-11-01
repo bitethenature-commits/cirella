@@ -59,7 +59,7 @@ function formatter(tz: string) {
 
 /** «UTC+01:00», «UTC-3», «+05:30» → minutos; null si no es un desfase fijo. */
 export function parseFixedOffset(tz: string): number | null {
-  const m = /^(?:UTC|GMT)?\s*([+-−])\s*(\d{1,2})(?::?(\d{2}))?$/i.exec(tz.trim());
+  const m = /^(?:UTC|GMT)?\s*([+\-−])\s*(\d{1,2})(?::?(\d{2}))?$/i.exec(tz.trim());
   if (!m) return /^(?:UTC|GMT)$/i.test(tz.trim()) ? 0 : null;
   const sign = m[1] === "+" ? 1 : -1;
   const h = Number(m[2]);
