@@ -3,13 +3,14 @@
  *  Gene Keys — las 64 llaves y el perfil hologenético.
  *
  *  Cada llave lleva la misma fuerza a tres frecuencias: sombra, don y siddhi.
- *  El perfil coloca trece esferas sobre el Camino Dorado, agrupadas en las tres
- *  secuencias (Activación, Venus y Perla).
+ *  El perfil coloca once esferas sobre el Camino Dorado, agrupadas en las tres
+ *  secuencias (Activación, Venus y Perla). Dos esferas son de dos secuencias a la
+ *  vez: la Obra de vida es también la Marca de la Perla, y el Núcleo de Venus es
+ *  también la Vocación de la Perla. El Propósito cierra la Activación y abre Venus.
  *
- *  La geometría sigue la carta del perfil hologenético: arriba el rombo de la
- *  Activación (Irradiación, Obra de vida, Evolución, Propósito); del Propósito
- *  baja el camino a la Atracción y el rombo de Venus (CI, CE, CS) que se cierra
- *  en el Núcleo; del Núcleo, a la Vocación y el rombo de la Perla.
+ *  La geometría y los caminos son los de la carta del perfil hologenético: la
+ *  Obra de vida arriba, el triángulo de la Perla debajo, el racimo de Venus en
+ *  el centro con la Irradiación y la Evolución a los lados, y el Propósito abajo.
  *  Colores convencionales: Activación verde, Venus rojo, Perla azul.
  * -------------------------------------------------------------------------- */
 
@@ -138,10 +139,25 @@ export const SEQUENCE_BY_ID = Object.fromEntries(SEQUENCES.map((s) => [s.id, s])
   Sequence
 >
 
+/** Una esfera puede ser también una esfera de otra secuencia, con otro nombre. */
+export interface SphereRole {
+  sequence: SequenceId
+  name: string
+  /** Orden dentro de esa secuencia; sin él, la esfera es la puerta de entrada a la secuencia. */
+  step?: number
+  meaning?: string
+  contemplation?: string
+}
+
 export interface Sphere {
   id: string
   name: string
+  /** La secuencia principal de la esfera. */
   sequence: SequenceId
+  /** Orden dentro de su secuencia, para el recorrido guiado. */
+  step: number
+  /** El otro papel de la esfera en otra secuencia (Marca, Vocación, la puerta de Venus). */
+  also?: SphereRole
   /** Qué posición celeste alimenta esta esfera en un perfil real. */
   source: string
   /** De qué trata la esfera. */
@@ -151,165 +167,168 @@ export interface Sphere {
   /** Posición dentro del viewBox de la carta (GK_VIEWBOX). */
   x: number
   y: number
-  /** Orden dentro de su secuencia, para el recorrido guiado. */
-  step: number
+  /** De qué lado de la esfera van sus tres frecuencias en la carta: hacia fuera del centro. */
+  side: "left" | "right"
 }
 
-/** Las trece esferas del Camino Dorado. */
+/** Las once esferas del Camino Dorado, en su sitio en la carta. */
 export const SPHERES: Sphere[] = [
-  // ── Secuencia de Venus: de la Atracción al Núcleo ──────────────────────
-  {
-    id: "attraction",
-    name: "Atracción",
-    sequence: "venus",
-    source: "Luna (inconsciente)",
-    meaning:
-      "El patrón que atraes en tus relaciones — y que viene de tu impronta más temprana.",
-    contemplation: "¿Qué se repite en todas mis relaciones?",
-    x: 380,
-    y: 446,
-    step: 1,
-  },
-  {
-    id: "iq",
-    name: "CI",
-    sequence: "venus",
-    source: "Venus (consciente)",
-    meaning: "Inteligencia mental. Cómo traduces la experiencia en comprensión.",
-    contemplation: "¿Dónde pienso para no tener que sentir?",
-    x: 190,
-    y: 546,
-    step: 2,
-  },
-  {
-    id: "eq",
-    name: "CE",
-    sequence: "venus",
-    source: "Marte (consciente)",
-    meaning: "Inteligencia emocional. Cuánto sentimiento aguantas sin huir.",
-    contemplation: "¿Qué emoción evito con más fiabilidad?",
-    x: 570,
-    y: 546,
-    step: 3,
-  },
-  {
-    id: "sq",
-    name: "CS",
-    sequence: "venus",
-    source: "Venus (inconsciente)",
-    meaning: "Inteligencia espiritual. El punto donde las otras dos se encuentran.",
-    contemplation: "¿Qué queda cuando ni pienso ni siento?",
-    x: 380,
-    y: 646,
-    step: 4,
-  },
-  {
-    id: "core",
-    name: "Núcleo",
-    sequence: "venus",
-    source: "Marte (inconsciente)",
-    meaning:
-      "La herida nuclear. El lugar donde empezó todo — y del que, invertido, sale tu mayor don.",
-    contemplation: "¿Qué creí sobre mí a los siete años?",
-    x: 380,
-    y: 806,
-    step: 5,
-  },
-
-  // ── Rombo de la Activación, arriba ────────────────────────────────────
-  {
-    id: "radiance",
-    name: "Irradiación",
-    sequence: "activation",
-    source: "Sol (inconsciente)",
-    meaning:
-      "Tu salud y tu vitalidad. No es algo que se practique: ocurre cuando las otras tres maduran.",
-    contemplation: "¿Cuándo tuve energía por última vez sin forzarla?",
-    x: 380,
-    y: 66,
-    step: 3,
-  },
-  {
-    id: "purpose",
-    name: "Propósito",
-    sequence: "activation",
-    source: "Tierra (inconsciente)",
-    meaning:
-      "El suelo firme bajo todo. No lo que debes hacer: aquello sobre lo que te apoyas mientras lo haces.",
-    contemplation: "¿Qué sigue siendo verdad aunque todo lo demás cambie?",
-    x: 380,
-    y: 266,
-    step: 4,
-  },
   {
     id: "lifework",
     name: "Obra de vida",
     sequence: "activation",
+    step: 1,
+    also: {
+      sequence: "pearl",
+      name: "Marca",
+      step: 3,
+      meaning: "En la Perla es tu Marca: cómo aparece tu don hacia fuera, sin que tengas que explicarlo.",
+      contemplation: "¿Para qué vienen a mí sin que yo lo pida?",
+    },
     source: "Sol (consciente)",
     meaning: "Aquello por lo que te haces visible. Tu forma natural de expresarte en el mundo.",
     contemplation: "¿Qué hago sin que nadie me lo pida?",
-    x: 150,
-    y: 166,
-    step: 1,
-  },
-  {
-    id: "evolution",
-    name: "Evolución",
-    sequence: "activation",
-    source: "Tierra (consciente)",
-    meaning:
-      "El desafío que te hace madurar. Vuelve una y otra vez hasta que entrega su don.",
-    contemplation: "¿Qué dificultad regresa con toda fiabilidad a mi vida?",
-    x: 610,
-    y: 166,
-    step: 2,
-  },
-
-  // ── Rombo de la Perla, abajo ──────────────────────────────────────────
-  {
-    id: "vocation",
-    name: "Vocación",
-    sequence: "pearl",
-    source: "Marte (inconsciente) · la misma llave que el Núcleo",
-    meaning: "El terreno en el que tu trabajo se vuelve ligero, porque encaja.",
-    contemplation: "¿Con qué se me olvida el tiempo?",
-    x: 380,
-    y: 986,
-    step: 1,
-  },
-  {
-    id: "culture",
-    name: "Cultura",
-    sequence: "pearl",
-    source: "Júpiter (inconsciente)",
-    meaning: "Las personas que sostienen tu obra. La prosperidad llega por vínculos, no por esfuerzo.",
-    contemplation: "¿Quién se beneficia de verdad de que yo exista?",
-    x: 190,
-    y: 1086,
-    step: 2,
-  },
-  {
-    id: "brand",
-    name: "Marca",
-    sequence: "pearl",
-    source: "Sol (consciente) · la misma llave que la Obra de vida",
-    meaning: "Cómo aparece tu don hacia fuera, sin que tengas que explicarlo.",
-    contemplation: "¿Para qué vienen a mí sin que yo lo pida?",
-    x: 570,
-    y: 1086,
-    step: 3,
+    x: 445,
+    y: 105,
+    side: "right",
   },
   {
     id: "pearl",
     name: "Perla",
     sequence: "pearl",
+    step: 4,
     source: "Júpiter (consciente)",
     meaning:
       "La simplificación. El punto en que la prosperidad deja de ser un objetivo y pasa a ser una consecuencia.",
     contemplation: "¿Qué podría quitar sin perder nada?",
-    x: 380,
-    y: 1186,
+    x: 445,
+    y: 225,
+    side: "right",
+  },
+  {
+    id: "core",
+    name: "Núcleo",
+    sequence: "venus",
+    step: 5,
+    also: {
+      sequence: "pearl",
+      name: "Vocación",
+      step: 1,
+      meaning: "En la Perla es tu Vocación: el terreno en el que tu trabajo se vuelve ligero, porque encaja. La herida y la vocación son la misma llave.",
+      contemplation: "¿Con qué se me olvida el tiempo?",
+    },
+    source: "Marte (inconsciente)",
+    meaning:
+      "La herida nuclear. El lugar donde empezó todo — y del que, invertido, sale tu mayor don.",
+    contemplation: "¿Qué creí sobre mí a los siete años?",
+    x: 345,
+    y: 283,
+    side: "left",
+  },
+  {
+    id: "culture",
+    name: "Cultura",
+    sequence: "pearl",
+    step: 2,
+    source: "Júpiter (inconsciente)",
+    meaning: "Las personas que sostienen tu obra. La prosperidad llega por vínculos, no por esfuerzo.",
+    contemplation: "¿Quién se beneficia de verdad de que yo exista?",
+    x: 547,
+    y: 283,
+    side: "right",
+  },
+  {
+    id: "radiance",
+    name: "Irradiación",
+    sequence: "activation",
+    step: 3,
+    source: "Sol (inconsciente)",
+    meaning:
+      "Tu salud y tu vitalidad. No es algo que se practique: ocurre cuando las otras tres maduran.",
+    contemplation: "¿Cuándo tuve energía por última vez sin forzarla?",
+    x: 213,
+    y: 340,
+    side: "left",
+  },
+  {
+    id: "sq",
+    name: "CS",
+    sequence: "venus",
     step: 4,
+    source: "Venus (inconsciente)",
+    meaning: "Inteligencia espiritual. El punto donde las otras dos se encuentran.",
+    contemplation: "¿Qué queda cuando ni pienso ni siento?",
+    x: 445,
+    y: 340,
+    side: "right",
+  },
+  {
+    id: "evolution",
+    name: "Evolución",
+    sequence: "activation",
+    step: 2,
+    source: "Tierra (consciente)",
+    meaning:
+      "El desafío que te hace madurar. Vuelve una y otra vez hasta que entrega su don.",
+    contemplation: "¿Qué dificultad regresa con toda fiabilidad a mi vida?",
+    x: 678,
+    y: 340,
+    side: "right",
+  },
+  {
+    id: "iq",
+    name: "CI",
+    sequence: "venus",
+    step: 2,
+    source: "Venus (consciente)",
+    meaning: "Inteligencia mental. Cómo traduces la experiencia en comprensión.",
+    contemplation: "¿Dónde pienso para no tener que sentir?",
+    x: 345,
+    y: 398,
+    side: "left",
+  },
+  {
+    id: "eq",
+    name: "CE",
+    sequence: "venus",
+    step: 3,
+    source: "Marte (consciente)",
+    meaning: "Inteligencia emocional. Cuánto sentimiento aguantas sin huir.",
+    contemplation: "¿Qué emoción evito con más fiabilidad?",
+    x: 547,
+    y: 398,
+    side: "right",
+  },
+  {
+    id: "attraction",
+    name: "Atracción",
+    sequence: "venus",
+    step: 1,
+    source: "Luna (inconsciente)",
+    meaning:
+      "El patrón que atraes en tus relaciones — y que viene de tu impronta más temprana.",
+    contemplation: "¿Qué se repite en todas mis relaciones?",
+    x: 445,
+    y: 455,
+    side: "right",
+  },
+  {
+    id: "purpose",
+    name: "Propósito",
+    sequence: "activation",
+    step: 4,
+    also: {
+      sequence: "venus",
+      name: "Propósito",
+      meaning: "Es también la puerta de Venus: de aquí sale el camino hacia la Atracción.",
+    },
+    source: "Tierra (inconsciente)",
+    meaning:
+      "El suelo firme bajo todo. No lo que debes hacer: aquello sobre lo que te apoyas mientras lo haces.",
+    contemplation: "¿Qué sigue siendo verdad aunque todo lo demás cambie?",
+    x: 445,
+    y: 573,
+    side: "right",
   },
 ]
 
@@ -318,57 +337,69 @@ export const SPHERE_BY_ID = Object.fromEntries(SPHERES.map((s) => [s.id, s])) as
   Sphere
 >
 
-/** Tamaño de la carta: el ancho y el alto del viewBox en el que viven las coordenadas de las esferas. */
-export const GK_VIEWBOX = { w: 760, h: 1250 }
+/** ¿Está la esfera en esta secuencia (como principal o con su otro papel)? */
+export const inSequence = (s: Sphere, seq: SequenceId) => s.sequence === seq || s.also?.sequence === seq
 
-/**
- * Los caminos de la carta. Cada secuencia es un rombo con su cruz (en Venus, el rombo se cierra además
- * en el Núcleo), y dos caminos enlazan las secuencias: Propósito → Atracción y Núcleo → Vocación.
- * El orden solo cuenta para el dibujado (de arriba abajo).
- */
-export const PATH_EDGES: Array<[string, string]> = [
-  // Activación: Obra de vida → Evolución → Irradiación → Propósito, y el rombo que los encierra
-  ["lifework", "evolution"],
-  ["radiance", "lifework"],
-  ["radiance", "evolution"],
-  ["radiance", "purpose"],
-  ["lifework", "purpose"],
-  ["evolution", "purpose"],
-  // De la Activación a Venus
-  ["purpose", "attraction"],
-  // Venus: Atracción → CI → CE → CS → Núcleo
-  ["attraction", "iq"],
-  ["attraction", "eq"],
-  ["iq", "eq"],
-  ["iq", "sq"],
-  ["eq", "sq"],
-  ["iq", "core"],
-  ["eq", "core"],
-  ["sq", "core"],
-  // De Venus a la Perla
-  ["core", "vocation"],
-  // Perla: Vocación → Cultura → Marca → Perla
-  ["vocation", "culture"],
-  ["vocation", "brand"],
-  ["culture", "brand"],
-  ["vocation", "pearl"],
-  ["culture", "pearl"],
-  ["brand", "pearl"],
+/** Tamaño de la carta: el viewBox en el que viven las coordenadas de las esferas. */
+export const GK_VIEWBOX = { x: 20, y: 30, w: 870, h: 630 }
+/** El centro de la rueda de fondo (anillo del zodiaco y hexagramas). */
+export const GK_CENTER = { x: 445, y: 340 }
+
+export interface PathEdge {
+  from: string
+  to: string
+  sequence: SequenceId
+  /** Los caminos interiores (punteados en la carta). */
+  dashed?: boolean
+}
+
+/** Los caminos de la carta, cada uno con el color de su secuencia. */
+export const PATH_EDGES: PathEdge[] = [
+  // Perla: el triángulo Obra de vida (Marca) – Núcleo (Vocación) – Cultura, y la Perla dentro
+  { from: "lifework", to: "core", sequence: "pearl" },
+  { from: "lifework", to: "culture", sequence: "pearl" },
+  { from: "core", to: "culture", sequence: "pearl" },
+  { from: "lifework", to: "pearl", sequence: "pearl", dashed: true },
+  { from: "pearl", to: "core", sequence: "pearl", dashed: true },
+  { from: "pearl", to: "culture", sequence: "pearl", dashed: true },
+  // Activación: Obra de vida → Evolución, Irradiación → Propósito, y el eje Irradiación – Evolución
+  { from: "lifework", to: "evolution", sequence: "activation" },
+  { from: "radiance", to: "evolution", sequence: "activation", dashed: true },
+  { from: "radiance", to: "purpose", sequence: "activation" },
+  // Venus: del Núcleo al CS, al CE, al CI, a la Atracción y al Propósito
+  { from: "core", to: "sq", sequence: "venus" },
+  { from: "sq", to: "eq", sequence: "venus" },
+  { from: "iq", to: "eq", sequence: "venus" },
+  { from: "iq", to: "attraction", sequence: "venus" },
+  { from: "attraction", to: "purpose", sequence: "venus" },
 ]
 
-/** Un ejemplo trabajado, para que el modelo abra con algo que leer. */
+/** Un ejemplo trabajado (el perfil de Ana), para que el modelo abra con algo que leer: llave y línea. */
 export const EXAMPLE_PROFILE: Record<string, number> = {
-  lifework: 44,
-  evolution: 24,
-  radiance: 43,
-  purpose: 23,
-  attraction: 25,
-  iq: 17,
-  eq: 22,
-  sq: 51,
-  core: 47,
-  vocation: 47,
-  culture: 13,
-  brand: 44,
-  pearl: 2,
+  lifework: 54,
+  pearl: 42,
+  core: 18,
+  culture: 42,
+  radiance: 32,
+  sq: 28,
+  evolution: 53,
+  iq: 30,
+  eq: 34,
+  attraction: 33,
+  purpose: 42,
+}
+
+/** La línea (1–6) de cada llave en el ejemplo: 54.6 es la llave 54 en la línea 6. */
+export const EXAMPLE_LINES: Record<string, number> = {
+  lifework: 6,
+  pearl: 1,
+  core: 1,
+  culture: 5,
+  radiance: 2,
+  sq: 5,
+  evolution: 6,
+  iq: 1,
+  eq: 2,
+  attraction: 1,
+  purpose: 2,
 }
