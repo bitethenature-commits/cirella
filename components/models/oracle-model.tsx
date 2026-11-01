@@ -127,7 +127,9 @@ export function OracleModel({ deck }: { deck?: OracleDeckView | null }) {
     <div key={`${spread}-${round}`} className={cn("mx-auto grid justify-center gap-3 sm:gap-5", single ? "grid-cols-1" : "grid-cols-3")} role="group" aria-label={`${ORACLE_SPREADS[spread].label}: toca una carta para darle la vuelta`}>
       {positions.map((pos, i) => {
         const cast = cards[i];
-        const card = CARDS[cast.i];
+        // Antes de repartir no hay cartas: la tirada aún no se pinta (y sin esto la página entera fallaba).
+        const card = cast ? CARDS[cast.i] : undefined;
+        if (!cast || !card) return null;
         const open = !!revealed[i];
         const on = sel === i;
         return (
