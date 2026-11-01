@@ -1,17 +1,19 @@
-import { ArrowUpRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Moon } from "lucide-react";
 import { ZoomableImage } from "@/components/media/zoomable-image";
 import { RichContent } from "@/components/rich-text/rich-content";
 import { linksToProduct } from "@/lib/access-mode";
 import { imageSrcSet } from "@/lib/media-url";
 import type { OracleDecks } from "@/components/models/data/oracle";
-import { InteractiveModel } from "@/components/models/interactive-model";
-import type { ModelGateInfo } from "@/components/models/model-gate";
+import { InteractiveModel, ModelGateBelow } from "@/components/models/interactive-model";
+import { ModelGateScope, type ModelGateInfo } from "@/components/models/model-gate-scope";
 import { SacredGeometry } from "@/components/models/sacred-geometry";
-import { MODEL_LABEL, isOwnImageSrc, isOwnVideoSrc, type ContentBlock, type PageImage } from "@/lib/page-blocks";
+import { formatPrice } from "@/lib/money";
+import { MODEL_LABEL, hasQuickVersion, isOwnImageSrc, isOwnVideoSrc, type ContentBlock, type PageImage } from "@/lib/page-blocks";
 import { safeHref } from "@/lib/page-config";
 import { videoEmbed } from "@/lib/video-embed";
 import { PageVideo } from "./page-video";
 import { VideoFacade } from "./video-facade";
+import type { PublicProduct } from "./creator-page-view";
 
 /**
  * Bloques de la portada y de las páginas extra (lib/page-blocks.ts), con las clases del tema
@@ -29,7 +31,10 @@ import { VideoFacade } from "./video-facade";
  *   · cita: una frase destacada con su autora;
  *   · trayectoria: línea de tiempo con sus hitos;
  *   · modelo interactivo: título y entradilla aquí (en el HTML) y el modelo, que se carga aparte y solo
- *     en el navegador (components/models); la geometría sagrada es una frase grande sobre la figura.
+ *     en el navegador (components/models); la geometría sagrada es una frase grande sobre la figura. En
+ *     «Versión rápida», solo el dibujo, y «Calcular con mis datos» debajo de la caja;
+ *   · enlaces en burbuja: de 1 a 4 píldoras alargadas, centradas (en el móvil, una debajo de otra);
+ *   · próximos círculos de la luna: los dos próximos (lib/moon-circles.ts), en tarjetas pequeñas.
  * Un src que no sea propio no se pinta (además de comprobarse al guardar).
  */
 export const BLOCK_IMAGE_SIZES = "(min-width: 768px) 704px, calc(100vw - 40px)";
@@ -42,6 +47,7 @@ export function ContentBlocks({
   siteOrigin,
   oracleDecks,
   modelGate,
+  moonCircles,
 }: {
   blocks: ContentBlock[];
   username: string;
@@ -54,6 +60,11 @@ export function ContentBlocks({
   oracleDecks?: OracleDecks;
   /** Web personal: «Calcular con mis datos» de los modelos solo con cuenta y newsletter (model-gate.tsx). */
   modelGate?: ModelGateInfo | null;
+  /**
+   * Los próximos círculos de la luna (lib/moon-circles.ts) para el bloque «Próximos círculos de la luna».
+   * Sin pasar (vista previa en vivo del editor): un aviso de lo que saldrá ahí.
+   */
+  moonCircles?: PublicProduct[];
 }) {
   const linkTo = (url: string | undefined) => (url && !linksToProduct(url, username, hiddenSlugs, siteOrigin) ? safeHref(url) : null);
   // Las webs de fuera, en otra pestaña; los enlaces internos y mailto:/tel:, en la misma.
@@ -322,15 +333,102 @@ export function ContentBlocks({
                   {b.intro && <figcaption className="cp-muted mt-6 max-w-md text-[0.95rem] leading-relaxed">{b.intro}</figcaption>}
                 </figure>
               );
-            return (
-              <section key={b.id} className="cp-card p-5 sm:p-7" data-block="model" data-model={b.model} aria-label={b.title || MODEL_LABEL[b.model]}>
+          {
+            const quick = !!b.quick && hasQuickVersion(b.model);
+            const box = (
+              <section key={b.id} className="cp-card p-5 sm:p-7" data-block="model" data-model={b.model} data-quick={quick ? "" : undefined} aria-label={b.title || MODEL_LABEL[b.model]}>
                 {b.title && title(b.title)}
                 {b.intro && <p className={`cp-muted text-[0.95rem] leading-relaxed ${b.title ? "mt-3" : ""}`}>{b.intro}</p>}
                 <div className={b.title || b.intro ? "mt-6" : ""}>
-                  <InteractiveModel model={b.model} deck={b.model === "oracle" && b.deck ? oracleDecks?.[b.deck] : undefined} gate={modelGate} />
+                  <InteractiveModel model={b.model} deck={b.model === "oracle" && b.deck ? oracleDecks?.[b.deck] : undefined} gate={modelGate} compact={quick} />
                 </div>
               </section>
             );
+            // Versión rápida en la web personal: el modelo dentro de su caja y «Calcular con mis datos» fuera, debajo.
+            if (quick && modelGate && hasQuickVersion(b.model))
+              return (
+                <ModelGateScope key={b.id} model={b.model} gate={modelGate}>
+                  {box}
+                  <ModelGateBelow />
+                </ModelGateScope>
+              );
+            return box;
+          }
+          case "pills": {
+            const items = b.items.flatMap((it) => {
+              const href = it.label.trim() ? linkTo(it.href) : null;
+              return href ? [{ label: it.label, href }] : [];
+            });
+            if (!items.length) return null;
+            return (
+              <nav key={b.id} data-block="pills" aria-label={b.title || "Enlaces"} className="pt-2">
+                {b.title && <div className="mb-5 text-center">{title(b.title)}</div>}
+                <ul className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
+                  {items.map((it, i) => (
+                    <li key={i} className="sm:min-w-[11rem] sm:max-w-[18rem] sm:flex-1">
+                      <a
+                        href={it.href}
+                        {...target(it.href)}
+                        data-pill
+                        className="group flex min-h-14 w-full items-center justify-center gap-2 rounded-full border px-7 py-3 text-center text-[0.95rem] font-semibold sm:px-4 sm:text-[0.9rem] leading-snug transition-colors duration-300 hover:bg-[color-mix(in_oklab,var(--c-gold)_14%,transparent)]"
+                        style={{ borderColor: "color-mix(in oklab, var(--c-gold) 45%, transparent)", background: "color-mix(in oklab, var(--c-gold) 6%, transparent)" }}
+                      >
+                        <span>{it.label}</span>
+                        <ArrowRight className="cp-gold h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5" aria-hidden />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            );
+          }
+          case "moonCircles": {
+            const label = b.title || "Los próximos círculos de la luna";
+            if (!moonCircles)
+              return (
+                <section key={b.id} data-block="moon-circles" className="cp-line rounded-[var(--r-card)] border border-dashed p-5 text-center">
+                  <p className="cp-eyebrow flex items-center justify-center gap-1.5">
+                    <Moon className="h-3.5 w-3.5" aria-hidden /> {label}
+                  </p>
+                  <p className="cp-muted mt-2 text-[0.85rem]">Aquí salen solos tus dos próximos círculos de la luna publicados, con su fecha, el precio y «Apuntarme».</p>
+                </section>
+              );
+            const circles = moonCircles.filter((c) => !hiddenSlugs.has(c.slug.toLowerCase()));
+            if (!circles.length) return null;
+            return (
+              <section key={b.id} data-block="moon-circles" aria-label={label}>
+                <p className="cp-eyebrow flex items-center gap-1.5">
+                  <Moon className="h-3.5 w-3.5" aria-hidden /> {label}
+                </p>
+                <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {circles.map((c) => {
+                    const free = (c.accessMode ?? "PAID") === "FREE_EMAIL";
+                    const price = c.sale ? c.sale.priceCents : c.priceCents;
+                    return (
+                      <li key={c.id} className="cp-card flex items-center gap-3 p-4" data-moon-circle={c.slug}>
+                        <span aria-hidden className="text-[1.6rem] leading-none">
+                          {c.emoji || "🌙"}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <a href={`/${username}/${c.slug}`} className="block text-[0.92rem] font-semibold leading-snug underline-offset-4 hover:underline">
+                            {c.title}
+                          </a>
+                          {c.eventLabel && <span className="cp-muted block text-[0.78rem] leading-snug">{c.eventLabel}</span>}
+                          <span className="cp-gold block text-[0.78rem] font-semibold">
+                            {free || price === 0 ? "Gratis" : formatPrice(price, c.currency)}
+                            {c.sale && <span className="cp-faint font-normal line-through"> {formatPrice(c.sale.regularCents, c.currency)}</span>}
+                          </span>
+                        </span>
+                        <a href={free ? `/${username}/${c.slug}` : `/${username}/${c.slug}/checkout`} className="cp-btn shrink-0 !min-h-9 !px-3.5 !text-[0.8rem]" aria-label={`Apuntarme: ${c.title}`}>
+                          Apuntarme
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            );
+          }
         }
       })}
     </>

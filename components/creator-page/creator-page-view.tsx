@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, ExternalLink, Mail, MessageCircle, Moon, Plus, Quote } from "lucide-react";
+import { nextMoonCircles } from "@/lib/moon-circles";
 import { AccountEntry } from "./account-entry";
 import { ContentBlocks } from "./content-blocks";
 import { SiteNav, type SiteNavPage } from "./site-nav";
@@ -209,6 +210,7 @@ export function CreatorPageView(props: Props) {
               siteOrigin={props.siteOrigin}
               oracleDecks={props.oracleDecks}
               modelGate={personal && !preview ? { username, creatorName: config.displayName, privacyHref: creatorLegalHref(username, "privacidad") } : null}
+              moonCircles={nextMoonCircles(products)}
             />
           </section>
         );

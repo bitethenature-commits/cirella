@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { hiddenProductSlugs, SitePageView } from "@/components/creator-page/site-page-view";
 import { requireCreator } from "@/lib/auth";
 import { appUrl } from "@/lib/env";
+import { nextMoonCircles } from "@/lib/moon-circles";
 import { oracleDecksForBlocks } from "@/lib/oracle-decks";
 import { getPublicCreator } from "@/lib/public";
 import { isPersonalMode } from "@/lib/site-mode";
@@ -42,6 +43,7 @@ export default async function SitePagePreview({ params }: { params: Promise<{ id
         currentPath={sitePagePath(creator.username, page.slug, isPersonalMode())}
         back={false}
         oracleDecks={oracleDecks}
+        moonCircles={nextMoonCircles(data.products)}
       />
     </>
   );

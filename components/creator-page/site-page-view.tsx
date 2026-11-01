@@ -7,6 +7,7 @@ import type { OracleDecks } from "@/components/models/data/oracle";
 import { ContentBlocks } from "./content-blocks";
 import { CreatorShell } from "./creator-shell";
 import type { SiteNavPage } from "./site-nav";
+import type { PublicProduct } from "./creator-page-view";
 
 /**
  * Una página extra con el tema de la web (cabecera con «Volver», su avatar y su nombre; pie con las
@@ -26,6 +27,7 @@ export function SitePageView({
   currentPath,
   back = true,
   oracleDecks,
+  moonCircles,
 }: {
   username: string;
   config: Pick<PageConfig, "displayName" | "avatarUrl" | "template" | "theme">;
@@ -41,11 +43,13 @@ export function SitePageView({
   back?: boolean;
   /** Barajas propias de sus bloques «Oráculo» (lib/oracle-decks.ts → oracleDecksForBlocks). */
   oracleDecks?: OracleDecks;
+  /** Los próximos círculos de la luna (lib/moon-circles.ts) para su bloque; sin pasar, un aviso (vista previa). */
+  moonCircles?: PublicProduct[];
 }) {
   const cover = content.cover && isOwnImageSrc(content.cover.src) ? content.cover : null;
   return (
     <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back}>
-      <main className="relative mx-auto w-full max-w-[44rem] px-5 pb-10 pt-8">
+      <main className={`relative mx-auto w-full max-w-[44rem] px-5 pb-10 ${cover ? "pt-8" : "pt-10 sm:pt-16"}`} data-cover={cover ? "yes" : "no"}>
         {cover && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -60,8 +64,11 @@ export function SitePageView({
             className="mb-8 h-auto w-full rounded-[var(--r-card)]"
           />
         )}
+        {/* Sin imagen de cabecera: el nombre encima, como una portadilla, y una línea dorada debajo de la entradilla. */}
+        {!cover && <p className="cp-eyebrow cp-gold mb-4">{config.displayName}</p>}
         <h1 className="cp-display text-[2.4rem] leading-[1.05] sm:text-[3rem]">{content.title}</h1>
-        {content.subtitle && <p className="cp-muted mt-4 text-[1.05rem] leading-relaxed">{content.subtitle}</p>}
+        {content.subtitle && <p className="cp-muted mt-5 whitespace-pre-line text-[1.05rem] leading-relaxed sm:text-[1.1rem]">{content.subtitle}</p>}
+        {!cover && <span aria-hidden className="mt-8 block h-px w-20 bg-[var(--c-gold)] opacity-70" />}
         <div className="mt-10 space-y-6">
           <ContentBlocks
             blocks={visibleBlocks(content.blocks)}
@@ -71,6 +78,7 @@ export function SitePageView({
             siteOrigin={siteOrigin}
             oracleDecks={oracleDecks}
             modelGate={personal ? { username, creatorName: config.displayName, privacyHref: creatorLegalHref(username, "privacidad") } : null}
+            moonCircles={moonCircles}
           />
         </div>
       </main>

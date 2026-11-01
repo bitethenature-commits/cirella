@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useDeferredValue, useMemo, useState, useTransition } from "react";
 import { SitePageView } from "@/components/creator-page/site-page-view";
 import type { SiteNavPage } from "@/components/creator-page/site-nav";
+import type { PublicProduct } from "@/components/creator-page/creator-page-view";
 import { BlocksEditor, type BlocksUpdate } from "@/components/panel/blocks/blocks-editor";
 import type { LinkTarget } from "@/components/panel/blocks/link-input";
 import { useDesktop } from "@/components/panel/use-desktop";
@@ -42,6 +43,8 @@ type Props = {
   notice: string | null;
   /** Sus barajas de oráculo publicadas: el selector del bloque «Oráculo» y la vista previa. */
   oracleDecks: OracleDeckView[];
+  /** Los próximos círculos de la luna, para la vista previa de su bloque. */
+  moonCircles: PublicProduct[];
 };
 
 const TABS = [
@@ -115,9 +118,10 @@ export function SitePageEditor(props: Props) {
         pages={props.pages}
         back={false}
         oracleDecks={oracleDecks}
+        moonCircles={props.moonCircles}
       />
     ),
-    [shown, hidden, props.username, props.config, props.allowCustom, props.personal, props.signupsOnly, props.origin, props.pages, oracleDecks],
+    [shown, hidden, props.username, props.config, props.allowCustom, props.personal, props.signupsOnly, props.origin, props.pages, oracleDecks, props.moonCircles],
   );
 
   const actions = (small: boolean) => (
@@ -182,7 +186,7 @@ export function SitePageEditor(props: Props) {
                 </div>
                 <div>
                   <label htmlFor="sp-subtitle" className="field-label">Subtítulo (opcional)</label>
-                  <textarea id="sp-subtitle" className="input" rows={2} value={content.subtitle} maxLength={300} onChange={(e) => set("subtitle", e.target.value)} />
+                  <textarea id="sp-subtitle" className="input" rows={4} value={content.subtitle} maxLength={600} onChange={(e) => set("subtitle", e.target.value)} />
                 </div>
                 <div>
                   <span className="field-label">Imagen de cabecera (opcional)</span>

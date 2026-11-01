@@ -89,7 +89,39 @@ export function useShown<T extends Element>() {
  * hace falta, un pie (tablas de consulta, como las de la carta natal).
  * Siempre en una columna: la página es estrecha y así se lee igual en el teléfono.
  */
-export function ModelFrame({ toolbar, diagram, legend, panel, footer }: { toolbar?: ReactNode; diagram: ReactNode; legend?: ReactNode; panel: ReactNode; footer?: ReactNode }) {
+export function ModelFrame({
+  toolbar,
+  diagram,
+  legend,
+  panel,
+  footer,
+  compact,
+  summary,
+}: {
+  toolbar?: ReactNode;
+  diagram: ReactNode;
+  legend?: ReactNode;
+  panel: ReactNode;
+  footer?: ReactNode;
+  /**
+   * Versión rápida (páginas de los métodos): solo el dibujo, la leyenda y una o dos líneas sobre lo
+   * último que se tocó (`summary`). Sin botonera, sin panel largo y sin tablas.
+   */
+  compact?: boolean;
+  summary?: ReactNode;
+}) {
+  if (compact)
+    return (
+      <div data-compact="">
+        {diagram}
+        {legend && <div className="mt-4 flex justify-center text-center">{legend}</div>}
+        {summary && (
+          <div className="cp-line mx-auto mt-4 max-w-md border-t pt-4 text-center text-[0.88rem] leading-snug" aria-live="polite">
+            {summary}
+          </div>
+        )}
+      </div>
+    );
   return (
     <div>
       {toolbar && <div className="-mx-5 overflow-x-auto px-5 pb-1 scrollbar-none sm:-mx-7 sm:px-7">{toolbar}</div>}
@@ -128,6 +160,18 @@ export function PanelRow({ label, value }: { label: string; value: ReactNode }) 
     <div className="cp-line flex items-baseline justify-between gap-5 border-t py-3">
       <dt className="cp-eyebrow shrink-0 !text-[0.6rem]">{label}</dt>
       <dd className="text-right text-[0.86rem] leading-relaxed opacity-85">{value}</dd>
+    </div>
+  );
+}
+
+/** Resumen de una o dos líneas de la versión rápida: lo tocado en negrita y una frase. */
+export function CompactSummary({ title, text, tone }: { title: ReactNode; text?: ReactNode; tone?: string }) {
+  return (
+    <div className="cp-model-in">
+      <p className="cp-display text-[1.15rem] leading-snug" style={tone ? { color: tone } : undefined}>
+        {title}
+      </p>
+      {text && <p className="cp-muted mt-1 line-clamp-2 text-[0.84rem] leading-snug">{text}</p>}
     </div>
   );
 }

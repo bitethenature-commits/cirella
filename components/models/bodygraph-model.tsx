@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { CHANNEL_BAND, CHANNEL_PATHS, CHANNEL_PATH_BY_KEY, CENTRE_SHAPES, GATE_FONT, GATE_SLOTS, VIEWBOX } from "./data/bodygraph-layout";
 import { CENTRE_BY_ID, CHANNEL_BY_KEY, CHANNELS_OF_GATE, CIRCUIT_LABEL, EXAMPLE_CHARTS, GATES, GATE_BY_N, channelKey, readChart, type Centre, type Channel, type Gate } from "./data/human-design";
-import { GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelLink, PanelRow, SOFT, ToolButton, cn, tap } from "./model-kit";
+import { CompactSummary, GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelLink, PanelRow, SOFT, ToolButton, cn, tap } from "./model-kit";
 import type { BirthProfile, ComputedProfile } from "@/lib/birth-profile";
 import { useComputedProfile } from "./use-birth-profile";
 import { DEFINITION_ES, HD_BODIES, HD_BODY_ES, HD_BODY_GLYPH } from "@/lib/human-design-names";
@@ -55,7 +55,7 @@ const PATHS = [...CHANNEL_PATHS]
   .sort((p, q) => (p.z ?? 0) - (q.z ?? 0))
   .map((p) => ({ ...p, channel: CHANNEL_BY_KEY.get(p.key)! }));
 
-export function BodygraphModel({ profile, computed }: { profile?: BirthProfile; computed?: ComputedProfile } = {}) {
+export function BodygraphModel({ profile, computed, compact = false }: { profile?: BirthProfile; computed?: ComputedProfile; compact?: boolean } = {}) {
   const { result, pending } = useComputedProfile(profile, computed);
   if (pending)
     return (
@@ -63,10 +63,10 @@ export function BodygraphModel({ profile, computed }: { profile?: BirthProfile; 
         <span className="cp-faint text-[0.85rem]">Calculando…</span>
       </div>
     );
-  return <BodygraphView hd={result?.humanDesign ?? null} person={result?.profile} />;
+  return <BodygraphView hd={result?.humanDesign ?? null} person={result?.profile} compact={compact} />;
 }
 
-function BodygraphView({ hd, person }: { hd: HumanDesign | null; person?: BirthProfile }) {
+function BodygraphView({ hd, person, compact }: { hd: HumanDesign | null; person?: BirthProfile; compact?: boolean }) {
   const [manual, setActive] = useState<Set<number>>(() => new Set(EXAMPLE_CHARTS[0].gates));
   const active = hd ? hd.gates : manual;
   const [selection, setSelection] = useState<Selection>(null);
@@ -423,6 +423,57 @@ function BodygraphView({ hd, person }: { hd: HumanDesign | null; person?: BirthP
       </PanelBody>
     );
   })();
+
+  if (compact) {
+    const r = hd ? hd.reading : reading;
+    let summary: ReactNode;
+    if (!selection)
+      summary = (
+        <CompactSummary
+          key="idle"
+          title={
+            <>
+              {hd && person?.name ? `${person.name}: ` : ""}
+              {r.type}
+              {hd ? ` ${hd.profile.label}` : ""}
+            </>
+          }
+          text={`Estrategia: ${r.strategy} · Autoridad: ${r.authority}. Toca una puerta, un canal o un centro.`}
+        />
+      );
+    else if (selection.kind === "gate") {
+      const g = selection.gate;
+      const centre = CENTRE_BY_ID[g.centre];
+      summary = <CompactSummary key={`g${g.n}`} tone={centre.hue} title={`Puerta ${g.n} · ${g.name}`} text={`${centre.name} · ${active.has(g.n) ? "activada" : "sin activar"}. ${g.theme}`} />;
+    } else if (selection.kind === "channel") {
+      const ch = selection.channel;
+      summary = <CompactSummary key={`c${ch.a}-${ch.b}`} title={`Canal ${ch.a}–${ch.b} · ${ch.name}`} text={`${definedKeys.has(channelKey(ch.a, ch.b)) ? "Definido" : "Abierto"}. ${ch.gift}`} />;
+    } else {
+      const c = selection.centre;
+      summary = <CompactSummary key={`k${c.id}`} tone={c.hue} title={`${c.name} · ${reading.definedCentres.has(c.id) ? "definido" : "abierto"}`} text={c.role} />;
+    }
+    return (
+      <ModelFrame
+        compact
+        diagram={diagram}
+        legend={
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5">
+            {hd ? (
+              <>
+                <LegendDot color={INK} label="Consciente" />
+                <LegendDot color={DESIGN_RED} label="Inconsciente" />
+              </>
+            ) : (
+              <LegendDot color={GOLD} label="Canal definido" />
+            )}
+            <LegendDot color="#7FBB42" label="Centro definido" />
+          </div>
+        }
+        panel={null}
+        summary={summary}
+      />
+    );
+  }
 
   return (
     <ModelFrame

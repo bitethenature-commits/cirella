@@ -20,7 +20,7 @@ import {
 import type { BirthProfile, ComputedProfile } from "@/lib/birth-profile";
 import type { GeneKeysProfile } from "@/lib/human-design-calc";
 import { useComputedProfile } from "./use-birth-profile";
-import { BG, GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelRow, ToolButton, cn, tap, useShown } from "./model-kit";
+import { BG, CompactSummary, GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelRow, ToolButton, cn, tap, useShown } from "./model-kit";
 
 /**
  * El perfil hologenético dibujado como la carta de Gene Keys: once esferas sobre el Camino Dorado en sus
@@ -101,7 +101,7 @@ function FrequencyMark({ f, x, y }: { f: Frequency; x: number; y: number }) {
   );
 }
 
-export function GeneKeysModel({ profile, computed }: { profile?: BirthProfile; computed?: ComputedProfile } = {}) {
+export function GeneKeysModel({ profile, computed, compact = false }: { profile?: BirthProfile; computed?: ComputedProfile; compact?: boolean } = {}) {
   const { result, pending } = useComputedProfile(profile, computed);
   if (pending)
     return (
@@ -109,10 +109,10 @@ export function GeneKeysModel({ profile, computed }: { profile?: BirthProfile; c
         <span className="cp-faint text-[0.85rem]">Calculando…</span>
       </div>
     );
-  return <GeneKeysView calc={result?.geneKeys ?? null} person={result?.profile} />;
+  return <GeneKeysView calc={result?.geneKeys ?? null} person={result?.profile} compact={compact} />;
 }
 
-function GeneKeysView({ calc, person }: { calc: GeneKeysProfile | null; person?: BirthProfile }) {
+function GeneKeysView({ calc, person, compact }: { calc: GeneKeysProfile | null; person?: BirthProfile; compact?: boolean }) {
   const [manualKeys, setProfile] = useState<Record<string, number>>({ ...EXAMPLE_PROFILE });
   const profile = calc ? calc.keys : manualKeys;
   const lines = calc ? calc.lines : EXAMPLE_LINES;
@@ -401,6 +401,39 @@ function GeneKeysView({ calc, person }: { calc: GeneKeysProfile | null; person?:
       </div>
     </PanelBody>
   );
+
+  if (compact) {
+    const lw = KEY_BY_N.get(profile.lifework);
+    const summary = !selected ? (
+      <CompactSummary
+        key="idle"
+        title={lw ? `${calc && person?.name ? `${person.name} · ` : ""}${SPHERE_BY_ID.lifework?.name ?? "Obra de vida"}: llave ${keyLabel("lifework")} · ${lw.shadow} → ${lw.gift} → ${lw.siddhi}` : "Toca una esfera"}
+        text="Cada esfera lleva una llave con tres frecuencias: sombra, don y siddhi. Toca una para leerla."
+      />
+    ) : (
+      <CompactSummary
+        key={selected.id}
+        tone={SEQUENCE_BY_ID[selected.sequence].hue}
+        title={selectedKey ? `${selected.name} · llave ${keyLabel(selected.id)}: ${selectedKey.shadow} → ${selectedKey.gift} → ${selectedKey.siddhi}` : selected.name}
+        text={selected.meaning}
+      />
+    );
+    return (
+      <ModelFrame
+        compact
+        diagram={diagram}
+        legend={
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5">
+            {SEQUENCES.map((q) => (
+              <LegendDot key={q.id} color={q.hue} label={SHORT_NAME[q.id]} />
+            ))}
+          </div>
+        }
+        panel={null}
+        summary={summary}
+      />
+    );
+  }
 
   return (
     <ModelFrame

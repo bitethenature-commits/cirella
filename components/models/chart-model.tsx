@@ -39,7 +39,7 @@ import {
   type Element,
   type Modality,
 } from "./data/astrology";
-import { GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelLink, PanelRow, ToolButton, cn, describeArc, polar, tap, useShown } from "./model-kit";
+import { CompactSummary, GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelLink, PanelRow, ToolButton, cn, describeArc, polar, tap, useShown } from "./model-kit";
 
 /**
  * La carta natal de verdad: con la fecha, la hora y el lugar de nacimiento calcula (en el navegador, con
@@ -148,7 +148,7 @@ const profileBirth = (p: BirthProfile): BirthData => ({
  * `ownForm` false: sin «Calcular mi carta» propio (en las páginas de los métodos lo pone el candado de
  * components/models/model-gate.tsx, que pasa el perfil).
  */
-export function ChartModel({ profile, ownForm = true }: { profile?: BirthProfile; ownForm?: boolean } = {}) {
+export function ChartModel({ profile, ownForm = true, compact = false }: { profile?: BirthProfile; ownForm?: boolean; compact?: boolean } = {}) {
   const [ownBirth, setBirth] = useState<BirthData>(EXAMPLE);
   const [ownIsExample, setIsExample] = useState(true);
   const profileKey = profile ? JSON.stringify(profile) : "";
@@ -589,7 +589,7 @@ export function ChartModel({ profile, ownForm = true }: { profile?: BirthProfile
             {birth.timeKnown ? `, ${birth.time}` : ", hora desconocida"} · {birth.place.label}
             {birth.place.detail && birth.place.detail !== "Coordenadas" ? ` (${birth.place.detail})` : ""}
           </p>
-          <p className="cp-faint mt-0.5 text-[0.72rem]">
+          <p className={cn("cp-faint mt-0.5 text-[0.72rem]", compact && "hidden")}>
             {formatCoord(birth.place.lat, "lat")} {formatCoord(birth.place.lon, "lon")} · {birth.timeKnown ? `${formatOffset(resolved.offset)} · ` : ""}
             {resolved.utc.toISOString().slice(0, 16).replace("T", " ")} UTC
           </p>
@@ -624,7 +624,7 @@ export function ChartModel({ profile, ownForm = true }: { profile?: BirthProfile
         </div>
       )}
 
-      {notes.length > 0 && (
+      {notes.length > 0 && !compact && (
         <ul className="mt-4 space-y-2">
           {notes.map((n, i) => (
             <li
@@ -640,7 +640,7 @@ export function ChartModel({ profile, ownForm = true }: { profile?: BirthProfile
         </ul>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[0.8rem]">
+      <div className={cn("mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[0.8rem]", compact && "hidden")}>
         {angles && (
           <label className="flex items-center gap-2">
             <span className="cp-eyebrow !text-[0.58rem]">Casas</span>
@@ -1170,6 +1170,72 @@ export function ChartModel({ profile, ownForm = true }: { profile?: BirthProfile
       </p>
     </div>
   );
+
+  /* --------------------------------------------------- versión rápida */
+
+  const summary = (() => {
+    const pos = (lon: number) => `${glyph(signOf(lon).glyph)} ${SIGNS[signOf(lon).n].name}`;
+    if (!selection) {
+      const parts = [`Sol en ${pos(byId.get("sun")!.lon)}`, `Luna en ${pos(byId.get("moon")!.lon)}`];
+      if (angles) parts.push(`Ascendente en ${pos(angles.asc)}`);
+      return <CompactSummary key="idle" title={parts.join(" · ")} text="Sol, Luna y Ascendente: el triángulo que más se nota en el día a día." />;
+    }
+    switch (selection.kind) {
+      case "sign": {
+        const s = SIGNS[selection.n];
+        return <CompactSummary key={`s${s.n}`} tone={ELEMENT_HUE[s.element]} title={`${glyph(s.glyph)} ${s.name} · «${s.keyword}»`} text={s.meaning} />;
+      }
+      case "house": {
+        const h = HOUSES[selection.n - 1];
+        return <CompactSummary key={`h${h.n}`} title={`${h.name} · ${h.keyword}`} text={h.meaning} />;
+      }
+      case "body": {
+        const b = byId.get(selection.id);
+        if (!b) return null;
+        const info = BODY_INFO[b.id];
+        return (
+          <CompactSummary
+            key={`b${b.id}`}
+            title={`${glyph(info.glyph)} ${info.name} en ${fmtPos(b.lon)}${b.house ? ` · casa ${b.house}` : ""}${b.retro ? " ℞" : ""}`}
+            text={info.keyword}
+          />
+        );
+      }
+      case "angle": {
+        if (!angles) return null;
+        const a = ANGLE_INFO[selection.id];
+        return <CompactSummary key={`a${selection.id}`} title={`${a.name} en ${fmtPos(angles[selection.id])}`} text={a.keyword} />;
+      }
+      case "aspect": {
+        const asp = aspects.find((x) => sameAspect(x, selection.a, selection.b));
+        if (!asp) return null;
+        const t = ASPECT_BY_ID[asp.type];
+        return <CompactSummary key={`x${asp.a}${asp.b}`} tone={t.color} title={`${pointName(asp.a)} ${t.name.toLowerCase()} ${pointName(asp.b)} · ${fmtOrb(asp.orb)}`} text={t.nature} />;
+      }
+    }
+  })();
+
+  if (compact)
+    return (
+      <ModelFrame
+        compact
+        diagram={
+          <div>
+            {header}
+            <div className="mt-5">{wheel}</div>
+          </div>
+        }
+        legend={
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5">
+            {(["Fuego", "Tierra", "Aire", "Agua"] as const).map((el) => (
+              <LegendDot key={el} color={ELEMENT_HUE[el]} label={el} />
+            ))}
+          </div>
+        }
+        panel={null}
+        summary={summary}
+      />
+    );
 
   return (
     <ModelFrame

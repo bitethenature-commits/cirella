@@ -7,6 +7,7 @@ import { appUrl } from "@/lib/env";
 import { richToPlain } from "@/lib/rich-text";
 import type { SitePageContent } from "@/lib/site-pages";
 import { getPublicSitePage } from "@/lib/site-pages.server";
+import { nextMoonCircles } from "@/lib/moon-circles";
 import { oracleDecksForBlocks } from "@/lib/oracle-decks";
 
 type Params = { username: string; slug: string };
@@ -75,6 +76,7 @@ export default async function SitePagePublic({ params }: { params: Promise<Param
         pages={data.pages}
         currentPath={path}
         oracleDecks={oracleDecks}
+        moonCircles={nextMoonCircles(data.products)}
       />
       <TrackOnMount creatorId={data.creator.id} type="PAGE_VIEW" />
       <Reveal />

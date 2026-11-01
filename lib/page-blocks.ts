@@ -26,7 +26,7 @@ export const PAGE_VIDEO_MAX = 1024 ** 3;
 /** La URL firmada a la que redirige /media/video/… vale 12 h (la redirección se cachea 10 min). */
 export const PAGE_VIDEO_URL_TTL_SEC = 43200;
 
-export const BLOCK_KINDS = ["text", "image", "gallery", "video", "photoText", "cards", "quote", "timeline", "model"] as const;
+export const BLOCK_KINDS = ["text", "image", "gallery", "video", "photoText", "cards", "quote", "timeline", "model", "pills", "moonCircles"] as const;
 export type BlockKind = (typeof BLOCK_KINDS)[number];
 
 export const BLOCK_LABEL: Record<BlockKind, string> = {
@@ -39,7 +39,18 @@ export const BLOCK_LABEL: Record<BlockKind, string> = {
   quote: "Cita",
   timeline: "Trayectoria",
   model: "Modelo interactivo",
+  pills: "Enlaces en burbuja",
+  moonCircles: "Próximos círculos de la luna",
 };
+
+/** Burbujas de un bloque «Enlaces en burbuja». */
+export const PILLS_MIN = 1;
+export const PILLS_MAX = 4;
+/** Modelos que tienen versión rápida (solo el dibujo) y «Calcular con mis datos». */
+export const QUICK_MODELS = ["chart", "bodygraph", "geneKeys", "lunar"] as const;
+export function hasQuickVersion(m: ModelKind): m is (typeof QUICK_MODELS)[number] {
+  return (QUICK_MODELS as readonly string[]).includes(m);
+}
 
 /** Modelos del bloque «Modelo interactivo» (components/models). */
 export const MODEL_KINDS = ["chart", "bodygraph", "geneKeys", "lunar", "runes", "oracle", "geometry"] as const;
@@ -260,6 +271,37 @@ const modelBlockShape = z.object({
    * baraja deja de estar publicada o se borra, también la de serie (lib/oracle-decks.ts).
    */
   deck: z.string().regex(ORACLE_DECK_ID_RE).optional().catch(undefined),
+  /**
+   * «Versión rápida» (carta natal, bodygraph, Gene Keys y Luna): solo el dibujo con lo mínimo, sin
+   * paneles largos ni tablas; «Calcular con mis datos» va debajo de la caja. La versión completa vive
+   * en «Mi energía» del área de alumnas. Ausente = la de siempre.
+   */
+  quick: z.boolean().optional().catch(undefined),
+});
+
+export const pillLinkSchema = z.object({
+  label: shortText(60).default(""),
+  href: shortText(500).default(""),
+});
+export type PillLink = z.infer<typeof pillLinkSchema>;
+
+/** «Enlaces en burbuja»: de 1 a 4 píldoras alargadas que llevan a otras páginas (comunidad, lecturas, cursos…). */
+const pillsBlockShape = z.object({
+  ...base,
+  kind: z.literal("pills"),
+  title: shortText(80).default(""),
+  items: z.array(pillLinkSchema).max(PILLS_MAX, `Máximo ${PILLS_MAX} burbujas por bloque`).default([]),
+});
+
+/**
+ * «Próximos círculos de la luna»: tarjetas pequeñas con los dos próximos círculos publicados (uno de
+ * luna nueva y otro de luna llena), elegidos solos cada vez que se pinta la página: no hay que tocarlo
+ * cuando pasa una luna.
+ */
+const moonCirclesBlockShape = z.object({
+  ...base,
+  kind: z.literal("moonCircles"),
+  title: shortText(80).default(""),
 });
 
 export type TextBlock = z.infer<ReturnType<typeof textBlockShape>>;
@@ -271,7 +313,9 @@ export type CardsBlock = z.infer<typeof cardsBlockShape>;
 export type QuoteBlock = z.infer<typeof quoteBlockShape>;
 export type TimelineBlock = z.infer<typeof timelineBlockShape>;
 export type ModelBlock = z.infer<typeof modelBlockShape>;
-export type ContentBlock = TextBlock | ImageBlock | GalleryBlock | VideoBlock | PhotoTextBlock | CardsBlock | QuoteBlock | TimelineBlock | ModelBlock;
+export type PillsBlock = z.infer<typeof pillsBlockShape>;
+export type MoonCirclesBlock = z.infer<typeof moonCirclesBlockShape>;
+export type ContentBlock = TextBlock | ImageBlock | GalleryBlock | VideoBlock | PhotoTextBlock | CardsBlock | QuoteBlock | TimelineBlock | ModelBlock | PillsBlock | MoonCirclesBlock;
 
 /** Un bloque de antes (sin `kind`) es un bloque de texto. */
 function withKind(raw: unknown): unknown {
@@ -294,6 +338,8 @@ export function contentBlockSchema(o: { bodyMax: number }) {
         quoteBlockShape,
         timelineBlockShape,
         modelBlockShape,
+        pillsBlockShape,
+        moonCirclesBlockShape,
       ]).superRefine((b, ctx) => {
       const issue = (message: string) => ctx.addIssue({ code: "custom", message });
       switch (b.kind) {
@@ -329,6 +375,11 @@ export function contentBlockSchema(o: { bodyMax: number }) {
         case "timeline":
           if (!b.items.length) issue("Añade al menos un hito a la trayectoria");
           if (b.items.some((i) => !i.title)) issue("Cada hito de la trayectoria necesita un título");
+          break;
+        case "pills":
+          if (b.items.length < PILLS_MIN) issue("Añade al menos una burbuja al bloque «Enlaces en burbuja»");
+          if (b.items.some((i) => !i.label)) issue("Cada burbuja necesita su texto");
+          if (b.items.some((i) => !i.href)) issue("Cada burbuja necesita su enlace");
           break;
       }
     }),
@@ -371,7 +422,10 @@ export function visibleBlocks(blocks: ContentBlock[] | undefined): ContentBlock[
         return !!b.text.trim();
       case "timeline":
         return b.items.length > 0;
+      case "pills":
+        return b.items.some((i) => i.label.trim() && i.href.trim());
       case "model":
+      case "moonCircles":
         return true;
     }
   });
@@ -396,8 +450,11 @@ export function isEmptyBlock(b: ContentBlock): boolean {
       return !(b.text.trim() || b.author?.trim());
     case "timeline":
       return !(b.title.trim() || b.items.some((i) => i.label.trim() || i.title.trim() || i.text.trim()));
-    // Un modelo siempre tiene algo que enseñar, aunque no lleve título.
+    case "pills":
+      return !(b.title.trim() || b.items.some((i) => i.label.trim() || i.href.trim()));
+    // Un modelo (y los círculos, que se eligen solos) siempre tiene algo que enseñar, aunque no lleve título.
     case "model":
+    case "moonCircles":
       return false;
   }
 }
@@ -411,6 +468,7 @@ export function withoutEmptyBlocks(blocks: ContentBlock[]): ContentBlock[] {
     .map((b): ContentBlock => {
       if (b.kind === "cards") return { ...b, cards: b.cards.filter((c) => c.image || c.title.trim() || c.text.trim() || c.href?.trim()) };
       if (b.kind === "timeline") return { ...b, items: b.items.filter((i) => i.label.trim() || i.title.trim() || i.text.trim()) };
+      if (b.kind === "pills") return { ...b, items: b.items.filter((i) => i.label.trim() || i.href.trim()) };
       return b;
     })
     .filter((b) => !isEmptyBlock(b));
@@ -435,9 +493,15 @@ export function newBlock(kind: BlockKind, id: string): ContentBlock {
     case "timeline":
       return { id, kind, title: "", items: [newTimelineItem()], enabled: true };
     case "model":
-      return { id, kind, model: "chart", title: "", intro: "", figure: "enneagram", enabled: true };
+      return { id, kind, model: "chart", title: "", intro: "", figure: "enneagram", quick: true, enabled: true };
+    case "pills":
+      return { id, kind, title: "", items: [newPill()], enabled: true };
+    case "moonCircles":
+      return { id, kind, title: "", enabled: true };
   }
 }
+
+export const newPill = (): PillLink => ({ label: "", href: "" });
 
 export const newCard = (): BlockCard => ({ image: null, title: "", text: "" });
 export const newTimelineItem = (): TimelineItem => ({ label: "", title: "", text: "" });

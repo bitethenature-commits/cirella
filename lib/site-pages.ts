@@ -20,7 +20,7 @@ const shortText = (max: number) => z.string().trim().max(max, `Máximo ${max} ca
 
 export const sitePageContentSchema = z.object({
   title: shortText(SITE_PAGE_TITLE_MAX).min(1, "Escribe el título de la página"),
-  subtitle: shortText(300).default(""),
+  subtitle: shortText(600).default(""),
   /** Imagen de cabecera (también la de redes si la hay). */
   cover: pageImageSchema.nullable().default(null),
   blocks: z.array(pageBlockSchema).max(PAGE_BLOCKS_MAX, `Máximo ${PAGE_BLOCKS_MAX} bloques`).default([]),

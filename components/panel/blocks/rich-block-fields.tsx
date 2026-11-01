@@ -8,7 +8,10 @@ import {
   GEOMETRY_LABEL,
   MODEL_KINDS,
   MODEL_LABEL,
+  PILLS_MAX,
+  hasQuickVersion,
   newCard,
+  newPill,
   newTimelineItem,
   TIMELINE_MAX,
   type BlockCard,
@@ -16,7 +19,10 @@ import {
   type GeometryFigure,
   type ModelBlock,
   type ModelKind,
+  type MoonCirclesBlock,
   type PageImage,
+  type PillLink,
+  type PillsBlock,
   type PhotoTextBlock,
   type QuoteBlock,
   type TimelineBlock,
@@ -25,7 +31,8 @@ import {
 import { LinkInput, type LinkTarget } from "./link-input";
 
 /**
- * Campos de los bloques «Foto y texto», «Tarjetas», «Cita», «Trayectoria» y «Modelo interactivo» (editor de bloques).
+ * Campos de los bloques «Foto y texto», «Tarjetas», «Cita», «Trayectoria», «Modelo interactivo», «Enlaces en
+ * burbuja» y «Próximos círculos de la luna» (editor de bloques).
  * Mismo aspecto que los demás: campos de 40 px, flechas para ordenar y «Añadir…» al final.
  * Los cambios llegan como función (bloque de ahora → siguiente): una foto que acaba de subir no pisa
  * lo escrito mientras en otra tarjeta.
@@ -258,7 +265,65 @@ export function ModelBlockFields({ block: b, oracleDecks = [], onUpdate }: { blo
         maxLength={600}
         onChange={(e) => onPatch({ intro: e.target.value })}
       />
+      {hasQuickVersion(b.model) && (
+        <label className="flex min-h-10 cursor-pointer items-start gap-2.5 text-sm">
+          <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#0E1024]" checked={!!b.quick} onChange={(e) => onPatch({ quick: e.target.checked })} />
+          <span>
+            <span className="font-semibold">Versión rápida</span>
+            <span className="field-hint block">Solo el dibujo, con lo justo para tocarlo, y «Calcular con mis datos» debajo. La versión completa está en «Mi energía» del área de alumnas.</span>
+          </span>
+        </label>
+      )}
       <p className="field-hint">{geometry ? "Una figura dibujada a trazo fino detrás de tu frase. Es decorativa." : "Tus visitantes lo tocan y se explica solo. En el móvil también se ve entero."}</p>
+    </>
+  );
+}
+
+/** «Enlaces en burbuja»: de 1 a 4 píldoras (texto y enlace) hacia otras páginas. */
+export function PillsBlockFields({ block: b, linkTargets, onUpdate }: { block: PillsBlock; linkTargets: LinkTarget[]; onUpdate: Update<PillsBlock> }) {
+  const onPatch = (p: Partial<PillsBlock>) => onUpdate((x) => ({ ...x, ...p }));
+  const setItems = (fn: (items: PillLink[]) => PillLink[]) => onUpdate((x) => ({ ...x, items: fn(x.items) }));
+  const setItem = (i: number, p: Partial<PillLink>) => setItems((items) => items.map((x, n) => (n === i ? { ...x, ...p } : x)));
+  return (
+    <>
+      <input className="input h-10 text-sm font-semibold" placeholder="Título (opcional, p. ej. Para seguir)" aria-label="Título del bloque de burbujas" value={b.title} maxLength={80} onChange={(e) => onPatch({ title: e.target.value })} />
+      <ol className="space-y-2">
+        {b.items.map((it, i) => (
+          <li key={i} className="space-y-2 rounded-xl border border-line p-2.5" data-pill-editor>
+            <div className="flex items-center gap-1">
+              <input className="input h-10 min-w-0 flex-1 text-sm font-semibold" placeholder="Texto (p. ej. La comunidad)" aria-label="Texto de la burbuja" value={it.label} maxLength={60} onChange={(e) => setItem(i, { label: e.target.value })} />
+              <ItemControls i={i} count={b.items.length} noun="burbuja" onMove={(dir) => setItems((items) => moved(items, i, dir))} onRemove={() => setItems((items) => items.filter((_, n) => n !== i))} />
+            </div>
+            <LinkInput value={it.href} onChange={(v) => setItem(i, { href: v })} ariaLabel="Enlace de la burbuja" placeholder="Enlace (elige una de tus páginas)" targets={linkTargets} />
+          </li>
+        ))}
+      </ol>
+      <button type="button" onClick={() => setItems((items) => (items.length >= PILLS_MAX ? items : [...items, newPill()]))} disabled={b.items.length >= PILLS_MAX} className="btn btn-outline btn-sm h-10">
+        <Plus className="h-4 w-4" /> Añadir burbuja
+      </button>
+      <p className="field-hint">De 1 a {PILLS_MAX} burbujas alargadas, centradas. Para llevar a la comunidad, a tus lecturas o a tus cursos (con #astrologia, #human_design… al final del enlace de Cursos, abre ese método).</p>
+    </>
+  );
+}
+
+/** «Próximos círculos de la luna»: solo un título; los círculos se eligen solos. */
+export function MoonCirclesBlockFields({ block: b, onUpdate }: { block: MoonCirclesBlock; onUpdate: Update<MoonCirclesBlock> }) {
+  return (
+    <>
+      <input
+        className="input h-10 text-sm font-semibold"
+        placeholder="Título (opcional, p. ej. Los próximos círculos)"
+        aria-label="Título de los círculos"
+        value={b.title}
+        maxLength={80}
+        onChange={(e) => {
+          const title = e.target.value;
+          onUpdate((x) => ({ ...x, title }));
+        }}
+      />
+      <p className="field-hint">
+        Salen solos los dos próximos círculos de la luna que tengas publicados (uno de luna nueva y otro de luna llena), con su fecha, la hora de España, el precio y «Apuntarme». Cuando pasa una luna, se cambia sin que tengas que tocar nada. Un taller es círculo si lo marcas así en Productos.
+      </p>
     </>
   );
 }

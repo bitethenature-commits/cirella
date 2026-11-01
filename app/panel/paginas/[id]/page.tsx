@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { hiddenProductSlugs } from "@/components/creator-page/site-page-view";
 import { requireCreator } from "@/lib/auth";
 import { appHost, appUrl } from "@/lib/env";
+import { nextMoonCircles } from "@/lib/moon-circles";
 import { getPublishedOracleDecks } from "@/lib/oracle-decks";
 import { getPublicCreator } from "@/lib/public";
 import { isPersonalMode } from "@/lib/site-mode";
@@ -45,6 +46,7 @@ export default async function EditSitePage({ params, searchParams }: { params: P
       pages={data.pages}
       notice={sp.despublicada ? "Página despublicada: su dirección ya no se ve" : null}
       oracleDecks={oracleDecks}
+      moonCircles={nextMoonCircles(data.products)}
     />
   );
 }

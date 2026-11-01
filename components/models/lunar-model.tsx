@@ -10,7 +10,7 @@ import { loadCities, searchCities, toPlace, type CityIndex, type Place } from ".
 import { BODY_INFO, ELEMENT_HUE, SIGNS, bodyInSignText } from "./data/astrology";
 import { EIGHT_PHASES, FULL_MOON_IN_SIGN, MOON_IN_SIGN, NATAL_PHASE, NEW_MOON_IN_SIGN, PHASE_GUIDANCE, meanMoonLongitude, meanSunLongitude, moonPhase, phaseName, type MoonPhaseName } from "./data/moon";
 import { MoonDisc } from "./moon-disc";
-import { GOLD, INK, ModelFrame, PanelBody, PanelHeading, PanelRow, RangeField, ToolButton, cn, usePrefersReducedMotion } from "./model-kit";
+import { CompactSummary, GOLD, INK, ModelFrame, PanelBody, PanelHeading, PanelRow, RangeField, ToolButton, cn, usePrefersReducedMotion } from "./model-kit";
 
 /**
  * El ciclo lunar: la geometría Sol–Tierra–Luna dentro del zodiaco, el instante elegido explicado, el mes
@@ -261,7 +261,7 @@ function CityPicker({ value, onChange }: { value: Place; onChange: (p: Place) =>
  * -------------------------------------------------------------------------- */
 
 /** `ownForm` false: sin «Calcular mi luna» propio (lo pone el candado de model-gate.tsx, que pasa el perfil). */
-export function LunarModel({ profile, ownForm = true }: { profile?: BirthProfile; ownForm?: boolean } = {}) {
+export function LunarModel({ profile, ownForm = true, compact = false }: { profile?: BirthProfile; ownForm?: boolean; compact?: boolean } = {}) {
   const now = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => dateKeyInTz(now, TZ), [now]);
   const [lib, setLib] = useState<SkyLib | null>(null);
@@ -614,7 +614,7 @@ export function LunarModel({ profile, ownForm = true }: { profile?: BirthProfile
             setAt(timeAt(lib, (v / 1000) * 360, anchor));
           }}
         />
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className={cn("mt-3 flex flex-wrap gap-2", compact && "hidden")}>
           <ToolButton onClick={() => setMoment(new Date(at.getTime() - DAY))} title="Un día antes">
             − 1 día
           </ToolButton>
@@ -1062,6 +1062,24 @@ export function LunarModel({ profile, ownForm = true }: { profile?: BirthProfile
       </p>
     </section>
   );
+
+  if (compact) {
+    const natalLine = natal ? `Luna natal${natal.birth.name ? ` de ${natal.birth.name}` : ""}: ${EIGHT_PHASES[natal.moon.phase]} en ${SIGNS[signOf(natal.moon.moonLon)].name}.` : null;
+    return (
+      <ModelFrame
+        compact
+        diagram={diagram}
+        panel={null}
+        summary={
+          <CompactSummary
+            key={name}
+            title={`${name} · ${Math.round(st.illum * 100)} % iluminada`}
+            text={natalLine ?? (nextMain ? `Siguiente fase exacta: ${phaseOf(nextMain.k)}, ${when(nextMain.at)} (hora de España).` : guidance.intent)}
+          />
+        }
+      />
+    );
+  }
 
   return (
     <ModelFrame
