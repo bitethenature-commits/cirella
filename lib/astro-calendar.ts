@@ -6,8 +6,8 @@
  *
  *   · Posiciones geocéntricas, eclíptica verdadera de la fecha (zodiaco tropical), con aberración.
  *   · Cuerpos: el Sol, la Luna y los planetas (astronomy-engine); Quirón, Ceres, Palas, Juno, Vesta y
- *     Eris (tablas de JPL Horizons de 2000 a 2050 en lib/astro-tables.ts, interpoladas; fuera de esos
- *     años no salen); y dos puntos medios con las fórmulas de Meeus (Astronomical Algorithms, 2.ª ed.,
+ *     Eris (tablas de JPL Horizons en lib/astro-tables.ts, interpoladas: Quirón de 1900 a 2050, para las
+ *     cartas natales, y los demás de 2000 a 2050; fuera de esos años no salen); y dos puntos medios con las fórmulas de Meeus (Astronomical Algorithms, 2.ª ed.,
  *     cap. 47): el Nodo Norte medio y Lilith (Luna Negra media = apogeo medio = perigeo medio + 180°).
  *     El Nodo Sur (Nodo Norte + 180°) solo sale en las posiciones del día: sus conjunciones serían las
  *     oposiciones al Nodo Norte.
@@ -120,7 +120,7 @@ function tableLons(body: TableBody) {
   return t;
 }
 
-/** Cuerpo de tabla interpolado (Lagrange de 4 puntos); NaN fuera de la tabla (2000–2050). */
+/** Cuerpo de tabla interpolado (Lagrange de 4 puntos); NaN fuera de la tabla (Quirón 1900–2050, el resto 2000–2050). */
 export function tableLongitude(body: TableBody, at: Date) {
   const t = tableLons(body);
   const { start, stepDays } = BODY_TABLES[body];

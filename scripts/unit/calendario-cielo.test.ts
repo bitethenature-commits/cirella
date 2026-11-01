@@ -226,7 +226,7 @@ test("Estaciones de Mercurio en 2026: retrógrado 26-2, 29-6 y 24-10; directo 20
   ok(isRetro("Mercury", new Date("2026-11-01T12:00Z")) && !isRetro("Mercury", new Date("2026-12-01T12:00Z")));
 });
 
-test("Quirón: tabla de Horizons interpolada (± 0,005°) y NaN fuera de 2000–2050", () => {
+test("Quirón: tabla de Horizons interpolada (± 0,005°) y NaN fuera de 1900–2050", () => {
   for (const [at, want] of [["2026-10-25T12:00:00Z", 28.3749946], ["2010-06-01T07:00:00Z", 330.9864848], ["2035-03-07T19:00:00Z", 61.8005266]] as const) {
     const got = chironLongitude(new Date(at));
     ok(Math.abs(got - want) < 0.005, `Quirón ${at}: ${got} (esperado ${want})`);

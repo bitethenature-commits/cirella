@@ -2,16 +2,18 @@
  * Genera lib/astro-tables.ts: la longitud de Quirón, Ceres, Palas, Juno, Vesta y Eris a partir de
  * tablas de JPL Horizons. Solo se usa para regenerarla; la aplicación nunca consulta Horizons.
  *
- *   for b in "2060:chiron:2d" "1:ceres:1d" "2:pallas:1d" "3:juno:1d" "4:vesta:1d" "136199:eris:7d"; do
- *     IFS=: read id name step <<< "$b"
+ *   for b in "2060:chiron:2d:1899-12-01" "1:ceres:1d:2000-01-01" "2:pallas:1d:2000-01-01" "3:juno:1d:2000-01-01" \
+ *            "4:vesta:1d:2000-01-01" "136199:eris:7d:2000-01-01"; do
+ *     IFS=: read id name step start <<< "$b"
  *     curl -sS "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND='${id}%3B'&CENTER='500@399'\
- *   &EPHEM_TYPE=OBSERVER&START_TIME='2000-01-01'&STOP_TIME='2051-01-01'&STEP_SIZE='${step}'&QUANTITIES='31'\
+ *   &EPHEM_TYPE=OBSERVER&START_TIME='${start}'&STOP_TIME='2051-01-01'&STEP_SIZE='${step}'&QUANTITIES='31'\
  *   &MAKE_EPHEM=YES&OBJ_DATA=NO&CSV_FORMAT=YES" > "$DIR/$name.txt"
  *   done
  *   npx tsx scripts/gen-body-tables.ts "$DIR"
  *
  * Los asteroides se piden cada día y se guarda uno de cada dos (cada 2 días): interpolando, el
  * día del medio sale a menos de 0,0002° del de Horizons. Quirón va cada 2 días y Eris, cada 7.
+ * Quirón empieza en 1899 (las cartas natales lo piden desde 1900); los demás, en 2000 (el calendario).
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
