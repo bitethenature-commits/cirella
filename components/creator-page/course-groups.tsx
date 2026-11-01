@@ -32,7 +32,7 @@ export function CourseGroups({ groups }: { groups: CourseGroupView[] }) {
           name="metodos"
           open={groups.length === 1 || undefined}
           data-course-group={g.key}
-          className="cp-card group scroll-mt-20 overflow-hidden rounded-2xl border"
+          className="cp-card group scroll-mt-20 rounded-2xl border"
         >
           <summary className="flex cursor-pointer list-none items-center gap-4 px-4 py-3.5 sm:px-5 [&::-webkit-details-marker]:hidden">
             <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-[color-mix(in_oklab,var(--c-gold)_55%,transparent)]">
@@ -55,7 +55,7 @@ export function CourseGroups({ groups }: { groups: CourseGroupView[] }) {
             </span>
             <ChevronDown aria-hidden className="h-5 w-5 shrink-0 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
           </summary>
-          <div className="px-4 pb-5 sm:px-5 sm:pb-6">
+          <div className="px-4 pb-5 pt-2 sm:px-5 sm:pb-6">
             <div className="grid gap-4 sm:grid-cols-2">{g.cards}</div>
           </div>
         </details>
