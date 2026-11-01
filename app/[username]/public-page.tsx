@@ -4,6 +4,7 @@ import { CreatorPageView } from "@/components/creator-page/creator-page-view";
 import { TrackOnMount } from "@/components/creator-page/tracking";
 import { Reveal } from "@/components/reveal";
 import { appUrl } from "@/lib/env";
+import { oracleDecksForBlocks } from "@/lib/oracle-decks";
 import { getPublicCreator } from "@/lib/public";
 import { isPublicUsernameAllowed } from "@/lib/personal-routing";
 import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
@@ -62,6 +63,8 @@ export async function CreatorPublicPage({ username }: { username: string }) {
 
   const { creator, config, products } = data;
   const personal = isPersonalMode();
+  // Las barajas propias de sus bloques «Oráculo» (la de serie no necesita nada).
+  const oracleDecks = await oracleDecksForBlocks(creator.id, config.blocks ?? []);
   const url = creatorPageUrl(creator.username);
   const jsonLd = {
     "@context": "https://schema.org",
@@ -101,6 +104,7 @@ export async function CreatorPublicPage({ username }: { username: string }) {
         signupsOnly={data.signupsOnly}
         siteOrigin={appUrl()}
         pages={data.pages}
+        oracleDecks={oracleDecks}
       />
       {/* Las visitas de la propia creadora se descartan en /api/track; las de ?embed=1, en el navegador. */}
       <TrackOnMount creatorId={creator.id} type="PAGE_VIEW" />

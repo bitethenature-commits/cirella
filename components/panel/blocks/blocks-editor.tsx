@@ -23,7 +23,7 @@ import {
 import { LinkInput, type LinkTarget } from "./link-input";
 import { ImageBlockFields } from "./image-block-fields";
 import { VideoBlockFields } from "./video-block-fields";
-import { CardsBlockFields, ModelBlockFields, PhotoTextBlockFields, QuoteBlockFields, TimelineBlockFields } from "./rich-block-fields";
+import { CardsBlockFields, ModelBlockFields, PhotoTextBlockFields, QuoteBlockFields, TimelineBlockFields, type OracleDeckOption } from "./rich-block-fields";
 
 /**
  * Editor de bloques compartido por «Mi página» (portada) y las páginas extra, pensado para el
@@ -58,6 +58,7 @@ export function BlocksEditor({
   bodyMax,
   max,
   onUploadingChange,
+  oracleDecks = [],
 }: {
   blocks: ContentBlock[];
   onChange: (next: BlocksUpdate) => void;
@@ -67,6 +68,8 @@ export function BlocksEditor({
   bodyMax: number;
   max: number;
   onUploadingChange?: (uploading: boolean) => void;
+  /** Sus barajas de oráculo publicadas (Panel → Barajas), para elegir la del bloque «Oráculo». */
+  oracleDecks?: OracleDeckOption[];
 }) {
   const [status, setStatusMap] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -189,7 +192,7 @@ export function BlocksEditor({
             {b.kind === "cards" && <CardsBlockFields block={b} linkTargets={linkTargets} onUpdate={(fn) => update<CardsBlock>(b.id, fn)} />}
             {b.kind === "quote" && <QuoteBlockFields block={b} onUpdate={(fn) => update<QuoteBlock>(b.id, fn)} />}
             {b.kind === "timeline" && <TimelineBlockFields block={b} onUpdate={(fn) => update<TimelineBlock>(b.id, fn)} />}
-            {b.kind === "model" && <ModelBlockFields block={b} onUpdate={(fn) => update<ModelBlock>(b.id, fn)} />}
+            {b.kind === "model" && <ModelBlockFields block={b} oracleDecks={oracleDecks} onUpdate={(fn) => update<ModelBlock>(b.id, fn)} />}
             {errors[b.id] && <p className="text-xs text-rose" role="alert">{errors[b.id]}</p>}
           </div>
         );

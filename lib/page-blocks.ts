@@ -53,6 +53,8 @@ export const MODEL_LABEL: Record<ModelKind, string> = {
   oracle: "Oráculo",
   geometry: "Filosofía · geometría sagrada",
 };
+/** Id de una baraja de oráculo propia (cuid) en el bloque «Oráculo». */
+export const ORACLE_DECK_ID_RE = /^[a-z0-9]{8,40}$/;
 /** Figura de la geometría sagrada (solo el modelo «geometry»: ornamento detrás de una frase). */
 export const GEOMETRY_FIGURES = ["enneagram", "metatron", "flower", "vesica", "torus"] as const;
 export type GeometryFigure = (typeof GEOMETRY_FIGURES)[number];
@@ -253,6 +255,11 @@ const modelBlockShape = z.object({
   title: shortText(120).default(""),
   intro: shortText(600).default(""),
   figure: z.enum(GEOMETRY_FIGURES).catch("enneagram").default("enneagram"),
+  /**
+   * Solo el oráculo: id de una de sus barajas propias (Panel → Barajas). Sin él, la de serie. Si la
+   * baraja deja de estar publicada o se borra, también la de serie (lib/oracle-decks.ts).
+   */
+  deck: z.string().regex(ORACLE_DECK_ID_RE).optional().catch(undefined),
 });
 
 export type TextBlock = z.infer<ReturnType<typeof textBlockShape>>;

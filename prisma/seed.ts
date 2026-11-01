@@ -37,6 +37,7 @@ import { newsletterConsentText } from "../lib/newsletter-rules";
 import { formatLegalAddress } from "../lib/legal";
 import { randomBytes } from "node:crypto";
 import { pageVideoUrl, type ContentBlock, type ModelKind, type PageImage } from "../lib/page-blocks";
+import { ORACLE_CARDS, ORACLE_NAME } from "../components/models/data/oracle";
 import { type SitePageContent } from "../lib/site-pages";
 import { mimeFromExt, privateKey, storage } from "../lib/storage";
 import { legacyLessonColumns } from "../lib/lesson-parts";
@@ -226,9 +227,9 @@ const ANA_SYSTEMS: AnaSystem[] = [
  * «Mi energía»: la antigua página «Filosofía» contada por Ana. Todo son bloques que ella puede editar:
  * la frase sobre la geometría sagrada (modelo «geometry»), por qué esta parte, los cinco principios
  * (una trayectoria numerada I–V), el ensayo de sus cuadernos (texto con formato) y, para jugar, una tirada
- * de runas y su oráculo de la luna (modelos «runes» y «oracle»).
+ * de runas y su oráculo de la luna (modelos «runes» y «oracle»; el oráculo, con su baraja de la BD).
  */
-function anaEnergyBlocks(): ContentBlock[] {
+function anaEnergyBlocks(oracleDeckId?: string): ContentBlock[] {
   return [
     {
       id: "geometria", kind: "model", model: "geometry", figure: "enneagram", enabled: true,
@@ -273,7 +274,7 @@ function anaEnergyBlocks(): ContentBlock[] {
       intro: "Las runas fueron mi primer idioma antes que la astrología. No me dicen qué va a pasar: me ayudan a hacerme una pregunta mejor. Tira una para el día, o tres si quieres mirar de dónde vienes y hacia dónde vas.",
     },
     {
-      id: "oraculo", kind: "model", model: "oracle", figure: "enneagram", enabled: true,
+      id: "oraculo", kind: "model", model: "oracle", figure: "enneagram", enabled: true, deck: oracleDeckId,
       title: "El oráculo de la luna",
       intro: "Dibujé estas veintiocho cartas para mis círculos, una por cada noche del ciclo. Baraja, saca una o tres, y quédate más con la pregunta que con la respuesta.",
     },
@@ -381,6 +382,28 @@ async function seedAnaSitePages(creatorId: string) {
  * un rebote), una newsletter enviada hace 12 días con sus estadísticas, un borrador, una programada
  * y su confirmación de reserva con un texto propio.
  */
+/** «Oráculo de la Luna» de Ana en Panel → Barajas: publicada, con las 28 cartas de serie. */
+async function seedAnaOracleDeck(creatorId: string) {
+  const deck = await prisma.oracleDeck.create({
+    data: {
+      creatorId, name: ORACLE_NAME, slug: "oraculo-de-la-luna", status: "PUBLISHED", sortOrder: 0, createdAt: daysAgo(30),
+      description: "Veintiocho cartas que dibujé para mis círculos, una por cada noche del ciclo.",
+    },
+  });
+  await prisma.oracleCard.createMany({
+    data: ORACLE_CARDS.map((c, i) => ({
+      creatorId, deckId: deck.id, name: c.name, keyword: c.keyword, message: c.message, question: c.question, motif: c.id, sortOrder: i,
+      // Dos cartas que se leen distinto del revés, para que la demo enseñe las invertidas.
+      ...(c.id === "luna-llena"
+        ? { reversible: true, reversedMessage: "Todo está a la vista, pero no quieres mirarlo todavía. Date permiso para ir despacio: la luz no se va." }
+        : c.id === "puerta"
+          ? { reversible: true, reversedMessage: "La puerta sigue ahí, pero hoy no es el día. Quedarte a este lado también es una decisión." }
+          : {}),
+    })),
+  });
+  return deck;
+}
+
 async function seedAnaNewsletter(anaId: string, o: { circleId: string; astroId: string }) {
   const ana = await prisma.creator.findUniqueOrThrow({ where: { id: anaId } });
   const consent = newsletterConsentText("Ana Luna");
@@ -627,6 +650,10 @@ async function seedAnaPortada(o: {
   if (moons[0])
     await post(o.lunaCompleta.id, 0, `Círculo de ${moons[0].title.toLowerCase()}`, "CIRCULO_LUNAR", "Nos vemos en el círculo para vivir esta luna juntas. Trae papel, una vela y tu intención.", { eventAt: zonedTimeToUtc(moons[0].date, labelToMinutes(moons[0].time), TZ), mediaUrl: ANA_ZOOM });
 
+  // ── Barajas: el «Oráculo de la Luna» de serie, copiado a la BD para que se pueda editar en la demo ──
+  // (los mismos textos y, sin imagen, el mismo dibujo de cada carta; el código lo sigue teniendo de serie).
+  const oracleDeck = await seedAnaOracleDeck(anaId);
+
   // ── Páginas de cada sistema (Sistemas con los que trabajo), con su modelo interactivo ──
   const systemCards = [];
   const circleCards = circles.map((c) => ({ slug: c.slug, title: c.title, text: "Un círculo en directo por Zoom para vivir esta luna juntas.", img: "/demo/comunidad.webp" }));
@@ -640,7 +667,7 @@ async function seedAnaPortada(o: {
     };
     const blocks: ContentBlock[] =
       sys.slug === "mi-energia"
-        ? [...anaEnergyBlocks(), relatedBlock]
+        ? [...anaEnergyBlocks(oracleDeck.id), relatedBlock]
         : [
             {
               id: "que-es", kind: "photoText", title: `Qué es ${sys.title === "Luna" ? "vivir la luna" : sys.title}`, body: sys.body, format: "MD", imageSide: "left",
@@ -1656,6 +1683,7 @@ async function main() {
     facturas: await prisma.invoice.count(),
     publicaciones: await prisma.post.count(),
     códigos: await prisma.discountCode.count(),
+    barajas: await prisma.oracleDeck.count(),
   };
   console.log("✓ Listo:", counts);
   console.log("  Cuentas demo (contraseña demo1234): ana@cirella.app · laura@example.com · admin@cirella.app");

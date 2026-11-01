@@ -15,6 +15,7 @@ import { PAGE_BLOCKS_MAX, PAGE_TEXT_MAX, withoutEmptyBlocks } from "@/lib/page-b
 import type { PageConfig } from "@/lib/page-config";
 import { sitePagePath, type SitePageContent } from "@/lib/site-pages";
 import { slugify } from "@/lib/slug";
+import type { OracleDeckView } from "@/components/models/data/oracle";
 import { addSitePageButtonAction, deleteSitePageAction, publishSitePageAction, saveSitePageDraft, unpublishSitePageAction } from "../actions";
 
 type Props = {
@@ -39,6 +40,8 @@ type Props = {
   hiddenSlugs: string[];
   pages: SiteNavPage[];
   notice: string | null;
+  /** Sus barajas de oráculo publicadas: el selector del bloque «Oráculo» y la vista previa. */
+  oracleDecks: OracleDeckView[];
 };
 
 const TABS = [
@@ -97,6 +100,7 @@ export function SitePageEditor(props: Props) {
 
   const shown = useDeferredValue(content);
   const hidden = useMemo(() => new Set(props.hiddenSlugs), [props.hiddenSlugs]);
+  const oracleDecks = useMemo(() => Object.fromEntries(props.oracleDecks.flatMap((d) => (d.id ? [[d.id, d]] : []))), [props.oracleDecks]);
   const preview = useMemo(
     () => (
       <SitePageView
@@ -110,9 +114,10 @@ export function SitePageEditor(props: Props) {
         siteOrigin={props.origin}
         pages={props.pages}
         back={false}
+        oracleDecks={oracleDecks}
       />
     ),
-    [shown, hidden, props.username, props.config, props.allowCustom, props.personal, props.signupsOnly, props.origin, props.pages],
+    [shown, hidden, props.username, props.config, props.allowCustom, props.personal, props.signupsOnly, props.origin, props.pages, oracleDecks],
   );
 
   const actions = (small: boolean) => (
@@ -202,6 +207,7 @@ export function SitePageEditor(props: Props) {
                   bodyMax={PAGE_TEXT_MAX}
                   max={PAGE_BLOCKS_MAX}
                   onUploadingChange={setUploading}
+                  oracleDecks={props.oracleDecks}
                 />
               </section>
             </>

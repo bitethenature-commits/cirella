@@ -3,6 +3,7 @@ import { ZoomableImage } from "@/components/media/zoomable-image";
 import { RichContent } from "@/components/rich-text/rich-content";
 import { linksToProduct } from "@/lib/access-mode";
 import { imageSrcSet } from "@/lib/media-url";
+import type { OracleDecks } from "@/components/models/data/oracle";
 import { InteractiveModel } from "@/components/models/interactive-model";
 import { SacredGeometry } from "@/components/models/sacred-geometry";
 import { MODEL_LABEL, isOwnImageSrc, isOwnVideoSrc, type ContentBlock, type PageImage } from "@/lib/page-blocks";
@@ -38,6 +39,7 @@ export function ContentBlocks({
   titleLevel,
   hiddenSlugs,
   siteOrigin,
+  oracleDecks,
 }: {
   blocks: ContentBlock[];
   username: string;
@@ -46,6 +48,8 @@ export function ContentBlocks({
   /** Productos que no se ven (web personal sin cobros): sin botón ni enlace hacia ellos. */
   hiddenSlugs: ReadonlySet<string>;
   siteOrigin?: string;
+  /** Barajas propias de los bloques «Oráculo», cargadas en el servidor (lib/oracle-decks.ts). */
+  oracleDecks?: OracleDecks;
 }) {
   const linkTo = (url: string | undefined) => (url && !linksToProduct(url, username, hiddenSlugs, siteOrigin) ? safeHref(url) : null);
   // Las webs de fuera, en otra pestaña; los enlaces internos y mailto:/tel:, en la misma.
@@ -319,7 +323,7 @@ export function ContentBlocks({
                 {b.title && title(b.title)}
                 {b.intro && <p className={`cp-muted text-[0.95rem] leading-relaxed ${b.title ? "mt-3" : ""}`}>{b.intro}</p>}
                 <div className={b.title || b.intro ? "mt-6" : ""}>
-                  <InteractiveModel model={b.model} />
+                  <InteractiveModel model={b.model} deck={b.model === "oracle" && b.deck ? oracleDecks?.[b.deck] : undefined} />
                 </div>
               </section>
             );

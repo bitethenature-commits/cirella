@@ -5,6 +5,7 @@ import { CreatorPageView } from "@/components/creator-page/creator-page-view";
 import { Reveal } from "@/components/reveal";
 import { requireCreator } from "@/lib/auth";
 import { appUrl } from "@/lib/env";
+import { oracleDecksForBlocks } from "@/lib/oracle-decks";
 import { getPublicCreator } from "@/lib/public";
 
 /**
@@ -18,6 +19,7 @@ export default async function DraftPreviewPage() {
   const { creator } = await requireCreator();
   const data = await getPublicCreator(creator.username, true);
   if (!data) notFound();
+  const oracleDecks = await oracleDecksForBlocks(data.creator.id, data.config.blocks ?? []);
 
   return (
     <>
@@ -46,6 +48,7 @@ export default async function DraftPreviewPage() {
         personal={data.personal}
         signupsOnly={data.signupsOnly}
         siteOrigin={appUrl()}
+        oracleDecks={oracleDecks}
       />
       <Reveal />
     </>

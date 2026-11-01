@@ -191,3 +191,63 @@ export const ORACLE_SPREADS: Record<OracleSpreadId, { label: string; positions: 
     ],
   },
 };
+
+/**
+ * Una carta tal como la pinta el modelo: la de serie (arriba) o una de las barajas propias de la dueña
+ * (Panel → Barajas, lib/oracle-decks.ts). Con imagen se ve la imagen; sin ella, un motivo dibujado.
+ * `messageFormat`: "MD" = texto con formato (lib/rich-text.ts); null = texto sencillo (la de serie).
+ */
+export type OracleCardView = {
+  id: string;
+  name: string;
+  keyword: string;
+  message: string;
+  messageFormat: "MD" | null;
+  question: string;
+  imageUrl: string | null;
+  motif: OracleMotif;
+  /** Puede salir invertida (con `reversedMessage`, o el mensaje de siempre si no lo tiene). */
+  reversible: boolean;
+  reversedMessage: string | null;
+};
+
+/** Una baraja lista para el modelo. `id` null = la de serie. */
+export type OracleDeckView = {
+  id: string | null;
+  name: string;
+  description: string | null;
+  backImageUrl: string | null;
+  cards: OracleCardView[];
+};
+
+/** Barajas propias por id: lo que la página carga en el servidor para sus bloques «Oráculo». */
+export type OracleDecks = Record<string, OracleDeckView>;
+
+/**
+ * Motivo de una carta sin imagen: el de la carta de serie que eligió (por su id) o, si no eligió
+ * ninguno, el de la misma posición en la baraja de serie (así cada carta lleva uno distinto).
+ */
+export function oracleMotifFor(key: string | null | undefined, index: number): OracleMotif {
+  const byKey = key ? ORACLE_CARDS.find((c) => c.id === key) : undefined;
+  return (byKey ?? ORACLE_CARDS[((index % ORACLE_CARDS.length) + ORACLE_CARDS.length) % ORACLE_CARDS.length]).motif;
+}
+
+/** El «Oráculo de la Luna» de serie como baraja del modelo (sin imágenes ni cartas invertidas). */
+export const BUILTIN_ORACLE_DECK: OracleDeckView = {
+  id: null,
+  name: ORACLE_NAME,
+  description: "Veintiocho cartas, una por cada noche del ciclo.",
+  backImageUrl: null,
+  cards: ORACLE_CARDS.map((c) => ({
+    id: c.id,
+    name: c.name,
+    keyword: c.keyword,
+    message: c.message,
+    messageFormat: null,
+    question: c.question,
+    imageUrl: null,
+    motif: c.motif,
+    reversible: false,
+    reversedMessage: null,
+  })),
+};

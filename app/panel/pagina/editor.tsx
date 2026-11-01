@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useDeferredValue, useMemo, useState, useTransition } from "react";
 import { CreatorPageView, type PublicDiscountCode, type PublicPost, type PublicProduct } from "@/components/creator-page/creator-page-view";
 import type { PublicPortalItem } from "@/lib/portal-rules";
+import type { OracleDeckView } from "@/components/models/data/oracle";
 import { BlocksEditor, type BlocksUpdate } from "@/components/panel/blocks/blocks-editor";
 import { LinkInput, type LinkTarget } from "@/components/panel/blocks/link-input";
 import { useDesktop } from "@/components/panel/use-desktop";
@@ -72,6 +73,8 @@ type Props = {
   /** Páginas extra (tarjeta «Páginas extra» de «Secciones») y sugerencias de los campos de enlace. */
   pages: { id: string; title: string; state: SitePageState }[];
   linkTargets: LinkTarget[];
+  /** Sus barajas de oráculo publicadas: el selector del bloque «Oráculo» y la vista previa. */
+  oracleDecks: OracleDeckView[];
 };
 
 const TABS = [
@@ -180,6 +183,7 @@ export function PageEditor(props: Props) {
 
   // La vista previa se repinta con un respiro (useDeferredValue): escribir en el iPhone no espera a ella.
   const shown = useDeferredValue(cfg);
+  const oracleDecks = useMemo(() => Object.fromEntries(props.oracleDecks.flatMap((d) => (d.id ? [[d.id, d]] : []))), [props.oracleDecks]);
   const preview = useMemo(
     () => (
       <CreatorPageView
@@ -198,10 +202,11 @@ export function PageEditor(props: Props) {
         showPoweredBy={!props.personal && !(props.allowRemoveBranding && shown.hidePoweredBy)}
         platformName={props.platformName}
         referralCode={props.referralCode}
+        oracleDecks={oracleDecks}
         preview
       />
     ),
-    [shown, props],
+    [shown, props, oracleDecks],
   );
 
   return (
@@ -701,6 +706,7 @@ export function PageEditor(props: Props) {
                 bodyMax={TEXT_BLOCK_BODY_MAX}
                 max={TEXT_BLOCKS_MAX}
                 onUploadingChange={setUploading}
+                oracleDecks={props.oracleDecks}
               />
             </section>
           )}

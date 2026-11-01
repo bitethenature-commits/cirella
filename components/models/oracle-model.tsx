@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { ORACLE_CARDS, ORACLE_NAME, ORACLE_SPREADS, type OracleCard, type OracleMotif, type OracleSpreadId } from "./data/oracle";
-import { GOLD, INK, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelRow, ToolButton, cn, drawDistinct, polar, usePrefersReducedMotion } from "./model-kit";
+import { RichContent } from "@/components/rich-text/rich-content";
+import { BUILTIN_ORACLE_DECK, ORACLE_SPREADS, type OracleCardView, type OracleDeckView, type OracleMotif, type OracleSpreadId } from "./data/oracle";
+import { GOLD, INK, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelRow, ToolButton, cn, drawDistinct, polar, randomInt, usePrefersReducedMotion } from "./model-kit";
 
 /**
  * «Oráculo de la Luna»: una baraja propia de 28 cartas (data/oracle.ts) con motivos dibujados en código.
@@ -10,10 +11,17 @@ import { GOLD, INK, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelRow, To
  * CSS—, se reparten boca abajo y cada carta se da la vuelta al tocarla; su mensaje y su pregunta se leen
  * en el panel.
  *
+ * La baraja puede ser también una de las propias de la dueña (Panel → Barajas): llega ya cargada del
+ * servidor (`deck`). Sus cartas con imagen enseñan la imagen; las demás, un motivo dibujado. Las cartas
+ * «reversibles» pueden salir invertidas (la cara del revés y su mensaje de invertida). Sin baraja, o
+ * con una vacía, la de serie.
+ *
  * El azar sale de crypto.getRandomValues; no se guarda nada ni se envía a ningún sitio.
  */
 
 type Phase = "idle" | "shuffling" | "dealt";
+/** Una carta repartida: su posición en la baraja y si ha salido invertida. */
+type Cast = { i: number; reversed: boolean };
 
 /** Duración de barajar (tres pasadas) y cortar, en milisegundos: debe cuadrar con .cp-shuffle-* y .cp-cut. */
 const SHUFFLE_MS = 1750;
@@ -23,11 +31,16 @@ const CARD_FACE = "color-mix(in oklab, var(--c-text) 4%, var(--c-bg))";
 const CARD_BACK = "color-mix(in oklab, var(--c-gold) 13%, color-mix(in oklab, var(--c-text) 12%, var(--c-bg)))";
 const CARD_EDGE = "color-mix(in oklab, var(--c-gold) 45%, transparent)";
 
-export function OracleModel() {
-  const [spread, setSpread] = useState<OracleSpreadId>("three");
+export function OracleModel({ deck }: { deck?: OracleDeckView | null }) {
+  const d = deck && deck.cards.length ? deck : BUILTIN_ORACLE_DECK;
+  const CARDS = d.cards;
+  const builtin = d.id === null;
+  // Tres cartas solo si la baraja tiene al menos tres.
+  const spreads = (Object.keys(ORACLE_SPREADS) as OracleSpreadId[]).filter((s) => ORACLE_SPREADS[s].positions.length <= CARDS.length);
+  const [spread, setSpread] = useState<OracleSpreadId>(spreads.includes("three") ? "three" : "one");
   const [phase, setPhase] = useState<Phase>("idle");
   const [cutting, setCutting] = useState(false);
-  const [cards, setCards] = useState<number[]>([]);
+  const [cards, setCards] = useState<Cast[]>([]);
   const [revealed, setRevealed] = useState<boolean[]>([]);
   const [round, setRound] = useState(0);
   const [sel, setSel] = useState<number | null>(null);
@@ -44,7 +57,7 @@ export function OracleModel() {
   const shuffle = (s: OracleSpreadId = spread) => {
     clearTimers();
     const n = ORACLE_SPREADS[s].positions.length;
-    const picks = drawDistinct(ORACLE_CARDS.length, n);
+    const picks = drawDistinct(CARDS.length, n).map((i) => ({ i, reversed: CARDS[i].reversible && randomInt(2) === 1 }));
     setSel(null);
     setRevealed(Array(n).fill(false));
     setRound((r) => r + 1);
@@ -84,7 +97,7 @@ export function OracleModel() {
 
   const toolbar = (
     <div className="flex gap-2" role="group" aria-label="Tirada">
-      {(Object.keys(ORACLE_SPREADS) as OracleSpreadId[]).map((s) => (
+      {spreads.map((s) => (
         <ToolButton key={s} active={spread === s} onClick={() => chooseSpread(s)}>
           {ORACLE_SPREADS[s].label}
         </ToolButton>
@@ -92,7 +105,7 @@ export function OracleModel() {
     </div>
   );
 
-  const deck = (
+  const pile = (
     <div className="relative mx-auto h-[11.5rem] w-[7.2rem] sm:h-[13rem] sm:w-[8.1rem]" aria-hidden>
       {Array.from({ length: 7 }, (_, i) => {
         const moving = phase === "shuffling" && !cutting && i > 0;
@@ -103,7 +116,7 @@ export function OracleModel() {
             className={cn("absolute inset-0", moving && (i % 2 ? "cp-shuffle-l" : "cp-shuffle-r"), cut && "cp-cut")}
             style={{ left: i * 1.5, top: -i * 1.5, zIndex: i, ["--d" as string]: moving ? `${(i % 3) * 70}ms` : "0ms" } as CSSProperties}
           >
-            <CardBack />
+            <CardBack src={d.backImageUrl} />
           </div>
         );
       })}
@@ -113,7 +126,8 @@ export function OracleModel() {
   const spreadView = (
     <div key={`${spread}-${round}`} className={cn("mx-auto grid justify-center gap-3 sm:gap-5", single ? "grid-cols-1" : "grid-cols-3")} role="group" aria-label={`${ORACLE_SPREADS[spread].label}: toca una carta para darle la vuelta`}>
       {positions.map((pos, i) => {
-        const card = ORACLE_CARDS[cards[i]];
+        const cast = cards[i];
+        const card = CARDS[cast.i];
         const open = !!revealed[i];
         const on = sel === i;
         return (
@@ -124,14 +138,14 @@ export function OracleModel() {
               data-open={open}
               onClick={() => flip(i)}
               aria-pressed={open ? on : undefined}
-              aria-label={open ? `${pos.name}: ${card.name}. Leer` : `${pos.name}: carta boca abajo. Darle la vuelta`}
+              aria-label={open ? `${pos.name}: ${card.name}${cast.reversed ? ", invertida" : ""}. Leer` : `${pos.name}: carta boca abajo. Darle la vuelta`}
             >
               <span className="cp-flip-inner" aria-hidden>
                 <span className="cp-flip-face">
-                  <CardBack />
+                  <CardBack src={d.backImageUrl} />
                 </span>
                 <span className="cp-flip-face cp-flip-front">
-                  <CardFront card={card} selected={on} small={!single} />
+                  <CardFront card={card} reversed={cast.reversed} selected={on} small={!single} />
                 </span>
               </span>
             </button>
@@ -144,7 +158,7 @@ export function OracleModel() {
 
   const diagram = (
     <div>
-      <div className="flex min-h-[13rem] items-center justify-center sm:min-h-[15rem]">{phase === "dealt" ? spreadView : deck}</div>
+      <div className="flex min-h-[13rem] items-center justify-center sm:min-h-[15rem]">{phase === "dealt" ? spreadView : pile}</div>
       <div className="mt-7 flex flex-col items-center gap-3">
         <div className="flex flex-wrap justify-center gap-2">
           <button type="button" className="cp-btn" onClick={() => shuffle()} disabled={phase === "shuffling"} aria-disabled={phase === "shuffling"}>
@@ -163,20 +177,30 @@ export function OracleModel() {
 
   let panel: ReactNode;
   if (phase === "dealt" && sel !== null && revealed[sel]) {
-    const card = ORACLE_CARDS[cards[sel]];
+    const cast = cards[sel];
+    const card = CARDS[cast.i];
     const pos = positions[sel];
+    const message = cast.reversed && card.reversedMessage?.trim() ? card.reversedMessage : card.message;
+    const kicker = [pos.name, card.keyword, cast.reversed ? "invertida" : ""].filter(Boolean).join(" · ");
     panel = (
       <PanelBody id={`${round}-${sel}`}>
-        <PanelHeading kicker={`${pos.name} · ${card.keyword}`} title={card.name} />
+        <PanelHeading kicker={kicker} title={card.name} />
         <p className="cp-muted mt-2 text-[0.8rem]">{pos.hint}</p>
-        <p className="mt-4 text-[0.95rem] leading-relaxed opacity-90">{card.message}</p>
-        <div className="cp-line mt-6 rounded-[calc(var(--r-card)*0.7)] border p-5">
-          <p className="cp-eyebrow cp-gold !text-[0.6rem]">Para quedarte pensando</p>
-          <p className="cp-display mt-3 text-[1.25rem] italic leading-snug opacity-90">{card.question}</p>
-        </div>
+        {card.messageFormat === "MD" ? (
+          <RichContent text={message} format="MD" legacy="paragraphs" tone="page" headingLevel={4} className="mt-4 space-y-3 text-[0.95rem] leading-relaxed opacity-90" />
+        ) : (
+          <p className="mt-4 text-[0.95rem] leading-relaxed opacity-90">{message}</p>
+        )}
+        {card.question && (
+          <div className="cp-line mt-6 rounded-[calc(var(--r-card)*0.7)] border p-5">
+            <p className="cp-eyebrow cp-gold !text-[0.6rem]">Para quedarte pensando</p>
+            <p className="cp-display mt-3 text-[1.25rem] italic leading-snug opacity-90">{card.question}</p>
+          </div>
+        )}
         <dl className="mt-5">
-          <PanelRow label="Palabra" value={card.keyword} />
-          <PanelRow label="Carta" value={`${ORACLE_CARDS.indexOf(card) + 1} de ${ORACLE_CARDS.length} · ${ORACLE_NAME}`} />
+          {card.keyword && <PanelRow label="Palabra" value={card.keyword} />}
+          {cast.reversed && <PanelRow label="Posición" value="Invertida" />}
+          <PanelRow label="Carta" value={`${cast.i + 1} de ${CARDS.length} · ${d.name}`} />
         </dl>
         {cards.length > 1 && (
           <div className="mt-5 flex flex-wrap gap-2">
@@ -197,8 +221,9 @@ export function OracleModel() {
     );
   } else {
     panel = (
-      <PanelIdle title={`${ORACLE_NAME}: ${ORACLE_CARDS.length} cartas, una por cada noche del ciclo.`}>
-        <p>Elige una carta o tres (situación, consejo y resultado). Respira, piensa en lo que te ocupa y baraja.</p>
+      <PanelIdle title={builtin ? `${d.name}: ${CARDS.length} cartas, una por cada noche del ciclo.` : `${d.name}: ${CARDS.length} ${CARDS.length === 1 ? "carta" : "cartas"}.`}>
+        {!builtin && d.description && <p>{d.description}</p>}
+        <p>{spreads.length > 1 ? "Elige una carta o tres (situación, consejo y resultado)." : "Saca una carta."} Respira, piensa en lo que te ocupa y baraja.</p>
         <p>Cada carta trae un mensaje breve y una pregunta para llevarte. No hay cartas buenas ni malas.</p>
       </PanelIdle>
     );
@@ -207,8 +232,15 @@ export function OracleModel() {
   return <ModelFrame toolbar={toolbar} diagram={diagram} panel={panel} />;
 }
 
-/** Reverso común: marco doble, luna creciente dentro de un círculo y un cielo de puntos. */
-function CardBack() {
+/** Reverso común: la imagen de la baraja o, sin ella, marco doble, luna creciente y un cielo de puntos. */
+function CardBack({ src }: { src?: string | null }) {
+  if (src)
+    return (
+      <span className="relative block h-full w-full overflow-hidden rounded-[0.6rem] border" style={{ borderColor: CARD_EDGE, background: CARD_BACK, filter: "drop-shadow(0 6px 8px rgb(0 0 0 / .16))" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" decoding="async" draggable={false} />
+      </span>
+    );
   return (
     <svg viewBox="0 0 100 160" preserveAspectRatio="none" className="block h-full w-full overflow-visible" style={{ filter: "drop-shadow(0 6px 8px rgb(0 0 0 / .16))" }}>
       <rect x="0.5" y="0.5" width="99" height="159" rx="7" style={{ fill: CARD_BACK, stroke: CARD_EDGE }} strokeWidth="1" />
@@ -238,19 +270,28 @@ function CardBack() {
   );
 }
 
-function CardFront({ card, selected, small }: { card: OracleCard; selected: boolean; small: boolean }) {
-  return (
-    <span
-      className="relative flex h-full w-full flex-col items-center overflow-hidden rounded-[0.6rem] border transition-shadow duration-300"
-      style={{ background: CARD_FACE, borderColor: CARD_EDGE, boxShadow: selected ? `0 0 0 2px ${GOLD}, 0 0 30px -8px ${GOLD}` : "0 10px 14px -8px rgb(0 0 0 / .3)" }}
-    >
-      <span className="pointer-events-none absolute inset-[5%] rounded-[0.4rem] border" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 35%, transparent)" }} />
-      <span className={cn("relative mt-[14%] block aspect-square", small ? "w-[74%]" : "w-[72%]")}>
-        <Motif motif={card.motif} />
+function CardFront({ card, reversed, selected, small }: { card: OracleCardView; reversed: boolean; selected: boolean; small: boolean }) {
+  const frame = { background: CARD_FACE, borderColor: CARD_EDGE, boxShadow: selected ? `0 0 0 2px ${GOLD}, 0 0 30px -8px ${GOLD}` : "0 10px 14px -8px rgb(0 0 0 / .3)" };
+  // Invertida: la cara del revés (el marco y su brillo, no).
+  const turn: CSSProperties | undefined = reversed ? { transform: "rotate(180deg)" } : undefined;
+  if (card.imageUrl)
+    return (
+      <span className="relative block h-full w-full overflow-hidden rounded-[0.6rem] border transition-shadow duration-300" style={frame}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={card.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" style={turn} decoding="async" draggable={false} />
       </span>
-      <span className="relative mt-auto mb-[11%] px-[10%] text-center">
-        <span className={cn("cp-eyebrow block !tracking-[0.18em] cp-gold", small ? "!text-[0.42rem] sm:!text-[0.5rem]" : "!text-[0.56rem]")}>{card.keyword}</span>
-        <span className={cn("cp-display mt-1 block leading-[1.1]", small ? "text-[0.74rem] sm:text-[0.95rem]" : "text-[1.15rem]")}>{card.name}</span>
+    );
+  return (
+    <span className="relative block h-full w-full overflow-hidden rounded-[0.6rem] border transition-shadow duration-300" style={frame}>
+      <span className="absolute inset-0 flex flex-col items-center" style={turn}>
+        <span className="pointer-events-none absolute inset-[5%] rounded-[0.4rem] border" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 35%, transparent)" }} />
+        <span className={cn("relative mt-[14%] block aspect-square", small ? "w-[74%]" : "w-[72%]")}>
+          <Motif motif={card.motif} />
+        </span>
+        <span className="relative mt-auto mb-[11%] px-[10%] text-center">
+          {card.keyword && <span className={cn("cp-eyebrow block !tracking-[0.18em] cp-gold", small ? "!text-[0.42rem] sm:!text-[0.5rem]" : "!text-[0.56rem]")}>{card.keyword}</span>}
+          <span className={cn("cp-display mt-1 block leading-[1.1]", small ? "text-[0.74rem] sm:text-[0.95rem]" : "text-[1.15rem]")}>{card.name}</span>
+        </span>
       </span>
     </span>
   );

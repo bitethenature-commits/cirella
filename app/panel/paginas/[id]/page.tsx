@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { hiddenProductSlugs } from "@/components/creator-page/site-page-view";
 import { requireCreator } from "@/lib/auth";
 import { appHost, appUrl } from "@/lib/env";
+import { getPublishedOracleDecks } from "@/lib/oracle-decks";
 import { getPublicCreator } from "@/lib/public";
 import { isPersonalMode } from "@/lib/site-mode";
 import { readSitePageContent } from "@/lib/site-pages";
@@ -19,7 +20,7 @@ export default async function EditSitePage({ params, searchParams }: { params: P
   const page = await tenantDb(creator.id).sitePage.findFirst({ where: { id } });
   if (!page) notFound();
   const personal = isPersonalMode();
-  const [data, linkTargets] = await Promise.all([getPublicCreator(creator.username, true), sitePageLinkTargets(creator.id, creator.username, personal)]);
+  const [data, linkTargets, oracleDecks] = await Promise.all([getPublicCreator(creator.username, true), sitePageLinkTargets(creator.id, creator.username, personal), getPublishedOracleDecks(creator.id)]);
   if (!data) notFound();
   const published = page.published ? readSitePageContent(page.published, page.title) : null;
   return (
@@ -43,6 +44,7 @@ export default async function EditSitePage({ params, searchParams }: { params: P
       hiddenSlugs={[...hiddenProductSlugs(data.products, data.signupsOnly)]}
       pages={data.pages}
       notice={sp.despublicada ? "Página despublicada: su dirección ya no se ve" : null}
+      oracleDecks={oracleDecks}
     />
   );
 }

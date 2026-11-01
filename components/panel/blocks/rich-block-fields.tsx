@@ -32,6 +32,9 @@ import { LinkInput, type LinkTarget } from "./link-input";
  */
 type Update<B> = (fn: (b: B) => B) => void;
 
+/** Una baraja propia publicada que se puede elegir en el bloque «Oráculo» (Panel → Barajas). */
+export type OracleDeckOption = { id: string | null; name: string };
+
 const toImage = (img: { url: string; width: number; height: number }, prev: PageImage | null): PageImage => ({ src: img.url, alt: prev?.alt ?? "", width: img.width, height: img.height });
 
 /** Mueve el elemento i una posición arriba o abajo. */
@@ -181,9 +184,12 @@ export function TimelineBlockFields({ block: b, onUpdate }: { block: TimelineBlo
 }
 
 /** «Modelo interactivo»: qué modelo, y un título y una entradilla opcionales. */
-export function ModelBlockFields({ block: b, onUpdate }: { block: ModelBlock; onUpdate: Update<ModelBlock> }) {
+export function ModelBlockFields({ block: b, oracleDecks = [], onUpdate }: { block: ModelBlock; oracleDecks?: OracleDeckOption[]; onUpdate: Update<ModelBlock> }) {
   const onPatch = (p: Partial<ModelBlock>) => onUpdate((x) => ({ ...x, ...p }));
   const geometry = b.model === "geometry";
+  const decks = oracleDecks.filter((d): d is { id: string; name: string } => !!d.id);
+  // Elegida pero ya no publicada (o borrada): en la web sale la de serie hasta que la vuelva a publicar.
+  const missingDeck = !!b.deck && !decks.some((d) => d.id === b.deck);
   return (
     <>
       <label className="block">
@@ -196,6 +202,28 @@ export function ModelBlockFields({ block: b, onUpdate }: { block: ModelBlock; on
           ))}
         </select>
       </label>
+      {b.model === "oracle" && (
+        <label className="block">
+          <span className="field-label">Baraja</span>
+          <select className="input h-10 text-sm" aria-label="Baraja del oráculo" value={b.deck ?? ""} onChange={(e) => onPatch({ deck: e.target.value || undefined })}>
+            <option value="">Oráculo de la Luna (de serie)</option>
+            {decks.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+            {missingDeck && <option value={b.deck}>Una baraja que ya no está publicada</option>}
+          </select>
+          <span className="field-hint block">
+            {missingDeck ? "Esa baraja ya no está publicada: en tu web sale la de serie. " : ""}
+            Tus barajas se crean y se publican en{" "}
+            <a href="/panel/barajas" target="_blank" rel="noopener" className="underline underline-offset-2">
+              Barajas
+            </a>
+            .
+          </span>
+        </label>
+      )}
       {geometry && (
         <label className="block">
           <span className="field-label">Figura</span>

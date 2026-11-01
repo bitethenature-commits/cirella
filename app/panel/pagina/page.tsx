@@ -1,6 +1,7 @@
 import { requireCreator } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { appUrl } from "@/lib/env";
+import { getPublishedOracleDecks } from "@/lib/oracle-decks";
 import { readPageConfig } from "@/lib/page-config";
 import { getPublicCreator } from "@/lib/public";
 import { sitePageState } from "@/lib/site-pages";
@@ -11,10 +12,11 @@ import { PageEditor } from "./editor";
 
 export default async function EditorPage() {
   const { creator } = await requireCreator();
-  const [data, templates, pages] = await Promise.all([
+  const [data, templates, pages, oracleDecks] = await Promise.all([
     getPublicCreator(creator.username, true),
     prisma.template.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     tenantDb(creator.id).sitePage.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, status: true, draft: true, published: true } }),
+    getPublishedOracleDecks(creator.id),
   ]);
   const personal = data?.personal ?? false;
   const linkTargets = await sitePageLinkTargets(creator.id, creator.username, personal);
@@ -41,6 +43,7 @@ export default async function EditorPage() {
       referralCode={creator.referralCode}
       pages={pages.map((p) => ({ id: p.id, title: p.title, state: sitePageState(p) }))}
       linkTargets={linkTargets}
+      oracleDecks={oracleDecks}
     />
   );
 }

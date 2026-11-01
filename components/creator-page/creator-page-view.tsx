@@ -26,6 +26,7 @@ import { DiscountCodeCard } from "./discount-code-card";
 import { LegalLinks } from "./legal-links";
 import { NewsletterSignup } from "./newsletter-signup";
 import { creatorLegalHref } from "@/lib/legal";
+import type { OracleDecks } from "@/components/models/data/oracle";
 import { Avatar, ProductImage } from "./product-art";
 import { PortalSection } from "./portal-section";
 import { PostCard } from "./post-card";
@@ -142,6 +143,8 @@ type Props = {
   siteOrigin?: string;
   /** Páginas extra publicadas que salen en el pie («Sobre mí», «Preguntas frecuentes»…). */
   pages?: SiteNavPage[];
+  /** Barajas propias de los bloques «Oráculo» (lib/oracle-decks.ts → oracleDecksForBlocks). */
+  oracleDecks?: OracleDecks;
 };
 
 export function CreatorPageView(props: Props) {
@@ -198,7 +201,7 @@ export function CreatorPageView(props: Props) {
         return (
           <section key={key} id="bloques" className="mt-14 space-y-4" {...reveal}>
             {heading && <SectionHeading title={heading} />}
-            <ContentBlocks blocks={blocks} username={username} titleLevel={heading ? 3 : 2} hiddenSlugs={hiddenSlugs} siteOrigin={props.siteOrigin} />
+            <ContentBlocks blocks={blocks} username={username} titleLevel={heading ? 3 : 2} hiddenSlugs={hiddenSlugs} siteOrigin={props.siteOrigin} oracleDecks={props.oracleDecks} />
           </section>
         );
       }

@@ -7,6 +7,7 @@ import { appUrl } from "@/lib/env";
 import { richToPlain } from "@/lib/rich-text";
 import type { SitePageContent } from "@/lib/site-pages";
 import { getPublicSitePage } from "@/lib/site-pages.server";
+import { oracleDecksForBlocks } from "@/lib/oracle-decks";
 
 type Params = { username: string; slug: string };
 
@@ -49,6 +50,7 @@ export default async function SitePagePublic({ params }: { params: Promise<Param
   const found = await getPublicSitePage(username, slug);
   if (!found) notFound();
   const { data, content, page, path, url } = found;
+  const oracleDecks = await oracleDecksForBlocks(data.creator.id, content.blocks);
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebPage",
@@ -72,6 +74,7 @@ export default async function SitePagePublic({ params }: { params: Promise<Param
         siteOrigin={appUrl()}
         pages={data.pages}
         currentPath={path}
+        oracleDecks={oracleDecks}
       />
       <TrackOnMount creatorId={data.creator.id} type="PAGE_VIEW" />
       <Reveal />

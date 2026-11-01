@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { ModelKind } from "@/lib/page-blocks";
+import type { OracleDeckView } from "./data/oracle";
 
 /**
  * Los modelos interactivos del bloque «Modelo interactivo» (lib/page-blocks.ts). Cada uno se carga aparte
@@ -23,7 +24,8 @@ const LunarModel = dynamic(() => import("./lunar-model").then((m) => m.LunarMode
 const RunesModel = dynamic(() => import("./runes-model").then((m) => m.RunesModel), { ssr: false, loading: Loading });
 const OracleModel = dynamic(() => import("./oracle-model").then((m) => m.OracleModel), { ssr: false, loading: Loading });
 
-export function InteractiveModel({ model }: { model: Exclude<ModelKind, "geometry"> }) {
+/** `deck`: solo el oráculo, una baraja propia ya cargada en el servidor (sin ella, la de serie). */
+export function InteractiveModel({ model, deck }: { model: Exclude<ModelKind, "geometry">; deck?: OracleDeckView | null }) {
   switch (model) {
     case "chart":
       return <ChartModel />;
@@ -36,6 +38,7 @@ export function InteractiveModel({ model }: { model: Exclude<ModelKind, "geometr
     case "runes":
       return <RunesModel />;
     case "oracle":
-      return <OracleModel />;
+      // Otra baraja, otra tirada: se empieza de cero.
+      return <OracleModel key={deck?.id ?? "serie"} deck={deck} />;
   }
 }

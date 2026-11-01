@@ -337,6 +337,8 @@ model Creator {
   posts                 Post[]
   discountCodes         DiscountCode[]
   portalItems           PortalItem[]
+  oracleDecks           OracleDeck[]
+  oracleCards           OracleCard[]
   sitePages             SitePage[]
   availabilityOverrides AvailabilityOverride[]
   orderFiles            OrderFile[]
@@ -732,6 +734,51 @@ model SitePage {
 
   @@unique([creatorId, slug])
   @@index([creatorId, status, sortOrder])
+}
+
+// Barajas de oráculo propias (Panel → Barajas; lib/oracle-decks.ts). Se usan en el modelo «Oráculo»
+// del bloque «Modelo interactivo»: en borrador no se ven en ningún sitio. Sin baraja elegida, el
+// modelo usa la de serie («Oráculo de la Luna», components/models/data/oracle.ts).
+model OracleDeck {
+  id           String       @id @default(cuid())
+  creatorId    String
+  creator      Creator      @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  name         String
+  slug         String // único por creadora (para enlazarla más adelante desde el área de alumnas)
+  description  String?
+  backImageUrl String? // reverso común de todas las cartas (/media/…); sin él, el reverso dibujado
+  status       String       @default("DRAFT") // DRAFT | PUBLISHED
+  sortOrder    Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  cards        OracleCard[]
+
+  @@unique([creatorId, slug])
+  @@index([creatorId, status, sortOrder])
+}
+
+// Una carta de una baraja propia. creatorId repetido (como en LessonPart) para el aislamiento de
+// tenantDb. El mensaje es texto con formato (lib/rich-text.ts, siempre «MD»).
+model OracleCard {
+  id              String     @id @default(cuid())
+  creatorId       String
+  creator         Creator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  deckId          String
+  deck            OracleDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  name            String
+  keyword         String     @default("")
+  message         String     @default("")
+  question        String     @default("")
+  imageUrl        String? // cara de la carta (/media/…); sin imagen, un motivo dibujado
+  motif           String? // motivo dibujado sin imagen: id de una carta de la baraja de serie; null = según su posición
+  sortOrder       Int        @default(0)
+  reversible      Boolean    @default(false) // puede salir invertida
+  reversedMessage String? // mensaje invertida (sin él, el mensaje de siempre)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([deckId, sortOrder])
+  @@index([creatorId])
 }
 
 // ───────────────────────────── Clientes y ventas ─────────────────────────────
