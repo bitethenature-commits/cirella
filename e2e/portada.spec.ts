@@ -272,7 +272,7 @@ test.describe.serial("Portada nueva", () => {
     const { ctx, page } = await fresh(browser, SALES);
     await page.goto("/cursos");
     await expect(page.getByRole("heading", { name: "Cursos", level: 1 })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2 })).toHaveText([/^Astrología/, /^Human Design/, /^Gene Keys/, /^Mi energía/, /^Especiales/]);
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText(["Astrología", "Human Design", "Gene Keys", "Mi energía", "Especiales"]);
     await expect(page.locator('[data-course-group="HUMAN_DESIGN"]')).toContainText("Human Design desde cero");
     await expect(page.locator('[data-course-group="MI_ENERGIA"]')).toContainText("Conócete a través de tu energía");
     await expect(page.locator('[data-course-group="ESPECIAL"]')).toContainText("Especial: tu año lunar");
