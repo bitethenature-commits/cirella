@@ -59,6 +59,9 @@ async function fresh(browser: Browser, baseURL = PERSONAL) {
   return { ctx, page: await ctx.newPage() };
 }
 
+/** Las secciones plegables de la portada (Actualidades, Portal, Ofertas) empiezan cerradas. */
+const openFold = (page: Page, id: string) => page.locator(`#${id} > details > summary`).click();
+
 /** Enlace (por su texto) de un email guardado en el buzón de pruebas. */
 const href = (html: string, label: string) => html.match(new RegExp(`<a href="([^"]+)"[^>]*>${label}</a>`))?.[1]?.replace(/&amp;/g, "&") ?? "";
 
@@ -126,6 +129,7 @@ test.describe.serial("Portada nueva", () => {
     await page.goto("/");
     const section = page.locator("#actualidades");
     await expect(section.getByRole("heading", { name: "Actualidades" })).toBeVisible();
+    await openFold(page, "actualidades");
     const cards = section.locator("[data-post-card]");
     await expect(cards).toHaveCount(2);
     await expect(cards.nth(0)).toHaveAttribute("data-post-card", posts[0].slug);
@@ -174,6 +178,7 @@ test.describe.serial("Portada nueva", () => {
     const { ctx, page } = await fresh(browser);
     await page.goto("/");
     const portal = page.locator("#portal");
+    await openFold(page, "portal");
     await expect(portal.locator('[data-portal="locked"]')).toBeVisible();
     await expect(portal.getByText(/Suscríbete a mi newsletter para (ver el vídeo|escuchar el audio)/)).toBeVisible();
     // Nada bloqueado viaja en la página ni sale de la API sin desbloquear.
@@ -212,6 +217,7 @@ test.describe.serial("Portada nueva", () => {
     expect((await (await page.request.get("/api/portal?u=ana")).json()).unlocked).toBe(true);
     // En la portada también, sin volver a escribir nada.
     await page.goto("/");
+    await openFold(page, "portal");
     await expect(page.locator('#portal [data-portal="unlocked"]')).toBeVisible();
     await ctx.close();
   });
@@ -221,6 +227,7 @@ test.describe.serial("Portada nueva", () => {
     await page.goto("/");
     const offers = page.locator("#ofertas");
     await expect(offers.getByRole("heading", { name: "Ofertas" })).toBeVisible();
+    await openFold(page, "ofertas");
     const card = offers.locator('[data-offer="human-design-desde-cero"]');
     await expect(card).toContainText("Early Bird");
     await expect(card.locator("s")).toContainText("99");

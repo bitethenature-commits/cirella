@@ -78,6 +78,8 @@ export async function savePortalItem(_: PortalActionState, form: FormData): Prom
     eventAt,
     featured: d.featured,
     status: d.status,
+    // El aviso de novedades de la portada cuenta desde que se publica (o se vuelve a publicar).
+    publishedAt: d.status === "PUBLISHED" ? (current?.status === "PUBLISHED" ? (current.publishedAt ?? current.createdAt) : new Date()) : null,
   };
   // Un solo destacado: el grande de arriba en la portada.
   if (d.featured) await db.portalItem.updateMany({ where: { featured: true, ...(current ? { NOT: { id: current.id } } : {}) }, data: { featured: false } });
@@ -132,6 +134,6 @@ export async function togglePortalItem(form: FormData) {
   if (!item) return;
   const publish = item.status !== "PUBLISHED";
   if (publish && mediaKindFor(asPortalKind(item.kind)) && !readPortalMedia(item.media).length) redirect(`/panel/portal/${item.id}?falta=archivo`);
-  await db.portalItem.update({ where: { id: item.id }, data: { status: publish ? "PUBLISHED" : "DRAFT" } });
+  await db.portalItem.update({ where: { id: item.id }, data: { status: publish ? "PUBLISHED" : "DRAFT", publishedAt: publish ? new Date() : null } });
   refresh(creator.username, item.id);
 }

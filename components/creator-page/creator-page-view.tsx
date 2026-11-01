@@ -31,6 +31,7 @@ import type { OracleDecks } from "@/components/models/data/oracle";
 import { Avatar, ProductImage } from "./product-art";
 import { PortalSection } from "./portal-section";
 import { PostCard } from "./post-card";
+import { SectionDropdown } from "./section-dropdown";
 import { TrackedAnchor, TrackedLink } from "./tracking";
 
 export type PublicProduct = {
@@ -50,7 +51,7 @@ export type PublicProduct = {
   /** El precio lleva IVA (lib/tax). Las vistas previas del editor no lo pasan. */
   vatIncluded?: boolean;
   /** Oferta activa (lib/offers.ts): el precio de ahora, el normal tachado, la etiqueta y hasta cuándo. */
-  sale?: { priceCents: number; regularCents: number; percentOff: number; label: string | null; endsLabel: string | null } | null;
+  sale?: { priceCents: number; regularCents: number; percentOff: number; label: string | null; endsLabel: string | null; startedAt: string } | null;
   /** Curso: su método (lib/course-categories.ts). */
   courseCategory?: string | null;
   /** Taller (sesión de grupo con fecha) y si es un círculo de la luna. */
@@ -105,6 +106,9 @@ const TYPE_EYEBROW: Record<ProductType, string> = {
   COURSE: "Curso",
   MEMBERSHIP: "Comunidad",
 };
+
+/** Secciones plegables seguidas («Actualidades», «Portal», «Ofertas»): juntas, como una lista de filas. */
+const FOLD_GAP = "mt-12 [[data-fold]+&]:mt-3";
 
 const SECTION_TYPE: Partial<Record<SectionKey, ProductType>> = {
   products: "DIGITAL",
@@ -242,18 +246,25 @@ export function CreatorPageView(props: Props) {
         if (!posts.length) return null;
         const total = Math.max(props.postCount ?? posts.length, posts.length);
         return (
-          <section key={key} id="actualidades" className="mt-16" {...reveal}>
-            <div className="flex items-end justify-between gap-4">
-              <h2 className="cp-display text-[2rem] sm:text-[2.3rem]">{sectionTitle(config, key)}</h2>
-              <Link href={path("actualidades")} className="cp-muted inline-flex shrink-0 items-center gap-1 pb-1.5 text-sm font-medium underline-offset-4 hover:underline">
-                Ver todas{total > posts.length ? ` (${total})` : ""} <ArrowRight className="h-3.5 w-3.5" />
+          <section key={key} id="actualidades" data-fold className={FOLD_GAP} {...reveal}>
+            <SectionDropdown
+              id="actualidades"
+              section="posts"
+              username={username}
+              title={sectionTitle(config, key)}
+              countLabel={posts.length === 1 ? "1 nueva" : `${posts.length} nuevas`}
+              stamps={posts.map((p) => new Date(p.publishedAt).getTime())}
+              preview={preview}
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                {posts.map((p) => (
+                  <PostCard key={p.id} post={p} username={username} />
+                ))}
+              </div>
+              <Link href={path("actualidades")} className="cp-btn-ghost mt-4 w-full">
+                Ver todas{total > posts.length ? ` (${total})` : ""} <ArrowRight className="h-4 w-4" />
               </Link>
-            </div>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              {posts.map((p) => (
-                <PostCard key={p.id} post={p} username={username} />
-              ))}
-            </div>
+            </SectionDropdown>
           </section>
         );
       }
@@ -261,18 +272,29 @@ export function CreatorPageView(props: Props) {
         // Solo en la web personal: lo desbloquea su newsletter, que es de la dueña.
         const items = props.portal ?? [];
         if (!items.length || !personal) return null;
+        const n = items.length;
         return (
-          <section key={key} id="portal" className="mt-16" {...reveal}>
-            <PortalSection
-              items={items}
-              title={sectionTitle(config, key)}
-              creatorName={config.displayName}
-              privacyHref={creatorLegalHref(username, "privacidad")}
-              portalHref={path("portal")}
+          <section key={key} id="portal" data-fold className={FOLD_GAP} {...reveal}>
+            <SectionDropdown
+              id="portal"
+              section="portal"
               username={username}
-              preview={!!preview}
-              home
-            />
+              title={sectionTitle(config, key)}
+              countLabel={n === 1 ? "1 aviso" : `${n} avisos`}
+              stamps={items.map((i) => Date.parse(i.publishedAt))}
+              preview={preview}
+            >
+              <PortalSection
+                items={items}
+                title={sectionTitle(config, key)}
+                creatorName={config.displayName}
+                privacyHref={creatorLegalHref(username, "privacidad")}
+                portalHref={path("portal")}
+                username={username}
+                preview={!!preview}
+                home
+              />
+            </SectionDropdown>
           </section>
         );
       }
@@ -280,13 +302,22 @@ export function CreatorPageView(props: Props) {
         const onSale = products.filter((p) => p.sale);
         if (!onSale.length) return null;
         return (
-          <section key={key} id="ofertas" className="mt-16" {...reveal}>
-            <SectionHeading title={sectionTitle(config, key)} />
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              {onSale.map((p) => (
-                <OfferCard key={p.id} p={p} username={username} />
-              ))}
-            </div>
+          <section key={key} id="ofertas" data-fold className={FOLD_GAP} {...reveal}>
+            <SectionDropdown
+              id="ofertas"
+              section="offers"
+              username={username}
+              title={sectionTitle(config, key)}
+              countLabel={onSale.length === 1 ? "1 oferta" : `${onSale.length} ofertas`}
+              stamps={onSale.map((p) => Date.parse(p.sale!.startedAt))}
+              preview={preview}
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                {onSale.map((p) => (
+                  <OfferCard key={p.id} p={p} username={username} />
+                ))}
+              </div>
+            </SectionDropdown>
           </section>
         );
       }

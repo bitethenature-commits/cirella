@@ -71,6 +71,8 @@ model User {
   twoFactorChallenges TwoFactorChallenge[]
   // «Mi energía» (/cuenta/mi-energia): sus datos de nacimiento y los de otras personas.
   birthProfiles       BirthProfile[]
+  // Cuándo abrió por última vez cada sección de la portada de una creadora (avisos de novedades).
+  sectionsSeen        SectionSeen[]
 }
 
 model Session {
@@ -342,6 +344,7 @@ model Creator {
   oracleDecks           OracleDeck[]
   oracleCards           OracleCard[]
   birthProfiles         BirthProfile[]
+  sectionsSeen          SectionSeen[]
   sitePages             SitePage[]
   availabilityOverrides AvailabilityOverride[]
   orderFiles            OrderFile[]
@@ -674,24 +677,27 @@ model Post {
 // suscrita a su newsletter y tiene cuenta. Lo bloqueado (media, linkUrl, body) solo sale del servidor
 // a quien lo tiene desbloqueado; los archivos son privados (app/api/portal/[id]/[n]).
 model PortalItem {
-  id        String    @id @default(cuid())
-  creatorId String
-  creator   Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  kind      String // VIDEO | AUDIO | PHOTOS | LIVE | EARLY_BIRD
-  title     String
-  summary   String? // texto corto que se ve aunque esté bloqueado
-  body      String? // texto completo (bloqueado)
-  coverUrl  String? // portada pública (se ve desenfocada mientras está bloqueado)
+  id          String    @id @default(cuid())
+  creatorId   String
+  creator     Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  kind        String // VIDEO | AUDIO | PHOTOS | LIVE | EARLY_BIRD
+  title       String
+  summary     String? // texto corto que se ve aunque esté bloqueado
+  body        String? // texto completo (bloqueado)
+  coverUrl    String? // portada pública (se ve desenfocada mientras está bloqueado)
   // Archivos privados: [{ key, kind, mime, name, sizeBytes, width?, height?, durationSec? }]
-  media     Json      @default("[]")
-  linkUrl   String? // enlace de Zoom del directo o de la oferta Early Bird (bloqueado)
-  linkLabel String?
-  eventAt   DateTime? // directo: día y hora
-  featured  Boolean   @default(false) // el grande de arriba en la portada
-  sortOrder Int       @default(0)
-  status    String    @default("DRAFT") // DRAFT | PUBLISHED
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  media       Json      @default("[]")
+  linkUrl     String? // enlace de Zoom del directo o de la oferta Early Bird (bloqueado)
+  linkLabel   String?
+  eventAt     DateTime? // directo: día y hora
+  // Cuándo se publicó (o se volvió a publicar): el aviso de novedades de la portada cuenta desde aquí.
+  // null en los de antes = createdAt.
+  publishedAt DateTime?
+  featured    Boolean   @default(false) // el grande de arriba en la portada
+  sortOrder   Int       @default(0)
+  status      String    @default("DRAFT") // DRAFT | PUBLISHED
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([creatorId, status, sortOrder])
 }
@@ -810,6 +816,22 @@ model BirthProfile {
 
   @@index([creatorId, userId])
   @@index([userId])
+}
+
+// Avisos de novedades de la portada (lib/section-seen.ts): cuándo abrió una usuaria con cuenta (y
+// suscrita) cada sección plegable de una creadora («posts», «portal», «offers»). El punto rojo cuenta
+// lo publicado (o la oferta empezada) después; se guarda aquí para que valga en todos sus dispositivos.
+model SectionSeen {
+  id        String   @id @default(cuid())
+  creatorId String
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  section   String // posts | portal | offers
+  seenAt    DateTime
+
+  @@unique([userId, creatorId, section])
+  @@index([creatorId])
 }
 
 // ───────────────────────────── Clientes y ventas ─────────────────────────────

@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const data = await sectionPageData(username);
   if (!data || !data.personal) return { title: "Página no encontrada" };
   const title = `${sectionTitle(data.config, "portal")} · ${data.config.displayName}`;
-  const description = `Vídeos, audios, directos y avisos gratis para quien está suscrita a la newsletter de ${data.config.displayName}.`;
+  const description = `Vídeos, audios, directos y avisos para quien está suscrita a la newsletter de ${data.config.displayName}.`;
   return { title, description, alternates: { canonical: data.url("portal") }, openGraph: { title, description, url: data.url("portal"), siteName: data.siteName } };
 }
 
@@ -35,7 +35,7 @@ export default async function PortalPage({ params }: { params: Promise<Params> }
         {data.portal.length === 0 ? (
           <>
             <h1 className="cp-display mt-2 text-[2.6rem] leading-tight">{sectionTitle(config, "portal")}</h1>
-            <p className="cp-muted mt-4">Pronto habrá aquí vídeos, audios y avisos gratis para quien está suscrita a mi newsletter.</p>
+            <p className="cp-muted mt-4">Pronto habrá aquí vídeos, audios y avisos para quien está suscrita a mi newsletter.</p>
           </>
         ) : (
           <div className="mt-2">

@@ -119,7 +119,15 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
         externalLabel: accessMode === "EXTERNAL" ? p.externalLabel : null,
         externalHost: accessMode === "EXTERNAL" ? externalHost(p.externalUrl) : null,
         sale: sale?.active
-          ? { priceCents: sale.priceCents, regularCents: sale.regularCents, percentOff: sale.percentOff ?? 0, label: sale.label, endsLabel: saleEndsLabel(sale.endsAt, creator.timezone) }
+          ? {
+              priceCents: sale.priceCents,
+              regularCents: sale.regularCents,
+              percentOff: sale.percentOff ?? 0,
+              label: sale.label,
+              endsLabel: saleEndsLabel(sale.endsAt, creator.timezone),
+              // Para el aviso de novedades: desde su inicio o, sin fecha de inicio, desde el último cambio.
+              startedAt: (p.saleStartsAt ?? p.updatedAt).toISOString(),
+            }
           : null,
         courseCategory: p.courseCategory,
         groupSession: p.groupSession,

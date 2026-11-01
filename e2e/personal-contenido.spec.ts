@@ -68,6 +68,7 @@ test.describe.serial("Modo personal · contenido", () => {
     await page.goto("/");
     const news = page.locator("#actualidades");
     await expect(news.getByRole("heading", { name: "Actualidades" })).toBeVisible();
+    await news.locator("> details > summary").click();
     await expect(news.getByRole("link", { name: /Eclipse de octubre/ })).toHaveAttribute("href", "/ana/actualidades/eclipse-de-octubre");
     await expect(news.getByRole("link", { name: /Ver todas/ })).toHaveAttribute("href", "/actualidades");
 
@@ -212,6 +213,7 @@ test.describe.serial("Modo personal · contenido", () => {
     await expect(page.getByText("Publicada: ya se ve en tu página.")).toBeVisible();
 
     await page.goto("/");
+    await page.locator("#actualidades > details > summary").click();
     const card = page.locator("#actualidades").getByRole("link", { name: new RegExp(POST_TITLE) });
     await expect(card).toBeVisible();
     await card.click();

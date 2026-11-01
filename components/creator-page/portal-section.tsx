@@ -63,21 +63,31 @@ export function PortalSection({
 
   return (
     <div data-portal={unlocked ? "unlocked" : "locked"}>
-      <div className="flex items-end justify-between gap-4">
+      {home ? (
+        // Portada: el título está en la fila del desplegable (section-dropdown.tsx).
+        <div className="flex items-center justify-between gap-4">
+          <p className="cp-eyebrow">{unlocked ? "Gracias por estar suscrita" : "Para quien está suscrita a mi newsletter"}</p>
+          {items.length > 1 && (
+            <Link href={portalHref} className="cp-muted inline-flex shrink-0 items-center gap-1 text-sm font-medium underline-offset-4 hover:underline">
+              Ver todo <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          )}
+        </div>
+      ) : (
         <div>
-          <p className="cp-eyebrow">{unlocked ? "Gracias por estar suscrita" : "Gratis suscribiéndote a mi newsletter"}</p>
+          <p className="cp-eyebrow">{unlocked ? "Gracias por estar suscrita" : "Para quien está suscrita a mi newsletter"}</p>
           <h2 className="cp-display mt-1.5 text-[2rem] sm:text-[2.3rem]">{title}</h2>
         </div>
-        {home && items.length > 1 && (
-          <Link href={portalHref} className="cp-muted inline-flex shrink-0 items-center gap-1 pb-1.5 text-sm font-medium underline-offset-4 hover:underline">
-            Ver todo <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        )}
-      </div>
+      )}
 
       <div className="mt-5">
         <PortalCard item={main} big unlocked={unlocked} />
-        {!unlocked && <NewsletterUnlockForm attached what={PORTAL_LOCK_WHAT[main.kind]} access={access} creatorName={creatorName} privacyHref={privacyHref} onUnlocked={reload} />}
+        {/* El formulario va en su propia tarjeta, separado de la portada: nunca toca el marco del vídeo. */}
+        {!unlocked && (
+          <div className="mt-3">
+            <NewsletterUnlockForm what={PORTAL_LOCK_WHAT[main.kind]} access={access} creatorName={creatorName} privacyHref={privacyHref} onUnlocked={reload} />
+          </div>
+        )}
       </div>
       {rest.length > 0 && (
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -107,7 +117,7 @@ function PortalCard({ item, big, unlocked }: { item: PublicPortalItem; big?: boo
   if (item.locked || !unlocked) {
     // Bloqueado: la portada desenfocada y el candado; nada del contenido ha llegado al navegador.
     return (
-      <article className={`cp-card ${big ? "rounded-b-none" : ""}`} data-portal-item={item.id} data-locked="true">
+      <article className="cp-card" data-portal-item={item.id} data-locked="true">
         {big ? (
           <div className="relative aspect-[16/10] overflow-hidden sm:aspect-[16/8]">
             {item.coverUrl ? (
@@ -216,11 +226,12 @@ export function NewsletterUnlockForm({
     if (state?.unlocked) onUnlocked();
   }, [state, onUnlocked]);
   const signedIn = access?.reason === "subscribe" && access.verified;
-  const shape = attached ? "rounded-t-none border-t-0" : "";
+  // .cp-card fija su radio fuera de las capas de Tailwind: los bordes se quitan con estilo en línea.
+  const attachedStyle = attached ? { borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTopWidth: 0 } : undefined;
 
   if (state?.sent)
     return (
-      <div id={id} className={`cp-card ${shape} p-5 text-center sm:p-6`} role="status">
+      <div id={id} className="cp-card p-5 text-center sm:p-6" style={attachedStyle} role="status">
         <MailCheck className="mx-auto h-7 w-7" />
         <p className="mt-2 font-semibold">Revisa tu email</p>
         <p className="cp-muted mt-1 text-sm">
@@ -230,7 +241,7 @@ export function NewsletterUnlockForm({
     );
 
   return (
-    <form id={id} action={action} className={`cp-card ${shape} space-y-3 p-5 sm:p-6`} aria-label={label}>
+    <form id={id} action={action} className="cp-card space-y-3 p-5 sm:p-6" style={attachedStyle} aria-label={label}>
       {next && <input type="hidden" name="next" value={next} />}
       {via && <input type="hidden" name="via" value={via} />}
       {state?.error && (

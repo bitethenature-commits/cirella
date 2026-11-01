@@ -109,6 +109,9 @@ export type PortalItemRow = {
   linkLabel: string | null;
   eventAt: Date | null;
   featured: boolean;
+  /** Cuándo se publicó (null en los de antes: createdAt). */
+  publishedAt?: Date | null;
+  createdAt?: Date;
 };
 
 /** Lo que llega al navegador de un elemento. Bloqueado: sin archivos, enlace ni texto completo. */
@@ -122,6 +125,8 @@ export type PublicPortalItem = {
   /** «Mié 4 nov · 19:00 (hora de España)» de un directo. */
   eventLabel: string | null;
   locked: boolean;
+  /** Cuándo se publicó (ISO), para el aviso de novedades de la portada. */
+  publishedAt: string;
   /** Solo desbloqueado: */
   body: string | null;
   linkUrl: string | null;
@@ -163,6 +168,7 @@ export function publicPortalItem(item: PortalItemRow, unlocked: boolean, timeZon
     featured: item.featured,
     eventLabel: item.eventAt ? eventLabel(item.eventAt, timeZone) : null,
     locked: !unlocked,
+    publishedAt: (item.publishedAt ?? item.createdAt ?? new Date(0)).toISOString(),
     body: unlocked ? item.body : null,
     linkUrl: unlocked ? item.linkUrl : null,
     linkLabel: unlocked ? item.linkLabel : null,

@@ -58,6 +58,7 @@ export const TENANT_MODELS = new Set<Prisma.ModelName>([
   "OracleDeck",
   "OracleCard",
   "BirthProfile",
+  "SectionSeen",
 ]);
 
 const WHERE_OPS = new Set([
