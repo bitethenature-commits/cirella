@@ -22,7 +22,7 @@ import { BG, GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeading, PanelIdl
 /**
  * El perfil hologenético dibujado como la carta de Gene Keys: once esferas sobre el Camino Dorado en sus
  * tres secuencias y con sus colores (Activación verde, Venus rojo, Perla azul), los caminos de la carta
- * (los interiores, punteados), la rueda del zodiaco con los 64 hexagramas y la flor de la vida al fondo.
+ * (los interiores, punteados) y la flor de la vida al fondo.
  * Cada esfera lleva una llave y su línea; a su lado, sus tres frecuencias. Al elegirla se ven en detalle,
  * con la pregunta que plantea, y la llave se puede cambiar: es un perfil para trabajar, no una foto fija.
  * Un perfil real se calcula con la fecha de nacimiento; aquí se abre con un ejemplo.
@@ -55,9 +55,6 @@ const BLEND: Record<string, { from: SequenceId; to: SequenceId; x1: number; y1: 
 };
 
 const SHORT_NAME: Record<SequenceId, string> = { activation: "Activación", venus: "Venus", pearl: "Perla" };
-
-/** Los doce signos, en presentación de texto (no emoji). */
-const ZODIAC = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"].map((g) => `${g}︎`);
 
 /** En el teléfono la carta se recorta a la rueda y las frecuencias pasan al panel (no caben legibles al lado). */
 function useNarrow() {
@@ -174,52 +171,12 @@ export function GeneKeysModel() {
         </mask>
       </defs>
 
-      {/* El fondo: la flor de la vida y la rueda con el zodiaco y los 64 hexagramas, muy tenues */}
+      {/* El fondo: la flor de la vida, muy tenue */}
       <g aria-hidden className="pointer-events-none" stroke="currentColor" fill="none">
         <g mask="url(#gk-fade-mask)" strokeWidth="1" opacity="0.09">
           {flower.map((p, i) => (
             <circle key={i} cx={p.x} cy={p.y} r={58} />
           ))}
-        </g>
-        <g opacity="0.2" strokeWidth="1">
-          <circle cx={cx} cy={cy} r={205} />
-          <circle cx={cx} cy={cy} r={214} />
-          <circle cx={cx} cy={cy} r={252} />
-          <circle cx={cx} cy={cy} r={262} />
-        </g>
-        {/* Las doce divisiones del zodiaco atraviesan el anillo exterior. */}
-        <g opacity="0.24" strokeWidth="1">
-          {Array.from({ length: 12 }, (_, i) => (
-            <line key={i} x1={cx} y1={cy - 248} x2={cx} y2={cy - 300} transform={`rotate(${i * 30 + 15} ${cx} ${cy})`} />
-          ))}
-        </g>
-        {/* Los 64 hexagramas: seis trazos, enteros (yang) o partidos (yin). */}
-        <g opacity="0.26" strokeWidth="1.6">
-          {Array.from({ length: 64 }, (_, i) => (
-            <g key={i} transform={`rotate(${(i * 360) / 64 + 2.8} ${cx} ${cy})`}>
-              {Array.from({ length: 6 }, (_, j) => {
-                const y = cy - 220 - j * 4.6;
-                return (i >> j) & 1 ? (
-                  <line key={j} x1={cx - 6} y1={y} x2={cx + 6} y2={y} />
-                ) : (
-                  <g key={j}>
-                    <line x1={cx - 6} y1={y} x2={cx - 1.6} y2={y} />
-                    <line x1={cx + 1.6} y1={y} x2={cx + 6} y2={y} />
-                  </g>
-                );
-              })}
-            </g>
-          ))}
-        </g>
-        <g opacity="0.34" fill="currentColor" stroke="none" fontSize="17" textAnchor="middle" dominantBaseline="central">
-          {ZODIAC.map((g, i) => {
-            const a = ((i * 30 - 90 - 60) * Math.PI) / 180;
-            return (
-              <text key={i} x={cx + 280 * Math.cos(a)} y={cy + 280 * Math.sin(a)} className="select-none">
-                {g}
-              </text>
-            );
-          })}
         </g>
       </g>
 
