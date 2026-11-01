@@ -83,7 +83,7 @@ ${pre}<div style="max-width:520px;margin:0 auto;padding:36px 24px">
 /** Nota en gris bajo el botón (p. ej. «Este enlace es personal…» de los enlaces personales). */
 const note = (s?: string | null) => (s ? p(`<span style="color:#8A8698;font-size:13px">${esc(s)}</span>`) : "");
 
-export function magicLinkEmail(o: { url: string; creatorName?: string; purpose?: "LOGIN" | "VERIFY_SIGNUP" | "REGISTER"; name?: string | null; via?: "portal" }) {
+export function magicLinkEmail(o: { url: string; creatorName?: string; purpose?: "LOGIN" | "VERIFY_SIGNUP" | "REGISTER"; name?: string | null; via?: "portal" | "carta" }) {
   // Desde el candado del Portal de Noticias: confirma la newsletter, crea (o abre) su cuenta y entra.
   if (o.purpose === "REGISTER" && o.via === "portal")
     return {
@@ -95,6 +95,19 @@ export function magicLinkEmail(o: { url: string; creatorName?: string; purpose?:
           p(`Confirma que quieres recibir la newsletter de ${esc(o.creatorName ?? platformName())}. Al confirmarlo entras en tu área y se abre el Portal de Noticias con todo su contenido gratis.`) +
           note("El enlace funciona durante 24 horas y solo una vez. Si no has sido tú, ignora este mensaje: no se creará nada ni te apuntaremos a nada."),
         cta: { label: "Confirmar y ver el portal", url: o.url },
+      }),
+    };
+  // Desde «Calcular con mis datos» de un modelo (carta natal, Diseño Humano…): lo mismo, y vuelve a esa página.
+  if (o.purpose === "REGISTER" && o.via === "carta")
+    return {
+      subject: "Confirma tu suscripción y calcula tu carta",
+      html: layout({
+        brand: o.creatorName,
+        title: `Hola${o.name ? `, ${o.name}` : ""}`,
+        body:
+          p(`Confirma que quieres recibir la newsletter de ${esc(o.creatorName ?? platformName())}. Al confirmarlo entras en tu área y vuelves a la página en la que estabas, lista para calcular tu carta con tus datos.`) +
+          note("El enlace funciona durante 24 horas y solo una vez. Si no has sido tú, ignora este mensaje: no se creará nada ni te apuntaremos a nada."),
+        cta: { label: "Confirmar y calcular mi carta", url: o.url },
       }),
     };
   if (o.purpose === "REGISTER")

@@ -260,7 +260,8 @@ function CityPicker({ value, onChange }: { value: Place; onChange: (p: Place) =>
  *  El modelo
  * -------------------------------------------------------------------------- */
 
-export function LunarModel({ profile }: { profile?: BirthProfile } = {}) {
+/** `ownForm` false: sin «Calcular mi luna» propio (lo pone el candado de model-gate.tsx, que pasa el perfil). */
+export function LunarModel({ profile, ownForm = true }: { profile?: BirthProfile; ownForm?: boolean } = {}) {
   const now = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => dateKeyInTz(now, TZ), [now]);
   const [lib, setLib] = useState<SkyLib | null>(null);
@@ -963,19 +964,22 @@ export function LunarModel({ profile }: { profile?: BirthProfile } = {}) {
   const natalBlock = (
     <section aria-label="Tu luna natal" className="cp-line mt-8 border-t pt-6">
       <SectionTitle kicker="Personal" title="Tu luna natal">
-        {!formOpen && !profileKey && (
+        {!formOpen && !profileKey && ownForm && (
           <ToolButton onClick={() => setFormOpen(true)} active={!!natal}>
             {natal ? "Cambiar datos" : "Calcular mi luna"}
           </ToolButton>
         )}
       </SectionTitle>
-      {formOpen && !profileKey && (
+      {formOpen && !profileKey && ownForm && (
         <Suspense fallback={<p className="cp-faint text-[0.8rem]">Cargando el formulario…</p>}>
           <BirthForm initial={natal?.birth} onSubmit={(b) => void submitBirth(b)} onCancel={() => setFormOpen(false)} submitLabel="Ver mi luna" />
         </Suspense>
       )}
       {!formOpen && !natal && !profileKey && (
-        <p className="cp-muted text-[0.88rem] leading-relaxed">Con tu fecha, hora y lugar de nacimiento: la fase en la que naciste, tu signo lunar y, en el calendario, los días en que la Luna vuelve a tu signo y el momento exacto de tu retorno lunar. Se calcula en tu navegador; no se guarda ni se envía nada.</p>
+        <p className="cp-muted text-[0.88rem] leading-relaxed">
+          Con tu fecha, hora y lugar de nacimiento: la fase en la que naciste, tu signo lunar y, en el calendario, los días en que la Luna vuelve a tu signo y el momento exacto de tu retorno lunar.
+          {ownForm ? " Se calcula en tu navegador; no se guarda ni se envía nada." : " Calcúlala con tus datos desde el botón de arriba."}
+        </p>
       )}
       {!natal && profileKey && <p className="cp-faint text-[0.8rem]">Calculando…</p>}
       {!formOpen && natal && <NatalCard natal={natal} />}

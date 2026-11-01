@@ -144,7 +144,11 @@ const profileBirth = (p: BirthProfile): BirthData => ({
   place: { label: p.place.name, detail: p.place.detail ?? "", lat: p.place.lat, lon: p.place.lon, tz: p.place.tz },
 });
 
-export function ChartModel({ profile }: { profile?: BirthProfile } = {}) {
+/**
+ * `ownForm` false: sin «Calcular mi carta» propio (en las páginas de los métodos lo pone el candado de
+ * components/models/model-gate.tsx, que pasa el perfil).
+ */
+export function ChartModel({ profile, ownForm = true }: { profile?: BirthProfile; ownForm?: boolean } = {}) {
   const [ownBirth, setBirth] = useState<BirthData>(EXAMPLE);
   const [ownIsExample, setIsExample] = useState(true);
   const profileKey = profile ? JSON.stringify(profile) : "";
@@ -591,12 +595,12 @@ export function ChartModel({ profile }: { profile?: BirthProfile } = {}) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {!formOpen && !fromProfile && (
+          {!formOpen && !fromProfile && ownForm && (
             <button type="button" className="cp-btn !min-h-10 !text-[0.85rem]" onClick={() => setFormOpen(true)}>
               {isExample ? "Calcular mi carta" : "Cambiar datos"}
             </button>
           )}
-          {!isExample && !formOpen && !fromProfile && (
+          {!isExample && !formOpen && !fromProfile && ownForm && (
             <button type="button" className="cp-btn-ghost !min-h-10 !text-[0.85rem]" onClick={showExample}>
               Ver el ejemplo
             </button>
@@ -604,7 +608,7 @@ export function ChartModel({ profile }: { profile?: BirthProfile } = {}) {
         </div>
       </div>
 
-      {formOpen && !fromProfile && (
+      {formOpen && !fromProfile && ownForm && (
         <div className="mt-5">
           <BirthForm
             initial={isExample ? undefined : birth}

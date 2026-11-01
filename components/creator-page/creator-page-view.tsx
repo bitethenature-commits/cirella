@@ -201,7 +201,15 @@ export function CreatorPageView(props: Props) {
         return (
           <section key={key} id="bloques" className="mt-14 space-y-4" {...reveal}>
             {heading && <SectionHeading title={heading} />}
-            <ContentBlocks blocks={blocks} username={username} titleLevel={heading ? 3 : 2} hiddenSlugs={hiddenSlugs} siteOrigin={props.siteOrigin} oracleDecks={props.oracleDecks} />
+            <ContentBlocks
+              blocks={blocks}
+              username={username}
+              titleLevel={heading ? 3 : 2}
+              hiddenSlugs={hiddenSlugs}
+              siteOrigin={props.siteOrigin}
+              oracleDecks={props.oracleDecks}
+              modelGate={personal && !preview ? { username, creatorName: config.displayName, privacyHref: creatorLegalHref(username, "privacidad") } : null}
+            />
           </section>
         );
       }

@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useCallback, useEffect, useState } from "react";
 import { ArrowRight, ArrowUpRight, CalendarClock, Headphones, Images, Lock, MailCheck, Play, Sparkles, Video } from "lucide-react";
 import { requestPortalAccess, type PortalAccessState } from "@/app/[username]/portal-actions";
 import { homePortalItems, PORTAL_KIND_LABEL, PORTAL_LOCK_WHAT, type PortalKind, type PublicPortalItem } from "@/lib/portal-rules";
@@ -57,6 +57,7 @@ export function PortalSection({
   }, [preview, username]);
 
   const unlocked = !!access?.unlocked;
+  const reload = useCallback(() => window.location.reload(), []);
   const { main, rest } = home ? homePortalItems(items) : { main: items.find((i) => i.featured) ?? items[0] ?? null, rest: items.filter((i) => i !== (items.find((x) => x.featured) ?? items[0])) };
   if (!main) return null;
 
@@ -76,7 +77,7 @@ export function PortalSection({
 
       <div className="mt-5">
         <PortalCard item={main} big unlocked={unlocked} />
-        {!unlocked && <LockForm what={PORTAL_LOCK_WHAT[main.kind]} access={access} creatorName={creatorName} privacyHref={privacyHref} onUnlocked={() => window.location.reload()} />}
+        {!unlocked && <NewsletterUnlockForm attached what={PORTAL_LOCK_WHAT[main.kind]} access={access} creatorName={creatorName} privacyHref={privacyHref} onUnlocked={reload} />}
       </div>
       {rest.length > 0 && (
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -171,27 +172,67 @@ function PortalCard({ item, big, unlocked }: { item: PublicPortalItem; big?: boo
   );
 }
 
-/** Formulario del candado: nombre, email y la casilla de la newsletter (o solo la casilla si ya ha entrado). */
-function LockForm({ what, access, creatorName, privacyHref, onUnlocked }: { what: string; access: Access | null; creatorName: string; privacyHref: string; onUnlocked: () => void }) {
+/** Lo que sabe el navegador de quien mira (de /api/portal o /api/mi-energia) para el formulario del candado. */
+export type UnlockAccess = { reason: string; email: string | null; verified: boolean };
+
+/**
+ * Formulario del candado: nombre, email y la casilla de la newsletter (o solo la casilla si ya ha
+ * entrado). Lo usan el portal y, con `next` (volver a esa página) y `via="carta"`, el «Calcular con mis
+ * datos» de los modelos y «Mi energía». `attached`: pegado debajo de la tarjeta del portal.
+ */
+export function NewsletterUnlockForm({
+  what,
+  access,
+  creatorName,
+  privacyHref,
+  onUnlocked,
+  next,
+  via,
+  id = "portal-form",
+  attached = false,
+  signedInHint,
+  sentHint = "el portal se abrirá con todo",
+  footerHint = "se abre el portal",
+  label = "Suscríbete para ver el portal",
+}: {
+  what: string;
+  access: UnlockAccess | null;
+  creatorName: string;
+  privacyHref: string;
+  onUnlocked: () => void;
+  next?: string;
+  via?: "carta";
+  id?: string;
+  attached?: boolean;
+  /** Texto para quien ya ha entrado (por defecto, «Solo falta que te apuntes a la newsletter para …»). */
+  signedInHint?: string;
+  /** Lo que pasa al abrir el enlace del email («el portal se abrirá con todo» / «se abre el portal»). */
+  sentHint?: string;
+  footerHint?: string;
+  label?: string;
+}) {
   const [state, action] = useActionState<PortalAccessState, FormData>(requestPortalAccess, undefined);
   useEffect(() => {
     if (state?.unlocked) onUnlocked();
   }, [state, onUnlocked]);
   const signedIn = access?.reason === "subscribe" && access.verified;
+  const shape = attached ? "rounded-t-none border-t-0" : "";
 
   if (state?.sent)
     return (
-      <div id="portal-form" className="cp-card rounded-t-none border-t-0 p-5 text-center sm:p-6" role="status">
+      <div id={id} className={`cp-card ${shape} p-5 text-center sm:p-6`} role="status">
         <MailCheck className="mx-auto h-7 w-7" />
         <p className="mt-2 font-semibold">Revisa tu email</p>
         <p className="cp-muted mt-1 text-sm">
-          Te hemos enviado un enlace a <strong>{state.sent}</strong>. Ábrelo y pulsa «Confirmar y entrar»: el portal se abrirá con todo.
+          Te hemos enviado un enlace a <strong>{state.sent}</strong>. Ábrelo y pulsa «Confirmar y entrar»: {sentHint}.
         </p>
       </div>
     );
 
   return (
-    <form id="portal-form" action={action} className="cp-card rounded-t-none border-t-0 space-y-3 p-5 sm:p-6" aria-label="Suscríbete para ver el portal">
+    <form id={id} action={action} className={`cp-card ${shape} space-y-3 p-5 sm:p-6`} aria-label={label}>
+      {next && <input type="hidden" name="next" value={next} />}
+      {via && <input type="hidden" name="via" value={via} />}
       {state?.error && (
         <p role="alert" className="text-sm font-medium" style={{ color: "#e5484d" }}>
           {state.error}
@@ -201,7 +242,7 @@ function LockForm({ what, access, creatorName, privacyHref, onUnlocked }: { what
         <>
           <input type="hidden" name="signedIn" value="1" />
           <p className="text-sm">
-            Has entrado como <strong>{access?.email}</strong>. Solo falta que te apuntes a la newsletter para {what}.
+            Has entrado como <strong>{access?.email}</strong>. {signedInHint ?? `Solo falta que te apuntes a la newsletter para ${what}.`}
           </p>
         </>
       ) : (
@@ -230,7 +271,7 @@ function LockForm({ what, access, creatorName, privacyHref, onUnlocked }: { what
       <SubmitButton className="cp-btn h-12 w-full text-base" pendingLabel="Enviando…">
         {signedIn ? "Suscribirme y verlo" : `Suscribirme para ${what}`}
       </SubmitButton>
-      {!signedIn && <p className="cp-faint text-xs">Te enviaremos un enlace para confirmar tu email: al pulsarlo, entras en tu área y se abre el portal.</p>}
+      {!signedIn && <p className="cp-faint text-xs">Te enviaremos un enlace para confirmar tu email: al pulsarlo, entras en tu área y {footerHint}.</p>}
     </form>
   );
 }

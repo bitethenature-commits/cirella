@@ -1,4 +1,5 @@
 import type { PageConfig } from "@/lib/page-config";
+import { creatorLegalHref } from "@/lib/legal";
 import { imageSrcSet } from "@/lib/media-url";
 import { isOwnImageSrc, visibleBlocks } from "@/lib/page-blocks";
 import type { SitePageContent } from "@/lib/site-pages";
@@ -62,7 +63,15 @@ export function SitePageView({
         <h1 className="cp-display text-[2.4rem] leading-[1.05] sm:text-[3rem]">{content.title}</h1>
         {content.subtitle && <p className="cp-muted mt-4 text-[1.05rem] leading-relaxed">{content.subtitle}</p>}
         <div className="mt-10 space-y-6">
-          <ContentBlocks blocks={visibleBlocks(content.blocks)} username={username} titleLevel={2} hiddenSlugs={hiddenSlugs} siteOrigin={siteOrigin} oracleDecks={oracleDecks} />
+          <ContentBlocks
+            blocks={visibleBlocks(content.blocks)}
+            username={username}
+            titleLevel={2}
+            hiddenSlugs={hiddenSlugs}
+            siteOrigin={siteOrigin}
+            oracleDecks={oracleDecks}
+            modelGate={personal ? { username, creatorName: config.displayName, privacyHref: creatorLegalHref(username, "privacidad") } : null}
+          />
         </div>
       </main>
     </CreatorShell>

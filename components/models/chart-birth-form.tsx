@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { formatCoord, isValidZone } from "@/lib/natal-chart";
 import { fold, loadCities, searchCities, toPlace, type CityIndex, type Place } from "./cities";
 import { cn } from "./model-kit";
@@ -10,7 +10,8 @@ import { cn } from "./model-kit";
  * El lugar se busca en una lista de ciudades que se descarga al abrir el formulario (un JSON estático de
  * GeoNames, public/assets/ciudades/ciudades-v1.json, generado con scripts/gen-cities.ts; licencia
  * CC BY 4.0, https://www.geonames.org) o se escribe a mano con coordenadas y zona horaria.
- * Todo se queda en el navegador: no se guarda ni se envía nada.
+ * Todo se queda en el navegador: no se guarda ni se envía nada (salvo que quien lo usa lo guarde: «Mi
+ * energía» y el «Guardar» de los modelos pasan `extra`, `validate` y un onSubmit que devuelve el error).
  */
 
 export type BirthPlace = Place;
@@ -52,12 +53,25 @@ export function BirthForm({
   onSubmit,
   onCancel,
   submitLabel = "Calcular carta",
+  title = "Tus datos de nacimiento",
+  note = "Todo se calcula en tu navegador: no se guarda ni se envía nada.",
+  extra,
+  validate,
+  autoFocus = true,
 }: {
   initial?: BirthData;
-  onSubmit: (data: BirthData) => void;
-  onCancel: () => void;
+  /** Puede devolver (o prometer) un mensaje de error, que se enseña en el formulario. */
+  onSubmit: (data: BirthData) => void | string | null | Promise<void | string | null>;
+  onCancel?: () => void;
   /** Texto del botón de enviar (la carta natal: «Calcular carta»; el modelo lunar: «Ver mi luna»). */
   submitLabel?: string;
+  title?: string;
+  note?: ReactNode;
+  /** Campos de más, antes de los botones (relación, «Guardar», la casilla de consentimiento…). */
+  extra?: ReactNode;
+  /** Comprobación de esos campos de más: un mensaje si algo falta. */
+  validate?: () => string | null;
+  autoFocus?: boolean;
 }) {
   const uid = useId();
   const [name, setName] = useState(initial?.name ?? "");
@@ -75,10 +89,11 @@ export function BirthForm({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const firstField = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    firstField.current?.focus({ preventScroll: true });
+    if (autoFocus) firstField.current?.focus({ preventScroll: true });
     let alive = true;
     loadCities()
       .then((i) => alive && setIndex(i))
@@ -123,8 +138,9 @@ export function BirthForm({
     } else if (e.key === "Escape") setOpen(false);
   };
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     setError(null);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < MIN_DATE || date > MAX_DATE) return setError("Escribe la fecha de nacimiento (entre 1900 y 2050).");
     if (timeKnown && !/^\d{2}:\d{2}$/.test(time)) return setError("Escribe la hora de nacimiento o marca «No sé la hora».");
@@ -147,19 +163,29 @@ export function BirthForm({
         return setError(loadError ? "No se ha podido cargar la lista de ciudades: usa «Coordenadas»." : "Elige el lugar de nacimiento en la lista (o usa «Coordenadas»).");
       where = place;
     }
-    onSubmit({
-      name: name.trim().slice(0, 60),
-      date,
-      time: timeKnown ? time : "12:00",
-      timeKnown,
-      place: where,
-    });
+    const more = validate?.();
+    if (more) return setError(more);
+    setBusy(true);
+    try {
+      const err = await onSubmit({
+        name: name.trim().slice(0, 60),
+        date,
+        time: timeKnown ? time : "12:00",
+        timeKnown,
+        place: where,
+      });
+      if (err) setError(err);
+    } catch {
+      setError("No se ha podido guardar. Inténtalo de nuevo.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const listId = `${uid}-cities`;
   return (
     <form
-      onSubmit={submit}
+      onSubmit={(e) => void submit(e)}
       noValidate
       className="rounded-[calc(var(--r-card)*0.7)] border p-4 sm:p-5"
       style={{
@@ -167,8 +193,8 @@ export function BirthForm({
         background: "color-mix(in oklab, var(--c-gold) 4%, transparent)",
       }}
     >
-      <p className="cp-display text-[1.35rem] leading-tight">Tus datos de nacimiento</p>
-      <p className="cp-muted mt-1 text-[0.8rem] leading-relaxed">Todo se calcula en tu navegador: no se guarda ni se envía nada.</p>
+      <p className="cp-display text-[1.35rem] leading-tight">{title}</p>
+      {note && <p className="cp-muted mt-1 text-[0.8rem] leading-relaxed">{note}</p>}
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
@@ -295,6 +321,8 @@ export function BirthForm({
         </div>
       </div>
 
+      {extra && <div className="mt-4 space-y-3">{extra}</div>}
+
       {error && (
         <p role="alert" className="mt-4 text-[0.85rem]" style={{ color: "#D0584F" }}>
           {error}
@@ -302,12 +330,14 @@ export function BirthForm({
       )}
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        <button type="submit" className="cp-btn">
-          {submitLabel}
+        <button type="submit" className="cp-btn" disabled={busy} aria-busy={busy}>
+          {busy ? "Guardando…" : submitLabel}
         </button>
-        <button type="button" onClick={onCancel} className="cp-btn-ghost">
-          Cancelar
-        </button>
+        {onCancel && (
+          <button type="button" onClick={onCancel} className="cp-btn-ghost">
+            Cancelar
+          </button>
+        )}
       </div>
       <p className="cp-faint mt-4 text-[0.7rem] leading-relaxed">
         Datos de ciudades:{" "}

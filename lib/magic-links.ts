@@ -180,13 +180,13 @@ async function applyRegistration(user: { id: string; email: string; name: string
         email: user.email,
         name,
         on: true,
-        // Desde el candado del Portal de Noticias: el formulario era el de la newsletter.
-        source: data.via === "portal" ? "FORM" : "SIGNUP",
-        consentText:
-          data.via === "portal"
-            ? `${data.consentText ?? "Formulario del Portal de Noticias"} (confirmado desde su email)`
-            : "Casilla «Quiero recibir las novedades» al crear su cuenta, confirmada desde su email",
-        form: data.via === "portal" ? "portal" : "alta-alumna",
+        // Desde el candado del Portal de Noticias o de «Calcular con mis datos» (via carta): el
+        // formulario era el de la newsletter.
+        source: data.via ? "FORM" : "SIGNUP",
+        consentText: data.via
+          ? `${data.consentText ?? (data.via === "carta" ? "Formulario de «Calcular con mis datos»" : "Formulario del Portal de Noticias")} (confirmado desde su email)`
+          : "Casilla «Quiero recibir las novedades» al crear su cuenta, confirmada desde su email",
+        form: data.via ?? "alta-alumna",
       });
     return prev ? [] : recordEvents(tx, [{ type: "customer.created", customerId: customer.id }]);
   });

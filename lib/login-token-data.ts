@@ -8,9 +8,10 @@ import { z } from "zod";
 /**
  * «Crear mi cuenta» (web personal): lo que se aplica al confirmar el email. `via: "portal"` = viene
  * del candado del Portal de Noticias: la newsletter es lo que pidió (con su texto de consentimiento) y
- * el email habla del portal.
+ * el email habla del portal. `via: "carta"`: lo mismo desde «Calcular con mis datos» de los modelos
+ * (el email habla de calcular la carta).
  */
-export type RegisterData = { name: string; newsletter: boolean; creatorId: string; via?: "portal"; consentText?: string };
+export type RegisterData = { name: string; newsletter: boolean; creatorId: string; via?: "portal" | "carta"; consentText?: string };
 /** Cambio de email: de qué cuenta y desde qué dirección (para no aplicar un cambio viejo). */
 export type EmailChangeData = { userId: string; fromEmail: string };
 
@@ -20,7 +21,7 @@ const registerSchema = z
     name: z.string().trim().max(80),
     newsletter: z.boolean(),
     creatorId: z.string().min(1),
-    via: z.literal("portal").optional(),
+    via: z.enum(["portal", "carta"]).optional(),
     consentText: z.string().max(400).optional(),
   })
   .nullable()

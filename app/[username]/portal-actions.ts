@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser, sendMagicLink } from "@/lib/auth";
-import { maskEmail } from "@/lib/auth-utils";
+import { maskEmail, safeNext } from "@/lib/auth-utils";
 import { requestClient } from "@/lib/client-ip";
 import { limitMagicLink, limitNewsletterSignup } from "@/lib/limits";
 import { brandName, subscribe } from "@/lib/newsletter";
@@ -30,6 +30,10 @@ const schema = z.object({
  *     La respuesta es la misma tenga cuenta o no (nadie averigua quién está).
  *   · Con su sesión ya verificada (el email es suyo): se suscribe confirmada al momento.
  * Solo en la web personal (la newsletter es de la dueña).
+ *
+ * También lo usan los modelos de las páginas de los métodos («Calcular con mis datos») y «Mi energía»
+ * (/cuenta/mi-energia), con la misma regla: `next` = la página a la que volver (una ruta interna; si no,
+ * el portal) y `via=carta` = el email habla de calcular la carta en vez del portal.
  */
 export async function requestPortalAccess(_: PortalAccessState, form: FormData): Promise<PortalAccessState> {
   if (!isPersonalMode()) return { error: "El portal no está disponible." };
@@ -37,6 +41,8 @@ export async function requestPortalAccess(_: PortalAccessState, form: FormData):
   if (!owner) return { error: "El portal no está disponible." };
   const consentText = newsletterConsentText(brandName(owner));
   const portal = sectionPagePath(owner.username, "portal", true);
+  const next = safeNext(String(form.get("next") ?? ""), "") || portal;
+  const via = form.get("via") === "carta" ? "carta" : "portal";
   const user = await getCurrentUser();
 
   // Ya ha entrado con un email demostrado: solo falta la casilla.
@@ -49,9 +55,9 @@ export async function requestPortalAccess(_: PortalAccessState, form: FormData):
       source: "FORM",
       confirmed: true,
       consentText,
-      consentMeta: { form: "portal", ipHash: client.ipHash, userId: user.id },
+      consentMeta: { form: via, ipHash: client.ipHash, userId: user.id },
     });
-    revalidatePath(portal);
+    revalidatePath(next.split(/[?#]/)[0]);
     return { unlocked: true };
   }
 
@@ -65,11 +71,12 @@ export async function requestPortalAccess(_: PortalAccessState, form: FormData):
   if (!gate.ok) return { error: gate.message, ...echo };
   const link = await limitMagicLink(email, ipHash);
   if (!link.ok) return { error: link.message, ...echo };
-  await sendMagicLink(email, `${portal}?bienvenida=1`, {
+  const [path, hash] = next.split("#");
+  await sendMagicLink(email, `${path}${path.includes("?") ? "&" : "?"}bienvenida=1${hash ? `#${hash}` : ""}`, {
     creatorId: owner.id,
     purpose: "REGISTER",
     name,
-    data: { name, newsletter: true, creatorId: owner.id, via: "portal", consentText },
+    data: { name, newsletter: true, creatorId: owner.id, via, consentText },
   });
   return { sent: maskEmail(email) };
 }
