@@ -579,7 +579,7 @@ export function CreatorPageView(props: Props) {
 
       {/* Portada */}
       {config.coverUrl ? (
-        <div className="relative h-[34vh] min-h-[220px] w-full overflow-hidden sm:h-[42vh]">
+        <div className="relative h-[22vh] min-h-[150px] w-full overflow-hidden sm:h-[42vh] sm:min-h-[220px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={config.coverUrl}
@@ -593,21 +593,21 @@ export function CreatorPageView(props: Props) {
           <div className="cp-cover-fade absolute inset-0" />
         </div>
       ) : (
-        <div className="h-20 sm:h-28" />
+        <div className="h-16 sm:h-28" />
       )}
 
       <main className="relative mx-auto w-full max-w-[44rem] px-5 pb-16">
         {/* Presentación */}
-        <header className={`flex flex-col items-center text-center ${config.coverUrl ? "-mt-16 sm:-mt-20" : "pt-4"}`}>
+        <header className={`flex flex-col items-center text-center ${config.coverUrl ? "-mt-14 sm:-mt-20" : "pt-2 sm:pt-4"}`}>
           <div className="rounded-full p-[3px]" style={{ background: "linear-gradient(135deg, var(--c-gold), var(--c-accent))" }}>
             <div className="rounded-full p-[3px]" style={{ background: "var(--c-bg)" }}>
-              <Avatar src={config.avatarUrl} name={config.displayName} className="h-28 w-28 sm:h-32 sm:w-32" />
+              <Avatar src={config.avatarUrl} name={config.displayName} className="h-24 w-24 sm:h-32 sm:w-32" />
             </div>
           </div>
-          <h1 className="cp-display mt-5 text-[2.6rem] sm:text-[3.2rem]">{config.displayName}</h1>
+          <h1 className="cp-display mt-4 text-[2.6rem] sm:mt-5 sm:text-[3.2rem]">{config.displayName}</h1>
           {config.tagline && <p className="cp-eyebrow mt-3">{config.tagline}</p>}
           {config.headline && (
-            <p className="cp-display mt-6 max-w-lg text-[1.65rem] italic leading-tight sm:text-[2rem]" style={{ color: "var(--c-gold)" }}>
+            <p className="cp-display mt-4 max-w-lg text-[1.65rem] italic leading-tight sm:mt-6 sm:text-[2rem]" style={{ color: "var(--c-gold)" }}>
               {config.headline}
             </p>
           )}
