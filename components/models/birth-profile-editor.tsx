@@ -89,13 +89,10 @@ export function BirthProfileEditor({
     <BirthForm
       initial={initial ? profileToForm(initial) : undefined}
       title={title ?? (mode === "save" ? (saved ? "Cambiar los datos" : "Datos de nacimiento") : "Tus datos de nacimiento")}
-      note={
-        store
-          ? "Se guardan en tu cuenta y solo los ves tú. Puedes borrarlos cuando quieras."
-          : "Todo se calcula en tu navegador: no se guarda ni se envía nada."
-      }
+      note={store ? "Se guardan en tu cuenta y solo los ves tú. Puedes borrarlos cuando quieras." : "Todo se calcula en tu navegador: no se guarda ni se envía nada."}
       submitLabel={submitLabel ?? (store ? "Guardar" : "Calcular")}
       autoFocus={autoFocus}
+      nameRequired={store}
       extra={extra}
       validate={() => {
         if (!store) return null;
@@ -118,7 +115,13 @@ export function BirthProfileEditor({
           isOwn,
           date: profile.date,
           time: profile.time,
-          place: { name: profile.place.name, detail: profile.place.detail || undefined, lat: profile.place.lat, lon: profile.place.lon, tz: profile.place.tz },
+          place: {
+            name: profile.place.name,
+            detail: profile.place.detail || undefined,
+            lat: profile.place.lat,
+            lon: profile.place.lon,
+            tz: profile.place.tz,
+          },
           consent: consent as true,
         });
         if (!res.ok) return res.error;

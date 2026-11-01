@@ -25,7 +25,11 @@ async function guard(): Promise<Guard> {
   const { viewer, owner } = access;
   if (!viewer.userId) return { ok: false, error: "Entra en tu cuenta para guardar datos." };
   if (!viewer.sessionVerified) return { ok: false, error: "Confirma tu email para guardar datos." };
-  if (!viewer.unlocked) return { ok: false, error: "Suscríbete a la newsletter para guardar datos." };
+  if (!viewer.unlocked)
+    return {
+      ok: false,
+      error: "Suscríbete a la newsletter para guardar datos.",
+    };
   return { ok: true, userId: viewer.userId, creatorId: owner.id };
 }
 
@@ -37,7 +41,11 @@ export async function saveBirthProfile(input: BirthProfileInput): Promise<Profil
   const g = await guard();
   if (!g.ok) return g;
   const parsed = birthProfileInputSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Revisa los datos" };
+  if (!parsed.success)
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Revisa los datos",
+    };
   const d = parsed.data;
   if (!isValidZone(d.place.tz)) return { ok: false, error: "Esa zona horaria no se reconoce" };
   const data = { ...profileColumns(d), consentAt: new Date() };
@@ -46,20 +54,38 @@ export async function saveBirthProfile(input: BirthProfileInput): Promise<Profil
   const mineWhere = { creatorId: g.creatorId, userId: g.userId };
   const row = await prisma.$transaction(async (tx) => {
     if (d.id) {
-      const mine = await tx.birthProfile.findFirst({ where: { id: d.id, ...mineWhere }, select: { id: true } });
+      const mine = await tx.birthProfile.findFirst({
+        where: { id: d.id, ...mineWhere },
+        select: { id: true },
+      });
       if (!mine) return null;
     } else if ((await tx.birthProfile.count({ where: mineWhere })) >= BIRTH_PROFILES_MAX) {
       return "full" as const;
     }
     // Como mucho un perfil propio: al marcar este, los demás dejan de serlo.
-    if (d.isOwn) await tx.birthProfile.updateMany({ where: { ...mineWhere, isOwn: true, ...(d.id ? { NOT: { id: d.id } } : {}) }, data: { isOwn: false, relation: null } });
+    if (d.isOwn)
+      await tx.birthProfile.updateMany({
+        where: {
+          ...mineWhere,
+          isOwn: true,
+          ...(d.id ? { NOT: { id: d.id } } : {}),
+        },
+        data: { isOwn: false, relation: null },
+      });
     if (d.id) {
-      await tx.birthProfile.updateMany({ where: { id: d.id, ...mineWhere }, data });
+      await tx.birthProfile.updateMany({
+        where: { id: d.id, ...mineWhere },
+        data,
+      });
       return tx.birthProfile.findFirst({ where: { id: d.id, ...mineWhere } });
     }
     return tx.birthProfile.create({ data: { ...data, ...mineWhere } });
   });
-  if (row === "full") return { ok: false, error: `Puedes guardar hasta ${BIRTH_PROFILES_MAX} personas. Borra alguna para añadir otra.` };
+  if (row === "full")
+    return {
+      ok: false,
+      error: `Puedes guardar hasta ${BIRTH_PROFILES_MAX} personas. Borra alguna para añadir otra.`,
+    };
   if (!row) return { ok: false, error: "No hemos encontrado esos datos." };
   revalidate();
   return { ok: true, profile: toSavedProfile(row) };
@@ -71,7 +97,9 @@ export async function deleteBirthProfile(id: string): Promise<{ ok: true } | { o
   const parsed = z.string().min(1).max(40).safeParse(id);
   if (!parsed.success) return { ok: false, error: "No hemos encontrado esos datos." };
   // Borrar es borrar: la fila desaparece (no hay papelera).
-  const { count } = await tenantDb(g.creatorId).birthProfile.deleteMany({ where: { id: parsed.data, userId: g.userId } });
+  const { count } = await tenantDb(g.creatorId).birthProfile.deleteMany({
+    where: { id: parsed.data, userId: g.userId },
+  });
   if (!count) return { ok: false, error: "No hemos encontrado esos datos." };
   revalidate();
   return { ok: true };

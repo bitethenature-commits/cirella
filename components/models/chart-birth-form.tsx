@@ -58,6 +58,7 @@ export function BirthForm({
   extra,
   validate,
   autoFocus = true,
+  nameRequired = false,
 }: {
   initial?: BirthData;
   /** Puede devolver (o prometer) un mensaje de error, que se enseña en el formulario. */
@@ -72,6 +73,8 @@ export function BirthForm({
   /** Comprobación de esos campos de más: un mensaje si algo falta. */
   validate?: () => string | null;
   autoFocus?: boolean;
+  /** Al guardar, el nombre hace falta para reconocer los datos: sin «(opcional)». */
+  nameRequired?: boolean;
 }) {
   const uid = useId();
   const [name, setName] = useState(initial?.name ?? "");
@@ -199,7 +202,7 @@ export function BirthForm({
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label htmlFor={`${uid}-name`} className={LABEL}>
-            Nombre <span className="normal-case tracking-normal opacity-70">(opcional)</span>
+            Nombre {!nameRequired && <span className="normal-case tracking-normal opacity-70">(opcional)</span>}
           </label>
           <input ref={firstField} id={`${uid}-name`} className={FIELD} value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={60} />
         </div>

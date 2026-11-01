@@ -22,10 +22,17 @@ import { cn } from "./model-kit";
  *   · Con acceso y sin datos guardados: el formulario, con la opción de guardarlos.
  */
 
-export type ModelGateInfo = { username: string; creatorName: string; privacyHref: string };
+export type ModelGateInfo = {
+  username: string;
+  creatorName: string;
+  privacyHref: string;
+};
 export type GatedModel = "chart" | "bodygraph" | "geneKeys" | "lunar";
 
-type AccessData = UnlockAccess & { unlocked: boolean; profiles: SavedBirthProfile[] };
+type AccessData = UnlockAccess & {
+  unlocked: boolean;
+  profiles: SavedBirthProfile[];
+};
 
 const NOUN: Record<GatedModel, string> = {
   chart: "tu carta",
@@ -40,7 +47,10 @@ function loadAccess(username: string, fresh = false): Promise<AccessData | null>
   if (fresh) requests.delete(username);
   let p = requests.get(username);
   if (!p) {
-    p = fetch(`/api/mi-energia?u=${encodeURIComponent(username)}`, { cache: "no-store", credentials: "same-origin" })
+    p = fetch(`/api/mi-energia?u=${encodeURIComponent(username)}`, {
+      cache: "no-store",
+      credentials: "same-origin",
+    })
       .then((r) => (r.ok ? (r.json() as Promise<AccessData>) : null))
       .catch(() => null);
     requests.set(username, p);
@@ -52,7 +62,10 @@ type Panel = "none" | "subscribe" | "choose" | "form";
 
 export function ModelGate({ model, gate, children }: { model: GatedModel; gate: ModelGateInfo; children: (profile: BirthProfile | undefined) => ReactNode }) {
   const [access, setAccess] = useState<AccessData | null | "loading">("loading");
-  const [active, setActive] = useState<{ id: string | null; profile: BirthProfile } | null>(null);
+  const [active, setActive] = useState<{
+    id: string | null;
+    profile: BirthProfile;
+  } | null>(null);
   /** Ya eligió algo (otro perfil, el ejemplo): no se vuelve a aplicar el propio solo. */
   const [chosen, setChosen] = useState(false);
   const [panel, setPanel] = useState<Panel>("none");
@@ -160,7 +173,10 @@ export function ModelGate({ model, gate, children }: { model: GatedModel; gate: 
       <div
         id={anchor}
         className="mb-5 scroll-mt-24 rounded-[calc(var(--r-card)*0.7)] border px-4 py-3"
-        style={{ borderColor: "color-mix(in oklab, var(--c-gold) 30%, transparent)", background: "color-mix(in oklab, var(--c-gold) 5%, transparent)" }}
+        style={{
+          borderColor: "color-mix(in oklab, var(--c-gold) 30%, transparent)",
+          background: "color-mix(in oklab, var(--c-gold) 5%, transparent)",
+        }}
         data-gate={access === "loading" ? "loading" : unlocked ? "unlocked" : "locked"}
       >
         {bar}
