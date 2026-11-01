@@ -17,6 +17,9 @@ import {
   type SequenceId,
   type Sphere,
 } from "./data/gene-keys";
+import type { BirthProfile, ComputedProfile } from "@/lib/birth-profile";
+import type { GeneKeysProfile } from "@/lib/human-design-calc";
+import { useComputedProfile } from "./use-birth-profile";
 import { BG, GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelRow, ToolButton, cn, tap, useShown } from "./model-kit";
 
 /**
@@ -25,7 +28,9 @@ import { BG, GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeading, PanelIdl
  * (los interiores, punteados) y la flor de la vida al fondo.
  * Cada esfera lleva una llave y su línea; a su lado, sus tres frecuencias. Al elegirla se ven en detalle,
  * con la pregunta que plantea, y la llave se puede cambiar: es un perfil para trabajar, no una foto fija.
- * Un perfil real se calcula con la fecha de nacimiento; aquí se abre con un ejemplo.
+ * Sin perfil de nacimiento se abre con un ejemplo. Con uno (`profile`, o ya calculado en `computed`), las
+ * once esferas llevan las llaves y líneas de esa persona (lib/human-design-calc.ts: Sol, Tierra, Luna, Venus,
+ * Marte y Júpiter de la personalidad y del diseño) y ya no se cambian a mano.
  */
 
 type Frequency = "shadow" | "gift" | "siddhi";
@@ -96,8 +101,21 @@ function FrequencyMark({ f, x, y }: { f: Frequency; x: number; y: number }) {
   );
 }
 
-export function GeneKeysModel() {
-  const [profile, setProfile] = useState<Record<string, number>>({ ...EXAMPLE_PROFILE });
+export function GeneKeysModel({ profile, computed }: { profile?: BirthProfile; computed?: ComputedProfile } = {}) {
+  const { result, pending } = useComputedProfile(profile, computed);
+  if (pending)
+    return (
+      <div className="grid min-h-[24rem] place-items-center" aria-busy="true">
+        <span className="cp-faint text-[0.85rem]">Calculando…</span>
+      </div>
+    );
+  return <GeneKeysView calc={result?.geneKeys ?? null} person={result?.profile} />;
+}
+
+function GeneKeysView({ calc, person }: { calc: GeneKeysProfile | null; person?: BirthProfile }) {
+  const [manualKeys, setProfile] = useState<Record<string, number>>({ ...EXAMPLE_PROFILE });
+  const profile = calc ? calc.keys : manualKeys;
+  const lines = calc ? calc.lines : EXAMPLE_LINES;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frequency, setFrequency] = useState<Frequency>("gift");
   const [highlight, setHighlight] = useState<SequenceId | null>(null);
@@ -107,7 +125,7 @@ export function GeneKeysModel() {
   const selected = selectedId ? SPHERE_BY_ID[selectedId] : null;
   const selectedKey = selected ? KEY_BY_N.get(profile[selected.id]) : undefined;
   const dimmed = (s: Sphere) => highlight !== null && !inSequence(s, highlight);
-  const keyLabel = (id: string) => `${profile[id] ?? "–"}.${EXAMPLE_LINES[id] ?? 1}`;
+  const keyLabel = (id: string) => `${profile[id] ?? "–"}.${lines[id] ?? 1}`;
 
   /** Las esferas de cada secuencia, con el nombre y el orden que tienen en ella. */
   const sequenceSpheres = useMemo(
@@ -264,9 +282,32 @@ export function GeneKeysModel() {
 
   const panel = !selected ? (
     <PanelBody id="idle">
+      {calc && (
+        <div className="mb-6 rounded-[calc(var(--r-card)*0.7)] border p-5" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 35%, transparent)", background: "color-mix(in oklab, var(--c-gold) 7%, transparent)" }}>
+          <p className="cp-eyebrow cp-gold">{person?.name ? `Perfil hologenético de ${person.name}` : "Perfil hologenético calculado"}</p>
+          <dl className="mt-3">
+            {sequenceSpheres.map(({ seq, spheres }) => (
+              <PanelRow
+                key={seq.id}
+                label={SHORT_NAME[seq.id]}
+                value={
+                  <span className="flex flex-wrap justify-end gap-x-3 gap-y-1">
+                    {spheres.map((sp) => (
+                      <button key={sp.id} type="button" onClick={() => setSelectedId(sp.id)} className="tabular-nums underline-offset-4 hover:underline">
+                        {sp.name} <span className="font-semibold">{keyLabel(sp.id)}</span>
+                      </button>
+                    ))}
+                  </span>
+                }
+              />
+            ))}
+          </dl>
+          {person && person.time === null && <p className="cp-faint mt-3 text-[0.72rem] leading-relaxed">Sin hora de nacimiento: calculado a las 12:00; la Atracción (Luna) y algunas líneas pueden variar.</p>}
+        </div>
+      )}
       <PanelIdle title="Toca una esfera.">
         <p>Once esferas, tres secuencias. Cada esfera lleva una de las 64 llaves con su línea — y cada llave, la misma fuerza a tres temperaturas: sombra, don y siddhi.</p>
-        <p>Con los controles de arriba puedes destacar una secuencia; al elegir una esfera, leer sus tres frecuencias o poner otra llave.</p>
+        <p>Con los controles de arriba puedes destacar una secuencia; al elegir una esfera, leer sus tres frecuencias{calc ? "." : " o poner otra llave."}</p>
       </PanelIdle>
       <div className="mt-6 space-y-5">
         {sequenceSpheres.map(({ seq, spheres }) => (
@@ -313,7 +354,7 @@ export function GeneKeysModel() {
       {selectedKey && (
         <div className="mt-6 rounded-[calc(var(--r-card)*0.7)] border p-5" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 25%, transparent)", background: "color-mix(in oklab, var(--c-gold) 5%, transparent)" }}>
           <p className="cp-eyebrow cp-gold">
-            Llave {selectedKey.n} · línea {EXAMPLE_LINES[selected.id] ?? 1}
+            Llave {selectedKey.n} · línea {lines[selected.id] ?? 1}
           </p>
           <div className="mt-4 space-y-3">
             {(["shadow", "gift", "siddhi"] as Frequency[]).map((f) => (
@@ -340,6 +381,7 @@ export function GeneKeysModel() {
         <PanelRow label="Fuente" value={selected.source} />
       </dl>
 
+      {!calc && (
       <div className="mt-6">
         <label htmlFor="gk-key" className="cp-eyebrow mb-2 block !text-[0.6rem]">
           Poner otra llave en esta esfera
@@ -352,6 +394,7 @@ export function GeneKeysModel() {
           ))}
         </select>
       </div>
+      )}
 
       <div className="mt-6">
         <ToolButton onClick={() => setSelectedId(null)}>Volver al resumen</ToolButton>
@@ -368,15 +411,17 @@ export function GeneKeysModel() {
               {SHORT_NAME[s.id]}
             </ToolButton>
           ))}
-          <ToolButton
-            onClick={() => {
-              setProfile({ ...EXAMPLE_PROFILE });
-              setSelectedId(null);
-              setHighlight(null);
-            }}
-          >
-            Restablecer
-          </ToolButton>
+          {!calc && (
+            <ToolButton
+              onClick={() => {
+                setProfile({ ...EXAMPLE_PROFILE });
+                setSelectedId(null);
+                setHighlight(null);
+              }}
+            >
+              Restablecer
+            </ToolButton>
+          )}
         </div>
       }
       diagram={diagram}

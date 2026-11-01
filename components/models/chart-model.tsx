@@ -20,6 +20,7 @@ import {
   type HouseSystem,
   type NodeKind,
 } from "@/lib/natal-chart";
+import type { BirthProfile } from "@/lib/birth-profile";
 import { BirthForm, type BirthData } from "./chart-birth-form";
 import {
   ANGLE_INFO,
@@ -50,6 +51,8 @@ import { GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeading, PanelIdle, P
  * juntos se abren en abanico con una línea hasta su punto), las casas con el grado de cada cúspide, los
  * ejes AC–DC y MC–IC marcados y los aspectos en el centro. Todo se toca y se explica; debajo, la tabla de
  * posiciones, el aspectario y el reparto de elementos y cualidades con el regente de la carta.
+ *
+ * Con `profile` (lib/birth-profile.ts) la carta es la de ese perfil: sin ejemplo ni formulario.
  */
 
 type Selection =
@@ -132,9 +135,22 @@ const longDate = (date: string) => {
   }).format(new Date(Date.UTC(y, m - 1, d)));
 };
 
-export function ChartModel() {
-  const [birth, setBirth] = useState<BirthData>(EXAMPLE);
-  const [isExample, setIsExample] = useState(true);
+/** BirthProfile → los datos del formulario (sin hora: las 12:00 y timeKnown false). */
+const profileBirth = (p: BirthProfile): BirthData => ({
+  name: p.name,
+  date: p.date,
+  time: p.time ?? "12:00",
+  timeKnown: p.time !== null,
+  place: { label: p.place.name, detail: p.place.detail ?? "", lat: p.place.lat, lon: p.place.lon, tz: p.place.tz },
+});
+
+export function ChartModel({ profile }: { profile?: BirthProfile } = {}) {
+  const [ownBirth, setBirth] = useState<BirthData>(EXAMPLE);
+  const [ownIsExample, setIsExample] = useState(true);
+  const profileKey = profile ? JSON.stringify(profile) : "";
+  const fromProfile = useMemo(() => (profileKey ? profileBirth(JSON.parse(profileKey) as BirthProfile) : null), [profileKey]);
+  const birth = fromProfile ?? ownBirth;
+  const isExample = fromProfile ? false : ownIsExample;
   const [formOpen, setFormOpen] = useState(false);
   /** En la hora repetida del cambio de otoño: usar la segunda vez que el reloj la marcó. */
   const [useSecond, setUseSecond] = useState(false);
@@ -575,12 +591,12 @@ export function ChartModel() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {!formOpen && (
+          {!formOpen && !fromProfile && (
             <button type="button" className="cp-btn !min-h-10 !text-[0.85rem]" onClick={() => setFormOpen(true)}>
               {isExample ? "Calcular mi carta" : "Cambiar datos"}
             </button>
           )}
-          {!isExample && !formOpen && (
+          {!isExample && !formOpen && !fromProfile && (
             <button type="button" className="cp-btn-ghost !min-h-10 !text-[0.85rem]" onClick={showExample}>
               Ver el ejemplo
             </button>
@@ -588,7 +604,7 @@ export function ChartModel() {
         </div>
       </div>
 
-      {formOpen && (
+      {formOpen && !fromProfile && (
         <div className="mt-5">
           <BirthForm
             initial={isExample ? undefined : birth}

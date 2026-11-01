@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Suspense, lazy, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { Apsis, LunarDay, Lunation, NatalMoon } from "@/lib/lunar-sky";
 import { addDaysToKey, dateKeyInTz, formatInTz, timeInTz, zonedTimeToUtc } from "@/lib/tz";
+import type { BirthProfile } from "@/lib/birth-profile";
 import type { BirthData } from "./chart-birth-form";
 import { loadCities, searchCities, toPlace, type CityIndex, type Place } from "./cities";
 import { BODY_INFO, ELEMENT_HUE, SIGNS, bodyInSignText } from "./data/astrology";
@@ -25,6 +26,7 @@ import { GOLD, INK, ModelFrame, PanelBody, PanelHeading, PanelRow, RangeField, T
  *     llega, una aproximación sinódica (data/moon.ts). El formulario de nacimiento, también aparte.
  *   · Superluna: luna nueva o llena con d ≤ perigeo + 10 % (apogeo − perigeo) de esa vuelta (Nolle);
  *     ver lib/lunar-sky.ts. Nada se guarda ni se envía: el .ics se genera en el navegador.
+ *   · Con `profile` (lib/birth-profile.ts) la Luna natal es la de ese perfil y no se pide el formulario.
  */
 
 type SkyLib = typeof import("@/lib/lunar-sky");
@@ -258,7 +260,7 @@ function CityPicker({ value, onChange }: { value: Place; onChange: (p: Place) =>
  *  El modelo
  * -------------------------------------------------------------------------- */
 
-export function LunarModel() {
+export function LunarModel({ profile }: { profile?: BirthProfile } = {}) {
   const now = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => dateKeyInTz(now, TZ), [now]);
   const [lib, setLib] = useState<SkyLib | null>(null);
@@ -270,7 +272,8 @@ export function LunarModel() {
   const [cursor, setCursor] = useState(() => ({ y: Number(todayKey.slice(0, 4)), m: Number(todayKey.slice(5, 7)) }));
   const [year, setYear] = useState(cursor.y);
   const [city, setCity] = useState<Place>(MADRID);
-  const [natal, setNatal] = useState<{ birth: BirthData; moon: NatalMoon } | null>(null);
+  const [ownNatal, setNatal] = useState<{ birth: BirthData; moon: NatalMoon } | null>(null);
+  const profileKey = profile ? JSON.stringify(profile) : "";
   const [formOpen, setFormOpen] = useState(false);
   const [icsMode, setIcsMode] = useState<"timed" | "allday">("timed");
   const [years, setYears] = useState<Record<number, Lunation[]>>({});
@@ -287,6 +290,21 @@ export function LunarModel() {
       alive = false;
     };
   }, []);
+
+  /** La Luna natal del perfil recibido (en cuanto llega lib/lunar-sky) o la del formulario. */
+  const profileNatal = useMemo(() => {
+    if (!profileKey || !lib) return null;
+    const p = JSON.parse(profileKey) as BirthProfile;
+    const birth: BirthData = {
+      name: p.name,
+      date: p.date,
+      time: p.time ?? "12:00",
+      timeKnown: p.time !== null,
+      place: { label: p.place.name, detail: p.place.detail ?? "", lat: p.place.lat, lon: p.place.lon, tz: p.place.tz },
+    };
+    return { birth, moon: lib.natalMoon({ date: birth.date, time: birth.time, timeKnown: birth.timeKnown, tz: birth.place.tz }) };
+  }, [profileKey, lib]);
+  const natal = profileKey ? profileNatal : ownNatal;
 
   /** Mueve el instante (y el calendario a su mes). */
   const setMoment = (d: Date) => {
@@ -945,20 +963,21 @@ export function LunarModel() {
   const natalBlock = (
     <section aria-label="Tu luna natal" className="cp-line mt-8 border-t pt-6">
       <SectionTitle kicker="Personal" title="Tu luna natal">
-        {!formOpen && (
+        {!formOpen && !profileKey && (
           <ToolButton onClick={() => setFormOpen(true)} active={!!natal}>
             {natal ? "Cambiar datos" : "Calcular mi luna"}
           </ToolButton>
         )}
       </SectionTitle>
-      {formOpen && (
+      {formOpen && !profileKey && (
         <Suspense fallback={<p className="cp-faint text-[0.8rem]">Cargando el formulario…</p>}>
           <BirthForm initial={natal?.birth} onSubmit={(b) => void submitBirth(b)} onCancel={() => setFormOpen(false)} submitLabel="Ver mi luna" />
         </Suspense>
       )}
-      {!formOpen && !natal && (
+      {!formOpen && !natal && !profileKey && (
         <p className="cp-muted text-[0.88rem] leading-relaxed">Con tu fecha, hora y lugar de nacimiento: la fase en la que naciste, tu signo lunar y, en el calendario, los días en que la Luna vuelve a tu signo y el momento exacto de tu retorno lunar. Se calcula en tu navegador; no se guarda ni se envía nada.</p>
       )}
+      {!natal && profileKey && <p className="cp-faint text-[0.8rem]">Calculando…</p>}
       {!formOpen && natal && <NatalCard natal={natal} />}
     </section>
   );
