@@ -6,9 +6,11 @@
  *  El perfil coloca trece esferas sobre el Camino Dorado, agrupadas en las tres
  *  secuencias (Activación, Venus y Perla).
  *
- *  La geometría de las esferas sigue el diagrama de referencia: un anillo
- *  dorado con el árbol dentro, el racimo de Venus arriba, la cruz de Activación
- *  en el medio y la Perla descendiendo hasta la base.
+ *  La geometría sigue la carta del perfil hologenético: arriba el rombo de la
+ *  Activación (Irradiación, Obra de vida, Evolución, Propósito); del Propósito
+ *  baja el camino a la Atracción y el rombo de Venus (CI, CE, CS) que se cierra
+ *  en el Núcleo; del Núcleo, a la Vocación y el rombo de la Perla.
+ *  Colores convencionales: Activación verde, Venus rojo, Perla azul.
  * -------------------------------------------------------------------------- */
 
 export interface GeneKey {
@@ -107,7 +109,7 @@ export const SEQUENCES: Sequence[] = [
     name: "Secuencia de Activación",
     subtitle: "Cuatro puntos · tu genio",
     question: "¿Quién soy?",
-    hue: "#C9A227",
+    hue: "#7DB08A",
     description:
       "El comienzo de todo recorrido. Cuatro esferas que describen juntas cómo te haces visible, en qué maduras, qué cambia por dentro y qué ocurre después por sí solo.",
   },
@@ -116,7 +118,7 @@ export const SEQUENCES: Sequence[] = [
     name: "Secuencia de Venus",
     subtitle: "Cinco esferas · tu corazón",
     question: "¿Para qué estoy aquí, con otros?",
-    hue: "#B5544F",
+    hue: "#CF6F66",
     description:
       "La más vulnerable de las tres. Recorre hacia atrás la atracción, la intimidad y los primeros siete años, hasta el punto en que aprendiste si el mundo te sostenía.",
   },
@@ -125,7 +127,7 @@ export const SEQUENCES: Sequence[] = [
     name: "Secuencia de la Perla",
     subtitle: "Cuatro esferas · tu prosperidad",
     question: "¿De qué vivo?",
-    hue: "#4E8C9B",
+    hue: "#6F98D0",
     description:
       "La prosperidad como efecto secundario de la coherencia. Llega la última porque sin las otras dos secuencias no significa nada.",
   },
@@ -146,7 +148,7 @@ export interface Sphere {
   meaning: string
   /** La pregunta con la que sentarse. */
   contemplation: string
-  /** Posición dentro del viewBox 1000×1000. */
+  /** Posición dentro del viewBox de la carta (GK_VIEWBOX). */
   x: number
   y: number
   /** Orden dentro de su secuencia, para el recorrido guiado. */
@@ -155,88 +157,88 @@ export interface Sphere {
 
 /** Las trece esferas del Camino Dorado. */
 export const SPHERES: Sphere[] = [
-  // ── Racimo de Venus, arriba ───────────────────────────────────────────
+  // ── Secuencia de Venus: de la Atracción al Núcleo ──────────────────────
   {
     id: "attraction",
     name: "Atracción",
     sequence: "venus",
-    source: "Luna",
+    source: "Luna (inconsciente)",
     meaning:
       "El patrón que atraes en tus relaciones — y que viene de tu impronta más temprana.",
     contemplation: "¿Qué se repite en todas mis relaciones?",
-    x: 505,
-    y: 176,
+    x: 380,
+    y: 446,
     step: 1,
   },
   {
     id: "iq",
     name: "CI",
     sequence: "venus",
-    source: "Marte (inconsciente)",
+    source: "Venus (consciente)",
     meaning: "Inteligencia mental. Cómo traduces la experiencia en comprensión.",
     contemplation: "¿Dónde pienso para no tener que sentir?",
-    x: 366,
-    y: 254,
+    x: 190,
+    y: 546,
     step: 2,
   },
   {
     id: "eq",
     name: "CE",
     sequence: "venus",
-    source: "Venus",
+    source: "Marte (consciente)",
     meaning: "Inteligencia emocional. Cuánto sentimiento aguantas sin huir.",
     contemplation: "¿Qué emoción evito con más fiabilidad?",
-    x: 648,
-    y: 254,
+    x: 570,
+    y: 546,
     step: 3,
   },
   {
     id: "sq",
     name: "CS",
     sequence: "venus",
-    source: "Júpiter",
+    source: "Venus (inconsciente)",
     meaning: "Inteligencia espiritual. El punto donde las otras dos se encuentran.",
     contemplation: "¿Qué queda cuando ni pienso ni siento?",
-    x: 505,
-    y: 333,
+    x: 380,
+    y: 646,
     step: 4,
   },
   {
     id: "core",
     name: "Núcleo",
     sequence: "venus",
-    source: "Tierra (inconsciente)",
+    source: "Marte (inconsciente)",
     meaning:
       "La herida nuclear. El lugar donde empezó todo — y del que, invertido, sale tu mayor don.",
     contemplation: "¿Qué creí sobre mí a los siete años?",
-    x: 366,
-    y: 417,
+    x: 380,
+    y: 806,
     step: 5,
   },
 
-  // ── Cruz de Activación ────────────────────────────────────────────────
+  // ── Rombo de la Activación, arriba ────────────────────────────────────
   {
     id: "radiance",
     name: "Irradiación",
     sequence: "activation",
-    source: "Tierra (inconsciente)",
+    source: "Sol (inconsciente)",
     meaning:
       "Tu salud y tu vitalidad. No es algo que se practique: ocurre cuando las otras tres maduran.",
     contemplation: "¿Cuándo tuve energía por última vez sin forzarla?",
-    x: 648,
-    y: 417,
+    x: 380,
+    y: 66,
     step: 3,
   },
   {
     id: "purpose",
     name: "Propósito",
     sequence: "activation",
-    source: "Tierra (consciente)",
+    source: "Tierra (inconsciente)",
     meaning:
       "El suelo firme bajo todo. No lo que debes hacer: aquello sobre lo que te apoyas mientras lo haces.",
     contemplation: "¿Qué sigue siendo verdad aunque todo lo demás cambie?",
-    x: 505,
-    y: 500,
+    x: 380,
+    y: 266,
     step: 4,
   },
   {
@@ -246,33 +248,33 @@ export const SPHERES: Sphere[] = [
     source: "Sol (consciente)",
     meaning: "Aquello por lo que te haces visible. Tu forma natural de expresarte en el mundo.",
     contemplation: "¿Qué hago sin que nadie me lo pida?",
-    x: 181,
-    y: 500,
+    x: 150,
+    y: 166,
     step: 1,
   },
   {
     id: "evolution",
     name: "Evolución",
     sequence: "activation",
-    source: "Sol (inconsciente)",
+    source: "Tierra (consciente)",
     meaning:
       "El desafío que te hace madurar. Vuelve una y otra vez hasta que entrega su don.",
     contemplation: "¿Qué dificultad regresa con toda fiabilidad a mi vida?",
-    x: 833,
-    y: 500,
+    x: 610,
+    y: 166,
     step: 2,
   },
 
-  // ── Perla, descendiendo ───────────────────────────────────────────────
+  // ── Rombo de la Perla, abajo ──────────────────────────────────────────
   {
     id: "vocation",
     name: "Vocación",
     sequence: "pearl",
-    source: "Marte (consciente)",
+    source: "Marte (inconsciente) · la misma llave que el Núcleo",
     meaning: "El terreno en el que tu trabajo se vuelve ligero, porque encaja.",
     contemplation: "¿Con qué se me olvida el tiempo?",
-    x: 366,
-    y: 583,
+    x: 380,
+    y: 986,
     step: 1,
   },
   {
@@ -282,19 +284,19 @@ export const SPHERES: Sphere[] = [
     source: "Júpiter (inconsciente)",
     meaning: "Las personas que sostienen tu obra. La prosperidad llega por vínculos, no por esfuerzo.",
     contemplation: "¿Quién se beneficia de verdad de que yo exista?",
-    x: 648,
-    y: 583,
+    x: 190,
+    y: 1086,
     step: 2,
   },
   {
     id: "brand",
     name: "Marca",
     sequence: "pearl",
-    source: "Sol (inconsciente)",
+    source: "Sol (consciente) · la misma llave que la Obra de vida",
     meaning: "Cómo aparece tu don hacia fuera, sin que tengas que explicarlo.",
     contemplation: "¿Para qué vienen a mí sin que yo lo pida?",
-    x: 505,
-    y: 662,
+    x: 570,
+    y: 1086,
     step: 3,
   },
   {
@@ -305,8 +307,8 @@ export const SPHERES: Sphere[] = [
     meaning:
       "La simplificación. El punto en que la prosperidad deja de ser un objetivo y pasa a ser una consecuencia.",
     contemplation: "¿Qué podría quitar sin perder nada?",
-    x: 505,
-    y: 824,
+    x: 380,
+    y: 1186,
     step: 4,
   },
 ]
@@ -316,30 +318,41 @@ export const SPHERE_BY_ID = Object.fromEntries(SPHERES.map((s) => [s.id, s])) as
   Sphere
 >
 
-/** Las líneas del Camino Dorado, tal como aparecen en el diagrama de referencia. */
+/** Tamaño de la carta: el ancho y el alto del viewBox en el que viven las coordenadas de las esferas. */
+export const GK_VIEWBOX = { w: 760, h: 1250 }
+
+/**
+ * Los caminos de la carta. Cada secuencia es un rombo con su cruz (en Venus, el rombo se cierra además
+ * en el Núcleo), y dos caminos enlazan las secuencias: Propósito → Atracción y Núcleo → Vocación.
+ * El orden solo cuenta para el dibujado (de arriba abajo).
+ */
 export const PATH_EDGES: Array<[string, string]> = [
-  // Racimo de Venus — la malla del árbol
+  // Activación: Obra de vida → Evolución → Irradiación → Propósito, y el rombo que los encierra
+  ["lifework", "evolution"],
+  ["radiance", "lifework"],
+  ["radiance", "evolution"],
+  ["radiance", "purpose"],
+  ["lifework", "purpose"],
+  ["evolution", "purpose"],
+  // De la Activación a Venus
+  ["purpose", "attraction"],
+  // Venus: Atracción → CI → CE → CS → Núcleo
   ["attraction", "iq"],
   ["attraction", "eq"],
-  ["attraction", "sq"],
   ["iq", "eq"],
   ["iq", "sq"],
   ["eq", "sq"],
   ["iq", "core"],
-  ["eq", "radiance"],
+  ["eq", "core"],
   ["sq", "core"],
-  ["sq", "radiance"],
-  ["core", "radiance"],
-  ["core", "purpose"],
-  ["radiance", "purpose"],
-  ["sq", "purpose"],
-  // Cruz de Activación
-  ["lifework", "purpose"],
-  ["purpose", "evolution"],
-  ["lifework", "pearl"],
-  // Descenso de la Perla
+  // De Venus a la Perla
+  ["core", "vocation"],
+  // Perla: Vocación → Cultura → Marca → Perla
   ["vocation", "culture"],
   ["vocation", "brand"],
+  ["culture", "brand"],
+  ["vocation", "pearl"],
+  ["culture", "pearl"],
   ["brand", "pearl"],
 ]
 
@@ -354,8 +367,8 @@ export const EXAMPLE_PROFILE: Record<string, number> = {
   eq: 22,
   sq: 51,
   core: 47,
-  vocation: 33,
+  vocation: 47,
   culture: 13,
-  brand: 1,
+  brand: 44,
   pearl: 2,
 }
