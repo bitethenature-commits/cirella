@@ -29,8 +29,7 @@ export default async function CursosPage({ params }: { params: Promise<Params> }
   return (
     <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
       <main className="mx-auto max-w-4xl px-4 pb-12 pt-8 sm:pt-12">
-        <p className="cp-eyebrow">{config.displayName}</p>
-        <h1 className="cp-display mt-2 text-[2.6rem] leading-tight">Cursos</h1>
+        <h1 className="cp-display text-[2.6rem] leading-tight">Cursos</h1>
         {groups.length === 0 ? (
           <p className="cp-muted mt-6">Pronto habrá cursos aquí.</p>
         ) : (
@@ -39,6 +38,7 @@ export default async function CursosPage({ params }: { params: Promise<Params> }
               key: g.key,
               label: g.label,
               count: g.courses.length,
+              image: g.courses.find((p) => p.imageUrl)?.imageUrl ?? null,
               cards: g.courses.map((p) => <ProductCard key={p.id} p={p} username={creator.username} trackCreatorId={creator.id} />),
             }))}
           />
