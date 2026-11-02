@@ -1,6 +1,6 @@
 "use client";
 import { Loader2 } from "lucide-react";
-import { startTransition, useActionState, useState } from "react";
+import { startTransition, useActionState, useCallback, useDeferredValue, useEffect, useRef, useState, type ReactNode } from "react";
 import { Flash } from "@/components/ui/flash";
 import { PAID_SESSION_MAX_NOTICE_DAYS, PAID_SESSION_MIN_NOTICE_DAYS, paidSessionNoticeDays } from "@/lib/withdrawal";
 import { ImageUpload } from "@/components/ui/image-upload";
@@ -24,7 +24,11 @@ import type { IntakeConfig } from "@/lib/intake";
 import { HORIZON_CHOICES, HORIZON_DEFAULT_DAYS, horizonLabel } from "@/lib/slots";
 import { COURSE_CATEGORIES, COURSE_CATEGORY_LABEL } from "@/lib/course-categories";
 import { SALE_LABEL_MAX } from "@/lib/offers";
+import { addDaysToKey, labelToMinutes, zonedTimeToUtc } from "@/lib/tz";
+import { useDesktop } from "@/components/panel/use-desktop";
+import type { ProductPageProduct } from "@/components/creator-page/product-page-view";
 import { updateProduct, type ActionState } from "../actions";
+import { DesktopPreview, PreviewButton, PreviewSheet, type PreviewTab, type ProductPreviewContext } from "./product-preview";
 
 export type EditableProduct = {
   id: string;
@@ -37,6 +41,7 @@ export type EditableProduct = {
   descriptionFormat: string | null;
   imageUrl: string | null;
   priceCents: number;
+  currency: string;
   ctaLabel: string | null;
   status: string;
   featured: boolean;
@@ -92,6 +97,8 @@ export function ProductForm({
   commissionBps,
   taxPreview,
   accessModes,
+  preview,
+  children,
 }: {
   product: EditableProduct;
   host: string;
@@ -101,6 +108,10 @@ export function ProductForm({
   taxPreview: { mode: TaxMode; country: string; vatStatus: VatStatus };
   /** Modos que se pueden elegir (lib/access-mode.ts → accessModesFor): en la plataforma, solo PAID. */
   accessModes: AccessMode[];
+  /** Vista previa en vivo (product-preview.tsx): lo que no sale del formulario. */
+  preview: ProductPreviewContext;
+  /** Lo que va debajo del formulario (archivos, lecciones…), en la misma columna que él. */
+  children?: ReactNode;
 }) {
   const [state, action, isPending] = useActionState<ActionState, FormData>(updateProduct, undefined);
   const [image, setImage] = useState(product.imageUrl);
@@ -132,15 +143,41 @@ export function ProductForm({
   const [salePrice, setSalePrice] = useState(product.salePrice);
   const saleCents = parseMoneyToCents(salePrice);
 
+  // Vista previa en vivo: se lee el formulario entero (sin guardar ni pedir nada) tras cada cambio.
+  const formRef = useRef<HTMLFormElement>(null);
+  const [tick, setTick] = useState(0);
+  const bump = useCallback(() => setTick((t) => t + 1), []);
+  const [live, setLive] = useState<{ product: ProductPageProduct; status: string } | null>(null);
+  useEffect(() => {
+    if (formRef.current) setLive(readPreview(formRef.current, product, preview, { image, emoji, access, mode, group, saleOn, price, salePrice, externalUrl }));
+  }, [tick, product, preview, image, emoji, access, mode, group, saleOn, price, salePrice, externalUrl]);
+  // Se repinta con un respiro: escribir no espera a la vista previa (como en el editor de la página).
+  const shown = useDeferredValue(live);
+  const desktop = useDesktop();
+  const [sheet, setSheet] = useState(false);
+  const [tab, setTab] = useState<PreviewTab>("card");
+  const closeSheet = useCallback(() => setSheet(false), []);
+
   return (
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_384px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_414px]">
+    <div className="min-w-0">
+    <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-line bg-white/60 px-4 py-2.5 lg:hidden">
+      <p className="text-sm text-muted">Mira cómo queda mientras escribes.</p>
+      <PreviewButton onClick={() => setSheet(true)} />
+    </div>
     <form
+      ref={formRef}
       // onSubmit en lugar de action={}: así un error de validación no borra lo escrito.
       onSubmit={(e) => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
         startTransition(() => action(fd));
       }}
-      className="grid gap-5 lg:grid-cols-[1fr_320px]"
+      // Cualquier cambio (también los botones de formato del texto) refresca la vista previa.
+      onInput={bump}
+      onChange={bump}
+      onClick={bump}
+      className="grid grid-cols-[minmax(0,1fr)] gap-5"
     >
       <input type="hidden" name="id" value={product.id} />
       <input type="hidden" name="imageUrl" value={image ?? ""} />
@@ -187,6 +224,8 @@ export function ProductForm({
               listMarker="star"
               legacy="description"
               rows={7}
+              onChange={bump}
+              onFormatChange={bump}
               placeholder={"Qué es, para quién es y qué incluye.\n\nIncluye:\n- Primer punto\n- Segundo punto"}
             />
           </div>
@@ -200,6 +239,10 @@ export function ProductForm({
               ))}
             </div>
           </div>
+        </section>
+        <section className="card p-5">
+          <label className="field-label">Imagen</label>
+          <ImageUpload value={image} onChange={setImage} />
         </section>
 
         {choosable && <input type="hidden" name="accessMode" value={access} />}
@@ -496,29 +539,108 @@ export function ProductForm({
         )}
       </div>
 
-      <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
-        <section className="card space-y-4 p-5">
-          <div>
-            <label className="field-label">Estado</label>
-            <select name="status" defaultValue={product.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT"} className="input">
-              <option value="PUBLISHED">Publicado en mi página</option>
-              <option value="DRAFT">Borrador (oculto)</option>
-            </select>
-          </div>
-          <button type="submit" className="btn btn-primary w-full" disabled={isPending}>{isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</> : "Guardar"}</button>
-        </section>
-        <section className="card p-5">
-          <label className="field-label">Imagen</label>
-          <ImageUpload value={image} onChange={setImage} />
-        </section>
-        <section className="card p-5">
-          <label className="field-label">Enlace</label>
-          <div className="flex items-center rounded-xl border border-line bg-white pl-3 text-sm">
-            <span className="shrink-0 text-muted">{host}/{username}/</span>
-            <input name="slug" defaultValue={product.slug} className="h-10 min-w-0 flex-1 bg-transparent pr-3 outline-none" />
-          </div>
-        </section>
-      </aside>
+      <section className="card p-5">
+        <label className="field-label">Enlace</label>
+        <div className="flex items-center rounded-xl border border-line bg-white pl-3 text-sm">
+          <span className="shrink-0 text-muted">{host}/{username}/</span>
+          <input name="slug" defaultValue={product.slug} className="h-10 min-w-0 flex-1 bg-transparent pr-3 outline-none" />
+        </div>
+      </section>
+      {/* En escritorio, siempre a la vista al bajar por el formulario. */}
+      <section className="card z-10 flex flex-col gap-4 p-5 sm:flex-row sm:items-end lg:sticky lg:bottom-4 lg:p-4 lg:shadow-lift">
+        <div className="sm:flex-1">
+          <label className="field-label">Estado</label>
+          <select name="status" defaultValue={product.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT"} className="input">
+            <option value="PUBLISHED">Publicado en mi página</option>
+            <option value="DRAFT">Borrador (oculto)</option>
+          </select>
+        </div>
+        <button type="submit" className="btn btn-primary w-full sm:w-auto sm:min-w-40" disabled={isPending}>{isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</> : "Guardar"}</button>
+      </section>
     </form>
+    {children && <div className="mt-5 space-y-5">{children}</div>}
+    </div>
+
+    {/* Vista previa en vivo: columna fija en escritorio; en el móvil y la tableta, a pantalla completa. */}
+    {desktop && shown && (
+      <aside className="hidden lg:block">
+        <DesktopPreview ctx={preview} product={shown.product} status={shown.status} tab={tab} onTab={setTab} />
+      </aside>
+    )}
+    {sheet && !desktop && shown && <PreviewSheet ctx={preview} product={shown.product} status={shown.status} tab={tab} onTab={setTab} onClose={closeSheet} />}
+    </div>
   );
+}
+
+type LiveState = { image: string | null; emoji: string; access: AccessMode; mode: DeliveryMode; group: boolean; saleOn: boolean; price: string; salePrice: string; externalUrl: string };
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const TIME = /^\d{2}:\d{2}$/;
+
+/**
+ * El producto tal y como quedaría con lo escrito ahora en el formulario (sin guardar), en los mismos
+ * datos planos que pinta la página pública. Las fechas se leen en la zona de la dueña, como al guardar.
+ */
+function readPreview(form: HTMLFormElement, base: EditableProduct, ctx: ProductPreviewContext, st: LiveState): { product: ProductPageProduct; status: string } {
+  const fd = new FormData(form);
+  const text = (k: string) => {
+    const v = fd.get(k);
+    return typeof v === "string" ? v : null;
+  };
+  const trimmed = (k: string) => text(k)?.trim() || null;
+  const int = (k: string) => {
+    const v = text(k)?.trim();
+    const n = v ? Number(v) : NaN;
+    return Number.isFinite(n) ? Math.round(n) : null;
+  };
+  const tz = base.ownerTimezone;
+  const free = st.access === "FREE_EMAIL";
+  const priceCents = free ? 0 : Math.max(0, parseMoneyToCents(st.price));
+  const saleStart = text("saleStart") ?? "";
+  const saleEnd = text("saleEnd") ?? "";
+  const eventDate = text("eventDate") ?? "";
+  const eventTime = text("eventTime") ?? "";
+  const salePriceCents = st.saleOn && st.access === "PAID" && st.salePrice.trim() ? parseMoneyToCents(st.salePrice) : null;
+  return {
+    status: text("status") ?? base.status,
+    product: {
+      id: base.id,
+      type: base.type,
+      // La dirección guardada (no la que se escribe): los enlaces de la vista previa no cambian con cada tecla.
+      slug: base.slug,
+      title: trimmed("title") ?? "Sin título",
+      emoji: st.emoji || null,
+      summary: trimmed("summary"),
+      description: text("description")?.trim() ? text("description") : null,
+      descriptionFormat: text("descriptionFormat") || base.descriptionFormat,
+      imageUrl: st.image,
+      priceCents,
+      currency: base.currency,
+      billingInterval: base.type === "MEMBERSHIP" ? (text("billingInterval") ?? base.billingInterval ?? "month") : null,
+      ctaLabel: trimmed("ctaLabel"),
+      featured: base.featured,
+      instructions: text("instructions") ?? base.instructions,
+      deliveryMode: normalizeDeliveryMode(base.type, st.mode),
+      accessMode: st.access,
+      externalUrl: st.access === "EXTERNAL" ? st.externalUrl.trim() || null : null,
+      externalLabel: trimmed("externalLabel"),
+      durationMin: int("durationMin") ?? base.durationMin,
+      meetingUrl: trimmed("meetingUrl") ?? base.meetingUrl,
+      groupSession: base.type === "SESSION" && st.group,
+      eventStartAt: st.group && DAY.test(eventDate) && TIME.test(eventTime) ? zonedTimeToUtc(eventDate, labelToMinutes(eventTime), tz) : null,
+      capacity: st.group ? int("capacity") : null,
+      salePriceCents,
+      saleStartsAt: salePriceCents != null && DAY.test(saleStart) ? zonedTimeToUtc(saleStart, 0, tz) : null,
+      // El último día cuenta entero: termina a las 00:00 del día siguiente (como al guardar).
+      saleEndsAt: salePriceCents != null && DAY.test(saleEnd) ? zonedTimeToUtc(addDaysToKey(saleEnd, 1), 0, tz) : null,
+      saleLabel: trimmed("saleLabel"),
+      courseCategory: base.type === "COURSE" ? trimmed("courseCategory") : base.courseCategory,
+      moonCircle: st.group && fd.get("moonCircle") === "on",
+      intake: base.intake,
+      files: ctx.files,
+      modules: ctx.modules,
+      includes: ctx.includes,
+      posts: ctx.posts,
+    },
+  };
 }

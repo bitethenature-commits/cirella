@@ -29,6 +29,7 @@ import { memberPostState, scheduleLabel } from "@/lib/community-rules";
 import { countActiveMembers } from "@/lib/membership-access";
 import { isPersonalMode } from "@/lib/site-mode";
 import { ProductForm } from "./product-form";
+import { productPreviewContext } from "./preview-context";
 import { dateKeyInTz, formatDate, minutesToLabel, zonedParts } from "@/lib/tz";
 import { readIntakeConfig } from "@/lib/intake";
 import { notifyWorkshopReplay } from "../actions";
@@ -66,7 +67,10 @@ export default async function EditProductPage({
         take: 50,
         include: { _count: { select: { likes: true, files: true, comments: { where: { status: "VISIBLE" } } } } },
       },
-      includes: { select: { includedProductId: true } },
+      includes: {
+        orderBy: { createdAt: "asc" },
+        select: { includedProductId: true, includedProduct: { select: { id: true, title: true, slug: true, status: true, creatorId: true, _count: { select: { lessons: true } } } } },
+      },
       includedIn: { select: { product: { select: { id: true, title: true } } } },
       _count: { select: { orders: { where: { status: "PAID" } } } },
     },
@@ -195,9 +199,8 @@ export default async function EditProductPage({
         commissionBps={mode === "personal" ? 0 : creator.plan.commissionBps}
         taxPreview={{ mode: await getTaxMode(), country: creator.legalCountry, vatStatus: asVatStatus(creator.vatStatus) }}
         accessModes={accessModesFor(mode, type, hasPaymentProvider())}
-      />
-
-      <div className="mt-5 space-y-5 lg:max-w-[calc(100%-340px)]">
+        preview={await productPreviewContext(creator, product, type)}
+      >
         {managesAccess && (
           <AccessManager productId={product.id} rows={accessRows} total={accessTotal} external={accessMode === "EXTERNAL"} paid={accessMode === "PAID"} timeZone={creator.timezone} />
         )}
@@ -294,7 +297,7 @@ export default async function EditProductPage({
             <Link href="/panel/reservas/horario" className="btn btn-outline btn-sm">Configurar horario</Link>
           </section>
         )}
-      </div>
+      </ProductForm>
     </div>
   );
 }

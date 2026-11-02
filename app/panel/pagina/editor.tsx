@@ -25,6 +25,7 @@ import type { OracleDeckView } from "@/components/models/data/oracle";
 import { BlocksEditor, type BlocksUpdate } from "@/components/panel/blocks/blocks-editor";
 import { LinkInput, type LinkTarget } from "@/components/panel/blocks/link-input";
 import { useDesktop } from "@/components/panel/use-desktop";
+import { PhoneFrame } from "@/components/panel/phone-frame";
 import { TemplatePreview } from "@/components/template-preview";
 import { ImageUpload } from "@/components/ui/image-upload";
 import {
@@ -754,11 +755,9 @@ export function PageEditor(props: Props) {
       <aside className="hidden lg:block">
         <div className="sticky top-20">
           <p className="mb-3 text-center text-xs uppercase tracking-[0.2em] text-muted">Vista previa en vivo</p>
-          <div className="mx-auto w-fit rounded-[2.6rem] border border-line bg-ink p-2.5 shadow-lift">
-            <div className="h-[min(720px,calc(100dvh-170px))] w-[340px] overflow-y-auto overflow-x-hidden rounded-[2.1rem] scrollbar-none xl:w-[370px]">
-              <div className="pointer-events-none">{preview}</div>
-            </div>
-          </div>
+          <PhoneFrame screenClassName="h-[min(720px,calc(100dvh-170px))] w-[340px] overflow-y-auto overflow-x-hidden scrollbar-none xl:w-[370px]">
+            <div className="pointer-events-none">{preview}</div>
+          </PhoneFrame>
         </div>
       </aside>
       )}
