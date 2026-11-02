@@ -1,15 +1,12 @@
-import { formatInTz } from "./tz";
 import "server-only";
 import { cache } from "react";
-import { asAccessMode, externalHost } from "./access-mode";
 import { prisma } from "./db";
 import { expiryLabel, readCodePhotos, visibleCodeWhere } from "./discount-codes";
 import { readPageConfig } from "./page-config";
 import { planFeatures, type PlanFeatures } from "./plans";
 import { POSTS_ON_PAGE, POSTS_PER_PAGE, postDateBadge, postExcerpt, publicPostWhere, readPostMedia } from "./posts";
-import { channelKindLabel } from "./channel-kind";
-import { saleEndsLabel, saleState } from "./offers";
-import { eventLabel, publicPortalItem, type PublicPortalItem } from "./portal-rules";
+import { publicPortalItem, type PublicPortalItem } from "./portal-rules";
+import { toPublicProduct } from "./product-view";
 import { isPublicUsernameAllowed } from "./personal-routing";
 import { hasPaymentProvider } from "./payments";
 import { getSettings } from "./settings";
@@ -17,7 +14,7 @@ import { isPersonalMode, ownerUsername } from "./site-mode";
 import { sitePagePath } from "./site-pages";
 import { asTaxMode, decideTax, vatIncluded } from "./tax";
 import { formatDate } from "./tz";
-import { lessonsLabel, PRODUCT_TYPES, type ProductType } from "./types";
+import { PRODUCT_TYPES, type ProductType } from "./types";
 import type { PublicDiscountCode, PublicPost, PublicProduct } from "@/components/creator-page/creator-page-view";
 
 /** La dueña de la web personal tiene todo desbloqueado (sin planes): lo que pinta su página. */
@@ -85,58 +82,15 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
     .filter((p) => features.productTypes.includes(p.type as ProductType))
     // Un taller ya celebrado no se ofrece en la página.
     .filter((p) => !(p.type === "SESSION" && p.groupSession && (!p.eventStartAt || p.eventStartAt <= now)))
-    .map((p) => {
-      const accessMode = asAccessMode(p.accessMode);
-      // Oferta: solo en lo que se paga en la web (lo gratuito y lo de fuera no se cobra aquí).
-      const sale = accessMode === "PAID" ? saleState(p, now) : null;
-      return {
-        id: p.id,
-        type: p.type,
-        slug: p.slug,
-        title: p.title,
-        emoji: p.emoji,
-        summary: p.summary,
-        imageUrl: p.imageUrl,
-        priceCents: p.priceCents,
-        currency: p.currency,
-        billingInterval: p.billingInterval,
-        ctaLabel: p.ctaLabel,
-        featured: p.featured,
-        meta:
-          p.type === "SESSION" && p.groupSession && p.eventStartAt
-            ? `Taller · ${formatInTz(p.eventStartAt, creator.timezone, { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "")} · ${formatInTz(p.eventStartAt, creator.timezone, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}`
-            : p.type === "SESSION" && p.durationMin
-            ? `${p.durationMin} min`
-            : p.type === "COURSE" && p._count.lessons
-              ? lessonsLabel(p._count.lessons)
-              : null,
-        // Lo gratuito y lo que se paga fuera no llevan IVA aquí (no se cobra en esta web).
-        vatIncluded:
-          accessMode === "PAID" &&
-          vatIncluded(decideTax({ mode, productType: p.type, deliveryMode: p.deliveryMode, buyerCountry: "ES", creator: taxCreator })),
-        accessMode,
-        externalUrl: accessMode === "EXTERNAL" ? p.externalUrl : null,
-        externalLabel: accessMode === "EXTERNAL" ? p.externalLabel : null,
-        externalHost: accessMode === "EXTERNAL" ? externalHost(p.externalUrl) : null,
-        sale: sale?.active
-          ? {
-              priceCents: sale.priceCents,
-              regularCents: sale.regularCents,
-              percentOff: sale.percentOff ?? 0,
-              label: sale.label,
-              endsLabel: saleEndsLabel(sale.endsAt, creator.timezone),
-              // Para el aviso de novedades: desde su inicio o, sin fecha de inicio, desde el último cambio.
-              startedAt: (p.saleStartsAt ?? p.updatedAt).toISOString(),
-            }
-          : null,
-        courseCategory: p.courseCategory,
-        groupSession: p.groupSession,
-        moonCircle: p.groupSession && p.moonCircle,
-        eventLabel: p.groupSession && p.eventStartAt ? eventLabel(p.eventStartAt, creator.timezone) : null,
-        eventStartAt: p.groupSession && p.eventStartAt ? p.eventStartAt.toISOString() : null,
-        kindLabel: channelKindLabel(p),
-      };
-    });
+    .map((p) =>
+      toPublicProduct(p, {
+        lessons: p._count.lessons,
+        timeZone: creator.timezone,
+        now,
+        updatedAt: p.updatedAt,
+        vatIncluded: vatIncluded(decideTax({ mode, productType: p.type, deliveryMode: p.deliveryMode, buyerCountry: "ES", creator: taxCreator })),
+      }),
+    );
   const posts = postRows.map((p) => toPublicPost(p, creator.timezone));
   const portal: PublicPortalItem[] = portalRows.map((i) => publicPortalItem(i, false, creator.timezone));
   const discountCodes: PublicDiscountCode[] = codeRows.map((c) => ({

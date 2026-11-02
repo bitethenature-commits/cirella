@@ -732,7 +732,7 @@ function saleTag(sale: NonNullable<PublicProduct["sale"]>) {
 }
 
 /** Tarjeta de la sección «Ofertas»: la etiqueta, el título y el precio de antes tachado. */
-function OfferCard({ p, username }: { p: PublicProduct; username: string }) {
+export function OfferCard({ p, username }: { p: PublicProduct; username: string }) {
   const sale = p.sale!;
   return (
     <Link href={`/${username}/${p.slug}`} className="cp-card cp-card-hover flex flex-col gap-1.5 p-5" data-offer={p.slug}>
@@ -751,7 +751,7 @@ function isExternal(url: string) {
   return /^https?:\/\//i.test(url.trim());
 }
 
-function SectionHeading({ title, count }: { title: string; count?: number }) {
+export function SectionHeading({ title, count }: { title: string; count?: number }) {
   return (
     <div className="flex items-end justify-between gap-4">
       <h2 className="cp-display text-[2rem] sm:text-[2.3rem]">{title}</h2>
