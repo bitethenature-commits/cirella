@@ -189,7 +189,7 @@ export function CreatorPageView(props: Props) {
               <ProductCard p={items[0]} username={username} trackCreatorId={trackId} />
             </div>
           ) : (
-            <div className="-mx-5 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 scrollbar-none md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0">
+            <div className="-mx-5 mt-3 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 pt-2 scrollbar-none md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0">
               {items.map((p) => (
                 <div key={p.id} className="w-[82%] shrink-0 snap-center sm:w-[60%] md:w-auto">
                   <ProductCard p={p} username={username} trackCreatorId={trackId} />
