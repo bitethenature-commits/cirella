@@ -47,7 +47,8 @@ export async function saveMemberPost(creatorId: string, timeZone: string, input:
   const db = tenantDb(creatorId);
   const product = await db.product.findFirst({ where: { id: input.productId, type: "MEMBERSHIP" }, select: { id: true } });
   if (!product) return { ok: false, error: "Membresía no encontrada" };
-  const current = input.id ? await db.membershipPost.findFirst({ where: { id: input.id, productId: product.id } }) : null;
+  // Una publicación existente se puede pasar a otro nivel (otra membresía de la misma creadora).
+  const current = input.id ? await db.membershipPost.findFirst({ where: { id: input.id, product: { type: "MEMBERSHIP" } } }) : null;
   if (input.id && !current) return { ok: false, error: "Esta publicación ya no existe." };
 
   const timing = resolveMemberPostTiming({ when: input.when, at: input.at, current, timeZone, now });
@@ -68,16 +69,26 @@ export async function saveMemberPost(creatorId: string, timeZone: string, input:
     // Una vez visible, el aviso ya salió (o no se pidió): no se cambia al editar.
     notify: notifyEditable(current, now) ? input.notify : current!.notify,
     commentsOpen: input.commentsOpen,
+    // «Fijar arriba»: conserva la fecha en que se fijó (orden entre fijadas); sin el campo, no cambia.
+    ...(input.pinned === undefined ? {} : { pinnedAt: input.pinned ? (current?.pinnedAt ?? now) : null }),
+    ...(current && current.productId !== product.id ? { productId: product.id } : {}),
   };
   const post = current
     ? await db.membershipPost.update({ where: { id: current.id }, data })
     : await db.membershipPost.create({ data: { ...data, creatorId, productId: product.id } });
 
-  // Adjuntos: solo archivos de esta misma membresía, sueltos o ya de esta publicación (un id de otra
-  // creadora, de otro producto o de otra publicación no se puede reclamar).
+  // Pasó a otro nivel: sus comentarios también (cada uno lleva la membresía de su publicación).
+  if (current && current.productId !== product.id) await db.membershipComment.updateMany({ where: { postId: post.id }, data: { productId: product.id } });
+
+  // Adjuntos: solo archivos de las membresías de esta creadora (tenantDb), sueltos o ya de esta
+  // publicación (un id de otra creadora, de un curso o de otra publicación no se puede reclamar). Pasan
+  // a la membresía de la publicación: el acceso a cada archivo se comprueba con la suya.
   const ids = [...new Set(input.attachmentIds)];
   if (ids.length)
-    await db.productFile.updateMany({ where: { id: { in: ids }, productId: product.id, OR: [{ postId: null }, { postId: post.id }] }, data: { postId: post.id } });
+    await db.productFile.updateMany({
+      where: { id: { in: ids }, product: { type: "MEMBERSHIP" }, OR: [{ postId: null }, { postId: post.id }] },
+      data: { postId: post.id, productId: product.id },
+    });
   for (const [i, id] of ids.entries()) await db.productFile.updateMany({ where: { id, postId: post.id }, data: { sortOrder: i } });
   // Los que quitó del editor se borran (fila y archivo).
   const removed = await db.productFile.findMany({ where: { postId: post.id, id: { notIn: ids } }, select: { id: true, storageKey: true } });
@@ -139,25 +150,57 @@ const FEED_FILE_SELECT = { id: true, name: true, kind: true, durationSec: true }
  * borradores y programadas. `alsoProductIds`: los niveles de abajo que incluye esta membresía
  * (lib/membership-access.ts → includedMembershipIds): un nivel superior lee también sus publicaciones.
  */
-export async function loadFeed(i: { productId: string; alsoProductIds?: string[]; viewer: Viewer; before?: Date | null; now?: Date }) {
+export async function loadFeed(i: {
+  productId: string;
+  alsoProductIds?: string[];
+  viewer: Viewer;
+  before?: Date | null;
+  now?: Date;
+  /** Solo las que ya ven los miembros, aunque mire la dueña (el «Muro» del estudio). */
+  publishedOnly?: boolean;
+}) {
   const now = i.now ?? new Date();
-  const and: Prisma.MembershipPostWhereInput[] = [{ productId: { in: [i.productId, ...(i.alsoProductIds ?? [])] } }];
-  if (!i.viewer.isOwner) and.push(visibleMemberPostWhere(now));
+  const base: Prisma.MembershipPostWhereInput[] = [{ productId: { in: [i.productId, ...(i.alsoProductIds ?? [])] } }];
+  if (!i.viewer.isOwner || i.publishedOnly) base.push(visibleMemberPostWhere(now));
+  const include = {
+    product: { select: { title: true } },
+    files: { orderBy: { sortOrder: "asc" }, select: FEED_FILE_SELECT },
+    likes: { where: { userId: i.viewer.userId }, select: { id: true } },
+    _count: { select: { likes: true, comments: { where: { status: "VISIBLE" } } } },
+  } satisfies Prisma.MembershipPostInclude;
+  // Las fijadas van arriba, solo en la primera página (y no se repiten en las siguientes).
+  const pinned = i.before
+    ? []
+    : await prisma.membershipPost.findMany({
+        where: { AND: [...base, { pinnedAt: { not: null } }] },
+        orderBy: [{ pinnedAt: "desc" }, { id: "desc" }],
+        take: FEED_PAGE,
+        include,
+      });
+  const and = [...base, { pinnedAt: null }];
   if (i.before) and.push({ publishedAt: { lt: i.before } });
   const rows = await prisma.membershipPost.findMany({
     where: { AND: and },
     orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
     take: FEED_PAGE + 1,
-    include: {
-      product: { select: { title: true } },
-      files: { orderBy: { sortOrder: "asc" }, select: FEED_FILE_SELECT },
-      likes: { where: { userId: i.viewer.userId }, select: { id: true } },
-      _count: { select: { likes: true, comments: { where: { status: "VISIBLE" } } } },
-    },
+    include,
   });
-  const posts = rows.slice(0, FEED_PAGE).map(({ likes, ...p }) => ({ ...p, likedByMe: likes.length > 0, state: memberPostState(p, now) }));
+  const shape = ({ likes, ...p }: (typeof rows)[number]) => ({ ...p, likedByMe: likes.length > 0, state: memberPostState(p, now), pinned: !!p.pinnedAt });
+  const regular = rows.slice(0, FEED_PAGE).map(shape);
   const more = rows.length > FEED_PAGE;
-  return { posts, nextBefore: more ? posts[posts.length - 1].publishedAt.toISOString() : null };
+  return { posts: [...pinned.map(shape), ...regular], nextBefore: more ? regular[regular.length - 1].publishedAt.toISOString() : null };
+}
+
+/**
+ * Anota que una miembro ha abierto una publicación (una vez por persona: las «vistas» del estudio).
+ * Nunca la dueña. Si falla no pasa nada (no impide leer).
+ */
+export async function recordPostView(post: { id: string; creatorId: string }, userId: string) {
+  try {
+    await prisma.membershipPostView.createMany({ data: [{ postId: post.id, creatorId: post.creatorId, userId }], skipDuplicates: true });
+  } catch (e) {
+    captureError(e, { area: "comunidad", extra: { postId: post.id } });
+  }
 }
 
 export type FeedPost = Awaited<ReturnType<typeof loadFeed>>["posts"][number];
@@ -247,11 +290,21 @@ export async function addComment(i: { postId: string; userId: string; isOwner: b
 /** Borra un comentario (quien lo escribió o la dueña): queda REMOVED y sin texto. */
 export async function removeComment(commentId: string, actor: { userId: string; ownerOfCreatorId?: string | null }): Promise<boolean> {
   const c = await prisma.membershipComment.findUnique({ where: { id: commentId }, select: { id: true, userId: true, creatorId: true, status: true } });
-  if (!c || c.status !== "VISIBLE") return false;
+  if (!c || c.status === "REMOVED") return false;
   const who = canDeleteComment(c, actor);
-  if (!who) return false;
-  const r = await prisma.membershipComment.updateMany({ where: { id: c.id, status: "VISIBLE" }, data: { status: "REMOVED", body: "", removedBy: who === "owner" ? "OWNER" : "AUTHOR" } });
+  // Uno oculto solo lo puede borrar la dueña (para su autora ya no está).
+  if (!who || (c.status === "HIDDEN" && who !== "owner")) return false;
+  const r = await prisma.membershipComment.updateMany({ where: { id: c.id, status: c.status }, data: { status: "REMOVED", body: "", removedBy: who === "owner" ? "OWNER" : "AUTHOR" } });
   return r.count > 0;
+}
+
+/** «Ocultar» / «Volver a mostrar» un comentario (la dueña): oculto no lo ve nadie más, pero no se pierde. */
+export async function setCommentHidden(creatorId: string, commentId: string, hidden: boolean): Promise<{ productId: string; postId: string } | null> {
+  const db = tenantDb(creatorId);
+  const c = await db.membershipComment.findFirst({ where: { id: commentId, status: hidden ? "VISIBLE" : "HIDDEN" }, select: { id: true, productId: true, postId: true } });
+  if (!c) return null;
+  await db.membershipComment.updateMany({ where: { id: c.id }, data: { status: hidden ? "HIDDEN" : "VISIBLE" } });
+  return { productId: c.productId, postId: c.postId };
 }
 
 /** «No dejar comentar» / «Volver a dejar comentar» a una persona de su comunidad. */

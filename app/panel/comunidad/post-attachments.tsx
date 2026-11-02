@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, FileImage, FileText, Headphones, Loader2, Paperclip, Video, X } from "lucide-react";
+import { ArrowDown, ArrowUp, FileImage, FileText, Headphones, ImagePlus, Loader2, Paperclip, Video, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { formatSize, MediaHealth } from "@/components/media/media-health";
 import { UPLOAD_CANCELLED, uploadFile, type UploadedFile } from "@/components/ui/upload-client";
@@ -23,6 +23,7 @@ export function PostAttachments({
   limitsLabel,
   onFirstMedia,
   onBusy,
+  quickPick = false,
 }: {
   productId: string;
   initial: Attachment[];
@@ -30,6 +31,8 @@ export function PostAttachments({
   /** El primer adjunto es un audio o un vídeo: el editor puede cambiar el tipo de la publicación. */
   onFirstMedia?: (kind: "AUDIO" | "VIDEO") => void;
   onBusy?: (busy: boolean) => void;
+  /** Botones «Fotos», «Audio» y «Vídeo» que abren el selector solo con ese tipo (compositor del estudio). */
+  quickPick?: boolean;
 }) {
   const [files, setFiles] = useState<Attachment[]>(initial);
   const [progress, setProgress] = useState<{ name: string; pct: number; loaded: number; total: number } | null>(null);
@@ -85,6 +88,13 @@ export function PostAttachments({
     abort.current = null;
     setProgress(null);
     if (input.current) input.current.value = "";
+  };
+
+  /** Abre el selector de archivos (con `accept`: solo ese tipo). */
+  const pick = (accept: string) => {
+    if (!input.current) return;
+    input.current.accept = accept;
+    input.current.click();
   };
 
   const move = (i: number, d: -1 | 1) =>
@@ -149,9 +159,24 @@ export function PostAttachments({
       {error && <p className="text-sm text-rose" role="alert">{error}</p>}
       {files.length < ATTACHMENTS_MAX && (
         <div>
-          <button type="button" onClick={() => input.current?.click()} disabled={busy} className="btn btn-outline min-h-11 w-full sm:w-auto">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />} Añadir audio, vídeo, PDF o imagen
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {quickPick && (
+              <>
+                <button type="button" onClick={() => pick(".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif")} disabled={busy} className="btn btn-outline min-h-11">
+                  <ImagePlus className="h-4 w-4" /> Fotos
+                </button>
+                <button type="button" onClick={() => pick(".m4a,.mp3,.wav,audio/mp4,audio/x-m4a,audio/mpeg,audio/wav")} disabled={busy} className="btn btn-outline min-h-11">
+                  <Headphones className="h-4 w-4" /> Audio
+                </button>
+                <button type="button" onClick={() => pick(".mp4,.m4v,.mov,video/mp4,video/quicktime")} disabled={busy} className="btn btn-outline min-h-11">
+                  <Video className="h-4 w-4" /> Vídeo
+                </button>
+              </>
+            )}
+            <button type="button" onClick={() => pick(PRIVATE_ACCEPT)} disabled={busy} className={`btn btn-outline min-h-11 ${quickPick ? "" : "w-full sm:w-auto"}`}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />} {quickPick ? "PDF u otro archivo" : "Añadir audio, vídeo, PDF o imagen"}
+            </button>
+          </div>
           <input
             ref={input}
             type="file"

@@ -7,7 +7,7 @@ import { OnePlayerAtATime } from "@/components/media/one-player-at-a-time";
 import { VideoEmbed } from "@/components/media/video-embed";
 import { RichContent } from "@/components/rich-text/rich-content";
 import { buyerLoginPath, markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
-import { getMemberPost } from "@/lib/community";
+import { getMemberPost, recordPostView } from "@/lib/community";
 import { isLivePostKind, MEMBER_POST_KIND_LABEL, publicMemberName, scheduleLabel, type MemberPostKind } from "@/lib/community-rules";
 import { creatorBrief } from "@/lib/customer";
 import { prisma } from "@/lib/db";
@@ -15,7 +15,9 @@ import { accessSource } from "@/lib/membership-access";
 import { tzCity } from "@/lib/timezones";
 import { formatDate, formatSessionDate } from "@/lib/tz";
 import { videoEmbed } from "@/lib/video-embed";
+import { ownerViewAs } from "@/lib/view-as";
 import { CreatorTag } from "../../../ui";
+import { ViewAsBanner } from "../../view-as-banner";
 import { Comments, LikeButton, type ViewComment } from "./interactions";
 
 export const metadata: Metadata = { title: "Publicación", robots: { index: false, follow: false } };
@@ -30,17 +32,23 @@ export default async function MemberPostPage({ params }: { params: Promise<{ pro
   const { productId, postId } = await params;
   const path = `/cuenta/membresias/${productId}/${postId}`;
   const { user, scoped, isOwner } = await requireBuyerFor({ productId }, path);
+  // «Ver como miembro»: la dueña lee como alguien de ese nivel (sin borradores ni programadas).
+  const viewAs = await ownerViewAs({ creatorId: user.creator?.id, isOwner });
+  if (viewAs && !viewAs.reach.includes(productId)) redirect(`/cuenta/membresias/${viewAs.id}`);
+  const ownerView = isOwner && !viewAs;
   const source = isOwner ? null : await accessSource(user.id, productId);
   if (!isOwner && !source) redirect(`/cuenta/membresias/${productId}`);
-  const post = await getMemberPost(postId, { userId: user.id, isOwner });
+  const post = await getMemberPost(postId, { userId: user.id, isOwner: ownerView });
   if (!post || post.productId !== productId) notFound();
   if (source) await markFirstAccess(user.id, source.productId);
+  // «Vistas» del estudio: personas que la han abierto (nunca la dueña).
+  if (!isOwner) await recordPostView(post, user.id);
 
   const creator = post.product.creator;
   const c = creatorBrief(creator);
   const tz = creator.timezone;
   const customer = isOwner ? null : await prisma.customer.findUnique({ where: { creatorId_userId: { creatorId: post.creatorId, userId: user.id } }, select: { name: true, commentsBlockedAt: true } });
-  const mode = scoped ? "login" : customer?.commentsBlockedAt ? "blocked" : !post.commentsOpen && !isOwner ? "closed" : "can";
+  const mode = viewAs ? "preview" : scoped ? "login" : customer?.commentsBlockedAt ? "blocked" : !post.commentsOpen && !isOwner ? "closed" : "can";
   const authorHint = isOwner ? `Se publicará como «${c.displayName}» (Autora).` : `Se publicará como «${publicMemberName(customer?.name || user.name)}». Lo verán las demás personas de la comunidad.`;
   const when = (d: Date) => formatDate(d, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }, tz);
   const view = (x: (typeof post.comments)[number]): ViewComment => ({
@@ -50,7 +58,7 @@ export default async function MemberPostPage({ params }: { params: Promise<{ pro
     body: x.status === "VISIBLE" ? x.body : "",
     removed: x.status !== "VISIBLE",
     when: when(x.createdAt),
-    canDelete: x.status === "VISIBLE" && !scoped && (isOwner || x.userId === user.id),
+    canDelete: x.status === "VISIBLE" && !scoped && (ownerView || x.userId === user.id),
     replies: [],
   });
   const roots = post.comments.filter((x) => !x.parentId).map(view);
@@ -60,13 +68,14 @@ export default async function MemberPostPage({ params }: { params: Promise<{ pro
 
   return (
     <div className="max-w-2xl">
+      {viewAs && <ViewAsBanner creatorId={post.creatorId} tier={viewAs} />}
       <Link href={`/cuenta/membresias/${productId}`} className="inline-flex min-h-11 items-center gap-1.5 text-sm text-muted hover:text-ink">
         <ArrowLeft className="h-4 w-4" /> {post.product.title}
       </Link>
       {post.state !== "PUBLISHED" && (
         <div className="mt-3 rounded-2xl border border-[#ecdcb8] bg-[#fbf5e8] px-4 py-3 text-sm text-[#7a5a1c]">
           {post.state === "DRAFT" ? "Borrador: solo lo ves tú." : `Programada para el ${scheduleLabel(post.publishedAt, tz)}: solo la ves tú hasta entonces.`}{" "}
-          <Link href={`/panel/productos/${productId}/publicaciones/${post.id}`} className="font-semibold underline-offset-2 hover:underline">Editar</Link>
+          <Link href={`/panel/comunidad?editar=${post.id}`} className="font-semibold underline-offset-2 hover:underline">Editar</Link>
         </div>
       )}
       <article className="mt-4">
@@ -106,7 +115,11 @@ export default async function MemberPostPage({ params }: { params: Promise<{ pro
       </article>
 
       <div className="mt-8 border-t border-line pt-6">
-        <LikeButton postId={post.id} liked={post.likedByMe} count={post._count.likes} />
+        {viewAs ? (
+          <p className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-muted">♥ Me gusta · {post._count.likes}</p>
+        ) : (
+          <LikeButton postId={post.id} liked={post.likedByMe} count={post._count.likes} />
+        )}
       </div>
       <div className="mt-8">
         <Comments

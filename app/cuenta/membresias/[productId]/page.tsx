@@ -15,6 +15,8 @@ import { CreatorTag } from "../../ui";
 import { PostCard } from "../post-card";
 import { payRenewalNow, setCommunityEmails } from "./actions";
 import { formatDate } from "@/lib/tz";
+import { ownerViewAs } from "@/lib/view-as";
+import { ViewAsBanner } from "../view-as-banner";
 
 const shortDate = (d: Date) => formatDate(d, { day: "numeric", month: "long" });
 
@@ -28,6 +30,11 @@ export default async function MembershipFeed({
   const { productId } = await params;
   const sp = await searchParams;
   const { user, scoped, isOwner } = await requireBuyerFor({ productId }, `/cuenta/membresias/${productId}`);
+  // «Ver como miembro» (estudio Comunidad): la dueña mira como alguien de ese nivel. Lo que su nivel no
+  // incluye no lo ve (vuelve a la comunidad de su nivel), y no ve borradores ni programadas.
+  const viewAs = await ownerViewAs({ creatorId: user.creator?.id, isOwner });
+  if (viewAs && !viewAs.reach.includes(productId)) redirect(`/cuenta/membresias/${viewAs.id}`);
+  const ownerView = isOwner && !viewAs;
   const sub = await prisma.subscription.findFirst({
     where: { userId: user.id, productId, status: { in: ["ACTIVE", "PAST_DUE"] } },
     orderBy: { createdAt: "desc" },
@@ -45,7 +52,7 @@ export default async function MembershipFeed({
   const before = sp.antes && !Number.isNaN(Date.parse(sp.antes)) ? new Date(sp.antes) : null;
   // Un nivel superior lee también las publicaciones de los niveles que incluye (lib/tiers.ts).
   const lowerTiers = access ? await includedMembershipIds(productId) : [];
-  const feed = access ? await loadFeed({ productId, alsoProductIds: lowerTiers, viewer: { userId: user.id, isOwner }, before }) : { posts: [], nextBefore: null };
+  const feed = access ? await loadFeed({ productId, alsoProductIds: lowerTiers, viewer: { userId: user.id, isOwner: ownerView }, before }) : { posts: [], nextBefore: null };
   const courseIds = access ? await includedProductIds(productId) : [];
   const tierRows = lowerTiers.length ? await prisma.product.findMany({ where: { id: { in: lowerTiers } }, select: { id: true, title: true } }) : [];
   const courses = courseIds.length
@@ -56,7 +63,8 @@ export default async function MembershipFeed({
   const endsAt = !sub && source?.expiresAt ? source.expiresAt : null;
   return (
     <div className="max-w-2xl">
-      {!scoped && (
+      {viewAs && <ViewAsBanner creatorId={product.creatorId} tier={viewAs} />}
+      {!scoped && !viewAs && (
         <Link href="/cuenta/membresias" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
           <ArrowLeft className="h-4 w-4" /> Mis membresías
         </Link>
@@ -93,10 +101,10 @@ export default async function MembershipFeed({
         </div>
       )}
 
-      {isOwner && (
+      {ownerView && (
         <div className="rounded-2xl border border-line bg-sand/60 px-4 py-3 text-sm">
           Así ven tu comunidad tus miembros. Los borradores y las programadas solo los ves tú.{" "}
-          <Link href={`/panel/productos/${productId}#publicaciones`} className="font-semibold underline-offset-2 hover:underline">Volver al panel</Link>
+          <Link href={`/panel/comunidad?nivel=${productId}`} className="font-semibold underline-offset-2 hover:underline">Volver a Comunidad</Link>
         </div>
       )}
       {endsAt && (

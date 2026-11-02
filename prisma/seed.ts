@@ -1086,6 +1086,7 @@ async function reset() {
     prisma.lesson.deleteMany(),
     prisma.courseModule.deleteMany(),
     prisma.membershipPostLike.deleteMany(),
+    prisma.membershipPostView.deleteMany(),
     prisma.membershipComment.deleteMany(),
     prisma.productInclusion.deleteMany(),
     prisma.membershipPost.deleteMany(),
@@ -1426,6 +1427,21 @@ async function main() {
     data: { creatorId: ana.id, productId: pCircle.id, title: "Tránsitos de la semana: Venus entra en Escorpio", kind: "TEXT", bodyFormat: "MD", publishedAt: zonedTimeToUtc(addDaysToKey(TODAY, 3), 9 * 60, TZ),
       body: "Venus cambia de signo y con ella **cómo nos relacionamos**. Te cuento qué mirar en tu carta esta semana y un pequeño ejercicio para el fin de semana." },
   });
+  // Estudio Comunidad (/panel/comunidad): una bienvenida fijada arriba (en Esencia, así la leen los tres
+  // niveles), otra programada en Esencia que avisará por email y un borrador en Plena.
+  const welcomeAt = daysAgo(25);
+  await prisma.membershipPost.create({
+    data: { creatorId: ana.id, productId: pEsencia.id, title: "Bienvenida: empieza por aquí", kind: "TEXT", bodyFormat: "MD", publishedAt: welcomeAt, pinnedAt: welcomeAt, ...seen(welcomeAt),
+      body: "Qué alegría tenerte aquí 🌙\n\nCada semana te dejo un **texto energético**, y en cada luna, una práctica. Si estás en Plena o en Luna completa, verás también los audios, el podcast, las ceremonias y los círculos.\n\n- Activa los avisos por email para no perderte nada.\n- Preséntate en los comentarios: ¿desde dónde nos lees?" },
+  });
+  await prisma.membershipPost.create({
+    data: { creatorId: ana.id, productId: pEsencia.id, title: "Texto energético: cerrar el año con suavidad", kind: "TEXT", bodyFormat: "MD", publishedAt: zonedTimeToUtc(addDaysToKey(TODAY, 6), 8 * 60, TZ),
+      body: "Diciembre se acerca y con él la tentación de correr. Esta semana te propongo **parar un minuto cada mañana** y preguntarte qué necesitas de verdad hoy." },
+  });
+  await prisma.membershipPost.create({
+    data: { creatorId: ana.id, productId: pPlena.id, title: "Ceremonia del solsticio de invierno", kind: "CEREMONIA", status: "DRAFT", bodyFormat: "MD", publishedAt: daysAgo(1),
+      body: "Nos reunimos la noche más larga del año para **honrar la oscuridad** y encender juntas la luz que vuelve. Trae una vela, papel y algo de abrigo." },
+  });
   const ritualAudioData = makeM4a(36);
   const ritualAudio = ritualAudioData ? await storePrivate(ana.id, "meditacion-luna-nueva.m4a", ritualAudioData) : await storePrivate(ana.id, "meditacion-luna-nueva.wav", makeWav(36));
   const ritualPdf = await storePrivate(ana.id, "ritual-luna-nueva.pdf", makePdf({
@@ -1729,6 +1745,14 @@ async function main() {
     data: [
       { creatorId: ana.id, postId: postLunaNueva.id, userId: lucia.id, createdAt: daysAgo(5, 21, 38) },
       { creatorId: ana.id, postId: postLunaNueva.id, userId: carmen.id, createdAt: daysAgo(4, 9, 3) },
+    ],
+  });
+  // «Vistas» del estudio Comunidad: quién ha abierto la de luna nueva.
+  await prisma.membershipPostView.createMany({
+    data: [
+      { creatorId: ana.id, postId: postLunaNueva.id, userId: lucia.id, createdAt: daysAgo(5, 21, 30) },
+      { creatorId: ana.id, postId: postLunaNueva.id, userId: carmen.id, createdAt: daysAgo(4, 9, 0) },
+      { creatorId: ana.id, postId: postLunaNueva.id, userId: laura.id, createdAt: daysAgo(3, 19, 12) },
     ],
   });
 

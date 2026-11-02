@@ -80,6 +80,8 @@ export const memberPostFormSchema = z
       .transform((v) => v || undefined),
     notify: checkbox,
     commentsOpen: checkbox,
+    // «Fijar arriba» (estudio Comunidad). Sin el campo en el formulario: se deja como estaba.
+    pinned: z.boolean().optional(),
     attachmentIds: z.array(z.string().min(1).max(40)).max(ATTACHMENTS_MAX, `Máximo ${ATTACHMENTS_MAX} archivos por publicación`).default([]),
   })
   .superRefine((d, ctx) => {
@@ -97,6 +99,8 @@ export function parseMemberPostForm(form: FormData) {
   // Casillas sin marcar: no llegan en el formulario.
   raw.notify = form.get("notify") ?? false;
   raw.commentsOpen = form.get("commentsOpen") ?? false;
+  // El editor que sabe fijar lo dice con `pinnedField`; si no, `pinned` no cambia nada.
+  raw.pinned = form.has("pinnedField") ? form.get("pinned") === "on" || form.get("pinned") === "1" : undefined;
   return memberPostFormSchema.safeParse(raw);
 }
 
@@ -186,6 +190,10 @@ export function datetimeLocalValue(d: Date, timeZone: string): string {
 }
 
 // ── Comentarios ──
+
+/** VISIBLE: lo ve todo el mundo. HIDDEN: lo ocultó la dueña (lo puede volver a mostrar). REMOVED: borrado. */
+export const COMMENT_STATUSES = ["VISIBLE", "HIDDEN", "REMOVED"] as const;
+export type CommentStatus = (typeof COMMENT_STATUSES)[number];
 
 /**
  * Nombre que ven las demás personas de la comunidad: el nombre y la inicial del primer apellido

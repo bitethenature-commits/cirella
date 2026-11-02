@@ -580,11 +580,14 @@ model MembershipPost {
   notifyCursor  String?
   notifiedCount Int       @default(0)
   commentsOpen  Boolean   @default(true)
+  // «Fijar arriba»: sale la primera en los feeds (las fijadas, de la más reciente a la más antigua).
+  pinnedAt      DateTime?
   updatedAt     DateTime  @default(now()) @updatedAt
 
   files    ProductFile[]
   comments MembershipComment[]
   likes    MembershipPostLike[]
+  views    MembershipPostView[]
 
   @@index([creatorId, productId, publishedAt])
   @@index([status, notifiedAt, publishedAt]) // cron de avisos
@@ -624,7 +627,8 @@ model MembershipComment {
   // Nombre que ven las demás, fijado al comentar: «Laura M.» (nunca el email) o el de la dueña.
   authorName String
   byOwner    Boolean             @default(false)
-  status     String              @default("VISIBLE") // VISIBLE | REMOVED (el texto se vacía)
+  // VISIBLE | HIDDEN (lo oculta la dueña: guarda el texto y lo puede volver a mostrar) | REMOVED (el texto se vacía)
+  status     String              @default("VISIBLE")
   removedBy  String? // AUTHOR | OWNER
   createdAt  DateTime            @default(now())
 
@@ -639,6 +643,20 @@ model MembershipPostLike {
   post      MembershipPost @relation(fields: [postId], references: [id], onDelete: Cascade)
   userId    String
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([postId, userId])
+  @@index([creatorId, postId])
+}
+
+// Quién ha abierto una publicación de la comunidad (una fila por persona: «vistas» = personas que la
+// han leído). Sin la dueña ni su «Ver como miembro». Ligera: sin relación con User (se borra con la publicación).
+model MembershipPostView {
+  id        String         @id @default(cuid())
+  creatorId String
+  postId    String
+  post      MembershipPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
   createdAt DateTime       @default(now())
 
   @@unique([postId, userId])

@@ -30,7 +30,7 @@ async function actor(postId: string) {
 const refresh = (p: { productId: string; id: string }) => {
   revalidatePath(`/cuenta/membresias/${p.productId}/${p.id}`);
   revalidatePath(`/cuenta/membresias/${p.productId}`);
-  revalidatePath(`/panel/productos/${p.productId}/publicaciones/${p.id}`);
+  revalidatePath("/panel/comunidad");
 };
 
 /** ♥: también desde el enlace personal del email. */

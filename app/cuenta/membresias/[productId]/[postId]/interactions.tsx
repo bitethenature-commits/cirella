@@ -161,7 +161,8 @@ export function Comments({
 }: {
   postId: string;
   comments: ViewComment[];
-  mode: "can" | "login" | "blocked" | "closed";
+  /** preview: la dueña mirando como miembro («Ver como miembro»): solo lectura. */
+  mode: "can" | "login" | "blocked" | "closed" | "preview";
   loginHref: string;
   authorHint: string;
 }) {
@@ -181,6 +182,7 @@ export function Comments({
         )}
         {mode === "blocked" && <p className="rounded-2xl border border-line p-4 text-sm text-muted">No puedes comentar en esta comunidad.</p>}
         {mode === "closed" && <p className="rounded-2xl border border-line p-4 text-sm text-muted">Los comentarios están cerrados.</p>}
+        {mode === "preview" && <p className="rounded-2xl border border-line p-4 text-sm text-muted">Aquí tus miembros escriben sus comentarios. Para responder o moderar, hazlo desde Comunidad en tu panel.</p>}
       </div>
       {comments.length > 0 ? (
         <ul className="mt-6 space-y-5">

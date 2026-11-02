@@ -22,10 +22,10 @@ import { Badge } from "../../ui";
 import { AccessManager } from "./access-manager";
 import { CourseBuilder } from "./course-builder";
 import { FilesManager } from "./files-manager";
-import { PostsManager } from "./posts-manager";
+import { CommunityLink } from "./community-link";
 import { IncludesManager } from "./includes-manager";
 import { accessEndText } from "@/lib/access-end";
-import { memberPostState, scheduleLabel } from "@/lib/community-rules";
+import { memberPostState } from "@/lib/community-rules";
 import { countActiveMembers } from "@/lib/membership-access";
 import { isPersonalMode } from "@/lib/site-mode";
 import { ProductForm } from "./product-form";
@@ -62,11 +62,8 @@ export default async function EditProductPage({
           },
         },
       },
-      posts: {
-        orderBy: { publishedAt: "desc" },
-        take: 50,
-        include: { _count: { select: { likes: true, files: true, comments: { where: { status: "VISIBLE" } } } } },
-      },
+      // Solo para contarlas («Abrir en Comunidad»): se escriben y moderan en /panel/comunidad.
+      posts: { select: { status: true, publishedAt: true } },
       includes: {
         orderBy: { createdAt: "asc" },
         select: { includedProductId: true, includedProduct: { select: { id: true, title: true, slug: true, status: true, creatorId: true, _count: { select: { lessons: true } } } } },
@@ -243,29 +240,17 @@ export default async function EditProductPage({
         {type === "MEMBERSHIP" && (
           <>
             <div id="publicaciones" className="scroll-mt-24">
-              <PostsManager
+              {/* Las publicaciones se escriben, programan y moderan en el estudio Comunidad. */}
+              <CommunityLink
                 productId={product.id}
                 members={members}
-                flash={sp.publicacion === "borrada" ? "Publicación eliminada." : null}
-                posts={product.posts.map((p) => {
-                  const state = memberPostState(p, now);
-                  return {
-                    id: p.id,
-                    title: p.title,
-                    kind: p.kind,
-                    state,
-                    chip:
-                      state === "DRAFT"
-                        ? "Borrador"
-                        : state === "SCHEDULED"
-                          ? `Programada · ${scheduleLabel(p.publishedAt, creator.timezone)}`
-                          : `Publicada · ${formatDate(p.publishedAt, { day: "numeric", month: "short" }, creator.timezone)}`,
-                    likes: p._count.likes,
-                    comments: p._count.comments,
-                    files: p._count.files,
-                    notified: p.notify && p.notifiedAt ? p.notifiedCount : null,
-                  };
-                })}
+                counts={product.posts.reduce(
+                  (n, p) => {
+                    n[memberPostState(p, now)]++;
+                    return n;
+                  },
+                  { PUBLISHED: 0, SCHEDULED: 0, DRAFT: 0 },
+                )}
               />
             </div>
             <IncludesManager

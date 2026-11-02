@@ -6,10 +6,11 @@ import { m4a } from "../scripts/fixtures/iso-media";
 
 /**
  * Comunidad de Ana (web personal, puerto 3101):
- *   · programa una publicación con un audio; al llegar su hora, el aviso por email sale a sus
+ *   · programa una publicación con un audio desde el estudio Comunidad (/panel/comunidad, al que lleva
+ *     «Nueva publicación» de la ficha); al llegar su hora, el aviso por email sale a sus
  *     miembros con un enlace personal que abre la publicación (audio, ♥; comentar pide entrar);
- *   · comentarios y moderación: comenta Lucía, responde Ana («Autora»), Ana borra y deja sin
- *     comentar a Lucía;
+ *   · comentarios y moderación: comenta Lucía, responde Ana («Autora»), Ana borra y, desde el Muro
+ *     del estudio, deja sin comentar a Lucía;
  *   · baja de los avisos con el enlace del email y vuelta a activarlos desde la comunidad;
  *   · acceso a mano con fecha de fin: termina solo (cron de caducidades), avisos y «Cambiar fecha»;
  *   · membresía que incluye un curso: lo ve en «Mis cursos» y lo pierde cuando termina la membresía;
@@ -94,20 +95,22 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
     await page.goto(`/panel/productos/${circleId}`);
     await expect(page.getByText("Publicaciones de la comunidad")).toBeVisible();
     await page.getByRole("link", { name: "Nueva publicación" }).click();
+    await page.waitForURL(/\/panel\/comunidad\?nivel=/);
+    // El compositor sale abierto y con el nivel de la ficha elegido.
+    await expect(page.getByRole("radio", { name: /Luna completa/ })).toBeChecked();
     await page.getByLabel("Título").fill(`${TAG} Meditación de luna llena`);
     await page.getByLabel("Texto de la publicación").fill("Escúchala esta noche con una vela encendida.");
     await page.getByTestId("post-attachments-input").setInputFiles({ name: "meditacion.m4a", mimeType: "audio/mp4", buffer: m4a({ durationSec: 840 }) });
     await expect(page.locator('[data-attachment="AUDIO"]')).toBeVisible();
-    await expect(page.getByLabel("Tipo")).toHaveValue("AUDIO");
+    await expect(page.getByRole("radio", { name: "Audio" })).toBeChecked();
     await page.locator('label:has(input[value="schedule"])').click();
     await page.getByLabel("Día y hora").fill(localValue(new Date(Date.now() + 3600_000)));
     await expect(page.getByText(/Se publicará el .* \(hora de Madrid\)/)).toBeVisible();
     await page.getByRole("button", { name: "Programar", exact: true }).click();
-    await page.waitForURL(/\/publicaciones\/[^/?]+\?guardada=/);
+    await page.waitForURL(/\/panel\/comunidad\?tab=programadas/);
     await expect(page.getByText(/Programada para el/).first()).toBeVisible();
-    postId = page.url().match(/publicaciones\/([^/?]+)/)![1];
-    await page.goto(`/panel/productos/${circleId}`);
-    await expect(page.getByText(/Programada · /).first()).toBeVisible();
+    postId = (await prisma.membershipPost.findFirstOrThrow({ where: { title: `${TAG} Meditación de luna llena` } })).id;
+    await expect(page.locator(`[data-queue-post="${postId}"]`)).toBeVisible();
 
     // Antes de su hora, la miembro no la ve aunque conozca la dirección del archivo.
     const file = await prisma.productFile.findFirstOrThrow({ where: { postId } });
@@ -160,10 +163,13 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
     await owner.page.locator(`#c-${comment.id}`).getByRole("button", { name: "Borrar comentario" }).first().click();
     await expect(owner.page.getByText("Comentario eliminado")).toBeVisible();
 
-    await owner.page.goto(`/panel/productos/${circleId}/publicaciones/${postId}`);
+    // Moderación desde el Muro del estudio, en la propia publicación.
+    await owner.page.goto(`/panel/comunidad?nivel=${circleId}`);
+    const card = owner.page.locator(`[data-studio-post="${postId}"]`);
+    await card.getByRole("button", { name: /Comentarios/ }).click();
     owner.page.once("dialog", (d) => d.accept());
-    await owner.page.getByRole("button", { name: "No dejar comentar a Lucía T." }).click();
-    await expect(owner.page.getByText("No puede comentar").first()).toBeVisible();
+    await card.getByRole("button", { name: "No dejar comentar a Lucía T." }).click();
+    await expect(card.getByText("No puede comentar").first()).toBeVisible();
     await owner.ctx.close();
 
     await page.reload();
