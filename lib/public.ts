@@ -48,7 +48,7 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
     prisma.product.findMany({
       where: { creatorId: creator.id, status: "PUBLISHED" },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      include: { _count: { select: { lessons: true } } },
+      include: { _count: { select: { lessons: { where: { published: true } } } } },
     }),
     prisma.post.findMany({
       where: { creatorId: creator.id, ...publicPostWhere(now) },

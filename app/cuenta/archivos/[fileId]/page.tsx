@@ -6,6 +6,7 @@ import { MediaView } from "@/components/media/media-view";
 import { getSession } from "@/lib/auth";
 import { markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
 import { isMemberPostVisible } from "@/lib/community-rules";
+import { courseFileOpenFor } from "@/lib/course-access";
 import { creatorBrief } from "@/lib/customer";
 import { accessSource } from "@/lib/membership-access";
 import { prisma } from "@/lib/db";
@@ -36,7 +37,8 @@ export default async function FileViewer({ params }: { params: Promise<{ fileId:
   const creator = creatorBrief(file.product.creator);
   // Directo o por una membresía que lo incluye; el adjunto de una publicación, solo si ya se ve.
   const source = isOwner ? null : await accessSource(user.id, file.productId);
-  const allowed = isOwner || (!!source && (!file.post || isMemberPostVisible(file.post)));
+  // Material de un curso: solo si está en una lección publicada y ya abierta para ella (lib/course-access.ts).
+  const allowed = isOwner || (!!source && (file.post ? isMemberPostVisible(file.post) : await courseFileOpenFor(user.id, file)));
 
   const header = (
     <>

@@ -7,15 +7,16 @@ import { m4a, mp4 } from "../scripts/fixtures/iso-media";
 
 /**
  * Lecciones por partes (web personal de Ana en el 3101, tamaño iPhone; regresión en la plataforma, 3100):
- *   · la dueña crea una lección con texto con formato, un .mov del iPhone, un .m4a de Zoom, el PDF
- *     de los materiales y una imagen; la reordena y la guarda (deshabilitado mientras sube);
+ *   · la dueña crea una lección (en el estudio de Cursos) con texto con formato, un .mov del iPhone,
+ *     un .m4a de Zoom, el PDF de los materiales y una imagen; la reordena, la publica (las nuevas
+ *     nacen en borrador) y la guarda (deshabilitado mientras sube);
  *   · borrador local («Recuperar» / «Descartar») y aviso si otra pantalla guardó antes;
  *   · la alumna (Laura) ve el vídeo arriba, el texto, el audio, el PDF y la imagen, y la lección
  *     cuenta como UN paso; «Mis archivos» enlaza cada material con su lección;
  *   · borrar un material usado pide confirmación y lo quita de la lección;
  *   · lista de lecciones plegable en el móvil;
  *   · plataforma: programa público con «Lectura» / «Texto + PDF», PDF con «Descargar PDF»,
- *     texto de antes igual que siempre y el programa del panel con «Editar».
+ *     texto de antes igual que siempre y la estructura del estudio con cada lección enlazada a su editor.
  * Deja los datos de demostración como estaban.
  */
 
@@ -79,11 +80,13 @@ test.describe.serial("Lecciones por partes · web personal (iPhone)", () => {
   test("la dueña crea una lección con texto, vídeo .mov, audio .m4a, PDF e imagen", async ({ page }) => {
     acceptDialogs(page);
     await demoLogin(page, "Ana Luna");
-    await page.goto(`/panel/productos/${courseId}`);
-    const firstModule = page.locator("#lecciones [data-module]").first();
+    await page.goto(`/panel/cursos/${courseId}`);
+    const firstModule = page.locator("[data-structure-board] [data-module]").first();
     await firstModule.getByRole("link", { name: "Añadir lección" }).click();
-    await page.waitForURL(/\/lecciones\/nueva\?modulo=/);
+    await page.waitForURL(/\/panel\/cursos\/[^/]+\/lecciones\/nueva\?modulo=/);
     await page.getByLabel("Título de la lección").fill(TITLE);
+    // Las lecciones nuevas nacen en borrador: se publica para que la vea Laura.
+    await page.getByRole("radiogroup", { name: "Estado de la lección" }).getByText("Publicada").click();
 
     // Texto con formato.
     await page.getByRole("button", { name: "Texto", exact: true }).click();
@@ -146,20 +149,22 @@ test.describe.serial("Lecciones por partes · web personal (iPhone)", () => {
     expect(lesson.parts[1].bodyFormat).toBe("MD");
     expect(lesson.parts[3].fileId).toBe(files.pdf);
     expect(lesson.kind).toBe("VIDEO");
+    expect(lesson.published).toBe(true);
     files.video = lesson.parts[0].fileId!;
     files.audio = lesson.parts[2].fileId!;
     files.image = lesson.parts[4].fileId!;
 
-    // En el programa del curso: qué lleva y su duración.
-    await page.goto(`/panel/productos/${courseId}`);
+    // En la estructura del curso: qué lleva y su duración.
+    await page.goto(`/panel/cursos/${courseId}`);
     const row = page.locator("[data-lesson-row]", { hasText: TITLE });
+    await expect(row.locator("[data-lesson-status]")).toHaveAttribute("data-lesson-status", "published");
     await expect(row.getByText("Vídeo + texto + audio + PDF + imagen · 4 min")).toBeVisible();
   });
 
   test("borrador en este dispositivo: «Recuperar» y «Descartar»", async ({ page }) => {
     acceptDialogs(page);
     await demoLogin(page, "Ana Luna");
-    const url = `/panel/productos/${courseId}/lecciones/${lessonId}`;
+    const url = `/panel/cursos/${courseId}/lecciones/${lessonId}`;
     await page.goto(url);
     await page.getByLabel("Título de la lección").fill(`${TITLE} (borrador)`);
     await expect(page.getByText("Cambios sin guardar")).toBeVisible();
@@ -182,7 +187,7 @@ test.describe.serial("Lecciones por partes · web personal (iPhone)", () => {
   test("dos pantallas a la vez: la segunda no pisa lo que guardó la primera", async ({ page, context }) => {
     acceptDialogs(page);
     await demoLogin(page, "Ana Luna");
-    const url = `/panel/productos/${courseId}/lecciones/${lessonId}`;
+    const url = `/panel/cursos/${courseId}/lecciones/${lessonId}`;
     await page.goto(url);
     const other = await context.newPage();
     acceptDialogs(other);
@@ -273,7 +278,9 @@ test.describe.serial("Lecciones por partes · web personal (iPhone)", () => {
     await expect(page.locator("li", { hasText: `${TAG}-zoom.m4a` })).toHaveCount(0);
     expect(seen.some((m) => m.includes("está en 1 lección"))).toBe(true);
 
+    // El enlace de antes lleva al editor del estudio.
     await page.goto(`/panel/productos/${courseId}/lecciones/${lessonId}`);
+    await page.waitForURL(new RegExp(`/panel/cursos/${courseId}/lecciones/${lessonId}$`));
     await expect(page.locator("[data-part]")).toHaveCount(4);
     await demoLogin(page, "Laura Martín");
     await page.goto(`/cuenta/cursos/${courseId}?leccion=${lessonId}`);
@@ -316,11 +323,14 @@ test.describe.serial("Lecciones por partes · plataforma", () => {
     expect(await article.innerText()).not.toContain("**");
 
     await demoLogin(page, "Ana Luna", PLATFORM);
+    // La ficha del producto resume el programa y lleva al estudio.
     await page.goto(`/panel/productos/${courseId}`);
-    await expect(page.locator("#lecciones select")).toHaveCount(0);
-    const rows = page.locator("#lecciones [data-lesson-row]");
+    await expect(page.locator("#lecciones [data-course-summary]")).toBeVisible();
+    await expect(page.locator("#lecciones").getByRole("link", { name: /Abrir en Cursos/ })).toHaveAttribute("href", `/panel/cursos/${courseId}`);
+    await page.goto(`/panel/cursos/${courseId}`);
+    const rows = page.locator("[data-structure-board] [data-lesson-row]");
     const n = await rows.count();
     expect(n).toBeGreaterThan(5);
-    for (let i = 0; i < n; i++) await expect(rows.nth(i).getByRole("link").first()).toHaveAttribute("href", new RegExp(`/panel/productos/${courseId}/lecciones/[^/]+$`));
+    for (let i = 0; i < n; i++) await expect(rows.nth(i).getByRole("link").first()).toHaveAttribute("href", new RegExp(`/panel/cursos/${courseId}/lecciones/[^/]+$`));
   });
 });

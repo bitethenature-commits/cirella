@@ -116,7 +116,7 @@ export async function includedProductsForUser(userId: string, now = new Date()) 
   if (!allIds.length) return [];
   const products = await prisma.product.findMany({
     where: { id: { in: allIds }, type: "COURSE", status: { not: "ARCHIVED" } },
-    include: { creator: true, _count: { select: { lessons: true } } },
+    include: { creator: true, _count: { select: { lessons: { where: { published: true } } } } },
     orderBy: { createdAt: "asc" },
   });
   const out = new Map<string, { product: (typeof products)[number]; via: { productId: string; title: string }; until: Date | null }>();

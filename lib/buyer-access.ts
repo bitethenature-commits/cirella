@@ -6,6 +6,7 @@ import { isMemberPostVisible } from "./community-rules";
 import { prisma } from "./db";
 import { accessSource, scopeCoversProduct } from "./membership-access";
 import { captureError } from "./monitoring";
+import { courseFileOpenFor } from "./course-access";
 
 /**
  * Guardas del área de cliente (/cuenta, descargas, .ics, huecos).
@@ -141,9 +142,12 @@ export async function checkProductAccess(productId: string, productCreatorId: st
  * comunidad, la publicación tiene que verse ya (nunca el audio de una programada o de un borrador,
  * aunque alguien conozca el id del archivo). La dueña lo ve siempre.
  */
-export async function checkFileAccess(file: { productId: string; creatorId: string; postId: string | null }): Promise<FileAccess> {
+export async function checkFileAccess(file: { id: string; productId: string; creatorId: string; postId: string | null }): Promise<FileAccess> {
   const access = await checkProductAccess(file.productId, file.creatorId);
-  if (!access.ok || access.isOwner || !file.postId) return access;
+  if (!access.ok || access.isOwner) return access;
+  // Material de un curso: si está en lecciones, alguna tiene que estar publicada y ya abierta para
+  // ella (nunca el vídeo de un borrador ni el de una lección que aún no toca; lib/course-access.ts).
+  if (!file.postId) return (await courseFileOpenFor(access.userId, file)) ? access : { ok: false, reason: "forbidden" };
   const post = await prisma.membershipPost.findUnique({ where: { id: file.postId }, select: { status: true, publishedAt: true } });
   return post && isMemberPostVisible(post) ? access : { ok: false, reason: "forbidden" };
 }

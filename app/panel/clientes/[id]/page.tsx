@@ -24,8 +24,8 @@ export default async function CustomerDetail({ params }: { params: Promise<{ id:
     },
   });
   if (!c) notFound();
-  const courseIds = (await db.access.findMany({ where: { userId: c.userId, product: { type: "COURSE" } }, select: { productId: true, product: { select: { title: true, _count: { select: { lessons: true } } } } } }));
-  const progress = await db.lessonProgress.groupBy({ by: ["productId"], where: { userId: c.userId }, _count: { _all: true } });
+  const courseIds = (await db.access.findMany({ where: { userId: c.userId, product: { type: "COURSE" } }, select: { productId: true, product: { select: { title: true, _count: { select: { lessons: { where: { published: true } } } } } } } }));
+  const progress = await db.lessonProgress.groupBy({ by: ["productId"], where: { userId: c.userId, lesson: { published: true } }, _count: { _all: true } });
   const personal = signupsOnly();
   return (
     <div className="max-w-3xl">

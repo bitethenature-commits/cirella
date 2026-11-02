@@ -1,5 +1,5 @@
 import { Download, ExternalLink, Link2 } from "lucide-react";
-import { MediaView, type MediaFile } from "@/components/media/media-view";
+import { MediaViewBase, type MediaFile } from "@/components/media/media-view-base";
 import { VideoEmbed } from "@/components/media/video-embed";
 import { RichContent } from "@/components/rich-text/rich-content";
 import type { PartView } from "@/lib/lesson-parts";
@@ -26,12 +26,12 @@ function DownloadRow({ fileId, name, label }: { fileId: string; name: string; la
 }
 
 /** Vídeo de arriba (a todo lo ancho en el iPhone): propio o de YouTube/Vimeo. */
-export function LeadPart({ part, lessonTitle, poster }: { part: PlayerPart; lessonTitle: string; poster: string | null }) {
+export function LeadPart({ part, lessonTitle, poster, personal }: { part: PlayerPart; lessonTitle: string; poster: string | null; personal: boolean }) {
   if (part.view === "EMBED" && part.url) {
     if (videoEmbed(part.url)) return <VideoEmbed url={part.url} title={lessonTitle} />;
     return <OpenVideo url={part.url} />;
   }
-  if (part.file) return <MediaView file={part.file} title={lessonTitle} poster={poster} />;
+  if (part.file) return <MediaViewBase file={part.file} title={lessonTitle} poster={poster} personal={personal} />;
   return null;
 }
 
@@ -45,11 +45,12 @@ function OpenVideo({ url }: { url: string }) {
 }
 
 /**
- * Las partes de una lección en el orden que eligió la dueña. Cada archivo pasa por MediaView
+ * Las partes de una lección en el orden que eligió la dueña. Cada archivo pasa por MediaViewBase
  * (/api/stream y /api/download comprueban el acceso en cada petición); el texto, por RichContent
- * (sin HTML). Nada de dangerouslySetInnerHTML.
+ * (sin HTML). Nada de dangerouslySetInnerHTML. Puro (sin servidor): lo pinta el reproductor de
+ * /cuenta/cursos y la vista previa del editor de lecciones del panel. `personal`: modo del sitio.
  */
-export function LessonParts({ parts, lessonTitle, courseTitle, poster }: { parts: PlayerPart[]; lessonTitle: string; courseTitle: string; poster: string | null }) {
+export function LessonParts({ parts, lessonTitle, courseTitle, poster, personal }: { parts: PlayerPart[]; lessonTitle: string; courseTitle: string; poster: string | null; personal: boolean }) {
   return (
     <div className="space-y-6">
       {parts.map((p) => {
@@ -76,14 +77,14 @@ export function LessonParts({ parts, lessonTitle, courseTitle, poster }: { parts
           case "VIDEO":
             return f ? (
               <div key={p.id} className="overflow-hidden rounded-3xl bg-black">
-                <MediaView file={f} title={lessonTitle} poster={poster} />
+                <MediaViewBase personal={personal} file={f} title={lessonTitle} poster={poster} />
               </div>
             ) : null;
           case "AUDIO":
             return f ? (
               <div key={p.id} className="space-y-2">
                 <div className="overflow-hidden rounded-3xl bg-ink px-4 py-5 text-cream">
-                  <MediaView file={f} title={`${lessonTitle} · ${courseTitle}`} artwork={poster} />
+                  <MediaViewBase personal={personal} file={f} title={`${lessonTitle} · ${courseTitle}`} artwork={poster} />
                 </div>
                 <DownloadRow fileId={f.id} name={f.name} label="Descargar audio" />
               </div>
@@ -91,12 +92,12 @@ export function LessonParts({ parts, lessonTitle, courseTitle, poster }: { parts
           case "PDF":
             return f ? (
               <div key={p.id} className="space-y-2">
-                <MediaView file={f} title={lessonTitle} />
+                <MediaViewBase personal={personal} file={f} title={lessonTitle} />
                 <DownloadRow fileId={f.id} name={f.name} label="Descargar PDF" />
               </div>
             ) : null;
           case "IMAGE":
-            return f ? <MediaView key={p.id} file={{ ...f, name: f.name.replace(/\.[a-z0-9]+$/i, "") || f.name }} title={lessonTitle} /> : null;
+            return f ? <MediaViewBase personal={personal} key={p.id} file={{ ...f, name: f.name.replace(/\.[a-z0-9]+$/i, "") || f.name }} title={lessonTitle} /> : null;
           case "DOWNLOAD":
             if (!f) return null;
             if (f.kind === "LINK")
@@ -109,7 +110,7 @@ export function LessonParts({ parts, lessonTitle, courseTitle, poster }: { parts
                   </span>
                 </a>
               );
-            return <MediaView key={p.id} file={f} title={lessonTitle} />;
+            return <MediaViewBase personal={personal} key={p.id} file={f} title={lessonTitle} />;
         }
       })}
     </div>

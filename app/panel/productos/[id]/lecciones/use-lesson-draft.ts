@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * cambio y al salir (pagehide: en iOS beforeunload no es fiable). Solo se ofrece si se escribió
  * sobre la misma versión que hay ahora en el servidor. Sin almacenamiento (modo privado) no hace nada.
  */
-export type DraftData = { title: string; moduleId: string; durationMin: string; parts: unknown[] };
+export type DraftData = { title: string; moduleId: string; durationMin: string; parts: unknown[]; published?: boolean; dripDays?: string };
 type Stored = { v: 1; baseVersion: number | null; at: number; data: DraftData };
 
 function read(key: string): Stored | null {

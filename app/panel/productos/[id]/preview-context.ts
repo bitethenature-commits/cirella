@@ -24,7 +24,7 @@ type PreviewProduct = {
   creatorId: string;
   type: string;
   files: { id: string; name: string; kind: string; postId: string | null }[];
-  modules: { id: string; title: string; lessons: { id: string; title: string; durationMin: number | null; parts: { kind: string; file: { kind: string } | null }[] }[] }[];
+  modules: { id: string; title: string; lessons: { id: string; title: string; durationMin: number | null; published: boolean; parts: { kind: string; file: { kind: string } | null }[] }[] }[];
   includes: { includedProduct: { id: string; title: string; slug: string; status: string; creatorId: string; _count: { lessons: number } } }[];
 };
 
@@ -82,7 +82,8 @@ export async function productPreviewContext(creator: Creator & { plan: Plan }, p
     modules: product.modules.map((m) => ({
       id: m.id,
       title: m.title,
-      lessons: m.lessons.map((l) => ({ id: l.id, title: l.title, durationMin: l.durationMin, parts: l.parts.map((p) => ({ kind: p.kind, file: p.file })) })),
+      // Como la ficha pública: solo las lecciones publicadas.
+      lessons: m.lessons.filter((l) => l.published).map((l) => ({ id: l.id, title: l.title, durationMin: l.durationMin, parts: l.parts.map((p) => ({ kind: p.kind, file: p.file })) })),
     })),
     includes: product.includes
       .map((i) => i.includedProduct)

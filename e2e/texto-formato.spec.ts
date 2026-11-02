@@ -179,8 +179,8 @@ test.describe.serial("Texto con formato", () => {
 
     // Lección nueva sin texto (solo el título), y una lección de antes a la que solo se cambia el título.
     const course = await prisma.product.findFirstOrThrow({ where: { creatorId: anaId, slug: "curso-conocete-tu-energia" }, include: { modules: { orderBy: { sortOrder: "asc" }, include: { lessons: { orderBy: { sortOrder: "asc" } } } } } });
-    await page.goto(`/panel/productos/${course.id}`);
-    const firstModule = page.locator("#lecciones [data-module]").first();
+    await page.goto(`/panel/cursos/${course.id}`);
+    const firstModule = page.locator("[data-structure-board] [data-module]").first();
     await firstModule.getByRole("link", { name: "Añadir lección" }).click();
     await page.getByLabel("Título de la lección").fill(`${TAG} vídeo`);
     await page.getByRole("button", { name: "Guardar lección" }).click();
@@ -189,10 +189,12 @@ test.describe.serial("Texto con formato", () => {
     expect(created.body).toBeNull();
     expect(created.bodyFormat).toBeNull();
     expect(created.parts).toHaveLength(0);
+    // Las lecciones nuevas del estudio nacen en borrador.
+    expect(created.published).toBe(false);
 
     const legacyLesson = course.modules[0].lessons.find((l) => l.title === "Sol, Luna y Ascendente")!;
     restore.lessons.push(await snapshotLesson(legacyLesson.id));
-    await page.goto(`/panel/productos/${course.id}/lecciones/${legacyLesson.id}`);
+    await page.goto(`/panel/cursos/${course.id}/lecciones/${legacyLesson.id}`);
     await expect(page.getByText(/Este texto es de antes del formato/)).toBeVisible();
     await page.getByLabel("Título de la lección").fill("Sol, Luna y Ascendente (editada)");
     await page.getByRole("button", { name: "Guardar lección" }).click();
@@ -209,7 +211,7 @@ test.describe.serial("Texto con formato", () => {
     const lesson = await prisma.lesson.findFirstOrThrow({ where: { productId: course.id, title: "Ejercicio: dibuja tu mapa" } });
     restore.lessons.push(await snapshotLesson(lesson.id));
     await demoLogin(page, "Ana Luna");
-    await page.goto(`/panel/productos/${course.id}/lecciones/${lesson.id}`);
+    await page.goto(`/panel/cursos/${course.id}/lecciones/${lesson.id}`);
     const body = page.getByLabel("Texto (parte 1)");
     await body.fill("## Cómo hacerlo\n\n1. Descarga el cuaderno\n2. Completa el ejercicio 1");
     await page.getByRole("button", { name: "Guardar lección" }).click();

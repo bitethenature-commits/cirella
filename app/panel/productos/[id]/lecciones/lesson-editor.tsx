@@ -1,11 +1,13 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Eye, FileText, Headphones, Image as ImageIcon, Loader2, Paperclip, PlayCircle, Trash2, Type } from "lucide-react";
-import { startTransition, useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, CalendarClock, Eye, FileText, Headphones, Image as ImageIcon, Loader2, Paperclip, PlayCircle, Trash2, Type } from "lucide-react";
+import { startTransition, useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { Flash } from "@/components/ui/flash";
 import type { UploadedFile } from "@/components/ui/upload-client";
+import { LessonPreviewColumn, LessonPreviewSheet, type LessonPreviewContext } from "@/app/panel/cursos/[id]/lecciones/lesson-preview";
+import { dripDayFor, dripDayLabel, type DripSettings } from "@/lib/course-drip";
 import { MAX_LESSON_PARTS, suggestedLessonMinutes, type AddPartKind } from "@/lib/lesson-parts";
 import { deleteLesson, saveLesson, type LessonActionState } from "../../actions";
 import { AddPartSheet } from "./add-part-sheet";
@@ -20,6 +22,9 @@ export type EditorLesson = {
   durationMin: number | null;
   version: number | null;
   parts: EditorPart[];
+  /** Borrador (false) o publicada (true). Una lección nueva empieza en borrador. */
+  published: boolean;
+  dripDays: number | null;
 };
 
 type Serial = { kind: "TEXT"; body: string; format: string } | { kind: "FILE"; fileId: string } | { kind: "EMBED"; url: string };
@@ -59,6 +64,10 @@ const newKey = () => `n${++seq}-${Date.now().toString(36)}`;
  * contenido en el orden en que lo verán sus alumnas (vídeo, audio, texto con formato, PDF,
  * imágenes…). Todo es un solo paso del progreso. Subidas en cola con progreso, borrador local por
  * si Safari recarga la pestaña y aviso si otra pantalla guardó antes (versión).
+ *
+ * Vive en el estudio de cursos (/panel/cursos/<id>/lecciones/…): estado Borrador / Publicada,
+ * «Disponible a los N días» si el curso se abre poco a poco y, al lado (o con «Vista previa» en el
+ * móvil), la lección tal y como la verá la alumna (components/course/lesson-view.tsx) mientras se escribe.
  */
 export function LessonEditor({
   productId,
@@ -69,6 +78,9 @@ export function LessonEditor({
   uploadLabel,
   initialMessage,
   initialWarning,
+  drip = { mode: null, everyDays: null },
+  dripIndex = 0,
+  preview,
 }: {
   productId: string;
   productTitle: string;
@@ -79,6 +91,11 @@ export function LessonEditor({
   initialMessage?: string | null;
   /** Aviso del guardado que llevó aquí (una lección nueva se guarda y se abre en su página). */
   initialWarning?: string | null;
+  /** Apertura poco a poco del curso y la posición de esta lección entre las publicadas (para «Se abre…»). */
+  drip?: DripSettings;
+  dripIndex?: number;
+  /** Vista previa en vivo (lo que no sale del formulario). */
+  preview: LessonPreviewContext;
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState<LessonActionState, FormData>(saveLesson, undefined);
@@ -87,6 +104,10 @@ export function LessonEditor({
   const [title, setTitle] = useState(lesson.title);
   const [moduleId, setModuleId] = useState(lesson.moduleId);
   const [durationMin, setDurationMin] = useState(lesson.durationMin ? String(lesson.durationMin) : "");
+  const [published, setPublished] = useState(lesson.published);
+  const [dripDays, setDripDays] = useState(lesson.dripDays ? String(lesson.dripDays) : "");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const closePreview = useCallback(() => setPreviewOpen(false), []);
   const [parts, setParts] = useState<EditorPart[]>(lesson.parts);
   const [files, setFiles] = useState<EditorFile[]>(initialFiles);
   const [sheet, setSheet] = useState<AddPartKind | null>(null);
@@ -96,7 +117,7 @@ export function LessonEditor({
   const focusKey = useRef<string | null>(null);
   const sent = useRef<string | null>(null);
 
-  const data: DraftData = useMemo(() => ({ title, moduleId, durationMin, parts: serialParts(parts) }), [title, moduleId, durationMin, parts]);
+  const data: DraftData = useMemo(() => ({ title, moduleId, durationMin, parts: serialParts(parts), published, dripDays }), [title, moduleId, durationMin, parts, published, dripDays]);
   const serial = JSON.stringify(data);
   const [clean, setClean] = useState(serial);
   const dirty = serial !== clean;
@@ -130,7 +151,7 @@ export function LessonEditor({
     if (sent.current) setClean(sent.current);
     if (!lessonId) {
       setLessonId(state.lessonId);
-      router.replace(`/panel/productos/${productId}/lecciones/${state.lessonId}?guardada=1${state.warning ? "&aviso=enlace" : ""}`);
+      router.replace(`/panel/cursos/${productId}/lecciones/${state.lessonId}?guardada=1${state.warning ? "&aviso=enlace" : ""}`);
     }
     // Solo cuando llega una respuesta nueva.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -193,6 +214,8 @@ export function LessonEditor({
     fd.set("durationMin", durationMin.trim());
     if (version != null) fd.set("version", String(version));
     fd.set("parts", JSON.stringify(data.parts));
+    fd.set("published", published ? "1" : "0");
+    if (drip.mode === "LESSON") fd.set("dripDays", dripDays.trim());
     sent.current = serial;
     startTransition(() => action(fd));
   };
@@ -203,22 +226,31 @@ export function LessonEditor({
   const warning = state ? state.warning : showInitial ? initialWarning : null;
   const status = uploading ? "Esperando a que termine la subida…" : pending ? "Guardando…" : dirty ? "Cambios sin guardar" : lessonId ? "Guardada" : "Lección nueva";
 
+  const live = { title, durationMin: Number(durationMin) || suggested || null, parts, files: fileById, published };
+  const opensDay = drip.mode ? dripDayFor(drip, dripIndex, drip.mode === "LESSON" ? Number(dripDays) || null : null) : 0;
+
   return (
-    <div className="mx-auto max-w-2xl">
-      <Link href={`/panel/productos/${productId}#lecciones`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+    <div className="mx-auto max-w-6xl lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-10" data-lesson-studio>
+    <div className="mx-auto w-full max-w-2xl lg:mx-0">
+      <Link href={`/panel/cursos/${productId}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
         <ArrowLeft className="h-4 w-4" /> {productTitle}
       </Link>
       <div className="mb-5 mt-3 flex flex-wrap items-end justify-between gap-3">
         <h1 className="display text-[2.1rem] leading-tight">{lessonId ? "Editar lección" : "Nueva lección"}</h1>
-        {previewHref && !dirty ? (
-          <a href={previewHref} target="_blank" rel="noopener" className="btn btn-outline btn-sm">
-            <Eye className="h-4 w-4" /> Ver como alumna
-          </a>
-        ) : (
-          <span className="btn btn-outline btn-sm pointer-events-none opacity-50" aria-disabled title="Guarda primero">
-            <Eye className="h-4 w-4" /> Ver como alumna <span className="text-xs font-normal">· Guarda primero</span>
-          </span>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn btn-outline btn-sm lg:hidden" onClick={() => setPreviewOpen(true)}>
+            <Eye className="h-4 w-4" /> Vista previa
+          </button>
+          {previewHref && !dirty ? (
+            <a href={previewHref} target="_blank" rel="noopener" className="btn btn-outline btn-sm">
+              <Eye className="h-4 w-4" /> Ver como alumna
+            </a>
+          ) : (
+            <span className="btn btn-outline btn-sm pointer-events-none opacity-50" aria-disabled title="Guarda primero">
+              <Eye className="h-4 w-4" /> Ver como alumna <span className="text-xs font-normal">· Guarda primero</span>
+            </span>
+          )}
+        </div>
       </div>
 
       {draft.restorable && (
@@ -234,6 +266,8 @@ export function LessonEditor({
                 setTitle(d.title);
                 if (modules.some((m) => m.id === d.moduleId)) setModuleId(d.moduleId);
                 setDurationMin(d.durationMin);
+                if (typeof d.published === "boolean") setPublished(d.published);
+                if (typeof d.dripDays === "string") setDripDays(d.dripDays);
                 setParts((list) => [...fromSerial(d.parts), ...list.filter((p) => p.kind === "UPLOAD")]);
                 setEditorGen((g) => g + 1);
               }}
@@ -286,6 +320,55 @@ export function LessonEditor({
           </div>
         </div>
         <p className="field-hint">Si dejas la duración vacía, la calculamos con los vídeos y audios.</p>
+        <div className="border-t border-line pt-4">
+          <p className="field-label" aria-hidden>
+            Estado
+          </p>
+          <div className="mt-1 grid grid-cols-2 gap-1 rounded-2xl bg-sand p-1" role="radiogroup" aria-label="Estado de la lección">
+            {[
+              { value: false, label: "Borrador", hint: "Solo la ves tú" },
+              { value: true, label: "Publicada", hint: "La ven tus alumnas" },
+            ].map((o) => (
+              <label
+                key={String(o.value)}
+                className={`flex min-h-12 cursor-pointer flex-col justify-center rounded-xl px-3 py-1.5 text-center transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-lavender-deep ${published === o.value ? "bg-white shadow-soft" : "text-muted hover:text-ink"}`}
+              >
+                <input type="radio" name="lesson-status" className="sr-only" checked={published === o.value} onChange={() => setPublished(o.value)} />
+                <span className="text-sm font-semibold">{o.label}</span>
+                <span className="text-[0.7rem] text-muted">{o.hint}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        {drip.mode && (
+          <div className="rounded-2xl bg-sand/60 p-3 text-sm" data-lesson-drip>
+            <p className="flex items-center gap-2 font-semibold">
+              <CalendarClock className="h-4 w-4 text-lavender-deep" /> Se abre poco a poco
+            </p>
+            {drip.mode === "LESSON" ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <label htmlFor="lesson-drip" className="text-sm">
+                  Disponible a los
+                </label>
+                <input
+                  id="lesson-drip"
+                  className="input h-10 w-20 text-base sm:text-sm"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={dripDays}
+                  onChange={(e) => setDripDays(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
+                  placeholder="0"
+                />
+                <span>días de apuntarse</span>
+                <p className="w-full text-xs text-muted">Vacío o 0: desde el primer día.</p>
+              </div>
+            ) : (
+              <p className="mt-1 text-xs text-muted">
+                {published ? `Por su sitio en el programa, tus alumnas la verán: ${dripDayLabel(opensDay).toLowerCase()}.` : "Cuando la publiques, se abrirá según su sitio en el programa."} Se cambia en «Abrir las lecciones poco a poco», en la estructura del curso.
+              </p>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="mt-6" aria-labelledby="contenido">
@@ -400,6 +483,9 @@ export function LessonEditor({
           }}
         />
       )}
+    </div>
+      <LessonPreviewColumn ctx={preview} live={live} />
+      {previewOpen && <LessonPreviewSheet ctx={preview} live={live} onClose={closePreview} />}
     </div>
   );
 }

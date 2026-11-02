@@ -10,6 +10,13 @@ import { eq, ok, test } from "./harness";
 
 const FLAGS = { personal: true, sales: false, showBookings: true };
 
+test("un orden guardado antes de Cursos y Comunidad: las dos salen al final, sin mover la barra de abajo", () => {
+  const before = panelNav(FLAGS).filter((i) => i.href !== "/panel/cursos" && i.href !== "/panel/comunidad").map((i) => i.href);
+  const nav = { order: before, hidden: [] };
+  eq(panelNavFor(FLAGS, nav).map((i) => i.href).slice(-2), ["/panel/cursos", "/panel/comunidad"]);
+  eq(mobileNavFor(FLAGS, nav).map((i) => i.href).slice(0, 4), before.slice(0, 4));
+});
+
 test("sin preferencias: ninguna variable (el panel de siempre) y el menú y la barra de siempre", () => {
   eq(panelThemeVars(null), {});
   eq(readPanelPrefs(null), EMPTY_PANEL_PREFS);

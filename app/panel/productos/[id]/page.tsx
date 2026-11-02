@@ -10,7 +10,7 @@ import { requireCreator } from "@/lib/auth";
 import { deliveryFacts, deliveryIssue, deliveryIssueCopy } from "@/lib/delivery";
 import { appHost } from "@/lib/env";
 import { uploadPolicy } from "@/lib/file-types";
-import { fileUsage, lessonPartViews } from "@/lib/lesson-parts";
+import { fileUsage } from "@/lib/lesson-parts";
 import { canSellType } from "@/lib/plans";
 import { siteMode } from "@/lib/site-mode";
 import { asVatStatus } from "@/lib/tax";
@@ -20,7 +20,7 @@ import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { deleteProduct } from "../actions";
 import { Badge } from "../../ui";
 import { AccessManager } from "./access-manager";
-import { CourseBuilder } from "./course-builder";
+import { CourseSummary } from "./course-summary";
 import { FilesManager } from "./files-manager";
 import { CommunityLink } from "./community-link";
 import { IncludesManager } from "./includes-manager";
@@ -66,7 +66,7 @@ export default async function EditProductPage({
       posts: { select: { status: true, publishedAt: true } },
       includes: {
         orderBy: { createdAt: "asc" },
-        select: { includedProductId: true, includedProduct: { select: { id: true, title: true, slug: true, status: true, creatorId: true, _count: { select: { lessons: true } } } } },
+        select: { includedProductId: true, includedProduct: { select: { id: true, title: true, slug: true, status: true, creatorId: true, _count: { select: { lessons: { where: { published: true } } } } } } },
       },
       includedIn: { select: { product: { select: { id: true, title: true } } } },
       _count: { select: { orders: { where: { status: "PAID" } } } },
@@ -82,13 +82,13 @@ export default async function EditProductPage({
           // Cursos y los otros niveles de la comunidad (membresías): un nivel incluye los de abajo.
           where: { type: { in: ["COURSE", "MEMBERSHIP"] }, status: { not: "ARCHIVED" }, NOT: { id } },
           orderBy: [{ type: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
-          select: { id: true, type: true, title: true, emoji: true, status: true, _count: { select: { lessons: true } } },
+          select: { id: true, type: true, title: true, emoji: true, status: true, _count: { select: { lessons: { where: { published: true } } } } },
         })
       : [];
   const issue = deliveryIssue(
     deliveryFacts({
       ...product,
-      _count: { files: product.files.length, lessons: product.modules.reduce((a, m) => a + m.lessons.length, 0), posts: product.posts.length },
+      _count: { files: product.files.length, lessons: product.modules.reduce((a, m) => a + m.lessons.filter((l) => l.published).length, 0), posts: product.posts.length },
     }),
   );
   const issueCopy = issue ? deliveryIssueCopy(issue, product.title) : null;
@@ -226,14 +226,8 @@ export default async function EditProductPage({
               usage={fileUsage(product.modules.flatMap((m) => m.lessons.flatMap((l) => l.parts.map((p) => ({ fileId: p.fileId, lessonId: l.id })))))}
             />
             <div id="lecciones" className="scroll-mt-24">
-              <CourseBuilder
-                productId={product.id}
-                modules={product.modules.map((m) => ({
-                  id: m.id,
-                  title: m.title,
-                  lessons: m.lessons.map((l) => ({ id: l.id, title: l.title, durationMin: l.durationMin, views: lessonPartViews(l.parts) })),
-                }))}
-              />
+              {/* Las lecciones se preparan en el estudio de cursos (/panel/cursos/<id>). */}
+              <CourseSummary productId={product.id} modules={product.modules} />
             </div>
           </>
         )}

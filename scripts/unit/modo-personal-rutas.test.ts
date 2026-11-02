@@ -66,6 +66,12 @@ test("menú personal: sin Plan, con Publicaciones y Códigos, «Ventas» es «In
   eq(hrefs(items).includes("/panel/reservas"), true);
 });
 
+test("menú personal: «Cursos» y «Comunidad» justo después de Productos (en la plataforma, no)", () => {
+  const h = hrefs(panelNav({ personal: true, showBookings: true }));
+  eq(h.slice(h.indexOf("/panel/productos"), h.indexOf("/panel/productos") + 3), ["/panel/productos", "/panel/cursos", "/panel/comunidad"]);
+  eq(hrefs(PANEL_NAV).includes("/panel/cursos"), false);
+});
+
 test("menú personal sin sesiones con reserva aquí: sin Reservas", () => {
   eq(hrefs(panelNav({ personal: true, showBookings: false })).includes("/panel/reservas"), false);
 });

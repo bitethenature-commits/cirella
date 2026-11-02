@@ -38,7 +38,21 @@ export const LESSON_PART_FILE_SELECT = {
   height: true,
 } as const;
 
-export type SaveLessonInput = { id?: string; moduleId: string; title: string; durationMin: number | null; version?: number | null; parts: LessonPartInput[] };
+export type SaveLessonInput = {
+  id?: string;
+  moduleId: string;
+  title: string;
+  durationMin: number | null;
+  version?: number | null;
+  parts: LessonPartInput[];
+  /** Borrador (false) o publicada (true). Sin él: se conserva (una lección nueva, publicada, como siempre). */
+  published?: boolean;
+  /** «Disponible a los N días» (apertura poco a poco por lección). Sin él: se conserva. */
+  dripDays?: number | null;
+};
+
+export const LESSON_LAST_PUBLISHED =
+  "Es la única lección publicada de un curso publicado: tus alumnas se quedarían sin nada. Publica otra antes o pasa el curso a borrador.";
 
 type StoredPart = { kind: "TEXT" | "FILE" | "EMBED"; body: string | null; bodyFormat: string | null; fileId: string | null; url: string | null; fileKind?: string | null };
 
@@ -53,6 +67,11 @@ export async function saveLessonWithParts(
   // La lección debe ser de este mismo curso: no se puede «mover» a otro curso ni a otra creadora.
   const existing = input.id ? await db.lesson.findFirst({ where: { id: input.id, productId } }) : null;
   if (input.id && !existing) throw new LessonSaveError("Esta lección ya no existe");
+  if (existing?.published && input.published === false && (await isLastPublishedLesson(creatorId, existing.id))) throw new LessonSaveError(LESSON_LAST_PUBLISHED);
+  const status = {
+    ...(input.published !== undefined ? { published: input.published } : {}),
+    ...(input.dripDays !== undefined ? { dripDays: input.dripDays } : {}),
+  };
 
   const fileIds = [...new Set(input.parts.flatMap((p) => (p.kind === "FILE" ? [p.fileId] : [])))];
   const files = fileIds.length
@@ -86,7 +105,7 @@ export async function saveLessonWithParts(
         const sortOrder = moved ? await tx.lesson.count({ where: { creatorId, moduleId: mod.id } }) : existing.sortOrder;
         const updated = await tx.lesson.updateMany({
           where: { id: existing.id, creatorId, ...(input.version != null ? { version: input.version } : {}) },
-          data: { title, durationMin, moduleId: mod.id, sortOrder, ...legacy, version: { increment: 1 } },
+          data: { title, durationMin, moduleId: mod.id, sortOrder, ...legacy, ...status, version: { increment: 1 } },
         });
         if (updated.count === 0) throw new LessonSaveError(LESSON_CONFLICT);
         if (moved) {
@@ -97,7 +116,7 @@ export async function saveLessonWithParts(
         await tx.lessonPart.deleteMany({ where: { lessonId, creatorId } });
       } else {
         const sortOrder = await tx.lesson.count({ where: { creatorId, moduleId: mod.id } });
-        const lesson = await tx.lesson.create({ data: { creatorId, productId, moduleId: mod.id, title, durationMin, sortOrder, ...legacy } });
+        const lesson = await tx.lesson.create({ data: { creatorId, productId, moduleId: mod.id, title, durationMin, sortOrder, ...legacy, ...status } });
         lessonId = lesson.id;
       }
       if (parts.length)
@@ -119,7 +138,10 @@ export type LessonEditorData = NonNullable<Awaited<ReturnType<typeof loadLessonE
 /** Lo que necesita el editor de una lección; null si el curso no es de esta creadora (o no es un curso). */
 export async function loadLessonEditor(creatorId: string, productId: string, lessonId: string | null) {
   const db = tenantDb(creatorId);
-  const product = await db.product.findFirst({ where: { id: productId, type: "COURSE" }, select: { id: true, title: true, imageUrl: true } });
+  const product = await db.product.findFirst({
+    where: { id: productId, type: "COURSE" },
+    select: { id: true, title: true, imageUrl: true, status: true, dripMode: true, dripEveryDays: true },
+  });
   if (!product) return null;
   const [modules, files, lesson] = await Promise.all([
     db.courseModule.findMany({ where: { productId }, orderBy: { sortOrder: "asc" }, select: { id: true, title: true } }),
@@ -133,6 +155,8 @@ export async function loadLessonEditor(creatorId: string, productId: string, les
             title: true,
             durationMin: true,
             version: true,
+            published: true,
+            dripDays: true,
             parts: { orderBy: { sortOrder: "asc" }, select: { kind: true, body: true, bodyFormat: true, fileId: true, url: true } },
           },
         })
@@ -140,4 +164,15 @@ export async function loadLessonEditor(creatorId: string, productId: string, les
   ]);
   if (lessonId && !lesson) return null;
   return { product, modules, files, lesson };
+}
+
+/**
+ * ¿Quitarla dejaría un curso publicado sin ninguna lección publicada? (lo mismo que impide borrar
+ * lo último que se entrega: lib/delivery.ts).
+ */
+export async function isLastPublishedLesson(creatorId: string, lessonId: string): Promise<boolean> {
+  const db = tenantDb(creatorId);
+  const l = await db.lesson.findFirst({ where: { id: lessonId }, select: { productId: true, published: true, product: { select: { status: true, accessMode: true } } } });
+  if (!l || !l.published || l.product.status !== "PUBLISHED" || l.product.accessMode === "EXTERNAL") return false;
+  return (await db.lesson.count({ where: { productId: l.productId, published: true, NOT: { id: lessonId } } })) === 0;
 }

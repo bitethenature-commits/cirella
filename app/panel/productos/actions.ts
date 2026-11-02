@@ -32,6 +32,7 @@ import { privateKey, storage } from "@/lib/storage";
 import { tenantDb, type TenantDb } from "@/lib/tenant";
 import { wouldCreateCycle } from "@/lib/tiers";
 import { asCourseCategory } from "@/lib/course-categories";
+import { parseDripDays } from "@/lib/course-drip";
 import { checkSaleInput, saleFormSchema, SALE_LABEL_MAX } from "@/lib/offers";
 import { Prisma } from "@prisma/client";
 import { applyProductMeetingUrl } from "@/lib/booking-changes";
@@ -104,6 +105,11 @@ export async function createProduct(form: FormData) {
     },
   });
   if (type === "COURSE") await db.courseModule.create({ data: { creatorId: creator.id, productId: product.id, title: "Módulo 1", sortOrder: 0 } });
+  // «Nuevo curso» desde Cursos: se abre directamente en el estudio.
+  if (type === "COURSE" && form.get("next") === "cursos") {
+    revalidatePath("/panel/cursos");
+    redirect(`/panel/cursos/${product.id}?nuevo=1`);
+  }
   redirect(`/panel/productos/${product.id}?nuevo=1`);
 }
 
@@ -532,7 +538,7 @@ export async function deleteModule(form: FormData) {
   const { db } = await ctx();
   const m = await db.courseModule.findFirst({ where: { id: String(form.get("id")) } });
   if (!m) return;
-  await guardLastDeliverable(db, m.productId, { lessons: await db.lesson.count({ where: { moduleId: m.id } }) }, "lecciones");
+  await guardLastDeliverable(db, m.productId, { lessons: await db.lesson.count({ where: { moduleId: m.id, published: true } }) }, "lecciones");
   await db.courseModule.deleteMany({ where: { id: m.id } });
   refresh(m.productId);
 }
@@ -545,6 +551,9 @@ const lessonSchema = z.object({
   durationMin: z.union([z.literal(""), z.coerce.number().int().min(0, "Revisa la duración").max(600, "La duración admite hasta 600 minutos")]).optional(),
   version: z.coerce.number().int().min(0).optional(),
   parts: z.string().max(LESSON_PARTS_JSON_MAX + 1),
+  // Estudio de cursos: borrador ("0") o publicada ("1") y «Disponible a los N días» ("" = el primer día).
+  published: z.enum(["0", "1"]).optional(),
+  dripDays: z.string().max(4).optional(),
 });
 
 export type LessonActionState = { ok?: string; error?: string; warning?: string; lessonId?: string; version?: number } | undefined;
@@ -572,9 +581,11 @@ export async function saveLesson(_: LessonActionState, form: FormData): Promise<
       durationMin: typeof d.durationMin === "number" && d.durationMin > 0 ? d.durationMin : null,
       version: d.version ?? null,
       parts: parts.parts,
+      published: d.published === undefined ? undefined : d.published === "1",
+      dripDays: d.dripDays === undefined ? undefined : parseDripDays(d.dripDays),
     });
     refresh(r.productId);
-    revalidatePath(`/panel/productos/${r.productId}/lecciones/${r.lessonId}`);
+    revalidatePath(`/panel/cursos/${r.productId}`, "layout");
     revalidatePath(`/cuenta/cursos/${r.productId}`);
     return { ok: "Lección guardada", lessonId: r.lessonId, version: r.version, warning: r.warning ?? undefined };
   } catch (e) {
@@ -588,10 +599,11 @@ export async function deleteLesson(form: FormData) {
   const { db } = await ctx();
   const l = await db.lesson.findFirst({ where: { id: String(form.get("id")) } });
   if (!l) return;
-  await guardLastDeliverable(db, l.productId, { lessons: 1 }, "lecciones");
+  await guardLastDeliverable(db, l.productId, { lessons: l.published ? 1 : 0 }, "lecciones");
   await db.lesson.deleteMany({ where: { id: l.id } });
   refresh(l.productId);
-  if (form.get("back") === "curso") redirect(`/panel/productos/${l.productId}?leccion=eliminada#lecciones`);
+  revalidatePath(`/panel/cursos/${l.productId}`, "layout");
+  if (form.get("back") === "curso") redirect(`/panel/cursos/${l.productId}?leccion=eliminada`);
 }
 
 export async function moveLesson(form: FormData) {

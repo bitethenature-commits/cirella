@@ -17,7 +17,7 @@ export default async function MyFiles() {
   const user = await requireBuyerFull("/cuenta/archivos");
   const lib = await getCustomerLibrary(user.id);
   // También los materiales de los cursos, con la lección que los usa (los vídeos se ven en la lección).
-  const files: ((typeof lib.files)[number] & { lesson?: { title: string; href: string } | null })[] = [...lib.files, ...(await courseMaterials(lib.courses))];
+  const files: ((typeof lib.files)[number] & { lesson?: { title: string; href: string } | null })[] = [...lib.files, ...(await courseMaterials(user.id, lib.courses))];
   const readings = await deliveredReadings(user.id);
   return (
     <div>

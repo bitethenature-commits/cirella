@@ -97,9 +97,11 @@ test.describe.serial("Multimedia", () => {
     created.files.push(saved.id);
     expect([saved.videoCodec, saved.width, saved.height, saved.durationSec, saved.mimeType]).toEqual(["HEVC", 1080, 1920, 125, "video/quicktime"]);
 
-    // Lección nueva con el archivo de los materiales: la duración sale sola del vídeo.
-    await page.locator("#lecciones").getByRole("link", { name: "Añadir lección" }).first().click();
+    // Lección nueva (estudio de Cursos) con el archivo de los materiales: la duración sale sola del vídeo.
+    await page.goto(`/panel/cursos/${courseId}`);
+    await page.locator("[data-structure-board]").getByRole("link", { name: "Añadir lección" }).first().click();
     await page.getByLabel("Título de la lección").fill(`${TAG} lección HEVC`);
+    await page.getByRole("radiogroup", { name: "Estado de la lección" }).getByText("Publicada").click();
     await page.getByRole("button", { name: "Vídeo", exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: new RegExp(`${TAG}-vertical\\.mov`) }).click();
     const card = page.locator('[data-part="VIDEO"]');
@@ -266,9 +268,10 @@ test.describe.serial("Multimedia", () => {
 
     // El panel avisa del enlace de Loom pero lo guarda.
     await demoLogin(page, "Ana Luna");
-    await page.goto(`/panel/productos/${courseId}`);
-    await page.locator("#lecciones").getByRole("link", { name: "Añadir lección" }).first().click();
+    await page.goto(`/panel/cursos/${courseId}`);
+    await page.locator("[data-structure-board]").getByRole("link", { name: "Añadir lección" }).first().click();
     await page.getByLabel("Título de la lección").fill(`${TAG} Loom`);
+    await page.getByRole("radiogroup", { name: "Estado de la lección" }).getByText("Publicada").click();
     await page.getByRole("button", { name: "Vídeo", exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Pegar un enlace de YouTube o Vimeo" }).click();
     await page.getByLabel("Enlace de YouTube o Vimeo").fill("https://vimeo.com/76979871/abcdef1234");

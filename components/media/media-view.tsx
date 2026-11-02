@@ -1,38 +1,13 @@
-import { Download, FileText } from "lucide-react";
-import { deliveryFor } from "@/lib/file-types";
 import { isPersonalMode } from "@/lib/site-mode";
-import { AudioPlayer } from "./audio-player";
-import { ImageViewer } from "./image-viewer";
-import { PdfViewer } from "./pdf-viewer";
-import { VideoPlayer, type PlayerFile } from "./video-player";
+import { MediaViewBase, type MediaFile } from "./media-view-base";
 
-export type MediaFile = PlayerFile & { kind: string };
+export type { MediaFile };
 
 /**
- * Único punto de entrada para enseñar un archivo privado (cursos, productos digitales, comunidad,
- * página): elige el visor y cómo se entrega (lib/file-types.ts → deliveryFor):
- *   VIDEO → VideoPlayer (URL firmada) · AUDIO → AudioPlayer (/api/stream en la web personal, firmada
- *   en la plataforma) · PDF → PdfViewer · IMAGE → ImageViewer · el resto → tarjeta de descarga.
- * Componente de servidor (decide el modo); los visores son de cliente.
+ * Único punto de entrada para enseñar un archivo privado en una página de servidor (cursos,
+ * productos digitales, comunidad, página): decide el modo del sitio y pinta MediaViewBase
+ * (media-view-base.tsx: elige el visor y cómo se entrega cada archivo).
  */
-export function MediaView({ file, title, poster, artwork }: { file: MediaFile; title: string; poster?: string | null; artwork?: string | null }) {
-  const delivery = deliveryFor(file.kind, isPersonalMode());
-  if (file.kind === "VIDEO") return <VideoPlayer file={file} poster={poster} title={title} />;
-  if (file.kind === "AUDIO")
-    return delivery === "stream" ? (
-      <AudioPlayer file={file} src={`/api/stream/${file.id}`} delivery="stream" title={title} artwork={artwork} />
-    ) : (
-      <AudioPlayer file={file} src={`/api/download/${file.id}?inline=1`} delivery="signed" title={title} artwork={artwork} />
-    );
-  if (file.kind === "PDF") return <PdfViewer fileId={file.id} name={file.name} />;
-  if (file.kind === "IMAGE") return <ImageViewer file={file} />;
-  return (
-    <a href={`/api/download/${file.id}`} className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
-      <FileText className="h-5 w-5 text-lavender-deep" />
-      <span className="flex-1 text-sm font-medium">{file.name}</span>
-      <span className="flex items-center gap-1 text-xs text-muted">
-        <Download className="h-3.5 w-3.5" /> Descargar
-      </span>
-    </a>
-  );
+export function MediaView(props: { file: MediaFile; title: string; poster?: string | null; artwork?: string | null }) {
+  return <MediaViewBase {...props} personal={isPersonalMode()} />;
 }

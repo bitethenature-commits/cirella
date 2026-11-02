@@ -17,6 +17,8 @@ export async function getPublicProduct(username: string, slug: string, draft = f
         orderBy: { sortOrder: "asc" },
         include: {
           lessons: {
+            // Solo las publicadas: el título de un borrador nunca sale en la ficha.
+            where: { published: true },
             orderBy: { sortOrder: "asc" },
             select: { id: true, title: true, durationMin: true, parts: { orderBy: { sortOrder: "asc" }, select: { kind: true, file: { select: { kind: true } } } } },
           },
@@ -29,7 +31,7 @@ export async function getPublicProduct(username: string, slug: string, draft = f
       // Cursos que incluye una membresía («Con esta membresía también tienes»).
       includes: {
         orderBy: { createdAt: "asc" },
-        select: { includedProduct: { select: { id: true, title: true, slug: true, type: true, status: true, emoji: true, creatorId: true, _count: { select: { lessons: true } } } } },
+        select: { includedProduct: { select: { id: true, title: true, slug: true, type: true, status: true, emoji: true, creatorId: true, _count: { select: { lessons: { where: { published: true } } } } } } },
       },
     },
   });

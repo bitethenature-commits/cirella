@@ -26,6 +26,7 @@ export const TENANT_MODELS = new Set<Prisma.ModelName>([
   "Lesson",
   "LessonPart",
   "LessonProgress",
+  "LessonView",
   "MembershipPost",
   "MembershipComment",
   "MembershipPostLike",

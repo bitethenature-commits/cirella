@@ -62,6 +62,7 @@ model User {
   customerOf          Customer[]
   accesses            Access[]
   progress            LessonProgress[]
+  lessonViews         LessonView[]
   // Comunidad: comentarios y «me gusta» en las publicaciones de las membresías.
   memberComments      MembershipComment[]
   memberLikes         MembershipPostLike[]
@@ -423,6 +424,11 @@ model Product {
 
   // Cursos: método con el que se agrupa en /cursos (lib/course-categories.ts). null = sin categoría.
   courseCategory String? // ASTROLOGIA | HUMAN_DESIGN | GENE_KEYS | LUNA | MI_ENERGIA | ESPECIAL
+  // Cursos: «Abrir las lecciones poco a poco» (lib/course-drip.ts). null = todas a la vez desde que se
+  // apunta; "INTERVAL" = una lección cada `dripEveryDays` días (la primera, el día que se apunta);
+  // "LESSON" = cada lección el día que diga su Lesson.dripDays (null = desde el primer día).
+  dripMode       String?
+  dripEveryDays  Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -511,8 +517,14 @@ model Lesson {
   // Versión del contenido para no pisar cambios hechos desde otro dispositivo (iPhone y Mac a la vez):
   // el editor envía la que abrió y solo se guarda si sigue siendo la misma. Reordenar no la cambia.
   version     Int              @default(0)
+  // Borrador (false) o publicada (true). Las alumnas solo ven las publicadas (programa, progreso,
+  // archivos); las de antes quedan publicadas. Una lección nueva del estudio nace en borrador.
+  published   Boolean          @default(true)
+  // «Disponible a los N días» desde que la alumna se apunta (solo con Product.dripMode = "LESSON").
+  dripDays    Int?
   parts       LessonPart[]
   progress    LessonProgress[]
+  views       LessonView[]
 
   @@index([creatorId, productId])
   @@index([moduleId])
@@ -550,6 +562,24 @@ model LessonProgress {
   lessonId    String
   lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   completedAt DateTime @default(now())
+
+  @@unique([userId, lessonId])
+  @@index([creatorId, productId])
+}
+
+/// Visitas de una alumna a una lección (una fila por alumna y lección): para «Datos» del estudio de
+/// cursos (quién la abrió, cuántas veces) y la última actividad en «Alumnas». La dueña no cuenta.
+model LessonView {
+  id        String   @id @default(cuid())
+  creatorId String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  count     Int      @default(1)
+  firstAt   DateTime @default(now())
+  lastAt    DateTime @default(now())
 
   @@unique([userId, lessonId])
   @@index([creatorId, productId])

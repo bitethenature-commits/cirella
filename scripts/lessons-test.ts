@@ -226,12 +226,12 @@ async function main() {
     });
     const lib = await getCustomerLibrary(user.id);
     const c = lib.courses.find((x) => x.product.id === course.id);
-    const total = await prisma.lesson.count({ where: { productId: course.id } });
+    const total = await prisma.lesson.count({ where: { productId: course.id, published: true } });
     check("progreso: una fila para la lección entera", (await prisma.lessonProgress.count({ where: { userId: user.id } })) === 1);
     check("…y el curso cuenta 1 de N por lecciones", c?.completed === 1 && c.total === total && c.percent === Math.round(100 / total), c && { completed: c.completed, total: c.total, percent: c.percent });
 
     // ── «Mis archivos» ──
-    const mats = await courseMaterials(lib.courses.map((x) => ({ product: x.product, creator: x.creator })));
+    const mats = await courseMaterials(user.id, lib.courses.map((x) => ({ product: x.product, creator: x.creator })));
     const mine = mats.filter((f) => f.productId === course.id);
     const kinds = new Set(mine.map((f) => f.kind));
     check("courseMaterials: PDF, audio, imagen y otros; nunca vídeo", kinds.has("PDF") && kinds.has("AUDIO") && kinds.has("IMAGE") && kinds.has("OTHER") && !kinds.has("VIDEO"), [...kinds]);

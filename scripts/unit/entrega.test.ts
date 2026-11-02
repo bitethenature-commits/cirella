@@ -67,8 +67,10 @@ for (const [type, mode, badge, instant] of [
     eq(isInstantDelivery(type, mode), instant);
   });
 
-test("deliveryIssueHref lleva a la sección que falta", () =>
-  eq(deliveryIssueHref("p1", { code: "NO_LESSONS", blocking: true, anchor: "lecciones" }), "/panel/productos/p1#lecciones"));
+test("deliveryIssueHref lleva a la sección que falta (las lecciones, al estudio de cursos)", () => {
+  eq(deliveryIssueHref("p1", { code: "NO_LESSONS", blocking: true, anchor: "lecciones" }), "/panel/cursos/p1");
+  eq(deliveryIssueHref("p1", { code: "NO_CONTENT", blocking: true, anchor: "entrega" }), "/panel/productos/p1#entrega");
+});
 test("deliveryIssueCopy: título con el nombre del producto entre comillas", () =>
   eq(deliveryIssueCopy({ code: "NO_CONTENT", blocking: true, anchor: "entrega" }, "Tirada de 3 cartas").title, "«Tirada de 3 cartas» no tiene nada que entregar"));
 test("deliveryIssueCopy: todo aviso bloqueante explica por qué no se publica", () => {

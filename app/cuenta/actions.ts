@@ -7,7 +7,7 @@ import { emit } from "@/lib/automations";
 import { hasBookingClash, isBookingOverlapError, isSlotAvailable, slotRuleForOrder } from "@/lib/booking";
 import { notifyRescheduled, releaseBookingEmails } from "@/lib/booking-changes";
 import { getBuyerSession, requireBuyerFor, requireBuyerFull } from "@/lib/buyer-access";
-import { hasAccess } from "@/lib/customer";
+import { openLessonIds } from "@/lib/course-access";
 import { prisma } from "@/lib/db";
 import { scopeCoversProduct } from "@/lib/membership-access";
 import { syncBookingToCalendar } from "@/lib/orders";
@@ -23,7 +23,10 @@ export async function toggleLessonComplete(lessonId: string, complete: boolean) 
   if (!b) return { ok: false };
   const user = b.user;
   const lesson = await prisma.lesson.findUnique({ where: { id: lessonId } });
-  if (!lesson || !(await hasAccess(user.id, lesson.productId))) return { ok: false };
+  if (!lesson) return { ok: false };
+  // Solo lecciones publicadas y ya abiertas (apertura poco a poco): lib/course-access.ts.
+  const open = await openLessonIds(user.id, lesson.productId);
+  if (!open || (complete && !open.has(lesson.id))) return { ok: false };
   // Una sesión limitada solo avanza el curso de su pedido; una de cuenta, si está verificada.
   // (o un curso incluido en la membresía de su pedido).
   if (b.scope ? !(scopeAllows(b.scope, { productId: lesson.productId }) || (await scopeCoversProduct(b.scope, lesson.productId))) : !b.verified) return { ok: false };

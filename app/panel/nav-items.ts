@@ -5,11 +5,13 @@ import {
   CreditCard,
   FileText,
   Gift,
+  GraduationCap,
   Home,
   Layers,
   LayoutGrid,
   Mail,
   Menu,
+  MessagesSquare,
   Newspaper,
   Palette,
   Receipt,
@@ -64,15 +66,18 @@ export const PLATFORM_NAV_FLAGS: PanelNavFlags = { personal: false, showBookings
 
 /**
  * Menú en modo personal: sin Plan (ni nada de cobros), «Ventas» pasa a ser «Inscripciones» (quién
- * se ha apuntado a qué) y se añaden Páginas (extra), Publicaciones («Actualidades»), Portal de
- * Noticias, Barajas (de oráculo), Códigos y Newsletter. Reservas, solo si hay sesiones con
- * reserva aquí.
+ * se ha apuntado a qué) y se añaden Páginas (extra), Cursos (estudio de cursos), Comunidad (estudio
+ * de la membresía), Publicaciones («Actualidades»), Portal de Noticias, Barajas (de oráculo), Códigos
+ * y Newsletter. Reservas, solo si hay sesiones con reserva aquí. Con «Personalizar mi panel», las
+ * secciones nuevas van al final de su orden (lib/panel-prefs.ts → orderNav).
  */
 const PERSONAL_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Inicio", icon: Home },
   { href: "/panel/pagina", label: "Mi página", icon: Palette },
   { href: "/panel/paginas", label: "Páginas", icon: FileText },
   { href: "/panel/productos", label: "Productos", icon: LayoutGrid },
+  { href: "/panel/cursos", label: "Cursos", icon: GraduationCap },
+  { href: "/panel/comunidad", label: "Comunidad", icon: MessagesSquare },
   { href: "/panel/publicaciones", label: "Publicaciones", icon: Newspaper },
   { href: "/panel/portal", label: "Portal de Noticias", icon: Gift },
   { href: "/panel/barajas", label: "Barajas", icon: Layers },

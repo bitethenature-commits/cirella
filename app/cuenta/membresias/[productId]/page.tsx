@@ -56,7 +56,7 @@ export default async function MembershipFeed({
   const courseIds = access ? await includedProductIds(productId) : [];
   const tierRows = lowerTiers.length ? await prisma.product.findMany({ where: { id: { in: lowerTiers } }, select: { id: true, title: true } }) : [];
   const courses = courseIds.length
-    ? await prisma.product.findMany({ where: { id: { in: courseIds }, type: "COURSE", status: { not: "ARCHIVED" } }, select: { id: true, title: true, emoji: true, imageUrl: true, _count: { select: { lessons: true } } } })
+    ? await prisma.product.findMany({ where: { id: { in: courseIds }, type: "COURSE", status: { not: "ARCHIVED" } }, select: { id: true, title: true, emoji: true, imageUrl: true, _count: { select: { lessons: { where: { published: true } } } } } })
     : [];
   const customer = isOwner ? null : await prisma.customer.findUnique({ where: { creatorId_userId: { creatorId: product.creatorId, userId: user.id } }, select: { postEmailsOptOutAt: true } });
   // Acceso con fecha de fin sin suscripción (dado a mano o un programa de 3 meses).
