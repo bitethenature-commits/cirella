@@ -128,7 +128,7 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, v
               : [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, { icon: RefreshCcw, text: "Cancela cuando quieras" }, { icon: Lock, text: "Acceso privado mientras estés suscrita" }];
   // Información previa sobre el desistimiento (talleres sin él, membresías con reembolso proporcional).
   const withdrawalInfo = withdrawalInfoLine(waiverKindFor(type, p.deliveryMode, { groupSession: p.groupSession }));
-  const buttonClass = "cp-btn mt-6 hidden w-full md:flex";
+  const buttonClass = "cp-btn mt-6 !hidden w-full md:!flex"; // «!»: .cp-btn (fuera de capa) pisaba «hidden» y en el móvil salía el botón doble
   // Un solo formulario: en móvil queda justo bajo el precio y la barra fija lleva a él. Sin los
   // datos legales completos no se ofrece: la privacidad que se acepta no diría quién trata los datos
   // (el servidor tampoco lo admite, lib/free-access.ts).
