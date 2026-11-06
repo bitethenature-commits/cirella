@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, ExternalLink, Mail, MessageCircle, Moon, Plus, Quote } from "lucide-react";
+import type { CSSProperties } from "react";
+import { ArrowRight, ArrowUpRight, ExternalLink, FileText, Hexagon, KeyRound, Layers, Mail, Moon, Plus, Sparkles, Sun, Video, type LucideIcon } from "lucide-react";
 import { nextMoonCircles } from "@/lib/moon-circles";
 import { AccountEntry } from "./account-entry";
 import { ContentBlocks } from "./content-blocks";
@@ -33,6 +34,7 @@ import { Avatar, ProductImage } from "./product-art";
 import { PortalSection } from "./portal-section";
 import { PostCard } from "./post-card";
 import { SectionDropdown } from "./section-dropdown";
+import { TestimonialsRotator } from "./testimonials-rotator";
 import { TrackedAnchor, TrackedLink } from "./tracking";
 
 export type PublicProduct = {
@@ -168,6 +170,9 @@ export function CreatorPageView(props: Props) {
   const trackId = preview ? null : props.creatorId;
   const path = (page: Parameters<typeof sectionPagePath>[1]) => sectionPagePath(username, page, !!personal);
   const courseCount = products.filter((p) => p.type === "COURSE").length;
+  // La newsletter va debajo de «Hablemos» (web personal) si no tiene ya su propia sección encendida.
+  const newsletterSection = config.sections.some((s) => s.key === "newsletter" && s.enabled);
+  const contactNewsletter = !!personal && !newsletterSection && !!config.contact.email && config.sections.some((s) => s.key === "contact" && s.enabled);
 
   const renderSection = (key: SectionKey) => {
     const type = SECTION_TYPE[key];
@@ -181,6 +186,19 @@ export function CreatorPageView(props: Props) {
             Ver todos los cursos por método <ArrowRight className="h-4 w-4" />
           </Link>
         ) : null;
+      // Cursos: tarjetas pequeñas, todas a la vista (dos por fila en el móvil, tres en el ordenador).
+      if (key === "courses" && items.length > 1)
+        return (
+          <section key={key} id="cursos" className="mt-14" {...reveal}>
+            <SectionHeading title={sectionTitle(config, key)} />
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {items.map((p) => (
+                <CourseMiniCard key={p.id} p={p} username={username} />
+              ))}
+            </div>
+            {more}
+          </section>
+        );
       return (
         <section key={key} id={key === "courses" ? "cursos" : key} className="mt-14" {...reveal}>
           <SectionHeading title={sectionTitle(config, key)} count={items.length} />
@@ -330,14 +348,15 @@ export function CreatorPageView(props: Props) {
         const href = a.url || path("actualidades");
         return (
           <section key={key} id="sobre-mi" className="mt-16" {...reveal}>
-            <a href={safeHref(href)} className="cp-card cp-card-hover group flex flex-col sm:flex-row-reverse sm:items-stretch" {...(isExternal(href) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+            {/* Sin caja: solo la imagen lleva las esquinas redondeadas. */}
+            <a href={safeHref(href)} className="group flex flex-col gap-5 sm:flex-row-reverse sm:items-center sm:gap-8" {...(isExternal(href) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
               {a.image && (
-                <span className="relative block aspect-[4/3] overflow-hidden sm:aspect-auto sm:w-[42%] sm:shrink-0">
+                <span className="relative block aspect-[4/3] overflow-hidden sm:aspect-[4/5] sm:w-[42%] sm:shrink-0" style={{ borderRadius: "var(--r-card)" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={a.image} srcSet={imageSrcSet(a.image)} sizes="(min-width: 640px) 290px, 92vw" alt="" loading="lazy" decoding="async" className="cp-img absolute inset-0 h-full w-full object-cover" />
+                  <img src={a.image} srcSet={imageSrcSet(a.image)} sizes="(min-width: 640px) 290px, 92vw" alt="" loading="lazy" decoding="async" className="cp-img absolute inset-0 h-full w-full object-cover group-hover:scale-[1.035]" />
                 </span>
               )}
-              <span className="flex flex-1 flex-col justify-center gap-2 p-6 sm:p-8">
+              <span className="flex flex-1 flex-col justify-center gap-2">
                 {a.eyebrow && <span className="cp-eyebrow">{a.eyebrow}</span>}
                 <span className="cp-display text-[2rem] leading-[1.05] sm:text-[2.3rem]">{a.title}</span>
                 {a.text && <span className="cp-muted text-[0.95rem] leading-relaxed">{a.text}</span>}
@@ -355,31 +374,22 @@ export function CreatorPageView(props: Props) {
         return (
           <section key={key} id="sistemas" className="mt-16" {...reveal}>
             <SectionHeading title={sectionTitle(config, key)} />
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {/* Un icono y su nombre debajo, sin cajas: tres por fila en el móvil y todos en una en el ordenador. */}
+            <div className="mt-6 grid grid-cols-3 gap-x-3 gap-y-6 sm:grid-cols-5">
               {systems.map((sys) => {
+                const Icon = systemIcon(sys.title);
                 const inner = (
                   <>
-                    <span className="relative block w-28 shrink-0 overflow-hidden sm:w-32">
-                      {sys.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={sys.image} srcSet={imageSrcSet(sys.image)} sizes="128px" alt="" loading="lazy" decoding="async" className="cp-img absolute inset-0 h-full w-full object-cover" />
-                      ) : (
-                        <span className="absolute inset-0" style={{ background: "linear-gradient(135deg, color-mix(in oklab, var(--c-accent) 45%, var(--c-bg)), color-mix(in oklab, var(--c-gold) 30%, var(--c-bg)))" }} />
-                      )}
-                    </span>
-                    <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 p-4">
-                      <span className="cp-display text-[1.45rem] leading-tight">{sys.title}</span>
-                      {sys.text && <span className="cp-muted line-clamp-2 text-[0.84rem] leading-snug">{sys.text}</span>}
-                    </span>
-                    {sys.url && <ArrowRight className="mr-4 h-4 w-4 shrink-0 self-center opacity-60" />}
+                    <Icon className="cp-gold h-9 w-9 transition-transform duration-300 group-hover:-translate-y-1" strokeWidth={1.4} aria-hidden />
+                    <span className="cp-display text-[1.15rem] leading-tight">{sys.title}</span>
                   </>
                 );
                 return sys.url ? (
-                  <a key={sys.id} href={safeHref(sys.url)} className="cp-card cp-card-hover group flex min-h-[7rem] items-stretch" {...(isExternal(sys.url) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+                  <a key={sys.id} href={safeHref(sys.url)} className="group flex flex-col items-center gap-2 text-center" title={sys.text || undefined} {...(isExternal(sys.url) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
                     {inner}
                   </a>
                 ) : (
-                  <div key={sys.id} className="cp-card flex min-h-[7rem] items-stretch">
+                  <div key={sys.id} className="flex flex-col items-center gap-2 text-center" title={sys.text || undefined}>
                     {inner}
                   </div>
                 );
@@ -395,16 +405,18 @@ export function CreatorPageView(props: Props) {
           .filter((p) => p.moonCircle && p.eventStartAt)
           .sort((a, b) => (a.eventStartAt! < b.eventStartAt! ? -1 : 1))
           .slice(0, 4);
+        // Cada una con su icono (documento / vídeo) y su tono, para que no parezcan lo mismo.
         const cards = [
-          { c: r.reading, d: READINGS_DEFAULTS.reading, href: path("lecturas") },
-          { c: r.session, d: READINGS_DEFAULTS.session, href: path("sesiones") },
+          { c: r.reading, d: READINGS_DEFAULTS.reading, href: path("lecturas"), Icon: FileText, tone: TONE_READING },
+          { c: r.session, d: READINGS_DEFAULTS.session, href: path("sesiones"), Icon: Video, tone: TONE_SESSION },
         ];
         return (
           <section key={key} id="lecturas" className="mt-16" {...reveal}>
             <SectionHeading title={sectionTitle(config, key)} />
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              {cards.map(({ c, d, href }) => (
-                <Link key={href} href={href} className="cp-card cp-card-hover flex flex-col gap-2 p-6">
+              {cards.map(({ c, d, href, Icon, tone }) => (
+                <Link key={href} href={href} className="cp-card cp-card-hover flex flex-col gap-2 p-6" style={tone.box}>
+                  <Icon className="h-8 w-8" strokeWidth={1.5} style={{ color: tone.ink }} aria-hidden />
                   <span className="cp-eyebrow">{c.eyebrow || d.eyebrow}</span>
                   <span className="cp-display text-[1.7rem] leading-tight">{c.title || d.title}</span>
                   <span className="cp-muted text-[0.9rem] leading-relaxed">{c.text || d.text}</span>
@@ -415,9 +427,9 @@ export function CreatorPageView(props: Props) {
               ))}
             </div>
             {circles.length > 0 && (
-              <div className="cp-card mt-4 p-5 sm:p-6" data-moon-circles>
+              <div className="cp-card mt-4 p-5 sm:p-6" data-moon-circles style={TONE_CIRCLES.box}>
                 <p className="cp-eyebrow flex items-center gap-1.5">
-                  <Moon className="h-3.5 w-3.5" /> {r.circlesTitle || READINGS_DEFAULTS.circlesTitle}
+                  <Moon className="h-4 w-4" style={{ color: TONE_CIRCLES.ink }} /> {r.circlesTitle || READINGS_DEFAULTS.circlesTitle}
                 </p>
                 <ul className="mt-3 divide-y" style={{ borderColor: "var(--c-line)" }}>
                   {circles.map((c) => (
@@ -476,18 +488,7 @@ export function CreatorPageView(props: Props) {
         return (
           <section key={key} className="mt-16" {...reveal}>
             <SectionHeading title={sectionTitle(config, key)} />
-            <div className="-mx-5 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 scrollbar-none md:mx-0 md:grid md:grid-cols-2 md:px-0">
-              {config.testimonials.map((t) => (
-                <figure key={t.id} className="cp-card w-[85%] shrink-0 snap-center p-6 md:w-auto">
-                  <Quote className="cp-gold h-5 w-5" />
-                  <blockquote className="cp-display mt-3 text-[1.3rem] leading-snug">“{t.quote}”</blockquote>
-                  <figcaption className="mt-4 text-sm">
-                    <span className="font-semibold">{t.author}</span>
-                    {t.role && <span className="cp-muted"> · {t.role}</span>}
-                  </figcaption>
-                </figure>
-              ))}
-            </div>
+            <TestimonialsRotator items={config.testimonials} />
           </section>
         );
       case "faq":
@@ -525,25 +526,31 @@ export function CreatorPageView(props: Props) {
           </section>
         );
       case "contact": {
+        // Solo el email (sin WhatsApp) y, en la web personal, debajo el formulario de la newsletter.
         const c = config.contact;
-        if (!c.email && !c.whatsapp) return null;
+        if (!c.email) return null;
         return (
           <section key={key} className="mt-16" {...reveal}>
             <div className="cp-card p-7 text-center sm:p-9">
               <p className="cp-eyebrow">{sectionTitle(config, key)}</p>
               <p className="cp-display mx-auto mt-3 max-w-md text-[1.7rem]">{c.message || "¿Tienes alguna pregunta? Escríbeme."}</p>
               <div className="mt-6 flex flex-wrap justify-center gap-3">
-                {c.email && (
-                  <a href={`mailto:${c.email}`} className="cp-btn-ghost">
-                    <Mail className="h-4 w-4" /> Email
-                  </a>
-                )}
-                {c.whatsapp && (
-                  <a href={socialHref("whatsapp", c.whatsapp)} target="_blank" rel="noopener noreferrer" className="cp-btn-ghost">
-                    <MessageCircle className="h-4 w-4" /> WhatsApp
-                  </a>
-                )}
+                <a href={`mailto:${c.email}`} className="cp-btn-ghost">
+                  <Mail className="h-4 w-4" /> Email
+                </a>
               </div>
+              {contactNewsletter && (
+                <div className="mx-auto mt-7 flex max-w-md justify-center border-t pt-6" style={{ borderColor: "var(--c-line)" }}>
+                  <NewsletterSignup
+                    variant="footer"
+                    title={sectionTitle(config, "newsletter")}
+                    button={config.newsletter?.button ?? NEWSLETTER_FORM_DEFAULTS.button}
+                    creatorName={config.displayName}
+                    privacyHref={creatorLegalHref(username, "privacidad")}
+                    preview={preview}
+                  />
+                </div>
+              )}
             </div>
           </section>
         );
@@ -633,7 +640,7 @@ export function CreatorPageView(props: Props) {
         {config.sections.filter((s) => s.enabled && s.key !== "links").map((s) => renderSection(s.key))}
 
         <footer className="mt-20 flex flex-col items-center gap-4 text-center text-xs">
-          {personal && config.newsletter?.footer && !config.sections.some((s) => s.key === "newsletter" && s.enabled) && (
+          {personal && config.newsletter?.footer && !newsletterSection && !contactNewsletter && (
             <NewsletterSignup
               variant="footer"
               button={config.newsletter.button}
@@ -725,6 +732,33 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
   );
 }
 
+/** Curso en pequeño (sección «Cursos» de la portada): la imagen, el título y el precio; toda la tarjeta lleva a su ficha. */
+function CourseMiniCard({ p, username }: { p: PublicProduct; username: string }) {
+  const mode = p.accessMode ?? "PAID";
+  const external = mode === "EXTERNAL" && !!p.externalUrl;
+  const price = mode === "FREE_EMAIL" ? "Gratis" : external && p.priceCents <= 0 ? null : formatPrice(p.sale ? p.sale.priceCents : p.priceCents, p.currency, p.billingInterval);
+  return (
+    <Link href={`/${username}/${p.slug}`} className="cp-card cp-card-hover group flex h-full flex-col overflow-hidden" data-course-mini={p.slug}>
+      <span className="relative block aspect-square overflow-hidden">
+        <ProductImage src={p.imageUrl} emoji={p.emoji} title={p.title} sizes="(min-width: 640px) 220px, 46vw" />
+        {p.sale && (
+          <span className="absolute right-2 top-2 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold" style={{ background: "var(--c-gold)", color: "var(--c-bg)" }}>
+            −{p.sale.percentOff} %
+          </span>
+        )}
+      </span>
+      <span className="flex flex-1 flex-col gap-1 p-3">
+        <span className="cp-display line-clamp-2 text-[1.05rem] leading-tight">{p.title}</span>
+        <span className="mt-auto pt-1 text-[0.85rem] font-semibold">
+          {p.sale && <s className="cp-muted mr-1 font-normal">{formatPrice(p.sale.regularCents, p.currency)}</s>}
+          {price}
+          {external && p.externalHost && <span className="cp-faint block text-[0.68rem] font-normal">Pago en {p.externalHost}</span>}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 /** «Early Bird · −20 % · hasta el 10 de noviembre». */
 function saleTag(sale: NonNullable<PublicProduct["sale"]>) {
   // Sin repetir la rebaja si la etiqueta ya la dice («1.er mes −50 %»).
@@ -745,6 +779,34 @@ export function OfferCard({ p, username }: { p: PublicProduct; username: string 
       {p.billingInterval && <span className="cp-faint text-[0.72rem]">El precio de oferta es el del primer pago; después, el normal.</span>}
     </Link>
   );
+}
+
+/**
+ * Tonos de «Lecturas, sesiones y círculos», sacados de los colores del tema para que valgan en
+ * cualquier plantilla: la lectura en dorado, la sesión en el color de acento y los círculos en un
+ * gris luna.
+ */
+type Tone = { box: CSSProperties; ink: string };
+const tone = (color: string, amount: number): Tone => ({
+  box: {
+    background: `color-mix(in oklab, ${color} ${amount}%, var(--c-surface))`,
+    borderColor: `color-mix(in oklab, ${color} 40%, transparent)`,
+  },
+  ink: color,
+});
+const TONE_READING = tone("var(--c-gold)", 14);
+const TONE_SESSION = tone("var(--c-accent)", 22);
+const TONE_CIRCLES = tone("color-mix(in oklab, var(--c-text) 70%, var(--c-accent))", 10);
+
+/** Icono de cada sistema de «Sistemas con los que trabajo», según su nombre. */
+function systemIcon(title: string): LucideIcon {
+  const t = title.toLowerCase();
+  if (t.includes("human")) return Hexagon;
+  if (t.includes("gene")) return KeyRound;
+  if (t.includes("astrolog") || t.includes("carta")) return Sun;
+  if (t.includes("luna")) return Moon;
+  if (t.includes("tarot") || t.includes("oráculo") || t.includes("oraculo") || t.includes("runa")) return Layers;
+  return Sparkles;
 }
 
 function isExternal(url: string) {
