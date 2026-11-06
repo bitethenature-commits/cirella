@@ -1,6 +1,11 @@
 import Link from "next/link";
-import type { CSSProperties } from "react";
-import { ArrowRight, ArrowUpRight, ExternalLink, FileText, Hexagon, KeyRound, Layers, Mail, Moon, Plus, Sparkles, Sun, Video, type LucideIcon } from "lucide-react";
+import type { ComponentType, CSSProperties, SVGProps } from "react";
+import { ArrowRight, ArrowUpRight, ExternalLink, FileText, Layers, Mail, Moon, Plus, Sparkles, Video } from "lucide-react";
+import { AstrologyIcon } from "./astrology-icon";
+import { EnergyIcon } from "./energy-icon";
+import { GeneKeysIcon } from "./gene-keys-icon";
+import { HumanDesignIcon } from "./human-design-icon";
+import { MoonIcon } from "./moon-icon";
 import { nextMoonCircles } from "@/lib/moon-circles";
 import { AccountEntry } from "./account-entry";
 import { ContentBlocks } from "./content-blocks";
@@ -382,9 +387,15 @@ export function CreatorPageView(props: Props) {
             <div className="mt-6 grid grid-cols-3 gap-x-3 gap-y-6 sm:grid-cols-5">
               {systems.map((sys) => {
                 const Icon = systemIcon(sys.title);
+                // Los dibujados aquí (Human Design, Gene Keys, Astrología, Luna, Mi energía) tienen muchas piezas: van algo más grandes y finos en el mismo hueco.
+                const round = Icon === AstrologyIcon || Icon === MoonIcon;
+                const hd = round || Icon === HumanDesignIcon || Icon === GeneKeysIcon || Icon === EnergyIcon;
                 const inner = (
                   <>
-                    <Icon className="cp-gold h-9 w-9 transition-transform duration-300 group-hover:-translate-y-1" strokeWidth={1.4} aria-hidden />
+                    <span className="grid h-12 w-12 place-items-center">
+                      {/* Los redondos (carta astral, luna) llenan todo su cuadrado: algo más pequeños para que pesen como los demás. */}
+                      <Icon className={`cp-gold shrink-0 transition-transform duration-300 group-hover:-translate-y-1 ${round ? "h-10 w-10" : Icon === EnergyIcon ? "h-11 w-11" : hd ? "h-12 w-12" : "h-9 w-9"}`} strokeWidth={hd ? 1.05 : 1.4} aria-hidden />
+                    </span>
                     <span className="cp-display text-[1.15rem] leading-tight">{sys.title}</span>
                   </>
                 );
@@ -805,13 +816,14 @@ const TONE_SESSION = tone("var(--c-accent)", 22);
 const TONE_CIRCLES = tone("color-mix(in oklab, var(--c-text) 70%, var(--c-accent))", 10);
 
 /** Icono de cada sistema de «Sistemas con los que trabajo», según su nombre. */
-function systemIcon(title: string): LucideIcon {
+function systemIcon(title: string): ComponentType<SVGProps<SVGSVGElement>> {
   const t = title.toLowerCase();
-  if (t.includes("human")) return Hexagon;
-  if (t.includes("gene")) return KeyRound;
-  if (t.includes("astrolog") || t.includes("carta")) return Sun;
-  if (t.includes("luna")) return Moon;
+  if (t.includes("human")) return HumanDesignIcon;
+  if (t.includes("gene")) return GeneKeysIcon;
+  if (t.includes("astrolog") || t.includes("carta")) return AstrologyIcon;
+  if (t.includes("luna")) return MoonIcon;
   if (t.includes("tarot") || t.includes("oráculo") || t.includes("oraculo") || t.includes("runa")) return Layers;
+  if (t.includes("energ")) return EnergyIcon;
   return Sparkles;
 }
 
