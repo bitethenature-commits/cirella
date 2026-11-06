@@ -24,6 +24,7 @@ import { sectionPagePath } from "@/lib/site-sections";
 import { resolveTheme, themeStyle } from "@/lib/templates";
 import { DEFAULT_CTA, type ProductType } from "@/lib/types";
 import { SocialIcon } from "../social-icons";
+import { CodesCarousel } from "./codes-carousel";
 import { DiscountCodeCard } from "./discount-code-card";
 import { LegalLinks } from "./legal-links";
 import { NewsletterSignup } from "./newsletter-signup";
@@ -112,6 +113,9 @@ const TYPE_EYEBROW: Record<ProductType, string> = {
   MEMBERSHIP: "Comunidad",
 };
 
+/** Cursos que salen en la portada (los demás, en su página «/cursos»). */
+const HOME_COURSES = 3;
+
 /** Secciones plegables seguidas («Actualidades», «Portal», «Ofertas»): juntas, como una lista de filas. */
 const FOLD_GAP = "mt-12 [[data-fold]+&]:mt-3";
 
@@ -186,13 +190,13 @@ export function CreatorPageView(props: Props) {
             Ver todos los cursos por método <ArrowRight className="h-4 w-4" />
           </Link>
         ) : null;
-      // Cursos: tarjetas pequeñas, todas a la vista (dos por fila en el móvil, tres en el ordenador).
+      // Cursos: tres tarjetas pequeñas como mucho (dos por fila en el móvil, tres en el ordenador); el resto, en «Ver todos».
       if (key === "courses" && items.length > 1)
         return (
           <section key={key} id="cursos" className="mt-14" {...reveal}>
             <SectionHeading title={sectionTitle(config, key)} />
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {items.map((p) => (
+              {items.slice(0, HOME_COURSES).map((p) => (
                 <CourseMiniCard key={p.id} p={p} username={username} />
               ))}
             </div>
@@ -461,13 +465,15 @@ export function CreatorPageView(props: Props) {
         if (!codes.length) return null;
         return (
           <section key={key} id="codigos" className="mt-16" {...reveal}>
-            <SectionHeading title={sectionTitle(config, key)} />
-            {/* Filas compactas, una debajo de otra (dos columnas en el ordenador). */}
-            <div className="mt-5 grid grid-cols-[minmax(0,1fr)] items-start gap-3 md:grid-cols-[repeat(2,minmax(0,1fr))]">
+            <SectionHeading title={sectionTitle(config, key)} count={codes.length} />
+            {/* Tarjetas verticales: en el ordenador caben tres juntas; si hay más (o en el móvil), carrusel. */}
+            <CodesCarousel>
               {codes.map((c) => (
-                <DiscountCodeCard key={c.id} code={c} trackCreatorId={trackId} />
+                <div key={c.id} className="w-[72%] shrink-0 snap-start sm:w-[45%] md:w-[calc((100%-1.5rem)/3)]">
+                  <DiscountCodeCard code={c} trackCreatorId={trackId} />
+                </div>
               ))}
-            </div>
+            </CodesCarousel>
           </section>
         );
       }
