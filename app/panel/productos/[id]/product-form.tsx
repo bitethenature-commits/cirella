@@ -22,7 +22,7 @@ import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { IntakeConfigEditor } from "@/components/booking/intake-config-editor";
 import type { IntakeConfig } from "@/lib/intake";
 import { HORIZON_CHOICES, HORIZON_DEFAULT_DAYS, horizonLabel } from "@/lib/slots";
-import { COURSE_CATEGORIES, COURSE_CATEGORY_LABEL } from "@/lib/course-categories";
+import { COURSE_CATEGORIES, COURSE_CATEGORY_LABEL, COURSE_CATEGORY_SEP, courseCategoriesOf, type CourseCategory } from "@/lib/course-categories";
 import { SALE_LABEL_MAX } from "@/lib/offers";
 import { addDaysToKey, labelToMinutes, zonedTimeToUtc } from "@/lib/tz";
 import { useDesktop } from "@/components/panel/use-desktop";
@@ -191,18 +191,7 @@ export function ProductForm({
             <input name="title" defaultValue={product.title} className="input" required maxLength={100} />
           </div>
           {product.type === "COURSE" && (
-            <div>
-              <label className="field-label" htmlFor="course-category">Método</label>
-              <select id="course-category" name="courseCategory" defaultValue={product.courseCategory ?? ""} className="input">
-                <option value="">Sin método</option>
-                {COURSE_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {COURSE_CATEGORY_LABEL[c]}
-                  </option>
-                ))}
-              </select>
-              <p className="field-hint">Tu página de cursos los agrupa por método.</p>
-            </div>
+            <CourseCategoryPicker initial={product.courseCategory} />
           )}
           <div>
             <label className="field-label">Descripción corta <span className="font-normal text-muted">(aparece en la tarjeta)</span></label>
@@ -581,6 +570,30 @@ const TIME = /^\d{2}:\d{2}$/;
  * El producto tal y como quedaría con lo escrito ahora en el formulario (sin guardar), en los mismos
  * datos planos que pinta la página pública. Las fechas se leen en la zona de la dueña, como al guardar.
  */
+/**
+ * Temas del curso: casillas para marcar uno o varios (un curso puede ser, por ejemplo, Astrología +
+ * Mi energía). Se guardan juntos en el campo oculto «courseCategory» («ASTROLOGIA+MI_ENERGIA»).
+ */
+function CourseCategoryPicker({ initial }: { initial: string | null }) {
+  const [picked, setPicked] = useState<CourseCategory[]>(() => courseCategoriesOf(initial));
+  const toggle = (c: CourseCategory) => setPicked((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : COURSE_CATEGORIES.filter((x) => x === c || prev.includes(x))));
+  return (
+    <fieldset>
+      <legend className="field-label">Temas</legend>
+      <input type="hidden" name="courseCategory" value={picked.join(COURSE_CATEGORY_SEP)} />
+      <div className="flex flex-wrap gap-2">
+        {COURSE_CATEGORIES.map((c) => (
+          <label key={c} className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition ${picked.includes(c) ? "border-ink bg-ink text-cream" : "border-line hover:bg-sand"}`}>
+            <input type="checkbox" name="courseCategoryPick" value={c} checked={picked.includes(c)} onChange={() => toggle(c)} className="sr-only" />
+            {COURSE_CATEGORY_LABEL[c]}
+          </label>
+        ))}
+      </div>
+      <p className="field-hint">Marca uno o varios. Tu página de cursos los agrupa por tema; si marcas varios (por ejemplo, Astrología y Mi energía), el curso sale en su propio grupo con los iconos de los dos.</p>
+    </fieldset>
+  );
+}
+
 function readPreview(form: HTMLFormElement, base: EditableProduct, ctx: ProductPreviewContext, st: LiveState): { product: ProductPageProduct; status: string } {
   const fd = new FormData(form);
   const text = (k: string) => {
@@ -634,7 +647,8 @@ function readPreview(form: HTMLFormElement, base: EditableProduct, ctx: ProductP
       // El último día cuenta entero: termina a las 00:00 del día siguiente (como al guardar).
       saleEndsAt: salePriceCents != null && DAY.test(saleEnd) ? zonedTimeToUtc(addDaysToKey(saleEnd, 1), 0, tz) : null,
       saleLabel: trimmed("saleLabel"),
-      courseCategory: base.type === "COURSE" ? trimmed("courseCategory") : base.courseCategory,
+      // Las casillas marcadas («A+B»): se leen directamente, el campo oculto aún no se ha actualizado.
+      courseCategory: base.type === "COURSE" ? fd.getAll("courseCategoryPick").map(String).join(COURSE_CATEGORY_SEP) || null : base.courseCategory,
       moonCircle: st.group && fd.get("moonCircle") === "on",
       intake: base.intake,
       files: ctx.files,

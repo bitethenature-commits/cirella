@@ -141,8 +141,8 @@ function PreviewScene({ ctx, product, tab }: { ctx: ProductPreviewContext; produ
         )}
         {group && (
           <section className="mt-14">
-            <SectionHeading title="En «Cursos», por método" />
-            <CourseGroups groups={[{ key: group.key, label: group.label, count: 1, image: card.imageUrl, cards: <ProductCard p={card} username={ctx.username} trackCreatorId={null} /> }]} />
+            <SectionHeading title="En «Cursos», por tema" />
+            <CourseGroups groups={[{ key: group.key, label: group.label, categories: group.categories, count: 1, cards: <ProductCard p={card} username={ctx.username} trackCreatorId={null} /> }]} />
           </section>
         )}
       </main>

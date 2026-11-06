@@ -151,7 +151,8 @@ const productSchema = z.object({
   externalUrl: z.string().trim().max(600).optional(),
   externalLabel: z.string().trim().max(EXTERNAL_LABEL_MAX, `El texto del botón admite ${EXTERNAL_LABEL_MAX} caracteres`).optional(),
   // Cursos: método para la página /cursos. Talleres: «Círculo de la luna».
-  courseCategory: z.string().max(20).optional(),
+  // Uno o varios temas («ASTROLOGIA+MI_ENERGIA»).
+  courseCategory: z.string().max(120).optional(),
   moonCircle: z.string().optional(),
 }).merge(saleFormSchema);
 

@@ -25,7 +25,8 @@ export default async function CursosPage({ params }: { params: Promise<Params> }
   if (!data) notFound();
   const { creator, config } = data;
   const courses = data.products.filter((p) => p.type === "COURSE" && !(data.signupsOnly && (p.accessMode ?? "PAID") === "PAID"));
-  const groups = groupCourses(courses);
+  // Salen todos los métodos, también los que aún no tienen cursos («Próximamente»).
+  const groups = courses.length ? groupCourses(courses, { includeEmpty: true }) : [];
   return (
     <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
       <main className="mx-auto max-w-4xl px-4 pb-12 pt-8 sm:pt-12">
@@ -37,8 +38,8 @@ export default async function CursosPage({ params }: { params: Promise<Params> }
             groups={groups.map((g) => ({
               key: g.key,
               label: g.label,
+              categories: g.categories,
               count: g.courses.length,
-              image: g.courses.find((p) => p.imageUrl)?.imageUrl ?? null,
               cards: g.courses.map((p) => <ProductCard key={p.id} p={p} username={creator.username} trackCreatorId={creator.id} />),
             }))}
           />

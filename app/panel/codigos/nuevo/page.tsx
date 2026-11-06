@@ -15,7 +15,7 @@ export default async function NewDiscountCodePage() {
         <ArrowLeft className="h-4 w-4" /> Códigos
       </Link>
       <PageHeader title="Nuevo código" />
-      <CodeForm code={{ id: null, brand: "", code: "", description: "", url: "", imageUrl: null, images: [], expiresOn: "", active: true }} />
+      <CodeForm code={{ id: null, brand: "", code: "", description: "", url: "", imageUrl: null, images: [], recommendations: [], expiresOn: "", active: true }} />
     </div>
   );
 }

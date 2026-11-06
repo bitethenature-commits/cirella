@@ -2,9 +2,8 @@
 import { ArrowUpRight, Check, ChevronDown, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { PublicDiscountCode } from "./creator-page-view";
+import { PhotoGallery } from "./photo-gallery";
 import { track } from "./tracking";
-import { ZoomableImage } from "@/components/media/zoomable-image";
-import { imageSrcSet } from "@/lib/media-url";
 
 /** Copia un texto al portapapeles: la API moderna o, si no está (http, navegadores antiguos), execCommand. */
 async function copyText(text: string): Promise<boolean> {
@@ -35,9 +34,8 @@ async function copyText(text: string): Promise<boolean> {
 /**
  * Un código de descuento de otra marca, en una tarjeta vertical (en el ordenador caben tres juntas; si
  * hay más, la portada las pone en carrusel): el logo, la marca y dos líneas de descripción; debajo, el
- * código entero, «Copiar» e «Ir a la tienda». Si hay algo más que ver, «Ver más» (un <details> nativo:
- * funciona sin JavaScript) enseña la descripción entera y las fotos de lo que recomienda de esa marca,
- * que se amplían al tocarlas. Los dos clics se miden en /api/track sin cookies. Si el navegador no deja
+ * código entero, «Copiar» e «Ir a la tienda». Si la marca tiene fotos, «Ver más» (un <details> nativo)
+ * enseña solo las fotos de lo que recomienda, que al tocarlas se abren en una galería encima de la web. Los dos clics se miden en /api/track sin cookies. Si el navegador no deja
  * copiar, se selecciona el código para copiarlo a mano.
  */
 export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscountCode; trackCreatorId: string | null }) {
@@ -68,11 +66,12 @@ export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscoun
   };
 
   const photos = code.photos ?? [];
-  // «Ver más» si hay algo más que ver: fotos o una descripción que no cabe en dos líneas.
-  const expandable = photos.length > 0 || (code.description?.length ?? 0) > 70;
+  const recs = code.recommendations ?? [];
+  // «Ver más» enseña las recomendaciones y las fotos: sale si la marca tiene alguna de las dos.
+  const expandable = photos.length > 0 || recs.length > 0;
 
   return (
-    <article className="cp-card flex h-full min-w-0 flex-col items-center p-4 text-center" style={{ overflow: "visible" }} aria-label={`Código de descuento de ${code.brand}`} data-code-row={code.code}>
+    <article className="cp-card flex min-w-0 flex-col items-center p-4 text-center" style={{ overflow: "visible" }} aria-label={`Código de descuento de ${code.brand}`} data-code-row={code.code}>
       {code.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={code.imageUrl} alt="" loading="lazy" decoding="async" className="h-14 w-14 shrink-0 rounded-full object-cover" />
@@ -96,8 +95,13 @@ export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscoun
         {/* El código ocupa todo el ancho; uno largo (hasta 40 caracteres) se parte: se ve entero, nunca recortado. */}
         <code
           ref={codeRef}
-          className={`flex min-h-[2.4rem] w-full select-all items-center justify-center break-all rounded-lg border border-dashed px-2 py-1 text-center font-mono text-[0.85rem] font-semibold leading-tight ${code.code.length > 12 ? "tracking-[0.02em]" : "tracking-[0.08em]"}`}
-          style={{ borderColor: "color-mix(in oklab, var(--c-text) 35%, transparent)" }}
+          // El código, elegante y en el dorado de la web: letra de los títulos, espaciada, sobre un fondo dorado muy suave.
+          className={`cp-display flex min-h-[2.6rem] w-full select-all items-center justify-center break-all rounded-lg border border-dashed px-2 py-1 text-center text-[1.08rem] leading-tight ${code.code.length > 12 ? "tracking-[0.06em]" : "tracking-[0.2em]"}`}
+          style={{
+            color: "var(--c-gold)",
+            borderColor: "color-mix(in oklab, var(--c-gold) 55%, transparent)",
+            background: "color-mix(in oklab, var(--c-gold) 8%, transparent)",
+          }}
         >
           {code.code}
         </code>
@@ -130,6 +134,12 @@ export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscoun
           </a>
         </span>
       </div>
+      {!expandable && (
+        // Sin «Ver más», su hueco queda vacío: el código y los botones están a la misma altura en todas las tarjetas.
+        <span aria-hidden className="invisible mt-2 inline-flex items-center gap-1 py-1 text-[0.78rem] font-medium">
+          Ver más <ChevronDown className="h-3.5 w-3.5" />
+        </span>
+      )}
       {expandable && (
         <details className="group mt-2 w-full text-left" data-code-details>
           <summary className="cp-muted mx-auto flex w-fit cursor-pointer list-none items-center gap-1 py-1 text-[0.78rem] font-medium [&::-webkit-details-marker]:hidden">
@@ -138,25 +148,33 @@ export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscoun
             <ChevronDown aria-hidden className="h-3.5 w-3.5 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
           </summary>
           <div className="pt-2" data-code-more>
-            {code.description && <p className="cp-muted text-[0.88rem] leading-relaxed">{code.description}</p>}
-            {code.expiresLabel && <p className="cp-faint mt-1 text-xs">{code.expiresLabel}</p>}
-            {photos.length > 0 && (
-              <div className="mt-3 grid grid-cols-3 gap-2" aria-label={`Lo que me gusta de ${code.brand}`} role="group">
-                {photos.map((ph, i) => (
-                  <ZoomableImage
-                    key={`${ph.src}-${i}`}
-                    src={ph.src}
-                    srcSet={imageSrcSet(ph.src, ph.width)}
-                    sizes="(min-width: 768px) 70px, 25vw"
-                    alt={ph.alt}
-                    width={ph.width}
-                    height={ph.height}
-                    className="overflow-hidden rounded-[calc(var(--r-card)*0.5)]"
-                    imgClassName="aspect-square object-cover"
-                  />
-                ))}
+            {recs.length > 0 && (
+              <div className="mb-3">
+                <p className="cp-display text-center text-[1.15rem] leading-tight">Recomendaciones</p>
+                <ul className="mt-2 space-y-1.5 text-[0.84rem] leading-snug">
+                  {recs.map((r, k) => (
+                    <li key={k} className="flex gap-2">
+                      <span aria-hidden className="cp-gold mt-[0.42em] h-1 w-1 shrink-0 rounded-full bg-current" />
+                      {r.url ? (
+                        <a
+                          href={r.url}
+                          target="_blank"
+                          rel="noopener nofollow sponsored"
+                          className="group/rec inline-flex min-w-0 items-start gap-1 underline decoration-[color-mix(in_oklab,var(--c-gold)_45%,transparent)] underline-offset-[3px] transition hover:decoration-[var(--c-gold)]"
+                          onClick={() => event("CODE_CLICK")}
+                        >
+                          <span>{r.text}</span>
+                          <ArrowUpRight aria-hidden className="cp-gold mt-[0.15em] h-3.5 w-3.5 shrink-0 transition-transform group-hover/rec:-translate-y-0.5 group-hover/rec:translate-x-0.5" />
+                        </a>
+                      ) : (
+                        <span>{r.text}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
+            {photos.length > 0 && <PhotoGallery photos={photos} label={`Lo que me gusta de ${code.brand}`} />}
           </div>
         </details>
       )}

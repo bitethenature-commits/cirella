@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, Loader2, Plus, X } from "lucide-react";
 import { startTransition, useActionState, useRef, useState } from "react";
 import { Flash } from "@/components/ui/flash";
 import { ImageUpload, uploadImageInfo } from "@/components/ui/image-upload";
-import { CODE_BRAND_MAX, CODE_CODE_MAX, CODE_DESCRIPTION_MAX, CODE_PHOTOS_MAX, CODE_URL_MAX, type CodePhoto } from "@/lib/discount-codes";
+import { CODE_BRAND_MAX, CODE_CODE_MAX, CODE_DESCRIPTION_MAX, CODE_PHOTOS_MAX, CODE_REC_TEXT_MAX, CODE_RECS_MAX, CODE_URL_MAX, type CodePhoto, type CodeRecommendation } from "@/lib/discount-codes";
 import { saveDiscountCode, type CodeActionState } from "./actions";
 
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
@@ -17,6 +17,8 @@ export type EditableCode = {
   imageUrl: string | null;
   /** Fotos de lo que recomienda de la marca. */
   images: CodePhoto[];
+  /** «Recomendaciones»: la lista de lo que recomienda de la marca, con su enlace opcional. */
+  recommendations: CodeRecommendation[];
   /** «AAAA-MM-DD» (último día en que vale) o vacío. */
   expiresOn: string;
   active: boolean;
@@ -27,6 +29,7 @@ export function CodeForm({ code }: { code: EditableCode }) {
   const [state, action, pending] = useActionState<CodeActionState, FormData>(saveDiscountCode, undefined);
   const [image, setImage] = useState(code.imageUrl);
   const [photos, setPhotos] = useState<CodePhoto[]>(code.images);
+  const [recs, setRecs] = useState<{ text: string; url: string }[]>(code.recommendations.map((r) => ({ text: r.text, url: r.url ?? "" })));
   const [uploading, setUploading] = useState(false);
   return (
     <form
@@ -42,6 +45,7 @@ export function CodeForm({ code }: { code: EditableCode }) {
       {code.id && <input type="hidden" name="id" value={code.id} />}
       <input type="hidden" name="imageUrl" value={image ?? ""} />
       <input type="hidden" name="images" value={JSON.stringify(photos)} />
+      <input type="hidden" name="recommendations" value={JSON.stringify(recs)} />
 
       <section className="card space-y-4 p-5 sm:p-6">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -99,6 +103,14 @@ export function CodeForm({ code }: { code: EditableCode }) {
 
       <section className="card space-y-3 p-5 sm:p-6">
         <div>
+          <p className="field-label">Recomendaciones <span className="font-normal text-muted">(opcional)</span></p>
+          <p className="field-hint">Lo que recomiendas de esta marca. Salen en una lista al pulsar «Ver más» en tu página; si pegas el enlace del producto, cada una lleva a su producto.</p>
+        </div>
+        <CodeRecsField recs={recs} onChange={setRecs} />
+      </section>
+
+      <section className="card space-y-3 p-5 sm:p-6">
+        <div>
           <p className="field-label">Fotos de lo que te gusta de esta marca <span className="font-normal text-muted">(opcional)</span></p>
           <p className="field-hint">Se ven al desplegar el código en tu página. Describe cada foto (para quien no puede verla).</p>
         </div>
@@ -110,6 +122,64 @@ export function CodeForm({ code }: { code: EditableCode }) {
         {code.id ? "Guardar cambios" : "Añadir código"}
       </button>
     </form>
+  );
+}
+
+type RecRow = { text: string; url: string };
+
+/** Recomendaciones del código: añadir filas (texto y enlace opcional), ordenarlas y quitarlas. */
+function CodeRecsField({ recs, onChange }: { recs: RecRow[]; onChange: (f: (prev: RecRow[]) => RecRow[]) => void }) {
+  const move = (i: number, dir: -1 | 1) =>
+    onChange((prev) => {
+      const j = i + dir;
+      if (j < 0 || j >= prev.length) return prev;
+      const a = [...prev];
+      [a[i], a[j]] = [a[j], a[i]];
+      return a;
+    });
+  const edit = (i: number, patch: Partial<RecRow>) => onChange((prev) => prev.map((x, n) => (n === i ? { ...x, ...patch } : x)));
+  return (
+    <div className="space-y-3">
+      {recs.length > 0 && (
+        <ul className="space-y-3">
+          {recs.map((r, i) => (
+            <li key={i} className="flex items-start gap-2">
+              <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
+                <input
+                  className="input h-10 text-sm"
+                  placeholder="Ej.: Vela de lavanda para luna llena"
+                  aria-label={`Recomendación ${i + 1}`}
+                  value={r.text}
+                  maxLength={CODE_REC_TEXT_MAX}
+                  onChange={(e) => edit(i, { text: e.target.value })}
+                />
+                <input
+                  className="input h-10 text-sm"
+                  type="text"
+                  inputMode="url"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  placeholder="Enlace al producto (opcional) https://…"
+                  aria-label={`Enlace de la recomendación ${i + 1}`}
+                  value={r.url}
+                  maxLength={CODE_URL_MAX}
+                  onChange={(e) => edit(i, { url: e.target.value })}
+                />
+              </div>
+              <div className="flex shrink-0 flex-col sm:flex-row">
+                <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Subir recomendación"><ArrowUp className="h-3.5 w-3.5" /></button>
+                <button type="button" disabled={i === recs.length - 1} onClick={() => move(i, 1)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Bajar recomendación"><ArrowDown className="h-3.5 w-3.5" /></button>
+              </div>
+              <button type="button" onClick={() => onChange((prev) => prev.filter((_, n) => n !== i))} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Quitar recomendación"><X className="h-4 w-4" /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button type="button" onClick={() => onChange((prev) => [...prev, { text: "", url: "" }])} disabled={recs.length >= CODE_RECS_MAX} className="btn btn-outline btn-sm h-10">
+        <Plus className="h-4 w-4" /> Añadir recomendación
+      </button>
+      <p className="field-hint">Hasta {CODE_RECS_MAX} recomendaciones.</p>
+    </div>
   );
 }
 

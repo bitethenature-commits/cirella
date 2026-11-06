@@ -45,6 +45,56 @@ export function parseCodePhotos(json: string | null | undefined, creatorId: stri
   return { ok: true, photos: r.data.map((p) => ({ src: p.src, alt: p.alt, width: p.width, height: p.height })) };
 }
 
+/** «Recomendaciones» de un código: como mucho CODE_RECS_MAX, cada una con su texto y su enlace opcional. */
+export const CODE_RECS_MAX = 12;
+export const CODE_REC_TEXT_MAX = 120;
+
+/** Una recomendación: lo que se recomienda de la marca y, si hay, el enlace a ese producto (https). */
+export type CodeRecommendation = { text: string; url: string | null };
+
+/** Lee DiscountCode.recommendations sin fallar: lo que no vale se descarta. */
+export function readCodeRecommendations(raw: unknown): CodeRecommendation[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CodeRecommendation[] = [];
+  for (const x of raw) {
+    if (!x || typeof x !== "object") continue;
+    const text = typeof (x as { text?: unknown }).text === "string" ? (x as { text: string }).text.trim().slice(0, CODE_REC_TEXT_MAX) : "";
+    if (!text) continue;
+    const rawUrl = (x as { url?: unknown }).url;
+    const url = typeof rawUrl === "string" && rawUrl ? parseShopUrl(rawUrl) : null;
+    out.push({ text, url: url?.ok ? url.url : null });
+  }
+  return out.slice(0, CODE_RECS_MAX);
+}
+
+/** Las recomendaciones que llegan del formulario (JSON): sin filas vacías y con enlaces https válidos. */
+export function parseCodeRecommendations(json: string | null | undefined): { ok: true; recommendations: CodeRecommendation[] } | { ok: false; error: string } {
+  let raw: unknown = [];
+  try {
+    raw = json ? JSON.parse(json) : [];
+  } catch {
+    return { ok: false, error: "No se han podido leer las recomendaciones: vuelve a intentarlo" };
+  }
+  if (!Array.isArray(raw)) return { ok: false, error: "No se han podido leer las recomendaciones: vuelve a intentarlo" };
+  const out: CodeRecommendation[] = [];
+  for (const [i, x] of raw.entries()) {
+    const text = typeof x?.text === "string" ? x.text.trim() : "";
+    const link = typeof x?.url === "string" ? x.url.trim() : "";
+    if (!text && !link) continue;
+    if (!text) return { ok: false, error: `Escribe el texto de la recomendación ${i + 1} (o quítala)` };
+    if (text.length > CODE_REC_TEXT_MAX) return { ok: false, error: `Cada recomendación admite ${CODE_REC_TEXT_MAX} caracteres` };
+    let url: string | null = null;
+    if (link) {
+      const u = parseShopUrl(link);
+      if (!u.ok) return { ok: false, error: `Recomendación ${i + 1}: ${u.error.replace("de la tienda", "del producto")}` };
+      url = u.url;
+    }
+    out.push({ text, url });
+  }
+  if (out.length > CODE_RECS_MAX) return { ok: false, error: `Como mucho ${CODE_RECS_MAX} recomendaciones por código` };
+  return { ok: true, recommendations: out };
+}
+
 /** Formulario del panel (FormData → objeto). La caducidad llega como «AAAA-MM-DD» (input date) o vacía. */
 export const discountCodeFormSchema = z.object({
   id: z.string().max(40).optional(),
@@ -64,6 +114,7 @@ export const discountCodeFormSchema = z.object({
   url: z.string().trim().max(CODE_URL_MAX + 100).optional(),
   imageUrl: z.string().max(500).optional(),
   images: z.string().max(20000).optional(),
+  recommendations: z.string().max(20000).optional(),
   expiresOn: z
     .string()
     .trim()

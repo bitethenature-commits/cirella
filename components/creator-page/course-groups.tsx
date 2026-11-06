@@ -1,17 +1,20 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { BookOpen, ChevronDown } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
+import type { CourseCategory } from "@/lib/course-categories";
+import { CategoryIcons } from "./category-icons";
 
-export type CourseGroupView = { key: string; label: string; count: number; image: string | null; cards: ReactNode };
+export type CourseGroupView = { key: string; label: string; categories: CourseCategory[]; count: number; cards: ReactNode };
 
 const idOf = (key: string) => key.toLowerCase();
 
 /**
- * Los cursos por método: cada método es una fila con su foto en redondo; al tocarla se despliega
- * con todos sus cursos. Son <details> nativos con el mismo `name`, así que abrir uno cierra el
- * anterior (y funcionan aunque la página no haya cargado su JavaScript). Un enlace con ancla
- * (#astrologia, desde las páginas de cada sistema) abre directamente ese método.
+ * Los cursos por tema: cada tema es una fila con su icono dorado (los que combinan varios temas, con
+ * sus iconos sumados); al tocarla se despliega con todos sus cursos (o «Próximamente» si aún no
+ * tiene). Son <details> nativos con el mismo `name`, así que abrir uno cierra el anterior (y
+ * funcionan aunque la página no haya cargado su JavaScript). Un enlace con ancla (#astrologia, desde
+ * las páginas de cada sistema) abre directamente ese tema.
  */
 export function CourseGroups({ groups }: { groups: CourseGroupView[] }) {
   useEffect(() => {
@@ -25,41 +28,44 @@ export function CourseGroups({ groups }: { groups: CourseGroupView[] }) {
 
   return (
     <div className="mt-8 space-y-3">
-      {groups.map((g) => (
-        <details
-          key={g.key}
-          id={idOf(g.key)}
-          name="metodos"
-          open={groups.length === 1 || undefined}
-          data-course-group={g.key}
-          className="cp-card group scroll-mt-20 rounded-2xl border"
-        >
-          <summary className="flex cursor-pointer list-none items-center gap-4 px-4 py-3.5 sm:px-5 [&::-webkit-details-marker]:hidden">
-            <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-[color-mix(in_oklab,var(--c-gold)_55%,transparent)]">
-              {g.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={g.image} alt="" className="h-full w-full object-cover" loading="lazy" />
-              ) : (
-                <span aria-hidden className="cp-display flex h-full w-full items-center justify-center text-xl">
-                  {g.label.charAt(0)}
-                </span>
-              )}
-            </span>
-            <span className="min-w-0 flex-1">
-              <h2 id={`metodo-${g.key}`} className="cp-display m-0 text-[1.5rem] leading-tight sm:text-[1.75rem]">
-                {g.label}
-              </h2>
-              <span className="cp-muted block text-sm tabular-nums">
-                {g.count} {g.count === 1 ? "curso" : "cursos"}
+      {groups.map((g) => {
+        const many = g.categories.length > 1;
+        return (
+          <details
+            key={g.key}
+            id={idOf(g.key)}
+            name="metodos"
+            open={groups.length === 1 || undefined}
+            data-course-group={g.key}
+            className="cp-card group scroll-mt-20 rounded-2xl border"
+          >
+            <summary className="flex cursor-pointer list-none items-center gap-4 px-4 py-3.5 sm:px-5 [&::-webkit-details-marker]:hidden">
+              <span className={`cp-gold flex h-14 shrink-0 items-center justify-center ${many ? "min-w-14" : "w-14"}`}>
+                {g.categories.length ? (
+                  // Uno solo, grande; varios, sumados y algo más pequeños.
+                  <CategoryIcons categories={g.categories} size={many ? 2.5 : 3.25} gap={many ? 0.15 : 0} />
+                ) : (
+                  <BookOpen aria-hidden className="h-9 w-9" strokeWidth={1.2} />
+                )}
               </span>
-            </span>
-            <ChevronDown aria-hidden className="h-5 w-5 shrink-0 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
-          </summary>
-          <div className="px-4 pb-5 pt-2 sm:px-5 sm:pb-6">
-            <div className="grid gap-4 sm:grid-cols-2">{g.cards}</div>
-          </div>
-        </details>
-      ))}
+              <span className="min-w-0 flex-1">
+                <h2 id={`metodo-${g.key}`} className="cp-display m-0 text-[1.5rem] leading-tight sm:text-[1.75rem]">
+                  {g.label}
+                </h2>
+                <span className="cp-muted block text-sm tabular-nums">{g.count === 0 ? "Próximamente" : `${g.count} ${g.count === 1 ? "curso" : "cursos"}`}</span>
+              </span>
+              <ChevronDown aria-hidden className="h-5 w-5 shrink-0 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
+            </summary>
+            <div className="px-4 pb-5 pt-2 sm:px-5 sm:pb-6">
+              {g.count === 0 ? (
+                <p className="cp-muted text-[0.92rem]">Pronto habrá cursos de {g.label}.</p>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">{g.cards}</div>
+              )}
+            </div>
+          </details>
+        );
+      })}
     </div>
   );
 }

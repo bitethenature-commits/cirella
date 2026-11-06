@@ -1,7 +1,9 @@
 import Link from "next/link";
 import type { ComponentType, CSSProperties, SVGProps } from "react";
 import { ArrowRight, ArrowUpRight, ExternalLink, FileText, Layers, Mail, Moon, Plus, Sparkles, Video } from "lucide-react";
+import { courseCategoriesLabel, courseCategoriesOf } from "@/lib/course-categories";
 import { AstrologyIcon } from "./astrology-icon";
+import { CategoryIcons } from "./category-icons";
 import { EnergyIcon } from "./energy-icon";
 import { GeneKeysIcon } from "./gene-keys-icon";
 import { HumanDesignIcon } from "./human-design-icon";
@@ -34,7 +36,7 @@ import { DiscountCodeCard } from "./discount-code-card";
 import { LegalLinks } from "./legal-links";
 import { NewsletterSignup } from "./newsletter-signup";
 import { creatorLegalHref } from "@/lib/legal";
-import type { CodePhoto } from "@/lib/discount-codes";
+import type { CodePhoto, CodeRecommendation } from "@/lib/discount-codes";
 import type { OracleDecks } from "@/components/models/data/oracle";
 import { Avatar, ProductImage } from "./product-art";
 import { PortalSection } from "./portal-section";
@@ -105,8 +107,10 @@ export type PublicDiscountCode = {
   description: string | null;
   url: string;
   imageUrl: string | null;
-  /** Fotos de lo que recomienda de la marca (al desplegar la fila). */
+  /** Fotos de lo que recomienda de la marca (al desplegar con «Ver más»). */
   photos: CodePhoto[];
+  /** «Recomendaciones»: la lista de lo que recomienda de la marca, cada una con su enlace opcional. */
+  recommendations: CodeRecommendation[];
   /** «Válido hasta el 31 de diciembre» o null si no caduca. */
   expiresLabel: string | null;
 };
@@ -421,9 +425,10 @@ export function CreatorPageView(props: Props) {
           .sort((a, b) => (a.eventStartAt! < b.eventStartAt! ? -1 : 1))
           .slice(0, 4);
         // Cada una con su icono (documento / vídeo) y su tono, para que no parezcan lo mismo.
+        // Primero la sesión y después la lectura.
         const cards = [
-          { c: r.reading, d: READINGS_DEFAULTS.reading, href: path("lecturas"), Icon: FileText, tone: TONE_READING },
           { c: r.session, d: READINGS_DEFAULTS.session, href: path("sesiones"), Icon: Video, tone: TONE_SESSION },
+          { c: r.reading, d: READINGS_DEFAULTS.reading, href: path("lecturas"), Icon: FileText, tone: TONE_READING },
         ];
         return (
           <section key={key} id="lecturas" className="mt-16" {...reveal}>
@@ -589,17 +594,15 @@ export function CreatorPageView(props: Props) {
         )}
       </div>
 
-      {/* Barra superior discreta */}
-      <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),0.75rem)]">
-        <span className="rounded-full px-3 py-1.5 text-xs font-medium" style={{ background: "color-mix(in oklab, var(--c-bg) 55%, transparent)", backdropFilter: "blur(10px)" }}>
-          @{username}
-        </span>
+      {/* Barra superior discreta: solo la entrada al área (sin el @usuario) */}
+      <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-end px-4 pt-[max(env(safe-area-inset-top),0.75rem)]">
         <AccountEntry username={username} personal={personal} variant="pill" />
       </div>
 
       {/* Portada */}
       {config.coverUrl ? (
-        <div className="relative h-[22vh] min-h-[150px] w-full overflow-hidden sm:h-[42vh] sm:min-h-[220px]">
+        // Portada baja: la presentación empieza arriba del todo (la foto asoma detrás de la cara).
+        <div className="relative h-[14vh] min-h-[112px] w-full overflow-hidden sm:h-[18vh] sm:min-h-[150px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={config.coverUrl}
@@ -613,7 +616,7 @@ export function CreatorPageView(props: Props) {
           <div className="cp-cover-fade absolute inset-0" />
         </div>
       ) : (
-        <div className="h-16 sm:h-28" />
+        <div className="h-14 sm:h-16" />
       )}
 
       <main className="relative mx-auto w-full max-w-[44rem] px-5 pb-16">
@@ -694,6 +697,7 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
       ? externalButtonLabel({ type: p.type, externalLabel: p.externalLabel ?? null, externalUrl: p.externalUrl ?? null })
       : p.ctaLabel || DEFAULT_CTA[p.type as ProductType] || "Comprar";
   const productHref = `/${username}/${p.slug}`;
+  const topics = p.type === "COURSE" ? courseCategoriesOf(p.courseCategory) : [];
   const event = trackCreatorId ? { creatorId: trackCreatorId, type: "PRODUCT_CLICK" as const, productId: p.id } : null;
   // Gratis: «Gratis». Pago fuera: el precio (informativo, si lo hay) y dónde se paga. Pago aquí: precio e IVA.
   const price = free ? "Gratis" : external && p.priceCents <= 0 ? null : formatPrice(p.sale ? p.sale.priceCents : p.priceCents, p.currency, p.billingInterval);
@@ -706,7 +710,8 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
           className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em]"
           style={{ background: "color-mix(in oklab, var(--c-bg) 72%, transparent)", color: "var(--c-text)", backdropFilter: "blur(10px)" }}
         >
-          {p.emoji && <span aria-hidden>{p.emoji}</span>}
+          {/* Un curso con tema lleva el icono de su tema (o sus temas) en dorado; si no, su emoji. */}
+          {topics.length ? <CategoryIcons categories={topics} size={1.05} className="cp-gold" gap={0.1} /> : p.emoji && <span aria-hidden>{p.emoji}</span>}
           {TYPE_EYEBROW[p.type as ProductType]}
           {p.meta ? <span className="cp-muted normal-case tracking-normal">· {p.meta}</span> : null}
         </span>
@@ -752,12 +757,23 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
 /** Curso en pequeño (sección «Cursos» de la portada): la imagen, el título y el precio; toda la tarjeta lleva a su ficha. */
 function CourseMiniCard({ p, username }: { p: PublicProduct; username: string }) {
   const mode = p.accessMode ?? "PAID";
+  const topics = courseCategoriesOf(p.courseCategory);
   const external = mode === "EXTERNAL" && !!p.externalUrl;
   const price = mode === "FREE_EMAIL" ? "Gratis" : external && p.priceCents <= 0 ? null : formatPrice(p.sale ? p.sale.priceCents : p.priceCents, p.currency, p.billingInterval);
   return (
     <Link href={`/${username}/${p.slug}`} className="cp-card cp-card-hover group flex h-full flex-col overflow-hidden" data-course-mini={p.slug}>
       <span className="relative block aspect-square overflow-hidden">
         <ProductImage src={p.imageUrl} emoji={p.emoji} title={p.title} sizes="(min-width: 640px) 220px, 46vw" />
+        {/* El icono (o los iconos) del tema del curso, en dorado, como en las tarjetas grandes. */}
+        {topics.length > 0 && (
+          <span
+            className="absolute left-2 top-2 inline-flex items-center rounded-full px-2 py-1"
+            style={{ background: "color-mix(in oklab, var(--c-bg) 72%, transparent)", backdropFilter: "blur(10px)" }}
+            title={courseCategoriesLabel(topics)}
+          >
+            <CategoryIcons categories={topics} size={1.45} className="cp-gold" gap={0.15} />
+          </span>
+        )}
         {p.sale && (
           <span className="absolute right-2 top-2 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold" style={{ background: "var(--c-gold)", color: "var(--c-bg)" }}>
             −{p.sale.percentOff} %

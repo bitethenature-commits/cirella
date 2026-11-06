@@ -3,8 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
-import { PostCard } from "@/components/creator-page/post-card";
+import { PostTimeline } from "@/components/creator-page/post-timeline";
 import { TrackOnMount } from "@/components/creator-page/tracking";
+import { Reveal } from "@/components/reveal";
 import { groupPostsByMonth } from "@/lib/posts";
 import { getPublicPostList } from "@/lib/public";
 import { sectionPageData } from "../section-data";
@@ -33,7 +34,8 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
 
 /**
  * «Actualidades»: todas las publicaciones de una creadora, de la más reciente a la más antigua,
- * agrupadas por mes y año (en su zona horaria), con la fecha grande en cada tarjeta.
+ * agrupadas por mes y año (en su zona horaria), en una línea del tiempo con un cordel y la fecha de
+ * cada una (components/creator-page/post-timeline.tsx).
  */
 export default async function ActualidadesPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<Search> }) {
   const { username } = await params;
@@ -59,22 +61,7 @@ export default async function ActualidadesPage({ params, searchParams }: { param
             </Link>
           </div>
         ) : (
-          <div className="mt-8 space-y-10">
-            {months.map((m) => (
-              <section key={m.key} aria-labelledby={`mes-${m.key}`} data-month={m.key}>
-                <h2 id={`mes-${m.key}`} className="cp-display text-[1.7rem]">
-                  {m.label}
-                </h2>
-                <ol className="mt-4 grid gap-4 sm:grid-cols-2">
-                  {m.posts.map((p) => (
-                    <li key={p.id}>
-                      <PostCard post={p} username={creator.username} withDate />
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            ))}
-          </div>
+          <PostTimeline months={months} username={creator.username} />
         )}
 
         {pages > 1 && (
@@ -100,6 +87,8 @@ export default async function ActualidadesPage({ params, searchParams }: { param
         )}
       </main>
       <TrackOnMount creatorId={creator.id} type="PAGE_VIEW" />
+      {/* Las publicaciones de la línea del tiempo aparecen al deslizar. */}
+      <Reveal />
     </CreatorShell>
   );
 }

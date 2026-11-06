@@ -133,6 +133,32 @@ async function seedLesson(o: { creatorId: string; productId: string; moduleId: s
   return lesson;
 }
 
+/** Dos cursos de ejemplo con dos temas cada uno (Astrología + Mi energía y Human Design + Gene Keys). */
+async function seedComboCourses(anaId: string) {
+  const astroEnergy = await prisma.product.create({
+    data: {
+      creatorId: anaId, type: "COURSE", status: "PUBLISHED", slug: "tu-carta-y-tu-energia", title: "Tu carta y tu energía", emoji: "✨", courseCategory: "ASTROLOGIA+MI_ENERGIA",
+      summary: "Lee tu carta natal y aprende a cuidar tu energía según el cielo de cada día.",
+      description: "Une la astrología y tu energía en un mismo camino.\n\nIncluye:\n• Tu carta natal, paso a paso\n• Rituales sencillos para tu energía diaria\n• Acceso de por vida",
+      imageUrl: await demoImage(anaId, "/demo/astrologia.webp"), priceCents: 7900, ctaLabel: "Ver curso", sortOrder: 8, createdAt: daysAgo(3),
+    },
+  });
+  const aeModule = await prisma.courseModule.create({ data: { creatorId: anaId, productId: astroEnergy.id, title: "Tu cielo y tu energía", sortOrder: 0 } });
+  await seedLesson({ creatorId: anaId, productId: astroEnergy.id, moduleId: aeModule.id, sortOrder: 0, title: "Tu Sol, tu Luna y tu Ascendente", durationMin: 14, parts: [{ text: "Tres puntos de tu carta que cuentan **cómo brillas, cómo sientes y cómo te ven**." }] });
+  await seedLesson({ creatorId: anaId, productId: astroEnergy.id, moduleId: aeModule.id, sortOrder: 1, title: "Tu energía de hoy", durationMin: 10, parts: [{ text: "Mira qué despierta hoy el cielo en tu carta y elige un pequeño gesto para cuidarte." }] });
+
+  const hdGk = await prisma.product.create({
+    data: {
+      creatorId: anaId, type: "COURSE", status: "PUBLISHED", slug: "tu-diseno-y-tus-llaves", title: "Tu diseño y tus llaves", emoji: "🧬", courseCategory: "HUMAN_DESIGN+GENE_KEYS",
+      summary: "Tu bodygraph y tus Gene Keys juntos: el mapa completo de tu propósito.",
+      description: "Human Design y Gene Keys hablan del mismo mapa con dos lenguajes. Aquí los unimos.\n\nIncluye:\n• Tu tipo y tu autoridad\n• Tus cuatro llaves principales\n• Acceso de por vida",
+      imageUrl: await demoImage(anaId, "/demo/gene-keys.webp"), priceCents: 11900, ctaLabel: "Ver curso", sortOrder: 15, createdAt: daysAgo(2),
+    },
+  });
+  const hgModule = await prisma.courseModule.create({ data: { creatorId: anaId, productId: hdGk.id, title: "Tu mapa", sortOrder: 0 } });
+  await seedLesson({ creatorId: anaId, productId: hdGk.id, moduleId: hgModule.id, sortOrder: 0, title: "Tu tipo y tu llave de vida", durationMin: 16, parts: [{ text: "Tu tipo de Human Design y tu primera Gene Key cuentan la misma historia: **cómo te mueves por la vida**." }] });
+}
+
 /** Procesa una imagen de public/demo como una subida real: WebP con variantes en /media/…. */
 function demoImage(creatorId: string, demoUrl: string) {
   return storeProcessedImage(creatorId, readFileSync(path.join("public", demoUrl)));
@@ -874,6 +900,9 @@ async function seedAnaPortada(o: {
   const spModule = await prisma.courseModule.create({ data: { creatorId: anaId, productId: special.id, title: "Tu año lunar", sortOrder: 0 } });
   await seedLesson({ creatorId: anaId, productId: special.id, moduleId: spModule.id, sortOrder: 0, title: "Las trece lunas", durationMin: 8, parts: [{ text: "Apunta en tu calendario las lunas nuevas del año: cada una es un pequeño comienzo." }] });
   await seedLesson({ creatorId: anaId, productId: special.id, moduleId: spModule.id, sortOrder: 1, title: "Tus intenciones", durationMin: 10, parts: [{ text: "Escribe una intención para cada luna nueva y léela en voz alta la noche de la luna." }] });
+  // Cursos de dos temas (lib/course-categories.ts: «A+B»): van debajo de Especiales en /cursos, cada
+  // combinación en su grupo con los dos iconos. El primero sale también en la portada (sortOrder 8).
+  await seedComboCourses(anaId);
 
   // ── Una lectura que prepara ella (lib/channel-kind.ts), en oferta ──
   const yearReading = await prisma.product.create({
@@ -1032,7 +1061,8 @@ async function seedAnaPortada(o: {
   const next: PageConfig = {
     ...page,
     bubbles: [
-      { id: "b-sobre-mi", label: "Sobre mí", url: "/ana/p/sobre-mi", image: await demoImage(anaId, "/demo/ana-avatar.webp") },
+      // «1:1»: el acompañamiento individual contado como un camino (app/[username]/uno-a-uno).
+      { id: "b-uno-a-uno", label: "1:1", url: "/ana/uno-a-uno", image: await demoImage(anaId, "/demo/ana-avatar.webp") },
       { id: "b-cursos", label: "Cursos", url: "/ana/cursos", image: await demoImage(anaId, "/demo/curso.webp") },
       { id: "b-comunidad", label: "Hacerte miembro", url: "/ana/comunidad", image: await demoImage(anaId, "/demo/comunidad.webp") },
     ],
@@ -1521,6 +1551,12 @@ async function main() {
           ["/demo/comunidad.webp", "Velas de soja para el ritual de la noche"],
           ["/demo/hero.webp", "Velas junto a la ventana en luna llena"],
         ]),
+        // «Recomendaciones»: la lista de «Ver más», cada una con su enlace opcional al producto.
+        recommendations: [
+          { text: "Vela de lavanda para luna nueva", url: "https://example.com/velas-alba/lavanda" },
+          { text: "Vela de salvia para limpiar la energía", url: "https://example.com/velas-alba/salvia" },
+          { text: "Pack de velas para el altar", url: null },
+        ],
       },
       { creatorId: ana.id, brand: "Cuarzo & Co.", code: "LUNA10", description: "10 % en cuarzos y piedras naturales (pedido mínimo 20 €).", url: "https://example.com/cuarzo-co", sortOrder: 2 },
       {
@@ -1529,6 +1565,10 @@ async function main() {
           ["/demo/astrologia.webp", "Infusión de lavanda mientras miro mi carta"],
           ["/demo/gene-keys.webp", "Mi taza favorita para las noches de luna llena"],
         ]),
+        recommendations: [
+          { text: "Infusión de lavanda y manzanilla", url: "https://example.com/te-de-la-luna/lavanda" },
+          { text: "Té blanco de luna llena", url: "https://example.com/te-de-la-luna/luna-llena" },
+        ],
       },
     ],
   });

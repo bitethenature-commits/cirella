@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
-import { codeState, discountCodeFormSchema, expiryFromDateKey, parseCodePhotos, parseShopUrl } from "@/lib/discount-codes";
+import { codeState, discountCodeFormSchema, expiryFromDateKey, parseCodePhotos, parseCodeRecommendations, parseShopUrl } from "@/lib/discount-codes";
 import type { Prisma } from "@prisma/client";
 import { ownImageUrl } from "@/lib/posts";
 import { tenantDb } from "@/lib/tenant";
@@ -30,6 +30,8 @@ export async function saveDiscountCode(_: CodeActionState, form: FormData): Prom
   if (!url.ok) return { error: url.error };
   const photos = parseCodePhotos(d.images, creator.id);
   if (!photos.ok) return { error: photos.error };
+  const recs = parseCodeRecommendations(d.recommendations);
+  if (!recs.ok) return { error: recs.error };
   const current = d.id ? await db.discountCode.findFirst({ where: { id: d.id } }) : null;
   if (d.id && !current) return { error: "Este código ya no existe" };
   const data = {
@@ -39,6 +41,7 @@ export async function saveDiscountCode(_: CodeActionState, form: FormData): Prom
     url: url.url,
     imageUrl: ownImageUrl(d.imageUrl),
     images: photos.photos as unknown as Prisma.InputJsonArray,
+    recommendations: recs.recommendations as unknown as Prisma.InputJsonArray,
     expiresAt: expiryFromDateKey(d.expiresOn, creator.timezone),
     active: d.active === "on" || d.active === "1",
   };

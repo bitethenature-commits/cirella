@@ -763,6 +763,9 @@ model DiscountCode {
   // Fotos de lo que recomienda de esa marca (se ven al desplegar el código en la portada):
   // [{ src, alt, width, height }] (lib/discount-codes.ts → readCodePhotos).
   images      Json      @default("[]")
+  // «Recomendaciones» de esa marca (lista que se ve al desplegar el código, cada una con su enlace
+  // opcional al producto): [{ text, url }] (lib/discount-codes.ts → readCodeRecommendations).
+  recommendations Json  @default("[]")
   expiresAt   DateTime? // los caducados no se muestran
   active      Boolean   @default(true)
   sortOrder   Int       @default(0)

@@ -47,7 +47,7 @@ export function CodesCarousel({ children }: { children: ReactNode }) {
   return (
     <div className="relative mt-5">
       {arrow(-1, edge.start)}
-      <div ref={ref} onScroll={update} className="-mx-5 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto px-5 pb-2 scrollbar-none md:mx-0 md:px-0" data-codes-carousel>
+      <div ref={ref} onScroll={update} className="-mx-5 flex snap-x snap-mandatory items-start gap-3 overflow-x-auto px-5 pb-2 scrollbar-none md:mx-0 md:px-0" data-codes-carousel>
         {children}
       </div>
       {arrow(1, edge.end)}

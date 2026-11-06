@@ -15,6 +15,8 @@ import { saleEndsLabel, saleState } from "@/lib/offers";
 import type { ProductViewSource } from "@/lib/product-view";
 import { formatDate } from "@/lib/tz";
 import { DEFAULT_CTA, formatCourseLength, lessonsLabel, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
+import { courseCategoriesOf } from "@/lib/course-categories";
+import { CategoryIcons } from "./category-icons";
 import { ProductImage } from "./product-art";
 import { TrackedLink } from "./tracking";
 
@@ -164,8 +166,14 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, v
         </div>
 
         <div className="mt-7 md:mt-0">
-          <p className="cp-eyebrow">
-            {p.emoji} {type === "MEMBERSHIP" ? "Comunidad" : PRODUCT_TYPE_LABEL[type]}
+          {/* Un curso con tema lleva el icono de su tema (o sus temas) en dorado; si no, su emoji. */}
+          <p className="cp-eyebrow flex items-center gap-1.5">
+            {type === "COURSE" && courseCategoriesOf(p.courseCategory).length ? (
+              <CategoryIcons categories={courseCategoriesOf(p.courseCategory)} size={1.3} className="cp-gold" gap={0.1} />
+            ) : (
+              p.emoji
+            )}{" "}
+            {type === "MEMBERSHIP" ? "Comunidad" : PRODUCT_TYPE_LABEL[type]}
           </p>
           <h1 className="cp-display mt-3 text-[2.5rem] sm:text-[3rem]">{p.title}</h1>
           {p.summary && <p className="cp-muted mt-3 text-[1.02rem] leading-relaxed">{p.summary}</p>}
