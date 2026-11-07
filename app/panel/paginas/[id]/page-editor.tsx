@@ -3,7 +3,7 @@
 import { ArrowLeft, Eye, Loader2, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useDeferredValue, useMemo, useState, useTransition } from "react";
-import { SitePageView } from "@/components/creator-page/site-page-view";
+import { barePage, SitePageView } from "@/components/creator-page/site-page-view";
 import type { SiteNavPage } from "@/components/creator-page/site-nav";
 import type { PublicProduct } from "@/components/creator-page/creator-page-view";
 import { BlocksEditor, type BlocksUpdate } from "@/components/panel/blocks/blocks-editor";
@@ -119,9 +119,10 @@ export function SitePageEditor(props: Props) {
         back={false}
         oracleDecks={oracleDecks}
         moonCircles={props.moonCircles}
+        bare={barePage(props.slug)}
       />
     ),
-    [shown, hidden, props.username, props.config, props.allowCustom, props.personal, props.signupsOnly, props.origin, props.pages, oracleDecks, props.moonCircles],
+    [shown, hidden, props.slug, props.username, props.config, props.allowCustom, props.personal, props.signupsOnly, props.origin, props.pages, oracleDecks, props.moonCircles],
   );
 
   const actions = (small: boolean) => (

@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { hiddenProductSlugs, SitePageView } from "@/components/creator-page/site-page-view";
+import { barePage, hiddenProductSlugs, SitePageView } from "@/components/creator-page/site-page-view";
 import { TrackOnMount } from "@/components/creator-page/tracking";
-import { Reveal } from "@/components/reveal";
 import { appUrl } from "@/lib/env";
 import { richToPlain } from "@/lib/rich-text";
 import type { SitePageContent } from "@/lib/site-pages";
@@ -77,9 +76,9 @@ export default async function SitePagePublic({ params }: { params: Promise<Param
         currentPath={path}
         oracleDecks={oracleDecks}
         moonCircles={nextMoonCircles(data.products)}
+        bare={barePage(page.slug)}
       />
       <TrackOnMount creatorId={data.creator.id} type="PAGE_VIEW" />
-      <Reveal />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
     </>
   );

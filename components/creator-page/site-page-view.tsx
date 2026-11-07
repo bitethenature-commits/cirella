@@ -4,6 +4,7 @@ import { imageSrcSet } from "@/lib/media-url";
 import { isOwnImageSrc, visibleBlocks } from "@/lib/page-blocks";
 import type { SitePageContent } from "@/lib/site-pages";
 import type { OracleDecks } from "@/components/models/data/oracle";
+import { Reveal } from "@/components/reveal";
 import { ContentBlocks } from "./content-blocks";
 import { CreatorShell } from "./creator-shell";
 import type { SiteNavPage } from "./site-nav";
@@ -28,8 +29,11 @@ export function SitePageView({
   back = true,
   oracleDecks,
   moonCircles,
+  bare = false,
 }: {
   username: string;
+  /** Sin cajas en los bloques (página «Sobre mí»: barePage()). */
+  bare?: boolean;
   config: Pick<PageConfig, "displayName" | "avatarUrl" | "template" | "theme">;
   content: SitePageContent;
   allowCustom: boolean;
@@ -69,8 +73,9 @@ export function SitePageView({
         <h1 className="cp-display text-[2.4rem] leading-[1.05] sm:text-[3rem]">{content.title}</h1>
         {content.subtitle && <p className="cp-muted mt-5 whitespace-pre-line text-[1.05rem] leading-relaxed sm:text-[1.1rem]">{content.subtitle}</p>}
         {!cover && <span aria-hidden className="mt-8 block h-px w-20 bg-[var(--c-gold)] opacity-70" />}
-        <div className="mt-10 space-y-6">
+        <div className={bare ? "mt-12 space-y-16" : "mt-10 space-y-6"}>
           <ContentBlocks
+            bare={bare}
             blocks={visibleBlocks(content.blocks)}
             username={username}
             titleLevel={2}
@@ -82,8 +87,14 @@ export function SitePageView({
           />
         </div>
       </main>
+      <Reveal />
     </CreatorShell>
   );
+}
+
+/** Páginas extra que van sin cajas, con los bloques sueltos sobre el fondo: «Sobre mí». */
+export function barePage(slug: string): boolean {
+  return slug === "sobre-mi";
 }
 
 /** Productos que no se ven (web personal sin cobros), como en la portada. */

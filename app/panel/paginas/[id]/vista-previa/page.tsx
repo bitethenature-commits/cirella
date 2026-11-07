@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { hiddenProductSlugs, SitePageView } from "@/components/creator-page/site-page-view";
+import { barePage, hiddenProductSlugs, SitePageView } from "@/components/creator-page/site-page-view";
 import { requireCreator } from "@/lib/auth";
 import { appUrl } from "@/lib/env";
 import { nextMoonCircles } from "@/lib/moon-circles";
@@ -44,6 +44,7 @@ export default async function SitePagePreview({ params }: { params: Promise<{ id
         back={false}
         oracleDecks={oracleDecks}
         moonCircles={nextMoonCircles(data.products)}
+        bare={barePage(page.slug)}
       />
     </>
   );

@@ -29,7 +29,8 @@ import type { PublicProduct } from "./creator-page-view";
  *   · foto y texto: la foto a un lado y el texto al otro (en el móvil, la foto encima);
  *   · tarjetas: rejilla de 2 columnas (1 en el móvil); la tarjeta entera es el enlace;
  *   · cita: una frase destacada con su autora;
- *   · trayectoria: línea de tiempo con sus hitos;
+ *   · trayectoria: un cordel dorado con sus hitos (en el ordenador, a un lado y a otro); sin cajas,
+ *     aparecen al deslizar ([data-reveal]: SitePageView monta <Reveal />);
  *   · modelo interactivo: título y entradilla aquí (en el HTML) y el modelo, que se carga aparte y solo
  *     en el navegador (components/models); la geometría sagrada es una frase grande sobre la figura. En
  *     «Versión rápida», solo el dibujo, y «Calcular con mis datos» debajo de la caja;
@@ -48,8 +49,11 @@ export function ContentBlocks({
   oracleDecks,
   modelGate,
   moonCircles,
+  bare = false,
 }: {
   blocks: ContentBlock[];
+  /** Sin cajas: texto, foto y texto, y cita van sueltos sobre el fondo (página «Sobre mí»). */
+  bare?: boolean;
   username: string;
   /** Nivel del título de cada bloque: 3 bajo el título de la sección, 2 si no lo hay. */
   titleLevel: 2 | 3;
@@ -82,7 +86,7 @@ export function ContentBlocks({
             // Las webs de fuera, en otra pestaña; los enlaces internos y mailto:/tel:, en la misma.
             const newTab = !!href && /^https?:/i.test(href);
             return (
-              <div key={b.id} className="cp-card p-6 sm:p-7" data-block="text">
+              <div key={b.id} className={bare ? "" : "cp-card p-6 sm:p-7"} data-block="text">
                 {b.title && title(b.title)}
                 {b.body && (
                   <RichContent
@@ -205,8 +209,10 @@ export function ContentBlocks({
             if (!b.image || !isOwnImageSrc(b.image.src)) return null;
             const href = linkTo(b.buttonUrl);
             return (
-              <div key={b.id} className="cp-card grid sm:grid-cols-2" data-block="photo-text" data-side={b.imageSide}>
-                <div className={`relative aspect-[4/3] sm:aspect-auto sm:min-h-[20rem] ${b.imageSide === "right" ? "sm:order-last" : ""}`}>
+              <div key={b.id} className={bare ? "grid items-center gap-6 sm:grid-cols-2 sm:gap-10" : "cp-card grid sm:grid-cols-2"} data-block="photo-text" data-side={b.imageSide}>
+                <div
+                  className={`relative aspect-[4/3] sm:aspect-auto sm:min-h-[20rem] ${bare ? "overflow-hidden rounded-[var(--r-card)]" : ""} ${b.imageSide === "right" ? "sm:order-last" : ""}`}
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={b.image.src}
@@ -220,7 +226,7 @@ export function ContentBlocks({
                     className="absolute inset-0 h-full w-full object-cover"
                   />
                 </div>
-                <div className="flex flex-col justify-center p-6 sm:p-7">
+                <div className={`flex flex-col justify-center ${bare ? "" : "p-6 sm:p-7"}`}>
                   {b.title && title(b.title)}
                   {b.body && (
                     <RichContent
@@ -294,7 +300,7 @@ export function ContentBlocks({
           }
           case "quote":
             return (
-              <figure key={b.id} className="cp-card relative px-7 pb-8 pt-12 text-center sm:px-12" data-block="quote">
+              <figure key={b.id} className={`relative px-7 pb-8 pt-12 text-center sm:px-12 ${bare ? "" : "cp-card"}`} data-block="quote">
                 <span aria-hidden className="cp-gold cp-display pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 text-[4.5rem] leading-none">
                   “
                 </span>
@@ -304,18 +310,35 @@ export function ContentBlocks({
             );
           case "timeline":
             if (!b.items.length) return null;
+            // Un cordel dorado: a la izquierda en el móvil y en el centro en el ordenador, con los hitos a
+            // un lado y a otro. El año, grande y dorado; cada hito aparece al deslizar.
             return (
-              <section key={b.id} className="cp-card p-6 sm:p-7" data-block="timeline" aria-label={b.title || "Trayectoria"}>
-                {b.title && <div className="mb-6">{title(b.title)}</div>}
-                <ol className="cp-line relative ml-1.5 space-y-7 border-l">
-                  {b.items.map((it, i) => (
-                    <li key={i} className="relative pl-6">
-                      <span aria-hidden className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-[var(--c-gold)] shadow-[0_0_0_4px_color-mix(in_oklab,var(--c-gold)_22%,transparent)]" />
-                      {it.label && <p className="cp-eyebrow cp-gold">{it.label}</p>}
-                      <p className={`cp-display text-[1.2rem] leading-snug ${it.label ? "mt-1" : ""}`}>{it.title}</p>
-                      {it.text && <p className="cp-muted mt-1.5 text-[0.92rem] leading-relaxed">{it.text}</p>}
-                    </li>
-                  ))}
+              <section key={b.id} className={bare ? "py-2" : "cp-card p-6 sm:p-7"} data-block="timeline" aria-label={b.title || "Trayectoria"}>
+                {b.title && <div className="mb-10 text-center">{title(b.title)}</div>}
+                <ol className="relative">
+                  <span
+                    aria-hidden
+                    className="absolute bottom-2 left-[11px] top-2 w-[2px] rounded-full sm:left-1/2 sm:-translate-x-1/2"
+                    style={{ background: "linear-gradient(to bottom, transparent, color-mix(in oklab, var(--c-gold) 70%, transparent) 6%, color-mix(in oklab, var(--c-gold) 45%, transparent) 88%, transparent)" }}
+                  />
+                  {b.items.map((it, i) => {
+                    const odd = i % 2 === 1;
+                    return (
+                      <li key={i} className="relative pb-11 pl-10 last:pb-0 sm:grid sm:grid-cols-2 sm:gap-x-16 sm:pl-0" {...(bare ? { "data-reveal": "" } : {})} style={{ ["--reveal-delay" as string]: `${Math.min(i, 4) * 40}ms` }}>
+                        {/* El nudo del cordel */}
+                        <span aria-hidden className="absolute left-0 top-[0.55rem] z-[1] grid h-6 w-6 place-items-center rounded-full border sm:left-1/2 sm:-translate-x-1/2" style={{ borderColor: "var(--c-gold)", background: "var(--c-bg)" }}>
+                          <span className="h-2 w-2 rounded-full" style={{ background: "var(--c-gold)" }} />
+                        </span>
+                        <div className={odd ? "sm:order-2" : "sm:text-right"}>
+                          {it.label && <p className="cp-display cp-gold text-[2.1rem] leading-none sm:text-[2.7rem]">{it.label}</p>}
+                        </div>
+                        <div className={`${odd ? "sm:order-1 sm:text-right" : ""} ${it.label ? "mt-2 sm:mt-0" : ""}`}>
+                          <p className="cp-display text-[1.35rem] leading-snug sm:text-[1.5rem]">{it.title}</p>
+                          {it.text && <p className="cp-muted mt-1.5 text-[0.93rem] leading-relaxed">{it.text}</p>}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ol>
               </section>
             );
