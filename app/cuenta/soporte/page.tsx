@@ -6,6 +6,12 @@ import { socialHref } from "@/lib/page-config";
 import { getSettings } from "@/lib/settings";
 import { isPersonalMode } from "@/lib/site-mode";
 import { SESSION_CHANGE_NOTICE_HOURS } from "@/lib/legal";
+import { isNoChargeOrder } from "@/lib/access-mode";
+import { channelKindLabel } from "@/lib/channel-kind";
+import { formatMoney } from "@/lib/money";
+import { orderRef } from "@/lib/order-ref";
+import { formatDate } from "@/lib/tz";
+import { TicketButton, type TicketData } from "./ticket";
 
 const FAQ = [
   ["¿Dónde está lo que compré?", "Todo está en tu cuenta: los cursos en «Mis cursos», las sesiones en «Mis sesiones» y los archivos en «Mis archivos»."],
@@ -24,12 +30,38 @@ const FAQ_PERSONAL = [
 
 export default async function SupportPage() {
   const user = await requireBuyerFull("/cuenta/soporte");
-  const [customers, settings] = await Promise.all([
+  const [customers, settings, orders] = await Promise.all([
     prisma.customer.findMany({ where: { userId: user.id }, include: { creator: true } }),
     getSettings(),
+    prisma.order.findMany({
+      where: { buyerEmail: user.email, status: { in: ["PAID", "REFUNDED"] } },
+      orderBy: { paidAt: "desc" },
+      include: { product: true },
+    }),
   ]);
   // Web personal (cobre o no): sin plataforma aparte, para todo se escribe a la dueña.
   const personal = isPersonalMode();
+
+  // El ticket de todo lo conseguido (crece con cada compra): una línea por compra, la más reciente arriba.
+  const paid = orders.filter((o) => !isNoChargeOrder(o));
+  const currencies = new Set(paid.map((o) => o.currency));
+  const totalCents = paid.reduce((n, o) => n + o.amountCents - o.refundedCents, 0);
+  const ticket: TicketData = {
+    brand: personal && customers[0] ? creatorBrief(customers[0].creator).displayName : customers.length === 1 ? creatorBrief(customers[0].creator).displayName : "Tus compras",
+    name: user.name ?? user.email.split("@")[0],
+    email: user.email,
+    issued: formatDate(new Date(), { day: "numeric", month: "long", year: "numeric" }),
+    rows: orders.map((o) => ({
+      id: o.id,
+      ref: orderRef(o.id),
+      date: o.paidAt ? formatDate(o.paidAt, { day: "numeric", month: "short", year: "numeric" }) : "",
+      title: o.productTitle,
+      kind: channelKindLabel({ ...o.product, title: o.productTitle }),
+      amount: isNoChargeOrder(o) ? "Gratis" : formatMoney(o.amountCents, o.currency, { decimals: true }),
+      note: o.status === "REFUNDED" ? "Reembolsada" : o.refundedCents > 0 ? `Reembolsado ${formatMoney(o.refundedCents, o.currency, { decimals: true })}` : null,
+    })),
+    total: paid.length && currencies.size === 1 ? formatMoney(totalCents, [...currencies][0], { decimals: true }) : null,
+  };
   return (
     <div className="max-w-2xl">
       <h1 className="display text-[2.4rem]">Soporte</h1>
@@ -63,6 +95,8 @@ export default async function SupportPage() {
           <LifeBuoy className="h-4 w-4" /> ¿Problemas con la plataforma? <a className="font-semibold text-ink" href={`mailto:${settings.supportEmail}`}>{settings.supportEmail}</a>
         </p>
       )}
+      {/* Abajo del todo, a la derecha: el ticket de compras (se abre en una ventana y se descarga). */}
+      <TicketButton data={ticket} />
     </div>
   );
 }

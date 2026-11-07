@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Receipt } from "lucide-react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { EmptyState } from "@/components/ui/empty";
@@ -10,7 +11,6 @@ import { requireBuyerFull } from "@/lib/buyer-access";
 import { formatMoney } from "@/lib/money";
 import { signupsOnly } from "@/lib/commerce";
 import { isPersonalMode } from "@/lib/site-mode";
-import { channelKindLabel } from "@/lib/channel-kind";
 import { orderStatusLabel, toWithdrawalInput, withdrawalEligibility } from "@/lib/refund-math";
 import { membershipTermsFor } from "@/lib/refunds";
 import { formatDate } from "@/lib/tz";
@@ -31,6 +31,8 @@ const ERROR: Record<string, string> = {
 
 export default async function MyPurchases({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const user = await requireBuyerFull("/cuenta/compras");
+  // Web personal: no hay «Mis compras» (ni «Mis canales»): lo que ha conseguido está en su ticket, en «Soporte».
+  if (isPersonalMode()) redirect("/cuenta/soporte");
   const sp = await searchParams;
   const orders = await prisma.order.findMany({
     where: { buyerEmail: user.email, status: { in: ["PAID", "REFUNDED"] } },
@@ -46,14 +48,11 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
   // Membresías: su suscripción decide si se puede desistir y cuánto se devuelve (proporcional).
   const memberships = await membershipTermsFor(orders.filter((o) => o.productType === "MEMBERSHIP").map((o) => o.id));
   const personal = signupsOnly();
-  // Web personal: «Mis canales», con lo que es cada cosa en grande y sin importes (siguen
-  // en el detalle de cada compra y en el email de compra).
-  const channels = isPersonalMode();
   const link = (o: (typeof orders)[number]) =>
     orderTargetPath(o, o.bookings[0]?.id);
   return (
     <div>
-      <h1 className="display text-[2.4rem]">{channels ? "Mis canales" : "Mis compras"}</h1>
+      <h1 className="display text-[2.4rem]">Mis compras</h1>
       <div className="mt-6">
         <Flash ok={sp.ok ? OK[sp.ok] : null} error={sp.error ? ERROR[sp.error] : null} />
       </div>
@@ -67,16 +66,6 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
           const refund = w.eligible ? formatMoney(w.amountCents, o.currency, { decimals: true }) : "";
           return (
             <div key={o.id}>
-              {channels ? (
-                <Link href={link(o)} className="flex items-center gap-4 p-4 transition hover:bg-paper">
-                  <Thumb src={o.product.imageUrl} emoji={o.product.emoji} className="h-14 w-14" />
-                  <div className="min-w-0 flex-1">
-                    <p className="display text-[1.6rem] leading-tight">{channelKindLabel({ ...o.product, title: o.productTitle })}</p>
-                    <p className="truncate text-sm text-muted">{o.productTitle}</p>
-                  </div>
-                  {o.status === "REFUNDED" || o.refundedCents > 0 ? <span className="chip shrink-0">Reembolsado</span> : null}
-                </Link>
-              ) : (
                 <>
                   <Link href={link(o)} className="flex items-center gap-4 p-4 transition hover:bg-paper">
                     <Thumb src={o.product.imageUrl} emoji={o.product.emoji} className="h-12 w-12" />
@@ -105,7 +94,6 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
                     </div>
                   )}
                 </>
-              )}
               {w.eligible && (
                 <div className="-mt-1 flex flex-wrap items-center justify-between gap-2 px-4 pb-4 pl-20">
                   <p className="text-xs text-muted">
@@ -130,7 +118,7 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
           );
         })}
       </div>
-      {orders.length === 0 && <EmptyState icon={<Receipt className="h-5 w-5" />} title={channels || personal ? "Nada todavía" : "Sin compras todavía"} />}
+      {orders.length === 0 && <EmptyState icon={<Receipt className="h-5 w-5" />} title={personal ? "Nada todavía" : "Sin compras todavía"} />}
     </div>
   );
 }

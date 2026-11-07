@@ -73,8 +73,8 @@ export default async function OrderPage({ params }: { params: Promise<{ orderId:
   return (
     <div className="max-w-2xl">
       {!scoped && (
-        <Link href="/cuenta/compras" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-          <ArrowLeft className="h-4 w-4" /> {isPersonalMode() ? "Mis canales" : "Mis compras"}
+        <Link href={isPersonalMode() ? "/cuenta/soporte" : "/cuenta/compras"} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+          <ArrowLeft className="h-4 w-4" /> {isPersonalMode() ? "Soporte" : "Mis compras"}
         </Link>
       )}
       <div className="mt-5 flex items-center gap-4">

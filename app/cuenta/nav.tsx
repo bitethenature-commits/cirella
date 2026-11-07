@@ -15,10 +15,11 @@ const ITEMS = [
 /** «Mi energía» (/cuenta/mi-energia): solo en la web personal, detrás de «Mis cursos» (el área ya no tiene «Inicio»: empieza ahí). */
 const ENERGY = { href: "/cuenta/mi-energia", label: "Mi energía" };
 
-/** `personal`: web personal (SITE_MODE=personal): «Mis compras» es «Mis canales» y está «Mi energía». */
+/** `personal`: web personal (SITE_MODE=personal): está «Mi energía» y no «Mis compras» (su ticket va en «Soporte»). */
 export function AccountNav({ personal = false }: { personal?: boolean } = {}) {
   const path = usePathname();
-  const items = personal ? [ITEMS[0], ENERGY, ...ITEMS.slice(1).map((i) => (i.href === "/cuenta/compras" ? { ...i, label: "Mis canales" } : i))] : ITEMS;
+  // Web personal: sin «Mis compras» (lo que ha conseguido está en su ticket, en «Soporte»).
+  const items = personal ? [ITEMS[0], ENERGY, ...ITEMS.slice(1).filter((i) => i.href !== "/cuenta/compras")] : ITEMS;
   return (
     <nav className="-mx-5 flex gap-1 overflow-x-auto px-5 scrollbar-none" aria-label="Área de cliente">
       {items.map((i) => {
