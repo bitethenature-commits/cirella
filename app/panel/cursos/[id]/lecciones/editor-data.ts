@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireCreator } from "@/lib/auth";
 import { readDrip } from "@/lib/course-drip";
 import { uploadPolicy } from "@/lib/file-types";
+import { emptyBlock, isBlockKind, parseBlock } from "@/lib/lesson-blocks";
 import { loadLessonEditor } from "@/lib/lessons";
 import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
@@ -45,6 +46,10 @@ export async function lessonEditorProps(productId: string, lessonId: string | nu
     if (p.kind === "TEXT") return [{ key, kind: "TEXT", body: p.body ?? "", format: p.bodyFormat === "MD" ? "MD" : null }];
     if (p.kind === "FILE" && p.fileId) return [{ key, kind: "FILE", fileId: p.fileId }];
     if (p.kind === "EMBED") return [{ key, kind: "EMBED", url: p.url ?? "" }];
+    if (isBlockKind(p.kind)) {
+      const b = parseBlock(p.kind, p.data);
+      return [{ key, ...(b.ok ? b.part : emptyBlock(p.kind)) }];
+    }
     return [];
   });
   const personal = isPersonalMode();

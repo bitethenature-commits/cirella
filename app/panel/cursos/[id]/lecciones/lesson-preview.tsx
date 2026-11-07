@@ -5,6 +5,7 @@ import { LessonView } from "@/components/course/lesson-view";
 import type { PlayerPart } from "@/components/course/lesson-parts";
 import { PhoneFrame } from "@/components/panel/phone-frame";
 import { PreviewFrame } from "@/components/panel/preview-frame";
+import { isBlockKind, type BlockPart } from "@/lib/lesson-blocks";
 import { lessonPartViews, partsLabel, partView } from "@/lib/lesson-parts";
 import type { EditorFile, EditorPart } from "@/app/panel/productos/[id]/lecciones/part-card";
 
@@ -25,6 +26,7 @@ function toPlayerParts(parts: EditorPart[], files: Map<string, EditorFile>): Pla
   return parts.flatMap((p): PlayerPart[] => {
     if (p.kind === "TEXT") return /\S/.test(p.body) ? [{ id: p.key, view: "TEXT", body: p.body, bodyFormat: p.format, url: null, file: null }] : [];
     if (p.kind === "EMBED") return p.url.trim() ? [{ id: p.key, view: "EMBED", body: null, bodyFormat: null, url: p.url.trim(), file: null }] : [];
+    if (isBlockKind(p.kind)) return [{ id: p.key, view: "BLOCK", body: null, bodyFormat: null, url: null, file: null, kind: p.kind, data: (p as BlockPart).data }];
     if (p.kind === "FILE") {
       const f = files.get(p.fileId);
       return f ? [{ id: p.key, view: partView("FILE", f.kind), body: null, bodyFormat: null, url: null, file: { ...f, sizeBytes: f.sizeBytes } }] : [];
@@ -35,7 +37,7 @@ function toPlayerParts(parts: EditorPart[], files: Map<string, EditorFile>): Pla
 
 function Scene({ ctx, live }: { ctx: LessonPreviewContext; live: Live }) {
   const parts = useMemo(() => toPlayerParts(live.parts, live.files), [live.parts, live.files]);
-  const views = lessonPartViews(parts.map((p) => ({ kind: p.view === "TEXT" ? "TEXT" : p.view === "EMBED" ? "EMBED" : "FILE", file: p.file ? { kind: p.file.kind } : null })));
+  const views = lessonPartViews(parts.map((p) => ({ kind: p.kind ?? (p.view === "TEXT" ? "TEXT" : p.view === "EMBED" ? "EMBED" : "FILE"), file: p.file ? { kind: p.file.kind } : null })));
   return (
     <div className="min-h-screen bg-paper px-5 pb-16 pt-6">
       <p className="truncate text-xs font-semibold text-muted">{ctx.courseTitle}</p>

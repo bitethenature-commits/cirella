@@ -14,6 +14,9 @@ import { LESSON_PART_FILE_SELECT } from "@/lib/lessons";
 import { isPersonalMode } from "@/lib/site-mode";
 import { formatDate } from "@/lib/tz";
 import { MethodTag, Progress } from "../../ui";
+import { listBirthProfiles } from "@/lib/birth-profiles";
+import { isBlockKind } from "@/lib/lesson-blocks";
+import { saveLessonChapter } from "./chapter-action";
 import { CompleteButton } from "./complete-button";
 import { CourseOutline, type OutlineModule } from "./course-outline";
 
@@ -99,7 +102,15 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
   const rows = current && !locked
     ? await prisma.lessonPart.findMany({ where: { lessonId: current.id }, orderBy: { sortOrder: "asc" }, include: { file: { select: LESSON_PART_FILE_SELECT } } })
     : [];
-  const parts: PlayerPart[] = rows.map((p) => ({ id: p.id, view: partView(p.kind, p.file?.kind), body: p.body, bodyFormat: p.bodyFormat, url: p.url, file: p.file }));
+  const parts: PlayerPart[] = rows.map((p) => ({ id: p.id, view: partView(p.kind, p.file?.kind), body: p.body, bodyFormat: p.bodyFormat, url: p.url, file: p.file, kind: p.kind, data: p.data }));
+  // Lección larga (capítulos y piezas interactivas): su carta de «Mi energía» y el capítulo donde se quedó.
+  const long = parts.some((p) => isBlockKind(p.kind ?? ""));
+  const [ownProfile, view] = long
+    ? await Promise.all([
+        listBirthProfiles(course.creatorId, user.id).then((list) => list.find((p) => p.isOwn) ?? null),
+        current ? prisma.lessonView.findUnique({ where: { userId_lessonId: { userId: user.id, lessonId: current.id } }, select: { chapter: true } }) : null,
+      ])
+    : [null, null];
   const currentMeta = current ? meta.get(current.id)! : null;
   const ownerNote =
     isOwner && current && currentMeta
@@ -164,6 +175,16 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
               course={{ title: course.title, imageUrl: course.imageUrl }}
               personal={isPersonalMode()}
               lockedUntil={locked ? formatDate(locked, { day: "numeric", month: "long" }, tz) : null}
+              chapter={
+                long && current
+                  ? {
+                      profile: ownProfile ? { name: ownProfile.name, date: ownProfile.date, time: ownProfile.time, place: ownProfile.place } : null,
+                      energyHref: isPersonalMode() ? "/cuenta/mi-energia" : null,
+                      initialChapter: view?.chapter ?? 0,
+                      saveChapter: isOwner ? undefined : saveLessonChapter.bind(null, current.id),
+                    }
+                  : undefined
+              }
               notice={ownerNote ? <p className="mt-3 rounded-xl border border-[#ecdcb8] bg-[#fbf5e8] px-3 py-2 text-xs text-[#7a5a1c]">{ownerNote}</p> : null}
               footer={
                 <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-line pt-6">

@@ -526,7 +526,7 @@ model LessonPart {
   lessonId   String
   lesson     Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   sortOrder  Int          @default(0)
-  kind       String // TEXT | FILE | EMBED
+  kind       String // TEXT | FILE | EMBED | CHAPTER | MODEL | MYCHART | TODAY | QUIZ | GLOSSARY
   body       String? // TEXT
   bodyFormat String? // TEXT: null = texto de antes (párrafos) | "MD" = texto con formato (lib/rich-text.ts)
   // FILE: un archivo de los materiales del mismo curso. Cómo se ve lo decide ProductFile.kind
@@ -534,6 +534,8 @@ model LessonPart {
   fileId     String?
   file       ProductFile? @relation(fields: [fileId], references: [id], onDelete: Cascade)
   url        String? // EMBED: enlace de YouTube o Vimeo (https)
+  // CHAPTER, MODEL, MYCHART, TODAY, QUIZ, GLOSSARY: su contenido (lib/lesson-parts.ts → lessonPartSchema)
+  data       Json?
 
   @@index([creatorId, productId])
   @@index([lessonId, sortOrder])
@@ -567,6 +569,8 @@ model LessonView {
   count     Int      @default(1)
   firstAt   DateTime @default(now())
   lastAt    DateTime @default(now())
+  // Lecciones por capítulos: el último que abrió (0, 1, 2…), para seguir donde lo dejó.
+  chapter   Int?
 
   @@unique([userId, lessonId])
   @@index([creatorId, productId])

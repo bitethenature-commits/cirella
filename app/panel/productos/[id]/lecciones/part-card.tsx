@@ -3,7 +3,9 @@ import { AlertCircle, ArrowDown, ArrowUp, ExternalLink, Loader2, RotateCcw, X } 
 import { formatDuration, formatSize, MediaHealth } from "@/components/media/media-health";
 import { PART_ICON } from "@/components/media/part-icons";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
+import { BLOCK_LABEL, isBlockKind, type BlockPart } from "@/lib/lesson-blocks";
 import { LESSON_TEXT_MAX, PART_VIEW_LABEL, partView, type AddPartKind } from "@/lib/lesson-parts";
+import { BlockFields } from "./block-fields";
 import { videoEmbed } from "@/lib/video-embed";
 
 export type EditorFile = {
@@ -23,6 +25,7 @@ export type EditorPart =
   | { key: string; kind: "TEXT"; body: string; format: "MD" | null }
   | { key: string; kind: "FILE"; fileId: string }
   | { key: string; kind: "EMBED"; url: string }
+  | ({ key: string } & BlockPart)
   | { key: string; kind: "UPLOAD"; add: AddPartKind; name: string; pct: number; loaded: number; total: number; status: "queued" | "uploading" | "error"; error?: string };
 
 const iconBtn = "grid h-11 w-11 place-items-center rounded-xl text-muted hover:bg-sand hover:text-ink disabled:opacity-25";
@@ -52,6 +55,7 @@ function EmbedHint({ url }: { url: string }) {
 
 function headerLabel(part: EditorPart, file?: EditorFile) {
   if (part.kind === "UPLOAD") return "Subiendo";
+  if (isBlockKind(part.kind)) return BLOCK_LABEL[part.kind];
   if (part.kind === "EMBED") {
     const v = videoEmbed(part.url);
     return v ? (v.provider === "youtube" ? "Vídeo de YouTube" : "Vídeo de Vimeo") : "Enlace de vídeo";
@@ -84,7 +88,7 @@ export function PartCard({
   onMove: (dir: -1 | 1) => void;
   onRemove: () => void;
   /** Cambios parciales (se aplican sobre el estado más reciente: el editor de texto avisa de texto y formato a la vez). */
-  onPatch: (patch: { body?: string; format?: "MD" | null; url?: string }) => void;
+  onPatch: (patch: { body?: string; format?: "MD" | null; url?: string; data?: BlockPart["data"] }) => void;
   onCancel: () => void;
   onRetry: () => void;
   /** Cambia al recuperar un borrador: el editor de texto vuelve a empezar con su formato. */
@@ -190,6 +194,8 @@ export function PartCard({
             <EmbedHint url={part.url} />
           </div>
         )}
+
+        {isBlockKind(part.kind) && <BlockFields part={part as BlockPart} id={part.key} onChange={(data) => onPatch({ data })} />}
 
         {part.kind === "UPLOAD" && (
           <div aria-live="polite">

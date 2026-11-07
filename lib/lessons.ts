@@ -54,7 +54,7 @@ export type SaveLessonInput = {
 export const LESSON_LAST_PUBLISHED =
   "Es la única lección publicada de un curso publicado: tus alumnas se quedarían sin nada. Publica otra antes o pasa el curso a borrador.";
 
-type StoredPart = { kind: "TEXT" | "FILE" | "EMBED"; body: string | null; bodyFormat: string | null; fileId: string | null; url: string | null; fileKind?: string | null };
+type StoredPart = { kind: string; body: string | null; bodyFormat: string | null; fileId: string | null; url: string | null; fileKind?: string | null; data?: Prisma.InputJsonValue };
 
 export async function saveLessonWithParts(
   creatorId: string,
@@ -89,6 +89,8 @@ export async function saveLessonWithParts(
       return { kind: "TEXT", body: bodyFormat ? cleanRichInput(body, { creatorId, images: true }) : body, bodyFormat, fileId: null, url: null };
     }
     if (p.kind === "FILE") return { kind: "FILE", body: null, bodyFormat: null, fileId: p.fileId, url: null, fileKind: fileById.get(p.fileId)!.kind };
+    // Capítulos, modelo, «en tu carta», «hoy», repaso y glosario: su contenido, ya validado (lib/lesson-blocks.ts).
+    if (p.kind !== "EMBED") return { kind: p.kind, body: null, bodyFormat: null, fileId: null, url: null, data: p.data as unknown as Prisma.InputJsonValue };
     if (!videoEmbed(p.url)) warning = LESSON_EMBED_WARNING;
     return { kind: "EMBED", body: null, bodyFormat: null, fileId: null, url: p.url };
   });
@@ -121,7 +123,7 @@ export async function saveLessonWithParts(
       }
       if (parts.length)
         await tx.lessonPart.createMany({
-          data: parts.map((p, i) => ({ creatorId, productId, lessonId, sortOrder: i, kind: p.kind, body: p.body, bodyFormat: p.bodyFormat, fileId: p.fileId, url: p.url })),
+          data: parts.map((p, i) => ({ creatorId, productId, lessonId, sortOrder: i, kind: p.kind, body: p.body, bodyFormat: p.bodyFormat, fileId: p.fileId, url: p.url, data: p.data ?? Prisma.DbNull })),
         });
       const saved = await tx.lesson.findFirstOrThrow({ where: { id: lessonId, creatorId }, select: { version: true } });
       return { lessonId, productId, version: saved.version, created: !existing, warning };
@@ -157,7 +159,7 @@ export async function loadLessonEditor(creatorId: string, productId: string, les
             version: true,
             published: true,
             dripDays: true,
-            parts: { orderBy: { sortOrder: "asc" }, select: { kind: true, body: true, bodyFormat: true, fileId: true, url: true } },
+            parts: { orderBy: { sortOrder: "asc" }, select: { kind: true, body: true, bodyFormat: true, fileId: true, url: true, data: true } },
           },
         })
       : Promise.resolve(null),

@@ -9,27 +9,32 @@
  *             (VIDEO, AUDIO, PDF, IMAGE → visor; LINK, OTHER → botón), así nunca se contradicen;
  *   · EMBED → un enlace de YouTube o Vimeo (o, si no lo es, un botón «Abrir el vídeo»).
  *
+ * Y las de las lecciones largas (capítulos, modelo por partes, «en tu carta», «hoy», repaso y glosario),
+ * con su contenido en LessonPart.data: lib/lesson-blocks.ts.
+ *
  * Puro y seguro en el navegador (solo zod): lo usan el editor, el reproductor, la página pública,
  * lib/lessons.ts y las pruebas unitarias.
  */
 import { z } from "zod";
+import { BLOCK_KINDS, isBlockKind, parseBlock, type BlockPart } from "./lesson-blocks";
 import { parseTextFormat } from "./rich-text";
 import type { LessonKind } from "./types";
 
-export const LESSON_PART_KINDS = ["TEXT", "FILE", "EMBED"] as const;
+export const LESSON_PART_KINDS = ["TEXT", "FILE", "EMBED", ...BLOCK_KINDS] as const;
 export type LessonPartKind = (typeof LESSON_PART_KINDS)[number];
 
-export const MAX_LESSON_PARTS = 12;
+/** Una lección larga lleva muchos capítulos y piezas: hasta 120 partes. */
+export const MAX_LESSON_PARTS = 120;
 export const LESSON_TEXT_MAX = 20_000;
 /** Tope del JSON de las partes: deja el formulario bajo el bodySizeLimit de 2 MB (next.config) aun con caracteres de 3 bytes. */
-export const LESSON_PARTS_JSON_MAX = 400_000;
+export const LESSON_PARTS_JSON_MAX = 1_500_000;
 
 export const LESSON_PARTS_UNREADABLE = "No hemos podido leer el contenido de la lección. Recarga la página y vuelve a intentarlo.";
 export const LESSON_PARTS_TOO_MANY = `Una lección puede tener hasta ${MAX_LESSON_PARTS} partes`;
 export const LESSON_TEXT_TOO_LONG = "Cada texto de la lección admite hasta 20 000 caracteres";
 export const EMBED_URL_ERROR = "El enlace del vídeo debe empezar por https://";
 
-export type LessonPartInput = { kind: "TEXT"; body: string; format: "MD" | null | undefined } | { kind: "FILE"; fileId: string } | { kind: "EMBED"; url: string };
+export type LessonPartInput = { kind: "TEXT"; body: string; format: "MD" | null | undefined } | { kind: "FILE"; fileId: string } | { kind: "EMBED"; url: string } | BlockPart;
 
 export const lessonPartSchema: z.ZodType<LessonPartInput, z.ZodTypeDef, unknown> = z.discriminatedUnion("kind", [
   z.object({
@@ -58,6 +63,13 @@ export function parseLessonParts(raw: unknown): { ok: true; parts: LessonPartInp
   if (data.length > MAX_LESSON_PARTS) return { ok: false, error: LESSON_PARTS_TOO_MANY };
   const parts: LessonPartInput[] = [];
   for (const item of data) {
+    const k = (item as { kind?: unknown } | null)?.kind;
+    if (typeof k === "string" && isBlockKind(k)) {
+      const b = parseBlock(k, (item as { data?: unknown }).data);
+      if (!b.ok) return { ok: false, error: b.error };
+      parts.push(b.part);
+      continue;
+    }
     const r = lessonPartSchema.safeParse(item);
     if (!r.success) {
       const custom = r.error.issues.find((i) => i.message === LESSON_TEXT_TOO_LONG || i.message === EMBED_URL_ERROR || i.message.startsWith("El enlace"));
@@ -71,7 +83,7 @@ export function parseLessonParts(raw: unknown): { ok: true; parts: LessonPartInp
 
 // ───────────── Cómo se ve cada parte ─────────────
 
-export type PartView = "VIDEO" | "AUDIO" | "PDF" | "IMAGE" | "TEXT" | "EMBED" | "DOWNLOAD";
+export type PartView = "VIDEO" | "AUDIO" | "PDF" | "IMAGE" | "TEXT" | "EMBED" | "DOWNLOAD" | "BLOCK";
 
 export const PART_VIEW_LABEL: Record<PartView, string> = {
   VIDEO: "Vídeo",
@@ -81,6 +93,7 @@ export const PART_VIEW_LABEL: Record<PartView, string> = {
   TEXT: "Texto",
   EMBED: "Vídeo de YouTube o Vimeo",
   DOWNLOAD: "Archivo",
+  BLOCK: "Interactivo",
 };
 
 const FILE_VIEWS = new Set<PartView>(["VIDEO", "AUDIO", "PDF", "IMAGE"]);
@@ -89,6 +102,7 @@ const FILE_VIEWS = new Set<PartView>(["VIDEO", "AUDIO", "PDF", "IMAGE"]);
 export function partView(kind: string, fileKind?: string | null): PartView {
   if (kind === "TEXT") return "TEXT";
   if (kind === "EMBED") return "EMBED";
+  if (isBlockKind(kind)) return "BLOCK";
   return fileKind && FILE_VIEWS.has(fileKind as PartView) ? (fileKind as PartView) : "DOWNLOAD";
 }
 
@@ -96,6 +110,8 @@ export function partView(kind: string, fileKind?: string | null): PartView {
 export function lessonPartViews(parts: { kind: string; file?: { kind: string } | null }[]): PartView[] {
   const out: PartView[] = [];
   for (const p of parts) {
+    // Los capítulos y el glosario ordenan la lección: no son «contenido» que contar.
+    if (p.kind === "CHAPTER" || p.kind === "GLOSSARY") continue;
     let v = partView(p.kind, p.file?.kind);
     if (v === "EMBED") v = "VIDEO";
     if (!out.includes(v)) out.push(v);
@@ -103,7 +119,7 @@ export function lessonPartViews(parts: { kind: string; file?: { kind: string } |
   return out;
 }
 
-const LABEL_WORD: Record<PartView, string> = { VIDEO: "vídeo", AUDIO: "audio", PDF: "PDF", IMAGE: "imagen", TEXT: "texto", EMBED: "vídeo", DOWNLOAD: "archivo" };
+const LABEL_WORD: Record<PartView, string> = { VIDEO: "vídeo", AUDIO: "audio", PDF: "PDF", IMAGE: "imagen", TEXT: "texto", EMBED: "vídeo", DOWNLOAD: "archivo", BLOCK: "interactivo" };
 
 /** «Vídeo + texto + PDF»; solo texto → «Lectura» (como siempre); sin partes → "". */
 export function partsLabel(views: PartView[]): string {

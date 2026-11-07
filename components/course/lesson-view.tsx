@@ -1,5 +1,7 @@
 import { Lock } from "lucide-react";
+import { isBlockKind } from "@/lib/lesson-blocks";
 import { splitLead } from "@/lib/lesson-parts";
+import { ChapterLesson, type ChapterContext } from "./chapter-lesson";
 import { LeadPart, LessonParts, type PlayerPart } from "./lesson-parts";
 
 export type LessonViewData = {
@@ -28,6 +30,7 @@ export function LessonView({
   lockedUntil,
   notice,
   footer,
+  chapter,
 }: {
   lesson: LessonViewData;
   parts: PlayerPart[];
@@ -36,8 +39,12 @@ export function LessonView({
   lockedUntil?: string | null;
   notice?: React.ReactNode;
   footer?: React.ReactNode;
+  /** Lecciones largas (capítulos y piezas interactivas): la carta de la alumna y dónde se quedó. */
+  chapter?: ChapterContext;
 }) {
   const { lead, rest } = lockedUntil ? { lead: null, rest: [] } : splitLead(parts);
+  // Con capítulos o piezas interactivas, la lección larga (components/course/chapter-lesson.tsx).
+  const long = parts.some((p) => p.kind && isBlockKind(p.kind));
   return (
     <>
       {lead && (
@@ -66,6 +73,15 @@ export function LessonView({
               <p className="mt-1 text-sm text-muted">El curso se va abriendo poco a poco desde que te apuntaste. Te esperamos ese día.</p>
             </div>
           </div>
+        ) : parts.length && long ? (
+          <ChapterLesson
+            parts={rest}
+            lessonTitle={lesson.title}
+            courseTitle={course.title}
+            poster={course.imageUrl}
+            personal={personal}
+            ctx={chapter ?? { profile: null, energyHref: null, initialChapter: 0 }}
+          />
         ) : parts.length ? (
           <LessonParts parts={rest} lessonTitle={lesson.title} courseTitle={course.title} poster={course.imageUrl} personal={personal} />
         ) : (

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CalendarClock, Eye, FileText, Headphones, Image as ImageIcon, Loader2, Paperclip, PlayCircle, Trash2, Type } from "lucide-react";
+import { ArrowLeft, CalendarClock, Eye, FileText, Headphones, Image as ImageIcon, Loader2, Paperclip, PlayCircle, Sparkles, Trash2, Type } from "lucide-react";
 import { startTransition, useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { Flash } from "@/components/ui/flash";
@@ -9,6 +9,7 @@ import type { UploadedFile } from "@/components/ui/upload-client";
 import { LessonPreviewColumn, LessonPreviewSheet, type LessonPreviewContext } from "@/app/panel/cursos/[id]/lecciones/lesson-preview";
 import { dripDayFor, dripDayLabel, type DripSettings } from "@/lib/course-drip";
 import { MAX_LESSON_PARTS, suggestedLessonMinutes, type AddPartKind } from "@/lib/lesson-parts";
+import { BLOCK_KINDS, BLOCK_LABEL, emptyBlock, isBlockKind, parseBlock, type BlockKind, type BlockPart } from "@/lib/lesson-blocks";
 import { deleteLesson, saveLesson, type LessonActionState } from "../../actions";
 import { AddPartSheet } from "./add-part-sheet";
 import { PartCard, type EditorFile, type EditorPart } from "./part-card";
@@ -27,12 +28,20 @@ export type EditorLesson = {
   dripDays: number | null;
 };
 
-type Serial = { kind: "TEXT"; body: string; format: string } | { kind: "FILE"; fileId: string } | { kind: "EMBED"; url: string };
+type Serial = { kind: "TEXT"; body: string; format: string } | { kind: "FILE"; fileId: string } | { kind: "EMBED"; url: string } | BlockPart;
 
 /** Lo que se envía y se guarda en el borrador (las subidas en curso no). */
 function serialParts(parts: EditorPart[]): Serial[] {
   return parts.flatMap((p): Serial[] =>
-    p.kind === "TEXT" ? [{ kind: "TEXT", body: p.body, format: p.format ?? "" }] : p.kind === "FILE" ? [{ kind: "FILE", fileId: p.fileId }] : p.kind === "EMBED" ? [{ kind: "EMBED", url: p.url }] : [],
+    p.kind === "TEXT"
+      ? [{ kind: "TEXT", body: p.body, format: p.format ?? "" }]
+      : p.kind === "FILE"
+        ? [{ kind: "FILE", fileId: p.fileId }]
+        : p.kind === "EMBED"
+          ? [{ kind: "EMBED", url: p.url }]
+          : isBlockKind(p.kind)
+            ? [{ kind: p.kind, data: (p as BlockPart).data } as BlockPart]
+            : [],
   );
 }
 
@@ -44,6 +53,10 @@ function fromSerial(parts: unknown[]): EditorPart[] {
       return [{ key, kind: "TEXT", body: (p as { body: string }).body, format: (p as { format?: string }).format === "MD" ? "MD" : null }];
     if (p.kind === "FILE" && typeof (p as { fileId?: unknown }).fileId === "string") return [{ key, kind: "FILE", fileId: (p as { fileId: string }).fileId }];
     if (p.kind === "EMBED" && typeof (p as { url?: unknown }).url === "string") return [{ key, kind: "EMBED", url: (p as { url: string }).url }];
+    if (p.kind && isBlockKind(p.kind)) {
+      const b = parseBlock(p.kind, (p as { data?: unknown }).data);
+      return [{ key, ...(b.ok ? b.part : emptyBlock(p.kind)) }];
+    }
     return [];
   });
 }
@@ -433,6 +446,15 @@ export function LessonEditor({
               <button type="button" className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-muted hover:text-ink" onClick={() => setSheet("OTHER")}>
                 <Paperclip className="h-4 w-4" /> Otro archivo (ZIP, EPUB o enlace)
               </button>
+              <p className="mb-2 mt-4 text-sm font-semibold">Para lecciones largas</p>
+              <p className="mb-2 text-xs text-muted">Divide la lección en capítulos y añade piezas interactivas: la carta por partes, el planeta en la carta de cada alumna, el cielo de hoy, un repaso y un glosario.</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {BLOCK_KINDS.map((k: BlockKind) => (
+                  <button key={k} type="button" className="btn btn-outline h-12 justify-center" onClick={() => add([{ key: newKey(), ...emptyBlock(k) }])}>
+                    <Sparkles className="h-4 w-4" /> {BLOCK_LABEL[k]}
+                  </button>
+                ))}
+              </div>
             </>
           ) : (
             <p className="text-sm text-muted">Una lección puede tener hasta {MAX_LESSON_PARTS} partes. Para más, crea otra lección.</p>

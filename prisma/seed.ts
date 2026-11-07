@@ -54,6 +54,7 @@ import { moonPhasesBetween } from "../lib/astro-calendar";
 import { ANA_AVAILABILITY, DEMO_TZ, demoPurchaseDaysAgo, demoSchedule } from "./demo-dates";
 import { demoSaleFields } from "./demo-sales";
 import { seedDemoStudent } from "./demo-student";
+import { seedMarsLesson } from "./demo-lesson-mars";
 
 const prisma = new PrismaClient();
 const STORAGE = path.resolve(process.cwd(), storageDir());
@@ -1985,6 +1986,8 @@ async function main() {
 
   // Elena: la alumna con un poco de todo (cursos, lectura, sesión, círculos y la membresía Esencia).
   await seedDemoStudent(prisma, { creatorId: ana.id, ownerUserId: anaUser.id, passwordHash: password, timezone: TZ, now: NOW });
+  // La lección larga de ejemplo (capítulos y la carta por partes): «Marte, tu fuerza».
+  await seedMarsLesson(prisma, ana.id);
 
   const counts = {
     usuarios: await prisma.user.count(),

@@ -12,6 +12,9 @@ export type PlayerPart = {
   bodyFormat: string | null;
   url: string | null;
   file: MediaFile | null;
+  /** Tipo guardado (TEXT, FILE, EMBED o una parte de lección larga: lib/lesson-blocks.ts) y su contenido. */
+  kind?: string;
+  data?: unknown;
 };
 
 /** Fila «Descargar» bajo un audio o un PDF (para escucharlo sin conexión o imprimirlo). */

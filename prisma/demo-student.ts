@@ -6,7 +6,8 @@
  *   · una lectura que prepara Ana («Lectura de tu año»), ya entregada con su mensaje;
  *   · una sesión 1:1 con fecha dentro de unos días;
  *   · los próximos círculos de la luna, cada uno por separado;
- *   · la membresía más barata (Esencia), con sus textos.
+ *   · la membresía más barata (Esencia), con sus textos;
+ *   · sus datos de nacimiento en «Mi energía» (para «Tu Marte» de la lección larga de ejemplo).
  * Idempotente: si Elena ya existe no hace nada. Lo usan prisma/seed.ts y, para una BD ya sembrada,
  * scripts/add-demo-student.ts.
  */
@@ -122,5 +123,17 @@ export async function seedDemoStudent(
 
   // La membresía más barata (Esencia): ve sus textos.
   await give(MEMBERSHIP, ago(20));
+  await addDemoStudentProfile(prisma, o.creatorId, user.id, joinedAt);
   return user.id;
+}
+
+/** Sus datos de nacimiento en «Mi energía» (Sevilla, 14 de julio de 1990, 08:30). Si ya los tiene, nada. */
+export async function addDemoStudentProfile(prisma: PrismaClient, creatorId: string, userId: string, at = new Date()) {
+  if (await prisma.birthProfile.findFirst({ where: { creatorId, userId, isOwn: true }, select: { id: true } })) return;
+  await prisma.birthProfile.create({
+    data: {
+      creatorId, userId, name: "Elena", relation: "yo", isOwn: true, birthDate: "1990-07-14", birthTime: "08:30",
+      placeName: "Sevilla", placeDetail: "Andalucía, España", lat: 37.3891, lon: -5.9845, tz: "Europe/Madrid", consentAt: at, createdAt: at,
+    },
+  });
 }
