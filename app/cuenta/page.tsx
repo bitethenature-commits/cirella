@@ -10,7 +10,7 @@ import { capitalize, formatSessionDate, formatDate } from "@/lib/tz";
 import { getPublicCreator } from "@/lib/public";
 import { ownerUsername } from "@/lib/site-mode";
 import { freeMemberships } from "./free-memberships";
-import { CreatorTag, Progress, SectionHeader, Thumb, UserAvatar } from "./ui";
+import { MethodTag, Progress, SectionHeader, Thumb, UserAvatar } from "./ui";
 import { WelcomeCard } from "./welcome-card";
 
 /** Web personal sin nada aún: hasta 3 productos de la dueña (lo gratis primero) para empezar. */
@@ -89,7 +89,7 @@ export default async function AccountHome({ searchParams }: { searchParams: Prom
                   <img src={c.product.imageUrl} alt="" className="aspect-[16/7] w-full object-cover" />
                 )}
                 <div className="p-5">
-                  <CreatorTag name={c.creator.displayName} avatarUrl={c.creator.avatarUrl} />
+                  <MethodTag product={c.product} />
                   <p className="display mt-2 text-[1.6rem] leading-tight">{c.product.title}</p>
                   <div className="mt-4 flex items-center gap-3">
                     <Progress value={c.percent} />
@@ -126,7 +126,7 @@ export default async function AccountHome({ searchParams }: { searchParams: Prom
                   <p className="text-sm text-muted">
                     {b.startAt ? capitalize(formatSessionDate(b.startAt, b.creatorBrief.timezone, false)) : "Pendiente de elegir fecha"}
                   </p>
-                  <CreatorTag name={b.creatorBrief.displayName} avatarUrl={b.creatorBrief.avatarUrl} />
+                  <MethodTag product={b.product} />
                 </div>
                 <Link href={`/cuenta/sesiones/${b.id}`} className={`btn btn-sm shrink-0 ${b.startAt ? "btn-outline" : "btn-primary"}`}>
                   {b.startAt ? "Ver detalles" : "Elegir fecha"}
@@ -182,7 +182,7 @@ export default async function AccountHome({ searchParams }: { searchParams: Prom
                   <Thumb src={d.product.imageUrl} emoji={d.product.emoji} className="h-14 w-14" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold">{d.product.title}</p>
-                    <CreatorTag name={d.creator.displayName} avatarUrl={d.creator.avatarUrl} />
+                    <MethodTag product={d.product} />
                   </div>
                 </div>
                 {d.files.length > 0 && (

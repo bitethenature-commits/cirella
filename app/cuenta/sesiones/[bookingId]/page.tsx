@@ -15,7 +15,7 @@ import { intakeLocked } from "@/lib/intake-lock";
 import { meetingLabel } from "@/lib/meeting-url";
 import { tzCity } from "@/lib/timezones";
 import { saveIntake } from "../../actions";
-import { CreatorTag, Thumb } from "../../ui";
+import { MethodTag, Thumb } from "../../ui";
 import { Scheduler } from "./scheduler";
 import { SESSION_CHANGE_NOTICE_HOURS } from "@/lib/legal";
 
@@ -57,7 +57,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ book
       <div className="mt-5 flex items-center gap-4">
         <Thumb src={b.product.imageUrl} emoji={b.product.emoji} className="h-16 w-16" />
         <div>
-          <CreatorTag name={c.displayName} avatarUrl={c.avatarUrl} />
+          <MethodTag product={b.product} />
           <h1 className="display text-[2.2rem] leading-tight">{b.product.title}</h1>
         </div>
       </div>

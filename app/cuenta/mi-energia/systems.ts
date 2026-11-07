@@ -3,10 +3,10 @@
  * por su id (nunca la fecha ni el lugar en la dirección).
  */
 export const ENERGY_SYSTEMS = [
-  { slug: "astrologia", label: "Astrología", glyph: "☉", blurb: "Tu carta natal y los tránsitos de hoy" },
-  { slug: "diseno-humano", label: "Human Design", glyph: "◇", blurb: "Tu bodygraph y las puertas del día" },
-  { slug: "gene-keys", label: "Gene Keys", glyph: "✧", blurb: "Tu perfil y la llave del día" },
-  { slug: "luna", label: "Luna", glyph: "☽", blurb: "Tu luna natal y la de hoy" },
+  { slug: "astrologia", label: "Astrología", blurb: "Tu carta natal y los tránsitos de hoy" },
+  { slug: "diseno-humano", label: "Human Design", blurb: "Tu bodygraph y las puertas del día" },
+  { slug: "gene-keys", label: "Gene Keys", blurb: "Tu perfil y la llave del día" },
+  { slug: "luna", label: "Luna", blurb: "Tu luna natal y la de hoy" },
 ] as const;
 export type EnergySystemSlug = (typeof ENERGY_SYSTEMS)[number]["slug"];
 

@@ -53,6 +53,7 @@ import { addMonthsToKey } from "../lib/access-end";
 import { moonPhasesBetween } from "../lib/astro-calendar";
 import { ANA_AVAILABILITY, DEMO_TZ, demoPurchaseDaysAgo, demoSchedule } from "./demo-dates";
 import { demoSaleFields } from "./demo-sales";
+import { seedDemoStudent } from "./demo-student";
 
 const prisma = new PrismaClient();
 const STORAGE = path.resolve(process.cwd(), storageDir());
@@ -1982,6 +1983,9 @@ async function main() {
   });
   await prisma.creator.update({ where: { id: ana.id }, data: { creditCents: 2900 } });
 
+  // Elena: la alumna con un poco de todo (cursos, lectura, sesión, círculos y la membresía Esencia).
+  await seedDemoStudent(prisma, { creatorId: ana.id, ownerUserId: anaUser.id, passwordHash: password, timezone: TZ, now: NOW });
+
   const counts = {
     usuarios: await prisma.user.count(),
     creadoras: await prisma.creator.count(),
@@ -1995,7 +1999,7 @@ async function main() {
     perfilesNacimiento: await prisma.birthProfile.count(),
   };
   console.log("✓ Listo:", counts);
-  console.log("  Cuentas demo (contraseña demo1234): ana@cirella.app · laura@example.com · admin@cirella.app");
+  console.log("  Cuentas demo (contraseña demo1234): ana@cirella.app · laura@example.com · elena@example.com · admin@cirella.app");
 }
 
 main()

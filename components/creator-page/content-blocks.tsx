@@ -13,6 +13,8 @@ import { MODEL_LABEL, hasQuickVersion, isOwnImageSrc, isOwnVideoSrc, type Conten
 import { safeHref } from "@/lib/page-config";
 import { videoEmbed } from "@/lib/video-embed";
 import { PageVideo } from "./page-video";
+import { OracleIcon } from "./oracle-icon";
+import { RuneIcon } from "./rune-icon";
 import { knownSystemIcon, SystemIconMark } from "./system-icon";
 import { VideoFacade } from "./video-facade";
 import type { PublicProduct } from "./creator-page-view";
@@ -374,12 +376,14 @@ export function ContentBlocks({
               );
           {
             const quick = !!b.quick && hasQuickVersion(b.model);
+            // El oráculo y las runas llevan su propio icono (la carta y la piedra); los demás, el del método.
+            const titleIcon = !modelIcon ? undefined : b.model === "oracle" ? OracleIcon : b.model === "runes" ? RuneIcon : modelIcon;
             const box = (
               <section key={b.id} className="cp-card p-5 sm:p-7" data-block="model" data-model={b.model} data-quick={quick ? "" : undefined} aria-label={b.title || MODEL_LABEL[b.model]}>
                 {b.title &&
-                  (modelIcon ? (
+                  (titleIcon ? (
                     <div className="flex items-center gap-3">
-                      <SystemIconMark icon={modelIcon} scale={0.75} />
+                      <SystemIconMark icon={titleIcon} scale={0.75} />
                       {title(b.title)}
                     </div>
                   ) : (

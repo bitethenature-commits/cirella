@@ -239,7 +239,8 @@ export function RunesModel() {
     );
   }
 
-  return <ModelFrame toolbar={toolbar} diagram={diagram} legend={legend} panel={panel} />;
+  // El futhark va al final, debajo de la explicación: lo que ha salido en la tirada se lee justo debajo de las piedras.
+  return <ModelFrame toolbar={toolbar} diagram={diagram} panel={panel} footer={legend} />;
 }
 
 function RuneHeader({ rune, reversed, kicker }: { rune: Rune; reversed: boolean; kicker: string }) {

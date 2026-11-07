@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { CategoryIcons } from "@/components/creator-page/category-icons";
+import { courseCategoriesLabel, courseCategoriesOf, type CourseCategory } from "@/lib/course-categories";
 
 export function SectionHeader({ title, href, count }: { title: string; href?: string; count?: number }) {
   return (
@@ -31,6 +33,34 @@ export function Thumb({ src, emoji, className = "h-16 w-16" }: { src: string | n
     <img src={src} alt="" className={`${className} shrink-0 rounded-xl object-cover`} />
   ) : (
     <div className={`${className} grid shrink-0 place-items-center rounded-xl bg-gradient-to-br from-ink-2 to-lavender-deep text-2xl`}>{emoji ?? "✦"}</div>
+  );
+}
+
+/** El tema de un producto que no lo tiene guardado (sesiones y lecturas), por su título. */
+function categoryFromTitle(title: string): CourseCategory | null {
+  const t = title.toLowerCase();
+  if (t.includes("human")) return "HUMAN_DESIGN";
+  if (t.includes("gene")) return "GENE_KEYS";
+  if (t.includes("astrolog") || t.includes("carta")) return "ASTROLOGIA";
+  if (t.includes("luna")) return "LUNA";
+  if (t.includes("energ")) return "MI_ENERGIA";
+  return null;
+}
+
+/**
+ * El método y sistema de un curso, una sesión o una lectura: sus iconos dorados y su nombre
+ * («Astrología + Mi energía»). Un curso usa sus temas; una sesión o una lectura, el de su título. Sin
+ * tema (una sesión 1:1, una lectura de tu año), solo las estrellas.
+ */
+export function MethodTag({ product }: { product: { title: string; courseCategory?: string | null } }) {
+  const saved = courseCategoriesOf(product.courseCategory);
+  const guessed = saved.length ? saved : [categoryFromTitle(product.title)].filter((c): c is CourseCategory => !!c);
+  const categories: CourseCategory[] = guessed.length ? guessed : ["ESPECIAL"];
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+      <CategoryIcons categories={categories} size={1.2} className="text-gold" gap={0.2} />
+      {guessed.length > 0 && <span>{courseCategoriesLabel(guessed)}</span>}
+    </span>
   );
 }
 

@@ -7,14 +7,13 @@ import { OnePlayerAtATime } from "@/components/media/one-player-at-a-time";
 import { markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
 import { enrolledAt, recordLessonView } from "@/lib/course-access";
 import { dripDayFor, dripDayLabel, lessonLocks, readDrip } from "@/lib/course-drip";
-import { creatorBrief } from "@/lib/customer";
 import { accessSource } from "@/lib/membership-access";
 import { prisma } from "@/lib/db";
 import { lessonPartViews, partsLabel, partView } from "@/lib/lesson-parts";
 import { LESSON_PART_FILE_SELECT } from "@/lib/lessons";
 import { isPersonalMode } from "@/lib/site-mode";
 import { formatDate } from "@/lib/tz";
-import { CreatorTag, Progress } from "../../ui";
+import { MethodTag, Progress } from "../../ui";
 import { CompleteButton } from "./complete-button";
 import { CourseOutline, type OutlineModule } from "./course-outline";
 
@@ -94,7 +93,6 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
     await markFirstAccess(user.id, source?.productId ?? productId);
     await recordLessonView({ userId: user.id, lessonId: current.id, productId, creatorId: course.creatorId });
   }
-  const creator = creatorBrief(course.creator);
   const base = `/cuenta/cursos/${productId}`;
 
   // La lección que se ve: sus partes, en orden, con lo necesario para cada visor (nada si está cerrada).
@@ -130,7 +128,7 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
         </Link>
       )}
       <div className="mt-4 flex flex-col gap-1">
-        <CreatorTag name={creator.displayName} avatarUrl={creator.avatarUrl} />
+        <MethodTag product={course} />
         <h1 className="display text-[2.2rem] leading-tight sm:text-[2.8rem]">{course.title}</h1>
         {source?.via && (
           <p className="text-sm text-muted">

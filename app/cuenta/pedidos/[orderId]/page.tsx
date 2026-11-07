@@ -19,7 +19,7 @@ import { RichContent } from "@/components/rich-text/rich-content";
 import { asksIntake, intakeMissing, readIntakeAnswers, readIntakeConfig } from "@/lib/intake";
 import { intakeLocked } from "@/lib/intake-lock";
 import { saveIntake } from "../../actions";
-import { CreatorTag, Thumb } from "../../ui";
+import { MethodTag, Thumb } from "../../ui";
 
 /** Archivos que se pueden ver en la web (visor de /cuenta/archivos/[fileId]). */
 const VIEWABLE = new Set(["PDF", "IMAGE", "AUDIO", "VIDEO"]);
@@ -80,7 +80,7 @@ export default async function OrderPage({ params }: { params: Promise<{ orderId:
       <div className="mt-5 flex items-center gap-4">
         <Thumb src={order.product.imageUrl} emoji={order.product.emoji} className="h-16 w-16" />
         <div className="min-w-0">
-          <CreatorTag name={c.displayName} avatarUrl={c.avatarUrl} />
+          <MethodTag product={{ title: order.productTitle, courseCategory: order.product.courseCategory }} />
           <h1 className="display text-[2.2rem] leading-tight">{order.productTitle}</h1>
         </div>
       </div>

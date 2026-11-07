@@ -3,7 +3,7 @@ import { ArrowRight, BookOpen } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty";
 import { requireBuyerFull } from "@/lib/buyer-access";
 import { getCustomerLibrary } from "@/lib/customer";
-import { CreatorTag, Progress } from "../ui";
+import { MethodTag, Progress } from "../ui";
 
 export default async function MyCourses() {
   const user = await requireBuyerFull("/cuenta/cursos");
@@ -19,7 +19,7 @@ export default async function MyCourses() {
               <img src={c.product.imageUrl} alt="" className="aspect-[16/8] w-full object-cover" />
             )}
             <div className="p-5">
-              <CreatorTag name={c.creator.displayName} avatarUrl={c.creator.avatarUrl} />
+              <MethodTag product={c.product} />
               <p className="display mt-2 text-[1.6rem] leading-tight">{c.product.title}</p>
               {c.via && <p className="mt-1 text-xs text-muted">Incluido en «{c.via.title}» mientras tu membresía esté activa</p>}
               <div className="mt-4 flex items-center gap-3">

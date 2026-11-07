@@ -3,8 +3,16 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
 import { ArrowLeft, ChevronDown, Pencil, Plus, Search, Trash2, UserRound } from "lucide-react";
+import { AstrologyIcon } from "@/components/creator-page/astrology-icon";
+import { EnergyIcon } from "@/components/creator-page/energy-icon";
+import { GeneKeysIcon } from "@/components/creator-page/gene-keys-icon";
+import { HumanDesignIcon } from "@/components/creator-page/human-design-icon";
+import { MoonIcon } from "@/components/creator-page/moon-icon";
+import { OracleIcon } from "@/components/creator-page/oracle-icon";
+import { RuneIcon } from "@/components/creator-page/rune-icon";
+import { SystemIconMark } from "@/components/creator-page/system-icon";
 import { BirthProfileEditor } from "@/components/models/birth-profile-editor";
 import type { OracleDeckView } from "@/components/models/data/oracle";
 import type { BirthProfile, ComputedProfile } from "@/lib/birth-profile";
@@ -37,6 +45,10 @@ const OracleModel = dynamic(() => import("@/components/models/oracle-model").the
 const RunesModel = dynamic(() => import("@/components/models/runes-model").then((m) => m.RunesModel), { ssr: false, loading: () => <Loading label="Cargando las runas…" /> });
 
 type Energy = { computed: ComputedProfile; today: EnergyToday; synthesis: EnergySynthesis };
+
+type Icon = ComponentType<SVGProps<SVGSVGElement>>;
+/** El icono de cada sistema, el mismo que en la portada y en su página. */
+const SYSTEM_ICON: Record<EnergySystemSlug, Icon> = { astrologia: AstrologyIcon, "diseno-humano": HumanDesignIcon, "gene-keys": GeneKeysIcon, luna: MoonIcon };
 
 /** El perfil calculado y su energía de hoy (las efemérides se descargan solo aquí). */
 function useEnergy(profile: BirthProfile | null): Energy | null {
@@ -122,8 +134,8 @@ export function EnergyViewClient({ view, profiles, selectedId, decks }: { view: 
         <>
           {/* 2 · Oráculo y Runas */}
           <section aria-label="Oráculo y runas" className="flex justify-center gap-8 sm:gap-12">
-            <Bubble href={energyHref("oraculo", selected?.id)} label="Oráculo" glyph="✶" />
-            <Bubble href={energyHref("runas", selected?.id)} label="Runas" glyph="ᚱ" />
+            <Bubble href={energyHref("oraculo", selected?.id)} label="Oráculo" icon={OracleIcon} />
+            <Bubble href={energyHref("runas", selected?.id)} label="Runas" icon={RuneIcon} />
           </section>
 
           {/* 3 · Los cuatro sistemas */}
@@ -137,7 +149,7 @@ export function EnergyViewClient({ view, profiles, selectedId, decks }: { view: 
                   <SystemCard
                     slug={s.slug}
                     label={s.label}
-                    glyph={s.glyph}
+                    icon={SYSTEM_ICON[s.slug]}
                     blurb={s.blurb}
                     hint={selected ? systemHint(s.slug, energy) : null}
                     href={energyHref(s.slug, selected?.id)}
@@ -161,8 +173,9 @@ export function EnergyViewClient({ view, profiles, selectedId, decks }: { view: 
                 key={s.slug}
                 href={energyHref(s.slug, selected.id)}
                 aria-current={s.slug === system.slug ? "page" : undefined}
-                className={`shrink-0 rounded-full border px-3.5 py-2 text-[0.82rem] transition ${s.slug === system.slug ? "border-[var(--c-gold)] bg-[color-mix(in_oklab,var(--c-gold)_14%,transparent)]" : "cp-line cp-muted"}`}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-[0.82rem] transition ${s.slug === system.slug ? "border-[var(--c-gold)] bg-[color-mix(in_oklab,var(--c-gold)_14%,transparent)]" : "cp-line cp-muted"}`}
               >
+                <SystemIconMark icon={SYSTEM_ICON[s.slug]} scale={0.42} />
                 {s.label}
               </Link>
             ))}
@@ -342,11 +355,11 @@ function PersonPicker({ profiles, selected, onPick, onAdd }: { profiles: SavedBi
  *  Burbujas, sistemas y herramientas
  * -------------------------------------------------------------------------- */
 
-function Bubble({ href, label, glyph }: { href: string; label: string; glyph: string }) {
+function Bubble({ href, label, icon: Icon }: { href: string; label: string; icon: Icon }) {
   return (
     <Link href={href} className="group flex flex-col items-center gap-2 text-center">
       <span
-        className="grid h-24 w-24 place-items-center rounded-full border text-[2.2rem] transition group-hover:scale-[1.04] group-active:scale-[0.98] sm:h-28 sm:w-28"
+        className="grid h-24 w-24 place-items-center rounded-full border transition group-hover:scale-[1.04] group-active:scale-[0.98] sm:h-28 sm:w-28"
         style={{
           borderColor: "color-mix(in oklab, var(--c-gold) 45%, transparent)",
           background: "radial-gradient(circle at 35% 30%, color-mix(in oklab, var(--c-gold) 22%, var(--c-bg)), color-mix(in oklab, var(--c-text) 6%, var(--c-bg)) 70%)",
@@ -354,20 +367,20 @@ function Bubble({ href, label, glyph }: { href: string; label: string; glyph: st
         }}
         aria-hidden
       >
-        <span className="cp-gold">{glyph}︎</span>
+        <Icon className="cp-gold h-12 w-12 sm:h-14 sm:w-14" strokeWidth={1.1} />
       </span>
       <span className="cp-display text-[1.15rem]">{label}</span>
     </Link>
   );
 }
 
-function SystemCard({ label, glyph, blurb, hint, href, disabled }: { slug: string; label: string; glyph: string; blurb: string; hint: string | null; href: string; disabled: boolean }) {
+function SystemCard({ label, icon, blurb, hint, href, disabled }: { slug: string; label: string; icon: Icon; blurb: string; hint: string | null; href: string; disabled: boolean }) {
   const body = (
     <>
-      <span className="cp-gold text-[1.6rem] leading-none" aria-hidden>
-        {glyph}︎
+      <span className="flex items-center gap-2.5">
+        <SystemIconMark icon={icon} scale={0.7} />
+        <span className="cp-display block text-[1.2rem] leading-tight">{label}</span>
       </span>
-      <span className="cp-display mt-2 block text-[1.2rem] leading-tight">{label}</span>
       <span className="cp-muted mt-1 block text-[0.78rem] leading-snug">{hint ?? blurb}</span>
     </>
   );
@@ -433,18 +446,22 @@ function TodayFrame({ title = "Tu energía de hoy", at, children }: { title?: st
   return (
     <section aria-labelledby="hoy" className="cp-card p-5 sm:p-6">
       <p className="cp-eyebrow !text-[0.6rem]">{at ? todayLabel(at) : "Hoy"}</p>
-      <h2 id="hoy" className="cp-display mt-1 text-[1.7rem] leading-tight">
-        {title}
+      <h2 id="hoy" className="cp-display mt-1 flex items-center gap-3 text-[1.7rem] leading-tight">
+        <SystemIconMark icon={EnergyIcon} scale={0.8} />
+        <span>{title}</span>
       </h2>
       <div className="mt-4 space-y-4 text-[0.92rem] leading-relaxed">{children}</div>
     </section>
   );
 }
 
-function Block({ label, children }: { label: string; children: ReactNode }) {
+function Block({ label, icon, children }: { label: string; icon?: Icon; children: ReactNode }) {
   return (
     <div className="border-l-2 pl-3" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 55%, transparent)" }}>
-      <p className="cp-eyebrow !text-[0.58rem]">{label}</p>
+      <p className="cp-eyebrow flex items-center gap-1.5 !text-[0.58rem]">
+        {icon && <SystemIconMark icon={icon} scale={0.38} />}
+        {label}
+      </p>
       <div className="mt-1 space-y-1.5">{children}</div>
     </div>
   );
@@ -461,7 +478,7 @@ function CombinedToday({ energy, name, profileId }: { energy: Energy | null; nam
   return (
     <TodayFrame at={energy.today.at} title={name ? `La energía de hoy para ${name}` : "Tu energía de hoy"}>
       {s.lines.map((l) => (
-        <Block key={l.system} label={l.label}>
+        <Block key={l.system} label={l.label} icon={SYSTEM_ICON[l.system]}>
           <p>{l.text}</p>
           <Link href={energyHref(l.system, profileId)} className="cp-gold text-[0.8rem] underline decoration-dotted underline-offset-4">
             Ver más
