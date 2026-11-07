@@ -169,7 +169,7 @@ export function EnergyViewClient({ view, profiles, selectedId, decks }: { view: 
           </nav>
           <section aria-label={system.label}>
             {system.slug === "astrologia" && <ChartModel profile={selected} ownForm={false} />}
-            {system.slug === "diseno-humano" && (energy ? <BodygraphModel computed={energy.computed} /> : <Loading />)}
+            {system.slug === "diseno-humano" && (energy ? <BodygraphModel computed={energy.computed} planets /> : <Loading />)}
             {system.slug === "gene-keys" && (energy ? <GeneKeysModel computed={energy.computed} /> : <Loading />)}
             {system.slug === "luna" && <LunarModel profile={selected} ownForm={false} />}
           </section>

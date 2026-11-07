@@ -55,7 +55,13 @@ const PATHS = [...CHANNEL_PATHS]
   .sort((p, q) => (p.z ?? 0) - (q.z ?? 0))
   .map((p) => ({ ...p, channel: CHANNEL_BY_KEY.get(p.key)! }));
 
-export function BodygraphModel({ profile, computed, compact = false }: { profile?: BirthProfile; computed?: ComputedProfile; compact?: boolean } = {}) {
+/** `planets`: con la carta de la persona, las columnas de planetas a cada lado (solo en «Mi energía»). */
+export function BodygraphModel({
+  profile,
+  computed,
+  compact = false,
+  planets = false,
+}: { profile?: BirthProfile; computed?: ComputedProfile; compact?: boolean; planets?: boolean } = {}) {
   const { result, pending } = useComputedProfile(profile, computed);
   if (pending)
     return (
@@ -63,10 +69,40 @@ export function BodygraphModel({ profile, computed, compact = false }: { profile
         <span className="cp-faint text-[0.85rem]">Calculando…</span>
       </div>
     );
-  return <BodygraphView hd={result?.humanDesign ?? null} person={result?.profile} compact={compact} />;
+  return <BodygraphView hd={result?.humanDesign ?? null} person={result?.profile} compact={compact} planets={planets} />;
 }
 
-function BodygraphView({ hd, person, compact }: { hd: HumanDesign | null; person?: BirthProfile; compact?: boolean }) {
+/** Una columna de activaciones: el planeta (símbolo) y su puerta.línea, en el color de su lado. */
+function PlanetColumn({ hd, side, onPick }: { hd: HumanDesign; side: Side; onPick: (gate: number) => void }) {
+  const color = side === "design" ? DESIGN_RED : INK;
+  const label = side === "design" ? "Diseño" : "Personalidad";
+  return (
+    <div className={`flex shrink-0 flex-col py-1 ${side === "design" ? "items-start" : "items-end"}`} style={{ color }} role="group" aria-label={`Activaciones de ${label.toLowerCase()}`}>
+      <span className="mb-1.5 text-[0.56rem] font-semibold uppercase tracking-[0.12em] opacity-80 sm:text-[0.64rem]">{side === "design" ? "Diseño" : "Person."}</span>
+      <div className="flex flex-1 flex-col justify-between gap-0.5">
+        {HD_BODIES.map((b) => {
+          const a = hd[side][b];
+          return (
+            <button
+              key={b}
+              type="button"
+              onClick={() => onPick(a.gate)}
+              title={`${HD_BODY_ES[b]} ${side === "design" ? "diseño" : "personalidad"} · puerta ${fmtAct(a)}`}
+              className={`flex items-center gap-1 rounded px-0.5 text-[0.7rem] leading-tight tabular-nums transition-opacity hover:opacity-70 sm:gap-1.5 sm:text-[0.82rem] ${side === "design" ? "" : "flex-row-reverse"}`}
+            >
+              <span aria-hidden className="w-3 text-center text-[0.8rem] sm:w-4 sm:text-[0.95rem]">
+                {HD_BODY_GLYPH[b]}
+              </span>
+              <span className="font-semibold">{fmtAct(a)}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | null; person?: BirthProfile; compact?: boolean; planets?: boolean }) {
   const [manual, setActive] = useState<Set<number>>(() => new Set(EXAMPLE_CHARTS[0].gates));
   const active = hd ? hd.gates : manual;
   const [selection, setSelection] = useState<Selection>(null);
@@ -90,7 +126,7 @@ function BodygraphView({ hd, person, compact }: { hd: HumanDesign | null; person
 
   const selectedKey = selection?.kind === "channel" ? channelKey(selection.channel.a, selection.channel.b) : null;
 
-  const diagram = (
+  const svg = (
     <svg
       viewBox={`0 0 ${VIEWBOX.w} ${VIEWBOX.h}`}
       className="cp-model-svg mx-auto block h-auto w-full max-w-[26rem]"
@@ -255,6 +291,19 @@ function BodygraphView({ hd, person, compact }: { hd: HumanDesign | null; person
       </g>
     </svg>
   );
+
+  // «Mi energía»: las 13 activaciones de cada lado, como en una carta impresa: el diseño a la izquierda,
+  // en rojo, y la personalidad a la derecha, en el color del texto. Tocar una abre su puerta.
+  const diagram =
+    hd && planets ? (
+      <div className="flex items-stretch justify-center gap-1 sm:gap-3" data-planet-columns>
+        <PlanetColumn hd={hd} side="design" onPick={(n) => setSelection({ kind: "gate", gate: GATE_BY_N.get(n)! })} />
+        <div className="min-w-0 max-w-[26rem] flex-1 self-center">{svg}</div>
+        <PlanetColumn hd={hd} side="personality" onPick={(n) => setSelection({ kind: "gate", gate: GATE_BY_N.get(n)! })} />
+      </div>
+    ) : (
+      svg
+    );
 
   const panel = (() => {
     if (!selection) {
