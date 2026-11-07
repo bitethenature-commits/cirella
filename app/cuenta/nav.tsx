@@ -3,7 +3,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const ITEMS = [
-  { href: "/cuenta", label: "Inicio" },
   { href: "/cuenta/cursos", label: "Mis cursos" },
   { href: "/cuenta/sesiones", label: "Mis sesiones" },
   { href: "/cuenta/membresias", label: "Mis membresías" },
@@ -13,7 +12,7 @@ const ITEMS = [
   { href: "/cuenta/soporte", label: "Soporte" },
 ];
 
-/** «Mi energía» (/cuenta/mi-energia): solo en la web personal, detrás de «Inicio». */
+/** «Mi energía» (/cuenta/mi-energia): solo en la web personal, detrás de «Mis cursos» (el área ya no tiene «Inicio»: empieza ahí). */
 const ENERGY = { href: "/cuenta/mi-energia", label: "Mi energía" };
 
 /** `personal`: web personal (SITE_MODE=personal): «Mis compras» es «Mis canales» y está «Mi energía». */

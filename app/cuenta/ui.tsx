@@ -37,7 +37,7 @@ export function Thumb({ src, emoji, className = "h-16 w-16" }: { src: string | n
 }
 
 /** El tema de un producto que no lo tiene guardado (sesiones y lecturas), por su título. */
-function categoryFromTitle(title: string): CourseCategory | null {
+export function categoryFromTitle(title: string): CourseCategory | null {
   const t = title.toLowerCase();
   if (t.includes("human")) return "HUMAN_DESIGN";
   if (t.includes("gene")) return "GENE_KEYS";

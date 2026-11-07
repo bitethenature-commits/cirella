@@ -16,7 +16,15 @@ const idOf = (key: string) => key.toLowerCase();
  * funcionan aunque la página no haya cargado su JavaScript). Un enlace con ancla (#astrologia, desde
  * las páginas de cada sistema) abre directamente ese tema.
  */
-export function CourseGroups({ groups }: { groups: CourseGroupView[] }) {
+/** Los estilos de cada sitio: la página pública (variables de la plantilla) o el área de alumna (tema claro/noche). */
+const TONE = {
+  page: { card: "cp-card", gold: "cp-gold", display: "cp-display", muted: "cp-muted" },
+  account: { card: "card", gold: "text-gold", display: "display", muted: "text-muted" },
+} as const;
+
+/** `name`: los desplegables con el mismo nombre se cierran entre sí (uno por grupo de la página). `tone`: dónde se pinta. */
+export function CourseGroups({ groups, name = "metodos", tone = "page", empty }: { groups: CourseGroupView[]; name?: string; tone?: keyof typeof TONE; empty?: (label: string) => string }) {
+  const t = TONE[tone];
   useEffect(() => {
     const hash = decodeURIComponent(window.location.hash.slice(1));
     const el = hash ? document.getElementById(hash) : null;
@@ -33,14 +41,14 @@ export function CourseGroups({ groups }: { groups: CourseGroupView[] }) {
         return (
           <details
             key={g.key}
-            id={idOf(g.key)}
-            name="metodos"
+            id={name === "metodos" ? idOf(g.key) : `${name}-${idOf(g.key)}`}
+            name={name}
             open={groups.length === 1 || undefined}
             data-course-group={g.key}
-            className="cp-card group scroll-mt-20 rounded-2xl border"
+            className={`${t.card} group scroll-mt-20 rounded-2xl border`}
           >
             <summary className="flex cursor-pointer list-none items-center gap-4 px-4 py-3.5 sm:px-5 [&::-webkit-details-marker]:hidden">
-              <span className={`cp-gold flex h-14 shrink-0 items-center justify-center ${many ? "min-w-14" : "w-14"}`}>
+              <span className={`${t.gold} flex h-14 shrink-0 items-center justify-center ${many ? "min-w-14" : "w-14"}`}>
                 {g.categories.length ? (
                   // Uno solo, grande; varios, sumados y algo más pequeños.
                   <CategoryIcons categories={g.categories} size={many ? 2.5 : 3.25} gap={many ? 0.15 : 0} />
@@ -49,16 +57,16 @@ export function CourseGroups({ groups }: { groups: CourseGroupView[] }) {
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <h2 id={`metodo-${g.key}`} className="cp-display m-0 text-[1.5rem] leading-tight sm:text-[1.75rem]">
+                <h2 id={name === "metodos" ? `metodo-${g.key}` : `${name}-t-${g.key}`} className={`${t.display} m-0 text-[1.5rem] leading-tight sm:text-[1.75rem]`}>
                   {g.label}
                 </h2>
-                <span className="cp-muted block text-sm tabular-nums">{g.count === 0 ? "Próximamente" : `${g.count} ${g.count === 1 ? "curso" : "cursos"}`}</span>
+                <span className={`${t.muted} block text-sm tabular-nums`}>{g.count === 0 ? "Próximamente" : `${g.count} ${g.count === 1 ? "curso" : "cursos"}`}</span>
               </span>
               <ChevronDown aria-hidden className="h-5 w-5 shrink-0 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
             </summary>
             <div className="px-4 pb-5 pt-2 sm:px-5 sm:pb-6">
               {g.count === 0 ? (
-                <p className="cp-muted text-[0.92rem]">Pronto habrá cursos de {g.label}.</p>
+                <p className={`${t.muted} text-[0.92rem]`}>{empty ? empty(g.label) : `Pronto habrá cursos de ${g.label}.`}</p>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">{g.cards}</div>
               )}
