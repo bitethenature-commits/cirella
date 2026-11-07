@@ -889,10 +889,10 @@ async function seedAnaPortada(o: {
   });
   const special = await prisma.product.create({
     data: {
-      creatorId: anaId, type: "COURSE", status: "PUBLISHED", accessMode: "FREE_EMAIL", slug: "especial-tu-ano-lunar", title: "Especial: tu año lunar", emoji: "🌙", courseCategory: "ESPECIAL",
+      creatorId: anaId, type: "COURSE", status: "PUBLISHED", accessMode: "PAID", slug: "especial-tu-ano-lunar", title: "Especial: tu año lunar", emoji: "🌙", courseCategory: "ESPECIAL",
       summary: "Un pequeño especial para preparar las trece lunas del año que viene.",
-      description: "Un regalo para cerrar el año: dos lecciones para preparar tus intenciones luna a luna.",
-      imageUrl: await demoImage(anaId, "/demo/comunidad.webp"), priceCents: 0, ctaLabel: "Quiero el especial", sortOrder: 13, createdAt: daysAgo(4),
+      description: "Un especial para cerrar el año: dos lecciones para preparar tus intenciones luna a luna.",
+      imageUrl: await demoImage(anaId, "/demo/comunidad.webp"), priceCents: 2900, ctaLabel: "Quiero el especial", sortOrder: 13, createdAt: daysAgo(4),
     },
   });
   const spModule = await prisma.courseModule.create({ data: { creatorId: anaId, productId: special.id, title: "Tu año lunar", sortOrder: 0 } });
@@ -1479,14 +1479,14 @@ async function main() {
   await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCircle.id, postId: postLunaNueva.id, name: "Lámina luna nueva.png", kind: "IMAGE", mimeType: "image/png", ...ritualImg, sortOrder: 2 } });
 
   // ───────────── Modo personal: lo gratuito con email, lo que se paga fuera y el contenido de la página ─────────────
-  // Mini-curso gratis con email: nombre + email → acceso inmediato y un email con el enlace.
+  // Mini-curso de pago (en la web no hay nada gratis).
   const pFree = await prisma.product.create({
     data: {
-      creatorId: ana.id, type: "COURSE", status: "PUBLISHED", accessMode: "FREE_EMAIL", slug: "mini-curso-tu-carta-en-3-pasos",
-      title: "Mini-curso gratis: tu carta natal en 3 pasos", emoji: "🎁",
+      creatorId: ana.id, type: "COURSE", status: "PUBLISHED", accessMode: "PAID", slug: "mini-curso-tu-carta-en-3-pasos",
+      title: "Mini-curso: tu carta natal en 3 pasos", emoji: "🎁",
       summary: "Tres lecciones cortas para leer tu Sol, tu Luna y tu Ascendente sin perderte.",
-      description: "Un mini-curso gratuito para dar tus primeros pasos con la carta natal. Déjame tu nombre y tu email y te llega el acceso al momento.\n\nIncluye:\n• 3 lecciones de lectura (10 minutos cada una)\n• Un ejercicio práctico para cerrar",
-      imageUrl: await demoImage(ana.id, "/demo/astrologia.webp"), priceCents: 0, ctaLabel: "Quiero el mini-curso", sortOrder: 7, createdAt: daysAgo(20),
+      description: "Un mini-curso para dar tus primeros pasos con la carta natal.\n\nIncluye:\n• 3 lecciones de lectura (10 minutos cada una)\n• Un ejercicio práctico para cerrar",
+      imageUrl: await demoImage(ana.id, "/demo/astrologia.webp"), priceCents: 1900, ctaLabel: "Quiero el mini-curso", sortOrder: 7, createdAt: daysAgo(20),
     },
   });
   const freeModule = await prisma.courseModule.create({ data: { creatorId: ana.id, productId: pFree.id, title: "Tu carta en 3 pasos", sortOrder: 0 } });

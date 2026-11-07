@@ -161,7 +161,8 @@ export default async function MySessions() {
         cta="Pedirla"
       >
         {prepared.map((o) => {
-          const delivered = !!o.deliveredAt || o.files.length > 0;
+          // Las que se descargan al momento ya están; las que se preparan, cuando se entregan.
+          const delivered = o.product.deliveryMode !== "PERSONAL" || !!o.deliveredAt || o.files.length > 0;
           return (
             <Link key={o.id} href={`/cuenta/pedidos/${o.id}`} className="card group flex items-center gap-4 border-l-4 border-l-gold p-4 transition hover:shadow-lift" data-kind="reading">
               <Badge tone="reading">
@@ -169,10 +170,10 @@ export default async function MySessions() {
               </Badge>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{o.productTitle}</p>
-                <p className="text-sm text-muted">{delivered ? `Entregada${o.deliveredAt ? ` el ${formatDate(o.deliveredAt, { day: "numeric", month: "long" })}` : ""}: ya puedes verla` : "Se está preparando para ti"}</p>
+                <p className="text-sm text-muted">{delivered ? (o.deliveredAt ? `Entregada el ${formatDate(o.deliveredAt, { day: "numeric", month: "long" })}: ya puedes verla` : "Lista: ya puedes verla") : "Se está preparando para ti"}</p>
                 <MethodTag product={o.product} />
               </div>
-              <span className={`chip shrink-0 ${delivered ? "!bg-gold/20" : ""}`}>{delivered ? "Entregada" : "En preparación"}</span>
+              <span className={`chip shrink-0 ${delivered ? "!bg-gold/20" : ""}`}>{delivered ? (o.deliveredAt ? "Entregada" : "Lista") : "En preparación"}</span>
             </Link>
           );
         })}

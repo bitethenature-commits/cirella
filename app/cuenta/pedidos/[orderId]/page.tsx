@@ -14,7 +14,8 @@ import { formatMoney, formatPrice } from "@/lib/money";
 import { orderRef } from "@/lib/order-ref";
 import { formatDate } from "@/lib/tz";
 import { IntakeEditCard } from "@/components/booking/intake-edit-card";
-import { MediaView } from "@/components/media/media-view";
+import { ReadingFiles } from "@/components/account/reading-files";
+import { channelKindLabel } from "@/lib/channel-kind";
 import { RichContent } from "@/components/rich-text/rich-content";
 import { asksIntake, intakeMissing, readIntakeAnswers, readIntakeConfig } from "@/lib/intake";
 import { intakeLocked } from "@/lib/intake-lock";
@@ -70,24 +71,44 @@ export default async function OrderPage({ params }: { params: Promise<{ orderId:
   const intakeAnswers = readIntakeAnswers(order.intake);
   const showIntake = !refunded && order.status === "PAID" && asksIntake(order.product.type, order.product.deliveryMode, intakeCfg) && order.productType !== "SESSION";
 
+  // Volver a la sección de la que viene: las lecturas, a «Círculos y lecturas»; lo demás, a sus archivos.
+  const kind = channelKindLabel({ ...order.product, title: order.productTitle });
+  const backTo = !isPersonalMode()
+    ? { href: "/cuenta/compras", label: "Mis compras" }
+    : kind === "Lectura"
+      ? { href: "/cuenta/sesiones#lecturas", label: "Círculos y lecturas" }
+      : order.productType === "SESSION"
+        ? { href: "/cuenta/sesiones", label: "Círculos y lecturas" }
+        : { href: "/cuenta/archivos", label: "Mis archivos" };
+  const here = `/cuenta/pedidos/${order.id}`;
+
   return (
-    <div className="max-w-2xl">
+    <div className="mx-auto max-w-3xl">
       {!scoped && (
-        <Link href={isPersonalMode() ? "/cuenta/soporte" : "/cuenta/compras"} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-          <ArrowLeft className="h-4 w-4" /> {isPersonalMode() ? "Soporte" : "Mis compras"}
+        <Link href={backTo.href} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-gold" data-back>
+          <ArrowLeft className="h-4 w-4" /> {backTo.label}
         </Link>
       )}
-      <div className="mt-5 flex items-center gap-4">
-        <Thumb src={order.product.imageUrl} emoji={order.product.emoji} className="h-16 w-16" />
-        <div className="min-w-0">
-          <MethodTag product={{ title: order.productTitle, courseCategory: order.product.courseCategory }} />
-          <h1 className="display text-[2.2rem] leading-tight">{order.productTitle}</h1>
+      {/* La portada: su imagen a lo ancho, fundida con el cielo, y el título centrado. */}
+      <header className="relative mt-4 overflow-hidden rounded-[1.75rem] ring-1 ring-gold/30" data-order-hero>
+        {order.product.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={order.product.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" />
+        )}
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#0d0c22] via-[#0d0c22]/75 to-[#0d0c22]/10" />
+        <div className="relative px-6 pb-8 pt-28 text-center sm:pt-36">
+          <p className="text-[0.66rem] font-semibold uppercase tracking-[0.28em] text-gold">✦ {kind === "Lectura" ? "Tu lectura" : kind || "Tu compra"} ✦</p>
+          <h1 className="display mt-2 text-[2.4rem] leading-none text-[#f6f1e7] sm:text-[3.2rem]">{order.productTitle}</h1>
+          {order.product.summary && <p className="mx-auto mt-3 max-w-md text-sm text-[rgb(246_241_231/.75)]">{order.product.summary}</p>}
+          <div className="mt-4 flex justify-center">
+            <MethodTag product={{ title: order.productTitle, courseCategory: order.product.courseCategory }} />
+          </div>
+          <p className="mt-2 text-xs text-[rgb(246_241_231/.55)]">
+            {noCharge ? "Referencia" : `${formatPrice(order.amountCents, order.currency, order.product.billingInterval)} · Pedido`} {orderRef(order.id)}
+            {order.paidAt && ` · ${formatDate(order.paidAt)}`}
+          </p>
         </div>
-      </div>
-      <p className="mt-3 text-sm text-muted">
-        {noCharge ? "Gratis" : formatPrice(order.amountCents, order.currency, order.product.billingInterval)} · {noCharge ? "Referencia" : "Pedido"} {orderRef(order.id)}
-        {order.paidAt && ` · ${formatDate(order.paidAt)}`}
-      </p>
+      </header>
 
       {refunded ? (
         <div className="card mt-6 p-6">
@@ -95,41 +116,23 @@ export default async function OrderPage({ params }: { params: Promise<{ orderId:
           <p className="mt-1 text-sm text-muted">El contenido ya no está disponible.</p>
         </div>
       ) : prepared ? (
-        <section id="lectura" className="card mt-6 scroll-mt-24 space-y-4 p-5 sm:p-6">
-          <h2 className="font-semibold">Tu lectura</h2>
+        <section id="lectura" className="mt-8 scroll-mt-24 space-y-5">
           {order.deliveredAt && access ? (
             <>
-              {order.deliveryMessage && <RichContent text={order.deliveryMessage} format={order.deliveryMessageFormat} legacy="paragraphs" tone="account" />}
-              {order.files.map((f) =>
-                f.kind === "LINK" && f.url ? (
-                  <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm h-11">
-                    <ExternalLink className="h-3.5 w-3.5" /> Abrir enlace · {f.name}
-                  </a>
-                ) : (
-                  <div key={f.id} className="space-y-2">
-                    {(f.kind === "AUDIO" || f.kind === "VIDEO") ? (
-                      <div className="overflow-hidden rounded-2xl bg-ink py-4">
-                        <MediaView file={f} title={`${f.name} · ${order.productTitle}`} artwork={order.product.imageUrl} poster={order.product.imageUrl} />
-                      </div>
-                    ) : (
-                      <p className="text-sm font-medium">{f.name}</p>
-                    )}
-                    <span className="flex flex-wrap gap-2">
-                      {VIEWABLE.has(f.kind) && f.kind !== "AUDIO" && f.kind !== "VIDEO" && (
-                        <Link href={`/cuenta/archivos/${f.id}`} className="btn btn-primary btn-sm">
-                          <Eye className="h-3.5 w-3.5" /> Ver
-                        </Link>
-                      )}
-                      <a href={`/api/download/${f.id}`} className="btn btn-outline btn-sm">
-                        <Download className="h-3.5 w-3.5" /> Descargar
-                      </a>
-                    </span>
-                  </div>
-                ),
+              {order.deliveryMessage && (
+                <div className="card p-6 ring-1 ring-gold/20 sm:p-7">
+                  <p className="text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-gold">Unas palabras de {c.displayName}</p>
+                  <RichContent text={order.deliveryMessage} format={order.deliveryMessageFormat} legacy="paragraphs" tone="account" className="mt-3 space-y-3 text-[1rem] leading-relaxed" />
+                </div>
               )}
+              <ReadingFiles files={order.files} title={order.productTitle} artwork={order.product.imageUrl} back={here} />
             </>
           ) : access ? (
-            <p className="text-sm text-muted">{c.displayName} la está preparando. Te avisaremos por email cuando esté lista.</p>
+            <div className="card p-6 text-center ring-1 ring-gold/20">
+              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-gold">En preparación</p>
+              <p className="display mt-1 text-[1.5rem]">{c.displayName} la está preparando para ti</p>
+              <p className="mt-1 text-sm text-muted">Te avisaremos por email cuando esté lista.</p>
+            </div>
           ) : (
             <p className="text-sm text-muted">Ya no tienes acceso a este contenido. Si crees que es un error, escribe a {c.displayName}.</p>
           )}
@@ -140,29 +143,9 @@ export default async function OrderPage({ params }: { params: Promise<{ orderId:
         </Link>
       ) : access ? (
         order.product.files.length > 0 && (
-          <ul className="card mt-6 divide-y divide-line">
-            {order.product.files.map((f) => (
-              <li key={f.id} className="flex items-center justify-between gap-3 p-4 text-sm">
-                <span className="min-w-0 truncate font-medium">{f.name}</span>
-                {f.kind === "LINK" ? (
-                  <a href={`/api/download/${f.id}`} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm shrink-0">
-                    <ExternalLink className="h-3.5 w-3.5" /> Abrir enlace
-                  </a>
-                ) : (
-                  <span className="flex shrink-0 gap-2">
-                    {VIEWABLE.has(f.kind) && (
-                      <Link href={`/cuenta/archivos/${f.id}`} className="btn btn-primary btn-sm">
-                        <Eye className="h-3.5 w-3.5" /> Ver
-                      </Link>
-                    )}
-                    <a href={`/api/download/${f.id}`} className="btn btn-outline btn-sm">
-                      <Download className="h-3.5 w-3.5" /> Descargar
-                    </a>
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+          <section className="mt-8">
+            <ReadingFiles files={order.product.files} title={order.productTitle} artwork={order.product.imageUrl} back={here} linkHref={(f) => `/api/download/${f.id}`} />
+          </section>
         )
       ) : (
         <div className="card mt-6 p-6 text-sm text-muted">Ya no tienes acceso a este contenido. Si crees que es un error, escribe a {c.displayName}.</div>

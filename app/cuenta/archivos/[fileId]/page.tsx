@@ -21,10 +21,18 @@ export const metadata: Metadata = { title: "Ver archivo", robots: { index: false
  * cuenta verificada o la sesión limitada de su compra, justo después de pagar) y para la dueña
  * («Vista previa» del panel). La vuelta depende de cómo se llegó.
  */
-export default async function FileViewer({ params }: { params: Promise<{ fileId: string }> }) {
+/** «Volver» a donde estaba (la lectura, su compra…): solo rutas del área, nunca a otra web. */
+function backParam(v: string | undefined) {
+  return v && v.startsWith("/cuenta/") && !v.startsWith("//") && !v.includes("\\") ? v : null;
+}
+
+const nice = (name: string) => name.replace(/\.[a-z0-9]{2,4}$/i, "");
+
+export default async function FileViewer({ params, searchParams }: { params: Promise<{ fileId: string }>; searchParams: Promise<{ volver?: string }> }) {
   const { fileId } = await params;
+  const volver = backParam((await searchParams).volver);
   const file = await prisma.productFile.findUnique({ where: { id: fileId }, include: { product: { include: { creator: true } }, post: { select: { status: true, publishedAt: true } } } });
-  if (!file) return <OrderFileViewer fileId={fileId} />;
+  if (!file) return <OrderFileViewer fileId={fileId} volver={volver} />;
   if (file.kind === "LINK" || !file.storageKey) notFound();
   const path = `/cuenta/archivos/${file.id}`;
   const { user, isOwner, scoped } = await requireBuyerFor({ productId: file.productId }, path);
@@ -33,7 +41,9 @@ export default async function FileViewer({ params }: { params: Promise<{ fileId:
     ? { href: `/cuenta/pedidos/${session.order.id}`, label: "Volver a tu compra" }
     : isOwner
       ? { href: `/panel/productos/${file.productId}`, label: "Volver al panel" }
-      : { href: "/cuenta/archivos", label: "Mis archivos" };
+      : volver
+        ? { href: volver, label: "Volver" }
+        : { href: "/cuenta/archivos", label: "Mis archivos" };
   const creator = creatorBrief(file.product.creator);
   // Directo o por una membresía que lo incluye; el adjunto de una publicación, solo si ya se ve.
   const source = isOwner ? null : await accessSource(user.id, file.productId);
@@ -42,14 +52,10 @@ export default async function FileViewer({ params }: { params: Promise<{ fileId:
 
   const header = (
     <>
-      <Link href={back.href} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+      <Link href={back.href} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-gold" data-back>
         <ArrowLeft className="h-4 w-4" /> {back.label}
       </Link>
-      <div className="mt-4 flex flex-col gap-1">
-        <CreatorTag name={creator.displayName} avatarUrl={creator.avatarUrl} />
-        <p className="eyebrow">{file.product.title}</p>
-        <h1 className="display text-[2rem] leading-tight sm:text-[2.4rem] [overflow-wrap:anywhere]">{file.name}</h1>
-      </div>
+      <ViewerTitle eyebrow={file.product.title} title={nice(file.name)} creator={creator} />
     </>
   );
 
@@ -66,10 +72,10 @@ export default async function FileViewer({ params }: { params: Promise<{ fileId:
   return (
     <div>
       {header}
-      <div className={`mt-6 ${dark ? "overflow-hidden rounded-3xl bg-ink py-6" : ""}`}>
+      <div className={`mt-8 overflow-hidden rounded-[1.75rem] ring-1 ring-gold/30 ${dark ? "py-6" : "p-2 sm:p-3"}`} style={{ background: "radial-gradient(circle at 20% 0%, #2a2552 0%, #17153a 55%, #100e26 100%)" }} data-viewer>
         <MediaView file={file} title={`${file.name} · ${file.product.title}`} poster={file.product.imageUrl} artwork={file.product.imageUrl} />
       </div>
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-6 flex justify-center">
         <a href={`/api/download/${file.id}`} className="btn btn-outline btn-sm">
           <Download className="h-4 w-4" /> Descargar
         </a>
@@ -79,7 +85,7 @@ export default async function FileViewer({ params }: { params: Promise<{ fileId:
 }
 
 /** Entrega de un pedido (la lectura preparada o la grabación de su sesión): solo su clienta y la dueña. */
-async function OrderFileViewer({ fileId }: { fileId: string }) {
+async function OrderFileViewer({ fileId, volver }: { fileId: string; volver: string | null }) {
   const f = await findOrderFile(fileId);
   if (!f || f.kind === "LINK" || !f.storageKey) notFound();
   const path = `/cuenta/archivos/${f.id}`;
@@ -89,17 +95,13 @@ async function OrderFileViewer({ fileId }: { fileId: string }) {
   if (!owner) await requireBuyerFor({ orderId: f.orderId }, path);
   const access = await checkOrderFileAccess(f);
   const creator = creatorBrief(await prisma.creator.findUniqueOrThrow({ where: { id: f.creatorId } }));
-  const back = owner ? { href: `/panel/ventas/${f.orderId}#entrega`, label: "Volver al panel" } : { href: `/cuenta/pedidos/${f.orderId}`, label: "Volver a tu compra" };
+  const back = owner ? { href: `/panel/ventas/${f.orderId}#entrega`, label: "Volver al panel" } : { href: volver ?? `/cuenta/pedidos/${f.orderId}`, label: "Volver a tu lectura" };
   const header = (
     <>
-      <Link href={back.href} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+      <Link href={back.href} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-gold" data-back>
         <ArrowLeft className="h-4 w-4" /> {back.label}
       </Link>
-      <div className="mt-4 flex flex-col gap-1">
-        <CreatorTag name={creator.displayName} avatarUrl={creator.avatarUrl} />
-        <p className="eyebrow">{f.order.productTitle}</p>
-        <h1 className="display text-[2rem] leading-tight sm:text-[2.4rem] [overflow-wrap:anywhere]">{f.name}</h1>
-      </div>
+      <ViewerTitle eyebrow={f.order.productTitle} title={nice(f.name)} creator={creator} />
     </>
   );
   if (!access.ok)
@@ -113,14 +115,27 @@ async function OrderFileViewer({ fileId }: { fileId: string }) {
   return (
     <div>
       {header}
-      <div className={`mt-6 ${dark ? "overflow-hidden rounded-3xl bg-ink py-6" : ""}`}>
+      <div className={`mt-8 overflow-hidden rounded-[1.75rem] ring-1 ring-gold/30 ${dark ? "py-6" : "p-2 sm:p-3"}`} style={{ background: "radial-gradient(circle at 20% 0%, #2a2552 0%, #17153a 55%, #100e26 100%)" }} data-viewer>
         <MediaView file={f} title={`${f.name} · ${f.order.productTitle}`} />
       </div>
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-6 flex justify-center">
         <a href={`/api/download/${f.id}`} className="btn btn-outline btn-sm">
           <Download className="h-4 w-4" /> Descargar
         </a>
       </div>
     </div>
+  );
+}
+
+/** El título del visor, centrado como las cabeceras del área: de qué es, el nombre y quién lo ha creado. */
+function ViewerTitle({ eyebrow, title, creator }: { eyebrow: string; title: string; creator: { displayName: string; avatarUrl: string | null } }) {
+  return (
+    <header className="mt-4 text-center">
+      <p className="text-[0.66rem] font-semibold uppercase tracking-[0.28em] text-gold">✦ {eyebrow} ✦</p>
+      <h1 className="display mt-2 text-[2.2rem] leading-tight sm:text-[2.8rem] [overflow-wrap:anywhere]">{title}</h1>
+      <div className="mt-3 flex justify-center">
+        <CreatorTag name={creator.displayName} avatarUrl={creator.avatarUrl} />
+      </div>
+    </header>
   );
 }

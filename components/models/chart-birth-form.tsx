@@ -217,9 +217,10 @@ export function BirthForm({
             Hora local
           </label>
           <input id={`${uid}-time`} type="time" className={cn(FIELD, !timeKnown && "opacity-40")} value={time} disabled={!timeKnown} onChange={(e) => setTime(e.target.value)} />
-          <label className="mt-2 flex min-h-8 cursor-pointer items-center gap-2 text-[0.82rem]">
-            <input type="checkbox" checked={!timeKnown} onChange={(e) => setTimeKnown(!e.target.checked)} className="h-4 w-4 accent-[var(--c-gold)]" />
-            No sé la hora
+          {/* Toda la fila marca y desmarca (no solo la casilla). */}
+          <label className="cp-line mt-2 flex min-h-10 w-full cursor-pointer select-none items-center gap-2 rounded-[min(var(--r-btn),12px)] border px-3 py-2 text-[0.82rem] transition hover:bg-[color-mix(in_oklab,var(--c-gold)_6%,transparent)]">
+            <input type="checkbox" checked={!timeKnown} onChange={(e) => setTimeKnown(!e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--c-gold)]" />
+            <span className="flex-1">No sé la hora</span>
           </label>
         </div>
 

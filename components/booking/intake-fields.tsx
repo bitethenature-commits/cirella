@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { INTAKE_LONG_MAX, INTAKE_SHORT_MAX, type IntakeConfig } from "@/lib/intake";
+import { PlaceSearch } from "./place-search";
 
 /**
  * Campos de «Datos para tu lectura» (nombres intake.*: los lee lib/intake.ts → parseIntakeAnswers).
@@ -78,33 +79,34 @@ export function IntakeFields({
               className={`${input} h-11 disabled:opacity-40`}
               {...bad("intake.birthTime")}
             />
-            <label className="mt-2 flex min-h-11 cursor-pointer items-center gap-2.5 text-sm">
+            {/* Toda la fila marca y desmarca (no solo la casilla). */}
+            <label
+              className={`mt-2 flex min-h-11 w-full cursor-pointer select-none items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm transition ${theme === "creator" ? "cp-line" : "border-line"} ${unknown ? "bg-[color-mix(in_oklab,currentColor_6%,transparent)]" : "hover:bg-[color-mix(in_oklab,currentColor_4%,transparent)]"}`}
+              data-time-unknown
+            >
               <input
                 type="checkbox"
                 name="intake.birthTimeUnknown"
                 checked={unknown}
                 onChange={(e) => set("intake.birthTimeUnknown", e.target.checked)}
-                className="h-5 w-5"
+                className="h-5 w-5 shrink-0"
               />
-              No sé la hora exacta
+              <span className="flex-1">No sé la hora exacta</span>
             </label>
           </div>
           <div>
             <label className={label} htmlFor={`${idPrefix}-birthPlace`}>
               Lugar de nacimiento
             </label>
-            <input
+            <PlaceSearch
               id={`${idPrefix}-birthPlace`}
               name="intake.birthPlace"
-              autoComplete="off"
-              autoCapitalize="words"
-              maxLength={120}
               required={req}
-              placeholder="Ciudad y país (p. ej. Sevilla, España)"
               value={str("intake.birthPlace")}
-              onChange={(e) => set("intake.birthPlace", e.target.value)}
+              onChange={(v) => set("intake.birthPlace", v)}
               className={`${input} h-11`}
-              {...bad("intake.birthPlace")}
+              theme={theme}
+              invalid={bad("intake.birthPlace")}
             />
           </div>
         </>
