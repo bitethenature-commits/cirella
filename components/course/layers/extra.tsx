@@ -6,6 +6,7 @@ import { LAYER_KEYS, type AstroLayer } from "@/lib/lesson-blocks";
 import { C, CREAM, GOLD, INK, LINE, MUTED, SAND, VS, degIn, listEs, pt, sector, signIndex, type DiagramProps, type LayerCtx, type SystemPiece } from "./common";
 import { MODALITY_TEXT } from "./texts";
 import { AnglesWheel, ModalityWheel } from "./astro-wheels";
+import { NIGHT_GOLD, NightDefs, NightPanel, STAR, Stars, usePrefix } from "./night";
 
 /**
  * Más capas: de la carta astral, las 3 cualidades y los 4 ángulos; de las runas, las 24 runas en sus
@@ -94,23 +95,58 @@ export function extraPiece(layer: ExtraLayer, key: string, { option, c }: LayerC
   return { glyph: "", name: key, kicker: "", meaning: "", personal: null };
 }
 
-/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- *
+ *  Las runas, sobre el cielo de noche: piedras de río con relieve y la runa tallada; la elegida, con la
+ *  talla encendida en oro.
+ * -------------------------------------------------------------------------- */
 
-/** Una piedra rúnica: un óvalo irregular con su runa grabada. */
-function Stone({ x, y, w, h, glyph, on, label }: { x: number; y: number; w: number; h: number; glyph: string; on: boolean; label?: string }) {
+function StoneDefs({ p }: { p: string }) {
   return (
     <>
-      <path
-        d={`M${x - w / 2 + 3} ${y - 2}C${x - w / 2} ${y - h / 2 + 2} ${x + w / 2 - 6} ${y - h / 2 - 2} ${x + w / 2 - 1} ${y - 4}C${x + w / 2 + 2} ${y + h / 2 - 6} ${x - w / 2 + 6} ${y + h / 2 + 1} ${x - w / 2 + 3} ${y - 2}Z`}
-        fill={on ? INK : "#EDE6D8"}
-        stroke={on ? GOLD : "#C9BEA8"}
-        strokeWidth={on ? 2 : 1}
-      />
-      <text x={x} y={y - 1} textAnchor="middle" dominantBaseline="central" fontSize={h * 0.42} fill={on ? GOLD : "#5B4A3A"} pointerEvents="none">
+      <NightDefs p={p} />
+      <defs>
+        <radialGradient id={`${p}stone`} cx="38%" cy="30%" r="80%">
+          <stop offset="0%" stopColor="#B4AEBF" />
+          <stop offset="55%" stopColor="#7A7488" />
+          <stop offset="100%" stopColor="#4A4659" />
+        </radialGradient>
+        <radialGradient id={`${p}stoneOn`} cx="38%" cy="30%" r="80%">
+          <stop offset="0%" stopColor="#5C5470" />
+          <stop offset="60%" stopColor="#332E4A" />
+          <stop offset="100%" stopColor="#1C1930" />
+        </radialGradient>
+        <filter id={`${p}drop`} x="-30%" y="-30%" width="160%" height="170%">
+          <feDropShadow dx="0" dy="3" stdDeviation="3" floodColor="#000" floodOpacity="0.55" />
+        </filter>
+      </defs>
+    </>
+  );
+}
+
+/** Una piedra rúnica: un canto rodado irregular con su runa tallada (luz y sombra en el surco). */
+function Stone({ p, x, y, w, h, glyph, on, label }: { p: string; x: number; y: number; w: number; h: number; glyph: string; on: boolean; label?: string }) {
+  const d = `M${x - w / 2 + 3} ${y - 2}C${x - w / 2} ${y - h / 2 + 2} ${x + w / 2 - 6} ${y - h / 2 - 2} ${x + w / 2 - 1} ${y - 4}C${x + w / 2 + 2} ${y + h / 2 - 6} ${x - w / 2 + 6} ${y + h / 2 + 1} ${x - w / 2 + 3} ${y - 2}Z`;
+  const fs = h * 0.46;
+  return (
+    <>
+      {on && <ellipse cx={x} cy={y} rx={w * 0.7} ry={h * 0.75} fill={`url(#${p}goldglow)`} pointerEvents="none" />}
+      <path d={d} fill={`url(#${p}${on ? "stoneOn" : "stone"})`} stroke={on ? "#F0D9A4" : "rgb(255 255 255 / .25)"} strokeWidth={on ? 1.8 : 0.8} filter={`url(#${p}drop)`} />
+      <ellipse cx={x - w * 0.12} cy={y - h * 0.22} rx={w * 0.22} ry={h * 0.12} fill="#fff" opacity={on ? 0.08 : 0.18} pointerEvents="none" />
+      {!on && (
+        <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="700" fill="#D8D2E0" opacity="0.55" pointerEvents="none" transform="translate(0.6 0.9)">
+          {glyph}
+        </text>
+      )}
+      {on && (
+        <text x={x} y={y - 0.5} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="700" fill={NIGHT_GOLD} opacity="0.6" filter={`url(#${p}blur)`} pointerEvents="none">
+          {glyph}
+        </text>
+      )}
+      <text x={x} y={y - 0.5} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="700" fill={on ? "#FFE7AE" : "#2B2738"} pointerEvents="none">
         {glyph}
       </text>
       {label && (
-        <text x={x} y={y + h / 2 + 10} textAnchor="middle" fontSize="9" fill={MUTED} pointerEvents="none">
+        <text x={x} y={y + h / 2 + 11} textAnchor="middle" fontSize="9" fontWeight={on ? 700 : 500} fill={on ? NIGHT_GOLD : STAR} fillOpacity={on ? 1 : 0.75} pointerEvents="none">
           {label}
         </text>
       )}
@@ -119,6 +155,7 @@ function Stone({ x, y, w, h, glyph, on, label }: { x: number; y: number; w: numb
 }
 
 export function ExtraDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProps & { layer: ExtraLayer }) {
+  const p = usePrefix();
   const own = new Set(mine);
   switch (layer) {
     case "modalities":
@@ -132,27 +169,35 @@ export function ExtraDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramP
       const cols = all ? 8 : 4;
       const w = 340 / cols;
       const stoneH = all ? 40 : 60;
-      const rowH = stoneH + (all ? 34 : 26);
+      const rowH = stoneH + (all ? 50 : 34);
       const rows = Math.ceil(list.length / cols);
-      const top = (row: number) => 16 + row * rowH;
+      const top = (row: number) => 22 + row * rowH;
+      const H = 22 + rows * rowH;
       return (
-        <svg viewBox={`0 0 340 ${16 + rows * rowH}`} className="mx-auto block h-auto w-full max-w-[22rem] select-none" role="group" aria-label="Las runas">
-          {(all ? [0, 1, 2] : [0]).map((row) => (
-            <text key={row} x="4" y={all ? top(row) - 2 : 10} fontSize="9" fill={MUTED} fontWeight="600">
-              {AETT_NAME[list[row * cols].aett].toUpperCase()}
-            </text>
-          ))}
-          {list.map((r, i) => {
-            const row = Math.floor(i / cols);
-            const x = w / 2 + (i % cols) * w;
-            const y = top(row) + 6 + stoneH / 2;
-            return (
-              <g key={r.id} {...tap(r.id, r.name)}>
-                <Stone x={x} y={y} w={w - (all ? 6 : 14)} h={stoneH} glyph={r.glyph + TEXT_VS} on={selected === r.id} label={r.name} />
+        <NightPanel>
+          <svg viewBox={`0 0 340 ${H}`} className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label="Las runas">
+            <StoneDefs p={p} />
+            <Stars w={340} h={H} n={36} />
+            {(all ? [0, 1, 2] : [0]).map((row) => (
+              <g key={row} pointerEvents="none">
+                <line x1="6" y1={top(row) - 6} x2="334" y2={top(row) - 6} stroke="rgb(233 204 142 / .18)" />
+                <text x="170" y={top(row) - 6} textAnchor="middle" dominantBaseline="central" fontSize="8.5" letterSpacing="2" fontWeight="700" fill={NIGHT_GOLD} stroke="#17153A" strokeWidth="6" paintOrder="stroke">
+                  {AETT_NAME[list[row * cols].aett].toUpperCase()}
+                </text>
               </g>
-            );
-          })}
-        </svg>
+            ))}
+            {list.map((r, i) => {
+              const row = Math.floor(i / cols);
+              const x = w / 2 + (i % cols) * w;
+              const y = top(row) + 8 + stoneH / 2;
+              return (
+                <g key={r.id} {...tap(r.id, r.name)}>
+                  <Stone p={p} x={x} y={y} w={w - (all ? 8 : 16)} h={stoneH} glyph={r.glyph + TEXT_VS} on={selected === r.id} label={r.name} />
+                </g>
+              );
+            })}
+          </svg>
+        </NightPanel>
       );
     }
     case "rune-spreads": {
@@ -165,20 +210,28 @@ export function ExtraDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramP
         return { x: 70 + (c - 1) * 100, y: 46 + (r - 1) * 76 };
       };
       return (
-        <svg viewBox="0 0 340 250" className="mx-auto block h-auto w-full max-w-[22rem] select-none" role="group" aria-label={s.label}>
-          {s.positions.map((p, i) => {
-            const k = `${spread}-${i}`;
-            const { x, y } = at(i);
-            return (
-              <g key={k} {...tap(k, p.name)}>
-                <Stone x={x} y={y} w={spread === "five" ? 62 : 78} h={spread === "five" ? 52 : 70} glyph={String(i + 1)} on={selected === k} />
-                <text x={x} y={y + (spread === "five" ? 36 : 48)} textAnchor="middle" fontSize="10" fill={INK} fontWeight={selected === k ? 700 : 400}>
-                  {p.name}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+        <NightPanel>
+          <svg viewBox="0 0 340 250" className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label={s.label}>
+            <StoneDefs p={p} />
+            <Stars w={340} h={250} n={30} />
+            {/* El paño de la tirada: un círculo dorado donde caen las piedras. */}
+            <circle cx="170" cy="122" r="112" fill="rgb(233 204 142 / .05)" stroke="rgb(233 204 142 / .35)" strokeWidth="0.8" />
+            <circle cx="170" cy="122" r="104" fill="none" stroke="rgb(233 204 142 / .18)" strokeWidth="0.6" strokeDasharray="2 4" />
+            {s.positions.map((pos, i) => {
+              const k = `${spread}-${i}`;
+              const { x, y } = at(i);
+              const on = selected === k;
+              return (
+                <g key={k} {...tap(k, pos.name)}>
+                  <Stone p={p} x={x} y={y} w={spread === "five" ? 62 : 78} h={spread === "five" ? 52 : 70} glyph={String(i + 1)} on={on} />
+                  <text x={x} y={y + (spread === "five" ? 37 : 50)} textAnchor="middle" fontSize="10" fill={on ? NIGHT_GOLD : STAR} fillOpacity={on ? 1 : 0.8} fontWeight={on ? 700 : 500} stroke="#17153A" strokeWidth="4" paintOrder="stroke">
+                    {pos.name}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        </NightPanel>
       );
     }
   }

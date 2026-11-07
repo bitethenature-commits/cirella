@@ -1,9 +1,10 @@
 "use client";
 
-import { GK_VIEWBOX, KEY_BY_N, PATH_EDGES, SEQUENCES, SEQUENCE_BY_ID, SPHERE_BY_ID, SPHERES, inSequence, type SequenceId, type Sphere } from "@/components/models/data/gene-keys";
+import { useId } from "react";
+import { GK_CENTER, GK_VIEWBOX, KEY_BY_N, PATH_EDGES, SEQUENCES, SEQUENCE_BY_ID, SPHERE_BY_ID, SPHERES, inSequence, type SequenceId, type Sphere } from "@/components/models/data/gene-keys";
 import { GATE_BY_N, CENTRE_BY_ID } from "@/components/models/data/human-design";
 import { LAYER_KEYS, type AstroLayer } from "@/lib/lesson-blocks";
-import { CREAM, GOLD, INK, LINE, MUTED, listEs, type DiagramProps, type LayerCtx, type SystemPiece } from "./common";
+import { listEs, type DiagramProps, type LayerCtx, type SystemPiece } from "./common";
 import { GK_LINES } from "./texts";
 
 /**
@@ -128,39 +129,168 @@ export function gkPiece(layer: GkLayer, key: string, { option, c }: LayerCtx): S
 }
 
 /* -------------------------------------------------------------------------- *
- *  Dibujos
+ *  Dibujos — como el modelo de la web: cielo de noche, la flor de la vida muy tenue y esferas de cristal
+ *  del color de su secuencia (las de dos secuencias, con los dos colores), con brillo y halo.
  * -------------------------------------------------------------------------- */
 
-/** El Camino Dorado: los caminos en el color de su secuencia y, con la carta, el número de cada esfera dentro. */
-function GoldenPath({ c, lit, selected, onSphere }: { c: LayerCtx["c"]; lit: (s: Sphere) => boolean; selected: (s: Sphere) => boolean; onSphere: (s: Sphere) => Record<string, unknown> }) {
-  const pos = (id: string) => SPHERE_BY_ID[id];
+/** Los tres colores de la carta: «line» para caminos; light/base/deep para el cristal de la esfera. */
+const TONE: Record<SequenceId, { line: string; light: string; base: string; deep: string; glow: string }> = {
+  activation: { line: "#7DB08A", light: "#93C79E", base: "#5A9566", deep: "#284D31", glow: "#C3E6CA" },
+  venus: { line: "#CF6F66", light: "#E08A82", base: "#B54E49", deep: "#561E1F", glow: "#F2C2BB" },
+  pearl: { line: "#6F98D0", light: "#93B6EC", base: "#5482C8", deep: "#213A6E", glow: "#C3D6F2" },
+};
+/** Las esferas de dos secuencias pasan de un color al otro, como en la carta. */
+const BLEND: Record<string, { from: SequenceId; to: SequenceId; x1: number; y1: number; x2: number; y2: number }> = {
+  lifework: { from: "activation", to: "pearl", x1: 0.3, y1: 0, x2: 0.7, y2: 1 },
+  core: { from: "pearl", to: "venus", x1: 1, y1: 0, x2: 0, y2: 1 },
+  purpose: { from: "activation", to: "venus", x1: 0, y1: 0, x2: 1, y2: 1 },
+};
+const NIGHT = "#100E26";
+const STAR = "#FBF6EC";
+
+/** Los degradados comunes (con el prefijo de cada dibujo: puede haber varios en una lección). */
+function GkDefs({ p }: { p: string }) {
   return (
-    <svg viewBox={`${GK_VIEWBOX.x} ${GK_VIEWBOX.y} ${GK_VIEWBOX.w} ${GK_VIEWBOX.h}`} className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label="El Camino Dorado">
-      {PATH_EDGES.map((e, i) => {
-        const on = lit(pos(e.from)) && lit(pos(e.to));
-        return <line key={i} x1={pos(e.from).x} y1={pos(e.from).y} x2={pos(e.to).x} y2={pos(e.to).y} stroke={SEQUENCE_BY_ID[e.sequence].hue} strokeWidth={on ? 5 : 3} strokeOpacity={on ? 0.85 : 0.2} strokeDasharray={e.dashed ? "8 8" : undefined} />;
+    <defs>
+      {SPHERES.map((s) => {
+        const b = BLEND[s.id] ?? { from: s.sequence, to: s.sequence, x1: 0.3, y1: 0, x2: 0.7, y2: 1 };
+        return (
+          <linearGradient key={s.id} id={`${p}f-${s.id}`} x1={b.x1} y1={b.y1} x2={b.x2} y2={b.y2}>
+            <stop offset="0%" stopColor={TONE[b.from].light} />
+            <stop offset="35%" stopColor={TONE[b.from].base} />
+            <stop offset="65%" stopColor={TONE[b.to].base} />
+            <stop offset="100%" stopColor={TONE[b.to].deep} />
+          </linearGradient>
+        );
       })}
+      {SEQUENCES.map((s) => (
+        <linearGradient key={s.id} id={`${p}q-${s.id}`} x1="0.3" y1="0" x2="0.7" y2="1">
+          <stop offset="0%" stopColor={TONE[s.id].light} />
+          <stop offset="50%" stopColor={TONE[s.id].base} />
+          <stop offset="100%" stopColor={TONE[s.id].deep} />
+        </linearGradient>
+      ))}
+      {SEQUENCES.map((s) => (
+        <radialGradient key={s.id} id={`${p}h-${s.id}`} cx="50%" cy="50%" r="50%">
+          <stop offset="40%" stopColor={TONE[s.id].light} stopOpacity="0.55" />
+          <stop offset="100%" stopColor={TONE[s.id].light} stopOpacity="0" />
+        </radialGradient>
+      ))}
+      <radialGradient id={`${p}gloss`} cx="36%" cy="26%" r="62%">
+        <stop offset="0%" stopColor="#fff" stopOpacity="0.62" />
+        <stop offset="45%" stopColor="#fff" stopOpacity="0.08" />
+        <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+      </radialGradient>
+      <radialGradient id={`${p}shade`} cx="50%" cy="50%" r="50%">
+        <stop offset="70%" stopColor="#000" stopOpacity="0" />
+        <stop offset="100%" stopColor="#000" stopOpacity="0.4" />
+      </radialGradient>
+      <radialGradient id={`${p}sky`} cx="50%" cy="42%" r="70%">
+        <stop offset="0%" stopColor="#2A2552" />
+        <stop offset="55%" stopColor="#17153A" />
+        <stop offset="100%" stopColor={NIGHT} />
+      </radialGradient>
+      <radialGradient id={`${p}goldglow`} cx="50%" cy="50%" r="50%">
+        <stop offset="35%" stopColor="#E9CC8E" stopOpacity="0.55" />
+        <stop offset="100%" stopColor="#E9CC8E" stopOpacity="0" />
+      </radialGradient>
+      <linearGradient id={`${p}gold`} x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#F0D9A4" />
+        <stop offset="50%" stopColor="#C8A86E" />
+        <stop offset="100%" stopColor="#8E6D35" />
+      </linearGradient>
+      <filter id={`${p}blur`} x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="4" />
+      </filter>
+    </defs>
+  );
+}
+
+const usePrefix = () => useId().replace(/[^a-zA-Z0-9]/g, "");
+
+/** La flor de la vida, muy tenue, sobre el cielo. */
+function Flower({ cx, cy, r, reach, opacity = 0.1 }: { cx: number; cy: number; r: number; reach: number; opacity?: number }) {
+  const pts: { x: number; y: number }[] = [];
+  const rows = Math.ceil(reach / (r * 0.866)) + 1;
+  for (let j = -rows; j <= rows; j++)
+    for (let i = -rows; i <= rows; i++) {
+      const x = cx + (i + (j % 2 ? 0.5 : 0)) * r;
+      const y = cy + j * r * 0.866;
+      if (Math.hypot(x - cx, y - cy) <= reach) pts.push({ x, y });
+    }
+  return (
+    <g fill="none" stroke={STAR} strokeWidth="1" opacity={opacity} pointerEvents="none">
+      {pts.map((q, i) => (
+        <circle key={i} cx={q.x} cy={q.y} r={r} />
+      ))}
+    </g>
+  );
+}
+
+/** Estrellas fijas (siempre las mismas) para el fondo de los dibujos. */
+function Stars({ w, h, n, x0 = 0, y0 = 0 }: { w: number; h: number; n: number; x0?: number; y0?: number }) {
+  const pts = Array.from({ length: n }, (_, i) => {
+    const a = Math.sin(i * 12.9898) * 43758.5453;
+    const b = Math.sin(i * 78.233) * 12345.6789;
+    return { x: x0 + (a - Math.floor(a)) * w, y: y0 + (b - Math.floor(b)) * h, r: 0.5 + ((i * 7) % 5) * 0.22 };
+  });
+  return (
+    <g fill={STAR} pointerEvents="none">
+      {pts.map((q, i) => (
+        <circle key={i} cx={q.x} cy={q.y} r={q.r} opacity={0.25 + ((i * 13) % 7) * 0.08} />
+      ))}
+    </g>
+  );
+}
+
+/** El Camino Dorado: los caminos en el color de su secuencia y cada esfera de cristal con su llave dentro. */
+function GoldenPath({ c, lit, selected, onSphere }: { c: LayerCtx["c"]; lit: (s: Sphere) => boolean; selected: (s: Sphere) => boolean; onSphere: (s: Sphere) => Record<string, unknown> }) {
+  const p = usePrefix();
+  const pos = (id: string) => SPHERE_BY_ID[id];
+  const R = 38;
+  return (
+    <svg viewBox={`${GK_VIEWBOX.x} ${GK_VIEWBOX.y - 10} ${GK_VIEWBOX.w} ${GK_VIEWBOX.h + 20}`} className="mx-auto block h-auto w-full max-w-[30rem] select-none" role="group" aria-label="El Camino Dorado">
+      <GkDefs p={p} />
+      <Flower cx={GK_CENTER.x} cy={GK_CENTER.y} r={58} reach={330} opacity={0.08} />
+      <g strokeLinecap="round">
+        {PATH_EDGES.map((e, i) => {
+          const on = lit(pos(e.from)) && lit(pos(e.to));
+          const touched = selected(pos(e.from)) || selected(pos(e.to));
+          const common = { x1: pos(e.from).x, y1: pos(e.from).y, x2: pos(e.to).x, y2: pos(e.to).y, stroke: TONE[e.sequence].line };
+          return (
+            <g key={i} opacity={on ? 1 : 0.14}>
+              {on && <line {...common} strokeWidth={touched ? 12 : 9} strokeOpacity="0.18" filter={`url(#${p}blur)`} />}
+              <line {...common} strokeWidth={touched ? 4 : 2.6} strokeDasharray={e.dashed ? "9 8" : undefined} />
+            </g>
+          );
+        })}
+      </g>
       {SPHERES.map((s) => {
         const on = selected(s);
-        const hue = SEQUENCE_BY_ID[s.sequence].hue;
-        const alsoHue = s.also ? SEQUENCE_BY_ID[s.also.sequence].hue : null;
         const isLit = lit(s);
+        const r = on ? R + 5 : R;
         const k = c?.geneKeys.keys[s.id];
         return (
-          <g key={s.id} {...onSphere(s)} opacity={isLit ? 1 : 0.3}>
-            {alsoHue && <circle cx={s.x} cy={s.y} r={on ? 48 : 42} fill="none" stroke={alsoHue} strokeWidth="4" />}
-            <circle cx={s.x} cy={s.y} r={on ? 40 : 34} fill={on ? INK : isLit ? `${hue}26` : "#fff"} stroke={hue} strokeWidth={5} />
-            {k && (
-              <text x={s.x} y={s.y} textAnchor="middle" dominantBaseline="central" fontSize="26" fontFamily="Georgia, serif" fill={on ? GOLD : INK} pointerEvents="none">
-                {k}
-                <tspan fontSize="15" dx="1" fill={on ? CREAM : MUTED}>
-                  .{c!.geneKeys.lines[s.id]}
-                </tspan>
+          <g key={s.id} {...onSphere(s)} opacity={isLit ? 1 : 0.28} style={{ transition: "opacity 400ms", ...(onSphere(s).style as object) }}>
+            <circle cx={s.x} cy={s.y} r={R + 6} fill={NIGHT} />
+            {on && <circle cx={s.x} cy={s.y} r={R * 2.1} fill={`url(#${p}h-${s.sequence})`} />}
+            <circle cx={s.x} cy={s.y} r={r} fill={`url(#${p}f-${s.id})`} />
+            <circle cx={s.x} cy={s.y} r={r} fill={`url(#${p}shade)`} />
+            <circle cx={s.x} cy={s.y} r={r} fill={`url(#${p}gloss)`} stroke={on ? TONE[s.sequence].glow : "rgba(255,255,255,0.22)"} strokeWidth={on ? 3 : 1} />
+            {k ? (
+              <>
+                <text x={s.x} y={s.y - 13} textAnchor="middle" dominantBaseline="central" fontSize={s.name.length > 9 ? 9.5 : 10.5} fill={STAR} opacity="0.85" pointerEvents="none">
+                  {s.name}
+                </text>
+                <text x={s.x} y={s.y + 8} textAnchor="middle" dominantBaseline="central" fontSize="24" fontWeight="500" fill={STAR} pointerEvents="none" style={{ textShadow: "0 1px 2px rgba(0,0,0,.5)" }}>
+                  {k}.{c!.geneKeys.lines[s.id]}
+                </text>
+              </>
+            ) : (
+              <text x={s.x} y={s.y} textAnchor="middle" dominantBaseline="central" fontSize={s.name.length > 9 ? 10 : 11.5} fill={STAR} pointerEvents="none">
+                {s.name}
               </text>
             )}
-            <text x={s.x} y={s.y + 62} textAnchor="middle" fontSize="20" fill={INK} pointerEvents="none">
-              {s.name}
-            </text>
           </g>
         );
       })}
@@ -168,24 +298,51 @@ function GoldenPath({ c, lit, selected, onSphere }: { c: LayerCtx["c"]; lit: (s:
   );
 }
 
+/** El cielo de noche de los dibujos de Gene Keys (un panel propio: no van sobre la lámina clara). */
+function NightPanel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-[1.5rem] p-2 sm:p-3"
+      style={{
+        background: "radial-gradient(circle at 50% 35%, #2A2552 0%, #17153A 55%, #100E26 100%)",
+        boxShadow: "0 0 0 1px rgb(200 168 110 / .28), 0 0 50px -14px rgb(150 120 220 / .45)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function SequenceLegend({ active, onPick }: { active: string | null; onPick?: (id: SequenceId) => Record<string, unknown> }) {
   return (
-    <div className="mt-1 flex flex-wrap justify-center gap-1.5">
+    <div className="mt-2 flex flex-wrap justify-center gap-1.5 pb-1">
       {SEQUENCES.map((s) => {
         const on = active === s.id;
         return (
           <span
             key={s.id}
             {...(onPick ? onPick(s.id) : {})}
-            className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.72rem] font-semibold"
-            style={{ borderColor: on ? s.hue : LINE, background: on ? `${s.hue}22` : "#fff", color: INK, cursor: onPick ? "pointer" : undefined }}
+            className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.72rem] font-semibold transition"
+            style={{ borderColor: on ? TONE[s.id].glow : "rgb(255 255 255 / .16)", background: on ? `${TONE[s.id].base}55` : "rgb(255 255 255 / .05)", color: STAR, cursor: onPick ? "pointer" : undefined }}
           >
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.hue }} />
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: `radial-gradient(circle at 35% 30%, ${TONE[s.id].glow}, ${TONE[s.id].base})`, boxShadow: on ? `0 0 8px ${TONE[s.id].light}` : undefined }} />
             {SHORT[s.id]}
           </span>
         );
       })}
     </div>
+  );
+}
+
+/** El símbolo de cada frecuencia: ▽ sombra, △ don, ✡ siddhi. */
+function FrequencyMark({ f, x, y, s, color }: { f: "shadow" | "gift" | "siddhi"; x: number; y: number; s: number; color: string }) {
+  const up = `${x},${y - s} ${x + s * 0.92},${y + s * 0.6} ${x - s * 0.92},${y + s * 0.6}`;
+  const down = `${x},${y + s} ${x + s * 0.92},${y - s * 0.6} ${x - s * 0.92},${y - s * 0.6}`;
+  return (
+    <g fill="none" stroke={color} strokeWidth={s / 5} strokeLinejoin="round" pointerEvents="none">
+      {f !== "shadow" && <polygon points={up} />}
+      {f !== "gift" && <polygon points={down} />}
+    </g>
   );
 }
 
@@ -197,108 +354,189 @@ export function GkDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProp
       const inKeys = new Set(keys);
       const seq = ctx.option && ctx.option !== "all" ? ctx.option : null;
       return (
-        <div>
+        <NightPanel>
           <GoldenPath c={c} lit={(s) => inKeys.has(s.id)} selected={(s) => s.id === selected} onSphere={(s) => (inKeys.has(s.id) ? tap(s.id, nameIn(s, seq)) : {})} />
           <SequenceLegend active={seq ?? SPHERE_BY_ID[selected]?.sequence ?? null} />
-        </div>
+        </NightPanel>
       );
     }
     case "gk-sequences":
       return (
-        <div>
+        <NightPanel>
           <GoldenPath c={c} lit={(s) => inSequence(s, selected as SequenceId)} selected={() => false} onSphere={(s) => tap(inSequence(s, selected as SequenceId) && s.also && s.sequence !== selected ? s.also.sequence : s.sequence, SEQUENCE_BY_ID[s.sequence].name)} />
           <SequenceLegend active={selected} onPick={(id) => tap(id, SEQUENCE_BY_ID[id].name)} />
-        </div>
+        </NightPanel>
       );
-    case "gk-keys": {
-      const inKeys = new Set(keys);
-      // Cada llave de la alumna, en el color de la secuencia de su (primera) esfera.
-      const hueOf = new Map<number, string>();
-      if (c) for (const s of SPHERES) if (!hueOf.has(c.geneKeys.keys[s.id])) hueOf.set(c.geneKeys.keys[s.id], SEQUENCE_BY_ID[s.sequence].hue);
-      return (
-        <div>
-          <svg viewBox="0 0 336 336" className="mx-auto block h-auto w-full max-w-[21rem] select-none" role="group" aria-label="Las 64 llaves">
-            {Array.from({ length: 64 }, (_, i) => {
-              const n = i + 1;
-              const k = String(n);
-              const x = 4 + (i % 8) * 41;
-              const y = 4 + Math.floor(i / 8) * 41;
-              const on = selected === k;
-              const hue = hueOf.get(n);
-              const usable = inKeys.has(k);
-              return (
-                <g key={n} {...(usable ? tap(k, `Llave ${n}`) : {})} opacity={usable ? 1 : 0.25}>
-                  <rect x={x} y={y} width="37" height="37" rx="8" fill={on ? INK : hue ? `${hue}38` : "#FBF8F1"} stroke={on ? GOLD : hue ?? LINE} strokeWidth={on ? 2.5 : hue ? 2 : 1} />
-                  <text x={x + 18.5} y={y + 19} textAnchor="middle" dominantBaseline="central" fontSize="14" fontFamily="Georgia, serif" fontWeight={hue ? 700 : 400} fill={on ? GOLD : INK} pointerEvents="none">
-                    {n}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-          {c && <SequenceLegend active={null} />}
-        </div>
-      );
-    }
-    case "gk-spectrum": {
-      const sphereId = ctx.option && SPHERE_BY_ID[ctx.option] ? ctx.option : "lifework";
-      const k = c ? KEY_BY_N.get(c.geneKeys.keys[sphereId]) : null;
-      const hue = SEQUENCE_BY_ID[SPHERE_BY_ID[sphereId].sequence].hue;
-      return (
-        <svg viewBox="0 0 320 330" className="mx-auto block h-auto w-full max-w-[20rem] select-none" role="group" aria-label="Sombra, don y siddhi">
-          {k && (
-            <text x="160" y="20" textAnchor="middle" fontSize="13" fill={hue} fontWeight="700">
-              {SPHERE_BY_ID[sphereId].name} · llave {k.n}
-            </text>
-          )}
-          {(["siddhi", "gift", "shadow"] as const).map((key, i) => {
-            const on = selected === key;
-            const fill = ["#F3ECDD", "#E9DDBF", "#3A3650"][i];
-            const word = k ? (key === "shadow" ? k.shadow : key === "gift" ? k.gift : k.siddhi) : null;
-            const light = on || key === "shadow";
-            return (
-              <g key={key} {...tap(key, SPECTRUM[key].name)}>
-                <path d={`M${60 - i * 18} ${40 + i * 90}h${200 + i * 36}l-14 78h${-(172 + i * 36)}z`} fill={on ? INK : fill} stroke={on ? GOLD : "#D9CFBC"} strokeWidth={on ? 2 : 1} />
-                <text x="160" y={(word ? 70 : 79) + i * 90} textAnchor="middle" dominantBaseline="central" fontSize="20" fontFamily="Georgia, serif" fill={light ? CREAM : INK}>
-                  {SPECTRUM[key].name}
-                </text>
-                {word && (
-                  <text x="160" y={93 + i * 90} textAnchor="middle" dominantBaseline="central" fontSize="13" fill={light ? GOLD : "#6E6A7E"}>
-                    {word}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
-      );
-    }
+    case "gk-keys":
+      return <KeysGrid selected={selected} keys={keys} tap={tap} c={c} />;
+    case "gk-spectrum":
+      return <SpectrumPyramid selected={selected} tap={tap} c={c} option={ctx.option} />;
     case "gk-lines":
-      return (
-        <svg viewBox="0 0 320 340" className="mx-auto block h-auto w-full max-w-[20rem] select-none" role="group" aria-label="Las 6 líneas">
-          {[6, 5, 4, 3, 2, 1].map((n, i) => {
-            const k = String(n);
-            const on = selected === k;
-            const m = own.has(k);
-            const y = 22 + i * 52;
-            const count = c ? SPHERES.filter((s) => c.geneKeys.lines[s.id] === n) : [];
-            return (
-              <g key={n} {...tap(k, `Línea ${n}`)}>
-                <rect x="70" y={y} width="220" height="34" rx="8" fill={on ? INK : m ? "#EFE4CC" : "#FBF8F1"} stroke={m || on ? GOLD : LINE} strokeWidth={m ? 1.6 : 1} />
-                <text x="40" y={y + 17} textAnchor="middle" dominantBaseline="central" fontSize="22" fontFamily="Georgia, serif" fill={m ? GOLD : INK}>
-                  {n}
-                </text>
-                <text x="160" y={y + 17} textAnchor="middle" dominantBaseline="central" fontSize="14" fill={on ? CREAM : INK}>
-                  {GK_LINES[n - 1].name}
-                </text>
-                {count.map((s, j) => (
-                  <circle key={s.id} cx={276 - j * 11} cy={y + 17} r="4" fill={SEQUENCE_BY_ID[s.sequence].hue} />
-                ))}
-              </g>
-            );
-          })}
-        </svg>
-      );
+      return <LinesHexagram selected={selected} own={own} tap={tap} c={c} />;
   }
   return null;
+}
+
+/** Las 64 llaves en una retícula de 8 × 8: las de la alumna, de cristal en el color de su secuencia; la elegida, con halo dorado, y su compañera de programación, con un filete dorado. */
+function KeysGrid({ selected, keys, tap, c }: { selected: string; keys: string[]; tap: DiagramProps["tap"]; c: LayerCtx["c"] }) {
+  const p = usePrefix();
+  const inKeys = new Set(keys);
+  const seqOf = new Map<number, SequenceId>();
+  if (c) for (const s of SPHERES) if (!seqOf.has(c.geneKeys.keys[s.id])) seqOf.set(c.geneKeys.keys[s.id], s.sequence);
+  const partner = partnerOf(Number(selected));
+  const cell = 41;
+  return (
+    <NightPanel>
+      <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label="Las 64 llaves">
+        <GkDefs p={p} />
+        <Stars w={340} h={340} n={40} />
+        {Array.from({ length: 64 }, (_, i) => {
+          const n = i + 1;
+          const k = String(n);
+          const cx = 6 + (i % 8) * cell + cell / 2;
+          const cy = 6 + Math.floor(i / 8) * cell + cell / 2;
+          const on = selected === k;
+          const seq = seqOf.get(n);
+          const usable = inKeys.has(k);
+          const r = on ? 19 : 15.5;
+          return (
+            <g key={n} {...(usable ? tap(k, `Llave ${n}`) : {})} opacity={usable ? 1 : 0.22}>
+              {on && <circle cx={cx} cy={cy} r={30} fill={`url(#${p}goldglow)`} />}
+              {seq ? (
+                <>
+                  <circle cx={cx} cy={cy} r={r} fill={`url(#${p}q-${seq})`} />
+                  <circle cx={cx} cy={cy} r={r} fill={`url(#${p}shade)`} />
+                  <circle cx={cx} cy={cy} r={r} fill={`url(#${p}gloss)`} stroke={on ? "#F0D9A4" : "rgba(255,255,255,0.3)"} strokeWidth={on ? 2.2 : 0.8} />
+                </>
+              ) : (
+                <circle cx={cx} cy={cy} r={r} fill={on ? `url(#${p}gold)` : "rgb(255 255 255 / .05)"} stroke={on ? "#F0D9A4" : "rgb(255 255 255 / .2)"} strokeWidth={on ? 1.6 : 0.7} />
+              )}
+              {n === partner && !on && <circle cx={cx} cy={cy} r={r + 3.5} fill="none" stroke="#E9CC8E" strokeWidth="1.2" strokeDasharray="2 2.5" />}
+              <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={on ? 15 : 12.5} fontFamily="Georgia, serif" fill={on && !seq ? NIGHT : STAR} fillOpacity={seq || on ? 1 : 0.75} pointerEvents="none">
+                {n}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pb-1 text-[0.68rem]" style={{ color: "rgb(251 246 236 / .7)" }}>
+        {c && <SequenceLegend active={null} />}
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded-full border border-dashed" style={{ borderColor: "#E9CC8E" }} /> compañera de programación
+        </span>
+      </div>
+    </NightPanel>
+  );
+}
+
+/** Sombra, don y siddhi como una pirámide de luz: de la sombra densa abajo a la luz del siddhi arriba. */
+function SpectrumPyramid({ selected, tap, c, option }: { selected: string; tap: DiagramProps["tap"]; c: LayerCtx["c"]; option: string | null }) {
+  const p = usePrefix();
+  const sphereId = option && SPHERE_BY_ID[option] ? option : "lifework";
+  const k = c ? KEY_BY_N.get(c.geneKeys.keys[sphereId]) : null;
+  const seq = SPHERE_BY_ID[sphereId].sequence;
+  const BANDS = [
+    { key: "siddhi" as const, y: 54, h: 74, top: 46, bottom: 88, fill: `url(#${p}siddhi)`, text: NIGHT, sub: "#6B5A33", mark: "#8E6D35" },
+    { key: "gift" as const, y: 136, h: 74, top: 94, bottom: 124, fill: `url(#${p}gift)`, text: NIGHT, sub: "#4D3B18", mark: "#5E4718" },
+    { key: "shadow" as const, y: 218, h: 74, top: 130, bottom: 150, fill: `url(#${p}shadow)`, text: STAR, sub: "#C9B8A6", mark: "#C9B8A6" },
+  ];
+  return (
+    <NightPanel>
+      <svg viewBox="0 0 320 320" className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label="Sombra, don y siddhi">
+        <GkDefs p={p} />
+        <defs>
+          <linearGradient id={`${p}siddhi`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FFF8E6" />
+            <stop offset="100%" stopColor="#F0DDB0" />
+          </linearGradient>
+          <linearGradient id={`${p}gift`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#E9CC8E" />
+            <stop offset="100%" stopColor="#B8914F" />
+          </linearGradient>
+          <linearGradient id={`${p}shadow`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#4A3F4E" />
+            <stop offset="100%" stopColor="#241E2E" />
+          </linearGradient>
+        </defs>
+        <Stars w={320} h={320} n={30} />
+        {/* La luz que cae desde arriba. */}
+        <ellipse cx="160" cy="40" rx="90" ry="34" fill={`url(#${p}goldglow)`} />
+        <text x="160" y="24" textAnchor="middle" fontSize="11" fontWeight="700" letterSpacing="1.4" fill={TONE[seq].glow}>
+          {(SPHERE_BY_ID[sphereId].name + (k ? ` · llave ${k.n}` : "")).toUpperCase()}
+        </text>
+        {BANDS.map((b) => {
+          const on = selected === b.key;
+          const word = k ? k[b.key] : null;
+          // Un trapecio: más ancho abajo (la sombra es la base de todo).
+          const d = `M${160 - b.top} ${b.y}H${160 + b.top}L${160 + b.bottom} ${b.y + b.h}H${160 - b.bottom}Z`;
+          return (
+            <g key={b.key} {...tap(b.key, SPECTRUM[b.key].name)}>
+              {on && <path d={d} fill="#E9CC8E" opacity="0.5" filter={`url(#${p}blur)`} />}
+              <path d={d} fill={b.fill} stroke={on ? "#F0D9A4" : "rgb(255 255 255 / .18)"} strokeWidth={on ? 2.2 : 0.8} strokeLinejoin="round" />
+              <FrequencyMark f={b.key} x={160 - (b.top + b.bottom) / 2 + 22} y={b.y + b.h / 2} s={7} color={b.mark} />
+              <text x="164" y={word ? b.y + b.h / 2 - 9 : b.y + b.h / 2} textAnchor="middle" dominantBaseline="central" fontSize="19" fontFamily="Georgia, serif" fill={b.text}>
+                {SPECTRUM[b.key].name}
+              </text>
+              {word && (
+                <text x="164" y={b.y + b.h / 2 + 13} textAnchor="middle" dominantBaseline="central" fontSize="12" fill={b.sub}>
+                  {word}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </NightPanel>
+  );
+}
+
+/** Las seis líneas como un hexagrama del I Ching (la 1 abajo): a la derecha, las esferas de la alumna que la tienen. */
+function LinesHexagram({ selected, own, tap, c }: { selected: string; own: Set<string>; tap: DiagramProps["tap"]; c: LayerCtx["c"] }) {
+  const p = usePrefix();
+  return (
+    <NightPanel>
+      <svg viewBox="0 0 320 340" className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label="Las 6 líneas">
+        <GkDefs p={p} />
+        <Stars w={320} h={340} n={30} />
+        {[6, 5, 4, 3, 2, 1].map((n, i) => {
+          const k = String(n);
+          const on = selected === k;
+          const m = own.has(k);
+          const y = 26 + i * 50;
+          const holders = c ? SPHERES.filter((s) => c.geneKeys.lines[s.id] === n) : [];
+          return (
+            <g key={n} {...tap(k, `Línea ${n}`)}>
+              <rect x="20" y={y - 4} width="280" height="42" rx="12" fill={on ? "rgb(233 204 142 / .12)" : "transparent"} />
+              {on && <rect x="62" y={y + 6} width="134" height="22" rx="6" fill="#E9CC8E" opacity="0.45" filter={`url(#${p}blur)`} />}
+              <text x="40" y={y + 17} textAnchor="middle" dominantBaseline="central" fontSize="22" fontFamily="Georgia, serif" fill={on || m ? "#E9CC8E" : STAR} fillOpacity={on || m ? 1 : 0.7}>
+                {n}
+              </text>
+              {/* La barra del hexagrama, entera (yang). */}
+              <rect x="62" y={y + 9} width="134" height="16" rx="4" fill={on ? `url(#${p}gold)` : m ? "rgb(233 204 142 / .55)" : "rgb(255 255 255 / .14)"} stroke={on ? "#F0D9A4" : "none"} />
+              <text x="129" y={y + 17.5} textAnchor="middle" dominantBaseline="central" fontSize="9.5" letterSpacing="0.8" fontWeight="600" fill={on ? NIGHT : STAR} fillOpacity={on ? 1 : 0.85}>
+                {GK_LINES[n - 1].name.toUpperCase()}
+              </text>
+              {/* Las llaves de la alumna con esta línea: una esfera de cristal en el color de su secuencia, con el número
+                  dentro (hasta 4 por fila; si hay más, en dos filas). */}
+              {holders.map((s, j) => {
+                const two = holders.length > 4;
+                const cx = 214 + (j % 4) * 25;
+                const cy = two ? y + 6 + Math.floor(j / 4) * 23 : y + 17;
+                const r = two ? 10.5 : 11.5;
+                return (
+                  <g key={s.id} pointerEvents="none">
+                    <circle cx={cx} cy={cy} r={r} fill={`url(#${p}q-${s.sequence})`} />
+                    <circle cx={cx} cy={cy} r={r} fill={`url(#${p}gloss)`} stroke="rgba(255,255,255,.45)" strokeWidth="0.8" />
+                    <text x={cx} y={cy + 0.5} textAnchor="middle" dominantBaseline="central" fontSize={r > 11 ? 10.5 : 9.5} fontWeight="700" fill={STAR} style={{ textShadow: "0 1px 2px rgba(0,0,0,.6)" }}>
+                      {c!.geneKeys.keys[s.id]}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })}
+      </svg>
+    </NightPanel>
+  );
 }

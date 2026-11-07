@@ -22,7 +22,8 @@ const C = 170;
 const GOLD = "#B08D4F";
 const INK = "#1E1A2E";
 /** El orden de las órbitas, de dentro afuera: la Luna, la más cercana; los puntos (nodo y Lilith), fuera. */
-const DISC_LAYERS = new Set<string>(["moon-signs", "moon-houses", "moon-nodes", "modalities", "angles"]);
+/** Las capas que traen su propio fondo (una rueda o el cielo de noche de Gene Keys): no van sobre la lámina clara. */
+const DISC_LAYERS = new Set<string>(["moon-signs", "moon-houses", "moon-nodes", "modalities", "angles", "gk-spheres", "gk-sequences", "gk-keys", "gk-spectrum", "gk-lines"]);
 const ORBIT_ORDER = ["moon", "mercury", "venus", "sun", "mars", "jupiter", "saturn", "chiron", "uranus", "neptune", "pluto", "node", "lilith"] as const;
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const VS = "︎"; // los símbolos como texto, no como emoji
@@ -135,7 +136,7 @@ export function AstroLayerModel({ data, computed }: { data: ModelData; computed:
       <div className="grid gap-3 p-2 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] sm:items-stretch sm:gap-4 sm:p-2.5">
         {/* Los dibujos que no son una rueda (el bodygraph, el Camino Dorado, las runas…) van sobre una lámina
             clara iluminada: así se leen igual sobre el fondo de noche del curso. */}
-        <div className={`self-center p-1 sm:p-3 ${sys && !DISC_LAYERS.has(sys) ? "model-plate" : ""}`}>
+        <div className={`self-center p-1 sm:p-3 ${sys && !DISC_LAYERS.has(sys) && !/^(hd|moon|rune)-/.test(sys) ? "model-plate" : ""}`}>
           {sys ? <SystemDiagram layer={sys} selected={selected} mine={mineList} keys={keys} tap={tapFor} ctx={ctx} /> : <Wheel layer={data.layer} focus={data.focus} chart={chart} selected={selected} mine={mine} onPick={setSel} centre={{ glyph: piece.glyph, name: piece.name }} />}
         </div>
         {/* La tarjeta llega hasta los bordes del modelo y tiene siempre el mismo tamaño (no mueve la página al

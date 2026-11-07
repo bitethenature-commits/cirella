@@ -7,6 +7,7 @@ import { HD_BODY_ES, HD_BODY_GLYPH, type HdBody } from "@/lib/human-design-names
 import type { HumanDesign } from "@/lib/human-design-calc";
 import { HD_SIDE_BODIES, LAYER_KEYS, type AstroLayer } from "@/lib/lesson-blocks";
 import { CREAM, DESIGN_RED, GOLD, INK, LINE, MUTED, SAND, VS, listEs, type DiagramProps, type LayerCtx, type SystemPiece, type Tap } from "./common";
+import { NIGHT, NIGHT_GOLD, NIGHT_RED, NightChips, NightDefs, NightPanel, STAR, Stars, usePrefix } from "./night";
 import { HD_AUTHORITIES, HD_AUTHORITY_KEY, HD_PLANET_TEXT, HD_PROFILES, HD_SIDE_TEXT, HD_TYPES, HD_TYPE_KEY, profileAngle, type HdAuthorityKey, type HdTypeKey } from "./texts";
 
 /**
@@ -204,15 +205,22 @@ export function hdPiece(layer: HdLayer, key: string, { c }: LayerCtx): SystemPie
 }
 
 /* -------------------------------------------------------------------------- *
- *  Dibujos
+ *  Dibujos — sobre el cielo de noche (layers/night.tsx): canales como cintas de luz (dorados los definidos),
+ *  centros de cristal en su color, la personalidad en crema y el diseño en rojo, y la pieza elegida en oro.
  * -------------------------------------------------------------------------- */
 
 const PATHS = [...CHANNEL_PATHS].sort((p, q) => (p.z ?? 0) - (q.z ?? 0));
+/** En el cielo, la personalidad (negro en las cartas impresas) se pinta en crema para que se vea. */
+const PERS = "#F3ECDD";
+const sideColorOf = (hd: HumanDesign | null, n: number) => {
+  const s = hd?.gateSides.get(n);
+  if (!s) return null;
+  return s.has("personality") && s.has("design") ? "both" : s.has("design") ? NIGHT_RED : PERS;
+};
 
 /**
- * El bodygraph (el layout de data/bodygraph-layout.ts) con la carta de la alumna: sus canales definidos en
- * dorado, sus puertas activadas en negro (personalidad), rojo (diseño) o las dos, y lo que se está mirando
- * en tinta. Cada capa decide qué se toca: puertas, canales o centros.
+ * El bodygraph (el layout de data/bodygraph-layout.ts) con la carta de la alumna. Cada capa decide qué se
+ * toca (puertas, canales o centros) y qué se resalta en oro.
  */
 function MiniBodygraph({
   hd,
@@ -225,6 +233,9 @@ function MiniBodygraph({
   tapChannel,
   tapCentre,
   className = "h-[24rem] sm:h-[28rem]",
+  gates = !centreNames,
+  vb = [20, 10, VIEWBOX.w - 40, VIEWBOX.h - 20],
+  children,
 }: {
   hd: HumanDesign | null;
   selectedGate?: number | null;
@@ -236,93 +247,124 @@ function MiniBodygraph({
   tapChannel?: (key: string) => Record<string, unknown>;
   tapCentre?: (id: CentreId) => Record<string, unknown> | null;
   className?: string;
+  /** Sin los números de las puertas (las autoridades). */
+  gates?: boolean;
+  /** Otro encuadre (más ancho, para poner etiquetas alrededor). */
+  vb?: [number, number, number, number];
+  /** Lo que se dibuja encima (las etiquetas de las autoridades). */
+  children?: React.ReactNode;
 }) {
+  const p = usePrefix();
   const defined = new Set(hd?.definedChannels.map((ch) => channelKey(ch.a, ch.b)) ?? []);
-  const sideColor = (n: number) => {
-    const s = hd?.gateSides.get(n);
-    if (!s) return null;
-    return s.has("personality") && s.has("design") ? "both" : s.has("design") ? DESIGN_RED : INK;
-  };
+  const sel = selectedChannel ? CHANNEL_PATH_BY_KEY.get(selectedChannel) : null;
   return (
-    <svg viewBox={`20 10 ${VIEWBOX.w - 40} ${VIEWBOX.h - 20}`} className={`mx-auto block w-auto max-w-full select-none ${className}`} style={{ aspectRatio: `${VIEWBOX.w - 40} / ${VIEWBOX.h - 20}` }} role="group" aria-label="Bodygraph">
-      <g fill="none">
-        {PATHS.map((p) => (
-          <path key={`e${p.key}`} d={p.d} stroke="#D9CFBC" strokeWidth={CHANNEL_BAND + 2} />
+    <svg viewBox={vb.join(" ")} className={`mx-auto block w-auto max-w-full select-none ${className}`} style={{ aspectRatio: `${vb[2]} / ${vb[3]}` }} role="group" aria-label="Bodygraph">
+      <NightDefs p={p} />
+      <defs>
+        <radialGradient id={`${p}shade`} cx="50%" cy="45%" r="60%">
+          <stop offset="55%" stopColor="#000" stopOpacity="0" />
+          <stop offset="100%" stopColor="#000" stopOpacity="0.38" />
+        </radialGradient>
+        <radialGradient id={`${p}aura`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#8C7BD8" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="#8C7BD8" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <Stars x0={vb[0]} y0={vb[1]} w={vb[2]} h={vb[3]} n={80} />
+      {/* Un aura suave detrás del cuerpo. */}
+      <ellipse cx={VIEWBOX.w / 2} cy={VIEWBOX.h * 0.5} rx={VIEWBOX.w * 0.48} ry={VIEWBOX.h * 0.46} fill={`url(#${p}aura)`} pointerEvents="none" />
+
+      <g fill="none" pointerEvents="none">
+        {/* Los 36 canales vacíos: una cinta tenue. */}
+        {PATHS.map((q) => (
+          <path key={`e${q.key}`} d={q.d} stroke="rgb(255 255 255 / .2)" strokeWidth={CHANNEL_BAND + 2} />
         ))}
-        {PATHS.map((p) => (
-          <path key={`f${p.key}`} d={p.d} stroke="#FBF8F1" strokeWidth={CHANNEL_BAND} />
+        {PATHS.map((q) => (
+          <path key={`f${q.key}`} d={q.d} stroke="#1B1840" strokeWidth={CHANNEL_BAND} />
         ))}
+        {/* Los definidos, de oro con halo; las puertas colgantes, media cinta en su color. */}
         {hd &&
-          PATHS.map((p) => {
-            if (defined.has(p.key)) return <path key={`d${p.key}`} d={p.d} stroke={GOLD} strokeWidth={CHANNEL_BAND - 1} />;
-            const halves = [
-              [p.a, p.halfA],
-              [p.b, p.halfB],
-            ] as const;
-            return halves.map(([n, d]) => {
-              const col = sideColor(n);
-              if (!col) return null;
-              return (
-                <g key={`h${p.key}${n}`} strokeWidth={CHANNEL_BAND - 3}>
-                  <path d={d} stroke={col === "both" ? DESIGN_RED : col} />
-                  {col === "both" && <path d={d} stroke={INK} strokeDasharray="6 6" />}
-                </g>
-              );
-            });
-          })}
-        {selectedChannel && CHANNEL_PATH_BY_KEY.get(selectedChannel) && <path d={CHANNEL_PATH_BY_KEY.get(selectedChannel)!.d} stroke={INK} strokeWidth={CHANNEL_BAND + 1} />}
+          PATHS.map((q) =>
+            defined.has(q.key) ? (
+              <g key={`d${q.key}`}>
+                <path d={q.d} stroke={NIGHT_GOLD} strokeWidth={CHANNEL_BAND + 6} strokeOpacity="0.35" filter={`url(#${p}blur)`} />
+                <path d={q.d} stroke={`url(#${p}gold)`} strokeWidth={CHANNEL_BAND - 1} />
+              </g>
+            ) : (
+              ([
+                [q.a, q.halfA],
+                [q.b, q.halfB],
+              ] as const).map(([n, d]) => {
+                const col = sideColorOf(hd, n);
+                if (!col) return null;
+                return (
+                  <g key={`h${q.key}${n}`} strokeWidth={CHANNEL_BAND - 3}>
+                    <path d={d} stroke={col === "both" ? NIGHT_RED : col} />
+                    {col === "both" && <path d={d} stroke={PERS} strokeDasharray="6 6" />}
+                  </g>
+                );
+              })
+            ),
+          )}
+        {sel && (
+          <g>
+            <path d={sel.d} stroke={NIGHT_GOLD} strokeWidth={CHANNEL_BAND + 10} strokeOpacity="0.55" filter={`url(#${p}blur)`} />
+            <path d={sel.d} stroke="#FFF3D4" strokeWidth={CHANNEL_BAND + 1} />
+          </g>
+        )}
       </g>
       {tapChannel && (
         <g fill="none" stroke="transparent" strokeWidth={CHANNEL_BAND + 12}>
-          {PATHS.map((p) => (
-            <path key={`t${p.key}`} d={p.d} {...tapChannel(p.key)} />
+          {PATHS.map((q) => (
+            <path key={`t${q.key}`} d={q.d} {...tapChannel(q.key)} />
           ))}
         </g>
       )}
+
       {CENTRE_SHAPES.map((s) => {
         const ce = CENTRE_BY_ID[s.id];
-        const isDefined = hd?.definedCentres.has(s.id);
-        const focused = focusCentres?.has(s.id);
+        const isDefined = !!hd?.definedCentres.has(s.id);
+        const focused = !!focusCentres?.has(s.id);
         const t = tapCentre?.(s.id) ?? {};
         return (
           <g key={s.id} {...t}>
-            <polygon
-              points={s.points}
-              fill={focused && centreNames ? INK : isDefined ? ce.hue : "#FFFFFF"}
-              fillOpacity={isDefined && !(focused && centreNames) ? 0.82 : 1}
-              stroke={focused ? INK : isDefined ? ce.hue : "#CFC4AE"}
-              strokeWidth={focused ? 5 : 1.6}
-              strokeLinejoin="round"
-            />
+            {focused && <polygon points={s.points} fill={NIGHT_GOLD} opacity="0.55" filter={`url(#${p}blur)`} />}
+            <polygon points={s.points} fill={isDefined ? ce.hue : "#1E1B45"} stroke={focused ? "#F0D9A4" : isDefined ? "rgb(255 255 255 / .35)" : "rgb(255 255 255 / .38)"} strokeWidth={focused ? 4.5 : 1.4} strokeLinejoin="round" />
             {centreNames && (
-              <text x={s.centroid.x} y={s.centroid.y} textAnchor="middle" dominantBaseline="central" fontSize="17" fill={(focused && centreNames) || isDefined ? "#fff" : INK} pointerEvents="none">
+              <text x={s.centroid.x} y={s.centroid.y} textAnchor="middle" dominantBaseline="central" fontSize="17" fontWeight={focused ? 700 : 500} fill={STAR} pointerEvents="none" style={{ textShadow: "0 1px 3px rgba(0,0,0,.6)" }}>
                 {ce.name}
               </text>
             )}
           </g>
         );
       })}
-      {!centreNames &&
+
+      {gates &&
         GATE_SLOTS.map((slot) => {
-          const col = sideColor(slot.n);
+          const col = sideColorOf(hd, slot.n);
           const on = selectedGate === slot.n;
           const dim = dimGate?.(slot.n);
           const t = tapGate && !dim ? tapGate(slot.n) : {};
+          const { x, y } = slot.label;
           return (
-            <g key={slot.n} {...t} opacity={dim ? 0.28 : 1}>
+            <g key={slot.n} {...t} opacity={dim ? 0.25 : 1}>
               {on ? (
-                <circle cx={slot.label.x} cy={slot.label.y} r="19" fill={INK} stroke={GOLD} strokeWidth="3" />
+                <>
+                  <circle cx={x} cy={y} r="26" fill={`url(#${p}goldglow)`} />
+                  <circle cx={x} cy={y} r="18" fill={`url(#${p}gold)`} stroke="#FFF3D4" strokeWidth="2" />
+                </>
               ) : col ? (
-                <circle cx={slot.label.x} cy={slot.label.y} r="14" fill={col === "both" ? DESIGN_RED : col} stroke={col === "both" ? INK : "none"} strokeWidth="2.5" />
+                <circle cx={x} cy={y} r="14" fill={col === "both" ? NIGHT_RED : col} stroke={col === "both" ? PERS : "none"} strokeWidth="2.5" strokeDasharray={col === "both" ? "4 3" : undefined} />
               ) : (
-                tapGate && <circle cx={slot.label.x} cy={slot.label.y} r="13" fill="transparent" />
+                tapGate && <circle cx={x} cy={y} r="13" fill="transparent" />
               )}
-              <text x={slot.label.x} y={slot.label.y} textAnchor="middle" dominantBaseline="central" fontSize={on ? 19 : 15} fontWeight={on || col ? 700 : 500} fill={on ? GOLD : col ? "#fff" : "#5C5870"} pointerEvents="none">
+              <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={on ? 18 : 14.5} fontWeight={on || col ? 700 : 500} fill={on ? NIGHT : col === PERS ? NIGHT : col ? "#fff" : "rgb(251 246 236 / .62)"} pointerEvents="none">
                 {slot.n}
               </text>
             </g>
           );
         })}
+      {children}
     </svg>
   );
 }
@@ -338,24 +380,31 @@ const AUTHORITY_CENTRES: Record<HdAuthorityKey, CentreId[]> = {
 };
 const CENTRE_AUTHORITY: Partial<Record<CentreId, HdAuthorityKey>> = { solar: "solar", sacral: "sacral", spleen: "spleen", heart: "heart", g: "g", head: "mental", ajna: "mental" };
 
-/** Chips para elegir pieza fuera del dibujo (las autoridades, los perfiles…). */
-function Chips({ items, selected, mine, tap }: { items: { key: string; label: string }[]; selected: string; mine: Set<string>; tap: Tap }) {
+/** El nombre de cada autoridad dentro de su centro: dónde y a qué tamaño (que quepa en el triángulo o el cuadrado). */
+const AUTHORITY_IN_CENTRE: { key: HdAuthorityKey; label: string; x: number; y: number; size: number }[] = [
+  { key: "mental", label: "Mental", x: 270, y: 158, size: 22 },
+  { key: "g", label: "Autoproyectada", x: 269, y: 484, size: 19 },
+  { key: "heart", label: "Ego", x: 392, y: 538, size: 23 },
+  { key: "spleen", label: "Esplénica", x: 104, y: 666, size: 18 },
+  { key: "sacral", label: "Sacral", x: 270, y: 662, size: 26 },
+  { key: "solar", label: "Emocional", x: 430, y: 666, size: 18 },
+];
+
+/** La leyenda de colores del bodygraph. */
+function Legend({ hd }: { hd: HumanDesign | null }) {
+  if (!hd) return null;
+  const item = (bg: string, label: string, dashed = false) => (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="h-2.5 w-2.5 rounded-full" style={{ background: bg, outline: dashed ? `1.5px dashed ${PERS}` : undefined, outlineOffset: dashed ? "1px" : undefined }} />
+      {label}
+    </span>
+  );
   return (
-    <div className="mt-2 flex flex-wrap justify-center gap-1.5">
-      {items.map((it) => {
-        const on = it.key === selected;
-        return (
-          <span
-            key={it.key}
-            {...tap(it.key, it.label)}
-            className="rounded-full border px-2.5 py-1 text-[0.72rem] font-semibold transition"
-            style={{ background: on ? INK : mine.has(it.key) ? SAND : "#fff", color: on ? CREAM : INK, borderColor: mine.has(it.key) || on ? GOLD : LINE, cursor: "pointer" }}
-          >
-            {mine.has(it.key) ? "★ " : ""}
-            {it.label}
-          </span>
-        );
-      })}
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 pb-1 text-[0.66rem]" style={{ color: "rgb(251 246 236 / .72)" }}>
+      {item(PERS, "Personalidad")}
+      {item(NIGHT_RED, "Diseño")}
+      {item(NIGHT_RED, "Las dos", true)}
+      {item(NIGHT_GOLD, "Canal definido")}
     </div>
   );
 }
@@ -366,26 +415,38 @@ export function HdDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProp
   const inKeys = new Set(keys);
   switch (layer) {
     case "hd-centres":
-      return <MiniBodygraph hd={hd} centreNames focusCentres={new Set([selected as CentreId])} tapCentre={(id) => tap(id, CENTRE_BY_ID[id].name)} />;
+      return (
+        <NightPanel>
+          <MiniBodygraph hd={hd} centreNames focusCentres={new Set([selected as CentreId])} tapCentre={(id) => tap(id, CENTRE_BY_ID[id].name)} />
+        </NightPanel>
+      );
     case "hd-gates":
-      return <MiniBodygraph hd={hd} selectedGate={Number(selected)} dimGate={(n) => !inKeys.has(String(n))} tapGate={(n) => tap(String(n), `Puerta ${n}`)} />;
+      return (
+        <NightPanel>
+          <MiniBodygraph hd={hd} selectedGate={Number(selected)} dimGate={(n) => !inKeys.has(String(n))} tapGate={(n) => tap(String(n), `Puerta ${n}`)} />
+          <Legend hd={hd} />
+        </NightPanel>
+      );
     case "hd-channels": {
       const ch = CHANNEL_BY_KEY.get(selected);
       return (
-        <MiniBodygraph
-          hd={hd}
-          selectedChannel={selected}
-          dimGate={(n) => !!ch && n !== ch.a && n !== ch.b}
-          tapChannel={(k) => (inKeys.has(k) ? tap(k, `Canal ${k} · ${CHANNEL_BY_KEY.get(k)?.name}`) : {})}
-        />
+        <NightPanel>
+          <MiniBodygraph
+            hd={hd}
+            selectedChannel={selected}
+            dimGate={(n) => !!ch && n !== ch.a && n !== ch.b}
+            tapChannel={(k) => (inKeys.has(k) ? tap(k, `Canal ${k} · ${CHANNEL_BY_KEY.get(k)?.name}`) : {})}
+          />
+          <Legend hd={hd} />
+        </NightPanel>
       );
     }
     case "hd-planets": {
       const a = hd?.[sideOf(selected)][bodyOf(selected)];
       const col = (side: "personality" | "design") =>
         keys.some((k) => sideOf(k) === side) && (
-          <div className="flex shrink-0 flex-col justify-between py-1" style={{ color: side === "design" ? DESIGN_RED : INK }} role="group" aria-label={side === "design" ? "Diseño" : "Personalidad"}>
-            <span className="mb-1 text-center text-[0.55rem] font-semibold uppercase tracking-[0.12em]">{side === "design" ? "Diseño" : "Person."}</span>
+          <div className="flex shrink-0 flex-col justify-between py-1" style={{ color: side === "design" ? NIGHT_RED : PERS }} role="group" aria-label={side === "design" ? "Diseño" : "Personalidad"}>
+            <span className="mb-1 text-center text-[0.55rem] font-semibold uppercase tracking-[0.14em] opacity-80">{side === "design" ? "Diseño" : "Person."}</span>
             {HD_SIDE_BODIES.map((b) => {
               const k = `${side === "design" ? "d" : "p"}-${b}`;
               const on = k === selected;
@@ -394,8 +455,8 @@ export function HdDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProp
                 <span
                   key={k}
                   {...tap(k, `${HD_BODY_ES[b]} de ${SIDE_ES[side]}`)}
-                  className={`flex items-center gap-1 rounded-md px-1 py-[1px] text-[0.72rem] tabular-nums ${side === "personality" ? "flex-row-reverse" : ""}`}
-                  style={{ background: on ? INK : "transparent", color: on ? (side === "design" ? "#F4A79F" : GOLD) : undefined, cursor: "pointer" }}
+                  className={`flex items-center gap-1 rounded-md px-1 py-[1px] text-[0.72rem] tabular-nums transition ${side === "personality" ? "flex-row-reverse" : ""}`}
+                  style={{ background: on ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : "transparent", color: on ? NIGHT : undefined, boxShadow: on ? "0 0 12px rgb(233 204 142 / .5)" : undefined, cursor: "pointer" }}
                 >
                   <span aria-hidden className="w-3.5 text-center text-[0.85rem]">
                     {HD_BODY_GLYPH[b] + VS}
@@ -407,115 +468,190 @@ export function HdDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProp
           </div>
         );
       return (
-        <div className="flex items-stretch justify-center gap-1">
-          {col("design")}
-          <div className="min-w-0 flex-1">
-            <MiniBodygraph hd={hd} selectedGate={a?.gate ?? null} />
+        <NightPanel>
+          <div className="flex items-stretch justify-center gap-1">
+            {col("design")}
+            <div className="min-w-0 flex-1">
+              <MiniBodygraph hd={hd} selectedGate={a?.gate ?? null} />
+            </div>
+            {col("personality")}
           </div>
-          {col("personality")}
-        </div>
+        </NightPanel>
       );
     }
     case "hd-types":
-      return <TypesDiagram selected={selected} own={own} tap={tap} />;
+      return (
+        <NightPanel>
+          <TypesDiagram selected={selected} own={own} tap={tap} />
+        </NightPanel>
+      );
     case "hd-authorities":
       return (
-        <div>
+        <NightPanel>
+          {/* Cada autoridad escrita dentro de su centro (la mental, en Ajna; la lunar, en su luna, arriba). */}
           <MiniBodygraph
             hd={hd}
-            centreNames
-            className="h-[17rem]"
+            gates={false}
+            className="h-[30rem] sm:h-[34rem]"
             focusCentres={new Set(AUTHORITY_CENTRES[selected as HdAuthorityKey] ?? [])}
             tapCentre={(id) => (CENTRE_AUTHORITY[id] ? tap(CENTRE_AUTHORITY[id]!, HD_AUTHORITIES[CENTRE_AUTHORITY[id]!].name) : null)}
-          />
-          <Chips items={keys.map((k) => ({ key: k, label: HD_AUTHORITIES[k as HdAuthorityKey].name }))} selected={selected} mine={own} tap={tap} />
-        </div>
+          >
+            {CENTRE_SHAPES.filter((s) => (AUTHORITY_CENTRES[selected as HdAuthorityKey] ?? []).includes(s.id)).map((s) => (
+              <polygon key={`g${s.id}`} points={s.points} fill="#E9CC8E" stroke="#FFF3D4" strokeWidth="3" strokeLinejoin="round" pointerEvents="none" />
+            ))}
+            {AUTHORITY_IN_CENTRE.map((l) => {
+              const on = selected === l.key;
+              const m = own.has(l.key);
+              return (
+                <g key={l.key} pointerEvents="none">
+                  {m && (
+                    <text x={l.x} y={l.y - l.size * 0.95} textAnchor="middle" dominantBaseline="central" fontSize={l.size * 0.75} fill={on ? NIGHT : NIGHT_GOLD}>
+                      ★
+                    </text>
+                  )}
+                  <text x={l.x} y={l.y} textAnchor="middle" dominantBaseline="central" fontSize={l.size} fontWeight="700" fill={on ? NIGHT : STAR} style={on ? undefined : { textShadow: "0 1px 3px rgba(0,0,0,.7)" }}>
+                    {l.label}
+                  </text>
+                </g>
+              );
+            })}
+            {(() => {
+              const on = selected === "lunar";
+              const m = own.has("lunar");
+              return (
+                <g {...tap("lunar", HD_AUTHORITIES.lunar.name)}>
+                  {on && <circle cx="425" cy="70" r="40" fill={NIGHT_GOLD} opacity="0.35" />}
+                  <circle cx="425" cy="70" r="28" fill="#2A2745" stroke={on ? "#FFF3D4" : "rgb(255 255 255 / .4)"} strokeWidth={on ? 3 : 1.4} />
+                  <path d="M425 42A28 28 0 0 1 425 98A15 28 0 0 0 425 42Z" fill={on ? "#E9CC8E" : "#F3ECDD"} />
+                  <text x="425" y="122" textAnchor="middle" dominantBaseline="central" fontSize="21" fontWeight="700" fill={on ? NIGHT_GOLD : STAR}>
+                    {m ? "★ " : ""}Lunar
+                  </text>
+                </g>
+              );
+            })()}
+          </MiniBodygraph>
+        </NightPanel>
       );
     case "hd-lines":
       return (
-        <svg viewBox="0 0 320 340" className="mx-auto block h-auto w-full max-w-[20rem] select-none" role="group" aria-label="Las 6 líneas">
-          {[6, 5, 4, 3, 2, 1].map((n, i) => {
-            const k = String(n);
-            const on = selected === k;
-            const m = own.has(k);
-            const y = 22 + i * 52;
-            return (
-              <g key={n} {...tap(k, `Línea ${n}`)}>
-                <rect x="70" y={y} width="220" height="34" rx="8" fill={on ? INK : m ? "#EFE4CC" : "#FBF8F1"} stroke={m || on ? GOLD : LINE} strokeWidth={m ? 1.6 : 1} />
-                <text x="40" y={y + 17} textAnchor="middle" dominantBaseline="central" fontSize="22" fontFamily="Georgia, serif" fill={m ? GOLD : INK}>
-                  {n}
-                </text>
-                <text x="180" y={y + 17} textAnchor="middle" dominantBaseline="central" fontSize="14" fill={on ? CREAM : INK}>
-                  {LINES[n - 1].name}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+        <NightPanel>
+          <LinesStack selected={selected} own={own} tap={tap} />
+        </NightPanel>
       );
     case "hd-profiles":
-      return <ProfilesDiagram selected={selected} own={own} tap={tap} />;
+      return (
+        <NightPanel>
+          <ProfilesDiagram selected={selected} own={own} tap={tap} />
+        </NightPanel>
+      );
   }
   return null;
 }
 
-/** Los 5 tipos como cinco auras: cada una dibuja cómo se mueve su energía. */
+/** Las 6 líneas como un hexagrama (la 1 abajo). */
+function LinesStack({ selected, own, tap }: { selected: string; own: Set<string>; tap: Tap }) {
+  const p = usePrefix();
+  return (
+    <svg viewBox="0 0 320 340" className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label="Las 6 líneas">
+      <NightDefs p={p} />
+      <Stars w={320} h={340} n={30} />
+      {[6, 5, 4, 3, 2, 1].map((n, i) => {
+        const k = String(n);
+        const on = selected === k;
+        const m = own.has(k);
+        const y = 26 + i * 50;
+        return (
+          <g key={n} {...tap(k, `Línea ${n}`)}>
+            <rect x="20" y={y - 4} width="280" height="42" rx="12" fill={on ? "rgb(233 204 142 / .12)" : "transparent"} />
+            {on && <rect x="62" y={y + 6} width="200" height="22" rx="6" fill={NIGHT_GOLD} opacity="0.45" filter={`url(#${p}blur)`} />}
+            <text x="40" y={y + 17} textAnchor="middle" dominantBaseline="central" fontSize="22" fontFamily="Georgia, serif" fill={on || m ? NIGHT_GOLD : STAR} fillOpacity={on || m ? 1 : 0.7}>
+              {n}
+            </text>
+            <rect x="62" y={y + 9} width="200" height="16" rx="4" fill={on ? `url(#${p}gold)` : m ? "rgb(233 204 142 / .55)" : "rgb(255 255 255 / .14)"} stroke={on ? "#F0D9A4" : "none"} />
+            <text x="162" y={y + 17.5} textAnchor="middle" dominantBaseline="central" fontSize="10.5" letterSpacing="1" fontWeight="600" fill={on ? NIGHT : STAR} fillOpacity={on ? 1 : 0.85}>
+              {LINES[n - 1].name.toUpperCase()}
+            </text>
+            {m && (
+              <text x="282" y={y + 17.5} textAnchor="middle" dominantBaseline="central" fontSize="13" fill={NIGHT_GOLD}>
+                ★
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** Los 5 tipos como cinco auras de luz: cada una dibuja cómo se mueve su energía. */
 function TypesDiagram({ selected, own, tap }: { selected: string; own: Set<string>; tap: Tap }) {
+  const p = usePrefix();
   const POS: Record<HdTypeKey, { x: number; y: number }> = {
-    generator: { x: 160, y: 62 },
-    mg: { x: 262, y: 140 },
-    manifestor: { x: 226, y: 262 },
-    projector: { x: 94, y: 262 },
-    reflector: { x: 52, y: 140 },
+    generator: { x: 160, y: 66 },
+    mg: { x: 262, y: 144 },
+    manifestor: { x: 224, y: 262 },
+    projector: { x: 96, y: 262 },
+    reflector: { x: 58, y: 144 },
   };
   return (
-    <svg viewBox="0 0 320 330" className="mx-auto block h-auto w-full max-w-[21rem] select-none" role="group" aria-label="Los 5 tipos">
+    <svg viewBox="0 0 320 330" className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label="Los 5 tipos">
+      <NightDefs p={p} />
+      <defs>
+        <radialGradient id={`${p}core`} cx="40%" cy="35%" r="70%">
+          <stop offset="0%" stopColor="#FFF3D4" />
+          <stop offset="60%" stopColor="#E9CC8E" />
+          <stop offset="100%" stopColor="#A9823F" />
+        </radialGradient>
+        <radialGradient id={`${p}field`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#9C8BE8" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="#9C8BE8" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <Stars w={320} h={330} n={34} />
+      {/* El pentágono que los une. */}
+      <polygon points={(Object.values(POS) as { x: number; y: number }[]).map((q) => `${q.x},${q.y}`).join(" ")} fill="none" stroke="rgb(233 204 142 / .22)" strokeWidth="1" strokeDasharray="2 4" />
       {(Object.keys(POS) as HdTypeKey[]).map((k) => {
         const { x, y } = POS[k];
         const on = selected === k;
         const m = own.has(k);
-        const stroke = on ? GOLD : m ? GOLD : "#B9AE98";
-        const fill = on ? INK : m ? "#EFE4CC" : "#FBF8F1";
+        const ring = on ? "#F0D9A4" : m ? "rgb(233 204 142 / .7)" : "rgb(255 255 255 / .35)";
         return (
           <g key={k} {...tap(k, HD_TYPES[k].name)}>
-            <circle cx={x} cy={y} r="44" fill="transparent" />
-            {k === "generator" && (
+            <circle cx={x} cy={y} r="46" fill="transparent" />
+            {on && <circle cx={x} cy={y} r="52" fill={`url(#${p}goldglow)`} />}
+            <circle cx={x} cy={y} r="40" fill={`url(#${p}field)`} />
+            {(k === "generator" || k === "mg") && (
               <>
-                <circle cx={x} cy={y} r="38" fill={fill} fillOpacity={on ? 1 : 0.7} stroke={stroke} strokeWidth="1.2" />
-                <circle cx={x} cy={y} r="18" fill={on ? GOLD : "#E9DDBF"} />
-              </>
-            )}
-            {k === "mg" && (
-              <>
-                <circle cx={x} cy={y} r="38" fill={fill} fillOpacity={on ? 1 : 0.7} stroke={stroke} strokeWidth="1.2" />
-                <circle cx={x} cy={y} r="18" fill={on ? GOLD : "#E9DDBF"} />
-                <path d={`M${x + 8} ${y - 8}l14 -14m0 0h-9m9 0v9`} stroke={on ? CREAM : INK} strokeWidth="2.4" fill="none" strokeLinecap="round" />
+                <circle cx={x} cy={y} r="34" fill="none" stroke={ring} strokeWidth="1.2" />
+                <circle cx={x} cy={y} r="16" fill={`url(#${p}core)`} />
+                {k === "mg" && <path d={`M${x + 9} ${y - 9}l15 -15m0 0h-9m9 0v9`} stroke={STAR} strokeWidth="2.4" fill="none" strokeLinecap="round" />}
               </>
             )}
             {k === "manifestor" && (
               <>
-                <circle cx={x} cy={y} r="30" fill={fill} stroke={stroke} strokeWidth="2.4" />
+                <circle cx={x} cy={y} r="26" fill="#1E1B45" stroke={ring} strokeWidth="2.2" />
+                <circle cx={x} cy={y} r="11" fill={`url(#${p}core)`} />
                 {Array.from({ length: 8 }, (_, i) => {
                   const a = (i * Math.PI) / 4;
-                  return <line key={i} x1={x + 33 * Math.cos(a)} y1={y + 33 * Math.sin(a)} x2={x + 41 * Math.cos(a)} y2={y + 41 * Math.sin(a)} stroke={stroke} strokeWidth="2" strokeLinecap="round" />;
+                  return <line key={i} x1={x + 30 * Math.cos(a)} y1={y + 30 * Math.sin(a)} x2={x + 40 * Math.cos(a)} y2={y + 40 * Math.sin(a)} stroke={ring} strokeWidth="2" strokeLinecap="round" />;
                 })}
               </>
             )}
             {k === "projector" && (
               <>
-                <circle cx={x} cy={y} r="30" fill={fill} stroke={stroke} strokeWidth="1.2" />
-                <path d={`M${x} ${y}L${x + 40} ${y - 26}L${x + 40} ${y + 26}Z`} fill={on ? GOLD : "#E9DDBF"} fillOpacity="0.85" />
-                <circle cx={x} cy={y} r="7" fill={on ? CREAM : INK} />
+                <circle cx={x} cy={y} r="28" fill="none" stroke={ring} strokeWidth="1.2" />
+                <path d={`M${x} ${y}L${x + 42} ${y - 24}L${x + 42} ${y + 24}Z`} fill={NIGHT_GOLD} fillOpacity="0.45" />
+                <circle cx={x} cy={y} r="9" fill={`url(#${p}core)`} />
               </>
             )}
             {k === "reflector" && (
               <>
-                <circle cx={x} cy={y} r="36" fill={fill} stroke={stroke} strokeWidth="1.2" strokeDasharray="3 4" />
-                <circle cx={x} cy={y} r="15" fill="#2A2745" />
-                <path d={`M${x} ${y - 15}A15 15 0 0 1 ${x} ${y + 15}A8 15 0 0 0 ${x} ${y - 15}Z`} fill={SAND} />
+                <circle cx={x} cy={y} r="34" fill="none" stroke={ring} strokeWidth="1.2" strokeDasharray="3 4" />
+                <circle cx={x} cy={y} r="15" fill="#2A2745" stroke="rgb(255 255 255 / .3)" />
+                <path d={`M${x} ${y - 15}A15 15 0 0 1 ${x} ${y + 15}A8 15 0 0 0 ${x} ${y - 15}Z`} fill="#F3ECDD" />
               </>
             )}
-            <text x={x} y={y + 58} textAnchor="middle" fontSize="12.5" fontWeight={m ? 700 : 500} fill={m ? GOLD : INK}>
+            <text x={x} y={y + 58} textAnchor="middle" fontSize="12" fontWeight={on || m ? 700 : 500} fill={on || m ? NIGHT_GOLD : STAR}>
               {m ? "★ " : ""}
               {k === "mg" ? "Gen. manifestante" : HD_TYPES[k].name}
             </text>
@@ -533,10 +669,10 @@ function ProfilesDiagram({ selected, own, tap }: { selected: string; own: Set<st
     { label: "Ángulo izquierdo · transpersonal", keys: ["5/1", "5/2", "6/2", "6/3"] },
   ];
   return (
-    <div className="mx-auto max-w-[22rem] space-y-3">
+    <div className="mx-auto max-w-[22rem] space-y-3 py-2">
       {rows.map((r) => (
         <div key={r.label}>
-          <p className="mb-1.5 text-center text-[0.62rem] font-semibold uppercase tracking-[0.14em]" style={{ color: MUTED }}>
+          <p className="mb-1.5 text-center text-[0.6rem] font-semibold uppercase tracking-[0.16em]" style={{ color: "rgb(233 204 142 / .8)" }}>
             {r.label}
           </p>
           <div className="flex flex-wrap justify-center gap-1.5">
@@ -547,12 +683,18 @@ function ProfilesDiagram({ selected, own, tap }: { selected: string; own: Set<st
                 <span
                   key={k}
                   {...tap(k, `Perfil ${k}`)}
-                  className="grid h-14 w-14 place-items-center rounded-2xl border text-center font-[Georgia,serif] text-[1.15rem] leading-none"
-                  style={{ background: on ? INK : m ? "#EFE4CC" : "#FBF8F1", color: on ? GOLD : INK, borderColor: on || m ? GOLD : LINE, cursor: "pointer" }}
+                  className="grid h-14 w-14 place-items-center rounded-2xl border text-center font-[Georgia,serif] text-[1.15rem] leading-none transition"
+                  style={{
+                    background: on ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : "radial-gradient(circle at 35% 25%, rgb(255 255 255 / .14), rgb(255 255 255 / .03))",
+                    color: on ? NIGHT : STAR,
+                    borderColor: on ? "#F0D9A4" : m ? "rgb(233 204 142 / .7)" : "rgb(255 255 255 / .16)",
+                    boxShadow: on ? "0 0 16px rgb(233 204 142 / .5)" : undefined,
+                    cursor: "pointer",
+                  }}
                 >
                   <span>
                     {k}
-                    <span className="mt-1 block font-sans text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: on ? CREAM : MUTED }}>
+                    <span className="mt-1 block font-sans text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: on ? "#4D3B18" : m ? NIGHT_GOLD : "rgb(251 246 236 / .55)" }}>
                       {m ? "★ tuyo" : HD_PROFILES[k].name.split(" / ")[0].slice(0, 6)}
                     </span>
                   </span>
