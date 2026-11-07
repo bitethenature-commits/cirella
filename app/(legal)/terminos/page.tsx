@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalProse, Pending } from "@/components/legal-prose";
 import { getSettings } from "@/lib/settings";
-import { asTaxMode } from "@/lib/tax";
 import { redirectToOwnerLegal } from "../personal-redirect";
 
 export const metadata: Metadata = { title: "Términos del servicio" };
@@ -15,9 +14,6 @@ export default async function TerminosPage() {
   const s = await getSettings();
   const p = s.platformName;
   const email = s.privacyEmail || s.supportEmail;
-  // Política de IVA de la plataforma (/admin/impuestos): con la opción por defecto, Cirella vende lo
-  // digital a efectos del IVA y los términos tienen que decirlo (quién cobra, factura y declara).
-  const platformSellsDigital = asTaxMode(s.taxMode) === "PLATFORM_DIGITAL";
   return (
     <LegalProse title="Términos del servicio para creadoras">
       <p>
@@ -31,17 +27,10 @@ export default async function TerminosPage() {
       <h2>2. Alta y cuenta</h2>
       <p>Debes ser mayor de edad y dar datos veraces. Eres responsable de guardar tu contraseña y de lo que se haga con tu cuenta.</p>
 
-      <h2>3. Planes, comisiones y facturación</h2>
+      <h2>3. Planes y comisiones</h2>
       <p>
         Cada plan tiene una cuota y una comisión por venta, que se muestran en <Link href="/#precios">precios</Link>. La comisión se descuenta de cada venta. Los
         cambios de precio se avisan con 30 días de antelación.
-        {platformSellsDigital && (
-          <>
-            {" "}
-            En los productos digitales, cursos y membresías que se entregan solos, además de la comisión se descuenta el IVA de la venta, que cobra y declara{" "}
-            {p} (apartado 4).
-          </>
-        )}
       </p>
 
       <h2>4. Cobros</h2>
@@ -49,26 +38,11 @@ export default async function TerminosPage() {
         Los pagos se cobran con Stripe Connect en tu propia cuenta de cobro. <strong>Tú eres la vendedora</strong>: el contrato de cada venta es entre tú y tu
         clienta, y {p} no es parte de él.
       </p>
-      {platformSellsDigital && (
-        <p>
-          <strong>IVA de los productos digitales, cursos y membresías.</strong> En estas ventas {p} actúa como proveedora a efectos del IVA (art. 9 bis del
-          Reglamento de Ejecución (UE) 282/2011): calcula el IVA según el país de la compradora, lo descuenta del cobro junto con la comisión, lo declara
-          (régimen de ventanilla única, OSS) y emite la factura a la compradora. Tú no repercutes ni declaras el IVA de esas ventas. Las sesiones en directo y
-          los productos que preparas tú a mano («Lo preparo yo») los vendes tú también a efectos del IVA, según tu situación fiscal.
-        </p>
-      )}
 
       <h2>5. Obligaciones de la creadora</h2>
       <ul>
         <li>Completar tus datos legales con información veraz (aparecen en tu aviso legal y en cada recibo).</li>
         <li>Cumplir la normativa de consumo: información previa, condiciones, desistimiento y reembolsos.</li>
-        <li>
-          {platformSellsDigital
-            ? "Cumplir tus obligaciones fiscales, incluido el IVA de lo que vendes tú (sesiones, productos preparados a mano y tu propio negocio); el de los productos digitales, cursos y membresías lo declara " +
-              p +
-              " (apartado 4)."
-            : "Cumplir tus obligaciones fiscales, incluido el IVA."}
-        </li>
         <li>Publicar solo contenido lícito y del que tengas los derechos.</li>
         <li>No afirmar que tus productos curan enfermedades ni presentarlos como sustitutos de un tratamiento sanitario.</li>
       </ul>

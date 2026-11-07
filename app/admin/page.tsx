@@ -78,8 +78,8 @@ function DeliveryWarning({ pending, cronStopped }: { pending: number; cronStoppe
 }
 
 /**
- * Modo personal: la administración de una sola persona. Sin creadoras, planes, comisiones ni
- * impuestos; solo si algo no ha llegado y los ajustes de la web.
+ * Modo personal: la administración de una sola persona. Sin creadoras, planes ni comisiones;
+ * solo si algo no ha llegado y los ajustes de la web.
  */
 async function PersonalAdminHome({ ok }: { ok?: string }) {
   const delivery = await getDeliveryHealth();

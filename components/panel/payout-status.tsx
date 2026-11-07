@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, CreditCard, FileText } from "lucide-react";
+import { ArrowRight, CreditCard } from "lucide-react";
 import type { Creator } from "@prisma/client";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { describeRequirements, payoutView, storedRequirements } from "@/lib/payouts";
@@ -56,21 +56,6 @@ export function PayoutBanner({ creator }: { creator: PayoutCreator }) {
       <CreditCard className="h-4 w-4 shrink-0" />
       <span className="flex-1">{text}</span>
       <ArrowRight className="h-4 w-4 shrink-0" />
-    </Link>
-  );
-}
-
-/** Aviso de DAC7: datos fiscales obligatorios que faltan. */
-export function Dac7Banner({ missing, show }: { missing: string[]; show: boolean }) {
-  if (!missing.length || !show) return null;
-  return (
-    <Link
-      href="/panel/ajustes/cobros#datos-fiscales"
-      className="flex items-center gap-3 rounded-2xl border border-[#ecdcb8] bg-[#fbf5e8] px-4 py-3 text-sm text-[#7a5a1c] transition hover:shadow-soft"
-    >
-      <FileText className="h-4 w-4 shrink-0" />
-      <span className="flex-1">Completa tus datos fiscales: son obligatorios por ley (DAC7).</span>
-      <AlertTriangle className="h-4 w-4 shrink-0" />
     </Link>
   );
 }

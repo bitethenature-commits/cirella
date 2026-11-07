@@ -32,7 +32,7 @@ export async function payRenewalNow(form: FormData) {
   const provider = paymentProviderByKey(sub.provider);
 
   const periodKey = renewalPeriodKey(sub.currentPeriodEnd);
-  const amounts = await renewalAmounts(sub, new Date());
+  const amounts = renewalAmounts(sub, new Date());
   // Sin kind=renewal: si este pago falla no cuenta como intento automático fallido.
   const metadata = { subscriptionId: sub.id, periodKey };
   const r = await provider.startPayment({
@@ -43,7 +43,7 @@ export async function payRenewalNow(form: FormData) {
     description: `Renovación · ${sub.product.title}`,
     customerEmail: sub.customer.email,
     customerRef: sub.providerCustomerRef,
-    platformFeeCents: amounts.platformRetainedCents,
+    platformFeeCents: amounts.platformFeeCents,
     destinationAccount: target!.destination,
     statementSuffix: sub.creator.username.toUpperCase(),
     saveForFutureUse: true,

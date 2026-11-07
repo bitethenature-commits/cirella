@@ -52,12 +52,12 @@ export function productCardMeta(p: Pick<ProductViewSource, "type" | "groupSessio
 }
 
 /**
- * La tarjeta de un producto en la página de la creadora. `vatIncluded`: si el precio lleva IVA (lo
- * decide quien llama con lib/tax); `updatedAt`: desde cuándo cuenta una oferta sin fecha de inicio.
+ * La tarjeta de un producto en la página de la creadora. `updatedAt`: desde cuándo cuenta una oferta sin
+ * fecha de inicio.
  */
 export function toPublicProduct(
   p: ProductViewSource,
-  ctx: { lessons: number; timeZone: string; vatIncluded: boolean; now?: Date; updatedAt?: Date },
+  ctx: { lessons: number; timeZone: string; now?: Date; updatedAt?: Date },
 ): PublicProduct {
   const now = ctx.now ?? new Date();
   const accessMode = asAccessMode(p.accessMode);
@@ -77,8 +77,6 @@ export function toPublicProduct(
     ctaLabel: p.ctaLabel,
     featured: p.featured,
     meta: productCardMeta(p, ctx.lessons, ctx.timeZone),
-    // Lo gratuito y lo que se paga fuera no llevan IVA aquí (no se cobra en esta web).
-    vatIncluded: accessMode === "PAID" && ctx.vatIncluded,
     accessMode,
     externalUrl: accessMode === "EXTERNAL" ? p.externalUrl : null,
     externalLabel: accessMode === "EXTERNAL" ? p.externalLabel : null,

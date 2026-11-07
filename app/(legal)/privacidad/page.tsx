@@ -3,7 +3,6 @@ import Link from "next/link";
 import { LegalProse, Pending } from "@/components/legal-prose";
 import { CHECKOUT_COOKIE, SESSION_COOKIE } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
-import { asTaxMode } from "@/lib/tax";
 import { redirectToOwnerLegal } from "../personal-redirect";
 
 export const metadata: Metadata = { title: "Política de privacidad" };
@@ -15,8 +14,6 @@ export default async function PrivacidadPage() {
   redirectToOwnerLegal("privacidad");
   const s = await getSettings();
   const email = s.privacyEmail || s.supportEmail;
-  // Con la política de IVA por defecto, Cirella factura en su nombre lo digital: esos datos son suyos.
-  const platformSellsDigital = asTaxMode(s.taxMode) === "PLATFORM_DIGITAL";
   return (
     <LegalProse title="Política de privacidad">
       <h2>Responsable</h2>
@@ -30,13 +27,6 @@ export default async function PrivacidadPage() {
           <strong>Responsables</strong> de los datos de las cuentas de las creadoras, de la cuenta con la que cada compradora entra en {s.platformName} (email,
           nombre y acceso) y de los registros de seguridad de la plataforma.
         </li>
-        {platformSellsDigital && (
-          <li>
-            <strong>Responsables</strong> también de los datos de facturación de las compras de productos digitales, cursos y membresías, porque las cobramos y
-            facturamos en nuestro nombre como proveedora a efectos del IVA, y de los registros fiscales que nos obliga a llevar el régimen de ventanilla única
-            (OSS).
-          </li>
-        )}
         <li>
           <strong>Encargados</strong> de los datos de las clientas de cada creadora (compras, reservas, progreso y mensajes): los tratamos por encargo suyo. La
           responsable es la creadora; su política está en su página (/<em>usuario</em>/legal#privacidad).
@@ -46,16 +36,14 @@ export default async function PrivacidadPage() {
       <h2>Para qué usamos los datos y con qué base</h2>
       <ul>
         <li>Prestar el servicio a las creadoras y dar acceso a las compradoras: ejecución del contrato.</li>
-        <li>Facturación, obligaciones fiscales y declaraciones (por ejemplo, DAC7): obligación legal.</li>
         <li>Seguridad, prevención del fraude y avisos importantes del servicio: interés legítimo.</li>
         <li>Novedades de {s.platformName} a las creadoras: interés legítimo; puedes darte de baja en cada email.</li>
       </ul>
 
       <h2>Cuánto tiempo</h2>
       <p>
-        Mientras la cuenta esté activa y, después, durante los plazos de prescripción. Los datos de pedidos y facturas, 6 años (art. 30 del Código de Comercio y
-        normativa fiscal).
-        {platformSellsDigital && " Los registros de las ventas declaradas en el régimen de ventanilla única (OSS), 10 años (art. 63 quater del Reglamento de Ejecución (UE) 282/2011)."}
+        Mientras la cuenta esté activa y, después, durante los plazos de prescripción. Los datos de pedidos, 6 años (art. 30 del Código de
+        Comercio).
       </p>
 
       <h2>Con quién se comparten</h2>

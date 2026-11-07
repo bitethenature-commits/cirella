@@ -16,7 +16,6 @@ import "./load-env";
 import { prisma } from "../lib/db";
 import { acceptedConsentFields, parseCheckoutConsents } from "../lib/checkout-consents";
 import { ensureLegalSnapshot, getLegalSnapshot } from "../lib/legal-snapshot";
-import { getPlatformIssuer } from "../lib/invoices/issuer";
 import { CheckoutError, createPendingOrder, startOrderPayment } from "../lib/orders";
 import { paymentProvider } from "../lib/payments";
 import { getDailySalt } from "../lib/visitor";
@@ -91,20 +90,12 @@ async function main() {
   check("la clienta acepta novedades, con fecha", customer.marketingOptIn && !!customer.marketingOptInAt);
   const optInAt = customer.marketingOptInAt;
 
-  const platform = await getPlatformIssuer();
   const receipt = await prisma.emailMessage.findFirst({ where: { to: email("novedades"), template: "PURCHASE_RECEIPT" } });
   const html = receipt?.html ?? "";
   for (const [label, text] of [
-    // Con la política por defecto (PLATFORM_DIGITAL) lo digital lo vende Cirella por cuenta de Ana, como dice el checkout.
-    ...(first.order.taxSeller === "PLATFORM"
-      ? ([
-          ["quién vende", `${platform.name}${platform.taxId ? ` · NIF ${platform.taxId}` : ""}, por cuenta de Ana Luna Pérez`],
-          ["el domicilio", platform.address ?? ""],
-        ] as const)
-      : ([
-          ["quién vende", "Ana Luna Pérez · NIF 12345678Z"],
-          ["el domicilio", "28004 Madrid"],
-        ] as const)),
+    // Vende Ana, como dice el checkout.
+    ["quién vende", "Ana Luna Pérez · NIF 12345678Z"],
+    ["el domicilio", "28004 Madrid"],
     ["la renuncia marcada", "marcaste «Quiero acceder ya al contenido"],
     ["la versión del texto de la renuncia", `(texto ${first.order.waiverVersion})`],
     ["la versión aceptada", `/ana/legal?v=${first.snapshot.id}`],
@@ -160,9 +151,6 @@ async function cleanup() {
     prisma.session.deleteMany({ where: { userId: { in: userIds } } }),
     prisma.analyticsEvent.deleteMany({ where: { visitorId: { in: userIds.map((id) => `user:${id}`) } } }),
     prisma.access.deleteMany({ where: { userId: { in: userIds } } }),
-    // Facturas de las compras de prueba (primero se sueltan las F3/rectificativas de su original).
-    prisma.invoice.updateMany({ where: { recipientEmail: { startsWith: TAG } }, data: { relatedInvoiceId: null } }),
-    prisma.invoice.deleteMany({ where: { recipientEmail: { startsWith: TAG } } }),
     prisma.transaction.deleteMany({ where: { orderId: { in: orderIds } } }),
     prisma.order.deleteMany({ where: { id: { in: orderIds } } }),
     prisma.customer.deleteMany({ where: { userId: { in: userIds } } }),

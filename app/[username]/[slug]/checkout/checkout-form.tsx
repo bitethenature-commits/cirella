@@ -2,7 +2,6 @@
 
 import { CalendarClock, Check, CreditCard, Loader2, Lock, ShieldCheck, Smartphone, Wallet } from "lucide-react";
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
-import { BillingFields, VatBreakdown, type BillingPrefill, type CheckoutTaxInfo } from "@/components/checkout/billing-fields";
 import { ProductImage } from "@/components/creator-page/product-art";
 import { Turnstile } from "@/components/ui/turnstile";
 import { IntakeFields } from "@/components/booking/intake-fields";
@@ -14,7 +13,6 @@ import { checkoutDeliveryBadge } from "@/lib/delivery";
 import { sessionChangePolicyText, withdrawalInfoLine } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
 import type { CheckoutMethod } from "@/lib/payments";
-import { decideTax, vatIncluded } from "@/lib/tax";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { placeOrder, type CheckoutState } from "./actions";
 import { CheckoutConsents, PrivacyNotice } from "./consents";
@@ -91,10 +89,6 @@ export function CheckoutForm({
   creatorName,
   seller,
   platformName,
-  taxInfo,
-  canInvoice,
-  defaultCountry,
-  billingPrefill,
 }: {
   product: Product;
   payoutReady: boolean;
@@ -111,19 +105,12 @@ export function CheckoutForm({
   demo: boolean;
   creatorName: string;
   /**
-   * name: nombre fiscal de la creadora (sus condiciones y su aviso de privacidad); line: «Vende: …»
+   * name: nombre legal de la creadora (sus condiciones y su aviso de privacidad); line: «Vende: …»
    * según quién vende este producto (lib/legal.ts → sellerStatement); su página legal (/{usuario}/legal).
    */
   seller: { name: string; line: string; legalHref: string };
   /** null en la web personal (no hay plataforma de por medio). */
   platformName: string | null;
-  /** Política de IVA y situación de la creadora: el desglose se calcula aquí según el país elegido. */
-  taxInfo: CheckoutTaxInfo;
-  /** ¿Se puede pedir factura con NIF? (vende Cirella, o la creadora repercute IVA y tiene sus datos). */
-  canInvoice: boolean;
-  /** País de la IP o del idioma del navegador. */
-  defaultCountry: string;
-  billingPrefill?: BillingPrefill;
 }) {
   const [state, action, pending] = useActionState<CheckoutState, FormData>(placeOrder, undefined);
   const [method, setMethod] = useState<"card" | "wallet">("card");
@@ -140,7 +127,6 @@ export function CheckoutForm({
   // no queremos que un pago rechazado borre el nombre y el email.
   const [name, setName] = useState(prefill.name);
   const [email, setEmail] = useState(prefill.email);
-  const [country, setCountry] = useState(defaultCountry);
   // Captcha tras varios pagos rechazados: cada token sirve una vez, así que tras cada intento se
   // vuelve a montar la comprobación con un token nuevo.
   const [captchaToken, setCaptchaToken] = useState("");
@@ -152,15 +138,6 @@ export function CheckoutForm({
   const workshop = product.workshop ?? null;
   const full = !!workshop && workshop.seatsLeft !== null && workshop.seatsLeft <= 0;
   const price = formatPrice(product.priceCents, product.currency, product.billingInterval);
-  const withVat = vatIncluded(
-    decideTax({
-      mode: taxInfo.mode,
-      productType: product.type,
-      deliveryMode: product.deliveryMode,
-      buyerCountry: country,
-      creator: { country: taxInfo.creatorCountry, vatStatus: taxInfo.creatorVatStatus, vatExemptionNote: taxInfo.creatorVatNote },
-    }),
-  );
 
   useEffect(() => {
     setCaptchaToken("");
@@ -185,7 +162,7 @@ export function CheckoutForm({
   return (
     <form
       // onSubmit en lugar de action={}: React vacía el formulario tras cada envío y un pago rechazado
-      // o un NIF mal escrito desmarcaría las casillas (que siguen marcadas en el estado).
+      // o un dato mal escrito desmarcaría las casillas (que siguen marcadas en el estado).
       ref={formRef}
       onSubmit={(e) => {
         e.preventDefault();
@@ -224,7 +201,6 @@ export function CheckoutForm({
           <p className="text-sm font-semibold">
             {product.sale && <s className="cp-muted mr-1.5 font-normal">{formatPrice(product.sale.regularCents, product.currency)}</s>}
             {price}
-            {withVat && <span className="cp-muted font-normal"> · IVA incluido</span>}
           </p>
           {product.sale && (
             <p className="cp-gold text-xs font-semibold" data-sale>
@@ -279,7 +255,6 @@ export function CheckoutForm({
           <p className="cp-faint mt-1.5 text-xs">Aquí recibirás el acceso. No necesitas crear una cuenta ni contraseña.</p>
           <PrivacyNotice sellerName={seller.name} legalHref={seller.legalHref} platformName={platformName} />
         </div>
-        <BillingFields country={country} onCountryChange={setCountry} canInvoice={canInvoice} prefill={billingPrefill} />
       </section>
 
       {product.intake && (
@@ -369,7 +344,6 @@ export function CheckoutForm({
           <span className="cp-muted text-sm">Total</span>
           <span className="text-2xl font-semibold tracking-tight">{price}</span>
         </div>
-        <VatBreakdown amountCents={product.priceCents} currency={product.currency} productType={product.type} deliveryMode={product.deliveryMode} taxInfo={taxInfo} country={country} platformName={platformName ?? ""} />
         {withdrawalInfo && (
           <p className="cp-faint -mt-2 px-1 text-xs" data-testid="withdrawal-info">
             {withdrawalInfo} ·{" "}

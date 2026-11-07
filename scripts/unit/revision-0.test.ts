@@ -6,16 +6,14 @@ import Stripe from "stripe";
 import { checkoutDeliveryBadge } from "../../lib/delivery";
 import { csvCell, toCsv } from "../../lib/csv";
 import { redactLoginTokens } from "../../lib/email/outbox";
-import { magicLinkEmail, monthlyInvoiceEmail } from "../../lib/email/templates";
+import { magicLinkEmail } from "../../lib/email/templates";
 import { validateEnv } from "../../lib/env";
-import { feeInvoiceKind } from "../../lib/invoices/fees";
 import { parseCheckoutConsents } from "../../lib/checkout-consents";
 import { WAIVER_TEXT, waiverKindFor } from "../../lib/legal";
 import { renderCreatorLegalTemplates } from "../../lib/legal-templates";
 import { scrubEvent } from "../../lib/monitoring";
 import { createStripeProvider, type StripeLike } from "../../lib/payments/stripe";
 import { accessStartedAt, toWithdrawalInput, withdrawalEligibility } from "../../lib/refund-math";
-import { decideTax, estimateNet } from "../../lib/tax";
 import { eq, ok, test } from "./harness";
 
 // ── Stripe con un cliente falso ──
@@ -154,23 +152,6 @@ test("Stripe recoverDispute: sin transferencia → error (se avisa para hacerlo 
 
 // ── Factura mensual de comisiones: meses en negativo ──
 
-test("feeInvoiceKind: total positivo → serie S (F1 con NIF, F2 sin él)", () => {
-  eq(feeInvoiceKind(1000, true, null), { type: "F1", seriesCode: "S", relatedInvoiceId: null });
-  eq(feeInvoiceKind(1000, false, null), { type: "F2", seriesCode: "S", relatedInvoiceId: null });
-});
-test("feeInvoiceKind: total negativo → rectificativa R de la última factura mensual", () => {
-  eq(feeInvoiceKind(-1000, true, { id: "inv_s", type: "F1" }), { type: "R1", seriesCode: "R", relatedInvoiceId: "inv_s" });
-  eq(feeInvoiceKind(-1000, false, { id: "inv_s", type: "F2" }), { type: "R5", seriesCode: "R", relatedInvoiceId: "inv_s" });
-});
-test("feeInvoiceKind: negativo sin factura anterior o cero → nada", () => {
-  eq(feeInvoiceKind(-1000, true, null), null);
-  eq(feeInvoiceKind(0, true, { id: "inv_s", type: "F1" }), null);
-});
-test("monthlyInvoiceEmail: la rectificativa lo explica", () => {
-  const m = monthlyInvoiceEmail({ creatorName: "Ana", periodLabel: "octubre de 2026", number: "R2026-000001", total: "-10,00 €", url: "https://x", corrective: true });
-  ok(m.html.includes("rectificativa"), m.html);
-});
-
 // ── CSV: el «;» también se entrecomilla (Excel en español) ──
 
 test("csvCell entrecomilla los textos con «;» (fórmula escondida tras el separador)", () => {
@@ -242,15 +223,6 @@ test("parseCheckoutConsents: un digital preparado a mano no se paga sin su casil
   ok(!parseCheckoutConsents({ acceptTerms: "on" }, "DIGITAL", "AUTOMATIC").ok);
 });
 test("la insignia del checkout de un digital personal no promete acceso inmediato", () => ok(!/inmediat/i.test(JSON.stringify(checkoutDeliveryBadge("DIGITAL", "PERSONAL") ?? ""))));
-test("decideTax: digital preparado a mano con la opción A → lo vende la creadora (sin IVA si no lo repercute)", () => {
-  const none = { country: "ES", vatStatus: "NONE" };
-  const d = decideTax({ mode: "PLATFORM_DIGITAL", productType: "DIGITAL", deliveryMode: "PERSONAL", buyerCountry: "FR", creator: none });
-  eq([d.seller, d.rateBps], ["CREATOR", 0]);
-  const auto = decideTax({ mode: "PLATFORM_DIGITAL", productType: "DIGITAL", deliveryMode: "AUTOMATIC", buyerCountry: "FR", creator: none });
-  eq([auto.seller, auto.rateBps], ["PLATFORM", 2000]);
-  eq(estimateNet({ priceCents: 7900, commissionBps: 500, productType: "DIGITAL", deliveryMode: "PERSONAL", mode: "PLATFORM_DIGITAL", creator: none }).taxCents, 0);
-});
-
 // ── Desistimiento: una renuncia de antes (sin versión) solo vale desde el primer acceso ──
 
 const paidAt = new Date("2026-10-01T10:00:00Z");
@@ -284,16 +256,15 @@ test("accessStartedAt lee Order.metadata.firstAccessAt y tolera basura", () => {
 
 // ── Textos ──
 
-test("plantillas de la creadora: Cirella factura cuando lo dice el resumen; lo preparado a mano no es acceso inmediato", () => {
+test("plantillas de la creadora: sin IVA ni facturas; lo preparado a mano no es acceso inmediato", () => {
   const t = renderCreatorLegalTemplates({
     identity: { legalName: "Ana", legalTaxId: "12345678Z", legalEntityType: "INDIVIDUAL", legalAddress: "C/ Sol 1", legalPostalCode: "28001", legalCity: "Madrid", legalCountry: "ES", legalEmail: "a@x.es", legalRegistry: null } as never,
     displayName: "Ana Luna",
     platformName: "Cirella",
     changeNoticeHours: 24,
   });
-  ok(t.terms.includes("proveedora a efectos del IVA"), t.terms);
+  ok(!/IVA|factura/i.test(t.terms + t.privacy), t.terms);
   ok(t.terms.includes("prepara para ti"), t.terms);
-  ok(t.privacy.includes("emite la factura en su nombre"), t.privacy);
 });
 test("email de confirmar la cuenta: pregunta si la creó ella (no solo «confirma tu email»)", () => {
   const m = magicLinkEmail({ url: "https://x/auth/magic?token=t", purpose: "VERIFY_SIGNUP" });

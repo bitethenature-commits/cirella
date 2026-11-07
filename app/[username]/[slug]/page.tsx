@@ -6,12 +6,9 @@ import { TrackOnMount } from "@/components/creator-page/tracking";
 import { asAccessMode } from "@/lib/access-mode";
 import { getCurrentUser } from "@/lib/auth";
 import { appUrl, isDemoMode } from "@/lib/env";
-import { getPlatformIssuer } from "@/lib/invoices/issuer";
 import { legalIdentityComplete, sellerStatement } from "@/lib/legal";
 import { getPublicProduct } from "@/lib/product-page";
 import { isPersonalMode } from "@/lib/site-mode";
-import { decideTax } from "@/lib/tax";
-import { getTaxMode } from "@/lib/tax/server";
 import { isGroupSession, seatsTaken } from "@/lib/booking";
 import { prisma } from "@/lib/db";
 
@@ -47,16 +44,9 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   if (data.signupsOnly && accessMode === "PAID" && !isOwner) notFound();
   const paid = accessMode === "PAID" && !data.signupsOnly;
   const clickEvent = isOwner ? null : { creatorId: creator.id, type: "PRODUCT_CLICK" as const, productId: p.id };
-  // Quién vende este producto según la política de IVA (lo mismo que dirán el checkout y el recibo).
-  const taxSeller = decideTax({
-    mode: await getTaxMode(),
-    productType: p.type,
-    deliveryMode: p.deliveryMode,
-    buyerCountry: null,
-    creator: { country: creator.legalCountry, vatStatus: creator.vatStatus },
-  }).seller;
-  const seller = sellerStatement(taxSeller, { ...creator, displayName: config.displayName }, taxSeller === "PLATFORM" ? await getPlatformIssuer() : null);
-  const sellerNamed = !!creator.legalName || seller.platformSells;
+  // Quién vende (lo mismo que dirán el checkout y el recibo).
+  const seller = sellerStatement({ ...creator, displayName: config.displayName });
+  const sellerNamed = !!creator.legalName;
   // Taller en directo: plazas al momento (la página es dinámica).
   const seatsLeft = isGroupSession(p) && p.eventStartAt && p.capacity != null ? Math.max(0, p.capacity - (await seatsTaken(prisma, p.id))) : null;
 
@@ -73,7 +63,6 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         }}
         timeZone={creator.timezone}
         signupsOnly={data.signupsOnly}
-        vatIncluded={!!data.summary.vatIncluded}
         seller={{ line: seller.line, named: sellerNamed }}
         seatsLeft={seatsLeft}
         testimonial={config.testimonials[0] ?? null}

@@ -1,7 +1,6 @@
 "use server";
 
 import { effectivePriceCents } from "@/lib/offers";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { claimOrderSession, holdsCheckout, rememberCheckout } from "@/lib/auth";
@@ -17,9 +16,6 @@ import { checkoutGate, noteCheckoutFailure } from "@/lib/limits";
 import { captureError } from "@/lib/monitoring";
 import { CheckoutError, createPendingOrder, getPurchasableProduct, startOrderPayment } from "@/lib/orders";
 import { NO_ONLINE_PAYMENTS, chooseCheckoutProvider, paidCheckoutOpen, paymentProviderByKey } from "@/lib/payments";
-import { isKnownCountry } from "@/lib/tax/rates";
-import { ipCountry } from "@/lib/tax/server";
-import { isPlausibleTaxId, normalizeTaxId } from "@/lib/tax/tax-id";
 import { currentVisitorId } from "@/lib/visitor";
 
 /** needsCaptcha: el siguiente intento necesita la comprobación de Turnstile (tras varios rechazos). */
@@ -40,17 +36,6 @@ const schema = z.object({
   method: z.enum(["card", "wallet"]).optional(),
   cardNumber: z.string().max(30).optional(),
   // Las casillas (acceptTerms, waiver, newsletter) las valida parseCheckoutConsents según el producto.
-  // IVA: país de residencia y, si pide factura, sus datos fiscales.
-  country: z.string().trim().min(2, "Elige tu país").max(5).refine(isKnownCountry, "Elige tu país"),
-  wantsInvoice: z.literal("on").optional(),
-  billingName: z.string().trim().max(120).optional(),
-  billingTaxId: z.string().max(30).optional(),
-  billingAddress: z.string().trim().max(300).optional(),
-}).superRefine((d, ctx) => {
-  if (!d.wantsInvoice) return;
-  if ((d.billingName ?? "").length < 2) ctx.addIssue({ code: "custom", path: ["billingName"], message: "Escribe el nombre o la razón social" });
-  else if (!isPlausibleTaxId(d.billingTaxId ?? "", d.country)) ctx.addIssue({ code: "custom", path: ["billingTaxId"], message: "Revisa el NIF: no es válido" });
-  else if ((d.billingAddress ?? "").length < 8) ctx.addIssue({ code: "custom", path: ["billingAddress"], message: "Escribe la dirección fiscal" });
 });
 
 export async function placeOrder(_: CheckoutState, form: FormData): Promise<CheckoutState> {
@@ -61,9 +46,6 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
   const input = parsed.data;
   const payWith = chooseCheckoutProvider(input.payWith);
   if (!payWith) return { error: "Ese método de pago no está disponible. Elige otro.", orderId: input.orderId || undefined };
-  const billing = input.wantsInvoice
-    ? { name: input.billingName!, taxId: normalizeTaxId(input.billingTaxId!), address: input.billingAddress! }
-    : null;
   const product = await prisma.product.findUnique({
     where: { id: input.productId },
     select: { creatorId: true, type: true, deliveryMode: true, intake: true, groupSession: true },
@@ -105,12 +87,7 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
       existing.buyerEmail === input.email &&
       // Otro método de pago (de tarjeta a PayPal o al revés): pedido nuevo, y el anterior se cancela.
       existing.paymentProvider === payWith &&
-      prevSlot === slotStart &&
-      // El IVA y la factura dependen del país y de los datos fiscales: si cambian, pedido nuevo.
-      existing.buyerCountry === input.country &&
-      existing.billingTaxId === (billing?.taxId ?? null) &&
-      existing.billingName === (billing?.name ?? null) &&
-      existing.billingAddress === (billing?.address ?? null);
+      prevSlot === slotStart;
     if (reusable) {
       const purchasable = await getPurchasableProduct(input.productId);
       // El precio de ahora (con la oferta si sigue activa): si la oferta empezó o terminó, pedido nuevo.
@@ -120,8 +97,7 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
         throw new CheckoutError("Ese horario acaba de ocuparse. Elige otro, por favor.");
     }
     if (!reusable) {
-      // Se sustituye un pedido de este navegador (cambió el país, los datos fiscales, el método de
-      // pago…): su página de pago, si sigue abierta, se cancela para que no se puedan pagar las dos.
+      // Se sustituye un pedido de este navegador (cambió el hueco, el método de pago…): su página de pago, si sigue abierta, se cancela para que no se puedan pagar las dos.
       // PayPal no deja cancelar: el pedido queda «sustituido» y un pago que se apruebe después en esa
       // pestaña no se cobra (lib/payments/events.ts).
       if (existing && ownsExisting && (existing.status === "PENDING" || existing.status === "ABANDONED") && existing.checkoutRef) {
@@ -145,9 +121,6 @@ export async function placeOrder(_: CheckoutState, form: FormData): Promise<Chec
         visitorId,
         ipHash: client.ipHash,
         source: lastVisit?.source ?? null,
-        buyerCountry: input.country,
-        ipCountry: ipCountry(await headers()),
-        billing,
         paymentMethod: payWith,
       });
       orderId = order.id;

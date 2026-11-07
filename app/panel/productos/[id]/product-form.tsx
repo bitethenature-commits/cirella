@@ -17,7 +17,7 @@ import {
 } from "@/lib/access-mode";
 import { MIN_PERSONAL_INSTRUCTIONS, normalizeDeliveryMode, type DeliveryMode } from "@/lib/delivery";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
-import { estimateNet, type TaxMode, type VatStatus } from "@/lib/tax";
+import { computeSaleAmounts } from "@/lib/sale-amounts";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { IntakeConfigEditor } from "@/components/booking/intake-config-editor";
 import type { IntakeConfig } from "@/lib/intake";
@@ -95,7 +95,6 @@ export function ProductForm({
   host,
   username,
   commissionBps,
-  taxPreview,
   accessModes,
   preview,
   children,
@@ -104,8 +103,6 @@ export function ProductForm({
   host: string;
   username: string;
   commissionBps: number;
-  /** Para «Recibes X»: el IVA depende de la política de la plataforma y de tu situación de IVA. */
-  taxPreview: { mode: TaxMode; country: string; vatStatus: VatStatus };
   /** Modos que se pueden elegir (lib/access-mode.ts → accessModesFor): en la plataforma, solo PAID. */
   accessModes: AccessMode[];
   /** Vista previa en vivo (product-preview.tsx): lo que no sale del formulario. */
@@ -123,7 +120,7 @@ export function ProductForm({
   const isDigital = product.type === "DIGITAL";
   const [mode, setMode] = useState<DeliveryMode>(normalizeDeliveryMode(product.type, product.deliveryMode));
   const personal = isDigital && mode === "PERSONAL";
-  const estimate = estimateNet({ priceCents: cents, commissionBps, productType: product.type, deliveryMode: mode, mode: taxPreview.mode, creator: taxPreview });
+  const estimate = computeSaleAmounts(cents, commissionBps);
   // Cómo se consigue. Siempre parte del modo que tiene: un producto de pago en la web personal
   // aparece como «Oculto» (sigue así hasta que se elija otra opción, nunca se regala al guardar).
   const current = asAccessMode(product.accessMode);
@@ -300,12 +297,11 @@ export function ProductForm({
           <h3 className="font-semibold">Precio</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="field-label">Precio final (€{hiddenPaid ? "" : ", IVA incluido"}){isMembership ? " por periodo" : ""}</label>
+              <label className="field-label">Precio final (€){isMembership ? " por periodo" : ""}</label>
               <input name="price" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d,.]/g, ""))} inputMode="decimal" className="input text-lg font-semibold" placeholder="49" />
               {cents >= 100 && !hiddenPaid && (
                 <p className="field-hint">
-                  Recibes {formatMoney(estimate.netCents, "EUR", { decimals: true })} por venta en España (
-                  {estimate.taxCents > 0 ? `IVA ${formatMoney(estimate.taxCents, "EUR", { decimals: true })} · ` : ""}comisión {(commissionBps / 100).toLocaleString("es-ES")} %).
+                  Recibes {formatMoney(estimate.netCents, "EUR", { decimals: true })} por venta (comisión {(commissionBps / 100).toLocaleString("es-ES")} %).
                 </p>
               )}
             </div>

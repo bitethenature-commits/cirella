@@ -60,8 +60,6 @@ export type PublicProduct = {
   ctaLabel: string | null;
   featured: boolean;
   meta?: string | null; // "75 min", "7 lecciones"…
-  /** El precio lleva IVA (lib/tax). Las vistas previas del editor no lo pasan. */
-  vatIncluded?: boolean;
   /** Oferta activa (lib/offers.ts): el precio de ahora, el normal tachado, la etiqueta y hasta cuándo. */
   sale?: { priceCents: number; regularCents: number; percentOff: number; label: string | null; endsLabel: string | null; startedAt: string } | null;
   /** Curso: su método (lib/course-categories.ts). */
@@ -700,9 +698,9 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
   const productHref = `/${username}/${p.slug}`;
   const topics = p.type === "COURSE" ? courseCategoriesOf(p.courseCategory) : [];
   const event = trackCreatorId ? { creatorId: trackCreatorId, type: "PRODUCT_CLICK" as const, productId: p.id } : null;
-  // Gratis: «Gratis». Pago fuera: el precio (informativo, si lo hay) y dónde se paga. Pago aquí: precio e IVA.
+  // Gratis: «Gratis». Pago fuera: el precio (informativo, si lo hay) y dónde se paga. Pago aquí: el precio.
   const price = free ? "Gratis" : external && p.priceCents <= 0 ? null : formatPrice(p.sale ? p.sale.priceCents : p.priceCents, p.currency, p.billingInterval);
-  const priceNote = external ? (p.externalHost ? `Pago en ${p.externalHost}` : "Pago en otra web") : !free && p.vatIncluded ? "IVA incluido" : null;
+  const priceNote = external ? (p.externalHost ? `Pago en ${p.externalHost}` : "Pago en otra web") : null;
   return (
     <article className="cp-card cp-card-hover group flex h-full flex-col">
       <Link href={productHref} className={`relative block overflow-hidden ${large ? "aspect-[16/11] sm:aspect-[16/9]" : "aspect-[4/3]"}`}>

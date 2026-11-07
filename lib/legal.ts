@@ -10,7 +10,7 @@ import { normalizeDeliveryMode } from "./delivery";
 import { isWorkshopProduct } from "./withdrawal";
 
 /** Versión de las plantillas de textos legales de las creadoras (lib/legal-templates.ts). */
-export const LEGAL_TEMPLATE_VERSION = "2026-11a";
+export const LEGAL_TEMPLATE_VERSION = "2026-11b";
 /** Versión de los Términos del servicio de la plataforma que aceptan las creadoras. */
 export const PLATFORM_TERMS_VERSION = "2026-10-15";
 /** La clienta puede cambiar la fecha de una sesión gratis hasta estas horas antes. */
@@ -128,7 +128,7 @@ export function validatePostalCode(country: string, v: string): string | null {
   return s.length >= 2 && s.length <= 10 ? null : "Código postal no válido";
 }
 
-/** «Calle X 1, 28001 Madrid (España)» — aviso legal, recibos y facturas. */
+/** «Calle X 1, 28001 Madrid (España)» — aviso legal y recibos. */
 export function formatLegalAddress(c: Partial<LegalIdentity>): string {
   const city = [c.legalPostalCode, c.legalCity].map((s) => s?.trim()).filter(Boolean).join(" ");
   const line = [c.legalAddress?.trim(), city].filter(Boolean).join(", ");
@@ -145,37 +145,15 @@ export function sellerLine(c: Partial<LegalIdentity>): string {
   return `${c.legalName ?? ""} · ${taxIdLabel(c.legalEntityType)} ${c.legalTaxId ?? ""}`.trim();
 }
 
-/** Datos de la plataforma como vendedora (lib/invoices/issuer.ts → getPlatformIssuer). */
-export type PlatformSeller = { name: string; taxId: string | null };
-
 /**
- * Quién vende, dicho igual en la ficha del producto, el checkout, el pie de las páginas de compra
- * y «Tu compra» (y en los mismos términos que la factura).
- *
- * Con la política de IVA PLATFORM_DIGITAL, los productos digitales que se entregan solos, los cursos
- * y las membresías los vende la plataforma (art. 9 bis del Reglamento de Ejecución (UE) 282/2011:
- * actúa en nombre propio y por cuenta de la creadora, cobra, factura y declara el IVA). Las sesiones
- * y lo que la creadora prepara a mano los vende ella. `taxSeller` es la decisión de lib/tax
- * (decideTax) o la instantánea del pedido (Order.taxSeller).
- *
- *   · name: corto, para el pie («Cirella Demo S.L., por cuenta de Ana Luna Pérez»).
- *   · line: con los NIF, para la ficha, el checkout y el recibo.
+ * Quién vende (siempre la creadora), dicho igual en la ficha del producto, el checkout, el pie de las
+ * páginas de compra y «Tu compra».
+ *   · name: corto, para el pie («Ana Luna Pérez»).
+ *   · line: con su NIF (LSSI art. 10), para la ficha, el checkout y el recibo.
  */
-export function sellerStatement(
-  taxSeller: string | null | undefined,
-  creator: Partial<LegalIdentity> & { displayName: string },
-  platform: PlatformSeller | null,
-): { name: string; line: string; platformSells: boolean } {
+export function sellerStatement(creator: Partial<LegalIdentity> & { displayName: string }): { name: string; line: string } {
   const creatorName = creator.legalName?.trim() || creator.displayName;
-  if (taxSeller === "PLATFORM" && platform) {
-    const name = platform.name.trim();
-    return {
-      name: `${name}, por cuenta de ${creatorName}`,
-      line: `${name}${platform.taxId ? ` · NIF ${platform.taxId}` : ""}, por cuenta de ${creatorName}`,
-      platformSells: true,
-    };
-  }
-  return { name: creatorName, line: creator.legalName?.trim() ? sellerLine(creator) : creatorName, platformSells: false };
+  return { name: creatorName, line: creator.legalName?.trim() ? sellerLine(creator) : creatorName };
 }
 
 export type WaiverKind = "DIGITAL_IMMEDIATE" | "DIGITAL_PREPARED" | "WORKSHOP_FIXED_DATE" | "MEMBERSHIP_START";

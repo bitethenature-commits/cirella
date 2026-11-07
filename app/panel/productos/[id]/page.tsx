@@ -13,8 +13,6 @@ import { uploadPolicy } from "@/lib/file-types";
 import { fileUsage } from "@/lib/lesson-parts";
 import { canSellType } from "@/lib/plans";
 import { siteMode } from "@/lib/site-mode";
-import { asVatStatus } from "@/lib/tax";
-import { getTaxMode } from "@/lib/tax/server";
 import { tenantDb } from "@/lib/tenant";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { deleteProduct } from "../actions";
@@ -194,7 +192,6 @@ export default async function EditProductPage({
         host={appHost()}
         username={creator.username}
         commissionBps={mode === "personal" ? 0 : creator.plan.commissionBps}
-        taxPreview={{ mode: await getTaxMode(), country: creator.legalCountry, vatStatus: asVatStatus(creator.vatStatus) }}
         accessModes={accessModesFor(mode, type, hasPaymentProvider())}
         preview={await productPreviewContext(creator, product, type)}
       >

@@ -17,8 +17,7 @@
  *
  * Las fechas son relativas al día en que se siembra (prisma/demo-dates.ts): las reservas siempre
  * están por venir y las compras, en los días anteriores. Los importes de las ventas salen de las
- * mismas reglas que el checkout (IVA incluido, comisión sobre la base; prisma/demo-sales.ts) y cada
- * cobro tiene su factura, como una venta real.
+ * mismas reglas que el checkout (comisión sobre el precio; prisma/demo-sales.ts), como una venta real.
  */
 import "../scripts/load-env";
 import { readFileSync, rmSync } from "node:fs";
@@ -47,12 +46,8 @@ import { acceptedConsentFields } from "../lib/checkout-consents";
 import { defaultSections, READINGS_DEFAULTS, type PageConfig } from "../lib/page-config";
 import { nextMoonDates } from "../lib/moon-dates";
 import { prisma as appPrisma } from "../lib/db";
-import { issueMonthlyPlatformInvoices } from "../lib/invoices/fees";
-import { invoiceYear } from "../lib/invoices/format";
-import { issueSaleInvoiceTx } from "../lib/invoices/issue";
 import { effectiveCommissionBps } from "../lib/plans";
 import { chargeKey } from "../lib/reliability";
-import type { TaxMode } from "../lib/tax";
 import { addDaysToKey, dateKeyInTz, formatInTz, formatSessionDate, labelToMinutes, weekdayOfKey, zonedTimeToUtc } from "../lib/tz";
 import { addMonthsToKey } from "../lib/access-end";
 import { moonPhasesBetween } from "../lib/astro-calendar";
@@ -80,8 +75,6 @@ const CARMEN_11_DAYS_AGO = demoPurchaseDaysAgo(TODAY, DEMO_SCHEDULE.carmenAt);
 /** Lucía tuvo su lectura hace 7 días: la compró 15 días antes. */
 const LUCIA_SESSION_DAYS_AGO = 7;
 const LUCIA_HD_DAYS_AGO = LUCIA_SESSION_DAYS_AGO + 15;
-/** Política de IVA de la demo (opción A): Cirella vende los productos digitales, cursos y membresías. */
-const TAX_MODE: TaxMode = "PLATFORM_DIGITAL";
 
 function rng(seed: number) {
   let s = seed;
@@ -1098,10 +1091,6 @@ async function reset() {
     prisma.analyticsEvent.deleteMany(),
     prisma.lessonProgress.deleteMany(),
     prisma.access.deleteMany(),
-    // Las facturas se enlazan entre sí (F3 → F2, rectificativas) con ON DELETE RESTRICT.
-    prisma.invoice.updateMany({ data: { relatedInvoiceId: null } }),
-    prisma.invoice.deleteMany(),
-    prisma.invoiceSeries.deleteMany(),
     prisma.transaction.deleteMany(),
     prisma.refund.deleteMany(),
     prisma.booking.deleteMany(),
@@ -1157,7 +1146,6 @@ async function main() {
       legalAddress: "Calle de Alcalá 100, 28009 Madrid (España)",
       legalRegistry: "Registro Mercantil de Madrid, tomo 0000, folio 0, hoja M-000000 (datos de demostración)",
       privacyEmail: "privacidad@cirella.app",
-      taxMode: TAX_MODE,
     }).map(([key, value]) => ({ key, value })),
   });
   const password = await bcrypt.hash("demo1234", 10);
@@ -1222,12 +1210,9 @@ async function main() {
       seoDescription: "Lecturas de astrología, Human Design y Gene Keys, sesiones 1:1, curso y comunidad privada. Conócete. Compréndete. Transfórmate.",
       payoutProvider: "simulated", payoutAccountId: "sim_acct_ana001", payoutConnectedAt: daysAgo(74),
       payoutStatus: "ACTIVE", payoutChargesEnabled: true, payoutPayoutsEnabled: true, payoutStatusUpdatedAt: daysAgo(74),
-      // Identidad legal completa (obligatoria para vender). Los datos de DAC7 (fecha de nacimiento,
-      // IBAN) se dejan sin completar para ver el aviso y el informe con «Faltan».
+      // Identidad legal completa (obligatoria para vender).
       legalName: "Ana Luna Pérez", legalTaxId: "12345678Z", legalAddress: "Calle de la Luna 7, 2.º B", legalPostalCode: "28004",
       legalCity: "Madrid", legalCountry: "ES", legalEmail: "hola@analuna.es",
-      // Autónoma con IVA: sus sesiones llevan IVA y Cirella emite la factura en su nombre.
-      vatStatus: "STANDARD",
       termsAcceptedAt: daysAgo(75), termsVersion: PLATFORM_TERMS_VERSION,
       referralCode: "ANALUNA", createdAt: daysAgo(75),
     },
@@ -1629,8 +1614,6 @@ async function main() {
     visitor: string; source: string | null; marketingOptIn?: boolean;
   };
   const customers = new Map<string, string>();
-  /** Cobros sembrados: se facturan al final, por orden de fecha, como lo habría hecho cada compra. */
-  const charges: { id: string; at: Date }[] = [];
   /** Una compra pagada como la deja fulfillOrder (lib/orders.ts): pedido, clienta, cobro y analítica. */
   async function buy(b: Buy) {
     const key = `${b.creator.id}:${b.user.id}`;
@@ -1657,14 +1640,8 @@ async function main() {
         lastPurchaseAt: current.lastPurchaseAt && current.lastPurchaseAt > b.at ? current.lastPurchaseAt : b.at,
       },
     });
-    // Mismos importes que el checkout: IVA según quién vende (compradora en España) y comisión sobre la base.
-    const amounts = demoSaleFields({
-      mode: TAX_MODE,
-      product: b.product,
-      creator: b.creator,
-      commissionBps: effectiveCommissionBps(b.plan, b.creator, b.at),
-      buyerCountry: "ES",
-    });
+    // Mismos importes que el checkout: comisión sobre el precio.
+    const amounts = demoSaleFields({ product: b.product, commissionBps: effectiveCommissionBps(b.plan, b.creator, b.at) });
     const order = await prisma.order.create({
       data: {
         creatorId: b.creator.id, customerId, productId: b.product.id, productTitle: b.product.title, productType: b.product.type,
@@ -1674,15 +1651,13 @@ async function main() {
         ...consents(b.product, b.at),
       },
     });
-    const charge = await prisma.transaction.create({
+    await prisma.transaction.create({
       data: {
         creatorId: b.creator.id, orderId: order.id, type: "CHARGE", description: b.product.title, amountCents: order.amountCents,
         platformFeeCents: order.platformFeeCents, netCents: order.netCents,
-        taxSeller: order.taxSeller, taxCountry: order.taxCountry, taxRateBps: order.taxRateBps, taxCents: order.taxCents,
         provider: "simulated", providerRef: order.paymentRef, idempotencyKey: chargeKey(order.id), createdAt: b.at,
       },
     });
-    charges.push({ id: charge.id, at: b.at });
     await prisma.analyticsEvent.create({
       data: { creatorId: b.creator.id, type: "PURCHASE", productId: b.product.id, visitorId: b.visitor, source: b.source, amountCents: order.amountCents, createdAt: b.at },
     });
@@ -1700,7 +1675,7 @@ async function main() {
   periodEnd.setMonth(periodEnd.getMonth() + 1);
   const sub = await prisma.subscription.create({
     data: {
-      creatorId: ana.id, productId: pCircle.id, customerId: o5.customerId, userId: lucia.id, orderId: o5.order.id, buyerCountry: o5.order.buyerCountry,
+      creatorId: ana.id, productId: pCircle.id, customerId: o5.customerId, userId: lucia.id, orderId: o5.order.id,
       status: "ACTIVE", priceCents: pCircle.priceCents, interval: "month", currentPeriodStart: daysAgo(16, 22, 10), currentPeriodEnd: periodEnd,
       provider: "simulated", createdAt: daysAgo(16, 22, 10),
     },
@@ -1754,7 +1729,7 @@ async function main() {
     data: {
       creatorId: ana.id, customerId: customers.get(`${ana.id}:${carmen.id}`)!, productId: pCircle.id, productTitle: pCircle.title, productType: pCircle.type,
       buyerEmail: carmen.email, buyerName: carmen.name, status: "PAID", amountCents: 0, commissionBps: 0, platformFeeCents: 0, netCents: 0,
-      taxSeller: "CREATOR", taxRateBps: 0, taxCents: 0, paymentProvider: "manual", createdAt: carmenGrantAt, paidAt: carmenGrantAt, chargedAt: carmenGrantAt,
+      paymentProvider: "manual", createdAt: carmenGrantAt, paidAt: carmenGrantAt, chargedAt: carmenGrantAt,
       metadata: { grantedByUserId: anaUser.id, accessGrantedAt: carmenGrantAt.toISOString(), accessUntil: carmenUntil.toISOString() },
     },
   });
@@ -1767,7 +1742,7 @@ async function main() {
     data: {
       creatorId: ana.id, customerId: customers.get(`${ana.id}:${laura.id}`)!, productId: pCircle.id, productTitle: pCircle.title, productType: pCircle.type,
       buyerEmail: laura.email, buyerName: laura.name, status: "PAID", amountCents: 0, commissionBps: 0, platformFeeCents: 0, netCents: 0,
-      taxSeller: "CREATOR", taxRateBps: 0, taxCents: 0, paymentProvider: "manual", createdAt: lauraGrantAt, paidAt: lauraGrantAt, chargedAt: lauraGrantAt,
+      paymentProvider: "manual", createdAt: lauraGrantAt, paidAt: lauraGrantAt, chargedAt: lauraGrantAt,
       metadata: { grantedByUserId: anaUser.id, accessGrantedAt: lauraGrantAt.toISOString(), accessUntil: lauraUntil.toISOString() },
     },
   });
@@ -1923,10 +1898,9 @@ async function main() {
       published: true, publishedAt: daysAgo(45), onboardedAt: daysAgo(47), contactEmail: "maria@cirella.app",
       payoutProvider: "simulated", payoutAccountId: "sim_acct_maria01", payoutConnectedAt: daysAgo(47),
       payoutStatus: "ACTIVE", payoutChargesEnabled: true, payoutPayoutsEnabled: true, payoutStatusUpdatedAt: daysAgo(47),
-      // Identidad legal y datos fiscales completos (DAC7).
+      // Identidad legal completa.
       legalName: "María Sol Ruiz", legalTaxId: "87654321X", legalAddress: "Calle del Pez 12, 2.º B", legalPostalCode: "28004", legalCity: "Madrid",
       legalCountry: "ES", legalEmail: "hola@mariasol.yoga", termsAcceptedAt: daysAgo(48), termsVersion: PLATFORM_TERMS_VERSION,
-      birthDate: new Date("1988-04-12T00:00:00Z"), iban: "ES9121000418450200051332", dac7ConfirmedAt: daysAgo(40),
       referralCode: "MARIASOL", createdAt: daysAgo(48),
     },
   });
@@ -1947,7 +1921,7 @@ async function main() {
     data: { creatorId: maria.id, type: "SESSION", status: "PUBLISHED", slug: "yoga-terapeutico", title: "Yoga terapéutico 1:1", emoji: "🧘", summary: "Sesión individual adaptada a tu cuerpo y tu momento.", imageUrl: await demoImage(maria.id, "/demo/maria-sesion.webp"), priceCents: 5500, durationMin: 60, bufferMin: 15, minNoticeHours: 360, sortOrder: 3 },
   });
   await prisma.availabilityRule.createMany({ data: [2, 4].map((wd) => ({ creatorId: maria.id, weekday: wd, startMinute: 540, endMinute: 780 })) });
-  // Carmen compró la meditación de María (vende Cirella: IVA incluido y factura de la serie V).
+  // Carmen compró la meditación de María.
   const { order: mOrder } = await buy({
     creator: maria, plan: creatorPlan, user: carmen, product: mMed, at: daysAgo(8), visitor: "m_8_1", source: null, marketingOptIn: false,
   });
@@ -2008,21 +1982,6 @@ async function main() {
   });
   await prisma.creator.update({ where: { id: ana.id }, data: { creditCents: 2900 } });
 
-  // Facturas de las ventas sembradas, con la misma función que el cobro real (issueSaleInvoiceTx):
-  // simplificada de Cirella (serie V) para lo digital y en nombre de Ana (serie CIR) para sus
-  // sesiones, porque repercute IVA. Por orden de fecha y con la fecha de cada venta, salvo que alguna
-  // sea del año anterior (la numeración es por año: entonces todas llevan la fecha de hoy).
-  charges.sort((a, b) => a.at.getTime() - b.at.getTime());
-  const backdate = charges.every((c) => invoiceYear(c.at) === invoiceYear(NOW));
-  for (const c of charges) {
-    const invoice = await prisma.$transaction((tx) => issueSaleInvoiceTx(tx, { transactionId: c.id }));
-    if (invoice && backdate) await prisma.invoice.update({ where: { id: invoice.id }, data: { issuedAt: c.at, createdAt: c.at } });
-  }
-
-  // Facturas mensuales de Cirella (serie S) del mes pasado, a partir de las cuotas y comisiones
-  // sembradas. María no repercute IVA (vatStatus NONE, el valor por defecto).
-  await issueMonthlyPlatformInvoices(NOW);
-
   const counts = {
     usuarios: await prisma.user.count(),
     creadoras: await prisma.creator.count(),
@@ -2030,7 +1989,6 @@ async function main() {
     pedidos: await prisma.order.count(),
     reservas: await prisma.booking.count(),
     eventos: await prisma.analyticsEvent.count(),
-    facturas: await prisma.invoice.count(),
     publicaciones: await prisma.post.count(),
     códigos: await prisma.discountCode.count(),
     barajas: await prisma.oracleDeck.count(),

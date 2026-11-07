@@ -11,7 +11,6 @@ import { getSession, hasCheckoutCookie } from "@/lib/auth";
 import { maskEmail, orderTargetPath } from "@/lib/auth-utils";
 import { prisma } from "@/lib/db";
 import { isInstantDelivery } from "@/lib/delivery";
-import { getPlatformIssuer } from "@/lib/invoices/issuer";
 import { sellerStatement } from "@/lib/legal";
 import { isDemoMode } from "@/lib/env";
 import { formatPrice } from "@/lib/money";
@@ -34,12 +33,8 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
   if (!order || !["PAID", "PENDING", "PROCESSING", "FAILED"].includes(order.status)) notFound();
   // Un acceso sin cobro (gratis con email o dado a mano) no pasa por aquí: llega por email.
   if (isNoChargeOrder(order)) notFound();
-  // Pie «Vende: …» con quién vende este pedido (instantánea fiscal), como en el checkout y el recibo.
-  const sellerName = sellerStatement(
-    order.taxSeller,
-    { ...data.creator, displayName: data.config.displayName },
-    order.taxSeller === "PLATFORM" ? await getPlatformIssuer() : null,
-  ).name;
+  // Pie «Vende: …», como en el checkout y el recibo.
+  const sellerName = sellerStatement({ ...data.creator, displayName: data.config.displayName }).name;
   const pending = order.status === "PROCESSING" || (order.status === "PENDING" && !!order.checkoutRef);
   if (pending || order.status === "FAILED" || order.status === "PENDING")
     return (

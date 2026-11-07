@@ -123,7 +123,6 @@ export function GiveForm({
           <div>
             <label className="field-label" htmlFor="give-note">Nota <span className="font-normal text-muted">(solo la ves tú)</span></label>
             <input id="give-note" name="paidNote" maxLength={120} placeholder="Bizum 60 €" className="input h-11" />
-            <p className="field-hint">Si te la han pagado por Bizum o transferencia, emite tú la factura.</p>
           </div>
         )}
       </Step>

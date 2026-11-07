@@ -15,9 +15,6 @@ import { Badge, PageHeader, RangeTabs, Stat } from "../ui";
 import { formatDate } from "@/lib/tz";
 import { SignupsView } from "./inscripciones";
 
-/** Filas REFUND del libro de cada pedido: el IVA que se devolvió con cada reembolso. */
-const REFUND_ROWS = { where: { type: "REFUND", refundId: { not: null } }, select: { amountCents: true, taxCents: true } } as const;
-
 const TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = { PAID: "success", PENDING: "warning", PROCESSING: "warning", FAILED: "danger", ABANDONED: "neutral", REFUNDED: "neutral" };
 
 /** Ventas = pedidos con cobro. Los de 0 € (gratis con email o acceso dado a mano) van en Inscripciones. */
@@ -51,8 +48,6 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
       take: 200,
       include: {
         product: { select: { emoji: true } },
-        invoices: { where: { type: { in: ["F1", "F2", "F3"] } }, orderBy: { issuedAt: "desc" }, take: 1, select: { fullNumber: true } },
-        transactions: REFUND_ROWS,
       },
     }),
     // Cifras del periodo descontando los reembolsos (se restan del mes de la venta).
@@ -64,22 +59,18 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         platformFeeCents: true,
         refundedCents: true,
         refundedFeeCents: true,
-        taxCents: true,
-        taxSeller: true,
-        transactions: REFUND_ROWS,
       },
     }),
     // ¿Hay inscripciones gratis (productos gratis con email)? Entonces, su pestaña.
     db.order.count({ where: { status: "PAID", paymentProvider: { in: [...NO_CHARGE_PROVIDERS] } } }),
   ]);
-  // Mismo desglose que el detalle del pedido (lib/order-breakdown): brutos − IVA de Cirella − comisión = recibes.
-  const figures = settled.map((o) => orderBreakdown(o, o.transactions));
+  // Mismo desglose que el detalle del pedido (lib/order-breakdown): brutos − comisión = recibes.
+  const figures = settled.map((o) => orderBreakdown(o));
   const gross = figures.reduce((a, f) => a + f.amount - f.refunded, 0);
   const fees = figures.reduce((a, f) => a + f.fee, 0);
   const refunded = figures.reduce((a, f) => a + f.refunded, 0);
-  // «Recibes» descuenta la comisión y el IVA que declara Cirella cuando vende ella (lib/tax).
+  // «Recibes» descuenta la comisión.
   const net = figures.reduce((a, f) => a + f.net, 0);
-  const platformTax = figures.reduce((a, f) => a + f.platformTax, 0);
   const filters = [
     ["pagados", "Pagados"],
     ["reembolsados", "Reembolsados"],
@@ -92,7 +83,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
     <div>
       <PageHeader
         title="Ventas"
-        subtitle={personal ? "Cada pedido, su IVA y lo que recibes." : "Cada pedido, su comisión y lo que recibes."}
+        subtitle={personal ? "Cada pedido y lo que recibes." : "Cada pedido, su comisión y lo que recibes."}
         actions={
           <>
             <RangeTabs current={range} base="/panel/ventas" />
@@ -102,9 +93,8 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
           </>
         }
       />
-      <div className={`mb-6 grid grid-cols-2 gap-3 ${personal ? "sm:grid-cols-3" : platformTax > 0 ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
-        <Stat label="Ingresos brutos" value={formatMoney(gross)} accent hint={refunded > 0 ? `−${formatMoney(refunded, "EUR", { decimals: true })} reembolsados` : "IVA incluido"} />
-        {platformTax > 0 && <Stat label="IVA" value={formatMoney(platformTax, "EUR", { decimals: true })} hint="Lo ingresa Cirella" />}
+      <div className={`mb-6 grid grid-cols-2 gap-3 ${personal ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
+        <Stat label="Ingresos brutos" value={formatMoney(gross)} accent hint={refunded > 0 ? `−${formatMoney(refunded, "EUR", { decimals: true })} reembolsados` : undefined} />
         {!personal && <Stat label="Comisión plataforma" value={formatMoney(fees, "EUR", { decimals: true })} hint={`Plan ${creator.plan.name}`} />}
         <Stat label="Recibes" value={formatMoney(net, "EUR", { decimals: true })} />
         <Stat label="Pedidos" value={figures.filter((f) => f.amount - f.refunded > 0).length} />
@@ -122,7 +112,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         </div>
         <ul className="divide-y divide-line">
           {orders.map((o) => {
-            const f = orderBreakdown(o, o.transactions);
+            const f = orderBreakdown(o);
             const partial = o.status === "PAID" && o.refundedCents > 0;
             return (
               <li key={o.id}>
@@ -133,14 +123,12 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                   <span className="text-right font-semibold tabular-nums">
                     {formatMoney(o.amountCents, o.currency, { decimals: true })}
                     {f.refunded > 0 && <span className="block text-[0.68rem] font-normal text-muted">−{formatMoney(f.refunded, o.currency, { decimals: true })} reemb.</span>}
-                    {o.invoices[0] && <span className="block font-mono text-[0.68rem] font-normal text-faint">{o.invoices[0].fullNumber}</span>}
                   </span>
                   <span className="hidden text-right tabular-nums text-muted md:block">
                     {f.settled ? (
                       <>
                         {formatMoney(f.net, o.currency, { decimals: true })}
                         {/* Lo que separa el importe de lo que recibes, para que la resta se vea. */}
-                        {f.platformTax > 0 && <span className="block text-[0.68rem] text-faint">−{formatMoney(f.platformTax, o.currency, { decimals: true })} IVA</span>}
                         {f.fee > 0 && <span className="block text-[0.68rem] text-faint">−{formatMoney(f.fee, o.currency, { decimals: true })} comisión</span>}
                       </>
                     ) : (

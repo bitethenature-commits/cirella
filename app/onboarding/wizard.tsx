@@ -12,7 +12,7 @@ import type { LegalIdentity } from "@/lib/legal";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import type { PageConfig } from "@/lib/page-config";
 import type { PayoutView } from "@/lib/payouts";
-import { estimateNet, type TaxMode, type VatStatus } from "@/lib/tax";
+import { computeSaleAmounts } from "@/lib/sale-amounts";
 import { TEMPLATES, type TemplateKey } from "@/lib/templates";
 import { DEFAULT_CTA, PRODUCT_TYPE_HINT, PRODUCT_TYPE_LABEL, PRODUCT_TYPES, type ProductType } from "@/lib/types";
 import {
@@ -43,8 +43,6 @@ export type WizardInit = {
   allowedTypes: ProductType[];
   commissionBps: number;
   planName: string;
-  /** IVA: política de la plataforma y situación de la creadora, para «Recibirás X». */
-  tax: { mode: TaxMode; country: string; vatStatus: VatStatus };
   /** Estado de la cuenta de cobro (lib/payouts.ts → payoutView). */
   payout: PayoutView;
   demo: boolean;
@@ -207,14 +205,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
               : "Entrega pendiente";
 
   const priceCents = parseMoneyToCents(product.price);
-  const estimate = estimateNet({
-    priceCents,
-    commissionBps: init.commissionBps,
-    productType: product.type,
-    deliveryMode: delivery.choice === "PERSONAL" ? "PERSONAL" : "AUTOMATIC",
-    mode: init.tax.mode,
-    creator: init.tax,
-  });
+  const estimate = computeSaleAmounts(priceCents, init.commissionBps);
 
   const previewProducts: PublicProduct[] = useMemo(
     () =>
@@ -425,7 +416,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                       />
                       <span className="text-xl text-muted">€{product.type === "MEMBERSHIP" ? "/mes" : ""}</span>
                     </div>
-                    <p className="field-hint">Es el precio final que paga tu clienta, con IVA incluido si corresponde.</p>
+                    <p className="field-hint">Es el precio final que paga tu clienta.</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {PRICE_SUGGESTIONS.map((v) => (
                         <button key={v} type="button" onClick={() => setProduct((p) => ({ ...p, price: String(v) }))} className="chip h-8 bg-white ring-1 ring-line hover:ring-ink/30">
@@ -439,9 +430,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                           Recibirás <strong>{formatMoney(estimate.netCents, "EUR", { decimals: true })}</strong> por cada venta.
                         </p>
                         <p className="mt-1 text-xs text-muted">
-                          {estimate.taxCents > 0
-                            ? `De ${formatMoney(priceCents, "EUR", { decimals: true })}, IVA incluido: ${formatMoney(estimate.taxCents, "EUR", { decimals: true })} de IVA (${estimate.seller === "PLATFORM" ? "lo declara e ingresa Cirella" : "lo declaras tú"}) y ${formatMoney(estimate.feeCents, "EUR", { decimals: true })} de comisión (${(init.commissionBps / 100).toLocaleString("es-ES")} % sobre el precio sin IVA). `
-                            : `Plan ${init.planName}: comisión del ${(init.commissionBps / 100).toLocaleString("es-ES")} %. `}
+                          {`Plan ${init.planName}: comisión del ${(init.commissionBps / 100).toLocaleString("es-ES")} %. `}
                           Baja al 2 % con el plan Pro.
                         </p>
                       </div>

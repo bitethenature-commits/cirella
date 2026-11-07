@@ -10,7 +10,7 @@ export function csvCell(v: CsvCell): string {
   if (typeof v === "number") return String(v);
   const safe = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
   // También el «;»: Excel en español lo usa como separador y partiría la celda (una parte que
-  // empiece por «=» se ejecutaría como fórmula). Igual que el CSV de DAC7 (lib/dac7.ts).
+  // empiece por «=» se ejecutaría como fórmula).
   return /[",;\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 

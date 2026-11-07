@@ -71,10 +71,10 @@ async function main() {
     const lucia = email("lucia");
     const r1 = await claimFreeAccess({ productId: free.id, name: "Lucía", email: lucia.toUpperCase(), newsletter: true, ipHash: "prueba" });
     check("primera vez: acceso concedido", r1.status === "granted", r1);
-    const order = await prisma.order.findUniqueOrThrow({ where: { id: r1.orderId }, include: { customer: true, transactions: true, invoices: true } });
+    const order = await prisma.order.findUniqueOrThrow({ where: { id: r1.orderId }, include: { customer: true, transactions: true } });
     check("pedido de 0 € «free» pagado, con el email en minúsculas", order.status === "PAID" && order.paymentProvider === "free" && order.amountCents === 0 && order.buyerEmail === lucia, order);
-    check("sin IVA ni comisión", order.taxCents === 0 && order.platformFeeCents === 0 && order.commissionBps === 0 && order.netCents === 0);
-    check("sin transacción de cobro ni factura", order.transactions.length === 0 && order.invoices.length === 0);
+    check("sin comisión", order.platformFeeCents === 0 && order.commissionBps === 0 && order.netCents === 0);
+    check("sin transacción de cobro", order.transactions.length === 0);
     check("sin referencia de pago (no hay nada que reembolsar)", order.paymentRef === null);
     check("guarda la versión de los textos legales y la privacidad aceptada", !!order.legalSnapshotId && !!(order.metadata as { privacyAcceptedAt?: string })?.privacyAcceptedAt);
     check("la casilla de novedades no es consentimiento todavía", order.customer?.marketingOptIn === false && order.marketingOptIn === false, order.customer);

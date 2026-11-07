@@ -86,7 +86,7 @@ test("toWithdrawalInput: renuncia, reembolso pendiente y reserva", () =>
 
 // Cifras netas y etiquetas
 const fig = { status: "PAID", amountCents: 7900, platformFeeCents: 158, refundedCents: 2000, refundedFeeCents: 40 };
-test("orderFigures: parcial", () => eq(orderFigures(fig), { gross: 5900, fee: 118, tax: 0, platformTax: 0, net: 5782, refunded: 2000, partial: true, counts: true }));
+test("orderFigures: parcial", () => eq(orderFigures(fig), { gross: 5900, fee: 118, net: 5782, refunded: 2000, partial: true, counts: true }));
 test("orderStatusLabel: parcial", () => eq(orderStatusLabel(fig), "Reembolsado parcialmente"));
 test("orderFigures: reembolsado del todo no cuenta", () => {
   const f = orderFigures({ ...fig, status: "REFUNDED", refundedCents: 7900, refundedFeeCents: 158 });

@@ -46,7 +46,7 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
   // Membresías: su suscripción decide si se puede desistir y cuánto se devuelve (proporcional).
   const memberships = await membershipTermsFor(orders.filter((o) => o.productType === "MEMBERSHIP").map((o) => o.id));
   const personal = signupsOnly();
-  // Web personal: «Mis canales», con lo que es cada cosa en grande y sin importes ni facturas (siguen
+  // Web personal: «Mis canales», con lo que es cada cosa en grande y sin importes (siguen
   // en el detalle de cada compra y en el email de compra).
   const channels = isPersonalMode();
   const link = (o: (typeof orders)[number]) =>
@@ -59,7 +59,7 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
       </div>
       <div className="card divide-y divide-line">
         {orders.map((o) => {
-          // Gratis o dado a mano: sin importe, factura ni desistimiento (no hubo pago).
+          // Gratis o dado a mano: sin importe ni desistimiento (no hubo pago).
           const noCharge = isNoChargeOrder(o);
           const w = noCharge
             ? { eligible: false as const }
@@ -99,8 +99,8 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
                   </Link>
                   {!noCharge && (
                     <div className="-mt-2 px-4 pb-3 pl-20">
-                      <Link href={`/cuenta/pedidos/${o.id}#factura`} className="text-xs font-medium text-muted underline underline-offset-2 hover:text-ink">
-                        Recibo y factura
+                      <Link href={`/cuenta/pedidos/${o.id}#resumen`} className="text-xs font-medium text-muted underline underline-offset-2 hover:text-ink">
+                        Resumen de la compra
                       </Link>
                     </div>
                   )}

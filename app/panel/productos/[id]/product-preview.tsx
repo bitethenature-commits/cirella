@@ -33,8 +33,8 @@ export type ProductPreviewContext = {
   sectionTitle: string;
   offersTitle: string;
   testimonial: { quote: string; author: string } | null;
-  /** IVA y quién vende según la entrega (un digital «lo preparo yo» no lo vende la plataforma). */
-  tax: Record<"AUTOMATIC" | "PERSONAL", { vatIncluded: boolean; seller: Seller }>;
+  /** Quién vende (la creadora, con su nombre legal si lo tiene). */
+  seller: Seller;
   /** Plazas ya ocupadas de un taller. */
   seatsTaken: number;
   claim: { legalComplete: boolean; responsible: string; processorName: string | null; demo: boolean };
@@ -83,7 +83,6 @@ function previewNotes(ctx: ProductPreviewContext, product: ProductPageProduct, s
 
 /** Lo que se ve dentro del teléfono: la tarjeta (como en la portada) o la ficha del producto. */
 function PreviewScene({ ctx, product, tab }: { ctx: ProductPreviewContext; product: ProductPageProduct; tab: PreviewTab }) {
-  const tax = ctx.tax[product.type === "DIGITAL" && product.deliveryMode === "PERSONAL" ? "PERSONAL" : "AUTOMATIC"];
   if (tab === "page") {
     const paid = asAccessMode(product.accessMode) === "PAID" && !ctx.signupsOnly;
     return (
@@ -94,15 +93,14 @@ function PreviewScene({ ctx, product, tab }: { ctx: ProductPreviewContext; produ
         personal={ctx.personal}
         signupsOnly={ctx.signupsOnly}
         pages={ctx.pages}
-        sellerName={paid && tax.seller.named ? tax.seller.name : null}
+        sellerName={paid && ctx.seller.named ? ctx.seller.name : null}
       >
         <ProductPageView
           username={ctx.username}
           product={product}
           timeZone={ctx.timeZone}
           signupsOnly={ctx.signupsOnly}
-          vatIncluded={tax.vatIncluded}
-          seller={tax.seller}
+          seller={ctx.seller}
           seatsLeft={product.capacity != null ? Math.max(0, product.capacity - ctx.seatsTaken) : null}
           testimonial={ctx.testimonial}
           claim={{ ...ctx.claim, isOwner: true, creatorDisplayName: ctx.config.displayName }}
@@ -112,7 +110,7 @@ function PreviewScene({ ctx, product, tab }: { ctx: ProductPreviewContext; produ
     );
   }
   const lessons = product.modules.reduce((a, m) => a + m.lessons.length, 0);
-  const card = toPublicProduct(product, { lessons, timeZone: ctx.timeZone, vatIncluded: tax.vatIncluded });
+  const card = toPublicProduct(product, { lessons, timeZone: ctx.timeZone });
   const theme = resolveTheme(ctx.config.template, ctx.config.theme, ctx.allowCustom);
   const group = card.type === "COURSE" ? groupCourses([card])[0] : null;
   return (

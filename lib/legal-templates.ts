@@ -38,10 +38,8 @@ export function renderCreatorLegalTemplates(i: {
   const terms = `## 1. Quién vende
 Estas condiciones regulan las compras en la página de ${displayName}. La vendedora es la titular identificada en el aviso legal. ${platformName} solo presta la tecnología de la página y de los pagos; no es parte del contrato.
 
-Cuando el resumen de la compra lo indica (productos digitales, cursos y membresías), ${platformName} cobra el pago y emite la factura en su nombre como proveedora a efectos del IVA (art. 9 bis del Reglamento de Ejecución (UE) 282/2011).
-
 ## 2. Productos y precios
-Cada ficha describe qué incluye el producto. Los precios se muestran en euros e incluyen los impuestos aplicables.
+Cada ficha describe qué incluye el producto. Los precios se muestran en euros y son el precio final.
 
 ## 3. Cómo se compra
 El contrato se perfecciona cuando se confirma el pago. Recibirás por email la confirmación con estas condiciones.
@@ -94,7 +92,7 @@ Desde tu área de cliente, escribiendo al email del aviso legal o enviando el fo
 Te devolvemos el dinero en un máximo de 14 días desde que nos comunicas tu decisión, por el mismo medio de pago que usaste.`;
 
   const privacy = `## Quién más trata tus datos
-${platformName} trata tus datos por encargo de la vendedora para alojar la página, gestionar las compras y enviarte los emails. Cuando ${platformName} emite la factura en su nombre (lo indica el resumen de la compra), es responsable de los datos de esa factura y de los registros fiscales que debe conservar. Stripe trata los datos del pago como responsable independiente.
+${platformName} trata tus datos por encargo de la vendedora para alojar la página, gestionar las compras y enviarte los emails. Stripe trata los datos del pago como responsable independiente.
 
 ## Qué datos
 Nombre, email, compras, reservas y los mensajes que nos envíes. Si reservas una lectura, los datos de nacimiento (fecha, hora y lugar) y las respuestas que des para prepararla.
@@ -102,12 +100,12 @@ Nombre, email, compras, reservas y los mensajes que nos envíes. Si reservas una
 ## Para qué y con qué base
 • Gestionar tu compra y darte acceso: ejecución del contrato.
 • Preparar tu lectura con tus datos de nacimiento y tus respuestas: ejecución del contrato.
-• Cumplir las obligaciones legales y fiscales: obligación legal.
+• Cumplir las obligaciones legales: obligación legal.
 • Recordarte una vez una compra que dejaste a medias: interés legítimo. Puedes oponerte en cualquier momento.
 • Enviarte novedades, solo si marcas la casilla: consentimiento. Puedes retirarlo desde tu cuenta.
 
 ## Cuánto tiempo
-Los datos de las compras, 6 años (obligaciones mercantiles y fiscales). Los datos para la lectura, hasta que pidas que se borren (los de una compra que no se terminó, 30 días). Los de las novedades, hasta que retires tu consentimiento.
+Los datos de las compras, 6 años (obligaciones mercantiles). Los datos para la lectura, hasta que pidas que se borren (los de una compra que no se terminó, 30 días). Los de las novedades, hasta que retires tu consentimiento.
 
 ## Tus derechos
 Puedes pedir el acceso, la rectificación, la supresión, la oposición, la limitación y la portabilidad de tus datos escribiendo al email del aviso legal. También puedes reclamar ante la Agencia Española de Protección de Datos (www.aepd.es).`;
@@ -158,14 +156,14 @@ export const PERSONAL_THIRD_PARTY_TEXT = `## Enlaces y códigos de descuento
 Los enlaces y los códigos de descuento de otras marcas llevan a webs que no son de esta página: cada una tiene sus propias condiciones y su propia política de privacidad. Algunos pueden ser enlaces de afiliación: si compras con ellos, puede que se reciba una comisión, sin que te cueste nada más.
 
 ## Productos de pago
-Los productos de pago se compran en la web que indica su ficha (por ejemplo Hotmart, PayPal o Calendly). Las condiciones de venta, los pagos, los reembolsos y las facturas son los de esa compra.`;
+Los productos de pago se compran en la web que indica su ficha (por ejemplo Hotmart, PayPal o Calendly). Las condiciones de venta, los pagos, y los reembolsos son los de esa compra.`;
 
 /** El mismo aviso en la web personal que cobra: solo lo que se compra fuera va por su cuenta. */
 export const PERSONAL_SALES_THIRD_PARTY_TEXT = `## Enlaces y códigos de descuento
 Los enlaces y los códigos de descuento de otras marcas llevan a webs que no son de esta página: cada una tiene sus propias condiciones y su propia política de privacidad. Algunos pueden ser enlaces de afiliación: si compras con ellos, puede que se reciba una comisión, sin que te cueste nada más.
 
 ## Productos que se compran en otra web
-Si la ficha de un producto lleva a otra web para pagar o reservar (por ejemplo Calendly), las condiciones de venta, los pagos, los reembolsos y las facturas de esa compra son los de esa web.`;
+Si la ficha de un producto lleva a otra web para pagar o reservar (por ejemplo Calendly), las condiciones de venta, los pagos, y los reembolsos de esa compra son los de esa web.`;
 
 /**
  * Cómo se paga en la web personal, según las pasarelas activas (lib/payments): «tarjeta (también
@@ -196,7 +194,7 @@ export function renderPersonalSalesTemplates(i: { displayName: string; changeNot
 Estas condiciones regulan las compras en la web de ${i.displayName}. La vendedora es la titular identificada en el aviso legal.
 
 ## 2. Productos y precios
-Cada ficha describe qué incluye el producto. Los precios se muestran en euros e incluyen los impuestos aplicables, que se detallan en el resumen de la compra.
+Cada ficha describe qué incluye el producto. Los precios se muestran en euros y son el precio final, el mismo que aparece en el resumen de la compra.
 
 ## 3. Cómo se compra
 El contrato se perfecciona cuando se confirma el pago. Recibirás por email la confirmación con estas condiciones.
@@ -229,14 +227,14 @@ Si eres consumidora, conservas siempre la protección que te dan las leyes de tu
   }).refunds;
 
   const privacy = `## Qué datos
-Tu nombre y tu email; tus compras, reservas y membresías; los contenidos a los que tienes acceso y tu progreso en los cursos; el país que indicas al pagar (para calcular los impuestos); los datos fiscales que escribas si pides factura; si reservas una lectura, los datos de nacimiento (fecha, hora y lugar) y las respuestas que des para prepararla; los datos de nacimiento que guardes en «Mi energía» (tuyos y de las personas que añadas), y los mensajes que envíes.
+Tu nombre y tu email; tus compras, reservas y membresías; los contenidos a los que tienes acceso y tu progreso en los cursos; si reservas una lectura, los datos de nacimiento (fecha, hora y lugar) y las respuestas que des para prepararla; los datos de nacimiento que guardes en «Mi energía» (tuyos y de las personas que añadas), y los mensajes que envíes.
 
 ## Para qué y con qué base
 • Gestionar tu compra o tu reserva, darte acceso y enviarte el enlace para entrar: ejecución del contrato.
 • Preparar tu lectura con tus datos de nacimiento y tus respuestas: ejecución del contrato.
 • Darte acceso a los contenidos gratuitos que pides: ejecución de lo que solicitas.
 • Calcular cartas con los datos de nacimiento que guardas en «Mi energía»: consentimiento, que das al marcar la casilla al guardarlos (si son de otra persona, confirmas que tienes su permiso). Solo los ves tú; puedes borrarlos cuando quieras desde tu área y se borran del todo.
-• Cumplir las obligaciones legales y fiscales (facturas, impuestos): obligación legal.
+• Cumplir las obligaciones legales: obligación legal.
 • Recordarte una vez una compra que dejaste a medias: interés legítimo. Puedes oponerte en cualquier momento.
 • Enviarte novedades, solo si marcas la casilla: consentimiento. Puedes retirarlo cuando quieras desde el enlace de cada email o desde tu cuenta.
 • Contar las visitas de la página de forma agregada y anónima, sin cookies: interés legítimo.
@@ -248,7 +246,7 @@ ${personalProcessorsText(i.paymentKeys)} como responsables independientes, con s
 Para alojar la web, guardar los archivos y enviar los emails se usan proveedores tecnológicos que tratan los datos solo por encargo y con las garantías del Reglamento General de Protección de Datos. Si alguno está fuera del Espacio Económico Europeo, la transferencia se hace con esas garantías (cláusulas contractuales tipo o el Marco de Privacidad de Datos UE-EE. UU.).
 
 ## Cuánto tiempo
-Los datos de las compras, el tiempo que exigen las obligaciones mercantiles y fiscales (en general, 6 años). El resto, mientras mantengas el acceso a los contenidos o hasta que pidas que se borren tus datos; los datos para la lectura de una compra que no se terminó, 30 días. Los de las novedades, hasta que retires tu consentimiento. Los datos de nacimiento guardados en «Mi energía», hasta que los borres.
+Los datos de las compras, el tiempo que exigen las obligaciones mercantiles (en general, 6 años). El resto, mientras mantengas el acceso a los contenidos o hasta que pidas que se borren tus datos; los datos para la lectura de una compra que no se terminó, 30 días. Los de las novedades, hasta que retires tu consentimiento. Los datos de nacimiento guardados en «Mi energía», hasta que los borres.
 
 ## Tus derechos
 Puedes pedir el acceso, la rectificación, la supresión, la oposición, la limitación y la portabilidad de tus datos escribiendo al email del aviso legal. También puedes reclamar ante la autoridad de protección de datos de tu país (en España, la Agencia Española de Protección de Datos, www.aepd.es).`;

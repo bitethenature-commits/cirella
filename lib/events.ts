@@ -42,7 +42,7 @@ export type DomainEvent =
   | { type: "subscription.ended"; subscriptionId: string; reason: "period_end" | "payment_failed" }
   | { type: "checkout.abandoned"; orderId: string }
   // Reembolsos y cambios de reserva (lib/refunds.ts, lib/booking-changes.ts). Sus emails se envían
-  // directamente; los eventos quedan para quien tenga que reaccionar (p. ej. la factura rectificativa).
+  // directamente; los eventos quedan para quien tenga que reaccionar.
   | { type: "order.refunded"; orderId: string; refundId: string }
   | { type: "booking.cancelled"; bookingId: string }
   | { type: "booking.reschedule_requested"; bookingId: string };

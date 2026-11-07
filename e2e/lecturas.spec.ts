@@ -93,8 +93,6 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     await prisma.$transaction([
       prisma.emailMessage.deleteMany({ where: { OR: [{ to: { startsWith: TAG } }, ...keys.map((k) => ({ dedupeKey: { contains: k } }))] } }),
       prisma.access.deleteMany({ where: { userId: { in: users } } }),
-      prisma.invoice.updateMany({ where: { orderId: { in: orders } }, data: { relatedInvoiceId: null } }),
-      prisma.invoice.deleteMany({ where: { orderId: { in: orders } } }),
       prisma.transaction.deleteMany({ where: { orderId: { in: orders } } }),
       prisma.paymentEvent.deleteMany({ where: { orderId: { in: orders } } }),
       prisma.analyticsEvent.deleteMany({ where: { OR: [{ visitorId: { in: users.map((id) => `user:${id}`) } }, { productId: { in: products } }] } }),

@@ -1,17 +1,15 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Check, Newspaper, Palette, Plus, Sparkles, TrendingUp } from "lucide-react";
 import { BarChart } from "@/components/charts";
-import { Dac7Banner, PayoutBanner } from "@/components/panel/payout-status";
+import { PayoutBanner } from "@/components/panel/payout-status";
 import { DeliveryAlert } from "@/components/ui/delivery-alert";
 import { requireCreator } from "@/lib/auth";
-import { dac7Missing } from "@/lib/dac7";
 import { deliveryIssueCopy, deliveryIssueHref, listDeliveryIssues } from "@/lib/delivery";
 import { legalIdentityComplete } from "@/lib/legal";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import { readPageConfig } from "@/lib/page-config";
 import { orderHome, readPanelPrefs } from "@/lib/panel-prefs";
 import { planFeatures } from "@/lib/plans";
-import { getSettings } from "@/lib/settings";
 import { isPersonalMode } from "@/lib/site-mode";
 import { getDashboardStats, parseRange, RANGES } from "@/lib/stats";
 import { tenantDb } from "@/lib/tenant";
@@ -34,7 +32,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
     !legalIdentityComplete(creator) && (await db.product.count({ where: { status: "PUBLISHED", accessMode: "FREE_EMAIL", type: { not: "SESSION" } } })) > 0;
   const first = cfg.displayName.split(" ")[0];
   const rangeLabel = { month: "este mes", "30d": "en los últimos 30 días", all: "en total" }[range];
-  // Modo personal: aquí no se cobra nada (sin cobros, DAC7 ni ingresos); se cuentan visitas e inscripciones.
+  // Modo personal: aquí no se cobra nada (sin cobros ni ingresos); se cuentan visitas e inscripciones.
   const personal = isPersonalMode();
   if (personal) {
     const [posts, codes, flags] = await Promise.all([db.post.count(), db.discountCode.count(), panelNavFlags(creator.id)]);
@@ -62,12 +60,6 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
       />
     );
   }
-  // DAC7: el aviso sale si faltan datos y ya se le han pedido o vende algo declarable.
-  const dac7Missed = dac7Missing(creator);
-  const { dac7ReportableTypes } = await getSettings();
-  const showDac7 =
-    dac7Missed.length > 0 &&
-    (!!creator.dac7RequestedAt || (await db.product.count({ where: { status: "PUBLISHED", type: { in: dac7ReportableTypes } } })) > 0);
   const top = s.topProducts[0];
 
   const checklist = [
@@ -90,7 +82,6 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
 
       <div className="space-y-2 empty:hidden">
         <PayoutBanner creator={creator} />
-        <Dac7Banner missing={dac7Missed} show={showDac7} />
       </div>
 
       {freeBlocked && <FreeSignupsBlockedAlert />}
@@ -352,7 +343,7 @@ function PersonalHome({
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {sales ? (
           <>
-            <Stat label="Ingresos" value={formatMoney(s.revenue)} hint="IVA incluido, antes de las comisiones de Stripe y PayPal" accent />
+            <Stat label="Ingresos" value={formatMoney(s.revenue)} hint="Antes de las comisiones de Stripe y PayPal" accent />
             <Stat label="Ventas" value={formatNumber(s.sales)} hint="Productos vendidos" />
             <Stat label="Inscripciones" value={formatNumber(s.signups)} hint={`${formatPercent(s.signupConversion)} de las visitas`} />
             <Stat label="Visitas" value={formatNumber(s.pageViews)} hint={`${formatNumber(s.uniqueVisitors)} personas distintas`} />

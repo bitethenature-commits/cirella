@@ -18,7 +18,7 @@ import { isPersonalMode } from "./site-mode";
  *   · grantManualAccess / revokeManualAccess: la dueña da o quita el acceso desde el panel (lo que se
  *     paga fuera pero se ve aquí, o regalar un producto gratis a alguien).
  *
- * Los dos crean un pedido de 0 € (paymentProvider «free» o «manual»: sin IVA, comisión, factura ni
+ * Los dos crean un pedido de 0 € (paymentProvider «free» o «manual»: sin comisión ni
  * transacción de cobro) y entregan por el mismo camino que una compra (fulfillOrder): clienta, acceso
  * y el email «Ya tienes acceso a «X»» con el enlace personal que lleva directo al contenido.
  *
@@ -261,9 +261,6 @@ async function grantNoCharge(
         commissionBps: 0,
         platformFeeCents: 0,
         netCents: 0,
-        taxSeller: "CREATOR",
-        taxRateBps: 0,
-        taxCents: 0,
         paymentProvider: provider,
         // «Listo para entregar» desde ya: si la entrega falla a mitad, el vigilante del cron la
         // reintenta (lib/watchdog.ts) y nunca se trata como un checkout abandonado.

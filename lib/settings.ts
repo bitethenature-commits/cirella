@@ -1,5 +1,4 @@
 import { prisma } from "./db";
-import type { TaxMode } from "./tax";
 
 /**
  * Ajustes globales editables desde /admin/ajustes (clave → JSON).
@@ -11,8 +10,6 @@ export const SETTING_DEFAULTS = {
   referralRewardType: "FREE_MONTH" as "FREE_MONTH" | "CREDIT" | "COMMISSION_DISCOUNT",
   referralRewardValue: 1, // meses gratis | céntimos de crédito | puntos básicos de descuento
   referralDiscountMonths: 3, // duración del descuento de comisión
-  // DAC7 / modelo 238: tipos de producto que cuentan como «servicios personales» (a confirmar con la asesoría)
-  dac7ReportableTypes: ["SESSION"] as string[],
   // Identidad legal de la plataforma (LSSI art. 10): /aviso-legal, /privacidad y /terminos.
   // Vacíos = «Pendiente de completar».
   legalCompanyName: "",
@@ -20,9 +17,6 @@ export const SETTING_DEFAULTS = {
   legalAddress: "",
   legalRegistry: "",
   privacyEmail: "", // si está vacío, se muestra supportEmail
-  // Política de IVA (/admin/impuestos): PLATFORM_DIGITAL = Cirella vende los productos digitales,
-  // cursos y membresías (opción A); CREATOR = cada creadora vende lo suyo. Ver lib/tax.
-  taxMode: "PLATFORM_DIGITAL" as TaxMode,
   // Newsletter (lib/newsletter-send.ts y la bandeja de salida): emails al día que caben en el plan de
   // Resend (el gratuito: 100 al día y 3000 al mes, contando TODOS los emails). null = automático:
   // 100 en la web personal que envía con Resend, sin límite en lo demás (plataforma, demo y pruebas).

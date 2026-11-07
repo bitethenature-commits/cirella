@@ -34,7 +34,6 @@ test.afterAll(async () => {
     prisma.session.deleteMany({ where: { userId: { in: users } } }),
     prisma.access.deleteMany({ where: { userId: { in: users } } }),
     prisma.subscription.deleteMany({ where: { userId: { in: users } } }),
-    prisma.invoice.deleteMany({ where: { recipientEmail: { startsWith: TAG } } }),
     prisma.transaction.deleteMany({ where: { orderId: { in: orders } } }),
     prisma.paymentEvent.deleteMany({ where: { orderId: { in: orders } } }),
     prisma.orderLink.deleteMany({ where: { orderId: { in: orders } } }),

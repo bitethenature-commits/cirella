@@ -32,7 +32,6 @@
     "test:refunds": "tsx --conditions=react-server scripts/refunds-test.ts",
     "test:access": "tsx --conditions=react-server scripts/access-test.ts",
     "test:legal": "tsx --conditions=react-server scripts/legal-test.ts",
-    "test:invoices": "DEMO_MODE=false tsx --conditions=react-server scripts/invoices-test.ts",
     "test:delivery": "tsx --conditions=react-server scripts/delivery-test.ts",
     "test:limits": "TURNSTILE_SITE_KEY=1x00000000000000000000AA TURNSTILE_SECRET_KEY=prueba-limites tsx --conditions=react-server scripts/rate-limit-test.ts",
     "test:seed-guard": "tsx scripts/seed-guard-test.ts",

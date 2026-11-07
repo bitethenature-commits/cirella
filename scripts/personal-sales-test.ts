@@ -65,8 +65,6 @@ async function main() {
       prisma.outboxEvent.deleteMany({ where: { OR: byPayload.length ? byPayload : [{ id: "" }] } }),
       prisma.emailMessage.deleteMany({ where: { OR: [{ to: { startsWith: TAG } }, ...orderIds.map((id) => ({ dedupeKey: { contains: id } }))] } }),
       prisma.access.deleteMany({ where: { userId: { in: userIds } } }),
-      prisma.invoice.updateMany({ where: { recipientEmail: { startsWith: TAG } }, data: { relatedInvoiceId: null } }),
-      prisma.invoice.deleteMany({ where: { recipientEmail: { startsWith: TAG } } }),
       prisma.transaction.deleteMany({ where: { OR: [{ orderId: { in: orderIds } }, { subscriptionId: { in: subs } }] } }),
       prisma.refund.deleteMany({ where: { orderId: { in: orderIds } } }),
       prisma.subscription.deleteMany({ where: { id: { in: subs } } }),
@@ -94,7 +92,7 @@ async function main() {
     const membership = await findPaid("MEMBERSHIP");
 
     const newOrder = async (productId: string, label: string, paymentMethod: string, buyerEmail = email(label)) => {
-      const o = await createPendingOrder({ productId, buyerEmail, buyerName: `Prueba ${label}`, buyerCountry: "ES", paymentMethod });
+      const o = await createPendingOrder({ productId, buyerEmail, buyerName: `Prueba ${label}`, paymentMethod });
       created.orders.push(o.id);
       // Las casillas obligatorias del checkout (condiciones y la renuncia de acceso inmediato).
       const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
@@ -104,7 +102,7 @@ async function main() {
 
     // ── 1. Pedido con PayPal: sin comisión, vende la dueña, a PayPal ──
     const o1 = await newOrder(digital.id, "paypal", "paypal");
-    check("pedido con PayPal: pasarela paypal, sin comisión y vende la dueña", o1.paymentProvider === "paypal" && o1.commissionBps === 0 && o1.platformFeeCents === 0 && o1.taxSeller === "CREATOR", o1);
+    check("pedido con PayPal: pasarela paypal, sin comisión y vende la dueña", o1.paymentProvider === "paypal" && o1.commissionBps === 0 && o1.platformFeeCents === 0, o1);
     const r1 = await startOrderPayment(o1.id, {});
     const order1 = await prisma.order.findUniqueOrThrow({ where: { id: o1.id } });
     const ppId = order1.checkoutRef ?? "";
@@ -196,7 +194,7 @@ async function main() {
     // ── 8. Un método que no está activo no se acepta ──
     let refused = false;
     try {
-      await createPendingOrder({ productId: digital.id, buyerEmail: email("stripe"), buyerName: "x", buyerCountry: "ES", paymentMethod: "stripe" });
+      await createPendingOrder({ productId: digital.id, buyerEmail: email("stripe"), buyerName: "x", paymentMethod: "stripe" });
     } catch {
       refused = true;
     }

@@ -5,10 +5,7 @@ import { prisma } from "./db";
 import { dispatchEvents, recordEvents, type DomainEvent } from "./events";
 import { accessUntil } from "./free-access-rules";
 import { hasBookingClash, isBookingOverlapError, isGroupSession, isSlotAvailable, lockCreatorBookings, lockProductSeats, seatsTaken } from "./booking";
-import { dac7SalesPaused } from "./dac7-data";
-import { appUrl, isDemoMode } from "./env";
-import { canInvoiceSale, issueSaleInvoiceTx } from "./invoices/issue";
-import { getPlatformIssuer } from "./invoices/issuer";
+import { appUrl } from "./env";
 import { legalIdentityComplete, WAIVER_TEXT, waiverKindFor } from "./legal";
 import { WAIVER_REQUIRED_ERROR } from "./checkout-consents";
 import { NO_ONLINE_PAYMENTS, chooseCheckoutProvider, isPaymentProviderEnabled, paidCheckoutOpen, paymentProviderByKey, type PaymentMethodInput } from "./payments";
@@ -19,8 +16,7 @@ import { canSellType, effectiveCommissionBps } from "./plans";
 import { pushBookingEvent } from "./calendar";
 import { captureAlert, captureError } from "./monitoring";
 import { chargeKey } from "./reliability";
-import { computeSaleAmounts, decideTax, platformRetainedCents } from "./tax";
-import { getTaxMode } from "./tax/server";
+import { computeSaleAmounts } from "./sale-amounts";
 import type { ProductType } from "./types";
 import type { IntakeAnswers } from "./intake";
 import { canonicalTimezone } from "./timezones";
@@ -31,7 +27,7 @@ export class CheckoutError extends Error {}
 /**
  * Producto visible para comprar: de pago en la web (accessMode PAID), publicado, creadora activa y
  * publicada, y su plan lo permite. Lo gratuito con email y lo que se paga fuera no tienen checkout
- * (lib/free-access.ts). Que se pueda pagar ya (cobros activados, datos de DAC7) lo comprueba createPendingOrder.
+ * (lib/free-access.ts). Que se pueda pagar ya (cobros activados) lo comprueba createPendingOrder.
  */
 export async function getPurchasableProduct(productId: string) {
   const product = await prisma.product.findUnique({
@@ -50,10 +46,7 @@ export async function getPurchasableProduct(productId: string) {
 /** Lo que guarda Order.metadata de una sesión. ownerPlaced y manual solo cuentan en pedidos «manual». */
 export type SessionOrderMeta = { slotStart?: string; buyerTz?: string; ownerPlaced?: boolean; manual?: string; message?: string; sale?: OrderSaleMeta };
 
-/**
- * Paso 1: crea el pedido pendiente (permite medir abandonos y recuperarlos). Guarda la instantánea
- * fiscal de la venta (lib/tax): quién vende a efectos de IVA, país, tipo e IVA incluido en el precio.
- */
+/** Paso 1: crea el pedido pendiente (permite medir abandonos y recuperarlos). */
 export async function createPendingOrder(input: {
   productId: string;
   buyerEmail: string;
@@ -63,12 +56,6 @@ export async function createPendingOrder(input: {
   /** HMAC de la IP de quien paga (límites y antiabuso del email de recuperación); nunca la IP. */
   ipHash?: string | null;
   source?: string | null;
-  /** País de residencia declarado en el checkout (decide el IVA cuando vende Cirella). */
-  buyerCountry?: string | null;
-  /** País según la IP (segunda prueba de localización). */
-  ipCountry?: string | null;
-  /** «Necesito factura con mi NIF» (NIF ya normalizado y validado). */
-  billing?: { name: string; taxId: string; address: string } | null;
   /** Pasarela elegida en el checkout (tarjeta o PayPal). Sin elegir, la principal. */
   paymentMethod?: string | null;
   /** Zona horaria del navegador de la compradora (sesiones): sus emails y su área le enseñan su hora. */
@@ -85,18 +72,6 @@ export async function createPendingOrder(input: {
   if (!canAcceptPayments(product.creator, providerKey)) throw new CheckoutError("La creadora todavía no ha activado los pagos.");
   // Sin la identidad legal de quien vende no se vende (LSSI art. 10; lib/legal.ts).
   if (!legalIdentityComplete(product.creator)) throw new CheckoutError("La creadora todavía no ha activado los pagos.");
-  if (await dac7SalesPaused(product.creator, product.type))
-    throw new CheckoutError("Este servicio no está disponible temporalmente. Vuelve a intentarlo en unos días.");
-  const tax = decideTax({
-    mode: await getTaxMode(),
-    productType: product.type,
-    deliveryMode: product.deliveryMode,
-    buyerCountry: input.buyerCountry ?? null,
-    creator: { country: product.creator.legalCountry, vatStatus: product.creator.vatStatus, vatExemptionNote: product.creator.vatExemptionNote },
-  });
-  // Si vende Cirella tiene que poder facturar: sin sus datos fiscales no se vende (fuera de la demo).
-  if (tax.seller === "PLATFORM" && !isDemoMode() && !(await getPlatformIssuer()).complete)
-    throw new CheckoutError("Las compras no están disponibles en este momento.");
   // La web personal cobra con las cuentas de la dueña: sin comisión, sea cual sea su plan.
   const commissionBps = isPersonalMode() ? 0 : effectiveCommissionBps(product.creator.plan, product.creator);
   // Oferta activa (lib/offers.ts): se cobra el precio rebajado. Lo calcula SIEMPRE el servidor con la
@@ -104,9 +79,7 @@ export async function createPendingOrder(input: {
   const now = new Date();
   const priceCents = effectivePriceCents(product, now);
   const sale = orderSaleMeta(product, now);
-  const amounts = computeSaleAmounts(priceCents, commissionBps, tax);
-  // Sin factura posible (vende una creadora que no repercute IVA) no se guardan datos de facturación.
-  const billing = input.billing && canInvoiceSale(tax.seller, product.creator) ? input.billing : null;
+  const amounts = computeSaleAmounts(priceCents, commissionBps);
   const group = isGroupSession(product);
   const slotStart = product.type === "SESSION" && !group ? input.slotStart || null : null;
   const buyerTz = product.type === "SESSION" ? canonicalTimezone(input.buyerTimezone) : null;
@@ -134,15 +107,6 @@ export async function createPendingOrder(input: {
       commissionBps,
       platformFeeCents: amounts.platformFeeCents,
       netCents: amounts.netCents,
-      taxSeller: tax.seller,
-      taxCountry: tax.country,
-      taxRateBps: amounts.taxRateBps,
-      taxCents: amounts.taxCents,
-      buyerCountry: input.buyerCountry ?? null,
-      ipCountry: input.ipCountry ?? null,
-      billingName: billing?.name ?? null,
-      billingTaxId: billing?.taxId ?? null,
-      billingAddress: billing?.address ?? null,
       paymentProvider: providerKey,
       metadata: Object.keys(metadata).length ? metadata : undefined,
       intake: input.intake ? (input.intake as unknown as Prisma.InputJsonObject) : undefined,
@@ -219,8 +183,8 @@ export async function startOrderPayment(orderId: string, payment: PaymentMethodI
     currency: order.currency,
     description: order.productTitle,
     customerEmail: order.buyerEmail,
-    // Comisión y, si vende Cirella, también el IVA: ese dinero no es de la creadora.
-    platformFeeCents: platformRetainedCents(order),
+    // La comisión: ese dinero no es de la creadora.
+    platformFeeCents: order.platformFeeCents,
     destinationAccount: target.destination,
     statementSuffix: order.creator.username.toUpperCase(),
     saveForFutureUse: order.productType === "MEMBERSHIP",
@@ -281,7 +245,7 @@ const FULFILLABLE = ["PENDING", "PROCESSING", "FAILED", "ABANDONED"];
  * según el tipo de producto (descarga, curso, reserva o suscripción).
  *
  * Los pedidos sin cobro (gratis con email o acceso dado a mano, lib/free-access.ts) pasan por aquí
- * igual, pero sin transacción de cobro, factura ni suscripción: el acceso no caduca y no se renueva.
+ * igual, pero sin transacción de cobro ni suscripción: el acceso no caduca y no se renueva.
  */
 export async function fulfillOrder(orderId: string, paymentRef: string, opts: SavedPayment = {}) {
   const events: DomainEvent[] = [];
@@ -348,7 +312,7 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
       return { order, userId: existingUser?.id ?? "", isNewUser: false, alreadyPaid: true, duplicateMembership: false, eventIds: [] as string[] };
     }
     const now = new Date();
-    // 0 €, sin cobro (lib/access-mode.ts): ni transacción, ni factura, ni suscripción que renovar.
+    // 0 €, sin cobro (lib/access-mode.ts): ni transacción ni suscripción que renovar.
     const noCharge = isNoChargeOrder(order);
     const user =
       existingUser ??
@@ -414,9 +378,8 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
       },
       include: { product: true },
     });
-    const charge = noCharge
-      ? null
-      : await tx.transaction.create({
+    if (!noCharge)
+      await tx.transaction.create({
         data: {
           creatorId: order.creatorId,
           orderId: order.id,
@@ -426,17 +389,11 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
           platformFeeCents: order.platformFeeCents,
           netCents: order.netCents,
           currency: order.currency,
-          taxSeller: order.taxSeller,
-          taxCountry: order.taxCountry,
-          taxRateBps: order.taxRateBps,
-          taxCents: order.taxCents,
           provider: order.paymentProvider,
           providerRef: paymentRef,
           idempotencyKey: chargeKey(order.id),
         },
       });
-    // Factura (o nada: justificante) en la misma transacción que el cobro: numeración sin huecos.
-    if (charge) await issueSaleInvoiceTx(tx, { transactionId: charge.id });
 
     const p = order.product;
     let subscriptionId: string | null = null;
@@ -460,7 +417,6 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
           customerId: customer.id,
           userId: user.id,
           orderId: order.id,
-          buyerCountry: order.buyerCountry,
           // Comprada en oferta: las renovaciones van al precio normal (lib/offers.ts → renewalPriceCents).
           priceCents: renewalPriceCents(order),
           interval: p.billingInterval ?? "month",

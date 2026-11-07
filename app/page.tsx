@@ -239,10 +239,9 @@ async function Landing({ searchParams }: { searchParams: Promise<{ ref?: string 
                 <p className="mt-6 flex items-baseline gap-1">
                   <span className="text-4xl font-semibold tracking-tight">{formatMoney(p.priceMonthlyCents, p.currency)}</span>
                   <span className={p.highlighted ? "text-cream/60" : "text-muted"}>/mes</span>
-                  {p.priceMonthlyCents > 0 && <span className={`ml-1 text-xs ${p.highlighted ? "text-cream/60" : "text-muted"}`}>IVA incluido</span>}
                 </p>
                 <p className={`mt-1 text-sm ${p.highlighted ? "text-gold" : "text-lavender-deep"}`}>
-                  + {(p.commissionBps / 100).toLocaleString("es-ES")} % por venta (sobre el precio sin IVA)
+                  + {(p.commissionBps / 100).toLocaleString("es-ES")} % por venta
                 </p>
                 <ul className="mt-6 space-y-2.5 text-sm">
                   {planBullets(p).map((b) => (

@@ -68,7 +68,7 @@ async function main() {
   const eligibility = async (id: string, now = new Date()) =>
     withdrawalEligibility(toWithdrawalInput({ ...(await orderOf(id)), timezone: tz, membership: (await membershipTermsFor([id])).get(id) ?? null }), now);
   const pending = (productId: string, label: string, slotStart?: string) =>
-    createPendingOrder({ productId, buyerEmail: email(label), buyerName: `Prueba ${label}`, buyerCountry: "ES", slotStart });
+    createPendingOrder({ productId, buyerEmail: email(label), buyerName: `Prueba ${label}`, slotStart });
   const onlyTerms = (id: string) => prisma.order.update({ where: { id }, data: { termsAcceptedAt: new Date() } });
 
   // ── 1. Renuncia obligatoria en lo digital, con cualquier pasarela ──
@@ -285,8 +285,6 @@ async function cleanup() {
     prisma.outboxEvent.deleteMany({ where: { OR: keys.map((k) => ({ payload: { string_contains: k } })) } }),
     prisma.analyticsEvent.deleteMany({ where: { productId: { in: productIds } } }),
     prisma.access.deleteMany({ where: { productId: { in: productIds } } }),
-    prisma.invoice.updateMany({ where: { orderId: { in: orderIds } }, data: { relatedInvoiceId: null } }),
-    prisma.invoice.deleteMany({ where: { orderId: { in: orderIds } } }),
     prisma.transaction.deleteMany({ where: { OR: [{ orderId: { in: orderIds } }, { subscriptionId: { in: subs.map((s) => s.id) } }] } }),
     prisma.refund.deleteMany({ where: { orderId: { in: orderIds } } }),
     prisma.orderLink.deleteMany({ where: { orderId: { in: orderIds } } }),

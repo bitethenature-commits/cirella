@@ -8,13 +8,11 @@
  *   · un pago con otro importe no se entrega;
  *   · renovaciones: tarjeta que falla → PAST_DUE, reintentos a +1 y +3 días y cancelación; sin
  *     tarjeta guardada se renueva, una sola vez aunque el cron corra dos veces a la vez;
- *   · cuenta de cobro: VERIFYING → ACTIVE (un email) y ACTION_REQUIRED corta las ventas;
- *   · DAC7: petición, recordatorios a los 20 y 40 días y pausa de las sesiones a los 60.
- * Crea una creadora de prueba y borra todo lo que crea (y deja como estaban los datos de DAC7).
+ *   · cuenta de cobro: VERIFYING → ACTIVE (un email) y ACTION_REQUIRED corta las ventas.
+ * Crea una creadora de prueba y borra todo lo que crea.
  */
 import "./load-env";
 import { prisma } from "../lib/db";
-import { processDac7Reminders } from "../lib/dac7-data";
 import { CheckoutError, createPendingOrder } from "../lib/orders";
 import { paymentProvider } from "../lib/payments";
 import { AMOUNT_MISMATCH, applyPaymentUpdate, processPaymentEvent, reconcileCheckout } from "../lib/payments/events";
@@ -31,13 +29,10 @@ function check(name: string, ok: boolean, detail?: unknown) {
 
 const TAG = `pagos-${Date.now()}`;
 const DAY = 86_400_000;
-const STARTED = new Date();
 const email = (label: string) => `${TAG}-${label}@example.com`;
 const near = (d: Date | null | undefined, target: number, toleranceMs = 60_000) => !!d && Math.abs(d.getTime() - target) < toleranceMs;
 
 const created = { orders: [] as string[], creatorId: null as string | null, creatorUserId: null as string | null };
-/** Datos de DAC7 de todas las creadoras antes de empezar (el cron de recordatorios es global). */
-let dac7Before: { id: string; dac7RequestedAt: Date | null; dac7RemindersSent: number; dac7LastReminderAt: Date | null }[] = [];
 
 type OrderLike = { id: string; amountCents: number; currency: string };
 const paid = (o: OrderLike, ref: string, extra: Partial<PaymentStatus> = {}): PaymentStatus => ({
@@ -61,7 +56,6 @@ async function main() {
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
   const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "AUTOMATIC" } });
   const membership = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "MEMBERSHIP", status: "PUBLISHED" } });
-  dac7Before = await prisma.creator.findMany({ select: { id: true, dac7RequestedAt: true, dac7RemindersSent: true, dac7LastReminderAt: true } });
 
   // ── 1. Entrega simultánea: aviso repetido + vuelta de la compradora ──
   const o1 = await newOrder(digital.id, "simultaneo");
@@ -180,16 +174,13 @@ async function main() {
       payoutProvider: "simulated",
       payoutAccountId: accountId,
       payoutStatus: "PENDING",
-      // Identidad legal completa (sin ella no se vende); los datos de DAC7 siguen sin completar.
+      // Identidad legal completa (sin ella no se vende).
       legalName: "Creadora de Prueba", legalTaxId: "12345678Z", legalAddress: "Calle de Prueba 1", legalPostalCode: "28001",
       legalCity: "Madrid", legalEmail: email("legal"),
     },
   });
   created.creatorId = creator.id;
-  const [session, tagDigital] = await Promise.all([
-    prisma.product.create({ data: { creatorId: creator.id, type: "SESSION", status: "PUBLISHED", slug: "sesion", title: "Sesión de prueba", priceCents: 5000, durationMin: 60 } }),
-    prisma.product.create({ data: { creatorId: creator.id, type: "DIGITAL", status: "PUBLISHED", slug: "guia", title: "Guía de prueba", priceCents: 1500 } }),
-  ]);
+  const tagDigital = await prisma.product.create({ data: { creatorId: creator.id, type: "DIGITAL", status: "PUBLISHED", slug: "guia", title: "Guía de prueba", priceCents: 1500 } });
   const snap = (o: Partial<PayoutAccountSnapshot>) => ({ ...emptySnapshot(accountId), detailsSubmitted: true, ...o });
   check("verificando: estado VERIFYING", (await syncPayoutAccount(accountId, snap({ pendingVerification: ["individual.verification.document"] }))) === "VERIFYING");
   let c = await prisma.creator.findUniqueOrThrow({ where: { id: creator.id } });
@@ -215,48 +206,6 @@ async function main() {
   check("sin poder cobrar, nadie puede comprar", blocked.includes("todavía no ha activado los pagos"), blocked);
   await syncPayoutAccount(accountId, snap({ chargesEnabled: true, payoutsEnabled: true }));
 
-  // ── 8. DAC7: petición, recordatorios y pausa de las sesiones ──
-  await prisma.order.create({
-    data: {
-      creatorId: creator.id,
-      productId: session.id,
-      productTitle: session.title,
-      productType: "SESSION",
-      buyerEmail: email("dac7"),
-      amountCents: 5000,
-      platformFeeCents: 250,
-      netCents: 4750,
-      commissionBps: 500,
-      status: "PAID",
-      paidAt: new Date(),
-      paymentProvider: "simulated",
-    },
-  }).then((o) => created.orders.push(o.id));
-  const dac7Mails = () => prisma.emailMessage.count({ where: { creatorId: creator.id, template: "DAC7_REQUEST" } });
-  await processDac7Reminders();
-  c = await prisma.creator.findUniqueOrThrow({ where: { id: creator.id } });
-  check("primera venta declarable sin datos: se piden (email 0)", !!c.dac7RequestedAt && c.dac7RemindersSent === 0 && (await dac7Mails()) === 1);
-  await processDac7Reminders();
-  check("el mismo día no se repite", (await dac7Mails()) === 1);
-  await prisma.creator.update({ where: { id: creator.id }, data: { dac7RequestedAt: new Date(Date.now() - 20 * DAY) } });
-  await processDac7Reminders();
-  c = await prisma.creator.findUniqueOrThrow({ where: { id: creator.id } });
-  check("a los 20 días: primer recordatorio", c.dac7RemindersSent === 1 && (await dac7Mails()) === 2, c.dac7RemindersSent);
-  await prisma.creator.update({ where: { id: creator.id }, data: { dac7RequestedAt: new Date(Date.now() - 40 * DAY), dac7LastReminderAt: new Date(Date.now() - 20 * DAY) } });
-  await processDac7Reminders();
-  c = await prisma.creator.findUniqueOrThrow({ where: { id: creator.id } });
-  check("a los 40 días: segundo recordatorio", c.dac7RemindersSent === 2 && (await dac7Mails()) === 3, c.dac7RemindersSent);
-  await prisma.creator.update({ where: { id: creator.id }, data: { dac7RequestedAt: new Date(Date.now() - 60 * DAY), dac7LastReminderAt: new Date(Date.now() - 20 * DAY) } });
-  await processDac7Reminders();
-  check("no hay tercer recordatorio", (await dac7Mails()) === 3);
-  const sessionSale = await newOrder(session.id, "dac7-sesion").then(
-    () => "vendió",
-    (e) => (e instanceof CheckoutError ? e.message : String(e)),
-  );
-  check("a los 60 días: las sesiones se pausan", sessionSale.includes("no está disponible temporalmente"), sessionSale);
-  check("los productos digitales se siguen vendiendo", await newOrder(tagDigital.id, "dac7-digital").then(() => true, () => false));
-  const maria = await prisma.creator.findUniqueOrThrow({ where: { username: "maria" } });
-  check("María (datos completos) no recibe nada", (await prisma.emailMessage.count({ where: { creatorId: maria.id, template: "DAC7_REQUEST", createdAt: { gte: STARTED } } })) === 0);
 }
 
 async function cleanup() {
@@ -278,15 +227,11 @@ async function cleanup() {
         OR: [
           { to: { startsWith: TAG } },
           ...(created.creatorId ? [{ creatorId: created.creatorId }] : []),
-          { template: "DAC7_REQUEST", createdAt: { gte: STARTED } },
           ...orderIds.map((id) => ({ dedupeKey: { contains: id } })),
         ],
       },
     }),
     prisma.access.deleteMany({ where: { userId: { in: userIds } } }),
-    // Facturas de las compras de prueba (primero se sueltan las F3/rectificativas de su original).
-    prisma.invoice.updateMany({ where: { recipientEmail: { startsWith: TAG } }, data: { relatedInvoiceId: null } }),
-    prisma.invoice.deleteMany({ where: { recipientEmail: { startsWith: TAG } } }),
     prisma.transaction.deleteMany({ where: { OR: [{ orderId: { in: orderIds } }, { subscriptionId: { in: subs } }] } }),
     prisma.subscription.deleteMany({ where: { id: { in: subs } } }),
     prisma.analyticsEvent.deleteMany({ where: { OR: [{ visitorId: { in: userIds.map((id) => `user:${id}`) } }, ...(created.creatorId ? [{ creatorId: created.creatorId }] : [])] } }),
@@ -295,13 +240,6 @@ async function cleanup() {
     prisma.product.deleteMany({ where: { creatorId: created.creatorId ?? "" } }),
     prisma.creator.deleteMany({ where: { id: created.creatorId ?? "" } }),
     prisma.user.deleteMany({ where: { id: { in: [...userIds, ...(created.creatorUserId ? [created.creatorUserId] : [])] } } }),
-    // El cron de DAC7 recorre todas las creadoras: se deja todo como estaba.
-    ...dac7Before.map((c) =>
-      prisma.creator.updateMany({
-        where: { id: c.id },
-        data: { dac7RequestedAt: c.dac7RequestedAt, dac7RemindersSent: c.dac7RemindersSent, dac7LastReminderAt: c.dac7LastReminderAt },
-      }),
-    ),
   ]);
 }
 

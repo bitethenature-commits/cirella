@@ -12,7 +12,6 @@ import { hasPaymentProvider } from "./payments";
 import { getSettings } from "./settings";
 import { isPersonalMode, ownerUsername } from "./site-mode";
 import { sitePagePath } from "./site-pages";
-import { asTaxMode, decideTax, vatIncluded } from "./tax";
 import { formatDate } from "./tz";
 import { PRODUCT_TYPES, type ProductType } from "./types";
 import type { PublicDiscountCode, PublicPost, PublicProduct } from "@/components/creator-page/creator-page-view";
@@ -75,9 +74,6 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
       orderBy: [{ featured: "desc" }, { sortOrder: "asc" }, { createdAt: "desc" }],
     }),
   ]);
-  // «IVA incluido» con una compradora de España (el precio es el mismo en todos los países).
-  const mode = asTaxMode(settings.taxMode);
-  const taxCreator = { country: creator.legalCountry, vatStatus: creator.vatStatus, vatExemptionNote: creator.vatExemptionNote };
   const products: PublicProduct[] = rows
     .filter((p) => features.productTypes.includes(p.type as ProductType))
     // Un taller ya celebrado no se ofrece en la página.
@@ -88,7 +84,6 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
         timeZone: creator.timezone,
         now,
         updatedAt: p.updatedAt,
-        vatIncluded: vatIncluded(decideTax({ mode, productType: p.type, deliveryMode: p.deliveryMode, buyerCountry: "ES", creator: taxCreator })),
       }),
     );
   const posts = postRows.map((p) => toPublicPost(p, creator.timezone));

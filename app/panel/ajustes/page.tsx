@@ -12,7 +12,6 @@ import { payoutView } from "@/lib/payouts";
 import { REWARD_LABEL } from "@/lib/referrals";
 import { getSettings } from "@/lib/settings";
 import { isPersonalMode } from "@/lib/site-mode";
-import { asTaxMode } from "@/lib/tax";
 import { ShareButtons } from "@/app/onboarding/lista/share-buttons";
 import { readPanelPrefs } from "@/lib/panel-prefs";
 import { mobileNav, panelNav } from "../nav-items";
@@ -20,13 +19,12 @@ import { panelNavFlags } from "../nav-flags";
 import { Badge, PageHeader } from "../ui";
 import { PanelLook } from "./panel-look";
 import { changePassword, updateAccount } from "./actions";
-import { VatCard } from "./vat-card";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const { creator, user } = await requireCreator();
   const sp = await searchParams;
   // Modo personal: sin referidos ni cuenta de cobro de la plataforma; su página es la portada de la
-  // web. Si cobra (Stripe/PayPal), su IVA y sus métodos de pago.
+  // web. Si cobra (Stripe/PayPal), sus métodos de pago.
   const personal = isPersonalMode();
   // Web personal: cobra con sus propias cuentas (Stripe y/o PayPal), sin Connect ni «Cobros».
   const methods = personal ? paymentProviderKeys() : [];
@@ -96,14 +94,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <p className="text-sm text-muted">
               {personal && !methods.length
                 ? "Tu nombre, NIF y dirección aparecen en tu aviso legal (obligatorio en una web con actividad profesional)."
-                : "Tu nombre fiscal, NIF y dirección aparecen en tu aviso legal y en cada compra."}
+                : "Tu nombre, NIF y dirección aparecen en tu aviso legal y en cada compra."}
             </p>
           </div>
           <Link href="/panel/ajustes/legal" className="btn btn-outline btn-sm">Editar <ArrowRight className="h-3.5 w-3.5" /></Link>
         </div>
       </section>
 
-      {(!personal || methods.length > 0) && <VatCard creator={creator} taxMode={asTaxMode(settings.taxMode)} platformName={settings.platformName} personal={personal} />}
 
       {personal && methods.length > 0 && <PersonalPaymentsCard methods={methods} />}
 

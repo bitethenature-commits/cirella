@@ -8,8 +8,7 @@ import { lastDayText } from "./access-end";
 import * as T from "./email/templates";
 import { formatLegalAddress, sellerStatement, sessionChangePolicyText, type LegalIdentity } from "./legal";
 import type { LegalSnapshotContent } from "./legal-snapshot";
-import { getPlatformIssuer } from "./invoices/issuer";
-import { bpsToPercent, formatMoney, formatPrice } from "./money";
+import { formatPrice } from "./money";
 import { createOrderLink, emailAlreadyQueued, orderLinkNote } from "./order-links";
 import { planFeatures } from "./plans";
 import { hasOptedOut, optOutHeaders, optOutUrl } from "./recovery-optout";
@@ -96,7 +95,7 @@ const firstName = (name: string | null | undefined) => name?.trim().split(/\s+/)
 
 /**
  * «Ya tienes acceso a «X»» con el enlace personal que lleva directo al contenido. Es el único email
- * de un pedido sin cobro (gratis con email o acceso dado a mano: ni recibo, ni factura, ni aviso de
+ * de un pedido sin cobro (gratis con email o acceso dado a mano: ni recibo, ni aviso de
  * venta) y el del reenvío cuando alguien vuelve a pedir un acceso que ya tiene (lib/free-access.ts).
  * Esencial: no depende de las automatizaciones.
  */
@@ -149,7 +148,7 @@ export async function handleAutomation(event: DomainEvent) {
         where: { id: event.orderId },
         include: { product: true, bookings: { select: { id: true }, orderBy: { createdAt: "asc" } }, legalSnapshot: true },
       });
-      // Sin cobro (0 €): solo el email de acceso. Ni recibo con IVA, ni curso aparte, ni «¡Nueva venta!».
+      // Sin cobro (0 €): solo el email de acceso. Ni recibo, ni curso aparte, ni «¡Nueva venta!».
       // Una sesión sin cobro (dada a mano) ya tiene el suyo: el de la reserva (booking.confirmed).
       if (isNoChargeOrder(order)) {
         if (order.productType !== "SESSION") await sendAccessEmail(order.id, `access:${order.id}`);
@@ -164,13 +163,12 @@ export async function handleAutomation(event: DomainEvent) {
       if (s.enabled && !(await emailAlreadyQueued(receiptKey))) {
         const target = orderTargetPath(order, order.bookings[0]?.id);
         const link = await createOrderLink({ orderId: order.id, path: target });
-        // «Recibo y factura» está en el detalle de la compra. Si el botón ya lleva allí, es el mismo
+        // El recibo está en el detalle de la compra. Si el botón ya lleva allí, es el mismo
         // enlace personal; si no, la dirección normal: la sesión que abre el botón (limitada a este
         // pedido) también la cubre y, sin ella, se pide un enlace de acceso.
         const receiptPath = `/cuenta/pedidos/${order.id}`;
-        const receiptUrl = target === receiptPath ? link.url : `${base}${receiptPath}#factura`;
-        const invoice = await prisma.invoice.findFirst({ where: { orderId: order.id, kind: "SALE", type: { in: ["F1", "F2"] } }, orderBy: { issuedAt: "asc" } });
-        const platformIssuer = order.taxSeller === "PLATFORM" ? await getPlatformIssuer() : null;
+        const receiptUrl = target === receiptPath ? link.url : `${base}${receiptPath}`;
+
         const custom = customEmail(s, { nombre: firstName(order.buyerName), mi_nombre: name, producto: order.productTitle });
         await enqueueEmail({
           to: order.buyerEmail,
@@ -188,21 +186,14 @@ export async function handleAutomation(event: DomainEvent) {
               accountUrl: link.url,
               linkNote: orderLinkNote(link.expiresAt),
               instructions: order.product.instructions,
-              // Quién vende, igual que en el checkout y en la compra: Cirella por cuenta de la creadora
-              // cuando vende ella a efectos de IVA (con su domicilio) y, si no, la identidad de la creadora.
-              seller: platformIssuer
+              // Quién vende, igual que en el checkout y en la compra: la identidad legal de la creadora.
+              seller: identity.legalName
                 ? {
-                    line: sellerStatement(order.taxSeller, { ...identity, displayName: name }, platformIssuer).line,
-                    address: platformIssuer.address ?? "",
+                    line: sellerStatement({ ...identity, displayName: name }).line,
+                    address: formatLegalAddress(identity),
                     email: identity.legalEmail ?? "",
                   }
-                : identity.legalName
-                  ? {
-                      line: sellerStatement(order.taxSeller, { ...identity, displayName: name }, null).line,
-                      address: formatLegalAddress(identity),
-                      email: identity.legalEmail ?? "",
-                    }
-                  : undefined,
+                : undefined,
               waiver:
                 order.waiverText && order.waiverAcceptedAt
                   ? {
@@ -224,14 +215,7 @@ export async function handleAutomation(event: DomainEvent) {
               changePolicy: order.productType === "SESSION" ? `${sessionChangePolicyText()} desde tu área de cliente.` : null,
               legalUrl: order.legalSnapshotId ? `${base}/${s.creator.username}/legal?v=${order.legalSnapshotId}` : undefined,
               conditions: snapshot ? { terms: snapshot.terms, refunds: snapshot.refunds } : undefined,
-              taxLine:
-                order.taxCents > 0
-                  ? `IVA incluido (${bpsToPercent(order.taxRateBps)}): ${formatMoney(order.taxCents, order.currency, { decimals: true })}`
-                  : null,
-              invoiceNumber: invoice?.fullNumber ?? null,
-              taxSellerLine: platformIssuer
-                ? `${platformIssuer.name} vende este contenido digital a efectos de IVA y emite la factura; ${name} lo crea y te atiende.`
-                : null,
+
               receiptUrl,
             }),
             custom.subject,

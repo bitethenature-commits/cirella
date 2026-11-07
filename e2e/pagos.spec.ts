@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 /**
  * Cobros (pasarela simulada): confirmación del banco (3DS), pago pendiente, cancelación y
  * reintento; estados de la cuenta de cobro de una creadora; «Pagar ahora» de una renovación;
- * datos fiscales e informe de DAC7; y las rutas que solo existen con una pasarela concreta.
+ * y las rutas que solo existen con una pasarela concreta.
  * Cada prueba deja los datos de demostración como estaban.
  */
 
@@ -183,47 +183,6 @@ test.describe.serial("Pagos", () => {
       });
       await prisma.access.update({ where: { id: access.id }, data: { expiresAt: access.expiresAt, status: access.status } });
       await prisma.user.update({ where: { id: lucia.id }, data: { passwordHash: lucia.passwordHash, emailVerifiedAt: lucia.emailVerifiedAt } });
-    }
-  });
-
-  test("DAC7: datos fiscales de la creadora e informe para la asesoría", async ({ page }) => {
-    const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
-    try {
-      await demoLogin(page, "Ana Luna");
-      await page.goto("/panel");
-      await expect(page.getByText("Completa tus datos fiscales")).toBeVisible();
-      await page.goto("/panel/ajustes/cobros");
-      await page.fill("#iban", "ES00 1234");
-      await page.getByRole("button", { name: "Guardar datos fiscales" }).click();
-      await expect(page.getByText(/Revisa el IBAN/)).toBeVisible();
-      await page.fill("#iban", "ES91 2100 0418 4502 0005 1332");
-      await page.fill("#birthDate", "1990-05-20");
-      await page.getByLabel("Confirmo que mis datos fiscales son correctos").check();
-      await page.getByRole("button", { name: "Guardar datos fiscales" }).click();
-      await expect(page.getByText("Datos fiscales guardados")).toBeVisible();
-      await expect(page.getByText("ES91 •••• •••• 1332").first()).toBeVisible();
-      await expect(page.getByText("2100 0418 4502")).toHaveCount(0);
-
-      await page.context().clearCookies();
-      await demoLogin(page, "Superadmin");
-      const year = new Date().getFullYear();
-      await page.goto(`/admin/reportes/dac7?anio=${year}`);
-      await expect(page.getByRole("heading", { name: `DAC7 · ${year}` })).toBeVisible();
-      const row = page.locator("tr", { hasText: "@ana" });
-      await expect(row).toBeVisible();
-      // Con la identidad legal del seed y el IBAN, la fecha y la confirmación de arriba, ya están completos.
-      await expect(row.getByText("Completos")).toBeVisible();
-      const csv = await page.request.get(`/admin/reportes/dac7/csv?anio=${year}`);
-      expect(csv.status()).toBe(200);
-      expect(csv.headers()["content-type"]).toContain("text/csv");
-      const header = (await csv.text()).split("\n")[0];
-      expect(header).toContain("nif");
-      expect(header).toContain("iban");
-      await page.goto("/admin/creadoras");
-      await expect(page.getByText(/Cobros:/)).toBeVisible();
-      await expect(page.locator("th", { hasText: "Cobros" })).toHaveCount(1);
-    } finally {
-      await prisma.creator.update({ where: { id: ana.id }, data: { iban: ana.iban, birthDate: ana.birthDate, dac7ConfirmedAt: ana.dac7ConfirmedAt } });
     }
   });
 

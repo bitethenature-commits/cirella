@@ -233,8 +233,6 @@ async function cleanup() {
     prisma.outboxEvent.deleteMany({ where: { OR: keys.map((k) => ({ payload: { string_contains: k } })) } }),
     prisma.analyticsEvent.deleteMany({ where: { productId: { in: productIds } } }),
     prisma.access.deleteMany({ where: { productId: { in: productIds } } }),
-    prisma.invoice.updateMany({ where: { orderId: { in: orderIds } }, data: { relatedInvoiceId: null } }),
-    prisma.invoice.deleteMany({ where: { orderId: { in: orderIds } } }),
     prisma.transaction.deleteMany({ where: { orderId: { in: orderIds } } }),
     prisma.orderLink.deleteMany({ where: { orderId: { in: orderIds } } }),
     prisma.session.deleteMany({ where: { orderId: { in: orderIds } } }),

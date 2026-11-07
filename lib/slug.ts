@@ -5,7 +5,7 @@ export const RESERVED_USERNAMES = new Set([
   "terminos", "privacidad", "blog", "app", "www", "static", "public", "assets",
   "demo", "explorar", "login", "signup", "settings", "dashboard", "_next",
   "favicon.ico", "robots.txt", "sitemap.xml", "cirella", "plataforma", "pedido",
-  "vista-previa", "aviso-legal", "cookies", "facturas", "factura", "contrasena", "pago-simulado",
+  "vista-previa", "aviso-legal", "cookies", "contrasena", "pago-simulado",
   "icon.svg", "baja", "novedades",
   // Páginas de la web de la dueña en la raíz (web personal): lib/site-sections.ts.
   "actualidades", "portal", "comunidad", "cursos", "lecturas", "sesiones", "uno-a-uno",

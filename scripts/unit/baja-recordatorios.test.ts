@@ -51,7 +51,7 @@ test("maskTaxId deja ver solo los 4 últimos caracteres", () => {
   eq(maskTaxId("123"), "••••");
 });
 
-test("alta simulada con la identidad legal de la creadora (documento e IBAN enmascarados)", () => {
+test("alta simulada con la identidad legal de la creadora (documento enmascarado)", () => {
   const f = simulatedIdentityFields({
     legalEntityType: "INDIVIDUAL",
     legalName: "Ana Luna Pérez",
@@ -60,13 +60,12 @@ test("alta simulada con la identidad legal de la creadora (documento e IBAN enma
     legalPostalCode: "08001",
     legalCity: "Barcelona",
     legalCountry: "ES",
-    iban: "ES9121000418450200051332",
   });
   eq(f.map((x) => x.label), ["Nombre y apellidos", "DNI o NIE", "Dirección", "IBAN"]);
   eq(f[0].value, "Ana Luna Pérez");
   eq(f[1].value, "•••••678Z");
   eq(f[2].value, "Calle Luna 3, 08001 Barcelona (España)");
-  eq(f[3].value, "ES91 •••• •••• 1332");
+  eq(f[3].value, null);
   ok(!JSON.stringify(f).includes("12345678Z"), "el documento no se muestra completo");
 });
 

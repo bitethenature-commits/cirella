@@ -37,7 +37,7 @@ export function asAccessMode(v: string | null | undefined): AccessMode {
 export const NO_CHARGE_PROVIDERS = ["free", "manual"] as const;
 export type NoChargeProvider = (typeof NO_CHARGE_PROVIDERS)[number];
 
-/** Pedido de 0 € sin cobro: sin IVA, comisión, factura, transacción ni reembolso. */
+/** Pedido de 0 € sin cobro: sin comisión, transacción ni reembolso. */
 export function isNoChargeOrder(o: { paymentProvider: string }): boolean {
   return (NO_CHARGE_PROVIDERS as readonly string[]).includes(o.paymentProvider);
 }

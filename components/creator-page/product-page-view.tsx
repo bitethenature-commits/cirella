@@ -43,9 +43,7 @@ export type ProductPageViewProps = {
   timeZone: string;
   /** Web personal sin cobros: lo de pago en la web solo lo ve la dueña, con un aviso. */
   signupsOnly: boolean;
-  /** El precio lleva IVA (lib/tax, con una compradora de España). */
-  vatIncluded: boolean;
-  /** Quién vende (lib/legal.ts → sellerStatement) y si se dice (nombre legal o vende la plataforma). */
+  /** Quién vende (lib/legal.ts → sellerStatement) y si se dice (con su nombre legal). */
   seller: { line: string; named: boolean };
   /** Plazas que quedan de un taller (null = sin límite). */
   seatsLeft: number | null;
@@ -63,7 +61,7 @@ const KIND_ICON: Record<string, typeof Video> = { VIDEO: Video, AUDIO: Headphone
  * Ficha pública de un producto (dentro de CreatorShell), sin datos de la BD: la ruta pública
  * (app/[username]/[slug]/page.tsx) y la vista previa en vivo del panel pintan este mismo marcado.
  */
-export function ProductPageView({ username, product: p, timeZone, signupsOnly, vatIncluded, seller, seatsLeft, testimonial, claim: claimInfo, clickEvent, now = new Date() }: ProductPageViewProps) {
+export function ProductPageView({ username, product: p, timeZone, signupsOnly, seller, seatsLeft, testimonial, claim: claimInfo, clickEvent, now = new Date() }: ProductPageViewProps) {
   const type = p.type as ProductType;
   // Cómo se consigue (lib/access-mode.ts): pago aquí, gratis con email o pago en otra web.
   const accessMode = asAccessMode(p.accessMode);
@@ -193,9 +191,7 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, v
             </p>
           )}
           {onSale && type === "MEMBERSHIP" && <p className="cp-muted mt-2 text-xs">El precio de oferta es el del primer pago. Las renovaciones van al precio normal ({regularPrice}).</p>}
-          {paid ? (
-            <p className="cp-muted text-xs">{vatIncluded ? "IVA incluido" : "Precio final"}</p>
-          ) : external && externalSite ? (
+          {external && externalSite ? (
             <p className={`cp-muted text-xs ${showPrice ? "" : "mt-6"}`}>Pago en {externalSite}</p>
           ) : null}
           {signupsOnly && accessMode === "PAID" && (

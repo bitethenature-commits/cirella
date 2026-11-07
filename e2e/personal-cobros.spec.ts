@@ -39,7 +39,6 @@ test.describe.serial("Web personal que cobra con tarjeta y PayPal", () => {
     await prisma.$transaction([
       prisma.emailMessage.deleteMany({ where: { to: { startsWith: TAG } } }),
       prisma.access.deleteMany({ where: { userId: { in: users } } }),
-      prisma.invoice.deleteMany({ where: { recipientEmail: { startsWith: TAG } } }),
       prisma.transaction.deleteMany({ where: { orderId: { in: orders } } }),
       prisma.paymentEvent.deleteMany({ where: { orderId: { in: orders } } }),
       prisma.analyticsEvent.deleteMany({ where: { visitorId: { in: users.map((id) => `user:${id}`) } } }),

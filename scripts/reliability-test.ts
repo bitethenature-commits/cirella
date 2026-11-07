@@ -232,9 +232,6 @@ async function cleanup() {
     prisma.emailMessage.deleteMany({ where: { OR: [{ id: { in: created.emails } }, { to: { startsWith: TAG } }, ...orderIds.map((id) => ({ dedupeKey: { contains: id } }))] } }),
     prisma.analyticsEvent.deleteMany({ where: { visitorId: { startsWith: TAG } } }),
     prisma.access.deleteMany({ where: { userId: { in: userIds } } }),
-    // Facturas de las compras de prueba (primero se sueltan las F3/rectificativas de su original).
-    prisma.invoice.updateMany({ where: { recipientEmail: { startsWith: TAG } }, data: { relatedInvoiceId: null } }),
-    prisma.invoice.deleteMany({ where: { recipientEmail: { startsWith: TAG } } }),
     prisma.transaction.deleteMany({ where: { OR: [{ orderId: { in: orderIds } }, { subscriptionId: { in: created.subs } }] } }),
     prisma.subscription.deleteMany({ where: { OR: [{ id: { in: created.subs } }, { userId: { in: userIds } }] } }),
     prisma.order.deleteMany({ where: { id: { in: orderIds } } }),

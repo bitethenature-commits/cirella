@@ -276,7 +276,7 @@ model Creator {
   payoutConnectedAt     DateTime? // primera vez que la pasarela permitió cobrar (antes: «conectada»)
 
   // Identidad legal de quien vende (LSSI art. 10). Obligatoria para cobrar: ver legalIdentityComplete()
-  // en lib/legal.ts. La usan también las facturas (IVA) y los datos de DAC7.
+  // en lib/legal.ts.
   legalEntityType String    @default("INDIVIDUAL") // INDIVIDUAL | COMPANY
   legalName       String? // nombre y apellidos o razón social
   legalTaxId      String? // NIF / NIE / CIF normalizado (mayúsculas, sin espacios ni guiones)
@@ -293,18 +293,6 @@ model Creator {
   // Aceptación de los términos de Cirella (incluye el encargo de tratamiento, art. 28 RGPD)
   termsAcceptedAt DateTime?
   termsVersion    String?
-
-  // Situación de IVA (la identidad fiscal es la de arriba: legalName, legalTaxId, legalAddress…)
-  vatStatus        String  @default("NONE") // NONE (no repercute IVA) | STANDARD (repercute) | EXEMPT (exenta)
-  vatExemptionNote String? // motivo de la exención que se imprime en sus facturas
-
-  // DAC7 / modelo 238: solo lo que no aportan los datos legales de arriba
-  birthDate          DateTime? @db.Date
-  iban               String? // normalizado sin espacios, en mayúsculas; nunca se muestra completo
-  dac7RequestedAt    DateTime? // primera petición de datos (primera venta declarable del año)
-  dac7RemindersSent  Int       @default(0)
-  dac7LastReminderAt DateTime?
-  dac7ConfirmedAt    DateTime? // la creadora confirmó que sus datos son correctos
 
   // Calendario externo (preparado para Google Calendar)
   calendarProvider  String?
@@ -336,7 +324,6 @@ model Creator {
   referralsMade         Referral[]             @relation("ReferralReferrer")
   referralReceived      Referral?              @relation("ReferralReferred")
   legalSnapshots        LegalSnapshot[]
-  invoices              Invoice[]
   refunds               Refund[]
   recoveryOptOuts       RecoveryOptOut[]
   posts                 Post[]
@@ -933,23 +920,11 @@ model Order {
   buyerName        String?
   // PENDING | PROCESSING (pago pendiente de confirmar) | PAID | FAILED | REFUNDED | ABANDONED
   status           String    @default("PENDING")
-  amountCents      Int // precio final, SIEMPRE con IVA incluido
+  amountCents      Int // precio final que paga la compradora
   currency         String    @default("EUR")
   commissionBps    Int
   platformFeeCents Int
   netCents         Int
-
-  // ── Impuestos: instantánea fiscal de la venta ──
-  taxSeller      String  @default("CREATOR") // PLATFORM | CREATOR: quién vende a efectos de IVA
-  taxCountry     String? // país de tributación (ISO alfa-2; ES-CN | ES-CE | ES-ML = Canarias, Ceuta, Melilla)
-  taxRateBps     Int     @default(0) // 2100 = 21 %
-  taxCents       Int     @default(0) // IVA incluido en amountCents
-  buyerCountry   String? // país declarado por la compradora
-  ipCountry      String? // país según la IP (prueba de localización OSS)
-  // Datos para «Necesito factura con mi NIF» (null = factura simplificada)
-  billingName    String?
-  billingTaxId   String?
-  billingAddress String?
 
   // ── Pago ──
   paymentProvider     String
@@ -1004,7 +979,6 @@ model Order {
   bookings     Booking[]
   sessions     Session[]
   links        OrderLink[]
-  invoices     Invoice[]
   refunds      Refund[]
   files        OrderFile[]
 
@@ -1033,10 +1007,6 @@ model Transaction {
   platformFeeCents Int      @default(0)
   netCents         Int      @default(0)
   currency         String   @default("EUR")
-  taxSeller        String? // PLATFORM | CREATOR (null en PLAN_FEE)
-  taxCountry       String?
-  taxRateBps       Int      @default(0)
-  taxCents         Int      @default(0) // REFUND: negativo, como el resto de importes
   provider         String
   providerRef      String?
   status           String   @default("SUCCEEDED") // SUCCEEDED | FAILED
@@ -1238,11 +1208,10 @@ model Subscription {
   customerId               String
   customer                 Customer  @relation(fields: [customerId], references: [id])
   userId                   String
-  orderId                  String? // pedido inicial (datos de facturación para las renovaciones)
+  orderId                  String? // pedido inicial
   status                   String    @default("ACTIVE") // ACTIVE | PAST_DUE | CANCELED
   priceCents               Int
   interval                 String    @default("month")
-  buyerCountry             String? // país declarado, para calcular el IVA de cada renovación
   currentPeriodStart       DateTime
   currentPeriodEnd         DateTime
   cancelAtPeriodEnd        Boolean   @default(false)
@@ -1415,75 +1384,6 @@ model LegalSnapshot {
   orders    Order[]
 
   @@unique([creatorId, hash])
-}
-
-// ───────────────────────────── Facturación ─────────────────────────────
-
-// Facturas emitidas. Inmutables: los errores se corrigen con rectificativas (R1/R5)
-// y una simplificada se sustituye con una F3. Tipos según VERI*FACTU.
-model Invoice {
-  id               String    @id @default(cuid())
-  creatorId        String // tenant: la creadora de la venta o la destinataria de la factura de cuotas
-  creator          Creator   @relation(fields: [creatorId], references: [id], onDelete: Restrict)
-  kind             String // SALE (venta a compradora) | FEES (Cirella → creadora: cuota y comisiones)
-  type             String // F1 completa | F2 simplificada | F3 sustituye a F2 | R1 rectificativa | R5 rectificativa de simplificada
-  issuer           String // PLATFORM | CREATOR
-  issuerKey        String // "platform" o creatorId: ámbito de la numeración
-  seriesCode       String // V | S | R (Cirella) · CIR | CIRR (en nombre de la creadora)
-  year             Int
-  number           Int
-  fullNumber       String // V2026-000123
-  issuedAt         DateTime  @default(now())
-  operationDate    DateTime? // fecha de la operación si difiere (cuotas: último día del mes)
-  period           String? // "2026-10" en las facturas FEES
-  orderId          String?
-  order            Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  transactionId    String?
-  buyerUserId      String? // compradora (acceso desde /cuenta)
-  relatedInvoiceId String? // F3 → F2 sustituida · R1/R5 → factura rectificada
-  related          Invoice?  @relation("InvoiceRelated", fields: [relatedInvoiceId], references: [id], onDelete: Restrict)
-  relatedFrom      Invoice[] @relation("InvoiceRelated")
-  // Instantáneas: la factura no cambia aunque cambien los datos
-  issuerName       String
-  issuerTaxId      String?
-  issuerAddress    String?
-  issuerCountry    String
-  recipientName    String?
-  recipientTaxId   String?
-  recipientAddress String?
-  recipientCountry String?
-  recipientEmail   String?
-  currency         String    @default("EUR")
-  lines            Json // [{ description, baseCents, taxCents, totalCents }]
-  baseCents        Int
-  taxRateBps       Int
-  taxCents         Int
-  totalCents       Int
-  taxCountry       String?
-  taxNote          String?
-  // Registro en un sistema VERI*FACTU o servicio certificado (pendiente de decisión: quedan a null)
-  registryRef      String?
-  registryQrUrl    String?
-  dedupeKey        String    @unique // sale:<txId> | full:<orderId> | refund:<txId> | fees:<creatorId>:<yyyy-mm>
-  createdAt        DateTime  @default(now())
-
-  @@unique([issuerKey, seriesCode, year, number])
-  @@index([creatorId, issuedAt])
-  @@index([buyerUserId])
-  @@index([orderId])
-  @@index([issuer, issuedAt])
-}
-
-// Contador correlativo sin huecos: se incrementa en la MISMA transacción que crea la factura
-// (INSERT … ON CONFLICT DO UPDATE … RETURNING). No es de tenant: solo lo usa lib/invoices.
-model InvoiceSeries {
-  id         String @id @default(cuid())
-  issuerKey  String // "platform" | creatorId
-  code       String // V | S | R | CIR | CIRR
-  year       Int
-  nextNumber Int    @default(1)
-
-  @@unique([issuerKey, code, year])
 }
 
 // ───────────────────────────── Infraestructura ─────────────────────────────

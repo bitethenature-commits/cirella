@@ -98,12 +98,11 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
     // En la demo los emails no salen: el buzón de demostración está a un clic.
     await expect(page.getByRole("link", { name: /Abrir el buzón de demostración/ })).toHaveAttribute("href", "/dev/correo");
 
-    const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail: lucia }, include: { transactions: true, invoices: true } });
+    const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail: lucia }, include: { transactions: true } });
     expect(order.paymentProvider).toBe("free");
     expect(order.amountCents).toBe(0);
-    expect(order.taxCents + order.platformFeeCents).toBe(0);
+    expect(order.platformFeeCents).toBe(0);
     expect(order.transactions).toHaveLength(0);
-    expect(order.invoices).toHaveLength(0);
 
     const mail = await accessEmailLink(lucia, "Empezar el curso");
     expect(mail.subject).toBe("Ya tienes acceso a «Mini-curso gratis: tu carta natal en 3 pasos»");

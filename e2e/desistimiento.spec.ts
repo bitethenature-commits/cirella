@@ -50,8 +50,6 @@ test.afterAll(async () => {
     prisma.emailMessage.deleteMany({ where: { OR: [{ to: { startsWith: TAG } }, ...keys.map((k) => ({ dedupeKey: { contains: k } }))] } }),
     prisma.outboxEvent.deleteMany({ where: { OR: keys.map((k) => ({ payload: { string_contains: k } })) } }),
     prisma.access.deleteMany({ where: { userId: { in: users } } }),
-    prisma.invoice.updateMany({ where: { OR: [{ orderId: { in: orders } }, { transactionId: { in: txs } }] }, data: { relatedInvoiceId: null } }),
-    prisma.invoice.deleteMany({ where: { OR: [{ orderId: { in: orders } }, { transactionId: { in: txs } }] } }),
     prisma.transaction.deleteMany({ where: { id: { in: txs } } }),
     prisma.refund.deleteMany({ where: { orderId: { in: orders } } }),
     prisma.paymentEvent.deleteMany({ where: { orderId: { in: orders } } }),

@@ -7,7 +7,6 @@ import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
 import * as RT from "./email/refund-templates";
 import { dispatchEvents, recordEvents } from "./events";
-import { issueCorrectiveInvoiceTx } from "./invoices/issue";
 import { formatMoney } from "./money";
 import { revokeOrderAccess } from "./order-links";
 import { captureAlert, captureError } from "./monitoring";
@@ -26,7 +25,6 @@ import {
   type WithdrawalBlock,
 } from "./refund-math";
 import { truncateError } from "./reliability";
-import { refundTaxFields } from "./tax";
 import { formatDate, formatSessionDate } from "./tz";
 import { DEFAULT_OWNER_TZ, withdrawalDeadline } from "./withdrawal";
 
@@ -291,11 +289,8 @@ export async function markRefundSucceeded(refundId: string): Promise<boolean> {
     const refund = await tx.refund.findUniqueOrThrow({ where: { id: refundId } });
     const order = await tx.order.findUniqueOrThrow({ where: { id: refund.orderId }, include: { customer: { select: { userId: true } } } });
     const full = order.refundedCents + refund.amountCents >= order.amountCents;
-    // IVA devuelto en proporción. Si vende Cirella, ese IVA sale de su cuenta y no de la creadora.
-    const tax = refundTaxFields(order, refund.amountCents);
-    const platformTax = order.taxSeller === "PLATFORM" ? tax.taxCents : 0;
-    // Libro: importes en negativo, así las sumas son netas (lib/dac7-data.ts cuenta con ello).
-    const refundTx = await tx.transaction.create({
+    // Libro: importes en negativo, así las sumas son netas.
+    await tx.transaction.create({
       data: {
         creatorId: order.creatorId,
         orderId: order.id,
@@ -304,16 +299,12 @@ export async function markRefundSucceeded(refundId: string): Promise<boolean> {
         description: `Reembolso · ${order.productTitle}`,
         amountCents: -refund.amountCents,
         platformFeeCents: -refund.platformFeeCents,
-        netCents: -(refund.amountCents - refund.platformFeeCents) - platformTax,
+        netCents: -(refund.amountCents - refund.platformFeeCents),
         currency: refund.currency,
-        ...tax,
         provider: refund.provider,
         providerRef: refund.providerRef,
       },
     });
-    // Rectificativa de la factura de la venta (si la tenía), en la misma transacción.
-    const charge = await tx.transaction.findFirst({ where: { orderId: order.id, type: "CHARGE" }, orderBy: { createdAt: "asc" }, select: { id: true } });
-    if (charge) await issueCorrectiveInvoiceTx(tx, { refundTransactionId: refundTx.id, originalTransactionId: charge.id });
     await tx.order.update({
       where: { id: order.id },
       data: {
@@ -436,7 +427,7 @@ export function findRenewalCharge(provider: string, paymentRef: string) {
 /**
  * Reembolso (desde el panel de Stripe) o contracargo perdido de una RENOVACIÓN. Las renovaciones no
  * tienen pedido ni fila Refund (Refund.orderId es obligatorio), así que se contabiliza directamente:
- * fila REFUND en negativo, rectificativa de la factura de la renovación, gasto de la clienta y, si
+ * fila REFUND en negativo, gasto de la clienta y, si
  * se devuelve entera la del periodo en curso, fin de la membresía y del acceso. Idempotente por la
  * clave única refund:{renovación}:{referencia}. null si el cobro no es de ninguna renovación.
  */
@@ -459,10 +450,8 @@ async function syncRenewalRefund(i: ProviderRefundUpdate): Promise<{ creatorId: 
       const amount = Math.min(i.amountCents, refundableCents({ amountCents: renewal.amountCents, reservedCents }));
       if (amount <= 0) return false;
       const split = computeRefundSplit({ amountCents: renewal.amountCents, platformFeeCents: renewal.platformFeeCents, reservedCents, reservedFeeCents }, amount);
-      const tax = refundTaxFields(renewal, amount);
-      const platformTax = renewal.taxSeller === "PLATFORM" ? -tax.taxCents : 0;
       const sub = renewal.subscriptionId ? await tx.subscription.findUnique({ where: { id: renewal.subscriptionId } }) : null;
-      const refundTx = await tx.transaction.create({
+      await tx.transaction.create({
         data: {
           creatorId: renewal.creatorId,
           subscriptionId: renewal.subscriptionId,
@@ -470,15 +459,13 @@ async function syncRenewalRefund(i: ProviderRefundUpdate): Promise<{ creatorId: 
           description: i.reason === "DISPUTE_LOST" ? "Contracargo perdido · renovación de membresía" : "Reembolso · renovación de membresía",
           amountCents: -amount,
           platformFeeCents: -split.feeCents,
-          netCents: -(amount - split.feeCents) - platformTax,
+          netCents: -(amount - split.feeCents),
           currency: renewal.currency,
-          ...tax,
           provider: renewal.provider,
           providerRef: i.providerRef,
           idempotencyKey: key,
         },
       });
-      await issueCorrectiveInvoiceTx(tx, { refundTransactionId: refundTx.id, originalTransactionId: renewal.id });
       if (sub) {
         await tx.customer.update({ where: { id: sub.customerId }, data: { totalSpentCents: { decrement: amount } } });
         await tx.analyticsEvent.create({

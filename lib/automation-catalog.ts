@@ -69,7 +69,7 @@ export const EDITABLE_EMAILS: Partial<Record<AutomationTrigger, EditableEmail>> 
     mode: "intro",
     vars: ["nombre", "mi_nombre", "producto"],
     subject: "Compra confirmada: {producto}",
-    fixed: "Debajo van solos el resumen de la compra (producto, total, pedido, IVA, quién vende), el botón de acceso, la factura y las condiciones aceptadas.",
+    fixed: "Debajo van solos el resumen de la compra (producto, total, pedido y quién vende), el botón de acceso y las condiciones aceptadas.",
     original: () => ({ v: 1, blocks: [text("texto", "Hola, {nombre}, gracias por tu compra.")] }),
   },
   ACCESS_GRANTED: {

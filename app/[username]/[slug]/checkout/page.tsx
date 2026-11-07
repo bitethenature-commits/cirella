@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import { effectivePriceCents, orderSaleMeta } from "@/lib/offers";
 import { Prisma } from "@prisma/client";
-import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { TrackOnMount } from "@/components/creator-page/tracking";
 import { getCurrentUser, holdsCheckout } from "@/lib/auth";
-import { dac7SalesPaused } from "@/lib/dac7-data";
 import { prisma } from "@/lib/db";
 import { isDemoMode } from "@/lib/env";
 import { creatorLegalHref, legalIdentityComplete, sellerStatement, waiverKindFor } from "@/lib/legal";
@@ -14,12 +12,7 @@ import { getPurchasableProduct } from "@/lib/orders";
 import { asAccessMode } from "@/lib/access-mode";
 import { checkoutMethods, paidCheckoutOpen } from "@/lib/payments";
 import { canAcceptPayments } from "@/lib/payouts";
-import { canInvoiceSale } from "@/lib/invoices/issue";
-import { getPlatformIssuer } from "@/lib/invoices/issuer";
 import { getPublicProduct } from "@/lib/product-page";
-import { asVatStatus, decideTax } from "@/lib/tax";
-import { isKnownCountry } from "@/lib/tax/rates";
-import { getTaxMode, headerCountry } from "@/lib/tax/server";
 import { isGroupSession, seatsTaken } from "@/lib/booking";
 import { asksIntake, intakeFormValues, readIntakeAnswers, readIntakeConfig } from "@/lib/intake";
 import { CheckoutForm } from "./checkout-form";
@@ -49,31 +42,12 @@ export default async function CheckoutPage({
   const p = data.product;
   // Métodos de pago: uno por pasarela activa con la que esta creadora puede cobrar (tarjeta, PayPal).
   const methods = checkoutMethods().filter((m) => canAcceptPayments(data.creator, m.key));
-  // IVA: quién vende según la política y el tipo de producto. El país lo elige la compradora.
-  const c = data.creator;
-  const taxInfo = { mode: await getTaxMode(), creatorCountry: c.legalCountry, creatorVatStatus: asVatStatus(c.vatStatus), creatorVatNote: c.vatExemptionNote };
-  const seller = decideTax({
-    mode: taxInfo.mode,
-    productType: p.type,
-    deliveryMode: p.deliveryMode,
-    buyerCountry: null,
-    creator: { country: c.legalCountry, vatStatus: c.vatStatus },
-  }).seller;
-  // Si vende Cirella tiene que poder facturar: la misma regla que createPendingOrder (lib/orders.ts),
-  // para no dejar rellenar el formulario y fallar al enviarlo.
-  const platform = seller === "PLATFORM" ? await getPlatformIssuer() : null;
-  const platformCanSell = !platform || isDemoMode() || platform.complete;
   // «Vende: …» igual que en la ficha del producto, el pie y «Tu compra» (lib/legal.ts).
-  const statement = sellerStatement(seller, { ...c, displayName: data.config.displayName }, platform);
+  const statement = sellerStatement({ ...data.creator, displayName: data.config.displayName });
   // Sin la identidad legal de quien vende no se puede vender (LSSI art. 10).
-  const payoutReady =
-    !!purchasable &&
-    methods.length > 0 &&
-    legalIdentityComplete(data.creator) &&
-    platformCanSell &&
-    !(await dac7SalesPaused(data.creator, p.type));
+  const payoutReady = !!purchasable && methods.length > 0 && legalIdentityComplete(data.creator);
   // Vuelta desde la pasarela (cancelado) o desde el email de «pago no completado»: se reintenta el
-  // mismo pedido. Sus datos (email, NIF, dirección) solo se rellenan en el navegador que lo hizo o
+  // mismo pedido. Sus datos (nombre y email) solo se rellenan en el navegador que lo hizo o
   // para la compradora con su cuenta abierta: la URL con el id se comparte y no debe enseñarlos.
   const found = sp.pedido
     ? await prisma.order.findFirst({
@@ -84,10 +58,6 @@ export default async function CheckoutPage({
           buyerEmail: true,
           paymentError: true,
           paymentProvider: true,
-          buyerCountry: true,
-          billingName: true,
-          billingTaxId: true,
-          billingAddress: true,
           claimTokenHash: true,
         },
       })
@@ -119,8 +89,6 @@ export default async function CheckoutPage({
       : null;
   const lastBirth = readIntakeAnswers(lastIntake?.intake)?.birth;
   const intakePrefill = lastBirth ? intakeFormValues({ v: 1, birth: lastBirth, answers: [] }) : undefined;
-  const guessed = headerCountry(await headers());
-  const defaultCountry = previous?.buyerCountry ?? (guessed ? (isKnownCountry(guessed) ? guessed : "XX") : "ES");
 
   return (
     <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} sellerName={statement.name} showNewsletter={false}>
@@ -164,14 +132,7 @@ export default async function CheckoutPage({
             legalHref: creatorLegalHref(username),
           }}
           platformName={data.personal ? null : data.platformName}
-          taxInfo={taxInfo}
-          canInvoice={canInvoiceSale(seller, c)}
-          defaultCountry={defaultCountry}
-          billingPrefill={
-            previous?.billingTaxId
-              ? { wantsInvoice: true, name: previous.billingName ?? "", taxId: previous.billingTaxId, address: previous.billingAddress ?? "" }
-              : undefined
-          }
+
         />
       </main>
       <TrackOnMount creatorId={data.creator.id} type="CHECKOUT_STARTED" productId={p.id} disabled={isOwner} />
