@@ -19,7 +19,9 @@ const ENERGY = { href: "/cuenta/mi-energia", label: "Mi energía" };
 export function AccountNav({ personal = false }: { personal?: boolean } = {}) {
   const path = usePathname();
   // Web personal: sin «Mis compras» (lo que ha conseguido está en su ticket, en «Soporte»).
-  const items = personal ? [ITEMS[0], ENERGY, ...ITEMS.slice(1).filter((i) => i.href !== "/cuenta/compras")] : ITEMS;
+  const items = personal
+    ? [ITEMS[0], ENERGY, ...ITEMS.slice(1).filter((i) => i.href !== "/cuenta/compras").map((i) => (i.href === "/cuenta/sesiones" ? { ...i, label: "Círculos y lecturas" } : i))]
+    : ITEMS;
   return (
     <nav className="-mx-5 flex gap-1 overflow-x-auto px-5 scrollbar-none" aria-label="Área de cliente">
       {items.map((i) => {

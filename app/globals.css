@@ -140,11 +140,11 @@
 }
 @keyframes twinkle { from { opacity: .55; } to { opacity: 1; } }
 
-/* ───────────── Los cursos, de noche ─────────────
-   Dentro de un curso (data-course-night, app/cuenta/cursos/[productId]/page.tsx) el área de alumna se ve
+/* ───────────── El área de alumna, de noche ─────────────
+   Toda el área de alumna (.acc-root, app/cuenta/layout.tsx) se ve
    como la web: cielo de noche con estrellas y nebulosa. Se cambian los colores del tema solo ahí, así que
    todo lo que usa ink, paper, sand, line… se adapta solo; lo que era blanco pasa a ser un azul noche. */
-.acc-root:has([data-course-night]) {
+.acc-root {
   --color-ink: #f1ebdf;
   --color-ink-2: #e2d9c7;
   --color-ink-3: #cfc4ae;
@@ -166,7 +166,7 @@
   position: relative;
   isolation: isolate;
 }
-.acc-root:has([data-course-night])::before {
+.acc-root::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -183,12 +183,12 @@
   animation: twinkle 9s ease-in-out infinite alternate;
   opacity: .6;
 }
-.acc-root:has([data-course-night]) > header { background: rgb(10 9 32 / .72); }
-.acc-root:has([data-course-night]) :is(.bg-white, .card, .input, .btn-outline) { background-color: rgb(24 21 52 / .88); }
-.acc-root:has([data-course-night]) .bg-paper { background-color: rgb(19 17 44 / .72); }
-.acc-root:has([data-course-night]) [data-astro-layer] { backdrop-filter: blur(6px); }
+.acc-root > header { background: rgb(10 9 32 / .72); }
+.acc-root :is(.bg-white, .card, .input, .btn-outline) { background-color: rgb(24 21 52 / .88); }
+.acc-root .bg-paper { background-color: rgb(19 17 44 / .72); }
+.acc-root [data-astro-layer] { backdrop-filter: blur(6px); }
 /* Las ruedas y láminas de los modelos, iluminadas como una luna sobre el cielo. */
-.acc-root:has([data-course-night]) [data-astro-layer] svg { filter: drop-shadow(0 0 28px rgb(212 181 122 / .22)); }
+.acc-root [data-astro-layer] svg { filter: drop-shadow(0 0 28px rgb(212 181 122 / .22)); }
 
 /* Una lámina clara para los dibujos del modelo por partes que no son una rueda. */
 .model-plate {

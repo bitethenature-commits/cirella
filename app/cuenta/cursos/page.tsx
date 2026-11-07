@@ -10,6 +10,7 @@ import { getPublicCreator } from "@/lib/public";
 import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
 import { MethodTag, Progress, categoryFromTitle } from "../ui";
 import { WelcomeCard } from "../welcome-card";
+import { PageHeader } from "../page-header";
 
 /**
  * «Mis cursos», como la página de cursos de la web: los cursos por método en desplegables. Arriba los
@@ -40,9 +41,7 @@ export default async function MyCourses({ searchParams }: { searchParams: Promis
       {welcome && <WelcomeCard name={first} email={user.email} hasPassword={!!user.passwordHash} />}
 
       <section aria-labelledby="mis-cursos-t">
-        <h1 id="mis-cursos-t" className="display text-[2.4rem]">
-          Mis cursos
-        </h1>
+        <PageHeader id="mis-cursos-t" eyebrow="Tu camino de aprendizaje" title="Mis cursos" subtitle="Tus cursos por método, con tu progreso. Debajo, los demás para cuando quieras." />
         {mine.length ? (
           <CourseGroups
             name="mis-cursos"

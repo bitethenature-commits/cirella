@@ -11,13 +11,14 @@ import { subscribeOwnerNews } from "./actions";
 import { EmailCard, PasswordCard, PhotoCard } from "./cards";
 import { ProfileForm } from "./form";
 import { withdrawMarketing } from "./marketing-actions";
+import { PageHeader } from "../page-header";
 
 const OK: Record<string, string> = { email: "Tu email ha cambiado. Hemos cerrado las demás sesiones." };
 const ERRORS: Record<string, string> = { "email-ocupado": "Ese email ya es de otra cuenta: no hemos cambiado nada." };
 
 function Card({ id, icon, title, children }: { id: string; icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <section id={id} aria-labelledby={`${id}-t`} className="card max-w-lg scroll-mt-32 p-6">
+    <section id={id} aria-labelledby={`${id}-t`} className="card mx-auto max-w-lg scroll-mt-32 p-6">
       <h2 id={`${id}-t`} className="mb-4 flex items-center gap-2 font-semibold">{icon} {title}</h2>
       {children}
     </section>
@@ -38,10 +39,11 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const name = user.name ?? "";
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <UserAvatar src={user.avatarUrl} name={name || user.email} className="h-14 w-14 text-base" />
-        <h1 className="display text-[2.4rem]">Mi perfil</h1>
-      </div>
+      <PageHeader eyebrow="Tú" title="Mi perfil">
+        <div className="mt-4 flex justify-center">
+          <UserAvatar src={user.avatarUrl} name={name || user.email} className="h-16 w-16 text-base ring-2 ring-gold/40" />
+        </div>
+      </PageHeader>
       <Flash ok={sp.ok && Object.hasOwn(OK, sp.ok) ? OK[sp.ok] : null} error={sp.error && Object.hasOwn(ERRORS, sp.error) ? ERRORS[sp.error] : null} />
 
       <Card id="datos" icon={<UserRound className="h-4 w-4" />} title="Tus datos">
@@ -68,7 +70,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         <PasswordCard hasPassword={!!user.passwordHash} />
       </Card>
 
-      <section id="novedades" aria-labelledby="novedades-t" className="card max-w-lg scroll-mt-32 p-6">
+      <section id="novedades" aria-labelledby="novedades-t" className="card mx-auto max-w-lg scroll-mt-32 p-6">
         <h2 id="novedades-t" className="flex items-center gap-2 font-semibold"><Mail className="h-4 w-4" /> Novedades por email</h2>
         {subscriptions.length === 0 ? (
           <p className="mt-2 text-sm text-muted">{owner ? `No recibes las novedades de ${owner.displayName}.` : "No recibes novedades de ninguna creadora."}</p>

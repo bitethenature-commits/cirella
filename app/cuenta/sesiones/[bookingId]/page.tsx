@@ -1,3 +1,4 @@
+import { isPersonalMode } from "@/lib/site-mode";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarPlus, CalendarX, Clock, Mail, MessageCircle, Video } from "lucide-react";
@@ -51,7 +52,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ book
         )
       ) : (
         <Link href="/cuenta/sesiones" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-          <ArrowLeft className="h-4 w-4" /> Mis sesiones
+          <ArrowLeft className="h-4 w-4" /> {isPersonalMode() ? "Círculos y lecturas" : "Mis sesiones"}
         </Link>
       )}
       <div className="mt-5 flex items-center gap-4">

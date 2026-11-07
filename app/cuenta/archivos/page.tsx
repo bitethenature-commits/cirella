@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/empty";
 import { requireBuyerFull } from "@/lib/buyer-access";
 import { courseMaterials, deliveredReadings, getCustomerLibrary } from "@/lib/customer";
 import { CreatorTag } from "../ui";
+import { PageHeader } from "../page-header";
 
 const ICON = { PDF: FileText, AUDIO: Headphones, VIDEO: Video, IMAGE: FileImage } as const;
 const VIEWABLE = new Set(["PDF", "IMAGE", "AUDIO", "VIDEO"]);
@@ -75,8 +76,7 @@ export default async function MyFiles() {
 
   return (
     <div>
-      <h1 className="display text-[2.4rem]">Mis archivos</h1>
-      <p className="mt-1 text-sm text-muted">Ordenados en carpetas según de dónde vienen.</p>
+      <PageHeader eyebrow="Tu biblioteca" title="Mis archivos" subtitle="Ordenados en carpetas según de dónde vienen." />
       {sections.map((s) => (
         <section key={s.key} className="mt-8" aria-labelledby={`archivos-${s.key}`}>
           <h2 id={`archivos-${s.key}`} className="eyebrow mb-1 flex items-center gap-2 !text-ink">

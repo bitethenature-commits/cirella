@@ -10,13 +10,14 @@ import { formatDate } from "@/lib/tz";
 import { lastDayText } from "@/lib/access-end";
 import { creatorBrief } from "@/lib/customer";
 import { includedMembershipsForUser } from "@/lib/membership-access";
+import { PageHeader } from "../page-header";
 
 export default async function MyMemberships() {
   const user = await requireBuyerFull("/cuenta/membresias");
   const [{ memberships }, free, included] = await Promise.all([getCustomerLibrary(user.id), freeMemberships(user.id), includedMembershipsForUser(user.id)]);
   return (
     <div>
-      <h1 className="display text-[2.4rem]">Mis membresías</h1>
+      <PageHeader eyebrow="Tu comunidad" title="Mis membresías" subtitle="Los espacios a los que perteneces y lo que comparten cada semana." />
       <div className="mt-6 space-y-2.5">
         {free.map((m) => (
           <div key={m.id} className="card flex items-center gap-4 p-4">

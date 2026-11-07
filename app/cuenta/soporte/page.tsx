@@ -12,6 +12,7 @@ import { formatMoney } from "@/lib/money";
 import { orderRef } from "@/lib/order-ref";
 import { formatDate } from "@/lib/tz";
 import { TicketButton, type TicketData } from "./ticket";
+import { PageHeader } from "./../page-header";
 
 const FAQ = [
   ["¿Dónde está lo que compré?", "Todo está en tu cuenta: los cursos en «Mis cursos», las sesiones en «Mis sesiones» y los archivos en «Mis archivos»."],
@@ -63,11 +64,12 @@ export default async function SupportPage() {
     total: paid.length && currencies.size === 1 ? formatMoney(totalCents, [...currencies][0], { decimals: true }) : null,
   };
   return (
-    <div className="max-w-2xl">
-      <h1 className="display text-[2.4rem]">Soporte</h1>
-      <p className="mt-1 text-sm text-muted">
-        {personal ? "Para cualquier duda sobre un contenido, escribe directamente:" : "Para dudas sobre un contenido o una sesión, escribe directamente a quien te lo vendió."}
-      </p>
+    <div className="mx-auto max-w-2xl">
+      <PageHeader
+        eyebrow="Aquí para ti"
+        title="Soporte"
+        subtitle={personal ? "Para cualquier duda sobre un contenido, escribe directamente:" : "Para dudas sobre un contenido o una sesión, escribe directamente a quien te lo vendió."}
+      />
       <div className="mt-6 space-y-2.5">
         {customers.map(({ creator }) => {
           const c = creatorBrief(creator);

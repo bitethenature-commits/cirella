@@ -18,6 +18,7 @@ import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { orderTargetPath } from "@/lib/auth-utils";
 import { Thumb } from "../ui";
 import { withdrawPurchase } from "./actions";
+import { PageHeader } from "../page-header";
 
 const OK: Record<string, string> = {
   desistido: "Hemos tramitado tu desistimiento. El reembolso llegará a tu tarjeta en 5-10 días hábiles.",
@@ -52,7 +53,7 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
     orderTargetPath(o, o.bookings[0]?.id);
   return (
     <div>
-      <h1 className="display text-[2.4rem]">Mis compras</h1>
+      <PageHeader eyebrow="Lo que has conseguido" title="Mis compras" />
       <div className="mt-6">
         <Flash ok={sp.ok ? OK[sp.ok] : null} error={sp.error ? ERROR[sp.error] : null} />
       </div>
