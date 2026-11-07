@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Suspense, lazy, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { Apsis, LunarDay, Lunation, NatalMoon } from "@/lib/lunar-sky";
 import { addDaysToKey, dateKeyInTz, formatInTz, timeInTz, zonedTimeToUtc } from "@/lib/tz";
@@ -663,6 +663,15 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
         <p className="mt-3 text-[0.92rem] leading-relaxed opacity-90">{MOON_IN_SIGN[moonSign]}</p>
       </div>
 
+      {/* Lo demás (los datos del cielo, la lunación, las ocho estaciones y el porqué), recogido en «Ver más»:
+          así se llega antes, bajando, a lo personal y a «Tu energía de hoy». */}
+      <details className="group mt-5" data-lunar-more>
+        <summary className="cp-line inline-flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-full border px-4 text-[0.82rem] font-semibold [&::-webkit-details-marker]:hidden">
+          <span className="group-open:hidden">Ver más</span>
+          <span className="hidden group-open:inline">Ver menos</span>
+          <ChevronDown aria-hidden className="h-4 w-4 transition-transform group-open:rotate-180" />
+        </summary>
+
       <dl className="mt-6">
         <PanelRow label="Luna en" value={<SignPos lon={st.moonLon} />} />
         <PanelRow label="Sol en" value={<SignPos lon={st.sunLon} />} />
@@ -762,6 +771,7 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
           La Luna siempre está iluminada a la mitad: el Sol siempre está a un lado. Lo que cambia es nuestro ángulo de visión: {describeGeometry(st.elong / 360)}
         </p>
       </div>
+      </details>
       {!lib && <p className="cp-faint mt-4 text-[0.72rem]">{failed ? "No se ha podido cargar el cielo exacto: se muestra una aproximación." : "Calculando el cielo exacto…"}</p>}
     </PanelBody>
   );
@@ -1087,13 +1097,36 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
       panel={panel}
       footer={
         <>
-          {calendar}
-          {dayDetail}
+          {/* Primero lo personal; el calendario (con el día elegido) y las lunas del año, en desplegables. */}
           {natalBlock}
-          <div className="cp-line mt-8 border-t pt-6">{yearBlock}</div>
+          <div className="mt-8 space-y-3">
+            <Fold kicker="Calendario lunar" title="El mes y el día elegido" id="lunar-calendar">
+              {calendar}
+              {dayDetail}
+            </Fold>
+            <Fold kicker="Lunas nuevas y llenas" title={`Año lunar ${year}`} id="lunar-year">
+              {yearBlock}
+            </Fold>
+          </div>
         </>
       }
     />
+  );
+}
+
+/** Un desplegable del pie del modelo (el calendario, las lunas del año): cerrado hasta que se toca. */
+function Fold({ kicker, title, id, children }: { kicker: string; title: string; id: string; children: ReactNode }) {
+  return (
+    <details className="cp-line group rounded-[calc(var(--r-card)*0.7)] border" data-fold={id}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0">
+          <span className="cp-eyebrow cp-gold block">{kicker}</span>
+          <span className="cp-display mt-0.5 block text-[1.35rem] leading-tight">{title}</span>
+        </span>
+        <ChevronDown aria-hidden className="h-5 w-5 shrink-0 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
+      </summary>
+      <div className="px-5 pb-6 pt-1">{children}</div>
+    </details>
   );
 }
 
