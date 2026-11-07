@@ -8,6 +8,7 @@ import { EnergyIcon } from "./energy-icon";
 import { GeneKeysIcon } from "./gene-keys-icon";
 import { HumanDesignIcon } from "./human-design-icon";
 import { MoonIcon } from "./moon-icon";
+import { systemIcon } from "./system-icon";
 import { nextMoonCircles } from "@/lib/moon-circles";
 import { AccountEntry } from "./account-entry";
 import { ContentBlocks } from "./content-blocks";
@@ -831,17 +832,6 @@ const TONE_READING = tone("var(--c-gold)", 14);
 const TONE_SESSION = tone("var(--c-accent)", 22);
 const TONE_CIRCLES = tone("color-mix(in oklab, var(--c-text) 70%, var(--c-accent))", 10);
 
-/** Icono de cada sistema de «Sistemas con los que trabajo», según su nombre. */
-function systemIcon(title: string): ComponentType<SVGProps<SVGSVGElement>> {
-  const t = title.toLowerCase();
-  if (t.includes("human")) return HumanDesignIcon;
-  if (t.includes("gene")) return GeneKeysIcon;
-  if (t.includes("astrolog") || t.includes("carta")) return AstrologyIcon;
-  if (t.includes("luna")) return MoonIcon;
-  if (t.includes("tarot") || t.includes("oráculo") || t.includes("oraculo") || t.includes("runa")) return Layers;
-  if (t.includes("energ")) return EnergyIcon;
-  return Sparkles;
-}
 
 function isExternal(url: string) {
   return /^https?:\/\//i.test(url.trim());

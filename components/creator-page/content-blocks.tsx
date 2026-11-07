@@ -1,3 +1,4 @@
+import type { ComponentType, SVGProps } from "react";
 import { ArrowRight, ArrowUpRight, Moon } from "lucide-react";
 import { ZoomableImage } from "@/components/media/zoomable-image";
 import { RichContent } from "@/components/rich-text/rich-content";
@@ -12,6 +13,7 @@ import { MODEL_LABEL, hasQuickVersion, isOwnImageSrc, isOwnVideoSrc, type Conten
 import { safeHref } from "@/lib/page-config";
 import { videoEmbed } from "@/lib/video-embed";
 import { PageVideo } from "./page-video";
+import { knownSystemIcon, SystemIconMark } from "./system-icon";
 import { VideoFacade } from "./video-facade";
 import type { PublicProduct } from "./creator-page-view";
 
@@ -50,8 +52,11 @@ export function ContentBlocks({
   modelGate,
   moonCircles,
   bare = false,
+  modelIcon,
 }: {
   blocks: ContentBlock[];
+  /** Página de un método: su icono delante del título de los modelos interactivos. */
+  modelIcon?: ComponentType<SVGProps<SVGSVGElement>>;
   /** Sin cajas: texto, foto y texto, y cita van sueltos sobre el fondo (página «Sobre mí»). */
   bare?: boolean;
   username: string;
@@ -208,8 +213,19 @@ export function ContentBlocks({
           case "photoText": {
             if (!b.image || !isOwnImageSrc(b.image.src)) return null;
             const href = linkTo(b.buttonUrl);
+            const sysIcon = b.title ? knownSystemIcon(b.title) : null;
+            // Sin cajas («Sobre mí»): si el título es un sistema, su icono dorado delante, en la misma línea.
+            // En el móvil, el título va encima de la foto y el texto debajo; en el ordenador, junto al texto.
+            const heading = (where: string) =>
+              b.title ? (
+                <div className={`items-center gap-3 ${where}`}>
+                  {sysIcon && <SystemIconMark icon={sysIcon} scale={0.75} />}
+                  {title(b.title)}
+                </div>
+              ) : null;
             return (
-              <div key={b.id} className={bare ? "grid items-center gap-6 sm:grid-cols-2 sm:gap-10" : "cp-card grid sm:grid-cols-2"} data-block="photo-text" data-side={b.imageSide}>
+              <div key={b.id} className={bare ? "grid items-center gap-5 sm:grid-cols-2 sm:gap-10" : "cp-card grid sm:grid-cols-2"} data-block="photo-text" data-side={b.imageSide}>
+                {bare && heading("flex sm:hidden")}
                 <div
                   className={`relative aspect-[4/3] sm:aspect-auto sm:min-h-[20rem] ${bare ? "overflow-hidden rounded-[var(--r-card)]" : ""} ${b.imageSide === "right" ? "sm:order-last" : ""}`}
                 >
@@ -227,7 +243,7 @@ export function ContentBlocks({
                   />
                 </div>
                 <div className={`flex flex-col justify-center ${bare ? "" : "p-6 sm:p-7"}`}>
-                  {b.title && title(b.title)}
+                  {bare ? heading("hidden sm:flex") : b.title && title(b.title)}
                   {b.body && (
                     <RichContent
                       text={b.body}
@@ -235,7 +251,7 @@ export function ContentBlocks({
                       legacy="links"
                       tone="page"
                       headingLevel={titleLevel === 3 ? 4 : 3}
-                      className={`cp-muted space-y-3 text-[0.95rem] leading-relaxed ${b.title ? "mt-3" : ""}`}
+                      className={`cp-muted space-y-3 text-[0.95rem] leading-relaxed ${b.title ? (bare ? "sm:mt-3" : "mt-3") : ""}`}
                     />
                   )}
                   {href && b.buttonLabel && (
@@ -360,7 +376,15 @@ export function ContentBlocks({
             const quick = !!b.quick && hasQuickVersion(b.model);
             const box = (
               <section key={b.id} className="cp-card p-5 sm:p-7" data-block="model" data-model={b.model} data-quick={quick ? "" : undefined} aria-label={b.title || MODEL_LABEL[b.model]}>
-                {b.title && title(b.title)}
+                {b.title &&
+                  (modelIcon ? (
+                    <div className="flex items-center gap-3">
+                      <SystemIconMark icon={modelIcon} scale={0.75} />
+                      {title(b.title)}
+                    </div>
+                  ) : (
+                    title(b.title)
+                  ))}
                 {b.intro && <p className={`cp-muted text-[0.95rem] leading-relaxed ${b.title ? "mt-3" : ""}`}>{b.intro}</p>}
                 <div className={b.title || b.intro ? "mt-6" : ""}>
                   <InteractiveModel model={b.model} deck={b.model === "oracle" && b.deck ? oracleDecks?.[b.deck] : undefined} gate={modelGate} compact={quick} />
