@@ -55,6 +55,8 @@ import { ANA_AVAILABILITY, DEMO_TZ, demoPurchaseDaysAgo, demoSchedule } from "./
 import { demoSaleFields } from "./demo-sales";
 import { seedDemoStudent } from "./demo-student";
 import { seedMarsLesson } from "./demo-lesson-mars";
+import { seedSystemLessons } from "./demo-lessons-systems";
+import { seedDeepLessons } from "./demo-lessons-deep";
 import { grantFullAccess } from "./demo-full-access";
 
 const prisma = new PrismaClient();
@@ -1989,6 +1991,8 @@ async function main() {
   await seedDemoStudent(prisma, { creatorId: ana.id, ownerUserId: anaUser.id, passwordHash: password, timezone: TZ, now: NOW });
   // La lección larga de ejemplo (capítulos y la carta por partes): «Marte, tu fuerza».
   await seedMarsLesson(prisma, ana.id);
+  await seedSystemLessons(prisma, ana.id);
+  await seedDeepLessons(prisma, ana.id);
   // Laura, con acceso a todo para ir probando la web.
   await grantFullAccess(prisma, { creatorId: ana.id, ownerUserId: anaUser.id, now: NOW });
 

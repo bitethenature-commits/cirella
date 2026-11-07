@@ -140,6 +140,63 @@
 }
 @keyframes twinkle { from { opacity: .55; } to { opacity: 1; } }
 
+/* ───────────── Los cursos, de noche ─────────────
+   Dentro de un curso (data-course-night, app/cuenta/cursos/[productId]/page.tsx) el área de alumna se ve
+   como la web: cielo de noche con estrellas y nebulosa. Se cambian los colores del tema solo ahí, así que
+   todo lo que usa ink, paper, sand, line… se adapta solo; lo que era blanco pasa a ser un azul noche. */
+.acc-root:has([data-course-night]) {
+  --color-ink: #f1ebdf;
+  --color-ink-2: #e2d9c7;
+  --color-ink-3: #cfc4ae;
+  --color-cream: #15122c;
+  --color-paper: #0d0c22;
+  --color-sand: #24204a;
+  --color-line: rgb(255 255 255 / .11);
+  --color-muted: #a7a2c2;
+  --color-gold: #d4b57a;
+  --color-gold-soft: #3b3322;
+  --shadow-soft: 0 1px 0 rgb(255 255 255 / .05) inset, 0 24px 50px -28px rgb(0 0 0 / .85);
+  background:
+    radial-gradient(60rem 26rem at 72% -4rem, rgb(132 98 204 / .34), transparent 70%),
+    radial-gradient(42rem 24rem at 4% 34rem, rgb(70 62 168 / .22), transparent 70%),
+    radial-gradient(50rem 30rem at 90% 110%, rgb(160 110 190 / .16), transparent 70%),
+    linear-gradient(#0a0920, #110f2c 45%, #0b0a21);
+  background-attachment: fixed;
+  color: var(--color-ink);
+  position: relative;
+  isolation: isolate;
+}
+.acc-root:has([data-course-night])::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, rgb(255 255 255 / .9), transparent),
+    radial-gradient(1px 1px at 70% 80%, rgb(255 255 255 / .7), transparent),
+    radial-gradient(1.5px 1.5px at 40% 60%, rgb(255 250 230 / .85), transparent),
+    radial-gradient(1px 1px at 85% 20%, rgb(255 255 255 / .6), transparent),
+    radial-gradient(1px 1px at 10% 85%, rgb(255 255 255 / .55), transparent),
+    radial-gradient(1.2px 1.2px at 55% 15%, rgb(230 220 255 / .8), transparent);
+  background-size: 260px 260px, 340px 340px, 420px 420px, 300px 300px, 380px 380px, 520px 520px;
+  animation: twinkle 9s ease-in-out infinite alternate;
+  opacity: .6;
+}
+.acc-root:has([data-course-night]) > header { background: rgb(10 9 32 / .72); }
+.acc-root:has([data-course-night]) :is(.bg-white, .card, .input, .btn-outline) { background-color: rgb(24 21 52 / .88); }
+.acc-root:has([data-course-night]) .bg-paper { background-color: rgb(19 17 44 / .72); }
+.acc-root:has([data-course-night]) [data-astro-layer] { backdrop-filter: blur(6px); }
+/* Las ruedas y láminas de los modelos, iluminadas como una luna sobre el cielo. */
+.acc-root:has([data-course-night]) [data-astro-layer] svg { filter: drop-shadow(0 0 28px rgb(212 181 122 / .22)); }
+
+/* Una lámina clara para los dibujos del modelo por partes que no son una rueda. */
+.model-plate {
+  border-radius: 1.5rem;
+  background: radial-gradient(circle at 50% 38%, #fffdf8, #f3ebdb 70%, #e9dec8);
+  box-shadow: 0 0 0 1px rgb(200 168 110 / .35), 0 0 60px -14px rgb(212 181 122 / .45);
+}
+
 /* ───────────── Página pública de creadora ─────────────
    Todos los valores salen de variables CSS definidas por la plantilla
    (lib/templates.ts → themeStyle). */

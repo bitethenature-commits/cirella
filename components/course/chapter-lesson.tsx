@@ -16,6 +16,8 @@ export type ChapterContext = {
   initialChapter: number;
   /** Guarda el capítulo abierto (en el reproductor); sin él, no se guarda (vista previa del editor). */
   saveChapter?: (chapter: number) => Promise<void>;
+  /** Marca la lección como completada al llegar al último capítulo (sin él: ya lo está, o es la dueña). */
+  completeLesson?: () => Promise<unknown>;
 };
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"];
@@ -65,6 +67,14 @@ export function ChapterLesson({
     if (ctx.saveChapter) start(() => void ctx.saveChapter!(current).catch(() => undefined));
   }, [current]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Llegar al último capítulo completa la lección (una vez).
+  const completed = useRef(false);
+  useEffect(() => {
+    if (completed.current || !ctx.completeLesson || current !== chapters.length - 1) return;
+    completed.current = true;
+    void ctx.completeLesson().catch(() => undefined);
+  }, [current, chapters.length, ctx]);
+
   const go = (i: number) => {
     setCurrent(i);
     setSeen((s) => new Set(s).add(i));
@@ -88,6 +98,34 @@ export function ChapterLesson({
     flush();
     return <div className="space-y-8">{out}</div>;
   };
+
+  // En pantalla ancha: una columna estrecha con solo los números; al pasar el ratón (o al entrar con el
+  // teclado) se despliega por encima del contenido con los títulos. Así el capítulo, y su modelo, son más anchos.
+  const rail = (
+    <ol className="space-y-1" aria-label="Capítulos de la lección">
+      {chapters.map((c, i) => {
+        const on = i === current;
+        const done = seen.has(i) && i < current;
+        return (
+          <li key={i}>
+            <button
+              type="button"
+              onClick={() => go(i)}
+              aria-current={on ? "step" : undefined}
+              aria-label={`Capítulo ${i + 1}: ${c.title}`}
+              className={`flex min-h-10 w-full items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left text-sm transition ${on ? "bg-ink text-cream" : "hover:bg-sand"}`}
+            >
+              <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[0.65rem] font-semibold ${on ? "bg-gold text-ink" : done ? "bg-gold/25 text-ink" : "border border-line bg-paper text-muted"}`}>
+                {done ? <Check className="h-3 w-3" /> : roman(i + 1)}
+              </span>
+              <span className="w-40 shrink-0 leading-snug opacity-0 transition-opacity duration-150 group-hover/idx:opacity-100 group-focus-within/idx:opacity-100">{c.title}</span>
+              {c.minutes ? <span className={`shrink-0 text-[0.7rem] tabular-nums opacity-0 transition-opacity group-hover/idx:opacity-100 group-focus-within/idx:opacity-100 ${on ? "text-cream/70" : "text-muted"}`}>{c.minutes}′</span> : null}
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
 
   const index = (
     <ol className="space-y-1" aria-label="Capítulos de la lección">
@@ -117,8 +155,8 @@ export function ChapterLesson({
     <div ref={top} className="scroll-mt-32" data-chapter-lesson={hasIndex ? chapters.length : 0}>
       {intro.length > 0 && current === 0 && <div className="mb-8">{body(intro)}</div>}
       {hasIndex ? (
-        <div className="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)]">
-          <aside className="md:sticky md:top-32 md:max-h-[calc(100dvh-9rem)] md:self-start md:overflow-y-auto">
+        <div className="grid gap-6 md:grid-cols-[2.5rem_minmax(0,1fr)] md:gap-5">
+          <aside className="relative z-30 md:sticky md:top-32 md:self-start">
             <details className="group rounded-2xl border border-line bg-paper md:hidden">
               <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold">
                 <span>
@@ -129,14 +167,15 @@ export function ChapterLesson({
               </summary>
               <div className="border-t border-line p-2">{index}</div>
             </details>
-            <div className="hidden md:block">
-              <p className="eyebrow mb-2">En esta lección</p>
-              {total ? (
-                <p className="mb-3 flex items-center gap-1.5 text-xs text-muted">
-                  <Clock className="h-3.5 w-3.5" /> {minutesLabel(total)} · {chapters.length} capítulos
-                </p>
-              ) : null}
-              {index}
+            <div className="group/idx -ml-1 hidden max-h-[calc(100dvh-9rem)] w-12 overflow-y-auto overflow-x-hidden rounded-2xl p-1 transition-[width,background-color,box-shadow] duration-200 [scrollbar-width:none] hover:w-[17rem] hover:bg-paper hover:shadow-soft focus-within:w-[17rem] focus-within:bg-paper focus-within:shadow-soft md:block">
+              <div className="mb-2 flex h-6 items-center gap-1.5 whitespace-nowrap px-2 text-xs text-muted" title={total ? `${minutesLabel(total)} · ${chapters.length} capítulos` : undefined}>
+                <Clock className="h-3.5 w-3.5 shrink-0" />
+                <span className="opacity-0 transition-opacity group-hover/idx:opacity-100 group-focus-within/idx:opacity-100">
+                  {total ? `${minutesLabel(total)} · ` : ""}
+                  {chapters.length} capítulos
+                </span>
+              </div>
+              {rail}
             </div>
           </aside>
           <div className="min-w-0">
@@ -159,7 +198,7 @@ export function ChapterLesson({
                   {roman(current + 2)} · {chapters[current + 1].title} <ArrowRight className="h-4 w-4" />
                 </button>
               )}
-              {current === chapters.length - 1 && <p className="ml-auto text-sm text-muted">Último capítulo: márcala como completada cuando termines.</p>}
+              {current === chapters.length - 1 && <p className="ml-auto text-sm text-muted">Has llegado al final de la lección ✦</p>}
             </div>
           </div>
         </div>

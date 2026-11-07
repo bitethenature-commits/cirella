@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Mi cuenta", robots: { index: false }
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const b = await getBuyerSession();
   return (
-    <div className="min-h-dvh bg-paper">
+    <div className="acc-root min-h-dvh bg-paper">
       {b && (
         <header className="sticky top-0 z-30 border-b border-line bg-paper/90 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-5">

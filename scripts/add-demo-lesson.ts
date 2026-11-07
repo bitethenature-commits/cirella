@@ -5,6 +5,8 @@
 import "./load-env";
 import { PrismaClient } from "@prisma/client";
 import { seedMarsLesson } from "../prisma/demo-lesson-mars";
+import { seedSystemLessons } from "../prisma/demo-lessons-systems";
+import { seedDeepLessons } from "../prisma/demo-lessons-deep";
 import { addDemoStudentProfile, DEMO_STUDENT_EMAIL } from "../prisma/demo-student";
 
 const prisma = new PrismaClient();
@@ -12,7 +14,11 @@ const prisma = new PrismaClient();
 async function main() {
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
   const id = await seedMarsLesson(prisma, ana.id);
-  console.log(id ? "✓ Lección «Marte, tu fuerza» creada" : "La lección ya existía (o no está el curso): no se ha tocado nada");
+  console.log(id ? "✓ Lección «Marte, tu fuerza» creada" : "«Marte, tu fuerza» ya existía (o no está el curso)");
+  const n = await seedSystemLessons(prisma, ana.id);
+  console.log(`✓ ${n} lecciones nuevas de Human Design, Gene Keys y Luna`);
+  const m = await seedDeepLessons(prisma, ana.id);
+  console.log(`✓ ${m} lecciones con muchos modelos por partes`);
   const elena = await prisma.user.findUnique({ where: { email: DEMO_STUDENT_EMAIL } });
   if (elena) {
     await addDemoStudentProfile(prisma, ana.id, elena.id);

@@ -2,9 +2,14 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { ASPECTS, BODY_INFO, HOUSES, SIGNS } from "@/components/models/data/astrology";
+import { isSystemLayer, systemKeys, systemPiece } from "@/components/course/system-layers";
 import {
   ASTRO_LAYERS,
   ASTRO_LAYER_LABEL,
+  LAYER_OPTIONS,
+  LAYER_SYSTEM,
+  LAYER_SYSTEMS,
+  layerOption,
   FOCUS_BODIES,
   FOCUS_BODY_LABEL,
   LAYER_KEYS,
@@ -101,7 +106,7 @@ function FocusSelect({ id, value, onChange, none }: { id: string; value: FocusBo
   );
 }
 
-function pieceLabel(layer: AstroLayer, key: string, focus: FocusBody | null) {
+function pieceLabel(layer: AstroLayer, key: string, focus: FocusBody | null, option: string | null) {
   const f = focus ? `${FOCUS_BODY_LABEL[focus]} en ` : "";
   if (layer === "signs") return `${SIGNS[Number(key)].glyph}︎ ${f}${SIGNS[Number(key)].name}`;
   if (layer === "houses") return `${f}${HOUSES[Number(key) - 1].name} · ${HOUSES[Number(key) - 1].keyword.toLowerCase()}`;
@@ -110,27 +115,52 @@ function pieceLabel(layer: AstroLayer, key: string, focus: FocusBody | null) {
     const a = ASPECTS.find((x) => x.id === key)!;
     return `${a.glyph}︎ ${focus ? `${FOCUS_BODY_LABEL[focus]} en ` : ""}${a.name.toLowerCase()} (${a.angle}°)`;
   }
+  if (isSystemLayer(layer)) {
+    return systemPiece(layer, key, { option, c: null, focus }).name;
+  }
   return key;
 }
 
 function ModelFields({ data, id, onChange }: { data: ModelData; id: string; onChange: (d: ModelData) => void }) {
-  const keys = LAYER_KEYS[data.layer];
+  const option = layerOption(data.layer, data.option);
+  const options = LAYER_OPTIONS[data.layer];
+  // Las piezas que se ven con esta configuración (sin carta: las de la configuración, no las de cada alumna).
+  const shown = isSystemLayer(data.layer) ? systemKeys(data.layer, { option: option === "mine" ? null : option, c: null, focus: data.focus }) : LAYER_KEYS[data.layer];
+  const keys = shown.length ? shown : LAYER_KEYS[data.layer];
   const filled = keys.filter((k) => data.notes[k]?.trim()).length;
   return (
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Qué parte de la carta" htmlFor={`${id}-l`}>
-          <select id={`${id}-l`} className="input text-base sm:text-sm" value={data.layer} onChange={(e) => onChange({ ...data, layer: e.target.value as AstroLayer })}>
-            {ASTRO_LAYERS.map((l) => (
-              <option key={l} value={l}>
-                {ASTRO_LAYER_LABEL[l]}
-              </option>
+        <Field label="Qué modelo se deconstruye" htmlFor={`${id}-l`}>
+          <select id={`${id}-l`} className="input text-base sm:text-sm" value={data.layer} onChange={(e) => onChange({ ...data, layer: e.target.value as AstroLayer, option: null })}>
+            {LAYER_SYSTEMS.map((sys) => (
+              <optgroup key={sys} label={sys}>
+                {ASTRO_LAYERS.filter((l) => LAYER_SYSTEM[l] === sys).map((l) => (
+                  <option key={l} value={l}>
+                    {ASTRO_LAYER_LABEL[l]}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </Field>
-        <Field label="Planeta de la lección" htmlFor={`${id}-f`}>
-          <FocusSelect id={`${id}-f`} value={data.focus} none="Ninguno" onChange={(focus) => onChange({ ...data, focus })} />
-        </Field>
+        {options ? (
+          <Field label="Configuración" htmlFor={`${id}-o`}>
+            <select id={`${id}-o`} className="input text-base sm:text-sm" value={option ?? ""} onChange={(e) => onChange({ ...data, option: e.target.value })}>
+              {options.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          LAYER_SYSTEM[data.layer] === "Astrología" && (
+            <Field label="Planeta de la lección" htmlFor={`${id}-f`}>
+              <FocusSelect id={`${id}-f`} value={data.focus} none="Ninguno" onChange={(focus) => onChange({ ...data, focus })} />
+            </Field>
+          )
+        )}
       </div>
       <Field label="Título (opcional)" htmlFor={`${id}-t`}>
         <input id={`${id}-t`} className="input text-base sm:text-sm" value={data.title} maxLength={140} placeholder="Dónde pones tu energía" onChange={(e) => onChange({ ...data, title: e.target.value })} />
@@ -145,7 +175,7 @@ function ModelFields({ data, id, onChange }: { data: ModelData; id: string; onCh
         <div className="space-y-3 border-t border-line p-3">
           <p className="text-xs text-muted">Al tocar cada pieza, tu alumna lee su significado general y, debajo, lo que escribas aquí. Admite **negrita** y listas.</p>
           {keys.map((k) => (
-            <Field key={k} label={pieceLabel(data.layer, k, data.focus)} htmlFor={`${id}-n${k}`}>
+            <Field key={k} label={pieceLabel(data.layer, k, data.focus, option)} htmlFor={`${id}-n${k}`}>
               <textarea
                 id={`${id}-n${k}`}
                 className="input min-h-20 py-2 text-base sm:text-sm"

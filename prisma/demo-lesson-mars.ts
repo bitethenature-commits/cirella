@@ -95,16 +95,16 @@ Su símbolo ♂︎ es un círculo (el espíritu) con una flecha que sale hacia f
 - **Tu forma de competir, trabajar y hacer deporte.**
 
 Un Marte bien vivido es iniciativa sana; reprimido, se vuelve cansancio, rabia escondida o dolores. Mira cómo se relaciona con los demás planetas: toca cada uno.`),
-  { kind: "MODEL", data: { layer: "planets", focus: "mars", title: "Marte y los demás planetas", intro: "Cada planeta es una parte de ti. Toca uno para ver cómo se relaciona con Marte.", notes: PLANET_NOTES } },
+  { kind: "MODEL", data: { option: null, layer: "planets", focus: "mars", title: "Marte y los demás planetas", intro: "Cada planeta es una parte de ti. Toca uno para ver cómo se relaciona con Marte.", notes: PLANET_NOTES } },
   chapter("Marte en los 12 signos", 40),
   text("El **signo** dice *cómo* actúa tu Marte: su estilo. Hay signos donde está muy a gusto (domicilio y exaltación) y otros donde le cuesta (exilio y caída). Recorre los doce: el tuyo sale marcado."),
-  { kind: "MODEL", data: { layer: "signs", focus: "mars", title: "El estilo de tu fuerza", intro: "", notes: SIGNS_NOTES } },
+  { kind: "MODEL", data: { option: null, layer: "signs", focus: "mars", title: "El estilo de tu fuerza", intro: "", notes: SIGNS_NOTES } },
   chapter("Marte en las 12 casas", 35),
   text("La **casa** dice *dónde* pones tu energía: en qué parte de la vida actúas, compites y te defiendes. Sin hora de nacimiento no hay casas: entonces quédate con el signo."),
-  { kind: "MODEL", data: { layer: "houses", focus: "mars", title: "Dónde pones tu energía", intro: "", notes: HOUSES_NOTES } },
+  { kind: "MODEL", data: { option: null, layer: "houses", focus: "mars", title: "Dónde pones tu energía", intro: "", notes: HOUSES_NOTES } },
   chapter("Sus aspectos", 30),
   text("Los **aspectos** son las conversaciones de Marte con otros planetas: el ángulo entre ellos dice si se ayudan, chocan o se funden. Toca cada línea: el ángulo, el significado y cómo lo vive Marte."),
-  { kind: "MODEL", data: { layer: "aspects", focus: "mars", title: "Cómo conversa Marte", intro: "", notes: ASPECT_NOTES } },
+  { kind: "MODEL", data: { option: null, layer: "aspects", focus: "mars", title: "Cómo conversa Marte", intro: "", notes: ASPECT_NOTES } },
   chapter("Dignidades y elementos", 15),
   text(`Cada planeta se siente más o menos cómodo según el signo:
 
@@ -114,7 +114,7 @@ Un Marte bien vivido es iniciativa sana; reprimido, se vuelve cansancio, rabia e
 - **Caída**: Cáncer. Donde más le cuesta mostrarse.
 
 No es «bueno» o «malo»: un Marte en caída enseña a defender sin herir. El **elemento** del signo te da la primera pista de su ritmo.`),
-  { kind: "MODEL", data: { layer: "elements", focus: "mars", title: "Marte en los cuatro elementos", intro: "", notes: ELEMENT_NOTES } },
+  { kind: "MODEL", data: { option: null, layer: "elements", focus: "mars", title: "Marte en los cuatro elementos", intro: "", notes: ELEMENT_NOTES } },
   chapter("Marte retrógrado", 15),
   text(`Cada dos años, Marte parece ir hacia atrás unas diez semanas. **Retrógrado** es una ilusión óptica desde la Tierra, pero su lectura es clara: la energía se vuelve hacia dentro.
 
@@ -169,29 +169,45 @@ No es «bueno» o «malo»: un Marte en caída enseña a defender sin herir. El 
 
 const MARS_MINUTES = 222;
 
-export async function seedMarsLesson(prisma: PrismaClient, creatorId: string): Promise<string | null> {
-  const course = await prisma.product.findFirst({ where: { creatorId, slug: COURSE_SLUG } });
+export type DemoPart = Part;
+
+/**
+ * Crea una lección larga de ejemplo en un curso de la dueña (por su slug), en un módulo nuevo al final.
+ * Todo en una transacción: si algo falla, no queda una lección vacía. Si ya existe (mismo título), nada.
+ */
+export async function seedDemoLesson(
+  prisma: PrismaClient,
+  creatorId: string,
+  l: { courseSlug: string; moduleTitle: string; title: string; minutes: number; parts: Part[] },
+): Promise<string | null> {
+  const course = await prisma.product.findFirst({ where: { creatorId, slug: l.courseSlug } });
   if (!course) return null;
-  if (await prisma.lesson.findFirst({ where: { productId: course.id, title: MARS_LESSON_TITLE }, select: { id: true } })) return null;
-  // Todo junto: si algo falla, no queda una lección vacía.
+  if (await prisma.lesson.findFirst({ where: { productId: course.id, title: l.title }, select: { id: true } })) return null;
   return prisma.$transaction(async (tx) => {
-  const modCount = await tx.courseModule.count({ where: { productId: course.id } });
-  const mod = await tx.courseModule.create({ data: { creatorId, productId: course.id, title: MODULE_TITLE, sortOrder: modCount } });
-  const lesson = await tx.lesson.create({
-    data: { creatorId, productId: course.id, moduleId: mod.id, title: MARS_LESSON_TITLE, durationMin: MARS_MINUTES, sortOrder: 0, kind: "TEXT", published: true },
-  });
-  await tx.lessonPart.createMany({
-    data: MARS_PARTS.map((p, i) => ({
-      creatorId,
-      productId: course.id,
-      lessonId: lesson.id,
-      sortOrder: i,
-      kind: p.kind,
-      body: p.kind === "TEXT" ? p.body : null,
-      bodyFormat: p.kind === "TEXT" ? "MD" : null,
-      data: p.kind === "TEXT" ? undefined : (p.data as unknown as Prisma.InputJsonValue),
-    })),
-  });
-  return lesson.id;
+    const modCount = await tx.courseModule.count({ where: { productId: course.id } });
+    const mod = await tx.courseModule.create({ data: { creatorId, productId: course.id, title: l.moduleTitle, sortOrder: modCount } });
+    const lesson = await tx.lesson.create({
+      data: { creatorId, productId: course.id, moduleId: mod.id, title: l.title, durationMin: l.minutes, sortOrder: 0, kind: "TEXT", published: true },
+    });
+    await tx.lessonPart.createMany({
+      data: l.parts.map((p, i) => ({
+        creatorId,
+        productId: course.id,
+        lessonId: lesson.id,
+        sortOrder: i,
+        kind: p.kind,
+        body: p.kind === "TEXT" ? p.body : null,
+        bodyFormat: p.kind === "TEXT" ? "MD" : null,
+        data: p.kind === "TEXT" ? undefined : (p.data as unknown as Prisma.InputJsonValue),
+      })),
+    });
+    return lesson.id;
   });
 }
+
+export function seedMarsLesson(prisma: PrismaClient, creatorId: string): Promise<string | null> {
+  return seedDemoLesson(prisma, creatorId, { courseSlug: COURSE_SLUG, moduleTitle: MODULE_TITLE, title: MARS_LESSON_TITLE, minutes: MARS_MINUTES, parts: MARS_PARTS });
+}
+
+export const demoText = text;
+export const demoChapter = chapter;

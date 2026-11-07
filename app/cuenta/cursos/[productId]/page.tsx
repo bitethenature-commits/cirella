@@ -13,11 +13,12 @@ import { lessonPartViews, partsLabel, partView } from "@/lib/lesson-parts";
 import { LESSON_PART_FILE_SELECT } from "@/lib/lessons";
 import { isPersonalMode } from "@/lib/site-mode";
 import { formatDate } from "@/lib/tz";
-import { MethodTag, Progress } from "../../ui";
+import { MethodTag } from "../../ui";
 import { listBirthProfiles } from "@/lib/birth-profiles";
 import { isBlockKind } from "@/lib/lesson-blocks";
 import { saveLessonChapter } from "./chapter-action";
-import { CompleteButton } from "./complete-button";
+import { toggleLessonComplete } from "../../actions";
+import { AutoComplete } from "./complete-button";
 import { CourseCord } from "./course-cord";
 import { CourseOutline, type OutlineModule } from "./course-outline";
 
@@ -86,10 +87,8 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
   const done = new Set((await prisma.lessonProgress.findMany({ where: { userId: user.id, productId } })).map((p) => p.lessonId));
   const current = lessons.find((l) => l.id === leccion) ?? lessons.find((l) => !done.has(l.id) && !l.lockedLabel) ?? lessons[0];
   const idx = current ? lessons.indexOf(current) : -1;
-  const prev = idx > 0 ? lessons[idx - 1] : null;
   const next = idx >= 0 && idx < lessons.length - 1 ? lessons[idx + 1] : null;
   const completed = published.filter((l) => done.has(l.id)).length;
-  const percent = published.length ? Math.round((completed / published.length) * 100) : 0;
   const locked = current ? locks.get(current.id) ?? null : null;
   // Ver una lección es acceder al contenido (las de texto o vídeo incrustado no pasan por
   // /api/download): desde aquí vale su renuncia al desistimiento.
@@ -125,9 +124,10 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
   return (
     // En el ordenador, el curso usa más ancho que el resto del área: a la izquierda del todo los módulos y
     // las lecciones, a su derecha los capítulos de la lección y luego su contenido (sin subir y bajar).
-    <div className="lg:mx-[calc(50%_-_min(50vw_-_1.25rem,_44rem))]">
+    // data-course-night: el curso se ve de noche, como la web (app/globals.css, «Los cursos, de noche»).
+    <div className="lg:mx-[calc(50%_-_min(50vw_-_1.25rem,_44rem))]" data-course-night>
       {isOwner && (
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#d9cdf0] bg-[#f4effc] px-4 py-2.5 text-sm" role="status" data-owner-preview>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#d9cdf0] bg-[#f4effc] px-4 py-2.5 text-sm text-[#2a2350]" role="status" data-owner-preview>
           <span className="inline-flex items-center gap-2">
             <Eye className="h-4 w-4 text-lavender-deep" /> Estás viendo el curso como alumna
           </span>
@@ -149,10 +149,6 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
             Incluido en <Link href={`/cuenta/membresias/${source.via.productId}`} className="font-semibold text-ink underline-offset-2 hover:underline">«{source.via.title}»</Link> mientras tu membresía esté activa.
           </p>
         )}
-        <div className="mt-2 flex max-w-sm items-center gap-3">
-          <Progress value={percent} />
-          <span className="shrink-0 text-xs font-semibold tabular-nums">Progreso {percent}%</span>
-        </div>
       </div>
 
       {lessons.length > 0 && (
@@ -189,34 +185,25 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
                       energyHref: isPersonalMode() ? "/cuenta/mi-energia" : null,
                       initialChapter: view?.chapter ?? 0,
                       saveChapter: isOwner ? undefined : saveLessonChapter.bind(null, current.id),
+                      // Llegar al último capítulo completa la lección (ya no hay botón «Marcar como completada»).
+                      completeLesson: isOwner || locked || done.has(current.id) ? undefined : toggleLessonComplete.bind(null, current.id, true),
                     }
                   : undefined
               }
               notice={ownerNote ? <p className="mt-3 rounded-xl border border-[#ecdcb8] bg-[#fbf5e8] px-3 py-2 text-xs text-[#7a5a1c]">{ownerNote}</p> : null}
               footer={
-                <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-line pt-6">
-                  {isOwner ? (
-                    <span className="btn btn-outline pointer-events-none opacity-60" aria-disabled title="Tus alumnas la marcan como completada">
-                      Marcar como completada
-                    </span>
-                  ) : (
-                    !locked && <CompleteButton lessonId={current.id} completed={done.has(current.id)} nextHref={next ? `${base}?leccion=${next.id}` : null} />
-                  )}
-                  <div className="ml-auto flex gap-2">
-                    {prev && (
-                      <Link href={`${base}?leccion=${prev.id}`} className="btn btn-ghost btn-sm" aria-label="Lección anterior">
-                        <ArrowLeft className="h-4 w-4" /> Anterior
-                      </Link>
-                    )}
-                    {next && (
-                      <Link href={`${base}?leccion=${next.id}`} className="btn btn-ghost btn-sm" aria-label="Siguiente lección">
-                        Siguiente <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    )}
+                // Sin «Completada» ni «Anterior»: la lección se completa sola (al abrirla o, si tiene
+                // capítulos, al llegar al último) y el cordel de la izquierda lleva a cualquier otra.
+                next ? (
+                  <div className="mt-8 flex justify-end">
+                    <Link href={`${base}?leccion=${next.id}`} className="btn btn-ghost btn-sm" aria-label="Siguiente lección">
+                      Siguiente lección <ArrowRight className="h-4 w-4" />
+                    </Link>
                   </div>
-                </div>
+                ) : null
               }
             />
+            {!long && !isOwner && !locked && !done.has(current.id) && <AutoComplete lessonId={current.id} />}
             <OnePlayerAtATime />
           </article>
         ) : (
