@@ -118,7 +118,7 @@ export function ChapterLesson({
       {intro.length > 0 && current === 0 && <div className="mb-8">{body(intro)}</div>}
       {hasIndex ? (
         <div className="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)]">
-          <aside className="md:sticky md:top-32 md:self-start">
+          <aside className="md:sticky md:top-32 md:max-h-[calc(100dvh-9rem)] md:self-start md:overflow-y-auto">
             <details className="group rounded-2xl border border-line bg-paper md:hidden">
               <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold">
                 <span>

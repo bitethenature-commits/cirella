@@ -18,6 +18,7 @@ import { listBirthProfiles } from "@/lib/birth-profiles";
 import { isBlockKind } from "@/lib/lesson-blocks";
 import { saveLessonChapter } from "./chapter-action";
 import { CompleteButton } from "./complete-button";
+import { CourseCord } from "./course-cord";
 import { CourseOutline, type OutlineModule } from "./course-outline";
 
 /**
@@ -122,7 +123,9 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
       : null;
 
   return (
-    <div>
+    // En el ordenador, el curso usa más ancho que el resto del área: a la izquierda del todo los módulos y
+    // las lecciones, a su derecha los capítulos de la lección y luego su contenido (sin subir y bajar).
+    <div className="lg:mx-[calc(50%_-_min(50vw_-_1.25rem,_44rem))]">
       {isOwner && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#d9cdf0] bg-[#f4effc] px-4 py-2.5 text-sm" role="status" data-owner-preview>
           <span className="inline-flex items-center gap-2">
@@ -166,7 +169,11 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
         </details>
       )}
 
-      <div className="mt-6 grid gap-8 lg:mt-8 lg:grid-cols-[1fr_300px]">
+      <div className="mt-6 grid gap-6 lg:mt-8 lg:grid-cols-[3.5rem_minmax(0,1fr)]">
+        <aside className="hidden lg:sticky lg:top-32 lg:block lg:max-h-[calc(100dvh-9rem)] lg:self-start lg:overflow-y-auto" data-outline-desktop aria-label="Contenido del curso">
+          <CourseCord modules={modules} base={base} done={[...done]} currentId={current?.id ?? null} />
+        </aside>
+
         {current && currentMeta ? (
           <article className="min-w-0">
             <LessonView
@@ -216,10 +223,6 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
           <p className="text-muted">Este curso aún no tiene lecciones.</p>
         )}
 
-        <aside className="hidden lg:sticky lg:top-32 lg:block lg:self-start" data-outline-desktop>
-          <p className="eyebrow mb-3">Contenido del curso</p>
-          <CourseOutline modules={modules} base={base} done={done} currentId={current?.id ?? null} />
-        </aside>
       </div>
     </div>
   );

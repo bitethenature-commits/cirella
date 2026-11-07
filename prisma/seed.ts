@@ -55,6 +55,7 @@ import { ANA_AVAILABILITY, DEMO_TZ, demoPurchaseDaysAgo, demoSchedule } from "./
 import { demoSaleFields } from "./demo-sales";
 import { seedDemoStudent } from "./demo-student";
 import { seedMarsLesson } from "./demo-lesson-mars";
+import { grantFullAccess } from "./demo-full-access";
 
 const prisma = new PrismaClient();
 const STORAGE = path.resolve(process.cwd(), storageDir());
@@ -1988,6 +1989,8 @@ async function main() {
   await seedDemoStudent(prisma, { creatorId: ana.id, ownerUserId: anaUser.id, passwordHash: password, timezone: TZ, now: NOW });
   // La lección larga de ejemplo (capítulos y la carta por partes): «Marte, tu fuerza».
   await seedMarsLesson(prisma, ana.id);
+  // Laura, con acceso a todo para ir probando la web.
+  await grantFullAccess(prisma, { creatorId: ana.id, ownerUserId: anaUser.id, now: NOW });
 
   const counts = {
     usuarios: await prisma.user.count(),
