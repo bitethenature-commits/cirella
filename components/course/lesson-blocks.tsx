@@ -5,8 +5,14 @@ import { Check, X } from "lucide-react";
 import { ASPECT_BY_ID, BODY_INFO, HOUSES, bodyInHouseText, bodyInSignText, signOf } from "@/components/models/data/astrology";
 import type { BirthProfile, ComputedProfile } from "@/lib/birth-profile";
 import type { AstroToday } from "@/lib/energy-today";
+import { NIGHT_CHART_STYLE } from "@/components/models/night-chart-style";
 import { FOCUS_BODY_LABEL, readBlock, type FocusBody, type GlossaryData, type MyChartData, type QuizData, type TodayData } from "@/lib/lesson-blocks";
+import dynamic from "next/dynamic";
+import { RichContent } from "@/components/rich-text/rich-content";
 import { AstroLayerModel } from "./astro-layer";
+
+// La «Carta a mano»: la carta natal completa preparada por la dueña (se carga aparte: es pesada).
+const ChartModel = dynamic(() => import("@/components/models/chart-model").then((m) => m.ChartModel), { ssr: false, loading: () => <p className="grid min-h-60 place-items-center text-sm opacity-70">Cargando la carta…</p> });
 
 /**
  * Las partes de las lecciones largas (lib/lesson-blocks.ts) en el área de alumna: el modelo por partes,
@@ -14,14 +20,31 @@ import { AstroLayerModel } from "./astro-layer";
  * «Mi energía»), lo que toca sale calculado con sus datos; sin ella, un aviso para guardarlos.
  */
 /** computed: la carta de la alumna ya calculada (una vez para toda la lección). */
-export type BlockContext = { profile: BirthProfile | null; computed: ComputedProfile | null; energyHref: string | null };
+export type BlockContext = { profile: BirthProfile | null; computed: ComputedProfile | null; energyHref: string | null; others?: BirthProfile[] };
 
 export function LessonBlock({ kind, data, ctx }: { kind: string; data: unknown; ctx: BlockContext }) {
   const result = ctx.computed;
   switch (kind) {
     case "MODEL": {
       const d = readBlock("MODEL", data);
-      return d ? <AstroLayerModel data={d} computed={result} /> : null;
+      return d ? <AstroLayerModel data={d} computed={result} others={ctx.others} /> : null;
+    }
+    case "CHART": {
+      const d = readBlock("CHART", data);
+      return d ? (
+        <section className="overflow-hidden rounded-3xl border border-line bg-paper" data-block="chart">
+          {(d.title || d.intro) && (
+            <div className="px-5 pt-5 sm:px-6">
+              <p className="eyebrow">Carta natal</p>
+              {d.title && <h3 className="display mt-1 text-[1.7rem] leading-tight">{d.title}</h3>}
+              {d.intro && <RichContent text={d.intro} format="MD" legacy="paragraphs" tone="account" className="mt-2 space-y-3 text-[0.98rem] leading-relaxed text-ink/80" />}
+            </div>
+          )}
+          <div className="cp overflow-hidden p-3 sm:p-5" style={{ ...NIGHT_CHART_STYLE, minHeight: 0, background: "transparent" }}>
+            <ChartModel custom={d} />
+          </div>
+        </section>
+      ) : null;
     }
     case "MYCHART": {
       const d = readBlock("MYCHART", data);
@@ -110,8 +133,8 @@ function MyPlanet({ data, computed, ctx }: { data: MyChartData; computed: Comput
   );
 }
 
-const MAJOR = ["conjunction", "sextile", "square", "trine", "opposition"] as const;
-const NATAL_ORB = { conjunction: 8, opposition: 8, square: 7, trine: 7, sextile: 5 } as const;
+const MAJOR = ["conjunction", "sextile", "square", "trine", "quincunx", "opposition"] as const;
+const NATAL_ORB = { conjunction: 8, opposition: 8, square: 7, trine: 7, sextile: 5, quincunx: 3 } as const;
 
 function natalAspects(c: ComputedProfile, focus: FocusBody) {
   const me = c.chart.bodies.find((b) => b.id === focus);

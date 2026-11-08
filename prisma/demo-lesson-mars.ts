@@ -95,16 +95,16 @@ Su símbolo ♂︎ es un círculo (el espíritu) con una flecha que sale hacia f
 - **Tu forma de competir, trabajar y hacer deporte.**
 
 Un Marte bien vivido es iniciativa sana; reprimido, se vuelve cansancio, rabia escondida o dolores. Mira cómo se relaciona con los demás planetas: toca cada uno.`),
-  { kind: "MODEL", data: { option: null, layer: "planets", focus: "mars", title: "Marte y los demás planetas", intro: "Cada planeta es una parte de ti. Toca uno para ver cómo se relaciona con Marte.", notes: PLANET_NOTES } },
+  { kind: "MODEL", data: { option: null, mode: "explore", layer: "planets", focus: "mars", title: "Marte y los demás planetas", intro: "Cada planeta es una parte de ti. Toca uno para ver cómo se relaciona con Marte.", notes: PLANET_NOTES } },
   chapter("Marte en los 12 signos", 40),
   text("El **signo** dice *cómo* actúa tu Marte: su estilo. Hay signos donde está muy a gusto (domicilio y exaltación) y otros donde le cuesta (exilio y caída). Recorre los doce: el tuyo sale marcado."),
-  { kind: "MODEL", data: { option: null, layer: "signs", focus: "mars", title: "El estilo de tu fuerza", intro: "", notes: SIGNS_NOTES } },
+  { kind: "MODEL", data: { option: null, mode: "explore", layer: "signs", focus: "mars", title: "El estilo de tu fuerza", intro: "", notes: SIGNS_NOTES } },
   chapter("Marte en las 12 casas", 35),
   text("La **casa** dice *dónde* pones tu energía: en qué parte de la vida actúas, compites y te defiendes. Sin hora de nacimiento no hay casas: entonces quédate con el signo."),
-  { kind: "MODEL", data: { option: null, layer: "houses", focus: "mars", title: "Dónde pones tu energía", intro: "", notes: HOUSES_NOTES } },
+  { kind: "MODEL", data: { option: null, mode: "explore", layer: "houses", focus: "mars", title: "Dónde pones tu energía", intro: "", notes: HOUSES_NOTES } },
   chapter("Sus aspectos", 30),
   text("Los **aspectos** son las conversaciones de Marte con otros planetas: el ángulo entre ellos dice si se ayudan, chocan o se funden. Toca cada línea: el ángulo, el significado y cómo lo vive Marte."),
-  { kind: "MODEL", data: { option: null, layer: "aspects", focus: "mars", title: "Cómo conversa Marte", intro: "", notes: ASPECT_NOTES } },
+  { kind: "MODEL", data: { option: null, mode: "explore", layer: "aspects", focus: "mars", title: "Cómo conversa Marte", intro: "", notes: ASPECT_NOTES } },
   chapter("Dignidades y elementos", 15),
   text(`Cada planeta se siente más o menos cómodo según el signo:
 
@@ -114,7 +114,7 @@ Un Marte bien vivido es iniciativa sana; reprimido, se vuelve cansancio, rabia e
 - **Caída**: Cáncer. Donde más le cuesta mostrarse.
 
 No es «bueno» o «malo»: un Marte en caída enseña a defender sin herir. El **elemento** del signo te da la primera pista de su ritmo.`),
-  { kind: "MODEL", data: { option: null, layer: "elements", focus: "mars", title: "Marte en los cuatro elementos", intro: "", notes: ELEMENT_NOTES } },
+  { kind: "MODEL", data: { option: null, mode: "explore", layer: "elements", focus: "mars", title: "Marte en los cuatro elementos", intro: "", notes: ELEMENT_NOTES } },
   chapter("Marte retrógrado", 15),
   text(`Cada dos años, Marte parece ir hacia atrás unas diez semanas. **Retrógrado** es una ilusión óptica desde la Tierra, pero su lectura es clara: la energía se vuelve hacia dentro.
 

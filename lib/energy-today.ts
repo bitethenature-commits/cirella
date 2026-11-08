@@ -54,7 +54,7 @@ const TRANSIT_ORB: Record<TransitBody, number> = {
 const TRANSITING: TransitBody[] = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto"];
 const NATAL_BODIES: TransitBody[] = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto"];
 const SLOW_NATAL = new Set<NatalPoint>(["jupiter", "saturn", "uranus", "neptune", "pluto"]);
-const MAJOR: AspectId[] = ["conjunction", "sextile", "square", "trine", "opposition"];
+const MAJOR: AspectId[] = ["conjunction", "sextile", "square", "trine", "quincunx", "opposition"];
 
 const ASPECT_PHRASE: Record<AspectId, string> = {
   conjunction: "sobre",
@@ -137,7 +137,8 @@ export function astroToday(c: ComputedProfile, now: Date): AstroToday {
       for (const aspect of MAJOR) {
         const angle = ASPECT_BY_ID[aspect].angle;
         const orb = Math.abs(sep - angle);
-        if (orb > TRANSIT_ORB[t]) continue;
+        // El quincuncio, con algo menos de orbe (es un aspecto menor y fino).
+        if (orb > TRANSIT_ORB[t] * (aspect === "quincunx" ? 0.6 : 1)) continue;
         transits.push({
           transit: t,
           natal: n,

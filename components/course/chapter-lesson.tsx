@@ -11,6 +11,8 @@ import { LessonParts, type PlayerPart } from "./lesson-parts";
 export type ChapterContext = {
   /** Perfil propio de la alumna en «Mi energía» (null si aún no lo ha guardado). */
   profile: BirthProfile | null;
+  /** Las demás personas guardadas en «Mi energía» (para la sinastría). */
+  others?: BirthProfile[];
   energyHref: string | null;
   /** Capítulo donde se quedó (LessonView.chapter). */
   initialChapter: number;
@@ -55,7 +57,7 @@ export function ChapterLesson({
   const top = useRef<HTMLDivElement>(null);
   const first = useRef(true);
   const { result } = useComputedProfile(ctx.profile ?? undefined);
-  const blockCtx: BlockContext = { profile: ctx.profile, computed: result, energyHref: ctx.energyHref };
+  const blockCtx: BlockContext = { profile: ctx.profile, computed: result, energyHref: ctx.energyHref, others: ctx.others };
   const total = chapters.reduce((a, c) => a + (c.minutes ?? 0), 0);
 
   useEffect(() => {

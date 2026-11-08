@@ -121,7 +121,7 @@ export function moonPiece(layer: MoonLayer, key: string, { option, c }: LayerCtx
  * -------------------------------------------------------------------------- */
 
 /** Una luna con relieve: la parte en sombra, azul noche; la iluminada, crema con degradado y halo. */
-function MoonGlobe({ p, cx, cy, r, phase, glow = false }: { p: string; cx: number; cy: number; r: number; phase: number; glow?: boolean }) {
+export function MoonGlobe({ p, cx, cy, r, phase, glow = false }: { p: string; cx: number; cy: number; r: number; phase: number; glow?: boolean }) {
   const lit = moonLit(cx, cy, r, phase);
   return (
     <g pointerEvents="none">
@@ -140,7 +140,7 @@ function MoonGlobe({ p, cx, cy, r, phase, glow = false }: { p: string; cx: numbe
   );
 }
 
-function MoonDefs({ p }: { p: string }) {
+export function MoonDefs({ p }: { p: string }) {
   return (
     <>
       <NightDefs p={p} />
@@ -278,7 +278,7 @@ export function MoonDiagram({ layer, selected, mine, tap, ctx }: DiagramProps & 
               <g pointerEvents="none">
                 {/* El eje de los nodos: del Sur (lo conocido) al Norte (hacia dónde creces). */}
                 <line x1={pt(sel * 30 + 195, 84).x} y1={pt(sel * 30 + 195, 84).y} x2={pt(sel * 30 + 15, 84).x} y2={pt(sel * 30 + 15, 84).y} stroke={NIGHT_GOLD} strokeWidth="5" strokeOpacity="0.3" filter={`url(#${p}blur)`} />
-                <line x1={pt(sel * 30 + 195, 84).x} y1={pt(sel * 30 + 195, 84).y} x2={pt(sel * 30 + 15, 84).x} y2={pt(sel * 30 + 15, 84).y} stroke={`url(#${p}gold)`} strokeWidth="2" />
+                <line x1={pt(sel * 30 + 195, 84).x} y1={pt(sel * 30 + 195, 84).y} x2={pt(sel * 30 + 15, 84).x} y2={pt(sel * 30 + 15, 84).y} stroke={NIGHT_GOLD} strokeWidth="2" />
                 <circle cx={C} cy={C} r="34" fill={NIGHT} stroke="rgb(233 204 142 / .4)" />
                 <MoonGlobe p={p} cx={C} cy={C} r={20} phase={0.3} />
                 <circle cx={pt(sel * 30 + 15, 70).x} cy={pt(sel * 30 + 15, 70).y} r="15" fill={`url(#${p}gold)`} stroke="#FFF3D4" strokeWidth="1.4" />

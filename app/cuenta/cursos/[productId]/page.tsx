@@ -107,10 +107,14 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
   const long = parts.some((p) => isBlockKind(p.kind ?? ""));
   const [ownProfile, view] = long
     ? await Promise.all([
-        listBirthProfiles(course.creatorId, user.id).then((list) => list.find((p) => p.isOwn) ?? null),
+        listBirthProfiles(course.creatorId, user.id),
         current ? prisma.lessonView.findUnique({ where: { userId_lessonId: { userId: user.id, lessonId: current.id } }, select: { chapter: true } }) : null,
       ])
     : [null, null];
+  // Su perfil y, para la sinastría, las demás personas que tiene guardadas en «Mi energía».
+  const profiles = Array.isArray(ownProfile) ? ownProfile : [];
+  const own = profiles.find((p) => p.isOwn) ?? null;
+  const others = profiles.filter((p) => !p.isOwn).map((p) => ({ name: p.name, date: p.date, time: p.time, place: p.place }));
   const currentMeta = current ? meta.get(current.id)! : null;
   const ownerNote =
     isOwner && current && currentMeta
@@ -181,7 +185,8 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
               chapter={
                 long && current
                   ? {
-                      profile: ownProfile ? { name: ownProfile.name, date: ownProfile.date, time: ownProfile.time, place: ownProfile.place } : null,
+                      profile: own ? { name: own.name, date: own.date, time: own.time, place: own.place } : null,
+                      others,
                       energyHref: isPersonalMode() ? "/cuenta/mi-energia" : null,
                       initialChapter: view?.chapter ?? 0,
                       saveChapter: isOwner ? undefined : saveLessonChapter.bind(null, current.id),

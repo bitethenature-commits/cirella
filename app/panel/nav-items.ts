@@ -13,6 +13,7 @@ import {
   Menu,
   MessagesSquare,
   Newspaper,
+  Orbit,
   Palette,
   Receipt,
   Settings,
@@ -35,6 +36,7 @@ export const PANEL_NAV = [
   { href: "/panel/reservas", label: "Reservas", icon: CalendarDays },
   { href: "/panel/estadisticas", label: "Estadísticas", icon: BarChart3 },
   { href: "/panel/automatizaciones", label: "Automatizaciones", icon: Zap },
+  { href: "/panel/modelos", label: "Modelos", icon: Orbit },
   { href: "/panel/plan", label: "Plan", icon: Sparkles },
   { href: "/panel/ajustes", label: "Ajustes", icon: Settings },
 ];
@@ -81,6 +83,7 @@ const PERSONAL_NAV: PanelNavItem[] = [
   { href: "/panel/publicaciones", label: "Publicaciones", icon: Newspaper },
   { href: "/panel/portal", label: "Portal de Noticias", icon: Gift },
   { href: "/panel/barajas", label: "Barajas", icon: Layers },
+  { href: "/panel/modelos", label: "Modelos", icon: Orbit },
   { href: "/panel/codigos", label: "Códigos", icon: TicketPercent },
   { href: "/panel/ventas", label: "Inscripciones", icon: ClipboardList },
   { href: "/panel/clientes", label: "Clientes", icon: Users },

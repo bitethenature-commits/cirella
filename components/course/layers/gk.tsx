@@ -1,11 +1,12 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useState } from "react";
 import { GK_CENTER, GK_VIEWBOX, KEY_BY_N, PATH_EDGES, SEQUENCES, SEQUENCE_BY_ID, SPHERE_BY_ID, SPHERES, inSequence, type SequenceId, type Sphere } from "@/components/models/data/gene-keys";
 import { GATE_BY_N, CENTRE_BY_ID } from "@/components/models/data/human-design";
 import { LAYER_KEYS, type AstroLayer } from "@/lib/lesson-blocks";
 import { listEs, type DiagramProps, type LayerCtx, type SystemPiece } from "./common";
 import { GK_LINES } from "./texts";
+import { KeyGrid } from "./key-grid";
 
 /**
  * Las capas de las Gene Keys: las esferas del Camino Dorado (con los números de la alumna dentro), las tres
@@ -16,19 +17,19 @@ import { GK_LINES } from "./texts";
 export type GkLayer = Extract<AstroLayer, `gk-${string}`>;
 
 /** Las 64 puertas en el orden de la rueda: la compañera de programación de una llave es la de enfrente. */
-const WHEEL = [41, 19, 13, 49, 30, 55, 37, 63, 22, 36, 25, 17, 21, 51, 42, 3, 27, 24, 2, 23, 8, 20, 16, 35, 45, 12, 15, 52, 39, 53, 62, 56, 31, 33, 7, 4, 29, 59, 40, 64, 47, 6, 46, 18, 48, 57, 32, 50, 28, 44, 1, 43, 14, 34, 9, 5, 26, 11, 10, 58, 38, 54, 61, 60];
-const partnerOf = (n: number) => WHEEL[(WHEEL.indexOf(n) + 32) % 64];
+export const WHEEL = [41, 19, 13, 49, 30, 55, 37, 63, 22, 36, 25, 17, 21, 51, 42, 3, 27, 24, 2, 23, 8, 20, 16, 35, 45, 12, 15, 52, 39, 53, 62, 56, 31, 33, 7, 4, 29, 59, 40, 64, 47, 6, 46, 18, 48, 57, 32, 50, 28, 44, 1, 43, 14, 34, 9, 5, 26, 11, 10, 58, 38, 54, 61, 60];
+export const partnerOf = (n: number) => WHEEL[(WHEEL.indexOf(n) + 32) % 64];
 
-const SPECTRUM = {
+export const SPECTRUM = {
   shadow: { name: "Sombra", kicker: "La frecuencia del miedo", meaning: "La forma reactiva de la llave: lo que aparece cuando vives desde el miedo o el piloto automático. No es un defecto: es la puerta de entrada." },
   gift: { name: "Don", kicker: "La frecuencia del genio", meaning: "La misma energía, vivida con aceptación: tu talento natural. Aparece cuando contemplas la sombra sin huir de ella." },
   siddhi: { name: "Siddhi", kicker: "La frecuencia de la gracia", meaning: "La expresión más alta, un estado que no se fuerza: llega cuando ya no hay nada que defender." },
 } as const;
 
-const SHORT: Record<SequenceId, string> = { activation: "Activación", venus: "Venus", pearl: "Perla" };
+export const SHORT: Record<SequenceId, string> = { activation: "Activación", venus: "Venus", pearl: "Perla" };
 
 /** El nombre de una esfera dentro de una secuencia (la Obra de vida es la Marca en la Perla…). */
-const nameIn = (s: Sphere, seq: string | null) => (seq && s.sequence !== seq && s.also?.sequence === seq ? s.also.name : s.name);
+export const nameIn = (s: Sphere, seq: string | null) => (seq && s.sequence !== seq && s.also?.sequence === seq ? s.also.name : s.name);
 
 /** En qué esferas de la alumna está cada llave. */
 function spheresWith(c: LayerCtx["c"], n: number) {
@@ -36,7 +37,16 @@ function spheresWith(c: LayerCtx["c"], n: number) {
   return SPHERES.filter((s) => c.geneKeys.keys[s.id] === n);
 }
 
+/** «21:gift»: la llave 21, su don. */
+const FREQS = ["shadow", "gift", "siddhi"] as const;
+type Freq = (typeof FREQS)[number];
+export const SPECTRUM_KEYS = Array.from({ length: 64 }, (_, i) => i + 1).flatMap((n) => FREQS.map((f) => `${n}:${f}`));
+const parseFreq = (key: string, fallback: number) => (key.includes(":") ? { n: Number(key.split(":")[0]), f: key.split(":")[1] as Freq } : { n: fallback, f: key as Freq });
+/** Sus llaves, en el orden de las esferas (la Obra de vida primero). */
+const myKeys = (c: LayerCtx["c"]) => (c ? [...new Set(SPHERES.map((s) => c.geneKeys.keys[s.id]))] : []);
+
 export function gkKeys(layer: GkLayer, { option, c }: LayerCtx): string[] {
+  if (layer === "gk-spectrum") return SPECTRUM_KEYS;
   const all = LAYER_KEYS[layer];
   if (layer === "gk-spheres" && option && option !== "all") {
     // En el orden del recorrido de esa secuencia (la Atracción abre Venus; el Propósito, que cierra la Activación, va antes).
@@ -56,10 +66,11 @@ export function gkMine(layer: GkLayer, { c }: LayerCtx): string[] {
   if (!c) return [];
   if (layer === "gk-keys") return [...new Set(Object.values(c.geneKeys.keys))].map(String);
   if (layer === "gk-lines") return [...new Set(Object.values(c.geneKeys.lines))].map(String);
+  if (layer === "gk-spectrum") return myKeys(c).map((n) => `${n}:shadow`);
   return [];
 }
 
-export function gkPiece(layer: GkLayer, key: string, { option, c }: LayerCtx): SystemPiece {
+export function gkPiece(layer: GkLayer, key: string, { option, c, notes }: LayerCtx): SystemPiece {
   switch (layer) {
     case "gk-spheres": {
       const s = SPHERE_BY_ID[key];
@@ -100,16 +111,17 @@ export function gkPiece(layer: GkLayer, key: string, { option, c }: LayerCtx): S
       };
     }
     case "gk-spectrum": {
-      const s = SPECTRUM[key as keyof typeof SPECTRUM];
-      const sphereId = option && SPHERE_BY_ID[option] ? option : "lifework";
-      const sphere = SPHERE_BY_ID[sphereId];
-      const k = c ? KEY_BY_N.get(c.geneKeys.keys[sphereId]) : null;
+      const { n, f } = parseFreq(key, myKeys(c)[0] ?? 1);
+      const sp = SPECTRUM[f];
+      const k = KEY_BY_N.get(n)!;
+      const where = spheresWith(c, n);
+      const note = notes?.[f]?.trim();
       return {
-        glyph: "",
-        name: s.name,
-        kicker: s.kicker,
-        meaning: s.meaning,
-        personal: k ? `En tu ${sphere.name} (llave ${k.n}), tu ${s.name.toLowerCase()} es «${key === "shadow" ? k.shadow : key === "gift" ? k.gift : k.siddhi}».` : null,
+        glyph: String(n),
+        name: `${sp.name} de la llave ${n}: ${k[f]}`,
+        kicker: sp.kicker,
+        meaning: `${sp.meaning}\n\nEn la llave ${n}, la escalera sube así: de ${k.shadow} (sombra) a ${k.gift} (don) y a ${k.siddhi} (siddhi). ${f === "shadow" ? `Aquí la energía es ${k.shadow.toLowerCase()}: no es un error, es el punto de partida.` : f === "gift" ? `Cuando contemplas tu ${k.shadow.toLowerCase()} sin huir, aparece ${k.gift.toLowerCase()}.` : `Más allá del esfuerzo, ${k.gift.toLowerCase()} se vuelve ${k.siddhi.toLowerCase()}.`}${note ? `\n\n${note}` : ""}`,
+        personal: c ? (where.length ? `Es tu llave de ${listEs(where.map((s) => s.name))}.` : "No está en tu perfil hologenético.") : null,
       };
     }
     case "gk-lines": {
@@ -134,7 +146,7 @@ export function gkPiece(layer: GkLayer, key: string, { option, c }: LayerCtx): S
  * -------------------------------------------------------------------------- */
 
 /** Los tres colores de la carta: «line» para caminos; light/base/deep para el cristal de la esfera. */
-const TONE: Record<SequenceId, { line: string; light: string; base: string; deep: string; glow: string }> = {
+export const TONE: Record<SequenceId, { line: string; light: string; base: string; deep: string; glow: string }> = {
   activation: { line: "#7DB08A", light: "#93C79E", base: "#5A9566", deep: "#284D31", glow: "#C3E6CA" },
   venus: { line: "#CF6F66", light: "#E08A82", base: "#B54E49", deep: "#561E1F", glow: "#F2C2BB" },
   pearl: { line: "#6F98D0", light: "#93B6EC", base: "#5482C8", deep: "#213A6E", glow: "#C3D6F2" },
@@ -243,8 +255,31 @@ function Stars({ w, h, n, x0 = 0, y0 = 0 }: { w: number; h: number; n: number; x
   );
 }
 
+/** Las esferas, con las tres secuencias para elegir dentro del modelo: todas o solo una (las demás, apagadas). */
+function SpheresBySequence({ c, selected, tap }: { c: LayerCtx["c"]; selected: string; tap: DiagramProps["tap"] }) {
+  const [seq, setSeq] = useState<SequenceId | null>(null);
+  const lit = (s: Sphere) => !seq || inSequence(s, seq);
+  const chip = (on: boolean) => ({ borderColor: on ? "#F0D9A4" : "rgb(255 255 255 / .16)", background: on ? "rgb(233 204 142 / .2)" : "rgb(255 255 255 / .05)", color: STAR });
+  return (
+    <NightPanel>
+      <div className="mb-1 flex flex-wrap justify-center gap-1.5 pt-1">
+        <button type="button" onClick={() => setSeq(null)} className="rounded-full border px-2.5 py-1 text-[0.72rem] font-semibold" style={chip(!seq)}>
+          Todas
+        </button>
+        {SEQUENCES.map((q) => (
+          <button key={q.id} type="button" onClick={() => setSeq(q.id)} className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.72rem] font-semibold" style={chip(seq === q.id)}>
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: TONE[q.id].base }} />
+            {SHORT[q.id]}
+          </button>
+        ))}
+      </div>
+      <GoldenPath c={c} lit={lit} selected={(s) => s.id === selected} onSphere={(s) => tap(s.id, nameIn(s, seq))} />
+    </NightPanel>
+  );
+}
+
 /** El Camino Dorado: los caminos en el color de su secuencia y cada esfera de cristal con su llave dentro. */
-function GoldenPath({ c, lit, selected, onSphere }: { c: LayerCtx["c"]; lit: (s: Sphere) => boolean; selected: (s: Sphere) => boolean; onSphere: (s: Sphere) => Record<string, unknown> }) {
+export function GoldenPath({ c, lit, selected, onSphere }: { c: LayerCtx["c"]; lit: (s: Sphere) => boolean; selected: (s: Sphere) => boolean; onSphere: (s: Sphere) => Record<string, unknown> }) {
   const p = usePrefix();
   const pos = (id: string) => SPHERE_BY_ID[id];
   const R = 38;
@@ -299,7 +334,7 @@ function GoldenPath({ c, lit, selected, onSphere }: { c: LayerCtx["c"]; lit: (s:
 }
 
 /** El cielo de noche de los dibujos de Gene Keys (un panel propio: no van sobre la lámina clara). */
-function NightPanel({ children }: { children: React.ReactNode }) {
+export function NightPanel({ children }: { children: React.ReactNode }) {
   return (
     <div
       className="relative overflow-hidden rounded-[1.5rem] p-2 sm:p-3"
@@ -313,7 +348,7 @@ function NightPanel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SequenceLegend({ active, onPick }: { active: string | null; onPick?: (id: SequenceId) => Record<string, unknown> }) {
+export function SequenceLegend({ active, onPick }: { active: string | null; onPick?: (id: SequenceId) => Record<string, unknown> }) {
   return (
     <div className="mt-2 flex flex-wrap justify-center gap-1.5 pb-1">
       {SEQUENCES.map((s) => {
@@ -350,16 +385,8 @@ export function GkDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProp
   const own = new Set(mine);
   const c = ctx.c;
   switch (layer) {
-    case "gk-spheres": {
-      const inKeys = new Set(keys);
-      const seq = ctx.option && ctx.option !== "all" ? ctx.option : null;
-      return (
-        <NightPanel>
-          <GoldenPath c={c} lit={(s) => inKeys.has(s.id)} selected={(s) => s.id === selected} onSphere={(s) => (inKeys.has(s.id) ? tap(s.id, nameIn(s, seq)) : {})} />
-          <SequenceLegend active={seq ?? SPHERE_BY_ID[selected]?.sequence ?? null} />
-        </NightPanel>
-      );
-    }
+    case "gk-spheres":
+      return <SpheresBySequence c={c} selected={selected} tap={tap} />;
     case "gk-sequences":
       return (
         <NightPanel>
@@ -369,8 +396,19 @@ export function GkDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProp
       );
     case "gk-keys":
       return <KeysGrid selected={selected} keys={keys} tap={tap} c={c} />;
-    case "gk-spectrum":
-      return <SpectrumPyramid selected={selected} tap={tap} c={c} option={ctx.option} />;
+    case "gk-spectrum": {
+      const { n, f } = parseFreq(selected, myKeys(c)[0] ?? 1);
+      const colors = new Map<number, string>();
+      if (c) for (const s of SPHERES) if (!colors.has(c.geneKeys.keys[s.id])) colors.set(c.geneKeys.keys[s.id], TONE[s.sequence].base);
+      return (
+        <NightPanel>
+          <div className="grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+            <KeyGrid selected={n} colorOf={(x) => colors.get(x) ?? null} tapKey={(x) => tap(`${x}:${f}`, `Llave ${x}`)} legend="En color, tus llaves (por secuencia)" />
+            <SpectrumLadder n={n} selected={f} tap={(fr, l) => tap(`${n}:${fr}`, l)} />
+          </div>
+        </NightPanel>
+      );
+    }
     case "gk-lines":
       return <LinesHexagram selected={selected} own={own} tap={tap} c={c} />;
   }
@@ -426,6 +464,62 @@ function KeysGrid({ selected, keys, tap, c }: { selected: string; keys: string[]
         </span>
       </div>
     </NightPanel>
+  );
+}
+
+/** Sombra, don y siddhi como una escalera de tres peldaños: abajo la sombra, en medio el don y arriba el siddhi. */
+function SpectrumLadder({ n, selected, tap }: { n: number; selected: Freq; tap: (f: Freq, label: string) => Record<string, unknown> }) {
+  const p = usePrefix();
+  const k = KEY_BY_N.get(n)!;
+  const STEPS: { f: Freq; x: number; y: number; fill: string; text: string; sub: string }[] = [
+    { f: "shadow", x: 18, y: 226, fill: `url(#${p}lshadow)`, text: STAR, sub: "#C9B8A6" },
+    { f: "gift", x: 74, y: 140, fill: `url(#${p}lgift)`, text: NIGHT, sub: "#4D3B18" },
+    { f: "siddhi", x: 130, y: 54, fill: `url(#${p}lsiddhi)`, text: NIGHT, sub: "#6B5A33" },
+  ];
+  return (
+    <svg viewBox="0 0 320 320" className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label={`Sombra, don y siddhi de la llave ${n}`}>
+      <GkDefs p={p} />
+      <defs>
+        <linearGradient id={`${p}lsiddhi`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#FFF8E6" />
+          <stop offset="100%" stopColor="#F0DDB0" />
+        </linearGradient>
+        <linearGradient id={`${p}lgift`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#E9CC8E" />
+          <stop offset="100%" stopColor="#B8914F" />
+        </linearGradient>
+        <linearGradient id={`${p}lshadow`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#4A3F4E" />
+          <stop offset="100%" stopColor="#241E2E" />
+        </linearGradient>
+      </defs>
+      <ellipse cx="250" cy="44" rx="80" ry="30" fill={`url(#${p}goldglow)`} />
+      <text x="20" y="30" fontSize="11" fontWeight="700" letterSpacing="1.4" fill="#E9CC8E">
+        LLAVE {n}
+      </text>
+      {/* La escalera: cada peldaño, más arriba y más a la derecha. */}
+      {STEPS.map((st) => {
+        const on = selected === st.f;
+        const w = 172;
+        const h = 74;
+        return (
+          <g key={st.f} {...tap(st.f, SPECTRUM[st.f].name)}>
+            {on && <rect x={st.x - 3} y={st.y - 3} width={w + 6} height={h + 6} rx="16" fill="#E9CC8E" opacity="0.45" filter={`url(#${p}blur)`} />}
+            <rect x={st.x} y={st.y} width={w} height={h} rx="14" fill={st.fill} stroke={on ? "#F0D9A4" : "rgb(255 255 255 / .18)"} strokeWidth={on ? 2.2 : 0.8} />
+            <FrequencyMark f={st.f} x={st.x + 20} y={st.y + h / 2} s={7} color={st.sub} />
+            <text x={st.x + 38} y={st.y + 24} fontSize="9" letterSpacing="1.4" fontWeight="700" fill={st.sub}>
+              {SPECTRUM[st.f].name.toUpperCase()}
+            </text>
+            <text x={st.x + 38} y={st.y + 48} fontSize="18" fontFamily="Georgia, serif" fill={st.text}>
+              {k[st.f]}
+            </text>
+          </g>
+        );
+      })}
+      <text x="20" y="312" fontSize="8.5" fill="rgb(251 246 236 / .6)">
+        De la sombra al siddhi: la misma energía, a otra frecuencia.
+      </text>
+    </svg>
   );
 }
 

@@ -100,7 +100,7 @@ export function extraPiece(layer: ExtraLayer, key: string, { option, c }: LayerC
  *  talla encendida en oro.
  * -------------------------------------------------------------------------- */
 
-function StoneDefs({ p }: { p: string }) {
+export function StoneDefs({ p }: { p: string }) {
   return (
     <>
       <NightDefs p={p} />
@@ -124,7 +124,7 @@ function StoneDefs({ p }: { p: string }) {
 }
 
 /** Una piedra rúnica: un canto rodado irregular con su runa tallada (luz y sombra en el surco). */
-function Stone({ p, x, y, w, h, glyph, on, label }: { p: string; x: number; y: number; w: number; h: number; glyph: string; on: boolean; label?: string }) {
+export function Stone({ p, x, y, w, h, glyph, on, label }: { p: string; x: number; y: number; w: number; h: number; glyph: string; on: boolean; label?: string }) {
   const d = `M${x - w / 2 + 3} ${y - 2}C${x - w / 2} ${y - h / 2 + 2} ${x + w / 2 - 6} ${y - h / 2 - 2} ${x + w / 2 - 1} ${y - 4}C${x + w / 2 + 2} ${y + h / 2 - 6} ${x - w / 2 + 6} ${y + h / 2 + 1} ${x - w / 2 + 3} ${y - 2}Z`;
   const fs = h * 0.46;
   return (

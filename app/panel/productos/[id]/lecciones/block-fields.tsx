@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Plus, Trash2 } from "lucide-react";
 import { ASPECTS, BODY_INFO, HOUSES, SIGNS } from "@/components/models/data/astrology";
 import { isSystemLayer, systemKeys, systemPiece } from "@/components/course/system-layers";
@@ -13,7 +14,11 @@ import {
   FOCUS_BODIES,
   FOCUS_BODY_LABEL,
   LAYER_KEYS,
+  modesFor,
+  MODEL_MODE_HINT,
+  MODEL_MODE_LABEL,
   type AstroLayer,
+  type ModelMode,
   type BlockPart,
   type FocusBody,
   type GlossaryData,
@@ -26,6 +31,9 @@ import {
  * modelo por partes (con un texto para cada pieza: cada signo, cada casa…), «en tu carta», «hoy en el
  * cielo», repaso y glosario. `onChange` recibe el contenido entero (se guarda tal cual).
  */
+// El editor de la carta a mano (con la carta y sus efemérides) se carga solo cuando hay una.
+const CustomChartEditor = dynamic(() => import("@/components/models/custom-chart-editor").then((m) => m.CustomChartEditor), { ssr: false, loading: () => <p className="text-sm text-muted">Cargando el editor de la carta…</p> });
+
 export function BlockFields({ part, id, onChange }: { part: BlockPart; id: string; onChange: (data: BlockPart["data"]) => void }) {
   switch (part.kind) {
     case "CHAPTER":
@@ -51,6 +59,18 @@ export function BlockFields({ part, id, onChange }: { part: BlockPart; id: strin
       );
     case "MODEL":
       return <ModelFields data={part.data} id={id} onChange={onChange} />;
+    case "CHART":
+      return (
+        <div className="space-y-3">
+          <Field label="Título (opcional)" htmlFor={`${id}-t`}>
+            <input id={`${id}-t`} className="input text-base sm:text-sm" value={part.data.title} maxLength={140} placeholder="Una carta para practicar" onChange={(e) => onChange({ ...part.data, title: e.target.value })} />
+          </Field>
+          <Field label="Entrada (opcional)" htmlFor={`${id}-i`}>
+            <textarea id={`${id}-i`} className="input min-h-20 py-2 text-base sm:text-sm" value={part.data.intro} maxLength={4000} onChange={(e) => onChange({ ...part.data, intro: e.target.value })} />
+          </Field>
+          <CustomChartEditor value={part.data} onChange={onChange} />
+        </div>
+      );
     case "MYCHART":
     case "TODAY":
       return (
@@ -125,7 +145,8 @@ function ModelFields({ data, id, onChange }: { data: ModelData; id: string; onCh
   const option = layerOption(data.layer, data.option);
   const options = LAYER_OPTIONS[data.layer];
   // Las piezas que se ven con esta configuración (sin carta: las de la configuración, no las de cada alumna).
-  const shown = isSystemLayer(data.layer) ? systemKeys(data.layer, { option: option === "mine" ? null : option, c: null, focus: data.focus }) : LAYER_KEYS[data.layer];
+  // En «Planeta + signo + casa», los textos son por planeta en cada signo y en cada casa (no por cada combinación).
+  const shown = isSystemLayer(data.layer) && !["astro-combos", "hd-gate-lines", "gk-spectrum", "gk-shadows"].includes(data.layer) ? systemKeys(data.layer, { option: option === "mine" ? null : option, c: null, focus: data.focus }) : LAYER_KEYS[data.layer];
   const keys = shown.length ? shown : LAYER_KEYS[data.layer];
   const filled = keys.filter((k) => data.notes[k]?.trim()).length;
   return (
@@ -162,6 +183,16 @@ function ModelFields({ data, id, onChange }: { data: ModelData; id: string; onCh
           )
         )}
       </div>
+      <Field label="Cómo empieza" htmlFor={`${id}-m`}>
+        <select id={`${id}-m`} className="input text-base sm:text-sm" value={data.mode ?? "explore"} onChange={(e) => onChange({ ...data, mode: e.target.value as ModelMode })}>
+          {modesFor(data.layer).map((m) => (
+            <option key={m} value={m}>
+              {MODEL_MODE_LABEL[m]} — {MODEL_MODE_HINT[m].toLowerCase()}
+            </option>
+          ))}
+        </select>
+        <span className="mt-1 block text-xs text-muted">La alumna puede cambiar de modo en el propio modelo.</span>
+      </Field>
       <Field label="Título (opcional)" htmlFor={`${id}-t`}>
         <input id={`${id}-t`} className="input text-base sm:text-sm" value={data.title} maxLength={140} placeholder="Dónde pones tu energía" onChange={(e) => onChange({ ...data, title: e.target.value })} />
       </Field>

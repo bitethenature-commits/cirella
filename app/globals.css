@@ -183,6 +183,9 @@
   animation: twinkle 9s ease-in-out infinite alternate;
   opacity: .6;
 }
+/* Las vistas previas de los modelos en el panel (/panel/modelos): de noche, pero sin el cielo fijo de toda la pantalla. */
+.acc-root.acc-preview::before { display: none; }
+.acc-root.acc-preview { background-attachment: scroll; }
 .acc-root > header { background: rgb(10 9 32 / .72); }
 .acc-root :is(.bg-white, .card, .input, .btn-outline) { background-color: rgb(24 21 52 / .88); }
 .acc-root .bg-paper { background-color: rgb(19 17 44 / .72); }

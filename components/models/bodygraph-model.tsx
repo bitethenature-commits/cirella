@@ -55,12 +55,12 @@ const PATHS = [...CHANNEL_PATHS]
   .sort((p, q) => (p.z ?? 0) - (q.z ?? 0))
   .map((p) => ({ ...p, channel: CHANNEL_BY_KEY.get(p.key)! }));
 
-/** `planets`: con la carta de la persona, las columnas de planetas a cada lado (solo en «Mi energía»). */
+/** `planets`: con la carta de la persona, las columnas de planetas a cada lado (siempre, salvo que se pida lo contrario). */
 export function BodygraphModel({
   profile,
   computed,
   compact = false,
-  planets = false,
+  planets = true,
 }: { profile?: BirthProfile; computed?: ComputedProfile; compact?: boolean; planets?: boolean } = {}) {
   const { result, pending } = useComputedProfile(profile, computed);
   if (pending)
@@ -292,7 +292,7 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
     </svg>
   );
 
-  // «Mi energía»: las 13 activaciones de cada lado, como en una carta impresa: el diseño a la izquierda,
+  // Con una carta calculada: las 13 activaciones de cada lado, como en una carta impresa: el diseño a la izquierda,
   // en rojo, y la personalidad a la derecha, en el color del texto. Tocar una abre su puerta.
   const diagram =
     hd && planets ? (

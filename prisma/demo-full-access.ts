@@ -67,5 +67,13 @@ export async function grantFullAccess(prisma: PrismaClient, o: { creatorId: stri
         placeName: "Valencia", placeDetail: "Comunidad Valenciana, España", lat: 39.4699, lon: -0.3763, tz: "Europe/Madrid", consentAt: now,
       },
     });
+  // Otra persona guardada (su pareja), para probar la sinastría: Madrid, 21 de octubre de 1988, 22:15.
+  if (!(await prisma.birthProfile.findFirst({ where: { creatorId: o.creatorId, userId: user.id, isOwn: false }, select: { id: true } })))
+    await prisma.birthProfile.create({
+      data: {
+        creatorId: o.creatorId, userId: user.id, name: "Marcos", relation: "pareja", isOwn: false, birthDate: "1988-10-21", birthTime: "22:15",
+        placeName: "Madrid", placeDetail: "Comunidad de Madrid, España", lat: 40.4168, lon: -3.7038, tz: "Europe/Madrid", consentAt: now,
+      },
+    });
   return given;
 }

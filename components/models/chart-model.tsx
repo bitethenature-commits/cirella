@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   HOUSE_SYSTEM_NAME,
   bodyLongitude,
@@ -21,6 +21,8 @@ import {
   type NodeKind,
 } from "@/lib/natal-chart";
 import type { BirthProfile } from "@/lib/birth-profile";
+import type { CustomChartData, CustomPoint } from "@/lib/lesson-blocks";
+import { applyCustom, isHandmade } from "./custom-chart";
 import { BirthForm, type BirthData } from "./chart-birth-form";
 import {
   ANGLE_INFO,
@@ -95,7 +97,7 @@ const R_ASP = 43;
 const CLASSIC: BodyId[] = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto"];
 /** Filas del aspectario (el Nodo Sur no: es siempre el opuesto del Norte). */
 const GRID_ORDER: ChartPointId[] = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto", "chiron", "node", "lilith", "asc", "mc"];
-const DEFAULT_ASPECTS: AspectId[] = ["conjunction", "sextile", "square", "trine", "opposition"];
+const DEFAULT_ASPECTS: AspectId[] = ["conjunction", "sextile", "square", "trine", "quincunx", "opposition"];
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 /** «14°32′ Escorpio». */
@@ -148,8 +150,40 @@ const profileBirth = (p: BirthProfile): BirthData => ({
  * `ownForm` false: sin «Calcular mi carta» propio (en las páginas de los métodos lo pone el candado de
  * components/models/model-gate.tsx, que pasa el perfil).
  */
-export function ChartModel({ profile, ownForm = true, compact = false }: { profile?: BirthProfile; ownForm?: boolean; compact?: boolean } = {}) {
-  const [ownBirth, setBirth] = useState<BirthData>(EXAMPLE);
+/** La carta de partida de una «Carta a mano» (sin ella, la de ejemplo). */
+const customBirth = (c: CustomChartData): BirthData =>
+  c.base
+    ? { name: c.base.name, date: c.base.date, time: c.base.time, timeKnown: c.base.timeKnown, place: { label: c.base.place || "Lugar", detail: "", lat: c.base.lat, lon: c.base.lon, tz: c.base.tz } }
+    : EXAMPLE;
+
+/**
+ * `custom`: una «Carta a mano» de una lección (lib/lesson-blocks.ts): la carta de partida con los puntos que
+ * la dueña colocó a mano, sus casas, nodos y aspectos, y su texto para cada punto. Sin formulario propio.
+ */
+export function ChartModel({
+  profile,
+  ownForm: ownFormProp = true,
+  compact = false,
+  custom,
+  onCustomChange,
+}: { profile?: BirthProfile; ownForm?: boolean; compact?: boolean; custom?: CustomChartData; onCustomChange?: (c: CustomChartData) => void } = {}) {
+  const ownForm = custom ? false : ownFormProp;
+  /** Con `onCustomChange`, la carta a mano se edita sobre la propia rueda: se arrastran los puntos y, al tocarlos, sale su burbuja. */
+  const editing = !!custom && !!onCustomChange;
+  type Drag = { id: CustomPoint; lon: number; rot: number; x: number; y: number; moved: boolean };
+  const [drag, setDragState] = useState<Drag | null>(null);
+  // El arrastre también en una referencia: el «soltar» puede llegar antes de que la carta se repinte con el último movimiento.
+  const dragRef = useRef<Drag | null>(null);
+  const setDrag = (d: Drag | null) => {
+    dragRef.current = d;
+    setDragState(d);
+  };
+  // Mientras se arrastra, la carta se pinta con el punto donde va el dedo (sin guardarlo aún).
+  const live = useMemo(() => (custom && drag?.moved ? { ...custom, positions: { ...custom.positions, [drag.id]: drag.lon } } : custom), [custom, drag]);
+  const customKey = live ? JSON.stringify(live) : "";
+  // La carta de partida y sus ajustes (lo que obliga a recalcular la carta), aparte de los puntos movidos.
+  const baseKey = custom ? JSON.stringify([custom.base, custom.houseSystem, custom.node, custom.aspects]) : "";
+  const [ownBirth, setBirth] = useState<BirthData>(() => (custom ? customBirth(custom) : EXAMPLE));
   const [ownIsExample, setIsExample] = useState(true);
   const profileKey = profile ? JSON.stringify(profile) : "";
   const fromProfile = useMemo(() => (profileKey ? profileBirth(JSON.parse(profileKey) as BirthProfile) : null), [profileKey]);
@@ -158,10 +192,18 @@ export function ChartModel({ profile, ownForm = true, compact = false }: { profi
   const [formOpen, setFormOpen] = useState(false);
   /** En la hora repetida del cambio de otoño: usar la segunda vez que el reloj la marcó. */
   const [useSecond, setUseSecond] = useState(false);
-  const [houseSystem, setHouseSystem] = useState<HouseSystem>("placidus");
-  const [nodeKind, setNodeKind] = useState<NodeKind>("mean");
+  const [houseSystem, setHouseSystem] = useState<HouseSystem>(custom?.houseSystem ?? "placidus");
+  const [nodeKind, setNodeKind] = useState<NodeKind>(custom?.node ?? "mean");
   const [selection, setSelection] = useState<Selection>(null);
-  const [enabled, setEnabled] = useState<Set<AspectId>>(() => new Set(DEFAULT_ASPECTS));
+  const [enabled, setEnabled] = useState<Set<AspectId>>(() => new Set(custom ? custom.aspects : DEFAULT_ASPECTS));
+  // En el editor, la carta a mano cambia mientras se prepara: la carta y sus ajustes la siguen.
+  useEffect(() => {
+    if (!baseKey || !custom) return;
+    setBirth(customBirth(custom));
+    setHouseSystem(custom.houseSystem);
+    setNodeKind(custom.node);
+    setEnabled(new Set(custom.aspects));
+  }, [baseKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const [ref, shown] = useShown<SVGSVGElement>();
   const narrow = useNarrow();
 
@@ -196,7 +238,7 @@ export function ChartModel({ profile, ownForm = true, compact = false }: { profi
     return { res, utc, offset, moonRange };
   }, [birth, useSecond]);
 
-  const chart = useMemo(
+  const baseChart = useMemo(
     () =>
       computeChart({
         utc: resolved.utc,
@@ -208,6 +250,7 @@ export function ChartModel({ profile, ownForm = true, compact = false }: { profi
       }),
     [resolved.utc, birth.timeKnown, birth.place.lat, birth.place.lon, houseSystem, nodeKind],
   );
+  const chart = useMemo(() => (customKey ? applyCustom(baseChart, JSON.parse(customKey) as CustomChartData) : baseChart), [baseChart, customKey]);
   const angles = chart.angles;
   const cusps = chart.houses?.cusps;
   const byId = useMemo(() => new Map(chart.bodies.map((b) => [b.id, b])), [chart]);
@@ -222,7 +265,7 @@ export function ChartModel({ profile, ownForm = true, compact = false }: { profi
   const aspects = useMemo(() => findAspects(points, enabled), [points, enabled]);
 
   /** La rueda gira para dejar el Ascendente a la izquierda (sin hora: 0° de Aries). */
-  const rot = angles?.asc ?? 0;
+  const rot = drag?.moved ? drag.rot : (angles?.asc ?? 0);
   const toScreen = (lon: number) => 270 - (lon - rot);
   const at = (r: number, lon: number) => polar(0, 0, r, toScreen(lon));
 
@@ -234,6 +277,69 @@ export function ChartModel({ profile, ownForm = true, compact = false }: { profi
       ),
     [chart],
   );
+
+  /* ---------------------------------------------------- arrastrar (edición) */
+
+  /** El punto de la rueda bajo el puntero, en grados de longitud. */
+  const lonAtPointer = (svg: SVGSVGElement, clientX: number, clientY: number, r: number) => {
+    const m = svg.getScreenCTM();
+    if (!m) return null;
+    const p = new DOMPoint(clientX, clientY).matrixTransform(m.inverse());
+    const deg = (Math.atan2(p.y, p.x) * 180) / Math.PI + 90;
+    return norm(270 - deg + r);
+  };
+  const grab = (id: CustomPoint) =>
+    editing
+      ? {
+          onPointerDown: (e: React.PointerEvent<SVGGElement>) => {
+            const svg = (e.currentTarget as SVGGElement).ownerSVGElement;
+            if (!svg) return;
+            e.preventDefault();
+            svg.setPointerCapture(e.pointerId);
+            const r = angles?.asc ?? 0;
+            const lon = id === "asc" ? (angles?.asc ?? 0) : id === "mc" ? (angles?.mc ?? 0) : (byId.get(id === "node" ? "node" : id)?.lon ?? 0);
+            setDrag({ id, lon, rot: r, x: e.clientX, y: e.clientY, moved: false });
+          },
+          style: { cursor: "grab", touchAction: "none" } as const,
+        }
+      : {};
+  const dragHandlers = editing
+    ? {
+        onPointerMove: (e: React.PointerEvent<SVGSVGElement>) => {
+          const drag = dragRef.current;
+          if (!drag) return;
+          const moved = drag.moved || Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 4;
+          if (!moved) return;
+          const lon = lonAtPointer(e.currentTarget, e.clientX, e.clientY, drag.rot);
+          // Grado y minuto: se redondea al minuto.
+          if (lon != null) setDrag({ ...drag, moved: true, lon: Math.round(lon * 60) / 60 % 360 });
+        },
+        onPointerUp: () => drop.current(),
+        onPointerCancel: () => setDrag(null),
+      }
+    : {};
+  // Soltar: se guarda el punto donde quedó y se abre su burbuja. También si se suelta fuera de la rueda.
+  const drop = useRef(() => {});
+  drop.current = () => {
+    const drag = dragRef.current;
+    if (!drag || !custom || !onCustomChange) return setDrag(null);
+    if (drag.moved) onCustomChange({ ...custom, positions: { ...custom.positions, [drag.id]: drag.lon } });
+    setSelection(drag.id === "asc" || drag.id === "mc" ? { kind: "angle", id: drag.id } : { kind: "body", id: drag.id });
+    setDrag(null);
+  };
+  const dragging = !!drag;
+  useEffect(() => {
+    if (!dragging) return;
+    const end = () => drop.current();
+    window.addEventListener("pointerup", end);
+    window.addEventListener("mouseup", end);
+    window.addEventListener("touchend", end);
+    return () => {
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("mouseup", end);
+      window.removeEventListener("touchend", end);
+    };
+  }, [dragging]);
 
   /* ------------------------------------------------------------- acciones */
 
@@ -308,6 +414,7 @@ export function ChartModel({ profile, ownForm = true, compact = false }: { profi
       style={{ color: INK }}
       role="group"
       aria-label={`Carta natal de ${birth.name || "la persona"}: signos, casas, planetas y aspectos`}
+      {...dragHandlers}
     >
       <defs>
         <radialGradient id="ch-core" cx="50%" cy="50%" r="50%">
@@ -444,7 +551,7 @@ export function ChartModel({ profile, ownForm = true, compact = false }: { profi
           const label = at(R_OUT + 17, lon);
           const isSelected = selection?.kind === "angle" && selection.id === k;
           return (
-            <g key={k} {...tap(`${ANGLE_INFO[k].name}: ${fmtPos(lon)}`, () => select({ kind: "angle", id: k }))}>
+            <g key={k} {...tap(`${ANGLE_INFO[k].name}: ${fmtPos(lon)}`, () => select({ kind: "angle", id: k }))} {...(k === "asc" || k === "mc" ? grab(k) : {})}>
               <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="transparent" strokeWidth="5" />
               <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} style={{ stroke: GOLD }} strokeWidth={isSelected ? 1.5 : k === "asc" || k === "mc" ? 1.1 : 0.8} strokeLinecap="round" />
               {(k === "asc" || k === "mc") && <circle cx={b.x} cy={b.y} r="1.4" style={{ fill: GOLD }} />}
@@ -482,7 +589,7 @@ export function ChartModel({ profile, ownForm = true, compact = false }: { profi
                   {moved && <line x1={tick1.x} y1={tick1.y} x2={lead.x} y2={lead.y} stroke="currentColor" strokeWidth="0.25" opacity="0.55" />}
                   <circle cx={dot.x} cy={dot.y} r="0.9" fill="currentColor" opacity="0.7" />
                 </g>
-                <g {...tap(`${info.name}: ${fmtPos(body.lon)}${body.retro ? ", retrógrado" : ""}${body.house ? `, casa ${body.house}` : ""}`, () => select({ kind: "body", id: body.id }))}>
+                <g {...tap(`${info.name}: ${fmtPos(body.lon)}${body.retro ? ", retrógrado" : ""}${body.house ? `, casa ${body.house}` : ""}`, () => select({ kind: "body", id: body.id }))} {...grab(body.id === "southNode" ? "node" : (body.id as CustomPoint))}>
                   {/* Zona que se toca: del glifo a sus minutos. */}
                   <line x1={hit0.x} y1={hit0.y} x2={hit1.x} y2={hit1.y} stroke="transparent" strokeWidth="8.5" strokeLinecap="round" />
                   {isSelected && (
@@ -523,6 +630,19 @@ export function ChartModel({ profile, ownForm = true, compact = false }: { profi
           );
         })}
       </g>
+
+      {drag?.moved &&
+        (() => {
+          const p = polar(0, 0, R_OUT + 22, toScreen(drag.lon));
+          return (
+            <g className="pointer-events-none select-none">
+              <rect x={p.x - 24} y={p.y - 6.5} width="48" height="13" rx="6.5" style={{ fill: GOLD }} />
+              <text x={p.x} y={p.y + 0.3} textAnchor="middle" dominantBaseline="central" fontSize="5.6" fontWeight="700" style={{ fill: "var(--c-bg)" }}>
+                {fmtPos(drag.lon)}
+              </text>
+            </g>
+          );
+        })()}
     </svg>
   );
 
@@ -582,14 +702,14 @@ export function ChartModel({ profile, ownForm = true, compact = false }: { profi
     <div>
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
-          <p className="cp-eyebrow !text-[0.6rem]">{isExample ? "Carta de ejemplo" : "Carta calculada"}</p>
-          <p className="cp-display mt-1.5 text-[1.5rem] leading-tight">{birth.name || "Tu carta natal"}</p>
-          <p className="cp-muted mt-1 text-[0.82rem] leading-relaxed">
+          <p className="cp-eyebrow !text-[0.6rem]">{custom ? (isHandmade(custom) ? "Carta preparada a mano" : "Carta preparada") : isExample ? "Carta de ejemplo" : "Carta calculada"}</p>
+          <p className="cp-display mt-1.5 text-[1.5rem] leading-tight">{custom?.name || birth.name || "Tu carta natal"}</p>
+          <p className={cn("cp-muted mt-1 text-[0.82rem] leading-relaxed", custom && isHandmade(custom) && "hidden")}>
             {longDate(birth.date)}
             {birth.timeKnown ? `, ${birth.time}` : ", hora desconocida"} · {birth.place.label}
             {birth.place.detail && birth.place.detail !== "Coordenadas" ? ` (${birth.place.detail})` : ""}
           </p>
-          <p className={cn("cp-faint mt-0.5 text-[0.72rem]", compact && "hidden")}>
+          <p className={cn("cp-faint mt-0.5 text-[0.72rem]", (compact || (custom && isHandmade(custom))) && "hidden")}>
             {formatCoord(birth.place.lat, "lat")} {formatCoord(birth.place.lon, "lon")} · {birth.timeKnown ? `${formatOffset(resolved.offset)} · ` : ""}
             {resolved.utc.toISOString().slice(0, 16).replace("T", " ")} UTC
           </p>
@@ -640,7 +760,7 @@ export function ChartModel({ profile, ownForm = true, compact = false }: { profi
         </ul>
       )}
 
-      <div className={cn("mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[0.8rem]", compact && "hidden")}>
+      <div className={cn("mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[0.8rem]", (compact || custom?.lockSettings) && "hidden")}>
         {angles && (
           <label className="flex items-center gap-2">
             <span className="cp-eyebrow !text-[0.58rem]">Casas</span>
@@ -675,6 +795,11 @@ export function ChartModel({ profile, ownForm = true, compact = false }: { profi
   );
 
   /* ---------------------------------------------------------------- panel */
+
+  // El texto de la dueña para el punto tocado (solo en una «Carta a mano»).
+  const selectedPoint: CustomPoint | null =
+    selection?.kind === "body" ? (selection.id === "southNode" ? "node" : (selection.id as CustomPoint)) : selection?.kind === "angle" && (selection.id === "asc" || selection.id === "mc") ? selection.id : null;
+  const ownerNote = custom && selectedPoint ? custom.notes[selectedPoint] : undefined;
 
   const panel = (() => {
     if (!selection) {
@@ -1263,7 +1388,40 @@ export function ChartModel({ profile, ownForm = true, compact = false }: { profi
       diagram={
         <div>
           {header}
-          <div className="mt-6">{wheel}</div>
+          <div className="relative mx-auto mt-6 max-w-[34rem]">
+            {wheel}
+            {editing && custom && onCustomChange && selectedPoint && !drag && (
+              <PointBubble
+                point={selectedPoint}
+                custom={custom}
+                onChange={onCustomChange}
+                onClose={() => setSelection(null)}
+                lon={selectedPoint === "asc" ? angles?.asc ?? 0 : selectedPoint === "mc" ? angles?.mc ?? 0 : byId.get(selectedPoint)?.lon ?? 0}
+                retro={selectedPoint !== "asc" && selectedPoint !== "mc" ? !!byId.get(selectedPoint)?.retro : false}
+                at={(() => {
+                  const i = chart.bodies.findIndex((b) => b.id === selectedPoint);
+                  const lon = selectedPoint === "asc" ? angles?.asc ?? 0 : selectedPoint === "mc" ? angles?.mc ?? 0 : i >= 0 ? display[i] : 0;
+                  const p = polar(0, 0, selectedPoint === "asc" || selectedPoint === "mc" ? R_OUT + 12 : R_GLYPH, toScreen(lon));
+                  return { x: ((p.x + 128) / 256) * 100, y: ((p.y + 128) / 256) * 100 };
+                })()}
+              />
+            )}
+          </div>
+          {editing && custom && onCustomChange && (
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[0.78rem]">
+              <span className="cp-muted">Arrastra cualquier punto por la rueda. Tócalo para afinarlo.</span>
+              {custom.hidden.length > 0 && (
+                <>
+                  <span className="cp-muted">· Escondidos:</span>
+                  {custom.hidden.map((p) => (
+                    <button key={p} type="button" className="cp-btn-ghost !min-h-8 !px-2.5 !text-[0.75rem]" onClick={() => onCustomChange({ ...custom, hidden: custom.hidden.filter((x) => x !== p) })}>
+                      {p === "asc" ? "AC" : p === "mc" ? "MC" : glyph(BODY_INFO[p].glyph)} {pointName(p)} · mostrar
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
         </div>
       }
       legend={
@@ -1275,8 +1433,135 @@ export function ChartModel({ profile, ownForm = true, compact = false }: { profi
           <LegendDot color={ASPECT_BY_ID.trine.color} label="Armónicos" />
         </div>
       }
-      panel={panel}
+      panel={
+        ownerNote ? (
+          <div>
+            <p className="mb-4 whitespace-pre-line rounded-xl border px-4 py-3 text-[0.92rem] leading-relaxed" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 45%, transparent)", background: "color-mix(in oklab, var(--c-gold) 10%, transparent)" }}>
+              {ownerNote}
+            </p>
+            {panel}
+          </div>
+        ) : (
+          panel
+        )
+      }
       footer={footer}
     />
+  );
+}
+
+/** La burbuja de la carta a mano: el punto tocado, con + y − para afinar grado y minuto, retrógrado, si se ve y su texto. */
+function PointBubble({
+  point,
+  custom,
+  onChange,
+  onClose,
+  lon,
+  retro,
+  at,
+}: {
+  point: CustomPoint;
+  custom: CustomChartData;
+  onChange: (c: CustomChartData) => void;
+  onClose: () => void;
+  lon: number;
+  retro: boolean;
+  at: { x: number; y: number };
+}) {
+  const manual = custom.positions[point] != null;
+  const canRetro = point !== "asc" && point !== "mc" && point !== "node" && point !== "lilith" && point !== "sun" && point !== "moon";
+  const canHide = !["sun", "moon", "asc", "mc"].includes(point);
+  const move = (deg: number) => onChange({ ...custom, positions: { ...custom.positions, [point]: norm(Math.round((lon + deg) * 60) / 60) } });
+  const reset = () => {
+    const positions = { ...custom.positions };
+    delete positions[point];
+    onChange({ ...custom, positions, retro: custom.retro.filter((x) => x !== point) });
+  };
+  const setRetro = (on: boolean) =>
+    onChange({ ...custom, positions: { ...custom.positions, [point]: lon }, retro: on ? [...custom.retro.filter((x) => x !== point), point] : custom.retro.filter((x) => x !== point) });
+  const note = custom.notes[point] ?? "";
+  const below = at.y < 50;
+  const step = (label: string, deg: number) => (
+    <button type="button" className="cp-line grid h-8 w-8 place-items-center rounded-full border text-[0.95rem] leading-none" onClick={() => move(deg)} aria-label={label}>
+      {deg > 0 ? "+" : "−"}
+    </button>
+  );
+  return (
+    <div
+      className="absolute z-10 w-[16rem] rounded-2xl border p-3 text-[0.82rem] shadow-xl"
+      style={{
+        left: `${Math.min(78, Math.max(22, at.x))}%`,
+        top: `${at.y}%`,
+        transform: below ? "translate(-50%, 18px)" : "translate(-50%, calc(-100% - 18px))",
+        background: "var(--c-bg)",
+        borderColor: "color-mix(in oklab, var(--c-gold) 55%, transparent)",
+        color: "var(--c-text)",
+      }}
+      role="dialog"
+      aria-label={`Editar ${pointName(point)}`}
+    >
+      <div className="flex items-start gap-2">
+        <span className="text-[1.3rem] leading-none" style={{ color: "var(--c-gold)" }}>
+          {point === "asc" ? "AC" : point === "mc" ? "MC" : glyph(BODY_INFO[point].glyph)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">{pointName(point)}</p>
+          <p className="cp-muted">
+            {fmtPos(lon)}
+            {manual ? " · a mano" : " · como en la carta"}
+          </p>
+        </div>
+        <button type="button" className="cp-muted -mr-1 -mt-1 grid h-8 w-8 place-items-center rounded-full text-lg" onClick={onClose} aria-label="Cerrar">
+          ×
+        </button>
+      </div>
+      <div className="mt-2.5 flex items-center justify-between gap-2">
+        <span className="cp-muted w-14">Grado</span>
+        <span className="flex gap-1.5">
+          {step("Un grado menos", -1)}
+          {step("Un grado más", 1)}
+        </span>
+        <span className="cp-muted w-14 text-right">Minuto</span>
+        <span className="flex gap-1.5">
+          {step("Un minuto menos", -1 / 60)}
+          {step("Un minuto más", 1 / 60)}
+        </span>
+      </div>
+      <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5">
+        {canRetro && (
+          <label className="inline-flex items-center gap-1.5">
+            <input type="checkbox" checked={retro} onChange={(e) => setRetro(e.target.checked)} /> Retrógrado ℞
+          </label>
+        )}
+        {canHide && (
+          <button
+            type="button"
+            className="underline decoration-dotted underline-offset-2"
+            onClick={() => {
+              onChange({ ...custom, hidden: [...custom.hidden.filter((x) => x !== point), point] });
+              onClose();
+            }}
+          >
+            Esconderlo
+          </button>
+        )}
+        {manual && (
+          <button type="button" className="underline decoration-dotted underline-offset-2" onClick={reset}>
+            Como en la carta
+          </button>
+        )}
+      </div>
+      <textarea
+        className="cp-line mt-2.5 min-h-16 w-full rounded-xl border bg-transparent px-2.5 py-2 text-[0.85rem]"
+        maxLength={4000}
+        value={note}
+        placeholder="El texto que lee la alumna al tocarlo"
+        onChange={(e) => {
+          const notes = { ...custom.notes, [point]: e.target.value };
+          if (!e.target.value.trim()) delete notes[point];
+          onChange({ ...custom, notes });
+        }}
+      />
+    </div>
   );
 }

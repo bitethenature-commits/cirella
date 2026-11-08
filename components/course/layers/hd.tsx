@@ -8,6 +8,7 @@ import type { HumanDesign } from "@/lib/human-design-calc";
 import { HD_SIDE_BODIES, LAYER_KEYS, type AstroLayer } from "@/lib/lesson-blocks";
 import { CREAM, DESIGN_RED, GOLD, INK, LINE, MUTED, SAND, VS, listEs, type DiagramProps, type LayerCtx, type SystemPiece, type Tap } from "./common";
 import { NIGHT, NIGHT_GOLD, NIGHT_RED, NightChips, NightDefs, NightPanel, STAR, Stars, usePrefix } from "./night";
+import { ExampleBodygraph, TYPE_EXAMPLES } from "./hd-examples";
 import { HD_AUTHORITIES, HD_AUTHORITY_KEY, HD_PLANET_TEXT, HD_PROFILES, HD_SIDE_TEXT, HD_TYPES, HD_TYPE_KEY, profileAngle, type HdAuthorityKey, type HdTypeKey } from "./texts";
 
 /**
@@ -211,8 +212,8 @@ export function hdPiece(layer: HdLayer, key: string, { c }: LayerCtx): SystemPie
 
 const PATHS = [...CHANNEL_PATHS].sort((p, q) => (p.z ?? 0) - (q.z ?? 0));
 /** En el cielo, la personalidad (negro en las cartas impresas) se pinta en crema para que se vea. */
-const PERS = "#F3ECDD";
-const sideColorOf = (hd: HumanDesign | null, n: number) => {
+export const PERS = "#F3ECDD";
+export const sideColorOf = (hd: HumanDesign | null, n: number) => {
   const s = hd?.gateSides.get(n);
   if (!s) return null;
   return s.has("personality") && s.has("design") ? "both" : s.has("design") ? NIGHT_RED : PERS;
@@ -222,7 +223,7 @@ const sideColorOf = (hd: HumanDesign | null, n: number) => {
  * El bodygraph (el layout de data/bodygraph-layout.ts) con la carta de la alumna. Cada capa decide qué se
  * toca (puertas, canales o centros) y qué se resalta en oro.
  */
-function MiniBodygraph({
+export function MiniBodygraph({
   hd,
   selectedGate,
   selectedChannel,
@@ -236,6 +237,9 @@ function MiniBodygraph({
   gates = !centreNames,
   vb = [20, 10, VIEWBOX.w - 40, VIEWBOX.h - 20],
   children,
+  gateColor,
+  channelColor,
+  centreOn,
 }: {
   hd: HumanDesign | null;
   selectedGate?: number | null;
@@ -253,7 +257,14 @@ function MiniBodygraph({
   vb?: [number, number, number, number];
   /** Lo que se dibuja encima (las etiquetas de las autoridades). */
   children?: React.ReactNode;
+  /** Otros colores (el cielo de hoy, otra persona, los circuitos): el de cada puerta… */
+  gateColor?: (n: number) => string | "both" | null;
+  /** …el de cada canal entero (null = no está entero: se pintan sus mitades)… */
+  channelColor?: (key: string) => string | null;
+  /** …y qué centros salen coloreados. */
+  centreOn?: (id: CentreId) => boolean;
 }) {
+  const colOf = (n: number) => (gateColor ? gateColor(n) : sideColorOf(hd, n));
   const p = usePrefix();
   const defined = new Set(hd?.definedChannels.map((ch) => channelKey(ch.a, ch.b)) ?? []);
   const sel = selectedChannel ? CHANNEL_PATH_BY_KEY.get(selectedChannel) : null;
@@ -283,19 +294,20 @@ function MiniBodygraph({
           <path key={`f${q.key}`} d={q.d} stroke="#1B1840" strokeWidth={CHANNEL_BAND} />
         ))}
         {/* Los definidos, de oro con halo; las puertas colgantes, media cinta en su color. */}
-        {hd &&
-          PATHS.map((q) =>
-            defined.has(q.key) ? (
+        {(hd || gateColor) &&
+          PATHS.map((q) => {
+            const full = channelColor ? channelColor(q.key) : defined.has(q.key) ? "gold" : null;
+            return full ? (
               <g key={`d${q.key}`}>
-                <path d={q.d} stroke={NIGHT_GOLD} strokeWidth={CHANNEL_BAND + 6} strokeOpacity="0.35" filter={`url(#${p}blur)`} />
-                <path d={q.d} stroke={`url(#${p}gold)`} strokeWidth={CHANNEL_BAND - 1} />
+                <path d={q.d} stroke={full === "gold" ? NIGHT_GOLD : full} strokeWidth={CHANNEL_BAND + 6} strokeOpacity="0.35" filter={`url(#${p}blur)`} />
+                <path d={q.d} stroke={full === "gold" ? `url(#${p}gold)` : full} strokeWidth={CHANNEL_BAND - 1} />
               </g>
             ) : (
               ([
                 [q.a, q.halfA],
                 [q.b, q.halfB],
               ] as const).map(([n, d]) => {
-                const col = sideColorOf(hd, n);
+                const col = colOf(n);
                 if (!col) return null;
                 return (
                   <g key={`h${q.key}${n}`} strokeWidth={CHANNEL_BAND - 3}>
@@ -304,8 +316,8 @@ function MiniBodygraph({
                   </g>
                 );
               })
-            ),
-          )}
+            );
+          })}
         {sel && (
           <g>
             <path d={sel.d} stroke={NIGHT_GOLD} strokeWidth={CHANNEL_BAND + 10} strokeOpacity="0.55" filter={`url(#${p}blur)`} />
@@ -323,7 +335,7 @@ function MiniBodygraph({
 
       {CENTRE_SHAPES.map((s) => {
         const ce = CENTRE_BY_ID[s.id];
-        const isDefined = !!hd?.definedCentres.has(s.id);
+        const isDefined = centreOn ? centreOn(s.id) : !!hd?.definedCentres.has(s.id);
         const focused = !!focusCentres?.has(s.id);
         const t = tapCentre?.(s.id) ?? {};
         return (
@@ -341,7 +353,7 @@ function MiniBodygraph({
 
       {gates &&
         GATE_SLOTS.map((slot) => {
-          const col = sideColorOf(hd, slot.n);
+          const col = colOf(slot.n);
           const on = selectedGate === slot.n;
           const dim = dimGate?.(slot.n);
           const t = tapGate && !dim ? tapGate(slot.n) : {};
@@ -358,7 +370,7 @@ function MiniBodygraph({
               ) : (
                 tapGate && <circle cx={x} cy={y} r="13" fill="transparent" />
               )}
-              <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={on ? 18 : 14.5} fontWeight={on || col ? 700 : 500} fill={on ? NIGHT : col === PERS ? NIGHT : col ? "#fff" : "rgb(251 246 236 / .62)"} pointerEvents="none">
+              <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={on ? 18 : 14.5} fontWeight={on || col ? 700 : 500} fill={on ? NIGHT : col === PERS || col === NIGHT_GOLD ? NIGHT : col ? "#fff" : "rgb(251 246 236 / .62)"} pointerEvents="none">
                 {slot.n}
               </text>
             </g>
@@ -482,7 +494,7 @@ export function HdDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProp
     case "hd-types":
       return (
         <NightPanel>
-          <TypesDiagram selected={selected} own={own} tap={tap} />
+          <ExampleBodygraph examples={TYPE_EXAMPLES} items={keys.map((k) => ({ key: k, label: HD_TYPES[k as HdTypeKey].name }))} selected={selected} own={own} tap={tap} />
         </NightPanel>
       );
     case "hd-authorities":

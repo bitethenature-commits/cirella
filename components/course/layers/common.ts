@@ -6,7 +6,18 @@ import type { FocusBody } from "@/lib/lesson-blocks";
 export type SystemPiece = { glyph: string; name: string; kicker: string; meaning: string; personal: string | null };
 
 /** Lo que cada capa sabe de la lección y de la alumna: la configuración elegida, su carta y el planeta de la lección. */
-export type LayerCtx = { option: string | null; c: ComputedProfile | null; focus: FocusBody | null };
+export type LayerCtx = {
+  option: string | null;
+  c: ComputedProfile | null;
+  focus: FocusBody | null;
+  /** Sinastría: las otras personas guardadas en «Mi energía», la elegida y su carta ya calculada. */
+  others?: { name: string }[];
+  otherIndex?: number;
+  pickOther?: (i: number) => void;
+  other?: ComputedProfile | null;
+  /** Los textos de la dueña para cada pieza (planeta + signo + casa los combina). */
+  notes?: Record<string, string>;
+};
 
 /** Los atributos para que una pieza del dibujo se pueda tocar (o elegir con el teclado). */
 export type Tap = (k: string, label: string) => Record<string, unknown>;
