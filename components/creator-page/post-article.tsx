@@ -1,3 +1,4 @@
+import { CalmAudio } from "@/components/media/calm-audio";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react";
 import { imageSrcSet } from "@/lib/media-url";
@@ -7,6 +8,7 @@ import { RichContent } from "@/components/rich-text/rich-content";
 import { CopyButton } from "@/components/ui/copy-button";
 import { PageVideo } from "./page-video";
 import { VideoFacade } from "./video-facade";
+import { PostMediaGate } from "./post-media-gate";
 
 /**
  * Una publicación entera (página pública /<usuaria>/actualidades/<slug> y vista previa del panel),
@@ -19,6 +21,7 @@ export function PostArticle({
   listHref,
   older,
   newer,
+  gate,
 }: {
   post: {
     title: string;
@@ -39,10 +42,12 @@ export function PostArticle({
   listHref: string | null;
   older?: { href: string; title: string } | null;
   newer?: { href: string; title: string } | null;
+  /** En la web: el vídeo o el audio se ve con cuenta (el resto, un adelanto con «Crear mi cuenta»). */
+  gate?: { username: string; slug: string; signupHref: string } | null;
 }) {
   const minutes = readingMinutes(post.body, post.bodyFormat);
   const media = readPostMedia(post.mediaKind, post.media);
-  const cta = post.ctaLabel && post.ctaUrl ? { label: post.ctaLabel, url: post.ctaUrl, code: post.ctaCode } : null;
+  const cta = post.ctaLabel && post.ctaUrl ? { label: post.ctaLabel, url: post.ctaUrl, code: null as string | null } : null;
   const external = cta && !cta.url.startsWith("/");
   return (
     <article className="mx-auto max-w-2xl px-4 pb-10 pt-8 sm:pt-12">
@@ -60,7 +65,18 @@ export function PostArticle({
         {post.publishedAt ? <time dateTime={post.publishedAt.toISOString()}>{dateLabel}</time> : dateLabel} · {minutes} min de lectura
       </p>
       {post.excerpt && <p className="mt-5 text-[1.1rem] leading-relaxed">{post.excerpt}</p>}
-      {media?.kind === "VIDEO" && (
+      {gate && media && (
+        <PostMediaGate
+          kind={media.kind}
+          username={gate.username}
+          slug={gate.slug}
+          poster={media.kind === "VIDEO" && "src" in media ? (media.poster ?? post.imageUrl) : post.imageUrl}
+          title={post.title}
+          durationSec={"durationSec" in media ? (media.durationSec ?? null) : null}
+          signupHref={gate.signupHref}
+        />
+      )}
+      {!gate && media?.kind === "VIDEO" && (
         <div className="cp-card mt-7 overflow-hidden" data-post-media="video">
           {"embedUrl" in media ? (
             <VideoFacade url={media.embedUrl} poster={post.imageUrl} title={post.title} />
@@ -69,7 +85,7 @@ export function PostArticle({
           )}
         </div>
       )}
-      {post.imageUrl && media?.kind !== "VIDEO" && (
+      {post.imageUrl && media?.kind !== "VIDEO" && !(gate && media) && (
         <div className="cp-card mt-7 overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -83,9 +99,9 @@ export function PostArticle({
           />
         </div>
       )}
-      {media?.kind === "AUDIO" && (
-        <div className="cp-card mt-6 p-4" data-post-media="audio">
-          <audio src={media.src} controls preload="none" controlsList="nodownload" className="w-full" aria-label={`Audio: ${post.title}`} />
+      {!gate && media?.kind === "AUDIO" && (
+        <div className="mt-6 py-2" data-post-media="audio">
+          <CalmAudio src={media.src} preload="none" title={post.title} />
         </div>
       )}
       <RichContent text={post.body} format={post.bodyFormat} legacy="links" tone="page" headingLevel={2} className="mt-8 space-y-5 text-[1.02rem] leading-[1.75]" />

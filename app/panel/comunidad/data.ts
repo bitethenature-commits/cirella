@@ -50,6 +50,7 @@ export async function loadComposerPost(owner: Owner, postId: string): Promise<{ 
       bodyFormat: post.bodyFormat,
       kind: post.kind,
       mediaUrl: post.mediaUrl ?? "",
+      imageUrl: post.imageUrl ?? "",
       state,
       at: state === "SCHEDULED" ? datetimeLocalValue(post.publishedAt, tz) : "",
       notify: post.notify,
@@ -67,7 +68,7 @@ export async function loadComposerPost(owner: Owner, postId: string): Promise<{ 
 }
 
 export function emptyComposerPost(productId: string): ComposerPost {
-  return { id: null, productId, title: "", body: "", bodyFormat: "MD", kind: "TEXT", mediaUrl: "", state: "DRAFT", at: "", notify: true, commentsOpen: true, pinned: false, files: [], eventDate: "", eventTime: "", };
+  return { id: null, productId, title: "", body: "", bodyFormat: "MD", kind: "TEXT", mediaUrl: "", imageUrl: "", state: "DRAFT", at: "", notify: true, commentsOpen: true, pinned: false, files: [], eventDate: "", eventTime: "", };
 }
 
 /**

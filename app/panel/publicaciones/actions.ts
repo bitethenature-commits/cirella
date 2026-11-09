@@ -65,7 +65,8 @@ export async function savePost(_: PostActionState, form: FormData): Promise<Post
     media: media ? (media as unknown as Prisma.InputJsonObject) : Prisma.DbNull,
     ctaLabel: d.ctaLabel,
     ctaUrl: d.ctaUrl,
-    ctaCode: d.ctaCode,
+    // Las publicaciones no llevan códigos de descuento (Actualidades no es sitio para ellos).
+    ctaCode: null,
   };
 
   if (!current) {

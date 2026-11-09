@@ -57,6 +57,7 @@ import { seedDemoStudent } from "./demo-student";
 import { seedMarsLesson } from "./demo-lesson-mars";
 import { seedSystemLessons } from "./demo-lessons-systems";
 import { seedDeepLessons } from "./demo-lessons-deep";
+import { seedDemoMembership } from "./demo-membership";
 import { grantFullAccess } from "./demo-full-access";
 
 const prisma = new PrismaClient();
@@ -941,8 +942,8 @@ async function seedAnaPortada(o: {
   const ceremonyAt = zonedTimeToUtc(addDaysToKey(TODAY, 9), 19 * 60, TZ);
   await post(o.plena.id, 1, "Ceremonia de cacao de noviembre", "CEREMONIA", "Prepara tu taza de cacao y un rincón tranquilo: abrimos el mes juntas con intención.", { eventAt: ceremonyAt, mediaUrl: ANA_ZOOM });
   await post(o.plena.id, 4, "Podcast privado · Episodio 7: los ciclos del cuerpo", "PODCAST", "Hablamos de cómo los ciclos de la Luna y los del cuerpo se acompañan. Escúchalo con calma.");
-  await post(o.plena.id, 6, "Audio: meditación para el cambio de estación", "AUDIO", "Diez minutos para despedir el verano y abrir el otoño con suavidad.");
-  await post(o.plena.id, 11, "Sesión en directo: preguntas sobre tu carta", "EVENT", "Traed vuestras preguntas sobre la carta natal: las respondemos en directo y queda la grabación.", { eventAt: zonedTimeToUtc(addDaysToKey(TODAY, 6), 18 * 60, TZ), mediaUrl: ANA_ZOOM });
+  await post(o.plena.id, 6, "Meditación para el cambio de estación", "MEDITACION", "Diez minutos para despedir el verano y abrir el otoño con suavidad.");
+  await post(o.plena.id, 11, "Masterclass en directo: preguntas sobre tu carta", "MASTERCLASS", "Traed vuestras preguntas sobre la carta natal: las respondemos en directo y queda la grabación.", { eventAt: zonedTimeToUtc(addDaysToKey(TODAY, 6), 18 * 60, TZ), mediaUrl: ANA_ZOOM });
   if (moons[0])
     await post(o.lunaCompleta.id, 0, `Círculo de ${moons[0].title.toLowerCase()}`, "CIRCULO_LUNAR", "Nos vemos en el círculo para vivir esta luna juntas. Trae papel, una vela y tu intención.", { eventAt: zonedTimeToUtc(moons[0].date, labelToMinutes(moons[0].time), TZ), mediaUrl: ANA_ZOOM });
 
@@ -1007,7 +1008,7 @@ async function seedAnaPortada(o: {
       creatorId: anaId, slug: "luna-llena-que-soltar", status: "PUBLISHED", publishedAt: daysAgo(1, 10), createdAt: daysAgo(1, 10),
       title: "Luna llena: qué soltar", excerpt: "Un vídeo corto para esta luna y el curso de Human Design con código.",
       body: "Esta luna llena nos invita a **soltar** lo que ya no sostenemos. Te dejo un vídeo corto con un ejercicio de cinco minutos.", bodyFormat: "MD",
-      imageUrl: poster, mediaKind: "VIDEO", media, ctaLabel: "Ver curso", ctaUrl: `/ana/${hd.slug}`, ctaCode: "LUNA15",
+      imageUrl: poster, mediaKind: "VIDEO", media, ctaLabel: "Ver curso", ctaUrl: `/ana/${hd.slug}`,
     },
   });
   await prisma.post.create({
@@ -1322,24 +1323,24 @@ async function main() {
   const pCircle = await prisma.product.create({
     data: {
       creatorId: ana.id, type: "MEMBERSHIP", status: "PUBLISHED", slug: "luna-completa", title: "Luna completa", emoji: "🌕",
-      summary: "Todo lo de Plena y, además, los círculos de la luna: un directo en cada luna nueva y cada luna llena.",
-      description: "El nivel más completo de la comunidad: vivimos juntas cada luna.\n\nIncluye:\n• Círculos de la luna: directo en cada luna nueva y cada luna llena\n• Rituales y meditaciones de cada luna\n• Cancela cuando quieras",
+      summary: "Todo lo de Plena y, además, los círculos de cada luna nueva y luna llena.",
+      description: "El nivel más completo de la comunidad: vivimos juntas cada luna.\n\nIncluye:\n• Círculos de la luna en directo: en cada luna nueva y cada luna llena, por Zoom\n• La grabación de cada círculo: por si no puedes venir ese día\n• Cancela cuando quieras",
       imageUrl: await demoImage(ana.id, "/demo/comunidad.webp"), priceCents: 3300, billingInterval: "month", ctaLabel: "Unirme", sortOrder: 6, createdAt: daysAgo(40),
     },
   });
   const pEsencia = await prisma.product.create({
     data: {
-      creatorId: ana.id, type: "MEMBERSHIP", status: "PUBLISHED", slug: "esencia", title: "Esencia", emoji: "🌱",
-      summary: "Textos energéticos cada semana para leer el cielo con calma.",
-      description: "La puerta de entrada a la comunidad.\n\nIncluye:\n• Textos energéticos semanales\n• Cancela cuando quieras",
+      creatorId: ana.id, type: "MEMBERSHIP", status: "PUBLISHED", slug: "esencia", title: "Esencia", emoji: "🌱", pagedReading: true,
+      summary: "Un texto energético cada semana para vivir el cielo con calma.",
+      description: "La puerta de entrada a la comunidad: cada semana, un texto para leer el cielo y llevarlo a tu día a día.\n\nIncluye:\n• Un texto energético cada semana: la lectura del cielo de esos días y una práctica sencilla para vivirla\n• Cancela cuando quieras",
       imageUrl: await demoImage(ana.id, "/demo/astrologia.webp"), priceCents: 1100, billingInterval: "month", ctaLabel: "Unirme", sortOrder: 9, createdAt: daysAgo(35),
     },
   });
   const pPlena = await prisma.product.create({
     data: {
       creatorId: ana.id, type: "MEMBERSHIP", status: "PUBLISHED", slug: "plena", title: "Plena", emoji: "🌗",
-      summary: "Todo lo de Esencia, más audios, sesiones en directo, el podcast privado y las ceremonias.",
-      description: "Para vivir la comunidad a fondo.\n\nIncluye:\n• Audios\n• Sesiones en directo\n• Podcast privado\n• Ceremonias",
+      summary: "Todo lo de Esencia, más podcast, meditaciones, Astroweather, masterclases y ceremonias.",
+      description: "Para vivir la comunidad a fondo, con la voz y en directo.\n\nIncluye:\n• Podcast privado: episodios para escuchar con calma donde quieras\n• Meditaciones guiadas: en audio, para cada fase de la luna y para tu día a día\n• Astroweather cada semana: el clima astrológico en vídeo y en audio\n• Masterclases: en directo y después grabadas, o directamente en vídeo\n• Ceremonias en directo: cacao, equinoccios, lunas llenas… y su grabación después\n• Cancela cuando quieras",
       imageUrl: await demoImage(ana.id, "/demo/human-design.webp"), priceCents: 2200, billingInterval: "month", ctaLabel: "Unirme", sortOrder: 10, createdAt: daysAgo(35),
       // Oferta del primer mes (lib/offers.ts): las renovaciones van al precio normal.
       salePriceCents: 1100, saleLabel: "1.er mes −50 %", saleEndsAt: zonedTimeToUtc(addDaysToKey(TODAY, 12), 0, TZ),
@@ -1429,12 +1430,12 @@ async function main() {
   const seen = (d: Date) => ({ notify: false, notifiedAt: d });
   const lunaNuevaAt = daysAgo(6);
   const postLunaNueva = await prisma.membershipPost.create({
-    data: { creatorId: ana.id, productId: pCircle.id, title: "Luna nueva en Libra · ritual de intención", kind: "AUDIO", publishedAt: lunaNuevaAt, ...seen(lunaNuevaAt), bodyFormat: "MD",
+    data: { creatorId: ana.id, productId: pCircle.id, title: "Luna nueva en Libra · ritual de intención", kind: "MEDITACION", publishedAt: lunaNuevaAt, ...seen(lunaNuevaAt), bodyFormat: "MD",
       body: "Esta luna nueva nos invita a revisar el **equilibrio** entre lo que damos y lo que recibimos.\n\n- Enciende una vela.\n- Escribe tres intenciones en presente.\n- Léelas en voz alta y guárdalas hasta la luna llena.\n\nTe dejo la meditación guiada, la guía del ritual en PDF y la lámina para tener a mano. Cuéntame en los comentarios cómo te ha ido ✨" },
   });
   const directoAt = daysAgo(2);
   await prisma.membershipPost.create({
-    data: { creatorId: ana.id, productId: pCircle.id, title: `Directo de ${liveMonth}: los tránsitos del mes`, kind: "EVENT", publishedAt: directoAt, ...seen(directoAt), mediaUrl: "https://meet.google.com/circulo-lunar",
+    data: { creatorId: ana.id, productId: pCircle.id, title: `Directo de ${liveMonth}: los tránsitos del mes`, kind: "MASTERCLASS", publishedAt: directoAt, ...seen(directoAt), mediaUrl: "https://meet.google.com/circulo-lunar",
       body: `Nos vemos el ${liveDay} a las 19:00 (hora de Madrid) para repasar los tránsitos del mes y cómo aprovecharlos en tu día a día. La grabación quedará aquí.` },
   });
   const lunaLlenaAt = daysAgo(18);
@@ -1993,6 +1994,8 @@ async function main() {
   await seedMarsLesson(prisma, ana.id);
   await seedSystemLessons(prisma, ana.id);
   await seedDeepLessons(prisma, ana.id);
+  // La membresía completa de ejemplo (Esencia, Plena y Luna completa con todo tipo de publicaciones).
+  await seedDemoMembership(prisma, ana.id);
   // Laura, con acceso a todo para ir probando la web.
   await grantFullAccess(prisma, { creatorId: ana.id, ownerUserId: anaUser.id, now: NOW });
 

@@ -15,6 +15,7 @@ import { sitePagePath } from "./site-pages";
 import { formatDate } from "./tz";
 import { PRODUCT_TYPES, type ProductType } from "./types";
 import type { PublicDiscountCode, PublicPost, PublicProduct } from "@/components/creator-page/creator-page-view";
+import { webNews } from "./web-news";
 
 /** La dueña de la web personal tiene todo desbloqueado (sin planes): lo que pinta su página. */
 const ALL_FEATURES: PlanFeatures = {
@@ -87,6 +88,8 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
       }),
     );
   const posts = postRows.map((p) => toPublicPost(p, creator.timezone));
+  // «Actualidades»: lo que se va subiendo a la web (lib/web-news.ts).
+  const news = await webNews({ creatorId: creator.id, username: creator.username, publicProductIds: products.map((p) => p.id), codesHref: "#codigos", timeZone: creator.timezone });
   const portal: PublicPortalItem[] = portalRows.map((i) => publicPortalItem(i, false, creator.timezone));
   const discountCodes: PublicDiscountCode[] = codeRows.map((c) => ({
     id: c.id,
@@ -106,6 +109,8 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
     /** Las últimas publicaciones (sección «Actualidades») y cuántas hay en total. */
     posts,
     postCount,
+    /** «Actualidades»: lo nuevo de la web, de lo más nuevo a lo más antiguo. */
+    news,
     /** Portal de Noticias, siempre bloqueado aquí (página cacheada). */
     portal,
     discountCodes,
@@ -167,7 +172,7 @@ function toPublicPost(
     dateLabel: formatDate(publishedAt, { day: "numeric", month: "long", year: "numeric" }, timeZone),
     dateBadge: postDateBadge(publishedAt, timeZone),
     mediaKind: media?.kind ?? null,
-    cta: p.ctaLabel && p.ctaUrl ? { label: p.ctaLabel, url: p.ctaUrl, code: p.ctaCode ?? null } : null,
+    cta: p.ctaLabel && p.ctaUrl ? { label: p.ctaLabel, url: p.ctaUrl, code: null } : null,
   };
 }
 

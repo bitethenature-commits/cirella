@@ -61,6 +61,7 @@ export function SectionDropdown({
   countLabel,
   stamps,
   preview,
+  icon,
   children,
 }: {
   id: string;
@@ -71,6 +72,8 @@ export function SectionDropdown({
   /** Fechas (ms) de lo que hay en la sección: publicadas, del portal u ofertas empezadas. */
   stamps: number[];
   preview?: boolean;
+  /** El emblema de la sección (el megáfono, el portal, el %). */
+  icon?: ReactNode;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDetailsElement>(null);
@@ -131,6 +134,11 @@ export function SectionDropdown({
   return (
     <details ref={ref} onToggle={onToggle} data-section-dropdown={section} className="cp-card group rounded-2xl border" style={{ overflow: "visible" }}>
       <summary className="flex cursor-pointer list-none items-center gap-4 px-4 py-3.5 sm:px-5 [&::-webkit-details-marker]:hidden">
+        {icon && (
+          <span className="cp-emblem grid h-12 w-12 shrink-0 place-items-center rounded-full sm:h-14 sm:w-14" aria-hidden>
+            {icon}
+          </span>
+        )}
         <span className="min-w-0 flex-1">
           <h2 id={`${id}-titulo`} className="cp-display m-0 text-[1.5rem] leading-tight sm:text-[1.75rem]">
             {title}

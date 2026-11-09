@@ -14,34 +14,16 @@ export const NIGHT_RED = "#E36B5F";
 
 export const usePrefix = () => useId().replace(/[^a-zA-Z0-9]/g, "");
 
+/** El sitio del dibujo: sin burbuja, sin borde y sin fondo propio (como los modelos de astrología). */
 export function NightPanel({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return (
-    <div
-      className={`relative overflow-hidden rounded-[1.5rem] p-2 sm:p-3 ${className}`}
-      style={{
-        background: "radial-gradient(circle at 50% 35%, #2A2552 0%, #17153A 55%, #100E26 100%)",
-        boxShadow: "0 0 0 1px rgb(200 168 110 / .28), 0 0 50px -14px rgb(150 120 220 / .45)",
-      }}
-    >
-      {children}
-    </div>
-  );
+  return <div className={`relative ${className}`}>{children}</div>;
 }
 
 /** Estrellas fijas (siempre las mismas) para el fondo de un dibujo. */
 export function Stars({ w, h, n, x0 = 0, y0 = 0 }: { w: number; h: number; n: number; x0?: number; y0?: number }) {
-  const pts = Array.from({ length: n }, (_, i) => {
-    const a = Math.sin(i * 12.9898) * 43758.5453;
-    const b = Math.sin(i * 78.233) * 12345.6789;
-    return { x: x0 + (a - Math.floor(a)) * w, y: y0 + (b - Math.floor(b)) * h, r: 0.5 + ((i * 7) % 5) * 0.22 };
-  });
-  return (
-    <g fill={STAR} pointerEvents="none">
-      {pts.map((q, i) => (
-        <circle key={i} cx={q.x} cy={q.y} r={q.r} opacity={0.25 + ((i * 13) % 7) * 0.08} />
-      ))}
-    </g>
-  );
+  // Sin estrellas: los modelos van sobre la noche de la página, como los de astrología.
+  void w; void h; void n; void x0; void y0;
+  return null;
 }
 
 /** Degradados y filtros comunes: oro, brillo de cristal, sombra del borde y desenfoque para los halos. */
@@ -70,6 +52,35 @@ export function NightDefs({ p }: { p: string }) {
 }
 
 /** Chips sobre el cielo: de cristal; el elegido, dorado; los de la alumna, con estrella. */
+/** El selector de configuración dentro del modelo (qué tirada, por elemento o por dios…). */
+export function OptionChips({ options, value, onPick }: { options: { value: string; label: string }[]; value: string; onPick?: (v: string) => void }) {
+  return (
+    <div className="mb-3 flex flex-wrap justify-center gap-1.5" role="tablist" aria-label="Configuración">
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onPick?.(o.value)}
+            className="min-h-8 rounded-full border px-3 text-[0.76rem] font-semibold transition"
+            style={{
+              background: on ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : "rgb(255 255 255 / .05)",
+              color: on ? NIGHT : STAR,
+              borderColor: on ? "#F0D9A4" : "rgb(233 204 142 / .3)",
+              boxShadow: on ? "0 0 14px rgb(233 204 142 / .35)" : undefined,
+            }}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function NightChips({ items, selected, mine, tap }: { items: { key: string; label: string }[]; selected: string; mine: Set<string>; tap: (k: string, label: string) => Record<string, unknown> }) {
   return (
     <div className="mt-2 flex flex-wrap justify-center gap-1.5 pb-1">

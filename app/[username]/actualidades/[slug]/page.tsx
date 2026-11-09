@@ -20,6 +20,8 @@ export function generateStaticParams(): Params[] {
 }
 
 async function load(username: string, slug: string) {
+  // «Actualidades» ya es automática (lib/web-news.ts): las publicaciones escritas a mano no salen en la web.
+  if (username || slug) return null;
   const data = await sectionPageData(username);
   if (!data) return null;
   const post = await getPublicPost(data.creator.id, slug);
@@ -86,6 +88,7 @@ export default async function PostPage({ params }: { params: Promise<Params> }) 
         listHref={data.listHref}
         older={link(older)}
         newer={link(newer)}
+        gate={{ username: creator.username, slug: post.slug, signupHref: `/${creator.username}/entrar?next=${encodeURIComponent(postPath(creator.username, post.slug))}` }}
       />
       <TrackOnMount creatorId={creator.id} type="PAGE_VIEW" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />

@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db";
 import { appUrl } from "@/lib/env";
-import { postPath, postsListPath, publicPostWhere } from "@/lib/posts";
+import { postsListPath, publicPostWhere } from "@/lib/posts";
 import { sectionPagePath } from "@/lib/site-sections";
 import { ownerUsername } from "@/lib/site-mode";
 
@@ -62,6 +62,6 @@ function postEntries(base: string, username: string, posts: { slug: string; upda
   if (!posts.length) return [];
   return [
     { url: `${base}${postsListPath(username, personal)}`, lastModified: posts[0].updatedAt, changeFrequency: "weekly", priority: 0.6 },
-    ...posts.map((p) => ({ url: `${base}${postPath(username, p.slug)}`, lastModified: p.updatedAt, priority: 0.5 })),
+    // Las publicaciones escritas a mano ya no salen en la web: solo la lista de novedades.
   ];
 }

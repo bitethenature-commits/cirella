@@ -6,7 +6,7 @@ import { LAYER_KEYS, type AstroLayer } from "@/lib/lesson-blocks";
 import { C, CREAM, GOLD, INK, LINE, MUTED, SAND, VS, degIn, listEs, pt, sector, signIndex, type DiagramProps, type LayerCtx, type SystemPiece } from "./common";
 import { MODALITY_TEXT } from "./texts";
 import { AnglesWheel, ModalityWheel } from "./astro-wheels";
-import { NIGHT_GOLD, NightDefs, NightPanel, STAR, Stars, usePrefix } from "./night";
+import { NIGHT_GOLD, NightDefs, NightPanel, OptionChips, STAR, Stars, usePrefix } from "./night";
 
 /**
  * Más capas: de la carta astral, las 3 cualidades y los 4 ángulos; de las runas, las 24 runas en sus
@@ -20,8 +20,7 @@ const PLANETS = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn",
 
 export function extraKeys(layer: ExtraLayer, { option }: LayerCtx): string[] {
   const all = LAYER_KEYS[layer];
-  if (layer === "rune-aettir" && option && option !== "all") return RUNES.filter((r) => String(r.aett) === option).map((r) => r.id);
-  if (layer === "rune-spreads") return all.filter((k) => k.startsWith(`${option ?? "three"}-`));
+  if (layer === "rune-spreads") return all.filter((k) => k.startsWith(`${option && option in RUNE_SPREADS ? option : "three"}-`));
   return all;
 }
 
@@ -96,8 +95,9 @@ export function extraPiece(layer: ExtraLayer, key: string, { option, c }: LayerC
 }
 
 /* -------------------------------------------------------------------------- *
- *  Las runas, sobre el cielo de noche: piedras de río con relieve y la runa tallada; la elegida, con la
- *  talla encendida en oro.
+ *  Las runas, talladas en hueso: piezas de marfil pulido, con su poro y sus vetas, el borde un poco más
+ *  oscuro, un brillo suave y la runa grabada en tinta (con la luz en el labio del surco). La elegida, con
+ *  el hueso más cálido, el filo dorado y la runa rellena de oro.
  * -------------------------------------------------------------------------- */
 
 export function StoneDefs({ p }: { p: string }) {
@@ -105,44 +105,75 @@ export function StoneDefs({ p }: { p: string }) {
     <>
       <NightDefs p={p} />
       <defs>
-        <radialGradient id={`${p}stone`} cx="38%" cy="30%" r="80%">
-          <stop offset="0%" stopColor="#B4AEBF" />
-          <stop offset="55%" stopColor="#7A7488" />
-          <stop offset="100%" stopColor="#4A4659" />
+        <radialGradient id={`${p}bone`} cx="36%" cy="28%" r="82%">
+          <stop offset="0%" stopColor="#FCF8EE" />
+          <stop offset="50%" stopColor="#EBE0C8" />
+          <stop offset="100%" stopColor="#BFA983" />
         </radialGradient>
-        <radialGradient id={`${p}stoneOn`} cx="38%" cy="30%" r="80%">
-          <stop offset="0%" stopColor="#5C5470" />
-          <stop offset="60%" stopColor="#332E4A" />
-          <stop offset="100%" stopColor="#1C1930" />
+        <radialGradient id={`${p}boneOn`} cx="36%" cy="28%" r="82%">
+          <stop offset="0%" stopColor="#FFF8E4" />
+          <stop offset="50%" stopColor="#F2DFB4" />
+          <stop offset="100%" stopColor="#C7A262" />
         </radialGradient>
+        <radialGradient id={`${p}boneEdge`} cx="50%" cy="50%" r="50%">
+          <stop offset="62%" stopColor="#5E4325" stopOpacity="0" />
+          <stop offset="100%" stopColor="#5E4325" stopOpacity="0.34" />
+        </radialGradient>
+        <radialGradient id={`${p}boneGloss`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.75" />
+          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={`${p}runeGold`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#FBE7B0" />
+          <stop offset="45%" stopColor="#D9AE5C" />
+          <stop offset="100%" stopColor="#8E6424" />
+        </linearGradient>
+        {/* El poro del hueso. */}
+        <filter id={`${p}pores`} x="0" y="0" width="1" height="1">
+          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" seed="4" result="n" />
+          <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.42  0 0 0 0 0.3  0 0 0 0 0.17  0 0 0 1.5 -0.78" result="c" />
+          <feComposite in="c" in2="SourceAlpha" operator="in" />
+        </filter>
         <filter id={`${p}drop`} x="-30%" y="-30%" width="160%" height="170%">
-          <feDropShadow dx="0" dy="3" stdDeviation="3" floodColor="#000" floodOpacity="0.55" />
+          <feDropShadow dx="0" dy="3.5" stdDeviation="3.2" floodColor="#000" floodOpacity="0.6" />
+        </filter>
+        <filter id={`${p}soft2`} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="1.6" />
         </filter>
       </defs>
     </>
   );
 }
 
-/** Una piedra rúnica: un canto rodado irregular con su runa tallada (luz y sombra en el surco). */
+/** Una runa de hueso: la pieza pulida, algo irregular, con la runa grabada (o un número, en las tiradas). */
 export function Stone({ p, x, y, w, h, glyph, on, label }: { p: string; x: number; y: number; w: number; h: number; glyph: string; on: boolean; label?: string }) {
-  const d = `M${x - w / 2 + 3} ${y - 2}C${x - w / 2} ${y - h / 2 + 2} ${x + w / 2 - 6} ${y - h / 2 - 2} ${x + w / 2 - 1} ${y - 4}C${x + w / 2 + 2} ${y + h / 2 - 6} ${x - w / 2 + 6} ${y + h / 2 + 1} ${x - w / 2 + 3} ${y - 2}Z`;
-  const fs = h * 0.46;
+  const rx = w / 2;
+  const ry = h / 2;
+  const d = `M${x} ${y - ry}C${x + rx * 0.62} ${y - ry * 1.01} ${x + rx} ${y - ry * 0.6} ${x + rx * 0.98} ${y + ry * 0.02}C${x + rx * 0.97} ${y + ry * 0.66} ${x + rx * 0.55} ${y + ry} ${x - rx * 0.04} ${y + ry * 0.99}C${x - rx * 0.62} ${y + ry * 0.98} ${x - rx} ${y + ry * 0.58} ${x - rx * 0.99} ${y - ry * 0.04}C${x - rx * 0.98} ${y - ry * 0.64} ${x - rx * 0.58} ${y - ry} ${x} ${y - ry}Z`;
+  const fs = h * 0.5;
   return (
     <>
-      {on && <ellipse cx={x} cy={y} rx={w * 0.7} ry={h * 0.75} fill={`url(#${p}goldglow)`} pointerEvents="none" />}
-      <path d={d} fill={`url(#${p}${on ? "stoneOn" : "stone"})`} stroke={on ? "#F0D9A4" : "rgb(255 255 255 / .25)"} strokeWidth={on ? 1.8 : 0.8} filter={`url(#${p}drop)`} />
-      <ellipse cx={x - w * 0.12} cy={y - h * 0.22} rx={w * 0.22} ry={h * 0.12} fill="#fff" opacity={on ? 0.08 : 0.18} pointerEvents="none" />
-      {!on && (
-        <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="700" fill="#D8D2E0" opacity="0.55" pointerEvents="none" transform="translate(0.6 0.9)">
-          {glyph}
-        </text>
-      )}
+      {on && <ellipse cx={x} cy={y} rx={w * 0.78} ry={h * 0.8} fill={`url(#${p}goldglow)`} pointerEvents="none" />}
+      <path d={d} fill={`url(#${p}${on ? "boneOn" : "bone"})`} filter={`url(#${p}drop)`} />
+      <path d={d} fill="#000" filter={`url(#${p}pores)`} opacity="0.55" pointerEvents="none" />
+      {/* Una veta fina, como en el hueso de verdad. */}
+      <path d={`M${x + rx * 0.2} ${y - ry * 0.88}q${rx * 0.25} ${ry * 0.3} ${rx * 0.55} ${ry * 0.42}`} fill="none" stroke="#9C8058" strokeOpacity="0.28" strokeWidth="0.6" strokeLinecap="round" pointerEvents="none" />
+      <path d={d} fill={`url(#${p}boneEdge)`} pointerEvents="none" />
+      <ellipse cx={x - rx * 0.3} cy={y - ry * 0.48} rx={rx * 0.42} ry={ry * 0.2} fill={`url(#${p}boneGloss)`} opacity="0.8" transform={`rotate(-14 ${x - rx * 0.3} ${y - ry * 0.48})`} pointerEvents="none" />
+      <path d={d} fill="none" stroke={on ? "#D4B57A" : "#7A6142"} strokeOpacity={on ? 1 : 0.45} strokeWidth={on ? 1.6 : 0.6} pointerEvents="none" />
+      {/* La runa grabada: la luz en el labio de abajo, la sombra arriba y la tinta (u oro) en el surco. */}
+      <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="700" fill="#FFFFFF" opacity="0.75" pointerEvents="none" transform="translate(0.5 0.9)">
+        {glyph}
+      </text>
+      <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="700" fill="#4A321A" opacity="0.45" pointerEvents="none" transform="translate(-0.4 -0.6)">
+        {glyph}
+      </text>
       {on && (
-        <text x={x} y={y - 0.5} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="700" fill={NIGHT_GOLD} opacity="0.6" filter={`url(#${p}blur)`} pointerEvents="none">
+        <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="700" fill="#F0C978" opacity="0.7" filter={`url(#${p}soft2)`} pointerEvents="none">
           {glyph}
         </text>
       )}
-      <text x={x} y={y - 0.5} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="700" fill={on ? "#FFE7AE" : "#2B2738"} pointerEvents="none">
+      <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="700" fill={on ? `url(#${p}runeGold)` : "#3A2615"} stroke={on ? "#6B4A1E" : "none"} strokeWidth={on ? 0.5 : 0} pointerEvents="none">
         {glyph}
       </text>
       {label && (
@@ -201,7 +232,7 @@ export function ExtraDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramP
       );
     }
     case "rune-spreads": {
-      const spread = (ctx.option ?? "three") as RuneSpreadId;
+      const spread = (ctx.option && ctx.option in RUNE_SPREADS ? ctx.option : "three") as RuneSpreadId;
       const s = RUNE_SPREADS[spread];
       const at = (i: number) => {
         if (spread === "one") return { x: 170, y: 120 };
@@ -211,6 +242,7 @@ export function ExtraDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramP
       };
       return (
         <NightPanel>
+          <OptionChips options={(["one", "three", "five"] as const).map((v) => ({ value: v, label: RUNE_SPREADS[v].label }))} value={spread} onPick={ctx.setOption} />
           <svg viewBox="0 0 340 250" className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label={s.label}>
             <StoneDefs p={p} />
             <Stars w={340} h={250} n={30} />

@@ -84,7 +84,8 @@ export function computeAll(
     timeKnown,
     lat: profile.place.lat,
     lon: profile.place.lon,
-    houseSystem: opts.houseSystem ?? "placidus",
+    // Signos enteros en toda la web (cada signo, una casa, desde el del Ascendente).
+    houseSystem: opts.houseSystem ?? "whole",
     node: opts.node ?? "mean",
   });
   const humanDesign = humanDesignAt(utc);

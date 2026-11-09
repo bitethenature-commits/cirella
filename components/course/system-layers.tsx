@@ -11,6 +11,10 @@ import { HD2_LAYERS, Hd2Diagram, hd2Keys, hd2Mine, hd2Piece, type Hd2Layer } fro
 import { HdDiagram, hdKeys, hdMine, hdPiece, type HdLayer } from "./layers/hd";
 import { RUNES2_LAYERS, Runes2Diagram, runes2Keys, runes2Mine, runes2Piece, type Runes2Layer } from "./layers/runes2";
 import { MOON2_LAYERS, Moon2Diagram, moon2Keys, moon2Mine, moon2Piece, type Moon2Layer } from "./layers/moon2";
+import { KunDiagram, isKunLayer, kunKeys, kunMine, kunPiece } from "./layers/kundalini";
+import { DayDiagram, dayKeys, dayMine, dayPiece, isDayLayer } from "./layers/day";
+import { GeoDiagram, geoKeys, geoMine, geoPiece, isGeoLayer } from "./layers/geo";
+import { OracleDiagram, isOracleLayer, oracleKeys, oracleMine, oraclePiece } from "./layers/oracle-layers";
 import { MoonDiagram, moonKeys, moonMine, moonPiece, type MoonLayer } from "./layers/moon";
 
 /**
@@ -39,6 +43,10 @@ const isAstro2 = (l: SystemLayer): l is Astro2Layer => l.startsWith("astro-");
 
 /** Las piezas de la capa con su configuración (las puertas de un centro, solo las llaves de su perfil…). */
 export function systemKeys(layer: SystemLayer, ctx: LayerCtx): string[] {
+  if (isKunLayer(layer)) return kunKeys(layer);
+  if (isDayLayer(layer)) return dayKeys();
+  if (isGeoLayer(layer)) return geoKeys(layer);
+  if (isOracleLayer(layer)) return oracleKeys(layer, ctx);
   if (isHd2(layer)) return hd2Keys(layer, ctx);
   if (isHd(layer)) return hdKeys(layer, ctx);
   if (isGk2(layer)) return gk2Keys(layer);
@@ -52,6 +60,10 @@ export function systemKeys(layer: SystemLayer, ctx: LayerCtx): string[] {
 }
 
 export function systemPiece(layer: SystemLayer, key: string, ctx: LayerCtx): SystemPiece {
+  if (isKunLayer(layer)) return kunPiece(layer, key, ctx);
+  if (isDayLayer(layer)) return dayPiece(layer, key, ctx);
+  if (isGeoLayer(layer)) return geoPiece(layer, key, ctx);
+  if (isOracleLayer(layer)) return oraclePiece(layer, key, ctx);
   if (isHd2(layer)) return hd2Piece(layer, key, ctx);
   if (isHd(layer)) return hdPiece(layer, key, ctx);
   if (isGk2(layer)) return gk2Piece(layer, key, ctx);
@@ -66,6 +78,10 @@ export function systemPiece(layer: SystemLayer, key: string, ctx: LayerCtx): Sys
 
 /** Las piezas de la alumna en esta capa: con la primera se abre, y todas llevan «★ En tu carta». */
 export function systemMine(layer: SystemLayer, ctx: LayerCtx): string[] {
+  if (isKunLayer(layer)) return kunMine(layer, ctx);
+  if (isDayLayer(layer)) return dayMine();
+  if (isGeoLayer(layer)) return geoMine(layer, ctx);
+  if (isOracleLayer(layer)) return oracleMine(layer, ctx);
   if (isHd2(layer)) return hd2Mine(layer, ctx);
   if (isHd(layer)) return hdMine(layer, ctx);
   if (isGk2(layer)) return gk2Mine(layer, ctx);
@@ -79,6 +95,10 @@ export function systemMine(layer: SystemLayer, ctx: LayerCtx): string[] {
 }
 
 export function SystemDiagram({ layer, ...props }: DiagramProps & { layer: SystemLayer }) {
+  if (isKunLayer(layer)) return <KunDiagram layer={layer} {...props} />;
+  if (isDayLayer(layer)) return <DayDiagram layer={layer} {...props} />;
+  if (isGeoLayer(layer)) return <GeoDiagram layer={layer} {...props} />;
+  if (isOracleLayer(layer)) return <OracleDiagram layer={layer} {...props} />;
   if (isHd2(layer)) return <Hd2Diagram layer={layer} {...props} />;
   if (isHd(layer)) return <HdDiagram layer={layer} {...props} />;
   if (isGk2(layer)) return <Gk2Diagram layer={layer} {...props} />;

@@ -146,7 +146,7 @@ function ModelFields({ data, id, onChange }: { data: ModelData; id: string; onCh
   const options = LAYER_OPTIONS[data.layer];
   // Las piezas que se ven con esta configuración (sin carta: las de la configuración, no las de cada alumna).
   // En «Planeta + signo + casa», los textos son por planeta en cada signo y en cada casa (no por cada combinación).
-  const shown = isSystemLayer(data.layer) && !["astro-combos", "hd-gate-lines", "gk-spectrum", "gk-shadows"].includes(data.layer) ? systemKeys(data.layer, { option: option === "mine" ? null : option, c: null, focus: data.focus }) : LAYER_KEYS[data.layer];
+  const shown = isSystemLayer(data.layer) && !["astro-combos", "hd-gate-lines", "gk-spectrum", "gk-shadows", "moon-combos"].includes(data.layer) ? systemKeys(data.layer, { option: option === "mine" ? null : option, c: null, focus: data.focus }) : LAYER_KEYS[data.layer];
   const keys = shown.length ? shown : LAYER_KEYS[data.layer];
   const filled = keys.filter((k) => data.notes[k]?.trim()).length;
   return (

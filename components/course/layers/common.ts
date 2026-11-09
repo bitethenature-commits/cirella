@@ -3,7 +3,15 @@ import type { FocusBody } from "@/lib/lesson-blocks";
 
 /** Lo común a las capas del modelo por partes que no son la rueda de la carta (components/course/system-layers.tsx). */
 
-export type SystemPiece = { glyph: string; name: string; kicker: string; meaning: string; personal: string | null };
+export type SystemPiece = {
+  glyph: string;
+  name: string;
+  kicker: string;
+  meaning: string;
+  personal: string | null;
+  /** Una segunda parte, debajo, con el mismo aspecto (el Nodo Sur debajo del Norte). */
+  extra?: { glyph?: string; name: string; kicker: string; meaning: string };
+};
 
 /** Lo que cada capa sabe de la lección y de la alumna: la configuración elegida, su carta y el planeta de la lección. */
 export type LayerCtx = {
@@ -15,6 +23,11 @@ export type LayerCtx = {
   otherIndex?: number;
   pickOther?: (i: number) => void;
   other?: ComputedProfile | null;
+  /** El año (o el mes) elegido en el modelo, desde hoy: 0 = este; -1 = el anterior… */
+  shift?: number;
+  setShift?: (n: number) => void;
+  /** Cambiar la configuración desde dentro del modelo (las runas: qué tirada, elemento o dios…). */
+  setOption?: (v: string) => void;
   /** Los textos de la dueña para cada pieza (planeta + signo + casa los combina). */
   notes?: Record<string, string>;
 };

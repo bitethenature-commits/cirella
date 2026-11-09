@@ -154,6 +154,8 @@ const productSchema = z.object({
   // Uno o varios temas («ASTROLOGIA+MI_ENERGIA»).
   courseCategory: z.string().max(120).optional(),
   moonCircle: z.string().optional(),
+  pagedReadingField: z.string().optional(),
+  pagedReading: z.string().optional(),
 }).merge(saleFormSchema);
 
 export async function updateProduct(_: ActionState, form: FormData): Promise<ActionState> {
@@ -293,6 +295,7 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
       ...(product.type === "COURSE" && d.courseCategory !== undefined ? { courseCategory: asCourseCategory(d.courseCategory) } : {}),
       ...(product.type === "SESSION" ? { moonCircle: wantsGroup && d.moonCircle === "on" } : {}),
       ...(product.type === "MEMBERSHIP" ? { billingInterval: d.billingInterval ?? "month" } : {}),
+      ...(product.type === "MEMBERSHIP" && d.pagedReadingField ? { pagedReading: d.pagedReading === "on" } : {}),
     },
   });
   // Con plazas vendidas, mover el taller avisa a cada asistente (lib/workshops.ts).

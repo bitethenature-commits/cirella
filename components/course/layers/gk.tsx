@@ -241,18 +241,9 @@ function Flower({ cx, cy, r, reach, opacity = 0.1 }: { cx: number; cy: number; r
 
 /** Estrellas fijas (siempre las mismas) para el fondo de los dibujos. */
 function Stars({ w, h, n, x0 = 0, y0 = 0 }: { w: number; h: number; n: number; x0?: number; y0?: number }) {
-  const pts = Array.from({ length: n }, (_, i) => {
-    const a = Math.sin(i * 12.9898) * 43758.5453;
-    const b = Math.sin(i * 78.233) * 12345.6789;
-    return { x: x0 + (a - Math.floor(a)) * w, y: y0 + (b - Math.floor(b)) * h, r: 0.5 + ((i * 7) % 5) * 0.22 };
-  });
-  return (
-    <g fill={STAR} pointerEvents="none">
-      {pts.map((q, i) => (
-        <circle key={i} cx={q.x} cy={q.y} r={q.r} opacity={0.25 + ((i * 13) % 7) * 0.08} />
-      ))}
-    </g>
-  );
+  // Sin estrellas: los modelos van sobre la noche de la página, como los de astrología.
+  void w; void h; void n; void x0; void y0;
+  return null;
 }
 
 /** Las esferas, con las tres secuencias para elegir dentro del modelo: todas o solo una (las demás, apagadas). */
@@ -334,18 +325,9 @@ export function GoldenPath({ c, lit, selected, onSphere }: { c: LayerCtx["c"]; l
 }
 
 /** El cielo de noche de los dibujos de Gene Keys (un panel propio: no van sobre la lámina clara). */
+/** El sitio del dibujo: sin burbuja, sin borde y sin fondo propio (como los modelos de astrología). */
 export function NightPanel({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="relative overflow-hidden rounded-[1.5rem] p-2 sm:p-3"
-      style={{
-        background: "radial-gradient(circle at 50% 35%, #2A2552 0%, #17153A 55%, #100E26 100%)",
-        boxShadow: "0 0 0 1px rgb(200 168 110 / .28), 0 0 50px -14px rgb(150 120 220 / .45)",
-      }}
-    >
-      {children}
-    </div>
-  );
+  return <div className="relative">{children}</div>;
 }
 
 export function SequenceLegend({ active, onPick }: { active: string | null; onPick?: (id: SequenceId) => Record<string, unknown> }) {

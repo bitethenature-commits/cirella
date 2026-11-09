@@ -170,6 +170,22 @@ export const MOON_NATAL_HOUSE: string[] = [
 ];
 
 /** El Nodo Norte en cada signo (el Sur, enfrente): de dónde vienes y hacia dónde creces. */
+/** El Nodo Sur en cada signo: el talento que ya traes y la zona cómoda que conviene no repetir. */
+export const SOUTH_NODE_SIGN: string[] = [
+  "Traes valentía e iniciativa: sabes arrancar sola. La trampa es ir siempre por tu cuenta y no dejar sitio al otro.",
+  "Traes estabilidad y sentido práctico: sabes sostener y disfrutar. La trampa es aferrarte a lo seguro y a lo que ya tienes.",
+  "Traes curiosidad y palabra: sabes informarte y conectar. La trampa es quedarte en los datos y no buscar el sentido.",
+  "Traes cuidado y sensibilidad: sabes proteger y crear hogar. La trampa es refugiarte en lo conocido y no asumir tu lugar fuera.",
+  "Traes brillo y creatividad: sabes expresarte y ser vista. La trampa es necesitar el aplauso y olvidar al grupo.",
+  "Traes orden y servicio: sabes mejorar lo concreto. La trampa es el perfeccionismo y no soltar el control.",
+  "Traes diplomacia y sentido del otro: sabes acompañar y armonizar. La trampa es complacer y olvidarte de ti.",
+  "Traes intensidad y profundidad: sabes atravesar crisis. La trampa es vivir en el drama y no permitirte la calma.",
+  "Traes fe y visión: sabes dar sentido a las cosas. La trampa es creer que siempre tienes razón y dejar de escuchar.",
+  "Traes responsabilidad y disciplina: sabes construir y llegar a la meta. La trampa es el control y no permitirte sentir.",
+  "Traes originalidad y sentido del grupo: sabes ver el futuro. La trampa es esconder tu corazón detrás de las ideas.",
+  "Traes compasión e intuición: sabes sentir lo invisible. La trampa es evadirte y no bajar a lo concreto.",
+];
+
 export const NORTH_NODE_SIGN: string[] = [
   "Del complacer (Sur en Libra) a atreverte: tu camino es decidir por ti, iniciar, ser valiente aunque decepciones a alguien.",
   "De la crisis (Sur en Escorpio) a la calma: construir tu valor propio, disfrutar de lo sencillo, crear estabilidad.",

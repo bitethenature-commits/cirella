@@ -31,6 +31,7 @@ const RunesModel = dynamic(() => import("./runes-model").then((m) => m.RunesMode
 const ModelGate = dynamic(() => import("./model-gate").then((m) => m.ModelGate), { ssr: false, loading: Loading });
 /** La barra de «Calcular con mis datos» de la versión rápida, debajo de la caja (dentro de un ModelGateScope). */
 export const ModelGateBelow = dynamic(() => import("./model-gate").then((m) => () => <m.ModelGateBar variant="below" />), { ssr: false, loading: LoadingBar });
+const KundaliniModel = dynamic(() => import("./kundalini-model").then((m) => m.KundaliniModel), { ssr: false, loading: Loading });
 const OracleModel = dynamic(() => import("./oracle-model").then((m) => m.OracleModel), { ssr: false, loading: Loading });
 // El oráculo con «Más barajas» (solo con cuenta y newsletter) en las páginas públicas de la web personal.
 const OracleWithDecks = dynamic(() => import("./oracle-decks-gate").then((m) => m.OracleWithDecks), { ssr: false, loading: Loading });
@@ -77,6 +78,8 @@ export function InteractiveModel({ model, deck, gate, compact = false }: { model
       return <LunarModel compact={compact} />;
     case "runes":
       return <RunesModel />;
+    case "kundalini":
+      return <KundaliniModel />;
     case "oracle":
       // Otra baraja, otra tirada: se empieza de cero.
       return gate ? <OracleWithDecks deck={deck ?? null} gate={gate} /> : <OracleModel key={deck?.id ?? "serie"} deck={deck} />;

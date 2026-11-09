@@ -12,7 +12,9 @@ import { z } from "zod";
 import { parseTextFormat } from "./rich-text";
 import { dateKeyInTz, formatInTz, zonedParts, zonedTimeToUtc } from "./tz";
 
-export const MEMBER_POST_KINDS = ["TEXT", "AUDIO", "VIDEO", "EVENT", "PODCAST", "CEREMONIA", "CIRCULO_LUNAR"] as const;
+// AUDIO y EVENT ya no se ofrecen al publicar (los audios son podcast; los directos, masterclases): se guardan
+// para leer lo antiguo.
+export const MEMBER_POST_KINDS = ["TEXT", "AUDIO", "VIDEO", "EVENT", "PODCAST", "CEREMONIA", "CIRCULO_LUNAR", "MASTERCLASS", "MEDITACION", "ASTROWEATHER"] as const;
 export type MemberPostKind = (typeof MEMBER_POST_KINDS)[number];
 export const MEMBER_POST_KIND_LABEL: Record<MemberPostKind, string> = {
   TEXT: "Publicación",
@@ -22,11 +24,21 @@ export const MEMBER_POST_KIND_LABEL: Record<MemberPostKind, string> = {
   PODCAST: "Podcast",
   CEREMONIA: "Ceremonia",
   CIRCULO_LUNAR: "Círculo de la luna",
+  MASTERCLASS: "Masterclass",
+  MEDITACION: "Meditación",
+  ASTROWEATHER: "Astroweather",
 };
-/** Tipos que son un encuentro en directo con fecha (Post.eventAt): directo, ceremonia y círculo de la luna. */
-export const LIVE_POST_KINDS: ReadonlySet<MemberPostKind> = new Set(["EVENT", "CEREMONIA", "CIRCULO_LUNAR"]);
+/**
+ * Tipos que pueden ser un encuentro en directo con fecha (Post.eventAt): ceremonia, masterclass y círculo de la
+ * luna. Pasada la fecha, la ceremonia y la masterclass quedan como grabación (isRecordedPost).
+ */
+export const LIVE_POST_KINDS: ReadonlySet<MemberPostKind> = new Set(["EVENT", "CEREMONIA", "CIRCULO_LUNAR", "MASTERCLASS"]);
 export function isLivePostKind(kind: string): boolean {
   return LIVE_POST_KINDS.has(kind as MemberPostKind);
+}
+/** Ceremonia o masterclass que ya pasó (4 horas después de empezar): se ve como grabación. */
+export function isRecordedPost(p: { kind: string; eventAt?: Date | null }, now = new Date()): boolean {
+  return (p.kind === "CEREMONIA" || p.kind === "MASTERCLASS" || p.kind === "EVENT") && !!p.eventAt && p.eventAt.getTime() < now.getTime() - 4 * 3_600_000;
 }
 
 export const TITLE_MAX = 160;
@@ -60,6 +72,13 @@ export const memberPostFormSchema = z
       .trim()
       .max(500, "El enlace es demasiado largo")
       .refine((v) => !v || /^https:\/\/[^\s]+$/i.test(v), "El enlace debe empezar por https://")
+      .default(""),
+    // La foto de portada: solo imágenes propias ya subidas (/media/…) o de la demo.
+    imageUrl: z
+      .string()
+      .trim()
+      .max(500)
+      .refine((v) => !v || /^\/(media|demo)\/[\w./-]+$/.test(v), "La foto de portada no es válida")
       .default(""),
     when: z.enum(MEMBER_POST_WHEN).catch("now"),
     at: z

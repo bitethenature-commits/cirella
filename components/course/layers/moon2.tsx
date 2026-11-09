@@ -5,8 +5,9 @@ import { BODY_INFO, ELEMENT_HUE, HOUSES, SIGNS } from "@/components/models/data/
 import { EIGHT_PHASES, FULL_MOON_IN_SIGN } from "@/components/models/data/moon";
 import { LAYER_KEYS, type AstroLayer } from "@/lib/lesson-blocks";
 import { planetsOf, sep } from "./astro2-calc";
-import { C, VS, listEs, norm, pt, sector, signIndex, type DiagramProps, type LayerCtx, type SystemPiece, type Tap } from "./common";
+import { C, ROMAN, VS, listEs, norm, pt, sector, signIndex, type DiagramProps, type LayerCtx, type SystemPiece, type Tap } from "./common";
 import {
+  monthBounds,
   FULL_MEANING,
   FULL_NAMES,
   MANSION_ARC,
@@ -24,11 +25,15 @@ import {
   moonHouseStays,
   moonMansionNow,
   nodeCycle,
+  nodeAt,
   nodeNow,
   thisYear,
   voidsSoon,
 } from "./moon2-calc";
 import { MoonDefs, MoonGlobe } from "./moon";
+import { EarthGlobe, SolarEclipse, SunGlobe } from "./celestial";
+import { MOON_NATAL_HOUSE, MOON_NATAL_SIGN } from "./texts";
+import { DegreeTicks } from "./wheel-kit";
 import { NIGHT, NIGHT_GOLD, NIGHT_RED, NightChips, NightPanel, STAR, Stars, usePrefix } from "./night";
 
 /**
@@ -37,8 +42,8 @@ import { NIGHT, NIGHT_GOLD, NIGHT_RED, NightChips, NightPanel, STAR, Stars, useP
  * mansiones lunares y el ciclo de 18,6 años de los nodos. Sobre el cielo de noche, como las demás.
  */
 
-export type Moon2Layer = Extract<AstroLayer, "moon-full13" | "moon-eclipses" | "moon-void" | "moon-transit-houses" | "moon-return" | "moon-apsides" | "moon-mansions" | "moon-node-cycle">;
-export const MOON2_LAYERS = new Set<string>(["moon-full13", "moon-eclipses", "moon-void", "moon-transit-houses", "moon-return", "moon-apsides", "moon-mansions", "moon-node-cycle"]);
+export type Moon2Layer = Extract<AstroLayer, "moon-combos" | "moon-full13" | "moon-eclipses" | "moon-void" | "moon-transit-houses" | "moon-return" | "moon-apsides" | "moon-mansions" | "moon-node-cycle">;
+export const MOON2_LAYERS = new Set<string>(["moon-combos", "moon-full13", "moon-eclipses", "moon-void", "moon-transit-houses", "moon-return", "moon-apsides", "moon-mansions", "moon-node-cycle"]);
 
 /* ----------------------------------------------------------------- textos */
 
@@ -132,37 +137,50 @@ const houseText = (c: LayerCtx["c"], lon: number) => {
 
 /* ------------------------------------------------------------ piezas */
 
-export function moon2Keys(layer: Moon2Layer, { c }: LayerCtx): string[] {
+/** La Luna en cada signo y cada casa: «3|4» (Cáncer, casa IV). */
+const MOON_COMBOS = Array.from({ length: 12 }, (_, s) => Array.from({ length: 12 }, (_, h) => `${s}|${h + 1}`)).flat();
+const parseMoonCombo = (k: string) => ({ s: Number(k.split("|")[0]), h: Number(k.split("|")[1]) });
+const natalMoonOf = (c: LayerCtx["c"]) => c?.chart.bodies.find((b) => b.id === "moon") ?? null;
+
+export function moon2Keys(layer: Moon2Layer, { c, shift }: LayerCtx): string[] {
+  const sh = shift ?? 0;
   switch (layer) {
+    case "moon-combos":
+      return MOON_COMBOS;
     case "moon-full13":
-      return fullMoonsOfYear().map((_, i) => String(i));
+      return fullMoonsOfYear(thisYear() + sh).map((_, i) => String(i));
     case "moon-eclipses":
-      return eclipsesSoon().map((_, i) => String(i));
+      return eclipsesSoon(sh).map((_, i) => String(i));
     case "moon-void":
-      return voidsSoon().map((_, i) => String(i));
+      return voidsSoon(sh).map((_, i) => String(i));
     case "moon-return": {
       const lon = moonLonOf(c);
-      return lon == null ? ["0"] : lunarReturns(lon).map((_, i) => String(i));
+      return lon == null ? ["0"] : lunarReturns(lon, sh).map((_, i) => String(i));
     }
     default:
       return LAYER_KEYS[layer];
   }
 }
 
-export function moon2Mine(layer: Moon2Layer, { c }: LayerCtx): string[] {
+export function moon2Mine(layer: Moon2Layer, { c, shift }: LayerCtx): string[] {
+  const sh = shift ?? 0;
   const now = Date.now();
   switch (layer) {
+    case "moon-combos": {
+      const m = natalMoonOf(c);
+      return m?.house ? [`${signIndex(m.lon)}|${m.house}`] : [];
+    }
     case "moon-full13": {
-      const list = fullMoonsOfYear();
+      const list = fullMoonsOfYear(thisYear() + sh);
       const next = list.findIndex((l) => l.at.getTime() > now);
       return c ? list.flatMap((l, i) => (touches(c, l.moonLon).length ? [String(i)] : [])) : next >= 0 ? [String(next)] : [];
     }
     case "moon-eclipses": {
-      const list = eclipsesSoon();
+      const list = eclipsesSoon(sh);
       return c ? list.flatMap((e, i) => (touches(c, e.lon).length ? [String(i)] : [])) : [];
     }
     case "moon-void": {
-      const v = voidsSoon();
+      const v = voidsSoon(sh);
       const i = v.findIndex((x) => x.end.getTime() > now);
       return i >= 0 ? [String(i)] : [];
     }
@@ -187,11 +205,33 @@ export function moon2Mine(layer: Moon2Layer, { c }: LayerCtx): string[] {
   }
 }
 
-export function moon2Piece(layer: Moon2Layer, key: string, { c }: LayerCtx): SystemPiece {
+export function moon2Piece(layer: Moon2Layer, key: string, { c, notes, shift }: LayerCtx): SystemPiece {
+  const sh = shift ?? 0;
   const i = Number(key);
   switch (layer) {
+    case "moon-combos": {
+      // En el editor, las claves son los textos de la dueña («s:3», «h:4»).
+      if (key.includes(":")) {
+        const [kind, n] = key.split(":");
+        return { glyph: kind === "s" ? SIGNS[Number(n)].glyph + VS : ROMAN[Number(n) - 1], name: kind === "s" ? `Luna en ${SIGNS[Number(n)].name}` : `Luna en la casa ${ROMAN[Number(n) - 1]}`, kicker: "", meaning: "", personal: null };
+      }
+      const { s, h } = parseMoonCombo(key);
+      const sign = SIGNS[s];
+      const house = HOUSES[h - 1];
+      const noteS = notes?.[`s:${s}`]?.trim();
+      const noteH = notes?.[`h:${h}`]?.trim();
+      const m = natalMoonOf(c);
+      const mine = m && signIndex(m.lon) === s && m.house === h;
+      return {
+        glyph: "☽" + VS,
+        name: `Luna en ${sign.name}, casa ${ROMAN[h - 1]}`,
+        kicker: `${sign.element} ${sign.modality} · ${house.keyword}`,
+        meaning: [MOON_NATAL_SIGN[s], noteS, MOON_NATAL_HOUSE[h - 1], noteH].filter(Boolean).join("\n\n"),
+        personal: mine ? `Es tu Luna natal: en ${sign.name}, casa ${ROMAN[h - 1]}.` : null,
+      };
+    }
     case "moon-full13": {
-      const l = fullMoonsOfYear()[i];
+      const l = fullMoonsOfYear(thisYear() + sh)[i];
       if (!l) break;
       const s = signIndex(l.moonLon);
       const extra = [l.blue ? "Es una luna azul: la segunda luna llena del mes." : "", l.supermoon ? "Es superluna: se verá más grande y brillante." : "", l.micro ? "Es microluna: la luna llena más lejana del año." : "", l.eclipse ? `Con eclipse de Luna ${ECLIPSE_TYPE[l.eclipse.type]}.` : ""].filter(Boolean).join(" ");
@@ -206,20 +246,20 @@ export function moon2Piece(layer: Moon2Layer, key: string, { c }: LayerCtx): Sys
       };
     }
     case "moon-eclipses": {
-      const e = eclipsesSoon()[i];
+      const e = eclipsesSoon(sh)[i];
       if (!e) break;
       const t = touches(c, e.lon);
       const h = houseText(c, e.lon);
       return {
         glyph: e.body === "solar" ? "☉" + VS : "☽" + VS,
         name: `Eclipse ${e.body === "solar" ? "de Sol" : "de Luna"} ${ECLIPSE_TYPE[e.type]}`,
-        kicker: `${fmtDate(e.at)} · ${signAt(e.lon)}`,
-        meaning: `${ECLIPSE_TEXT[e.body]}\n\nLos eclipses caen siempre cerca de los nodos lunares, por parejas, cada unos seis meses. Su efecto se nota durante meses, sobre todo si tocan un punto de tu carta.`,
+        kicker: `${fmtWhen(e.at)} · ${signAt(e.lon)}`,
+        meaning: `${ECLIPSE_TEXT[e.body]}\n\n${sep(e.lon, nodeAt(e.at)) < 90 ? "Cae cerca del Nodo Norte: abre caminos nuevos y empuja hacia lo que viniste a aprender." : "Cae cerca del Nodo Sur: cierra etapas y suelta lo que ya no hace falta."}\n\nLos eclipses caen siempre cerca de los nodos lunares, por parejas, cada unos seis meses. Su efecto se nota durante meses, sobre todo si tocan un punto de tu carta.`,
         personal: !c ? null : [h ? `Cae en tu casa ${h}: ${HOUSES[h - 1].keyword.toLowerCase()}.` : "", t.length ? `Toca ${listEs(t)}: es un eclipse importante para ti.` : "No toca de cerca ningún planeta tuyo."].filter(Boolean).join(" "),
       };
     }
     case "moon-void": {
-      const v = voidsSoon()[i];
+      const v = voidsSoon(sh)[i];
       if (!v) break;
       const now = Date.now();
       const on = v.start.getTime() <= now && now < v.end.getTime();
@@ -247,24 +287,24 @@ export function moon2Piece(layer: Moon2Layer, key: string, { c }: LayerCtx): Sys
     }
     case "moon-return": {
       const lon = moonLonOf(c);
-      const r = lon != null ? lunarReturns(lon)[i] : null;
+      const r = lon != null ? lunarReturns(lon, sh)[i] : null;
       return {
         glyph: "☽" + VS,
         name: r ? `Retorno lunar del ${fmtShort(r.at)}` : "Tu retorno lunar",
         kicker: r ? `${fmtWhen(r.at)} · Sol en ${SIGNS[signIndex(r.sunLon)].name}` : "Cada 27,3 días",
         meaning: `Una vez al mes, la Luna vuelve exactamente al grado en el que estaba cuando naciste. Es tu «año nuevo» emocional de cada mes: un buen día para parar, sentir cómo estás y poner una intención para las próximas cuatro semanas.${r ? `\n\nEse día el Sol va por ${SIGNS[signIndex(r.sunLon)].name}: tiñe el mes que empieza. Y la Luna está en fase ${phaseName(r.elong).toLowerCase()}.` : ""}`,
-        personal: lon == null ? (c ? null : "Guarda tus datos en «Mi energía» para ver tus fechas.") : `Tu Luna natal está en ${signAt(lon)}.${i === 0 && r ? " Este es tu próximo retorno." : ""}`,
+        personal: lon == null ? (c ? null : "Guarda tus datos en «Mi energía» para ver tus fechas.") : i === 0 && r ? `Este es tu próximo retorno: la Luna vuelve a ${signAt(lon)}, donde estaba al nacer.` : null,
       };
     }
     case "moon-apsides": {
       const a = APSIS[key as ApsisKey];
-      const info = apsisInfo();
+      const info = apsisInfo(sh);
       const list = (xs: { at: Date }[]) => (xs.length ? listEs(xs.map((x) => fmtShort(x.at))) : "ninguna");
       const when: Record<ApsisKey, string> = {
         perigee: `El próximo, el ${fmtWhen(info.perigee.at)}, a ${Math.round(info.perigee.km).toLocaleString("es-ES")} km.`,
         apogee: `El próximo, el ${fmtWhen(info.apogee.at)}, a ${Math.round(info.apogee.km).toLocaleString("es-ES")} km.`,
-        supermoon: `Superlunas llenas de ${thisYear()}: ${list(info.superFull)}. Superlunas nuevas: ${list(info.superNew)}.`,
-        micromoon: `Microlunas de ${thisYear()}: ${list(info.micro)}.`,
+        supermoon: `Superlunas llenas de ${thisYear() + sh}: ${list(info.superFull)}. Superlunas nuevas: ${list(info.superNew)}.`,
+        micromoon: `Microlunas de ${thisYear() + sh}: ${list(info.micro)}.`,
       };
       return { glyph: "", name: a.name, kicker: a.kicker, meaning: `${a.meaning}\n\n${when[key as ApsisKey]}`, personal: null };
     }
@@ -278,7 +318,7 @@ export function moon2Piece(layer: Moon2Layer, key: string, { c }: LayerCtx): Sys
         name: `${i}. ${m.name}`,
         kicker: `«${m.es}» · de ${signAt(from)} a ${signAt(from + MANSION_ARC)}`,
         meaning: `${m.text}\n\nLas 28 mansiones dividen el camino de la Luna en 28 «estaciones», una por cada día de su vuelta. Es una tradición muy antigua, de la astrología árabe e india: cada mansión tiene su carácter, y se usaba para elegir el día de empezar las cosas.${now.mansion === i - 1 ? `\n\nHoy la Luna está aquí, hasta el ${fmtWhen(now.until)}.` : ""}`,
-        personal: lon == null ? null : mansionOf(lon) === i - 1 ? "Tu Luna natal está en esta mansión." : `Tu Luna natal está en la mansión ${mansionOf(lon) + 1}, ${MANSIONS[mansionOf(lon)].name}.`,
+        personal: lon != null && mansionOf(lon) === i - 1 ? "Tu Luna natal está en esta mansión." : null,
       };
     }
     case "moon-node-cycle": {
@@ -300,40 +340,64 @@ export function moon2Piece(layer: Moon2Layer, key: string, { c }: LayerCtx): Sys
 
 /* ------------------------------------------------------------ dibujos */
 
-export function Moon2Diagram({ layer, selected, mine, keys, tap, ctx }: DiagramProps & { layer: Moon2Layer }) {
+export function Moon2Diagram(props: DiagramProps & { layer: Moon2Layer }) {
+  const { layer, ctx } = props;
+  const sh = ctx.shift ?? 0;
+  const by = layer === "moon-void" ? "month" : (["moon-full13", "moon-eclipses", "moon-return", "moon-apsides"] as string[]).includes(layer) ? "year" : null;
+  if (!by) return <Moon2Body {...props} sh={sh} />;
+  // Cambiar de año (o de mes, en «fuera de curso») sin salir del modelo.
+  const label = by === "year" ? String(thisYear() + sh) : (() => {
+    const { year, month } = monthBounds(sh);
+    return new Date(Date.UTC(year, month, 15)).toLocaleDateString("es-ES", { month: "long", year: "numeric", timeZone: "UTC" });
+  })();
+  return (
+    <>
+      <div className="mb-2 flex items-center justify-center gap-2 text-[0.85rem]">
+        <button type="button" className="grid h-8 w-8 place-items-center rounded-full border border-line" onClick={() => ctx.setShift?.(sh - 1)} aria-label={by === "year" ? "Año anterior" : "Mes anterior"}>
+          ‹
+        </button>
+        <span className="min-w-[9rem] text-center font-semibold capitalize tabular-nums">{label}</span>
+        <button type="button" className="grid h-8 w-8 place-items-center rounded-full border border-line" onClick={() => ctx.setShift?.(sh + 1)} aria-label={by === "year" ? "Año siguiente" : "Mes siguiente"}>
+          ›
+        </button>
+        {sh !== 0 && (
+          <button type="button" className="rounded-full border border-line px-2.5 py-1 text-[0.72rem]" onClick={() => ctx.setShift?.(0)}>
+            {by === "year" ? "Este año" : "Este mes"}
+          </button>
+        )}
+      </div>
+      <Moon2Body {...props} sh={sh} />
+    </>
+  );
+}
+
+function Moon2Body({ layer, selected, mine, keys, tap, ctx, sh }: DiagramProps & { layer: Moon2Layer; sh: number }) {
   const c = ctx.c;
   const own = new Set(mine);
   const sel = Number(selected);
   switch (layer) {
+    case "moon-combos":
+      return <MoonCombos selected={selected} tap={tap} c={c} />;
     case "moon-full13":
       return (
         <NightPanel>
-          <FullMoonRing selected={sel} own={own} tap={tap} />
+          <FullMoonRing selected={sel} own={own} tap={tap} sh={sh} />
         </NightPanel>
       );
     case "moon-eclipses": {
-      const list = eclipsesSoon();
+      const list = eclipsesSoon(sh);
       return (
         <NightPanel>
-          <ZodiacWheel
-            c={c}
-            marks={list.map((e, i) => ({ key: String(i), lon: e.lon, glyph: e.body === "solar" ? "☉" : "☽", color: e.body === "solar" ? NIGHT_GOLD : "#C9C3E8", label: fmtShort(e.at), on: i === sel }))}
-            axis={nodeNow()}
-            tap={tap}
-            center={{ top: list[sel]?.body === "solar" ? "ECLIPSE DE SOL" : "ECLIPSE DE LUNA", big: list[sel] ? fmtShort(list[sel].at) : "", bottom: list[sel] ? ECLIPSE_TYPE[list[sel].type].toUpperCase() : "" }}
-          />
-          <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}>
-            La línea dorada es el eje de los nodos, donde caen los eclipses · dentro, tus planetas
-          </p>
+          {list.length ? <EclipseView list={list} sel={Math.min(sel, list.length - 1)} tap={tap} c={c} /> : <p className="py-10 text-center text-sm text-muted">Ese año no hay eclipses.</p>}
         </NightPanel>
       );
     }
     case "moon-void": {
-      const list = voidsSoon();
+      const list = voidsSoon(sh);
       const p0 = Date.now();
       return (
         <NightPanel>
-          <VoidTimeline list={list} selected={sel} tap={tap} now={p0} />
+          <VoidTimeline list={list} selected={sel} tap={tap} now={p0} from={monthBounds(sh).start.getTime()} to={monthBounds(sh).end.getTime()} />
         </NightPanel>
       );
     }
@@ -346,13 +410,13 @@ export function Moon2Diagram({ layer, selected, mine, keys, tap, ctx }: DiagramP
     case "moon-return":
       return (
         <NightPanel>
-          <ReturnRing c={c} selected={sel} tap={tap} keys={keys} />
+          <ReturnRing c={c} selected={sel} tap={tap} keys={keys} sh={sh} />
         </NightPanel>
       );
     case "moon-apsides":
       return (
         <NightPanel>
-          <ApsisOrbit selected={selected as ApsisKey} tap={tap} />
+          <ApsisOrbit selected={selected as ApsisKey} tap={tap} sh={sh} />
           <NightChips items={(Object.keys(APSIS) as ApsisKey[]).map((k) => ({ key: k, label: APSIS[k].name }))} selected={selected} mine={own} tap={tap} />
         </NightPanel>
       );
@@ -380,13 +444,15 @@ function SignRing({ r1 = 142, r2 = 160 }: { r1?: number; r2?: number }) {
         const g = pt(i * 30 + 15, (r1 + r2) / 2);
         return (
           <g key={s.n} pointerEvents="none">
-            <path d={sector(i * 30, i * 30 + 30, r1, r2)} fill={`${ELEMENT_HUE[s.element]}${i % 2 ? "30" : "48"}`} stroke="rgb(255 255 255 / .15)" strokeWidth="0.6" />
-            <text x={g.x} y={g.y} textAnchor="middle" dominantBaseline="central" fontSize="10" fill={STAR}>
+            <path d={sector(i * 30, i * 30 + 30, r1, r2)} fill={`${ELEMENT_HUE[s.element]}${i % 2 ? "1c" : "2a"}`} stroke="rgb(255 255 255 / .14)" strokeWidth="0.8" />
+            <text x={g.x} y={g.y} textAnchor="middle" dominantBaseline="central" fontSize={Math.min(11, (r2 - r1) * 0.6)} fill={ELEMENT_HUE[s.element]}>
               {s.glyph + VS}
             </text>
           </g>
         );
       })}
+      <circle cx={C} cy={C} r={r2} fill="none" stroke="#D4B57A" strokeOpacity="0.6" strokeWidth="0.8" pointerEvents="none" />
+      <DegreeTicks r={r1} />
     </>
   );
 }
@@ -425,12 +491,12 @@ function NatalDots({ c, r = 100 }: { c: LayerCtx["c"]; r?: number }) {
 }
 
 /** Las lunas llenas del año en un círculo, como un calendario: enero arriba, en el sentido del reloj. */
-function FullMoonRing({ selected, own, tap }: { selected: number; own: Set<string>; tap: Tap }) {
+function FullMoonRing({ selected, own, tap, sh }: { selected: number; own: Set<string>; tap: Tap; sh: number }) {
   const p = usePrefix();
-  const list = fullMoonsOfYear();
+  const list = fullMoonsOfYear(thisYear() + sh);
   const l = list[selected];
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[28rem] select-none" role="group" aria-label="Las lunas llenas del año">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="Las lunas llenas del año">
       <MoonDefs p={p} />
       <Stars w={340} h={340} n={44} />
       <circle cx={C} cy={C} r="122" fill="none" stroke="rgb(233 204 142 / .25)" strokeDasharray="2 5" />
@@ -454,7 +520,7 @@ function FullMoonRing({ selected, own, tap }: { selected: number; own: Set<strin
           </g>
         );
       })}
-      <Center top={`LUNAS LLENAS DE ${thisYear()}`} big={l ? `${selected + 1} / ${list.length}` : ""} bottom={l ? (l.blue ? "LUNA AZUL" : FULL_NAMES[l.month].toUpperCase()) : ""} r={70} />
+      <Center top={`LUNAS LLENAS DE ${thisYear() + sh}`} big={l ? `${selected + 1} / ${list.length}` : ""} bottom={l ? (l.blue ? "LUNA AZUL" : FULL_NAMES[l.month].toUpperCase()) : ""} r={70} />
       {l && (
         <text x={C} y={C + 40} textAnchor="middle" fontSize="7" fill="rgb(251 246 236 / .6)" pointerEvents="none">
           {[l.supermoon && "superluna", l.micro && "microluna", l.eclipse && "eclipse"].filter(Boolean).join(" · ") || SIGNS[signIndex(l.moonLon)].name}
@@ -468,7 +534,7 @@ function FullMoonRing({ selected, own, tap }: { selected: number; own: Set<strin
 function ZodiacWheel({ c, marks, axis, tap, center }: { c: LayerCtx["c"]; marks: { key: string; lon: number; glyph: string; color: string; label: string; on: boolean }[]; axis?: number; tap: Tap; center: { top: string; big: string; bottom: string } }) {
   const p = usePrefix();
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[28rem] select-none" role="group" aria-label="La rueda del zodiaco">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="La rueda del zodiaco">
       <MoonDefs p={p} />
       <Stars w={340} h={340} n={40} />
       <SignRing />
@@ -508,13 +574,12 @@ function ZodiacWheel({ c, marks, axis, tap, center }: { c: LayerCtx["c"]; marks:
 }
 
 /** Los próximos periodos fuera de curso, en una línea del tiempo de los próximos días. */
-function VoidTimeline({ list, selected, tap, now }: { list: ReturnType<typeof voidsSoon>; selected: number; tap: Tap; now: number }) {
+/** Los días del mes elegido, uno por fila, con las horas fuera de curso marcadas. */
+function VoidTimeline({ list, selected, tap, now, from, to }: { list: ReturnType<typeof voidsSoon>; selected: number; tap: Tap; now: number; from: number; to: number }) {
   const p = usePrefix();
   const DAY = 86_400_000;
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  const t0 = start.getTime();
-  const days = Math.max(7, Math.ceil(((list[list.length - 1]?.end.getTime() ?? now) - t0) / DAY));
+  const t0 = from;
+  const days = Math.round((to - from) / DAY);
   const rowH = 30;
   const W = 300;
   const x = (t: number) => 30 + (((t - t0) % DAY) / DAY) * W;
@@ -522,7 +587,7 @@ function VoidTimeline({ list, selected, tap, now }: { list: ReturnType<typeof vo
   const H = 40 + days * rowH;
   const sel = list[selected];
   return (
-    <svg viewBox={`0 0 340 ${H}`} className="mx-auto block h-auto w-full max-w-[28rem] select-none" role="group" aria-label="La Luna fuera de curso">
+    <svg viewBox={`0 0 340 ${H}`} className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="La Luna fuera de curso">
       <MoonDefs p={p} />
       <Stars w={340} h={H} n={30} />
       {[0, 6, 12, 18, 24].map((h) => (
@@ -580,7 +645,7 @@ function HouseWheel({ c, selected, tap }: { c: LayerCtx["c"]; selected: number; 
   const moonNow = useMemo(() => moonMansionNow().lon, []);
   const cs = cusps ?? Array.from({ length: 12 }, (_, i) => i * 30);
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[28rem] select-none" role="group" aria-label="La Luna de hoy por tus casas">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="La Luna de hoy por tus casas">
       <MoonDefs p={p} />
       <Stars w={340} h={340} n={40} />
       <SignRing />
@@ -619,12 +684,12 @@ function HouseWheel({ c, selected, tap }: { c: LayerCtx["c"]; selected: number; 
 }
 
 /** Sus retornos lunares del año, alrededor de su Luna natal. */
-function ReturnRing({ c, selected, tap, keys }: { c: LayerCtx["c"]; selected: number; tap: Tap; keys: string[] }) {
+function ReturnRing({ c, selected, tap, keys, sh }: { c: LayerCtx["c"]; selected: number; tap: Tap; keys: string[]; sh: number }) {
   const p = usePrefix();
   const lon = moonLonOf(c);
-  const list = lon != null ? lunarReturns(lon) : [];
+  const list = lon != null ? lunarReturns(lon, sh) : [];
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[28rem] select-none" role="group" aria-label="Tus retornos lunares">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="Tus retornos lunares">
       <MoonDefs p={p} />
       <Stars w={340} h={340} n={40} />
       <circle cx={C} cy={C} r="124" fill="none" stroke="rgb(233 204 142 / .25)" strokeDasharray="2 5" />
@@ -651,7 +716,7 @@ function ReturnRing({ c, selected, tap, keys }: { c: LayerCtx["c"]; selected: nu
       })}
       <g pointerEvents="none">
         <circle cx={C} cy={C} r="78" fill={NIGHT} stroke="rgb(233 204 142 / .5)" />
-        <MoonGlobe p={p} cx={C} cy={C - 18} r={20} phase={0.5} glow />
+        <MoonGlobe p={p} cx={C} cy={C - 18} r={20} phase={c ? c.natalMoon.elong / 360 : 0.5} glow />
         <text x={C} y={C + 20} textAnchor="middle" fontSize="7" letterSpacing="1.3" fill={NIGHT_GOLD}>
           TU LUNA NATAL
         </text>
@@ -664,9 +729,9 @@ function ReturnRing({ c, selected, tap, keys }: { c: LayerCtx["c"]; selected: nu
 }
 
 /** La órbita de la Luna: la Tierra en un foco, el perigeo a la izquierda y el apogeo a la derecha. Debajo, la superluna y la microluna a escala. */
-function ApsisOrbit({ selected, tap }: { selected: ApsisKey; tap: Tap }) {
+function ApsisOrbit({ selected, tap, sh }: { selected: ApsisKey; tap: Tap; sh: number }) {
   const p = usePrefix();
-  const info = apsisInfo();
+  const info = apsisInfo(sh);
   const rx = 130;
   const ry = 72;
   const cx = 170;
@@ -679,12 +744,11 @@ function ApsisOrbit({ selected, tap }: { selected: ApsisKey; tap: Tap }) {
   const A = { x: cx + rx, y: cy };
   const on = (k: ApsisKey) => selected === k;
   return (
-    <svg viewBox="0 0 340 300" className="mx-auto block h-auto w-full max-w-[28rem] select-none" role="group" aria-label="Perigeo, apogeo y superlunas">
+    <svg viewBox="0 0 340 300" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="Perigeo, apogeo y superlunas">
       <MoonDefs p={p} />
       <Stars w={340} h={300} n={34} />
       <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="none" stroke="rgb(233 204 142 / .45)" strokeDasharray="3 4" />
-      <circle cx={ex} cy={cy} r="14" fill="#2B5D8A" stroke="#9CC6EA" strokeWidth="1" />
-      <path d={`M${ex - 9} ${cy - 4}q6 -6 12 0t6 6`} fill="none" stroke="#7FB27A" strokeWidth="2.5" strokeLinecap="round" />
+      <EarthGlobe p={p} cx={ex} cy={cy} r={16} night={30} />
       {[
         { k: "perigee" as const, q: P, label: "PERIGEO", sub: fmtShort(info.perigee.at) },
         { k: "apogee" as const, q: A, label: "APOGEO", sub: fmtShort(info.apogee.at) },
@@ -728,7 +792,7 @@ function MansionWheel({ c, selected, tap }: { c: LayerCtx["c"]; selected: number
   const now = moonMansionNow();
   const natal = moonLonOf(c);
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[28rem] select-none" role="group" aria-label="Las 28 mansiones lunares">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="Las 28 mansiones lunares">
       <MoonDefs p={p} />
       <Stars w={340} h={340} n={40} />
       <SignRing />
@@ -747,15 +811,16 @@ function MansionWheel({ c, selected, tap }: { c: LayerCtx["c"]; selected: number
         );
       })}
       {[
-        natal != null ? { lon: natal, label: "natal", phase: 0.5 } : null,
+        natal != null ? { lon: natal, label: "natal", phase: c ? c.natalMoon.elong / 360 : 0.5 } : null,
         { lon: now.lon, label: "hoy", phase: 0.35 },
       ].map((m, i) => {
         if (!m) return null;
-        const q = pt(m.lon, 92);
+        const q = pt(m.lon, 88);
+        const l = pt(m.lon, 72);
         return (
           <g key={i} pointerEvents="none">
             <MoonGlobe p={p} cx={q.x} cy={q.y} r={7} phase={m.phase} />
-            <text x={q.x} y={q.y + 13} textAnchor="middle" fontSize="6.5" fill={i ? "#C9C3E8" : NIGHT_GOLD}>
+            <text x={l.x} y={l.y} textAnchor="middle" dominantBaseline="central" fontSize="6.5" fill={i ? "#C9C3E8" : NIGHT_GOLD}>
               {m.label}
             </text>
           </g>
@@ -779,7 +844,7 @@ function NodeWave({ c, selected, tap }: { c: LayerCtx["c"]; selected: number; ta
     return `${i ? "L" : "M"}${X(a).toFixed(1)} ${Y(a).toFixed(1)}`;
   }).join("");
   return (
-    <svg viewBox="0 0 340 230" className="mx-auto block h-auto w-full max-w-[30rem] select-none" role="group" aria-label="El ciclo de los nodos">
+    <svg viewBox="0 0 340 230" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="El ciclo de los nodos">
       <MoonDefs p={p} />
       <Stars w={340} h={230} n={30} />
       <path d={path} fill="none" stroke={NIGHT_GOLD} strokeOpacity="0.6" strokeWidth="1.6" />
@@ -822,3 +887,126 @@ function NodeWave({ c, selected, tap }: { c: LayerCtx["c"]; selected: number; ta
   );
 }
 
+
+/** La Luna en cada signo y cada casa: dos listas, y cada toque cambia una de las dos. ★ donde está tu Luna. */
+function MoonCombos({ selected, tap, c }: { selected: string; tap: Tap; c: LayerCtx["c"] }) {
+  const { s, h } = parseMoonCombo(selected.includes("|") ? selected : "0|1");
+  const m = natalMoonOf(c);
+  const btn = (on: boolean, mineHere: boolean) =>
+    `flex min-h-9 w-full items-center gap-2 rounded-xl border px-2.5 text-left text-[0.8rem] transition ${on ? "border-gold bg-gold text-[#15122a] font-semibold" : mineHere ? "border-gold/60" : "border-line hover:border-gold/50"}`;
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <div className="space-y-1">
+        <p className="mb-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted">Signo</p>
+        {SIGNS.map((g) => {
+          const mineHere = !!m && signIndex(m.lon) === g.n;
+          return (
+            <button key={g.n} type="button" className={btn(g.n === s, mineHere)} {...tap(`${g.n}|${h}`, `Luna en ${g.name}`)}>
+              <span className="w-4 text-center" style={{ color: g.n === s ? undefined : ELEMENT_HUE[g.element] }}>
+                {g.glyph + VS}
+              </span>
+              <span className="truncate">{g.name}</span>
+              {mineHere && <span className="ml-auto text-[0.7rem]">★</span>}
+            </button>
+          );
+        })}
+      </div>
+      <div className="space-y-1">
+        <p className="mb-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted">Casa</p>
+        {HOUSES.map((x) => {
+          const mineHere = m?.house === x.n;
+          return (
+            <button key={x.n} type="button" className={btn(x.n === h, mineHere)} {...tap(`${s}|${x.n}`, `Luna en la casa ${ROMAN[x.n - 1]}`)}>
+              <span className="w-6 text-center font-serif">{ROMAN[x.n - 1]}</span>
+              <span className="truncate">{x.keyword}</span>
+              {mineHere && <span className="ml-auto text-[0.7rem]">★</span>}
+            </button>
+          );
+        })}
+      </div>
+      <p className="col-span-2 mt-1 text-center text-[0.68rem] text-muted">★ dónde está tu Luna natal · toca un signo y una casa</p>
+    </div>
+  );
+}
+
+/**
+ * Un eclipse, a fondo: arriba, los eclipses del año para saltar de uno a otro; la rueda con el zodiaco, el eje de los
+ * nodos de ese día, el Sol y la Luna en su sitio (el Sol tapado o la Luna roja enfrente del Sol) y tus planetas con
+ * su grado (los que toca, en oro y unidos al eclipse); debajo, la fecha, la hora, el signo y el nodo.
+ */
+function EclipseView({ list, sel, tap, c }: { list: ReturnType<typeof eclipsesSoon>; sel: number; tap: Tap; c: LayerCtx["c"] }) {
+  const p = usePrefix();
+  const e = list[sel];
+  const node = nodeAt(e.at);
+  const nearNorth = sep(e.lon, node) < 90;
+  const ps = planetsOf(c?.chart);
+  const hit = (lon: number) => sep(lon, e.lon) <= 5 || 180 - sep(lon, e.lon) <= 5;
+  const solar = e.body === "solar";
+  const ecl = pt(e.lon, 120);
+  const sunAt = pt(e.lon + (solar ? 0 : 180), 120);
+  const red = e.type === "total" ? "#B8433F" : e.type === "partial" ? "#C76A55" : "#9C8BA8";
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5 text-[0.72rem]">
+        {list.map((x, i) => (
+          <span
+            key={i}
+            {...tap(String(i), `Eclipse del ${fmtShort(x.at)}`)}
+            className="cursor-pointer rounded-full border px-2.5 py-1 font-semibold tabular-nums"
+            style={{ background: i === sel ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : "rgb(255 255 255 / .05)", color: i === sel ? NIGHT : STAR, borderColor: i === sel ? "#F0D9A4" : "rgb(255 255 255 / .16)" }}
+          >
+            {x.body === "solar" ? "☉" : "☽"}
+            {VS} {fmtShort(x.at)}
+          </span>
+        ))}
+      </div>
+      <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="img" aria-label={`Eclipse ${solar ? "de Sol" : "de Luna"} del ${fmtDate(e.at)}`}>
+        <MoonDefs p={p} />
+        <circle cx={C} cy={C} r="160" fill="rgb(212 181 122 / .04)" stroke={NIGHT_GOLD} strokeOpacity="0.55" strokeWidth="0.8" />
+        <SignRing />
+        {/* La zona del eclipse en el zodiaco (unos 5° a cada lado). */}
+        <path d={sector(e.lon - 5, e.lon + 5, 132, 142)} fill={solar ? NIGHT_GOLD : red} opacity="0.55" />
+        {/* El eje de los nodos ese día. */}
+        <line x1={pt(node, 140).x} y1={pt(node, 140).y} x2={pt(node + 180, 140).x} y2={pt(node + 180, 140).y} stroke={NIGHT_GOLD} strokeOpacity="0.4" strokeDasharray="3 4" />
+        <text x={pt(node, 128).x} y={pt(node, 128).y} textAnchor="middle" dominantBaseline="central" fontSize="11" fill={NIGHT_GOLD}>
+          {"☊" + VS}
+        </text>
+        <text x={pt(node + 180, 128).x} y={pt(node + 180, 128).y} textAnchor="middle" dominantBaseline="central" fontSize="11" fill={NIGHT_GOLD}>
+          {"☋" + VS}
+        </text>
+        {/* Tus planetas: los que toca el eclipse, en oro y unidos a él. */}
+        {ps.map((q) => {
+          const on = hit(q.lon);
+          const g = pt(q.lon, 96);
+          const d = pt(q.lon, 84);
+          return (
+            <g key={q.id} pointerEvents="none" opacity={on ? 1 : 0.55}>
+              {on && <line x1={ecl.x} y1={ecl.y} x2={g.x} y2={g.y} stroke={NIGHT_GOLD} strokeWidth="1.2" strokeDasharray="2 2" />}
+              {on && <circle cx={g.x} cy={g.y} r="9" fill="rgb(212 181 122 / .22)" stroke={NIGHT_GOLD} strokeWidth="0.9" />}
+              <text x={g.x} y={g.y} textAnchor="middle" dominantBaseline="central" fontSize="10" fill={on ? NIGHT_GOLD : STAR}>
+                {BODY_INFO[q.id as keyof typeof BODY_INFO].glyph + VS}
+              </text>
+              <text x={d.x} y={d.y} textAnchor="middle" dominantBaseline="central" fontSize="5.5" fill={on ? NIGHT_GOLD : STAR} fillOpacity="0.8">
+                {Math.floor(((q.lon % 30) + 30) % 30)}°
+              </text>
+            </g>
+          );
+        })}
+        {/* El Sol y la Luna. */}
+        {solar ? (
+          <SolarEclipse p={p} cx={ecl.x} cy={ecl.y} r={11} type={e.type} />
+        ) : (
+          <g pointerEvents="none">
+            <MoonGlobe p={p} cx={ecl.x} cy={ecl.y} r={13} phase={0.5} glow eclipse={e.type} />
+            <SunGlobe p={p} cx={sunAt.x} cy={sunAt.y} r={6.5} rays={false} />
+          </g>
+        )}
+        <Center top={solar ? "ECLIPSE DE SOL" : "ECLIPSE DE LUNA"} big={fmtShort(e.at)} bottom={`${ECLIPSE_TYPE[e.type].toUpperCase()} · ${sel + 1} DE ${list.length}`} r={58} />
+      </svg>
+      <p className="mt-1 text-center text-[0.75rem] text-ink/85">
+        {fmtWhen(e.at)} · {signAt(e.lon)} · cerca del Nodo {nearNorth ? "Norte" : "Sur"}
+      </p>
+      <p className="mt-0.5 text-center text-[0.68rem] text-muted">Toca otra fecha o usa Anterior / Siguiente · en oro, los planetas tuyos que toca</p>
+    </div>
+  );
+}

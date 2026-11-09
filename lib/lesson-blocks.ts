@@ -36,9 +36,13 @@ export const ASTRO_LAYERS = [
   "gk-spheres", "gk-sequences", "gk-keys", "gk-spectrum", "gk-lines",
   "gk-codons", "gk-partners", "gk-wheel", "gk-shadows", "gk-today", "gk-venus",
   "moon-phases", "moon-signs", "moon-houses", "moon-nodes",
-  "moon-full13", "moon-eclipses", "moon-void", "moon-transit-houses", "moon-return", "moon-apsides", "moon-mansions", "moon-node-cycle",
+  "moon-combos", "moon-full13", "moon-eclipses", "moon-void", "moon-transit-houses", "moon-return", "moon-apsides", "moon-mansions", "moon-node-cycle",
   "rune-aettir", "rune-spreads",
   "rune-reversed", "rune-elements", "rune-big-spreads", "rune-binds", "rune-yggdrasil",
+  "geo-circle", "geo-vesica", "geo-flower", "geo-metatron", "geo-platonic", "geo-golden", "geo-numbers", "geo-tree", "geo-sriyantra", "geo-merkaba", "geo-torus", "geo-chakras",
+  "day-week",
+  "kun-chakras", "kun-nadis", "kun-serpent", "kun-granthis", "kun-bandhas", "kun-bodies", "kun-numbers", "kun-mudras", "kun-breath", "kun-mantras", "kun-class",
+  "orc-reading", "orc-questions", "orc-spreads", "orc-symbols", "orc-numbers", "orc-colors", "orc-elements", "orc-signals", "orc-create",
 ] as const;
 export type AstroLayer = (typeof ASTRO_LAYERS)[number];
 export const ASTRO_LAYER_LABEL: Record<AstroLayer, string> = {
@@ -100,6 +104,7 @@ export const ASTRO_LAYER_LABEL: Record<AstroLayer, string> = {
   "moon-signs": "La Luna en los 12 signos",
   "moon-houses": "La Luna en las 12 casas",
   "moon-nodes": "Los nodos lunares",
+  "moon-combos": "La Luna: signo + casa",
   "moon-full13": "Las lunas llenas del año",
   "moon-eclipses": "Los eclipses",
   "moon-void": "La Luna fuera de curso",
@@ -115,14 +120,47 @@ export const ASTRO_LAYER_LABEL: Record<AstroLayer, string> = {
   "rune-big-spreads": "Tiradas grandes: nueve runas y la cruz",
   "rune-binds": "Las runas ligadas",
   "rune-yggdrasil": "Yggdrasil: los nueve mundos",
+  "geo-circle": "El punto y el círculo",
+  "geo-vesica": "La vesica piscis",
+  "geo-flower": "Semilla, flor y fruto de la vida",
+  "geo-metatron": "El cubo de Metatrón",
+  "geo-platonic": "Los 5 sólidos platónicos",
+  "geo-golden": "La proporción áurea y Fibonacci",
+  "geo-numbers": "Los números del 1 al 9 y sus formas",
+  "geo-tree": "El árbol de la vida",
+  "geo-sriyantra": "El Sri Yantra",
+  "geo-merkaba": "La merkaba",
+  "geo-torus": "El toro",
+  "geo-chakras": "Los 7 chakras y sus formas",
+  "day-week": "Tu semana: la energía de cada día",
+  "kun-chakras": "Los 8 chakras en Kundalini",
+  "kun-nadis": "Ida, pingala y sushumna",
+  "kun-serpent": "La serpiente y el despertar",
+  "kun-granthis": "Los tres nudos (granthis)",
+  "kun-bandhas": "Los cierres (bandhas)",
+  "kun-bodies": "Los 10 cuerpos",
+  "kun-numbers": "Tu numerología de los 10 cuerpos",
+  "kun-mudras": "Los mudras",
+  "kun-breath": "La respiración (pranayama)",
+  "kun-mantras": "Los mantras",
+  "kun-class": "Una clase de Kundalini Yoga",
+  "orc-reading": "Cómo hacer una lectura",
+  "orc-questions": "Cómo hacer la pregunta",
+  "orc-spreads": "Las tiradas de oráculo",
+  "orc-symbols": "Los símbolos de las cartas",
+  "orc-numbers": "Los números en las cartas",
+  "orc-colors": "Los colores de las cartas",
+  "orc-elements": "Los cinco elementos",
+  "orc-signals": "Señales: invertidas, saltadas y patrones",
+  "orc-create": "Crea tu propio oráculo",
 };
 
-export const LAYER_SYSTEMS = ["Astrología", "Human Design", "Gene Keys", "Luna", "Runas"] as const;
+export const LAYER_SYSTEMS = ["Astrología", "Human Design", "Gene Keys", "Luna", "Runas", "Geometría sagrada", "Oráculo", "Energía de hoy", "Kundalini"] as const;
 export type LayerSystem = (typeof LAYER_SYSTEMS)[number];
 
 /** De qué sistema es cada capa (el editor las agrupa así). */
 export const LAYER_SYSTEM = Object.fromEntries(
-  ASTRO_LAYERS.map((l) => [l, l.startsWith("hd-") ? "Human Design" : l.startsWith("gk-") ? "Gene Keys" : l.startsWith("moon-") ? "Luna" : l.startsWith("rune-") ? "Runas" : "Astrología"]),
+  ASTRO_LAYERS.map((l) => [l, l.startsWith("hd-") ? "Human Design" : l.startsWith("gk-") ? "Gene Keys" : l.startsWith("moon-") ? "Luna" : l.startsWith("rune-") ? "Runas" : l.startsWith("geo-") ? "Geometría sagrada" : l.startsWith("orc-") ? "Oráculo" : l.startsWith("day-") ? "Energía de hoy" : l.startsWith("kun-") ? "Kundalini" : "Astrología"]),
 ) as Record<AstroLayer, LayerSystem>;
 
 /**
@@ -151,31 +189,6 @@ export const LAYER_OPTIONS: Partial<Record<AstroLayer, { value: string; label: s
   "gk-keys": [
     { value: "all", label: "Las 64 llaves" },
     { value: "mine", label: "Solo las de su perfil" },
-  ],
-  "moon-signs": [
-    { value: "natal", label: "La Luna natal en cada signo" },
-    { value: "sky", label: "La Luna del día en cada signo" },
-    { value: "new", label: "La Luna nueva en cada signo" },
-    { value: "full", label: "La Luna llena en cada signo" },
-  ],
-  "rune-aettir": [
-    { value: "all", label: "Las 24 runas" },
-    { value: "0", label: "Aett de Freyr (1-8)" },
-    { value: "1", label: "Aett de Hagal (9-16)" },
-    { value: "2", label: "Aett de Tyr (17-24)" },
-  ],
-  "rune-elements": [
-    { value: "elements", label: "Por elemento" },
-    { value: "gods", label: "Por dios o diosa" },
-  ],
-  "rune-big-spreads": [
-    { value: "nine", label: "Nueve runas" },
-    { value: "cross", label: "La cruz rúnica (seis)" },
-  ],
-  "rune-spreads": [
-    { value: "three", label: "Tres runas" },
-    { value: "five", label: "Cinco runas (la cruz)" },
-    { value: "one", label: "Una runa" },
   ],
 };
 
@@ -277,6 +290,8 @@ export const LAYER_KEYS: Record<AstroLayer, string[]> = {
   "moon-signs": range(0, 11),
   "moon-houses": range(1, 12),
   "moon-nodes": range(0, 11),
+  // Los textos de la dueña: la Luna en cada signo («s:3») y en cada casa («h:4»).
+  "moon-combos": [...range(0, 11).map((s) => `s:${s}`), ...range(1, 12).map((h) => `h:${h}`)],
   "moon-full13": range(0, 12),
   "moon-eclipses": range(0, 7),
   "moon-void": range(0, 5),
@@ -290,6 +305,39 @@ export const LAYER_KEYS: Record<AstroLayer, string[]> = {
   "rune-elements": ["fire", "ice", "water", "air", "earth", "odin", "vanir", "thor", "norns", "heimdall", "tyr", "sol", "frigg", "njord"],
   "rune-big-spreads": [...range(0, 8).map((i) => `nine-${i}`), ...range(0, 5).map((i) => `cross-${i}`)],
   "rune-binds": ["gibu-auja", "victory", "abundance", "protection", "safe-travel", "love", "home", "voice"],
+  "geo-circle": ["point","circle","radius","diameter","pi"],
+  "geo-vesica": ["two","vesica","triangle","sqrt3","fish"],
+  "geo-flower": ["seed","egg","flower","fruit"],
+  "geo-metatron": ["fruit","lines","cube","tetra","star","octa","ico","dodeca"],
+  "geo-platonic": ["tetra","cube","octa","ico","dodeca"],
+  "geo-golden": ["phi","rectangle","spiral","fibonacci","pentagram","nature"],
+  "geo-numbers": ["1","2","3","4","5","6","7","8","9"],
+  "geo-tree": ["keter","chokmah","binah","daat","chesed","gevurah","tiferet","netzach","hod","yesod","malkuth"],
+  "geo-sriyantra": ["bindu","shakti","shiva","triangles","circles","lotus8","lotus16","bhupura"],
+  "geo-merkaba": ["sun","earth","star","spin","body"],
+  "geo-torus": ["shape","flow","heart","vortex","everywhere"],
+  "geo-chakras": ["root","sacral","solar","heart","throat","third-eye","crown"],
+  "kun-chakras": ["root","sacral","solar","heart","throat","third-eye","crown","aura"],
+  "kun-nadis": ["ida","pingala","sushumna","nadis","nostrils"],
+  "kun-serpent": ["coiled","awakening","rising","crown","signs","care"],
+  "kun-granthis": ["brahma","vishnu","rudra"],
+  "kun-bandhas": ["mula","uddiyana","jalandhara","maha"],
+  "kun-bodies": ["1","2","3","4","5","6","7","8","9","10","11"],
+  "kun-numbers": ["soul","karma","gift","destiny","path"],
+  "kun-mudras": ["gyan","shuni","surya","buddhi","prayer","venus","bear","dhyani"],
+  "kun-breath": ["long","fire","left","right","alt","seg","sitali","hold"],
+  "kun-mantras": ["adi","satnam","wahe","satanama","ramadasa","ekongkar","closing"],
+  "kun-class": ["tunein","warmup","kriya","relax","meditation","closing"],
+  "day-week": ["d0", "d1", "d2", "d3", "d4", "d5", "d6"],
+  "orc-reading": ["space","intention","question","shuffle","draw","first","story","journal","close"],
+  "orc-questions": ["open","self","now","how","one","decision","daily","avoid"],
+  "orc-spreads": ["one-0","three-0","three-1","three-2","advice-0","advice-1","advice-2","choice-0","choice-1","choice-2","choice-3","choice-4","cross-0","cross-1","cross-2","cross-3","cross-4","horseshoe-0","horseshoe-1","horseshoe-2","horseshoe-3","horseshoe-4","horseshoe-5","horseshoe-6","year-0","year-1","year-2","year-3","year-4","year-5","year-6","year-7","year-8","year-9","year-10","year-11"],
+  "orc-symbols": ["sun","moon","star","water","mountain","key","door","tree","serpent","bird","heart","sword","cup","wheel","road","bridge","fire","mirror"],
+  "orc-numbers": ["0","1","2","3","4","5","6","7","8","9","10"],
+  "orc-colors": ["red","orange","yellow","green","blue","indigo","violet","pink","white","black","gold","silver","brown"],
+  "orc-elements": ["spirit","water","fire","earth","air"],
+  "orc-signals": ["reversed","jumper","bottom","repeated","many-reversed","majority","sequence","story"],
+  "orc-create": ["theme","size","structure","names","images","messages","test","care"],
   "rune-yggdrasil": ["asgard", "alfheim", "vanaheim", "muspelheim", "midgard", "niflheim", "jotunheim", "svartalfheim", "helheim"],
   "rune-spreads": ["one-0", "three-0", "three-1", "three-2", "five-0", "five-1", "five-2", "five-3", "five-4"],
 };
@@ -329,6 +377,12 @@ export function modesFor(layer: AstroLayer): readonly ModelMode[] {
   if (LAYER_SYSTEM[layer] === "Human Design") return MODEL_MODES.filter((m) => m !== "tour" && m !== "compare" && m !== "mine" && (m !== "today" || layer === "hd-centres" || layer === "hd-gates"));
   // Gene Keys: sin comparar, recorrido ni «Solo lo tuyo»; «Hoy en el cielo», solo en las 64 llaves y en tu llave de hoy.
   if (LAYER_SYSTEM[layer] === "Gene Keys") return MODEL_MODES.filter((m) => m !== "tour" && m !== "compare" && m !== "mine" && (m !== "today" || layer === "gk-keys" || layer === "gk-today"));
+  // Luna: sin comparar, recorrido ni «Solo lo tuyo»; «Hoy en el cielo», solo en las 8 fases.
+  if (LAYER_SYSTEM[layer] === "Luna") return MODEL_MODES.filter((m) => m !== "tour" && m !== "compare" && m !== "mine" && (m !== "today" || layer === "moon-phases"));
+  // Tu semana: solo explorar (cada día es una pieza, no hay nada que adivinar).
+  if (LAYER_SYSTEM[layer] === "Energía de hoy") return MODEL_MODES.filter((m) => m === "explore");
+  // Runas: sin «Solo lo tuyo», «Hoy en el cielo», comparar ni recorrido.
+  if (LAYER_SYSTEM[layer] === "Runas" || LAYER_SYSTEM[layer] === "Geometría sagrada" || LAYER_SYSTEM[layer] === "Oráculo" || LAYER_SYSTEM[layer] === "Kundalini") return MODEL_MODES.filter((m) => m !== "tour" && m !== "compare" && m !== "mine" && m !== "today");
   if (LAYER_SYSTEM[layer] !== "Astrología") return MODEL_MODES;
   // Los balances y los tránsitos de hoy (que ya son el cielo de hoy) no tienen «Hoy en el cielo».
   const noToday = layer === "astro-balance" || layer === "astro-balance-compare" || layer === "astro-transits";
@@ -378,7 +432,7 @@ export const customChartSchema = z.object({
   retro: z.array(z.enum(CUSTOM_POINTS)).max(20).default([]),
   /** Puntos que no se ven (el Sol, la Luna y los ángulos siempre se ven). */
   hidden: z.array(z.enum(CUSTOM_POINTS)).max(20).default([]),
-  houseSystem: z.enum(["placidus", "whole", "equal"]).default("placidus"),
+  houseSystem: z.enum(["placidus", "whole", "equal"]).default("whole"),
   node: z.enum(["mean", "true"]).default("mean"),
   aspects: z.array(z.enum(CHART_ASPECTS)).max(6).default([...CHART_ASPECTS]),
   /** Con casas y ejes (sin ellas, como una carta sin hora). */

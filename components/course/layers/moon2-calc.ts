@@ -76,10 +76,11 @@ export function fullMoonsOfYear(year = thisYear()): FullMoon[] {
 export type Eclipse = { body: "solar" | "lunar"; type: EclipseType; at: Date; lon: number };
 
 /** Los eclipses de este año y del que viene. */
-export function eclipsesSoon(): Eclipse[] {
-  return memo("eclipses", () => {
-    const y = thisYear();
-    return eclipsesBetween(zonedTimeToUtc(`${y}-01-01`, 0, SPAIN_TZ), zonedTimeToUtc(`${y + 2}-01-01`, 0, SPAIN_TZ))
+/** Los eclipses de un año (este, con shift = 0). */
+export function eclipsesSoon(shift = 0): Eclipse[] {
+  return memo(`eclipses${shift}`, () => {
+    const y = thisYear() + shift;
+    return eclipsesBetween(zonedTimeToUtc(`${y}-01-01`, 0, SPAIN_TZ), zonedTimeToUtc(`${y + 1}-01-01`, 0, SPAIN_TZ))
       .flatMap((e) => (e.kind === "eclipse" ? [{ body: e.body, type: e.type, at: e.at, lon: e.lon }] : []))
       .sort((a, b) => a.at.getTime() - b.at.getTime());
   });
@@ -94,15 +95,29 @@ const ASPECT_ES: Record<number, string> = { 0: "conjunción", 60: "sextil", 90: 
 export type Void = { start: Date; end: Date; sign: number; nextSign: number; last: { planet: string; aspect: string } | null };
 
 /** Los próximos periodos de Luna fuera de curso: del último aspecto mayor de la Luna en un signo hasta que entra en el siguiente. */
-export function voidsSoon(count = 6): Void[] {
-  return memo(`void${count}`, () => {
-    const now = Date.now();
-    const ins = moonIngressesBetween(new Date(now - 3 * DAY), new Date(now + 16 * DAY)).flatMap((e) => (e.kind === "moon-ingress" ? [e] : []));
+/** El primer día del mes elegido (este, con shift = 0) y el del siguiente, en hora de España. */
+export function monthBounds(shift = 0) {
+  const parts = new Intl.DateTimeFormat("en", { year: "numeric", month: "numeric", timeZone: SPAIN_TZ }).formatToParts(new Date());
+  const y0 = Number(parts.find((p) => p.type === "year")!.value);
+  const m0 = Number(parts.find((p) => p.type === "month")!.value) - 1 + shift;
+  const y = y0 + Math.floor(m0 / 12);
+  const m = ((m0 % 12) + 12) % 12;
+  const key = (yy: number, mm: number) => `${yy}-${String(mm + 1).padStart(2, "0")}-01`;
+  const start = zonedTimeToUtc(key(y, m), 0, SPAIN_TZ);
+  const end = zonedTimeToUtc(m === 11 ? key(y + 1, 0) : key(y, m + 1), 0, SPAIN_TZ);
+  return { start, end, year: y, month: m };
+}
+
+/** Los periodos de Luna fuera de curso de un mes (este, con shift = 0). */
+export function voidsSoon(shift = 0): Void[] {
+  return memo(`void${shift}`, () => {
+    const { start, end } = monthBounds(shift);
+    const ins = moonIngressesBetween(new Date(start.getTime() - 3 * DAY), new Date(end.getTime() + 3 * DAY)).flatMap((e) => (e.kind === "moon-ingress" ? [e] : []));
     const out: Void[] = [];
-    for (let i = 1; i < ins.length && out.length < count; i++) {
+    for (let i = 1; i < ins.length; i++) {
       const from = ins[i - 1].at.getTime();
       const to = ins[i].at.getTime();
-      if (to < now) continue;
+      if (to < start.getTime() || from >= end.getTime()) continue;
       let last: { t: number; planet: string; aspect: string } | null = null;
       // Las posiciones, una vez por hora (la Luna y los nueve planetas); solo se afina donde hay un aspecto.
       const ts: number[] = [];
@@ -164,25 +179,26 @@ export function moonHouseStays(cusps: number[]): HouseStay[] {
 /* ------------------------------------------------ 5 · retorno lunar */
 
 /** Los próximos 13 retornos lunares (la Luna vuelve a su sitio natal), con el signo del Sol y la fase de ese momento. */
-export function lunarReturns(natalLon: number) {
-  return memo(`ret${natalLon.toFixed(3)}`, () => {
-    const now = new Date();
-    return lunarReturnsBetween(natalLon, now, new Date(now.getTime() + 360 * DAY))
-      .slice(0, 13)
+/** Los retornos lunares de un año (este, con shift = 0). */
+export function lunarReturns(natalLon: number, shift = 0) {
+  return memo(`ret${natalLon.toFixed(3)}|${shift}`, () => {
+    const y = thisYear() + shift;
+    return lunarReturnsBetween(natalLon, zonedTimeToUtc(`${y}-01-01`, 0, SPAIN_TZ), zonedTimeToUtc(`${y + 1}-01-01`, 0, SPAIN_TZ))
       .map((at) => ({ at, sunLon: longitude("Sun", at), elong: norm(longitude("Moon", at) - longitude("Sun", at)) }));
   });
 }
 
 /* --------------------------------------- 6 · perigeo, apogeo, superlunas */
 
-export function apsisInfo() {
-  return memo("apsis", () => {
-    const now = new Date();
+/** Perigeo, apogeo y superlunas de un año (este, con shift = 0: desde hoy; otro año, desde el 1 de enero). */
+export function apsisInfo(shift = 0) {
+  return memo(`apsis${shift}`, () => {
+    const now = shift === 0 ? new Date() : zonedTimeToUtc(`${thisYear() + shift}-01-01`, 0, SPAIN_TZ);
     const list = apsidesBetween(new Date(now.getTime() - 30 * DAY), new Date(now.getTime() + 60 * DAY));
     const next = (k: "perigee" | "apogee") => list.find((a) => a.kind === k && a.at > now)!;
     const prevPerigee = [...list].reverse().find((a) => a.kind === "perigee" && a.at <= now)!;
-    const full = fullMoonsOfYear();
-    const y = thisYear();
+    const y = thisYear() + shift;
+    const full = fullMoonsOfYear(y);
     const news = lunationsBetween(zonedTimeToUtc(`${y}-01-01`, 0, SPAIN_TZ), zonedTimeToUtc(`${y + 1}-01-01`, 0, SPAIN_TZ), "syzygy").filter((l) => l.k === 0);
     return {
       perigee: next("perigee"),
@@ -229,4 +245,6 @@ export function nodeCycle(birth: Date, natalNode: number) {
   );
 }
 export const nodeNow = () => meanNode(new Date());
+/** El Nodo Norte (medio) en una fecha. */
+export const nodeAt = (d: Date) => meanNode(d);
 export const ageNow = (birth: Date) => (Date.now() - birth.getTime()) / YEAR;

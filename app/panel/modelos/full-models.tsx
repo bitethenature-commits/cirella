@@ -31,6 +31,7 @@ const BodygraphModel = dynamic(() => import("@/components/models/bodygraph-model
 const GeneKeysModel = dynamic(() => import("@/components/models/gene-keys-model").then((m) => m.GeneKeysModel), { ssr: false, loading: Loading });
 const LunarModel = dynamic(() => import("@/components/models/lunar-model").then((m) => m.LunarModel), { ssr: false, loading: Loading });
 const RunesModel = dynamic(() => import("@/components/models/runes-model").then((m) => m.RunesModel), { ssr: false, loading: Loading });
+const KundaliniModel = dynamic(() => import("@/components/models/kundalini-model").then((m) => m.KundaliniModel), { ssr: false, loading: Loading });
 const OracleModel = dynamic(() => import("@/components/models/oracle-model").then((m) => m.OracleModel), { ssr: false, loading: Loading });
 
 type Gated = "chart" | "bodygraph" | "geneKeys" | "lunar";
@@ -74,6 +75,11 @@ const ABOUT: Record<ModelKind, { text: string; has: string[]; also: string | nul
     has: ["Tirada de una o tres cartas", "Barajas propias con tus imágenes y textos", "«Más barajas» para quien tiene acceso"],
     also: "Mi energía → Oráculo",
   },
+  kundalini: {
+    text: "Kundalini entera: el cuerpo sutil con su energía y los 10 cuerpos del Kundalini Yoga con la fecha de nacimiento.",
+    has: ["La figura en meditación con los 8 chakras", "Ida, pingala y sushumna", "Los tres nudos", "«Despertar»: la serpiente sube de la raíz a la corona", "Los 10 cuerpos: alma, karma, don, destino y camino"],
+    also: null,
+  },
   geometry: {
     text: "Una figura de geometría sagrada como fondo de una frase tuya.",
     has: ["5 figuras", "Se dibuja al aparecer", "La frase y una entradilla encima"],
@@ -109,6 +115,7 @@ function versionsOf(kind: ModelKind, decks: OracleDeckView[], profile: BirthProf
       ...decks.flatMap((d) => (d.id ? [{ id: d.id, label: `Tuya · ${d.name}`, hint: `Tu baraja, con ${d.cards.length} cartas.` }] : [])),
     ];
   if (kind === "geometry") return GEOMETRY_FIGURES.map((f) => ({ id: f, label: GEOMETRY_LABEL[f], hint: "Con una frase de ejemplo, como en el bloque de tu página." }));
+  if (kind === "kundalini") return [{ id: "full", label: "Completa", hint: "El cuerpo sutil y los 10 cuerpos, con una fecha de ejemplo que se puede cambiar." }, ...(profile ? [{ id: "mine", label: "Con tu fecha", hint: `Los 10 cuerpos con tu fecha de «Mi energía» (${profile.name}).` }] : [])];
   return [{ id: "full", label: "Tirada", hint: "Como en tu web: elige la tirada y saca las runas." }];
 }
 
@@ -224,6 +231,7 @@ function Preview({ kind, version, decks, profile }: { kind: ModelKind; version: 
       const deck = decks.find((d) => d.id === version) ?? null;
       return <OracleModel key={deck?.id ?? "serie"} deck={deck} />;
     }
+    if (kind === "kundalini") return <KundaliniModel key={version} date={version === "mine" ? (profile?.date ?? null) : null} />;
     return <RunesModel />;
   })();
   return <section className="cp-card p-5 sm:p-7">{body}</section>;

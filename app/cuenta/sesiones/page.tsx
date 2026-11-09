@@ -5,6 +5,8 @@ import { ProductImage } from "@/components/creator-page/product-art";
 import { requireBuyerFull } from "@/lib/buyer-access";
 import { channelKindLabel } from "@/lib/channel-kind";
 import { getCustomerLibrary, hasAccess } from "@/lib/customer";
+import { liveMemberPostsFor } from "@/lib/community";
+import { JoinButton, kindStyle } from "../membresias/kind-style";
 import { includedProductIds } from "@/lib/membership-access";
 import { prisma } from "@/lib/db";
 import { formatPrice } from "@/lib/money";
@@ -41,6 +43,11 @@ const when = (b: Booking) =>
 export default async function MySessions() {
   const user = await requireBuyerFull("/cuenta/sesiones");
   const { upcoming, past } = await getCustomerLibrary(user.id);
+  // Las sesiones en directo, ceremonias y círculos programados en sus membresías (también las que incluye su nivel).
+  const live = await liveMemberPostsFor(user.id);
+  const liveSoon = (p: (typeof live)[number]) => !!p.eventAt && p.eventAt.getTime() >= Date.now() - 4 * 3_600_000;
+  const liveSessions = live.filter((p) => p.kind !== "CIRCULO_LUNAR");
+  const liveCircles = live.filter((p) => p.kind === "CIRCULO_LUNAR");
   const personal = isPersonalMode();
 
   // Las lecturas que se preparan y se entregan (sin reserva): sus pedidos, con si ya está entregada.
@@ -56,7 +63,7 @@ export default async function MySessions() {
   const sessions = split("session");
   const circles = split("circle");
   const readingCount = prepared.length;
-  const sessionCount = sessions.next.length + sessions.done.length;
+  const sessionCount = sessions.next.length + sessions.done.length + liveSessions.length;
 
   // Lo que puede coger además (de la dueña, o de las creadoras de sus reservas): todas las sesiones y lecturas
   // que aún no tiene en marcha y, de los círculos, los próximos a los que no va y el pase de todos los círculos.
@@ -122,14 +129,22 @@ export default async function MySessions() {
         title="Círculos de la luna"
         hint="Los encuentros en grupo de cada luna nueva (sembrar) y cada luna llena (soltar)."
         tone="circle"
-        count={circles.next.length + circles.done.length}
+        count={circles.next.length + circles.done.length + liveCircles.length}
         empty={hasPass ? "Tienes todos los círculos: cuando haya uno nuevo, aparecerá aquí." : "Aún no te has apuntado a ningún círculo."}
         circleOffers={circleOffers}
       >
+        {liveCircles.filter(liveSoon).map((p) => (
+          <MemberLiveRow key={p.id} p={p} />
+        ))}
         {circles.next.map((b) => (
           <CircleRow key={b.id} b={b} />
         ))}
-        {circles.done.length > 0 && <Past>{circles.done.map((b) => <CircleRow key={b.id} b={b} />)}</Past>}
+        {(circles.done.length > 0 || liveCircles.some((p) => !liveSoon(p))) && (
+          <Past>
+            {liveCircles.filter((p) => !liveSoon(p)).reverse().map((p) => <MemberLiveRow key={p.id} p={p} />)}
+            {circles.done.map((b) => <CircleRow key={b.id} b={b} />)}
+          </Past>
+        )}
       </Block>
 
       <Block
@@ -143,10 +158,18 @@ export default async function MySessions() {
         offers={sessionOffers}
         cta="Reservar"
       >
+        {liveSessions.filter(liveSoon).map((p) => (
+          <MemberLiveRow key={p.id} p={p} />
+        ))}
         {sessions.next.map((b) => (
           <BookingRow key={b.id} b={b} tone="session" />
         ))}
-        {sessions.done.length > 0 && <Past>{sessions.done.map((b) => <BookingRow key={b.id} b={b} tone="session" />)}</Past>}
+        {(sessions.done.length > 0 || liveSessions.some((p) => !liveSoon(p))) && (
+          <Past>
+            {liveSessions.filter((p) => !liveSoon(p)).reverse().map((p) => <MemberLiveRow key={p.id} p={p} />)}
+            {sessions.done.map((b) => <BookingRow key={b.id} b={b} tone="session" />)}
+          </Past>
+        )}
       </Block>
 
       <Block
@@ -313,6 +336,31 @@ function Past({ children }: { children: ReactNode }) {
 
 function Badge({ tone, children }: { tone: keyof typeof TONE; children: ReactNode }) {
   return <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl ${TONE[tone].badge}`}>{children}</div>;
+}
+
+/**
+ * Una sesión en directo, ceremonia o círculo de una membresía: se abre su publicación (toda la tarjeta) y,
+ * si ya está el enlace, se entra al Zoom con su botón, sin abrirla.
+ */
+function MemberLiveRow({ p }: { p: Awaited<ReturnType<typeof liveMemberPostsFor>>[number] }) {
+  const st = kindStyle(p.kind);
+  return (
+    <div className="card relative flex flex-wrap items-center gap-4 border-l-4 p-4 transition hover:shadow-lift" style={{ borderLeftColor: st.color }} data-kind="member-live">
+      <Link href={`/cuenta/membresias/${p.productId}/${p.id}`} className="absolute inset-0 rounded-[inherit]" aria-label={p.title} />
+      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-white" style={{ background: st.color }}>
+        <st.Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-semibold">{p.title}</p>
+        {p.eventAt && <p className="text-sm text-muted">{capitalize(formatDate(p.eventAt, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }, p.product.creator.timezone))}</p>}
+        <p className="mt-1 flex flex-wrap gap-1.5">
+          <span className="chip">{st.label}</span>
+          <span className="chip">De «{p.product.title}»</span>
+        </p>
+      </div>
+      <JoinButton post={p} className="relative z-10 shrink-0" />
+    </div>
+  );
 }
 
 function BookingRow({ b, tone }: { b: Booking; tone: "reading" | "session" }) {

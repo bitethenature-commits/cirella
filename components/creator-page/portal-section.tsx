@@ -1,4 +1,5 @@
 "use client";
+import { CalmAudio } from "@/components/media/calm-audio";
 import Link from "next/link";
 import { useActionState, useCallback, useEffect, useState } from "react";
 import { ArrowRight, ArrowUpRight, CalendarClock, Headphones, Images, Lock, MailCheck, Play, Sparkles, Video } from "lucide-react";
@@ -6,6 +7,7 @@ import { requestPortalAccess, type PortalAccessState } from "@/app/[username]/po
 import { homePortalItems, PORTAL_KIND_LABEL, PORTAL_LOCK_WHAT, type PortalKind, type PublicPortalItem } from "@/lib/portal-rules";
 import { safeHref } from "@/lib/page-config";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { HomeRows, PortalNoteIcon } from "./home-rows";
 
 type Access = { unlocked: boolean; reason: string; email: string | null; verified: boolean };
 
@@ -26,6 +28,7 @@ export function PortalSection({
   username,
   preview,
   home,
+  fallbackImage = null,
 }: {
   items: PublicPortalItem[];
   title: string;
@@ -36,6 +39,8 @@ export function PortalSection({
   preview: boolean;
   /** Portada: el destacado y dos más pequeños (con «Ver todo»). */
   home?: boolean;
+  /** Portada: la foto que sale en una fila sin portada propia (la de la web). */
+  fallbackImage?: string | null;
 }) {
   const [items, setItems] = useState(lockedItems);
   const [access, setAccess] = useState<Access | null>(null);
@@ -60,6 +65,9 @@ export function PortalSection({
   const reload = useCallback(() => window.location.reload(), []);
   const { main, rest } = home ? homePortalItems(items) : { main: items.find((i) => i.featured) ?? items[0] ?? null, rest: items.filter((i) => i !== (items.find((x) => x.featured) ?? items[0])) };
   if (!main) return null;
+  // Portada: arriba el audio (el destacado o el último) y, debajo, solo las noticias.
+  const top = home ? (items.find((i) => i.kind === "AUDIO" && i.featured) ?? items.find((i) => i.kind === "AUDIO") ?? main) : main;
+  const news = home ? items.filter((i) => i !== top).slice(0, 4) : rest;
 
   return (
     <div data-portal={unlocked ? "unlocked" : "locked"}>
@@ -80,6 +88,43 @@ export function PortalSection({
         </div>
       )}
 
+      {home ? (
+        <div className="mt-4">
+          {/* Arriba, el audio, más grande: que se vea de un vistazo que es para escuchar. */}
+          <HomeAudio item={top} unlocked={unlocked} fallbackImage={fallbackImage} />
+          {!unlocked && (
+            <div className="mt-3">
+              <NewsletterUnlockForm what={PORTAL_LOCK_WHAT[top.kind]} access={access} creatorName={creatorName} privacyHref={privacyHref} onUnlocked={reload} />
+            </div>
+          )}
+          {news.length > 0 && <p className="cp-eyebrow mb-2.5 mt-7">Noticias</p>}
+          <HomeRows
+            fallbackImage={fallbackImage}
+            rows={news.map((i) => {
+              const Icon = KIND_ICON[i.kind];
+              const locked = i.locked || !unlocked;
+              return {
+                key: i.id,
+                href: locked ? "#portal-form" : portalHref,
+                image: i.coverUrl,
+                icon: <PortalNoteIcon className="h-7 w-7 opacity-80" />,
+                locked,
+                eyebrow: (
+                  <>
+                    <span className="inline-flex items-center gap-1">
+                      <Icon className="h-3 w-3" /> {PORTAL_KIND_LABEL[i.kind]}
+                    </span>
+                    {i.eventLabel && <span className="normal-case tracking-normal">· {i.eventLabel}</span>}
+                  </>
+                ),
+                title: i.title,
+                text: locked ? `Suscríbete a mi newsletter para ${PORTAL_LOCK_WHAT[i.kind]}` : i.summary,
+              };
+            })}
+          />
+        </div>
+      ) : (
+      <>
       <div className="mt-5">
         <PortalCard item={main} big unlocked={unlocked} />
         {/* El formulario va en su propia tarjeta, separado de la portada: nunca toca el marco del vídeo. */}
@@ -95,6 +140,8 @@ export function PortalSection({
             <PortalCard key={i.id} item={i} unlocked={unlocked} />
           ))}
         </div>
+      )}
+      </>
       )}
     </div>
   );
@@ -164,7 +211,7 @@ function PortalCard({ item, big, unlocked }: { item: PublicPortalItem; big?: boo
       )}
       <div className="p-5">
         {header}
-        {item.kind === "AUDIO" && media[0] && <audio src={media[0].url} controls preload="none" controlsList="nodownload" className="mt-3 w-full" aria-label={item.title} />}
+        {item.kind === "AUDIO" && media[0] && <CalmAudio src={media[0].url} preload="none" title={item.title} className="mt-4" />}
         {item.body && <p className="mt-3 whitespace-pre-line text-[0.92rem] leading-relaxed">{item.body}</p>}
         {item.linkUrl && (
           <a href={safeHref(item.linkUrl)} className="cp-btn mt-4" {...(item.linkUrl.startsWith("/") ? {} : { target: "_blank", rel: "noopener noreferrer" })}>
@@ -284,5 +331,46 @@ export function NewsletterUnlockForm({
       </SubmitButton>
       {!signedIn && <p className="cp-faint text-xs">Te enviaremos un enlace para confirmar tu email: al pulsarlo, entras en tu área y {footerHint}.</p>}
     </form>
+  );
+}
+
+/** El audio del portal en la portada: su portada en grande, unos cascos que no dejan dudas y el reproductor. */
+function HomeAudio({ item, unlocked, fallbackImage }: { item: PublicPortalItem; unlocked: boolean; fallbackImage: string | null }) {
+  const locked = item.locked || !unlocked;
+  const cover = item.coverUrl ?? fallbackImage;
+  const isAudio = item.kind === "AUDIO";
+  const Icon = KIND_ICON[item.kind];
+  return (
+    <article className="cp-card portal-audio overflow-hidden" data-portal-item={item.id} data-locked={locked ? "true" : "false"}>
+      <div className="relative aspect-[16/9] overflow-hidden sm:aspect-[16/7]">
+        {cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={cover} alt="" className={`absolute inset-0 h-full w-full object-cover ${locked ? "cp-locked-cover" : ""}`} loading="lazy" decoding="async" />
+        ) : (
+          <span className="absolute inset-0" style={{ background: "linear-gradient(135deg, color-mix(in oklab, var(--c-accent) 40%, #000), color-mix(in oklab, var(--c-gold) 30%, #000))" }} />
+        )}
+        <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/10" />
+        <span className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-white backdrop-blur">
+          <Icon className="h-3.5 w-3.5" /> {PORTAL_KIND_LABEL[item.kind]}
+        </span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-5 text-center text-white">
+          <span className="portal-audio-icon grid h-20 w-20 place-items-center rounded-full sm:h-24 sm:w-24" aria-hidden>
+            {locked ? <Lock className="h-8 w-8" /> : isAudio ? <Headphones className="h-9 w-9" /> : <Icon className="h-9 w-9" />}
+          </span>
+          <p className="cp-display max-w-lg text-[1.7rem] leading-tight sm:text-[2.1rem]">{item.title}</p>
+          {item.eventLabel && <p className="text-[0.85rem] opacity-85">{item.eventLabel}</p>}
+        </div>
+      </div>
+      <div className="p-5">
+        {!locked && isAudio && item.media[0] ? (
+          <CalmAudio src={item.media[0].url} preload="none" title={item.title} />
+        ) : locked ? (
+          <p className="cp-muted text-center text-[0.92rem]">Suscríbete a mi newsletter para {PORTAL_LOCK_WHAT[item.kind]}</p>
+        ) : (
+          item.summary && <p className="cp-muted text-[0.92rem]">{item.summary}</p>
+        )}
+        {!locked && item.body && <p className="mt-3 whitespace-pre-line text-[0.92rem] leading-relaxed">{item.body}</p>}
+      </div>
+    </article>
   );
 }

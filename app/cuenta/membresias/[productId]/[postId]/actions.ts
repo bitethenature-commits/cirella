@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getBuyerSession } from "@/lib/buyer-access";
-import { addComment, removeComment, toggleLike } from "@/lib/community";
+import { addComment, removeComment, toggleLike, toggleSave } from "@/lib/community";
 import { isMemberPostVisible } from "@/lib/community-rules";
 import { prisma } from "@/lib/db";
 import { limitLike } from "@/lib/limits";
@@ -41,6 +41,16 @@ export async function likePost(postId: string): Promise<{ liked: boolean; count:
   if (!limit.ok) return { error: limit.message };
   const r = await toggleLike(a.post.id, a.user.id, a.post.creatorId);
   refresh(a.post);
+  return r;
+}
+
+/** «Guardar»: solo con una sesión de cuenta (lo guardado vive en «Mis archivos»). */
+export async function savePost(postId: string): Promise<{ saved: boolean } | { error: string }> {
+  const a = await actor(postId);
+  if (!a) return { error: "No tienes acceso a esta publicación." };
+  if (!a.account) return { error: "Para guardar, entra con tu email." };
+  const r = await toggleSave(a.post.id, a.user.id, a.post.creatorId);
+  revalidatePath("/cuenta/archivos");
   return r;
 }
 

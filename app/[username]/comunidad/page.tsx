@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Check, Moon } from "lucide-react";
+import { Bookmark, BookOpenText, CalendarDays, Check, CloudSun, Flame, Flower2, GraduationCap, Heart, MessageCircle, Mic, Moon, MoonStar, PenLine, Radio, SlidersHorizontal, Sparkles, type LucideIcon } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { TrackedLink, TrackOnMount } from "@/components/creator-page/tracking";
 import { prisma } from "@/lib/db";
 import { formatPrice } from "@/lib/money";
 import { orderTiers } from "@/lib/tiers";
-import { tierFeatures } from "@/lib/tier-features";
+import { tierFeatureItems, type TierIcon } from "@/lib/tier-features";
+
+const ICONS: Record<TierIcon, LucideIcon> = {
+  text: PenLine, page: BookOpenText, calendar: CalendarDays, save: Bookmark, moon: Moon, chat: MessageCircle, podcast: Mic, meditation: Flower2,
+  weather: CloudSun, masterclass: GraduationCap, ceremony: Flame, circle: MoonStar, live: Radio, filter: SlidersHorizontal, heart: Heart, star: Sparkles,
+};
 import { sectionPageData } from "../section-data";
 
 type Params = { username: string };
@@ -45,50 +50,85 @@ export default async function ComunidadPage({ params }: { params: Promise<Params
     <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
       <main className="mx-auto max-w-6xl px-4 pb-14 pt-8 sm:pt-12">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="cp-eyebrow">Comunidad</p>
+          <p className="cp-eyebrow">✦ Comunidad ✦</p>
           <h1 className="cp-display mt-3 text-[2.6rem] leading-[1.05] sm:text-[3.4rem]">Elige cómo quieres acompañarte</h1>
-          {tiers.length > 1 && <p className="cp-muted mt-4 text-[1.02rem] leading-relaxed">Cada nivel incluye todo lo del anterior. Puedes subir de nivel cuando quieras.</p>}
+          <p className="cp-muted mt-4 text-[1.05rem] leading-relaxed">
+            Un espacio privado para vivir el cielo semana a semana: textos, voz, directos y lunas compartidas.
+            {tiers.length > 1 ? " Cada nivel incluye todo lo del anterior y puedes subir o cancelar cuando quieras." : " Puedes cancelar cuando quieras."}
+          </p>
+          <div aria-hidden className="mx-auto mt-6 flex max-w-xs items-center gap-3" style={{ color: "var(--c-gold)" }}>
+            <span className="h-px flex-1" style={{ background: "linear-gradient(90deg, transparent, var(--c-gold))" }} />
+            <span className="text-xs">✦</span>
+            <span className="h-px flex-1" style={{ background: "linear-gradient(270deg, transparent, var(--c-gold))" }} />
+          </div>
         </div>
 
         {tiers.length === 0 ? (
           <p className="cp-muted mt-10 text-center">Pronto abriré la comunidad.</p>
         ) : (
-          <div className="mt-10 grid gap-5 md:grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))]" data-tiers>
+          <div className="mt-12 grid items-start gap-6 md:grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))]" data-tiers>
             {tiers.map(({ tier: t, level, includesPrevious }) => {
               const d = descOf.get(t.id);
-              const features = tierFeatures(d?.description ?? null, d?.summary ?? t.summary);
-              const highlight = tiers.length === 3 && level === 2;
+              const features = tierFeatureItems(d?.description ?? null, d?.summary ?? t.summary);
+              const intro = (d?.description ?? "").split("\n").map((l) => l.trim()).find((l) => l && !/^[•\-*✦]\s/.test(l) && !/^incluye:?$/i.test(l)) ?? null;
+              // La más elegida: el nivel más completo.
+              const highlight = tiers.length > 1 && t.id === top;
               const mode = t.accessMode ?? "PAID";
               const href = mode === "PAID" ? `/${creator.username}/${t.slug}/checkout` : mode === "EXTERNAL" && t.externalUrl ? t.externalUrl : `/${creator.username}/${t.slug}`;
               return (
-                <section key={t.id} className="cp-card flex flex-col gap-4 p-7" aria-labelledby={`nivel-${t.id}`} data-tier={t.slug} style={highlight ? { borderColor: "var(--c-accent)" } : undefined}>
-                  <p className="cp-eyebrow cp-gold">
-                    Nivel {level}
-                    {highlight ? " · la más elegida" : ""}
-                  </p>
-                  <h2 id={`nivel-${t.id}`} className="cp-display text-[2.2rem] leading-none">
+                <section key={t.id} className={`cp-card tier-card relative flex flex-col overflow-hidden ${highlight ? "is-highlight md:-mt-4" : ""}`} aria-labelledby={`nivel-${t.id}`} data-tier={t.slug}>
+                  {/* La foto del nivel, con su emblema. */}
+                  <div className="relative aspect-[16/8] overflow-hidden">
+                    {t.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={t.imageUrl} alt="" className="cp-img absolute inset-0 h-full w-full object-cover" loading="lazy" decoding="async" />
+                    ) : (
+                      <span className="absolute inset-0" style={{ background: "linear-gradient(135deg, color-mix(in oklab, var(--c-accent) 45%, var(--c-bg)), color-mix(in oklab, var(--c-gold) 30%, var(--c-bg)))" }} />
+                    )}
+                    <span aria-hidden className="absolute inset-0" style={{ background: "linear-gradient(180deg, transparent 35%, var(--c-surface))" }} />
+                    {highlight && <span className="tier-badge absolute right-3 top-3 rounded-full px-3 py-1 text-[0.7rem] font-semibold">La más elegida</span>}
+                  </div>
+                  <div className="relative -mt-9 flex flex-col items-center gap-3 px-6 pb-7 text-center sm:px-7">
+                    <span className="cp-emblem grid h-16 w-16 place-items-center rounded-full text-[1.8rem]" aria-hidden>
+                      {t.emoji ?? "✦"}
+                    </span>
+                  <h2 id={`nivel-${t.id}`} className="cp-display text-[2.4rem] leading-none">
                     {t.title}
                   </h2>
+                  {(intro || t.summary) && <p className="cp-muted max-w-xs text-[0.95rem] leading-relaxed">{intro ?? t.summary}</p>}
                   <p>
                     {t.sale && <s className="cp-muted mr-2">{formatPrice(t.sale.regularCents, t.currency)}</s>}
                     <span className="cp-display text-[2.6rem]">{formatPrice(t.sale ? t.sale.priceCents : t.priceCents, t.currency)}</span>
                     {t.billingInterval && <span className="cp-muted"> /{t.billingInterval === "year" ? "año" : "mes"}</span>}
                     {t.sale && <span className="cp-gold block text-xs font-semibold">{[t.sale.label, t.sale.endsLabel].filter(Boolean).join(" · ") || "Oferta"} · el primer pago</span>}
                   </p>
-                  <ul className="space-y-2.5 text-[0.95rem]">
+                  <span aria-hidden className="my-1 h-px w-20" style={{ background: "linear-gradient(90deg, transparent, var(--c-gold), transparent)" }} />
+                  <ul className="w-full space-y-3.5 text-left text-[0.93rem]">
                     {includesPrevious && (
-                      <li className="cp-muted flex items-start gap-2.5">
-                        <Check className="cp-gold mt-0.5 h-4 w-4 shrink-0" /> Incluye todo lo de {includesPrevious.title}
+                      <li className="tier-includes flex items-center gap-3 rounded-2xl px-3 py-2.5">
+                        <span className="cp-emblem grid h-9 w-9 shrink-0 place-items-center rounded-full" aria-hidden>
+                          <Check className="h-4 w-4" />
+                        </span>
+                        <span>
+                          <strong className="font-semibold">Todo lo de {includesPrevious.title}</strong>
+                          <span className="cp-muted block text-[0.82rem]">Y además:</span>
+                        </span>
                       </li>
                     )}
-                    {features.map((f) => (
-                      <li key={f} className="flex items-start gap-2.5">
-                        <span className="cp-gold font-semibold" aria-hidden>
-                          {includesPrevious ? "+" : "✓"}
-                        </span>
-                        {f}
-                      </li>
-                    ))}
+                    {features.map((f) => {
+                      const Icon = ICONS[f.icon];
+                      return (
+                        <li key={f.title} className="flex items-start gap-3">
+                          <span className="cp-emblem mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full" aria-hidden>
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0">
+                            <strong className="block font-semibold leading-snug">{f.title}</strong>
+                            {f.detail && <span className="cp-muted block text-[0.84rem] leading-snug">{f.detail}</span>}
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
                   {t.id === top && circles.length > 0 && tiers.length > 1 && (
                     <div className="rounded-2xl p-3.5 text-[0.82rem]" style={{ background: "color-mix(in oklab, var(--c-bg) 70%, transparent)" }}>
@@ -107,11 +147,12 @@ export default async function ComunidadPage({ params }: { params: Promise<Params
                   <TrackedLink
                     href={href}
                     event={{ creatorId: creator.id, type: "PRODUCT_CLICK" as const, productId: t.id }}
-                    className={`${highlight ? "cp-btn" : "cp-btn-ghost"} mt-auto w-full`}
+                    className={`${highlight ? "cp-btn" : "cp-btn-ghost"} mt-3 w-full`}
                     ariaLabel={`Unirme a ${t.title}`}
                   >
                     Unirme a {t.title}
                   </TrackedLink>
+                  </div>
                 </section>
               );
             })}

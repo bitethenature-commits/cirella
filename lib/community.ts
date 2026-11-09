@@ -18,6 +18,7 @@ import { notifyNewComment, notifyReply } from "./community-notify";
 import { prisma } from "./db";
 import { limitComment } from "./limits";
 import { captureError } from "./monitoring";
+import { activeAccessWhere, includedMembershipIds } from "./membership-access";
 import { readPageConfig } from "./page-config";
 import { cleanRichInput, formatToStore, normalizeNewlines } from "./rich-text";
 import { privateKey, storage } from "./storage";
@@ -62,6 +63,7 @@ export async function saveMemberPost(creatorId: string, timeZone: string, input:
     bodyFormat,
     kind: input.kind,
     mediaUrl: input.mediaUrl || null,
+    imageUrl: input.imageUrl || null,
     // Directo, ceremonia o círculo: su fecha (en los demás tipos no se guarda).
     eventAt: isLivePostKind(input.kind) && input.eventDate && input.eventTime ? zonedTimeToUtc(input.eventDate, labelToMinutes(input.eventTime), timeZone) : null,
     status: timing.status,
@@ -158,14 +160,18 @@ export async function loadFeed(i: {
   now?: Date;
   /** Solo las que ya ven los miembros, aunque mire la dueña (el «Muro» del estudio). */
   publishedOnly?: boolean;
+  /** Solo estos tipos (los botones «Audios», «Podcast»… del feed). */
+  kinds?: string[];
 }) {
   const now = i.now ?? new Date();
   const base: Prisma.MembershipPostWhereInput[] = [{ productId: { in: [i.productId, ...(i.alsoProductIds ?? [])] } }];
   if (!i.viewer.isOwner || i.publishedOnly) base.push(visibleMemberPostWhere(now));
+  if (i.kinds?.length) base.push({ kind: { in: i.kinds } });
   const include = {
     product: { select: { title: true } },
     files: { orderBy: { sortOrder: "asc" }, select: FEED_FILE_SELECT },
     likes: { where: { userId: i.viewer.userId }, select: { id: true } },
+    saves: { where: { userId: i.viewer.userId }, select: { id: true } },
     _count: { select: { likes: true, comments: { where: { status: "VISIBLE" } } } },
   } satisfies Prisma.MembershipPostInclude;
   // Las fijadas van arriba, solo en la primera página (y no se repiten en las siguientes).
@@ -185,7 +191,7 @@ export async function loadFeed(i: {
     take: FEED_PAGE + 1,
     include,
   });
-  const shape = ({ likes, ...p }: (typeof rows)[number]) => ({ ...p, likedByMe: likes.length > 0, state: memberPostState(p, now), pinned: !!p.pinnedAt });
+  const shape = ({ likes, saves, ...p }: (typeof rows)[number]) => ({ ...p, likedByMe: likes.length > 0, savedByMe: saves.length > 0, state: memberPostState(p, now), pinned: !!p.pinnedAt });
   const regular = rows.slice(0, FEED_PAGE).map(shape);
   const more = rows.length > FEED_PAGE;
   return { posts: [...pinned.map(shape), ...regular], nextBefore: more ? regular[regular.length - 1].publishedAt.toISOString() : null };
@@ -311,4 +317,58 @@ export async function setCommentHidden(creatorId: string, commentId: string, hid
 export async function setCommenterBlocked(creatorId: string, userId: string, blocked: boolean): Promise<boolean> {
   const r = await tenantDb(creatorId).customer.updateMany({ where: { userId }, data: { commentsBlockedAt: blocked ? new Date() : null } });
   return r.count > 0;
+}
+
+/** «Guardar» (o quitar) una publicación de una membresía a página entera. Idempotente (índice único). */
+export async function toggleSave(postId: string, userId: string, creatorId: string): Promise<{ saved: boolean }> {
+  const existing = await prisma.membershipPostSave.findUnique({ where: { postId_userId: { postId, userId } }, select: { id: true } });
+  if (existing) {
+    await prisma.membershipPostSave.deleteMany({ where: { id: existing.id } });
+    return { saved: false };
+  }
+  try {
+    await prisma.membershipPostSave.create({ data: { postId, userId, creatorId } });
+  } catch (e) {
+    if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+  }
+  return { saved: true };
+}
+
+/**
+ * Lo que una miembro ha guardado, lo más reciente primero, para «Mis archivos» (Favoritos y la carpeta de
+ * los textos de cada membresía). Solo publicaciones aún visibles.
+ */
+export async function savedPostsOf(userId: string, now = new Date()) {
+  const rows = await prisma.membershipPostSave.findMany({
+    where: { userId, post: visibleMemberPostWhere(now) },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      post: { select: { id: true, title: true, kind: true, publishedAt: true, productId: true, product: { select: { title: true, pagedReading: true, creator: { select: { id: true, username: true, displayName: true, pagePublished: true, pageDraft: true, timezone: true, contactEmail: true } } } } } },
+    },
+  });
+  return rows.map((r) => r.post);
+}
+
+/** Los tipos que tiene una comunidad (para sus botones), en el orden de siempre. */
+export async function memberPostKinds(productId: string, ownerView: boolean, now = new Date()) {
+  const rows = await prisma.membershipPost.groupBy({ by: ["kind"], where: { productId, ...(ownerView ? {} : visibleMemberPostWhere(now)) } });
+  return rows.map((r) => r.kind);
+}
+
+/**
+ * Los encuentros con fecha (sesiones en directo, ceremonias y círculos) de las membresías a las que tiene
+ * acceso (también las que incluye su nivel), para «Círculos y lecturas». Los próximos y los de los últimos
+ * 60 días.
+ */
+export async function liveMemberPostsFor(userId: string, now = new Date()) {
+  const own = await prisma.access.findMany({ where: { userId, product: { type: "MEMBERSHIP" }, ...activeAccessWhere(now) }, select: { productId: true } });
+  const ids = new Set(own.map((a) => a.productId));
+  for (const a of own) for (const id of await includedMembershipIds(a.productId)) ids.add(id);
+  if (!ids.size) return [];
+  return prisma.membershipPost.findMany({
+    where: { productId: { in: [...ids] }, kind: { in: ["EVENT", "CEREMONIA", "CIRCULO_LUNAR", "MASTERCLASS"] }, eventAt: { gte: new Date(now.getTime() - 60 * 86_400_000) }, ...visibleMemberPostWhere(now) },
+    orderBy: { eventAt: "asc" },
+    select: { id: true, title: true, kind: true, eventAt: true, mediaUrl: true, productId: true, product: { select: { title: true, creator: { select: { timezone: true } } } } },
+  });
 }

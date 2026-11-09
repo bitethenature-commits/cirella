@@ -6,7 +6,7 @@ import { ASPECTS, BODY_INFO, ELEMENT_HUE, HOUSES, SIGNS, type Element } from "@/
 import type { BirthProfile, ComputedProfile } from "@/lib/birth-profile";
 import { useComputedProfile } from "@/components/models/use-birth-profile";
 import { ASTRO_LAYER_LABEL, FOCUS_BODIES, LAYER_KEYS, LAYER_OPTIONS, MODEL_MODE_HINT, MODEL_MODE_LABEL, LAYER_SYSTEM, layerOption, modesFor, type AstroLayer, type ModelData, type ModelMode } from "@/lib/lesson-blocks";
-import { SystemDiagram, isSystemLayer, systemKeys, systemMine, systemPiece, type LayerCtx } from "./system-layers";
+import { SystemDiagram, isSystemLayer, systemKeys, systemMine, systemPiece, type LayerCtx, type SystemPiece } from "./system-layers";
 import { WK_CREAM as CREAM, WK_GOLD, WK_INK, WK_MUTED as MUTED } from "./layers/wheel-kit";
 import { DegreeTicks, ElementSymbol, Medallion, MedallionText, MineMark, RingSector, WheelBase, WheelDefs, useWheelIds } from "./layers/wheel-kit";
 
@@ -125,6 +125,10 @@ export function AstroLayerModel({ data, computed, others = [] }: { data: ModelDa
   const [mode, setMode] = useState<ModelMode>(() => (modesFor(data.layer).includes(data.mode ?? "explore") ? (data.mode ?? "explore") : "explore"));
   // Sinastría, pareja y «Comparar»: la otra persona elegida (de las guardadas en «Mi energía») y su carta, calculada aquí.
   const [otherIndex, setOtherIndex] = useState(0);
+  // El año (o el mes) que se mira en los modelos que lo dejan cambiar (la Luna): 0 = el de hoy.
+  const [shift, setShift] = useState(0);
+  // La configuración elegida dentro del modelo (las runas la cambian ahí mismo).
+  const [optPick, setOptPick] = useState<string | null>(null);
   // Las capas de pareja ya dibujan las dos cartas: en «Comparar» no se cambia su dibujo.
   const wantsPair = data.layer === "astro-synastry" || data.layer === "hd-partner" || data.layer === "astro-balance-compare";
   const wantsOther = wantsPair || mode === "compare";
@@ -136,8 +140,8 @@ export function AstroLayerModel({ data, computed, others = [] }: { data: ModelDa
   // Las capas de Human Design, Gene Keys y Luna (components/course/system-layers.tsx) o las de la carta astral.
   const sys = isSystemLayer(data.layer) ? data.layer : null;
   // La configuración elegida en el editor (las puertas de un centro, la Luna llena en cada signo…).
-  const option = layerOption(data.layer, data.option);
-  const ctx: LayerCtx = { option, c: computed, focus: data.focus, others, otherIndex, pickOther: setOtherIndex, other, notes: data.notes };
+  const option = optPick ?? layerOption(data.layer, data.option);
+  const ctx: LayerCtx = { option, c: computed, focus: data.focus, others, otherIndex, pickOther: setOtherIndex, other, notes: data.notes, shift, setShift, setOption: setOptPick };
   const found = sys ? systemKeys(sys, ctx) : LAYER_KEYS[data.layer];
   const allKeys = found.length ? found : LAYER_KEYS[data.layer];
   // Las piezas de una carta en esta capa (la de la alumna, la del cielo de hoy o la de la otra persona).
@@ -152,7 +156,7 @@ export function AstroLayerModel({ data, computed, others = [] }: { data: ModelDa
   // Sin elegir aún, la pieza marcada (que llega cuando termina de calcularse la carta) o la primera.
   const [sel, setSel] = useState<string | null>(null);
   const selected = sel && keys.includes(sel) ? sel : (marked[0] ?? mine ?? keys[0]);
-  const pieceFor = (k: string, c: ComputedProfile | null = computed): Piece & { personal?: string | null } => (sys ? { key: k, ...systemPiece(sys, k, { ...ctx, c }) } : pieceOf(data.layer, k));
+  const pieceFor = (k: string, c: ComputedProfile | null = computed): Piece & { personal?: string | null; extra?: SystemPiece["extra"] } => (sys ? { key: k, ...systemPiece(sys, k, { ...ctx, c }) } : pieceOf(data.layer, k));
   const piece = pieceFor(selected);
   const options = LAYER_OPTIONS[data.layer];
   const optionLabel = options && option !== options[0].value ? options.find((o) => o.value === option)?.label : null;
@@ -271,7 +275,7 @@ export function AstroLayerModel({ data, computed, others = [] }: { data: ModelDa
     </>
   );
   const diagram = (
-        <div className={`w-full self-center p-1 sm:p-3 ${sys && !DISC_LAYERS.has(sys) && !/^(hd|gk|moon|rune|astro)-/.test(sys) ? "model-plate" : ""}`}>
+        <div className={`w-full self-center p-1 sm:p-3 ${sys && !DISC_LAYERS.has(sys) && !/^(hd|gk|moon|rune|astro|geo|orc|day|kun)-/.test(sys) ? "model-plate" : ""}`}>
           {sys ? (
             <SystemDiagram layer={sys} selected={selected} mine={marked} keys={keys} tap={tapFor} ctx={mode === "today" && today ? { ...ctx, c: today } : mode === "compare" && other && !wantsPair ? { ...ctx, c: other } : ctx} />
           ) : (
@@ -330,6 +334,21 @@ export function AstroLayerModel({ data, computed, others = [] }: { data: ModelDa
                     <p className="mb-3 rounded-xl bg-[#C9C3E8]/25 px-3 py-2 text-[0.88rem] leading-relaxed text-ink">{todayList.includes(selected) ? "Hoy el cielo tiene activa esta pieza: es buen momento para sentirla." : todayList.length ? `Hoy no está activa. Las de hoy: ${todayList.map(nameOf).join(", ")}.` : "En esta capa el cielo de hoy no marca ninguna pieza."}</p>
                   )}
                   <p className="whitespace-pre-line text-[0.98rem] leading-relaxed text-ink/75">{piece.meaning}</p>
+                  {piece.extra && (
+                    <div className="mt-6 border-t border-line pt-5">
+                      <div className="flex items-center gap-3">
+                        {piece.extra.glyph && (
+                          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gold/15 text-[1.3rem] text-gold" aria-hidden>
+                            {piece.extra.glyph}
+                          </span>
+                        )}
+                        <p className="display text-[1.4rem] leading-tight">{piece.extra.name}</p>
+                      </div>
+                      <p className="mt-3 text-[0.72rem] font-semibold uppercase leading-relaxed tracking-[0.12em] text-muted">{piece.extra.kicker}</p>
+                      <hr className="my-3 border-line" />
+                      <p className="whitespace-pre-line text-[0.98rem] leading-relaxed text-ink/75">{piece.extra.meaning}</p>
+                    </div>
+                  )}
                   {note && <RichContent text={note} format="MD" legacy="paragraphs" tone="account" className="mt-4 space-y-3 border-t border-line pt-4 text-[0.98rem] leading-relaxed text-ink/90" />}
                 </div>
               </>

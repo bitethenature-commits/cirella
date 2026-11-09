@@ -66,6 +66,7 @@ model User {
   // Comunidad: comentarios y «me gusta» en las publicaciones de las membresías.
   memberComments      MembershipComment[]
   memberLikes         MembershipPostLike[]
+  memberSaves         MembershipPostSave[]
   // Verificación en dos pasos (lib/two-factor.ts).
   twoFactorCodes      TwoFactorRecoveryCode[]
   trustedDevices      TrustedDevice[]
@@ -401,6 +402,9 @@ model Product {
   // Taller marcado como «Círculo de la luna» (luna nueva o llena): sale en la portada para apuntarse sin
   // ser miembro. Solo talleres (groupSession).
   moonCircle     Boolean   @default(false)
+  // Membresía «a página entera» (Esencia): cada publicación se lee como una página, con anterior y siguiente,
+  // un calendario para ir a una fecha y «Guardar» (sale en «Mis archivos»: Favoritos y la carpeta de sus textos).
+  pagedReading   Boolean   @default(false)
 
   // Oferta (lib/offers.ts): precio rebajado mientras está activa (desde saleStartsAt, si la hay, hasta
   // saleEndsAt, si la hay). El checkout cobra effectivePriceCents, calculado siempre en el servidor.
@@ -589,6 +593,9 @@ model MembershipPost {
   // Directo, ceremonia o círculo de la luna: cuándo es (lo enseña la publicación; null = sin fecha).
   eventAt       DateTime?
   mediaUrl      String?
+  // La foto de portada (/media/… o /demo/…): sale a la izquierda en la tarjeta y arriba al abrirla. Sin ella,
+  // la primera foto del texto o, si no hay, una según el tipo (app/cuenta/membresias/cover.ts).
+  imageUrl      String?
   // DRAFT: solo la ve la dueña. PUBLISHED: la ven sus miembros desde publishedAt; si es futura, está
   // «programada» (lib/community-rules.ts → visibleMemberPostWhere: no hace falta ningún cron para verla).
   status        String    @default("PUBLISHED")
@@ -609,6 +616,7 @@ model MembershipPost {
   comments MembershipComment[]
   likes    MembershipPostLike[]
   views    MembershipPostView[]
+  saves    MembershipPostSave[]
 
   @@index([creatorId, productId, publishedAt])
   @@index([status, notifiedAt, publishedAt]) // cron de avisos
@@ -668,6 +676,21 @@ model MembershipPostLike {
 
   @@unique([postId, userId])
   @@index([creatorId, postId])
+}
+
+// Una publicación guardada por una miembro («Guardar» en las membresías a página entera): sale en «Mis
+// archivos», en «Favoritos» y en la carpeta de los textos de su membresía.
+model MembershipPostSave {
+  id        String         @id @default(cuid())
+  creatorId String
+  postId    String
+  post      MembershipPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([postId, userId])
+  @@index([userId, createdAt])
 }
 
 // Quién ha abierto una publicación de la comunidad (una fila por persona: «vistas» = personas que la

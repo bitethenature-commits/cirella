@@ -4,7 +4,7 @@ import { AETT_NAME, RUNES, TEXT_VS, type Rune } from "@/components/models/data/r
 import { LAYER_KEYS, type AstroLayer } from "@/lib/lesson-blocks";
 import { listEs, type DiagramProps, type LayerCtx, type SystemPiece, type Tap } from "./common";
 import { Stone, StoneDefs } from "./extra";
-import { NIGHT, NIGHT_GOLD, NightChips, NightPanel, STAR, Stars, usePrefix } from "./night";
+import { NIGHT, NIGHT_GOLD, NightChips, NightPanel, OptionChips, STAR, Stars, usePrefix } from "./night";
 
 /**
  * Las runas a fondo, en 5 capas: las runas invertidas (merkstave), las runas por elemento y por dios o diosa,
@@ -107,7 +107,7 @@ const WORLDS: Record<string, { name: string; who: string; runes: string[]; text:
 export function runes2Keys(layer: Runes2Layer, { option }: LayerCtx): string[] {
   const all = LAYER_KEYS[layer];
   if (layer === "rune-elements") return option === "gods" ? Object.keys(GODS) : Object.keys(ELEMENTS);
-  if (layer === "rune-big-spreads") return all.filter((k) => k.startsWith(`${option ?? "nine"}-`));
+  if (layer === "rune-big-spreads") return all.filter((k) => k.startsWith(`${option === "cross" ? "cross" : "nine"}-`));
   return all;
 }
 
@@ -206,6 +206,7 @@ export function Runes2Diagram({ layer, selected, mine, keys, tap, ctx }: Diagram
       const src = gods ? GODS : ELEMENTS;
       return (
         <NightPanel>
+          <OptionChips options={[{ value: "elements", label: "Por elemento" }, { value: "gods", label: "Por dios o diosa" }]} value={gods ? "gods" : "elements"} onPick={ctx.setOption} />
           <GroupStones group={src[selected]} />
           <NightChips items={keys.map((k) => ({ key: k, label: src[k].name }))} selected={selected} mine={own} tap={tap} />
         </NightPanel>
@@ -214,6 +215,7 @@ export function Runes2Diagram({ layer, selected, mine, keys, tap, ctx }: Diagram
     case "rune-big-spreads":
       return (
         <NightPanel>
+          <OptionChips options={[{ value: "nine", label: "Nueve runas" }, { value: "cross", label: "La cruz rúnica" }]} value={ctx.option === "cross" ? "cross" : "nine"} onPick={ctx.setOption} />
           <BigSpread keys={keys} selected={selected} tap={tap} />
         </NightPanel>
       );
@@ -240,7 +242,10 @@ function ReversedStones({ selected, keys, tap, own }: { selected: string; keys: 
   const r = R(selected);
   const cols = 8;
   const w = 340 / cols;
-  const H = 168 + Math.ceil(keys.length / cols) * 66;
+  // Como en «Las 24 runas y sus 3 aettir»: una fila por aett, con su nombre encima.
+  const rows = [0, 1, 2].map((a) => keys.filter((k) => R(k).aett === a)).filter((row) => row.length);
+  const top = (row: number) => 176 + row * 86;
+  const H = top(rows.length) - 6;
   return (
     <svg viewBox={`0 0 340 ${H}`} className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label="Las runas invertidas">
       <StoneDefs p={p} />
@@ -255,9 +260,15 @@ function ReversedStones({ selected, keys, tap, own }: { selected: string; keys: 
       <text x="170" y="80" textAnchor="middle" dominantBaseline="central" fontSize="16" fill="rgb(233 204 142 / .7)">
         ⇄
       </text>
-      {keys.map((k, i) => {
-        const x = w / 2 + (i % cols) * w;
-        const y = 196 + Math.floor(i / cols) * 66;
+      {rows.map((row, ri) => (
+        <g key={ri} pointerEvents="none">
+          <line x1="6" y1={top(ri)} x2="334" y2={top(ri)} stroke="rgb(233 204 142 / .18)" />
+          <text x="170" y={top(ri)} textAnchor="middle" dominantBaseline="central" fontSize="8.5" letterSpacing="2" fontWeight="700" fill={NIGHT_GOLD} stroke="#17153A" strokeWidth="6" paintOrder="stroke">
+            {AETT_NAME[R(row[0]).aett].toUpperCase()}
+          </text>
+        </g>
+      ))}
+      {rows.flatMap((row, ri) => row.map((k, i) => ({ k, x: 170 + (i - (row.length - 1) / 2) * w, y: top(ri) + 34 }))).map(({ k, x, y }) => {
         return (
           <g key={k} {...tap(k, `${R(k).name} invertida`)}>
             <g transform={`rotate(180 ${x} ${y})`}>
@@ -366,36 +377,107 @@ function BindRune({ bind }: { bind: { runes: string[]; name: string } }) {
   );
 }
 
-/** El fresno del mundo: la copa arriba, las raíces abajo y los nueve mundos en su sitio. */
+/** El color de cada mundo, para su medallón. */
+const WORLD_HUE: Record<string, string> = {
+  asgard: "#F0D9A4",
+  alfheim: "#FFF1C2",
+  vanaheim: "#9FD08A",
+  muspelheim: "#E9805B",
+  midgard: "#7FC4B8",
+  niflheim: "#A9D3EE",
+  jotunheim: "#B8A58C",
+  svartalfheim: "#C99A55",
+  helheim: "#A99BC4",
+};
+
+/** Una hoja del fresno, en oro. */
+const leaf = (x: number, y: number, a: number, s = 1) => (
+  <path key={`${x}-${y}`} d="M0 0C2.6 -2.6 2.6 -6.4 0 -9.4C-2.6 -6.4 -2.6 -2.6 0 0Z" transform={`translate(${x} ${y}) rotate(${a}) scale(${s})`} />
+);
+
+/**
+ * El fresno del mundo, en líneas de oro al estilo nórdico: el tronco trenzado, las ramas que acaban en espiral,
+ * la copa con sus hojas y las raíces; los nueve mundos, como medallones grabados con sus runas.
+ */
 function Yggdrasil({ selected, own, tap }: { selected: string; own: Set<string>; tap: Tap }) {
   const p = usePrefix();
-  const W = WORLDS;
-  const links: [string, string][] = [
-    ["asgard", "alfheim"], ["asgard", "vanaheim"], ["asgard", "midgard"], ["alfheim", "midgard"], ["vanaheim", "midgard"],
-    ["muspelheim", "midgard"], ["niflheim", "midgard"], ["midgard", "jotunheim"], ["midgard", "svartalfheim"], ["midgard", "helheim"], ["jotunheim", "helheim"], ["svartalfheim", "helheim"],
-  ];
+  const gold = `url(#${p}gold)`;
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[28rem] select-none" role="group" aria-label="Yggdrasil y los nueve mundos">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[30rem] select-none" role="group" aria-label="Yggdrasil y los nueve mundos">
       <StoneDefs p={p} />
-      <Stars w={340} h={340} n={44} />
-      {/* El tronco, la copa y las raíces, muy suaves. */}
-      <path d="M160 300 C 158 240, 156 120, 164 40 L176 40 C 184 120, 182 240, 180 300 Z" fill="rgb(233 204 142 / .1)" />
-      <ellipse cx="170" cy="70" rx="150" ry="62" fill="rgb(159 208 138 / .06)" />
-      <path d="M170 290 C 130 300, 90 318, 50 332 M170 290 C 210 300, 250 318, 290 332 M170 296 L170 336" stroke="rgb(233 204 142 / .2)" strokeWidth="3" fill="none" strokeLinecap="round" />
-      {links.map(([a, b]) => (
-        <line key={`${a}-${b}`} x1={W[a].x} y1={W[a].y} x2={W[b].x} y2={W[b].y} stroke="rgb(233 204 142 / .3)" strokeWidth="1" />
-      ))}
-      {Object.entries(W).map(([k, w]) => {
+      <defs>
+        <radialGradient id={`${p}medal`} cx="40%" cy="32%" r="75%">
+          <stop offset="0%" stopColor="#2A2550" />
+          <stop offset="100%" stopColor="#100E26" />
+        </radialGradient>
+        <radialGradient id={`${p}medalOn`} cx="40%" cy="32%" r="75%">
+          <stop offset="0%" stopColor="#FBE7B0" />
+          <stop offset="55%" stopColor="#D9AE5C" />
+          <stop offset="100%" stopColor="#8E6424" />
+        </radialGradient>
+        <radialGradient id={`${p}crown`} cx="50%" cy="45%" r="55%">
+          <stop offset="0%" stopColor="#E9CC8E" stopOpacity="0.1" />
+          <stop offset="100%" stopColor="#E9CC8E" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      {/* El marco: un anillo doble con su trenza. */}
+      <circle cx="170" cy="170" r="166" fill="none" stroke={gold} strokeOpacity="0.5" strokeWidth="0.8" />
+      <circle cx="170" cy="170" r="161" fill="none" stroke={gold} strokeOpacity="0.35" strokeWidth="0.5" strokeDasharray="5 2 1 2" />
+      <ellipse cx="170" cy="96" rx="160" ry="96" fill={`url(#${p}crown)`} />
+
+      <g fill="none" stroke={gold} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none">
+        {/* La copa. */}
+        <path d="M34 156C18 70 96 8 170 8C244 8 322 70 306 156" strokeWidth="1.2" strokeOpacity="0.55" />
+        <path d="M48 146C40 82 104 26 170 26C236 26 300 82 292 146" strokeWidth="0.6" strokeOpacity="0.35" strokeDasharray="2 3" />
+        {/* El tronco, con sus dos bordes y la trenza por dentro. */}
+        <path d="M156 292C162 236 158 130 165 58" strokeWidth="1.6" />
+        <path d="M184 292C178 236 182 130 175 58" strokeWidth="1.6" />
+        <path d="M164 288C182 262 156 236 170 210C184 184 156 160 170 134C184 108 158 86 170 60" strokeWidth="1.1" strokeOpacity="0.85" />
+        <path d="M176 288C158 262 184 236 170 210C156 184 184 160 170 134C156 108 182 86 170 60" strokeWidth="1.1" strokeOpacity="0.85" />
+        <path d="M142 300C152 294 156 288 157 280M198 300C188 294 184 288 183 280" strokeWidth="1.4" />
+        {/* Las ramas altas, hacia Alfheim y Vanaheim, acabadas en espiral. */}
+        <path d="M166 120C140 112 116 104 102 96C78 82 58 62 72 46C82 36 98 46 90 58C86 64 78 60 80 54" strokeWidth="1.4" />
+        <path d="M174 120C200 112 224 104 238 96C262 82 282 62 268 46C258 36 242 46 250 58C254 64 262 60 260 54" strokeWidth="1.4" />
+        {/* Las ramas de la cima. */}
+        <path d="M167 86C150 72 134 60 128 42C124 30 136 22 142 30C146 36 140 40 137 36" strokeWidth="1.1" />
+        <path d="M173 86C190 72 206 60 212 42C216 30 204 22 198 30C194 36 200 40 203 36" strokeWidth="1.1" />
+        {/* Las ramas del medio, hacia el fuego y el hielo. */}
+        <path d="M164 156C136 150 110 156 92 166" strokeWidth="1.3" />
+        <path d="M176 156C204 150 230 156 248 166" strokeWidth="1.3" />
+        <path d="M128 152C120 136 104 132 96 140C90 148 100 154 104 148" strokeWidth="0.9" strokeOpacity="0.7" />
+        <path d="M212 152C220 136 236 132 244 140C250 148 240 154 236 148" strokeWidth="0.9" strokeOpacity="0.7" />
+        {/* Las raíces: hacia los gigantes, los enanos y, abajo del todo, Helheim. */}
+        <path d="M160 284C140 290 116 280 102 268C88 256 70 262 72 276C74 286 86 284 84 276" strokeWidth="1.4" />
+        <path d="M180 284C200 290 224 280 238 268C252 256 270 262 268 276C266 286 254 284 256 276" strokeWidth="1.4" />
+        <path d="M150 298C120 320 76 316 40 300M190 298C220 320 264 316 300 300" strokeWidth="1" strokeOpacity="0.7" />
+        <path d="M162 296C152 312 146 322 132 330M178 296C188 312 194 322 208 330" strokeWidth="0.9" strokeOpacity="0.6" />
+      </g>
+      {/* Las hojas. */}
+      <g fill={gold} fillOpacity="0.6" pointerEvents="none">
+        {[
+          [40, 120, -60], [52, 86, -40], [74, 56, -25], [104, 34, -12], [138, 20, -5], [202, 20, 5], [236, 34, 12], [266, 56, 25], [288, 86, 40], [300, 120, 60],
+          [116, 106, -70], [92, 74, -20], [224, 106, 70], [248, 74, 20], [150, 60, -30], [190, 60, 30], [112, 160, -100], [228, 160, 100],
+          [60, 140, -80], [280, 140, 80], [120, 48, -10], [220, 48, 10],
+        ].map(([x, y, a], i) => leaf(x, y, a, i % 3 ? 1 : 1.25))}
+      </g>
+
+      {/* Los nueve mundos. */}
+      {Object.entries(WORLDS).map(([k, w]) => {
         const on = k === selected;
         const mine = own.has(k);
+        const hue = WORLD_HUE[k];
         return (
           <g key={k} {...tap(k, w.name)}>
-            {on && <circle cx={w.x} cy={w.y} r="34" fill={`url(#${p}goldglow)`} />}
-            <circle cx={w.x} cy={w.y} r="25" fill={on ? `url(#${p}stoneOn)` : "#1E1B45"} stroke={on ? "#F0D9A4" : mine ? NIGHT_GOLD : "rgb(255 255 255 / .3)"} strokeWidth={on || mine ? 1.8 : 1} />
-            <text x={w.x} y={w.y - 4} textAnchor="middle" dominantBaseline="central" fontSize="11" fill={on ? "#FFE7AE" : STAR} fillOpacity="0.9">
+            {on && <circle cx={w.x} cy={w.y} r="38" fill={`url(#${p}goldglow)`} />}
+            <circle cx={w.x} cy={w.y} r="28.5" fill="none" stroke={gold} strokeOpacity={on ? 0.9 : 0.4} strokeWidth="0.7" strokeDasharray="1.2 2.2" />
+            <circle cx={w.x} cy={w.y} r="25" fill={on ? `url(#${p}medalOn)` : `url(#${p}medal)`} stroke={on ? "#FFF1C8" : gold} strokeWidth={on || mine ? 1.8 : 1.3} />
+            {!on && <circle cx={w.x} cy={w.y} r="25" fill={hue} fillOpacity="0.12" />}
+            <circle cx={w.x} cy={w.y} r="21" fill="none" stroke={on ? "#6B4A1E" : hue} strokeOpacity={on ? 0.6 : 0.5} strokeWidth="0.5" />
+            <text x={w.x} y={w.y - 4.5} textAnchor="middle" dominantBaseline="central" fontSize="11.5" fill={on ? "#3A2615" : hue}>
               {w.runes.map(G).join("")}
             </text>
-            <text x={w.x} y={w.y + 10} textAnchor="middle" fontSize="6.6" fontWeight={on ? 700 : 600} letterSpacing="0.5" fill={on ? NIGHT_GOLD : STAR}>
+            <text x={w.x} y={w.y + 9.5} textAnchor="middle" fontSize="6.4" fontWeight={700} letterSpacing="0.6" fill={on ? "#3A2615" : STAR} fillOpacity={on ? 1 : 0.9}>
               {w.name.toUpperCase()}
               {mine ? " ★" : ""}
             </text>

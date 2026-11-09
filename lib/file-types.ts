@@ -59,6 +59,7 @@ const EXT_TYPES: Record<string, string> = {
   mp4: "video/mp4",
   m4v: "video/mp4",
   mov: "video/quicktime",
+  webm: "video/webm",
   epub: "application/epub+zip",
   zip: "application/zip",
 };

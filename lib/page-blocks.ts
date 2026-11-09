@@ -53,7 +53,7 @@ export function hasQuickVersion(m: ModelKind): m is (typeof QUICK_MODELS)[number
 }
 
 /** Modelos del bloque «Modelo interactivo» (components/models). */
-export const MODEL_KINDS = ["chart", "bodygraph", "geneKeys", "lunar", "runes", "oracle", "geometry"] as const;
+export const MODEL_KINDS = ["chart", "bodygraph", "geneKeys", "lunar", "runes", "oracle", "geometry", "kundalini"] as const;
 export type ModelKind = (typeof MODEL_KINDS)[number];
 export const MODEL_LABEL: Record<ModelKind, string> = {
   chart: "Carta natal",
@@ -63,6 +63,7 @@ export const MODEL_LABEL: Record<ModelKind, string> = {
   runes: "Tirada de runas",
   oracle: "Oráculo",
   geometry: "Filosofía · geometría sagrada",
+  kundalini: "Kundalini: cuerpo sutil y 10 cuerpos",
 };
 /** Id de una baraja de oráculo propia (cuid) en el bloque «Oráculo». */
 export const ORACLE_DECK_ID_RE = /^[a-z0-9]{8,40}$/;

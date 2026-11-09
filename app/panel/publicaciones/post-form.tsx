@@ -7,7 +7,7 @@ import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { LinkInput, type LinkTarget } from "@/components/panel/blocks/link-input";
 import { PostMediaField } from "@/components/panel/post-media-field";
-import { POST_BODY_MAX, POST_CTA_CODE_MAX, POST_CTA_LABEL_MAX, POST_EXCERPT_MAX, POST_TITLE_MAX, type PostMedia } from "@/lib/posts";
+import { POST_BODY_MAX, POST_CTA_LABEL_MAX, POST_EXCERPT_MAX, POST_TITLE_MAX, type PostMedia } from "@/lib/posts";
 import { slugify } from "@/lib/slug";
 import { savePost, type PostActionState } from "./actions";
 
@@ -116,19 +116,14 @@ export function PostForm({
       <section className="card space-y-3 p-5 sm:p-6" aria-labelledby="post-cta-title">
         <div>
           <h3 id="post-cta-title" className="font-semibold">Botón <span className="font-normal text-muted">(opcional)</span></h3>
-          <p className="text-xs text-muted">Lleva a un producto, una página o una web. Si añades un código de descuento, sale al lado para copiarlo.</p>
+          <p className="text-xs text-muted">Lleva a un producto, una página o una web.</p>
         </div>
         <input type="hidden" name="ctaUrl" value={ctaUrl} />
-        <div className="grid gap-3 sm:grid-cols-2">
+        
           <div>
             <label className="field-label" htmlFor="post-cta-label">Texto del botón</label>
             <input id="post-cta-label" name="ctaLabel" className="input" maxLength={POST_CTA_LABEL_MAX} defaultValue={post.ctaLabel} placeholder="Ver curso" />
           </div>
-          <div>
-            <label className="field-label" htmlFor="post-cta-code">Código de descuento</label>
-            <input id="post-cta-code" name="ctaCode" className="input uppercase" maxLength={POST_CTA_CODE_MAX} defaultValue={post.ctaCode} placeholder="LUNA15" />
-          </div>
-        </div>
         <div>
           <p className="field-label">Enlace del botón</p>
           <LinkInput value={ctaUrl} onChange={setCtaUrl} ariaLabel="Enlace del botón de la publicación" targets={linkTargets} className="input" />

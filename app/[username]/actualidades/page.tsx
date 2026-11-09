@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
-import { PostTimeline } from "@/components/creator-page/post-timeline";
+import { HomeRows, MegaphoneIcon } from "@/components/creator-page/home-rows";
 import { TrackOnMount } from "@/components/creator-page/tracking";
-import { Reveal } from "@/components/reveal";
-import { groupPostsByMonth } from "@/lib/posts";
-import { getPublicPostList } from "@/lib/public";
+import { formatDate } from "@/lib/tz";
 import { sectionPageData } from "../section-data";
 
 type Params = { username: string };
@@ -21,7 +19,7 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   const data = await sectionPageData(username);
   if (!data) return { title: "Página no encontrada" };
   const title = `Actualidades · ${data.config.displayName}`;
-  const description = `Todo lo que publica ${data.config.displayName}, por meses.`;
+  const description = `Lo nuevo de la web de ${data.config.displayName}: cursos, lecturas, membresías y más.`;
   const url = page > 1 ? `${data.listUrl}?pagina=${page}` : data.listUrl;
   return {
     title,
@@ -33,62 +31,70 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
 }
 
 /**
- * «Actualidades»: todas las publicaciones de una creadora, de la más reciente a la más antigua,
- * agrupadas por mes y año (en su zona horaria), en una línea del tiempo con un cordel y la fecha de
- * cada una (components/creator-page/post-timeline.tsx).
+ * «Actualidades»: lo que se va subiendo a la web (lib/web-news.ts), de lo más nuevo a lo más antiguo y por
+ * meses: lo nuevo de las membresías, cursos, lecturas, sesiones, talleres, códigos de descuento y el próximo
+ * círculo de la luna para venir sin ser miembro.
  */
-export default async function ActualidadesPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<Search> }) {
+export default async function ActualidadesPage({ params }: { params: Promise<Params>; searchParams: Promise<Search> }) {
   const { username } = await params;
-  const page = pageOf((await searchParams).pagina);
   const data = await sectionPageData(username);
   if (!data) notFound();
   const { creator, config } = data;
-  const { posts, pages } = await getPublicPostList(creator.id, creator.timezone, page);
-  if (page > pages) notFound();
-  const months = groupPostsByMonth(posts, creator.timezone);
+  const news = (data.news ?? []).map((n) => (n.href.startsWith("#") ? { ...n, href: `${data.homeHref}${n.href}` } : n));
+  const months = new Map<string, typeof news>();
+  for (const n of news) {
+    const m = formatDate(new Date(n.at), { month: "long", year: "numeric" }, creator.timezone);
+    months.set(m, [...(months.get(m) ?? []), n]);
+  }
 
   return (
     <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
       <main className="mx-auto max-w-3xl px-4 pb-10 pt-8 sm:pt-12">
-        <p className="cp-eyebrow">{config.displayName}</p>
-        <h1 className="cp-display mt-2 text-[2.6rem] leading-tight">Actualidades</h1>
+        <div className="flex items-center gap-4">
+          <span className="cp-emblem grid h-14 w-14 shrink-0 place-items-center rounded-full" aria-hidden>
+            <MegaphoneIcon />
+          </span>
+          <div>
+            <p className="cp-eyebrow">Lo nuevo de la web</p>
+            <h1 className="cp-display mt-1 text-[2.6rem] leading-tight">Actualidades</h1>
+          </div>
+        </div>
 
-        {posts.length === 0 ? (
+        {news.length === 0 ? (
           <div className="cp-card mt-8 p-6 text-center">
-            <p className="cp-muted">Todavía no hay publicaciones.</p>
+            <p className="cp-muted">Todavía no hay novedades.</p>
             <Link href={data.homeHref} className="cp-btn-ghost mt-4">
               <ArrowLeft className="h-4 w-4" /> Volver a la página
             </Link>
           </div>
         ) : (
-          <PostTimeline months={months} username={creator.username} />
-        )}
-
-        {pages > 1 && (
-          <nav aria-label="Páginas" className="mt-8 flex items-center justify-between gap-3 text-sm">
-            {page > 1 ? (
-              <Link href={page === 2 ? data.listHref : `${data.listHref}?pagina=${page - 1}`} className="cp-btn-ghost">
-                <ArrowLeft className="h-4 w-4" /> Más recientes
-              </Link>
-            ) : (
-              <span />
-            )}
-            <span className="cp-faint">
-              {page} de {pages}
-            </span>
-            {page < pages ? (
-              <Link href={`${data.listHref}?pagina=${page + 1}`} className="cp-btn-ghost">
-                Anteriores <ArrowRight className="h-4 w-4" />
-              </Link>
-            ) : (
-              <span />
-            )}
-          </nav>
+          <div className="mt-10 space-y-10">
+            {[...months].map(([month, items]) => (
+              <section key={month} aria-label={month}>
+                <h2 className="cp-display mb-4 text-[1.5rem] capitalize">{month}</h2>
+                <HomeRows
+                  fallbackImage={config.coverUrl ?? config.avatarUrl ?? null}
+                  rows={items.map((n) => ({
+                    key: n.key,
+                    href: n.href,
+                    image: n.image,
+                    icon: <MegaphoneIcon className="h-7 w-7 opacity-80" />,
+                    eyebrow: (
+                      <>
+                        <span>{n.dateLabel}</span>
+                        <span>· {n.label}</span>
+                      </>
+                    ),
+                    title: n.title,
+                    text: n.text,
+                  }))}
+                />
+              </section>
+            ))}
+          </div>
         )}
       </main>
       <TrackOnMount creatorId={creator.id} type="PAGE_VIEW" />
-      {/* Las publicaciones de la línea del tiempo aparecen al deslizar. */}
-      <Reveal />
     </CreatorShell>
   );
 }

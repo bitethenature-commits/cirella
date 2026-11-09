@@ -23,7 +23,7 @@ export type LayerRow = {
 };
 
 /** Capas con textos que vienen de tradiciones que varían según la escuela: conviene que los revises. */
-const REVIEW = new Set<string>(["gk-codons", "gk-shadows", "gk-venus", "moon-full13", "moon-mansions", "moon-transit-houses", "rune-elements", "rune-binds", "rune-yggdrasil", "hd-conditioning", "hd-variables", "astro-decans"]);
+const REVIEW = new Set<string>(["kun-bodies", "kun-mantras", "kun-mudras", "geo-sriyantra", "geo-tree", "geo-chakras", "orc-elements", "gk-codons", "gk-shadows", "gk-venus", "moon-full13", "moon-mansions", "moon-transit-houses", "rune-elements", "rune-binds", "rune-yggdrasil", "hd-conditioning", "hd-variables", "astro-decans"]);
 
 const SYSTEM_TEXT: Record<string, string> = {
   Astrología: "La carta natal pieza a pieza: de los signos y las casas a los tránsitos, la sinastría o los ciclos de la vida.",
@@ -31,13 +31,15 @@ const SYSTEM_TEXT: Record<string, string> = {
   "Gene Keys": "Las 64 llaves y el Camino Dorado: esferas, secuencias, anillos de codones, compañeras y la Secuencia de Venus.",
   Luna: "Las fases, la Luna en signos y casas, los nodos y el cielo real: lunas llenas, eclipses, fuera de curso, mansiones…",
   Runas: "Las 24 runas del Futhark: aettir, tiradas, invertidas, elementos y dioses, runas ligadas y Yggdrasil.",
+  "Geometría sagrada": "Del punto a la flor de la vida, el cubo de Metatrón, los sólidos platónicos, la proporción áurea, el árbol de la vida, el Sri Yantra, la merkaba, el toro y los chakras, dibujados paso a paso.",
+  Kundalini: "La energía y el yoga: los 8 chakras, ida, pingala y sushumna, la serpiente, los nudos, los cierres, los 10 cuerpos y su numerología, mudras, respiración, mantras y la clase.",
+  "Energía de hoy": "Tu semana día a día: la Luna, la llave del día, la puerta del Sol y, con la carta de la alumna, sus tránsitos y lo que se activa en su diseño.",
+  Oráculo: "Leer cualquier oráculo: la lectura paso a paso, las preguntas, las tiradas, los símbolos, los números, los colores, los elementos, las señales y crear tu propia baraja.",
 };
 
 /** Lo que aún no existe: ideas para los siguientes modelos. */
 const MISSING = [
   { title: "Oráculo por partes", text: "Cada carta del «Oráculo de la Luna», las tiradas de una y tres cartas y los motivos que comparten las cartas." },
-  { title: "Tu energía de hoy por partes", text: "El cielo de hoy pieza a pieza: cada planeta, qué toca de tu carta, de tu diseño y de tus llaves." },
-  { title: "Geometría sagrada por partes", text: "La semilla y la flor de la vida, el cubo de Metatrón y los 5 sólidos platónicos, cada uno con su elemento." },
   { title: "Tarot", text: "Si lo usas: los 22 arcanos mayores, los 4 palos y las tiradas." },
   { title: "Modelos fuera de los cursos", text: "Poder poner un modelo por partes también en una lectura o en una publicación de la membresía, no solo en las lecciones." },
 ];

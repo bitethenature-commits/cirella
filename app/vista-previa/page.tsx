@@ -43,6 +43,7 @@ export default async function DraftPreviewPage() {
         sellerName={data.creator.legalName}
         posts={data.posts}
         postCount={data.postCount}
+        news={data.news}
         portal={data.portal}
         discountCodes={data.discountCodes}
         personal={data.personal}

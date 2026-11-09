@@ -5,6 +5,7 @@ import Link from "next/link";
 import { startTransition, useActionState, useCallback, useMemo, useState } from "react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { Flash } from "@/components/ui/flash";
+import { ImageUpload } from "@/components/ui/image-upload";
 import { BODY_MAX, isLivePostKind, MEMBER_POST_KIND_LABEL, scheduleSentence, TITLE_MAX, type MemberPostKind, type MemberPostWhen } from "@/lib/community-rules";
 import { tzCity } from "@/lib/timezones";
 import { zonedTimeToUtc } from "@/lib/tz";
@@ -20,6 +21,8 @@ export type ComposerPost = {
   bodyFormat: string | null;
   kind: string;
   mediaUrl: string;
+  /** La foto de portada (vacía: la primera del texto o una según el tipo). */
+  imageUrl: string;
   state: "DRAFT" | "SCHEDULED" | "PUBLISHED";
   /** datetime-local de la fecha guardada (programadas). */
   at: string;
@@ -44,12 +47,13 @@ export type ComposerTier = {
 /** Tipos en el orden del compositor, con su icono. «Fotos» es una publicación con imágenes. */
 const KINDS: { kind: MemberPostKind; icon: typeof PenLine; label?: string }[] = [
   { kind: "TEXT", icon: PenLine, label: "Texto" },
-  { kind: "AUDIO", icon: Headphones },
-  { kind: "VIDEO", icon: Video },
   { kind: "PODCAST", icon: Mic },
+  { kind: "MEDITACION", icon: Headphones },
+  { kind: "ASTROWEATHER", icon: Video },
+  { kind: "MASTERCLASS", icon: CalendarDays },
   { kind: "CEREMONIA", icon: Flame },
+  { kind: "VIDEO", icon: Video },
   { kind: "CIRCULO_LUNAR", icon: Moon, label: "Círculo de luna" },
-  { kind: "EVENT", icon: CalendarDays, label: "Directo" },
 ];
 
 const WHEN_LABEL: Record<MemberPostWhen, string> = { now: "Publicar ahora", schedule: "Programar", draft: "Borrador" };
@@ -93,10 +97,12 @@ export function Composer({
   const [when, setWhen] = useState<MemberPostWhen>(post.state === "DRAFT" ? (editing ? "draft" : "now") : post.state === "SCHEDULED" ? "schedule" : "now");
   const [at, setAt] = useState(post.at);
   const [title, setTitle] = useState(post.title);
+  const [cover, setCover] = useState<string | null>(post.imageUrl || null);
   const [eventDate, setEventDate] = useState(post.eventDate);
   const [eventTime, setEventTime] = useState(post.eventTime);
   const [uploading, setUploading] = useState(false);
-  const onFirstMedia = useCallback((k: "AUDIO" | "VIDEO") => setKind((cur) => (cur === "TEXT" ? k : cur)), []);
+  // El primer archivo sugiere el tipo: un audio, podcast; un vídeo, vídeo.
+  const onFirstMedia = useCallback((k: "AUDIO" | "VIDEO") => setKind((cur) => (cur === "TEXT" ? (k === "AUDIO" ? "PODCAST" : "VIDEO") : cur)), []);
   const tier = tiers.find((t) => t.id === tierId) ?? tiers[0];
 
   const sentence = useMemo(() => {
@@ -175,6 +181,13 @@ export function Composer({
       </fieldset>
 
       <div>
+        <p className="field-label">Foto de portada <span className="font-normal text-muted">(opcional)</span></p>
+        <input type="hidden" name="imageUrl" value={cover ?? ""} />
+        <ImageUpload value={cover} onChange={setCover} shape="wide" label="Subir foto de portada" />
+        <p className="field-hint">Sale a la izquierda en la tarjeta y arriba al abrirla. Sin foto, se usa la primera del texto o una según el tipo.</p>
+      </div>
+
+      <div>
         <label className="field-label" htmlFor="post-title">Título</label>
         <input id="post-title" name="title" required minLength={2} maxLength={TITLE_MAX} value={title} onChange={(e) => setTitle(e.target.value)} className="input h-11 text-base" placeholder="P. ej. Meditación de luna llena" />
       </div>
@@ -182,13 +195,18 @@ export function Composer({
       {isLivePostKind(kind) && (
         <div className="space-y-2 rounded-2xl border border-line bg-paper p-3">
           <p className="flex items-center gap-1.5 text-sm font-semibold">
-            <CalendarDays className="h-4 w-4" /> Cuándo es {kind === "CIRCULO_LUNAR" ? "el círculo" : kind === "CEREMONIA" ? "la ceremonia" : "el directo"}{" "}
+            <CalendarDays className="h-4 w-4" /> Cuándo es {kind === "CIRCULO_LUNAR" ? "el círculo" : kind === "CEREMONIA" ? "la ceremonia" : kind === "MASTERCLASS" ? "la masterclass" : "el directo"}{" "}
             <span className="font-normal text-muted">(hora de {tzCity(timeZone)})</span>
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             <input name="eventDate" type="date" aria-label="Día del encuentro" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="input h-11" />
             <input name="eventTime" type="time" step={300} aria-label="Hora del encuentro" value={eventTime} onChange={(e) => setEventTime(e.target.value)} className="input h-11" />
           </div>
+          {(kind === "MASTERCLASS" || kind === "CEREMONIA") && (
+            <p className="text-xs text-muted">
+              {kind === "MASTERCLASS" ? "Si es solo un vídeo, deja la fecha vacía. " : ""}Pasada la fecha, se verá como grabación: añade el vídeo aquí cuando lo tengas.
+            </p>
+          )}
           {kind === "CIRCULO_LUNAR" && moonDates.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
               <span className="text-muted">Próximas lunas:</span>

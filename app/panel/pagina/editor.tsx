@@ -58,6 +58,7 @@ type Props = {
   /** Lo que sale en «Actualidades», el Portal y «Códigos de descuento» (se gestionan en su propia pantalla). */
   posts: PublicPost[];
   postCount: number;
+  news?: import("@/lib/web-news").NewsItem[];
   portal: PublicPortalItem[];
   discountCodes: PublicDiscountCode[];
   /** Web personal: sin «Powered by» ni planes. */
@@ -194,6 +195,7 @@ export function PageEditor(props: Props) {
         products={props.products}
         posts={props.posts}
         postCount={props.postCount}
+        news={props.news}
         portal={props.portal}
         discountCodes={props.discountCodes}
         personal={props.personal}

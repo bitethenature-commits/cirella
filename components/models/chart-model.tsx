@@ -192,7 +192,7 @@ export function ChartModel({
   const [formOpen, setFormOpen] = useState(false);
   /** En la hora repetida del cambio de otoño: usar la segunda vez que el reloj la marcó. */
   const [useSecond, setUseSecond] = useState(false);
-  const [houseSystem, setHouseSystem] = useState<HouseSystem>(custom?.houseSystem ?? "placidus");
+  const [houseSystem, setHouseSystem] = useState<HouseSystem>(custom?.houseSystem ?? "whole");
   const [nodeKind, setNodeKind] = useState<NodeKind>(custom?.node ?? "mean");
   const [selection, setSelection] = useState<Selection>(null);
   const [enabled, setEnabled] = useState<Set<AspectId>>(() => new Set(custom ? custom.aspects : DEFAULT_ASPECTS));

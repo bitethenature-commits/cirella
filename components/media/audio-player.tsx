@@ -1,12 +1,10 @@
 "use client";
-import { RotateCcw, RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { INLINE_MEDIA_TTL_SEC } from "@/lib/file-types";
 import { clock, useResumePosition, useSignedMedia } from "./use-signed-media";
 import type { PlayerFile } from "./video-player";
+import { CalmAudio } from "./calm-audio";
 
-const SPEEDS = [1, 1.25, 1.5, 2] as const;
-const speedLabel = (s: number) => `${s.toLocaleString("es-ES")}×`;
 
 /**
  * Audio de un curso (meditaciones, clases largas): botones grandes de −15 s / +15 s y velocidad
@@ -68,7 +66,6 @@ function StreamAudio(p: Inner) {
 }
 
 function AudioUi({ audioRef, file, src, title, artwork, resumeAt, ended }: Inner & { resumeAt: number | null; ended: string | null }) {
-  const [speed, setSpeed] = useState<number>(1);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -95,30 +92,11 @@ function AudioUi({ audioRef, file, src, title, artwork, resumeAt, ended }: Inner
     return () => el.removeEventListener("play", onPlay);
   }, [artwork, audioRef, title]);
 
-  const skip = (d: number) => {
-    const el = audioRef.current;
-    if (el) el.currentTime = Math.max(0, el.currentTime + d);
-  };
-  const nextSpeed = () => {
-    const s = SPEEDS[(SPEEDS.indexOf(speed as (typeof SPEEDS)[number]) + 1) % SPEEDS.length];
-    setSpeed(s);
-    if (audioRef.current) audioRef.current.playbackRate = s;
-  };
-
   return (
-    <div className="mx-auto w-full max-w-md" data-audio-player>
-      <audio ref={audioRef} controls preload="metadata" className="w-full" src={src} data-file-id={file.id} aria-label={title} />
-      <div className="mt-3 flex items-center justify-center gap-2">
-        <button type="button" onClick={() => skip(-15)} className="btn btn-sm min-h-11 border border-cream/30 text-cream" aria-label="Retroceder 15 segundos">
-          <RotateCcw className="h-4 w-4" /> 15 s
-        </button>
-        <button type="button" onClick={nextSpeed} className="btn btn-sm min-h-11 min-w-16 border border-cream/30 text-cream tabular-nums" aria-label={`Velocidad ${speedLabel(speed)}`}>
-          {speedLabel(speed)}
-        </button>
-        <button type="button" onClick={() => skip(15)} className="btn btn-sm min-h-11 border border-cream/30 text-cream" aria-label="Avanzar 15 segundos">
-          15 s <RotateCw className="h-4 w-4" />
-        </button>
-      </div>
+    <div className="mx-auto w-full max-w-xl px-1" data-audio-player>
+      {/* El <audio> sin sus controles: los pone la luna que respira (components/media/calm-audio.tsx). */}
+      <audio ref={audioRef} preload="metadata" className="hidden" src={src} data-file-id={file.id} aria-label={title} />
+      <CalmAudio audioRef={audioRef} title={title} />
       {resumeAt !== null && !ended && (
         <div className="mt-3 flex justify-center">
           <button

@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { BookOpen, ChevronDown, Download, Eye, FileImage, FileText, Folder, FolderOpen, Headphones, Package, Sparkles, Video } from "lucide-react";
+import { BookOpen, Bookmark, BookOpenText, ChevronDown, Download, Eye, FileImage, FileText, Folder, FolderOpen, Headphones, Package, Sparkles, Video } from "lucide-react";
 import type { ReactNode } from "react";
 import { EmptyState } from "@/components/ui/empty";
 import { requireBuyerFull } from "@/lib/buyer-access";
-import { courseMaterials, deliveredReadings, getCustomerLibrary } from "@/lib/customer";
+import { savedPostsOf } from "@/lib/community";
+import { courseMaterials, creatorBrief, deliveredReadings, getCustomerLibrary } from "@/lib/customer";
+import { formatDate } from "@/lib/tz";
 import { CreatorTag } from "../ui";
 import { PageHeader } from "../page-header";
 
@@ -23,10 +25,12 @@ type FileItem = {
   productTitle: string;
   creator: { displayName: string; avatarUrl: string | null };
   lesson?: { title: string; href: string } | null;
+  /** Una publicación guardada de una membresía: se abre para leer (no se descarga). */
+  read?: { href: string; date: string } | null;
 };
 
 /** Una carpeta: lo que vino de una misma compra (una lectura, un curso, un descargable). */
-type FolderView = { key: string; title: string; creator: FileItem["creator"]; files: FileItem[]; href?: string };
+type FolderView = { key: string; title: string; creator: FileItem["creator"]; files: FileItem[]; href?: string; hrefLabel?: string; texts?: boolean; star?: boolean };
 
 /** Agrupa por compra, en el orden en que aparecen. */
 function foldersOf(files: (FileItem & { productId: string })[], href?: (productId: string) => string): FolderView[] {
@@ -47,9 +51,34 @@ function foldersOf(files: (FileItem & { productId: string })[], href?: (productI
 export default async function MyFiles() {
   const user = await requireBuyerFull("/cuenta/archivos");
   const lib = await getCustomerLibrary(user.id);
-  const [materials, readings] = await Promise.all([courseMaterials(user.id, lib.courses), deliveredReadings(user.id)]);
+  const [materials, readings, saved] = await Promise.all([courseMaterials(user.id, lib.courses), deliveredReadings(user.id), savedPostsOf(user.id)]);
+  // Lo guardado de las membresías: «Favoritos» con todo y una carpeta con los textos de cada membresía.
+  const savedItems = saved.map((p) => ({
+    id: p.id,
+    name: p.title,
+    kind: "POST",
+    sizeBytes: null,
+    productId: p.productId,
+    productTitle: p.product.title,
+    paged: p.product.pagedReading,
+    creator: (({ displayName, avatarUrl }) => ({ displayName, avatarUrl }))(creatorBrief(p.product.creator)),
+    read: { href: `/cuenta/membresias/${p.productId}/${p.id}`, date: formatDate(p.publishedAt, { day: "numeric", month: "long", year: "numeric" }, p.product.creator.timezone) },
+  }));
+  const savedFolders: FolderView[] = savedItems.length
+    ? [
+        { key: "favoritos", title: "Favoritos", creator: savedItems[0].creator, files: savedItems, texts: true, star: true },
+        ...foldersOf(savedItems).map((fo) => ({ ...fo, key: `textos-${fo.key}`, title: `${savedItems.find((x) => x.productId === fo.key)?.paged ? "Textos" : "Guardados"} de ${fo.title}`, texts: true, href: `/cuenta/membresias/${fo.key}`, hrefLabel: "Ir a la membresía →" })),
+      ]
+    : [];
 
   const sections: { key: string; title: string; hint: string; icon: ReactNode; folders: FolderView[] }[] = [
+    {
+      key: "guardados",
+      title: "Tus textos guardados",
+      hint: "Lo que has guardado de tus membresías: todo en Favoritos y, además, en la carpeta de cada membresía.",
+      icon: <Bookmark className="h-4 w-4" />,
+      folders: savedFolders,
+    },
     {
       key: "lecturas",
       title: "Tus lecturas",
@@ -105,13 +134,13 @@ function FolderBox({ folder, open }: { folder: FolderView; open: boolean }) {
     <details className="card group overflow-hidden" open={open || undefined} data-folder>
       <summary className="flex cursor-pointer list-none items-center gap-3.5 p-4 [&::-webkit-details-marker]:hidden">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gold/15 text-gold">
-          <Folder className="h-5 w-5 group-open:hidden" />
-          <FolderOpen className="hidden h-5 w-5 group-open:block" />
+          {folder.star ? <Bookmark className="h-5 w-5 fill-current" /> : <Folder className="h-5 w-5 group-open:hidden" />}
+          {!folder.star && <FolderOpen className="hidden h-5 w-5 group-open:block" />}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[0.95rem] font-semibold">{folder.title}</span>
           <span className="block text-xs text-muted">
-            {n} {n === 1 ? "archivo" : "archivos"}
+            {n} {folder.texts ? (n === 1 ? "texto" : "textos") : n === 1 ? "archivo" : "archivos"}
           </span>
         </span>
         <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-muted transition-transform group-open:rotate-180" />
@@ -121,13 +150,31 @@ function FolderBox({ folder, open }: { folder: FolderView; open: boolean }) {
           <CreatorTag name={folder.creator.displayName} avatarUrl={folder.creator.avatarUrl} />
           {folder.href && (
             <Link href={folder.href} className="text-xs font-semibold text-lavender-deep hover:underline">
-              Ir al curso →
+              {folder.hrefLabel ?? "Ir al curso →"}
             </Link>
           )}
         </div>
         <ul className="divide-y divide-line">
           {folder.files.map((f) => {
-            const Icon = ICON[f.kind as keyof typeof ICON] ?? FileText;
+            const Icon = f.read ? BookOpenText : (ICON[f.kind as keyof typeof ICON] ?? FileText);
+            if (f.read)
+              return (
+                <li key={f.id} className="flex items-center gap-4 px-4 py-3.5">
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sand">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{f.name}</p>
+                    <p className="truncate text-xs text-muted">
+                      {f.read.date}
+                      {folder.star ? ` · ${f.productTitle}` : ""}
+                    </p>
+                  </div>
+                  <Link href={f.read.href} className="btn btn-outline btn-sm shrink-0" aria-label={`Leer ${f.name}`}>
+                    <BookOpenText className="h-3.5 w-3.5" /> Leer
+                  </Link>
+                </li>
+              );
             return (
               <li key={f.id} className="flex items-center gap-4 px-4 py-3.5">
                 <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sand">

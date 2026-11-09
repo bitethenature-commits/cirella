@@ -10,6 +10,7 @@ import { loadCities, searchCities, toPlace, type CityIndex, type Place } from ".
 import { BODY_INFO, ELEMENT_HUE, SIGNS, bodyInSignText } from "./data/astrology";
 import { EIGHT_PHASES, FULL_MOON_IN_SIGN, MOON_IN_SIGN, NATAL_PHASE, NEW_MOON_IN_SIGN, PHASE_GUIDANCE, meanMoonLongitude, meanSunLongitude, moonPhase, phaseName, type MoonPhaseName } from "./data/moon";
 import { MoonDisc } from "./moon-disc";
+import { CelestialDefs, EarthGlobe, MoonGlobe, SunGlobe } from "@/components/course/layers/celestial";
 import { CompactSummary, GOLD, INK, ModelFrame, PanelBody, PanelHeading, PanelRow, RangeField, ToolButton, cn, usePrefersReducedMotion } from "./model-kit";
 
 /**
@@ -496,6 +497,7 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
         role="img"
         aria-label={`Sol, Tierra y Luna vistos desde el norte, dentro del zodiaco: ${name}, Luna en ${fmtLon(st.moonLon)}, Sol en ${fmtLon(st.sunLon)}`}
       >
+        <CelestialDefs p="lm-" />
         <defs>
           <radialGradient id="lm-sun" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#F7E7A8" />
@@ -520,8 +522,7 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
         {[-56, -28, 0, 28, 56].map((y) => (
           <line key={y} x1="-108" y1={y} x2="96" y2={y} stroke="url(#lm-rays)" strokeWidth="0.7" strokeDasharray="3 5" />
         ))}
-        <circle cx="-124" cy="0" r="30" fill="url(#lm-sunglow)" />
-        <circle cx="-124" cy="0" r="14" fill="url(#lm-sun)" />
+        <SunGlobe p="lm-" cx={-124} cy={0} r={13} />
         <text x="-124" y="24" textAnchor="middle" fontSize="6" style={{ fill: GOLD }}>
           Sol
         </text>
@@ -566,8 +567,7 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
         })}
 
         {/* Tierra (con su noche hacia la derecha) */}
-        <circle r="11" fill="url(#lm-earth)" />
-        <path d="M0 -11 a11 11 0 0 1 0 22 z" fill="#0B0908" opacity="0.45" />
+        <EarthGlobe p="lm-" cx={0} cy={0} r={11} night={0} />
         <text y="19" textAnchor="middle" fontSize="5.2" fill="currentColor" opacity="0.75">
           Tierra
         </text>
@@ -581,11 +581,7 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
         </text>
 
         {/* La Luna: siempre media iluminada, y la cara iluminada siempre mira al Sol */}
-        <g transform={`translate(${moonPos.x} ${moonPos.y})`}>
-          <circle r="7" fill="#2A2622" />
-          <path d="M0 -7 A7 7 0 0 0 0 7 Z" fill="#F2EADB" />
-          <circle r="7" fill="none" style={{ stroke: GOLD }} strokeOpacity="0.6" strokeWidth="0.4" />
-        </g>
+        <MoonGlobe p="lm-" cx={moonPos.x} cy={moonPos.y} r={7} phase={0.75} />
       </svg>
 
       {/* Lo que vemos de verdad desde la Tierra */}

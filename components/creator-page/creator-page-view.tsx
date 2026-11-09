@@ -16,6 +16,7 @@ import { SiteNav, type SiteNavPage } from "./site-nav";
 import { externalButtonLabel, linksToProduct } from "@/lib/access-mode";
 import { imageSrcSet } from "@/lib/media-url";
 import { formatPrice } from "@/lib/money";
+import { postPath } from "@/lib/posts";
 import {
   NEWSLETTER_FORM_DEFAULTS,
   SOCIAL_KEYS,
@@ -43,6 +44,8 @@ import { Avatar, ProductImage } from "./product-art";
 import { PortalSection } from "./portal-section";
 import { PostCard } from "./post-card";
 import { SectionDropdown } from "./section-dropdown";
+import { HomeRows, MegaphoneIcon, PercentIcon, PortalNoteIcon } from "./home-rows";
+import type { NewsItem } from "@/lib/web-news";
 import { TestimonialsRotator } from "./testimonials-rotator";
 import { TrackedAnchor, TrackedLink } from "./tracking";
 
@@ -150,6 +153,8 @@ type Props = {
   /** Las últimas publicaciones (sección «Actualidades») y cuántas hay en total. */
   posts?: PublicPost[];
   postCount?: number;
+  /** «Actualidades»: lo que se va subiendo a la web (lib/web-news.ts). */
+  news?: NewsItem[];
   /** Portal de Noticias, bloqueado (el navegador pide lo desbloqueado con su sesión). */
   portal?: PublicPortalItem[];
   /** Códigos de descuento visibles (sección «Códigos de descuento»). */
@@ -276,8 +281,10 @@ export function CreatorPageView(props: Props) {
         );
       }
       case "posts": {
-        if (!posts.length) return null;
-        const total = Math.max(props.postCount ?? posts.length, posts.length);
+        // «Actualidades»: lo nuevo de la web (membresías, cursos, lecturas, códigos, el próximo círculo…).
+        const all = props.news ?? [];
+        const news = all.slice(0, 6);
+        if (!news.length) return null;
         return (
           <section key={key} id="actualidades" data-fold className={FOLD_GAP} {...reveal}>
             <SectionDropdown
@@ -285,17 +292,30 @@ export function CreatorPageView(props: Props) {
               section="posts"
               username={username}
               title={sectionTitle(config, key)}
-              countLabel={posts.length === 1 ? "1 nueva" : `${posts.length} nuevas`}
-              stamps={posts.map((p) => new Date(p.publishedAt).getTime())}
+              countLabel={all.length === 1 ? "1 novedad" : `${all.length} novedades`}
+              stamps={all.map((n) => Date.parse(n.at))}
               preview={preview}
+              icon={<MegaphoneIcon />}
             >
-              <div className="grid gap-4 sm:grid-cols-2">
-                {posts.map((p) => (
-                  <PostCard key={p.id} post={p} username={username} />
-                ))}
-              </div>
+              <HomeRows
+                fallbackImage={config.coverUrl ?? config.avatarUrl ?? null}
+                rows={news.map((n) => ({
+                  key: n.key,
+                  href: n.href,
+                  image: n.image,
+                  icon: <MegaphoneIcon className="h-7 w-7 opacity-80" />,
+                  eyebrow: (
+                    <>
+                      <span>{n.dateLabel}</span>
+                      <span>· {n.label}</span>
+                    </>
+                  ),
+                  title: n.title,
+                  text: n.text,
+                }))}
+              />
               <Link href={path("actualidades")} className="cp-btn-ghost mt-4 w-full">
-                Ver todas{total > posts.length ? ` (${total})` : ""} <ArrowRight className="h-4 w-4" />
+                Ver todas{all.length > news.length ? ` (${all.length})` : ""} <ArrowRight className="h-4 w-4" />
               </Link>
             </SectionDropdown>
           </section>
@@ -316,6 +336,7 @@ export function CreatorPageView(props: Props) {
               countLabel={n === 1 ? "1 aviso" : `${n} avisos`}
               stamps={items.map((i) => Date.parse(i.publishedAt))}
               preview={preview}
+              icon={<PortalNoteIcon />}
             >
               <PortalSection
                 items={items}
@@ -326,6 +347,7 @@ export function CreatorPageView(props: Props) {
                 username={username}
                 preview={!!preview}
                 home
+                fallbackImage={config.coverUrl ?? config.avatarUrl ?? null}
               />
             </SectionDropdown>
           </section>
@@ -344,12 +366,27 @@ export function CreatorPageView(props: Props) {
               countLabel={onSale.length === 1 ? "1 oferta" : `${onSale.length} ofertas`}
               stamps={onSale.map((p) => Date.parse(p.sale!.startedAt))}
               preview={preview}
+              icon={<PercentIcon />}
             >
-              <div className="grid gap-4 sm:grid-cols-2">
-                {onSale.map((p) => (
-                  <OfferCard key={p.id} p={p} username={username} />
-                ))}
-              </div>
+              <HomeRows
+                fallbackImage={config.coverUrl ?? config.avatarUrl ?? null}
+                rows={onSale.map((p) => ({
+                  key: p.id,
+                  href: `/${username}/${p.slug}`,
+                  image: p.imageUrl,
+                  icon: <PercentIcon className="h-8 w-8 opacity-80" />,
+                  badge: p.sale!.percentOff ? <span className="cp-offer-badge absolute bottom-1.5 left-1.5 rounded-full px-1.5 py-0.5 text-[0.66rem] font-bold">−{p.sale!.percentOff} %</span> : null,
+                  eyebrow: <span>{[p.sale!.label, p.sale!.endsLabel].filter(Boolean).join(" · ") || "Oferta"}</span>,
+                  title: p.title,
+                  text: p.billingInterval ? "El precio de oferta es el del primer pago; después, el normal." : p.summary,
+                  aside: (
+                    <span className="flex shrink-0 flex-col items-end text-right leading-tight">
+                      <s className="cp-faint text-[0.8rem]">{formatPrice(p.sale!.regularCents, p.currency, p.billingInterval)}</s>
+                      <strong className="cp-gold cp-display text-[1.45rem]">{formatPrice(p.sale!.priceCents, p.currency, p.billingInterval)}</strong>
+                    </span>
+                  ),
+                }))}
+              />
             </SectionDropdown>
           </section>
         );

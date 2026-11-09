@@ -77,6 +77,8 @@ export type EditableProduct = {
   /** Curso: método (lib/course-categories.ts). Taller: círculo de la luna. */
   courseCategory: string | null;
   moonCircle: boolean;
+  /** Membresía «a página entera» (cada publicación, una página con anterior, siguiente, calendario y «Guardar»). */
+  pagedReading: boolean;
 };
 
 const DELIVERY_OPTIONS: { mode: DeliveryMode; label: string; hint: string }[] = [
@@ -305,6 +307,16 @@ export function ProductForm({
                 </p>
               )}
             </div>
+            {isMembership && (
+              <label className="flex items-start gap-2.5 rounded-2xl border border-line bg-paper p-3 text-sm sm:col-span-2">
+                <input type="hidden" name="pagedReadingField" value="1" />
+                <input type="checkbox" name="pagedReading" defaultChecked={product.pagedReading} className="mt-0.5 h-4 w-4 accent-[#0E1024]" />
+                <span>
+                  <span className="font-semibold">Lectura a página entera</span>
+                  <span className="block text-xs text-muted">Para textos largos con fotos: cada publicación se lee como una página, con «Anterior» y «Siguiente», un calendario para ir a una fecha y «Guardar» (sale en «Mis archivos»).</span>
+                </span>
+              </label>
+            )}
             {isMembership && (
               <div>
                 <label className="field-label">Cobro</label>
