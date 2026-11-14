@@ -1,9 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
-/** Segundo servidor, mismo build, en modo personal (la web de Ana): lo usa e2e/personal.spec.ts. */
+/** Segundo servidor, mismo build, en modo personal (la web de Cirella): lo usa e2e/personal.spec.ts. */
 const PERSONAL_PORT = Number(process.env.E2E_PERSONAL_PORT ?? 3101);
-/** Tercero: la web personal de Ana que cobra con tarjeta (simulador) y PayPal (falso): e2e/personal-cobros.spec.ts. */
+/** Tercero: la web personal de Cirella que cobra con tarjeta (simulador) y PayPal (falso): e2e/personal-cobros.spec.ts. */
 const SALES_PORT = Number(process.env.E2E_SALES_PORT ?? 3102);
 /** PayPal falso (scripts/paypal-mock.ts) para el tercer servidor. */
 const PAYPAL_PORT = Number(process.env.E2E_PAYPAL_PORT ?? 4010);
@@ -35,7 +35,7 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     ...devices["iPhone 13"],
     browserName: "chromium",
-    // Las horas del calendario se enseñan en la zona del navegador: la de Ana, como en la demo.
+    // Las horas del calendario se enseñan en la zona del navegador: la de Cirella, como en la demo.
     timezoneId: "Europe/Madrid",
     trace: "retain-on-failure",
     launchOptions: process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : undefined,
@@ -49,7 +49,7 @@ export default defineConfig({
       env: { ...testEnv, APP_URL: `http://localhost:${PORT}`, SITE_MODE: "platform", PAYMENT_PROVIDER: "simulated" },
     },
     {
-      // Modo personal: la web de una sola dueña (Ana, de la demo), sin cobros en la web.
+      // Modo personal: la web de una sola dueña (Cirella, de la demo), sin cobros en la web.
       command: `npx next start -p ${PERSONAL_PORT}`,
       url: `http://localhost:${PERSONAL_PORT}`,
       reuseExistingServer: true,

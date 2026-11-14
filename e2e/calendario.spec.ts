@@ -4,7 +4,7 @@ import { conjunctionsBetween, moonPhasesBetween } from "../lib/astro-calendar";
 import { addDaysToKey, dateKeyInTz } from "../lib/tz";
 
 /**
- * Calendario de Reservas en la web personal de Ana (puerto 3101, iPhone 13):
+ * Calendario de Reservas en la web personal de Cirella (puerto 3101, iPhone 13):
  *   · el mes con las marcas (su nota de hoy, la próxima luna llena), «Mes siguiente» y «Hoy»;
  *   · tocar un día abre su hoja: agenda, diario y cielo (sin casas), con las conjunciones de la Luna;
  *   · «Qué mostrar»: esconder los asteroides se recuerda al recargar;
@@ -33,7 +33,7 @@ async function demoLogin(page: Page, label: string) {
   await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
 }
 
-test("Ana ve el mes con sus marcas, abre un día, escribe su nota y sigue ahí al recargar", async ({ page }) => {
+test("Cirella ve el mes con sus marcas, abre un día, escribe su nota y sigue ahí al recargar", async ({ page }) => {
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
   const noted = new Set((await prisma.calendarNote.findMany({ where: { creatorId: ana.id } })).map((n) => n.date));
   // Un día de este mes (o el primero del que viene) sin nota.
@@ -42,7 +42,7 @@ test("Ana ve el mes con sus marcas, abre un día, escribe su nota y sigue ahí a
   const fullMoon = moonPhasesBetween(new Date(), new Date(Date.now() + 40 * 86_400_000)).find((e) => e.kind === "moon" && e.phase === "full")!;
   const fullKey = dateKeyInTz(fullMoon.at, TZ);
 
-  await demoLogin(page, "Ana Luna");
+  await demoLogin(page, "Cirella");
   await page.goto(`/panel/reservas?mes=${today.slice(0, 7)}`);
   const title = new Date(`${today}T12:00:00Z`).toLocaleDateString("es-ES", { month: "long", year: "numeric", timeZone: "UTC" });
   await expect(page.getByRole("heading", { name: new RegExp(title, "i") })).toBeVisible();

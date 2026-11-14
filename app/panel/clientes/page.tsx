@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, Users } from "lucide-react";
+import { Search, UserPlus, Users } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty";
 import { requireCreator } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
@@ -29,7 +29,15 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   return (
     <div>
       {personal ? (
-        <PageHeader title="Personas" subtitle="Quien se ha apuntado a algo o a quien has dado acceso. Solo tú las ves." />
+        <PageHeader
+          title="Personas"
+          subtitle="Quien se ha apuntado a algo o a quien has dado acceso. Solo tú las ves."
+          actions={
+            <Link href="/panel/solicitudes/dar" className="btn btn-primary">
+              <UserPlus className="h-4 w-4" /> Dar acceso
+            </Link>
+          }
+        />
       ) : (
         <PageHeader title="Clientes" subtitle="Solo tú ves a tus clientas. Cada una tiene acceso a su área privada." />
       )}

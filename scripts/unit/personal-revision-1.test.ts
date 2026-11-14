@@ -61,7 +61,7 @@ test("accessEmailGreetingName: sin el nombre del formulario gratis; con el de la
 });
 
 test("accessGrantedEmail: botón para confirmar las novedades solo si se pidieron", () => {
-  const base = { name: null, creatorName: "Ana Luna", productTitle: "Mini-curso", productType: "COURSE", url: "https://a.es/auth/enlace?t=1" };
+  const base = { name: null, creatorName: "Cirella", productTitle: "Mini-curso", productType: "COURSE", url: "https://a.es/auth/enlace?t=1" };
   const without = accessGrantedEmail(base).html;
   ok(!without.includes("Confirmar que quiero recibir novedades"));
   ok(without.includes("Hola, ya puedes entrar"), "sin nombre: «Hola, ya puedes entrar…»");
@@ -74,7 +74,7 @@ test("accessGrantedEmail: botón para confirmar las novedades solo si se pidiero
 
 const creator: LegalIdentity & { displayName: string; legalTerms: string | null; legalRefunds: string | null; legalPrivacy: string | null } = {
   legalEntityType: "INDIVIDUAL",
-  legalName: "Ana Luna Pérez",
+  legalName: "Cirella",
   legalTaxId: "12345678Z",
   legalAddress: "Calle de la Luna 7",
   legalPostalCode: "28004",
@@ -82,7 +82,7 @@ const creator: LegalIdentity & { displayName: string; legalTerms: string | null;
   legalCountry: "ES",
   legalEmail: "ana@example.com",
   legalRegistry: null,
-  displayName: "Ana Luna",
+  displayName: "Cirella",
   legalTerms: null,
   legalRefunds: null,
   legalPrivacy: null,

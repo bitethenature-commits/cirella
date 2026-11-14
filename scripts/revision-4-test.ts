@@ -6,7 +6,7 @@
  *   · el email de recuperación lleva el enlace en el pie aunque la creadora personalice el mensaje;
  *   · darse de baja es idempotente y vale solo para esa creadora;
  *   · el cron ya no recupera a quien se dio de baja (motivo «opuesta») y el envío tampoco sale.
- * Crea pedidos de prueba sobre Ana (seed) y borra todo lo que crea.
+ * Crea pedidos de prueba sobre Cirella (seed) y borra todo lo que crea.
  */
 import "./load-env";
 import { prisma } from "../lib/db";
@@ -36,11 +36,11 @@ async function main() {
   check("un token firmado para otro uso no sirve", readOptOutToken(signToken({ p: "otro", o: "pedido123" }, appSecret(), 3600)) === null);
   check("un enlace caducado no sirve", readOptOutToken(optOutToken("pedido123", Date.now() - 400 * 86400_000)) === null);
   check("sin token, nada", readOptOutToken(null) === null && readOptOutToken("") === null);
-  check("el hash no distingue mayúsculas ni espacios", optOutEmailHash(" Ana@Example.com ") === optOutEmailHash("ana@example.com"));
+  check("el hash no distingue mayúsculas ni espacios", optOutEmailHash(" Cirella@Example.com ") === optOutEmailHash("ana@example.com"));
 
   // ── Plantilla ──
   const url = optOutUrl("pedido123");
-  const mail = abandonedCheckoutEmail({ creatorName: "Ana", productTitle: "Guía", url: "https://x/checkout", message: "Mensaje propio", optOutUrl: url });
+  const mail = abandonedCheckoutEmail({ creatorName: "Cirella", productTitle: "Guía", url: "https://x/checkout", message: "Mensaje propio", optOutUrl: url });
   check("el email de recuperación lleva el enlace de baja", mail.html.includes(url.replace(/&/g, "&amp;")) && mail.html.includes("Darme de baja"), mail.html);
   check("…también con el mensaje personalizado de la creadora", mail.html.includes("Mensaje propio"));
 
@@ -75,7 +75,7 @@ async function main() {
   await handleAutomation({ type: "checkout.abandoned", orderId: keep.id });
   const sent = await prisma.emailMessage.findFirst({ where: { to: email("sigue"), template: "ABANDONED_CHECKOUT" } });
   const automation = await prisma.automation.findUnique({ where: { creatorId_trigger: { creatorId: ana.id, trigger: "ABANDONED_CHECKOUT" } } });
-  if (automation && !automation.enabled) console.log("· (Ana tiene la recuperación desactivada: no se comprueba el email que sí sale)");
+  if (automation && !automation.enabled) console.log("· (Cirella tiene la recuperación desactivada: no se comprueba el email que sí sale)");
   else check("sin baja, el email sale y lleva el enlace de baja", !!sent && sent.html.includes("/baja/recordatorios?t="), sent?.html?.slice(-600));
 
   // El cron: el pedido de quien se dio de baja queda abandonado con motivo «opuesta» y sin aviso.

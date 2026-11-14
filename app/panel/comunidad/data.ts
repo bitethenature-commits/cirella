@@ -164,6 +164,7 @@ export async function loadCalendar(owner: Owner, month: YearMonth, tierId: strin
 }
 
 export type MemberRow = {
+  accessId: string;
   userId: string;
   customerId: string | null;
   name: string;
@@ -175,6 +176,12 @@ export type MemberRow = {
   /** Suscripción · Dado a mano · Formulario gratis · Pago único. */
   origin: string;
   manual: boolean;
+  /** Días que le quedan (0 = vence hoy; negativo = vencida). null = sin fecha o suscripción. */
+  daysLeft: number | null;
+  /** La bloqueó la dueña (X). */
+  blocked: boolean;
+  /** Se paga con suscripción automática (no lleva tick ni X). */
+  subscription: boolean;
 };
 
 /** Miembros de un nivel (acceso directo a esa membresía): activas primero, luego las demás. */
@@ -209,7 +216,12 @@ export async function loadMembers(owner: Owner, tierId: string, now = new Date()
     if (!live) until = a.expiresAt ? `Terminó el ${short(a.expiresAt)}` : "Acceso retirado";
     else if (sub && sub.status !== "CANCELED") until = sub.cancelAtPeriodEnd ? `Termina el ${short(sub.currentPeriodEnd)}` : `Se renueva el ${short(sub.currentPeriodEnd)}`;
     else until = a.expiresAt ? `Hasta el ${lastDayText(a.expiresAt, tz, now)}` : "Sin fecha de fin";
+    const daysLeft = a.expiresAt && !sub ? Math.ceil((a.expiresAt.getTime() - now.getTime()) / 86_400_000) - 1 : null;
     return {
+      accessId: a.id,
+      daysLeft,
+      blocked: a.status === "REVOKED",
+      subscription: !!sub,
       userId: a.userId,
       customerId: c?.id ?? null,
       name: c?.name || a.user.name || "—",

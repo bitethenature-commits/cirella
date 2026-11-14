@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, CalendarDays, Clock, Download, ExternalLink, FileText, Headphones, Infinity as InfinityIcon, Lock, Mail, PlayCircle, RefreshCcw, ShieldCheck, Sparkles, Users, Video, Zap } from "lucide-react";
+import { BookOpen, CalendarDays, Heart, Clock, Download, ExternalLink, FileText, Headphones, Infinity as InfinityIcon, Lock, Mail, PlayCircle, RefreshCcw, ShieldCheck, Sparkles, Users, Video, Zap } from "lucide-react";
 import { RichContent } from "@/components/rich-text/rich-content";
 import { PART_ICON } from "@/components/media/part-icons";
 import { LocalDateTime } from "@/components/booking/local-date-time";
@@ -14,11 +14,26 @@ import { formatPrice } from "@/lib/money";
 import { saleEndsLabel, saleState } from "@/lib/offers";
 import type { ProductViewSource } from "@/lib/product-view";
 import { formatDate } from "@/lib/tz";
-import { DEFAULT_CTA, formatCourseLength, lessonsLabel, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
-import { courseCategoriesOf } from "@/lib/course-categories";
+import { requestCta, formatCourseLength, lessonsLabel, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
+import { COURSE_CATEGORY_LABEL, courseCategoriesOf, productTopics, readingLabel } from "@/lib/course-categories";
 import { CategoryIcons } from "./category-icons";
 import { ProductImage } from "./product-art";
 import { TrackedLink } from "./tracking";
+import { FlowerOfLife, SacredButton } from "./sacred-button";
+import { TestimonialsRotator } from "./testimonials-rotator";
+import { MoonCircleArt } from "./moon-circle-art";
+import type { MoonCircleSky } from "@/lib/moon-circle-sky";
+
+/** La raya dorada con la estrellita en medio. */
+function GoldStar({ className = "" }: { className?: string }) {
+  return (
+    <div aria-hidden className={`mx-auto flex max-w-[13rem] items-center gap-3 ${className}`} style={{ color: "var(--c-gold)" }}>
+      <span className="h-px flex-1" style={{ background: "linear-gradient(90deg, transparent, var(--c-gold))" }} />
+      <span className="text-xs">✦</span>
+      <span className="h-px flex-1" style={{ background: "linear-gradient(270deg, transparent, var(--c-gold))" }} />
+    </div>
+  );
+}
 
 /** Lo que pinta la ficha de un producto, en datos planos (de la BD o del formulario del panel). */
 export type ProductPageProduct = ProductViewSource & {
@@ -47,11 +62,14 @@ export type ProductPageViewProps = {
   seller: { line: string; named: boolean };
   /** Plazas que quedan de un taller (null = sin límite). */
   seatsLeft: number | null;
-  testimonial: { quote: string; author: string } | null;
+  /** Las opiniones de la portada: se ven igual que allí (una cada vez, sin título). */
+  testimonials: { id: string; quote: string; author: string; role?: string | null }[];
   /** Producto gratis con email: datos del formulario (responsable del tratamiento, etc.). */
   claim: { legalComplete: boolean; isOwner: boolean; responsible: string; processorName: string | null; creatorDisplayName: string; demo: boolean };
   /** Clic en el botón para las métricas (null para la dueña y en la vista previa). */
   clickEvent: { creatorId: string; type: "PRODUCT_CLICK"; productId: string } | null;
+  /** Círculo de la luna: su luna (nueva o llena), el signo y la frase, en lugar de la foto. */
+  moonSky?: MoonCircleSky | null;
   now?: Date;
 };
 
@@ -61,15 +79,33 @@ const KIND_ICON: Record<string, typeof Video> = { VIDEO: Video, AUDIO: Headphone
  * Ficha pública de un producto (dentro de CreatorShell), sin datos de la BD: la ruta pública
  * (app/[username]/[slug]/page.tsx) y la vista previa en vivo del panel pintan este mismo marcado.
  */
-export function ProductPageView({ username, product: p, timeZone, signupsOnly, seller, seatsLeft, testimonial, claim: claimInfo, clickEvent, now = new Date() }: ProductPageViewProps) {
+/** Bajo el botón de lo que se pide escribiendo: cómo funciona, en tres pasos. */
+function RequestSteps() {
+  const steps = ["Me escribes", "Te respondo por email", "Pagas y recibes tu acceso"];
+  return (
+    <div className="mt-6" data-request-steps>
+      <p className="cp-eyebrow text-center !text-[0.6rem]">Sin pagar nada aquí</p>
+      <ol className="cp-steps mx-auto mt-3 w-fit">
+        {steps.map((s, i) => (
+          <li key={s}>
+            <span className="cp-steps-dot">{i + 1}</span>
+            <span>{s}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+export function ProductPageView({ username, product: p, timeZone, seller, seatsLeft, testimonials, claim: claimInfo, clickEvent, moonSky, now = new Date() }: ProductPageViewProps) {
   const type = p.type as ProductType;
   // Cómo se consigue (lib/access-mode.ts): pago aquí, gratis con email o pago en otra web.
   const accessMode = asAccessMode(p.accessMode);
-  const paid = accessMode === "PAID" && !signupsOnly;
+  const paid = accessMode === "PAID";
   const free = accessMode === "FREE_EMAIL";
   const external = accessMode === "EXTERNAL" && !!p.externalUrl;
   const externalSite = external ? externalHost(p.externalUrl) : null;
-  const cta = free ? p.ctaLabel || "Quiero el acceso gratis" : external ? externalButtonLabel(p) : p.ctaLabel || DEFAULT_CTA[type];
+  const cta = free ? p.ctaLabel || "Quiero el acceso gratis" : external ? externalButtonLabel(p) : requestCta(type, p.ctaLabel);
   // Oferta activa (lib/offers.ts): solo en lo que se paga aquí. El checkout cobra lo mismo (calculado en el servidor).
   const sale = paid ? saleState(p, now) : null;
   const onSale = !!sale?.active;
@@ -78,7 +114,7 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, s
   const saleLine = onSale ? [sale!.label, sale!.percentOff && !sale!.label?.includes("%") ? `−${sale!.percentOff} %` : null, saleEndsLabel(sale!.endsAt, timeZone)].filter(Boolean).join(" · ") : null;
   // El precio de lo que se paga fuera es informativo y opcional: sin precio, no se muestra.
   const showPrice = !external || p.priceCents > 0;
-  const checkoutHref = `/${username}/${p.slug}/checkout`;
+  const checkoutHref = `/${username}/${p.slug}/solicitar`;
   const lessons = p.modules.reduce((a, m) => a + m.lessons.length, 0);
   const minutes = p.modules.reduce((a, m) => a + m.lessons.reduce((x, l) => x + (l.durationMin ?? 0), 0), 0);
   // Lo que se promete tiene que ser verdad: archivos y enlaces por separado, y «preparado para ti» si lo hace la creadora.
@@ -87,7 +123,7 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, s
   const contentPerk = content ? [{ icon: Download, text: content }] : [];
 
   // Lo que pasa al pulsar el botón, según cómo se consigue.
-  const afterCta = free ? "con tu email" : "tras el pago";
+  const afterCta = free ? "con tu email" : "cuando lo confirmemos";
   // Taller en directo: fecha fija y plazas.
   const workshop = p.type === "SESSION" && p.groupSession && p.eventStartAt ? { at: p.eventStartAt, past: p.eventStartAt <= now } : null;
   const full = seatsLeft === 0;
@@ -96,10 +132,12 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, s
   const perks: { icon: typeof Zap; text: string }[] =
     type === "DIGITAL"
       ? personal
-        ? [{ icon: Sparkles, text: "Preparado personalmente para ti" }, { icon: Mail, text: `Recibirás los siguientes pasos por email${free ? "" : " al pagar"}` }, ...contentPerk, ...externalPerk]
+        ? [{ icon: Mail, text: "Te la envío por email" }, { icon: Sparkles, text: "Preparada personalmente para ti" }, { icon: Heart, text: "Antes lo hablamos con calma" }, ...externalPerk]
         : external
           ? [...contentPerk, ...externalPerk]
-          : [{ icon: Zap, text: `Acceso inmediato ${afterCta}` }, ...contentPerk, { icon: InfinityIcon, text: "Disponible siempre en tu cuenta" }]
+          : paid
+            ? [{ icon: Mail, text: "Te la envío por email" }, { icon: Sparkles, text: "Preparada personalmente para ti" }, { icon: Heart, text: "Antes lo hablamos con calma" }]
+            : [{ icon: Zap, text: `Acceso inmediato ${afterCta}` }, ...contentPerk, { icon: InfinityIcon, text: "Disponible siempre en tu cuenta" }]
       : type === "SESSION"
         ? external
           ? [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: "Por videollamada" }, ...externalPerk]
@@ -109,7 +147,7 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, s
                 { icon: Video, text: `${videoText}, en directo` },
                 ...(seatsLeft !== null && !workshop.past ? [{ icon: Users, text: full ? "Completo" : `Quedan ${seatsLeft} ${seatsLeft === 1 ? "plaza" : "plazas"}` }] : []),
               ]
-            : [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: videoText }, { icon: CalendarDays, text: "Eliges día y hora al reservar" }, { icon: RefreshCcw, text: sessionChangePolicyText() }]
+            : [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: videoText }, { icon: CalendarDays, text: "Eliges día y hora en la solicitud" }, { icon: Mail, text: "Lo cerramos por email" }]
         : type === "COURSE"
           ? [
               // Un curso que se paga fuera puede no tener lecciones aquí: entonces no se prometen.
@@ -125,7 +163,7 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, s
             ? [{ icon: Sparkles, text: "Contenido exclusivo para la comunidad" }, { icon: Mail, text: "Entras con tu email" }, { icon: Lock, text: "Acceso privado" }]
             : external
               ? [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, ...externalPerk]
-              : [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, { icon: RefreshCcw, text: "Cancela cuando quieras" }, { icon: Lock, text: "Acceso privado mientras estés suscrita" }];
+              : [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, { icon: Mail, text: "Lo hablamos por email" }, { icon: Lock, text: "Acceso privado" }];
   // Información previa sobre el desistimiento (talleres sin él, membresías con reembolso proporcional).
   const withdrawalInfo = withdrawalInfoLine(waiverKindFor(type, p.deliveryMode, { groupSession: p.groupSession }));
   const buttonClass = "cp-btn mt-6 !hidden w-full md:!flex"; // «!»: .cp-btn (fuera de capa) pisaba «hidden» y en el móvil salía el botón doble
@@ -154,9 +192,74 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, s
     />
   );
 
+  // Lecturas y sesiones 1:1 que se piden escribiendo: foto en formato reel y un solo panel.
+  // También los talleres y los círculos de la luna (sesiones de grupo con fecha).
+  const showcase = paid && (type === "DIGITAL" || type === "SESSION");
+  const topics = productTopics(p).filter((c) => c !== "ESPECIAL");
+  const kindWord = type === "DIGITAL" ? readingLabel(p) : p.groupSession ? (p.moonCircle ? "Círculo de la luna" : "Taller en directo") : topics.length ? `Sesión · ${topics.map((c) => COURSE_CATEGORY_LABEL[c]).join(" + ")}` : "Sesión";
+
   return (
     <>
-      <main className="mx-auto max-w-5xl px-4 pb-36 pt-4 md:grid md:grid-cols-[1.1fr_0.9fr] md:gap-10 md:pb-20 md:pt-10">
+      <main className={`mx-auto max-w-5xl px-4 pb-36 pt-4 md:grid md:gap-10 md:pb-20 md:pt-10 ${showcase ? "md:grid-cols-[minmax(0,330px)_1fr] md:items-stretch" : "md:grid-cols-[1.1fr_0.9fr]"}`}>
+        {showcase ? (
+          <>
+            <div className="mx-auto w-full max-w-[330px] md:mx-0 md:max-w-none">
+              <div className="cp-show-photo">
+                {p.moonCircle && moonSky ? <MoonCircleArt sky={moonSky} /> : <ProductImage src={p.imageUrl} emoji={p.emoji} title={p.title} sizes="(min-width: 768px) 330px, 90vw" />}
+              </div>
+            </div>
+            <section className="cp-show-panel mt-7 md:mt-0" aria-label={p.title}>
+              <FlowerOfLife className="cp-show-geo" strokeWidth={0.25} />
+              <div className="flex items-center gap-3">
+                <span className="cp-show-icon">{topics.length ? <CategoryIcons categories={topics} size={2.6} gap={0.2} /> : <Sparkles className="h-9 w-9" strokeWidth={1.1} />}</span>
+                <span className="cp-eyebrow !tracking-[0.32em]" style={{ color: "var(--c-gold)" }}>{kindWord}</span>
+              </div>
+              <h1 className="cp-display cp-thin mt-5 text-[2.5rem] leading-[1.05] sm:text-[3rem]">{p.title}</h1>
+              <div aria-hidden className="mt-4 flex max-w-[12rem] items-center gap-3" style={{ color: "var(--c-gold)" }}>
+                <span className="h-px flex-1" style={{ background: "linear-gradient(90deg, transparent, var(--c-gold))" }} />
+                <span className="text-xs">✦</span>
+                <span className="h-px flex-1" style={{ background: "linear-gradient(270deg, transparent, var(--c-gold))" }} />
+              </div>
+              {workshop && (
+                <p className="mt-4 flex items-center gap-2.5 text-[1.05rem]">
+                  <CalendarDays className="cp-gold h-5 w-5" strokeWidth={1.4} /> <LocalDateTime iso={workshop.at.toISOString()} ownerTz={timeZone} />
+                </p>
+              )}
+              {p.summary && <p className="cp-muted cp-thin-text mt-4 text-[1.05rem] leading-relaxed">{p.summary}</p>}
+              <ul className="cp-show-perks mt-6">
+                {perks.map((k) => (
+                  <li key={k.text}>
+                    <k.icon className="h-[1.1rem] w-[1.1rem]" strokeWidth={1.4} />
+                    {k.text}
+                  </li>
+                ))}
+              </ul>
+              {workshop && (workshop.past || full) ? (
+                <p className="cp-show-closed mt-7">{workshop.past ? (p.moonCircle ? "Este círculo ya se celebró." : "Este taller ya se celebró.") : "Completo: no quedan plazas."}</p>
+              ) : (
+                <SacredButton href={checkoutHref} label={cta} event={clickEvent} ariaLabel={`${cta}: ${p.title}`} className="!mt-7 w-full" />
+              )}
+              <div className="mt-5 flex items-end justify-between gap-4">
+              <ol className="grid gap-1.5">
+                {["Me escribes", "Te respondo por email", type === "SESSION" ? "Lo cerramos y te envío el enlace" : "Lo cerramos y te lo envío"].map((s, i) => (
+                  <li key={s} className="flex items-baseline gap-3 text-[0.9rem]">
+                    <span className="cp-roman !w-6 !text-[1.05rem]">{["I", "II", "III"][i]}</span>
+                    <span className="cp-thin-text cp-muted">{s}</span>
+                  </li>
+                ))}
+              </ol>
+                <div className="text-right">
+                  {saleLine && <span className="cp-tag mb-2">Oferta · {saleLine}</span>}
+                  <p className="cp-show-price" data-price>
+                    {regularPrice && <s className="cp-faint mr-2 text-[1.3rem]">{regularPrice}</s>}
+                    {price}
+                  </p>
+                </div>
+              </div>
+            </section>
+          </>
+        ) : (
+        <>
         <div>
           <div className="cp-card relative aspect-[4/3] overflow-hidden">
             <ProductImage src={p.imageUrl} emoji={p.emoji} title={p.title} />
@@ -166,16 +269,16 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, s
         <div className="mt-7 md:mt-0">
           {/* Un curso con tema lleva el icono de su tema (o sus temas) en dorado; si no, su emoji. */}
           <p className="cp-eyebrow flex items-center gap-1.5">
-            {type === "COURSE" && courseCategoriesOf(p.courseCategory).length ? (
-              <CategoryIcons categories={courseCategoriesOf(p.courseCategory)} size={1.3} className="cp-gold" gap={0.1} />
+            {(type === "COURSE" || type === "DIGITAL") && productTopics(p).length ? (
+              <CategoryIcons categories={productTopics(p)} size={1.3} className="cp-gold" gap={0.1} />
             ) : (
               p.emoji
             )}{" "}
-            {type === "MEMBERSHIP" ? "Comunidad" : PRODUCT_TYPE_LABEL[type]}
+            {type === "MEMBERSHIP" ? "Comunidad" : type === "DIGITAL" ? readingLabel(p) : PRODUCT_TYPE_LABEL[type]}
           </p>
           <h1 className="cp-display mt-3 text-[2.5rem] sm:text-[3rem]">{p.title}</h1>
           {p.summary && <p className="cp-muted mt-3 text-[1.02rem] leading-relaxed">{p.summary}</p>}
-          {showPrice && (
+          {showPrice && !paid && (
             <p className="mt-6 text-3xl font-semibold tracking-tight" data-price>
               {regularPrice && (
                 <s className="cp-muted mr-2 text-xl font-normal" data-regular-price>
@@ -185,7 +288,7 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, s
               {price}
             </p>
           )}
-          {saleLine && (
+          {saleLine && !paid && (
             <p className="mt-2" data-sale>
               <span className="cp-tag">Oferta · {saleLine}</span>
             </p>
@@ -194,24 +297,6 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, s
           {external && externalSite ? (
             <p className={`cp-muted text-xs ${showPrice ? "" : "mt-6"}`}>Pago en {externalSite}</p>
           ) : null}
-          {signupsOnly && accessMode === "PAID" && (
-            <p className="mt-4 rounded-xl px-3 py-2.5 text-sm" style={{ background: "var(--c-line)" }}>
-              Solo lo ves tú: tu web no tiene activados los cobros. Edítalo y elige «Gratis con email» o «Pago en otra web» para mostrarlo.
-            </p>
-          )}
-          {paid && seller.named && (
-            <p className="cp-faint mt-2 text-xs">
-              Vende: {seller.line} ·{" "}
-              <Link href={creatorLegalHref(username, "condiciones")} className="underline underline-offset-4">Condiciones</Link> ·{" "}
-              <Link href={creatorLegalHref(username, "reembolsos")} className="underline underline-offset-4">Reembolsos</Link>
-            </p>
-          )}
-
-          {paid && withdrawalInfo && (
-            <p className="cp-muted mt-3 text-xs leading-relaxed" data-testid="withdrawal-info">
-              {withdrawalInfo}
-            </p>
-          )}
 
           {workshop && (
             <p className="mt-4 flex items-center gap-2 text-[1.02rem] font-semibold">
@@ -223,9 +308,29 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, s
               {workshop.past ? "Este taller ya se celebró." : "Completo: no quedan plazas."}
             </p>
           ) : paid ? (
-            <TrackedLink href={checkoutHref} event={clickEvent} className={buttonClass}>
-              {cta} · {price}
-            </TrackedLink>
+            <div className="cp-invite mt-7" data-invite>
+              <div className="cp-invite-ornament" aria-hidden>
+                <span>✦</span>
+              </div>
+              <p className="cp-eyebrow mt-4 text-center !text-[0.62rem]">Tu inversión</p>
+              <p className="cp-display mt-1 text-center text-[2.6rem] leading-none" data-price>
+                {regularPrice && (
+                  <s className="cp-muted mr-2 text-[1.4rem]" data-regular-price>
+                    {regularPrice}
+                  </s>
+                )}
+                {price}
+              </p>
+              {saleLine && (
+                <p className="mt-3 text-center" data-sale>
+                  <span className="cp-tag">Oferta · {saleLine}</span>
+                </p>
+              )}
+              <TrackedLink href={checkoutHref} event={clickEvent} className="cp-btn-invite mt-6 !hidden w-full md:!flex">
+                <Mail className="h-4 w-4" /> <span>{cta}</span> <Sparkles className="h-3.5 w-3.5 opacity-80" />
+              </TrackedLink>
+              <RequestSteps />
+            </div>
           ) : external ? (
             <ExternalButton href={p.externalUrl!} label={cta} className={buttonClass} event={clickEvent} />
           ) : null}
@@ -246,21 +351,29 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, s
             ))}
           </ul>
         </div>
+        </>
+        )}
 
         <div className="md:col-span-2">
           {p.description && (
-            <section className="mt-12 max-w-2xl">
-              <h2 className="cp-display text-[1.9rem]">Qué incluye</h2>
-              <div className="mt-4 text-[0.98rem]">
-                <RichContent text={p.description} format={p.descriptionFormat} legacy="description" tone="page" headingLevel={3} listMarker="star" className="space-y-4" />
+            <section className="mx-auto mt-16 max-w-3xl" aria-labelledby="incluye">
+              <div className="text-center">
+                <p className="cp-eyebrow !tracking-[0.4em]" style={{ color: "var(--c-gold)" }}>Para ti</p>
+                <h2 id="incluye" className="cp-display cp-thin mt-2 text-[2.4rem] italic">Qué incluye</h2>
+                <GoldStar className="mt-3" />
+              </div>
+              <div className="cp-include-panel mt-8">
+                <FlowerOfLife className="cp-include-geo" strokeWidth={0.22} />
+                <RichContent text={p.description} format={p.descriptionFormat} legacy="description" tone="page" headingLevel={3} listMarker="star" className="cp-include-text space-y-4" />
               </div>
             </section>
           )}
 
           {personal && p.instructions && (
-            <section className="mt-12 max-w-2xl">
-              <h2 className="cp-display text-[1.9rem]">Cómo lo recibes</h2>
-              <p className="cp-muted mt-4 whitespace-pre-line leading-relaxed">{p.instructions}</p>
+            <section className="mx-auto mt-14 max-w-3xl text-center" aria-labelledby="recibes">
+              <h2 id="recibes" className="cp-display cp-thin text-[2rem] italic">Cómo lo recibes</h2>
+              <GoldStar className="mt-3" />
+              <p className="cp-muted cp-thin-text mx-auto mt-5 max-w-xl whitespace-pre-line text-[1.05rem] leading-relaxed">{p.instructions}</p>
             </section>
           )}
 
@@ -353,12 +466,10 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, s
             </section>
           )}
 
-          {testimonial && (
-            <section className="mt-12 max-w-2xl">
-              <figure className="cp-card p-6">
-                <blockquote className="cp-display text-[1.35rem] leading-snug">“{testimonial.quote}”</blockquote>
-                <figcaption className="cp-muted mt-3 text-sm">— {testimonial.author}</figcaption>
-              </figure>
+          {testimonials.length > 0 && (
+            <section className="mx-auto mt-16 max-w-3xl" aria-label="Lo que dicen">
+              <GoldStar />
+              <TestimonialsRotator items={testimonials} />
             </section>
           )}
 
@@ -366,8 +477,8 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, s
             <ShieldCheck className="h-4 w-4" />
             {paid ? (
               <span>
-                Pago seguro · No necesitas crear una cuenta para comprar ·{" "}
-                <Link href={creatorLegalHref(username, "condiciones")} className="underline underline-offset-4">Condiciones de venta</Link>
+                Sin pagar nada aquí · Me escribes y lo hablamos por email ·{" "}
+                <Link href={creatorLegalHref(username, "privacidad")} className="underline underline-offset-4">Privacidad</Link>
               </span>
             ) : free ? (
               <span>
@@ -399,9 +510,7 @@ export function ProductPageView({ username, product: p, timeZone, signupsOnly, s
             )}
           </div>
           {paid ? (
-            <TrackedLink href={checkoutHref} event={clickEvent} className="cp-btn">
-              {cta}
-            </TrackedLink>
+            <SacredButton href={checkoutHref} label="Escríbeme" event={clickEvent} ariaLabel={`${cta}: ${p.title}`} className="!mt-0 !min-h-[3rem] shrink-0 !px-5 !text-[1.15rem]" />
           ) : external ? (
             <ExternalButton href={p.externalUrl!} label={cta} className="cp-btn" event={clickEvent} />
           ) : free ? (

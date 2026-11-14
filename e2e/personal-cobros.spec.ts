@@ -4,7 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 /**
  * Web personal que cobra en la web (SITE_MODE=personal, PAYMENT_PROVIDER=simulated,paypal): el
  * tercer servidor de playwright.config.ts (puerto 3102) con un PayPal falso (scripts/paypal-mock.ts).
- *   · los productos de pago de Ana se ven en su página y su ficha («Vende», condiciones);
+ *   · los productos de pago de Cirella se ven en su página y su ficha («Vende», condiciones);
  *   · el checkout ofrece «Tarjeta» y «PayPal»: con PayPal se va a PayPal, se aprueba y vuelve
  *     pagado; con tarjeta se paga en la página;
  *   · la página legal lleva condiciones de venta sin la plataforma;
@@ -51,7 +51,7 @@ test.describe.serial("Web personal que cobra con tarjeta y PayPal", () => {
 
   test("los productos de pago se ven en la página y en su ficha", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Ana Luna", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Cirella", level: 1 })).toBeVisible();
     await expect(page.getByText("Gene Keys").first()).toBeVisible();
     // Pie con condiciones de venta (la web vende) y sin la plataforma.
     await expect(page.getByRole("link", { name: "Condiciones" })).toHaveAttribute("href", /^\/ana\/legal#condiciones/);
@@ -111,7 +111,7 @@ test.describe.serial("Web personal que cobra con tarjeta y PayPal", () => {
   });
 
   test("el panel: «Ventas» con las compras, cobros e IVA en Ajustes", async ({ page }) => {
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await expect(page.getByRole("link", { name: "Ventas" }).first()).toBeVisible();
     await page.goto("/panel/ventas");
     await expect(page.getByRole("heading", { name: "Ventas" })).toBeVisible();

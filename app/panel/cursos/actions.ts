@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
 import { DRIP_MAX_DAYS, DRIP_MODES } from "@/lib/course-drip";
+import { asCourseCategory } from "@/lib/course-categories";
 import { productDeliveryIssue } from "@/lib/delivery";
 import { isLastPublishedLesson, LESSON_LAST_PUBLISHED } from "@/lib/lessons";
 import { prisma } from "@/lib/db";
@@ -33,6 +34,19 @@ function refresh(productId: string) {
 const LAST_CONTENT = "Es lo último publicado de un curso publicado: tus alumnas se quedarían sin nada. Publica otra lección antes o pasa el curso a borrador.";
 
 const title = (raw: unknown, fallback: string) => (typeof raw === "string" && raw.trim() ? raw.trim().slice(0, 120) : fallback);
+
+// ───────────── Temática ─────────────
+
+/** La temática del curso («ASTROLOGIA», «ASTROLOGIA+MI_ENERGIA»… o vacía). */
+export async function setStudioCourseCategory(productId: string, value: string): Promise<StudioResult> {
+  const { db } = await ctx();
+  const course = await db.product.findFirst({ where: { id: productId, type: "COURSE" }, select: { id: true } });
+  if (!course) return { error: "Curso no encontrado" };
+  await db.product.updateMany({ where: { id: productId }, data: { courseCategory: asCourseCategory(value) } });
+  refresh(productId);
+  revalidatePath("/[username]/cursos", "page");
+  return { ok: value ? "Temática guardada" : "Sin temática" };
+}
 
 // ───────────── Módulos ─────────────
 

@@ -9,7 +9,7 @@ export async function loadStudioCourse(id: string) {
   const db = tenantDb(creator.id);
   const course = await db.product.findFirst({
     where: { id, type: "COURSE" },
-    select: { id: true, title: true, emoji: true, status: true, imageUrl: true, dripMode: true, dripEveryDays: true, accessMode: true },
+    select: { id: true, title: true, emoji: true, status: true, imageUrl: true, dripMode: true, dripEveryDays: true, accessMode: true, courseCategory: true },
   });
   if (!course) notFound();
   return { creator, db, course };

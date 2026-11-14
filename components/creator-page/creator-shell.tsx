@@ -8,6 +8,7 @@ import { LegalLinks } from "./legal-links";
 import { NewsletterSignup } from "./newsletter-signup";
 import { Avatar } from "./product-art";
 import { SiteNav, type SiteNavPage } from "./site-nav";
+import { TemplateDecor } from "@/components/template-decor";
 
 /** Envoltorio con la identidad visual de la creadora para producto, checkout y confirmación. */
 export function CreatorShell({
@@ -48,9 +49,7 @@ export function CreatorShell({
   const home = personal ? "/" : `/${username}`;
   return (
     <div className="cp" style={themeStyle(theme)} data-card={theme.card} data-template={config.template}>
-      <div className={`cp-decor cp-decor-${theme.decor}`} aria-hidden>
-        {theme.decor === "stars" && <div className="starfield absolute inset-0 opacity-50" />}
-      </div>
+      <TemplateDecor decor={theme.decor} starOpacity={0.5} />
       <header className="sticky top-0 z-30 border-b backdrop-blur-xl" style={{ borderColor: "var(--c-line)", background: "color-mix(in oklab, var(--c-bg) 78%, transparent)" }}>
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
           {back && (
@@ -69,7 +68,7 @@ export function CreatorShell({
       {/* El margen inferior deja sitio al botón fijo de compra de la ficha en móvil. */}
       <footer className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-4 pb-28 pt-10 text-center md:pb-10">
         {personal && showNewsletter && config.newsletter?.footer && (
-          <NewsletterSignup variant="footer" button={config.newsletter.button} creatorName={config.displayName} privacyHref={creatorLegalHref(username, "privacidad")} />
+          <NewsletterSignup variant="footer" button={config.newsletter.button} creatorName={config.displayName} privacyHref={creatorLegalHref(username, "privacidad")} opensPortal={!!personal} />
         )}
         <SiteNav pages={pages} current={currentPath} />
         <LegalLinks username={username} sellerName={sellerName} signupsOnly={signupsOnly} />

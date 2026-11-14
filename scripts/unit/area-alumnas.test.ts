@@ -47,7 +47,7 @@ test("readEmailChangeData: válido; sin email de antes → null", () => {
 
 // ── Emails ──
 test("magicLinkEmail REGISTER: «Confirma tu email para entrar» y «Confirmar y entrar», nombre escapado", () => {
-  const m = magicLinkEmail({ url: "https://x.test/auth/magic?token=abc", creatorName: "Ana Luna", purpose: "REGISTER", name: "<b>Lucía</b>" });
+  const m = magicLinkEmail({ url: "https://x.test/auth/magic?token=abc", creatorName: "Cirella", purpose: "REGISTER", name: "<b>Lucía</b>" });
   eq(m.subject, "Confirma tu email para entrar");
   ok(m.html.includes(">Confirmar y entrar</a>"));
   ok(m.html.includes("24 horas") && m.html.includes("no se creará nada"));

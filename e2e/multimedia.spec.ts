@@ -8,7 +8,7 @@ import sharp from "sharp";
 import { mp4 } from "../scripts/fixtures/iso-media";
 
 /**
- * Multimedia (servidor en modo personal, puerto 3101, web de Ana; y la plataforma en el 3100):
+ * Multimedia (servidor en modo personal, puerto 3101, web de Cirella; y la plataforma en el 3100):
  *   · un .mov HEVC vertical: avisos «HEVC» y «Vertical», «Min» relleno solo y, en Chromium (sin HEVC),
  *     el aviso con «Descargar» en un marco vertical;
  *   · audio de la web personal por /api/stream (Range → 206, velocidad) y «Tu acceso a este contenido
@@ -59,7 +59,7 @@ test.afterAll(async () => {
   await prisma.$disconnect();
 });
 
-/** Guarda un archivo privado de Ana (en el disco del almacenamiento local) y su ProductFile. */
+/** Guarda un archivo privado de Cirella (en el disco del almacenamiento local) y su ProductFile. */
 async function privateFile(name: string, kind: string, mimeType: string, bytes: Buffer, ext: string) {
   const storageKey = `${anaId}/${TAG}-${randomBytes(4).toString("hex")}.${ext}`;
   const full = path.join(process.cwd(), "storage", "private", storageKey);
@@ -83,7 +83,7 @@ test.describe.serial("Multimedia", () => {
   test("HEVC vertical: avisos en Materiales, «Min» relleno y aviso para las alumnas sin HEVC", async ({ page }) => {
     const file = path.join(tmp, `${TAG}-vertical.mov`);
     writeFileSync(file, mp4({ codec: "hvc1", width: 1920, height: 1080, rotation: 90, durationSec: 125, brand: "qt  " }));
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(`/panel/productos/${courseId}`);
     await page.locator('input[accept^=".pdf"]').first().setInputFiles(file);
     const row = page.locator("li", { hasText: `${TAG}-vertical.mov` });
@@ -267,7 +267,7 @@ test.describe.serial("Multimedia", () => {
     const shorts = await lessonWith({ title: `${TAG} Shorts`, kind: "VIDEO", mediaUrl: "https://youtube.com/shorts/dQw4w9WgXcQ" });
 
     // El panel avisa del enlace de Loom pero lo guarda.
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(`/panel/cursos/${courseId}`);
     await page.locator("[data-structure-board]").getByRole("link", { name: "Añadir lección" }).first().click();
     await page.getByLabel("Título de la lección").fill(`${TAG} Loom`);
@@ -307,7 +307,7 @@ test.describe.serial("Multimedia", () => {
       if (u.includes("/api/upload/abort")) calls.abort++;
       if (r.method() === "PUT" && u.includes("/api/storage/local")) calls.puts++;
     });
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(`/panel/productos/${courseId}`);
     await expect(page.getByText(/Vídeo MP4 o MOV hasta 4 GB/)).toBeVisible();
     await page.locator('input[accept^=".pdf"]').first().setInputFiles(big);
@@ -339,7 +339,7 @@ test.describe.serial("Multimedia", () => {
     writeFileSync(plat, Buffer.alloc(70 * 1024 * 1024, 3));
     await page.context().clearCookies();
     await page.goto(`${PLATFORM}/entrar`);
-    await page.locator("form", { hasText: "Ana Luna" }).getByRole("button").click();
+    await page.locator("form", { hasText: "Cirella" }).getByRole("button").click();
     await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
     await page.goto(`${PLATFORM}/panel/productos/${courseId}`);
     await expect(page.getByText(/Hasta 1 GB por archivo/).first()).toBeVisible();

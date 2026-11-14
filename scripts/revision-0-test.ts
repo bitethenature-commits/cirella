@@ -10,7 +10,7 @@
  *   · dos pedidos pagados de la misma membresía: una sola suscripción y el segundo se reembolsa;
  *   · a quien ya es miembro no se le manda «¿Te quedaste a medias?»;
  *   · markFirstAccess anota el primer acceso una sola vez (desde ahí vale la renuncia).
- * Crea compradoras de prueba sobre Ana (seed) y borra todo lo que crea.
+ * Crea compradoras de prueba sobre Cirella (seed) y borra todo lo que crea.
  */
 import "./load-env";
 import Module from "node:module";

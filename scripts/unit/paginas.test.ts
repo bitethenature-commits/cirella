@@ -93,15 +93,15 @@ test("bloques: layout y codec desconocidos se corrigen sin invalidar", () => {
 
 test("readPageConfig: un bloque dañado se descarta y el resto de la página queda igual", () => {
   const raw = {
-    displayName: "Ana",
+    displayName: "Cirella",
     tagline: "Mi frase",
     blocks: [{ id: "a", title: "Bueno" }, { id: "b", kind: "image", image: { src: "javascript:alert(1)" } }, { id: "c", kind: "gallery", images: [image] }],
   };
   const cfg = readPageConfig(raw);
   eq(cfg.tagline, "Mi frase", "no cae en la página por defecto");
   eq(cfg.blocks?.map((b) => b.id), ["a", "c"]);
-  eq(readPageConfig({ displayName: "Ana" }).blocks, [], "una página de antes de los bloques");
-  eq(pageConfigSchema.safeParse({ displayName: "Ana", blocks: Array.from({ length: HOME_BLOCKS_MAX + 1 }, (_, i) => ({ id: `b${i}`, title: "x" })) }).success, false);
+  eq(readPageConfig({ displayName: "Cirella" }).blocks, [], "una página de antes de los bloques");
+  eq(pageConfigSchema.safeParse({ displayName: "Cirella", blocks: Array.from({ length: HOME_BLOCKS_MAX + 1 }, (_, i) => ({ id: `b${i}`, title: "x" })) }).success, false);
 });
 
 test("visibleBlocks por tipo; visibleTextBlocks sigue siendo su alias", () => {
@@ -296,13 +296,13 @@ test("ContentBlocks: foto y texto, tarjetas enlazadas, cita y trayectoria", () =
   const html = render([
     { id: "p", kind: "photoText", image, title: "Mi historia", body: "Hace **8 años**", format: "MD", imageSide: "right" },
     { id: "c", kind: "cards", title: "Mis métodos", cards: [{ title: "Human Design", text: "Tu manual", href: "/ana/p/human-design", image }, { title: "Oculta", href: "/ana/lectura" }] },
-    { id: "q", kind: "quote", text: "Recordar quién eres", author: "Ana" },
+    { id: "q", kind: "quote", text: "Recordar quién eres", author: "Cirella" },
     { id: "t", kind: "timeline", title: "Mi trayectoria", items: [{ label: "2018", title: "Empiezo" }] },
   ], ["lectura"]);
   ok(html.includes('data-side="right"') && html.includes("sm:order-last"));
   ok(html.includes("<strong>8 años</strong>"), html);
   ok(/<a href="\/ana\/p\/human-design" class="cp-card cp-card-hover/.test(html), "la tarjeta entera es el enlace");
   ok(!html.includes('href="/ana/lectura"'), "sin enlace hacia un producto oculto");
-  ok(html.includes("<blockquote") && html.includes("Ana</figcaption>"));
+  ok(html.includes("<blockquote") && html.includes("Cirella</figcaption>"));
   ok(html.includes("<ol") && html.includes("2018"));
 });

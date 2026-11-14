@@ -5,7 +5,7 @@ import { mp4 } from "../scripts/fixtures/iso-media";
 import { COMO_TRABAJO, mediaBlocks, withHomeBlocks } from "./home-blocks";
 
 /**
- * Editor de la página y páginas extra (servidor en modo personal, puerto 3101, web de Ana; y la
+ * Editor de la página y páginas extra (servidor en modo personal, puerto 3101, web de Cirella; y la
  * plataforma en el 3100):
  *   · la portada con bloques de prueba (la demo no trae ninguno; e2e/home-blocks.ts): su vídeo
  *     subido (302 firmado y Range → 206), su gráfico y su galería; «Sobre mí» en el pie y en
@@ -106,14 +106,14 @@ test.describe.serial("Editor de la página y páginas extra", () => {
     await expect(page.getByRole("heading", { name: "Mis métodos" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Mi formación" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: /Descubre Human Design/ })).toHaveAttribute("href", /human-design$/);
-    await expect(page).toHaveTitle(/Sobre Ana Luna · Astrología y Human Design/);
+    await expect(page).toHaveTitle(/Sobre Cirella · Astrología y Human Design/);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${PERSONAL}/sobre-mi`);
     await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /Quién soy/);
     expect((await request.get("/preguntas-frecuentes")).status()).toBe(404);
   });
 
   test("nueva página «Sobre mí» desde el iPhone: negrita, gráfico de Canva y publicar", async ({ page }) => {
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/paginas");
     await expect(page.getByRole("heading", { name: "Páginas" })).toBeVisible();
     await expect(page.getByRole("link", { name: /^Preguntas frecuentes/ })).toContainText("Borrador");
@@ -161,7 +161,7 @@ test.describe.serial("Editor de la página y páginas extra", () => {
 
   test("borrador y publicado, vista previa, direcciones, despublicar y sitemap", async ({ page, request }) => {
     const row = await prisma.sitePage.findFirstOrThrow({ where: { creatorId: anaId, slug: SLUG } });
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(`/panel/paginas/${row.id}`);
     await page.getByLabel("Título", { exact: true }).fill(`${TITLE} (nuevo)`);
     await page.locator("[data-mobile-actions]").getByRole("button", { name: "Guardar" }).click();
@@ -200,7 +200,7 @@ test.describe.serial("Editor de la página y páginas extra", () => {
 
   test("portada: vídeo de YouTube que no carga nada hasta pulsar ▶, Instagram no vale y un HEVC subido avisa", async ({ page, context }) => {
     await context.route("https://www.youtube-nocookie.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<p>YouTube</p>" }));
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/pagina");
     await page.getByRole("button", { name: "Bloques", exact: true }).click();
     await page.getByRole("button", { name: "Añadir vídeo" }).click();
@@ -232,7 +232,7 @@ test.describe.serial("Editor de la página y páginas extra", () => {
   });
 
   test("plataforma: /ana/p/<slug>, sin alias en la raíz, sin «Subir vídeo» y el vídeo subido se rechaza", async ({ page }) => {
-    await demoLogin(page, "Ana Luna", PLATFORM);
+    await demoLogin(page, "Cirella", PLATFORM);
     const sign = await page.request.post(`${PLATFORM}/api/upload/sign`, { data: { purpose: "video", name: "x.mp4", contentType: "video/mp4", size: 1000 } });
     expect(sign.status()).toBe(400);
     expect((await sign.json()).error).toContain("enlace de YouTube o Vimeo");

@@ -93,8 +93,8 @@ async function main() {
   const receipt = await prisma.emailMessage.findFirst({ where: { to: email("novedades"), template: "PURCHASE_RECEIPT" } });
   const html = receipt?.html ?? "";
   for (const [label, text] of [
-    // Vende Ana, como dice el checkout.
-    ["quién vende", "Ana Luna Pérez · NIF 12345678Z"],
+    // Vende Cirella, como dice el checkout.
+    ["quién vende", "Cirella · NIF 12345678Z"],
     ["el domicilio", "28004 Madrid"],
     ["la renuncia marcada", "marcaste «Quiero acceder ya al contenido"],
     ["la versión del texto de la renuncia", `(texto ${first.order.waiverVersion})`],

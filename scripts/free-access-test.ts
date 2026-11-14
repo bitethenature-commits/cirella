@@ -13,7 +13,7 @@
  *   · las novedades no cuentan hasta confirmarlas desde el email (también al repetir el formulario);
  *   · el nombre del formulario no llega al saludo del email ni a una cuenta que ya existía;
  *   · una membresía gratis sobre una suscripción vieja (sin renovar y caducada) da el acceso.
- * Usa emails y productos temporales de Ana y deja la BD como estaba.
+ * Usa emails y productos temporales de Cirella y deja la BD como estaba.
  */
 import "./load-env";
 import { prisma } from "../lib/db";
@@ -170,7 +170,7 @@ async function main() {
     await prisma.productFile.create({ data: { creatorId: ana.id, productId: extDigital.id, name: "Guía en PDF", kind: "LINK", url: "https://example.com/guia.pdf" } });
     const maria = await prisma.creator.findUniqueOrThrow({ where: { username: "maria" } });
     check(
-      "otra creadora no puede dar acceso a un producto de Ana",
+      "otra creadora no puede dar acceso a un producto de Cirella",
       await rejects(() => grantManualAccess({ creatorId: maria.id, productId: extDigital.id, name: "X", email: email("ajena"), grantedByUserId: maria.userId }), FreeAccessError, /no encontrado/),
     );
     const eva = email("eva");

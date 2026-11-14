@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Check, Newspaper, Palette, Plus, Sparkles, TrendingUp } from "lucide-react";
+import { pendingRequestCount } from "@/lib/requests";
+import { ArrowRight, CalendarDays, Check, Inbox, Newspaper, Palette, Plus, Sparkles, TrendingUp } from "lucide-react";
 import { BarChart } from "@/components/charts";
 import { PayoutBanner } from "@/components/panel/payout-status";
 import { DeliveryAlert } from "@/components/ui/delivery-alert";
@@ -35,7 +36,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
   // Modo personal: aquí no se cobra nada (sin cobros ni ingresos); se cuentan visitas e inscripciones.
   const personal = isPersonalMode();
   if (personal) {
-    const [posts, codes, flags] = await Promise.all([db.post.count(), db.discountCode.count(), panelNavFlags(creator.id)]);
+    const [posts, codes, flags, requests] = await Promise.all([db.post.count(), db.discountCode.count(), panelNavFlags(creator.id), pendingRequestCount(creator.id)]);
     const steps = [
       { done: !!cfg.avatarUrl, label: "Sube tu foto", href: "/panel/pagina" },
       { done: legalIdentityComplete(creator), label: "Completa tu aviso legal", href: "/panel/ajustes/legal" },
@@ -56,6 +57,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
         checklist={steps}
         deliveryIssues={deliveryIssues}
         freeBlocked={freeBlocked}
+        requests={requests}
         order={orderHome(readPanelPrefs(creator.panelPrefs).home)}
       />
     );
@@ -286,8 +288,11 @@ function PersonalHome({
   checklist,
   deliveryIssues,
   freeBlocked,
+  requests,
   order,
 }: {
+  /** Solicitudes sin responder (lib/requests.ts). */
+  requests: number;
   first: string;
   range: keyof typeof RANGES;
   rangeLabel: string;
@@ -449,6 +454,20 @@ function PersonalHome({
     <div className="space-y-8">
       <PageHeader title={`Hola, ${first}`} subtitle={<>Así va tu página {rangeLabel}.</>} actions={<RangeTabs current={range} base="/panel" />} />
 
+      {requests > 0 && (
+        <Link href="/panel/solicitudes" className="card flex items-center gap-4 p-4 transition hover:shadow-lift" data-requests-banner>
+          <span className="panel-emblem h-11 w-11 shrink-0">
+            <Inbox className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="display block text-[1.25rem] leading-tight">
+              Tienes {requests} {requests === 1 ? "solicitud nueva" : "solicitudes nuevas"}
+            </span>
+            <span className="text-sm text-muted">Respóndelas por email y confírmalas cuando esté todo.</span>
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0" />
+        </Link>
+      )}
       {freeBlocked && <FreeSignupsBlockedAlert />}
       <DeliveryAlerts issues={deliveryIssues} />
 

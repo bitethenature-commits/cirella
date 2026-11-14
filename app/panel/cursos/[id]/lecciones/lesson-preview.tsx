@@ -59,10 +59,10 @@ function Scene({ ctx, live }: { ctx: LessonPreviewContext; live: Live }) {
 }
 
 /** Columna de escritorio: la lección en un teléfono, al lado del editor, al momento. */
-export function LessonPreviewColumn({ ctx, live }: { ctx: LessonPreviewContext; live: Live }) {
+export function LessonPreviewColumn({ ctx, live, wide = false }: { ctx: LessonPreviewContext; live: Live; wide?: boolean }) {
   const deferred = useDeferredValue(live);
   return (
-    <div className="sticky top-20 hidden lg:block" data-lesson-preview>
+    <div className={`sticky top-20 hidden ${wide ? "min-[1680px]:block" : "lg:block"}`} data-lesson-preview>
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-xs uppercase tracking-[0.2em] text-muted">Así la verá tu alumna</p>
         {!live.published && <span className="rounded-full bg-[#f8efdc] px-2.5 py-1 text-[0.7rem] font-semibold text-[#8a6420]">Borrador</span>}
@@ -77,7 +77,7 @@ export function LessonPreviewColumn({ ctx, live }: { ctx: LessonPreviewContext; 
 }
 
 /** Teléfono y tableta: la vista previa a pantalla completa. */
-export function LessonPreviewSheet({ ctx, live, onClose }: { ctx: LessonPreviewContext; live: Live; onClose: () => void }) {
+export function LessonPreviewSheet({ ctx, live, onClose, wide = false }: { ctx: LessonPreviewContext; live: Live; onClose: () => void; wide?: boolean }) {
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -89,7 +89,7 @@ export function LessonPreviewSheet({ ctx, live, onClose }: { ctx: LessonPreviewC
     };
   }, [onClose]);
   return (
-    <div role="dialog" aria-modal="true" aria-label="Vista previa de la lección" className="fixed inset-0 z-50 flex flex-col bg-paper animate-fade-in lg:hidden" data-lesson-preview>
+    <div role="dialog" aria-modal="true" aria-label="Vista previa de la lección" className={`fixed inset-0 z-50 flex flex-col bg-paper animate-fade-in ${wide ? "min-[1680px]:hidden" : "lg:hidden"}`} data-lesson-preview>
       <div className="flex items-center justify-between gap-2 border-b border-line px-3 pb-2 pt-[max(env(safe-area-inset-top),0.5rem)]">
         <button type="button" onClick={onClose} className="btn btn-ghost btn-sm">
           <ArrowLeft className="h-4 w-4" /> Volver al editor

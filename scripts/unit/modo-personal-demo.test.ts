@@ -27,7 +27,7 @@ const hidden = new Set(["curso-conocete-tu-energia"]);
 test("enlace relativo a un producto oculto", () => eq(linksToProduct("/ana/curso-conocete-tu-energia", "ana", hidden), true));
 test("enlace relativo con más ruta, consulta o mayúsculas", () =>
   eq(
-    ["/ana/curso-conocete-tu-energia/checkout", "/Ana/Curso-Conocete-Tu-Energia?x=1", "/ana/curso-conocete-tu-energia#y"].map((u) => linksToProduct(u, "ana", hidden)),
+    ["/ana/curso-conocete-tu-energia/checkout", "/Cirella/Curso-Conocete-Tu-Energia?x=1", "/ana/curso-conocete-tu-energia#y"].map((u) => linksToProduct(u, "ana", hidden)),
     [true, true, true],
   ));
 test("enlace absoluto a la propia web (con la dirección de la web)", () =>
@@ -81,9 +81,9 @@ test("Render: sin APP_URL se usa RENDER_EXTERNAL_URL; con APP_URL, manda APP_URL
 test("Render: la configuración de producción es válida sin APP_URL", () => {
   const S = "x".repeat(44);
   const r = validateEnv({
-    APP_ENV: "production", RENDER_EXTERNAL_URL: "https://mi-web.onrender.com", SITE_MODE: "personal", OWNER_USERNAME: "analuna", OWNER_EMAIL: "ana@example.com",
+    APP_ENV: "production", RENDER_EXTERNAL_URL: "https://mi-web.onrender.com", SITE_MODE: "personal", OWNER_USERNAME: "cirella", OWNER_EMAIL: "ana@example.com",
     PAYMENT_PROVIDER: "none", DEMO_MODE: "false", DATABASE_URL: "postgresql://u:p@db.internal:5432/x", DIRECT_URL: "postgresql://u:p@db.internal:5432/x",
-    APP_SECRET: S, CRON_SECRET: S, EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_x", EMAIL_FROM: "Ana <onboarding@resend.dev>",
+    APP_SECRET: S, CRON_SECRET: S, EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_x", EMAIL_FROM: "Cirella <onboarding@resend.dev>",
     STORAGE_DRIVER: "s3", S3_ENDPOINT: "https://abc.eu.r2.cloudflarestorage.com", S3_BUCKET: "b", S3_ACCESS_KEY_ID: "i", S3_SECRET_ACCESS_KEY: "s", CLIENT_IP_HEADER: "cf-connecting-ip",
   });
   ok(r.ok, r.ok ? "" : r.errors.join(" | "));

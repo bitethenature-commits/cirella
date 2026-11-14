@@ -10,7 +10,7 @@ import { prisma } from "./db";
  *   · el `data` de las creaciones
  *
  * Así, aunque un id llegue manipulado desde el cliente (p. ej. el id de un
- * producto de María en una petición de Ana), la consulta simplemente no
+ * producto de María en una petición de Cirella), la consulta simplemente no
  * encuentra nada. Todo el código del panel de creadora usa este cliente.
  *
  * Reglas para mantenerlo seguro:
@@ -40,7 +40,6 @@ export const TENANT_MODELS = new Set<Prisma.ModelName>([
   "AvailabilityRule",
   "BlockedDate",
   "AvailabilityOverride",
-  "OrderFile",
   "Subscription",
   "AnalyticsEvent",
   "Automation",

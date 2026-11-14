@@ -1,14 +1,25 @@
 import Link from "next/link";
 import { Lock } from "lucide-react";
+import { SectionEmblem } from "./section-emblem";
 
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: React.ReactNode; actions?: React.ReactNode }) {
+/**
+ * La cabecera de cada sección, como las de la web: un cielo de noche con estrellas, el emblema dorado de
+ * la sección (por su dirección), el título en la serif elegante y, a la derecha, sus botones.
+ */
+export function PageHeader({ title, subtitle, actions }: { title: React.ReactNode; subtitle?: React.ReactNode; actions?: React.ReactNode }) {
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="display text-[2.3rem] leading-none sm:text-[2.7rem]">{title}</h1>
-        {subtitle && <p className="mt-2 text-sm text-muted">{subtitle}</p>}
+    <div className="panel-hero mb-7 p-5 sm:p-7" data-page-header>
+      <div className="starfield absolute inset-0 -z-10 rounded-[inherit] opacity-40" aria-hidden />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-4">
+          <SectionEmblem className="h-14 w-14 shrink-0 sm:h-16 sm:w-16" />
+          <div className="min-w-0">
+            <h1 className="display text-[2.2rem] leading-none sm:text-[2.7rem]">{title}</h1>
+            {subtitle && <p className="mt-2 text-sm text-muted">{subtitle}</p>}
+          </div>
+        </div>
+        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
   );
 }
@@ -17,7 +28,7 @@ export function Stat({ label, value, hint, accent }: { label: string; value: Rea
   return (
     <div className={`rounded-2xl border p-4 sm:p-5 ${accent ? "border-ink bg-ink text-cream" : "border-line bg-white"}`}>
       <p className={`text-xs ${accent ? "text-cream/60" : "text-muted"}`}>{label}</p>
-      <p className="mt-1.5 text-[1.6rem] font-semibold leading-none tracking-tight tabular-nums sm:text-[1.85rem]">{value}</p>
+      <p className="stat-value mt-1.5 text-[1.6rem] font-semibold leading-none tracking-tight tabular-nums sm:text-[1.85rem]">{value}</p>
       {hint && <p className={`mt-1.5 text-xs ${accent ? "text-cream/60" : "text-muted"}`}>{hint}</p>}
     </div>
   );

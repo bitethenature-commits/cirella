@@ -74,7 +74,7 @@ export function moonLit(cx: number, cy: number, r: number, p: number) {
   const top = `${cx} ${cy - r}`;
   const bottom = `${cx} ${cy + r}`;
   if (p < 0.5) return `M${top}A${r} ${r} 0 0 1 ${bottom}A${rx} ${r} 0 0 ${p < 0.25 ? 0 : 1} ${top}Z`;
-  return `M${top}A${r} ${r} 0 0 0 ${bottom}A${rx} ${r} 0 0 ${p < 0.75 ? 1 : 0} ${top}Z`;
+  return `M${top}A${r} ${r} 0 0 0 ${bottom}A${rx} ${r} 0 0 ${p < 0.75 ? 0 : 1} ${top}Z`;
 }
 
 /** «Sol, Luna y Venus». */

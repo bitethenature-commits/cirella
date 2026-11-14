@@ -163,7 +163,7 @@ export function PanelLook({ initial, nav: allNav, home: withHome, currentBottom 
             </div>
             <div className="p-3">
               <div className="rounded-xl p-3" style={{ background: theme?.tone === "dark" ? TONES.dark.surface : "#FFFFFF", border: `1px solid ${vars["--color-line"] ?? "#E7E0D2"}` }}>
-                <p className="font-semibold">Hola, Ana</p>
+                <p className="font-semibold">Hola, Cirella</p>
                 <p style={{ color: vars["--color-muted"] ?? "#6E6A80" }}>Así va tu página este mes.</p>
                 <span className="mt-2 inline-block rounded-full px-3 py-1 font-semibold" style={{ background: vars["--panel-accent"] ?? "#0E1024", color: vars["--panel-accent-text"] ?? "#F6F1E7" }}>Ver página</span>
               </div>

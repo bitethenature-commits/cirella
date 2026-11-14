@@ -30,7 +30,6 @@ import { ProductForm } from "./product-form";
 import { productPreviewContext } from "./preview-context";
 import { dateKeyInTz, formatDate, minutesToLabel, zonedParts } from "@/lib/tz";
 import { readIntakeConfig } from "@/lib/intake";
-import { notifyWorkshopReplay } from "../actions";
 import { WorkshopAttendees } from "./workshop-attendees";
 
 /** Cuántas personas con acceso se listan en la ficha (el resto, en Inscripciones). */
@@ -174,7 +173,6 @@ export default async function EditProductPage({
       )}
 
       {sp.error === "sin-fecha" && <Flash error="Pon una fecha futura del taller para publicarlo." />}
-      {sp.avisadas !== undefined && <Flash ok={`Aviso de la grabación enviado a ${sp.avisadas} ${sp.avisadas === "1" ? "asistente" : "asistentes"}.`} />}
       <ProductForm
         product={{
           ...product,
@@ -208,9 +206,6 @@ export default async function EditProductPage({
             ))}
             . Sus miembros lo ven mientras su membresía esté activa.
           </p>
-        )}
-        {type === "DIGITAL" && (
-          <FilesManager productId={product.id} files={product.files} limitsLabel={uploadPolicy(mode === "personal").label} title="Archivos que se entregan" hint="PDF, audio, vídeo, ebook… Tus clientas los descargan desde su cuenta justo después de pagar." />
         )}
         {type === "COURSE" && (
           <>
@@ -254,13 +249,6 @@ export default async function EditProductPage({
         {type === "SESSION" && product.groupSession && (
           <>
             <WorkshopAttendees creatorId={creator.id} productId={product.id} capacity={product.capacity} />
-            <FilesManager productId={product.id} files={product.files} limitsLabel={uploadPolicy(mode === "personal").label} title="Grabación y materiales" hint="Lo verán solo las asistentes de este taller en su área." />
-            {product.files.length > 0 && product.eventStartAt && product.eventStartAt < new Date() && (
-              <ConfirmForm action={notifyWorkshopReplay} message="¿Enviar a cada asistente un email con la grabación? Solo se envía una vez a cada una.">
-                <input type="hidden" name="id" value={product.id} />
-                <button className="btn btn-outline h-11">Avisar de la grabación</button>
-              </ConfirmForm>
-            )}
           </>
         )}
         {type === "SESSION" && accessMode !== "EXTERNAL" && !product.groupSession && (

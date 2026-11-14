@@ -16,7 +16,7 @@
  *   · comentarios y «me gusta»: nombres «Laura M.», un nivel de respuestas, cerrados, bloqueada,
  *     borrar (autora o dueña), aviso a la dueña y a la miembro cuando le responde;
  *   · baja de los avisos con el enlace firmado.
- * Crea sus propios productos y personas de Ana y lo borra todo al final.
+ * Crea sus propios productos y personas de Cirella y lo borra todo al final.
  */
 import "./load-env";
 import { prisma } from "../lib/db";
@@ -205,7 +205,7 @@ async function main() {
     check("la baja queda guardada", !!(await prisma.customer.findUniqueOrThrow({ where: { id: ottoCust } })).postEmailsOptOutAt);
 
     // ── Comentarios y «me gusta» ──
-    const c1 = await addComment({ postId: live.postId, userId: laura.id, isOwner: false, body: "Gracias, Ana" });
+    const c1 = await addComment({ postId: live.postId, userId: laura.id, isOwner: false, body: "Gracias, Cirella" });
     const c1row = c1.ok ? await prisma.membershipComment.findUniqueOrThrow({ where: { id: c1.id } }) : null;
     check("comentario visible con el nombre «Laura M.»", c1row?.authorName === "Laura M." && c1row.status === "VISIBLE", c1row);
     check("aviso COMMENT_NEW a la dueña", c1.ok && (await prisma.emailMessage.count({ where: { dedupeKey: `comment:${c1.id}` } })) === 1);
@@ -220,7 +220,7 @@ async function main() {
     await setCommenterBlocked(ana.id, laura.id, true);
     const blocked = await addComment({ postId: live.postId, userId: laura.id, isOwner: false, body: "x" });
     check("bloqueada no puede comentar", !blocked.ok && /No puedes comentar/.test(blocked.error));
-    check("María no puede bloquear a una clienta de Ana", !(await setCommenterBlocked(maria.id, laura.id, false)));
+    check("María no puede bloquear a una clienta de Cirella", !(await setCommenterBlocked(maria.id, laura.id, false)));
     await setCommenterBlocked(ana.id, laura.id, false);
     const ottoUser = await prisma.user.findUniqueOrThrow({ where: { email: email("otto") } });
     check("otra miembro no borra el comentario de Laura", c1.ok && !(await removeComment(c1.id, { userId: ottoUser.id })));
@@ -238,7 +238,7 @@ async function main() {
     // ── Borrar y archivos sueltos ──
     await deleteMemberPost(ana.id, live.postId);
     check("borrar la publicación borra sus archivos del almacenamiento", !(await exists(f2.storageKey!)) && (await prisma.membershipComment.count({ where: { postId: live.postId } })) === 0);
-    check("María no puede borrar una publicación de Ana", sched.ok && (await deleteMemberPost(maria.id, sched.postId)) === null);
+    check("María no puede borrar una publicación de Cirella", sched.ok && (await deleteMemberPost(maria.id, sched.postId)) === null);
     const orphanOld = await putFile("viejo.pdf", club.id, new Date(Date.now() - 25 * H));
     const orphanNew = await putFile("nuevo.pdf");
     await prisma.productFile.update({ where: { id: courseFile.id }, data: { createdAt: new Date(Date.now() - 25 * H) } });

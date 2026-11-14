@@ -3,7 +3,7 @@ import { COMO_TRABAJO, withHomeBlocks } from "./home-blocks";
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * Modo personal · contenido de la página (servidor en modo personal, puerto 3101, web de Ana):
+ * Modo personal · contenido de la página (servidor en modo personal, puerto 3101, web de Cirella):
  *   · «Novedades» con las últimas publicaciones y «Ver todas», la lista y cada publicación con su
  *     SEO (canonical, og:type article) y el texto sin HTML, con enlaces automáticos;
  *   · «Bloques»: la demo no trae ninguno (no sale «Cómo trabajo»); con uno de texto puesto por la
@@ -39,7 +39,7 @@ function trackResponse(page: Page, type: string) {
 
 /** Desde cuándo cuentan los eventos de códigos de esta prueba (se borran al acabar). */
 let trackSince: Date | null = null;
-/** La portada publicada de Ana antes de añadirle el bloque de prueba (afterAll la deja como estaba). */
+/** La portada publicada de Cirella antes de añadirle el bloque de prueba (afterAll la deja como estaba). */
 let publishedBefore: { value: Prisma.JsonValue } | null = null;
 
 /** Publica en la portada el bloque de texto «Cómo trabajo» (la demo no trae bloques). */
@@ -74,7 +74,7 @@ test.describe.serial("Modo personal · contenido", () => {
 
     const codes = page.locator("#codigos");
     await expect(codes.getByRole("heading", { name: "Códigos de descuento" })).toBeVisible();
-    await expect(codes.getByText("ANALUNA15")).toBeVisible();
+    await expect(codes.getByText("CIRELLA15")).toBeVisible();
 
     // La demo no trae bloques: ni la sección ni «Cómo trabajo» salen en la portada.
     await expect(page.locator("#bloques")).toHaveCount(0);
@@ -89,7 +89,7 @@ test.describe.serial("Modo personal · contenido", () => {
     await expect(blocks.getByText(/Cada lectura parte de tu carta natal/)).toBeVisible();
     await expect(blocks.getByText(/te envío la grabación/)).toBeVisible();
     const blockButton = blocks.getByRole("link", { name: /Ver mi agenda/ });
-    await expect(blockButton).toHaveAttribute("href", "https://calendly.com/ana-luna");
+    await expect(blockButton).toHaveAttribute("href", "https://calendly.com/cirella");
     await expect(blockButton).toHaveAttribute("target", "_blank");
     await expect(blockButton).toHaveAttribute("rel", "noopener noreferrer");
 
@@ -104,7 +104,7 @@ test.describe.serial("Modo personal · contenido", () => {
     const external = page.locator("article", { hasText: "Revolución solar" }).first();
     await expect(external.getByText("Pago en calendly.com")).toBeVisible();
     const button = external.getByRole("link", { name: /Reservar en Calendly/ });
-    await expect(button).toHaveAttribute("href", "https://calendly.com/ana-luna/revolucion-solar");
+    await expect(button).toHaveAttribute("href", "https://calendly.com/cirella/revolucion-solar");
     await expect(button).toHaveAttribute("target", "_blank");
     await page.goto("/");
 
@@ -131,10 +131,10 @@ test.describe.serial("Modo personal · contenido", () => {
     await card.scrollIntoViewIfNeeded();
 
     const copied = trackResponse(page, "CODE_COPY");
-    await card.getByRole("button", { name: "Copiar código ANALUNA15" }).click();
+    await card.getByRole("button", { name: "Copiar código CIRELLA15" }).click();
     await expect(card.getByRole("button", { name: /Copiado/ })).toBeVisible();
     await expect(card.getByText("Código copiado.")).toBeVisible();
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("ANALUNA15");
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("CIRELLA15");
     // Copiar no despliega la fila; al desplegarla salen las fotos de lo que recomienda de la marca.
     await expect(card.locator("details")).toHaveJSProperty("open", false);
     await expect(card.locator("[data-code-more]")).toBeHidden();
@@ -177,21 +177,21 @@ test.describe.serial("Modo personal · contenido", () => {
     await page.getByRole("link", { name: /Eclipse de octubre/ }).click();
     await page.waitForURL("**/ana/actualidades/eclipse-de-octubre");
     await expect(page.getByRole("heading", { name: "Eclipse de octubre: qué cierra y qué empieza", level: 1 })).toBeVisible();
-    await expect(page).toHaveTitle(/Eclipse de octubre.*Ana Luna/);
+    await expect(page).toHaveTitle(/Eclipse de octubre.*Cirella/);
     await expect(page.locator('meta[property="og:type"]')).toHaveAttribute("content", "article");
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${PERSONAL}/ana/actualidades/eclipse-de-octubre`);
     await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(1);
     expect(await page.locator("body").innerText()).not.toContain("Powered by");
 
     await page.goto("/ana/actualidades/nuevo-circulo-lunar");
-    await expect(page.locator('a[href="mailto:hola@analuna.es"]')).toBeVisible();
+    await expect(page.locator('a[href="mailto:hola@cirella.app"]')).toBeVisible();
 
     expect((await page.request.get("/ana/actualidades/no-existe")).status()).toBe(404);
     expect((await page.request.get("/maria/actualidades")).status()).toBe(404);
   });
 
   test("panel: una publicación en borrador no se ve; publicada sí; borrada desaparece", async ({ page }) => {
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/publicaciones");
     await expect(page.getByRole("heading", { name: "Publicaciones" })).toBeVisible();
     await expect(page.getByText("Eclipse de octubre: qué cierra y qué empieza")).toBeVisible();
@@ -239,16 +239,16 @@ test.describe.serial("Modo personal · contenido", () => {
   });
 
   test("panel: un código caducado no se ve; sin caducidad sí; borrado desaparece", async ({ page }) => {
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/codigos");
     await expect(page.getByRole("heading", { name: "Códigos de descuento" })).toBeVisible();
     // Las copias y los clics de los últimos 30 días se cuentan en la lista (los de la prueba anterior incluidos).
-    const velas = await prisma.discountCode.findFirstOrThrow({ where: { code: "ANALUNA15" }, select: { id: true } });
+    const velas = await prisma.discountCode.findFirstOrThrow({ where: { code: "CIRELLA15" }, select: { id: true } });
     const month = new Date(Date.now() - 30 * 86_400_000);
     const used = (type: string) => prisma.analyticsEvent.count({ where: { type, productId: velas.id, createdAt: { gte: month } } });
     const [copies, clicks] = [await used("CODE_COPY"), await used("CODE_CLICK")];
     expect(copies).toBeGreaterThan(0);
-    await expect(page.locator("li", { hasText: "ANALUNA15" })).toContainText(
+    await expect(page.locator("li", { hasText: "CIRELLA15" })).toContainText(
       `${copies} ${copies === 1 ? "copia" : "copias"} · ${clicks} ${clicks === 1 ? "clic" : "clics"} en 30 días`,
     );
     await page.getByRole("link", { name: "Nuevo código" }).first().click();
@@ -298,7 +298,7 @@ test.describe.serial("Modo personal · contenido", () => {
   });
 
   test("editor: bloques de texto en la vista previa y las secciones nuevas", async ({ page }) => {
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/pagina");
     await page.getByRole("button", { name: "Secciones", exact: true }).click();
     for (const label of ["Bloques", "Accesos", "Actualidades", "Portal de Noticias", "Ofertas", "Códigos de descuento"]) await expect(page.getByText(label).filter({ visible: true }).first()).toBeVisible();

@@ -17,13 +17,13 @@ export const ACCESS_MODES = ["PAID", "FREE_EMAIL", "EXTERNAL"] as const;
 export type AccessMode = (typeof ACCESS_MODES)[number];
 
 export const ACCESS_MODE_LABEL: Record<AccessMode, string> = {
-  PAID: "Pago en la web",
+  PAID: "Con solicitud",
   FREE_EMAIL: "Gratis con email",
   EXTERNAL: "Pago en otra web",
 };
 
 export const ACCESS_MODE_HINT: Record<AccessMode, string> = {
-  PAID: "Se cobra aquí y el acceso (o la reserva) llega solo al pagar.",
+  PAID: "Se ve el precio y te llega un formulario de solicitud; lo habláis por email y tú confirmas para dar el acceso.",
   FREE_EMAIL: "Nombre y email → acceso al momento y un email con el enlace.",
   EXTERNAL: "El botón lleva a la web donde se paga o se reserva (Hotmart, PayPal, Calendly…).",
 };
@@ -54,10 +54,11 @@ export function hostsContent(type: string): boolean {
  * personal, lo gratuito con email (salvo las sesiones) y lo que se paga fuera y, si la web cobra
  * (`sells`: tiene Stripe y/o PayPal), también el pago en la web, que va primero.
  */
-export function accessModesFor(mode: SiteMode, type: string, sells = false): AccessMode[] {
+export function accessModesFor(mode: SiteMode, type: string, _sells = false): AccessMode[] {
   if (mode !== "personal") return ["PAID"];
   const offSite: AccessMode[] = hostsContent(type) ? ["FREE_EMAIL", "EXTERNAL"] : ["EXTERNAL"];
-  return sells ? ["PAID", ...offSite] : offSite;
+  // La web no cobra: «Con solicitud» (PAID) siempre se puede elegir y va primero.
+  return ["PAID", ...offSite];
 }
 
 /** Modo de un producto nuevo. */

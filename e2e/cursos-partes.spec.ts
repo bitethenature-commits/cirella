@@ -6,7 +6,7 @@ import sharp from "sharp";
 import { m4a, mp4 } from "../scripts/fixtures/iso-media";
 
 /**
- * Lecciones por partes (web personal de Ana en el 3101, tamaño iPhone; regresión en la plataforma, 3100):
+ * Lecciones por partes (web personal de Cirella en el 3101, tamaño iPhone; regresión en la plataforma, 3100):
  *   · la dueña crea una lección (en el estudio de Cursos) con texto con formato, un .mov del iPhone,
  *     un .m4a de Zoom, el PDF de los materiales y una imagen; la reordena, la publica (las nuevas
  *     nacen en borrador) y la guarda (deshabilitado mientras sube);
@@ -79,7 +79,7 @@ test.describe.serial("Lecciones por partes · web personal (iPhone)", () => {
 
   test("la dueña crea una lección con texto, vídeo .mov, audio .m4a, PDF e imagen", async ({ page }) => {
     acceptDialogs(page);
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(`/panel/cursos/${courseId}`);
     const firstModule = page.locator("[data-structure-board] [data-module]").first();
     await firstModule.getByRole("link", { name: "Añadir lección" }).click();
@@ -163,7 +163,7 @@ test.describe.serial("Lecciones por partes · web personal (iPhone)", () => {
 
   test("borrador en este dispositivo: «Recuperar» y «Descartar»", async ({ page }) => {
     acceptDialogs(page);
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     const url = `/panel/cursos/${courseId}/lecciones/${lessonId}`;
     await page.goto(url);
     await page.getByLabel("Título de la lección").fill(`${TITLE} (borrador)`);
@@ -186,7 +186,7 @@ test.describe.serial("Lecciones por partes · web personal (iPhone)", () => {
 
   test("dos pantallas a la vez: la segunda no pisa lo que guardó la primera", async ({ page, context }) => {
     acceptDialogs(page);
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     const url = `/panel/cursos/${courseId}/lecciones/${lessonId}`;
     await page.goto(url);
     const other = await context.newPage();
@@ -270,7 +270,7 @@ test.describe.serial("Lecciones por partes · web personal (iPhone)", () => {
 
   test("borrar un material usado pregunta y lo quita de la lección", async ({ page }) => {
     const seen = acceptDialogs(page);
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(`/panel/productos/${courseId}`);
     const row = page.locator("li", { hasText: `${TAG}-zoom.m4a` });
     await expect(row.getByText("En 1 lección")).toBeVisible();
@@ -322,7 +322,7 @@ test.describe.serial("Lecciones por partes · plataforma", () => {
     expect(await page.locator("article [data-rich]").count()).toBe(0);
     expect(await article.innerText()).not.toContain("**");
 
-    await demoLogin(page, "Ana Luna", PLATFORM);
+    await demoLogin(page, "Cirella", PLATFORM);
     // La ficha del producto resume el programa y lleva al estudio.
     await page.goto(`/panel/productos/${courseId}`);
     await expect(page.locator("#lecciones [data-course-summary]")).toBeVisible();

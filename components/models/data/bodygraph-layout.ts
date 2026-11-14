@@ -353,3 +353,27 @@ export const CHANNEL_PATHS: ChannelPath[] = [
 ]
 
 export const CHANNEL_PATH_BY_KEY = new Map(CHANNEL_PATHS.map((c) => [c.key, c]))
+
+/*
+ * El corredor de integración (puertas 10, 20, 34 y 57): sus seis canales comparten el mismo tronco a la
+ * izquierda del cuerpo. Si se pintaran las medias cintas de cada canal, se taparían unas a otras y quedarían
+ * picos sueltos donde cada una corta. Así que en este corredor:
+ *   · un canal definido se pinta entero (y encima de todo lo demás);
+ *   · una puerta que ya forma parte de un canal definido no pinta medias cintas (ya está en el canal);
+ *   · una puerta colgante pinta solo su rama, una sola vez, hasta el tronco.
+ */
+export const INTEGRATION_GATES = [10, 20, 34, 57] as const
+export const INTEGRATION_KEYS = new Set(['20-57', '10-20', '10-34', '20-34', '10-57', '34-57'])
+export const INTEGRATION_BRANCH: Record<number, string> = {
+  20: CHANNEL_PATH_BY_KEY.get('20-57')!.halfA,
+  10: CHANNEL_PATH_BY_KEY.get('10-57')!.halfA,
+  34: CHANNEL_PATH_BY_KEY.get('34-57')!.halfA,
+  57: 'M 78 533 C 80.67 562.33 92.16 616.32 95 633',
+}
+
+/** Las puertas del corredor que están activas pero sin ningún canal del corredor definido: solo su rama. */
+export function integrationHanging(isActive: (gate: number) => boolean, isDefined: (key: string) => boolean): number[] {
+  const inDefined = new Set<number>()
+  for (const key of INTEGRATION_KEYS) if (isDefined(key)) key.split('-').forEach((g) => inDefined.add(Number(g)))
+  return INTEGRATION_GATES.filter((g) => isActive(g) && !inDefined.has(g))
+}

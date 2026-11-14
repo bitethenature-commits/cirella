@@ -152,7 +152,7 @@ test("attachmentSummary y attachmentSentence", () => {
 
 test("memberPostEmail: escapa todo, lleva la baja y el botón, y solo el extracto", () => {
   const m = memberPostEmail({
-    creatorName: "Ana",
+    creatorName: "Cirella",
     membershipTitle: 'Círculo "Luna"',
     postTitle: "<script>alert(1)</script>",
     excerpt: "Hola <b>x</b>",

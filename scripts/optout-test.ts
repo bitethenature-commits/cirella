@@ -8,7 +8,7 @@
  *     página con el botón; un enlace manipulado no sirve;
  *   · la baja guarda el hash del email, nunca el email, y repetirla actualiza updatedAt sin duplicar;
  *   · si se da de baja entre el cron y el envío, el pedido queda con el motivo «opuesta».
- * Crea pedidos de prueba sobre Ana (seed) y borra todo lo que crea.
+ * Crea pedidos de prueba sobre Cirella (seed) y borra todo lo que crea.
  */
 import "./load-env";
 import { GET, POST } from "../app/baja/recordatorios/un-clic/route";
@@ -54,7 +54,7 @@ async function main() {
   const keep = await newOrder("cabeceras");
   await handleAutomation({ type: "checkout.abandoned", orderId: keep.id });
   const msg = await prisma.emailMessage.findFirst({ where: { to: email("cabeceras"), template: "ABANDONED_CHECKOUT" } });
-  if (automation && !automation.enabled) console.log("· (Ana tiene la recuperación desactivada: no se comprueban las cabeceras del email)");
+  if (automation && !automation.enabled) console.log("· (Cirella tiene la recuperación desactivada: no se comprueban las cabeceras del email)");
   else {
     const stored = msg?.headers as Record<string, string> | null | undefined;
     check("el email de recuperación guarda List-Unsubscribe", !!stored?.["List-Unsubscribe"]?.includes("/baja/recordatorios/un-clic?t="), stored);
@@ -104,7 +104,7 @@ async function main() {
   await handleAutomation({ type: "checkout.abandoned", orderId: out.id });
   const after = await prisma.order.findUniqueOrThrow({ where: { id: out.id } });
   const sent = await prisma.emailMessage.count({ where: { to: email("unclic"), template: "ABANDONED_CHECKOUT" } });
-  if (automation && !automation.enabled) console.log("· (Ana tiene la recuperación desactivada: no se comprueba el motivo «opuesta» del envío)");
+  if (automation && !automation.enabled) console.log("· (Cirella tiene la recuperación desactivada: no se comprueba el motivo «opuesta» del envío)");
   else check("el envío no sale y el pedido queda con motivo «opuesta»", sent === 0 && after.recoverySkipped === "opuesta", { sent, skipped: after.recoverySkipped });
 }
 

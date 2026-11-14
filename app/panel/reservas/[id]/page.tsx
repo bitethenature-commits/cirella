@@ -28,7 +28,7 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
   const { creator } = await requireCreator();
   const b = await tenantDb(creator.id).booking.findFirst({
     where: { id },
-    include: { product: true, customer: true, order: { include: { refunds: { select: { status: true, amountCents: true } }, files: { select: { id: true, sentAt: true } } } } },
+    include: { product: true, customer: true, order: { include: { refunds: { select: { status: true, amountCents: true } } } } },
   });
   if (!b) notFound();
   const tz = creator.timezone;
@@ -45,7 +45,6 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
   const answers = readIntakeAnswers(o?.intake);
   const asks = cfg.birth !== "off" || cfg.questions.length > 0;
   const future = b.status === "CONFIRMED" && !!b.startAt && b.startAt > new Date();
-  const files = o?.files ?? [];
 
   return (
     <div className="max-w-2xl space-y-5 pb-10">
@@ -120,16 +119,6 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
         </section>
       )}
 
-      {o && !b.groupSeat && o.status === "PAID" && (
-        <section className="card flex flex-wrap items-center gap-3 p-5">
-          <Mic className="h-5 w-5 text-muted" />
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold">Grabación</p>
-            <p className="text-sm text-muted">{files.some((f) => f.sentAt) ? `Enviada (${files.filter((f) => f.sentAt).length} archivo${files.filter((f) => f.sentAt).length === 1 ? "" : "s"}).` : "Sube la grabación o un resumen y se lo enviamos."}</p>
-          </div>
-          <Link href={`/panel/ventas/${o.id}#entrega`} className="btn btn-outline h-11">Enviar la grabación</Link>
-        </section>
-      )}
 
       <h2 className="display pt-3 text-[1.6rem]">Cambiar o cancelar</h2>
       {changeable ? (

@@ -87,7 +87,7 @@ const DELIVERY_OPTIONS: { mode: DeliveryMode; label: string; hint: string }[] = 
     label: "Archivos o enlaces · acceso inmediato",
     hint: "Tus clientas los descargan desde su cuenta justo después de pagar. Súbelos en «Archivos que se entregan», más abajo.",
   },
-  { mode: "PERSONAL", label: "Lo preparo yo para cada clienta", hint: "Para lecturas e informes personalizados: tú se lo envías después." },
+  { mode: "PERSONAL", label: "Lo preparo yo para cada clienta", hint: "Para lecturas e informes personalizados: se lo envías tú por email (la web no guarda el material)." },
 ];
 
 const EMOJIS = ["🌙", "✨", "🔮", "🧬", "🔑", "💫", "🌿", "🧘", "🪷", "📖", "🎧", "☀️", "🌸", "🕯️"];
@@ -301,11 +301,7 @@ export function ProductForm({
             <div>
               <label className="field-label">Precio final (€){isMembership ? " por periodo" : ""}</label>
               <input name="price" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d,.]/g, ""))} inputMode="decimal" className="input text-lg font-semibold" placeholder="49" />
-              {cents >= 100 && !hiddenPaid && (
-                <p className="field-hint">
-                  Recibes {formatMoney(estimate.netCents, "EUR", { decimals: true })} por venta (comisión {(commissionBps / 100).toLocaleString("es-ES")} %).
-                </p>
-              )}
+              <p className="field-hint">Se ve en tu página. La clienta te envía una solicitud y el pago lo acordáis por email.</p>
             </div>
             {isMembership && (
               <label className="flex items-start gap-2.5 rounded-2xl border border-line bg-paper p-3 text-sm sm:col-span-2">
@@ -319,7 +315,7 @@ export function ProductForm({
             )}
             {isMembership && (
               <div>
-                <label className="field-label">Cobro</label>
+                <label className="field-label">Periodo</label>
                 <select name="billingInterval" defaultValue={product.billingInterval ?? "month"} className="input">
                   <option value="month">Mensual</option>
                   <option value="year">Anual</option>
@@ -493,20 +489,10 @@ export function ProductForm({
         <section id={isDigital ? "entrega" : undefined} className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
           <h3 className="font-semibold">{isDigital ? "Entrega" : free ? "Después de apuntarse" : "Después de la compra"}</h3>
           {isDigital ? (
-            <div className="grid gap-2.5 sm:grid-cols-2" role="radiogroup" aria-label="Cómo se entrega">
-              {DELIVERY_OPTIONS.map((o) => (
-                <label
-                  key={o.mode}
-                  className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm transition ${mode === o.mode ? "border-ink bg-white ring-1 ring-ink" : "border-line bg-white hover:border-ink/30"}`}
-                >
-                  <input type="radio" name="deliveryMode" value={o.mode} checked={mode === o.mode} onChange={() => setMode(o.mode)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0E1024]" />
-                  <span>
-                    <span className="block font-semibold">{o.label}</span>
-                    <span className="mt-1 block text-xs text-muted">{o.hint}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
+            <>
+              <input type="hidden" name="deliveryMode" value="PERSONAL" />
+              <p className="rounded-2xl bg-sand px-4 py-3 text-sm text-muted">Las lecturas se las envías tú por email: la web no guarda archivos. Aquí solo cuentas qué recibirá y cuándo.</p>
+            </>
           ) : (
             <input type="hidden" name="deliveryMode" value="AUTOMATIC" />
           )}

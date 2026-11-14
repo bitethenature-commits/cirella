@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { RichContent } from "@/components/rich-text/rich-content";
-import { BUILTIN_ORACLE_DECK, ORACLE_SPREADS, type OracleCardView, type OracleDeckView, type OracleMotif, type OracleSpreadId } from "./data/oracle";
+import { BUILTIN_ORACLE_DECK, cardFrameStyle, ORACLE_SPREADS, type OracleCardView, type OracleDeckView, type OracleMotif, type OracleSpreadId } from "./data/oracle";
 import { GOLD, INK, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelRow, ToolButton, cn, drawDistinct, polar, randomInt, usePrefersReducedMotion } from "./model-kit";
 
 /**
@@ -116,7 +116,7 @@ export function OracleModel({ deck }: { deck?: OracleDeckView | null }) {
             className={cn("absolute inset-0", moving && (i % 2 ? "cp-shuffle-l" : "cp-shuffle-r"), cut && "cp-cut")}
             style={{ left: i * 1.5, top: -i * 1.5, zIndex: i, ["--d" as string]: moving ? `${(i % 3) * 70}ms` : "0ms" } as CSSProperties}
           >
-            <CardBack src={d.backImageUrl} />
+            <CardBack src={d.backImageUrl ?? d.cards[0]?.backImageUrl} frame={d.backImageUrl ? d.backFrame : d.cards[0]?.backFrame} />
           </div>
         );
       })}
@@ -144,7 +144,7 @@ export function OracleModel({ deck }: { deck?: OracleDeckView | null }) {
             >
               <span className="cp-flip-inner" aria-hidden>
                 <span className="cp-flip-face">
-                  <CardBack src={d.backImageUrl} />
+                  <CardBack src={card.backImageUrl ?? d.backImageUrl} frame={card.backImageUrl ? card.backFrame : d.backFrame} />
                 </span>
                 <span className="cp-flip-face cp-flip-front">
                   <CardFront card={card} reversed={cast.reversed} selected={on} small={!single} />
@@ -235,12 +235,12 @@ export function OracleModel({ deck }: { deck?: OracleDeckView | null }) {
 }
 
 /** Reverso común: la imagen de la baraja o, sin ella, marco doble, luna creciente y un cielo de puntos. */
-function CardBack({ src }: { src?: string | null }) {
+function CardBack({ src, frame }: { src?: string | null; frame?: string | null }) {
   if (src)
     return (
       <span className="relative block h-full w-full overflow-hidden rounded-[0.6rem] border" style={{ borderColor: CARD_EDGE, background: CARD_BACK, filter: "drop-shadow(0 6px 8px rgb(0 0 0 / .16))" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" decoding="async" draggable={false} />
+        <img src={src} alt="" className="absolute inset-0 h-full w-full" style={cardFrameStyle(frame)} decoding="async" draggable={false} />
       </span>
     );
   return (
@@ -280,7 +280,7 @@ function CardFront({ card, reversed, selected, small }: { card: OracleCardView; 
     return (
       <span className="relative block h-full w-full overflow-hidden rounded-[0.6rem] border transition-shadow duration-300" style={frame}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={card.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" style={turn} decoding="async" draggable={false} />
+        <img src={card.imageUrl} alt="" className="absolute inset-0 h-full w-full" style={cardFrameStyle(card.imageFrame, reversed)} decoding="async" draggable={false} />
       </span>
     );
   return (

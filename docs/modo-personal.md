@@ -70,7 +70,7 @@ de unos 200 MB son unos 100 GB, alrededor de 1,5 $ al mes.
    cuantos valores (direcciones, claves); apúntalos ahí con su nombre en MAYÚSCULAS tal y como
    aparecen en esta guía. **No los compartas ni los pegues en ningún sitio público.**
 2. Decide tu **usuario**: una palabra en minúsculas, sin espacios ni acentos (por ejemplo
-   `analuna`). Es interno: tus productos estarán en `tudominio.com/analuna/nombre-del-producto`.
+   `cirella`). Es interno: tus productos estarán en `tudominio.com/cirella/nombre-del-producto`.
    En esta guía lo llamamos `OWNER_USERNAME`.
 3. Ten a mano tu **dominio**. Si aún no tienes, cómpralo en cualquier proveedor de dominios.
 4. Crea una cuenta en **GitHub** (github.com) si no tienes. La persona que tiene el código de
@@ -160,7 +160,7 @@ En el paso 9 crearás un segundo bucket, solo para las copias de seguridad.
 4. **API Keys → Create API Key** (permiso *Sending access*). Apunta la clave como
    **`RESEND_API_KEY`** (empieza por `re_`).
 5. Decide el remitente de tus emails y apúntalo como **`EMAIL_FROM`**, con tu nombre y una
-   dirección de tu dominio, así: `Ana Luna <hola@tudominio.com>`.
+   dirección de tu dominio, así: `Cirella <hola@tudominio.com>`.
 
 **Comprobación:** el dominio aparece como **Verified** en Resend.
 
@@ -216,16 +216,16 @@ se conecta el código.
    nombre a `web`.
 2. Abre su pestaña **Variables**, pulsa **Raw Editor** (para pegarlas todas de una vez) y pega
    este bloque. Antes, cambia cada `PEGA_AQUI_…` por el valor que apuntaste con ese nombre, y
-   `tudominio.com`, `analuna`, `tu@email.com`, `Ana Luna` y `mi-web-archivos` por los tuyos. Deja las comillas
+   `tudominio.com`, `cirella`, `tu@email.com`, `Cirella` y `mi-web-archivos` por los tuyos. Deja las comillas
    y no toques las líneas de `DATABASE_URL` y `DIRECT_URL`. Después, guarda.
 
    ```bash
    APP_ENV="production"
    APP_URL="https://tudominio.com"
    SITE_MODE="personal"
-   OWNER_USERNAME="analuna"
+   OWNER_USERNAME="cirella"
    OWNER_EMAIL="tu@email.com"
-   OWNER_NAME="Ana Luna"
+   OWNER_NAME="Cirella"
    PAYMENT_PROVIDER="none"
    DEMO_MODE="false"
    DATABASE_URL="${{Postgres.DATABASE_URL}}"
@@ -234,7 +234,7 @@ se conecta el código.
    CRON_SECRET="PEGA_AQUI_TU_CRON_SECRET"
    EMAIL_PROVIDER="resend"
    RESEND_API_KEY="PEGA_AQUI_TU_RESEND_API_KEY"
-   EMAIL_FROM="Ana Luna <hola@tudominio.com>"
+   EMAIL_FROM="Cirella <hola@tudominio.com>"
    STORAGE_DRIVER="s3"
    S3_ENDPOINT="PEGA_AQUI_TU_S3_ENDPOINT"
    S3_BUCKET="mi-web-archivos"
@@ -250,7 +250,7 @@ se conecta el código.
    | `APP_ENV` | `production` |
    | `APP_URL` | `https://tudominio.com`: tu dominio de verdad, sin barra al final |
    | `SITE_MODE` | `personal` |
-   | `OWNER_USERNAME` | tu usuario (paso «Antes de empezar»), p. ej. `analuna` |
+   | `OWNER_USERNAME` | tu usuario (paso «Antes de empezar»), p. ej. `cirella` |
    | `OWNER_EMAIL` | tu email: con él entrarás en tu panel (paso 7) |
    | `OWNER_NAME` | tu nombre, el que se verá en tu página (lo puedes cambiar después) |
    | `PAYMENT_PROVIDER` | `none` (sin cobros en la web; cuando tengas Stripe y PayPal, `stripe,paypal`: ver [cobros-stripe-paypal.md](cobros-stripe-paypal.md)) |
@@ -261,7 +261,7 @@ se conecta el código.
    | `CRON_SECRET` | la segunda clave del paso 3 |
    | `EMAIL_PROVIDER` | `resend` |
    | `RESEND_API_KEY` | la de Resend (paso 2) |
-   | `EMAIL_FROM` | p. ej. `Ana Luna <hola@tudominio.com>` |
+   | `EMAIL_FROM` | p. ej. `Cirella <hola@tudominio.com>` |
    | `STORAGE_DRIVER` | `s3` |
    | `S3_ENDPOINT` | la de R2 con `.eu.` (paso 1) |
    | `S3_BUCKET` | el nombre del bucket (paso 1) |
@@ -417,7 +417,7 @@ entrar por email.
    DATABASE_URL="la DATABASE_PUBLIC_URL de Railway"
    DIRECT_URL="la DATABASE_PUBLIC_URL de Railway (otra vez la misma)"
    SITE_MODE="personal"
-   OWNER_USERNAME="analuna"
+   OWNER_USERNAME="cirella"
    APP_URL="https://tudominio.com"
    ```
 
@@ -823,12 +823,12 @@ en united-domains → **Portfolio** (tus dominios) → tu dominio → **DNS** (o
   **Verified**, ya está.
 
 **Respuestas a tu buzón**: los emails salen desde la dirección de `EMAIL_FROM` (por ejemplo
-`Ana Luna <hola@tudominio.com>`) y llevan como *Responder a* tu **email de contacto**
+`Cirella <hola@tudominio.com>`) y llevan como *Responder a* tu **email de contacto**
 (Ajustes). Pon ahí tu buzón de united-domains y las respuestas a cualquier newsletter o email
 automático te llegarán a él.
 
 **Remitente propio para la newsletter (opcional)**: añade en Railway la variable
-`NEWSLETTER_FROM`, por ejemplo `Ana Luna <newsletter@tudominio.com>`, y la newsletter saldrá desde
+`NEWSLETTER_FROM`, por ejemplo `Cirella <newsletter@tudominio.com>`, y la newsletter saldrá desde
 ahí (los emails de acceso y recibos siguen saliendo desde `EMAIL_FROM`). Con el plan gratuito de
 Resend usa una dirección del **mismo dominio** (solo admite un dominio); con Resend Pro puedes
 verificar un subdominio aparte (`news.tudominio.com`, con sus propios registros) para que una
@@ -918,7 +918,7 @@ no se pueden ocultar). En el móvil, **las 4 primeras van a la barra de abajo** 
 
 ## Probarlo antes en tu ordenador (opcional)
 
-Con los datos de demostración (la página de ejemplo de Ana Luna) y Postgres en local (ver el
+Con los datos de demostración (la página de ejemplo de Cirella) y Postgres en local (ver el
 README, «Puesta en marcha»), añade a tu `.env`:
 
 ```bash
@@ -927,8 +927,8 @@ OWNER_USERNAME="ana"
 PAYMENT_PROVIDER="none"
 ```
 
-y arranca con `npm run setup && npm run dev`. En `http://localhost:3000` verás la página de Ana
-como portada; entra en `/entrar` con «Ana Luna» (acceso de demostración).
+y arranca con `npm run setup && npm run dev`. En `http://localhost:3000` verás la página de Cirella
+como portada; entra en `/entrar` con «Cirella» (acceso de demostración).
 
 ---
 

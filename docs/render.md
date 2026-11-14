@@ -17,7 +17,7 @@ Render las genera solo.
 
    | Variable | Qué poner |
    |---|---|
-   | `OWNER_USERNAME` | tu usuario, en minúsculas y sin espacios (p. ej. `analuna`) |
+   | `OWNER_USERNAME` | tu usuario, en minúsculas y sin espacios (p. ej. `cirella`) |
    | `OWNER_EMAIL` | tu email: con él entrarás en tu panel |
    | `OWNER_NAME` | tu nombre, el que se verá en tu página |
    | `RESEND_API_KEY` | la clave de Resend (empieza por `re_`) |

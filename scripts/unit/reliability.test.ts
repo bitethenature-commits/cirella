@@ -40,7 +40,7 @@ test("renewalKey usa la fecha ISO del periodo", () =>
 test("planFeeKey usa la fecha ISO de la renovación", () => eq(planFeeKey("c1", t0), `plan:c1:${t0.toISOString()}`));
 
 // ── Remitente ──
-test("formatFrom limpia comillas, <>, CR y LF", () => eq(formatFrom('Ana "Luna" <x>\r\n', "hola@cirella.app"), '"Ana Luna x" <hola@cirella.app>'));
+test("formatFrom limpia comillas, <>, CR y LF", () => eq(formatFrom('Cirella "Luna" <x>\r\n', "hola@cirella.app"), '"Cirella x" <hola@cirella.app>'));
 test("formatFrom recorta a 60 caracteres", () => eq(formatFrom("a".repeat(80), "h@c.app"), `"${"a".repeat(60)}" <h@c.app>`));
 test("formatFrom sin nombre usa Cirella", () => eq(formatFrom(" <> ", "h@c.app"), '"Cirella" <h@c.app>'));
 test("parseFromAddress con nombre", () => eq(parseFromAddress("Cirella <hola@cirella.app>"), { name: "Cirella", address: "hola@cirella.app" }));
@@ -71,7 +71,7 @@ test("buildResendRequest: Idempotency-Key, Bearer y destinatarios en array", () 
   ok(!("reply_to" in body), "sin replyTo no hay reply_to");
 });
 test("buildResendRequest: nombre de la creadora y reply_to", () => {
-  const body = JSON.parse(buildResendRequest({ ...msg, fromName: "Ana Luna", replyTo: "ana@luna.es" }, cfg).init.body);
-  eq(body.from, '"Ana Luna" <hola@cirella.app>');
+  const body = JSON.parse(buildResendRequest({ ...msg, fromName: "Cirella", replyTo: "ana@luna.es" }, cfg).init.body);
+  eq(body.from, '"Cirella" <hola@cirella.app>');
   eq(body.reply_to, "ana@luna.es");
 });

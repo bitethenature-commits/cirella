@@ -32,7 +32,7 @@ type PreviewProduct = {
  */
 export async function productPreviewContext(creator: Creator & { plan: Plan }, product: PreviewProduct, type: ProductType): Promise<ProductPreviewContext> {
   const personal = isPersonalMode() && ownerUsername() === creator.username;
-  const signupsOnly = personal && !hasPaymentProvider();
+  const signupsOnly = false;
   const config = readPageConfig(creator.pagePublished ?? creator.pageDraft, creator.displayName);
   const [settings, pages, taken, posts] = await Promise.all([
     getSettings(),
@@ -57,7 +57,7 @@ export async function productPreviewContext(creator: Creator & { plan: Plan }, p
     pages: pages.map((p) => ({ href: sitePagePath(creator.username, p.slug, personal), title: p.publishedTitle || p.title })),
     sectionTitle: sectionTitle(config, SECTION_OF[type]),
     offersTitle: sectionTitle(config, "offers"),
-    testimonial: config.testimonials[0] ? { quote: config.testimonials[0].quote, author: config.testimonials[0].author } : null,
+    testimonials: config.testimonials,
     seller: { line: s.line, name: s.name, named: !!creator.legalName },
     seatsTaken: taken,
     claim: {

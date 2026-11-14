@@ -10,8 +10,6 @@ import { courseFileOpenFor } from "@/lib/course-access";
 import { creatorBrief } from "@/lib/customer";
 import { accessSource } from "@/lib/membership-access";
 import { prisma } from "@/lib/db";
-import { checkOrderFileAccess } from "@/lib/order-file-access";
-import { findOrderFile } from "@/lib/order-files";
 import { CreatorTag } from "../../ui";
 
 export const metadata: Metadata = { title: "Ver archivo", robots: { index: false, follow: false } };
@@ -32,7 +30,7 @@ export default async function FileViewer({ params, searchParams }: { params: Pro
   const { fileId } = await params;
   const volver = backParam((await searchParams).volver);
   const file = await prisma.productFile.findUnique({ where: { id: fileId }, include: { product: { include: { creator: true } }, post: { select: { status: true, publishedAt: true } } } });
-  if (!file) return <OrderFileViewer fileId={fileId} volver={volver} />;
+  if (!file) notFound();
   if (file.kind === "LINK" || !file.storageKey) notFound();
   const path = `/cuenta/archivos/${file.id}`;
   const { user, isOwner, scoped } = await requireBuyerFor({ productId: file.productId }, path);
@@ -77,49 +75,6 @@ export default async function FileViewer({ params, searchParams }: { params: Pro
       </div>
       <div className="mt-6 flex justify-center">
         <a href={`/api/download/${file.id}`} className="btn btn-outline btn-sm">
-          <Download className="h-4 w-4" /> Descargar
-        </a>
-      </div>
-    </div>
-  );
-}
-
-/** Entrega de un pedido (la lectura preparada o la grabación de su sesión): solo su clienta y la dueña. */
-async function OrderFileViewer({ fileId, volver }: { fileId: string; volver: string | null }) {
-  const f = await findOrderFile(fileId);
-  if (!f || f.kind === "LINK" || !f.storageKey) notFound();
-  const path = `/cuenta/archivos/${f.id}`;
-  const s = await getSession();
-  // La dueña lo ve desde el panel; la clienta, con su sesión de cuenta o la de este pedido.
-  const owner = !!s && !s.order && s.user.creator?.id === f.creatorId;
-  if (!owner) await requireBuyerFor({ orderId: f.orderId }, path);
-  const access = await checkOrderFileAccess(f);
-  const creator = creatorBrief(await prisma.creator.findUniqueOrThrow({ where: { id: f.creatorId } }));
-  const back = owner ? { href: `/panel/ventas/${f.orderId}#entrega`, label: "Volver al panel" } : { href: volver ?? `/cuenta/pedidos/${f.orderId}`, label: "Volver a tu lectura" };
-  const header = (
-    <>
-      <Link href={back.href} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-gold" data-back>
-        <ArrowLeft className="h-4 w-4" /> {back.label}
-      </Link>
-      <ViewerTitle eyebrow={f.order.productTitle} title={nice(f.name)} creator={creator} />
-    </>
-  );
-  if (!access.ok)
-    return (
-      <div>
-        {header}
-        <div className="card mt-6 p-6 text-sm text-muted">Ya no tienes acceso a este contenido.</div>
-      </div>
-    );
-  const dark = f.kind === "VIDEO" || f.kind === "AUDIO";
-  return (
-    <div>
-      {header}
-      <div className={`mt-8 overflow-hidden rounded-[1.75rem] ring-1 ring-gold/30 ${dark ? "py-6" : "p-2 sm:p-3"}`} style={{ background: "radial-gradient(circle at 20% 0%, #2a2552 0%, #17153a 55%, #100e26 100%)" }} data-viewer>
-        <MediaView file={f} title={`${f.name} · ${f.order.productTitle}`} />
-      </div>
-      <div className="mt-6 flex justify-center">
-        <a href={`/api/download/${f.id}`} className="btn btn-outline btn-sm">
           <Download className="h-4 w-4" /> Descargar
         </a>
       </div>

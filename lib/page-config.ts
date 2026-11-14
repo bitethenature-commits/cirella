@@ -39,22 +39,22 @@ export type SectionKey = (typeof SECTION_KEYS)[number];
 export const SECTION_META: Record<SectionKey, { label: string; defaultTitle: string; hint: string }> = {
   links: { label: "Botones principales", defaultTitle: "", hint: "Enlaces destacados bajo tu presentación" },
   bubbles: { label: "Accesos", defaultTitle: "", hint: "Burbujas redondas con foto: Sobre mí, Cursos, Comunidad…" },
-  posts: { label: "Actualidades", defaultTitle: "Actualidades", hint: "Tus 2 últimas publicaciones" },
-  portal: { label: "Portal de Noticias", defaultTitle: "Portal de Noticias", hint: "Gratis para tus suscriptoras con cuenta" },
-  offers: { label: "Ofertas", defaultTitle: "Ofertas", hint: "Los productos en oferta (se oculta si no hay)" },
+  posts: { label: "Actualidades", defaultTitle: "Actualidades", hint: "Se llena sola con lo nuevo del último mes (cursos, lecturas, sesiones, membresías, códigos y el círculo de la luna): salen 3 y el resto en su página" },
+  portal: { label: "Portal de Noticias", defaultTitle: "Portal de Noticias", hint: "Para quien se suscribe a tu newsletter: el audio de arriba y 1 noticia, con «Ver más noticias»" },
+  offers: { label: "Ofertas", defaultTitle: "Ofertas", hint: "1 oferta y «Ver más ofertas»; cuando una oferta termina, desaparece sola" },
   about: { label: "Sobre mí", defaultTitle: "", hint: "Tarjeta con tu foto que lleva a tu página «Sobre mí»" },
   systems: { label: "Sistemas", defaultTitle: "Sistemas con los que trabajo", hint: "Tarjetas que llevan a la página de cada método" },
-  readings: { label: "Lecturas, sesiones y círculos", defaultTitle: "Lecturas, sesiones y círculos", hint: "Cómo se reserva y los próximos círculos de la luna" },
+  readings: { label: "Lecturas, sesiones y círculos", defaultTitle: "Lecturas, sesiones y círculos", hint: "Cómo se reserva cada cosa y los círculos de la próxima luna nueva y la próxima llena" },
   blocks: { label: "Bloques", defaultTitle: "", hint: "Textos, imágenes, galerías y vídeos" },
   products: { label: "Productos digitales", defaultTitle: "Lecturas y recursos", hint: "PDF, audios, guías…" },
-  sessions: { label: "Sesiones y servicios", defaultTitle: "Sesiones", hint: "Reservas 1:1" },
-  courses: { label: "Cursos", defaultTitle: "Cursos", hint: "Tus programas (con página propia si hay más de uno)" },
+  sessions: { label: "Sesiones y servicios", defaultTitle: "Sesiones", hint: "Reservas 1:1 y talleres" },
+  courses: { label: "Cursos", defaultTitle: "Cursos", hint: "Hasta 3 cursos; si hay más, «Ver todos los cursos» los agrupa por método" },
   memberships: { label: "Comunidad", defaultTitle: "Comunidad", hint: "Tus membresías" },
   codes: { label: "Códigos de descuento", defaultTitle: "Códigos de descuento", hint: "Descuentos en marcas que recomiendas" },
-  testimonials: { label: "Testimonios", defaultTitle: "Lo que dicen", hint: "Opiniones de clientas" },
+  testimonials: { label: "Testimonios", defaultTitle: "Voces del camino", hint: "Opiniones de clientas, que van pasando una a una" },
   faq: { label: "Preguntas frecuentes", defaultTitle: "Preguntas frecuentes", hint: "Resuelve dudas antes de comprar" },
-  newsletter: { label: "Newsletter", defaultTitle: "Recibe mi newsletter", hint: "Formulario para apuntarse (con confirmación por email)" },
-  contact: { label: "Contacto", defaultTitle: "Hablemos", hint: "Email, WhatsApp…" },
+  newsletter: { label: "Newsletter", defaultTitle: "Recibe mi newsletter", hint: "Ya no se usa: el formulario sale debajo de «Hablemos» y en el pie" },
+  contact: { label: "Contacto", defaultTitle: "Hablemos", hint: "Tu email y, debajo, el formulario de la newsletter" },
 };
 
 /**
@@ -71,10 +71,38 @@ export const NEWSLETTER_FORM_DEFAULTS = {
 
 /** Secciones que se gestionan fuera del editor (tienen su propia pantalla en el panel). */
 export const SECTION_MANAGE_HREF: Partial<Record<SectionKey, { href: string; label: string }>> = {
-  posts: { href: "/panel/publicaciones", label: "Actualidades" },
   portal: { href: "/panel/portal", label: "Portal de Noticias" },
   offers: { href: "/panel/productos", label: "Productos (cada uno con su oferta)" },
   codes: { href: "/panel/codigos", label: "Códigos" },
+  readings: { href: "/panel/productos", label: "Lecturas, sesiones y círculos" },
+  products: { href: "/panel/productos", label: "Productos" },
+  sessions: { href: "/panel/productos", label: "Productos" },
+  courses: { href: "/panel/cursos", label: "Cursos" },
+  memberships: { href: "/panel/comunidad", label: "Comunidad" },
+};
+
+/** Secciones con página propia en la web («Ver página» en el editor). */
+export const SECTION_VIEW_PAGE: Partial<Record<SectionKey, "actualidades" | "portal" | "ofertas" | "comunidad" | "cursos" | "lecturas" | "uno-a-uno">> = {
+  posts: "actualidades",
+  portal: "portal",
+  offers: "ofertas",
+  memberships: "comunidad",
+  courses: "cursos",
+  readings: "lecturas",
+  sessions: "uno-a-uno",
+};
+
+/** Lo que se edita en otra pestaña del editor de «Mi página». */
+export const SECTION_EDIT_TAB: Partial<Record<SectionKey, "portada" | "bloques" | "enlaces" | "contenido">> = {
+  bubbles: "portada",
+  about: "portada",
+  systems: "portada",
+  readings: "portada",
+  blocks: "bloques",
+  links: "enlaces",
+  contact: "enlaces",
+  testimonials: "contenido",
+  faq: "contenido",
 };
 
 /** Burbujas de «Accesos»: de 1 a 4, en una fila (también en el móvil). */
@@ -89,12 +117,12 @@ export const READINGS_DEFAULTS = {
   reading: {
     eyebrow: "Lectura",
     title: "Te la preparo yo",
-    text: "Me das tus datos y la recibes grabada o en PDF.",
+    text: "Me das tus datos y te la envío por email, grabada o en PDF.",
     steps: [
       "Elige la lectura que te llama.",
-      "Págala aquí mismo, con tarjeta o PayPal.",
-      "Escribe tu fecha, hora y lugar de nacimiento.",
-      "Te la preparo con calma y te llega a tu área: grabada o en PDF.",
+      "Escríbeme desde su ficha: tu mensaje me llega a mí.",
+      "Te respondo por email, me das tus datos y cerramos el pago.",
+      "Te la preparo con calma y te la envío por email.",
     ],
   },
   session: {
@@ -103,9 +131,9 @@ export const READINGS_DEFAULTS = {
     text: "Eliges día y hora y hablamos de tu carta.",
     steps: [
       "Elige la sesión.",
-      "Escoge el día y la hora que te vayan bien.",
-      "Paga y recibe la confirmación con el enlace de Zoom.",
-      "Nos vemos en directo: te quedas con la grabación.",
+      "Escríbeme y elige el día y la hora que te vayan bien.",
+      "Te respondo por email, cerramos el pago y te envío el enlace de Zoom.",
+      "Nos vemos en directo por Zoom.",
     ],
   },
   circlesTitle: "Círculos de la luna · sin ser miembro",

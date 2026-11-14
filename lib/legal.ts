@@ -140,7 +140,7 @@ export function taxIdLabel(entityType: string | undefined) {
   return entityType === "COMPANY" ? "CIF" : "NIF";
 }
 
-/** «Ana Luna Pérez · NIF 12345678Z» */
+/** «Cirella · NIF 12345678Z» */
 export function sellerLine(c: Partial<LegalIdentity>): string {
   return `${c.legalName ?? ""} · ${taxIdLabel(c.legalEntityType)} ${c.legalTaxId ?? ""}`.trim();
 }
@@ -148,7 +148,7 @@ export function sellerLine(c: Partial<LegalIdentity>): string {
 /**
  * Quién vende (siempre la creadora), dicho igual en la ficha del producto, el checkout, el pie de las
  * páginas de compra y «Tu compra».
- *   · name: corto, para el pie («Ana Luna Pérez»).
+ *   · name: corto, para el pie («Cirella»).
  *   · line: con su NIF (LSSI art. 10), para la ficha, el checkout y el recibo.
  */
 export function sellerStatement(creator: Partial<LegalIdentity> & { displayName: string }): { name: string; line: string } {

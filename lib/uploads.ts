@@ -18,17 +18,16 @@ import { PAGE_VIDEO_MAX, pageVideoUrl, type PageVideo } from "./page-blocks";
 import { probeStoredFile, type MediaInfo } from "./media-probe";
 import { isPersonalMode } from "./site-mode";
 import { IMAGE_TYPES, PRIVATE_TYPES, privateFileType, signToken, storage, storageSecret, verifyToken } from "./storage";
-import { deliverableOrder } from "./deliverable";
 import { tenantDb } from "./tenant";
 
 /**
- * image: imagen pública · file: archivo de un producto · delivery: entrega de un pedido (lib/order-files.ts)
+ * image: imagen pública · file: archivo de un producto
  * · video: vídeo público de la página (bloque «Vídeo»; solo la web personal). Con `audio: true`, también
  * un audio público (el de una publicación de «Actualidades»).
  * · portal: archivo privado de un elemento del «Portal de Noticias» (vídeo, audio o foto): solo lo
  * abre quien lo tiene desbloqueado (app/api/portal/…).
  */
-export type UploadPurpose = "image" | "file" | "delivery" | "video" | "portal";
+export type UploadPurpose = "image" | "file" | "video" | "portal";
 
 /** Límites de la plataforma (alias de uploadPolicy(false)); la web personal admite vídeos de 4 GB. */
 export const UPLOAD_LIMITS = { image: uploadPolicy(false).imageMax, file: uploadPolicy(false).fileMax } as const;
@@ -49,14 +48,8 @@ type PortalTicket = { p: "portal-media"; c: string; k: string; kind: "VIDEO" | "
 const PORTAL_MEDIA_TTL_SEC = 24 * 3600;
 
 /** Carpeta del almacenamiento de cada tipo de subida (el billete solo vale bajo la de su creadora). */
-const PREFIX: Record<UploadPurpose, string> = { image: "incoming", file: "private", delivery: "private", video: "public/video", portal: "private" };
+const PREFIX: Record<UploadPurpose, string> = { image: "incoming", file: "private", video: "public/video", portal: "private" };
 
-/** Pedido al que se puede entregar algo (de esta creadora: tenantDb). */
-async function deliverable(creatorId: string, orderId: string | undefined) {
-  if (!orderId) return null;
-  const o = await tenantDb(creatorId).order.findFirst({ where: { id: orderId }, include: { product: { select: { deliveryMode: true, groupSession: true } } } });
-  return o && deliverableOrder(o) ? o : null;
-}
 
 /** La URL firmada de subida vale 15 minutos; el billete, 1 hora (subidas lentas de archivos grandes). */
 const PUT_TTL_SEC = 900;
@@ -118,9 +111,7 @@ export async function createUpload(
           : "El archivo supera 1 GB",
       );
     if (type.kind !== "VIDEO" && size > policy.fileMax) throw new UploadError("El archivo supera 1 GB");
-    if (purpose === "delivery") {
-      if (!(await deliverable(creatorId, input.orderId))) throw new UploadError("Pedido no encontrado");
-    } else if (!input.productId || !(await tenantDb(creatorId).product.findFirst({ where: { id: input.productId }, select: { id: true } })))
+    if (!input.productId || !(await tenantDb(creatorId).product.findFirst({ where: { id: input.productId }, select: { id: true } })))
       throw new UploadError("Producto no encontrado");
     key = `private/${creatorId}/${randomBytes(12).toString("hex")}.${type.ext}`;
     contentType = canonical;
@@ -131,7 +122,6 @@ export async function createUpload(
     c: creatorId,
     p: purpose,
     pid: purpose === "file" ? input.productId : undefined,
-    oid: purpose === "delivery" ? input.orderId : undefined,
     n: input.name.slice(0, 120),
     ct: contentType,
     s: size,
@@ -203,14 +193,12 @@ export async function abortUpload(creatorId: string, ticket: string): Promise<vo
   if (t.u) await s.abortMultipart(t.k, t.u).catch(() => {});
   // Si ya se registró (se canceló tarde), no se borra un archivo que ya está en el producto.
   if (t.p === "file" && (await tenantDb(creatorId).productFile.findFirst({ where: { storageKey: t.k.slice("private/".length) }, select: { id: true } }))) return;
-  if (t.p === "delivery" && (await tenantDb(creatorId).orderFile.findFirst({ where: { storageKey: t.k.slice("private/".length) }, select: { id: true } }))) return;
   if (t.p === "portal" && (await tenantDb(creatorId).portalItem.findFirst({ where: { media: { array_contains: [{ key: t.k.slice("private/".length) }] } }, select: { id: true } }))) return;
   await s.delete([t.k]).catch(() => {});
 }
 
 export async function completeUpload(creatorId: string, ticket: string): Promise<CompletedUpload> {
   const t = readTicket(creatorId, ticket);
-  if (t.p === "delivery") return completeDelivery(creatorId, t);
   if (t.p === "video") return completeVideo(t);
   if (t.p === "portal") return completePortal(t);
 
@@ -361,48 +349,3 @@ export function readPortalMediaToken(creatorId: string, token: string): { key: s
   return { key: t.k, kind: t.kind, mime: t.mime, name: t.name, sizeBytes: t.size, width: t.w ?? null, height: t.h ?? null, durationSec: t.d ?? null };
 }
 
-/** Paso 2 de una entrega: el archivo queda en el pedido como borrador (la clienta no lo ve hasta enviarlo). */
-async function completeDelivery(creatorId: string, t: Ticket): Promise<CompletedUpload> {
-  const s = storage();
-  const db = tenantDb(creatorId);
-  const orderId = t.oid ?? "";
-  const storageKey = t.k.slice("private/".length);
-  const done = await db.orderFile.findFirst({ where: { orderId, storageKey } });
-  if (done) return { file: fileOut(done) };
-  // tenantDb otra vez: el billete es de esta creadora, pero el pedido debe seguir siendo suyo y entregable.
-  if (!(await deliverable(creatorId, orderId))) {
-    if (t.u) await s.abortMultipart(t.k, t.u).catch(() => {});
-    else await s.delete([t.k]).catch(() => {});
-    throw new UploadError("Pedido no encontrado");
-  }
-  if (t.u) {
-    try {
-      await s.completeMultipart(t.k, t.u);
-    } catch {
-      throw new UploadError("No hemos recibido el archivo completo. Vuelve a intentarlo.");
-    }
-  }
-  const head = await s.head(t.k);
-  if (!head || head.size !== t.s) {
-    if (head) await s.delete([t.k]);
-    throw new UploadError("No hemos recibido el archivo completo. Vuelve a intentarlo.");
-  }
-  const kind = PRIVATE_TYPES[t.ct]?.kind ?? "OTHER";
-  const info = kind === "VIDEO" || kind === "AUDIO" ? await probeWithTimeout(t.k, t.s, t.ct) : null;
-  const record = await db.orderFile.create({
-    data: {
-      creatorId,
-      orderId,
-      name: t.n,
-      kind,
-      mimeType: t.ct,
-      sizeBytes: t.s,
-      storageKey,
-      durationSec: info?.durationSec ?? null,
-      videoCodec: kind === "VIDEO" ? (info?.video?.codec ?? null) : null,
-      width: kind === "VIDEO" ? (info?.video?.width ?? null) : null,
-      height: kind === "VIDEO" ? (info?.video?.height ?? null) : null,
-    },
-  });
-  return { file: fileOut(record) };
-}

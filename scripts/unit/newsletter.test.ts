@@ -17,7 +17,7 @@ import { defaultSections, readPageConfig } from "../../lib/page-config";
 import { readResendEvent, signResendWebhook, verifyResendWebhook } from "../../lib/resend-webhook";
 import { eq, ok, test } from "./harness";
 
-const BASE = "https://analuna.es";
+const BASE = "https://cirella.app";
 const design = (blocks: unknown[]): EmailDesign => readDesign({ v: 1, blocks })!;
 
 // ── Reglas ──
@@ -66,7 +66,7 @@ test("effectiveDailyCap: 100 en la web personal con Resend; sin límite en lo de
 // ── Importar CSV ──
 
 test("parseCsv: «;» o «,», comillas con comas y saltos de línea, BOM", () => {
-  eq(parseCsv('﻿email;nombre\na@x.es;"Ana; Luna"\n'), [["email", "nombre"], ["a@x.es", "Ana; Luna"]]);
+  eq(parseCsv('﻿email;nombre\na@x.es;"Cirella; Luna"\n'), [["email", "nombre"], ["a@x.es", "Cirella; Luna"]]);
   eq(parseCsv('email,nombre\r\nb@x.es,"Bea ""B"", la de\nTauro"'), [["email", "nombre"], ["b@x.es", 'Bea "B", la de\nTauro']]);
 });
 
@@ -80,7 +80,7 @@ test("parseConsentDate: ISO y dd/mm/aaaa; ni futuro ni basura", () => {
 });
 
 test("parseImportCsv: alias de cabecera, sin fecha no entra, repetidas y emails malos", () => {
-  const csv = "Correo,Name,consent_date,Tags\nana@x.es,Ana,2025-01-02,vip\nmala,Bea,2025-01-02,\nsinfecha@x.es,Ci,,\nANA@x.es,Ana2,2025-01-03,\nlu@x.es,,02/01/2025,\"a, b\"";
+  const csv = "Correo,Name,consent_date,Tags\nana@x.es,Cirella,2025-01-02,vip\nmala,Bea,2025-01-02,\nsinfecha@x.es,Ci,,\nANA@x.es,Ana2,2025-01-03,\nlu@x.es,,02/01/2025,\"a, b\"";
   const r = parseImportCsv(csv, new Date("2026-01-01"));
   eq(r.missingColumns, []);
   eq(r.rows.map((x) => x.email), ["ana@x.es", "lu@x.es"]);
@@ -136,7 +136,7 @@ test("renderDesignHtml: escapa, enlaces absolutos y seguros, variables con y sin
 });
 
 test("applyVars y renderSubject", () => {
-  eq(applyVars("Hola, {nombre}. Soy {mi_nombre}", { nombre: "Eva", mi_nombre: "Ana" }, esc), "Hola, Eva. Soy Ana");
+  eq(applyVars("Hola, {nombre}. Soy {mi_nombre}", { nombre: "Eva", mi_nombre: "Cirella" }, esc), "Hola, Eva. Soy Cirella");
   eq(applyVars("Hola, {nombre}.", {}, esc), "Hola.");
   eq(renderSubject("¡Bienvenida, {nombre}!", {}), "¡Bienvenida!");
   eq(renderSubject("Reserva · {fecha}", { fecha: "lunes 2" }), "Reserva · lunes 2");
@@ -153,27 +153,27 @@ test("lintDesign: solo imágenes, sin texto alternativo, botón sin enlace, vac�
 
 test("campaignEmail: baja, quién la envía, vista previa oculta, sin «Tu área»", () => {
   const m = campaignEmail({
-    brand: "Ana Luna",
+    brand: "Cirella",
     subject: "Luna llena, {nombre}",
     preheader: "Tres preguntas",
     design: defaultCampaignDesign({ siteUrl: `${BASE}/` }),
     baseUrl: BASE,
-    vars: { nombre: "Laura", mi_nombre: "Ana Luna" },
-    footer: { senderName: "Ana Luna", legalName: "Ana Luna Pérez", legalAddress: "Calle de la Luna 7, 28004 Madrid (España)", legalEmail: "hola@analuna.es", legalUrl: `${BASE}/ana/legal`, unsubscribeUrl: `${BASE}/baja/newsletter?t=abc` },
+    vars: { nombre: "Laura", mi_nombre: "Cirella" },
+    footer: { senderName: "Cirella", legalName: "Cirella", legalAddress: "Calle de la Luna 7, 28004 Madrid (España)", legalEmail: "hola@cirella.app", legalUrl: `${BASE}/ana/legal`, unsubscribeUrl: `${BASE}/baja/newsletter?t=abc` },
   });
   eq(m.subject, "Luna llena, Laura");
   ok(m.html.includes(`href="${BASE}/baja/newsletter?t=abc"`) && m.html.includes("Darme de baja"));
-  ok(m.html.includes("Ana Luna (Ana Luna Pérez) · Calle de la Luna 7, 28004 Madrid (España) · hola@analuna.es"));
+  ok(m.html.includes("Cirella (Cirella) · Calle de la Luna 7, 28004 Madrid (España) · hola@cirella.app"));
   ok(m.html.includes("display:none") && m.html.includes("Tres preguntas"));
   ok(!m.html.includes(T.AREA_LINK_TOKEN));
-  const test_ = campaignEmail({ brand: "Ana", subject: "S", design: { v: 1, blocks: [] }, baseUrl: BASE, vars: {}, footer: { senderName: "Ana", legalUrl: "x", unsubscribeUrl: null }, test: true });
+  const test_ = campaignEmail({ brand: "Cirella", subject: "S", design: { v: 1, blocks: [] }, baseUrl: BASE, vars: {}, footer: { senderName: "Cirella", legalUrl: "x", unsubscribeUrl: null }, test: true });
   eq(test_.subject, "[Prueba] S");
   ok(test_.html.includes("en la prueba no hace nada"));
 });
 
 test("newsletterConfirmEmail: botón «Sí, quiero recibirla»", () => {
-  const m = newsletterConfirmEmail({ creatorName: "Ana Luna", url: `${BASE}/novedades/confirmar?t=x`, name: "Eva" });
-  ok(m.subject.includes("Ana Luna") && m.html.includes(">Sí, quiero recibirla</a>") && m.html.includes("Hola, Eva"));
+  const m = newsletterConfirmEmail({ creatorName: "Cirella", url: `${BASE}/novedades/confirmar?t=x`, name: "Eva" });
+  ok(m.subject.includes("Cirella") && m.html.includes(">Sí, quiero recibirla</a>") && m.html.includes("Hola, Eva"));
 });
 
 test("layout: sin cambios para los emails de siempre (título, sin vista previa)", () => {
@@ -184,16 +184,16 @@ test("layout: sin cambios para los emails de siempre (título, sin vista previa)
 
 test("emails automáticos: el texto propio sustituye al saludo y la parte fija sigue", () => {
   const intro = "<p>MI TEXTO</p>";
-  const access = T.accessGrantedEmail({ name: "Eva", creatorName: "Ana", productTitle: "Mini-curso", productType: "COURSE", url: "https://x/acceso", newsletterUrl: "https://x/nl", introHtml: intro });
+  const access = T.accessGrantedEmail({ name: "Eva", creatorName: "Cirella", productTitle: "Mini-curso", productType: "COURSE", url: "https://x/acceso", newsletterUrl: "https://x/nl", introHtml: intro });
   ok(access.html.includes("MI TEXTO") && !access.html.includes("ya puedes entrar en") && access.html.includes(">Empezar el curso</a>") && access.html.includes("Confirmar que quiero recibir novedades"));
-  const receipt = T.purchaseReceiptEmail({ creatorName: "Ana", productTitle: "Lectura", amount: "45 €", orderId: "cm123", accountUrl: "https://x", introHtml: intro });
+  const receipt = T.purchaseReceiptEmail({ creatorName: "Cirella", productTitle: "Lectura", amount: "45 €", orderId: "cm123", accountUrl: "https://x", introHtml: intro });
   ok(receipt.html.includes("MI TEXTO") && !receipt.html.includes("gracias por tu compra") && receipt.html.includes("45 €"));
-  const booking = T.bookingConfirmedEmail({ creatorName: "Ana", productTitle: "Lectura", when: "lunes 2 · 17:00", url: "https://x", introHtml: intro });
+  const booking = T.bookingConfirmedEmail({ creatorName: "Cirella", productTitle: "Lectura", when: "lunes 2 · 17:00", url: "https://x", introHtml: intro });
   ok(booking.html.indexOf("MI TEXTO") < booking.html.indexOf("lunes 2 · 17:00"));
-  const welcome = T.welcomeCustomerEmail({ name: "Eva", creatorName: "Ana", accountUrl: "https://x", introHtml: intro });
+  const welcome = T.welcomeCustomerEmail({ name: "Eva", creatorName: "Cirella", accountUrl: "https://x", introHtml: intro });
   ok(!welcome.html.includes("<h1") && welcome.html.includes(">Ver mi cuenta</a>"));
   // Sin texto propio, idénticos a los de siempre.
-  eq(T.accessGrantedEmail({ creatorName: "Ana", productTitle: "M", productType: "DIGITAL", url: "u", introHtml: null }).html, T.accessGrantedEmail({ creatorName: "Ana", productTitle: "M", productType: "DIGITAL", url: "u" }).html);
+  eq(T.accessGrantedEmail({ creatorName: "Cirella", productTitle: "M", productType: "DIGITAL", url: "u", introHtml: null }).html, T.accessGrantedEmail({ creatorName: "Cirella", productTitle: "M", productType: "DIGITAL", url: "u" }).html);
 });
 
 test("catálogo: cada email editable tiene asunto, parte fija y un original válido", () => {
@@ -229,13 +229,13 @@ test("unsubscribeHeaders pasan safeHeaders y llevan la baja en un clic", () => {
 // ── Resend ──
 
 test("Resend: la newsletter sale desde NEWSLETTER_FROM; lo demás, desde EMAIL_FROM", () => {
-  const cfg = { apiKey: "re_x", fromAddress: "hola@analuna.es", defaultFromName: "Ana", newsFromAddress: "newsletter@analuna.es", newsFromName: "Ana Luna" };
+  const cfg = { apiKey: "re_x", fromAddress: "hola@cirella.app", defaultFromName: "Cirella", newsFromAddress: "newsletter@cirella.app", newsFromName: "Cirella" };
   const news = JSON.parse(buildResendRequest({ id: "1", to: "a@x.es", subject: "S", html: "h", stream: "news", fromName: null }, cfg).init.body);
-  eq(news.from, "\"Ana Luna\" <newsletter@analuna.es>");
+  eq(news.from, "\"Cirella\" <newsletter@cirella.app>");
   const tx = JSON.parse(buildResendRequest({ id: "2", to: "a@x.es", subject: "S", html: "h", stream: "tx" }, cfg).init.body);
-  eq(tx.from, "\"Ana\" <hola@analuna.es>");
-  const noNews = JSON.parse(buildResendRequest({ id: "3", to: "a@x.es", subject: "S", html: "h", stream: "news", fromName: "Ana Luna" }, { apiKey: "k", fromAddress: "hola@analuna.es", defaultFromName: "Ana" }).init.body);
-  eq(noNews.from, "\"Ana Luna\" <hola@analuna.es>");
+  eq(tx.from, "\"Cirella\" <hola@cirella.app>");
+  const noNews = JSON.parse(buildResendRequest({ id: "3", to: "a@x.es", subject: "S", html: "h", stream: "news", fromName: "Cirella" }, { apiKey: "k", fromAddress: "hola@cirella.app", defaultFromName: "Cirella" }).init.body);
+  eq(noNews.from, "\"Cirella\" <hola@cirella.app>");
 });
 
 test("webhook de Resend: firma Svix válida, manipulada y antigua", () => {
@@ -258,7 +258,7 @@ test("webhook de Resend: firma Svix válida, manipulada y antigua", () => {
 
 test("sección «Newsletter»: oculta en una página nueva y en las guardadas antes", () => {
   eq(defaultSections().find((s) => s.key === "newsletter")?.enabled, false);
-  const old = readPageConfig({ displayName: "Ana", sections: [{ key: "links", enabled: true }, { key: "contact", enabled: true }] });
+  const old = readPageConfig({ displayName: "Cirella", sections: [{ key: "links", enabled: true }, { key: "contact", enabled: true }] });
   eq(old.sections.find((s) => s.key === "newsletter")?.enabled, false);
   eq(old.sections.map((s) => s.key).slice(-2), ["newsletter", "contact"]);
 });

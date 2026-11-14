@@ -10,7 +10,7 @@ export const DEMO_TZ = "Europe/Madrid";
 
 export type DemoAvailability = { weekday: number; startMinute: number; endMinute: number }[];
 
-/** Horario de Ana (0 = domingo): L–J 10–14 y 17–20 · V 10–14. */
+/** Horario de Cirella (0 = domingo): L–J 10–14 y 17–20 · V 10–14. */
 export const ANA_AVAILABILITY: DemoAvailability = [
   ...[1, 2, 3, 4].flatMap((weekday) => [
     { weekday, startMinute: 600, endMinute: 840 },
@@ -19,7 +19,7 @@ export const ANA_AVAILABILITY: DemoAvailability = [
   { weekday: 5, startMinute: 600, endMinute: 840 },
 ];
 
-/** Días bloqueados de Ana («Retiro de otoño»): dentro de dos semanas. */
+/** Días bloqueados de Cirella («Retiro de otoño»): dentro de dos semanas. */
 export const ANA_BLOCKED_IN_DAYS = [14, 15];
 
 /** La sesión de Laura (Lectura de Human Design, 75 min): a las 17:00, como el ejemplo del briefing. */

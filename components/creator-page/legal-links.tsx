@@ -24,7 +24,11 @@ export function LegalLinks({ username, sellerName, signupsOnly = false }: { user
           </span>
         ))}
       </nav>
-      {sellerName && <p>{signupsOnly ? "Responsable" : "Vende"}: {sellerName}</p>}
+      {sellerName && (
+        <p className="mt-1 font-serif text-[0.85rem] italic tracking-wide" title={signupsOnly ? "Responsable de la web" : "Titular de la web y de las ventas"}>
+          ✦ {sellerName} · {new Date().getFullYear()} ✦
+        </p>
+      )}
     </div>
   );
 }

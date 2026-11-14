@@ -15,7 +15,7 @@ export default async function EditorPage() {
   const [data, templates, pages, oracleDecks] = await Promise.all([
     getPublicCreator(creator.username, true),
     prisma.template.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
-    tenantDb(creator.id).sitePage.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, status: true, draft: true, published: true } }),
+    tenantDb(creator.id).sitePage.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, slug: true, status: true, draft: true, published: true } }),
     getPublishedOracleDecks(creator.id),
   ]);
   const personal = data?.personal ?? false;
@@ -42,7 +42,7 @@ export default async function EditorPage() {
       allowRemoveBranding={data?.features.removeBranding ?? false}
       platformName={data?.platformName ?? "Cirella"}
       referralCode={creator.referralCode}
-      pages={pages.map((p) => ({ id: p.id, title: p.title, state: sitePageState(p) }))}
+      pages={pages.map((p) => ({ id: p.id, title: p.title, slug: p.slug, state: sitePageState(p) }))}
       linkTargets={linkTargets}
       oracleDecks={oracleDecks}
     />

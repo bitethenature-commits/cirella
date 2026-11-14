@@ -126,7 +126,7 @@ async function Landing({ searchParams }: { searchParams: Promise<{ ref?: string 
               <div className="relative overflow-hidden rounded-[2.1rem]" style={{ aspectRatio: "390 / 780" }}>
                 <iframe
                   src="/ana?embed=1"
-                  title="Demo: página de Ana Luna"
+                  title="Demo: página de Cirella"
                   className="absolute left-0 top-0 origin-top-left border-0"
                   style={{ width: 390, height: 780, transform: "scale(var(--phone-scale))" }}
                   loading="eager"
@@ -135,7 +135,7 @@ async function Landing({ searchParams }: { searchParams: Promise<{ ref?: string 
               <div className="absolute left-1/2 top-4 h-5 w-20 -translate-x-1/2 rounded-full bg-black" />
             </div>
             <Link href="/ana" className="mt-5 flex items-center justify-center gap-2 text-sm text-cream/80 hover:text-cream">
-              Ver la demo de Ana Luna <ArrowRight className="h-4 w-4" />
+              Ver la demo de Cirella <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>

@@ -74,7 +74,7 @@ async function mailLink(to: string, template: string, label: string) {
 
 async function loginAna(page: Page) {
   await page.goto("/entrar");
-  await page.locator("form", { hasText: "Ana Luna" }).getByRole("button").click();
+  await page.locator("form", { hasText: "Cirella" }).getByRole("button").click();
   await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
 }
 
@@ -92,7 +92,7 @@ test.describe.serial("Web personal · newsletter", () => {
     await expect(page.getByText("Revisa tu email y confirma")).toBeVisible();
     const pending = await prisma.subscriber.findFirstOrThrow({ where: { email: visitor } });
     expect(pending.status).toBe("PENDING");
-    expect(pending.consentText).toContain("newsletter de Ana Luna");
+    expect(pending.consentText).toContain("newsletter de Cirella");
 
     await page.goto(await mailLink(visitor, "NEWSLETTER_CONFIRM", "Sí, quiero recibirla"));
     await expect(page.getByRole("heading", { name: /¿Quieres recibir la newsletter/ })).toBeVisible();
@@ -152,7 +152,7 @@ test.describe.serial("Web personal · newsletter", () => {
     const sent = await prisma.emailMessage.findFirstOrThrow({ where: { to: visitor, template: "NEWSLETTER" } });
     expect(sent.status).toBe("SENT");
     expect(sent.subject).toBe(`Luna nueva ${TAG}`);
-    expect(sent.html).toContain("Ana Luna Pérez");
+    expect(sent.html).toContain("Cirella");
     expect((sent.headers as Record<string, string>)["List-Unsubscribe"]).toContain("/baja/newsletter/un-clic?t=");
 
     const ctx = await browser.newContext();
@@ -235,7 +235,7 @@ test.describe.serial("Web personal · newsletter", () => {
 
   test("en la plataforma no hay newsletter (ni en el menú ni en la página)", async ({ page }) => {
     await page.goto(`${PLATFORM}/entrar`);
-    await page.locator("form", { hasText: "Ana Luna" }).getByRole("button").click();
+    await page.locator("form", { hasText: "Cirella" }).getByRole("button").click();
     await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
     await page.goto(`${PLATFORM}/panel/mas`);
     await expect(page.getByRole("link", { name: "Automatizaciones" })).toBeVisible();

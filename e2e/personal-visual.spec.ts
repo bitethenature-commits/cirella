@@ -28,7 +28,7 @@ test.afterAll(async () => {
 
 async function loginAna(page: Page) {
   await page.goto("/entrar");
-  await page.locator("form", { hasText: "Ana Luna" }).getByRole("button").click();
+  await page.locator("form", { hasText: "Cirella" }).getByRole("button").click();
   await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
 }
 

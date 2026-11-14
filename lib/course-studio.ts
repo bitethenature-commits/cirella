@@ -37,6 +37,8 @@ export type CourseListItem = {
   title: string;
   emoji: string | null;
   imageUrl: string | null;
+  /** Su método («ASTROLOGIA», «ASTROLOGIA+MI_ENERGIA»…): para agruparlos en /panel/cursos. */
+  courseCategory: string | null;
   status: string;
   modules: number;
   lessons: number;
@@ -50,7 +52,7 @@ export async function courseList(creatorId: string): Promise<CourseListItem[]> {
   const courses = await db.product.findMany({
     where: { type: "COURSE", status: { not: "ARCHIVED" } },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    select: { id: true, title: true, emoji: true, imageUrl: true, status: true, updatedAt: true, _count: { select: { modules: true, lessons: true } } },
+    select: { id: true, title: true, emoji: true, imageUrl: true, courseCategory: true, status: true, updatedAt: true, _count: { select: { modules: true, lessons: true } } },
   });
   if (!courses.length) return [];
   const published = await db.lesson.groupBy({ by: ["productId"], where: { productId: { in: courses.map((c) => c.id) }, published: true }, _count: { _all: true } });
@@ -61,6 +63,7 @@ export async function courseList(creatorId: string): Promise<CourseListItem[]> {
     title: c.title,
     emoji: c.emoji,
     imageUrl: c.imageUrl,
+    courseCategory: c.courseCategory,
     status: c.status,
     modules: c._count.modules,
     lessons: c._count.lessons,

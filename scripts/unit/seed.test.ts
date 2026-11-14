@@ -20,7 +20,7 @@ test("demoSchedule: la sesión de Laura a las 17:00, dentro de su horario, a 3�
     const ahead = daysBetween(today, day);
     ok(ahead >= 3 && ahead <= 9, `${today}: Laura a ${ahead} días`);
     eq(minutesOf(s.lauraAt), 17 * 60, `${today}: hora de Madrid`);
-    ok(fits(day, 17 * 60, 75), `${today}: ${day} fuera del horario de Ana`);
+    ok(fits(day, 17 * 60, 75), `${today}: ${day} fuera del horario de Cirella`);
     ok(!s.blocked.includes(day), `${today}: Laura en un día bloqueado`);
   }
 });
@@ -31,7 +31,7 @@ test("demoSchedule: la sesión de Carmen a las 10:00, después de la de Laura, d
     const day = dateKeyInTz(s.carmenAt, DEMO_TZ);
     ok(daysBetween(dateKeyInTz(s.lauraAt, DEMO_TZ), day) >= 1, `${today}: Carmen no va después de Laura`);
     eq(minutesOf(s.carmenAt), 10 * 60, `${today}: hora de Madrid`);
-    ok(fits(day, 10 * 60, 60), `${today}: ${day} fuera del horario de Ana`);
+    ok(fits(day, 10 * 60, 60), `${today}: ${day} fuera del horario de Cirella`);
     ok(!s.blocked.includes(day), `${today}: Carmen en un día bloqueado`);
     // El recordatorio (24 h antes) sigue programado: nunca un «Programado» de una sesión pasada.
     ok(s.carmenAt.getTime() - 86400_000 > Date.parse(`${today}T23:59:59Z`), `${today}: recordatorio de Carmen ya pasado`);

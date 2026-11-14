@@ -42,7 +42,7 @@ test("rich text: enlaces https, http y www; la puntuación final se queda fuera"
 });
 
 test("rich text: emails como mailto", () => {
-  eq(linkifyLine("Escríbeme a hola@analuna.es.")[1], { kind: "link", text: "hola@analuna.es", href: "mailto:hola@analuna.es", email: true });
+  eq(linkifyLine("Escríbeme a hola@cirella.app.")[1], { kind: "link", text: "hola@cirella.app", href: "mailto:hola@cirella.app", email: true });
 });
 
 test("rich text: nada de javascript: ni HTML", () => {
@@ -176,14 +176,14 @@ test("withAllSections: las secciones nuevas entran visibles tras la anterior del
 });
 
 test("readPageConfig: una página guardada antes de los bloques sigue valiendo", () => {
-  const cfg = readPageConfig({ displayName: "Ana", sections: [{ key: "links", enabled: true }] });
-  eq(cfg.displayName, "Ana");
+  const cfg = readPageConfig({ displayName: "Cirella", sections: [{ key: "links", enabled: true }] });
+  eq(cfg.displayName, "Cirella");
   eq(cfg.blocks, []);
   ok(cfg.sections.some((s) => s.key === "posts" && s.enabled));
 });
 
 test("bloques de texto: título o texto obligatorio; botón con texto y enlace", () => {
-  const base = { displayName: "Ana" };
+  const base = { displayName: "Cirella" };
   ok(pageConfigSchema.safeParse({ ...base, blocks: [{ id: "a", title: "Sobre mí", body: "" }] }).success);
   ok(!pageConfigSchema.safeParse({ ...base, blocks: [{ id: "a", title: "", body: "" }] }).success);
   ok(!pageConfigSchema.safeParse({ ...base, blocks: [{ id: "a", title: "x", body: "", buttonLabel: "Reservar" }] }).success);

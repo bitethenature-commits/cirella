@@ -36,7 +36,7 @@ test.describe.serial("Fiabilidad", () => {
   });
 
   test("la creadora ve que el recibo se está reintentando", async ({ page }) => {
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/automatizaciones");
     // Su registro de envíos: el recibo de Paula (el de bienvenida sigue programado, sin intentos).
     const rows = page.locator("div.px-4.py-3", { hasText: buyerEmail });
@@ -65,9 +65,9 @@ test.describe.serial("Fiabilidad", () => {
   test("error con la plantilla de la creadora", async ({ page }) => {
     await page.goto("/ana/_prueba-error");
     await expect(page.getByRole("heading", { name: "Vaya, algo ha fallado al cargar esta página" })).toBeVisible();
-    await expect(page.locator("header").getByText("Ana Luna")).toBeVisible();
+    await expect(page.locator("header").getByText("Cirella")).toBeVisible();
     await expect(page.getByRole("button", { name: "Reintentar" })).toBeVisible();
-    await page.getByRole("link", { name: "Volver a la página de Ana Luna" }).click();
+    await page.getByRole("link", { name: "Volver a la página de Cirella" }).click();
     await page.waitForURL((u) => u.pathname === "/ana");
   });
 
@@ -75,7 +75,7 @@ test.describe.serial("Fiabilidad", () => {
     const res = await page.goto("/ana/producto-que-no-existe");
     expect(res?.status()).toBe(404);
     await expect(page.getByRole("heading", { name: "Este contenido ya no está disponible" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Ver la página de Ana Luna" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Ver la página de Cirella" })).toBeVisible();
 
     await page.goto("/usuaria-inexistente-xyz");
     await expect(page.getByRole("heading", { name: "Esta página no existe… todavía" })).toBeVisible();

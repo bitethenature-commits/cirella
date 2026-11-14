@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, ChevronLeft, ChevronRight, ExternalLink, Eye, FilePen, Pencil, Pin, PinOff, Send, Trash2, UserPlus, UsersRound } from "lucide-react";
+import { CalendarClock, Check, ChevronLeft, X, ChevronRight, ExternalLink, Eye, FilePen, Pencil, Pin, PinOff, Send, Trash2, UserPlus, UsersRound } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
 import { ConfirmForm } from "@/components/ui/confirm-form";
@@ -16,7 +16,18 @@ import { tzCity } from "@/lib/timezones";
 import { dateKeyInTz, formatDate } from "@/lib/tz";
 import { PostCardBody } from "@/app/cuenta/membresias/post-card";
 import { Badge, PageHeader, Stat } from "../ui";
-import { deleteStudioPost, publishNow, togglePin } from "./actions";
+import { blockMember, deleteStudioPost, publishNow, renewMember, togglePin } from "./actions";
+import type { MemberRow } from "./data";
+
+/** Cuenta atrás de una membresía que se paga por email: verde, ámbar los últimos 5 días, roja vencida. */
+function Countdown({ r }: { r: MemberRow }) {
+  if (r.blocked) return <span className="rounded-full bg-[#f3dcd8] px-2.5 py-1 text-xs font-semibold text-[#8a3b31]">Bloqueada</span>;
+  if (r.daysLeft === null) return null;
+  const d = r.daysLeft;
+  const text = d < 0 ? `Vencida hace ${-d} ${-d === 1 ? "día" : "días"}` : d === 0 ? "Vence hoy" : `Quedan ${d} ${d === 1 ? "día" : "días"}`;
+  const tone = d < 0 ? "bg-[#f3dcd8] text-[#8a3b31]" : d <= 5 ? "bg-[#f7e7c4] text-[#6b4a0c]" : "bg-[#dcefe2] text-[#2f5f43]";
+  return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ${tone}`} data-countdown={d}>{text}</span>;
+}
 import { CommentModeration } from "./comment-moderation";
 import { Composer } from "./composer";
 import { emptyComposerPost, loadCalendar, loadComposerPost, loadMembers, loadQueue, loadStats, loadTiers, loadWall } from "./data";
@@ -354,9 +365,12 @@ async function Members({ owner, tiers, tierId, q }: { owner: Owner; tiers: Tiers
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">
+          Cuenta atrás de cada una: 5 días antes le llega un email para renovar y el día que vence se bloquea sola. Tick verde = ha pagado (otro periodo); X = bloquear ya.
+        </p>
+        <p className="text-sm text-muted">
           En «{tier.title}» directamente{tier.includedBy.length ? `. Quienes están en ${tier.includedBy.map((id) => `«${tiers.find((t) => t.id === id)?.title}»`).join(" y ")} también leen lo de este nivel` : ""}.
         </p>
-        <Link href={`/panel/productos/${tier.id}#accesos`} className="btn btn-outline btn-sm min-h-10"><UserPlus className="h-4 w-4" /> Dar acceso a mano</Link>
+        <Link href="/panel/solicitudes/dar" className="btn btn-outline btn-sm min-h-10"><UserPlus className="h-4 w-4" /> Dar acceso a mano</Link>
       </div>
       {rows.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted">Nadie en «{tier.title}» todavía.</p>
@@ -372,7 +386,28 @@ async function Members({ owner, tiers, tierId, q }: { owner: Owner; tiers: Tiers
                 <p>Desde el {r.since}</p>
                 <p>{r.until}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Countdown r={r} />
+                {!r.subscription && (
+                  <>
+                    <ConfirmForm action={renewMember} message={`¿${r.name} ha pagado? Se renueva otro periodo y le llega un email.`}>
+                      <input type="hidden" name="accessId" value={r.accessId} />
+                      <input type="hidden" name="nivel" value={tier.id} />
+                      <button className="grid h-10 w-10 place-items-center rounded-full bg-[#2f8a55] text-white transition hover:brightness-110" title="Ha pagado: renovar" aria-label={`${r.name} ha pagado: renovar`}>
+                        <Check className="h-5 w-5" strokeWidth={3} />
+                      </button>
+                    </ConfirmForm>
+                    {!r.blocked && (
+                      <ConfirmForm action={blockMember} message={`¿Bloquear la membresía de ${r.name}? Dejará de entrar ahora mismo.`}>
+                        <input type="hidden" name="accessId" value={r.accessId} />
+                        <input type="hidden" name="nivel" value={tier.id} />
+                        <button className="grid h-10 w-10 place-items-center rounded-full bg-[#c0473a] text-white transition hover:brightness-110" title="No ha pagado: bloquear" aria-label={`${r.name} no ha pagado: bloquear`}>
+                          <X className="h-5 w-5" strokeWidth={3} />
+                        </button>
+                      </ConfirmForm>
+                    )}
+                  </>
+                )}
                 <Badge tone={STATUS[r.status].tone}>{STATUS[r.status].label}</Badge>
                 <span className={`text-xs ${r.manual ? "font-semibold text-ink" : "text-muted"}`}>{r.origin}</span>
                 {r.customerId && <Link href={`/panel/clientes/${r.customerId}`} className="btn btn-ghost btn-sm min-h-10" aria-label={`Ver ficha de ${r.name} en Clientes`}>Ficha</Link>}

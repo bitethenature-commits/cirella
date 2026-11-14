@@ -204,18 +204,18 @@ test("secciones: el orden por defecto de una página nueva es el de la portada n
 
 test("readPageConfig: una burbuja estropeada se descarta sin tumbar la página; imágenes de fuera no", () => {
   const cfg = readPageConfig({
-    displayName: "Ana",
+    displayName: "Cirella",
     bubbles: [{ id: "a", label: "Sobre mí", url: "/sobre-mi", image: "/media/a.webp" }, { id: "b", label: "", url: "" }, { id: "c", label: "Cursos", url: "/cursos", image: "https://evil.example/x.png" }],
     about: { title: "Hola", image: 7 },
     systems: "no es una lista",
   });
-  eq(cfg.displayName, "Ana");
+  eq(cfg.displayName, "Cirella");
   eq(cfg.bubbles?.map((b) => [b.label, b.image]), [["Sobre mí", "/media/a.webp"], ["Cursos", null]]);
   eq(cfg.about, null);
   eq(cfg.systems, []);
-  const d = personalHomeDefaults("Ana Luna");
+  const d = personalHomeDefaults("Cirella");
   eq(d.bubbles?.map((b) => b.url), ["/sobre-mi", "/cursos", "/comunidad"]);
-  eq(d.about?.title, "Hola, soy Ana");
+  eq(d.about?.title, "Hola, soy Cirella");
 });
 
 // ── Actualidades ──

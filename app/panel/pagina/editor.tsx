@@ -3,6 +3,7 @@
 import {
   ArrowDown,
   ArrowUp,
+  ArrowUpRight,
   Check,
   Eye,
   EyeOff,
@@ -33,7 +34,9 @@ import {
   READINGS_DEFAULTS,
   STEPS_MAX,
   SYSTEMS_MAX,
+  SECTION_EDIT_TAB,
   SECTION_MANAGE_HREF,
+  SECTION_VIEW_PAGE,
   NEWSLETTER_FORM_DEFAULTS,
   SECTION_META,
   SOCIAL_KEYS,
@@ -45,8 +48,11 @@ import {
 } from "@/lib/page-config";
 import { withoutEmptyBlocks } from "@/lib/page-blocks";
 import { SITE_PAGE_STATE_LABEL, type SitePageState } from "@/lib/site-pages";
+import { SECTION_PAGES, SECTION_PAGE_TITLE, sectionPagePath } from "@/lib/site-sections";
+import { formatPrice } from "@/lib/money";
 import { FONT_PAIRS, RADIUS, TEMPLATES, type FontPairKey, type RadiusKey, type TemplateKey } from "@/lib/templates";
 import { moveProduct } from "../productos/actions";
+import { SectionEmblem } from "../section-emblem";
 import { publishDraft, saveDraft } from "./actions";
 
 type Props = {
@@ -73,7 +79,7 @@ type Props = {
   platformName: string;
   referralCode: string;
   /** Páginas extra (tarjeta «Páginas extra» de «Secciones») y sugerencias de los campos de enlace. */
-  pages: { id: string; title: string; state: SitePageState }[];
+  pages: { id: string; title: string; slug: string; state: SitePageState }[];
   linkTargets: LinkTarget[];
   /** Sus barajas de oráculo publicadas: el selector del bloque «Oráculo» y la vista previa. */
   oracleDecks: OracleDeckView[];
@@ -89,6 +95,14 @@ const TABS = [
   { key: "contenido", label: "Testimonios y FAQ" },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
+
+/** «Orden de productos»: un grupo por sección de la página. */
+const PRODUCT_GROUPS = [
+  { type: "COURSE", label: "Cursos" },
+  { type: "SESSION", label: "Sesiones, talleres y círculos" },
+  { type: "DIGITAL", label: "Lecturas y productos digitales" },
+  { type: "MEMBERSHIP", label: "Membresías" },
+] as const;
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -130,7 +144,34 @@ export function PageEditor(props: Props) {
   const desktop = useDesktop();
   const router = useRouter();
   // «Orden de productos»: lo que se ve en la página (en la web personal sin cobros, sin lo que se cobraba en la web).
-  const orderable = props.signupsOnly ? props.products.filter((p) => (p.accessMode ?? "PAID") !== "PAID") : props.products;
+  const orderable = props.products;
+  // Agrupados como salen en la página: cada tipo en su sección.
+  const productGroups = PRODUCT_GROUPS.map((g) => ({ ...g, items: orderable.filter((p) => p.type === g.type) })).filter((g) => g.items.length);
+  const sitePath = (p: string) => (props.personal ? `/${p}` : `/${props.username}/${p}`);
+  // Por qué una sección encendida no sale ahora en la página (null si sale).
+  const emptyReason = (key: SectionKey): string | null => {
+    const has = (type: string) => orderable.some((p) => p.type === type);
+    switch (key) {
+      case "links": return cfg.links.length ? null : "no tienes botones";
+      case "bubbles": return cfg.bubbles?.length ? null : "no tienes burbujas";
+      case "posts": return props.news?.length ? null : "no hay novedades en el último mes";
+      case "portal": return props.portal.length ? null : "no hay nada en el portal";
+      case "offers": return orderable.some((p) => p.sale) ? null : "ningún producto está en oferta";
+      case "about": return cfg.about ? null : "falta la tarjeta (pulsa Editar)";
+      case "systems": return cfg.systems?.length ? null : "no tienes tarjetas de sistemas";
+      case "readings": return cfg.readings ? null : "falta añadirla (pulsa Editar)";
+      case "blocks": return (cfg.blocks ?? []).length ? null : "no tienes bloques";
+      case "products": return has("DIGITAL") ? null : "no tienes productos digitales publicados";
+      case "sessions": return has("SESSION") ? null : "no tienes sesiones publicadas";
+      case "courses": return has("COURSE") ? null : "no tienes cursos publicados";
+      case "memberships": return has("MEMBERSHIP") ? null : "no tienes membresías publicadas";
+      case "codes": return props.discountCodes.length ? null : "no tienes códigos activos";
+      case "testimonials": return cfg.testimonials.length ? null : "no tienes testimonios";
+      case "faq": return cfg.faqs.length ? null : "no tienes preguntas";
+      case "contact": return cfg.contact.email ? null : "falta tu email de contacto";
+      default: return null;
+    }
+  };
 
   const dirty = JSON.stringify(cfg) !== saved;
   const unpublished = JSON.stringify(cfg) !== publishedJson;
@@ -216,13 +257,17 @@ export function PageEditor(props: Props) {
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_430px]">
       {/* ───── Columna de edición ───── */}
       <div className="min-w-0">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="panel-hero mb-5 flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="starfield absolute inset-0 -z-10 rounded-[inherit] opacity-40" aria-hidden />
+          <div className="flex items-center gap-4">
+          <SectionEmblem className="h-14 w-14 shrink-0" />
           <div>
             <h1 className="display whitespace-nowrap text-[2.3rem] leading-none sm:text-[2.7rem]">Mi página</h1>
             <p className="mt-2 flex items-center gap-2 text-sm text-muted">
               <span className={`h-2 w-2 rounded-full ${dirty ? "bg-gold" : unpublished ? "bg-lavender-deep" : "bg-success"}`} />
               {dirty ? "Cambios sin guardar" : unpublished ? "Borrador guardado · sin publicar" : "Todo publicado"}
             </p>
+          </div>
           </div>
           <div className="hidden flex-wrap justify-end gap-2 sm:flex">
             <button type="button" onClick={() => run("save")} disabled={pending || !dirty} className="btn btn-outline">
@@ -356,54 +401,65 @@ export function PageEditor(props: Props) {
             <>
               <section className="card p-5 sm:p-6">
                 <h3 className="font-semibold">Secciones de tu página</h3>
-                <p className="text-xs text-muted">Activa, desactiva, ordena y renombra cada bloque.</p>
+                <p className="text-xs text-muted">Enciende, apaga, ordena y renombra cada sección. Debajo de cada una ves qué enseña; si está encendida pero ahora no sale, te lo decimos.</p>
                 <ul className="mt-4 space-y-2">
-                  {cfg.sections.map((s, i) => (s.key === "newsletter" && !props.personal ? null : (
-                    <li key={s.key} className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 transition ${s.enabled ? "border-line bg-white" : "border-dashed border-line bg-paper opacity-70"}`}>
-                      <div className="flex flex-col">
-                        <button type="button" onClick={() => moveSection(i, -1)} disabled={i === 0} className="text-muted disabled:opacity-20" aria-label="Subir"><ArrowUp className="h-3.5 w-3.5" /></button>
-                        <button type="button" onClick={() => moveSection(i, 1)} disabled={i === cfg.sections.length - 1} className="text-muted disabled:opacity-20" aria-label="Bajar"><ArrowDown className="h-3.5 w-3.5" /></button>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="flex items-center gap-2 text-sm font-semibold">
-                          {SECTION_META[s.key as SectionKey].label}
-                          {SECTION_MANAGE_HREF[s.key as SectionKey] && (
-                            <Link href={SECTION_MANAGE_HREF[s.key as SectionKey]!.href} className="text-xs font-normal text-muted underline underline-offset-2 hover:text-ink">
-                              Gestionar
-                            </Link>
+                  {cfg.sections.map((s, i) => {
+                    // «Newsletter» ya no es una sección: el formulario sale debajo de «Hablemos» y en el pie.
+                    if (s.key === "newsletter") return null;
+                    const key = s.key as SectionKey;
+                    const manage = SECTION_MANAGE_HREF[key];
+                    const view = SECTION_VIEW_PAGE[key];
+                    const editTab = SECTION_EDIT_TAB[key];
+                    const empty = s.enabled ? emptyReason(key) : null;
+                    return (
+                      <li key={s.key} className={`flex items-start gap-2 rounded-xl border px-3 py-2.5 transition ${s.enabled ? "border-line bg-white" : "border-dashed border-line bg-paper opacity-70"}`}>
+                        <div className="flex flex-col pt-0.5">
+                          <button type="button" onClick={() => moveSection(i, -1)} disabled={i === 0} className="text-muted disabled:opacity-20" aria-label="Subir"><ArrowUp className="h-3.5 w-3.5" /></button>
+                          <button type="button" onClick={() => moveSection(i, 1)} disabled={i === cfg.sections.length - 1} className="text-muted disabled:opacity-20" aria-label="Bajar"><ArrowDown className="h-3.5 w-3.5" /></button>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-sm font-semibold">
+                            {SECTION_META[key].label}
+                            {editTab && (
+                              <button type="button" onClick={() => setTab(editTab)} className="text-xs font-normal text-muted underline underline-offset-2 hover:text-ink">
+                                Editar
+                              </button>
+                            )}
+                            {manage && (
+                              <Link href={manage.href} className="text-xs font-normal text-muted underline underline-offset-2 hover:text-ink">
+                                Gestionar
+                              </Link>
+                            )}
+                            {view && (
+                              <a href={sectionPagePath(props.username, view, props.personal)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-xs font-normal text-muted underline underline-offset-2 hover:text-ink">
+                                Ver página <ArrowUpRight className="h-3 w-3" />
+                              </a>
+                            )}
+                          </p>
+                          {s.key !== "links" && (
+                            <input
+                              value={s.title ?? ""}
+                              placeholder={SECTION_META[key].defaultTitle || "Sin título (opcional)"}
+                              onChange={(e) => set("sections", cfg.sections.map((x) => (x.key === s.key ? { ...x, title: e.target.value } : x)))}
+                              className="mt-0.5 w-full bg-transparent text-xs text-muted outline-none placeholder:text-faint focus:text-ink"
+                              aria-label="Título de la sección"
+                              maxLength={60}
+                            />
                           )}
-                          {s.key === "blocks" && (
-                            <button type="button" onClick={() => setTab("bloques")} className="text-xs font-normal text-muted underline underline-offset-2 hover:text-ink">
-                              Editar
-                            </button>
-                          )}
-                          {(s.key === "bubbles" || s.key === "about" || s.key === "systems" || s.key === "readings") && (
-                            <button type="button" onClick={() => setTab("portada")} className="text-xs font-normal text-muted underline underline-offset-2 hover:text-ink">
-                              Editar
-                            </button>
-                          )}
-                        </p>
-                        {s.key !== "links" && (
-                          <input
-                            value={s.title ?? ""}
-                            placeholder={SECTION_META[s.key as SectionKey].defaultTitle || "Sin título (opcional)"}
-                            onChange={(e) => set("sections", cfg.sections.map((x) => (x.key === s.key ? { ...x, title: e.target.value } : x)))}
-                            className="mt-0.5 w-full bg-transparent text-xs text-muted outline-none placeholder:text-faint focus:text-ink"
-                            aria-label="Título de la sección"
-                            maxLength={60}
-                          />
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => set("sections", cfg.sections.map((x) => (x.key === s.key ? { ...x, enabled: !x.enabled } : x)))}
-                        className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${s.enabled ? "bg-ink text-cream" : "bg-sand text-muted"}`}
-                      >
-                        {s.enabled ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                        {s.enabled ? "Visible" : "Oculta"}
-                      </button>
-                    </li>
-                  )))}
+                          <p className="mt-1 text-[0.72rem] leading-snug text-faint">{SECTION_META[key].hint}</p>
+                          {empty && <p className="mt-1 text-[0.72rem] font-medium text-amber-700">Ahora no sale: {empty}.</p>}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => set("sections", cfg.sections.map((x) => (x.key === s.key ? { ...x, enabled: !x.enabled } : x)))}
+                          className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${s.enabled ? "bg-ink text-cream" : "bg-sand text-muted"}`}
+                        >
+                          {s.enabled ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                          {s.enabled ? "Visible" : "Oculta"}
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
               {props.personal && (
@@ -411,7 +467,7 @@ export function PageEditor(props: Props) {
                   <div>
                     <h3 id="nl-form-title" className="font-semibold">Formulario de la newsletter</h3>
                     <p className="text-xs text-muted">
-                      Se enseña con la sección «Newsletter» (actívala arriba) y, si quieres, en el pie de todas tus páginas. Quien se apunta recibe un email para confirmarlo.{" "}
+                      Sale debajo de «Hablemos» (si tienes tu email de contacto) y, si quieres, en el pie de todas tus páginas. Quien se apunta recibe un email para confirmarlo y se le abre el Portal de Noticias.{" "}
                       <Link href="/panel/newsletter" className="underline underline-offset-2 hover:text-ink">Tu newsletter</Link>
                     </p>
                   </div>
@@ -450,61 +506,94 @@ export function PageEditor(props: Props) {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h3 className="font-semibold">Páginas extra</h3>
-                    <p className="text-xs text-muted">«Sobre mí», «Preguntas frecuentes»… Cada una con su dirección y en el pie de tu web.</p>
+                    <p className="text-xs text-muted">Las que creas tú («Sobre mí», «Preguntas frecuentes», la de cada método…), cada una con su dirección y en el pie de tu web.</p>
                   </div>
                   <Link href="/panel/paginas" className="btn btn-ghost btn-sm shrink-0">Gestionar páginas</Link>
                 </div>
-                {props.pages.length > 0 && (
+                {props.pages.length > 0 ? (
                   <ul className="mt-4 space-y-1.5">
                     {props.pages.map((p) => (
-                      <li key={p.id}>
-                        <Link href={`/panel/paginas/${p.id}`} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm hover:border-ink/30">
-                          <FileText className="h-4 w-4 text-muted" />
-                          <span className="min-w-0 flex-1 truncate">{p.title}</span>
-                          <span className="text-xs text-muted">{SITE_PAGE_STATE_LABEL[p.state]}</span>
-                        </Link>
+                      <li key={p.id} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm">
+                        <FileText className="h-4 w-4 shrink-0 text-muted" />
+                        <Link href={`/panel/paginas/${p.id}`} className="min-w-0 flex-1 truncate hover:underline">{p.title}</Link>
+                        <span className="text-xs text-muted">{SITE_PAGE_STATE_LABEL[p.state]}</span>
+                        <a href={sitePath(p.slug)} target="_blank" rel="noreferrer" className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand" aria-label={`Ver ${p.title}`}><ArrowUpRight className="h-3.5 w-3.5" /></a>
                       </li>
                     ))}
                   </ul>
+                ) : (
+                  <p className="mt-4 text-sm text-muted">Aún no tienes páginas extra.</p>
                 )}
-              </section>
-              <section className="card p-5 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold">Orden de productos</h3>
-                    <p className="text-xs text-muted">Se aplica al momento en tu página publicada.</p>
-                  </div>
-                  <Link href="/panel/productos" className="btn btn-ghost btn-sm">Gestionar</Link>
-                </div>
-                <ul className="mt-4 space-y-1.5">
-                  {orderable.map((p, i) => (
-                    <li key={p.id} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm">
-                      <span>{p.emoji}</span>
-                      <span className="min-w-0 flex-1 truncate">{p.title}</span>
-                      {(["up", "down"] as const).map((dir) => (
-                        <button
-                          key={dir}
-                          type="button"
-                          disabled={(dir === "up" && i === 0) || (dir === "down" && i === orderable.length - 1)}
-                          onClick={() =>
-                            start(async () => {
-                              const fd = new FormData();
-                              fd.set("id", p.id);
-                              fd.set("dir", dir);
-                              fd.set("visible", "1");
-                              await moveProduct(fd);
-                              router.refresh();
-                            })
-                          }
-                          className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20"
-                          aria-label={dir === "up" ? "Subir" : "Bajar"}
-                        >
-                          {dir === "up" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
-                        </button>
-                      ))}
+                <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-muted">Páginas de tus secciones</p>
+                <p className="text-xs text-muted">Se crean solas con lo que publicas.</p>
+                <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                  {SECTION_PAGES.map((pg) => (
+                    <li key={pg}>
+                      <a href={sectionPagePath(props.username, pg, props.personal)} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm hover:border-ink/30">
+                        <span className="min-w-0 flex-1 truncate">{SECTION_PAGE_TITLE[pg]}</span>
+                        <ArrowUpRight className="h-3.5 w-3.5 text-muted" />
+                      </a>
                     </li>
                   ))}
                 </ul>
+              </section>
+              <section className="card p-5 sm:p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold">Orden de productos</h3>
+                    <p className="text-xs text-muted">Cada tipo sale en su sección de la página; aquí ordenas los de cada una. Se aplica al momento en tu página publicada.</p>
+                  </div>
+                  <Link href="/panel/productos" className="btn btn-ghost btn-sm shrink-0">Gestionar</Link>
+                </div>
+                {productGroups.length === 0 && <p className="mt-4 text-sm text-muted">Aún no tienes productos publicados.</p>}
+                {productGroups.map((g) => (
+                  <div key={g.type} className="mt-5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                      {g.label} <span className="font-normal normal-case">· {g.items.length}</span>
+                    </p>
+                    <ul className="mt-2 space-y-1.5">
+                      {g.items.map((p, i) => (
+                        <li key={p.id} className="flex items-center gap-2.5 rounded-xl border border-line bg-white px-2.5 py-2 text-sm">
+                          <span className="w-5 shrink-0 text-center text-xs font-semibold text-faint">{i + 1}</span>
+                          {p.imageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={p.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                          ) : (
+                            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-sand text-lg">{p.emoji ?? "✦"}</span>
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <Link href={`/panel/productos/${p.id}`} className="block truncate font-medium hover:underline">{p.title}</Link>
+                            <span className="block truncate text-xs text-muted">
+                              {[p.kindLabel, p.eventLabel, p.accessMode === "FREE_EMAIL" ? "Gratis con email" : formatPrice(p.sale?.priceCents ?? p.priceCents, p.currency, p.billingInterval), p.sale ? "En oferta" : null].filter(Boolean).join(" · ")}
+                            </span>
+                          </span>
+                          {(["up", "down"] as const).map((dir) => (
+                            <button
+                              key={dir}
+                              type="button"
+                              disabled={pending || (dir === "up" && i === 0) || (dir === "down" && i === g.items.length - 1)}
+                              onClick={() =>
+                                start(async () => {
+                                  const fd = new FormData();
+                                  fd.set("id", p.id);
+                                  fd.set("dir", dir);
+                                  fd.set("visible", "1");
+                                  fd.set("sameType", "1");
+                                  await moveProduct(fd);
+                                  router.refresh();
+                                })
+                              }
+                              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20"
+                              aria-label={dir === "up" ? "Subir" : "Bajar"}
+                            >
+                              {dir === "up" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+                            </button>
+                          ))}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </section>
             </>
           )}
@@ -548,7 +637,7 @@ export function PageEditor(props: Props) {
                 {cfg.about && (
                   <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
                     <div className="space-y-2">
-                      <input className="input h-10 text-sm" placeholder="Título (p. ej. Hola, soy Ana)" maxLength={80} aria-label="Título de la tarjeta Sobre mí" value={cfg.about.title} onChange={(e) => set("about", { ...cfg.about!, title: e.target.value })} />
+                      <input className="input h-10 text-sm" placeholder="Título (p. ej. Hola, soy Cirella)" maxLength={80} aria-label="Título de la tarjeta Sobre mí" value={cfg.about.title} onChange={(e) => set("about", { ...cfg.about!, title: e.target.value })} />
                       <textarea className="input text-sm" rows={3} placeholder="Texto corto" maxLength={400} aria-label="Texto de la tarjeta Sobre mí" value={cfg.about.text} onChange={(e) => set("about", { ...cfg.about!, text: e.target.value })} />
                       <LinkInput value={cfg.about.url} ariaLabel="Enlace de la tarjeta Sobre mí" targets={props.linkTargets} onChange={(v) => set("about", { ...cfg.about!, url: v })} />
                       <input className="input h-10 text-sm" placeholder="Texto del enlace (Conoce mi historia)" maxLength={40} aria-label="Texto del enlace de Sobre mí" value={cfg.about.linkLabel} onChange={(e) => set("about", { ...cfg.about!, linkLabel: e.target.value })} />

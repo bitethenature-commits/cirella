@@ -317,7 +317,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                 <div className="space-y-4">
                   <div>
                     <label className="field-label">Nombre</label>
-                    <input className="input" value={cfg.displayName} onChange={(e) => setCfg((c) => ({ ...c, displayName: e.target.value }))} placeholder="Ana Luna" maxLength={80} />
+                    <input className="input" value={cfg.displayName} onChange={(e) => setCfg((c) => ({ ...c, displayName: e.target.value }))} placeholder="Cirella" maxLength={80} />
                   </div>
                   <div>
                     <label className="field-label">Descripción corta</label>

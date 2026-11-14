@@ -7,7 +7,7 @@
  *     siempre de una de antes;
  *   · el email de bienvenida (customer.created → outbox) pinta el formato, escapa el HTML y enseña
  *     el dominio real de los enlaces; uno de antes sale con el cuerpo de siempre (p(esc())).
- * Usa datos temporales de Ana y deja la BD como estaba.
+ * Usa datos temporales de Cirella y deja la BD como estaba.
  */
 import "./load-env";
 import { Prisma } from "@prisma/client";

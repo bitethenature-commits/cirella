@@ -46,7 +46,7 @@ import { CompactSummary, GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeadi
 /**
  * La carta natal de verdad: con la fecha, la hora y el lugar de nacimiento calcula (en el navegador, con
  * lib/natal-chart.ts) las posiciones del Sol a Plutón, Quirón, los nodos y Lilith, el Ascendente y el MC,
- * las casas (Plácidus, signos enteros o iguales) y los aspectos. Se abre con la carta de ejemplo de Ana y
+ * las casas (Plácidus, signos enteros o iguales) y los aspectos. Se abre con la carta de ejemplo de Cirella y
  * «Calcular mi carta» pide los datos (components/models/chart-birth-form.tsx). Nada se guarda ni se envía.
  *
  * La rueda: signos por fuera (coloreados por elemento), los cuerpos en su grado exacto (los que caen
@@ -69,7 +69,7 @@ type Selection =
 const glyph = (g: string) => `${g}︎`;
 
 const EXAMPLE: BirthData = {
-  name: "Ana",
+  name: "Cirella",
   date: "1988-11-14",
   time: "07:45",
   timeKnown: true,

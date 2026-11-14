@@ -40,9 +40,9 @@ test("emailAttemptLabel: un rebote definitivo no muestra «Intento 1 de 6»", ()
   eq(emailAttemptLabel({ status: "QUEUED", attempts: 2 }), { text: "Intento 2 de 6", retryable: true });
 });
 
-const ana = { displayName: "Ana Luna", legalEntityType: "INDIVIDUAL", legalName: "Ana Luna Pérez", legalTaxId: "12345678Z" };
+const ana = { displayName: "Cirella", legalEntityType: "INDIVIDUAL", legalName: "Cirella", legalTaxId: "12345678Z" };
 
 test("sellerStatement: vende la creadora, con su identidad legal", () => {
-  eq(sellerStatement(ana), { name: "Ana Luna Pérez", line: "Ana Luna Pérez · NIF 12345678Z" });
-  eq(sellerStatement({ displayName: "Ana Luna" }).line, "Ana Luna");
+  eq(sellerStatement(ana), { name: "Cirella", line: "Cirella · NIF 12345678Z" });
+  eq(sellerStatement({ displayName: "Cirella" }).line, "Cirella");
 });

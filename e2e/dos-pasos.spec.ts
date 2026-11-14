@@ -9,7 +9,7 @@ import { base32Decode, hotp, totpStep } from "../lib/totp";
  *   · un código de recuperación vale una vez; «Recordar este dispositivo» se salta el código hasta
  *     «Olvidar todos»; desactivarla pide código y contraseña;
  *   · la alumna entra como siempre, sin código.
- * Deja a Ana sin la verificación, como en la demo.
+ * Deja a Cirella sin la verificación, como en la demo.
  */
 
 test.use({ baseURL: process.env.E2E_PERSONAL_URL ?? "http://localhost:3101" });

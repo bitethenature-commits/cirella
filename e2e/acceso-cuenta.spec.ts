@@ -139,7 +139,7 @@ test.describe.serial("Acceso a la cuenta", () => {
     await page.goto(`/cuenta/cursos/${course.id}`);
     await expect(page).toHaveURL(/\/ana\/entrar\?next=/);
     await expect(page.getByRole("heading", { name: "Entra a tu área" })).toBeVisible();
-    await expect(page.getByText("Ana Luna").first()).toBeVisible();
+    await expect(page.getByText("Cirella").first()).toBeVisible();
     await expect(page.locator("input[type=password]")).toHaveCount(0);
     await expect(page.getByText("¿Aún no tienes página?")).toHaveCount(0);
 
@@ -148,7 +148,7 @@ test.describe.serial("Acceso a la cuenta", () => {
     await page.getByRole("button", { name: "Enviarme el enlace" }).click();
     await expect(page.getByText(/Te hemos enviado un enlace/)).toBeVisible();
     const { url, html } = await lastEmailLink("laura@example.com", "MAGIC_LINK", "Entrar a mi cuenta", since);
-    expect(html).toContain("Ana Luna");
+    expect(html).toContain("Cirella");
     await page.goto(url);
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await page.waitForURL(`**/cuenta/cursos/${course.id}`);
@@ -232,7 +232,7 @@ test.describe.serial("Acceso a la cuenta", () => {
     await prisma.user.update({ where: { id: ana.id }, data: { emailVerifiedAt: null } });
     try {
       await page.context().clearCookies();
-      await demoLogin(page, "Ana Luna");
+      await demoLogin(page, "Cirella");
       await expect(page.getByText("Confirma tu email")).toBeVisible();
       since = new Date();
       await page.getByRole("button", { name: "Reenviarme el enlace" }).click();
@@ -275,11 +275,11 @@ test.describe.serial("Acceso a la cuenta", () => {
 
   test("un enlace personal de otra cuenta pregunta antes de cambiar de sesión", async ({ page }) => {
     expect(receiptLink).not.toBe("");
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(receiptLink);
     await page.waitForURL("**/auth/enlace/cambiar**");
     await expect(page.getByRole("heading", { name: "Este enlace es de otra cuenta" })).toBeVisible();
-    await page.getByRole("link", { name: /Seguir como Ana/ }).click();
+    await page.getByRole("link", { name: /Seguir como Cirella/ }).click();
     await page.waitForURL("**/panel");
 
     await page.goto(receiptLink);

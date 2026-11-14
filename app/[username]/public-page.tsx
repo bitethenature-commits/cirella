@@ -75,7 +75,7 @@ export async function CreatorPublicPage({ username }: { username: string }) {
     image: config.avatarUrl ? `${appUrl()}${config.avatarUrl}` : undefined,
     sameAs: Object.values(config.socials).filter((v) => v?.startsWith("http")),
     // Lo mismo que enseñan las tarjetas: en la web personal sin cobros no se ofrece nada de pago aquí.
-    makesOffer: products.filter((p) => !data.signupsOnly || p.accessMode !== "PAID").map((p) => ({
+    makesOffer: products.map((p) => ({
       "@type": "Offer",
       name: p.title,
       price: (p.priceCents / 100).toFixed(2),

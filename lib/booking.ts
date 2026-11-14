@@ -69,6 +69,8 @@ export function holdWhere(now: Date): Prisma.OrderWhereInput {
   return {
     productType: "SESSION",
     OR: [
+      // Solicitud pendiente (lib/requests.ts): guarda su hora hasta que la dueña la confirma o la descarta.
+      { status: "REQUESTED" },
       { status: "PENDING", checkoutExpiresAt: { gt: now } },
       { status: "PENDING", checkoutExpiresAt: null, createdAt: { gt: new Date(now.getTime() - HOLD_BEFORE_CHECKOUT_MIN * 60000) } },
       { status: "PROCESSING", createdAt: { gt: new Date(now.getTime() - HOLD_PROCESSING_MS) } },

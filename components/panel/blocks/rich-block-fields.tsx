@@ -71,7 +71,7 @@ export function PhotoTextBlockFields({ block: b, bodyMax, linkTargets, onUpdate 
       {b.image && (
         <input
           className="input h-10 text-sm"
-          placeholder="Descripción de la foto (p. ej. Ana en su estudio)"
+          placeholder="Descripción de la foto (p. ej. Cirella en su estudio)"
           aria-label="Descripción de la foto"
           value={b.image.alt}
           maxLength={300}

@@ -3,7 +3,7 @@
  * calendario, desistimiento de una lectura entregada y automatizaciones nuevas.
  */
 import { AUTOMATIONS, automationDefaultOn } from "../../lib/automation-catalog";
-import { manualSessionEmail, meetingLinkChangedEmail, ownerBookingEmail, readingDeliveredEmail } from "../../lib/email/booking-templates";
+import { manualSessionEmail, meetingLinkChangedEmail, ownerBookingEmail } from "../../lib/email/booking-templates";
 import { bookingConfirmedEmail } from "../../lib/email/templates";
 import { asksIntake, formatBirth, intakeAsText, intakeMissing, parseIntakeAnswers, parseIntakeConfigInput, readIntakeAnswers, readIntakeConfig, type IntakeConfig } from "../../lib/intake";
 import { intakeLocked } from "../../lib/intake-lock";
@@ -137,25 +137,22 @@ test("ownerBookingEmail: escapa nombre y datos, lleva las dos horas", () => {
 });
 
 test("manualSessionEmail: regalo para elegir fecha y sesión ya reservada", () => {
-  const gift = manualSessionEmail({ creatorName: "Ana", productTitle: "Lectura", when: null, gift: true, url: "u" });
-  eq(gift.subject, "Ana te regala una sesión: elige fecha");
-  const booked = manualSessionEmail({ creatorName: "Ana", productTitle: "Lectura", when: "jueves · 17:00", gift: false, message: "Hola <3", meetingUrl: "https://zoom.us/j/1", meetingLabel: "Enlace de Zoom", url: "u" });
-  ok(booked.subject.startsWith("Ana te ha reservado una sesión"));
+  const gift = manualSessionEmail({ creatorName: "Cirella", productTitle: "Lectura", when: null, gift: true, url: "u" });
+  eq(gift.subject, "Cirella te regala una sesión: elige fecha");
+  const booked = manualSessionEmail({ creatorName: "Cirella", productTitle: "Lectura", when: "jueves · 17:00", gift: false, message: "Hola <3", meetingUrl: "https://zoom.us/j/1", meetingLabel: "Enlace de Zoom", url: "u" });
+  ok(booked.subject.startsWith("Cirella te ha reservado una sesión"));
   ok(booked.html.includes("Hola &lt;3") && booked.html.includes("Enlace de Zoom"));
 });
 
-test("meetingLinkChangedEmail y readingDeliveredEmail", () => {
-  ok(meetingLinkChangedEmail({ creatorName: "Ana", productTitle: "L", when: "w", meetingUrl: "https://zoom.us/j/2", meetingLabel: "Enlace de Zoom", url: "u" }).html.includes("Enlace de Zoom"));
-  const r = readingDeliveredEmail({ creatorName: "Ana", productTitle: "Lectura", message: "Hola **Lucía**", messageFormat: "MD", fileNames: ["Grabación <1>.wav"], url: "u" });
-  eq(r.subject, "Tu lectura está lista · Lectura");
-  ok(r.html.includes(">Lucía</strong>") && r.html.includes("Grabación &lt;1&gt;.wav"));
+test("meetingLinkChangedEmail", () => {
+  ok(meetingLinkChangedEmail({ creatorName: "Cirella", productTitle: "L", when: "w", meetingUrl: "https://zoom.us/j/2", meetingLabel: "Enlace de Zoom", url: "u" }).html.includes("Enlace de Zoom"));
 });
 
 test("bookingConfirmedEmail: con los parámetros de siempre no lleva nada nuevo", () => {
-  const m = bookingConfirmedEmail({ creatorName: "Ana", productTitle: "Sesión", when: "lunes · 10:00", url: "u", meetingUrl: "https://meet.google.com/x", reminderMinutes: 1440 });
+  const m = bookingConfirmedEmail({ creatorName: "Cirella", productTitle: "Sesión", when: "lunes · 10:00", url: "u", meetingUrl: "https://meet.google.com/x", reminderMinutes: 1440 });
   eq(m.subject, "Reserva confirmada · lunes · 10:00");
   ok(m.html.includes("Enlace de la videollamada:") && !m.html.includes("calendario") && !m.html.includes("Zoom") && !m.html.includes("datos para la lectura"));
-  const seat = bookingConfirmedEmail({ creatorName: "Ana", productTitle: "Taller", when: "w", url: "u", variant: "seat", icsUrl: "https://a.es/ics", intakeUrl: "https://a.es/d" });
+  const seat = bookingConfirmedEmail({ creatorName: "Cirella", productTitle: "Taller", when: "w", url: "u", variant: "seat", icsUrl: "https://a.es/ics", intakeUrl: "https://a.es/d" });
   eq(seat.subject, "Tu plaza en «Taller» · w");
   ok(seat.html.includes("Añadir a mi calendario") && seat.html.includes("Completa tus datos para la lectura"));
 });

@@ -32,7 +32,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   const publicHref = owner ? "/" : `/${creator.username}`;
   return (
     <div
-      className="panel-root min-h-dvh bg-paper text-ink lg:grid lg:grid-cols-[248px_1fr]"
+      className={`panel-root min-h-dvh text-ink lg:grid lg:grid-cols-[248px_1fr] ${prefs.theme?.accent ? "bg-paper" : "panel-night"}`}
       data-panel-root
       data-panel-tone={prefs.theme?.tone}
       style={panelThemeVars(prefs.theme) as React.CSSProperties}

@@ -40,7 +40,7 @@ import { parseIntakeConfigInput } from "@/lib/intake";
 import { parseMeetingUrl } from "@/lib/meeting-url";
 import { HORIZON_CHOICES } from "@/lib/slots";
 import { addDaysToKey, labelToMinutes, zonedTimeToUtc } from "@/lib/tz";
-import { moveWorkshop, notifyReplay, workshopClash } from "@/lib/workshops";
+import { moveWorkshop, workshopClash } from "@/lib/workshops";
 import { followsDay15Rule, PAID_SESSION_MAX_NOTICE_DAYS, PAID_SESSION_MIN_NOTICE_DAYS, paidSessionNoticeDays } from "@/lib/withdrawal";
 import { DEFAULT_CTA, PRODUCT_TYPES, type ProductType } from "@/lib/types";
 
@@ -102,6 +102,8 @@ export async function createProduct(form: FormData) {
       // Sesión individual de pago en la web: 15 días desde la compra (lib/withdrawal.ts).
       minNoticeHours: type === "SESSION" ? (group ? 0 : accessMode === "PAID" ? PAID_SESSION_MIN_NOTICE_DAYS * 24 : 24) : null,
       emoji: group ? "🌙" : { DIGITAL: "✨", SESSION: "🔮", COURSE: "📖", MEMBERSHIP: "💫" }[type],
+      // «Nuevo curso» desde una temática de Cursos: ya con ella.
+      ...(type === "COURSE" ? { courseCategory: asCourseCategory(form.get("courseCategory")) } : {}),
     },
   });
   if (type === "COURSE") await db.courseModule.create({ data: { creatorId: creator.id, productId: product.id, title: "Módulo 1", sortOrder: 0 } });
@@ -329,9 +331,11 @@ export async function moveProduct(form: FormData) {
   let j = i + dir;
   // Desde el editor solo se ven los productos de la página: saltamos los ocultos (borradores y, en la
   // web personal, lo que se cobraba en la web).
-  const signupsOnly = siteMode() === "personal" && !hasPaymentProvider();
+  const signupsOnly = false;
   const hidden = (p: (typeof list)[number]) => p.status !== "PUBLISHED" || (signupsOnly && asAccessMode(p.accessMode) === "PAID");
-  if (form.get("visible") === "1") while (j >= 0 && j < list.length && hidden(list[j])) j += dir;
+  // «sameType»: dentro de su grupo (en la página cada tipo sale en su sección), saltando los de otro tipo.
+  const other = (p: (typeof list)[number]) => form.get("sameType") === "1" && i >= 0 && p.type !== list[i].type;
+  if (form.get("visible") === "1" || form.get("sameType") === "1") while (j >= 0 && j < list.length && ((form.get("visible") === "1" && hidden(list[j])) || other(list[j]))) j += dir;
   if (i < 0 || j < 0 || j >= list.length) return;
   [list[i], list[j]] = [list[j], list[i]];
   await Promise.all(list.map((p, idx) => db.product.update({ where: { id: p.id }, data: { sortOrder: idx + 1 } })));
@@ -625,11 +629,3 @@ export async function moveLesson(form: FormData) {
 
 // ───────────── Membresía ─────────────
 
-/** «Avisar de la grabación» de un taller: un email a cada asistente. */
-export async function notifyWorkshopReplay(form: FormData) {
-  const { creator } = await ctx();
-  const id = String(form.get("id") ?? "");
-  const r = await notifyReplay({ creatorId: creator.id, productId: id });
-  refresh(id);
-  redirect(`/panel/productos/${id}?avisadas=${r.sent}#asistentes`);
-}

@@ -1,5 +1,5 @@
 /**
- * Da a Laura Martín (laura@example.com) acceso a todo lo de Ana (prisma/demo-full-access.ts) en una BD
+ * Da a Laura Martín (laura@example.com) acceso a todo lo de Cirella (prisma/demo-full-access.ts) en una BD
  * ya sembrada. Se puede repetir: lo que ya tiene no se toca.   npx tsx scripts/give-laura-everything.ts
  */
 import "./load-env";

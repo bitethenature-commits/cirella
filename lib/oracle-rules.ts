@@ -26,6 +26,7 @@ export const deckFormSchema = z.object({
   name: z.string().trim().min(1, "Ponle un nombre a la baraja").max(DECK_NAME_MAX, `El nombre: máximo ${DECK_NAME_MAX} caracteres`),
   description: z.string().trim().max(DECK_DESCRIPTION_MAX, `La descripción: máximo ${DECK_DESCRIPTION_MAX} caracteres`).default(""),
   backImageUrl: url,
+  backFrame: z.string().trim().max(40).default(""),
 });
 
 export const cardFormSchema = z.object({
@@ -36,6 +37,9 @@ export const cardFormSchema = z.object({
   message: z.string().max(CARD_MESSAGE_MAX, `El mensaje: máximo ${CARD_MESSAGE_MAX} caracteres`).default(""),
   question: z.string().trim().max(CARD_QUESTION_MAX, `La pregunta: máximo ${CARD_QUESTION_MAX} caracteres`).default(""),
   imageUrl: url,
+  imageFrame: z.string().trim().max(40).default(""),
+  backImageUrl: url,
+  backFrame: z.string().trim().max(40).default(""),
   motif: z.string().trim().max(40).default(""),
   reversible: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
   reversedMessage: z.string().max(CARD_MESSAGE_MAX, `El mensaje invertida: máximo ${CARD_MESSAGE_MAX} caracteres`).default(""),

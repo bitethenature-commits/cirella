@@ -36,16 +36,8 @@ export function Thumb({ src, emoji, className = "h-16 w-16" }: { src: string | n
   );
 }
 
-/** El tema de un producto que no lo tiene guardado (sesiones y lecturas), por su título. */
-export function categoryFromTitle(title: string): CourseCategory | null {
-  const t = title.toLowerCase();
-  if (t.includes("human")) return "HUMAN_DESIGN";
-  if (t.includes("gene")) return "GENE_KEYS";
-  if (t.includes("astrolog") || t.includes("carta")) return "ASTROLOGIA";
-  if (t.includes("luna")) return "LUNA";
-  if (t.includes("energ")) return "MI_ENERGIA";
-  return null;
-}
+export { categoryFromTitle } from "@/lib/course-categories";
+import { categoryFromTitle } from "@/lib/course-categories";
 
 /**
  * El método y sistema de un curso, una sesión o una lectura: sus iconos dorados y su nombre

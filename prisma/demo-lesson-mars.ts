@@ -1,7 +1,7 @@
 /**
- * La lección larga de ejemplo: «Marte, tu fuerza», en el curso «Tu carta y tu energía» de Ana. Once
+ * La lección larga de ejemplo: «Marte, tu fuerza», en el curso «Tu carta y tu energía» de Cirella. Once
  * capítulos con el modelo de la carta deconstruido por partes (planetas, signos, casas, aspectos y
- * elementos, con un texto de Ana para cada pieza), «Tu Marte» calculado con la carta de cada alumna,
+ * elementos, con un texto de Cirella para cada pieza), «Tu Marte» calculado con la carta de cada alumna,
  * «Marte hoy», un ejercicio, el repaso y el glosario. Así se ve cómo es una lección de varias horas.
  * Idempotente: si la lección ya existe, no hace nada. Lo usan prisma/seed.ts y scripts/add-demo-lesson.ts.
  */

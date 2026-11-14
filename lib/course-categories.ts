@@ -36,6 +36,31 @@ export function asCourseCategory(v: unknown): string | null {
   return list.length ? list.join(COURSE_CATEGORY_SEP) : null;
 }
 
+/** El tema de un producto que no lo tiene guardado (sesiones y lecturas), por su título. */
+export function categoryFromTitle(title: string): CourseCategory | null {
+  const t = title.toLowerCase();
+  if (t.includes("human")) return "HUMAN_DESIGN";
+  if (t.includes("gene")) return "GENE_KEYS";
+  if (t.includes("astrolog") || t.includes("carta")) return "ASTROLOGIA";
+  if (t.includes("luna")) return "LUNA";
+  if (t.includes("energ")) return "MI_ENERGIA";
+  return null;
+}
+
+/** Los temas de un producto: los guardados o, si no tiene, el de su título. */
+export function productTopics(p: { title: string; courseCategory?: string | null }): CourseCategory[] {
+  const saved = courseCategoriesOf(p.courseCategory);
+  if (saved.length) return saved;
+  const guessed = categoryFromTitle(p.title);
+  return guessed ? [guessed] : [];
+}
+
+/** Cómo se llama una lectura en la web: «Lectura de Astrología» (o «Lectura» sin tema). */
+export function readingLabel(p: { title: string; courseCategory?: string | null }): string {
+  const topics = productTopics(p).filter((c) => c !== "ESPECIAL");
+  return topics.length ? `Lectura de ${courseCategoriesLabel(topics)}` : "Lectura";
+}
+
 /** «Astrología + Mi energía». */
 export function courseCategoriesLabel(list: readonly CourseCategory[]): string {
   return list.map((c) => COURSE_CATEGORY_LABEL[c]).join(" + ");

@@ -304,7 +304,7 @@ export async function seedDemoMembership(prisma: PrismaClient, anaId: string) {
     if (!postId || !who) continue;
     const productId = (await prisma.membershipPost.findUnique({ where: { id: postId }, select: { productId: true } }))!.productId;
     await prisma.membershipComment.create({
-      data: { creatorId: anaId, productId, postId, userId: who.id, body: c.body, byOwner: c.who === "owner", authorName: c.who === "owner" ? who.name ?? "Ana" : `${(who.name ?? "").split(" ")[0]} ${(who.name ?? "").split(" ")[1]?.[0] ?? ""}.`.trim() },
+      data: { creatorId: anaId, productId, postId, userId: who.id, body: c.body, byOwner: c.who === "owner", authorName: c.who === "owner" ? who.name ?? "Cirella" : `${(who.name ?? "").split(" ")[0]} ${(who.name ?? "").split(" ")[1]?.[0] ?? ""}.`.trim() },
     });
   }
   for (const [title, postId] of created) {
@@ -319,12 +319,12 @@ export async function seedDemoMembership(prisma: PrismaClient, anaId: string) {
   console.log(`  Membresía de ejemplo: ${created.size} publicaciones en Esencia, Plena y Luna completa`);
 }
 
-// Ejecutado a mano: sobre la base de datos local, para la cuenta de Ana.
+// Ejecutado a mano: sobre la base de datos local, para la cuenta de Cirella.
 if (process.argv[1] && /demo-membership\.ts$/.test(process.argv[1])) {
   const prisma = new PrismaClient();
   (async () => {
     const ana = await prisma.creator.findFirst({ where: { username: "ana" }, select: { id: true } });
-    if (!ana) throw new Error("No encuentro la cuenta de Ana (username «ana»).");
+    if (!ana) throw new Error("No encuentro la cuenta de Cirella (username «ana»).");
     await seedDemoMembership(prisma, ana.id);
   })()
     .catch((e) => {

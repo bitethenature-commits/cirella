@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { moonCircleSky } from "@/lib/moon-circle-sky";
 import { notFound } from "next/navigation";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { ProductPageView } from "@/components/creator-page/product-page-view";
@@ -41,8 +42,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   // Cómo se consigue (lib/access-mode.ts): pago aquí, gratis con email o pago en otra web.
   const accessMode = asAccessMode(p.accessMode);
   // En la web personal sin cobros nada se cobra aquí: un producto de pago en la web no se ofrece.
-  if (data.signupsOnly && accessMode === "PAID" && !isOwner) notFound();
-  const paid = accessMode === "PAID" && !data.signupsOnly;
+  const paid = accessMode === "PAID";
   const clickEvent = isOwner ? null : { creatorId: creator.id, type: "PRODUCT_CLICK" as const, productId: p.id };
   // Quién vende (lo mismo que dirán el checkout y el recibo).
   const seller = sellerStatement({ ...creator, displayName: config.displayName });
@@ -65,7 +65,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         signupsOnly={data.signupsOnly}
         seller={{ line: seller.line, named: sellerNamed }}
         seatsLeft={seatsLeft}
-        testimonial={config.testimonials[0] ?? null}
+        testimonials={config.testimonials}
+        moonSky={p.moonCircle && p.groupSession && p.eventStartAt ? moonCircleSky(p.eventStartAt) : null}
         claim={{
           legalComplete: legalIdentityComplete(creator),
           isOwner,

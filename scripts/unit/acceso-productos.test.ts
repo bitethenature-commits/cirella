@@ -105,22 +105,22 @@ test("marca de la web personal: sin Cirella ni pie (el nombre lo pone el outbox)
   ok(!b.name.includes("Cirella"));
 });
 test("layout con marca propia y pie vacío: no pinta pie", () => {
-  const html = layout({ brand: "Ana Luna", title: "Hola", body: "x", footer: "" });
-  ok(html.includes("Ana Luna") && !html.includes("Enviado con"), html);
+  const html = layout({ brand: "Cirella", title: "Hola", body: "x", footer: "" });
+  ok(html.includes("Cirella") && !html.includes("Enviado con"), html);
 });
 test("email de acceso: asunto «Ya tienes acceso a «X»» y botón directo al curso", () => {
-  const m = accessGrantedEmail({ name: "Lucía", creatorName: "Ana Luna", productTitle: "Mini-curso", productType: "COURSE", url: "https://a.es/auth/enlace?t=1", linkNote: "Personal" });
+  const m = accessGrantedEmail({ name: "Lucía", creatorName: "Cirella", productTitle: "Mini-curso", productType: "COURSE", url: "https://a.es/auth/enlace?t=1", linkNote: "Personal" });
   eq(m.subject, "Ya tienes acceso a «Mini-curso»");
   ok(m.html.includes(">Empezar el curso</a>") && m.html.includes("https://a.es/auth/enlace?t=1"), m.html);
   ok(!/IVA|factura|Total/.test(m.html), "sin importes, IVA ni factura");
 });
 test("email de acceso: membresía y descarga con su botón", () => {
-  const base = { creatorName: "Ana", productTitle: "X", url: "https://a.es/e" };
+  const base = { creatorName: "Cirella", productTitle: "X", url: "https://a.es/e" };
   ok(accessGrantedEmail({ ...base, productType: "MEMBERSHIP" }).html.includes(">Entrar en la comunidad</a>"));
   ok(accessGrantedEmail({ ...base, productType: "DIGITAL" }).html.includes(">Acceder a mi contenido</a>"));
 });
 test("email de acceso: escapa el nombre y las instrucciones", () => {
-  const m = accessGrantedEmail({ name: "<b>Eva</b>", creatorName: "Ana", productTitle: "X", productType: "DIGITAL", url: "https://a.es/e", instructions: "<script>" });
+  const m = accessGrantedEmail({ name: "<b>Eva</b>", creatorName: "Cirella", productTitle: "X", productType: "DIGITAL", url: "https://a.es/e", instructions: "<script>" });
   ok(!m.html.includes("<b>Eva</b>") && !m.html.includes("<script>"), m.html);
 });
 

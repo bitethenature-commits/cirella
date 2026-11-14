@@ -5,9 +5,9 @@ import { addDaysToKey, dateKeyInTz, weekdayOfKey, zonedTimeToUtc } from "../lib/
 import { freeTimes, pickDay } from "./slots";
 
 /**
- * Calendario propio de Ana (web personal que cobra: puerto 3102).
+ * Calendario propio de Cirella (web personal que cobra: puerto 3102).
  *   · una clienta en Bogotá reserva su lectura en su hora, con sus datos de nacimiento, y paga;
- *   · Ana ve la reserva con los datos, cambia el enlace de Zoom y avisa;
+ *   · Cirella ve la reserva con los datos, cambia el enlace de Zoom y avisa;
  *   · fechas especiales en hora de Bali; «Dar una sesión o lectura»; datos que completa la clienta;
  *   · entrega de una lectura grabada; un taller con 2 plazas que se llena.
  * Crea sus propios productos y clientas y lo borra todo al final.
@@ -99,7 +99,6 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
       prisma.orderLink.deleteMany({ where: { orderId: { in: orders } } }),
       prisma.session.deleteMany({ where: { OR: [{ orderId: { in: orders } }, { userId: { in: users } }] } }),
       prisma.booking.deleteMany({ where: { id: { in: bookings } } }),
-      prisma.orderFile.deleteMany({ where: { orderId: { in: orders } } }),
       prisma.order.deleteMany({ where: { id: { in: orders } } }),
       prisma.customer.deleteMany({ where: { userId: { in: users } } }),
       prisma.user.deleteMany({ where: { id: { in: users } } }),
@@ -152,8 +151,8 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     });
   });
 
-  test("Ana ve la reserva con sus datos, cambia el enlace de Zoom y le avisa", async ({ page }) => {
-    await demoLogin(page, "Ana Luna");
+  test("Cirella ve la reserva con sus datos, cambia el enlace de Zoom y le avisa", async ({ page }) => {
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/reservas");
     const card = page.locator(".card", { hasText: "Lucía Bogotá" }).first();
     await expect(card.getByText("Datos ✓")).toBeVisible();
@@ -173,7 +172,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
   test("fechas especiales en hora de Bali: ese día solo esas horas", async ({ page }) => {
     // A partir del día 15: antes, una sesión que se paga en la web no ofrece huecos (lib/withdrawal.ts).
     const day = await freeWorkday(16);
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/reservas/horario");
     await page.getByLabel("Desde", { exact: true }).fill(day);
     await page.getByLabel("Desde las").fill("09:00");
@@ -201,9 +200,9 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     await expect(remove).toHaveCount(0);
   });
 
-  test("«Dar una sesión o lectura»: regalo a otra hora; ella completa sus datos y Ana recibe el aviso", async ({ page, browser }) => {
+  test("«Dar una sesión o lectura»: regalo a otra hora; ella completa sus datos y Cirella recibe el aviso", async ({ page, browser }) => {
     const day = await freeWorkday(6);
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/reservas");
     await page.getByRole("link", { name: /Dar una sesión o lectura/ }).click();
     await page.getByLabel("Email", { exact: true }).fill(buyer("regalo"));
@@ -220,7 +219,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     await expect(page.getByText("Regalo", { exact: true })).toBeVisible();
 
     const mail = await lastMail(buyer("regalo"), "BOOKING_CONFIRMED");
-    expect(mail?.subject).toMatch(/^Ana Luna te ha reservado una sesión/);
+    expect(mail?.subject).toMatch(/^Cirella te ha reservado una sesión/);
     expect(mail?.html).toContain("Completa tus datos para la lectura");
     const client = await (await browser.newContext({ baseURL: SALES })).newPage();
     await client.goto(ctaUrl(mail!.html));
@@ -238,7 +237,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     expect(notice?.subject).toBe("Marta Regalo te ha enviado sus datos");
   });
 
-  test("entrega: Ana sube la grabación de una lectura y la clienta la escucha en su área", async ({ page, browser }) => {
+  test("entrega: Cirella sube la grabación de una lectura y la clienta la escucha en su área", async ({ page, browser }) => {
     const buyerPage = await (await browser.newContext({ baseURL: SALES })).newPage();
     await buyerPage.goto(`/ana/${readingSlug}/checkout`);
     await buyerPage.fill("#name", "Inés Lectura");
@@ -250,7 +249,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     await buyerPage.getByRole("button", { name: /^Pagar 45/ }).click();
     await buyerPage.waitForURL("**/ana/gracias**");
 
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/reservas");
     await page.locator("section", { has: page.getByRole("heading", { name: "Lecturas por entregar" }) }).getByRole("link", { name: /Inés Lectura/ }).click();
     await page.waitForURL(/\/panel\/ventas\/[^/?#]+/);
@@ -304,7 +303,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     const t = w.eventStartAt!.getTime();
     expect(starts.some((s) => s < t + 90 * 60000 && s + 60 * 60000 > t)).toBe(false);
 
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(`/panel/productos/${w.id}`);
     await expect(page.getByRole("heading", { name: "Asistentes 2 de 2" })).toBeVisible();
   });

@@ -213,8 +213,8 @@ async function main() {
   created.emails.push(mariaEmail.id);
   const db = tenantDb(ana.id);
   const anaLog = await db.emailMessage.findMany();
-  check("el registro de envíos de Ana no incluye los de María", anaLog.length > 0 && anaLog.every((m) => m.creatorId === ana.id));
-  check("updateMany sobre un email de María desde Ana afecta 0 filas", (await db.emailMessage.updateMany({ where: { id: mariaEmail.id }, data: { status: "QUEUED" } })).count === 0);
+  check("el registro de envíos de Cirella no incluye los de María", anaLog.length > 0 && anaLog.every((m) => m.creatorId === ana.id));
+  check("updateMany sobre un email de María desde Cirella afecta 0 filas", (await db.emailMessage.updateMany({ where: { id: mariaEmail.id }, data: { status: "QUEUED" } })).count === 0);
 }
 
 async function cleanup() {

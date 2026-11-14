@@ -48,7 +48,13 @@ export async function processAccessExpiry(now = new Date()): Promise<number> {
         userId: a.userId,
         template: "ACCESS_ENDING",
         dedupeKey,
-        ...T.accessEndingEmail({ creatorName: c.displayName, productTitle: a.product.title, until: lastDayText(a.expiresAt!, c.timezone, now), cta: buyAgain(a.product, c.username) }),
+        ...T.accessEndingEmail({
+          creatorName: c.displayName,
+          productTitle: a.product.title,
+          until: lastDayText(a.expiresAt!, c.timezone, now),
+          membership: a.product.type === "MEMBERSHIP",
+          cta: a.product.type === "MEMBERSHIP" ? null : buyAgain(a.product, c.username),
+        }),
       });
       done++;
     } catch (e) {
@@ -72,7 +78,7 @@ export async function processAccessExpiry(now = new Date()): Promise<number> {
           userId: a.userId,
           template: "ACCESS_ENDED",
           dedupeKey: `access-ended:${key}`,
-          ...T.accessEndedEmail({ creatorName: c.displayName, productTitle: a.product.title, cta: buyAgain(a.product, c.username) }),
+          ...T.accessEndedEmail({ creatorName: c.displayName, productTitle: a.product.title, cta: a.product.type === "MEMBERSHIP" ? null : buyAgain(a.product, c.username) }),
         });
       if ((await automationSetting(a.creatorId, "MEMBER_ENDED")).enabled) {
         const customer = await prisma.customer.findUnique({ where: { creatorId_userId: { creatorId: a.creatorId, userId: a.userId } }, select: { name: true } });
@@ -85,7 +91,7 @@ export async function processAccessExpiry(now = new Date()): Promise<number> {
             productTitle: a.product.title,
             person: customer?.name || a.user.name || a.user.email,
             ended: lastDayText(a.expiresAt!, c.timezone, now),
-            url: `${appUrl()}/panel/productos/${a.productId}#accesos`,
+            url: a.product.type === "MEMBERSHIP" ? `${appUrl()}/panel/comunidad?tab=miembros&nivel=${a.productId}` : `${appUrl()}/panel/productos/${a.productId}#accesos`,
           }),
         });
       }

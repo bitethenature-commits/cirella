@@ -1,5 +1,5 @@
 /**
- * Calendario propio (Postgres, web personal de Ana con cobros).
+ * Calendario propio (Postgres, web personal de Cirella con cobros).
  *   npm run test:calendar        (con la BD sembrada: npm run db:reset)
  *
  * Fechas especiales y bloqueos, horizonte, huecos guardados mientras se paga (y la carrera de dos
@@ -39,7 +39,6 @@ async function main() {
   const { createPendingOrder, fulfillOrder, purgeAbandonedIntake } = await import("../lib/orders");
   const { createManualOrder } = await import("../lib/manual-orders");
   const { moveWorkshop } = await import("../lib/workshops");
-  const { sendOrderDelivery } = await import("../lib/order-files");
   const { completeUpload, createUpload } = await import("../lib/uploads");
   const { releaseBookingEmails, setBookingMeetingUrl } = await import("../lib/booking-changes");
   const { emit } = await import("../lib/events");
@@ -57,7 +56,7 @@ async function main() {
   const P28 = await mk({});
   const flat = (r: Awaited<ReturnType<typeof getAvailableSlots>>) => r.days.flatMap((d) => d.slots.map((s) => s.start));
 
-  // Días de trabajo de Ana (lunes a jueves) lejos de los datos sembrados, dentro de 90 días.
+  // Días de trabajo de Cirella (lunes a jueves) lejos de los datos sembrados, dentro de 90 días.
   const today = dateKeyInTz(new Date(), MADRID);
   const blocked = new Set((await prisma.blockedDate.findMany({ where: { creatorId: ana.id } })).map((b) => b.date));
   const seeded = new Set((await prisma.availabilityOverride.findMany({ where: { creatorId: ana.id } })).map((o) => o.date));
@@ -144,7 +143,7 @@ async function main() {
   const after = await prisma.emailMessage.findMany({ where: { dedupeKey: { startsWith: `reminder:${booking.id}:` }, status: "QUEUED" } });
   check("los recordatorios se rehacen con el enlace nuevo", before.length > 0 && after.length === before.length && after.every((m) => m.html.includes("/j/999")) && after.every((m) => !before.some((b) => b.id === m.id)));
   check("«Nuevo enlace» a la clienta, una vez", (await prisma.emailMessage.count({ where: { template: "MEETING_LINK_CHANGED", to: email("lucia") } })) === 1);
-  check("María no puede cambiar el enlace de una reserva de Ana", !(await setBookingMeetingUrl({ creatorId: maria.id, bookingId: booking.id, url: "https://zoom.us/j/1", notify: false })).ok);
+  check("María no puede cambiar el enlace de una reserva de Cirella", !(await setBookingMeetingUrl({ creatorId: maria.id, bookingId: booking.id, url: "https://zoom.us/j/1", notify: false })).ok);
 
   // ── 8. Talleres: plazas que comparten hora y bloquean la agenda 1:1 ──
   const W_AT = new Date(at(D6, 10));
@@ -176,32 +175,7 @@ async function main() {
   const giftMails = await prisma.emailMessage.findMany({ where: { to: email("gift") } });
   check("solo le llega «te ha reservado una sesión» (sin acceso ni venta)", giftMails.length >= 1 && giftMails.every((m) => m.template !== "ACCESS_GRANTED") && giftMails.some((m) => m.subject.includes("te ha reservado una sesión")));
   check("y la dueña no recibe aviso de una sesión que ha dado ella", (await prisma.emailMessage.count({ where: { template: { in: ["BOOKING_OWNER", "NEW_SALE"] }, html: { contains: email("gift") } } })) === 0 && !(await prisma.emailMessage.findFirst({ where: { template: "BOOKING_OWNER", subject: { contains: "Regalo" } } })));
-  check("María no puede dar sesiones de Ana", !(await createManualOrder({ creatorId: maria.id, grantedByUserId: maria.userId, productId: P.id, name: "X", email: email("x"), payment: "gift", when: { kind: "later" }, requestId: `${TAG}-req-4` })).ok);
-
-  // ── 10. Lectura preparada: entrega por pedido ──
-  const reading = await prisma.product.create({ data: { creatorId: ana.id, type: "DIGITAL", deliveryMode: "PERSONAL", status: "PUBLISHED", accessMode: "PAID", priceCents: 4900, slug: `${TAG}-lectura`, title: `${TAG} lectura`, instructions: "Te la envío en 72 horas." } });
-  const ro = await createManualOrder({ creatorId: ana.id, grantedByUserId: ana.userId, productId: reading.id, name: "Lectora", email: email("reader"), payment: "paid_elsewhere", when: { kind: "later" }, requestId: `${TAG}-req-5` });
-  check("lectura dada a mano: acceso con «la está preparando»", ro.ok && (await prisma.emailMessage.findFirst({ where: { template: "ACCESS_GRANTED", to: email("reader") } }))?.html.includes("la está preparando") === true);
-  if (ro.ok) {
-    check("María no puede subir una entrega al pedido de Ana", await rejects(() => createUpload(maria.id, { purpose: "delivery", orderId: ro.orderId, name: "x.pdf", contentType: "application/pdf", size: 10 }), /Pedido no encontrado/));
-    const pdf = Buffer.from("%PDF-1.4 tu lectura");
-    const up = (await createUpload(ana.id, { purpose: "delivery", orderId: ro.orderId, name: "Tu lectura.pdf", contentType: "application/pdf", size: pdf.length })) as { uploadUrl: string; ticket: string };
-    const s = storage() as unknown as { verify: (t: string | null) => { k: string } | null };
-    const key = s.verify(new URL(up.uploadUrl, "http://x").searchParams.get("t"))!.k;
-    check("la entrega se guarda en private/<Ana>/", key.startsWith(`private/${ana.id}/`));
-    await storage().put(key, pdf, { contentType: "application/pdf" });
-    const done = await completeUpload(ana.id, up.ticket);
-    const file = "file" in done ? await prisma.orderFile.findUnique({ where: { id: done.file.id } }) : null;
-    check("queda como borrador (la clienta no lo ve)", !!file && file.sentAt === null && file.orderId === ro.orderId);
-    check("María no puede enviar la entrega de Ana", !(await sendOrderDelivery({ creatorId: maria.id, orderId: ro.orderId })).ok);
-    const sent = await sendOrderDelivery({ creatorId: ana.id, orderId: ro.orderId, message: "Aquí tienes **tu lectura**", messageFormat: "MD" });
-    const order = await prisma.order.findUniqueOrThrow({ where: { id: ro.orderId }, include: { files: true, bookings: true, refunds: true } });
-    check("enviar: archivo enviado, pedido entregado y un email «Tu lectura está lista»", sent.ok && sent.sent === 1 && !!order.deliveredAt && order.files.every((f) => f.sentAt) && (await prisma.emailMessage.count({ where: { template: "READING_DELIVERED", to: email("reader") } })) === 1);
-    const again = await sendOrderDelivery({ creatorId: ana.id, orderId: ro.orderId });
-    check("volver a enviar sin nada nuevo no manda otro email", again.ok && again.sent === 0 && (await prisma.emailMessage.count({ where: { template: "READING_DELIVERED", to: email("reader") } })) === 1);
-    const w = withdrawalEligibility(toWithdrawalInput({ ...order, productType: "DIGITAL", status: "PAID", amountCents: 4900 }), new Date());
-    check("una lectura entregada ya no se puede desistir", !w.eligible && w.reason === "DELIVERED");
-  }
+  check("María no puede dar sesiones de Cirella", !(await createManualOrder({ creatorId: maria.id, grantedByUserId: maria.userId, productId: P.id, name: "X", email: email("x"), payment: "gift", when: { kind: "later" }, requestId: `${TAG}-req-4` })).ok);
 
   // ── 11. Los datos de un pedido sin pagar se borran a los 30 días ──
   const old = await prisma.order.create({
@@ -225,9 +199,6 @@ async function cleanup() {
   const orderIds = orders.map((o) => o.id);
   const bookings = await prisma.booking.findMany({ where: { productId: { in: productIds } }, select: { id: true } });
   const keys = [...orderIds, ...bookings.map((b) => b.id)];
-  const files = await prisma.orderFile.findMany({ where: { orderId: { in: orderIds }, storageKey: { not: null } }, select: { storageKey: true } });
-  const { privateKey, storage } = await import("../lib/storage");
-  if (files.length) await storage().delete(files.map((f) => privateKey(f.storageKey!))).catch(() => {});
   await prisma.$transaction([
     prisma.emailMessage.deleteMany({ where: { OR: [{ to: { startsWith: TAG } }, ...keys.map((k) => ({ dedupeKey: { contains: k } })), { html: { contains: TAG } }] } }),
     prisma.outboxEvent.deleteMany({ where: { OR: keys.map((k) => ({ payload: { string_contains: k } })) } }),
@@ -237,7 +208,6 @@ async function cleanup() {
     prisma.orderLink.deleteMany({ where: { orderId: { in: orderIds } } }),
     prisma.session.deleteMany({ where: { orderId: { in: orderIds } } }),
     prisma.booking.deleteMany({ where: { productId: { in: productIds } } }),
-    prisma.orderFile.deleteMany({ where: { orderId: { in: orderIds } } }),
     prisma.order.deleteMany({ where: { id: { in: orderIds } } }),
     prisma.customer.deleteMany({ where: { userId: { in: userIds } } }),
     prisma.user.deleteMany({ where: { id: { in: userIds } } }),

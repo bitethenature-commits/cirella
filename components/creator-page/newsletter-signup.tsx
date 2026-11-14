@@ -21,6 +21,7 @@ export function NewsletterSignup({
   privacyHref,
   preview = false,
   demo = false,
+  opensPortal = false,
 }: {
   variant: "section" | "footer";
   title?: string;
@@ -31,6 +32,8 @@ export function NewsletterSignup({
   /** Vista previa del editor: no se envía nada. */
   preview?: boolean;
   demo?: boolean;
+  /** Web personal con Portal de noticias: avisa de que suscribirse lo abre. */
+  opensPortal?: boolean;
 }) {
   const [state, action, pending] = useActionState<NewsletterSignupState, FormData>(subscribeFromPage, undefined);
   const id = `nl-${variant}`;
@@ -91,6 +94,12 @@ export function NewsletterSignup({
             </button>
           </div>
         </>
+      )}
+      {opensPortal && (
+        <p className="cp-gold mt-3 flex items-start gap-1.5 text-[0.85rem] leading-snug" data-opens-portal>
+          <span aria-hidden>✦</span>
+          <span>Al suscribirte se abre también el Portal de noticias: audios, vídeos y avisos solo para quien está suscrita.</span>
+        </p>
       )}
       {state?.error && <p className="mt-2 text-sm text-[#b4443a]" role="alert">{state.error}</p>}
       {small}

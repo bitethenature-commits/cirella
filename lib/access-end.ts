@@ -22,7 +22,7 @@ export const ACCESS_END_LABEL: Record<AccessEndChoice, string> = {
 };
 
 /** El aviso «tu acceso termina pronto» sale estos días antes… */
-export const REMIND_BEFORE_DAYS = 7;
+export const REMIND_BEFORE_DAYS = 5;
 /** …solo si el acceso duraba al menos esto (a un acceso de 10 días no se le avisa al tercero). */
 export const MIN_GRANT_DAYS_FOR_REMINDER = 14;
 const MAX_YEARS = 5;

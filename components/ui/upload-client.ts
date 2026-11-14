@@ -58,7 +58,7 @@ type SignAnswer = { uploadUrl: string; headers: Record<string, string>; ticket: 
 
 export async function uploadFile(
   file: File,
-  o: { purpose: "image" | "file" | "delivery" | "video" | "portal"; graphic?: boolean; email?: boolean; audio?: boolean; productId?: string; orderId?: string; onProgress?: UploadProgress; signal?: AbortSignal },
+  o: { purpose: "image" | "file" | "video" | "portal"; graphic?: boolean; email?: boolean; audio?: boolean; productId?: string; orderId?: string; onProgress?: UploadProgress; signal?: AbortSignal },
 ): Promise<{ url?: string; width?: number; height?: number; file?: UploadedFile; video?: UploadedPageVideo; portal?: UploadedPortalMedia }> {
   const total = file.size;
   const report = (loaded: number) => o.onProgress?.(total ? Math.min(100, Math.round((loaded / total) * 100)) : 100, loaded, total);

@@ -15,7 +15,7 @@ export default async function NewDeckPage() {
         <ArrowLeft className="h-4 w-4" /> Barajas
       </Link>
       <PageHeader title="Nueva baraja" subtitle="Primero el nombre y el reverso; después añades las cartas." />
-      <DeckForm deck={{ id: null, name: "", description: "", backImageUrl: null }} />
+      <DeckForm deck={{ id: null, name: "", description: "", backImageUrl: null, backFrame: null }} />
     </div>
   );
 }

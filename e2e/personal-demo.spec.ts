@@ -60,7 +60,7 @@ test.describe.serial("Modo personal · detalles de la demo", () => {
     await prisma.creator.update({ where: { id: ana.id }, data: { pagePublished: cfg } });
     try {
       await page.goto("/");
-      await expect(page.getByRole("heading", { name: "Ana Luna", level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Cirella", level: 1 })).toBeVisible();
       // /ana/curso-conocete-tu-energia en la web personal sin cobros da 404: ni botón ni burbuja.
       await expect(page.locator('a[href="/ana/curso-conocete-tu-energia"]')).toHaveCount(0);
       await expect(page.getByText(/Empieza aquí/)).toHaveCount(0);
@@ -172,12 +172,12 @@ test.describe.serial("Modo personal · detalles de la demo", () => {
       await card.scrollIntoViewIfNeeded();
       const code = card.locator("code");
       const before = await code.boundingBox();
-      await card.getByRole("button", { name: "Copiar código ANALUNA15" }).click();
+      await card.getByRole("button", { name: "Copiar código CIRELLA15" }).click();
       await expect(card.getByRole("button", { name: /Copiado/ })).toBeVisible();
       const after = await code.boundingBox();
       expect(after?.height).toBe(before?.height);
       expect(after?.width).toBe(before?.width);
-      // Una sola línea de texto («ANALUNA15», no «ANALUNA1 / 5»).
+      // Una sola línea de texto («CIRELLA15», no «CIRELLA1 / 5»).
       const lines = await code.evaluate((el) => {
         const r = document.createRange();
         r.selectNodeContents(el);

@@ -128,6 +128,7 @@ export function barePage(slug: string): boolean {
 }
 
 /** Productos que no se ven (web personal sin cobros), como en la portada. */
-export function hiddenProductSlugs(products: { slug: string; accessMode?: string }[], signupsOnly: boolean): Set<string> {
-  return new Set(signupsOnly ? products.filter((p) => (p.accessMode ?? "PAID") === "PAID").map((p) => p.slug.toLowerCase()) : []);
+export function hiddenProductSlugs(..._args: [products: { slug: string; accessMode?: string }[], signupsOnly: boolean]): Set<string> {
+  // Lo de pago ya no se esconde: se solicita por formulario (lib/requests.ts).
+  return new Set<string>();
 }

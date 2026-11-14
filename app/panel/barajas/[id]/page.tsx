@@ -63,7 +63,7 @@ export default async function DeckPage({ params, searchParams }: { params: Promi
       {sp.faltan && <Flash error={`Para publicarla necesita al menos ${DECK_CARDS_MIN} cartas (la tirada de tres).`} />}
       {sp.carta && CARD_FLASH[sp.carta] && <Flash ok={CARD_FLASH[sp.carta] + (sp.borrador ? ` Le quedan menos de ${DECK_CARDS_MIN} cartas: ha vuelto a borrador.` : "")} />}
 
-      <DeckForm deck={{ id: deck.id, name: deck.name, description: deck.description ?? "", backImageUrl: deck.backImageUrl }} />
+      <DeckForm deck={{ id: deck.id, name: deck.name, description: deck.description ?? "", backImageUrl: deck.backImageUrl, backFrame: deck.backFrame }} />
 
       <section className="mt-8" aria-labelledby="cartas">
         <div className="mb-3 flex items-center justify-between gap-3">

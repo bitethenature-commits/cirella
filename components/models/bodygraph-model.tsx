@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { CHANNEL_BAND, CHANNEL_PATHS, CHANNEL_PATH_BY_KEY, CENTRE_SHAPES, GATE_FONT, GATE_SLOTS, VIEWBOX } from "./data/bodygraph-layout";
+import { CHANNEL_BAND, CHANNEL_PATHS, CHANNEL_PATH_BY_KEY, CENTRE_SHAPES, GATE_FONT, GATE_SLOTS, INTEGRATION_BRANCH, INTEGRATION_KEYS, VIEWBOX, integrationHanging } from "./data/bodygraph-layout";
 import { CENTRE_BY_ID, CHANNEL_BY_KEY, CHANNELS_OF_GATE, CIRCUIT_LABEL, EXAMPLE_CHARTS, GATES, GATE_BY_N, channelKey, readChart, type Centre, type Channel, type Gate } from "./data/human-design";
 import { CompactSummary, GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelLink, PanelRow, SOFT, ToolButton, cn, tap } from "./model-kit";
 import type { BirthProfile, ComputedProfile } from "@/lib/birth-profile";
@@ -153,9 +153,23 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
         {PATHS.map((p) => (
           <path key={p.key} d={p.d} stroke={BAND_FILL} strokeWidth={CHANNEL_BAND} />
         ))}
+        {/* El corredor de integración: las puertas colgantes, solo su rama (bodygraph-layout.ts). */}
+        {integrationHanging((g) => active.has(g), (k) => { const [a, b] = k.split("-").map(Number); return active.has(a) && active.has(b); }).map((g) => {
+          if (!hd) return <path key={`ib${g}`} d={INTEGRATION_BRANCH[g]} stroke={HALF_GOLD} strokeWidth={CHANNEL_BAND} />;
+          const sides = hd.gateSides.get(g);
+          const both = sides?.has("design") && sides.has("personality");
+          return (
+            <g key={`ib${g}`} strokeWidth={CHANNEL_BAND - 2}>
+              <path d={INTEGRATION_BRANCH[g]} stroke={both ? DESIGN_RED : sideColor(sides)} />
+              {both && <path d={INTEGRATION_BRANCH[g]} stroke={INK} strokeDasharray="5 5" />}
+            </g>
+          );
+        })}
         {PATHS.map((p) => {
           const aOn = active.has(p.a);
           const bOn = active.has(p.b);
+          // En el corredor de integración, un canal sin definir no pinta medias cintas (ni tapa ni deja picos).
+          if (INTEGRATION_KEYS.has(p.key) && !(aOn && bOn)) return null;
           if (hd) {
             // Carta calculada: cada mitad con el color de su puerta (negro, rojo o a rayas si las dos).
             const half = (d: string, n: number) => {

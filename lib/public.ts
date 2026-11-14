@@ -39,6 +39,8 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
   // Web personal: solo la dueña tiene página (las demás ya dan 404 antes de llegar aquí).
   const personal = isPersonalMode() && ownerUsername() === creator.username;
   // Web personal sin cobros: lo de pago en la web no se ofrece (ni condiciones de venta en el pie).
+  // Web personal sin cobros: sin condiciones de venta en el pie. Lo de pago no se esconde: se
+  // solicita por formulario (lib/requests.ts).
   const signupsOnly = personal && !hasPaymentProvider();
   const features = personal ? ALL_FEATURES : planFeatures(creator.plan);
   const raw = draft ? creator.pageDraft : (creator.pagePublished ?? creator.pageDraft);

@@ -14,7 +14,7 @@ import { htmlToText } from "../../lib/email/plain-text";
 import { buildResendRequest } from "../../lib/email/providers/resend";
 import { eq, ok, test } from "./harness";
 
-const BASE = "https://analuna.es";
+const BASE = "https://cirella.app";
 const IMG = "/media/abc123/0123456789abcdef0123.jpg";
 const VIDEO = "/media/video/cabc1234567/0123456789abcdef01234567.mp4";
 const design = (blocks: unknown[], style?: unknown): EmailDesign => readDesign({ v: 1, blocks, ...(style ? { style } : {}) })!;
@@ -137,11 +137,11 @@ test("dos columnas: se apilan en el móvil (bloques en línea) y tabla para Outl
 });
 
 test("redes: usuario o enlace → enlaces seguros; vacías no salen", () => {
-  eq(socialLink("instagram", "@ana.luna"), "https://instagram.com/ana.luna");
-  eq(socialLink("web", "analuna.es"), "https://analuna.es/");
+  eq(socialLink("instagram", "@cirella"), "https://instagram.com/cirella");
+  eq(socialLink("web", "cirella.app"), "https://cirella.app/");
   ok(!(socialLink("web", "javascript:alert(1)") ?? "").startsWith("javascript:"));
-  const out = html([{ id: "r", t: "social", links: { instagram: "@ana", youtube: "", email: "hola@analuna.es" }, align: "center" }]);
-  ok(out.includes("https://instagram.com/ana") && out.includes("mailto:hola@analuna.es") && !out.includes("YouTube"), out);
+  const out = html([{ id: "r", t: "social", links: { instagram: "@ana", youtube: "", email: "hola@cirella.app" }, align: "center" }]);
+  ok(out.includes("https://instagram.com/ana") && out.includes("mailto:hola@cirella.app") && !out.includes("YouTube"), out);
   eq(html([{ id: "r", t: "social", links: {}, align: "center" }]), "");
 });
 
@@ -170,11 +170,11 @@ test("lintDesign: contraste bajo, vídeo sin portada, redes vacías", () => {
 
 test("plantilla de la newsletter: estilo, ancho, fuentes web con reserva, sin «Tu área» y el pie legal de siempre", () => {
   const d = design([{ id: "h", t: "hero", image: "", alt: "", overlay: "#14163A", opacity: 0, title: "Luna", subtitle: "", color: "#FFFFFF", align: "center", height: "m" }, { id: "x", t: "text", body: "Hola" }], { ...DEFAULT_EMAIL_STYLE, bg: "#14163A", headingFont: "cormorant", width: 680 });
-  const out = designEmailHtml({ brand: "Ana Luna", subject: "S", design: d, baseUrl: BASE, vars: {}, footer: "PIE LEGAL", preheader: "Pre" });
+  const out = designEmailHtml({ brand: "Cirella", subject: "S", design: d, baseUrl: BASE, vars: {}, footer: "PIE LEGAL", preheader: "Pre" });
   ok(out.includes("max-width:680px") && out.includes('bgcolor="#14163A"') && out.includes("fonts.googleapis.com/css2?family=Cormorant+Garamond") && out.includes(".hf{font-family:Georgia,serif!important}"), "estilo");
   ok(out.includes('<meta name="color-scheme" content="light">') && out.includes("PIE LEGAL") && out.includes("display:none") && out.includes("Pre"), "meta y pie");
   eq(webFontsLink(["georgia", "helvetica"]), "");
-  const m = campaignEmail({ brand: "Ana", subject: "Hola {nombre}", design: d, baseUrl: BASE, vars: { nombre: "Eva" }, footer: { senderName: "Ana", legalUrl: `${BASE}/ana/legal`, unsubscribeUrl: `${BASE}/baja/newsletter?t=x` } });
+  const m = campaignEmail({ brand: "Cirella", subject: "Hola {nombre}", design: d, baseUrl: BASE, vars: { nombre: "Eva" }, footer: { senderName: "Cirella", legalUrl: `${BASE}/ana/legal`, unsubscribeUrl: `${BASE}/baja/newsletter?t=x` } });
   ok(m.subject === "Hola Eva" && m.html.includes(`href="${BASE}/baja/newsletter?t=x"`) && m.html.includes("Darme de baja"), m.subject);
 });
 
@@ -186,15 +186,15 @@ test("plantillas: Luna llena, Novedades y Lanzamiento son válidas y usan la pal
     ok(r.ok && r.value.blocks.length === d.blocks.length && !!r.value.style, s.key);
   }
   ok(JSON.stringify(starterDesign("novedades", { palette: ["#B4583F"], siteUrl: "/" })).includes("#B4583F"));
-  const pal = brandPalette({ displayName: "Ana", template: "editorial", theme: { accent: "#123456" } });
+  const pal = brandPalette({ displayName: "Cirella", template: "editorial", theme: { accent: "#123456" } });
   ok(pal[0] === "#123456" && pal.includes("#FFFFFF") && new Set(pal).size === pal.length, pal.join());
 });
 
 test("texto plano: sin vista previa ni comentarios de Outlook, enlaces con su dirección; Resend lo envía", () => {
-  const d = design([{ id: "x", t: "text", body: "Hola [mi web](https://analuna.es/x)" }, { id: "b", t: "button", label: "Reservar", href: "/r", align: "center" }]);
-  const m = campaignEmail({ brand: "Ana", subject: "S", preheader: "OCULTO", design: d, baseUrl: BASE, vars: {}, footer: { senderName: "Ana", legalUrl: "l", unsubscribeUrl: null } });
+  const d = design([{ id: "x", t: "text", body: "Hola [mi web](https://cirella.app/x)" }, { id: "b", t: "button", label: "Reservar", href: "/r", align: "center" }]);
+  const m = campaignEmail({ brand: "Cirella", subject: "S", preheader: "OCULTO", design: d, baseUrl: BASE, vars: {}, footer: { senderName: "Cirella", legalUrl: "l", unsubscribeUrl: null } });
   const t = htmlToText(m.html);
-  ok(t.includes("Reservar (https://analuna.es/r)") && t.includes("mi web") && !t.includes("OCULTO") && !t.includes("mso") && !t.includes("<"), t);
+  ok(t.includes("Reservar (https://cirella.app/r)") && t.includes("mi web") && !t.includes("OCULTO") && !t.includes("mso") && !t.includes("<"), t);
   const body = JSON.parse(buildResendRequest({ id: "1", to: "a@x.es", subject: "S", html: m.html }, { apiKey: "k", fromAddress: "a@x.es", defaultFromName: "A" }).init.body);
   ok(typeof body.text === "string" && body.text.includes("Reservar"));
 });
@@ -236,7 +236,7 @@ test("resaltar: ==palabras== con el color del bloque; marcas sueltas se quedan; 
   ok(!html([{ id: "x", t: "text", body: "<b>==x==</b>" }]).includes("<b>"), "escapado");
   ok(html([{ id: "s", t: "spotlight", icon: "", title: "", body: "a ==b==", bg: "#ffffff", accent: "#000000", border: "none" }]).includes("==b=="), "solo en el bloque Texto");
   const d = design([{ id: "x", t: "text", body: "Hola ==plazas== abiertas" }]);
-  const m = campaignEmail({ brand: "Ana", subject: "S", design: d, baseUrl: BASE, vars: {}, footer: { senderName: "Ana", legalUrl: "l", unsubscribeUrl: null } });
+  const m = campaignEmail({ brand: "Cirella", subject: "S", design: d, baseUrl: BASE, vars: {}, footer: { senderName: "Cirella", legalUrl: "l", unsubscribeUrl: null } });
   ok(htmlToText(m.html).includes("Hola plazas abiertas"), htmlToText(m.html));
   const w = lintDesign(design([{ id: "x", t: "text", body: "Hola ==plazas== abiertas, un texto largo para que no sea solo imágenes.", color: "#FFFFFF", band: "#000000", highlight: "#FFFFEE" }]), "S");
   ok(w.some((x) => /texto resaltado/.test(x)) && !w.some((x) => /contraste en el texto \(/.test(x)), w.join(" | "));

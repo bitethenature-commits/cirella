@@ -27,7 +27,7 @@ export async function sectionCounts(username: string, seen: Partial<Record<SeenS
   // Lo mismo que pinta la portada (creator-page-view): el portal solo en la web personal y las ofertas
   // solo en lo que se paga en la web.
   const portal = data.personal ? data.portal.filter((i) => Date.parse(i.publishedAt) > after("portal")).length : 0;
-  const offers = data.signupsOnly ? 0 : data.products.filter((p) => p.sale && Date.parse(p.sale.startedAt) > after("offers")).length;
+  const offers = data.products.filter((p) => p.sale && Date.parse(p.sale.startedAt) > after("offers")).length;
   return { posts, portal, offers };
 }
 

@@ -13,6 +13,7 @@ import { PLATFORM_NAV_FLAGS, type PanelNavFlags } from "./nav-items";
 export const panelNavFlags = cache(async (creatorId: string): Promise<PanelNavFlags> => {
   if (!isPersonalMode()) return PLATFORM_NAV_FLAGS;
   if (hasPaymentProvider()) return { personal: true, sales: true, showBookings: true };
+  // Sin cobros, las sesiones «con solicitud» también se reservan aquí (lib/requests.ts).
   const db = tenantDb(creatorId);
   const [internalSessions, upcoming] = await Promise.all([
     db.product.count({ where: { type: "SESSION", status: { not: "ARCHIVED" }, accessMode: { not: "EXTERNAL" } } }),

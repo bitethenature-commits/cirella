@@ -55,7 +55,7 @@ export default async function MySessions() {
     await prisma.order.findMany({
       where: { buyerEmail: user.email, status: "PAID", productType: "DIGITAL" },
       orderBy: { paidAt: "desc" },
-      include: { product: true, files: { where: { sentAt: { not: null } }, select: { id: true } } },
+      include: { product: true },
     })
   ).filter((o) => channelKindLabel({ ...o.product, title: o.productTitle }) === "Lectura");
 
@@ -184,8 +184,8 @@ export default async function MySessions() {
         cta="Pedirla"
       >
         {prepared.map((o) => {
-          // Las que se descargan al momento ya están; las que se preparan, cuando se entregan.
-          const delivered = o.product.deliveryMode !== "PERSONAL" || !!o.deliveredAt || o.files.length > 0;
+          // Las que se descargan al momento ya están; las que se preparan, llegan por email.
+          const delivered = o.product.deliveryMode !== "PERSONAL";
           return (
             <Link key={o.id} href={`/cuenta/pedidos/${o.id}`} className="card group flex items-center gap-4 border-l-4 border-l-gold p-4 transition hover:shadow-lift" data-kind="reading">
               <Badge tone="reading">
@@ -193,10 +193,10 @@ export default async function MySessions() {
               </Badge>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{o.productTitle}</p>
-                <p className="text-sm text-muted">{delivered ? (o.deliveredAt ? `Entregada el ${formatDate(o.deliveredAt, { day: "numeric", month: "long" })}: ya puedes verla` : "Lista: ya puedes verla") : "Se está preparando para ti"}</p>
+                <p className="text-sm text-muted">{delivered ? "Lista: ya puedes verla" : "Te llega por email"}</p>
                 <MethodTag product={o.product} />
               </div>
-              <span className={`chip shrink-0 ${delivered ? "!bg-gold/20" : ""}`}>{delivered ? (o.deliveredAt ? "Entregada" : "Lista") : "En preparación"}</span>
+              <span className={`chip shrink-0 ${delivered ? "!bg-gold/20" : ""}`}>{delivered ? "Lista" : "Por email"}</span>
             </Link>
           );
         })}

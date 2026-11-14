@@ -236,7 +236,7 @@ function addInterval(date: Date, interval: string) {
 type SavedPayment = { customerRef?: string; paymentMethodRef?: string };
 
 /** Pedidos que se pueden entregar. PAID, REFUNDED (y los estados de reembolso) nunca se entregan otra vez. */
-const FULFILLABLE = ["PENDING", "PROCESSING", "FAILED", "ABANDONED"];
+const FULFILLABLE = ["PENDING", "PROCESSING", "FAILED", "ABANDONED", "REQUESTED"];
 
 /**
  * Entrega automática. Idempotente también cuando dos llamadas coinciden (el aviso de la pasarela y

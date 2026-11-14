@@ -77,20 +77,6 @@ export async function getCustomerLibrary(userId: string) {
 }
 
 /**
- * Lecturas y grabaciones que la dueña le ha entregado (archivos de sus pedidos pagados ya enviados),
- * mientras su acceso al producto siga activo: para «Mis archivos».
- */
-export async function deliveredReadings(userId: string) {
-  const files = await prisma.orderFile.findMany({
-    where: { sentAt: { not: null }, kind: { not: "LINK" }, order: { status: "PAID", customer: { userId } } },
-    orderBy: { sentAt: "desc" },
-    include: { order: { select: { productId: true, productTitle: true } }, creator: true },
-  });
-  const active = new Set((await prisma.access.findMany({ where: { ...activeAccess(userId), productId: { in: files.map((f) => f.order.productId) } }, select: { productId: true } })).map((a) => a.productId));
-  return files.filter((f) => active.has(f.order.productId)).map((f) => ({ ...f, productTitle: f.order.productTitle, creator: creatorBrief(f.creator) }));
-}
-
-/**
  * Comprueba que la usuaria tiene acceso vigente a un producto: directo o por una membresía que lo
  * incluye (lib/membership-access.ts). La fecha de fin se comprueba en cada llamada.
  */

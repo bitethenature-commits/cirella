@@ -206,7 +206,7 @@ test.describe.serial("Desistimiento", () => {
     const row = (title: string) => page.locator(".card > div", { hasText: title });
     await expect(row("Lectura de Human Design").getByRole("button", { name: "Desistir" })).toBeVisible();
     await expect(row("Lectura de Human Design")).toContainText(/Puedes desistir hasta el \d+ de \p{L}+ \(incluido\)/u);
-    // Solo un «Desistir» en toda la página: ni lo digital ni la comunidad que le regaló Ana.
+    // Solo un «Desistir» en toda la página: ni lo digital ni la comunidad que le regaló Cirella.
     await expect(page.getByRole("button", { name: "Desistir" })).toHaveCount(1);
     for (const title of ["Gene Keys", "Conócete a través de tu energía"]) {
       await expect(row(title)).toBeVisible();
@@ -216,7 +216,7 @@ test.describe.serial("Desistimiento", () => {
 
   test("producto: la regla del día 15 explicada y sin bajar de 15 días", async ({ page }) => {
     const p = await prisma.product.findFirstOrThrow({ where: { slug: "sesion-1-1", creator: { username: "ana" } } });
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(`/panel/productos/${p.id}`);
     await expect(page.getByText("Las sesiones que se pagan en la web se pueden reservar a partir del día 15 desde la compra: así nunca caen dentro de los 14 días en los que tu clienta puede desistir.")).toBeVisible();
     const notice = page.getByLabel("Antelación mínima (días desde la compra)");

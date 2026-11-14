@@ -302,3 +302,11 @@ export async function changeBooking(_: ChangeState, form: FormData): Promise<Cha
   revalidatePath("/panel/ventas");
   redirect(`/panel/reservas?ok=${ok}`);
 }
+
+/** «Ya la envié»: la lectura «Lo preparo yo» se envía por email (la web no guarda el material). */
+export async function markReadingSent(form: FormData) {
+  const { creator } = await requireCreator();
+  const orderId = String(form.get("orderId") ?? "");
+  await tenantDb(creator.id).order.updateMany({ where: { id: orderId, status: "PAID", productType: "DIGITAL", deliveredAt: null }, data: { deliveredAt: new Date() } });
+  revalidatePath("/panel/reservas");
+}

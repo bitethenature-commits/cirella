@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, BarChart3, Eye, ListTree, Settings2, UsersRound } from "lucide-react";
 import { Badge } from "../../ui";
+import { SectionEmblem } from "../../section-emblem";
 
 export type StudioTab = "estructura" | "alumnas" | "datos";
 
@@ -20,13 +21,17 @@ export function StudioHeader({ course, tab }: { course: { id: string; title: str
       <Link href="/panel/cursos" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
         <ArrowLeft className="h-4 w-4" /> Cursos
       </Link>
-      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="panel-hero mt-3 flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="starfield absolute inset-0 -z-10 rounded-[inherit] opacity-40" aria-hidden />
+        <div className="flex min-w-0 items-center gap-4">
+        <SectionEmblem className="h-14 w-14 shrink-0" />
         <div className="min-w-0">
           <p className="eyebrow">Estudio del curso</p>
           <h1 className="display mt-1 text-[2.1rem] leading-tight sm:text-[2.4rem]">
             {course.emoji} {course.title}
           </h1>
           <div className="mt-2">{course.status === "PUBLISHED" ? <Badge tone="success">Publicado</Badge> : <Badge tone="warning">Borrador · tus alumnas aún no lo ven</Badge>}</div>
+        </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`/cuenta/cursos/${course.id}`} target="_blank" className="btn btn-outline btn-sm" data-view-as-student>

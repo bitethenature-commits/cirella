@@ -9,6 +9,23 @@ import { processPostNotifications } from "@/lib/community-notify";
 import { memberPostState, parseMemberPostForm } from "@/lib/community-rules";
 import { captureError } from "@/lib/monitoring";
 import { tenantDb } from "@/lib/tenant";
+import { blockMembership, renewMembership } from "@/lib/membership-renewal";
+
+/** Tick verde en Miembros: ha pagado, otro periodo más (lib/membership-renewal.ts). */
+export async function renewMember(form: FormData) {
+  const { creator } = await requireCreator();
+  const until = await renewMembership(creator.id, String(form.get("accessId") ?? ""));
+  revalidatePath("/panel/comunidad");
+  redirect(`/panel/comunidad?${new URLSearchParams({ tab: "miembros", nivel: String(form.get("nivel") ?? ""), ok: `Renovada hasta el ${until}. Le hemos enviado un email.` })}`);
+}
+
+/** X en Miembros: no ha pagado, se bloquea ya. */
+export async function blockMember(form: FormData) {
+  const { creator } = await requireCreator();
+  await blockMembership(creator.id, String(form.get("accessId") ?? ""));
+  revalidatePath("/panel/comunidad");
+  redirect(`/panel/comunidad?${new URLSearchParams({ tab: "miembros", nivel: String(form.get("nivel") ?? ""), ok: "Membresía bloqueada. Con el tick verde vuelve a entrar." })}`);
+}
 
 /**
  * Acciones del estudio Comunidad (/panel/comunidad). Todo va por tenantDb(creator.id) o por las

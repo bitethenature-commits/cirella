@@ -151,7 +151,7 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
     await expect(page.getByText("Pago en calendly.com").first()).toBeVisible();
     await expect(page.getByText("IVA incluido")).toHaveCount(0);
     const button = page.getByRole("link", { name: /Reservar en Calendly/ }).first();
-    await expect(button).toHaveAttribute("href", "https://calendly.com/ana-luna/revolucion-solar");
+    await expect(button).toHaveAttribute("href", "https://calendly.com/cirella/revolucion-solar");
     await expect(button).toHaveAttribute("target", "_blank");
     const popup = page.waitForEvent("popup");
     await button.click();

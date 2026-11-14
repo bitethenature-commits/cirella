@@ -4,6 +4,7 @@ import { requireCreator } from "@/lib/auth";
 import { readDrip } from "@/lib/course-drip";
 import { uploadPolicy } from "@/lib/file-types";
 import { emptyBlock, isBlockKind, parseBlock } from "@/lib/lesson-blocks";
+import { lessonPartViews } from "@/lib/lesson-parts";
 import { loadLessonEditor } from "@/lib/lessons";
 import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
@@ -20,6 +21,20 @@ export async function lessonEditorProps(productId: string, lessonId: string | nu
   if (!data || (lessonId && !data.lesson)) notFound();
   if (!data.modules.length) redirect(`/panel/cursos/${productId}`);
   const mod = data.modules.some((m) => m.id === moduleId) ? moduleId! : (data.lesson?.moduleId ?? data.modules[0].id);
+
+  // El índice del curso (a la izquierda del editor): módulos y lecciones, como los ve la alumna.
+  const outlineModules = await tenantDb(creator.id).courseModule.findMany({
+    where: { productId },
+    orderBy: { sortOrder: "asc" },
+    select: {
+      id: true,
+      title: true,
+      lessons: {
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, title: true, published: true, durationMin: true, parts: { orderBy: { sortOrder: "asc" }, select: { kind: true, file: { select: { kind: true } } } } },
+      },
+    },
+  });
 
   const ordered = await tenantDb(creator.id).lesson.findMany({
     where: { productId },
@@ -66,5 +81,14 @@ export async function lessonEditorProps(productId: string, lessonId: string | nu
     drip: readDrip(data.product),
     dripIndex: before,
     preview: { courseTitle: data.product.title, imageUrl: data.product.imageUrl, personal, number: before + 1, total },
+    outline: {
+      courseTitle: data.product.title,
+      imageUrl: data.product.imageUrl,
+      modules: outlineModules.map((m) => ({
+        id: m.id,
+        title: m.title,
+        lessons: m.lessons.map((x) => ({ id: x.id, title: x.title, published: x.published, durationMin: x.durationMin, views: lessonPartViews(x.parts) })),
+      })),
+    },
   };
 }

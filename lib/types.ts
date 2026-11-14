@@ -15,12 +15,22 @@ export const PRODUCT_TYPE_HINT: Record<ProductType, string> = {
   MEMBERSHIP: "Contenido privado con suscripción mensual",
 };
 
+/** Botón de lo que se pide escribiendo (la web no cobra: lib/requests.ts). */
 export const DEFAULT_CTA: Record<ProductType, string> = {
-  DIGITAL: "Comprar",
-  SESSION: "Reservar",
-  COURSE: "Ver curso",
-  MEMBERSHIP: "Unirme",
+  DIGITAL: "Escríbeme para pedirlo",
+  SESSION: "Escríbeme para reservar",
+  COURSE: "Escríbeme y te apunto",
+  MEMBERSHIP: "Escríbeme para unirte",
 };
+
+/** Textos de botón de cuando se pagaba en la web: se cambian por la invitación a escribir. */
+const LEGACY_CTA = new Set(["Comprar", "Reservar", "Ver curso", "Unirme", "Solicitar", "Solicitar cita", "Apuntarme"]);
+
+/** Botón de un producto «con solicitud»: el texto propio de la dueña o la invitación a escribir. */
+export function requestCta(type: string, ctaLabel: string | null | undefined): string {
+  const own = ctaLabel?.trim();
+  return own && !LEGACY_CTA.has(own) ? own : (DEFAULT_CTA[type as ProductType] ?? "Escríbeme");
+}
 
 export const ORDER_STATUS_LABEL: Record<string, string> = {
   PENDING: "Pendiente",
@@ -29,6 +39,8 @@ export const ORDER_STATUS_LABEL: Record<string, string> = {
   FAILED: "Fallido",
   REFUNDED: "Reembolsado",
   ABANDONED: "Abandonado",
+  REQUESTED: "Solicitud",
+  DECLINED: "Descartada",
 };
 
 export const PAYOUT_STATUS_LABEL: Record<string, string> = {

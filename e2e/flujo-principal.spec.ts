@@ -53,7 +53,7 @@ test.describe.serial("Flujo principal", () => {
     await expect(page.getByText("Sube tu foto")).toBeVisible();
     await next.click();
     // 4. Nombre y descripción
-    await page.getByPlaceholder("Ana Luna").fill("Luna Prueba");
+    await page.getByPlaceholder("Cirella").fill("Luna Prueba");
     await page.getByPlaceholder("Astrología · Human Design · Gene Keys").fill("Tarot · Astrología");
     await next.click();
     // 5. Categoría
@@ -144,7 +144,7 @@ test.describe.serial("Flujo principal", () => {
     await expect(page.getByText("Paula Compradora")).toBeVisible();
   });
 
-  test("4. Demo: la clienta de Ana ve su curso (43 %), su sesión y su PDF", async ({ page }) => {
+  test("4. Demo: la clienta de Cirella ve su curso (43 %), su sesión y su PDF", async ({ page }) => {
     await demoLogin(page, "Laura Martín");
     await expect(page.getByRole("heading", { name: "Hola, Laura" })).toBeVisible();
     await expect(page.getByText("Progreso 43%")).toBeVisible();
@@ -156,7 +156,7 @@ test.describe.serial("Flujo principal", () => {
     expect(res.headers()["content-type"]).toContain("pdf");
   });
 
-  test("5. Multi-tenant: Ana no puede abrir productos ni archivos de María; Laura tampoco", async ({ page }) => {
+  test("5. Multi-tenant: Cirella no puede abrir productos ni archivos de María; Laura tampoco", async ({ page }) => {
     const prisma = new PrismaClient();
     const maria = await prisma.creator.findUniqueOrThrow({ where: { username: "maria" } });
     const product = await prisma.product.findFirstOrThrow({ where: { creatorId: maria.id } });
@@ -164,7 +164,7 @@ test.describe.serial("Flujo principal", () => {
     const customer = await prisma.customer.findFirstOrThrow({ where: { creatorId: maria.id } });
     await prisma.$disconnect();
 
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await expect(page).toHaveURL(/\/panel/);
     expect((await page.request.get(`/panel/productos/${product.id}`)).status()).toBe(404);
     expect((await page.request.get(`/panel/clientes/${customer.id}`)).status()).toBe(404);
@@ -188,7 +188,7 @@ test.describe.serial("Flujo principal", () => {
   });
 
   test("7. Panel móvil: el menú «Más» abre sin errores", async ({ page }) => {
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     const res = await page.goto("/panel/mas");
     expect(res?.status()).toBe(200);
     await expect(page.getByRole("heading", { name: "Más" })).toBeVisible();
@@ -196,7 +196,7 @@ test.describe.serial("Flujo principal", () => {
   });
 
   test("8. Membresías: no se puede pagar dos veces la misma suscripción", async ({ page }) => {
-    // Lucía ya es miembro de «Luna completa» (el Círculo de Ana).
+    // Lucía ya es miembro de «Luna completa» (el Círculo de Cirella).
     await page.goto("/ana/luna-completa/checkout");
     await page.fill("#name", "Lucía Torres");
     await page.fill("#email", "lucia@example.com");

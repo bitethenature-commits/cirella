@@ -9,6 +9,7 @@ import { uniqueDeckSlug } from "@/lib/oracle-decks";
 import { cardFormSchema, DECK_CARDS_MAX, DECK_CARDS_MIN, deckFormSchema, DECKS_MAX } from "@/lib/oracle-rules";
 import { isOwnImageSrc } from "@/lib/page-blocks";
 import { cleanRichInput } from "@/lib/rich-text";
+import { cardFrameText, parseCardFrame } from "@/components/models/data/oracle";
 import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb, type TenantDb } from "@/lib/tenant";
 
@@ -31,6 +32,9 @@ function refresh(username: string, deckId?: string) {
   revalidatePath("/panel/pagina");
 }
 
+/** El ajuste de una imagen a la carta, limpio (null sin imagen). */
+const frameOf = (raw: string, hasImage: boolean) => (hasImage && raw ? cardFrameText(parseCardFrame(raw)) : null);
+
 /** Una imagen del formulario: vacía → null; suya (o de la demo) → la misma; de fuera → error. */
 function ownImage(raw: string, creatorId: string): { ok: true; url: string | null } | { ok: false } {
   const url = raw.trim();
@@ -48,7 +52,7 @@ export async function saveDeck(_: DeckActionState, form: FormData): Promise<Deck
   const d = parsed.data;
   const back = ownImage(d.backImageUrl, creator.id);
   if (!back.ok) return { error: "La imagen del reverso no es tuya o ya no existe: vuelve a subirla" };
-  const data = { name: d.name, description: d.description || null, backImageUrl: back.url };
+  const data = { name: d.name, description: d.description || null, backImageUrl: back.url, backFrame: frameOf(d.backFrame, !!back.url) };
   if (!d.id) {
     const count = await db.oracleDeck.count();
     if (count >= DECKS_MAX) return { error: `Puedes tener hasta ${DECKS_MAX} barajas` };
@@ -124,6 +128,8 @@ export async function saveCard(_: DeckActionState, form: FormData): Promise<Deck
   if (!deck) return { error: "Esta baraja ya no existe" };
   const image = ownImage(d.imageUrl, creator.id);
   if (!image.ok) return { error: "La imagen de la carta no es tuya o ya no existe: vuelve a subirla" };
+  const back = ownImage(d.backImageUrl, creator.id);
+  if (!back.ok) return { error: "La imagen del reverso no es tuya o ya no existe: vuelve a subirla" };
   const reversedMessage = d.reversible ? cleanRichInput(d.reversedMessage, { creatorId: creator.id, images: false }).trim() : "";
   const data = {
     name: d.name,
@@ -131,6 +137,9 @@ export async function saveCard(_: DeckActionState, form: FormData): Promise<Deck
     message: cleanRichInput(d.message, { creatorId: creator.id, images: false }).trim(),
     question: d.question,
     imageUrl: image.url,
+    imageFrame: frameOf(d.imageFrame, !!image.url),
+    backImageUrl: back.url,
+    backFrame: frameOf(d.backFrame, !!back.url),
     motif: ORACLE_CARDS.some((c) => c.id === d.motif) ? d.motif : null,
     reversible: d.reversible,
     reversedMessage: reversedMessage || null,

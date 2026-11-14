@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
 /**
- * Portada nueva de la web personal de Ana (iPhone 13):
+ * Portada nueva de la web personal de Cirella (iPhone 13):
  *   · el orden de la portada y los accesos (tres burbujas en una fila, también en el móvil);
  *   · «Actualidades»: dos tarjetas con la fecha en grande, «Ver todas» y la lista por meses, con las
  *     direcciones antiguas de «Novedades» redirigidas;
@@ -67,7 +67,7 @@ const href = (html: string, label: string) => html.match(new RegExp(`<a href="([
 test.describe.serial("Portada nueva", () => {
   test("el orden de la portada: presentación, accesos, actualidades, portal, sobre mí, sistemas, lecturas, cursos y códigos", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Ana Luna", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Cirella", level: 1 })).toBeVisible();
     await expect(page.getByText("Astrología · Human Design · Gene Keys")).toBeVisible();
     await expect(page.getByText("Conócete. Compréndete. Transfórmate.")).toBeVisible();
     // Sin botones principales en la demo.
@@ -97,7 +97,7 @@ test.describe.serial("Portada nueva", () => {
 
     // «Sobre mí»: la tarjeta entera lleva a su página; los sistemas, a la suya.
     await expect(page.locator("#sobre-mi a")).toHaveAttribute("href", "/ana/p/sobre-mi");
-    await expect(page.locator("#sobre-mi")).toContainText("Hola, soy Ana");
+    await expect(page.locator("#sobre-mi")).toContainText("Hola, soy Cirella");
     for (const name of ["Human Design", "Gene Keys", "Astrología", "Luna", "Mi energía"]) await expect(page.locator("#sistemas").getByRole("link", { name: new RegExp(name) })).toBeVisible();
     await page.locator("#sistemas").getByRole("link", { name: /Human Design/ }).click();
     await expect(page.getByRole("heading", { name: "Human Design", level: 1 })).toBeVisible();
@@ -194,7 +194,7 @@ test.describe.serial("Portada nueva", () => {
     // Sin la casilla de la newsletter no se envía (el navegador la exige).
     await form.getByRole("button", { name: /Suscribirme/ }).click();
     expect(await prisma.emailMessage.count({ where: { to: email } })).toBe(0);
-    await form.getByLabel(/Quiero recibir la newsletter de Ana Luna/).check();
+    await form.getByLabel(/Quiero recibir la newsletter de Cirella/).check();
     await form.getByRole("button", { name: /Suscribirme/ }).click();
     await expect(form.getByText(/Te hemos enviado un enlace/)).toBeVisible();
     const mail = await prisma.emailMessage.findFirstOrThrow({ where: { to: email, template: "REGISTER" } });
@@ -207,7 +207,7 @@ test.describe.serial("Portada nueva", () => {
     await expect(page.locator('[data-portal="unlocked"]')).toBeVisible();
     const sub = await prisma.subscriber.findFirstOrThrow({ where: { creatorId: ana.id, email } });
     expect([sub.status, sub.source]).toEqual(["CONFIRMED", "FORM"]);
-    expect(sub.consentText).toContain("newsletter de Ana Luna");
+    expect(sub.consentText).toContain("newsletter de Cirella");
     // Ya lo ve todo: el archivo privado y el enlace del directo.
     await expect(page.locator(`[data-portal-item="${live.id}"]`).getByRole("link", { name: "Entrar al directo" })).toHaveAttribute("href", live.linkUrl!);
     const media = await page.request.get(`/api/portal/${featured.id}/0`);

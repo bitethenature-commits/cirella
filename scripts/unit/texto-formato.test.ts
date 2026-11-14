@@ -123,10 +123,10 @@ test("inline: los paréntesis de Wikipedia se quedan en el enlace", () => {
   ok(a.href.endsWith("Luna_(sat%C3%A9lite)"), a.href);
 });
 
-test("inline: _hola@analuna.es_ → cursiva con mailto", () => {
-  eq(parseRich("_hola@analuna.es_")[0], {
+test("inline: _hola@cirella.app_ → cursiva con mailto", () => {
+  eq(parseRich("_hola@cirella.app_")[0], {
     t: "p",
-    c: [{ t: "i", c: [{ t: "a", href: "mailto:hola@analuna.es", external: false, c: [{ t: "text", v: "hola@analuna.es" }] }] }],
+    c: [{ t: "i", c: [{ t: "a", href: "mailto:hola@cirella.app", external: false, c: [{ t: "text", v: "hola@cirella.app" }] }] }],
   });
 });
 
@@ -454,7 +454,7 @@ test("parseRich: 20.000 caracteres patológicos en menos de 50 ms cada uno", () 
 // ── Página ──
 test("page-config: format «MD» se lee; sin formato también; uno desconocido es de antes y no borra la página", () => {
   const block = { id: "b1", title: "Sobre mí", body: "Hola", enabled: true };
-  const base = { displayName: "Ana", sections: [], links: [], socials: {}, testimonials: [], faqs: [] };
+  const base = { displayName: "Cirella", sections: [], links: [], socials: {}, testimonials: [], faqs: [] };
   // Los bloques de antes (sin `kind`) son de texto (lib/page-blocks.ts).
   const text = (b: unknown) => b as { kind: string; format?: string; body: string };
   eq(text(pageConfigSchema.parse({ ...base, blocks: [{ ...block, format: "MD" }] }).blocks?.[0]).format, "MD");

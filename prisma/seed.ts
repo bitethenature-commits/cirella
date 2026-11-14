@@ -12,7 +12,7 @@
  *                      portada y las páginas extra «Sobre mí» (publicada) y «Preguntas frecuentes» (borrador))
  *   maria@cirella.app  creadora · plan Creator · /maria
  *   sofia@cirella.app  creadora · plan Free    · /sofia
- *   laura@example.com  clienta de Ana (curso, PDF y sesión)
+ *   laura@example.com  clienta de Cirella (curso, PDF y sesión)
  *   admin@cirella.app  superadmin
  *
  * Las fechas son relativas al día en que se siembra (prisma/demo-dates.ts): las reservas siempre
@@ -58,6 +58,7 @@ import { seedMarsLesson } from "./demo-lesson-mars";
 import { seedSystemLessons } from "./demo-lessons-systems";
 import { seedDeepLessons } from "./demo-lessons-deep";
 import { seedDemoMembership } from "./demo-membership";
+import { seedHomeTexts } from "./demo-home-texts";
 import { grantFullAccess } from "./demo-full-access";
 
 const prisma = new PrismaClient();
@@ -67,8 +68,8 @@ const DAY = 86400_000;
 const TZ = DEMO_TZ;
 const TODAY = dateKeyInTz(NOW, TZ);
 /** Hace `d` días a la hora `h:m` de Madrid (con su horario de verano o de invierno). */
-/** La sala de Zoom personal de Ana (la de todas sus sesiones). */
-const ANA_ZOOM = "https://us02web.zoom.us/j/81234567890?pwd=AnaLunaDemo";
+/** La sala de Zoom personal de Cirella (la de todas sus sesiones). */
+const ANA_ZOOM = "https://us02web.zoom.us/j/81234567890?pwd=CirellaDemo";
 const daysAgo = (d: number, h = 12, m = 0) => zonedTimeToUtc(addDaysToKey(TODAY, -d), h * 60 + m, TZ);
 /**
  * Días bloqueados y las dos sesiones que vienen (prisma/demo-dates.ts). Las sesiones pagadas en la
@@ -214,7 +215,7 @@ type AnaSystem = {
 };
 
 /**
- * Métodos de Ana: cada uno tiene su página (/<slug>), su tarjeta en «Sistemas con los que trabajo» de
+ * Métodos de Cirella: cada uno tiene su página (/<slug>), su tarjeta en «Sistemas con los que trabajo» de
  * la portada y en «Mis métodos» de «Sobre mí». La página no vende: título largo y entradilla, bloques
  * que explican el sistema, su modelo interactivo en versión rápida («Calcular con mis datos» debajo) y
  * tres burbujas hacia donde está todo lo de ese tema (la comunidad, lecturas o sesiones y cursos). La
@@ -261,7 +262,7 @@ const ANA_SYSTEMS: AnaSystem[] = [
           "Un centro **definido** (con color) es energía que tienes siempre y de la misma manera: es fiable y es tuya. Un centro **abierto** (en blanco) recibe y amplifica la energía de quienes te rodean. Ahí es donde más te condicionas, pero también donde, con los años, más sabiduría puedes tener sobre los demás.",
       },
       {
-        id: "puertas", title: "Puertas, canales y perfil", photo: { src: "/demo/sesion.webp", alt: "Ana leyendo un bodygraph en una sesión" }, side: "left",
+        id: "puertas", title: "Puertas, canales y perfil", photo: { src: "/demo/sesion.webp", alt: "Cirella leyendo un bodygraph en una sesión" }, side: "left",
         body:
           "Entre los centros hay **36 canales**, y cada canal une dos de las **64 puertas**. Cuando tienes las dos puertas de un canal, el canal se *define* y los dos centros que une se colorean.\n\n" +
           "El **perfil** son dos números (de los doce posibles, como 1/3, 2/4 o 6/2) que salen de la línea de tu Sol consciente y la de tu Sol inconsciente. Cada línea es un papel: el investigador, el ermitaño, el que aprende probando, el que teje redes, el que proyectan los demás y el modelo a seguir. Dicen cómo vives tu propósito.",
@@ -440,7 +441,7 @@ const ANA_SYSTEMS: AnaSystem[] = [
       "Los sistemas con los que trabajo los aprendí de otras personas; esta parte no. Es mi forma de mirar: cinco principios que sostienen cada lectura, un texto de mis cuadernos y dos herramientas sencillas, las runas y mi oráculo, para hacerte mejores preguntas. Las puedes usar sin registrarte.",
     explain: [
       {
-        id: "cuatro-mapas", title: "Cuatro mapas, una misma persona", photo: { src: "/demo/ana-avatar.webp", alt: "Ana Luna sonriendo" }, side: "right",
+        id: "cuatro-mapas", title: "Cuatro mapas, una misma persona", photo: { src: "/demo/ana-avatar.webp", alt: "Cirella sonriendo" }, side: "right",
         body:
           "La astrología, el Human Design, las Gene Keys y la luna miran lo mismo desde sitios distintos. La carta natal cuenta tus ritmos; el bodygraph, cómo funciona tu energía y cómo decides; las Gene Keys, qué sombras esconden tus dones; la luna, el compás del mes.\n\n" +
           "Cuando los juntamos no buscamos que coincidan, sino lo que **se repite**: eso suele ser lo que de verdad importa. Y siempre por delante, lo que tú ya sabes de tu vida.",
@@ -455,7 +456,7 @@ const ANA_SYSTEMS: AnaSystem[] = [
 ];
 
 /**
- * «Mi energía»: la antigua página «Filosofía» contada por Ana. Todo son bloques que ella puede editar:
+ * «Mi energía»: la antigua página «Filosofía» contada por Cirella. Todo son bloques que ella puede editar:
  * la frase sobre la geometría sagrada (modelo «geometry»), por qué esta parte, los cinco principios
  * (una trayectoria numerada I–V), el ensayo de sus cuadernos (texto con formato) y, para jugar, una tirada
  * de runas y su oráculo de la luna (modelos «runes» y «oracle»; el oráculo, con su baraja de la BD).
@@ -496,24 +497,24 @@ function anaEnergyBlocks(oracleDeckId?: string): ContentBlock[] {
         "## Por qué merece la pena",
         "Porque una vida en la que solo caminas cuando sabes es una vida muy corta.",
         "Nunca llegarás a ningún sitio donde no hayas estado ya.",
-        "*— Ana*",
+        "*— Cirella*",
       ].join("\n\n"),
-    },
-    {
-      id: "runas", kind: "model", model: "runes", figure: "enneagram", enabled: true,
-      title: "Una tirada de runas",
-      intro: "Las runas fueron mi primer idioma antes que la astrología. No me dicen qué va a pasar: me ayudan a hacerme una pregunta mejor. Tira una para el día, o tres si quieres mirar de dónde vienes y hacia dónde vas.",
     },
     {
       id: "oraculo", kind: "model", model: "oracle", figure: "enneagram", enabled: true, deck: oracleDeckId,
       title: "El oráculo de la luna",
       intro: "Dibujé estas veintiocho cartas para mis círculos, una por cada noche del ciclo. Baraja, saca una o tres, y quédate más con la pregunta que con la respuesta. Si estás suscrita a mi newsletter, en «Más barajas» tienes las demás.",
     },
+    {
+      id: "runas", kind: "model", model: "runes", figure: "enneagram", enabled: true,
+      title: "Una tirada de runas",
+      intro: "Las runas fueron mi primer idioma antes que la astrología. No me dicen qué va a pasar: me ayudan a hacerme una pregunta mejor. Tira una para el día, o tres si quieres mirar de dónde vienes y hacia dónde vas.",
+    },
   ];
 }
 
 /**
- * Páginas extra de Ana: «Sobre mí» publicada (foto y texto, cita, tarjetas de métodos y de cómo
+ * Páginas extra de Cirella: «Sobre mí» publicada (foto y texto, cita, tarjetas de métodos y de cómo
  * acompaña, trayectoria, galería y un cierre suave sin empujar a reservar) y «Preguntas frecuentes»
  * en borrador.
  */
@@ -521,7 +522,7 @@ async function seedAnaSitePages(creatorId: string) {
   const about: SitePageContent = {
     title: "Sobre mí",
     subtitle: "Astróloga, analista de Human Design y guía de Gene Keys. Te acompaño a leer tu mapa con calma.",
-    cover: await demoBlockImage(creatorId, "/demo/ana-cover.webp", "Ana Luna en su estudio"),
+    cover: await demoBlockImage(creatorId, "/demo/ana-cover.webp", "Cirella en su estudio"),
     blocks: [
       {
         id: "historia",
@@ -529,7 +530,7 @@ async function seedAnaSitePages(creatorId: string) {
         title: "Mi historia",
         body: "Empecé a estudiar el cielo hace **8 años**, cuando una lectura me ayudó a entender por qué me costaba tanto descansar.\n\n## Lo que me mueve\n\n- Traducir el cielo a decisiones concretas\n- Que salgas de cada sesión con un plan\n- Cuidar a las mujeres que me confían su historia",
         format: "MD",
-        image: await demoBlockImage(creatorId, "/demo/ana-avatar.webp", "Ana Luna sonriendo"),
+        image: await demoBlockImage(creatorId, "/demo/ana-avatar.webp", "Cirella sonriendo"),
         imageSide: "right",
         enabled: true,
       },
@@ -537,7 +538,7 @@ async function seedAnaSitePages(creatorId: string) {
         id: "cita",
         kind: "quote",
         text: "No vienes a que te digan quién eres: vienes a recordarlo. Yo solo te ayudo a leer el mapa con tus propios ojos.",
-        author: "Ana Luna",
+        author: "Cirella",
         enabled: true,
       },
       {
@@ -575,6 +576,8 @@ async function seedAnaSitePages(creatorId: string) {
           enabled: true,
         })),
       )),
+      // Un texto libre debajo de los métodos, para contar más de ella.
+      { "id":"mas-sobre-mi","kind":"text","title":"Más allá de los métodos","body":"Cuando no estoy leyendo cartas, me encontrarás **caminando por el campo al atardecer**, con una libreta en el bolsillo y la Luna por compañera.\n\nCreo en las mañanas lentas, en el té caliente y en escribir a mano lo que siento. Cada luna nueva enciendo una vela y escribo mis intenciones, como te propongo a ti.\n\nLo que más me emociona de este trabajo es ver el momento en que alguien **se reconoce en su propio mapa**: ese «ahora lo entiendo» que lo cambia todo.","format":"MD","enabled":true },
       {
         id: "hablamos",
         kind: "text",
@@ -582,11 +585,11 @@ async function seedAnaSitePages(creatorId: string) {
         body: "No hace falta que sepas qué necesitas. Cuéntame en qué momento estás y te oriento **con calma y sin compromiso**.\n\nY si prefieres ir poco a poco, en mis actualidades comparto cada luna y lo que trae el cielo.",
         format: "MD",
         buttonLabel: "Escríbeme",
-        buttonUrl: "mailto:hola@analuna.es",
+        buttonUrl: "mailto:hola@cirella.app",
         enabled: true,
       },
     ],
-    seoTitle: "Sobre Ana Luna · Astrología y Human Design",
+    seoTitle: "Sobre Cirella · Astrología y Human Design",
     seoDescription: "Quién soy, mi trayectoria y cómo trabajo con astrología, Human Design y Gene Keys.",
   };
   const faq: SitePageContent = {
@@ -608,12 +611,12 @@ async function seedAnaSitePages(creatorId: string) {
 }
 
 /**
- * Newsletter de Ana (web personal): ~15 suscriptoras (sus clientas que aceptaron novedades y
+ * Newsletter de Cirella (web personal): ~15 suscriptoras (sus clientas que aceptaron novedades y
  * gente que se apuntó en la página o vino de su lista antigua, con algunas bajas, una sin confirmar y
  * un rebote), una newsletter enviada hace 12 días con sus estadísticas, un borrador, una programada
  * y su confirmación de reserva con un texto propio.
  */
-/** «Oráculo de la Luna» de Ana en Panel → Barajas: publicada, con las 28 cartas de serie. */
+/** «Oráculo de la Luna» de Cirella en Panel → Barajas: publicada, con las 28 cartas de serie. */
 async function seedAnaOracleDeck(creatorId: string) {
   const deck = await prisma.oracleDeck.create({
     data: {
@@ -659,7 +662,7 @@ async function seedAnaElementsDeck(creatorId: string) {
 
 /**
  * «Mi energía» (/cuenta/mi-energia) en la demo: Laura y Carmen son suscriptoras confirmadas de la
- * newsletter de Ana (si sus compras no las dejaron ya así), con sus datos de nacimiento guardados y los
+ * newsletter de Cirella (si sus compras no las dejaron ya así), con sus datos de nacimiento guardados y los
  * de una persona más, para que la página se vea completa al entrar con ellas. Datos inventados.
  */
 async function seedEnergyProfiles(anaId: string, students: { id: string; email: string; name: string | null }[]) {
@@ -682,7 +685,7 @@ async function seedEnergyProfiles(anaId: string, students: { id: string; email: 
       await prisma.subscriber.create({
         data: {
           creatorId: anaId, email: u.email, name: u.name, status: "CONFIRMED", source: "FORM", tags: [],
-          consentAt: at, consentText: newsletterConsentText("Ana Luna"), consentMeta: { form: "carta" }, confirmedAt: new Date(at.getTime() + 4 * 60_000), createdAt: at,
+          consentAt: at, consentText: newsletterConsentText("Cirella"), consentMeta: { form: "carta" }, confirmedAt: new Date(at.getTime() + 4 * 60_000), createdAt: at,
         },
       });
     else if (sub.status !== "CONFIRMED") await prisma.subscriber.update({ where: { id: sub.id }, data: { status: "CONFIRMED", confirmedAt: at, unsubscribedAt: null, unsubscribeVia: null } });
@@ -700,7 +703,7 @@ async function seedEnergyProfiles(anaId: string, students: { id: string; email: 
 
 async function seedAnaNewsletter(anaId: string, o: { circleId: string; astroId: string }) {
   const ana = await prisma.creator.findUniqueOrThrow({ where: { id: anaId } });
-  const consent = newsletterConsentText("Ana Luna");
+  const consent = newsletterConsentText("Cirella");
   // Sus clientas con la casilla de novedades marcada (como las deja la migración).
   const optIns = await prisma.customer.findMany({ where: { creatorId: anaId, marketingOptIn: true }, orderBy: { createdAt: "asc" } });
   for (const c of optIns)
@@ -748,7 +751,7 @@ async function seedAnaNewsletter(anaId: string, o: { circleId: string; astroId: 
   const base = appUrl();
   const header = await storeEmailImage(anaId, await sharp(readFileSync(path.join("public", "/demo/hero.webp"))).jpeg().toBuffer());
   const footerFor = (id: string | null, campaignId?: string) => ({
-    senderName: "Ana Luna", legalName: ana.legalName, legalAddress: formatLegalAddress(ana) || null, legalEmail: ana.legalEmail,
+    senderName: "Cirella", legalName: ana.legalName, legalAddress: formatLegalAddress(ana) || null, legalEmail: ana.legalEmail,
     legalUrl: `${base}/${ana.username}/legal`, unsubscribeUrl: id ? unsubscribeUrl(id, campaignId) : null,
   });
   // Editor visual: portada con foto de fondo, destacado, vídeo con su portada (▶ dibujado) y botón
@@ -785,13 +788,13 @@ async function seedAnaNewsletter(anaId: string, o: { circleId: string; astroId: 
   let n = 0;
   for (const s of all) {
     const bounced = s.email === "rebote.antiguo@example.com";
-    const mail = campaignEmail({ brand: "Ana Luna", subject: sent.subject, preheader: sent.preheader, design: sentDesign as never, baseUrl: base, vars: { nombre: s.name?.split(" ")[0] ?? null, mi_nombre: "Ana Luna" }, footer: footerFor(s.id, sent.id) });
+    const mail = campaignEmail({ brand: "Cirella", subject: sent.subject, preheader: sent.preheader, design: sentDesign as never, baseUrl: base, vars: { nombre: s.name?.split(" ")[0] ?? null, mi_nombre: "Cirella" }, footer: footerFor(s.id, sent.id) });
     const at = new Date(sentAt.getTime() + n++ * 60_000);
     const msg = await prisma.emailMessage.create({
       data: {
         creatorId: anaId, to: s.email, subject: mail.subject, html: mail.html, template: "NEWSLETTER", stream: "news", campaignId: sent.id,
         status: bounced ? "FAILED" : "SENT", sendAt: at, sentAt: bounced ? null : at, attempts: 1, error: bounced ? "Resend 422: la dirección no existe" : null,
-        dedupeKey: `nl:${sent.id}:${s.id}`, headers: unsubscribeHeaders(s.id, sent.id), fromName: "Ana Luna", replyTo: "ana@cirella.app",
+        dedupeKey: `nl:${sent.id}:${s.id}`, headers: unsubscribeHeaders(s.id, sent.id), fromName: "Cirella", replyTo: "ana@cirella.app",
         deliveredAt: bounced ? null : new Date(at.getTime() + 4000), bouncedAt: bounced ? new Date(at.getTime() + 5000) : null, createdAt: at,
       },
     });
@@ -847,7 +850,7 @@ async function seedAnaNewsletter(anaId: string, o: { circleId: string; astroId: 
 type SeedProduct = { id: string; slug: string; title: string; priceCents: number };
 
 /**
- * La portada nueva de Ana (lib/page-config.ts): cursos por método (/cursos) con uno nuevo en oferta
+ * La portada nueva de Cirella (lib/page-config.ts): cursos por método (/cursos) con uno nuevo en oferta
  * Early Bird, una lectura que prepara ella en oferta, los círculos de la luna (talleres en las próximas
  * luna nueva y luna llena, lib/astro-calendar.ts), publicaciones de cada nivel de la comunidad, las
  * páginas de cada sistema, actualidades con vídeo y audio, el Portal de Noticias y los accesos, la
@@ -881,11 +884,10 @@ async function seedAnaPortada(o: {
   await seedLesson({ creatorId: anaId, productId: hd.id, moduleId: hdModule.id, sortOrder: 1, title: "Tu estrategia", durationMin: 15, parts: [{ text: "Cada tipo tiene una estrategia para decidir con menos resistencia. Busca la tuya y pruébala una semana." }] });
   await prisma.product.create({
     data: {
-      creatorId: anaId, type: "COURSE", status: "PUBLISHED", accessMode: "EXTERNAL", slug: "gene-keys-secuencia-de-activacion", title: "Gene Keys: tu Secuencia de Activación", emoji: "🔑", courseCategory: "GENE_KEYS",
+      creatorId: anaId, type: "COURSE", status: "PUBLISHED", accessMode: "PAID", slug: "gene-keys-secuencia-de-activacion", title: "Gene Keys: tu Secuencia de Activación", emoji: "🔑", courseCategory: "GENE_KEYS",
       summary: "Ocho semanas para contemplar tus cuatro llaves principales.",
-      description: "El curso se sigue en Hotmart, con sus vídeos y su comunidad.",
+      description: "Pídelo con el formulario y te cuento por email cómo empezar.",
       imageUrl: await demoImage(anaId, "/demo/gene-keys.webp"), priceCents: 12900, sortOrder: 12, createdAt: daysAgo(30),
-      externalUrl: "https://hotmart.com/es/ana-luna-gene-keys", externalLabel: "Comprar en Hotmart",
     },
   });
   const special = await prisma.product.create({
@@ -915,8 +917,8 @@ async function seedAnaPortada(o: {
     },
   });
 
-  // ── Círculos de la luna: talleres en la próxima luna nueva y la próxima luna llena (20:00, Madrid) ──
-  const moons = nextMoonDates(NOW, TZ, 4).filter((m) => zonedTimeToUtc(m.date, labelToMinutes(m.time), TZ).getTime() > NOW.getTime() + 3 * 3600_000).slice(0, 2);
+  // ── Círculos de la luna: talleres en las dos próximas lunas nuevas y llenas (20:00, Madrid); así, cuando pasa una, sigue la siguiente ──
+  const moons = nextMoonDates(NOW, TZ, 6).filter((m) => zonedTimeToUtc(m.date, labelToMinutes(m.time), TZ).getTime() > NOW.getTime() + 3 * 3600_000).slice(0, 4);
   const circles: { id: string; slug: string; title: string; at: Date }[] = [];
   for (const [i, m] of moons.entries()) {
     const at = zonedTimeToUtc(m.date, labelToMinutes(m.time), TZ);
@@ -980,7 +982,7 @@ async function seedAnaPortada(o: {
       subtitle: sys.intro,
       cover: null,
       blocks,
-      seoTitle: `${sys.title} · Ana Luna`,
+      seoTitle: `${sys.title} · Cirella`,
       seoDescription: sys.slug === "mi-energia" ? "Cinco principios y un ensayo sobre la confianza en lo que todavía no es visible." : sys.text,
     };
     const json = content as unknown as Prisma.InputJsonValue;
@@ -1043,7 +1045,7 @@ async function seedAnaPortada(o: {
       },
       {
         creatorId: anaId, kind: "LIVE", title: "Live: tránsitos de noviembre", summary: "El enlace de Zoom llega al suscribirte.",
-        body: "Repasamos juntas los tránsitos del mes y respondo vuestras preguntas.", linkUrl: "https://us02web.zoom.us/j/89990001111?pwd=PortalAnaLuna", linkLabel: "Entrar al directo",
+        body: "Repasamos juntas los tránsitos del mes y respondo vuestras preguntas.", linkUrl: "https://us02web.zoom.us/j/89990001111?pwd=PortalCirella", linkLabel: "Entrar al directo",
         eventAt: liveAt, sortOrder: 2, status: "PUBLISHED", createdAt: daysAgo(1),
       },
       {
@@ -1066,7 +1068,7 @@ async function seedAnaPortada(o: {
       { id: "b-comunidad", label: "Hacerte miembro", url: "/ana/comunidad", image: await demoImage(anaId, "/demo/comunidad.webp") },
     ],
     about: {
-      eyebrow: "Sobre mí", title: "Hola, soy Ana",
+      eyebrow: "Sobre mí", title: "Hola, soy Cirella",
       text: "Llegué a la astrología buscando respuestas para mí. Hoy acompaño a otras mujeres a encontrar las suyas.",
       url: "/ana/p/sobre-mi", image: await demoImage(anaId, "/demo/ana-cover.webp"), linkLabel: "Conoce mi historia",
     },
@@ -1100,7 +1102,6 @@ async function reset() {
     prisma.transaction.deleteMany(),
     prisma.refund.deleteMany(),
     prisma.booking.deleteMany(),
-    prisma.orderFile.deleteMany(),
     prisma.subscription.deleteMany(),
     prisma.orderLink.deleteMany(),
     prisma.session.deleteMany(),
@@ -1161,16 +1162,16 @@ async function main() {
 
   // ───────────── Usuarios ─────────────
   await prisma.user.create({ data: { email: "admin@cirella.app", name: "Equipo Cirella", passwordHash: password, isAdmin: true, emailVerifiedAt: daysAgo(90) } });
-  const anaUser = await prisma.user.create({ data: { email: "ana@cirella.app", name: "Ana Luna", passwordHash: password, createdAt: daysAgo(75), emailVerifiedAt: daysAgo(75) } });
+  const anaUser = await prisma.user.create({ data: { email: "ana@cirella.app", name: "Cirella", passwordHash: password, createdAt: daysAgo(75), emailVerifiedAt: daysAgo(75) } });
   const mariaUser = await prisma.user.create({ data: { email: "maria@cirella.app", name: "María Sol", passwordHash: password, createdAt: daysAgo(48), emailVerifiedAt: daysAgo(48) } });
   const sofiaUser = await prisma.user.create({ data: { email: "sofia@cirella.app", name: "Sofía Vidal", passwordHash: password, createdAt: daysAgo(9), emailVerifiedAt: daysAgo(9) } });
   const laura = await prisma.user.create({ data: { email: "laura@example.com", name: "Laura Martín", passwordHash: password, createdAt: daysAgo(20), emailVerifiedAt: daysAgo(20) } });
   const carmen = await prisma.user.create({ data: { email: "carmen@example.com", name: "Carmen Ruiz", createdAt: daysAgo(Math.max(8, CARMEN_11_DAYS_AGO), 13, 0) } });
   const lucia = await prisma.user.create({ data: { email: "lucia@example.com", name: "Lucía Torres", createdAt: daysAgo(LUCIA_HD_DAYS_AGO, 20, 0) } });
 
-  // ───────────── Ana Luna (Pro · Mystical) ─────────────
+  // ───────────── Cirella (Pro · Mystical) ─────────────
   const anaPage: PageConfig = {
-    displayName: "Ana Luna",
+    displayName: "Cirella",
     tagline: "Astrología · Human Design · Gene Keys",
     headline: "Conócete. Compréndete. Transfórmate.",
     bio: "Acompaño a mujeres a leer su mapa energético para tomar decisiones alineadas con quienes realmente son. Más de 1.200 lecturas y 8 años estudiando el cielo.",
@@ -1189,10 +1190,10 @@ async function main() {
     })),
     // «Botones principales»: la sección sigue en el editor, pero la demo ya no trae ninguno.
     links: [],
-    socials: { instagram: "ana.luna.astro", tiktok: "analuna", telegram: "analunacielo", youtube: "analuna" },
+    socials: { instagram: "cirella", tiktok: "cirella", telegram: "cirella", youtube: "cirella" },
     testimonials: [
       { id: "t1", author: "Laura M.", role: "Proyectora 2/4", quote: "Mi lectura de Human Design me dio permiso para descansar sin culpa. Fue como si alguien me explicara mi propio manual de instrucciones." },
-      { id: "t2", author: "Carmen R.", role: "Sol en Escorpio", quote: "Ana tiene un don para traducir el cielo a decisiones concretas. Salí de la sesión con claridad y un plan." },
+      { id: "t2", author: "Carmen R.", role: "Sol en Escorpio", quote: "Cirella tiene un don para traducir el cielo a decisiones concretas. Salí de la sesión con claridad y un plan." },
       { id: "t3", author: "Lucía T.", role: "Miembro del Círculo", quote: "El círculo lunar se ha convertido en mi ritual mensual. Contenido precioso y una comunidad muy cuidada." },
     ],
     faqs: [
@@ -1201,26 +1202,26 @@ async function main() {
       { id: "f3", q: "¿Puedo regalar una lectura?", a: "¡Claro! Compra con tu email y escríbeme con el nombre de la persona: le haré llegar su acceso." },
       { id: "f4", q: "¿Puedo cancelar la membresía?", a: "Cuando quieras, desde tu área de cliente. Mantienes el acceso hasta el final del mes pagado." },
     ],
-    contact: { email: "hola@analuna.es", whatsapp: "+34600000000", message: "¿Dudas sobre qué lectura es para ti? Escríbeme y te oriento." },
+    contact: { email: "hola@cirella.app", whatsapp: "+34600000000", message: "¿Dudas sobre qué lectura es para ti? Escríbeme y te oriento." },
     // Sin bloques en la portada: la sección «Bloques» sigue en el editor, vacía (no pinta nada).
     blocks: [],
     hidePoweredBy: false,
   };
   const ana = await prisma.creator.create({
     data: {
-      userId: anaUser.id, username: "ana", displayName: "Ana Luna", categoryId: cat.astrologia, planId: pro.id,
+      userId: anaUser.id, username: "ana", displayName: "Cirella", categoryId: cat.astrologia, planId: pro.id,
       planRenewsAt: new Date(NOW.getTime() + 19 * DAY),
       pageDraft: anaPage as unknown as Prisma.InputJsonValue, pagePublished: anaPage as unknown as Prisma.InputJsonValue,
       published: true, publishedAt: daysAgo(70), onboardedAt: daysAgo(74), contactEmail: "ana@cirella.app",
-      seoTitle: "Ana Luna · Astrología, Human Design y Gene Keys",
+      seoTitle: "Cirella · Astrología, Human Design y Gene Keys",
       seoDescription: "Lecturas de astrología, Human Design y Gene Keys, sesiones 1:1, curso y comunidad privada. Conócete. Compréndete. Transfórmate.",
       payoutProvider: "simulated", payoutAccountId: "sim_acct_ana001", payoutConnectedAt: daysAgo(74),
       payoutStatus: "ACTIVE", payoutChargesEnabled: true, payoutPayoutsEnabled: true, payoutStatusUpdatedAt: daysAgo(74),
       // Identidad legal completa (obligatoria para vender).
-      legalName: "Ana Luna Pérez", legalTaxId: "12345678Z", legalAddress: "Calle de la Luna 7, 2.º B", legalPostalCode: "28004",
-      legalCity: "Madrid", legalCountry: "ES", legalEmail: "hola@analuna.es",
+      legalName: "Cirella", legalTaxId: "12345678Z", legalAddress: "Calle de la Luna 7, 2.º B", legalPostalCode: "28004",
+      legalCity: "Madrid", legalCountry: "ES", legalEmail: "hola@cirella.app",
       termsAcceptedAt: daysAgo(75), termsVersion: PLATFORM_TERMS_VERSION,
-      referralCode: "ANALUNA", createdAt: daysAgo(75),
+      referralCode: "CIRELLA", createdAt: daysAgo(75),
     },
   });
 
@@ -1229,17 +1230,17 @@ async function main() {
 
   // Archivos privados
   const guiaCarta = await storePrivate(ana.id, "guia-carta-natal.pdf", makePdf({
-    title: "Guía de tu carta natal", subtitle: "Cómo leer tu Sol, tu Luna y tu Ascendente", author: "Ana Luna · Astrología",
+    title: "Guía de tu carta natal", subtitle: "Cómo leer tu Sol, tu Luna y tu Ascendente", author: "Cirella · Astrología",
     sections: [
       { heading: "Bienvenida", body: "Gracias por confiar en mí para acompañarte en la lectura de tu carta natal. Esta guía es el punto de partida: te ayudará a reconocer los elementos básicos de tu mapa y a sacar el máximo partido a tu informe personalizado.\nLa carta natal es una fotografía del cielo en el momento exacto en que naciste. No determina quién eres: describe tus potenciales, tus ritmos y los aprendizajes que se repiten en tu vida." },
       { heading: "El Sol: tu propósito", body: "El Sol indica la energía que vienes a desarrollar y el lugar donde brillas cuando te expresas con autenticidad. Observa el signo y la casa en la que se encuentra: el signo describe el cómo y la casa el dónde.\nPregunta de reflexión: ¿en qué momentos de tu vida te has sentido más viva y reconocida?" },
       { heading: "La Luna: tu mundo emocional", body: "La Luna habla de tus necesidades emocionales, de lo que te hace sentir en casa y de cómo te cuidas. Muchas veces vivimos desde la Luna sin darnos cuenta: es el piloto automático emocional.\nPregunta de reflexión: ¿qué necesitas para sentirte segura cuando todo cambia?" },
       { heading: "El Ascendente: tu puerta de entrada", body: "El Ascendente es el signo que se elevaba por el horizonte cuando naciste. Describe la forma en la que te acercas a la vida, la primera impresión que das y el camino de crecimiento que te propone tu carta." },
-      { heading: "Próximos pasos", body: "Responde al email de confirmación con tu fecha, hora y lugar de nacimiento. En un máximo de 72 horas tendrás en tu cuenta tu informe personalizado y el audio explicativo.\nCon cariño, Ana." },
+      { heading: "Próximos pasos", body: "Responde al email de confirmación con tu fecha, hora y lugar de nacimiento. En un máximo de 72 horas tendrás en tu cuenta tu informe personalizado y el audio explicativo.\nCon cariño, Cirella." },
     ],
   }));
   const geneKeysPdf = await storePrivate(ana.id, "gene-keys-perfil-hologenetico.pdf", makePdf({
-    title: "Gene Keys", subtitle: "Tu Perfil Hologenético: sombra, don y siddhi", author: "Ana Luna · Gene Keys",
+    title: "Gene Keys", subtitle: "Tu Perfil Hologenético: sombra, don y siddhi", author: "Cirella · Gene Keys",
     sections: [
       { heading: "Qué son las Gene Keys", body: "Las Gene Keys son un sistema de contemplación basado en los 64 hexagramas del I Ching. Cada llave describe un espectro de consciencia con tres frecuencias: la sombra, el don y el siddhi.\nNo se trata de corregir la sombra, sino de mirarla con amabilidad: en ella está escondido tu mayor regalo." },
       { heading: "La Secuencia de Activación", body: "Las cuatro primeras llaves de tu perfil forman la Secuencia de Activación: Trabajo de vida, Evolución, Radiancia y Propósito. Juntas describen tu genio creativo y el camino para expresarlo." },
@@ -1248,7 +1249,7 @@ async function main() {
     ],
   }));
   const cuaderno = await storePrivate(ana.id, "cuaderno-de-trabajo.pdf", makePdf({
-    title: "Cuaderno de trabajo", subtitle: "Curso · Conócete a través de tu energía", author: "Ana Luna",
+    title: "Cuaderno de trabajo", subtitle: "Curso · Conócete a través de tu energía", author: "Cirella",
     sections: [
       { heading: "Ejercicio 1 · Dibuja tu mapa", body: "Escribe en el centro de una hoja tu Sol, tu Luna y tu Ascendente. Alrededor, anota tu tipo de Human Design, tu autoridad y tu perfil. Une con líneas los elementos que sientes que hablan de lo mismo." },
       { heading: "Ejercicio 2 · Tu estrategia en acción", body: "Durante siete días, registra cada decisión importante: ¿la tomaste desde tu estrategia y tu autoridad o desde la mente? ¿Qué notaste en el cuerpo?" },
@@ -1271,7 +1272,7 @@ async function main() {
 
   const pAstro = await prisma.product.create({
     data: {
-      creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", slug: "lectura-astrologia", title: "Lectura de Astrología", emoji: "🌙",
+      creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "PERSONAL", slug: "lectura-astrologia", title: "Lectura de Astrología", emoji: "🌙",
       summary: "Tu carta natal interpretada: Sol, Luna, Ascendente y casas. Guía PDF + audio explicativo.",
       description: "Una lectura escrita y en audio de tu carta natal para entender tus talentos, tus ritmos emocionales y los temas que se repiten en tu vida.\n\nIncluye:\n• Guía de lectura de tu carta natal (PDF)\n• Audio de introducción (25 min)\n• Informe personalizado en 72 h tras enviar tus datos de nacimiento",
       imageUrl: await demoImage(ana.id, "/demo/astrologia.webp"), priceCents: 4900, ctaLabel: "Comprar", sortOrder: 1,
@@ -1294,7 +1295,7 @@ async function main() {
   });
   const pGK = await prisma.product.create({
     data: {
-      creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", slug: "gene-keys", title: "Gene Keys", emoji: "🔑",
+      creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "PERSONAL", slug: "gene-keys", title: "Gene Keys", emoji: "🔑",
       summary: "Guía PDF de tu Perfil Hologenético: sombra, don y siddhi de tus llaves principales.",
       description: "Una guía práctica para empezar a contemplar tu Perfil Hologenético y tu Secuencia de Activación.\n\nIncluye:\n• Guía «Tu Perfil Hologenético» (PDF)\n• Ejercicios de contemplación semanales",
       imageUrl: await demoImage(ana.id, "/demo/gene-keys.webp"), priceCents: 5900, ctaLabel: "Comprar", sortOrder: 3, createdAt: daysAgo(60),
@@ -1354,13 +1355,7 @@ async function main() {
     ],
   });
 
-  await prisma.productFile.createMany({
-    data: [
-      { creatorId: ana.id, productId: pAstro.id, name: "Guía de tu carta natal.pdf", kind: "PDF", mimeType: "application/pdf", ...guiaCarta, sortOrder: 1 },
-      { creatorId: ana.id, productId: pAstro.id, name: "Audio de introducción.wav", kind: "AUDIO", mimeType: "audio/wav", ...audioCarta, sortOrder: 2 },
-      { creatorId: ana.id, productId: pGK.id, name: "Gene Keys · Perfil Hologenético.pdf", kind: "PDF", mimeType: "application/pdf", ...geneKeysPdf, sortOrder: 1 },
-    ],
-  });
+  // Las lecturas no guardan archivos: se envían por email.
   const fCuaderno = await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCourse.id, name: "Cuaderno de trabajo.pdf", kind: "PDF", mimeType: "application/pdf", ...cuaderno } });
   const fMedit = await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCourse.id, name: "Meditación de integración.wav", kind: "AUDIO", mimeType: "audio/wav", ...meditacion, ...(await mediaFields(makeWav(40), "audio/wav")) } });
   const fVideo = video && videoData ? await prisma.productFile.create({ data: { creatorId: ana.id, productId: pCourse.id, name: "Bienvenida.mp4", kind: "VIDEO", mimeType: "video/mp4", ...video, ...(await mediaFields(videoData, "video/mp4")) } }) : null;
@@ -1466,7 +1461,7 @@ async function main() {
   const ritualAudioData = makeM4a(36);
   const ritualAudio = ritualAudioData ? await storePrivate(ana.id, "meditacion-luna-nueva.m4a", ritualAudioData) : await storePrivate(ana.id, "meditacion-luna-nueva.wav", makeWav(36));
   const ritualPdf = await storePrivate(ana.id, "ritual-luna-nueva.pdf", makePdf({
-    title: "Ritual de luna nueva", subtitle: "Luna nueva en Libra", author: "Ana Luna · Círculo Lunar",
+    title: "Ritual de luna nueva", subtitle: "Luna nueva en Libra", author: "Cirella · Círculo Lunar",
     sections: [
       { heading: "Prepara tu espacio", body: "Busca un rincón tranquilo, enciende una vela y ten a mano papel y bolígrafo. Apaga el móvil durante veinte minutos." },
       { heading: "Tus tres intenciones", body: "Escríbelas en presente y en positivo, como si ya fueran verdad: «Me doy permiso para descansar», «Pido ayuda cuando la necesito»…" },
@@ -1500,15 +1495,14 @@ async function main() {
   for (const [i, l] of freeLessons.entries())
     await seedLesson({ creatorId: ana.id, productId: pFree.id, moduleId: freeModule.id, title: l.title, durationMin: 10, sortOrder: i, parts: [{ text: l.body }] });
 
-  // Sesión que se reserva y se paga fuera (Calendly): el botón lleva a la web externa.
+  // Sesión con solicitud: elige día y hora en el formulario y se cierra por email.
   await prisma.product.create({
     data: {
-      creatorId: ana.id, type: "SESSION", status: "PUBLISHED", accessMode: "EXTERNAL", slug: "revolucion-solar",
+      creatorId: ana.id, type: "SESSION", status: "PUBLISHED", accessMode: "PAID", slug: "revolucion-solar",
       title: "Revolución solar: tu año que empieza", emoji: "☀️",
       summary: "Una sesión de 60 minutos para leer tu año astrológico, de cumpleaños a cumpleaños.",
-      description: "Leemos juntas tu revolución solar: los temas que se activan este año, los meses clave y cómo aprovecharlos.\n\nLa reserva y el pago se hacen en Calendly.",
+      description: "Leemos juntas tu revolución solar: los temas que se activan este año, los meses clave y cómo aprovecharlos.\n\nElige día y hora en la solicitud y lo cerramos por email.",
       imageUrl: await demoImage(ana.id, "/demo/sesion.webp"), priceCents: 6500, durationMin: 60, sortOrder: 8, createdAt: daysAgo(15),
-      externalUrl: "https://calendly.com/ana-luna/revolucion-solar", externalLabel: "Reservar en Calendly",
     },
   });
 
@@ -1526,7 +1520,7 @@ async function main() {
         creatorId: ana.id, slug: "nuevo-circulo-lunar", status: "PUBLISHED", publishedAt: daysAgo(12, 18),
         title: "Abro plazas en el Círculo Lunar",
         excerpt: "Rituales de luna nueva, un directo al mes y meditaciones exclusivas. Te cuento cómo funciona.",
-        body: "Después de un verano de pausa, vuelvo a abrir el Círculo Lunar: un espacio pequeño para vivir el cielo mes a mes.\n\nCada luna nueva comparto un ritual de intención, una vez al mes hacemos un directo para repasar los tránsitos y tendrás meditaciones que solo están allí.\n\nToda la información está en la ficha de la comunidad. Si tienes dudas, escríbeme a hola@analuna.es.",
+        body: "Después de un verano de pausa, vuelvo a abrir el Círculo Lunar: un espacio pequeño para vivir el cielo mes a mes.\n\nCada luna nueva comparto un ritual de intención, una vez al mes hacemos un directo para repasar los tránsitos y tendrás meditaciones que solo están allí.\n\nToda la información está en la ficha de la comunidad. Si tienes dudas, escríbeme a hola@cirella.app.",
         createdAt: daysAgo(12, 18),
       },
     ],
@@ -1535,7 +1529,7 @@ async function main() {
   await prisma.discountCode.createMany({
     data: [
       {
-        creatorId: ana.id, brand: "Velas Alba", code: "ANALUNA15", description: "15 % en velas de soja para tus rituales de luna nueva.", url: "https://example.com/velas-alba", sortOrder: 1, expiresAt: new Date(NOW.getTime() + 75 * DAY),
+        creatorId: ana.id, brand: "Velas Alba", code: "CIRELLA15", description: "15 % en velas de soja para tus rituales de luna nueva.", url: "https://example.com/velas-alba", sortOrder: 1, expiresAt: new Date(NOW.getTime() + 75 * DAY),
         // Fotos de lo que recomienda de la marca: se ven al desplegar el código en la portada.
         images: await codePhotos(ana.id, [
           ["/demo/sesion.webp", "Mi vela de luna nueva encendida en el altar"],
@@ -1594,7 +1588,7 @@ async function main() {
   ]);
   await prisma.calendarNote.createMany({ data: [...notes].map(([date, body]) => ({ creatorId: ana.id, date, body, format: "MD" })) });
 
-  // Automatizaciones (Ana es Pro: todas activas)
+  // Automatizaciones (Cirella es Pro: todas activas)
   const triggers = ["PURCHASE_RECEIPT", "COURSE_ACCESS", "BOOKING_CONFIRMED", "NEW_SUBSCRIPTION", "SUBSCRIPTION_CANCELED", "WELCOME", "SESSION_REMINDER", "ABANDONED_CHECKOUT"];
   await prisma.automation.createMany({
     data: triggers.map((t) => ({
@@ -1604,13 +1598,13 @@ async function main() {
     })),
   });
 
-  // ───────────── Clientas, pedidos y reservas de Ana ─────────────
+  // ───────────── Clientas, pedidos y reservas de Cirella ─────────────
   /**
    * Consentimientos del checkout de un pedido pagado, como los guarda hoy (condiciones y la casilla
    * obligatoria del desistimiento según el producto, con su texto literal, su versión y la hora): lo
    * digital y los cursos, la renuncia; las membresías (Lucía), «Quiero empezar ya» con el reembolso
    * proporcional; un taller, que tiene fecha fija y no admite desistimiento. Las sesiones
-   * individuales no la llevan (se reservan a partir del día 15). El acceso a la comunidad que Ana le
+   * individuales no la llevan (se reservan a partir del día 15). El acceso a la comunidad que Cirella le
    * regaló a Laura es a mano: no pasa por aquí.
    */
   const consents = (product: { type: string; deliveryMode?: string | null; groupSession?: boolean | null }, at: Date) => acceptedConsentFields(product, at);
@@ -1726,7 +1720,7 @@ async function main() {
     },
   });
 
-  // Comunidad: Carmen entró al Círculo con un programa de 3 meses que le dio Ana a mano (pagó por
+  // Comunidad: Carmen entró al Círculo con un programa de 3 meses que le dio Cirella a mano (pagó por
   // Bizum): su acceso termina solo ese día. Comenta y da «me gusta» como Lucía (suscripción mensual).
   const carmenGrantAt = daysAgo(30, 10, 0);
   const carmenLastDay = addMonthsToKey(dateKeyInTz(carmenGrantAt, TZ), 3);
@@ -1740,7 +1734,7 @@ async function main() {
     },
   });
   await prisma.access.create({ data: { creatorId: ana.id, userId: carmen.id, productId: pCircle.id, orderId: carmenCircle.id, expiresAt: carmenUntil, createdAt: carmenGrantAt } });
-  // Laura (la alumna de la demo) también está en el Círculo: Ana se lo regaló por seis meses, así su
+  // Laura (la alumna de la demo) también está en el Círculo: Cirella se lo regaló por seis meses, así su
   // área enseña «Mis membresías» con contenido.
   const lauraGrantAt = daysAgo(10, 11, 0);
   const lauraUntil = zonedTimeToUtc(addDaysToKey(addMonthsToKey(dateKeyInTz(lauraGrantAt, TZ), 6), 1), 0, TZ);
@@ -1757,7 +1751,7 @@ async function main() {
     data: { creatorId: ana.id, productId: pCircle.id, postId: postLunaNueva.id, userId: lucia.id, authorName: "Lucía T.", body: "Mis tres intenciones ya están escritas ✨ La meditación me ha encantado.", createdAt: daysAgo(5, 21, 40) },
   });
   await prisma.membershipComment.create({
-    data: { creatorId: ana.id, productId: pCircle.id, postId: postLunaNueva.id, userId: anaUser.id, parentId: cLucia.id, authorName: "Ana Luna", byOwner: true, body: "¡Qué bonito, Lucía! Guárdalas hasta la luna llena y las releemos juntas en el directo.", createdAt: daysAgo(5, 22, 15) },
+    data: { creatorId: ana.id, productId: pCircle.id, postId: postLunaNueva.id, userId: anaUser.id, parentId: cLucia.id, authorName: "Cirella", byOwner: true, body: "¡Qué bonito, Lucía! Guárdalas hasta la luna llena y las releemos juntas en el directo.", createdAt: daysAgo(5, 22, 15) },
   });
   await prisma.membershipComment.create({
     data: { creatorId: ana.id, productId: pCircle.id, postId: postLunaNueva.id, userId: carmen.id, authorName: "Carmen R.", body: "La lámina la tengo ya en la nevera 🌑", createdAt: daysAgo(4, 9, 5) },
@@ -1777,7 +1771,7 @@ async function main() {
     ],
   });
 
-  // Calendario propio: Lucía (desde Bogotá) tuvo su lectura de Human Design hace una semana y Ana
+  // Calendario propio: Lucía (desde Bogotá) tuvo su lectura de Human Design hace una semana y Cirella
   // ya le ha enviado la grabación y un resumen. Se ve en su área (Tu grabación, Mis archivos).
   const luciaBoughtAt = daysAgo(LUCIA_HD_DAYS_AGO, 20, 15);
   const o6 = await anaBuy({ user: lucia, product: pHD, at: luciaBoughtAt, visitor: "v_lucia", source: "instagram" });
@@ -1790,8 +1784,6 @@ async function main() {
       intake: { v: 1, birth: { date: "1994-07-21", time: null, timeUnknown: true, place: "Medellín, Colombia" }, answers: [] },
       intakeUpdatedAt: luciaBoughtAt,
       deliveredAt: daysAgo(6, 10, 30),
-      deliveryMessage: "Gracias por la sesión, Lucía ✨\n\nAquí tienes la **grabación** y estas tres ideas para esta semana:\n\n- Espera a que tu cuerpo responda antes de decir que sí.\n- Descansa antes de estar agotada.\n- Escribe lo que sientes en la luna llena.",
-      deliveryMessageFormat: "MD",
     },
   });
   await prisma.booking.create({
@@ -1800,15 +1792,6 @@ async function main() {
       startAt: luciaAt, endAt: new Date(luciaAt.getTime() + 75 * 60000), meetingUrl: ANA_ZOOM, customerTimezone: "America/Bogota", createdAt: luciaBoughtAt,
     },
   });
-  const grabacion = makeWav(30);
-  const grabacionFile = await storePrivate(ana.id, "grabacion-lectura-lucia.wav", grabacion);
-  await prisma.orderFile.create({
-    data: {
-      creatorId: ana.id, orderId: o6.order.id, name: "Grabación de tu lectura.wav", kind: "AUDIO", mimeType: "audio/wav",
-      ...grabacionFile, ...(await mediaFields(grabacion, "audio/wav")), sentAt: daysAgo(6, 10, 30), createdAt: daysAgo(6, 10, 25),
-    },
-  });
-
   // Emails enviados / programados (visibles en /dev/correo)
   const base = appUrl();
   const lauraWhen = formatSessionDate(lauraAt, TZ);
@@ -1941,7 +1924,7 @@ async function main() {
     await prisma.transaction.create({ data: { creatorId: maria.id, type: "PLAN_FEE", description: "Plan Creator · mensual", amountCents: 1200, platformFeeCents: 1200, netCents: 0, provider: "simulated", createdAt: daysAgo(m * 30 + 2) } });
   void mSes;
 
-  // ───────────── Sofía Vidal (Free · Luxury) — referida por Ana ─────────────
+  // ───────────── Sofía Vidal (Free · Luxury) — referida por Cirella ─────────────
   const sofiaPage: PageConfig = {
     displayName: "Sofía Vidal",
     tagline: "Coach de marca personal",
@@ -1996,6 +1979,8 @@ async function main() {
   await seedDeepLessons(prisma, ana.id);
   // La membresía completa de ejemplo (Esencia, Plena y Luna completa con todo tipo de publicaciones).
   await seedDemoMembership(prisma, ana.id);
+  // Más opiniones y preguntas frecuentes en la portada.
+  await seedHomeTexts(prisma, ana.id);
   // Laura, con acceso a todo para ir probando la web.
   await grantFullAccess(prisma, { creatorId: ana.id, ownerUserId: anaUser.id, now: NOW });
 

@@ -6,7 +6,7 @@
  * ni página extra puede llamarse así.
  */
 
-export const SECTION_PAGES = ["actualidades", "portal", "comunidad", "cursos", "lecturas", "sesiones", "uno-a-uno"] as const;
+export const SECTION_PAGES = ["actualidades", "portal", "ofertas", "comunidad", "cursos", "lecturas", "sesiones", "uno-a-uno"] as const;
 export type SectionPage = (typeof SECTION_PAGES)[number];
 
 export function isSectionPage(seg: string): seg is SectionPage {
@@ -21,6 +21,7 @@ export function sectionPagePath(username: string, page: SectionPage, personal: b
 export const SECTION_PAGE_TITLE: Record<SectionPage, string> = {
   actualidades: "Actualidades",
   portal: "Portal de Noticias",
+  ofertas: "Ofertas",
   comunidad: "Comunidad",
   cursos: "Cursos",
   lecturas: "Lecturas",

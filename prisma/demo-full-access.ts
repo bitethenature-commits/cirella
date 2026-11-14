@@ -1,5 +1,5 @@
 /**
- * Laura Martín (laura@example.com, contraseña demo1234) con acceso a TODO lo de Ana para ir probando y
+ * Laura Martín (laura@example.com, contraseña demo1234) con acceso a TODO lo de Cirella para ir probando y
  * mejorando la web: todos los cursos (también los gratis y los que se venden fuera), todas las
  * lecturas y productos digitales, las tres membresías, los próximos círculos de la luna, «Mi energía»
  * (suscriptora confirmada de las novedades) y sus datos de nacimiento.

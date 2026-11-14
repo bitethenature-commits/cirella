@@ -31,7 +31,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
             <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-transparent" />
             <div className="absolute inset-x-12 bottom-14">
               <p className="display text-5xl leading-[1.05]">«Mis seguidoras compran desde Instagram en segundos.»</p>
-              <p className="mt-4 text-sm text-cream/70">Ana Luna · Astrología, Human Design y Gene Keys · cuenta de demostración</p>
+              <p className="mt-4 text-sm text-cream/70">Cirella · Astrología, Human Design y Gene Keys · cuenta de demostración</p>
             </div>
           </>
         )}

@@ -5,6 +5,7 @@ import { getAvailableSlots, slotRuleForOrder, type SlotRule } from "@/lib/bookin
 import { requestClient } from "@/lib/client-ip";
 import { prisma } from "@/lib/db";
 import { limitSlots } from "@/lib/limits";
+import { paidCheckoutOpen } from "@/lib/payments";
 import { canonicalTimezone } from "@/lib/timezones";
 
 /**
@@ -43,6 +44,8 @@ export async function GET(req: Request) {
       : null;
     rule = slotRuleForOrder(booking?.order);
   } else if (sp.get("manual") === "1" && (await isOwner())) rule = { manual: true };
+  // La web no cobra (solicitudes, lib/requests.ts): sin compra online no hay regla del día 15.
+  else if (!paidCheckoutOpen()) rule = { manual: true };
   if (product.status !== "PUBLISHED") {
     const owner = await isOwner();
     // Vale también la sesión limitada al pedido: es quien acaba de pagar y elige hora.

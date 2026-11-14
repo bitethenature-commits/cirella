@@ -7,6 +7,7 @@ import { ConfirmForm } from "@/components/ui/confirm-form";
 import { Flash } from "@/components/ui/flash";
 import type { UploadedFile } from "@/components/ui/upload-client";
 import { LessonPreviewColumn, LessonPreviewSheet, type LessonPreviewContext } from "@/app/panel/cursos/[id]/lecciones/lesson-preview";
+import { CourseOutline, type CourseOutlineData } from "@/app/panel/cursos/[id]/course-outline";
 import { dripDayFor, dripDayLabel, type DripSettings } from "@/lib/course-drip";
 import { MAX_LESSON_PARTS, suggestedLessonMinutes, type AddPartKind } from "@/lib/lesson-parts";
 import { BLOCK_KINDS, BLOCK_LABEL, emptyBlock, isBlockKind, parseBlock, type BlockKind, type BlockPart } from "@/lib/lesson-blocks";
@@ -94,6 +95,7 @@ export function LessonEditor({
   drip = { mode: null, everyDays: null },
   dripIndex = 0,
   preview,
+  outline,
 }: {
   productId: string;
   productTitle: string;
@@ -109,6 +111,8 @@ export function LessonEditor({
   dripIndex?: number;
   /** Vista previa en vivo (lo que no sale del formulario). */
   preview: LessonPreviewContext;
+  /** El índice del curso a la izquierda (módulos y lecciones, con «Añadir lección» y «Añadir módulo»). */
+  outline?: CourseOutlineData;
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState<LessonActionState, FormData>(saveLesson, undefined);
@@ -243,7 +247,15 @@ export function LessonEditor({
   const opensDay = drip.mode ? dripDayFor(drip, dripIndex, drip.mode === "LESSON" ? Number(dripDays) || null : null) : 0;
 
   return (
-    <div className="mx-auto max-w-6xl lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-10" data-lesson-studio>
+    <div
+      className={
+        outline
+          ? "lg:grid lg:grid-cols-[250px_minmax(0,1fr)] lg:items-start lg:gap-8 min-[1680px]:mx-[calc((69rem_-_min(100vw_-_248px_-_4rem,100rem))/2)] min-[1680px]:grid-cols-[270px_minmax(0,1fr)_380px]"
+          : "mx-auto max-w-6xl lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-10"
+      }
+      data-lesson-studio
+    >
+      {outline && <CourseOutline productId={productId} data={outline} currentLessonId={lessonId} newInModuleId={lessonId ? null : moduleId} dirty={dirty || uploading} />}
     <div className="mx-auto w-full max-w-2xl lg:mx-0">
       <Link href={`/panel/cursos/${productId}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
         <ArrowLeft className="h-4 w-4" /> {productTitle}
@@ -251,7 +263,7 @@ export function LessonEditor({
       <div className="mb-5 mt-3 flex flex-wrap items-end justify-between gap-3">
         <h1 className="display text-[2.1rem] leading-tight">{lessonId ? "Editar lección" : "Nueva lección"}</h1>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn btn-outline btn-sm lg:hidden" onClick={() => setPreviewOpen(true)}>
+          <button type="button" className={`btn btn-outline btn-sm ${outline ? "min-[1680px]:hidden" : "lg:hidden"}`} onClick={() => setPreviewOpen(true)}>
             <Eye className="h-4 w-4" /> Vista previa
           </button>
           {previewHref && !dirty ? (
@@ -506,8 +518,8 @@ export function LessonEditor({
         />
       )}
     </div>
-      <LessonPreviewColumn ctx={preview} live={live} />
-      {previewOpen && <LessonPreviewSheet ctx={preview} live={live} onClose={closePreview} />}
+      <LessonPreviewColumn ctx={preview} live={live} wide={!!outline} />
+      {previewOpen && <LessonPreviewSheet ctx={preview} live={live} onClose={closePreview} wide={!!outline} />}
     </div>
   );
 }

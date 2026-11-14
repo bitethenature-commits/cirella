@@ -36,7 +36,7 @@ export default async function NewProductPage() {
         ) : personal ? (
           <PageHeader
             title="¿Qué quieres publicar?"
-            subtitle="Elige el tipo. Después decides si se consigue gratis con email o con un botón a la web donde se paga (Hotmart, PayPal, Calendly…)."
+            subtitle="Elige el tipo. Después decides si se pide con un formulario de solicitud (lo habláis por email), si se consigue gratis con email o si el botón lleva a otra web."
           />
         ) : (
           <PageHeader title="¿Qué quieres vender?" subtitle="Elige el tipo de producto. Podrás editarlo todo después." />

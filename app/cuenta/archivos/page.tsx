@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { EmptyState } from "@/components/ui/empty";
 import { requireBuyerFull } from "@/lib/buyer-access";
 import { savedPostsOf } from "@/lib/community";
-import { courseMaterials, creatorBrief, deliveredReadings, getCustomerLibrary } from "@/lib/customer";
+import { courseMaterials, creatorBrief, getCustomerLibrary } from "@/lib/customer";
 import { formatDate } from "@/lib/tz";
 import { CreatorTag } from "../ui";
 import { PageHeader } from "../page-header";
@@ -51,7 +51,7 @@ function foldersOf(files: (FileItem & { productId: string })[], href?: (productI
 export default async function MyFiles() {
   const user = await requireBuyerFull("/cuenta/archivos");
   const lib = await getCustomerLibrary(user.id);
-  const [materials, readings, saved] = await Promise.all([courseMaterials(user.id, lib.courses), deliveredReadings(user.id), savedPostsOf(user.id)]);
+  const [materials, saved] = await Promise.all([courseMaterials(user.id, lib.courses), savedPostsOf(user.id)]);
   // Lo guardado de las membresías: «Favoritos» con todo y una carpeta con los textos de cada membresía.
   const savedItems = saved.map((p) => ({
     id: p.id,
@@ -78,13 +78,6 @@ export default async function MyFiles() {
       hint: "Lo que has guardado de tus membresías: todo en Favoritos y, además, en la carpeta de cada membresía.",
       icon: <Bookmark className="h-4 w-4" />,
       folders: savedFolders,
-    },
-    {
-      key: "lecturas",
-      title: "Tus lecturas",
-      hint: "Lo que te han preparado y entregado.",
-      icon: <Sparkles className="h-4 w-4" />,
-      folders: foldersOf(readings.map((f) => ({ ...f, productId: f.order.productId }))),
     },
     {
       key: "cursos",

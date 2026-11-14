@@ -36,7 +36,7 @@ async function onboard(page: Page, username: string, email: string, delivery: (p
   await next.click();
   await expect(page.getByText("Sube tu foto")).toBeVisible();
   await next.click();
-  await page.getByPlaceholder("Ana Luna").fill("Vera Tarot");
+  await page.getByPlaceholder("Cirella").fill("Vera Tarot");
   await next.click();
   await page.getByRole("button", { name: /Tarot y oráculos/ }).click();
   await next.click();

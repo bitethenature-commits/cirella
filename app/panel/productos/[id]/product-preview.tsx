@@ -13,6 +13,7 @@ import { groupCourses } from "@/lib/course-categories";
 import type { PageConfig } from "@/lib/page-config";
 import { toPublicProduct } from "@/lib/product-view";
 import { resolveTheme, themeStyle } from "@/lib/templates";
+import { TemplateDecor } from "@/components/template-decor";
 
 type Seller = { line: string; name: string; named: boolean };
 
@@ -32,7 +33,7 @@ export type ProductPreviewContext = {
   /** Título de la sección de la portada donde sale el producto y el de «Ofertas». */
   sectionTitle: string;
   offersTitle: string;
-  testimonial: { quote: string; author: string } | null;
+  testimonials: { id: string; quote: string; author: string; role?: string | null }[];
   /** Quién vende (la creadora, con su nombre legal si lo tiene). */
   seller: Seller;
   /** Plazas ya ocupadas de un taller. */
@@ -102,7 +103,7 @@ function PreviewScene({ ctx, product, tab }: { ctx: ProductPreviewContext; produ
           signupsOnly={ctx.signupsOnly}
           seller={ctx.seller}
           seatsLeft={product.capacity != null ? Math.max(0, product.capacity - ctx.seatsTaken) : null}
-          testimonial={ctx.testimonial}
+          testimonials={ctx.testimonials}
           claim={{ ...ctx.claim, isOwner: true, creatorDisplayName: ctx.config.displayName }}
           clickEvent={null}
         />
@@ -115,13 +116,12 @@ function PreviewScene({ ctx, product, tab }: { ctx: ProductPreviewContext; produ
   const group = card.type === "COURSE" ? groupCourses([card])[0] : null;
   return (
     <div className="cp" style={themeStyle(theme)} data-card={theme.card} data-template={ctx.config.template}>
-      <div className={`cp-decor cp-decor-${theme.decor}`} aria-hidden>
-        {theme.decor === "stars" && <div className="starfield absolute inset-0 opacity-70" />}
+      <TemplateDecor decor={theme.decor} contained>
         {theme.backgroundImageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={theme.backgroundImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-30" />
         )}
-      </div>
+      </TemplateDecor>
       <main className="relative mx-auto w-full max-w-[44rem] px-5 pb-16 pt-10">
         <section data-preview-card>
           <SectionHeading title={ctx.sectionTitle} />

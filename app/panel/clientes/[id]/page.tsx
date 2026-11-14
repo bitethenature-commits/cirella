@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Mail } from "lucide-react";
+import { ArrowLeft, Mail, UserPlus } from "lucide-react";
 import { isNoChargeOrder, NO_CHARGE_LABEL, type NoChargeProvider } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { formatMoney, formatPrice } from "@/lib/money";
@@ -42,6 +42,7 @@ export default async function CustomerDetail({ params }: { params: Promise<{ id:
           </p>
         </div>
         <a href={`mailto:${c.email}`} className="btn btn-outline btn-sm"><Mail className="h-4 w-4" /> Escribir</a>
+        <Link href={`/panel/solicitudes/dar?email=${encodeURIComponent(c.email)}`} className="btn btn-primary btn-sm"><UserPlus className="h-4 w-4" /> Dar acceso</Link>
       </div>
       {personal ? (
         <div className="mt-6 grid grid-cols-2 gap-3">

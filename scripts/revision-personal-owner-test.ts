@@ -49,10 +49,10 @@ async function main() {
   // ── Plan puro ──
   check("plataforma: nada que crear", ownerBootstrapPlan({ SITE_MODE: "platform", OWNER_EMAIL: EMAIL, OWNER_USERNAME: USERNAME }) === null);
   check("personal sin OWNER_EMAIL: nada que crear (se usa personal:setup)", ownerBootstrapPlan({ SITE_MODE: "personal", OWNER_USERNAME: USERNAME }) === null);
-  const plan = ownerBootstrapPlan({ SITE_MODE: "personal", OWNER_EMAIL: `  ${EMAIL.toUpperCase()} `, OWNER_USERNAME: USERNAME.toUpperCase(), OWNER_NAME: "  Ana Prueba " });
-  check("personal con OWNER_EMAIL: email y usuario normalizados, nombre recortado", JSON.stringify(plan) === JSON.stringify({ email: EMAIL, username: USERNAME, name: "Ana Prueba" }), plan);
+  const plan = ownerBootstrapPlan({ SITE_MODE: "personal", OWNER_EMAIL: `  ${EMAIL.toUpperCase()} `, OWNER_USERNAME: USERNAME.toUpperCase(), OWNER_NAME: "  Cirella Prueba " });
+  check("personal con OWNER_EMAIL: email y usuario normalizados, nombre recortado", JSON.stringify(plan) === JSON.stringify({ email: EMAIL, username: USERNAME, name: "Cirella Prueba" }), plan);
 
-  const env = { SITE_MODE: "personal", OWNER_USERNAME: USERNAME, OWNER_EMAIL: EMAIL, OWNER_NAME: "Ana Prueba" };
+  const env = { SITE_MODE: "personal", OWNER_USERNAME: USERNAME, OWNER_EMAIL: EMAIL, OWNER_NAME: "Cirella Prueba" };
 
   // ── Primer despliegue: crea la cuenta y la página ──
   const first = bootstrap(env);
@@ -60,7 +60,7 @@ async function main() {
   check("y dice que la cuenta y la página están creadas", first.out.includes(`Cuenta de ${EMAIL}`) && first.out.includes("Pide un enlace para entrar"), first.out);
   const user = await prisma.user.findUnique({ where: { email: EMAIL }, include: { creator: { include: { plan: true } } } });
   check("cuenta administradora, con el email confirmado y sin contraseña", !!user && user.isAdmin && !!user.emailVerifiedAt && user.passwordHash === null, user);
-  check("página publicada con el nombre y el plan «Personal» (comisión 0)", user?.creator?.username === USERNAME && user.creator.published && user.creator.displayName === "Ana Prueba" && user.creator.plan.key === "personal" && user.creator.plan.commissionBps === 0, user?.creator);
+  check("página publicada con el nombre y el plan «Personal» (comisión 0)", user?.creator?.username === USERNAME && user.creator.published && user.creator.displayName === "Cirella Prueba" && user.creator.plan.key === "personal" && user.creator.plan.commissionBps === 0, user?.creator);
 
   // ── Segundo despliegue: no toca lo que ya existe ──
   await prisma.creator.update({ where: { username: USERNAME }, data: { displayName: "Nombre cambiado por ella", published: false } });

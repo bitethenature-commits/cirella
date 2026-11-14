@@ -29,13 +29,13 @@ import { eq, ok, test } from "./harness";
 
 const ana: LegalIdentity = {
   legalEntityType: "INDIVIDUAL",
-  legalName: "Ana Luna Pérez",
+  legalName: "Cirella",
   legalTaxId: "12345678Z",
   legalAddress: "Calle de la Luna 7, 2.º B",
   legalPostalCode: "28004",
   legalCity: "Madrid",
   legalCountry: "ES",
-  legalEmail: "hola@analuna.es",
+  legalEmail: "hola@cirella.app",
   legalRegistry: null,
 };
 
@@ -69,14 +69,14 @@ test("validatePostalCode: España pide 5 cifras", () => {
 // ── Identidad de quien vende ──
 
 test("legalIdentityMissing: lista los datos obligatorios que faltan", () =>
-  eq(legalIdentityMissing({ legalName: "Ana", legalCountry: "ES" }), ["legalTaxId", "legalAddress", "legalPostalCode", "legalCity", "legalEmail"]));
-test("legalIdentityComplete: Ana (seed) está completa; sin email, no", () => {
+  eq(legalIdentityMissing({ legalName: "Cirella", legalCountry: "ES" }), ["legalTaxId", "legalAddress", "legalPostalCode", "legalCity", "legalEmail"]));
+test("legalIdentityComplete: Cirella (seed) está completa; sin email, no", () => {
   ok(legalIdentityComplete(ana));
   ok(!legalIdentityComplete({ ...ana, legalEmail: "  " }));
 });
 test("formatLegalAddress y sellerLine", () => {
   eq(formatLegalAddress(ana), "Calle de la Luna 7, 2.º B, 28004 Madrid (España)");
-  eq(sellerLine(ana), "Ana Luna Pérez · NIF 12345678Z");
+  eq(sellerLine(ana), "Cirella · NIF 12345678Z");
   eq(sellerLine({ ...ana, legalEntityType: "COMPANY", legalName: "Luna S.L.", legalTaxId: "B12345674" }), "Luna S.L. · CIF B12345674");
 });
 test("creatorLegalHref", () => {
@@ -116,15 +116,15 @@ test("withdrawalInfoLine: lo que se dice antes de pagar en talleres y membresía
   eq(withdrawalInfoLine(null), null);
 });
 test("termsCheckboxText: renovación anual con «cada año» y sin «mensual»", () => {
-  const t = termsCheckboxText({ sellerName: "Ana Luna Pérez", billingInterval: "year", price: "290 €/año" });
+  const t = termsCheckboxText({ sellerName: "Cirella", billingInterval: "year", price: "290 €/año" });
   ok(t.includes("cada año por 290 €"), t);
   ok(!t.includes("mensual") && !t.includes("/año"), t);
 });
 test("termsCheckboxText: mensual y sin suscripción", () => {
-  ok(termsCheckboxText({ sellerName: "Ana", billingInterval: "month", price: "29 €/mes" }).includes("cada mes por 29 €"));
+  ok(termsCheckboxText({ sellerName: "Cirella", billingInterval: "month", price: "29 €/mes" }).includes("cada mes por 29 €"));
   eq(
-    termsCheckboxText({ sellerName: "Ana", billingInterval: null, price: "29 €" }),
-    "He leído y acepto las condiciones de venta y la política de cambios y reembolsos de Ana.",
+    termsCheckboxText({ sellerName: "Cirella", billingInterval: null, price: "29 €" }),
+    "He leído y acepto las condiciones de venta y la política de cambios y reembolsos de Cirella.",
   );
 });
 test("sessionChangePolicyText", () => eq(sessionChangePolicyText(), "Cambios gratis hasta 24 h antes de la sesión"));
@@ -170,18 +170,18 @@ test("parseCheckoutConsents: la casilla de novedades es opcional", () => {
 
 // ── Plantillas ──
 
-const templates = renderCreatorLegalTemplates({ identity: ana, displayName: "Ana Luna", platformName: "Cirella", changeNoticeHours: 24 });
+const templates = renderCreatorLegalTemplates({ identity: ana, displayName: "Cirella", platformName: "Cirella", changeNoticeHours: 24 });
 test("plantillas: la plataforma no es parte del contrato", () => ok(templates.terms.includes("Cirella") && templates.terms.includes("no es parte del contrato")));
 test("plantillas: reembolsos con 24 h y 14 días", () => ok(templates.refunds.includes("24 h") && templates.refunds.includes("14 días")));
 test("plantillas: ningún texto lleva el NIF (la identidad va aparte)", () => {
   for (const text of Object.values(templates)) ok(!text.includes("12345678Z"));
 });
 test("currentLegalDocs: el texto personalizado manda; si es null, la plantilla", () => {
-  const docs = currentLegalDocs({ ...ana, displayName: "Ana Luna", legalTerms: "Mis condiciones", legalRefunds: null, legalPrivacy: null }, "Cirella");
+  const docs = currentLegalDocs({ ...ana, displayName: "Cirella", legalTerms: "Mis condiciones", legalRefunds: null, legalPrivacy: null }, "Cirella");
   eq(docs.terms, "Mis condiciones");
   eq(docs.refunds, templates.refunds);
 });
-test("privacyResponsibleLine se genera con la identidad", () => ok(privacyResponsibleLine(ana).includes("Ana Luna Pérez · 12345678Z")));
+test("privacyResponsibleLine se genera con la identidad", () => ok(privacyResponsibleLine(ana).includes("Cirella · 12345678Z")));
 test("parseLegalText: apartados, párrafos y viñetas", () =>
   eq(parseLegalText("## Uno\nlínea a\nlínea b\n\n• x\n• y\nfinal"), [
     { kind: "heading", text: "Uno" },
@@ -195,17 +195,17 @@ test("legalTextToPlain: los apartados en mayúsculas, sin «## »", () => eq(leg
 
 test("recibo: quién vende, la renuncia con su fecha, la versión aceptada y las condiciones (escapadas)", () => {
   const { html } = purchaseReceiptEmail({
-    creatorName: "Ana Luna",
+    creatorName: "Cirella",
     productTitle: "Guía",
     amount: "29 €",
     orderId: "ord_123",
     accountUrl: "https://x.test/acceso",
-    seller: { line: sellerLine(ana), address: formatLegalAddress(ana), email: "hola@analuna.es" },
+    seller: { line: sellerLine(ana), address: formatLegalAddress(ana), email: "hola@cirella.app" },
     waiver: { text: WAIVER_TEXT.DIGITAL_IMMEDIATE, at: "10 de octubre de 2026, 12:00", version: "2026-10-25#abc" },
     legalUrl: "https://x.test/ana/legal?v=abc",
     conditions: { terms: "## Pago\n<b>Tarjeta</b>", refunds: templates.refunds },
   });
-  for (const s of ["Ana Luna Pérez · NIF 12345678Z", "Quiero acceder ya al contenido", "texto 2026-10-25#abc", "Confirmación de tu consentimiento", "/ana/legal?v=abc", "CONDICIONES DE VENTA", "PAGO", "&lt;b&gt;Tarjeta"])
+  for (const s of ["Cirella · NIF 12345678Z", "Quiero acceder ya al contenido", "texto 2026-10-25#abc", "Confirmación de tu consentimiento", "/ana/legal?v=abc", "CONDICIONES DE VENTA", "PAGO", "&lt;b&gt;Tarjeta"])
     ok(html.includes(s), `falta ${s}`);
   ok(!html.includes("<b>Tarjeta"));
 });

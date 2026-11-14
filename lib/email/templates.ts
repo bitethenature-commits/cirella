@@ -620,7 +620,19 @@ export function commentReplyEmail(o: { creatorName: string; membershipTitle: str
 }
 
 /** 7 días antes del fin de un acceso con fecha. `cta`: dónde volver a conseguirlo (o null: que responda). */
-export function accessEndingEmail(o: { creatorName: string; productTitle: string; until: string; cta?: { label: string; url: string } | null }) {
+export function accessEndingEmail(o: { creatorName: string; productTitle: string; until: string; cta?: { label: string; url: string } | null; membership?: boolean }) {
+  // Membresía que se paga por email: aviso para renovarla (si no, se cierra ese día).
+  if (o.membership)
+    return {
+      subject: `Tu membresía «${o.productTitle}» vence el ${o.until}`,
+      html: layout({
+        brand: o.creatorName,
+        title: "Es hora de renovar",
+        body:
+          p(`Tu membresía <strong>${esc(o.productTitle)}</strong> vence el <strong>${esc(o.until)}</strong> (incluido).`) +
+          p(`Para seguir dentro, responde a este email y ${esc(o.creatorName)} te dirá cómo hacer el pago. Si no se renueva, ese día se cerrará el acceso.`),
+      }),
+    };
   return {
     subject: `Tu acceso a «${o.productTitle}» termina el ${o.until}`,
     html: layout({

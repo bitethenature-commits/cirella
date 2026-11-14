@@ -97,15 +97,15 @@ test("orderFigures: pedido abandonado no suma", () => eq(orderFigures({ ...fig, 
 
 // Emails: el texto de las personas se escapa
 test("bookingCancelledEmail escapa el motivo y lleva el producto en el asunto", () => {
-  const m = bookingCancelledEmail({ creatorName: "Ana", productTitle: "Sesión 1:1", when: null, reason: "<script>alert(1)</script>", refundAmount: "79,00 €", url: "https://x" });
+  const m = bookingCancelledEmail({ creatorName: "Cirella", productTitle: "Sesión 1:1", when: null, reason: "<script>alert(1)</script>", refundAmount: "79,00 €", url: "https://x" });
   ok(!m.html.includes("<script>"), "el html contiene <script>");
   ok(m.html.includes("&lt;script&gt;"), "falta el motivo escapado");
   ok(m.subject.includes("Sesión 1:1"), m.subject);
 });
 test("rescheduleProposalEmail escapa el mensaje", () =>
-  ok(!rescheduleProposalEmail({ creatorName: "Ana", productTitle: "X", previousWhen: "lunes", note: '<img src=x onerror="a">', url: "https://x" }).html.includes("<img")));
+  ok(!rescheduleProposalEmail({ creatorName: "Cirella", productTitle: "X", previousWhen: "lunes", note: '<img src=x onerror="a">', url: "https://x" }).html.includes("<img")));
 test("refundIssuedEmail: parcial y sin acceso", () => {
-  const m = refundIssuedEmail({ creatorName: "Ana", productTitle: "Guía", amount: "5,00 €", partial: true, accessRevoked: true, note: null, url: "https://x" });
+  const m = refundIssuedEmail({ creatorName: "Cirella", productTitle: "Guía", amount: "5,00 €", partial: true, accessRevoked: true, note: null, url: "https://x" });
   ok(m.html.includes("de tu compra") && m.html.includes("Ya no tendrás acceso"), m.html);
   eq(m.subject, "Te hemos devuelto 5,00 € de «Guía»");
 });

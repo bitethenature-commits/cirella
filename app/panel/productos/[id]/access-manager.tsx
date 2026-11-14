@@ -23,7 +23,7 @@ export type AccessRow = {
 };
 
 /** «Duración del acceso» + «Hasta un día concreto…», con la frase de lo que va a pasar. */
-function AccessEndFields({ timeZone, idPrefix, choice, setChoice, date, setDate }: { timeZone: string; idPrefix: string; choice: AccessEndChoice; setChoice: (c: AccessEndChoice) => void; date: string; setDate: (d: string) => void }) {
+export function AccessEndFields({ timeZone, idPrefix, choice, setChoice, date, setDate }: { timeZone: string; idPrefix: string; choice: AccessEndChoice; setChoice: (c: AccessEndChoice) => void; date: string; setDate: (d: string) => void }) {
   const today = useMemo(() => dateKeyInTz(new Date(), timeZone), [timeZone]);
   const r = accessEndFrom({ choice, date, now: new Date(), timeZone });
   const sentence =

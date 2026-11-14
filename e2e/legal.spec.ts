@@ -31,9 +31,9 @@ async function demoLogin(page: Page, label: string) {
 test.describe.serial("Cumplimiento legal", () => {
   test("checkout: quién vende, privacidad y casillas obligatorias sin marcar", async ({ page }) => {
     await page.goto("/ana/gene-keys/checkout");
-    await expect(page.getByText("Vende: Cirella Demo S.L. · NIF B12345674, por cuenta de Ana Luna Pérez")).toBeVisible();
+    await expect(page.getByText("Vende: Cirella Demo S.L. · NIF B12345674, por cuenta de Cirella")).toBeVisible();
     await expect(page.getByRole("link", { name: "Condiciones", exact: true }).first()).toHaveAttribute("href", "/ana/legal#condiciones");
-    await expect(page.getByText(/Responsable: Ana Luna Pérez/)).toBeVisible();
+    await expect(page.getByText(/Responsable: Cirella/)).toBeVisible();
 
     const terms = page.getByLabel(/He leído y acepto/);
     await expect(terms).not.toBeChecked();
@@ -65,10 +65,10 @@ test.describe.serial("Cumplimiento legal", () => {
 
   test("el recibo dice quién vende, qué marcó y enlaza a la versión aceptada", async ({ page }) => {
     const m = await prisma.emailMessage.findFirstOrThrow({ where: { to: buyerEmail, template: "PURCHASE_RECEIPT" }, orderBy: { createdAt: "desc" } });
-    // Gene Keys lo vende Cirella a efectos de IVA (PLATFORM_DIGITAL), por cuenta de Ana, como en el checkout.
+    // Gene Keys lo vende Cirella a efectos de IVA (PLATFORM_DIGITAL), por cuenta de Cirella, como en el checkout.
     const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail } });
     // La confirmación de la renuncia en soporte duradero: el texto exacto y su versión.
-    for (const text of ["por cuenta de Ana Luna Pérez", "B12345674", "Confirmación de tu consentimiento", "Quiero acceder ya al contenido", `texto ${order.waiverVersion}`, "CONDICIONES DE VENTA"])
+    for (const text of ["por cuenta de Cirella", "B12345674", "Confirmación de tu consentimiento", "Quiero acceder ya al contenido", `texto ${order.waiverVersion}`, "CONDICIONES DE VENTA"])
       expect(m.html).toContain(text);
     const href = m.html.match(/href="([^"]*\/ana\/legal\?v=[^"]+)"/)?.[1];
     expect(href).toBeTruthy();
@@ -81,7 +81,7 @@ test.describe.serial("Cumplimiento legal", () => {
 
   test("sesiones: la política de cambios está junto al total y en la ficha", async ({ page }) => {
     await page.goto("/ana/sesion-1-1");
-    await expect(page.getByText("Vende: Ana Luna Pérez", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("Vende: Cirella", { exact: false }).first()).toBeVisible();
     await expect(page.getByText("Cambios gratis hasta 24 h antes de la sesión")).toBeVisible();
     await page.goto("/ana/sesion-1-1/checkout");
     await expect(page.getByText(/Cambios gratis hasta 24 h antes/)).toBeVisible();
@@ -138,7 +138,7 @@ test.describe.serial("Cumplimiento legal", () => {
   test("panel: datos legales con NIF validado y textos editables con «Restaurar plantilla»", async ({ page }) => {
     const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
     try {
-      await demoLogin(page, "Ana Luna");
+      await demoLogin(page, "Cirella");
       await page.goto("/panel/ajustes/legal");
       await expect(page.getByRole("heading", { name: "Datos legales" })).toBeVisible();
       await expect(page.getByText("Completos", { exact: true })).toBeVisible();
@@ -169,7 +169,7 @@ test.describe.serial("Cumplimiento legal", () => {
   });
 
   test("novedades por email: la creadora lo ve y la compradora lo retira desde su cuenta", async ({ page, browser }) => {
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/clientes");
     const row = page.getByRole("link", { name: new RegExp(buyerName) });
     await expect(row.getByText("Novedades ✓")).toBeVisible();
@@ -190,7 +190,7 @@ test.describe.serial("Cumplimiento legal", () => {
 
     await buyer.goto("/cuenta/perfil");
     const card = buyer.getByRole("region", { name: "Novedades por email" });
-    await expect(card.getByText("Ana Luna")).toBeVisible();
+    await expect(card.getByText("Cirella")).toBeVisible();
     await card.getByRole("button", { name: "Dejar de recibir" }).click();
     await expect(card.getByText("No recibes novedades de ninguna creadora.")).toBeVisible();
     await buyer.context().close();

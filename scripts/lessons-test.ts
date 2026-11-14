@@ -8,7 +8,7 @@
  *     automática, copia de compatibilidad, textos limpios, avisos de enlaces;
  *   · aislamiento: ids de María, archivos de otro producto, lecciones de otra creadora;
  *   · cascadas, progreso (un solo paso por lección), courseMaterials y loadLessonEditor.
- * Usa un curso temporal de Ana (y uno de María) y deja la BD como estaba.
+ * Usa un curso temporal de Cirella (y uno de María) y deja la BD como estaba.
  */
 import "./load-env";
 import { readFileSync } from "node:fs";

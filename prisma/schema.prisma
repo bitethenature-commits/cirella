@@ -9,7 +9,7 @@
 //     `tenantDb(creatorId)` (lib/tenant.ts), que inyecta el filtro en cada consulta.
 //   · La identidad (User) es global: una misma persona puede comprar a varias
 //     creadoras. La relación comercial con cada creadora vive en Customer
-//     (scoped por creatorId), de modo que Ana nunca ve los clientes de María.
+//     (scoped por creatorId), de modo que Cirella nunca ve los clientes de María.
 //
 // Los "enums" se guardan como String y se validan en lib/types.ts.
 //
@@ -336,7 +336,6 @@ model Creator {
   sectionsSeen          SectionSeen[]
   sitePages             SitePage[]
   availabilityOverrides AvailabilityOverride[]
-  orderFiles            OrderFile[]
   subscribers           Subscriber[]
   campaigns             Campaign[]
   campaignRecipients    CampaignRecipient[]
@@ -824,6 +823,7 @@ model OracleDeck {
   slug         String // único por creadora (para enlazarla más adelante desde el área de alumnas)
   description  String?
   backImageUrl String? // reverso común de todas las cartas (/media/…); sin él, el reverso dibujado
+  backFrame    String? // ajuste del reverso a la carta («cover 50 50 100»: rellenar o entera, foco x y, zoom)
   status       String       @default("DRAFT") // DRAFT | PUBLISHED
   sortOrder    Int          @default(0)
   createdAt    DateTime     @default(now())
@@ -847,6 +847,9 @@ model OracleCard {
   message         String     @default("")
   question        String     @default("")
   imageUrl        String? // cara de la carta (/media/…); sin imagen, un motivo dibujado
+  imageFrame      String? // ajuste de la cara a la carta («cover 50 50 100»)
+  backImageUrl    String? // reverso propio de esta carta (sin él, el de la baraja)
+  backFrame       String? // ajuste de su reverso
   motif           String? // motivo dibujado sin imagen: id de una carta de la baraja de serie; null = según su posición
   sortOrder       Int        @default(0)
   reversible      Boolean    @default(false) // puede salir invertida
@@ -991,8 +994,6 @@ model Order {
   intakeUpdatedAt       DateTime?
   // Entrega personal (la lectura preparada o la grabación de la sesión): primera vez que se envió y el mensaje.
   deliveredAt           DateTime?
-  deliveryMessage       String?
-  deliveryMessageFormat String? // null = texto sin formato | "MD" (lib/rich-text.ts)
   visitorId             String?
   source                String?
   ipHash                String? // HMAC de la IP de quien inició el pago (límites y antiabuso); nunca la IP en claro
@@ -1007,7 +1008,6 @@ model Order {
   sessions     Session[]
   links        OrderLink[]
   refunds      Refund[]
-  files        OrderFile[]
 
   @@index([creatorId, status, createdAt])
   @@index([buyerEmail])
@@ -1197,31 +1197,6 @@ model CalendarNote {
   updatedAt DateTime @updatedAt
 
   @@unique([creatorId, date])
-}
-
-// Archivo o enlace que la dueña entrega a UNA clienta (la lectura que prepara, la grabación de su sesión).
-// Nunca es contenido del producto: solo lo ven la clienta de ese pedido y la dueña (lib/order-files.ts).
-model OrderFile {
-  id          String    @id @default(cuid())
-  creatorId   String
-  creator     Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  orderId     String
-  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  name        String
-  kind        String // PDF | AUDIO | VIDEO | IMAGE | LINK | OTHER
-  storageKey  String? // como ProductFile: relativa a «private/», {creatorId}/{hex}.{ext}
-  url         String? // LINK (https)
-  mimeType    String?
-  sizeBytes   Float?
-  durationSec Int?
-  videoCodec  String?
-  width       Int?
-  height      Int?
-  sentAt      DateTime? // null = borrador: la clienta todavía no lo ve
-  createdAt   DateTime  @default(now())
-
-  @@index([creatorId, orderId])
-  @@index([orderId, sentAt])
 }
 
 // ───────────────────────────── Membresías ─────────────────────────────

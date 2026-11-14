@@ -4,9 +4,9 @@ import { freeTimes, pickDay } from "./slots";
 
 /**
  * Reembolsar, cancelar y cambiar de fecha avisando a la clienta:
- *   · Ana cancela y reembolsa la sesión de Carmen (con confirmación; cancelar el diálogo no hace nada);
- *   · Ana propone otra fecha a una compradora nueva, que ve la propuesta en su cuenta;
- *   · Ana devuelve una parte de una venta digital;
+ *   · Cirella cancela y reembolsa la sesión de Carmen (con confirmación; cancelar el diálogo no hace nada);
+ *   · Cirella propone otra fecha a una compradora nueva, que ve la propuesta en su cuenta;
+ *   · Cirella devuelve una parte de una venta digital;
  *   · Laura desiste de su lectura dentro de los 14 días.
  * Depende solo del seed (npm run db:reset) y corre después de flujo-principal.spec.ts.
  */
@@ -32,7 +32,7 @@ async function expectMail(page: Page, to: string, subject: string | RegExp) {
 
 test.describe.serial("Reembolsos y cambios", () => {
   test("Reservas: cancelar y reembolsar la sesión de Carmen, con confirmación", async ({ page }) => {
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/reservas");
     // Ya no hay un «Cancelar» de un toque junto a la videollamada.
     await expect(page.getByRole("button", { name: "Cancelar", exact: true })).toHaveCount(0);
@@ -86,9 +86,9 @@ test.describe.serial("Reembolsos y cambios", () => {
     await page.getByRole("link", { name: /Ver mi reserva/ }).click();
     await page.waitForURL("**/cuenta/sesiones/**");
 
-    // Ana propone otra fecha (en otra sesión del navegador).
+    // Cirella propone otra fecha (en otra sesión del navegador).
     const ana = await (await browser.newContext()).newPage();
-    await demoLogin(ana, "Ana Luna");
+    await demoLogin(ana, "Cirella");
     await ana.goto("/panel/reservas");
     await ana.locator(".card", { hasText: buyerName }).first().getByRole("link", { name: /Cambiar o cancelar/ }).click();
     await ana.waitForURL(/\/panel\/reservas\/[^/?]+$/);
@@ -102,17 +102,17 @@ test.describe.serial("Reembolsos y cambios", () => {
     const pending = ana.locator("section", { has: ana.getByRole("heading", { name: "Pagadas, pendientes de fecha" }) });
     await expect(pending.getByText(buyerName)).toBeVisible();
     await expect(pending.getByText(/Nueva fecha propuesta/).first()).toBeVisible();
-    await expectMail(ana, buyerEmail, "Ana Luna te propone cambiar la fecha de tu sesión");
+    await expectMail(ana, buyerEmail, "Cirella te propone cambiar la fecha de tu sesión");
     await ana.context().close();
 
     // La compradora ve la propuesta y el calendario para elegir.
     await page.goto(`/cuenta/sesiones/${bookingId}`);
-    await expect(page.getByText("Ana Luna te propone cambiar la fecha")).toBeVisible();
+    await expect(page.getByText("Cirella te propone cambiar la fecha")).toBeVisible();
     await expect(page.getByText("«¿Te viene bien otro día?»")).toBeVisible();
   });
 
   test("Ventas: reembolso parcial de una venta digital", async ({ page }) => {
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/ventas?rango=all&estado=pagados");
     await page.getByRole("link", { name: /Gene Keys/ }).first().click();
     await page.waitForURL(/\/panel\/ventas\/[^/?]+$/);

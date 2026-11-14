@@ -26,9 +26,9 @@ export default async function BookingDetail({ params }: { params: Promise<{ book
   const b = await prisma.booking.findFirst({
     where: { id: bookingId, userId: user.id },
     include: {
-      product: { include: { files: { orderBy: { sortOrder: "asc" } } } },
+      product: true,
       creator: true,
-      order: { select: { id: true, status: true, refundedCents: true, currency: true, intake: true, deliveredAt: true, files: { where: { sentAt: { not: null } }, orderBy: { createdAt: "asc" } } } },
+      order: { select: { id: true, status: true, refundedCents: true, currency: true, intake: true, deliveredAt: true } },
     },
   });
   if (!b) notFound();
@@ -40,8 +40,6 @@ export default async function BookingDetail({ params }: { params: Promise<{ book
   const answers = readIntakeAnswers(b.order?.intake);
   const showIntake = !!b.order && b.order.status === "PAID" && b.status !== "CANCELLED" && asksIntake(b.product.type, b.product.deliveryMode, cfg);
   const locked = !!b.order && intakeLocked({ deliveredAt: b.order.deliveredAt, bookings: [b] });
-  // Grabación: la de su sesión 1:1 (entrega del pedido) o la del taller (archivos del producto, con acceso).
-  const recordings = b.groupSeat ? b.product.files : (b.order?.files ?? []);
   return (
     <div className="max-w-2xl">
       {scoped ? (
@@ -142,19 +140,8 @@ export default async function BookingDetail({ params }: { params: Promise<{ book
         </div>
       )}
 
-      {recordings.length > 0 && b.status !== "CANCELLED" && (
-        <section id="grabacion" className="card mt-4 scroll-mt-24 space-y-4 p-5 sm:p-6">
-          <h2 className="font-semibold">{b.groupSeat ? "Grabación y materiales" : "Tu grabación"}</h2>
-          {recordings.map((f) =>
-            f.kind === "LINK" && f.url ? (
-              <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm h-11">Abrir enlace · {f.name}</a>
-            ) : (
-              <div key={f.id} className={f.kind === "VIDEO" || f.kind === "AUDIO" ? "overflow-hidden rounded-2xl bg-ink py-4" : ""}>
-                <MediaView file={f} title={`${f.name} · ${b.product.title}`} artwork={b.product.imageUrl} poster={b.product.imageUrl} />
-              </div>
-            ),
-          )}
-        </section>
+      {b.status !== "CANCELLED" && (
+        <p className="mt-4 rounded-2xl bg-sand px-4 py-3 text-sm text-muted">La grabación y el material, si los hay, te llegan por email.</p>
       )}
 
       <div className="mt-6 flex flex-wrap gap-2 text-sm">

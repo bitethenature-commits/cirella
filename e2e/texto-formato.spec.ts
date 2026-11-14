@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * Texto con formato (servidor en modo personal, puerto 3101, web de Ana):
+ * Texto con formato (servidor en modo personal, puerto 3101, web de Cirella):
  *   · Novedad: la barra (Negrita, Encabezado, Lista, Enlace) escribe las marcas, «Cómo queda» las
  *     pinta y la publicación pública también; el enlace lleva rel="noopener nofollow", la meta
  *     descripción va sin marcas y un <script> escrito se ve como texto;
@@ -98,7 +98,7 @@ test.describe.serial("Texto con formato", () => {
       dialogs.push(d.message());
       void d.dismiss();
     });
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/publicaciones/nueva");
     // «Título» sigue siendo solo el campo del título (ningún botón de la barra lo contiene).
     await expect(page.getByLabel("Título")).toHaveCount(1);
@@ -166,7 +166,7 @@ test.describe.serial("Texto con formato", () => {
     const legacy = await prisma.post.create({
       data: { creatorId: anaId, slug: `${TAG}-antes`, title: `Antes ${stamp}`, body: "Texto de antes con **asteriscos** tal cual.", status: "DRAFT" },
     });
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(`/panel/publicaciones/${legacy.id}`);
     await expect(page.getByText(/Este texto es de antes del formato/)).toBeVisible();
     await page.getByText("Publicada", { exact: true }).click();
@@ -210,7 +210,7 @@ test.describe.serial("Texto con formato", () => {
     const course = await prisma.product.findFirstOrThrow({ where: { creatorId: anaId, slug: "curso-conocete-tu-energia" } });
     const lesson = await prisma.lesson.findFirstOrThrow({ where: { productId: course.id, title: "Ejercicio: dibuja tu mapa" } });
     restore.lessons.push(await snapshotLesson(lesson.id));
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(`/panel/cursos/${course.id}/lecciones/${lesson.id}`);
     const body = page.getByLabel("Texto (parte 1)");
     await body.fill("## Cómo hacerlo\n\n1. Descarga el cuaderno\n2. Completa el ejercicio 1");
@@ -247,7 +247,7 @@ test.describe.serial("Texto con formato", () => {
   });
 
   test("editor de la página: la negrita se ve en la vista previa del móvil sin guardar", async ({ page }) => {
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/pagina");
     await page.getByRole("button", { name: "Bloques", exact: true }).click();
     await page.getByRole("button", { name: "Añadir bloque de texto" }).click();
@@ -259,7 +259,7 @@ test.describe.serial("Texto con formato", () => {
 
   test("Bienvenida con formato: el email lleva la negrita y el dominio del enlace", async ({ page }) => {
     restore.welcome = await prisma.automation.findUnique({ where: { creatorId_trigger: { creatorId: anaId, trigger: "WELCOME" } } });
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/automatizaciones");
     const card = page.locator("form", { hasText: "Email de bienvenida" });
     await card.getByText("Personalizar").click();

@@ -1,7 +1,5 @@
 import { checkFileAccess, markFirstAccess } from "@/lib/buyer-access";
 import { prisma } from "@/lib/db";
-import { checkOrderFileAccess } from "@/lib/order-file-access";
-import { findOrderFile } from "@/lib/order-files";
 import { deliveryFor, PRIVATE_TYPES } from "@/lib/file-types";
 import { isPersonalMode } from "@/lib/site-mode";
 import { privateKey } from "@/lib/storage";
@@ -27,11 +25,9 @@ const text = (body: string, status: number) => new Response(body, { status, head
 export async function GET(req: Request, { params }: { params: Promise<{ fileId: string }> }) {
   const { fileId } = await params;
   const productFile = await prisma.productFile.findUnique({ where: { id: fileId } });
-  // Entrega de un pedido (lectura, grabación): cada tabla con su propia comprobación de acceso.
-  const orderFile = productFile ? null : await findOrderFile(fileId);
-  const file = productFile ?? orderFile;
+  const file = productFile;
   if (!file || file.kind === "LINK" || !file.storageKey) return text("No encontrado", 404);
-  const access = productFile ? await checkFileAccess(productFile) : await checkOrderFileAccess(orderFile!);
+  const access = await checkFileAccess(file);
   if (!access.ok) return text(access.reason === "login" ? "Inicia sesión para ver este contenido" : "No tienes acceso a este contenido", access.reason === "login" ? 401 : 403);
   if (deliveryFor(file.kind, isPersonalMode()) !== "stream") return text("No encontrado", 404);
   const contentType = file.mimeType && PRIVATE_TYPES[file.mimeType] ? file.mimeType : null;
@@ -39,7 +35,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ fileId: 
 
   // Desde el primer acceso vale su renuncia al desistimiento; solo al empezar, no en cada tramo.
   const range = req.headers.get("range");
-  if (productFile && !access.isOwner && (!range || /^bytes=0-/.test(range.trim()))) await markFirstAccess(access.userId, ("accessProductId" in access ? String(access.accessProductId) : productFile.productId));
+  if (!access.isOwner && (!range || /^bytes=0-/.test(range.trim()))) await markFirstAccess(access.userId, ("accessProductId" in access ? String(access.accessProductId) : file.productId));
 
   return streamObjectResponse(req, {
     key: privateKey(file.storageKey),

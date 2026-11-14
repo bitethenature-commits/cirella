@@ -42,7 +42,7 @@ test("rlKey: «ámbito:hmac» sin el email ni la IP en claro", () => {
   const ip = hashIp("203.0.113.9");
   ok(/^[0-9a-f]{32}$/.test(ip) && !ip.includes("203"), ip);
 });
-test("rlKey no distingue mayúsculas", () => eq(rlKey("login-email", "Ana@X.com"), rlKey("login-email", "ana@x.com")));
+test("rlKey no distingue mayúsculas", () => eq(rlKey("login-email", "Cirella@X.com"), rlKey("login-email", "ana@x.com")));
 test("rlKey: ámbitos distintos, claves distintas", () => ok(rlKey("login-email", "a@x.com") !== rlKey("magic-email", "a@x.com")));
 
 // ── Captcha ──

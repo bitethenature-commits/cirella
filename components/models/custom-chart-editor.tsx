@@ -15,7 +15,7 @@ import { NIGHT_CHART_STYLE } from "./night-chart-style";
  * por la rueda y, al tocarlo, una burbuja afina su grado y su minuto, si va retrógrado, si se ve y su texto.
  */
 
-const EXAMPLE_BASE = { name: "Ana", date: "1988-11-14", time: "07:45", timeKnown: true, place: "Sevilla", lat: 37.38, lon: -5.97, tz: "Europe/Madrid" };
+const EXAMPLE_BASE = { name: "Cirella", date: "1988-11-14", time: "07:45", timeKnown: true, place: "Sevilla", lat: 37.38, lon: -5.97, tz: "Europe/Madrid" };
 const VS = "︎";
 
 export const pointLabel = (p: CustomPoint) => (p === "asc" ? "Ascendente" : p === "mc" ? "Medio Cielo" : BODY_INFO[p].name);
@@ -35,7 +35,7 @@ export function CustomChartEditor({ value, onChange, previewStyle }: { value: Cu
       <div className="rounded-xl border border-line px-3 py-2.5 text-sm">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-muted">Carta de partida:</span>
-          <strong>{value.base ? base.name || "Sin nombre" : "La de ejemplo (Ana)"}</strong>
+          <strong>{value.base ? base.name || "Sin nombre" : "La de ejemplo (Cirella)"}</strong>
           <span className="text-muted">
             · {base.date.split("-").reverse().join("/")} {base.timeKnown ? base.time : "sin hora"} · {base.place}
           </span>

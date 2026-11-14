@@ -22,6 +22,7 @@ export function toOracleDeckView(deck: OracleDeck & { cards: OracleCard[] }): Or
     name: deck.name,
     description: deck.description,
     backImageUrl: deck.backImageUrl,
+    backFrame: deck.backFrame,
     cards: deck.cards.map((c, i) => ({
       id: c.id,
       name: c.name,
@@ -30,6 +31,9 @@ export function toOracleDeckView(deck: OracleDeck & { cards: OracleCard[] }): Or
       messageFormat: "MD",
       question: c.question,
       imageUrl: c.imageUrl,
+      imageFrame: c.imageFrame,
+      backImageUrl: c.backImageUrl,
+      backFrame: c.backFrame,
       motif: oracleMotifFor(c.motif, i),
       reversible: c.reversible,
       reversedMessage: c.reversible ? c.reversedMessage : null,

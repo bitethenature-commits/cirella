@@ -9,5 +9,5 @@ export default async function StudioNewLessonPage({ params, searchParams }: { pa
   const { id } = await params;
   const { modulo } = await searchParams;
   const props = await lessonEditorProps(id, null, modulo);
-  return <LessonEditor {...props} />;
+  return <LessonEditor key={`nueva-${props.lesson.moduleId}`} {...props} />;
 }

@@ -1,10 +1,10 @@
 /**
  * Editor de la página y páginas extra, contra Postgres (con la BD sembrada: npm run db:reset):
- *   tsx --conditions=react-server scripts/site-pages-test.ts            (web personal de Ana)
+ *   tsx --conditions=react-server scripts/site-pages-test.ts            (web personal de Cirella)
  *   tsx --conditions=react-server scripts/site-pages-test.ts platform   (modo plataforma)
  *   (los dos: npm run test:pages)
  *
- *   · aislamiento: tenantDb(Ana).sitePage no ve, no cambia ni borra la página de María;
+ *   · aislamiento: tenantDb(Cirella).sitePage no ve, no cambia ni borra la página de María;
  *   · crear desde las plantillas, el máximo de páginas, direcciones (sobre-mi, sobre-mi-2, rutas de
  *     la web y la dueña rechazadas; María puede tener también sobre-mi);
  *   · saneamiento al guardar: imágenes y vídeos de María, texto MD sin imágenes, vídeo subido solo
@@ -12,7 +12,7 @@
  *   · borrador y publicado: lo público no cambia hasta publicar, despublicar da null y conserva lo
  *     publicado, borrar la quita; el pie de la web (getPublicCreator.pages) y su dirección por modo;
  *   · «Añadir un botón en mi portada» va al borrador y no se duplica;
- *   · subidas: el vídeo de la página (public/video/<Ana>/…, con sus medidas y códec), sus límites,
+ *   · subidas: el vídeo de la página (public/video/<Cirella>/…, con sus medidas y códec), sus límites,
  *     y la imagen «graphic» con medidas; en la plataforma no se puede subir un vídeo.
  * Usa el driver local en una carpeta temporal y borra al final lo que crea.
  */
@@ -76,7 +76,7 @@ async function main() {
       const mariaPage = await prisma.sitePage.create({ data: { creatorId: maria.id, slug: `${TAG}-maria`, title: "De María", draft: starterContent("blank", "De María") } });
       created.push(mariaPage.id);
       const anaDb = tenantDb(ana.id);
-      check("Ana no ve la página de María por su id", !(await anaDb.sitePage.findFirst({ where: { id: mariaPage.id } })));
+      check("Cirella no ve la página de María por su id", !(await anaDb.sitePage.findFirst({ where: { id: mariaPage.id } })));
       check("ni la cambia", (await anaDb.sitePage.updateMany({ where: { id: mariaPage.id }, data: { title: "Robada" } })).count === 0);
       check("ni la borra", !(await pages.deleteSitePage(ana.id, mariaPage.id)) && !!(await prisma.sitePage.findUnique({ where: { id: mariaPage.id } })));
       const saveOther = await pages.saveSitePage(ana.id, mariaPage.id, { content: starterContent("blank", "X"), slug: "x", showInNav: true }, { publish: true });
@@ -108,7 +108,7 @@ async function main() {
       }
       const mariaSame = await prisma.sitePage.create({ data: { creatorId: maria.id, slug: p1.slug, title: "x", draft: {} } });
       created.push(mariaSame.id);
-      check("María puede tener la misma dirección que Ana", !!mariaSame);
+      check("María puede tener la misma dirección que Cirella", !!mariaSame);
 
       // ── Saneamiento ──
       const withImage = (src: string) => ({ ...content, blocks: [{ id: "i", kind: "image" as const, title: "", image: { ...img(ana.id), src }, enabled: true }] });
@@ -164,13 +164,13 @@ async function main() {
       const video = mp4({ codec: "hvc1", width: 1080, height: 1920, durationSec: 5 });
       const up = await createUpload(ana.id, { purpose: "video", name: "bienvenida.mov", contentType: "video/quicktime", size: video.length });
       const key = "uploadUrl" in up ? (storage() as import("../lib/storage").LocalDriver).verify(new URL(up.uploadUrl, "http://x").searchParams.get("t"))?.k ?? "" : "";
-      check("el vídeo de la página va a public/video/<Ana>/", key.startsWith(`public/video/${ana.id}/`) && key.endsWith(".mov"), key);
+      check("el vídeo de la página va a public/video/<Cirella>/", key.startsWith(`public/video/${ana.id}/`) && key.endsWith(".mov"), key);
       await storage().put(key, video, { contentType: "video/quicktime" });
-      check("María no puede completar el vídeo de Ana", await rejects(() => completeUpload(maria.id, up.ticket), /caducado/));
+      check("María no puede completar el vídeo de Cirella", await rejects(() => completeUpload(maria.id, up.ticket), /caducado/));
       const done = await completeUpload(ana.id, up.ticket);
       const v = "video" in done ? done.video : null;
       check(
-        "completar: dirección /media/video/<Ana>/…, 1080×1920, 5 s, HEVC",
+        "completar: dirección /media/video/<Cirella>/…, 1080×1920, 5 s, HEVC",
         !!v && v.src.startsWith(`/media/video/${ana.id}/`) && v.width === 1080 && v.height === 1920 && v.durationSec === 5 && v.codec === "HEVC" && v.sizeBytes === video.length,
         v,
       );
@@ -183,7 +183,7 @@ async function main() {
       if ("uploadUrl" in imgUp) await storage().put((storage() as import("../lib/storage").LocalDriver).verify(new URL(imgUp.uploadUrl, "http://x").searchParams.get("t"))!.k, png, { contentType: "image/png" });
       const imgDone = await completeUpload(ana.id, imgUp.ticket);
       check("la imagen «graphic» vuelve con sus medidas (1080×1920)", "url" in imgDone && imgDone.width === 1080 && imgDone.height === 1920, imgDone);
-      // Un billete de vídeo falsificado con la carpeta de Ana pero de María no vale.
+      // Un billete de vídeo falsificado con la carpeta de Cirella pero de María no vale.
       const { signToken, storageSecret } = await import("../lib/storage");
       const forged = signToken({ k: `public/video/${ana.id}/0123456789abcdef01234567.mp4`, c: maria.id, p: "video", n: "x", ct: "video/mp4", s: 10 }, storageSecret(), 600);
       check("un billete de vídeo con la carpeta de otra creadora no vale", await rejects(() => completeUpload(maria.id, forged), /caducado/));

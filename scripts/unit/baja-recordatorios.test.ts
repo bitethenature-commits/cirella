@@ -54,7 +54,7 @@ test("maskTaxId deja ver solo los 4 últimos caracteres", () => {
 test("alta simulada con la identidad legal de la creadora (documento enmascarado)", () => {
   const f = simulatedIdentityFields({
     legalEntityType: "INDIVIDUAL",
-    legalName: "Ana Luna Pérez",
+    legalName: "Cirella",
     legalTaxId: "12345678Z",
     legalAddress: "Calle Luna 3",
     legalPostalCode: "08001",
@@ -62,7 +62,7 @@ test("alta simulada con la identidad legal de la creadora (documento enmascarado
     legalCountry: "ES",
   });
   eq(f.map((x) => x.label), ["Nombre y apellidos", "DNI o NIE", "Dirección", "IBAN"]);
-  eq(f[0].value, "Ana Luna Pérez");
+  eq(f[0].value, "Cirella");
   eq(f[1].value, "•••••678Z");
   eq(f[2].value, "Calle Luna 3, 08001 Barcelona (España)");
   eq(f[3].value, null);

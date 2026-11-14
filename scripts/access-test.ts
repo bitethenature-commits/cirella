@@ -141,7 +141,7 @@ async function main() {
     await sendMagicLink(to, "/panel", { purpose: "VERIFY_SIGNUP" });
     const [login, verify] = await prisma.loginToken.findMany({ where: { email: to }, orderBy: { createdAt: "asc" } });
     const mails = await prisma.emailMessage.findMany({ where: { to }, orderBy: { createdAt: "asc" } });
-    check("el enlace pedido desde la página de Ana lleva su marca", login.creatorId === ana.id && mails[0]?.template === "MAGIC_LINK" && mails[0].html.includes(ana.displayName));
+    check("el enlace pedido desde la página de Cirella lleva su marca", login.creatorId === ana.id && mails[0]?.template === "MAGIC_LINK" && mails[0].html.includes(ana.displayName));
     check("…y nunca un destino externo", login.redirectTo === "/auth/continuar", login.redirectTo);
     const hours = (verify.expiresAt.getTime() - verify.createdAt.getTime()) / HOUR;
     check("«Confirma tu email» dura 72 h y usa su plantilla", verify.purpose === "VERIFY_SIGNUP" && Math.round(hours) === 72 && mails[1]?.template === "VERIFY_EMAIL", { hours, t: mails[1]?.template });

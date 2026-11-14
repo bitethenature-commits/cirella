@@ -2,7 +2,7 @@
  * Cobros de la web personal contra Postgres y un PayPal falso (scripts/paypal-mock.ts).
  *   npm run test:personal-sales        (con la BD sembrada: npm run db:reset)
  *
- * Web personal de Ana (SITE_MODE=personal) que cobra con tarjeta (simulador) y PayPal:
+ * Web personal de Cirella (SITE_MODE=personal) que cobra con tarjeta (simulador) y PayPal:
  *   · un pedido con PayPal: sin comisión, vende la dueña, va a PayPal y solo se cobra al aprobarlo;
  *   · la vuelta de la compradora y el aviso CHECKOUT.ORDER.APPROVED a la vez cobran y entregan una vez;
  *   · un pago aprobado de un pedido sustituido (cambió de método) no se cobra;

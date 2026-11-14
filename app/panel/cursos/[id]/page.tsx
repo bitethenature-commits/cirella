@@ -8,6 +8,7 @@ import { uploadPolicy } from "@/lib/file-types";
 import { fileUsage, lessonPartViews } from "@/lib/lesson-parts";
 import { isPersonalMode } from "@/lib/site-mode";
 import { FilesManager } from "../../productos/[id]/files-manager";
+import { CourseThemeCard } from "./course-theme-card";
 import { DripCard } from "./drip-card";
 import { loadStudioCourse } from "./load";
 import { StructureBoard } from "./structure-board";
@@ -49,7 +50,7 @@ export default async function CourseStudioPage({ params, searchParams }: { param
   return (
     <div>
       <StudioHeader course={course} tab="estructura" />
-      {sp.nuevo && <Flash ok="Curso creado en borrador. Añade sus lecciones; el precio, la página de venta y la publicación están en «Ajustes del producto»." />}
+      {sp.nuevo && <Flash ok="Curso creado en borrador. Elige su temática a la derecha y añade sus lecciones; el precio, la página de venta y la publicación están en «Ajustes del producto»." />}
       {sp.leccion === "eliminada" && <Flash ok="Lección eliminada." />}
       {noContent && (
         <div className="mb-5">
@@ -67,6 +68,7 @@ export default async function CourseStudioPage({ params, searchParams }: { param
           }))}
         />
         <div className="space-y-4 lg:sticky lg:top-20">
+          <CourseThemeCard productId={course.id} initial={course.courseCategory} />
           <DripCard productId={course.id} drip={drip} />
           <section className="card p-5">
             <p className="font-semibold">Así lo ven tus alumnas</p>

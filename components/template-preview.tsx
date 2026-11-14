@@ -1,9 +1,10 @@
+import { TemplateDecor } from "./template-decor";
 import { resolveTheme, themeStyle, type TemplateKey, TEMPLATES } from "@/lib/templates";
 
 /** Miniatura de una plantilla con contenido de ejemplo (usa las mismas variables que la página real). */
 export function TemplatePreview({
   template,
-  name = "Ana Luna",
+  name = "Cirella",
   tagline = "Astrología · Human Design",
   className = "",
 }: {
@@ -20,9 +21,7 @@ export function TemplatePreview({
       data-card={theme.card}
       aria-label={`Plantilla ${TEMPLATES[template].name}`}
     >
-      <div className={`cp-decor cp-decor-${theme.decor}`} aria-hidden>
-        {theme.decor === "stars" && <div className="starfield absolute inset-0 opacity-70" />}
-      </div>
+      <TemplateDecor decor={theme.decor} contained />
       <div className="flex flex-col items-center px-4 pb-4 pt-6 text-center">
         <div className="h-11 w-11 rounded-full" style={{ background: "linear-gradient(135deg, var(--c-gold), var(--c-accent))" }} />
         <p className="cp-display mt-2.5 text-[1.35rem]">{name}</p>

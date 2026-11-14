@@ -5,7 +5,7 @@ import { limitUpload } from "@/lib/limits";
 import { UploadError, createUpload } from "@/lib/uploads";
 
 const schema = z.object({
-  purpose: z.enum(["image", "file", "delivery", "video", "portal"]),
+  purpose: z.enum(["image", "file", "video", "portal"]),
   graphic: z.boolean().optional(),
   email: z.boolean().optional(),
   audio: z.boolean().optional(),

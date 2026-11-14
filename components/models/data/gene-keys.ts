@@ -374,7 +374,7 @@ export const PATH_EDGES: PathEdge[] = [
   { from: "attraction", to: "purpose", sequence: "venus" },
 ]
 
-/** Un ejemplo trabajado (el perfil de Ana), para que el modelo abra con algo que leer: llave y línea. */
+/** Un ejemplo trabajado (el perfil de Cirella), para que el modelo abra con algo que leer: llave y línea. */
 export const EXAMPLE_PROFILE: Record<string, number> = {
   lifework: 54,
   pearl: 42,

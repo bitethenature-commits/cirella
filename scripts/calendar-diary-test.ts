@@ -2,7 +2,7 @@
  * Calendario de Reservas: diario (una nota por día) y el mes con todo (Postgres).
  *   npm run test:calendar-diary        (con la BD sembrada: npm run db:reset)
  *
- * Notas: guardar, cambiar, vaciar = borrar, días imposibles, límite de tamaño y aislamiento entre Ana
+ * Notas: guardar, cambiar, vaciar = borrar, días imposibles, límite de tamaño y aislamiento entre Cirella
  * y María. El mes: notas, reservas, bloqueos y el cielo de cada día. Usa días de 2031 (sin datos
  * sembrados) y los borra.
  */
@@ -44,22 +44,22 @@ async function main() {
   check("un día imposible se rechaza", !(await saveDayNote(ana.id, "2031-02-30", "x")).ok);
   check("una nota demasiado larga se rechaza", !(await saveDayNote(ana.id, DAY, "a".repeat(NOTE_MAX + 1))).ok);
 
-  // Aislamiento: María guarda en el mismo día su propia nota; no ve ni toca la de Ana.
+  // Aislamiento: María guarda en el mismo día su propia nota; no ve ni toca la de Cirella.
   await saveDayNote(maria.id, DAY, "de María");
   const anaNow = await prisma.calendarNote.findUniqueOrThrow({ where: { creatorId_date: { creatorId: ana.id, date: DAY } } });
-  check("la nota de María es otra fila; la de Ana sigue igual", anaNow.body === "## Ritual\n\n- Vela\n- Incienso" && (await prisma.calendarNote.count({ where: { date: DAY } })) === 2);
+  check("la nota de María es otra fila; la de Cirella sigue igual", anaNow.body === "## Ritual\n\n- Vela\n- Incienso" && (await prisma.calendarNote.count({ where: { date: DAY } })) === 2);
   check("tenantDb(María) solo ve su nota de ese día", (await tenantDb(maria.id).calendarNote.findMany({ where: { date: DAY } })).every((n) => n.creatorId === maria.id));
   await saveDayNote(maria.id, DAY, "   ");
-  check("vaciar la nota de María la borra y no toca la de Ana", (await prisma.calendarNote.count({ where: { date: DAY, creatorId: maria.id } })) === 0 && (await prisma.calendarNote.count({ where: { date: DAY, creatorId: ana.id } })) === 1);
+  check("vaciar la nota de María la borra y no toca la de Cirella", (await prisma.calendarNote.count({ where: { date: DAY, creatorId: maria.id } })) === 0 && (await prisma.calendarNote.count({ where: { date: DAY, creatorId: ana.id } })) === 1);
 
-  // El mes de Ana trae la nota (y el de María no).
+  // El mes de Cirella trae la nota (y el de María no).
   const anaMarch = await loadCalendarMonth(ana, { year: 2031, month: 3 });
   check("loadCalendarMonth: la nota del 14 de marzo de 2031 sale en su día", anaMarch.days.find((d) => d.key === DAY)?.note?.body.startsWith("## Ritual") === true);
   const mariaMarch = await loadCalendarMonth(maria, { year: 2031, month: 3 });
-  check("en el mes de María no está la nota de Ana", mariaMarch.days.every((d) => d.note === null));
+  check("en el mes de María no está la nota de Cirella", mariaMarch.days.every((d) => d.note === null));
   check("rejilla de marzo de 2031: de lunes 24-2 a domingo 6-4, con inMonth", anaMarch.days[0].key === "2031-02-24" && anaMarch.days.at(-1)!.key === "2031-04-06" && anaMarch.days.filter((d) => d.inMonth).length === 31);
 
-  // ── El mes actual de Ana (sembrado) ──
+  // ── El mes actual de Cirella (sembrado) ──
   const today = dateKeyInTz(new Date(), ana.timezone);
   const ym = { year: Number(today.slice(0, 4)), month: Number(today.slice(5, 7)) };
   const month = await loadCalendarMonth(ana, ym);

@@ -5,11 +5,11 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import { m4a } from "../scripts/fixtures/iso-media";
 
 /**
- * Comunidad de Ana (web personal, puerto 3101):
+ * Comunidad de Cirella (web personal, puerto 3101):
  *   · programa una publicación con un audio desde el estudio Comunidad (/panel/comunidad, al que lleva
  *     «Nueva publicación» de la ficha); al llegar su hora, el aviso por email sale a sus
  *     miembros con un enlace personal que abre la publicación (audio, ♥; comentar pide entrar);
- *   · comentarios y moderación: comenta Lucía, responde Ana («Autora»), Ana borra y, desde el Muro
+ *   · comentarios y moderación: comenta Lucía, responde Cirella («Autora»), Cirella borra y, desde el Muro
  *     del estudio, deja sin comentar a Lucía;
  *   · baja de los avisos con el enlace del email y vuelta a activarlos desde la comunidad;
  *   · acceso a mano con fecha de fin: termina solo (cron de caducidades), avisos y «Cambiar fecha»;
@@ -90,7 +90,7 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
     await prisma.$disconnect();
   });
 
-  test("Ana programa una publicación con audio y sus miembros reciben el aviso", async ({ page, browser }) => {
+  test("Cirella programa una publicación con audio y sus miembros reciben el aviso", async ({ page, browser }) => {
     await login(page, "ana@cirella.app");
     await page.goto(`/panel/productos/${circleId}`);
     await expect(page.getByText("Publicaciones de la comunidad")).toBeVisible();
@@ -140,10 +140,10 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
     await login(page, "lucia@example.com");
     await page.goto(`/cuenta/membresias/${circleId}/${postId}`);
     await expect(page.getByText(/Se publicará como «Lucía T\.»/)).toBeVisible();
-    await page.getByPlaceholder("Escribe un comentario…").fill(`Gracias, Ana ${TAG}`);
+    await page.getByPlaceholder("Escribe un comentario…").fill(`Gracias, Cirella ${TAG}`);
     await page.getByRole("button", { name: "Publicar comentario" }).click();
     await expect(page.getByPlaceholder("Escribe un comentario…")).toHaveValue("");
-    await expect(page.locator("li p", { hasText: `Gracias, Ana ${TAG}` })).toBeVisible();
+    await expect(page.locator("li p", { hasText: `Gracias, Cirella ${TAG}` })).toBeVisible();
     const comment = await prisma.membershipComment.findFirstOrThrow({ where: { postId, body: { contains: TAG } } });
     expect(comment.authorName).toBe("Lucía T.");
     await expect.poll(() => prisma.emailMessage.count({ where: { dedupeKey: `comment:${comment.id}`, template: "COMMENT_NEW" } })).toBe(1);

@@ -29,6 +29,8 @@ export function PortalSection({
   preview,
   home,
   fallbackImage = null,
+  limit,
+  timeZone,
 }: {
   items: PublicPortalItem[];
   title: string;
@@ -41,6 +43,10 @@ export function PortalSection({
   home?: boolean;
   /** Portada: la foto que sale en una fila sin portada propia (la de la web). */
   fallbackImage?: string | null;
+  /** Cuántas noticias salen debajo del audio (en la portada, 1; en su página, todas). */
+  limit?: number;
+  /** Su página: las noticias agrupadas por meses (con la zona de la dueña). */
+  timeZone?: string;
 }) {
   const [items, setItems] = useState(lockedItems);
   const [access, setAccess] = useState<Access | null>(null);
@@ -67,7 +73,14 @@ export function PortalSection({
   if (!main) return null;
   // Portada: arriba el audio (el destacado o el último) y, debajo, solo las noticias.
   const top = home ? (items.find((i) => i.kind === "AUDIO" && i.featured) ?? items.find((i) => i.kind === "AUDIO") ?? main) : main;
-  const news = home ? items.filter((i) => i !== top).slice(0, 4) : rest;
+  const allNews = home ? items.filter((i) => i !== top) : rest;
+  const news = limit != null ? allNews.slice(0, limit) : allNews;
+  // En su página, las noticias por meses (como «Actualidades»).
+  const months = new Map<string, typeof news>();
+  for (const n of news) {
+    const m = timeZone ? new Date(n.publishedAt).toLocaleDateString("es-ES", { month: "long", year: "numeric", timeZone }) : "";
+    months.set(m, [...(months.get(m) ?? []), n]);
+  }
 
   return (
     <div data-portal={unlocked ? "unlocked" : "locked"}>
@@ -75,11 +88,7 @@ export function PortalSection({
         // Portada: el título está en la fila del desplegable (section-dropdown.tsx).
         <div className="flex items-center justify-between gap-4">
           <p className="cp-eyebrow">{unlocked ? "Gracias por estar suscrita" : "Para quien está suscrita a mi newsletter"}</p>
-          {items.length > 1 && (
-            <Link href={portalHref} className="cp-muted inline-flex shrink-0 items-center gap-1 text-sm font-medium underline-offset-4 hover:underline">
-              Ver todo <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          )}
+
         </div>
       ) : (
         <div>
@@ -97,10 +106,12 @@ export function PortalSection({
               <NewsletterUnlockForm what={PORTAL_LOCK_WHAT[top.kind]} access={access} creatorName={creatorName} privacyHref={privacyHref} onUnlocked={reload} />
             </div>
           )}
-          {news.length > 0 && <p className="cp-eyebrow mb-2.5 mt-7">Noticias</p>}
+          {[...months].map(([month, list]) => (
+          <div key={month || "noticias"}>
+          <p className={timeZone ? "cp-display mb-3 mt-9 text-[1.5rem] capitalize" : "cp-eyebrow mb-2.5 mt-7"}>{timeZone ? month : "Noticias"}</p>
           <HomeRows
             fallbackImage={fallbackImage}
-            rows={news.map((i) => {
+            rows={list.map((i) => {
               const Icon = KIND_ICON[i.kind];
               const locked = i.locked || !unlocked;
               return {
@@ -122,6 +133,13 @@ export function PortalSection({
               };
             })}
           />
+          </div>
+          ))}
+          {limit != null && allNews.length > limit && (
+            <Link href={portalHref} className="cp-btn-ghost mt-4 w-full">
+              Ver más noticias <ArrowRight className="h-4 w-4" />
+            </Link>
+          )}
         </div>
       ) : (
       <>

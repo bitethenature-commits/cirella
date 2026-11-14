@@ -20,7 +20,7 @@ export default async function NewCardPage({ params }: { params: Promise<{ id: st
         <ArrowLeft className="h-4 w-4" /> {deck.name}
       </Link>
       <PageHeader title="Nueva carta" />
-      <CardForm card={{ id: null, deckId: deck.id, name: "", keyword: "", message: "", question: "", imageUrl: null, motif: "", reversible: false, reversedMessage: "" }} />
+      <CardForm card={{ id: null, deckId: deck.id, name: "", keyword: "", message: "", question: "", imageUrl: null, imageFrame: null, backImageUrl: null, backFrame: null, motif: "", reversible: false, reversedMessage: "" }} />
     </div>
   );
 }

@@ -141,31 +141,3 @@ export function meetingLinkChangedEmail(o: { creatorName: string; productTitle: 
   };
 }
 
-export function readingDeliveredEmail(o: { creatorName: string; productTitle: string; message: string | null; messageFormat: string | null; fileNames: string[]; url: string; linkNote?: string }) {
-  return {
-    subject: `Tu lectura está lista · ${o.productTitle}`,
-    html: layout({
-      brand: o.creatorName,
-      title: "Tu lectura está lista",
-      body:
-        p(`${esc(o.creatorName)} te ha enviado <strong>${esc(o.productTitle)}</strong>.`) +
-        (o.message ? richToEmailHtml(o.message, o.messageFormat) : "") +
-        (o.fileNames.length ? p(`${muted("Te espera en tu área:")}<br>${o.fileNames.map((n) => `· ${esc(n)}`).join("<br>")}`) : ""),
-      cta: { label: "Ver mi lectura", url: o.url },
-      afterCta: note(o.linkNote),
-    }),
-  };
-}
-
-export function workshopReplayEmail(o: { creatorName: string; productTitle: string; url: string; linkNote?: string }) {
-  return {
-    subject: `Ya tienes la grabación · ${o.productTitle}`,
-    html: layout({
-      brand: o.creatorName,
-      title: "Ya tienes la grabación",
-      body: p(`La grabación y los materiales de <strong>${esc(o.productTitle)}</strong> ya están en tu área.`),
-      cta: { label: "Ver la grabación", url: o.url },
-      afterCta: note(o.linkNote),
-    }),
-  };
-}

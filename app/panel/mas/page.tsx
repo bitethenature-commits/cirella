@@ -4,21 +4,27 @@ import { requireCreator } from "@/lib/auth";
 import { readPanelPrefs } from "@/lib/panel-prefs";
 import { panelNavFor } from "../nav-items";
 import { panelNavFlags } from "../nav-flags";
+import { PageHeader } from "../ui";
 
 export default async function MorePage() {
   const { creator, user } = await requireCreator();
   const flags = await panelNavFlags(creator.id);
   return (
     <div>
-      <h1 className="display text-[2.4rem]">Más</h1>
-      <div className="card mt-6 divide-y divide-line">
+      <PageHeader title="Más" subtitle="Todas las secciones de tu panel." />
+      <ul className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4">
         {panelNavFor(flags, readPanelPrefs(creator.panelPrefs).nav).map((i) => (
-          <Link key={i.href} href={i.href} className="flex items-center gap-3 px-4 py-3.5 text-sm">
-            <i.icon className="h-4 w-4 text-muted" />
-            <span className="flex-1 font-medium">{i.label}</span>
-            <ChevronRight className="h-4 w-4 text-faint" />
-          </Link>
+          <li key={i.href}>
+            <Link href={i.href} className="flex flex-col items-center gap-2 text-center">
+              <span className="panel-emblem h-16 w-16">
+                <i.icon className="h-7 w-7" strokeWidth={1.5} />
+              </span>
+              <span className="text-[0.78rem] font-semibold leading-tight">{i.label}</span>
+            </Link>
+          </li>
         ))}
+      </ul>
+      <div className="card mt-7 divide-y divide-line">
         {flags.personal ? (
           user.isAdmin && (
             <Link href="/admin" className="flex items-center gap-3 px-4 py-3.5 text-sm">

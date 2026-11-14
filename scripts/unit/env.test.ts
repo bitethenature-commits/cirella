@@ -214,12 +214,12 @@ test("modo personal en staging → válido", () => isValid({ ...PERSONAL_OK, APP
 test("modo personal con Stripe completo → válido", () => isValid({ ...PROD_OK, SITE_MODE: "personal", OWNER_USERNAME: "ana" }));
 test("modo personal en local con none → válido", () => isValid({ ...DEV_OK, SITE_MODE: "personal", OWNER_USERNAME: "ana", PAYMENT_PROVIDER: "none" }));
 test("modo personal en local con pagos simulados → válido", () => isValid({ ...DEV_OK, SITE_MODE: "personal", OWNER_USERNAME: "ana" }));
-test("OWNER_USERNAME con @ y mayúsculas se normaliza → válido", () => isValid({ ...PERSONAL_OK, OWNER_USERNAME: "@Ana" }));
+test("OWNER_USERNAME con @ y mayúsculas se normaliza → válido", () => isValid({ ...PERSONAL_OK, OWNER_USERNAME: "@Cirella" }));
 test("modo personal sin OWNER_USERNAME → error", () => hasError({ ...PERSONAL_OK, OWNER_USERNAME: undefined }, "Falta OWNER_USERNAME"));
 test("modo personal con OWNER_USERNAME en blanco → error", () => hasError({ ...PERSONAL_OK, OWNER_USERNAME: "  " }, "Falta OWNER_USERNAME"));
 test("modo personal en local sin OWNER_USERNAME → error", () =>
   hasError({ ...DEV_OK, SITE_MODE: "personal", PAYMENT_PROVIDER: "none" }, "Falta OWNER_USERNAME"));
-for (const [user, fragment] of [["ab", "mínimo 3"], ["ana luna!", "solo letras"], ["admin", "reservado"]] as const)
+for (const [user, fragment] of [["ab", "mínimo 3"], ["cirella!", "solo letras"], ["admin", "reservado"]] as const)
   test(`OWNER_USERNAME=${user} → error`, () => hasError({ ...PERSONAL_OK, OWNER_USERNAME: user }, fragment));
 test("modo personal sin PAYMENT_PROVIDER → error que sugiere none", () =>
   hasError({ ...PERSONAL_OK, PAYMENT_PROVIDER: undefined }, "«none» si esta web no cobra"));
@@ -230,7 +230,7 @@ test("modo personal en producción con email de log → error", () => hasError({
 test("modo personal en producción sin S3 → error", () => hasError({ ...PERSONAL_OK, STORAGE_DRIVER: undefined }, "STORAGE_DRIVER=s3"));
 test("modo personal en producción sin CLIENT_IP_HEADER → error", () => hasError({ ...PERSONAL_OK, CLIENT_IP_HEADER: undefined }, "Falta CLIENT_IP_HEADER"));
 test("modo personal en producción con secretos cortos → error", () => hasError({ ...PERSONAL_OK, APP_SECRET: "corto" }, "APP_SECRET debe tener"));
-test("modo personal en producción con APP_URL http → error", () => hasError({ ...PERSONAL_OK, APP_URL: "http://analuna.es" }, "https://"));
+test("modo personal en producción con APP_URL http → error", () => hasError({ ...PERSONAL_OK, APP_URL: "http://cirella.app" }, "https://"));
 test("modo personal: solo una clave de Turnstile → error", () => hasError({ ...PERSONAL_OK, TURNSTILE_SITE_KEY: "x" }, "las dos claves de Turnstile"));
 test("modo personal con Stripe a medias → error", () =>
   hasError({ ...PERSONAL_OK, PAYMENT_PROVIDER: "stripe" }, "Falta STRIPE_SECRET_KEY"));
@@ -244,7 +244,7 @@ test("plataforma en staging con none → error", () => hasError({ ...PROD_OK, AP
 test("plataforma en local con none → válido", () => isValid({ ...DEV_OK, PAYMENT_PROVIDER: "none" }));
 test("plataforma no exige OWNER_USERNAME", () => isValid({ ...PROD_OK, SITE_MODE: "platform" }));
 // OWNER_EMAIL / OWNER_NAME (opcionales): con ellos, `npm run deploy` crea la cuenta de la dueña.
-test("modo personal con OWNER_EMAIL y OWNER_NAME → válido", () => isValid({ ...PERSONAL_OK, OWNER_EMAIL: "ana@example.com", OWNER_NAME: "Ana Luna" }));
+test("modo personal con OWNER_EMAIL y OWNER_NAME → válido", () => isValid({ ...PERSONAL_OK, OWNER_EMAIL: "ana@example.com", OWNER_NAME: "Cirella" }));
 test("modo personal con OWNER_EMAIL mal escrito → error", () => hasError({ ...PERSONAL_OK, OWNER_EMAIL: "ana@" }, "OWNER_EMAIL no es un email válido"));
 test("modo personal con OWNER_NAME de más de 80 caracteres → error", () => hasError({ ...PERSONAL_OK, OWNER_NAME: "a".repeat(81) }, "OWNER_NAME es demasiado largo"));
 test("SITE_MODE desconocido → error", () => hasError({ ...DEV_OK, SITE_MODE: "solo" }, "SITE_MODE solo admite"));

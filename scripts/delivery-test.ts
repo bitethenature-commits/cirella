@@ -7,7 +7,7 @@
  *     (otro modo de entrega, otras instrucciones o borrar el último archivo/lección);
  *   · listDeliveryIssues: lo que bloquea sale siempre; una membresía vacía solo si está publicada;
  *     los archivados no salen.
- * Usa productos temporales de Ana y deja la BD como estaba.
+ * Usa productos temporales de Cirella y deja la BD como estaba.
  */
 import "./load-env";
 import { prisma } from "../lib/db";

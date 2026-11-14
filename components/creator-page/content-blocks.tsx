@@ -1,5 +1,5 @@
 import type { ComponentType, SVGProps } from "react";
-import { ArrowRight, ArrowUpRight, Moon } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Mail, Moon } from "lucide-react";
 import { ZoomableImage } from "@/components/media/zoomable-image";
 import { RichContent } from "@/components/rich-text/rich-content";
 import { linksToProduct } from "@/lib/access-mode";
@@ -470,8 +470,8 @@ export function ContentBlocks({
                             {c.sale && <span className="cp-faint font-normal line-through"> {formatPrice(c.sale.regularCents, c.currency)}</span>}
                           </span>
                         </span>
-                        <a href={free ? `/${username}/${c.slug}` : `/${username}/${c.slug}/checkout`} className="cp-btn shrink-0 !min-h-9 !px-3.5 !text-[0.8rem]" aria-label={`Apuntarme: ${c.title}`}>
-                          Apuntarme
+                        <a href={free ? `/${username}/${c.slug}` : `/${username}/${c.slug}/solicitar`} className="cp-btn shrink-0 !min-h-9 !px-3.5 !text-[0.8rem]" aria-label={`${free ? "Apuntarme" : "Escríbeme para apuntarme"}: ${c.title}`}>
+                          {free ? "Apuntarme" : <><Mail className="h-3.5 w-3.5" /> Quiero ir</>}
                         </a>
                       </li>
                     );

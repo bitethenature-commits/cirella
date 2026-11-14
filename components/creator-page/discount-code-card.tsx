@@ -92,42 +92,27 @@ export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscoun
         )}
       </p>
       <div className="mt-auto flex w-full flex-col gap-1.5 pt-3">
-        {/* El código ocupa todo el ancho; uno largo (hasta 40 caracteres) se parte: se ve entero, nunca recortado. */}
-        <code
-          ref={codeRef}
-          // El código, elegante y en el dorado de la web: letra de los títulos, espaciada, sobre un fondo dorado muy suave.
-          className={`cp-display flex min-h-[2.6rem] w-full select-all items-center justify-center break-all rounded-lg border border-dashed px-2 py-1 text-center text-[1.08rem] leading-tight ${code.code.length > 12 ? "tracking-[0.06em]" : "tracking-[0.2em]"}`}
-          style={{
-            color: "var(--c-gold)",
-            borderColor: "color-mix(in oklab, var(--c-gold) 55%, transparent)",
-            background: "color-mix(in oklab, var(--c-gold) 8%, transparent)",
-          }}
+        {/* El código con el icono de copiar dentro, a la derecha: al tocarlo se copia. Uno largo (hasta
+            40 caracteres) se parte: se ve entero, nunca recortado. */}
+        <button
+          type="button"
+          onClick={onCopy}
+          className="cp-code-copy group"
+          aria-label={state === "copied" ? `Copiado: ${code.code}` : `Copiar código ${code.code}`}
         >
-          {code.code}
-        </code>
-        {/* Si la tarjeta es estrecha, «Ir a la tienda» pasa debajo de «Copiar» (nunca se sale de la tarjeta). */}
-        <span className="flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={onCopy}
-            className="cp-btn-ghost flex-[1_1_auto] whitespace-nowrap !min-h-[2.4rem] !px-2 !text-[0.8rem]"
-            aria-label={state === "copied" ? `Copiado: ${code.code}` : `Copiar código ${code.code}`}
-          >
-            {/* Los dos textos ocupan el mismo sitio: el botón no cambia de ancho al copiar. */}
-            <span className="grid place-items-center">
-              <span className={`col-start-1 row-start-1 inline-flex items-center gap-1 ${state === "copied" ? "invisible" : ""}`}>
-                <Copy className="h-3.5 w-3.5" /> Copiar
-              </span>
-              <span className={`col-start-1 row-start-1 inline-flex items-center gap-1 ${state === "copied" ? "" : "invisible"}`}>
-                <Check className="h-3.5 w-3.5" /> Copiado
-              </span>
-            </span>
-          </button>
+          <code ref={codeRef} className={`cp-display min-w-0 flex-1 select-all break-all text-center text-[1.08rem] leading-tight ${code.code.length > 12 ? "tracking-[0.06em]" : "tracking-[0.2em]"}`}>
+            {code.code}
+          </code>
+          <span className="cp-code-copy-icon" aria-hidden>
+            {state === "copied" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+          </span>
+        </button>
+        <span className="flex">
           <a
             href={code.url}
             target="_blank"
             rel="noopener nofollow sponsored"
-            className="cp-btn flex-[1_1_auto] whitespace-nowrap !min-h-[2.4rem] !gap-1 !px-2 !text-[0.8rem]"
+            className="cp-btn w-full whitespace-nowrap !min-h-[2.4rem] !gap-1 !px-2 !text-[0.95rem]"
             onClick={() => event("CODE_CLICK")}
           >
             Ir a la tienda <ArrowUpRight className="h-3.5 w-3.5" />

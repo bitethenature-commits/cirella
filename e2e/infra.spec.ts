@@ -58,7 +58,7 @@ test.describe.serial("Infraestructura", () => {
     const problems = watchCsp(page);
     const { course } = await demoData();
     await page.goto("/ana");
-    await expect(page.getByRole("heading", { name: "Ana Luna" }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Cirella" }).first()).toBeVisible();
     await page.goto("/ana/lectura-astrologia");
     await page.goto("/ana/lectura-astrologia/checkout");
     await page.fill("#name", "Prueba CSP");
@@ -95,7 +95,7 @@ test.describe.serial("Infraestructura", () => {
       expect(res.headers()["cache-control"]).toContain("s-maxage");
       expect(res.headers()["set-cookie"]).toBeUndefined();
     }
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/ana");
     await expect(page.getByText("Vista previa del borrador")).toHaveCount(0);
     await page.goto("/vista-previa");
@@ -124,7 +124,7 @@ test.describe.serial("Infraestructura", () => {
 
   test("subir una foto: se endereza, se le quita el GPS y se guarda en WebP con variantes", async ({ page }) => {
     const { ana, astro } = await demoData();
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(`/panel/productos/${astro.id}`);
     const photo = await sharp({ create: { width: 2400, height: 1600, channels: 3, background: { r: 200, g: 150, b: 220 } } })
       .jpeg({ quality: 85 })
@@ -158,7 +158,7 @@ test.describe.serial("Infraestructura", () => {
 
   test("subir un PDF y descargarlo con un enlace temporal", async ({ page }) => {
     const { astro } = await demoData();
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(`/panel/productos/${astro.id}`);
     const name = `material-${stamp}.pdf`;
     const pdf = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(200_000, 32), Buffer.from("\n%%EOF")]);

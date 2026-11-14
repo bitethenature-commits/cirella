@@ -1,5 +1,5 @@
 /**
- * Desistimiento (Postgres, web personal de Ana con cobros): las reglas de lib/withdrawal.ts de punta
+ * Desistimiento (Postgres, web personal de Cirella con cobros): las reglas de lib/withdrawal.ts de punta
  * a punta.
  *   npm run test:withdrawal        (con la BD sembrada: npm run db:reset)
  *

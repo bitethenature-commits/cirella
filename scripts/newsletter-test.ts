@@ -13,7 +13,7 @@
  *   · webhook de Resend: entregado, rebote permanente (da de baja), desconocido e idempotente;
  *   · email automático editado (Automation.design): el acceso gratis lleva su texto y su botón;
  *   · aislamiento: otra creadora no lee ni cambia suscriptoras, campañas ni destinatarias.
- * Usa datos temporales de Ana y deja la BD como estaba.
+ * Usa datos temporales de Cirella y deja la BD como estaba.
  */
 import "./load-env";
 import { Prisma } from "@prisma/client";
@@ -115,7 +115,7 @@ async function main() {
     await prisma.order.createMany({ data: [ord(email("compradora"), "PAID"), ord(email("nueva1"), "ABANDONED")] });
     const prodIds = await resolveSegment(ana.id, { kind: "product", productId: prod.id });
     check("«Compraron X»: solo pedidos pagados", prodIds.length === 1 && prodIds[0] === buyer.subscriberId, prodIds);
-    // María compra con un email que es suscriptora de Ana: no cuenta en el segmento de Ana.
+    // María compra con un email que es suscriptora de Cirella: no cuenta en el segmento de Cirella.
     check("«Compraron X» de otra creadora: vacío", (await segmentCount(ana.id, { kind: "product", productId: (await prisma.product.findFirstOrThrow({ where: { creatorId: maria.id } })).id })) === 0);
     const member = await prisma.user.create({ data: { email: email("miembro") } });
     const expired = await prisma.user.create({ data: { email: email("caducada") } });

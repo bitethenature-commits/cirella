@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Bookmark, BookOpenText, CalendarDays, Check, CloudSun, Flame, Flower2, GraduationCap, Heart, MessageCircle, Mic, Moon, MoonStar, PenLine, Radio, SlidersHorizontal, Sparkles, type LucideIcon } from "lucide-react";
+import { Mail, Bookmark, BookOpenText, CalendarDays, Check, CloudSun, Flame, Flower2, GraduationCap, Heart, MessageCircle, Mic, Moon, MoonStar, PenLine, Radio, SlidersHorizontal, Sparkles, type LucideIcon } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { TrackedLink, TrackOnMount } from "@/components/creator-page/tracking";
 import { prisma } from "@/lib/db";
@@ -74,7 +74,7 @@ export default async function ComunidadPage({ params }: { params: Promise<Params
               // La más elegida: el nivel más completo.
               const highlight = tiers.length > 1 && t.id === top;
               const mode = t.accessMode ?? "PAID";
-              const href = mode === "PAID" ? `/${creator.username}/${t.slug}/checkout` : mode === "EXTERNAL" && t.externalUrl ? t.externalUrl : `/${creator.username}/${t.slug}`;
+              const href = mode === "PAID" ? `/${creator.username}/${t.slug}/solicitar` : mode === "EXTERNAL" && t.externalUrl ? t.externalUrl : `/${creator.username}/${t.slug}`;
               return (
                 <section key={t.id} className={`cp-card tier-card relative flex flex-col overflow-hidden ${highlight ? "is-highlight md:-mt-4" : ""}`} aria-labelledby={`nivel-${t.id}`} data-tier={t.slug}>
                   {/* La foto del nivel, con su emblema. */}
@@ -148,9 +148,15 @@ export default async function ComunidadPage({ params }: { params: Promise<Params
                     href={href}
                     event={{ creatorId: creator.id, type: "PRODUCT_CLICK" as const, productId: t.id }}
                     className={`${highlight ? "cp-btn" : "cp-btn-ghost"} mt-3 w-full`}
-                    ariaLabel={`Unirme a ${t.title}`}
+                    ariaLabel={mode === "PAID" ? `Escríbeme para unirte a ${t.title}` : `Unirme a ${t.title}`}
                   >
-                    Unirme a {t.title}
+                    {mode === "PAID" ? (
+                      <>
+                        <Mail className="h-4 w-4" /> Escríbeme para unirte
+                      </>
+                    ) : (
+                      <>Unirme a {t.title}</>
+                    )}
                   </TrackedLink>
                   </div>
                 </section>

@@ -9,7 +9,7 @@
  *     archivo que no se puede leer se guarda igual, sin esos datos;
  *   · /api/stream: 200 con el tipo de la lista, nosniff y attachment para PDF; 206 con Range;
  *     un tramo abierto de un archivo grande se recorta a 8 MiB; 416 fuera de rango.
- * Usa una carpeta temporal y un curso temporal de Ana; deja la BD como estaba.
+ * Usa una carpeta temporal y un curso temporal de Cirella; deja la BD como estaba.
  */
 import "./load-env";
 import { mkdtempSync, rmSync } from "node:fs";

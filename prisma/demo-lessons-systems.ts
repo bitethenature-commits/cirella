@@ -1,6 +1,6 @@
 /**
  * Lecciones largas de ejemplo con el modelo por partes para Human Design, Gene Keys y la Luna (como
- * «Marte, tu fuerza» para la astrología): capítulos, el modelo deconstruido con un texto de Ana para cada
+ * «Marte, tu fuerza» para la astrología): capítulos, el modelo deconstruido con un texto de Cirella para cada
  * pieza, ejercicio, repaso y glosario. Idempotente (prisma/demo-lesson-mars.ts → seedDemoLesson).
  */
 import type { PrismaClient } from "@prisma/client";

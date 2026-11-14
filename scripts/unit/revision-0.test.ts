@@ -155,10 +155,10 @@ test("Stripe recoverDispute: sin transferencia → error (se avisa para hacerlo 
 // ── CSV: el «;» también se entrecomilla (Excel en español) ──
 
 test("csvCell entrecomilla los textos con «;» (fórmula escondida tras el separador)", () => {
-  eq(csvCell("Ana;=1+1;x"), '"Ana;=1+1;x"');
+  eq(csvCell("Cirella;=1+1;x"), '"Cirella;=1+1;x"');
   eq(csvCell("a;=cmd|' /C calc'!A0"), `"a;=cmd|' /C calc'!A0"`);
-  eq(toCsv([["Nombre"], ["Ana;=1+1"]]), 'Nombre\n"Ana;=1+1"');
-  eq(csvCell("Ana Luna"), "Ana Luna");
+  eq(toCsv([["Nombre"], ["Cirella;=1+1"]]), 'Nombre\n"Cirella;=1+1"');
+  eq(csvCell("Cirella"), "Cirella");
 });
 
 // ── Sentry: sin tokens en las URLs ──
@@ -183,7 +183,7 @@ test("scrubEvent: quita la query de la ruta, de la URL y el referer (tokens de l
 // ── Copia de los emails: sin tokens una vez enviados ──
 
 test("redactLoginTokens tacha los tokens de enlaces personales y mágicos", () => {
-  const html = `<a href="https://cirella.app/auth/enlace?t=abc_DEF-123">Ver</a> <a href="https://cirella.app/auth/magic?token=xyz-789">Entrar</a> <a href="https://cirella.app/ana">Ana</a>`;
+  const html = `<a href="https://cirella.app/auth/enlace?t=abc_DEF-123">Ver</a> <a href="https://cirella.app/auth/magic?token=xyz-789">Entrar</a> <a href="https://cirella.app/ana">Cirella</a>`;
   const out = redactLoginTokens(html);
   ok(!out.includes("abc_DEF-123") && !out.includes("xyz-789"), out);
   ok(out.includes("/auth/enlace?t=[redactado]") && out.includes("/auth/magic?token=[redactado]") && out.includes("https://cirella.app/ana"), out);
@@ -258,8 +258,8 @@ test("accessStartedAt lee Order.metadata.firstAccessAt y tolera basura", () => {
 
 test("plantillas de la creadora: sin IVA ni facturas; lo preparado a mano no es acceso inmediato", () => {
   const t = renderCreatorLegalTemplates({
-    identity: { legalName: "Ana", legalTaxId: "12345678Z", legalEntityType: "INDIVIDUAL", legalAddress: "C/ Sol 1", legalPostalCode: "28001", legalCity: "Madrid", legalCountry: "ES", legalEmail: "a@x.es", legalRegistry: null } as never,
-    displayName: "Ana Luna",
+    identity: { legalName: "Cirella", legalTaxId: "12345678Z", legalEntityType: "INDIVIDUAL", legalAddress: "C/ Sol 1", legalPostalCode: "28001", legalCity: "Madrid", legalCountry: "ES", legalEmail: "a@x.es", legalRegistry: null } as never,
+    displayName: "Cirella",
     platformName: "Cirella",
     changeNoticeHours: 24,
   });

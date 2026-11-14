@@ -251,7 +251,7 @@ export function validateEnv(raw: RawEnv): EnvValidation {
     if (!p.EMAIL_FROM) errors.push("Falta EMAIL_FROM, el remitente de los emails (p. ej. Cirella <hola@cirella.app>).");
   }
   if (p.NEWSLETTER_FROM && !/^(?:[^<>]*<)?[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>?$/.test(p.NEWSLETTER_FROM.trim()))
-    errors.push("NEWSLETTER_FROM debe ser un remitente como «Ana Luna <novedades@tudominio.com>».");
+    errors.push("NEWSLETTER_FROM debe ser un remitente como «Cirella <novedades@tudominio.com>».");
   if (p.RESEND_WEBHOOK_SECRET && !p.RESEND_WEBHOOK_SECRET.startsWith("whsec_"))
     errors.push("RESEND_WEBHOOK_SECRET empieza por whsec_ (Resend › Webhooks › tu webhook › Signing secret).");
 

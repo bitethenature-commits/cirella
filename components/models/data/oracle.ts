@@ -197,6 +197,27 @@ export const ORACLE_SPREADS: Record<OracleSpreadId, { label: string; positions: 
  * (Panel → Barajas, lib/oracle-decks.ts). Con imagen se ve la imagen; sin ella, un motivo dibujado.
  * `messageFormat`: "MD" = texto con formato (lib/rich-text.ts); null = texto sencillo (la de serie).
  */
+/**
+ * Cómo se ajusta una imagen a la carta (5 × 8): «cover» la llena (recortando lo que sobre) y «contain» la
+ * enseña entera; x/y es el punto que queda en el centro (0–100 %) y zoom, cuánto se acerca (100–300 %).
+ * Se guarda como texto: «cover 50 50 100».
+ */
+export type CardFrame = { fit: "cover" | "contain"; x: number; y: number; zoom: number };
+export const DEFAULT_CARD_FRAME: CardFrame = { fit: "cover", x: 50, y: 50, zoom: 100 };
+const clampN = (n: number, lo: number, hi: number, d: number) => (Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n))) : d);
+export function parseCardFrame(s: string | null | undefined): CardFrame {
+  if (!s) return DEFAULT_CARD_FRAME;
+  const [fit, x, y, zoom] = s.trim().split(/\s+/);
+  return { fit: fit === "contain" ? "contain" : "cover", x: clampN(Number(x), 0, 100, 50), y: clampN(Number(y), 0, 100, 50), zoom: clampN(Number(zoom), 100, 300, 100) };
+}
+export const cardFrameText = (f: CardFrame) => `${f.fit} ${f.x} ${f.y} ${f.zoom}`;
+/** Estilo de la <img> dentro de la carta (con `rotate` para la carta invertida). */
+export function cardFrameStyle(s: string | null | undefined, rotate = false): import("react").CSSProperties {
+  const f = parseCardFrame(s);
+  const t = [rotate ? "rotate(180deg)" : "", f.zoom !== 100 ? `scale(${f.zoom / 100})` : ""].filter(Boolean).join(" ");
+  return { objectFit: f.fit, objectPosition: `${f.x}% ${f.y}%`, transformOrigin: `${f.x}% ${f.y}%`, ...(t ? { transform: t } : {}) };
+}
+
 export type OracleCardView = {
   id: string;
   name: string;
@@ -205,6 +226,11 @@ export type OracleCardView = {
   messageFormat: "MD" | null;
   question: string;
   imageUrl: string | null;
+  /** Ajuste de la cara a la carta (parseCardFrame). */
+  imageFrame?: string | null;
+  /** Reverso propio de esta carta (sin él, el de la baraja) y su ajuste. */
+  backImageUrl?: string | null;
+  backFrame?: string | null;
   motif: OracleMotif;
   /** Puede salir invertida (con `reversedMessage`, o el mensaje de siempre si no lo tiene). */
   reversible: boolean;
@@ -217,6 +243,8 @@ export type OracleDeckView = {
   name: string;
   description: string | null;
   backImageUrl: string | null;
+  /** Ajuste del reverso común a la carta. */
+  backFrame?: string | null;
   cards: OracleCardView[];
 };
 

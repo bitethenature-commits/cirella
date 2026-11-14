@@ -7,6 +7,7 @@ import {
   Gift,
   GraduationCap,
   Home,
+  Inbox,
   Layers,
   LayoutGrid,
   Mail,
@@ -75,30 +76,42 @@ export const PLATFORM_NAV_FLAGS: PanelNavFlags = { personal: false, showBookings
  */
 const PERSONAL_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Inicio", icon: Home },
-  { href: "/panel/pagina", label: "Mi página", icon: Palette },
-  { href: "/panel/paginas", label: "Páginas", icon: FileText },
-  { href: "/panel/productos", label: "Productos", icon: LayoutGrid },
   { href: "/panel/cursos", label: "Cursos", icon: GraduationCap },
   { href: "/panel/comunidad", label: "Comunidad", icon: MessagesSquare },
   { href: "/panel/publicaciones", label: "Publicaciones", icon: Newspaper },
   { href: "/panel/portal", label: "Portal de Noticias", icon: Gift },
+  // Carpeta «Mi web» (NAV_FOLDERS).
+  { href: "/panel/pagina", label: "Mi página", icon: Palette },
+  { href: "/panel/paginas", label: "Páginas", icon: FileText },
+  { href: "/panel/productos", label: "Productos", icon: LayoutGrid },
+  { href: "/panel/reservas", label: "Reservas", icon: CalendarDays },
   { href: "/panel/barajas", label: "Barajas", icon: Layers },
   { href: "/panel/modelos", label: "Modelos", icon: Orbit },
+  // Carpeta «Ventas y clientas» (NAV_FOLDERS).
+  { href: "/panel/solicitudes", label: "Solicitudes", icon: Inbox },
   { href: "/panel/codigos", label: "Códigos", icon: TicketPercent },
   { href: "/panel/ventas", label: "Inscripciones", icon: ClipboardList },
+  { href: "/panel/estadisticas", label: "Estadísticas", icon: BarChart3 },
   { href: "/panel/clientes", label: "Clientes", icon: Users },
   { href: "/panel/newsletter", label: "Newsletter", icon: Mail },
-  { href: "/panel/reservas", label: "Reservas", icon: CalendarDays },
-  { href: "/panel/estadisticas", label: "Estadísticas", icon: BarChart3 },
   { href: "/panel/automatizaciones", label: "Automatizaciones", icon: Zap },
   { href: "/panel/ajustes", label: "Ajustes", icon: Settings },
+];
+
+/**
+ * Carpetas del menú lateral: sus secciones van juntas dentro, en este orden, donde estaría la primera
+ * de ellas. Solo agrupan las que existan en ese menú.
+ */
+export const NAV_FOLDERS: { key: string; label: string; hrefs: string[] }[] = [
+  { key: "web", label: "Mi web", hrefs: ["/panel/pagina", "/panel/paginas", "/panel/productos"] },
+  { key: "negocio", label: "Ventas y clientas", hrefs: ["/panel/solicitudes", "/panel/codigos", "/panel/ventas", "/panel/estadisticas", "/panel/clientes"] },
 ];
 
 const PERSONAL_MOBILE_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Inicio", icon: Home },
   { href: "/panel/productos", label: "Productos", icon: LayoutGrid },
   { href: "/panel/pagina", label: "Página", icon: Palette },
-  { href: "/panel/ventas", label: "Inscripciones", icon: ClipboardList },
+  { href: "/panel/solicitudes", label: "Solicitudes", icon: Inbox },
   { href: "/panel/mas", label: "Más", icon: Menu },
 ];
 

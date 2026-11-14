@@ -1,6 +1,6 @@
 "use client";
 
-import { CHANNEL_BAND, CHANNEL_PATHS, CHANNEL_PATH_BY_KEY, CENTRE_SHAPES, GATE_SLOTS, VIEWBOX } from "@/components/models/data/bodygraph-layout";
+import { CHANNEL_BAND, CHANNEL_PATHS, CHANNEL_PATH_BY_KEY, CENTRE_SHAPES, GATE_SLOTS, INTEGRATION_BRANCH, INTEGRATION_KEYS, VIEWBOX, integrationHanging } from "@/components/models/data/bodygraph-layout";
 import { CENTRE_BY_ID, CHANNEL_BY_KEY, CHANNELS_OF_GATE, CIRCUIT_LABEL, GATE_BY_N, channelKey, type CentreId } from "@/components/models/data/human-design";
 import { KEY_BY_N } from "@/components/models/data/gene-keys";
 import { HD_BODY_ES, HD_BODY_GLYPH, type HdBody } from "@/lib/human-design-names";
@@ -294,9 +294,26 @@ export function MiniBodygraph({
           <path key={`f${q.key}`} d={q.d} stroke="#1B1840" strokeWidth={CHANNEL_BAND} />
         ))}
         {/* Los definidos, de oro con halo; las puertas colgantes, media cinta en su color. */}
+        {/* El corredor de integración: las puertas colgantes, solo su rama (bodygraph-layout.ts). */}
+        {(hd || gateColor) &&
+          integrationHanging(
+            (g) => !!colOf(g),
+            (k) => !!(channelColor ? channelColor(k) : defined.has(k)),
+          ).map((g) => {
+            const col = colOf(g);
+            if (!col) return null;
+            return (
+              <g key={`ib${g}`} strokeWidth={CHANNEL_BAND - 3}>
+                <path d={INTEGRATION_BRANCH[g]} stroke={col === "both" ? NIGHT_RED : col} />
+                {col === "both" && <path d={INTEGRATION_BRANCH[g]} stroke={PERS} strokeDasharray="6 6" />}
+              </g>
+            );
+          })}
         {(hd || gateColor) &&
           PATHS.map((q) => {
             const full = channelColor ? channelColor(q.key) : defined.has(q.key) ? "gold" : null;
+            // En el corredor de integración, un canal sin definir no pinta medias cintas (ni tapa ni deja picos).
+            if (!full && INTEGRATION_KEYS.has(q.key)) return null;
             return full ? (
               <g key={`d${q.key}`}>
                 <path d={q.d} stroke={full === "gold" ? NIGHT_GOLD : full} strokeWidth={CHANNEL_BAND + 6} strokeOpacity="0.35" filter={`url(#${p}blur)`} />

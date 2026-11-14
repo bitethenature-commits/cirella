@@ -11,7 +11,7 @@ import { tenantDb } from "@/lib/tenant";
 import { BOOKING_STATUS_LABEL } from "@/lib/types";
 import { addDaysToKey, capitalize, clientTimeNote, dateKeyInTz, formatInTz, formatSessionDate, timeInTz } from "@/lib/tz";
 import { Badge, Locked, PageHeader } from "../ui";
-import { setBookingStatus } from "./actions";
+import { setBookingStatus, markReadingSent } from "./actions";
 import { OwnerCalendar } from "./calendar";
 import { loadCalendarMonth } from "@/lib/calendar-diary";
 import { monthParam, monthTitle, parseMonthParam, shiftMonth } from "@/lib/owner-calendar";
@@ -220,21 +220,25 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
 
       {readings.length > 0 && (
         <section>
-          <h2 className="eyebrow mb-3 !text-ink">Lecturas por entregar</h2>
+          <h2 className="eyebrow mb-3 !text-ink">Lecturas por enviar por email</h2>
           <div className="card divide-y divide-line">
             {readings.map((o) => {
               const cfg = readIntakeConfig(o.product.intake);
               const missing = intakeMissing(cfg, readIntakeAnswers(o.intake));
               return (
-                <Link key={o.id} href={`/panel/ventas/${o.id}#entrega`} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-4 text-sm hover:bg-sand/40">
+                <div key={o.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-4 text-sm">
                   <Sparkles className="h-4 w-4 text-muted" />
                   <span className="min-w-0 flex-1">
-                    <strong>{o.buyerName ?? o.buyerEmail}</strong> · {o.productTitle}
+                    <Link href={`/panel/ventas/${o.id}`} className="hover:underline"><strong>{o.buyerName ?? o.buyerEmail}</strong> · {o.productTitle}</Link>
                     <span className="block text-xs text-muted">Desde el {o.paidAt?.toLocaleDateString("es-ES", { day: "numeric", month: "short", timeZone: tz })}</span>
                   </span>
                   {missing ? <span className="chip !bg-[#f8efdc] !text-[#8a6420]">Faltan datos</span> : (cfg.birth !== "off" || cfg.questions.length > 0) && <span className="chip">Datos ✓</span>}
-                  <span className="btn btn-ghost btn-sm">Entregar</span>
-                </Link>
+                  <a href={`mailto:${o.buyerEmail}?subject=${encodeURIComponent(`Tu lectura: ${o.productTitle}`)}`} className="btn btn-ghost btn-sm">Escribir</a>
+                  <form action={markReadingSent}>
+                    <input type="hidden" name="orderId" value={o.id} />
+                    <button className="btn btn-outline btn-sm">Ya la envié</button>
+                  </form>
+                </div>
               );
             })}
           </div>

@@ -34,8 +34,9 @@ export type DeliveryIssueCode = "NO_CONTENT" | "NO_INSTRUCTIONS" | "NO_LESSONS" 
 export type DeliveryIssue = { code: DeliveryIssueCode; blocking: boolean; anchor: "entrega" | "lecciones" | "publicaciones" };
 
 /** Solo un producto digital puede prepararse a mano para cada clienta. */
-export function normalizeDeliveryMode(type: string, mode: string | null | undefined): DeliveryMode {
-  return type === "DIGITAL" && mode === "PERSONAL" ? "PERSONAL" : "AUTOMATIC";
+export function normalizeDeliveryMode(type: string, _mode?: string | null): DeliveryMode {
+  // Las lecturas se envían siempre por email: la web no guarda sus archivos.
+  return type === "DIGITAL" ? "PERSONAL" : "AUTOMATIC";
 }
 
 export function deliveryIssue(f: DeliveryFacts): DeliveryIssue | null {
@@ -45,7 +46,7 @@ export function deliveryIssue(f: DeliveryFacts): DeliveryIssue | null {
   switch (f.type) {
     case "DIGITAL":
       if (normalizeDeliveryMode(f.type, f.deliveryMode) === "PERSONAL")
-        return (f.instructions ?? "").trim().length < MIN_PERSONAL_INSTRUCTIONS ? { code: "NO_INSTRUCTIONS", blocking: true, anchor: "entrega" } : null;
+        return (f.instructions ?? "").trim().length < MIN_PERSONAL_INSTRUCTIONS ? { code: "NO_INSTRUCTIONS", blocking: false, anchor: "entrega" } : null;
       return f.files === 0 ? { code: "NO_CONTENT", blocking: true, anchor: "entrega" } : null;
     case "COURSE":
       return f.lessons === 0 ? { code: "NO_LESSONS", blocking: true, anchor: "lecciones" } : null;

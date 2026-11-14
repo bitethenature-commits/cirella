@@ -209,7 +209,7 @@ test("Los glifos que caen juntos se abren en abanico, sin cruzar el 0°", () => 
   close(out[5], 3, 1e-9, "pareja sobre el 0°");
 });
 
-test("Carta completa: Ana, Sevilla 14-11-1988 07:45", () => {
+test("Carta completa: Cirella, Sevilla 14-11-1988 07:45", () => {
   const { utc } = localToUtc({ year: 1988, month: 11, day: 14, hour: 7, minute: 45 }, "Europe/Madrid");
   const chart = computeChart({ utc, timeKnown: true, lat: 37.3886, lon: -5.9823, houseSystem: "placidus", node: "mean" });
   eq(chart.bodies.length, 14);

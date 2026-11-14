@@ -2,11 +2,7 @@ import "server-only";
 import { prisma } from "./db";
 import { lockCreatorBookings, SESSION_DEFAULTS, workshopIntervals } from "./booking";
 import { releaseBookingEmails } from "./booking-changes";
-import { workshopReplayEmail } from "./email/booking-templates";
-import { enqueueEmail } from "./email/outbox";
-import { appUrl } from "./env";
 import { emit } from "./events";
-import { createOrderLink, emailAlreadyQueued, orderLinkNote } from "./order-links";
 import { tenantDb } from "./tenant";
 import { formatSessionDate } from "./tz";
 
@@ -53,30 +49,3 @@ export async function moveWorkshop(i: { creatorId: string; productId: string; st
   return { ok: true, moved: ids.length };
 }
 
-/** «Avisar de la grabación»: un email a cada asistente (una sola vez cada una). */
-export async function notifyReplay(i: { creatorId: string; productId: string }): Promise<{ sent: number }> {
-  const db = tenantDb(i.creatorId);
-  const p = await db.product.findFirst({ where: { id: i.productId, groupSession: true }, include: { creator: { select: { displayName: true } } } });
-  if (!p) return { sent: 0 };
-  const seats = await db.booking.findMany({ where: { productId: p.id, groupSeat: true, status: { in: ["CONFIRMED", "COMPLETED"] } }, include: { customer: true } });
-  let sent = 0;
-  for (const s of seats) {
-    const key = `replay:${s.id}`;
-    if (await emailAlreadyQueued(key)) continue;
-    const link = s.orderId ? await createOrderLink({ orderId: s.orderId, path: `/cuenta/sesiones/${s.id}#grabacion` }) : null;
-    await enqueueEmail({
-      to: s.customer.email,
-      creatorId: i.creatorId,
-      template: "WORKSHOP_REPLAY",
-      dedupeKey: key,
-      ...workshopReplayEmail({
-        creatorName: p.creator.displayName,
-        productTitle: p.title,
-        url: link?.url ?? `${appUrl()}/cuenta/sesiones/${s.id}`,
-        linkNote: link ? orderLinkNote(link.expiresAt) : undefined,
-      }),
-    });
-    sent++;
-  }
-  return { sent };
-}

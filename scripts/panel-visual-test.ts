@@ -6,7 +6,7 @@
  *     ya viene así, con su email enviado en el buzón);
  *   · aislamiento: otra creadora no lee ni cambia esa newsletter;
  *   · la portada del vídeo con el ▶ se guarda como imagen de la creadora (JPEG, en su carpeta);
- *   · Creator.panelPrefs: se guarda y se lee, y cambiar las de Ana no toca las de María.
+ *   · Creator.panelPrefs: se guarda y se lee, y cambiar las de Cirella no toca las de María.
  * Usa datos temporales y deja la BD como estaba.
  */
 import "./load-env";
@@ -50,7 +50,7 @@ async function main() {
     // ── Guardar y leer ──
     const cover = await storeVideoCover(ana.id, await storage().getBuffer(publicKey((readDesign(sent?.design)!.blocks.find((b) => b.t === "hero") as { image: string }).image.slice("/media/".length)), 10_000_000));
     coverKey = publicKey(cover.url.slice("/media/".length));
-    check("la portada del vídeo es un JPEG de Ana en su carpeta", /^\/media\/[a-z0-9]+\/[a-f0-9]{20}\.jpg$/.test(cover.url) && cover.url.startsWith(`/media/${ana.id}/`) && !!(await storage().head(coverKey)), cover.url);
+    check("la portada del vídeo es un JPEG de Cirella en su carpeta", /^\/media\/[a-z0-9]+\/[a-f0-9]{20}\.jpg$/.test(cover.url) && cover.url.startsWith(`/media/${ana.id}/`) && !!(await storage().head(coverKey)), cover.url);
     const parsed = parseDesignStrict({
       v: 1,
       style: { bg: "#14163a", content: "#ffffff", text: "#3b3950", heading: "#14163a", link: "#4b3fa0", accent: "#4b3fa0", headingFont: "cormorant", bodyFont: "georgia", radius: "l", width: 600 },
@@ -72,7 +72,7 @@ async function main() {
 
     // ── Aislamiento ──
     const other = tenantDb(maria.id);
-    check("María no ve la newsletter de Ana", !(await other.campaign.findFirst({ where: { id: c.id } })));
+    check("María no ve la newsletter de Cirella", !(await other.campaign.findFirst({ where: { id: c.id } })));
     const changed = await other.campaign.updateMany({ where: { id: c.id }, data: { design: { v: 1, blocks: [] } } });
     check("María no puede cambiar su diseño", changed.count === 0);
 
@@ -83,7 +83,7 @@ async function main() {
     await prisma.creator.update({ where: { id: ana.id }, data: { panelPrefs: prefs.value as unknown as Prisma.InputJsonValue } });
     const anaNow = await prisma.creator.findUniqueOrThrow({ where: { id: ana.id } });
     const mariaNow = await prisma.creator.findUniqueOrThrow({ where: { id: maria.id } });
-    check("las de Ana se guardan y se leen", JSON.stringify(readPanelPrefs(anaNow.panelPrefs)) === JSON.stringify(prefs.value), anaNow.panelPrefs);
+    check("las de Cirella se guardan y se leen", JSON.stringify(readPanelPrefs(anaNow.panelPrefs)) === JSON.stringify(prefs.value), anaNow.panelPrefs);
     check("las de María no cambian", JSON.stringify(mariaNow.panelPrefs) === JSON.stringify(before.maria));
     check("María sigue con el panel de siempre", readPanelPrefs(mariaNow.panelPrefs).theme === null || JSON.stringify(mariaNow.panelPrefs) === JSON.stringify(before.maria));
   } finally {

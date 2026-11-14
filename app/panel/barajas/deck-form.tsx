@@ -1,11 +1,11 @@
 "use client";
 import { startTransition, useActionState, useState } from "react";
 import { Flash } from "@/components/ui/flash";
-import { ImageUpload } from "@/components/ui/image-upload";
+import { CardImageFramer } from "@/components/panel/card-image-framer";
 import { DECK_DESCRIPTION_MAX, DECK_NAME_MAX } from "@/lib/oracle-rules";
 import { saveDeck, type DeckActionState } from "./actions";
 
-export type EditableDeck = { id: string | null; name: string; description: string; backImageUrl: string | null };
+export type EditableDeck = { id: string | null; name: string; description: string; backImageUrl: string | null; backFrame: string | null };
 
 /** Nombre, descripción y reverso de una baraja (el reverso es común a todas sus cartas). */
 export function DeckForm({ deck }: { deck: EditableDeck }) {
@@ -32,13 +32,15 @@ export function DeckForm({ deck }: { deck: EditableDeck }) {
         <label className="field-label" htmlFor="deck-description">Descripción <span className="font-normal text-muted">(opcional: se lee antes de barajar)</span></label>
         <textarea id="deck-description" name="description" className="input" rows={3} maxLength={DECK_DESCRIPTION_MAX} defaultValue={deck.description} placeholder="Treinta cartas para escuchar lo que ya sabes." />
       </div>
-      <div>
-        <p className="field-label">Reverso <span className="font-normal text-muted">(opcional)</span></p>
-        <div className="max-w-[14rem]">
-          <ImageUpload value={back} onChange={setBack} label="Subir el reverso" fit="contain" graphic />
-        </div>
-        <p className="field-hint">El dorso de todas las cartas. Sin imagen, el reverso dibujado con la luna creciente.</p>
-      </div>
+      <CardImageFramer
+        label={<>Reverso de la baraja <span className="font-normal text-muted">(opcional)</span></>}
+        hint="El dorso de todas las cartas (cada carta puede llevar el suyo). Sin imagen, el reverso dibujado con la luna creciente."
+        uploadLabel="Subir el reverso"
+        image={back}
+        onImage={setBack}
+        frame={deck.backFrame}
+        frameName="backFrame"
+      />
       <button type="submit" className="btn btn-primary" disabled={pending}>
         {pending ? "Guardando…" : deck.id ? "Guardar" : "Crear baraja"}
       </button>

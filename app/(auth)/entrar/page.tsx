@@ -29,14 +29,14 @@ const MOTIVOS: Record<string, string> = {
 };
 
 const DEMO = [
-  { email: "ana@cirella.app", label: "Ana Luna", role: "Creadora · plan Pro" },
-  { email: "laura@example.com", label: "Laura Martín", role: "Clienta de Ana" },
+  { email: "ana@cirella.app", label: "Cirella", role: "Creadora · plan Pro" },
+  { email: "laura@example.com", label: "Laura Martín", role: "Clienta de Cirella" },
   { email: "admin@cirella.app", label: "Superadmin", role: "Plataforma" },
 ];
 
-/** Modo personal (con la demo, la dueña es Ana): sin planes ni plataforma en las etiquetas. */
+/** Modo personal (con la demo, la dueña es Cirella): sin planes ni plataforma en las etiquetas. */
 const DEMO_PERSONAL = [
-  { email: "ana@cirella.app", label: "Ana Luna", role: "Dueña de la web" },
+  { email: "ana@cirella.app", label: "Cirella", role: "Dueña de la web" },
   { email: "laura@example.com", label: "Laura Martín", role: "Alumna" },
   { email: "admin@cirella.app", label: "Administración", role: "Envíos y ajustes" },
 ];

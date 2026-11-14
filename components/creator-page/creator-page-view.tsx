@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ComponentType, CSSProperties, SVGProps } from "react";
 import { ArrowRight, ArrowUpRight, ExternalLink, FileText, Layers, Mail, Moon, Plus, Sparkles, Video } from "lucide-react";
-import { courseCategoriesLabel, courseCategoriesOf } from "@/lib/course-categories";
+import { courseCategoriesLabel, courseCategoriesOf, productTopics, readingLabel } from "@/lib/course-categories";
 import { AstrologyIcon } from "./astrology-icon";
 import { CategoryIcons } from "./category-icons";
 import { EnergyIcon } from "./energy-icon";
@@ -31,7 +31,7 @@ import { READINGS_DEFAULTS } from "@/lib/page-config";
 import type { PublicPortalItem } from "@/lib/portal-rules";
 import { sectionPagePath } from "@/lib/site-sections";
 import { resolveTheme, themeStyle } from "@/lib/templates";
-import { DEFAULT_CTA, type ProductType } from "@/lib/types";
+import { requestCta, type ProductType } from "@/lib/types";
 import { SocialIcon } from "../social-icons";
 import { CodesCarousel } from "./codes-carousel";
 import { DiscountCodeCard } from "./discount-code-card";
@@ -44,10 +44,13 @@ import { Avatar, ProductImage } from "./product-art";
 import { PortalSection } from "./portal-section";
 import { PostCard } from "./post-card";
 import { SectionDropdown } from "./section-dropdown";
-import { HomeRows, MegaphoneIcon, PercentIcon, PortalNoteIcon } from "./home-rows";
-import type { NewsItem } from "@/lib/web-news";
 import { TestimonialsRotator } from "./testimonials-rotator";
+import { OracleCard } from "./oracle-card";
+import { HomeRows, MegaphoneIcon, PercentIcon, PortalNoteIcon } from "./home-rows";
+import { offerRow } from "./offer-rows";
+import type { NewsItem } from "@/lib/web-news";
 import { TrackedAnchor, TrackedLink } from "./tracking";
+import { TemplateDecor } from "@/components/template-decor";
 
 export type PublicProduct = {
   id: string;
@@ -118,7 +121,7 @@ export type PublicDiscountCode = {
 };
 
 const TYPE_EYEBROW: Record<ProductType, string> = {
-  DIGITAL: "Digital",
+  DIGITAL: "Lectura",
   SESSION: "Sesión",
   COURSE: "Curso",
   MEMBERSHIP: "Comunidad",
@@ -176,9 +179,10 @@ type Props = {
 
 export function CreatorPageView(props: Props) {
   const { config, username, preview, personal, signupsOnly } = props;
-  const products = signupsOnly ? props.products.filter((p) => (p.accessMode ?? "PAID") !== "PAID") : props.products;
+  // Lo de pago se ve siempre: se solicita por formulario (lib/requests.ts).
+  const products = props.products;
   // Ni un botón hacia lo que no se ve: en la web personal sin cobros, un enlace a un producto oculto daría 404.
-  const hiddenSlugs = new Set(signupsOnly ? props.products.filter((p) => (p.accessMode ?? "PAID") === "PAID").map((p) => p.slug.toLowerCase()) : []);
+  const hiddenSlugs = new Set<string>();
   const links = config.links.filter((l) => !linksToProduct(l.url, username, hiddenSlugs, props.siteOrigin));
   const posts = props.posts ?? [];
   const codes = props.discountCodes ?? [];
@@ -187,9 +191,9 @@ export function CreatorPageView(props: Props) {
   const trackId = preview ? null : props.creatorId;
   const path = (page: Parameters<typeof sectionPagePath>[1]) => sectionPagePath(username, page, !!personal);
   const courseCount = products.filter((p) => p.type === "COURSE").length;
-  // La newsletter va debajo de «Hablemos» (web personal) si no tiene ya su propia sección encendida.
-  const newsletterSection = config.sections.some((s) => s.key === "newsletter" && s.enabled);
-  const contactNewsletter = !!personal && !newsletterSection && !!config.contact.email && config.sections.some((s) => s.key === "contact" && s.enabled);
+  // La newsletter va debajo de «Hablemos» (web personal); la antigua sección «Newsletter» ya no se pinta.
+  const newsletterSection = false;
+  const contactNewsletter = !!personal && !!config.contact.email && config.sections.some((s) => s.key === "contact" && s.enabled);
 
   const renderSection = (key: SectionKey) => {
     const type = SECTION_TYPE[key];
@@ -220,14 +224,14 @@ export function CreatorPageView(props: Props) {
         <section key={key} id={key === "courses" ? "cursos" : key} className="mt-14" {...reveal}>
           <SectionHeading title={sectionTitle(config, key)} count={items.length} />
           {items.length === 1 ? (
-            <div className="mt-5">
-              <ProductCard p={items[0]} username={username} trackCreatorId={trackId} />
+            <div className="mx-auto mt-6 max-w-sm">
+              <OracleCard p={items[0]} username={username} trackCreatorId={trackId} />
             </div>
           ) : (
-            <div className="-mx-5 mt-3 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 pt-2 scrollbar-none md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0">
+            <div className="-mx-5 mt-5 flex snap-x snap-mandatory gap-5 overflow-x-auto px-5 pb-3 pt-2 scrollbar-none md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0">
               {items.map((p) => (
                 <div key={p.id} className="w-[82%] shrink-0 snap-center sm:w-[60%] md:w-auto">
-                  <ProductCard p={p} username={username} trackCreatorId={trackId} />
+                  <OracleCard p={p} username={username} trackCreatorId={trackId} />
                 </div>
               ))}
             </div>
@@ -283,7 +287,10 @@ export function CreatorPageView(props: Props) {
       case "posts": {
         // «Actualidades»: lo nuevo de la web (membresías, cursos, lecturas, códigos, el próximo círculo…).
         const all = props.news ?? [];
-        const news = all.slice(0, 6);
+        // Solo lo reciente (30 días): sin agobiar con todo lo que hay. Si no hay nada reciente, lo último.
+        const since = Date.now() - 30 * 86_400_000;
+        const recent = all.filter((n) => Date.parse(n.at) >= since);
+        const news = (recent.length ? recent : all).slice(0, 3);
         if (!news.length) return null;
         return (
           <section key={key} id="actualidades" data-fold className={FOLD_GAP} {...reveal}>
@@ -292,8 +299,8 @@ export function CreatorPageView(props: Props) {
               section="posts"
               username={username}
               title={sectionTitle(config, key)}
-              countLabel={all.length === 1 ? "1 novedad" : `${all.length} novedades`}
-              stamps={all.map((n) => Date.parse(n.at))}
+              countLabel={recent.length === 0 ? "Lo último de la web" : recent.length === 1 ? "1 novedad este mes" : `${recent.length} novedades este mes`}
+              stamps={recent.map((n) => Date.parse(n.at))}
               preview={preview}
               icon={<MegaphoneIcon />}
             >
@@ -315,7 +322,7 @@ export function CreatorPageView(props: Props) {
                 }))}
               />
               <Link href={path("actualidades")} className="cp-btn-ghost mt-4 w-full">
-                Ver todas{all.length > news.length ? ` (${all.length})` : ""} <ArrowRight className="h-4 w-4" />
+                Ver todas las novedades <ArrowRight className="h-4 w-4" />
               </Link>
             </SectionDropdown>
           </section>
@@ -347,6 +354,7 @@ export function CreatorPageView(props: Props) {
                 username={username}
                 preview={!!preview}
                 home
+                limit={1}
                 fallbackImage={config.coverUrl ?? config.avatarUrl ?? null}
               />
             </SectionDropdown>
@@ -370,23 +378,13 @@ export function CreatorPageView(props: Props) {
             >
               <HomeRows
                 fallbackImage={config.coverUrl ?? config.avatarUrl ?? null}
-                rows={onSale.map((p) => ({
-                  key: p.id,
-                  href: `/${username}/${p.slug}`,
-                  image: p.imageUrl,
-                  icon: <PercentIcon className="h-8 w-8 opacity-80" />,
-                  badge: p.sale!.percentOff ? <span className="cp-offer-badge absolute bottom-1.5 left-1.5 rounded-full px-1.5 py-0.5 text-[0.66rem] font-bold">−{p.sale!.percentOff} %</span> : null,
-                  eyebrow: <span>{[p.sale!.label, p.sale!.endsLabel].filter(Boolean).join(" · ") || "Oferta"}</span>,
-                  title: p.title,
-                  text: p.billingInterval ? "El precio de oferta es el del primer pago; después, el normal." : p.summary,
-                  aside: (
-                    <span className="flex shrink-0 flex-col items-end text-right leading-tight">
-                      <s className="cp-faint text-[0.8rem]">{formatPrice(p.sale!.regularCents, p.currency, p.billingInterval)}</s>
-                      <strong className="cp-gold cp-display text-[1.45rem]">{formatPrice(p.sale!.priceCents, p.currency, p.billingInterval)}</strong>
-                    </span>
-                  ),
-                }))}
+                rows={onSale.slice(0, 1).map((p) => offerRow(p, username))}
               />
+              {onSale.length > 1 && (
+                <Link href={path("ofertas")} className="cp-btn-ghost mt-4 w-full">
+                  Ver más ofertas <ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
             </SectionDropdown>
           </section>
         );
@@ -456,10 +454,8 @@ export function CreatorPageView(props: Props) {
       case "readings": {
         const r = config.readings;
         if (!r) return null;
-        const circles = products
-          .filter((p) => p.moonCircle && p.eventStartAt)
-          .sort((a, b) => (a.eventStartAt! < b.eventStartAt! ? -1 : 1))
-          .slice(0, 4);
+        // La próxima luna nueva y la próxima luna llena (las que ya pasaron no salen).
+        const circles = nextMoonCircles(products);
         // Cada una con su icono (documento / vídeo) y su tono, para que no parezcan lo mismo.
         // Primero la sesión y después la lectura.
         const cards = [
@@ -498,12 +494,12 @@ export function CreatorPageView(props: Props) {
                         {c.sale && <span className="cp-gold block text-[0.78rem]">{formatPrice(c.sale.priceCents, c.currency)} · antes {formatPrice(c.sale.regularCents, c.currency)}</span>}
                       </span>
                       <TrackedLink
-                        href={(c.accessMode ?? "PAID") === "FREE_EMAIL" ? `/${username}/${c.slug}` : `/${username}/${c.slug}/checkout`}
+                        href={(c.accessMode ?? "PAID") === "FREE_EMAIL" ? `/${username}/${c.slug}` : `/${username}/${c.slug}/solicitar`}
                         event={trackId ? { creatorId: trackId, type: "PRODUCT_CLICK" as const, productId: c.id } : null}
                         className="cp-btn shrink-0 !min-h-[2.5rem] !text-[0.85rem]"
-                        ariaLabel={`Apuntarme: ${c.title}`}
+                        ariaLabel={`${(c.accessMode ?? "PAID") === "FREE_EMAIL" ? "Apuntarme" : "Escríbeme para apuntarme"}: ${c.title}`}
                       >
-                        Apuntarme
+                        {(c.accessMode ?? "PAID") === "FREE_EMAIL" ? "Apuntarme" : <><Mail className="h-4 w-4" /> Quiero ir</>}
                       </TrackedLink>
                     </li>
                   ))}
@@ -568,8 +564,8 @@ export function CreatorPageView(props: Props) {
           </section>
         );
       case "newsletter":
-        // Solo en la web personal (la newsletter es suya y sale con su dominio).
-        if (!personal) return null;
+        // Ya no se pinta: el formulario sale debajo de «Hablemos» y en el pie.
+        if (!personal || !newsletterSection) return null;
         return (
           <section key={key} id="newsletter" className="mt-16" {...reveal}>
             <NewsletterSignup
@@ -578,7 +574,7 @@ export function CreatorPageView(props: Props) {
               text={config.newsletter?.text ?? NEWSLETTER_FORM_DEFAULTS.text}
               button={config.newsletter?.button ?? NEWSLETTER_FORM_DEFAULTS.button}
               creatorName={config.displayName}
-              privacyHref={creatorLegalHref(username, "privacidad")}
+              privacyHref={creatorLegalHref(username, "privacidad")} opensPortal={personal}
               preview={preview}
             />
           </section>
@@ -604,7 +600,7 @@ export function CreatorPageView(props: Props) {
                     title={sectionTitle(config, "newsletter")}
                     button={config.newsletter?.button ?? NEWSLETTER_FORM_DEFAULTS.button}
                     creatorName={config.displayName}
-                    privacyHref={creatorLegalHref(username, "privacidad")}
+                    privacyHref={creatorLegalHref(username, "privacidad")} opensPortal={personal}
                     preview={preview}
                   />
                 </div>
@@ -621,14 +617,13 @@ export function CreatorPageView(props: Props) {
   const socials = SOCIAL_KEYS.filter((k) => config.socials[k]);
 
   return (
-    <div className="cp" style={themeStyle(theme)} data-card={theme.card} data-template={config.template}>
-      <div className={`cp-decor cp-decor-${theme.decor}`} aria-hidden>
-        {theme.decor === "stars" && <div className="starfield absolute inset-0 opacity-70" />}
+    <div className="cp cp-luxe" style={themeStyle(theme)} data-card={theme.card} data-template={config.template}>
+      <TemplateDecor decor={theme.decor} contained={!!preview}>
         {theme.backgroundImageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={theme.backgroundImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-30" />
         )}
-      </div>
+      </TemplateDecor>
 
       {/* Barra superior discreta: solo la entrada al área (sin el @usuario) */}
       <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-end px-4 pt-[max(env(safe-area-inset-top),0.75rem)]">
@@ -701,7 +696,7 @@ export function CreatorPageView(props: Props) {
               variant="footer"
               button={config.newsletter.button}
               creatorName={config.displayName}
-              privacyHref={creatorLegalHref(username, "privacidad")}
+              privacyHref={creatorLegalHref(username, "privacidad")} opensPortal={personal}
               preview={preview}
             />
           )}
@@ -731,9 +726,9 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
     ? p.ctaLabel || "Acceder gratis"
     : external
       ? externalButtonLabel({ type: p.type, externalLabel: p.externalLabel ?? null, externalUrl: p.externalUrl ?? null })
-      : p.ctaLabel || DEFAULT_CTA[p.type as ProductType] || "Comprar";
+      : requestCta(p.type, p.ctaLabel);
   const productHref = `/${username}/${p.slug}`;
-  const topics = p.type === "COURSE" ? courseCategoriesOf(p.courseCategory) : [];
+  const topics = p.type === "COURSE" || p.type === "DIGITAL" ? productTopics(p) : [];
   const event = trackCreatorId ? { creatorId: trackCreatorId, type: "PRODUCT_CLICK" as const, productId: p.id } : null;
   // Gratis: «Gratis». Pago fuera: el precio (informativo, si lo hay) y dónde se paga. Pago aquí: el precio.
   const price = free ? "Gratis" : external && p.priceCents <= 0 ? null : formatPrice(p.sale ? p.sale.priceCents : p.priceCents, p.currency, p.billingInterval);
@@ -748,7 +743,7 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
         >
           {/* Un curso con tema lleva el icono de su tema (o sus temas) en dorado; si no, su emoji. */}
           {topics.length ? <CategoryIcons categories={topics} size={1.05} className="cp-gold" gap={0.1} /> : p.emoji && <span aria-hidden>{p.emoji}</span>}
-          {TYPE_EYEBROW[p.type as ProductType]}
+          {p.type === "DIGITAL" ? readingLabel(p) : TYPE_EYEBROW[p.type as ProductType]}
           {p.meta ? <span className="cp-muted normal-case tracking-normal">· {p.meta}</span> : null}
         </span>
         {large && (
@@ -779,9 +774,18 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
               <ExternalLink className="h-4 w-4" />
             </TrackedAnchor>
           ) : (
-            <TrackedLink href={free ? productHref : `${productHref}/checkout`} event={event} className="cp-btn shrink-0" ariaLabel={`${cta}: ${p.title}`}>
-              {cta}
-              <ArrowRight className="h-4 w-4" />
+            <TrackedLink href={free ? productHref : `${productHref}/solicitar`} event={event} className="cp-btn shrink-0" ariaLabel={`${cta}: ${p.title}`}>
+              {free ? (
+                <>
+                  {cta}
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              ) : (
+                <>
+                  <Mail className="h-4 w-4" />
+                  {cta === requestCta(p.type, null) ? "Escríbeme" : cta}
+                </>
+              )}
             </TrackedLink>
           )}
         </div>
@@ -874,9 +878,17 @@ function isExternal(url: string) {
 
 export function SectionHeading({ title, count }: { title: string; count?: number }) {
   return (
-    <div className="flex items-end justify-between gap-4">
-      <h2 className="cp-display text-[2rem] sm:text-[2.3rem]">{title}</h2>
-      {count != null && count > 1 && <span className="cp-faint pb-1.5 text-xs tabular-nums md:hidden">{count} · desliza →</span>}
+    <div className="cp-section-heading">
+      <span className="cp-section-star" aria-hidden>
+        ✦
+      </span>
+      <h2 className="cp-display cp-thin text-[2.2rem] leading-tight sm:text-[2.6rem]">{title}</h2>
+      <div aria-hidden className="cp-section-rule">
+        <span />
+        <i>✦</i>
+        <span />
+      </div>
+      {count != null && count > 1 && <span className="cp-faint mt-2 block text-[0.68rem] uppercase tracking-[0.3em] tabular-nums md:hidden">{count} · desliza</span>}
     </div>
   );
 }

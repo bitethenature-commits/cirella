@@ -22,7 +22,7 @@ export function IntakeFields({
   config: IntakeConfig;
   initial?: Record<string, string | boolean>;
   idPrefix?: string;
-  /** «Solo lo verá Ana para preparar tu lectura.» */
+  /** «Solo lo verá Cirella para preparar tu lectura.» */
   ownerName?: string;
   theme?: "creator" | "app";
   /** Campo con error (se marca y se enfoca desde fuera). */

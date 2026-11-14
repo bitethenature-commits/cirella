@@ -43,7 +43,6 @@ export default async function OrderPage({ params }: { params: Promise<{ orderId:
       product: { include: { files: { orderBy: { sortOrder: "asc" } } } },
       bookings: { orderBy: { createdAt: "asc" } },
       legalSnapshot: { select: { content: true } },
-      files: { where: { sentAt: { not: null } }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!order || order.customer?.userId !== user.id || !["PAID", "REFUNDED"].includes(order.status)) notFound();
@@ -117,21 +116,11 @@ export default async function OrderPage({ params }: { params: Promise<{ orderId:
         </div>
       ) : prepared ? (
         <section id="lectura" className="mt-8 scroll-mt-24 space-y-5">
-          {order.deliveredAt && access ? (
-            <>
-              {order.deliveryMessage && (
-                <div className="card p-6 ring-1 ring-gold/20 sm:p-7">
-                  <p className="text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-gold">Unas palabras de {c.displayName}</p>
-                  <RichContent text={order.deliveryMessage} format={order.deliveryMessageFormat} legacy="paragraphs" tone="account" className="mt-3 space-y-3 text-[1rem] leading-relaxed" />
-                </div>
-              )}
-              <ReadingFiles files={order.files} title={order.productTitle} artwork={order.product.imageUrl} back={here} />
-            </>
-          ) : access ? (
+          {access ? (
             <div className="card p-6 text-center ring-1 ring-gold/20">
-              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-gold">En preparación</p>
-              <p className="display mt-1 text-[1.5rem]">{c.displayName} la está preparando para ti</p>
-              <p className="mt-1 text-sm text-muted">Te avisaremos por email cuando esté lista.</p>
+              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-gold">Por email</p>
+              <p className="display mt-1 text-[1.5rem]">{c.displayName} te la enviará por email</p>
+              <p className="mt-1 text-sm text-muted">Tu lectura y su material te llegan directamente a tu correo.</p>
             </div>
           ) : (
             <p className="text-sm text-muted">Ya no tienes acceso a este contenido. Si crees que es un error, escribe a {c.displayName}.</p>

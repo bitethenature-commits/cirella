@@ -1,9 +1,9 @@
 /**
  * Elena (elena@example.com, contraseña demo1234): la alumna de la demo con un poco de todo en su área,
- * para ver cómo queda «Mi cuenta» con varios accesos a la vez. Ana se los dio a mano (pedidos de 0 €
+ * para ver cómo queda «Mi cuenta» con varios accesos a la vez. Cirella se los dio a mano (pedidos de 0 €
  * «manual», como «Dar acceso» del panel):
  *   · tres cursos: Human Design desde cero, Tu carta y tu energía y Conócete a través de tu energía;
- *   · una lectura que prepara Ana («Lectura de tu año»), ya entregada con su mensaje;
+ *   · una lectura que prepara Cirella («Lectura de tu año»), ya entregada con su mensaje;
  *   · una sesión 1:1 con fecha dentro de unos días;
  *   · los próximos círculos de la luna, cada uno por separado;
  *   · la membresía más barata (Esencia), con sus textos;
@@ -33,7 +33,7 @@ Aquí tienes tu lectura del año. La he preparado con calma a partir de tu carta
 Léela sin prisa y vuelve a ella cada luna nueva. Si te surge cualquier duda, escríbeme.
 
 Con cariño,
-Ana`;
+Cirella`;
 
 export async function seedDemoStudent(
   prisma: PrismaClient,
@@ -62,7 +62,7 @@ export async function seedDemoStudent(
   });
 
   /** Un acceso dado a mano: pedido de 0 € y su acceso, como grantManualAccess / createManualOrder. */
-  async function give(slug: string, at: Date, extra: { deliveredAt?: Date; deliveryMessage?: string; intake?: object } = {}) {
+  async function give(slug: string, at: Date, extra: { deliveredAt?: Date; intake?: object } = {}) {
     const p = bySlug.get(slug);
     if (!p) return null;
     const order = await prisma.order.create({
@@ -71,7 +71,7 @@ export async function seedDemoStudent(
         buyerEmail: user.email, buyerName: user.name, status: "PAID", amountCents: 0, commissionBps: 0, platformFeeCents: 0, netCents: 0,
         paymentProvider: "manual", createdAt: at, paidAt: at, chargedAt: at,
         metadata: { grantedByUserId: o.ownerUserId, accessGrantedAt: at.toISOString() },
-        ...(extra.deliveredAt ? { deliveredAt: extra.deliveredAt, deliveryMessage: extra.deliveryMessage ?? null, deliveryMessageFormat: "MD" } : {}),
+        ...(extra.deliveredAt ? { deliveredAt: extra.deliveredAt } : {}),
         ...(extra.intake ? { intake: extra.intake, intakeUpdatedAt: at } : {}),
       },
     });
@@ -89,10 +89,9 @@ export async function seedDemoStudent(
       await prisma.lessonProgress.create({ data: { creatorId: o.creatorId, userId: user.id, productId: g.product.id, lessonId: l.id, completedAt: ago(30 - j * 3) } });
   }
 
-  // La lectura que prepara Ana, ya entregada.
+  // La lectura que prepara Cirella, ya entregada.
   await give(READING, ago(12), {
     deliveredAt: ago(3),
-    deliveryMessage: READING_MESSAGE,
     intake: { v: 1, birth: { date: "1990-07-14", time: "08:30", timeUnknown: false, place: "Sevilla, España" }, answers: [] },
   });
 
