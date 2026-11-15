@@ -1,4 +1,4 @@
-import { CloudSun, ExternalLink, Flame, Flower2, GraduationCap, Headphones, Mic, Moon, PenLine, Radio, Video, type LucideIcon } from "lucide-react";
+import { CloudSun, ExternalLink, Feather, Flame, Flower2, GraduationCap, Headphones, Mic, Moon, Radio, Video, type LucideIcon } from "lucide-react";
 import { isLivePostKind, isRecordedPost } from "@/lib/community-rules";
 import { videoEmbed } from "@/lib/video-embed";
 
@@ -9,7 +9,7 @@ import { videoEmbed } from "@/lib/video-embed";
  * se marcan como grabación.
  */
 export const KIND_STYLE: Record<string, { label: string; plural: string; color: string; light: string; soft: string; Icon: LucideIcon }> = {
-  TEXT: { label: "Texto", plural: "Textos", color: "#7C6FB0", light: "#C9BEF2", soft: "#7C6FB033", Icon: PenLine },
+  TEXT: { label: "Post", plural: "Posts", color: "#7C6FB0", light: "#C9BEF2", soft: "#7C6FB033", Icon: Feather },
   PODCAST: { label: "Podcast", plural: "Podcast", color: "#B0712E", light: "#F0BE7E", soft: "#B0712E33", Icon: Mic },
   MEDITACION: { label: "Meditación", plural: "Meditaciones", color: "#2F8A78", light: "#86DCC6", soft: "#2F8A7833", Icon: Flower2 },
   ASTROWEATHER: { label: "Astroweather", plural: "Astroweather", color: "#2E7FA6", light: "#8FD0F0", soft: "#2E7FA633", Icon: CloudSun },

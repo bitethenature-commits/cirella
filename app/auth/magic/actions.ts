@@ -18,7 +18,7 @@ export async function confirmMagicLink(form: FormData) {
   // (todas las sesiones se han cerrado; con la verificación en dos pasos se pide el código).
   if ((await peekMagicLink(token))?.purpose === "CHANGE_EMAIL") {
     const change = await consumeEmailChange(token);
-    if (change === "taken") redirect("/cuenta/perfil?error=email-ocupado");
+    if (change === "taken") redirect("/cuenta/soporte?error=email-ocupado#perfil");
     if (!change) redirect("/entrar?error=enlace");
     await enqueueEmail({
       to: change.fromEmail,
@@ -27,7 +27,7 @@ export async function confirmMagicLink(form: FormData) {
       dedupeKey: `email-changed:${change.user.id}:${change.tokenId}`,
       ...emailChangedEmail({ newEmailMasked: maskEmail(change.user.email) }),
     });
-    return completeLogin(change.user.id, { verified: true, next: "/cuenta/perfil?ok=email", method: "MAGIC_LINK" });
+    return completeLogin(change.user.id, { verified: true, next: "/cuenta/soporte?ok=email#perfil", method: "MAGIC_LINK" });
   }
   const raw = form.get("choice");
   const choice = raw === "no" ? "no" : raw === "yes" ? "yes" : undefined;

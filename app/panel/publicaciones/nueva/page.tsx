@@ -14,8 +14,8 @@ export default async function NewPostPage() {
   const { creator } = await requireCreator();
   return (
     <div className="mx-auto max-w-3xl">
-      <Link href="/panel/publicaciones" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Publicaciones
+      <Link href="/panel/actualidades" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+        <ArrowLeft className="h-4 w-4" /> Actualidades
       </Link>
       <PageHeader title="Nueva publicación" />
       <PostForm

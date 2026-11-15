@@ -41,7 +41,7 @@ export default async function FileViewer({ params, searchParams }: { params: Pro
       ? { href: `/panel/productos/${file.productId}`, label: "Volver al panel" }
       : volver
         ? { href: volver, label: "Volver" }
-        : { href: "/cuenta/archivos", label: "Mis archivos" };
+        : { href: "/cuenta/archivos", label: "Favoritos y comentarios" };
   const creator = creatorBrief(file.product.creator);
   // Directo o por una membresía que lo incluye; el adjunto de una publicación, solo si ya se ve.
   const source = isOwner ? null : await accessSource(user.id, file.productId);

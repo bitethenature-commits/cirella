@@ -194,13 +194,13 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
 
   // Lecturas y sesiones 1:1 que se piden escribiendo: foto en formato reel y un solo panel.
   // También los talleres y los círculos de la luna (sesiones de grupo con fecha).
-  const showcase = paid && (type === "DIGITAL" || type === "SESSION");
+  const showcase = paid && (type === "DIGITAL" || type === "SESSION" || type === "COURSE");
   const topics = productTopics(p).filter((c) => c !== "ESPECIAL");
-  const kindWord = type === "DIGITAL" ? readingLabel(p) : p.groupSession ? (p.moonCircle ? "Círculo de la luna" : "Taller en directo") : topics.length ? `Sesión · ${topics.map((c) => COURSE_CATEGORY_LABEL[c]).join(" + ")}` : "Sesión";
+  const kindWord = type === "DIGITAL" ? readingLabel(p) : type === "COURSE" ? (topics.length ? `Curso · ${topics.map((c) => COURSE_CATEGORY_LABEL[c]).join(" + ")}` : "Curso") : p.groupSession ? (p.moonCircle ? "Círculo de la luna" : "Taller en directo") : topics.length ? `Sesión · ${topics.map((c) => COURSE_CATEGORY_LABEL[c]).join(" + ")}` : "Sesión";
 
   return (
     <>
-      <main className={`mx-auto max-w-5xl px-4 pb-36 pt-4 md:grid md:gap-10 md:pb-20 md:pt-10 ${showcase ? "md:grid-cols-[minmax(0,330px)_1fr] md:items-stretch" : "md:grid-cols-[1.1fr_0.9fr]"}`}>
+      <main className={`cp-luxe mx-auto max-w-5xl px-4 pb-36 pt-4 md:grid md:gap-10 md:pb-20 md:pt-10 ${showcase ? "md:grid-cols-[minmax(0,330px)_1fr] md:items-start" : "md:grid-cols-[1.1fr_0.9fr]"}`}>
         {showcase ? (
           <>
             <div className="mx-auto w-full max-w-[330px] md:mx-0 md:max-w-none">
@@ -241,7 +241,7 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
               )}
               <div className="mt-5 flex items-end justify-between gap-4">
               <ol className="grid gap-1.5">
-                {["Me escribes", "Te respondo por email", type === "SESSION" ? "Lo cerramos y te envío el enlace" : "Lo cerramos y te lo envío"].map((s, i) => (
+                {["Me escribes", "Te respondo por email", type === "SESSION" ? "Lo cerramos y te envío el enlace" : type === "COURSE" ? "Lo cerramos y te abro el curso" : "Lo cerramos y te lo envío"].map((s, i) => (
                   <li key={s} className="flex items-baseline gap-3 text-[0.9rem]">
                     <span className="cp-roman !w-6 !text-[1.05rem]">{["I", "II", "III"][i]}</span>
                     <span className="cp-thin-text cp-muted">{s}</span>
@@ -261,7 +261,7 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
         ) : (
         <>
         <div>
-          <div className="cp-card relative aspect-[4/3] overflow-hidden">
+          <div className="cp-luxe-frame relative aspect-[4/3]">
             <ProductImage src={p.imageUrl} emoji={p.emoji} title={p.title} />
           </div>
         </div>
@@ -378,21 +378,27 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
           )}
 
           {type === "COURSE" && p.modules.length > 0 && (
-            <section className="mt-12 max-w-2xl">
-              <h2 className="cp-display text-[1.9rem]">Programa</h2>
-              <div className="mt-5 space-y-3">
+            <section className="mx-auto mt-16 max-w-3xl" aria-labelledby="programa">
+              <div className="text-center">
+                <p className="cp-eyebrow !tracking-[0.4em]" style={{ color: "var(--c-gold)" }}>Paso a paso</p>
+                <h2 id="programa" className="cp-display cp-thin mt-2 text-[2.4rem] italic">Programa</h2>
+                <GoldStar className="mt-3" />
+              </div>
+              <div className="mt-8 space-y-4">
                 {p.modules.map((m, i) => (
-                  <div key={m.id} className="cp-card p-5">
-                    <p className="cp-eyebrow">Módulo {i + 1}</p>
-                    <p className="cp-display mt-1 text-[1.4rem]">{m.title}</p>
-                    <ul className="mt-3 space-y-2">
+                  <div key={m.id} className="cp-card p-6 sm:p-7">
+                    <div className="flex items-baseline gap-4">
+                      <span className="cp-roman !w-auto !text-[1.6rem]">{["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"][i] ?? i + 1}</span>
+                      <p className="cp-display cp-thin text-[1.5rem] leading-tight">{m.title}</p>
+                    </div>
+                    <ul className="cp-lessons mt-4">
                       {m.lessons.map((l) => {
                         const views = lessonPartViews(l.parts);
                         const Icon = views[0] ? PART_ICON[views[0]] : FileText;
                         const label = partsLabel(views);
                         return (
-                          <li key={l.id} className="flex items-center gap-3 text-sm">
-                            <Icon className="cp-muted h-4 w-4 shrink-0" />
+                          <li key={l.id} className="flex items-center gap-3 text-[0.95rem]">
+                            <Icon className="cp-gold h-4 w-4 shrink-0" strokeWidth={1.5} />
                             <span className="flex-1">{l.title}</span>
                             <span className="cp-faint text-xs">
                               {[label, l.durationMin ? `${l.durationMin} min` : ""].filter(Boolean).join(" · ")}

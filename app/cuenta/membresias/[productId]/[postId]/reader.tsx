@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Bookmark, CalendarDays, ChevronLeft, ChevronRight, X, Star } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { savePost } from "./actions";
@@ -168,15 +168,15 @@ export function SaveButton({ postId, saved, folder }: { postId: string; saved: b
         }
         className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition ${optimistic ? "border-gold bg-gold/15 text-ink" : "border-line text-ink hover:bg-sand"}`}
       >
-        <Bookmark className={`h-4 w-4 ${optimistic ? "fill-current text-gold" : ""}`} /> {optimistic ? "Guardado" : "Guardar"}
+        <Star className={`h-4 w-4 ${optimistic ? "fill-current text-gold" : ""}`} /> {optimistic ? "En favoritos" : "Favorito"}
       </button>
       {optimistic && !error && (
         <p className="mt-1 text-xs text-muted">
-          En{" "}
-          <Link href="/cuenta/archivos" className="font-semibold underline-offset-2 hover:underline">
-            Mis archivos
-          </Link>
-          : Favoritos y {folder}.
+          En tus{" "}
+          <Link href="/cuenta/archivos?abrir=favoritos" className="font-semibold underline-offset-2 hover:underline">
+            Favoritos
+          </Link>{" "}
+          y en {folder}.
         </p>
       )}
       {error && (

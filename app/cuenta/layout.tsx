@@ -7,6 +7,25 @@ import { isPersonalMode } from "@/lib/site-mode";
 import { AccountNav } from "./nav";
 import { ScopeBanner } from "./scope-banner";
 import { UserAvatar } from "./ui";
+import { unseenCommentCount } from "@/lib/comment-social";
+import { communityTiers } from "@/lib/community-tiers";
+import { hasAccess } from "@/lib/customer";
+import { prisma } from "@/lib/db";
+import { ownerUsername } from "@/lib/site-mode";
+
+/** Su nivel de membresía más alto en la web personal (0 = I), o null si no tiene ninguna. La dueña ve el más alto. */
+async function memberTier(userId: string, creatorIdOfUser: string | null): Promise<number | null> {
+  const owner = ownerUsername();
+  if (!owner) return null;
+  const creator = await prisma.creator.findUnique({ where: { username: owner }, select: { id: true } });
+  if (!creator) return null;
+  const tiers = (await communityTiers(creator.id)).filter((t) => t.status === "PUBLISHED");
+  if (!tiers.length) return null;
+  if (creatorIdOfUser === creator.id) return tiers.length - 1;
+  const has = await Promise.all(tiers.map((t) => hasAccess(userId, t.id)));
+  const top = has.lastIndexOf(true);
+  return top >= 0 ? top : null;
+}
 
 export const metadata: Metadata = { title: "Mi cuenta", robots: { index: false } };
 
@@ -16,6 +35,8 @@ export const metadata: Metadata = { title: "Mi cuenta", robots: { index: false }
  */
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const b = await getBuyerSession();
+  // Avisos de sus comentarios (me gusta y respuestas): el número del chat del menú.
+  const [unseen, tier] = b && !b.scope ? await Promise.all([unseenCommentCount(b.user.id), memberTier(b.user.id, b.user.creator?.id ?? null)]) : [0, null];
   return (
     <div className="acc-root min-h-dvh bg-paper">
       {b && (
@@ -29,7 +50,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
                 </Link>
               )}
               {!b.scope && (
-                <Link href="/cuenta/perfil" className="grid h-11 w-11 place-items-center rounded-full" aria-label="Tu foto y perfil">
+                <Link href="/cuenta/soporte#perfil" className="grid h-11 w-11 place-items-center rounded-full" aria-label="Tu foto y perfil">
                   <UserAvatar src={b.user.avatarUrl} name={b.user.name ?? b.user.email} className="h-8 w-8 text-[0.7rem]" />
                 </Link>
               )}
@@ -40,7 +61,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
               </form>
             </div>
           </div>
-          <div className="mx-auto max-w-4xl px-5 pb-2.5">{b.scope ? <ScopeBanner creatorId={b.creatorId} /> : <AccountNav personal={isPersonalMode()} />}</div>
+          <div className="mx-auto max-w-4xl px-5 pb-2.5">{b.scope ? <ScopeBanner creatorId={b.creatorId} /> : <AccountNav personal={isPersonalMode()} unseen={unseen} tier={tier} />}</div>
         </header>
       )}
       <main className="mx-auto max-w-4xl px-5 pb-20 pt-8 animate-fade-in">{children}</main>

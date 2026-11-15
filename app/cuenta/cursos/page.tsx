@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, Lock } from "lucide-react";
+import { ArrowRight, Lock } from "lucide-react";
 import { CourseGroups } from "@/components/creator-page/course-groups";
 import { ProductImage } from "@/components/creator-page/product-art";
-import { EmptyState } from "@/components/ui/empty";
 import { requireBuyerFull } from "@/lib/buyer-access";
 import { groupCourses } from "@/lib/course-categories";
 import { getCustomerLibrary } from "@/lib/customer";
@@ -10,6 +9,7 @@ import { getPublicCreator } from "@/lib/public";
 import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
 import { MethodTag, Progress, categoryFromTitle } from "../ui";
 import { WelcomeCard } from "../welcome-card";
+import { LibroMagicoIcon } from "../icons";
 import { PageHeader } from "../page-header";
 
 /**
@@ -41,7 +41,7 @@ export default async function MyCourses({ searchParams }: { searchParams: Promis
       {welcome && <WelcomeCard name={first} email={user.email} hasPassword={!!user.passwordHash} />}
 
       <section aria-labelledby="mis-cursos-t">
-        <PageHeader id="mis-cursos-t" eyebrow="Tu camino de aprendizaje" title="Mis cursos" subtitle="Tus cursos por método, con tu progreso. Debajo, los demás para cuando quieras." />
+        <PageHeader id="mis-cursos-t" icon={<LibroMagicoIcon className="h-9 w-9" />} eyebrow="Tu camino de aprendizaje" title="Mis cursos" subtitle="Tus cursos por método, con tu progreso. Debajo, los demás para cuando quieras." />
         {mine.length ? (
           <CourseGroups
             name="mis-cursos"
@@ -54,7 +54,7 @@ export default async function MyCourses({ searchParams }: { searchParams: Promis
               cards: g.courses.map((c) => (
                 <Link key={c.product.id} href={`/cuenta/cursos/${c.product.id}`} className="card group flex flex-col overflow-hidden transition hover:shadow-lift">
                   {c.product.imageUrl && (
-                    <span className="relative block aspect-[16/8] overflow-hidden">
+                    <span className="cp-photo-bubble cp-photo-in relative block aspect-[4/3]">
                       <ProductImage src={c.product.imageUrl} emoji={c.product.emoji} title={c.product.title} sizes="(min-width: 768px) 360px, 85vw" />
                     </span>
                   )}
@@ -77,10 +77,22 @@ export default async function MyCourses({ searchParams }: { searchParams: Promis
             }))}
           />
         ) : (
-          <div className="mt-6">
-            <EmptyState icon={<BookOpen className="h-5 w-5" />} title="Sin cursos todavía">
-              Cuando consigas un curso aparecerá aquí, con tu progreso.
-            </EmptyState>
+          // Sin cursos: el libro mágico flotando y brillando, con chispas, en un panel con la doble línea dorada.
+          <div className="acc-empty mt-8">
+            <span aria-hidden className="acc-empty-halo" />
+            <span aria-hidden className="acc-empty-spark" style={{ left: "30%", top: "18%" }} />
+            <span aria-hidden className="acc-empty-spark" style={{ left: "68%", top: "14%", animationDelay: "1.1s" }} />
+            <span aria-hidden className="acc-empty-spark" style={{ left: "76%", top: "38%", animationDelay: "2.2s" }} />
+            <span aria-hidden className="acc-empty-spark" style={{ left: "22%", top: "40%", animationDelay: "1.7s" }} />
+            <LibroMagicoIcon className="acc-empty-book mx-auto h-24 w-24 text-gold" strokeWidth={1.1} />
+            <p className="mt-4 text-[0.66rem] font-medium uppercase tracking-[0.42em] text-gold">Tu biblioteca te espera</p>
+            <p className="display acc-thin mt-3 text-[2rem] leading-tight sm:text-[2.4rem]">Aún no hay cursos en tu estantería</p>
+            <p className="acc-thin-text mx-auto mt-3 max-w-sm text-[0.98rem] leading-relaxed text-muted">Cuando empieces uno, vivirá aquí, con tu progreso y tus lecciones guardadas, listo para abrirlo cuando quieras.</p>
+            {others.length > 0 && (
+              <a href="#otros-cursos-t" className="btn btn-primary mt-6 inline-flex">
+                Descubrir los cursos <ArrowRight className="h-4 w-4" />
+              </a>
+            )}
           </div>
         )}
       </section>
@@ -101,7 +113,7 @@ export default async function MyCourses({ searchParams }: { searchParams: Promis
               count: g.courses.length,
               cards: g.courses.map(({ p, username }) => (
                 <Link key={p.id} href={`/${username}/${p.slug}`} className="card group flex flex-col overflow-hidden transition hover:shadow-lift" data-locked-course>
-                  <span className="relative block aspect-[16/8] overflow-hidden">
+                  <span className="cp-photo-bubble cp-photo-in relative block aspect-[4/3]">
                     <span className="block h-full w-full opacity-60 grayscale-[35%] transition group-hover:opacity-80">
                       <ProductImage src={p.imageUrl} emoji={p.emoji} title={p.title} sizes="(min-width: 768px) 360px, 85vw" />
                     </span>

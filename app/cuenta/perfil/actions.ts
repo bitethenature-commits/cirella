@@ -103,7 +103,7 @@ export async function changeOwnPassword(_: CardState, form: FormData): Promise<C
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(next) } });
   await revokeOtherSessions(user.id);
   await forgetDevices(user.id);
-  revalidatePath("/cuenta/perfil");
+  revalidatePath("/cuenta/soporte");
   return { ok: user.passwordHash ? "Contraseña cambiada. Hemos cerrado tus otras sesiones." : "Contraseña creada. Ya puedes entrar con ella." };
 }
 
@@ -130,5 +130,5 @@ export async function subscribeOwnerNews(form: FormData) {
     consentText: "«Quiero recibir las novedades» desde su perfil, con la sesión verificada",
     form: "perfil",
   });
-  revalidatePath("/cuenta/perfil");
+  revalidatePath("/cuenta/soporte");
 }

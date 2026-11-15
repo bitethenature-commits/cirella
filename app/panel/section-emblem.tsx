@@ -34,6 +34,7 @@ const ICONS: [string, LucideIcon][] = [
   ["/panel/cursos", GraduationCap],
   ["/panel/comunidad", MessagesSquare],
   ["/panel/publicaciones", Newspaper],
+  ["/panel/actualidades", Newspaper],
   ["/panel/portal", Gift],
   ["/panel/barajas", Layers],
   ["/panel/modelos", Orbit],

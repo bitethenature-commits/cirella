@@ -4,7 +4,8 @@ import { ArrowDown, ArrowUp, ExternalLink, Lock, Pencil, Plus, Star } from "luci
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
-import { asPortalKind, eventLabel, PORTAL_KIND_LABEL, readPortalMedia } from "@/lib/portal-rules";
+import { CalmAudio } from "@/components/media/calm-audio";
+import { asPortalKind, eventLabel, homePortalItems, PORTAL_KIND_LABEL, publicPortalItem, readPortalMedia, type PublicPortalItem } from "@/lib/portal-rules";
 import { isPersonalMode } from "@/lib/site-mode";
 import { sectionPagePath } from "@/lib/site-sections";
 import { tenantDb } from "@/lib/tenant";
@@ -22,6 +23,8 @@ export default async function PortalAdminPage({ searchParams }: { searchParams: 
   const sp = await searchParams;
   const items = await tenantDb(creator.id).portalItem.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }] });
   const personal = isPersonalMode();
+  // Arriba, en grande, el principal (el destacado o el primero), como en la portada: el vídeo, el audio o las fotos.
+  const { main } = homePortalItems(items.map((it) => publicPortalItem(it, true, creator.timezone)));
   return (
     <div>
       <PageHeader
@@ -47,6 +50,9 @@ export default async function PortalAdminPage({ searchParams }: { searchParams: 
           Un vídeo, un audio, unas fotos, el enlace de un directo o un aviso Early Bird. Quien quiera verlo se suscribe a tu newsletter desde el candado.
         </EmptyState>
       ) : (
+        <>
+        {main && <MainPreview item={main} />}
+        <h2 className="mb-3 mt-8 font-semibold">Todo el portal</h2>
         <ul className="space-y-2.5">
           {items.map((it, i) => {
             const kind = asPortalKind(it.kind);
@@ -104,10 +110,58 @@ export default async function PortalAdminPage({ searchParams }: { searchParams: 
             );
           })}
         </ul>
+        </>
       )}
       <p className="mt-6 text-xs text-muted">
         La sección «Portal de Noticias» se puede mover u ocultar desde <Link href="/panel/pagina" className="underline underline-offset-2">Mi página → Secciones</Link>.
       </p>
     </div>
+  );
+}
+
+/** El principal del portal en grande (como sale en la portada): se puede ver o escuchar desde aquí. */
+function MainPreview({ item }: { item: PublicPortalItem }) {
+  const file = item.media[0];
+  const cover = item.coverUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={item.coverUrl} alt="" className="aspect-video w-full object-cover" loading="lazy" />
+  ) : (
+    <div className="grid aspect-video w-full place-items-center bg-sand text-muted">
+      <Lock className="h-8 w-8" />
+    </div>
+  );
+  return (
+    <section className="card overflow-hidden" aria-labelledby="portal-main-t">
+      {item.kind === "VIDEO" && file ? (
+        <video src={file.url} poster={item.coverUrl ?? undefined} controls playsInline preload="none" className="aspect-video w-full bg-black" aria-label={item.title} />
+      ) : item.kind === "PHOTOS" && item.media.length > 0 ? (
+        <div className={`grid gap-1 ${item.media.length > 1 ? "grid-cols-2" : ""}`}>
+          {item.media.slice(0, 4).map((m) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={m.url} src={m.url} alt={m.name} className="aspect-[4/3] w-full object-cover" loading="lazy" />
+          ))}
+        </div>
+      ) : (
+        cover
+      )}
+      <div className="p-5 sm:p-6">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+          <Star className="h-3.5 w-3.5 fill-current text-gold" aria-hidden />
+          <span className="font-semibold uppercase tracking-[0.14em] text-gold">Principal</span>
+          <span>· {PORTAL_KIND_LABEL[item.kind]}</span>
+          {item.eventLabel && <span>· {item.eventLabel}</span>}
+        </div>
+        <h2 id="portal-main-t" className="mt-2 font-serif text-[1.7rem] leading-tight">
+          {item.title}
+        </h2>
+        {item.summary && <p className="mt-1.5 text-sm text-muted">{item.summary}</p>}
+        {item.kind === "AUDIO" && file && <CalmAudio src={file.url} preload="none" title={item.title} className="mt-4" />}
+        <div className="mt-4">
+          <Link href={`/panel/portal/${item.id}`} className="btn btn-outline btn-sm">
+            <Pencil className="h-3.5 w-3.5" /> Editar
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }

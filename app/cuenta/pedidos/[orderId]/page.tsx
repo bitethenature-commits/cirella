@@ -78,7 +78,7 @@ export default async function OrderPage({ params }: { params: Promise<{ orderId:
       ? { href: "/cuenta/sesiones#lecturas", label: "Círculos y lecturas" }
       : order.productType === "SESSION"
         ? { href: "/cuenta/sesiones", label: "Círculos y lecturas" }
-        : { href: "/cuenta/archivos", label: "Mis archivos" };
+        : { href: "/cuenta/archivos", label: "Favoritos y comentarios" };
   const here = `/cuenta/pedidos/${order.id}`;
 
   return (

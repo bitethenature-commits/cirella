@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { lastDayText } from "@/lib/access-end";
 import { markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
 import { loadFeed, memberPostKinds } from "@/lib/community";
+import { communityTiers } from "@/lib/community-tiers";
 import { LayoutGrid } from "lucide-react";
 import { KIND_STYLE, kindStyle } from "../kind-style";
 import { FilterLink } from "../filter-link";
@@ -84,6 +85,8 @@ export default async function MembershipFeed({
   const moon = { elong: sky.elong, phase: EIGHT_PHASES[Math.floor(sky.elong / 45) % 8], sign: moonSign.name, glyph: `${moonSign.glyph}\uFE0E` };
   const accessRow = source ? await prisma.access.findUnique({ where: { id: source.accessId }, select: { createdAt: true } }) : null;
   const since = accessRow ? formatDate(accessRow.createdAt, { month: "long", year: "numeric" }, tz) : null;
+  // El nivel (0 = I) para el sólido de su tarjeta: el mismo orden que los portales de «Mis membresías».
+  const level = (await communityTiers(product.creatorId)).filter((t) => t.status === "PUBLISHED").findIndex((t) => t.id === product.id);
   const tierName = source?.via ? `${product.title} · por ${source.via.title}` : product.title;
   return (
     <div className="mx-auto max-w-3xl">
@@ -98,7 +101,7 @@ export default async function MembershipFeed({
       </div>
       {access && (
         <div className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:items-stretch">
-          <MemberCard name={ownerView ? c.displayName : (user.name ?? user.email)} tier={tierName} emoji={product.emoji} since={since} note={ownerView ? "Vista de la autora" : null} />
+          <MemberCard name={ownerView ? c.displayName : (user.name ?? user.email)} tier={tierName} emoji={product.emoji} level={level} since={since} note={ownerView ? "Vista de la autora" : null} />
           <div className="vip-glass flex flex-col justify-center rounded-[1.4rem] p-5 text-sm leading-relaxed text-ink/80">
             <p className="text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-gold">Tu espacio sagrado</p>
             <p className="mt-2">Todo lo de aquí es solo para miembros. Tómate tu tiempo: enciende una vela, respira y entra cuando te apetezca.</p>
@@ -182,7 +185,7 @@ export default async function MembershipFeed({
 
       <div className="mt-8 space-y-4">
         {feed.posts.map((post) => (
-          <PostCard key={post.id} post={post} timeZone={tz} tier={post.productId !== productId ? post.product.title : null} canSave={!isOwner && !scoped} />
+          <PostCard key={post.id} post={post} timeZone={tz} tier={post.productId !== productId ? post.product.title : null} canSave={!isOwner && !scoped} canLike={!isOwner} />
         ))}
         {access && feed.posts.length === 0 && <p className="text-sm text-muted">{before ? "No hay publicaciones anteriores." : "Pronto habrá contenido nuevo aquí."}</p>}
         {feed.nextBefore && (

@@ -91,7 +91,7 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
     );
   const posts = postRows.map((p) => toPublicPost(p, creator.timezone));
   // «Actualidades»: lo que se va subiendo a la web (lib/web-news.ts).
-  const news = await webNews({ creatorId: creator.id, username: creator.username, publicProductIds: products.map((p) => p.id), codesHref: "#codigos", timeZone: creator.timezone });
+  const { items: news, older: newsOlder } = await webNews({ creatorId: creator.id, username: creator.username, publicProductIds: products.map((p) => p.id), codesHref: "#codigos", timeZone: creator.timezone, maxAgeDays: creator.newsDays });
   const portal: PublicPortalItem[] = portalRows.map((i) => publicPortalItem(i, false, creator.timezone));
   const discountCodes: PublicDiscountCode[] = codeRows.map((c) => ({
     id: c.id,
@@ -113,6 +113,8 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
     postCount,
     /** «Actualidades»: lo nuevo de la web, de lo más nuevo a lo más antiguo. */
     news,
+    /** Cuántas ya pasaron de sus días (Creator.newsDays) y no salen: «y 12 actualidades más». */
+    newsOlder,
     /** Portal de Noticias, siempre bloqueado aquí (página cacheada). */
     portal,
     discountCodes,
@@ -193,6 +195,26 @@ export async function getPublicPostList(creatorId: string, timeZone: string, pag
     prisma.post.count({ where }),
   ]);
   return { posts: rows.map((p) => toPublicPost(p, timeZone)), total, pages: Math.max(1, Math.ceil(total / POSTS_PER_PAGE)) };
+}
+
+/**
+ * Las publicaciones (escritas a mano) para la página «Actualidades»: las de sus días (Creator.newsDays; null =
+ * todas) y cuántas pasaron de ahí, que se cuentan con las demás («y 12 actualidades más»).
+ */
+export async function getRecentPublicPosts(creatorId: string, timeZone: string, maxAgeDays: number | null) {
+  const now = new Date();
+  const cutoff = maxAgeDays ? new Date(now.getTime() - maxAgeDays * 86_400_000) : null;
+  const base = { creatorId, ...publicPostWhere(now) };
+  const [rows, older] = await Promise.all([
+    prisma.post.findMany({
+      where: cutoff ? { AND: [base, { publishedAt: { gte: cutoff } }] } : base,
+      orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+      take: 30,
+      select: POST_CARD_SELECT,
+    }),
+    cutoff ? prisma.post.count({ where: { AND: [base, { publishedAt: { lt: cutoff } }] } }) : Promise.resolve(0),
+  ]);
+  return { posts: rows.map((p) => toPublicPost(p, timeZone)), older };
 }
 
 /** Una publicación visible por su slug (null si no existe, es borrador o está programada). */

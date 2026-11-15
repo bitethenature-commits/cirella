@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, Check, ChevronLeft, X, ChevronRight, ExternalLink, Eye, FilePen, Pencil, Pin, PinOff, Send, Trash2, UserPlus, UsersRound } from "lucide-react";
+import { BarChart3, CalendarClock, CalendarDays, Check, ChevronLeft, X, ChevronRight, ExternalLink, Eye, FilePen, LayoutGrid, Newspaper, Pencil, Pin, PinOff, Search, Send, Trash2, UserPlus, UsersRound } from "lucide-react";
+import { SpinningSolid } from "@/app/cuenta/spinning-solid";
+import { kindStyle } from "@/app/cuenta/membresias/kind-style";
+import { PostCover } from "@/app/cuenta/membresias/post-card";
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
 import { ConfirmForm } from "@/components/ui/confirm-form";
@@ -30,20 +33,20 @@ function Countdown({ r }: { r: MemberRow }) {
 }
 import { CommentModeration } from "./comment-moderation";
 import { Composer } from "./composer";
-import { emptyComposerPost, loadCalendar, loadComposerPost, loadMembers, loadQueue, loadStats, loadTiers, loadWall } from "./data";
+import { emptyComposerPost, loadCalendar, loadComposerPost, loadMembers, loadQueue, loadStats, loadTiers, loadWall, wallKinds } from "./data";
 
 export const metadata: Metadata = { title: "Comunidad" };
 
 const TABS = [
-  { key: "muro", label: "Muro" },
-  { key: "programadas", label: "Programadas" },
-  { key: "calendario", label: "Calendario" },
-  { key: "miembros", label: "Miembros" },
-  { key: "datos", label: "Datos" },
+  { key: "muro", label: "Muro", hint: "Publicar y ver lo publicado", icon: Newspaper },
+  { key: "programadas", label: "Programados", hint: "Lo que saldrá y borradores", icon: CalendarClock },
+  { key: "calendario", label: "Calendario", hint: "Todo por días", icon: CalendarDays },
+  { key: "miembros", label: "Miembros", hint: "Quién está dentro", icon: UsersRound },
+  { key: "datos", label: "Datos", hint: "Vistas, me gusta y comentarios", icon: BarChart3 },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
 
-type SP = { tab?: string; nivel?: string; editar?: string; nueva?: string; ok?: string; t?: string; mes?: string; antes?: string };
+type SP = { tab?: string; nivel?: string; editar?: string; nueva?: string; ok?: string; t?: string; mes?: string; antes?: string; tipo?: string; buscar?: string };
 
 /**
  * Estudio «Comunidad»: el feed tal y como lo ven las miembros con el compositor encima (Muro),
@@ -83,36 +86,43 @@ export default async function CommunityStudio({ searchParams }: { searchParams: 
 
   return (
     <div className="max-w-3xl">
-      <PageHeader
-        title="Comunidad"
-        subtitle={`${tiers.map((t) => t.title).join(" · ")} · ${totalMembers} ${totalMembers === 1 ? "persona dentro" : "personas dentro"}`}
-        actions={<ViewAsMenu tiers={tiers} />}
-      />
+      <PageHeader title="Comunidad" subtitle={`${totalMembers} ${totalMembers === 1 ? "persona dentro" : "personas dentro"}`} />
 
-      <nav className="-mx-1 mb-5 flex gap-1 overflow-x-auto px-1 pb-1" aria-label="Secciones de Comunidad">
+      {/* Las cinco partes de Comunidad, bien separadas: cada una con su icono, su nombre y para qué es. */}
+      <nav className="com-sections mb-6" aria-label="Secciones de Comunidad">
         {TABS.map((t) => (
           <Link
             key={t.key}
-            href={q({ tab: t.key, antes: undefined, editar: undefined, ok: undefined, t: undefined })}
+            href={q({ tab: t.key, antes: undefined, editar: undefined, ok: undefined, t: undefined, tipo: undefined, buscar: undefined })}
             aria-current={tab === t.key ? "page" : undefined}
-            className={`inline-flex min-h-10 shrink-0 items-center rounded-full px-4 text-sm font-semibold transition ${tab === t.key ? "bg-ink text-cream" : "bg-sand/70 text-muted hover:text-ink"}`}
+            className="com-section"
           >
-            {t.label}
+            <t.icon className="h-5 w-5" strokeWidth={1.4} />
+            <span className="com-section-name">{t.label}</span>
+            <span className="com-section-hint">{t.hint}</span>
           </Link>
         ))}
       </nav>
 
-      {tab !== "miembros" && (
-        <div className="mb-5 flex flex-wrap items-center gap-1.5 text-xs" role="group" aria-label="Filtrar por nivel">
-          <span className="mr-1 font-semibold text-muted">{tab === "muro" ? "Ver como lo ve" : "Nivel"}</span>
-          <TierChip href={q({ nivel: undefined, antes: undefined, ok: undefined, t: undefined })} active={!tierId}>{tab === "muro" ? "Todo" : "Todos"}</TierChip>
-          {tiers.map((t) => (
-            <TierChip key={t.id} href={q({ nivel: t.id, antes: undefined, ok: undefined, t: undefined })} active={tierId === t.id}>
-              {t.emoji} {t.title}
-            </TierChip>
-          ))}
-        </div>
-      )}
+      {/* Las membresías, cada una en su columna con su sólido (nivel I, II, III). */}
+      <div className="com-tiers mb-5" role="group" aria-label="Membresía">
+        {tab !== "miembros" && (
+          <Link href={q({ nivel: undefined, antes: undefined, ok: undefined, t: undefined, tipo: undefined })} aria-current={!tierId ? "true" : undefined} className="com-tier com-tier-all">
+            <LayoutGrid className="h-6 w-6" strokeWidth={1.3} />
+            <span className="com-tier-name">Todas</span>
+          </Link>
+        )}
+        {tiers.map((t, i) => {
+          const on = tab === "miembros" ? (tierId ?? tiers[tiers.length - 1].id) === t.id : tierId === t.id;
+          return (
+            <Link key={t.id} href={q({ nivel: t.id, antes: undefined, ok: undefined, t: undefined, tipo: undefined })} aria-current={on ? "true" : undefined} className="com-tier">
+              <SpinningSolid level={i} offset={i * 1.3} speed={on ? 0.45 : 0.2} className="h-9 w-9" />
+              <span className="com-tier-name">{t.title}</span>
+              <span className="com-tier-meta">Nivel {["I", "II", "III", "IV", "V"][i] ?? i + 1} · {composerTiers.find((c) => c.id === t.id)?.readers ?? 0} dentro</span>
+            </Link>
+          );
+        })}
+      </div>
 
       <Flash ok={sp.ok} />
 
@@ -136,6 +146,8 @@ export default async function CommunityStudio({ searchParams }: { searchParams: 
             />
           }
           before={sp.antes && !Number.isNaN(Date.parse(sp.antes)) ? new Date(sp.antes) : null}
+          kind={sp.tipo ?? null}
+          search={sp.buscar?.trim() || null}
           q={q}
         />
       )}
@@ -150,52 +162,60 @@ export default async function CommunityStudio({ searchParams }: { searchParams: 
 type Owner = { id: string; userId: string; timezone: string };
 type Tiers = Awaited<ReturnType<typeof loadTiers>>["tiers"];
 
-function TierChip({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
-  return (
-    <Link href={href} aria-current={active ? "true" : undefined} className={`inline-flex min-h-9 items-center gap-1 rounded-full border px-3 font-semibold ${active ? "border-ink bg-ink text-cream" : "border-line bg-white text-ink/80 hover:border-ink/30"}`}>
-      {children}
-    </Link>
-  );
-}
 
-/** «Ver como miembro»: abre su área de miembros como alguien de ese nivel (sin comprarlo). */
-function ViewAsMenu({ tiers }: { tiers: Tiers }) {
-  return (
-    <details className="relative">
-      <summary className="btn btn-outline btn-sm min-h-10 cursor-pointer list-none">
-        <Eye className="h-4 w-4" /> Ver como miembro
-      </summary>
-      <div className="absolute left-0 z-30 mt-2 w-64 sm:left-auto sm:right-0 rounded-2xl border border-line bg-white p-2 shadow-lift">
-        <p className="px-2 pb-1.5 pt-1 text-xs text-muted">Abre la comunidad como la ve alguien de:</p>
-        {tiers.map((t) => (
-          <Link key={t.id} href={`/panel/comunidad/ver-como?nivel=${t.id}`} className="flex min-h-11 items-center gap-2 rounded-xl px-2 text-sm font-semibold hover:bg-sand">
-            <span aria-hidden>{t.emoji}</span> {t.title}
-            {t.includes.length > 0 && <span className="ml-auto text-xs font-normal text-muted">+{t.includes.length} {t.includes.length === 1 ? "nivel" : "niveles"}</span>}
-          </Link>
-        ))}
-      </div>
-    </details>
-  );
-}
 
 // ── Muro ──
 
-async function Wall({ owner, tiers, tierId, composer, before, q }: { owner: Owner; tiers: Tiers; tierId: string | null; composer: React.ReactNode; before: Date | null; q: (o: Partial<SP>) => string }) {
-  const wall = await loadWall(owner, tiers, tierId, before);
+async function Wall({ owner, tiers, tierId, composer, before, kind, search, q }: { owner: Owner; tiers: Tiers; tierId: string | null; composer: React.ReactNode; before: Date | null; kind: string | null; search: string | null; q: (o: Partial<SP>) => string }) {
   const tier = tierId ? tiers.find((t) => t.id === tierId) : null;
+  const ids = tier ? [tier.id, ...tier.includes] : tiers.map((t) => t.id);
+  const [wall, kinds] = await Promise.all([loadWall(owner, tiers, tierId, before, { kind, search }), wallKinds(owner, ids)]);
   return (
     <div className="space-y-4">
+      {/* El tipo de publicación de esta membresía y, debajo, el buscador. */}
+      {kinds.length > 1 && (
+        <nav className="com-kinds" aria-label="Tipo de publicación">
+          <Link href={q({ tipo: undefined, antes: undefined, ok: undefined, t: undefined })} aria-current={!kind ? "true" : undefined} className="com-kind">
+            <LayoutGrid className="h-4 w-4" /> Todo
+          </Link>
+          {kinds.map((k) => {
+            const st = kindStyle(k);
+            return (
+              <Link key={k} href={q({ tipo: k, antes: undefined, ok: undefined, t: undefined })} aria-current={kind === k ? "true" : undefined} className="com-kind" style={{ "--k-light": st.light } as React.CSSProperties}>
+                <st.Icon className="h-4 w-4" /> {st.plural}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
+      <form action="/panel/comunidad" className="com-search" role="search">
+        <input type="hidden" name="tab" value="muro" />
+        {tierId && <input type="hidden" name="nivel" value={tierId} />}
+        {kind && <input type="hidden" name="tipo" value={kind} />}
+        <Search className="h-4 w-4 shrink-0 text-gold" aria-hidden />
+        <input name="buscar" defaultValue={search ?? ""} placeholder="Buscar en las publicaciones…" aria-label="Buscar en las publicaciones" className="min-w-0 flex-1 bg-transparent text-[0.95rem] outline-none placeholder:text-faint" />
+        {search && (
+          <Link href={q({ buscar: undefined, antes: undefined })} className="text-xs text-muted hover:text-ink">
+            Quitar
+          </Link>
+        )}
+      </form>
       {composer}
       {tier && (
         <p className="text-sm text-muted">
           Así lo ve alguien de «{tier.title}»{tier.includes.length ? `: lo suyo y lo de ${tier.includes.map((id) => `«${tiers.find((t) => t.id === id)?.title}»`).join(" y ")}` : ""}.
         </p>
       )}
-      {wall.posts.length === 0 && <p className="rounded-2xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted">{before ? "No hay publicaciones anteriores." : "Todavía no hay nada publicado aquí. Empieza con una bienvenida."}</p>}
+      {wall.posts.length === 0 && <p className="rounded-2xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted">{search ? `Nada con «${search}».` : before ? "No hay publicaciones anteriores." : "Todavía no hay nada publicado aquí. Empieza con una bienvenida."}</p>}
       {wall.posts.map((post) => (
-        <article key={post.id} className="card p-5 sm:p-6" data-studio-post={post.id}>
-          <PostCardBody post={post} timeZone={owner.timezone} tier={post.product.title} views={wall.views.get(post.id) ?? 0} />
-          <div className="mt-3 flex flex-wrap gap-1">
+        <article key={post.id} className="com-post vip-glass vip-post relative overflow-hidden rounded-[1.6rem] p-4 sm:p-6" data-studio-post={post.id}>
+          <div className="flex gap-4 sm:gap-6">
+            <PostCover post={post} />
+            <div className="min-w-0 flex-1">
+              <PostCardBody post={post} timeZone={owner.timezone} tier={post.product.title} views={wall.views.get(post.id) ?? 0} />
+            </div>
+          </div>
+          <div className="com-post-tools mt-4 flex flex-wrap gap-1 pt-3">
             <Link href={`/cuenta/membresias/${post.productId}/${post.id}`} className="btn btn-ghost btn-sm min-h-10"><ExternalLink className="h-4 w-4" /> Abrir</Link>
             <Link href={`/panel/comunidad?editar=${post.id}#publicar`} className="btn btn-ghost btn-sm min-h-10"><Pencil className="h-4 w-4" /> Editar</Link>
             <form action={togglePin}>
@@ -347,17 +367,12 @@ const STATUS: Record<"active" | "canceled" | "expired", { label: string; tone: "
   expired: { label: "Terminada", tone: "neutral" },
 };
 
-async function Members({ owner, tiers, tierId, q }: { owner: Owner; tiers: Tiers; tierId: string | null; q: (o: Partial<SP>) => string }) {
+async function Members({ owner, tiers, tierId }: { owner: Owner; tiers: Tiers; tierId: string | null; q: (o: Partial<SP>) => string }) {
   const tier = tiers.find((t) => t.id === tierId) ?? tiers[tiers.length - 1];
   const rows = await loadMembers(owner, tier.id);
   const counts = { active: rows.filter((r) => r.status === "active").length, canceled: rows.filter((r) => r.status === "canceled").length, expired: rows.filter((r) => r.status === "expired").length };
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-1.5 text-xs" role="group" aria-label="Nivel">
-        {tiers.map((t) => (
-          <TierChip key={t.id} href={q({ nivel: t.id })} active={t.id === tier.id}>{t.emoji} {t.title}</TierChip>
-        ))}
-      </div>
       <div className="grid grid-cols-3 gap-2">
         <Stat label="Activas" value={counts.active} />
         <Stat label="Canceladas" value={counts.canceled} hint="Hasta fin de periodo" />

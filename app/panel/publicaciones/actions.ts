@@ -32,6 +32,7 @@ function refreshPublic(username: string, slugs: string[]) {
   revalidatePath(`/${username}/actualidades`);
   for (const s of new Set(slugs)) revalidatePath(`/${username}/actualidades/${s}`);
   revalidatePath("/panel/publicaciones");
+  revalidatePath("/panel/actualidades");
 }
 
 /** Crea o guarda una publicación (formulario del panel). Al crearla, lleva a su ficha. */
@@ -96,7 +97,7 @@ export async function deletePost(form: FormData) {
     await db.post.delete({ where: { id: post.id } });
     refreshPublic(creator.username, [post.slug]);
   }
-  redirect("/panel/publicaciones?borrada=1");
+  redirect("/panel/actualidades?borrada=1");
 }
 
 /** Publicar o pasar a borrador desde la lista, sin abrir la ficha. */
@@ -105,7 +106,7 @@ export async function togglePostStatus(form: FormData) {
   const id = z.string().min(1).max(40).parse(form.get("id"));
   const db = tenantDb(creator.id);
   const post = await db.post.findFirst({ where: { id } });
-  if (!post) redirect("/panel/publicaciones");
+  if (!post) redirect("/panel/actualidades");
   const status = post.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
   const publishedAt = resolvePublishedAt({ status, current: post.publishedAt, timeZone: creator.timezone });
   await db.post.update({ where: { id: post.id }, data: { status, publishedAt } });

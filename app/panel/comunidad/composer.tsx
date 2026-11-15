@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Eye, Flame, Headphones, ImagePlus, Loader2, Mic, Moon, PenLine, Pin, Video, X } from "lucide-react";
+import { CalendarDays, Eye, Flame, Headphones, ImagePlus, Loader2, Mic, Moon, PenLine, Pin, Video, X, Feather } from "lucide-react";
 import Link from "next/link";
 import { startTransition, useActionState, useCallback, useMemo, useState } from "react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
@@ -46,7 +46,7 @@ export type ComposerTier = {
 
 /** Tipos en el orden del compositor, con su icono. «Fotos» es una publicación con imágenes. */
 const KINDS: { kind: MemberPostKind; icon: typeof PenLine; label?: string }[] = [
-  { kind: "TEXT", icon: PenLine, label: "Texto" },
+  { kind: "TEXT", icon: Feather, label: "Post" },
   { kind: "PODCAST", icon: Mic },
   { kind: "MEDITACION", icon: Headphones },
   { kind: "ASTROWEATHER", icon: Video },

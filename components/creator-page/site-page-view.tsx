@@ -53,6 +53,118 @@ export function SitePageView({
 }) {
   const cover = content.cover && isOwnImageSrc(content.cover.src) ? content.cover : null;
   const method = methodTitle(content.title);
+  if (bare)
+    // «Sobre mí»: con el estilo de lujo de la portada (cabecera centrada con oro, foto con marco dorado).
+    return (
+      <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back}>
+        <main className="cp-luxe relative mx-auto w-full max-w-[52rem] px-5 pb-20 pt-8 sm:pt-14" data-cover={cover ? "yes" : "no"}>
+          <header className="text-center" data-reveal>
+            <p className="cp-eyebrow !tracking-[0.42em]" style={{ color: "var(--c-gold)" }}>
+              {config.displayName}
+            </p>
+            <div aria-hidden className="cp-section-rule mt-4">
+              <span />
+              <i>✦</i>
+              <span />
+            </div>
+            <h1 className="cp-display cp-thin mt-5 text-[2.9rem] leading-[1.05] sm:text-[3.8rem]">{content.title}</h1>
+            {content.subtitle && (
+              <p className="cp-display cp-thin mx-auto mt-4 max-w-xl whitespace-pre-line text-[1.35rem] italic leading-snug sm:text-[1.6rem]" style={{ color: "var(--c-gold)" }}>
+                {content.subtitle}
+              </p>
+            )}
+          </header>
+          {cover && (
+            <div className="cp-luxe-frame mt-10" data-reveal>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={cover.src}
+                srcSet={imageSrcSet(cover.src, cover.width)}
+                sizes="(min-width: 860px) 792px, calc(100vw - 40px)"
+                width={cover.width}
+                height={cover.height}
+                alt={cover.alt}
+                fetchPriority="high"
+                decoding="async"
+                className="block h-auto w-full"
+              />
+            </div>
+          )}
+          <div className="mt-20 space-y-24">
+            <ContentBlocks
+              bare
+              blocks={visibleBlocks(content.blocks)}
+              username={username}
+              titleLevel={2}
+              hiddenSlugs={hiddenSlugs}
+              siteOrigin={siteOrigin}
+              oracleDecks={oracleDecks}
+              modelGate={personal ? { username, creatorName: config.displayName, privacyHref: creatorLegalHref(username, "privacidad") } : null}
+              moonCircles={moonCircles}
+            />
+          </div>
+        </main>
+        <Reveal />
+      </CreatorShell>
+    );
+  if (method)
+    // Página de un sistema: con el estilo de lujo de la portada. Su icono grande y dorado, el nombre en
+    // letra fina, la frase en cursiva dorada y la raya con la estrella; los bloques, en paneles dorados.
+    return (
+      <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back}>
+        <main className="cp-luxe relative mx-auto w-full max-w-[46rem] px-5 pb-20 pt-8 sm:pt-14" data-cover={cover ? "yes" : "no"}>
+          <header className="text-center" data-reveal>
+            <div className="flex justify-center">
+              <SystemIconMark icon={method.icon} scale={1.7} />
+            </div>
+            <p className="cp-eyebrow mt-6 !tracking-[0.42em]" style={{ color: "var(--c-gold)" }}>
+              {config.displayName}
+            </p>
+            <h1 className="cp-display cp-thin mt-3 text-[2.9rem] leading-[1.05] sm:text-[3.8rem]">{method.name}</h1>
+            <div aria-hidden className="cp-section-rule mt-5">
+              <span />
+              <i>✦</i>
+              <span />
+            </div>
+            <p className="cp-display cp-thin mx-auto mt-5 max-w-xl text-[1.45rem] italic leading-snug sm:text-[1.75rem]" style={{ color: "var(--c-gold)" }}>
+              {method.tagline}
+            </p>
+            {content.subtitle && <p className="cp-muted cp-thin-text mx-auto mt-5 max-w-lg whitespace-pre-line text-[1.05rem] leading-relaxed">{content.subtitle}</p>}
+          </header>
+          {cover && (
+            <div className="cp-luxe-frame mt-10" data-reveal>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={cover.src}
+                srcSet={imageSrcSet(cover.src, cover.width)}
+                sizes="(min-width: 768px) 696px, calc(100vw - 40px)"
+                width={cover.width}
+                height={cover.height}
+                alt={cover.alt}
+                fetchPriority="high"
+                decoding="async"
+                className="block h-auto w-full"
+              />
+            </div>
+          )}
+          <div className="mt-14 space-y-8">
+            <ContentBlocks
+              luxe
+              modelIcon={method.icon}
+              blocks={visibleBlocks(content.blocks)}
+              username={username}
+              titleLevel={2}
+              hiddenSlugs={hiddenSlugs}
+              siteOrigin={siteOrigin}
+              oracleDecks={oracleDecks}
+              modelGate={personal ? { username, creatorName: config.displayName, privacyHref: creatorLegalHref(username, "privacidad") } : null}
+              moonCircles={moonCircles}
+            />
+          </div>
+        </main>
+        <Reveal />
+      </CreatorShell>
+    );
   return (
     <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back}>
       <main className={`relative mx-auto w-full max-w-[44rem] px-5 pb-10 ${cover ? "pt-8" : "pt-10 sm:pt-16"}`} data-cover={cover ? "yes" : "no"}>
@@ -70,28 +182,14 @@ export function SitePageView({
             className="mb-8 h-auto w-full rounded-[var(--r-card)]"
           />
         )}
-        {method ? (
-          // Página de un método («Human Design: el manual…»): su icono delante del nombre y la frase debajo, como subtítulo.
-          <>
-            <div className="flex items-center gap-4">
-              <SystemIconMark icon={method.icon} scale={1.15} />
-              <h1 className="cp-display text-[2.4rem] leading-[1.05] sm:text-[3rem]">{method.name}</h1>
-            </div>
-            <p className="cp-display cp-gold mt-3 text-[1.45rem] italic leading-snug sm:text-[1.7rem]">{method.tagline}</p>
-          </>
-        ) : (
-          <>
-            {/* Sin imagen de cabecera: el nombre encima, como una portadilla, y una línea dorada debajo de la entradilla. */}
-            {!cover && <p className="cp-eyebrow cp-gold mb-4">{config.displayName}</p>}
-            <h1 className="cp-display text-[2.4rem] leading-[1.05] sm:text-[3rem]">{content.title}</h1>
-          </>
-        )}
+        {/* Sin imagen de cabecera: el nombre encima, como una portadilla, y una línea dorada debajo de la entradilla. */}
+        {!cover && <p className="cp-eyebrow cp-gold mb-4">{config.displayName}</p>}
+        <h1 className="cp-display text-[2.4rem] leading-[1.05] sm:text-[3rem]">{content.title}</h1>
         {content.subtitle && <p className="cp-muted mt-5 whitespace-pre-line text-[1.05rem] leading-relaxed sm:text-[1.1rem]">{content.subtitle}</p>}
         {!cover && <span aria-hidden className="mt-8 block h-px w-20 bg-[var(--c-gold)] opacity-70" />}
         <div className={bare ? "mt-12 space-y-16" : "mt-10 space-y-6"}>
           <ContentBlocks
             bare={bare}
-            modelIcon={method?.icon}
             blocks={visibleBlocks(content.blocks)}
             username={username}
             titleLevel={2}

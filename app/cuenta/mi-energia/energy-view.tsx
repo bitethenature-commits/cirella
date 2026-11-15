@@ -132,32 +132,25 @@ export function EnergyViewClient({ view, profiles, selectedId, decks }: { view: 
 
       {view === "inicio" && (
         <>
-          {/* 2 · Oráculo y Runas */}
+          {/* 2 · Los cuatro sistemas: como en la web, un icono y su nombre debajo, sin cajas ni título */}
+          <ul aria-label="Tus sistemas" className="grid grid-cols-4 gap-x-2 gap-y-6 pt-2">
+            {ENERGY_SYSTEMS.map((s) => (
+              <li key={s.slug}>
+                <SystemIconLink
+                  label={s.label}
+                  icon={SYSTEM_ICON[s.slug]}
+                  hint={selected ? (systemHint(s.slug, energy) ?? s.blurb) : s.blurb}
+                  href={energyHref(s.slug, selected?.id)}
+                  disabled={!selected}
+                />
+              </li>
+            ))}
+          </ul>
+
+          {/* 3 · Oráculo y Runas */}
           <section aria-label="Oráculo y runas" className="flex justify-center gap-8 sm:gap-12">
             <Bubble href={energyHref("oraculo", selected?.id)} label="Oráculo" icon={OracleIcon} />
             <Bubble href={energyHref("runas", selected?.id)} label="Runas" icon={RuneIcon} />
-          </section>
-
-          {/* 3 · Los cuatro sistemas */}
-          <section aria-labelledby="sistemas">
-            <h2 id="sistemas" className="cp-eyebrow">
-              Tus sistemas
-            </h2>
-            <ul className="mt-3 grid grid-cols-2 gap-3">
-              {ENERGY_SYSTEMS.map((s) => (
-                <li key={s.slug}>
-                  <SystemCard
-                    slug={s.slug}
-                    label={s.label}
-                    icon={SYSTEM_ICON[s.slug]}
-                    blurb={s.blurb}
-                    hint={selected ? systemHint(s.slug, energy) : null}
-                    href={energyHref(s.slug, selected?.id)}
-                    disabled={!selected}
-                  />
-                </li>
-              ))}
-            </ul>
           </section>
 
           {/* 4 · Tu energía de hoy, junta */}
@@ -374,24 +367,26 @@ function Bubble({ href, label, icon: Icon }: { href: string; label: string; icon
   );
 }
 
-function SystemCard({ label, icon, blurb, hint, href, disabled }: { slug: string; label: string; icon: Icon; blurb: string; hint: string | null; href: string; disabled: boolean }) {
+/** Un sistema como en la web: el icono dorado y su nombre debajo, sin caja. Sin datos guardados sale tenue. */
+function SystemIconLink({ label, icon: Icon, hint, href, disabled }: { label: string; icon: Icon; hint: string; href: string; disabled: boolean }) {
+  // Los redondos (carta astral, luna) llenan su cuadrado: algo más pequeños para que pesen como los demás.
+  const round = Icon === AstrologyIcon || Icon === MoonIcon;
   const body = (
     <>
-      <span className="flex items-center gap-2.5">
-        <SystemIconMark icon={icon} scale={0.7} />
-        <span className="cp-display block text-[1.2rem] leading-tight">{label}</span>
+      <span className="grid h-14 w-14 place-items-center">
+        <Icon className={`cp-gold shrink-0 transition-transform duration-300 group-hover:-translate-y-1 ${round ? "h-11 w-11" : "h-[3.25rem] w-[3.25rem]"}`} strokeWidth={1.05} aria-hidden />
       </span>
-      <span className="cp-muted mt-1 block text-[0.78rem] leading-snug">{hint ?? blurb}</span>
+      <span className="cp-display text-[1.05rem] leading-tight sm:text-[1.2rem]">{label}</span>
     </>
   );
   if (disabled)
     return (
-      <span className="cp-card block h-full p-4 opacity-55" aria-disabled>
+      <span className="flex flex-col items-center gap-2 text-center opacity-50" aria-disabled title={hint}>
         {body}
       </span>
     );
   return (
-    <Link href={href} className="cp-card cp-card-hover block h-full p-4">
+    <Link href={href} className="group flex flex-col items-center gap-2 text-center" title={hint}>
       {body}
     </Link>
   );

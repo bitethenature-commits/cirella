@@ -1,80 +1,89 @@
 "use client";
-import { CalendarClock, Loader2 } from "lucide-react";
+import { CalendarDays, Layers, Loader2, Timer } from "lucide-react";
 import { useState, useTransition } from "react";
 import { dripSummary, type DripSettings } from "@/lib/course-drip";
 import { saveDrip, type StudioResult } from "../actions";
 
 const OPTIONS = [
-  { value: "ALL", label: "Todas a la vez", hint: "Tus alumnas ven todas las lecciones publicadas desde que se apuntan." },
-  { value: "INTERVAL", label: "Una lección cada pocos días", hint: "La primera, el día que se apunta; luego una nueva cada N días, por orden." },
-  { value: "LESSON", label: "Cada lección, el día que elijas", hint: "En cada lección pones «Disponible a los N días» (en su editor o en su menú «…»)." },
+  { value: "ALL", label: "Todas a la vez", icon: Layers, hint: "Ven todas las lecciones publicadas desde que se apuntan." },
+  { value: "INTERVAL", label: "Cada pocos días", icon: Timer, hint: "La primera el día que se apunta y luego una nueva cada N días." },
+  { value: "LESSON", label: "Por lección", icon: CalendarDays, hint: "En cada lección pones «Disponible a los N días» (en su menú «…»)." },
 ] as const;
 
 /**
- * «Abrir las lecciones poco a poco» (lib/course-drip.ts): todas a la vez, una cada N días desde
- * que se apunta o cada lección el día que diga. Las alumnas ven las cerradas con candado y la fecha.
+ * «Cómo se abren las lecciones» (lib/course-drip.ts), compacto: tres iconos (todas a la vez, una cada N
+ * días o cada lección el día que diga). Se guarda al tocar; «cada pocos días» pide los días y su «Guardar».
  */
 export function DripCard({ productId, drip }: { productId: string; drip: DripSettings }) {
   const [mode, setMode] = useState<string>(drip.mode ?? "ALL");
   const [every, setEvery] = useState(drip.everyDays ? String(drip.everyDays) : "7");
   const [msg, setMsg] = useState<StudioResult | null>(null);
   const [saving, start] = useTransition();
-  const changed = mode !== (drip.mode ?? "ALL") || (mode === "INTERVAL" && every !== String(drip.everyDays ?? ""));
+  const save = (m: string, days = every) => start(async () => setMsg(await saveDrip(productId, { mode: m, everyDays: days })));
+  const current = OPTIONS.find((o) => o.value === mode) ?? OPTIONS[0];
   return (
-    <section className="card p-5" aria-labelledby="drip-titulo" data-drip-card>
-      <div className="flex items-start gap-3">
-        <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-lavender-deep" />
-        <div className="min-w-0 flex-1">
-          <h2 id="drip-titulo" className="font-semibold">
-            Abrir las lecciones poco a poco
-          </h2>
-          <p className="text-xs text-muted">Ahora: {dripSummary(drip)}. Cuenta desde el día en que cada alumna se apunta.</p>
-        </div>
+    <section className="card p-4" aria-labelledby="drip-titulo" data-drip-card>
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="drip-titulo" className="text-[0.66rem] font-medium uppercase tracking-[0.3em] text-gold">
+          Cómo se abren
+        </h2>
+        {saving && <Loader2 className="h-4 w-4 animate-spin text-muted" />}
       </div>
-      <form
-        className="mt-4 space-y-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          start(async () => setMsg(await saveDrip(productId, { mode, everyDays: every })));
-        }}
-      >
-        <fieldset className="space-y-2">
-          <legend className="sr-only">Cómo se abren las lecciones</legend>
-          {OPTIONS.map((o) => (
-            <label key={o.value} className={`flex cursor-pointer gap-3 rounded-2xl border p-3 transition ${mode === o.value ? "border-ink bg-sand/40" : "border-line hover:bg-sand/30"}`}>
-              <input type="radio" name="drip" value={o.value} checked={mode === o.value} onChange={() => setMode(o.value)} className="mt-1 accent-[var(--color-ink,#1a1d3d)]" />
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold">{o.label}</span>
-                <span className="block text-xs text-muted">{o.hint}</span>
-                {o.value === "INTERVAL" && mode === "INTERVAL" && (
-                  <span className="mt-2 flex items-center gap-2 text-sm">
-                    Cada
-                    <input
-                      aria-label="Cada cuántos días"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={every}
-                      onChange={(e) => setEvery(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
-                      className="input h-10 w-20 text-base sm:text-sm"
-                    />
-                    días
-                  </span>
-                )}
-              </span>
-            </label>
-          ))}
-        </fieldset>
-        <div className="flex flex-wrap items-center gap-3 pt-1">
-          <button className="btn btn-primary btn-sm" disabled={saving || !changed}>
-            {saving && <Loader2 className="h-4 w-4 animate-spin" />} Guardar
+      <div className="mt-3 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Cómo se abren las lecciones">
+        {OPTIONS.map((o) => {
+          const on = mode === o.value;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              disabled={saving}
+              title={o.hint}
+              onClick={() => {
+                setMode(o.value);
+                if (o.value !== "INTERVAL") save(o.value);
+              }}
+              className={`studio-pick flex flex-col items-center gap-1.5 rounded-2xl border px-1 py-2.5 text-center transition ${on ? "is-on" : "border-line text-muted hover:text-ink"}`}
+            >
+              <o.icon className="h-5 w-5" strokeWidth={1.4} />
+              <span className="text-[0.7rem] font-semibold leading-tight">{o.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      {mode === "INTERVAL" ? (
+        <form
+          className="mt-3 flex items-center gap-2 text-sm"
+          onSubmit={(e) => {
+            e.preventDefault();
+            save("INTERVAL");
+          }}
+        >
+          Una cada
+          <input
+            aria-label="Cada cuántos días"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={every}
+            onChange={(e) => setEvery(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
+            className="input h-9 w-16 text-base sm:text-sm"
+          />
+          días
+          <button className="btn btn-primary btn-sm ml-auto" disabled={saving}>
+            Guardar
           </button>
-          {msg && (
-            <span className={`text-xs ${msg.error ? "text-[#9a3a2e]" : "text-[#2f6b4a]"}`} role={msg.error ? "alert" : "status"}>
-              {msg.error ?? msg.ok}
-            </span>
-          )}
-        </div>
-      </form>
+        </form>
+      ) : (
+        <p className="mt-2 text-[0.72rem] text-muted">{current.hint}</p>
+      )}
+      {msg ? (
+        <p className={`mt-1.5 text-[0.72rem] ${msg.error ? "text-[#9a3a2e]" : "text-[#2f6b4a]"}`} role={msg.error ? "alert" : "status"}>
+          {msg.error ?? msg.ok}
+        </p>
+      ) : (
+        <p className="mt-1.5 text-[0.72rem] text-faint">Ahora: {dripSummary(drip)}.</p>
+      )}
     </section>
   );
 }

@@ -95,7 +95,7 @@ export function PostArticle({
             alt=""
             fetchPriority="high"
             decoding="async"
-            className="aspect-[16/9] w-full object-cover"
+            className="cp-luxe-frame aspect-[4/3] w-full object-cover"
           />
         </div>
       )}

@@ -36,7 +36,7 @@ export default async function ComunidadPage({ params }: { params: Promise<Params
   const data = await sectionPageData(username);
   if (!data) notFound();
   const { creator, config } = data;
-  const memberships = data.products.filter((p) => p.type === "MEMBERSHIP" && !(data.signupsOnly && (p.accessMode ?? "PAID") === "PAID"));
+  const memberships = data.products.filter((p) => p.type === "MEMBERSHIP");
   const [edges, descriptions] = await Promise.all([
     prisma.productInclusion.findMany({ where: { creatorId: creator.id }, select: { productId: true, includedProductId: true } }),
     prisma.product.findMany({ where: { id: { in: memberships.map((m) => m.id) } }, select: { id: true, description: true, summary: true } }),
@@ -78,7 +78,7 @@ export default async function ComunidadPage({ params }: { params: Promise<Params
               return (
                 <section key={t.id} className={`cp-card tier-card relative flex flex-col overflow-hidden ${highlight ? "is-highlight md:-mt-4" : ""}`} aria-labelledby={`nivel-${t.id}`} data-tier={t.slug}>
                   {/* La foto del nivel, con su emblema. */}
-                  <div className="relative aspect-[16/8] overflow-hidden">
+                  <div className="cp-photo-bubble cp-photo-in relative aspect-[4/3]">
                     {t.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={t.imageUrl} alt="" className="cp-img absolute inset-0 h-full w-full object-cover" loading="lazy" decoding="async" />

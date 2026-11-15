@@ -41,7 +41,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
       { done: !!cfg.avatarUrl, label: "Sube tu foto", href: "/panel/pagina" },
       { done: legalIdentityComplete(creator), label: "Completa tu aviso legal", href: "/panel/ajustes/legal" },
       { done: cfg.links.length > 0 || Object.keys(cfg.socials).length > 0, label: "Añade tus redes y enlaces", href: "/panel/pagina" },
-      { done: posts > 0, label: "Escribe tu primera publicación", href: "/panel/publicaciones" },
+      { done: creator.newsDays != null || posts > 0, label: "Elige cuántos días duran tus actualidades", href: "/panel/actualidades" },
       { done: codes > 0, label: "Añade un código de descuento", href: "/panel/codigos" },
       { done: s.pageViews > 0, label: "Pon tu enlace en tu bio", href: "/panel/ajustes#compartir" },
     ];
@@ -440,8 +440,8 @@ function PersonalHome({
         <Link href="/panel/productos/nuevo" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
           <Plus className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Nuevo producto</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
         </Link>
-        <Link href="/panel/publicaciones" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
-          <Newspaper className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Nueva publicación</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
+        <Link href="/panel/actualidades" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
+          <Newspaper className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Actualidades</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
         </Link>
         <Link href="/panel/pagina" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
           <Palette className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Editar mi página</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />

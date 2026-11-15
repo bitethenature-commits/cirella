@@ -1,5 +1,5 @@
 "use client";
-import { CalendarDays, Images, Loader2, Moon, Trash2, Upload } from "lucide-react";
+import { CalendarDays, Headphones, Images, Loader2, Moon, Sparkles, Trash2, Upload, Video } from "lucide-react";
 import { startTransition, useActionState, useRef, useState } from "react";
 import { Flash } from "@/components/ui/flash";
 import { ImageUpload } from "@/components/ui/image-upload";
@@ -72,8 +72,13 @@ export function PortalForm({ item, linkTargets, moonDates }: { item: EditablePor
     if (input.current) input.current.value = "";
   };
 
+  const [status, setStatus] = useState(item.status);
+  const KIND_ICON = { VIDEO: Video, AUDIO: Headphones, PHOTOS: Images, LIVE: CalendarDays, EARLY_BIRD: Sparkles } as const;
+
   return (
     <form
+      // Igual que el formulario de una actualidad (app/panel/publicaciones/post-form.tsx): título y texto,
+      // el vídeo o audio, el botón, la imagen y el estado, en el mismo orden y con las mismas tarjetas.
       onSubmit={(e) => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
@@ -86,137 +91,161 @@ export function PortalForm({ item, linkTargets, moonDates }: { item: EditablePor
       <input type="hidden" name="coverUrl" value={cover ?? ""} />
       <input type="hidden" name="media" value={JSON.stringify(shown.map((m) => m.ref))} />
       <input type="hidden" name="linkUrl" value={link} />
+      <input type="hidden" name="kind" value={kind} />
 
       <section className="card space-y-4 p-5 sm:p-6">
         <div>
-          <p className="field-label">Tipo</p>
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Tipo">
-            {PORTAL_KINDS.map((k) => (
-              <label key={k} className={`cursor-pointer rounded-full border px-3.5 py-2 text-sm ${kind === k ? "border-ink bg-ink text-cream" : "border-line bg-white"}`}>
-                <input type="radio" name="kind" value={k} checked={kind === k} onChange={() => setKind(k)} className="sr-only" />
-                {PORTAL_KIND_LABEL[k]}
-              </label>
-            ))}
-          </div>
-        </div>
-        <div>
           <label className="field-label" htmlFor="portal-title">Título</label>
-          <input id="portal-title" name="title" className="input" required maxLength={PORTAL_TITLE_MAX} defaultValue={item.title} placeholder="Ritual de luna nueva" />
-        </div>
-        <div>
-          <label className="field-label" htmlFor="portal-summary">Texto corto <span className="font-normal text-muted">(se ve también bloqueado)</span></label>
-          <input id="portal-summary" name="summary" className="input" maxLength={PORTAL_SUMMARY_MAX} defaultValue={item.summary} placeholder="Hasta el 15 de noviembre." />
+          <input id="portal-title" name="title" className="input" required maxLength={PORTAL_TITLE_MAX} defaultValue={item.title} placeholder="Ej.: Ritual de luna nueva" />
         </div>
         <div>
           <label className="field-label" htmlFor="portal-body">Texto <span className="font-normal text-muted">(solo para suscriptoras)</span></label>
-          <textarea id="portal-body" name="body" className="input" rows={4} maxLength={PORTAL_BODY_MAX} defaultValue={item.body} />
+          <textarea id="portal-body" name="body" className="input" rows={8} maxLength={PORTAL_BODY_MAX} defaultValue={item.body} />
+        </div>
+        <div>
+          <label className="field-label" htmlFor="portal-summary">Extracto <span className="font-normal text-muted">(opcional)</span></label>
+          <textarea id="portal-summary" name="summary" className="input" rows={2} maxLength={PORTAL_SUMMARY_MAX} defaultValue={item.summary} />
+          <p className="field-hint">Se ve también con el candado, para que den ganas de suscribirse.</p>
         </div>
       </section>
 
-      {fileKind && (
-        <section className="card space-y-3 p-5 sm:p-6" aria-labelledby="portal-files">
-          <h3 id="portal-files" className="font-semibold">{kind === "PHOTOS" ? `Fotos (hasta ${PORTAL_PHOTOS_MAX})` : kind === "VIDEO" ? "Vídeo" : "Audio"}</h3>
+      <section className="card space-y-4 p-5 sm:p-6" aria-labelledby="portal-files">
+        <div>
+          <h3 id="portal-files" className="font-semibold">Vídeo, audio o fotos</h3>
           <p className="text-xs text-muted">Privado: solo lo abre quien lo tiene desbloqueado. Nadie puede compartir el enlace.</p>
-          {shown.length > 0 && (
-            <ul className="space-y-1.5">
-              {shown.map((m) => (
-                <li key={m.ref} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm">
-                  {kind === "PHOTOS" ? <Images className="h-4 w-4 text-muted" /> : <Upload className="h-4 w-4 text-muted" />}
-                  <span className="min-w-0 flex-1 truncate">{m.name}</span>
-                  <button type="button" onClick={() => setMedia((cur) => cur.filter((x) => x.ref !== m.ref))} className="text-muted hover:text-rose" aria-label={`Quitar ${m.name}`}>
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {upload ? (
-            <p className="flex items-center gap-2 text-sm" role="status">
-              <Loader2 className="h-4 w-4 animate-spin" /> Subiendo «{upload.name}» · {upload.pct} %
-            </p>
-          ) : (
-            shown.length < max && (
-              <>
-                <input ref={input} type="file" accept={ACCEPT[fileKind]} multiple={kind === "PHOTOS"} className="hidden" aria-label="Subir archivo del portal" onChange={(e) => e.target.files?.length && onFiles(e.target.files)} />
-                <button type="button" onClick={() => input.current?.click()} className="btn btn-outline btn-sm">
-                  <Upload className="h-4 w-4" /> {shown.length ? (kind === "PHOTOS" ? "Añadir fotos" : "Cambiar") : kind === "PHOTOS" ? "Subir fotos" : kind === "VIDEO" ? "Subir vídeo" : "Subir audio"}
-                </button>
-              </>
-            )
-          )}
-          {uploadError && (
-            <p role="alert" className="text-sm text-rose">
-              {uploadError}
-            </p>
-          )}
-        </section>
-      )}
-
-      {(kind === "LIVE" || kind === "EARLY_BIRD") && (
-        <section className="card space-y-3 p-5 sm:p-6">
-          <h3 className="font-semibold">{kind === "LIVE" ? "Directo" : "Oferta Early Bird"}</h3>
-          {kind === "LIVE" ? (
-            <>
-              <div>
-                <label className="field-label" htmlFor="portal-zoom">Enlace de Zoom</label>
-                <input id="portal-zoom" className="input" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://us02web.zoom.us/j/…" maxLength={600} />
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="field-label" htmlFor="portal-date">Día</label>
-                  <input id="portal-date" name="eventDate" type="date" className="input h-11" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
-                </div>
-                <div>
-                  <label className="field-label" htmlFor="portal-time">Hora (España)</label>
-                  <input id="portal-time" name="eventTime" type="time" step={300} className="input h-11" value={eventTime} onChange={(e) => setEventTime(e.target.value)} />
-                </div>
-              </div>
-              {moonDates.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="inline-flex items-center gap-1 text-muted">
-                    <CalendarDays className="h-3.5 w-3.5" /> Próximas lunas:
-                  </span>
-                  {moonDates.map((m) => (
-                    <button key={m.date} type="button" className="btn btn-ghost btn-sm" onClick={() => { setEventDate(m.date); setEventTime(m.time); }}>
-                      <Moon className="h-3.5 w-3.5" /> {m.label}
+        </div>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5" role="radiogroup" aria-label="Qué es">
+          {PORTAL_KINDS.map((k) => {
+            const Icon = KIND_ICON[k];
+            const on = kind === k;
+            return (
+              <button key={k} type="button" role="radio" aria-checked={on} onClick={() => setKind(k)} className={`studio-pick flex flex-col items-center gap-1.5 rounded-2xl border px-1 py-3 text-center transition ${on ? "is-on" : "border-line text-muted hover:text-ink"}`}>
+                <Icon className="h-5 w-5" strokeWidth={1.4} />
+                <span className="text-[0.72rem] font-semibold">{PORTAL_KIND_LABEL[k]}</span>
+              </button>
+            );
+          })}
+        </div>
+        {fileKind && (
+          <>
+            {shown.length > 0 && (
+              <ul className="space-y-1.5">
+                {shown.map((m) => (
+                  <li key={m.ref} className="flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm">
+                    {kind === "PHOTOS" ? <Images className="h-4 w-4 text-muted" /> : <Upload className="h-4 w-4 text-muted" />}
+                    <span className="min-w-0 flex-1 truncate">{m.name}</span>
+                    <button type="button" onClick={() => setMedia((cur) => cur.filter((x) => x.ref !== m.ref))} className="text-muted hover:text-rose" aria-label={`Quitar ${m.name}`}>
+                      <Trash2 className="h-4 w-4" />
                     </button>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
+                  </li>
+                ))}
+              </ul>
+            )}
+            {upload ? (
+              <p className="flex items-center gap-2 text-sm" role="status">
+                <Loader2 className="h-4 w-4 animate-spin" /> Subiendo «{upload.name}» · {upload.pct} %
+              </p>
+            ) : (
+              shown.length < max && (
+                <>
+                  <input ref={input} type="file" accept={ACCEPT[fileKind]} multiple={kind === "PHOTOS"} className="hidden" aria-label="Subir archivo del portal" onChange={(e) => e.target.files?.length && onFiles(e.target.files)} />
+                  <button type="button" onClick={() => input.current?.click()} className="btn btn-outline btn-sm">
+                    <Upload className="h-4 w-4" /> {shown.length ? (kind === "PHOTOS" ? "Añadir fotos" : "Cambiar") : kind === "PHOTOS" ? `Subir fotos (hasta ${PORTAL_PHOTOS_MAX})` : kind === "VIDEO" ? "Subir vídeo" : "Subir audio"}
+                  </button>
+                </>
+              )
+            )}
+            {uploadError && (
+              <p role="alert" className="text-sm text-rose">
+                {uploadError}
+              </p>
+            )}
+          </>
+        )}
+        {kind === "LIVE" && (
+          <div className="space-y-3">
             <div>
-              <p className="field-label">Producto u oferta</p>
-              <LinkInput value={link} onChange={setLink} ariaLabel="Enlace de la oferta Early Bird" targets={linkTargets} className="input" />
+              <label className="field-label" htmlFor="portal-zoom">Enlace de Zoom</label>
+              <input id="portal-zoom" className="input" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://us02web.zoom.us/j/…" maxLength={600} />
             </div>
-          )}
-          <div>
-            <label className="field-label" htmlFor="portal-link-label">Texto del botón</label>
-            <input id="portal-link-label" name="linkLabel" className="input" maxLength={40} defaultValue={item.linkLabel} placeholder={kind === "LIVE" ? "Entrar al directo" : "Ver la oferta"} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="field-label" htmlFor="portal-date">Día</label>
+                <input id="portal-date" name="eventDate" type="date" className="input h-11" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="field-label" htmlFor="portal-time">Hora (España)</label>
+                <input id="portal-time" name="eventTime" type="time" step={300} className="input h-11" value={eventTime} onChange={(e) => setEventTime(e.target.value)} />
+              </div>
+            </div>
+            {moonDates.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="inline-flex items-center gap-1 text-muted">
+                  <CalendarDays className="h-3.5 w-3.5" /> Próximas lunas:
+                </span>
+                {moonDates.map((m) => (
+                  <button key={m.date} type="button" className="btn btn-ghost btn-sm" onClick={() => { setEventDate(m.date); setEventTime(m.time); }}>
+                    <Moon className="h-3.5 w-3.5" /> {m.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </section>
-      )}
+        )}
+      </section>
+
+      <section className="card space-y-3 p-5 sm:p-6" aria-labelledby="portal-cta-title">
+        <div>
+          <h3 id="portal-cta-title" className="font-semibold">Botón <span className="font-normal text-muted">{kind === "LIVE" ? "(para entrar al directo)" : "(opcional)"}</span></h3>
+          <p className="text-xs text-muted">{kind === "LIVE" ? "Lleva al enlace de Zoom de arriba." : "Lleva a un producto, una página o una web (por ejemplo, la oferta Early Bird)."}</p>
+        </div>
+        <div>
+          <label className="field-label" htmlFor="portal-link-label">Texto del botón</label>
+          <input id="portal-link-label" name="linkLabel" className="input" maxLength={40} defaultValue={item.linkLabel} placeholder={kind === "LIVE" ? "Entrar al directo" : "Ver la oferta"} />
+        </div>
+        {kind !== "LIVE" && (
+          <div>
+            <p className="field-label">Enlace del botón</p>
+            <LinkInput value={link} onChange={setLink} ariaLabel="Enlace del botón" targets={linkTargets} className="input" />
+          </div>
+        )}
+      </section>
 
       <section className="card space-y-4 p-5 sm:p-6">
         <div>
-          <p className="field-label">Portada <span className="font-normal text-muted">(se ve desenfocada con el candado)</span></p>
-          <ImageUpload shape="wide" value={cover} onChange={setCover} label="Añadir portada" />
+          <p className="field-label">Imagen <span className="font-normal text-muted">(se ve desenfocada con el candado)</span></p>
+          <ImageUpload shape="wide" value={cover} onChange={setCover} label="Añadir imagen" />
+          <p className="field-hint">Horizontal. En el vídeo, es la portada antes de darle al play.</p>
         </div>
         <label className="flex items-center gap-2.5 text-sm">
-          <input type="checkbox" name="featured" defaultChecked={item.featured} className="h-4 w-4 accent-[#0E1024]" />
-          Destacado: el grande de arriba en tu portada
+          <input type="checkbox" name="featured" defaultChecked={item.featured} className="h-4 w-4" />
+          Principal: sale en grande arriba, en tu portada y en el panel
         </label>
-        <div>
-          <label className="field-label" htmlFor="portal-status">Estado</label>
-          <select id="portal-status" name="status" defaultValue={item.status} className="input">
-            <option value="PUBLISHED">Publicado</option>
-            <option value="DRAFT">Borrador (no se ve)</option>
-          </select>
+      </section>
+
+      <section className="card p-5 sm:p-6">
+        <p className="field-label">Estado</p>
+        <input type="hidden" name="status" value={status} />
+        <div className="grid gap-2 sm:grid-cols-2">
+          {(
+            [
+              ["DRAFT", "Borrador", "Solo tú lo ves."],
+              ["PUBLISHED", "Publicado", "Se ve en tu Portal de Noticias."],
+            ] as const
+          ).map(([value, label, hint]) => (
+            <label key={value} className={`studio-pick flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${status === value ? "is-on" : "border-line"}`}>
+              <input type="radio" checked={status === value} onChange={() => setStatus(value)} className="mt-1" />
+              <span>
+                <span className="block text-sm font-semibold">{label}</span>
+                <span className="block text-xs text-muted">{hint}</span>
+              </span>
+            </label>
+          ))}
         </div>
       </section>
 
       <button type="submit" className="btn btn-primary" disabled={pending || !!upload}>
-        {pending && <Loader2 className="h-4 w-4 animate-spin" />} {item.id ? "Guardar cambios" : "Guardar"}
+        {pending && <Loader2 className="h-4 w-4 animate-spin" />} {item.id ? "Guardar cambios" : status === "PUBLISHED" ? "Publicar" : "Guardar borrador"}
       </button>
     </form>
   );

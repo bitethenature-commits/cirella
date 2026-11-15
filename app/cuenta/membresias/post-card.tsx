@@ -6,7 +6,7 @@ import { tzCity } from "@/lib/timezones";
 import { formatDate, formatSessionDate } from "@/lib/tz";
 import { JoinButton, KindBadge, kindStyle } from "./kind-style";
 import { postCover } from "./cover";
-import { CardSave } from "./card-save";
+import { CardActions } from "./card-actions";
 
 
 export type CardPost = {
@@ -35,8 +35,10 @@ export type CardPost = {
 
 type CardProps = {
   post: CardPost;
-  /** Enseña el botón de favoritos sobre la foto (miembros con sesión de cuenta). */
+  /** ★ favoritos en la tarjeta (miembros con sesión de cuenta). */
   canSave?: boolean;
+  /** ♥ «me gusta» en la tarjeta, sin entrar (miembros; no la dueña). */
+  canLike?: boolean;
   timeZone: string;
   /** De un nivel de abajo incluido en el tuyo (o, en el estudio, el nivel de la publicación): su nombre. */
   tier?: string | null;
@@ -59,12 +61,7 @@ export function PostCard(props: CardProps) {
       <span aria-hidden className="absolute inset-x-6 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${s.light}aa, transparent)` }} />
       <Link href={`/cuenta/membresias/${props.post.productId}/${props.post.id}`} className="absolute inset-0 z-0 rounded-[inherit]" aria-label={props.post.title} />
       <div className="flex gap-4 sm:gap-6">
-        <div className="relative w-24 shrink-0 self-stretch overflow-hidden rounded-[1.1rem] sm:w-44" style={{ minHeight: "9rem", boxShadow: `0 0 0 1px ${s.light}33, 0 18px 40px -20px ${s.color}` }} data-post-cover>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={postCover(props.post).src} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" />
-          <span aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 55%, ${s.color}55)` }} />
-          {props.canSave && <CardSave postId={props.post.id} saved={!!props.post.savedByMe} />}
-        </div>
+        <PostCover post={props.post} />
         <div className="min-w-0 flex-1">
           <PostCardBody {...props} />
         </div>
@@ -73,11 +70,23 @@ export function PostCard(props: CardProps) {
   );
 }
 
+/** La foto de la tarjeta: en una burbuja con filo dorado, a la izquierda (el feed y el Muro del panel). */
+export function PostCover({ post }: { post: CardPost }) {
+  const s = kindStyle(post.kind);
+  return (
+    <div className="post-cover relative w-24 shrink-0 self-stretch overflow-hidden rounded-[1.1rem] sm:w-44" style={{ minHeight: "9rem" }} data-post-cover>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={postCover(post).src} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+      <span aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 55%, ${s.color}55)` }} />
+    </div>
+  );
+}
+
 /**
  * Lo de dentro de la tarjeta, sin el enlace: el feed de las miembros la envuelve en un enlace y el
  * estudio Comunidad del panel, en su tarjeta con las acciones y la moderación (`views`: sus lectoras).
  */
-export function PostCardBody({ post, timeZone, tier = null, views = null }: CardProps & { views?: number | null }) {
+export function PostCardBody({ post, timeZone, tier = null, views = null, canLike = false, canSave = false }: CardProps & { views?: number | null }) {
   const s = kindStyle(post.kind);
   const live = isLivePostKind(post.kind);
   const excerpt = truncateWords(richToPlain(post.body, post.bodyFormat), 220);
@@ -92,13 +101,13 @@ export function PostCardBody({ post, timeZone, tier = null, views = null }: Card
             <Pin className="h-3 w-3" /> Fijada
           </span>
         )}
-        {tier && <span className="rounded-full bg-sand px-2 py-0.5 font-semibold text-ink" data-tier-badge>De «{tier}»</span>}
+        {tier && <span className="post-tier rounded-full px-2.5 py-0.5 font-semibold" data-tier-badge>{tier}</span>}
         {post.state === "DRAFT" && <span className="rounded-full bg-sand px-2 py-0.5 font-semibold text-ink">Borrador · solo lo ves tú</span>}
         {post.state === "SCHEDULED" && <span className="rounded-full border border-[#ecdcb8] bg-[#fbf5e8] px-2 py-0.5 font-semibold text-[#7a5a1c]">Programada · solo lo ves tú</span>}
       </p>
       <DateBox date={post.publishedAt} timeZone={timeZone} />
       </div>
-      <h2 className="display mt-3 text-[1.75rem] leading-[1.1] sm:text-[1.95rem]">{post.title}</h2>
+      <h2 className="display post-title mt-3 text-[1.75rem] leading-[1.1] sm:text-[1.95rem]">{post.title}</h2>
       {post.eventAt && (
         <p className="kind-text mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold" style={{ background: s.soft, "--k-light": s.light, "--k-dark": s.color } as React.CSSProperties} data-event-at>
           <CalendarDays className="h-4 w-4" /> {formatSessionDate(post.eventAt, timeZone)} (hora de {tzCity(timeZone)})
@@ -107,14 +116,18 @@ export function PostCardBody({ post, timeZone, tier = null, views = null }: Card
       {excerpt && <p className="mt-3 font-serif text-[1.08rem] leading-relaxed text-ink/75">{excerpt}</p>}
       {files && <p className="mt-3 text-sm font-medium text-ink/80">{files}</p>}
       {(live || post.kind === "PODCAST") && <JoinButton post={post} className="relative z-10 mt-4" />}
-      {/* La comunidad, aparte: «me gusta» y comentarios en su propia franja. */}
+      {/* La comunidad, aparte: «me gusta», comentarios y favoritos en su propia franja (en el feed, se pulsan sin entrar). */}
+      {(canLike || canSave) && views == null ? (
+        <CardActions postId={post.id} liked={post.likedByMe} likes={post._count.likes} saved={!!post.savedByMe} comments={post._count.comments} canLike={canLike} canSave={canSave} />
+      ) : (
       <p className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3 text-xs font-semibold" data-card-community>
-        <span className={`pill-like inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 ${post.likedByMe ? "is-on" : ""}`}><Heart className={`h-3.5 w-3.5 ${post.likedByMe ? "fill-current" : ""}`} /> {post._count.likes} {post._count.likes === 1 ? "me gusta" : "me gusta"}</span>
+        <span className={`pill-like inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 ${post.likedByMe ? "is-on" : ""}`}><Heart className={`h-3.5 w-3.5 ${post.likedByMe ? "fill-current" : ""}`} /> {post._count.likes} me gusta</span>
         <span className="pill-com inline-flex items-center gap-1.5 rounded-full px-2.5 py-1"><MessageCircle className="h-3.5 w-3.5" /> {post._count.comments} {post._count.comments === 1 ? "comentario" : "comentarios"}</span>
         {views != null && (
           <span className="inline-flex items-center gap-1" data-views><Eye className="h-3.5 w-3.5" /> {views} {views === 1 ? "vista" : "vistas"}</span>
         )}
       </p>
+      )}
     </>
   );
 }

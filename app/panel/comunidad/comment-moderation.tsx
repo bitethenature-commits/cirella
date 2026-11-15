@@ -5,6 +5,14 @@ import { startTransition, useActionState, useEffect, useState } from "react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { COMMENT_MAX } from "@/lib/community-rules";
 import { blockCommenter, deleteCommentAsOwner, hideComment, ownerReply, type ReplyState } from "./actions";
+import { deleteLessonCommentAsOwner, hideLessonComment, ownerLessonReply } from "../cursos/comentarios/actions";
+
+/** Comentarios de una publicación (Comunidad) o de una lección (Cursos › Comentarios). */
+type Place = "post" | "lesson";
+const ACTIONS = {
+  post: { reply: ownerReply, hide: hideComment, remove: deleteCommentAsOwner, field: "postId" },
+  lesson: { reply: ownerLessonReply, hide: hideLessonComment, remove: deleteLessonCommentAsOwner, field: "lessonId" },
+} as const;
 
 export type StudioComment = {
   id: string;
@@ -17,11 +25,13 @@ export type StudioComment = {
   when: string;
   /** Esta persona no puede comentar en la comunidad. */
   blocked: boolean;
+  /** «Me gusta» que tiene (lo dan las alumnas y miembros). */
+  likes?: number;
   replies: StudioComment[];
 };
 
-function ReplyForm({ postId, parentId, onDone, placeholder }: { postId: string; parentId?: string; onDone?: () => void; placeholder: string }) {
-  const [state, action, pending] = useActionState<ReplyState, FormData>(ownerReply, undefined);
+function ReplyForm({ place, postId, parentId, onDone, placeholder }: { place: Place; postId: string; parentId?: string; onDone?: () => void; placeholder: string }) {
+  const [state, action, pending] = useActionState<ReplyState, FormData>(ACTIONS[place].reply, undefined);
   const [text, setText] = useState("");
   useEffect(() => {
     if (state?.ok) {
@@ -39,7 +49,7 @@ function ReplyForm({ postId, parentId, onDone, placeholder }: { postId: string; 
       }}
       className="flex flex-col gap-2 sm:flex-row sm:items-start"
     >
-      <input type="hidden" name="postId" value={postId} />
+      <input type="hidden" name={ACTIONS[place].field} value={postId} />
       {parentId && <input type="hidden" name="parentId" value={parentId} />}
       <label className="sr-only" htmlFor={`r-${parentId ?? postId}`}>{placeholder}</label>
       <textarea
@@ -62,7 +72,7 @@ function ReplyForm({ postId, parentId, onDone, placeholder }: { postId: string; 
   );
 }
 
-function CommentRow({ c, postId, reply }: { c: StudioComment; postId: string; reply?: boolean }) {
+function CommentRow({ place, c, postId, reply }: { place: Place; c: StudioComment; postId: string; reply?: boolean }) {
   const [replying, setReplying] = useState(false);
   const hidden = c.status === "HIDDEN";
   const removed = c.status === "REMOVED";
@@ -74,6 +84,7 @@ function CommentRow({ c, postId, reply }: { c: StudioComment; postId: string; re
         {hidden && <span className="rounded-full border border-[#ecdcb8] bg-[#fbf5e8] px-2 py-0.5 text-[0.65rem] font-semibold text-[#7a5a1c]">Oculto · solo lo ves tú</span>}
         {c.blocked && !c.byOwner && <span className="rounded-full border border-[#ecd2cd] px-2 py-0.5 text-[0.65rem] font-semibold text-rose">No puede comentar</span>}
         <span>{c.when}</span>
+        {!!c.likes && !removed && <span className="inline-flex items-center gap-0.5 text-rose">♥ {c.likes}</span>}
       </p>
       {removed ? (
         <p className="mt-1 text-sm italic text-muted">Comentario eliminado</p>
@@ -87,7 +98,7 @@ function CommentRow({ c, postId, reply }: { c: StudioComment; postId: string; re
           </button>
         )}
         {!removed && !c.byOwner && (
-          <form action={hideComment}>
+          <form action={ACTIONS[place].hide}>
             <input type="hidden" name="commentId" value={c.id} />
             <input type="hidden" name="hidden" value={hidden ? "0" : "1"} />
             <button className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-muted hover:bg-sand hover:text-ink" aria-label={hidden ? `Volver a mostrar el comentario de ${c.authorName}` : `Ocultar el comentario de ${c.authorName}`}>
@@ -96,7 +107,7 @@ function CommentRow({ c, postId, reply }: { c: StudioComment; postId: string; re
           </form>
         )}
         {!removed && (
-          <ConfirmForm action={deleteCommentAsOwner} message="¿Borrar este comentario? Nadie lo verá más.">
+          <ConfirmForm action={ACTIONS[place].remove} message="¿Borrar este comentario? Nadie lo verá más.">
             <input type="hidden" name="commentId" value={c.id} />
             <button className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-muted hover:bg-sand hover:text-rose" aria-label={`Borrar el comentario de ${c.authorName}`}>
               <Trash2 className="h-3.5 w-3.5" /> Borrar
@@ -118,13 +129,13 @@ function CommentRow({ c, postId, reply }: { c: StudioComment; postId: string; re
       </div>
       {replying && (
         <div className="mt-2">
-          <ReplyForm postId={postId} parentId={c.id} placeholder={`Responde a ${c.authorName}…`} onDone={() => setReplying(false)} />
+          <ReplyForm place={place} postId={postId} parentId={c.id} placeholder={`Responde a ${c.authorName}…`} onDone={() => setReplying(false)} />
         </div>
       )}
       {c.replies.length > 0 && (
         <ul className="mt-3 space-y-3">
           {c.replies.map((r) => (
-            <CommentRow key={r.id} c={r} postId={postId} reply />
+            <CommentRow key={r.id} place={place} c={r} postId={postId} reply />
           ))}
         </ul>
       )}
@@ -137,7 +148,7 @@ function CommentRow({ c, postId, reply }: { c: StudioComment; postId: string; re
  * a mostrar, borrar y dejar (o no) comentar a una persona, sin salir del feed. Se abre solo si hay
  * comentarios nuevos en las últimas 48 h. El texto se pinta siempre como texto.
  */
-export function CommentModeration({ postId, comments, fresh }: { postId: string; comments: StudioComment[]; fresh: boolean }) {
+export function CommentModeration({ place = "post", postId, comments, fresh }: { place?: Place; postId: string; comments: StudioComment[]; fresh: boolean }) {
   const [open, setOpen] = useState(fresh);
   const count = comments.reduce((n, c) => n + (c.status === "REMOVED" ? 0 : 1) + c.replies.filter((r) => r.status !== "REMOVED").length, 0);
   return (
@@ -151,11 +162,11 @@ export function CommentModeration({ postId, comments, fresh }: { postId: string;
           {comments.length > 0 && (
             <ul className="space-y-4">
               {comments.map((c) => (
-                <CommentRow key={c.id} c={c} postId={postId} />
+                <CommentRow key={c.id} place={place} c={c} postId={postId} />
               ))}
             </ul>
           )}
-          <ReplyForm postId={postId} placeholder="Escribe un comentario como autora…" />
+          <ReplyForm place={place} postId={postId} placeholder="Escribe un comentario como autora…" />
         </div>
       )}
     </div>

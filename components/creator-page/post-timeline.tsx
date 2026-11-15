@@ -57,7 +57,7 @@ function TimelineItem({ post, username }: { post: PublicPost; username: string }
       <article className="group relative mt-2.5 flex items-start gap-4 sm:gap-6">
         <Link href={href} className="absolute inset-0 z-[1]" aria-label={post.title} />
         {/* La foto, a la izquierda */}
-        <div className="relative aspect-[4/3] w-[40%] max-w-[16rem] shrink-0 overflow-hidden" style={{ borderRadius: "var(--r-card)" }}>
+        <div className="cp-photo-bubble relative aspect-[4/3] w-[40%] max-w-[16rem] shrink-0">
           {post.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img

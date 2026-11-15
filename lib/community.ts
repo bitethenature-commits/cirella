@@ -162,11 +162,15 @@ export async function loadFeed(i: {
   publishedOnly?: boolean;
   /** Solo estos tipos (los botones «Audios», «Podcast»… del feed). */
   kinds?: string[];
+  /** Buscar un texto en el título o en el cuerpo (el buscador del Muro del estudio). */
+  search?: string | null;
 }) {
   const now = i.now ?? new Date();
   const base: Prisma.MembershipPostWhereInput[] = [{ productId: { in: [i.productId, ...(i.alsoProductIds ?? [])] } }];
   if (!i.viewer.isOwner || i.publishedOnly) base.push(visibleMemberPostWhere(now));
   if (i.kinds?.length) base.push({ kind: { in: i.kinds } });
+  const term = i.search?.trim().slice(0, 80);
+  if (term) base.push({ OR: [{ title: { contains: term, mode: "insensitive" } }, { body: { contains: term, mode: "insensitive" } }] });
   const include = {
     product: { select: { title: true } },
     files: { orderBy: { sortOrder: "asc" }, select: FEED_FILE_SELECT },
@@ -220,7 +224,10 @@ export async function getMemberPost(postId: string, viewer: Viewer, now = new Da
       files: { orderBy: { sortOrder: "asc" } },
       likes: { where: { userId: viewer.userId }, select: { id: true } },
       _count: { select: { likes: true } },
-      comments: { orderBy: { createdAt: "asc" }, include: { _count: { select: { replies: { where: { status: "VISIBLE" } } } } } },
+      comments: {
+        orderBy: { createdAt: "asc" },
+        include: { likes: { where: { userId: viewer.userId }, select: { id: true } }, _count: { select: { likes: true, replies: { where: { status: "VISIBLE" } } } } },
+      },
     },
   });
   if (!post) return null;
@@ -286,7 +293,8 @@ export async function addComment(i: { postId: string; userId: string; isOwner: b
   });
   try {
     if (!i.isOwner) await notifyNewComment(c.id);
-    else if (parent && parent.userId !== i.userId) await notifyReply(c.id);
+    // A quien escribió el comentario, le responda quien le responda (la dueña u otra persona).
+    if (parent && parent.userId !== i.userId) await notifyReply(c.id);
   } catch (e) {
     captureError(e, { area: "comunidad", extra: { commentId: c.id } });
   }

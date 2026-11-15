@@ -13,5 +13,5 @@ export async function withdrawMarketing(form: FormData) {
   await prisma.customer.updateMany({ where: { userId: user.id, creatorId }, data: { marketingOptIn: false, marketingOptInAt: null } });
   // También de su newsletter (si estaba apuntada con este email).
   if (creatorId) await syncConsent(prisma, { creatorId, email: user.email, on: false, source: "PROFILE", form: "perfil" });
-  revalidatePath("/cuenta/perfil");
+  revalidatePath("/cuenta/soporte");
 }

@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import type { ComponentType, CSSProperties, SVGProps } from "react";
-import { Mail, MessageCircle } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
+import { MessageCircle } from "lucide-react";
 import { AstrologyIcon } from "@/components/creator-page/astrology-icon";
+import { SectionHeading } from "@/components/creator-page/creator-page-view";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { EnergyIcon } from "@/components/creator-page/energy-icon";
 import { HumanDesignIcon } from "@/components/creator-page/human-design-icon";
 import { MoonIcon } from "@/components/creator-page/moon-icon";
 import { Avatar } from "@/components/creator-page/product-art";
+import { FlowerOfLife, SacredButton } from "@/components/creator-page/sacred-button";
 import { TrackOnMount } from "@/components/creator-page/tracking";
 import { Reveal } from "@/components/reveal";
 import { sectionPageData } from "../section-data";
@@ -72,15 +74,21 @@ const FOR_YOU = [
   "Buscas un espacio solo para ti, con tiempo y con alguien que te acompañe.",
 ];
 
-/** El cordel dorado del camino. */
-const CORD: CSSProperties = {
-  background: "linear-gradient(to bottom, transparent, color-mix(in oklab, var(--c-gold) 70%, transparent) 8%, color-mix(in oklab, var(--c-gold) 45%, transparent) 85%, transparent)",
-};
+/** La raya dorada con la estrellita en medio. */
+function GoldStar({ className = "" }: { className?: string }) {
+  return (
+    <div aria-hidden className={`mx-auto flex max-w-[13rem] items-center gap-3 ${className}`} style={{ color: "var(--c-gold)" }}>
+      <span className="h-px flex-1" style={{ background: "linear-gradient(90deg, transparent, var(--c-gold))" }} />
+      <span className="text-xs">✦</span>
+      <span className="h-px flex-1" style={{ background: "linear-gradient(270deg, transparent, var(--c-gold))" }} />
+    </div>
+  );
+}
 
 /**
- * «1:1»: el acompañamiento individual contado como un camino para descubrirse, sin precios. Arriba la
- * presentación; después las cinco etapas en un cordel dorado (aparecen al deslizar), lo que se lleva,
- * para quién es y una frase; al final, solo el contacto por email.
+ * «1:1»: el acompañamiento individual contado como un camino para descubrirse, sin precios, con el
+ * estilo de lujo de la portada. Arriba la presentación; después las cinco etapas en un panel dorado
+ * con números romanos, lo que se lleva, para quién es y una frase; al final, el contacto por email.
  */
 export default async function UnoAUnoPage({ params }: { params: Promise<Params> }) {
   const { username } = await params;
@@ -92,95 +100,116 @@ export default async function UnoAUnoPage({ params }: { params: Promise<Params> 
 
   return (
     <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
-      <main className="mx-auto max-w-3xl px-5 pb-16 pt-8 sm:pt-14">
+      <main className="cp-luxe mx-auto max-w-3xl px-5 pb-20 pt-8 sm:pt-14">
         {/* Presentación */}
-        <header className="text-center" data-reveal>
-          <div className="mx-auto w-fit rounded-full p-[3px]" style={{ background: "linear-gradient(135deg, var(--c-gold), var(--c-accent))" }}>
-            <div className="rounded-full p-[3px]" style={{ background: "var(--c-bg)" }}>
-              <Avatar src={config.avatarUrl} name={config.displayName} className="h-20 w-20" />
-            </div>
+        <header className="relative text-center" data-reveal>
+          <FlowerOfLife className="cp-uno-geo" strokeWidth={0.15} />
+          <div className="cp-bubble-img mx-auto w-fit rounded-full">
+            <Avatar src={config.avatarUrl} name={config.displayName} className="h-24 w-24" />
           </div>
-          <p className="cp-eyebrow mt-5">Acompañamiento 1:1</p>
-          <h1 className="cp-display mt-3 text-[2.7rem] leading-[1.05] sm:text-[3.6rem]">Un camino para descubrirte</h1>
-          <p className="cp-display mx-auto mt-4 max-w-xl text-[1.45rem] italic leading-snug sm:text-[1.7rem]" style={{ color: "var(--c-gold)" }}>
+          <p className="cp-eyebrow mt-6 !tracking-[0.42em]" style={{ color: "var(--c-gold)" }}>
+            Acompañamiento 1:1
+          </p>
+          <GoldStar className="mt-4" />
+          <h1 className="cp-display cp-thin mt-5 text-[2.8rem] leading-[1.05] sm:text-[3.7rem]">Un camino para descubrirte</h1>
+          <p className="cp-display cp-thin mx-auto mt-4 max-w-xl text-[1.5rem] italic leading-snug sm:text-[1.8rem]" style={{ color: "var(--c-gold)" }}>
             No es una sesión suelta: es un viaje contigo.
           </p>
-          <p className="cp-muted mx-auto mt-5 max-w-lg text-[0.98rem] leading-relaxed">
+          <p className="cp-muted cp-thin-text mx-auto mt-5 max-w-lg text-[1.05rem] leading-relaxed">
             Durante un tiempo caminamos juntas, tú y yo. Partimos de dónde estás hoy y, paso a paso, vamos leyendo tu mapa hasta que vuelves a reconocerte en él.
           </p>
         </header>
 
         {/* El camino */}
-        <section className="mt-20" aria-labelledby="camino">
-          <h2 id="camino" className="cp-display text-center text-[2rem] sm:text-[2.4rem]" data-reveal>
-            Cómo es el camino
-          </h2>
-          <ol className="relative mx-auto mt-10 max-w-xl">
-            <span aria-hidden className="absolute bottom-0 left-[27px] top-0 w-[2px] rounded-full" style={CORD} />
-            {STEPS.map((s, i) => (
-              <li key={s.n} className="relative flex gap-5 pb-12 last:pb-0" data-reveal style={{ ["--reveal-delay" as string]: `${i * 40}ms` }}>
-                <span className="relative z-[1] grid h-14 w-14 shrink-0 place-items-center rounded-full border" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 60%, transparent)", background: "var(--c-bg)" }}>
-                  <s.Icon aria-hidden className="cp-gold h-8 w-8" strokeWidth={1.2} />
-                </span>
-                <div className="min-w-0 pt-1">
-                  <p className="cp-gold cp-display text-[1.05rem] tracking-[0.2em]">{s.n}</p>
-                  <h3 className="cp-display mt-0.5 text-[1.6rem] leading-tight sm:text-[1.85rem]">{s.title}</h3>
-                  <p className="cp-muted mt-2 text-[0.95rem] leading-relaxed">{s.text}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
+        <section className="mt-24" aria-label="Cómo es el camino">
+          <div data-reveal>
+            <SectionHeading title="Cómo es el camino" />
+          </div>
+          <div className="cp-include-panel mt-10" data-reveal>
+            <FlowerOfLife className="cp-include-geo" strokeWidth={0.2} />
+            <ol className="cp-uno-steps">
+              {STEPS.map((s) => (
+                <li key={s.n} className="flex gap-4 sm:gap-6">
+                  <span className="cp-roman">{s.n}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-3">
+                      <s.Icon aria-hidden className="cp-gold h-7 w-7 shrink-0" strokeWidth={1.1} />
+                      <h3 className="cp-display cp-thin text-[1.6rem] leading-tight sm:text-[1.85rem]">{s.title}</h3>
+                    </div>
+                    <p className="cp-muted cp-thin-text mt-2 text-[1rem] leading-relaxed">{s.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
         </section>
 
         {/* Lo que te llevas */}
-        <section className="mt-20" aria-labelledby="te-llevas">
-          <h2 id="te-llevas" className="cp-display text-center text-[2rem] sm:text-[2.4rem]" data-reveal>
-            Lo que te llevas
-          </h2>
-          <div className="mt-8 grid gap-8 text-center sm:grid-cols-3 sm:gap-6">
+        <section className="mt-24" aria-label="Lo que te llevas">
+          <div data-reveal>
+            <SectionHeading title="Lo que te llevas" />
+          </div>
+          <div className="mx-auto mt-10 grid max-w-sm gap-6 sm:max-w-none sm:grid-cols-3">
             {TAKEAWAYS.map((t, i) => (
-              <div key={t.title} data-reveal style={{ ["--reveal-delay" as string]: `${i * 80}ms` }}>
-                <span aria-hidden className="mx-auto block h-px w-10" style={{ background: "var(--c-gold)" }} />
-                <h3 className="cp-display mt-4 text-[1.6rem]">{t.title}</h3>
-                <p className="cp-muted mx-auto mt-1.5 max-w-[16rem] text-[0.92rem] leading-relaxed">{t.text}</p>
+              <div key={t.title} className="cp-card cp-uno-gift px-5 py-8 text-center" data-reveal style={{ ["--reveal-delay" as string]: `${i * 80}ms` }}>
+                <span aria-hidden className="cp-gold text-sm">
+                  ✦
+                </span>
+                <h3 className="cp-display cp-thin mt-3 text-[1.8rem] italic">{t.title}</h3>
+                <GoldStar className="mt-3 !max-w-[6rem]" />
+                <p className="cp-muted cp-thin-text mx-auto mt-3 max-w-[15rem] text-[0.98rem] leading-relaxed">{t.text}</p>
               </div>
             ))}
           </div>
         </section>
 
         {/* Para quién es */}
-        <section className="mx-auto mt-20 max-w-xl" aria-labelledby="para-ti" data-reveal>
-          <h2 id="para-ti" className="cp-display text-center text-[2rem] sm:text-[2.4rem]">
-            Es para ti si…
-          </h2>
-          <ul className="mt-6 space-y-3.5">
-            {FOR_YOU.map((t) => (
-              <li key={t} className="flex gap-3 text-[0.98rem] leading-relaxed">
-                <span aria-hidden className="mt-[0.6em] h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "var(--c-gold)" }} />
-                <span>{t}</span>
-              </li>
-            ))}
-          </ul>
+        <section className="mx-auto mt-24 max-w-2xl" aria-label="Es para ti si…">
+          <div data-reveal>
+            <SectionHeading title="Es para ti si…" />
+          </div>
+          <div className="cp-include-panel mt-10" data-reveal>
+            <ul className="cp-include-text">
+              {FOR_YOU.map((t) => (
+                <li key={t} className="flex gap-3.5">
+                  <span aria-hidden className="cp-gold mt-[0.2em] shrink-0 text-[0.7rem]">
+                    ✦
+                  </span>
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </section>
 
         {/* Una frase */}
-        <figure className="mx-auto mt-20 max-w-xl text-center" data-reveal>
-          <blockquote className="cp-display text-[1.7rem] italic leading-snug sm:text-[2.1rem]">“No vengo a decirte quién eres. Vengo a acompañarte mientras lo recuerdas.”</blockquote>
-          <figcaption className="cp-gold mt-4 text-sm font-semibold tracking-[0.16em]">{first.toUpperCase()}</figcaption>
+        <figure className="cp-uno-quote mx-auto mt-24 max-w-xl text-center" data-reveal>
+          <span aria-hidden className="cp-uno-quote-mark">
+            “
+          </span>
+          <blockquote className="cp-display cp-thin text-[1.8rem] italic leading-snug sm:text-[2.2rem]">No vengo a decirte quién eres. Vengo a acompañarte mientras lo recuerdas.</blockquote>
+          <GoldStar className="mt-6" />
+          <figcaption className="cp-gold mt-4 text-[0.78rem] tracking-[0.4em]">{first.toUpperCase()}</figcaption>
         </figure>
 
         {/* Contacto: solo el email */}
         {email && (
-          <section className="mx-auto mt-20 max-w-xl text-center" aria-labelledby="empezamos" data-reveal>
-            <span aria-hidden className="mx-auto block h-px w-16" style={{ background: "var(--c-gold)" }} />
-            <h2 id="empezamos" className="cp-display mt-8 text-[2.2rem] leading-tight sm:text-[2.6rem]">
+          <section className="cp-include-panel mx-auto mt-24 max-w-2xl text-center" aria-labelledby="empezamos" data-reveal>
+            <FlowerOfLife className="cp-include-geo" strokeWidth={0.2} />
+            <p className="cp-eyebrow !tracking-[0.4em]" style={{ color: "var(--c-gold)" }}>
+              Tu primer paso
+            </p>
+            <h2 id="empezamos" className="cp-display cp-thin mt-3 text-[2.3rem] leading-tight sm:text-[2.8rem]">
               ¿Empezamos tu camino?
             </h2>
-            <p className="cp-muted mx-auto mt-3 max-w-md text-[0.98rem] leading-relaxed">Escríbeme y cuéntame en qué momento estás. Te respondo yo, personalmente, y vemos juntas si este camino es para ti.</p>
-            <a href={`mailto:${email}?subject=${encodeURIComponent("Acompañamiento 1:1")}`} className="cp-btn mt-7 h-12 px-6">
-              <Mail className="h-4 w-4" /> Escríbeme
-            </a>
-            <p className="cp-faint mt-3 text-sm">{email}</p>
+            <GoldStar className="mt-4" />
+            <p className="cp-muted cp-thin-text mx-auto mt-5 max-w-md text-[1.02rem] leading-relaxed">
+              Escríbeme y cuéntame en qué momento estás. Te respondo yo, personalmente, y vemos juntas si este camino es para ti.
+            </p>
+            <div className="mt-8 flex justify-center">
+              <SacredButton href={`mailto:${email}?subject=${encodeURIComponent("Acompañamiento 1:1")}`} label="Escríbeme" ariaLabel="Escríbeme por email" />
+            </div>
+            <p className="cp-faint mt-4 text-sm tracking-wide">{email}</p>
           </section>
         )}
       </main>

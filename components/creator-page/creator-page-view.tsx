@@ -398,7 +398,7 @@ export function CreatorPageView(props: Props) {
             {/* Sin caja: solo la imagen lleva las esquinas redondeadas. */}
             <a href={safeHref(href)} className="group flex flex-col gap-5 sm:flex-row-reverse sm:items-center sm:gap-8" {...(isExternal(href) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
               {a.image && (
-                <span className="relative block aspect-[4/3] overflow-hidden sm:aspect-[4/5] sm:w-[42%] sm:shrink-0" style={{ borderRadius: "var(--r-card)" }}>
+                <span className="cp-luxe-frame relative mx-auto block aspect-[9/16] w-full max-w-[20rem] sm:mx-0 sm:w-[36%] sm:shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={a.image} srcSet={imageSrcSet(a.image)} sizes="(min-width: 640px) 290px, 92vw" alt="" loading="lazy" decoding="async" className="cp-img absolute inset-0 h-full w-full object-cover group-hover:scale-[1.035]" />
                 </span>
@@ -735,7 +735,7 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
   const priceNote = external ? (p.externalHost ? `Pago en ${p.externalHost}` : "Pago en otra web") : null;
   return (
     <article className="cp-card cp-card-hover group flex h-full flex-col">
-      <Link href={productHref} className={`relative block overflow-hidden ${large ? "aspect-[16/11] sm:aspect-[16/9]" : "aspect-[4/3]"}`}>
+      <Link href={productHref} className="cp-photo-bubble cp-photo-in relative block aspect-[4/3]">
         <ProductImage src={p.imageUrl} emoji={p.emoji} title={p.title} sizes="(min-width: 768px) 360px, 85vw" />
         <span
           className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em]"
@@ -802,7 +802,7 @@ function CourseMiniCard({ p, username }: { p: PublicProduct; username: string })
   const price = mode === "FREE_EMAIL" ? "Gratis" : external && p.priceCents <= 0 ? null : formatPrice(p.sale ? p.sale.priceCents : p.priceCents, p.currency, p.billingInterval);
   return (
     <Link href={`/${username}/${p.slug}`} className="cp-card cp-card-hover group flex h-full flex-col overflow-hidden" data-course-mini={p.slug}>
-      <span className="relative block aspect-square overflow-hidden">
+      <span className="cp-photo-bubble cp-photo-in relative block aspect-[4/3]">
         <ProductImage src={p.imageUrl} emoji={p.emoji} title={p.title} sizes="(min-width: 640px) 220px, 46vw" />
         {/* El icono (o los iconos) del tema del curso, en dorado, como en las tarjetas grandes. */}
         {topics.length > 0 && (

@@ -68,7 +68,7 @@ export function CourseGroups({ groups, name = "metodos", tone = "page", empty }:
               {g.count === 0 ? (
                 <p className={`${t.muted} text-[0.92rem]`}>{empty ? empty(g.label) : `Pronto habrá cursos de ${g.label}.`}</p>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2">{g.cards}</div>
+                <div className="mx-auto grid max-w-sm gap-7 sm:max-w-none sm:grid-cols-2">{g.cards}</div>
               )}
             </div>
           </details>

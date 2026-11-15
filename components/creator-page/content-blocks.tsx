@@ -54,8 +54,11 @@ export function ContentBlocks({
   modelGate,
   moonCircles,
   bare = false,
+  luxe = false,
   modelIcon,
 }: {
+  /** Con cajas pero con el estilo de lujo de la portada (páginas de los sistemas). */
+  luxe?: boolean;
   blocks: ContentBlock[];
   /** Página de un método: su icono delante del título de los modelos interactivos. */
   modelIcon?: ComponentType<SVGProps<SVGSVGElement>>;
@@ -81,7 +84,25 @@ export function ContentBlocks({
   // Las webs de fuera, en otra pestaña; los enlaces internos y mailto:/tel:, en la misma.
   const target = (href: string | null) => (href && /^https?:/i.test(href) ? { target: "_blank", rel: "noopener noreferrer" } : {});
   const title = (text: string) =>
-    titleLevel === 3 ? <h3 className="cp-display text-[1.6rem] leading-tight">{text}</h3> : <h2 className="cp-display text-[1.75rem] leading-tight sm:text-[2rem]">{text}</h2>;
+    titleLevel === 3 ? (
+      <h3 className="cp-display text-[1.6rem] leading-tight">{text}</h3>
+    ) : (
+      <h2 className={`cp-display leading-tight ${bare || luxe ? "cp-thin text-[1.95rem] sm:text-[2.3rem]" : "text-[1.75rem] sm:text-[2rem]"}`}>{text}</h2>
+    );
+  // «Sobre mí» (sin cajas): los títulos de sección centrados, con la estrella y la raya dorada de la portada.
+  const luxeTitle = (text: string) => (
+    <div className="cp-section-heading">
+      <span className="cp-section-star" aria-hidden>
+        ✦
+      </span>
+      <h2 className="cp-display cp-thin text-[2.2rem] leading-tight sm:text-[2.6rem]">{text}</h2>
+      <div aria-hidden className="cp-section-rule">
+        <span />
+        <i>✦</i>
+        <span />
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -92,9 +113,39 @@ export function ContentBlocks({
             const href = linkTo(b.buttonUrl);
             // Las webs de fuera, en otra pestaña; los enlaces internos y mailto:/tel:, en la misma.
             const newTab = !!href && /^https?:/i.test(href);
+            if (bare) {
+              // «Sobre mí»: título centrado con oro y texto fino; si lleva botón, en un panel con doble borde dorado.
+              const panel = !!(href && b.buttonLabel);
+              return (
+                <div key={b.id} className={`mx-auto max-w-2xl text-center ${panel ? "cp-include-panel" : ""}`} data-block="text" data-reveal>
+                  {b.title && luxeTitle(b.title)}
+                  {b.body && (
+                    <RichContent
+                      text={b.body}
+                      format={b.format}
+                      legacy="links"
+                      tone="page"
+                      headingLevel={3}
+                      className={`cp-muted cp-thin-text mx-auto max-w-xl space-y-3 text-[1.05rem] leading-relaxed ${b.title ? "mt-6" : ""}`}
+                    />
+                  )}
+                  {href && b.buttonLabel && (
+                    <div className="mt-8 flex justify-center">
+                      <a href={href} className="cp-sacred-btn" {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+                        <span className="cp-sacred-label">
+                          {href.startsWith("mailto:") && <Mail className="h-5 w-5" strokeWidth={1.3} />}
+                          {b.buttonLabel}
+                        </span>
+                      </a>
+                    </div>
+                  )}
+                </div>
+              );
+            }
             return (
-              <div key={b.id} className={bare ? "" : "cp-card p-6 sm:p-7"} data-block="text">
+              <div key={b.id} className={luxe ? "cp-include-panel" : "cp-card p-6 sm:p-7"} data-block="text">
                 {b.title && title(b.title)}
+                {b.title && luxe && <span aria-hidden className="cp-luxe-underline" />}
                 {b.body && (
                   <RichContent
                     text={b.body}
@@ -102,7 +153,7 @@ export function ContentBlocks({
                     legacy="links"
                     tone="page"
                     headingLevel={titleLevel === 3 ? 4 : 3}
-                    className={`cp-muted space-y-3 text-[0.95rem] leading-relaxed ${b.title ? "mt-3" : ""}`}
+                    className={`cp-muted space-y-3 leading-relaxed ${luxe ? "cp-thin-text text-[1.02rem]" : "text-[0.95rem]"} ${b.title ? (luxe ? "mt-5" : "mt-3") : ""}`}
                   />
                 )}
                 {href && b.buttonLabel && (
@@ -220,17 +271,21 @@ export function ContentBlocks({
             // En el móvil, el título va encima de la foto y el texto debajo; en el ordenador, junto al texto.
             const heading = (where: string) =>
               b.title ? (
-                <div className={`items-center gap-3 ${where}`}>
-                  {sysIcon && <SystemIconMark icon={sysIcon} scale={0.75} />}
-                  {title(b.title)}
+                <div className={where}>
+                  <div className="flex items-center gap-3">
+                    {sysIcon && <SystemIconMark icon={sysIcon} scale={0.75} />}
+                    {title(b.title)}
+                  </div>
+                  {bare && <span aria-hidden className="cp-luxe-underline" />}
                 </div>
               ) : null;
             return (
-              <div key={b.id} className={bare ? "grid items-center gap-5 sm:grid-cols-2 sm:gap-10" : "cp-card grid sm:grid-cols-2"} data-block="photo-text" data-side={b.imageSide}>
-                {bare && heading("flex sm:hidden")}
+              <div key={b.id} className={bare ? "grid items-center gap-5 sm:grid-cols-2 sm:gap-10" : "cp-card grid items-center p-3 sm:grid-cols-2 sm:p-4"} data-block="photo-text" data-side={b.imageSide} {...(bare ? { "data-reveal": "" } : {})}>
+                {bare && heading("block sm:hidden")}
                 <div
-                  className={`relative aspect-[4/3] sm:aspect-auto sm:min-h-[20rem] ${bare ? "overflow-hidden rounded-[var(--r-card)]" : ""} ${b.imageSide === "right" ? "sm:order-last" : ""}`}
+                  className={`relative aspect-[9/16] ${bare ? "cp-luxe-frame" : "cp-photo-bubble"} mx-auto w-full max-w-[20rem] ${b.imageSide === "right" ? "sm:order-last" : ""}`}
                 >
+                  {/* Foto y texto: siempre en vertical 9:16 (formato reel), un hueco fijo. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={b.image.src}
@@ -245,7 +300,8 @@ export function ContentBlocks({
                   />
                 </div>
                 <div className={`flex flex-col justify-center ${bare ? "" : "p-6 sm:p-7"}`}>
-                  {bare ? heading("hidden sm:flex") : b.title && title(b.title)}
+                  {bare ? heading("hidden sm:block") : b.title && title(b.title)}
+                  {!bare && luxe && b.title && <span aria-hidden className="cp-luxe-underline" />}
                   {b.body && (
                     <RichContent
                       text={b.body}
@@ -253,7 +309,7 @@ export function ContentBlocks({
                       legacy="links"
                       tone="page"
                       headingLevel={titleLevel === 3 ? 4 : 3}
-                      className={`cp-muted space-y-3 text-[0.95rem] leading-relaxed ${b.title ? (bare ? "sm:mt-3" : "mt-3") : ""}`}
+                      className={`cp-muted space-y-3 leading-relaxed ${bare || luxe ? "cp-thin-text text-[1.02rem]" : "text-[0.95rem]"} ${b.title ? (bare ? "sm:mt-5" : luxe ? "mt-5" : "mt-3") : ""}`}
                     />
                   )}
                   {href && b.buttonLabel && (
@@ -278,7 +334,7 @@ export function ContentBlocks({
                     const inner = (
                       <>
                         {img && (
-                          <div className="relative aspect-[4/3] overflow-hidden">
+                          <div className="cp-photo-bubble cp-photo-in relative aspect-[4/3]">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={img.src}
@@ -317,6 +373,21 @@ export function ContentBlocks({
             );
           }
           case "quote":
+            if (bare)
+              return (
+                <figure key={b.id} className="cp-luxe-quote relative mx-auto max-w-2xl px-4 text-center" data-block="quote" data-reveal>
+                  <span aria-hidden className="cp-luxe-quote-mark">
+                    “
+                  </span>
+                  <blockquote className="cp-display cp-thin text-[1.75rem] italic leading-snug sm:text-[2.2rem]">{b.text}</blockquote>
+                  <div aria-hidden className="cp-section-rule mt-6">
+                    <span />
+                    <i>✦</i>
+                    <span />
+                  </div>
+                  {b.author && <figcaption className="cp-gold mt-4 text-[0.78rem] uppercase tracking-[0.4em]">{b.author}</figcaption>}
+                </figure>
+              );
             return (
               <figure key={b.id} className={`relative px-7 pb-8 pt-12 text-center sm:px-12 ${bare ? "" : "cp-card"}`} data-block="quote">
                 <span aria-hidden className="cp-gold cp-display pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 text-[4.5rem] leading-none">
@@ -332,7 +403,7 @@ export function ContentBlocks({
             // un lado y a otro. El año, grande y dorado; cada hito aparece al deslizar.
             return (
               <section key={b.id} className={bare ? "py-2" : "cp-card p-6 sm:p-7"} data-block="timeline" aria-label={b.title || "Trayectoria"}>
-                {b.title && <div className="mb-10 text-center">{title(b.title)}</div>}
+                {b.title && <div className="mb-10 text-center">{bare ? luxeTitle(b.title) : title(b.title)}</div>}
                 <ol className="relative">
                   <span
                     aria-hidden
@@ -344,15 +415,21 @@ export function ContentBlocks({
                     return (
                       <li key={i} className="relative pb-11 pl-10 last:pb-0 sm:grid sm:grid-cols-2 sm:gap-x-16 sm:pl-0" {...(bare ? { "data-reveal": "" } : {})} style={{ ["--reveal-delay" as string]: `${Math.min(i, 4) * 40}ms` }}>
                         {/* El nudo del cordel */}
-                        <span aria-hidden className="absolute left-0 top-[0.55rem] z-[1] grid h-6 w-6 place-items-center rounded-full border sm:left-1/2 sm:-translate-x-1/2" style={{ borderColor: "var(--c-gold)", background: "var(--c-bg)" }}>
-                          <span className="h-2 w-2 rounded-full" style={{ background: "var(--c-gold)" }} />
-                        </span>
+                        {bare ? (
+                          <span aria-hidden className="cp-luxe-knot absolute left-0 top-[0.55rem] z-[1] grid h-6 w-6 place-items-center sm:left-1/2 sm:-translate-x-1/2">
+                            ✦
+                          </span>
+                        ) : (
+                          <span aria-hidden className="absolute left-0 top-[0.55rem] z-[1] grid h-6 w-6 place-items-center rounded-full border sm:left-1/2 sm:-translate-x-1/2" style={{ borderColor: "var(--c-gold)", background: "var(--c-bg)" }}>
+                            <span className="h-2 w-2 rounded-full" style={{ background: "var(--c-gold)" }} />
+                          </span>
+                        )}
                         <div className={odd ? "sm:order-2" : "sm:text-right"}>
-                          {it.label && <p className="cp-display cp-gold text-[2.1rem] leading-none sm:text-[2.7rem]">{it.label}</p>}
+                          {it.label && <p className={`cp-display cp-gold leading-none ${bare ? "cp-luxe-year text-[2.2rem] sm:text-[2.8rem]" : "text-[2.1rem] sm:text-[2.7rem]"}`}>{it.label}</p>}
                         </div>
                         <div className={`${odd ? "sm:order-1 sm:text-right" : ""} ${it.label ? "mt-2 sm:mt-0" : ""}`}>
-                          <p className="cp-display text-[1.35rem] leading-snug sm:text-[1.5rem]">{it.title}</p>
-                          {it.text && <p className="cp-muted mt-1.5 text-[0.93rem] leading-relaxed">{it.text}</p>}
+                          <p className={`cp-display leading-snug ${bare ? "cp-thin text-[1.45rem] sm:text-[1.6rem]" : "text-[1.35rem] sm:text-[1.5rem]"}`}>{it.title}</p>
+                          {it.text && <p className={`cp-muted mt-1.5 leading-relaxed ${bare ? "cp-thin-text text-[0.98rem]" : "text-[0.93rem]"}`}>{it.text}</p>}
                         </div>
                       </li>
                     );
@@ -413,7 +490,7 @@ export function ContentBlocks({
             if (!items.length) return null;
             return (
               <nav key={b.id} data-block="pills" aria-label={b.title || "Enlaces"} className="pt-2">
-                {b.title && <div className="mb-5 text-center">{title(b.title)}</div>}
+                {b.title && <div className={`text-center ${bare || luxe ? "mb-8" : "mb-5"}`}>{bare || luxe ? luxeTitle(b.title) : title(b.title)}</div>}
                 <ul className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
                   {items.map((it, i) => (
                     <li key={i} className="sm:min-w-[11rem] sm:max-w-[18rem] sm:flex-1">
@@ -421,6 +498,7 @@ export function ContentBlocks({
                         href={it.href}
                         {...target(it.href)}
                         data-pill
+                        data-luxe={bare || luxe ? "yes" : undefined}
                         className="group flex min-h-14 w-full items-center justify-center gap-2 rounded-full border px-7 py-3 text-center text-[0.95rem] font-semibold sm:px-4 sm:text-[0.9rem] leading-snug transition-colors duration-300 hover:bg-[color-mix(in_oklab,var(--c-gold)_14%,transparent)]"
                         style={{ borderColor: "color-mix(in oklab, var(--c-gold) 45%, transparent)", background: "color-mix(in oklab, var(--c-gold) 6%, transparent)" }}
                       >

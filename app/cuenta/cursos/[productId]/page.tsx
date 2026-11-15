@@ -21,6 +21,11 @@ import { toggleLessonComplete } from "../../actions";
 import { AutoComplete } from "./complete-button";
 import { CourseCord } from "./course-cord";
 import { CourseOutline, type OutlineModule } from "./course-outline";
+import { Comments, type ViewComment } from "../../membresias/[productId]/[postId]/interactions";
+import { lessonComments } from "@/lib/comment-social";
+import { LessonSaveButton } from "./lesson-save";
+import { publicMemberName } from "@/lib/community-rules";
+import { buyerLoginPath } from "@/lib/buyer-access";
 
 /**
  * Reproductor del curso. La alumna ve solo las lecciones publicadas y, si el curso se abre poco a
@@ -116,6 +121,31 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
   const own = profiles.find((p) => p.isOwn) ?? null;
   const others = profiles.filter((p) => !p.isOwn).map((p) => ({ name: p.name, date: p.date, time: p.time, place: p.place }));
   const currentMeta = current ? meta.get(current.id)! : null;
+  // Comentarios de la lección: como en las membresías (me gusta, respuestas y avisos).
+  const customer = isOwner ? null : await prisma.customer.findUnique({ where: { creatorId_userId: { creatorId: course.creatorId, userId: user.id } }, select: { name: true, commentsBlockedAt: true } });
+  const commentMode = scoped ? ("login" as const) : customer?.commentsBlockedAt ? ("blocked" as const) : ("can" as const);
+  const commentHint = isOwner ? "Se publicará con tu nombre (Autora)." : `Se publicará como «${publicMemberName(customer?.name || user.name)}». Lo verán las demás alumnas del curso.`;
+  const lessonCommentsView = async (lessonId: string): Promise<ViewComment[]> => {
+    const rows = await lessonComments(lessonId, user.id);
+    const view = (x: (typeof rows)[number]): ViewComment => ({
+      id: x.id,
+      authorName: x.authorName,
+      byOwner: x.byOwner,
+      body: x.status === "VISIBLE" ? x.body : "",
+      removed: x.status !== "VISIBLE",
+      when: formatDate(x.createdAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }, tz),
+      canDelete: x.status === "VISIBLE" && !scoped && (isOwner || x.userId === user.id),
+      mine: x.userId === user.id,
+      likes: x._count.likes,
+      liked: x.likes.length > 0,
+      replies: [],
+    });
+    const roots = rows.filter((x) => !x.parentId).map(view);
+    for (const r of rows.filter((x) => x.parentId)) roots.find((p) => p.id === r.parentId)?.replies.push(view(r));
+    return roots;
+  };
+  // ★ de la lección: si ya la tiene en favoritos.
+  const lessonSaved = current && !isOwner && !scoped ? !!(await prisma.lessonSave.findUnique({ where: { lessonId_userId: { lessonId: current.id, userId: user.id } }, select: { id: true } })) : false;
   const ownerNote =
     isOwner && current && currentMeta
       ? !currentMeta.published
@@ -199,16 +229,32 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
               footer={
                 // Sin «Completada» ni «Anterior»: la lección se completa sola (al abrirla o, si tiene
                 // capítulos, al llegar al último) y el cordel de la izquierda lleva a cualquier otra.
-                next ? (
-                  <div className="mt-8 flex justify-end">
-                    <Link href={`${base}?leccion=${next.id}`} className="btn btn-ghost btn-sm" aria-label="Siguiente lección">
-                      Siguiente lección <ArrowRight className="h-4 w-4" />
-                    </Link>
+                next || (!isOwner && !scoped && !locked) ? (
+                  <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+                    {!isOwner && !scoped && !locked && current ? <LessonSaveButton key={current.id} lessonId={current.id} saved={lessonSaved} /> : <span />}
+                    {next && (
+                      <Link href={`${base}?leccion=${next.id}`} className="btn btn-ghost btn-sm" aria-label="Siguiente lección">
+                        Siguiente lección <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    )}
                   </div>
                 ) : null
               }
             />
             {!long && !isOwner && !locked && !done.has(current.id) && <AutoComplete lessonId={current.id} />}
+            {!locked && (
+              <section className="acc-lesson-comments card mt-10 p-5 sm:p-7" aria-label="Comentarios de la lección">
+                <Comments
+                  place="lesson"
+                  title="Comentarios de la lección"
+                  postId={current.id}
+                  comments={await lessonCommentsView(current.id)}
+                  mode={commentMode}
+                  loginHref={await buyerLoginPath(`${base}?leccion=${current.id}`, { motivo: "completa", creatorId: course.creatorId })}
+                  authorHint={commentHint}
+                />
+              </section>
+            )}
             <OnePlayerAtATime />
           </article>
         ) : (

@@ -5,7 +5,16 @@ import Link from "next/link";
 import { startTransition, useActionState, useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { COMMENT_MAX } from "@/lib/community-rules";
-import { commentOnPost, deleteComment, likePost, type CommentState } from "./actions";
+import { commentOnPost, deleteComment, likeComment, likePost, type CommentState } from "./actions";
+import { commentOnLesson, deleteLessonComment, likeLessonComment } from "@/app/cuenta/cursos/[productId]/comment-actions";
+
+/** Dónde están los comentarios: una publicación de una membresía o una lección de un curso. */
+export type CommentPlace = "post" | "lesson";
+
+const ACTIONS = {
+  post: { comment: commentOnPost, remove: deleteComment, like: likeComment, field: "postId" },
+  lesson: { comment: commentOnLesson, remove: deleteLessonComment, like: likeLessonComment, field: "lessonId" },
+} as const;
 
 export type ViewComment = {
   id: string;
@@ -15,8 +24,44 @@ export type ViewComment = {
   removed: boolean;
   when: string;
   canDelete: boolean;
+  /** Lo escribió quien mira (no puede darse «me gusta» a sí misma). */
+  mine: boolean;
+  likes: number;
+  liked: boolean;
   replies: ViewComment[];
 };
+
+/** ♡ pequeño de un comentario, con respuesta inmediata. */
+function CommentLike({ place, c, can }: { place: CommentPlace; c: ViewComment; can: boolean }) {
+  const [state, setState] = useState({ liked: c.liked, count: c.likes });
+  const [optimistic, setOptimistic] = useOptimistic(state);
+  const [, start] = useTransition();
+  const active = can && !c.mine;
+  if (!active)
+    return state.count > 0 ? (
+      <span className="acc-clike" data-on="false" aria-label={`${state.count} me gusta`}>
+        <Heart className="h-3.5 w-3.5" /> {state.count}
+      </span>
+    ) : null;
+  return (
+    <button
+      type="button"
+      className="acc-clike"
+      data-on={optimistic.liked ? "true" : "false"}
+      aria-pressed={optimistic.liked}
+      aria-label={optimistic.liked ? "Quitar me gusta del comentario" : "Me gusta este comentario"}
+      onClick={() =>
+        start(async () => {
+          setOptimistic({ liked: !optimistic.liked, count: optimistic.count + (optimistic.liked ? -1 : 1) });
+          const r = await ACTIONS[place].like(c.id);
+          if (!("error" in r)) setState(r);
+        })
+      }
+    >
+      <Heart className={`h-3.5 w-3.5 ${optimistic.liked ? "fill-current" : ""}`} /> {optimistic.count > 0 ? optimistic.count : "Me gusta"}
+    </button>
+  );
+}
 
 /** ♥ con respuesta inmediata (se corrige si el servidor dice otra cosa). */
 export function LikeButton({ postId, liked, count }: { postId: string; liked: boolean; count: number }) {
@@ -50,8 +95,8 @@ export function LikeButton({ postId, liked, count }: { postId: string; liked: bo
   );
 }
 
-function CommentForm({ postId, parentId, onDone, autoFocus, authorHint }: { postId: string; parentId?: string; onDone?: () => void; autoFocus?: boolean; authorHint: string }) {
-  const [state, action, pending] = useActionState<CommentState, FormData>(commentOnPost, undefined);
+function CommentForm({ place, postId, parentId, onDone, autoFocus, authorHint }: { place: CommentPlace; postId: string; parentId?: string; onDone?: () => void; autoFocus?: boolean; authorHint: string }) {
+  const [state, action, pending] = useActionState<CommentState, FormData>(ACTIONS[place].comment, undefined);
   const [text, setText] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -77,7 +122,7 @@ function CommentForm({ postId, parentId, onDone, autoFocus, authorHint }: { post
       }}
       className="space-y-2"
     >
-      <input type="hidden" name="postId" value={postId} />
+      <input type="hidden" name={ACTIONS[place].field} value={postId} />
       {parentId && <input type="hidden" name="parentId" value={parentId} />}
       <label className="sr-only" htmlFor={`c-body-${parentId ?? "new"}`}>{parentId ? "Tu respuesta" : "Escribe un comentario"}</label>
       <textarea
@@ -105,7 +150,7 @@ function CommentForm({ postId, parentId, onDone, autoFocus, authorHint }: { post
   );
 }
 
-function CommentItem({ c, postId, canReply, authorHint, reply }: { c: ViewComment; postId: string; canReply: boolean; authorHint: string; reply?: boolean }) {
+function CommentItem({ place, c, postId, canReply, canLike, authorHint, reply }: { place: CommentPlace; c: ViewComment; postId: string; canReply: boolean; canLike: boolean; authorHint: string; reply?: boolean }) {
   const [replying, setReplying] = useState(false);
   return (
     <li id={`c-${c.id}`} className={`scroll-mt-24 ${reply ? "border-l-2 border-line pl-4" : ""}`}>
@@ -115,15 +160,16 @@ function CommentItem({ c, postId, canReply, authorHint, reply }: { c: ViewCommen
         <span>{c.when}</span>
       </p>
       {c.removed ? <p className="mt-1 text-sm italic text-muted">Comentario eliminado</p> : <p className="mt-1 whitespace-pre-line break-words text-[0.97rem] leading-relaxed">{c.body}</p>}
-      {!c.removed && (canReply || c.canDelete) && (
-        <div className="mt-1 flex gap-1">
+      {!c.removed && (
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          <CommentLike place={place} c={c} can={canLike} />
           {canReply && !reply && (
             <button type="button" onClick={() => setReplying((v) => !v)} className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-muted hover:text-ink" aria-label={`Responder a ${c.authorName}`}>
               <Reply className="h-3.5 w-3.5" /> Responder
             </button>
           )}
           {c.canDelete && (
-            <ConfirmForm action={deleteComment} message="¿Borrar este comentario?">
+            <ConfirmForm action={ACTIONS[place].remove} message="¿Borrar este comentario?">
               <input type="hidden" name="commentId" value={c.id} />
               <button className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-muted hover:text-rose" aria-label="Borrar comentario">
                 <Trash2 className="h-3.5 w-3.5" /> Borrar
@@ -134,13 +180,13 @@ function CommentItem({ c, postId, canReply, authorHint, reply }: { c: ViewCommen
       )}
       {replying && (
         <div className="mt-2">
-          <CommentForm postId={postId} parentId={c.id} autoFocus authorHint={authorHint} onDone={() => setReplying(false)} />
+          <CommentForm place={place} postId={postId} parentId={c.id} autoFocus authorHint={authorHint} onDone={() => setReplying(false)} />
         </div>
       )}
       {c.replies.length > 0 && (
         <ul className="mt-3 space-y-4">
           {c.replies.map((r) => (
-            <CommentItem key={r.id} c={r} postId={postId} canReply={false} authorHint={authorHint} reply />
+            <CommentItem key={r.id} place={place} c={r} postId={postId} canReply={false} canLike={canReply} authorHint={authorHint} reply />
           ))}
         </ul>
       )}
@@ -153,12 +199,17 @@ function CommentItem({ c, postId, canReply, authorHint, reply }: { c: ViewCommen
  * `mode`: puede comentar · enlace del email (debe entrar) · no puede (bloqueada) · cerrados.
  */
 export function Comments({
+  place = "post",
   postId,
   comments,
   mode,
   loginHref,
   authorHint,
+  title = "Comentarios",
 }: {
+  place?: CommentPlace;
+  title?: string;
+  /** La publicación o la lección. */
   postId: string;
   comments: ViewComment[];
   /** preview: la dueña mirando como miembro («Ver como miembro»): solo lectura. */
@@ -170,10 +221,10 @@ export function Comments({
   return (
     <section id="comentarios" className="scroll-mt-24">
       <h2 className="flex items-center gap-2 font-semibold">
-        <MessageCircle className="h-4 w-4" /> Comentarios{total ? ` (${total})` : ""}
+        <MessageCircle className="h-4 w-4" /> {title}{total ? ` (${total})` : ""}
       </h2>
       <div className="mt-4">
-        {mode === "can" && <CommentForm postId={postId} authorHint={authorHint} />}
+        {mode === "can" && <CommentForm place={place} postId={postId} authorHint={authorHint} />}
         {mode === "login" && (
           <div className="rounded-2xl border border-line p-4 text-sm">
             <p>Para comentar, entra con tu email.</p>
@@ -187,7 +238,7 @@ export function Comments({
       {comments.length > 0 ? (
         <ul className="mt-6 space-y-5">
           {comments.map((c) => (
-            <CommentItem key={c.id} c={c} postId={postId} canReply={mode === "can"} authorHint={authorHint} />
+            <CommentItem key={c.id} place={place} c={c} postId={postId} canReply={mode === "can"} canLike={mode === "can"} authorHint={authorHint} />
           ))}
         </ul>
       ) : (

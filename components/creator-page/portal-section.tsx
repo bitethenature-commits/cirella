@@ -184,7 +184,7 @@ function PortalCard({ item, big, unlocked }: { item: PublicPortalItem; big?: boo
     return (
       <article className="cp-card" data-portal-item={item.id} data-locked="true">
         {big ? (
-          <div className="relative aspect-[16/10] overflow-hidden sm:aspect-[16/8]">
+          <div className="cp-photo-bubble cp-photo-in relative aspect-[4/3]">
             {item.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={item.coverUrl} alt="" className="cp-locked-cover absolute inset-0 h-full w-full object-cover" loading="lazy" decoding="async" />
@@ -216,16 +216,16 @@ function PortalCard({ item, big, unlocked }: { item: PublicPortalItem; big?: boo
         <video src={media[0].url} poster={item.coverUrl ?? undefined} controls playsInline preload="none" controlsList="nodownload" className="aspect-video w-full bg-black" aria-label={item.title} />
       )}
       {item.kind === "PHOTOS" && media.length > 0 && (
-        <div className={`grid gap-1 ${media.length > 1 ? "grid-cols-2" : ""}`}>
+        <div className={`cp-photo-in grid gap-2 ${media.length > 1 ? "grid-cols-2" : ""}`}>
           {media.map((m) => (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={m.url} src={m.url} alt={m.name} loading="lazy" decoding="async" className="aspect-square w-full object-cover" />
+            <img key={m.url} src={m.url} alt={m.name} loading="lazy" decoding="async" className="cp-photo-bubble aspect-[4/3] w-full object-cover" />
           ))}
         </div>
       )}
       {(item.kind === "AUDIO" || item.kind === "LIVE" || item.kind === "EARLY_BIRD") && item.coverUrl && big && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.coverUrl} alt="" className="aspect-[16/8] w-full object-cover" loading="lazy" decoding="async" />
+        <img src={item.coverUrl} alt="" className="cp-photo-bubble cp-photo-in block aspect-[4/3] w-[calc(100%-1.7rem)] object-cover" loading="lazy" decoding="async" />
       )}
       <div className="p-5">
         {header}
@@ -360,7 +360,7 @@ function HomeAudio({ item, unlocked, fallbackImage }: { item: PublicPortalItem; 
   const Icon = KIND_ICON[item.kind];
   return (
     <article className="cp-card portal-audio overflow-hidden" data-portal-item={item.id} data-locked={locked ? "true" : "false"}>
-      <div className="relative aspect-[16/9] overflow-hidden sm:aspect-[16/7]">
+      <div className="cp-photo-bubble cp-photo-in relative aspect-[4/3]">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={cover} alt="" className={`absolute inset-0 h-full w-full object-cover ${locked ? "cp-locked-cover" : ""}`} loading="lazy" decoding="async" />

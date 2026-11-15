@@ -67,6 +67,13 @@ model User {
   memberComments      MembershipComment[]
   memberLikes         MembershipPostLike[]
   memberSaves         MembershipPostSave[]
+  // «Me gusta» en comentarios (membresías y lecciones) y comentarios en las lecciones de los cursos.
+  memberCommentLikes  MembershipCommentLike[]
+  lessonComments      LessonComment[]
+  lessonCommentLikes  LessonCommentLike[]
+  lessonSaves         LessonSave[]
+  // Cuándo miró por última vez sus avisos de comentarios (me gusta y respuestas): lo de después es nuevo.
+  commentsSeenAt      DateTime?
   // Verificación en dos pasos (lib/two-factor.ts).
   twoFactorCodes      TwoFactorRecoveryCode[]
   trustedDevices      TrustedDevice[]
@@ -262,6 +269,9 @@ model Creator {
   // «Personalizar mi panel» (Ajustes): colores del panel, orden y visibilidad del menú y de las
   // tarjetas de Inicio. Solo del panel de la dueña, nunca de su web. Ver lib/panel-prefs.ts.
   panelPrefs     Json?
+  // «Actualidades»: cuántos días sale cada novedad en la lista de la web (null = siempre). Las que pasan
+  // de ahí se quitan de la lista y se cuentan («y 12 actualidades más»).
+  newsDays       Int?
   timezone       String    @default("Europe/Madrid")
   currency       String    @default("EUR")
   onboardedAt    DateTime?
@@ -515,6 +525,8 @@ model Lesson {
   parts       LessonPart[]
   progress    LessonProgress[]
   views       LessonView[]
+  comments    LessonComment[]
+  saves       LessonSave[]
 
   @@index([creatorId, productId])
   @@index([moduleId])
@@ -659,8 +671,80 @@ model MembershipComment {
   status     String              @default("VISIBLE")
   removedBy  String? // AUTHOR | OWNER
   createdAt  DateTime            @default(now())
+  likes      MembershipCommentLike[]
 
   @@index([creatorId, postId, createdAt])
+  @@index([userId])
+}
+
+// «Me gusta» en un comentario de una membresía (avisa a quien lo escribió: en la web y por email).
+model MembershipCommentLike {
+  id        String            @id @default(cuid())
+  creatorId String
+  commentId String
+  comment   MembershipComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime          @default(now())
+
+  @@unique([commentId, userId])
+  @@index([creatorId])
+  @@index([userId])
+}
+
+// Comentario (o respuesta, un solo nivel) en una lección de un curso. Como MembershipComment.
+model LessonComment {
+  id         String              @id @default(cuid())
+  creatorId  String
+  productId  String // el curso
+  lessonId   String
+  lesson     Lesson              @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId   String?
+  parent     LessonComment?      @relation("LessonCommentReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies    LessonComment[]     @relation("LessonCommentReplies")
+  body       String
+  authorName String
+  byOwner    Boolean             @default(false)
+  // VISIBLE | HIDDEN | REMOVED
+  status     String              @default("VISIBLE")
+  removedBy  String?
+  createdAt  DateTime            @default(now())
+  likes      LessonCommentLike[]
+
+  @@index([creatorId, lessonId, createdAt])
+  @@index([creatorId, createdAt])
+  @@index([userId])
+}
+
+// Una lección guardada en favoritos por una alumna (la estrella de la lección): sale en sus Favoritos.
+model LessonSave {
+  id        String   @id @default(cuid())
+  creatorId String
+  productId String
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([lessonId, userId])
+  @@index([userId, createdAt])
+  @@index([creatorId])
+}
+
+model LessonCommentLike {
+  id        String        @id @default(cuid())
+  creatorId String
+  commentId String
+  comment   LessonComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@unique([commentId, userId])
+  @@index([creatorId])
   @@index([userId])
 }
 

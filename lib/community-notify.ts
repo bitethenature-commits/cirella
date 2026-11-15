@@ -119,13 +119,13 @@ export async function notifyNewComment(commentId: string) {
   });
 }
 
-/** A la miembro: la dueña ha respondido a su comentario (si no se dio de baja de los avisos). */
+/** A la autora de un comentario: le han respondido, la dueña u otra persona (si no se dio de baja de los avisos). */
 export async function notifyReply(replyId: string) {
   const r = await prisma.membershipComment.findUnique({
     where: { id: replyId },
     include: { parent: { select: { userId: true } }, post: { include: { product: { include: { creator: true } } } } },
   });
-  if (!r || !r.byOwner || !r.parent || r.parent.userId === r.userId) return;
+  if (!r || !r.parent || r.parent.userId === r.userId) return;
   const customer = await prisma.customer.findUnique({ where: { creatorId_userId: { creatorId: r.creatorId, userId: r.parent.userId } } });
   if (!customer || customer.postEmailsOptOutAt) return;
   const creator = r.post.product.creator;
@@ -138,6 +138,7 @@ export async function notifyReply(replyId: string) {
     headers: postOptOutHeaders(customer.id),
     ...T.commentReplyEmail({
       creatorName: brandName(creator),
+      replierName: r.byOwner ? undefined : r.authorName,
       membershipTitle: r.post.product.title,
       postTitle: r.post.title,
       excerpt: truncateWords(r.body, 400),

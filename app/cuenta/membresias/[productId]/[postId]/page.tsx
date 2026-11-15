@@ -62,6 +62,9 @@ export default async function MemberPostPage({ params }: { params: Promise<{ pro
     removed: x.status !== "VISIBLE",
     when: when(x.createdAt),
     canDelete: x.status === "VISIBLE" && !scoped && (ownerView || x.userId === user.id),
+    mine: x.userId === user.id,
+    likes: x._count.likes,
+    liked: x.likes.length > 0,
     replies: [],
   });
   const roots = post.comments.filter((x) => !x.parentId).map(view);
@@ -109,7 +112,7 @@ export default async function MemberPostPage({ params }: { params: Promise<{ pro
         {/* La cabecera de la publicación: su tipo, su fecha, el título en oro y la flor de la vida detrás. */}
         <div className="relative overflow-hidden rounded-[2rem]" style={{ boxShadow: `0 0 0 1px ${kindStyle(post.kind).light}33, 0 40px 80px -40px ${kindStyle(post.kind).color}` }} data-post-cover>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={cover.src} alt="" className="aspect-[16/9] w-full object-cover sm:aspect-[16/7]" />
+          <img src={cover.src} alt="" className="block aspect-[4/3] w-full object-cover" />
           <span aria-hidden className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0d0c22]" />
         </div>
         <header className="vip-hero relative isolate mx-3 -mt-16 overflow-hidden rounded-[2rem] px-6 py-9 text-center sm:mx-8 sm:-mt-24 sm:px-10 sm:py-12" style={{ backgroundImage: `radial-gradient(90% 80% at 50% 0%, ${kindStyle(post.kind).color}40, transparent 65%), linear-gradient(180deg, rgb(30 26 66 / .85), rgb(13 12 34 / .92))` }}>

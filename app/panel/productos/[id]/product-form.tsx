@@ -309,7 +309,7 @@ export function ProductForm({
                 <input type="checkbox" name="pagedReading" defaultChecked={product.pagedReading} className="mt-0.5 h-4 w-4 accent-[#0E1024]" />
                 <span>
                   <span className="font-semibold">Lectura a página entera</span>
-                  <span className="block text-xs text-muted">Para textos largos con fotos: cada publicación se lee como una página, con «Anterior» y «Siguiente», un calendario para ir a una fecha y «Guardar» (sale en «Mis archivos»).</span>
+                  <span className="block text-xs text-muted">Para textos largos con fotos: cada publicación se lee como una página, con «Anterior» y «Siguiente», un calendario para ir a una fecha y «Guardar» (sale en sus Favoritos, la estrella del menú).</span>
                 </span>
               </label>
             )}

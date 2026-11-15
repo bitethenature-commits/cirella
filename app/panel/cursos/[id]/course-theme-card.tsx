@@ -27,15 +27,14 @@ export function CourseThemeCard({ productId, initial }: { productId: string; ini
   };
 
   return (
-    <section className="card p-5" aria-labelledby="tematica-titulo" data-course-theme>
+    <section className="card p-4" aria-labelledby="tematica-titulo" data-course-theme>
       <div className="flex items-center justify-between gap-2">
-        <h3 id="tematica-titulo" className="font-semibold">
-          Temática del curso
+        <h3 id="tematica-titulo" className="text-[0.66rem] font-medium uppercase tracking-[0.3em] text-gold" title="Toca una o varias: el curso sale en su temática en «Cursos» del panel y de tu web.">
+          Temática
         </h3>
         {saving && <Loader2 className="h-4 w-4 animate-spin text-muted" />}
       </div>
-      <p className="mt-1 text-xs text-muted">Toca una o varias. El curso sale en su temática en «Cursos» del panel y de tu web.</p>
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
         {COURSE_CATEGORIES.map((c) => {
           const on = picked.includes(c);
           return (
@@ -45,12 +44,12 @@ export function CourseThemeCard({ productId, initial }: { productId: string; ini
               onClick={() => toggle(c)}
               aria-pressed={on}
               disabled={saving}
-              className={`flex flex-col items-center gap-1.5 rounded-2xl border px-1 py-2.5 text-center transition ${on ? "border-gold bg-gold/15 text-ink" : "border-line text-muted hover:border-gold/60 hover:text-ink"}`}
+              className={`studio-pick flex flex-col items-center gap-1.5 rounded-2xl border px-1 py-2.5 text-center transition ${on ? "is-on" : "border-line text-muted hover:text-ink"}`}
             >
               <span className={on ? "text-gold" : ""}>
-                <CategoryIcons categories={[c]} size={1.7} />
+                <CategoryIcons categories={[c]} size={1.5} />
               </span>
-              <span className="text-[0.7rem] font-semibold leading-tight">{COURSE_CATEGORY_LABEL[c]}</span>
+              <span className="text-[0.66rem] font-semibold leading-tight">{COURSE_CATEGORY_LABEL[c]}</span>
             </button>
           );
         })}

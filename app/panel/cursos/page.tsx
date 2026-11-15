@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, BookOpen, ChevronDown, Eye, GraduationCap, Plus, Settings2 } from "lucide-react";
+import { ArrowRight, BookOpen, ChevronDown, Eye, GraduationCap, MessageCircle, Plus, Settings2 } from "lucide-react";
 import { ProductCard } from "@/components/creator-page/creator-page-view";
 import { EmptyState } from "@/components/ui/empty";
 import { requireCreator } from "@/lib/auth";
@@ -79,13 +79,15 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export default async function CoursesPage() {
   const { creator } = await requireCreator();
   const db = tenantDb(creator.id);
-  const [stats, rows] = await Promise.all([
+  const [stats, rows, newComments] = await Promise.all([
     courseList(creator.id),
     db.product.findMany({
       where: { type: "COURSE", status: { not: "ARCHIVED" } },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       include: { _count: { select: { lessons: true } } },
     }),
+    // Comentarios de alumnas en las lecciones en las últimas 48 h: el aviso del botón «Comentarios».
+    db.lessonComment.count({ where: { byOwner: false, status: "VISIBLE", createdAt: { gt: new Date(Date.now() - 48 * 3600_000) } } }),
   ]);
   const canCreate = canSellType(creator.plan, "COURSE");
   const config = readPageConfig(creator.pagePublished ?? creator.pageDraft, creator.displayName);
@@ -99,7 +101,15 @@ export default async function CoursesPage() {
       <PageHeader
         title="Cursos"
         subtitle={courses.length ? `${plural(courses.length, "curso", "cursos")} · toca una temática para ver sus cursos.` : "Prepara tus cursos lección a lección."}
-        actions={canCreate ? <NewCourseMenu /> : null}
+        actions={
+          <>
+            <Link href="/panel/cursos/comentarios" className="btn btn-outline relative" data-course-comments>
+              <MessageCircle className="h-4 w-4" /> Comentarios
+              {newComments > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-rose px-1 text-[0.68rem] font-semibold text-white">{newComments}</span>}
+            </Link>
+            {canCreate && <NewCourseMenu />}
+          </>
+        }
       />
       {courses.length ? (
         <CoursesBrowser

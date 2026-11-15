@@ -78,7 +78,7 @@ const PERSONAL_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Inicio", icon: Home },
   { href: "/panel/cursos", label: "Cursos", icon: GraduationCap },
   { href: "/panel/comunidad", label: "Comunidad", icon: MessagesSquare },
-  { href: "/panel/publicaciones", label: "Publicaciones", icon: Newspaper },
+  { href: "/panel/actualidades", label: "Actualidades", icon: Newspaper },
   { href: "/panel/portal", label: "Portal de Noticias", icon: Gift },
   // Carpeta «Mi web» (NAV_FOLDERS).
   { href: "/panel/pagina", label: "Mi página", icon: Palette },

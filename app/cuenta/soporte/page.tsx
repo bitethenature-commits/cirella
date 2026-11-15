@@ -12,10 +12,12 @@ import { formatMoney } from "@/lib/money";
 import { orderRef } from "@/lib/order-ref";
 import { formatDate } from "@/lib/tz";
 import { TicketButton, type TicketData } from "./ticket";
+import { Settings } from "lucide-react";
 import { PageHeader } from "./../page-header";
+import { ProfileContent } from "../perfil/content";
 
 const FAQ = [
-  ["¿Dónde está lo que compré?", "Todo está en tu cuenta: los cursos en «Mis cursos», las sesiones en «Mis sesiones» y los archivos en «Mis archivos»."],
+  ["¿Dónde está lo que compré?", "Todo está en tu cuenta: los cursos en «Mis cursos», las sesiones en «Mis sesiones» y lo que guardas y comentas en la estrella y el chat del menú."],
   ["No me llega el email de acceso", "Revisa la carpeta de spam o promociones. También puedes pedir un nuevo enlace desde «Entrar»."],
   ["¿Cómo cancelo una membresía?", "En «Mis membresías», entra en la comunidad y pulsa «Cancelar suscripción». Mantendrás el acceso hasta el final del periodo pagado."],
   ["¿Puedo cambiar la fecha de una sesión?", `Sí, hasta ${SESSION_CHANGE_NOTICE_HOURS} horas antes desde el detalle de la sesión. Si queda menos tiempo, escribe directamente a la creadora.`],
@@ -23,13 +25,15 @@ const FAQ = [
 
 /** Modo personal: aquí no se compra nada (lo gratuito llega con el email; lo de pago, desde otras webs). */
 const FAQ_PERSONAL = [
-  ["¿Dónde está mi contenido?", "Todo está en tu cuenta: los cursos en «Mis cursos» y los archivos en «Mis archivos»."],
+  ["¿Dónde está mi contenido?", "Todo está en tu cuenta: los cursos en «Mis cursos» y lo que guardas y comentas en la estrella y el chat del menú."],
   ["No me llega el email de acceso", "Revisa la carpeta de spam o promociones. También puedes pedir un nuevo enlace desde «Entrar»."],
   ["Lo compré en otra web, ¿cómo entro?", "Cuando se confirme tu compra te llegará un email con tu enlace de acceso. Si no te llega en un día, escribe por email o WhatsApp desde esta página."],
   ["¿Cómo dejo de recibir novedades?", "Con el enlace del final de cualquier email de novedades o desde tu perfil."],
 ];
 
-export default async function SupportPage() {
+/** Ajustes (el engranaje del menú): arriba «Mi perfil» y debajo «Soporte». */
+export default async function SupportPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
+  const sp = await searchParams;
   const user = await requireBuyerFull("/cuenta/soporte");
   const [customers, settings, orders] = await Promise.all([
     prisma.customer.findMany({ where: { userId: user.id }, include: { creator: true } }),
@@ -65,11 +69,18 @@ export default async function SupportPage() {
   };
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader
-        eyebrow="Aquí para ti"
-        title="Soporte"
-        subtitle={personal ? "Para cualquier duda sobre un contenido, escribe directamente:" : "Para dudas sobre un contenido o una sesión, escribe directamente a quien te lo vendió."}
-      />
+      <PageHeader icon={<Settings className="h-8 w-8" strokeWidth={1.3} />} eyebrow="Tu cuenta" title="Ajustes" />
+      <div className="mt-10">
+        <ProfileContent sp={sp} />
+      </div>
+      <section id="soporte" aria-labelledby="soporte-t" className="mt-16 scroll-mt-32">
+      <div className="text-center">
+        <span aria-hidden className="text-[0.6rem] text-gold">✦</span>
+        <h2 id="soporte-t" className="display acc-thin mt-2 text-[2.2rem] leading-none">Soporte</h2>
+        <p className="acc-thin-text mx-auto mt-3 max-w-md text-[0.98rem] leading-relaxed text-muted">
+          {personal ? "Para cualquier duda sobre un contenido, escribe directamente:" : "Para dudas sobre un contenido o una sesión, escribe directamente a quien te lo vendió."}
+        </p>
+      </div>
       <div className="mt-6 space-y-2.5">
         {customers.map(({ creator }) => {
           const c = creatorBrief(creator);
@@ -99,6 +110,7 @@ export default async function SupportPage() {
       )}
       {/* Abajo del todo, a la derecha: el ticket de compras (se abre en una ventana y se descarga). */}
       <TicketButton data={ticket} />
+      </section>
     </div>
   );
 }

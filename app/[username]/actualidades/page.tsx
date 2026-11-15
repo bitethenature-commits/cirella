@@ -3,8 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
+import { SectionHeading } from "@/components/creator-page/creator-page-view";
 import { HomeRows, MegaphoneIcon } from "@/components/creator-page/home-rows";
 import { TrackOnMount } from "@/components/creator-page/tracking";
+import { getRecentPublicPosts } from "@/lib/public";
 import { formatDate } from "@/lib/tz";
 import { sectionPageData } from "../section-data";
 
@@ -40,6 +42,10 @@ export default async function ActualidadesPage({ params }: { params: Promise<Par
   const data = await sectionPageData(username);
   if (!data) notFound();
   const { creator, config } = data;
+  // Arriba, sus publicaciones (como en la portada); debajo, lo nuevo de la web por meses.
+  const { posts, older: oldPosts } = await getRecentPublicPosts(creator.id, creator.timezone, creator.newsDays);
+  const older = (data.newsOlder ?? 0) + oldPosts;
+  const postHref = (slug: string) => `${data.listUrl.replace(/\/$/, "")}/${slug}`;
   const news = (data.news ?? []).map((n) => (n.href.startsWith("#") ? { ...n, href: `${data.homeHref}${n.href}` } : n));
   const months = new Map<string, typeof news>();
   for (const n of news) {
@@ -60,7 +66,40 @@ export default async function ActualidadesPage({ params }: { params: Promise<Par
           </div>
         </div>
 
-        {news.length === 0 ? (
+        {posts.length > 0 && (
+          <section className="cp-luxe mt-10" aria-label="Publicaciones">
+            <SectionHeading title="Publicaciones" />
+            <div className="mt-5">
+              <HomeRows
+                fallbackImage={config.coverUrl ?? config.avatarUrl ?? null}
+                rows={posts.map((p) => ({
+                  key: `post-${p.id}`,
+                  href: postHref(p.slug),
+                  image: p.imageUrl,
+                  icon: <MegaphoneIcon className="h-7 w-7 opacity-80" />,
+                  eyebrow: (
+                    <>
+                      <span>{p.dateLabel}</span>
+                      <span>· Publicación</span>
+                    </>
+                  ),
+                  title: p.title,
+                  text: p.excerpt,
+                }))}
+              />
+            </div>
+          </section>
+        )}
+
+        {posts.length > 0 && news.length > 0 && (
+          <div className="mt-14 flex items-center gap-4">
+            <span aria-hidden className="h-px flex-1 bg-[color-mix(in_oklab,var(--c-gold)_45%,transparent)]" />
+            <p className="cp-eyebrow">Lo nuevo de la web</p>
+            <span aria-hidden className="h-px flex-1 bg-[color-mix(in_oklab,var(--c-gold)_45%,transparent)]" />
+          </div>
+        )}
+
+        {news.length === 0 && posts.length > 0 ? null : news.length === 0 ? (
           <div className="cp-card mt-8 p-6 text-center">
             <p className="cp-muted">Todavía no hay novedades.</p>
             <Link href={data.homeHref} className="cp-btn-ghost mt-4">
@@ -92,6 +131,14 @@ export default async function ActualidadesPage({ params }: { params: Promise<Par
               </section>
             ))}
           </div>
+        )}
+        {/* Las que ya pasaron de sus días (se eligen en el panel, en «Actualidades»): solo se cuentan. */}
+        {older > 0 && (
+          <p className="cp-muted mt-10 flex items-center justify-center gap-3 text-center text-[0.95rem] italic" data-news-older>
+            <span aria-hidden className="cp-gold text-[0.6rem]">✦</span>
+            {news.length || posts.length ? "y" : "Hubo"} {older} {older === 1 ? "actualidad" : "actualidades"} más
+            <span aria-hidden className="cp-gold text-[0.6rem]">✦</span>
+          </p>
         )}
       </main>
       <TrackOnMount creatorId={creator.id} type="PAGE_VIEW" />

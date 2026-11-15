@@ -2,7 +2,7 @@ import "server-only";
 import { NO_CHARGE_LABEL, type NoChargeProvider } from "@/lib/access-mode";
 import { lastDayText } from "@/lib/access-end";
 import { loadFeed } from "@/lib/community";
-import { datetimeLocalValue, memberPostState, scheduleLabel } from "@/lib/community-rules";
+import { datetimeLocalValue, memberPostState, scheduleLabel, visibleMemberPostWhere } from "@/lib/community-rules";
 import { communityTiers, type CommunityTier } from "@/lib/community-tiers";
 import { activeAccessWhere } from "@/lib/membership-access";
 import { monthGrid, type YearMonth } from "@/lib/owner-calendar";
@@ -76,11 +76,11 @@ export function emptyComposerPost(productId: string): ComposerPost {
  * publicado; las fijadas arriba. Con los comentarios de cada publicación para moderarlos ahí mismo
  * y sus vistas.
  */
-export async function loadWall(owner: Owner, tiers: CommunityTier[], tierId: string | null, before: Date | null) {
+export async function loadWall(owner: Owner, tiers: CommunityTier[], tierId: string | null, before: Date | null, filter: { kind?: string | null; search?: string | null } = {}) {
   const tier = tierId ? tiers.find((t) => t.id === tierId) ?? null : null;
   const ids = tier ? [tier.id, ...tier.includes] : tiers.map((t) => t.id);
   if (!ids.length) return { posts: [], nextBefore: null, comments: new Map<string, StudioComment[]>(), fresh: new Set<string>(), views: new Map<string, number>() };
-  const feed = await loadFeed({ productId: ids[0], alsoProductIds: ids.slice(1), viewer: { userId: owner.userId, isOwner: true }, publishedOnly: true, before });
+  const feed = await loadFeed({ productId: ids[0], alsoProductIds: ids.slice(1), viewer: { userId: owner.userId, isOwner: true }, publishedOnly: true, before, kinds: filter.kind ? [filter.kind] : undefined, search: filter.search });
   const postIds = feed.posts.map((p) => p.id);
   const db = tenantDb(owner.id);
   const [rows, viewRows] = await Promise.all([
@@ -105,6 +105,12 @@ export async function loadWall(owner: Owner, tiers: CommunityTier[], tierId: str
   // Los hilos más recientes arriba; un borrado sin respuestas no hace falta enseñarlo.
   for (const [k, list] of comments) comments.set(k, list.filter((c) => c.status !== "REMOVED" || c.replies.length).reverse());
   return { ...feed, comments, fresh, views: new Map(viewRows.map((v) => [v.postId, v._count._all])) };
+}
+
+/** Los tipos que tienen publicaciones (ya visibles) en estas membresías: los del filtro del Muro. */
+export async function wallKinds(owner: Owner, productIds: string[], now = new Date()) {
+  const rows = await tenantDb(owner.id).membershipPost.groupBy({ by: ["kind"], where: { productId: { in: productIds }, ...visibleMemberPostWhere(now) } });
+  return rows.map((r) => r.kind);
 }
 
 /** Programadas (de la más cercana a la más lejana) y borradores (los últimos tocados arriba). */

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getBuyerSession } from "@/lib/buyer-access";
 import { addComment, removeComment, toggleLike, toggleSave } from "@/lib/community";
+import { toggleCommentLike } from "@/lib/comment-social";
 import { isMemberPostVisible } from "@/lib/community-rules";
 import { prisma } from "@/lib/db";
 import { limitLike } from "@/lib/limits";
@@ -41,6 +42,7 @@ export async function likePost(postId: string): Promise<{ liked: boolean; count:
   if (!limit.ok) return { error: limit.message };
   const r = await toggleLike(a.post.id, a.user.id, a.post.creatorId);
   refresh(a.post);
+  revalidatePath("/cuenta/archivos");
   return r;
 }
 
@@ -75,4 +77,20 @@ export async function deleteComment(form: FormData) {
   if (!c) return;
   await removeComment(c.id, { userId: s.user.id, ownerOfCreatorId: s.user.creator?.id ?? null });
   refresh({ productId: c.productId, id: c.postId });
+}
+
+/** ♡ en un comentario: solo con una sesión de cuenta (avisa a quien lo escribió). */
+export async function likeComment(commentId: string): Promise<{ liked: boolean; count: number } | { error: string }> {
+  const c = await prisma.membershipComment.findUnique({ where: { id: String(commentId) }, select: { postId: true } });
+  if (!c) return { error: "Ese comentario ya no está." };
+  const a = await actor(c.postId);
+  if (!a) return { error: "No tienes acceso a esta publicación." };
+  if (!a.account) return { error: "Para dar «me gusta», entra con tu email." };
+  const limit = await limitLike(a.user.id);
+  if (!limit.ok) return { error: limit.message };
+  const r = await toggleCommentLike("post", String(commentId), a.user.id);
+  if (!r) return { error: "Ese comentario ya no está." };
+  refresh(a.post);
+  revalidatePath("/cuenta/archivos");
+  return r;
 }

@@ -12,6 +12,7 @@ import { ownerUsername } from "@/lib/site-mode";
 import { formatDate } from "@/lib/tz";
 import { freeMemberships } from "../free-memberships";
 import { Thumb } from "../ui";
+import { SpinningSolid } from "../spinning-solid";
 import { Ornament, SacredFlower } from "./vip";
 
 /**
@@ -98,8 +99,8 @@ export default async function MyMemberships() {
               <span aria-hidden className="portal-arch pointer-events-none absolute inset-3 rounded-b-[1.6rem] rounded-t-[999px]" />
               <span aria-hidden className="portal-rays pointer-events-none absolute inset-0 -z-10" />
 
-              <span className="portal-emblem grid h-16 w-16 place-items-center rounded-full text-3xl" aria-hidden>
-                {t.emoji ?? "✦"}
+              <span className="portal-emblem grid h-16 w-16 place-items-center rounded-full text-gold" aria-hidden>
+                <SpinningSolid level={i} offset={i * 1.3} className="plat-glow h-11 w-11" />
               </span>
               <p className="mt-5 text-[0.6rem] font-semibold uppercase tracking-[0.32em] text-gold/90">Nivel {["I", "II", "III", "IV", "V"][i] ?? i + 1}</p>
               <h2 className="vip-gold display mt-2 text-[2.4rem] leading-none md:text-[2.7rem]">{t.title}</h2>

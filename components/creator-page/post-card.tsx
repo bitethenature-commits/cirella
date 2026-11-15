@@ -18,7 +18,7 @@ export function PostCard({ post, username, withDate = true }: { post: PublicPost
   return (
     <article className="cp-card cp-card-hover group relative flex h-full flex-col" data-post-card={post.slug}>
       <Link href={href} className="absolute inset-0 z-[1]" aria-label={post.title} />
-      <div className="relative aspect-[16/10] overflow-hidden">
+      <div className="cp-photo-bubble cp-photo-in relative aspect-[4/3]">
         {post.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

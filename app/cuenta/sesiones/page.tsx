@@ -15,6 +15,7 @@ import { getPublicCreator } from "@/lib/public";
 import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
 import { BOOKING_STATUS_LABEL } from "@/lib/types";
 import { capitalize, formatDate, sessionWhen } from "@/lib/tz";
+import { LunaIcon } from "../icons";
 import { MethodTag } from "../ui";
 
 type Booking = Awaited<ReturnType<typeof getCustomerLibrary>>["upcoming"][number];
@@ -117,6 +118,9 @@ export default async function MySessions() {
     // data-course-night: la página se ve de noche, como los cursos (app/globals.css, «Los cursos, de noche»).
     <div className="space-y-14" data-course-night>
       <header className="text-center">
+        <span aria-hidden className="acc-emblem">
+          <LunaIcon className="h-9 w-9" />
+        </span>
         <p className="text-[0.66rem] font-semibold uppercase tracking-[0.28em] text-gold">✦ Tu camino con la luna ✦</p>
         <h1 className="display mt-2 text-[2.8rem] leading-none sm:text-[3.4rem]">{personal ? "Círculos y lecturas" : "Mis sesiones"}</h1>
         <p className="mx-auto mt-3 max-w-md text-sm text-muted">Los círculos de la luna a los que vas, tus sesiones y tus lecturas, cada cosa en su sitio.</p>

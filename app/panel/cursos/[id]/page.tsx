@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Eye } from "lucide-react";
+import { Paperclip } from "lucide-react";
 import { DeliveryAlert } from "@/components/ui/delivery-alert";
 import { Flash } from "@/components/ui/flash";
 import { readDrip } from "@/lib/course-drip";
@@ -50,14 +49,19 @@ export default async function CourseStudioPage({ params, searchParams }: { param
   return (
     <div>
       <StudioHeader course={course} tab="estructura" />
-      {sp.nuevo && <Flash ok="Curso creado en borrador. Elige su temática a la derecha y añade sus lecciones; el precio, la página de venta y la publicación están en «Ajustes del producto»." />}
+      {sp.nuevo && <Flash ok="Curso creado en borrador. Elige su temática y añade sus lecciones; el precio y la publicación están en «Precio y venta»." />}
       {sp.leccion === "eliminada" && <Flash ok="Lección eliminada." />}
       {noContent && (
         <div className="mb-5">
           <DeliveryAlert title="Tus alumnas no ven ninguna lección" text="El curso está publicado pero todas sus lecciones están en borrador. Publica al menos una." cta="Ver lecciones" href="#estructura-titulo" tone="block" />
         </div>
       )}
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+      {/* Arriba, en una franja: la temática y cómo se abren las lecciones (antes, una columna a la derecha). */}
+      <div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <CourseThemeCard productId={course.id} initial={course.courseCategory} />
+        <DripCard productId={course.id} drip={drip} />
+      </div>
+      <div>
         <StructureBoard
           productId={course.id}
           drip={drip}
@@ -67,19 +71,17 @@ export default async function CourseStudioPage({ params, searchParams }: { param
             lessons: m.lessons.map((l) => ({ id: l.id, title: l.title, durationMin: l.durationMin, views: lessonPartViews(l.parts), published: l.published, dripDays: l.dripDays })),
           }))}
         />
-        <div className="space-y-4 lg:sticky lg:top-20">
-          <CourseThemeCard productId={course.id} initial={course.courseCategory} />
-          <DripCard productId={course.id} drip={drip} />
-          <section className="card p-5">
-            <p className="font-semibold">Así lo ven tus alumnas</p>
-            <p className="mt-1 text-xs text-muted">Ábrelo como una alumna, sin comprarlo: solo verás las lecciones publicadas y, si se abren poco a poco, cuándo se abre cada una.</p>
-            <Link href={`/cuenta/cursos/${course.id}`} target="_blank" className="btn btn-outline btn-sm mt-3">
-              <Eye className="h-4 w-4" /> Ver como alumna
-            </Link>
-          </section>
-        </div>
       </div>
-      <div className="mt-8" id="materiales">
+      {/* Los materiales, plegados: se abren al tocarlos (también se suben desde cada lección). */}
+      <details className="studio-fold card mt-8" id="materiales">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-5 [&::-webkit-details-marker]:hidden">
+          <span className="panel-emblem h-9 w-9 shrink-0">
+            <Paperclip className="h-4 w-4" />
+          </span>
+          <span className="font-semibold">Materiales del curso</span>
+          <span className="ml-auto text-xs text-muted">{files.length} {files.length === 1 ? "archivo" : "archivos"}</span>
+        </summary>
+        <div className="border-t border-line p-4">
         <FilesManager
           productId={course.id}
           files={files}
@@ -88,7 +90,8 @@ export default async function CourseStudioPage({ params, searchParams }: { param
           hint="Vídeos (MP4 o MOV), audios (M4A o MP3), PDF e imágenes. También puedes subirlos desde cada lección. Un material puede estar en varias lecciones."
           usage={fileUsage(modules.flatMap((m) => m.lessons.flatMap((l) => l.parts.map((p) => ({ fileId: p.fileId, lessonId: l.id })))))}
         />
-      </div>
+        </div>
+      </details>
     </div>
   );
 }

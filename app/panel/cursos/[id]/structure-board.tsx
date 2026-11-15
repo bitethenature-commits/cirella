@@ -45,6 +45,8 @@ function placeModule(mods: BoardModule[], id: string, index: number): BoardModul
 }
 
 /** Línea que marca dónde caerá lo que se arrastra (sin ocupar sitio: nada salta mientras se mueve). */
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"];
+
 function DropLine({ at = "top" }: { at?: "top" | "bottom" }) {
   return <span aria-hidden className={`pointer-events-none absolute inset-x-2 z-10 h-[3px] rounded-full bg-lavender-deep ${at === "top" ? "-top-[2px]" : "-bottom-[2px]"}`} data-drop-line />;
 }
@@ -247,9 +249,11 @@ export function StructureBoard({ productId, modules, drip }: { productId: string
           <h2 id="estructura-titulo" className="font-semibold">
             Módulos y lecciones
           </h2>
-          <p className="text-xs text-muted">
-            {mods.length} {mods.length === 1 ? "módulo" : "módulos"} · {total} {total === 1 ? "lección" : "lecciones"}
-            {drafts > 0 && ` · ${drafts} en borrador`}. Arrastra desde <GripVertical className="inline h-3.5 w-3.5 align-[-2px]" /> o usa las flechas para cambiar el orden.
+          {/* Las cifras, en cápsulas doradas; el orden se cambia arrastrando desde los puntitos. */}
+          <p className="mt-2 flex flex-wrap gap-1.5 text-xs" title="Arrastra desde los puntitos o usa las flechas para cambiar el orden.">
+            <span className="studio-count">{mods.length} {mods.length === 1 ? "módulo" : "módulos"}</span>
+            <span className="studio-count">{total} {total === 1 ? "lección" : "lecciones"}</span>
+            {drafts > 0 && <span className="studio-count is-draft">{drafts} en borrador</span>}
           </p>
         </div>
         <p className="min-h-5 text-xs text-muted" aria-live="polite">
@@ -285,7 +289,7 @@ export function StructureBoard({ productId, modules, drip }: { productId: string
           return (
             <div
               key={m.id}
-              className={`relative rounded-2xl border bg-white transition-shadow ${m.lessons.some((l) => l.id === menu) ? "z-20" : ""} ${drag?.id === m.id ? "border-lavender-deep shadow-lift" : "border-line"} ${lessonTarget !== null && drag?.kind === "lesson" ? "ring-2 ring-[#d9cdf0]" : ""}`}
+              className={`studio-module relative rounded-2xl border bg-white transition-shadow ${m.lessons.some((l) => l.id === menu) ? "z-20" : ""} ${drag?.id === m.id ? "border-lavender-deep shadow-lift" : "border-line"} ${lessonTarget !== null && drag?.kind === "lesson" ? "ring-2 ring-[#d9cdf0]" : ""}`}
               style={lift(m.id)}
               data-module-id={m.id}
               data-module
@@ -304,7 +308,7 @@ export function StructureBoard({ productId, modules, drip }: { productId: string
                 >
                   <GripVertical className="h-4 w-4" />
                 </button>
-                <span className="shrink-0 text-xs font-semibold text-muted">M{mi + 1}</span>
+                <span className="studio-num shrink-0" aria-label={`Módulo ${mi + 1}`}>{ROMAN[mi] ?? mi + 1}</span>
                 <ModuleName id={m.id} title={m.title} onSaved={(r) => setMsg(r)} />
                 <button type="button" className={iconBtn} disabled={mi === 0} onClick={() => moveModule(mi, -1)} aria-label={`Subir el módulo «${m.title}»`} data-move-module="up">
                   <ArrowUp className="h-4 w-4" />
@@ -356,7 +360,8 @@ export function StructureBoard({ productId, modules, drip }: { productId: string
                         <GripVertical className="h-4 w-4" />
                       </button>
                       <Link href={`${editBase}/${l.id}`} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-1 py-1 hover:bg-sand/60" draggable={false}>
-                        <span className="hidden w-8 shrink-0 grid-cols-2 gap-0.5 text-muted sm:grid" aria-hidden>
+                        <span className="studio-lnum shrink-0" aria-hidden>{li + 1}</span>
+                        <span className="hidden w-8 shrink-0 grid-cols-2 gap-0.5 text-gold sm:grid" aria-hidden>
                           {l.views.slice(0, 4).map((v) => {
                             const Icon = PART_ICON[v];
                             return <Icon key={v} className="h-3.5 w-3.5" />;

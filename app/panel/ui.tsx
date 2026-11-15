@@ -26,7 +26,7 @@ export function PageHeader({ title, subtitle, actions }: { title: React.ReactNod
 
 export function Stat({ label, value, hint, accent }: { label: string; value: React.ReactNode; hint?: React.ReactNode; accent?: boolean }) {
   return (
-    <div className={`rounded-2xl border p-4 sm:p-5 ${accent ? "border-ink bg-ink text-cream" : "border-line bg-white"}`}>
+    <div data-stat data-accent={accent ? "true" : undefined} className={`rounded-2xl border p-4 sm:p-5 ${accent ? "border-ink bg-ink text-cream" : "border-line bg-white"}`}>
       <p className={`text-xs ${accent ? "text-cream/60" : "text-muted"}`}>{label}</p>
       <p className="stat-value mt-1.5 text-[1.6rem] font-semibold leading-none tracking-tight tabular-nums sm:text-[1.85rem]">{value}</p>
       {hint && <p className={`mt-1.5 text-xs ${accent ? "text-cream/60" : "text-muted"}`}>{hint}</p>}

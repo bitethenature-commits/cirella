@@ -142,7 +142,7 @@ export type ProfileState = { ok?: string; error?: string } | undefined;
 export async function updateProfile(_: ProfileState, form: FormData): Promise<ProfileState> {
   // Sesión verificada (como todo el perfil). La contraseña, la foto y el email tienen su propia
   // tarjeta (app/cuenta/perfil/actions.ts).
-  const user = await requireBuyerFull("/cuenta/perfil");
+  const user = await requireBuyerFull("/cuenta/soporte");
   const name = String(form.get("name") ?? "").trim().slice(0, 80);
   if (!name) return { error: "Escribe tu nombre" };
   await prisma.user.update({ where: { id: user.id }, data: { name } });

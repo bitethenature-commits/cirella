@@ -21,16 +21,16 @@ export function StudioHeader({ course, tab }: { course: { id: string; title: str
       <Link href="/panel/cursos" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
         <ArrowLeft className="h-4 w-4" /> Cursos
       </Link>
-      <div className="panel-hero mt-3 flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      <div className="panel-hero mt-3 p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="starfield absolute inset-0 -z-10 rounded-[inherit] opacity-40" aria-hidden />
         <div className="flex min-w-0 items-center gap-4">
-        <SectionEmblem className="h-14 w-14 shrink-0" />
+        <SectionEmblem className="h-12 w-12 shrink-0" />
         <div className="min-w-0">
-          <p className="eyebrow">Estudio del curso</p>
-          <h1 className="display mt-1 text-[2.1rem] leading-tight sm:text-[2.4rem]">
+          <h1 className="display text-[1.9rem] leading-tight sm:text-[2.2rem]">
             {course.emoji} {course.title}
           </h1>
-          <div className="mt-2">{course.status === "PUBLISHED" ? <Badge tone="success">Publicado</Badge> : <Badge tone="warning">Borrador · tus alumnas aún no lo ven</Badge>}</div>
+          <div className="mt-1.5">{course.status === "PUBLISHED" ? <Badge tone="success">Publicado</Badge> : <Badge tone="warning">Borrador · aún no lo ven</Badge>}</div>
         </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -38,22 +38,19 @@ export function StudioHeader({ course, tab }: { course: { id: string; title: str
             <Eye className="h-4 w-4" /> Ver como alumna
           </Link>
           <Link href={`/panel/productos/${course.id}`} className="btn btn-ghost btn-sm" title="Precio, página de venta, acceso y publicación">
-            <Settings2 className="h-4 w-4" /> Ajustes del producto
+            <Settings2 className="h-4 w-4" /> Precio y venta
           </Link>
         </div>
+        </div>
+        {/* Las pestañas, dentro de la cabecera: en cápsula, la abierta con doble línea dorada. */}
+        <nav className="mt-4 flex gap-1.5 overflow-x-auto" aria-label="Secciones del estudio">
+          {TABS.map((t) => (
+            <Link key={t.key} href={t.href(course.id)} aria-current={t.key === tab ? "page" : undefined} className="studio-tab inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm">
+              <t.icon className="h-4 w-4" /> {t.label}
+            </Link>
+          ))}
+        </nav>
       </div>
-      <nav className="mt-5 flex gap-1 overflow-x-auto border-b border-line" aria-label="Secciones del estudio">
-        {TABS.map((t) => (
-          <Link
-            key={t.key}
-            href={t.href(course.id)}
-            aria-current={t.key === tab ? "page" : undefined}
-            className={`-mb-px inline-flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-semibold transition ${t.key === tab ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink"}`}
-          >
-            <t.icon className="h-4 w-4" /> {t.label}
-          </Link>
-        ))}
-      </nav>
     </div>
   );
 }

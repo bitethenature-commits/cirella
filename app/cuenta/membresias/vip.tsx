@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SpinningSolid } from "../spinning-solid";
 import { MoonToday } from "./moon-today";
 
 /**
@@ -139,7 +140,7 @@ export function MemberHero({
 }
 
 /** La tarjeta de miembro VIP: dorada, con su nombre, su nivel y desde cuándo es miembro. */
-export function MemberCard({ name, tier, emoji, since, note }: { name: string; tier: string; emoji: string | null; since: string | null; note?: string | null }) {
+export function MemberCard({ name, tier, emoji, since, note, level }: { name: string; tier: string; emoji: string | null; since: string | null; note?: string | null; level?: number | null }) {
   return (
     <div className="vip-card relative overflow-hidden rounded-[1.4rem] p-5 text-[#2A1E0C] sm:p-6" data-member-card>
       <div className="flex items-start justify-between gap-4">
@@ -148,7 +149,7 @@ export function MemberCard({ name, tier, emoji, since, note }: { name: string; t
           <p className="display mt-1 truncate text-[1.6rem] leading-tight">{name}</p>
         </div>
         <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-[#2A1E0C]/25 bg-white/25 text-2xl" aria-hidden>
-          {emoji ?? "✦"}
+          {level != null && level >= 0 ? <SpinningSolid level={level} className="plat-glow h-8 w-8" /> : (emoji ?? "✦")}
         </span>
       </div>
       <div className="mt-6 flex flex-wrap items-end justify-between gap-3">

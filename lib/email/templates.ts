@@ -605,16 +605,31 @@ export function newCommentCreatorEmail(o: { membershipTitle: string; postTitle: 
   };
 }
 
-/** A la miembro: la dueña ha respondido a su comentario. */
-export function commentReplyEmail(o: { creatorName: string; membershipTitle: string; postTitle: string; excerpt: string; url: string; optOutUrl: string }) {
+/** A quien escribió un comentario: alguien (la dueña u otra persona) le ha respondido. */
+export function commentReplyEmail(o: { creatorName: string; replierName?: string; membershipTitle: string; postTitle: string; excerpt: string; url: string; optOutUrl: string }) {
+  const who = o.replierName || o.creatorName;
   return {
-    subject: `${o.creatorName} ha respondido a tu comentario`,
+    subject: `${who} ha respondido a tu comentario`,
     html: layout({
       brand: o.creatorName,
-      title: `${o.creatorName} te ha respondido`,
+      title: `${who} te ha respondido`,
       body: p(`En «${esc(o.postTitle)}»:`) + p(`<span style="white-space:pre-line">${esc(o.excerpt)}</span>`),
       cta: { label: "Ver la conversación", url: o.url },
       footer: communityFooter(o.membershipTitle, o.optOutUrl),
+    }),
+  };
+}
+
+/** A quien escribió un comentario: a alguien le ha gustado. */
+export function commentLikedEmail(o: { creatorName: string; likerName: string; placeTitle: string; groupTitle: string; excerpt: string; url: string; optOutUrl: string }) {
+  return {
+    subject: `A ${o.likerName} le ha gustado tu comentario`,
+    html: layout({
+      brand: o.creatorName,
+      title: "Le ha gustado tu comentario",
+      body: p(`A <strong>${esc(o.likerName)}</strong> le ha gustado lo que escribiste en «${esc(o.placeTitle)}»:`) + p(`<span style="white-space:pre-line">${esc(o.excerpt)}</span>`),
+      cta: { label: "Ver la conversación", url: o.url },
+      footer: communityFooter(o.groupTitle, o.optOutUrl),
     }),
   };
 }
