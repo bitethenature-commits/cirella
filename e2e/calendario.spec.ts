@@ -43,7 +43,7 @@ test("Cirella ve el mes con sus marcas, abre un día, escribe su nota y sigue ah
   const fullKey = dateKeyInTz(fullMoon.at, TZ);
 
   await demoLogin(page, "Cirella");
-  await page.goto(`/panel/reservas?mes=${today.slice(0, 7)}`);
+  await page.goto(`/panel/solicitudes?mes=${today.slice(0, 7)}`);
   const title = new Date(`${today}T12:00:00Z`).toLocaleDateString("es-ES", { month: "long", year: "numeric", timeZone: "UTC" });
   await expect(page.getByRole("heading", { name: new RegExp(title, "i") })).toBeVisible();
   await expect(page.locator(`[data-day="${today}"]`)).toHaveAttribute("aria-label", /nota/);
@@ -80,25 +80,25 @@ test("Cirella ve el mes con sus marcas, abre un día, escribe su nota y sigue ah
   // Una conjunción de la Luna (cada mes hay varias): sale en su día con la hora, no como marca.
   const moonConj = conjunctionsBetween(new Date(), new Date(Date.now() + 10 * 86_400_000)).find((e) => e.kind === "conjunction" && e.a === "Moon")!;
   const moonKey = dateKeyInTz(moonConj.at, TZ);
-  await page.goto(`/panel/reservas?dia=${moonKey}`);
+  await page.goto(`/panel/solicitudes?dia=${moonKey}`);
   await expect(page.locator(`dialog[data-day-sheet="${moonKey}"]`).getByText(/☌ Luna – /).first()).toBeVisible();
   await page.locator(`dialog[data-day-sheet="${moonKey}"]`).getByRole("button", { name: "Cerrar" }).click();
 
   // El viaje a Bali (sembrado): en «Tu agenda», sus horas en Bali y en España.
   const bali = await prisma.availabilityOverride.findFirstOrThrow({ where: { creatorId: ana.id, kind: "HOURS", note: "Bali" }, orderBy: { date: "asc" } });
-  await page.goto(`/panel/reservas?dia=${bali.date}`);
+  await page.goto(`/panel/solicitudes?dia=${bali.date}`);
   await expect(page.locator(`dialog[data-day-sheet="${bali.date}"]`).getByText(/Fecha especial: trabajas 9:00–13:00 en Bali \(\d+:00–\d+:00( del día anterior)? en España\) · Bali/)).toBeVisible();
   await page.locator(`dialog[data-day-sheet="${bali.date}"]`).getByRole("button", { name: "Cerrar" }).click();
 
   // «Mes siguiente» y «Hoy».
-  await page.goto(`/panel/reservas?mes=${today.slice(0, 7)}`);
+  await page.goto(`/panel/solicitudes?mes=${today.slice(0, 7)}`);
   await page.getByRole("link", { name: "Mes siguiente" }).click();
   await expect(page).toHaveURL(/mes=\d{4}-\d{2}/);
   await page.getByRole("link", { name: "Hoy" }).click();
   await expect(page.getByRole("heading", { name: new RegExp(title, "i") })).toBeVisible();
 
   // Un día sin nada: «Escribir una nota», se guarda sola y sigue ahí al recargar.
-  await page.goto(`/panel/reservas?dia=${empty}`);
+  await page.goto(`/panel/solicitudes?dia=${empty}`);
   const sheet = page.locator(`dialog[data-day-sheet="${empty}"]`);
   await expect(sheet).toBeVisible();
   await sheet.getByRole("button", { name: "Escribir una nota" }).click();

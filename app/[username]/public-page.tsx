@@ -100,6 +100,7 @@ export async function CreatorPublicPage({ username }: { username: string }) {
         postCount={data.postCount}
         news={data.news}
         portal={data.portal}
+        gifts={data.gifts}
         discountCodes={data.discountCodes}
         personal={personal}
         signupsOnly={data.signupsOnly}

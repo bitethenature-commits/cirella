@@ -6,6 +6,8 @@ import { ConfirmForm } from "@/components/ui/confirm-form";
 import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
 import { nextMoonDates } from "@/lib/moon-dates";
+import { getPublicCreator } from "@/lib/public";
+import { resolveTheme, themeStyle } from "@/lib/templates";
 import { asPortalKind, readPortalMedia } from "@/lib/portal-rules";
 import { isPersonalMode } from "@/lib/site-mode";
 import { sitePageLinkTargets } from "@/lib/site-pages.server";
@@ -26,6 +28,10 @@ export default async function EditPortalItemPage({ params, searchParams }: { par
   const item = await tenantDb(creator.id).portalItem.findFirst({ where: { id } });
   if (!item) notFound();
   const at = item.eventAt;
+  // El tema de la web: el editor se ve como la web.
+  const site = await getPublicCreator(creator.username, true);
+  const t = site ? resolveTheme(site.config.template, site.config.theme, site.allowCustom) : null;
+  const theme = t && site ? { style: themeStyle(t), card: t.card, template: site.config.template } : null;
   return (
     <div className="mx-auto max-w-3xl">
       <Link href="/panel/portal" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
@@ -35,6 +41,7 @@ export default async function EditPortalItemPage({ params, searchParams }: { par
       {sp.guardado && SAVED[sp.guardado] && <Flash ok={SAVED[sp.guardado]} />}
       {sp.falta && <Flash error="Sube el archivo antes de publicarlo." />}
       <PortalForm
+        theme={theme}
         linkTargets={await sitePageLinkTargets(creator.id, creator.username, isPersonalMode())}
         moonDates={nextMoonDates(new Date(), creator.timezone).map((m) => ({ label: m.label, date: m.date, time: m.time }))}
         item={{

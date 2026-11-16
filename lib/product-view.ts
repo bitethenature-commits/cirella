@@ -9,11 +9,14 @@ import { asAccessMode, externalHost } from "./access-mode";
 import { channelKindLabel } from "./channel-kind";
 import { saleEndsLabel, saleState } from "./offers";
 import { eventLabel } from "./portal-rules";
+import { readCardCta } from "./product-texts";
 import { formatInTz } from "./tz";
 import { lessonsLabel } from "./types";
 
 /** Los campos de un producto que deciden cómo se ve (las columnas de Product con el mismo nombre). */
 export type ProductViewSource = {
+  /** Textos propios de su ficha y su carta (lib/product-texts.ts). */
+  pageTexts?: unknown;
   id: string;
   type: string;
   slug: string;
@@ -98,5 +101,6 @@ export function toPublicProduct(
     eventLabel: p.groupSession && p.eventStartAt ? eventLabel(p.eventStartAt, ctx.timeZone) : null,
     eventStartAt: p.groupSession && p.eventStartAt ? p.eventStartAt.toISOString() : null,
     kindLabel: channelKindLabel(p),
+    cardCta: readCardCta(p.pageTexts),
   };
 }

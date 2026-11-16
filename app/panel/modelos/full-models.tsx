@@ -10,6 +10,7 @@ import type { BirthProfile } from "@/lib/birth-profile";
 import { customChartSchema, type CustomChartData } from "@/lib/lesson-blocks";
 import { GEOMETRY_FIGURES, GEOMETRY_LABEL, type GeometryFigure, type ModelKind } from "@/lib/page-blocks";
 import { addPartToLesson } from "./actions";
+import { ModelThumb } from "./model-thumb";
 
 /**
  * Los modelos completos en «Modelos» del panel: cada uno como se ve en su web (con los colores de su
@@ -128,7 +129,14 @@ function FullModel({ kind, label, info, profile }: { kind: ModelKind; label: str
   const about = ABOUT[kind];
   return (
     <div className="overflow-hidden rounded-2xl border border-line bg-white">
-      <button type="button" className="flex w-full flex-wrap items-start gap-3 px-4 py-3 text-left" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+      <div className="flex items-start gap-3 px-4 pt-3 sm:pb-3">
+      {/* La foto pequeña: el modelo tal como se ve en tu web (su versión rápida). */}
+      <ModelThumb onClick={() => setOpen((o) => !o)}>
+        <div className="cp p-4" style={{ ...info.theme?.style, minHeight: 0 }} data-card={info.theme?.card} data-template={info.theme?.template ?? undefined}>
+          <Preview kind={kind} version={GATED.includes(kind) ? "quick" : versions[0].id} decks={info.decks} profile={profile} />
+        </div>
+      </ModelThumb>
+      <button type="button" className="flex min-w-0 flex-1 flex-wrap items-start gap-3 pb-3 text-left sm:pb-0" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <div className="min-w-0 flex-1">
           <p className="font-semibold">{label}</p>
           <p className="text-sm text-muted">{about.text}</p>
@@ -154,6 +162,7 @@ function FullModel({ kind, label, info, profile }: { kind: ModelKind; label: str
         </div>
         <ChevronDown className={`mt-1 h-4 w-4 shrink-0 transition ${open ? "rotate-180" : ""}`} />
       </button>
+      </div>
       {open && (
         <div className="space-y-3 border-t border-line p-3 sm:p-4">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">

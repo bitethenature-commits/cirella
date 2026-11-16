@@ -63,7 +63,7 @@ test("menú personal: sin Plan, con Publicaciones y Códigos, «Ventas» es «In
   eq(hrefs(items).includes("/panel/codigos"), true);
   eq(items.find((i) => i.href === "/panel/ventas")?.label, "Inscripciones");
   eq(labels(items).includes("Ventas"), false);
-  eq(hrefs(items).includes("/panel/reservas"), true);
+  eq(hrefs(items).includes("/panel/solicitudes"), true);
 });
 
 test("menú personal: «Cursos» y «Comunidad» justo después de Productos (en la plataforma, no)", () => {
@@ -73,7 +73,7 @@ test("menú personal: «Cursos» y «Comunidad» justo después de Productos (en
 });
 
 test("menú personal sin sesiones con reserva aquí: sin Reservas", () => {
-  eq(hrefs(panelNav({ personal: true, showBookings: false })).includes("/panel/reservas"), false);
+  eq(hrefs(panelNav({ personal: true, showBookings: false })).includes("/panel/solicitudes"), false);
 });
 
 test("barra del móvil personal: 5 accesos, con Inscripciones y «Más» al final", () => {

@@ -272,6 +272,8 @@ model Creator {
   // «Actualidades»: cuántos días sale cada novedad en la lista de la web (null = siempre). Las que pasan
   // de ahí se quitan de la lista y se cuentan («y 12 actualidades más»).
   newsDays       Int?
+  // «Portal de Noticias»: a los cuántos días se BORRAN los publicados (null = nunca). lib/portal-purge.ts.
+  portalDays     Int?
   timezone       String    @default("Europe/Madrid")
   currency       String    @default("EUR")
   onboardedAt    DateTime?
@@ -424,6 +426,10 @@ model Product {
 
   // Cursos: método con el que se agrupa en /cursos (lib/course-categories.ts). null = sin categoría.
   courseCategory String? // ASTROLOGIA | HUMAN_DESIGN | GENE_KEYS | LUNA | MI_ENERGIA | ESPECIAL
+  // Opiniones de esta lectura o sesión ([{ id, quote, author }]); vacío = las de la portada.
+  testimonials   Json?
+  // Textos de su ficha que se pueden cambiar: { perks: [...], steps: [...] } (lib/product-texts.ts).
+  pageTexts      Json?
   // Cursos: «Abrir las lecciones poco a poco» (lib/course-drip.ts). null = todas a la vez desde que se
   // apunta; "INTERVAL" = una lección cada `dripEveryDays` días (la primera, el día que se apunta);
   // "LESSON" = cada lección el día que diga su Lesson.dripDays (null = desde el primer día).
@@ -597,6 +603,8 @@ model MembershipPost {
   productId     String
   product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   title         String
+  // La frase de la tarjeta en el muro (sin ella, el principio del texto).
+  summary       String?
   body          String
   bodyFormat    String? // null = texto de antes (saltos de línea tal cual) | "MD"
   // TEXT | AUDIO | VIDEO | EVENT | PODCAST | CEREMONIA | CIRCULO_LUNAR (lib/community-rules.ts)
@@ -604,6 +612,13 @@ model MembershipPost {
   // Directo, ceremonia o círculo de la luna: cuándo es (lo enseña la publicación; null = sin fecha).
   eventAt       DateTime?
   mediaUrl      String?
+  // El texto del botón del enlace («Enlace a Zoom»); null = el de siempre.
+  joinLabel     String?
+  // Círculo de la luna: su luna y su signo ({ phase, sign, phrase }, lib/product-texts.ts → MoonChoice),
+  // que salen en lugar de la foto. Sin ella, la luna de su fecha.
+  moon          Json?
+  // El círculo de la luna (Product) del que sale esta publicación: se crea, cambia y borra con él.
+  circleProductId String? @unique
   // La foto de portada (/media/… o /demo/…): sale a la izquierda en la tarjeta y arriba al abrirla. Sin ella,
   // la primera foto del texto o, si no hay, una según el tipo (app/cuenta/membresias/cover.ts).
   imageUrl      String?

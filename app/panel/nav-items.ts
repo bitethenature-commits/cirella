@@ -1,6 +1,5 @@
 import {
   BarChart3,
-  CalendarDays,
   ClipboardList,
   CreditCard,
   FileText,
@@ -9,9 +8,9 @@ import {
   Home,
   Inbox,
   Layers,
-  LayoutGrid,
   Mail,
   Menu,
+  Moon,
   MessagesSquare,
   Newspaper,
   Orbit,
@@ -21,6 +20,7 @@ import {
   Sparkles,
   TicketPercent,
   Users,
+  Video,
   Zap,
 } from "lucide-react";
 
@@ -31,10 +31,11 @@ import { bottomBarItems, orderNav, type PanelNavPrefs } from "@/lib/panel-prefs"
 export const PANEL_NAV = [
   { href: "/panel", label: "Inicio", icon: Home },
   { href: "/panel/pagina", label: "Mi página", icon: Palette },
-  { href: "/panel/productos", label: "Productos", icon: LayoutGrid },
+  { href: "/panel/sesiones", label: "Sesiones y lecturas", icon: Video },
+  { href: "/panel/circulos", label: "Círculos de la Luna", icon: Moon },
   { href: "/panel/ventas", label: "Ventas", icon: Receipt },
   { href: "/panel/clientes", label: "Clientes", icon: Users },
-  { href: "/panel/reservas", label: "Reservas", icon: CalendarDays },
+  { href: "/panel/solicitudes", label: "Solicitudes", icon: Inbox },
   { href: "/panel/estadisticas", label: "Estadísticas", icon: BarChart3 },
   { href: "/panel/automatizaciones", label: "Automatizaciones", icon: Zap },
   { href: "/panel/modelos", label: "Modelos", icon: Orbit },
@@ -44,7 +45,7 @@ export const PANEL_NAV = [
 
 export const MOBILE_NAV = [
   { href: "/panel", label: "Inicio", icon: Home },
-  { href: "/panel/productos", label: "Productos", icon: LayoutGrid },
+  { href: "/panel/sesiones", label: "Sesiones", icon: Video },
   { href: "/panel/pagina", label: "Página", icon: Palette },
   { href: "/panel/ventas", label: "Ventas", icon: CreditCard },
   { href: "/panel/mas", label: "Más", icon: Menu },
@@ -76,40 +77,29 @@ export const PLATFORM_NAV_FLAGS: PanelNavFlags = { personal: false, showBookings
  */
 const PERSONAL_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Inicio", icon: Home },
-  { href: "/panel/cursos", label: "Cursos", icon: GraduationCap },
+  { href: "/panel/pagina", label: "Mi página", icon: Palette },
+  { href: "/panel/paginas", label: "Páginas", icon: FileText },
   { href: "/panel/comunidad", label: "Comunidad", icon: MessagesSquare },
   { href: "/panel/actualidades", label: "Actualidades", icon: Newspaper },
   { href: "/panel/portal", label: "Portal de Noticias", icon: Gift },
-  // Carpeta «Mi web» (NAV_FOLDERS).
-  { href: "/panel/pagina", label: "Mi página", icon: Palette },
-  { href: "/panel/paginas", label: "Páginas", icon: FileText },
-  { href: "/panel/productos", label: "Productos", icon: LayoutGrid },
-  { href: "/panel/reservas", label: "Reservas", icon: CalendarDays },
-  { href: "/panel/barajas", label: "Barajas", icon: Layers },
-  { href: "/panel/modelos", label: "Modelos", icon: Orbit },
-  // Carpeta «Ventas y clientas» (NAV_FOLDERS).
+  { href: "/panel/cursos", label: "Cursos", icon: GraduationCap },
+  { href: "/panel/sesiones", label: "Sesiones y lecturas", icon: Video },
+  { href: "/panel/circulos", label: "Círculos de la Luna", icon: Moon },
   { href: "/panel/solicitudes", label: "Solicitudes", icon: Inbox },
-  { href: "/panel/codigos", label: "Códigos", icon: TicketPercent },
   { href: "/panel/ventas", label: "Inscripciones", icon: ClipboardList },
-  { href: "/panel/estadisticas", label: "Estadísticas", icon: BarChart3 },
-  { href: "/panel/clientes", label: "Clientes", icon: Users },
   { href: "/panel/newsletter", label: "Newsletter", icon: Mail },
   { href: "/panel/automatizaciones", label: "Automatizaciones", icon: Zap },
+  { href: "/panel/barajas", label: "Barajas", icon: Layers },
+  { href: "/panel/codigos", label: "Códigos", icon: TicketPercent },
+  { href: "/panel/modelos", label: "Modelos", icon: Orbit },
+  { href: "/panel/estadisticas", label: "Estadísticas", icon: BarChart3 },
+  { href: "/panel/clientes", label: "Clientes", icon: Users },
   { href: "/panel/ajustes", label: "Ajustes", icon: Settings },
-];
-
-/**
- * Carpetas del menú lateral: sus secciones van juntas dentro, en este orden, donde estaría la primera
- * de ellas. Solo agrupan las que existan en ese menú.
- */
-export const NAV_FOLDERS: { key: string; label: string; hrefs: string[] }[] = [
-  { key: "web", label: "Mi web", hrefs: ["/panel/pagina", "/panel/paginas", "/panel/productos"] },
-  { key: "negocio", label: "Ventas y clientas", hrefs: ["/panel/solicitudes", "/panel/codigos", "/panel/ventas", "/panel/estadisticas", "/panel/clientes"] },
 ];
 
 const PERSONAL_MOBILE_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Inicio", icon: Home },
-  { href: "/panel/productos", label: "Productos", icon: LayoutGrid },
+  { href: "/panel/sesiones", label: "Sesiones", icon: Video },
   { href: "/panel/pagina", label: "Página", icon: Palette },
   { href: "/panel/solicitudes", label: "Solicitudes", icon: Inbox },
   { href: "/panel/mas", label: "Más", icon: Menu },
@@ -122,7 +112,7 @@ const withSalesLabel = (items: PanelNavItem[], sales?: boolean) =>
 /** Menú completo (barra lateral y /panel/mas). En la plataforma, el de siempre. */
 export function panelNav(flags: PanelNavFlags): PanelNavItem[] {
   if (!flags.personal) return PANEL_NAV;
-  return withSalesLabel(PERSONAL_NAV.filter((i) => flags.showBookings || i.href !== "/panel/reservas"), flags.sales);
+  return withSalesLabel(PERSONAL_NAV, flags.sales);
 }
 
 /** Barra inferior del móvil (4 accesos + «Más»). */

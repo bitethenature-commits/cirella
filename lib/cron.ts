@@ -1,6 +1,7 @@
 import "server-only";
 import { emitAbandoned } from "./abandoned";
 import { processAccessExpiry } from "./access-expiry";
+import { processMissYou } from "./miss-you";
 import { purgeOrphanPostFiles } from "./community";
 import { processPostNotifications } from "./community-notify";
 import { purgeExpiredAuth } from "./auth-tokens";
@@ -8,6 +9,7 @@ import { processOutbox } from "./email/outbox";
 import { processCampaigns } from "./newsletter-send";
 import { processEvents } from "./events";
 import { purgeAbandonedIntake } from "./orders";
+import { purgeOldPortalItems } from "./portal-purge";
 import { withJobLock } from "./job-lock";
 import { captureError, withCronMonitor } from "./monitoring";
 import { processPlanRenewals, processRenewals } from "./subscriptions";
@@ -43,6 +45,8 @@ export async function runScheduledJobs(): Promise<CronResult> {
         // Accesos con fecha de fin: aviso 7 días antes y, al llegar, se cierran y se avisa.
         ["caducidades", () => processAccessExpiry()],
         // Datos para la lectura de los pedidos que nunca se pagaron: fuera a los 30 días.
+        // «Te echo de menos»: a quien lleva días sin entrar y sigue teniendo acceso.
+        ["teEchoDeMenos", () => processMissYou()],
         ["datosLecturas", () => purgeAbandonedIntake(new Date())],
         // Newsletter: empieza las programadas y mete en la bandeja lo que cabe en el cupo de hoy.
         ["newsletter", () => processCampaigns(new Date())],
@@ -51,6 +55,8 @@ export async function runScheduledJobs(): Promise<CronResult> {
         ["accesos", () => purgeExpiredAuth()],
         // Archivos subidos para una publicación que nunca se guardó.
         ["adjuntosSueltos", () => purgeOrphanPostFiles(new Date())],
+        // Portal de Noticias: se borran los publicados que pasan de los días que eligió la dueña.
+        ["portalViejos", () => purgeOldPortalItems(new Date())],
       ];
       const results: Record<string, number> = {};
       const errors: string[] = [];

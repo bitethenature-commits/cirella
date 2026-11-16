@@ -70,12 +70,12 @@ export type EmailStyle = {
 
 /** El estilo de siempre: los emails guardados antes de existir el estilo salen igual. */
 export const DEFAULT_EMAIL_STYLE: EmailStyle = {
-  bg: "#F6F1E7",
-  content: "#FFFFFF",
-  text: "#3B3950",
-  heading: "#0E1024",
-  link: "#0E1024",
-  accent: "#0E1024",
+  bg: "#0D0B24",
+  content: "#17143A",
+  text: "#E8DFCB",
+  heading: "#F3E3BF",
+  link: "#D9BF8C",
+  accent: "#D9BF8C",
   headingFont: "georgia",
   bodyFont: "system",
   radius: "l",
@@ -441,7 +441,7 @@ export function newBlock(t: EmailBlockType, style: EmailStyle = DEFAULT_EMAIL_ST
     case "hero":
       return { id: bid, t, image: "", alt: "", overlay: style.accent, opacity: 40, title: "", subtitle: "", color: "#FFFFFF", align: "center", height: "m" };
     case "spotlight":
-      return { id: bid, t, icon: "✨", title: "", body: "", bg: "#F4EFFC", accent: "#6B58C4", border: "left" };
+      return { id: bid, t, icon: "✦", title: "", body: "", bg: "#211D49", accent: "#D9BF8C", border: "left" };
     case "video":
       return { id: bid, t, url: "", src: "", cover: "", title: "" };
     case "columns":
@@ -562,13 +562,14 @@ export function lintDesign(d: EmailDesign, subject?: string): string[] {
 }
 
 /** Variables que se pueden escribir en los textos de un email. */
-export type EmailVars = Partial<Record<"nombre" | "mi_nombre" | "producto" | "fecha", string | null>>;
+export type EmailVars = Partial<Record<"nombre" | "mi_nombre" | "producto" | "fecha" | "luna", string | null>>;
 
 export const VARIABLE_HELP: Record<keyof EmailVars, string> = {
   nombre: "el nombre de quien lo recibe",
   mi_nombre: "tu nombre",
   producto: "el producto",
   fecha: "la fecha y hora de la sesión",
+  luna: "la luna del círculo (p. ej. «Luna llena en Tauro»)",
 };
 
 /**
@@ -576,7 +577,7 @@ export const VARIABLE_HELP: Record<keyof EmailVars, string> = {
  * nombre, «Hola, {nombre}» queda en «Hola».
  */
 export function applyVars(html: string, vars: EmailVars, escape: (s: string) => string): string {
-  return html.replace(/(,?\s*)\{(nombre|mi_nombre|producto|fecha)\}/g, (_, lead: string, k: keyof EmailVars) => {
+  return html.replace(/(,?\s*)\{(nombre|mi_nombre|producto|fecha|luna)\}/g, (_, lead: string, k: keyof EmailVars) => {
     const v = vars[k]?.trim();
     if (v) return `${lead}${escape(v)}`;
     return k === "nombre" ? "" : lead;

@@ -6,10 +6,13 @@ import { after } from "next/server";
 import { requireCreator } from "@/lib/auth";
 import { addComment, deleteMemberPost, removeComment, saveMemberPost, setCommenterBlocked, setCommentHidden } from "@/lib/community";
 import { processPostNotifications } from "@/lib/community-notify";
-import { memberPostState, parseMemberPostForm } from "@/lib/community-rules";
+import { memberPostState, parseMemberPostForm, resolveMemberPostTiming, scheduleSentence } from "@/lib/community-rules";
 import { captureError } from "@/lib/monitoring";
 import { tenantDb } from "@/lib/tenant";
 import { blockMembership, renewMembership } from "@/lib/membership-renewal";
+import { parseMoneyToCents } from "@/lib/money";
+import { parseTierCard } from "@/lib/tier-card";
+import type { Prisma } from "@prisma/client";
 
 /** Tick verde en Miembros: ha pagado, otro periodo más (lib/membership-renewal.ts). */
 export async function renewMember(form: FormData) {
@@ -69,12 +72,14 @@ export async function saveStudioPost(_: ComposerState, form: FormData): Promise<
   const { creator } = await requireCreator();
   const parsed = parseMemberPostForm(form);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  // Los círculos de la luna se crean en «Círculos de la luna» y se publican solos en la membresía.
+  if (parsed.data.kind === "CIRCULO_LUNAR") return { error: "Los círculos de la luna se crean y se editan en «Círculos de la luna»." };
   const before = parsed.data.id ? await tenantDb(creator.id).membershipPost.findFirst({ where: { id: parsed.data.id }, select: { productId: true } }) : null;
   const r = await saveMemberPost(creator.id, creator.timezone, parsed.data);
   if (!r.ok) return { error: r.error };
   if (r.live) notifySoon(r.postId);
   refresh([r.productId, before?.productId], r.postId);
-  back(r.live ? "muro" : "programadas", r.message);
+  back(r.live ? "muro" : "publicar", r.message, r.live ? "" : `&carpeta=${parsed.data.when === "draft" ? "borradores" : "programadas"}`);
 }
 
 /** «Publicar ahora» de una programada o un borrador (desde Programadas). */
@@ -89,6 +94,22 @@ export async function publishNow(form: FormData) {
   }
   refresh([post.productId], post.id);
   back("muro", post.notify && !post.notifiedAt ? "Publicado. Avisaremos a tus miembros por email en unos minutos." : "Publicado.");
+}
+
+/**
+ * «Cambiar día» / «Programar» en Programados: mueve una programada (o programa un borrador) a otro día y
+ * hora sin abrir el editor. No vale para una ya publicada.
+ */
+export async function reschedulePost(form: FormData) {
+  const { creator } = await requireCreator();
+  const db = tenantDb(creator.id);
+  const post = await db.membershipPost.findFirst({ where: { id: String(form.get("postId") ?? "") }, select: { id: true, productId: true, status: true, publishedAt: true } });
+  if (!post) return;
+  const r = resolveMemberPostTiming({ when: "schedule", at: String(form.get("at") ?? ""), current: post, timeZone: creator.timezone });
+  if (!r.ok) redirect(`/panel/comunidad?tab=publicar&carpeta=programadas&error=${encodeURIComponent(r.error)}&t=${Date.now()}`);
+  await db.membershipPost.updateMany({ where: { id: post.id }, data: { status: "PUBLISHED", publishedAt: r.publishedAt } });
+  refresh([post.productId], post.id);
+  back("publicar", `Saldrá el ${scheduleSentence(r.publishedAt, creator.timezone)}.`, "&carpeta=programadas");
 }
 
 /** «Fijar arriba» / «Quitar de arriba». */
@@ -106,7 +127,7 @@ export async function deleteStudioPost(form: FormData) {
   const productId = await deleteMemberPost(creator.id, String(form.get("postId") ?? ""));
   refresh([productId]);
   const tab = String(form.get("tab") ?? "muro");
-  back(["muro", "programadas"].includes(tab) ? tab : "muro", "Publicación eliminada.");
+  back(["muro", "publicar"].includes(tab) ? tab : "muro", "Publicación eliminada.");
 }
 
 // ── Moderación desde el propio feed ──
@@ -143,4 +164,42 @@ export async function blockCommenter(form: FormData) {
   const { creator } = await requireCreator();
   await setCommenterBlocked(creator.id, String(form.get("userId") ?? ""), form.get("blocked") === "1");
   revalidatePath("/panel/comunidad");
+}
+
+export type TierCardState = { ok?: string; error?: string } | undefined;
+
+/**
+ * «Cartas» de Comunidad: guarda la carta de un nivel tal como la ve la clienta en /comunidad (foto,
+ * emoji, nombre, frase, precio, lo que incluye y el texto del botón).
+ */
+export async function saveTierCard(_: TierCardState, form: FormData): Promise<TierCardState> {
+  const { creator } = await requireCreator();
+  const db = tenantDb(creator.id);
+  const id = String(form.get("id") ?? "");
+  const product = await db.product.findFirst({ where: { id, type: "MEMBERSHIP" }, select: { id: true, slug: true, pageTexts: true } });
+  if (!product) return { error: "No encontramos esta membresía" };
+  const title = String(form.get("title") ?? "").trim().slice(0, 100);
+  if (!title) return { error: "Ponle un nombre" };
+  const imageUrl = String(form.get("imageUrl") ?? "").trim();
+  if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/demo/")) return { error: "Imagen no válida" };
+  const priceRaw = String(form.get("price") ?? "").trim();
+  const priceCents = parseMoneyToCents(priceRaw);
+  if (!priceRaw || priceCents < 0 || priceCents > 10_000_000) return { error: "Escribe un precio válido (por ejemplo 33)" };
+  const card = parseTierCard(form.get("card"));
+  if (!card) return { error: "No se ha podido leer la carta" };
+  const prev = product.pageTexts && typeof product.pageTexts === "object" && !Array.isArray(product.pageTexts) ? (product.pageTexts as Record<string, unknown>) : {};
+  await db.product.update({
+    where: { id: product.id },
+    data: {
+      title,
+      emoji: String(form.get("emoji") ?? "").trim().slice(0, 8) || null,
+      imageUrl: imageUrl || null,
+      priceCents,
+      pageTexts: { ...prev, ...card } as unknown as Prisma.InputJsonObject,
+    },
+  });
+  revalidatePath("/panel/comunidad");
+  revalidatePath(`/${creator.username}`, "layout");
+  revalidatePath("/cuenta/membresias");
+  return { ok: `«${title}» guardada` };
 }

@@ -157,7 +157,21 @@ export const pageVideoSchema = z.object({
 });
 export type PageVideo = z.infer<typeof pageVideoSchema>;
 
-const base = { id: z.string().min(1).max(40), enabled: z.boolean().default(true) };
+/**
+ * Cómo se ve un bloque en la web: «card» (en su caja), «bare» (suelto sobre el fondo, sin burbuja) o
+ * «panel» (panel dorado con la flor de la vida). Ausente = el de la página (cajas, o sueltos en «Sobre mí»).
+ */
+export const BLOCK_LOOKS = ["card", "bare", "panel"] as const;
+export type BlockLook = (typeof BLOCK_LOOKS)[number];
+export const BLOCK_LOOK_LABEL: Record<BlockLook, string> = { card: "Tarjeta", bare: "Sin burbuja", panel: "Panel dorado" };
+
+const base = {
+  id: z.string().min(1).max(40),
+  enabled: z.boolean().default(true),
+  look: z.enum(BLOCK_LOOKS).optional().catch(undefined),
+  /** Los títulos del bloque (y de sus tarjetas) en dorado. */
+  goldTitle: z.boolean().optional().catch(undefined),
+};
 
 function textBlockShape(bodyMax: number) {
   return z.object({
@@ -221,6 +235,8 @@ export const blockCardSchema = z.object({
   title: shortText(80).default(""),
   text: shortText(240).default(""),
   href: shortText(500).optional(),
+  /** Precio o detalle corto («24 €», «Desde 15 €»): sale en dorado (los regalos de Gifts). */
+  price: shortText(40).optional(),
 });
 export type BlockCard = z.infer<typeof blockCardSchema>;
 
@@ -295,8 +311,8 @@ const pillsBlockShape = z.object({
 });
 
 /**
- * «Próximos círculos de la luna»: tarjetas pequeñas con los dos próximos círculos publicados (uno de
- * luna nueva y otro de luna llena), elegidos solos cada vez que se pinta la página: no hay que tocarlo
+ * «Próximos círculos de la luna»: tarjetas pequeñas con los dos próximos círculos publicados (los 2
+ * más cercanos: luna nueva, luna llena o eclipse), elegidos solos cada vez que se pinta la página: no hay que tocarlo
  * cuando pasa una luna.
  */
 const moonCirclesBlockShape = z.object({

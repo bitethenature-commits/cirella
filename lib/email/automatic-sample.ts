@@ -7,6 +7,7 @@ import { renderDesignHtml, renderSubject } from "./blocks-html";
 import { campaignEmail } from "./newsletter-templates";
 import { AREA_LINK_TOKEN, areaLinkFooter, esc, SITE_NAME_TOKEN } from "./templates";
 import * as T from "./templates";
+import { receivedEmailHtml } from "../requests";
 
 /**
  * Vista previa de un email automático con datos de ejemplo (Laura, su primer producto, una sesión la
@@ -23,7 +24,7 @@ export function sampleAutomaticEmail(
   if (!meta) return null;
   const base = appUrl();
   const when = formatSessionDate(new Date(Date.now() + 7 * 86_400_000), c.timezone);
-  const vars = { nombre: "Laura", mi_nombre: c.displayName, producto: o.productTitle, fecha: when };
+  const vars = { nombre: "Laura", mi_nombre: c.displayName, producto: o.productTitle, fecha: when, luna: "Luna llena en Tauro" };
   const introHtml = edit.design?.blocks.length ? renderDesignHtml(edit.design, { baseUrl: base, vars }) : null;
   const url = `${base}/cuenta`;
   let mail: { subject: string; html: string };
@@ -59,6 +60,18 @@ export function sampleAutomaticEmail(
         vars,
         footer: { senderName: o.siteName, legalName: c.legalName, legalAddress: c.legalAddress, legalEmail: c.legalEmail, legalUrl: `${base}/${c.username}/legal`, unsubscribeUrl: null },
       });
+      break;
+    case "REQUEST_RECEIVED":
+      mail = { subject: `He recibido tu mensaje ✦ ${o.productTitle}`, html: receivedEmailHtml({ brand: c.displayName, buyer: "Laura", productTitle: o.productTitle, when, price: null, message: "Hola, me encantaría reservar contigo. ¡Gracias!", introHtml }) };
+      break;
+    case "MOON_CIRCLE_REMINDER":
+      mail = T.moonCircleReminderEmail({ creatorName: c.displayName, productTitle: o.productTitle, when, url, sky: { glyph: "♉", title: "Luna llena en Tauro", phrase: "Lo que cuidas con paciencia florece." }, meetingUrl: "https://zoom.us/j/123456789", meetingLabel: "Enlace de Zoom", introHtml });
+      break;
+    case "SESSION_THANKS":
+      mail = T.sessionThanksEmail({ name: "Laura", creatorName: c.displayName, productTitle: o.productTitle, url, introHtml });
+      break;
+    case "MISS_YOU":
+      mail = T.missYouEmail({ name: "Laura", creatorName: c.displayName, url, items: [o.productTitle], introHtml });
       break;
     default:
       return null;

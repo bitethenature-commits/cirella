@@ -33,7 +33,7 @@ async function expectMail(page: Page, to: string, subject: string | RegExp) {
 test.describe.serial("Reembolsos y cambios", () => {
   test("Reservas: cancelar y reembolsar la sesión de Carmen, con confirmación", async ({ page }) => {
     await demoLogin(page, "Cirella");
-    await page.goto("/panel/reservas");
+    await page.goto("/panel/solicitudes");
     // Ya no hay un «Cancelar» de un toque junto a la videollamada.
     await expect(page.getByRole("button", { name: "Cancelar", exact: true })).toHaveCount(0);
     const card = page.locator(".card", { hasText: "Carmen Ruiz" }).filter({ hasText: "Sesión 1:1" }).first();
@@ -47,7 +47,7 @@ test.describe.serial("Reembolsos y cambios", () => {
     await page.getByRole("button", { name: /Cancelar y reembolsar \d/ }).click();
     await expect(page).toHaveURL(/\/panel\/reservas\/[^/?]+$/);
     const detail = page.url();
-    await page.goto("/panel/reservas");
+    await page.goto("/panel/solicitudes");
     await expect(page.locator(".card", { hasText: "Carmen Ruiz" }).filter({ hasText: "Sesión 1:1" }).first()).toBeVisible();
 
     // Aceptando, se cancela y se devuelve el dinero.
@@ -56,7 +56,7 @@ test.describe.serial("Reembolsos y cambios", () => {
     await page.getByRole("textbox", { name: /Mensaje para Carmen/ }).fill("Me ha surgido un imprevisto, lo siento mucho.");
     page.once("dialog", (d) => d.accept());
     await page.getByRole("button", { name: /Cancelar y reembolsar \d/ }).click();
-    await page.waitForURL("**/panel/reservas?ok=reembolsada");
+    await page.waitForURL("**/panel/solicitudes?ok=reembolsada");
     await expect(page.getByText("Sesión cancelada y reembolsada. Hemos avisado a la clienta.")).toBeVisible();
     const history = page.locator("section", { has: page.getByRole("heading", { name: "Historial" }) });
     const row = history.locator(".card > div", { hasText: "Carmen Ruiz" }).filter({ hasText: "Reembolsada" });
@@ -89,7 +89,7 @@ test.describe.serial("Reembolsos y cambios", () => {
     // Cirella propone otra fecha (en otra sesión del navegador).
     const ana = await (await browser.newContext()).newPage();
     await demoLogin(ana, "Cirella");
-    await ana.goto("/panel/reservas");
+    await ana.goto("/panel/solicitudes");
     await ana.locator(".card", { hasText: buyerName }).first().getByRole("link", { name: /Cambiar o cancelar/ }).click();
     await ana.waitForURL(/\/panel\/reservas\/[^/?]+$/);
     const bookingId = new URL(ana.url()).pathname.split("/").pop()!;
@@ -97,7 +97,7 @@ test.describe.serial("Reembolsos y cambios", () => {
     await ana.getByRole("textbox", { name: /Mensaje para Olga/ }).fill("¿Te viene bien otro día?");
     ana.once("dialog", (d) => d.accept());
     await ana.getByRole("button", { name: "Enviar propuesta" }).click();
-    await ana.waitForURL("**/panel/reservas?ok=propuesta");
+    await ana.waitForURL("**/panel/solicitudes?ok=propuesta");
     await expect(ana.getByText("Hemos enviado a la clienta un enlace para elegir otra fecha.")).toBeVisible();
     const pending = ana.locator("section", { has: ana.getByRole("heading", { name: "Pagadas, pendientes de fecha" }) });
     await expect(pending.getByText(buyerName)).toBeVisible();

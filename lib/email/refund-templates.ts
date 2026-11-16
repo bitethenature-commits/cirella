@@ -5,7 +5,7 @@ import { esc, layout, p } from "./templates";
  * Todo lo que escribe una persona (mensaje, motivo, nombres) se escapa.
  */
 
-const muted = (s: string) => `<span style="color:#8A8698;font-size:13px">${s}</span>`;
+const muted = (s: string) => `<span style="color:#A99FC2;font-size:13px">${s}</span>`;
 const quote = (who: string, text: string) => p(`Mensaje de ${esc(who)}: <em>«${esc(text)}»</em>`);
 const ARRIVES = "Lo verás en tu tarjeta en 5-10 días hábiles.";
 

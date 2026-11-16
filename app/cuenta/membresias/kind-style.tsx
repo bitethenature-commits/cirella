@@ -43,16 +43,16 @@ export function KindBadge({ kind, big = false, post }: { kind: string; big?: boo
 }
 
 /** ¿Tiene un enlace para entrar (Zoom, el podcast…) que conviene ver sin abrir la publicación? */
-export function joinLink(p: { kind: string; mediaUrl?: string | null; eventAt?: Date | null }, now = new Date()) {
+export function joinLink(p: { kind: string; mediaUrl?: string | null; eventAt?: Date | null; joinLabel?: string | null }, now = new Date()) {
   if (!p.mediaUrl || !/^https:\/\//i.test(p.mediaUrl) || videoEmbed(p.mediaUrl)) return null;
   if (!isLivePostKind(p.kind) && p.kind !== "PODCAST") return null;
   // Un encuentro ya pasado (más de 4 horas) no enseña el botón de entrar: ya es una grabación.
   if (isRecordedPost(p, now) || (p.eventAt && p.eventAt.getTime() < now.getTime() - 4 * 3_600_000)) return null;
-  const label = p.kind === "CEREMONIA" ? "Entrar a la ceremonia" : p.kind === "CIRCULO_LUNAR" ? "Entrar al círculo" : p.kind === "PODCAST" ? "Escuchar el podcast" : p.kind === "MASTERCLASS" ? "Entrar a la masterclass" : "Entrar a la sesión";
+  const label = p.kind === "CEREMONIA" ? "Entrar a la ceremonia" : p.kind === "CIRCULO_LUNAR" ? p.joinLabel || "Enlace a Zoom" : p.kind === "PODCAST" ? "Escuchar el podcast" : p.kind === "MASTERCLASS" ? "Entrar a la masterclass" : "Entrar a la sesión";
   return { href: p.mediaUrl, label };
 }
 
-export function JoinButton({ post, className = "" }: { post: { kind: string; mediaUrl?: string | null; eventAt?: Date | null }; className?: string }) {
+export function JoinButton({ post, className = "" }: { post: { kind: string; mediaUrl?: string | null; eventAt?: Date | null; joinLabel?: string | null }; className?: string }) {
   const j = joinLink(post);
   if (!j) return null;
   const s = kindStyle(post.kind);

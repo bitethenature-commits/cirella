@@ -20,7 +20,7 @@ const TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = { PAI
 /** Ventas = pedidos con cobro. Los de 0 € (gratis con email o acceso dado a mano) van en Inscripciones. */
 const CHARGED = { paymentProvider: { notIn: [...NO_CHARGE_PROVIDERS] } };
 
-export default async function SalesPage({ searchParams }: { searchParams: Promise<{ rango?: string; estado?: string; producto?: string }> }) {
+export default async function SalesPage({ searchParams }: { searchParams: Promise<{ rango?: string; estado?: string; producto?: string; filtro?: string; ok?: string }> }) {
   const { creator } = await requireCreator();
   const sp = await searchParams;
   const range = parseRange(sp.rango);
@@ -31,7 +31,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
   const personal = isPersonalMode();
   const onlySignups = signupsOnly();
   if (onlySignups || sp.estado === "inscripciones")
-    return <SignupsView creatorId={creator.id} timezone={creator.timezone} range={range} since={since} productId={sp.producto || null} personal={onlySignups} />;
+    return <SignupsView creatorId={creator.id} timezone={creator.timezone} filter={sp.filtro || sp.producto || null} personal={onlySignups} ok={sp.ok} />;
   // «Pagados» incluye los reembolsados en parte (siguen PAID); «Reembolsados», todo lo que tiene devoluciones.
   const filter =
     sp.estado === "todos"

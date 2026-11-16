@@ -14,8 +14,8 @@ import { appUrl } from "../env";
 import { isRich, parseRich, safeLinkHref, type RichBlock, type RichInline } from "../rich-text";
 import { esc, p } from "./html";
 
-const DEFAULT_LINK_STYLE = "color:#0E1024;text-decoration:underline";
-const HOST_STYLE = "color:#8A8698";
+const DEFAULT_LINK_STYLE = "color:#D9BF8C;text-decoration:underline";
+const HOST_STYLE = "color:#A99FC2";
 
 const bareHost = (h: string) => h.toLowerCase().replace(/^www\./, "");
 
@@ -74,9 +74,9 @@ export function richToEmailHtml(
 ): string {
   if (!isRich(format)) return p(esc(text));
   const LINK_STYLE = o.theme?.link ? `color:${o.theme.link};text-decoration:underline` : DEFAULT_LINK_STYLE;
-  const HEADING = o.theme?.heading ?? "#0E1024";
+  const HEADING = o.theme?.heading ?? "#F3E3BF";
   const HFONT = o.theme?.headingFont ?? "Georgia,serif";
-  const RULE = o.theme?.rule ?? "#E9E2D3";
+  const RULE = o.theme?.rule ?? "#6E5B3A";
   const base = (o.baseUrl ?? appUrl()).replace(/\/$/, "");
   const siteHost = hostOf(base) ?? "";
 
@@ -144,7 +144,7 @@ export function richToEmailHtml(
         return `<${tag}${start} style="margin:0 0 12px;padding-left:20px">${b.items.map((it) => `<li style="margin:0 0 6px">${inline(it)}</li>`).join("")}</${tag}>`;
       }
       case "quote":
-        return `<blockquote style="margin:0 0 12px;padding:0 0 0 14px;border-left:3px solid ${RULE};color:${o.theme ? "inherit" : "#5B5870"}">${inline(b.c)}</blockquote>`;
+        return `<blockquote style="margin:0 0 12px;padding:0 0 0 14px;border-left:3px solid ${RULE};color:${o.theme ? "inherit" : "#A99FC2"}">${inline(b.c)}</blockquote>`;
       case "hr":
         return `<hr style="border:0;border-top:1px solid ${RULE};margin:20px 0">`;
       case "img": {

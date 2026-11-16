@@ -266,7 +266,7 @@ function blockInner(b: EmailBlock, c: Ctx): string {
       return button({ label: b.label, href: link, align: b.align, style: b.style, bg: b.bg, color: b.color, full: b.full }, c);
     }
     case "divider": {
-      const color = hexOr(b.color, b.style === "stars" ? s.accent : "#E9E2D3");
+      const color = hexOr(b.color, b.style === "stars" ? s.accent : "#6E5B3A");
       if (b.style === "stars") return `<p style="margin:20px 0;text-align:center;font-size:14px;letter-spacing:10px;color:${color}">✦✦✦</p>`;
       return `<hr style="border:0;border-top:1px ${b.style === "dashed" ? "dashed" : "solid"} ${color};margin:20px 0">`;
     }

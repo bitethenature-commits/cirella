@@ -42,6 +42,7 @@ export default async function AutomaticEmailPage({ params }: { params: Promise<{
         palette={brandPalette(creator.pageDraft, creator.displayName)}
         socials={brandSocials(creator.pageDraft, creator.displayName)}
         siteUrl={`${appUrl()}/`}
+        brand={creator.displayName}
       />
     </div>
   );

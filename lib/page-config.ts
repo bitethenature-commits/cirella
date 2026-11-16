@@ -20,6 +20,7 @@ export const SECTION_KEYS = [
   "posts",
   "portal",
   "offers",
+  "gifts",
   "about",
   "systems",
   "readings",
@@ -41,10 +42,11 @@ export const SECTION_META: Record<SectionKey, { label: string; defaultTitle: str
   bubbles: { label: "Accesos", defaultTitle: "", hint: "Burbujas redondas con foto: Sobre mí, Cursos, Comunidad…" },
   posts: { label: "Actualidades", defaultTitle: "Actualidades", hint: "Se llena sola con lo nuevo del último mes (cursos, lecturas, sesiones, membresías, códigos y el círculo de la luna): salen 3 y el resto en su página" },
   portal: { label: "Portal de Noticias", defaultTitle: "Portal de Noticias", hint: "Para quien se suscribe a tu newsletter: el audio de arriba y 1 noticia, con «Ver más noticias»" },
+  gifts: { label: "Gifts", defaultTitle: "Gifts", hint: "Lo que haces para regalar (calendarios, manualidades…): se edita en Páginas → Gifts" },
   offers: { label: "Ofertas", defaultTitle: "Ofertas", hint: "1 oferta y «Ver más ofertas»; cuando una oferta termina, desaparece sola" },
   about: { label: "Sobre mí", defaultTitle: "", hint: "Tarjeta con tu foto que lleva a tu página «Sobre mí»" },
   systems: { label: "Sistemas", defaultTitle: "Sistemas con los que trabajo", hint: "Tarjetas que llevan a la página de cada método" },
-  readings: { label: "Lecturas, sesiones y círculos", defaultTitle: "Lecturas, sesiones y círculos", hint: "Cómo se reserva cada cosa y los círculos de la próxima luna nueva y la próxima llena" },
+  readings: { label: "Lecturas, sesiones y círculos", defaultTitle: "Lecturas, sesiones y círculos", hint: "Cómo se reserva cada cosa y los 2 próximos círculos de la luna (nueva, llena o eclipse)" },
   blocks: { label: "Bloques", defaultTitle: "", hint: "Textos, imágenes, galerías y vídeos" },
   products: { label: "Productos digitales", defaultTitle: "Lecturas y recursos", hint: "PDF, audios, guías…" },
   sessions: { label: "Sesiones y servicios", defaultTitle: "Sesiones", hint: "Reservas 1:1 y talleres" },
@@ -72,20 +74,22 @@ export const NEWSLETTER_FORM_DEFAULTS = {
 /** Secciones que se gestionan fuera del editor (tienen su propia pantalla en el panel). */
 export const SECTION_MANAGE_HREF: Partial<Record<SectionKey, { href: string; label: string }>> = {
   portal: { href: "/panel/portal", label: "Portal de Noticias" },
-  offers: { href: "/panel/productos", label: "Productos (cada uno con su oferta)" },
+  offers: { href: "/panel/sesiones", label: "Sesiones y lecturas (cada una con su oferta)" },
   codes: { href: "/panel/codigos", label: "Códigos" },
-  readings: { href: "/panel/productos", label: "Lecturas, sesiones y círculos" },
-  products: { href: "/panel/productos", label: "Productos" },
-  sessions: { href: "/panel/productos", label: "Productos" },
+  gifts: { href: "/panel/paginas", label: "Páginas → Gifts" },
+  readings: { href: "/panel/sesiones", label: "Sesiones y lecturas" },
+  products: { href: "/panel/sesiones", label: "Sesiones y lecturas" },
+  sessions: { href: "/panel/sesiones", label: "Sesiones y lecturas" },
   courses: { href: "/panel/cursos", label: "Cursos" },
   memberships: { href: "/panel/comunidad", label: "Comunidad" },
 };
 
 /** Secciones con página propia en la web («Ver página» en el editor). */
-export const SECTION_VIEW_PAGE: Partial<Record<SectionKey, "actualidades" | "portal" | "ofertas" | "comunidad" | "cursos" | "lecturas" | "uno-a-uno">> = {
+export const SECTION_VIEW_PAGE: Partial<Record<SectionKey, "actualidades" | "portal" | "ofertas" | "comunidad" | "cursos" | "lecturas" | "uno-a-uno" | "gifts">> = {
   posts: "actualidades",
   portal: "portal",
   offers: "ofertas",
+  gifts: "gifts",
   memberships: "comunidad",
   courses: "cursos",
   readings: "lecturas",

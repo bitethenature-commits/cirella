@@ -360,7 +360,7 @@ function HomeAudio({ item, unlocked, fallbackImage }: { item: PublicPortalItem; 
   const Icon = KIND_ICON[item.kind];
   return (
     <article className="cp-card portal-audio overflow-hidden" data-portal-item={item.id} data-locked={locked ? "true" : "false"}>
-      <div className="cp-photo-bubble cp-photo-in relative aspect-[4/3]">
+      <div className="cp-photo-bubble cp-photo-in relative aspect-[5/2]">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={cover} alt="" className={`absolute inset-0 h-full w-full object-cover ${locked ? "cp-locked-cover" : ""}`} loading="lazy" decoding="async" />
@@ -368,20 +368,21 @@ function HomeAudio({ item, unlocked, fallbackImage }: { item: PublicPortalItem; 
           <span className="absolute inset-0" style={{ background: "linear-gradient(135deg, color-mix(in oklab, var(--c-accent) 40%, #000), color-mix(in oklab, var(--c-gold) 30%, #000))" }} />
         )}
         <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/10" />
-        <span className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-white backdrop-blur">
-          <Icon className="h-3.5 w-3.5" /> {PORTAL_KIND_LABEL[item.kind]}
+        <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/45 px-2.5 py-1 text-[0.66rem] font-semibold uppercase tracking-[0.16em] text-white backdrop-blur">
+          <Icon className="h-3 w-3" /> {PORTAL_KIND_LABEL[item.kind]}
         </span>
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-5 text-center text-white">
-          <span className="portal-audio-icon grid h-20 w-20 place-items-center rounded-full sm:h-24 sm:w-24" aria-hidden>
-            {locked ? <Lock className="h-8 w-8" /> : isAudio ? <Headphones className="h-9 w-9" /> : <Icon className="h-9 w-9" />}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center text-white">
+          {/* Solo el dibujo en línea dorada, sin aro. */}
+          <span className="grid place-items-center" style={{ color: "var(--c-gold)" }} aria-hidden>
+            {locked ? <Lock className="h-6 w-6" strokeWidth={1.3} /> : isAudio ? <Headphones className="h-7 w-7" strokeWidth={1.3} /> : <Icon className="h-7 w-7" strokeWidth={1.3} />}
           </span>
-          <p className="cp-display max-w-lg text-[1.7rem] leading-tight sm:text-[2.1rem]">{item.title}</p>
+          <p className="cp-display max-w-lg text-[1.25rem] leading-tight sm:text-[1.55rem]">{item.title}</p>
           {item.eventLabel && <p className="text-[0.85rem] opacity-85">{item.eventLabel}</p>}
         </div>
       </div>
       <div className="p-5">
         {!locked && isAudio && item.media[0] ? (
-          <CalmAudio src={item.media[0].url} preload="none" title={item.title} />
+          <CalmAudio src={item.media[0].url} preload="none" title={item.title} variant="line" />
         ) : locked ? (
           <p className="cp-muted text-center text-[0.92rem]">Suscríbete a mi newsletter para {PORTAL_LOCK_WHAT[item.kind]}</p>
         ) : (

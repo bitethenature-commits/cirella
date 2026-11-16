@@ -43,6 +43,10 @@ import { addDaysToKey, labelToMinutes, zonedTimeToUtc } from "@/lib/tz";
 import { moveWorkshop, workshopClash } from "@/lib/workshops";
 import { followsDay15Rule, PAID_SESSION_MAX_NOTICE_DAYS, PAID_SESSION_MIN_NOTICE_DAYS, paidSessionNoticeDays } from "@/lib/withdrawal";
 import { DEFAULT_CTA, PRODUCT_TYPES, type ProductType } from "@/lib/types";
+import { productListHref } from "./list-href";
+import { parseProductTestimonials } from "@/lib/product-testimonials";
+import { parsePageTexts, studioKindOf } from "@/lib/product-texts";
+import { deleteCirclePost, syncCirclePost } from "@/lib/circle-post";
 
 export type ActionState = { ok?: string; error?: string } | undefined;
 
@@ -52,7 +56,10 @@ async function ctx() {
 }
 
 function refresh(id?: string) {
-  revalidatePath("/panel/productos");
+  revalidatePath("/panel/sesiones");
+  revalidatePath("/panel/circulos");
+  revalidatePath("/panel/cursos");
+  revalidatePath("/panel/comunidad");
   if (id) revalidatePath(`/panel/productos/${id}`);
   // La página pública está cacheada (ISR): reordenar, archivar o borrar debe verse ya.
   revalidatePath("/[username]", "page");
@@ -71,9 +78,11 @@ export async function createProduct(form: FormData) {
   const type = z.enum(PRODUCT_TYPES).parse(form.get("type"));
   // «Taller en directo»: una sesión con fecha fija para varias personas.
   const group = type === "SESSION" && form.get("group") === "1";
+  // «Nuevo círculo» (Círculos de la Luna): un taller marcado como círculo de la luna.
+  const moon = group && form.get("moon") === "1";
   if (!canSellType(creator.plan, type)) redirect("/panel/plan");
   const count = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
-  if (creator.plan.maxProducts != null && count >= creator.plan.maxProducts) redirect("/panel/productos?limite=1");
+  if (creator.plan.maxProducts != null && count >= creator.plan.maxProducts) redirect(`${productListHref({ type, groupSession: group })}?limite=1`);
   const titles: Record<ProductType, string> = {
     DIGITAL: "Nuevo producto digital",
     SESSION: "Nueva sesión",
@@ -83,7 +92,7 @@ export async function createProduct(form: FormData) {
   // En la web personal con cobros, de pago en la web; sin cobros, gratis con email (o, una sesión,
   // pago en otra web).
   const accessMode = defaultAccessMode(siteMode(), type, hasPaymentProvider());
-  const title = group ? "Nuevo taller en directo" : titles[type];
+  const title = moon ? "Nuevo círculo de la luna" : group ? "Nuevo taller en directo" : type === "DIGITAL" ? "Nueva lectura" : titles[type];
   const product = await db.product.create({
     data: {
       creatorId: creator.id,
@@ -91,6 +100,7 @@ export async function createProduct(form: FormData) {
       title,
       slug: await uniqueProductSlug(creator.id, title),
       groupSession: group,
+      moonCircle: moon,
       priceCents: 0,
       status: "DRAFT",
       accessMode,
@@ -294,7 +304,18 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
         : {}),
       ...(intakeJson !== undefined && (product.type === "SESSION" || product.type === "DIGITAL") ? { intake: intakeJson } : {}),
       ...(saleData ?? {}),
-      ...(product.type === "COURSE" && d.courseCategory !== undefined ? { courseCategory: asCourseCategory(d.courseCategory) } : {}),
+      ...((product.type === "COURSE" || product.type === "DIGITAL" || product.type === "SESSION") && d.courseCategory !== undefined ? { courseCategory: asCourseCategory(d.courseCategory) } : {}),
+      // Estudio: las frases y los pasos de su ficha.
+      ...((product.type === "DIGITAL" || product.type === "SESSION") && form.get("pageTextsField") === "1"
+        ? (() => {
+            const t = parsePageTexts(form.get("pageTexts"), studioKindOf({ type: product.type, groupSession: wantsGroup })!);
+            return t ? { pageTexts: t as unknown as Prisma.InputJsonObject } : {};
+          })()
+        : {}),
+      // Estudio de lecturas y sesiones: sus propias opiniones (vacío = las de la portada).
+      ...((product.type === "DIGITAL" || product.type === "SESSION") && form.get("testimonialsField") === "1"
+        ? { testimonials: parseProductTestimonials(form.get("testimonials")) as unknown as Prisma.InputJsonArray }
+        : {}),
       ...(product.type === "SESSION" ? { moonCircle: wantsGroup && d.moonCircle === "on" } : {}),
       ...(product.type === "MEMBERSHIP" ? { billingInterval: d.billingInterval ?? "month" } : {}),
       ...(product.type === "MEMBERSHIP" && d.pagedReadingField ? { pagedReading: d.pagedReading === "on" } : {}),
@@ -306,6 +327,21 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
     const m = await moveWorkshop({ creatorId: creator.id, productId: product.id, startAt: eventStartAt! });
     if (!m.ok) return { error: m.error };
     notes.push(`Hemos avisado del cambio de fecha a ${m.moved} ${m.moved === 1 ? "asistente" : "asistentes"}.`);
+  }
+  // Círculo de la luna: su publicación en la membresía va con él (lib/circle-post.ts).
+  if (product.type === "SESSION" && wantsGroup && d.moonCircle === "on" && form.get("circlePostField") === "1") {
+    await syncCirclePost({
+      creatorId: creator.id,
+      productId: product.id,
+      title: d.title,
+      published: d.status === "PUBLISHED",
+      eventAt: dateChanged && seatsSold > 0 ? product.eventStartAt : eventStartAt,
+      meetingUrl,
+      body: String(form.get("postBody") ?? ""),
+      joinLabel: String(form.get("joinLabel") ?? ""),
+      pageTexts: form.get("pageTexts"),
+    });
+    revalidatePath("/cuenta/membresias", "layout");
   }
   if (product.type === "SESSION" && meetingUrl !== product.meetingUrl) {
     const n = await applyProductMeetingUrl({ creatorId: creator.id, productId: product.id, previous: product.meetingUrl, next: meetingUrl });
@@ -350,7 +386,7 @@ export async function setProductStatus(form: FormData) {
   if (!product) return;
   if (product.status === "ARCHIVED" && status !== "ARCHIVED" && creator.plan.maxProducts != null) {
     const active = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
-    if (active >= creator.plan.maxProducts) redirect("/panel/productos?limite=1");
+    if (active >= creator.plan.maxProducts) redirect(`${productListHref(product)}?limite=1`);
   }
   const accessMode = asAccessMode(product.accessMode);
   if (
@@ -371,8 +407,9 @@ export async function setProductStatus(form: FormData) {
 }
 
 export async function deleteProduct(form: FormData) {
-  const { db } = await ctx();
+  const { db, creator } = await ctx();
   const id = String(form.get("id"));
+  const back = productListHref((await db.product.findFirst({ where: { id }, select: { type: true, groupSession: true } })) ?? { type: "DIGITAL" });
   const orders = await db.order.count({ where: { productId: id } });
   // Con ventas no se borra (las clientas mantienen su acceso): se archiva.
   if (orders > 0) await db.product.update({ where: { id }, data: { status: "ARCHIVED", featured: false } });
@@ -380,9 +417,11 @@ export async function deleteProduct(form: FormData) {
     const files = await db.productFile.findMany({ where: { productId: id, storageKey: { not: null } }, select: { storageKey: true } });
     await db.product.deleteMany({ where: { id } });
     await deleteStoredFiles(files.map((f) => f.storageKey));
+    // Borrar el círculo borra también su publicación en la membresía.
+    await deleteCirclePost(creator.id, id);
   }
   refresh();
-  redirect("/panel/productos");
+  redirect(back);
 }
 
 /**

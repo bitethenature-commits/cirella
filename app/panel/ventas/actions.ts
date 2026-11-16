@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { blockMembership, renewMembership } from "@/lib/membership-renewal";
 import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
@@ -47,7 +49,7 @@ export async function refundOrderAction(_: RefundState, form: FormData): Promise
     revokeAccess: revoke,
     cancelBooking: revoke && order.productType === "SESSION",
   });
-  for (const path of ["/panel", "/panel/ventas", `/panel/ventas/${order.id}`, "/panel/reservas"]) revalidatePath(path);
+  for (const path of ["/panel", "/panel/ventas", `/panel/ventas/${order.id}`, "/panel/solicitudes"]) revalidatePath(path);
   if (!r.ok) return { error: r.error };
   const name = (order.buyerName ?? order.buyerEmail).split(" ")[0];
   return {
@@ -56,4 +58,28 @@ export async function refundOrderAction(_: RefundState, form: FormData): Promise
         ? `Reembolso de ${formatMoney(r.amountCents, order.currency, { decimals: true })} completado. Hemos avisado a ${name}.`
         : "Reembolso en curso. Te avisaremos si la pasarela lo rechaza.",
   };
+}
+
+/** Vuelve a Inscripciones con el mismo filtro y un aviso. */
+function backToSignups(form: FormData, ok: string): never {
+  const back = String(form.get("back") ?? "");
+  const url = new URL(back.startsWith("/panel/ventas") ? back : "/panel/ventas", "http://x");
+  url.searchParams.set("ok", ok);
+  redirect(`${url.pathname}${url.search}`);
+}
+
+/** «Ha pagado» en Inscripciones: otro periodo más de la membresía (lib/membership-renewal.ts). */
+export async function renewSignupMember(form: FormData) {
+  const { creator } = await requireCreator();
+  const until = await renewMembership(creator.id, String(form.get("accessId") ?? ""));
+  for (const path of ["/panel/ventas", "/panel/comunidad"]) revalidatePath(path);
+  backToSignups(form, `Renovada hasta el ${until}. Le hemos enviado un email.`);
+}
+
+/** «Denegar acceso» en Inscripciones: no ha pagado, se bloquea ya (con «Ha pagado» vuelve a entrar). */
+export async function denySignupMember(form: FormData) {
+  const { creator } = await requireCreator();
+  await blockMembership(creator.id, String(form.get("accessId") ?? ""));
+  for (const path of ["/panel/ventas", "/panel/comunidad"]) revalidatePath(path);
+  backToSignups(form, "Acceso denegado. Si paga, pulsa «Ha pagado» y vuelve a entrar.");
 }

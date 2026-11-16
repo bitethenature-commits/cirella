@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { BarChart3, CalendarClock, CalendarDays, Check, ChevronLeft, X, ChevronRight, ExternalLink, Eye, FilePen, LayoutGrid, Newspaper, Pencil, Pin, PinOff, Search, Send, Trash2, UserPlus, UsersRound } from "lucide-react";
+import { notFound, redirect } from "next/navigation";
+import { BarChart3, CalendarClock, Check, X, ExternalLink, Eye, Gem, LayoutGrid, Moon, Newspaper, Pencil, Pin, PinOff, Search, Send, Trash2, UserPlus, UsersRound } from "lucide-react";
+import { formatPrice } from "@/lib/money";
+import { toPublicProduct } from "@/lib/product-view";
+import { tenantDb } from "@/lib/tenant";
+import { orderTiers } from "@/lib/tiers";
+import { tierFeatureItems } from "@/lib/tier-features";
+import { readTierCard, TIER_CTA_DEFAULT } from "@/lib/tier-card";
+import { TierCards, type EditableTier } from "./tier-cards";
 import { SpinningSolid } from "@/app/cuenta/spinning-solid";
 import { kindStyle } from "@/app/cuenta/membresias/kind-style";
 import { PostCover } from "@/app/cuenta/membresias/post-card";
@@ -9,17 +16,15 @@ import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { requireCreator } from "@/lib/auth";
-import { datetimeLocalValue, MEMBER_POST_KIND_LABEL, type MemberPostKind } from "@/lib/community-rules";
-import { uploadPolicy } from "@/lib/file-types";
+import { datetimeLocalValue } from "@/lib/community-rules";
 import { nextMoonDates } from "@/lib/moon-dates";
-import { monthParam, monthTitle, parseMonthParam, shiftMonth } from "@/lib/owner-calendar";
-import { readPageConfig } from "@/lib/page-config";
 import { isPersonalMode } from "@/lib/site-mode";
 import { tzCity } from "@/lib/timezones";
-import { dateKeyInTz, formatDate } from "@/lib/tz";
+import { formatDate } from "@/lib/tz";
 import { PostCardBody } from "@/app/cuenta/membresias/post-card";
 import { Badge, PageHeader, Stat } from "../ui";
 import { blockMember, deleteStudioPost, publishNow, renewMember, togglePin } from "./actions";
+import { createProduct } from "../productos/actions";
 import type { MemberRow } from "./data";
 
 /** Cuenta atrás de una membresía que se paga por email: verde, ámbar los últimos 5 días, roja vencida. */
@@ -33,24 +38,26 @@ function Countdown({ r }: { r: MemberRow }) {
 }
 import { CommentModeration } from "./comment-moderation";
 import { Composer } from "./composer";
-import { emptyComposerPost, loadCalendar, loadComposerPost, loadMembers, loadQueue, loadStats, loadTiers, loadWall, wallKinds } from "./data";
+import { Reschedule } from "./reschedule";
+import { QueueFolders } from "./queue-folders";
+import { emptyComposerPost, loadComposerPost, loadMembers, loadQueue, loadStats, loadTiers, loadWall, wallKinds } from "./data";
 
 export const metadata: Metadata = { title: "Comunidad" };
 
 const TABS = [
-  { key: "muro", label: "Muro", hint: "Publicar y ver lo publicado", icon: Newspaper },
-  { key: "programadas", label: "Programados", hint: "Lo que saldrá y borradores", icon: CalendarClock },
-  { key: "calendario", label: "Calendario", hint: "Todo por días", icon: CalendarDays },
+  { key: "publicar", label: "Publicar y programar", hint: "Crear, programar y borradores", icon: CalendarClock },
+  { key: "muro", label: "Muro", hint: "Lo publicado, para editarlo", icon: Newspaper },
   { key: "miembros", label: "Miembros", hint: "Quién está dentro", icon: UsersRound },
   { key: "datos", label: "Datos", hint: "Vistas, me gusta y comentarios", icon: BarChart3 },
+  { key: "cartas", label: "Cartas", hint: "Cómo ven tus niveles", icon: Gem },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
 
-type SP = { tab?: string; nivel?: string; editar?: string; nueva?: string; ok?: string; t?: string; mes?: string; antes?: string; tipo?: string; buscar?: string };
+type SP = { tab?: string; carpeta?: string; nivel?: string; editar?: string; nueva?: string; ok?: string; error?: string; t?: string; antes?: string; tipo?: string; buscar?: string };
 
 /**
  * Estudio «Comunidad»: el feed tal y como lo ven las miembros con el compositor encima (Muro),
- * programadas y borradores, calendario, miembros por nivel y datos de cada publicación. Las
+ * programar y borradores, miembros por nivel y datos de cada publicación. Las
  * publicaciones son de un nivel (una membresía) y los niveles de arriba las heredan (lib/tiers.ts).
  */
 export default async function CommunityStudio({ searchParams }: { searchParams: Promise<SP> }) {
@@ -60,7 +67,8 @@ export default async function CommunityStudio({ searchParams }: { searchParams: 
   const tz = creator.timezone;
   const now = new Date();
   const { tiers, composerTiers } = await loadTiers(owner, now);
-  const tab: Tab = TABS.find((t) => t.key === sp.tab)?.key ?? "muro";
+  // «programadas» era el nombre de antes de «Publicar y programar».
+  const tab: Tab = TABS.find((t) => t.key === (sp.tab === "programadas" ? "publicar" : sp.tab))?.key ?? "publicar";
   const tierId = sp.nivel && tiers.some((t) => t.id === sp.nivel) ? sp.nivel : null;
   const q = (o: Partial<SP>) => {
     const p = new URLSearchParams();
@@ -73,7 +81,12 @@ export default async function CommunityStudio({ searchParams }: { searchParams: 
     return (
       <div>
         <PageHeader title="Comunidad" />
-        <EmptyState icon={<UsersRound className="h-5 w-5" />} title="Todavía no tienes comunidad" action={<Link href="/panel/productos/nuevo" className="btn btn-primary">Crear una membresía</Link>}>
+        <EmptyState icon={<UsersRound className="h-5 w-5" />} title="Todavía no tienes comunidad" action={
+            <form action={createProduct}>
+              <input type="hidden" name="type" value="MEMBERSHIP" />
+              <button className="btn btn-primary">Crear una membresía</button>
+            </form>
+          }>
           Crea una membresía (o varias, como niveles) y aquí podrás publicar para tus miembros, programar, moderar los comentarios y ver quién está dentro.
         </EmptyState>
       </div>
@@ -81,11 +94,28 @@ export default async function CommunityStudio({ searchParams }: { searchParams: 
 
   const editing = sp.editar ? await loadComposerPost(owner, sp.editar) : null;
   if (sp.editar && !editing) notFound();
+  // Los círculos de la luna se hacen y se editan en «Círculos de la luna» (se publican solos en la membresía).
+  if (editing?.circleHref) redirect(editing.circleHref);
   const totalMembers = Math.max(...composerTiers.map((t) => t.readers), 0);
-  const displayName = readPageConfig(creator.pagePublished ?? creator.pageDraft, creator.displayName).displayName || creator.displayName;
+  const minAt = datetimeLocalValue(now, tz);
+  const moonDates = nextMoonDates(now, tz).map((m) => ({ label: m.label, title: m.title, date: m.date, time: m.time }));
+  // El compositor: en «Publicar y programar» siempre; en el Muro, solo para editar una publicación.
+  const composer = (where: "muro" | "publicar") => (
+    <Composer
+      key={editing?.post.id ?? `nueva-${where}-${sp.t ?? ""}`}
+      post={editing?.post ?? emptyComposerPost(tierId ?? tiers[0].id)}
+      notifiedNote={editing?.notifiedNote ?? null}
+      tiers={composerTiers}
+      timeZone={tz}
+      minAt={minAt}
+      moonDates={moonDates}
+      personal={isPersonalMode()}
+      closeHref={`/panel/comunidad?tab=${where}`}
+    />
+  );
 
   return (
-    <div className="max-w-3xl">
+    <div className={tab === "cartas" ? "max-w-6xl" : "max-w-3xl"}>
       <PageHeader title="Comunidad" subtitle={`${totalMembers} ${totalMembers === 1 ? "persona dentro" : "personas dentro"}`} />
 
       {/* Las cinco partes de Comunidad, bien separadas: cada una con su icono, su nombre y para qué es. */}
@@ -105,7 +135,7 @@ export default async function CommunityStudio({ searchParams }: { searchParams: 
       </nav>
 
       {/* Las membresías, cada una en su columna con su sólido (nivel I, II, III). */}
-      <div className="com-tiers mb-5" role="group" aria-label="Membresía">
+      {tab !== "cartas" && tab !== "publicar" && <div className="com-tiers mb-5" role="group" aria-label="Membresía">
         {tab !== "miembros" && (
           <Link href={q({ nivel: undefined, antes: undefined, ok: undefined, t: undefined, tipo: undefined })} aria-current={!tierId ? "true" : undefined} className="com-tier com-tier-all">
             <LayoutGrid className="h-6 w-6" strokeWidth={1.3} />
@@ -122,39 +152,26 @@ export default async function CommunityStudio({ searchParams }: { searchParams: 
             </Link>
           );
         })}
-      </div>
+      </div>}
 
-      <Flash ok={sp.ok} />
+      <Flash ok={sp.ok} error={sp.error} />
 
       {tab === "muro" && (
         <Wall
           owner={owner}
           tiers={tiers}
           tierId={tierId}
-          composer={
-            <Composer
-              key={editing?.post.id ?? `nueva-${sp.t ?? ""}`}
-              post={editing?.post ?? emptyComposerPost(tierId ?? tiers[0].id)}
-              notifiedNote={editing?.notifiedNote ?? null}
-              tiers={composerTiers}
-              timeZone={tz}
-              minAt={datetimeLocalValue(now, tz)}
-              limitsLabel={uploadPolicy(isPersonalMode()).label}
-              moonDates={nextMoonDates(now, tz).map((m) => ({ label: m.label, title: m.title, date: m.date, time: m.time }))}
-              ownerName={displayName.split(" ")[0]}
-              startOpen={sp.nueva === "1"}
-            />
-          }
+          composer={editing ? composer("muro") : null}
           before={sp.antes && !Number.isNaN(Date.parse(sp.antes)) ? new Date(sp.antes) : null}
           kind={sp.tipo ?? null}
           search={sp.buscar?.trim() || null}
           q={q}
         />
       )}
-      {tab === "programadas" && <Queue owner={owner} tierId={tierId} />}
-      {tab === "calendario" && <Calendar owner={owner} tierId={tierId} mes={sp.mes} q={q} />}
+      {tab === "publicar" && <Queue owner={owner} tiers={tiers} composer={composer("publicar")} picker={{ minAt, moonDates, cityLabel: tzCity(tz) }} folder={sp.carpeta === "programadas" || sp.carpeta === "borradores" ? sp.carpeta : null} />}
       {tab === "miembros" && <Members owner={owner} tiers={tiers} tierId={tierId} q={q} />}
       {tab === "datos" && <Data owner={owner} tierId={tierId} />}
+      {tab === "cartas" && <Cards creator={creator} />}
     </div>
   );
 }
@@ -163,6 +180,59 @@ type Owner = { id: string; userId: string; timezone: string };
 type Tiers = Awaited<ReturnType<typeof loadTiers>>["tiers"];
 
 
+
+// ── Cartas: los niveles tal como se ven en /comunidad ──
+
+type CreatorRow = Awaited<ReturnType<typeof requireCreator>>["creator"];
+
+async function Cards({ creator }: { creator: CreatorRow }) {
+  const db = tenantDb(creator.id);
+  const now = new Date();
+  const [products, edges] = await Promise.all([
+    db.product.findMany({ where: { status: { not: "ARCHIVED" }, OR: [{ type: "MEMBERSHIP" }, { moonCircle: true, eventStartAt: { gte: now } }] }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
+    db.productInclusion.findMany({ select: { productId: true, includedProductId: true } }),
+  ]);
+  const ctx = { lessons: 0, timeZone: creator.timezone, now };
+  const memberships = products.filter((p) => p.type === "MEMBERSHIP");
+  const views = new Map(memberships.map((p) => [p.id, toPublicProduct(p, ctx)]));
+  const ordered = orderTiers([...views.values()], edges);
+  const top = ordered.at(-1)?.tier.id;
+  const circles = products
+    .filter((p) => p.type !== "MEMBERSHIP")
+    .map((p) => toPublicProduct(p, ctx))
+    .filter((c) => c.moonCircle && c.eventLabel)
+    .slice(0, 3)
+    .map((c) => `${c.title} · ${c.eventLabel}`);
+  const money = (cents: number) => (cents % 100 ? (cents / 100).toFixed(2).replace(".", ",") : String(cents / 100));
+  const tiers: EditableTier[] = ordered.map(({ tier: t, includesPrevious }) => {
+    const raw = memberships.find((m) => m.id === t.id)!;
+    const own = readTierCard(raw.pageTexts);
+    const intro = own ? own.intro : ((raw.description ?? "").split("\n").map((l) => l.trim()).find((l) => l && !/^[•\-*✦]\s/.test(l) && !/^incluye:?$/i.test(l)) ?? t.summary ?? "");
+    return {
+      id: t.id,
+      title: t.title,
+      emoji: t.emoji ?? "",
+      imageUrl: t.imageUrl,
+      price: money(raw.priceCents),
+      interval: t.billingInterval ? (t.billingInterval === "year" ? "año" : "mes") : null,
+      sale: t.sale ? { line: `Ahora en oferta: ${formatPrice(t.sale.priceCents, t.currency)} el primer pago${t.sale.label ? ` · ${t.sale.label}` : ""}` } : null,
+      intro,
+      area: own ? own.area : (raw.summary ?? ""),
+      features: own ? own.features : tierFeatureItems(raw.description ?? null, raw.summary),
+      cta: own?.cta || TIER_CTA_DEFAULT,
+      includesPrevious: includesPrevious?.title ?? null,
+      highlight: ordered.length > 1 && t.id === top,
+    };
+  });
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted">
+        Las cartas de tus niveles en <Link href={`/${creator.username}/comunidad`} className="font-semibold underline underline-offset-4">tu página de Comunidad</Link>. Y los mismos portales que ven tus alumnas en su área. Lo que cambies aquí es lo que se ve.
+      </p>
+      <TierCards tiers={tiers} circles={circles} />
+    </div>
+  );
+}
 
 // ── Muro ──
 
@@ -217,16 +287,22 @@ async function Wall({ owner, tiers, tierId, composer, before, kind, search, q }:
           </div>
           <div className="com-post-tools mt-4 flex flex-wrap gap-1 pt-3">
             <Link href={`/cuenta/membresias/${post.productId}/${post.id}`} className="btn btn-ghost btn-sm min-h-10"><ExternalLink className="h-4 w-4" /> Abrir</Link>
-            <Link href={`/panel/comunidad?editar=${post.id}#publicar`} className="btn btn-ghost btn-sm min-h-10"><Pencil className="h-4 w-4" /> Editar</Link>
+            {post.kind === "CIRCULO_LUNAR" ? (
+              <Link href={post.circleProductId ? `/panel/productos/${post.circleProductId}` : "/panel/circulos"} className="btn btn-ghost btn-sm min-h-10"><Moon className="h-4 w-4" /> Editar en Círculos de la luna</Link>
+            ) : (
+              <Link href={`/panel/comunidad?tab=muro&editar=${post.id}#publicar`} className="btn btn-ghost btn-sm min-h-10"><Pencil className="h-4 w-4" /> Editar</Link>
+            )}
             <form action={togglePin}>
               <input type="hidden" name="postId" value={post.id} />
               <button className="btn btn-ghost btn-sm min-h-10">{post.pinned ? <><PinOff className="h-4 w-4" /> Quitar de arriba</> : <><Pin className="h-4 w-4" /> Fijar arriba</>}</button>
             </form>
-            <ConfirmForm action={deleteStudioPost} message="¿Eliminar esta publicación? Se borrarán también sus archivos y comentarios.">
-              <input type="hidden" name="postId" value={post.id} />
-              <input type="hidden" name="tab" value="muro" />
-              <button className="btn btn-ghost btn-sm min-h-10 hover:text-rose"><Trash2 className="h-4 w-4" /> Eliminar</button>
-            </ConfirmForm>
+            {!post.circleProductId && (
+              <ConfirmForm action={deleteStudioPost} message="¿Eliminar esta publicación? Se borrarán también sus archivos y comentarios.">
+                <input type="hidden" name="postId" value={post.id} />
+                <input type="hidden" name="tab" value="muro" />
+                <button className="btn btn-ghost btn-sm min-h-10 hover:text-rose"><Trash2 className="h-4 w-4" /> Eliminar</button>
+              </ConfirmForm>
+            )}
           </div>
           <div className="mt-2">
             <CommentModeration postId={post.id} comments={wall.comments.get(post.id) ?? []} fresh={wall.fresh.has(post.id)} />
@@ -239,123 +315,61 @@ async function Wall({ owner, tiers, tierId, composer, before, kind, search, q }:
   );
 }
 
-// ── Programadas y borradores ──
+// ── Publicar y programar ──
 
-async function Queue({ owner, tierId }: { owner: Owner; tierId: string | null }) {
-  const { scheduled, drafts } = await loadQueue(owner, tierId);
-  const row = (p: (typeof drafts)[number], chip: React.ReactNode) => (
-    <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3" data-queue-post={p.id}>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{p.title}</p>
-        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-          {chip}
-          <span>{p.product.title}</span>
-          <span>· {MEMBER_POST_KIND_LABEL[p.kind as MemberPostKind] ?? "Publicación"}</span>
-          {p._count.files > 0 && <span>· {p._count.files} {p._count.files === 1 ? "archivo" : "archivos"}</span>}
-          {p.notify && <span>· avisa por email</span>}
-          {p.pinnedAt && <span className="inline-flex items-center gap-0.5">· <Pin className="h-3 w-3" /> fijada</span>}
-        </p>
+type Picker = { minAt: string; moonDates: { title: string; date: string; time: string }[]; cityLabel: string };
+
+async function Queue({ owner, tiers, composer, picker, folder }: { owner: Owner; tiers: Tiers; composer: React.ReactNode; picker: Picker; folder: "programadas" | "borradores" | null }) {
+  const { scheduled, drafts } = await loadQueue(owner, null);
+  type Row = (typeof drafts)[number];
+  const card = (p: Row, state: "SCHEDULED" | "DRAFT", at: string, label: string) => (
+    <article className="com-post vip-glass vip-post relative overflow-hidden rounded-[1.6rem] p-4 sm:p-5" data-queue-post={p.id}>
+      <div className="flex gap-4 sm:gap-5">
+        <PostCover post={{ ...p, state, likedByMe: false }} />
+        <div className="min-w-0 flex-1">
+          <PostCardBody post={{ ...p, state, likedByMe: false, pinned: !!p.pinnedAt }} timeZone={owner.timezone} tier={p.product.title} views={0} />
+        </div>
       </div>
-      <div className="flex flex-wrap gap-1">
-        <Link href={`/panel/comunidad?editar=${p.id}#publicar`} className="btn btn-ghost btn-sm min-h-10"><Pencil className="h-4 w-4" /> Editar</Link>
-        <Link href={`/cuenta/membresias/${p.productId}/${p.id}`} className="btn btn-ghost btn-sm min-h-10"><Eye className="h-4 w-4" /> Vista previa</Link>
+      <div className="com-post-tools mt-4 flex flex-wrap gap-1 pt-3">
+        <Reschedule postId={p.id} at={at} label={label} {...picker} />
+        <Link href={`/panel/comunidad?tab=publicar&editar=${p.id}#publicar`} className="btn btn-ghost btn-sm min-h-10"><Pencil className="h-4 w-4" /> Editar</Link>
+        <Link href={`/cuenta/membresias/${p.productId}/${p.id}`} className="btn btn-ghost btn-sm min-h-10"><Eye className="h-4 w-4" /> Verla en el área</Link>
         <ConfirmForm action={publishNow} message="¿Publicarla ahora? La verán tus miembros desde este momento.">
           <input type="hidden" name="postId" value={p.id} />
-          <button className="btn btn-outline btn-sm min-h-10"><Send className="h-4 w-4" /> Publicar ahora</button>
+          <button className="btn btn-ghost btn-sm min-h-10"><Send className="h-4 w-4" /> Publicar ahora</button>
         </ConfirmForm>
         <ConfirmForm action={deleteStudioPost} message="¿Eliminar esta publicación? Se borrarán también sus archivos.">
           <input type="hidden" name="postId" value={p.id} />
-          <input type="hidden" name="tab" value="programadas" />
+          <input type="hidden" name="tab" value="publicar" />
           <button className="btn btn-ghost btn-sm min-h-10 hover:text-rose" aria-label={`Eliminar ${p.title}`}><Trash2 className="h-4 w-4" /></button>
         </ConfirmForm>
       </div>
-    </li>
+    </article>
   );
   return (
-    <div className="space-y-6">
-      <section aria-labelledby="h-programadas">
-        <h2 id="h-programadas" className="mb-2 flex items-center gap-2 font-semibold"><CalendarClock className="h-4 w-4" /> Programadas ({scheduled.length})</h2>
-        <p className="mb-3 text-sm text-muted">Nadie las ve hasta su hora (de {tzCity(owner.timezone)}). Entonces salen en el feed y, si lo pediste, se avisa por email.</p>
-        {scheduled.length ? (
-          <ul className="card divide-y divide-line">{scheduled.map((p) => row(p, <span className="rounded-full border border-[#ecdcb8] bg-[#fbf5e8] px-2 py-0.5 text-[0.7rem] font-semibold text-[#7a5a1c]">{p.label}</span>))}</ul>
-        ) : (
-          <p className="rounded-2xl border border-dashed border-line px-4 py-6 text-center text-sm text-muted">No tienes nada programado. Al publicar, elige «Programar».</p>
-        )}
-      </section>
-      <section aria-labelledby="h-borradores">
-        <h2 id="h-borradores" className="mb-2 flex items-center gap-2 font-semibold"><FilePen className="h-4 w-4" /> Borradores ({drafts.length})</h2>
-        {drafts.length ? (
-          <ul className="card divide-y divide-line">{drafts.map((p) => row(p, <span className="rounded-full border border-line bg-sand/70 px-2 py-0.5 text-[0.7rem] font-semibold">Borrador · {formatDate(p.updatedAt, { day: "numeric", month: "short" }, owner.timezone)}</span>))}</ul>
-        ) : (
-          <p className="rounded-2xl border border-dashed border-line px-4 py-6 text-center text-sm text-muted">Sin borradores.</p>
-        )}
-      </section>
+    <div className="space-y-8">
+      <QueueFolders
+        tiers={tiers.map((t) => ({ id: t.id, title: t.title }))}
+        startOpen={folder}
+        folders={[
+          {
+            key: "programadas",
+            title: "Lo que va a salir",
+            hint: `Programadas · nadie las ve hasta su hora (de ${tzCity(owner.timezone)})`,
+            empty: "No hay nada programado aquí.",
+            items: scheduled.map((p) => ({ id: p.id, tierId: p.productId, node: card(p, "SCHEDULED", p.at, `Cambiar día · ${p.label}`) })),
+          },
+          {
+            key: "borradores",
+            title: "Borradores",
+            hint: "Solo los ves tú",
+            empty: "No hay borradores aquí.",
+            items: drafts.map((p) => ({ id: p.id, tierId: p.productId, node: card(p, "DRAFT", "", "Programar") })),
+          },
+        ]}
+      />
+      {composer}
     </div>
-  );
-}
-
-// ── Calendario ──
-
-const WEEKDAYS = ["L", "M", "X", "J", "V", "S", "D"];
-
-async function Calendar({ owner, tierId, mes, q }: { owner: Owner; tierId: string | null; mes?: string; q: (o: Partial<SP>) => string }) {
-  const todayKey = dateKeyInTz(new Date(), owner.timezone);
-  const month = parseMonthParam(mes, todayKey);
-  const days = await loadCalendar(owner, month, tierId);
-  const current = monthParam(month) === todayKey.slice(0, 7);
-  return (
-    <section aria-label="Calendario de publicaciones">
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h2 className="display mr-auto text-[1.6rem] leading-none">{monthTitle(month)}</h2>
-        <Link href={q({ mes: monthParam(shiftMonth(month, -1)) })} scroll={false} className="grid h-11 w-11 place-items-center rounded-full border border-line bg-white hover:bg-sand" aria-label="Mes anterior">
-          <ChevronLeft className="h-5 w-5" />
-        </Link>
-        {!current && <Link href={q({ mes: undefined })} scroll={false} className="btn btn-outline btn-sm h-11">Hoy</Link>}
-        <Link href={q({ mes: monthParam(shiftMonth(month, 1)) })} scroll={false} className="grid h-11 w-11 place-items-center rounded-full border border-line bg-white hover:bg-sand" aria-label="Mes siguiente">
-          <ChevronRight className="h-5 w-5" />
-        </Link>
-      </div>
-      <div className="overflow-hidden rounded-2xl border border-line bg-white">
-        <div className="grid grid-cols-7 border-b border-line bg-paper text-center text-[0.68rem] font-semibold uppercase tracking-wider text-muted" aria-hidden>
-          {WEEKDAYS.map((w) => <div key={w} className="py-1.5">{w}</div>)}
-        </div>
-        <div className="grid grid-cols-7">
-          {days.map((d, i) => (
-            <div
-              key={d.key}
-              data-day={d.key}
-              className={`relative flex min-h-[4.75rem] min-w-0 flex-col gap-0.5 border-line p-1 sm:min-h-[6.5rem] sm:p-1.5 ${i % 7 ? "border-l" : ""} ${i >= 7 ? "border-t" : ""} ${d.inMonth ? "" : "bg-paper/70 text-faint"}`}
-            >
-              <span className="flex items-center justify-between gap-0.5">
-                <span className={`grid h-6 min-w-6 place-items-center rounded-full text-xs font-semibold tabular-nums ${d.key === todayKey ? "bg-ink text-cream" : ""}`}>{Number(d.key.slice(8))}</span>
-                {d.moon && <span className="text-[0.8rem] leading-none" title={d.moonLabel ?? undefined} aria-label={d.moonLabel ?? undefined}>{d.moon === "new" ? "🌑" : "🌕"}</span>}
-              </span>
-              {d.entries.map((e) => (
-                <Link
-                  key={`${e.id}-${e.live ? "l" : "p"}`}
-                  href={e.state === "SCHEDULED" ? `/panel/comunidad?editar=${e.id}#publicar` : `/cuenta/membresias/${e.productId}/${e.id}`}
-                  title={`${e.time} · ${e.title} (${e.tier})${e.live ? " · encuentro en directo" : e.state === "SCHEDULED" ? " · programada" : ""}`}
-                  className={`block truncate rounded-md px-1 py-0.5 text-[0.62rem] font-semibold leading-tight sm:text-[0.68rem] ${
-                    e.live ? "bg-lavender-deep text-white" : e.state === "SCHEDULED" ? "border border-dashed border-[#d9bf86] bg-[#fbf5e8] text-[#7a5a1c]" : "bg-[#e7f3ec] text-[#2f5f43]"
-                  }`}
-                  data-cal-entry={e.state}
-                >
-                  <span className="hidden sm:inline">{e.time} </span>{e.title}
-                </Link>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-      <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted" aria-label="Leyenda">
-        <li className="flex items-center gap-1.5"><span className="h-3 w-5 rounded bg-[#e7f3ec]" /> Publicada</li>
-        <li className="flex items-center gap-1.5"><span className="h-3 w-5 rounded border border-dashed border-[#d9bf86] bg-[#fbf5e8]" /> Programada</li>
-        <li className="flex items-center gap-1.5"><span className="h-3 w-5 rounded bg-lavender-deep" /> Ceremonia, círculo o directo</li>
-        <li className="flex items-center gap-1.5"><span aria-hidden>🌑</span> Luna nueva</li>
-        <li className="flex items-center gap-1.5"><span aria-hidden>🌕</span> Luna llena</li>
-      </ul>
-      <p className="mt-1.5 text-xs text-faint">Horas de {tzCity(owner.timezone)}. Toca una programada para editarla.</p>
-    </section>
   );
 }
 

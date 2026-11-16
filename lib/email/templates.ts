@@ -10,7 +10,7 @@
 import { legalTextToPlain } from "../legal-templates";
 import { orderRef } from "../order-ref";
 import { siteMode, type SiteMode } from "../site-mode";
-import { esc, p } from "./html";
+import { esc, MAIL, p } from "./html";
 import { richToEmailHtml } from "./rich-html";
 
 /** Marcador del nombre de la web personal en asuntos y cuerpos (lo sustituye enqueueEmail). */
@@ -25,7 +25,7 @@ export const AREA_LINK_TOKEN = "{{tu-area}}";
 /** Pie «Tu área: …/cuenta» de la web personal (lo pone enqueueEmail en lugar de AREA_LINK_TOKEN). */
 export function areaLinkFooter(appUrl: string) {
   const url = `${appUrl}/cuenta`;
-  return `<p style="font-size:13px;color:#8A8698;margin:20px 4px 0;line-height:1.6">Tu área: <a href="${esc(url)}" style="color:#3B3950">${esc(url.replace(/^https?:\/\//, ""))}</a></p>`;
+  return `<p style="font-size:13px;color:#A99FC2;margin:20px 4px 0;line-height:1.6">Tu área: <a href="${esc(url)}" style="color:#E8DFCB">${esc(url.replace(/^https?:\/\//, ""))}</a></p>`;
 }
 
 /** Nombre de la marca y pie por defecto de los emails según el modo del sitio. Puro. */
@@ -60,28 +60,46 @@ export function layout(opts: {
   const branding = emailBranding(siteMode());
   const brand = esc(opts.brand ?? branding.name);
   const footer = opts.footer ?? branding.footer;
+  const serif = "Georgia,'Times New Roman',serif";
+  const sans = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif";
+  // El botón: oro con letras de noche, en mayúsculas espaciadas (con su tabla para Outlook).
   const cta = opts.cta
-    ? `<p style="margin:28px 0 8px"><a href="${esc(opts.cta.url)}" style="display:inline-block;background:#0E1024;color:#F6F1E7;text-decoration:none;padding:13px 22px;border-radius:999px;font-weight:600;font-size:14px">${esc(opts.cta.label)}</a></p>`
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:30px auto 8px"><tr><td align="center" bgcolor="${MAIL.gold}" style="border-radius:999px;background:${MAIL.gold}"><a href="${esc(opts.cta.url)}" style="display:inline-block;padding:14px 30px;border-radius:999px;font-family:${sans};font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${MAIL.btnText};text-decoration:none">${esc(opts.cta.label)}</a></td></tr></table>`
     : "";
   const pre = opts.preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${esc(opts.preheader)}</div>\n`
     : "";
-  const title = opts.title ? `<h1 style="font-family:Georgia,serif;font-weight:400;font-size:26px;line-height:1.25;margin:0 0 16px;color:#0E1024">${esc(opts.title)}</h1>` : "";
-  return `<!doctype html><html><body style="margin:0;background:#F6F1E7;font-family:-apple-system,Segoe UI,Inter,Helvetica,Arial,sans-serif;color:#1B1A2E">
-${pre}<div style="max-width:520px;margin:0 auto;padding:36px 24px">
-  <p style="font-family:Georgia,serif;font-size:20px;letter-spacing:.02em;margin:0 0 28px;color:#0E1024">${brand}</p>
-  <div style="background:#FFFFFF;border-radius:20px;padding:32px 28px;border:1px solid #E9E2D3">
+  // El título en la serif, centrado, con la raya y la estrella doradas debajo.
+  const title = opts.title
+    ? `<h1 style="font-family:${serif};font-weight:400;font-size:28px;line-height:1.2;margin:0;color:${MAIL.head};text-align:center">${esc(opts.title)}</h1><p style="margin:12px 0 24px;text-align:center;font-size:11px;letter-spacing:.5em;color:${MAIL.gold}">— ✦ —</p>`
+    : "";
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="dark light"><meta name="supported-color-schemes" content="dark light">
+<style>body{margin:0;padding:0;-webkit-text-size-adjust:100%}a{color:${MAIL.gold}}strong{color:${MAIL.strong}}@media (max-width:560px){.mail-card{padding:30px 20px!important}.mail-outer{padding:28px 10px!important}}</style>
+</head><body style="margin:0;padding:0;background:${MAIL.bg};font-family:${sans};color:${MAIL.text}" bgcolor="${MAIL.bg}">
+${pre}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${MAIL.bg}" style="background:${MAIL.bg}"><tr><td class="mail-outer" align="center" style="padding:44px 16px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;margin:0 auto">
+<tr><td align="center" style="padding:0 0 26px">
+  <p style="margin:0;font-size:10px;letter-spacing:.6em;color:${MAIL.gold}">✦ &nbsp;✦&nbsp; ✦</p>
+  <p style="margin:12px 0 0;font-family:${serif};font-size:24px;letter-spacing:.08em;color:${MAIL.head}">${brand}</p>
+</td></tr>
+<tr><td style="padding:5px;border:1px solid ${MAIL.goldLine};border-radius:24px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="mail-card" bgcolor="${MAIL.card}" style="background:${MAIL.card};border:1px solid ${MAIL.line};border-radius:19px;padding:38px 34px">
     ${title}
-    <div style="font-size:15px;line-height:1.65;color:#3B3950">${opts.body}</div>
-    ${cta}${opts.afterCta ? `<div style="font-size:15px;line-height:1.65;color:#3B3950">${opts.afterCta}</div>` : ""}
-  </div>
-  ${footer ? `<p style="font-size:12px;color:#8A8698;margin:24px 4px 0;line-height:1.6">${footer}</p>` : ""}${siteMode() === "personal" && opts.areaLink !== false ? AREA_LINK_TOKEN : ""}
-</div></body></html>`;
+    <div style="font-size:15px;line-height:1.7;color:${MAIL.text}">${opts.body}</div>
+    ${cta}${opts.afterCta ? `<div style="font-size:15px;line-height:1.7;color:${MAIL.text}">${opts.afterCta}</div>` : ""}
+  </td></tr></table>
+</td></tr>
+<tr><td align="center" style="padding:22px 6px 0;font-size:11px;letter-spacing:.5em;color:${MAIL.goldLine}">✦</td></tr>
+${footer ? `<tr><td align="center" style="padding:10px 10px 0;font-size:12px;line-height:1.6;color:${MAIL.muted}">${footer}</td></tr>` : ""}
+${siteMode() === "personal" && opts.areaLink !== false ? `<tr><td align="center">${AREA_LINK_TOKEN}</td></tr>` : ""}
+</table>
+</td></tr></table></body></html>`;
 }
 
 
 /** Nota en gris bajo el botón (p. ej. «Este enlace es personal…» de los enlaces personales). */
-const note = (s?: string | null) => (s ? p(`<span style="color:#8A8698;font-size:13px">${esc(s)}</span>`) : "");
+const note = (s?: string | null) => (s ? p(`<span style="color:#A99FC2;font-size:13px">${esc(s)}</span>`) : "");
 
 export function magicLinkEmail(o: { url: string; creatorName?: string; purpose?: "LOGIN" | "VERIFY_SIGNUP" | "REGISTER"; name?: string | null; via?: "portal" | "carta" }) {
   // Desde el candado del Portal de Noticias: confirma la newsletter, crea (o abre) su cuenta y entra.
@@ -218,7 +236,7 @@ export function purchaseReceiptEmail(o: {
   introHtml?: string | null;
 }) {
   const row = (label: string, value: string) =>
-    `<tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE;vertical-align:top">${label}</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE">${value}</td></tr>`;
+    `<tr><td style="padding:8px 0;color:#A99FC2;border-top:1px solid #3A3354;vertical-align:top">${label}</td><td style="padding:8px 0;text-align:right;border-top:1px solid #3A3354">${value}</td></tr>`;
   const legal =
     (o.waiver
       ? p(
@@ -235,10 +253,10 @@ export function purchaseReceiptEmail(o: {
       : "") +
     (o.changePolicy ? p(`<span style="font-size:13px">${esc(o.changePolicy)}</span>`) : "") +
     (o.legalUrl
-      ? p(`<span style="font-size:13px">Condiciones aceptadas: <a href="${esc(o.legalUrl)}" style="color:#3B3950">ver la versión que aceptaste</a></span>`)
+      ? p(`<span style="font-size:13px">Condiciones aceptadas: <a href="${esc(o.legalUrl)}" style="color:#E8DFCB">ver la versión que aceptaste</a></span>`)
       : "");
   const appendix = o.conditions
-    ? `<div style="font-size:11px;line-height:1.5;color:#8A8698;white-space:pre-wrap;border-top:1px solid #EEE;margin-top:24px;padding-top:12px">${esc(
+    ? `<div style="font-size:11px;line-height:1.5;color:#A99FC2;white-space:pre-wrap;border-top:1px solid #3A3354;margin-top:24px;padding-top:12px">${esc(
         `CONDICIONES DE VENTA\n\n${legalTextToPlain(o.conditions.terms)}\n\nCAMBIOS Y REEMBOLSOS\n\n${legalTextToPlain(o.conditions.refunds)}`,
       )}</div>`
     : "";
@@ -250,9 +268,9 @@ export function purchaseReceiptEmail(o: {
       body:
         (o.introHtml || p(`Hola${o.name ? ` ${esc(o.name)}` : ""}, gracias por tu compra.`)) +
         `<table style="width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:14px">
-          <tr><td style="padding:8px 0;color:#8A8698">Producto</td><td style="padding:8px 0;text-align:right">${esc(o.productTitle)}</td></tr>
-          <tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE">Total</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE"><strong>${esc(o.amount)}</strong></td></tr>
-          <tr><td style="padding:8px 0;color:#8A8698;border-top:1px solid #EEE">Pedido</td><td style="padding:8px 0;text-align:right;border-top:1px solid #EEE;font-family:monospace;font-size:12px">${esc(orderRef(o.orderId))}</td></tr>
+          <tr><td style="padding:8px 0;color:#A99FC2">Producto</td><td style="padding:8px 0;text-align:right">${esc(o.productTitle)}</td></tr>
+          <tr><td style="padding:8px 0;color:#A99FC2;border-top:1px solid #3A3354">Total</td><td style="padding:8px 0;text-align:right;border-top:1px solid #3A3354"><strong>${esc(o.amount)}</strong></td></tr>
+          <tr><td style="padding:8px 0;color:#A99FC2;border-top:1px solid #3A3354">Pedido</td><td style="padding:8px 0;text-align:right;border-top:1px solid #3A3354;font-family:monospace;font-size:12px">${esc(orderRef(o.orderId))}</td></tr>
 
           ${o.seller ? row("Vende", [o.seller.line, o.seller.address, o.seller.email].filter(Boolean).map(esc).join("<br>")) : ""}
         </table>` +
@@ -262,7 +280,7 @@ export function purchaseReceiptEmail(o: {
       cta: { label: "Acceder a mi contenido", url: o.accountUrl },
       afterCta:
         note(o.linkNote) +
-        (o.receiptUrl ? p(`<a href="${esc(o.receiptUrl)}" style="color:#3B3950;font-size:14px">Ver el detalle de tu compra</a>`) : "") +
+        (o.receiptUrl ? p(`<a href="${esc(o.receiptUrl)}" style="color:#E8DFCB;font-size:14px">Ver el detalle de tu compra</a>`) : "") +
         legal +
         appendix,
     }),
@@ -310,7 +328,7 @@ export function accessGrantedEmail(o: {
         note(o.linkNote) +
         (o.newsletterUrl
           ? p(`Marcaste que quieres recibir las novedades de ${esc(o.creatorName)} por email. Confírmalo aquí (si no lo pediste tú, no hagas nada y no recibirás ninguna):`) +
-            p(`<a href="${esc(o.newsletterUrl)}" style="color:#0E1024;font-weight:600">Confirmar que quiero recibir novedades</a>`)
+            p(`<a href="${esc(o.newsletterUrl)}" style="color:#D9BF8C;font-weight:600">Confirmar que quiero recibir novedades</a>`)
           : ""),
     }),
   };
@@ -356,7 +374,7 @@ export function bookingConfirmedEmail(o: {
 }) {
   const extra =
     (o.intakeUrl ? p(`<strong>Completa tus datos para la lectura.</strong> <a href="${esc(o.intakeUrl)}">Enviar mis datos</a>`) : "") +
-    (o.icsUrl ? p(`<a href="${esc(o.icsUrl)}" style="color:#0E1024">Añadir a mi calendario</a>`) : "");
+    (o.icsUrl ? p(`<a href="${esc(o.icsUrl)}" style="color:#D9BF8C">Añadir a mi calendario</a>`) : "");
   return {
     subject:
       o.variant === "moved" && o.when
@@ -412,7 +430,7 @@ export function sessionReminderEmail(o: {
 export function newSaleCreatorEmail(o: { productTitle: string; amount: string; buyer: string; url: string; details?: { label: string; value: string }[] }) {
   const rows = o.details?.length
     ? `<table role="presentation" style="width:100%;border-collapse:collapse;margin:4px 0 14px;font-size:14px">${o.details
-        .map((l) => `<tr><td style="padding:6px 10px 6px 0;color:#8A8698;vertical-align:top">${esc(l.label)}</td><td style="padding:6px 0;white-space:pre-line">${esc(l.value)}</td></tr>`)
+        .map((l) => `<tr><td style="padding:6px 10px 6px 0;color:#A99FC2;vertical-align:top">${esc(l.label)}</td><td style="padding:6px 0;white-space:pre-line">${esc(l.value)}</td></tr>`)
         .join("")}</table>`
     : "";
   return {
@@ -461,7 +479,7 @@ export function abandonedCheckoutEmail(o: { creatorName: string; productTitle: s
         ? richToEmailHtml(o.message, o.messageFormat)
         : p(esc(`Vimos que empezaste a comprar ${o.productTitle} pero no terminaste. Si tuviste alguna duda, responde a este email.`)),
       cta: { label: "Completar mi compra", url: o.url },
-      footer: `Te escribimos porque empezaste una compra con ${esc(o.creatorName)}. ¿No quieres más recordatorios así? <a href="${esc(o.optOutUrl)}" style="color:#8A8698">Darme de baja</a>.`,
+      footer: `Te escribimos porque empezaste una compra con ${esc(o.creatorName)}. ¿No quieres más recordatorios así? <a href="${esc(o.optOutUrl)}" style="color:#A99FC2">Darme de baja</a>.`,
     }),
   };
 }
@@ -475,7 +493,7 @@ export function payoutActiveEmail(o: { name: string; panelUrl: string }) {
       title: `Todo listo, ${o.name}`,
       body:
         p("Stripe ha verificado tu cuenta de cobro: desde ahora tus clientas ya pueden comprar y el dinero de cada venta llega a tu banco automáticamente.") +
-        p(`<span style="color:#8A8698;font-size:13px">El primer ingreso suele tardar unos 7 días; después, Stripe te transfiere a diario.</span>`),
+        p(`<span style="color:#A99FC2;font-size:13px">El primer ingreso suele tardar unos 7 días; después, Stripe te transfiere a diario.</span>`),
       cta: { label: "Ver mis cobros", url: o.panelUrl },
     }),
   };
@@ -557,7 +575,7 @@ export function disputeOpenedEmail(o: { productTitle: string; amount: string; bu
 
 /** Pie de los avisos de la comunidad: por qué le llega y cómo dejar de recibirlos (un clic). */
 function communityFooter(membershipTitle: string, optOutUrl: string) {
-  return `Recibes este aviso porque eres miembro de «${esc(membershipTitle)}». ¿No quieres más avisos de publicaciones? <a href="${esc(optOutUrl)}" style="color:#8A8698">Darme de baja</a>.`;
+  return `Recibes este aviso porque eres miembro de «${esc(membershipTitle)}». ¿No quieres más avisos de publicaciones? <a href="${esc(optOutUrl)}" style="color:#A99FC2">Darme de baja</a>.`;
 }
 
 /**
@@ -581,7 +599,7 @@ export function memberPostEmail(o: {
       brand: o.creatorName,
       title: o.postTitle,
       body:
-        p(`<span style="color:#8A8698;font-size:13px">${esc(o.kindLabel ? `${o.kindLabel} · ` : "")}${esc(o.creatorName)} ha publicado en «${esc(o.membershipTitle)}»</span>`) +
+        p(`<span style="color:#A99FC2;font-size:13px">${esc(o.kindLabel ? `${o.kindLabel} · ` : "")}${esc(o.creatorName)} ha publicado en «${esc(o.membershipTitle)}»</span>`) +
         (o.excerpt ? p(esc(o.excerpt)) : "") +
         (o.attachments ? p(`<strong>${esc(o.attachments)}</strong>`) : ""),
       cta: { label: "Leer la publicación", url: o.url },
@@ -811,6 +829,81 @@ export function emailTakenEmail(o: { loginUrl: string }) {
       title: "Ya tienes una cuenta con este email",
       body: p("Alguien ha intentado usar este email en otra cuenta, pero ya hay una cuenta con él. Si eres tú, entra con este email directamente: no hace falta cambiar nada."),
       cta: { label: "Entrar", url: o.loginUrl },
+    }),
+  };
+}
+
+
+/** «Antes del círculo de la luna»: la luna con su signo y su frase, el día, el enlace y «Ver detalles». */
+export function moonCircleReminderEmail(o: {
+  creatorName: string;
+  productTitle: string;
+  when: string;
+  url: string;
+  sky: { glyph: string; title: string; phrase: string } | null;
+  meetingUrl?: string | null;
+  meetingLabel?: string;
+  linkNote?: string;
+  introHtml?: string | null;
+}) {
+  const moon = o.sky
+    ? `<div style="margin:22px 0;padding:22px 18px;border:1px solid ${MAIL.goldLine};border-radius:18px;background:${MAIL.box};text-align:center">` +
+      `<p style="margin:0;font-size:34px;line-height:1">${esc(o.sky.glyph)}</p>` +
+      `<p style="margin:10px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:21px;color:${MAIL.head}">${esc(o.sky.title)}</p>` +
+      `<p style="margin:8px 0 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:15px;line-height:1.6;color:${MAIL.gold}">${esc(o.sky.phrase)}</p></div>`
+    : "";
+  return {
+    subject: o.sky ? `Mañana nos vemos bajo la ${o.sky.title} ✦` : `Recordatorio: ${o.productTitle}`,
+    html: layout({
+      brand: o.creatorName,
+      title: "Tu círculo de la luna",
+      preheader: o.sky ? o.sky.phrase : null,
+      body:
+        (o.introHtml ?? "") +
+        moon +
+        p(`<strong>${esc(o.productTitle)}</strong><br>${esc(o.when)}`) +
+        (o.meetingUrl ? p(`${esc(o.meetingLabel ?? "Enlace de la videollamada")}: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : ""),
+      cta: { label: "Ver detalles", url: o.url },
+      afterCta: note(o.linkNote),
+    }),
+  };
+}
+
+/** «Gracias tras la sesión»: un gracias y que le cuente cómo le fue (respondiendo). */
+export function sessionThanksEmail(o: { name?: string | null; creatorName: string; productTitle: string; url: string; introHtml?: string | null }) {
+  return {
+    subject: `Gracias por tu tiempo${o.name ? `, ${o.name}` : ""} ✦`,
+    html: layout({
+      brand: o.creatorName,
+      title: o.introHtml ? "" : `Gracias${o.name ? `, ${o.name}` : ""}`,
+      body:
+        o.introHtml ||
+        p(`Ha sido un regalo compartir <strong>${esc(o.productTitle)}</strong> contigo. Tómate unos días para dejar que se asiente todo lo que vimos.`) +
+          p("Si te apetece, respóndeme a este email y cuéntame cómo te has quedado: lo leo yo, con calma.") +
+          `<p style="margin:22px 0 0;font-family:Georgia,serif;font-style:italic;font-size:18px;color:${MAIL.gold}">Un abrazo, ${esc(o.creatorName.split(" ")[0])}</p>`,
+      cta: { label: "Ver lo mío", url: o.url },
+    }),
+  };
+}
+
+/** «Te echo de menos»: un email cariñoso para volver a su área, con lo que sigue teniendo. */
+export function missYouEmail(o: { name?: string | null; creatorName: string; url: string; items: string[]; introHtml?: string | null }) {
+  const list = o.items.length
+    ? `<div style="margin:20px 0;padding:16px 18px;border:1px solid ${MAIL.goldLine};border-radius:16px;background:${MAIL.box}"><p style="margin:0 0 8px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:${MAIL.gold}">Sigue siendo tuyo</p>${o.items
+        .slice(0, 5)
+        .map((i) => `<p style="margin:4px 0;color:${MAIL.strong}">✦ ${esc(i)}</p>`)
+        .join("")}</div>`
+    : "";
+  return {
+    subject: `Te echo de menos${o.name ? `, ${o.name}` : ""} ✦`,
+    html: layout({
+      brand: o.creatorName,
+      title: o.introHtml ? "" : `Hola${o.name ? `, ${o.name}` : ""}`,
+      body:
+        (o.introHtml ||
+          p("Hace tiempo que no pasas por tu área y quería escribirte. Todo lo tuyo sigue ahí, esperándote a tu ritmo.") +
+            p("Si necesitas algo o te has quedado con alguna duda, respóndeme a este email.")) + list,
+      cta: { label: "Volver a mi área", url: o.url },
     }),
   };
 }

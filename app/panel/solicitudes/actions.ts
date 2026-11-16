@@ -28,7 +28,7 @@ export async function confirmRequestAction(form: FormData) {
     if (r.productType === "SESSION")
       return r.bookingStatus === "CONFIRMED"
         ? "Confirmada: la reserva está hecha y le hemos enviado el email con los detalles."
-        : "Confirmada. Esa hora ya no estaba libre: la reserva queda pendiente de fecha y ella la elige desde su área (o cámbiala tú en Reservas).";
+        : "Confirmada. Esa hora ya no estaba libre: la reserva queda pendiente de fecha y ella la elige desde su área (o cámbiala tú en Solicitudes).";
     return "Confirmada: ya tiene el acceso y le hemos enviado el email para entrar.";
   }, form);
 }

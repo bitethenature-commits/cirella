@@ -9,7 +9,7 @@ import { canonicalTimezone } from "./timezones";
 import { labelToMinutes, zonedTimeToUtc } from "./tz";
 
 /**
- * «Dar una sesión o lectura» (/panel/reservas/nueva): la dueña regala una sesión, o la apunta porque se
+ * «Dar una sesión o lectura» (/panel/solicitudes/dar/sesion): la dueña regala una sesión, o la apunta porque se
  * la pagaron fuera (Bizum, transferencia), con la fecha que ella elija (un hueco de su agenda, cualquier
  * otra hora o «que la elija ella»).
  *

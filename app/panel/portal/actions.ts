@@ -4,9 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { ownImageUrl } from "@/lib/posts";
 import { asPortalKind, mediaKindFor, PORTAL_PHOTOS_MAX, portalFormSchema, readPortalMedia, type PortalMedia } from "@/lib/portal-rules";
 import { privateKey, storage } from "@/lib/storage";
+import { purgeOldPortalItems } from "@/lib/portal-purge";
+import { NEWS_DAY_OPTIONS } from "../actualidades/options";
 import { tenantDb } from "@/lib/tenant";
 import { labelToMinutes, zonedTimeToUtc } from "@/lib/tz";
 import { readPortalMediaToken } from "@/lib/uploads";
@@ -109,6 +112,17 @@ export async function deletePortalItem(form: FormData) {
     refresh(creator.username);
   }
   redirect("/panel/portal?borrado=1");
+}
+
+/** «Los portales se borran a los…»: guarda los días y borra ya los que pasan de ahí. */
+export async function setPortalDays(form: FormData) {
+  const { creator } = await requireCreator();
+  const n = Number(form.get("days"));
+  if (!NEWS_DAY_OPTIONS.includes(n as (typeof NEWS_DAY_OPTIONS)[number])) redirect("/panel/portal");
+  await prisma.creator.update({ where: { id: creator.id }, data: { portalDays: n === 0 ? null : n } });
+  const gone = n ? await purgeOldPortalItems(new Date(), creator.id) : 0;
+  refresh(creator.username);
+  redirect(`/panel/portal?dias=${gone}`);
 }
 
 /** Subir o bajar en el orden del portal. */

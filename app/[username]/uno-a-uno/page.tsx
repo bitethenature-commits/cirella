@@ -12,6 +12,12 @@ import { Avatar } from "@/components/creator-page/product-art";
 import { FlowerOfLife, SacredButton } from "@/components/creator-page/sacred-button";
 import { TrackOnMount } from "@/components/creator-page/tracking";
 import { Reveal } from "@/components/reveal";
+import { barePage, hiddenProductSlugs, SitePageView } from "@/components/creator-page/site-page-view";
+import { appUrl } from "@/lib/env";
+import { nextMoonCircles } from "@/lib/moon-circles";
+import { oracleDecksForBlocks } from "@/lib/oracle-decks";
+import { ONE_TO_ONE_SLUG } from "@/lib/site-pages";
+import { getPublicSitePage } from "@/lib/site-pages.server";
 import { sectionPageData } from "../section-data";
 
 type Params = { username: string };
@@ -20,6 +26,13 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const { username } = await params;
   const data = await sectionPageData(username);
   if (!data) return { title: "Página no encontrada" };
+  // Publicada desde Páginas: su título y su descripción.
+  const own = await getPublicSitePage(username, ONE_TO_ONE_SLUG);
+  if (own) {
+    const t = `${own.content.seoTitle || own.content.title} · ${data.config.displayName}`;
+    const d = own.content.seoDescription || own.content.subtitle || undefined;
+    return { title: t, description: d, alternates: { canonical: data.url("uno-a-uno") }, openGraph: { title: t, description: d, url: data.url("uno-a-uno"), siteName: data.siteName } };
+  }
   const title = `1:1 · ${data.config.displayName}`;
   const description = `Un acompañamiento 1:1 con ${data.config.displayName}: un camino para descubrirte.`;
   return { title, description, alternates: { canonical: data.url("uno-a-uno") }, openGraph: { title, description, url: data.url("uno-a-uno"), siteName: data.siteName } };
@@ -92,6 +105,32 @@ function GoldStar({ className = "" }: { className?: string }) {
  */
 export default async function UnoAUnoPage({ params }: { params: Promise<Params> }) {
   const { username } = await params;
+  // Publicada desde Páginas (lib/site-pages.ts → ONE_TO_ONE_SLUG): la que ha escrito ella.
+  const own = await getPublicSitePage(username, ONE_TO_ONE_SLUG);
+  if (own) {
+    const { data: pub, content } = own;
+    const oracleDecks = await oracleDecksForBlocks(pub.creator.id, content.blocks);
+    return (
+      <>
+        <SitePageView
+          username={pub.creator.username}
+          config={pub.config}
+          content={content}
+          allowCustom={pub.allowCustom}
+          personal={pub.personal}
+          signupsOnly={pub.signupsOnly}
+          hiddenSlugs={hiddenProductSlugs(pub.products, pub.signupsOnly)}
+          siteOrigin={appUrl()}
+          pages={pub.pages}
+          currentPath={own.path}
+          oracleDecks={oracleDecks}
+          moonCircles={nextMoonCircles(pub.products)}
+          bare={barePage(ONE_TO_ONE_SLUG)}
+        />
+        <TrackOnMount creatorId={pub.creator.id} type="PAGE_VIEW" />
+      </>
+    );
+  }
   const data = await sectionPageData(username);
   if (!data) notFound();
   const { creator, config } = data;

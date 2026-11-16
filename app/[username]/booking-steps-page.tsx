@@ -79,7 +79,7 @@ export function BookingStepsPage({ data, kind }: { data: NonNullable<Awaited<Ret
           {products.length === 0 ? (
             <p className="cp-muted mt-6 text-center">Ahora mismo no hay {kind === "reading" ? "lecturas" : "sesiones"} disponibles.</p>
           ) : (
-            <div className="mx-auto mt-8 grid max-w-sm gap-7 sm:max-w-none sm:grid-cols-2">
+            <div className="mx-auto mt-8 grid max-w-[16rem] gap-5 sm:max-w-none sm:grid-cols-2 md:grid-cols-3">
               {products.map((p) => (
                 <OracleCard key={p.id} p={p} username={creator.username} trackCreatorId={creator.id} />
               ))}

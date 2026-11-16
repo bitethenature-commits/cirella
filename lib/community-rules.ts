@@ -42,6 +42,7 @@ export function isRecordedPost(p: { kind: string; eventAt?: Date | null }, now =
 }
 
 export const TITLE_MAX = 160;
+export const SUMMARY_MAX = 300;
 export const BODY_MAX = 10_000;
 export const ATTACHMENTS_MAX = 10;
 export const COMMENT_MAX = 2000;
@@ -64,6 +65,8 @@ export const memberPostFormSchema = z
     id: z.string().max(40).optional().transform((v) => v || undefined),
     productId: z.string().min(1, "Membresía no encontrada").max(40),
     title: z.string().trim().min(2, "Escribe un título").max(TITLE_MAX, `El título admite ${TITLE_MAX} caracteres`),
+    // La frase de la tarjeta en el muro.
+    summary: z.string().trim().max(SUMMARY_MAX, `La frase de la tarjeta admite ${SUMMARY_MAX} caracteres`).default(""),
     body: z.string().max(BODY_MAX, `El texto admite ${BODY_MAX.toLocaleString("es-ES")} caracteres`).default(""),
     bodyFormat: z.unknown().transform((v) => parseTextFormat(v === undefined ? undefined : v)),
     kind: z.enum(MEMBER_POST_KINDS).catch("TEXT"),

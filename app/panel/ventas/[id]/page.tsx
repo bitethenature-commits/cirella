@@ -87,7 +87,7 @@ export default async function OrderDetail({ params, searchParams }: { params: Pr
         {o.bookings[0] && (
           <Row label="Sesión">
             {o.bookings[0].startAt ? capitalize(formatSessionDate(o.bookings[0].startAt, creator.timezone)) : "Sin fecha"} ·{" "}
-            <Link href={`/panel/reservas/${o.bookings[0].id}`} className="underline underline-offset-2">Ver la reserva</Link>
+            <Link href={`/panel/solicitudes/reserva/${o.bookings[0].id}`} className="underline underline-offset-2">Ver la reserva</Link>
           </Row>
         )}
       </dl>
@@ -162,7 +162,7 @@ async function SignupDetail({ creatorId, orderId, given }: { creatorId: string; 
         </Row>
         {o.bookings[0] && (
           <Row label="Sesión">
-            <Link href={`/panel/reservas/${o.bookings[0].id}`} className="underline underline-offset-2">Ver la reserva</Link>
+            <Link href={`/panel/solicitudes/reserva/${o.bookings[0].id}`} className="underline underline-offset-2">Ver la reserva</Link>
           </Row>
         )}
         <Row label="Importe">Gratis</Row>

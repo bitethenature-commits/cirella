@@ -1,10 +1,10 @@
-import { Mail } from "lucide-react";
+import { Bell, BellRing, CalendarCheck, Gift, GraduationCap, Heart, HeartHandshake, Hourglass, KeyRound, Mail, MailCheck, MessageCircle, Moon, PenLine, Receipt, ShoppingBag, Sparkles, UserMinus, UserPlus, type LucideIcon } from "lucide-react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireCreator } from "@/lib/auth";
 import Link from "next/link";
 import { AUTOMATIONS, automationDefaultOn, type AutomationTrigger } from "@/lib/automations";
-import { EDITABLE_EMAILS, visibleAutomations } from "@/lib/automation-catalog";
+import { DELAY_FIELDS, EDITABLE_EMAILS, visibleAutomations } from "@/lib/automation-catalog";
 import { planFeatures } from "@/lib/plans";
 import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
@@ -27,6 +27,40 @@ const FAILED_NOTE = "No se pudo entregar: la dirección lo rechazó o falló 6 v
 // Web personal: no hay equipo de la plataforma detrás; queda en Envíos fallidos para revisarlo.
 const FAILED_NOTE_PERSONAL = "No se pudo entregar: la dirección lo rechazó o falló 6 veces seguidas. Ha quedado registrado para revisarlo.";
 
+const GROUPS = [
+  { title: "Para tus clientas", text: "Lo que les llega solo: confirmaciones, recordatorios y detalles que cuidan.", audiences: ["Clienta", "Suscriptora"] },
+  { title: "Para ti", text: "Avisos a tu correo para que no se te escape nada.", audiences: ["Tú"] },
+];
+
+const ICONS: Partial<Record<AutomationTrigger, LucideIcon>> = {
+  PURCHASE_RECEIPT: Receipt,
+  COURSE_ACCESS: GraduationCap,
+  BOOKING_CONFIRMED: CalendarCheck,
+  NEW_SUBSCRIPTION: UserPlus,
+  SUBSCRIPTION_CANCELED: UserMinus,
+  WELCOME: Sparkles,
+  SESSION_REMINDER: Bell,
+  SESSION_REMINDER_SOON: BellRing,
+  ABANDONED_CHECKOUT: ShoppingBag,
+  BOOKING_OWNER_NOTICE: CalendarCheck,
+  ACCESS_ENDING: Hourglass,
+  MEMBER_ENDED: Hourglass,
+  NEW_COMMENT: MessageCircle,
+  ACCESS_GRANTED: KeyRound,
+  REQUEST_RECEIVED: MailCheck,
+  MOON_CIRCLE_REMINDER: Moon,
+  SESSION_THANKS: HeartHandshake,
+  MISS_YOU: Heart,
+  NEWSLETTER_WELCOME: Gift,
+};
+
+/** «Sale 24 horas antes», en palabras. */
+function whenText(d: { after: string; unit: number }, minutes: number) {
+  const n = Math.round(minutes / d.unit);
+  if (n === 0) return "Sale al momento";
+  return `${d.after.endsWith("sin entrar") ? "Tras" : "Sale"} ${n} ${n === 1 ? d.after.replace(/^(minuto|hora|día)s/, "$1") : d.after}`;
+}
+
 export default async function AutomationsPage() {
   const { creator } = await requireCreator();
   const pro = planFeatures(creator.plan).automations;
@@ -42,69 +76,92 @@ export default async function AutomationsPage() {
   const byTrigger = new Map(rows.map((r) => [r.trigger, r]));
   return (
     <div className="space-y-8">
-      <PageHeader title="Automatizaciones" subtitle="Emails que se envían solos en el momento justo." />
+      <PageHeader title="Automatizaciones" subtitle="Emails que salen solos en el momento justo. Escríbelos encima del propio email." />
       {!pro && <Locked title="Automatiza tu relación con tus clientas" text="Bienvenida personalizada, recordatorios de sesión y recuperación de compras abandonadas. Los emails esenciales (compra, acceso y reservas) ya se envían en todos los planes." />}
-      <div className="grid gap-3 md:grid-cols-2">
-        {visibleAutomations(isPersonalMode()).map((t: AutomationTrigger) => {
-          const meta = AUTOMATIONS[t];
-          const row = byTrigger.get(t);
-          const enabled = meta.essential || (pro && (row ? row.enabled : automationDefaultOn(t)));
-          const editable = pro;
-          return (
-            <form key={t} action={saveAutomation} className={`card flex flex-col p-5 ${!meta.essential && !pro ? "opacity-60" : ""}`}>
-              <input type="hidden" name="trigger" value={t} />
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold">{meta.label}</p>
-                  <p className="mt-0.5 text-xs text-muted">{meta.description} · Para: {meta.audience}</p>
-                </div>
-                {meta.essential ? <Badge tone="success">Siempre activa</Badge> : enabled ? <Badge tone="success">Activa</Badge> : <Badge>Desactivada</Badge>}
-              </div>
-              {/* Web personal: el email se escribe con el editor visual (Newsletter › Emails automáticos). */}
-              {isPersonalMode() && EDITABLE_EMAILS[t] && (
-                <p className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                  <Link href={`/panel/newsletter/emails/${t}`} className="font-semibold underline underline-offset-2">Editar el email</Link>
-                  {(row?.design || row?.subject) && <Badge tone="dark">Tu versión</Badge>}
-                </p>
-              )}
-              {editable && (
-                <details className="mt-3">
-                  <summary className="cursor-pointer text-xs font-semibold text-muted hover:text-ink">Personalizar</summary>
-                  <div className="mt-3 space-y-2.5">
-                    {!meta.essential && (
-                      <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="enabled" defaultChecked={enabled} className="accent-[#0E1024]" /> Activada</label>
+      {GROUPS.map((g) => {
+        const list = visibleAutomations(isPersonalMode()).filter((t) => g.audiences.includes(AUTOMATIONS[t].audience));
+        if (!list.length) return null;
+        return (
+          <section key={g.title}>
+            <h2 className="eyebrow mb-1 !text-ink">{g.title}</h2>
+            <p className="mb-3 text-sm text-muted">{g.text}</p>
+            <div className="grid gap-3 md:grid-cols-2">
+              {list.map((t) => {
+                const meta = AUTOMATIONS[t];
+                const row = byTrigger.get(t);
+                const enabled = meta.essential || (pro && (row ? row.enabled : automationDefaultOn(t)));
+                const Icon = ICONS[t] ?? Mail;
+                const delay = DELAY_FIELDS[t];
+                const minutes = row?.delayMinutes ?? meta.defaultDelay;
+                const writable = isPersonalMode() && !!EDITABLE_EMAILS[t];
+                return (
+                  <form key={t} action={saveAutomation} className={`auto-card card flex flex-col p-5 ${enabled ? "auto-card-on" : ""} ${!meta.essential && !pro ? "opacity-60" : ""}`}>
+                    <input type="hidden" name="trigger" value={t} />
+                    <div className="flex items-start gap-3">
+                      <span className="auto-icon"><Icon className="h-5 w-5" strokeWidth={1.5} /></span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-display text-lg leading-tight">{meta.label}</p>
+                          {meta.essential ? <Badge tone="success">Siempre</Badge> : enabled ? <Badge tone="success">Activa</Badge> : <Badge>Apagada</Badge>}
+                        </div>
+                        <p className="mt-1 text-sm text-muted">{meta.description}</p>
+                        {delay && enabled && <p className="mt-2 text-xs font-medium text-gold">✦ {whenText(delay, minutes)}</p>}
+                      </div>
+                    </div>
+                    {(writable || pro) && (
+                      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                        {writable && (
+                          <Link href={`/panel/newsletter/emails/${t}`} className="btn btn-primary btn-sm">
+                            <PenLine className="h-4 w-4" /> Escribir el email
+                          </Link>
+                        )}
+                        {writable && (row?.design || row?.subject) && <Badge tone="dark">Tu versión</Badge>}
+                        {pro && (!meta.essential || delay || !writable) && (
+                          <details className="auto-settings w-full">
+                            <summary className="cursor-pointer text-xs font-semibold text-muted hover:text-ink">Cuándo y cómo</summary>
+                            <div className="mt-3 space-y-3">
+                              {!meta.essential && (
+                                <label className="flex items-center gap-2 text-sm">
+                                  <input type="checkbox" name="enabled" defaultChecked={enabled} className="accent-[#D9BF8C]" /> Encendida
+                                </label>
+                              )}
+                              {meta.essential && <input type="hidden" name="enabled" value="on" />}
+                              {delay && (
+                                <label className="flex flex-wrap items-center gap-2 text-sm">
+                                  {delay.before}
+                                  <input type="number" name="delay" min={delay.min} max={delay.max} defaultValue={Math.round(minutes / delay.unit)} className="input h-9 w-20 text-sm" />
+                                  {delay.after}
+                                </label>
+                              )}
+                              {!writable && <input name="subject" defaultValue={row?.subject ?? ""} placeholder="Asunto personalizado (opcional)" className="input h-9 text-base sm:text-sm" />}
+                              {!writable && (t === "WELCOME" || t === "ABANDONED_CHECKOUT") && (
+                                <RichTextEditor
+                                  name="message"
+                                  ariaLabel="Tu mensaje"
+                                  formatName="messageFormat"
+                                  defaultValue={row?.message ?? ""}
+                                  initialFormat={row?.messageFormat ?? null}
+                                  maxLength={2000}
+                                  tools="basic"
+                                  tone="account"
+                                  legacy="links"
+                                  rows={3}
+                                  placeholder="Tu mensaje (opcional)"
+                                />
+                              )}
+                              <SubmitButton className="btn btn-primary btn-sm">Guardar</SubmitButton>
+                            </div>
+                          </details>
+                        )}
+                      </div>
                     )}
-                    {(t === "WELCOME" || t === "SESSION_REMINDER" || t === "SESSION_REMINDER_SOON" || t === "ABANDONED_CHECKOUT") && (
-                      <label className="flex items-center gap-2 text-sm">
-                        {t === "SESSION_REMINDER" || t === "SESSION_REMINDER_SOON" ? "Enviar" : "Esperar"}
-                        <input type="number" name="delayMinutes" min={t === "SESSION_REMINDER_SOON" ? 5 : 0} defaultValue={row?.delayMinutes ?? meta.defaultDelay} className="input h-9 w-24 text-sm" />
-                        {t === "SESSION_REMINDER" || t === "SESSION_REMINDER_SOON" ? "minutos antes" : "minutos"}
-                      </label>
-                    )}
-                    <input name="subject" defaultValue={row?.subject ?? ""} placeholder="Asunto personalizado (opcional)" className="input h-9 text-base sm:text-sm" />
-                    {(t === "WELCOME" || t === "ABANDONED_CHECKOUT") && (
-                      <RichTextEditor
-                        name="message"
-                        ariaLabel="Tu mensaje"
-                        formatName="messageFormat"
-                        defaultValue={row?.message ?? ""}
-                        initialFormat={row?.messageFormat ?? null}
-                        maxLength={2000}
-                        tools="basic"
-                        tone="account"
-                        legacy="links"
-                        rows={3}
-                        placeholder="Tu mensaje (opcional)"
-                      />
-                    )}
-                    <SubmitButton className="btn btn-primary btn-sm">Guardar</SubmitButton>
-                  </div>
-                </details>
-              )}
-            </form>
-          );
-        })}
-      </div>
+                  </form>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
 
       <section>
         <h2 className="eyebrow mb-3 !text-ink">Últimos emails</h2>

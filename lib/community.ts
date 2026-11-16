@@ -59,6 +59,7 @@ export async function saveMemberPost(creatorId: string, timeZone: string, input:
   const body = bodyFormat ? cleanRichInput(raw, { creatorId, images: true }) : raw;
   const data = {
     title: input.title,
+    summary: input.summary || null,
     body,
     bodyFormat,
     kind: input.kind,
@@ -377,6 +378,6 @@ export async function liveMemberPostsFor(userId: string, now = new Date()) {
   return prisma.membershipPost.findMany({
     where: { productId: { in: [...ids] }, kind: { in: ["EVENT", "CEREMONIA", "CIRCULO_LUNAR", "MASTERCLASS"] }, eventAt: { gte: new Date(now.getTime() - 60 * 86_400_000) }, ...visibleMemberPostWhere(now) },
     orderBy: { eventAt: "asc" },
-    select: { id: true, title: true, kind: true, eventAt: true, mediaUrl: true, productId: true, product: { select: { title: true, creator: { select: { timezone: true } } } } },
+    select: { id: true, title: true, kind: true, eventAt: true, mediaUrl: true, joinLabel: true, moon: true, productId: true, product: { select: { title: true, creator: { select: { timezone: true } } } } },
   });
 }

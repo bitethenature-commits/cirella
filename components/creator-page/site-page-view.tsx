@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { PageConfig } from "@/lib/page-config";
 import { creatorLegalHref } from "@/lib/legal";
 import { imageSrcSet } from "@/lib/media-url";
@@ -31,7 +32,13 @@ export function SitePageView({
   oracleDecks,
   moonCircles,
   bare = false,
+  edit,
 }: {
+  /**
+   * Editor de Páginas (app/panel/paginas/[id]/page-editor.tsx): en lugar del título, el subtítulo, la
+   * imagen de cabecera y los bloques, lo que se escribe encima. `blocks` recibe el aspecto de la página.
+   */
+  edit?: { title: ReactNode; subtitle: ReactNode; cover: ReactNode; blocks: (mode: { bare: boolean; luxe: boolean }) => ReactNode };
   username: string;
   /** Sin cajas en los bloques (página «Sobre mí»: barePage()). */
   bare?: boolean;
@@ -67,14 +74,14 @@ export function SitePageView({
               <i>✦</i>
               <span />
             </div>
-            <h1 className="cp-display cp-thin mt-5 text-[2.9rem] leading-[1.05] sm:text-[3.8rem]">{content.title}</h1>
-            {content.subtitle && (
-              <p className="cp-display cp-thin mx-auto mt-4 max-w-xl whitespace-pre-line text-[1.35rem] italic leading-snug sm:text-[1.6rem]" style={{ color: "var(--c-gold)" }}>
-                {content.subtitle}
-              </p>
+            <h1 className="cp-display cp-thin mt-5 text-[2.9rem] leading-[1.05] sm:text-[3.8rem]">{edit ? edit.title : content.title}</h1>
+            {(edit || content.subtitle) && (
+              <div className="cp-display cp-thin mx-auto mt-4 max-w-xl whitespace-pre-line text-[1.35rem] italic leading-snug sm:text-[1.6rem]" style={{ color: "var(--c-gold)" }}>
+                {edit ? edit.subtitle : content.subtitle}
+              </div>
             )}
           </header>
-          {cover && (
+          {edit ? <div className="mt-10">{edit.cover}</div> : cover && (
             <div className="cp-luxe-frame mt-10" data-reveal>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -91,7 +98,7 @@ export function SitePageView({
             </div>
           )}
           <div className="mt-20 space-y-24">
-            <ContentBlocks
+            {edit ? edit.blocks({ bare: true, luxe: false }) : <ContentBlocks
               bare
               blocks={visibleBlocks(content.blocks)}
               username={username}
@@ -101,7 +108,7 @@ export function SitePageView({
               oracleDecks={oracleDecks}
               modelGate={personal ? { username, creatorName: config.displayName, privacyHref: creatorLegalHref(username, "privacidad") } : null}
               moonCircles={moonCircles}
-            />
+            />}
           </div>
         </main>
         <Reveal />
@@ -120,18 +127,20 @@ export function SitePageView({
             <p className="cp-eyebrow mt-6 !tracking-[0.42em]" style={{ color: "var(--c-gold)" }}>
               {config.displayName}
             </p>
-            <h1 className="cp-display cp-thin mt-3 text-[2.9rem] leading-[1.05] sm:text-[3.8rem]">{method.name}</h1>
+            <h1 className="cp-display cp-thin mt-3 text-[2.9rem] leading-[1.05] sm:text-[3.8rem]">{edit ? edit.title : method.name}</h1>
             <div aria-hidden className="cp-section-rule mt-5">
               <span />
               <i>✦</i>
               <span />
             </div>
-            <p className="cp-display cp-thin mx-auto mt-5 max-w-xl text-[1.45rem] italic leading-snug sm:text-[1.75rem]" style={{ color: "var(--c-gold)" }}>
-              {method.tagline}
-            </p>
-            {content.subtitle && <p className="cp-muted cp-thin-text mx-auto mt-5 max-w-lg whitespace-pre-line text-[1.05rem] leading-relaxed">{content.subtitle}</p>}
+            {!edit && (
+              <p className="cp-display cp-thin mx-auto mt-5 max-w-xl text-[1.45rem] italic leading-snug sm:text-[1.75rem]" style={{ color: "var(--c-gold)" }}>
+                {method.tagline}
+              </p>
+            )}
+            {(edit || content.subtitle) && <div className="cp-muted cp-thin-text mx-auto mt-5 max-w-lg whitespace-pre-line text-[1.05rem] leading-relaxed">{edit ? edit.subtitle : content.subtitle}</div>}
           </header>
-          {cover && (
+          {edit ? <div className="mt-10">{edit.cover}</div> : cover && (
             <div className="cp-luxe-frame mt-10" data-reveal>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -148,7 +157,7 @@ export function SitePageView({
             </div>
           )}
           <div className="mt-14 space-y-8">
-            <ContentBlocks
+            {edit ? edit.blocks({ bare: false, luxe: true }) : <ContentBlocks
               luxe
               modelIcon={method.icon}
               blocks={visibleBlocks(content.blocks)}
@@ -159,7 +168,7 @@ export function SitePageView({
               oracleDecks={oracleDecks}
               modelGate={personal ? { username, creatorName: config.displayName, privacyHref: creatorLegalHref(username, "privacidad") } : null}
               moonCircles={moonCircles}
-            />
+            />}
           </div>
         </main>
         <Reveal />
@@ -168,7 +177,7 @@ export function SitePageView({
   return (
     <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back}>
       <main className={`relative mx-auto w-full max-w-[44rem] px-5 pb-10 ${cover ? "pt-8" : "pt-10 sm:pt-16"}`} data-cover={cover ? "yes" : "no"}>
-        {cover && (
+        {edit ? <div className="mb-8">{edit.cover}</div> : cover && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={cover.src}
@@ -184,11 +193,11 @@ export function SitePageView({
         )}
         {/* Sin imagen de cabecera: el nombre encima, como una portadilla, y una línea dorada debajo de la entradilla. */}
         {!cover && <p className="cp-eyebrow cp-gold mb-4">{config.displayName}</p>}
-        <h1 className="cp-display text-[2.4rem] leading-[1.05] sm:text-[3rem]">{content.title}</h1>
-        {content.subtitle && <p className="cp-muted mt-5 whitespace-pre-line text-[1.05rem] leading-relaxed sm:text-[1.1rem]">{content.subtitle}</p>}
+        <h1 className="cp-display text-[2.4rem] leading-[1.05] sm:text-[3rem]">{edit ? edit.title : content.title}</h1>
+        {(edit || content.subtitle) && <div className="cp-muted mt-5 whitespace-pre-line text-[1.05rem] leading-relaxed sm:text-[1.1rem]">{edit ? edit.subtitle : content.subtitle}</div>}
         {!cover && <span aria-hidden className="mt-8 block h-px w-20 bg-[var(--c-gold)] opacity-70" />}
         <div className={bare ? "mt-12 space-y-16" : "mt-10 space-y-6"}>
-          <ContentBlocks
+          {edit ? edit.blocks({ bare, luxe: false }) : <ContentBlocks
             bare={bare}
             blocks={visibleBlocks(content.blocks)}
             username={username}
@@ -198,7 +207,7 @@ export function SitePageView({
             oracleDecks={oracleDecks}
             modelGate={personal ? { username, creatorName: config.displayName, privacyHref: creatorLegalHref(username, "privacidad") } : null}
             moonCircles={moonCircles}
-          />
+          />}
         </div>
       </main>
       <Reveal />
@@ -220,9 +229,9 @@ function methodTitle(title: string) {
   return { name, tagline: rest.charAt(0).toUpperCase() + rest.slice(1), icon };
 }
 
-/** Páginas extra que van sin cajas, con los bloques sueltos sobre el fondo: «Sobre mí». */
+/** Páginas extra que van sin cajas, con los bloques sueltos sobre el fondo: «Sobre mí» y la 1:1. */
 export function barePage(slug: string): boolean {
-  return slug === "sobre-mi";
+  return slug === "sobre-mi" || slug === "uno-a-uno" || slug === "gifts";
 }
 
 /** Productos que no se ven (web personal sin cobros), como en la portada. */

@@ -11,6 +11,154 @@ import { RESERVED_USERNAMES, SITE_PAGE_SLUG_RE, slugify } from "./slug";
  */
 
 export const SITE_PAGES_MAX = 30;
+
+/**
+ * La página «1:1» (/uno-a-uno): una página más de Páginas, con su dirección fija (no se cambia ni se
+ * borra). Mientras no se publique, la web enseña la 1:1 de siempre (app/[username]/uno-a-uno).
+ */
+export const ONE_TO_ONE_SLUG = "uno-a-uno";
+
+/**
+ * «Gifts» (/gifts): lo que hace Cirella para regalar (calendarios, manualidades, detalles para amigos
+ * o familia). Una página más de Páginas con su dirección fija; mientras no se publique, la web enseña
+ * la de partida (giftsContent). La portada la enseña en su desplegable «Gifts».
+ */
+export const GIFTS_SLUG = "gifts";
+
+/** Páginas con dirección fija: no se cambia ni se borran. */
+export const FIXED_PAGE_SLUGS: readonly string[] = [ONE_TO_ONE_SLUG, GIFTS_SLUG];
+export const isFixedPageSlug = (slug: string) => FIXED_PAGE_SLUGS.includes(slug);
+
+/** Una tarjeta de regalo de partida: su foto y «Pedirlo» por email (con el asunto ya escrito). */
+function gift(title: string, text: string, src: string, email: string | null) {
+  return {
+    image: { src, alt: title, width: 800, height: 1000 },
+    title,
+    text,
+    price: "",
+    ...(email ? { href: `mailto:${email}?subject=${encodeURIComponent("Gifts: " + title)}` } : {}),
+  };
+}
+
+/** El contenido de partida de «Gifts»: los regalos en tarjetas y cómo pedirlos. */
+export function giftsContent(email: string | null): SitePageContent {
+  const blocks: ContentBlock[] = [
+    {
+      id: "gifts-intro",
+      kind: "text",
+      enabled: true,
+      look: "bare",
+      title: "",
+      body: "Pequeñas cosas hechas por mí, con calma y con intención: para ti o para alguien a quien quieres.",
+      format: "MD",
+    },
+    {
+      id: "gifts-lista",
+      kind: "cards",
+      enabled: true,
+      look: "bare",
+      goldTitle: true,
+      title: "Lo que hago para regalar",
+      cards: [
+        gift("Calendarios lunares", "El año luna a luna: lunas nuevas, llenas y eclipses, para colgar en casa y seguir tu ritmo.", "/demo/gift-calendario.webp", email),
+        gift("Manualidades", "Velas, bolsitas de ritual y piezas hechas a mano, una a una.", "/demo/gift-manualidades.webp", email),
+        gift("Para regalar", "Detalles para amigos o familia, con su carta y una dedicatoria escrita por mí.", "/demo/gift-regalo.webp", email),
+      ],
+    },
+    {
+      id: "gifts-pedir",
+      kind: "text",
+      enabled: true,
+      look: "panel",
+      title: "¿Quieres uno?",
+      body: "Escríbeme y cuéntame qué te gusta o para quién es. Te respondo yo y lo preparamos juntas.",
+      format: "MD",
+      ...(email ? { buttonLabel: "Escríbeme", buttonUrl: "mailto:" + email } : {}),
+    },
+  ];
+  return { title: "Gifts", subtitle: "Calendarios, manualidades y regalos para los tuyos, hechos por mí.", cover: null, blocks, seoTitle: "Gifts", seoDescription: "" };
+}
+
+/** Lo que enseña el desplegable «Gifts» de la portada: las tarjetas de la página (las 3 primeras con título). */
+export type GiftsPreview = { title: string; subtitle: string; items: { title: string; text: string; image: string | null }[]; total: number };
+export function giftsPreview(content: SitePageContent): GiftsPreview {
+  const cards = content.blocks.flatMap((b) => (b.enabled && b.kind === "cards" ? b.cards : [])).filter((c) => c.title.trim());
+  return {
+    title: content.title,
+    subtitle: content.subtitle,
+    items: cards.slice(0, 3).map((c) => ({ title: c.title, text: c.text, image: c.image?.src ?? null })),
+    total: cards.length,
+  };
+}
+
+/** El contenido de partida de la 1:1: lo mismo que la 1:1 de siempre, en bloques que se pueden editar. */
+export function oneToOneContent(displayName: string, email: string | null): SitePageContent {
+  const first = (displayName.trim().split(" ")[0] || displayName).toUpperCase();
+  const blocks: ContentBlock[] = [
+    {
+      id: "uno-intro",
+      kind: "text",
+      enabled: true,
+      look: "bare",
+      title: "",
+      body: "Durante un tiempo caminamos juntas, tú y yo. Partimos de dónde estás hoy y, paso a paso, vamos leyendo tu mapa hasta que vuelves a reconocerte en él.",
+      format: "MD",
+    },
+    {
+      id: "uno-camino",
+      kind: "timeline",
+      enabled: true,
+      look: "panel",
+      title: "Cómo es el camino",
+      items: [
+        { label: "I", title: "Nos conocemos", text: "Una primera conversación tranquila. Me cuentas en qué momento estás, qué te inquieta y qué te gustaría que cambiara. Sin prisa y sin juicio." },
+        { label: "II", title: "Leemos tu mapa", text: "Con tu fecha, hora y lugar de nacimiento abrimos tu carta natal, tu Diseño Humano y tus Gene Keys. Es tu mapa: no te dice quién debes ser, te recuerda quién eres." },
+        { label: "III", title: "Te comprendes", text: "Poco a poco, lo que antes te pesaba empieza a tener sentido: tus ritmos, tu forma de decidir, lo que te da energía y lo que te la quita." },
+        { label: "IV", title: "Lo llevas a tu vida", text: "Bajamos lo descubierto a tu día a día, luna a luna: pequeños gestos, rituales sencillos y decisiones concretas que puedes sostener." },
+        { label: "V", title: "Eliges desde ti", text: "Llega un momento en que ya no necesitas que nadie te lo explique. Te escuchas, confías en tu manera de hacer y caminas a tu ritmo." },
+      ],
+    },
+    {
+      id: "uno-llevas",
+      kind: "cards",
+      enabled: true,
+      look: "bare",
+      goldTitle: true,
+      title: "Lo que te llevas",
+      cards: [
+        { image: null, title: "Claridad", text: "Entiendes por qué sientes y actúas como lo haces." },
+        { image: null, title: "Calma", text: "Dejas de luchar contra tu propia naturaleza." },
+        { image: null, title: "Dirección", text: "Sabes hacia dónde ir y cómo dar el siguiente paso." },
+      ],
+    },
+    {
+      id: "uno-para-ti",
+      kind: "text",
+      enabled: true,
+      look: "panel",
+      title: "Es para ti si…",
+      body: [
+        "- Sientes que vives con el piloto automático y quieres volver a escucharte.",
+        "- Estás ante una decisión importante y quieres tomarla desde ti.",
+        "- Te interesa la astrología, el Diseño Humano o las Gene Keys, pero no sabes por dónde empezar.",
+        "- Buscas un espacio solo para ti, con tiempo y con alguien que te acompañe.",
+      ].join(String.fromCharCode(10)),
+      format: "MD",
+    },
+    { id: "uno-frase", kind: "quote", enabled: true, look: "bare", text: "No vengo a decirte quién eres. Vengo a acompañarte mientras lo recuerdas.", author: first },
+    {
+      id: "uno-empezamos",
+      kind: "text",
+      enabled: true,
+      look: "panel",
+      title: "¿Empezamos tu camino?",
+      body: "Escríbeme y cuéntame en qué momento estás. Te respondo yo, personalmente, y vemos juntas si este camino es para ti.",
+      format: "MD",
+      ...(email ? { buttonLabel: "Escríbeme", buttonUrl: "mailto:" + email } : {}),
+    },
+  ];
+  return { title: "Un camino para descubrirte", subtitle: "No es una sesión suelta: es un viaje contigo.", cover: null, blocks, seoTitle: "1:1", seoDescription: "" };
+}
 /** Minúsculas, números y guiones; sin puntos ni guiones bajos (nunca parece un archivo ni una ruta interna). */
 export { SITE_PAGE_SLUG_RE };
 export const SITE_PAGE_TITLE_MAX = 120;
@@ -56,6 +204,8 @@ export function readSitePageContent(raw: unknown, fallbackTitle: string): SitePa
 
 /** Dirección de una página extra (la canónica). */
 export function sitePagePath(username: string, slug: string, personal: boolean): string {
+  // La 1:1 vive en su sección de siempre (/uno-a-uno), no en /p/.
+  if (isFixedPageSlug(slug)) return personal ? `/${slug}` : `/${username}/${slug}`;
   return personal ? `/${slug}` : `/${username}/p/${slug}`;
 }
 

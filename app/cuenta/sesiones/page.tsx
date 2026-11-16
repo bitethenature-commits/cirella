@@ -1,27 +1,33 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Moon, Plus, ScrollText, Users } from "lucide-react";
+import { ArrowRight, CalendarDays, Mail, Moon, Plus, ScrollText, Users } from "lucide-react";
 import type { ReactNode } from "react";
-import { ProductImage } from "@/components/creator-page/product-art";
+import { MoonCircleArt } from "@/components/creator-page/moon-circle-art";
+import { OracleCard } from "@/components/creator-page/oracle-card";
+import type { PublicProduct } from "@/components/creator-page/creator-page-view";
 import { requireBuyerFull } from "@/lib/buyer-access";
 import { channelKindLabel } from "@/lib/channel-kind";
 import { getCustomerLibrary, hasAccess } from "@/lib/customer";
 import { liveMemberPostsFor } from "@/lib/community";
 import { JoinButton, kindStyle } from "../membresias/kind-style";
+import { postSky } from "../membresias/post-sky";
 import { includedProductIds } from "@/lib/membership-access";
 import { prisma } from "@/lib/db";
 import { formatPrice } from "@/lib/money";
+import { MOON_KIND_LABEL, MOON_KIND_VERB, moonCircleSky, moonSkyFor, type MoonCircleSky, type MoonKind } from "@/lib/moon-circle-sky";
 import { moonCirclePhase } from "@/lib/moon-circles";
+import { readMoonChoice } from "@/lib/product-texts";
 import { getPublicCreator } from "@/lib/public";
 import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
+import { resolveTheme, themeStyle } from "@/lib/templates";
 import { BOOKING_STATUS_LABEL } from "@/lib/types";
 import { capitalize, formatDate, sessionWhen } from "@/lib/tz";
 import { LunaIcon } from "../icons";
 import { MethodTag } from "../ui";
 
 type Booking = Awaited<ReturnType<typeof getCustomerLibrary>>["upcoming"][number];
+type LivePost = Awaited<ReturnType<typeof liveMemberPostsFor>>[number];
 type Kind = "reading" | "session" | "circle";
-type Offer = { id: string; title: string; href: string; imageUrl: string | null; emoji: string | null; price: string; courseCategory?: string | null; summary?: string | null; eventStartAt?: string | null };
-type CircleOffer = Offer & { pass: boolean };
+type Phase = MoonKind | null;
 
 /**
  * De qué tipo es cada reserva, con la misma regla que la web (app/[username]/booking-steps-page.tsx): los
@@ -35,21 +41,32 @@ function kindOf(b: Booking): Kind {
 const when = (b: Booking) =>
   b.startAt ? capitalize(sessionWhen(b.startAt, b.customerTimezone, b.creatorBrief.timezone)) : b.rescheduleRequestedAt ? `${b.creatorBrief.displayName} te propone otra fecha: elígela` : "Pendiente de elegir fecha";
 
+const SOON = 4 * 3_600_000;
+
+/** De una lista de círculos, los 2 más cercanos (luna nueva, llena o eclipse), en orden de fecha. */
+function nextTwo<T>(items: T[], at: (t: T) => number | null, now: number): T[] {
+  return items
+    .filter((t) => (at(t) ?? 0) >= now - SOON)
+    .sort((a, b) => at(a)! - at(b)!)
+    .slice(0, 2);
+}
+
 /**
  * «Círculos y lecturas»: lo que se vive con fecha o se prepara para ella, en tres bloques que no se confunden.
- * Primero los círculos de la luna (nueva o llena), luego las sesiones (individuales y talleres) y por último las
- * lecturas (las que se reservan y las que se preparan y entregan). En cada bloque, primero lo próximo y luego
- * lo anterior. Si aún no tiene sesiones o lecturas, se le enseñan las que hay para que coja una.
+ * Primero los círculos de la luna (solo los 2 más cercanos: luna nueva, llena o eclipse), luego las sesiones y por
+ * último las lecturas. Quien tiene la membresía de los círculos los ve con su enlace, sin precios; quien no,
+ * puede apuntarse a uno suelto. Lo que puede coger además se abre en cartas como las de la web.
  */
 export default async function MySessions() {
   const user = await requireBuyerFull("/cuenta/sesiones");
   const { upcoming, past } = await getCustomerLibrary(user.id);
   // Las sesiones en directo, ceremonias y círculos programados en sus membresías (también las que incluye su nivel).
   const live = await liveMemberPostsFor(user.id);
-  const liveSoon = (p: (typeof live)[number]) => !!p.eventAt && p.eventAt.getTime() >= Date.now() - 4 * 3_600_000;
+  const liveSoon = (p: LivePost) => !!p.eventAt && p.eventAt.getTime() >= Date.now() - SOON;
   const liveSessions = live.filter((p) => p.kind !== "CIRCULO_LUNAR");
   const liveCircles = live.filter((p) => p.kind === "CIRCULO_LUNAR");
   const personal = isPersonalMode();
+  const now = Date.now();
 
   // Las lecturas que se preparan y se entregan (sin reserva): sus pedidos, con si ya está entregada.
   const prepared = (
@@ -66,53 +83,88 @@ export default async function MySessions() {
   const readingCount = prepared.length;
   const sessionCount = sessions.next.length + sessions.done.length + liveSessions.length;
 
-  // Lo que puede coger además (de la dueña, o de las creadoras de sus reservas): todas las sesiones y lecturas
-  // que aún no tiene en marcha y, de los círculos, los próximos a los que no va y el pase de todos los círculos.
+  // Lo que puede coger además (de la dueña, o de las creadoras de sus reservas).
   const owner = ownerUsername();
   const usernames = personal && owner ? [owner] : [...new Set([...upcoming, ...past].map((b) => b.creatorBrief.username))];
   const publics = (await Promise.all(usernames.map((u) => getPublicCreator(u)))).filter((d): d is NonNullable<typeof d> => !!d);
-  const all = publics.flatMap((d) =>
-    d.products.map((p) => ({
-      p,
-      offer: {
-        id: p.id,
-        title: p.title,
-        href: `/${d.creator.username}/${p.slug}`,
-        imageUrl: p.imageUrl,
-        emoji: p.emoji,
-        courseCategory: p.courseCategory,
-        summary: p.summary,
-        eventStartAt: p.eventStartAt ?? null,
-        price: p.accessMode === "FREE_EMAIL" ? "Gratis" : p.accessMode === "EXTERNAL" && p.priceCents <= 0 ? "" : formatPrice(p.priceCents, p.currency, p.billingInterval),
-      } satisfies Offer,
-    })),
-  );
+  const all = publics.flatMap((d) => d.products.map((p) => ({ p, d, href: `/${d.creator.username}/${p.slug}` })));
   const open = new Set([...upcoming.map((b) => b.product.id), ...prepared.map((o) => o.productId)]);
   const booked = new Set([...upcoming, ...past].map((b) => b.product.id));
-  // Las sesiones se pueden reservar otra vez: salen todas. Las lecturas, las que aún no tiene.
-  const sessionOffers = all.filter(({ p }) => p.type === "SESSION" && !p.groupSession).map((x) => x.offer);
-  const readingOffers = all.filter(({ p }) => p.type === "DIGITAL" && p.kindLabel === "Lectura" && !open.has(p.id)).map((x) => x.offer);
 
-  // Los círculos: los próximos a los que aún no va, y el «total» (la membresía que los incluye todos).
-  // Si ya tiene el total, no hace falta nada; si va a todos los próximos, solo se le ofrece el total.
-  const circleProducts = all.filter(({ p }) => p.moonCircle);
-  const circleIds = new Set(circleProducts.map(({ p }) => p.id));
+  // La luna de cada círculo (la elegida en su estudio o la de su fecha).
+  const circleIdsAll = [...new Set([...all.filter(({ p }) => p.moonCircle).map(({ p }) => p.id), ...[...upcoming, ...past].filter((b) => b.product.moonCircle).map((b) => b.product.id)])];
+  const circleRows = circleIdsAll.length ? await prisma.product.findMany({ where: { id: { in: circleIdsAll } }, select: { id: true, pageTexts: true, eventStartAt: true } }) : [];
+  const skyById = new Map<string, MoonCircleSky | null>(
+    circleRows.map((r) => {
+      const m = readMoonChoice(r.pageTexts);
+      return [r.id, m ? moonSkyFor(m.phase, m.sign, m.phrase, r.eventStartAt) : r.eventStartAt ? moonCircleSky(r.eventStartAt) : null];
+    }),
+  );
+
+  // El «total»: la membresía que da derecho a los círculos (la que tiene círculos dentro, la que los incluye o
+  // la que lo dice en su nombre, como «Luna completa»). Con ella, los círculos salen con su enlace y sin precio.
+  const circleIds = new Set(all.filter(({ p }) => p.moonCircle).map(({ p }) => p.id));
+  const memberships = all.filter(({ p }) => p.type === "MEMBERSHIP");
+  const withCirclePosts = new Set(
+    memberships.length
+      ? (await prisma.membershipPost.findMany({ where: { productId: { in: memberships.map(({ p }) => p.id) }, kind: "CIRCULO_LUNAR" }, distinct: ["productId"], select: { productId: true } })).map((r) => r.productId)
+      : [],
+  );
   const passes = (
     await Promise.all(
-      all
-        .filter(({ p }) => p.type === "MEMBERSHIP")
-        // El total: la membresía que incluye los círculos (enlazada a ellos o que lo dice en su nombre o descripción, como «Luna completa»).
-        .map(async (x) => ((await includedProductIds(x.p.id)).some((id) => circleIds.has(id)) || /c[ií]rculos?\b/i.test(`${x.p.title} ${x.p.summary ?? ""}`) ? x : null)),
+      memberships.map(async (x) =>
+        withCirclePosts.has(x.p.id) || (await includedProductIds(x.p.id)).some((id) => circleIds.has(id)) || /c[ií]rculos?\b/i.test(`${x.p.title} ${x.p.summary ?? ""}`) ? x : null,
+      ),
     )
   ).filter((x): x is NonNullable<typeof x> => !!x);
-  const hasPass = (await Promise.all(passes.map((x) => hasAccess(user.id, x.p.id)))).some(Boolean);
-  const now = Date.now();
-  const circleOffers = hasPass
+  const hasPass = liveCircles.length > 0 || (await Promise.all(passes.map((x) => hasAccess(user.id, x.p.id)))).some(Boolean);
+
+  // Los círculos de la página: los 2 más cercanos (luna nueva, llena o eclipse), de los que tiene (por su membresía o
+  // apuntada a uno suelto).
+  type CircleItem = { key: string; at: number | null; phase: Phase; node: ReactNode };
+  const circleItems: CircleItem[] = [
+    ...liveCircles.map((p) => {
+      const sky = postSky(p);
+      return { key: p.id, at: p.eventAt?.getTime() ?? null, phase: sky?.phase ?? null, node: <MemberCircleCard key={p.id} p={p} sky={sky} /> };
+    }),
+    ...circles.next.map((b) => {
+      const sky = skyById.get(b.product.id) ?? null;
+      return { key: b.id, at: b.startAt?.getTime() ?? null, phase: sky?.phase ?? moonCirclePhase(b.product), node: <BookedCircleCard key={b.id} b={b} sky={sky} /> };
+    }),
+  ];
+  const shownCircles = nextTwo(circleItems, (c) => c.at, now);
+
+  // Para apuntarse (sin la membresía): los 2 círculos más cercanos a los que aún no va, y la membresía.
+  const singleCircles = hasPass
     ? []
-    : [
-        ...circleProducts.filter(({ p }) => !booked.has(p.id) && p.eventStartAt && new Date(p.eventStartAt).getTime() > now).map((x) => ({ ...x.offer, pass: false })),
-        ...passes.map((x) => ({ ...x.offer, pass: true })),
-      ];
+    : nextTwo(
+        all.filter(({ p }) => p.moonCircle && !booked.has(p.id) && p.eventStartAt),
+        (x) => new Date(x.p.eventStartAt!).getTime(),
+        now,
+      );
+  const passOffers = hasPass ? [] : passes;
+  const circleOfferCount = singleCircles.length + passOffers.length;
+
+  // Sesiones y lecturas para coger: las cartas de la web, con el diseño de cada web.
+  const sessionOffers = all.filter(({ p }) => p.type === "SESSION" && !p.groupSession);
+  const readingOffers = all.filter(({ p }) => p.type === "DIGITAL" && p.kindLabel === "Lectura" && !open.has(p.id));
+  const oracleCards = (items: typeof all) => {
+    const byCreator = new Map<string, typeof all>();
+    for (const x of items) byCreator.set(x.d.creator.id, [...(byCreator.get(x.d.creator.id) ?? []), x]);
+    return [...byCreator.values()].map((group) => {
+      const d = group[0].d;
+      const theme = resolveTheme(d.config.template, d.config.theme, d.allowCustom);
+      return (
+        <div key={d.creator.id} className="cp !min-h-0 overflow-hidden rounded-[2rem] border border-gold/25 p-4 sm:p-6" style={themeStyle(theme)} data-card={theme.card} data-template={d.config.template}>
+          <div className="mx-auto grid max-w-[16rem] gap-5 sm:max-w-none sm:grid-cols-2 md:grid-cols-3">
+            {group.map(({ p }) => (
+              <OracleCard key={p.id} p={p as PublicProduct} username={d.creator.username} trackCreatorId={null} />
+            ))}
+          </div>
+        </div>
+      );
+    });
+  };
 
   return (
     // data-course-night: la página se ve de noche, como los cursos (app/globals.css, «Los cursos, de noche»).
@@ -131,24 +183,55 @@ export default async function MySessions() {
         id="circulos"
         icon={<Moon className="h-5 w-5" />}
         title="Círculos de la luna"
-        hint="Los encuentros en grupo de cada luna nueva (sembrar) y cada luna llena (soltar)."
+        hint={hasPass ? "Los 2 próximos círculos: luna nueva (sembrar), luna llena (soltar) o eclipse (transformar). Entra con su enlace." : "Los 2 próximos círculos: luna nueva (sembrar), luna llena (soltar) o eclipse (transformar)."}
         tone="circle"
-        count={circles.next.length + circles.done.length + liveCircles.length}
-        empty={hasPass ? "Tienes todos los círculos: cuando haya uno nuevo, aparecerá aquí." : "Aún no te has apuntado a ningún círculo."}
-        circleOffers={circleOffers}
+        count={shownCircles.length}
+        empty={hasPass ? "Cuando haya un círculo nuevo, aparecerá aquí con su enlace." : "Aún no te has apuntado a ningún círculo."}
+        extraCount={circleOfferCount}
+        extraLabel={shownCircles.length ? "Apuntarme a más" : "Elegir un círculo"}
+        extra={
+          <div className="grid gap-4 sm:grid-cols-2">
+            {singleCircles.map(({ p, href }) => (
+              <CircleCard
+                key={p.id}
+                href={href}
+                sky={skyById.get(p.id) ?? null}
+                phase={skyById.get(p.id)?.phase ?? moonCirclePhase(p)}
+                title={p.title}
+                date={p.eventStartAt ? capitalize(formatDate(new Date(p.eventStartAt), { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })) : null}
+                action={
+                  <span className="inline-flex items-center gap-3">
+                    <span className="font-serif text-[1.3rem] text-gold">{p.accessMode === "FREE_EMAIL" ? "Gratis" : formatPrice(p.priceCents, p.currency)}</span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/50 px-3 py-1.5 text-xs font-semibold text-gold">
+                      <Mail className="h-3.5 w-3.5" /> Quiero ir
+                    </span>
+                  </span>
+                }
+              />
+            ))}
+            {passOffers.map(({ p, href }) => (
+              <CircleCard
+                key={p.id}
+                href={href}
+                sky={null}
+                pass
+                phase={null}
+                title={p.title}
+                date="Todos los círculos: luna nueva, luna llena y eclipses"
+                action={
+                  <span className="inline-flex items-center gap-3">
+                    <span className="font-serif text-[1.3rem] text-gold">{formatPrice(p.priceCents, p.currency, p.billingInterval)}</span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/50 px-3 py-1.5 text-xs font-semibold text-gold">
+                      Ver <ArrowRight className="h-3.5 w-3.5" />
+                    </span>
+                  </span>
+                }
+              />
+            ))}
+          </div>
+        }
       >
-        {liveCircles.filter(liveSoon).map((p) => (
-          <MemberLiveRow key={p.id} p={p} />
-        ))}
-        {circles.next.map((b) => (
-          <CircleRow key={b.id} b={b} />
-        ))}
-        {(circles.done.length > 0 || liveCircles.some((p) => !liveSoon(p))) && (
-          <Past>
-            {liveCircles.filter((p) => !liveSoon(p)).reverse().map((p) => <MemberLiveRow key={p.id} p={p} />)}
-            {circles.done.map((b) => <CircleRow key={b.id} b={b} />)}
-          </Past>
-        )}
+        <div className="grid gap-4 sm:grid-cols-2">{shownCircles.map((c) => c.node)}</div>
       </Block>
 
       <Block
@@ -159,8 +242,9 @@ export default async function MySessions() {
         tone="session"
         count={sessionCount}
         empty="Aún no tienes sesiones."
-        offers={sessionOffers}
-        cta="Reservar"
+        extraCount={sessionOffers.length}
+        extraLabel={sessionCount > 0 ? "Reservar otra" : "Elegir una"}
+        extra={oracleCards(sessionOffers)}
       >
         {liveSessions.filter(liveSoon).map((p) => (
           <MemberLiveRow key={p.id} p={p} />
@@ -184,8 +268,9 @@ export default async function MySessions() {
         tone="reading"
         count={readingCount}
         empty="Aún no tienes lecturas."
-        offers={readingOffers}
-        cta="Pedirla"
+        extraCount={readingOffers.length}
+        extraLabel={readingCount > 0 ? "Pedir otra" : "Elegir una"}
+        extra={oracleCards(readingOffers)}
       >
         {prepared.map((o) => {
           // Las que se descargan al momento ya están; las que se preparan, llegan por email.
@@ -234,9 +319,9 @@ function Block({
   tone,
   count,
   empty,
-  offers = [],
-  circleOffers = [],
-  cta = "Ver",
+  extra,
+  extraCount = 0,
+  extraLabel,
   children,
 }: {
   id: string;
@@ -246,12 +331,12 @@ function Block({
   tone: keyof typeof TONE;
   count: number;
   empty: string;
-  offers?: Offer[];
-  circleOffers?: CircleOffer[];
-  cta?: string;
+  /** Lo que puede coger además, plegado bajo un «+»: en cartas como las de la web. */
+  extra?: ReactNode;
+  extraCount?: number;
+  extraLabel: string;
   children: ReactNode;
 }) {
-  const n = offers.length + circleOffers.length;
   return (
     <section id={id} aria-labelledby={`${id}-t`} data-block={id}>
       <div className="mb-5 flex items-center gap-3.5">
@@ -265,49 +350,22 @@ function Block({
         </div>
       </div>
       {count > 0 ? <div className="space-y-2.5">{children}</div> : <p className="px-1 text-sm italic text-muted">{empty}</p>}
-      {n > 0 && (
-        // Lo que puede coger además, discreto: plegado bajo un «+» pequeño.
-        <details className="group mt-3" data-offers={id}>
-          <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full px-1 py-1 text-[0.78rem] text-muted transition hover:text-gold [&::-webkit-details-marker]:hidden">
+      {extraCount > 0 && (
+        <details className="group mt-4" data-offers={id}>
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-gold/30 px-3.5 py-1.5 text-[0.8rem] text-muted transition hover:border-gold/60 hover:text-gold [&::-webkit-details-marker]:hidden">
             <Plus aria-hidden className="h-3.5 w-3.5 transition-transform group-open:rotate-45" />
-            {count > 0 ? (id === "circulos" ? "Apuntarme a más" : "Coger otra") : "Elegir una"}
-            <span className="tabular-nums opacity-70">· {n}</span>
+            {extraLabel}
+            <span className="tabular-nums opacity-70">· {extraCount}</span>
           </summary>
-          <ul className="mt-2 divide-y divide-line overflow-hidden rounded-2xl border border-line">
-            {circleOffers.map((o) => (
-              <li key={o.id}>
-                <Link href={o.href} className="group/o flex items-center gap-3 px-3.5 py-2.5 transition hover:bg-gold/5" data-circle-offer={o.pass ? "pass" : "single"}>
-                  <CircleMoons pass={o.pass} phase={o.pass ? null : moonCirclePhase({ slug: o.href, title: o.title, emoji: o.emoji })} small />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm">{o.pass ? `${o.title} · todos los círculos del año` : o.title}</span>
-                    {!o.pass && o.eventStartAt && <span className="block text-xs text-muted">{capitalize(formatDate(new Date(o.eventStartAt), { weekday: "long", day: "numeric", month: "long" }))}</span>}
-                  </span>
-                  {o.price && <span className="shrink-0 text-xs tabular-nums text-gold">{o.price}</span>}
-                  <ArrowRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted transition group-hover/o:translate-x-0.5 group-hover/o:text-gold" />
-                </Link>
-              </li>
-            ))}
-            {offers.map((o) => (
-              <li key={o.id}>
-                <Link href={o.href} className="group/o flex items-center gap-3 px-3.5 py-2.5 transition hover:bg-gold/5" aria-label={`${cta}: ${o.title}`}>
-                  <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg opacity-90">
-                    <ProductImage src={o.imageUrl} emoji={o.emoji} title={o.title} sizes="32px" />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-sm">{o.title}</span>
-                  {o.price && <span className="shrink-0 text-xs tabular-nums text-gold">{o.price}</span>}
-                  <ArrowRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted transition group-hover/o:translate-x-0.5 group-hover/o:text-gold" />
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-4 space-y-4">{extra}</div>
         </details>
       )}
     </section>
   );
 }
 
-/** La luna de una oferta de círculo: nueva, llena o (el pase) las dos juntas. */
-function CircleMoons({ pass, phase, small = false }: { pass: boolean; phase: "new" | "full" | null; small?: boolean }) {
+/** Las lunas juntas (nueva, llena y eclipse): la membresía que da todos los círculos. */
+function TwoMoons() {
   const moon = (cx: number, full: boolean) => (
     <>
       <circle cx={cx} cy="24" r="11" fill={full ? "#F3ECDD" : "#1D1A3E"} stroke="rgb(255 255 255 / .4)" strokeWidth="1" />
@@ -315,17 +373,95 @@ function CircleMoons({ pass, phase, small = false }: { pass: boolean; phase: "ne
     </>
   );
   return (
-    <svg viewBox={pass ? "0 0 64 48" : "0 0 48 48"} className={`${small ? (pass ? "h-8 w-11" : "h-8 w-8") : pass ? "h-12 w-16" : "h-12 w-12"} shrink-0`} aria-hidden>
-      <circle cx={pass ? 32 : 24} cy="24" r="22" fill="rgb(233 204 142 / .14)" />
-      {pass ? (
-        <>
-          {moon(20, false)}
-          {moon(44, true)}
-        </>
-      ) : (
-        moon(24, phase === "full")
-      )}
+    <svg viewBox="0 0 64 48" className="h-16 w-20" aria-hidden>
+      {moon(20, false)}
+      {moon(44, true)}
     </svg>
+  );
+}
+
+/**
+ * La carta de un círculo de la luna, de noche como la tarjeta de la membresía: a la izquierda su luna (nueva
+ * o llena) con el signo; a la derecha si es para sembrar o soltar, el título, la fecha y lo que se puede hacer.
+ */
+function CircleCard({
+  href,
+  sky,
+  phase,
+  title,
+  date,
+  action,
+  pass = false,
+}: {
+  href: string;
+  sky: MoonCircleSky | null;
+  phase: Phase;
+  title: string;
+  date: string | null;
+  action: ReactNode;
+  pass?: boolean;
+}) {
+  const st = kindStyle("CIRCULO_LUNAR");
+  return (
+    <div
+      className="vip-glass group relative overflow-hidden rounded-[1.6rem] p-3.5 sm:p-4"
+      style={{ backgroundImage: `radial-gradient(120% 90% at 0% 0%, ${st.color}40, transparent 55%), linear-gradient(160deg, rgb(36 31 78 / .82), rgb(18 16 44 / .9))` }}
+      data-kind="circle"
+    >
+      <span aria-hidden className="absolute inset-x-6 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${st.light}aa, transparent)` }} />
+      <Link href={href} className="absolute inset-0 z-0 rounded-[inherit]" aria-label={title} />
+      <div className="flex gap-4">
+        <div className="relative w-28 shrink-0 self-stretch overflow-hidden rounded-[1.1rem] ring-1 ring-gold/30 sm:w-32" style={{ minHeight: "9rem" }}>
+          {sky ? (
+            <MoonCircleArt sky={sky} compact />
+          ) : (
+            <span className="absolute inset-0 grid place-items-center" style={{ background: "radial-gradient(90% 60% at 50% 38%, #2a2350 0%, #141230 55%, #0a0918 100%)" }}>
+              {pass ? <TwoMoons /> : <Moon className="h-10 w-10 text-gold" strokeWidth={1.2} />}
+            </span>
+          )}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[#e9cc8e]">
+            {pass ? "Membresía · todos los círculos" : phase ? `${MOON_KIND_LABEL[phase]} · ${MOON_KIND_VERB[phase]}` : "Círculo de la luna"}
+          </p>
+          <p className="display mt-1.5 text-[1.45rem] leading-[1.1]">{title}</p>
+          {date && (
+            <p className="mt-2 flex items-start gap-1.5 text-[0.82rem] text-muted">
+              <CalendarDays className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {date}
+            </p>
+          )}
+          <div className="relative z-10 mt-auto pt-3">{action}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Un círculo de su membresía: con su enlace para entrar, sin precio. */
+function MemberCircleCard({ p, sky }: { p: LivePost; sky: MoonCircleSky | null }) {
+  return (
+    <CircleCard
+      href={`/cuenta/membresias/${p.productId}/${p.id}`}
+      sky={sky}
+      phase={sky?.phase ?? null}
+      title={p.title}
+      date={p.eventAt ? capitalize(formatDate(p.eventAt, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }, p.product.creator.timezone)) : null}
+      action={<JoinButton post={p} />}
+    />
+  );
+}
+
+/** Un círculo suelto al que se ha apuntado. */
+function BookedCircleCard({ b, sky }: { b: Booking; sky: MoonCircleSky | null }) {
+  return (
+    <CircleCard
+      href={`/cuenta/sesiones/${b.id}`}
+      sky={sky}
+      phase={sky?.phase ?? moonCirclePhase(b.product)}
+      title={b.product.title}
+      date={when(b)}
+      action={<span className="rounded-full border border-gold/50 px-2.5 py-1 text-[0.68rem] font-semibold text-gold">{BOOKING_STATUS_LABEL[b.status]}</span>}
+    />
   );
 }
 
@@ -343,10 +479,10 @@ function Badge({ tone, children }: { tone: keyof typeof TONE; children: ReactNod
 }
 
 /**
- * Una sesión en directo, ceremonia o círculo de una membresía: se abre su publicación (toda la tarjeta) y,
+ * Una sesión en directo, ceremonia o masterclass de una membresía: se abre su publicación (toda la tarjeta) y,
  * si ya está el enlace, se entra al Zoom con su botón, sin abrirla.
  */
-function MemberLiveRow({ p }: { p: Awaited<ReturnType<typeof liveMemberPostsFor>>[number] }) {
+function MemberLiveRow({ p }: { p: LivePost }) {
   const st = kindStyle(p.kind);
   return (
     <div className="card relative flex flex-wrap items-center gap-4 border-l-4 p-4 transition hover:shadow-lift" style={{ borderLeftColor: st.color }} data-kind="member-live">
@@ -381,32 +517,6 @@ function BookingRow({ b, tone }: { b: Booking; tone: "reading" | "session" }) {
         {tone === "session" && <span className="chip">{b.groupSeat ? "Taller" : channelKindLabel(b.product) === "Lectura" ? "Lectura en directo" : "Individual"}</span>}
       </span>
       <ArrowRight className="hidden h-4 w-4 shrink-0 text-muted transition group-hover:translate-x-0.5 sm:block" />
-    </Link>
-  );
-}
-
-/** Un círculo de la luna: una tarjeta de noche con su luna (nueva o llena) dibujada. */
-function CircleRow({ b }: { b: Booking }) {
-  const phase = moonCirclePhase(b.product);
-  return (
-    <Link
-      href={`/cuenta/sesiones/${b.id}`}
-      className="group relative flex items-center gap-4 overflow-hidden rounded-[1.25rem] p-4 text-[#f6f1e7] shadow-soft ring-1 ring-gold/25 transition hover:shadow-lift hover:ring-gold/50"
-      style={{ background: "radial-gradient(circle at 15% 20%, #2f2a5a 0%, #17153a 60%, #100e26 100%)" }}
-      data-kind="circle"
-    >
-      <svg viewBox="0 0 48 48" className="h-12 w-12 shrink-0" aria-hidden>
-        <circle cx="24" cy="24" r="22" fill="rgb(233 204 142 / .14)" />
-        <circle cx="24" cy="24" r="15" fill={phase === "full" ? "#F3ECDD" : "#1D1A3E"} stroke="rgb(255 255 255 / .35)" strokeWidth="1" />
-        {phase === "full" && <circle cx="24" cy="24" r="15" fill="none" stroke="#E9CC8E" strokeOpacity=".6" strokeWidth="3" />}
-        {phase === null && <path d="M24 9A15 15 0 0 1 24 39A8 15 0 0 0 24 9Z" fill="#F3ECDD" />}
-      </svg>
-      <div className="min-w-0 flex-1">
-        <p className="text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-[#e9cc8e]">{phase === "full" ? "Luna llena · soltar" : phase === "new" ? "Luna nueva · sembrar" : "Círculo de la luna"}</p>
-        <p className="truncate font-semibold">{b.product.title}</p>
-        <p className="text-sm text-[rgb(246_241_231/.7)]">{when(b)}</p>
-      </div>
-      <span className="shrink-0 rounded-full border border-[rgb(233_204_142/.5)] px-2.5 py-1 text-[0.68rem] font-semibold">{BOOKING_STATUS_LABEL[b.status]}</span>
     </Link>
   );
 }

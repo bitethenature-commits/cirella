@@ -42,83 +42,45 @@ function fetchRemote(username: string): Promise<Remote | null> {
 }
 
 /**
- * Sección plegable de la portada («Actualidades», «Portal de Noticias», «Ofertas»): una fila como las de
- * /cursos (título, una línea con el número y la flecha) que se despliega con su contenido. Es un
- * <details> nativo: funciona sin JavaScript (la copia estática de la web) y empieza cerrado.
- *
- * El punto rojo con el número avisa de lo nuevo:
+ * El punto rojo con el número de lo nuevo de una sección:
  *   · Con cuenta y suscrita (sync): lo publicado después de la última vez que la abrió, en cualquier
  *     dispositivo (/api/novedades). Mientras no se sabe, no se pinta nada.
  *   · El resto: sale siempre (también en el HTML del servidor) hasta que la abre en este navegador, y
  *     vuelve si después se publica algo más nuevo (`stamps`, las fechas de lo que hay).
- * Va sobre la flecha, en posición absoluta: aparecer o desaparecer no mueve nada.
  */
-export function SectionDropdown({
-  id,
-  section,
-  username,
-  title,
-  countLabel,
-  stamps,
-  preview,
-  icon,
-  children,
-}: {
-  id: string;
-  section: SeenSection;
-  username: string;
-  title: string;
-  countLabel: string;
-  /** Fechas (ms) de lo que hay en la sección: publicadas, del portal u ofertas empezadas. */
-  stamps: number[];
-  preview?: boolean;
-  /** El emblema de la sección (el megáfono, el portal, el %). */
-  icon?: ReactNode;
-  children: ReactNode;
-}) {
-  const ref = useRef<HTMLDetailsElement>(null);
-  // null = no se pinta. Sin JavaScript (y en el HTML del servidor): el caso de quien no está suscrita.
-  const [count, setCount] = useState<number | null>(preview ? null : stamps.length);
+function useUnseen(username: string, section: SeenSection | undefined, stamps: number[], preview: boolean, isOpen: () => boolean) {
+  const [count, setCount] = useState<number | null>(preview || !section ? null : stamps.length);
   const sync = useRef(false);
   const stampsKey = stamps.join(",");
 
   useEffect(() => {
-    if (preview) return;
+    if (preview || !section) return;
     const list = stampsKey ? stampsKey.split(",").map(Number) : [];
     const local = () => {
       const seen = Number(read(seenKey(username, section)) ?? 0);
       return list.filter((t) => t > seen).length;
     };
     const wasSync = read(syncKey(username)) === "1";
-    // Ya abierta (un enlace con ancla): nada que avisar.
-    if (ref.current?.open) setCount(0);
+    if (isOpen()) setCount(0);
     else setCount(wasSync ? null : local());
     let alive = true;
     fetchRemote(username).then((r) => {
       if (!alive) return;
       sync.current = !!r?.sync;
       if (r) write(syncKey(username), r.sync ? "1" : null);
-      if (ref.current?.open) return;
+      if (isOpen()) return;
       if (r?.sync) setCount(r.counts[section] ?? 0);
       else setCount(local()); // sin suscribir, o si falla: lo que recuerda este navegador
     });
     return () => {
       alive = false;
     };
+    // isOpen lee el estado del momento: no hace falta volver a empezar cuando cambia.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview, username, section, stampsKey]);
 
-  // Un enlace con ancla (#ofertas, #portal-form…) abre la sección que lo contiene.
-  useEffect(() => {
-    const hash = decodeURIComponent(window.location.hash.slice(1));
-    const el = hash ? document.getElementById(hash) : null;
-    const details = ref.current;
-    if (!el || !details || !(el === details.parentElement || details.contains(el))) return;
-    details.open = true;
-    requestAnimationFrame(() => el.scrollIntoView({ block: "start" }));
-  }, []);
-
-  const onToggle = () => {
-    if (preview || !ref.current?.open) return;
+  const markSeen = () => {
+    if (preview || !section) return;
     setCount(0);
     write(seenKey(username, section), String(Date.now()));
     if (sync.current || read(syncKey(username)) === "1")
@@ -130,32 +92,105 @@ export function SectionDropdown({
         keepalive: true,
       }).catch(() => {});
   };
+  return { count, markSeen };
+}
 
+export type Fold = {
+  /** El ancla de la sección (#actualidades, #portal, #ofertas, #gifts). */
+  id: string;
+  /** Con aviso de novedades (Gifts no lo lleva). */
+  section?: SeenSection;
+  title: string;
+  countLabel: string;
+  /** Fechas (ms) de lo que hay en la sección: publicadas, del portal u ofertas empezadas. */
+  stamps: number[];
+  /** El dibujo de la sección, en línea dorada. */
+  icon: ReactNode;
+  content: ReactNode;
+};
+
+/** Un desplegable de la fila: el dibujo con su nombre debajo, como en «Sistemas». */
+function FoldTab({ fold, username, preview, open, onToggle }: { fold: Fold; username: string; preview: boolean; open: boolean; onToggle: (markSeen: () => void) => void }) {
+  const openRef = useRef(open);
+  openRef.current = open;
+  const { count, markSeen } = useUnseen(username, fold.section, fold.stamps, preview, () => openRef.current);
   return (
-    <details ref={ref} onToggle={onToggle} data-section-dropdown={section} className="cp-card group rounded-2xl border" style={{ overflow: "visible" }}>
-      <summary className="flex cursor-pointer list-none items-center gap-4 px-4 py-3.5 sm:px-5 [&::-webkit-details-marker]:hidden">
-        {icon && (
-          <span className="cp-emblem grid h-12 w-12 shrink-0 place-items-center rounded-full sm:h-14 sm:w-14" aria-hidden>
-            {icon}
+    <button
+      type="button"
+      onClick={() => onToggle(markSeen)}
+      aria-expanded={open}
+      aria-controls={fold.id}
+      data-fold-tab={fold.id}
+      className="group flex flex-col items-center gap-2 text-center"
+    >
+      <span className="relative grid h-12 w-12 place-items-center">
+        <span className={`cp-gold grid place-items-center transition-transform duration-300 group-hover:-translate-y-1 ${open ? "-translate-y-1" : ""}`} aria-hidden>
+          {fold.icon}
+        </span>
+        {count != null && count > 0 && (
+          <span data-unseen={count} className="absolute -right-2 -top-1.5 flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full px-1 text-[0.68rem] font-bold leading-none text-white ring-2 ring-[var(--c-bg)]" style={{ background: "#e5484d" }}>
+            <span aria-hidden>{count > 9 ? "9+" : count}</span>
+            <span className="sr-only">{unseenLabel(count)}</span>
           </span>
         )}
-        <span className="min-w-0 flex-1">
-          <h2 id={`${id}-titulo`} className="cp-display m-0 text-[1.5rem] leading-tight sm:text-[1.75rem]">
-            {title}
-          </h2>
-          <span className="cp-muted block text-sm tabular-nums">{countLabel}</span>
-        </span>
-        <span className="relative shrink-0">
-          <ChevronDown aria-hidden className="h-5 w-5 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
-          {count != null && count > 0 && (
-            <span data-unseen={count} className="absolute -right-2.5 -top-3 flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full px-1 text-[0.68rem] font-bold leading-none text-white ring-2 ring-[var(--c-surface)]" style={{ background: "#e5484d" }}>
-              <span aria-hidden>{count > 9 ? "9+" : count}</span>
-              <span className="sr-only">{unseenLabel(count)}</span>
-            </span>
-          )}
-        </span>
-      </summary>
-      <div className="px-4 pb-5 pt-2 sm:px-5 sm:pb-6">{children}</div>
-    </details>
+      </span>
+      <span className="cp-display text-[1rem] leading-tight sm:text-[1.15rem]">{fold.title}</span>
+      <span className="cp-faint flex items-center gap-0.5 text-[0.7rem] tabular-nums">
+        <span className="hidden sm:inline">{fold.countLabel}</span>
+        <ChevronDown aria-hidden className={`h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
+      </span>
+    </button>
+  );
+}
+
+/**
+ * Los desplegables de la portada («Actualidades», «Portal de Noticias», «Ofertas», «Gifts») en una fila,
+ * como «Sistemas»: un dibujo dorado con su nombre debajo. Al tocar uno se abre su contenido debajo de la
+ * fila (y se cierra el que estuviera abierto). Empiezan cerrados; un enlace con ancla (#ofertas,
+ * #portal-form…) abre el que lo contiene.
+ */
+export function SectionFolds({ folds, username, preview }: { folds: Fold[]; username: string; preview?: boolean }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const panels = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const hash = decodeURIComponent(window.location.hash.slice(1));
+    const el = hash ? document.getElementById(hash) : null;
+    if (!el || !panels.current?.contains(el)) return;
+    const panel = el.closest<HTMLElement>("[data-fold-panel]");
+    if (!panel) return;
+    setOpen(panel.id);
+    requestAnimationFrame(() => el.scrollIntoView({ block: "start" }));
+  }, []);
+
+  return (
+    <div>
+      <div className="grid gap-x-2 gap-y-6" style={{ gridTemplateColumns: `repeat(${folds.length}, minmax(0, 1fr))` }}>
+        {folds.map((f) => (
+          <FoldTab
+            key={f.id}
+            fold={f}
+            username={username}
+            preview={!!preview}
+            open={open === f.id}
+            onToggle={(markSeen) => {
+              const next = open === f.id ? null : f.id;
+              setOpen(next);
+              if (next) markSeen();
+            }}
+          />
+        ))}
+      </div>
+      <div ref={panels}>
+        {folds.map((f) => (
+          <div key={f.id} id={f.id} data-fold-panel hidden={open !== f.id} className="cp-card mt-6 rounded-2xl border p-4 sm:p-5" style={{ overflow: "visible" }}>
+            <h2 id={`${f.id}-titulo`} className="cp-display m-0 mb-3 text-[1.5rem] leading-tight sm:text-[1.75rem]">
+              {f.title}
+            </h2>
+            {f.content}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

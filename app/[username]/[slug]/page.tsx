@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { moonCircleSky } from "@/lib/moon-circle-sky";
+import { moonCircleSky, moonSkyFor } from "@/lib/moon-circle-sky";
+import { readMoonChoice } from "@/lib/product-texts";
 import { notFound } from "next/navigation";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { ProductPageView } from "@/components/creator-page/product-page-view";
@@ -9,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { appUrl, isDemoMode } from "@/lib/env";
 import { legalIdentityComplete, sellerStatement } from "@/lib/legal";
 import { getPublicProduct } from "@/lib/product-page";
+import { readProductTestimonials } from "@/lib/product-testimonials";
 import { isPersonalMode } from "@/lib/site-mode";
 import { isGroupSession, seatsTaken } from "@/lib/booking";
 import { prisma } from "@/lib/db";
@@ -65,8 +67,16 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         signupsOnly={data.signupsOnly}
         seller={{ line: seller.line, named: sellerNamed }}
         seatsLeft={seatsLeft}
-        testimonials={config.testimonials}
-        moonSky={p.moonCircle && p.groupSession && p.eventStartAt ? moonCircleSky(p.eventStartAt) : null}
+        testimonials={(() => {
+          const own = readProductTestimonials(p.testimonials);
+          return own.length ? own : config.testimonials;
+        })()}
+        moonSky={(() => {
+          if (!p.moonCircle || !p.groupSession) return null;
+          // La luna elegida en el estudio; si no, la de su fecha.
+          const m = readMoonChoice(p.pageTexts);
+          return m ? moonSkyFor(m.phase, m.sign, m.phrase, p.eventStartAt) : p.eventStartAt ? moonCircleSky(p.eventStartAt) : null;
+        })()}
         claim={{
           legalComplete: legalIdentityComplete(creator),
           isOwner,

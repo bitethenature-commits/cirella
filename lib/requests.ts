@@ -7,6 +7,7 @@ import { appUrl } from "./env";
 import { detailsTable } from "./email/booking-templates";
 import { esc, p } from "./email/html";
 import { enqueueEmail } from "./email/outbox";
+import { automationSetting, customEmail } from "./automations";
 import { layout } from "./email/templates";
 import { intakeLines, type IntakeAnswers } from "./intake";
 import { formatPrice } from "./money";
@@ -131,21 +132,32 @@ export async function createRequest(input: {
       cta: { label: "Ver la solicitud", url: `${appUrl()}/panel/solicitudes` },
     }),
   });
-  await enqueueEmail({
-    to: order.buyerEmail,
-    creatorId: product.creatorId,
-    template: "REQUEST_RECEIVED",
-    dedupeKey: `request-received:${order.id}`,
-    subject: `He recibido tu mensaje ✦ ${product.title}`,
-    html: receivedEmailHtml({
-      brand: product.creator.displayName,
-      buyer: order.buyerName,
-      productTitle: product.title,
-      when,
-      price,
-      message: meta.message ?? null,
-    }),
-  });
+  const rs = await automationSetting(product.creatorId, "REQUEST_RECEIVED");
+  if (rs.enabled) {
+    const custom = customEmail(rs, {
+      nombre: order.buyerName?.trim().split(/\s+/)[0] || null,
+      mi_nombre: product.creator.displayName,
+      producto: product.title,
+      fecha: when,
+    });
+    await enqueueEmail({
+      to: order.buyerEmail,
+      creatorId: product.creatorId,
+      template: "REQUEST_RECEIVED",
+      dedupeKey: `request-received:${order.id}`,
+      replyTo: product.creator.contactEmail || product.creator.user.email,
+      subject: custom.subject || `He recibido tu mensaje ✦ ${product.title}`,
+      html: receivedEmailHtml({
+        brand: product.creator.displayName,
+        buyer: order.buyerName,
+        productTitle: product.title,
+        when,
+        price,
+        message: meta.message ?? null,
+        introHtml: custom.introHtml,
+      }),
+    });
+  }
   return order;
 }
 
@@ -153,11 +165,11 @@ export async function createRequest(input: {
  * Email «He recibido tu mensaje» a la clienta, como una carta: su mensaje citado, lo que pidió, la hora
  * que le guarda (si es una sesión), los tres pasos y la firma de la dueña. Sin enlaces que pagar.
  */
-function receivedEmailHtml(o: { brand: string; buyer: string | null; productTitle: string; when: string | null; price: string | null; message: string | null }) {
+export function receivedEmailHtml(o: { brand: string; buyer: string | null; productTitle: string; when: string | null; price: string | null; message: string | null; introHtml?: string | null }) {
   const first = o.brand.split(" ")[0];
-  const gold = "#B8925A";
-  const muted = "#8A8698";
-  const box = (inner: string) => `<div style="margin:18px 0;padding:16px 18px;border:1px solid #EADFCB;border-radius:14px;background:#FBF7EF">${inner}</div>`;
+  const gold = "#D9BF8C";
+  const muted = "#A99FC2";
+  const box = (inner: string) => `<div style="margin:18px 0;padding:16px 18px;border:1px solid #6E5B3A;border-radius:14px;background:#211D49">${inner}</div>`;
   const steps = [
     ["1", "Me has escrito", "Ya tengo tu mensaje."],
     ["2", "Te respondo", "En persona, desde este mismo correo."],
@@ -165,7 +177,7 @@ function receivedEmailHtml(o: { brand: string; buyer: string | null; productTitl
   ]
     .map(
       ([n, t, d], i) =>
-        `<tr><td style="width:34px;vertical-align:top;padding:6px 0"><div style="width:26px;height:26px;line-height:26px;border-radius:13px;border:1px solid ${gold};color:${gold};text-align:center;font-size:12px;font-weight:600;${i === 0 ? `background:${gold};color:#fff;` : ""}">${n}</div></td><td style="padding:6px 0 6px 6px;font-size:14px;color:#1B1A2E"><strong>${t}</strong><br><span style="color:${muted};font-size:13px">${d}</span></td></tr>`,
+        `<tr><td style="width:34px;vertical-align:top;padding:6px 0"><div style="width:26px;height:26px;line-height:26px;border-radius:13px;border:1px solid ${gold};color:${gold};text-align:center;font-size:12px;font-weight:600;${i === 0 ? `background:${gold};color:#1A1408;` : ""}">${n}</div></td><td style="padding:6px 0 6px 6px;font-size:14px;color:#F4EBD8"><strong>${t}</strong><br><span style="color:${muted};font-size:13px">${d}</span></td></tr>`,
     )
     .join("");
   return layout({
@@ -173,8 +185,9 @@ function receivedEmailHtml(o: { brand: string; buyer: string | null; productTitl
     title: "He recibido tu mensaje",
     preheader: "Te responderé muy pronto, en persona, desde este mismo correo.",
     body:
-      p(`Hola${o.buyer ? ` ${esc(o.buyer.split(" ")[0])}` : ""},`) +
-      p(`gracias por escribirme. Me ha llegado tu mensaje sobre <strong>${esc(o.productTitle)}</strong>${o.price ? ` <span style="color:${muted}">(${esc(o.price)})</span>` : ""} y te responderé muy pronto desde este mismo correo.`) +
+      (o.introHtml ||
+        p(`Hola${o.buyer ? ` ${esc(o.buyer.split(" ")[0])}` : ""},`) +
+          p(`gracias por escribirme. Me ha llegado tu mensaje sobre <strong>${esc(o.productTitle)}</strong>${o.price ? ` <span style="color:${muted}">(${esc(o.price)})</span>` : ""} y te responderé muy pronto desde este mismo correo.`)) +
       (o.when ? box(`<span style="color:${muted};font-size:12px;letter-spacing:.12em;text-transform:uppercase">Tu hora, guardada</span><br><strong style="font-size:16px">${esc(o.when)}</strong><br><span style="color:${muted};font-size:13px">Te la guardo mientras lo hablamos.</span>`) : "") +
       (o.message ? box(`<span style="color:${muted};font-size:12px;letter-spacing:.12em;text-transform:uppercase">Tu mensaje</span><br><span style="font-style:italic;white-space:pre-line">${esc(o.message)}</span>`) : "") +
       `<table role="presentation" style="width:100%;border-collapse:collapse;margin:8px 0 14px">${steps}</table>` +

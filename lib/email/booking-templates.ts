@@ -8,7 +8,7 @@ import { esc, p } from "./html";
 import { layout } from "./templates";
 import { richToEmailHtml } from "./rich-html";
 
-const muted = (s: string) => `<span style="color:#8A8698;font-size:13px">${s}</span>`;
+const muted = (s: string) => `<span style="color:#A99FC2;font-size:13px">${s}</span>`;
 const note = (s?: string | null) => (s ? p(muted(esc(s))) : "");
 
 /** Tabla sencilla etiqueta / valor (datos para la lectura). */
@@ -17,7 +17,7 @@ export function detailsTable(lines: { label: string; value: string }[]) {
   return `<table role="presentation" style="width:100%;border-collapse:collapse;margin:4px 0 14px;font-size:14px">${lines
     .map(
       (l) =>
-        `<tr><td style="padding:6px 10px 6px 0;color:#8A8698;vertical-align:top;white-space:nowrap">${esc(l.label)}</td><td style="padding:6px 0;color:#1B1A2E;white-space:pre-line">${esc(l.value)}</td></tr>`,
+        `<tr><td style="padding:6px 10px 6px 0;color:#A99FC2;vertical-align:top;white-space:nowrap">${esc(l.label)}</td><td style="padding:6px 0;color:#F4EBD8;white-space:pre-line">${esc(l.value)}</td></tr>`,
     )
     .join("")}</table>`;
 }
@@ -117,7 +117,7 @@ export function manualSessionEmail(o: {
     (o.when && o.meetingUrl ? p(`${esc(o.meetingLabel ?? "Enlace de la videollamada")}: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : "") +
     (o.intakeUrl ? p(`<strong>Completa tus datos para la lectura.</strong> <a href="${esc(o.intakeUrl)}">Enviar mis datos</a>`) : "") +
     (o.when ? p(muted("Si no te viene bien, puedes elegir otra fecha desde el enlace (hasta 24 horas antes).")) : "") +
-    (o.icsUrl ? p(`<a href="${esc(o.icsUrl)}" style="color:#0E1024">Añadir a mi calendario</a>`) : "");
+    (o.icsUrl ? p(`<a href="${esc(o.icsUrl)}" style="color:#D9BF8C">Añadir a mi calendario</a>`) : "");
   return {
     subject,
     html: layout({ brand: o.creatorName, title: o.when ? "Tienes una sesión reservada" : "Elige fecha para tu sesión", body, cta: { label: o.when ? "Ver mi sesión" : "Elegir fecha", url: o.url }, afterCta: note(o.linkNote) }),

@@ -17,6 +17,7 @@ import type { BookingChange, DomainEvent } from "./events";
 import { createHash } from "node:crypto";
 import { intakeLines, intakeMissing, readIntakeAnswers, readIntakeConfig } from "./intake";
 import { meetingLabel } from "./meeting-url";
+import { moonCircleSky } from "./moon-circle-sky";
 import { icsUrl } from "./ics";
 import { isPersonalMode } from "./site-mode";
 import { withdrawalDeadline } from "./withdrawal";
@@ -312,7 +313,7 @@ export async function handleAutomation(event: DomainEvent) {
           productTitle: b.product.title,
           when: b.startAt ? formatSessionDate(b.startAt, s.creator.timezone) : null,
           reason: b.cancelReason ?? "El pago se ha devuelto desde la pasarela.",
-          url: `${base}/panel/reservas`,
+          url: `${base}/panel/solicitudes`,
         }),
       });
       return;
@@ -364,7 +365,7 @@ export async function handleAutomation(event: DomainEvent) {
           productTitle: order.productTitle,
           first: event.first,
           lines: intakeLines(answers),
-          url: order.bookings[0] ? `${base}/panel/reservas/${order.bookings[0].id}` : `${base}/panel/ventas/${order.id}`,
+          url: order.bookings[0] ? `${base}/panel/solicitudes/reserva/${order.bookings[0].id}` : `${base}/panel/ventas/${order.id}`,
         }),
       });
       return;
@@ -543,7 +544,66 @@ export async function scheduleSessionReminders(bookingId: string) {
   const tz = b.creator.timezone;
   const when = sessionWhen(b.startAt, b.customerTimezone, tz);
   const intake = missingIntake(b);
+  // Círculo de la luna: su propio recordatorio (con la luna y su signo) en lugar del de siempre.
+  const moon = b.product.moonCircle ? await setting(b.creatorId, "MOON_CIRCLE_REMINDER") : null;
+  if (moon?.enabled) {
+    const at = new Date(b.startAt.getTime() - moon.delayMinutes * 60000);
+    const key = `reminder:${b.id}:${b.startAt.toISOString()}:moon`;
+    if (at > new Date() && !(await emailAlreadyQueued(key))) {
+      const a = await bookingAccess(b, base, at);
+      let sky: ReturnType<typeof moonCircleSky> | null = null;
+      try {
+        sky = moonCircleSky(b.startAt);
+      } catch {
+        sky = null;
+      }
+      const custom = customEmail(moon, { nombre: firstName(b.customer.name), mi_nombre: moon.creator.displayName, producto: b.product.title, fecha: when, luna: sky?.title ?? "luna" });
+      await enqueueEmail({
+        to: b.customer.email,
+        creatorId: b.creatorId,
+        template: "SESSION_REMINDER",
+        dedupeKey: key,
+        sendAt: at,
+        ...withCustomSubject(
+          T.moonCircleReminderEmail({
+            introHtml: custom.introHtml,
+            creatorName: moon.creator.displayName,
+            productTitle: b.product.title,
+            when,
+            ...a,
+            sky: sky ? { glyph: sky.glyph, title: sky.title, phrase: sky.phrase } : null,
+            meetingUrl: b.meetingUrl,
+            ...(b.meetingUrl && meetingLabel(b.meetingUrl) !== "Enlace de la videollamada" ? { meetingLabel: meetingLabel(b.meetingUrl) } : {}),
+          }),
+          custom.subject,
+        ),
+      });
+    }
+  }
+  // Gracias tras la sesión: al rato de terminar; si responde, le llega a la dueña.
+  const thanks = await setting(b.creatorId, "SESSION_THANKS");
+  if (thanks.enabled) {
+    const end = b.startAt.getTime() + (b.product.durationMin ?? 60) * 60000;
+    const at = new Date(end + thanks.delayMinutes * 60000);
+    const key = `reminder:${b.id}:${b.startAt.toISOString()}:thanks`;
+    if (at > new Date() && !(await emailAlreadyQueued(key))) {
+      const custom = customEmail(thanks, { nombre: firstName(b.customer.name), mi_nombre: thanks.creator.displayName, producto: b.product.title, fecha: when });
+      await enqueueEmail({
+        to: b.customer.email,
+        creatorId: b.creatorId,
+        template: "SESSION_REMINDER",
+        dedupeKey: key,
+        sendAt: at,
+        replyTo: thanks.creator.contactEmail || thanks.creator.user.email,
+        ...withCustomSubject(
+          T.sessionThanksEmail({ name: firstName(b.customer.name), creatorName: thanks.creator.displayName, productTitle: b.product.title, url: `${base}/cuenta`, introHtml: custom.introHtml }),
+          custom.subject,
+        ),
+      });
+    }
+  }
   for (const [trigger, suffix] of [["SESSION_REMINDER", ""], ["SESSION_REMINDER_SOON", ":soon"]] as const) {
+    if (moon?.enabled && trigger === "SESSION_REMINDER") continue;
     const r = await setting(b.creatorId, trigger);
     const at = new Date(b.startAt.getTime() - r.delayMinutes * 60000);
     if (!r.enabled || at <= new Date()) continue;
@@ -611,7 +671,7 @@ export async function notifyOwnerOfBooking(bookingId: string, change?: BookingCh
       seats,
       intake: answers ? intakeLines(answers) : [],
       intakeMissing: missingIntake(b),
-      url: `${appUrl()}/panel/reservas/${b.id}`,
+      url: `${appUrl()}/panel/solicitudes/reserva/${b.id}`,
     }),
   });
 }

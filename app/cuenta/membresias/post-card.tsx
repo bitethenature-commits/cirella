@@ -7,12 +7,16 @@ import { formatDate, formatSessionDate } from "@/lib/tz";
 import { JoinButton, KindBadge, kindStyle } from "./kind-style";
 import { postCover } from "./cover";
 import { CardActions } from "./card-actions";
+import { MoonCircleArt } from "@/components/creator-page/moon-circle-art";
+import { postSky } from "./post-sky";
 
 
 export type CardPost = {
   id: string;
   productId: string;
   title: string;
+  /** La frase de la tarjeta (sin ella, el principio del texto). */
+  summary?: string | null;
   body: string;
   bodyFormat: string | null;
   kind: string;
@@ -23,6 +27,10 @@ export type CardPost = {
   mediaUrl?: string | null;
   /** La foto de portada (sin ella, la primera del texto o una según el tipo). */
   imageUrl?: string | null;
+  /** Círculo de la luna: su luna y su signo, en lugar de la foto. */
+  moon?: unknown;
+  /** El texto del botón del enlace («Enlace a Zoom»). */
+  joinLabel?: string | null;
   state: MemberPostState;
   /** «Fijar arriba»: sale la primera del feed. */
   pinned?: boolean;
@@ -73,11 +81,18 @@ export function PostCard(props: CardProps) {
 /** La foto de la tarjeta: en una burbuja con filo dorado, a la izquierda (el feed y el Muro del panel). */
 export function PostCover({ post }: { post: CardPost }) {
   const s = kindStyle(post.kind);
+  const sky = postSky(post);
   return (
     <div className="post-cover relative w-24 shrink-0 self-stretch overflow-hidden rounded-[1.1rem] sm:w-44" style={{ minHeight: "9rem" }} data-post-cover>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={postCover(post).src} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" />
-      <span aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 55%, ${s.color}55)` }} />
+      {sky ? (
+        <MoonCircleArt sky={sky} compact />
+      ) : (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={postCover(post).src} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+          <span aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 55%, ${s.color}55)` }} />
+        </>
+      )}
     </div>
   );
 }
@@ -89,7 +104,7 @@ export function PostCover({ post }: { post: CardPost }) {
 export function PostCardBody({ post, timeZone, tier = null, views = null, canLike = false, canSave = false }: CardProps & { views?: number | null }) {
   const s = kindStyle(post.kind);
   const live = isLivePostKind(post.kind);
-  const excerpt = truncateWords(richToPlain(post.body, post.bodyFormat), 220);
+  const excerpt = post.summary?.trim() || truncateWords(richToPlain(post.body, post.bodyFormat), 220);
   const files = attachmentSummary(post.files);
   return (
     <>

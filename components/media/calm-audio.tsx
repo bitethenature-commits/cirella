@@ -31,7 +31,10 @@ export function CalmAudio({
   title,
   preload = "metadata",
   className = "",
+  variant = "bowl",
 }: {
+  /** «line»: el ▶ en línea dorada, sin anillo, y el progreso en una raya dorada (el audio de la portada). */
+  variant?: "bowl" | "line";
   audioRef?: RefObject<HTMLAudioElement | null>;
   src?: string;
   title: string;
@@ -94,6 +97,57 @@ export function CalmAudio({
 
   const f = Number.isFinite(duration) && duration > 0 ? Math.min(1, time / duration) : 0;
   const dot = { x: 50 + R * Math.sin(f * 2 * Math.PI), y: 50 - R * Math.cos(f * 2 * Math.PI) };
+  const controls = (
+    <div className="-ml-2 mt-1.5 flex items-center gap-0.5 text-[0.78rem] opacity-80">
+      <button type="button" onClick={() => skip(-15)} className="calm-btn inline-flex min-h-9 items-center gap-1 rounded-full px-2.5" aria-label="Retroceder 15 segundos">
+        <RotateCcw className="h-3.5 w-3.5" /> 15 s
+      </button>
+      <button type="button" onClick={nextSpeed} className="calm-btn min-h-9 min-w-11 rounded-full px-2.5 font-serif tabular-nums" aria-label={`Velocidad ${speedLabel(speed)}`}>
+        {speedLabel(speed)}
+      </button>
+      <button type="button" onClick={() => skip(15)} className="calm-btn inline-flex min-h-9 items-center gap-1 rounded-full px-2.5" aria-label="Avanzar 15 segundos">
+        15 s <RotateCw className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+  if (variant === "line") {
+    // El ▶ es solo su dibujo en oro (sin anillo ni botón relleno) y el progreso, una raya dorada fina.
+    return (
+      <div className={`calm-audio flex items-center gap-4 ${playing ? "is-playing" : ""} ${className}`} data-calm-audio="line">
+        {!audioRef && src && <audio ref={own} src={src} preload={preload} controlsList="nodownload" aria-label={title} />}
+        <button type="button" onClick={toggle} className="calm-gold grid h-12 w-12 shrink-0 place-items-center transition-transform duration-300 hover:scale-110" aria-label={playing ? `Pausar ${title}` : `Escuchar ${title}`}>
+          {playing ? <Pause className="h-9 w-9" strokeWidth={1.2} /> : <Play className="ml-1 h-9 w-9" strokeWidth={1.2} />}
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-serif text-[1.02rem] leading-tight opacity-95">{title}</p>
+          <input
+            type="range"
+            min={0}
+            max={Number.isFinite(duration) && duration > 0 ? duration : 1}
+            step={0.1}
+            value={Number.isFinite(duration) && duration > 0 ? Math.min(time, duration) : 0}
+            onChange={(e) => {
+              const el = ref.current;
+              if (!el || !Number.isFinite(el.duration)) return;
+              el.currentTime = Number(e.target.value);
+              setTime(el.currentTime);
+            }}
+            aria-label="Posición del audio"
+            aria-valuetext={`${clock(time)} de ${clock(duration)}`}
+            className="calm-line mt-2 block w-full"
+            style={{ ["--f" as string]: `${f * 100}%` }}
+          />
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <p className="font-serif text-[0.85rem] tabular-nums">
+              <span className="calm-gold">{clock(time)}</span>
+              <span className="opacity-50"> / {clock(duration)}</span>
+            </p>
+            {controls}
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={`calm-audio flex items-center gap-5 ${playing ? "is-playing" : ""} ${className}`} data-calm-audio>
       {!audioRef && src && <audio ref={own} src={src} preload={preload} controlsList="nodownload" aria-label={title} />}

@@ -3,7 +3,7 @@ import { ConfirmForm } from "@/components/ui/confirm-form";
 import { CopyButton } from "@/components/ui/copy-button";
 import { asksIntake, intakeAsText, readIntakeAnswers, readIntakeConfig } from "@/lib/intake";
 import { tenantDb } from "@/lib/tenant";
-import { clearIntake, setIntakeByOwner } from "../../reservas/actions";
+import { clearIntake, setIntakeByOwner } from "../../solicitudes/reservas-actions";
 
 /** Datos para la lectura de un pedido (el material se envía por email, la web no lo guarda). */
 export async function OrderExtras({ creatorId, orderId }: { creatorId: string; orderId: string }) {

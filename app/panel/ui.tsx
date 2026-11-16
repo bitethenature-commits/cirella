@@ -24,6 +24,76 @@ export function PageHeader({ title, subtitle, actions }: { title: React.ReactNod
   );
 }
 
+/**
+ * Un contador de arriba, en tarjeta: el emblema dorado, la cifra grande en la serif y su nombre en
+ * cursiva. Con `href` es una pestaña (`on` = la abierta, enmarcada en oro). `alert`: hay algo que hacer.
+ */
+export function CounterCard({
+  icon,
+  label,
+  value,
+  hint,
+  href,
+  on,
+  alert,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  hint?: React.ReactNode;
+  href?: string;
+  on?: boolean;
+  alert?: boolean;
+}) {
+  const inner = (
+    <>
+      <span className="flex items-start justify-between gap-3">
+        <span className="panel-emblem h-11 w-11 shrink-0">{icon}</span>
+        {value != null && <span className="counter-num">{value}</span>}
+      </span>
+      <span className="counter-label">{label}</span>
+      {hint && <span className="counter-hint">{hint}</span>}
+    </>
+  );
+  const props = {
+    className: "counter-card flex flex-col p-4 sm:p-5",
+    "data-on": on ? "" : undefined,
+    "data-alert": alert ? "" : undefined,
+    "data-zero": value === 0 || value === "0" ? "" : undefined,
+  };
+  return href ? (
+    <Link href={href} aria-current={on ? "page" : undefined} {...props}>
+      {inner}
+    </Link>
+  ) : (
+    <div {...props}>{inner}</div>
+  );
+}
+
+/** Color propio de cada persona (por su email): la misma persona, el mismo color en todas partes. */
+function personHue(email: string) {
+  let h = 0;
+  for (const ch of email.toLowerCase()) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return h;
+}
+
+/** El círculo con las iniciales de una persona, en su color. */
+export function PersonDot({ name, email, className = "h-11 w-11 text-base" }: { name: string | null; email: string; className?: string }) {
+  const words = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  const initials = (words.length ? words.slice(0, 2).map((w) => w[0]) : [email[0]]).join("").toUpperCase();
+  const h = personHue(email);
+  return (
+    <span
+      aria-hidden
+      className={`person-dot grid shrink-0 place-items-center rounded-full font-serif font-semibold ${className}`}
+      style={{ ["--h" as string]: String(h) }}
+      title={email}
+    >
+      {initials}
+    </span>
+  );
+}
+
 export function Stat({ label, value, hint, accent }: { label: string; value: React.ReactNode; hint?: React.ReactNode; accent?: boolean }) {
   return (
     <div data-stat data-accent={accent ? "true" : undefined} className={`rounded-2xl border p-4 sm:p-5 ${accent ? "border-ink bg-ink text-cream" : "border-line bg-white"}`}>

@@ -21,7 +21,7 @@ export function TzDriftNotice({ ownerTz }: { ownerTz: string }) {
       <Plane className="mt-0.5 h-4 w-4 shrink-0" />
       <p>
         Tu móvil está en hora de {tzCity(phone)} ({h}). En el panel las horas son de {tzCity(ownerTz)}. ¿Estás de viaje?{" "}
-        <Link href="/panel/reservas/horario#especiales" className="font-semibold underline underline-offset-2">Añade un horario especial</Link>.
+        <Link href="/panel/solicitudes/horario#especiales" className="font-semibold underline underline-offset-2">Añade un horario especial</Link>.
       </p>
     </div>
   );

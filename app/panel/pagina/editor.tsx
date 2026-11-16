@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useDeferredValue, useMemo, useState, useTransition } from "react";
 import { CreatorPageView, type PublicDiscountCode, type PublicPost, type PublicProduct } from "@/components/creator-page/creator-page-view";
 import type { PublicPortalItem } from "@/lib/portal-rules";
+import type { GiftsPreview } from "@/lib/site-pages";
 import type { OracleDeckView } from "@/components/models/data/oracle";
 import { BlocksEditor, type BlocksUpdate } from "@/components/panel/blocks/blocks-editor";
 import { LinkInput, type LinkTarget } from "@/components/panel/blocks/link-input";
@@ -66,6 +67,7 @@ type Props = {
   postCount: number;
   news?: import("@/lib/web-news").NewsItem[];
   portal: PublicPortalItem[];
+  gifts?: GiftsPreview;
   discountCodes: PublicDiscountCode[];
   /** Web personal: sin «Powered by» ni planes. */
   personal: boolean;
@@ -157,6 +159,7 @@ export function PageEditor(props: Props) {
       case "posts": return props.news?.length ? null : "no hay novedades en el último mes";
       case "portal": return props.portal.length ? null : "no hay nada en el portal";
       case "offers": return orderable.some((p) => p.sale) ? null : "ningún producto está en oferta";
+      case "gifts": return props.gifts?.items.length ? null : "Gifts no tiene tarjetas (Páginas → Gifts)";
       case "about": return cfg.about ? null : "falta la tarjeta (pulsa Editar)";
       case "systems": return cfg.systems?.length ? null : "no tienes tarjetas de sistemas";
       case "readings": return cfg.readings ? null : "falta añadirla (pulsa Editar)";
@@ -238,6 +241,7 @@ export function PageEditor(props: Props) {
         postCount={props.postCount}
         news={props.news}
         portal={props.portal}
+        gifts={props.gifts}
         discountCodes={props.discountCodes}
         personal={props.personal}
         signupsOnly={props.signupsOnly}
@@ -543,7 +547,7 @@ export function PageEditor(props: Props) {
                     <h3 className="font-semibold">Orden de productos</h3>
                     <p className="text-xs text-muted">Cada tipo sale en su sección de la página; aquí ordenas los de cada una. Se aplica al momento en tu página publicada.</p>
                   </div>
-                  <Link href="/panel/productos" className="btn btn-ghost btn-sm shrink-0">Gestionar</Link>
+                  <Link href="/panel/sesiones" className="btn btn-ghost btn-sm shrink-0">Gestionar</Link>
                 </div>
                 {productGroups.length === 0 && <p className="mt-4 text-sm text-muted">Aún no tienes productos publicados.</p>}
                 {productGroups.map((g) => (

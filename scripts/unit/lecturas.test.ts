@@ -127,7 +127,7 @@ test("ownerBookingEmail: escapa nombre y datos, lleva las dos horas", () => {
     clientNote: "para ella, 11:00 en Bogotá",
     amount: "79 €",
     intake: [{ label: "Lugar de nacimiento", value: "<img src=x>" }],
-    url: "https://a.es/panel/reservas/1",
+    url: "https://a.es/panel/solicitudes/reserva/1",
   });
   ok(!m.html.includes("<img src=x>") && m.html.includes("&lt;img src=x&gt;"));
   ok(!m.html.includes("Lucía <b>"));

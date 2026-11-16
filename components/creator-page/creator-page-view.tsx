@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ComponentType, CSSProperties, SVGProps } from "react";
-import { ArrowRight, ArrowUpRight, ExternalLink, FileText, Layers, Mail, Moon, Plus, Sparkles, Video } from "lucide-react";
+import { ArrowRight, ArrowUpRight, ExternalLink, FileText, Gift, Layers, Mail, Moon, Plus, Sparkles, Video } from "lucide-react";
 import { courseCategoriesLabel, courseCategoriesOf, productTopics, readingLabel } from "@/lib/course-categories";
 import { AstrologyIcon } from "./astrology-icon";
 import { CategoryIcons } from "./category-icons";
@@ -29,6 +29,7 @@ import {
 } from "@/lib/page-config";
 import { READINGS_DEFAULTS } from "@/lib/page-config";
 import type { PublicPortalItem } from "@/lib/portal-rules";
+import type { GiftsPreview } from "@/lib/site-pages";
 import { sectionPagePath } from "@/lib/site-sections";
 import { resolveTheme, themeStyle } from "@/lib/templates";
 import { requestCta, type ProductType } from "@/lib/types";
@@ -43,7 +44,7 @@ import type { OracleDecks } from "@/components/models/data/oracle";
 import { Avatar, ProductImage } from "./product-art";
 import { PortalSection } from "./portal-section";
 import { PostCard } from "./post-card";
-import { SectionDropdown } from "./section-dropdown";
+import { SectionFolds, type Fold } from "./section-dropdown";
 import { TestimonialsRotator } from "./testimonials-rotator";
 import { OracleCard } from "./oracle-card";
 import { HomeRows, MegaphoneIcon, PercentIcon, PortalNoteIcon } from "./home-rows";
@@ -84,6 +85,8 @@ export type PublicProduct = {
   externalUrl?: string | null;
   externalLabel?: string | null;
   externalHost?: string | null;
+  /** El texto del botón de su carta, si la dueña lo ha cambiado («Escríbeme»). */
+  cardCta?: string | null;
 };
 
 /** Publicación de la sección «Actualidades» (lib/public.ts). */
@@ -131,7 +134,8 @@ const TYPE_EYEBROW: Record<ProductType, string> = {
 const HOME_COURSES = 3;
 
 /** Secciones plegables seguidas («Actualidades», «Portal», «Ofertas»): juntas, como una lista de filas. */
-const FOLD_GAP = "mt-12 [[data-fold]+&]:mt-3";
+/** Los desplegables de la portada: van todos juntos en una fila (components/creator-page/section-dropdown.tsx). */
+const FOLD_KEYS: ReadonlySet<SectionKey> = new Set(["posts", "portal", "offers", "gifts"]);
 
 const SECTION_TYPE: Partial<Record<SectionKey, ProductType>> = {
   products: "DIGITAL",
@@ -160,6 +164,8 @@ type Props = {
   news?: NewsItem[];
   /** Portal de Noticias, bloqueado (el navegador pide lo desbloqueado con su sesión). */
   portal?: PublicPortalItem[];
+  /** «Gifts»: las primeras tarjetas de su página (lib/site-pages.ts → giftsPreview). */
+  gifts?: GiftsPreview;
   /** Códigos de descuento visibles (sección «Códigos de descuento»). */
   discountCodes?: PublicDiscountCode[];
   /** Web personal (SITE_MODE=personal): sin «Powered by». */
@@ -195,6 +201,140 @@ export function CreatorPageView(props: Props) {
   const newsletterSection = false;
   const contactNewsletter = !!personal && !!config.contact.email && config.sections.some((s) => s.key === "contact" && s.enabled);
 
+  /** El contenido de cada desplegable de la portada (null = no hay nada que enseñar). */
+  const foldFor = (key: SectionKey): Fold | null => {
+    const fallbackImage = config.coverUrl ?? config.avatarUrl ?? null;
+    const icon = "h-10 w-10";
+    switch (key) {
+      case "posts": {
+        // «Actualidades»: lo nuevo de la web (membresías, cursos, lecturas, códigos, el próximo círculo…).
+        const all = props.news ?? [];
+        // Solo lo reciente (30 días): sin agobiar con todo lo que hay. Si no hay nada reciente, lo último.
+        const since = Date.now() - 30 * 86_400_000;
+        const recent = all.filter((n) => Date.parse(n.at) >= since);
+        const news = (recent.length ? recent : all).slice(0, 3);
+        if (!news.length) return null;
+        return {
+          id: "actualidades",
+          section: "posts",
+          title: sectionTitle(config, key),
+          countLabel: recent.length === 0 ? "Lo último de la web" : recent.length === 1 ? "1 novedad este mes" : `${recent.length} novedades este mes`,
+          stamps: recent.map((n) => Date.parse(n.at)),
+          icon: <MegaphoneIcon className={icon} />,
+          content: (
+            <>
+              <HomeRows
+                fallbackImage={fallbackImage}
+                rows={news.map((n) => ({
+                  key: n.key,
+                  href: n.href,
+                  image: n.image,
+                  icon: <MegaphoneIcon className="h-7 w-7 opacity-80" />,
+                  eyebrow: (
+                    <>
+                      <span>{n.dateLabel}</span>
+                      <span>· {n.label}</span>
+                    </>
+                  ),
+                  title: n.title,
+                  text: n.text,
+                }))}
+              />
+              <Link href={path("actualidades")} className="cp-btn-ghost mt-4 w-full">
+                Ver todas las novedades <ArrowRight className="h-4 w-4" />
+              </Link>
+            </>
+          ),
+        };
+      }
+      case "portal": {
+        // Solo en la web personal: lo desbloquea su newsletter, que es de la dueña.
+        const items = props.portal ?? [];
+        if (!items.length || !personal) return null;
+        const n = items.length;
+        return {
+          id: "portal",
+          section: "portal",
+          title: sectionTitle(config, key),
+          countLabel: n === 1 ? "1 aviso" : `${n} avisos`,
+          stamps: items.map((i) => Date.parse(i.publishedAt)),
+          icon: <PortalNoteIcon className={icon} />,
+          content: (
+            <PortalSection
+              items={items}
+              title={sectionTitle(config, key)}
+              creatorName={config.displayName}
+              privacyHref={creatorLegalHref(username, "privacidad")}
+              portalHref={path("portal")}
+              username={username}
+              preview={!!preview}
+              home
+              limit={1}
+              fallbackImage={fallbackImage}
+            />
+          ),
+        };
+      }
+      case "offers": {
+        const onSale = products.filter((p) => p.sale);
+        if (!onSale.length) return null;
+        return {
+          id: "ofertas",
+          section: "offers",
+          title: sectionTitle(config, key),
+          countLabel: onSale.length === 1 ? "1 oferta" : `${onSale.length} ofertas`,
+          stamps: onSale.map((p) => Date.parse(p.sale!.startedAt)),
+          icon: <PercentIcon className={icon} />,
+          content: (
+            <>
+              <HomeRows fallbackImage={fallbackImage} rows={onSale.slice(0, 1).map((p) => offerRow(p, username))} />
+              {onSale.length > 1 && (
+                <Link href={path("ofertas")} className="cp-btn-ghost mt-4 w-full">
+                  Ver más ofertas <ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
+            </>
+          ),
+        };
+      }
+      case "gifts": {
+        // «Gifts»: lo que hace para regalar (calendarios, manualidades…), de su página (Páginas → Gifts).
+        const g = props.gifts;
+        if (!g?.items.length) return null;
+        const href = path("gifts");
+        return {
+          id: "gifts",
+          title: sectionTitle(config, key),
+          countLabel: g.total === 1 ? "1 regalo" : `${g.total} regalos`,
+          stamps: [],
+          icon: <Gift className={icon} strokeWidth={1.15} />,
+          content: (
+            <>
+              {g.subtitle && <p className="cp-muted mb-3 text-[0.92rem]">{g.subtitle}</p>}
+              <HomeRows
+                fallbackImage={fallbackImage}
+                rows={g.items.map((it, n) => ({
+                  key: `gift-${n}`,
+                  href,
+                  image: it.image,
+                  icon: <Gift className="h-7 w-7 opacity-80" strokeWidth={1.3} />,
+                  eyebrow: <span>Hecho por mí</span>,
+                  title: it.title,
+                  text: it.text,
+                }))}
+              />
+              <Link href={href} className="cp-btn-ghost mt-4 w-full">
+                Ver todos los regalos <ArrowRight className="h-4 w-4" />
+              </Link>
+            </>
+          ),
+        };
+      }
+      default:
+        return null;
+    }
+  };
+
   const renderSection = (key: SectionKey) => {
     const type = SECTION_TYPE[key];
     if (type) {
@@ -224,13 +364,13 @@ export function CreatorPageView(props: Props) {
         <section key={key} id={key === "courses" ? "cursos" : key} className="mt-14" {...reveal}>
           <SectionHeading title={sectionTitle(config, key)} count={items.length} />
           {items.length === 1 ? (
-            <div className="mx-auto mt-6 max-w-sm">
+            <div className="mx-auto mt-6 max-w-[16rem]">
               <OracleCard p={items[0]} username={username} trackCreatorId={trackId} />
             </div>
           ) : (
-            <div className="-mx-5 mt-5 flex snap-x snap-mandatory gap-5 overflow-x-auto px-5 pb-3 pt-2 scrollbar-none md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0">
+            <div className="-mx-5 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-3 pt-2 scrollbar-none md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0">
               {items.map((p) => (
-                <div key={p.id} className="w-[82%] shrink-0 snap-center sm:w-[60%] md:w-auto">
+                <div key={p.id} className="w-[64%] shrink-0 snap-center sm:w-[42%] md:w-auto">
                   <OracleCard p={p} username={username} trackCreatorId={trackId} />
                 </div>
               ))}
@@ -284,108 +424,18 @@ export function CreatorPageView(props: Props) {
           </nav>
         );
       }
-      case "posts": {
-        // «Actualidades»: lo nuevo de la web (membresías, cursos, lecturas, códigos, el próximo círculo…).
-        const all = props.news ?? [];
-        // Solo lo reciente (30 días): sin agobiar con todo lo que hay. Si no hay nada reciente, lo último.
-        const since = Date.now() - 30 * 86_400_000;
-        const recent = all.filter((n) => Date.parse(n.at) >= since);
-        const news = (recent.length ? recent : all).slice(0, 3);
-        if (!news.length) return null;
+      case "posts":
+      case "portal":
+      case "offers":
+      case "gifts": {
+        // Los cuatro desplegables van juntos en una fila (como «Sistemas»), donde está el primero de ellos.
+        const keys = config.sections.filter((s) => s.enabled && FOLD_KEYS.has(s.key)).map((s) => s.key);
+        if (keys[0] !== key) return null;
+        const list = keys.map(foldFor).filter((x): x is Fold => !!x);
+        if (!list.length) return null;
         return (
-          <section key={key} id="actualidades" data-fold className={FOLD_GAP} {...reveal}>
-            <SectionDropdown
-              id="actualidades"
-              section="posts"
-              username={username}
-              title={sectionTitle(config, key)}
-              countLabel={recent.length === 0 ? "Lo último de la web" : recent.length === 1 ? "1 novedad este mes" : `${recent.length} novedades este mes`}
-              stamps={recent.map((n) => Date.parse(n.at))}
-              preview={preview}
-              icon={<MegaphoneIcon />}
-            >
-              <HomeRows
-                fallbackImage={config.coverUrl ?? config.avatarUrl ?? null}
-                rows={news.map((n) => ({
-                  key: n.key,
-                  href: n.href,
-                  image: n.image,
-                  icon: <MegaphoneIcon className="h-7 w-7 opacity-80" />,
-                  eyebrow: (
-                    <>
-                      <span>{n.dateLabel}</span>
-                      <span>· {n.label}</span>
-                    </>
-                  ),
-                  title: n.title,
-                  text: n.text,
-                }))}
-              />
-              <Link href={path("actualidades")} className="cp-btn-ghost mt-4 w-full">
-                Ver todas las novedades <ArrowRight className="h-4 w-4" />
-              </Link>
-            </SectionDropdown>
-          </section>
-        );
-      }
-      case "portal": {
-        // Solo en la web personal: lo desbloquea su newsletter, que es de la dueña.
-        const items = props.portal ?? [];
-        if (!items.length || !personal) return null;
-        const n = items.length;
-        return (
-          <section key={key} id="portal" data-fold className={FOLD_GAP} {...reveal}>
-            <SectionDropdown
-              id="portal"
-              section="portal"
-              username={username}
-              title={sectionTitle(config, key)}
-              countLabel={n === 1 ? "1 aviso" : `${n} avisos`}
-              stamps={items.map((i) => Date.parse(i.publishedAt))}
-              preview={preview}
-              icon={<PortalNoteIcon />}
-            >
-              <PortalSection
-                items={items}
-                title={sectionTitle(config, key)}
-                creatorName={config.displayName}
-                privacyHref={creatorLegalHref(username, "privacidad")}
-                portalHref={path("portal")}
-                username={username}
-                preview={!!preview}
-                home
-                limit={1}
-                fallbackImage={config.coverUrl ?? config.avatarUrl ?? null}
-              />
-            </SectionDropdown>
-          </section>
-        );
-      }
-      case "offers": {
-        const onSale = products.filter((p) => p.sale);
-        if (!onSale.length) return null;
-        return (
-          <section key={key} id="ofertas" data-fold className={FOLD_GAP} {...reveal}>
-            <SectionDropdown
-              id="ofertas"
-              section="offers"
-              username={username}
-              title={sectionTitle(config, key)}
-              countLabel={onSale.length === 1 ? "1 oferta" : `${onSale.length} ofertas`}
-              stamps={onSale.map((p) => Date.parse(p.sale!.startedAt))}
-              preview={preview}
-              icon={<PercentIcon />}
-            >
-              <HomeRows
-                fallbackImage={config.coverUrl ?? config.avatarUrl ?? null}
-                rows={onSale.slice(0, 1).map((p) => offerRow(p, username))}
-              />
-              {onSale.length > 1 && (
-                <Link href={path("ofertas")} className="cp-btn-ghost mt-4 w-full">
-                  Ver más ofertas <ArrowRight className="h-4 w-4" />
-                </Link>
-              )}
-            </SectionDropdown>
+          <section key="desplegables" id="desplegables" className="mt-14" {...reveal}>
+            <SectionFolds folds={list} username={username} preview={preview} />
           </section>
         );
       }
@@ -454,7 +504,7 @@ export function CreatorPageView(props: Props) {
       case "readings": {
         const r = config.readings;
         if (!r) return null;
-        // La próxima luna nueva y la próxima luna llena (las que ya pasaron no salen).
+        // Los 2 círculos más cercanos: luna nueva, llena o eclipse (los que ya pasaron no salen).
         const circles = nextMoonCircles(products);
         // Cada una con su icono (documento / vídeo) y su tono, para que no parezcan lo mismo.
         // Primero la sesión y después la lectura.

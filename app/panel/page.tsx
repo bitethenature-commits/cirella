@@ -66,7 +66,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
 
   const checklist = [
     { done: !!cfg.avatarUrl, label: "Sube tu foto", href: "/panel/pagina" },
-    { done: productCount >= 2, label: "Añade un segundo producto", href: "/panel/productos/nuevo" },
+    { done: productCount >= 2, label: "Añade un segundo producto", href: "/panel/sesiones" },
     { done: legalIdentityComplete(creator), label: "Completa tus datos legales", href: "/panel/ajustes/legal" },
     { done: creator.payoutStatus === "ACTIVE", label: "Activa tus cobros", href: "/panel/ajustes/cobros" },
     { done: cfg.links.length > 0 || Object.keys(cfg.socials).length > 0, label: "Añade tus redes y enlaces", href: "/panel/pagina" },
@@ -176,7 +176,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
           <section className="card p-5 sm:p-6">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold">Próximas sesiones</h2>
-              <Link href="/panel/reservas" className="text-xs font-semibold text-muted hover:text-ink">Ver todas</Link>
+              <Link href="/panel/solicitudes" className="text-xs font-semibold text-muted hover:text-ink">Ver todas</Link>
             </div>
             <ul className="mt-4 space-y-3">
               {s.upcoming.map((b) => (
@@ -215,8 +215,8 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
       )}
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Link href="/panel/productos/nuevo" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
-          <Plus className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Nuevo producto</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
+        <Link href="/panel/sesiones" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
+          <Plus className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Sesiones y lecturas</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
         </Link>
         <Link href="/panel/pagina" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
           <Palette className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Editar mi página</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
@@ -261,11 +261,7 @@ function DeliveryAlerts({ issues: deliveryIssues }: { issues: DeliveryIssues }) 
           />
         );
       })}
-      {deliveryIssues.length > 3 && (
-        <Link href="/panel/productos" className="inline-block text-sm font-semibold text-muted hover:text-ink">
-          Ver los {deliveryIssues.length} productos con avisos
-        </Link>
-      )}
+      {deliveryIssues.length > 3 && <p className="text-sm text-muted">Y {deliveryIssues.length - 3} avisos más en tus productos.</p>}
     </div>
   );
 }
@@ -391,7 +387,7 @@ function PersonalHome({
           <section className="card p-5 sm:p-6">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold">Próximas sesiones</h2>
-              <Link href="/panel/reservas" className="text-xs font-semibold text-muted hover:text-ink">Ver todas</Link>
+              <Link href="/panel/solicitudes" className="text-xs font-semibold text-muted hover:text-ink">Ver todas</Link>
             </div>
             <ul className="mt-4 space-y-3">
               {s.upcoming.map((b) => (
@@ -437,8 +433,11 @@ function PersonalHome({
   cards.atajos = (
     <>
       <div className="grid gap-3 sm:grid-cols-3">
-        <Link href="/panel/productos/nuevo" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
-          <Plus className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Nuevo producto</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
+        <Link href="/panel/sesiones" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
+          <Plus className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Sesiones y lecturas</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
+        </Link>
+        <Link href="/panel/circulos" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
+          <Plus className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Círculos de la Luna</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
         </Link>
         <Link href="/panel/actualidades" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
           <Newspaper className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Actualidades</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />

@@ -533,6 +533,8 @@ function inlinePlain(nodes: RichInline[]): string {
 
 /** Texto sin marcas (extractos, descripción para buscadores). El de antes se devuelve tal cual. */
 export function richToPlain(text: string, format: string | null | undefined): string {
+  // Las marcas de un archivo en su sitio ([[archivo:id]], lib/post-blocks.ts) no son texto.
+  text = text.replace(FILE_MARKER_LINE, "");
   if (!isRich(format)) return text;
   return parseRich(text)
     .map((b) => {
@@ -551,3 +553,6 @@ export function richToPlain(text: string, format: string | null | undefined): st
     .filter(Boolean)
     .join("\n\n");
 }
+
+/** Una línea «[[archivo:id]]»: un audio, vídeo o PDF de la publicación en su sitio (lib/post-blocks.ts). */
+export const FILE_MARKER_LINE = /^\[\[archivo:[\w-]+\]\][ \t]*$/gm;

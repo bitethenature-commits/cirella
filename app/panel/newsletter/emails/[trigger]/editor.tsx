@@ -1,9 +1,9 @@
 "use client";
 
-import { Loader2, RotateCcw, Save, TestTube2 } from "lucide-react";
+import { Eye, Loader2, PenLine, RotateCcw, Save, TestTube2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { BlockEditor } from "@/components/email-editor/block-editor";
+import { InlineEmailEditor } from "@/components/email-editor/inline-email-editor";
 import { EmailPreview } from "@/components/email-editor/email-preview";
 import type { AutomationTrigger } from "@/lib/automation-catalog";
 import type { EmailDesign, EmailVars, SocialNetwork } from "@/lib/email-blocks";
@@ -25,11 +25,14 @@ export function AutomaticEmailEditor(p: {
   palette: string[];
   socials: Partial<Record<SocialNetwork, string>>;
   siteUrl: string;
+  /** Quién lo envía (su nombre, arriba del email). */
+  brand: string;
 }) {
   const router = useRouter();
   const [subject, setSubject] = useState(p.subject);
   const [design, setDesign] = useState(p.design);
   const [tab, setTab] = useState<"editar" | "vista">("editar");
+  // Al escribir encima no hace falta la vista previa al lado: se abre «Cómo le llega» cuando se quiere.
   const [preview, setPreview] = useState<{ html: string; subject: string; warnings: string[] } | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, start] = useTransition();
@@ -51,33 +54,36 @@ export function AutomaticEmailEditor(p: {
 
   return (
     <div>
-      <div className="mb-4 inline-flex rounded-full bg-sand p-1 text-sm lg:hidden" role="tablist">
+      <div className="mb-4 inline-flex rounded-full bg-sand p-1 text-sm" role="tablist">
         {(["editar", "vista"] as const).map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`rounded-full px-4 py-2 font-medium ${tab === t ? "bg-white shadow-soft" : "text-muted"}`}>
-            {t === "editar" ? "Editar" : "Vista previa"}
+          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 font-medium ${tab === t ? "bg-white shadow-soft" : "text-muted"}`}>
+            {t === "editar" ? <PenLine className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {t === "editar" ? "Escribir encima" : "Cómo le llega"}
           </button>
         ))}
       </div>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className={`space-y-4 ${tab === "editar" ? "" : "hidden lg:block"}`}>
-          <div className="card p-4">
-            <label className="field-label" htmlFor="auto-subject">Asunto</label>
-            <input id="auto-subject" className="input text-base" maxLength={150} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={p.defaultSubject} />
-            <p className="mt-1.5 text-xs text-muted">Vacío: el de siempre («{p.defaultSubject}»).</p>
-          </div>
-          {/* El estilo general (fondo, tarjeta, tipos de letra) solo cambia la bienvenida a la newsletter, que sale con su plantilla; los demás van dentro del email de siempre. */}
-          <BlockEditor value={design} onChange={setDesign} vars={p.vars} palette={p.palette} socials={p.socials} siteUrl={p.siteUrl} withStyle={p.trigger === "NEWSLETTER_WELCOME"} videoUploads />
-          <p className="rounded-2xl border border-dashed border-line bg-paper px-4 py-3 text-xs text-muted">
-            {p.mode === "intro" ? "Tu texto va al principio, en lugar del saludo. " : ""}
-            {p.fixed}
-          </p>
+      {tab === "editar" ? (
+        <InlineEmailEditor
+          value={design}
+          onChange={setDesign}
+          vars={p.vars}
+          brand={p.brand}
+          subject={subject}
+          onSubject={setSubject}
+          defaultSubject={p.defaultSubject}
+          fixed={(p.mode === "intro" ? "Tu texto va al principio, en lugar del saludo. " : "") + p.fixed}
+          mode={p.mode}
+          palette={p.palette}
+          socials={p.socials}
+          siteUrl={p.siteUrl}
+          videoUploads
+        />
+      ) : (
+        <div className="mx-auto max-w-3xl">
+          {preview ? <EmailPreview html={preview.html} subject={preview.subject} warnings={preview.warnings} /> : <p className="text-sm text-muted">Preparando la vista previa…</p>}
+          <p className="mt-2 text-xs text-muted">Con datos de ejemplo: así le llega a ella, con todo lo que el email añade solo.</p>
         </div>
-        <div className={tab === "vista" ? "" : "hidden lg:block"}>
-          <div className="lg:sticky lg:top-20">
-            {preview ? <EmailPreview html={preview.html} subject={preview.subject} warnings={preview.warnings} /> : <p className="text-sm text-muted">Preparando la vista previa…</p>}
-          </div>
-        </div>
-      </div>
+      )}
       {notice && (
         <p role="status" className={`mt-4 rounded-xl px-4 py-3 text-sm ${notice.ok ? "bg-[#e7f3ec] text-[#2f6b4a]" : "bg-[#fbe9e6] text-[#9a3a2e]"}`}>
           {notice.text}

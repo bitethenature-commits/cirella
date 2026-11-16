@@ -18,6 +18,12 @@ import {
   sitePagePath,
   sitePageSlugBase,
   sitePageSlugProblem,
+  FIXED_PAGE_SLUGS,
+  GIFTS_SLUG,
+  giftsContent,
+  isFixedPageSlug,
+  ONE_TO_ONE_SLUG,
+  oneToOneContent,
   starterContent,
   type SitePageContent,
   type SitePageTemplate,
@@ -104,10 +110,12 @@ export async function saveSitePage(creatorId: string, id: string, input: SitePag
   content.blocks = clean.blocks;
 
   const creator = await creatorOf(creatorId);
-  const wanted = sitePageSlugBase(content.title, input.slug);
-  const problem = sitePageSlugProblem(wanted, creator.username);
+  // La 1:1 y Gifts no cambian de dirección (/uno-a-uno, /gifts).
+  const fixed = isFixedPageSlug(current.slug);
+  const wanted = fixed ? current.slug : sitePageSlugBase(content.title, input.slug);
+  const problem = fixed ? null : sitePageSlugProblem(wanted, creator.username);
   if (problem) return { ok: false, error: problem };
-  const slug = await uniqueSitePageSlug(db, wanted, current.id);
+  const slug = fixed ? current.slug : await uniqueSitePageSlug(db, wanted, current.id);
 
   const now = new Date();
   await db.sitePage.update({
@@ -135,8 +143,40 @@ export async function unpublishSitePage(creatorId: string, id: string): Promise<
 
 export async function deleteSitePage(creatorId: string, id: string): Promise<boolean> {
   const db = tenantDb(creatorId);
-  const r = await db.sitePage.deleteMany({ where: { id } });
+  // La 1:1 y Gifts no se borran (se despublican y vuelve la de partida).
+  const r = await db.sitePage.deleteMany({ where: { id, slug: { notIn: [...FIXED_PAGE_SLUGS] } } });
   return r.count > 0;
+}
+
+/**
+ * La 1:1 en Páginas: si aún no está, se crea en borrador con lo que enseña la web ahora (no sale en el
+ * pie, que ya la enlaza su sección). Una sola vez: después es una página más.
+ */
+export async function ensureOneToOnePage(creatorId: string): Promise<void> {
+  const db = tenantDb(creatorId);
+  if (await db.sitePage.findFirst({ where: { slug: ONE_TO_ONE_SLUG }, select: { id: true } })) return;
+  const creator = await creatorOf(creatorId);
+  const data = await getPublicCreator(creator.username, true);
+  const content = oneToOneContent(data?.config.displayName || creator.username, data?.config.contact.email || null);
+  try {
+    await db.sitePage.create({ data: { creatorId, slug: ONE_TO_ONE_SLUG, title: content.title, draft: json(content), status: "DRAFT", showInNav: false, sortOrder: -1 } });
+  } catch {
+    // Otra pestaña la acaba de crear: ya está.
+  }
+}
+
+/** Gifts en Páginas: si aún no está, se crea en borrador con lo que enseña la web (no sale en el pie). */
+export async function ensureGiftsPage(creatorId: string): Promise<void> {
+  const db = tenantDb(creatorId);
+  if (await db.sitePage.findFirst({ where: { slug: GIFTS_SLUG }, select: { id: true } })) return;
+  const creator = await creatorOf(creatorId);
+  const data = await getPublicCreator(creator.username, true);
+  const content = giftsContent(data?.config.contact.email || null);
+  try {
+    await db.sitePage.create({ data: { creatorId, slug: GIFTS_SLUG, title: content.title, draft: json(content), status: "DRAFT", showInNav: false, sortOrder: -1 } });
+  } catch {
+    // Otra pestaña la acaba de crear: ya está.
+  }
 }
 
 /** Sube o baja una página en la lista (es el orden del pie de la web). */

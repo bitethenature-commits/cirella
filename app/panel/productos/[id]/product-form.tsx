@@ -141,6 +141,11 @@ export function ProductForm({
   const [saleOn, setSaleOn] = useState(product.salePriceCents != null);
   const [salePrice, setSalePrice] = useState(product.salePrice);
   const saleCents = parseMoneyToCents(salePrice);
+  // Lecturas, sesiones 1:1 y círculos se piden y se cierran fuera de la web (por email): formulario
+  // sencillo, solo lo que se ve. Lo demás viaja oculto con lo que ya tenía, para no perder nada al guardar.
+  const simple = isDigital || isSession;
+  const circle = isSession && product.groupSession;
+  const [status, setStatus] = useState(product.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT");
 
   // Vista previa en vivo: se lee el formulario entero (sin guardar ni pedir nada) tras cada cambio.
   const formRef = useRef<HTMLFormElement>(null);
@@ -217,6 +222,7 @@ export function ProductForm({
               placeholder={"Qué es, para quién es y qué incluye.\n\nIncluye:\n- Primer punto\n- Segundo punto"}
             />
           </div>
+          {!simple && (
           <div>
             <label className="field-label">Icono</label>
             <div className="flex flex-wrap gap-1.5">
@@ -227,6 +233,7 @@ export function ProductForm({
               ))}
             </div>
           </div>
+          )}
         </section>
         <section className="card p-5">
           <label className="field-label">Imagen</label>
@@ -234,7 +241,7 @@ export function ProductForm({
         </section>
 
         {choosable && <input type="hidden" name="accessMode" value={access} />}
-        {choosable && (
+        {choosable && !simple && (
           <section id="acceso" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
             <h3 className="font-semibold">Cómo se consigue</h3>
             {options.length > 1 ? (
@@ -328,6 +335,7 @@ export function ProductForm({
             </div>
           </div>
           {/* Oferta (lib/offers.ts): el checkout cobra el precio de oferta mientras está activa. */}
+          {!simple && (
           <div className="rounded-2xl border border-line bg-paper p-4" id="oferta">
             <input type="hidden" name="saleForm" value="1" />
             <label className="flex items-center gap-2.5 text-sm font-semibold">
@@ -359,7 +367,59 @@ export function ProductForm({
               </div>
             )}
           </div>
+          )}
         </section>
+        )}
+
+        {isSession && !externalSession && simple && (
+          <section id="sesion" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
+            <h3 className="font-semibold">{circle ? "El círculo" : "La sesión"}</h3>
+            <input type="hidden" name="groupSession" value={circle ? "on" : ""} />
+            <input type="hidden" name="bufferMin" value={product.bufferMin ?? 15} />
+            {circle ? (
+              <>
+                <input type="hidden" name="moonCircle" value={product.moonCircle ? "on" : ""} />
+                <input type="hidden" name="minNoticeHours" value={0} />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="field-label" htmlFor="event-date">Día</label>
+                    <input id="event-date" name="eventDate" type="date" defaultValue={product.eventDate} className="input h-11" />
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor="event-time">Hora ({product.ownerTimezone.split("/").pop()?.replace(/_/g, " ")})</label>
+                    <input id="event-time" name="eventTime" type="time" step={300} defaultValue={product.eventTime} className="input h-11" />
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor="event-duration">Duración (min)</label>
+                    <input id="event-duration" name="durationMin" type="number" min={10} max={480} defaultValue={product.durationMin ?? 90} className="input h-11" />
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor="event-capacity">Plazas <span className="font-normal text-muted">(vacío = sin límite)</span></label>
+                    <input id="event-capacity" name="capacity" type="number" min={1} max={500} defaultValue={product.capacity ?? ""} className="input h-11" />
+                  </div>
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="meeting">Enlace de Zoom</label>
+                  <input id="meeting" name="meetingUrl" type="url" inputMode="url" defaultValue={product.meetingUrl ?? ""} className="input h-11" placeholder="https://us02web.zoom.us/j/…" />
+                </div>
+              </>
+            ) : (
+              <>
+                {access === "PAID" ? (
+                  <input type="hidden" name="minNoticeDays" value={paidSessionNoticeDays(product)} />
+                ) : (
+                  <input type="hidden" name="minNoticeHours" value={Math.min(product.minNoticeHours ?? 24, 720)} />
+                )}
+                <input type="hidden" name="horizonDays" value={String(product.horizonDays ?? HORIZON_DEFAULT_DAYS)} />
+                <input type="hidden" name="meetingUrl" value={product.meetingUrl ?? ""} />
+                <div className="sm:max-w-[12rem]">
+                  <label className="field-label" htmlFor="session-duration">Duración (min)</label>
+                  <input id="session-duration" name="durationMin" type="number" min={10} max={480} defaultValue={product.durationMin ?? 60} className="input h-11" />
+                </div>
+                <p className="field-hint">El día, la hora y el enlace de Zoom los cerráis por email.</p>
+              </>
+            )}
+          </section>
         )}
 
         {isSession && externalSession && (
@@ -373,7 +433,7 @@ export function ProductForm({
           </section>
         )}
 
-        {isSession && !externalSession && (
+        {isSession && !externalSession && !simple && (
           <section id="sesion" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
             <h3 className="font-semibold">{group ? "Taller en directo" : "Sesión"}</h3>
             <input type="hidden" name="groupSession" value={group ? "on" : ""} />
@@ -468,21 +528,21 @@ export function ProductForm({
             <div>
               <label className="field-label" htmlFor="meeting">Enlace de Zoom</label>
               <input id="meeting" name="meetingUrl" type="url" inputMode="url" defaultValue={product.meetingUrl ?? ""} className="input h-11" placeholder="https://us02web.zoom.us/j/…" />
-              <p className="field-hint">Se envía con la confirmación y los recordatorios. Puedes poner otro en cada reserva. {group ? "" : "Tus días y horarios se configuran en Reservas → Tu horario."}</p>
+              <p className="field-hint">Se envía con la confirmación y los recordatorios. Puedes poner otro en cada reserva. {group ? "" : "Tus días y horarios se configuran en Solicitudes → Tu horario."}</p>
             </div>
           </section>
         )}
 
-        {asksData && !externalSession && (
+        {asksData && !externalSession && !simple && (
           <section id="datos" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
             <h3 className="font-semibold">Datos que pides</h3>
             <IntakeConfigEditor initial={product.intake} customPrivacy={product.customPrivacy} />
           </section>
         )}
 
-        {externalSession ? (
+        {externalSession || simple ? (
           <>
-            <input type="hidden" name="deliveryMode" value="AUTOMATIC" />
+            <input type="hidden" name="deliveryMode" value={externalSession ? "AUTOMATIC" : mode} />
             <input type="hidden" name="instructions" value={product.instructions ?? ""} />
           </>
         ) : (
@@ -522,6 +582,9 @@ export function ProductForm({
         )}
       </div>
 
+      {simple ? (
+        <input type="hidden" name="slug" value={product.slug} />
+      ) : (
       <section className="card p-5">
         <label className="field-label">Enlace</label>
         <div className="flex items-center rounded-xl border border-line bg-white pl-3 text-sm">
@@ -529,8 +592,31 @@ export function ProductForm({
           <input name="slug" defaultValue={product.slug} className="h-10 min-w-0 flex-1 bg-transparent pr-3 outline-none" />
         </div>
       </section>
+      )}
       {/* En escritorio, siempre a la vista al bajar por el formulario. */}
       <section className="card z-10 flex flex-col gap-4 p-5 sm:flex-row sm:items-end lg:sticky lg:bottom-4 lg:p-4 lg:shadow-lift">
+        {simple ? (
+          <div className="sm:flex-1">
+            <p className="field-label">Estado</p>
+            <input type="hidden" name="status" value={status} />
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  ["DRAFT", "Borrador", "Solo tú lo ves"],
+                  ["PUBLISHED", "Visible", "Sale en tu web"],
+                ] as const
+              ).map(([value, label, hint]) => (
+                <label key={value} className={`studio-pick flex cursor-pointer items-start gap-2.5 rounded-xl border p-2.5 transition ${status === value ? "is-on" : "border-line"}`}>
+                  <input type="radio" checked={status === value} onChange={() => setStatus(value)} className="mt-1" />
+                  <span>
+                    <span className="block text-sm font-semibold">{label}</span>
+                    <span className="block text-xs text-muted">{hint}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : (
         <div className="sm:flex-1">
           <label className="field-label">Estado</label>
           <select name="status" defaultValue={product.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT"} className="input">
@@ -538,6 +624,7 @@ export function ProductForm({
             <option value="DRAFT">Borrador (oculto)</option>
           </select>
         </div>
+        )}
         <button type="submit" className="btn btn-primary w-full sm:w-auto sm:min-w-40" disabled={isPending}>{isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</> : "Guardar"}</button>
       </section>
     </form>

@@ -16,7 +16,7 @@ export function newsletterConfirmEmail(o: { creatorName: string; url: string; na
       title: `Hola${o.name ? `, ${o.name}` : ""}`,
       body:
         p(`Para empezar a recibir la newsletter de ${esc(o.creatorName)}, confirma que este email es tuyo.`) +
-        p(`<span style="color:#8A8698;font-size:13px">Si no lo has pedido tú, ignora este email: no te escribiremos.</span>`),
+        p(`<span style="color:#A99FC2;font-size:13px">Si no lo has pedido tú, ignora este email: no te escribiremos.</span>`),
       cta: { label: "Sí, quiero recibirla", url: o.url },
       areaLink: false,
     }),

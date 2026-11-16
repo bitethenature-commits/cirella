@@ -198,7 +198,7 @@ export async function notifyRescheduled(bookingId: string) {
       buyer: b.customer.name || b.customer.email,
       productTitle: b.product.title,
       when: ownerWhen(b.startAt, b.creator.timezone, b.customerTimezone),
-      url: `${appUrl()}/panel/reservas/${b.id}`,
+      url: `${appUrl()}/panel/solicitudes/reserva/${b.id}`,
     }),
   });
 }

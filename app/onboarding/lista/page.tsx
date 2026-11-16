@@ -38,7 +38,7 @@ export default async function ReadyPage() {
   // Las mismas reglas que el checkout: sus datos legales.
   const canSell = first?.status === "PUBLISHED" && payoutsReady && legalIdentityComplete(creator);
   const pendingItems: { title: string; text?: string; href: string; cta: string }[] = [];
-  if (!first) pendingItems.push({ title: "Añade tu primer producto", href: "/panel/productos/nuevo", cta: "Añadir producto" });
+  if (!first) pendingItems.push({ title: "Añade tu primer producto", href: "/panel/sesiones", cta: "Añadir producto" });
   else if (issue?.blocking) {
     const copy = deliveryIssueCopy(issue, first.title);
     pendingItems.push({

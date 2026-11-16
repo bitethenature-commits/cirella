@@ -45,6 +45,7 @@ export default async function DraftPreviewPage() {
         postCount={data.postCount}
         news={data.news}
         portal={data.portal}
+        gifts={data.gifts}
         discountCodes={data.discountCodes}
         personal={data.personal}
         signupsOnly={data.signupsOnly}

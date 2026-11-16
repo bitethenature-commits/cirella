@@ -45,7 +45,7 @@ export default async function GiveAccessPage({ searchParams }: { searchParams: P
       <PageHeader title="Dar acceso" subtitle="A cualquiera que haya hablado contigo, sin formulario. Elige qué le das y escribe su email: le llega el enlace para entrar." />
       {list.length === 0 ? (
         <p className="card p-5 text-sm text-muted">
-          Primero crea algún producto en <Link href="/panel/productos/nuevo" className="underline">Productos</Link>.
+          Primero crea algún producto en <Link href="/panel/sesiones" className="underline">Sesiones y lecturas</Link>.
         </p>
       ) : (
         <GiveAccessForm products={list} customers={customers.map((c) => ({ name: c.name ?? "", email: c.email }))} timeZone={creator.timezone} initialEmail={sp.email} />

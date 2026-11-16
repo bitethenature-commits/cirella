@@ -1,4 +1,4 @@
-import type { MoonCircleSky } from "@/lib/moon-circle-sky";
+import { MOON_KIND_LABEL, type MoonCircleSky } from "@/lib/moon-circle-sky";
 
 /** Estrellas fijas (siempre las mismas: nada cambia entre el servidor y el navegador). */
 const STARS: [number, number, number][] = [
@@ -13,19 +13,24 @@ const CRATERS: [number, number, number][] = [
 ];
 
 /**
- * En lugar de la foto de un círculo de la luna: la luna nueva o llena que le toca, el signo en el que
+ * En lugar de la foto de un círculo de la luna: la luna nueva, llena o el eclipse que le toca (de Sol: disco
+ * negro con un anillo de fuego dorado; de Luna: la luna roja), el signo en el que
  * está y una frase sobre esa energía, sobre un cielo de noche con estrellas.
  */
-export function MoonCircleArt({ sky }: { sky: MoonCircleSky }) {
+export function MoonCircleArt({ sky, compact = false }: { sky: MoonCircleSky; compact?: boolean }) {
   const full = sky.phase === "full";
+  const eclipse = sky.phase === "eclipse" ? (sky.body ?? "lunar") : null;
   return (
-    <div className="cp-moonart" data-moon={sky.phase}>
+    <div className="cp-moonart" data-moon={sky.phase} data-eclipse={eclipse ?? undefined} data-compact={compact ? "" : undefined}>
       <svg className="cp-moonart-stars" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
         {STARS.map(([x, y, r], i) => (
           <circle key={i} cx={x} cy={y} r={r * 0.35} fill="currentColor" opacity={0.35 + (i % 4) * 0.15} />
         ))}
       </svg>
-      <p className="cp-moonart-eyebrow">{full ? "Luna llena" : "Luna nueva"}</p>
+      <p className="cp-moonart-eyebrow">{MOON_KIND_LABEL[sky.phase]}</p>
+      {eclipse ? (
+        <EclipseMoon body={eclipse} title={sky.title} />
+      ) : (
       <svg className="cp-moonart-moon" viewBox="-60 -60 120 120" role="img" aria-label={sky.title}>
         <defs>
           <radialGradient id={`halo-${sky.phase}`}>
@@ -60,6 +65,7 @@ export function MoonCircleArt({ sky }: { sky: MoonCircleSky }) {
           </>
         )}
       </svg>
+      )}
       <p className="cp-moonart-glyph" aria-hidden>
         {sky.glyph}
         {"︎"}
@@ -72,5 +78,61 @@ export function MoonCircleArt({ sky }: { sky: MoonCircleSky }) {
       </div>
       <p className="cp-moonart-phrase">{sky.phrase}</p>
     </div>
+  );
+}
+
+/** El eclipse: de Sol, el disco negro de la luna delante con su anillo de fuego dorado; de Luna, la luna roja. */
+function EclipseMoon({ body, title }: { body: "solar" | "lunar"; title: string }) {
+  const id = `ecl-${body}`;
+  return (
+    <svg className="cp-moonart-moon" viewBox="-60 -60 120 120" role="img" aria-label={title}>
+      <defs>
+        {body === "solar" ? (
+          <>
+            <radialGradient id={`${id}-corona`}>
+              <stop offset="62%" stopColor="#ffe6a3" stopOpacity={0.95} />
+              <stop offset="72%" stopColor="#e7b24f" stopOpacity={0.55} />
+              <stop offset="100%" stopColor="#d9b46a" stopOpacity={0} />
+            </radialGradient>
+            <radialGradient id={`${id}-disk`} cx="45%" cy="42%" r="70%">
+              <stop offset="0%" stopColor="#1c1a30" />
+              <stop offset="100%" stopColor="#06050c" />
+            </radialGradient>
+          </>
+        ) : (
+          <>
+            <radialGradient id={`${id}-halo`}>
+              <stop offset="55%" stopColor="#e0663f" stopOpacity={0.35} />
+              <stop offset="100%" stopColor="#e0663f" stopOpacity={0} />
+            </radialGradient>
+            <radialGradient id={`${id}-disk`} cx="40%" cy="36%" r="72%">
+              <stop offset="0%" stopColor="#f0a070" />
+              <stop offset="45%" stopColor="#b8462a" />
+              <stop offset="100%" stopColor="#4a1410" />
+            </radialGradient>
+          </>
+        )}
+      </defs>
+      {body === "solar" ? (
+        <>
+          <circle r={58} fill={`url(#${id}-corona)`} />
+          <circle r={41.5} fill="none" stroke="#fff3cf" strokeWidth={1.4} opacity={0.9} />
+          <circle r={40} fill={`url(#${id}-disk)`} />
+          {/* El «anillo de diamante»: un punto de luz en el borde. */}
+          <circle cx={27} cy={-30} r={2.6} fill="#fffaf0" />
+          <circle cx={27} cy={-30} r={6} fill="#ffe6a3" opacity={0.35} />
+        </>
+      ) : (
+        <>
+          <circle r={58} fill={`url(#${id}-halo)`} />
+          <circle r={40} fill={`url(#${id}-disk)`} />
+          {CRATERS.map(([x, y, r], i) => (
+            <circle key={i} cx={x} cy={y} r={r} fill="#5a1a12" opacity={0.3} />
+          ))}
+          {/* La sombra de la Tierra, más oscura por un lado. */}
+          <circle cx={-14} cy={10} r={40} fill="#1a0806" opacity={0.28} />
+        </>
+      )}
+    </svg>
   );
 }

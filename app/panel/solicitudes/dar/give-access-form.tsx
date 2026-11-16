@@ -92,7 +92,7 @@ export function GiveAccessForm({ products, customers, timeZone, initialEmail }: 
           <p className="text-sm text-muted">
             {chosen.kind === "session" ? "Una sesión lleva día y hora" : "Una lectura lleva sus datos de nacimiento"}: se da desde «Dar una sesión o lectura», con «{chosen.title}» ya elegida.
           </p>
-          <Link href={`/panel/reservas/nueva?producto=${chosen.id}${email ? `&email=${encodeURIComponent(email)}` : ""}`} className="btn btn-primary">
+          <Link href={`/panel/solicitudes/dar/sesion?producto=${chosen.id}${email ? `&email=${encodeURIComponent(email)}` : ""}`} className="btn btn-primary">
             Continuar <ArrowRight className="h-4 w-4" />
           </Link>
         </section>

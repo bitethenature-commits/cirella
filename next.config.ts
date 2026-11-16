@@ -14,6 +14,15 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: { bodySizeLimit: "2mb" },
   },
+  // «Reservas» ya no existe: todo está en Solicitudes. Los enlaces de los emails ya enviados siguen funcionando.
+  async redirects() {
+    return [
+      { source: "/panel/reservas", destination: "/panel/solicitudes", permanent: true },
+      { source: "/panel/reservas/horario", destination: "/panel/solicitudes/horario", permanent: true },
+      { source: "/panel/reservas/nueva", destination: "/panel/solicitudes/dar/sesion", permanent: true },
+      { source: "/panel/reservas/:id", destination: "/panel/solicitudes/reserva/:id", permanent: true },
+    ];
+  },
   async headers() {
     // CSP, HSTS y demás (lib/security-headers.ts). Se calculan al hacer `next build` con las
     // variables de ese momento: en Vercel cada entorno se construye con las suyas.

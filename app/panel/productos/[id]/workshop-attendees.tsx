@@ -26,7 +26,7 @@ export async function WorkshopAttendees({ creatorId, productId, capacity }: { cr
               <span className="min-w-0 flex-1 font-medium">{s.customer.name ?? s.customer.email}</span>
               {s.order?.paymentProvider === "manual" && <span className="chip">Regalo</span>}
               {readIntakeAnswers(s.order?.intake) && <span className="chip">Datos ✓</span>}
-              <Link href={`/panel/reservas/${s.id}`} className="btn btn-ghost btn-sm h-11">Ver</Link>
+              <Link href={`/panel/solicitudes/reserva/${s.id}`} className="btn btn-ghost btn-sm h-11">Ver</Link>
             </li>
           ))}
         </ul>

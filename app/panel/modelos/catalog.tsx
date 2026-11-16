@@ -9,6 +9,7 @@ import type { BirthProfile } from "@/lib/birth-profile";
 import { LAYER_OPTIONS, LAYER_SYSTEMS, MODEL_MODES, MODEL_MODE_LABEL, modesFor, type AstroLayer, type ModelMode } from "@/lib/lesson-blocks";
 import type { ModelKind } from "@/lib/page-blocks";
 import { FullModels, type FullInfo } from "./full-models";
+import { ModelThumb } from "./model-thumb";
 
 export type LayerRow = {
   layer: AstroLayer;
@@ -63,6 +64,8 @@ export function ModelsCatalog({ rows, full, fullInfo, profile, others }: { rows:
   const shown = rows.filter((r) => (filter === "unused" ? !r.lessons.length : filter === "notext" ? r.notes === 0 : filter === "review" ? REVIEW.has(r.layer) : true));
   const who = profile ?? EXAMPLE;
   const people = others.length ? others : [EXAMPLE_OTHER];
+  // La carta se calcula una vez para todas las fotos pequeñas.
+  const { result: computed } = useComputedProfile(who);
 
   return (
     <div className="space-y-10">
@@ -117,7 +120,7 @@ export function ModelsCatalog({ rows, full, fullInfo, profile, others }: { rows:
                 </summary>
                 <ul className="divide-y divide-line border-t border-line">
                   {list.map((r) => (
-                    <LayerItem key={r.layer} row={r} profile={who} others={people} />
+                    <LayerItem key={r.layer} row={r} profile={who} others={people} computed={computed} />
                   ))}
                 </ul>
               </details>
@@ -165,12 +168,22 @@ function SectionTitle({ n, title, text }: { n: string; title: string; text: stri
   );
 }
 
-function LayerItem({ row, profile, others }: { row: LayerRow; profile: BirthProfile; others: BirthProfile[] }) {
+function LayerItem({ row, profile, others, computed }: { row: LayerRow; profile: BirthProfile; others: BirthProfile[]; computed: ReturnType<typeof useComputedProfile>["result"] }) {
   const [open, setOpen] = useState(false);
   const pct = Math.round((row.notes / Math.max(1, row.pieces)) * 100);
   return (
     <li className="px-5 py-4">
       <div className="flex flex-wrap items-start gap-3">
+        {/* La foto pequeña: el modelo tal como se ve. */}
+        <ModelThumb onClick={() => setOpen((o) => !o)}>
+          <div className="acc-root acc-preview p-3">
+            {computed ? (
+              <AstroLayerModel data={{ layer: row.layer, option: LAYER_OPTIONS[row.layer]?.[0].value ?? null, focus: ["signs", "houses", "aspects"].includes(row.layer) ? "sun" : null, title: "", intro: "", notes: {}, mode: "explore" }} computed={computed} others={others} />
+            ) : (
+              <p className="grid min-h-40 place-items-center text-sm opacity-70">Calculando…</p>
+            )}
+          </div>
+        </ModelThumb>
         <div className="min-w-0 flex-1 space-y-1.5">
           <p className="font-semibold">
             {row.label}

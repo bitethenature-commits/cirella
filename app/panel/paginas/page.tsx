@@ -1,30 +1,51 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ExternalLink, FileText, Pencil, Plus } from "lucide-react";
+import { barePage, hiddenProductSlugs, SitePageView } from "@/components/creator-page/site-page-view";
+import { systemIcon } from "@/components/creator-page/system-icon";
 import { CopyButton } from "@/components/ui/copy-button";
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
 import { appHost, appUrl } from "@/lib/env";
+import { nextMoonCircles } from "@/lib/moon-circles";
+import { oracleDecksForBlocks } from "@/lib/oracle-decks";
+import { getPublicCreator } from "@/lib/public";
 import { isPersonalMode } from "@/lib/site-mode";
-import { SITE_PAGE_STATE_LABEL, sitePagePath, sitePageState } from "@/lib/site-pages";
+import { GIFTS_SLUG, ONE_TO_ONE_SLUG, readSitePageContent, SITE_PAGE_STATE_LABEL, sitePagePath, sitePageState } from "@/lib/site-pages";
+import { ensureGiftsPage, ensureOneToOnePage } from "@/lib/site-pages.server";
 import { tenantDb } from "@/lib/tenant";
 import { Badge, PageHeader } from "../ui";
+import { ModelThumb } from "../modelos/model-thumb";
 import { moveSitePageAction } from "./actions";
 
 export const metadata: Metadata = { title: "Páginas" };
 
 const TONE = { DRAFT: "warning", PUBLISHED: "success", CHANGES: "neutral" } as const;
 
-/** Páginas extra: lista con su dirección, su estado y el orden en el que salen en el pie de la web. */
+/**
+ * Páginas extra: lista con su icono (el mismo que sale en la web), una foto en pequeño de cómo se ve (el
+ * borrador, con el diseño de la web), su dirección, su estado y el orden en el que salen en el pie.
+ */
 export default async function SitePagesPage({ searchParams }: { searchParams: Promise<{ borrada?: string }> }) {
   const { creator } = await requireCreator();
   const sp = await searchParams;
   const personal = isPersonalMode();
-  const pages = await tenantDb(creator.id).sitePage.findMany({
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    select: { id: true, title: true, slug: true, status: true, draft: true, published: true, showInNav: true },
-  });
+  // La 1:1 sale siempre aquí (la primera vez se crea con lo que enseña la web).
+  await ensureOneToOnePage(creator.id);
+  await ensureGiftsPage(creator.id);
+  const [pages, data] = await Promise.all([
+    tenantDb(creator.id).sitePage.findMany({
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true, title: true, slug: true, status: true, draft: true, published: true, showInNav: true },
+    }),
+    getPublicCreator(creator.username, true),
+  ]);
+  // Lo que hace falta para dibujar cada página en pequeño.
+  const contents = pages.map((p) => readSitePageContent(p.draft, p.title));
+  const decks = await Promise.all(contents.map((c) => oracleDecksForBlocks(creator.id, c.blocks)));
+  const moonCircles = data ? nextMoonCircles(data.products) : [];
+  const hidden = data ? hiddenProductSlugs(data.products, data.signupsOnly) : new Set<string>();
 
   return (
     <div>
@@ -52,6 +73,7 @@ export default async function SitePagesPage({ searchParams }: { searchParams: Pr
           {pages.map((p, i) => {
             const state = sitePageState(p);
             const path = sitePagePath(creator.username, p.slug, personal);
+            const Icon = systemIcon(p.title);
             return (
               <li key={p.id} className="card flex items-center gap-2 p-3 sm:gap-3">
                 <div className="flex shrink-0 flex-col">
@@ -69,12 +91,40 @@ export default async function SitePagesPage({ searchParams }: { searchParams: Pr
                     </form>
                   ))}
                 </div>
+                {data && (
+                  <Link href={`/panel/paginas/${p.id}`} className="hidden shrink-0 sm:block" aria-label={`Editar «${p.title}»`}>
+                    <ModelThumb>
+                      <SitePageView
+                        username={creator.username}
+                        config={data.config}
+                        content={contents[i]}
+                        allowCustom={data.allowCustom}
+                        personal={data.personal}
+                        signupsOnly={data.signupsOnly}
+                        hiddenSlugs={hidden}
+                        siteOrigin={appUrl()}
+                        pages={data.pages}
+                        currentPath={path}
+                        back={false}
+                        oracleDecks={decks[i]}
+                        moonCircles={moonCircles}
+                        bare={barePage(p.slug)}
+                      />
+                    </ModelThumb>
+                  </Link>
+                )}
                 <Link href={`/panel/paginas/${p.id}`} className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">{p.title}</p>
+                  <p className="flex min-w-0 items-center gap-2 font-semibold">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#0d0c22] text-gold">
+                      <Icon className="h-5 w-5" strokeWidth={1.3} aria-hidden />
+                    </span>
+                    <span className="truncate">{p.slug === ONE_TO_ONE_SLUG ? `1:1 · ${p.title}` : p.title}</span>
+                  </p>
                   <p className="mt-0.5 truncate text-xs text-muted">{appHost()}{path}</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     <Badge tone={TONE[state]}>{SITE_PAGE_STATE_LABEL[state]}</Badge>
-                    {state !== "DRAFT" && !p.showInNav && <Badge>Fuera del pie</Badge>}
+                    {state !== "DRAFT" && !p.showInNav && p.slug !== ONE_TO_ONE_SLUG && p.slug !== GIFTS_SLUG && <Badge>Fuera del pie</Badge>}
+                    {(p.slug === ONE_TO_ONE_SLUG || p.slug === GIFTS_SLUG) && state === "DRAFT" && <Badge>En la web sale la de siempre hasta que la publiques</Badge>}
                   </div>
                 </Link>
                 <div className="flex shrink-0 flex-wrap justify-end gap-1">

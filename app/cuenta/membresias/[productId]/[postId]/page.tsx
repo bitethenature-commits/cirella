@@ -22,6 +22,9 @@ import { ReaderNav, SaveButton, type ReaderItem } from "./reader";
 import { JoinButton, KindBadge, joinLink, kindStyle } from "../../kind-style";
 import { Ornament, SacredFlower } from "../../vip";
 import { bodyWithoutCover, postCover } from "../../cover";
+import { MoonCircleArt } from "@/components/creator-page/moon-circle-art";
+import { postSky } from "../../post-sky";
+import { splitBody } from "@/lib/post-blocks";
 
 export const metadata: Metadata = { title: "Publicación", robots: { index: false, follow: false } };
 
@@ -89,7 +92,13 @@ export default async function MemberPostPage({ params }: { params: Promise<{ pro
   const folder = paged ? `Textos de ${post.product.title}` : `Guardados de ${post.product.title}`;
   // La foto de arriba: la portada, la primera del texto (que entonces no se repite abajo) o una según el tipo.
   const cover = postCover(post);
+  // Círculo de la luna: arriba, su luna y su signo con su frase (sin foto).
+  const sky = postSky(post);
   const body = post.body ? bodyWithoutCover(post.body, cover) : "";
+  const parts = splitBody(body);
+  const fileById = new Map(post.files.map((f) => [f.id, f]));
+  const placed = new Set(parts.flatMap((p) => (p.t === "file" ? [p.id] : [])));
+  const loose = post.files.filter((f) => !placed.has(f.id));
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -111,9 +120,17 @@ export default async function MemberPostPage({ params }: { params: Promise<{ pro
       <article className="mt-6">
         {/* La cabecera de la publicación: su tipo, su fecha, el título en oro y la flor de la vida detrás. */}
         <div className="relative overflow-hidden rounded-[2rem]" style={{ boxShadow: `0 0 0 1px ${kindStyle(post.kind).light}33, 0 40px 80px -40px ${kindStyle(post.kind).color}` }} data-post-cover>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={cover.src} alt="" className="block aspect-[4/3] w-full object-cover" />
-          <span aria-hidden className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0d0c22]" />
+          {sky ? (
+            <div className="relative aspect-[4/3] w-full sm:aspect-[16/10]">
+              <MoonCircleArt sky={sky} />
+            </div>
+          ) : (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={cover.src} alt="" className="block aspect-[4/3] w-full object-cover" />
+              <span aria-hidden className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0d0c22]" />
+            </>
+          )}
         </div>
         <header className="vip-hero relative isolate mx-3 -mt-16 overflow-hidden rounded-[2rem] px-6 py-9 text-center sm:mx-8 sm:-mt-24 sm:px-10 sm:py-12" style={{ backgroundImage: `radial-gradient(90% 80% at 50% 0%, ${kindStyle(post.kind).color}40, transparent 65%), linear-gradient(180deg, rgb(30 26 66 / .85), rgb(13 12 34 / .92))` }}>
           <SacredFlower className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[26rem] w-[26rem] -translate-x-1/2 -translate-y-1/2 opacity-25" />
@@ -134,19 +151,20 @@ export default async function MemberPostPage({ params }: { params: Promise<{ pro
             <JoinButton post={post} />
           </div>
         )}
-        {body && (
-          <RichContent text={body} format={post.bodyFormat} legacy="preline" tone="account" headingLevel={3} className="vip-article mt-10 space-y-6 font-serif text-[1.22rem] leading-[1.85] text-ink/90 [&_img]:my-8 [&_img]:w-full [&_img]:rounded-[1.6rem]" />
-        )}
-        {post.files.length > 0 && (
-          <div className="mt-6 space-y-4">
-            <OnePlayerAtATime />
-              {post.files.map((f) => (
-                <div key={f.id} className={f.kind === "VIDEO" ? "overflow-hidden rounded-3xl bg-black" : f.kind === "AUDIO" ? "py-2" : ""} data-post-file={f.kind}>
-                  <MediaView file={f} title={post.title} poster={post.product.imageUrl} artwork={post.product.imageUrl} />
-                </div>
-              ))}
-          </div>
-        )}
+        {/* El contenido en el orden en que lo hizo: texto, fotos y archivos (lib/post-blocks.ts). Los archivos que
+            no tienen sitio en el texto (publicaciones de antes) van al final. */}
+        <OnePlayerAtATime />
+        <div className="mt-10 space-y-6">
+          {parts.map((p, i) => {
+            if (p.t === "text")
+              return <RichContent key={i} text={p.text} format={post.bodyFormat} legacy="preline" tone="account" headingLevel={3} className="vip-article space-y-6 font-serif text-[1.22rem] leading-[1.85] text-ink/90 [&_img]:my-8 [&_img]:w-full [&_img]:rounded-[1.6rem]" />;
+            const f = fileById.get(p.id);
+            return f ? <PostFile key={i} f={f} title={post.title} poster={post.product.imageUrl} /> : null;
+          })}
+          {loose.map((f) => (
+            <PostFile key={f.id} f={f} title={post.title} poster={post.product.imageUrl} />
+          ))}
+        </div>
         {embed && (
           <div className="mt-6 overflow-hidden rounded-3xl bg-black">
             <VideoEmbed url={embed} title={post.title} />
@@ -154,7 +172,7 @@ export default async function MemberPostPage({ params }: { params: Promise<{ pro
         )}
         {post.mediaUrl && !embed && !joinLink(post) && !isRecordedPost(post) && /^https:\/\//i.test(post.mediaUrl) && (
           <a href={post.mediaUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary mt-6 min-h-11">
-            {isLivePostKind(post.kind) ? <><CalendarDays className="h-4 w-4" /> {post.kind === "CEREMONIA" ? "Unirme a la ceremonia" : post.kind === "CIRCULO_LUNAR" ? "Unirme al círculo" : "Unirme al directo"}</> : <><ExternalLink className="h-4 w-4" /> Abrir el enlace</>}
+            {isLivePostKind(post.kind) ? <><CalendarDays className="h-4 w-4" /> {post.kind === "CEREMONIA" ? "Unirme a la ceremonia" : post.kind === "CIRCULO_LUNAR" ? post.joinLabel || "Enlace a Zoom" : "Unirme al directo"}</> : <><ExternalLink className="h-4 w-4" /> Abrir el enlace</>}
           </a>
         )}
         <Ornament className="mt-12" />
@@ -184,6 +202,15 @@ export default async function MemberPostPage({ params }: { params: Promise<{ pro
           />
         </div>
       </section>
+    </div>
+  );
+}
+
+/** Un archivo de la publicación (audio, vídeo, PDF, imagen) con su visor de siempre. */
+function PostFile({ f, title, poster }: { f: React.ComponentProps<typeof MediaView>["file"]; title: string; poster: string | null }) {
+  return (
+    <div className={f.kind === "VIDEO" ? "overflow-hidden rounded-3xl bg-black" : f.kind === "AUDIO" ? "py-2" : ""} data-post-file={f.kind}>
+      <MediaView file={f} title={title} poster={poster} artwork={poster} />
     </div>
   );
 }

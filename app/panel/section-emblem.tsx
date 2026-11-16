@@ -2,7 +2,6 @@
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
-  CalendarDays,
   FileText,
   Gift,
   GraduationCap,
@@ -12,6 +11,7 @@ import {
   LayoutGrid,
   Mail,
   Menu,
+  Moon,
   MessagesSquare,
   Newspaper,
   Orbit,
@@ -22,6 +22,7 @@ import {
   Sparkles,
   TicketPercent,
   Users,
+  Video,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -31,6 +32,8 @@ const ICONS: [string, LucideIcon][] = [
   ["/panel/paginas", FileText],
   ["/panel/pagina", Palette],
   ["/panel/productos", LayoutGrid],
+  ["/panel/sesiones", Video],
+  ["/panel/circulos", Moon],
   ["/panel/cursos", GraduationCap],
   ["/panel/comunidad", MessagesSquare],
   ["/panel/publicaciones", Newspaper],
@@ -43,7 +46,6 @@ const ICONS: [string, LucideIcon][] = [
   ["/panel/ventas", Receipt],
   ["/panel/clientes", Users],
   ["/panel/newsletter", Mail],
-  ["/panel/reservas", CalendarDays],
   ["/panel/estadisticas", BarChart3],
   ["/panel/automatizaciones", Zap],
   ["/panel/ajustes", Settings],

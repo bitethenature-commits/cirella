@@ -322,7 +322,7 @@ export function MoonCirclesBlockFields({ block: b, onUpdate }: { block: MoonCirc
         }}
       />
       <p className="field-hint">
-        Salen solos los dos próximos círculos de la luna que tengas publicados (uno de luna nueva y otro de luna llena), con su fecha, la hora de España, el precio y «Apuntarme». Cuando pasa una luna, se cambia sin que tengas que tocar nada. Un taller es círculo si lo marcas así en Productos.
+        Salen solos los dos próximos círculos de la luna que tengas publicados (los 2 más cercanos: luna nueva, luna llena o eclipse), con su fecha, la hora de España, el precio y «Apuntarme». Cuando pasa una luna, se cambia sin que tengas que tocar nada. Un taller es círculo si lo marcas así en Productos.
       </p>
     </>
   );

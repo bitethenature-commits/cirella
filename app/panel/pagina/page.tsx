@@ -33,6 +33,7 @@ export default async function EditorPage() {
       postCount={data?.postCount ?? 0}
       news={data?.news ?? []}
       portal={data?.portal ?? []}
+      gifts={data?.gifts}
       discountCodes={data?.discountCodes ?? []}
       personal={data?.personal ?? false}
       signupsOnly={data?.signupsOnly ?? false}

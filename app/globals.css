@@ -822,6 +822,13 @@
 .calm-audio.is-playing .calm-wave-2 { animation-delay: 1.2s; }
 .calm-audio.is-playing .calm-wave-3 { animation-delay: 2.4s; }
 @keyframes calm-ripple { 0% { transform: scale(1); opacity: .75; } 100% { transform: scale(1.75); opacity: 0; } }
+/* La versión «línea» (el audio de la portada): una raya dorada fina que se va llenando. */
+.calm-line { -webkit-appearance: none; appearance: none; height: 14px; background: transparent; cursor: pointer; }
+.calm-line::-webkit-slider-runnable-track { height: 1.5px; border-radius: 1px; background: linear-gradient(90deg, var(--calm-gold) var(--f, 0%), color-mix(in oklab, currentColor 22%, transparent) var(--f, 0%)); }
+.calm-line::-moz-range-track { height: 1.5px; border-radius: 1px; background: linear-gradient(90deg, var(--calm-gold) var(--f, 0%), color-mix(in oklab, currentColor 22%, transparent) var(--f, 0%)); }
+.calm-line::-webkit-slider-thumb { -webkit-appearance: none; width: 9px; height: 9px; margin-top: -3.75px; border-radius: 50%; background: var(--calm-gold); border: 0; box-shadow: 0 0 6px var(--calm-gold); }
+.calm-line::-moz-range-thumb { width: 9px; height: 9px; border-radius: 50%; background: var(--calm-gold); border: 0; box-shadow: 0 0 6px var(--calm-gold); }
+.calm-line:focus-visible { outline: 2px solid var(--calm-gold); outline-offset: 3px; }
 .calm-btn { transition: background-color .3s, color .3s; }
 .calm-btn:hover { background: color-mix(in oklab, currentColor 10%, transparent); color: var(--calm-gold); }
 @media (prefers-reduced-motion: reduce) { .calm-audio.is-playing .calm-wave { animation: none; opacity: 0; } }
@@ -852,6 +859,16 @@
 .portal.is-locked:hover > :not(.portal-img):not(.portal-veil):not(.portal-arch):not(.portal-rays):not(.portal-bottom) { opacity: .85; }
 @keyframes lock-glow { 0%, 100% { filter: drop-shadow(0 0 8px rgb(233 204 142 / .35)); } 50% { filter: drop-shadow(0 0 20px rgb(240 217 164 / .8)); } }
 @media (prefers-reduced-motion: reduce) { .portal, .portal.is-locked .portal-lock { animation: none; } }
+/* El mismo portal en la web, el área y el panel (components/creator-page/tier-portal.tsx): sus propios colores. */
+.tier-portal { color: #f1ebdf; background-color: #0d0c22; }
+.tier-portal-title { color: #f1ebdf; font-weight: 300; letter-spacing: .005em; text-shadow: 0 0 28px rgb(212 181 122 / .18); }
+.tier-portal-intro { color: rgb(241 235 223 / .8); }
+.tier-portal-muted { color: #a7a2c2; }
+.tier-portal-badge { color: #2a1e0c; background: linear-gradient(135deg, #f7e5b8, #c9a45f); }
+.tier-portal-includes, .tier-portal-box { background: rgb(255 255 255 / .05); border: 1px solid rgb(233 204 142 / .22); }
+.tier-portal-ghost { color: #f0d9a4; border: 1px solid rgb(233 204 142 / .5); transition: background-color .3s, border-color .3s; }
+.tier-portal-ghost:hover { background: rgb(233 204 142 / .1); border-color: rgb(240 217 164 / .85); }
+.tier-portal.is-highlight { border-color: rgb(240 217 164 / .75); box-shadow: 0 0 60px -14px rgb(233 204 142 / .5), 0 40px 80px -40px rgb(0 0 0 / .95); }
 
 /* ───────────── Los desplegables de la portada (components/creator-page/home-rows.tsx) ───────────── */
 .cp-emblem {
@@ -860,7 +877,7 @@
   box-shadow: 0 0 0 1px color-mix(in oklab, var(--c-gold) 45%, transparent) inset, 0 8px 24px -12px color-mix(in oklab, var(--c-gold) 70%, transparent);
   transition: transform .5s cubic-bezier(.2,.7,.2,1);
 }
-details[data-section-dropdown]:hover .cp-emblem, details[data-section-dropdown][open] .cp-emblem { transform: rotate(-6deg) scale(1.05); }
+
 .cp-offer-badge { color: var(--c-bg); background: var(--c-gold); box-shadow: 0 4px 12px -4px rgb(0 0 0 / .45); }
 
 /* El adelanto del vídeo o audio de Actualidades (components/creator-page/post-media-gate.tsx). */
@@ -885,12 +902,6 @@ details[data-section-dropdown]:hover .cp-emblem, details[data-section-dropdown][
 .tier-card .cp-emblem { transform: none !important; }
 
 /* El audio del portal en la portada. */
-.portal-audio-icon {
-  color: #2a1e0c;
-  background: radial-gradient(circle at 35% 30%, #fff6dc 0%, #f0d9a4 40%, #c9a45f 85%, #a8833f 100%);
-  box-shadow: 0 0 0 1px rgb(255 241 200 / .6) inset, 0 0 0 10px rgb(255 255 255 / .12), 0 18px 40px -12px rgb(0 0 0 / .7);
-}
-
 /* Las opiniones de la portada. */
 .cp-testimonial { transition: transform .5s cubic-bezier(.2,.7,.2,1); }
 .cp-testimonial:hover { transform: translateY(-3px); }
@@ -1007,7 +1018,7 @@ details[data-section-dropdown]:hover .cp-emblem, details[data-section-dropdown][
 /* Tarjeta como una carta de oráculo: foto con marco dorado, el sistema en vertical, texto, precio y botón. */
 .cp-oracle-card {
   position: relative; isolation: isolate; overflow: hidden;
-  display: flex; flex-direction: column; height: 100%; padding: 1.1rem 1.1rem 1.3rem;
+  display: flex; flex-direction: column; height: 100%; padding: .8rem .8rem 1rem;
   border-radius: 1.6rem; border: 1px solid color-mix(in oklab, var(--c-gold) 55%, transparent);
   background:
     radial-gradient(70% 45% at 50% 62%, color-mix(in oklab, var(--c-gold) 9%, transparent), transparent 70%),
@@ -1018,7 +1029,7 @@ details[data-section-dropdown]:hover .cp-emblem, details[data-section-dropdown][
 }
 .cp-oracle-card:hover { transform: translateY(-4px); box-shadow: inset 0 0 0 5px color-mix(in oklab, var(--c-bg) 90%, transparent), inset 0 0 0 6px color-mix(in oklab, var(--c-gold) 35%, transparent), 0 46px 90px -48px color-mix(in oklab, var(--c-gold) 40%, rgb(0 0 0 / .85)); }
 .cp-oracle-geo { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; color: var(--c-gold); opacity: .13; pointer-events: none; }
-.cp-oracle-top { position: relative; padding-right: 3.7rem; }
+.cp-oracle-top { position: relative; padding-right: 2.9rem; }
 .cp-oracle-photo {
   position: relative; display: block; width: 100%; aspect-ratio: 9 / 16; overflow: hidden; border-radius: 1.1rem;
   border: 1px solid color-mix(in oklab, var(--c-gold) 65%, transparent);
@@ -1027,25 +1038,33 @@ details[data-section-dropdown]:hover .cp-emblem, details[data-section-dropdown][
 .cp-oracle-photo img { transition: transform 1.4s cubic-bezier(.2,.7,.2,1); }
 .cp-oracle-card:hover .cp-oracle-photo img { transform: scale(1.04); }
 /* La columna del sistema va encima, a la derecha de la foto, y nunca la estira: todas las fotos iguales. */
-.cp-oracle-side { position: absolute; top: 0; right: 0; bottom: 0; width: 3.2rem; display: flex; flex-direction: column; align-items: center; overflow: hidden; color: var(--c-gold); }
+.cp-oracle-side { position: absolute; top: 0; right: 0; bottom: 0; width: 2.5rem; display: flex; flex-direction: column; align-items: center; overflow: hidden; color: var(--c-gold); }
 .cp-oracle-dots { width: 1px; flex: 0 0 1.4rem; background: repeating-linear-gradient(to bottom, var(--c-gold) 0 2px, transparent 2px 6px); opacity: .8; }
 .cp-oracle-emblem { display: grid; place-items: center; margin: .35rem 0; color: var(--c-gold); filter: drop-shadow(0 0 10px color-mix(in oklab, var(--c-gold) 55%, transparent)); }
 .cp-oracle-word {
-  margin-top: .9rem; writing-mode: vertical-rl; text-orientation: upright;
-  font-family: var(--font-display); font-weight: 400; font-size: 1.05rem; letter-spacing: .32em; text-transform: uppercase;
+  margin-top: .9rem; writing-mode: vertical-lr; text-orientation: upright;
+  font-family: var(--font-display); font-weight: 400; font-size: .85rem; letter-spacing: .3em; text-transform: uppercase;
   color: color-mix(in oklab, var(--c-text) 88%, var(--c-gold)); max-height: 100%; overflow: hidden;
 }
 .cp-oracle-text {
-  margin-top: 1.15rem; text-align: center; font-family: var(--font-display); font-style: italic; font-weight: 400;
-  font-size: 1.22rem; line-height: 1.4; color: color-mix(in oklab, var(--c-text) 92%, var(--c-gold));
+  margin-top: .9rem; text-align: center; font-family: var(--font-display); font-style: italic; font-weight: 400;
+  font-size: 1.05rem; line-height: 1.4; color: color-mix(in oklab, var(--c-text) 92%, var(--c-gold));
   display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
 }
+.cp-oracle-title {
+  margin-top: .9rem; text-align: center; font-family: var(--font-display); font-weight: 400; font-size: 1.35rem; line-height: 1.12;
+  color: var(--c-text);
+}
+.cp-oracle-title + .cp-oracle-text { margin-top: .35rem; font-size: .95rem; -webkit-line-clamp: 3; }
+/* Varios sistemas: solo sus emblemas, separados por la línea de puntos. */
+.cp-oracle-side[data-many] .cp-oracle-dots { flex: 1 1 .8rem; min-height: .6rem; }
+.cp-oracle-side[data-many] .cp-oracle-emblem { margin: .3rem 0; }
 .cp-oracle-rule { display: flex; align-items: center; gap: .5rem; margin: 1.1rem auto 0; width: 82%; color: var(--c-gold); }
 .cp-oracle-rule::before, .cp-oracle-rule::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--c-gold) 75%, transparent)); }
 .cp-oracle-rule::after { background: linear-gradient(270deg, transparent, color-mix(in oklab, var(--c-gold) 75%, transparent)); }
 .cp-oracle-rule span { font-size: .8rem; text-shadow: 0 0 10px var(--c-gold); }
 .cp-oracle-price {
-  margin: .7rem 0 1.2rem; text-align: center; font-family: var(--font-display); font-style: italic; font-weight: 400; font-size: 2.3rem; line-height: 1;
+  margin: .55rem 0 .9rem; text-align: center; font-family: var(--font-display); font-style: italic; font-weight: 400; font-size: 1.8rem; line-height: 1;
   color: color-mix(in oklab, var(--c-text) 80%, var(--c-gold));
 }
 .cp-oracle-meta { display: block; margin-top: .45rem; font-style: normal; font-family: inherit; font-size: .62rem; letter-spacing: .32em; text-transform: uppercase; color: var(--c-faint); }
@@ -1118,7 +1137,8 @@ details[data-section-dropdown]:hover .cp-emblem, details[data-section-dropdown][
 .cp-oracle-card { cursor: pointer; }
 .cp-oracle-link { position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
 .cp-oracle-link:focus-visible { outline: 2px solid var(--c-gold); outline-offset: -4px; }
-.cp-oracle-card .cp-sacred-btn { z-index: 2; }
+.cp-oracle-card .cp-sacred-btn { z-index: 2; min-height: 2.9rem; padding: 0 .9rem; gap: .5rem; font-size: 1.12rem; }
+.cp-oracle-card .cp-oracle-rule { margin-top: .8rem; }
 
 /* ── Portada de lujo (.cp-luxe): títulos centrados con oro, botones y recuadros con doble borde dorado ── */
 .cp-section-heading { text-align: center; }
@@ -1177,12 +1197,22 @@ details[data-section-dropdown]:hover .cp-emblem, details[data-section-dropdown][
 .cp-moonart-eyebrow { position: relative; font-size: .64rem; font-weight: 600; letter-spacing: .42em; text-transform: uppercase; color: #d9b46a; }
 .cp-moonart-moon { position: relative; width: 78%; max-width: 15rem; margin-top: .6rem; }
 .cp-moonart[data-moon="full"] .cp-moonart-moon { filter: drop-shadow(0 0 30px rgb(246 231 193 / .45)); }
+/* Bloques con «Título dorado» (lib/page-blocks.ts → goldTitle). */
+[data-gold-title] :is(h2, h3, [data-card-title]) { color: var(--c-gold); }
+.cp-moonart[data-eclipse="solar"] .cp-moonart-moon { filter: drop-shadow(0 0 34px rgb(255 214 130 / .55)); }
+.cp-moonart[data-eclipse="lunar"] .cp-moonart-moon { filter: drop-shadow(0 0 30px rgb(214 90 56 / .45)); }
 .cp-moonart-glyph { position: relative; margin-top: .4rem; font-size: 2.6rem; line-height: 1; color: #d9b46a; text-shadow: 0 0 18px rgb(217 180 106 / .55); font-variant-emoji: text; }
 .cp-moonart-sign { position: relative; margin-top: .5rem; font-family: var(--font-display); font-size: 1.05rem; letter-spacing: .45em; text-transform: uppercase; padding-left: .45em; }
 .cp-moonart-rule { position: relative; display: flex; align-items: center; gap: .5rem; width: 60%; margin: .9rem auto 0; color: #d9b46a; }
 .cp-moonart-rule span { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #d9b46a); }
 .cp-moonart-rule span:last-child { background: linear-gradient(270deg, transparent, #d9b46a); }
 .cp-moonart-rule i { font-style: normal; font-size: .6rem; }
+/* En pequeño (la tarjeta del feed de la membresía): solo la luna, el signo y su nombre. */
+.cp-moonart[data-compact] { padding: .8rem .5rem; }
+.cp-moonart[data-compact] :is(.cp-moonart-eyebrow, .cp-moonart-rule, .cp-moonart-phrase) { display: none; }
+.cp-moonart[data-compact] .cp-moonart-moon { width: auto; height: 58%; max-width: 90%; margin-top: 0; }
+.cp-moonart[data-compact] .cp-moonart-glyph { font-size: 1.7rem; }
+.cp-moonart[data-compact] .cp-moonart-sign { font-size: .62rem; letter-spacing: .3em; padding-left: .3em; }
 .cp-moonart-phrase { position: relative; margin-top: .9rem; max-width: 16rem; font-family: var(--font-display); font-style: italic; font-size: 1.08rem; line-height: 1.45; color: rgb(243 234 214 / .88); }
 
 /* Código de descuento: el código con el icono de copiar dentro, a la derecha. */
@@ -1206,6 +1236,16 @@ details[data-section-dropdown]:hover .cp-emblem, details[data-section-dropdown][
 .cp-uno-steps > li:last-child { padding-bottom: .2rem; }
 .cp-uno-steps > li + li { border-top: 1px solid color-mix(in oklab, var(--c-gold) 16%, transparent); }
 .cp-uno-gift { display: flex; flex-direction: column; align-items: center; }
+/* Gifts: la foto alta con un marco dorado fino, que se acerca un poco al pasar por encima. */
+.cp-gift-photo { overflow: hidden; border-radius: calc(var(--r-card) * .8); box-shadow: 0 0 0 1px color-mix(in oklab, var(--c-gold) 45%, transparent), 0 30px 60px -34px rgb(0 0 0 / .75); }
+.cp-gift-photo img { transition: transform 1.2s cubic-bezier(.2,.7,.2,1); }
+.group:hover .cp-gift-photo img { transform: scale(1.045); }
+.cp-gift-cta {
+  display: inline-flex; align-items: center; gap: .45rem; padding: .55rem 1.25rem; border-radius: 999px;
+  font-size: .72rem; font-weight: 600; letter-spacing: .24em; text-transform: uppercase; color: var(--c-gold);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--c-gold) 55%, transparent) inset; transition: background-color .3s, color .3s;
+}
+.group:hover .cp-gift-cta { background: var(--c-gold); color: var(--c-bg); }
 .cp-uno-quote { position: relative; }
 .cp-uno-quote-mark {
   display: block; font-family: var(--font-display); font-size: 5.5rem; line-height: .6; height: 2.6rem;
@@ -1590,6 +1630,40 @@ button.acc-clike:hover { color: #f2a097; }
 .panel-night [data-stat][data-accent]:not(.cp *) { border-color: rgb(217 191 140 / .75); color: #f3ecdd; box-shadow: inset 0 0 0 4px rgb(19 17 44 / .9), inset 0 0 0 5px rgb(212 181 122 / .4), 0 0 40px -18px rgb(212 181 122 / .5); }
 .panel-night .stat-value { font-weight: 400; }
 
+/* Los contadores de arriba (CounterCard, app/panel/ui.tsx): tarjetas con doble línea dorada. */
+.counter-card {
+  position: relative; border-radius: 1.4rem; border: 1px solid rgb(200 168 110 / .4);
+  background: radial-gradient(80% 70% at 0% 0%, rgb(200 168 110 / .1), transparent 70%), #fff;
+  box-shadow: inset 0 0 0 4px #fff, inset 0 0 0 5px rgb(200 168 110 / .2), 0 18px 40px -30px rgb(60 40 10 / .45);
+  transition: border-color .3s, box-shadow .3s, transform .3s cubic-bezier(.2,.7,.2,1);
+}
+a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 110 / .75); }
+.counter-card::after {
+  content: "✦"; position: absolute; left: 50%; bottom: -.45rem; transform: translateX(-50%);
+  font-size: .6rem; color: #c8a86e; opacity: 0; transition: opacity .3s; text-shadow: 0 0 12px rgb(212 181 122 / .7);
+}
+.counter-card[data-on] { border-color: #b8924a; box-shadow: inset 0 0 0 4px #fff, inset 0 0 0 5px rgb(200 168 110 / .5), 0 22px 46px -26px rgb(150 110 40 / .55); }
+.counter-card[data-on]::after { opacity: 1; }
+.counter-num { font-family: var(--font-serif); font-weight: 500; font-size: 2.3rem; line-height: .9; font-variant-numeric: tabular-nums; color: var(--color-ink); }
+.counter-card[data-alert] .counter-num { color: #a8761d; }
+.counter-card[data-zero] .counter-num { opacity: .35; }
+.counter-label { margin-top: .8rem; font-family: var(--font-serif); font-style: italic; font-size: 1.18rem; line-height: 1.15; }
+.counter-hint { margin-top: .15rem; font-size: .75rem; color: var(--color-muted); }
+.panel-night .counter-card {
+  border-color: rgb(217 191 140 / .35);
+  background: radial-gradient(80% 70% at 0% 0%, rgb(212 181 122 / .09), transparent 70%), rgb(22 19 48 / .9);
+  box-shadow: inset 0 0 0 4px rgb(19 17 44 / .9), inset 0 0 0 5px rgb(212 181 122 / .14);
+}
+.panel-night a.counter-card:hover { border-color: rgb(217 191 140 / .7); }
+.panel-night .counter-card[data-on] { border-color: rgb(217 191 140 / .85); box-shadow: inset 0 0 0 4px rgb(19 17 44 / .9), inset 0 0 0 5px rgb(212 181 122 / .45), 0 0 40px -16px rgb(212 181 122 / .55); }
+.panel-night .counter-num { color: #ecd3a0; }
+.panel-night .counter-card[data-alert] .counter-num { color: #f6c46e; }
+.panel-night .counter-label { color: #f1e3c2; }
+
+/* Cada persona con su color (PersonDot): se reconoce de un vistazo en Solicitudes e Inscripciones. */
+.person-dot { color: hsl(var(--h) 45% 28%); background: hsl(var(--h) 55% 88%); box-shadow: 0 0 0 1px hsl(var(--h) 40% 60% / .55); }
+.panel-night .person-dot { color: hsl(var(--h) 70% 86%); background: hsl(var(--h) 35% 26% / .85); box-shadow: 0 0 0 1px hsl(var(--h) 55% 70% / .55), 0 0 18px -6px hsl(var(--h) 60% 60% / .6); }
+
 /* Tablas y separadores en oro suave. */
 .panel-night main table:not(.cp *) thead th { color: #d9bf8c; font-weight: 500; letter-spacing: .08em; }
 
@@ -1670,6 +1744,20 @@ button.acc-clike:hover { color: #f2a097; }
 }
 .com-tier[aria-current="true"] .com-tier-name { color: #ecd3a0; font-style: italic; }
 .com-tier-all { min-height: 7.2rem; }
+/* «¿Para qué membresía?» del compositor: la elegida bien marcada, las demás en segundo plano. */
+.com-tiers.is-picker .com-tier { cursor: pointer; transition: border-color .3s, color .3s, box-shadow .3s, transform .3s, opacity .3s; }
+.com-tiers.is-picker .com-tier:not(.is-picked) { opacity: .55; }
+.com-tiers.is-picker .com-tier:not(.is-picked):hover { opacity: .9; }
+.com-tier.is-picked {
+  border-color: #e9cc8e; transform: translateY(-3px);
+  background: radial-gradient(90% 90% at 50% 0%, rgb(233 204 142 / .26), transparent 72%), #14122e;
+  box-shadow: inset 0 0 0 4px #14122e, inset 0 0 0 5px rgb(233 204 142 / .6), 0 0 50px -10px rgb(233 204 142 / .75);
+}
+.com-tier.is-picked .com-tier-name { color: #f7e5b8; font-style: italic; }
+.com-tier.is-picked .com-tier-meta { color: #d4b57a; }
+/* Las carpetas de «Publicar y programar». */
+.com-folder { display: flex; align-items: center; gap: 1rem; min-height: 6rem; padding: 1.1rem 1.3rem; border-radius: 1.5rem; text-align: left; border: 1px solid rgb(217 191 140 / .3); background: radial-gradient(80% 120% at 0% 0%, rgb(217 191 140 / .1), transparent 60%), rgb(19 17 44 / .75); transition: border-color .25s, box-shadow .25s, transform .25s; }
+.com-folder:hover { border-color: rgb(233 204 142 / .75); box-shadow: 0 0 40px -14px rgb(233 204 142 / .6); transform: translateY(-2px); }
 @media (max-width: 640px) {
   .com-tiers { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .com-tier { min-height: 5.6rem; }
@@ -1728,3 +1816,62 @@ button.acc-clike:hover { color: #f2a097; }
 }
 :is(.acc-root, .panel-night) .pill-fav { min-height: 2.25rem; font-family: var(--font-display); font-style: italic; font-weight: 400; font-size: .92rem; }
 :is(.acc-root, .panel-night) [data-card-community] { border-top-color: rgb(217 191 140 / .2); }
+
+/* ───────────── Estudio de lecturas, sesiones y círculos: el editor de «Qué incluye» ─────────────
+   Va dentro del panel dorado de la ficha: sin blancos, con el texto claro de la web y la barra de
+   formato en cristal de noche (antes salía casi blanco y no se veía lo que se escribía). */
+.studio-rte .rte > div:first-child,
+.studio-rte .bg-white\/95,
+.studio-rte .bg-white\/60,
+.studio-rte .bg-cream\/60 {
+  background: color-mix(in oklab, var(--c-bg) 82%, transparent) !important;
+  backdrop-filter: blur(8px);
+}
+.studio-rte .input,
+.studio-rte textarea {
+  background: color-mix(in oklab, var(--c-bg) 55%, transparent) !important;
+  color: var(--c-text) !important;
+  caret-color: var(--c-gold);
+}
+.studio-rte .input::placeholder,
+.studio-rte textarea::placeholder { color: color-mix(in oklab, var(--c-text) 40%, transparent) !important; }
+.studio-rte .border-line,
+.studio-rte .input { border-color: color-mix(in oklab, var(--c-gold) 28%, transparent) !important; }
+.studio-rte .input:focus { border-color: color-mix(in oklab, var(--c-gold) 70%, transparent) !important; box-shadow: 0 0 0 3px color-mix(in oklab, var(--c-gold) 14%, transparent) !important; }
+.studio-rte .text-ink,
+.studio-rte .text-ink\/80,
+.studio-rte .text-ink\/85 { color: var(--c-text) !important; }
+.studio-rte .text-muted { color: var(--c-muted) !important; }
+.studio-rte .text-\[\#7a5a1c\] { color: var(--c-gold) !important; }
+.studio-rte button:hover { background: color-mix(in oklab, var(--c-gold) 14%, transparent) !important; color: var(--c-gold) !important; }
+/* Que la caja crezca con lo escrito (sin barra de formato encima del texto ni scroll escondido). */
+.studio-rte .rte > div:first-child { position: static !important; }
+.studio-rte textarea { height: auto !important; field-sizing: content; overflow-y: auto !important; min-height: 14rem !important; }
+/* Editor de Páginas sobre la web (components/panel/blocks/inline-blocks.tsx): el texto de cada bloque, más bajo. */
+.page-rte textarea { min-height: 5rem !important; }
+
+/* ───────────── El email escrito encima (components/email-editor/inline-email-editor.tsx) ───────────── */
+/* Los colores del email (noche y oro), también para el editor de texto (.studio-rte). */
+.mail-canvas { --c-text: #E8DFCB; --c-gold: #D9BF8C; --c-muted: #A99FC2; color: #E8DFCB; background: #0D0B24; }
+.mail-sky {
+  background:
+    radial-gradient(1px 1px at 12% 18%, rgb(217 191 140 / .55), transparent 60%),
+    radial-gradient(1px 1px at 78% 9%, rgb(217 191 140 / .45), transparent 60%),
+    radial-gradient(1.4px 1.4px at 88% 64%, rgb(217 191 140 / .4), transparent 60%),
+    radial-gradient(1px 1px at 6% 82%, rgb(217 191 140 / .45), transparent 60%),
+    radial-gradient(60% 40% at 50% 0%, rgb(217 191 140 / .08), transparent 70%),
+    #0D0B24;
+}
+.mail-rte textarea { font-size: 15px !important; line-height: 1.7 !important; min-height: 4.5rem !important; }
+.mail-canvas .chip { color: #D9BF8C; }
+
+/* ───────────── Automatizaciones (app/panel/automatizaciones/page.tsx) ───────────── */
+.auto-card { position: relative; transition: border-color .2s, box-shadow .2s; }
+.auto-card-on { border-color: rgb(217 191 140 / .35); }
+.auto-card-on:hover { box-shadow: 0 0 0 1px rgb(217 191 140 / .35), 0 18px 40px -24px rgb(217 191 140 / .35); }
+.auto-icon {
+  display: inline-flex; height: 2.75rem; width: 2.75rem; flex-shrink: 0; align-items: center; justify-content: center;
+  border-radius: 999px; border: 1px solid rgb(217 191 140 / .45); color: #D9BF8C;
+  background: radial-gradient(circle at 50% 30%, rgb(217 191 140 / .16), transparent 70%);
+}
+.auto-card:not(.auto-card-on) .auto-icon { opacity: .55; }

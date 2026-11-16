@@ -23,6 +23,8 @@ import { FlowerOfLife, SacredButton } from "./sacred-button";
 import { TestimonialsRotator } from "./testimonials-rotator";
 import { MoonCircleArt } from "./moon-circle-art";
 import type { MoonCircleSky } from "@/lib/moon-circle-sky";
+import { readPageTexts, studioKindOf } from "@/lib/product-texts";
+import { perkIcon } from "./perk-icons";
 
 /** La raya dorada con la estrellita en medio. */
 function GoldStar({ className = "" }: { className?: string }) {
@@ -49,6 +51,8 @@ export type ProductPageProduct = ProductViewSource & {
   includes: { id: string; title: string; slug: string; status: string; lessons: number }[];
   /** Membresía: las últimas publicaciones ya visibles. */
   posts: { id: string; title: string; publishedAt: Date }[];
+  /** Lecturas, sesiones y círculos: sus frases y pasos propios (lib/product-texts.ts). */
+  pageTexts?: unknown;
 };
 
 export type ProductPageViewProps = {
@@ -68,7 +72,7 @@ export type ProductPageViewProps = {
   claim: { legalComplete: boolean; isOwner: boolean; responsible: string; processorName: string | null; creatorDisplayName: string; demo: boolean };
   /** Clic en el botón para las métricas (null para la dueña y en la vista previa). */
   clickEvent: { creatorId: string; type: "PRODUCT_CLICK"; productId: string } | null;
-  /** Círculo de la luna: su luna (nueva o llena), el signo y la frase, en lugar de la foto. */
+  /** Círculo de la luna: su luna (nueva, llena o eclipse), el signo y la frase, en lugar de la foto. */
   moonSky?: MoonCircleSky | null;
   now?: Date;
 };
@@ -129,7 +133,7 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
   const full = seatsLeft === 0;
   const videoText = meetingProvider(p.meetingUrl) === "zoom" ? "Por Zoom" : "Por videollamada";
   const externalPerk = externalSite ? [{ icon: ExternalLink, text: `${type === "SESSION" ? "Reserva y pago" : "Pago"} en ${externalSite}` }] : [];
-  const perks: { icon: typeof Zap; text: string }[] =
+  const basePerks: { icon: typeof Zap; text: string }[] =
     type === "DIGITAL"
       ? personal
         ? [{ icon: Mail, text: "Te la envío por email" }, { icon: Sparkles, text: "Preparada personalmente para ti" }, { icon: Heart, text: "Antes lo hablamos con calma" }, ...externalPerk]
@@ -164,6 +168,18 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
             : external
               ? [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, ...externalPerk]
               : [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, { icon: Mail, text: "Lo hablamos por email" }, { icon: Lock, text: "Acceso privado" }];
+  // Lo que la dueña ha escrito en su estudio (si no, lo de siempre).
+  const studioKind = studioKindOf(p);
+  const own = studioKind ? readPageTexts(p.pageTexts, studioKind) : { perks: null, icons: null, steps: null, cardCta: null };
+  const ownIcon = (i: number, fallback: typeof Zap) => perkIcon(own.icons?.[i], fallback);
+  const perks: { icon: typeof Zap; text: string }[] =
+    own.perks && studioKind === "reading"
+      ? own.perks.map((text, i) => ({ icon: ownIcon(i, [Mail, Sparkles, Heart][i]), text }))
+      : own.perks && studioKind === "session"
+        ? [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, ...own.perks.map((text, i) => ({ icon: ownIcon(i, [Video, CalendarDays, Mail][i]), text }))]
+        : own.perks && studioKind === "circle"
+          ? [basePerks[0], { icon: ownIcon(0, Video), text: own.perks[0] }, ...basePerks.slice(2).filter((k) => k.icon === Users)]
+          : basePerks;
   // Información previa sobre el desistimiento (talleres sin él, membresías con reembolso proporcional).
   const withdrawalInfo = withdrawalInfoLine(waiverKindFor(type, p.deliveryMode, { groupSession: p.groupSession }));
   const buttonClass = "cp-btn mt-6 !hidden w-full md:!flex"; // «!»: .cp-btn (fuera de capa) pisaba «hidden» y en el móvil salía el botón doble
@@ -227,8 +243,8 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
               )}
               {p.summary && <p className="cp-muted cp-thin-text mt-4 text-[1.05rem] leading-relaxed">{p.summary}</p>}
               <ul className="cp-show-perks mt-6">
-                {perks.map((k) => (
-                  <li key={k.text}>
+                {perks.map((k, ki) => (
+                  <li key={ki}>
                     <k.icon className="h-[1.1rem] w-[1.1rem]" strokeWidth={1.4} />
                     {k.text}
                   </li>
@@ -241,8 +257,8 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
               )}
               <div className="mt-5 flex items-end justify-between gap-4">
               <ol className="grid gap-1.5">
-                {["Me escribes", "Te respondo por email", type === "SESSION" ? "Lo cerramos y te envío el enlace" : type === "COURSE" ? "Lo cerramos y te abro el curso" : "Lo cerramos y te lo envío"].map((s, i) => (
-                  <li key={s} className="flex items-baseline gap-3 text-[0.9rem]">
+                {(own.steps ?? ["Me escribes", "Te respondo por email", type === "SESSION" ? "Lo cerramos y te envío el enlace" : type === "COURSE" ? "Lo cerramos y te abro el curso" : "Lo cerramos y te lo envío"]).map((s, i) => (
+                  <li key={i} className="flex items-baseline gap-3 text-[0.9rem]">
                     <span className="cp-roman !w-6 !text-[1.05rem]">{["I", "II", "III"][i]}</span>
                     <span className="cp-thin-text cp-muted">{s}</span>
                   </li>
@@ -341,8 +357,8 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
           )}
 
           <ul className="mt-7 grid gap-2.5">
-            {perks.map((k) => (
-              <li key={k.text} className="flex items-center gap-3 text-sm">
+            {perks.map((k, ki) => (
+              <li key={ki} className="flex items-center gap-3 text-sm">
                 <span className="grid h-8 w-8 place-items-center rounded-full border" style={{ borderColor: "var(--c-line)" }}>
                   <k.icon className="cp-gold h-4 w-4" />
                 </span>

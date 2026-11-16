@@ -48,7 +48,7 @@ export async function processPostNotifications(o: { postId?: string; budget?: nu
     let cursor = post.notifyCursor;
     const creator = post.product.creator;
     const path = postPath(post.productId, post.id);
-    const excerpt = truncateWords(richToPlain(post.body, post.bodyFormat), 320);
+    const excerpt = post.summary?.trim() || truncateWords(richToPlain(post.body, post.bodyFormat), 320);
     const attachments = attachmentSentence(post.files);
     while (budget > 0) {
       const take = Math.min(PAGE, budget);

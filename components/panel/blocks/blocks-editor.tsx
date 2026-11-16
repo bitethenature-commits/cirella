@@ -61,7 +61,10 @@ export function BlocksEditor({
   max,
   onUploadingChange,
   oracleDecks = [],
+  single = false,
 }: {
+  /** Solo los campos de un bloque (los «Ajustes» del editor sobre la web): sin cabecera ni «Añadir». */
+  single?: boolean;
   blocks: ContentBlock[];
   onChange: (next: BlocksUpdate) => void;
   /** Web personal: también se pueden subir vídeos (en la plataforma, solo enlace). */
@@ -158,7 +161,8 @@ export function BlocksEditor({
       {blocks.map((b, i) => {
         const Icon = ICON[b.kind];
         return (
-          <div key={b.id} data-block-editor={b.kind} className={`space-y-3 rounded-xl border p-3 ${b.enabled ? "border-line bg-white" : "border-dashed border-line bg-paper"}`}>
+          <div key={b.id} data-block-editor={b.kind} className={single ? "space-y-3" : `space-y-3 rounded-xl border p-3 ${b.enabled ? "border-line bg-white" : "border-dashed border-line bg-paper"}`}>
+            {!single && (
             <div className="flex items-center gap-1.5 text-xs">
               <span className="inline-flex items-center gap-1.5 font-semibold text-muted">
                 <Icon className="h-4 w-4" /> {BLOCK_LABEL[b.kind]}
@@ -176,6 +180,7 @@ export function BlocksEditor({
               <button type="button" disabled={i === blocks.length - 1} onClick={() => move(i, 1)} className="grid h-10 w-10 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20 sm:h-8 sm:w-8" aria-label="Bajar bloque"><ArrowDown className="h-4 w-4" /></button>
               <button type="button" onClick={() => onChange((prev) => prev.filter((x) => x.id !== b.id))} className="grid h-10 w-10 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose sm:h-8 sm:w-8" aria-label="Eliminar bloque"><Trash2 className="h-4 w-4" /></button>
             </div>
+            )}
 
             {b.kind === "text" && <TextBlockFields block={b} bodyMax={bodyMax} linkTargets={linkTargets} onPatch={(p) => update<TextBlock>(b.id, (x) => ({ ...x, ...p }))} />}
             {b.kind === "image" && (
@@ -202,6 +207,7 @@ export function BlocksEditor({
         );
       })}
 
+      {!single && (
       <div className="grid grid-cols-2 gap-2 pt-1">
         <button type="button" onClick={() => add("text")} disabled={full} className="btn btn-outline h-11 text-sm">
           <Plus className="h-4 w-4" /> Añadir bloque de texto
@@ -237,7 +243,8 @@ export function BlocksEditor({
           <Orbit className="h-4 w-4" /> Añadir modelo interactivo
         </button>
       </div>
-      {full && <p className="text-xs text-muted">Máximo {max} bloques</p>}
+      )}
+      {!single && full && <p className="text-xs text-muted">Máximo {max} bloques</p>}
 
       {/* Selectores de «Añadir imagen» y «Añadir galería»: el bloque nace con el archivo elegido. */}
       <input

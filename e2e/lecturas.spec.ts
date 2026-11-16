@@ -153,7 +153,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
 
   test("Cirella ve la reserva con sus datos, cambia el enlace de Zoom y le avisa", async ({ page }) => {
     await demoLogin(page, "Cirella");
-    await page.goto("/panel/reservas");
+    await page.goto("/panel/solicitudes");
     const card = page.locator(".card", { hasText: "Lucía Bogotá" }).first();
     await expect(card.getByText("Datos ✓")).toBeVisible();
     await expect(card.getByText(/para ella, .*en Bogotá/i)).toBeVisible();
@@ -173,7 +173,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     // A partir del día 15: antes, una sesión que se paga en la web no ofrece huecos (lib/withdrawal.ts).
     const day = await freeWorkday(16);
     await demoLogin(page, "Cirella");
-    await page.goto("/panel/reservas/horario");
+    await page.goto("/panel/solicitudes/horario");
     await page.getByLabel("Desde", { exact: true }).fill(day);
     await page.getByLabel("Desde las").fill("09:00");
     await page.getByLabel("Hasta las").fill("11:00");
@@ -203,7 +203,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
   test("«Dar una sesión o lectura»: regalo a otra hora; ella completa sus datos y Cirella recibe el aviso", async ({ page, browser }) => {
     const day = await freeWorkday(6);
     await demoLogin(page, "Cirella");
-    await page.goto("/panel/reservas");
+    await page.goto("/panel/solicitudes");
     await page.getByRole("link", { name: /Dar una sesión o lectura/ }).click();
     await page.getByLabel("Email", { exact: true }).fill(buyer("regalo"));
     await page.getByLabel("Nombre", { exact: true }).fill("Marta Regalo");
@@ -250,7 +250,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     await buyerPage.waitForURL("**/ana/gracias**");
 
     await demoLogin(page, "Cirella");
-    await page.goto("/panel/reservas");
+    await page.goto("/panel/solicitudes");
     await page.locator("section", { has: page.getByRole("heading", { name: "Lecturas por entregar" }) }).getByRole("link", { name: /Inés Lectura/ }).click();
     await page.waitForURL(/\/panel\/ventas\/[^/?#]+/);
     await expect(page.getByRole("heading", { name: "Entrega para Inés" })).toBeVisible();

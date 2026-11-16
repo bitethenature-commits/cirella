@@ -12,7 +12,8 @@ import { ownerUsername } from "@/lib/site-mode";
 import { formatDate } from "@/lib/tz";
 import { freeMemberships } from "../free-memberships";
 import { Thumb } from "../ui";
-import { SpinningSolid } from "../spinning-solid";
+import { TierPortal } from "@/components/creator-page/tier-portal";
+import { readTierCard } from "@/lib/tier-card";
 import { Ornament, SacredFlower } from "./vip";
 
 /**
@@ -34,7 +35,7 @@ export default async function MyMemberships() {
       });
   const tiers = creator ? (await communityTiers(creator.id)).filter((t) => t.status === "PUBLISHED") : [];
   const details = tiers.length
-    ? await prisma.product.findMany({ where: { id: { in: tiers.map((t) => t.id) } }, select: { id: true, slug: true, summary: true, imageUrl: true, priceCents: true, currency: true, billingInterval: true } })
+    ? await prisma.product.findMany({ where: { id: { in: tiers.map((t) => t.id) } }, select: { id: true, slug: true, summary: true, imageUrl: true, priceCents: true, currency: true, billingInterval: true, pageTexts: true } })
     : [];
   const isOwner = !!creator && user.creator?.id === creator.id;
 
@@ -59,7 +60,10 @@ export default async function MyMemberships() {
           : via
             ? `Por estar en «${via.via.title}»`
             : formatPrice(d.priceCents, d.currency, d.billingInterval);
-    return { t, d, open, note, href: open ? `/cuenta/membresias/${t.id}` : `/${creator!.username}/${d.slug}` };
+    // La frase del portal: la que dejó en su panel (Comunidad → Cartas) o, si no, el resumen.
+    const own = readTierCard(d.pageTexts);
+    const phrase = own ? own.area : d.summary;
+    return { t, d, open, note, phrase, href: open ? `/cuenta/membresias/${t.id}` : `/${creator!.username}/${d.slug}` };
   });
 
   // Membresías de otras creadoras (modo plataforma): en una lista sencilla debajo.
@@ -82,32 +86,19 @@ export default async function MyMemberships() {
 
       {portals.length > 0 && (
         <div className="mt-10 grid gap-6 md:grid-cols-3 md:gap-5 lg:-mx-10 lg:gap-7" data-portals>
-          {portals.map(({ t, d, open, note, href }, i) => (
-            <Link
+          {portals.map(({ t, d, open, note, phrase, href }, i) => (
+            <TierPortal
               key={t.id}
               href={href}
-              className={`portal group relative isolate flex min-h-[26rem] flex-col items-center overflow-hidden rounded-b-[2rem] rounded-t-[999px] px-6 pb-7 pt-16 text-center md:min-h-[34rem] ${open ? "is-open" : "is-locked"}`}
+              open={open}
+              level={i}
+              image={d.imageUrl}
+              title={t.title}
+              intro={phrase}
               style={{ animationDelay: `${i * 0.15}s` }}
-              data-portal={open ? "open" : "locked"}
-              aria-label={open ? `Entrar en ${t.title}` : `${t.title}: descubre cómo unirte`}
-            >
-              {d.imageUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={d.imageUrl} alt="" className="portal-img absolute inset-0 -z-20 h-full w-full object-cover" />
-              )}
-              <span aria-hidden className="portal-veil absolute inset-0 -z-10" />
-              <span aria-hidden className="portal-arch pointer-events-none absolute inset-3 rounded-b-[1.6rem] rounded-t-[999px]" />
-              <span aria-hidden className="portal-rays pointer-events-none absolute inset-0 -z-10" />
-
-              <span className="portal-emblem grid h-16 w-16 place-items-center rounded-full text-gold" aria-hidden>
-                <SpinningSolid level={i} offset={i * 1.3} className="plat-glow h-11 w-11" />
-              </span>
-              <p className="mt-5 text-[0.6rem] font-semibold uppercase tracking-[0.32em] text-gold/90">Nivel {["I", "II", "III", "IV", "V"][i] ?? i + 1}</p>
-              <h2 className="vip-gold display mt-2 text-[2.4rem] leading-none md:text-[2.7rem]">{t.title}</h2>
-              <span aria-hidden className="mt-4 h-px w-16 bg-gradient-to-r from-transparent via-gold/70 to-transparent" />
-              {d.summary && <p className="mt-4 max-w-[17rem] font-serif text-[1.02rem] leading-relaxed text-ink/80">{d.summary}</p>}
-
-              <div className="portal-bottom mt-auto flex flex-col items-center pt-6">
+              ariaLabel={open ? `Entrar en ${t.title}` : `${t.title}: descubre cómo unirte`}
+              bottom={
+                <>
                 {open ? (
                   <span className="portal-cta inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold">✦ Entrar al portal</span>
                 ) : (
@@ -116,9 +107,10 @@ export default async function MyMemberships() {
                     <span className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-full border border-gold/40 px-4 text-[0.8rem] font-semibold text-gold">Descubrir este portal</span>
                   </>
                 )}
-                <p className="mt-3 text-xs text-muted">{note}</p>
-              </div>
-            </Link>
+                <p className="mt-3 text-xs text-[#a7a2c2]">{note}</p>
+                </>
+              }
+            />
           ))}
         </div>
       )}
