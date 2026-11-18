@@ -21,7 +21,6 @@ import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
 import { resolveTheme, themeStyle } from "@/lib/templates";
 import { BOOKING_STATUS_LABEL } from "@/lib/types";
 import { capitalize, formatDate, sessionWhen } from "@/lib/tz";
-import { LunaIcon } from "../icons";
 import { MethodTag } from "../ui";
 
 type Booking = Awaited<ReturnType<typeof getCustomerLibrary>>["upcoming"][number];
@@ -169,15 +168,7 @@ export default async function MySessions() {
   return (
     // data-course-night: la página se ve de noche, como los cursos (app/globals.css, «Los cursos, de noche»).
     <div className="space-y-14" data-course-night>
-      <header className="text-center">
-        <span aria-hidden className="acc-emblem">
-          <LunaIcon className="h-9 w-9" />
-        </span>
-        <p className="text-[0.66rem] font-semibold uppercase tracking-[0.28em] text-gold">✦ Tu camino con la luna ✦</p>
-        <h1 className="display mt-2 text-[2.8rem] leading-none sm:text-[3.4rem]">{personal ? "Círculos y lecturas" : "Mis sesiones"}</h1>
-        <p className="mx-auto mt-3 max-w-md text-sm text-muted">Los círculos de la luna a los que vas, tus sesiones y tus lecturas, cada cosa en su sitio.</p>
-        <Divider />
-      </header>
+      <h1 className="sr-only">{personal ? "Círculos y lecturas" : "Mis sesiones"}</h1>
 
       <Block
         id="circulos"
@@ -299,17 +290,6 @@ const TONE = {
   session: { badge: "bg-[#8f7cc8]/20 text-[#cdbff5] ring-1 ring-[#8f7cc8]/45", border: "border-l-[#a08fe0]" },
   circle: { badge: "bg-[#e9cc8e]/10 text-[#f3ecdd] ring-1 ring-gold/40", border: "border-l-gold" },
 } as const;
-
-/** Un filete dorado con una estrella: separa el título de los bloques. */
-function Divider() {
-  return (
-    <div aria-hidden className="mx-auto mt-6 flex max-w-xs items-center gap-3 text-gold/70">
-      <span className="h-px flex-1 bg-gradient-to-r from-transparent to-gold/50" />
-      <span className="text-xs">✦</span>
-      <span className="h-px flex-1 bg-gradient-to-l from-transparent to-gold/50" />
-    </div>
-  );
-}
 
 function Block({
   id,

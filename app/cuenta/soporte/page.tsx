@@ -12,7 +12,6 @@ import { formatMoney } from "@/lib/money";
 import { orderRef } from "@/lib/order-ref";
 import { formatDate } from "@/lib/tz";
 import { TicketButton, type TicketData } from "./ticket";
-import { Settings } from "lucide-react";
 import { PageHeader } from "./../page-header";
 import { ProfileContent } from "../perfil/content";
 
@@ -69,8 +68,8 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
   };
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader icon={<Settings className="h-8 w-8" strokeWidth={1.3} />} eyebrow="Tu cuenta" title="Ajustes" />
-      <div className="mt-10">
+      <PageHeader title="Ajustes" />
+      <div>
         <ProfileContent sp={sp} />
       </div>
       <section id="soporte" aria-labelledby="soporte-t" className="mt-16 scroll-mt-32">

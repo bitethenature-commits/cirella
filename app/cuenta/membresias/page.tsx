@@ -14,7 +14,6 @@ import { freeMemberships } from "../free-memberships";
 import { Thumb } from "../ui";
 import { TierPortal } from "@/components/creator-page/tier-portal";
 import { readTierCard } from "@/lib/tier-card";
-import { Ornament, SacredFlower } from "./vip";
 
 /**
  * «Mis membresías»: los niveles de la comunidad como tres portales (Esencia, Plena, Luna completa). Los que
@@ -76,16 +75,10 @@ export default async function MyMemberships() {
 
   return (
     <div>
-      <header className="relative text-center">
-        <SacredFlower className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[20rem] w-[20rem] -translate-x-1/2 -translate-y-1/2 opacity-20" />
-        <p className="text-[0.66rem] font-semibold uppercase tracking-[0.3em] text-gold">✦ Tu comunidad ✦</p>
-        <h1 className="vip-gold display mt-2 text-[2.8rem] leading-none sm:text-[3.6rem]">Mis membresías</h1>
-        <p className="mx-auto mt-3 max-w-md text-sm text-muted">Tres portales, tres maneras de vivir el camino. Cruza el que es tuyo.</p>
-        <Ornament className="mt-6" />
-      </header>
+      <h1 className="sr-only">Mis membresías</h1>
 
       {portals.length > 0 && (
-        <div className="mt-10 grid gap-6 md:grid-cols-3 md:gap-5 lg:-mx-10 lg:gap-7" data-portals>
+        <div className="grid gap-6 md:grid-cols-3 md:gap-5 lg:-mx-10 lg:gap-7" data-portals>
           {portals.map(({ t, d, open, note, phrase, href }, i) => (
             <TierPortal
               key={t.id}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ComponentType, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { ArrowUpRight, BookOpenText, Download, Eye, FileImage, FileText, GraduationCap, Headphones, Heart, MessageCircle, Star, Video, X } from "lucide-react";
 import { seeComments } from "./actions";
 
@@ -186,7 +187,8 @@ export function Desktop({ folders, initial, owner }: { folders: DeskFolder[]; in
         </div>
       </section>
 
-      {current && (
+      {/* En <body>, fuera de la página: así ninguna barra de arriba la tapa (la página tiene su propia capa). */}
+      {current && typeof document !== "undefined" && createPortal(
         <div className="acc-win-layer" data-closing={closing ? "true" : undefined} style={style}>
           <button type="button" className="acc-win-backdrop" aria-label="Cerrar la ventana" tabIndex={-1} onClick={close} />
           <div role="dialog" aria-modal="true" aria-labelledby="acc-win-title" className="acc-win" data-max={max ? "true" : undefined} data-origin={origin ? "folder" : "center"}>
@@ -212,7 +214,8 @@ export function Desktop({ folders, initial, owner }: { folders: DeskFolder[]; in
               </footer>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

@@ -15,7 +15,7 @@ import { PageHeader } from "../page-header";
 /**
  * «Mis cursos», como la página de cursos de la web: los cursos por método en desplegables. Arriba los
  * suyos (con su progreso); abajo, los demás cursos de la creadora, con un candado y el enlace a su página.
- * El área de alumna empieza aquí (/cuenta lleva a esta página; ?bienvenida=1 enseña la bienvenida).
+ * En la web personal el área empieza en «Mi energía»; si no, aquí (/cuenta lleva a esta página; ?bienvenida=1 enseña la bienvenida).
  */
 export default async function MyCourses({ searchParams }: { searchParams: Promise<{ bienvenida?: string }> }) {
   const user = await requireBuyerFull("/cuenta/cursos");
@@ -41,7 +41,7 @@ export default async function MyCourses({ searchParams }: { searchParams: Promis
       {welcome && <WelcomeCard name={first} email={user.email} hasPassword={!!user.passwordHash} />}
 
       <section aria-labelledby="mis-cursos-t">
-        <PageHeader id="mis-cursos-t" icon={<LibroMagicoIcon className="h-9 w-9" />} eyebrow="Tu camino de aprendizaje" title="Mis cursos" subtitle="Tus cursos por método, con tu progreso. Debajo, los demás para cuando quieras." />
+        <PageHeader id="mis-cursos-t" title="Mis cursos" />
         {mine.length ? (
           <CourseGroups
             name="mis-cursos"

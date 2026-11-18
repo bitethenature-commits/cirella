@@ -53,7 +53,7 @@ export default async function MyPurchases({ searchParams }: { searchParams: Prom
     orderTargetPath(o, o.bookings[0]?.id);
   return (
     <div>
-      <PageHeader eyebrow="Lo que has conseguido" title="Mis compras" />
+      <PageHeader title="Mis compras" />
       <div className="mt-6">
         <Flash ok={sp.ok ? OK[sp.ok] : null} error={sp.error ? ERROR[sp.error] : null} />
       </div>

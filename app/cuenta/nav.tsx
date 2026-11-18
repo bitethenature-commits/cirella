@@ -13,8 +13,13 @@ const ITEMS = [
   { href: "/cuenta/compras", label: "Mis compras" },
 ];
 
-/** «Mi energía» (/cuenta/mi-energia): solo en la web personal, detrás de «Mis cursos» (el área ya no tiene «Inicio»: empieza ahí). */
-const ENERGY = { href: "/cuenta/mi-energia", label: "Mi energía" };
+/** Web personal: «Mi energía», «Mis membresías», «Mis cursos» y «Círculos y lecturas», en ese orden (sin «Mis compras»). */
+const PERSONAL_ITEMS = [
+  { href: "/cuenta/mi-energia", label: "Mi energía" },
+  { href: "/cuenta/membresias", label: "Mis membresías" },
+  { href: "/cuenta/cursos", label: "Mis cursos" },
+  { href: "/cuenta/sesiones", label: "Círculos y lecturas" },
+];
 
 /** `personal`: web personal (SITE_MODE=personal): está «Mi energía» y no «Mis compras» (su ticket va en «Soporte»). */
 /** `tier`: su nivel de membresía (0 = I) para el sólido de «Mis membresías»; sin membresía, unas chispas. */
@@ -30,9 +35,7 @@ export function AccountNav({ personal = false, unseen = 0, tier = null }: { pers
   // «Mis archivos» ya no es una palabra: una estrella (Favoritos) y un chat (Comentarios, con sus avisos).
   const files = path.startsWith("/cuenta/archivos");
   // Web personal: sin «Mis compras» (lo que ha conseguido está en su ticket, en «Soporte»).
-  const items = personal
-    ? [ITEMS[0], ENERGY, ...ITEMS.slice(1).filter((i) => i.href !== "/cuenta/compras").map((i) => (i.href === "/cuenta/sesiones" ? { ...i, label: "Círculos y lecturas" } : i))]
-    : ITEMS;
+  const items = personal ? PERSONAL_ITEMS : ITEMS;
   return (
     <nav className="-mx-5 flex gap-1 overflow-x-auto px-5 scrollbar-none" aria-label="Área de cliente">
       {items.map((i) => {
