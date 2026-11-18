@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm } from "@/components/ui/ask-confirm";
 import { CheckCircle2, CircleAlert, Globe, Loader2, RefreshCw, Send, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -74,7 +75,7 @@ export function DomainCard({ domain, demo, canEdit }: { domain: SendingDomain | 
               type="button"
               className="btn btn-outline btn-sm"
               disabled={pending}
-              onClick={() => window.confirm(`¿Quitar ${domain.name}? La newsletter volverá a salir desde la dirección de siempre.${domain.id ? " También se quita de Resend." : ""}`) && run(removeDomain)}
+              onClick={async () => (await askConfirm(`¿Quitar ${domain.name}? La newsletter volverá a salir desde la dirección de siempre.${domain.id ? " También se quita de Resend." : ""}`)) && run(removeDomain)}
             >
               <Trash2 className="h-4 w-4" /> Quitar
             </button>

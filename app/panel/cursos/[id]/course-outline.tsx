@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { askConfirm } from "@/components/ui/ask-confirm";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ChevronDown, LayoutList, Loader2, Plus } from "lucide-react";
@@ -70,7 +71,12 @@ export function CourseOutline({
 
 /** Con cambios sin guardar, confirma antes de ir a otra lección. */
 function leave(e: React.MouseEvent, dirty: boolean) {
-  if (dirty && !confirm("Tienes cambios sin guardar en esta lección. ¿Salir sin guardarlos?")) e.preventDefault();
+  if (!dirty) return;
+  e.preventDefault();
+  const href = (e.currentTarget as HTMLAnchorElement).href;
+  void askConfirm("Tienes cambios sin guardar en esta lección. ¿Salir sin guardarlos?", { okLabel: "Salir sin guardar" }).then((yes) => {
+    if (yes && href) window.location.href = href;
+  });
 }
 
 function OutlineBody({

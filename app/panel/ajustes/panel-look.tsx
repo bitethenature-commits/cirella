@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm } from "@/components/ui/ask-confirm";
 import { ArrowDown, ArrowUp, Check, Eye, EyeOff, Loader2, Lock, Paintbrush, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -238,8 +239,8 @@ export function PanelLook({ initial, nav: allNav, home: withHome, currentBottom 
           type="button"
           className="btn btn-ghost"
           disabled={busy}
-          onClick={() => {
-            if (!window.confirm("¿Volver a los colores y al orden de siempre?")) return;
+          onClick={async () => {
+            if (!(await askConfirm("¿Volver a los colores y al orden de siempre?"))) return;
             setTheme(null);
             const def = orderNav(allNav, null);
             setOrder(def.visible.map((i) => i.href));

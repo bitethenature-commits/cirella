@@ -7,6 +7,7 @@ import { prisma } from "./db";
 import { accessSource, scopeCoversProduct } from "./membership-access";
 import { captureError } from "./monitoring";
 import { courseFileOpenFor } from "./course-access";
+import { circleRecordingAccess } from "./circle-recordings";
 
 /**
  * Guardas del área de cliente (/cuenta, descargas, .ics, huecos).
@@ -141,6 +142,11 @@ export async function checkProductAccess(productId: string, productCreatorId: st
  * aunque alguien conozca el id del archivo). La dueña lo ve siempre.
  */
 export async function checkFileAccess(file: { id: string; productId: string; creatorId: string; postId: string | null }): Promise<FileAccess> {
+  // La grabación y el workbook de un círculo de la luna: los tiene quien se apuntó o la miembro de su tiempo.
+  if (!file.postId) {
+    const circle = await prisma.product.findUnique({ where: { id: file.productId }, select: { id: true, creatorId: true, moonCircle: true, eventStartAt: true, durationMin: true } });
+    if (circle?.moonCircle) return circleFileAccess(circle);
+  }
   const access = await checkProductAccess(file.productId, file.creatorId);
   if (!access.ok || access.isOwner) return access;
   // Material de un curso: si está en lecciones, alguna tiene que estar publicada y ya abierta para
@@ -148,6 +154,15 @@ export async function checkFileAccess(file: { id: string; productId: string; cre
   if (!file.postId) return (await courseFileOpenFor(access.userId, file)) ? access : { ok: false, reason: "forbidden" };
   const post = await prisma.membershipPost.findUnique({ where: { id: file.postId }, select: { status: true, publishedAt: true } });
   return post && isMemberPostVisible(post) ? access : { ok: false, reason: "forbidden" };
+}
+
+async function circleFileAccess(circle: { id: string; creatorId: string; eventStartAt: Date | null; durationMin: number | null }): Promise<FileAccess> {
+  const s = await getSession();
+  if (!s) return { ok: false, reason: "login" };
+  if (!s.order && s.user.creator?.id === circle.creatorId) return { ok: true, userId: s.user.id, isOwner: true, accessProductId: circle.id };
+  if (s.order ? !(await scopeCoversProduct({ orderId: s.order.id, productId: s.order.productId }, circle.id)) : !s.verified) return { ok: false, reason: "forbidden" };
+  const via = await circleRecordingAccess(s.user.id, circle);
+  return via ? { ok: true, userId: s.user.id, isOwner: false, accessProductId: via } : { ok: false, reason: "forbidden" };
 }
 
 /**

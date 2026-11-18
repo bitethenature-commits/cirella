@@ -1,4 +1,5 @@
 "use client";
+import { askConfirm } from "@/components/ui/ask-confirm";
 import { Loader2 } from "lucide-react";
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { Flash } from "@/components/ui/flash";
@@ -53,10 +54,10 @@ export function RefundForm({
     <form
       ref={formRef}
       // onSubmit: la confirmación va antes de enviar y, si hay un error, lo escrito se conserva.
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        if (!window.confirm(`¿Devolver ${label ?? "este importe"} a ${name}? No se puede deshacer.`)) return;
         const fd = new FormData(e.currentTarget);
+        if (!(await askConfirm(`¿Devolver ${label ?? "este importe"} a ${name}? No se puede deshacer.`))) return;
         startTransition(() => action(fd));
       }}
       className="card space-y-4 p-5 sm:p-6"

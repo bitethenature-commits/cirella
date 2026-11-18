@@ -10,6 +10,8 @@ import { createProduct } from "../productos/actions";
 import { CARD_SELECT, ProductCard } from "../productos/product-cards";
 import { moonCircleSky, moonSkyFor } from "@/lib/moon-circle-sky";
 import { readMoonChoice } from "@/lib/product-texts";
+import { circlePackPrice } from "@/lib/circle-pack";
+import { saveCirclePack } from "./actions";
 
 export const metadata: Metadata = { title: "Círculos de la Luna" };
 
@@ -31,6 +33,7 @@ export default async function CirclesPage({ searchParams }: { searchParams: Prom
     const m = readMoonChoice(c.pageTexts);
     return m ? moonSkyFor(m.phase, m.sign, m.phrase, c.eventStartAt) : c.eventStartAt ? moonCircleSky(c.eventStartAt) : null;
   };
+  const packCents = await circlePackPrice(creator.id);
   const now = Date.now();
   const upcoming = circles.filter((c) => !c.eventStartAt || c.eventStartAt.getTime() >= now);
   const past = circles.filter((c) => c.eventStartAt && c.eventStartAt.getTime() < now).reverse();
@@ -66,6 +69,20 @@ export default async function CirclesPage({ searchParams }: { searchParams: Prom
     <div>
       <PageHeader title="Círculos de la Luna" subtitle="Luna nueva, luna llena y eclipses, en directo por Zoom. En tu web salen los 2 más cercanos." actions={newCircle("Nuevo círculo", "btn btn-primary btn-sm")} />
       {sp.limite && <Flash error="Has llegado al límite de productos de tu plan." />}
+      {/* El pack del área de la alumna (lib/circle-pack.ts): el próximo de luna nueva y el de luna llena. */}
+      <form action={saveCirclePack} className="card mb-8 flex flex-wrap items-end gap-4 p-5">
+        <div className="min-w-[14rem] flex-1">
+          <p className="font-semibold">Círculo completo</p>
+          <p className="mt-1 text-sm text-muted">
+            El pack con el próximo círculo de luna nueva y el de luna llena. Sale en el área de tus alumnas y te lo piden por email. Vacío = la suma de los dos.
+          </p>
+        </div>
+        <label className="grid gap-1 text-sm">
+          <span className="font-medium">Precio del pack (€)</span>
+          <input name="price" inputMode="decimal" defaultValue={packCents ? (packCents / 100).toLocaleString("es-ES", { maximumFractionDigits: 2 }) : ""} placeholder="Ej. 40" className="input w-32" />
+        </label>
+        <button className="btn btn-primary btn-sm">Guardar</button>
+      </form>
       {circles.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line px-4 py-12 text-center">
           <LunaIcon className="mx-auto h-10 w-10 text-gold" />

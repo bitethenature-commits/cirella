@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm } from "@/components/ui/ask-confirm";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -222,7 +223,7 @@ function ProfileCard({ profile, onEdit, onDeleted }: { profile: SavedBirthProfil
             type="button"
             disabled={busy}
             onClick={async () => {
-              if (!window.confirm(`¿Borrar los datos de ${profile.name}? Se borran del todo y no se pueden recuperar.`)) return;
+              if (!(await askConfirm(`¿Borrar los datos de ${profile.name}? Se borran del todo y no se pueden recuperar.`))) return;
               setBusy(true);
               const r = await deleteBirthProfile(profile.id);
               setBusy(false);

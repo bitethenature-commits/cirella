@@ -1,4 +1,5 @@
 "use client";
+import { askConfirm } from "@/components/ui/ask-confirm";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, Copy, Eye, FileText, GripVertical, Loader2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -321,8 +322,8 @@ export function StructureBoard({ productId, modules, drip }: { productId: string
                   className={`${iconBtn} hover:text-rose`}
                   disabled={pending}
                   aria-label={`Eliminar el módulo «${m.title}»`}
-                  onClick={() => {
-                    if (!confirm(m.lessons.length ? `¿Eliminar «${m.title}» y sus ${m.lessons.length} lecciones? Tus alumnas perderán su progreso en ellas.` : `¿Eliminar «${m.title}»?`)) return;
+                  onClick={async () => {
+                    if (!(await askConfirm(m.lessons.length ? `¿Eliminar «${m.title}» y sus ${m.lessons.length} lecciones? Tus alumnas perderán su progreso en ellas.` : `¿Eliminar «${m.title}»?`))) return;
                     run(`m-del-${m.id}`, () => deleteStudioModule(m.id));
                   }}
                 >
@@ -442,9 +443,9 @@ export function StructureBoard({ productId, modules, drip }: { productId: string
                               role="menuitem"
                               type="button"
                               className="flex min-h-10 w-full items-center gap-2.5 rounded-xl px-3 text-[#9a3a2e] hover:bg-[#fbe9e6]"
-                              onClick={() => {
+                              onClick={async () => {
                                 setMenu(null);
-                                if (!confirm(`¿Eliminar «${l.title}»? Tus alumnas perderán su progreso en ella.`)) return;
+                                if (!(await askConfirm(`¿Eliminar «${l.title}»? Tus alumnas perderán su progreso en ella.`))) return;
                                 run(`del-${l.id}`, () => deleteStudioLesson(l.id));
                               }}
                             >

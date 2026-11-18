@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm } from "@/components/ui/ask-confirm";
 import { Eye, Loader2, PenLine, RotateCcw, Save, TestTube2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -101,8 +102,8 @@ export function AutomaticEmailEditor(p: {
             type="button"
             className="btn btn-ghost text-rose"
             disabled={busy}
-            onClick={() => {
-              if (!window.confirm("¿Volver al email original? Se borra tu versión (asunto y texto).")) return;
+            onClick={async () => {
+              if (!(await askConfirm("¿Volver al email original? Se borra tu versión (asunto y texto)."))) return;
               act(async () => {
                 const r = await restoreOriginalEmail(p.trigger);
                 if (r.ok) window.location.reload();

@@ -5,6 +5,9 @@ import { MoonCircleArt } from "@/components/creator-page/moon-circle-art";
 import { OracleCard } from "@/components/creator-page/oracle-card";
 import type { PublicProduct } from "@/components/creator-page/creator-page-view";
 import { requireBuyerFull } from "@/lib/buyer-access";
+import { myCircleRecordings } from "@/lib/circle-recordings";
+import { circlePackPrice, pickCirclePack } from "@/lib/circle-pack";
+import { creatorBrief } from "@/lib/customer";
 import { channelKindLabel } from "@/lib/channel-kind";
 import { getCustomerLibrary, hasAccess } from "@/lib/customer";
 import { liveMemberPostsFor } from "@/lib/community";
@@ -59,6 +62,8 @@ function nextTwo<T>(items: T[], at: (t: T) => number | null, now: number): T[] {
 export default async function MySessions() {
   const user = await requireBuyerFull("/cuenta/sesiones");
   const { upcoming, past } = await getCustomerLibrary(user.id);
+  // Los círculos ya celebrados: su grabación y su workbook (los que tiene, lib/circle-recordings.ts).
+  const recordings = await myCircleRecordings(user.id);
   // Las sesiones en directo, ceremonias y círculos programados en sus membresías (también las que incluye su nivel).
   const live = await liveMemberPostsFor(user.id);
   const liveSoon = (p: LivePost) => !!p.eventAt && p.eventAt.getTime() >= Date.now() - SOON;
@@ -141,8 +146,51 @@ export default async function MySessions() {
         (x) => new Date(x.p.eventStartAt!).getTime(),
         now,
       );
-  const passOffers = hasPass ? [] : passes;
-  const circleOfferCount = singleCircles.length + passOffers.length;
+  // «Círculo completo»: el pack con el próximo círculo de luna nueva y el de luna llena (lib/circle-pack.ts), en lugar
+  // de la membresía. Se pide por email, con el precio que pone la dueña (o la suma de los dos).
+  const pack = hasPass
+    ? []
+    : pickCirclePack(
+        all.filter(({ p }) => p.moonCircle && !booked.has(p.id) && p.eventStartAt && new Date(p.eventStartAt).getTime() >= now),
+        ({ p }) => skyById.get(p.id)?.phase ?? moonCirclePhase(p),
+        ({ p }) => new Date(p.eventStartAt!).getTime(),
+      );
+  const packOffer = pack.length === 2 ? await (async () => {
+    const d = pack[0].d;
+    const cents = (await circlePackPrice(d.creator.id)) ?? pack.reduce((n, { p }) => n + p.priceCents, 0);
+    const row = await prisma.creator.findUnique({ where: { id: d.creator.id }, select: { id: true, username: true, displayName: true, pagePublished: true, pageDraft: true, timezone: true, contactEmail: true } });
+    const email = row ? creatorBrief(row).email : null;
+    const day = (iso: string | Date) => formatDate(new Date(iso), { weekday: "long", day: "numeric", month: "long" });
+    const list = pack.map(({ p }) => `«${p.title}» (${day(p.eventStartAt!)})`).join(" y ");
+    const body = `Hola,
+
+Quiero el Círculo completo: ${list}.
+
+${user.name ?? ""}
+${user.email}`;
+    return {
+      price: formatPrice(cents, pack[0].p.currency),
+      date: capitalize(pack.map(({ p }) => day(p.eventStartAt!)).join(" y ")),
+      href: email ? `mailto:${email}?subject=${encodeURIComponent("Quiero el Círculo completo")}&body=${encodeURIComponent(body)}` : pack[0].href,
+    };
+  })() : null;
+  // «Círculos anteriores»: los que ya hizo, guardados con su grabación y su workbook (su propia página).
+  const pastCard = (
+    <CircleCard
+      href="/cuenta/sesiones/anteriores"
+      sky={null}
+      phase={null}
+      eyebrow="Guardados · grabación y workbook"
+      title="Círculos anteriores"
+      date={recordings.length ? (recordings.length === 1 ? "1 círculo guardado" : `${recordings.length} círculos guardados`) : "Aquí se guardan los círculos a los que vayas"}
+      action={
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/50 px-3 py-1.5 text-xs font-semibold text-gold">
+          Ver <ArrowRight className="h-3.5 w-3.5" />
+        </span>
+      }
+    />
+  );
+  const circleOfferCount = hasPass ? 0 : singleCircles.length + (packOffer ? 1 : 0) + 1;
 
   // Sesiones y lecturas para coger: las cartas de la web, con el diseño de cada web.
   const sessionOffers = all.filter(({ p }) => p.type === "SESSION" && !p.groupSession);
@@ -200,30 +248,33 @@ export default async function MySessions() {
                 }
               />
             ))}
-            {passOffers.map(({ p, href }) => (
+            {packOffer && (
               <CircleCard
-                key={p.id}
-                href={href}
+                href={packOffer.href}
                 sky={null}
                 pass
                 phase={null}
-                title={p.title}
-                date="Todos los círculos: luna nueva, luna llena y eclipses"
+                eyebrow="Pack · luna nueva y luna llena"
+                title="Círculo completo"
+                date={packOffer.date}
                 action={
                   <span className="inline-flex items-center gap-3">
-                    <span className="font-serif text-[1.3rem] text-gold">{formatPrice(p.priceCents, p.currency, p.billingInterval)}</span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/50 px-3 py-1.5 text-xs font-semibold text-gold">
-                      Ver <ArrowRight className="h-3.5 w-3.5" />
-                    </span>
+                    <span className="font-serif text-[1.3rem] text-gold">{packOffer.price}</span>
+                    <a href={packOffer.href} className="inline-flex items-center gap-1.5 rounded-full border border-gold/50 px-3 py-1.5 text-xs font-semibold text-gold">
+                      <Mail className="h-3.5 w-3.5" /> Quiero los dos
+                    </a>
                   </span>
                 }
               />
-            ))}
+            )}
+            {pastCard}
           </div>
         }
       >
         <div className="grid gap-4 sm:grid-cols-2">{shownCircles.map((c) => c.node)}</div>
+        {hasPass && shownCircles.length > 0 && <div className="grid gap-4 pt-1.5 sm:grid-cols-2">{pastCard}</div>}
       </Block>
+      {hasPass && shownCircles.length === 0 && <div className="-mt-10 grid gap-4 sm:grid-cols-2">{pastCard}</div>}
 
       <Block
         id="sesiones"
@@ -372,6 +423,7 @@ function CircleCard({
   date,
   action,
   pass = false,
+  eyebrow,
 }: {
   href: string;
   sky: MoonCircleSky | null;
@@ -380,6 +432,8 @@ function CircleCard({
   date: string | null;
   action: ReactNode;
   pass?: boolean;
+  /** La línea dorada de arriba, si no es la de su luna. */
+  eyebrow?: string;
 }) {
   const st = kindStyle("CIRCULO_LUNAR");
   return (
@@ -402,7 +456,7 @@ function CircleCard({
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
           <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[#e9cc8e]">
-            {pass ? "Membresía · todos los círculos" : phase ? `${MOON_KIND_LABEL[phase]} · ${MOON_KIND_VERB[phase]}` : "Círculo de la luna"}
+            {eyebrow ?? (pass ? "Membresía · todos los círculos" : phase ? `${MOON_KIND_LABEL[phase]} · ${MOON_KIND_VERB[phase]}` : "Círculo de la luna")}
           </p>
           <p className="display mt-1.5 text-[1.45rem] leading-[1.1]">{title}</p>
           {date && (

@@ -32,6 +32,7 @@ import { productPreviewContext } from "./preview-context";
 import { dateKeyInTz, formatDate, minutesToLabel, zonedParts } from "@/lib/tz";
 import { readIntakeConfig } from "@/lib/intake";
 import { WorkshopAttendees } from "./workshop-attendees";
+import { CircleNotify } from "./circle-recording";
 import { productListHref, productListLabel } from "../list-href";
 import { ReadingStudio } from "./reading-studio";
 import { productTopics } from "@/lib/course-categories";
@@ -230,6 +231,22 @@ export default async function EditProductPage({
         {studioKind === "circle" && (
           <div className="mt-6">
             <WorkshopAttendees creatorId={creator.id} productId={product.id} capacity={product.capacity} />
+          </div>
+        )}
+        {studioKind === "circle" && product.moonCircle && (
+          <div id="grabacion" className="mt-6 scroll-mt-24 space-y-6">
+            {/* Después del círculo (por Zoom): el vídeo grabado y el workbook, que las alumnas ven en su área. */}
+            <FilesManager
+              productId={product.id}
+              files={product.files.filter((f) => !f.postId)}
+              limitsLabel={uploadPolicy(mode === "personal").label}
+              title="Grabación y workbook"
+              hint="Cuando termine el círculo, sube aquí el vídeo grabado (MP4 o MOV) y el workbook en PDF. Lo ven en su área, en «Círculos y lecturas» → «Círculos anteriores», las que se apuntaron y las miembros que ya lo eran ese día."
+            />
+            <CircleNotify
+              circle={{ id: product.id, creatorId: creator.id, title: product.title, eventStartAt: product.eventStartAt, durationMin: product.durationMin }}
+              ready={product.files.some((f) => !f.postId && !!f.storageKey && (f.kind === "VIDEO" || f.kind === "PDF"))}
+            />
           </div>
         )}
       </div>

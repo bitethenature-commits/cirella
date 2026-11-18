@@ -1,4 +1,5 @@
 "use client";
+import { askConfirm } from "@/components/ui/ask-confirm";
 import { Loader2 } from "lucide-react";
 import { startTransition, useActionState, useState } from "react";
 import { Flash } from "@/components/ui/flash";
@@ -66,10 +67,10 @@ export function ChangeForm({
   return (
     <form
       // onSubmit: la confirmación va antes de enviar y, si hay un error, lo escrito se conserva.
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        if (!window.confirm(confirmText[intent])) return;
         const fd = new FormData(e.currentTarget);
+        if (!(await askConfirm(confirmText[intent]))) return;
         startTransition(() => action(fd));
       }}
       className="space-y-3"

@@ -272,6 +272,7 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
                   </p>
                 </div>
               </div>
+              {p.moonCircle && <CircleHowTo />}
             </section>
           </>
         ) : (
@@ -366,6 +367,7 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
               </li>
             ))}
           </ul>
+          {p.moonCircle && <CircleHowTo />}
         </div>
         </>
         )}
@@ -543,5 +545,32 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
         </div>
       </div>
     </>
+  );
+}
+
+/** Cómo funciona un círculo de la luna: en directo por Zoom, el enlace en su área y luego la grabación y el workbook. */
+function CircleHowTo() {
+  const steps = [
+    { icon: Video, title: "En directo por Zoom", text: "El círculo se celebra en directo, por Zoom." },
+    { icon: Mail, title: "El enlace, en tu área", text: "Te llega a tu área, en la pestaña «Círculos y lecturas»." },
+    { icon: PlayCircle, title: "La grabación y el workbook", text: "Cuando termine, subo allí el vídeo grabado y el workbook en PDF para que lo veas y lo descargues cuando quieras." },
+  ];
+  return (
+    <div className="mt-7 border-t pt-6" style={{ borderColor: "color-mix(in srgb, var(--c-gold) 30%, transparent)" }} data-circle-howto>
+      <p className="cp-eyebrow !tracking-[0.28em]" style={{ color: "var(--c-gold)" }}>Cómo funciona</p>
+      <ol className="mt-4 grid gap-4">
+        {steps.map((s, i) => (
+          <li key={i} className="flex gap-3.5">
+            <span className="cp-gold mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full border" style={{ borderColor: "color-mix(in srgb, var(--c-gold) 45%, transparent)" }}>
+              <s.icon className="h-[1.05rem] w-[1.05rem]" strokeWidth={1.4} />
+            </span>
+            <span>
+              <span className="block text-[0.98rem] font-medium">{s.title}</span>
+              <span className="cp-thin-text cp-muted block text-[0.9rem] leading-relaxed">{s.text}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { askConfirm } from "@/components/ui/ask-confirm";
 import { AlertCircle, ArrowDown, ArrowUp, ExternalLink, Loader2, RotateCcw, X } from "lucide-react";
 import { formatDuration, formatSize, MediaHealth } from "@/components/media/media-health";
 import { PART_ICON } from "@/components/media/part-icons";
@@ -115,9 +116,9 @@ export function PartCard({
           type="button"
           className={`${iconBtn} hover:text-rose`}
           aria-label={part.kind === "UPLOAD" && part.status !== "error" ? "Cancelar la subida" : `Quitar parte ${index + 1}`}
-          onClick={() => {
+          onClick={async () => {
             if (part.kind === "UPLOAD") return part.status === "error" ? onRemove() : onCancel();
-            if (part.kind === "TEXT" && part.body.trim() && !window.confirm("¿Quitar este texto de la lección?")) return;
+            if (part.kind === "TEXT" && part.body.trim() && !(await askConfirm("¿Quitar este texto de la lección?"))) return;
             onRemove();
           }}
         >
