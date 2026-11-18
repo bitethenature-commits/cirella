@@ -1133,7 +1133,6 @@ async function reset() {
     prisma.user.deleteMany(),
     prisma.plan.deleteMany(),
     prisma.category.deleteMany(),
-    prisma.template.deleteMany(),
     prisma.platformSetting.deleteMany(),
   ]);
 }
@@ -1178,8 +1177,10 @@ async function main() {
     // storePageImages las procesa como una subida real (WebP con variantes en /media/…).
     avatarUrl: "/demo/ana-avatar.webp",
     coverUrl: "/demo/ana-cover.webp",
-    template: "mystical",
     theme: {},
+    template: "custom",
+    pageThemes: {},
+    designs: [],
     // La portada nueva (lib/page-config.ts → SECTION_KEYS): accesos, actualidades, portal, ofertas,
     // sobre mí, sistemas, lecturas y sesiones, cursos y códigos. Las listas de productos de siempre
     // (lecturas, sesiones, comunidad) quedan ocultas: sus productos salen en sus páginas.
@@ -1869,8 +1870,10 @@ async function main() {
     bio: "Profesora de yoga terapéutico y facilitadora de respiración consciente. Te ayudo a bajar el ritmo y habitar tu cuerpo con calma.",
     avatarUrl: "/demo/maria-avatar.webp",
     coverUrl: "/demo/maria-cover.webp",
-    template: "minimal",
     theme: {},
+    template: "custom",
+    pageThemes: {},
+    designs: [],
     sections: defaultSections().map((s) => ({ ...s, title: s.key === "products" ? "Prácticas" : undefined })),
     links: [{ id: "m1", label: "Clases en directo · calendario", url: "https://calendar.google.com", highlight: true }],
     socials: { instagram: "maria.sol.yoga", youtube: "mariasolyoga" },
@@ -1932,8 +1935,10 @@ async function main() {
     bio: "Ayudo a terapeutas y coaches a comunicar lo que hacen con claridad y elegancia.",
     avatarUrl: null,
     coverUrl: null,
-    template: "luxury",
     theme: {},
+    template: "custom",
+    pageThemes: {},
+    designs: [],
     sections: defaultSections(),
     links: [],
     socials: { instagram: "sofiavidal.coach" },

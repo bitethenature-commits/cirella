@@ -41,6 +41,7 @@ export default async function SitePagePreview({ params }: { params: Promise<{ id
         siteOrigin={appUrl()}
         pages={data.pages}
         currentPath={sitePagePath(creator.username, page.slug, isPersonalMode())}
+        page={page.slug}
         back={false}
         oracleDecks={oracleDecks}
         moonCircles={nextMoonCircles(data.products)}

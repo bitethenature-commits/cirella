@@ -1,11 +1,8 @@
 import Link from "next/link";
-import { pendingRequestCount } from "@/lib/requests";
-import { ArrowRight, CalendarDays, Check, Inbox, Newspaper, Palette, Plus, Sparkles, TrendingUp } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, Newspaper, Palette, Plus, Sparkles, TrendingUp } from "lucide-react";
 import { BarChart } from "@/components/charts";
 import { PayoutBanner } from "@/components/panel/payout-status";
-import { DeliveryAlert } from "@/components/ui/delivery-alert";
 import { requireCreator } from "@/lib/auth";
-import { deliveryIssueCopy, deliveryIssueHref, listDeliveryIssues } from "@/lib/delivery";
 import { legalIdentityComplete } from "@/lib/legal";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
 import { readPageConfig } from "@/lib/page-config";
@@ -26,17 +23,12 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
   const cfg = readPageConfig(creator.pageDraft, creator.displayName);
   const db = tenantDb(creator.id);
   const productCount = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
-  // Productos que no tienen nada que entregar (o una membresía publicada y vacía).
-  const deliveryIssues = await listDeliveryIssues(db);
-  // Gratis con email publicado sin datos legales: nadie puede apuntarse (lib/free-access.ts).
-  const freeBlocked =
-    !legalIdentityComplete(creator) && (await db.product.count({ where: { status: "PUBLISHED", accessMode: "FREE_EMAIL", type: { not: "SESSION" } } })) > 0;
   const first = cfg.displayName.split(" ")[0];
   const rangeLabel = { month: "este mes", "30d": "en los últimos 30 días", all: "en total" }[range];
   // Modo personal: aquí no se cobra nada (sin cobros ni ingresos); se cuentan visitas e inscripciones.
   const personal = isPersonalMode();
   if (personal) {
-    const [posts, codes, flags, requests] = await Promise.all([db.post.count(), db.discountCode.count(), panelNavFlags(creator.id), pendingRequestCount(creator.id)]);
+    const [posts, codes, flags] = await Promise.all([db.post.count(), db.discountCode.count(), panelNavFlags(creator.id)]);
     const steps = [
       { done: !!cfg.avatarUrl, label: "Sube tu foto", href: "/panel/pagina" },
       { done: legalIdentityComplete(creator), label: "Completa tu aviso legal", href: "/panel/ajustes/legal" },
@@ -55,9 +47,6 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
         showBookings={flags.showBookings}
         sales={!!flags.sales}
         checklist={steps}
-        deliveryIssues={deliveryIssues}
-        freeBlocked={freeBlocked}
-        requests={requests}
         order={orderHome(readPanelPrefs(creator.panelPrefs).home)}
       />
     );
@@ -85,9 +74,6 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
       <div className="space-y-2 empty:hidden">
         <PayoutBanner creator={creator} />
       </div>
-
-      {freeBlocked && <FreeSignupsBlockedAlert />}
-      <DeliveryAlerts issues={deliveryIssues} />
 
       {/* Frases resumen */}
       <div className="grid gap-3 md:grid-cols-2">
@@ -229,43 +215,6 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
   );
 }
 
-/** Hay productos gratis con email publicados, pero sin datos legales nadie puede apuntarse. */
-function FreeSignupsBlockedAlert() {
-  return (
-    <DeliveryAlert
-      title="Nadie puede apuntarse a tus productos gratis"
-      text="Hasta que completes tus datos legales, el formulario no se muestra: tu política de privacidad tiene que decir quién trata los datos."
-      cta="Completar mis datos legales"
-      href="/panel/ajustes/legal"
-    />
-  );
-}
-
-type DeliveryIssues = Awaited<ReturnType<typeof listDeliveryIssues>>;
-
-/** Productos que no tienen nada que entregar (o una membresía publicada y vacía). */
-function DeliveryAlerts({ issues: deliveryIssues }: { issues: DeliveryIssues }) {
-  if (deliveryIssues.length === 0) return null;
-  return (
-    <div className="space-y-2">
-      {deliveryIssues.slice(0, 3).map(({ product, issue }) => {
-        const copy = deliveryIssueCopy(issue, product.title);
-        return (
-          <DeliveryAlert
-            key={product.id}
-            title={copy.title}
-            text={copy.text}
-            cta={copy.cta}
-            href={deliveryIssueHref(product.id, issue)}
-            tone={issue.blocking ? "block" : "warn"}
-          />
-        );
-      })}
-      {deliveryIssues.length > 3 && <p className="text-sm text-muted">Y {deliveryIssues.length - 3} avisos más en tus productos.</p>}
-    </div>
-  );
-}
-
 type Stats = Awaited<ReturnType<typeof getDashboardStats>>;
 type ChecklistItem = { done: boolean; label: string; href: string };
 
@@ -282,13 +231,8 @@ function PersonalHome({
   showBookings,
   sales,
   checklist,
-  deliveryIssues,
-  freeBlocked,
-  requests,
   order,
 }: {
-  /** Solicitudes sin responder (lib/requests.ts). */
-  requests: number;
   first: string;
   range: keyof typeof RANGES;
   rangeLabel: string;
@@ -298,8 +242,6 @@ function PersonalHome({
   /** La web cobra (Stripe/PayPal): ingresos y ventas además de visitas e inscripciones. */
   sales: boolean;
   checklist: ChecklistItem[];
-  deliveryIssues: DeliveryIssues;
-  freeBlocked: boolean;
   /** Orden de las tarjetas («Personalizar mi panel», lib/panel-prefs.ts HOME_CARDS). */
   order: string[];
 }) {
@@ -453,22 +395,6 @@ function PersonalHome({
     <div className="space-y-8">
       <PageHeader title={`Hola, ${first}`} subtitle={<>Así va tu página {rangeLabel}.</>} actions={<RangeTabs current={range} base="/panel" />} />
 
-      {requests > 0 && (
-        <Link href="/panel/solicitudes" className="card flex items-center gap-4 p-4 transition hover:shadow-lift" data-requests-banner>
-          <span className="panel-emblem h-11 w-11 shrink-0">
-            <Inbox className="h-5 w-5" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="display block text-[1.25rem] leading-tight">
-              Tienes {requests} {requests === 1 ? "solicitud nueva" : "solicitudes nuevas"}
-            </span>
-            <span className="text-sm text-muted">Respóndelas por email y confírmalas cuando esté todo.</span>
-          </span>
-          <ArrowRight className="h-4 w-4 shrink-0" />
-        </Link>
-      )}
-      {freeBlocked && <FreeSignupsBlockedAlert />}
-      <DeliveryAlerts issues={deliveryIssues} />
 
       {order
         .filter((k) => cards[k])

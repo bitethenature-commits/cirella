@@ -19,8 +19,8 @@ const prisma = new PrismaClient();
 
 async function main() {
   await ensureBaseData(prisma);
-  const [plans, categories, templates] = await Promise.all([prisma.plan.count(), prisma.category.count(), prisma.template.count()]);
-  console.log(`✓ Datos base listos: ${plans} planes, ${categories} categorías, ${templates} diseños (lo que ya existía no se ha tocado).`);
+  const [plans, categories] = await Promise.all([prisma.plan.count(), prisma.category.count()]);
+  console.log(`✓ Datos base listos: ${plans} planes, ${categories} categorías (lo que ya existía no se ha tocado).`);
 
   const owner = ownerBootstrapPlan(process.env);
   if (owner) {

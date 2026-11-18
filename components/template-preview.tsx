@@ -1,26 +1,28 @@
+import { DesignFonts } from "./design-backdrop";
 import { TemplateDecor } from "./template-decor";
-import { resolveTheme, themeStyle, type TemplateKey, TEMPLATES } from "@/lib/templates";
+import { resolveTheme, themeAttrs, themeStyle, type Design } from "@/lib/templates";
 
-/** Miniatura de una plantilla con contenido de ejemplo (usa las mismas variables que la página real). */
+/** Miniatura de un diseño (una plantilla de la dueña) con contenido de ejemplo: las mismas variables que la página real. */
 export function TemplatePreview({
-  template,
+  design,
   name = "Cirella",
   tagline = "Astrología · Human Design",
   className = "",
 }: {
-  template: TemplateKey;
+  design: Design;
   name?: string;
   tagline?: string;
   className?: string;
 }) {
-  const theme = resolveTheme(template);
+  const theme = resolveTheme(null, design);
   return (
     <div
       className={`cp relative overflow-hidden ${className}`}
       style={{ ...themeStyle(theme), minHeight: 0 }}
-      data-card={theme.card}
-      aria-label={`Plantilla ${TEMPLATES[template].name}`}
+      {...themeAttrs(theme)}
+      aria-hidden
     >
+      <DesignFonts theme={theme} />
       <TemplateDecor decor={theme.decor} contained />
       <div className="flex flex-col items-center px-4 pb-4 pt-6 text-center">
         <div className="h-11 w-11 rounded-full" style={{ background: "linear-gradient(135deg, var(--c-gold), var(--c-accent))" }} />

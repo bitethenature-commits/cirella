@@ -35,7 +35,7 @@ type Props = {
   host: string;
   origin: string;
   linkTargets: LinkTarget[];
-  config: Pick<PageConfig, "displayName" | "avatarUrl" | "template" | "theme">;
+  config: Pick<PageConfig, "displayName" | "avatarUrl" | "theme" | "pageThemes">;
   allowCustom: boolean;
   signupsOnly: boolean;
   hiddenSlugs: string[];
@@ -123,6 +123,7 @@ export function SitePageEditor(props: Props) {
       oracleDecks={oracleDecks}
       moonCircles={props.moonCircles}
       bare={barePage(props.slug)}
+      page={props.slug}
       edit={{
         title: (
           <input

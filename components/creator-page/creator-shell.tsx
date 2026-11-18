@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import type { PageConfig } from "@/lib/page-config";
-import { resolveTheme, themeStyle } from "@/lib/templates";
+import { designFor, type PageConfig } from "@/lib/page-config";
+import { resolveTheme, themeAttrs, themeStyle } from "@/lib/templates";
+import { DesignBackdrop } from "@/components/design-backdrop";
 import { AccountEntry } from "./account-entry";
 import { creatorLegalHref } from "@/lib/legal";
 import { LegalLinks } from "./legal-links";
@@ -24,10 +25,11 @@ export function CreatorShell({
   currentPath,
   showAccount = true,
   showNewsletter = true,
+  page,
 }: {
   username: string;
   /** Solo lo que pinta la cabecera y el tema (también lo usan las páginas de error, en cliente). */
-  config: Pick<PageConfig, "displayName" | "avatarUrl" | "template" | "theme"> & Partial<Pick<PageConfig, "newsletter">>;
+  config: Pick<PageConfig, "displayName" | "avatarUrl" | "theme"> & Partial<Pick<PageConfig, "newsletter" | "template" | "pageThemes">>;
   allowCustom: boolean;
   children: React.ReactNode;
   back?: boolean;
@@ -44,11 +46,14 @@ export function CreatorShell({
   showAccount?: boolean;
   /** Formulario de la newsletter del pie (si lo activó): no en las pantallas de entrar, pagar o darse de baja. */
   showNewsletter?: boolean;
+  /** Qué página es, para su diseño propio (PageConfig.pageThemes): «cursos», «uno-a-uno», el slug de una página extra… */
+  page?: string;
 }) {
-  const theme = resolveTheme(config.template, config.theme, allowCustom);
+  const theme = resolveTheme(null, designFor(config, page), allowCustom);
   const home = personal ? "/" : `/${username}`;
   return (
-    <div className="cp" style={themeStyle(theme)} data-card={theme.card} data-template={config.template}>
+    <div className="cp" style={themeStyle(theme)} {...themeAttrs(theme)}>
+      <DesignBackdrop theme={theme} />
       <TemplateDecor decor={theme.decor} starOpacity={0.5} />
       <header className="sticky top-0 z-30 border-b backdrop-blur-xl" style={{ borderColor: "var(--c-line)", background: "color-mix(in oklab, var(--c-bg) 78%, transparent)" }}>
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">

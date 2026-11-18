@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Mail, Moon, Plus, ScrollText, Users } from "lucide-react";
+import { Archive, ArrowRight, CalendarDays, Mail, Moon, Plus, ScrollText, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { MoonCircleArt } from "@/components/creator-page/moon-circle-art";
 import { OracleCard } from "@/components/creator-page/oracle-card";
@@ -21,7 +21,7 @@ import { moonCirclePhase } from "@/lib/moon-circles";
 import { readMoonChoice } from "@/lib/product-texts";
 import { getPublicCreator } from "@/lib/public";
 import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
-import { resolveTheme, themeStyle } from "@/lib/templates";
+import { resolveTheme, themeStyle, themeAttrs } from "@/lib/templates";
 import { BOOKING_STATUS_LABEL } from "@/lib/types";
 import { capitalize, formatDate, sessionWhen } from "@/lib/tz";
 import { MethodTag } from "../ui";
@@ -176,17 +176,17 @@ ${user.email}`;
   })() : null;
   // «Círculos anteriores»: los que ya hizo, guardados con su grabación y su workbook (su propia página).
   const pastCard = (
-    <CircleCard
+    <CirclePill
+      tone="black"
       href="/cuenta/sesiones/anteriores"
-      sky={null}
-      phase={null}
+      icon={<Archive className="h-6 w-6 text-gold" strokeWidth={1.3} />}
       eyebrow="Guardados · grabación y workbook"
       title="Círculos anteriores"
-      date={recordings.length ? (recordings.length === 1 ? "1 círculo guardado" : `${recordings.length} círculos guardados`) : "Aquí se guardan los círculos a los que vayas"}
-      action={
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/50 px-3 py-1.5 text-xs font-semibold text-gold">
+      line={recordings.length ? (recordings.length === 1 ? "1 círculo guardado" : `${recordings.length} círculos guardados`) : "Aquí se guardan los círculos a los que vayas"}
+      cta={
+        <>
           Ver <ArrowRight className="h-3.5 w-3.5" />
-        </span>
+        </>
       }
     />
   );
@@ -202,7 +202,7 @@ ${user.email}`;
       const d = group[0].d;
       const theme = resolveTheme(d.config.template, d.config.theme, d.allowCustom);
       return (
-        <div key={d.creator.id} className="cp !min-h-0 overflow-hidden rounded-[2rem] border border-gold/25 p-4 sm:p-6" style={themeStyle(theme)} data-card={theme.card} data-template={d.config.template}>
+        <div key={d.creator.id} className="cp !min-h-0 overflow-hidden rounded-[2rem] border border-gold/25 p-4 sm:p-6" style={themeStyle(theme)} {...themeAttrs(theme)}>
           <div className="mx-auto grid max-w-[16rem] gap-5 sm:max-w-none sm:grid-cols-2 md:grid-cols-3">
             {group.map(({ p }) => (
               <OracleCard key={p.id} p={p as PublicProduct} username={d.creator.username} trackCreatorId={null} />
@@ -229,6 +229,7 @@ ${user.email}`;
         extraCount={circleOfferCount}
         extraLabel={shownCircles.length ? "Apuntarme a más" : "Elegir un círculo"}
         extra={
+          <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             {singleCircles.map(({ p, href }) => (
               <CircleCard
@@ -248,33 +249,34 @@ ${user.email}`;
                 }
               />
             ))}
+          </div>
+          {/* El pack (en dorado) y los guardados (en negro): burbujas a lo ancho, una encima de otra. */}
+          <div className="grid gap-3">
             {packOffer && (
-              <CircleCard
+              <CirclePill
+                tone="gold"
                 href={packOffer.href}
-                sky={null}
-                pass
-                phase={null}
+                icon={<TwoMoons className="h-9 w-11" />}
                 eyebrow="Pack · luna nueva y luna llena"
                 title="Círculo completo"
-                date={packOffer.date}
-                action={
-                  <span className="inline-flex items-center gap-3">
-                    <span className="font-serif text-[1.3rem] text-gold">{packOffer.price}</span>
-                    <a href={packOffer.href} className="inline-flex items-center gap-1.5 rounded-full border border-gold/50 px-3 py-1.5 text-xs font-semibold text-gold">
-                      <Mail className="h-3.5 w-3.5" /> Quiero los dos
-                    </a>
-                  </span>
+                line={packOffer.date}
+                price={packOffer.price}
+                cta={
+                  <>
+                    <Mail className="h-3.5 w-3.5" /> Quiero los dos
+                  </>
                 }
               />
             )}
             {pastCard}
           </div>
+          </div>
         }
       >
         <div className="grid gap-4 sm:grid-cols-2">{shownCircles.map((c) => c.node)}</div>
-        {hasPass && shownCircles.length > 0 && <div className="grid gap-4 pt-1.5 sm:grid-cols-2">{pastCard}</div>}
+        {hasPass && shownCircles.length > 0 && <div className="pt-1.5">{pastCard}</div>}
       </Block>
-      {hasPass && shownCircles.length === 0 && <div className="-mt-10 grid gap-4 sm:grid-cols-2">{pastCard}</div>}
+      {hasPass && shownCircles.length === 0 && <div className="-mt-10">{pastCard}</div>}
 
       <Block
         id="sesiones"
@@ -396,7 +398,7 @@ function Block({
 }
 
 /** Las lunas juntas (nueva, llena y eclipse): la membresía que da todos los círculos. */
-function TwoMoons() {
+function TwoMoons({ className = "h-16 w-20" }: { className?: string }) {
   const moon = (cx: number, full: boolean) => (
     <>
       <circle cx={cx} cy="24" r="11" fill={full ? "#F3ECDD" : "#1D1A3E"} stroke="rgb(255 255 255 / .4)" strokeWidth="1" />
@@ -404,7 +406,7 @@ function TwoMoons() {
     </>
   );
   return (
-    <svg viewBox="0 0 64 48" className="h-16 w-20" aria-hidden>
+    <svg viewBox="0 0 64 48" className={className} aria-hidden>
       {moon(20, false)}
       {moon(44, true)}
     </svg>
@@ -468,6 +470,68 @@ function CircleCard({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Una burbuja a lo ancho (no una carta): el «Círculo completo» en dorado y los «Círculos anteriores» en negro,
+ * para que no se confundan con las cartas de los círculos sueltos.
+ */
+function CirclePill({
+  tone,
+  href,
+  icon,
+  eyebrow,
+  title,
+  line,
+  price,
+  cta,
+}: {
+  tone: "gold" | "black";
+  href: string;
+  icon: ReactNode;
+  eyebrow: string;
+  title: string;
+  line: string;
+  price?: string;
+  cta: ReactNode;
+}) {
+  const gold = tone === "gold";
+  const cls = `group relative flex items-center gap-4 overflow-hidden rounded-[2rem] py-3 pl-3 pr-4 transition hover:-translate-y-0.5 sm:gap-5 sm:rounded-full sm:pr-5 ${
+    gold ? "text-[#1d1838] shadow-[0_18px_40px_-22px_rgb(233_204_142/.9)]" : "border border-gold/30 text-[#f3ecdd] shadow-[0_18px_40px_-24px_rgb(0_0_0/.9)] hover:border-gold/60"
+  }`;
+  const style = {
+    background: gold ? "linear-gradient(115deg, #f6e7bf 0%, #e3c27f 45%, #c49a52 100%)" : "linear-gradient(160deg, #111022 0%, #07060f 100%)",
+  };
+  const body = (
+    <>
+      <span aria-hidden className="absolute inset-x-10 top-0 h-px" style={{ background: gold ? "linear-gradient(90deg, transparent, #fff8, transparent)" : "linear-gradient(90deg, transparent, #e9cc8e66, transparent)" }} />
+      <span aria-hidden className={`grid h-14 w-14 shrink-0 place-items-center rounded-full ${gold ? "bg-[#1d1838] ring-1 ring-[#1d1838]/20" : "bg-white/[.04] ring-1 ring-gold/35"}`}>
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={`block text-[0.6rem] font-semibold uppercase tracking-[0.18em] ${gold ? "text-[#1d1838]/70" : "text-[#e9cc8e]"}`}>{eyebrow}</span>
+        <span className="display block text-[1.35rem] leading-tight">{title}</span>
+        <span className={`block truncate text-[0.8rem] ${gold ? "text-[#1d1838]/75" : "text-muted"}`}>{line}</span>
+      </span>
+      <span className="flex shrink-0 flex-col items-end gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+        {price && <span className="font-serif text-[1.35rem] leading-none">{price}</span>}
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${gold ? "bg-[#1d1838] text-[#f3e2b3]" : "border border-gold/50 text-gold"}`}
+        >
+          {cta}
+        </span>
+      </span>
+    </>
+  );
+  return href.startsWith("/") ? (
+    <Link href={href} className={cls} style={style} data-kind={`circle-${tone}`}>
+      {body}
+    </Link>
+  ) : (
+    <a href={href} className={cls} style={style} data-kind={`circle-${tone}`}>
+      {body}
+    </a>
   );
 }
 

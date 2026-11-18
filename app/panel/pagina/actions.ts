@@ -6,6 +6,7 @@ import { requireCreator } from "@/lib/auth";
 import { publishPage } from "@/lib/creator";
 import { prisma } from "@/lib/db";
 import { pageConfigSchema, type PageConfig } from "@/lib/page-config";
+import type { Design } from "@/lib/templates";
 import { planFeatures } from "@/lib/plans";
 import { sanitizeBlocks } from "@/lib/page-blocks.server";
 import { isPersonalMode } from "@/lib/site-mode";
@@ -21,16 +22,19 @@ async function save(input: PageConfig) {
   // formato sin caracteres de control ni imágenes (los bloques tienen sus propias imágenes).
   const blocks = sanitizeBlocks(creator.id, parsed.data.blocks ?? []);
   if ("error" in blocks) return { ok: false as const, error: blocks.error, creator };
+  // Las fotos de fondo, solo suyas («» en una página = sin foto aunque toda la web tenga una).
+  const cleanDesign = (d: Design): Design => (d.backgroundImageUrl ? { ...d, backgroundImageUrl: ownImage(d.backgroundImageUrl) } : d);
   const cfg: PageConfig = {
     ...parsed.data,
     avatarUrl: ownImage(parsed.data.avatarUrl),
     coverUrl: ownImage(parsed.data.coverUrl),
-    theme: { ...parsed.data.theme, backgroundImageUrl: ownImage(parsed.data.theme.backgroundImageUrl) },
+    template: "custom",
+    theme: cleanDesign(parsed.data.theme),
+    pageThemes: Object.fromEntries(Object.entries(parsed.data.pageThemes).map(([k, d]) => [k, cleanDesign(d)])),
+    designs: parsed.data.designs.map((x) => ({ ...x, theme: cleanDesign(x.theme) })),
     hidePoweredBy: features.removeBranding ? parsed.data.hidePoweredBy : false,
     blocks: blocks.blocks,
   };
-  const tpl = await prisma.template.findFirst({ where: { key: cfg.template, active: true } });
-  if (!tpl) return { ok: false as const, error: "Ese diseño no está disponible", creator };
   await prisma.creator.update({
     where: { id: creator.id },
     data: { pageDraft: cfg as unknown as Prisma.InputJsonValue, ...(creator.published ? {} : { displayName: cfg.displayName }) },

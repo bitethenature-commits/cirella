@@ -3,503 +3,332 @@ import type { CSSProperties } from "react";
 /**
  * Sistema de diseño de las páginas públicas.
  *
- * Una plantilla es solo un conjunto de tokens (colores, tipografía, radios,
- * estilo de tarjeta y decoración). El contenido de la creadora vive aparte
- * (PageConfig), por eso cambiar de plantilla nunca pierde productos ni textos.
- * Las personalizaciones del editor (`theme`) se aplican encima de los tokens.
+ * No hay plantillas de fábrica: el diseño (`Design`) lo hace la dueña al detalle en Panel › Mi página › Diseño
+ * (colores, fondo, movimiento, letras, tarjetas, botones y fotos), para toda la web y, encima, con cambios por
+ * página (PageConfig.pageThemes). Lo que no toca sale del diseño de base (BASE). El contenido vive aparte
+ * (PageConfig), así que cambiar el diseño nunca pierde productos ni textos.
  */
 
-export const FONT_PAIRS = {
-  classic: {
-    name: "Clásica",
-    display: "var(--font-cormorant)",
-    body: "var(--font-inter)",
-    displayWeight: 500,
-    sample: "Cormorant · Inter",
-  },
-  editorial: {
-    name: "Editorial",
-    display: "var(--font-fraunces)",
-    body: "var(--font-inter)",
-    displayWeight: 400,
-    sample: "Fraunces · Inter",
-  },
-  luxury: {
-    name: "Lujo",
-    display: "var(--font-bodoni)",
-    body: "var(--font-manrope)",
-    displayWeight: 500,
-    sample: "Bodoni · Manrope",
-  },
-  modern: {
-    name: "Moderna",
-    display: "var(--font-syne)",
-    body: "var(--font-inter)",
-    displayWeight: 600,
-    sample: "Syne · Inter",
-  },
-  serene: {
-    name: "Serena",
-    display: "var(--font-instrument)",
-    body: "var(--font-dmsans)",
-    displayWeight: 400,
-    sample: "Instrument · DM Sans",
-  },
-} as const;
-export type FontPairKey = keyof typeof FONT_PAIRS;
+/* ───────────── Letras ───────────── */
 
-export type CardStyle = "glass" | "solid" | "outline" | "editorial";
-/** Las cinco últimas se mueven (components/template-decor.tsx y globals.css). */
+export type FontCategory = "serif" | "sans" | "script" | "deco";
+export const FONT_CATEGORIES: Record<FontCategory, string> = { serif: "Con remate", sans: "Sin remate", script: "Manuscritas", deco: "Decorativas" };
+
+type FontDef = { name: string; cat: FontCategory; css: string; /** Familia de Google Fonts (las demás ya vienen con la web). */ g?: string; w: number[]; i?: boolean };
+
+const g = (name: string, cat: FontCategory, w: number[], i = false, fallback = cat === "sans" ? "sans-serif" : cat === "script" ? "cursive" : "serif"): FontDef => ({ name, cat, css: `"${name}", ${fallback}`, g: name, w, i });
+
+export const FONTS = {
+  cormorant: { name: "Cormorant Garamond", cat: "serif", css: "var(--font-cormorant)", w: [400, 500, 600], i: true },
+  fraunces: { name: "Fraunces", cat: "serif", css: "var(--font-fraunces)", w: [300, 400, 500, 600, 700], i: true },
+  bodoni: { name: "Bodoni Moda", cat: "serif", css: "var(--font-bodoni)", w: [400, 500, 600, 700], i: true },
+  instrument: { name: "Instrument Serif", cat: "serif", css: "var(--font-instrument)", w: [400], i: true },
+  playfair: g("Playfair Display", "serif", [400, 500, 600, 700, 800], true),
+  lora: g("Lora", "serif", [400, 500, 600, 700], true),
+  baskerville: g("Libre Baskerville", "serif", [400, 700], true),
+  garamond: g("EB Garamond", "serif", [400, 500, 600, 700], true),
+  cinzel: g("Cinzel", "serif", [400, 500, 600, 700]),
+  cinzeldeco: g("Cinzel Decorative", "serif", [400, 700]),
+  marcellus: g("Marcellus", "serif", [400]),
+  prata: g("Prata", "serif", [400]),
+  gilda: g("Gilda Display", "serif", [400]),
+  dmserif: g("DM Serif Display", "serif", [400], true),
+  italiana: g("Italiana", "serif", [400]),
+  bellefair: g("Bellefair", "serif", [400]),
+  spectral: g("Spectral", "serif", [300, 400, 500, 600, 700], true),
+  crimson: g("Crimson Pro", "serif", [300, 400, 500, 600, 700], true),
+  philosopher: g("Philosopher", "sans", [400, 700], true),
+  inter: { name: "Inter", cat: "sans", css: "var(--font-inter)", w: [300, 400, 500, 600, 700] },
+  manrope: { name: "Manrope", cat: "sans", css: "var(--font-manrope)", w: [300, 400, 500, 600, 700] },
+  dmsans: { name: "DM Sans", cat: "sans", css: "var(--font-dmsans)", w: [300, 400, 500, 600, 700] },
+  syne: { name: "Syne", cat: "sans", css: "var(--font-syne)", w: [400, 500, 600, 700] },
+  montserrat: g("Montserrat", "sans", [300, 400, 500, 600, 700], true),
+  poppins: g("Poppins", "sans", [300, 400, 500, 600, 700], true),
+  raleway: g("Raleway", "sans", [300, 400, 500, 600, 700], true),
+  jost: g("Jost", "sans", [300, 400, 500, 600, 700], true),
+  josefin: g("Josefin Sans", "sans", [300, 400, 500, 600, 700], true),
+  outfit: g("Outfit", "sans", [300, 400, 500, 600, 700]),
+  worksans: g("Work Sans", "sans", [300, 400, 500, 600, 700], true),
+  nunito: g("Nunito", "sans", [300, 400, 500, 600, 700], true),
+  lato: g("Lato", "sans", [300, 400, 700], true),
+  karla: g("Karla", "sans", [300, 400, 500, 600, 700], true),
+  quicksand: g("Quicksand", "sans", [300, 400, 500, 600, 700]),
+  tenor: g("Tenor Sans", "sans", [400]),
+  spacegrotesk: g("Space Grotesk", "sans", [300, 400, 500, 600, 700]),
+  figtree: g("Figtree", "sans", [300, 400, 500, 600, 700], true),
+  greatvibes: g("Great Vibes", "script", [400]),
+  parisienne: g("Parisienne", "script", [400]),
+  allura: g("Allura", "script", [400]),
+  dancing: g("Dancing Script", "script", [400, 500, 600, 700]),
+  sacramento: g("Sacramento", "script", [400]),
+  pinyon: g("Pinyon Script", "script", [400]),
+  caveat: g("Caveat", "script", [400, 500, 600, 700]),
+  tangerine: g("Tangerine", "script", [400, 700]),
+  abril: g("Abril Fatface", "deco", [400]),
+  poiret: g("Poiret One", "deco", [400], false, "sans-serif"),
+  federo: g("Federo", "deco", [400], false, "sans-serif"),
+  forum: g("Forum", "deco", [400]),
+  uncial: g("Uncial Antiqua", "deco", [400]),
+  medieval: g("MedievalSharp", "deco", [400]),
+} satisfies Record<string, FontDef>;
+export type FontKey = keyof typeof FONTS;
+export const FONT_KEYS = Object.keys(FONTS) as [FontKey, ...FontKey[]];
+
+/** Las parejas de antes (solo para leer diseños guardados con ellas). */
+const LEGACY_FONT_PAIRS: Record<string, [FontKey, FontKey, number]> = {
+  classic: ["cormorant", "inter", 500],
+  editorial: ["fraunces", "inter", 400],
+  luxury: ["bodoni", "manrope", 500],
+  modern: ["syne", "inter", 600],
+  serene: ["instrument", "dmsans", 400],
+};
+
+/** La hoja de Google Fonts con las letras elegidas que no vienen con la web (null si no hace falta). */
+export function fontsHref(keys: (FontKey | undefined | null)[]): string | null {
+  const fams = [...new Set(keys.filter((k): k is FontKey => !!k && k in FONTS))]
+    .map((k) => FONTS[k] as FontDef)
+    .filter((f) => f.g)
+    .map((f) => {
+      const name = f.g!.replace(/ /g, "+");
+      const tuples = [...f.w.map((w) => `0,${w}`), ...(f.i ? ["1,400"] : [])];
+      return `family=${name}:ital,wght@${tuples.join(";")}`;
+    });
+  return fams.length ? `https://fonts.googleapis.com/css2?${fams.join("&")}&display=swap` : null;
+}
+
+/* ───────────── Fondos con movimiento ───────────── */
+
+/** Las cinco últimas de la primera fila y las siguientes se mueven (components/template-decor.tsx y globals.css). */
 export type Decor =
   | "stars" | "none" | "lines" | "aurora" | "grain"
   | "shooting" | "golddust" | "fireflies" | "waves" | "petals"
   | "moon" | "nebula" | "constellation" | "leaves" | "mist" | "snow"
   | "bubbles" | "candles" | "mandala" | "rain" | "caustics" | "haze";
-export type RadiusKey = "sharp" | "soft" | "round";
 
-export const RADIUS: Record<RadiusKey, { card: string; button: string; name: string }> = {
-  sharp: { card: "2px", button: "2px", name: "Recto" },
-  soft: { card: "14px", button: "10px", name: "Suave" },
-  round: { card: "24px", button: "999px", name: "Redondo" },
+export const DECORS: { key: Decor; name: string; moves: boolean }[] = [
+  { key: "none", name: "Nada", moves: false },
+  { key: "stars", name: "Estrellas", moves: false },
+  { key: "lines", name: "Líneas", moves: false },
+  { key: "aurora", name: "Aurora", moves: false },
+  { key: "grain", name: "Grano", moves: false },
+  { key: "shooting", name: "Estrellas fugaces", moves: true },
+  { key: "golddust", name: "Polvo de oro", moves: true },
+  { key: "fireflies", name: "Luciérnagas", moves: true },
+  { key: "waves", name: "Olas", moves: true },
+  { key: "petals", name: "Pétalos", moves: true },
+  { key: "moon", name: "Luna", moves: true },
+  { key: "nebula", name: "Nebulosa", moves: true },
+  { key: "constellation", name: "Constelaciones", moves: true },
+  { key: "leaves", name: "Hojas", moves: true },
+  { key: "mist", name: "Niebla", moves: true },
+  { key: "snow", name: "Nieve", moves: true },
+  { key: "bubbles", name: "Burbujas", moves: true },
+  { key: "candles", name: "Velas", moves: true },
+  { key: "mandala", name: "Mandala", moves: true },
+  { key: "rain", name: "Lluvia", moves: true },
+  { key: "caustics", name: "Reflejos de agua", moves: true },
+  { key: "haze", name: "Bruma", moves: true },
+];
+export const DECOR_KEYS = DECORS.map((d) => d.key) as [Decor, ...Decor[]];
+
+/* ───────────── El diseño ───────────── */
+
+export type CardStyle = "glass" | "solid" | "outline" | "editorial";
+export const CARD_STYLES: Record<CardStyle, string> = { glass: "Cristal", solid: "Lisa", outline: "Solo borde", editorial: "Papel" };
+export type Shadow = "none" | "soft" | "strong" | "glow";
+export const SHADOWS: Record<Shadow, string> = { none: "Sin sombra", soft: "Suave", strong: "Marcada", glow: "Brillo" };
+export type ButtonStyle = "filled" | "outline" | "soft";
+export const BUTTON_STYLES: Record<ButtonStyle, string> = { filled: "Relleno", outline: "Solo borde", soft: "Suave" };
+export type BgType = "solid" | "gradient" | "radial";
+export const BG_TYPES: Record<BgType, string> = { solid: "Color liso", gradient: "Degradado", radial: "Degradado circular" };
+export type AvatarShape = "circle" | "rounded" | "square";
+export const AVATAR_SHAPES: Record<AvatarShape, string> = { circle: "Redonda", rounded: "Esquinas suaves", square: "Cuadrada" };
+
+/**
+ * Todo lo que se puede diseñar. Todo es opcional: lo que falta sale de BASE. Las tarjetas, los botones y las
+ * fotos solo mandan con su interruptor encendido (`cardCustom`, `btnCustom`, `imgCustom`): apagado, cada página
+ * lleva su estilo de siempre (la portada, el de doble línea dorada).
+ */
+export type Design = {
+  // Colores
+  background?: string | null;
+  bg2?: string | null;
+  text?: string | null;
+  muted?: string | null;
+  accent?: string | null;
+  accentText?: string | null;
+  gold?: string | null;
+  // Fondo
+  bgType?: BgType | null;
+  bgAngle?: number | null;
+  backgroundImageUrl?: string | null;
+  bgImageOpacity?: number | null;
+  // Movimiento
+  decor?: Decor | null;
+  decorOpacity?: number | null;
+  // Letras
+  fontDisplay?: FontKey | null;
+  fontBody?: FontKey | null;
+  displayWeight?: number | null;
+  displayItalic?: boolean | null;
+  displayUpper?: boolean | null;
+  displaySpacing?: number | null;
+  displaySize?: number | null;
+  // Tarjetas
+  cardStyle?: CardStyle | null;
+  cardCustom?: boolean | null;
+  cardBg?: string | null;
+  cardBgOpacity?: number | null;
+  cardBorder?: string | null;
+  cardBorderWidth?: number | null;
+  cardRadius?: number | null;
+  cardShadow?: Shadow | null;
+  cardDouble?: boolean | null;
+  cardBlur?: boolean | null;
+  // Botones
+  btnCustom?: boolean | null;
+  btnStyle?: ButtonStyle | null;
+  btnBg?: string | null;
+  btnText?: string | null;
+  btnBorder?: string | null;
+  btnBorderWidth?: number | null;
+  btnRadius?: number | null;
+  btnFont?: "body" | "display" | null;
+  btnWeight?: number | null;
+  btnItalic?: boolean | null;
+  btnUpper?: boolean | null;
+  btnShadow?: Shadow | null;
+  btnDouble?: boolean | null;
+  // Fotos
+  imgCustom?: boolean | null;
+  imgRadius?: number | null;
+  avatarShape?: AvatarShape | null;
+  // De antes (se leen, ya no se editan)
+  fontPair?: string | null;
+  radius?: string | null;
+};
+export type DesignKey = keyof Design;
+
+/** El diseño de base: noche azul, crema, lavanda y oro. */
+export const BASE = {
+  background: "#0B0E1F",
+  bg2: "#1A1D3D",
+  text: "#F3ECDD",
+  accent: "#C9BBF2",
+  accentText: "#0B0E1F",
+  gold: "#D9BF8C",
+  bgType: "solid" as BgType,
+  bgAngle: 160,
+  bgImageOpacity: 30,
+  decor: "stars" as Decor,
+  decorOpacity: 100,
+  fontDisplay: "cormorant" as FontKey,
+  fontBody: "inter" as FontKey,
+  displayWeight: 500,
+  displaySpacing: -1,
+  displaySize: 100,
+  cardStyle: "glass" as CardStyle,
+  cardBgOpacity: 8,
+  cardBorderWidth: 1,
+  cardRadius: 24,
+  cardShadow: "soft" as Shadow,
+  btnStyle: "filled" as ButtonStyle,
+  btnBorderWidth: 1,
+  btnRadius: 999,
+  btnWeight: 600,
+  btnShadow: "soft" as Shadow,
+  imgRadius: 18,
+  avatarShape: "circle" as AvatarShape,
 };
 
-export type TemplateTokens = {
-  key: TemplateKey;
-  name: string;
-  description: string;
-  mode: "dark" | "light";
-  colors: {
-    bg: string;
-    bg2: string;
-    text: string;
-    accent: string;
-    accentText: string;
-    gold: string;
-  };
-  fontPair: FontPairKey;
-  radius: RadiusKey;
-  card: CardStyle;
-  decor: Decor;
-};
-
-export const TEMPLATE_KEYS = [
-  "mystical", "minimal", "luxury", "cosmic", "editorial",
-  "tierra", "oceano", "cuarzo", "bosque", "medianoche",
-  "fugaces", "polvo", "luciernagas", "olas", "petalos",
-  "luna", "nebulosa", "constelaciones", "otono", "niebla", "nieve",
-  "burbujas", "velas", "mandala", "lluvia", "reflejos", "desierto",
-] as const;
-export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
-
-export const TEMPLATES: Record<TemplateKey, TemplateTokens> = {
-  mystical: {
-    key: "mystical",
-    name: "Mystical",
-    description: "Astrología · azul noche, crema, lavanda y destellos dorados",
-    mode: "dark",
-    colors: {
-      bg: "#0B0E1F",
-      bg2: "#1A1D3D",
-      text: "#F3ECDD",
-      accent: "#C9BBF2",
-      accentText: "#0B0E1F",
-      gold: "#D9BF8C",
-    },
-    fontPair: "classic",
-    radius: "round",
-    card: "glass",
-    decor: "stars",
-  },
-  minimal: {
-    key: "minimal",
-    name: "Minimal",
-    description: "Wellness · arena, salvia y mucho aire",
-    mode: "light",
-    colors: {
-      bg: "#F4F1EA",
-      bg2: "#E8E2D4",
-      text: "#2B2F27",
-      accent: "#6F8766",
-      accentText: "#FFFFFF",
-      gold: "#B39A6B",
-    },
-    fontPair: "serene",
-    radius: "soft",
-    card: "solid",
-    decor: "none",
-  },
-  luxury: {
-    key: "luxury",
-    name: "Luxury",
-    description: "Marca personal · marfil, negro y oro",
-    mode: "light",
-    colors: {
-      bg: "#F7F3EC",
-      bg2: "#EDE5D8",
-      text: "#15130F",
-      accent: "#15130F",
-      accentText: "#F7F3EC",
-      gold: "#A8844E",
-    },
-    fontPair: "luxury",
-    radius: "sharp",
-    card: "outline",
-    decor: "lines",
-  },
-  cosmic: {
-    key: "cosmic",
-    name: "Cosmic",
-    description: "Oscuro · negro profundo con auroras violeta",
-    mode: "dark",
-    colors: {
-      bg: "#05050B",
-      bg2: "#16102E",
-      text: "#EEEDFF",
-      accent: "#A594FF",
-      accentText: "#05050B",
-      gold: "#7DE3EC",
-    },
-    fontPair: "modern",
-    radius: "round",
-    card: "glass",
-    decor: "aurora",
-  },
-  editorial: {
-    key: "editorial",
-    name: "Editorial",
-    description: "Femenino · rubor, terracota y serif con carácter",
-    mode: "light",
-    colors: {
-      bg: "#F7EEE7",
-      bg2: "#EED9CC",
-      text: "#3B2521",
-      accent: "#B4583F",
-      accentText: "#FFFFFF",
-      gold: "#C59A6A",
-    },
-    fontPair: "editorial",
-    radius: "soft",
-    card: "editorial",
-    decor: "grain",
-  },
-
-  // ── Quietas ──
-  tierra: {
-    key: "tierra",
-    name: "Tierra",
-    description: "Cálida · barro, ocre y oliva con textura de papel",
-    mode: "light",
-    colors: { bg: "#EFE6D8", bg2: "#E2D3BC", text: "#4A2E20", accent: "#6B6B2E", accentText: "#FFFFFF", gold: "#C0892F" },
-    fontPair: "editorial",
-    radius: "soft",
-    card: "solid",
-    decor: "grain",
-  },
-  oceano: {
-    key: "oceano",
-    name: "Océano",
-    description: "Profunda · azul de mar abierto y arena",
-    mode: "dark",
-    colors: { bg: "#071A2B", bg2: "#0F3047", text: "#F1E9DA", accent: "#7FB8C9", accentText: "#071A2B", gold: "#D8C39A" },
-    fontPair: "serene",
-    radius: "round",
-    card: "glass",
-    decor: "none",
-  },
-  cuarzo: {
-    key: "cuarzo",
-    name: "Rosa cuarzo",
-    description: "Dulce · rosa empolvado y oro suave",
-    mode: "light",
-    colors: { bg: "#F8ECEC", bg2: "#EFD6D6", text: "#4A2C34", accent: "#C77D8C", accentText: "#FFFFFF", gold: "#B8925A" },
-    fontPair: "classic",
-    radius: "round",
-    card: "solid",
-    decor: "none",
-  },
-  bosque: {
-    key: "bosque",
-    name: "Bosque",
-    description: "Serena · verde bosque oscuro y crema",
-    mode: "dark",
-    colors: { bg: "#0F1F18", bg2: "#1C3328", text: "#F2EBDC", accent: "#9CB88A", accentText: "#0F1F18", gold: "#D4B97A" },
-    fontPair: "classic",
-    radius: "soft",
-    card: "glass",
-    decor: "none",
-  },
-  medianoche: {
-    key: "medianoche",
-    name: "Medianoche dorada",
-    description: "Elegante · negro, oro y marfil con líneas finas",
-    mode: "dark",
-    colors: { bg: "#0A0907", bg2: "#1C1810", text: "#F5EFE2", accent: "#D4AF6A", accentText: "#0A0907", gold: "#E3C88A" },
-    fontPair: "luxury",
-    radius: "sharp",
-    card: "outline",
-    decor: "lines",
-  },
-
-  // ── Con movimiento (el fondo se mueve, suave; se para con «reducir movimiento») ──
-  fugaces: {
-    key: "fugaces",
-    name: "Estrellas fugaces",
-    description: "En movimiento · cielo de noche con estrellas que cruzan",
-    mode: "dark",
-    colors: { bg: "#070B1C", bg2: "#141A3A", text: "#EEF0FF", accent: "#9DB4FF", accentText: "#070B1C", gold: "#F2D58F" },
-    fontPair: "classic",
-    radius: "round",
-    card: "glass",
-    decor: "shooting",
-  },
-  polvo: {
-    key: "polvo",
-    name: "Polvo dorado",
-    description: "En movimiento · motas de oro que suben despacio",
-    mode: "dark",
-    colors: { bg: "#15110B", bg2: "#2A2114", text: "#F6EEDC", accent: "#E0B65C", accentText: "#15110B", gold: "#F0D08A" },
-    fontPair: "luxury",
-    radius: "sharp",
-    card: "outline",
-    decor: "golddust",
-  },
-  luciernagas: {
-    key: "luciernagas",
-    name: "Luciérnagas",
-    description: "En movimiento · bosque de noche con luces que flotan",
-    mode: "dark",
-    colors: { bg: "#0B1610", bg2: "#16281D", text: "#EEF2E2", accent: "#C8E07A", accentText: "#0B1610", gold: "#E9D98A" },
-    fontPair: "serene",
-    radius: "soft",
-    card: "glass",
-    decor: "fireflies",
-  },
-  olas: {
-    key: "olas",
-    name: "Olas",
-    description: "En movimiento · azul agua con olas suaves al pie",
-    mode: "light",
-    colors: { bg: "#EEF5F6", bg2: "#D6E7EA", text: "#183A47", accent: "#2F7E95", accentText: "#FFFFFF", gold: "#C2A36E" },
-    fontPair: "serene",
-    radius: "round",
-    card: "solid",
-    decor: "waves",
-  },
-  petalos: {
-    key: "petalos",
-    name: "Pétalos de rosa",
-    description: "En movimiento · rosa y oro con pétalos que caen",
-    mode: "light",
-    colors: { bg: "#FBF1EF", bg2: "#F3DCD8", text: "#4B2930", accent: "#C2566E", accentText: "#FFFFFF", gold: "#C79B6B" },
-    fontPair: "editorial",
-    radius: "round",
-    card: "editorial",
-    decor: "petals",
-  },
-
-  // Cielo
-  luna: {
-    key: "luna",
-    name: "Luna",
-    description: "En movimiento · una luna que flota y cambia de fase",
-    mode: "dark",
-    colors: { bg: "#0A0E22", bg2: "#1A2042", text: "#F2EEE2", accent: "#C9C6E8", accentText: "#0A0E22", gold: "#E8D7A8" },
-    fontPair: "classic",
-    radius: "round",
-    card: "glass",
-    decor: "moon",
-  },
-  nebulosa: {
-    key: "nebulosa",
-    name: "Nebulosa",
-    description: "En movimiento · nubes rosas y violetas que respiran",
-    mode: "dark",
-    colors: { bg: "#120A22", bg2: "#2A1440", text: "#F6ECFA", accent: "#E79AD0", accentText: "#120A22", gold: "#C9B2FF" },
-    fontPair: "modern",
-    radius: "round",
-    card: "glass",
-    decor: "nebula",
-  },
-  constelaciones: {
-    key: "constelaciones",
-    name: "Constelaciones",
-    description: "En movimiento · constelaciones que se dibujan y brillan",
-    mode: "dark",
-    colors: { bg: "#060A18", bg2: "#111A33", text: "#E9EEFA", accent: "#8FB3E8", accentText: "#060A18", gold: "#E9CF8E" },
-    fontPair: "luxury",
-    radius: "sharp",
-    card: "outline",
-    decor: "constellation",
-  },
-  // Naturaleza
-  otono: {
-    key: "otono",
-    name: "Hojas de otoño",
-    description: "En movimiento · hojas cobrizas que caen despacio",
-    mode: "light",
-    colors: { bg: "#F6EADB", bg2: "#EBD3B8", text: "#47291A", accent: "#B5532A", accentText: "#FFFFFF", gold: "#C48A2E" },
-    fontPair: "editorial",
-    radius: "soft",
-    card: "solid",
-    decor: "leaves",
-  },
-  niebla: {
-    key: "niebla",
-    name: "Niebla",
-    description: "En movimiento · bruma que pasa sobre verde salvia",
-    mode: "light",
-    colors: { bg: "#E6ECE4", bg2: "#D3DECF", text: "#2D3A30", accent: "#5E7D63", accentText: "#FFFFFF", gold: "#A99668" },
-    fontPair: "serene",
-    radius: "soft",
-    card: "solid",
-    decor: "mist",
-  },
-  nieve: {
-    key: "nieve",
-    name: "Nieve",
-    description: "En movimiento · nieve suave sobre azul de invierno",
-    mode: "dark",
-    colors: { bg: "#0E1C30", bg2: "#1C3150", text: "#EEF3FA", accent: "#A9C6E8", accentText: "#0E1C30", gold: "#DCE6F2" },
-    fontPair: "classic",
-    radius: "round",
-    card: "glass",
-    decor: "snow",
-  },
-  // Mágicas
-  burbujas: {
-    key: "burbujas",
-    name: "Burbujas",
-    description: "En movimiento · burbujas irisadas que suben",
-    mode: "dark",
-    colors: { bg: "#0D1530", bg2: "#1D2550", text: "#F1F0FF", accent: "#9FE3E6", accentText: "#0D1530", gold: "#F2B8E6" },
-    fontPair: "modern",
-    radius: "round",
-    card: "glass",
-    decor: "bubbles",
-  },
-  velas: {
-    key: "velas",
-    name: "Velas",
-    description: "En movimiento · velas encendidas con llamas que tiemblan",
-    mode: "dark",
-    colors: { bg: "#140D08", bg2: "#2A1C12", text: "#F5E9D6", accent: "#E8A651", accentText: "#140D08", gold: "#F2C879" },
-    fontPair: "classic",
-    radius: "soft",
-    card: "glass",
-    decor: "candles",
-  },
-  mandala: {
-    key: "mandala",
-    name: "Mandala",
-    description: "En movimiento · un mandala dorado que gira muy lento",
-    mode: "dark",
-    colors: { bg: "#160F1E", bg2: "#2B1E38", text: "#F4ECE0", accent: "#D6A85C", accentText: "#160F1E", gold: "#E6C27E" },
-    fontPair: "luxury",
-    radius: "round",
-    card: "outline",
-    decor: "mandala",
-  },
-  // Agua y luz
-  lluvia: {
-    key: "lluvia",
-    name: "Lluvia",
-    description: "En movimiento · lluvia fina sobre gris azulado",
-    mode: "dark",
-    colors: { bg: "#1E2830", bg2: "#2E3B46", text: "#ECF0F2", accent: "#9DB7C7", accentText: "#1E2830", gold: "#D2C3A2" },
-    fontPair: "serene",
-    radius: "soft",
-    card: "glass",
-    decor: "rain",
-  },
-  reflejos: {
-    key: "reflejos",
-    name: "Bajo el agua",
-    description: "En movimiento · rayos de luz que bailan bajo el agua",
-    mode: "dark",
-    colors: { bg: "#04222B", bg2: "#0A3A47", text: "#E6F6F5", accent: "#6FD3D0", accentText: "#04222B", gold: "#CDEFD8" },
-    fontPair: "serene",
-    radius: "round",
-    card: "glass",
-    decor: "caustics",
-  },
-  desierto: {
-    key: "desierto",
-    name: "Calima",
-    description: "En movimiento · arena del desierto con calima que pasa",
-    mode: "light",
-    colors: { bg: "#F3E4CC", bg2: "#E7CFA7", text: "#4A3020", accent: "#B8743A", accentText: "#FFFFFF", gold: "#C99A4E" },
-    fontPair: "editorial",
-    radius: "sharp",
-    card: "solid",
-    decor: "haze",
-  },
-};
-
-export function getTemplate(key: string | undefined | null): TemplateTokens {
-  return TEMPLATES[(key as TemplateKey) ?? "mystical"] ?? TEMPLATES.mystical;
+/** El diseño que manda: el de la web y, encima, los cambios de esa página. */
+export function mergeDesign(general: Design | undefined | null, page?: Design | null): Design {
+  return { ...(general ?? {}), ...(page ?? {}) };
 }
 
-export type ThemeOverrides = {
-  accent?: string | null;
-  background?: string | null;
-  text?: string | null;
-  fontPair?: FontPairKey | null;
-  radius?: RadiusKey | null;
-  backgroundImageUrl?: string | null;
-};
-
-export type ResolvedTheme = {
-  template: TemplateTokens;
-  mode: "dark" | "light";
-  colors: TemplateTokens["colors"];
-  font: (typeof FONT_PAIRS)[FontPairKey];
-  radius: (typeof RADIUS)[RadiusKey];
-  card: CardStyle;
-  decor: Decor;
-  backgroundImageUrl: string | null;
-};
-
 /** Luminancia aproximada de un color hex para decidir modo claro/oscuro. */
-function isDark(hex: string) {
+export function isDark(hex: string) {
   const m = hex.replace("#", "");
   if (m.length < 6) return false;
   const r = parseInt(m.slice(0, 2), 16);
-  const g = parseInt(m.slice(2, 4), 16);
+  const gg = parseInt(m.slice(2, 4), 16);
   const b = parseInt(m.slice(4, 6), 16);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128;
+  return 0.2126 * r + 0.7152 * gg + 0.0722 * b < 128;
 }
 
-export function resolveTheme(templateKey: string, overrides: ThemeOverrides = {}, allowCustom = true): ResolvedTheme {
-  const t = getTemplate(templateKey);
-  const o = allowCustom ? overrides : {};
-  const colors = {
-    ...t.colors,
-    ...(o.accent ? { accent: o.accent, accentText: isDark(o.accent) ? "#FFFFFF" : "#111111" } : {}),
-    ...(o.background ? { bg: o.background, bg2: o.background } : {}),
-    ...(o.text ? { text: o.text } : {}),
-  };
-  const mode = o.background ? (isDark(o.background) ? "dark" : "light") : t.mode;
+export type ResolvedTheme = {
+  mode: "dark" | "light";
+  colors: { bg: string; bg2: string; text: string; muted: string | null; accent: string; accentText: string; gold: string };
+  card: CardStyle;
+  decor: Decor;
+  backgroundImageUrl: string | null;
+  design: Design;
+};
+
+/** Cada valor del diseño con lo de base para lo que falta (lo que ve el editor como «valor actual»). */
+export function designValue<K extends DesignKey>(d: Design, key: K): NonNullable<Design[K]> {
+  const v = d[key];
+  if (v !== undefined && v !== null) return v as NonNullable<Design[K]>;
+  const legacy = LEGACY_FONT_PAIRS[d.fontPair ?? ""];
+  if (legacy && key === "fontDisplay") return legacy[0] as NonNullable<Design[K]>;
+  if (legacy && key === "fontBody") return legacy[1] as NonNullable<Design[K]>;
+  if (legacy && key === "displayWeight") return legacy[2] as NonNullable<Design[K]>;
+  if (key === "bg2") return designValue(d, "background") as NonNullable<Design[K]>;
+  if (key === "muted") return "" as NonNullable<Design[K]>;
+  if (key === "accentText") return (isDark(designValue(d, "accent")) ? "#FFFFFF" : "#111111") as NonNullable<Design[K]>;
+  if (key === "cardBg") return designValue(d, "text") as NonNullable<Design[K]>;
+  if (key === "cardBorder") return designValue(d, "gold") as NonNullable<Design[K]>;
+  if (key === "btnBg") return designValue(d, "accent") as NonNullable<Design[K]>;
+  if (key === "btnText") return designValue(d, "accentText") as NonNullable<Design[K]>;
+  if (key === "btnBorder") return designValue(d, "gold") as NonNullable<Design[K]>;
+  if (key === "cardRadius" && d.radius) return ({ sharp: 2, soft: 14, round: 24 }[d.radius] ?? 24) as NonNullable<Design[K]>;
+  if (key === "btnRadius" && d.radius) return ({ sharp: 2, soft: 10, round: 999 }[d.radius] ?? 999) as NonNullable<Design[K]>;
+  if (key === "btnFont") return "body" as NonNullable<Design[K]>;
+  if (typeof (BASE as Record<string, unknown>)[key] !== "undefined") return (BASE as Record<string, unknown>)[key] as NonNullable<Design[K]>;
+  return false as NonNullable<Design[K]>;
+}
+
+/**
+ * El tema de una página. `_legacy` era la clave de plantilla: ya no cuenta (los diseños antiguos se pasaron
+ * a `Design` al leerlos, lib/page-config.ts). Sin diseño propio en su plan, sale el de base.
+ */
+export function resolveTheme(_legacy: string | null | undefined, design: Design = {}, allowCustom = true): ResolvedTheme {
+  const d = allowCustom ? design : {};
+  const v = <K extends DesignKey>(k: K) => designValue(d, k);
+  const bg = v("background");
   return {
-    template: t,
-    mode,
-    colors,
-    font: FONT_PAIRS[o.fontPair ?? t.fontPair] ?? FONT_PAIRS[t.fontPair],
-    radius: RADIUS[o.radius ?? t.radius] ?? RADIUS[t.radius],
-    card: t.card,
-    decor: t.decor,
-    backgroundImageUrl: o.backgroundImageUrl ?? null,
+    mode: isDark(bg) ? "dark" : "light",
+    colors: { bg, bg2: v("bg2"), text: v("text"), muted: d.muted || null, accent: v("accent"), accentText: v("accentText"), gold: v("gold") },
+    card: v("cardStyle"),
+    decor: v("decor"),
+    backgroundImageUrl: d.backgroundImageUrl ?? null,
+    design: d,
   };
 }
 
-/** Variables CSS consumidas por los componentes de la página pública. */
+const px = (n: number) => `${n}px`;
+const radiusCss = (n: number) => (n >= 60 ? "999px" : px(n));
+function shadowCss(s: Shadow, color: string) {
+  if (s === "soft") return "0 18px 40px -28px rgb(0 0 0 / .45)";
+  if (s === "strong") return "0 28px 60px -24px rgb(0 0 0 / .7)";
+  if (s === "glow") return `0 0 34px -8px color-mix(in oklab, ${color} 70%, transparent)`;
+  return "none";
+}
+
+/** Variables CSS consumidas por los componentes de la página pública (y las de las piezas que se diseñan). */
 export function themeStyle(theme: ResolvedTheme): CSSProperties {
   const c = theme.colors;
-  return {
+  const d = theme.design;
+  const v = <K extends DesignKey>(k: K) => designValue(d, k);
+  const font = (k: FontKey) => (FONTS[k] ?? FONTS.inter).css;
+  const bgType = v("bgType");
+  const angle = v("bgAngle");
+  const s: Record<string, string> = {
     "--c-bg": c.bg,
     "--c-bg2": c.bg2,
     "--c-text": c.text,
-    "--c-muted": `color-mix(in oklab, ${c.text} 66%, ${c.bg})`,
-    "--c-faint": `color-mix(in oklab, ${c.text} 40%, ${c.bg})`,
+    "--c-muted": c.muted || `color-mix(in oklab, ${c.text} 66%, ${c.bg})`,
+    "--c-faint": `color-mix(in oklab, ${c.muted || c.text} 60%, ${c.bg})`,
     "--c-line": `color-mix(in oklab, ${c.text} 14%, transparent)`,
     "--c-surface":
       theme.card === "glass"
@@ -511,11 +340,71 @@ export function themeStyle(theme: ResolvedTheme): CSSProperties {
     "--c-accent": c.accent,
     "--c-accent-text": c.accentText,
     "--c-gold": c.gold,
-    "--font-display": theme.font.display,
-    "--font-body": theme.font.body,
-    "--display-weight": String(theme.font.displayWeight),
-    "--r-card": theme.radius.card,
-    "--r-btn": theme.radius.button,
+    "--c-paint": bgType === "gradient" ? `linear-gradient(${angle}deg, ${c.bg}, ${c.bg2})` : bgType === "radial" ? `radial-gradient(120% 90% at 50% 0%, ${c.bg2}, ${c.bg} 70%)` : c.bg,
+    "--bg-img-o": String(v("bgImageOpacity") / 100),
+    "--decor-o": String(v("decorOpacity") / 100),
+    "--font-display": font(v("fontDisplay")),
+    "--font-body": font(v("fontBody")),
+    "--display-weight": String(v("displayWeight")),
+    "--r-card": radiusCss(v("cardRadius")),
+    "--r-btn": radiusCss(v("btnRadius")),
     colorScheme: theme.mode,
-  } as CSSProperties;
+  };
+  if (d.displaySpacing != null) s["--display-spacing"] = `${d.displaySpacing / 100}em`;
+  if (d.displaySize != null) s["--display-zoom"] = String(d.displaySize / 100);
+  if (d.cardCustom) {
+    const style = v("cardStyle");
+    const bgc = v("cardBg");
+    s["--k-bg"] = style === "outline" ? "transparent" : `color-mix(in oklab, ${bgc} ${v("cardBgOpacity")}%, transparent)`;
+    s["--k-border"] = v("cardBorder");
+    s["--k-bw"] = px(v("cardBorderWidth"));
+    s["--k-shadow"] = shadowCss(v("cardShadow"), c.gold);
+    s["--k-blur"] = v("cardBlur") || style === "glass" ? "blur(16px) saturate(130%)" : "none";
+    s["--k-double"] = v("cardDouble") ? `inset 0 0 0 4px color-mix(in oklab, ${c.bg} 85%, transparent), inset 0 0 0 5px color-mix(in oklab, ${v("cardBorder")} 45%, transparent)` : "none";
+  }
+  if (d.btnCustom) {
+    const style = v("btnStyle");
+    const b = v("btnBg");
+    s["--b-bg"] = style === "filled" ? b : style === "soft" ? `color-mix(in oklab, ${b} 18%, transparent)` : "transparent";
+    s["--b-text"] = v("btnText");
+    s["--b-border"] = v("btnBorder");
+    s["--b-bw"] = px(v("btnBorderWidth"));
+    s["--b-font"] = v("btnFont") === "display" ? "var(--font-display)" : "var(--font-body)";
+    s["--b-weight"] = String(v("btnWeight"));
+    s["--b-style"] = v("btnItalic") ? "italic" : "normal";
+    s["--b-case"] = v("btnUpper") ? "uppercase" : "none";
+    s["--b-spacing"] = v("btnUpper") ? ".12em" : ".01em";
+    const glow = shadowCss(v("btnShadow"), b);
+    const dbl = v("btnDouble") ? `inset 0 0 0 3px color-mix(in oklab, ${c.bg} 80%, transparent), inset 0 0 0 4px color-mix(in oklab, ${v("btnBorder")} 45%, transparent)` : "";
+    s["--b-shadow"] = [dbl, glow === "none" ? "" : glow].filter(Boolean).join(", ") || "none";
+  }
+  if (d.imgCustom) {
+    s["--img-r"] = radiusCss(v("imgRadius"));
+    const shape = v("avatarShape");
+    s["--avatar-r"] = shape === "circle" ? "999px" : shape === "rounded" ? "22%" : "4px";
+  }
+  return s as CSSProperties;
+}
+
+/** Los interruptores del CSS (globals.css, «Diseño a medida»): solo lo que la dueña ha cambiado. */
+export function themeAttrs(theme: ResolvedTheme): Record<string, string | undefined> {
+  const d = theme.design;
+  const on = (b: unknown) => (b ? "" : undefined);
+  return {
+    "data-card": theme.card,
+    "data-k": on(d.cardCustom),
+    "data-b": on(d.btnCustom),
+    "data-img": on(d.imgCustom),
+    "data-d-italic": on(d.displayItalic),
+    "data-d-upper": on(d.displayUpper),
+    "data-d-spacing": on(d.displaySpacing != null),
+    "data-d-size": on(d.displaySize != null && d.displaySize !== 100),
+    "data-paint": on(d.bgType && d.bgType !== "solid"),
+  };
+}
+
+/** Las letras del diseño que hay que pedir a Google Fonts. */
+export function themeFontsHref(theme: ResolvedTheme): string | null {
+  const v = <K extends DesignKey>(k: K) => designValue(theme.design, k);
+  return fontsHref([v("fontDisplay"), v("fontBody")]);
 }

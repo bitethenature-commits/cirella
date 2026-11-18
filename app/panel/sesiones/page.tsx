@@ -10,7 +10,7 @@ import { readPageConfig } from "@/lib/page-config";
 import { planFeatures } from "@/lib/plans";
 import { toPublicProduct } from "@/lib/product-view";
 import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
-import { resolveTheme, themeStyle } from "@/lib/templates";
+import { resolveTheme, themeStyle, themeAttrs } from "@/lib/templates";
 import { tenantDb } from "@/lib/tenant";
 import { Badge, PageHeader } from "../ui";
 import { createProduct, deleteProduct, moveProduct } from "../productos/actions";
@@ -85,7 +85,7 @@ export default async function SessionsPage({ searchParams }: { searchParams: Pro
               </form>
             ) : (
               // Las cartas de la web, con los colores de tu web.
-              <div className="cp !min-h-0 overflow-hidden rounded-[2rem] border border-gold/25 p-4 sm:p-6" style={themeStyle(theme)} data-card={theme.card} data-template={config.template}>
+              <div className="cp !min-h-0 overflow-hidden rounded-[2rem] border border-gold/25 p-4 sm:p-6" style={themeStyle(theme)} {...themeAttrs(theme)}>
                 <ul className="mx-auto grid max-w-[16rem] gap-6 sm:max-w-none sm:grid-cols-2 lg:grid-cols-3">
                   {g.items.map((p, i) => (
                     <li key={p.id} className="flex flex-col">

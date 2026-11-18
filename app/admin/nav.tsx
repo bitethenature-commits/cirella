@@ -13,7 +13,6 @@ export const ADMIN_NAV = [
   ["/admin/productos", "Productos"],
   ["/admin/planes", "Planes"],
   ["/admin/categorias", "Categorías"],
-  ["/admin/disenos", "Diseños"],
   ["/admin/bloqueados", "Bloqueados"],
   ["/admin/reportes", "Reportes"],
   ["/admin/ajustes", "Ajustes"],

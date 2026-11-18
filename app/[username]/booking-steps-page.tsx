@@ -39,7 +39,7 @@ export function BookingStepsPage({ data, kind }: { data: NonNullable<Awaited<Ret
   const steps = card?.steps.length ? card.steps : d.steps;
   const products = data.products.filter(kind === "reading" ? isReadingProduct : isSessionProduct);
   return (
-    <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
+    <CreatorShell page={kind === "reading" ? "lecturas" : "sesiones"} username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
       <main className="mx-auto max-w-3xl px-4 pb-14 pt-8 sm:pt-12">
         <Link href={`${data.homeHref}#lecturas`} className="cp-muted inline-flex items-center gap-1.5 text-sm">
           <ArrowLeft className="h-4 w-4" /> Volver

@@ -18,15 +18,14 @@ import {
 } from "lucide-react";
 import { MarketingFooter, MarketingHeader } from "@/components/marketing";
 import { Reveal } from "@/components/reveal";
-import { TemplatePreview } from "@/components/template-preview";
 import { prisma } from "@/lib/db";
 import { appHost } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
 import { planBullets } from "@/lib/plans";
 import { getSettings } from "@/lib/settings";
 import { ownerUsername } from "@/lib/site-mode";
-import { TEMPLATES, type TemplateKey } from "@/lib/templates";
 import { CreatorPublicPage, creatorPageMetadata } from "./[username]/public-page";
+import { CanvaButton } from "@/components/creator-page/canva-button";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +60,13 @@ const AUDIENCE = ["Astrología", "Human Design", "Gene Keys", "Tarot", "Coaching
 export default async function Home({ searchParams }: { searchParams: Promise<{ ref?: string }> }) {
   // Modo personal: el mismo render que /<dueña> (que redirige aquí). Sin landing de la plataforma.
   const owner = ownerUsername();
-  if (owner) return <CreatorPublicPage username={owner} />;
+  if (owner)
+    return (
+      <>
+        <CreatorPublicPage username={owner} />
+        <CanvaButton username={owner} personal />
+      </>
+    );
   return <Landing searchParams={searchParams} />;
 }
 
@@ -201,21 +206,17 @@ async function Landing({ searchParams }: { searchParams: Promise<{ ref?: string 
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end" data-reveal>
           <div className="max-w-xl">
             <p className="eyebrow">Diseños</p>
-            <h2 className="display mt-3 text-4xl sm:text-5xl">Elegante desde el primer minuto.</h2>
-            <p className="mt-4 text-muted">Cinco estilos pensados para tu sector. Cambia de diseño cuando quieras sin perder productos ni textos.</p>
+            <h2 className="display mt-3 text-4xl sm:text-5xl">Tu web, diseñada al detalle.</h2>
+            <p className="mt-4 text-muted">Sin plantillas de serie: tú eliges cada color, el fondo (también con movimiento), las letras, la forma de las tarjetas y de los botones, y cada página puede tener su propio estilo. Guarda tus diseños como plantillas y cámbialos cuando quieras sin perder productos ni textos.</p>
           </div>
         </div>
-        <div className="-mx-5 mt-10 flex snap-x gap-4 overflow-x-auto px-5 pb-4 scrollbar-none lg:mx-0 lg:grid lg:grid-cols-5 lg:px-0">
-          {(Object.keys(TEMPLATES) as TemplateKey[]).map((k, i) => (
-            <figure key={k} className="w-[62%] shrink-0 snap-center sm:w-[38%] lg:w-auto" data-reveal style={{ ["--reveal-delay" as string]: `${i * 60}ms` }}>
-              <TemplatePreview template={k} className="rounded-3xl border border-line shadow-lift" />
-              <figcaption className="mt-3">
-                <p className="font-semibold">{TEMPLATES[k].name}</p>
-                <p className="text-xs text-muted">{TEMPLATES[k].description}</p>
-              </figcaption>
-            </figure>
+        <ul className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {["Colores y fondos con degradado o foto", "22 fondos, muchos con movimiento", "Más de 50 letras para títulos y textos", "Tarjetas, botones y fotos a medida"].map((t, i) => (
+            <li key={t} className="card p-5 text-sm font-semibold" data-reveal style={{ ["--reveal-delay" as string]: `${i * 60}ms` }}>
+              {t}
+            </li>
           ))}
-        </div>
+        </ul>
       </section>
 
       {/* ───────── Precios ───────── */}

@@ -33,6 +33,7 @@ export function SitePageView({
   moonCircles,
   bare = false,
   edit,
+  page,
 }: {
   /**
    * Editor de Páginas (app/panel/paginas/[id]/page-editor.tsx): en lugar del título, el subtítulo, la
@@ -42,7 +43,9 @@ export function SitePageView({
   username: string;
   /** Sin cajas en los bloques (página «Sobre mí»: barePage()). */
   bare?: boolean;
-  config: Pick<PageConfig, "displayName" | "avatarUrl" | "template" | "theme">;
+  config: Pick<PageConfig, "displayName" | "avatarUrl" | "theme"> & Partial<Pick<PageConfig, "template" | "pageThemes">>;
+  /** Qué página es, para su diseño propio (su slug: PageConfig.pageThemes). */
+  page?: string;
   content: SitePageContent;
   allowCustom: boolean;
   personal: boolean;
@@ -63,7 +66,7 @@ export function SitePageView({
   if (bare)
     // «Sobre mí»: con el estilo de lujo de la portada (cabecera centrada con oro, foto con marco dorado).
     return (
-      <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back}>
+      <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back} page={page}>
         <main className="cp-luxe relative mx-auto w-full max-w-[52rem] px-5 pb-20 pt-8 sm:pt-14" data-cover={cover ? "yes" : "no"}>
           <header className="text-center" data-reveal>
             <p className="cp-eyebrow !tracking-[0.42em]" style={{ color: "var(--c-gold)" }}>
@@ -118,7 +121,7 @@ export function SitePageView({
     // Página de un sistema: con el estilo de lujo de la portada. Su icono grande y dorado, el nombre en
     // letra fina, la frase en cursiva dorada y la raya con la estrella; los bloques, en paneles dorados.
     return (
-      <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back}>
+      <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back} page={page}>
         <main className="cp-luxe relative mx-auto w-full max-w-[46rem] px-5 pb-20 pt-8 sm:pt-14" data-cover={cover ? "yes" : "no"}>
           <header className="text-center" data-reveal>
             <div className="flex justify-center">
@@ -175,7 +178,7 @@ export function SitePageView({
       </CreatorShell>
     );
   return (
-    <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back}>
+    <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back} page={page}>
       <main className={`relative mx-auto w-full max-w-[44rem] px-5 pb-10 ${cover ? "pt-8" : "pt-10 sm:pt-16"}`} data-cover={cover ? "yes" : "no"}>
         {edit ? <div className="mb-8">{edit.cover}</div> : cover && (
           // eslint-disable-next-line @next/next/no-img-element

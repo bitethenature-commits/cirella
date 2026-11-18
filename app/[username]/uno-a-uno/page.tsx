@@ -113,6 +113,7 @@ export default async function UnoAUnoPage({ params }: { params: Promise<Params> 
     return (
       <>
         <SitePageView
+          page="uno-a-uno"
           username={pub.creator.username}
           config={pub.config}
           content={content}
@@ -138,7 +139,7 @@ export default async function UnoAUnoPage({ params }: { params: Promise<Params> 
   const email = config.contact.email;
 
   return (
-    <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
+    <CreatorShell page="uno-a-uno" username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
       <main className="cp-luxe mx-auto max-w-3xl px-5 pb-20 pt-8 sm:pt-14">
         {/* Presentación */}
         <header className="relative text-center" data-reveal>

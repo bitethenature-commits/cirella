@@ -221,19 +221,9 @@ model Category {
   slug            String    @unique
   name            String
   emoji           String?
-  defaultTemplate String    @default("mystical")
   active          Boolean   @default(true)
   sortOrder       Int       @default(0)
   creators        Creator[]
-}
-
-model Template {
-  id          String  @id @default(cuid())
-  key         String  @unique // mystical | minimal | luxury | cosmic | editorial
-  name        String
-  description String?
-  active      Boolean @default(true)
-  sortOrder   Int     @default(0)
 }
 
 model PlatformSetting {

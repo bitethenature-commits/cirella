@@ -28,7 +28,7 @@ export default async function CursosPage({ params }: { params: Promise<Params> }
   // Salen todos los métodos, también los que aún no tienen cursos («Próximamente»).
   const groups = courses.length ? groupCourses(courses, { includeEmpty: true }) : [];
   return (
-    <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
+    <CreatorShell page="cursos" username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
       <main className="cp-luxe mx-auto max-w-4xl px-4 pb-14 pt-8 sm:pt-12">
         <header className="text-center">
           <p className="cp-eyebrow !tracking-[0.42em]" style={{ color: "var(--c-gold)" }}>

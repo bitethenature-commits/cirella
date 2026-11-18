@@ -54,7 +54,7 @@ export default async function ActualidadesPage({ params }: { params: Promise<Par
   }
 
   return (
-    <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
+    <CreatorShell page="actualidades" username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
       <main className="mx-auto max-w-3xl px-4 pb-10 pt-8 sm:pt-12">
         <div className="flex items-center gap-4">
           <span className="cp-emblem grid h-14 w-14 shrink-0 place-items-center rounded-full" aria-hidden>

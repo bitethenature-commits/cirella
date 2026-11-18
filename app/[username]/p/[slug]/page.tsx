@@ -77,6 +77,7 @@ export default async function SitePagePublic({ params }: { params: Promise<Param
         oracleDecks={oracleDecks}
         moonCircles={nextMoonCircles(data.products)}
         bare={barePage(page.slug)}
+        page={page.slug}
       />
       <TrackOnMount creatorId={data.creator.id} type="PAGE_VIEW" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />

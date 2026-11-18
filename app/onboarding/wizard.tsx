@@ -3,7 +3,6 @@
 import { ArrowLeft, ArrowRight, Check, CreditCard, Loader2, Lock, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CreatorPageView, type PublicProduct } from "@/components/creator-page/creator-page-view";
-import { TemplatePreview } from "@/components/template-preview";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { saveLegalIdentity } from "@/app/panel/ajustes/legal/actions";
 import { LegalIdentityFields } from "@/app/panel/ajustes/legal/legal-identity-fields";
@@ -13,7 +12,7 @@ import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import type { PageConfig } from "@/lib/page-config";
 import type { PayoutView } from "@/lib/payouts";
 import { computeSaleAmounts } from "@/lib/sale-amounts";
-import { TEMPLATES, type TemplateKey } from "@/lib/templates";
+import { designValue, isDark } from "@/lib/templates";
 import { DEFAULT_CTA, PRODUCT_TYPE_HINT, PRODUCT_TYPE_LABEL, PRODUCT_TYPES, type ProductType } from "@/lib/types";
 import {
   checkUsername,
@@ -24,7 +23,7 @@ import {
   saveDelivery,
   saveFirstProduct,
   saveProfile,
-  saveTemplate,
+  saveColors,
   saveUsername,
 } from "./actions";
 import { DeliveryStep, type DeliveryState } from "./delivery-step";
@@ -35,8 +34,7 @@ export type WizardInit = {
   username: string;
   config: PageConfig;
   categoryId: string | null;
-  categories: { id: string; name: string; emoji: string | null; defaultTemplate: string }[];
-  templates: TemplateKey[];
+  categories: { id: string; name: string; emoji: string | null }[];
   product: { productId: string | null; type: ProductType; title: string; summary: string; emoji: string | null; imageUrl: string | null; price: string; durationMin: number };
   /** Cómo se entrega el primer producto (paso 8). */
   delivery: { mode: "AUTOMATIC" | "PERSONAL"; instructions: string; files: { id: string; name: string; kind: string; sizeBytes: number | null }[] };
@@ -108,15 +106,9 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
         return run(() => saveProfile({ displayName: cfg.displayName, tagline: cfg.tagline, bio: cfg.bio, avatarUrl: cfg.avatarUrl }));
       case 5:
         if (!categoryId) return setError("Elige una categoría");
-        return run(
-          () => saveCategory(categoryId),
-          (d) => {
-            const suggested = d?.suggestedTemplate as TemplateKey | undefined;
-            if (suggested && init.templates.includes(suggested) && cfg.template === init.config.template) setCfg((c) => ({ ...c, template: suggested }));
-          },
-        );
+        return run(() => saveCategory(categoryId));
       case 6:
-        return run(() => saveTemplate(cfg.template));
+        return run(() => saveColors({ background: designValue(cfg.theme, "background"), accent: designValue(cfg.theme, "accent"), text: designValue(cfg.theme, "text") }));
       case 7:
         // Producto y precio en un solo paso: se crea (o se actualiza) ya con su precio.
         return run(
@@ -352,18 +344,18 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
             )}
 
             {step === 6 && (
-              <Step title="Elige tu estilo" text="Podrás cambiarlo cuando quieras sin perder nada.">
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {init.templates.map((t) => (
-                    <button key={t} type="button" onClick={() => setCfg((c) => ({ ...c, template: t }))} className="text-left">
-                      <div className={`overflow-hidden rounded-2xl ring-offset-2 ring-offset-paper transition ${cfg.template === t ? "ring-2 ring-ink" : "ring-1 ring-line"}`}>
-                        <TemplatePreview template={t} name={cfg.displayName || "Tu nombre"} tagline={cfg.tagline || "Tu especialidad"} />
-                      </div>
-                      <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold">
-                        {cfg.template === t && <Check className="h-4 w-4" />} {TEMPLATES[t].name}
-                      </p>
-                    </button>
+              <Step title="Tus colores" text="Empieza con dos colores. Luego, en Mi página › Diseño, lo diseñas todo a tu gusto: fondos, letras, tarjetas, botones…">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {([["background", "Fondo"], ["accent", "Color principal"]] as const).map(([k, label]) => (
+                    <label key={k} className="flex items-center gap-3 rounded-xl border border-line bg-white p-3">
+                      <input type="color" value={designValue(cfg.theme, k)} onChange={(e) => setCfg((c) => ({ ...c, theme: { ...c.theme, [k]: e.target.value, ...(k === "background" ? { bg2: e.target.value, text: isDark(e.target.value) ? "#F3ECDD" : "#1E1B2E" } : { accentText: null }) } }))} className="h-10 w-10 cursor-pointer rounded-lg border-0 bg-transparent p-0" />
+                      <span className="text-sm font-semibold">{label}</span>
+                    </label>
                   ))}
+                </div>
+                <div className="mt-4 rounded-2xl p-6 text-center" style={{ background: designValue(cfg.theme, "background"), color: designValue(cfg.theme, "text") }}>
+                  <p className="text-2xl" style={{ fontFamily: "var(--font-cormorant)" }}>{cfg.displayName || "Tu nombre"}</p>
+                  <span className="mt-3 inline-block rounded-full px-4 py-2 text-sm font-semibold" style={{ background: designValue(cfg.theme, "accent"), color: designValue(cfg.theme, "accentText") }}>Reservar</span>
                 </div>
               </Step>
             )}
@@ -564,7 +556,6 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                   {[
                     [`${init.host}/${username}`, true],
                     [cfg.avatarUrl ? "Foto de perfil" : "Foto de perfil (pendiente)", !!cfg.avatarUrl],
-                    [`Estilo ${TEMPLATES[cfg.template].name}`, true],
                     [product.title ? `${product.title} · ${formatMoney(priceCents)}` : "Primer producto", !!product.productId],
                     [deliveryLabel, deliverable],
                     [payoutActive ? "Pagos activados" : payout.status === "VERIFYING" ? "Pagos en verificación" : "Pagos sin conectar", payoutActive],

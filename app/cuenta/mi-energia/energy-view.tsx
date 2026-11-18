@@ -11,8 +11,7 @@ import { EnergyIcon } from "@/components/creator-page/energy-icon";
 import { GeneKeysIcon } from "@/components/creator-page/gene-keys-icon";
 import { HumanDesignIcon } from "@/components/creator-page/human-design-icon";
 import { MoonIcon } from "@/components/creator-page/moon-icon";
-import { OracleIcon } from "@/components/creator-page/oracle-icon";
-import { RuneIcon } from "@/components/creator-page/rune-icon";
+import { OracleSpreadIcon, RuneStonesIcon } from "@/components/creator-page/energy-tool-icons";
 import { SystemIconMark } from "@/components/creator-page/system-icon";
 import { BirthProfileEditor } from "@/components/models/birth-profile-editor";
 import type { OracleDeckView } from "@/components/models/data/oracle";
@@ -150,8 +149,8 @@ export function EnergyViewClient({ view, profiles, selectedId, decks }: { view: 
 
           {/* 3 · Oráculo y Runas */}
           <section aria-label="Oráculo y runas" className="flex justify-center gap-8 sm:gap-12">
-            <Bubble href={energyHref("oraculo", selected?.id)} label="Oráculo" icon={OracleIcon} />
-            <Bubble href={energyHref("runas", selected?.id)} label="Runas" icon={RuneIcon} />
+            <Bubble href={energyHref("oraculo", selected?.id)} label="Oráculo" icon={OracleSpreadIcon} />
+            <Bubble href={energyHref("runas", selected?.id)} label="Runas" icon={RuneStonesIcon} />
           </section>
 
           {/* 4 · Tu energía de hoy, junta */}
@@ -351,18 +350,14 @@ function PersonPicker({ profiles, selected, onPick, onAdd }: { profiles: SavedBi
 
 function Bubble({ href, label, icon: Icon }: { href: string; label: string; icon: Icon }) {
   return (
-    <Link href={href} className="group flex flex-col items-center gap-2 text-center">
-      <span
-        className="grid h-24 w-24 place-items-center rounded-full border transition group-hover:scale-[1.04] group-active:scale-[0.98] sm:h-28 sm:w-28"
-        style={{
-          borderColor: "color-mix(in oklab, var(--c-gold) 45%, transparent)",
-          background: "radial-gradient(circle at 35% 30%, color-mix(in oklab, var(--c-gold) 22%, var(--c-bg)), color-mix(in oklab, var(--c-text) 6%, var(--c-bg)) 70%)",
-          boxShadow: "0 14px 34px -20px color-mix(in oklab, var(--c-gold) 70%, transparent)",
-        }}
+    <Link href={href} className="group flex flex-col items-center gap-1.5 text-center">
+      {/* Sin círculo: el dibujo dorado suelto, con un brillo suave, que sube un poco al pasar por encima. */}
+      <Icon
         aria-hidden
-      >
-        <Icon className="cp-gold h-12 w-12 sm:h-14 sm:w-14" strokeWidth={1.1} />
-      </span>
+        className="cp-gold h-24 w-24 transition-transform duration-300 group-hover:-translate-y-1 group-active:scale-[0.97] sm:h-28 sm:w-28"
+        strokeWidth={1.1}
+        style={{ filter: "drop-shadow(0 6px 14px color-mix(in oklab, var(--c-gold) 35%, transparent))" }}
+      />
       <span className="cp-display text-[1.15rem]">{label}</span>
     </Link>
   );

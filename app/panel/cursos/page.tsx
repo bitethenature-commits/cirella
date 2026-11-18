@@ -13,7 +13,7 @@ import { readPageConfig } from "@/lib/page-config";
 import { canSellType } from "@/lib/plans";
 import { toPublicProduct } from "@/lib/product-view";
 import { tenantDb } from "@/lib/tenant";
-import { resolveTheme, themeStyle } from "@/lib/templates";
+import { resolveTheme, themeStyle, themeAttrs } from "@/lib/templates";
 import { createProduct, deleteProduct } from "../productos/actions";
 import { PageHeader } from "../ui";
 import { CoursesBrowser } from "./courses-browser";
@@ -123,7 +123,7 @@ export default async function CoursesPage() {
             count: g.courses.length,
             cards: (
               // Las tarjetas de la web, con su plantilla.
-              <div className="cp rounded-3xl p-4 sm:p-5" style={{ ...themeStyle(theme), minHeight: 0 }} data-card={theme.card}>
+              <div className="cp rounded-3xl p-4 sm:p-5" style={{ ...themeStyle(theme), minHeight: 0 }} {...themeAttrs(theme)}>
                 <div className="grid gap-5 sm:grid-cols-2">
                   {g.courses.map((c) => {
                     const s = statById.get(c.id);

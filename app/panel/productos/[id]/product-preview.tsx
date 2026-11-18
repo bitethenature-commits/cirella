@@ -12,7 +12,7 @@ import { asAccessMode } from "@/lib/access-mode";
 import { groupCourses } from "@/lib/course-categories";
 import type { PageConfig } from "@/lib/page-config";
 import { toPublicProduct } from "@/lib/product-view";
-import { resolveTheme, themeStyle } from "@/lib/templates";
+import { resolveTheme, themeStyle, themeAttrs } from "@/lib/templates";
 import { TemplateDecor } from "@/components/template-decor";
 
 type Seller = { line: string; name: string; named: boolean };
@@ -115,7 +115,7 @@ function PreviewScene({ ctx, product, tab }: { ctx: ProductPreviewContext; produ
   const theme = resolveTheme(ctx.config.template, ctx.config.theme, ctx.allowCustom);
   const group = card.type === "COURSE" ? groupCourses([card])[0] : null;
   return (
-    <div className="cp" style={themeStyle(theme)} data-card={theme.card} data-template={ctx.config.template}>
+    <div className="cp" style={themeStyle(theme)} {...themeAttrs(theme)}>
       <TemplateDecor decor={theme.decor} contained>
         {theme.backgroundImageUrl && (
           // eslint-disable-next-line @next/next/no-img-element

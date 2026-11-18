@@ -30,7 +30,7 @@ export default async function PortalPage({ params }: { params: Promise<Params> }
   if (!data || !data.personal) notFound();
   const { creator, config } = data;
   return (
-    <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
+    <CreatorShell page="portal" username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
       <main className="mx-auto max-w-3xl px-4 pb-12 pt-8 sm:pt-12">
         <div className="flex items-center gap-4">
           <span className="cp-emblem grid h-14 w-14 shrink-0 place-items-center rounded-full" aria-hidden>

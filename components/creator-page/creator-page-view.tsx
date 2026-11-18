@@ -1,5 +1,6 @@
 import Link from "next/link";
-import type { ComponentType, CSSProperties, SVGProps } from "react";
+import { Fragment, type ComponentType, type CSSProperties, type ReactNode, type SVGProps } from "react";
+import type { HomeEdit } from "./home-edit";
 import { ArrowRight, ArrowUpRight, ExternalLink, FileText, Gift, Layers, Mail, Moon, Plus, Sparkles, Video } from "lucide-react";
 import { courseCategoriesLabel, courseCategoriesOf, productTopics, readingLabel } from "@/lib/course-categories";
 import { AstrologyIcon } from "./astrology-icon";
@@ -27,11 +28,12 @@ import {
   type PageConfig,
   type SectionKey,
 } from "@/lib/page-config";
-import { READINGS_DEFAULTS } from "@/lib/page-config";
+import { designFor, READINGS_DEFAULTS } from "@/lib/page-config";
 import type { PublicPortalItem } from "@/lib/portal-rules";
 import type { GiftsPreview } from "@/lib/site-pages";
 import { sectionPagePath } from "@/lib/site-sections";
-import { resolveTheme, themeStyle } from "@/lib/templates";
+import { resolveTheme, themeAttrs, themeStyle } from "@/lib/templates";
+import { DesignBackdrop } from "@/components/design-backdrop";
 import { requestCta, type ProductType } from "@/lib/types";
 import { SocialIcon } from "../social-icons";
 import { CodesCarousel } from "./codes-carousel";
@@ -181,10 +183,18 @@ type Props = {
   pages?: SiteNavPage[];
   /** Barajas propias de los bloques «Oráculo» (lib/oracle-decks.ts → oracleDecksForBlocks). */
   oracleDecks?: OracleDecks;
+  /** Modo Canva (app/panel/canva): se escribe encima de la página (home-edit.ts). */
+  edit?: HomeEdit;
 };
 
 export function CreatorPageView(props: Props) {
-  const { config, username, preview, personal, signupsOnly } = props;
+  const { config, username, preview, personal, signupsOnly, edit } = props;
+  /** Un texto de la página: en el Canva, escrito encima; si no, tal cual. */
+  const T = (path: string, value: string, o?: Parameters<HomeEdit["text"]>[2]): ReactNode => (edit ? edit.text(path, value, o) : value);
+  /** El título de una sección (en el Canva, editable). */
+  const ST = (key: SectionKey) => T(`section:${key}`, sectionTitle(config, key), { placeholder: "Título de la sección" });
+  /** El botón para cambiar un enlace (solo en el Canva). */
+  const L = (path: string, url: string) => (edit ? <span className="relative z-10 mt-1.5 inline-flex">{edit.link(path, url)}</span> : null);
   // Lo de pago se ve siempre: se solicita por formulario (lib/requests.ts).
   const products = props.products;
   // Ni un botón hacia lo que no se ve: en la web personal sin cobros, un enlace a un producto oculto daría 404.
@@ -192,7 +202,8 @@ export function CreatorPageView(props: Props) {
   const links = config.links.filter((l) => !linksToProduct(l.url, username, hiddenSlugs, props.siteOrigin));
   const posts = props.posts ?? [];
   const codes = props.discountCodes ?? [];
-  const theme = resolveTheme(config.template, config.theme, props.allowCustom);
+  // El diseño de la web con los cambios de la portada encima (Panel › Mi página › Diseño).
+  const theme = resolveTheme(null, designFor(config, "home"), props.allowCustom);
   const reveal = preview ? {} : { "data-reveal": "" };
   const trackId = preview ? null : props.creatorId;
   const path = (page: Parameters<typeof sectionPagePath>[1]) => sectionPagePath(username, page, !!personal);
@@ -351,7 +362,7 @@ export function CreatorPageView(props: Props) {
       if (key === "courses" && items.length > 1)
         return (
           <section key={key} id="cursos" className="mt-14" {...reveal}>
-            <SectionHeading title={sectionTitle(config, key)} />
+            <SectionHeading title={ST(key)} />
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {items.slice(0, HOME_COURSES).map((p) => (
                 <CourseMiniCard key={p.id} p={p} username={username} />
@@ -362,7 +373,7 @@ export function CreatorPageView(props: Props) {
         );
       return (
         <section key={key} id={key === "courses" ? "cursos" : key} className="mt-14" {...reveal}>
-          <SectionHeading title={sectionTitle(config, key)} count={items.length} />
+          <SectionHeading title={ST(key)} count={items.length} />
           {items.length === 1 ? (
             <div className="mx-auto mt-6 max-w-[16rem]">
               <OracleCard p={items[0]} username={username} trackCreatorId={trackId} />
@@ -383,6 +394,13 @@ export function CreatorPageView(props: Props) {
     switch (key) {
       case "blocks": {
         const blocks = visibleTextBlocks(config);
+        if (edit)
+          return (
+            <section key={key} id="bloques" className="mt-14 space-y-4">
+              <SectionHeading title={ST(key)} />
+              {edit.blocks()}
+            </section>
+          );
         if (!blocks.length) return null;
         const heading = sectionTitle(config, key);
         return (
@@ -406,21 +424,32 @@ export function CreatorPageView(props: Props) {
         if (!bubbles.length) return null;
         return (
           <nav key={key} aria-label="Accesos" className="mt-12 grid gap-3" style={{ gridTemplateColumns: `repeat(${bubbles.length}, minmax(0, 1fr))` }} {...reveal}>
-            {bubbles.map((b) => (
-              <a key={b.id} href={safeHref(b.url)} className="group flex flex-col items-center gap-2.5 text-center" {...(isExternal(b.url) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
-                {b.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={b.image} srcSet={imageSrcSet(b.image)} sizes="104px" alt="" loading="lazy" decoding="async" className="cp-bubble-img transition duration-300 group-hover:-translate-y-0.5" />
-                ) : (
-                  <span className="cp-bubble-img grid place-items-center" aria-hidden>
-                    <span className="cp-display grid h-full w-full place-items-center rounded-full text-[1.8rem]" style={{ background: "var(--c-surface)" }}>
-                      {b.label.trim().charAt(0).toUpperCase()}
-                    </span>
+            {bubbles.map((b) => {
+              const img = b.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={b.image} srcSet={imageSrcSet(b.image)} sizes="104px" alt="" loading="lazy" decoding="async" className="cp-bubble-img transition duration-300 group-hover:-translate-y-0.5" />
+              ) : (
+                <span className="cp-bubble-img grid place-items-center" aria-hidden>
+                  <span className="cp-display grid h-full w-full place-items-center rounded-full text-[1.8rem]" style={{ background: "var(--c-surface)" }}>
+                    {b.label.trim().charAt(0).toUpperCase()}
                   </span>
-                )}
-                <span className="text-[0.9rem] font-semibold leading-tight">{b.label}</span>
-              </a>
-            ))}
+                </span>
+              );
+              const a = (
+                <a key={b.id} href={safeHref(b.url)} className="group flex flex-col items-center gap-2.5 text-center" {...(isExternal(b.url) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+                  {edit ? edit.image(`bubble:${b.id}:image`, img, { round: true }) : img}
+                  <span className="text-[0.9rem] font-semibold leading-tight">{T(`bubble:${b.id}:label`, b.label, { placeholder: "Nombre" })}</span>
+                </a>
+              );
+              return edit ? (
+                <div key={b.id} className="flex flex-col items-center">
+                  {a}
+                  {L(`bubble:${b.id}:url`, b.url)}
+                </div>
+              ) : (
+                a
+              );
+            })}
           </nav>
         );
       }
@@ -441,27 +470,39 @@ export function CreatorPageView(props: Props) {
       }
       case "about": {
         const a = config.about;
-        if (!a?.title) return null;
+        if (!a || (!a.title && !edit)) return null;
         const href = a.url || path("actualidades");
         return (
           <section key={key} id="sobre-mi" className="mt-16" {...reveal}>
             {/* Sin caja: solo la imagen lleva las esquinas redondeadas. */}
             <a href={safeHref(href)} className="group flex flex-col gap-5 sm:flex-row-reverse sm:items-center sm:gap-8" {...(isExternal(href) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
-              {a.image && (
+              {edit
+                ? edit.image(
+                    "about.image",
+                    <span className="cp-luxe-frame relative mx-auto block aspect-[9/16] w-full max-w-[20rem] sm:mx-0 sm:w-[36%] sm:shrink-0">
+                      {a.image && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={a.image} alt="" className="cp-img absolute inset-0 h-full w-full object-cover" />
+                      )}
+                    </span>,
+                    { removable: true },
+                  )
+                : a.image && (
                 <span className="cp-luxe-frame relative mx-auto block aspect-[9/16] w-full max-w-[20rem] sm:mx-0 sm:w-[36%] sm:shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={a.image} srcSet={imageSrcSet(a.image)} sizes="(min-width: 640px) 290px, 92vw" alt="" loading="lazy" decoding="async" className="cp-img absolute inset-0 h-full w-full object-cover group-hover:scale-[1.035]" />
                 </span>
               )}
               <span className="flex flex-1 flex-col justify-center gap-2">
-                {a.eyebrow && <span className="cp-eyebrow">{a.eyebrow}</span>}
-                <span className="cp-display text-[2rem] leading-[1.05] sm:text-[2.3rem]">{a.title}</span>
-                {a.text && <span className="cp-muted text-[0.95rem] leading-relaxed">{a.text}</span>}
+                {(a.eyebrow || edit) && <span className="cp-eyebrow">{T("about.eyebrow", a.eyebrow ?? "", { placeholder: "Antetítulo" })}</span>}
+                <span className="cp-display text-[2rem] leading-[1.05] sm:text-[2.3rem]">{T("about.title", a.title, { placeholder: "Título" })}</span>
+                {(a.text || edit) && <span className="cp-muted text-[0.95rem] leading-relaxed">{T("about.text", a.text ?? "", { multiline: true, placeholder: "Texto" })}</span>}
                 <span className="cp-gold mt-1 inline-flex items-center gap-1 text-sm font-semibold">
-                  {a.linkLabel || "Conoce mi historia"} <ArrowRight className="h-3.5 w-3.5" />
+                  {T("about.linkLabel", a.linkLabel || "Conoce mi historia")} <ArrowRight className="h-3.5 w-3.5" />
                 </span>
               </span>
             </a>
+            {L("about.url", a.url ?? "")}
           </section>
         );
       }
@@ -470,7 +511,7 @@ export function CreatorPageView(props: Props) {
         if (!systems.length) return null;
         return (
           <section key={key} id="sistemas" className="mt-16" {...reveal}>
-            <SectionHeading title={sectionTitle(config, key)} />
+            <SectionHeading title={ST(key)} />
             {/* Un icono y su nombre debajo, sin cajas: tres por fila en el móvil y todos en una en el ordenador. */}
             <div className="mt-6 grid grid-cols-3 gap-x-3 gap-y-6 sm:grid-cols-5">
               {systems.map((sys) => {
@@ -484,9 +525,16 @@ export function CreatorPageView(props: Props) {
                       {/* Los redondos (carta astral, luna) llenan todo su cuadrado: algo más pequeños para que pesen como los demás. */}
                       <Icon className={`cp-gold shrink-0 transition-transform duration-300 group-hover:-translate-y-1 ${round ? "h-10 w-10" : Icon === EnergyIcon ? "h-11 w-11" : hd ? "h-12 w-12" : "h-9 w-9"}`} strokeWidth={hd ? 1.05 : 1.4} aria-hidden />
                     </span>
-                    <span className="cp-display text-[1.15rem] leading-tight">{sys.title}</span>
+                    <span className="cp-display text-[1.15rem] leading-tight">{T(`system:${sys.id}:title`, sys.title, { placeholder: "Nombre" })}</span>
                   </>
                 );
+                if (edit)
+                  return (
+                    <div key={sys.id} className="flex flex-col items-center gap-2 text-center">
+                      {inner}
+                      {L(`system:${sys.id}:url`, sys.url)}
+                    </div>
+                  );
                 return sys.url ? (
                   <a key={sys.id} href={safeHref(sys.url)} className="group flex flex-col items-center gap-2 text-center" title={sys.text || undefined} {...(isExternal(sys.url) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
                     {inner}
@@ -514,14 +562,14 @@ export function CreatorPageView(props: Props) {
         ];
         return (
           <section key={key} id="lecturas" className="mt-16" {...reveal}>
-            <SectionHeading title={sectionTitle(config, key)} />
+            <SectionHeading title={ST(key)} />
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              {cards.map(({ c, d, href, Icon, tone }) => (
+              {cards.map(({ c, d, href, Icon, tone }, ci) => (
                 <Link key={href} href={href} className="cp-card cp-card-hover flex flex-col gap-2 p-6" style={tone.box}>
                   <Icon className="h-8 w-8" strokeWidth={1.5} style={{ color: tone.ink }} aria-hidden />
-                  <span className="cp-eyebrow">{c.eyebrow || d.eyebrow}</span>
-                  <span className="cp-display text-[1.7rem] leading-tight">{c.title || d.title}</span>
-                  <span className="cp-muted text-[0.9rem] leading-relaxed">{c.text || d.text}</span>
+                  <span className="cp-eyebrow">{T(`readings.${ci === 0 ? "session" : "reading"}.eyebrow`, c.eyebrow || d.eyebrow)}</span>
+                  <span className="cp-display text-[1.7rem] leading-tight">{T(`readings.${ci === 0 ? "session" : "reading"}.title`, c.title || d.title)}</span>
+                  <span className="cp-muted text-[0.9rem] leading-relaxed">{T(`readings.${ci === 0 ? "session" : "reading"}.text`, c.text || d.text, { multiline: true })}</span>
                   <span className="cp-gold mt-auto inline-flex items-center gap-1 pt-2 text-sm font-semibold">
                     Ver los pasos <ArrowRight className="h-3.5 w-3.5" />
                   </span>
@@ -531,7 +579,7 @@ export function CreatorPageView(props: Props) {
             {circles.length > 0 && (
               <div className="cp-card mt-4 p-5 sm:p-6" data-moon-circles style={TONE_CIRCLES.box}>
                 <p className="cp-eyebrow flex items-center gap-1.5">
-                  <Moon className="h-4 w-4" style={{ color: TONE_CIRCLES.ink }} /> {r.circlesTitle || READINGS_DEFAULTS.circlesTitle}
+                  <Moon className="h-4 w-4" style={{ color: TONE_CIRCLES.ink }} /> {T("readings.circlesTitle", r.circlesTitle || READINGS_DEFAULTS.circlesTitle)}
                 </p>
                 <ul className="mt-3 divide-y" style={{ borderColor: "var(--c-line)" }}>
                   {circles.map((c) => (
@@ -563,7 +611,7 @@ export function CreatorPageView(props: Props) {
         if (!codes.length) return null;
         return (
           <section key={key} id="codigos" className="mt-16" {...reveal}>
-            <SectionHeading title={sectionTitle(config, key)} count={codes.length} />
+            <SectionHeading title={ST(key)} count={codes.length} />
             {/* Tarjetas verticales: en el ordenador caben tres juntas; si hay más (o en el móvil), carrusel. */}
             <CodesCarousel>
               {codes.map((c) => (
@@ -579,19 +627,29 @@ export function CreatorPageView(props: Props) {
         if (!links.length) return null;
         return (
           <section key={key} className="mt-9 space-y-3" {...reveal}>
-            {links.map((l) => (
-              <a key={l.id} href={safeHref(l.url)} className="cp-link" data-highlight={l.highlight ? "true" : "false"} {...(l.url.startsWith("/") ? {} : { target: "_blank", rel: "noopener noreferrer" })}>
-                <span>{l.label}</span>
-                <ArrowUpRight className="h-4 w-4 shrink-0 opacity-70" />
-              </a>
-            ))}
+            {links.map((l) => {
+              const a = (
+                <a key={l.id} href={safeHref(l.url)} className={`cp-link ${edit ? "min-w-0 flex-1" : ""}`} data-highlight={l.highlight ? "true" : "false"} {...(l.url.startsWith("/") ? {} : { target: "_blank", rel: "noopener noreferrer" })}>
+                  <span>{T(`link:${l.id}:label`, l.label, { placeholder: "Texto del botón" })}</span>
+                  <ArrowUpRight className="h-4 w-4 shrink-0 opacity-70" />
+                </a>
+              );
+              return edit ? (
+                <div key={l.id} className="flex items-center gap-2">
+                  {a}
+                  {edit.link(`link:${l.id}:url`, l.url)}
+                </div>
+              ) : (
+                a
+              );
+            })}
           </section>
         );
       case "testimonials":
         if (!config.testimonials.length) return null;
         return (
           <section key={key} className="mt-16" {...reveal}>
-            <SectionHeading title={sectionTitle(config, key)} />
+            <SectionHeading title={ST(key)} />
             <TestimonialsRotator items={config.testimonials} />
           </section>
         );
@@ -599,9 +657,15 @@ export function CreatorPageView(props: Props) {
         if (!config.faqs.length) return null;
         return (
           <section key={key} className="mt-16" {...reveal}>
-            <SectionHeading title={sectionTitle(config, key)} />
+            <SectionHeading title={ST(key)} />
             <div className="mt-4 divide-y" style={{ borderColor: "var(--c-line)" }}>
-              {config.faqs.map((f) => (
+              {edit && config.faqs.map((f) => (
+                <div key={f.id} className="py-3" style={{ borderColor: "var(--c-line)" }}>
+                  <p className="py-1 text-[0.98rem] font-medium">{T(`faq:${f.id}:q`, f.q, { placeholder: "Pregunta" })}</p>
+                  <p className="cp-muted pb-2 pr-8 text-[0.92rem] leading-relaxed">{T(`faq:${f.id}:a`, f.a, { multiline: true, placeholder: "Respuesta" })}</p>
+                </div>
+              ))}
+              {!edit && config.faqs.map((f) => (
                 <details key={f.id} className="group py-1" style={{ borderColor: "var(--c-line)" }}>
                   <summary className="flex cursor-pointer items-center justify-between gap-4 py-4 text-[0.98rem] font-medium">
                     {f.q}
@@ -636,8 +700,8 @@ export function CreatorPageView(props: Props) {
         return (
           <section key={key} className="mt-16" {...reveal}>
             <div className="cp-card p-7 text-center sm:p-9">
-              <p className="cp-eyebrow">{sectionTitle(config, key)}</p>
-              <p className="cp-display mx-auto mt-3 max-w-md text-[1.7rem]">{c.message || "¿Tienes alguna pregunta? Escríbeme."}</p>
+              <p className="cp-eyebrow">{ST(key)}</p>
+              <p className="cp-display mx-auto mt-3 max-w-md text-[1.7rem]">{T("contact.message", c.message || "¿Tienes alguna pregunta? Escríbeme.", { multiline: true })}</p>
               <div className="mt-6 flex flex-wrap justify-center gap-3">
                 <a href={`mailto:${c.email}`} className="cp-btn-ghost">
                   <Mail className="h-4 w-4" /> Email
@@ -667,13 +731,9 @@ export function CreatorPageView(props: Props) {
   const socials = SOCIAL_KEYS.filter((k) => config.socials[k]);
 
   return (
-    <div className="cp cp-luxe" style={themeStyle(theme)} data-card={theme.card} data-template={config.template}>
-      <TemplateDecor decor={theme.decor} contained={!!preview}>
-        {theme.backgroundImageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={theme.backgroundImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-30" />
-        )}
-      </TemplateDecor>
+    <div className="cp cp-luxe" style={themeStyle(theme)} {...themeAttrs(theme)}>
+      <DesignBackdrop theme={theme} contained={!!preview} />
+      <TemplateDecor decor={theme.decor} contained={!!preview} />
 
       {/* Barra superior discreta: solo la entrada al área (sin el @usuario) */}
       <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-end px-4 pt-[max(env(safe-area-inset-top),0.75rem)]">
@@ -681,7 +741,19 @@ export function CreatorPageView(props: Props) {
       </div>
 
       {/* Portada */}
-      {config.coverUrl ? (
+      {edit ? (
+        edit.image(
+          "coverUrl",
+          <div className={`relative w-full overflow-hidden ${config.coverUrl ? "h-[14vh] min-h-[112px] sm:h-[18vh] sm:min-h-[150px]" : "h-14 sm:h-16"}`}>
+            {config.coverUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={config.coverUrl} alt="" className="cp-cover-img h-full w-full scale-105 object-cover" />
+            )}
+            {config.coverUrl && <div className="cp-cover-fade absolute inset-0" />}
+          </div>,
+          { label: config.coverUrl ? "Cambiar portada" : "Añadir portada", removable: true },
+        )
+      ) : config.coverUrl ? (
         // Portada baja: la presentación empieza arriba del todo (la foto asoma detrás de la cara).
         <div className="relative h-[14vh] min-h-[112px] w-full overflow-hidden sm:h-[18vh] sm:min-h-[150px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -692,7 +764,7 @@ export function CreatorPageView(props: Props) {
             fetchPriority="high"
             decoding="async"
             alt=""
-            className="h-full w-full scale-105 object-cover"
+            className="cp-cover-img h-full w-full scale-105 object-cover"
           />
           <div className="cp-cover-fade absolute inset-0" />
         </div>
@@ -705,17 +777,21 @@ export function CreatorPageView(props: Props) {
         <header className={`flex flex-col items-center text-center ${config.coverUrl ? "-mt-14 sm:-mt-20" : "pt-2 sm:pt-4"}`}>
           <div className="rounded-full p-[3px]" style={{ background: "linear-gradient(135deg, var(--c-gold), var(--c-accent))" }}>
             <div className="rounded-full p-[3px]" style={{ background: "var(--c-bg)" }}>
-              <Avatar src={config.avatarUrl} name={config.displayName} className="h-24 w-24 sm:h-32 sm:w-32" />
+              {edit ? (
+                edit.image("avatarUrl", <Avatar src={config.avatarUrl} name={config.displayName} className="h-24 w-24 sm:h-32 sm:w-32" />, { round: true })
+              ) : (
+                <Avatar src={config.avatarUrl} name={config.displayName} className="h-24 w-24 sm:h-32 sm:w-32" />
+              )}
             </div>
           </div>
-          <h1 className="cp-display mt-4 text-[2.6rem] sm:mt-5 sm:text-[3.2rem]">{config.displayName}</h1>
-          {config.tagline && <p className="cp-eyebrow mt-3">{config.tagline}</p>}
-          {config.headline && (
+          <h1 className="cp-display mt-4 text-[2.6rem] sm:mt-5 sm:text-[3.2rem]">{T("displayName", config.displayName, { placeholder: "Tu nombre" })}</h1>
+          {(config.tagline || edit) && <p className="cp-eyebrow mt-3">{T("tagline", config.tagline, { placeholder: "Descripción corta" })}</p>}
+          {(config.headline || edit) && (
             <p className="cp-display mt-4 max-w-lg text-[1.65rem] italic leading-tight sm:mt-6 sm:text-[2rem]" style={{ color: "var(--c-gold)" }}>
-              {config.headline}
+              {T("headline", config.headline, { placeholder: "Tu frase" })}
             </p>
           )}
-          {config.bio && <p className="cp-muted mt-4 max-w-md text-[0.95rem] leading-relaxed">{config.bio}</p>}
+          {(config.bio || edit) && <p className="cp-muted mt-4 max-w-md text-[0.95rem] leading-relaxed">{T("bio", config.bio, { multiline: true, placeholder: "Sobre ti" })}</p>}
           {socials.length > 0 && (
             <div className="mt-6 flex items-center gap-2">
               {socials.map((k) => (
@@ -735,10 +811,16 @@ export function CreatorPageView(props: Props) {
           )}
         </header>
 
-        {config.sections.filter((s) => s.key === "links" && s.enabled).map((s) => renderSection(s.key))}
+        {config.sections
+          .filter((s) => s.key === "links" && s.enabled)
+          .map((s) => (edit ? <Fragment key={s.key}>{edit.section(s.key, renderSection(s.key))}</Fragment> : renderSection(s.key)))}
 
         {/* El antiguo «Destacado» ya no se pinta aparte: cada producto sale en su sección (Product.featured no hace nada aquí). */}
-        {config.sections.filter((s) => s.enabled && s.key !== "links").map((s) => renderSection(s.key))}
+        {config.sections
+          .filter((s) => s.enabled && s.key !== "links")
+          .map((s) => (edit ? <Fragment key={s.key}>{edit.section(s.key, renderSection(s.key))}</Fragment> : renderSection(s.key)))}
+
+        {edit?.footer}
 
         <footer className="mt-20 flex flex-col items-center gap-4 text-center text-xs">
           {personal && config.newsletter?.footer && !newsletterSection && !contactNewsletter && (
@@ -926,7 +1008,7 @@ function isExternal(url: string) {
   return /^https?:\/\//i.test(url.trim());
 }
 
-export function SectionHeading({ title, count }: { title: string; count?: number }) {
+export function SectionHeading({ title, count }: { title: ReactNode; count?: number }) {
   return (
     <div className="cp-section-heading">
       <span className="cp-section-star" aria-hidden>

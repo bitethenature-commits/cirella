@@ -52,7 +52,7 @@ export default async function RequestPage({ params }: { params: Promise<{ userna
   const intakePrefill = lastBirth ? intakeFormValues({ v: 1, birth: lastBirth, answers: [] }) : undefined;
 
   return (
-    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} sellerName={statement.name} showNewsletter={false}>
+    <CreatorShell page="productos" username={username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} sellerName={statement.name} showNewsletter={false}>
       <main className="mx-auto max-w-xl px-4 pb-16 pt-6 sm:pt-10">
         <RequestForm
           product={{

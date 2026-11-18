@@ -79,7 +79,7 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
   ];
 
   return (
-    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages} sellerName={identity.legalName}>
+    <CreatorShell page="legal" username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages} sellerName={identity.legalName}>
       <main className="mx-auto max-w-2xl px-4 pb-10 pt-8 sm:pt-12">
         <p className="cp-eyebrow">Información legal</p>
         <h1 className="cp-display mt-2 text-[2.4rem] leading-tight">{sells ? "Aviso legal y condiciones" : "Aviso legal y privacidad"}</h1>

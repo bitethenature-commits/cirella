@@ -4,14 +4,13 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpRight,
-  Check,
   Eye,
   EyeOff,
   FileText,
   Loader2,
   Lock,
+  Paintbrush,
   Plus,
-  RotateCcw,
   Save,
   Sparkles,
   Trash2,
@@ -28,7 +27,6 @@ import { BlocksEditor, type BlocksUpdate } from "@/components/panel/blocks/block
 import { LinkInput, type LinkTarget } from "@/components/panel/blocks/link-input";
 import { useDesktop } from "@/components/panel/use-desktop";
 import { PhoneFrame } from "@/components/panel/phone-frame";
-import { TemplatePreview } from "@/components/template-preview";
 import { ImageUpload } from "@/components/ui/image-upload";
 import {
   BUBBLES_MAX,
@@ -51,10 +49,10 @@ import { withoutEmptyBlocks } from "@/lib/page-blocks";
 import { SITE_PAGE_STATE_LABEL, type SitePageState } from "@/lib/site-pages";
 import { SECTION_PAGES, SECTION_PAGE_TITLE, sectionPagePath } from "@/lib/site-sections";
 import { formatPrice } from "@/lib/money";
-import { FONT_PAIRS, RADIUS, TEMPLATES, type FontPairKey, type RadiusKey, type TemplateKey } from "@/lib/templates";
 import { moveProduct } from "../productos/actions";
 import { SectionEmblem } from "../section-emblem";
 import { publishDraft, saveDraft } from "./actions";
+import { DesignEditor, DesignSample, type DesignTarget } from "./design-editor";
 
 type Props = {
   initial: PageConfig;
@@ -75,7 +73,6 @@ type Props = {
   signupsOnly?: boolean;
   /** Dirección de la web (APP_URL): la vista previa quita los mismos enlaces que la página publicada. */
   siteOrigin?: string;
-  templates: TemplateKey[];
   allowCustom: boolean;
   allowRemoveBranding: boolean;
   platformName: string;
@@ -85,9 +82,13 @@ type Props = {
   linkTargets: LinkTarget[];
   /** Sus barajas de oráculo publicadas: el selector del bloque «Oráculo» y la vista previa. */
   oracleDecks: OracleDeckView[];
+  /** Canva (app/panel/canva): la configuración es de fuera (se edita también encima de la web). */
+  controlled?: { cfg: PageConfig; setCfg: React.Dispatch<React.SetStateAction<PageConfig>> };
+  /** Canva: solo las pestañas y su contenido, en el panel lateral (sin cabecera, vista previa ni Diseño). */
+  embedded?: { tab: Tab; onTab: (t: Tab) => void };
 };
 
-const TABS = [
+export const TABS = [
   { key: "perfil", label: "Perfil" },
   { key: "diseno", label: "Diseño" },
   { key: "secciones", label: "Secciones" },
@@ -96,7 +97,29 @@ const TABS = [
   { key: "bloques", label: "Bloques" },
   { key: "contenido", label: "Testimonios y FAQ" },
 ] as const;
-type Tab = (typeof TABS)[number]["key"];
+export type Tab = (typeof TABS)[number]["key"];
+/** En el panel solo quedan el diseño y los accesos: lo demás se edita encima de la web, en el Canva. */
+const PANEL_TABS: readonly Tab[] = ["diseno", "portada"];
+
+/** Lo que se guarda: sin las filas que se añadieron y se dejaron vacías (no deben bloquear el guardado). */
+export function cleanPageConfig(cfg: PageConfig): PageConfig {
+  return {
+    ...cfg,
+    links: cfg.links.filter((l) => l.label.trim() || l.url.trim()),
+    testimonials: cfg.testimonials.filter((t) => t.quote.trim() || t.author.trim()),
+    faqs: cfg.faqs.filter((f) => f.q.trim() || f.a.trim()),
+    blocks: withoutEmptyBlocks(cfg.blocks ?? []),
+    bubbles: cfg.bubbles?.filter((b) => b.label.trim() || b.url.trim() || b.image),
+    systems: cfg.systems?.filter((x) => x.title.trim() || x.text.trim() || x.url.trim() || x.image),
+    readings: cfg.readings
+      ? {
+          ...cfg.readings,
+          reading: { ...cfg.readings.reading, steps: cfg.readings.reading.steps.map((x) => x.trim()).filter(Boolean) },
+          session: { ...cfg.readings.session, steps: cfg.readings.session.steps.map((x) => x.trim()).filter(Boolean) },
+        }
+      : cfg.readings,
+  };
+}
 
 /** «Orden de productos»: un grupo por sección de la página. */
 const PRODUCT_GROUPS = [
@@ -118,27 +141,19 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-function ColorInput({ label, value, fallback, onChange }: { label: string; value: string | null | undefined; fallback: string; onChange: (v: string | null) => void }) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-line bg-white p-2 pr-3">
-      <input type="color" value={value ?? fallback} onChange={(e) => onChange(e.target.value)} className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0" aria-label={label} />
-      <span className="flex-1 text-sm">{label}</span>
-      <span className="font-mono text-xs text-muted">{(value ?? fallback).toUpperCase()}</span>
-      {value && (
-        <button type="button" onClick={() => onChange(null)} className="text-muted hover:text-ink" aria-label="Restablecer">
-          <RotateCcw className="h-3.5 w-3.5" />
-        </button>
-      )}
-    </div>
-  );
-}
-
 export function PageEditor(props: Props) {
-  const [cfg, setCfg] = useState<PageConfig>(props.initial);
+  const [ownCfg, setOwnCfg] = useState<PageConfig>(props.initial);
+  const cfg = props.controlled?.cfg ?? ownCfg;
+  const setCfg = props.controlled?.setCfg ?? setOwnCfg;
+  const embedded = props.embedded;
   const [saved, setSaved] = useState(JSON.stringify(props.initial));
   const [publishedJson, setPublishedJson] = useState(props.publishedJson);
-  const [tab, setTab] = useState<Tab>("perfil");
+  const [ownTab, setOwnTab] = useState<Tab>("diseno");
+  const tab = embedded?.tab ?? ownTab;
+  const setTab = embedded?.onTab ?? setOwnTab;
   const [mobilePreview, setMobilePreview] = useState(false);
+  // Diseño: qué se diseña (toda la web, la portada o una página) y, con una página, su muestra en la vista previa.
+  const [designTarget, setDesignTarget] = useState<DesignTarget>("general");
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const [busyAction, setBusyAction] = useState<"save" | "publish" | "preview" | null>(null);
@@ -180,8 +195,6 @@ export function PageEditor(props: Props) {
   const unpublished = JSON.stringify(cfg) !== publishedJson;
   const set = <K extends keyof PageConfig>(k: K, v: PageConfig[K]) => setCfg((c) => ({ ...c, [k]: v }));
   const setBlocks = useCallback((next: BlocksUpdate) => setCfg((c) => ({ ...c, blocks: typeof next === "function" ? next(c.blocks ?? []) : next })), []);
-  const setTheme = (patch: Partial<PageConfig["theme"]>) => setCfg((c) => ({ ...c, theme: { ...c.theme, ...patch } }));
-  const tpl = TEMPLATES[cfg.template];
 
   const flash = (ok: boolean, text: string) => {
     setToast({ ok, text });
@@ -190,23 +203,7 @@ export function PageEditor(props: Props) {
 
   const run = (kind: "save" | "publish" | "preview") => {
     setBusyAction(kind);
-    // Las filas que se añadieron y se dejaron vacías no deben bloquear el guardado.
-    const clean: PageConfig = {
-      ...cfg,
-      links: cfg.links.filter((l) => l.label.trim() || l.url.trim()),
-      testimonials: cfg.testimonials.filter((t) => t.quote.trim() || t.author.trim()),
-      faqs: cfg.faqs.filter((f) => f.q.trim() || f.a.trim()),
-      blocks: withoutEmptyBlocks(cfg.blocks ?? []),
-      bubbles: cfg.bubbles?.filter((b) => b.label.trim() || b.url.trim() || b.image),
-      systems: cfg.systems?.filter((x) => x.title.trim() || x.text.trim() || x.url.trim() || x.image),
-      readings: cfg.readings
-        ? {
-            ...cfg.readings,
-            reading: { ...cfg.readings.reading, steps: cfg.readings.reading.steps.map((x) => x.trim()).filter(Boolean) },
-            session: { ...cfg.readings.session, steps: cfg.readings.session.steps.map((x) => x.trim()).filter(Boolean) },
-          }
-        : cfg.readings,
-    };
+    const clean = cleanPageConfig(cfg);
     start(async () => {
       const r = kind === "publish" ? await publishDraft(clean) : await saveDraft(clean);
       setBusyAction(null);
@@ -256,11 +253,15 @@ export function PageEditor(props: Props) {
     ),
     [shown, props, oracleDecks],
   );
+  // En Diseño, con una página que no es la portada: su muestra con su diseño.
+  const samplePage = tab === "diseno" && !embedded && designTarget !== "general" && designTarget !== "home" ? designTarget : null;
+  const livePreview = samplePage ? <DesignSample config={shown} page={samplePage} allowCustom={props.allowCustom} personal={props.personal} username={props.username} /> : preview;
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_430px]">
+    <div className={embedded ? "" : "lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_430px]"}>
       {/* ───── Columna de edición ───── */}
       <div className="min-w-0">
+        {!embedded && (
         <div className="panel-hero mb-5 flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div className="starfield absolute inset-0 -z-10 rounded-[inherit] opacity-40" aria-hidden />
           <div className="flex items-center gap-4">
@@ -285,10 +286,11 @@ export function PageEditor(props: Props) {
             </button>
           </div>
         </div>
+        )}
 
-        <div className="sticky top-14 z-20 -mx-4 mb-5 border-b border-line bg-paper/95 px-4 backdrop-blur sm:-mx-6 sm:px-6">
-          <div className="flex gap-1 overflow-x-auto py-2 scrollbar-none">
-            {TABS.map((t) => (
+        <div className={embedded ? "sticky top-0 z-20 mb-4 border-b border-line bg-paper/95 backdrop-blur" : "sticky top-14 z-20 -mx-4 mb-5 border-b border-line bg-paper/95 px-4 backdrop-blur sm:-mx-6 sm:px-6"}>
+          <div className={`flex gap-1 py-2 ${embedded ? "flex-wrap" : "overflow-x-auto scrollbar-none"}`}>
+            {TABS.filter((t) => (embedded ? t.key !== "diseno" : PANEL_TABS.includes(t.key))).map((t) => (
               <button
                 key={t.key}
                 type="button"
@@ -298,10 +300,15 @@ export function PageEditor(props: Props) {
                 {t.label}
               </button>
             ))}
+            {!embedded && (
+              <Link href="/panel/canva" className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold text-gold hover:bg-sand">
+                <Paintbrush className="h-4 w-4" /> Lo demás, en el Canva
+              </Link>
+            )}
           </div>
         </div>
 
-        <div className="space-y-5 pb-28 lg:pb-10">
+        <div className={embedded ? "space-y-5 pb-10" : "space-y-5 pb-28 lg:pb-10"}>
           {tab === "perfil" && (
             <>
               <section className="card space-y-5 p-5 sm:p-6">
@@ -331,74 +338,8 @@ export function PageEditor(props: Props) {
             </>
           )}
 
-          {tab === "diseno" && (
-            <>
-              <section className="card p-5 sm:p-6">
-                <h3 className="font-semibold">Plantilla</h3>
-                <p className="text-xs text-muted">Cambia de estilo sin perder productos ni textos.</p>
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-                  {props.templates.map((t) => (
-                    <button key={t} type="button" onClick={() => set("template", t)} className="text-left">
-                      <div className={`overflow-hidden rounded-2xl ring-offset-2 ring-offset-white transition ${cfg.template === t ? "ring-2 ring-ink" : "ring-1 ring-line hover:ring-ink/30"}`}>
-                        <TemplatePreview template={t} name={cfg.displayName} tagline={cfg.tagline || " "} />
-                      </div>
-                      <p className="mt-2 flex items-center gap-1 text-sm font-semibold">{cfg.template === t && <Check className="h-3.5 w-3.5" />}{TEMPLATES[t].name}</p>
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              {props.allowCustom ? (
-                <section className="card space-y-5 p-5 sm:p-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">Personalización</h3>
-                    <button type="button" onClick={() => set("theme", {})} className="btn btn-ghost btn-sm"><RotateCcw className="h-3.5 w-3.5" /> Restablecer</button>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    <ColorInput label="Acento" value={cfg.theme.accent} fallback={tpl.colors.accent} onChange={(v) => setTheme({ accent: v })} />
-                    <ColorInput label="Fondo" value={cfg.theme.background} fallback={tpl.colors.bg} onChange={(v) => setTheme({ background: v })} />
-                    <ColorInput label="Texto" value={cfg.theme.text} fallback={tpl.colors.text} onChange={(v) => setTheme({ text: v })} />
-                  </div>
-                  <Field label="Tipografía">
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {(Object.keys(FONT_PAIRS) as FontPairKey[]).map((k) => {
-                        const active = (cfg.theme.fontPair ?? tpl.fontPair) === k;
-                        return (
-                          <button key={k} type="button" onClick={() => setTheme({ fontPair: k })} className={`rounded-xl border px-3 py-2.5 text-left transition ${active ? "border-ink bg-white ring-1 ring-ink" : "border-line bg-white hover:border-ink/30"}`}>
-                            <span className="block text-xl leading-none" style={{ fontFamily: FONT_PAIRS[k].display }}>Aa {FONT_PAIRS[k].name}</span>
-                            <span className="mt-1 block text-[0.68rem] text-muted">{FONT_PAIRS[k].sample}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </Field>
-                  <Field label="Bordes">
-                    <div className="flex gap-2">
-                      {(Object.keys(RADIUS) as RadiusKey[]).map((r) => {
-                        const active = (cfg.theme.radius ?? tpl.radius) === r;
-                        return (
-                          <button key={r} type="button" onClick={() => setTheme({ radius: r })} className={`flex-1 border px-3 py-2.5 text-sm transition ${active ? "border-ink bg-white ring-1 ring-ink" : "border-line bg-white"}`} style={{ borderRadius: RADIUS[r].card }}>
-                            {RADIUS[r].name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </Field>
-                  <Field label="Imagen de fondo" hint="Se muestra muy sutil detrás de tu contenido.">
-                    <ImageUpload shape="wide" value={cfg.theme.backgroundImageUrl ?? null} onChange={(v) => setTheme({ backgroundImageUrl: v })} label="Añadir fondo" />
-                  </Field>
-                </section>
-              ) : (
-                <section className="card flex items-start gap-4 p-5 sm:p-6">
-                  <Lock className="mt-1 h-5 w-5 text-muted" />
-                  <div>
-                    <p className="font-semibold">Colores, tipografías y fondos propios</p>
-                    <p className="mt-1 text-sm text-muted">Disponible desde el plan Creator. Mientras tanto, elige la plantilla que mejor encaje contigo.</p>
-                    <Link href="/panel/plan" className="btn btn-outline btn-sm mt-3">Ver planes</Link>
-                  </div>
-                </section>
-              )}
-            </>
+          {tab === "diseno" && !embedded && (
+            <DesignEditor cfg={cfg} setCfg={setCfg} target={designTarget} setTarget={setDesignTarget} pages={props.pages} allowCustom={props.allowCustom} />
           )}
 
           {tab === "secciones" && (
@@ -609,8 +550,8 @@ export function PageEditor(props: Props) {
                 <p className="text-xs text-muted">Burbujas redondas con foto bajo tu presentación, en una fila (de 1 a {BUBBLES_MAX}). Por ejemplo: Sobre mí, Cursos, Hacerte miembro.</p>
                 <div className="mt-4 space-y-2.5">
                   {(cfg.bubbles ?? []).map((b, i, all) => (
-                    <div key={b.id} className="grid gap-3 rounded-xl border border-line bg-white p-3 sm:grid-cols-[112px_1fr]">
-                      <ImageUpload shape="circle" value={b.image} onChange={(v) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, image: v } : x)))} label="Foto" />
+                    <div key={b.id} className="grid items-center gap-4 rounded-xl border border-line bg-white p-3 sm:grid-cols-[104px_1fr]">
+                      <ImageUpload shape="circle" small value={b.image} onChange={(v) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, image: v } : x)))} label="Foto" />
                       <div className="space-y-2">
                         <input className="input h-10 text-sm" placeholder="Texto (p. ej. Sobre mí)" maxLength={30} value={b.label} aria-label="Texto de la burbuja" onChange={(e) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, label: e.target.value } : x)))} />
                         <LinkInput value={b.url} ariaLabel="Enlace de la burbuja" targets={props.linkTargets} onChange={(v) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, url: v } : x)))} />
@@ -846,18 +787,19 @@ export function PageEditor(props: Props) {
       </div>
 
       {/* ───── Vista previa en vivo (escritorio) ───── */}
-      {desktop && (
+      {desktop && !embedded && (
       <aside className="hidden lg:block">
         <div className="sticky top-20">
           <p className="mb-3 text-center text-xs uppercase tracking-[0.2em] text-muted">Vista previa en vivo</p>
           <PhoneFrame screenClassName="h-[min(720px,calc(100dvh-170px))] w-[340px] overflow-y-auto overflow-x-hidden scrollbar-none xl:w-[370px]">
-            <div className="pointer-events-none">{preview}</div>
+            <div className="pointer-events-none">{livePreview}</div>
           </PhoneFrame>
         </div>
       </aside>
       )}
 
       {/* ───── Barra de acciones (móvil) ───── */}
+      {!embedded && (
       <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+58px)] z-30 border-t border-line bg-paper/95 px-4 py-2.5 backdrop-blur sm:hidden" data-mobile-actions>
         <div className="grid grid-cols-3 gap-2">
           <button type="button" onClick={() => run("save")} disabled={pending || !dirty} className="btn btn-outline btn-sm">
@@ -869,13 +811,14 @@ export function PageEditor(props: Props) {
           </button>
         </div>
       </div>
+      )}
 
-      {mobilePreview && (
+      {mobilePreview && !embedded && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black animate-fade-in lg:hidden">
           <button type="button" onClick={() => setMobilePreview(false)} className="fixed right-4 top-[max(env(safe-area-inset-top),0.75rem)] z-[60] inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-sm font-semibold text-ink shadow-lift">
             <X className="h-4 w-4" /> Cerrar
           </button>
-          <div className="pointer-events-none">{preview}</div>
+          <div className="pointer-events-none">{livePreview}</div>
         </div>
       )}
 

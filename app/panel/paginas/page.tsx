@@ -106,6 +106,7 @@ export default async function SitePagesPage({ searchParams }: { searchParams: Pr
                         siteOrigin={appUrl()}
                         pages={data.pages}
                         currentPath={path}
+                        page={p.slug}
                         back={false}
                         oracleDecks={decks[i]}
                         moonCircles={moonCircles}

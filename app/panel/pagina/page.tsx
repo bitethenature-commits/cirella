@@ -7,14 +7,12 @@ import { getPublicCreator } from "@/lib/public";
 import { sitePageState } from "@/lib/site-pages";
 import { sitePageLinkTargets } from "@/lib/site-pages.server";
 import { tenantDb } from "@/lib/tenant";
-import { TEMPLATE_KEYS, type TemplateKey } from "@/lib/templates";
 import { PageEditor } from "./editor";
 
 export default async function EditorPage() {
   const { creator } = await requireCreator();
-  const [data, templates, pages, oracleDecks] = await Promise.all([
+  const [data, pages, oracleDecks] = await Promise.all([
     getPublicCreator(creator.username, true),
-    prisma.template.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     tenantDb(creator.id).sitePage.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, slug: true, status: true, draft: true, published: true } }),
     getPublishedOracleDecks(creator.id),
   ]);
@@ -38,7 +36,6 @@ export default async function EditorPage() {
       personal={data?.personal ?? false}
       signupsOnly={data?.signupsOnly ?? false}
       siteOrigin={appUrl()}
-      templates={templates.map((t) => t.key).filter((k): k is TemplateKey => (TEMPLATE_KEYS as readonly string[]).includes(k))}
       allowCustom={data?.features.customDesign ?? false}
       allowRemoveBranding={data?.features.removeBranding ?? false}
       platformName={data?.platformName ?? "Cirella"}

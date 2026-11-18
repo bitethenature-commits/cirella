@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { getPublicCreator } from "@/lib/public";
-import { getTemplate } from "@/lib/templates";
+import { resolveTheme } from "@/lib/templates";
 
 export const size = { width: 64, height: 64 };
 export const contentType = "image/png";
@@ -9,7 +9,7 @@ export const contentType = "image/png";
 export default async function Icon({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
   const data = await getPublicCreator(username);
-  const t = getTemplate(data?.config.template);
+  const t = resolveTheme(null, data?.config.theme, data?.allowCustom ?? true);
   const letter = (data?.config.displayName ?? username).charAt(0).toUpperCase();
   return new ImageResponse(
     (

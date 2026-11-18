@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { CreatorBrandingProvider, type CreatorBranding } from "@/components/creator-page/branding-context";
+import { CanvaButton } from "@/components/creator-page/canva-button";
 import { isPublicUsernameAllowed } from "@/lib/personal-routing";
 import { getPublicCreator } from "@/lib/public";
 import { signupsOnly } from "@/lib/commerce";
@@ -32,6 +33,8 @@ export default async function CreatorLayout({ children, params }: { children: Re
   return (
     <CreatorBrandingProvider value={branding} personal={isPersonalMode()} signupsOnly={signupsOnly()}>
       {children}
+      {/* «Canva»: solo lo ve la dueña (se comprueba en el navegador). */}
+      {branding && <CanvaButton username={branding.username} personal={isPersonalMode()} />}
     </CreatorBrandingProvider>
   );
 }

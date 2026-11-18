@@ -44,7 +44,7 @@ export default async function ComunidadPage({ params }: { params: Promise<Params
   const descOf = new Map(descriptions.map((d) => [d.id, d]));
 
   return (
-    <CreatorShell username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
+    <CreatorShell page="comunidad" username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
       <main className="mx-auto max-w-6xl px-4 pb-14 pt-8 sm:pt-12">
         <div className="mx-auto max-w-2xl text-center">
           <p className="cp-eyebrow">✦ Comunidad ✦</p>

@@ -29,6 +29,7 @@ export function ImageUpload({
   fit = "cover",
   onUploaded,
   inputRef,
+  small = false,
 }: {
   value: string | null;
   onChange: (url: string | null) => void;
@@ -40,6 +41,8 @@ export function ImageUpload({
   onUploaded?: (img: { url: string; width: number; height: number }) => void;
   /** Para abrir el selector desde fuera (en el mismo toque que «Añadir imagen», como pide iOS). */
   inputRef?: React.RefObject<HTMLInputElement | null>;
+  /** Círculo pequeño (las burbujas de «Accesos»). */
+  small?: boolean;
 }) {
   const ownInput = useRef<HTMLInputElement>(null);
   const input = inputRef ?? ownInput;
@@ -47,7 +50,7 @@ export function ImageUpload({
   const [pct, setPct] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const box =
-    shape === "circle" ? "h-36 w-36 rounded-full" : shape === "wide" ? "aspect-[16/7] w-full rounded-2xl" : "aspect-[4/3] w-full rounded-2xl";
+    shape === "circle" ? `${small ? "h-24 w-24" : "h-36 w-36"} rounded-full` : shape === "wide" ? "aspect-[16/7] w-full rounded-2xl" : "aspect-[4/3] w-full rounded-2xl";
   return (
     <div className={className}>
       <div className={`relative ${shape === "circle" ? "mx-auto w-fit" : ""}`}>

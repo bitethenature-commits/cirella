@@ -6,7 +6,7 @@ import { requireBuyerFull } from "@/lib/buyer-access";
 import { creatorLegalHref } from "@/lib/legal";
 import { getPublishedOracleDecks } from "@/lib/oracle-decks";
 import { getPublicCreator } from "@/lib/public";
-import { resolveTheme, themeStyle } from "@/lib/templates";
+import { resolveTheme, themeStyle, themeAttrs } from "@/lib/templates";
 
 /**
  * Lo que necesitan las páginas de «Mi energía»: la sesión de cuenta (requireBuyerFull, que lleva al login
@@ -34,6 +34,6 @@ export async function loadEnergy(path: string, opts: { decks?: boolean } = {}) {
     profiles,
     decks,
     privacyHref: creatorLegalHref(owner.username, "privacidad"),
-    themeProps: { className: "cp !min-h-0 overflow-visible rounded-2xl px-4 py-5 sm:p-7", style: themeStyle(theme), "data-card": theme.card, "data-template": site?.config.template },
+    themeProps: { className: "cp !min-h-0 overflow-visible rounded-2xl px-4 py-5 sm:p-7", style: themeStyle(theme), ...themeAttrs(theme) },
   };
 }

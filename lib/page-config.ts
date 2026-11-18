@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { contentBlockSchema, HOME_BLOCKS_MAX, HOME_TEXT_MAX, readBlocks, visibleBlocks, type ContentBlock } from "./page-blocks";
-import { FONT_PAIRS, TEMPLATE_KEYS, type FontPairKey, type RadiusKey } from "./templates";
+import { legacyDesign } from "./legacy-looks";
+import { DECOR_KEYS, FONT_KEYS, type Design } from "./templates";
 
 /**
  * Contenido editable de la página pública de una creadora.
@@ -177,6 +178,77 @@ const ownImage = z
   .transform((v) => (v && (v.startsWith("/media/") || v.startsWith("/demo/")) && !v.includes("..") ? v : null));
 const linkText = shortText(500);
 
+/* El diseño (lib/templates.ts, Design): cada pieza opcional; lo que falta sale del diseño de base. */
+const num = (min: number, max: number) => z.number().int().min(min).max(max).nullable().optional();
+const flag = z.boolean().nullable().optional();
+const shadow = z.enum(["none", "soft", "strong", "glow"]).nullable().optional();
+export const designSchema = z.object({
+  background: color,
+  bg2: color,
+  text: color,
+  muted: color,
+  accent: color,
+  accentText: color,
+  gold: color,
+  bgType: z.enum(["solid", "gradient", "radial"]).nullable().optional(),
+  bgAngle: num(0, 360),
+  backgroundImageUrl: z.string().max(500).nullable().optional(),
+  bgImageOpacity: num(0, 100),
+  decor: z.enum(DECOR_KEYS).nullable().optional(),
+  decorOpacity: num(0, 100),
+  fontDisplay: z.enum(FONT_KEYS).nullable().optional(),
+  fontBody: z.enum(FONT_KEYS).nullable().optional(),
+  displayWeight: num(100, 900),
+  displayItalic: flag,
+  displayUpper: flag,
+  displaySpacing: num(-10, 40),
+  displaySize: num(60, 160),
+  cardStyle: z.enum(["glass", "solid", "outline", "editorial"]).nullable().optional(),
+  cardCustom: flag,
+  cardBg: color,
+  cardBgOpacity: num(0, 100),
+  cardBorder: color,
+  cardBorderWidth: num(0, 6),
+  cardRadius: num(0, 60),
+  cardShadow: shadow,
+  cardDouble: flag,
+  cardBlur: flag,
+  btnCustom: flag,
+  btnStyle: z.enum(["filled", "outline", "soft"]).nullable().optional(),
+  btnBg: color,
+  btnText: color,
+  btnBorder: color,
+  btnBorderWidth: num(0, 6),
+  btnRadius: num(0, 60),
+  btnFont: z.enum(["body", "display"]).nullable().optional(),
+  btnWeight: num(100, 900),
+  btnItalic: flag,
+  btnUpper: flag,
+  btnShadow: shadow,
+  btnDouble: flag,
+  imgCustom: flag,
+  imgRadius: num(0, 60),
+  avatarShape: z.enum(["circle", "rounded", "square"]).nullable().optional(),
+  fontPair: z.string().max(20).nullable().optional(),
+  radius: z.string().max(10).nullable().optional(),
+}) satisfies z.ZodType<Design, z.ZodTypeDef, unknown>;
+/** Una plantilla de la dueña: su nombre y su diseño completo. */
+const savedDesignSchema = z.object({ id: z.string().max(40), name: shortText(60).min(1, "Ponle un nombre"), theme: designSchema });
+export const SAVED_DESIGNS_MAX = 40;
+
+/** Un diseño guardado, pieza a pieza: lo que esté estropeado (o sea de otra versión) se ignora. */
+export function readDesign(raw: unknown): Design {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, unknown> = {};
+  for (const [k, schema] of Object.entries(designSchema.shape)) {
+    const v = (raw as Record<string, unknown>)[k];
+    if (v === undefined || v === null) continue;
+    const r = (schema as z.ZodTypeAny).safeParse(v);
+    if (r.success && r.data !== undefined && r.data !== null) out[k] = r.data;
+  }
+  return out as Design;
+}
+
 const bubbleSchema = z.object({
   id: z.string().max(40),
   label: shortText(30).min(1, "Cada burbuja necesita un texto"),
@@ -213,20 +285,14 @@ export const pageConfigSchema = z.object({
   bio: shortText(600).default(""),
   avatarUrl: z.string().max(500).nullable().default(null),
   coverUrl: z.string().max(500).nullable().default(null),
-  template: z.enum(TEMPLATE_KEYS).default("mystical"),
-  theme: z
-    .object({
-      accent: color,
-      background: color,
-      text: color,
-      fontPair: z
-        .enum(Object.keys(FONT_PAIRS) as [FontPairKey, ...FontPairKey[]])
-        .nullable()
-        .optional(),
-      radius: z.enum(["sharp", "soft", "round"]).nullable().optional(),
-      backgroundImageUrl: z.string().max(500).nullable().optional(),
-    })
-    .default({}),
+  /** De antes (la plantilla de fábrica): ya no cuenta, todo el diseño va en `theme`. */
+  template: z.string().max(40).default("custom"),
+  /** El diseño de toda la web (Panel › Mi página › Diseño). */
+  theme: designSchema.default({}),
+  /** Los cambios de diseño de cada página, encima del de la web: «home» (portada), «cursos», «uno-a-uno», el slug de una página… */
+  pageThemes: z.record(z.string().max(80), designSchema).default({}),
+  /** Las plantillas que ha creado la dueña. */
+  designs: z.array(savedDesignSchema).max(SAVED_DESIGNS_MAX).default([]),
   sections: z
     .array(z.object({ key: z.enum(SECTION_KEYS), enabled: z.boolean(), title: shortText(60).optional() }))
     .default([]),
@@ -285,18 +351,16 @@ export type PageConfig = z.infer<typeof pageConfigSchema>;
 /** Alias de antes: los bloques de la portada ya no son solo de texto. */
 export type TextBlock = ContentBlock;
 export type ThemeConfig = PageConfig["theme"];
-export type RadiusChoice = RadiusKey;
 
 export function defaultSections(): PageConfig["sections"] {
   return SECTION_KEYS.map((key) => ({ key, enabled: !DEFAULT_OFF_SECTIONS.has(key) }));
 }
 
-export function defaultPageConfig(input: { displayName: string; template?: PageConfig["template"]; tagline?: string; bio?: string; personal?: boolean }): PageConfig {
+export function defaultPageConfig(input: { displayName: string; tagline?: string; bio?: string; personal?: boolean }): PageConfig {
   return pageConfigSchema.parse({
     displayName: input.displayName.trim() || "Mi página",
     tagline: input.tagline ?? "",
     bio: input.bio ?? "",
-    template: input.template ?? "mystical",
     sections: defaultSections(),
     testimonials: [],
     faqs: [],
@@ -319,6 +383,21 @@ export function personalHomeDefaults(displayName: string): Pick<PageConfig, "bub
     about: { eyebrow: "Sobre mí", title: first ? `Hola, soy ${first}` : "Sobre mí", text: "", url: "/sobre-mi", image: null, linkLabel: "Conoce mi historia" },
     readings: { reading: { ...READINGS_DEFAULTS.reading }, session: { ...READINGS_DEFAULTS.session }, circlesTitle: READINGS_DEFAULTS.circlesTitle },
   };
+}
+
+function readPageThemes(raw: unknown): Record<string, Design> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, Design> = {};
+  for (const [k, v] of Object.entries(raw)) if (k.length <= 80) out[k] = readDesign(v);
+  return out;
+}
+
+/** El diseño de una página: el de la web con los cambios de esa página encima. */
+export function designFor(cfg: Pick<PageConfig, "theme"> & Partial<Pick<PageConfig, "pageThemes">>, page?: string | null): Design {
+  const extra = page ? cfg.pageThemes?.[page] : undefined;
+  if (!extra) return cfg.theme;
+  const own = Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== undefined && v !== null));
+  return { ...cfg.theme, ...own };
 }
 
 /** Lista guardada leída elemento a elemento: uno estropeado se descarta sin tumbar la página. */
@@ -353,6 +432,11 @@ export function readPageConfig(raw: unknown, fallbackName = "Mi página"): PageC
       ...("systems" in r ? { systems: readList(r.systems, systemSchema, SYSTEMS_MAX) } : {}),
       ...("about" in r ? { about: readObject(r.about, aboutSchema) } : {}),
       ...("readings" in r ? { readings: readObject(r.readings, readingsSchema) } : {}),
+      // El diseño, pieza a pieza; una página guardada con una plantilla de antes pasa a su diseño propio.
+      template: "custom",
+      theme: legacyDesign(r.template, r.theme) ?? readDesign(r.theme),
+      pageThemes: readPageThemes(r.pageThemes),
+      ...("designs" in r ? { designs: readList(r.designs, savedDesignSchema, SAVED_DESIGNS_MAX) } : {}),
     };
   }
   const parsed = pageConfigSchema.safeParse(raw);

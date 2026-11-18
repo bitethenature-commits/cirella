@@ -53,7 +53,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const seatsLeft = isGroupSession(p) && p.eventStartAt && p.capacity != null ? Math.max(0, p.capacity - (await seatsTaken(prisma, p.id))) : null;
 
   return (
-    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages} sellerName={paid && sellerNamed ? seller.name : null}>
+    <CreatorShell page="productos" username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages} sellerName={paid && sellerNamed ? seller.name : null}>
       <ProductPageView
         username={username}
         product={{

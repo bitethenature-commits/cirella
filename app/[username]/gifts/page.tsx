@@ -36,6 +36,7 @@ export default async function GiftsPage({ params }: { params: Promise<Params> })
   return (
     <>
       <SitePageView
+        page="gifts"
         username={data.creator.username}
         config={data.config}
         content={content}

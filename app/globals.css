@@ -204,7 +204,7 @@
    Todos los valores salen de variables CSS definidas por la plantilla
    (lib/templates.ts → themeStyle). */
 .cp {
-  background: var(--c-bg);
+  background: var(--c-paint, var(--c-bg));
   color: var(--c-text);
   font-family: var(--font-body);
   min-height: 100dvh;
@@ -2009,3 +2009,44 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
 .mail-row:hover { background: rgb(150 220 220 / .07); }
 .mail-row[aria-current="true"] { background: rgb(217 191 140 / .14); box-shadow: inset 2px 0 0 #d9bf8c; }
 .mail-side { scrollbar-width: thin; }
+
+/* Modo Canva (app/panel/canva): los textos de la web que se escriben encima y la barra de cada sección. */
+.canva-text { display: inline-block; min-width: 2ch; max-width: 100%; border-radius: .4rem; outline: 1px dashed transparent; outline-offset: 3px; cursor: text; transition: outline-color .15s, background .15s; }
+.canva-text:hover { outline-color: color-mix(in oklab, var(--c-gold, #d9bf8c) 55%, transparent); }
+.canva-text:focus { outline: 2px solid var(--c-gold, #d9bf8c); background: color-mix(in oklab, var(--c-gold, #d9bf8c) 8%, transparent); }
+.canva-text:empty::before { content: attr(data-placeholder); opacity: .45; }
+.canva-section { padding-top: .25rem; outline: 1px dashed transparent; outline-offset: 6px; border-radius: 1rem; transition: outline-color .15s; }
+.canva-section:hover { outline-color: color-mix(in oklab, var(--c-gold, #d9bf8c) 35%, transparent); }
+.canva-section > [data-canva-ui]:first-child { opacity: .35; transition: opacity .15s; }
+.canva-section:hover > [data-canva-ui]:first-child, .canva-section:focus-within > [data-canva-ui]:first-child { opacity: 1; }
+@media (hover: none) { .canva-section > [data-canva-ui]:first-child { opacity: 1; } }
+
+/* ───────────── Diseño a medida (Panel › Mi página › Diseño; lib/templates.ts → themeStyle y themeAttrs) ─────────────
+   Cada regla solo manda si la dueña ha tocado esa pieza (su data-…): si no, cada página lleva su estilo de siempre. */
+.cp-bg-photo { z-index: -1; opacity: var(--bg-img-o, .3); pointer-events: none; }
+.cp > .cp-decor { opacity: var(--decor-o, 1); }
+.cp[data-d-italic] .cp-display { font-style: italic; }
+.cp[data-d-upper] .cp-display { text-transform: uppercase; }
+.cp[data-d-spacing] .cp-display { letter-spacing: var(--display-spacing); }
+.cp[data-d-size] .cp-display { zoom: var(--display-zoom); }
+
+.cp[data-k] .cp-card {
+  position: relative; background: var(--k-bg); border: var(--k-bw) solid var(--k-border); border-radius: var(--r-card);
+  box-shadow: var(--k-shadow); backdrop-filter: var(--k-blur); -webkit-backdrop-filter: var(--k-blur);
+}
+.cp[data-k] .cp-card::after { content: ""; position: absolute; inset: 0; z-index: 5; border-radius: inherit; pointer-events: none; box-shadow: var(--k-double); }
+.cp[data-k] .cp-card-hover:hover { border-color: var(--k-border); }
+
+.cp[data-b] :is(.cp-btn, .cp-btn-ghost, .cp-link) {
+  border-radius: var(--r-btn); border: var(--b-bw) solid var(--b-border);
+  font-family: var(--b-font); font-weight: var(--b-weight); font-style: var(--b-style); text-transform: var(--b-case); letter-spacing: var(--b-spacing);
+  filter: none; transition: transform .2s ease, filter .2s ease, background .2s;
+}
+.cp[data-b] .cp-btn, .cp[data-b] .cp-link[data-highlight="true"] { background: var(--b-bg); color: var(--b-text); box-shadow: var(--b-shadow); }
+.cp[data-b] .cp-btn-ghost, .cp[data-b] .cp-link:not([data-highlight="true"]) { background: transparent; color: var(--c-text); box-shadow: none; }
+.cp[data-b] :is(.cp-btn, .cp-btn-ghost, .cp-link):hover { transform: translateY(-1px); filter: brightness(1.08); border-color: var(--b-border); }
+.cp[data-b] .cp-btn:hover, .cp[data-b] .cp-link[data-highlight="true"]:hover { background: var(--b-bg); color: var(--b-text); }
+.cp[data-b] .cp-btn-ghost:hover, .cp[data-b] .cp-link:not([data-highlight="true"]):hover { color: var(--c-text); }
+
+.cp[data-img] img:not(.cp-card img):not(.cp-bubble-img):not([data-avatar]):not(.cp-bg-photo):not(.cp-cover-img) { border-radius: var(--img-r); }
+.cp[data-img] :is([data-avatar], .cp-bubble-img) { border-radius: var(--avatar-r); }
