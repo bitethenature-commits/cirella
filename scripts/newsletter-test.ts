@@ -4,9 +4,9 @@
  *
  *   · altas: doble opt-in (pendiente → email de confirmación, uno por hora → confirmada y espejo en la
  *     ficha de clienta), una confirmada no vuelve a pendiente, una baja solo vuelve con un consentimiento
- *     nuevo, rebotes y quejas no vuelven desde un formulario ni con una importación;
+ *     nuevo, rebotes y quejas no vuelven desde un formulario;
  *   · bajas con el enlace firmado y en un clic (solo POST), contadas en su newsletter;
- *   · segmentos: etiqueta, compró X (solo pagados) y miembros con acceso vigente;
+ *   · a quién: compró X (solo pagados) y miembros con acceso vigente;
  *   · envío por tandas: el cupo diario (límite − reserva − enviados en 24 h) decide cuántas entran en
  *     la bandeja; la siguiente ejecución sigue; quien se da de baja a mitad se salta; dos ejecuciones
  *     a la vez no duplican; pausa y cancelación; los transaccionales salen antes y sin cupo;
@@ -21,7 +21,7 @@ import { prisma } from "../lib/db";
 import { processOutbox } from "../lib/email/outbox";
 import { processEvents } from "../lib/events";
 import { claimFreeAccess } from "../lib/free-access";
-import { confirmByToken, importSubscribers, resolveSegment, segmentCount, sendConfirmation, subscribe, syncConsent, unsubscribeByToken } from "../lib/newsletter";
+import { confirmByToken, resolveSegment, segmentCount, sendConfirmation, subscribe, syncConsent, unsubscribeByToken } from "../lib/newsletter";
 import { cancelCampaign, campaignStats, pauseCampaign, processCampaigns, resumeCampaign, startCampaign } from "../lib/newsletter-send";
 import { confirmToken, unsubscribeToken } from "../lib/newsletter-tokens";
 import { signResendWebhook } from "../lib/resend-webhook";
@@ -64,8 +64,8 @@ async function main() {
     check("espejo: la ficha de clienta acepta novedades", (await prisma.customer.findFirstOrThrow({ where: { userId: user.id } })).marketingOptIn);
     check("repetir la confirmación no hace nada", (await confirmByToken(confirmToken(a.subscriberId)))?.status === "CONFIRMED");
     check("un token de baja no confirma", (await confirmByToken(unsubscribeToken(a.subscriberId))) === null);
-    const again = await subscribe(ana.id, { email: email("lucia"), tags: ["talleres"], ...form() });
-    check("una confirmada no vuelve a pendiente al apuntarse otra vez (y suma la etiqueta)", again.status === "CONFIRMED" && !again.needsConfirmation && (await prisma.subscriber.findUniqueOrThrow({ where: { id: a.subscriberId } })).tags.includes("talleres"));
+    const again = await subscribe(ana.id, { email: email("lucia"), ...form() });
+    check("una confirmada no vuelve a pendiente al apuntarse otra vez", again.status === "CONFIRMED" && !again.needsConfirmation);
 
     // ── Bajas ──
     const camp0 = await prisma.campaign.create({ data: { creatorId: ana.id, subject: "C0", design: { v: 1, blocks: [] }, segment: { kind: "all" }, status: "SENT" } });
@@ -90,27 +90,16 @@ async function main() {
     const ps = await POST(new Request(url, { method: "POST" }));
     check("un clic por POST: dada de baja", ps.status === 200 && (await prisma.subscriber.findUniqueOrThrow({ where: { id: one.subscriberId } })).unsubscribeVia === "ONE_CLICK");
 
-    // ── Rebotes, quejas e importación ──
+    // ── Rebotes y quejas ──
     const bad = await subscribe(ana.id, { email: email("rebote"), ...form(true) });
     await prisma.subscriber.update({ where: { id: bad.subscriberId }, data: { status: "BOUNCED" } });
     check("rebote: el formulario no lo vuelve a apuntar", (await subscribe(ana.id, { email: email("rebote"), ...form() })).status === "BOUNCED");
-    const imp = await importSubscribers(
-      ana.id,
-      [email("rebote"), email("oneclick"), email("nueva1"), email("nueva2")].map((e, i) => ({ email: e, consentAt: new Date("2025-02-01"), tags: ["lista-antigua"], line: i + 2 })),
-      { mode: "confirmed", file: "lista.csv", declaredBy: ana.user.email, declaration: "Confirmo que…" },
-    );
-    check("importación: 2 nuevas, rebote y baja sin tocar", imp.added === 2 && imp.skipped.length === 2, imp);
-    const n1 = await prisma.subscriber.findFirstOrThrow({ where: { creatorId: ana.id, email: email("nueva1") } });
-    check("importada: confirmada con su fecha de consentimiento y la declaración", n1.status === "CONFIRMED" && n1.consentAt?.toISOString() === "2025-02-01T00:00:00.000Z" && (n1.consentMeta as { declaredBy?: string }).declaredBy === ana.user.email);
-    const ask = await importSubscribers(ana.id, [{ email: email("pedir"), consentAt: new Date("2025-02-01"), tags: [], line: 2 }], { mode: "ask", file: "l.csv", declaredBy: "x", declaration: "y" });
-    const invite = await prisma.emailMessage.findFirst({ where: { to: email("pedir") } });
-    check("importar pidiendo confirmación: pendiente e invitación masiva (dentro del cupo)", ask.confirmationsSent === 1 && invite?.template === "NEWSLETTER_INVITE" && invite.status === "QUEUED");
 
-    // ── Segmentos ──
+    // ── A quién ──
     const prod = await prisma.product.create({ data: { creatorId: ana.id, type: "DIGITAL", slug: `${TAG}-guia`, title: "Guía", priceCents: 0, status: "PUBLISHED" } });
     const club = await prisma.product.create({ data: { creatorId: ana.id, type: "MEMBERSHIP", slug: `${TAG}-club`, title: "Club", priceCents: 0, status: "PUBLISHED" } });
     created.products.push(prod.id, club.id);
-    const buyer = await subscribe(ana.id, { email: email("compradora"), ...form(true), tags: ["vip"] });
+    const buyer = await subscribe(ana.id, { email: email("compradora"), ...form(true) });
     const ord = (e: string, status: string) => ({ creatorId: ana.id, productId: prod.id, productTitle: "Guía", productType: "DIGITAL", buyerEmail: e, status, amountCents: 0, commissionBps: 0, platformFeeCents: 0, netCents: 0, paymentProvider: "manual" });
     await prisma.order.createMany({ data: [ord(email("compradora"), "PAID"), ord(email("nueva1"), "ABANDONED")] });
     const prodIds = await resolveSegment(ana.id, { kind: "product", productId: prod.id });
@@ -130,20 +119,22 @@ async function main() {
     await subscribe(ana.id, { email: email("caducada"), ...form(true) });
     const memberIds = await resolveSegment(ana.id, { kind: "member" });
     check("«Miembros de la comunidad»: acceso vigente sí, caducado no", memberIds.includes(m1.subscriberId) && !(await prisma.subscriber.findMany({ where: { id: { in: memberIds } } })).some((s) => s.email === email("caducada")));
-    const vip = await resolveSegment(ana.id, { kind: "tag", tag: "vip" });
-    check("etiqueta: solo confirmadas con la etiqueta", vip.length >= 1 && vip.includes(buyer.subscriberId) && (await segmentCount(ana.id, { kind: "tag", tag: "vip" })) === vip.length);
 
     // ── Envío por tandas ──
     const tagged: string[] = [];
-    for (let i = 0; i < 8; i++) tagged.push((await subscribe(ana.id, { email: email(`lote${i}`), name: `Persona ${i}`, ...form(true), tags: [`${TAG}-lote`.slice(0, 30).toLowerCase()] })).subscriberId);
-    const loteTag = `${TAG}-lote`.slice(0, 30).toLowerCase();
+    for (let i = 0; i < 8; i++) tagged.push((await subscribe(ana.id, { email: email(`lote${i}`), name: `Persona ${i}`, ...form(true) })).subscriberId);
+    // Las 8 del lote compraron un producto: la newsletter va a «Compraron X» (solo ellas).
+    const lote = await prisma.product.create({ data: { creatorId: ana.id, type: "DIGITAL", slug: `${TAG}-lote`, title: "Lote", priceCents: 0, status: "PUBLISHED" } });
+    created.products.push(lote.id);
+    await prisma.order.createMany({ data: Array.from({ length: 8 }, (_, i) => ({ ...ord(email(`lote${i}`), "PAID"), productId: lote.id, productTitle: "Lote" })) });
+    const loteSeg = { kind: "product", productId: lote.id };
     await processOutbox(500); // la bandeja vacía antes de medir
     const sent24 = await prisma.emailMessage.count({ where: { status: "SENT", sentAt: { gte: new Date(Date.now() - 86_400_000) } } });
     await setSetting("emailTransactionalReserve", 20);
     const waiting = await prisma.emailMessage.count({ where: { status: { in: ["QUEUED", "SENDING"] }, template: { in: ["MEMBER_POST", "NEWSLETTER", "NEWSLETTER_INVITE"] } } });
     await setSetting("emailDailyCap", sent24 + 20 + 5 + waiting);
     const design = { v: 1, blocks: [{ id: "t", t: "title", text: "Hola, {nombre}", align: "left" }, { id: "x", t: "text", body: "Texto de la prueba" }] };
-    const camp = await prisma.campaign.create({ data: { creatorId: ana.id, subject: `Prueba ${TAG}`, design, segment: { kind: "tag", tag: loteTag } } });
+    const camp = await prisma.campaign.create({ data: { creatorId: ana.id, subject: `Prueba ${TAG}`, design, segment: loteSeg } });
     created.campaigns.push(camp.id);
     const future = await startCampaign(ana.id, camp.id, { at: new Date(Date.now() + 3_600_000) });
     check("programar: SCHEDULED con su hora y sin destinatarias todavía", future.ok && (await prisma.campaign.findUniqueOrThrow({ where: { id: camp.id } })).status === "SCHEDULED" && (await prisma.campaignRecipient.count({ where: { campaignId: camp.id } })) === 0);
@@ -178,7 +169,7 @@ async function main() {
     check("nadie la recibe dos veces", all.length === new Set(all.map((m) => m.to)).size);
 
     // Cancelar con emails en la bandeja.
-    const camp2 = await prisma.campaign.create({ data: { creatorId: ana.id, subject: `Cancelar ${TAG}`, design, segment: { kind: "tag", tag: loteTag } } });
+    const camp2 = await prisma.campaign.create({ data: { creatorId: ana.id, subject: `Cancelar ${TAG}`, design, segment: loteSeg } });
     created.campaigns.push(camp2.id);
     await startCampaign(ana.id, camp2.id);
     await setSetting("emailDailyCap", (await prisma.emailMessage.count({ where: { status: "SENT", sentAt: { gte: new Date(Date.now() - 86_400_000) } } })) + 20 + 3);
@@ -227,11 +218,11 @@ async function main() {
 
     // ── Aislamiento ──
     const mdb = tenantDb(maria.id);
-    check("otra creadora no ve sus suscriptoras", (await mdb.subscriber.count({ where: { id: a.subscriberId } })) === 0 && !(await mdb.subscriber.findFirst({ where: { email: email("nueva1") } })));
+    check("otra creadora no ve sus suscriptoras", (await mdb.subscriber.count({ where: { id: a.subscriberId } })) === 0 && !(await mdb.subscriber.findFirst({ where: { email: email("compradora") } })));
     check("ni sus campañas ni sus destinatarias", (await mdb.campaign.count({ where: { id: camp.id } })) === 0 && (await mdb.campaignRecipient.count({ where: { campaignId: camp.id } })) === 0);
-    const upd = await mdb.subscriber.updateMany({ where: { id: n1.id }, data: { status: "UNSUBSCRIBED" } });
+    const upd = await mdb.subscriber.updateMany({ where: { id: buyer.subscriberId }, data: { status: "UNSUBSCRIBED" } });
     const del = await mdb.campaign.deleteMany({ where: { id: camp.id } });
-    check("ni puede cambiarlas ni borrarlas", upd.count === 0 && del.count === 0 && (await prisma.subscriber.findUniqueOrThrow({ where: { id: n1.id } })).status === "CONFIRMED");
+    check("ni puede cambiarlas ni borrarlas", upd.count === 0 && del.count === 0 && (await prisma.subscriber.findUniqueOrThrow({ where: { id: buyer.subscriberId } })).status === "CONFIRMED");
     check("startCampaign de otra creadora: no encontrada", !(await startCampaign(maria.id, camp2.id)).ok);
   } finally {
     await prisma.campaign.deleteMany({ where: { id: { in: created.campaigns } } });

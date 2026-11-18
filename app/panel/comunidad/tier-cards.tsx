@@ -3,13 +3,18 @@ import { startTransition, useActionState, useRef, useState } from "react";
 import { Globe, GraduationCap, ImagePlus, Loader2, Mail, Plus, X } from "lucide-react";
 import { TIER_ICONS } from "@/components/creator-page/tier-icons";
 import { PortalCircles, PortalIncludes, PortalPrice, TierPortal, portalButton } from "@/components/creator-page/tier-portal";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { Flash } from "@/components/ui/flash";
+import { deleteMessage } from "@/lib/delete-copy";
+import { deleteProduct } from "../productos/actions";
 import { uploadImageInfo } from "@/components/ui/image-upload";
 import { TIER_CTA_MAX, TIER_FEATURES_MAX, TIER_ICON_KEYS, TIER_INTRO_MAX } from "@/lib/tier-card";
 import type { TierFeature } from "@/lib/tier-features";
 import { saveTierCard, type TierCardState } from "./actions";
 
 export type EditableTier = {
+  /** Ventas o suscripciones (para el aviso de borrar). */
+  sales: number;
   id: string;
   title: string;
   emoji: string;
@@ -72,7 +77,10 @@ export function TierCards({ tiers, circles }: { tiers: EditableTier[]; circles: 
       <div className="acc-root acc-preview rounded-[2rem] px-4 py-10 sm:px-8">
         <div className="grid items-stretch gap-6 md:grid-cols-[repeat(auto-fit,minmax(min(100%,290px),1fr))]">
           {tiers.map((t, i) => (
-            <TierCardEditor key={t.id} tier={t} level={i} view={view} circles={t.highlight ? circles : []} />
+            <div key={t.id} className="flex flex-col gap-3">
+              <TierCardEditor tier={t} level={i} view={view} circles={t.highlight ? circles : []} />
+              <DeleteButton action={deleteProduct} id={t.id} what={t.title} variant="link" label="Borrar este nivel" className="inline-flex justify-center text-sm" message={deleteMessage(`el nivel «${t.title}» con sus publicaciones`, t.sales)} />
+            </div>
           ))}
         </div>
       </div>

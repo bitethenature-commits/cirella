@@ -38,6 +38,7 @@ import { Prisma } from "@prisma/client";
 import { applyProductMeetingUrl } from "@/lib/booking-changes";
 import { parseIntakeConfigInput } from "@/lib/intake";
 import { parseMeetingUrl } from "@/lib/meeting-url";
+import { deleteProductHard } from "@/lib/hard-delete";
 import { HORIZON_CHOICES } from "@/lib/slots";
 import { addDaysToKey, labelToMinutes, zonedTimeToUtc } from "@/lib/tz";
 import { moveWorkshop, workshopClash } from "@/lib/workshops";
@@ -410,17 +411,16 @@ export async function deleteProduct(form: FormData) {
   const { db, creator } = await ctx();
   const id = String(form.get("id"));
   const back = productListHref((await db.product.findFirst({ where: { id }, select: { type: true, groupSession: true } })) ?? { type: "DIGITAL" });
-  const orders = await db.order.count({ where: { productId: id } });
-  // Con ventas no se borra (las clientas mantienen su acceso): se archiva.
-  if (orders > 0) await db.product.update({ where: { id }, data: { status: "ARCHIVED", featured: false } });
-  else {
-    const files = await db.productFile.findMany({ where: { productId: id, storageKey: { not: null } }, select: { storageKey: true } });
-    await db.product.deleteMany({ where: { id } });
-    await deleteStoredFiles(files.map((f) => f.storageKey));
-    // Borrar el círculo borra también su publicación en la membresía.
-    await deleteCirclePost(creator.id, id);
-  }
+  // Se borra de verdad, también con ventas: se van con él sus ventas, reservas y accesos (lib/hard-delete.ts).
+  const files = await db.productFile.findMany({ where: { productId: id, storageKey: { not: null } }, select: { storageKey: true } });
+  await deleteProductHard(creator.id, id);
+  await deleteStoredFiles(files.map((f) => f.storageKey));
+  // Borrar el círculo borra también su publicación en la membresía.
+  await deleteCirclePost(creator.id, id);
   refresh();
+  revalidatePath("/panel/ventas");
+  revalidatePath("/panel/clientes");
+  revalidatePath("/panel/solicitudes");
   redirect(back);
 }
 

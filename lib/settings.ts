@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import type { NewsSenderSettings, SendingDomain } from "./sending-rules";
 
 /**
  * Ajustes globales editables desde /admin/ajustes (clave → JSON).
@@ -23,6 +24,15 @@ export const SETTING_DEFAULTS = {
   // 0 = sin límite. La reserva queda siempre para los transaccionales (accesos, recibos, enlaces).
   emailDailyCap: null as number | null,
   emailTransactionalReserve: 20,
+  // Envío de la newsletter (/panel/newsletter/ajustes): dominio propio conectado a Resend y remitente.
+  // Vacíos = lo de siempre (NEWSLETTER_FROM o EMAIL_FROM, el nombre de la creadora y su email de contacto).
+  sendingDomain: null as SendingDomain | null,
+  newsSender: { name: "", address: "", replyTo: "" } as NewsSenderSettings,
+  // Los looks de Cirella ya se copiaron como plantillas de la dueña (una sola vez: luego se borran como cualquiera).
+  newsletterLooksSeeded: false,
+  // Mensaje del pie de todas las newsletters (/panel/newsletter/ajustes). Vacío = el de siempre
+  // (defaultFooterMessage). Detrás van siempre solos «Darme de baja» y los datos legales.
+  newsletterFooterText: "",
 };
 
 export type PlatformSettings = typeof SETTING_DEFAULTS;

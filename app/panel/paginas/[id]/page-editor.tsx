@@ -335,8 +335,8 @@ export function SitePageEditor(props: Props) {
                     <button className="btn btn-outline btn-sm h-10">Despublicar</button>
                   </form>
                 )}
-                {!oneToOne && (
-                <ConfirmForm action={deleteSitePageAction} message={`¿Borrar «${props.initial.title}»? Su dirección dejará de funcionar.`}>
+                {(
+                <ConfirmForm action={deleteSitePageAction} message={oneToOne ? `¿Borrar la página de ${fixedName}? No vuelve a crearse. En tu web, su sección enseña el texto de partida hasta que la quites en Mi página › Secciones.` : `¿Borrar «${props.initial.title}»? Su dirección dejará de funcionar.`}>
                   <input type="hidden" name="id" value={props.id} />
                   <button className="btn btn-ghost btn-sm h-10 text-rose">
                     <Trash2 className="h-4 w-4" /> Borrar página

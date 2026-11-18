@@ -1,205 +1,40 @@
 "use client";
 
-import {
-  ArrowDown,
-  ArrowUp,
-  Columns2,
-  Copy,
-  Film,
-  Heading,
-  ImagePlus,
-  LayoutTemplate,
-  Loader2,
-  Minus,
-  MousePointerClick,
-  Plus,
-  Share2,
-  Space,
-  Sparkles,
-  Trash2,
-  Type,
-  Image as ImageIcon,
-} from "lucide-react";
+import { Film, ImagePlus, Loader2, Sparkles } from "lucide-react";
 import { useRef, useState } from "react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { uploadFile } from "@/components/ui/upload-client";
 import { capturePoster } from "@/components/ui/video-poster";
 import { videoCoverFromImage, videoCoverFromLink } from "@/app/panel/newsletter/media-actions";
 import {
-  BLOCK_LABEL,
-  DEFAULT_EMAIL_STYLE,
   DEFAULT_HIGHLIGHT,
-  EMAIL_BLOCKS_MAX,
   EMAIL_TEXT_MAX,
-  newBlock,
-  newBlockId,
   SOCIAL_NETWORK_LABEL,
   SOCIAL_NETWORKS,
-  VARIABLE_HELP,
   type Align,
   type Band,
   type EmailBlock,
   type EmailBlockType,
-  type EmailDesign,
   type EmailStyle,
-  type EmailVars,
-  type SocialNetwork,
 } from "@/lib/email-blocks";
-import { STARTERS, starterDesign, type StarterKey } from "@/lib/email-starters";
 import { RICH_IMAGE_ACCEPT } from "@/lib/file-types";
 import { normalizeLinkInput } from "@/lib/rich-text-edit";
 import { videoEmbed } from "@/lib/video-embed";
 import { ColorField } from "./color-field";
-import { FontSelect, Segmented, StylePanel } from "./style-panel";
+import { FontSelect, Segmented } from "./style-panel";
 
 /**
- * Editor visual de un email, pensado para el iPhone: una columna de tarjetas (una por bloque) con
- * ↑ ↓, duplicar y borrar (botones de 44 px, sin arrastrar) y «Añadir bloque» al final. Los colores y
- * el tipo de letra de cada bloque van plegados en «Colores y letra». Lo usan la newsletter (con el
- * estilo general y las plantillas) y los emails automáticos. Nunca se escribe HTML: son datos
- * (lib/email-blocks.ts).
+ * Los ajustes de un bloque del email (colores, tamaños, enlaces, fotos, vídeo…). Los usa el editor
+ * escrito encima (components/email-editor/inline-email-editor.tsx): a la derecha en pantallas
+ * anchas y en una ventana en el móvil. Nunca se escribe HTML: son datos (lib/email-blocks.ts).
  */
-const ADD: { t: EmailBlockType; icon: typeof Type; hint: string }[] = [
-  { t: "hero", icon: ImageIcon, hint: "Foto de fondo con título y botón" },
-  { t: "title", icon: Heading, hint: "Un titular, con color y tamaño" },
-  { t: "text", icon: Type, hint: "Párrafos con negrita, listas y enlaces" },
-  { t: "image", icon: ImagePlus, hint: "Tu imagen de Canva o una foto" },
-  { t: "button", icon: MousePointerClick, hint: "Un botón bonito con enlace" },
-  { t: "spotlight", icon: Sparkles, hint: "Un recuadro de color para destacar" },
-  { t: "video", icon: Film, hint: "Portada con ▶ que abre el vídeo" },
-  { t: "columns", icon: Columns2, hint: "Imagen y texto lado a lado" },
-  { t: "social", icon: Share2, hint: "Enlaces a tus redes" },
-  { t: "divider", icon: Minus, hint: "Una línea o estrellitas" },
-  { t: "spacer", icon: Space, hint: "Aire entre bloques" },
-];
-
-export type BlockEditorProps = {
-  value: EmailDesign;
-  onChange: (d: EmailDesign) => void;
-  vars: (keyof EmailVars)[];
-  /** Colores de su marca (Mi página) para los selectores. */
-  palette?: string[];
-  /** Estilo general y plantillas (la newsletter y la bienvenida a la newsletter). */
-  withStyle?: boolean;
-  /** Para las plantillas: la dirección de su web (los botones apuntan ahí). */
-  siteUrl?: string;
-  /** Se pueden subir vídeos (la web personal). */
-  videoUploads?: boolean;
-  /** Sus redes (Mi página), para rellenar el bloque «Redes sociales». */
-  socials?: Partial<Record<SocialNetwork, string>>;
-};
-
-export function BlockEditor({ value, onChange, vars, palette = ["#0E1024", "#F6F1E7", "#FFFFFF"], withStyle = false, siteUrl = "/", videoUploads = false, socials = {} }: BlockEditorProps) {
-  const [adding, setAdding] = useState(false);
-  const [starting, setStarting] = useState(false);
-  const blocks = value.blocks;
-  const style = value.style ?? DEFAULT_EMAIL_STYLE;
-  const set = (next: EmailBlock[]) => onChange({ ...value, v: 1, blocks: next });
-  const update = (id: string, patch: Partial<EmailBlock>) => set(blocks.map((b) => (b.id === id ? (clean({ ...b, ...patch }) as EmailBlock) : b)));
-  const move = (i: number, dir: -1 | 1) => {
-    const j = i + dir;
-    if (j < 0 || j >= blocks.length) return;
-    const next = [...blocks];
-    [next[i], next[j]] = [next[j], next[i]];
-    set(next);
-  };
-  const full = blocks.length >= EMAIL_BLOCKS_MAX;
-  const add = (t: EmailBlockType) => {
-    const b = newBlock(t, style);
-    set([...blocks, b.t === "social" ? { ...b, links: { ...socials } } : b]);
-    setAdding(false);
-  };
-  const applyStarter = (key: StarterKey) => {
-    const name = STARTERS.find((s) => s.key === key)?.name ?? "";
-    if (blocks.length && !window.confirm(`¿Empezar con «${name}»? Se cambia lo que hay ahora en el email.`)) return;
-    const d = starterDesign(key, { palette, siteUrl });
-    onChange({ ...d, blocks: d.blocks.map((b) => (b.t === "social" ? { ...b, links: { ...socials } } : b)) });
-    setStarting(false);
-  };
-
-  return (
-    <div className="space-y-3">
-      {withStyle && (
-        <>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn btn-outline btn-sm" aria-expanded={starting} onClick={() => setStarting((s) => !s)}>
-              <LayoutTemplate className="h-4 w-4" /> Plantillas
-            </button>
-          </div>
-          {starting && (
-            <div className="card p-3" role="group" aria-label="Plantillas">
-              <p className="mb-2 text-xs text-muted">Un diseño de partida con tus colores. Después lo cambias todo.</p>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {STARTERS.map((s) => (
-                  <button key={s.key} type="button" className="min-h-14 rounded-xl border border-line bg-white px-3 py-2 text-left text-sm hover:border-ink/30" onClick={() => applyStarter(s.key)}>
-                    <span className="block font-semibold">{s.name}</span>
-                    <span className="block text-xs text-muted">{s.description}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <StylePanel value={style} palette={palette} onChange={(s) => onChange({ ...value, style: s })} />
-        </>
-      )}
-      <p className="text-xs text-muted">
-        Puedes escribir{" "}
-        {vars.map((v, i) => (
-          <span key={v}>
-            {i > 0 && (i === vars.length - 1 ? " y " : ", ")}
-            <code className="rounded bg-sand px-1 text-ink">{`{${v}}`}</code> ({VARIABLE_HELP[v]})
-          </span>
-        ))}
-        : se cambian solos al enviar.
-      </p>
-      {blocks.length === 0 && <p className="rounded-2xl border border-dashed border-line p-5 text-center text-sm text-muted">Aún no hay nada: añade un texto o elige una plantilla.</p>}
-      {blocks.map((b, i) => (
-        <div key={b.id} className="card p-3 sm:p-4" data-block={b.t}>
-          <div className="mb-2 flex items-center gap-1">
-            <p className="flex-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted">{BLOCK_LABEL[b.t]}</p>
-            <IconButton label="Subir" onClick={() => move(i, -1)} disabled={i === 0}><ArrowUp className="h-4 w-4" /></IconButton>
-            <IconButton label="Bajar" onClick={() => move(i, 1)} disabled={i === blocks.length - 1}><ArrowDown className="h-4 w-4" /></IconButton>
-            <IconButton label="Duplicar" onClick={() => !full && set([...blocks.slice(0, i + 1), { ...b, id: newBlockId() }, ...blocks.slice(i + 1)])} disabled={full}><Copy className="h-4 w-4" /></IconButton>
-            <IconButton label="Borrar" onClick={() => set(blocks.filter((x) => x.id !== b.id))}><Trash2 className="h-4 w-4" /></IconButton>
-          </div>
-          <BlockFields block={b} style={style} palette={palette} videoUploads={videoUploads} onChange={(patch) => update(b.id, patch)} />
-        </div>
-      ))}
-      {adding ? (
-        <div className="card p-3" role="group" aria-label="Añadir bloque">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {ADD.map(({ t, icon: Icon, hint }) => (
-              <button key={t} type="button" className="flex min-h-14 items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-left text-sm hover:border-ink/30" onClick={() => add(t)}>
-                <Icon className="h-4 w-4 shrink-0 text-muted" />
-                <span>
-                  <span className="block font-semibold">{BLOCK_LABEL[t]}</span>
-                  <span className="block text-xs text-muted">{hint}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-          <button type="button" className="btn btn-ghost btn-sm mt-2" onClick={() => setAdding(false)}>Cancelar</button>
-        </div>
-      ) : (
-        <button type="button" className="btn btn-outline h-12 w-full" disabled={full} onClick={() => setAdding(true)}>
-          <Plus className="h-4 w-4" /> Añadir bloque
-        </button>
-      )}
-    </div>
-  );
+export function BlockSettings(p: { block: EmailBlock; style: EmailStyle; palette: string[]; videoUploads?: boolean; onChange: (b: EmailBlock) => void }) {
+  return <BlockFields block={p.block} style={p.style} palette={p.palette} videoUploads={!!p.videoUploads} onChange={(patch) => p.onChange(clean({ ...p.block, ...patch }) as EmailBlock)} />;
 }
 
 /** Sin los campos opcionales vacíos (así «Por defecto» de un color lo quita de verdad). */
 function clean<T extends object>(o: T): T {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
-}
-
-function IconButton({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
-  return (
-    <button type="button" aria-label={label} title={label} onClick={onClick} disabled={disabled} className="grid h-11 w-11 place-items-center rounded-full text-muted hover:bg-sand hover:text-ink disabled:opacity-25">
-      {children}
-    </button>
-  );
 }
 
 function LinkInput({ id, value, onChange, placeholder }: { id: string; value: string; onChange: (v: string) => void; placeholder: string }) {

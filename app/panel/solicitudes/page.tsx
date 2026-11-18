@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarClock, CalendarRange, Check, Gift, History, Inbox, UserPlus, Mail, MessageSquareText, Phone, Sparkles, Undo2, X } from "lucide-react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -14,7 +15,7 @@ import { DECLINED, REQUESTED, type RequestMeta } from "@/lib/requests";
 import { PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { dateKeyInTz, formatDate, formatInTz, formatSessionDate } from "@/lib/tz";
 import { Badge, CounterCard, PageHeader, PersonDot } from "../ui";
-import { clearRequestSlotAction, confirmRequestAction, declineRequestAction, reopenRequestAction, rescheduleRequestAction } from "./actions";
+import { clearRequestSlotAction, confirmRequestAction, declineRequestAction, deleteRequestAction, reopenRequestAction, rescheduleRequestAction } from "./actions";
 import { Agenda, type AgendaView } from "./agenda";
 
 type View = "nuevas" | AgendaView;
@@ -290,6 +291,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                       <X className="h-4 w-4" /> Descartar
                     </SubmitButton>
                   </ConfirmForm>
+                  <DeleteButton action={deleteRequestAction} id={o.id} what={o.productTitle} message={`¿Borrar la solicitud de ${o.buyerName ?? o.buyerEmail}? Desaparece del todo. No se le envía nada. No se puede deshacer.`} />
                 </div>
               </article>
             );
@@ -334,6 +336,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                       Ver clienta
                     </Link>
                   ) : null}
+                  <DeleteButton action={deleteRequestAction} id={o.id} what={o.productTitle} message={declined ? `¿Borrar la solicitud de ${o.buyerName ?? o.buyerEmail}? Desaparece del todo. No se puede deshacer.` : `¿Borrar la solicitud de ${o.buyerName ?? o.buyerEmail}? Se borra también lo que le diste (acceso o reserva). No se puede deshacer.`} />
                 </li>
               );
             })}

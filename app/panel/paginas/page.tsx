@@ -12,12 +12,13 @@ import { nextMoonCircles } from "@/lib/moon-circles";
 import { oracleDecksForBlocks } from "@/lib/oracle-decks";
 import { getPublicCreator } from "@/lib/public";
 import { isPersonalMode } from "@/lib/site-mode";
-import { GIFTS_SLUG, ONE_TO_ONE_SLUG, readSitePageContent, SITE_PAGE_STATE_LABEL, sitePagePath, sitePageState } from "@/lib/site-pages";
+import { GIFTS_SLUG, isFixedPageSlug, ONE_TO_ONE_SLUG, readSitePageContent, SITE_PAGE_STATE_LABEL, sitePagePath, sitePageState } from "@/lib/site-pages";
 import { ensureGiftsPage, ensureOneToOnePage } from "@/lib/site-pages.server";
 import { tenantDb } from "@/lib/tenant";
 import { Badge, PageHeader } from "../ui";
 import { ModelThumb } from "../modelos/model-thumb";
-import { moveSitePageAction } from "./actions";
+import { DeleteButton } from "@/components/ui/delete-button";
+import { deleteSitePageAction, moveSitePageAction } from "./actions";
 
 export const metadata: Metadata = { title: "Páginas" };
 
@@ -139,6 +140,12 @@ export default async function SitePagesPage({ searchParams }: { searchParams: Pr
                   <Link href={`/panel/paginas/${p.id}`} className="btn btn-outline btn-sm">
                     <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Editar</span>
                   </Link>
+                  <DeleteButton
+                    action={deleteSitePageAction}
+                    id={p.id}
+                    what={p.title}
+                    message={isFixedPageSlug(p.slug) ? `¿Borrar la página «${p.title}»? No vuelve a crearse. En tu web, su sección enseña el texto de partida hasta que la quites en Mi página › Secciones.` : `¿Borrar «${p.title}»? Su dirección dejará de funcionar.`}
+                  />
                 </div>
               </li>
             );

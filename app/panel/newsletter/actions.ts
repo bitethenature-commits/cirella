@@ -3,12 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { appUrl } from "@/lib/env";
-import { defaultCampaignDesign, lintDesign, parseDesignStrict, readDesign } from "@/lib/email-blocks";
+import { lintDesign, parseDesignStrict, readDesign } from "@/lib/email-blocks";
+import { lookDesign } from "@/lib/newsletter-looks";
 import { sendingQuota } from "@/lib/email/outbox";
 import { limitNewsletterTest } from "@/lib/limits";
 import { segmentCount } from "@/lib/newsletter";
 import { etaDays, parseSegment, peopleCount, type Segment } from "@/lib/newsletter-rules";
+import { prisma } from "@/lib/db";
+import { getSettings } from "@/lib/settings";
 import { cancelCampaign, pauseCampaign, processCampaigns, renderCampaignFor, resumeCampaign, sendTest, startCampaign } from "@/lib/newsletter-send";
 import { tenantDb } from "@/lib/tenant";
 import { formatDate, zonedTimeToUtc } from "@/lib/tz";
@@ -28,12 +30,17 @@ function readPayload(p: CampaignPayload): { ok: true; subject: string; preheader
   return { ok: true, subject: subject.data, preheader: pre.data || null, design: design.value, segment: parseSegment(p.segment) };
 }
 
-/** «Nueva newsletter»: un borrador con un diseño de partida, para todas. */
-export async function createCampaign() {
+/**
+ * «Nueva newsletter»: un borrador vacío (sin textos ya escritos) con el aspecto de una plantilla tuya,
+ * o el de siempre («En blanco»). Va a todas.
+ */
+export async function createCampaign(form: FormData) {
   const { creator } = await requireNewsletterOwner();
-  const c = await tenantDb(creator.id).campaign.create({
-    data: { creatorId: creator.id, subject: "", design: defaultCampaignDesign({ siteUrl: `${appUrl()}/` }), segment: { kind: "all" } },
-  });
+  const db = tenantDb(creator.id);
+  const tplId = String(form.get("template") ?? "");
+  const tpl = tplId ? await db.newsletterTemplate.findFirst({ where: { id: tplId }, select: { id: true, design: true } }) : null;
+  const style = tpl ? (tpl.design as { style?: unknown } | null)?.style : undefined;
+  const c = await db.campaign.create({ data: { creatorId: creator.id, subject: "", design: lookDesign(style), segment: { kind: "all" }, templateId: tpl?.id ?? null } });
   redirect(`/panel/newsletter/${c.id}`);
 }
 
@@ -65,7 +72,8 @@ export async function previewCampaign(payload: CampaignPayload): Promise<{ html:
   const { creator } = await requireNewsletterOwner();
   const p = readPayload(payload);
   if (!p.ok) return { error: p.error };
-  const mail = renderCampaignFor({ subject: p.subject, preheader: p.preheader, design: p.design }, creator, { id: null, name: "Laura" });
+  const { newsletterFooterText } = await getSettings();
+  const mail = renderCampaignFor({ subject: p.subject, preheader: p.preheader, design: p.design }, creator, { id: null, name: "Laura" }, { message: newsletterFooterText });
   return { html: mail.html, subject: mail.subject, warnings: lintDesign(p.design, p.subject) };
 }
 
@@ -167,8 +175,24 @@ export async function duplicateCampaign(form: FormData) {
   redirect(`/panel/newsletter/${copy.id}`);
 }
 
+/**
+ * Borrar una newsletter, en cualquier estado (también enviada o enviándose): se va con sus
+ * destinatarias y sus clics, y lo que aún esperaba en la bandeja ya no sale. Los emails ya enviados
+ * quedan en la bandeja sin newsletter (cuentan para el límite diario y los rebotes).
+ */
 export async function deleteDraft(form: FormData) {
   const { creator } = await requireNewsletterOwner();
-  await tenantDb(creator.id).campaign.deleteMany({ where: { id: String(form.get("id") ?? ""), status: "DRAFT" } });
-  redirect("/panel/newsletter");
+  const id = String(form.get("id") ?? "");
+  const c = await tenantDb(creator.id).campaign.findFirst({ where: { id }, select: { id: true } });
+  if (c) {
+    await prisma.$transaction([
+      prisma.emailMessage.deleteMany({ where: { creatorId: creator.id, campaignId: c.id, status: { in: ["QUEUED", "FAILED", "CANCELED"] } } }),
+      prisma.emailMessage.updateMany({ where: { creatorId: creator.id, campaignId: c.id }, data: { campaignId: null } }),
+      prisma.emailClick.deleteMany({ where: { campaignId: c.id } }),
+      prisma.campaign.deleteMany({ where: { id: c.id, creatorId: creator.id } }),
+    ]);
+  }
+  revalidatePath("/panel/newsletter");
+  revalidatePath("/panel/newsletter/estadisticas");
+  redirect("/panel/newsletter?borrada=1");
 }

@@ -1,6 +1,30 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ImagePlus, Loader2, Plus, Settings2, Trash2, X } from "lucide-react";
+import {
+  AlignLeft,
+  ArrowDown,
+  ArrowUp,
+  Columns2,
+  Film,
+  GripVertical,
+  Heading,
+  Image as ImageIcon,
+  ImagePlus,
+  Loader2,
+  Minus,
+  MousePointerClick,
+  MoveVertical,
+  PanelTop,
+  Plus,
+  Redo2,
+  Settings2,
+  Share2,
+  Sparkles,
+  Trash2,
+  Undo2,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { uploadFile } from "@/components/ui/upload-client";
@@ -13,10 +37,13 @@ import {
   type EmailBlock,
   type EmailBlockType,
   type EmailDesign,
+  type EmailStyle,
   type EmailVars,
   type SocialNetwork,
 } from "@/lib/email-blocks";
-import { BlockEditor } from "./block-editor";
+import { cornerCss, patternCss } from "@/lib/email-patterns";
+import { BlockSettings } from "./block-editor";
+import { StylePanel } from "./style-panel";
 
 /** Las variables, en palabras: lo que se cambia solo en cada email. */
 const VAR_LABEL: Record<keyof EmailVars, string> = {
@@ -131,11 +158,70 @@ function Body({ value, onChange, label, placeholder = "Escribe aquí…" }: { va
 
 const alignClass = (a?: string) => (a === "center" ? "text-center" : a === "right" ? "text-right" : "text-left");
 
+const BLOCK_ICON: Record<EmailBlockType, LucideIcon> = {
+  hero: PanelTop,
+  title: Heading,
+  text: AlignLeft,
+  image: ImageIcon,
+  button: MousePointerClick,
+  spotlight: Sparkles,
+  video: Film,
+  columns: Columns2,
+  social: Share2,
+  divider: Minus,
+  spacer: MoveVertical,
+};
+
+/** Una línea para reconocer el bloque en la estructura. */
+function blockSummary(b: EmailBlock): string {
+  const clip = (s: string) => s.replace(/[#*_>`\[\]()]/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
+  switch (b.t) {
+    case "title":
+      return clip(b.text);
+    case "text":
+      return clip(b.body);
+    case "button":
+      return clip(b.label);
+    case "image":
+      return b.url ? "Con foto" : "Sin foto";
+    case "spotlight":
+    case "hero":
+    case "video":
+    case "columns":
+      return clip(b.title);
+    case "social":
+      return `${Object.values(b.links).filter(Boolean).length} redes`;
+    default:
+      return "";
+  }
+}
+
+/** ¿Pantalla ancha? (las 3 zonas: bloques, email y ajustes). */
+function useWide() {
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const m = window.matchMedia("(min-width: 1280px)");
+    const on = () => setWide(m.matches);
+    on();
+    m.addEventListener("change", on);
+    return () => m.removeEventListener("change", on);
+  }, []);
+  return wide;
+}
+
+const DRAG_TYPE = "text/x-email-block";
+
+/** Línea dorada donde caerá el bloque que se arrastra. */
+const DropLine = () => <div className="my-1 h-0.5 rounded-full bg-[#D9BF8C] shadow-[0_0_10px_#D9BF8C]" aria-hidden />;
+
 /**
- * El email escrito encima: se ve como le llega (noche y oro), con su asunto arriba, y cada parte se
- * escribe donde está. Cada bloque tiene su barra (subir, bajar, ajustes, borrar) y entre bloques se
- * añade otro con «Añadir aquí». Lo que el editor de bloques sabe hacer de más (colores, fondos,
- * tamaños), en «Ajustes». Abajo, lo que el email añade solo (el recibo, el acceso, la fecha…).
+ * El email escrito encima, en 3 zonas (en pantallas anchas):
+ *   · izquierda: los bloques para añadir (se arrastran al email o se tocan) y la estructura del
+ *     email (saltar a un bloque o reordenarlo arrastrando);
+ *   · centro: el email como le llega (noche y oro), con su asunto, escrito donde está;
+ *   · derecha: los ajustes del bloque elegido o, sin ninguno, el estilo de todo el email.
+ * En el móvil y la tablet, el email solo, con «Añadir aquí» y los ajustes en una ventana.
+ * Deshacer y rehacer (botones y Ctrl+Z / Ctrl+Y fuera de los campos de texto).
  */
 export function InlineEmailEditor(p: {
   value: EmailDesign;
@@ -155,12 +241,81 @@ export function InlineEmailEditor(p: {
 }) {
   const blocks = p.value.blocks;
   const style = p.value.style ?? DEFAULT_EMAIL_STYLE;
-  const [settings, setSettings] = useState<string | null>(null);
+  const wide = useWide();
+  const [selected, setSelected] = useState<string | null>(null);
+  const [sheet, setSheet] = useState(false);
   const [adding, setAdding] = useState<number | null>(null);
+  const [dropAt, setDropAt] = useState<{ at: number; zone: "mail" | "list" } | null>(null);
+  const dragging = useRef<string | null>(null);
   const last = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const blockEls = useRef(new Map<string, HTMLDivElement>());
 
-  const set = (next: EmailBlock[]) => p.onChange({ ...p.value, blocks: next });
-  const patch = (id: string, change: Partial<EmailBlock>) => set(blocks.map((b) => (b.id === id ? ({ ...b, ...change } as EmailBlock) : b)));
+  // ── Deshacer / rehacer ──
+  const valueRef = useRef(p.value);
+  valueRef.current = p.value;
+  const onChangeRef = useRef(p.onChange);
+  onChangeRef.current = p.onChange;
+  const hist = useRef<{ past: EmailDesign[]; future: EmailDesign[]; at: number }>({ past: [], future: [], at: 0 });
+  const [, bump] = useState(0);
+  /** merge: lo que se escribe seguido (menos de 1 s) cuenta como un solo paso. */
+  const commit = (next: EmailDesign, merge = false) => {
+    const h = hist.current;
+    const now = Date.now();
+    if (!merge || now - h.at > 1000) {
+      h.past.push(valueRef.current);
+      if (h.past.length > 100) h.past.shift();
+    }
+    h.at = merge ? now : 0;
+    h.future = [];
+    bump((x) => x + 1);
+    p.onChange(next);
+  };
+  const undo = () => {
+    const h = hist.current;
+    const prev = h.past.pop();
+    if (!prev) return;
+    h.future.push(valueRef.current);
+    h.at = 0;
+    bump((x) => x + 1);
+    onChangeRef.current(prev);
+  };
+  const redo = () => {
+    const h = hist.current;
+    const next = h.future.pop();
+    if (!next) return;
+    h.past.push(valueRef.current);
+    h.at = 0;
+    bump((x) => x + 1);
+    onChangeRef.current(next);
+  };
+  const undoRef = useRef({ undo, redo });
+  undoRef.current = { undo, redo };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      // En un campo de texto, deshace el navegador (letra a letra).
+      if (t && (t.closest("input, textarea, select, [contenteditable='true']") || t.isContentEditable)) return;
+      if (e.key === "Escape") {
+        setSelected(null);
+        return;
+      }
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undoRef.current.undo();
+      } else if (k === "y" || (k === "z" && e.shiftKey)) {
+        e.preventDefault();
+        undoRef.current.redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // ── Cambios ──
+  const set = (next: EmailBlock[], merge = false) => commit({ ...p.value, blocks: next }, merge);
+  const patch = (id: string, change: Partial<EmailBlock>) => set(blocks.map((b) => (b.id === id ? ({ ...b, ...change } as EmailBlock) : b)), true);
   const move = (i: number, d: -1 | 1) => {
     const j = i + d;
     if (j < 0 || j >= blocks.length) return;
@@ -168,13 +323,73 @@ export function InlineEmailEditor(p: {
     [next[i], next[j]] = [next[j], next[i]];
     set(next);
   };
+  /** Lleva el bloque `id` al hueco `to` (0 = arriba del todo, blocks.length = abajo del todo). */
+  const moveTo = (id: string, to: number) => {
+    const from = blocks.findIndex((b) => b.id === id);
+    if (from < 0) return;
+    const at = from < to ? to - 1 : to;
+    if (at === from) return;
+    const next = [...blocks];
+    const [b] = next.splice(from, 1);
+    next.splice(at, 0, b);
+    set(next);
+  };
+  const focusBlock = (id: string) => {
+    setSelected(id);
+    requestAnimationFrame(() => blockEls.current.get(id)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  };
   const add = (at: number, t: EmailBlockType) => {
-    const b = { ...newBlock(t, style), id: uid() } as EmailBlock;
+    if (blocks.length >= EMAIL_BLOCKS_MAX) return;
+    const nb = newBlock(t, style);
+    const b = { ...(nb.t === "social" ? { ...nb, links: { ...p.socials } } : nb), id: uid() } as EmailBlock;
     const next = [...blocks];
     next.splice(at, 0, b);
     set(next);
     setAdding(null);
-    if (!["title", "text", "button", "image", "spotlight", "divider", "spacer", "hero"].includes(t)) setSettings(b.id);
+    focusBlock(b.id);
+    if (!wide && !["title", "text", "button", "image", "spotlight", "divider", "spacer", "hero"].includes(t)) setSheet(true);
+  };
+  const remove = (id: string) => {
+    set(blocks.filter((x) => x.id !== id));
+    if (selected === id) setSelected(null);
+  };
+  /** Tocar un bloque de la izquierda: va debajo del elegido (o al final). */
+  const addHere = (t: EmailBlockType) => {
+    const i = selected ? blocks.findIndex((b) => b.id === selected) : -1;
+    add(i >= 0 ? i + 1 : blocks.length, t);
+  };
+  const openSettings = (id: string) => {
+    setSelected(id);
+    if (!wide) setSheet(true);
+  };
+
+  // ── Arrastrar ──
+  const startDrag = (e: React.DragEvent, what: string, image?: HTMLElement | null) => {
+    dragging.current = what;
+    e.dataTransfer.setData(DRAG_TYPE, what);
+    e.dataTransfer.effectAllowed = what.startsWith("new:") ? "copy" : "move";
+    if (image) e.dataTransfer.setDragImage(image, 24, 16);
+  };
+  const overItem = (e: React.DragEvent, i: number, zone: "mail" | "list") => {
+    if (!dragging.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const r = e.currentTarget.getBoundingClientRect();
+    const at = e.clientY < r.top + r.height / 2 ? i : i + 1;
+    if (dropAt?.at !== at || dropAt.zone !== zone) setDropAt({ at, zone });
+  };
+  const endDrag = () => {
+    dragging.current = null;
+    setDropAt(null);
+  };
+  const drop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const what = dragging.current;
+    const at = dropAt?.at;
+    endDrag();
+    if (!what || at === undefined) return;
+    if (what.startsWith("new:")) add(at, what.slice(4) as EmailBlockType);
+    else moveTo(what.slice(5), at);
   };
 
   /** Pone una variable ({nombre}…) donde está el cursor (en el último sitio en que escribió). */
@@ -196,7 +411,7 @@ export function InlineEmailEditor(p: {
   };
 
   const AddHere = ({ at }: { at: number }) =>
-    blocks.length >= EMAIL_BLOCKS_MAX ? null : (
+    wide || blocks.length >= EMAIL_BLOCKS_MAX ? null : (
       <div className="relative flex justify-center py-1.5">
         <button
           type="button"
@@ -217,126 +432,273 @@ export function InlineEmailEditor(p: {
       </div>
     );
 
-  const editing = settings ? blocks.find((b) => b.id === settings) : null;
+  const editing = selected ? blocks.find((b) => b.id === selected) ?? null : null;
+  const canUndo = hist.current.past.length > 0;
+  const canRedo = hist.current.future.length > 0;
+
+  /** Los ajustes de un bloque: el editor de bloques con solo ese bloque. */
+  const settingsFor = (b: EmailBlock) => (
+    <BlockSettings block={b} style={style} palette={p.palette} videoUploads={p.videoUploads} onChange={(nb) => set(blocks.map((x) => (x.id === b.id ? nb : x)), true)} />
+  );
+
+  const full = blocks.length >= EMAIL_BLOCKS_MAX;
 
   return (
-    <div>
-      {/* Las variables: se ponen donde está el cursor. */}
-      {p.vars.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted">
-          <span>Toca para ponerlo donde escribes:</span>
-          {p.vars.map((k) => (
-            <button key={k} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => insertVar(k)} className="chip" title={`Se cambia solo por ${VAR_LABEL[k]?.toLowerCase() ?? k}`}>
-              {VAR_LABEL[k] ?? k} <code className="opacity-60">{`{${k}}`}</code>
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div
-        className="mail-canvas overflow-hidden rounded-[1.6rem] border border-line shadow-lift"
-        onFocusCapture={(e) => {
-          const t = e.target;
-          if (t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && t.type === "text")) last.current = t;
-        }}
-      >
-        {/* Como en el buzón: de quién y el asunto. */}
-        <div className="border-b border-[#3A3354] bg-[#120F30] px-4 py-3 text-sm sm:px-6">
-          <p className="text-xs text-[#A99FC2]">
-            De: <span className="text-[#E8DFCB]">{p.brand}</span>
-          </p>
-          <label className="mt-1 flex items-center gap-2">
-            <span className="shrink-0 text-xs text-[#A99FC2]">Asunto:</span>
-            <input
-              type="text"
-              value={p.subject}
-              onChange={(e) => p.onSubject(e.target.value)}
-              maxLength={150}
-              placeholder={p.defaultSubject}
-              aria-label="Asunto"
-              className={`w-full px-2 py-1 text-[1rem] font-semibold text-[#F4EBD8] ${inline}`}
-            />
-          </label>
-        </div>
-
-        <div className="mail-sky px-3 py-10 sm:px-8">
-          <div className="mx-auto max-w-[560px]">
-            <div className="mb-6 text-center font-serif">
-              <p className="text-[0.62rem] tracking-[0.6em] text-[#D9BF8C]">✦ ✦ ✦</p>
-              <p className="mt-2 text-[1.5rem] tracking-[0.08em] text-[#F3E3BF]">{p.brand}</p>
+    <div className="min-[1280px]:mx-[max(-12rem,min(0px,calc(36rem+124px+1.5rem-50vw)))]">
+      <div className="min-[1280px]:grid min-[1280px]:grid-cols-[12rem_minmax(0,1fr)_17.5rem] min-[1280px]:items-start min-[1280px]:gap-4 min-[1600px]:grid-cols-[14rem_minmax(0,1fr)_20rem]">
+        {/* ── Izquierda: bloques y estructura ── */}
+        {wide && (
+          <aside className="mail-side sticky top-20 max-h-[calc(100dvh-6rem)] space-y-4 overflow-y-auto">
+            <div className="card p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted">Bloques</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {ADD.map((t) => {
+                  const Icon = BLOCK_ICON[t];
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      draggable={!full}
+                      disabled={full}
+                      onDragStart={(e) => startDrag(e, `new:${t}`)}
+                      onDragEnd={endDrag}
+                      onClick={() => addHere(t)}
+                      title={`Arrástralo al email, o tócalo y va ${selected ? "debajo del bloque elegido" : "al final"}`}
+                      className="mail-tool flex cursor-grab flex-col items-center gap-1 rounded-xl px-1.5 py-2.5 text-center text-[0.72rem] font-medium active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Icon className="h-4 w-4" strokeWidth={1.6} />
+                      {BLOCK_LABEL[t]}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-[0.7rem] leading-snug text-muted">{full ? `Máximo ${EMAIL_BLOCKS_MAX} bloques.` : "Arrástralo al email o tócalo."}</p>
             </div>
-            <div className="rounded-[24px] border border-[#6E5B3A] p-[5px]">
-              <div className="rounded-[19px] border border-[#3A3354] bg-[#17143A] px-4 py-8 sm:px-8">
-                {p.mode === "intro" && blocks.length === 0 && (
-                  <p className="mb-2 text-center text-xs text-[#A99FC2]">Tu texto va aquí arriba, antes de lo que el email pone solo. Añade un bloque si quieres escribir algo.</p>
-                )}
-                <AddHere at={0} />
-                {blocks.map((b, i) => (
-                  <div key={b.id}>
-                    <div className="group/block relative rounded-xl py-2 transition hover:bg-white/[0.02]" data-email-block={b.t}>
-                      {/* La barra del bloque */}
-                      <div className="absolute -top-3 right-0 z-10 flex items-center gap-0.5 rounded-full border border-line bg-white px-1 py-0.5 text-ink opacity-0 shadow-soft transition group-hover/block:opacity-100 group-focus-within/block:opacity-100">
-                        <span className="px-2 text-[0.68rem] font-semibold text-muted">{BLOCK_LABEL[b.t]}</span>
-                        <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="grid h-7 w-7 place-items-center rounded-full hover:bg-sand disabled:opacity-30" aria-label="Subir">
-                          <ArrowUp className="h-3.5 w-3.5" />
-                        </button>
-                        <button type="button" onClick={() => move(i, 1)} disabled={i === blocks.length - 1} className="grid h-7 w-7 place-items-center rounded-full hover:bg-sand disabled:opacity-30" aria-label="Bajar">
-                          <ArrowDown className="h-3.5 w-3.5" />
-                        </button>
-                        <button type="button" onClick={() => setSettings(b.id)} className="grid h-7 w-7 place-items-center rounded-full hover:bg-sand" aria-label="Ajustes" title="Colores, tamaños y más">
-                          <Settings2 className="h-3.5 w-3.5" />
-                        </button>
-                        <button type="button" onClick={() => set(blocks.filter((x) => x.id !== b.id))} className="grid h-7 w-7 place-items-center rounded-full text-rose hover:bg-sand" aria-label="Borrar">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                      <BlockOnMail block={b} patch={(c) => patch(b.id, c)} onSettings={() => setSettings(b.id)} />
-                    </div>
-                    <AddHere at={i + 1} />
-                  </div>
-                ))}
 
-                {/* Lo que el email pone solo */}
-                {p.fixed && (
-                  <div className="mt-4 rounded-2xl border border-dashed border-[#D9BF8C]/35 px-4 py-4 text-center">
-                    <p className="text-[0.62rem] uppercase tracking-[0.3em] text-[#D9BF8C]">Esto lo pone el email solo</p>
-                    <p className="mt-1.5 text-[0.82rem] leading-relaxed text-[#A99FC2]">{p.fixed}</p>
+            <div className="card p-3" onDragOver={(e) => dragging.current && blocks.length === 0 && (e.preventDefault(), setDropAt({ at: 0, zone: "list" }))} onDrop={drop}>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted">Estructura</p>
+              {blocks.length === 0 ? (
+                <p className="text-xs text-muted">Aún no hay bloques.</p>
+              ) : (
+                <ol className="space-y-0.5">
+                  {blocks.map((b, i) => {
+                    const Icon = BLOCK_ICON[b.t];
+                    const sum = blockSummary(b);
+                    return (
+                      <li key={b.id} onDragOver={(e) => overItem(e, i, "list")} onDrop={drop}>
+                        {dropAt?.zone === "list" && dropAt.at === i && <DropLine />}
+                        <button
+                          type="button"
+                          draggable
+                          onDragStart={(e) => startDrag(e, `move:${b.id}`)}
+                          onDragEnd={endDrag}
+                          onClick={() => focusBlock(b.id)}
+                          aria-current={selected === b.id ? "true" : undefined}
+                          className="mail-row flex w-full cursor-grab items-center gap-2 rounded-lg px-1.5 py-1.5 text-left text-xs active:cursor-grabbing"
+                        >
+                          <GripVertical className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                          <Icon className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                          <span className="min-w-0 flex-1 truncate">
+                            <span className="font-semibold">{BLOCK_LABEL[b.t]}</span>
+                            {sum && <span className="text-muted"> · {sum}</span>}
+                          </span>
+                        </button>
+                        {dropAt?.zone === "list" && dropAt.at === blocks.length && i === blocks.length - 1 && <DropLine />}
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </div>
+          </aside>
+        )}
+
+        {/* ── Centro: el email ── */}
+        <div className={`min-w-0 ${wide ? "" : "mx-auto max-w-3xl"}`}>
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted">
+            {p.vars.length > 0 && (
+              <>
+                <span>Toca para ponerlo donde escribes:</span>
+                {p.vars.map((k) => (
+                  <button key={k} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => insertVar(k)} className="chip" title={`Se cambia solo por ${VAR_LABEL[k]?.toLowerCase() ?? k}`}>
+                    {VAR_LABEL[k] ?? k} <code className="opacity-60">{`{${k}}`}</code>
+                  </button>
+                ))}
+              </>
+            )}
+            <span className="ml-auto inline-flex gap-1">
+              <button type="button" onClick={undo} disabled={!canUndo} className="btn btn-ghost btn-sm disabled:opacity-30" aria-label="Deshacer" title="Deshacer (Ctrl+Z)">
+                <Undo2 className="h-4 w-4" /> <span className="hidden sm:inline">Deshacer</span>
+              </button>
+              <button type="button" onClick={redo} disabled={!canRedo} className="btn btn-ghost btn-sm disabled:opacity-30" aria-label="Rehacer" title="Rehacer (Ctrl+Y)">
+                <Redo2 className="h-4 w-4" /> <span className="hidden sm:inline">Rehacer</span>
+              </button>
+            </span>
+          </div>
+
+          <div
+            className="mail-canvas overflow-hidden rounded-[1.6rem] border border-line shadow-lift"
+            onFocusCapture={(e) => {
+              const t = e.target;
+              if (t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && t.type === "text")) last.current = t;
+            }}
+          >
+            {/* Como en el buzón: de quién y el asunto. */}
+            <div className="border-b border-[#3A3354] bg-[#120F30] px-4 py-3 text-sm sm:px-6">
+              <p className="text-xs text-[#A99FC2]">
+                De: <span className="text-[#E8DFCB]">{p.brand}</span>
+              </p>
+              <label className="mt-1 flex items-center gap-2">
+                <span className="shrink-0 text-xs text-[#A99FC2]">Asunto:</span>
+                <input
+                  type="text"
+                  value={p.subject}
+                  onChange={(e) => p.onSubject(e.target.value)}
+                  maxLength={150}
+                  placeholder={p.defaultSubject}
+                  aria-label="Asunto"
+                  className={`w-full px-2 py-1 text-[1rem] font-semibold text-[#F4EBD8] ${inline}`}
+                />
+              </label>
+            </div>
+
+            <div
+              className="mail-sky px-3 py-10 sm:px-8 min-[1280px]:px-4 min-[1600px]:px-8"
+              style={p.value.style ? patternCss(p.value.style) : undefined}
+              onMouseDown={(e) => {
+                // Tocar fuera de los bloques: vuelve al estilo del email.
+                if (!(e.target as HTMLElement).closest("[data-email-block]")) setSelected(null);
+              }}
+            >
+              <div className="mx-auto max-w-[560px]">
+                <div className="mb-6 text-center font-serif">
+                  <p className="text-[0.62rem] tracking-[0.6em] text-[#D9BF8C]">✦ ✦ ✦</p>
+                  <p className="mt-2 text-[1.5rem] tracking-[0.08em] text-[#F3E3BF]">{p.brand}</p>
+                </div>
+                <div className="rounded-[24px] border border-[#6E5B3A] p-[5px]">
+                  <div
+                    className="rounded-[19px] border border-[#3A3354] bg-[#17143A] px-4 py-8 sm:px-8 min-[1280px]:px-5"
+                    style={p.value.style ? { backgroundColor: style.content, ...cornerCss({ bg: style.content, pattern: style.cornerPattern, patternColor: style.patternColor, patternStrength: style.patternStrength, pos: style.cornerPos }) } : undefined}
+                    onDragOver={(e) => {
+                      if (!dragging.current) return;
+                      e.preventDefault();
+                      if (blocks.length === 0 && dropAt?.at !== 0) setDropAt({ at: 0, zone: "mail" });
+                    }}
+                    onDrop={drop}
+                  >
+                    {p.mode === "intro" && blocks.length === 0 && (
+                      <p className="mb-2 text-center text-xs text-[#A99FC2]">Tu texto va aquí arriba, antes de lo que el email pone solo. Añade un bloque si quieres escribir algo.</p>
+                    )}
+                    {wide && blocks.length === 0 && (
+                      <div className="rounded-2xl border border-dashed border-[#D9BF8C]/40 px-4 py-10 text-center text-sm text-[#A99FC2]">
+                        Arrastra aquí un bloque de la izquierda, o tócalo.
+                      </div>
+                    )}
+                    <AddHere at={0} />
+                    {blocks.map((b, i) => (
+                      <div key={b.id}>
+                        {dropAt?.zone === "mail" && dropAt.at === i && <DropLine />}
+                        <div
+                          ref={(el) => {
+                            if (el) blockEls.current.set(b.id, el);
+                            else blockEls.current.delete(b.id);
+                          }}
+                          className={`group/block relative rounded-xl py-2 transition hover:bg-white/[0.02] ${selected === b.id ? "ring-1 ring-[#D9BF8C]/70 ring-offset-4 ring-offset-transparent" : ""}`}
+                          data-email-block={b.t}
+                          onMouseDownCapture={() => setSelected(b.id)}
+                          onFocusCapture={() => setSelected(b.id)}
+                          onDragOver={(e) => overItem(e, i, "mail")}
+                          onDrop={drop}
+                        >
+                          {/* La barra del bloque */}
+                          <div
+                            className={`absolute -top-3 right-0 z-10 flex items-center gap-0.5 rounded-full border border-line bg-white px-1 py-0.5 text-ink shadow-soft transition group-hover/block:opacity-100 group-focus-within/block:opacity-100 ${selected === b.id ? "opacity-100" : "opacity-0"}`}
+                          >
+                            {wide && (
+                              <span
+                                draggable
+                                onDragStart={(e) => startDrag(e, `move:${b.id}`, blockEls.current.get(b.id))}
+                                onDragEnd={endDrag}
+                                className="grid h-7 w-7 cursor-grab place-items-center rounded-full hover:bg-sand active:cursor-grabbing"
+                                title="Arrastra para moverlo"
+                                aria-hidden
+                              >
+                                <GripVertical className="h-3.5 w-3.5" />
+                              </span>
+                            )}
+                            <span className="px-2 text-[0.68rem] font-semibold text-muted">{BLOCK_LABEL[b.t]}</span>
+                            <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="grid h-7 w-7 place-items-center rounded-full hover:bg-sand disabled:opacity-30" aria-label="Subir">
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            </button>
+                            <button type="button" onClick={() => move(i, 1)} disabled={i === blocks.length - 1} className="grid h-7 w-7 place-items-center rounded-full hover:bg-sand disabled:opacity-30" aria-label="Bajar">
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            </button>
+                            {!wide && (
+                              <button type="button" onClick={() => openSettings(b.id)} className="grid h-7 w-7 place-items-center rounded-full hover:bg-sand" aria-label="Ajustes" title="Colores, tamaños y más">
+                                <Settings2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            <button type="button" onClick={() => remove(b.id)} className="grid h-7 w-7 place-items-center rounded-full text-rose hover:bg-sand" aria-label="Borrar">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <BlockOnMail block={b} look={style} patch={(c) => patch(b.id, c)} onSettings={() => openSettings(b.id)} />
+                        </div>
+                        {dropAt?.zone === "mail" && dropAt.at === blocks.length && i === blocks.length - 1 && <DropLine />}
+                        <AddHere at={i + 1} />
+                      </div>
+                    ))}
+
+                    {/* Lo que el email pone solo */}
+                    {p.fixed && (
+                      <div className="mt-4 rounded-2xl border border-dashed border-[#D9BF8C]/35 px-4 py-4 text-center">
+                        <p className="text-[0.62rem] uppercase tracking-[0.3em] text-[#D9BF8C]">Esto lo pone el email solo</p>
+                        <p className="mt-1.5 text-[0.82rem] leading-relaxed text-[#A99FC2]">{p.fixed}</p>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+                <p className="mt-5 text-center text-[0.7rem] tracking-[0.5em] text-[#6E5B3A]">✦</p>
               </div>
             </div>
-            <p className="mt-5 text-center text-[0.7rem] tracking-[0.5em] text-[#6E5B3A]">✦</p>
           </div>
         </div>
+
+        {/* ── Derecha: ajustes del bloque elegido o estilo del email ── */}
+        {wide && (
+          <aside className="mail-side sticky top-20 max-h-[calc(100dvh-6rem)] overflow-y-auto">
+            {editing ? (
+              <div className="card p-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">Ajustes · {BLOCK_LABEL[editing.t]}</p>
+                  <button type="button" onClick={() => setSelected(null)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-sand" aria-label="Cerrar los ajustes" title="Volver al estilo del email (Esc)">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                {settingsFor(editing)}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <StylePanel value={style} palette={p.palette} onChange={(s) => commit({ ...p.value, style: s }, true)} defaultOpen />
+                <p className="px-1 text-[0.7rem] leading-snug text-muted">Toca un bloque del email para cambiar sus ajustes. Los colores del texto y los botones se ven en «Cómo le llega».</p>
+              </div>
+            )}
+          </aside>
+        )}
       </div>
 
-      {/* Ajustes de un bloque: el editor de bloques con solo ese bloque */}
-      {editing && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6" onClick={() => setSettings(null)}>
+      {/* Móvil y tablet: los ajustes de un bloque en una ventana */}
+      {!wide && sheet && editing && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6" onClick={() => setSheet(false)}>
           <div className="max-h-[88dvh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-4 text-ink shadow-lift sm:rounded-3xl sm:p-5" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
               <p className="font-semibold">Ajustes · {BLOCK_LABEL[editing.t]}</p>
-              <button type="button" onClick={() => setSettings(null)} className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand" aria-label="Cerrar">
+              <button type="button" onClick={() => setSheet(false)} className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand" aria-label="Cerrar">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <BlockEditor
-              value={{ v: 1, blocks: [editing], style: p.value.style }}
-              onChange={(d) => {
-                const at = blocks.findIndex((b) => b.id === editing.id);
-                if (at < 0) return;
-                const next = [...blocks];
-                next.splice(at, 1, ...d.blocks);
-                set(next);
-                if (!d.blocks.some((b) => b.id === editing.id)) setSettings(null);
-              }}
-              vars={p.vars}
-              palette={p.palette}
-              socials={p.socials}
-              siteUrl={p.siteUrl}
-              videoUploads={p.videoUploads}
-            />
-            <button type="button" onClick={() => setSettings(null)} className="btn btn-primary mt-4 w-full">
+            {settingsFor(editing)}
+            <button type="button" onClick={() => setSheet(false)} className="btn btn-primary mt-4 w-full">
               Listo
             </button>
           </div>
@@ -347,7 +709,7 @@ export function InlineEmailEditor(p: {
 }
 
 /** Un bloque tal y como sale en el email, con lo que se escribe encima. */
-function BlockOnMail({ block: b, patch, onSettings }: { block: EmailBlock; patch: (c: Partial<EmailBlock>) => void; onSettings: () => void }) {
+function BlockOnMail({ block: b, look, patch, onSettings }: { block: EmailBlock; look: EmailStyle; patch: (c: Partial<EmailBlock>) => void; onSettings: () => void }) {
   switch (b.t) {
     case "title":
       return (
@@ -395,7 +757,7 @@ function BlockOnMail({ block: b, patch, onSettings }: { block: EmailBlock; patch
       return <div className={b.size === "s" ? "h-3" : b.size === "l" ? "h-12" : "h-6"} aria-label="Espacio" />;
     case "spotlight":
       return (
-        <div className="rounded-2xl border-l-2 border-[#D9BF8C] bg-[#211D49] px-4 py-4">
+        <div className="rounded-2xl border-l-2 px-4 py-4" style={{ borderColor: b.accent, ...patternCss({ bg: b.bg, pattern: look.bubblePattern, patternColor: look.patternColor, patternStrength: look.patternStrength }) }}>
           <div className="flex items-start gap-2">
             <input
               type="text"

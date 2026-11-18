@@ -56,6 +56,8 @@ export async function webNews(o: {
   now?: Date;
   /** Cuántos días sale cada novedad (Creator.newsDays); null = siempre. Las más viejas se cuentan en `older`. */
   maxAgeDays?: number | null;
+  /** Las que ella ha quitado (Creator.newsRemoved): no salen ni se cuentan. */
+  removed?: string[];
 }): Promise<{ items: NewsItem[]; older: number }> {
   const now = o.now ?? new Date();
   const take = o.limit ?? 40;
@@ -131,7 +133,9 @@ export async function webNews(o: {
       image: c.imageUrl ?? readCodePhotos(c.images)[0]?.src ?? null,
     });
   // Las que ya pasaron de sus días: fuera de la lista, pero contadas (los posts viejos, con su propia cuenta).
-  const fresh = cutoff ? items.filter((i) => new Date(i.at) >= cutoff) : items;
+  const removed = new Set(o.removed ?? []);
+  const kept = items.filter((i) => !removed.has(i.key));
+  const fresh = cutoff ? kept.filter((i) => new Date(i.at) >= cutoff) : kept;
   const oldPosts = cutoff
     ? await prisma.membershipPost.count({ where: { creatorId: o.creatorId, product: { type: "MEMBERSHIP", status: "PUBLISHED" }, ...visibleMemberPostWhere(now), publishedAt: { lt: cutoff } } })
     : 0;
@@ -140,6 +144,6 @@ export async function webNews(o: {
       .sort((a, b) => (a.at < b.at ? 1 : -1))
       .slice(0, take)
       .map((i) => ({ ...i, dateLabel: formatDate(new Date(i.at), { day: "numeric", month: "short" }, o.timeZone).replace(".", "") })),
-    older: items.length - fresh.length + oldPosts,
+    older: kept.length - fresh.length + oldPosts,
   };
 }

@@ -35,13 +35,14 @@ export function verifyResendWebhook(
 }
 
 export type ResendEvent =
-  | { kind: "delivered" | "opened" | "clicked" | "complained"; emailId: string }
+  | { kind: "delivered" | "opened" | "complained"; emailId: string }
+  | { kind: "clicked"; emailId: string; link: string | null }
   | { kind: "bounced"; emailId: string; permanent: boolean }
   | { kind: "ignored" };
 
 /** Lo que nos importa de un aviso (los demás tipos se ignoran). */
 export function readResendEvent(payload: unknown): ResendEvent {
-  const p = payload as { type?: unknown; data?: { email_id?: unknown; bounce?: { type?: unknown } } } | null;
+  const p = payload as { type?: unknown; data?: { email_id?: unknown; bounce?: { type?: unknown }; click?: { link?: unknown } } } | null;
   const emailId = typeof p?.data?.email_id === "string" ? p.data.email_id : null;
   if (!p || !emailId) return { kind: "ignored" };
   switch (p.type) {
@@ -50,7 +51,7 @@ export function readResendEvent(payload: unknown): ResendEvent {
     case "email.opened":
       return { kind: "opened", emailId };
     case "email.clicked":
-      return { kind: "clicked", emailId };
+      return { kind: "clicked", emailId, link: typeof p.data?.click?.link === "string" && /^https?:\/\//i.test(p.data.click.link) ? p.data.click.link.slice(0, 1000) : null };
     case "email.complained":
       return { kind: "complained", emailId };
     case "email.bounced":

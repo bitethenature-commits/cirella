@@ -4,7 +4,6 @@ import type { EmailDesign } from "../email-blocks";
 import { appUrl } from "../env";
 import { formatSessionDate } from "../tz";
 import { renderDesignHtml, renderSubject } from "./blocks-html";
-import { campaignEmail } from "./newsletter-templates";
 import { AREA_LINK_TOKEN, areaLinkFooter, esc, SITE_NAME_TOKEN } from "./templates";
 import * as T from "./templates";
 import { receivedEmailHtml } from "../requests";
@@ -50,16 +49,6 @@ export function sampleAutomaticEmail(
       break;
     case "ABANDONED_CHECKOUT":
       mail = T.abandonedCheckoutEmail({ creatorName: c.displayName, productTitle: o.productTitle, url, optOutUrl: `${base}/baja/recordatorios`, introHtml });
-      break;
-    case "NEWSLETTER_WELCOME":
-      mail = campaignEmail({
-        brand: o.siteName,
-        subject: edit.subject || meta.subject,
-        design: edit.design ?? meta.original(),
-        baseUrl: base,
-        vars,
-        footer: { senderName: o.siteName, legalName: c.legalName, legalAddress: c.legalAddress, legalEmail: c.legalEmail, legalUrl: `${base}/${c.username}/legal`, unsubscribeUrl: null },
-      });
       break;
     case "REQUEST_RECEIVED":
       mail = { subject: `He recibido tu mensaje ✦ ${o.productTitle}`, html: receivedEmailHtml({ brand: c.displayName, buyer: "Laura", productTitle: o.productTitle, when, price: null, message: "Hola, me encantaría reservar contigo. ¡Gracias!", introHtml }) };

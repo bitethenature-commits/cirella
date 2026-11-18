@@ -2,12 +2,13 @@ import Link from "next/link";
 import { BookOpen, Check, Crown, Download, LayoutGrid, Lock, Mail, MonitorPlay, Moon, Sparkles, UserRound, UsersRound } from "lucide-react";
 import { SpinningSolid } from "@/app/cuenta/spinning-solid";
 import { ConfirmForm } from "@/components/ui/confirm-form";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
 import { formatNumber } from "@/lib/money";
 import { formatDate } from "@/lib/tz";
 import { Badge, CounterCard, PageHeader, PersonDot } from "../ui";
-import { denySignupMember, renewSignupMember } from "./actions";
+import { deleteOrderAction, denySignupMember, renewSignupMember } from "./actions";
 import { listSignups, RENEW_SOON_DAYS, signupFilters, SIGNUPS_PAGE, type SignupRow } from "./signups-data";
 
 /** Lo que es cada cosa, en palabras. */
@@ -221,6 +222,7 @@ export async function SignupsView({
                               </button>
                             </ConfirmForm>
                           )}
+                          <DeleteButton action={deleteOrderAction} id={r.orderId} what={r.productTitle} fields={{ back: here }} message={`¿Borrar la inscripción de ${r.name ?? r.email} en «${r.productTitle}»? Pierde el acceso y desaparece de la lista. No se puede deshacer.`} />
                         </span>
                       </li>
                     );

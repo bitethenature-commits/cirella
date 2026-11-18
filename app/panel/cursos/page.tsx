@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, BookOpen, ChevronDown, Eye, GraduationCap, MessageCircle, Plus, Settings2 } from "lucide-react";
 import { ProductCard } from "@/components/creator-page/creator-page-view";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { EmptyState } from "@/components/ui/empty";
+import { deleteMessage } from "@/lib/delete-copy";
 import { requireCreator } from "@/lib/auth";
 import { COURSE_CATEGORIES, COURSE_CATEGORY_LABEL, groupCourses } from "@/lib/course-categories";
 import { CategoryIcons } from "@/components/creator-page/category-icons";
@@ -12,7 +14,7 @@ import { canSellType } from "@/lib/plans";
 import { toPublicProduct } from "@/lib/product-view";
 import { tenantDb } from "@/lib/tenant";
 import { resolveTheme, themeStyle } from "@/lib/templates";
-import { createProduct } from "../productos/actions";
+import { createProduct, deleteProduct } from "../productos/actions";
 import { PageHeader } from "../ui";
 import { CoursesBrowser } from "./courses-browser";
 
@@ -82,7 +84,7 @@ export default async function CoursesPage() {
   const [stats, rows, newComments] = await Promise.all([
     courseList(creator.id),
     db.product.findMany({
-      where: { type: "COURSE", status: { not: "ARCHIVED" } },
+      where: { type: "COURSE" },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       include: { _count: { select: { lessons: true } } },
     }),
@@ -133,7 +135,7 @@ export default async function CoursesPage() {
                           </div>
                           <Link href={`/panel/cursos/${c.id}`} className="absolute inset-0 rounded-[var(--r-card)]" aria-label={`Abrir el estudio de «${c.title}»`} />
                           {c.status !== "PUBLISHED" && (
-                            <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-[#F4C35A] px-2.5 py-1 text-[0.68rem] font-bold uppercase tracking-wide text-[#3d2a05] shadow">Borrador</span>
+                            <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-[#F4C35A] px-2.5 py-1 text-[0.68rem] font-bold uppercase tracking-wide text-[#3d2a05] shadow">{c.status === "ARCHIVED" ? "Archivado" : "Borrador"}</span>
                           )}
                         </div>
                         <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 px-1 text-[0.78rem]">
@@ -151,6 +153,7 @@ export default async function CoursesPage() {
                           <Link href={`/panel/cursos/${c.id}`} className="cp-gold inline-flex items-center gap-1 font-semibold hover:underline">
                             Estudio <ArrowRight className="h-3.5 w-3.5" />
                           </Link>
+                          <DeleteButton action={deleteProduct} id={c.id} what={c.title} variant="link" message={deleteMessage(`el curso «${c.title}» con todas sus lecciones`, s?.students ?? 0)} />
                         </div>
                       </div>
                     );

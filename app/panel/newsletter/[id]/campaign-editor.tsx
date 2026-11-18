@@ -1,13 +1,14 @@
 "use client";
 
-import { CalendarClock, Check, Loader2, Send, TestTube2 } from "lucide-react";
+import { CalendarClock, Check, Eye, LayoutTemplate, Loader2, PenLine, Send, TestTube2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { BlockEditor } from "@/components/email-editor/block-editor";
+import { InlineEmailEditor } from "@/components/email-editor/inline-email-editor";
 import { EmailPreview } from "@/components/email-editor/email-preview";
 import type { EmailDesign, SocialNetwork } from "@/lib/email-blocks";
 import { peopleCount, type Segment } from "@/lib/newsletter-rules";
 import { previewCampaign, saveCampaign, scheduleCampaign, segmentPreview, sendNow, sendSummary, sendTestCampaign, unscheduleCampaign } from "../actions";
+import { saveCampaignAsTemplate } from "../plantillas/actions";
 
 type Props = {
   id: string;
@@ -22,11 +23,14 @@ type Props = {
   defaultTime: string;
   timezoneLabel: string;
   products: { id: string; title: string }[];
-  tags: string[];
   testTo: string;
   palette: string[];
   socials: Partial<Record<SocialNetwork, string>>;
   siteUrl: string;
+  /** Quién la envía (su nombre, arriba del email). */
+  brand: string;
+  /** El mensaje del pie (Ajustes › Envío). */
+  footerMessage: string;
 };
 
 type Notice = { kind: "ok" | "error"; text: string } | null;
@@ -106,29 +110,20 @@ export function CampaignEditor(p: Props) {
     await fn();
   });
 
-  const segValue = segment.kind === "tag" ? `tag:${segment.tag}` : segment.kind === "product" ? `product:${segment.productId}` : segment.kind;
+  const segValue = segment.kind === "product" ? `product:${segment.productId}` : segment.kind;
 
   const editor = (
     <div className="space-y-5">
-      <div className="card space-y-3 p-4 sm:p-5">
+      <div className="card mx-auto grid max-w-3xl gap-4 p-4 sm:grid-cols-2 sm:p-5">
         <div>
-          <label className="field-label" htmlFor="nl-subject">Asunto</label>
-          <input id="nl-subject" className="input text-base" maxLength={150} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Lo que trae la luna de noviembre" />
-        </div>
-        <div>
-          <label className="field-label" htmlFor="nl-preheader">Texto de vista previa</label>
-          <input id="nl-preheader" className="input text-base sm:text-sm" maxLength={150} value={preheader} onChange={(e) => setPreheader(e.target.value)} placeholder="Lo que se lee junto al asunto en el buzón" />
-        </div>
-        <div>
-          <label className="field-label" htmlFor="nl-segment">A quién</label>
+          <label className="field-label" htmlFor="nl-segment">¿A quién se la mandas?</label>
           <select
             id="nl-segment"
             className="input h-11 text-base sm:text-sm"
             value={segValue}
             onChange={(e) => {
               const v = e.target.value;
-              if (v.startsWith("tag:")) setSegment({ kind: "tag", tag: v.slice(4) });
-              else if (v.startsWith("product:")) setSegment({ kind: "product", productId: v.slice(8) });
+              if (v.startsWith("product:")) setSegment({ kind: "product", productId: v.slice(8) });
               else setSegment(v === "member" ? { kind: "member" } : { kind: "all" });
             }}
           >
@@ -141,20 +136,31 @@ export function CampaignEditor(p: Props) {
                 ))}
               </optgroup>
             )}
-            {p.tags.length > 0 && (
-              <optgroup label="Con la etiqueta…">
-                {p.tags.map((t) => (
-                  <option key={t} value={`tag:${t}`}>Etiqueta «{t}»</option>
-                ))}
-              </optgroup>
-            )}
           </select>
           <p className="mt-1.5 text-xs text-muted" data-testid="segment-count" aria-live="polite">
-            {count === null ? "Contando…" : `Se enviará a ${peopleCount(count)} (solo las que confirmaron).`}
+            {count === null ? "Contando…" : `Le llegará a ${peopleCount(count)} (solo las que confirmaron).`}
           </p>
         </div>
+        <div>
+          <label className="field-label" htmlFor="nl-preheader">Frase junto al asunto <span className="font-normal text-muted">(opcional)</span></label>
+          <input id="nl-preheader" className="input text-base sm:text-sm" maxLength={150} value={preheader} onChange={(e) => setPreheader(e.target.value)} placeholder="Lo que se lee en la bandeja, al lado del asunto" />
+        </div>
       </div>
-      <BlockEditor value={design} onChange={setDesign} vars={["nombre", "mi_nombre"]} palette={p.palette} socials={p.socials} siteUrl={p.siteUrl} withStyle videoUploads />
+      <InlineEmailEditor
+        value={design}
+        onChange={setDesign}
+        vars={["nombre", "mi_nombre"]}
+        brand={p.brand}
+        subject={subject}
+        onSubject={setSubject}
+        defaultSubject="Escribe aquí el asunto"
+        fixed={`«${p.footerMessage} Darme de baja.» Y debajo, tus datos. El mensaje se cambia en Ajustes › Envío.`}
+        mode="body"
+        palette={p.palette}
+        socials={p.socials}
+        siteUrl={p.siteUrl}
+        videoUploads
+      />
     </div>
   );
 
@@ -188,22 +194,23 @@ export function CampaignEditor(p: Props) {
         </div>
       )}
 
-      <div className="mb-4 inline-flex rounded-full bg-sand p-1 text-sm lg:hidden" role="tablist">
+      <div className="mb-4 inline-flex rounded-full bg-sand p-1 text-sm" role="tablist">
         {(["editar", "vista"] as const).map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`rounded-full px-4 py-2 font-medium ${tab === t ? "bg-white shadow-soft" : "text-muted"}`}>
-            {t === "editar" ? "Editar" : "Vista previa"}
+          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 font-medium ${tab === t ? "bg-white shadow-soft" : "text-muted"}`}>
+            {t === "editar" ? <PenLine className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {t === "editar" ? "Escribir encima" : "Cómo le llega"}
           </button>
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className={tab === "editar" ? "" : "hidden lg:block"}>{editor}</div>
-        <div className={tab === "vista" ? "" : "hidden lg:block"}>
-          <div className="lg:sticky lg:top-20">
-            {preview ? <EmailPreview html={preview.html} subject={preview.subject} warnings={preview.warnings} /> : <p className="text-sm text-muted">Preparando la vista previa…</p>}
-          </div>
+      {tab === "editar" ? (
+        <div>{editor}</div>
+      ) : (
+        <div className="mx-auto max-w-3xl">
+          {preview ? <EmailPreview html={preview.html} subject={preview.subject} warnings={preview.warnings} /> : <p className="text-sm text-muted">Preparando la vista previa…</p>}
+          <p className="mt-2 text-xs text-muted">Con datos de ejemplo: así le llega, con su nombre puesto.</p>
         </div>
-      </div>
+      )}
 
       {notice && (
         <p role="status" className={`mt-4 rounded-xl px-4 py-3 text-sm ${notice.kind === "ok" ? "bg-[#e7f3ec] text-[#2f6b4a]" : "bg-[#fbe9e6] text-[#9a3a2e]"}`}>
@@ -270,6 +277,21 @@ export function CampaignEditor(p: Props) {
 
       <div className="fixed inset-x-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-40 border-t border-line bg-white/95 px-4 py-2.5 backdrop-blur lg:bottom-0 lg:left-[248px]">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm mr-auto"
+            disabled={busy}
+            onClick={() => {
+              const name = window.prompt("Nombre de la plantilla (solo lo ves tú):", subject || "Mi plantilla");
+              if (!name?.trim()) return;
+              run(async () => {
+                const r = await saveCampaignAsTemplate(p.id, name);
+                setNotice(r.ok ? { kind: "ok", text: `Guardada como plantilla «${name.trim()}». La tienes en Newsletter › Plantillas.` } : { kind: "error", text: r.error });
+              });
+            }}
+          >
+            <LayoutTemplate className="h-4 w-4" /> Guardar como plantilla
+          </button>
           <button
             type="button"
             className="btn btn-outline btn-sm"

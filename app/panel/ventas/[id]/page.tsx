@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, UserMinus } from "lucide-react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { isNoChargeOrder, NO_CHARGE_LABEL, type NoChargeProvider } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { newsletterPending } from "@/lib/free-access-rules";
@@ -13,6 +14,7 @@ import { tenantDb } from "@/lib/tenant";
 import { DISPUTE_STATUS_LABEL, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { capitalize, formatDateTime, formatSessionDate } from "@/lib/tz";
 import { revokeAccess } from "../../productos/actions";
+import { deleteOrderAction } from "../actions";
 import { Badge } from "../../ui";
 import { OrderExtras } from "./order-extras";
 import { RefundForm } from "./refund-form";
@@ -60,6 +62,7 @@ export default async function OrderDetail({ params, searchParams }: { params: Pr
         <h1 className="display min-w-0 flex-1 text-[2rem] leading-tight">{o.product.emoji} {o.productTitle}</h1>
         <Badge tone={o.status === "PAID" && o.refundedCents > 0 ? "warning" : o.status === "PAID" ? "success" : o.status === "FAILED" ? "danger" : "neutral"}>{orderStatusLabel(o)}</Badge>
         {o.disputeStatus && <Badge tone={o.disputeStatus === "WON" ? "neutral" : "danger"}>{DISPUTE_STATUS_LABEL[o.disputeStatus]}</Badge>}
+        <DeleteButton action={deleteOrderAction} id={o.id} variant="link" what={o.productTitle} message={`¿Borrar esta venta de «${o.productTitle}»? ${o.buyerName ?? o.buyerEmail} pierde el acceso y desaparece de Ventas. No se puede deshacer.`} />
       </div>
 
       <dl className="card mt-5 divide-y divide-line text-sm">
@@ -149,6 +152,7 @@ async function SignupDetail({ creatorId, orderId, given }: { creatorId: string; 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <h1 className="display min-w-0 flex-1 text-[2rem] leading-tight">{o.product.emoji} {o.productTitle}</h1>
         <Badge tone={active ? "success" : "neutral"}>{active ? "Con acceso" : "Acceso retirado"}</Badge>
+        <DeleteButton action={deleteOrderAction} id={o.id} variant="link" what={o.productTitle} message={`¿Borrar esta venta de «${o.productTitle}»? ${o.buyerName ?? o.buyerEmail} pierde el acceso y desaparece de Ventas. No se puede deshacer.`} />
       </div>
       <dl className="card mt-5 divide-y divide-line text-sm">
         <Row label="Persona">

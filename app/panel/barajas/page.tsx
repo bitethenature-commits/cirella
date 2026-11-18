@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, Layers, Pencil, Plus } from "lucide-react";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
 import { asDeckStatus } from "@/lib/oracle-rules";
 import { tenantDb } from "@/lib/tenant";
 import { Badge, PageHeader } from "../ui";
-import { moveDeck, toggleDeck } from "./actions";
+import { deleteDeck, moveDeck, toggleDeck } from "./actions";
 
 export const metadata: Metadata = { title: "Barajas" };
 
@@ -87,6 +88,7 @@ export default async function DecksPage({ searchParams }: { searchParams: Promis
                   <Link href={`/panel/barajas/${d.id}`} className="btn btn-outline btn-sm">
                     <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Editar</span>
                   </Link>
+                  <DeleteButton action={deleteDeck} id={d.id} what={d.name} message={`¿Borrar la baraja «${d.name}» con todas sus cartas? No se puede deshacer.`} />
                 </div>
               </li>
             );

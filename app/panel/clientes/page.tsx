@@ -1,15 +1,18 @@
 import Link from "next/link";
 import { Search, UserPlus, Users } from "lucide-react";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { EmptyState } from "@/components/ui/empty";
+import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { signupsOnly } from "@/lib/commerce";
 import { tenantDb } from "@/lib/tenant";
 import { Badge, PageHeader, Stat } from "../ui";
+import { deleteCustomerAction } from "./actions";
 
-export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string; borrada?: string }> }) {
   const { creator } = await requireCreator();
-  const { q } = await searchParams;
+  const { q, borrada } = await searchParams;
   const db = tenantDb(creator.id);
   const [customers, total, subs] = await Promise.all([
     db.customer.findMany({
@@ -59,9 +62,11 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
         <Search className="h-4 w-4 text-muted" />
         <input name="q" defaultValue={q} placeholder="Buscar por nombre o email" className="h-10 flex-1 bg-transparent text-sm outline-none" />
       </form>
+      {borrada && <Flash ok="Borrada, con todo lo suyo." />}
       <div className="card divide-y divide-line">
         {customers.map((c) => (
-          <Link key={c.id} href={`/panel/clientes/${c.id}`} className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-paper sm:px-5">
+          <div key={c.id} className="flex items-center pr-2">
+          <Link href={`/panel/clientes/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3.5 transition hover:bg-paper sm:px-5">
             {c.user.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={c.user.avatarUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
@@ -85,6 +90,8 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
               </div>
             )}
           </Link>
+          <DeleteButton action={deleteCustomerAction} id={c.id} what={c.name ?? c.email} message={`¿Borrar a ${c.name ?? c.email} con todas sus ventas, inscripciones, reservas y accesos? Deja de entrar en lo que tenía. No se puede deshacer.`} />
+          </div>
         ))}
       </div>
       {customers.length === 0 && <EmptyState icon={<Users className="h-5 w-5" />} title={q ? "Sin resultados" : personal ? "Aún no se ha apuntado nadie" : "Aún no tienes clientas"}>{personal ? "Cuando alguien se apunte o le des acceso, aparecerá aquí." : "Cuando alguien compre, aparecerá aquí con su historial."}</EmptyState>}

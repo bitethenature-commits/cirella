@@ -32,6 +32,9 @@ export async function POST(req: Request) {
   const now = new Date();
   const field = ev.kind === "delivered" ? "deliveredAt" : ev.kind === "opened" ? "openedAt" : ev.kind === "clicked" ? "clickedAt" : ev.kind === "complained" ? "complainedAt" : "bouncedAt";
   if (ev.kind !== "bounced" || ev.permanent) await prisma.emailMessage.updateMany({ where: { id: msg.id, [field]: null }, data: { [field]: now } });
+  // Clics por enlace (únicos por email y enlace; el aviso repetido no suma).
+  if (ev.kind === "clicked" && ev.link)
+    await prisma.emailClick.createMany({ data: [{ creatorId: msg.creatorId, emailMessageId: msg.id, campaignId: msg.campaignId, link: ev.link }], skipDuplicates: true });
   if (msg.creatorId && (ev.kind === "complained" || (ev.kind === "bounced" && ev.permanent)))
     await suppressAddress(msg.creatorId, msg.to, ev.kind === "complained" ? "COMPLAINED" : "BOUNCED", msg.campaignId);
   return NextResponse.json({ ok: true });

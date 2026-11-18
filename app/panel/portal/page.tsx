@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, CalendarDays, ExternalLink, Hourglass, Lock, Pencil, Plus, Star } from "lucide-react";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
@@ -13,7 +14,7 @@ import { NEWS_DAY_OPTIONS } from "../actualidades/options";
 import { sectionPagePath } from "@/lib/site-sections";
 import { tenantDb } from "@/lib/tenant";
 import { Badge, PageHeader } from "../ui";
-import { movePortalItem, setPortalDays, togglePortalItem } from "./actions";
+import { deletePortalItem, movePortalItem, setPortalDays, togglePortalItem } from "./actions";
 
 export const metadata: Metadata = { title: "Portal de Noticias" };
 
@@ -136,6 +137,7 @@ export default async function PortalAdminPage({ searchParams }: { searchParams: 
                   <Link href={`/panel/portal/${it.id}`} className="btn btn-outline btn-sm">
                     <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Editar</span>
                   </Link>
+                  <DeleteButton action={deletePortalItem} id={it.id} what={it.title} message={`¿Borrar «${it.title}» del portal, con sus archivos? No se puede deshacer.`} />
                 </div>
               </li>
             );
@@ -192,10 +194,11 @@ function MainPreview({ item }: { item: PublicPortalItem }) {
         </h2>
         {item.summary && <p className="mt-1.5 text-sm text-muted">{item.summary}</p>}
         {item.kind === "AUDIO" && file && <CalmAudio src={file.url} preload="none" title={item.title} className="mt-4" />}
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <Link href={`/panel/portal/${item.id}`} className="btn btn-outline btn-sm">
             <Pencil className="h-3.5 w-3.5" /> Editar
           </Link>
+          <DeleteButton action={deletePortalItem} id={item.id} what={item.title} variant="link" message={`¿Borrar «${item.title}» del portal, con sus archivos? No se puede deshacer.`} />
         </div>
       </div>
     </section>

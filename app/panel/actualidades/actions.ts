@@ -17,3 +17,17 @@ export async function setNewsDays(form: FormData) {
   revalidatePath("/", "layout");
   redirect("/panel/actualidades?ok=1");
 }
+
+/** «Quitar» una actualidad de las que salen solas: ya no sale (el curso, el código… siguen en su sitio). */
+export async function removeNews(form: FormData) {
+  const { creator } = await requireCreator();
+  const key = String(form.get("id") ?? "");
+  if (!/^[a-z]-[\w-]{1,40}$/.test(key)) redirect("/panel/actualidades");
+  const now = await prisma.creator.findUnique({ where: { id: creator.id }, select: { newsRemoved: true } });
+  const list = [key, ...(now?.newsRemoved ?? []).filter((k) => k !== key)].slice(0, 500);
+  await prisma.creator.update({ where: { id: creator.id }, data: { newsRemoved: list } });
+  revalidatePath("/panel/actualidades");
+  revalidatePath(`/${creator.username}`, "layout");
+  revalidatePath("/", "layout");
+  redirect("/panel/actualidades?quitada=1");
+}

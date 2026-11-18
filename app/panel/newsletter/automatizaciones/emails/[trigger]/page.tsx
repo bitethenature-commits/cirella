@@ -6,8 +6,8 @@ import { readDesign } from "@/lib/email-blocks";
 import { brandPalette, brandSocials } from "@/lib/email-starters";
 import { appUrl } from "@/lib/env";
 import { tenantDb } from "@/lib/tenant";
-import { PageHeader } from "../../../ui";
-import { requireNewsletterOwner } from "../../guard";
+import { PageHeader } from "../../../../ui";
+import { requireNewsletterOwner } from "../../../guard";
 import { AutomaticEmailEditor } from "./editor";
 
 export const dynamic = "force-dynamic";
@@ -26,8 +26,8 @@ export default async function AutomaticEmailPage({ params }: { params: Promise<{
     : meta.original());
   return (
     <div>
-      <Link href="/panel/newsletter/emails" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Emails automáticos
+      <Link href="/panel/newsletter/automatizaciones" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+        <ArrowLeft className="h-4 w-4" /> Automatizaciones
       </Link>
       <PageHeader title={AUTOMATIONS[t].label} subtitle={AUTOMATIONS[t].description} />
       <AutomaticEmailEditor

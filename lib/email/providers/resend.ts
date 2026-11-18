@@ -17,7 +17,7 @@ export function buildResendRequest(msg: OutgoingEmail, cfg: ResendConfig) {
   // La newsletter, desde su propia dirección si la hay (NEWSLETTER_FROM): protege la reputación de
   // los emails de acceso y recibos si una newsletter se marca como spam.
   const news = msg.stream === "news" && cfg.newsFromAddress;
-  const fromAddress = news ? cfg.newsFromAddress! : cfg.fromAddress;
+  const fromAddress = msg.fromAddress || (news ? cfg.newsFromAddress! : cfg.fromAddress);
   const fromName = msg.fromName || (news && cfg.newsFromName) || cfg.defaultFromName;
   return {
     url: "https://api.resend.com/emails",

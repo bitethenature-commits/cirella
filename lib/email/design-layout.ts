@@ -6,10 +6,14 @@
  * Tipos de letra «web» (Playfair, Cormorant, Lora, Montserrat): un <link> de Google Fonts que solo
  * usan Apple Mail, el Mail del iPhone y algunos más; Gmail y Outlook enseñan el de reserva de cada
  * pila. Outlook de escritorio, además, recibe la reserva a la fuerza (si no, pondría Times New Roman).
+ *
+ * Fondo con geometría (lib/email-patterns.ts): una imagen PNG que se repite detrás de la tarjeta, con el
+ * color de fondo de reserva (Outlook de escritorio y los buzones que no cargan imágenes).
  * Puro.
  */
 import { DEFAULT_EMAIL_STYLE, EMAIL_FONTS, RADIUS_PX, type EmailDesign, type EmailFontKey, type EmailVars } from "../email-blocks";
 import { contrastRatio, mixHex, textOn } from "../colors";
+import { cornerEmailCss, cornerUrl, patternSize, patternUrl } from "../email-patterns";
 import { BLOCK_PAD_X, fontStack, mutedOn, renderDesignParts } from "./blocks-html";
 import { esc } from "./html";
 
@@ -67,18 +71,25 @@ export function designEmailHtml(o: { brand: string; subject: string; preheader?:
     ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">${esc(o.preheader)}${"&#847;&zwnj;&nbsp;".repeat(30)}</div>\n`
     : "";
   const fonts = webFontsLink(designFonts(o.design));
+  const patUrl = patternUrl(o.baseUrl, s);
+  const patSize = patternSize(s.pattern);
+  const bgCss = patUrl && patSize ? `background-color:${s.bg};background-image:url('${esc(patUrl)}');background-repeat:repeat;background-size:${patSize.w}px ${patSize.h}px` : `background:${s.bg}`;
+  const bgAttr = patUrl ? ` background="${esc(patUrl)}"` : "";
+  const corner = cornerUrl(o.baseUrl, { bg: s.content, pattern: s.cornerPattern, patternColor: s.patternColor, patternStrength: s.patternStrength, pos: s.cornerPos });
+  const cardBg = corner ? `;${cornerEmailCss(esc(corner), s.cornerPos)}` : "";
+  const vmlBg = patUrl ? `<!--[if gte mso 9]><v:background fill="t"><v:fill type="tile" src="${esc(patUrl)}" color="${s.bg}"/></v:background><![endif]-->\n` : "";
   return `<!doctype html><html lang="es" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting">
 <meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
 <title>${esc(o.subject)}</title>
 ${fonts ? `<!--[if !mso]><!-->${fonts}<!--<![endif]-->\n` : ""}<!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><style>.hf{font-family:${fallbackOf(s.headingFont)}!important}.bf,.bf p,.bf li,.bf td{font-family:${fallbackOf(s.bodyFont)}!important}</style><![endif]-->
 <style>:root{color-scheme:light;supported-color-schemes:light}body{margin:0;padding:0;-webkit-text-size-adjust:100%}img{-ms-interpolation-mode:bicubic}a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important}@media (max-width:${s.width + 20}px){.px{padding-left:20px!important;padding-right:20px!important}.hero-pad{padding-left:20px!important;padding-right:20px!important}.outer{padding:16px 8px!important}}</style>
-</head><body style="margin:0;padding:0;background:${s.bg};font-family:${bodyFont};color:${s.text}" bgcolor="${s.bg}">
-${pre}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${s.bg}" style="background:${s.bg}"><tr><td class="outer" align="center" style="padding:32px 12px">
+</head><body style="margin:0;padding:0;${bgCss};font-family:${bodyFont};color:${s.text}" bgcolor="${s.bg}">
+${vmlBg}${pre}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${s.bg}"${bgAttr} style="${bgCss}"><tr><td class="outer" align="center" style="padding:32px 12px">
 <!--[if mso]><table role="presentation" width="${s.width}" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:${s.width}px;margin:0 auto">
 <tr><td class="hf" style="padding:0 6px 20px;font-family:${headFont};font-size:20px;letter-spacing:.02em;color:${brandColor}">${esc(o.brand)}</td></tr>
-<tr><td bgcolor="${s.content}" style="background:${s.content};border:1px solid ${border};border-radius:${radius}px">
+<tr><td bgcolor="${s.content}" style="background-color:${s.content}${cardBg};border:1px solid ${border};border-radius:${radius}px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows.join("")}</table>
 </td></tr>
 ${o.footer ? `<tr><td style="padding:22px 6px 0;font-family:${bodyFont};font-size:12px;line-height:1.6;color:${muted}">${o.footer}</td></tr>` : ""}

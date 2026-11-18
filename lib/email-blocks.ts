@@ -19,6 +19,7 @@
  */
 import { z } from "zod";
 import { contrastRatio, isHex, MIN_CONTRAST, normalizeHex, textOn } from "./colors";
+import { CORNER_POSITIONS, PATTERN_KEYS, type CornerPos, type PatternKey, type PatternStrength } from "./email-patterns";
 import { isOwnVideoSrc } from "./page-blocks";
 import { safeLinkHref } from "./rich-text";
 import { videoEmbed } from "./video-embed";
@@ -66,6 +67,20 @@ export type EmailStyle = {
   bodyFont: EmailFontKey;
   radius: "none" | "s" | "m" | "l";
   width: 520 | 600 | 680;
+  /** Geometría del fondo de alrededor (lib/email-patterns.ts): «none» = liso. */
+  pattern: PatternKey;
+  /** Color de las líneas de la geometría. */
+  patternColor: string;
+  /** Intensidad de las líneas: suave, media o marcada. */
+  patternStrength: PatternStrength;
+  /** Fondo de las burbujas (los destacados nuevos). */
+  bubble: string;
+  /** Geometría suave dentro de las burbujas («none» = lisas). Mismas líneas que el fondo. */
+  bubblePattern: PatternKey;
+  /** Adorno de geometría en una esquina de la tarjeta («none» = sin adorno). */
+  cornerPattern: PatternKey;
+  /** En qué esquina va el adorno. */
+  cornerPos: CornerPos;
 };
 
 /** El estilo de siempre: los emails guardados antes de existir el estilo salen igual. */
@@ -80,6 +95,13 @@ export const DEFAULT_EMAIL_STYLE: EmailStyle = {
   bodyFont: "system",
   radius: "l",
   width: 600,
+  pattern: "none",
+  patternColor: "#D9BF8C",
+  patternStrength: "m",
+  bubble: "#211D49",
+  bubblePattern: "none",
+  cornerPattern: "none",
+  cornerPos: "tr",
 };
 
 export const RADIUS_PX: Record<EmailStyle["radius"], number> = { none: 0, s: 6, m: 12, l: 20 };
@@ -175,7 +197,6 @@ export type EmailBlock =
   | ({ id: string; t: "social"; links: Partial<Record<SocialNetwork, string>>; align: Align; color?: string } & Band);
 
 /** Bloques que admiten «Fondo» (Band). */
-export const BAND_BLOCKS = ["text", "button", "image", "video", "columns", "social"] as const;
 
 /** Color del resaltado si no elige ninguno: amarillo suave. */
 export const DEFAULT_HIGHLIGHT = "#FCEFB4";
@@ -346,6 +367,13 @@ const styleSchema = z.object({
   bodyFont: z.enum(EMAIL_FONT_KEYS).catch(DEFAULT_EMAIL_STYLE.bodyFont),
   radius: z.enum(["none", "s", "m", "l"]).catch(DEFAULT_EMAIL_STYLE.radius),
   width: z.union([z.literal(520), z.literal(600), z.literal(680)]).catch(DEFAULT_EMAIL_STYLE.width),
+  pattern: z.enum(PATTERN_KEYS).catch(DEFAULT_EMAIL_STYLE.pattern),
+  patternColor: color(DEFAULT_EMAIL_STYLE.patternColor),
+  patternStrength: z.enum(["s", "m", "l"]).catch(DEFAULT_EMAIL_STYLE.patternStrength),
+  bubble: color(DEFAULT_EMAIL_STYLE.bubble),
+  bubblePattern: z.enum(PATTERN_KEYS).catch(DEFAULT_EMAIL_STYLE.bubblePattern),
+  cornerPattern: z.enum(PATTERN_KEYS).catch(DEFAULT_EMAIL_STYLE.cornerPattern),
+  cornerPos: z.enum(CORNER_POSITIONS).catch(DEFAULT_EMAIL_STYLE.cornerPos),
 });
 
 /** El estilo guardado, completo (lo que falte o no valga, como siempre). */
@@ -441,7 +469,7 @@ export function newBlock(t: EmailBlockType, style: EmailStyle = DEFAULT_EMAIL_ST
     case "hero":
       return { id: bid, t, image: "", alt: "", overlay: style.accent, opacity: 40, title: "", subtitle: "", color: "#FFFFFF", align: "center", height: "m" };
     case "spotlight":
-      return { id: bid, t, icon: "✦", title: "", body: "", bg: "#211D49", accent: "#D9BF8C", border: "left" };
+      return { id: bid, t, icon: "✦", title: "", body: "", bg: style.bubble ?? DEFAULT_EMAIL_STYLE.bubble, accent: style.accent, border: "left" };
     case "video":
       return { id: bid, t, url: "", src: "", cover: "", title: "" };
     case "columns":

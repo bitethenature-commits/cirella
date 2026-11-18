@@ -6,7 +6,7 @@
  */
 import { contrastRatio, mixHex, normalizeHex, textOn } from "../../lib/colors";
 import { DEFAULT_EMAIL_STYLE, lintDesign, parseDesignStrict, readDesign, readStyle, videoWatchPath, type EmailDesign } from "../../lib/email-blocks";
-import { STARTERS, brandPalette, starterDesign } from "../../lib/email-starters";
+import { brandPalette } from "../../lib/email-starters";
 import { renderDesignHtml, renderDesignParts, socialLink } from "../../lib/email/blocks-html";
 import { designEmailHtml, webFontsLink } from "../../lib/email/design-layout";
 import { campaignEmail } from "../../lib/email/newsletter-templates";
@@ -178,14 +178,7 @@ test("plantilla de la newsletter: estilo, ancho, fuentes web con reserva, sin «
   ok(m.subject === "Hola Eva" && m.html.includes(`href="${BASE}/baja/newsletter?t=x"`) && m.html.includes("Darme de baja"), m.subject);
 });
 
-test("plantillas: Luna llena, Novedades y Lanzamiento son válidas y usan la paleta", () => {
-  eq(STARTERS.map((s) => s.key), ["luna", "novedades", "lanzamiento"]);
-  for (const s of STARTERS) {
-    const d = starterDesign(s.key, { palette: ["#B4583F"], siteUrl: `${BASE}/` });
-    const r = parseDesignStrict(JSON.parse(JSON.stringify(d)));
-    ok(r.ok && r.value.blocks.length === d.blocks.length && !!r.value.style, s.key);
-  }
-  ok(JSON.stringify(starterDesign("novedades", { palette: ["#B4583F"], siteUrl: "/" })).includes("#B4583F"));
+test("paleta de la marca: su acento primero y los neutros, sin repetir", () => {
   const pal = brandPalette({ displayName: "Cirella", template: "editorial", theme: { accent: "#123456" } });
   ok(pal[0] === "#123456" && pal.includes("#FFFFFF") && new Set(pal).size === pal.length, pal.join());
 });

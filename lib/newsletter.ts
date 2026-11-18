@@ -6,18 +6,7 @@ import { enqueueEmail } from "./email/outbox";
 import { newsletterConfirmEmail } from "./email/newsletter-templates";
 import { activeAccessWhere } from "./membership-access";
 import { readPageConfig } from "./page-config";
-import { csvCell } from "./csv";
-import {
-  canSend,
-  normalizeTags,
-  SOURCE_LABEL,
-  STATUS_LABEL,
-  type ImportRow,
-  type Segment,
-  type SubscriberSource,
-  type SubscriberStatus,
-  type UnsubscribeVia,
-} from "./newsletter-rules";
+import { canSend, type Segment, type SubscriberSource, type SubscriberStatus, type UnsubscribeVia } from "./newsletter-rules";
 import { confirmUrl, readConfirmToken, readUnsubscribeToken } from "./newsletter-tokens";
 
 /**
@@ -31,7 +20,6 @@ import { confirmUrl, readConfirmToken, readUnsubscribeToken } from "./newsletter
  *   · Con el email ya demostrado (sesión verificada, el clic de «Crear mi cuenta», el pago, el enlace
  *     del acceso gratis): CONFIRMED directamente.
  *   · Quien se dio de baja solo vuelve con un consentimiento nuevo y su propio clic.
- *   · Una importación nunca resucita a quien se dio de baja, rebotó o se quejó.
  */
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -45,7 +33,6 @@ export type SubscribeInput = {
   consentMeta: Record<string, unknown>;
   /** El email ya está demostrado (lo hace la propia persona con su sesión o desde su email). */
   confirmed: boolean;
-  tags?: string[];
   at?: Date;
 };
 
@@ -62,23 +49,21 @@ async function mirror(db: Db, creatorId: string, email: string, on: boolean, at:
 export async function subscribe(creatorId: string, i: SubscribeInput, db: Db = prisma): Promise<SubscribeResult> {
   const email = i.email.trim().toLowerCase();
   const at = i.at ?? new Date();
-  const tags = normalizeTags(i.tags ?? []);
   const consent = { consentAt: at, consentText: i.consentText, consentMeta: i.consentMeta as Prisma.InputJsonValue };
   const prev = await db.subscriber.findUnique({ where: { creatorId_email: { creatorId, email } } });
   if (!prev) {
     const status: SubscriberStatus = i.confirmed ? "CONFIRMED" : "PENDING";
     const row = await db.subscriber.create({
-      data: { creatorId, email, name: i.name?.trim() || null, status, source: i.source, sourceRef: i.sourceRef ?? null, tags, ...consent, confirmedAt: i.confirmed ? at : null },
+      data: { creatorId, email, name: i.name?.trim() || null, status, source: i.source, sourceRef: i.sourceRef ?? null, ...consent, confirmedAt: i.confirmed ? at : null },
     });
     if (i.confirmed) await mirror(db, creatorId, email, true, at);
     return { subscriberId: row.id, status, needsConfirmation: !i.confirmed };
   }
-  const mergedTags = normalizeTags([...prev.tags, ...tags]);
   const name = prev.name || i.name?.trim() || null;
   const status = prev.status as SubscriberStatus;
   if (status === "CONFIRMED") {
     // Ya está dentro: nunca se la «baja» a pendiente por apuntarse otra vez.
-    if (mergedTags.length !== prev.tags.length || name !== prev.name) await db.subscriber.update({ where: { id: prev.id }, data: { tags: mergedTags, name } });
+    if (name !== prev.name) await db.subscriber.update({ where: { id: prev.id }, data: { name } });
     await mirror(db, creatorId, email, true, prev.confirmedAt ?? at);
     return { subscriberId: prev.id, status, needsConfirmation: false };
   }
@@ -91,7 +76,6 @@ export async function subscribe(creatorId: string, i: SubscribeInput, db: Db = p
     data: {
       status: next,
       name,
-      tags: mergedTags,
       source: status === "PENDING" ? prev.source : i.source,
       sourceRef: status === "PENDING" ? prev.sourceRef : (i.sourceRef ?? null),
       ...consent,
@@ -142,7 +126,7 @@ const HOUR = 3_600_000;
  * Email «Confirma que quieres recibir la newsletter» (doble opt-in). Como mucho uno por hora a cada
  * dirección: el formulario no sirve para inundar el buzón de otra persona ni para gastar el cupo.
  */
-export async function sendConfirmation(subscriberId: string, now = new Date(), o: { bulk?: boolean } = {}): Promise<boolean> {
+export async function sendConfirmation(subscriberId: string, now = new Date()): Promise<boolean> {
   const s = await prisma.subscriber.findUnique({ where: { id: subscriberId }, include: { creator: true } });
   if (!s || s.status !== "PENDING") return false;
   if (s.confirmSentAt && now.getTime() - s.confirmSentAt.getTime() < HOUR) return false;
@@ -154,9 +138,7 @@ export async function sendConfirmation(subscriberId: string, now = new Date(), o
   await enqueueEmail({
     to: s.email,
     creatorId: s.creatorId,
-    // Las de una importación son muchas de golpe: masivas (dentro del cupo diario, tras los demás).
-    template: o.bulk ? "NEWSLETTER_INVITE" : "NEWSLETTER_CONFIRM",
-    ...(o.bulk ? { sendNow: false } : {}),
+    template: "NEWSLETTER_CONFIRM",
     dedupeKey: `nl-confirm:${s.id}:${Math.floor(now.getTime() / HOUR)}`,
     ...newsletterConfirmEmail({ creatorName: brandName(s.creator), url: confirmUrl(s.id), name: s.name }),
   });
@@ -188,10 +170,6 @@ export async function confirmByToken(token: string, now = new Date()): Promise<C
     if (r.count) await mirror(tx, t.creatorId, t.email, true, now);
     return r.count > 0;
   });
-  if (done) {
-    const { sendNewsletterWelcome } = await import("./newsletter-send");
-    await sendNewsletterWelcome(t.subscriberId).catch(() => {});
-  }
   return { ...t, status: done ? "CONFIRMED" : t.status };
 }
 
@@ -244,7 +222,44 @@ export async function suppressAddress(creatorId: string, email: string, kind: "B
   });
 }
 
-// ── Segmentos ──
+/**
+ * Bloquear a mano (Newsletter › Envío › Bloqueados): no vuelve a recibir la newsletter. Si no estaba
+ * en la lista, se apunta solo como bloqueada (sin consentimiento: nunca recibe nada).
+ */
+export async function blockAddress(creatorId: string, email: string, now = new Date()) {
+  const e = email.trim().toLowerCase();
+  await prisma.$transaction(async (tx) => {
+    const s = await tx.subscriber.findUnique({ where: { creatorId_email: { creatorId, email: e } } });
+    if (s && (s.status === "BOUNCED" || s.status === "COMPLAINED")) return;
+    if (s) await tx.subscriber.update({ where: { id: s.id }, data: { status: "BOUNCED", unsubscribedAt: now, unsubscribeVia: "BLOCK" } });
+    else await tx.subscriber.create({ data: { creatorId, email: e, status: "BOUNCED", source: "MANUAL", unsubscribedAt: now, unsubscribeVia: "BLOCK" } });
+    await mirror(tx, creatorId, e, false, now);
+  });
+}
+
+/**
+ * Desbloquear: si rebotó tras confirmar, vuelve a recibir (el rebote pudo ser pasajero). Si marcó
+ * spam, queda dada de baja (puede volver a apuntarse ella). Si solo estaba bloqueada a mano, se borra.
+ */
+export async function unblockSubscriber(creatorId: string, id: string, now = new Date()): Promise<"restored" | "unsubscribed" | "deleted" | null> {
+  return prisma.$transaction(async (tx) => {
+    const s = await tx.subscriber.findFirst({ where: { id, creatorId, status: { in: ["BOUNCED", "COMPLAINED"] } } });
+    if (!s) return null;
+    if (!s.consentAt && !s.confirmedAt) {
+      await tx.subscriber.delete({ where: { id: s.id } });
+      return "deleted";
+    }
+    if (s.status === "BOUNCED" && s.confirmedAt) {
+      await tx.subscriber.update({ where: { id: s.id }, data: { status: "CONFIRMED", unsubscribedAt: null, unsubscribeVia: null } });
+      await mirror(tx, creatorId, s.email, true, now);
+      return "restored";
+    }
+    await tx.subscriber.update({ where: { id: s.id }, data: { status: "UNSUBSCRIBED", unsubscribeVia: "OWNER", unsubscribedAt: s.unsubscribedAt ?? now } });
+    return "unsubscribed";
+  });
+}
+
+// ── A quién va una newsletter ──
 
 /** Emails (minúsculas) de quien cumple el segmento, sin mirar todavía si está suscrita. */
 async function segmentEmails(creatorId: string, s: Segment, now: Date): Promise<string[] | null> {
@@ -262,90 +277,22 @@ async function segmentEmails(creatorId: string, s: Segment, now: Date): Promise<
   return null;
 }
 
-function segmentWhere(creatorId: string, s: Segment, emails: string[] | null): Prisma.SubscriberWhereInput {
-  return { creatorId, status: "CONFIRMED", ...(s.kind === "tag" ? { tags: { has: s.tag } } : {}), ...(emails ? { email: { in: [...new Set(emails)] } } : {}) };
+/** El filtro de un segmento (sin el estado): todas, compradoras de un producto o miembros. */
+async function segmentFilter(creatorId: string, s: Segment, now: Date): Promise<Prisma.SubscriberWhereInput> {
+  const emails = await segmentEmails(creatorId, s, now);
+  return emails ? { email: { in: [...new Set(emails)] } } : {};
 }
 
 /** Ids de las suscriptoras CONFIRMADAS del segmento (las únicas a las que se envía). */
 export async function resolveSegment(creatorId: string, s: Segment, now = new Date()): Promise<string[]> {
-  const rows = await prisma.subscriber.findMany({ where: segmentWhere(creatorId, s, await segmentEmails(creatorId, s, now)), select: { id: true }, orderBy: { createdAt: "asc" } });
+  const w = await segmentFilter(creatorId, s, now);
+  const rows = await prisma.subscriber.findMany({ where: { AND: [{ creatorId, status: "CONFIRMED" }, w] }, select: { id: true }, orderBy: { createdAt: "asc" } });
   return rows.map((r) => r.id);
 }
 
 export async function segmentCount(creatorId: string, s: Segment, now = new Date()): Promise<number> {
-  return prisma.subscriber.count({ where: segmentWhere(creatorId, s, await segmentEmails(creatorId, s, now)) });
-}
-
-/** Etiquetas en uso (para los filtros y el segmento «Etiqueta»). */
-export async function subscriberTags(creatorId: string): Promise<string[]> {
-  const rows = await prisma.$queryRaw<{ tag: string }[]>`SELECT DISTINCT unnest("tags") AS tag FROM "Subscriber" WHERE "creatorId" = ${creatorId} ORDER BY tag`;
-  return rows.map((r) => r.tag);
-}
-
-// ── Importar y exportar ──
-
-export type ImportSummary = { added: number; updated: number; skipped: { line: number; email: string; reason: string }[]; confirmationsSent: number };
-
-/**
- * Importa las filas ya validadas (parseImportCsv). «confirmed»: entran confirmadas con su fecha de
- * consentimiento y la declaración de la dueña; «ask»: entran pendientes y reciben el email de
- * confirmación. Nunca se tocan las dadas de baja, rebotadas o con queja, ni las ya confirmadas.
- */
-export async function importSubscribers(
-  creatorId: string,
-  rows: ImportRow[],
-  o: { mode: "confirmed" | "ask"; file: string; declaredBy: string; declaration: string; tags?: string[] },
-): Promise<ImportSummary> {
-  const out: ImportSummary = { added: 0, updated: 0, skipped: [], confirmationsSent: 0 };
-  const existing = new Map(
-    (await prisma.subscriber.findMany({ where: { creatorId, email: { in: rows.map((r) => r.email) } }, select: { email: true, status: true } })).map((s) => [s.email, s.status]),
-  );
-  const extraTags = normalizeTags(o.tags ?? []);
-  const toConfirm: string[] = [];
-  for (const r of rows) {
-    const prev = existing.get(r.email);
-    if (prev && prev !== "PENDING") {
-      out.skipped.push({ line: r.line, email: r.email, reason: prev === "CONFIRMED" ? "ya estaba confirmada" : `${STATUS_LABEL[prev as SubscriberStatus].toLowerCase()}: no se vuelve a añadir` });
-      continue;
-    }
-    const res = await subscribe(creatorId, {
-      email: r.email,
-      name: r.name,
-      source: "IMPORT",
-      sourceRef: o.file.slice(0, 120),
-      tags: [...r.tags, ...extraTags],
-      confirmed: o.mode === "confirmed",
-      at: r.consentAt,
-      consentText: o.declaration,
-      consentMeta: { form: "import", file: o.file.slice(0, 120), line: r.line, declaredBy: o.declaredBy, importedAt: new Date().toISOString() },
-    });
-    if (prev) out.updated++;
-    else out.added++;
-    if (res.needsConfirmation) toConfirm.push(res.subscriberId);
-  }
-  for (const id of toConfirm) if (await sendConfirmation(id, new Date(), { bulk: true })) out.confirmationsSent++;
-  return out;
-}
-
-/** CSV de todas sus suscriptoras (a prueba de fórmulas: csvCell). */
-export async function exportSubscribersCsv(creatorId: string): Promise<string> {
-  const rows = await prisma.subscriber.findMany({ where: { creatorId }, orderBy: { createdAt: "asc" } });
-  const iso = (d: Date | null) => (d ? d.toISOString() : "");
-  const lines = [
-    ["email", "nombre", "estado", "origen", "etiquetas", "fecha_consentimiento", "texto_consentimiento", "confirmada", "baja"],
-    ...rows.map((s) => [
-      s.email,
-      s.name ?? "",
-      STATUS_LABEL[s.status as SubscriberStatus] ?? s.status,
-      SOURCE_LABEL[s.source as SubscriberSource] ?? s.source,
-      s.tags.join(", "),
-      iso(s.consentAt),
-      s.consentText ?? "",
-      iso(s.confirmedAt),
-      iso(s.unsubscribedAt),
-    ]),
-  ];
-  return lines.map((r) => r.map(csvCell).join(",")).join("\n");
+  const w = await segmentFilter(creatorId, s, now);
+  return prisma.subscriber.count({ where: { AND: [{ creatorId, status: "CONFIRMED" }, w] } });
 }
 
 export { canSend };

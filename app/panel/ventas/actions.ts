@@ -8,6 +8,7 @@ import { requireCreator } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { CREATOR_REFUND_REASONS, parseRefundAmount, refundableCents } from "@/lib/refund-math";
 import { refundOrder } from "@/lib/refunds";
+import { deleteOrderHard } from "@/lib/hard-delete";
 import { tenantDb } from "@/lib/tenant";
 
 export type RefundState = { ok?: string; error?: string } | undefined;
@@ -82,4 +83,22 @@ export async function denySignupMember(form: FormData) {
   await blockMembership(creator.id, String(form.get("accessId") ?? ""));
   for (const path of ["/panel/ventas", "/panel/comunidad"]) revalidatePath(path);
   backToSignups(form, "Acceso denegado. Si paga, pulsa «Ha pagado» y vuelve a entrar.");
+}
+
+/** Vuelta segura después de borrar: solo a una página del panel. */
+const backTo = (raw: FormDataEntryValue | null, fallback: string) => {
+  const s = String(raw ?? "");
+  return s.startsWith("/panel/") && !s.startsWith("//") ? s : fallback;
+};
+
+/**
+ * «Borrar» una venta, inscripción o solicitud: se va con sus cobros, reservas y acceso (quien la
+ * tenía deja de entrar). No se puede deshacer (lib/hard-delete.ts).
+ */
+export async function deleteOrderAction(form: FormData) {
+  const { creator } = await requireCreator();
+  const id = z.string().min(1).max(40).parse(form.get("id"));
+  await deleteOrderHard(creator.id, id);
+  for (const p of ["/panel/ventas", "/panel/clientes", "/panel/solicitudes", "/panel/sesiones", "/panel/cursos", "/panel/circulos", "/panel/comunidad", "/panel"]) revalidatePath(p);
+  redirect(backTo(form.get("back"), `/panel/ventas?ok=${encodeURIComponent("Borrada.")}`));
 }

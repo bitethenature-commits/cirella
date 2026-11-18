@@ -94,7 +94,7 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
   const giftsRow = await prisma.sitePage.findFirst({ where: { creatorId: creator.id, slug: GIFTS_SLUG, status: "PUBLISHED" }, select: { title: true, published: true } });
   const gifts = giftsPreview(giftsRow?.published ? readSitePageContent(giftsRow.published, giftsRow.title) : giftsContent(config.contact.email || null));
   // «Actualidades»: lo que se va subiendo a la web (lib/web-news.ts).
-  const { items: news, older: newsOlder } = await webNews({ creatorId: creator.id, username: creator.username, publicProductIds: products.map((p) => p.id), codesHref: "#codigos", timeZone: creator.timezone, maxAgeDays: creator.newsDays });
+  const { items: news, older: newsOlder } = await webNews({ creatorId: creator.id, username: creator.username, publicProductIds: products.map((p) => p.id), codesHref: "#codigos", timeZone: creator.timezone, maxAgeDays: creator.newsDays, removed: creator.newsRemoved });
   const portal: PublicPortalItem[] = portalRows.map((i) => publicPortalItem(i, false, creator.timezone));
   const discountCodes: PublicDiscountCode[] = codeRows.map((c) => ({
     id: c.id,

@@ -684,7 +684,7 @@ async function seedEnergyProfiles(anaId: string, students: { id: string; email: 
     if (!sub)
       await prisma.subscriber.create({
         data: {
-          creatorId: anaId, email: u.email, name: u.name, status: "CONFIRMED", source: "FORM", tags: [],
+          creatorId: anaId, email: u.email, name: u.name, status: "CONFIRMED", source: "FORM",
           consentAt: at, consentText: newsletterConsentText("Cirella"), consentMeta: { form: "carta" }, confirmedAt: new Date(at.getTime() + 4 * 60_000), createdAt: at,
         },
       });
@@ -709,23 +709,23 @@ async function seedAnaNewsletter(anaId: string, o: { circleId: string; astroId: 
   for (const c of optIns)
     await prisma.subscriber.create({
       data: {
-        creatorId: anaId, email: c.email.toLowerCase(), name: c.name, status: "CONFIRMED", source: "CHECKOUT", tags: ["clienta"],
+        creatorId: anaId, email: c.email.toLowerCase(), name: c.name, status: "CONFIRMED", source: "CHECKOUT",
         consentAt: c.marketingOptInAt ?? c.createdAt, consentText: "Casilla «Quiero recibir novedades» marcada al pagar", consentMeta: { form: "checkout" },
         confirmedAt: c.marketingOptInAt ?? c.createdAt, createdAt: c.marketingOptInAt ?? c.createdAt,
       },
     });
-  const extra: { email: string; name: string | null; status: string; source: string; tags: string[]; d: number; via?: string }[] = [
-    { email: "irene.navarro@example.com", name: "Irene Navarro", status: "CONFIRMED", source: "FORM", tags: [], d: 40 },
-    { email: "marta.gil@example.com", name: "Marta Gil", status: "CONFIRMED", source: "FORM", tags: ["talleres"], d: 33 },
-    { email: "paula.ortega@example.com", name: "Paula", status: "CONFIRMED", source: "IMPORT", tags: ["lista-antigua"], d: 60 },
-    { email: "noelia.santos@example.com", name: "Noelia Santos", status: "CONFIRMED", source: "IMPORT", tags: ["lista-antigua", "talleres"], d: 60 },
-    { email: "clara.vidal@example.com", name: null, status: "CONFIRMED", source: "FORM", tags: [], d: 18 },
-    { email: "rocio.mena@example.com", name: "Rocío Mena", status: "CONFIRMED", source: "FREEBIE", tags: ["talleres"], d: 9 },
-    { email: "elena.prieto@example.com", name: "Elena Prieto", status: "CONFIRMED", source: "FORM", tags: [], d: 4 },
-    { email: "sara.molina@example.com", name: "Sara", status: "PENDING", source: "FORM", tags: [], d: 1 },
-    { email: "beatriz.luna@example.com", name: "Beatriz", status: "UNSUBSCRIBED", source: "FORM", tags: [], d: 45, via: "LINK" },
-    { email: "alba.ruiz@example.com", name: "Alba Ruiz", status: "UNSUBSCRIBED", source: "IMPORT", tags: ["lista-antigua"], d: 60, via: "ONE_CLICK" },
-    { email: "rebote.antiguo@example.com", name: null, status: "BOUNCED", source: "IMPORT", tags: ["lista-antigua"], d: 60, via: "BOUNCE" },
+  const extra: { email: string; name: string | null; status: string; source: string; d: number; via?: string }[] = [
+    { email: "irene.navarro@example.com", name: "Irene Navarro", status: "CONFIRMED", source: "FORM", d: 40 },
+    { email: "marta.gil@example.com", name: "Marta Gil", status: "CONFIRMED", source: "FORM", d: 33 },
+    { email: "paula.ortega@example.com", name: "Paula", status: "CONFIRMED", source: "IMPORT", d: 60 },
+    { email: "noelia.santos@example.com", name: "Noelia Santos", status: "CONFIRMED", source: "IMPORT", d: 60 },
+    { email: "clara.vidal@example.com", name: null, status: "CONFIRMED", source: "FORM", d: 18 },
+    { email: "rocio.mena@example.com", name: "Rocío Mena", status: "CONFIRMED", source: "FREEBIE", d: 9 },
+    { email: "elena.prieto@example.com", name: "Elena Prieto", status: "CONFIRMED", source: "FORM", d: 4 },
+    { email: "sara.molina@example.com", name: "Sara", status: "PENDING", source: "FORM", d: 1 },
+    { email: "beatriz.luna@example.com", name: "Beatriz", status: "UNSUBSCRIBED", source: "FORM", d: 45, via: "LINK" },
+    { email: "alba.ruiz@example.com", name: "Alba Ruiz", status: "UNSUBSCRIBED", source: "IMPORT", d: 60, via: "ONE_CLICK" },
+    { email: "rebote.antiguo@example.com", name: null, status: "BOUNCED", source: "IMPORT", d: 60, via: "BOUNCE" },
   ];
   const subs: Record<string, string> = {};
   for (const e of extra) {
@@ -733,7 +733,7 @@ async function seedAnaNewsletter(anaId: string, o: { circleId: string; astroId: 
     const imported = e.source === "IMPORT";
     const row = await prisma.subscriber.create({
       data: {
-        creatorId: anaId, email: e.email, name: e.name, status: e.status, source: e.source, tags: e.tags,
+        creatorId: anaId, email: e.email, name: e.name, status: e.status, source: e.source,
         consentAt: imported ? daysAgo(400) : at,
         consentText: imported ? "Confirmo que estas personas aceptaron recibir mi newsletter y puedo demostrarlo." : consent,
         consentMeta: imported ? { form: "import", file: "suscriptoras-mailerlite.csv", declaredBy: "ana@cirella.app" } : { form: e.source === "FREEBIE" ? "freebie" : "portada" },

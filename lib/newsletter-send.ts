@@ -1,6 +1,4 @@
 import "server-only";
-import { automationSetting } from "./automations";
-import { defaultEmailDesign, defaultEmailSubject } from "./automation-catalog";
 import { prisma } from "./db";
 import { appUrl } from "./env";
 import { readDesign, type EmailDesign } from "./email-blocks";
@@ -9,6 +7,7 @@ import { BULK_TEMPLATES, enqueueEmail, sendingQuota } from "./email/outbox";
 import { formatLegalAddress } from "./legal";
 import { brandName, resolveSegment } from "./newsletter";
 import { canSend, parseSegment } from "./newsletter-rules";
+import { getSettings } from "./settings";
 import { unsubscribeHeaders, unsubscribeUrl } from "./newsletter-tokens";
 
 /**
@@ -60,7 +59,7 @@ export function renderCampaignFor(
   c: { subject: string; preheader: string | null; design: unknown },
   creator: CreatorForMail,
   to: { id: string | null; name: string | null },
-  o: { campaignId?: string | null; test?: boolean } = {},
+  o: { campaignId?: string | null; test?: boolean; unsubscribeUrl?: string | null; reason?: string | null; message?: string | null } = {},
 ) {
   return campaignEmail({
     brand: brandName(creator),
@@ -69,7 +68,11 @@ export function renderCampaignFor(
     design: readDesign(c.design) ?? { v: 1, blocks: [] },
     baseUrl: appUrl(),
     vars: { nombre: firstName(to.name), mi_nombre: brandName(creator) },
-    footer: newsletterFooter(creator, to.id && !o.test ? unsubscribeUrl(to.id, o.campaignId) : null),
+    footer: {
+      ...newsletterFooter(creator, o.test ? null : o.unsubscribeUrl !== undefined ? o.unsubscribeUrl : to.id ? unsubscribeUrl(to.id, o.campaignId) : null),
+      reason: o.reason ?? null,
+      message: o.message ?? null,
+    },
     test: o.test,
   });
 }
@@ -120,6 +123,7 @@ export async function processCampaigns(now = new Date()): Promise<number> {
   let budget = Math.min(PER_RUN, quota.bulk - waiting);
   let created = 0;
   const sending = await prisma.campaign.findMany({ where: { status: "SENDING" }, orderBy: { startedAt: "asc" }, include: { creator: true } });
+  const message = sending.length ? (await getSettings()).newsletterFooterText : null;
   for (const c of sending) {
     while (budget > 0) {
       const batch = await prisma.campaignRecipient.findMany({
@@ -132,7 +136,7 @@ export async function processCampaigns(now = new Date()): Promise<number> {
       for (const r of batch) {
         const claim = await prisma.campaignRecipient.updateMany({ where: { id: r.id, status: "PENDING" }, data: { status: canSend(r.subscriber.status) ? "QUEUED" : "SKIPPED" } });
         if (!claim.count || !canSend(r.subscriber.status)) continue;
-        const mail = renderCampaignFor(c, c.creator, { id: r.subscriberId, name: r.subscriber.name }, { campaignId: c.id });
+        const mail = renderCampaignFor(c, c.creator, { id: r.subscriberId, name: r.subscriber.name }, { campaignId: c.id, message });
         const msg = await enqueueEmail({
           to: r.subscriber.email,
           creatorId: c.creatorId,
@@ -161,14 +165,15 @@ export async function processCampaigns(now = new Date()): Promise<number> {
 export async function sendTest(creatorId: string, campaignId: string, to: string) {
   const c = await prisma.campaign.findFirst({ where: { id: campaignId, creatorId }, include: { creator: true } });
   if (!c) return false;
+  const { newsletterFooterText } = await getSettings();
   await enqueueEmail({
     to,
     creatorId,
     template: "NEWSLETTER_TEST",
-    // Transaccional: la prueba llega aunque el cupo de la newsletter de hoy esté gastado.
-    stream: "tx",
+    // Con el remitente de la newsletter (para ver cómo llega). No es masivo: llega aunque el cupo de hoy esté gastado.
+    stream: "news",
     replyTo: null,
-    ...renderCampaignFor(c, c.creator, { id: null, name: c.creator.displayName }, { test: true }),
+    ...renderCampaignFor(c, c.creator, { id: null, name: c.creator.displayName }, { test: true, message: newsletterFooterText }),
   });
   return true;
 }
@@ -223,26 +228,4 @@ export async function campaignStats(creatorId: string, id: string): Promise<Camp
     prisma.subscriber.count({ where: { creatorId, unsubscribeCampaignId: id, unsubscribeVia: { in: ["LINK", "ONE_CLICK", "PROFILE", "OWNER"] } } }),
   ]);
   return { recipients, pending, queued, sent, delivered, failed, bounced, complained, opened, clicked, unsubscribed, skipped };
-}
-
-/**
- * Email de bienvenida a la newsletter (automatización NEWSLETTER_WELCOME, apagada por defecto): al
- * confirmar el alta. Un email esperado y único, pero lleva la baja como cualquier newsletter.
- */
-export async function sendNewsletterWelcome(subscriberId: string) {
-  const s = await prisma.subscriber.findUnique({ where: { id: subscriberId }, include: { creator: true } });
-  if (!s || s.status !== "CONFIRMED") return;
-  const a = await automationSetting(s.creatorId, "NEWSLETTER_WELCOME");
-  if (!a.enabled) return;
-  const design: EmailDesign = a.design ?? defaultEmailDesign("NEWSLETTER_WELCOME");
-  await enqueueEmail({
-    to: s.email,
-    creatorId: s.creatorId,
-    template: "NEWSLETTER_WELCOME",
-    dedupeKey: `nl-welcome:${s.id}`,
-    stream: "news",
-    sendAt: new Date(Date.now() + a.delayMinutes * 60_000),
-    headers: unsubscribeHeaders(s.id),
-    ...renderCampaignFor({ subject: a.subject || defaultEmailSubject("NEWSLETTER_WELCOME"), preheader: null, design }, s.creator, { id: s.id, name: s.name }),
-  });
 }

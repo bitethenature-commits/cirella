@@ -21,6 +21,8 @@ export type OutgoingEmail = {
   replyTo?: string | null;
   /** Cabeceras extra (List-Unsubscribe…). Resend las envía tal cual; el registro local las ignora. */
   headers?: Record<string, string>;
+  /** Dirección elegida en el panel (dominio propio verificado). Si no, la de la configuración. */
+  fromAddress?: string | null;
   /** news = newsletter: sale desde NEWSLETTER_FROM si está configurado. */
   stream?: "tx" | "news";
 };

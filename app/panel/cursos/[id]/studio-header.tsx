@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, BarChart3, Eye, ListTree, Settings2, UsersRound } from "lucide-react";
+import { DeleteButton } from "@/components/ui/delete-button";
+import { deleteProduct } from "../../productos/actions";
 import { Badge } from "../../ui";
 import { SectionEmblem } from "../../section-emblem";
 
@@ -40,6 +42,7 @@ export function StudioHeader({ course, tab }: { course: { id: string; title: str
           <Link href={`/panel/productos/${course.id}`} className="btn btn-ghost btn-sm" title="Precio, página de venta, acceso y publicación">
             <Settings2 className="h-4 w-4" /> Precio y venta
           </Link>
+          <DeleteButton action={deleteProduct} id={course.id} variant="button" label="Borrar el curso" message={`¿Borrar el curso «${course.title}» con todas sus lecciones? Si tiene alumnas, también se borran sus inscripciones y pierden el acceso. No se puede deshacer.`} />
         </div>
         </div>
         {/* Las pestañas, dentro de la cabecera: en cápsula, la abierta con doble línea dorada. */}

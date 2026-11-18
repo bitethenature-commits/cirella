@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCreator } from "@/lib/auth";
+import { deleteBookingHard, deleteOrderHard } from "@/lib/hard-delete";
 import { clearRequestSlot, confirmRequest, declineRequest, reopenRequest, RequestError, rescheduleRequest } from "@/lib/requests";
 
 const back = (q: Record<string, string>) => redirect(`/panel/solicitudes?${new URLSearchParams(q)}`);
@@ -59,4 +60,22 @@ export async function reopenRequestAction(form: FormData) {
     await reopenRequest(creatorId, orderId);
     return "Solicitud recuperada.";
   }, form);
+}
+
+/** «Borrar» una solicitud o una lectura: se va con su reserva y su acceso. No se puede deshacer. */
+export async function deleteRequestAction(form: FormData) {
+  const { creator } = await requireCreator();
+  await deleteOrderHard(creator.id, String(form.get("id") ?? ""));
+  for (const p of ["/panel/solicitudes", "/panel/ventas", "/panel/clientes"]) revalidatePath(p);
+  revalidatePath("/panel", "layout");
+  back({ ok: "Borrada." });
+}
+
+/** «Borrar» una reserva (con su venta, si la tiene): su hora vuelve a quedar libre. No se puede deshacer. */
+export async function deleteBookingAction(form: FormData) {
+  const { creator } = await requireCreator();
+  await deleteBookingHard(creator.id, String(form.get("id") ?? ""));
+  for (const p of ["/panel/solicitudes", "/panel/ventas", "/panel/clientes"]) revalidatePath(p);
+  revalidatePath("/panel", "layout");
+  back({ ok: "Reserva borrada." });
 }

@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, ExternalLink, FileText, Pencil, Plus, Video } from "lucide-react";
 import { OracleCard } from "@/components/creator-page/oracle-card";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { Flash } from "@/components/ui/flash";
+import { deleteMessage } from "@/lib/delete-copy";
 import { requireCreator } from "@/lib/auth";
 import { readPageConfig } from "@/lib/page-config";
 import { planFeatures } from "@/lib/plans";
@@ -11,7 +13,7 @@ import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
 import { resolveTheme, themeStyle } from "@/lib/templates";
 import { tenantDb } from "@/lib/tenant";
 import { Badge, PageHeader } from "../ui";
-import { createProduct, moveProduct } from "../productos/actions";
+import { createProduct, deleteProduct, moveProduct } from "../productos/actions";
 
 export const metadata: Metadata = { title: "Sesiones y lecturas" };
 
@@ -24,8 +26,9 @@ export default async function SessionsPage({ searchParams }: { searchParams: Pro
   const { creator } = await requireCreator();
   const sp = await searchParams;
   const products = await tenantDb(creator.id).product.findMany({
-    where: { status: { not: "ARCHIVED" }, OR: [{ type: "DIGITAL" }, { type: "SESSION", groupSession: false }] },
+    where: { OR: [{ type: "DIGITAL" }, { type: "SESSION", groupSession: false }] },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    include: { _count: { select: { orders: { where: { status: "PAID" } } } } },
   });
   const config = readPageConfig(creator.pagePublished ?? creator.pageDraft, creator.displayName);
   const personal = isPersonalMode() && ownerUsername() === creator.username;
@@ -90,7 +93,7 @@ export default async function SessionsPage({ searchParams }: { searchParams: Pro
                         <OracleCard p={toPublicProduct(p, { lessons: 0, timeZone: creator.timezone })} username={creator.username} trackCreatorId={null} editHref={`/panel/productos/${p.id}`} />
                       </div>
                       <div className="mt-3 flex items-center gap-1">
-                        {p.status === "PUBLISHED" ? <Badge tone="success">Visible</Badge> : <Badge tone="warning">Borrador</Badge>}
+                        {p.status === "PUBLISHED" ? <Badge tone="success">Visible</Badge> : p.status === "ARCHIVED" ? <Badge>Archivada</Badge> : <Badge tone="warning">Borrador</Badge>}
                         <span className="flex-1" />
                         <form action={moveProduct}>
                           <input type="hidden" name="id" value={p.id} />
@@ -116,6 +119,7 @@ export default async function SessionsPage({ searchParams }: { searchParams: Pro
                         <Link href={`/panel/productos/${p.id}`} className="cp-btn-ghost !min-h-8 !px-3 !text-[0.8rem]">
                           <Pencil className="h-3.5 w-3.5" /> Editar
                         </Link>
+                        <DeleteButton action={deleteProduct} id={p.id} what={p.title} message={deleteMessage(`«${p.title}»`, p._count.orders)} />
                       </div>
                     </li>
                   ))}

@@ -8,6 +8,7 @@ import { getSettings } from "../settings";
 import { getOwnerCreator, isPersonalMode } from "../site-mode";
 import { nextAttemptAt, truncateError } from "../reliability";
 import { storedHeaders } from "./headers";
+import { newsSender } from "../sending-domain";
 import { emailProvider } from "./provider";
 import { AREA_LINK_TOKEN, areaLinkFooter, esc, SITE_NAME_TOKEN } from "./templates";
 
@@ -182,13 +183,16 @@ export async function deliverEmail(id: string, now = new Date()): Promise<"sent"
 
   let result;
   try {
+    // Newsletter: el remitente elegido en Newsletter › Envío (dirección de su dominio, nombre y respuestas).
+    const news = msg.stream === "news" ? await newsSender() : null;
     result = await emailProvider().send({
       id: msg.id,
       to: msg.to,
       subject: msg.subject,
       html: msg.html,
-      fromName: msg.fromName,
-      replyTo: msg.replyTo,
+      fromName: news?.name || msg.fromName,
+      fromAddress: news?.address ?? null,
+      replyTo: news?.replyTo && news.replyTo !== msg.to ? news.replyTo : msg.replyTo,
       headers: storedHeaders(msg.headers),
       stream: msg.stream === "news" ? "news" : "tx",
     });

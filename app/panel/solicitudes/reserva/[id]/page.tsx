@@ -5,6 +5,7 @@ import { IntakeEditCard } from "@/components/booking/intake-edit-card";
 import { IntakeSummary } from "@/components/booking/intake-summary";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { CopyButton } from "@/components/ui/copy-button";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
 import { intakeAsText, readIntakeAnswers, readIntakeConfig } from "@/lib/intake";
@@ -16,6 +17,7 @@ import { BOOKING_STATUS_LABEL } from "@/lib/types";
 import { capitalize, clientTimeNote, formatSessionDate } from "@/lib/tz";
 import { Badge } from "../../../ui";
 import { clearIntake, setIntakeByOwner } from "../../reservas-actions";
+import { deleteBookingAction } from "../../actions";
 import { ChangeForm } from "./change-form";
 import { MeetingForm } from "./meeting-form";
 
@@ -50,9 +52,12 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
     <div className="max-w-2xl space-y-5 pb-10">
       <Link href="/panel/solicitudes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> Solicitudes</Link>
       {sp.ok && OK[sp.ok] && <Flash ok={OK[sp.ok]} />}
-      <div>
-        <p className="text-sm text-muted">{b.product.emoji} {b.product.title}</p>
-        <h1 className="display mt-1 text-[2.2rem] leading-tight">{name}</h1>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-muted">{b.product.emoji} {b.product.title}</p>
+          <h1 className="display mt-1 text-[2.2rem] leading-tight">{name}</h1>
+        </div>
+        <DeleteButton action={deleteBookingAction} id={b.id} variant="button" label="Borrar la reserva" message={`¿Borrar la reserva de ${name} en «${b.product.title}»? Se borra también su venta y su hora vuelve a quedar libre. No se le envía nada. No se puede deshacer.`} />
       </div>
 
       <section className="card p-5">

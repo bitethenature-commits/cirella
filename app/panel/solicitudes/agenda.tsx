@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarClock, CalendarDays, CalendarRange, Check, Gift, Plus, Sparkles, Users } from "lucide-react";
 import { TzDriftNotice } from "@/components/booking/tz-drift-notice";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
@@ -12,6 +13,7 @@ import { BOOKING_STATUS_LABEL } from "@/lib/types";
 import { addDaysToKey, capitalize, clientTimeNote, dateKeyInTz, formatInTz, formatSessionDate, timeInTz } from "@/lib/tz";
 import { Badge, Locked, PersonDot } from "../ui";
 import { setBookingStatus, markReadingSent } from "./reservas-actions";
+import { deleteBookingAction, deleteRequestAction } from "./actions";
 import { SESSION_CHANGE_NOTICE_HOURS } from "@/lib/legal";
 
 const OK: Record<string, string> = {
@@ -145,6 +147,7 @@ export async function Agenda({ sp, view }: { sp: { ok?: string }; view: AgendaVi
                       <div className="flex flex-wrap gap-2">
                         {it.b.meetingUrl && <a href={it.b.meetingUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm h-11">Videollamada</a>}
                         <Link href={`/panel/solicitudes/reserva/${it.b.id}`} className="btn btn-ghost btn-sm h-11"><CalendarClock className="h-4 w-4" /> Cambiar o cancelar</Link>
+                        <DeleteButton action={deleteBookingAction} id={it.b.id} className="inline-flex items-center" message={`¿Borrar la reserva de ${it.b.customer.name ?? it.b.customer.email} en «${it.b.product.title}»? Se borra también su venta y su hora vuelve a quedar libre. No se le envía nada. No se puede deshacer.`} />
                       </div>
                     </div>
                   ),
@@ -173,6 +176,7 @@ export async function Agenda({ sp, view }: { sp: { ok?: string }; view: AgendaVi
                 <span className="flex gap-1">
                   <a href={`mailto:${b.customer.email}`} className="btn btn-ghost btn-sm">Recordar por email</a>
                   <Link href={`/panel/solicitudes/reserva/${b.id}`} className="btn btn-ghost btn-sm"><CalendarClock className="h-4 w-4" /> Cambiar o cancelar</Link>
+                  <DeleteButton action={deleteBookingAction} id={b.id} message={`¿Borrar la reserva de ${b.customer.name ?? b.customer.email} en «${b.product.title}»? Se borra también su venta y su hora vuelve a quedar libre. No se le envía nada. No se puede deshacer.`} />
                 </span>
               </div>
             ))}
@@ -204,6 +208,7 @@ export async function Agenda({ sp, view }: { sp: { ok?: string }; view: AgendaVi
                     <input type="hidden" name="orderId" value={o.id} />
                     <button className="btn btn-outline btn-sm">Ya la envié</button>
                   </form>
+                  <DeleteButton action={deleteRequestAction} id={o.id} what={o.productTitle} message={`¿Borrar la lectura de ${o.buyerName ?? o.buyerEmail}? Se borra su venta y pierde el acceso. No se puede deshacer.`} />
                 </div>
               );
             })}
@@ -246,6 +251,7 @@ export async function Agenda({ sp, view }: { sp: { ok?: string }; view: AgendaVi
                   {b.status === "CANCELLED" && b.cancelReason && <span className="block text-xs text-muted">«{b.cancelReason}»</span>}
                 </span>
                 <Badge tone={b.status === "COMPLETED" ? "success" : b.status === "CANCELLED" ? "danger" : "neutral"}>{BOOKING_STATUS_LABEL[b.status]}</Badge>
+                <DeleteButton action={deleteBookingAction} id={b.id} message={`¿Borrar la reserva de ${b.customer.name ?? b.customer.email} en «${b.product.title}»? Se borra también su venta y su hora vuelve a quedar libre. No se le envía nada. No se puede deshacer.`} />
                 {b.status === "CANCELLED" && (b.order?.refundedCents ?? 0) > 0 && <Badge>Reembolsada</Badge>}
                 {b.status === "CONFIRMED" && (
                   <form action={setBookingStatus}><input type="hidden" name="id" value={b.id} /><input type="hidden" name="status" value="COMPLETED" /><button className="btn btn-ghost btn-sm"><Check className="h-4 w-4" /> Completada</button></form>

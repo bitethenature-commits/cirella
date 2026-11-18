@@ -1875,3 +1875,137 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
   background: radial-gradient(circle at 50% 30%, rgb(217 191 140 / .16), transparent 70%);
 }
 .auto-card:not(.auto-card-on) .auto-icon { opacity: .55; }
+
+/* ───────────── Newsletter: carpetas (app/panel/newsletter/page.tsx) ───────────── */
+.nl-folder[open] .nl-folder-chev { transform: rotate(180deg); }
+
+/* ───────────── Panel turquesa y oro (como la foto de referencia) ─────────────
+   Encima de todo lo anterior del panel de noche: azul noche casi negro, burbujas de cristal con borde fino
+   y luz suave, turquesa para lo activo (menú, botón principal, gráficas) y oro para títulos e iconos.
+   La cabecera de cada sección lleva el cielo con la luna y la flor de la vida (public/panel/cielo.webp). */
+.panel-night {
+  --color-paper: #06111a;
+  --color-cream: #0a1822;
+  --color-sand: #102733;
+  --color-line: rgb(140 210 210 / .12);
+  --color-muted: #9db3ba;
+  --color-faint: #6c8690;
+  --color-lavender: #6fd6cb;
+  --color-lavender-deep: #4cc3b7;
+  --teal: #3cc0b2;
+  --teal-deep: #1f8f88;
+  --panel-surface: rgb(12 30 40 / .72);
+  background:
+    radial-gradient(60rem 28rem at 80% -8rem, rgb(46 140 147 / .22), transparent 70%),
+    radial-gradient(44rem 26rem at 6% 32rem, rgb(36 82 120 / .22), transparent 70%),
+    radial-gradient(50rem 30rem at 92% 110%, rgb(201 160 100 / .09), transparent 70%),
+    linear-gradient(#050e15, #081822 45%, #050d14);
+  background-attachment: fixed;
+}
+
+/* Menú lateral: cristal verde noche; la sección abierta, una cápsula turquesa. */
+.panel-night .panel-side {
+  background: linear-gradient(180deg, rgb(10 38 44 / .92), rgb(6 22 30 / .94) 60%, rgb(5 16 22 / .96));
+  box-shadow: 1px 0 0 rgb(140 210 210 / .12);
+}
+.panel-night .panel-nav-link { color: #cfe0e2; border-radius: 1rem; }
+.panel-night .panel-nav-link svg { color: #d9bf8c; }
+.panel-night .panel-nav-link:hover { background: rgb(60 192 178 / .1); color: #f3ecdd; }
+.panel-night .panel-nav-link[aria-current="page"] {
+  background: linear-gradient(135deg, rgb(48 160 152 / .55), rgb(24 96 100 / .55));
+  color: #f4fbfa; font-family: inherit; font-style: normal; font-size: inherit; font-weight: 600;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .12), inset 0 0 0 1px rgb(110 220 210 / .35), 0 10px 26px -14px rgb(60 192 178 / .8);
+}
+.panel-night .panel-nav-link[aria-current="page"] svg { color: #f4fbfa; }
+
+/* Burbujas: tarjetas de cristal con borde fino, brillo arriba y sombra profunda. */
+.panel-night .card:not(.cp *, .cp),
+.panel-night [data-stat]:not(.cp *),
+.panel-night .counter-card {
+  border-radius: 1.6rem;
+  border: 1px solid rgb(150 220 220 / .14);
+  background:
+    radial-gradient(80% 60% at 0% 0%, rgb(60 192 178 / .07), transparent 70%),
+    linear-gradient(180deg, rgb(16 38 50 / .78), rgb(9 24 33 / .82));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .07), 0 24px 50px -32px rgb(0 0 0 / .95), 0 0 0 1px rgb(0 0 0 / .25);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.panel-night a.card:not(.cp *):hover, .panel-night .card.group:not(.cp *):hover, .panel-night a.counter-card:hover {
+  border-color: rgb(110 220 210 / .4);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .09), 0 24px 50px -30px rgb(0 0 0 / .95), 0 0 34px -16px rgb(60 192 178 / .55);
+}
+.panel-night [data-stat][data-accent]:not(.cp *) { border-color: rgb(217 191 140 / .45); box-shadow: inset 0 1px 0 rgb(255 255 255 / .08), 0 0 36px -18px rgb(212 181 122 / .45); }
+.panel-night :is(.card, .bg-white):not(.cp *, .cp) { color: var(--color-ink); }
+.panel-night [class*="bg-white/"]:not(.cp *) { background-color: rgb(14 34 45 / .72); }
+.panel-night .input:not(.cp *) { background-color: rgb(5 16 22 / .7); border-color: rgb(150 220 220 / .14); border-radius: .9rem; }
+.panel-night .input:not(.cp *):focus { border-color: var(--teal); box-shadow: 0 0 0 4px rgb(60 192 178 / .14); }
+.panel-night select.input option { background: #0a1822; color: #f3ecdd; }
+.panel-night input[type="checkbox"], .panel-night input[type="radio"] { accent-color: var(--teal); }
+
+/* Botones: el principal turquesa, los demás de cristal. */
+.panel-night .btn-primary:not(.cp *), .panel-night .panel-hero .btn-primary {
+  background: linear-gradient(135deg, #3cc0b2, #1f8f88); color: #04171a;
+  font-family: inherit; font-style: normal; font-weight: 600; font-size: .95rem; letter-spacing: 0;
+  border: 1px solid rgb(140 235 225 / .45);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .3), 0 12px 26px -14px rgb(60 192 178 / .85);
+}
+.panel-night .btn-primary:not(.cp *):hover, .panel-night .panel-hero .btn-primary:hover { background: linear-gradient(135deg, #4fd0c2, #24a097); color: #04171a; border-color: rgb(160 245 235 / .6); }
+.panel-night .btn-primary.btn-sm:not(.cp *) { font-size: .85rem; }
+.panel-night .btn-outline:not(.cp *) { background-color: rgb(255 255 255 / .03); border-color: rgb(150 220 220 / .22); }
+.panel-night .btn-outline:not(.cp *):hover { border-color: rgb(110 220 210 / .55); color: #f3ecdd; background-color: rgb(60 192 178 / .1); }
+.panel-night .btn-ghost:not(.cp *):hover { background: rgb(60 192 178 / .08); color: #f3ecdd; }
+.panel-night .chip:not(.cp *) { color: #8fe3d9; border-color: rgb(110 220 210 / .4); }
+.panel-night .bg-ink:not(.cp *, .cp) { background: linear-gradient(135deg, #3cc0b2, #1f8f88); color: #04171a; }
+
+/* Cabecera de cada sección: el cielo con la luna y la flor de la vida. */
+.panel-night .panel-hero {
+  border-radius: 1.9rem; border: 1px solid rgb(150 220 220 / .16);
+  background:
+    linear-gradient(90deg, rgb(5 16 22 / .85) 0%, rgb(5 16 22 / .35) 55%, rgb(5 16 22 / 0) 100%),
+    url("/panel/cielo.webp") right center / cover no-repeat,
+    #06141c;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .08), 0 30px 70px -40px rgb(0 0 0 / .95), 0 0 50px -30px rgb(60 192 178 / .35);
+}
+.panel-night .panel-hero::after { background: linear-gradient(90deg, transparent, rgb(110 220 210 / .35), transparent); }
+.panel-night .panel-hero::before { color: #6fd6cb; text-shadow: 0 0 12px rgb(60 192 178 / .8); }
+.panel-night .panel-hero .starfield { display: none; }
+.panel-night .panel-hero .display { font-weight: 400; color: #f6efe0; text-shadow: 0 2px 20px rgb(0 0 0 / .6); }
+.panel-night .panel-hero p { color: #d7e3e4; }
+.panel-night .eyebrow { color: #d9bf8c; }
+.panel-night .stat-value { color: #f3ecdd; }
+
+/* Iconos en burbuja (auto-icon y similares), con un toque turquesa. */
+.panel-night .auto-icon { border-color: rgb(217 191 140 / .4); background: radial-gradient(circle at 50% 30%, rgb(60 192 178 / .16), rgb(5 16 22 / .4) 70%); }
+
+/* ───────────── Resumen de la Newsletter (app/panel/newsletter/summary.tsx) ───────────── */
+.nl-stat-icon {
+  display: grid; place-items: center; height: 3.4rem; width: 3.4rem; flex-shrink: 0; border-radius: 999px; color: #d9bf8c;
+  border: 1px solid rgb(217 191 140 / .35);
+  background: radial-gradient(circle at 50% 30%, rgb(60 192 178 / .18), rgb(5 16 22 / .5) 70%);
+  box-shadow: 0 0 24px -10px rgb(60 192 178 / .6);
+}
+.nl-table th { padding: .6rem 1.25rem; text-align: left; font-weight: 500; font-size: .75rem; color: #8fa6ad; background: rgb(5 16 22 / .35); }
+.nl-table td { padding: .75rem 1.25rem; border-top: 1px solid rgb(150 220 220 / .08); }
+.nl-table tbody tr:hover { background: rgb(60 192 178 / .05); }
+
+/* Estadísticas: lo fiable que es cada cifra */
+.nl-rel { display: inline-flex; align-items: center; border-radius: 999px; padding: .1rem .5rem; font-size: .65rem; font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
+.nl-rel-real { background: rgb(60 192 178 / .16); color: #6fd6cb; box-shadow: inset 0 0 0 1px rgb(60 192 178 / .35); }
+.nl-rel-aprox { background: rgb(217 191 140 / .14); color: #d9bf8c; box-shadow: inset 0 0 0 1px rgb(217 191 140 / .35); }
+.nl-rel-none { background: rgb(150 170 180 / .1); color: #8fa6ad; box-shadow: inset 0 0 0 1px rgb(150 170 180 / .25); }
+.nl-bar { height: .45rem; border-radius: 999px; background: rgb(150 220 220 / .1); overflow: hidden; }
+.nl-bar > span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #1f8f88, #3cc0b2); }
+
+/* Envío: semáforo de salud (rebotes y quejas) */
+.nl-rel-bad { background: rgb(242 169 159 / .14); color: #f2a99f; box-shadow: inset 0 0 0 1px rgb(242 169 159 / .4); }
+.nl-dot { width: .6rem; height: .6rem; border-radius: 999px; background: #8fa6ad; }
+.nl-dot[data-tone="ok"] { background: #6fd6cb; box-shadow: 0 0 10px rgb(111 214 203 / .6); }
+.nl-dot[data-tone="wait"] { background: #d9bf8c; box-shadow: 0 0 10px rgb(217 191 140 / .5); }
+.nl-dot[data-tone="bad"] { background: #f2a99f; box-shadow: 0 0 10px rgb(242 169 159 / .55); }
+
+/* Editor de emails en 3 zonas: bloques para arrastrar y estructura */
+.mail-tool { color: inherit; background: rgb(150 220 220 / .05); box-shadow: inset 0 0 0 1px rgb(150 220 220 / .12); transition: background .15s, box-shadow .15s, transform .15s; }
+.mail-tool:hover:not(:disabled) { background: rgb(217 191 140 / .12); box-shadow: inset 0 0 0 1px rgb(217 191 140 / .5); transform: translateY(-1px); }
+.mail-row:hover { background: rgb(150 220 220 / .07); }
+.mail-row[aria-current="true"] { background: rgb(217 191 140 / .14); box-shadow: inset 2px 0 0 #d9bf8c; }
+.mail-side { scrollbar-width: thin; }

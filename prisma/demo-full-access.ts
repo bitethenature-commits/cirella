@@ -55,7 +55,7 @@ export async function grantFullAccess(prisma: PrismaClient, o: { creatorId: stri
   const sub = await prisma.subscriber.findUnique({ where: { creatorId_email: { creatorId: o.creatorId, email: user.email } } });
   if (!sub)
     await prisma.subscriber.create({
-      data: { creatorId: o.creatorId, email: user.email, name: user.name, status: "CONFIRMED", source: "FORM", tags: [], consentAt: now, consentText: "Quiero recibir las novedades.", confirmedAt: now },
+      data: { creatorId: o.creatorId, email: user.email, name: user.name, status: "CONFIRMED", source: "FORM", consentAt: now, consentText: "Quiero recibir las novedades.", confirmedAt: now },
     });
   else if (sub.status !== "CONFIRMED") await prisma.subscriber.update({ where: { id: sub.id }, data: { status: "CONFIRMED", confirmedAt: now, unsubscribedAt: null, unsubscribeVia: null } });
 

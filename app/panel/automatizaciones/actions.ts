@@ -33,6 +33,7 @@ export async function saveAutomation(form: FormData) {
     update: data,
   });
   revalidatePath("/panel/automatizaciones");
+  revalidatePath("/panel/newsletter/automatizaciones");
 }
 
 /** El «cuándo» del formulario (en su unidad: minutos, horas o días) a minutos, dentro de sus límites. */

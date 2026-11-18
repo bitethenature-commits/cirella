@@ -11,7 +11,7 @@ import { lintDesign } from "@/lib/email-blocks";
 import { limitNewsletterTest } from "@/lib/limits";
 import { brandName } from "@/lib/newsletter";
 import { tenantDb } from "@/lib/tenant";
-import { requireNewsletterOwner } from "../guard";
+import { requireNewsletterOwner } from "../../guard";
 
 const triggers = Object.keys(EDITABLE_EMAILS) as [AutomationTrigger, ...AutomationTrigger[]];
 const triggerSchema = z.enum(triggers);
@@ -55,8 +55,7 @@ export async function saveAutomaticEmail(trigger: string, p: EmailPayload): Prom
     create: { creatorId: creator.id, trigger: t, subject: r.subject, design: r.design, enabled: automationDefaultOn(t) },
     update: { subject: r.subject, design: r.design },
   });
-  revalidatePath("/panel/newsletter/emails");
-  revalidatePath("/panel/automatizaciones");
+  revalidatePath("/panel/newsletter/automatizaciones");
   return { ok: true, message: "Guardado: los próximos emails saldrán así." };
 }
 
@@ -64,8 +63,7 @@ export async function saveAutomaticEmail(trigger: string, p: EmailPayload): Prom
 export async function restoreOriginalEmail(trigger: string): Promise<Result> {
   const { creator, t } = await context(trigger);
   await tenantDb(creator.id).automation.updateMany({ where: { trigger: t }, data: { design: Prisma.DbNull, subject: null } });
-  revalidatePath("/panel/newsletter/emails");
-  revalidatePath("/panel/automatizaciones");
+  revalidatePath("/panel/newsletter/automatizaciones");
   return { ok: true, message: "Restaurado: vuelve a salir el email original." };
 }
 
@@ -81,16 +79,4 @@ export async function sendAutomaticTest(trigger: string, p: EmailPayload): Promi
   const to = (creator.contactEmail || user.email).toLowerCase();
   await enqueueEmail({ to, creatorId: creator.id, template: "NEWSLETTER_TEST", replyTo: null, subject: `[Prueba] ${mail.subject}`, html: mail.html });
   return { ok: true, message: `Prueba enviada a ${to}.` };
-}
-
-/** Activa o desactiva la bienvenida a la newsletter (las demás se activan en Automatizaciones). */
-export async function toggleNewsletterWelcome(form: FormData) {
-  const { creator } = await requireNewsletterOwner();
-  const on = form.get("on") === "1";
-  await tenantDb(creator.id).automation.upsert({
-    where: { creatorId_trigger: { creatorId: creator.id, trigger: "NEWSLETTER_WELCOME" } },
-    create: { creatorId: creator.id, trigger: "NEWSLETTER_WELCOME", enabled: on },
-    update: { enabled: on },
-  });
-  revalidatePath("/panel/newsletter/emails");
 }

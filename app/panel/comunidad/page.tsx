@@ -189,7 +189,7 @@ async function Cards({ creator }: { creator: CreatorRow }) {
   const db = tenantDb(creator.id);
   const now = new Date();
   const [products, edges] = await Promise.all([
-    db.product.findMany({ where: { status: { not: "ARCHIVED" }, OR: [{ type: "MEMBERSHIP" }, { moonCircle: true, eventStartAt: { gte: now } }] }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
+    db.product.findMany({ where: { status: { not: "ARCHIVED" }, OR: [{ type: "MEMBERSHIP" }, { moonCircle: true, eventStartAt: { gte: now } }] }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], include: { _count: { select: { orders: { where: { status: "PAID" } }, subscriptions: true } } } }),
     db.productInclusion.findMany({ select: { productId: true, includedProductId: true } }),
   ]);
   const ctx = { lessons: 0, timeZone: creator.timezone, now };
@@ -222,6 +222,7 @@ async function Cards({ creator }: { creator: CreatorRow }) {
       cta: own?.cta || TIER_CTA_DEFAULT,
       includesPrevious: includesPrevious?.title ?? null,
       highlight: ordered.length > 1 && t.id === top,
+      sales: Math.max(raw._count.orders, raw._count.subscriptions),
     };
   });
   return (

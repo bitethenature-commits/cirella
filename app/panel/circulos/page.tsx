@@ -22,7 +22,7 @@ export default async function CirclesPage({ searchParams }: { searchParams: Prom
   const { creator } = await requireCreator();
   const sp = await searchParams;
   const circles = await tenantDb(creator.id).product.findMany({
-    where: { status: { not: "ARCHIVED" }, type: "SESSION", groupSession: true, moonCircle: true },
+    where: { type: "SESSION", groupSession: true, moonCircle: true },
     orderBy: [{ eventStartAt: "asc" }, { createdAt: "asc" }],
     select: { ...CARD_SELECT, pageTexts: true },
   });

@@ -8,7 +8,8 @@ import { CODE_STATE_LABEL, codeState, expiryLabel, shopHost } from "@/lib/discou
 import { tenantDb } from "@/lib/tenant";
 import { CODE_EVENT_TYPES } from "@/lib/types";
 import { Badge, PageHeader } from "../ui";
-import { moveDiscountCode, toggleDiscountCode } from "./actions";
+import { DeleteButton } from "@/components/ui/delete-button";
+import { deleteDiscountCode, moveDiscountCode, toggleDiscountCode } from "./actions";
 import { createdFlash } from "./saved-note";
 
 export const metadata: Metadata = { title: "Códigos de descuento" };
@@ -101,6 +102,7 @@ export default async function DiscountCodesPage({ searchParams }: { searchParams
                   <Link href={`/panel/codigos/${c.id}`} className="btn btn-outline btn-sm">
                     <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Editar</span>
                   </Link>
+                  <DeleteButton action={deleteDiscountCode} id={c.id} what={c.brand} message={`¿Borrar el código de «${c.brand}»? No se puede deshacer.`} />
                 </div>
               </li>
             );

@@ -272,6 +272,8 @@ model Creator {
   // «Actualidades»: cuántos días sale cada novedad en la lista de la web (null = siempre). Las que pasan
   // de ahí se quitan de la lista y se cuentan («y 12 actualidades más»).
   newsDays       Int?
+  // Actualidades de las que salen solas que ella ha quitado («p-<id>», «d-<id>»…): ya no salen.
+  newsRemoved    String[]  @default([])
   // «Portal de Noticias»: a los cuántos días se BORRAN los publicados (null = nunca). lib/portal-purge.ts.
   portalDays     Int?
   timezone       String    @default("Europe/Madrid")
@@ -350,6 +352,7 @@ model Creator {
   availabilityOverrides AvailabilityOverride[]
   subscribers           Subscriber[]
   campaigns             Campaign[]
+  newsletterTemplates   NewsletterTemplate[]
   campaignRecipients    CampaignRecipient[]
   calendarNotes         CalendarNote[]
 
@@ -1396,6 +1399,21 @@ model RecoveryOptOut {
   @@unique([creatorId, emailHash])
 }
 
+// Clic en un enlace de un email (aviso email.clicked de Resend, si se activa el seguimiento de clics).
+// Una fila por email y enlace: son clics únicos. Para «Clics por enlace» en las estadísticas.
+model EmailClick {
+  id             String   @id @default(cuid())
+  creatorId      String?
+  emailMessageId String
+  campaignId     String?
+  link           String
+  createdAt      DateTime @default(now())
+
+  @@unique([emailMessageId, link])
+  @@index([campaignId])
+  @@index([creatorId, createdAt])
+}
+
 // Bandeja de salida: todo email pasa por aquí (se procesa en /api/cron) con
 // reintentos y backoff (sendAt es el próximo intento) y entrega concurrente segura.
 model EmailMessage {
@@ -1547,7 +1565,6 @@ model Subscriber {
   // FORM (formulario de la página) | FREEBIE | CHECKOUT | SIGNUP | PROFILE | IMPORT | MIGRATED | MANUAL
   source                String
   sourceRef             String? // producto, pedido o nombre del archivo importado
-  tags                  String[]  @default([])
   // Prueba del consentimiento (RGPD art. 7.1): cuándo, con qué texto exacto y desde dónde.
   consentAt             DateTime?
   consentText           String?
@@ -1574,13 +1591,16 @@ model Campaign {
   subject         String
   preheader       String?
   design          Json // lib/email-blocks.ts → EmailDesign
-  // { kind: "all" } | { kind: "tag", tag } | { kind: "product", productId } | { kind: "member" }
+  // { kind: "all" } | { kind: "product", productId } | { kind: "member" }
   segment         Json
   status          String    @default("DRAFT") // DRAFT | SCHEDULED | SENDING | PAUSED | SENT | CANCELED
   scheduledAt     DateTime?
   startedAt       DateTime?
   finishedAt      DateTime?
   recipientsCount Int       @default(0)
+  // Plantilla de la que salió (solo para saberlo: la campaña lleva su propia copia del diseño).
+  templateId      String?
+  template        NewsletterTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   version         Int       @default(1) // bloqueo optimista (edita desde el iPhone y el Mac)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -1589,6 +1609,23 @@ model Campaign {
 
   @@index([creatorId, status])
   @@index([status, scheduledAt])
+}
+
+// Plantilla propia de la newsletter: un diseño para reutilizar. Al usarla, la campaña se lleva una
+// copia: cambiar la plantilla nunca toca las campañas hechas con ella.
+model NewsletterTemplate {
+  id        String     @id @default(cuid())
+  creatorId String
+  creator   Creator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  name      String
+  subject   String     @default("")
+  preheader String?
+  design    Json // lib/email-blocks.ts → EmailDesign
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  campaigns Campaign[]
+
+  @@index([creatorId])
 }
 
 // Destinataria de una campaña, fijada al empezar el envío (la lista no cambia a mitad).

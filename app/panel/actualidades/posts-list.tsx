@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { ExternalLink, Eye, Newspaper, Pencil } from "lucide-react";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { EmptyState } from "@/components/ui/empty";
 import { POST_STATE_LABEL, postPath, postState } from "@/lib/posts";
 import { tenantDb } from "@/lib/tenant";
 import { formatDate } from "@/lib/tz";
 import { Badge } from "../ui";
-import { togglePostStatus } from "../publicaciones/actions";
+import { deletePost, togglePostStatus } from "../publicaciones/actions";
 
 const TONE = { DRAFT: "warning", SCHEDULED: "neutral", PUBLISHED: "success" } as const;
 
@@ -67,6 +68,7 @@ export async function PostsList({ creator }: { creator: { id: string; username: 
                   <Link href={`/panel/publicaciones/${p.id}`} className="btn btn-outline btn-sm">
                     <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Editar</span>
                   </Link>
+                  <DeleteButton action={deletePost} id={p.id} what={p.title} message={`¿Borrar «${p.title}»? No se puede deshacer.`} />
                 </div>
               </li>
             );

@@ -6,6 +6,7 @@ import { purgeOrphanPostFiles } from "./community";
 import { processPostNotifications } from "./community-notify";
 import { purgeExpiredAuth } from "./auth-tokens";
 import { processOutbox } from "./email/outbox";
+import { watchSendingDomain } from "./sending-domain";
 import { processCampaigns } from "./newsletter-send";
 import { processEvents } from "./events";
 import { purgeAbandonedIntake } from "./orders";
@@ -50,6 +51,8 @@ export async function runScheduledJobs(): Promise<CronResult> {
         ["datosLecturas", () => purgeAbandonedIntake(new Date())],
         // Newsletter: empieza las programadas y mete en la bandeja lo que cabe en el cupo de hoy.
         ["newsletter", () => processCampaigns(new Date())],
+        // Automatizaciones de la newsletter: entradas nuevas y pasos que tocan (antes de enviar la bandeja).
+        ["dominioEnvio", () => watchSendingDomain(new Date())],
         ["emails", () => processOutbox()],
         // Sesiones, enlaces mágicos y enlaces personales caducados.
         ["accesos", () => purgeExpiredAuth()],

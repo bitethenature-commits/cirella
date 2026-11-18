@@ -28,7 +28,6 @@ export const AUTOMATIONS = {
   MOON_CIRCLE_REMINDER: { label: "Antes del círculo de la luna", description: "Recordatorio antes de cada círculo, con la luna, su signo y el enlace (minutos de antelación)", audience: "Clienta", essential: false, defaultDelay: 1440, defaultEnabled: "personal" },
   SESSION_THANKS: { label: "Gracias tras la sesión", description: "Después de una sesión, lectura o círculo en directo: un gracias y que te cuente cómo le fue (minutos después)", audience: "Clienta", essential: false, defaultDelay: 1440, defaultEnabled: "personal" },
   MISS_YOU: { label: "Te echo de menos", description: "Si lleva días sin entrar en su área y sigue teniendo acceso, un email cariñoso para volver (una vez por ausencia)", audience: "Clienta", essential: false, defaultDelay: 30 * 1440, defaultEnabled: false },
-  NEWSLETTER_WELCOME: { label: "Bienvenida a la newsletter", description: "Al confirmar que quiere recibir tu newsletter", audience: "Suscriptora", essential: false, defaultDelay: 0, defaultEnabled: false, personalOnly: true },
 } as const;
 
 export type AutomationTrigger = keyof typeof AUTOMATIONS;
@@ -170,22 +169,4 @@ export const EDITABLE_EMAILS: Partial<Record<AutomationTrigger, EditableEmail>> 
       ],
     }),
   },
-  NEWSLETTER_WELCOME: {
-    mode: "body",
-    vars: ["nombre", "mi_nombre"],
-    subject: "¡Bienvenida, {nombre}!",
-    fixed: "El pie con tus datos y el enlace para darse de baja se añaden solos.",
-    original: () => ({
-      v: 1,
-      blocks: [title("hola", "¡Hola, {nombre}!"), text("texto", "Gracias por apuntarte a mi newsletter. Te escribiré de vez en cuando con lo que estoy preparando, lecturas y novedades.\n\nUn abrazo,\n{mi_nombre}")],
-    }),
-  },
 };
-
-export function defaultEmailDesign(t: AutomationTrigger): EmailDesign {
-  return EDITABLE_EMAILS[t]?.original() ?? { v: 1, blocks: [] };
-}
-
-export function defaultEmailSubject(t: AutomationTrigger): string {
-  return EDITABLE_EMAILS[t]?.subject ?? "";
-}

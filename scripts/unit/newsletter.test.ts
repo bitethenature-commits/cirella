@@ -10,8 +10,8 @@ import { campaignEmail, newsletterConfirmEmail } from "../../lib/email/newslette
 import { effectiveDailyCap } from "../../lib/email/outbox";
 import { buildResendRequest } from "../../lib/email/providers/resend";
 import * as T from "../../lib/email/templates";
-import { EDITABLE_EMAILS, visibleAutomations } from "../../lib/automation-catalog";
-import { canSend, dailyBudget, etaDays, normalizeTags, parseConsentDate, parseCsv, parseImportCsv, parseSegment } from "../../lib/newsletter-rules";
+import { EDITABLE_EMAILS } from "../../lib/automation-catalog";
+import { canSend, dailyBudget, etaDays, parseSegment } from "../../lib/newsletter-rules";
 import { confirmToken, readConfirmToken, readUnsubscribeToken, unsubscribeHeaders, unsubscribeToken } from "../../lib/newsletter-tokens";
 import { defaultSections, readPageConfig } from "../../lib/page-config";
 import { readResendEvent, signResendWebhook, verifyResendWebhook } from "../../lib/resend-webhook";
@@ -27,18 +27,10 @@ test("solo se envía a las confirmadas", () => {
 });
 
 test("parseSegment: tolerante (lo que no entiende es «todas»)", () => {
-  eq(parseSegment({ kind: "tag", tag: "talleres" }), { kind: "tag", tag: "talleres" });
   eq(parseSegment({ kind: "member" }), { kind: "member" });
   eq(parseSegment({ kind: "product", productId: "p1" }), { kind: "product", productId: "p1" });
-  eq(parseSegment({ kind: "tag" }), { kind: "all" });
+  eq(parseSegment({ kind: "tag", tag: "talleres" }), { kind: "all" });
   eq(parseSegment("x"), { kind: "all" });
-});
-
-test("normalizeTags: minúsculas, sin raros, sin repetir, máx. 10 de 30", () => {
-  eq(normalizeTags(" Talleres, VIP ;talleres|Luna Nueva"), ["talleres", "vip", "luna-nueva"]);
-  eq(normalizeTags(Array.from({ length: 15 }, (_, i) => `t${i}`)).length, 10);
-  eq(normalizeTags(["x".repeat(50)])[0].length, 30);
-  eq(normalizeTags(["<script>"]), ["script"]);
 });
 
 test("dailyBudget: límite menos reserva menos lo enviado; 0 = sin límite", () => {
@@ -61,40 +53,6 @@ test("effectiveDailyCap: 100 en la web personal con Resend; sin límite en lo de
   eq(effectiveDailyCap(null, { personal: false, provider: "resend" }), 0);
   eq(effectiveDailyCap(3000, { personal: false, provider: "log" }), 3000);
   eq(effectiveDailyCap(0, { personal: true, provider: "resend" }), 0);
-});
-
-// ── Importar CSV ──
-
-test("parseCsv: «;» o «,», comillas con comas y saltos de línea, BOM", () => {
-  eq(parseCsv('﻿email;nombre\na@x.es;"Cirella; Luna"\n'), [["email", "nombre"], ["a@x.es", "Cirella; Luna"]]);
-  eq(parseCsv('email,nombre\r\nb@x.es,"Bea ""B"", la de\nTauro"'), [["email", "nombre"], ["b@x.es", 'Bea "B", la de\nTauro']]);
-});
-
-test("parseConsentDate: ISO y dd/mm/aaaa; ni futuro ni basura", () => {
-  const now = new Date("2026-10-24T10:00:00Z");
-  eq(parseConsentDate("2025-03-14", now)?.toISOString(), "2025-03-14T12:00:00.000Z");
-  eq(parseConsentDate("14/03/2025", now)?.toISOString(), "2025-03-14T12:00:00.000Z");
-  eq(parseConsentDate("2027-01-01", now), null);
-  eq(parseConsentDate("ayer", now), null);
-  eq(parseConsentDate("", now), null);
-});
-
-test("parseImportCsv: alias de cabecera, sin fecha no entra, repetidas y emails malos", () => {
-  const csv = "Correo,Name,consent_date,Tags\nana@x.es,Cirella,2025-01-02,vip\nmala,Bea,2025-01-02,\nsinfecha@x.es,Ci,,\nANA@x.es,Ana2,2025-01-03,\nlu@x.es,,02/01/2025,\"a, b\"";
-  const r = parseImportCsv(csv, new Date("2026-01-01"));
-  eq(r.missingColumns, []);
-  eq(r.rows.map((x) => x.email), ["ana@x.es", "lu@x.es"]);
-  eq(r.rows[0].tags, ["vip"]);
-  eq(r.rows[1].tags, ["a", "b"]);
-  eq(r.errors, [{ line: 3, reason: "email" }, { line: 4, reason: "consent_date" }, { line: 5, reason: "duplicate" }]);
-});
-
-test("parseImportCsv: sin columna de consentimiento no importa nada; más de 5000 filas, error", () => {
-  eq(parseImportCsv("email\nana@x.es").missingColumns, ["consent"]);
-  const big = `email,fecha_consentimiento\n${Array.from({ length: 5001 }, (_, i) => `p${i}@x.es,2025-01-01`).join("\n")}`;
-  const r = parseImportCsv(big, new Date("2026-01-01"));
-  eq(r.rows.length, 0);
-  eq(r.errors[0].reason, "too_many");
 });
 
 // ── Editor visual ──
@@ -201,8 +159,6 @@ test("catálogo: cada email editable tiene asunto, parte fija y un original vál
     ok(m!.subject && m!.fixed, t);
     ok(parseDesignStrict(m!.original()).ok, `${t}: original válido`);
   }
-  ok(!visibleAutomations(false).includes("NEWSLETTER_WELCOME"), "la bienvenida a la newsletter, solo en la web personal");
-  ok(visibleAutomations(true).includes("NEWSLETTER_WELCOME"));
 });
 
 // ── Tokens y cabeceras ──

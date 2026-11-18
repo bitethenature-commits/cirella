@@ -24,6 +24,7 @@ import { socialHref } from "../page-config";
 import { safeLinkHref } from "../rich-text";
 import { videoEmbed } from "../video-embed";
 import { esc } from "./html";
+import { patternSize, patternUrl } from "../email-patterns";
 import { richToEmailHtml } from "./rich-html";
 
 const SPACER = { s: 12, m: 24, l: 40 } as const;
@@ -151,7 +152,11 @@ function spotlight(b: Extract<EmailBlock, { t: "spotlight" }>, c: Ctx): string {
   const body = b.body.trim()
     ? `<div style="color:${fg}">${richToEmailHtml(b.body, "MD", { baseUrl: c.base, theme: { heading: fg, headingFont: fontStack(c.s.headingFont, "georgia"), link: fg, rule: accent } })}</div>`
     : "";
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 20px"><tr><td bgcolor="${bg}" style="background-color:${bg};${border}border-radius:${radius}px;padding:20px 22px;color:${fg}">${title}${body}</td></tr></table>`;
+  // Geometría suave dentro de la burbuja (lib/email-patterns.ts), con su color de fondo de reserva.
+  const pat = c.s.bubblePattern && c.s.bubblePattern !== "none" ? patternUrl(c.base, { bg, pattern: c.s.bubblePattern, patternColor: c.s.patternColor, patternStrength: c.s.patternStrength }) : null;
+  const size = pat ? patternSize(c.s.bubblePattern) : null;
+  const patCss = pat && size ? `background-image:url('${esc(pat)}');background-repeat:repeat;background-size:${size.w}px ${size.h}px;` : "";
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 20px"><tr><td bgcolor="${bg}"${pat ? ` background="${esc(pat)}"` : ""} style="background-color:${bg};${patCss}${border}border-radius:${radius}px;padding:20px 22px;color:${fg}">${title}${body}</td></tr></table>`;
 }
 
 /** Enlace del vídeo: YouTube/Vimeo tal cual (ya comprobado) o la página «ver vídeo» de la web. */

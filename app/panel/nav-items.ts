@@ -88,7 +88,6 @@ const PERSONAL_NAV: PanelNavItem[] = [
   { href: "/panel/solicitudes", label: "Solicitudes", icon: Inbox },
   { href: "/panel/ventas", label: "Inscripciones", icon: ClipboardList },
   { href: "/panel/newsletter", label: "Newsletter", icon: Mail },
-  { href: "/panel/automatizaciones", label: "Automatizaciones", icon: Zap },
   { href: "/panel/barajas", label: "Barajas", icon: Layers },
   { href: "/panel/codigos", label: "Códigos", icon: TicketPercent },
   { href: "/panel/modelos", label: "Modelos", icon: Orbit },

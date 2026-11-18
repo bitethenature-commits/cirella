@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ExternalLink, Hourglass, Newspaper, Plus } from "lucide-react";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
 import { getPublicCreator } from "@/lib/public";
 import { isPersonalMode } from "@/lib/site-mode";
 import { PageHeader } from "../ui";
-import { setNewsDays } from "./actions";
+import { removeNews, setNewsDays } from "./actions";
 import { NEWS_DAY_OPTIONS } from "./options";
 import { PostsList } from "./posts-list";
 
@@ -18,7 +19,7 @@ export const metadata: Metadata = { title: "Actualidades" };
  * pasan de esos días se quitan de la lista (lo que las creó sigue en su sitio) y en la web se cuentan:
  * «y 12 actualidades más».
  */
-export default async function NewsPage({ searchParams }: { searchParams: Promise<{ ok?: string; borrada?: string }> }) {
+export default async function NewsPage({ searchParams }: { searchParams: Promise<{ ok?: string; borrada?: string; quitada?: string }> }) {
   const { creator } = await requireCreator();
   const sp = await searchParams;
   const data = await getPublicCreator(creator.username);
@@ -45,6 +46,7 @@ export default async function NewsPage({ searchParams }: { searchParams: Promise
       />
       {sp.ok && <Flash ok="Guardado. La lista de tu web ya va con esos días." />}
       {sp.borrada && <Flash ok="Publicación borrada." />}
+      {sp.quitada && <Flash ok="Quitada de las actualidades." />}
 
       {/* Tus publicaciones (las que escribes tú) */}
       <section className="mb-8" aria-labelledby="tuyas-t">
@@ -108,6 +110,7 @@ export default async function NewsPage({ searchParams }: { searchParams: Promise
                     {n.dateLabel} · {n.label}
                   </span>
                 </span>
+                <DeleteButton action={removeNews} id={n.key} what={n.title} label="Quitar" message={`¿Quitar «${n.title}» de las actualidades? Lo que la creó (el curso, el código…) sigue en su sitio.`} />
               </li>
             ))}
           </ul>

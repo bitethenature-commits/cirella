@@ -143,8 +143,9 @@ export async function unpublishSitePage(creatorId: string, id: string): Promise<
 
 export async function deleteSitePage(creatorId: string, id: string): Promise<boolean> {
   const db = tenantDb(creatorId);
-  // La 1:1 y Gifts no se borran (se despublican y vuelve la de partida).
-  const r = await db.sitePage.deleteMany({ where: { id, slug: { notIn: [...FIXED_PAGE_SLUGS] } } });
+  // También la 1:1 y Gifts: ya no vuelven a crearse solas (fixedPageMade). En la web, su sección
+  // enseña el texto de partida hasta que se quita en Mi página › Secciones.
+  const r = await db.sitePage.deleteMany({ where: { id } });
   return r.count > 0;
 }
 
@@ -152,9 +153,21 @@ export async function deleteSitePage(creatorId: string, id: string): Promise<boo
  * La 1:1 en Páginas: si aún no está, se crea en borrador con lo que enseña la web ahora (no sale en el
  * pie, que ya la enlaza su sección). Una sola vez: después es una página más.
  */
+/**
+ * La 1:1 y Gifts se crean solas una sola vez: si ya se hicieron (o ya estaban), no vuelven aunque se
+ * borren. La marca es una fila de PlatformSetting por creadora y página (su clave es única).
+ */
+async function fixedPageMade(creatorId: string, slug: string, exists: boolean): Promise<boolean> {
+  const key = `paginaFijaHecha:${creatorId}:${slug}`;
+  if (await prisma.platformSetting.findUnique({ where: { key }, select: { key: true } })) return true;
+  await prisma.platformSetting.create({ data: { key, value: true } }).catch(() => {});
+  return exists;
+}
+
 export async function ensureOneToOnePage(creatorId: string): Promise<void> {
   const db = tenantDb(creatorId);
-  if (await db.sitePage.findFirst({ where: { slug: ONE_TO_ONE_SLUG }, select: { id: true } })) return;
+  const exists = !!(await db.sitePage.findFirst({ where: { slug: ONE_TO_ONE_SLUG }, select: { id: true } }));
+  if (await fixedPageMade(creatorId, ONE_TO_ONE_SLUG, exists)) return;
   const creator = await creatorOf(creatorId);
   const data = await getPublicCreator(creator.username, true);
   const content = oneToOneContent(data?.config.displayName || creator.username, data?.config.contact.email || null);
@@ -168,7 +181,8 @@ export async function ensureOneToOnePage(creatorId: string): Promise<void> {
 /** Gifts en Páginas: si aún no está, se crea en borrador con lo que enseña la web (no sale en el pie). */
 export async function ensureGiftsPage(creatorId: string): Promise<void> {
   const db = tenantDb(creatorId);
-  if (await db.sitePage.findFirst({ where: { slug: GIFTS_SLUG }, select: { id: true } })) return;
+  const exists = !!(await db.sitePage.findFirst({ where: { slug: GIFTS_SLUG }, select: { id: true } }));
+  if (await fixedPageMade(creatorId, GIFTS_SLUG, exists)) return;
   const creator = await creatorOf(creatorId);
   const data = await getPublicCreator(creator.username, true);
   const content = giftsContent(data?.config.contact.email || null);

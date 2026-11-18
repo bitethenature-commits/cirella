@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Download, Receipt } from "lucide-react";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { EmptyState } from "@/components/ui/empty";
 import { NO_CHARGE_PROVIDERS } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
@@ -13,6 +14,7 @@ import { tenantDb } from "@/lib/tenant";
 import { DISPUTE_STATUS_LABEL, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { Badge, PageHeader, RangeTabs, Stat } from "../ui";
 import { formatDate } from "@/lib/tz";
+import { deleteOrderAction } from "./actions";
 import { SignupsView } from "./inscripciones";
 
 const TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = { PAID: "success", PENDING: "warning", PROCESSING: "warning", FAILED: "danger", ABANDONED: "neutral", REFUNDED: "neutral" };
@@ -115,8 +117,8 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
             const f = orderBreakdown(o);
             const partial = o.status === "PAID" && o.refundedCents > 0;
             return (
-              <li key={o.id}>
-                <Link href={`/panel/ventas/${o.id}`} className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 px-4 py-3.5 text-sm transition hover:bg-paper md:grid-cols-[1.4fr_1fr_0.8fr_0.7fr_0.7fr_0.8fr] md:items-center md:px-5">
+              <li key={o.id} className="flex items-center pr-2">
+                <Link href={`/panel/ventas/${o.id}`} className="grid min-w-0 flex-1 grid-cols-[1fr_auto] gap-x-4 gap-y-1 px-4 py-3.5 text-sm transition hover:bg-paper md:grid-cols-[1.4fr_1fr_0.8fr_0.7fr_0.7fr_0.8fr] md:items-center md:px-5">
                   <span className="min-w-0 truncate font-medium">{o.product.emoji} {o.productTitle}<span className="block text-xs font-normal text-muted md:hidden">{o.buyerName ?? o.buyerEmail} · {formatDate(o.paidAt ?? o.createdAt, { day: "numeric", month: "short" }, creator.timezone)}</span></span>
                   <span className="hidden min-w-0 truncate text-muted md:block">{o.buyerName ?? o.buyerEmail}</span>
                   <span className="hidden text-muted md:block">{formatDate(o.paidAt ?? o.createdAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }, creator.timezone)}</span>
@@ -137,6 +139,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                   </span>
                   <span className="col-span-2 flex justify-start md:col-span-1 md:justify-end"><Badge tone={partial ? "warning" : TONE[o.status]}>{orderStatusLabel(o)}</Badge>{o.disputeStatus && <span className="ml-1.5"><Badge tone={o.disputeStatus === "WON" ? "neutral" : "danger"}>{DISPUTE_STATUS_LABEL[o.disputeStatus]}</Badge></span>}<span className="ml-2 text-xs text-faint md:hidden">{PRODUCT_TYPE_LABEL[o.productType as ProductType]}</span></span>
                 </Link>
+                <DeleteButton action={deleteOrderAction} id={o.id} what={o.productTitle} message={`¿Borrar esta venta de «${o.productTitle}»? ${o.buyerName ?? o.buyerEmail} pierde el acceso y desaparece de Ventas. No se puede deshacer.`} />
               </li>
             );
           })}

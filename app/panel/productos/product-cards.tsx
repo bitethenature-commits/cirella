@@ -7,8 +7,10 @@ import type { MoonCircleSky } from "@/lib/moon-circle-sky";
 import { asAccessMode, externalHost } from "@/lib/access-mode";
 import { formatPrice } from "@/lib/money";
 import { formatDate } from "@/lib/tz";
+import { DeleteButton } from "@/components/ui/delete-button";
+import { deleteMessage } from "@/lib/delete-copy";
 import { Badge } from "../ui";
-import { moveProduct } from "./actions";
+import { deleteProduct, moveProduct } from "./actions";
 
 /**
  * Ya no hay página «Productos»: cada cosa se lleva desde su sitio. Lecturas y sesiones 1:1 en
@@ -93,7 +95,7 @@ export function ProductCard({
         {meta && <p className="mt-1 text-xs text-muted">{meta}</p>}
         <p className="mt-1 text-sm text-gold">{priceLine(p)}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {p.status === "PUBLISHED" ? <Badge tone="success">Visible en la web</Badge> : <Badge tone="warning">Borrador</Badge>}
+          {p.status === "PUBLISHED" ? <Badge tone="success">Visible en la web</Badge> : p.status === "ARCHIVED" ? <Badge>Archivado</Badge> : <Badge tone="warning">Borrador</Badge>}
           {past && <Badge tone="neutral">Ya pasó</Badge>}
         </div>
         <div className="mt-auto flex items-center gap-1 pt-4">
@@ -126,6 +128,7 @@ export function ProductCard({
           <Link href={`/panel/productos/${p.id}`} className="btn btn-outline btn-sm">
             <Pencil className="h-3.5 w-3.5" /> Editar
           </Link>
+          <DeleteButton action={deleteProduct} id={p.id} what={p.title} message={deleteMessage(`«${p.title}»`, p._count.orders)} />
         </div>
       </div>
     </li>

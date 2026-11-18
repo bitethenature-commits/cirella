@@ -101,8 +101,6 @@ test.describe.serial("Web personal · newsletter", () => {
     await expect(page.getByRole("heading", { name: "¡Listo! Ya estás dentro" })).toBeVisible();
     expect((await prisma.subscriber.findFirstOrThrow({ where: { email: visitor } })).status).toBe("CONFIRMED");
     await ctx.close();
-    // Etiqueta para enviarle solo a ella la newsletter de la prueba.
-    await prisma.subscriber.updateMany({ where: { email: visitor }, data: { tags: [TAG] } });
   });
 
   test("la dueña escribe la newsletter en el móvil, se manda una prueba y la envía; la baja cuenta", async ({ page, request, browser }) => {
@@ -199,38 +197,6 @@ test.describe.serial("Web personal · newsletter", () => {
     await expect(page.getByRole("button", { name: "Restaurar el original" })).toHaveCount(0);
     await page.goto("/panel/newsletter/emails");
     await expect(page.getByRole("link", { name: /Acceso a un contenido gratis/ })).toContainText("Original");
-  });
-
-  test("importa un CSV mezclado (solo entran las filas válidas) y exporta la lista", async ({ page }) => {
-    await loginAna(page);
-    await page.goto("/panel/newsletter/suscriptoras");
-    await expect(page.getByText("beatriz.luna@example.com")).toBeVisible();
-    await page.getByText("Importar CSV").click();
-    const csv = [
-      "email;nombre;fecha_consentimiento;etiquetas",
-      `${TAG}-imp1@example.com;Uno;14/03/2025;lista-antigua`,
-      `${TAG}-imp2@example.com;Dos;2025-04-01;`,
-      `${TAG}-sinfecha@example.com;Tres;;`,
-      "beatriz.luna@example.com;Beatriz;2025-01-01;",
-      "no-es-un-email;Cuatro;2025-01-01;",
-    ].join("\n");
-    await page.getByLabel("Archivo CSV").setInputFiles({ name: "lista.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
-    const preview = page.getByTestId("import-preview");
-    await expect(preview).toContainText("2 nuevas");
-    await expect(preview).toContainText("1 dadas de baja antes o con rebote (se ignoran)");
-    await expect(preview).toContainText("2 filas con errores");
-    await preview.getByLabel(/Confirmo que estas personas aceptaron/).check();
-    await preview.getByRole("button", { name: "Importar 2" }).click();
-    await expect(page.getByText(/Importación hecha: 2 nuevas/)).toBeVisible();
-    expect(await prisma.subscriber.count({ where: { email: { startsWith: `${TAG}-imp` }, status: "CONFIRMED" } })).toBe(2);
-    expect(await prisma.subscriber.count({ where: { email: `${TAG}-sinfecha@example.com` } })).toBe(0);
-    expect((await prisma.subscriber.findFirstOrThrow({ where: { email: "beatriz.luna@example.com" } })).status).toBe("UNSUBSCRIBED");
-
-    const res = await page.request.get("/panel/newsletter/suscriptoras/exportar");
-    expect(res.headers()["content-disposition"]).toMatch(/attachment; filename="suscriptoras-\d{4}-\d{2}-\d{2}\.csv"/);
-    const body = await res.text();
-    expect(body).toContain("email,nombre,estado");
-    expect(body).toContain(`${TAG}-imp1@example.com`);
   });
 
   test("en la plataforma no hay newsletter (ni en el menú ni en la página)", async ({ page }) => {

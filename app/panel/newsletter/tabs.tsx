@@ -1,9 +1,11 @@
 import Link from "next/link";
 
 const TABS = [
-  { href: "/panel/newsletter", label: "Campañas" },
+  { href: "/panel/newsletter", label: "Newsletter" },
   { href: "/panel/newsletter/suscriptoras", label: "Suscriptoras" },
-  { href: "/panel/newsletter/emails", label: "Emails automáticos" },
+  { href: "/panel/newsletter/plantillas", label: "Plantillas" },
+  { href: "/panel/newsletter/automatizaciones", label: "Automatizaciones" },
+  { href: "/panel/newsletter/estadisticas", label: "Estadísticas" },
   { href: "/panel/newsletter/ajustes", label: "Envío" },
 ] as const;
 

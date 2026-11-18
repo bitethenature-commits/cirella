@@ -9,7 +9,9 @@ import { tenantDb } from "@/lib/tenant";
 import { orderStatusLabel } from "@/lib/refund-math";
 import { BOOKING_STATUS_LABEL } from "@/lib/types";
 import { capitalize, formatSessionDate, formatDate } from "@/lib/tz";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { Badge, Stat } from "../../ui";
+import { deleteCustomerAction } from "../actions";
 
 export default async function CustomerDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -43,6 +45,7 @@ export default async function CustomerDetail({ params }: { params: Promise<{ id:
         </div>
         <a href={`mailto:${c.email}`} className="btn btn-outline btn-sm"><Mail className="h-4 w-4" /> Escribir</a>
         <Link href={`/panel/solicitudes/dar?email=${encodeURIComponent(c.email)}`} className="btn btn-primary btn-sm"><UserPlus className="h-4 w-4" /> Dar acceso</Link>
+        <DeleteButton action={deleteCustomerAction} id={c.id} variant="button" what={c.name ?? c.email} message={`¿Borrar a ${c.name ?? c.email} con todas sus ventas, inscripciones, reservas y accesos? Deja de entrar en lo que tenía. No se puede deshacer.`} />
       </div>
       {personal ? (
         <div className="mt-6 grid grid-cols-2 gap-3">

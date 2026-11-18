@@ -8,14 +8,17 @@ import { brandPalette, brandSocials } from "@/lib/email-starters";
 import { appUrl } from "@/lib/env";
 import { sendingQuota } from "@/lib/email/outbox";
 import { formatNumber } from "@/lib/money";
-import { subscriberTags } from "@/lib/newsletter";
 import { etaDays, parseSegment, peopleCount } from "@/lib/newsletter-rules";
+import { footerMessage } from "@/lib/email/newsletter-templates";
+import { brandName } from "@/lib/newsletter";
 import { campaignStats, renderCampaignFor } from "@/lib/newsletter-send";
+import { getSettings } from "@/lib/settings";
+import { clicksByLink, prettyLink } from "@/lib/newsletter-stats";
 import { tenantDb } from "@/lib/tenant";
 import { tzCity } from "@/lib/timezones";
 import { dateKeyInTz, formatDate } from "@/lib/tz";
 import { EmailPreview } from "@/components/email-editor/email-preview";
-import { Badge, PageHeader, Stat } from "../../ui";
+import { Badge, PageHeader } from "../../ui";
 import { cancelCampaignAction, deleteDraft, duplicateCampaign, pauseCampaignAction, resumeCampaignAction } from "../actions";
 import { requireNewsletterOwner } from "../guard";
 import { CAMPAIGN_STATUS, segmentLabel } from "../labels";
@@ -30,6 +33,8 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
   const c = await db.campaign.findFirst({ where: { id } });
   if (!c) notFound();
   const products = await db.product.findMany({ where: { status: { not: "ARCHIVED" } }, select: { id: true, title: true }, orderBy: { createdAt: "asc" } });
+  const fromTemplate = c.templateId ? await db.newsletterTemplate.findFirst({ where: { id: c.templateId }, select: { id: true, name: true } }) : null;
+  const { newsletterFooterText } = await getSettings();
   const st = CAMPAIGN_STATUS[c.status] ?? { label: c.status, tone: "neutral" as const };
   const back = (
     <Link href="/panel/newsletter" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
@@ -39,21 +44,21 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
   const fmt = (d: Date) => formatDate(d, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }, creator.timezone);
 
   if (c.status === "DRAFT" || c.status === "SCHEDULED") {
-    const tags = await subscriberTags(creator.id);
     const tomorrow = dateKeyInTz(new Date(Date.now() + 86_400_000), creator.timezone);
     return (
       <div>
         {back}
         <PageHeader
           title={c.status === "SCHEDULED" ? "Newsletter programada" : "Nueva newsletter"}
+          subtitle={fromTemplate ? <>Hecha con tu plantilla <Link href={`/panel/newsletter/plantillas/${fromTemplate.id}`} className="underline underline-offset-2">«{fromTemplate.name}»</Link>. Es una copia: lo que cambies aquí no toca la plantilla.</> : undefined}
           actions={
             <div className="flex gap-2">
               <form action={duplicateCampaign}>
                 <input type="hidden" name="id" value={c.id} />
                 <SubmitButton className="btn btn-outline btn-sm">Duplicar</SubmitButton>
               </form>
-              {c.status === "DRAFT" && (
-                <ConfirmForm action={deleteDraft} message="¿Borrar este borrador? No se puede deshacer." className="inline">
+              {(
+                <ConfirmForm action={deleteDraft} message={c.status === "DRAFT" ? "¿Borrar este borrador? No se puede deshacer." : "¿Borrar esta newsletter programada? Ya no saldrá. No se puede deshacer."} className="inline">
                   <input type="hidden" name="id" value={c.id} />
                   <button className="btn btn-ghost btn-sm text-rose">Borrar</button>
                 </ConfirmForm>
@@ -74,29 +79,38 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
           defaultTime={c.scheduledAt ? formatDate(c.scheduledAt, { hour: "2-digit", minute: "2-digit", hour12: false }, creator.timezone) : "10:00"}
           timezoneLabel={tzCity(creator.timezone)}
           products={products}
-          tags={tags}
           testTo={(creator.contactEmail || user.email).toLowerCase()}
           palette={brandPalette(creator.pageDraft, creator.displayName)}
           socials={brandSocials(creator.pageDraft, creator.displayName)}
           siteUrl={`${appUrl()}/`}
+          brand={creator.displayName}
+          footerMessage={footerMessage(newsletterFooterText, brandName(creator))}
         />
       </div>
     );
   }
 
-  const [stats, quota] = await Promise.all([campaignStats(creator.id, c.id), sendingQuota()]);
+  const [stats, quota, links] = await Promise.all([campaignStats(creator.id, c.id), sendingQuota(), clicksByLink(creator.id, [c.id], 15)]);
+  const maxLink = links[0]?.clicks ?? 1;
   const done = stats.sent + stats.failed;
   const pct = stats.recipients ? Math.round((done / stats.recipients) * 100) : 100;
   const remaining = stats.pending + stats.queued;
   const perDay = quota.cap > 0 ? Math.max(1, quota.cap - quota.reserve) : Infinity;
   const days = etaDays(remaining, perDay);
-  const mail = renderCampaignFor(c, creator, { id: null, name: "Laura" });
+  const mail = renderCampaignFor(c, creator, { id: null, name: "Laura" }, { message: newsletterFooterText });
   const titles = new Map(products.map((p) => [p.id, p.title]));
-  const rate = (n: number) => (stats.sent ? ` · ${Math.round((n / stats.sent) * 100)} %` : "");
   return (
     <div>
       {back}
-      <PageHeader title={c.subject || "Sin asunto"} subtitle={`${segmentLabel(c.segment, titles)}${c.startedAt ? ` · empezó el ${fmt(c.startedAt)}` : ""}`} actions={<Badge tone={st.tone}>{st.label}</Badge>} />
+      <PageHeader title={c.subject || "Sin asunto"} subtitle={`${segmentLabel(c.segment, titles)}${c.startedAt ? ` · empezó el ${fmt(c.startedAt)}` : ""}`} actions={
+        <div className="flex items-center gap-2">
+          <Badge tone={st.tone}>{st.label}</Badge>
+          <ConfirmForm action={deleteDraft} message={c.status === "SENDING" || c.status === "PAUSED" ? "¿Borrar esta newsletter? Lo que falta por salir ya no sale. No se puede deshacer." : "¿Borrar esta newsletter con sus estadísticas? No se puede deshacer."} className="inline">
+            <input type="hidden" name="id" value={c.id} />
+            <button className="btn btn-ghost btn-sm text-rose">Borrar</button>
+          </ConfirmForm>
+        </div>
+      } />
       <div className="card p-5">
         <div className="flex items-center justify-between text-sm">
           <span>
@@ -142,22 +156,28 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Entregadas" value={formatNumber(stats.delivered)} hint={stats.delivered || stats.sent === 0 ? `Lo confirma Resend${rate(stats.delivered)}` : "Sin datos del webhook de Resend"} />
-        <Stat label="Rebotadas" value={formatNumber(stats.bounced + stats.failed)} hint="No existe o no la acepta" />
-        <Stat label="Quejas" value={formatNumber(stats.complained)} hint="La marcaron como spam" />
-        <Stat label="Bajas" value={<span data-testid="unsub-count">{formatNumber(stats.unsubscribed)}</span>} hint={`Desde esta newsletter${rate(stats.unsubscribed)}`} />
-      </div>
-      {(stats.opened > 0 || stats.clicked > 0) && (
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <Stat label="Aperturas" value={formatNumber(stats.opened)} hint={`Aproximadas${rate(stats.opened)}`} />
-          <Stat label="Clics" value={formatNumber(stats.clicked)} hint={rate(stats.clicked).slice(3) || undefined} />
-        </div>
-      )}
-      <p className="mt-3 text-xs text-muted">
-        Aperturas y clics: no se miden por defecto (necesitan el consentimiento de quien lee y Apple Mail las falsea). Si los activas en Resend, aparecerán aquí.
+      <p className="mt-3 text-sm text-muted">
+        <span data-testid="unsub-count">{formatNumber(stats.unsubscribed)}</span> {stats.unsubscribed === 1 ? "persona se dio" : "personas se dieron"} de baja desde esta newsletter.
         {stats.skipped > 0 && ` ${peopleCount(stats.skipped)} se saltaron porque se dieron de baja antes de recibirla.`}
       </p>
+
+      {links.length > 0 && (
+        <section className="card mt-6 p-5">
+          <h2 className="mb-1 font-serif text-xl">Enlaces más tocados</h2>
+          <p className="mb-4 text-xs text-muted">Personas distintas que hicieron clic en cada enlace (sin contar el de baja).</p>
+            <ul className="space-y-3">
+              {links.map((l) => (
+                <li key={l.link}>
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <a href={l.link} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate hover:underline" title={l.link}>{prettyLink(l.link)}</a>
+                    <span className="shrink-0 tabular-nums text-muted">{formatNumber(l.clicks)}</span>
+                  </div>
+                  <div className="nl-bar mt-1"><span style={{ width: `${Math.max(4, (l.clicks / maxLink) * 100)}%` }} /></div>
+                </li>
+              ))}
+            </ul>
+        </section>
+      )}
 
       <h2 className="eyebrow mb-3 mt-8 !text-ink">Cómo salió</h2>
       <EmailPreview html={mail.html} subject={mail.subject} />
