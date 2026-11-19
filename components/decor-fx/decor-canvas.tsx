@@ -2,21 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import type { Decor } from "@/lib/templates";
+import { DECOR_GROUP } from "./groups";
 import type { EffectFactory } from "./util";
 
-/** De qué grupo es cada fondo dibujado (cada grupo se descarga solo cuando hace falta). */
-const GROUP: Partial<Record<Decor, "sky" | "nature" | "light" | "magic">> = {
-  stars: "sky", aurora: "sky", shooting: "sky", meteors: "sky", moon: "sky", nebula: "sky", constellation: "sky", galaxy: "sky", borealis: "sky", planets: "sky",
-  petals: "nature", sakura: "nature", leaves: "nature", butterflies: "nature", feathers: "nature", dandelion: "nature", fireflies: "nature", snow: "nature", mist: "nature",
-  waves: "light", rain: "light", caustics: "light", bubbles: "light", bokeh: "light", sparkles: "light", sunrays: "light", smoke: "light", haze: "light",
-  golddust: "magic", candles: "magic", mandala: "magic", flowerlife: "magic", cards: "magic", crystals: "magic", runes: "magic",
-};
-
-/** ¿Este fondo se dibuja en vivo? (Nada, Líneas y Grano de papel son quietos, con CSS.) */
-export const isDrawnDecor = (d: Decor) => !!GROUP[d];
-
 async function load(decor: Decor): Promise<EffectFactory | null> {
-  switch (GROUP[decor]) {
+  switch (DECOR_GROUP[decor]) {
     case "sky":
       return (await import("./sky")).SKY[decor] ?? null;
     case "nature":

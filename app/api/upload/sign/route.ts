@@ -20,8 +20,7 @@ const schema = z.object({
  * Paso 1 de una subida (ver lib/uploads.ts): devuelve la URL firmada a la que el navegador sube
  * el archivo directamente y el billete para completarla.
  *   { purpose: "image" }                → imagen pública (avatar, portada, producto)
- *   { purpose: "file", productId }      → contenido privado de un producto
- *   { purpose: "delivery", orderId }    → entrega de un pedido (lectura preparada, grabación)
+ *   { purpose: "file", productId }      → contenido privado de un producto (también la grabación y el workbook de un círculo)
  *   { purpose: "video" }                → vídeo de un bloque de la página (solo la web personal)
  *   { purpose: "video", audio: true }   → vídeo o audio de una publicación (solo la web personal)
  *   { purpose: "portal" }               → vídeo, audio o foto privados del Portal de Noticias

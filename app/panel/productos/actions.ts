@@ -104,6 +104,9 @@ export async function createProduct(form: FormData) {
       moonCircle: moon,
       priceCents: 0,
       status: "DRAFT",
+      // Una lectura nace ya como «Lo preparo yo» (se entrega por email): así sale en «Dar una sesión o
+      // lectura» y en el área de la alumna aunque todavía no se haya guardado nunca.
+      deliveryMode: normalizeDeliveryMode(type),
       accessMode,
       ctaLabel: accessMode === "FREE_EMAIL" ? FREE_CTA : DEFAULT_CTA[type],
       sortOrder: count + 1,
@@ -336,7 +339,9 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
       productId: product.id,
       title: d.title,
       published: d.status === "PUBLISHED",
-      eventAt: dateChanged && seatsSold > 0 ? product.eventStartAt : eventStartAt,
+      // La fecha nueva también con plazas vendidas: moveWorkshop ya ha movido el círculo (si fallaba,
+      // se ha salido antes). Con la de antes, sus miembros verían el círculo el día equivocado.
+      eventAt: eventStartAt,
       meetingUrl,
       body: String(form.get("postBody") ?? ""),
       joinLabel: String(form.get("joinLabel") ?? ""),

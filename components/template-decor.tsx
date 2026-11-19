@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { Decor } from "@/lib/templates";
-import { DecorCanvas, isDrawnDecor } from "@/components/decor-fx/decor-canvas";
+import { DecorCanvas } from "@/components/decor-fx/decor-canvas";
+import { isDrawnDecor } from "@/components/decor-fx/groups";
 
 /**
  * El fondo decorativo de una plantilla (detrás de todo). Los que se mueven se dibujan en vivo en un lienzo
