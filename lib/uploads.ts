@@ -29,9 +29,6 @@ import { tenantDb } from "./tenant";
  */
 export type UploadPurpose = "image" | "file" | "video" | "portal";
 
-/** Límites de la plataforma (alias de uploadPolicy(false)); la web personal admite vídeos de 4 GB. */
-export const UPLOAD_LIMITS = { image: uploadPolicy(false).imageMax, file: uploadPolicy(false).fileMax } as const;
-
 /** Lectura del vídeo o audio al completar: si tarda más, se guarda sin esos datos. */
 const PROBE_TIMEOUT_MS = 5000;
 
@@ -49,7 +46,6 @@ const PORTAL_MEDIA_TTL_SEC = 24 * 3600;
 
 /** Carpeta del almacenamiento de cada tipo de subida (el billete solo vale bajo la de su creadora). */
 const PREFIX: Record<UploadPurpose, string> = { image: "incoming", file: "private", video: "public/video", portal: "private" };
-
 
 /** La URL firmada de subida vale 15 minutos; el billete, 1 hora (subidas lentas de archivos grandes). */
 const PUT_TTL_SEC = 900;

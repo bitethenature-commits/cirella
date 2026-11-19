@@ -164,21 +164,6 @@ export async function requireAdmin() {
   return user;
 }
 
-// ─── Acceso tras pagar ───
-
-/**
- * Marca este navegador como el que hace el pedido: guarda el hash de un token en el pedido y el
- * token en una cookie httpOnly de 24 h. Solo ese navegador podrá abrir la sesión limitada al
- * pedido (claimOrderSession), también cuando el pago se confirma después en un webhook o al volver
- * del banco. Solo en Server Actions / Route Handlers, antes de cobrar o de salir a la pasarela.
- */
-export async function rememberCheckout(orderId: string) {
-  const token = randomBytes(24).toString("base64url");
-  await prisma.order.update({ where: { id: orderId }, data: { claimTokenHash: hashToken(token) } });
-  const jar = await cookies();
-  jar.set(CHECKOUT_COOKIE, `${orderId}.${token}`, { ...cookieBase(), maxAge: CHECKOUT_SESSION_HOURS * 3600 });
-}
-
 /** ¿Tiene este navegador el permiso de compra de este pedido? (sin comprobar el token: solo para la UI). */
 export async function hasCheckoutCookie(orderId: string) {
   const value = (await cookies()).get(CHECKOUT_COOKIE)?.value ?? "";

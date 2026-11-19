@@ -158,13 +158,6 @@ export function sellerStatement(creator: Partial<LegalIdentity> & { displayName:
 
 export type WaiverKind = "DIGITAL_IMMEDIATE" | "DIGITAL_PREPARED" | "WORKSHOP_FIXED_DATE" | "MEMBERSHIP_START";
 
-/**
- * Casillas de antes que pueden estar en pedidos antiguos (Order.waiverKind) pero ya no se piden:
- * «SERVICE_IN_PERIOD» (talleres a menos de 15 días, hasta 2026-10-27; las membresías llevaban
- * DIGITAL_IMMEDIATE). Esos pedidos siguen con las reglas que se les informaron.
- */
-export const LEGACY_WAIVER_KINDS = ["SERVICE_IN_PERIOD"] as const;
-
 /** Datos del producto que deciden la casilla de un taller (sesión en grupo con fecha fija). */
 export type WorkshopWaiverContext = { groupSession?: boolean | null };
 

@@ -28,13 +28,6 @@ export const DEFAULT_FEATURES: PlanFeatures = {
   automations: false,
 };
 
-export const FEATURE_LABELS: Record<Exclude<keyof PlanFeatures, "productTypes" | "analytics">, string> = {
-  customDesign: "Personalización visual",
-  removeBranding: "Quitar «Powered by»",
-  customerArea: "Área de clientes y comunidad",
-  automations: "Automatizaciones de email",
-};
-
 export const ANALYTICS_LABEL: Record<PlanFeatures["analytics"], string> = {
   basic: "Métricas básicas",
   full: "Estadísticas",

@@ -379,34 +379,6 @@ export async function moveProduct(form: FormData) {
   refresh();
 }
 
-export async function setProductStatus(form: FormData) {
-  const { creator, db } = await ctx();
-  const id = String(form.get("id"));
-  const status = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).parse(form.get("status"));
-  const product = await db.product.findFirst({ where: { id } });
-  if (!product) return;
-  if (product.status === "ARCHIVED" && status !== "ARCHIVED" && creator.plan.maxProducts != null) {
-    const active = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
-    if (active >= creator.plan.maxProducts) redirect(`${productListHref(product)}?limite=1`);
-  }
-  const accessMode = asAccessMode(product.accessMode);
-  if (
-    status === "PUBLISHED" &&
-    (publishPriceError(accessMode, product.priceCents) ||
-      (accessMode === "EXTERNAL" && !product.externalUrl) ||
-      !canSellType(creator.plan, product.type as ProductType))
-  )
-    redirect(`/panel/productos/${id}`);
-  // Un taller sin fecha futura no se publica.
-  if (status === "PUBLISHED" && product.groupSession && (!product.eventStartAt || product.eventStartAt <= new Date())) redirect(`/panel/productos/${id}?error=sin-fecha#sesion`);
-  if (status === "PUBLISHED") {
-    const issue = (await productDeliveryIssue(db, id))?.issue;
-    if (issue?.blocking) redirect(`/panel/productos/${id}?error=sin-entrega#${issue.anchor}`);
-  }
-  await db.product.update({ where: { id }, data: { status } });
-  refresh(id);
-}
-
 export async function deleteProduct(form: FormData) {
   const { db, creator } = await ctx();
   const id = String(form.get("id"));
@@ -559,35 +531,6 @@ export async function addLinkFile(form: FormData) {
   const count = await db.productFile.count({ where: { productId } });
   await db.productFile.create({ data: { creatorId: creator.id, productId, name, kind: "LINK", url, sortOrder: count } });
   refresh(productId);
-}
-
-// ───────────── Curso ─────────────
-
-export async function addModule(form: FormData) {
-  const { creator, db } = await ctx();
-  const productId = String(form.get("productId"));
-  if (!(await db.product.findFirst({ where: { id: productId, type: "COURSE" } }))) return;
-  const count = await db.courseModule.count({ where: { productId } });
-  await db.courseModule.create({ data: { creatorId: creator.id, productId, title: String(form.get("title") || `Módulo ${count + 1}`).slice(0, 120), sortOrder: count } });
-  refresh(productId);
-}
-
-export async function renameModule(form: FormData) {
-  const { db } = await ctx();
-  const id = String(form.get("id"));
-  const m = await db.courseModule.findFirst({ where: { id } });
-  if (!m) return;
-  await db.courseModule.update({ where: { id }, data: { title: String(form.get("title") || m.title).slice(0, 120) } });
-  refresh(m.productId);
-}
-
-export async function deleteModule(form: FormData) {
-  const { db } = await ctx();
-  const m = await db.courseModule.findFirst({ where: { id: String(form.get("id")) } });
-  if (!m) return;
-  await guardLastDeliverable(db, m.productId, { lessons: await db.lesson.count({ where: { moduleId: m.id, published: true } }) }, "lecciones");
-  await db.courseModule.deleteMany({ where: { id: m.id } });
-  refresh(m.productId);
 }
 
 const lessonSchema = z.object({

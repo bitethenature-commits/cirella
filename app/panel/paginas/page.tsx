@@ -117,7 +117,7 @@ export default async function SitePagesPage({ searchParams }: { searchParams: Pr
                 )}
                 <Link href={`/panel/paginas/${p.id}`} className="min-w-0 flex-1">
                   <p className="flex min-w-0 items-center gap-2 font-semibold">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#0d0c22] text-gold">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[color:var(--n-deep,#0d0c22)] text-gold">
                       <Icon className="h-5 w-5" strokeWidth={1.3} aria-hidden />
                     </span>
                     <span className="truncate">{p.slug === ONE_TO_ONE_SLUG ? `1:1 · ${p.title}` : p.title}</span>

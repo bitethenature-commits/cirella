@@ -7,25 +7,33 @@ import { requireCreator } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { signupsOnly } from "@/lib/commerce";
 import { tenantDb } from "@/lib/tenant";
-import { Badge, PageHeader, Stat } from "../ui";
+import { Badge, PageHeader, Pager, Stat } from "../ui";
+
+const PAGE = 100;
 import { deleteCustomerAction } from "./actions";
 
-export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string; borrada?: string }> }) {
+export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string; borrada?: string; p?: string }> }) {
   const { creator } = await requireCreator();
-  const { q, borrada } = await searchParams;
+  const { q, borrada, p } = await searchParams;
+  const page = Math.max(1, Number(p) || 1);
   const db = tenantDb(creator.id);
-  const [customers, total, subs] = await Promise.all([
+  const where = q ? { OR: [{ email: { contains: q, mode: "insensitive" as const } }, { name: { contains: q, mode: "insensitive" as const } }] } : {};
+  // Las cifras, de todas (no solo de las que se ven en esta página ni de lo que se busca).
+  const [customers, found, total, subs, repeat, avg] = await Promise.all([
     db.customer.findMany({
-      where: q ? { OR: [{ email: { contains: q, mode: "insensitive" } }, { name: { contains: q, mode: "insensitive" } }] } : {},
+      where,
       orderBy: { lastPurchaseAt: { sort: "desc", nulls: "last" } },
-      take: 200,
+      take: PAGE,
+      skip: (page - 1) * PAGE,
       include: { subscriptions: { where: { status: "ACTIVE" }, select: { id: true } }, user: { select: { avatarUrl: true } } },
     }),
+    db.customer.count({ where }),
     db.customer.count(),
     db.subscription.count({ where: { status: "ACTIVE" } }),
+    db.customer.count({ where: { ordersCount: { gt: 1 } } }),
+    db.customer.aggregate({ _avg: { totalSpentCents: true } }),
   ]);
-  const ltv = customers.reduce((a, c) => a + c.totalSpentCents, 0) / Math.max(1, customers.length);
-  const repeat = customers.filter((c) => c.ordersCount > 1).length;
+  const ltv = avg._avg.totalSpentCents ?? 0;
   // Web personal: aquí no se compra, se apunta (gratis con email) o le das acceso tú.
   const personal = signupsOnly();
   const optIns = personal ? await db.customer.count({ where: { marketingOptIn: true } }) : 0;
@@ -94,6 +102,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
           </div>
         ))}
       </div>
+      <Pager page={page} total={found} perPage={PAGE} href={(n) => `/panel/clientes?${new URLSearchParams({ ...(q ? { q } : {}), p: String(n) })}`} />
       {customers.length === 0 && <EmptyState icon={<Users className="h-5 w-5" />} title={q ? "Sin resultados" : personal ? "Aún no se ha apuntado nadie" : "Aún no tienes clientas"}>{personal ? "Cuando alguien se apunte o le des acceso, aparecerá aquí." : "Cuando alguien compre, aparecerá aquí con su historial."}</EmptyState>}
     </div>
   );

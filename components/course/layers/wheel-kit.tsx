@@ -15,10 +15,6 @@ export const WK_INK = "#EDE6D6";
 export const WK_MUTED = "rgb(237 230 214 / .55)";
 export const WK_GOLD = "#D4B57A";
 export const WK_CREAM = "#FFF3D4";
-/** Rellenos de noche: la franja suave, la un poco más marcada, lo elegido y los filetes. */
-export const WK_FILL = "rgb(255 255 255 / .04)";
-export const WK_FILL2 = "rgb(255 255 255 / .08)";
-export const WK_ON = "rgb(212 181 122 / .22)";
 export const WK_RULE = "rgb(255 255 255 / .14)";
 
 export type WheelIds = { bg: string; sel: string; gold: string; med: string; lift: string; glow: string };

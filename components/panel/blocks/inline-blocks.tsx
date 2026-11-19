@@ -204,9 +204,9 @@ export function InlineBlocks({
         <Plus className="h-4 w-4" /> Añadir aquí
       </button>
       {adding === at && (
-        <div className="absolute left-1/2 top-full z-30 mt-1 w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-[#d9b46a]/40 bg-[#0d0c22] p-3 text-[#f1ebdf] shadow-2xl">
+        <div className="absolute left-1/2 top-full z-30 mt-1 w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-[color:var(--n-gold,#d9b46a)]/40 bg-[color:var(--n-deep,#0d0c22)] p-3 text-[color:var(--n-ivory,#f1ebdf)] shadow-2xl">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[#d9b46a]">¿Qué añades?</p>
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[color:var(--n-gold,#d9b46a)]">¿Qué añades?</p>
             <button type="button" onClick={() => setAdding(null)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-white/10" aria-label="Cerrar">
               <X className="h-4 w-4" />
             </button>
@@ -216,7 +216,7 @@ export function InlineBlocks({
               const Icon = ICON[k];
               return (
                 <button key={k} type="button" onClick={() => insert(at, k)} className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-left text-sm hover:bg-white/10">
-                  <Icon className="h-4 w-4 shrink-0 text-[#d9b46a]" /> {BLOCK_LABEL[k]}
+                  <Icon className="h-4 w-4 shrink-0 text-[color:var(--n-gold,#d9b46a)]" /> {BLOCK_LABEL[k]}
                 </button>
               );
             })}
@@ -238,8 +238,8 @@ export function InlineBlocks({
             <div className="group/blk relative" data-edit-block={b.kind}>
               {/* La barra del bloque */}
               <div className="mb-3 flex justify-center">
-                <div className="flex max-w-full flex-wrap items-center justify-center gap-1 rounded-2xl border border-[#d9b46a]/35 bg-[#0d0c22]/90 px-2 py-1.5 text-[0.75rem] text-[#f1ebdf] opacity-80 shadow-lg backdrop-blur transition group-hover/blk:opacity-100 group-focus-within/blk:opacity-100">
-                  <span className="inline-flex items-center gap-1.5 px-1.5 font-semibold text-[#d9b46a]">
+                <div className="flex max-w-full flex-wrap items-center justify-center gap-1 rounded-2xl border border-[color:var(--n-gold,#d9b46a)]/35 bg-[color:var(--n-deep,#0d0c22)]/90 px-2 py-1.5 text-[0.75rem] text-[color:var(--n-ivory,#f1ebdf)] opacity-80 shadow-lg backdrop-blur transition group-hover/blk:opacity-100 group-focus-within/blk:opacity-100">
+                  <span className="inline-flex items-center gap-1.5 px-1.5 font-semibold text-[color:var(--n-gold,#d9b46a)]">
                     <Icon className="h-3.5 w-3.5" /> {BLOCK_LABEL[b.kind]}
                   </span>
                   {HAS_LOOK.has(b.kind) && (
@@ -251,7 +251,7 @@ export function InlineBlocks({
                           role="radio"
                           aria-checked={look === l}
                           onClick={() => patch(b.id, (x) => ({ ...x, look: l }))}
-                          className={`h-7 rounded-full px-2.5 font-semibold transition ${look === l ? "bg-[#d9b46a] text-[#0d0c22]" : "text-[#cfc8e4] hover:text-white"}`}
+                          className={`h-7 rounded-full px-2.5 font-semibold transition ${look === l ? "bg-[color:var(--n-gold,#d9b46a)] text-[#0d0c22]" : "text-[color:var(--n-lilac,#cfc8e4)] hover:text-white"}`}
                         >
                           {BLOCK_LOOK_LABEL[l]}
                         </button>
@@ -263,7 +263,7 @@ export function InlineBlocks({
                       type="button"
                       aria-pressed={!!b.goldTitle}
                       onClick={() => patch(b.id, (x) => ({ ...x, goldTitle: !x.goldTitle }))}
-                      className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 font-semibold transition ${b.goldTitle ? "bg-[#d9b46a]/20 text-[#f7e5b8] ring-1 ring-[#d9b46a]" : "text-[#cfc8e4] hover:text-white"}`}
+                      className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 font-semibold transition ${b.goldTitle ? "bg-[color:var(--n-gold,#d9b46a)]/20 text-[color:var(--n-gold-pale,#f7e5b8)] ring-1 ring-[color:var(--n-gold,#d9b46a)]" : "text-[color:var(--n-lilac,#cfc8e4)] hover:text-white"}`}
                     >
                       <Sparkles className="h-3.5 w-3.5" /> Título dorado
                     </button>
@@ -272,20 +272,20 @@ export function InlineBlocks({
                     type="button"
                     aria-expanded={open === b.id}
                     onClick={() => setOpen(open === b.id ? null : b.id)}
-                    className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 font-semibold transition ${open === b.id ? "bg-white text-[#0d0c22]" : "text-[#cfc8e4] hover:text-white"}`}
+                    className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 font-semibold transition ${open === b.id ? "bg-white text-[#0d0c22]" : "text-[color:var(--n-lilac,#cfc8e4)] hover:text-white"}`}
                   >
                     <Settings2 className="h-3.5 w-3.5" /> Ajustes
                   </button>
-                  <button type="button" onClick={() => patch(b.id, (x) => ({ ...x, enabled: !x.enabled }))} className="grid h-7 w-7 place-items-center rounded-full text-[#cfc8e4] hover:bg-white/10 hover:text-white" aria-label={b.enabled ? "Ocultar bloque" : "Mostrar bloque"} title={b.enabled ? "Visible" : "Oculto"}>
+                  <button type="button" onClick={() => patch(b.id, (x) => ({ ...x, enabled: !x.enabled }))} className="grid h-7 w-7 place-items-center rounded-full text-[color:var(--n-lilac,#cfc8e4)] hover:bg-white/10 hover:text-white" aria-label={b.enabled ? "Ocultar bloque" : "Mostrar bloque"} title={b.enabled ? "Visible" : "Oculto"}>
                     {b.enabled ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                   </button>
-                  <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="grid h-7 w-7 place-items-center rounded-full text-[#cfc8e4] hover:bg-white/10 hover:text-white disabled:opacity-25" aria-label="Subir bloque">
+                  <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="grid h-7 w-7 place-items-center rounded-full text-[color:var(--n-lilac,#cfc8e4)] hover:bg-white/10 hover:text-white disabled:opacity-25" aria-label="Subir bloque">
                     <ArrowUp className="h-3.5 w-3.5" />
                   </button>
-                  <button type="button" disabled={i === blocks.length - 1} onClick={() => move(i, 1)} className="grid h-7 w-7 place-items-center rounded-full text-[#cfc8e4] hover:bg-white/10 hover:text-white disabled:opacity-25" aria-label="Bajar bloque">
+                  <button type="button" disabled={i === blocks.length - 1} onClick={() => move(i, 1)} className="grid h-7 w-7 place-items-center rounded-full text-[color:var(--n-lilac,#cfc8e4)] hover:bg-white/10 hover:text-white disabled:opacity-25" aria-label="Bajar bloque">
                     <ArrowDown className="h-3.5 w-3.5" />
                   </button>
-                  <button type="button" onClick={() => onChange((prev) => prev.filter((x) => x.id !== b.id))} className="grid h-7 w-7 place-items-center rounded-full text-[#cfc8e4] hover:bg-rose-500/20 hover:text-rose-300" aria-label="Borrar bloque">
+                  <button type="button" onClick={() => onChange((prev) => prev.filter((x) => x.id !== b.id))} className="grid h-7 w-7 place-items-center rounded-full text-[color:var(--n-lilac,#cfc8e4)] hover:bg-rose-500/20 hover:text-rose-300" aria-label="Borrar bloque">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>

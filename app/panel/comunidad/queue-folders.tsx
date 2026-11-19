@@ -36,12 +36,12 @@ export function QueueFolders({ folders, tiers, startOpen }: { folders: Folder[];
           const Icon = f.key === "programadas" ? CalendarClock : FilePen;
           return (
             <button key={f.key} type="button" onClick={() => setOpen(f.key)} className="com-folder" aria-haspopup="dialog">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-gold/40 text-[#f0d9a4]">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-gold/40 text-[color:var(--n-gold-hi,#f0d9a4)]">
                 <Icon className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="display block text-[1.35rem] leading-tight text-[#f1ebdf]">{f.title}</span>
-                <span className="block text-xs text-[#a7a2c2]">{f.hint}</span>
+                <span className="display block text-[1.35rem] leading-tight text-[color:var(--n-ivory,#f1ebdf)]">{f.title}</span>
+                <span className="block text-xs text-[color:var(--n-muted,#a7a2c2)]">{f.hint}</span>
               </span>
               <span className="display text-[2rem] leading-none text-gold tabular-nums">{f.items.length}</span>
             </button>
@@ -70,11 +70,11 @@ export function QueueFolders({ folders, tiers, startOpen }: { folders: Folder[];
               </div>
               {/* La membresía, para buscar rápido. */}
               <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Membresía">
-                <button type="button" onClick={() => setTier(null)} aria-pressed={!tier} className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition ${!tier ? "border-[#e9cc8e] bg-gold/15 text-[#f7e5b8]" : "border-gold/25 text-[#cfc8e4] hover:border-gold/50"}`}>
+                <button type="button" onClick={() => setTier(null)} aria-pressed={!tier} className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition ${!tier ? "border-[color:var(--n-gold,#e9cc8e)] bg-gold/15 text-[color:var(--n-gold-pale,#f7e5b8)]" : "border-gold/25 text-[color:var(--n-lilac,#cfc8e4)] hover:border-gold/50"}`}>
                   <LayoutGrid className="h-4 w-4" /> Todas
                 </button>
                 {tiers.map((t, i) => (
-                  <button key={t.id} type="button" onClick={() => setTier(t.id)} aria-pressed={tier === t.id} className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition ${tier === t.id ? "border-[#e9cc8e] bg-gold/15 text-[#f7e5b8]" : "border-gold/25 text-[#cfc8e4] hover:border-gold/50"}`}>
+                  <button key={t.id} type="button" onClick={() => setTier(t.id)} aria-pressed={tier === t.id} className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition ${tier === t.id ? "border-[color:var(--n-gold,#e9cc8e)] bg-gold/15 text-[color:var(--n-gold-pale,#f7e5b8)]" : "border-gold/25 text-[color:var(--n-lilac,#cfc8e4)] hover:border-gold/50"}`}>
                     <SpinningSolid level={i} offset={i * 1.3} speed={0.2} className="h-5 w-5 text-gold" /> {t.title}
                   </button>
                 ))}

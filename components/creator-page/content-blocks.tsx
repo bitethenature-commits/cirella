@@ -1,4 +1,4 @@
-import type { ComponentType, SVGProps } from "react";
+import { cloneElement, isValidElement, type ComponentType, type ReactElement, type SVGProps } from "react";
 import { ArrowRight, ArrowUpRight, Mail, Moon } from "lucide-react";
 import { ZoomableImage } from "@/components/media/zoomable-image";
 import { RichContent } from "@/components/rich-text/rich-content";
@@ -594,9 +594,10 @@ export function ContentBlocks({
         const panelWrap = look === "panel" && b.kind !== "text";
         const node = look ? renderOne(b, look === "bare" || panelWrap, look === "panel" && !panelWrap) : renderOne(b, bare, luxe);
         if (!node) return null;
-        if (!look && !b.goldTitle) return node;
+        // Su nombre (data-bid): las piezas sueltas de dentro (lib/pieces.ts) se encuentran desde él.
+        if (!look && !b.goldTitle) return isValidElement(node) ? cloneElement(node as ReactElement<Record<string, unknown>>, { "data-bid": b.id }) : node;
         return (
-          <div key={b.id} data-look={look} data-gold-title={b.goldTitle ? "" : undefined} className={panelWrap ? "cp-include-panel" : undefined}>
+          <div key={b.id} data-bid={b.id} data-look={look} data-gold-title={b.goldTitle ? "" : undefined} className={panelWrap ? "cp-include-panel" : undefined}>
             {node}
           </div>
         );

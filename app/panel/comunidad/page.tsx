@@ -42,7 +42,7 @@ import { Reschedule } from "./reschedule";
 import { QueueFolders } from "./queue-folders";
 import { emptyComposerPost, loadComposerPost, loadMembers, loadQueue, loadStats, loadTiers, loadWall, wallKinds } from "./data";
 
-export const metadata: Metadata = { title: "Comunidad" };
+export const metadata: Metadata = { title: "Membresía" };
 
 const TABS = [
   { key: "publicar", label: "Publicar y programar", hint: "Crear, programar y borradores", icon: CalendarClock },
@@ -56,7 +56,7 @@ type Tab = (typeof TABS)[number]["key"];
 type SP = { tab?: string; carpeta?: string; nivel?: string; editar?: string; nueva?: string; ok?: string; error?: string; t?: string; antes?: string; tipo?: string; buscar?: string };
 
 /**
- * Estudio «Comunidad»: el feed tal y como lo ven las miembros con el compositor encima (Muro),
+ * Estudio «Membresía» (antes «Comunidad»): el feed tal y como lo ven las miembros con el compositor encima (Muro),
  * programar y borradores, miembros por nivel y datos de cada publicación. Las
  * publicaciones son de un nivel (una membresía) y los niveles de arriba las heredan (lib/tiers.ts).
  */
@@ -80,7 +80,7 @@ export default async function CommunityStudio({ searchParams }: { searchParams: 
   if (!tiers.length)
     return (
       <div>
-        <PageHeader title="Comunidad" />
+        <PageHeader title="Membresía" />
         <EmptyState icon={<UsersRound className="h-5 w-5" />} title="Todavía no tienes comunidad" action={
             <form action={createProduct}>
               <input type="hidden" name="type" value="MEMBERSHIP" />
@@ -116,10 +116,10 @@ export default async function CommunityStudio({ searchParams }: { searchParams: 
 
   return (
     <div className={tab === "cartas" ? "max-w-6xl" : "max-w-3xl"}>
-      <PageHeader title="Comunidad" subtitle={`${totalMembers} ${totalMembers === 1 ? "persona dentro" : "personas dentro"}`} />
+      <PageHeader title="Membresía" subtitle={`${totalMembers} ${totalMembers === 1 ? "persona dentro" : "personas dentro"}`} />
 
       {/* Las cinco partes de Comunidad, bien separadas: cada una con su icono, su nombre y para qué es. */}
-      <nav className="com-sections mb-6" aria-label="Secciones de Comunidad">
+      <nav className="com-sections mb-6" aria-label="Secciones de Membresía">
         {TABS.map((t) => (
           <Link
             key={t.key}

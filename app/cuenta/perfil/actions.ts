@@ -15,6 +15,8 @@ import { deleteAvatarImage, storeAvatarImage } from "@/lib/images";
 import { limitEmailChange, limitMagicLink } from "@/lib/limits";
 import { getOwnerCreator, isPersonalMode } from "@/lib/site-mode";
 import { forgetDevices } from "@/lib/two-factor";
+import { hasAccountLook, readAccountLook } from "@/lib/account-look";
+import { Prisma } from "@prisma/client";
 
 /**
  * Tarjetas del perfil (/cuenta/perfil): foto, email, contraseña y novedades de la dueña. Todas
@@ -131,4 +133,14 @@ export async function subscribeOwnerNews(form: FormData) {
     form: "perfil",
   });
   revalidatePath("/cuenta/soporte");
+}
+
+/** «Colores de mi área» (Ajustes): los suyos o, sin nada elegido, la noche dorada de siempre. */
+export async function saveAccountLook(raw: unknown): Promise<CardState> {
+  const user = await requireBuyerFull("/cuenta/soporte");
+  const look = readAccountLook(raw);
+  const own = hasAccountLook(look);
+  await prisma.user.update({ where: { id: user.id }, data: { accountLook: own ? (look as Prisma.InputJsonObject) : Prisma.DbNull } });
+  revalidatePath("/cuenta", "layout");
+  return { ok: own ? "Guardado: tu área ya tiene tus colores." : "Vuelves a los colores de siempre." };
 }

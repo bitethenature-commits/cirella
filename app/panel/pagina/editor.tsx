@@ -38,6 +38,7 @@ import {
   SECTION_VIEW_PAGE,
   NEWSLETTER_FORM_DEFAULTS,
   SECTION_META,
+  designFor,
   SOCIAL_KEYS,
   SOCIAL_LABEL,
   TEXT_BLOCK_BODY_MAX,
@@ -46,13 +47,17 @@ import {
   type SectionKey,
 } from "@/lib/page-config";
 import { withoutEmptyBlocks } from "@/lib/page-blocks";
-import { SITE_PAGE_STATE_LABEL, type SitePageState } from "@/lib/site-pages";
-import { SECTION_PAGES, SECTION_PAGE_TITLE, sectionPagePath } from "@/lib/site-sections";
+import { SITE_PAGE_STATE_LABEL, sitePagePath, type SitePageState } from "@/lib/site-pages";
+import { SECTION_PAGES, SECTION_PAGE_TITLE, isSectionPage, sectionPagePath } from "@/lib/site-sections";
+import { creatorLegalHref } from "@/lib/legal";
 import { formatPrice } from "@/lib/money";
 import { moveProduct } from "../productos/actions";
 import { SectionEmblem } from "../section-emblem";
 import { publishDraft, saveDraft } from "./actions";
-import { DesignEditor, DesignSample, type DesignTarget } from "./design-editor";
+import { DesignEditor, DesignSample, designTargets, type DesignTarget } from "./design-editor";
+import { LiveFrame } from "./live-frame";
+import { PieceSheet, type PickedPiece } from "./piece-sheet";
+import { AboutFields, BubblesFields, ContactFields, FaqFields, LinksFields, NewsletterFields, ReadingsFields, SocialsFields, SystemsFields, TestimonialsFields } from "./part-fields";
 
 type Props = {
   initial: PageConfig;
@@ -154,6 +159,8 @@ export function PageEditor(props: Props) {
   const [mobilePreview, setMobilePreview] = useState(false);
   // Diseño: qué se diseña (toda la web, la portada o una página) y, con una página, su muestra en la vista previa.
   const [designTarget, setDesignTarget] = useState<DesignTarget>("general");
+  // La pieza suelta que se está cambiando (tocada en la vista en vivo), con la página en la que está.
+  const [picked, setPicked] = useState<(PickedPiece & { page: string }) | null>(null);
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const [busyAction, setBusyAction] = useState<"save" | "publish" | "preview" | null>(null);
@@ -253,9 +260,42 @@ export function PageEditor(props: Props) {
     ),
     [shown, props, oracleDecks],
   );
-  // En Diseño, con una página que no es la portada: su muestra con su diseño.
-  const samplePage = tab === "diseno" && !embedded && designTarget !== "general" && designTarget !== "home" ? designTarget : null;
+  // En Diseño, con una página elegida (también la portada): esa página con su diseño.
+  const livePage = tab === "diseno" && !embedded && designTarget !== "general" ? designTarget : null;
+  const samplePage = livePage && livePage !== "home" ? livePage : null;
+  // La página de verdad (con el diseño sin guardar encima); si aún no se ve en la web, una muestra.
+  const homePublished = !!publishedJson;
+  const liveSrc = useMemo(() => {
+    if (!livePage) return null;
+    if (livePage === "home") return homePublished ? (props.personal ? "/" : `/${props.username}`) : null;
+    if (isSectionPage(livePage)) return sectionPagePath(props.username, livePage, props.personal);
+    if (livePage === "productos") return props.products[0] ? `/${props.username}/${props.products[0].slug}` : null;
+    if (livePage === "legal") return creatorLegalHref(props.username);
+    const page = props.pages.find((p) => p.slug === livePage);
+    return page && page.state !== "DRAFT" ? sitePagePath(props.username, page.slug, props.personal) : null;
+  }, [livePage, homePublished, props.username, props.personal, props.products, props.pages]);
+  const liveDesign = useMemo(() => (livePage ? designFor(shown, livePage) : null), [shown, livePage]);
+  const livePieces = livePage ? shown.pieces[livePage] : undefined;
+  const liveLabel = livePage ? (designTargets(props.pages).find((t) => t.key === livePage)?.label ?? livePage) : null;
+  // La pieza abierta, solo mientras se diseña su página.
+  const pickedNow = picked && picked.page === livePage ? picked : null;
+  const openPiece = useCallback((p: PickedPiece) => livePage && setPicked({ ...p, page: livePage }), [livePage]);
   const livePreview = samplePage ? <DesignSample config={shown} page={samplePage} allowCustom={props.allowCustom} personal={props.personal} username={props.username} /> : preview;
+  const liveView = (className: string) =>
+    liveSrc && liveDesign ? (
+      <LiveFrame
+        key={liveSrc}
+        src={liveSrc}
+        design={liveDesign}
+        allowCustom={props.allowCustom}
+        pieces={livePieces}
+        selected={pickedNow?.id ?? null}
+        onPick={props.allowCustom ? openPiece : undefined}
+        className={className}
+      />
+    ) : (
+      <div className="pointer-events-none">{livePreview}</div>
+    );
 
   return (
     <div className={embedded ? "" : "lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_430px]"}>
@@ -339,7 +379,15 @@ export function PageEditor(props: Props) {
           )}
 
           {tab === "diseno" && !embedded && (
-            <DesignEditor cfg={cfg} setCfg={setCfg} target={designTarget} setTarget={setDesignTarget} pages={props.pages} allowCustom={props.allowCustom} />
+            <DesignEditor
+              cfg={cfg}
+              setCfg={setCfg}
+              target={designTarget}
+              setTarget={setDesignTarget}
+              pages={props.pages}
+              allowCustom={props.allowCustom}
+              pieceTools={{ canPick: !!liveSrc, open: openPiece }}
+            />
           )}
 
           {tab === "secciones" && (
@@ -407,46 +455,7 @@ export function PageEditor(props: Props) {
                   })}
                 </ul>
               </section>
-              {props.personal && (
-                <section className="card space-y-3 p-5 sm:p-6" aria-labelledby="nl-form-title">
-                  <div>
-                    <h3 id="nl-form-title" className="font-semibold">Formulario de la newsletter</h3>
-                    <p className="text-xs text-muted">
-                      Sale debajo de «Hablemos» (si tienes tu email de contacto) y, si quieres, en el pie de todas tus páginas. Quien se apunta recibe un email para confirmarlo y se le abre el Portal de Noticias.{" "}
-                      <Link href="/panel/newsletter" className="underline underline-offset-2 hover:text-ink">Tu newsletter</Link>
-                    </p>
-                  </div>
-                  <div>
-                    <label className="field-label" htmlFor="nl-text">Texto</label>
-                    <textarea
-                      id="nl-text"
-                      className="input min-h-20 text-base sm:text-sm"
-                      maxLength={300}
-                      value={cfg.newsletter?.text ?? NEWSLETTER_FORM_DEFAULTS.text}
-                      onChange={(e) => set("newsletter", { ...NEWSLETTER_FORM_DEFAULTS, footer: false, ...cfg.newsletter, text: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="field-label" htmlFor="nl-button">Texto del botón</label>
-                    <input
-                      id="nl-button"
-                      className="input text-base sm:text-sm"
-                      maxLength={30}
-                      value={cfg.newsletter?.button ?? NEWSLETTER_FORM_DEFAULTS.button}
-                      onChange={(e) => set("newsletter", { ...NEWSLETTER_FORM_DEFAULTS, footer: false, ...cfg.newsletter, button: e.target.value })}
-                    />
-                  </div>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-[#0E1024]"
-                      checked={!!cfg.newsletter?.footer}
-                      onChange={(e) => set("newsletter", { ...NEWSLETTER_FORM_DEFAULTS, ...cfg.newsletter, footer: e.target.checked })}
-                    />
-                    También en el pie de todas mis páginas
-                  </label>
-                </section>
-              )}
+              {props.personal && <NewsletterFields cfg={cfg} set={set} />}
               <section className="card p-5 sm:p-6">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -545,174 +554,18 @@ export function PageEditor(props: Props) {
 
           {tab === "portada" && (
             <>
-              <section className="card p-5 sm:p-6" aria-labelledby="ed-bubbles">
-                <h3 id="ed-bubbles" className="font-semibold">Accesos</h3>
-                <p className="text-xs text-muted">Burbujas redondas con foto bajo tu presentación, en una fila (de 1 a {BUBBLES_MAX}). Por ejemplo: Sobre mí, Cursos, Hacerte miembro.</p>
-                <div className="mt-4 space-y-2.5">
-                  {(cfg.bubbles ?? []).map((b, i, all) => (
-                    <div key={b.id} className="grid items-center gap-4 rounded-xl border border-line bg-white p-3 sm:grid-cols-[104px_1fr]">
-                      <ImageUpload shape="circle" small value={b.image} onChange={(v) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, image: v } : x)))} label="Foto" />
-                      <div className="space-y-2">
-                        <input className="input h-10 text-sm" placeholder="Texto (p. ej. Sobre mí)" maxLength={30} value={b.label} aria-label="Texto de la burbuja" onChange={(e) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, label: e.target.value } : x)))} />
-                        <LinkInput value={b.url} ariaLabel="Enlace de la burbuja" targets={props.linkTargets} onChange={(v) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, url: v } : x)))} />
-                        <div className="flex items-center justify-end gap-1">
-                          <button type="button" disabled={i === 0} onClick={() => { const a = [...all]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; set("bubbles", a); }} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Subir"><ArrowUp className="h-3.5 w-3.5" /></button>
-                          <button type="button" disabled={i === all.length - 1} onClick={() => { const a = [...all]; [a[i + 1], a[i]] = [a[i], a[i + 1]]; set("bubbles", a); }} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Bajar"><ArrowDown className="h-3.5 w-3.5" /></button>
-                          <button type="button" onClick={() => set("bubbles", all.filter((x) => x.id !== b.id))} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Quitar burbuja"><Trash2 className="h-3.5 w-3.5" /></button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={() => set("bubbles", [...(cfg.bubbles ?? []), { id: uid(), label: "", url: "", image: null }])} disabled={(cfg.bubbles ?? []).length >= BUBBLES_MAX} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" /> Añadir burbuja</button>
-              </section>
-
-              <section className="card space-y-3 p-5 sm:p-6" aria-labelledby="ed-about">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 id="ed-about" className="font-semibold">Tarjeta «Sobre mí»</h3>
-                    <p className="text-xs text-muted">Tu foto a la derecha y un texto corto a la izquierda. Toda la tarjeta lleva a tu página «Sobre mí».</p>
-                  </div>
-                  {cfg.about ? (
-                    <button type="button" onClick={() => set("about", null)} className="btn btn-ghost btn-sm shrink-0">Quitar</button>
-                  ) : (
-                    <button type="button" onClick={() => set("about", { eyebrow: "Sobre mí", title: `Hola, soy ${cfg.displayName.split(" ")[0]}`, text: "", url: props.personal ? "/sobre-mi" : "", image: cfg.avatarUrl, linkLabel: "Conoce mi historia" })} className="btn btn-outline btn-sm shrink-0"><Plus className="h-4 w-4" /> Añadir</button>
-                  )}
-                </div>
-                {cfg.about && (
-                  <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
-                    <div className="space-y-2">
-                      <input className="input h-10 text-sm" placeholder="Título (p. ej. Hola, soy Cirella)" maxLength={80} aria-label="Título de la tarjeta Sobre mí" value={cfg.about.title} onChange={(e) => set("about", { ...cfg.about!, title: e.target.value })} />
-                      <textarea className="input text-sm" rows={3} placeholder="Texto corto" maxLength={400} aria-label="Texto de la tarjeta Sobre mí" value={cfg.about.text} onChange={(e) => set("about", { ...cfg.about!, text: e.target.value })} />
-                      <LinkInput value={cfg.about.url} ariaLabel="Enlace de la tarjeta Sobre mí" targets={props.linkTargets} onChange={(v) => set("about", { ...cfg.about!, url: v })} />
-                      <input className="input h-10 text-sm" placeholder="Texto del enlace (Conoce mi historia)" maxLength={40} aria-label="Texto del enlace de Sobre mí" value={cfg.about.linkLabel} onChange={(e) => set("about", { ...cfg.about!, linkLabel: e.target.value })} />
-                    </div>
-                    <ImageUpload value={cfg.about.image} onChange={(v) => set("about", { ...cfg.about!, image: v })} label="Foto" />
-                  </div>
-                )}
-              </section>
-
-              <section className="card p-5 sm:p-6" aria-labelledby="ed-systems">
-                <h3 id="ed-systems" className="font-semibold">Sistemas con los que trabajo</h3>
-                <p className="text-xs text-muted">Tarjetas con foto a la izquierda y un texto corto, cada una a la página de ese método (crea las páginas en «Páginas»).</p>
-                <div className="mt-4 space-y-2.5">
-                  {(cfg.systems ?? []).map((sys, i, all) => (
-                    <div key={sys.id} className="grid gap-3 rounded-xl border border-line bg-white p-3 sm:grid-cols-[140px_1fr]">
-                      <ImageUpload value={sys.image} onChange={(v) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, image: v } : x)))} label="Foto" />
-                      <div className="space-y-2">
-                        <input className="input h-10 text-sm" placeholder="Título (p. ej. Human Design)" maxLength={60} aria-label="Título del sistema" value={sys.title} onChange={(e) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, title: e.target.value } : x)))} />
-                        <input className="input h-10 text-sm" placeholder="Texto corto" maxLength={200} aria-label="Texto del sistema" value={sys.text} onChange={(e) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, text: e.target.value } : x)))} />
-                        <LinkInput value={sys.url} ariaLabel="Enlace del sistema" targets={props.linkTargets} onChange={(v) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, url: v } : x)))} />
-                        <div className="flex items-center justify-end gap-1">
-                          <button type="button" disabled={i === 0} onClick={() => { const a = [...all]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; set("systems", a); }} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Subir"><ArrowUp className="h-3.5 w-3.5" /></button>
-                          <button type="button" disabled={i === all.length - 1} onClick={() => { const a = [...all]; [a[i + 1], a[i]] = [a[i], a[i + 1]]; set("systems", a); }} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Bajar"><ArrowDown className="h-3.5 w-3.5" /></button>
-                          <button type="button" onClick={() => set("systems", all.filter((x) => x.id !== sys.id))} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Quitar sistema"><Trash2 className="h-3.5 w-3.5" /></button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={() => set("systems", [...(cfg.systems ?? []), { id: uid(), title: "", text: "", url: "", image: null }])} disabled={(cfg.systems ?? []).length >= SYSTEMS_MAX} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" /> Añadir sistema</button>
-              </section>
-
-              <section className="card space-y-4 p-5 sm:p-6" aria-labelledby="ed-readings">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 id="ed-readings" className="font-semibold">Lecturas, sesiones y círculos</h3>
-                    <p className="text-xs text-muted">Dos tarjetas que explican cómo funciona cada cosa; cada una abre su página con los pasos y tus productos. Debajo salen tus próximos círculos de la luna (talleres marcados como círculo).</p>
-                  </div>
-                  {cfg.readings ? (
-                    <button type="button" onClick={() => set("readings", null)} className="btn btn-ghost btn-sm shrink-0">Quitar</button>
-                  ) : (
-                    <button type="button" onClick={() => set("readings", { reading: { ...READINGS_DEFAULTS.reading }, session: { ...READINGS_DEFAULTS.session }, circlesTitle: READINGS_DEFAULTS.circlesTitle })} className="btn btn-outline btn-sm shrink-0"><Plus className="h-4 w-4" /> Añadir</button>
-                  )}
-                </div>
-                {cfg.readings &&
-                  (["reading", "session"] as const).map((k) => {
-                    const card = cfg.readings![k];
-                    const put = (patch: Partial<typeof card>) => set("readings", { ...cfg.readings!, [k]: { ...card, ...patch } });
-                    return (
-                      <div key={k} className="space-y-2 rounded-xl border border-line bg-white p-3">
-                        <p className="text-sm font-semibold">{k === "reading" ? "Lectura (te la preparo yo)" : "Sesión (en directo)"}</p>
-                        <div className="grid gap-2 sm:grid-cols-[140px_1fr]">
-                          <input className="input h-10 text-sm" placeholder={READINGS_DEFAULTS[k].eyebrow} maxLength={30} aria-label="Etiqueta" value={card.eyebrow} onChange={(e) => put({ eyebrow: e.target.value })} />
-                          <input className="input h-10 text-sm" placeholder={READINGS_DEFAULTS[k].title} maxLength={60} aria-label="Título" value={card.title} onChange={(e) => put({ title: e.target.value })} />
-                        </div>
-                        <input className="input h-10 text-sm" placeholder={READINGS_DEFAULTS[k].text} maxLength={240} aria-label="Texto" value={card.text} onChange={(e) => put({ text: e.target.value })} />
-                        <label className="field-label !mb-0 !mt-1">Pasos para reservar (uno por línea, hasta {STEPS_MAX})</label>
-                        <textarea
-                          className="input text-sm"
-                          rows={4}
-                          aria-label="Pasos"
-                          value={card.steps.join("\n")}
-                          onChange={(e) => put({ steps: e.target.value.split("\n").slice(0, STEPS_MAX) })}
-                        />
-                      </div>
-                    );
-                  })}
-                {cfg.readings && (
-                  <Field label="Título de los círculos de la luna">
-                    <input className="input h-10 text-sm" placeholder={READINGS_DEFAULTS.circlesTitle} maxLength={80} value={cfg.readings.circlesTitle} onChange={(e) => set("readings", { ...cfg.readings!, circlesTitle: e.target.value })} />
-                  </Field>
-                )}
-              </section>
+              <BubblesFields cfg={cfg} set={set} linkTargets={props.linkTargets} />
+              <AboutFields cfg={cfg} set={set} linkTargets={props.linkTargets} personal={props.personal} />
+              <SystemsFields cfg={cfg} set={set} linkTargets={props.linkTargets} />
+              <ReadingsFields cfg={cfg} set={set} />
             </>
           )}
 
           {tab === "enlaces" && (
             <>
-              <section className="card p-5 sm:p-6">
-                <h3 className="font-semibold">Botones principales</h3>
-                <p className="text-xs text-muted">Enlaces destacados bajo tu presentación: podcast, newsletter, un producto concreto…</p>
-                <div className="mt-4 space-y-2.5">
-                  {cfg.links.map((l, i) => (
-                    <div key={l.id} className="rounded-xl border border-line bg-white p-3">
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <input className="input h-10 text-sm" placeholder="Texto del botón" value={l.label} onChange={(e) => set("links", cfg.links.map((x) => (x.id === l.id ? { ...x, label: e.target.value } : x)))} />
-                        <LinkInput value={l.url} ariaLabel="Enlace del botón principal" placeholder="https://… o elige una de tus páginas" targets={props.linkTargets} onChange={(v) => set("links", cfg.links.map((x) => (x.id === l.id ? { ...x, url: v } : x)))} />
-                      </div>
-                      <div className="mt-2 flex items-center gap-2 text-xs">
-                        <label className="flex items-center gap-1.5">
-                          <input type="checkbox" checked={!!l.highlight} onChange={(e) => set("links", cfg.links.map((x) => (x.id === l.id ? { ...x, highlight: e.target.checked } : x)))} className="accent-[#0E1024]" /> Destacado
-                        </label>
-                        <span className="flex-1" />
-                        <button type="button" disabled={i === 0} onClick={() => { const a = [...cfg.links]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; set("links", a); }} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Subir"><ArrowUp className="h-3.5 w-3.5" /></button>
-                        <button type="button" disabled={i === cfg.links.length - 1} onClick={() => { const a = [...cfg.links]; [a[i + 1], a[i]] = [a[i], a[i + 1]]; set("links", a); }} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Bajar"><ArrowDown className="h-3.5 w-3.5" /></button>
-                        <button type="button" onClick={() => set("links", cfg.links.filter((x) => x.id !== l.id))} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Eliminar"><Trash2 className="h-3.5 w-3.5" /></button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={() => set("links", [...cfg.links, { id: uid(), label: "", url: "" }])} disabled={cfg.links.length >= 12} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" /> Añadir botón</button>
-              </section>
-              <section className="card p-5 sm:p-6">
-                <h3 className="font-semibold">Redes sociales</h3>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {SOCIAL_KEYS.map((k) => (
-                    <Field key={k} label={SOCIAL_LABEL[k]}>
-                      <input
-                        className="input h-10 text-sm"
-                        placeholder={k === "email" ? "tu@email.com" : k === "whatsapp" ? "+34 600 000 000" : k === "website" ? "tuweb.com" : "@usuario"}
-                        value={cfg.socials[k] ?? ""}
-                        onChange={(e) => {
-                          const next = { ...cfg.socials };
-                          if (e.target.value) next[k] = e.target.value;
-                          else delete next[k];
-                          set("socials", next);
-                        }}
-                      />
-                    </Field>
-                  ))}
-                </div>
-              </section>
-              <section className="card space-y-3 p-5 sm:p-6">
-                <h3 className="font-semibold">Contacto</h3>
-                <input className="input h-10 text-sm" placeholder="Mensaje (p. ej. ¿Dudas? Escríbeme)" value={cfg.contact.message ?? ""} onChange={(e) => set("contact", { ...cfg.contact, message: e.target.value })} />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <input className="input h-10 text-sm" placeholder="Email de contacto" value={cfg.contact.email ?? ""} onChange={(e) => set("contact", { ...cfg.contact, email: e.target.value })} />
-                  <input className="input h-10 text-sm" placeholder="WhatsApp" value={cfg.contact.whatsapp ?? ""} onChange={(e) => set("contact", { ...cfg.contact, whatsapp: e.target.value })} />
-                </div>
-              </section>
+              <LinksFields cfg={cfg} set={set} linkTargets={props.linkTargets} />
+              <SocialsFields cfg={cfg} set={set} />
+              <ContactFields cfg={cfg} set={set} />
               {!props.personal && (
                 <section className="card flex items-center justify-between gap-4 p-5 sm:p-6">
                   <div>
@@ -750,37 +603,8 @@ export function PageEditor(props: Props) {
 
           {tab === "contenido" && (
             <>
-              <section className="card p-5 sm:p-6">
-                <h3 className="font-semibold">Testimonios</h3>
-                <div className="mt-4 space-y-2.5">
-                  {cfg.testimonials.map((t) => (
-                    <div key={t.id} className="space-y-2 rounded-xl border border-line bg-white p-3">
-                      <textarea className="input text-sm" rows={2} placeholder="Lo que dijo tu clienta" value={t.quote} onChange={(e) => set("testimonials", cfg.testimonials.map((x) => (x.id === t.id ? { ...x, quote: e.target.value } : x)))} />
-                      <div className="flex gap-2">
-                        <input className="input h-10 flex-1 text-sm" placeholder="Nombre" value={t.author} onChange={(e) => set("testimonials", cfg.testimonials.map((x) => (x.id === t.id ? { ...x, author: e.target.value } : x)))} />
-                        <input className="input h-10 flex-1 text-sm" placeholder="Detalle (opcional)" value={t.role ?? ""} onChange={(e) => set("testimonials", cfg.testimonials.map((x) => (x.id === t.id ? { ...x, role: e.target.value } : x)))} />
-                        <button type="button" onClick={() => set("testimonials", cfg.testimonials.filter((x) => x.id !== t.id))} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Eliminar"><Trash2 className="h-4 w-4" /></button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={() => set("testimonials", [...cfg.testimonials, { id: uid(), author: "", quote: "" }])} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" /> Añadir testimonio</button>
-              </section>
-              <section className="card p-5 sm:p-6">
-                <h3 className="font-semibold">Preguntas frecuentes</h3>
-                <div className="mt-4 space-y-2.5">
-                  {cfg.faqs.map((f) => (
-                    <div key={f.id} className="space-y-2 rounded-xl border border-line bg-white p-3">
-                      <div className="flex gap-2">
-                        <input className="input h-10 flex-1 text-sm" placeholder="Pregunta" value={f.q} onChange={(e) => set("faqs", cfg.faqs.map((x) => (x.id === f.id ? { ...x, q: e.target.value } : x)))} />
-                        <button type="button" onClick={() => set("faqs", cfg.faqs.filter((x) => x.id !== f.id))} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Eliminar"><Trash2 className="h-4 w-4" /></button>
-                      </div>
-                      <textarea className="input text-sm" rows={2} placeholder="Respuesta" value={f.a} onChange={(e) => set("faqs", cfg.faqs.map((x) => (x.id === f.id ? { ...x, a: e.target.value } : x)))} />
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={() => set("faqs", [...cfg.faqs, { id: uid(), q: "", a: "" }])} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" /> Añadir pregunta</button>
-              </section>
+              <TestimonialsFields cfg={cfg} set={set} />
+              <FaqFields cfg={cfg} set={set} />
             </>
           )}
         </div>
@@ -790,9 +614,9 @@ export function PageEditor(props: Props) {
       {desktop && !embedded && (
       <aside className="hidden lg:block">
         <div className="sticky top-20">
-          <p className="mb-3 text-center text-xs uppercase tracking-[0.2em] text-muted">Vista previa en vivo</p>
+          <p className="mb-3 text-center text-xs uppercase tracking-[0.2em] text-muted">Vista previa en vivo{liveLabel ? ` · ${liveLabel}` : ""}</p>
           <PhoneFrame screenClassName="h-[min(720px,calc(100dvh-170px))] w-[340px] overflow-y-auto overflow-x-hidden scrollbar-none xl:w-[370px]">
-            <div className="pointer-events-none">{livePreview}</div>
+            {liveView("h-full")}
           </PhoneFrame>
         </div>
       </aside>
@@ -818,8 +642,12 @@ export function PageEditor(props: Props) {
           <button type="button" onClick={() => setMobilePreview(false)} className="fixed right-4 top-[max(env(safe-area-inset-top),0.75rem)] z-[60] inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-sm font-semibold text-ink shadow-lift">
             <X className="h-4 w-4" /> Cerrar
           </button>
-          <div className="pointer-events-none">{livePreview}</div>
+          {liveView("h-[100dvh]")}
         </div>
+      )}
+
+      {pickedNow && livePage && (
+        <PieceSheet page={livePage} picked={pickedNow} cfg={cfg} setCfg={setCfg} design={designFor(cfg, livePage)} onClose={() => setPicked(null)} />
       )}
 
       {toast && (

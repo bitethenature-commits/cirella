@@ -4,13 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
-import { codeState, discountCodeFormSchema, expiryFromDateKey, parseCodePhotos, parseCodeRecommendations, parseShopUrl } from "@/lib/discount-codes";
+import { codeState, type CodeState, discountCodeFormSchema, expiryFromDateKey, parseCodePhotos, parseCodeRecommendations, parseShopUrl } from "@/lib/discount-codes";
 import type { Prisma } from "@prisma/client";
 import { ownImageUrl } from "@/lib/posts";
 import { tenantDb } from "@/lib/tenant";
-import { savedFlash, savedParam } from "./saved-note";
+import { createdFlash, savedFlash, savedParam } from "./saved-note";
 
-export type CodeActionState = { ok?: string; error?: string } | undefined;
+export type CodeActionState = { ok?: string; error?: string; /** Canva: se acaba de crear. */ created?: boolean } | undefined;
 
 /** La página pública está cacheada (ISR): los cambios deben verse ya. */
 function refresh(username: string, id?: string) {
@@ -19,8 +19,8 @@ function refresh(username: string, id?: string) {
   if (id) revalidatePath(`/panel/codigos/${id}`);
 }
 
-/** Crea o guarda un código de descuento. Al crearlo, vuelve a la lista. */
-export async function saveDiscountCode(_: CodeActionState, form: FormData): Promise<CodeActionState> {
+/** Crea o guarda un código de descuento (lo que comparten el panel y el Canva). */
+async function storeCode(form: FormData): Promise<{ error: string } | { created: boolean; state: CodeState }> {
   const { creator } = await requireCreator();
   const db = tenantDb(creator.id);
   const parsed = discountCodeFormSchema.safeParse(Object.fromEntries(form));
@@ -49,12 +49,35 @@ export async function saveDiscountCode(_: CodeActionState, form: FormData): Prom
     const last = await db.discountCode.findFirst({ orderBy: { sortOrder: "desc" }, select: { sortOrder: true } });
     await db.discountCode.create({ data: { creatorId: creator.id, ...data, sortOrder: (last?.sortOrder ?? 0) + 1 } });
     refresh(creator.username);
-    // El aviso dice si se ve de verdad: oculto o ya caducado, no.
-    redirect(`/panel/codigos?guardado=${savedParam(codeState(data))}`);
+    return { created: true, state: codeState(data) };
   }
   await db.discountCode.update({ where: { id: current.id }, data });
   refresh(creator.username, current.id);
-  return { ok: savedFlash(codeState(data)) };
+  return { created: false, state: codeState(data) };
+}
+
+/** Crea o guarda un código de descuento. Al crearlo, vuelve a la lista. */
+export async function saveDiscountCode(_: CodeActionState, form: FormData): Promise<CodeActionState> {
+  const r = await storeCode(form);
+  if ("error" in r) return { error: r.error };
+  // El aviso dice si se ve de verdad: oculto o ya caducado, no.
+  if (r.created) redirect(`/panel/codigos?guardado=${savedParam(r.state)}`);
+  return { ok: savedFlash(r.state) };
+}
+
+/** Lo mismo desde el Canva: sin salir de la web que se está editando. */
+export async function saveDiscountCodeInline(_: CodeActionState, form: FormData): Promise<CodeActionState> {
+  const r = await storeCode(form);
+  if ("error" in r) return { error: r.error };
+  return { ok: r.created ? createdFlash(savedParam(r.state)) : savedFlash(r.state), created: r.created };
+}
+
+/** Borrar desde el Canva (de verdad, sin salir de la web que se está editando). */
+export async function deleteDiscountCodeInline(id: string) {
+  const { creator } = await requireCreator();
+  const clean = z.string().min(1).max(40).parse(id);
+  await tenantDb(creator.id).discountCode.deleteMany({ where: { id: clean } });
+  refresh(creator.username);
 }
 
 export async function deleteDiscountCode(form: FormData) {

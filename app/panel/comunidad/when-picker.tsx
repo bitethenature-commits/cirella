@@ -61,20 +61,20 @@ export function WhenPicker({
     <div className="when-picker grid gap-5 sm:grid-cols-[minmax(0,19rem)_1fr] sm:items-start">
       <input type="hidden" name={name} value={day && /^\d{2}:\d{2}$/.test(time) ? `${day}T${time}` : ""} />
 
-      <div className="rounded-[1.6rem] border border-[#d4b57a]/35 bg-[#0b0a1c] p-4 shadow-[0_30px_60px_-30px_rgb(0_0_0/.9)]">
+      <div className="rounded-[1.6rem] border border-[color:var(--n-gold,#d4b57a)]/35 bg-[color:var(--n-deep,#0b0a1c)] p-4 shadow-[0_30px_60px_-30px_rgb(0_0_0/.9)]">
         <div className="mb-3 flex items-center justify-between">
-          <button type="button" onClick={() => shift(-1)} disabled={!canBack} className="grid h-9 w-9 place-items-center rounded-full text-[#d4b57a] hover:bg-[#d4b57a]/10 disabled:opacity-25" aria-label="Mes anterior">
+          <button type="button" onClick={() => shift(-1)} disabled={!canBack} className="grid h-9 w-9 place-items-center rounded-full text-[color:var(--n-gold,#d4b57a)] hover:bg-[color:var(--n-gold,#d4b57a)]/10 disabled:opacity-25" aria-label="Mes anterior">
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <p className="display text-[1.35rem] font-light capitalize text-[#f1ebdf]">
-            {MONTHS[m - 1]} <span className="text-[#d4b57a]">{y}</span>
+          <p className="display text-[1.35rem] font-light capitalize text-[color:var(--n-ivory,#f1ebdf)]">
+            {MONTHS[m - 1]} <span className="text-[color:var(--n-gold,#d4b57a)]">{y}</span>
           </p>
-          <button type="button" onClick={() => shift(1)} className="grid h-9 w-9 place-items-center rounded-full text-[#d4b57a] hover:bg-[#d4b57a]/10" aria-label="Mes siguiente">
+          <button type="button" onClick={() => shift(1)} className="grid h-9 w-9 place-items-center rounded-full text-[color:var(--n-gold,#d4b57a)] hover:bg-[color:var(--n-gold,#d4b57a)]/10" aria-label="Mes siguiente">
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
-        <span aria-hidden className="mb-2 block h-px bg-gradient-to-r from-transparent via-[#d4b57a]/50 to-transparent" />
-        <div className="grid grid-cols-7 text-center text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-[#d4b57a]/70" aria-hidden>
+        <span aria-hidden className="mb-2 block h-px bg-gradient-to-r from-transparent via-[color:var(--n-gold,#d4b57a)]/50 to-transparent" />
+        <div className="grid grid-cols-7 text-center text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-[color:var(--n-gold,#d4b57a)]/70" aria-hidden>
           {WEEKDAYS.map((w) => (
             <span key={w} className="py-1.5">
               {w}
@@ -99,8 +99,8 @@ export function WhenPicker({
                   on
                     ? "bg-gradient-to-br from-[#f7e5b8] to-[#c9a45f] font-semibold text-[#2a1e0c] shadow-[0_0_18px_rgb(212_181_122/.55)]"
                     : k === today
-                      ? "text-[#f0d9a4] ring-1 ring-[#d4b57a]/60"
-                      : "text-[#f1ebdf]/85 hover:bg-[#d4b57a]/12 hover:text-[#f0d9a4]"
+                      ? "text-[color:var(--n-gold-hi,#f0d9a4)] ring-1 ring-[color:var(--n-gold,#d4b57a)]/60"
+                      : "text-[color:var(--n-ivory,#f1ebdf)]/85 hover:bg-[color:var(--n-gold,#d4b57a)]/12 hover:text-[color:var(--n-gold-hi,#f0d9a4)]"
                 } ${inMonth ? "" : "opacity-35"}`}
               >
                 {Number(k.slice(8))}
@@ -113,7 +113,7 @@ export function WhenPicker({
 
       <div className="space-y-3">
         <label className="block">
-          <span className="flex items-center gap-1.5 text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-[#d4b57a]">
+          <span className="flex items-center gap-1.5 text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-[color:var(--n-gold,#d4b57a)]">
             <Clock className="h-3.5 w-3.5" /> La hora
           </span>
           <input
@@ -122,17 +122,17 @@ export function WhenPicker({
             disabled={!day}
             onChange={(e) => set(day, e.target.value)}
             aria-label="Hora"
-            className="mt-2 h-14 w-full max-w-[11rem] rounded-2xl border border-[#d4b57a]/40 bg-[#0b0a1c] px-4 font-serif text-[1.6rem] text-[#f1ebdf] outline-none transition [color-scheme:dark] focus:border-[#d4b57a] disabled:opacity-40"
+            className="mt-2 h-14 w-full max-w-[11rem] rounded-2xl border border-[color:var(--n-gold,#d4b57a)]/40 bg-[color:var(--n-deep,#0b0a1c)] px-4 font-serif text-[1.6rem] text-[color:var(--n-ivory,#f1ebdf)] outline-none transition [color-scheme:dark] focus:border-[color:var(--n-gold,#d4b57a)] disabled:opacity-40"
           />
         </label>
-        <p className="rounded-2xl border border-[#d4b57a]/20 bg-[#d4b57a]/[.06] px-4 py-3 text-sm text-[#f1ebdf]/85" aria-live="polite">
+        <p className="rounded-2xl border border-[color:var(--n-gold,#d4b57a)]/20 bg-[color:var(--n-gold,#d4b57a)]/[.06] px-4 py-3 text-sm text-[color:var(--n-ivory,#f1ebdf)]/85" aria-live="polite">
           {day && time ? (
             <>
-              Saldrá el <strong className="font-semibold text-[#f0d9a4]">{pretty(day)}</strong> a las <strong className="font-semibold text-[#f0d9a4]">{time}</strong>
-              <span className="mt-0.5 block text-xs text-[#a7a2c2]">Hora de {cityLabel}. Hasta entonces, nadie más la ve.</span>
+              Saldrá el <strong className="font-semibold text-[color:var(--n-gold-hi,#f0d9a4)]">{pretty(day)}</strong> a las <strong className="font-semibold text-[color:var(--n-gold-hi,#f0d9a4)]">{time}</strong>
+              <span className="mt-0.5 block text-xs text-[color:var(--n-muted,#a7a2c2)]">Hora de {cityLabel}. Hasta entonces, nadie más la ve.</span>
             </>
           ) : (
-            <span className="text-[#a7a2c2]">Elige el día en el calendario y luego la hora.</span>
+            <span className="text-[color:var(--n-muted,#a7a2c2)]">Elige el día en el calendario y luego la hora.</span>
           )}
         </p>
       </div>

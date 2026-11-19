@@ -1,7 +1,7 @@
 "use client";
-import { ArrowLeft, Check, ExternalLink, ImagePlus, Link2, Loader2, Paintbrush, TriangleAlert, X } from "lucide-react";
+import { ArrowLeft, Check, ExternalLink, ImagePlus, Link2, Loader2, Paintbrush, Pencil, TriangleAlert, X } from "lucide-react";
 import Link from "next/link";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { askText } from "@/components/ui/ask-confirm";
 import { uploadImage } from "@/components/ui/image-upload";
 
@@ -162,6 +162,72 @@ export function EditLink({ url, onChange, suggestions }: { url: string; onChange
     >
       <Link2 className="h-3 w-3" /> Enlace
     </button>
+  );
+}
+
+/**
+ * Una parte de la web que se cambia en su ventanita (redes, botones, testimonios, un código, el pie…): al
+ * pulsarla se abre. Sus textos se siguen escribiendo encima y sus botones («Copiar», «Ver más»…) siguen
+ * funcionando.
+ */
+export function PartFrame({ label, onOpen, className, children }: { label: string; onOpen: () => void; className?: string; children: ReactNode }) {
+  return (
+    <div
+      className={`canva-part ${className ?? ""}`}
+      onClick={(e) => {
+        const t = e.target as HTMLElement;
+        if (t.closest(".canva-text, [data-canva-ui], button, summary, input, textarea, select")) return;
+        // La de dentro gana (un código dentro de la lista de códigos).
+        e.stopPropagation();
+        onOpen();
+      }}
+    >
+      <button
+        type="button"
+        data-canva-ui
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpen();
+        }}
+        className="canva-part-chip absolute right-0 top-0 z-30 inline-flex -translate-y-1/2 items-center gap-1 rounded-full border border-[#e9cc8e]/50 bg-[#1d1838]/90 px-2.5 py-1 text-[0.7rem] font-semibold text-[#f3e2b3] shadow"
+      >
+        <Pencil className="h-3 w-3" /> {label}
+      </button>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * La ventanita de una parte: abajo a la derecha (en el móvil, abajo del todo), con la web detrás para ver
+ * cada cambio al momento.
+ */
+export function CanvaSheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !(e.target as HTMLElement | null)?.closest?.("input, textarea, select")) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div data-canva-ui className="fixed inset-0 z-[90] flex items-end justify-center bg-black/25 sm:justify-end sm:p-5" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div role="dialog" aria-modal="true" aria-label={title} className="flex max-h-[85vh] w-full flex-col rounded-t-2xl bg-paper text-ink shadow-2xl animate-fade-in sm:max-h-[calc(100vh-2.5rem)] sm:max-w-[30rem] sm:rounded-2xl">
+        <div className="flex items-center justify-between border-b border-line px-5 py-3">
+          <p className="font-semibold">{title}</p>
+          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand" aria-label="Cerrar">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">{children}</div>
+        <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3">
+          <p className="text-xs text-muted">Se publica solo al momento.</p>
+          <button type="button" onClick={onClose} className="btn btn-primary btn-sm">
+            Listo
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

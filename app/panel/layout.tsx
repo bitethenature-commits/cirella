@@ -10,7 +10,8 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { requireCreator } from "@/lib/auth";
 import { appHost, appUrl } from "@/lib/env";
 import { readPageConfig } from "@/lib/page-config";
-import { panelThemeVars, readPanelPrefs } from "@/lib/panel-prefs";
+import { PanelDesignRoot } from "@/components/panel-design-root";
+import { readPanelPrefs } from "@/lib/panel-prefs";
 import { ownerUsername } from "@/lib/site-mode";
 import { BottomNav, SideNav } from "./nav";
 import { panelNavFlags } from "./nav-flags";
@@ -24,19 +25,14 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   if (owner && creator.username !== owner) redirect("/entrar?error=cerrado");
   const flags = await panelNavFlags(creator.id);
   const cfg = readPageConfig(creator.pageDraft, creator.displayName);
-  // «Personalizar mi panel» (Ajustes): colores (variables CSS) y orden del menú. Sin nada guardado, el de siempre.
+  // «Diseño de mi panel» (Ajustes): su diseño y el orden del menú. Sin nada guardado, el de siempre.
   const prefs = readPanelPrefs(creator.panelPrefs);
   // En modo personal su página es la portada de la web.
   const url = owner ? appUrl() : `${appUrl()}/${creator.username}`;
   const pretty = owner ? appHost() : `${appHost()}/${creator.username}`;
   const publicHref = owner ? "/" : `/${creator.username}`;
   return (
-    <div
-      className={`panel-root min-h-dvh text-ink lg:grid lg:grid-cols-[248px_1fr] ${prefs.theme?.accent ? "bg-paper" : "panel-night"}`}
-      data-panel-root
-      data-panel-tone={prefs.theme?.tone}
-      style={panelThemeVars(prefs.theme) as React.CSSProperties}
-    >
+    <PanelDesignRoot saved={{ design: prefs.design, sidebar: prefs.sidebar }} className="min-h-dvh text-ink lg:grid lg:grid-cols-[248px_1fr]">
       <aside className="panel-side sticky top-0 hidden h-dvh flex-col border-r border-line px-4 py-5 lg:flex">
         <BrandLogo href="/panel" />
         <div className="mt-6 flex items-center gap-2.5 rounded-2xl border border-line bg-white p-2.5" style={{ ["--c-accent" as string]: "#0E1024", ["--c-accent-text" as string]: "#F6F1E7" }}>
@@ -87,6 +83,6 @@ export default async function PanelLayout({ children }: { children: React.ReactN
         </main>
       </div>
       <BottomNav flags={flags} nav={prefs.nav} />
-    </div>
+    </PanelDesignRoot>
   );
 }

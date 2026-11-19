@@ -44,11 +44,6 @@ export function dignityOf(planet: string, sign: number): Dignity | "peregrine" {
   return "peregrine";
 }
 
-/** Decanato (0-35) y su regente: el del signo del mismo elemento que toca (método de triplicidades). */
-export function decanOf(lon: number) {
-  const i = Math.floor(norm(lon) / 10);
-  return i;
-}
 export function decanRuler(i: number) {
   const s = Math.floor(i / 3);
   const d = i % 3;

@@ -5,13 +5,6 @@
  */
 export const ASTRO_GROUPS = ["planets", "moon", "asteroids", "points"] as const;
 export type AstroGroup = (typeof ASTRO_GROUPS)[number];
-export const ASTRO_GROUP_ES: Record<AstroGroup, string> = { planets: "Planetas", moon: "Luna", asteroids: "Asteroides", points: "Puntos" };
-export const ASTRO_GROUP_HINT: Record<AstroGroup, string> = {
-  planets: "Sol, Mercurio… Plutón",
-  moon: "lunas, eclipses y la Luna",
-  asteroids: "Ceres, Palas, Juno, Vesta y Eris",
-  points: "Quirón, Lilith y los nodos",
-};
 
 export type Visible = Record<AstroGroup, boolean>;
 export const ALL_VISIBLE: Visible = { planets: true, moon: true, asteroids: true, points: true };

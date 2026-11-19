@@ -18,7 +18,6 @@ import { NIGHT_CHART_STYLE } from "./night-chart-style";
 const EXAMPLE_BASE = { name: "Cirella", date: "1988-11-14", time: "07:45", timeKnown: true, place: "Sevilla", lat: 37.38, lon: -5.97, tz: "Europe/Madrid" };
 const VS = "︎";
 
-export const pointLabel = (p: CustomPoint) => (p === "asc" ? "Ascendente" : p === "mc" ? "Medio Cielo" : BODY_INFO[p].name);
 export const pointGlyph = (p: CustomPoint) => (p === "asc" ? "AC" : p === "mc" ? "MC" : BODY_INFO[p].glyph + VS);
 
 export function CustomChartEditor({ value, onChange, previewStyle }: { value: CustomChartData; onChange: (v: CustomChartData) => void; previewStyle?: CSSProperties }) {

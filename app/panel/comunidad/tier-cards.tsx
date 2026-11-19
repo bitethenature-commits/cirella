@@ -38,7 +38,7 @@ type View = "web" | "area";
 
 /** Lo que se escribe directamente sobre el portal: sin caja, con una línea dorada suave al pasar o escribir. */
 const inline =
-  "rounded-lg bg-transparent outline-none ring-1 ring-[#d4b57a]/15 transition placeholder:text-[#a7a2c2]/60 hover:ring-[#d4b57a]/45 focus:ring-[#d4b57a]/80";
+  "rounded-lg bg-transparent outline-none ring-1 ring-[color:var(--n-gold,#d4b57a)]/15 transition placeholder:text-[color:var(--n-muted,#a7a2c2)]/60 hover:ring-[color:var(--n-gold,#d4b57a)]/45 focus:ring-[color:var(--n-gold,#d4b57a)]/80";
 const fit = (v: string, min = 2) => ({ width: `${Math.max(min, v.length) + 0.6}ch` });
 
 /**
@@ -158,7 +158,7 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
           <button
             type="button"
             onClick={() => fileInput.current?.click()}
-            className="absolute right-5 top-[22%] z-10 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#d4b57a]/50 bg-black/45 px-3 text-xs font-semibold text-[#f0d9a4] backdrop-blur transition hover:bg-black/65"
+            className="absolute right-5 top-[22%] z-10 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[color:var(--n-gold,#d4b57a)]/50 bg-black/45 px-3 text-xs font-semibold text-[color:var(--n-gold-hi,#f0d9a4)] backdrop-blur transition hover:bg-black/65"
           >
             {upload !== null ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
             {upload !== null ? (upload < 100 ? `${upload} %` : "Optimizando…") : image ? "Cambiar la foto" : "Poner foto"}
@@ -185,7 +185,7 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
           ) : (
             <>
               <span className="portal-cta inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold">✦ Entrar al portal</span>
-              <p className="mt-3 text-xs text-[#a7a2c2]">Quien aún no lo tiene lo ve tenue, con un candado.</p>
+              <p className="mt-3 text-xs text-[color:var(--n-muted,#a7a2c2)]">Quien aún no lo tiene lo ve tenue, con un candado.</p>
             </>
           )
         }
@@ -219,7 +219,7 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
                     <button
                       type="button"
                       onClick={() => setIconOpen((o) => (o === i ? null : i))}
-                      className="portal-emblem mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#d4b57a] transition hover:brightness-125"
+                      className="portal-emblem mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full text-[color:var(--n-gold,#d4b57a)] transition hover:brightness-125"
                       aria-label={`Cambiar el icono de «${f.title || "esta línea"}»`}
                       aria-expanded={iconOpen === i}
                     >
@@ -237,11 +237,11 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
                         className={`tier-portal-muted block w-full resize-none px-1 text-[0.84rem] leading-snug [field-sizing:content] ${inline}`}
                       />
                     </span>
-                    <button type="button" onClick={() => setFeatures((l) => l.filter((_, k) => k !== i))} className="mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[#a7a2c2] hover:text-[#f0d9a4]" aria-label={`Quitar «${f.title || "esta línea"}»`}>
+                    <button type="button" onClick={() => setFeatures((l) => l.filter((_, k) => k !== i))} className="mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[color:var(--n-muted,#a7a2c2)] hover:text-[color:var(--n-gold-hi,#f0d9a4)]" aria-label={`Quitar «${f.title || "esta línea"}»`}>
                       <X className="h-3.5 w-3.5" />
                     </button>
                     {iconOpen === i && (
-                      <div className="absolute left-0 top-11 z-30 grid w-[15rem] grid-cols-6 gap-1 rounded-2xl border border-[#d4b57a]/40 bg-[#15122c] p-2 shadow-2xl" role="listbox" aria-label="Iconos">
+                      <div className="absolute left-0 top-11 z-30 grid w-[15rem] grid-cols-6 gap-1 rounded-2xl border border-[color:var(--n-gold,#d4b57a)]/40 bg-[color:var(--n-deep,#15122c)] p-2 shadow-2xl" role="listbox" aria-label="Iconos">
                         {TIER_ICON_KEYS.map((k) => {
                           const I = TIER_ICONS[k];
                           return (
@@ -254,7 +254,7 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
                                 setAt(i, { icon: k });
                                 setIconOpen(null);
                               }}
-                              className={`grid h-9 w-9 place-items-center rounded-xl text-[#f0d9a4] transition hover:bg-[#d4b57a]/15 ${f.icon === k ? "bg-[#d4b57a]/25" : ""}`}
+                              className={`grid h-9 w-9 place-items-center rounded-xl text-[color:var(--n-gold-hi,#f0d9a4)] transition hover:bg-[color:var(--n-gold,#d4b57a)]/15 ${f.icon === k ? "bg-[color:var(--n-gold,#d4b57a)]/25" : ""}`}
                               aria-label={k}
                             >
                               <I className="h-4 w-4" />
@@ -268,7 +268,7 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
               })}
             </ul>
             {features.length < TIER_FEATURES_MAX && (
-              <button type="button" onClick={() => setFeatures((l) => [...l, { title: "", detail: null, icon: "star" }])} className="relative mt-3 inline-flex items-center gap-1.5 self-start text-sm text-[#f0d9a4] underline-offset-4 hover:underline">
+              <button type="button" onClick={() => setFeatures((l) => [...l, { title: "", detail: null, icon: "star" }])} className="relative mt-3 inline-flex items-center gap-1.5 self-start text-sm text-[color:var(--n-gold-hi,#f0d9a4)] underline-offset-4 hover:underline">
                 <Plus className="h-4 w-4" /> Añadir lo que incluye
               </button>
             )}

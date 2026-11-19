@@ -86,7 +86,6 @@ export const SPREADS: Record<string, { label: string; text: string; small?: bool
   },
 };
 const SPREAD_IDS = Object.keys(SPREADS);
-export const ORC_SPREAD_KEYS = SPREAD_IDS.flatMap((id) => SPREADS[id].pos.map((_, i) => `${id}-${i}`));
 
 /* ------------------------------------------------------------ los textos */
 

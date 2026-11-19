@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { useActionState } from "react";
+import { useActionState, type ReactNode } from "react";
+import { siteText, type SiteTextKey, type SiteTexts, type TextVars } from "@/lib/site-texts";
+import type { TextEdit } from "./home-edit";
 import { subscribeFromPage, type NewsletterSignupState } from "@/app/[username]/newsletter-actions";
 
 /**
@@ -22,9 +24,13 @@ export function NewsletterSignup({
   preview = false,
   demo = false,
   opensPortal = false,
+  texts,
+  editText,
+  editButton,
 }: {
   variant: "section" | "footer";
-  title?: string;
+  /** En el Canva, el título escrito encima. */
+  title?: ReactNode;
   text?: string;
   button: string;
   creatorName: string;
@@ -34,14 +40,36 @@ export function NewsletterSignup({
   demo?: boolean;
   /** Web personal con Portal de noticias: avisa de que suscribirse lo abre. */
   opensPortal?: boolean;
+  /** Sus textos fijos (lib/site-texts.ts) y, en el Canva, cómo se escriben encima. */
+  texts?: SiteTexts;
+  editText?: TextEdit;
+  /** En el Canva: el texto del botón escrito encima (el botón no envía nada). */
+  editButton?: ReactNode;
 }) {
+  const t = (key: SiteTextKey, vars?: TextVars): ReactNode => {
+    const v = siteText(texts, key, vars);
+    return editText ? editText(key, v, vars) : v;
+  };
+  // En el Canva las etiquetas no son <label> (al pulsarlas saltaría al campo en vez de escribir encima).
+  const Label = editText ? "p" : "label";
   const [state, action, pending] = useActionState<NewsletterSignupState, FormData>(subscribeFromPage, undefined);
   const id = `nl-${variant}`;
+  // En el Canva no es un <button>: dentro de uno no se puede escribir.
+  const submit = (className: string) =>
+    editButton ? (
+      <span role="button" className={className}>
+        {editButton}
+      </span>
+    ) : (
+      <button type="submit" disabled={pending} className={className}>
+        {pending && <Loader2 className="h-4 w-4 animate-spin" />} {button}
+      </button>
+    );
   if (state?.ok)
     return (
       <div className={`cp-card p-5 text-center ${variant === "footer" ? "w-full max-w-md" : ""}`} role="status">
         <CheckCircle2 className="cp-gold mx-auto h-8 w-8" />
-        <p className="cp-display mt-2 text-[1.45rem] leading-tight">Revisa tu email y confirma</p>
+        <p className="cp-display mt-2 text-[1.45rem] leading-tight">{t("nl.doneTitle")}</p>
         <p className="cp-muted mt-1.5 text-sm leading-relaxed">
           Te hemos enviado un email a {state.email}. Pulsa «Sí, quiero recibirla» y ya estarás dentro. Si no lo ves, mira en spam o en promociones.
         </p>
@@ -54,8 +82,9 @@ export function NewsletterSignup({
     );
   const small = (
     <p className="cp-faint mt-2 text-xs leading-relaxed">
-      Te enviaré un email para confirmar. Solo lo usaré para la newsletter de {creatorName}; puedes darte de baja cuando quieras con el enlace de cada email.{" "}
-      <Link href={privacyHref} className="underline underline-offset-2">Privacidad</Link>
+      {t("nl.consent", { nombre: creatorName })}{" "}
+      {/* El enlace a la privacidad siempre sale (RGPD): se cambia su nombre, no se quita. */}
+      <Link href={privacyHref} className="underline underline-offset-2">{t("nl.privacy")}</Link>
     </p>
   );
   return (
@@ -72,33 +101,29 @@ export function NewsletterSignup({
           {text && <p className="cp-muted mt-2 text-[0.95rem] leading-relaxed">{text}</p>}
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-xs font-medium" htmlFor={`${id}-name`}>Nombre (opcional)</label>
+              <Label className="mb-1.5 block text-xs font-medium" htmlFor={editText ? undefined : `${id}-name`}>{t("nl.name")}</Label>
               <input id={`${id}-name`} name="name" maxLength={80} autoComplete="given-name" className="cp-input" placeholder="Tu nombre" />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium" htmlFor={`${id}-email`}>Email</label>
+              <Label className="mb-1.5 block text-xs font-medium" htmlFor={editText ? undefined : `${id}-email`}>{t("nl.email")}</Label>
               <input id={`${id}-email`} name="email" type="email" required maxLength={200} autoComplete="email" inputMode="email" className="cp-input" placeholder="tu@email.com" />
             </div>
           </div>
-          <button type="submit" disabled={pending} className="cp-btn mt-4 h-12 w-full justify-center sm:w-auto">
-            {pending && <Loader2 className="h-4 w-4 animate-spin" />} {button}
-          </button>
+          {submit("cp-btn mt-4 h-12 w-full justify-center sm:w-auto")}
         </>
       ) : (
         <>
-          <label className="mb-1.5 block text-sm font-semibold" htmlFor={`${id}-email`}>{title || "Recibe mi newsletter"}</label>
+          <Label className="mb-1.5 block text-sm font-semibold" htmlFor={editText ? undefined : `${id}-email`}>{title || t("nl.footerTitle")}</Label>
           <div className="flex gap-2">
             <input id={`${id}-email`} name="email" type="email" required maxLength={200} autoComplete="email" inputMode="email" className="cp-input min-w-0 flex-1" placeholder="tu@email.com" />
-            <button type="submit" disabled={pending} className="cp-btn h-12 shrink-0 justify-center">
-              {pending && <Loader2 className="h-4 w-4 animate-spin" />} {button}
-            </button>
+            {submit("cp-btn h-12 shrink-0 justify-center")}
           </div>
         </>
       )}
       {opensPortal && (
         <p className="cp-gold mt-3 flex items-start gap-1.5 text-[0.85rem] leading-snug" data-opens-portal>
           <span aria-hidden>✦</span>
-          <span>Al suscribirte se abre también el Portal de noticias: audios, vídeos y avisos solo para quien está suscrita.</span>
+          <span>{t("nl.portal")}</span>
         </p>
       )}
       {state?.error && <p className="mt-2 text-sm text-[#b4443a]" role="alert">{state.error}</p>}

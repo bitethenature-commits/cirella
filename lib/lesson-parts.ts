@@ -222,7 +222,3 @@ export const ADD_PART: Record<AddPartKind, { label: string; accept: string; file
   OTHER: { label: "Otro archivo", accept: ".zip,.epub,application/zip,application/epub+zip", fileKinds: ["OTHER", "LINK"], multiple: false, embed: false },
 };
 
-/** Botón que corresponde a un archivo ya subido (para elegir el botón al terminar una subida). */
-export function addPartFor(fileKind: string): AddPartKind {
-  return fileKind === "VIDEO" || fileKind === "AUDIO" || fileKind === "PDF" || fileKind === "IMAGE" ? fileKind : "OTHER";
-}

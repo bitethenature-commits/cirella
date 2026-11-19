@@ -58,12 +58,6 @@ export const DISPUTE_STATUS_LABEL: Record<string, string> = {
   LOST: "Contracargo perdido",
 };
 
-export const SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
-  ACTIVE: "Activa",
-  PAST_DUE: "Pago pendiente",
-  CANCELED: "Cancelada",
-};
-
 export const BOOKING_STATUS_LABEL: Record<string, string> = {
   PENDING_SCHEDULE: "Pendiente de fecha",
   CONFIRMED: "Confirmada",
@@ -77,13 +71,6 @@ export const BOOKING_STATUS_LABEL: Record<string, string> = {
  */
 export const LESSON_KINDS = ["VIDEO", "AUDIO", "PDF", "TEXT", "EXERCISE"] as const;
 export type LessonKind = (typeof LESSON_KINDS)[number];
-export const LESSON_KIND_LABEL: Record<LessonKind, string> = {
-  VIDEO: "Vídeo",
-  AUDIO: "Audio",
-  PDF: "PDF",
-  TEXT: "Lectura",
-  EXERCISE: "Ejercicio",
-};
 
 /**
  * Eventos de métricas (AnalyticsEvent.type). Sin cookies: el visitante del día lo calcula el servidor.

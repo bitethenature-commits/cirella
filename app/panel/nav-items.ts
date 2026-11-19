@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Brush,
   ClipboardList,
   CreditCard,
   FileText,
@@ -22,36 +23,42 @@ import {
   Users,
   Video,
   Zap,
+  type LucideIcon,
 } from "lucide-react";
 
 import { bottomBarItems, orderNav, type PanelNavPrefs } from "@/lib/panel-prefs";
 
+/** Los bloques del menú (barra lateral y «Más»). Inicio, Plan y Ajustes van sueltos. */
+export type NavGroup = "web" | "offer" | "people" | "data";
+export const NAV_GROUPS: Record<NavGroup, string> = { web: "Mi web", offer: "Lo que ofreces", people: "Personas", data: "Datos y modelos" };
+
+export type PanelNavItem = { href: string; label: string; icon: LucideIcon; group?: NavGroup };
+
 // Datos de navegación del panel. Viven fuera del módulo "use client" para que también
-// los pueda usar un Server Component (p. ej. /panel/mas).
-export const PANEL_NAV = [
+// los pueda usar un Server Component (p. ej. /panel/mas). En su orden de siempre, por bloques.
+export const PANEL_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Inicio", icon: Home },
-  { href: "/panel/pagina", label: "Mi página", icon: Palette },
-  { href: "/panel/sesiones", label: "Sesiones y lecturas", icon: Video },
-  { href: "/panel/circulos", label: "Círculos de la Luna", icon: Moon },
-  { href: "/panel/ventas", label: "Ventas", icon: Receipt },
-  { href: "/panel/clientes", label: "Clientes", icon: Users },
-  { href: "/panel/solicitudes", label: "Solicitudes", icon: Inbox },
-  { href: "/panel/estadisticas", label: "Estadísticas", icon: BarChart3 },
-  { href: "/panel/automatizaciones", label: "Automatizaciones", icon: Zap },
-  { href: "/panel/modelos", label: "Modelos", icon: Orbit },
+  { href: "/panel/pagina", label: "Mi página", icon: Palette, group: "web" },
+  { href: "/panel/canva", label: "Editar la web", icon: Brush, group: "web" },
+  { href: "/panel/circulos", label: "Círculos de la Luna", icon: Moon, group: "offer" },
+  { href: "/panel/sesiones", label: "Sesiones y lecturas", icon: Video, group: "offer" },
+  { href: "/panel/solicitudes", label: "Solicitudes", icon: Inbox, group: "people" },
+  { href: "/panel/ventas", label: "Ventas", icon: Receipt, group: "people" },
+  { href: "/panel/clientes", label: "Clientes", icon: Users, group: "people" },
+  { href: "/panel/automatizaciones", label: "Automatizaciones", icon: Zap, group: "people" },
+  { href: "/panel/estadisticas", label: "Estadísticas", icon: BarChart3, group: "data" },
+  { href: "/panel/modelos", label: "Modelos", icon: Orbit, group: "data" },
   { href: "/panel/plan", label: "Plan", icon: Sparkles },
   { href: "/panel/ajustes", label: "Ajustes", icon: Settings },
 ];
 
-export const MOBILE_NAV = [
+export const MOBILE_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Inicio", icon: Home },
   { href: "/panel/sesiones", label: "Sesiones", icon: Video },
   { href: "/panel/pagina", label: "Página", icon: Palette },
   { href: "/panel/ventas", label: "Ventas", icon: CreditCard },
   { href: "/panel/mas", label: "Más", icon: Menu },
 ];
-
-export type PanelNavItem = (typeof PANEL_NAV)[number];
 
 /**
  * Qué enseña el menú. Lo calcula el servidor (app/panel/nav-flags.ts) y viaja a los componentes
@@ -64,35 +71,38 @@ export type PanelNavFlags = {
   sales?: boolean;
   /** Enseñar «Reservas» (en modo personal, solo si hay sesiones que se reservan aquí). */
   showBookings: boolean;
+  /** Un número junto a una sección (las solicitudes por contestar). */
+  badges?: Record<string, number>;
 };
 
 export const PLATFORM_NAV_FLAGS: PanelNavFlags = { personal: false, showBookings: true };
 
 /**
  * Menú en modo personal: sin Plan (ni nada de cobros), «Ventas» pasa a ser «Inscripciones» (quién
- * se ha apuntado a qué) y se añaden Páginas (extra), Cursos (estudio de cursos), Comunidad (estudio
- * de la membresía), Publicaciones («Actualidades»), Portal de Noticias, Barajas (de oráculo), Códigos
- * y Newsletter. Reservas, solo si hay sesiones con reserva aquí. Con «Personalizar mi panel», las
- * secciones nuevas van al final de su orden (lib/panel-prefs.ts → orderNav).
+ * se ha apuntado a qué) y se añaden Páginas (extra), Cursos (estudio de cursos), Membresía (estudio
+ * de la membresía, en /panel/comunidad), Publicaciones («Actualidades»), Portal de Noticias, Barajas (de oráculo), Códigos
+ * y Newsletter, por bloques (NAV_GROUPS). Con su propio orden (Ajustes), las secciones nuevas van al final
+ * (lib/panel-prefs.ts → orderNav).
  */
 const PERSONAL_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Inicio", icon: Home },
-  { href: "/panel/pagina", label: "Mi página", icon: Palette },
-  { href: "/panel/paginas", label: "Páginas", icon: FileText },
-  { href: "/panel/comunidad", label: "Comunidad", icon: MessagesSquare },
-  { href: "/panel/actualidades", label: "Actualidades", icon: Newspaper },
-  { href: "/panel/portal", label: "Portal de Noticias", icon: Gift },
-  { href: "/panel/cursos", label: "Cursos", icon: GraduationCap },
-  { href: "/panel/sesiones", label: "Sesiones y lecturas", icon: Video },
-  { href: "/panel/circulos", label: "Círculos de la Luna", icon: Moon },
-  { href: "/panel/solicitudes", label: "Solicitudes", icon: Inbox },
-  { href: "/panel/ventas", label: "Inscripciones", icon: ClipboardList },
-  { href: "/panel/newsletter", label: "Newsletter", icon: Mail },
-  { href: "/panel/barajas", label: "Barajas", icon: Layers },
-  { href: "/panel/codigos", label: "Códigos", icon: TicketPercent },
-  { href: "/panel/modelos", label: "Modelos", icon: Orbit },
-  { href: "/panel/estadisticas", label: "Estadísticas", icon: BarChart3 },
-  { href: "/panel/clientes", label: "Clientes", icon: Users },
+  { href: "/panel/pagina", label: "Mi página", icon: Palette, group: "web" },
+  { href: "/panel/canva", label: "Editar la web", icon: Brush, group: "web" },
+  { href: "/panel/paginas", label: "Páginas", icon: FileText, group: "web" },
+  { href: "/panel/actualidades", label: "Actualidades", icon: Newspaper, group: "web" },
+  { href: "/panel/portal", label: "Portal de Noticias", icon: Gift, group: "web" },
+  { href: "/panel/codigos", label: "Códigos", icon: TicketPercent, group: "web" },
+  { href: "/panel/comunidad", label: "Membresía", icon: MessagesSquare, group: "offer" },
+  { href: "/panel/circulos", label: "Círculos de la Luna", icon: Moon, group: "offer" },
+  { href: "/panel/cursos", label: "Cursos", icon: GraduationCap, group: "offer" },
+  { href: "/panel/sesiones", label: "Sesiones y lecturas", icon: Video, group: "offer" },
+  { href: "/panel/solicitudes", label: "Solicitudes", icon: Inbox, group: "people" },
+  { href: "/panel/ventas", label: "Inscripciones", icon: ClipboardList, group: "people" },
+  { href: "/panel/clientes", label: "Clientes", icon: Users, group: "people" },
+  { href: "/panel/newsletter", label: "Newsletter", icon: Mail, group: "people" },
+  { href: "/panel/estadisticas", label: "Estadísticas", icon: BarChart3, group: "data" },
+  { href: "/panel/modelos", label: "Modelos", icon: Orbit, group: "data" },
+  { href: "/panel/barajas", label: "Barajas", icon: Layers, group: "data" },
   { href: "/panel/ajustes", label: "Ajustes", icon: Settings },
 ];
 
@@ -120,7 +130,7 @@ export function mobileNav(flags: PanelNavFlags): PanelNavItem[] {
 }
 
 /** Nombre corto en la barra de abajo (5 huecos en 375 px). */
-const SHORT_LABEL: Record<string, string> = { "/panel/pagina": "Página", "/panel/automatizaciones": "Automatiz.", "/panel/estadisticas": "Estadísticas", "/panel/portal": "Portal" };
+const SHORT_LABEL: Record<string, string> = { "/panel/pagina": "Página", "/panel/canva": "Editar web", "/panel/automatizaciones": "Automatiz.", "/panel/estadisticas": "Estadísticas", "/panel/portal": "Portal" };
 const MORE: PanelNavItem = { href: "/panel/mas", label: "Más", icon: Menu };
 
 /**
@@ -138,4 +148,18 @@ export function panelNavFor(flags: PanelNavFlags, nav: PanelNavPrefs | null): Pa
 export function mobileNavFor(flags: PanelNavFlags, nav: PanelNavPrefs | null): PanelNavItem[] {
   if (!nav) return mobileNav(flags);
   return [...bottomBarItems(panelNavFor(flags, nav)).map((i) => (SHORT_LABEL[i.href] ? { ...i, label: SHORT_LABEL[i.href] } : i)), MORE];
+}
+
+/**
+ * El menú con sus bloques: un título antes de la primera sección de cada bloque. Solo con el orden de siempre
+ * (con su propio orden, los bloques se mezclarían: va sin títulos).
+ */
+export function withGroupTitles<T extends PanelNavItem>(items: T[], ownOrder: boolean): (T & { title?: string })[] {
+  if (ownOrder) return items;
+  let last: NavGroup | undefined;
+  return items.map((i) => {
+    const title = i.group && i.group !== last ? NAV_GROUPS[i.group] : undefined;
+    last = i.group;
+    return title ? { ...i, title } : i;
+  });
 }

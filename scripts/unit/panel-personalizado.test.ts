@@ -5,7 +5,7 @@
  */
 import { mobileNav, mobileNavFor, panelNav, panelNavFor } from "../../app/panel/nav-items";
 import { contrastRatio } from "../../lib/colors";
-import { accentWarning, EMPTY_PANEL_PREFS, HOME_CARDS, orderHome, orderNav, PANEL_PRESETS, panelThemeVars, parsePanelPrefs, readPanelPrefs } from "../../lib/panel-prefs";
+import { EMPTY_PANEL_PREFS, HOME_CARDS, orderHome, orderNav, panelSideVars, parsePanelPrefs, readPanelPrefs } from "../../lib/panel-prefs";
 import { eq, ok, test } from "./harness";
 
 const FLAGS = { personal: true, sales: false, showBookings: true };
@@ -18,46 +18,34 @@ test("un orden guardado antes de Cursos y Comunidad: las dos salen al final, sin
 });
 
 test("sin preferencias: ninguna variable (el panel de siempre) y el menú y la barra de siempre", () => {
-  eq(panelThemeVars(null), {});
+  eq(panelSideVars(null), {});
   eq(readPanelPrefs(null), EMPTY_PANEL_PREFS);
   eq(readPanelPrefs("basura"), EMPTY_PANEL_PREFS);
   eq(panelNavFor(FLAGS, null), panelNav(FLAGS));
   eq(mobileNavFor(FLAGS, null), mobileNav(FLAGS));
 });
 
-test("variables del tema: tonos, acento y barra con su texto legible", () => {
-  for (const p of PANEL_PRESETS) {
-    const v = panelThemeVars(p.theme);
-    ok(v["--panel-accent"] === p.theme.accent && !!v["--color-paper"] && !!v["--panel-surface"], p.key);
-    ok(contrastRatio(v["--panel-accent-text"], v["--panel-accent"]) >= 4.5, `${p.key}: texto sobre el acento`);
-    if (p.theme.sidebar) ok(contrastRatio(v["--panel-side-text"], v["--panel-side-bg"]) >= 4.5, `${p.key}: texto sobre la barra`);
-    // Texto general sobre el fondo del tono.
-    ok(contrastRatio(v["--color-ink"], v["--color-paper"]) >= 7 && contrastRatio(v["--color-muted"], v["--color-paper"]) >= 4.5, `${p.key}: textos`);
+test("la barra del menú con su texto legible", () => {
+  for (const side of ["#0B0E1F", "#EFE9FA", "#FFFFFF", "#B4583F"]) {
+    const v = panelSideVars(side);
+    ok(contrastRatio(v["--panel-side-text"], v["--panel-side-bg"]) >= 4.5, side);
   }
-  const noche = panelThemeVars({ accent: "#C9BBF2", tone: "dark", sidebar: "#0B0E1F" });
-  eq(noche["--color-paper"], "#121428");
-  eq(noche["--panel-accent-text"], "#0E1024");
-  eq(noche["--panel-side-text"], "#F6F1E7");
-  eq(panelThemeVars({ accent: "#6B58C4", tone: "cream", sidebar: null })["--panel-side-bg"], undefined);
-});
-
-test("aviso si el acento se confunde con el fondo", () => {
-  ok(!!accentWarning({ accent: "#F6F1E7", tone: "cream", sidebar: null }));
-  eq(accentWarning({ accent: "#6B58C4", tone: "cream", sidebar: null }), null);
 });
 
 test("lo guardado: colores solo hex, Inicio y Ajustes nunca ocultos, rutas del panel y tarjetas conocidas", () => {
   const p = readPanelPrefs({
-    theme: { accent: "#abc", tone: "neón", sidebar: "url(x)" },
+    design: { background: "#aabbcc", decor: "nada", cardFrame: "vine" },
+    sidebar: "url(x)",
     nav: { order: ["/panel/newsletter", "/panel", "https://evil.io", "/panel/newsletter"], hidden: ["/panel", "/panel/ajustes", "/panel/codigos"] },
     home: ["atajos", "nada", "resumen"],
   });
-  eq(p.theme, { accent: "#AABBCC", tone: "cream", sidebar: null });
+  eq(p.design, { background: "#aabbcc", cardFrame: "vine" });
+  eq(p.sidebar, null);
   eq(p.nav, { order: ["/panel/newsletter", "/panel"], hidden: ["/panel/codigos"] });
   eq(p.home, ["atajos", "resumen"]);
-  ok(!parsePanelPrefs({ theme: { accent: "red" } }).ok);
-  ok(!parsePanelPrefs({ theme: { accent: "#000000", sidebar: "javascript:x" } }).ok);
-  ok(parsePanelPrefs({ theme: null, nav: null, home: [] }).ok);
+  ok(!parsePanelPrefs({ sidebar: "javascript:x" }).ok);
+  ok(parsePanelPrefs({ design: null, sidebar: null, nav: null, home: [] }).ok);
+  eq(readPanelPrefs({ design: {} }).design, null);
 });
 
 test("orden del menú: su orden, ocultas fuera, nuevas en su sitio de siempre", () => {

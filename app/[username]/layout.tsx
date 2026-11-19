@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { CreatorBrandingProvider, type CreatorBranding } from "@/components/creator-page/branding-context";
 import { CanvaButton } from "@/components/creator-page/canva-button";
+import { LiveDesign } from "@/components/creator-page/live-design";
 import { isPublicUsernameAllowed } from "@/lib/personal-routing";
 import { getPublicCreator } from "@/lib/public";
 import { signupsOnly } from "@/lib/commerce";
@@ -35,6 +36,8 @@ export default async function CreatorLayout({ children, params }: { children: Re
       {children}
       {/* «Canva»: solo lo ve la dueña (se comprueba en el navegador). */}
       {branding && <CanvaButton username={branding.username} personal={isPersonalMode()} />}
+      {/* Dentro de la vista en vivo de Diseño: el diseño sin guardar, encima. */}
+      <LiveDesign />
     </CreatorBrandingProvider>
   );
 }

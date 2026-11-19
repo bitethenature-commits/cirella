@@ -145,3 +145,16 @@ export function RangeTabs({ current, base }: { current: string; base: string }) 
     </div>
   );
 }
+
+/** «Anteriores / Siguientes» de una lista larga (nada si cabe en una página). */
+export function Pager({ page, total, perPage, href }: { page: number; total: number; perPage: number; href: (page: number) => string }) {
+  if (total <= perPage) return null;
+  const pages = Math.ceil(total / perPage);
+  return (
+    <div className="mt-4 flex items-center justify-between text-sm">
+      {page > 1 ? <Link href={href(page - 1)} className="btn btn-outline btn-sm">Anteriores</Link> : <span />}
+      <span className="text-muted">Página {page} de {pages}</span>
+      {page < pages ? <Link href={href(page + 1)} className="btn btn-outline btn-sm">Siguientes</Link> : <span />}
+    </div>
+  );
+}

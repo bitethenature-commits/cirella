@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { hiddenProductSlugs } from "@/components/creator-page/site-page-view";
 import { requireCreator } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { CODE_STATE_LABEL, codeState, dateKeyFromExpiry, readCodePhotos, readCodeRecommendations } from "@/lib/discount-codes";
 import { appHost, appUrl } from "@/lib/env";
 import { nextMoonCircles } from "@/lib/moon-circles";
 import { getPublishedOracleDecks } from "@/lib/oracle-decks";
@@ -11,7 +12,7 @@ import { isPersonalMode } from "@/lib/site-mode";
 import { readSitePageContent, sitePagePath, sitePageState } from "@/lib/site-pages";
 import { sitePageLinkTargets } from "@/lib/site-pages.server";
 import { tenantDb } from "@/lib/tenant";
-import { HomeCanva } from "./home-canva";
+import { HomeCanva, type CanvaCode } from "./home-canva";
 import { PageCanva } from "./page-canva";
 
 export const metadata: Metadata = { title: "Canva" };
@@ -21,12 +22,28 @@ export default async function CanvaPage({ searchParams }: { searchParams: Promis
   const { pagina } = await searchParams;
   const { creator } = await requireCreator();
   const personal = isPersonalMode();
-  const [data, pages, oracleDecks, linkTargets] = await Promise.all([
+  const db = tenantDb(creator.id);
+  const [data, pages, oracleDecks, linkTargets, allCodes] = await Promise.all([
     getPublicCreator(creator.username, true),
-    tenantDb(creator.id).sitePage.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
+    db.sitePage.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
     getPublishedOracleDecks(creator.id),
     sitePageLinkTargets(creator.id, creator.username, personal),
+    // Todos los códigos (también los ocultos y caducados), para cambiarlos en su ventanita.
+    db.discountCode.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
   ]);
+  const codes: CanvaCode[] = allCodes.map((c) => ({
+    id: c.id,
+    brand: c.brand,
+    code: c.code,
+    description: c.description ?? "",
+    url: c.url,
+    imageUrl: c.imageUrl,
+    images: readCodePhotos(c.images),
+    recommendations: readCodeRecommendations(c.recommendations),
+    expiresOn: dateKeyFromExpiry(c.expiresAt, creator.timezone),
+    active: c.active,
+    stateLabel: CODE_STATE_LABEL[codeState(c)],
+  }));
   const list = pages.map((p) => ({ id: p.id, title: p.title, slug: p.slug, status: p.status }));
   const page = pagina ? pages.find((p) => p.slug === pagina) : undefined;
 
@@ -43,7 +60,7 @@ export default async function CanvaPage({ searchParams }: { searchParams: Promis
         host={appHost()}
         origin={appUrl()}
         linkTargets={linkTargets.filter((t) => !t.href.endsWith(`/${page.slug}`))}
-        config={{ displayName: data.config.displayName, avatarUrl: data.config.avatarUrl, theme: data.config.theme, pageThemes: data.config.pageThemes }}
+        config={{ displayName: data.config.displayName, avatarUrl: data.config.avatarUrl, theme: data.config.theme, pageThemes: data.config.pageThemes, newsletter: data.config.newsletter, texts: data.config.texts }}
         allowCustom={data.allowCustom}
         signupsOnly={data.signupsOnly}
         hiddenSlugs={[...hiddenProductSlugs(data.products, data.signupsOnly)]}
@@ -63,6 +80,7 @@ export default async function CanvaPage({ searchParams }: { searchParams: Promis
       pages={list}
       sellerName={data?.creator.legalName ?? null}
       viewHref={personal ? "/" : `/${creator.username}`}
+      codes={codes}
       editor={{
         initial: draft,
         publishedJson: published ? JSON.stringify(published) : "",

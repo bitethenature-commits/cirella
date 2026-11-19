@@ -11,6 +11,6 @@ export function productListHref(p: { type: string; groupSession?: boolean | null
 }
 
 export function productListLabel(p: { type: string; groupSession?: boolean | null }): string {
-  const labels: Record<string, string> = { "/panel/cursos": "Cursos", "/panel/comunidad": "Comunidad", "/panel/circulos": "Círculos de la Luna", "/panel/sesiones": "Sesiones y lecturas" };
+  const labels: Record<string, string> = { "/panel/cursos": "Cursos", "/panel/comunidad": "Membresía", "/panel/circulos": "Círculos de la Luna", "/panel/sesiones": "Sesiones y lecturas" };
   return labels[productListHref(p)] ?? "Volver";
 }

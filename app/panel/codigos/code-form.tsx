@@ -4,7 +4,7 @@ import { startTransition, useActionState, useRef, useState } from "react";
 import { Flash } from "@/components/ui/flash";
 import { ImageUpload, uploadImageInfo } from "@/components/ui/image-upload";
 import { CODE_BRAND_MAX, CODE_CODE_MAX, CODE_DESCRIPTION_MAX, CODE_PHOTOS_MAX, CODE_REC_TEXT_MAX, CODE_RECS_MAX, CODE_URL_MAX, type CodePhoto, type CodeRecommendation } from "@/lib/discount-codes";
-import { saveDiscountCode, type CodeActionState } from "./actions";
+import { saveDiscountCode, saveDiscountCodeInline, type CodeActionState } from "./actions";
 
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
 
@@ -25,8 +25,13 @@ export type EditableCode = {
 };
 
 /** Formulario de un código de descuento: crear (sin id) o editar. */
-export function CodeForm({ code }: { code: EditableCode }) {
-  const [state, action, pending] = useActionState<CodeActionState, FormData>(saveDiscountCode, undefined);
+export function CodeForm({ code, onSaved }: { code: EditableCode; /** En el Canva: se guarda sin salir de la web (`created`: era nuevo). */ onSaved?: (created: boolean) => void }) {
+  const [state, action, pending] = useActionState<CodeActionState, FormData>(async (prev, fd) => {
+    if (!onSaved) return saveDiscountCode(prev, fd);
+    const r = await saveDiscountCodeInline(prev, fd);
+    if (r?.ok) onSaved(!!r.created);
+    return r;
+  }, undefined);
   const [image, setImage] = useState(code.imageUrl);
   const [photos, setPhotos] = useState<CodePhoto[]>(code.images);
   const [recs, setRecs] = useState<{ text: string; url: string }[]>(code.recommendations.map((r) => ({ text: r.text, url: r.url ?? "" })));

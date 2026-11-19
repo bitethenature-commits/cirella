@@ -100,8 +100,9 @@ export type Fold = {
   id: string;
   /** Con aviso de novedades (Gifts no lo lleva). */
   section?: SeenSection;
-  title: string;
-  countLabel: string;
+  /** En el Canva, escritos encima. */
+  title: ReactNode;
+  countLabel: ReactNode;
   /** Fechas (ms) de lo que hay en la sección: publicadas, del portal u ofertas empezadas. */
   stamps: number[];
   /** El dibujo de la sección, en línea dorada. */
@@ -110,13 +111,16 @@ export type Fold = {
 };
 
 /** Un desplegable de la fila: el dibujo con su nombre debajo, como en «Sistemas». */
-function FoldTab({ fold, username, preview, open, onToggle }: { fold: Fold; username: string; preview: boolean; open: boolean; onToggle: (markSeen: () => void) => void }) {
+function FoldTab({ fold, username, preview, open, onToggle, editing }: { fold: Fold; username: string; preview: boolean; open: boolean; onToggle: (markSeen: () => void) => void; editing: boolean }) {
   const openRef = useRef(open);
   openRef.current = open;
   const { count, markSeen } = useUnseen(username, fold.section, fold.stamps, preview, () => openRef.current);
+  // En el Canva, un <div>: dentro de un <button> no se puede escribir encima del título.
+  const Tag = editing ? "div" : "button";
   return (
-    <button
-      type="button"
+    <Tag
+      type={editing ? undefined : "button"}
+      role={editing ? "button" : undefined}
       onClick={() => onToggle(markSeen)}
       aria-expanded={open}
       aria-controls={fold.id}
@@ -134,12 +138,13 @@ function FoldTab({ fold, username, preview, open, onToggle }: { fold: Fold; user
           </span>
         )}
       </span>
-      <span className="cp-display text-[1rem] leading-tight sm:text-[1.15rem]">{fold.title}</span>
-      <span className="cp-faint flex items-center gap-0.5 text-[0.7rem] tabular-nums">
+      {/* Al escribir encima (Canva), el clic no abre ni cierra. */}
+      <span className="cp-display text-[1rem] leading-tight sm:text-[1.15rem]" onClick={editing ? (e) => e.stopPropagation() : undefined}>{fold.title}</span>
+      <span className="cp-faint flex items-center gap-0.5 text-[0.7rem] tabular-nums" onClick={editing ? (e) => e.stopPropagation() : undefined}>
         <span className="hidden sm:inline">{fold.countLabel}</span>
         <ChevronDown aria-hidden className={`h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
       </span>
-    </button>
+    </Tag>
   );
 }
 
@@ -149,7 +154,7 @@ function FoldTab({ fold, username, preview, open, onToggle }: { fold: Fold; user
  * fila (y se cierra el que estuviera abierto). Empiezan cerrados; un enlace con ancla (#ofertas,
  * #portal-form…) abre el que lo contiene.
  */
-export function SectionFolds({ folds, username, preview }: { folds: Fold[]; username: string; preview?: boolean }) {
+export function SectionFolds({ folds, username, preview, editing = false }: { folds: Fold[]; username: string; preview?: boolean; /** Canva: los títulos se escriben encima. */ editing?: boolean }) {
   const [open, setOpen] = useState<string | null>(null);
   const panels = useRef<HTMLDivElement>(null);
 
@@ -173,6 +178,7 @@ export function SectionFolds({ folds, username, preview }: { folds: Fold[]; user
             username={username}
             preview={!!preview}
             open={open === f.id}
+            editing={editing}
             onToggle={(markSeen) => {
               const next = open === f.id ? null : f.id;
               setOpen(next);

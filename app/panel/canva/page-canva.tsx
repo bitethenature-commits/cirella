@@ -1,11 +1,15 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import type { TextEdit } from "@/components/creator-page/home-edit";
 import { barePage, SitePageView } from "@/components/creator-page/site-page-view";
 import type { BlocksUpdate } from "@/components/panel/blocks/blocks-editor";
 import { InlineBlocks } from "@/components/panel/blocks/inline-blocks";
 import { uploadImageInfo } from "@/components/ui/image-upload";
 import { PAGE_BLOCKS_MAX, PAGE_TEXT_MAX, withoutEmptyBlocks } from "@/lib/page-blocks";
 import type { SitePageContent } from "@/lib/site-pages";
+import { unfillText, withSiteText, type SiteTexts } from "@/lib/site-texts";
+import { NEWSLETTER_FORM_DEFAULTS } from "@/lib/page-config";
+import { saveNewsletterButton, saveSiteTexts } from "./actions";
 import { publishSitePageAction } from "../paginas/actions";
 import { SitePageEditor } from "../paginas/[id]/page-editor";
 import { CanvaBar, EditImage, EditText, stopWebLinks, type CanvaPage, type SaveState } from "./canva-ui";
@@ -14,13 +18,15 @@ type Props = Omit<ComponentProps<typeof SitePageEditor>, "publishedJson" | "ever
 
 /**
  * Canva de una página extra: la página tal cual sale en la web con el título, el subtítulo, la imagen de
- * cabecera y los bloques escritos encima. Cada cambio se publica solo al momento (también la dirección y el
- * pie siguen como estaban: eso se cambia en Panel › Páginas).
+ * cabecera y los bloques escritos encima, y también los textos fijos del pie, la newsletter y «Entrar» (valen
+ * para toda la web). Cada cambio se publica solo al momento (la dirección y si sale en el pie, en Panel › Páginas).
  */
 export function PageCanva(props: Props) {
   const [content, setContent] = useState<SitePageContent>(props.initial);
   const [state, setState] = useState<SaveState>({ kind: "idle" });
   const [uploading, setUploading] = useState(false);
+  const [texts, setTexts] = useState<SiteTexts>(props.config.texts ?? {});
+  const [nlButton, setNlButton] = useState(props.config.newsletter?.button || NEWSLETTER_FORM_DEFAULTS.button);
   const first = useRef(true);
   const set = <K extends keyof SitePageContent>(k: K, v: SitePageContent[K]) => setContent((c) => ({ ...c, [k]: v }));
   const setBlocks = useCallback((next: BlocksUpdate) => setContent((c) => ({ ...c, blocks: typeof next === "function" ? next(c.blocks) : next })), []);
@@ -45,6 +51,37 @@ export function PageCanva(props: Props) {
   const oracleDecks = useMemo(() => Object.fromEntries(props.oracleDecks.flatMap((d) => (d.id ? [[d.id, d]] : []))), [props.oracleDecks]);
   const bare = barePage(props.slug);
 
+  /** Guarda en la portada algo que vale para toda la web (y dice si se ha publicado). */
+  const saveShared = async (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) => {
+    setState({ kind: "saving" });
+    const r = await fn().catch(() => ({ ok: false as const, error: "sin conexión" }));
+    setState(r.ok ? { kind: "ok" } : { kind: "error", error: r.error });
+  };
+
+  /** Un texto fijo de la web: se guarda en la portada y cambia en todas las páginas. */
+  const editText: TextEdit = (key, value, vars) => (
+    <EditText
+      value={value}
+      multiline={value.length > 80}
+      onCommit={async (v) => {
+        const next = withSiteText(texts, key, vars ? unfillText(v, vars) : v);
+        setTexts(next);
+        await saveShared(() => saveSiteTexts(next));
+      }}
+    />
+  );
+  const newsletterButton = (
+    <EditText
+      value={nlButton}
+      placeholder={NEWSLETTER_FORM_DEFAULTS.button}
+      onCommit={async (v) => {
+        const next = v.slice(0, 30) || NEWSLETTER_FORM_DEFAULTS.button;
+        setNlButton(next);
+        await saveShared(() => saveNewsletterButton(next));
+      }}
+    />
+  );
+
   const cover = content.cover ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={content.cover.src} alt="" className="block h-auto w-full rounded-[var(--r-card)]" />
@@ -65,7 +102,7 @@ export function PageCanva(props: Props) {
       <div onClickCapture={stopWebLinks}>
         <SitePageView
           username={props.username}
-          config={props.config}
+          config={{ ...props.config, texts, newsletter: props.config.newsletter ? { ...props.config.newsletter, button: nlButton } : undefined }}
           content={content}
           allowCustom={props.allowCustom}
           personal={props.personal}
@@ -79,6 +116,8 @@ export function PageCanva(props: Props) {
           bare={bare}
           page={props.slug}
           edit={{
+            text: editText,
+            newsletterButton,
             title: <EditText value={content.title} placeholder="Título de la página" onCommit={(v) => set("title", v.slice(0, 120) || content.title)} />,
             subtitle: <EditText value={content.subtitle} multiline placeholder="Subtítulo (opcional)" onCommit={(v) => set("subtitle", v.slice(0, 600))} />,
             cover: (

@@ -67,17 +67,6 @@ export function phaseName(phase: number): MoonPhaseName {
   return "Menguante"
 }
 
-/** Próxima fecha, a partir de `from`, en la que el ciclo alcanza `targetPhase`. */
-export function nextPhaseDate(targetPhase: number, from: Date = new Date()): Date {
-  const current = moonPhase(from).phase
-  let delta = targetPhase - current
-  if (delta <= 0) delta += 1
-  return new Date(from.getTime() + delta * SYNODIC * 86400000)
-}
-
-export const nextNewMoon = (from?: Date) => nextPhaseDate(0, from)
-export const nextFullMoon = (from?: Date) => nextPhaseDate(0.5, from)
-
 /** Signo por el que transita la Luna — aproximación por movimiento medio (13,176°/día). */
 const SIGNS = [
   "Aries", "Tauro", "Géminis", "Cáncer", "Leo", "Virgo",

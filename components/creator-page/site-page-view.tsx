@@ -11,6 +11,7 @@ import { knownSystemIcon, SystemIconMark } from "./system-icon";
 import { CreatorShell } from "./creator-shell";
 import type { SiteNavPage } from "./site-nav";
 import type { PublicProduct } from "./creator-page-view";
+import type { TextEdit } from "./home-edit";
 
 /**
  * Una página extra con el tema de la web (cabecera con «Volver», su avatar y su nombre; pie con las
@@ -39,11 +40,11 @@ export function SitePageView({
    * Editor de Páginas (app/panel/paginas/[id]/page-editor.tsx): en lugar del título, el subtítulo, la
    * imagen de cabecera y los bloques, lo que se escribe encima. `blocks` recibe el aspecto de la página.
    */
-  edit?: { title: ReactNode; subtitle: ReactNode; cover: ReactNode; blocks: (mode: { bare: boolean; luxe: boolean }) => ReactNode };
+  edit?: { title: ReactNode; subtitle: ReactNode; cover: ReactNode; blocks: (mode: { bare: boolean; luxe: boolean }) => ReactNode; /** Los textos fijos del pie y la cabecera (Canva). */ text?: TextEdit; /** El botón de la newsletter del pie (Canva). */ newsletterButton?: ReactNode };
   username: string;
   /** Sin cajas en los bloques (página «Sobre mí»: barePage()). */
   bare?: boolean;
-  config: Pick<PageConfig, "displayName" | "avatarUrl" | "theme"> & Partial<Pick<PageConfig, "template" | "pageThemes">>;
+  config: Pick<PageConfig, "displayName" | "avatarUrl" | "theme"> & Partial<Pick<PageConfig, "template" | "pageThemes" | "newsletter" | "texts" | "pieces">>;
   /** Qué página es, para su diseño propio (su slug: PageConfig.pageThemes). */
   page?: string;
   content: SitePageContent;
@@ -66,7 +67,7 @@ export function SitePageView({
   if (bare)
     // «Sobre mí»: con el estilo de lujo de la portada (cabecera centrada con oro, foto con marco dorado).
     return (
-      <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back} page={page}>
+      <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back} page={page} editText={edit?.text} editNewsletterButton={edit?.newsletterButton}>
         <main className="cp-luxe relative mx-auto w-full max-w-[52rem] px-5 pb-20 pt-8 sm:pt-14" data-cover={cover ? "yes" : "no"}>
           <header className="text-center" data-reveal>
             <p className="cp-eyebrow !tracking-[0.42em]" style={{ color: "var(--c-gold)" }}>
@@ -121,7 +122,7 @@ export function SitePageView({
     // Página de un sistema: con el estilo de lujo de la portada. Su icono grande y dorado, el nombre en
     // letra fina, la frase en cursiva dorada y la raya con la estrella; los bloques, en paneles dorados.
     return (
-      <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back} page={page}>
+      <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back} page={page} editText={edit?.text} editNewsletterButton={edit?.newsletterButton}>
         <main className="cp-luxe relative mx-auto w-full max-w-[46rem] px-5 pb-20 pt-8 sm:pt-14" data-cover={cover ? "yes" : "no"}>
           <header className="text-center" data-reveal>
             <div className="flex justify-center">
@@ -178,7 +179,7 @@ export function SitePageView({
       </CreatorShell>
     );
   return (
-    <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back} page={page}>
+    <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} signupsOnly={signupsOnly} pages={pages} currentPath={currentPath} back={back} page={page} editText={edit?.text} editNewsletterButton={edit?.newsletterButton}>
       <main className={`relative mx-auto w-full max-w-[44rem] px-5 pb-10 ${cover ? "pt-8" : "pt-10 sm:pt-16"}`} data-cover={cover ? "yes" : "no"}>
         {edit ? <div className="mb-8">{edit.cover}</div> : cover && (
           // eslint-disable-next-line @next/next/no-img-element

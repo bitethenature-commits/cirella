@@ -1,4 +1,8 @@
 import type { CSSProperties } from "react";
+import { mixHex, rgba, visibleOn } from "./colors";
+import { buttonFrameKind, buttonFrameMask, cardFrameMask, CARD_FRAMES, type ButtonFrameKey, type CardFrameKey } from "./frames";
+import type { GeometryFigure } from "./page-blocks";
+import { figurePlacement, figureUrl, type FigurePos } from "./sacred-figures";
 
 /**
  * Sistema de diseño de las páginas públicas.
@@ -98,37 +102,50 @@ export function fontsHref(keys: (FontKey | undefined | null)[]): string | null {
 
 /* ───────────── Fondos con movimiento ───────────── */
 
-/** Las cinco últimas de la primera fila y las siguientes se mueven (components/template-decor.tsx y globals.css). */
-export type Decor =
-  | "stars" | "none" | "lines" | "aurora" | "grain"
-  | "shooting" | "golddust" | "fireflies" | "waves" | "petals"
-  | "moon" | "nebula" | "constellation" | "leaves" | "mist" | "snow"
-  | "bubbles" | "candles" | "mandala" | "rain" | "caustics" | "haze";
-
-export const DECORS: { key: Decor; name: string; moves: boolean }[] = [
-  { key: "none", name: "Nada", moves: false },
-  { key: "stars", name: "Estrellas", moves: false },
-  { key: "lines", name: "Líneas", moves: false },
-  { key: "aurora", name: "Aurora", moves: false },
-  { key: "grain", name: "Grano", moves: false },
-  { key: "shooting", name: "Estrellas fugaces", moves: true },
-  { key: "golddust", name: "Polvo de oro", moves: true },
-  { key: "fireflies", name: "Luciérnagas", moves: true },
-  { key: "waves", name: "Olas", moves: true },
-  { key: "petals", name: "Pétalos", moves: true },
-  { key: "moon", name: "Luna", moves: true },
-  { key: "nebula", name: "Nebulosa", moves: true },
-  { key: "constellation", name: "Constelaciones", moves: true },
-  { key: "leaves", name: "Hojas", moves: true },
-  { key: "mist", name: "Niebla", moves: true },
-  { key: "snow", name: "Nieve", moves: true },
-  { key: "bubbles", name: "Burbujas", moves: true },
-  { key: "candles", name: "Velas", moves: true },
-  { key: "mandala", name: "Mandala", moves: true },
-  { key: "rain", name: "Lluvia", moves: true },
-  { key: "caustics", name: "Reflejos de agua", moves: true },
-  { key: "haze", name: "Bruma", moves: true },
-];
+/** Los fondos (components/template-decor.tsx y globals.css, «Fondos con movimiento»). */
+export type DecorGroup = "basic" | "sky" | "nature" | "light" | "magic";
+export const DECOR_GROUPS: Record<DecorGroup, string> = { basic: "Sencillos", sky: "Cielo", nature: "Naturaleza", light: "Agua y luz", magic: "Mágicos" };
+export const DECORS = [
+  { key: "none", name: "Nada", group: "basic", moves: false },
+  { key: "stars", name: "Estrellas", group: "basic", moves: true },
+  { key: "lines", name: "Líneas", group: "basic", moves: false },
+  { key: "grain", name: "Grano de papel", group: "basic", moves: false },
+  { key: "aurora", name: "Aurora", group: "sky", moves: true },
+  { key: "shooting", name: "Estrellas fugaces", group: "sky", moves: true },
+  { key: "meteors", name: "Lluvia de meteoros", group: "sky", moves: true },
+  { key: "moon", name: "Luna", group: "sky", moves: true },
+  { key: "nebula", name: "Nebulosa", group: "sky", moves: true },
+  { key: "constellation", name: "Constelaciones", group: "sky", moves: true },
+  { key: "galaxy", name: "Galaxia", group: "sky", moves: true },
+  { key: "borealis", name: "Aurora boreal", group: "sky", moves: true },
+  { key: "planets", name: "Planetas", group: "sky", moves: true },
+  { key: "petals", name: "Pétalos", group: "nature", moves: true },
+  { key: "sakura", name: "Flores de cerezo", group: "nature", moves: true },
+  { key: "leaves", name: "Hojas de otoño", group: "nature", moves: true },
+  { key: "butterflies", name: "Mariposas", group: "nature", moves: true },
+  { key: "feathers", name: "Plumas", group: "nature", moves: true },
+  { key: "dandelion", name: "Diente de león", group: "nature", moves: true },
+  { key: "fireflies", name: "Luciérnagas", group: "nature", moves: true },
+  { key: "snow", name: "Nieve", group: "nature", moves: true },
+  { key: "mist", name: "Niebla", group: "nature", moves: true },
+  { key: "waves", name: "Olas", group: "light", moves: true },
+  { key: "rain", name: "Lluvia", group: "light", moves: true },
+  { key: "caustics", name: "Reflejos de agua", group: "light", moves: true },
+  { key: "bubbles", name: "Burbujas", group: "light", moves: true },
+  { key: "bokeh", name: "Luces desenfocadas", group: "light", moves: true },
+  { key: "sparkles", name: "Destellos", group: "light", moves: true },
+  { key: "sunrays", name: "Rayos de sol", group: "light", moves: true },
+  { key: "smoke", name: "Humo de incienso", group: "light", moves: true },
+  { key: "haze", name: "Calima", group: "light", moves: true },
+  { key: "golddust", name: "Polvo de oro", group: "magic", moves: true },
+  { key: "candles", name: "Velas", group: "magic", moves: true },
+  { key: "mandala", name: "Mandala", group: "magic", moves: true },
+  { key: "flowerlife", name: "Flor de la vida", group: "magic", moves: true },
+  { key: "cards", name: "Cartas que flotan", group: "magic", moves: true },
+  { key: "crystals", name: "Cristales", group: "magic", moves: true },
+  { key: "runes", name: "Runas", group: "magic", moves: true },
+] as const satisfies readonly { key: string; name: string; group: DecorGroup; moves: boolean }[];
+export type Decor = (typeof DECORS)[number]["key"];
 export const DECOR_KEYS = DECORS.map((d) => d.key) as [Decor, ...Decor[]];
 
 /* ───────────── El diseño ───────────── */
@@ -143,6 +160,26 @@ export type BgType = "solid" | "gradient" | "radial";
 export const BG_TYPES: Record<BgType, string> = { solid: "Color liso", gradient: "Degradado", radial: "Degradado circular" };
 export type AvatarShape = "circle" | "rounded" | "square";
 export const AVATAR_SHAPES: Record<AvatarShape, string> = { circle: "Redonda", rounded: "Esquinas suaves", square: "Cuadrada" };
+/** Las fotos con marco («Sobre mí», fichas, cabeceras de las páginas…): su forma y su marco. */
+export type PhotoShape = "rounded" | "arch" | "oval" | "circle";
+export const PHOTO_SHAPES: Record<PhotoShape, string> = { rounded: "Esquinas redondas", arch: "Arco", oval: "Óvalo", circle: "Círculo" };
+export type PhotoFrame = "double" | "single" | "none" | "card";
+export const PHOTO_FRAMES: Record<PhotoFrame, string> = { double: "Doble línea dorada", single: "Una línea", none: "Sin marco", card: "Como tus tarjetas" };
+/**
+ * Los paneles dorados (doble borde dorado y estrellitas ✦: «Qué incluye» de las fichas, los textos de las páginas
+ * de los métodos, las cartas de las lecturas, el panel de cada ficha…): la geometría de su fondo. «Como siempre»:
+ * unos llevan la flor de la vida y otros no.
+ */
+export type PanelGeo = "keep" | "none" | GeometryFigure;
+export const PANEL_GEOS: Record<PanelGeo, string> = {
+  keep: "Como siempre",
+  none: "Ninguna",
+  flower: "Flor de la vida",
+  enneagram: "Eneagrama",
+  metatron: "Cubo de Metatrón",
+  vesica: "Vesica piscis",
+  torus: "Toro",
+};
 
 /**
  * Todo lo que se puede diseñar. Todo es opcional: lo que falta sale de BASE. Las tarjetas, los botones y las
@@ -166,6 +203,10 @@ export type Design = {
   // Movimiento
   decor?: Decor | null;
   decorOpacity?: number | null;
+  /** Color del efecto (vacío: el suyo de siempre). */
+  decorColor?: string | null;
+  /** Que se mueva también si el móvil u ordenador pide menos movimiento. */
+  decorAlways?: boolean | null;
   // Letras
   fontDisplay?: FontKey | null;
   fontBody?: FontKey | null;
@@ -185,6 +226,9 @@ export type Design = {
   cardShadow?: Shadow | null;
   cardDouble?: boolean | null;
   cardBlur?: boolean | null;
+  cardFrame?: CardFrameKey | null;
+  cardFrameColor?: string | null;
+  cardFrameSize?: number | null;
   // Botones
   btnCustom?: boolean | null;
   btnStyle?: ButtonStyle | null;
@@ -199,10 +243,28 @@ export type Design = {
   btnUpper?: boolean | null;
   btnShadow?: Shadow | null;
   btnDouble?: boolean | null;
+  btnFrame?: ButtonFrameKey | null;
+  btnFrameColor?: string | null;
   // Fotos
   imgCustom?: boolean | null;
   imgRadius?: number | null;
   avatarShape?: AvatarShape | null;
+  photoShape?: PhotoShape | null;
+  photoFrame?: PhotoFrame | null;
+  // Paneles dorados
+  panelCustom?: boolean | null;
+  panelBg?: string | null;
+  panelBgOpacity?: number | null;
+  panelBorder?: string | null;
+  panelBorderWidth?: number | null;
+  panelRadius?: number | null;
+  panelShadow?: Shadow | null;
+  panelDouble?: boolean | null;
+  panelStars?: boolean | null;
+  panelGeo?: PanelGeo | null;
+  panelGeoPos?: FigurePos | null;
+  panelGeoOpacity?: number | null;
+  panelGeoColor?: string | null;
   // De antes (se leen, ya no se editan)
   fontPair?: string | null;
   radius?: string | null;
@@ -232,6 +294,9 @@ export const BASE = {
   cardBorderWidth: 1,
   cardRadius: 24,
   cardShadow: "soft" as Shadow,
+  cardFrame: "none" as CardFrameKey,
+  cardFrameSize: 56,
+  btnFrame: "none" as ButtonFrameKey,
   btnStyle: "filled" as ButtonStyle,
   btnBorderWidth: 1,
   btnRadius: 999,
@@ -239,12 +304,18 @@ export const BASE = {
   btnShadow: "soft" as Shadow,
   imgRadius: 18,
   avatarShape: "circle" as AvatarShape,
+  photoShape: "rounded" as PhotoShape,
+  photoFrame: "double" as PhotoFrame,
+  panelBgOpacity: 100,
+  panelBorderWidth: 1,
+  panelRadius: 26,
+  panelShadow: "strong" as Shadow,
+  panelDouble: true,
+  panelStars: true,
+  panelGeo: "keep" as PanelGeo,
+  panelGeoPos: "corner" as FigurePos,
+  panelGeoOpacity: 16,
 };
-
-/** El diseño que manda: el de la web y, encima, los cambios de esa página. */
-export function mergeDesign(general: Design | undefined | null, page?: Design | null): Design {
-  return { ...(general ?? {}), ...(page ?? {}) };
-}
 
 /** Luminancia aproximada de un color hex para decidir modo claro/oscuro. */
 export function isDark(hex: string) {
@@ -281,6 +352,11 @@ export function designValue<K extends DesignKey>(d: Design, key: K): NonNullable
   if (key === "btnBg") return designValue(d, "accent") as NonNullable<Design[K]>;
   if (key === "btnText") return designValue(d, "accentText") as NonNullable<Design[K]>;
   if (key === "btnBorder") return designValue(d, "gold") as NonNullable<Design[K]>;
+  if (key === "cardFrameColor" || key === "btnFrameColor") return designValue(d, "gold") as NonNullable<Design[K]>;
+  if (key === "decorColor" || key === "panelGeoColor") return "" as NonNullable<Design[K]>;
+  // Los paneles dorados: un poco más oscuros que el fondo, con el borde de los detalles.
+  if (key === "panelBg") return mixHex(designValue(d, "background"), "#000000", 0.14) as NonNullable<Design[K]>;
+  if (key === "panelBorder") return designValue(d, "gold") as NonNullable<Design[K]>;
   if (key === "cardRadius" && d.radius) return ({ sharp: 2, soft: 14, round: 24 }[d.radius] ?? 24) as NonNullable<Design[K]>;
   if (key === "btnRadius" && d.radius) return ({ sharp: 2, soft: 10, round: 999 }[d.radius] ?? 999) as NonNullable<Design[K]>;
   if (key === "btnFont") return "body" as NonNullable<Design[K]>;
@@ -313,6 +389,51 @@ function shadowCss(s: Shadow, color: string) {
   if (s === "strong") return "0 28px 60px -24px rgb(0 0 0 / .7)";
   if (s === "glow") return `0 0 34px -8px color-mix(in oklab, ${color} 70%, transparent)`;
   return "none";
+}
+
+/** Los colores propios de algunos fondos (sin «Color del efecto»): el rosa del cerezo, el otoño, la aurora… */
+const DECOR_TINTS: Partial<Record<Decor, [string, string]>> = {
+  sakura: ["#F29BBE", "#FFD1E1"],
+  leaves: ["#D9772B", "#B23F22"],
+  borealis: ["#3FE0B0", "#8F6BFF"],
+  fireflies: ["#F7DD6A", "#B8F06A"],
+  candles: ["#F3A445", "#FFD27A"],
+};
+
+/**
+ * Los colores de los fondos con movimiento (globals.css, «Fondos con movimiento»), siempre visibles sobre el fondo
+ * (y sus dos colores, si es un degradado): el suyo («Color del efecto») o el del fondo, aclarado sobre fondos
+ * oscuros u oscurecido sobre los claros lo justo para que se vea, con su mismo tono.
+ *   --fx-a, --fx-b: los dos colores · --fx-a2, --fx-b2: su versión más marcada (el brillo en lo oscuro, la sombra
+ *   en lo claro) · --fx-soft: el neutro (nieve, niebla, plumas…) · --fx-glow-*: el halo · --fx-edge: un filo que
+ *   separa del fondo · --fx-moon-*: la luna.
+ */
+function decorVars(theme: ResolvedTheme): Record<string, string> {
+  const c = theme.colors;
+  const dark = theme.mode === "dark";
+  const bgs = [c.bg, c.bg2];
+  const far = dark ? "#FFFFFF" : "#000000";
+  const own = theme.design.decorColor || null;
+  const tint = DECOR_TINTS[theme.decor];
+  const a = visibleOn(own ?? tint?.[0] ?? c.accent, bgs, 3.2);
+  const b = visibleOn(own ? mixHex(own, far, 0.2) : (tint?.[1] ?? c.gold), bgs, 3.2);
+  const soft = own ? a : visibleOn(dark ? mixHex("#FFFFFF", c.accent, 0.08) : mixHex(c.text, c.bg, 0.45), bgs, 3);
+  const moon = dark ? "#FBF7EC" : visibleOn(mixHex("#D9D6CC", b, 0.2), bgs, 1.9);
+  return {
+    "--fx-a": a,
+    "--fx-b": b,
+    "--fx-a2": mixHex(a, far, dark ? 0.55 : 0.3),
+    "--fx-b2": mixHex(b, far, dark ? 0.55 : 0.3),
+    "--fx-soft": soft,
+    "--fx-glow-a": rgba(a, dark ? 60 : 32),
+    "--fx-glow-b": rgba(b, dark ? 60 : 32),
+    "--fx-edge": dark ? "rgba(255,255,255,.22)" : "rgba(0,0,0,.28)",
+    "--fx-moon": moon,
+    "--fx-moon-edge": mixHex(moon, dark ? "#8F8672" : "#000000", dark ? 0.6 : 0.35),
+    // Para los fondos dibujados (components/decor-fx): sobre qué color se pintan y si mandan los colores propios.
+    "--fx-bg": c.bg,
+    "--fx-own": own ? "1" : "0",
+  };
 }
 
 /** Variables CSS consumidas por los componentes de la página pública (y las de las piezas que se diseñan). */
@@ -348,8 +469,21 @@ export function themeStyle(theme: ResolvedTheme): CSSProperties {
     "--display-weight": String(v("displayWeight")),
     "--r-card": radiusCss(v("cardRadius")),
     "--r-btn": radiusCss(v("btnRadius")),
+    ...decorVars(theme),
     colorScheme: theme.mode,
   };
+  const frame = v("cardFrame");
+  if (frame !== "none") {
+    s["--frame-c"] = v("cardFrameColor");
+    const mask = cardFrameMask(frame, v("cardFrameSize"));
+    if (mask) s["--frame-mask"] = mask;
+  }
+  const bframe = v("btnFrame");
+  if (bframe !== "none") {
+    s["--bframe-c"] = v("btnFrameColor");
+    const mask = buttonFrameMask(bframe);
+    if (mask) s["--bframe-mask"] = mask;
+  }
   if (d.displaySpacing != null) s["--display-spacing"] = `${d.displaySpacing / 100}em`;
   if (d.displaySize != null) s["--display-zoom"] = String(d.displaySize / 100);
   if (d.cardCustom) {
@@ -378,6 +512,24 @@ export function themeStyle(theme: ResolvedTheme): CSSProperties {
     const dbl = v("btnDouble") ? `inset 0 0 0 3px color-mix(in oklab, ${c.bg} 80%, transparent), inset 0 0 0 4px color-mix(in oklab, ${v("btnBorder")} 45%, transparent)` : "";
     s["--b-shadow"] = [dbl, glow === "none" ? "" : glow].filter(Boolean).join(", ") || "none";
   }
+  if (d.panelCustom) {
+    const pb = v("panelBorder");
+    s["--pk-bg"] = `color-mix(in oklab, ${v("panelBg")} ${v("panelBgOpacity")}%, transparent)`;
+    s["--pk-border"] = pb;
+    s["--pk-bw"] = px(v("panelBorderWidth"));
+    s["--r-panel"] = px(v("panelRadius"));
+    const dbl = v("panelDouble") ? `inset 0 0 0 5px color-mix(in oklab, ${c.bg} 90%, transparent), inset 0 0 0 6px color-mix(in oklab, ${pb} 22%, transparent)` : "";
+    const sh = shadowCss(v("panelShadow"), pb);
+    s["--pk-shadow"] = [dbl, sh === "none" ? "" : sh].filter(Boolean).join(", ") || "none";
+  }
+  // La geometría de los paneles: la figura elegida, dibujada en su color (globals.css, «Paneles dorados»).
+  const geo = v("panelGeo");
+  if (geo !== "keep" && geo !== "none") {
+    const place = figurePlacement(v("panelGeoPos"));
+    s["--pg-img"] = figureUrl(geo, v("panelGeoColor") || c.gold, v("panelGeoOpacity"));
+    s["--pg-pos"] = place.position;
+    s["--pg-size"] = place.size;
+  }
   if (d.imgCustom) {
     s["--img-r"] = radiusCss(v("imgRadius"));
     const shape = v("avatarShape");
@@ -395,11 +547,21 @@ export function themeAttrs(theme: ResolvedTheme): Record<string, string | undefi
     "data-k": on(d.cardCustom),
     "data-b": on(d.btnCustom),
     "data-img": on(d.imgCustom),
+    // Las fotos con marco (globals.css, «Fotos con marco»): solo lo que no es lo de siempre.
+    "data-photo-shape": d.imgCustom && d.photoShape && d.photoShape !== "rounded" ? d.photoShape : undefined,
+    "data-photo-frame": d.imgCustom && d.photoFrame && d.photoFrame !== "double" ? d.photoFrame : undefined,
     "data-d-italic": on(d.displayItalic),
     "data-d-upper": on(d.displayUpper),
     "data-d-spacing": on(d.displaySpacing != null),
     "data-d-size": on(d.displaySize != null && d.displaySize !== 100),
     "data-paint": on(d.bgType && d.bgType !== "solid"),
+    "data-fx-always": on(d.decorAlways),
+    "data-frame": d.cardFrame && d.cardFrame !== "none" && d.cardFrame in CARD_FRAMES ? (d.cardFrame === "neon" ? "neon" : "mask") : undefined,
+    "data-bframe": d.btnFrame && d.btnFrame !== "none" ? (buttonFrameKind(d.btnFrame) ?? undefined) : undefined,
+    // Los paneles dorados (globals.css, «Paneles dorados»).
+    "data-pk": on(d.panelCustom),
+    "data-pstars": d.panelStars === false ? "off" : undefined,
+    "data-pgeo": d.panelGeo && d.panelGeo !== "keep" ? d.panelGeo : undefined,
   };
 }
 

@@ -35,7 +35,7 @@ type Props = {
   host: string;
   origin: string;
   linkTargets: LinkTarget[];
-  config: Pick<PageConfig, "displayName" | "avatarUrl" | "theme" | "pageThemes">;
+  config: Pick<PageConfig, "displayName" | "avatarUrl" | "theme" | "pageThemes"> & Partial<Pick<PageConfig, "newsletter" | "texts">>;
   allowCustom: boolean;
   signupsOnly: boolean;
   hiddenSlugs: string[];

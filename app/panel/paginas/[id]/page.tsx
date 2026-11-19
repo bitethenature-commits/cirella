@@ -39,7 +39,7 @@ export default async function EditSitePage({ params, searchParams }: { params: P
       host={appHost()}
       origin={appUrl()}
       linkTargets={linkTargets.filter((t) => !t.href.endsWith(`/${page.slug}`))}
-      config={{ displayName: data.config.displayName, avatarUrl: data.config.avatarUrl, theme: data.config.theme, pageThemes: data.config.pageThemes }}
+      config={{ displayName: data.config.displayName, avatarUrl: data.config.avatarUrl, theme: data.config.theme, pageThemes: data.config.pageThemes, newsletter: data.config.newsletter, texts: data.config.texts }}
       allowCustom={data.allowCustom}
       signupsOnly={data.signupsOnly}
       hiddenSlugs={[...hiddenProductSlugs(data.products, data.signupsOnly)]}

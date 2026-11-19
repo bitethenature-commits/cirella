@@ -1,9 +1,11 @@
-import { READINGS_DEFAULTS, SECTION_META, type PageConfig, type SectionKey } from "@/lib/page-config";
+import { NEWSLETTER_FORM_DEFAULTS, READINGS_DEFAULTS, SECTION_META, type PageConfig, type SectionKey } from "@/lib/page-config";
+import { isSiteTextKey, withSiteText } from "@/lib/site-texts";
 
 /**
  * Qué campo de la portada cambia cada `path` del modo Canva (components/creator-page/home-edit.ts):
- *   displayName · tagline · headline · bio · avatarUrl · coverUrl · contact.message
+ *   displayName · tagline · headline · bio · avatarUrl · coverUrl · contact.message · newsletter.button
  *   section:<clave>                      → el título de esa sección
+ *   text:<clave>                         → un texto fijo de la web (lib/site-texts.ts), para todas las páginas
  *   about.eyebrow|title|text|linkLabel|url|image
  *   readings.session|reading.eyebrow|title|text · readings.circlesTitle
  *   link:<id>:label|url · bubble:<id>:label|url|image · system:<id>:title|url · faq:<id>:q|a
@@ -22,6 +24,12 @@ export function setPath(cfg: PageConfig, path: string, value: string | null): Pa
       return { ...cfg, [path]: value || null };
     case "contact.message":
       return { ...cfg, contact: { ...cfg.contact, message: v } };
+    case "newsletter.button":
+      return { ...cfg, newsletter: { ...NEWSLETTER_FORM_DEFAULTS, footer: false, ...cfg.newsletter, button: v.slice(0, 30) || NEWSLETTER_FORM_DEFAULTS.button } };
+  }
+  if (path.startsWith("text:")) {
+    const key = path.slice("text:".length);
+    return isSiteTextKey(key) ? { ...cfg, texts: withSiteText(cfg.texts, key, v) } : cfg;
   }
   if (path.startsWith("section:")) {
     const key = path.slice("section:".length) as SectionKey;

@@ -592,14 +592,6 @@ export function lintDesign(d: EmailDesign, subject?: string): string[] {
 /** Variables que se pueden escribir en los textos de un email. */
 export type EmailVars = Partial<Record<"nombre" | "mi_nombre" | "producto" | "fecha" | "luna", string | null>>;
 
-export const VARIABLE_HELP: Record<keyof EmailVars, string> = {
-  nombre: "el nombre de quien lo recibe",
-  mi_nombre: "tu nombre",
-  producto: "el producto",
-  fecha: "la fecha y hora de la sesión",
-  luna: "la luna del círculo (p. ej. «Luna llena en Tauro»)",
-};
-
 /**
  * Sustituye las variables en un texto YA ESCAPADO para HTML: los valores se escapan aquí. Sin
  * nombre, «Hola, {nombre}» queda en «Hola».

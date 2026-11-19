@@ -114,8 +114,6 @@ export const GATE_SLOTS: GateSlot[] = [
   { n: 41, centre: 'root', label: { x: 320, y: 890 }, anchor: { x: 323, y: 891 } },
 ]
 
-export const GATE_SLOT_BY_N = new Map(GATE_SLOTS.map((g) => [g.n, g]))
-
 export interface ChannelPath {
   key: string
   a: number

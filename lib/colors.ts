@@ -40,13 +40,6 @@ export function contrastRatio(a: string, b: string): number {
 /** Mínimo WCAG AA para texto normal. */
 export const MIN_CONTRAST = 4.5;
 
-/** ¿Se lee bien este texto sobre este fondo? (WCAG AA: 4,5:1; 3:1 para títulos grandes). */
-export function readable(text: string, bg: string, large = false): boolean {
-  return contrastRatio(text, bg) >= (large ? 3 : MIN_CONTRAST);
-}
-
-export const isDarkColor = (hex: string) => luminance(hex) < 0.18;
-
 /** El texto que mejor se lee sobre un fondo: el oscuro o el claro que se den (por defecto, tinta y blanco). */
 export function textOn(bg: string, dark = "#0E1024", light = "#FFFFFF"): string {
   return contrastRatio(dark, bg) >= contrastRatio(light, bg) ? dark : light;
@@ -58,6 +51,64 @@ export function mixHex(a: string, b: string, t: number): string {
   const y = rgb(b);
   const k = Math.min(1, Math.max(0, t));
   return `#${x.map((c, i) => Math.round(c + (y[i] - c) * k).toString(16).padStart(2, "0")).join("")}`.toUpperCase();
+}
+
+/* OKLab: aclarar u oscurecer un color sin cambiarle el tono. */
+const toLin = (c: number) => {
+  const s = c / 255;
+  return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+};
+const fromLin = (v: number) => (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055);
+function toOklab(hex: string): [number, number, number] {
+  const [r, g, b] = rgb(hex).map(toLin);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  ];
+}
+function oklabRgb(L: number, a: number, b: number): [number, number, number] {
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  return [
+    fromLin(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+    fromLin(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+    fromLin(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s),
+  ];
+}
+/** OKLab → hex; si se sale de lo que se puede pintar, le quita color (no luz) hasta que cabe. */
+function fromOklab(L: number, a: number, b: number): string {
+  let k = 1;
+  let c = oklabRgb(L, a, b);
+  for (let i = 0; i < 24 && c.some((v) => v < -0.001 || v > 1.001); i++) {
+    k *= 0.85;
+    c = oklabRgb(L, a * k, b * k);
+  }
+  return `#${c.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, "0")).join("")}`.toUpperCase();
+}
+
+/**
+ * El mismo color, aclarado u oscurecido lo justo para que se vea sobre unos fondos (contraste mínimo `min` con
+ * todos; con un degradado, sus dos colores). Va hacia donde hay más sitio: a claro sobre fondos oscuros, a oscuro
+ * sobre los claros. Si ya se ve, sale tal cual.
+ */
+export function visibleOn(color: string, bgs: string[], min = 3): string {
+  const c = normalizeHex(color) ?? "#FFFFFF";
+  const worst = (x: string) => Math.min(...bgs.map((b) => contrastRatio(x, b)));
+  if (worst(c) >= min) return c;
+  const up = worst("#FFFFFF") >= worst("#000000");
+  const [L, a, b] = toOklab(c);
+  let best = c;
+  for (let l = L; up ? l <= 1 : l >= 0; l += up ? 0.02 : -0.02) {
+    const x = fromOklab(l, a, b);
+    if (worst(x) > worst(best)) best = x;
+    if (worst(x) >= min) return x;
+  }
+  return best;
 }
 
 /** «#RRGGBB» + opacidad (0–100) → rgba() para CSS. */

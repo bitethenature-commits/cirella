@@ -360,7 +360,7 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
       </div>
 
       {/* Antes de publicar */}
-      <section className="rounded-[2rem] border border-gold/40 bg-gradient-to-b from-[#14112e] to-[#0b0a1c] p-5 shadow-[0_0_60px_-20px_rgb(212_181_122/.35)] sm:p-7">
+      <section className="rounded-[2rem] border border-gold/40 bg-gradient-to-b from-[color:var(--n-deep,#14112e)] to-[color:var(--n-deep,#0b0a1c)] p-5 shadow-[0_0_60px_-20px_rgb(212_181_122/.35)] sm:p-7">
         <p className="text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold">✦ Antes de publicar ✦</p>
         <button
           type="button"
@@ -368,12 +368,12 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
           onClick={() => setFeatured((f) => !f)}
           className={`mt-5 flex w-full items-center gap-3 rounded-[1.3rem] border px-4 py-3 text-left transition ${featured ? "border-gold/70 bg-gold/[.07]" : "border-gold/25 hover:border-gold/50"}`}
         >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-gold/40 text-[#f0d9a4]">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-gold/40 text-[color:var(--n-gold-hi,#f0d9a4)]">
             <Star className={`h-4 w-4 ${featured ? "fill-current" : ""}`} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block font-semibold text-[#f1ebdf]">Principal</span>
-            <span className="block text-xs text-[#a7a2c2]">Sale en grande arriba, en tu portada y en el panel.</span>
+            <span className="block font-semibold text-[color:var(--n-ivory,#f1ebdf)]">Principal</span>
+            <span className="block text-xs text-[color:var(--n-muted,#a7a2c2)]">Sale en grande arriba, en tu portada y en el panel.</span>
           </span>
           <span className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${featured ? "bg-gold" : "bg-white/15"}`}>
             <span className={`block h-5 w-5 rounded-full bg-white transition ${featured ? "translate-x-5" : ""}`} />
@@ -394,11 +394,11 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
                 role="radio"
                 aria-checked={on}
                 onClick={() => setStatus(value)}
-                className={`flex flex-col items-center gap-2 rounded-[1.4rem] border px-4 py-5 text-center transition ${on ? "border-[#e9cc8e] bg-gold/[.12] shadow-[0_0_30px_-10px_rgb(212_181_122/.6)]" : "border-gold/25 hover:border-gold/50"}`}
+                className={`flex flex-col items-center gap-2 rounded-[1.4rem] border px-4 py-5 text-center transition ${on ? "border-[color:var(--n-gold,#e9cc8e)] bg-gold/[.12] shadow-[0_0_30px_-10px_rgb(212_181_122/.6)]" : "border-gold/25 hover:border-gold/50"}`}
               >
-                <SIcon className={`h-6 w-6 ${on ? "text-gold" : "text-[#a7a2c2]"}`} />
-                <span className={`display text-[1.35rem] leading-none ${on ? "text-[#f7e5b8]" : "text-[#f1ebdf]"}`}>{label}</span>
-                <span className="text-xs text-[#a7a2c2]">{hint}</span>
+                <SIcon className={`h-6 w-6 ${on ? "text-gold" : "text-[color:var(--n-muted,#a7a2c2)]"}`} />
+                <span className={`display text-[1.35rem] leading-none ${on ? "text-[color:var(--n-gold-pale,#f7e5b8)]" : "text-[color:var(--n-ivory,#f1ebdf)]"}`}>{label}</span>
+                <span className="text-xs text-[color:var(--n-muted,#a7a2c2)]">{hint}</span>
               </button>
             );
           })}

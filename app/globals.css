@@ -123,7 +123,7 @@
 [data-reveal].is-visible { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) {
   [data-reveal] { opacity: 1; transform: none; transition: none; }
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  :not(:where(.cp-decor, .cp-decor *)), :not(:where(.cp-decor, .cp-decor *))::before, :not(:where(.cp-decor, .cp-decor *))::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
 
 /* Cielo estrellado reutilizable */
@@ -301,235 +301,22 @@
 }
 .cp-locked-cover { filter: blur(10px) brightness(.5); transform: scale(1.1); }
 
-/* Decoraciones por plantilla */
+/* ───────────── Fondos con movimiento (components/template-decor.tsx) ─────────────
+   Los que se mueven se dibujan en vivo en un lienzo (components/decor-fx), con los colores de lib/templates.ts →
+   decorVars (--fx-*). Aquí solo queda la caja, el lienzo y los dos fondos quietos (Líneas y Grano de papel). */
 .cp-decor { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
-.cp-decor-stars::before { content: ""; position: absolute; inset: 0; }
-.cp-decor-stars::after {
-  content: ""; position: absolute; inset: -10% -10% auto -10%; height: 70vh;
-  background: radial-gradient(60% 60% at 50% 0%, color-mix(in oklab, var(--c-accent) 18%, transparent), transparent 70%);
-}
-.cp-decor-aurora::before {
-  content: ""; position: absolute; width: 140vw; height: 90vh; left: -20vw; top: -30vh;
-  background:
-    radial-gradient(35% 45% at 30% 40%, color-mix(in oklab, var(--c-accent) 40%, transparent), transparent 70%),
-    radial-gradient(30% 40% at 70% 50%, color-mix(in oklab, var(--c-gold) 30%, transparent), transparent 70%);
-  filter: blur(40px); animation: aurora 18s ease-in-out infinite alternate;
-}
-@keyframes aurora { from { transform: translate3d(-4%, 0, 0) rotate(-3deg); } to { transform: translate3d(4%, 4%, 0) rotate(3deg); } }
+.cp-fx-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.cp-fx-canvas[data-contained] { position: absolute; }
+@keyframes cp-twinkle { from { opacity: .3; } to { opacity: 1; } }
 .cp-decor-grain::before {
-  content: ""; position: absolute; inset: 0; opacity: .35; mix-blend-mode: multiply;
+  content: ""; position: absolute; inset: 0; opacity: .55; mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.3 0 0 0 0 0.25 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 .cp-decor-lines::before {
   content: ""; position: absolute; inset: 0;
-  background-image: linear-gradient(to right, color-mix(in oklab, var(--c-text) 7%, transparent) 1px, transparent 1px);
+  background-image: linear-gradient(to right, color-mix(in oklab, var(--fx-soft) 24%, transparent) 1px, transparent 1px);
   background-size: calc(100% / 6) 100%;
   mask-image: linear-gradient(to bottom, #000, transparent 60%);
-}
-/* Plantillas con movimiento (components/template-decor.tsx): piezas fijas a la pantalla, lentas y suaves. */
-.cp-fx { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
-.cp-fx[data-contained] { position: absolute; }
-.cp-fx > span { position: absolute; left: var(--x); top: var(--y); }
-
-.cp-decor-shooting::after {
-  content: ""; position: absolute; inset: -10% -10% auto -10%; height: 70vh;
-  background: radial-gradient(60% 60% at 50% 0%, color-mix(in oklab, var(--c-accent) 18%, transparent), transparent 70%);
-}
-.cp-decor-shooting .cp-fx > span {
-  top: calc(var(--y) * .6); width: calc(110px * var(--s)); height: 1.5px; border-radius: 2px; opacity: 0;
-  background: linear-gradient(to right, transparent, color-mix(in oklab, var(--c-gold) 85%, #fff));
-  transform-origin: left center; animation: cp-shoot var(--t) linear var(--d) infinite;
-}
-@keyframes cp-shoot {
-  0% { opacity: 0; transform: rotate(150deg) translateX(0); }
-  1.5% { opacity: 1; }
-  8% { opacity: 0; transform: rotate(150deg) translateX(min(55vw, 520px)); }
-  100% { opacity: 0; transform: rotate(150deg) translateX(min(55vw, 520px)); }
-}
-
-.cp-decor-golddust .cp-fx > span {
-  width: calc(3px * var(--s)); height: calc(3px * var(--s)); border-radius: 50%;
-  background: var(--c-gold); box-shadow: 0 0 calc(7px * var(--s)) var(--c-gold);
-  animation: cp-rise var(--t) linear var(--d) infinite, cp-twinkle calc(var(--t) / 5) ease-in-out var(--d) infinite alternate;
-}
-@keyframes cp-rise { from { top: 104%; transform: translateX(0); } 50% { transform: translateX(calc(var(--dx) * 30px)); } to { top: -4%; transform: translateX(0); } }
-@keyframes cp-twinkle { from { opacity: .25; } to { opacity: .9; } }
-
-.cp-decor-fireflies::after {
-  content: ""; position: absolute; inset: auto -10% -10% -10%; height: 60vh;
-  background: radial-gradient(60% 60% at 50% 100%, color-mix(in oklab, var(--c-accent) 10%, transparent), transparent 70%);
-}
-.cp-decor-fireflies .cp-fx > span {
-  width: calc(4px * var(--s)); height: calc(4px * var(--s)); border-radius: 50%;
-  background: color-mix(in oklab, var(--c-accent) 70%, #fff);
-  box-shadow: 0 0 10px 3px color-mix(in oklab, var(--c-accent) 55%, transparent);
-  animation: cp-wander var(--t) ease-in-out var(--d) infinite alternate, cp-blink calc(var(--t) / 4) ease-in-out var(--d) infinite;
-}
-@keyframes cp-wander {
-  0% { transform: translate(0, 0); }
-  33% { transform: translate(calc(var(--dx) * 50px), -30px); }
-  66% { transform: translate(calc(var(--dx) * -30px), -60px); }
-  100% { transform: translate(calc(var(--dx) * 35px), -20px); }
-}
-@keyframes cp-blink { 0%, 100% { opacity: .08; } 50% { opacity: 1; } }
-
-.cp-decor-waves .cp-fx > .cp-wave {
-  left: 0; top: auto; bottom: 0; width: 200%; height: 90px; background: var(--c-accent); opacity: .13;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 100' preserveAspectRatio='none'%3E%3Cpath d='M0 50 C200 0 200 100 400 50 C600 0 600 100 800 50 V100 H0Z'/%3E%3C/svg%3E") repeat-x 0 100% / 50% 100%;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 100' preserveAspectRatio='none'%3E%3Cpath d='M0 50 C200 0 200 100 400 50 C600 0 600 100 800 50 V100 H0Z'/%3E%3C/svg%3E") repeat-x 0 100% / 50% 100%;
-  animation: cp-wave 18s linear infinite;
-}
-.cp-decor-waves .cp-fx > .cp-wave:nth-child(2) { height: 65px; opacity: .1; animation-duration: 26s; animation-direction: reverse; }
-.cp-decor-waves .cp-fx > .cp-wave:nth-child(3) { height: 130px; opacity: .07; animation-duration: 34s; }
-@keyframes cp-wave { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-
-.cp-decor-petals .cp-fx > span {
-  width: calc(13px * var(--s)); height: calc(9px * var(--s)); border-radius: 150% 0 150% 0; opacity: .7;
-  background: linear-gradient(135deg, color-mix(in oklab, var(--c-accent) 45%, #fff), color-mix(in oklab, var(--c-accent) 75%, #fff));
-  animation: cp-fall var(--t) linear var(--d) infinite, cp-sway calc(var(--t) / 3) ease-in-out var(--d) infinite alternate;
-}
-@keyframes cp-fall { from { top: -4%; } to { top: 104%; } }
-@keyframes cp-sway { from { transform: translateX(calc(var(--dx) * 20px - 15px)) rotate(-30deg); } to { transform: translateX(calc(var(--dx) * 20px + 25px)) rotate(160deg); } }
-
-/* ── Cielo ── */
-.cp-decor-moon .cp-fx > .cp-moon {
-  left: auto; right: 10%; top: 9%; width: min(24vmin, 190px); aspect-ratio: 1; border-radius: 50%; overflow: hidden;
-  background:
-    radial-gradient(circle at 34% 40%, rgb(90 80 70 / .16) 0 9%, transparent 10%),
-    radial-gradient(circle at 60% 30%, rgb(90 80 70 / .12) 0 7%, transparent 8%),
-    radial-gradient(circle at 55% 62%, rgb(90 80 70 / .14) 0 12%, transparent 13%),
-    radial-gradient(circle at 40% 38%, #FBF7EC, #E3DCC8 55%, #B9B09A 100%);
-  box-shadow: 0 0 70px 12px color-mix(in oklab, var(--c-gold) 28%, transparent);
-  animation: cp-float 9s ease-in-out infinite alternate;
-}
-.cp-fx[data-contained] > .cp-moon { width: 26%; }
-.cp-moon::after { content: ""; position: absolute; inset: -3%; border-radius: 50%; background: var(--c-bg); opacity: .94; animation: cp-phase 48s linear infinite; }
-@keyframes cp-phase { from { transform: translateX(-108%); } to { transform: translateX(108%); } }
-@keyframes cp-float { from { transform: translateY(-8px); } to { transform: translateY(10px); } }
-
-.cp-decor-nebula .cp-fx > span {
-  width: 75%; height: 60%; border-radius: 50%; filter: blur(60px);
-  background: radial-gradient(closest-side, color-mix(in oklab, var(--c-accent) 70%, transparent), transparent);
-  animation: cp-breathe var(--t) ease-in-out var(--d) infinite alternate;
-}
-.cp-decor-nebula .cp-fx > span:nth-child(2) { background: radial-gradient(closest-side, color-mix(in oklab, var(--c-gold) 70%, transparent), transparent); }
-.cp-decor-nebula .cp-fx > span:nth-child(3) { background: radial-gradient(closest-side, color-mix(in oklab, var(--c-accent) 45%, #5B3CFF), transparent); }
-@keyframes cp-breathe {
-  from { transform: translate(-50%, -50%) scale(.85) rotate(0deg); opacity: .22; }
-  to { transform: translate(calc(-50% + var(--dx) * 40px), -50%) scale(1.15) rotate(12deg); opacity: .5; }
-}
-
-.cp-const { position: absolute; inset: 0; width: 100%; height: 100%; }
-.cp-const-line {
-  fill: none; stroke: var(--c-gold); stroke-opacity: .4; stroke-width: 1; vector-effect: non-scaling-stroke;
-  stroke-dasharray: 1; stroke-dashoffset: 1; animation: cp-draw 14s ease-in-out var(--d) infinite;
-}
-.cp-const-star { fill: var(--c-gold); animation: cp-twinkle 2.6s ease-in-out infinite alternate; }
-@keyframes cp-draw { 0% { stroke-dashoffset: 1; } 40%, 70% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -1; } }
-
-/* ── Naturaleza ── */
-.cp-decor-leaves .cp-fx > span {
-  width: calc(18px * var(--s)); height: calc(11px * var(--s)); border-radius: 0 100% 0 100%; opacity: .75;
-  background: linear-gradient(135deg, var(--c-accent), color-mix(in oklab, var(--c-accent) 60%, #5a2a10));
-  animation: cp-fall var(--t) linear var(--d) infinite, cp-sway calc(var(--t) / 3) ease-in-out var(--d) infinite alternate;
-}
-.cp-decor-leaves .cp-fx > span:nth-child(3n) { background: linear-gradient(135deg, var(--c-gold), color-mix(in oklab, var(--c-gold) 60%, #6a3a10)); }
-.cp-decor-leaves .cp-fx > span:nth-child(3n + 1) { background: linear-gradient(135deg, #C7782F, #8E3B1B); }
-
-.cp-decor-mist .cp-fx > span {
-  left: -60%; width: 130%; height: 34%; border-radius: 50%; filter: blur(40px); opacity: .6;
-  background: radial-gradient(closest-side, color-mix(in oklab, #fff 75%, var(--c-bg2)), transparent);
-  animation: cp-drift var(--t) ease-in-out var(--d) infinite alternate;
-}
-@keyframes cp-drift { from { transform: translateX(0); } to { transform: translateX(70%); } }
-
-.cp-decor-snow .cp-fx > span {
-  width: calc(4px * var(--s)); height: calc(4px * var(--s)); border-radius: 50%; background: #fff; opacity: .8;
-  box-shadow: 0 0 6px rgb(255 255 255 / .6);
-  animation: cp-fall var(--t) linear var(--d) infinite, cp-sway-soft calc(var(--t) / 3) ease-in-out var(--d) infinite alternate;
-}
-@keyframes cp-sway-soft { from { transform: translateX(calc(var(--dx) * 15px - 10px)); } to { transform: translateX(calc(var(--dx) * 15px + 12px)); } }
-
-/* ── Mágicas ── */
-.cp-decor-bubbles .cp-fx > span {
-  width: calc(26px * var(--s)); height: calc(26px * var(--s)); border-radius: 50%; opacity: .7;
-  border: 1px solid rgb(255 255 255 / .35);
-  background:
-    radial-gradient(circle at 30% 28%, rgb(255 255 255 / .55) 0 12%, transparent 30%),
-    conic-gradient(from 40deg, color-mix(in oklab, var(--c-accent) 35%, transparent), color-mix(in oklab, var(--c-gold) 35%, transparent), transparent 60%, color-mix(in oklab, var(--c-accent) 30%, transparent));
-  box-shadow: inset 0 0 10px color-mix(in oklab, var(--c-accent) 40%, transparent);
-  animation: cp-rise var(--t) linear var(--d) infinite;
-}
-
-.cp-decor-candles .cp-fx > .cp-candle {
-  top: auto; bottom: 0; width: calc(16px * var(--s) + 6px); height: calc(70px * var(--s) + 30px); translate: -50% 0;
-  border-radius: 4px 4px 0 0; background: linear-gradient(to right, #CDBB9C, #FFF6E6 40%, #D9C7A8);
-  box-shadow: 0 -20px 90px 30px color-mix(in oklab, var(--c-accent) 18%, transparent);
-}
-.cp-candle::after {
-  content: ""; position: absolute; left: 50%; bottom: calc(100% + 2px); width: 12px; height: 26px; transform-origin: 50% 100%;
-  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  background: radial-gradient(ellipse at 50% 75%, #fff 0 14%, #FFE19A 32%, #F39A35 64%, transparent 70%);
-  box-shadow: 0 0 26px 8px rgb(255 180 80 / .35);
-  animation: cp-flicker var(--t) ease-in-out var(--d) infinite alternate;
-}
-.cp-fx[data-contained] > .cp-candle { width: 5px; height: 18px; }
-.cp-fx[data-contained] > .cp-candle::after { width: 5px; height: 10px; }
-@keyframes cp-flicker {
-  0% { transform: translateX(-50%) scale(1, 1) rotate(-2deg); }
-  50% { transform: translateX(-50%) scale(.9, 1.1) rotate(2deg); }
-  100% { transform: translateX(-50%) scale(1.06, .94) rotate(-1deg); }
-}
-
-.cp-mandala {
-  position: absolute; left: 50%; top: 50%; width: min(92%, 860px); aspect-ratio: 1; translate: -50% -50%;
-  opacity: .16; animation: cp-spin 180s linear infinite;
-}
-@keyframes cp-spin { to { transform: rotate(360deg); } }
-
-/* ── Agua y luz ── */
-.cp-decor-rain .cp-fx > span {
-  width: 1px; height: calc(55px * var(--s)); opacity: .35; rotate: 10deg;
-  background: linear-gradient(transparent, color-mix(in oklab, var(--c-accent) 70%, #fff));
-  animation: cp-fall var(--t) linear var(--d) infinite;
-}
-
-.cp-decor-caustics::after {
-  content: ""; position: absolute; inset: 0;
-  background: radial-gradient(70% 50% at 50% 0%, color-mix(in oklab, var(--c-accent) 22%, transparent), transparent 70%);
-}
-.cp-decor-caustics .cp-fx > span {
-  top: -10%; width: calc(90px * var(--s)); height: 120%; filter: blur(10px); transform-origin: 50% 0;
-  background: linear-gradient(to bottom, color-mix(in oklab, var(--c-gold) 40%, transparent), transparent 70%);
-  animation: cp-ray var(--t) ease-in-out var(--d) infinite alternate;
-}
-@keyframes cp-ray {
-  from { transform: rotate(calc(var(--dx) * 10deg - 6deg)); opacity: .12; }
-  to { transform: rotate(calc(var(--dx) * 10deg + 6deg)); opacity: .5; }
-}
-
-.cp-decor-haze::before {
-  content: ""; position: absolute; inset: 0;
-  background: linear-gradient(to bottom, transparent 25%, color-mix(in oklab, var(--c-gold) 22%, transparent) 55%, transparent 85%);
-  animation: cp-haze 16s ease-in-out infinite alternate;
-}
-@keyframes cp-haze { from { transform: translateX(-6%); opacity: .5; } to { transform: translateX(6%); opacity: 1; } }
-.cp-decor-haze .cp-fx > span {
-  width: calc(3px * var(--s)); height: calc(3px * var(--s)); border-radius: 50%; opacity: .5;
-  background: color-mix(in oklab, var(--c-gold) 70%, var(--c-text));
-  animation: cp-blow var(--t) linear var(--d) infinite;
-}
-@keyframes cp-blow {
-  from { left: -4%; transform: translateY(0); }
-  50% { transform: translateY(calc(var(--dx) * 24px)); }
-  to { left: 104%; transform: translateY(0); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cp-fx > span, .cp-fx > span::after, .cp-fx svg, .cp-fx svg * { animation: none !important; }
-  .cp-const-line { stroke-dashoffset: 0; }
-  .cp-moon::after { transform: translateX(-62%); }
-  .cp-decor-shooting .cp-fx { display: none; }
 }
 
 .cp-cover-fade { background: linear-gradient(to bottom, transparent 0%, color-mix(in oklab, var(--c-bg) 40%, transparent) 55%, var(--c-bg) 100%); }
@@ -590,8 +377,8 @@
 .phone-frame { --phone-scale: calc(280 / 390); }
 @media (min-width: 1024px) { .phone-frame { --phone-scale: calc(300 / 390); } }
 
-/* ───────────── Panel: «Personalizar mi panel» (lib/panel-prefs.ts) ─────────────
-   Sin preferencias, las variables --panel-* no existen y todo sale con los colores de siempre. */
+/* ───────────── Panel: la barra del menú y el acento (lib/panel-prefs.ts, «Panel con diseño propio») ─────────────
+   Sin diseño propio, las variables --panel-* no existen y todo sale con los colores de siempre. */
 @layer components {
   .panel-side { background: var(--panel-side-bg, color-mix(in oklab, var(--color-cream) 40%, transparent)); color: var(--panel-side-text, var(--color-ink)); }
   .panel-nav-link { color: color-mix(in oklab, var(--panel-side-text, var(--color-ink)) 75%, transparent); }
@@ -601,17 +388,6 @@
   .panel-root .btn-primary:hover { background: var(--panel-accent-hover, var(--color-ink-2)); }
 }
 
-/* Fondo oscuro: tarjetas, campos y botones blancos pasan a la «superficie» oscura. Fuera de las capas
-   a propósito: así ganan a las utilidades de Tailwind (bg-white), que van en @layer utilities. */
-[data-panel-tone="dark"] .card,
-[data-panel-tone="dark"] .input,
-[data-panel-tone="dark"] .btn-outline,
-[data-panel-tone="dark"] .btn-danger,
-[data-panel-tone="dark"] .bg-white { background-color: var(--panel-surface); }
-[data-panel-tone="dark"] [class*="bg-white/"] { background-color: color-mix(in oklab, var(--panel-surface) 92%, transparent); }
-[data-panel-tone="dark"] .btn-outline:hover { background-color: var(--color-sand); }
-[data-panel-tone="dark"] .btn-ghost:hover { background-color: rgb(255 255 255 / .06); }
-[data-panel-tone="dark"] { color-scheme: dark; }
 
 /* ───────────── Panel de noche y oro (como la web) ─────────────
    Por defecto (sin «Personalizar mi panel»): .panel-night en app/panel/layout.tsx. Se cambian los colores del
@@ -700,15 +476,15 @@
 .panel-night .text-amber-700 { color: #e9cf96; }
 
 /* Avisos y etiquetas de colores pastel: en tonos de noche. */
-.panel-night [class*="bg-[#e7f3ec]"], .panel-night [class*="bg-[#d8ecdf]"] { background-color: rgb(143 212 171 / .14); }
-.panel-night [class*="text-[#2f6b4a]"] { color: #93d8ae; }
-.panel-night [class*="bg-[#2f6b4a]"] { background-color: #93d8ae; }
-.panel-night [class*="bg-[#f8efdc]"], .panel-night [class*="bg-[#fbf5e8]"], .panel-night [class*="bg-[#f1e3c6]"] { background-color: rgb(217 191 140 / .14); }
-.panel-night [class*="text-[#8a6420]"], .panel-night [class*="text-[#7a5a1c]"] { color: #ebd29c; }
-.panel-night [class*="border-[#ecdcb8]"] { border-color: rgb(217 191 140 / .32); }
-.panel-night [class*="bg-[#fbe9e6]"], .panel-night [class*="bg-[#fdf3f1]"] { background-color: rgb(236 154 143 / .14); }
-.panel-night [class*="text-[#9a3a2e]"] { color: #f2a99f; }
-.panel-night [class*="border-[#f0d2cc]"], .panel-night [class*="border-[#ecd2cd]"] { border-color: rgb(236 154 143 / .32); }
+:is(.panel-night, .pd[data-mode="dark"]) [class*="bg-[#e7f3ec]"], :is(.panel-night, .pd[data-mode="dark"]) [class*="bg-[#d8ecdf]"] { background-color: rgb(143 212 171 / .14); }
+:is(.panel-night, .pd[data-mode="dark"]) [class*="text-[#2f6b4a]"] { color: #93d8ae; }
+:is(.panel-night, .pd[data-mode="dark"]) [class*="bg-[#2f6b4a]"] { background-color: #93d8ae; }
+:is(.panel-night, .pd[data-mode="dark"]) [class*="bg-[#f8efdc]"], :is(.panel-night, .pd[data-mode="dark"]) [class*="bg-[#fbf5e8]"], :is(.panel-night, .pd[data-mode="dark"]) [class*="bg-[#f1e3c6]"] { background-color: rgb(217 191 140 / .14); }
+:is(.panel-night, .pd[data-mode="dark"]) [class*="text-[#8a6420]"], :is(.panel-night, .pd[data-mode="dark"]) [class*="text-[#7a5a1c]"] { color: #ebd29c; }
+:is(.panel-night, .pd[data-mode="dark"]) [class*="border-[#ecdcb8]"] { border-color: rgb(217 191 140 / .32); }
+:is(.panel-night, .pd[data-mode="dark"]) [class*="bg-[#fbe9e6]"], :is(.panel-night, .pd[data-mode="dark"]) [class*="bg-[#fdf3f1]"] { background-color: rgb(236 154 143 / .14); }
+:is(.panel-night, .pd[data-mode="dark"]) [class*="text-[#9a3a2e]"] { color: #f2a99f; }
+:is(.panel-night, .pd[data-mode="dark"]) [class*="border-[#f0d2cc]"], :is(.panel-night, .pd[data-mode="dark"]) [class*="border-[#ecd2cd]"] { border-color: rgb(236 154 143 / .32); }
 
 /* La cabecera de cada sección (PageHeader): cielo de noche con su emblema dorado. */
 .panel-hero {
@@ -1817,6 +1593,126 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
 :is(.acc-root, .panel-night) .pill-fav { min-height: 2.25rem; font-family: var(--font-display); font-style: italic; font-weight: 400; font-size: .92rem; }
 :is(.acc-root, .panel-night) [data-card-community] { border-top-color: rgb(217 191 140 / .2); }
 
+/* ───────────── Los colores de cada alumna (Ajustes › Colores de mi área) ─────────────
+   app/cuenta/look-root.tsx pone en .acc-root (y en <body>, para las ventanas que se abren encima) las variables
+   de lib/account-look.ts y data-acc-look="dark|light". Aquí, los colores fijos de la noche dorada pasan a ser
+   esas variables. Sin data-acc-look, todo como siempre. */
+.acc-root[data-acc-look] { background: var(--acc-bg); background-attachment: fixed; }
+.acc-root:is([data-acc-decor], [data-acc-look="light"])::before { display: none; }
+.acc-root[data-acc-look] > .cp-decor { position: fixed; }
+/* La figura de geometría, fina y detrás de todo: grande en una esquina o entera en el centro; si quiere, girando muy despacio. */
+.acc-geo { position: fixed; z-index: -1; pointer-events: none; background: var(--acc-geo-img) center / contain no-repeat; }
+.acc-geo[data-pos="corner"] { right: -9rem; bottom: -9rem; width: 30rem; height: 30rem; }
+.acc-geo[data-pos="center"] { left: 50%; top: 50%; width: min(94vw, 44rem); aspect-ratio: 1; translate: -50% -50%; }
+.acc-geo[data-spin] { animation: acc-geo-spin 160s linear infinite; }
+@keyframes acc-geo-spin { to { rotate: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .acc-geo[data-spin] { animation: none; } }
+
+/* La barra de arriba con su color: dentro, la letra, los detalles y los filos salen de ella. */
+.acc-root[data-acc-look] > header {
+  --color-ink: var(--acc-bar-ink); --color-ink-2: var(--acc-bar-ink); --color-ink-3: var(--acc-bar-ink);
+  --color-muted: var(--acc-bar-muted); --color-gold: var(--acc-bar-gold); --color-line: var(--acc-bar-line);
+  --acc-deep: var(--acc-bar-deep); --acc-on-gold: var(--acc-bar-on-gold);
+  background: var(--acc-bar); color: var(--color-ink);
+}
+
+/* Tarjetas, campos y botones. */
+.acc-root[data-acc-look] :is(.bg-white, .card, .input, .btn-outline, .bg-paper) { background-color: var(--acc-surface); }
+.acc-root[data-acc-look] .card {
+  background: radial-gradient(70% 60% at 0% 0%, color-mix(in oklab, var(--color-gold) 6%, transparent), transparent 70%), var(--acc-surface);
+  box-shadow: inset 0 0 0 5px var(--acc-deep), inset 0 0 0 6px color-mix(in oklab, var(--color-gold) 16%, transparent), var(--acc-shadow);
+}
+.acc-root[data-acc-look] .btn-primary {
+  background: var(--acc-btn); color: var(--color-ink);
+  box-shadow: inset 0 0 0 3px var(--acc-deep), inset 0 0 0 4px color-mix(in oklab, var(--color-gold) 45%, transparent);
+}
+.acc-root[data-acc-look] .btn-primary:hover { background: var(--acc-btn); color: var(--color-gold); }
+.acc-root[data-acc-look] .btn-outline:hover { background: var(--acc-surface); }
+.acc-root[data-acc-look] .btn-ghost:hover { background: color-mix(in oklab, var(--color-gold) 9%, transparent); }
+.acc-root[data-acc-look] .input:focus { box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-gold) 14%, transparent); }
+.acc-root[data-acc-look] select.input option { background: var(--acc-solid); color: var(--color-ink); }
+.acc-root[data-acc-look] .acc-star { text-shadow: 0 0 12px color-mix(in oklab, var(--color-gold) 60%, transparent); }
+.acc-root[data-acc-look="light"] .kind-text { color: var(--k-dark); }
+
+/* El menú: la pestaña encendida, sus iconos y el numerito. */
+.acc-root[data-acc-look] .acc-tab[data-active="true"] { box-shadow: inset 0 0 0 2px var(--acc-deep), inset 0 0 0 3px color-mix(in oklab, var(--color-gold) 35%, transparent); }
+.acc-root[data-acc-look] .acc-tab[data-active="true"] .acc-tab-ico { filter: drop-shadow(0 0 5px color-mix(in oklab, var(--color-gold) 60%, transparent)); }
+:is(.acc-root, body)[data-acc-look] :is(.acc-badge, .acc-new, .acc-win-icon, .pill-fav[data-on="true"]) {
+  color: var(--acc-on-gold); background: linear-gradient(135deg, color-mix(in oklab, var(--color-gold) 62%, #fff), var(--color-gold));
+}
+:is(.acc-root, body)[data-acc-look] .pill-fav[data-on="true"] { border-color: var(--color-gold); box-shadow: 0 0 16px color-mix(in oklab, var(--color-gold) 50%, transparent); }
+:is(.acc-root, body)[data-acc-look] .pill-fav:not([data-on="true"]):hover { background: color-mix(in oklab, var(--color-gold) 10%, transparent); }
+.acc-root[data-acc-look] .acc-badge { box-shadow: 0 0 0 2px var(--acc-deep), 0 0 14px color-mix(in oklab, var(--color-gold) 70%, transparent); animation-name: acc-badge-pulse-own; }
+@keyframes acc-badge-pulse-own { 50% { box-shadow: 0 0 0 2px var(--acc-deep), 0 0 22px color-mix(in oklab, var(--color-gold) 95%, transparent); } }
+
+/* Favoritos y comentarios: el escritorio, las carpetas y las ventanas. */
+.acc-root[data-acc-look] .acc-desk {
+  background: radial-gradient(70% 80% at 50% 0%, color-mix(in oklab, var(--color-gold) 12%, transparent), transparent 70%), var(--acc-surface);
+  box-shadow: inset 0 0 0 6px var(--acc-deep), inset 0 0 0 7px color-mix(in oklab, var(--color-gold) 16%, transparent), var(--acc-shadow);
+}
+.acc-root[data-acc-look] .acc-folder:is(:hover, :focus-visible) { background: color-mix(in oklab, var(--color-gold) 8%, transparent); }
+.acc-root[data-acc-look] .acc-folder-name { color: var(--color-ink); }
+.acc-root[data-acc-look] .acc-folder:not([data-folder="likes"]) .acc-folder-emblem { color: var(--color-gold); filter: drop-shadow(0 0 8px color-mix(in oklab, var(--color-gold) 55%, transparent)); }
+.acc-root[data-acc-look="light"] .acc-folder-art { filter: drop-shadow(0 12px 14px rgb(0 0 0 / .18)); }
+:is(.acc-root, body)[data-acc-look] .acc-win {
+  color: var(--color-ink);
+  background: radial-gradient(80% 50% at 0% 0%, color-mix(in oklab, var(--color-gold) 8%, transparent), transparent 70%), var(--acc-solid);
+  box-shadow: inset 0 0 0 4px var(--acc-deep), inset 0 0 0 5px color-mix(in oklab, var(--color-gold) 22%, transparent), 0 50px 120px -30px rgb(0 0 0 / .6), 0 0 70px -30px color-mix(in oklab, var(--color-gold) 35%, transparent);
+}
+:is(.acc-root, body)[data-acc-look] .acc-win-bar { background: linear-gradient(180deg, color-mix(in oklab, var(--color-gold) 12%, transparent), color-mix(in oklab, var(--color-gold) 3%, transparent)); }
+:is(.acc-root, body)[data-acc-look] .acc-win-btn { color: var(--color-ink-3); }
+:is(.acc-root, body)[data-acc-look] .acc-win-btn:not(.acc-win-close):is(:hover, :focus-visible) { color: var(--color-gold); background: color-mix(in oklab, var(--color-gold) 8%, transparent); }
+:is(.acc-root, body)[data-acc-look] .acc-win-empty span { text-shadow: 0 0 12px color-mix(in oklab, var(--color-gold) 60%, transparent); }
+:is(.acc-root, body)[data-acc-look] .acc-row-icon:not([data-row="likes"]) { background: color-mix(in oklab, var(--color-gold) 6%, transparent); }
+:is(.acc-root, body)[data-acc-look] .acc-row-btn { color: var(--color-ink); box-shadow: inset 0 0 0 2px var(--acc-deep), inset 0 0 0 3px color-mix(in oklab, var(--color-gold) 30%, transparent); }
+:is(.acc-root, body)[data-acc-look] .acc-row-btn:hover { color: var(--color-gold); }
+:is(.acc-root, body)[data-acc-look] .acc-cmt[data-new] { background: color-mix(in oklab, var(--color-gold) 6%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-gold) 35%, transparent); }
+:is(.acc-root, body)[data-acc-look] .acc-cmt-replies > li { background: color-mix(in oklab, var(--color-ink) 4%, transparent); }
+:is(.acc-root, body)[data-acc-look] .acc-cmt-replies > li[data-new] { background: color-mix(in oklab, var(--color-gold) 10%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-gold) 40%, transparent); }
+:is(.acc-root, body)[data-acc-look] :is(.acc-clike[data-on="true"], button.acc-clike:hover, .acc-cmt-likes[data-on]) { color: var(--acc-like); }
+
+/* La comunidad: ♥ y 💬, la línea de abajo de las tarjetas y el nivel. */
+.acc-root[data-acc-look] :is(.pill-like:not(.is-on), .pill-com) { background: var(--acc-btn); }
+.acc-root[data-acc-look] .pill-like:not(.is-on) { color: var(--acc-like); box-shadow: inset 0 0 0 2px var(--acc-deep), inset 0 0 0 3px rgb(227 107 95 / .25); }
+.acc-root[data-acc-look] .pill-like:not(.is-on):hover { box-shadow: inset 0 0 0 2px var(--acc-deep), inset 0 0 0 3px rgb(227 107 95 / .45), 0 0 18px -6px rgb(227 107 95 / .6); }
+.acc-root[data-acc-look] .pill-com { color: var(--color-gold); border-color: color-mix(in oklab, var(--color-gold) 55%, transparent); box-shadow: inset 0 0 0 2px var(--acc-deep), inset 0 0 0 3px color-mix(in oklab, var(--color-gold) 22%, transparent); }
+.acc-root[data-acc-look] [data-card-community] { border-top-color: color-mix(in oklab, var(--color-gold) 20%, transparent); }
+.acc-root[data-acc-look] .post-tier { color: var(--color-gold); border-color: color-mix(in oklab, var(--color-gold) 50%, transparent); }
+.acc-root[data-acc-look] .post-cover { border-color: color-mix(in oklab, var(--color-gold) 60%, transparent); }
+
+/* Los medallones de las secciones y las membresías. */
+.acc-root[data-acc-look] .acc-emblem {
+  background: radial-gradient(circle at 35% 30%, color-mix(in oklab, var(--color-gold) 14%, transparent), transparent 70%);
+  box-shadow: inset 0 0 0 4px var(--acc-deep), inset 0 0 0 5px color-mix(in oklab, var(--color-gold) 30%, transparent), 0 0 34px -10px color-mix(in oklab, var(--color-gold) 60%, transparent);
+}
+.acc-root[data-acc-look] .acc-emblem svg { filter: drop-shadow(0 0 6px color-mix(in oklab, var(--color-gold) 45%, transparent)); }
+.acc-root[data-acc-look] .vip-gold { color: var(--color-ink); text-shadow: 0 0 28px color-mix(in oklab, var(--color-gold) 18%, transparent); }
+.acc-root[data-acc-look] :is(.vip-hero, .vip-glass) {
+  border-color: color-mix(in oklab, var(--color-gold) 42%, transparent);
+  background: radial-gradient(60% 50% at 0% 0%, color-mix(in oklab, var(--color-gold) 7%, transparent), transparent 70%), var(--acc-surface);
+  box-shadow: inset 0 0 0 5px var(--acc-deep), inset 0 0 0 6px color-mix(in oklab, var(--color-gold) 18%, transparent), var(--acc-shadow);
+}
+.acc-root[data-acc-look] .vip-post:hover { border-color: color-mix(in oklab, var(--color-gold) 70%, transparent); box-shadow: var(--acc-shadow), 0 0 40px -18px color-mix(in oklab, var(--color-gold) 50%, transparent); }
+.acc-root[data-acc-look] .vip-card {
+  color: var(--color-ink) !important;
+  background: radial-gradient(80% 70% at 100% 0%, color-mix(in oklab, var(--color-gold) 14%, transparent), transparent 65%), linear-gradient(160deg, var(--acc-solid), var(--color-paper));
+  box-shadow: inset 0 0 0 5px var(--acc-deep), inset 0 0 0 6px color-mix(in oklab, var(--color-gold) 40%, transparent), 0 30px 60px -36px color-mix(in oklab, var(--color-gold) 35%, transparent);
+}
+.acc-root[data-acc-look] .vip-card span.rounded-full { box-shadow: 0 0 22px -8px color-mix(in oklab, var(--color-gold) 70%, transparent); }
+.acc-root[data-acc-look] .vip-article :is(h2, h3) { color: var(--color-gold); }
+.acc-root[data-acc-look] .vip-article strong { color: var(--color-ink); }
+.acc-root[data-acc-look] .vip-article blockquote { border-left-color: color-mix(in oklab, var(--color-gold) 60%, transparent); }
+.acc-root[data-acc-look] .vip-article img { border-color: color-mix(in oklab, var(--color-gold) 25%, transparent); }
+
+/* Las fotos que se funden con la página (una compra, una publicación): con la página suya. */
+.acc-root[data-acc-look] .from-\[\#0d0c22\] { --tw-gradient-from: var(--color-paper); }
+.acc-root[data-acc-look] .via-\[\#0d0c22\]\/75 { --tw-gradient-via: color-mix(in oklab, var(--color-paper) 75%, transparent); }
+.acc-root[data-acc-look] .to-\[\#0d0c22\] { --tw-gradient-to: var(--color-paper); }
+.acc-root[data-acc-look] .to-\[\#0d0c22\]\/10 { --tw-gradient-to: color-mix(in oklab, var(--color-paper) 10%, transparent); }
+/* Sobre una página clara, las etiquetas pensadas para la noche (Mis sesiones) se leen en oscuro. */
+.acc-root[data-acc-look="light"] .text-\[\#f3ecdd\].bg-\[\#e9cc8e\]\/10 { color: var(--color-ink); }
+.acc-root[data-acc-look="light"] .text-\[\#cdbff5\] { color: #5a4f92; }
+
 /* ───────────── Estudio de lecturas, sesiones y círculos: el editor de «Qué incluye» ─────────────
    Va dentro del panel dorado de la ficha: sin blancos, con el texto claro de la web y la barra de
    formato en cristal de noche (antes salía casi blanco y no se veía lo que se escribía). */
@@ -2020,11 +1916,18 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
 .canva-section > [data-canva-ui]:first-child { opacity: .35; transition: opacity .15s; }
 .canva-section:hover > [data-canva-ui]:first-child, .canva-section:focus-within > [data-canva-ui]:first-child { opacity: 1; }
 @media (hover: none) { .canva-section > [data-canva-ui]:first-child { opacity: 1; } }
+/* Las partes que se editan en su ventanita (redes, botones, testimonios, códigos, el pie…): al pasar por encima, un
+   marco y su botón «Editar». Al pulsarlas (fuera de un texto que se escribe encima) se abre la ventanita. */
+.canva-part { position: relative; cursor: pointer; border-radius: 1rem; outline: 1px dashed transparent; outline-offset: 5px; transition: outline-color .15s; }
+.canva-part:hover { outline-color: color-mix(in oklab, var(--c-gold, #d9bf8c) 60%, transparent); }
+.canva-part > .canva-part-chip { opacity: .55; transition: opacity .15s; }
+.canva-part:hover > .canva-part-chip, .canva-part:focus-within > .canva-part-chip { opacity: 1; }
+@media (hover: none) { .canva-part > .canva-part-chip { opacity: 1; } }
 
 /* ───────────── Diseño a medida (Panel › Mi página › Diseño; lib/templates.ts → themeStyle y themeAttrs) ─────────────
    Cada regla solo manda si la dueña ha tocado esa pieza (su data-…): si no, cada página lleva su estilo de siempre. */
 .cp-bg-photo { z-index: -1; opacity: var(--bg-img-o, .3); pointer-events: none; }
-.cp > .cp-decor { opacity: var(--decor-o, 1); }
+.cp > .cp-decor, .cp > [data-live-design] > .cp-decor { opacity: var(--decor-o, 1); }
 .cp[data-d-italic] .cp-display { font-style: italic; }
 .cp[data-d-upper] .cp-display { text-transform: uppercase; }
 .cp[data-d-spacing] .cp-display { letter-spacing: var(--display-spacing); }
@@ -2050,3 +1953,206 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
 
 .cp[data-img] img:not(.cp-card img):not(.cp-bubble-img):not([data-avatar]):not(.cp-bg-photo):not(.cp-cover-img) { border-radius: var(--img-r); }
 .cp[data-img] :is([data-avatar], .cp-bubble-img) { border-radius: var(--avatar-r); }
+
+/* Fotos con marco (.cp-luxe-frame: «Sobre mí», fichas, cabeceras…), Diseño › Fotos: esquinas, forma y marco. */
+.cp[data-img] .cp-luxe-frame { border-radius: var(--img-r); }
+.cp[data-img] .cp-luxe-frame::after { border-radius: max(0px, calc(var(--img-r) - 5px)); }
+.cp[data-photo-shape] .cp-luxe-frame::after { border-radius: inherit; }
+/* Arco: arriba en medio círculo (los radios se ajustan solos al ancho), abajo recto. */
+.cp[data-photo-shape="arch"] .cp-luxe-frame { border-radius: 999px 999px 0 0; }
+.cp[data-photo-shape="oval"] .cp-luxe-frame { border-radius: 50%; }
+.cp[data-photo-shape="circle"] .cp-luxe-frame { border-radius: 50%; aspect-ratio: 1 / 1; }
+.cp[data-photo-shape="circle"] .cp-luxe-frame > img { height: 100%; object-fit: cover; }
+.cp[data-photo-frame="single"] .cp-luxe-frame { box-shadow: 0 30px 60px -40px color-mix(in oklab, var(--c-gold) 55%, transparent); }
+.cp[data-photo-frame="none"] .cp-luxe-frame { border-color: transparent; box-shadow: 0 30px 60px -40px rgb(0 0 0 / .6); }
+.cp[data-photo-frame="card"] .cp-luxe-frame {
+  border: var(--k-bw, 1px) solid var(--k-border, color-mix(in oklab, var(--c-gold) 55%, transparent));
+  box-shadow: var(--k-shadow, 0 18px 40px -28px rgb(0 0 0 / .45));
+}
+.cp:is([data-photo-frame="single"], [data-photo-frame="none"], [data-photo-frame="card"]) .cp-luxe-frame::after { display: none; }
+/* «Como tus tarjetas» con un marco de adorno o de neón (Diseño › Tarjetas). */
+.cp[data-photo-frame="card"][data-frame="mask"] .cp-luxe-frame::after {
+  display: block; inset: 5px; z-index: 6; border: 0; border-radius: inherit;
+  background: var(--frame-c); -webkit-mask: var(--frame-mask); mask: var(--frame-mask);
+}
+.cp[data-photo-frame="card"][data-frame="neon"] .cp-luxe-frame {
+  border-color: var(--frame-c);
+  box-shadow: 0 0 0 1px var(--frame-c), 0 0 18px -2px var(--frame-c);
+  animation: cp-neon 3.2s ease-in-out infinite alternate;
+}
+
+/* Paneles dorados (Diseño › Paneles dorados): «Qué incluye», los textos de los métodos, las cartas de las lecturas,
+   el panel de cada ficha. A mano: su fondo, borde, esquinas y sombra. Las estrellitas ✦ y la geometría del fondo
+   (una figura dibujada en su color: --pg-img, themeStyle) van aparte. */
+.cp[data-pk] :is(.cp-include-panel, .cp-oracle-card, .cp-show-panel) {
+  background: radial-gradient(60% 50% at 0% 0%, color-mix(in oklab, var(--pk-border) 8%, transparent), transparent 70%), var(--pk-bg);
+  border: var(--pk-bw) solid var(--pk-border); border-radius: var(--r-panel); box-shadow: var(--pk-shadow);
+}
+.cp[data-pk] .cp-oracle-card:hover { border-color: var(--pk-border); box-shadow: var(--pk-shadow); }
+.cp[data-pstars="off"] .cp-include-panel::before, .cp[data-pstars="off"] .cp-include-panel::after { content: none; }
+.cp[data-pgeo] :is(.cp-include-geo, .cp-oracle-geo, .cp-show-geo) { display: none; }
+.cp[data-pgeo]:not([data-pgeo="none"]) :is(.cp-include-panel, .cp-oracle-card, .cp-show-panel) {
+  background-image: var(--pg-img), radial-gradient(60% 50% at 0% 0%, color-mix(in oklab, var(--c-gold) 8%, transparent), transparent 70%);
+  background-position: var(--pg-pos), 0 0; background-size: var(--pg-size), auto; background-repeat: no-repeat;
+}
+
+/* ───────────── Marcos de tarjetas y botones (lib/frames.ts; themeStyle → --frame-mask, --bframe-mask) ───────────── */
+.cp[data-frame] .cp-card { position: relative; }
+.cp[data-frame="mask"] .cp-card::before {
+  content: ""; position: absolute; inset: 5px; z-index: 6; pointer-events: none; border-radius: inherit;
+  background: var(--frame-c); -webkit-mask: var(--frame-mask); mask: var(--frame-mask);
+}
+.cp[data-frame="neon"] .cp-card {
+  border-color: var(--frame-c);
+  box-shadow: 0 0 0 1px var(--frame-c), 0 0 18px -2px var(--frame-c), inset 0 0 14px -4px var(--frame-c);
+  animation: cp-neon 3.2s ease-in-out infinite alternate;
+}
+@keyframes cp-neon { from { filter: brightness(.92); } to { filter: brightness(1.12); } }
+
+.cp[data-bframe] :is(.cp-btn, .cp-btn-ghost, .cp-link) { position: relative; }
+.cp[data-bframe="ends"] :is(.cp-btn, .cp-btn-ghost, .cp-link):not(.w-full) { margin-inline: 1.4em; }
+.cp[data-bframe="ends"] :is(.cp-btn, .cp-btn-ghost, .cp-link)::before {
+  content: ""; position: absolute; inset: -8px -1.5em; pointer-events: none;
+  background: var(--bframe-c); -webkit-mask: var(--bframe-mask); mask: var(--bframe-mask);
+}
+.cp[data-bframe="dotted"] :is(.cp-btn, .cp-btn-ghost, .cp-link) { outline: 2px dotted var(--bframe-c); outline-offset: 4px; }
+.cp[data-bframe="dashed"] :is(.cp-btn, .cp-btn-ghost, .cp-link) { outline: 1.5px dashed var(--bframe-c); outline-offset: 4px; }
+.cp[data-bframe="double"] :is(.cp-btn, .cp-btn-ghost, .cp-link) { outline: 4px double var(--bframe-c); outline-offset: 3px; }
+.cp[data-bframe="neon"] :is(.cp-btn, .cp-btn-ghost, .cp-link) {
+  box-shadow: 0 0 0 1px var(--bframe-c), 0 0 16px -2px var(--bframe-c), inset 0 0 10px -4px var(--bframe-c);
+  animation: cp-neon 2.6s ease-in-out infinite alternate;
+}
+
+/* ───────────── Panel con diseño propio (Ajustes › Diseño de mi panel; components/panel-design-root.tsx) ─────────────
+   El mismo diseño que la web (themeStyle → --c-*, --k-*, --b-*…; themeAttrs → data-*) traducido a las piezas del panel:
+   los colores del tema (ink, paper, sand, line…) salen del diseño, así que todo lo que los usa se adapta solo. Fuera de
+   las capas a propósito, para ganar a las utilidades de Tailwind. Las vistas previas de la web (.cp) quedan como son. */
+.pd {
+  --color-paper: var(--c-bg);
+  --color-cream: color-mix(in oklab, var(--c-text) 5%, var(--c-bg));
+  --color-sand: color-mix(in oklab, var(--c-text) 11%, var(--c-bg));
+  --color-line: color-mix(in oklab, var(--c-text) 15%, transparent);
+  --color-ink: var(--c-text);
+  --color-ink-2: color-mix(in oklab, var(--c-text) 86%, var(--c-bg));
+  --color-ink-3: color-mix(in oklab, var(--c-text) 74%, var(--c-bg));
+  --color-muted: var(--c-muted);
+  --color-faint: var(--c-faint);
+  --color-gold: var(--c-gold);
+  --color-gold-soft: color-mix(in oklab, var(--c-gold) 30%, var(--c-bg));
+  --color-lavender-deep: var(--c-accent);
+  --panel-accent: var(--c-accent);
+  --panel-accent-text: var(--c-accent-text);
+  --panel-accent-hover: color-mix(in oklab, var(--c-accent) 86%, var(--c-text));
+  --pd-surface: color-mix(in oklab, var(--c-surface-strong) 84%, transparent);
+  --pd-field: color-mix(in oklab, var(--c-text) 5%, var(--c-bg));
+  position: relative; isolation: isolate;
+  background: var(--c-paint); background-attachment: fixed; color: var(--c-text); font-family: var(--font-body);
+}
+.pd[data-card="solid"] { --pd-surface: var(--c-surface); }
+.pd:is([data-card="outline"], [data-card="editorial"]) { --pd-surface: transparent; }
+.pd > .cp-decor { opacity: var(--decor-o, 1); }
+
+/* El menú lateral: un cristal del fondo (o el color que elija), iconos en el color de los detalles. */
+.pd .panel-side { background: var(--panel-side-bg, color-mix(in oklab, var(--c-bg) 72%, transparent)); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.pd .panel-nav-link svg { color: var(--c-gold); }
+.pd .panel-nav-link[aria-current="page"] svg { color: currentColor; }
+
+/* Tarjetas, superficies y campos. */
+.pd :is(.card, .bg-white):not(.cp *, .cp) { background-color: var(--pd-surface); }
+.pd .card:not(.cp *) { border-color: color-mix(in oklab, var(--c-gold) 22%, transparent); }
+.pd[data-card="glass"] .card:not(.cp *) { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.pd [class*="bg-white/"]:not(.cp *) { background-color: color-mix(in oklab, var(--pd-surface) 85%, transparent); }
+.pd .input:not(.cp *) { background-color: var(--pd-field); border-color: var(--color-line); color: var(--c-text); }
+.pd .input:not(.cp *):focus { border-color: var(--c-accent); box-shadow: 0 0 0 4px color-mix(in oklab, var(--c-accent) 18%, transparent); }
+.pd select.input option { background: var(--c-bg); color: var(--c-text); }
+.pd :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--c-accent); }
+.pd[data-k] .card:not(.cp *) {
+  background: var(--k-bg); border: var(--k-bw) solid var(--k-border); border-radius: var(--r-card);
+  box-shadow: var(--k-shadow); backdrop-filter: var(--k-blur); -webkit-backdrop-filter: var(--k-blur);
+}
+.pd[data-k] .card:not(.cp *) { position: relative; }
+.pd[data-k] .card:not(.cp *)::after { content: ""; position: absolute; inset: 0; z-index: 5; border-radius: inherit; pointer-events: none; box-shadow: var(--k-double); }
+
+/* Botones. */
+.pd .btn-outline:not(.cp *) { background-color: color-mix(in oklab, var(--c-text) 4%, transparent); border-color: color-mix(in oklab, var(--c-gold) 40%, transparent); color: var(--c-text); }
+.pd .btn-outline:not(.cp *):hover { background-color: color-mix(in oklab, var(--c-gold) 12%, transparent); }
+.pd .btn-ghost:not(.cp *):hover { background-color: color-mix(in oklab, var(--c-text) 7%, transparent); }
+.pd[data-b] :is(.btn-primary, .btn-outline, .btn-ghost, .btn-danger):not(.cp *) {
+  border-radius: var(--r-btn); font-family: var(--b-font); font-weight: var(--b-weight); font-style: var(--b-style); text-transform: var(--b-case); letter-spacing: var(--b-spacing);
+}
+.pd[data-b] .btn-primary:not(.cp *), .pd[data-b] .btn-primary:not(.cp *):hover { background: var(--b-bg); color: var(--b-text); border: var(--b-bw) solid var(--b-border); box-shadow: var(--b-shadow); }
+.pd[data-b] .btn-primary:not(.cp *):hover { filter: brightness(1.08); }
+.pd[data-b] .btn-outline:not(.cp *) { border: var(--b-bw) solid var(--b-border); }
+
+/* Letras. */
+.pd .display:not(.cp *) { font-family: var(--font-display); font-weight: var(--display-weight); }
+.pd main :is(h1, h2, h3).font-semibold:not(.cp *) { font-family: var(--font-display); }
+.pd[data-d-italic] :is(.display, main :is(h1, h2, h3).font-semibold):not(.cp *) { font-style: italic; }
+.pd[data-d-upper] .display:not(.cp *) { text-transform: uppercase; }
+.pd[data-d-spacing] .display:not(.cp *) { letter-spacing: var(--display-spacing); }
+.pd[data-d-size] .display:not(.cp *) { zoom: var(--display-zoom); }
+.pd .eyebrow { color: var(--c-gold); }
+.pd .stat-value { font-family: var(--font-display); color: var(--c-gold); }
+
+/* Fotos. */
+.pd[data-img] main img:not(.cp img, [data-avatar]) { border-radius: var(--img-r); }
+.pd[data-img] [data-avatar]:not(.cp *) { border-radius: var(--avatar-r); }
+
+/* Marcos de tarjetas y botones (los mismos de la web, lib/frames.ts). */
+.pd[data-frame] .card:not(.cp *) { position: relative; }
+.pd[data-frame="mask"] .card:not(.cp *)::before {
+  content: ""; position: absolute; inset: 5px; z-index: 6; pointer-events: none; border-radius: inherit;
+  background: var(--frame-c); -webkit-mask: var(--frame-mask); mask: var(--frame-mask);
+}
+.pd[data-frame="neon"] .card:not(.cp *) {
+  border-color: var(--frame-c);
+  box-shadow: 0 0 0 1px var(--frame-c), 0 0 18px -2px var(--frame-c), inset 0 0 14px -4px var(--frame-c);
+  animation: cp-neon 3.2s ease-in-out infinite alternate;
+}
+.pd[data-bframe] :is(.btn-primary, .btn-outline):not(.cp *) { position: relative; }
+.pd[data-bframe="ends"] :is(.btn-primary, .btn-outline):not(.cp *, .w-full) { margin-inline: 1.4em; }
+.pd[data-bframe="ends"] :is(.btn-primary, .btn-outline):not(.cp *)::before {
+  content: ""; position: absolute; inset: -8px -1.5em; pointer-events: none;
+  background: var(--bframe-c); -webkit-mask: var(--bframe-mask); mask: var(--bframe-mask);
+}
+.pd[data-bframe="dotted"] :is(.btn-primary, .btn-outline):not(.cp *) { outline: 2px dotted var(--bframe-c); outline-offset: 4px; }
+.pd[data-bframe="dashed"] :is(.btn-primary, .btn-outline):not(.cp *) { outline: 1.5px dashed var(--bframe-c); outline-offset: 4px; }
+.pd[data-bframe="double"] :is(.btn-primary, .btn-outline):not(.cp *) { outline: 4px double var(--bframe-c); outline-offset: 3px; }
+.pd[data-bframe="neon"] :is(.btn-primary, .btn-outline):not(.cp *) {
+  box-shadow: 0 0 0 1px var(--bframe-c), 0 0 16px -2px var(--bframe-c), inset 0 0 10px -4px var(--bframe-c);
+  animation: cp-neon 2.6s ease-in-out infinite alternate;
+}
+
+/* La cabecera de cada sección y su emblema, con los colores del diseño. */
+.pd .panel-hero {
+  --color-ink: var(--c-text); --color-ink-2: color-mix(in oklab, var(--c-text) 86%, var(--c-bg)); --color-muted: var(--c-muted); --color-faint: var(--c-faint);
+  --color-line: color-mix(in oklab, var(--c-gold) 22%, transparent); --color-sand: color-mix(in oklab, var(--c-text) 11%, var(--c-bg2));
+  --color-cream: var(--c-bg2); --color-paper: var(--c-bg); --color-lavender-deep: var(--c-accent);
+  color: var(--c-text); border-color: color-mix(in oklab, var(--c-gold) 28%, transparent);
+  background:
+    radial-gradient(28rem 12rem at 85% -2rem, color-mix(in oklab, var(--c-accent) 32%, transparent), transparent 70%),
+    radial-gradient(22rem 12rem at 0% 120%, color-mix(in oklab, var(--c-gold) 18%, transparent), transparent 70%),
+    linear-gradient(135deg, color-mix(in oklab, var(--c-text) 7%, var(--c-bg2)), var(--c-bg));
+}
+.pd .panel-hero::after { background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--c-gold) 55%, transparent), transparent); }
+.pd .panel-hero .display { font-family: var(--font-display); font-weight: var(--display-weight); }
+.pd .panel-hero .btn-primary:not(.cp *) { background: var(--panel-accent); color: var(--panel-accent-text); }
+.pd[data-b] .panel-hero .btn-primary:not(.cp *) { background: var(--b-bg); color: var(--b-text); }
+.pd .panel-hero :is(.btn-outline, .bg-white):not(.cp *) { background-color: color-mix(in oklab, var(--c-text) 6%, transparent); border-color: color-mix(in oklab, var(--c-gold) 35%, transparent); color: var(--c-text); }
+.pd .panel-emblem {
+  color: var(--c-gold);
+  background: radial-gradient(circle at 35% 30%, color-mix(in oklab, var(--c-gold) 28%, transparent), color-mix(in oklab, var(--c-gold) 6%, transparent) 70%);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--c-gold) 45%, transparent), 0 0 0 6px color-mix(in oklab, var(--c-gold) 7%, transparent), 0 0 30px -6px color-mix(in oklab, var(--c-gold) 55%, transparent);
+}
+
+/* Comunidad, Portal y bloques: sus colores de noche (--n-*, con el de siempre de reserva) toman los del diseño del panel. */
+.pd {
+  --n-gold-hi: color-mix(in oklab, var(--c-gold) 70%, var(--c-text));
+  --n-gold-pale: color-mix(in oklab, var(--c-gold) 55%, var(--c-text));
+  --n-gold: var(--c-gold);
+  --n-ivory: var(--c-text);
+  --n-lilac: color-mix(in oklab, var(--c-text) 82%, var(--c-bg));
+  --n-muted: var(--c-muted);
+  --n-deep: color-mix(in oklab, var(--c-text) 6%, var(--c-bg));
+}
+.cp { --n-gold-hi: initial; --n-gold-pale: initial; --n-gold: initial; --n-ivory: initial; --n-lilac: initial; --n-muted: initial; --n-deep: initial; }

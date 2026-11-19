@@ -12,7 +12,7 @@ import { isPersonalMode } from "@/lib/site-mode";
 import { rangeStart, parseRange } from "@/lib/stats";
 import { tenantDb } from "@/lib/tenant";
 import { DISPUTE_STATUS_LABEL, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
-import { Badge, PageHeader, RangeTabs, Stat } from "../ui";
+import { Badge, PageHeader, Pager, RangeTabs, Stat } from "../ui";
 import { formatDate } from "@/lib/tz";
 import { deleteOrderAction } from "./actions";
 import { SignupsView } from "./inscripciones";
@@ -21,8 +21,9 @@ const TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = { PAI
 
 /** Ventas = pedidos con cobro. Los de 0 € (gratis con email o acceso dado a mano) van en Inscripciones. */
 const CHARGED = { paymentProvider: { notIn: [...NO_CHARGE_PROVIDERS] } };
+const PAGE = 100;
 
-export default async function SalesPage({ searchParams }: { searchParams: Promise<{ rango?: string; estado?: string; producto?: string; filtro?: string; ok?: string }> }) {
+export default async function SalesPage({ searchParams }: { searchParams: Promise<{ rango?: string; estado?: string; producto?: string; filtro?: string; ok?: string; p?: string }> }) {
   const { creator } = await requireCreator();
   const sp = await searchParams;
   const range = parseRange(sp.rango);
@@ -43,15 +44,19 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         : sp.estado === "reembolsados"
           ? { refundedCents: { gt: 0 } }
           : { status: "PAID" };
-  const [orders, settled, signups] = await Promise.all([
+  const page = Math.max(1, Number(sp.p) || 1);
+  const listWhere = { ...filter, ...CHARGED, ...(since ? { createdAt: { gte: since } } : {}) };
+  const [orders, listed, settled, signups] = await Promise.all([
     db.order.findMany({
-      where: { ...filter, ...CHARGED, ...(since ? { createdAt: { gte: since } } : {}) },
+      where: listWhere,
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: PAGE,
+      skip: (page - 1) * PAGE,
       include: {
         product: { select: { emoji: true } },
       },
     }),
+    db.order.count({ where: listWhere }),
     // Cifras del periodo descontando los reembolsos (se restan del mes de la venta).
     db.order.findMany({
       where: { status: { in: ["PAID", "REFUNDED"] }, ...CHARGED, ...(since ? { paidAt: { gte: since } } : {}) },
@@ -146,6 +151,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         </ul>
         {orders.length === 0 && <div className="p-6"><EmptyState icon={<Receipt className="h-5 w-5" />} title="Sin pedidos en este periodo" /></div>}
       </div>
+      <Pager page={page} total={listed} perPage={PAGE} href={(n) => `/panel/ventas?rango=${range}&estado=${current}&p=${n}`} />
       {current === "abandonados" && <p className="mt-3 text-xs text-muted">Los pedidos que se quedan a medias más de una hora reciben automáticamente un email de recuperación si tienes activa esa automatización.</p>}
     </div>
   );

@@ -22,7 +22,11 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
   const features = planFeatures(creator.plan);
   const cfg = readPageConfig(creator.pageDraft, creator.displayName);
   const db = tenantDb(creator.id);
-  const productCount = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
+  // «Pon tu enlace en tu bio»: hecho en cuanto hubo una visita, sea del periodo que sea.
+  const [productCount, firstView] = await Promise.all([
+    db.product.count({ where: { status: { not: "ARCHIVED" } } }),
+    db.analyticsEvent.findFirst({ where: { type: "PAGE_VIEW" }, select: { id: true } }),
+  ]);
   const first = cfg.displayName.split(" ")[0];
   const rangeLabel = { month: "este mes", "30d": "en los últimos 30 días", all: "en total" }[range];
   // Modo personal: aquí no se cobra nada (sin cobros ni ingresos); se cuentan visitas e inscripciones.
@@ -30,12 +34,12 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
   if (personal) {
     const [posts, codes, flags] = await Promise.all([db.post.count(), db.discountCode.count(), panelNavFlags(creator.id)]);
     const steps = [
-      { done: !!cfg.avatarUrl, label: "Sube tu foto", href: "/panel/pagina" },
+      { done: !!cfg.avatarUrl, label: "Sube tu foto", href: "/panel/canva" },
       { done: legalIdentityComplete(creator), label: "Completa tu aviso legal", href: "/panel/ajustes/legal" },
-      { done: cfg.links.length > 0 || Object.keys(cfg.socials).length > 0, label: "Añade tus redes y enlaces", href: "/panel/pagina" },
+      { done: cfg.links.length > 0 || Object.keys(cfg.socials).length > 0, label: "Añade tus redes y enlaces", href: "/panel/canva" },
       { done: creator.newsDays != null || posts > 0, label: "Elige cuántos días duran tus actualidades", href: "/panel/actualidades" },
       { done: codes > 0, label: "Añade un código de descuento", href: "/panel/codigos" },
-      { done: s.pageViews > 0, label: "Pon tu enlace en tu bio", href: "/panel/ajustes#compartir" },
+      { done: !!firstView, label: "Pon tu enlace en tu bio", href: "/panel/ajustes#compartir" },
     ];
     return (
       <PersonalHome
@@ -54,12 +58,12 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
   const top = s.topProducts[0];
 
   const checklist = [
-    { done: !!cfg.avatarUrl, label: "Sube tu foto", href: "/panel/pagina" },
+    { done: !!cfg.avatarUrl, label: "Sube tu foto", href: "/panel/canva" },
     { done: productCount >= 2, label: "Añade un segundo producto", href: "/panel/sesiones" },
     { done: legalIdentityComplete(creator), label: "Completa tus datos legales", href: "/panel/ajustes/legal" },
     { done: creator.payoutStatus === "ACTIVE", label: "Activa tus cobros", href: "/panel/ajustes/cobros" },
-    { done: cfg.links.length > 0 || Object.keys(cfg.socials).length > 0, label: "Añade tus redes y enlaces", href: "/panel/pagina" },
-    { done: s.pageViews > 0, label: "Comparte tu enlace en tu bio", href: "/panel/ajustes#compartir" },
+    { done: cfg.links.length > 0 || Object.keys(cfg.socials).length > 0, label: "Añade tus redes y enlaces", href: "/panel/canva" },
+    { done: !!firstView, label: "Comparte tu enlace en tu bio", href: "/panel/ajustes#compartir" },
   ];
   const pending = checklist.filter((c) => !c.done);
 
@@ -204,7 +208,7 @@ export default async function PanelHome({ searchParams }: { searchParams: Promis
         <Link href="/panel/sesiones" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
           <Plus className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Sesiones y lecturas</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
         </Link>
-        <Link href="/panel/pagina" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
+        <Link href="/panel/canva" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
           <Palette className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Editar mi página</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
         </Link>
         <Link href={features.analytics === "basic" ? "/panel/plan" : "/panel/estadisticas"} className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
@@ -384,7 +388,7 @@ function PersonalHome({
         <Link href="/panel/actualidades" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
           <Newspaper className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Actualidades</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
         </Link>
-        <Link href="/panel/pagina" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
+        <Link href="/panel/canva" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
           <Palette className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Editar mi página</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
         </Link>
       </div>

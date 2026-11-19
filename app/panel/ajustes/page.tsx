@@ -13,6 +13,7 @@ import { REWARD_LABEL } from "@/lib/referrals";
 import { getSettings } from "@/lib/settings";
 import { isPersonalMode } from "@/lib/site-mode";
 import { ShareButtons } from "@/app/onboarding/lista/share-buttons";
+import { readPageConfig } from "@/lib/page-config";
 import { readPanelPrefs } from "@/lib/panel-prefs";
 import { mobileNav, panelNav } from "../nav-items";
 import { panelNavFlags } from "../nav-flags";
@@ -81,6 +82,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       <PanelLook
         initial={readPanelPrefs(creator.panelPrefs)}
+        web={readPageConfig(creator.pageDraft, creator.displayName)}
         nav={panelNav(flags).map((i) => ({ href: i.href, label: i.label }))}
         home={personal}
         currentBottom={mobileNav(flags).slice(0, 4).map((i) => i.label)}

@@ -2,6 +2,7 @@
 import { Paintbrush } from "lucide-react";
 import { useEffect, useState } from "react";
 import { hasHintCookie } from "@/lib/auth-utils";
+import { LIVE_DESIGN_PARAM } from "./live-design";
 
 /**
  * «Canva», abajo a la derecha de la web: solo lo ve la dueña con su sesión abierta. Lleva al modo Canva
@@ -12,7 +13,8 @@ export function CanvaButton({ username, personal }: { username: string; personal
   const [owner, setOwner] = useState(false);
   const [href, setHref] = useState("/panel/canva");
   useEffect(() => {
-    if (!hasHintCookie(document.cookie)) return;
+    // Ni en la vista en vivo del editor de Diseño.
+    if (!hasHintCookie(document.cookie) || new URLSearchParams(window.location.search).has(LIVE_DESIGN_PARAM)) return;
     let alive = true;
     fetch(`/api/canva?u=${encodeURIComponent(username)}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : { owner: false }))

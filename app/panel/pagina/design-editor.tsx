@@ -10,22 +10,41 @@ import { askConfirm, askText } from "@/components/ui/ask-confirm";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { SAVED_DESIGNS_MAX, type PageConfig } from "@/lib/page-config";
 import { SECTION_PAGES, SECTION_PAGE_TITLE } from "@/lib/site-sections";
+import { PIECE_KIND_LABEL } from "@/lib/pieces";
+import { FIGURE_POS } from "@/lib/sacred-figures";
+import type { PickedPiece } from "./piece-sheet";
 import {
   AVATAR_SHAPES,
+  PHOTO_FRAMES,
+  PHOTO_SHAPES,
   BG_TYPES,
   BUTTON_STYLES,
   CARD_STYLES,
+  DECOR_GROUPS,
   DECORS,
+  type DecorGroup,
   designValue,
   FONT_CATEGORIES,
   FONTS,
   fontsHref,
+  PANEL_GEOS,
   SHADOWS,
   type Design,
   type DesignKey,
   type FontCategory,
   type FontKey,
 } from "@/lib/templates";
+import {
+  BUTTON_FRAMES,
+  buttonFrameKind,
+  buttonFrameMask,
+  CARD_FRAMES,
+  cardFrameMask,
+  FRAME_GROUPS,
+  type ButtonFrameKey,
+  type CardFrameKey,
+  type FrameGroup,
+} from "@/lib/frames";
 
 /** Qué se diseña: toda la web («general»), la portada («home») o una página (su clave: «cursos», el slug…). */
 export type DesignTarget = string;
@@ -57,7 +76,16 @@ export function DesignEditor({
   setTarget,
   pages,
   allowCustom,
+  panel = false,
+  pieceTools,
 }: {
+  /** Diseñar el panel (Ajustes), no la web: sin «Qué diseñas» (solo hay uno). */
+  panel?: boolean;
+  /**
+   * Las piezas sueltas de la página elegida (lib/pieces.ts): si se pueden tocar en la vista en vivo (la página se ve
+   * de verdad) y abrir la ventanita de una (app/panel/pagina/piece-sheet.tsx).
+   */
+  pieceTools?: { canPick: boolean; open: (p: PickedPiece) => void };
   cfg: PageConfig;
   setCfg: React.Dispatch<React.SetStateAction<PageConfig>>;
   target: DesignTarget;
@@ -66,7 +94,7 @@ export function DesignEditor({
   allowCustom: boolean;
 }) {
   const targets = designTargets(pages);
-  const targetLabel = targets.find((t) => t.key === target)?.label ?? target;
+  const targetLabel = panel ? "tu panel" : (targets.find((t) => t.key === target)?.label ?? target);
   const general = cfg.theme;
   const patch = target === "general" ? null : (cfg.pageThemes[target] ?? {});
   const eff: Design = patch ? { ...general, ...patch } : general;
@@ -193,12 +221,24 @@ export function DesignEditor({
     const clean = Object.fromEntries(Object.entries(eff).filter(([, v]) => v !== undefined && v !== null)) as Design;
     setCfg((c) => ({ ...c, designs: [...c.designs, { id: uid(), name: name.trim().slice(0, 60), theme: clean }] }));
   };
+  /** Las piezas sueltas de la página elegida. */
+  const pieces = target === "general" ? [] : Object.entries(cfg.pieces[target] ?? {});
+  const dropPiece = (id: string | null) =>
+    setCfg((c) => {
+      const mine = { ...(c.pieces[target] ?? {}) };
+      if (id) delete mine[id];
+      const all = { ...c.pieces };
+      if (id && Object.keys(mine).length) all[target] = mine;
+      else delete all[target];
+      return { ...c, pieces: all };
+    });
   const apply = (d: Design) => setCfg((c) => (target === "general" ? { ...c, theme: { ...d } } : { ...c, pageThemes: { ...c.pageThemes, [target]: { ...d } } }));
 
   return (
     <div className="space-y-5">
       {fontsLink && <link rel="stylesheet" href={fontsLink} precedence="default" />}
 
+      {!panel && (
       <section className="card p-5 sm:p-6">
         <label htmlFor="design-target" className="font-semibold">Qué diseñas</label>
         <select id="design-target" className="input mt-2 h-11" value={target} onChange={(e) => setTarget(e.target.value)}>
@@ -219,8 +259,11 @@ export function DesignEditor({
             type="button"
             onClick={async (e) => {
               const from = e.currentTarget;
-              const msg = target === "general" ? "¿Empezar el diseño de toda la web de cero? Se queda el de base (las páginas con diseño propio siguen igual)." : `¿Quitar el diseño propio de «${targetLabel}»? Volverá a verse como toda la web.`;
-              if (await askConfirm(msg, { from, okLabel: target === "general" ? "Empezar de cero" : "Quitar" })) resetD(Object.keys(eff) as DesignKey[]);
+              const msg = target === "general" ? "¿Empezar el diseño de toda la web de cero? Se queda el de base (las páginas con diseño propio siguen igual)." : `¿Quitar el diseño propio de «${targetLabel}» (también sus piezas sueltas)? Volverá a verse como toda la web.`;
+              if (await askConfirm(msg, { from, okLabel: target === "general" ? "Empezar de cero" : "Quitar" })) {
+                resetD(Object.keys(eff) as DesignKey[]);
+                if (target !== "general") dropPiece(null);
+              }
             }}
             className="btn btn-ghost btn-sm"
           >
@@ -228,6 +271,33 @@ export function DesignEditor({
           </button>
         </div>
       </section>
+      )}
+
+      {!panel && target !== "general" && pieceTools && (
+        <section className="card p-5 sm:p-6">
+          <h3 className="font-semibold">Solo una tarjeta, una foto o un botón</h3>
+          <p className="mt-1 text-xs text-muted">
+            {pieceTools.canPick
+              ? "Toca en la vista en vivo una tarjeta, un panel dorado, una foto o un botón y cámbiale solo a esa pieza la forma, los colores, el marco o la geometría. En el móvil, ábrela con «Vista previa»."
+              : "Esta página aún no se ve en la web: cuando esté publicada, sale de verdad en la vista en vivo y puedes tocar sus tarjetas y botones."}
+          </p>
+          {pieces.length > 0 && (
+            <ul className="mt-3 space-y-1.5">
+              {pieces.map(([id, p]) => (
+                <li key={id} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm">
+                  <span className="shrink-0 rounded-full bg-sand px-2 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide text-muted">{PIECE_KIND_LABEL[p.kind]}</span>
+                  <button type="button" onClick={() => pieceTools.open({ id, kind: p.kind, label: p.label, img: p.kind === "photo" ? false : undefined })} className="min-w-0 flex-1 truncate text-left hover:underline">
+                    {p.label || "Sin texto"}
+                  </button>
+                  <button type="button" onClick={() => dropPiece(id)} className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted hover:bg-sand hover:text-rose" aria-label="Quitar lo propio de esta pieza" title="Quitar lo propio (vuelve a ser como el resto)">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       <section className="card p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -316,17 +386,29 @@ export function DesignEditor({
 
       <Group title="Fondo con movimiento">
         <Row label={"Efecto"} changed={changed(["decor"])} onReset={() => resetD(["decor"])}>
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-            {DECORS.map((d) => (
-              <button key={d.key} type="button" onClick={() => setD({ decor: d.key })} className={`flex items-center justify-between gap-1 rounded-xl border px-3 py-2 text-left text-xs transition ${val("decor") === d.key ? "border-ink bg-ink text-cream" : "border-line bg-white hover:border-ink/30"}`}>
-                {d.name}
-                {d.moves && <span className="text-[0.6rem] opacity-60">se mueve</span>}
-              </button>
+          <div className="space-y-3">
+            {(Object.keys(DECOR_GROUPS) as DecorGroup[]).map((g) => (
+              <div key={g}>
+                <p className="mb-1.5 text-[0.7rem] font-semibold uppercase tracking-wider text-muted">{DECOR_GROUPS[g]}</p>
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                  {DECORS.filter((d) => d.group === g).map((d) => (
+                    <button key={d.key} type="button" onClick={() => setD({ decor: d.key })} className={`flex items-center justify-between gap-1 rounded-xl border px-3 py-2 text-left text-xs transition ${val("decor") === d.key ? "border-ink bg-ink text-cream" : "border-line bg-white hover:border-ink/30"}`}>
+                      {d.name}
+                      {d.moves && <span className="text-[0.6rem] opacity-60">se mueve</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </Row>
-        {val("decor") !== "none" && slider("decorOpacity", "Intensidad", 0, 100, "%")}
-        <p className="text-xs text-muted">El efecto usa el color de «Detalles».</p>
+        {val("decor") !== "none" && (
+          <>
+            {slider("decorOpacity", "Intensidad", 0, 100, "%")}
+            {color("decorColor", "Color del efecto", "Vacío: los colores de tu diseño (o los suyos, como el rosa del cerezo). Sea cual sea, se aclara u oscurece solo lo justo para que se vea sobre tu fondo.")}
+            {toggle("decorAlways", "Moverse siempre", "Algunos móviles y ordenadores piden «menos movimiento» y el efecto se queda quieto. Enciéndelo para que se mueva igual.")}
+          </>
+        )}
       </Group>
 
       <Group title="Letras">
@@ -360,7 +442,52 @@ export function DesignEditor({
             </div>
           </>
         )}
+        <Row label={"Marco"} changed={changed(["cardFrame"])} onReset={() => resetD(["cardFrame"])}>
+          <FramePicker
+            items={CARD_FRAMES}
+            value={val("cardFrame")}
+            onPick={(k) => setD({ cardFrame: k as CardFrameKey })}
+            preview={(k) => <CardFrameSwatch frame={k as CardFrameKey} />}
+          />
+        </Row>
+        {val("cardFrame") !== "none" && (
+          <>
+            {color("cardFrameColor", "Color del marco")}
+            {val("cardFrame") !== "neon" && slider("cardFrameSize", "Tamaño de los adornos", 20, 140, " px")}
+          </>
+        )}
       </Group>
+
+      {!panel && (
+      <Group title="Paneles dorados">
+        <p className="pt-1 text-xs text-muted">
+          Los recuadros con doble borde dorado y estrellitas ✦: «Qué incluye» de las fichas, los textos de las páginas de tus métodos, las cartas de las lecturas y el panel de cada ficha.
+        </p>
+        {toggle("panelCustom", "Diseñar los paneles a mano", "Apagado: con su doble borde dorado de siempre.")}
+        {!!val("panelCustom") && (
+          <>
+            <div className="grid gap-x-4 sm:grid-cols-2">
+              {color("panelBg", "Color de fondo")}
+              {color("panelBorder", "Color del borde")}
+            </div>
+            {slider("panelBgOpacity", "Cuánto se ve el fondo", 0, 100, "%")}
+            {slider("panelBorderWidth", "Grosor del borde", 0, 6, " px")}
+            {slider("panelRadius", "Esquinas", 0, 60, " px")}
+            {choice("panelShadow", "Sombra", SHADOWS)}
+            {toggle("panelDouble", "Doble línea por dentro")}
+          </>
+        )}
+        {toggle("panelStars", "Estrellitas ✦ en las esquinas")}
+        {choice("panelGeo", "Geometría de fondo", PANEL_GEOS)}
+        {val("panelGeo") !== "keep" && val("panelGeo") !== "none" && (
+          <>
+            {choice("panelGeoPos", "Dónde", FIGURE_POS)}
+            {slider("panelGeoOpacity", "Cuánto se ve", 4, 60, "%")}
+            {color("panelGeoColor", "Color de la geometría", "Vacío: el de los detalles.")}
+          </>
+        )}
+      </Group>
+      )}
 
       <Group title="Botones">
         {toggle("btnCustom", "Diseñar los botones a mano", "Apagado: cada página lleva sus botones de siempre.")}
@@ -384,14 +511,25 @@ export function DesignEditor({
             {choice("btnShadow", "Sombra", SHADOWS)}
           </>
         )}
+        <Row label={"Marco"} changed={changed(["btnFrame"])} onReset={() => resetD(["btnFrame"])}>
+          <FramePicker
+            items={BUTTON_FRAMES}
+            value={val("btnFrame")}
+            onPick={(k) => setD({ btnFrame: k as ButtonFrameKey })}
+            preview={(k) => <ButtonFrameSwatch frame={k as ButtonFrameKey} />}
+          />
+        </Row>
+        {val("btnFrame") !== "none" && color("btnFrameColor", "Color del marco")}
       </Group>
 
       <Group title="Fotos">
-        {toggle("imgCustom", "Diseñar las fotos a mano")}
+        {toggle("imgCustom", "Diseñar las fotos a mano", "Las esquinas, la forma y el marco de las fotos (también la de «Sobre mí»).")}
         {!!val("imgCustom") && (
           <>
             {slider("imgRadius", "Esquinas de las fotos", 0, 60, " px", 1, (n) => (n >= 60 ? "Redondas" : `${n} px`))}
             {choice("avatarShape", "Forma de tu foto y de las burbujas", AVATAR_SHAPES)}
+            {choice("photoShape", "Forma de las fotos con marco («Sobre mí», fichas, páginas)", PHOTO_SHAPES)}
+            {choice("photoFrame", "Marco de esas fotos", PHOTO_FRAMES)}
           </>
         )}
       </Group>
@@ -417,6 +555,67 @@ function Row({ label, changed, onReset, children, hint }: { label: string; chang
       {children}
       {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
     </div>
+  );
+}
+
+/** Elegir un marco: por familias, cada uno con su muestra. */
+export function FramePicker({
+  items,
+  value,
+  onPick,
+  preview,
+}: {
+  items: Record<string, { name: string; group: FrameGroup }>;
+  value: string;
+  onPick: (key: string) => void;
+  preview: (key: string) => ReactNode;
+}) {
+  const groups = (Object.keys(FRAME_GROUPS) as FrameGroup[]).filter((g) => Object.values(items).some((f) => f.group === g));
+  return (
+    <div className="space-y-3">
+      {groups.map((g) => (
+        <div key={g}>
+          <p className="mb-1.5 text-[0.7rem] font-semibold uppercase tracking-wider text-muted">{FRAME_GROUPS[g]}</p>
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+            {Object.entries(items)
+              .filter(([, f]) => f.group === g)
+              .map(([k, f]) => (
+                <button key={k} type="button" onClick={() => onPick(k)} className={`flex flex-col items-center gap-1.5 rounded-xl border p-2 text-[0.7rem] transition ${value === k ? "border-ink ring-1 ring-ink" : "border-line bg-white hover:border-ink/30"}`}>
+                  {preview(k)}
+                  <span className="truncate">{f.name}</span>
+                </button>
+              ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Muestra pequeña de un marco de tarjeta (en dorado). */
+export function CardFrameSwatch({ frame }: { frame: CardFrameKey }) {
+  const mask = cardFrameMask(frame, 22);
+  return (
+    <span className="relative block h-12 w-full rounded-lg bg-[#1d1830]" style={frame === "neon" ? { boxShadow: "0 0 0 1px #c9a46a, 0 0 10px #c9a46a" } : undefined}>
+      {mask && <span className="absolute inset-1" style={{ background: "#c9a46a", WebkitMask: mask, mask }} />}
+    </span>
+  );
+}
+
+/** Muestra pequeña de un marco de botón (en dorado). */
+export function ButtonFrameSwatch({ frame }: { frame: ButtonFrameKey }) {
+  const kind = buttonFrameKind(frame);
+  const mask = buttonFrameMask(frame);
+  const outline = kind === "dotted" || kind === "dashed" || kind === "double";
+  return (
+    <span className="relative grid h-12 w-full place-items-center rounded-lg bg-[#1d1830]">
+      <span
+        className="relative block h-4 w-10 rounded-full bg-[#c9a46a]"
+        style={outline ? { outline: `${kind === "double" ? 3 : 1.5}px ${kind} #c9a46a`, outlineOffset: 2 } : kind === "neon" ? { boxShadow: "0 0 0 1px #fff, 0 0 8px #c9a46a" } : undefined}
+      >
+        {mask && <span className="absolute -inset-y-1.5 -inset-x-3" style={{ background: "#c9a46a", WebkitMask: mask, mask }} />}
+      </span>
+    </span>
   );
 }
 
@@ -459,6 +658,10 @@ export function DesignSample({ config, page, allowCustom, personal, username }: 
               </div>
             </div>
           ))}
+          <div className="cp-include-panel">
+            <p className="cp-display text-xl">Un panel dorado</p>
+            <p className="cp-muted mt-1 text-sm">Con su doble borde, sus estrellitas y, si quieres, geometría de fondo.</p>
+          </div>
           <span className="cp-link" data-highlight="true">
             <span>✨ Un botón destacado</span>
             <span>↗</span>

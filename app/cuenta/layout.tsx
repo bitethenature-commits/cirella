@@ -4,6 +4,7 @@ import { LogOut, Store } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { getBuyerSession } from "@/lib/buyer-access";
 import { isPersonalMode } from "@/lib/site-mode";
+import { AccountLookRoot } from "./look-root";
 import { AccountNav } from "./nav";
 import { ScopeBanner } from "./scope-banner";
 import { UserAvatar } from "./ui";
@@ -11,6 +12,7 @@ import { unseenCommentCount } from "@/lib/comment-social";
 import { communityTiers } from "@/lib/community-tiers";
 import { hasAccess } from "@/lib/customer";
 import { prisma } from "@/lib/db";
+import { hasAccountLook, readAccountLook } from "@/lib/account-look";
 import { ownerUsername } from "@/lib/site-mode";
 
 /** Su nivel de membresía más alto en la web personal (0 = I), o null si no tiene ninguna. La dueña ve el más alto. */
@@ -37,8 +39,10 @@ export default async function AccountLayout({ children }: { children: React.Reac
   const b = await getBuyerSession();
   // Avisos de sus comentarios (me gusta y respuestas): el número del chat del menú.
   const [unseen, tier] = b && !b.scope ? await Promise.all([unseenCommentCount(b.user.id), memberTier(b.user.id, b.user.creator?.id ?? null)]) : [0, null];
+  // Sus colores (Ajustes › Colores de mi área); las sesiones limitadas a un pedido, los de siempre.
+  const look = b && !b.scope ? readAccountLook(b.user.accountLook) : null;
   return (
-    <div className="acc-root min-h-dvh bg-paper">
+    <AccountLookRoot saved={hasAccountLook(look) ? look : null}>
       {b && (
         <header className="sticky top-0 z-30 border-b border-line bg-paper/90 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-5">
@@ -65,6 +69,6 @@ export default async function AccountLayout({ children }: { children: React.Reac
         </header>
       )}
       <main className="mx-auto max-w-4xl px-5 pb-20 pt-8 animate-fade-in">{children}</main>
-    </div>
+    </AccountLookRoot>
   );
 }

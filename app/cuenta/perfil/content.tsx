@@ -1,4 +1,4 @@
-import { AtSign, ChevronDown, KeyRound, Mail, ShieldCheck } from "lucide-react";
+import { AtSign, ChevronDown, KeyRound, Mail, Palette, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Flash } from "@/components/ui/flash";
@@ -6,9 +6,11 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { requireBuyerFull } from "@/lib/buyer-access";
 import { prisma } from "@/lib/db";
 import { getOwnerCreator, isPersonalMode } from "@/lib/site-mode";
+import { hasAccountLook, readAccountLook } from "@/lib/account-look";
 import { UserAvatar } from "../ui";
 import { subscribeOwnerNews } from "./actions";
 import { EmailCard, PasswordCard } from "./cards";
+import { AccountLookEditor } from "./look-editor";
 import { ProfileTop } from "./form";
 import { withdrawMarketing } from "./marketing-actions";
 
@@ -32,8 +34,8 @@ function Row({ id, icon, title, state, open, children }: { id: string; icon: Rea
 
 /**
  * «Mi perfil», dentro de Ajustes (/cuenta/soporte), encima de Soporte. Corto: una sola tarjeta con la foto y
- * el nombre arriba, y debajo filas que se abren (email, contraseña, novedades y, si es creadora, la
- * verificación en dos pasos).
+ * el nombre arriba, y debajo filas que se abren (los colores de su área, email, contraseña, novedades y, si es
+ * creadora, la verificación en dos pasos).
  */
 export async function ProfileContent({ sp }: { sp: { ok?: string; error?: string } }) {
   const user = await requireBuyerFull("/cuenta/soporte");
@@ -46,6 +48,7 @@ export async function ProfileContent({ sp }: { sp: { ok?: string; error?: string
   const ownerSubscribed = !!owner && subscriptions.some((s) => s.creatorId === owner.id);
   const name = user.name ?? "";
   const news = subscriptions.length ? "Activadas" : "Desactivadas";
+  const look = readAccountLook(user.accountLook);
   return (
     <section id="perfil" aria-labelledby="perfil-t" className="card mx-auto max-w-lg scroll-mt-32 p-5 sm:p-6">
       <h2 id="perfil-t" className="mb-4 text-[0.66rem] font-medium uppercase tracking-[0.36em] text-gold">
@@ -55,6 +58,9 @@ export async function ProfileContent({ sp }: { sp: { ok?: string; error?: string
       <ProfileTop avatar={<UserAvatar src={user.avatarUrl} name={name || user.email} className="h-16 w-16 text-base ring-2 ring-gold/40" />} hasPhoto={!!user.avatarUrl} name={name} email={user.email} />
 
       <div className="mt-4 divide-y divide-line border-t border-line">
+        <Row id="colores" icon={<Palette className="h-4 w-4" />} title="Colores de mi área" state={hasAccountLook(look) ? "Personalizados" : "Los de siempre"}>
+          <AccountLookEditor saved={look} />
+        </Row>
         <Row id="email" icon={<AtSign className="h-4 w-4" />} title="Cambiar email" state="" open={!!sp.error}>
           <p className="mb-3 text-[0.8rem] text-muted">Te enviaremos un enlace al email nuevo para confirmarlo.</p>
           <EmailCard hasPassword={!!user.passwordHash} />

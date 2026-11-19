@@ -262,6 +262,3 @@ export async function reopenRequest(creatorId: string, orderId: string) {
   if (!r.count) throw new RequestError("Esta solicitud ya no se puede recuperar.");
 }
 
-export async function pendingRequestCount(creatorId: string) {
-  return prisma.order.count({ where: { creatorId, status: REQUESTED } });
-}

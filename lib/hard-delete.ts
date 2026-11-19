@@ -45,15 +45,6 @@ async function recountCustomers(tx: Tx, customerIds: (string | null)[]) {
   }
 }
 
-/** Cuántas ventas, reservas y suscripciones se irían con el producto (para el aviso). */
-export async function productSalesCount(creatorId: string, productId: string) {
-  const [orders, subs] = await Promise.all([
-    prisma.order.count({ where: { creatorId, productId } }),
-    prisma.subscription.count({ where: { creatorId, productId } }),
-  ]);
-  return orders + subs;
-}
-
 /** El producto con todas sus ventas, reservas, suscripciones y accesos. Los archivos, quien llama. */
 export async function deleteProductHard(creatorId: string, productId: string) {
   await prisma.$transaction(

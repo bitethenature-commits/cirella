@@ -1180,6 +1180,7 @@ async function main() {
     theme: {},
     template: "custom",
     pageThemes: {},
+    pieces: {},
     designs: [],
     // La portada nueva (lib/page-config.ts → SECTION_KEYS): accesos, actualidades, portal, ofertas,
     // sobre mí, sistemas, lecturas y sesiones, cursos y códigos. Las listas de productos de siempre
@@ -1873,6 +1874,7 @@ async function main() {
     theme: {},
     template: "custom",
     pageThemes: {},
+    pieces: {},
     designs: [],
     sections: defaultSections().map((s) => ({ ...s, title: s.key === "products" ? "Prácticas" : undefined })),
     links: [{ id: "m1", label: "Clases en directo · calendario", url: "https://calendar.google.com", highlight: true }],
@@ -1938,6 +1940,7 @@ async function main() {
     theme: {},
     template: "custom",
     pageThemes: {},
+    pieces: {},
     designs: [],
     sections: defaultSections(),
     links: [],

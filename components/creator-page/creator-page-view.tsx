@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Fragment, type ComponentType, type CSSProperties, type ReactNode, type SVGProps } from "react";
-import type { HomeEdit } from "./home-edit";
+import type { CanvaPart, HomeEdit, TextEdit } from "./home-edit";
+import { siteText, type SiteTextKey, type TextVars } from "@/lib/site-texts";
 import { ArrowRight, ArrowUpRight, ExternalLink, FileText, Gift, Layers, Mail, Moon, Plus, Sparkles, Video } from "lucide-react";
 import { courseCategoriesLabel, courseCategoriesOf, productTopics, readingLabel } from "@/lib/course-categories";
 import { AstrologyIcon } from "./astrology-icon";
@@ -46,6 +47,8 @@ import type { OracleDecks } from "@/components/models/data/oracle";
 import { Avatar, ProductImage } from "./product-art";
 import { PortalSection } from "./portal-section";
 import { PostCard } from "./post-card";
+import { PieceStyles } from "./piece-styles";
+import { ShowMore } from "@/components/ui/show-more";
 import { SectionFolds, type Fold } from "./section-dropdown";
 import { TestimonialsRotator } from "./testimonials-rotator";
 import { OracleCard } from "./oracle-card";
@@ -195,6 +198,47 @@ export function CreatorPageView(props: Props) {
   const ST = (key: SectionKey) => T(`section:${key}`, sectionTitle(config, key), { placeholder: "Título de la sección" });
   /** El botón para cambiar un enlace (solo en el Canva). */
   const L = (path: string, url: string) => (edit ? <span className="relative z-10 mt-1.5 inline-flex">{edit.link(path, url)}</span> : null);
+  /** Un texto fijo de la web (lib/site-texts.ts): en el Canva se escribe encima y cambia en toda la web. */
+  const TX = (key: SiteTextKey, vars?: TextVars): ReactNode => {
+    const v = siteText(config.texts, key, vars);
+    return edit ? edit.text(`text:${key}`, v, { vars }) : v;
+  };
+  /**
+   * «3 novedades este mes»: el número lo pone la web (cuenta lo que hay) y no se cambia; en el Canva se escribe
+   * encima solo del texto de alrededor.
+   */
+  const TXn = (key: SiteTextKey, n: number): ReactNode => {
+    const tpl = siteText(config.texts, key); // con su {n}
+    const at = tpl.indexOf("{n}");
+    if (!edit || at < 0) return TX(key, { n });
+    const before = tpl.slice(0, at);
+    const after = tpl.slice(at + "{n}".length);
+    // Los espacios de los bordes, fuera de lo que se escribe (si no, se perderían).
+    const piece = (text: string, join: (v: string) => string) => {
+      const [, lead, body, trail] = /^(\s*)([\s\S]*?)(\s*)$/.exec(text)!;
+      if (!body) return text;
+      return (
+        <>
+          {lead}
+          {edit.text(`text:${key}`, body, { commit: (v) => (v ? join(lead + v + trail) : "") })}
+          {trail}
+        </>
+      );
+    };
+    return (
+      <>
+        {piece(before, (v) => v + "{n}" + after)}
+        {n}
+        {piece(after, (v) => before + "{n}" + v)}
+      </>
+    );
+  };
+  /** El texto del botón de la newsletter («Apuntarme»): en el Canva, escrito encima. */
+  const NB = edit ? T("newsletter.button", config.newsletter?.button || NEWSLETTER_FORM_DEFAULTS.button, { placeholder: NEWSLETTER_FORM_DEFAULTS.button }) : undefined;
+  /** Lo mismo para las piezas que van en todas las páginas (newsletter, entrar, pie). */
+  const TE: TextEdit | undefined = edit ? (key, value, vars) => edit.text(`text:${key}`, value, { vars }) : undefined;
+  /** Una parte que en el Canva se cambia en su ventanita al pulsarla (redes, botones, testimonios, códigos, el pie…). */
+  const P = (part: CanvaPart, node: ReactNode): ReactNode => (edit ? edit.part(part, node) : node);
   // Lo de pago se ve siempre: se solicita por formulario (lib/requests.ts).
   const products = props.products;
   // Ni un botón hacia lo que no se ve: en la web personal sin cobros, un enlace a un producto oculto daría 404.
@@ -228,8 +272,8 @@ export function CreatorPageView(props: Props) {
         return {
           id: "actualidades",
           section: "posts",
-          title: sectionTitle(config, key),
-          countLabel: recent.length === 0 ? "Lo último de la web" : recent.length === 1 ? "1 novedad este mes" : `${recent.length} novedades este mes`,
+          title: ST(key),
+          countLabel: recent.length === 0 ? TX("news.last") : TXn(recent.length === 1 ? "news.count1" : "news.countN", recent.length),
           stamps: recent.map((n) => Date.parse(n.at)),
           icon: <MegaphoneIcon className={icon} />,
           content: (
@@ -252,7 +296,7 @@ export function CreatorPageView(props: Props) {
                 }))}
               />
               <Link href={path("actualidades")} className="cp-btn-ghost mt-4 w-full">
-                Ver todas las novedades <ArrowRight className="h-4 w-4" />
+                {TX("news.all")} <ArrowRight className="h-4 w-4" />
               </Link>
             </>
           ),
@@ -266,8 +310,8 @@ export function CreatorPageView(props: Props) {
         return {
           id: "portal",
           section: "portal",
-          title: sectionTitle(config, key),
-          countLabel: n === 1 ? "1 aviso" : `${n} avisos`,
+          title: ST(key),
+          countLabel: TXn(n === 1 ? "portal.count1" : "portal.countN", n),
           stamps: items.map((i) => Date.parse(i.publishedAt)),
           icon: <PortalNoteIcon className={icon} />,
           content: (
@@ -292,8 +336,8 @@ export function CreatorPageView(props: Props) {
         return {
           id: "ofertas",
           section: "offers",
-          title: sectionTitle(config, key),
-          countLabel: onSale.length === 1 ? "1 oferta" : `${onSale.length} ofertas`,
+          title: ST(key),
+          countLabel: TXn(onSale.length === 1 ? "offers.count1" : "offers.countN", onSale.length),
           stamps: onSale.map((p) => Date.parse(p.sale!.startedAt)),
           icon: <PercentIcon className={icon} />,
           content: (
@@ -301,7 +345,7 @@ export function CreatorPageView(props: Props) {
               <HomeRows fallbackImage={fallbackImage} rows={onSale.slice(0, 1).map((p) => offerRow(p, username))} />
               {onSale.length > 1 && (
                 <Link href={path("ofertas")} className="cp-btn-ghost mt-4 w-full">
-                  Ver más ofertas <ArrowRight className="h-4 w-4" />
+                  {TX("offers.more")} <ArrowRight className="h-4 w-4" />
                 </Link>
               )}
             </>
@@ -315,8 +359,8 @@ export function CreatorPageView(props: Props) {
         const href = path("gifts");
         return {
           id: "gifts",
-          title: sectionTitle(config, key),
-          countLabel: g.total === 1 ? "1 regalo" : `${g.total} regalos`,
+          title: ST(key),
+          countLabel: TXn(g.total === 1 ? "gifts.count1" : "gifts.countN", g.total),
           stamps: [],
           icon: <Gift className={icon} strokeWidth={1.15} />,
           content: (
@@ -329,13 +373,13 @@ export function CreatorPageView(props: Props) {
                   href,
                   image: it.image,
                   icon: <Gift className="h-7 w-7 opacity-80" strokeWidth={1.3} />,
-                  eyebrow: <span>Hecho por mí</span>,
+                  eyebrow: <span>{TX("gifts.eyebrow")}</span>,
                   title: it.title,
                   text: it.text,
                 }))}
               />
               <Link href={href} className="cp-btn-ghost mt-4 w-full">
-                Ver todos los regalos <ArrowRight className="h-4 w-4" />
+                {TX("gifts.all")} <ArrowRight className="h-4 w-4" />
               </Link>
             </>
           ),
@@ -355,7 +399,7 @@ export function CreatorPageView(props: Props) {
       const more =
         key === "courses" && courseCount > 1 ? (
           <Link href={path("cursos")} className="cp-btn-ghost mt-5 w-full">
-            Ver todos los cursos por método <ArrowRight className="h-4 w-4" />
+            {TX("courses.all")} <ArrowRight className="h-4 w-4" />
           </Link>
         ) : null;
       // Cursos: tres tarjetas pequeñas como mucho (dos por fila en el móvil, tres en el ordenador); el resto, en «Ver todos».
@@ -422,7 +466,8 @@ export function CreatorPageView(props: Props) {
       case "bubbles": {
         const bubbles = (config.bubbles ?? []).filter((b) => !linksToProduct(b.url, username, hiddenSlugs, props.siteOrigin));
         if (!bubbles.length) return null;
-        return (
+        return P(
+          "bubbles",
           <nav key={key} aria-label="Accesos" className="mt-12 grid gap-3" style={{ gridTemplateColumns: `repeat(${bubbles.length}, minmax(0, 1fr))` }} {...reveal}>
             {bubbles.map((b) => {
               const img = b.image ? (
@@ -450,7 +495,7 @@ export function CreatorPageView(props: Props) {
                 a
               );
             })}
-          </nav>
+          </nav>,
         );
       }
       case "posts":
@@ -464,7 +509,7 @@ export function CreatorPageView(props: Props) {
         if (!list.length) return null;
         return (
           <section key="desplegables" id="desplegables" className="mt-14" {...reveal}>
-            <SectionFolds folds={list} username={username} preview={preview} />
+            <SectionFolds folds={list} username={username} preview={preview} editing={!!edit} />
           </section>
         );
       }
@@ -472,14 +517,17 @@ export function CreatorPageView(props: Props) {
         const a = config.about;
         if (!a || (!a.title && !edit)) return null;
         const href = a.url || path("actualidades");
-        return (
+        // La forma y el marco, en Diseño › Fotos; el tamaño y el lado, en la tarjeta.
+        const frame = `cp-luxe-frame relative mx-auto block w-full max-w-[20rem] sm:mx-0 sm:shrink-0 ${ABOUT_PHOTO[a.imageSize ?? "tall"]}`;
+        return P(
+          "about",
           <section key={key} id="sobre-mi" className="mt-16" {...reveal}>
             {/* Sin caja: solo la imagen lleva las esquinas redondeadas. */}
-            <a href={safeHref(href)} className="group flex flex-col gap-5 sm:flex-row-reverse sm:items-center sm:gap-8" {...(isExternal(href) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+            <a href={safeHref(href)} className={`group flex flex-col gap-5 sm:items-center sm:gap-8 ${a.imageSide === "left" ? "sm:flex-row" : "sm:flex-row-reverse"}`} {...(isExternal(href) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
               {edit
                 ? edit.image(
                     "about.image",
-                    <span className="cp-luxe-frame relative mx-auto block aspect-[9/16] w-full max-w-[20rem] sm:mx-0 sm:w-[36%] sm:shrink-0">
+                    <span className={frame}>
                       {a.image && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={a.image} alt="" className="cp-img absolute inset-0 h-full w-full object-cover" />
@@ -488,7 +536,7 @@ export function CreatorPageView(props: Props) {
                     { removable: true },
                   )
                 : a.image && (
-                <span className="cp-luxe-frame relative mx-auto block aspect-[9/16] w-full max-w-[20rem] sm:mx-0 sm:w-[36%] sm:shrink-0">
+                <span className={frame}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={a.image} srcSet={imageSrcSet(a.image)} sizes="(min-width: 640px) 290px, 92vw" alt="" loading="lazy" decoding="async" className="cp-img absolute inset-0 h-full w-full object-cover group-hover:scale-[1.035]" />
                 </span>
@@ -503,13 +551,14 @@ export function CreatorPageView(props: Props) {
               </span>
             </a>
             {L("about.url", a.url ?? "")}
-          </section>
+          </section>,
         );
       }
       case "systems": {
         const systems = config.systems ?? [];
         if (!systems.length) return null;
-        return (
+        return P(
+          "systems",
           <section key={key} id="sistemas" className="mt-16" {...reveal}>
             <SectionHeading title={ST(key)} />
             {/* Un icono y su nombre debajo, sin cajas: tres por fila en el móvil y todos en una en el ordenador. */}
@@ -546,7 +595,7 @@ export function CreatorPageView(props: Props) {
                 );
               })}
             </div>
-          </section>
+          </section>,
         );
       }
       case "readings": {
@@ -560,7 +609,8 @@ export function CreatorPageView(props: Props) {
           { c: r.session, d: READINGS_DEFAULTS.session, href: path("sesiones"), Icon: Video, tone: TONE_SESSION },
           { c: r.reading, d: READINGS_DEFAULTS.reading, href: path("lecturas"), Icon: FileText, tone: TONE_READING },
         ];
-        return (
+        return P(
+          "readings",
           <section key={key} id="lecturas" className="mt-16" {...reveal}>
             <SectionHeading title={ST(key)} />
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -571,7 +621,7 @@ export function CreatorPageView(props: Props) {
                   <span className="cp-display text-[1.7rem] leading-tight">{T(`readings.${ci === 0 ? "session" : "reading"}.title`, c.title || d.title)}</span>
                   <span className="cp-muted text-[0.9rem] leading-relaxed">{T(`readings.${ci === 0 ? "session" : "reading"}.text`, c.text || d.text, { multiline: true })}</span>
                   <span className="cp-gold mt-auto inline-flex items-center gap-1 pt-2 text-sm font-semibold">
-                    Ver los pasos <ArrowRight className="h-3.5 w-3.5" />
+                    {TX("readings.steps")} <ArrowRight className="h-3.5 w-3.5" />
                   </span>
                 </Link>
               ))}
@@ -595,37 +645,39 @@ export function CreatorPageView(props: Props) {
                         href={(c.accessMode ?? "PAID") === "FREE_EMAIL" ? `/${username}/${c.slug}` : `/${username}/${c.slug}/solicitar`}
                         event={trackId ? { creatorId: trackId, type: "PRODUCT_CLICK" as const, productId: c.id } : null}
                         className="cp-btn shrink-0 !min-h-[2.5rem] !text-[0.85rem]"
-                        ariaLabel={`${(c.accessMode ?? "PAID") === "FREE_EMAIL" ? "Apuntarme" : "Escríbeme para apuntarme"}: ${c.title}`}
+                        ariaLabel={`${(c.accessMode ?? "PAID") === "FREE_EMAIL" ? siteText(config.texts, "circles.free") : siteText(config.texts, "circles.paid")}: ${c.title}`}
                       >
-                        {(c.accessMode ?? "PAID") === "FREE_EMAIL" ? "Apuntarme" : <><Mail className="h-4 w-4" /> Quiero ir</>}
+                        {(c.accessMode ?? "PAID") === "FREE_EMAIL" ? TX("circles.free") : <><Mail className="h-4 w-4" /> {TX("circles.paid")}</>}
                       </TrackedLink>
                     </li>
                   ))}
                 </ul>
               </div>
             )}
-          </section>
+          </section>,
         );
       }
       case "codes": {
         if (!codes.length) return null;
-        return (
+        return P(
+          "codes",
           <section key={key} id="codigos" className="mt-16" {...reveal}>
             <SectionHeading title={ST(key)} count={codes.length} />
             {/* Tarjetas verticales: en el ordenador caben tres juntas; si hay más (o en el móvil), carrusel. */}
             <CodesCarousel>
               {codes.map((c) => (
                 <div key={c.id} className="w-[72%] shrink-0 snap-start sm:w-[45%] md:w-[calc((100%-1.5rem)/3)]">
-                  <DiscountCodeCard code={c} trackCreatorId={trackId} />
+                  {P(`code:${c.id}`, <DiscountCodeCard code={c} trackCreatorId={trackId} />)}
                 </div>
               ))}
             </CodesCarousel>
-          </section>
+          </section>,
         );
       }
       case "links":
         if (!links.length) return null;
-        return (
+        return P(
+          "links",
           <section key={key} className="mt-9 space-y-3" {...reveal}>
             {links.map((l) => {
               const a = (
@@ -643,29 +695,36 @@ export function CreatorPageView(props: Props) {
                 a
               );
             })}
-          </section>
+          </section>,
         );
       case "testimonials":
         if (!config.testimonials.length) return null;
-        return (
+        return P(
+          "testimonials",
           <section key={key} className="mt-16" {...reveal}>
             <SectionHeading title={ST(key)} />
             <TestimonialsRotator items={config.testimonials} />
-          </section>
+          </section>,
         );
       case "faq":
         if (!config.faqs.length) return null;
-        return (
+        return P(
+          "faq",
           <section key={key} className="mt-16" {...reveal}>
             <SectionHeading title={ST(key)} />
+            {/* En el Canva, todas para escribirlas; en la web, las 3 primeras y «Ver más» para abrirlas todas. */}
+            {edit ? (
             <div className="mt-4 divide-y" style={{ borderColor: "var(--c-line)" }}>
-              {edit && config.faqs.map((f) => (
+              {config.faqs.map((f) => (
                 <div key={f.id} className="py-3" style={{ borderColor: "var(--c-line)" }}>
                   <p className="py-1 text-[0.98rem] font-medium">{T(`faq:${f.id}:q`, f.q, { placeholder: "Pregunta" })}</p>
                   <p className="cp-muted pb-2 pr-8 text-[0.92rem] leading-relaxed">{T(`faq:${f.id}:a`, f.a, { multiline: true, placeholder: "Respuesta" })}</p>
                 </div>
               ))}
-              {!edit && config.faqs.map((f) => (
+            </div>
+            ) : (
+            <ShowMore className="mt-4 divide-y" style={{ borderColor: "var(--c-line)" }} buttonClassName="cp-btn-ghost">
+              {config.faqs.map((f) => (
                 <details key={f.id} className="group py-1" style={{ borderColor: "var(--c-line)" }}>
                   <summary className="flex cursor-pointer items-center justify-between gap-4 py-4 text-[0.98rem] font-medium">
                     {f.q}
@@ -674,8 +733,9 @@ export function CreatorPageView(props: Props) {
                   <p className="cp-muted pb-5 pr-8 text-[0.92rem] leading-relaxed">{f.a}</p>
                 </details>
               ))}
-            </div>
-          </section>
+            </ShowMore>
+            )}
+          </section>,
         );
       case "newsletter":
         // Ya no se pinta: el formulario sale debajo de «Hablemos» y en el pie.
@@ -688,7 +748,7 @@ export function CreatorPageView(props: Props) {
               text={config.newsletter?.text ?? NEWSLETTER_FORM_DEFAULTS.text}
               button={config.newsletter?.button ?? NEWSLETTER_FORM_DEFAULTS.button}
               creatorName={config.displayName}
-              privacyHref={creatorLegalHref(username, "privacidad")} opensPortal={personal}
+              privacyHref={creatorLegalHref(username, "privacidad")} opensPortal={personal} texts={config.texts} editText={TE} editButton={NB}
               preview={preview}
             />
           </section>
@@ -697,30 +757,31 @@ export function CreatorPageView(props: Props) {
         // Solo el email (sin WhatsApp) y, en la web personal, debajo el formulario de la newsletter.
         const c = config.contact;
         if (!c.email) return null;
-        return (
+        return P(
+          "contact",
           <section key={key} className="mt-16" {...reveal}>
             <div className="cp-card p-7 text-center sm:p-9">
               <p className="cp-eyebrow">{ST(key)}</p>
               <p className="cp-display mx-auto mt-3 max-w-md text-[1.7rem]">{T("contact.message", c.message || "¿Tienes alguna pregunta? Escríbeme.", { multiline: true })}</p>
               <div className="mt-6 flex flex-wrap justify-center gap-3">
                 <a href={`mailto:${c.email}`} className="cp-btn-ghost">
-                  <Mail className="h-4 w-4" /> Email
+                  <Mail className="h-4 w-4" /> {TX("contact.email")}
                 </a>
               </div>
               {contactNewsletter && (
                 <div className="mx-auto mt-7 flex max-w-md justify-center border-t pt-6" style={{ borderColor: "var(--c-line)" }}>
                   <NewsletterSignup
                     variant="footer"
-                    title={sectionTitle(config, "newsletter")}
+                    title={T("section:newsletter", sectionTitle(config, "newsletter"), { placeholder: "Título del formulario" })}
                     button={config.newsletter?.button ?? NEWSLETTER_FORM_DEFAULTS.button}
                     creatorName={config.displayName}
-                    privacyHref={creatorLegalHref(username, "privacidad")} opensPortal={personal}
+                    privacyHref={creatorLegalHref(username, "privacidad")} opensPortal={personal} texts={config.texts} editText={TE} editButton={NB}
                     preview={preview}
                   />
                 </div>
               )}
             </div>
-          </section>
+          </section>,
         );
       }
       default:
@@ -731,13 +792,16 @@ export function CreatorPageView(props: Props) {
   const socials = SOCIAL_KEYS.filter((k) => config.socials[k]);
 
   return (
+    <>
+    {/* Las piezas sueltas de la portada (solo en la web: en el editor y el Canva la página lleva más cosas dentro). */}
+    {!preview && !edit && props.allowCustom && <PieceStyles pieces={config.pieces?.home} gold={theme.colors.gold} />}
     <div className="cp cp-luxe" style={themeStyle(theme)} {...themeAttrs(theme)}>
       <DesignBackdrop theme={theme} contained={!!preview} />
       <TemplateDecor decor={theme.decor} contained={!!preview} />
 
       {/* Barra superior discreta: solo la entrada al área (sin el @usuario) */}
       <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-end px-4 pt-[max(env(safe-area-inset-top),0.75rem)]">
-        <AccountEntry username={username} personal={personal} variant="pill" />
+        <AccountEntry username={username} personal={personal} variant="pill" texts={config.texts} editText={TE} />
       </div>
 
       {/* Portada */}
@@ -792,8 +856,15 @@ export function CreatorPageView(props: Props) {
             </p>
           )}
           {(config.bio || edit) && <p className="cp-muted mt-4 max-w-md text-[0.95rem] leading-relaxed">{T("bio", config.bio, { multiline: true, placeholder: "Sobre ti" })}</p>}
-          {socials.length > 0 && (
+          {(socials.length > 0 || !!edit) &&
+            P(
+              "socials",
             <div className="mt-6 flex items-center gap-2">
+              {!socials.length && (
+                <span className="cp-faint rounded-full border border-dashed px-3.5 py-2 text-xs" style={{ borderColor: "var(--c-line)" }}>
+                  + Redes sociales
+                </span>
+              )}
               {socials.map((k) => (
                 <a
                   key={k}
@@ -807,8 +878,8 @@ export function CreatorPageView(props: Props) {
                   <SocialIcon name={k} className="h-[18px] w-[18px]" />
                 </a>
               ))}
-            </div>
-          )}
+            </div>,
+            )}
         </header>
 
         {config.sections
@@ -822,19 +893,21 @@ export function CreatorPageView(props: Props) {
 
         {edit?.footer}
 
+        {P(
+          "footer",
         <footer className="mt-20 flex flex-col items-center gap-4 text-center text-xs">
           {personal && config.newsletter?.footer && !newsletterSection && !contactNewsletter && (
             <NewsletterSignup
               variant="footer"
               button={config.newsletter.button}
               creatorName={config.displayName}
-              privacyHref={creatorLegalHref(username, "privacidad")} opensPortal={personal}
+              privacyHref={creatorLegalHref(username, "privacidad")} opensPortal={personal} texts={config.texts} editText={TE} editButton={NB}
               preview={preview}
             />
           )}
           <SiteNav pages={props.pages} />
-          <AccountEntry username={username} personal={personal} variant="footer" />
-          <LegalLinks username={username} sellerName={props.sellerName} signupsOnly={signupsOnly} />
+          <AccountEntry username={username} personal={personal} variant="footer" texts={config.texts} editText={TE} />
+          <LegalLinks username={username} sellerName={props.sellerName} signupsOnly={signupsOnly} texts={config.texts} editText={TE} />
           {props.showPoweredBy && !personal && (
             <a
               href={`/?ref=${props.referralCode ?? ""}&utm_source=powered_by`}
@@ -844,9 +917,11 @@ export function CreatorPageView(props: Props) {
               <span className="cp-gold">✦</span> Powered by <span className="font-semibold">{props.platformName}</span>
             </a>
           )}
-        </footer>
+        </footer>,
+        )}
       </main>
     </div>
+    </>
   );
 }
 
@@ -1001,6 +1076,12 @@ const tone = (color: string, amount: number): Tone => ({
 });
 const TONE_READING = tone("var(--c-gold)", 14);
 const TONE_SESSION = tone("var(--c-accent)", 22);
+/** El tamaño de la foto de «Sobre mí» (y su ancho en el ordenador). */
+const ABOUT_PHOTO: Record<"tall" | "portrait" | "square", string> = {
+  tall: "aspect-[9/16] sm:w-[36%]",
+  portrait: "aspect-[3/4] sm:w-[38%]",
+  square: "aspect-square sm:w-[40%]",
+};
 const TONE_CIRCLES = tone("color-mix(in oklab, var(--c-text) 70%, var(--c-accent))", 10);
 
 

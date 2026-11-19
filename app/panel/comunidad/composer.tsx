@@ -7,7 +7,7 @@ import { MediaViewBase } from "@/components/media/media-view-base";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { Flash } from "@/components/ui/flash";
 import { uploadImageInfo } from "@/components/ui/image-upload";
-import { UPLOAD_CANCELLED, uploadFile } from "@/components/ui/upload-client";
+import { UPLOAD_CANCELLED, uploadFile, type UploadedFile } from "@/components/ui/upload-client";
 import { MoonCircleArt } from "@/components/creator-page/moon-circle-art";
 import { SpinningSolid } from "@/app/cuenta/spinning-solid";
 import { postCover } from "@/app/cuenta/membresias/cover";
@@ -19,7 +19,6 @@ import { fileMarker, splitBody } from "@/lib/post-blocks";
 import { richToPlain, truncateWords } from "@/lib/rich-text";
 import { tzCity } from "@/lib/timezones";
 import { saveStudioPost, type ComposerState } from "./actions";
-import type { Attachment } from "./post-attachments";
 import { WhenPicker } from "./when-picker";
 
 export type ComposerPost = {
@@ -71,6 +70,8 @@ const LEVELS = ["I", "II", "III", "IV", "V"];
 
 // ── Las partes de la publicación ──
 
+/** Un archivo de la publicación (con su tamaño, si es una imagen). */
+type Attachment = UploadedFile & { width?: number | null; height?: number | null };
 type Block = { key: string; t: "text"; md: string } | { key: string; t: "photo"; url: string } | { key: string; t: "file"; file: Attachment };
 type AddKind = "text" | "photo" | "AUDIO" | "VIDEO" | "PDF";
 const IMAGE_LINE = /^!\[[^\]\n]*\]\(([^)\s]+)\)\s*$/;
@@ -280,7 +281,7 @@ export function Composer({
             ["PDF", "PDF", FileText],
           ] as const
         ).map(([k, label, Icon]) => (
-          <button key={k} type="button" disabled={uploading} onClick={() => add(k, i)} className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-gold/30 px-3.5 text-sm font-semibold text-[#f0d9a4] transition hover:border-gold/70 hover:bg-gold/10 disabled:opacity-40">
+          <button key={k} type="button" disabled={uploading} onClick={() => add(k, i)} className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-gold/30 px-3.5 text-sm font-semibold text-[color:var(--n-gold-hi,#f0d9a4)] transition hover:border-gold/70 hover:bg-gold/10 disabled:opacity-40">
             <Icon className="h-4 w-4" /> {label}
           </button>
         ))}
@@ -293,21 +294,21 @@ export function Composer({
     ) : (
       <div className="group/add relative flex h-6 items-center justify-center">
         <span aria-hidden className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-gold/0 to-transparent transition group-hover/add:via-gold/40" />
-        <button type="button" onClick={() => setAddAt(i)} className="relative grid h-7 w-7 place-items-center rounded-full border border-gold/25 bg-[#0d0c22] text-gold/70 opacity-40 transition hover:opacity-100 group-hover/add:opacity-100" aria-label="Añadir algo aquí">
+        <button type="button" onClick={() => setAddAt(i)} className="relative grid h-7 w-7 place-items-center rounded-full border border-gold/25 bg-[color:var(--n-deep,#0d0c22)] text-gold/70 opacity-40 transition hover:opacity-100 group-hover/add:opacity-100" aria-label="Añadir algo aquí">
           <Plus className="h-3.5 w-3.5" />
         </button>
       </div>
     );
 
   const tools = (i: number, label: string) => (
-    <span className="absolute right-2 top-2 z-10 flex gap-1 rounded-full bg-[#0d0c22]/85 p-1 opacity-0 shadow-lg ring-1 ring-gold/25 backdrop-blur transition group-hover/block:opacity-100 group-focus-within/block:opacity-100">
-      <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="grid h-8 w-8 place-items-center rounded-full text-[#f0d9a4] hover:bg-white/10 disabled:opacity-25" aria-label={`Subir ${label}`}>
+    <span className="absolute right-2 top-2 z-10 flex gap-1 rounded-full bg-[color:var(--n-deep,#0d0c22)]/85 p-1 opacity-0 shadow-lg ring-1 ring-gold/25 backdrop-blur transition group-hover/block:opacity-100 group-focus-within/block:opacity-100">
+      <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="grid h-8 w-8 place-items-center rounded-full text-[color:var(--n-gold-hi,#f0d9a4)] hover:bg-white/10 disabled:opacity-25" aria-label={`Subir ${label}`}>
         <ArrowUp className="h-4 w-4" />
       </button>
-      <button type="button" onClick={() => move(i, 1)} disabled={i === blocks.length - 1} className="grid h-8 w-8 place-items-center rounded-full text-[#f0d9a4] hover:bg-white/10 disabled:opacity-25" aria-label={`Bajar ${label}`}>
+      <button type="button" onClick={() => move(i, 1)} disabled={i === blocks.length - 1} className="grid h-8 w-8 place-items-center rounded-full text-[color:var(--n-gold-hi,#f0d9a4)] hover:bg-white/10 disabled:opacity-25" aria-label={`Bajar ${label}`}>
         <ArrowDown className="h-4 w-4" />
       </button>
-      <button type="button" onClick={() => setBlocks((l) => l.filter((_, k) => k !== i))} className="grid h-8 w-8 place-items-center rounded-full text-[#f0d9a4] hover:bg-white/10 hover:text-rose" aria-label={`Quitar ${label}`}>
+      <button type="button" onClick={() => setBlocks((l) => l.filter((_, k) => k !== i))} className="grid h-8 w-8 place-items-center rounded-full text-[color:var(--n-gold-hi,#f0d9a4)] hover:bg-white/10 hover:text-rose" aria-label={`Quitar ${label}`}>
         <X className="h-4 w-4" />
       </button>
     </span>
@@ -490,7 +491,7 @@ export function Composer({
               <button type="button" onClick={pickCover} className="group/cover relative block w-full" aria-label={cover ? "Cambiar la foto" : "Poner tu foto"}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={shownCover.src} alt="" className="block aspect-[4/3] w-full object-cover" />
-                <span aria-hidden className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0d0c22]" />
+                <span aria-hidden className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[color:var(--n-deep,#0d0c22)]" />
                 {coverHover}
                 {coverBusy}
               </button>
@@ -606,7 +607,7 @@ export function Composer({
       </section>
 
       {/* 3 · Antes de publicar. */}
-      <section className="rounded-[2rem] border border-gold/30 bg-[#0b0a1c] p-5 shadow-[0_40px_80px_-40px_rgb(0_0_0/.9)] sm:p-7" aria-labelledby="c-more">
+      <section className="rounded-[2rem] border border-gold/30 bg-[color:var(--n-deep,#0b0a1c)] p-5 shadow-[0_40px_80px_-40px_rgb(0_0_0/.9)] sm:p-7" aria-labelledby="c-more">
         <p id="c-more" className="text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold">✦ Antes de publicar ✦</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <GoldToggle name="notify" defaultChecked={post.notify} disabled={live} icon={<Bell className="h-4 w-4" />} title="Avisar por email" hint={notifiedNote ?? (live ? "Ya está publicada: no se vuelve a avisar." : "Les llega un email cuando sale.")} />
@@ -616,7 +617,7 @@ export function Composer({
       </section>
 
       {/* 4 · Abajo del todo: cuándo sale. */}
-      <section className="rounded-[2rem] border border-gold/40 bg-gradient-to-b from-[#14112e] to-[#0b0a1c] p-5 shadow-[0_0_60px_-20px_rgb(212_181_122/.35)] sm:p-7" aria-labelledby="c-when">
+      <section className="rounded-[2rem] border border-gold/40 bg-gradient-to-b from-[color:var(--n-deep,#14112e)] to-[color:var(--n-deep,#0b0a1c)] p-5 shadow-[0_0_60px_-20px_rgb(212_181_122/.35)] sm:p-7" aria-labelledby="c-when">
         <p id="c-when" className="text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold">✦ ¿Cuándo sale? ✦</p>
         {live && <p className="mt-1 text-center text-xs text-muted">Ya la ven tus miembros.</p>}
         <div className={`mt-5 grid gap-3 ${live ? "sm:grid-cols-2" : "sm:grid-cols-3"}`} role="radiogroup" aria-labelledby="c-when">
@@ -640,12 +641,12 @@ export function Composer({
                 aria-checked={on}
                 onClick={() => setWhen(w)}
                 className={`flex min-h-24 flex-col items-center justify-center gap-1.5 rounded-[1.4rem] border px-4 py-4 text-center transition ${
-                  on ? "border-[#e9cc8e] bg-[radial-gradient(90%_90%_at_50%_0%,rgb(233_204_142/.2),transparent_70%)] text-[#f7e5b8] shadow-[inset_0_0_0_4px_#0d0b22,inset_0_0_0_5px_rgb(233_204_142/.45),0_0_40px_-12px_rgb(233_204_142/.7)]" : "border-gold/20 text-[#cfc8e4] hover:border-gold/50"
+                  on ? "border-[color:var(--n-gold,#e9cc8e)] bg-[radial-gradient(90%_90%_at_50%_0%,rgb(233_204_142/.2),transparent_70%)] text-[color:var(--n-gold-pale,#f7e5b8)] shadow-[inset_0_0_0_4px_#0d0b22,inset_0_0_0_5px_rgb(233_204_142/.45),0_0_40px_-12px_rgb(233_204_142/.7)]" : "border-gold/20 text-[color:var(--n-lilac,#cfc8e4)] hover:border-gold/50"
                 }`}
               >
-                <Icon className={`h-5 w-5 ${on ? "text-[#f0d9a4]" : "text-gold/70"}`} />
+                <Icon className={`h-5 w-5 ${on ? "text-[color:var(--n-gold-hi,#f0d9a4)]" : "text-gold/70"}`} />
                 <span className={`display text-[1.3rem] leading-none ${on ? "italic" : ""}`}>{label}</span>
-                <span className="text-xs text-[#a7a2c2]">{hint}</span>
+                <span className="text-xs text-[color:var(--n-muted,#a7a2c2)]">{hint}</span>
               </button>
             );
           })}
@@ -666,7 +667,7 @@ export function Composer({
           >
             {pending && <Loader2 className="h-4 w-4 animate-spin" />} {uploading ? "Esperando a la subida…" : submitLabel}
           </button>
-          <p className="text-center text-xs text-[#a7a2c2]">{tier ? `En ${tier.title}` : ""}</p>
+          <p className="text-center text-xs text-[color:var(--n-muted,#a7a2c2)]">{tier ? `En ${tier.title}` : ""}</p>
         </div>
       </section>
     </form>
@@ -677,13 +678,13 @@ export function Composer({
 function GoldToggle({ name, defaultChecked, disabled, title, hint, icon }: { name: string; defaultChecked: boolean; disabled?: boolean; title: string; hint: string; icon: React.ReactNode }) {
   return (
     <label className={`group flex min-h-16 cursor-pointer items-center gap-3 rounded-[1.3rem] border border-gold/25 bg-white/[.02] px-4 py-3 transition hover:border-gold/50 has-[:checked]:border-gold/70 has-[:checked]:bg-gold/[.07] ${disabled ? "opacity-60" : ""}`}>
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-gold/40 text-[#f0d9a4]">{icon}</span>
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-gold/40 text-[color:var(--n-gold-hi,#f0d9a4)]">{icon}</span>
       <span className="min-w-0 flex-1">
-        <span className="block font-semibold text-[#f1ebdf]">{title}</span>
-        <span className="block text-xs text-[#a7a2c2]">{hint}</span>
+        <span className="block font-semibold text-[color:var(--n-ivory,#f1ebdf)]">{title}</span>
+        <span className="block text-xs text-[color:var(--n-muted,#a7a2c2)]">{hint}</span>
       </span>
       <input type="checkbox" name={name} defaultChecked={defaultChecked} disabled={disabled} className="peer sr-only" />
-      <span aria-hidden className="relative h-6 w-11 shrink-0 rounded-full bg-white/10 ring-1 ring-gold/30 transition after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-[#a7a2c2] after:transition peer-checked:bg-gradient-to-r peer-checked:from-[#c9a45f] peer-checked:to-[#f0d9a4] peer-checked:after:translate-x-5 peer-checked:after:bg-[#2a1e0c]" />
+      <span aria-hidden className="relative h-6 w-11 shrink-0 rounded-full bg-white/10 ring-1 ring-gold/30 transition after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-[color:var(--n-muted,#a7a2c2)] after:transition peer-checked:bg-gradient-to-r peer-checked:from-[#c9a45f] peer-checked:to-[#f0d9a4] peer-checked:after:translate-x-5 peer-checked:after:bg-[#2a1e0c]" />
     </label>
   );
 }

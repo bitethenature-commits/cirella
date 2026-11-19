@@ -209,13 +209,6 @@ export function lunarMonth(year: number, month: number, tz = SPAIN_TZ): LunarDay
   });
 }
 
-/** Signos por los que pasa la Luna entre dos instantes (para «¿está en mi signo natal este día?»). */
-export function moonSignsBetween(from: Date, to: Date): number[] {
-  const out = new Set<number>([Math.floor(longitude("Moon", from) / 30)]);
-  for (const e of moonIngressesBetween(from, to)) if (e.kind === "moon-ingress") out.add(e.sign);
-  return [...out];
-}
-
 /** Retornos lunares: la Luna pasa por la longitud `natalLon` en [from, to) (uno cada ~27,3 días). */
 export function lunarReturnsBetween(natalLon: number, from: Date, to: Date): Date[] {
   const f = (t: number) => lonDiff(longitude("Moon", new Date(t)), natalLon);

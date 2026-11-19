@@ -19,11 +19,14 @@ export const metadata: Metadata = { title: "Comentarios de los cursos" };
 export default async function CourseCommentsPage() {
   const { creator } = await requireCreator();
   const db = tenantDb(creator.id);
-  const rows = await db.lessonComment.findMany({
-    orderBy: { createdAt: "asc" },
-    take: 1500,
-    include: { lesson: { select: { id: true, title: true, productId: true, product: { select: { title: true } } } }, _count: { select: { likes: true } } },
-  });
+  // Los 1500 más recientes (si hay más, los más viejos se quedan fuera), en orden de llegada para montar los hilos.
+  const rows = (
+    await db.lessonComment.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 1500,
+      include: { lesson: { select: { id: true, title: true, productId: true, product: { select: { title: true } } } }, _count: { select: { likes: true } } },
+    })
+  ).reverse();
   const blocked = new Set(
     (await db.customer.findMany({ where: { userId: { in: [...new Set(rows.map((c) => c.userId))] }, commentsBlockedAt: { not: null } }, select: { userId: true } })).map((c) => c.userId),
   );
@@ -36,7 +39,9 @@ export default async function CourseCommentsPage() {
     const t = threads.get(c.lessonId) ?? { lessonId: c.lessonId, lessonTitle: c.lesson.title, courseTitle: c.lesson.product.title, productId: c.lesson.productId, comments: [], fresh: false, last: 0 };
     const view: StudioComment = { id: c.id, userId: c.userId, authorName: c.authorName, byOwner: c.byOwner, body: c.body, status: c.status, when: when(c.createdAt), blocked: blocked.has(c.userId), likes: c._count.likes, replies: [] };
     if (!c.byOwner && c.status === "VISIBLE" && c.createdAt.getTime() > since) t.fresh = true;
-    if (c.parentId) t.comments.find((p) => p.id === c.parentId)?.replies.push(view);
+    // Una respuesta cuyo comentario quedó fuera (de los más viejos) sale suelta: así no se pierde.
+    const parent = c.parentId ? t.comments.find((p) => p.id === c.parentId) : undefined;
+    if (parent) parent.replies.push(view);
     else t.comments.push(view);
     t.last = Math.max(t.last, c.createdAt.getTime());
     threads.set(c.lessonId, t);

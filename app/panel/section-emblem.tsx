@@ -2,6 +2,7 @@
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  Brush,
   FileText,
   Gift,
   GraduationCap,
@@ -30,6 +31,7 @@ import {
 /** El emblema de cada sección (por su dirección; la más larga que encaje). */
 const ICONS: [string, LucideIcon][] = [
   ["/panel/paginas", FileText],
+  ["/panel/canva", Brush],
   ["/panel/pagina", Palette],
   ["/panel/productos", LayoutGrid],
   ["/panel/sesiones", Video],

@@ -26,6 +26,7 @@ import { getSettings } from "@/lib/settings";
 import { ownerUsername } from "@/lib/site-mode";
 import { CreatorPublicPage, creatorPageMetadata } from "./[username]/public-page";
 import { CanvaButton } from "@/components/creator-page/canva-button";
+import { LiveDesign } from "@/components/creator-page/live-design";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ r
       <>
         <CreatorPublicPage username={owner} />
         <CanvaButton username={owner} personal />
+        {/* Dentro de la vista en vivo de Diseño: el diseño sin guardar, encima (como en /<usuaria>). */}
+        <LiveDesign />
       </>
     );
   return <Landing searchParams={searchParams} />;

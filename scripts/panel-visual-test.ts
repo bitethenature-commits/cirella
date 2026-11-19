@@ -77,7 +77,7 @@ async function main() {
     check("María no puede cambiar su diseño", changed.count === 0);
 
     // ── Personalizar mi panel ──
-    const prefs = parsePanelPrefs({ theme: { accent: "#b4583f", tone: "dark", sidebar: "#0b0e1f" }, nav: { order: ["/panel/newsletter", "/panel"], hidden: ["/panel/codigos"] }, home: ["atajos"] });
+    const prefs = parsePanelPrefs({ design: { accent: "#b4583f", background: "#0b0e1f", decor: "galaxy" }, sidebar: "#0b0e1f", nav: { order: ["/panel/newsletter", "/panel"], hidden: ["/panel/codigos"] }, home: ["atajos"] });
     check("preferencias válidas", prefs.ok);
     if (!prefs.ok) return;
     await prisma.creator.update({ where: { id: ana.id }, data: { panelPrefs: prefs.value as unknown as Prisma.InputJsonValue } });
@@ -85,7 +85,7 @@ async function main() {
     const mariaNow = await prisma.creator.findUniqueOrThrow({ where: { id: maria.id } });
     check("las de Cirella se guardan y se leen", JSON.stringify(readPanelPrefs(anaNow.panelPrefs)) === JSON.stringify(prefs.value), anaNow.panelPrefs);
     check("las de María no cambian", JSON.stringify(mariaNow.panelPrefs) === JSON.stringify(before.maria));
-    check("María sigue con el panel de siempre", readPanelPrefs(mariaNow.panelPrefs).theme === null || JSON.stringify(mariaNow.panelPrefs) === JSON.stringify(before.maria));
+    check("María sigue con el panel de siempre", readPanelPrefs(mariaNow.panelPrefs).design === null || JSON.stringify(mariaNow.panelPrefs) === JSON.stringify(before.maria));
   } finally {
     if (campaignId) await prisma.campaign.deleteMany({ where: { id: campaignId } });
     if (coverKey) await storage().delete([coverKey]).catch(() => {});

@@ -56,6 +56,9 @@ model User {
   // Foto de perfil de la alumna (/media/{userId}/{hex}.webp, pública e inmutable como las de las
   // creadoras). null = iniciales.
   avatarUrl       String?
+  // Los colores de su área de alumna (Ajustes › Colores de mi área, lib/account-look.ts): la barra, la página,
+  // los detalles, el fondo con movimiento y la geometría. null = la noche dorada de siempre.
+  accountLook     Json?
 
   creator             Creator?
   sessions            Session[]

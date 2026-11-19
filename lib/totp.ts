@@ -68,11 +68,6 @@ export function totpStep(now = new Date()): number {
   return Math.floor(now.getTime() / 1000 / TOTP_PERIOD_SEC);
 }
 
-/** Código de un instante (para las pruebas). */
-export function totpCode(secret: Buffer, now = new Date()): string {
-  return hotp(secret, totpStep(now));
-}
-
 /** «287 082» → «287082». null si no son 6 cifras. */
 export function cleanTotpInput(code: string): string | null {
   const c = code.replace(/[\s-]/g, "");

@@ -126,7 +126,7 @@ export function GiveAccessForm({ products, customers, timeZone, initialEmail }: 
           <AccessEndFields timeZone={timeZone} idPrefix="give" choice={choice} setChoice={setChoice} date={date} setDate={setDate} />
           <p className="text-xs text-muted">Le llega un email con el enlace para entrar a «{chosen.title}». No necesita contraseña ni rellenar nada.</p>
           {chosen.kind === "membership" && (
-            <p className="rounded-xl bg-sand px-3 py-2 text-xs text-muted">5 días antes de que venza le llega un email para renovar. Ese día se bloquea sola. En Comunidad › Miembros ves la cuenta atrás y renuevas con el tick verde cuando pague.</p>
+            <p className="rounded-xl bg-sand px-3 py-2 text-xs text-muted">5 días antes de que venza le llega un email para renovar. Ese día se bloquea sola. En Membresía › Miembros ves la cuenta atrás y renuevas con el tick verde cuando pague.</p>
           )}
           <button type="submit" className="btn btn-primary" disabled={pending}>
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />} Dar acceso

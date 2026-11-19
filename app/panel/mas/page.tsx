@@ -2,28 +2,48 @@ import Link from "next/link";
 import { ChevronRight, LogOut } from "lucide-react";
 import { requireCreator } from "@/lib/auth";
 import { readPanelPrefs } from "@/lib/panel-prefs";
-import { panelNavFor } from "../nav-items";
+import { NavBadge } from "../nav";
+import { NAV_GROUPS, panelNavFor, type NavGroup, type PanelNavItem } from "../nav-items";
 import { panelNavFlags } from "../nav-flags";
 import { PageHeader } from "../ui";
 
+/** Todas las secciones del panel (móvil): con el orden de siempre, por bloques; con el suyo, en su orden. */
 export default async function MorePage() {
   const { creator, user } = await requireCreator();
   const flags = await panelNavFlags(creator.id);
+  const nav = readPanelPrefs(creator.panelPrefs).nav;
+  const items = panelNavFor(flags, nav);
+  // Bloques seguidos: [título, secciones]. Sin título, las sueltas (Inicio, Ajustes…) o todas con su propio orden.
+  const blocks: [string | null, PanelNavItem[]][] = [];
+  for (const i of items) {
+    const title = nav ? null : i.group ? NAV_GROUPS[i.group as NavGroup] : null;
+    const last = blocks[blocks.length - 1];
+    if (last && last[0] === title) last[1].push(i);
+    else blocks.push([title, [i]]);
+  }
   return (
     <div>
       <PageHeader title="Más" subtitle="Todas las secciones de tu panel." />
-      <ul className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4">
-        {panelNavFor(flags, readPanelPrefs(creator.panelPrefs).nav).map((i) => (
-          <li key={i.href}>
-            <Link href={i.href} className="flex flex-col items-center gap-2 text-center">
-              <span className="panel-emblem h-16 w-16">
-                <i.icon className="h-7 w-7" strokeWidth={1.5} />
-              </span>
-              <span className="text-[0.78rem] font-semibold leading-tight">{i.label}</span>
-            </Link>
-          </li>
+      <div className="space-y-6">
+        {blocks.map(([title, list], k) => (
+          <section key={k}>
+            {title && <h2 className="eyebrow mb-3">{title}</h2>}
+            <ul className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4">
+              {list.map((i) => (
+                <li key={i.href}>
+                  <Link href={i.href} className="flex flex-col items-center gap-2 text-center">
+                    <span className="panel-emblem relative h-16 w-16">
+                      <i.icon className="h-7 w-7" strokeWidth={1.5} />
+                      {!!flags.badges?.[i.href] && <NavBadge n={flags.badges[i.href]} className="absolute -right-1 -top-1" />}
+                    </span>
+                    <span className="text-[0.78rem] font-semibold leading-tight">{i.label}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
       <div className="card mt-7 divide-y divide-line">
         {flags.personal ? (
           user.isAdmin && (

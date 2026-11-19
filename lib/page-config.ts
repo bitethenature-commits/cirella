@@ -1,7 +1,10 @@
 import { z } from "zod";
-import { contentBlockSchema, HOME_BLOCKS_MAX, HOME_TEXT_MAX, readBlocks, visibleBlocks, type ContentBlock } from "./page-blocks";
+import { contentBlockSchema, GEOMETRY_FIGURES, HOME_BLOCKS_MAX, HOME_TEXT_MAX, readBlocks, visibleBlocks, type ContentBlock } from "./page-blocks";
+import { readPieces, piecesSchema } from "./pieces";
 import { legacyDesign } from "./legacy-looks";
+import { BUTTON_FRAME_KEYS, CARD_FRAME_KEYS } from "./frames";
 import { DECOR_KEYS, FONT_KEYS, type Design } from "./templates";
+import { readSiteTexts, SITE_TEXT_MAX } from "./site-texts";
 
 /**
  * Contenido editable de la página pública de una creadora.
@@ -82,7 +85,7 @@ export const SECTION_MANAGE_HREF: Partial<Record<SectionKey, { href: string; lab
   products: { href: "/panel/sesiones", label: "Sesiones y lecturas" },
   sessions: { href: "/panel/sesiones", label: "Sesiones y lecturas" },
   courses: { href: "/panel/cursos", label: "Cursos" },
-  memberships: { href: "/panel/comunidad", label: "Comunidad" },
+  memberships: { href: "/panel/comunidad", label: "Membresía" },
 };
 
 /** Secciones con página propia en la web («Ver página» en el editor). */
@@ -196,6 +199,8 @@ export const designSchema = z.object({
   bgImageOpacity: num(0, 100),
   decor: z.enum(DECOR_KEYS).nullable().optional(),
   decorOpacity: num(0, 100),
+  decorColor: color,
+  decorAlways: flag,
   fontDisplay: z.enum(FONT_KEYS).nullable().optional(),
   fontBody: z.enum(FONT_KEYS).nullable().optional(),
   displayWeight: num(100, 900),
@@ -213,6 +218,9 @@ export const designSchema = z.object({
   cardShadow: shadow,
   cardDouble: flag,
   cardBlur: flag,
+  cardFrame: z.enum(CARD_FRAME_KEYS).nullable().optional(),
+  cardFrameColor: color,
+  cardFrameSize: num(20, 140),
   btnCustom: flag,
   btnStyle: z.enum(["filled", "outline", "soft"]).nullable().optional(),
   btnBg: color,
@@ -226,9 +234,26 @@ export const designSchema = z.object({
   btnUpper: flag,
   btnShadow: shadow,
   btnDouble: flag,
+  btnFrame: z.enum(BUTTON_FRAME_KEYS).nullable().optional(),
+  btnFrameColor: color,
   imgCustom: flag,
   imgRadius: num(0, 60),
   avatarShape: z.enum(["circle", "rounded", "square"]).nullable().optional(),
+  photoShape: z.enum(["rounded", "arch", "oval", "circle"]).nullable().optional(),
+  photoFrame: z.enum(["double", "single", "none", "card"]).nullable().optional(),
+  panelCustom: flag,
+  panelBg: color,
+  panelBgOpacity: num(0, 100),
+  panelBorder: color,
+  panelBorderWidth: num(0, 6),
+  panelRadius: num(0, 60),
+  panelShadow: shadow,
+  panelDouble: flag,
+  panelStars: flag,
+  panelGeo: z.enum(["keep", "none", ...GEOMETRY_FIGURES]).nullable().optional(),
+  panelGeoPos: z.enum(["corner", "center"]).nullable().optional(),
+  panelGeoOpacity: num(0, 100),
+  panelGeoColor: color,
   fontPair: z.string().max(20).nullable().optional(),
   radius: z.string().max(10).nullable().optional(),
 }) satisfies z.ZodType<Design, z.ZodTypeDef, unknown>;
@@ -275,6 +300,9 @@ const aboutSchema = z.object({
   url: linkText.default(""),
   image: ownImage,
   linkLabel: shortText(40).default(""),
+  /** La foto: alta (9:16, la de siempre), retrato (3:4) o cuadrada; a la derecha (la de siempre) o a la izquierda. */
+  imageSize: z.enum(["tall", "portrait", "square"]).optional(),
+  imageSide: z.enum(["right", "left"]).optional(),
 });
 const readingsSchema = z.object({ reading: readingCardSchema, session: readingCardSchema, circlesTitle: shortText(80).default("") });
 
@@ -291,6 +319,8 @@ export const pageConfigSchema = z.object({
   theme: designSchema.default({}),
   /** Los cambios de diseño de cada página, encima del de la web: «home» (portada), «cursos», «uno-a-uno», el slug de una página… */
   pageThemes: z.record(z.string().max(80), designSchema).default({}),
+  /** Piezas sueltas con su propio aspecto (una tarjeta, un panel o un botón), página a página (lib/pieces.ts). */
+  pieces: piecesSchema.default({}),
   /** Las plantillas que ha creado la dueña. */
   designs: z.array(savedDesignSchema).max(SAVED_DESIGNS_MAX).default([]),
   sections: z
@@ -345,6 +375,8 @@ export const pageConfigSchema = z.object({
       footer: z.boolean().default(false),
     })
     .optional(),
+  // Los textos fijos de la web que ha cambiado en el Canva (lib/site-texts.ts): valen para todas sus páginas.
+  texts: z.record(z.string().max(40), shortText(SITE_TEXT_MAX)).optional(),
 });
 
 export type PageConfig = z.infer<typeof pageConfigSchema>;
@@ -436,6 +468,8 @@ export function readPageConfig(raw: unknown, fallbackName = "Mi página"): PageC
       template: "custom",
       theme: legacyDesign(r.template, r.theme) ?? readDesign(r.theme),
       pageThemes: readPageThemes(r.pageThemes),
+      pieces: readPieces(r.pieces),
+      texts: readSiteTexts(r.texts),
       ...("designs" in r ? { designs: readList(r.designs, savedDesignSchema, SAVED_DESIGNS_MAX) } : {}),
     };
   }

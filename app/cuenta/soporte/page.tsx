@@ -14,6 +14,7 @@ import { formatDate } from "@/lib/tz";
 import { TicketButton, type TicketData } from "./ticket";
 import { PageHeader } from "./../page-header";
 import { ProfileContent } from "../perfil/content";
+import { ShowMore } from "@/components/ui/show-more";
 
 const FAQ = [
   ["¿Dónde está lo que compré?", "Todo está en tu cuenta: los cursos en «Mis cursos», las sesiones en «Mis sesiones» y lo que guardas y comentas en la estrella y el chat del menú."],
@@ -93,14 +94,15 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
         })}
       </div>
       <h2 className="eyebrow mt-10 !text-ink">Preguntas frecuentes</h2>
-      <div className="card mt-3 divide-y divide-line">
+      {/* Las 3 primeras y «Ver más» para abrirlas todas. */}
+      <ShowMore className="card mt-3 divide-y divide-line">
         {(personal ? FAQ_PERSONAL : FAQ).map(([q, a]) => (
           <details key={q} className="group p-4">
             <summary className="cursor-pointer list-none text-sm font-semibold">{q}</summary>
             <p className="mt-2 text-sm text-muted">{a}</p>
           </details>
         ))}
-      </div>
+      </ShowMore>
       {/* Modo personal: no hay plataforma aparte; para todo se escribe a la dueña (arriba). */}
       {!personal && (
         <p className="mt-8 flex items-center gap-2 text-sm text-muted">
