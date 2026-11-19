@@ -11,6 +11,7 @@ import {
   hex,
   lighten,
   loopNoise,
+  lum,
   makeNoise,
   mix,
   nat,
@@ -29,7 +30,7 @@ import {
   type Sprite,
 } from "./util";
 
-/* ───────────── Lo que cae dando vueltas (pétalos, flores, hojas, plumas) ───────────── */
+/* ───────────── Lo que cae dando vueltas (pétalos, flores, hojas) ───────────── */
 
 type Look = { front: Sprite; back: Sprite; near: Sprite; nominal: number };
 type Piece = {
@@ -62,8 +63,6 @@ type FallOpts = {
   tiltWithSway?: number;
   windBase: number;
   windGust: number;
-  /** Suben en lugar de caer (las semillas del diente de león). */
-  rise?: boolean;
   looks: (env: FxEnv, r: Rng) => Look[];
 };
 
@@ -102,7 +101,7 @@ function faller(o: FallOpts): EffectFactory {
       q.vf = r.range(o.flip[0], o.flip[1]) * r.sign();
       q.look = Math.floor(r() * looks.length);
       q.x = r.range(-0.1, 1.1) * e.w;
-      q.y = anywhere ? r() * e.h : o.rise ? e.h + q.size * 2 : -q.size * 2;
+      q.y = anywhere ? r() * e.h : -q.size * 2;
       return q;
     };
     const fill = (e: FxEnv) => {
@@ -121,11 +120,11 @@ function faller(o: FallOpts): EffectFactory {
           const turb = n(p.x * 0.004, p.y * 0.004, t * 0.15) * 30 * Math.max(0.5, e.k);
           p.x += (wv * (0.45 + p.z * 0.8) + p.sw * sway + turb) * dt;
           const speedUp = o.tiltWithSway ? 0.55 + 0.75 * Math.abs(Math.sin(p.ph)) : 1;
-          p.y += (o.rise ? -1 : 1) * p.vy * speedUp * dt;
+          p.y += p.vy * speedUp * dt;
           p.rot += p.vr * dt;
           p.flip += p.vf * dt;
           const m = p.size * 2.5;
-          if (o.rise ? p.y < -m : p.y > e.h + m) spawn(e, p, false);
+          if (p.y > e.h + m) spawn(e, p, false);
           if (p.x > e.w + m) p.x -= e.w + m * 2;
           else if (p.x < -m) p.x += e.w + m * 2;
           const L = looks[p.look];
@@ -369,94 +368,6 @@ function drawLeaf(kind: 0 | 1 | 2, c1: RGB, c2: RGB, seed: number) {
   };
 }
 
-/** Pluma: el cañón curvado y cientos de barbas finas, con el plumón suelto abajo y alguna barba abierta. */
-function drawFeather(c: RGB, shaft: RGB, seed: number) {
-  return (g: CanvasRenderingContext2D, w: number, h: number) => {
-    const r = rng(seed);
-    const bend = w * r.range(-0.08, 0.08);
-    const P = (t: number) => {
-      const y = h * 0.97 - t * h * 0.93;
-      const x = w / 2 + bend * Math.sin(Math.PI * t);
-      return [x, y] as const;
-    };
-    g.lineCap = "round";
-    const N = 90;
-    for (let i = 0; i < N; i++) {
-      const t = 0.06 + (i / N) * 0.94;
-      const [x, y] = P(t);
-      const down = t < 0.28;
-      const prof = Math.sin(Math.PI * Math.pow(t, 0.75)) * (1 - 0.35 * Math.pow(t, 4));
-      for (const s of [-1, 1]) {
-        if (!down && r() < 0.05) continue;
-        const len = w * 0.46 * prof * (down ? r.range(0.6, 1.2) : r.range(0.92, 1.04));
-        const ang = (down ? r.range(0.5, 1.3) : 0.95 + t * 0.3) * s;
-        const ex = x + Math.sin(ang) * len;
-        const ey = y - Math.cos(ang) * len * 0.55;
-        g.strokeStyle = rgba(c, down ? 0.32 : 0.5);
-        g.lineWidth = Math.max(0.5, w * (down ? 0.012 : 0.016));
-        g.beginPath();
-        g.moveTo(x, y);
-        g.quadraticCurveTo(x + Math.sin(ang) * len * 0.5, y + (down ? r.range(-4, 4) : len * 0.05), ex, ey);
-        g.stroke();
-      }
-    }
-    // El cañón.
-    g.strokeStyle = rgba(shaft, 0.9);
-    g.lineWidth = Math.max(0.8, w * 0.03);
-    g.beginPath();
-    const [x0, y0] = P(0);
-    g.moveTo(x0, y0);
-    for (let i = 1; i <= 20; i++) {
-      const [x, y] = P(i / 20);
-      g.lineTo(x, y);
-    }
-    g.stroke();
-  };
-}
-
-/** Semilla de diente de león: la semilla, el tallito y el paracaídas de filamentos con sus puntas sedosas. */
-function drawSeed(c: RGB, seedC: RGB) {
-  return (g: CanvasRenderingContext2D, w: number, h: number) => {
-    const r = rng(77);
-    const cx = w / 2;
-    const top = h * 0.36;
-    g.lineCap = "round";
-    // El paracaídas.
-    for (let i = 0; i < 46; i++) {
-      const a = -Math.PI / 2 + r.range(-1.35, 1.35);
-      const len = w * r.range(0.36, 0.46);
-      const ex = cx + Math.cos(a) * len;
-      const ey = top + Math.sin(a) * len * 0.82;
-      g.strokeStyle = rgba(c, 0.55);
-      g.lineWidth = Math.max(0.4, w * 0.008);
-      g.beginPath();
-      g.moveTo(cx, top);
-      g.quadraticCurveTo(cx + Math.cos(a) * len * 0.6, top + Math.sin(a) * len * 0.45, ex, ey);
-      g.stroke();
-      // La punta deshilachada.
-      g.strokeStyle = rgba(c, 0.35);
-      for (let k = 0; k < 3; k++) {
-        const b = a + r.range(-0.6, 0.6);
-        g.beginPath();
-        g.moveTo(ex, ey);
-        g.lineTo(ex + Math.cos(b) * w * 0.05, ey + Math.sin(b) * w * 0.05);
-        g.stroke();
-      }
-    }
-    // El tallito y la semilla.
-    g.strokeStyle = rgba(c, 0.8);
-    g.lineWidth = Math.max(0.5, w * 0.012);
-    g.beginPath();
-    g.moveTo(cx, top);
-    g.lineTo(cx, h * 0.8);
-    g.stroke();
-    g.fillStyle = rgba(seedC, 0.95);
-    g.beginPath();
-    g.ellipse(cx, h * 0.87, w * 0.025, h * 0.075, 0, 0, TAU);
-    g.fill();
-  };
-}
-
 const petals = faller({
   perMega: 9,
   min: 10,
@@ -539,45 +450,734 @@ const leaves = faller({
   },
 });
 
-const feathers = faller({
-  perMega: 5,
-  min: 6,
-  max: 13,
-  size: [46, 74],
-  fall: [16, 30],
-  sway: [40, 70],
-  swayF: [0.5, 0.9],
-  spin: 0.15,
-  flip: [0.3, 0.8],
-  tiltWithSway: 0.85,
-  windBase: 10,
-  windGust: 25,
-  looks: (env) => {
-    const c = nat(env, hex("#F7F4EE"), env.c.soft, 0.35);
-    const shaft = env.dark ? hex("#E9E2D6") : darken(c, 0.25);
-    const tints = env.own ? [c, mix(c, env.c.a, 0.35)] : [c, mix(c, hex("#D8CFC2"), env.dark ? 0.35 : 0.15)];
-    return tints.map((cc, i) => looksOf(env, 90, drawFeather(cc, shaft, 4 + i), hex("#FFFFFF"), 0.1));
-  },
-});
+/* ───────────── Plumas ───────────── */
 
-const dandelion = faller({
-  perMega: 9,
-  min: 10,
-  max: 24,
-  size: [24, 36],
-  fall: [14, 26],
-  sway: [16, 30],
-  swayF: [0.4, 0.8],
-  spin: 0.25,
-  flip: [0, 0],
-  rise: true,
-  windBase: 26,
-  windGust: 30,
-  looks: (env) => {
-    const c = nat(env, hex("#FBFAF6"), env.c.soft, 0.4);
-    return [looksOf(env, 44, drawSeed(c, env.dark ? hex("#8A6A45") : hex("#6B4F33")), hex("#FFFFFF"), 0)];
-  },
-});
+type FeatherKind = { c: RGB; barb: RGB; shaft: RGB; shade: number; bars?: RGB; tip?: RGB };
+
+/**
+ * Pluma de contorno: el cañón hueco abajo, el plumón suelto, el raquis que se afina hasta la punta y las dos
+ * banderas (una algo más estrecha) hechas de cientos de barbas que salen en diagonal hacia la punta, con alguna
+ * abierta. Algunas llevan franjas (como las de un ave rapaz) o la punta más oscura.
+ */
+function drawFeather(k: FeatherKind, seed: number) {
+  return (g: CanvasRenderingContext2D, w: number, h: number) => {
+    const r = rng(seed);
+    const L = h * 0.9;
+    const y0 = h * 0.955;
+    const bend = w * r.range(0.025, 0.06) * r.sign();
+    const P = (t: number): [number, number] => [w / 2 + bend * Math.sin(Math.PI * t) - bend * 0.25 * t, y0 - t * L];
+    const tan = (t: number): [number, number] => {
+      const [ax, ay] = P(Math.max(0, t - 0.01));
+      const [bx, by] = P(Math.min(1, t + 0.01));
+      const m = Math.hypot(bx - ax, by - ay) || 1;
+      return [(bx - ax) / m, (by - ay) / m];
+    };
+    /** Hacia fuera, por el lado s (-1 izquierda, 1 derecha). */
+    const nor = (t: number, s: number): [number, number] => {
+      const [tx, ty] = tan(t);
+      return [-ty * s, tx * s];
+    };
+    const T0 = 0.2;
+    const maxW = w * 0.2;
+    const left = r.range(0.74, 0.88);
+    const half = (t: number, s: number) => {
+      const u = clamp((t - T0) / (1 - T0));
+      const ue = u < 0.4 ? (u / 0.4) * 0.5 : 0.5 + ((u - 0.4) / 0.6) * 0.5;
+      return maxW * (s < 0 ? left : 1) * Math.pow(Math.sin(Math.PI * ue), 0.55);
+    };
+    const edge = (t: number, s: number, f = 1): [number, number] => {
+      const [x, y] = P(t);
+      const [nx, ny] = nor(t, s);
+      const W = half(t, s) * f;
+      return [x + nx * W, y + ny * W];
+    };
+    /** Una barba: del raquis (en t) al borde, en diagonal hacia la punta y algo arqueada. */
+    const barb = (t: number, s: number) => {
+      const W = half(t, s);
+      const te = Math.min(1, t + (W * 0.85) / L);
+      const [bx, by] = P(t);
+      const [ex, ey] = edge(te, s);
+      const [nx, ny] = nor(t, s);
+      const mx = (bx + ex) / 2 + nx * W * 0.08;
+      const my = (by + ey) / 2 + ny * W * 0.08;
+      const at = (u: number): [number, number] => [
+        (1 - u) * (1 - u) * bx + 2 * (1 - u) * u * mx + u * u * ex,
+        (1 - u) * (1 - u) * by + 2 * (1 - u) * u * my + u * u * ey,
+      ];
+      return { bx, by, mx, my, ex, ey, W, at };
+    };
+    g.lineCap = "round";
+    g.lineJoin = "round";
+
+    // La bandera: un velo continuo, un poco por dentro del borde (el borde lo hacen las puntas de las barbas).
+    const vane = new Path2D();
+    const [vx0, vy0] = P(T0);
+    vane.moveTo(vx0, vy0);
+    for (let i = 0; i <= 60; i++) vane.lineTo(...edge(T0 + (i / 60) * (1 - T0), -1, 0.93));
+    for (let i = 60; i >= 0; i--) vane.lineTo(...edge(T0 + (i / 60) * (1 - T0), 1, 0.93));
+    vane.closePath();
+    g.fillStyle = rgba(k.c, 0.6);
+    g.fill(vane);
+
+    // Las barbas, una a una, con su brillo y alguna más oscura (la textura de la pluma).
+    const lw = Math.max(0.45, w * 0.0042);
+    for (const s of [-1, 1]) {
+      for (let i = 0; i < 120; i++) {
+        const b = barb(T0 + 0.005 + (i / 120) * (1 - T0 - 0.01), s);
+        if (b.W < 0.6) continue;
+        g.lineWidth = lw;
+        g.strokeStyle = rgba(r() < 0.2 ? darken(k.c, 0.14) : k.barb, r.range(0.3, 0.62));
+        g.beginPath();
+        g.moveTo(b.bx, b.by);
+        g.quadraticCurveTo(b.mx, b.my, b.ex, b.ey);
+        g.stroke();
+      }
+    }
+
+    // Franjas en «V» siguiendo las barbas, la punta oscura y el volumen (un lado a la luz, el otro en sombra).
+    g.globalCompositeOperation = "source-atop";
+    if (k.bars) {
+      g.strokeStyle = rgba(k.bars, 0.45);
+      g.lineWidth = L * 0.032;
+      for (let t = T0 + 0.1; t < 0.95; t += 0.085)
+        for (const s of [-1, 1]) {
+          const b = barb(t, s);
+          g.beginPath();
+          g.moveTo(b.bx, b.by);
+          g.quadraticCurveTo(b.mx, b.my, b.ex, b.ey);
+          g.stroke();
+        }
+    }
+    if (k.tip) {
+      const [tx, ty] = P(1);
+      const gr = g.createRadialGradient(tx, ty, 0, tx, ty, L * 0.38);
+      gr.addColorStop(0, rgba(k.tip, 0.75));
+      gr.addColorStop(1, rgba(k.tip, 0));
+      g.fillStyle = gr;
+      g.fillRect(0, 0, w, h);
+    }
+    const sh = g.createLinearGradient(w / 2 - maxW, 0, w / 2 + maxW, 0);
+    sh.addColorStop(0, "rgba(255,255,255,.16)");
+    sh.addColorStop(0.45, "rgba(255,255,255,0)");
+    sh.addColorStop(0.55, "rgba(0,0,0,0)");
+    sh.addColorStop(1, `rgba(0,0,0,${k.shade})`);
+    g.fillStyle = sh;
+    g.fillRect(0, 0, w, h);
+
+    // Barbas que se han abierto (las rendijas de una pluma de verdad).
+    g.globalCompositeOperation = "destination-out";
+    g.strokeStyle = "rgba(0,0,0,1)";
+    const gaps = 2 + Math.floor(r() * 3);
+    for (let i = 0; i < gaps; i++) {
+      const b = barb(r.range(T0 + 0.12, 0.88), r.sign());
+      const f0 = r.range(0.2, 0.55);
+      g.lineWidth = Math.max(1, w * r.range(0.007, 0.013));
+      g.beginPath();
+      for (let j = 0; j <= 10; j++) {
+        const [x, y] = b.at(f0 + ((1.15 - f0) * j) / 10);
+        if (j) g.lineTo(x, y);
+        else g.moveTo(x, y);
+      }
+      g.stroke();
+    }
+    g.globalCompositeOperation = "source-over";
+
+    // El plumón de abajo: suelto, rizado, sin trabar.
+    g.lineWidth = Math.max(0.4, w * 0.0035);
+    for (let i = 0; i < 46; i++) {
+      const t = r.range(0.07, T0 + 0.06);
+      const [x, y] = P(t);
+      const [nx, ny] = nor(t, r.sign());
+      const [tx, ty] = tan(t);
+      const a = r.range(-0.7, 0.9);
+      const len = w * r.range(0.07, 0.19) * (1 - Math.abs(t - 0.16) * 2);
+      const dx = nx * Math.cos(a) + tx * Math.sin(a);
+      const dy = ny * Math.cos(a) + ty * Math.sin(a);
+      const ex = x + dx * len;
+      const ey = y + dy * len;
+      const j = () => r.range(-1, 1) * len * 0.3;
+      g.strokeStyle = rgba(k.barb, r.range(0.18, 0.38));
+      g.beginPath();
+      g.moveTo(x, y);
+      g.bezierCurveTo(x + dx * len * 0.4 + j(), y + dy * len * 0.4 + j(), ex + j(), ey + j(), ex, ey);
+      g.stroke();
+    }
+
+    // El cañón (hueco, algo transparente) y el raquis, que se afina hasta la punta, con su brillo.
+    const tube = (t0: number, t1: number, w0: number, w1: number) => {
+      const N = 24;
+      const side = (s: number) =>
+        Array.from({ length: N + 1 }, (_, i) => {
+          const t = t0 + ((t1 - t0) * i) / N;
+          const [x, y] = P(t);
+          const [nx, ny] = nor(t, s);
+          const hw = (w0 + ((w1 - w0) * i) / N) / 2;
+          return [x + nx * hw, y + ny * hw] as const;
+        });
+      g.beginPath();
+      side(1).forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      side(-1)
+        .reverse()
+        .forEach(([x, y]) => g.lineTo(x, y));
+      g.closePath();
+    };
+    tube(0, 0.12, w * 0.026, w * 0.022);
+    g.fillStyle = rgba(k.shaft, 0.5);
+    g.fill();
+    g.strokeStyle = rgba(k.shaft, 0.85);
+    g.lineWidth = Math.max(0.5, w * 0.004);
+    g.stroke();
+    tube(0.11, 1, w * 0.021, w * 0.003);
+    g.fillStyle = rgba(k.shaft, 0.95);
+    g.fill();
+    g.strokeStyle = rgba(lighten(k.shaft, 0.6), 0.6);
+    g.lineWidth = Math.max(0.4, w * 0.004);
+    g.beginPath();
+    for (let i = 0; i <= 30; i++) {
+      const t = 0.02 + (i / 30) * 0.8;
+      const [x, y] = P(t);
+      const [nx, ny] = nor(t, -1);
+      const o = w * 0.005 * (1 - t);
+      if (i) g.lineTo(x + nx * o, y + ny * o);
+      else g.moveTo(x + nx * o, y + ny * o);
+    }
+    g.stroke();
+  };
+}
+
+/** Los colores de las plumas: blancas, marfil y grises sobre lo oscuro; blanca, gris paloma y parda con franjas sobre lo claro. */
+function featherKinds(env: FxEnv): FeatherKind[] {
+  if (env.own) {
+    const c = env.dark || lum(env.c.soft) <= 0.55 ? env.c.soft : darken(env.c.soft, 0.3);
+    return [c, mix(c, env.c.a, 0.4)].map((cc) => ({
+      c: cc,
+      barb: env.dark ? lighten(cc, 0.25) : darken(cc, 0.1),
+      shaft: env.dark ? lighten(cc, 0.35) : darken(cc, 0.25),
+      shade: 0.14,
+    }));
+  }
+  if (env.dark)
+    return [
+      { c: hex("#F3F0EA"), barb: hex("#FFFFFF"), shaft: hex("#EDE6DA"), shade: 0.12 },
+      { c: hex("#E6DBC8"), barb: hex("#F6EEDF"), shaft: hex("#F1E7D6"), shade: 0.14 },
+      { c: hex("#CFCBC4"), barb: hex("#E4E0DA"), shaft: hex("#E9E3D9"), shade: 0.14, bars: hex("#9C958B") },
+    ];
+  return [
+    { c: hex("#FBFAF7"), barb: hex("#E3DED6"), shaft: hex("#B8AF9F"), shade: 0.2 },
+    { c: hex("#A8A39B"), barb: hex("#BDB8B0"), shaft: hex("#8E887F"), shade: 0.16, tip: hex("#5F5A54") },
+    { c: hex("#C49C6E"), barb: hex("#D6B48A"), shaft: hex("#EBDCC2"), shade: 0.16, bars: hex("#6E4C2F") },
+  ];
+}
+
+/** Tamaño (px CSS) al que se pinta una pluma una vez. */
+const FN = 120;
+type FeatherLook = { front: Sprite; back: Sprite; near: Sprite; lit: Sprite; shadow: Sprite | null };
+
+function featherLook(env: FxEnv, k: FeatherKind, seed: number): FeatherLook {
+  const S = FN * env.dpr;
+  const front = sprite(S, S, drawFeather(k, seed));
+  return {
+    front,
+    // El revés, más apagado.
+    back: backOf(front, env.dark ? hex("#BDB6AB") : hex("#7E776D"), 0.18),
+    near: blurred(front, 2.6 * env.dpr),
+    // La silueta en blanco: el brillo cuando la pluma se pone de cara a la luz.
+    lit: backOf(front, [255, 255, 255], 1),
+    // Sobre lo claro, una sombra suave (si no, una pluma blanca no se vería).
+    shadow: env.dark ? null : blurred(backOf(front, [40, 34, 28], 1), 4 * env.dpr),
+  };
+}
+
+/** Una pizca de plumón suelto: hilos rizados que salen de un punto. */
+function downTuft(c: RGB, seed: number, dpr: number): Sprite {
+  const S = 28 * dpr;
+  return sprite(S, S, (g) => {
+    const r = rng(seed);
+    const cx = S / 2;
+    const cy = S / 2;
+    g.lineCap = "round";
+    g.lineWidth = Math.max(0.4, S * 0.012);
+    for (let i = 0; i < 18; i++) {
+      const a = r() * TAU;
+      const len = S * r.range(0.18, 0.46);
+      const b = a + r.range(-0.9, 0.9);
+      g.strokeStyle = rgba(c, r.range(0.3, 0.6));
+      g.beginPath();
+      g.moveTo(cx, cy);
+      g.quadraticCurveTo(cx + Math.cos(b) * len * 0.6, cy + Math.sin(b) * len * 0.6, cx + Math.cos(a) * len, cy + Math.sin(a) * len);
+      g.stroke();
+    }
+    g.fillStyle = rgba(c, 0.7);
+    g.beginPath();
+    g.arc(cx, cy, S * 0.03, 0, TAU);
+    g.fill();
+  });
+}
+
+type Feather = { x: number; y: number; z: number; size: number; base: number; th: number; f: number; A: number; H: number; vy: number; roll: number; vr: number; look: number; id: number };
+type Fluff = { x: number; y: number; z: number; s: number; rot: number; vr: number; v: number; id: number };
+
+/**
+ * Plumas que caen como de verdad: en vaivén de péndulo (bajan deprisa en el centro del balanceo y casi se paran, o
+ * suben un poco, en los extremos), inclinándose con él, girando despacio sobre su eje y con alguna racha de viento.
+ * Además, pizcas de plumón que casi flotan.
+ */
+const feathers: EffectFactory = (env) => {
+  const r = rng(131);
+  const n = makeNoise(131);
+  const kinds = featherKinds(env);
+  const looks = kinds.map((k, i) => featherLook(env, k, 4 + i * 3));
+  const tuftC = env.dark ? lighten(kinds[0].c, 0.2) : darken(kinds[0].barb, 0.15);
+  const tufts = [0, 1, 2].map((i) => downTuft(tuftC, 60 + i, env.dpr));
+  let list: Feather[] = [];
+  let fluff: Fluff[] = [];
+  const spawn = (e: FxEnv, p: Feather | null, anywhere: boolean): Feather => {
+    const kk = Math.max(0.4, e.k);
+    // Al volver a salir conserva su profundidad (así el orden de dibujo sigue bien).
+    const q = p ?? ({ z: Math.pow(r(), 1.3), id: r() * 100 } as Feather);
+    const z = q.z;
+    q.size = r.range(56, 92) * (0.42 + z * 0.9) * kk;
+    q.f = r.range(0.45, 0.8);
+    q.A = r.range(26, 58) * (0.5 + z * 0.7) * kk;
+    q.H = r.range(5, 12) * (0.5 + z * 0.7) * kk;
+    q.vy = r.range(13, 24) * (0.45 + z * 0.7) * kk;
+    // Casi tumbada, con el cañón (que pesa más) algo más bajo que la punta.
+    q.base = r.sign() * r.range(0.65, 1.35);
+    q.th = r() * TAU;
+    q.roll = r() * TAU;
+    q.vr = r.range(0.06, 0.24) * r.sign();
+    q.look = Math.floor(r() * looks.length);
+    q.x = r.range(-0.05, 1.05) * e.w;
+    q.y = anywhere ? r() * e.h : -q.size;
+    return q;
+  };
+  const fill = (e: FxEnv) => {
+    list = Array.from({ length: count(e, 5, 6, 13) }, () => spawn(e, null, true)).sort((a, b) => a.z - b.z);
+    fluff = Array.from({ length: count(e, 7, 6, 16) }, (_, i) => ({
+      x: r() * e.w,
+      y: r() * e.h,
+      z: r(),
+      s: r.range(8, 18) * Math.max(0.4, e.k),
+      rot: r() * TAU,
+      vr: r.range(-0.4, 0.4),
+      v: i % tufts.length,
+      id: r() * 100,
+    }));
+  };
+  fill(env);
+  return {
+    resize: fill,
+    frame(g, e, t, dt) {
+      const kk = Math.max(0.4, e.k);
+      const wv = wind(n, t, 10, 26) * kk;
+      const gust = clamp((wv / kk - 10) / 26 + 0.4);
+      g.globalCompositeOperation = "source-over";
+      for (const d of fluff) {
+        d.x += (wv * 0.6 + n(d.x * 0.004, d.y * 0.004, t * 0.1 + d.id) * 22 * kk) * dt;
+        d.y += (4 + n(d.id, t * 0.08, 3) * 9) * kk * dt;
+        d.rot += d.vr * dt;
+        if (d.y > e.h + 20) d.y = -20;
+        else if (d.y < -20) d.y = e.h + 20;
+        if (d.x > e.w + 20) d.x = -20;
+        else if (d.x < -20) d.x = e.w + 20;
+        drawRot(g, tufts[d.v], e.dpr, 28, d.x, d.y, d.s * (0.6 + d.z * 0.7), d.rot, 1, 1, 0.3 + d.z * 0.4);
+      }
+      for (const p of list) {
+        p.th += p.f * dt * (1 + 0.35 * gust);
+        const s = Math.sin(p.th);
+        const turb = n(p.x * 0.003, p.y * 0.003, t * 0.12 + p.id) * 16 * kk;
+        p.x += (wv * (0.4 + 0.8 * p.z) + p.A * p.f * Math.cos(p.th) + turb) * dt;
+        p.y += (p.vy - 2 * p.H * p.f * Math.sin(2 * p.th)) * dt;
+        p.roll += p.vr * dt;
+        const m = p.size;
+        if (p.y > e.h + m) spawn(e, p, false);
+        if (p.x > e.w + m) p.x -= e.w + 2 * m;
+        else if (p.x < -m) p.x += e.w + 2 * m;
+        const L = looks[p.look];
+        // Se inclina con el balanceo (sigue el arco que dibuja) y gira sobre su eje: se estrecha de canto, nunca se acorta.
+        const rot = p.base - 0.42 * s + 0.08 * n(t * 0.3, p.id, 1);
+        const roll = p.roll + 0.55 * s;
+        const cr = Math.cos(roll);
+        const sx = Math.max(0.13, Math.abs(cr));
+        const near = p.z > 0.88;
+        const a = (0.5 + p.z * 0.45) * (near ? 0.7 : 1) * (0.8 + 0.2 * sx);
+        if (L.shadow && !near) drawRot(g, L.shadow, e.dpr, FN, p.x + 4 + p.z * 6, p.y + 7 + p.z * 9, p.size, rot, sx, 1, a * 0.16);
+        drawRot(g, near ? L.near : cr >= 0 ? L.front : L.back, e.dpr, FN, p.x, p.y, p.size, rot, sx, 1, a);
+        const lit = Math.pow(clamp(0.5 + 0.5 * Math.cos(roll - 0.7)), 3);
+        if (lit > 0.05 && !near) {
+          g.globalCompositeOperation = addMode(e);
+          drawRot(g, L.lit, e.dpr, FN, p.x, p.y, p.size, rot, sx, 1, a * lit * (e.dark ? 0.2 : 0.16));
+          g.globalCompositeOperation = "source-over";
+        }
+      }
+      g.setTransform(e.dpr, 0, 0, e.dpr, 0, 0);
+      g.globalAlpha = 1;
+    },
+  };
+};
+
+/* ───────────── Diente de león ───────────── */
+
+/** Tamaño (px CSS) al que se pinta una semilla, y desde cuántos ángulos (de perfil a vista desde abajo). */
+const SEED_N = 56;
+const VIEW_STEP = (16 * Math.PI) / 180;
+const VIEWS = 6;
+
+/**
+ * Una semilla vista inclinada `psi` (0 de perfil, ~80° casi desde abajo): el vilano (64 hilos que se abren en
+ * paraguas, cada uno con sus pelillos sedosos en la mitad de fuera), el pico largo y fino y la semilla parda con
+ * sus espinitas. El centro del dibujo es el nudo donde se juntan los hilos (de ahí cuelga la semilla).
+ */
+function seedView(c: RGB, seedC: RGB, psi: number, dpr: number, seed: number): Sprite {
+  const S = SEED_N * dpr;
+  return sprite(S, S, (g) => {
+    const r = rng(seed);
+    const cx = S / 2;
+    const cy = S / 2;
+    const P = S * 0.4;
+    const B = S * 0.3;
+    const A = S * 0.1;
+    const cp = Math.cos(psi);
+    const sp = Math.sin(psi);
+    const bow = -S * 0.025 * cp;
+    g.lineCap = "round";
+    const fil = Array.from({ length: 64 }, (_, i) => {
+      const phi = (i / 64) * TAU + r.range(-0.05, 0.05);
+      const beta = r.range(1.16, 1.36);
+      const len = P * r.range(0.88, 1.03);
+      const dx = Math.sin(beta) * Math.cos(phi);
+      const dy = Math.cos(beta);
+      const dz = Math.sin(beta) * Math.sin(phi);
+      return { ex: cx + dx * len, ey: cy - (dy * cp - dz * sp) * len, z: dy * sp + dz * cp };
+    }).sort((a, b) => a.z - b.z);
+    const lw = Math.max(0.45, S * 0.0055);
+    for (const f of fil) {
+      const a = 0.34 + 0.3 * (f.z * 0.5 + 0.5);
+      g.strokeStyle = rgba(c, a);
+      g.lineWidth = lw;
+      g.beginPath();
+      g.moveTo(cx, cy);
+      g.quadraticCurveTo((cx + f.ex) / 2, (cy + f.ey) / 2 + bow, f.ex, f.ey);
+      g.stroke();
+      const ang = Math.atan2(f.ey - cy, f.ex - cx);
+      g.strokeStyle = rgba(c, a * 0.45);
+      g.lineWidth = lw * 0.7;
+      g.beginPath();
+      for (let j = 0; j < 5; j++) {
+        const u = 0.5 + j * 0.115;
+        const px = cx + (f.ex - cx) * u;
+        const py = cy + (f.ey - cy) * u + 2 * u * (1 - u) * bow;
+        const hl = S * 0.028 * (0.5 + u * 0.6);
+        for (const sd of [-0.6, 0.6]) {
+          g.moveTo(px, py);
+          g.lineTo(px + Math.cos(ang + sd) * hl, py + Math.sin(ang + sd) * hl);
+        }
+      }
+      g.stroke();
+    }
+    g.fillStyle = rgba(c, 0.9);
+    g.beginPath();
+    g.arc(cx, cy, S * 0.011, 0, TAU);
+    g.fill();
+    g.strokeStyle = rgba(mix(c, seedC, 0.25), 0.8);
+    g.lineWidth = Math.max(0.5, S * 0.0065);
+    g.beginPath();
+    g.moveTo(cx, cy);
+    g.lineTo(cx, cy + B * cp);
+    g.stroke();
+    const ay = cy + (B + A * 0.5) * cp;
+    const ry = Math.max(S * 0.02, A * 0.5 * cp);
+    const gr = g.createLinearGradient(cx - S * 0.02, 0, cx + S * 0.02, 0);
+    gr.addColorStop(0, rgba(lighten(seedC, 0.3), 1));
+    gr.addColorStop(1, rgba(darken(seedC, 0.3), 1));
+    g.fillStyle = gr;
+    g.beginPath();
+    g.ellipse(cx, ay, S * 0.021, ry, 0, 0, TAU);
+    g.fill();
+    g.strokeStyle = rgba(darken(seedC, 0.2), 0.8);
+    g.lineWidth = Math.max(0.4, S * 0.004);
+    g.beginPath();
+    for (const sd of [-1, 1]) {
+      g.moveTo(cx + sd * S * 0.018, ay - ry * 0.55);
+      g.lineTo(cx + sd * S * 0.03, ay - ry * 0.75 - S * 0.006);
+    }
+    g.stroke();
+  });
+}
+
+/**
+ * La cabeza de un diente de león (el «reloj»): cientos de semillas repartidas en una esfera, cada una con su pico y
+ * su vilano abierto hacia fuera, alrededor del receptáculo, con las brácteas vueltas hacia abajo. `blown` (0–1): cuánto
+ * se ha llevado ya el viento (por el lado de la derecha).
+ */
+function seedHead(o: { c: RGB; seedC: RGB; rec: RGB; bract: RGB; R: number; dpr: number; seed: number; blown: number }): Sprite {
+  const Rp = o.R * o.dpr;
+  const S = Math.ceil(Rp * 2.3);
+  return sprite(S, S, (g) => {
+    const r = rng(o.seed);
+    const cx = S / 2;
+    const cy = S / 2;
+    g.lineCap = "round";
+    const N = Math.round(clamp(o.R * 2.2, 70, 240));
+    const golden = Math.PI * (3 - Math.sqrt(5));
+    const tilt = 0.25;
+    const ct = Math.cos(tilt);
+    const st = Math.sin(tilt);
+    const items: [number, number, number][] = [];
+    for (let k = 0; k < N; k++) {
+      const y = 1 - (2 * (k + 0.5)) / N;
+      const rad = Math.sqrt(1 - y * y);
+      const ph = k * golden;
+      const x = Math.cos(ph) * rad;
+      const z = Math.sin(ph) * rad;
+      if (y < -0.86) continue;
+      if (r() < 0.05 + o.blown * smooth(-0.3, 0.6, x)) continue;
+      items.push([x, y * ct - z * st, y * st + z * ct]);
+    }
+    items.sort((a, b) => a[2] - b[2]);
+    const lw = Math.max(0.45, Rp * 0.0042);
+    const one = (u: [number, number, number]) => {
+      const q = 0.42 + 0.58 * (u[2] * 0.5 + 0.5);
+      const X = (d: number) => cx + u[0] * d;
+      const Y = (d: number) => cy - u[1] * d;
+      g.strokeStyle = rgba(o.seedC, 0.85 * q);
+      g.lineWidth = Math.max(0.8, Rp * 0.022);
+      g.beginPath();
+      g.moveTo(X(Rp * 0.13), Y(Rp * 0.13));
+      g.lineTo(X(Rp * 0.23), Y(Rp * 0.23));
+      g.stroke();
+      g.strokeStyle = rgba(o.c, 0.5 * q);
+      g.lineWidth = lw;
+      g.beginPath();
+      g.moveTo(X(Rp * 0.23), Y(Rp * 0.23));
+      g.lineTo(X(Rp * 0.6), Y(Rp * 0.6));
+      g.stroke();
+      // El vilano: un abanico de hilos que se abre hacia fuera.
+      const ax = X(Rp * 0.6);
+      const ay = Y(Rp * 0.6);
+      const ref: [number, number, number] = Math.abs(u[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+      let e1: [number, number, number] = [u[1] * ref[2] - u[2] * ref[1], u[2] * ref[0] - u[0] * ref[2], u[0] * ref[1] - u[1] * ref[0]];
+      const m1 = Math.hypot(...e1) || 1;
+      e1 = [e1[0] / m1, e1[1] / m1, e1[2] / m1];
+      const e2: [number, number, number] = [u[1] * e1[2] - u[2] * e1[1], u[2] * e1[0] - u[0] * e1[2], u[0] * e1[1] - u[1] * e1[0]];
+      g.strokeStyle = rgba(o.c, 0.36 * q);
+      g.beginPath();
+      for (let j = 0; j < 20; j++) {
+        const ph = (j / 20) * TAU + r.range(-0.1, 0.1);
+        const be = r.range(1.05, 1.32);
+        const len = Rp * 0.36 * r.range(0.85, 1.05);
+        const cb = Math.cos(be);
+        const sb = Math.sin(be);
+        const dx = cb * u[0] + sb * (Math.cos(ph) * e1[0] + Math.sin(ph) * e2[0]);
+        const dy = cb * u[1] + sb * (Math.cos(ph) * e1[1] + Math.sin(ph) * e2[1]);
+        g.moveTo(ax, ay);
+        g.lineTo(ax + dx * len, ay - dy * len);
+      }
+      g.stroke();
+      g.fillStyle = rgba(o.c, 0.7 * q);
+      g.fillRect(ax - lw, ay - lw, lw * 2, lw * 2);
+    };
+    // Las de atrás, el receptáculo y las brácteas, y luego las de delante.
+    for (const u of items) if (u[2] < 0) one(u);
+    const recR = Rp * 0.16;
+    const rg = g.createRadialGradient(cx - recR * 0.3, cy - recR * 0.3, 0, cx, cy, recR);
+    rg.addColorStop(0, rgba(lighten(o.rec, 0.25), 1));
+    rg.addColorStop(1, rgba(darken(o.rec, 0.3), 1));
+    g.fillStyle = rg;
+    g.beginPath();
+    g.arc(cx, cy, recR, 0, TAU);
+    g.fill();
+    g.strokeStyle = rgba(o.bract, 0.95);
+    for (let i = 0; i < 9; i++) {
+      const a = Math.PI / 2 + ((i - 4) / 4) * 1.1;
+      const sx = cx + Math.cos(a) * recR * 0.7;
+      const sy = cy + Math.sin(a) * recR * 0.7 + recR * 0.3;
+      const len = Rp * r.range(0.28, 0.42);
+      g.lineWidth = Math.max(0.8, Rp * 0.018);
+      g.beginPath();
+      g.moveTo(sx, sy);
+      g.quadraticCurveTo(sx + Math.cos(a) * len * 0.6, sy + len * 0.2, sx + Math.cos(a) * len * 0.5, sy + len);
+      g.stroke();
+    }
+    for (const u of items) if (u[2] >= 0) one(u);
+  });
+}
+
+type Seed = { x: number; y: number; z: number; size: number; lift: number; ph: number; id: number; free: boolean };
+type Clock = { bx: number; by: number; Ls: number; lean: number; R: number; head: Sprite; timer: number; id: number };
+
+/**
+ * Dientes de león: una flor ya en semilla abajo a la izquierda (y, en pantallas anchas, otra a medio soplar a la
+ * derecha) que se mece con el viento y suelta de vez en cuando una semilla; y semillas que viajan con la brisa,
+ * suben y bajan con las corrientes y se inclinan colgando de su paraguas, vistas desde distintos ángulos.
+ */
+const dandelion: EffectFactory = (env) => {
+  const r = rng(141);
+  const n = makeNoise(141);
+  const c = nat(env, hex("#FBFAF6"), env.c.soft, 0.4);
+  const seedC = env.dark ? hex("#9A7650") : hex("#6B4F33");
+  const stemC = env.own ? mix(env.c.a, hex("#6F8650"), 0.5) : env.dark ? hex("#6E8A4C") : hex("#5F7A40");
+  const recC = hex("#7C7A4A");
+  const bractC = env.dark ? hex("#5E7A3E") : hex("#55702F");
+  const views = Array.from({ length: VIEWS }, (_, i) => seedView(c, seedC, i * VIEW_STEP, env.dpr, 7));
+  const nearViews = views.map((v) => blurred(v, 2.2 * env.dpr));
+  const halo = glow(lighten(c, 0.2), 64, 0.05, 1.8);
+  const CLOCK_Z = 0.78;
+  let clocks: Clock[] = [];
+  let seeds: Seed[] = [];
+  /** Las que se acaban de soltar: se meten en la lista al terminar el fotograma. */
+  const born: Seed[] = [];
+  let dir = 1;
+
+  const ambient = (e: FxEnv, s: Seed | null, anywhere: boolean): Seed => {
+    const kk = Math.max(0.4, e.k);
+    const q = s ?? ({ z: Math.pow(r(), 1.3), id: r() * 100, free: false } as Seed);
+    q.size = r.range(22, 38) * (0.42 + q.z * 0.95) * kk;
+    q.lift = r.range(3, 10);
+    q.ph = r() * TAU;
+    if (anywhere) {
+      q.x = r() * e.w;
+      q.y = r() * e.h;
+    } else {
+      // Entra por donde viene el viento.
+      q.x = dir > 0 ? -q.size : e.w + q.size;
+      q.y = r.range(0.05, 0.95) * e.h;
+    }
+    return q;
+  };
+  const layout = (e: FxEnv) => {
+    const R1 = clamp(Math.min(e.w, e.h) * 0.12, e.contained ? 12 : 42, 112);
+    const spec = [{ R: R1, bx: Math.max(R1 * 0.9, e.w * 0.08), Ls: Math.min(e.h * 0.42, R1 * 2.9), lean: 0.1, blown: 0 }];
+    if (e.w > 760) {
+      const R2 = R1 * 0.72;
+      spec.push({ R: R2, bx: e.w - Math.max(R2 * 1.1, e.w * 0.07), Ls: Math.min(e.h * 0.3, R2 * 2.5), lean: -0.13, blown: 0.75 });
+    }
+    clocks = spec.map((s, i) => ({
+      bx: s.bx,
+      by: e.h + 4,
+      Ls: s.Ls,
+      lean: s.lean,
+      R: s.R,
+      head: seedHead({ c, seedC, rec: recC, bract: bractC, R: s.R, dpr: e.dpr, seed: 50 + i, blown: s.blown }),
+      timer: r.range(2, 6),
+      id: i * 11.3,
+    }));
+    seeds = Array.from({ length: count(e, 7, 8, 20) }, () => ambient(e, null, true)).sort((a, b) => a.z - b.z);
+  };
+  layout(env);
+
+  const drawSeed = (g: CanvasRenderingContext2D, e: FxEnv, s: Seed, t: number) => {
+    // Hacia dónde mira (de perfil o más desde abajo): se mezclan los dos dibujos más cercanos.
+    const psi = clamp(0.75 + 0.6 * n(t * 0.11, s.id, 5), 0, (VIEWS - 1) * VIEW_STEP);
+    const vi = psi / VIEW_STEP;
+    const i0 = Math.min(VIEWS - 2, Math.floor(vi));
+    const w1 = vi - i0;
+    const rot = 0.25 * n(t * 0.25, s.id, 9) + 0.08 * Math.sin(t * 0.9 + s.ph);
+    const near = s.z > 0.9 && !s.free;
+    const a = (0.45 + s.z * 0.5) * (near ? 0.75 : 1);
+    const set = near ? nearViews : views;
+    if (e.dark) {
+      g.globalCompositeOperation = "lighter";
+      drawR(g, halo, s.x, s.y, s.size * 0.5, a * 0.12);
+      g.globalCompositeOperation = "source-over";
+    }
+    drawRot(g, set[i0], e.dpr, SEED_N, s.x, s.y, s.size, rot, 1, 1, a * (1 - w1));
+    drawRot(g, set[i0 + 1], e.dpr, SEED_N, s.x, s.y, s.size, rot, 1, 1, a * w1);
+    g.setTransform(e.dpr, 0, 0, e.dpr, 0, 0);
+  };
+
+  const drawClocks = (g: CanvasRenderingContext2D, e: FxEnv, t: number, dt: number, wn: number) => {
+    for (const ck of clocks) {
+      const sw = ck.lean + 0.03 * Math.sin(t * 0.8 + ck.id) + 0.06 * wn + 0.015 * n(t * 1.6, ck.id, 2);
+      const hx = ck.bx + Math.sin(sw) * ck.Ls;
+      const hy = ck.by - Math.cos(sw) * ck.Ls;
+      const qx = ck.bx + Math.sin(sw * 0.35) * ck.Ls * 0.55;
+      const qy = ck.by - Math.cos(sw * 0.35) * ck.Ls * 0.55;
+      const tx = hx - Math.sin(sw) * ck.R * 0.12;
+      const ty = hy + Math.cos(sw) * ck.R * 0.12;
+      if (e.dark) {
+        g.globalCompositeOperation = "lighter";
+        drawR(g, halo, hx, hy, ck.R * 1.35, 0.13);
+        g.globalCompositeOperation = "source-over";
+      }
+      // El tallo, hueco y verde, con su brillo.
+      g.globalAlpha = 0.95;
+      g.lineCap = "round";
+      g.strokeStyle = rgba(stemC, 1);
+      g.lineWidth = Math.max(1, ck.R * 0.1);
+      g.beginPath();
+      g.moveTo(ck.bx, ck.by);
+      g.quadraticCurveTo(qx, qy, tx, ty);
+      g.stroke();
+      const o = ck.R * 0.018;
+      g.strokeStyle = rgba(lighten(stemC, 0.35), 0.5);
+      g.lineWidth = Math.max(0.5, ck.R * 0.025);
+      g.beginPath();
+      g.moveTo(ck.bx - o, ck.by);
+      g.quadraticCurveTo(qx - o, qy, tx - o, ty);
+      g.stroke();
+      const hs = ck.head.width / e.dpr;
+      drawRot(g, ck.head, e.dpr, hs, hx, hy, hs, sw, 1, 1, 0.95);
+      g.setTransform(e.dpr, 0, 0, e.dpr, 0, 0);
+      // De vez en cuando (más con las rachas) se suelta una semilla por el lado del viento.
+      ck.timer -= dt * (0.6 + Math.max(0, wn) * 1.4);
+      if (ck.timer <= 0) {
+        ck.timer = r.range(4, 9);
+        if (seeds.filter((s) => s.free).length + born.length < 8) {
+          const a = (dir > 0 ? 0 : Math.PI) + dir * r.range(-1.2, 0.5);
+          const q: Seed = {
+            x: hx + Math.cos(a) * ck.R * 0.7,
+            y: hy + Math.sin(a) * ck.R * 0.7,
+            z: CLOCK_Z + 0.01,
+            size: ck.R * 0.95,
+            lift: r.range(4, 10),
+            ph: r() * TAU,
+            id: r() * 100,
+            free: true,
+          };
+          born.push(q);
+        }
+      }
+    }
+    g.globalAlpha = 1;
+  };
+
+  return {
+    resize: layout,
+    frame(g, e, t, dt) {
+      const kk = Math.max(0.4, e.k);
+      const wv = wind(n, t, 30, 30) * kk;
+      dir = wv >= 0 ? 1 : -1;
+      const wn = clamp(wv / kk / 60, -1, 1);
+      for (let i = seeds.length - 1; i >= 0; i--) {
+        const s = seeds[i];
+        const depth = 0.45 + s.z * 0.75;
+        s.x += (wv * depth + n(s.x * 0.003, s.y * 0.003, t * 0.1 + s.id) * 26 * kk) * dt;
+        s.y += (-s.lift + n(s.x * 0.003 + 40, s.y * 0.003, t * 0.1 + s.id) * 24) * kk * depth * dt;
+        const m = s.size;
+        if (s.x > e.w + m || s.x < -m || s.y < -m || s.y > e.h + m) {
+          if (s.free) seeds.splice(i, 1);
+          else ambient(e, s, false);
+        }
+      }
+      g.globalCompositeOperation = "source-over";
+      let clocksDone = false;
+      for (const s of seeds) {
+        if (!clocksDone && s.z >= CLOCK_Z) {
+          drawClocks(g, e, t, dt, wn);
+          clocksDone = true;
+        }
+        drawSeed(g, e, s, t);
+      }
+      if (!clocksDone) drawClocks(g, e, t, dt, wn);
+      for (const q of born.splice(0)) {
+        const at = seeds.findIndex((s) => s.z > q.z);
+        seeds.splice(at < 0 ? seeds.length : at, 0, q);
+      }
+      g.globalAlpha = 1;
+    },
+  };
+};
 
 /* ───────────── Mariposas ───────────── */
 
