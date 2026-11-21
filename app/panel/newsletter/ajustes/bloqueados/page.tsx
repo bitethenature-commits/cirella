@@ -48,7 +48,7 @@ export default async function BlockedPage({ searchParams }: { searchParams: Prom
   return (
     <div>
       <Link href="/panel/newsletter/ajustes" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Envío
+        <ArrowLeft className="h-4 w-4" /> Ajustes mail
       </Link>
       <PageHeader title="Bloqueados" subtitle="No reciben tu newsletter ni tus automatizaciones. Los rebotes y el spam llegan solos con el webhook de Resend." />
       <div className="flex flex-wrap items-center gap-2">

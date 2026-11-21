@@ -315,7 +315,7 @@ function Picker({ items, selected, mine, tap }: { items: { key: string; label: s
             key={it.key}
             {...tap(it.key, it.label)}
             className="rounded-full border px-2.5 py-1 text-[0.72rem] font-semibold transition"
-            style={{ background: on ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : "rgb(255 255 255 / .06)", color: on ? "#15122a" : undefined, borderColor: on ? "#F0D9A4" : mine.has(it.key) ? "rgb(233 204 142 / .6)" : "rgb(200 168 110 / .3)", cursor: "pointer" }}
+            style={{ background: on ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : "rgb(255 255 255 / .06)", color: on ? "#0B0B0D" : undefined, borderColor: on ? "#F0D9A4" : mine.has(it.key) ? "rgb(233 204 142 / .6)" : "rgb(200 168 110 / .3)", cursor: "pointer" }}
           >
             {mine.has(it.key) ? "★ " : ""}
             {it.label}

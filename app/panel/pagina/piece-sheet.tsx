@@ -113,11 +113,12 @@ export function PieceSheet({
       </div>
     </Field>
   );
-  const pills = <T extends string>(label: string, value: T | undefined, options: Record<T, string>, onPick: (o: T) => void, onReset: () => void) => (
+  /** `shown`: la que se ve marcada si no se ha elegido ninguna (la que lleva de por sí). */
+  const pills = <T extends string>(label: string, value: T | undefined, options: Record<T, string>, onPick: (o: T) => void, onReset: () => void, shown?: T) => (
     <Field label={label} own={value !== undefined} onReset={onReset}>
       <div className="flex flex-wrap gap-1.5">
         {(Object.keys(options) as T[]).map((o) => (
-          <button key={o} type="button" onClick={() => onPick(o)} className={`rounded-full border px-3 py-1.5 text-xs transition ${value === o ? "border-ink bg-ink text-cream" : "border-line bg-white hover:border-ink/30"}`}>
+          <button key={o} type="button" onClick={() => onPick(o)} className={`rounded-full border px-3 py-1.5 text-xs transition ${(value ?? shown) === o ? "border-ink bg-ink text-cream" : "border-line bg-white hover:border-ink/30"}`}>
             {options[o]}
           </button>
         ))}
@@ -131,7 +132,7 @@ export function PieceSheet({
     <div
       role="dialog"
       aria-label={TITLE[kind]}
-      className="fixed inset-x-0 bottom-0 z-[70] flex max-h-[62vh] flex-col rounded-t-2xl border border-line bg-paper text-ink shadow-2xl animate-fade-up sm:inset-x-auto sm:bottom-5 sm:left-5 sm:max-h-[calc(100vh-2.5rem)] sm:w-[26rem] sm:rounded-2xl"
+      className="fixed inset-x-0 bottom-0 z-[43] flex max-h-[62vh] flex-col rounded-t-2xl border border-line bg-paper/80 text-ink backdrop-blur-xl shadow-[0_30px_80px_-20px_rgb(0_0_0/.75)] animate-fade-up sm:inset-x-auto sm:bottom-[3.6rem] sm:left-12 sm:max-h-[calc(100dvh-8.5rem)] sm:w-[26rem] sm:max-w-[calc(100vw-4.5rem)] sm:rounded-2xl lg:left-16"
     >
       <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-3">
         <div className="min-w-0">
@@ -185,7 +186,7 @@ export function PieceSheet({
                 {pills("Geometría de fondo", p.geo, GEOS, (o) => set({ geo: o }), () => clear(["geo", "geoPos", "geoOpacity", "geoColor"]))}
                 {figure && (
                   <>
-                    {pills("Dónde", p.geoPos, FIGURE_POS, (o: FigurePos) => set({ geoPos: o }), () => clear(["geoPos"]))}
+                    {pills("Dónde va la figura", p.geoPos, FIGURE_POS, (o: FigurePos) => set({ geoPos: o }), () => clear(["geoPos"]), "corner")}
                     {slider("geoOpacity", "Cuánto se ve", 4, 60, 16, (n) => `${n}%`)}
                     {colorField("geoColor", "Color de la geometría", gold)}
                   </>

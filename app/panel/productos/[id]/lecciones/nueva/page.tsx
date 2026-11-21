@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 
-/** Enlace de antes: una lección nueva se prepara ahora en el estudio de cursos. */
-export default async function OldNewLessonPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ modulo?: string }> }) {
+/** Enlace de antes: las lecciones se crean ahora desde el editor del curso («Añadir lección» en su índice). */
+export default async function OldNewLessonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { modulo } = await searchParams;
-  redirect(`/panel/cursos/${encodeURIComponent(id)}/lecciones/nueva${typeof modulo === "string" ? `?modulo=${encodeURIComponent(modulo)}` : ""}`);
+  redirect(`/panel/cursos/${encodeURIComponent(id)}/lecciones`);
 }

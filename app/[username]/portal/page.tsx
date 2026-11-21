@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
+import { CfgText, SiteText } from "@/components/creator-page/site-text";
 import { PortalSection } from "@/components/creator-page/portal-section";
 import { TrackOnMount } from "@/components/creator-page/tracking";
 import { creatorLegalHref } from "@/lib/legal";
@@ -37,12 +38,18 @@ export default async function PortalPage({ params }: { params: Promise<Params> }
             <PortalNoteIcon />
           </span>
           <div>
-            <p className="cp-eyebrow">Para quien está suscrita a mi newsletter</p>
-            <h1 className="cp-display mt-1 text-[2.6rem] leading-tight">{sectionTitle(config, "portal")}</h1>
+            <p className="cp-eyebrow">
+              <SiteText texts={config.texts} k="pg.portal.eyebrow" />
+            </p>
+            <h1 className="cp-display mt-1 text-[2.6rem] leading-tight">
+              <CfgText path="sections.portal.title">{sectionTitle(config, "portal")}</CfgText>
+            </h1>
           </div>
         </div>
         {data.portal.length === 0 ? (
-          <p className="cp-muted mt-6">Pronto habrá aquí vídeos, audios y avisos para quien está suscrita a mi newsletter.</p>
+          <p className="cp-muted mt-6">
+            <SiteText texts={config.texts} k="pg.portal.empty" multiline />
+          </p>
         ) : (
           <div className="mt-8">
             <PortalSection

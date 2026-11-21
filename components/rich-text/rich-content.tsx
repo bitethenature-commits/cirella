@@ -135,6 +135,13 @@ function renderInline(nodes: RichInline[]): ReactNode {
         );
       case "i":
         return <em key={i}>{renderInline(n.c)}</em>;
+      case "c":
+        // Un hex ya comprobado (lib/rich-text.ts → readColor).
+        return (
+          <span key={i} style={{ color: n.color }}>
+            {renderInline(n.c)}
+          </span>
+        );
       case "a":
         return n.external ? (
           <a key={i} href={n.href} target="_blank" rel="noopener nofollow" className={LINK_CLASS}>

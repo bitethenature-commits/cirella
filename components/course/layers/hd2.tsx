@@ -595,7 +595,7 @@ function CrossDiagram({ hd, selected, tap }: { hd: HumanDesign | null; selected:
         return (
           <g key={k} {...tap(k, pos.label)}>
             {on && <circle cx={x} cy={y} r="40" fill={`url(#${p}goldglow)`} />}
-            <circle cx={x} cy={y} r="30" fill={on ? `url(#${p}gold)` : "#1E1B45"} stroke={pos.side === "design" ? NIGHT_RED : PERS} strokeWidth="2" />
+            <circle cx={x} cy={y} r="30" fill={on ? `url(#${p}gold)` : "#1D1D20"} stroke={pos.side === "design" ? NIGHT_RED : PERS} strokeWidth="2" />
             <text x={x} y={a ? y - 6 : y} textAnchor="middle" dominantBaseline="central" fontSize="13" fill={on ? NIGHT : STAR}>
               {HD_BODY_GLYPH[pos.body] + VS}
             </text>
@@ -627,8 +627,8 @@ function ArrowsDiagram({ hd, selected, tap }: { hd: HumanDesign | null; selected
       <NightDefs p={p} />
       <Stars w={340} h={300} n={30} />
       {/* La cabeza y el ajna, como en el bodygraph. */}
-      <polygon points="170,60 214,130 126,130" fill="#1E1B45" stroke="rgb(255 255 255 / .35)" strokeWidth="1.4" />
-      <polygon points="126,150 214,150 170,220" fill="#1E1B45" stroke="rgb(255 255 255 / .35)" strokeWidth="1.4" />
+      <polygon points="170,60 214,130 126,130" fill="#1D1D20" stroke="rgb(255 255 255 / .35)" strokeWidth="1.4" />
+      <polygon points="126,150 214,150 170,220" fill="#1D1D20" stroke="rgb(255 255 255 / .35)" strokeWidth="1.4" />
       <text x="170" y="250" textAnchor="middle" fontSize="8.5" letterSpacing="1.4" fill="rgb(251 246 236 / .6)">
         DISEÑO ← · → PERSONALIDAD
       </text>

@@ -132,7 +132,7 @@ export function MedallionText({ glyph, label, size = 30 }: { glyph?: ReactNode; 
 
 /** Una marca pequeña de «es tuyo»: un rombo dorado. */
 export function MineMark({ x, y, s = 4 }: { x: number; y: number; s?: number }) {
-  return <path d={`M${x} ${y - s}L${x + s} ${y}L${x} ${y + s}L${x - s} ${y}Z`} fill={WK_GOLD} stroke="#100E26" strokeWidth="0.8" pointerEvents="none" />;
+  return <path d={`M${x} ${y - s}L${x + s} ${y}L${x} ${y + s}L${x - s} ${y}Z`} fill={WK_GOLD} stroke="#0B0B0D" strokeWidth="0.8" pointerEvents="none" />;
 }
 
 /** Los símbolos alquímicos de los elementos, dibujados (no todas las fuentes los tienen). */

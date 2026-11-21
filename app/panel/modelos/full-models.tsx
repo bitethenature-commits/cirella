@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import type { OracleDeckView } from "@/components/models/data/oracle";
 import { SacredGeometry } from "@/components/models/sacred-geometry";
+import { NIGHT_CHART_STYLE } from "@/components/models/night-chart-style";
 import type { BirthProfile } from "@/lib/birth-profile";
 import { customChartSchema, type CustomChartData } from "@/lib/lesson-blocks";
 import { GEOMETRY_FIGURES, GEOMETRY_LABEL, type GeometryFigure, type ModelKind } from "@/lib/page-blocks";
@@ -130,9 +131,9 @@ function FullModel({ kind, label, info, profile }: { kind: ModelKind; label: str
   return (
     <div className="overflow-hidden rounded-2xl border border-line bg-white">
       <div className="flex items-start gap-3 px-4 pt-3 sm:pb-3">
-      {/* La foto pequeña: el modelo tal como se ve en tu web (su versión rápida). */}
+      {/* La foto pequeña: el modelo sobre negro (su versión rápida). */}
       <ModelThumb onClick={() => setOpen((o) => !o)}>
-        <div className="cp p-4" style={{ ...info.theme?.style, minHeight: 0 }} data-card={info.theme?.card} data-template={info.theme?.template ?? undefined}>
+        <div className="cp p-4" style={{ ...NIGHT_CHART_STYLE, minHeight: 0 }}>
           <Preview kind={kind} version={GATED.includes(kind) ? "quick" : versions[0].id} decks={info.decks} profile={profile} />
         </div>
       </ModelThumb>
@@ -201,8 +202,8 @@ function FullModel({ kind, label, info, profile }: { kind: ModelKind; label: str
           {kind === "chart" && v.id === "custom" ? (
             <HandmadeChart info={info} />
           ) : (
-          /* Como en su web: sus colores, su tarjeta. */
-          <div className="cp overflow-hidden rounded-2xl p-3 sm:p-5" style={{ ...info.theme?.style, minHeight: 0 }} data-card={info.theme?.card} data-template={info.theme?.template ?? undefined}>
+          /* Sobre negro, como en las lecciones. */
+          <div className="cp overflow-hidden rounded-2xl p-3 sm:p-5" style={{ ...NIGHT_CHART_STYLE, minHeight: 0 }}>
             <Preview kind={kind} version={v.id} decks={info.decks} profile={profile} />
           </div>
           )}
@@ -262,7 +263,7 @@ function HandmadeChart({ info }: { info: FullInfo }) {
     });
   return (
     <div className="space-y-4">
-      <CustomChartEditor value={value} onChange={(v) => { setValue(v); setState(null); }} previewStyle={info.theme?.style} />
+      <CustomChartEditor value={value} onChange={(v) => { setValue(v); setState(null); }} />
       <div className="rounded-xl border border-line bg-sand/40 px-3 py-3">
         <p className="text-sm font-medium">Llevarla a una lección</p>
         {info.lessons.length ? (

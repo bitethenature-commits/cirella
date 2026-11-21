@@ -10,6 +10,7 @@ import { sanitizeBlocks } from "./page-blocks.server";
 import { isPublicUsernameAllowed } from "./personal-routing";
 import { getPublicCreator } from "./public";
 import { isPersonalMode, ownerUsername } from "./site-mode";
+import { siteText } from "./site-texts";
 import {
   readSitePageContent,
   SITE_PAGE_SLUG_RE,
@@ -19,6 +20,8 @@ import {
   sitePageSlugBase,
   sitePageSlugProblem,
   FIXED_PAGE_SLUGS,
+  COMMUNITY_SLUG,
+  communityContent,
   GIFTS_SLUG,
   giftsContent,
   isFixedPageSlug,
@@ -75,7 +78,7 @@ async function creatorOf(creatorId: string) {
   return prisma.creator.findUniqueOrThrow({ where: { id: creatorId }, select: { id: true, username: true } });
 }
 
-export async function createSitePage(creatorId: string, input: { template: SitePageTemplate; title?: string }): Promise<{ id: string } | { error: string }> {
+export async function createSitePage(creatorId: string, input: { template: SitePageTemplate; title?: string }): Promise<{ id: string; slug: string } | { error: string }> {
   const db = tenantDb(creatorId);
   if ((await db.sitePage.count()) >= SITE_PAGES_MAX) return { error: `Máximo ${SITE_PAGES_MAX} páginas` };
   const creator = await creatorOf(creatorId);
@@ -87,7 +90,7 @@ export async function createSitePage(creatorId: string, input: { template: SiteP
   const page = await db.sitePage.create({
     data: { creatorId, slug, title: content.title, draft: json(content), status: "DRAFT", sortOrder: (last?.sortOrder ?? -1) + 1 },
   });
-  return { id: page.id };
+  return { id: page.id, slug };
 }
 
 export type SitePageInput = { content: SitePageContent; slug: string; showInNav: boolean };
@@ -150,10 +153,6 @@ export async function deleteSitePage(creatorId: string, id: string): Promise<boo
 }
 
 /**
- * La 1:1 en Páginas: si aún no está, se crea en borrador con lo que enseña la web ahora (no sale en el
- * pie, que ya la enlaza su sección). Una sola vez: después es una página más.
- */
-/**
  * La 1:1 y Gifts se crean solas una sola vez: si ya se hicieron (o ya estaban), no vuelven aunque se
  * borren. La marca es una fila de PlatformSetting por creadora y página (su clave es única).
  */
@@ -164,15 +163,28 @@ async function fixedPageMade(creatorId: string, slug: string, exists: boolean): 
   return exists;
 }
 
+/**
+ * La 1:1 y Gifts siempre se ven en la web (sin la suya, sale la de partida): se crean ya publicadas y las que se
+ * crearon en borrador sin publicarse nunca se publican tal cual están (son lo que enseña la web).
+ */
+const publishedNow = (content: SitePageContent) => ({ published: json(content), publishedTitle: content.title, status: "PUBLISHED", publishedAt: new Date() });
+
+async function publishFixedPage(creatorId: string, slug: string): Promise<void> {
+  const db = tenantDb(creatorId);
+  const p = await db.sitePage.findFirst({ where: { slug, status: "DRAFT" }, select: { id: true, title: true, draft: true, published: true } });
+  if (!p || p.published !== null) return;
+  await db.sitePage.update({ where: { id: p.id }, data: { published: json(p.draft), publishedTitle: p.title, status: "PUBLISHED", publishedAt: new Date() } });
+}
+
 export async function ensureOneToOnePage(creatorId: string): Promise<void> {
   const db = tenantDb(creatorId);
   const exists = !!(await db.sitePage.findFirst({ where: { slug: ONE_TO_ONE_SLUG }, select: { id: true } }));
-  if (await fixedPageMade(creatorId, ONE_TO_ONE_SLUG, exists)) return;
+  if (await fixedPageMade(creatorId, ONE_TO_ONE_SLUG, exists)) return publishFixedPage(creatorId, ONE_TO_ONE_SLUG);
   const creator = await creatorOf(creatorId);
   const data = await getPublicCreator(creator.username, true);
   const content = oneToOneContent(data?.config.displayName || creator.username, data?.config.contact.email || null);
   try {
-    await db.sitePage.create({ data: { creatorId, slug: ONE_TO_ONE_SLUG, title: content.title, draft: json(content), status: "DRAFT", showInNav: false, sortOrder: -1 } });
+    await db.sitePage.create({ data: { creatorId, slug: ONE_TO_ONE_SLUG, title: content.title, draft: json(content), ...publishedNow(content), showInNav: false, sortOrder: -1 } });
   } catch {
     // Otra pestaña la acaba de crear: ya está.
   }
@@ -182,16 +194,42 @@ export async function ensureOneToOnePage(creatorId: string): Promise<void> {
 export async function ensureGiftsPage(creatorId: string): Promise<void> {
   const db = tenantDb(creatorId);
   const exists = !!(await db.sitePage.findFirst({ where: { slug: GIFTS_SLUG }, select: { id: true } }));
-  if (await fixedPageMade(creatorId, GIFTS_SLUG, exists)) return;
+  if (await fixedPageMade(creatorId, GIFTS_SLUG, exists)) return publishFixedPage(creatorId, GIFTS_SLUG);
   const creator = await creatorOf(creatorId);
   const data = await getPublicCreator(creator.username, true);
   const content = giftsContent(data?.config.contact.email || null);
   try {
-    await db.sitePage.create({ data: { creatorId, slug: GIFTS_SLUG, title: content.title, draft: json(content), status: "DRAFT", showInNav: false, sortOrder: -1 } });
+    await db.sitePage.create({ data: { creatorId, slug: GIFTS_SLUG, title: content.title, draft: json(content), ...publishedNow(content), showInNav: false, sortOrder: -1 } });
   } catch {
     // Otra pestaña la acaba de crear: ya está.
   }
 }
+
+/**
+ * «Hacerte miembro» en Páginas: si aún no está, se crea ya publicada con lo que enseñaba la página de siempre (su
+ * título, su entradilla y la sección de los niveles), para escribirla en Mi página. Como la 1:1, solo una vez.
+ */
+export async function ensureCommunityPage(creatorId: string): Promise<void> {
+  const db = tenantDb(creatorId);
+  const exists = !!(await db.sitePage.findFirst({ where: { slug: COMMUNITY_SLUG }, select: { id: true } }));
+  if (await fixedPageMade(creatorId, COMMUNITY_SLUG, exists)) return publishFixedPage(creatorId, COMMUNITY_SLUG);
+  const creator = await creatorOf(creatorId);
+  const data = await getPublicCreator(creator.username, true);
+  const texts = data?.config.texts;
+  const many = (data?.products ?? []).filter((p) => p.type === "MEMBERSHIP").length > 1;
+  const content = communityContent({
+    title: siteText(texts, "pg.community.title"),
+    text: siteText(texts, "pg.community.text"),
+    more: siteText(texts, many ? "pg.community.textN" : "pg.community.text1"),
+    badge: siteText(texts, "pg.community.badge"),
+  });
+  try {
+    await db.sitePage.create({ data: { creatorId, slug: COMMUNITY_SLUG, title: content.title, draft: json(content), ...publishedNow(content), showInNav: false, sortOrder: -1 } });
+  } catch {
+    // Otra pestaña la acaba de crear: ya está.
+  }
+}
+
 
 /** Sube o baja una página en la lista (es el orden del pie de la web). */
 export async function moveSitePage(creatorId: string, id: string, dir: "up" | "down"): Promise<void> {

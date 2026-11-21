@@ -120,8 +120,8 @@ export function DayDiagram({ selected, keys, tap, ctx }: DiagramProps & { layer:
         <MoonDefs p={p} />
         <defs>
           <linearGradient id={`${p}dcard`} x1="0" y1="0" x2="0.3" y2="1">
-            <stop offset="0%" stopColor="#2A2456" />
-            <stop offset="100%" stopColor="#130F2E" />
+            <stop offset="0%" stopColor="#232326" />
+            <stop offset="100%" stopColor="#0F0F11" />
           </linearGradient>
           <linearGradient id={`${p}dcardOn`} x1="0" y1="0" x2="0.3" y2="1">
             <stop offset="0%" stopColor="#FBE7B0" />

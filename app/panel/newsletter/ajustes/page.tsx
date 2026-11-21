@@ -82,7 +82,7 @@ export default async function NewsletterSendingPage() {
   const cRate = sent ? (complained / sent) * 100 : 0;
   return (
     <div>
-      <PageHeader title="Envío" subtitle="Desde dónde sale tu newsletter, cómo llega y cuánto puede salir cada día." />
+      <PageHeader title="Ajustes mail" subtitle="Desde dónde sale tu newsletter, cómo llega y cuánto puede salir cada día." />
       <NewsletterTabs current="/panel/newsletter/ajustes" />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Stat label="Enviados en 24 h" value={formatNumber(quota.sentLast24h)} hint="Todos los emails cuentan" />

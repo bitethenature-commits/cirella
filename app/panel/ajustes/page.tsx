@@ -15,11 +15,14 @@ import { isPersonalMode } from "@/lib/site-mode";
 import { ShareButtons } from "@/app/onboarding/lista/share-buttons";
 import { readPageConfig } from "@/lib/page-config";
 import { readPanelPrefs } from "@/lib/panel-prefs";
-import { mobileNav, panelNav } from "../nav-items";
+import { frameSlot, panelNav, type FrameSlot } from "../nav-items";
 import { panelNavFlags } from "../nav-flags";
 import { Badge, PageHeader } from "../ui";
 import { PanelLook } from "./panel-look";
 import { changePassword, updateAccount } from "./actions";
+
+/** Dónde va cada sección del menú en el panel (app/panel/frame.tsx). */
+const EDGE_NAME: Record<FrameSlot, string> = { home: "Arriba a la izquierda", top: "Arriba a la izquierda", canva: "Botón de Canva, arriba a la derecha", left: "Izquierda", corner: "Abajo a la izquierda", settings: "Ajustes, abajo a la derecha" };
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const { creator, user } = await requireCreator();
@@ -83,9 +86,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <PanelLook
         initial={readPanelPrefs(creator.panelPrefs)}
         web={readPageConfig(creator.pageDraft, creator.displayName)}
-        nav={panelNav(flags).map((i) => ({ href: i.href, label: i.label }))}
-        home={personal}
-        currentBottom={mobileNav(flags).slice(0, 4).map((i) => i.label)}
+        nav={panelNav(flags).map((i) => ({ href: i.href, label: i.label, edge: EDGE_NAME[frameSlot(i)] }))}
       />
 
       <section className="card p-5 sm:p-6">

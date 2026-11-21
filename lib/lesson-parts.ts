@@ -16,6 +16,7 @@
  * lib/lessons.ts y las pruebas unitarias.
  */
 import { z } from "zod";
+import { readPieceLook, type PieceLook } from "./course-design";
 import { BLOCK_KINDS, isBlockKind, parseBlock, type BlockPart } from "./lesson-blocks";
 import { parseTextFormat } from "./rich-text";
 import type { LessonKind } from "./types";
@@ -25,6 +26,9 @@ export type LessonPartKind = (typeof LESSON_PART_KINDS)[number];
 
 /** Una lección larga lleva muchos capítulos y piezas: hasta 120 partes. */
 export const MAX_LESSON_PARTS = 120;
+/** No se puede pasar a borrador la última lección publicada de un curso publicado (lo dice el guardado; el editor lo deshace). */
+export const LESSON_LAST_PUBLISHED =
+  "Es la única lección publicada de un curso publicado: tus alumnas se quedarían sin nada. Publica otra antes o pasa el curso a borrador.";
 export const LESSON_TEXT_MAX = 20_000;
 /** Tope del JSON de las partes: deja el formulario bajo el bodySizeLimit de 2 MB (next.config) aun con caracteres de 3 bytes. */
 export const LESSON_PARTS_JSON_MAX = 1_500_000;
@@ -34,7 +38,10 @@ export const LESSON_PARTS_TOO_MANY = `Una lección puede tener hasta ${MAX_LESSO
 export const LESSON_TEXT_TOO_LONG = "Cada texto de la lección admite hasta 20 000 caracteres";
 export const EMBED_URL_ERROR = "El enlace del vídeo debe empezar por https://";
 
-export type LessonPartInput = { kind: "TEXT"; body: string; format: "MD" | null | undefined } | { kind: "FILE"; fileId: string } | { kind: "EMBED"; url: string } | BlockPart;
+export type LessonPartInput = ({ kind: "TEXT"; body: string; format: "MD" | null | undefined } | { kind: "FILE"; fileId: string } | { kind: "EMBED"; url: string } | BlockPart) & {
+  /** Su diseño (lib/course-design.ts); null = sin diseño propio. */
+  design?: PieceLook | null;
+};
 
 export const lessonPartSchema: z.ZodType<LessonPartInput, z.ZodTypeDef, unknown> = z.discriminatedUnion("kind", [
   z.object({
@@ -64,10 +71,11 @@ export function parseLessonParts(raw: unknown): { ok: true; parts: LessonPartInp
   const parts: LessonPartInput[] = [];
   for (const item of data) {
     const k = (item as { kind?: unknown } | null)?.kind;
+    const design = readPieceLook((item as { design?: unknown } | null)?.design);
     if (typeof k === "string" && isBlockKind(k)) {
       const b = parseBlock(k, (item as { data?: unknown }).data);
       if (!b.ok) return { ok: false, error: b.error };
-      parts.push(b.part);
+      parts.push({ ...b.part, design });
       continue;
     }
     const r = lessonPartSchema.safeParse(item);
@@ -76,7 +84,7 @@ export function parseLessonParts(raw: unknown): { ok: true; parts: LessonPartInp
       return { ok: false, error: custom?.message ?? "Una parte de la lección no es válida. Recarga la página y vuelve a intentarlo." };
     }
     if (r.data.kind === "TEXT" && !/\S/.test(r.data.body)) continue;
-    parts.push(r.data);
+    parts.push({ ...r.data, design });
   }
   return { ok: true, parts };
 }

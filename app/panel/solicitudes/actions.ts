@@ -6,7 +6,23 @@ import { requireCreator } from "@/lib/auth";
 import { deleteBookingHard, deleteOrderHard } from "@/lib/hard-delete";
 import { clearRequestSlot, confirmRequest, declineRequest, reopenRequest, RequestError, rescheduleRequest } from "@/lib/requests";
 
-const back = (q: Record<string, string>) => redirect(`/panel/solicitudes?${new URLSearchParams(q)}`);
+/**
+ * Vuelta segura: a la página de Clientes (su pestaña) o a la ficha de una persona, o a una reserva;
+ * si no, a «Nuevas». Con el aviso (ok o error).
+ */
+const back = (form: FormData, q: Record<string, string>, fallback = "/panel/clientes"): never => {
+  const raw = String(form.get("back") ?? "");
+  const safe = (raw.startsWith("/panel/clientes") || raw.startsWith("/panel/solicitudes/reserva/")) && !raw.startsWith("//") ? raw : fallback;
+  const url = new URL(safe, "http://x");
+  for (const k of ["ok", "error"]) url.searchParams.delete(k);
+  for (const [k, v] of Object.entries(q)) url.searchParams.set(k, v);
+  redirect(`${url.pathname}${url.search}`);
+};
+
+function refresh() {
+  for (const p of ["/panel/clientes", "/panel/ventas"]) revalidatePath(p);
+  revalidatePath("/panel", "layout");
+}
 
 async function run(fn: (creatorId: string, orderId: string) => Promise<string>, form: FormData) {
   const { creator } = await requireCreator();
@@ -15,12 +31,11 @@ async function run(fn: (creatorId: string, orderId: string) => Promise<string>, 
   try {
     ok = await fn(creator.id, orderId);
   } catch (e) {
-    if (e instanceof RequestError) back({ error: e.message });
+    if (e instanceof RequestError) back(form, { error: e.message });
     throw e;
   }
-  revalidatePath("/panel/solicitudes");
-  revalidatePath("/panel", "layout");
-  back({ ok: ok! });
+  refresh();
+  back(form, { ok });
 }
 
 export async function confirmRequestAction(form: FormData) {
@@ -29,7 +44,7 @@ export async function confirmRequestAction(form: FormData) {
     if (r.productType === "SESSION")
       return r.bookingStatus === "CONFIRMED"
         ? "Confirmada: la reserva está hecha y le hemos enviado el email con los detalles."
-        : "Confirmada. Esa hora ya no estaba libre: la reserva queda pendiente de fecha y ella la elige desde su área (o cámbiala tú en Solicitudes).";
+        : "Confirmada. Esa hora ya no estaba libre: la reserva queda pendiente de fecha y ella la elige desde su área (o cámbiala tú desde su ficha).";
     return "Confirmada: ya tiene el acceso y le hemos enviado el email para entrar.";
   }, form);
 }
@@ -66,16 +81,17 @@ export async function reopenRequestAction(form: FormData) {
 export async function deleteRequestAction(form: FormData) {
   const { creator } = await requireCreator();
   await deleteOrderHard(creator.id, String(form.get("id") ?? ""));
-  for (const p of ["/panel/solicitudes", "/panel/ventas", "/panel/clientes"]) revalidatePath(p);
-  revalidatePath("/panel", "layout");
-  back({ ok: "Borrada." });
+  refresh();
+  back(form, { ok: "Borrada." });
 }
 
 /** «Borrar» una reserva (con su venta, si la tiene): su hora vuelve a quedar libre. No se puede deshacer. */
 export async function deleteBookingAction(form: FormData) {
   const { creator } = await requireCreator();
   await deleteBookingHard(creator.id, String(form.get("id") ?? ""));
-  for (const p of ["/panel/solicitudes", "/panel/ventas", "/panel/clientes"]) revalidatePath(p);
-  revalidatePath("/panel", "layout");
-  back({ ok: "Reserva borrada." });
+  refresh();
+  // Desde la propia reserva no se puede volver a ella (ya no existe): a Clientes.
+  const raw = String(form.get("back") ?? "");
+  if (raw.startsWith("/panel/solicitudes/reserva/")) form.set("back", "/panel/clientes");
+  back(form, { ok: "Reserva borrada." }, "/panel/clientes");
 }

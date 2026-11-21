@@ -14,7 +14,6 @@ export function creatorBrief(c: Pick<Creator, "id" | "username" | "displayName" 
     avatarUrl: cfg.avatarUrl,
     timezone: c.timezone,
     email: cfg.contact.email || c.contactEmail,
-    whatsapp: cfg.contact.whatsapp,
   };
 }
 

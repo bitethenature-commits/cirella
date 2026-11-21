@@ -25,9 +25,25 @@ export const ONE_TO_ONE_SLUG = "uno-a-uno";
  */
 export const GIFTS_SLUG = "gifts";
 
+/**
+ * «Hacerte miembro» (/comunidad): los niveles de la comunidad. Una página más de Páginas con su dirección fija, que
+ * se escribe en Mi página como la 1:1: su título, su entradilla, sus secciones y, en la sección «Niveles de la
+ * comunidad», cada nivel (nombre, precio, icono, lo que incluye, botón) y su diseño (colores y arco).
+ */
+export const COMMUNITY_SLUG = "comunidad";
+
 /** Páginas con dirección fija: no se cambia ni se borran. */
-export const FIXED_PAGE_SLUGS: readonly string[] = [ONE_TO_ONE_SLUG, GIFTS_SLUG];
+export const FIXED_PAGE_SLUGS: readonly string[] = [ONE_TO_ONE_SLUG, GIFTS_SLUG, COMMUNITY_SLUG];
 export const isFixedPageSlug = (slug: string) => FIXED_PAGE_SLUGS.includes(slug);
+
+/**
+ * El contenido de partida de «Hacerte miembro»: lo que enseñaba la página de siempre (su título, su entradilla y la
+ * etiqueta del nivel más completo, con sus textos si los había cambiado) y la sección de los niveles.
+ */
+export function communityContent(t: { title: string; text: string; more: string; badge: string }): SitePageContent {
+  const blocks: ContentBlock[] = [{ id: "comunidad-niveles", kind: "tiers", enabled: true, title: "", badge: t.badge }];
+  return { title: t.title, subtitle: [t.text, t.more].filter(Boolean).join(" "), cover: null, blocks, seoTitle: "Comunidad", seoDescription: "" };
+}
 
 /** Una tarjeta de regalo de partida: su foto y «Pedirlo» por email (con el asunto ya escrito). */
 function gift(title: string, text: string, src: string, email: string | null) {

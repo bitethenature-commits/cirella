@@ -1,8 +1,6 @@
 "use client";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3,
-  Brush,
   FileText,
   Gift,
   GraduationCap,
@@ -11,7 +9,6 @@ import {
   Layers,
   LayoutGrid,
   Mail,
-  Menu,
   Moon,
   MessagesSquare,
   Newspaper,
@@ -31,7 +28,6 @@ import {
 /** El emblema de cada sección (por su dirección; la más larga que encaje). */
 const ICONS: [string, LucideIcon][] = [
   ["/panel/paginas", FileText],
-  ["/panel/canva", Brush],
   ["/panel/pagina", Palette],
   ["/panel/productos", LayoutGrid],
   ["/panel/sesiones", Video],
@@ -48,11 +44,9 @@ const ICONS: [string, LucideIcon][] = [
   ["/panel/ventas", Receipt],
   ["/panel/clientes", Users],
   ["/panel/newsletter", Mail],
-  ["/panel/estadisticas", BarChart3],
   ["/panel/automatizaciones", Zap],
   ["/panel/ajustes", Settings],
   ["/panel/plan", Sparkles],
-  ["/panel/mas", Menu],
   ["/admin", ShieldCheck],
   ["/panel", Home],
 ];

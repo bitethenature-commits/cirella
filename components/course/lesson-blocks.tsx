@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Check, X } from "lucide-react";
 import { ASPECT_BY_ID, BODY_INFO, HOUSES, bodyInHouseText, bodyInSignText, signOf } from "@/components/models/data/astrology";
 import type { BirthProfile, ComputedProfile } from "@/lib/birth-profile";
@@ -10,24 +10,42 @@ import { FOCUS_BODY_LABEL, readBlock, type FocusBody, type GlossaryData, type My
 import dynamic from "next/dynamic";
 import { RichContent } from "@/components/rich-text/rich-content";
 import { AstroLayerModel } from "./astro-layer";
+import { MainModel } from "./main-model";
 
 // La «Carta a mano»: la carta natal completa preparada por la dueña (se carga aparte: es pesada).
 const ChartModel = dynamic(() => import("@/components/models/chart-model").then((m) => m.ChartModel), { ssr: false, loading: () => <p className="grid min-h-60 place-items-center text-sm opacity-70">Cargando la carta…</p> });
 
 /**
- * Las partes de las lecciones largas (lib/lesson-blocks.ts) en el área de alumna: el modelo por partes,
- * «En tu carta», «Hoy en el cielo», el repaso y el glosario. Con la carta de la alumna (su perfil de
- * «Mi energía»), lo que toca sale calculado con sus datos; sin ella, un aviso para guardarlos.
+ * Las partes de las lecciones largas (lib/lesson-blocks.ts) en el área de alumna: el modelo por partes, los modelos
+ * principales, la carta a mano, «En tu carta», «Hoy en el cielo», el repaso y el glosario. Con la carta de la alumna
+ * (su perfil de «Mi energía»), lo que toca sale calculado con sus datos; sin ella, un aviso para guardarlos.
  */
 /** computed: la carta de la alumna ya calculada (una vez para toda la lección). */
 export type BlockContext = { profile: BirthProfile | null; computed: ComputedProfile | null; energyHref: string | null; others?: BirthProfile[] };
 
-export function LessonBlock({ kind, data, ctx }: { kind: string; data: unknown; ctx: BlockContext }) {
+/**
+ * Solo en el editor del curso: lo que se escribe encima, en el sitio del título, de la entrada y (en el modelo por
+ * partes) del texto de cada pieza y de sus textos de serie. Sin ello, lo de la alumna.
+ * `text(key, shown, base, multiline)`: un texto de serie del modelo («label» o «<pieza>:<campo>»), con lo que se ve
+ * ahora y el de serie (para volver a él dejándolo vacío).
+ */
+export type BlockEditSlots = {
+  title?: ReactNode;
+  intro?: ReactNode;
+  note?: (key: string) => ReactNode;
+  text?: (key: string, shown: string, base: string, multiline?: boolean) => ReactNode;
+};
+
+export function LessonBlock({ kind, data, ctx, edit }: { kind: string; data: unknown; ctx: BlockContext; edit?: BlockEditSlots }) {
   const result = ctx.computed;
   switch (kind) {
     case "MODEL": {
       const d = readBlock("MODEL", data);
-      return d ? <AstroLayerModel data={d} computed={result} others={ctx.others} /> : null;
+      return d ? <AstroLayerModel data={d} computed={result} others={ctx.others} edit={edit} /> : null;
+    }
+    case "MAIN": {
+      const d = readBlock("MAIN", data);
+      return d ? <MainModel data={d} profile={ctx.profile} edit={edit} /> : null;
     }
     case "CHART": {
       const d = readBlock("CHART", data);
@@ -48,11 +66,11 @@ export function LessonBlock({ kind, data, ctx }: { kind: string; data: unknown; 
     }
     case "MYCHART": {
       const d = readBlock("MYCHART", data);
-      return d ? <MyPlanet data={d} computed={result} ctx={ctx} /> : null;
+      return d ? <MyPlanet data={d} computed={result} ctx={ctx} titleNode={edit?.title} /> : null;
     }
     case "TODAY": {
       const d = readBlock("TODAY", data);
-      return d ? <TodayPlanet data={d} computed={result} /> : null;
+      return d ? <TodayPlanet data={d} computed={result} titleNode={edit?.title} /> : null;
     }
     case "QUIZ": {
       const d = readBlock("QUIZ", data);
@@ -68,20 +86,20 @@ export function LessonBlock({ kind, data, ctx }: { kind: string; data: unknown; 
 }
 
 const card = "rounded-3xl p-5 sm:p-6";
-const dark = { background: "#0E1024", color: "#EDE6D6" };
+const dark = { background: "#0B0B0D", color: "#EDE6D6" };
 const GOLD = "#C9A86A";
 
-function MyPlanet({ data, computed, ctx }: { data: MyChartData; computed: ComputedProfile | null; ctx: BlockContext }) {
+function MyPlanet({ data, computed, ctx, titleNode }: { data: MyChartData; computed: ComputedProfile | null; ctx: BlockContext; titleNode?: ReactNode }) {
   const name = FOCUS_BODY_LABEL[data.focus];
   const title = data.title || `Tu ${name}`;
   if (!ctx.profile)
     return (
       <section className={card} style={dark} data-block="mychart">
         <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em]" style={{ color: GOLD }}>En tu carta</p>
-        <p className="display mt-1 text-[1.6rem]">{title}</p>
-        <p className="mt-2 text-sm text-[#C9C4DA]">Guarda tu fecha, hora y lugar de nacimiento en «Mi energía» y aquí verás tu {name.toLowerCase()} calculado con tus datos.</p>
+        <p className="display mt-1 text-[1.6rem]">{titleNode ?? title}</p>
+        <p className="mt-2 text-sm text-[#CFC9BE]">Guarda tu fecha, hora y lugar de nacimiento en «Mi energía» y aquí verás tu {name.toLowerCase()} calculado con tus datos.</p>
         {ctx.energyHref && (
-          <a href={ctx.energyHref} className="mt-4 inline-flex rounded-full px-4 py-2 text-sm font-semibold" style={{ background: GOLD, color: "#0E1024" }}>
+          <a href={ctx.energyHref} className="mt-4 inline-flex rounded-full px-4 py-2 text-sm font-semibold" style={{ background: GOLD, color: "#0B0B0D" }}>
             Guardar mis datos
           </a>
         )}
@@ -91,7 +109,7 @@ function MyPlanet({ data, computed, ctx }: { data: MyChartData; computed: Comput
   if (!computed || !body)
     return (
       <section className={card} style={dark}>
-        <p className="text-sm text-[#C9C4DA]">Calculando tu carta…</p>
+        <p className="text-sm text-[#CFC9BE]">Calculando tu carta…</p>
       </section>
     );
   const info = BODY_INFO[data.focus];
@@ -115,7 +133,7 @@ function MyPlanet({ data, computed, ctx }: { data: MyChartData; computed: Comput
       {house && <p className="mt-2 text-[0.95rem] leading-relaxed text-[#DCD7EA]">{bodyInHouseText(info, house)}</p>}
       {!house && <p className="mt-2 text-xs text-[#9A97AE]">Sin hora de nacimiento no hay casas: el signo es lo que cuenta.</p>}
       {aspects.length > 0 && (
-        <div className="mt-4 border-t pt-4" style={{ borderColor: "#2C2A45" }}>
+        <div className="mt-4 border-t pt-4" style={{ borderColor: "#2A2A2E" }}>
           <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em]" style={{ color: GOLD }}>Sus aspectos en tu carta</p>
           <ul className="mt-2 space-y-2 text-[0.9rem]">
             {aspects.map((a) => (
@@ -152,7 +170,7 @@ function natalAspects(c: ComputedProfile, focus: FocusBody) {
   return out.sort((x, y) => x.orb - y.orb).slice(0, 6);
 }
 
-function TodayPlanet({ data, computed }: { data: TodayData; computed: ComputedProfile | null }) {
+function TodayPlanet({ data, computed, titleNode }: { data: TodayData; computed: ComputedProfile | null; titleNode?: ReactNode }) {
   const name = FOCUS_BODY_LABEL[data.focus];
   const [now] = useState(() => new Date());
   const [today, setToday] = useState<{ lon: number; house: number | null; transits: AstroToday["transits"] } | null>(null);
@@ -173,7 +191,7 @@ function TodayPlanet({ data, computed }: { data: TodayData; computed: ComputedPr
   return (
     <section className={`${card} border border-line bg-white`} data-block="today">
       <p className="eyebrow">Hoy en el cielo · {now.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}</p>
-      <p className="display mt-1 text-[1.6rem] leading-tight">{data.title || `${name} hoy`}</p>
+      <p className="display mt-1 text-[1.6rem] leading-tight">{titleNode ?? (data.title || `${name} hoy`)}</p>
       {!today ? (
         <p className="mt-2 text-sm text-muted">Mirando el cielo…</p>
       ) : (

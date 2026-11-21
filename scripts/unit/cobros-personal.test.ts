@@ -28,7 +28,7 @@ import {
 import { WebhookSignatureError, type StartPaymentInput } from "../../lib/payments/provider";
 import { createStripeProvider, type StripeLike } from "../../lib/payments/stripe";
 import { canAcceptPayments, chargeDestination } from "../../lib/payouts";
-import { mobileNav, panelNav } from "../../app/panel/nav-items";
+import { panelNav } from "../../app/panel/nav-items";
 import { eq, ok, test, throws } from "./harness";
 
 type Raw = Record<string, string | undefined>;

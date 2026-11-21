@@ -33,6 +33,7 @@ import { tenantDb, type TenantDb } from "@/lib/tenant";
 import { wouldCreateCycle } from "@/lib/tiers";
 import { asCourseCategory } from "@/lib/course-categories";
 import { parseDripDays } from "@/lib/course-drip";
+import { readLookPatch } from "@/lib/course-design";
 import { checkSaleInput, saleFormSchema, SALE_LABEL_MAX } from "@/lib/offers";
 import { Prisma } from "@prisma/client";
 import { applyProductMeetingUrl } from "@/lib/booking-changes";
@@ -397,7 +398,7 @@ export async function deleteProduct(form: FormData) {
   refresh();
   revalidatePath("/panel/ventas");
   revalidatePath("/panel/clientes");
-  revalidatePath("/panel/solicitudes");
+  revalidatePath("/panel/clientes");
   redirect(back);
 }
 
@@ -549,7 +550,17 @@ const lessonSchema = z.object({
   // Estudio de cursos: borrador ("0") o publicada ("1") y «Disponible a los N días» ("" = el primer día).
   published: z.enum(["0", "1"]).optional(),
   dripDays: z.string().max(4).optional(),
+  // Editor de cursos: su propio diseño (JSON, lib/course-design.ts → readLookPatch; "{}" = como el curso).
+  design: z.string().max(4000).optional(),
 });
+
+function lookPatchOf(raw: string): ReturnType<typeof readLookPatch> {
+  try {
+    return readLookPatch(JSON.parse(raw));
+  } catch {
+    return {};
+  }
+}
 
 export type LessonActionState = { ok?: string; error?: string; warning?: string; lessonId?: string; version?: number } | undefined;
 
@@ -578,6 +589,7 @@ export async function saveLesson(_: LessonActionState, form: FormData): Promise<
       parts: parts.parts,
       published: d.published === undefined ? undefined : d.published === "1",
       dripDays: d.dripDays === undefined ? undefined : parseDripDays(d.dripDays),
+      design: d.design === undefined ? undefined : lookPatchOf(d.design),
     });
     refresh(r.productId);
     revalidatePath(`/panel/cursos/${r.productId}`, "layout");

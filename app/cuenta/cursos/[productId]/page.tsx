@@ -2,25 +2,28 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ArrowRight, ChevronDown, Eye } from "lucide-react";
 import { LessonView } from "@/components/course/lesson-view";
+import { CourseType } from "@/components/course/course-look";
+import { CourseLookApply } from "@/components/course/course-look-apply";
 import type { PlayerPart } from "@/components/course/lesson-parts";
+import { lookAsAccount, mergeLook, pieceFonts, readCourseLook, readLookPatch, readPieceLook } from "@/lib/course-design";
 import { OnePlayerAtATime } from "@/components/media/one-player-at-a-time";
 import { markFirstAccess, requireBuyerFor } from "@/lib/buyer-access";
 import { enrolledAt, recordLessonView } from "@/lib/course-access";
 import { dripDayFor, dripDayLabel, lessonLocks, readDrip } from "@/lib/course-drip";
 import { accessSource } from "@/lib/membership-access";
 import { prisma } from "@/lib/db";
-import { lessonPartViews, partsLabel, partView } from "@/lib/lesson-parts";
+import { partView } from "@/lib/lesson-parts";
 import { LESSON_PART_FILE_SELECT } from "@/lib/lessons";
 import { isPersonalMode } from "@/lib/site-mode";
 import { formatDate } from "@/lib/tz";
 import { MethodTag } from "../../ui";
 import { listBirthProfiles } from "@/lib/birth-profiles";
-import { isBlockKind } from "@/lib/lesson-blocks";
+import { isBlockKind, readBlock } from "@/lib/lesson-blocks";
+import { EdgeScroll } from "@/components/ui/edge-scroll";
 import { saveLessonChapter } from "./chapter-action";
 import { toggleLessonComplete } from "../../actions";
 import { AutoComplete } from "./complete-button";
-import { CourseCord } from "./course-cord";
-import { CourseOutline, type OutlineModule } from "./course-outline";
+import { CourseIndex } from "./course-index";
 import { Comments, type ViewComment } from "../../membresias/[productId]/[postId]/interactions";
 import { lessonComments } from "@/lib/comment-social";
 import { LessonSaveButton } from "./lesson-save";
@@ -33,9 +36,11 @@ import { buyerLoginPath } from "@/lib/buyer-access";
  * La dueña entra sin comprar («Ver como alumna», desde el estudio): ve lo mismo con un aviso arriba
  * y, si abre un borrador desde el editor, ese borrador marcado. Su visita no cuenta en «Datos».
  */
-export default async function CoursePlayer({ params, searchParams }: { params: Promise<{ productId: string }>; searchParams: Promise<{ leccion?: string }> }) {
+export default async function CoursePlayer({ params, searchParams }: { params: Promise<{ productId: string }>; searchParams: Promise<{ leccion?: string; capitulo?: string }> }) {
   const { productId } = await params;
-  const { leccion } = await searchParams;
+  const { leccion, capitulo } = await searchParams;
+  // «&capitulo=2» (desde el índice): abrir la lección en ese capítulo (desde 0).
+  const askedChapter = capitulo && /^\d{1,3}$/.test(capitulo) ? Number(capitulo) : null;
   const { user, isOwner, scoped } = await requireBuyerFor({ productId }, `/cuenta/cursos/${productId}`);
   // Directo o por una membresía que lo incluye (termina cuando termina la membresía).
   const source = isOwner ? null : await accessSource(user.id, productId);
@@ -57,10 +62,9 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
             select: {
               id: true,
               title: true,
-              durationMin: true,
               published: true,
               dripDays: true,
-              parts: { orderBy: { sortOrder: "asc" }, select: { kind: true, file: { select: { kind: true } } } },
+              design: true,
             },
           },
         },
@@ -80,12 +84,25 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
     return at ? `Se abre el ${formatDate(at, { day: "numeric", month: "short" }, tz)}` : null;
   };
 
-  const modules: OutlineModule[] = course.modules
+  // Los títulos de los capítulos de cada lección (para el índice: «Cap. 2» y, al pasar el ratón, su título).
+  const chapterRows = await prisma.lessonPart.findMany({
+    where: { lessonId: { in: all.map((l) => l.id) }, kind: "CHAPTER" },
+    orderBy: { sortOrder: "asc" },
+    select: { lessonId: true, data: true },
+  });
+  const chaptersOf = (lessonId: string) => chapterRows.filter((c) => c.lessonId === lessonId).map((c, i) => readBlock("CHAPTER", c.data)?.title || `Capítulo ${i + 1}`);
+  const modules = course.modules
     .filter((m) => m.lessons.length)
     .map((m) => ({
       id: m.id,
       title: m.title,
-      lessons: m.lessons.map((l) => ({ id: l.id, title: l.title, views: lessonPartViews(l.parts), lockedLabel: lockLabel(l.id), draft: !l.published })),
+      lessons: m.lessons.map((l) => ({
+        id: l.id,
+        title: l.title,
+        chapters: chaptersOf(l.id),
+        lockedLabel: lockLabel(l.id),
+        draft: !l.published,
+      })),
     }));
   const lessons = modules.flatMap((m) => m.lessons);
   const meta = new Map(all.map((l) => [l.id, l]));
@@ -107,7 +124,17 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
   const rows = current && !locked
     ? await prisma.lessonPart.findMany({ where: { lessonId: current.id }, orderBy: { sortOrder: "asc" }, include: { file: { select: LESSON_PART_FILE_SELECT } } })
     : [];
-  const parts: PlayerPart[] = rows.map((p) => ({ id: p.id, view: partView(p.kind, p.file?.kind), body: p.body, bodyFormat: p.bodyFormat, url: p.url, file: p.file, kind: p.kind, data: p.data }));
+  const parts: PlayerPart[] = rows.map((p) => ({
+    id: p.id,
+    view: partView(p.kind, p.file?.kind),
+    body: p.body,
+    bodyFormat: p.bodyFormat,
+    url: p.url,
+    file: p.file,
+    kind: p.kind,
+    data: p.data,
+    design: readPieceLook(p.design),
+  }));
   // Lección larga (capítulos y piezas interactivas): su carta de «Mi energía» y el capítulo donde se quedó.
   const long = parts.some((p) => isBlockKind(p.kind ?? ""));
   const [ownProfile, view] = long
@@ -154,19 +181,25 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
           ? `Tus alumnas la verán ${dripDayLabel(dripDay.get(current.id)!).toLowerCase()} de apuntarse.`
           : null
       : null;
+  // El diseño del curso (con el propio de la lección encima): sus colores, su fondo y su foto en toda el área; sus
+  // letras, aquí (lib/course-design.ts).
+  const look = mergeLook(readCourseLook(course.courseDesign), readLookPatch(currentMeta?.design));
+  // El capítulo en el que se abre la lección: el que se pide en la dirección o donde se quedó.
+  const startChapter = askedChapter ?? view?.chapter ?? 0;
+  const indexProps = { modules, base, done: [...done], currentId: current?.id ?? null, chapter: startChapter };
 
   return (
-    // En el ordenador, el curso usa más ancho que el resto del área: a la izquierda del todo los módulos y
-    // las lecciones, a su derecha los capítulos de la lección y luego su contenido (sin subir y bajar).
-    // data-course-night: el curso se ve de noche, como la web (app/globals.css, «Los cursos, de noche»).
-    <div className="lg:mx-[calc(50%_-_min(50vw_-_1.25rem,_44rem))]" data-course-night>
+    // En el ordenador, el curso usa más ancho que el resto del área: a la izquierda el índice (módulos, lecciones y
+    // capítulos) y a su derecha la lección (sin subir y bajar).
+    <CourseType look={look} fonts={pieceFonts(parts.map((p) => p.design))} className="lg:mx-[calc(50%_-_min(50vw_-_1.25rem,_44rem))]">
+      <CourseLookApply look={lookAsAccount(look)} />
       {isOwner && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#d9cdf0] bg-[#f4effc] px-4 py-2.5 text-sm text-[#2a2350]" role="status" data-owner-preview>
           <span className="inline-flex items-center gap-2">
             <Eye className="h-4 w-4 text-lavender-deep" /> Estás viendo el curso como alumna
           </span>
-          <Link href={current && currentMeta ? `/panel/cursos/${productId}/lecciones/${current.id}` : `/panel/cursos/${productId}`} className="font-semibold underline-offset-2 hover:underline">
-            Volver al estudio
+          <Link href={current && currentMeta ? `/panel/cursos/${productId}/lecciones/${current.id}` : `/panel/cursos/${productId}/lecciones`} className="font-semibold underline-offset-2 hover:underline">
+            Volver al editor
           </Link>
         </div>
       )}
@@ -194,20 +227,23 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
             <ChevronDown className="h-4 w-4 shrink-0 transition group-open:rotate-180" />
           </summary>
           <div className="border-t border-line p-3">
-            <CourseOutline modules={modules} base={base} done={done} currentId={current?.id ?? null} />
+            <CourseIndex {...indexProps} />
           </div>
         </details>
       )}
 
-      <div className="mt-6 grid gap-6 lg:mt-8 lg:grid-cols-[3.5rem_minmax(0,1fr)]">
-        <aside className="hidden lg:sticky lg:top-32 lg:block lg:max-h-[calc(100dvh-9rem)] lg:self-start lg:overflow-y-auto" data-outline-desktop aria-label="Contenido del curso">
-          <CourseCord modules={modules} base={base} done={[...done]} currentId={current?.id ?? null} />
+      <div className="mt-6 grid gap-6 lg:mt-8 lg:grid-cols-[9rem_minmax(0,1fr)] lg:gap-8">
+        {/* Estrecho, solo con los números (el título, al pasar el ratón) y con su barra fina a la izquierda. */}
+        <aside className="hidden lg:sticky lg:top-32 lg:block lg:self-start" data-outline-desktop>
+          <EdgeScroll innerClassName="max-h-[calc(100dvh-9rem)] overflow-x-hidden py-1 pl-4">
+            <CourseIndex {...indexProps} compact />
+          </EdgeScroll>
         </aside>
 
         {current && currentMeta ? (
           <article className="min-w-0">
             <LessonView
-              lesson={{ id: current.id, title: current.title, durationMin: currentMeta.durationMin, number: idx + 1, total: lessons.length, label: partsLabel(current.views) }}
+              lesson={{ id: current.id, title: current.title, number: idx + 1, total: lessons.length }}
               parts={parts}
               course={{ title: course.title, imageUrl: course.imageUrl }}
               personal={isPersonalMode()}
@@ -218,7 +254,7 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
                       profile: own ? { name: own.name, date: own.date, time: own.time, place: own.place } : null,
                       others,
                       energyHref: isPersonalMode() ? "/cuenta/mi-energia" : null,
-                      initialChapter: view?.chapter ?? 0,
+                      initialChapter: startChapter,
                       saveChapter: isOwner ? undefined : saveLessonChapter.bind(null, current.id),
                       // Llegar al último capítulo completa la lección (ya no hay botón «Marcar como completada»).
                       completeLesson: isOwner || locked || done.has(current.id) ? undefined : toggleLessonComplete.bind(null, current.id, true),
@@ -228,12 +264,12 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
               notice={ownerNote ? <p className="mt-3 rounded-xl border border-[#ecdcb8] bg-[#fbf5e8] px-3 py-2 text-xs text-[#7a5a1c]">{ownerNote}</p> : null}
               footer={
                 // Sin «Completada» ni «Anterior»: la lección se completa sola (al abrirla o, si tiene
-                // capítulos, al llegar al último) y el cordel de la izquierda lleva a cualquier otra.
+                // capítulos, al llegar al último) y el índice de la izquierda lleva a cualquier otra.
                 next || (!isOwner && !scoped && !locked) ? (
                   <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
                     {!isOwner && !scoped && !locked && current ? <LessonSaveButton key={current.id} lessonId={current.id} saved={lessonSaved} /> : <span />}
                     {next && (
-                      <Link href={`${base}?leccion=${next.id}`} className="btn btn-ghost btn-sm" aria-label="Siguiente lección">
+                      <Link href={`${base}?leccion=${next.id}`} className="btn btn-primary btn-sm" aria-label="Siguiente lección">
                         Siguiente lección <ArrowRight className="h-4 w-4" />
                       </Link>
                     )}
@@ -262,6 +298,6 @@ export default async function CoursePlayer({ params, searchParams }: { params: P
         )}
 
       </div>
-    </div>
+    </CourseType>
   );
 }

@@ -269,7 +269,7 @@ function RetroDates({ selected, tap, ctx, own }: { selected: string; tap: Tap; c
   const both = withChart && natal.length > 0;
   const retroP = sky.find((p) => p.id === selected);
   const hits = both && retroP ? natal.filter((q) => aspectOf(retroP.lon, q.lon, 0.8)) : [];
-  const chip = (on: boolean) => ({ background: on ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : "rgb(255 255 255 / .06)", color: on ? "#15122a" : undefined, borderColor: on ? "#F0D9A4" : "rgb(200 168 110 / .3)" });
+  const chip = (on: boolean) => ({ background: on ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : "rgb(255 255 255 / .06)", color: on ? "#0B0B0D" : undefined, borderColor: on ? "#F0D9A4" : "rgb(200 168 110 / .3)" });
   return (
     <div>
       {/* Los planetas que se ponen retrógrados. */}
@@ -325,7 +325,7 @@ function Combos({ selected, tap, ctx }: { selected: string; tap: Tap; ctx: Layer
   const { p, s, h } = parseCombo(selected);
   const natal = ctx.c?.chart.bodies.find((x) => x.id === p);
   const btn = (on: boolean, mineHere: boolean) =>
-    `flex min-h-9 w-full items-center gap-2 rounded-xl border px-2.5 text-left text-[0.8rem] transition ${on ? "border-gold bg-gold text-[#15122a] font-semibold" : mineHere ? "border-gold/60" : "border-line hover:border-gold/50"}`;
+    `flex min-h-9 w-full items-center gap-2 rounded-xl border px-2.5 text-left text-[0.8rem] transition ${on ? "border-gold bg-gold text-[#0B0B0D] font-semibold" : mineHere ? "border-gold/60" : "border-line hover:border-gold/50"}`;
   const col = "space-y-1";
   return (
     <div className="grid grid-cols-3 gap-2">
@@ -532,7 +532,7 @@ function RetroWheel({ planet, sky, natal, period }: { planet: string; sky: Pos[]
                 </>
               )}
               <circle cx={dot.x} cy={dot.y} r="1.2" fill="#B5487A" />
-              <circle cx={g.x} cy={g.y} r="7" fill="rgb(16 14 38 / .85)" stroke="rgb(255 255 255 / .22)" strokeWidth="0.5" />
+              <circle cx={g.x} cy={g.y} r="7" fill="rgb(11 11 13 / .85)" stroke="rgb(255 255 255 / .22)" strokeWidth="0.5" />
               <text x={g.x} y={g.y} textAnchor="middle" dominantBaseline="central" fontSize="8.5" fill={INK}>
                 {glyph(p.id)}
               </text>

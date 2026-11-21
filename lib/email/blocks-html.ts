@@ -222,7 +222,7 @@ function social(b: Extract<EmailBlock, { t: "social" }>, c: Ctx): string {
   const color = hexOr(b.color, c.s.accent);
   const links = SOCIAL_NETWORKS.map((n) => ({ n, href: b.links[n] ? socialLink(n, b.links[n]!) : null })).filter((x): x is { n: SocialNetwork; href: string } => !!x.href);
   if (!links.length) return "";
-  const label: Record<SocialNetwork, string> = { instagram: "Instagram", tiktok: "TikTok", youtube: "YouTube", telegram: "Telegram", whatsapp: "WhatsApp", web: "Mi web", email: "Email" };
+  const label: Record<SocialNetwork, string> = { instagram: "Instagram", tiktok: "TikTok", youtube: "YouTube", telegram: "Telegram", web: "Mi web", email: "Email" };
   return `<p style="margin:16px 0;text-align:${b.align};line-height:2.6">${links
     .map(
       (l) =>

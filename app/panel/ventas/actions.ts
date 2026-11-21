@@ -50,7 +50,7 @@ export async function refundOrderAction(_: RefundState, form: FormData): Promise
     revokeAccess: revoke,
     cancelBooking: revoke && order.productType === "SESSION",
   });
-  for (const path of ["/panel", "/panel/ventas", `/panel/ventas/${order.id}`, "/panel/solicitudes"]) revalidatePath(path);
+  for (const path of ["/panel", "/panel/ventas", `/panel/ventas/${order.id}`, "/panel/clientes"]) revalidatePath(path);
   if (!r.ok) return { error: r.error };
   const name = (order.buyerName ?? order.buyerEmail).split(" ")[0];
   return {
@@ -64,7 +64,8 @@ export async function refundOrderAction(_: RefundState, form: FormData): Promise
 /** Vuelve a Inscripciones con el mismo filtro y un aviso. */
 function backToSignups(form: FormData, ok: string): never {
   const back = String(form.get("back") ?? "");
-  const url = new URL(back.startsWith("/panel/ventas") ? back : "/panel/ventas", "http://x");
+  const safe = (back.startsWith("/panel/ventas") || back.startsWith("/panel/clientes")) && !back.startsWith("//");
+  const url = new URL(safe ? back : "/panel/clientes", "http://x");
   url.searchParams.set("ok", ok);
   redirect(`${url.pathname}${url.search}`);
 }
@@ -73,7 +74,7 @@ function backToSignups(form: FormData, ok: string): never {
 export async function renewSignupMember(form: FormData) {
   const { creator } = await requireCreator();
   const until = await renewMembership(creator.id, String(form.get("accessId") ?? ""));
-  for (const path of ["/panel/ventas", "/panel/comunidad"]) revalidatePath(path);
+  for (const path of ["/panel/ventas", "/panel/clientes", "/panel/comunidad"]) revalidatePath(path);
   backToSignups(form, `Renovada hasta el ${until}. Le hemos enviado un email.`);
 }
 
@@ -81,7 +82,7 @@ export async function renewSignupMember(form: FormData) {
 export async function denySignupMember(form: FormData) {
   const { creator } = await requireCreator();
   await blockMembership(creator.id, String(form.get("accessId") ?? ""));
-  for (const path of ["/panel/ventas", "/panel/comunidad"]) revalidatePath(path);
+  for (const path of ["/panel/ventas", "/panel/clientes", "/panel/comunidad"]) revalidatePath(path);
   backToSignups(form, "Acceso denegado. Si paga, pulsa «Ha pagado» y vuelve a entrar.");
 }
 
@@ -99,6 +100,6 @@ export async function deleteOrderAction(form: FormData) {
   const { creator } = await requireCreator();
   const id = z.string().min(1).max(40).parse(form.get("id"));
   await deleteOrderHard(creator.id, id);
-  for (const p of ["/panel/ventas", "/panel/clientes", "/panel/solicitudes", "/panel/sesiones", "/panel/cursos", "/panel/circulos", "/panel/comunidad", "/panel"]) revalidatePath(p);
+  for (const p of ["/panel/ventas", "/panel/clientes", "/panel/sesiones", "/panel/cursos", "/panel/circulos", "/panel/comunidad", "/panel"]) revalidatePath(p);
   redirect(backTo(form.get("back"), `/panel/ventas?ok=${encodeURIComponent("Borrada.")}`));
 }

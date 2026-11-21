@@ -29,21 +29,21 @@ const HD_LINES: Record<string, string> = {
 
 const HD_PARTS: DemoPart[] = [
   text("El bodygraph tiene **9 centros**. Cada uno es una energía. Los que salen de color están **definidos** (constantes en ti); los blancos, **abiertos** (allí recibes la energía de los demás). Con tus datos guardados, el modelo pinta tu bodygraph."),
-  chapter("Qué es un centro", 15),
+  chapter("Qué es un centro"),
   text(`Los centros son como los chakras, pero son nueve. Cada uno se ocupa de algo: pensar, hablar, sentir, decidir, tener energía…
 
 - **Definido** no es mejor que abierto: es lo que eres siempre.
 - **Abierto** es donde aprendes de los demás… y donde te condicionan.
 
 La sabiduría está en tus centros abiertos: allí puedes llegar a ser muy sabia, si no te identificas con lo que recibes.`),
-  chapter("Los 9 centros, uno a uno", 60),
+  chapter("Los 9 centros, uno a uno"),
   { kind: "MODEL", data: { option: null, mode: "explore", layer: "hd-centres", focus: null, title: "Toca cada centro", intro: "", notes: HD_CENTRES } },
-  chapter("Tu perfil: las 6 líneas", 40),
+  chapter("Tu perfil: las 6 líneas"),
   text("Tu **perfil** son dos números (por ejemplo 5/1): la línea del Sol consciente y la del Sol inconsciente. Dicen tu manera de aprender y de relacionarte. Toca cada línea."),
   { kind: "MODEL", data: { option: null, mode: "explore", layer: "hd-lines", focus: null, title: "Las seis líneas", intro: "", notes: HD_LINES } },
-  chapter("Práctica", 20),
+  chapter("Práctica"),
   text("Durante una semana, cada vez que sientas presión por **hablar**, **decidir** o **demostrar**, mira qué centro tienes abierto en esa energía. Anótalo: ¿era tuyo o lo recibías?"),
-  chapter("Repaso", 10),
+  chapter("Repaso"),
   {
     kind: "QUIZ",
     data: {
@@ -80,16 +80,16 @@ const GK_SPHERES: Record<string, string> = {
 
 const GK_PARTS: DemoPart[] = [
   text("Las **Gene Keys** son 64 llaves. Cada una tiene tres frecuencias: **sombra**, **don** y **siddhi**. Tu perfil las coloca en once **esferas** del Camino Dorado. Con tus datos, verás tu llave en cada esfera."),
-  chapter("Qué es una llave", 15),
+  chapter("Qué es una llave"),
   text("Cada llave es una energía con un espectro. La misma energía puede vivirse con miedo (sombra), con genio (don) o con gracia (siddhi). No hay que «subir»: se **contempla** con paciencia."),
-  chapter("Sombra, don y siddhi", 30),
+  chapter("Sombra, don y siddhi"),
   { kind: "MODEL", data: { option: null, mode: "explore", layer: "gk-spectrum", focus: null, title: "Las tres frecuencias", intro: "", notes: GK_SPECTRUM } },
-  chapter("Las esferas del Camino Dorado", 60),
+  chapter("Las esferas del Camino Dorado"),
   text("El Camino Dorado tiene tres secuencias: **Activación** (verde, tu genio), **Venus** (rojo, tu corazón) y **Perla** (azul, tu prosperidad). Empieza por la Activación: Obra de vida, Evolución, Irradiación y Propósito."),
   { kind: "MODEL", data: { option: null, mode: "explore", layer: "gk-spheres", focus: null, title: "Esfera a esfera", intro: "", notes: GK_SPHERES } },
-  chapter("Contemplar", 20),
+  chapter("Contemplar"),
   text("Elige tu llave de la **Obra de vida**. Durante siete días, lee cada mañana su sombra, su don y su siddhi. No hagas nada con ello: solo obsérvate. Anota cada noche cuándo apareció la sombra y cuándo el don."),
-  chapter("Repaso", 10),
+  chapter("Repaso"),
   {
     kind: "QUIZ",
     data: {
@@ -116,20 +116,20 @@ const MOON_PHASES: Record<string, string> = {
 
 const MOON_PARTS: DemoPart[] = [
   text("La Luna tarda **29,5 días** en dar una vuelta completa de fases. Cada fase tiene una energía. Aprender a acompañarlas es vivir con un ritmo más natural."),
-  chapter("El ciclo lunar", 15),
+  chapter("El ciclo lunar"),
   text("La fase depende del ángulo entre el Sol y la Luna vistos desde la Tierra: juntos, **luna nueva**; enfrentados, **luna llena**. Entre medias, la Luna crece (creciente) y decrece (menguante)."),
-  chapter("Las 8 fases, una a una", 45),
+  chapter("Las 8 fases, una a una"),
   { kind: "MODEL", data: { option: null, mode: "explore", layer: "moon-phases", focus: null, title: "Toca cada fase", intro: "El punto dorado marca la fase de hoy. Con tus datos, la tuya al nacer sale marcada.", notes: MOON_PHASES } },
-  chapter("Tu Luna natal", 20),
+  chapter("Tu Luna natal"),
   text("La fase en la que naciste dice tu manera de empezar y terminar los ciclos. Mira en el modelo cuál es la tuya y léela despacio. ¿Te reconoces?"),
-  chapter("Un ritual por fase", 30),
+  chapter("Un ritual por fase"),
   text(`1. **Luna nueva**: escribe tres intenciones.
 2. **Cuarto creciente**: revisa qué obstáculos han aparecido.
 3. **Luna llena**: agradece y celebra lo conseguido.
 4. **Cuarto menguante**: suelta lo que ya no sirve.
 
 Repite el ciclo tres meses y compara.`),
-  chapter("Repaso", 10),
+  chapter("Repaso"),
   {
     kind: "QUIZ",
     data: {

@@ -251,7 +251,7 @@ function ClassView({ keys, selected, tap }: { keys: string[]; selected: string; 
         return (
           <g key={k} {...tap(k, CLASS_PARTS[k].name)}>
             <rect x={x1 + 1} y="50" width={w - 2} height="44" rx="8" fill={on ? "#E9CC8E" : `rgb(233 204 142 / ${0.08 + i * 0.03})`} stroke={on ? "#FFF1C8" : "rgb(233 204 142 / .4)"} />
-            <text x={x1 + w / 2} y="72" textAnchor="middle" dominantBaseline="central" fontSize={w > 40 ? 9 : 7} fontWeight={700} fill={on ? "#15122a" : STAR}>
+            <text x={x1 + w / 2} y="72" textAnchor="middle" dominantBaseline="central" fontSize={w > 40 ? 9 : 7} fontWeight={700} fill={on ? "#0B0B0D" : STAR}>
               {i + 1}
             </text>
             <text x={x1 + w / 2} y={i % 2 ? 112 : 34} textAnchor="middle" fontSize="7.5" fill={on ? NIGHT_GOLD : STAR} fillOpacity={on ? 1 : 0.7} fontWeight={on ? 700 : 500}>
@@ -280,8 +280,8 @@ function BodiesRing({ p, keys, selected, tap, own }: { p: string; keys: string[]
         return (
           <g key={k} {...tap(k, BODIES[k].name)}>
             {on && <circle cx={x} cy={y} r="30" fill={`url(#${p}goldglow)`} />}
-            <circle cx={x} cy={y} r="20" fill={on ? `url(#${p}gold)` : "#1A1640"} stroke={mine || on ? "#F7E2AE" : "rgb(233 204 142 / .4)"} strokeWidth={mine ? 2 : 1} />
-            <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize="15" fontFamily="Georgia, serif" fill={on ? "#15122a" : STAR} pointerEvents="none">
+            <circle cx={x} cy={y} r="20" fill={on ? `url(#${p}gold)` : "#1A1A1D"} stroke={mine || on ? "#F7E2AE" : "rgb(233 204 142 / .4)"} strokeWidth={mine ? 2 : 1} />
+            <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize="15" fontFamily="Georgia, serif" fill={on ? "#0B0B0D" : STAR} pointerEvents="none">
               {k}
             </text>
           </g>
@@ -309,10 +309,10 @@ function NumbersView({ c, selected, tap }: { c: LayerCtx["c"]; selected: string;
         return (
           <g key={k} {...tap(k, POSITIONS[k].name)}>
             <rect x={x - 28} y="30" width="56" height="96" rx="12" fill={on ? "#E9CC8E" : "rgb(255 255 255 / .04)"} stroke={on ? "#FFF1C8" : "rgb(233 204 142 / .4)"} />
-            <text x={x} y="50" textAnchor="middle" fontSize="7.5" fontWeight={700} letterSpacing="1" fill={on ? "#15122a" : NIGHT_GOLD}>
+            <text x={x} y="50" textAnchor="middle" fontSize="7.5" fontWeight={700} letterSpacing="1" fill={on ? "#0B0B0D" : NIGHT_GOLD}>
               {SHORT[k].toUpperCase()}
             </text>
-            <text x={x} y="88" textAnchor="middle" dominantBaseline="central" fontSize="30" fontFamily="Georgia, serif" fill={on ? "#15122a" : STAR}>
+            <text x={x} y="88" textAnchor="middle" dominantBaseline="central" fontSize="30" fontFamily="Georgia, serif" fill={on ? "#0B0B0D" : STAR}>
               {v ?? "·"}
             </text>
             <text x={x} y="146" textAnchor="middle" fontSize="6.5" fill={STAR} fillOpacity="0.6">

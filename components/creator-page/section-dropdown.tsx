@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { unseenLabel, type SeenSection } from "@/lib/section-seen-rules";
 
 type Remote = { sync: true; counts: Record<SeenSection, number> } | { sync: false };
@@ -154,7 +154,21 @@ function FoldTab({ fold, username, preview, open, onToggle, editing }: { fold: F
  * fila (y se cierra el que estuviera abierto). Empiezan cerrados; un enlace con ancla (#ofertas,
  * #portal-form…) abre el que lo contiene.
  */
-export function SectionFolds({ folds, username, preview, editing = false }: { folds: Fold[]; username: string; preview?: boolean; /** Canva: los títulos se escriben encima. */ editing?: boolean }) {
+export function SectionFolds({
+  folds,
+  username,
+  preview,
+  editing = false,
+  wrap,
+}: {
+  folds: Fold[];
+  username: string;
+  preview?: boolean;
+  /** Canva: los títulos se escriben encima. */
+  editing?: boolean;
+  /** Canva: cada desplegable con sus flechas para ordenarlo (su número en la fila). */
+  wrap?: (i: number, node: ReactNode) => ReactNode;
+}) {
   const [open, setOpen] = useState<string | null>(null);
   const panels = useRef<HTMLDivElement>(null);
 
@@ -171,21 +185,23 @@ export function SectionFolds({ folds, username, preview, editing = false }: { fo
   return (
     <div>
       <div className="grid gap-x-2 gap-y-6" style={{ gridTemplateColumns: `repeat(${folds.length}, minmax(0, 1fr))` }}>
-        {folds.map((f) => (
-          <FoldTab
-            key={f.id}
-            fold={f}
-            username={username}
-            preview={!!preview}
-            open={open === f.id}
-            editing={editing}
-            onToggle={(markSeen) => {
-              const next = open === f.id ? null : f.id;
-              setOpen(next);
-              if (next) markSeen();
-            }}
-          />
-        ))}
+        {folds.map((f, i) => {
+          const tab = (
+            <FoldTab
+              fold={f}
+              username={username}
+              preview={!!preview}
+              open={open === f.id}
+              editing={editing}
+              onToggle={(markSeen) => {
+                const next = open === f.id ? null : f.id;
+                setOpen(next);
+                if (next) markSeen();
+              }}
+            />
+          );
+          return <Fragment key={f.id}>{wrap ? wrap(i, tab) : tab}</Fragment>;
+        })}
       </div>
       <div ref={panels}>
         {folds.map((f) => (

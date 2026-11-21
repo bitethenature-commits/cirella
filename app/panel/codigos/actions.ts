@@ -56,12 +56,12 @@ async function storeCode(form: FormData): Promise<{ error: string } | { created:
   return { created: false, state: codeState(data) };
 }
 
-/** Crea o guarda un código de descuento. Al crearlo, vuelve a la lista. */
+/** Crea o guarda un código de descuento. Al crearlo, vuelve a los códigos (en Mi página). */
 export async function saveDiscountCode(_: CodeActionState, form: FormData): Promise<CodeActionState> {
   const r = await storeCode(form);
   if ("error" in r) return { error: r.error };
   // El aviso dice si se ve de verdad: oculto o ya caducado, no.
-  if (r.created) redirect(`/panel/codigos?guardado=${savedParam(r.state)}`);
+  if (r.created) redirect("/panel/pagina?ver=codigos");
   return { ok: savedFlash(r.state) };
 }
 
@@ -85,7 +85,7 @@ export async function deleteDiscountCode(form: FormData) {
   const id = z.string().min(1).max(40).parse(form.get("id"));
   await tenantDb(creator.id).discountCode.deleteMany({ where: { id } });
   refresh(creator.username);
-  redirect("/panel/codigos?borrado=1");
+  redirect("/panel/pagina?ver=codigos");
 }
 
 /** Mostrar u ocultar desde la lista. */

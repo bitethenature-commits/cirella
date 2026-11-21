@@ -1,19 +1,25 @@
 "use client";
-import { ArrowDown, ArrowUp, Eye, EyeOff, Loader2, Pencil, Plus, Settings2, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Eye, EyeOff, Loader2, Palette, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { CreatorPageView } from "@/components/creator-page/creator-page-view";
-import type { CanvaPart, HomeEdit } from "@/components/creator-page/home-edit";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { CreatorPageView, type PublicDiscountCode, type PublicPost, type PublicProduct } from "@/components/creator-page/creator-page-view";
+import type { CanvaPart, HomeEdit, OrderList } from "@/components/creator-page/home-edit";
+import type { OracleDeckView } from "@/components/models/data/oracle";
 import { askConfirm } from "@/components/ui/ask-confirm";
 import { unfillText } from "@/lib/site-texts";
-import { InlineBlocks } from "@/components/panel/blocks/inline-blocks";
-import type { BlocksUpdate } from "@/components/panel/blocks/blocks-editor";
+import { BlockContent, BlockStyleFields, blockChoices, blockDesignGroups, CanvaBlock, choiceKind, OPEN_FIRST, pageLookOf, type BlockView } from "@/components/panel/blocks/inline-blocks";
+import type { LinkTarget } from "@/components/panel/blocks/link-input";
 import { nextMoonCircles } from "@/lib/moon-circles";
-import { SECTION_EDIT_TAB, SECTION_MANAGE_HREF, SECTION_META, TEXT_BLOCK_BODY_MAX, TEXT_BLOCKS_MAX, type PageConfig, type SectionKey } from "@/lib/page-config";
+import { BLOCK_LABEL, newBlock, type ContentBlock } from "@/lib/page-blocks";
+import { designFor, homeLayout, readDesign, SECTION_META, socialList, TEXT_BLOCK_BODY_MAX, TEXT_BLOCKS_MAX, type PageConfig, type SectionKey, type SocialKey } from "@/lib/page-config";
+import type { PublicPortalItem } from "@/lib/portal-rules";
+import type { GiftsPreview, SitePageState } from "@/lib/site-pages";
+import type { Design } from "@/lib/templates";
+import type { NewsItem } from "@/lib/web-news";
 import { deleteDiscountCodeInline, moveDiscountCode, toggleDiscountCode } from "../codigos/actions";
 import { CodeForm, type EditableCode } from "../codigos/code-form";
 import { publishDraft } from "../pagina/actions";
-import { cleanPageConfig, PageEditor, type Tab } from "../pagina/editor";
+import type { DesignGroup } from "../pagina/design-editor";
 import {
   AboutFields,
   BubblesFields,
@@ -28,13 +34,140 @@ import {
   TextsFields,
   type SetCfg,
 } from "../pagina/part-fields";
-import { CanvaBar, CanvaSheet, EditImage, EditLink, EditText, PartFrame, stopWebLinks, type CanvaPage, type SaveState } from "./canva-ui";
+import { BarButton, CanvaBar, CanvaOverlay, CanvaShell, CanvaSheet, EditImage, EditLink, EditText, PartFrame, stopWebLinks, type SaveState } from "./canva-ui";
+import { swapDiscountCodes } from "./actions";
+import { cleanPageConfig } from "./clean-config";
+import { DesignLive, DesignSheet, ScopeDesign, useDesignPanel } from "./design-side";
+import { AddSection, OrderItem, SectionTools, type AddChoice } from "./order-tools";
+import { PagesMenu } from "./pages-menu";
 import { setPath } from "./paths";
+import { useDevice } from "./web-frame";
+import type { PanelPage } from "./web-pages";
 
-type EditorProps = ComponentProps<typeof PageEditor>;
+/** Lo que necesita la portada para pintarse y editarse. */
+export type HomeEditor = {
+  initial: PageConfig;
+  /** La portada publicada (vacío si aún no se ha publicado nunca). */
+  publishedJson: string;
+  creatorId: string;
+  username: string;
+  products: PublicProduct[];
+  posts: PublicPost[];
+  postCount: number;
+  news?: NewsItem[];
+  portal: PublicPortalItem[];
+  gifts?: GiftsPreview;
+  discountCodes: PublicDiscountCode[];
+  personal: boolean;
+  signupsOnly?: boolean;
+  siteOrigin?: string;
+  allowCustom: boolean;
+  allowRemoveBranding: boolean;
+  platformName: string;
+  referralCode: string;
+  pages: { id: string; title: string; slug: string; state: SitePageState }[];
+  linkTargets: LinkTarget[];
+  oracleDecks: OracleDeckView[];
+};
 
 /** Los desplegables de la portada van juntos donde está el primero (creator-page-view.tsx). */
 const FOLD_KEYS = new Set<SectionKey>(["posts", "portal", "offers", "gifts"]);
+
+/** Los bloques de la portada van con el aspecto de siempre (sus tarjetas). */
+const HOME_MODE = { bare: false, luxe: false };
+
+/** Un hueco de la portada: una sección («about»…) o un bloque («b:<id>»). */
+const blockTok = (id: string) => `b:${id}`;
+const isBlockTok = (t: string) => t.startsWith("b:");
+
+/**
+ * Lo que se ve en el Canva, en su orden: una sección por hueco (también las ocultas, que salen tenues), los bloques
+ * en su sitio entre ellas y los desplegables juntos donde está el primero que se ve (si no se ve ninguno, el primero),
+ * como en la web (creator-page-view.tsx → homeLayout). Sin los botones principales («links»), que van siempre arriba,
+ * ni la antigua newsletter; las quitadas no salen (vuelven con el +).
+ */
+function slotsOf(cfg: PageConfig): string[][] {
+  const folds = cfg.sections.filter((s) => FOLD_KEYS.has(s.key) && !s.removed);
+  const anchor = (folds.find((s) => s.enabled) ?? folds[0])?.key;
+  const slots: string[][] = [];
+  for (const item of homeLayout(cfg)) {
+    if (item.kind === "block") slots.push([blockTok(item.block.id)]);
+    else if (item.key === "newsletter") continue;
+    else if (!FOLD_KEYS.has(item.key)) slots.push([item.key]);
+    else if (item.key === anchor) slots.push(folds.map((f) => f.key));
+  }
+  return slots;
+}
+
+/**
+ * Todo en este orden: primero los botones principales, luego estas secciones y al final las que falten (las quitadas,
+ * la antigua newsletter). Cada bloque va antes de la sección que le sigue (o al final), y los de antes (sin sitio
+ * propio) quedan guardados donde se ven ahora (también ocultos, si lo estaba su antigua sección «Bloques»).
+ */
+function withOrder(cfg: PageConfig, toks: string[]): PageConfig {
+  const byKey = new Map(cfg.sections.map((s) => [s.key, s]));
+  const keys = toks.filter((t) => !isBlockTok(t)) as SectionKey[];
+  const head = cfg.sections.filter((s) => s.key === "links");
+  const middle = keys.flatMap((k) => (k === "links" || !byKey.has(k) ? [] : [byKey.get(k)!]));
+  const rest = cfg.sections.filter((s) => s.key !== "links" && !keys.includes(s.key));
+  const seen = new Map(homeLayout(cfg).flatMap((i) => (i.kind === "block" ? [[i.block.id, i.block] as const] : [])));
+  const placed: ContentBlock[] = [];
+  toks.forEach((t, i) => {
+    const b = isBlockTok(t) ? seen.get(t.slice(2)) : undefined;
+    if (!b) return;
+    const next = toks.slice(i + 1).find((x) => !isBlockTok(x)) ?? "end";
+    placed.push({ ...b, at: next });
+  });
+  const ids = new Set(placed.map((b) => b.id));
+  const others = (cfg.blocks ?? []).filter((b) => !ids.has(b.id));
+  return { ...cfg, sections: [...head, ...middle, ...rest], blocks: [...placed, ...others] };
+}
+
+/** Los bloques de antes (sin sitio propio) se guardan en su sitio antes de cambiarlos. */
+const settled = (c: PageConfig): PageConfig => ((c.blocks ?? []).some((b) => !b.at) ? withOrder(c, slotsOf(c).flat()) : c);
+
+/** Dos cosas de una lista cambiadas de sitio (por su id). */
+function swapIds<T extends { id: string }>(list: T[], a: string, b: string): T[] {
+  const i = list.findIndex((x) => x.id === a);
+  const j = list.findIndex((x) => x.id === b);
+  if (i < 0 || j < 0) return list;
+  const next = [...list];
+  [next[i], next[j]] = [next[j], next[i]];
+  return next;
+}
+
+/** ¿Lleva algo propio? (un diseño vacío es como no tenerlo). */
+const hasDesign = (d: Design | undefined | null) => !!d && Object.values(d).some((v) => v !== undefined && v !== null);
+
+/** Qué se puede diseñar de cada sección de la portada (sus letras y colores y, si los lleva, tarjetas, botones y fotos). */
+const SECTION_GROUPS: Partial<Record<string, DesignGroup[]>> = {
+  header: ["colores", "letras", "botones", "fotos"],
+  links: ["colores", "letras", "botones"],
+  bubbles: ["colores", "letras", "fotos"],
+  folds: ["colores", "letras", "tarjetas", "botones"],
+  about: ["colores", "letras", "tarjetas", "botones", "fotos"],
+  systems: ["colores", "letras", "tarjetas"],
+  readings: ["colores", "letras", "tarjetas", "botones"],
+  codes: ["colores", "letras", "tarjetas", "botones", "fotos"],
+  products: ["colores", "letras", "tarjetas", "botones", "fotos"],
+  sessions: ["colores", "letras", "tarjetas", "botones", "fotos"],
+  courses: ["colores", "letras", "tarjetas", "botones", "fotos"],
+  memberships: ["colores", "letras", "tarjetas", "botones", "fotos"],
+  testimonials: ["colores", "letras", "tarjetas"],
+  faq: ["colores", "letras"],
+  contact: ["colores", "letras", "tarjetas", "botones"],
+};
+
+/** El nombre de lo que se diseña («header», una sección, «folds» o un bloque «b:<id>»). */
+function scopeLabel(cfg: PageConfig, key: string): string {
+  if (key === "header") return "Cabecera";
+  if (key === "folds") return "Desplegables";
+  if (isBlockTok(key)) {
+    const b = (cfg.blocks ?? []).find((x) => x.id === key.slice(2));
+    return b ? BLOCK_LABEL[b.kind] : "Sección";
+  }
+  return SECTION_META[key as SectionKey]?.label ?? "Sección";
+}
 
 /** Un código de descuento tal cual se edita (todos, también los ocultos y caducados) y cómo está. */
 export type CanvaCode = EditableCode & { id: string; stateLabel: string };
@@ -58,34 +191,60 @@ const PART_META: Record<Exclude<CanvaPart, `code:${string}`>, { chip: string; ti
 const partMeta = (part: CanvaPart) =>
   part.startsWith("code:") ? { chip: "Editar código", title: part === "code:new" ? "Nuevo código" : "Código de descuento" } : PART_META[part as keyof typeof PART_META];
 
-/** La sección que tiene ventanita propia (su «Editar» y su «Añadir contenido» la abren). */
-const SECTION_PART: Partial<Record<SectionKey, CanvaPart>> = {
-  links: "links",
-  bubbles: "bubbles",
-  systems: "systems",
-  about: "about",
-  readings: "readings",
-  testimonials: "testimonials",
-  faq: "faq",
-  contact: "contact",
-  codes: "codes",
-};
+/** Lo abierto al lado de la web: el formulario de una parte, la ventanita de un bloque o el «Diseño» de una sección. */
+type Sheet = CanvaPart | `block:${string}` | `design:${string}`;
+const isPart = (s: Sheet): s is CanvaPart => !s.startsWith("block:") && !s.startsWith("design:");
+
+const uid = () => Math.random().toString(36).slice(2, 10);
 
 /**
- * Canva de la portada: la web tal cual, con todo escrito encima (textos, fotos, enlaces, también los textos
- * fijos como «Ver todas las novedades» o la letra pequeña de la newsletter), una barra en cada sección (subir,
- * bajar, ocultar, editar) y «Añadir sección» al final. Las partes con listas (redes, botones, testimonios,
- * preguntas, códigos, el pie…) se cambian en su ventanita al pulsarlas. Cada cambio se publica solo al momento.
+ * Mi página, la portada: la web tal cual (en su marco de ordenador o de móvil), con todo escrito encima (textos,
+ * fotos, enlaces, también los textos fijos como «Ver todas las novedades» o la letra pequeña de la newsletter). En
+ * cada sección y cada bloque, subir y bajar a la izquierda y, a la derecha, ocultar (sigue en su sitio, más tenue),
+ * quitar (la X: la sección se guarda y vuelve con el +; el bloque se borra), sus estilos y su «Diseño» (letras,
+ * colores, tarjetas… solo de esa sección). Entre secciones, a la izquierda, el + para añadir una nueva (Texto,
+ * Tarjetas, Cita…) o volver a poner una quitada. En cada cosa de una lista (sistemas, accesos, desplegables, códigos,
+ * testimonios, preguntas, redes), sus flechas. Las partes con listas (redes, botones, testimonios, preguntas, el
+ * pie…) se cambian en su formulario, encima de la web; el «Diseño» de arriba, solo los fondos. Los códigos se cambian
+ * tocándolos en la web. Cada cambio se publica solo al momento.
  */
-export function HomeCanva({ editor, pages, sellerName, viewHref, codes }: { editor: Omit<EditorProps, "controlled" | "embedded">; pages: CanvaPage[]; sellerName: string | null; viewHref: string; codes: CanvaCode[] }) {
+export function HomeCanva({
+  editor,
+  menu,
+  openCodes,
+  sellerName,
+  viewHref,
+  codes,
+}: {
+  editor: HomeEditor;
+  /** «Mis páginas»: sus páginas y si sale abierto al llegar (?ver=paginas). */
+  menu: { pages: PanelPage[]; initialOpen: boolean };
+  /** Al llegar, la lista de códigos abierta (?ver=codigos, al volver de crear o borrar uno). */
+  openCodes: boolean;
+  sellerName: string | null;
+  viewHref: string;
+  codes: CanvaCode[];
+}) {
   const router = useRouter();
   const [cfg, setCfg] = useState<PageConfig>(editor.initial);
   const [state, setState] = useState<SaveState>({ kind: "idle" });
-  const [drawer, setDrawer] = useState<Tab | null>(null);
-  const [sheet, setSheet] = useState<CanvaPart | null>(null);
+  const [device, setDevice] = useDevice();
+  const design = useDesignPanel("home");
+  // Una sola cosa abierta a la vez al lado de la web: un formulario, la ventanita de un bloque o un Diseño.
+  const [sheet, setSheetRaw] = useState<Sheet | null>(openCodes ? "codes" : null);
+  const setSheet = (p: Sheet | null) => {
+    design.setOpen(false);
+    setSheetRaw(p);
+  };
+  const toggleDesign = () => {
+    setSheetRaw(null);
+    design.setOpen(!design.open);
+  };
   const [uploading, setUploading] = useState(false);
   const [pendingDraft, setPendingDraft] = useState(!!editor.publishedJson && JSON.stringify(editor.initial) !== editor.publishedJson);
   const first = useRef(true);
+  /** La web en el Canva (para mirar qué tiene cada sección al abrir su «Diseño»). */
+  const web = useRef<HTMLDivElement>(null);
   const set = (path: string, value: string | null) => setCfg((c) => setPath(c, path, value));
   const setKey: SetCfg = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
 
@@ -109,79 +268,201 @@ export function HomeCanva({ editor, pages, sellerName, viewHref, codes }: { edit
   const suggestions = useMemo(() => editor.linkTargets.map((t) => ({ value: t.href, label: t.label })), [editor.linkTargets]);
   const oracleDeckViews = useMemo(() => Object.fromEntries(editor.oracleDecks.flatMap((d) => (d.id ? [[d.id, d]] : []))), [editor.oracleDecks]);
   const hidden = useMemo(() => new Set<string>(), []);
-  const enabled = cfg.sections.filter((s) => s.enabled).map((s) => s.key);
-  const firstFold = enabled.find((k) => FOLD_KEYS.has(k));
+  const moonCircles = useMemo(() => nextMoonCircles(editor.products), [editor.products]);
+  const homeDesign = useMemo(() => designFor({ theme: cfg.theme, pageThemes: cfg.pageThemes }, "home"), [cfg.theme, cfg.pageThemes]);
+  const blockView: BlockView = {
+    mode: HOME_MODE,
+    bodyMax: TEXT_BLOCK_BODY_MAX,
+    username: editor.username,
+    hiddenSlugs: hidden,
+    siteOrigin: editor.siteOrigin ?? "",
+    oracleDecks: oracleDeckViews,
+    moonCircles,
+    designBase: homeDesign,
+    allowCustom: editor.allowCustom,
+  };
 
-  /** Sube o baja una sección por encima de la sección visible de al lado (las ocultas no cuentan). */
-  const move = (key: SectionKey, dir: -1 | 1) =>
+  const slots = slotsOf(cfg);
+  /** Sube o baja una sección o un bloque por encima del de al lado (los desplegables, todos juntos). */
+  const move = (tok: string, dir: -1 | 1) =>
     setCfg((c) => {
-      const vis = c.sections.filter((s) => s.enabled).map((s) => s.key);
-      const other = vis[vis.indexOf(key) + dir];
-      if (!other) return c;
-      const s = [...c.sections];
-      const i = s.findIndex((x) => x.key === key);
-      const j = s.findIndex((x) => x.key === other);
+      const s = slotsOf(c);
+      const i = s.findIndex((x) => x.includes(tok));
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= s.length) return c;
       [s[i], s[j]] = [s[j], s[i]];
-      return { ...c, sections: s };
+      return withOrder(c, s.flat());
     });
   const toggle = (key: SectionKey, on: boolean) => setCfg((c) => ({ ...c, sections: c.sections.map((s) => (s.key === key ? { ...s, enabled: on } : s)) }));
+  /** Quita una sección: se guarda tal cual (con lo que tiene) y vuelve con el +. */
+  const removeSection = (key: SectionKey) => {
+    if (sheet === `design:${key}`) setSheetRaw(null);
+    setCfg((c) => ({ ...c, sections: c.sections.map((s) => (s.key === key ? { ...s, removed: true } : s)) }));
+  };
+  /**
+   * Lo elegido en el + justo antes de `before` (al final, sin él): un bloque nuevo («new:<tipo>») o una sección
+   * quitada, que vuelve como estaba y se ve. Los botones principales van siempre arriba; un desplegable, con los demás.
+   */
+  const add = (key: string, before: string | null) => {
+    const kind = choiceKind(key);
+    const fresh = kind ? ({ ...newBlock(kind, uid()), at: "end" } as ContentBlock) : null;
+    setCfg((c) => {
+      const s = slotsOf(c);
+      const j = before === null ? -1 : s.findIndex((x) => x.includes(before));
+      const at = j >= 0 ? j : s.length;
+      if (fresh) {
+        if ((c.blocks ?? []).length >= TEXT_BLOCKS_MAX) return c;
+        s.splice(at, 0, [blockTok(fresh.id)]);
+        return withOrder({ ...c, blocks: [...(c.blocks ?? []), fresh] }, s.flat());
+      }
+      const k = key as SectionKey;
+      const back = (x: PageConfig): PageConfig => ({ ...x, sections: x.sections.map((sec) => (sec.key === k ? { ...sec, removed: false, enabled: true } : sec)) });
+      if (k === "links") return back(c);
+      const group = FOLD_KEYS.has(k) ? s.findIndex((slot) => slot.some((t) => FOLD_KEYS.has(t as SectionKey))) : -1;
+      if (group >= 0) s[group] = [...s[group].filter((t) => t !== k), k];
+      else s.splice(at, 0, [k]);
+      return back(withOrder(c, s.flat()));
+    });
+    if (fresh && OPEN_FIRST.has(fresh.kind)) setSheet(`block:${fresh.id}`);
+  };
+  const full = (cfg.blocks ?? []).length >= TEXT_BLOCKS_MAX;
+  const addChoices: AddChoice[] = [
+    ...(full ? [] : blockChoices()),
+    ...cfg.sections
+      .filter((s) => s.removed && s.key !== "newsletter" && s.key !== "blocks")
+      .map((s) => ({ key: s.key, label: SECTION_META[s.key].label, hint: SECTION_META[s.key].hint, group: "back" as const })),
+  ];
+
+  /** Cambia un bloque (los de antes, sin sitio propio, se guardan antes en su sitio). */
+  const patchBlock = (id: string, fn: (b: ContentBlock) => ContentBlock) =>
+    setCfg((c) => {
+      const m = settled(c);
+      return { ...m, blocks: (m.blocks ?? []).map((b) => (b.id === id ? fn(b) : b)) };
+    });
+  /** Quita un bloque: se borra con lo que tiene. */
+  const removeBlock = (id: string) => {
+    if (sheet === `block:${id}` || sheet === `design:${blockTok(id)}`) setSheetRaw(null);
+    setCfg((c) => {
+      const m = settled(c);
+      return { ...m, blocks: (m.blocks ?? []).filter((b) => b.id !== id) };
+    });
+  };
+  /** El diseño propio de una sección («header», una sección, «folds») o de un bloque («b:<id>»). */
+  const scopeDesign = (key: string): Design | undefined => {
+    if (!isBlockTok(key)) return cfg.sectionThemes?.[key];
+    const b = (cfg.blocks ?? []).find((x) => x.id === key.slice(2));
+    return b?.design ? readDesign(b.design) : undefined;
+  };
+  const setScopeDesign = (key: string, next: Design) => {
+    const own = hasDesign(next) ? next : undefined;
+    if (isBlockTok(key)) return patchBlock(key.slice(2), (b) => ({ ...b, design: own }));
+    setCfg((c) => {
+      const all = { ...(c.sectionThemes ?? {}) };
+      if (own) all[key] = own;
+      else delete all[key];
+      return { ...c, sectionThemes: all };
+    });
+  };
+
+  /** Cambia de sitio dos cosas de una lista de la portada (las flechas al pasar por encima). */
+  const moveItem = (list: OrderList, a: string, b: string) => {
+    if (list === "codes") return void swapCodes(a, b);
+    setCfg((c) => {
+      switch (list) {
+        case "systems":
+          return { ...c, systems: swapIds(c.systems ?? [], a, b) };
+        case "bubbles":
+          return { ...c, bubbles: swapIds(c.bubbles ?? [], a, b) };
+        case "testimonials":
+          return { ...c, testimonials: swapIds(c.testimonials, a, b) };
+        case "faq":
+          return { ...c, faqs: swapIds(c.faqs, a, b) };
+        case "socials": {
+          // Su orden se guarda aparte (socialOrder): las redes son un objeto sin orden.
+          const order = socialList(c);
+          const i = order.indexOf(a as SocialKey);
+          const j = order.indexOf(b as SocialKey);
+          if (i < 0 || j < 0) return c;
+          [order[i], order[j]] = [order[j], order[i]];
+          return { ...c, socialOrder: order };
+        }
+        case "folds": {
+          // Se cambian sus sitios en la lista de secciones: el grupo sigue donde estaba.
+          const s = [...c.sections];
+          const i = s.findIndex((x) => x.key === a);
+          const j = s.findIndex((x) => x.key === b);
+          if (i < 0 || j < 0) return c;
+          [s[i], s[j]] = [s[j], s[i]];
+          return { ...c, sections: s };
+        }
+      }
+      return c;
+    });
+  };
+  /** Los códigos están en su sitio (no en la portada): se cambian allí y se vuelve a pintar la web. */
+  const swapCodes = async (a: string, b: string) => {
+    setState({ kind: "saving" });
+    const r = await swapDiscountCodes(a, b).catch(() => ({ ok: false as const, error: "sin conexión" }));
+    setState(r.ok ? { kind: "ok" } : { kind: "error", error: r.error });
+    if (r.ok) router.refresh();
+  };
 
   const edit: HomeEdit = {
     // Con huecos ({n}, {nombre}…): lo escrito vuelve a llevarlos, para que se sigan rellenando solos.
     text: (path, value, o) => <EditText value={value} multiline={o?.multiline} placeholder={o?.placeholder} onCommit={(v) => set(path, o?.commit ? o.commit(v) : o?.vars ? unfillText(v, o.vars) : v)} />,
     image: (path, node, o) => (
-      <EditImage round={o?.round} label={o?.label} removable={o?.removable} hasImage={!!imageAt(cfg, path)} onChange={(url) => set(path, url)}>
+      <EditImage round={o?.round} label={o?.label} removable={o?.removable} className={o?.className} hasImage={!!imageAt(cfg, path)} onChange={(url) => set(path, url)}>
         {node}
       </EditImage>
     ),
     link: (path, url) => <EditLink url={url} suggestions={suggestions} onChange={(v) => set(path, v)} />,
-    section: (key, node) => {
-      const label = SECTION_META[key].label;
-      const tab = SECTION_EDIT_TAB[key];
-      const part = SECTION_PART[key];
-      // «Editar»: su ventanita si la tiene; si no, su pestaña del panel lateral.
-      const open = part ? () => setSheet(part) : tab ? () => setDrawer(tab) : null;
-      const manage = SECTION_MANAGE_HREF[key];
-      const i = enabled.indexOf(key);
-      const joined = FOLD_KEYS.has(key) && key !== firstFold;
+    // Todas en su sitio: las ocultas y las vacías, más tenues (en la web no salen). El ojo, la X y «Diseño», a la derecha.
+    section: (key, node, o) => {
+      const folds = FOLD_KEYS.has(key);
+      const label = folds ? "Desplegables" : SECTION_META[key].label;
+      const i = slots.findIndex((s) => s.includes(key));
       return (
-        <div className="canva-section relative">
-          <div data-canva-ui className="absolute left-0 right-0 top-1 z-30 flex flex-wrap items-center gap-1 text-[0.72rem]">
-            <span className="rounded-full bg-[#1d1838]/90 px-2.5 py-1 font-semibold text-[#e9cc8e]">{label}</span>
-            <ToolButton label="Subir" disabled={i <= 0} onClick={() => move(key, -1)}>
-              <ArrowUp className="h-3.5 w-3.5" />
-            </ToolButton>
-            <ToolButton label="Bajar" disabled={i < 0 || i >= enabled.length - 1} onClick={() => move(key, 1)}>
-              <ArrowDown className="h-3.5 w-3.5" />
-            </ToolButton>
-            {open && (
-              <ToolButton label="Editar" onClick={open} wide>
-                <Pencil className="h-3.5 w-3.5" /> Editar
-              </ToolButton>
-            )}
-            {manage && (
-              <a href={manage.href} target="_blank" rel="noopener" className="inline-flex items-center gap-1 rounded-full bg-[#1d1838]/90 px-2.5 py-1 font-semibold text-[#f3e2b3]">
-                <Settings2 className="h-3.5 w-3.5" /> {manage.label}
-              </a>
-            )}
-            <ToolButton label="Ocultar" onClick={() => toggle(key, false)} wide>
-              <EyeOff className="h-3.5 w-3.5" /> Ocultar
-            </ToolButton>
-          </div>
-          {node ??
-            (joined ? (
-              <p className="pt-12 text-center text-xs opacity-60">Va junto a los demás desplegables, más arriba.</p>
-            ) : (
-              <div data-canva-ui className="mt-14 rounded-2xl border border-dashed p-6 text-center text-sm" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 50%, transparent)" }}>
-                «{label}» no sale todavía: aún no tiene nada que enseñar.
-                {open && (
-                  <button type="button" onClick={open} className="ml-2 font-semibold underline underline-offset-4">
-                    Añadir contenido
-                  </button>
-                )}
-              </div>
-            ))}
+        <div className="canva-section relative" data-dim={o.hidden || o.empty ? "" : undefined} data-scope={folds ? "folds" : key}>
+          <SectionTools
+            label={label}
+            arrows={key !== "links"}
+            up={i > 0 ? () => move(key, -1) : null}
+            down={i >= 0 && i < slots.length - 1 ? () => move(key, 1) : null}
+            // Los desplegables, cada uno con su ojo y su X (al pasar por encima).
+            hidden={o.hidden}
+            onToggle={folds ? undefined : () => toggle(key, o.hidden)}
+            onRemove={folds ? undefined : () => removeSection(key)}
+            note={o.hidden ? "Oculta" : o.empty ? "Vacía: no sale" : undefined}
+            onDesign={() => setSheet(`design:${folds ? "folds" : key}`)}
+            // Los botones principales van siempre arriba: encima de ellos no se añade nada.
+            add={key === "links" ? undefined : addChoices}
+            onAdd={(k) => add(k, key)}
+          />
+          {node}
         </div>
+      );
+    },
+    item: (list, id, ids, node, axis, o) => {
+      const i = ids.indexOf(id);
+      const fold = list === "folds";
+      return (
+        <OrderItem
+          axis={axis}
+          first={i <= 0}
+          last={i < 0 || i >= ids.length - 1}
+          onMove={(d) => {
+            const other = ids[i + d];
+            if (other) moveItem(list, id, other);
+          }}
+          above={list === "socials"}
+          hidden={!!o?.hidden}
+          dim={!!(o?.hidden || o?.empty)}
+          onToggle={fold ? () => toggle(id as SectionKey, !!o?.hidden) : undefined}
+          onRemove={fold ? () => removeSection(id as SectionKey) : undefined}
+          label={fold ? (SECTION_META[id as SectionKey]?.label ?? id) : undefined}
+        >
+          {node}
+        </OrderItem>
       );
     },
     part: (part, node, o) => (
@@ -189,71 +470,132 @@ export function HomeCanva({ editor, pages, sellerName, viewHref, codes }: { edit
         {node}
       </PartFrame>
     ),
-    blocks: () => (
-      <div>
-        <InlineBlocks
-          blocks={cfg.blocks ?? []}
-          onChange={(next: BlocksUpdate) => setCfg((c) => ({ ...c, blocks: typeof next === "function" ? next(c.blocks ?? []) : next }))}
-          mode={{ bare: false, luxe: false }}
-          personal={editor.personal}
-          linkTargets={editor.linkTargets}
-          bodyMax={TEXT_BLOCK_BODY_MAX}
-          max={TEXT_BLOCKS_MAX}
-          oracleDecks={editor.oracleDecks}
-          oracleDeckViews={oracleDeckViews}
-          username={editor.username}
-          hiddenSlugs={hidden}
-          siteOrigin={editor.siteOrigin ?? ""}
-          moonCircles={nextMoonCircles(editor.products)}
-          onUploadingChange={setUploading}
+    block: (b) => {
+      const tok = blockTok(b.id);
+      const i = slots.findIndex((s) => s.includes(tok));
+      return (
+        <CanvaBlock
+          b={b}
+          view={blockView}
+          className="mt-14"
+          up={i > 0 ? () => move(tok, -1) : null}
+          down={i >= 0 && i < slots.length - 1 ? () => move(tok, 1) : null}
+          add={addChoices}
+          onAdd={(k) => add(k, tok)}
+          onPatch={(fn) => patchBlock(b.id, fn)}
+          onToggle={() => patchBlock(b.id, (x) => ({ ...x, enabled: !b.enabled }))}
+          onRemove={() => removeBlock(b.id)}
+          onOpen={() => setSheet(`block:${b.id}`)}
+          onDesign={() => setSheet(`design:${tok}`)}
         />
+      );
+    },
+    // La cabecera va siempre arriba: sin flechas ni X, solo su «Diseño».
+    header: (node) => (
+      <div className="canva-section relative" data-scope="header">
+        <SectionTools label="Cabecera" arrows={false} onDesign={() => setSheet("design:header")} />
+        {node}
       </div>
     ),
+    // Después de lo último, otro + para añadir al final.
     footer: (
-      <div data-canva-ui className="mt-16 rounded-2xl border border-dashed p-5 text-center" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 50%, transparent)" }}>
-        <p className="text-sm font-semibold">Añadir una sección</p>
-        <div className="mt-3 flex flex-wrap justify-center gap-2">
-          {cfg.sections
-            .filter((s) => !s.enabled && s.key !== "newsletter")
-            .map((s) => (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => toggle(s.key, true)}
-                className="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold"
-                style={{ borderColor: "color-mix(in oklab, var(--c-gold) 55%, transparent)" }}
-              >
-                <Plus className="h-3.5 w-3.5" /> {SECTION_META[s.key].label}
-              </button>
-            ))}
-          {cfg.sections.every((s) => s.enabled || s.key === "newsletter") && <span className="text-xs opacity-60">Ya están todas en tu portada.</span>}
-        </div>
-        <button type="button" onClick={() => setDrawer("perfil")} className="mt-4 text-xs font-semibold underline underline-offset-4">
-          Más ajustes: redes, botones, testimonios, preguntas…
-        </button>
+      <div className="relative h-16">
+        <AddSection options={addChoices} onAdd={(k) => add(k, null)} style={{ top: 16 }} />
       </div>
     ),
   };
 
+  const codesOpen = !!sheet && (sheet === "codes" || sheet.startsWith("code:"));
+  const partSheet = sheet && isPart(sheet) && <PartSheet part={sheet} cfg={cfg} set={setKey} editor={editor} codes={codes} open={setSheetRaw} refresh={() => router.refresh()} />;
+  // La portada ya se ve en la web: con Diseño abierto se ve de verdad.
+  const published = !!editor.publishedJson;
+
+  /** La ventanita de un bloque o el «Diseño» de una sección, encima de la web a la derecha. */
+  const scopeSheet = (): ReactNode => {
+    if (!sheet) return null;
+    if (sheet.startsWith("block:")) {
+      const b = (cfg.blocks ?? []).find((x) => x.id === sheet.slice("block:".length));
+      if (!b) return null;
+      return (
+        <CanvaSheet title={BLOCK_LABEL[b.kind]} onClose={() => setSheet(null)}>
+          <BlockContent
+            b={b}
+            onPatch={(fn) => patchBlock(b.id, fn)}
+            personal={editor.personal}
+            linkTargets={editor.linkTargets}
+            bodyMax={TEXT_BLOCK_BODY_MAX}
+            onUploadingChange={setUploading}
+            oracleDecks={editor.oracleDecks}
+          />
+        </CanvaSheet>
+      );
+    }
+    if (sheet.startsWith("design:")) {
+      const key = sheet.slice("design:".length);
+      const b = isBlockTok(key) ? (cfg.blocks ?? []).find((x) => x.id === key.slice(2)) : undefined;
+      if (isBlockTok(key) && !b) return null;
+      const pageLook = pageLookOf(HOME_MODE);
+      return (
+        <CanvaSheet title={`Diseño · ${scopeLabel(cfg, key)}`} wide onClose={() => setSheet(null)}>
+          <ScopeDesign
+            key={key}
+            root={() => web.current?.querySelector<HTMLElement>(`[data-scope="${key}"]`) ?? null}
+            cfg={cfg}
+            page="home"
+            design={scopeDesign(key)}
+            onChange={(next) => setScopeDesign(key, next)}
+            groups={b ? blockDesignGroups(b, pageLook) : (SECTION_GROUPS[key] ?? ["colores", "letras"])}
+            allowCustom={editor.allowCustom}
+            top={b && <BlockStyleFields b={b} pageLook={pageLook} onPatch={(fn) => patchBlock(b.id, fn)} />}
+          />
+        </CanvaSheet>
+      );
+    }
+    return null;
+  };
+
   return (
-    <div className="fixed inset-0 z-[80] overflow-y-auto bg-black" data-canva>
-      <CanvaBar
-        pages={pages}
-        current={null}
-        state={state}
-        viewHref={viewHref}
-        extra={
-          <button type="button" onClick={() => setDrawer("perfil")} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/20 px-3.5 text-sm hover:bg-white/10">
-            <Settings2 className="h-4 w-4" /> Editar todo
-          </button>
-        }
-      />
-      {pendingDraft && (
-        <p data-canva-ui className="bg-[#e9cc8e] px-4 py-2 text-center text-xs font-semibold text-[#1d1838]">
-          Aquí ves también lo que cambiaste en «Mi página» sin publicar: se publica con tu primer cambio.
-        </p>
-      )}
-      <div onClickCapture={stopWebLinks}>
+    <CanvaShell
+      device={device}
+      side={
+        design.open ? (
+          <DesignSheet panel={design} cfg={cfg} setCfg={setCfg} label="Portada" pages={editor.pages} allowCustom={editor.allowCustom} canPick={published} backgroundsOnly />
+        ) : sheet && !isPart(sheet) ? (
+          scopeSheet()
+        ) : sheet && !codesOpen ? (
+          <CanvaSheet title={partMeta(sheet as CanvaPart).title} onClose={() => setSheet(null)}>
+            {partSheet}
+          </CanvaSheet>
+        ) : null
+      }
+      overlay={
+        codesOpen && (
+          <CanvaOverlay title={partMeta(sheet as CanvaPart).title} onClose={() => setSheet(null)}>
+            <div className="space-y-4">{partSheet}</div>
+          </CanvaOverlay>
+        )
+      }
+      live={design.open && published ? <DesignLive panel={design} cfg={cfg} src={viewHref} allowCustom={editor.allowCustom} underTabs={device === "pc"} pick={false} /> : undefined}
+      bar={
+        <CanvaBar
+          menu={<PagesMenu pages={menu.pages} current="" personal={editor.personal} initialOpen={menu.initialOpen} />}
+          state={state}
+          viewHref={viewHref}
+          device={device}
+          setDevice={setDevice}
+          tools={<BarButton icon={Palette} label="Diseño" active={design.open} onClick={toggleDesign} />}
+        />
+      }
+      notice={
+        pendingDraft && (
+          <p>
+            <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#e9cc8e] align-middle" aria-hidden />
+            Aquí ves también lo que cambiaste sin publicar: se publica con tu primer cambio.
+          </p>
+        )
+      }
+    >
+      <div ref={web} onClickCapture={stopWebLinks}>
         <CreatorPageView
           creatorId={editor.creatorId}
           username={editor.username}
@@ -278,33 +620,11 @@ export function HomeCanva({ editor, pages, sellerName, viewHref, codes }: { edit
           edit={edit}
         />
       </div>
-
-      {sheet && (
-        <CanvaSheet title={partMeta(sheet).title} onClose={() => setSheet(null)}>
-          <PartSheet part={sheet} cfg={cfg} set={setKey} editor={editor} codes={codes} open={setSheet} refresh={() => router.refresh()} />
-        </CanvaSheet>
-      )}
-
-      {drawer && (
-        <div data-canva-ui className="fixed inset-0 z-[90] flex justify-end bg-black/40" onClick={(e) => e.target === e.currentTarget && setDrawer(null)}>
-          <aside className="flex h-full w-full max-w-[34rem] flex-col bg-paper text-ink shadow-2xl animate-fade-in">
-            <div className="flex items-center justify-between border-b border-line px-5 py-3">
-              <p className="font-semibold">Editar la portada</p>
-              <button type="button" onClick={() => setDrawer(null)} className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand" aria-label="Cerrar">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-5">
-              <PageEditor {...editor} controlled={{ cfg, setCfg }} embedded={{ tab: drawer, onTab: setDrawer }} />
-            </div>
-          </aside>
-        </div>
-      )}
-    </div>
+    </CanvaShell>
   );
 }
 
-/** Lo que lleva la ventanita de cada parte (los mismos campos que «Mi página»). */
+/** Lo que lleva la ventanita de cada parte. */
 function PartSheet({
   part,
   cfg,
@@ -317,7 +637,7 @@ function PartSheet({
   part: CanvaPart;
   cfg: PageConfig;
   set: SetCfg;
-  editor: Omit<EditorProps, "controlled" | "embedded">;
+  editor: HomeEditor;
   codes: CanvaCode[];
   open: (part: CanvaPart | null) => void;
   refresh: () => void;
@@ -462,21 +782,6 @@ function CodesList({ codes, open, refresh }: { codes: CanvaCode[]; open: (part: 
         <Plus className="h-4 w-4" /> Añadir código
       </button>
     </section>
-  );
-}
-
-function ToolButton({ label, onClick, disabled, wide, children }: { label: string; onClick: () => void; disabled?: boolean; wide?: boolean; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      className={`inline-flex items-center gap-1 rounded-full bg-[#1d1838]/90 py-1 font-semibold text-[#f3e2b3] transition hover:bg-[#2b2550] disabled:opacity-35 ${wide ? "px-2.5" : "px-1.5"}`}
-    >
-      {children}
-    </button>
   );
 }
 

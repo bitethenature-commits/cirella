@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
+import { SiteText } from "@/components/creator-page/site-text";
 import { LegalText } from "@/components/legal-text";
 import { getCurrentUser } from "@/lib/auth";
 import { formatLegalAddress, legalIdentityComplete, taxIdLabel } from "@/lib/legal";
@@ -31,9 +32,6 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
     robots: { index: false },
   };
 }
-
-const COOKIES_TEXT =
-  "Esta página no instala cookies de seguimiento. Medimos visitas de forma agregada y anónima, sin cookies. Solo usamos cookies técnicas para mantener tu sesión si entras en tu cuenta.";
 
 /**
  * Aviso legal, condiciones de venta, cambios y reembolsos, privacidad y cookies de una creadora.
@@ -81,8 +79,12 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
   return (
     <CreatorShell page="legal" username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages} sellerName={identity.legalName}>
       <main className="mx-auto max-w-2xl px-4 pb-10 pt-8 sm:pt-12">
-        <p className="cp-eyebrow">Información legal</p>
-        <h1 className="cp-display mt-2 text-[2.4rem] leading-tight">{sells ? "Aviso legal y condiciones" : "Aviso legal y privacidad"}</h1>
+        <p className="cp-eyebrow">
+          <SiteText texts={config.texts} k="pg.legal.eyebrow" />
+        </p>
+        <h1 className="cp-display mt-2 text-[2.4rem] leading-tight">
+          <SiteText texts={config.texts} k={sells ? "pg.legal.titleSales" : "pg.legal.title"} />
+        </h1>
 
         {snapshot && (
           <p className="cp-card mt-6 px-4 py-3 text-sm">
@@ -106,7 +108,9 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
         {(complete || isOwner) && (
           <div className="mt-10 space-y-12">
             <section id="aviso" className="scroll-mt-20">
-              <h2 className="cp-display text-[1.8rem]">Aviso legal</h2>
+              <h2 className="cp-display text-[1.8rem]">
+                <SiteText texts={config.texts} k="pg.legal.aviso" />
+              </h2>
               <dl className="cp-card mt-4 divide-y text-sm" style={{ borderColor: "var(--c-line)" }}>
                 {rows.map(([label, value]) => (
                   <div key={label} className="flex flex-col gap-0.5 px-4 py-2.5 sm:flex-row sm:justify-between sm:gap-4" style={{ borderColor: "var(--c-line)" }}>
@@ -126,14 +130,18 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
             {sells && (
               <>
                 <section id="condiciones" className="scroll-mt-20">
-                  <h2 className="cp-display text-[1.8rem]">Condiciones de venta</h2>
+                  <h2 className="cp-display text-[1.8rem]">
+                <SiteText texts={config.texts} k="pg.legal.condiciones" />
+              </h2>
                   <div className="mt-4">
                     <LegalText text={docs.terms} />
                   </div>
                 </section>
 
                 <section id="reembolsos" className="scroll-mt-20">
-                  <h2 className="cp-display text-[1.8rem]">Cambios y reembolsos</h2>
+                  <h2 className="cp-display text-[1.8rem]">
+                <SiteText texts={config.texts} k="pg.legal.reembolsos" />
+              </h2>
                   <div className="mt-4">
                     <LegalText text={docs.refunds} />
                   </div>
@@ -145,20 +153,28 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
             )}
 
             <section id="privacidad" className="scroll-mt-20">
-              <h2 className="cp-display text-[1.8rem]">Privacidad</h2>
+              <h2 className="cp-display text-[1.8rem]">
+                <SiteText texts={config.texts} k="pg.legal.privacidad" />
+              </h2>
               <div className="mt-4">
                 <LegalText text={`${privacyResponsibleLine(identity)}\n\n${privacy}`} />
               </div>
             </section>
 
             <section id="cookies" className="scroll-mt-20">
-              <h2 className="cp-display text-[1.8rem]">Cookies</h2>
-              <p className="mt-4 text-[0.92rem] leading-relaxed">{COOKIES_TEXT}</p>
+              <h2 className="cp-display text-[1.8rem]">
+                <SiteText texts={config.texts} k="pg.legal.cookies" />
+              </h2>
+              <p className="mt-4 text-[0.92rem] leading-relaxed">
+                <SiteText texts={config.texts} k="pg.legal.cookiesText" multiline />
+              </p>
             </section>
 
             {personal && (
               <section id="otras-webs" className="scroll-mt-20">
-                <h2 className="cp-display text-[1.8rem]">Otras webs</h2>
+                <h2 className="cp-display text-[1.8rem]">
+                <SiteText texts={config.texts} k="pg.legal.otras" />
+              </h2>
                 <div className="mt-4">
                   <LegalText text={sells ? PERSONAL_SALES_THIRD_PARTY_TEXT : PERSONAL_THIRD_PARTY_TEXT} />
                 </div>

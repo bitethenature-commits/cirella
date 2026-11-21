@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { peopleLabel } from "@/lib/site-mode";
 import { ArrowLeft, CalendarX, X } from "lucide-react";
 import { TzDriftNotice } from "@/components/booking/tz-drift-notice";
 import { requireCreator } from "@/lib/auth";
@@ -28,7 +29,7 @@ export default async function SchedulePage() {
   const blocks = overrides.filter((x) => x.kind === "BLOCK");
   return (
     <div className="max-w-3xl space-y-8 pb-10">
-      <Link href="/panel/solicitudes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> Solicitudes</Link>
+      <Link href="/panel/clientes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> {peopleLabel()}</Link>
       <PageHeader title="Tu horario" subtitle="Tus clientas solo ven huecos dentro de tu horario. La duración, el margen y la antelación se configuran en cada sesión." />
       <TzDriftNotice ownerTz={creator.timezone} />
 

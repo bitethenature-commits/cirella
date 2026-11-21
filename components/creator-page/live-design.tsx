@@ -11,7 +11,20 @@ export const LIVE_DESIGN_PARAM = "diseno-vivo";
  * Lo que manda el editor (app/panel/pagina/live-frame.tsx): el diseño de esa página y sus piezas sueltas, aún sin
  * guardar; si se pueden tocar las piezas (picking) y la que se está cambiando (selected).
  */
-export type LiveDesignMessage = { type: "cirella:design"; design: Design; allowCustom: boolean; pieces?: PagePieces; picking?: boolean; selected?: string | null };
+export type LiveDesignMessage = {
+  type: "cirella:design";
+  design: Design;
+  allowCustom: boolean;
+  pieces?: PagePieces;
+  picking?: boolean;
+  selected?: string | null;
+  /** Los textos con marca (components/creator-page/site-text.tsx) se escriben encima (Mi página, sin Diseño abierto). */
+  editTexts?: boolean;
+  /** La página llena la pantalla bajo las pestañas del panel: su cabecera baja hasta debajo de ellas. */
+  underTabs?: boolean;
+};
+/** Lo que manda la página al cambiar un texto escrito encima: su marca («t:…» o «c:…»), lo escrito y sus huecos. */
+export type LiveTextMessage = { type: "cirella:text"; target: string; value: string; vars?: Record<string, string | number> };
 /** Lo que manda la página al tocar una tarjeta, un panel o un botón: su dirección (lib/pieces.ts), qué es y su texto. */
 export type LivePick = { id: string; kind: PieceKind; label: string; /** Una foto suelta (sin caja alrededor): no lleva adornos. */ img?: boolean };
 export type LivePickMessage = LivePick & { type: "cirella:pick" };

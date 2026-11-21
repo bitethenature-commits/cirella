@@ -275,7 +275,7 @@ export function CampaignEditor(p: Props) {
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-40 border-t border-line bg-white/95 px-4 py-2.5 backdrop-blur lg:bottom-0 lg:left-[248px]">
+      <div className="fixed inset-x-0 bottom-[calc(3.1rem+env(safe-area-inset-bottom))] z-40 border-t border-line bg-white/95 px-4 py-2.5 backdrop-blur">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-end gap-2">
           <button
             type="button"

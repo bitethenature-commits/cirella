@@ -10,7 +10,9 @@ import { ModelGateScope, type ModelGateInfo } from "@/components/models/model-ga
 import { SacredGeometry } from "@/components/models/sacred-geometry";
 import { formatPrice } from "@/lib/money";
 import { MODEL_LABEL, hasQuickVersion, isOwnImageSrc, isOwnVideoSrc, type ContentBlock, type PageImage } from "@/lib/page-blocks";
-import { safeHref } from "@/lib/page-config";
+import { readDesign, safeHref } from "@/lib/page-config";
+import type { Design } from "@/lib/templates";
+import { DesignScope, hasOwnDesign } from "./design-scope";
 import { videoEmbed } from "@/lib/video-embed";
 import { PageVideo } from "./page-video";
 import { OracleIcon } from "./oracle-icon";
@@ -18,6 +20,8 @@ import { RuneIcon } from "./rune-icon";
 import { knownSystemIcon, SystemIconMark } from "./system-icon";
 import { VideoFacade } from "./video-facade";
 import type { PublicProduct } from "./creator-page-view";
+import type { WebTiers } from "@/lib/web-tiers";
+import { TiersShow } from "./tiers-block";
 
 /**
  * Bloques de la portada y de las páginas extra (lib/page-blocks.ts), con las clases del tema
@@ -39,7 +43,8 @@ import type { PublicProduct } from "./creator-page-view";
  *     en el navegador (components/models); la geometría sagrada es una frase grande sobre la figura. En
  *     «Versión rápida», solo el dibujo, y «Calcular con mis datos» debajo de la caja;
  *   · enlaces en burbuja: de 1 a 4 píldoras alargadas, centradas (en el móvil, una debajo de otra);
- *   · próximos círculos de la luna: los dos próximos (lib/moon-circles.ts), en tarjetas pequeñas.
+ *   · próximos círculos de la luna: los dos próximos (lib/moon-circles.ts), en tarjetas pequeñas;
+ *   · niveles de la comunidad: sus portales en arco, más anchos que la página (tiers-block.tsx).
  * Un src que no sea propio no se pinta (además de comprobarse al guardar).
  */
 export const BLOCK_IMAGE_SIZES = "(min-width: 768px) 704px, calc(100vw - 40px)";
@@ -53,10 +58,14 @@ export function ContentBlocks({
   oracleDecks,
   modelGate,
   moonCircles,
+  tiers,
   bare = false,
   luxe = false,
   modelIcon,
+  designBase,
 }: {
+  /** Los niveles de la comunidad (lib/web-tiers.server.ts) para su sección; sin pasar, un aviso (vista previa). */
+  tiers?: WebTiers;
   /** Con cajas pero con el estilo de lujo de la portada (páginas de los sistemas). */
   luxe?: boolean;
   blocks: ContentBlock[];
@@ -79,6 +88,8 @@ export function ContentBlocks({
    * Sin pasar (vista previa en vivo del editor): un aviso de lo que saldrá ahí.
    */
   moonCircles?: PublicProduct[];
+  /** El diseño de la página: los bloques con diseño propio (su «Diseño» en Mi página) lo cambian encima. */
+  designBase?: Design;
 }) {
   const linkTo = (url: string | undefined) => (url && !linksToProduct(url, username, hiddenSlugs, siteOrigin) ? safeHref(url) : null);
   // Las webs de fuera, en otra pestaña; los enlaces internos y mailto:/tel:, en la misma.
@@ -582,6 +593,21 @@ export function ContentBlocks({
             </section>
           );
         }
+        case "tiers": {
+          if (!tiers)
+            return (
+              <section key={b.id} data-block="tiers" className="cp-line rounded-[var(--r-card)] border border-dashed p-5 text-center">
+                <p className="cp-eyebrow">{b.title || "Niveles de la comunidad"}</p>
+                <p className="cp-muted mt-2 text-[0.85rem]">Aquí salen tus niveles de la comunidad, cada uno con su precio, lo que incluye y su botón.</p>
+              </section>
+            );
+          return (
+            <section key={b.id} data-block="tiers" aria-label={b.title || "Niveles de la comunidad"}>
+              {b.title && <div className="mb-10 text-center">{bare || luxe ? luxeTitle(b.title) : title(b.title)}</div>}
+              <TiersShow b={b} data={tiers} />
+            </section>
+          );
+        }
       }
   };
 
@@ -595,11 +621,26 @@ export function ContentBlocks({
         const node = look ? renderOne(b, look === "bare" || panelWrap, look === "panel" && !panelWrap) : renderOne(b, bare, luxe);
         if (!node) return null;
         // Su nombre (data-bid): las piezas sueltas de dentro (lib/pieces.ts) se encuentran desde él.
-        if (!look && !b.goldTitle) return isValidElement(node) ? cloneElement(node as ReactElement<Record<string, unknown>>, { "data-bid": b.id }) : node;
-        return (
-          <div key={b.id} data-bid={b.id} data-look={look} data-gold-title={b.goldTitle ? "" : undefined} className={panelWrap ? "cp-include-panel" : undefined}>
-            {node}
-          </div>
+        const one =
+          !look && !b.goldTitle ? (
+            isValidElement(node) ? (
+              cloneElement(node as ReactElement<Record<string, unknown>>, { "data-bid": b.id })
+            ) : (
+              node
+            )
+          ) : (
+            <div key={b.id} data-bid={b.id} data-look={look} data-gold-title={b.goldTitle ? "" : undefined} className={panelWrap ? "cp-include-panel" : undefined}>
+              {node}
+            </div>
+          );
+        // Con su diseño propio (letras, colores, tarjetas…), encima del de la página.
+        const own = b.design ? readDesign(b.design) : null;
+        return designBase && hasOwnDesign(own) ? (
+          <DesignScope key={b.id} base={designBase} design={own}>
+            {one}
+          </DesignScope>
+        ) : (
+          one
         );
       })}
     </>

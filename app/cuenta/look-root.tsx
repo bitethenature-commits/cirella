@@ -44,6 +44,7 @@ export function AccountLookRoot({ saved, children }: { saved: AccountLook | null
         data-acc-decor={v?.decor ? "" : undefined}
         style={v?.style}
       >
+        {v?.photo && <div className="acc-photo" aria-hidden />}
         {v?.decor && v.decor !== "none" && <TemplateDecor key={v.decor} decor={v.decor} />}
         {v?.geo && <div className="acc-geo" data-pos={v.geo.pos} data-spin={v.geo.spin ? "" : undefined} aria-hidden />}
         {children}

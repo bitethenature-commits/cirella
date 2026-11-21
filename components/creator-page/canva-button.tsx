@@ -2,16 +2,17 @@
 import { Paintbrush } from "lucide-react";
 import { useEffect, useState } from "react";
 import { hasHintCookie } from "@/lib/auth-utils";
+import { isSectionPage } from "@/lib/site-sections";
 import { LIVE_DESIGN_PARAM } from "./live-design";
 
 /**
  * «Canva», abajo a la derecha de la web: solo lo ve la dueña con su sesión abierta. Lleva al modo Canva
- * (app/panel/canva) de la página en la que está: la portada o una página extra. La página pública sigue en
+ * (Mi página, app/panel/pagina) de la página en la que está: la portada, una suya, una de las que se crean solas o la legal. La página pública sigue en
  * caché: se pregunta en el navegador (y solo si hay sesión, por la cookie de pista).
  */
 export function CanvaButton({ username, personal }: { username: string; personal: boolean }) {
   const [owner, setOwner] = useState(false);
-  const [href, setHref] = useState("/panel/canva");
+  const [href, setHref] = useState("/panel/pagina");
   useEffect(() => {
     // Ni en la vista en vivo del editor de Diseño.
     if (!hasHintCookie(document.cookie) || new URLSearchParams(window.location.search).has(LIVE_DESIGN_PARAM)) return;
@@ -20,10 +21,20 @@ export function CanvaButton({ username, personal }: { username: string; personal
       .then((r) => (r.ok ? r.json() : { owner: false }))
       .then((d: { owner?: boolean }) => alive && setOwner(!!d.owner))
       .catch(() => {});
-    // Una página extra: /<usuaria>/p/<dirección> o, en la web personal, /<dirección>.
+    // Una página suya: /<usuaria>/p/<dirección> o, en la web personal, /<dirección>; una de las que se crean solas:
+    // /<usuaria>/cursos (o /cursos); la legal: /<usuaria>/legal.
     const seg = window.location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-    const slug = seg[1] === "p" && seg[2] ? seg[2] : personal && seg.length === 1 && seg[0] !== username ? seg[0] : null;
-    if (slug) setHref(`/panel/canva?pagina=${encodeURIComponent(slug)}`);
+    const slug =
+      seg[1] === "p" && seg[2]
+        ? seg[2]
+        : personal && seg.length === 1 && seg[0] !== username
+          ? seg[0]
+          : seg.length === 2 && seg[1] === "legal"
+            ? "aviso-legal"
+            : seg.length === 2 && isSectionPage(seg[1])
+              ? seg[1]
+              : null;
+    if (slug) setHref(`/panel/pagina?pagina=${encodeURIComponent(slug)}`);
     return () => {
       alive = false;
     };

@@ -14,7 +14,7 @@ import { PLATFORM_NAV_FLAGS, type PanelNavFlags } from "./nav-items";
 export const panelNavFlags = cache(async (creatorId: string): Promise<PanelNavFlags> => {
   const db = tenantDb(creatorId);
   const pending = await db.order.count({ where: { status: REQUESTED } });
-  const badges = pending ? { "/panel/solicitudes": pending } : undefined;
+  const badges = pending ? { "/panel/clientes": pending } : undefined;
   if (!isPersonalMode()) return { ...PLATFORM_NAV_FLAGS, badges };
   if (hasPaymentProvider()) return { personal: true, sales: true, showBookings: true, badges };
   // Sin cobros, las sesiones «con solicitud» también se reservan aquí (lib/requests.ts).

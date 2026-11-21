@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
+import { defaultEmblem, type TierSolid } from "@/lib/tier-card";
 
 /**
  * El sólido platónico de un nivel de membresía en tres dimensiones, girando como en el modelo de geometría
  * por partes (components/course/layers/geo.tsx): las aristas de delante más gruesas y brillantes que las
- * de detrás, y un punto en cada vértice. Nivel I tetraedro, II icosaedro, III (y más) dodecaedro.
+ * de detrás, y un punto en cada vértice. `solid`: cuál de los cinco (sin él, el de su nivel: I tetraedro, II
+ * icosaedro, III y más dodecaedro).
  * Toma el color de donde se pone (`currentColor`). Si la alumna prefiere menos movimiento, se queda quieto.
  */
 const PHI = (1 + Math.sqrt(5)) / 2;
@@ -17,6 +19,8 @@ const SOLIDS: V3[][] = [
     ...[-1, 1].flatMap((x) => [-1, 1].flatMap((y) => [-1, 1].map((z): V3 => [x, y, z]))),
     ...[-1, 1].flatMap((a) => [-1, 1].flatMap((b): V3[] => [[0, a / PHI, b * PHI], [a / PHI, b * PHI, 0], [b * PHI, 0, a / PHI]])),
   ],
+  [-1, 1].flatMap((x) => [-1, 1].flatMap((y) => [-1, 1].map((z): V3 => [x, y, z]))),
+  [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]],
 ];
 function edgesOf(v: V3[]): [number, number][] {
   const d = (a: V3, b: V3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
@@ -27,8 +31,10 @@ function edgesOf(v: V3[]): [number, number][] {
   return out;
 }
 const EDGES = SOLIDS.map(edgesOf);
+/** Cada sólido en la tabla (los tres de siempre primero, luego el cubo y el octaedro). */
+const SOLID_AT: Record<TierSolid, number> = { tetra: 0, icosa: 1, dodeca: 2, cube: 3, octa: 4 };
 
-export function SpinningSolid({ level, className, style, speed = 0.45, offset = 0 }: { level: number; className?: string; style?: CSSProperties; speed?: number; offset?: number }) {
+export function SpinningSolid({ level, solid, className, style, speed = 0.45, offset = 0 }: { level: number; solid?: TierSolid; className?: string; style?: CSSProperties; speed?: number; offset?: number }) {
   const [a, setA] = useState(0.6 + offset);
   useEffect(() => {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
@@ -43,7 +49,8 @@ export function SpinningSolid({ level, className, style, speed = 0.45, offset = 
     return () => cancelAnimationFrame(raf);
   }, [speed]);
 
-  const k = Math.max(0, Math.min(2, level));
+  const base = defaultEmblem(level);
+  const k = SOLID_AT[solid ?? (base.kind === "solid" ? base.key : "tetra")];
   const v = SOLIDS[k];
   const r = Math.max(...v.map((p) => Math.hypot(...p)));
   // Gira sobre el eje vertical, inclinado y con un leve balanceo, como en el modelo.

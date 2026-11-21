@@ -7,6 +7,7 @@ import {
   darken,
   drawR,
   drawRot,
+  fbm,
   glow,
   hex,
   lighten,
@@ -699,62 +700,312 @@ const sunrays: EffectFactory = (env) => {
 
 /* ───────────── Humo de incienso ───────────── */
 
-type Puff = { x: number; y: number; age: number; life: number };
+/** Una bocanada de humo que lleva el aire: dónde está, su edad, su tamaño, cuánto gira, lo densa que es y su dibujo. */
+type Wisp = { x: number; y: number; age: number; life: number; big: number; rot: number; spin: number; a: number; look: number; sp: number; lift: number };
+/** Por donde sale el humo, abajo y fuera de la vista: se mueve despacio y sopla más o menos, hacia un lado o al otro. */
+type Vent = { x: number; ph: number; acc: number };
 
+/** Tamaño (px de dibujo) de cada bocanada pintada. */
+const WISP_N = 96;
+
+/** Una bocanada: una nube suave de borde deshilachado y más densa por dentro a trozos (sin bordes ni bolitas). */
+function wispSprite(c: RGB, S: number, seed: number): Sprite {
+  const n = makeNoise(seed);
+  return sprite(S, S, (g, W, H) => {
+    const img = g.createImageData(W, H);
+    const d = img.data;
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const u = ((x + 0.5) / W) * 2 - 1;
+        const v = ((y + 0.5) / H) * 2 - 1;
+        const wx = u + 0.32 * fbm(n, u * 1.6, v * 1.6, 0, 3);
+        const wy = v + 0.32 * fbm(n, u * 1.6 + 4.1, v * 1.6, 1, 3);
+        const body = Math.pow(clamp(1 - Math.hypot(wx, wy) / 0.8), 1.7);
+        const tex = clamp(0.62 + 0.6 * fbm(n, u * 3.4 + 7, v * 3.4, 2, 4));
+        const a = body * tex * (1 - smooth(0.86, 1, Math.hypot(u, v)));
+        const sh = 0.9 + 0.12 * tex;
+        const i = (y * W + x) * 4;
+        d[i] = c[0] * sh;
+        d[i + 1] = c[1] * sh;
+        d[i + 2] = c[2] * sh;
+        d[i + 3] = Math.round(clamp(a) * 255);
+      }
+    g.putImageData(img, 0, 0);
+  });
+}
+
+/**
+ * Humo de incienso: un fondo de humo que sube desde abajo. Por varias salidas (bajo la pantalla) sale humo caliente
+ * que sopla hacia arriba, cada una con su fuerza y su inclinación, que cambian despacio; y a lo largo de todo el suelo
+ * hay humo suelto que el aire va metiendo en las columnas. El aire es un fluido de verdad en una rejilla gruesa (no se
+ * puede amontonar ni vaciar): el humo caliente sube y arrastra el de alrededor, y cuando dos columnas se encuentran no
+ * se atraviesan: chocan, se apartan y se enroscan en remolinos. El humo son cientos de bocanadas suaves que el aire
+ * lleva, que crecen al subir y se apagan arriba; se pintan en una capa aparte, a menos resolución.
+ */
 const smoke: EffectFactory = (env) => {
   const n = makeNoise(271);
   const r = rng(271);
-  const c = nat(env, hex("#DCE0E8"), env.c.soft, 0.45);
-  const sources = [0.16, 0.5, 0.84].map((x) => ({ x, list: [] as Puff[], acc: r() }));
-  const curl = (x: number, y: number, t: number) => {
-    const s = 0.0032;
-    const eps = 1;
-    const psi = (a: number, b: number) => n(a * s, b * s, t * 0.11);
-    return [(psi(x, y + eps) - psi(x, y - eps)) / (2 * eps * s), -(psi(x + eps, y) - psi(x - eps, y)) / (2 * eps * s)] as const;
+  const c = nat(env, hex("#E6E8EE"), env.c.soft, 0.45);
+  const looks = [0, 1, 2, 3].map((i) => wispSprite(c, WISP_N, 300 + i * 17));
+  /** Lo que sopla cada salida, lo que empuja el humo caliente, el aire inquieto, los remolinos y el freno (en celdas/s). */
+  const JET = 3.6;
+  const BUOY = 2.4;
+  const TURB = 1.3;
+  const VORT = 1.4;
+  const DRAG = 0.32;
+  const ITERS = 18;
+
+  let nx = 0;
+  let ny = 0;
+  let cs = 1;
+  let ox = 0;
+  let u = new Float32Array(0);
+  let v = u;
+  let u0 = u;
+  let v0 = u;
+  let d = u;
+  let d0 = u;
+  let p = u;
+  let dv = u;
+  let w = u;
+  let tx = u;
+  let ty = u;
+  let vents: Vent[] = [];
+  let wisps: Wisp[] = [];
+  let amb = 0;
+  let steps = 0;
+  let span = 12;
+  let layer: HTMLCanvasElement | null = null;
+
+  /** Valor de una rejilla en (x, y), en celdas (con los bordes pegados). */
+  const sample = (f: Float32Array, x: number, y: number) => {
+    const X = clamp(x - 0.5, 0, nx - 1.001);
+    const Y = clamp(y - 0.5, 0, ny - 1.001);
+    const i = X | 0;
+    const j = Y | 0;
+    const fx = X - i;
+    const fy = Y - j;
+    const k = i + j * nx;
+    return (f[k] * (1 - fx) + f[k + 1] * fx) * (1 - fy) + (f[k + nx] * (1 - fx) + f[k + nx + 1] * fx) * fy;
   };
-  return {
-    frame(g, e, t, dt) {
-      const k = Math.max(0.45, e.k);
-      const wv = wind(n, t, 4, 14) * k;
-      g.globalCompositeOperation = "source-over";
-      g.lineCap = "round";
-      g.lineJoin = "round";
-      for (const s of sources) {
-        s.acc += dt;
-        while (s.acc > 0.05) {
-          s.acc -= 0.05;
-          s.list.push({ x: s.x * e.w + Math.sin(t * 0.7 + s.x * 9) * 3 * k, y: e.h + 6, age: 0, life: r.range(7, 9.5) });
-        }
-        for (let i = s.list.length - 1; i >= 0; i--) {
-          const p = s.list[i];
-          p.age += dt;
-          if (p.age > p.life) {
-            s.list.splice(i, 1);
-            continue;
-          }
-          const tw = smooth(0, 3, p.age);
-          const [cx, cy] = curl(p.x, p.y, t);
-          p.x += (cx * 0.5 * tw + wv * tw) * k * dt;
-          p.y += (-58 * (1 - 0.35 * tw) + cy * 0.4 * tw) * k * dt;
-        }
-        // La columna de humo: fina abajo, abriéndose y apagándose al subir.
-        for (const pass of [0, 1]) {
-          for (let i = 1; i < s.list.length; i++) {
-            const a0 = s.list[i - 1];
-            const a1 = s.list[i];
-            const life = a1.age / a1.life;
-            const al = Math.pow(1 - life, 1.4) * Math.min(1, a1.age / 0.6) * (e.dark ? 0.26 : 0.32);
-            if (al < 0.01) continue;
-            g.globalAlpha = pass ? al : al * 0.22;
-            g.strokeStyle = rgba(c, 1);
-            g.lineWidth = (1.1 + a1.age * 4.2) * k * (pass ? 1 : 3.2);
-            g.beginPath();
-            g.moveTo(a0.x, a0.y);
-            g.lineTo(a1.x, a1.y);
-            g.stroke();
-          }
-        }
+
+  /** El aire se lleva algo (o a sí mismo): cada celda toma lo que había de donde viene. */
+  const advect = (dst: Float32Array, src: Float32Array, U: Float32Array, V: Float32Array, dt: number) => {
+    for (let j = 0; j < ny; j++)
+      for (let i = 0; i < nx; i++) {
+        const k = i + j * nx;
+        dst[k] = sample(src, i + 0.5 - U[k] * dt, j + 0.5 - V[k] * dt);
       }
+  };
+
+  /** Que no se amontone ni se vacíe: lo que sobra en un sitio empuja a los de al lado (abierto solo por arriba). */
+  const project = () => {
+    for (let j = 0; j < ny; j++)
+      for (let i = 0; i < nx; i++) {
+        const k = i + j * nx;
+        const uL = i > 0 ? u[k - 1] : 0;
+        const uR = i < nx - 1 ? u[k + 1] : 0;
+        const vT = j > 0 ? v[k - nx] : v[k];
+        const vB = j < ny - 1 ? v[k + nx] : 0;
+        dv[k] = -0.5 * (uR - uL + vB - vT);
+      }
+    for (let it = 0; it < ITERS; it++)
+      for (let j = 0; j < ny; j++)
+        for (let i = 0; i < nx; i++) {
+          const k = i + j * nx;
+          let s = dv[k];
+          let cnt = 1;
+          if (j > 0) s += p[k - nx];
+          if (i > 0) {
+            s += p[k - 1];
+            cnt++;
+          }
+          if (i < nx - 1) {
+            s += p[k + 1];
+            cnt++;
+          }
+          if (j < ny - 1) {
+            s += p[k + nx];
+            cnt++;
+          }
+          p[k] += 1.6 * (s / cnt - p[k]);
+        }
+    for (let j = 0; j < ny; j++)
+      for (let i = 0; i < nx; i++) {
+        const k = i + j * nx;
+        const pL = i > 0 ? p[k - 1] : p[k];
+        const pR = i < nx - 1 ? p[k + 1] : p[k];
+        const pT = j > 0 ? p[k - nx] : 0;
+        const pB = j < ny - 1 ? p[k + nx] : p[k];
+        u[k] -= 0.5 * (pR - pL);
+        v[k] -= 0.5 * (pB - pT);
+      }
+  };
+
+  /** Los remolinos no se pierden: se refuerza el giro que ya hay. */
+  const confine = (dt: number) => {
+    for (let j = 1; j < ny - 1; j++)
+      for (let i = 1; i < nx - 1; i++) {
+        const k = i + j * nx;
+        w[k] = 0.5 * (v[k + 1] - v[k - 1]) - 0.5 * (u[k + nx] - u[k - nx]);
+      }
+    for (let j = 2; j < ny - 2; j++)
+      for (let i = 2; i < nx - 2; i++) {
+        const k = i + j * nx;
+        const gx = 0.5 * (Math.abs(w[k + 1]) - Math.abs(w[k - 1]));
+        const gy = 0.5 * (Math.abs(w[k + nx]) - Math.abs(w[k - nx]));
+        const m = Math.hypot(gx, gy) + 1e-5;
+        u[k] += VORT * (gy / m) * w[k] * dt;
+        v[k] -= VORT * (gx / m) * w[k] * dt;
+      }
+  };
+
+  const puff = (x: number, y: number, a: number, lift: number): Wisp => ({
+    x,
+    y,
+    age: 0,
+    life: span * r.range(0.8, 1.1),
+    big: r.range(0.8, 1.25),
+    rot: r() * TAU,
+    spin: r.range(-0.35, 0.35),
+    a,
+    look: Math.floor(r() * looks.length) % looks.length,
+    sp: r() * 50,
+    lift,
+  });
+
+  const step = (e: FxEnv, t: number, dt: number) => {
+    // 1. Lo que empuja el aire: las salidas, el humo caliente que sube, un aire que nunca está quieto, los remolinos.
+    for (const vt of vents) {
+      const x = vt.x * e.w + Math.sin(t * 0.05 + vt.ph) * e.w * 0.05;
+      const y = e.h + 1.2 * cs;
+      const str = clamp(0.55 + 0.6 * n(t * 0.17, vt.ph, 1), 0.15, 1);
+      const ang = 0.5 * n(t * 0.09, vt.ph, 4);
+      const tu = Math.sin(ang) * JET * str;
+      const tv = -Math.cos(ang) * JET * str;
+      const gi = (x - ox) / cs;
+      const gj = y / cs;
+      const R = 1.8;
+      const f0 = Math.min(1, 6 * dt);
+      for (let j = Math.max(0, Math.floor(gj - R)); j <= Math.min(ny - 1, Math.ceil(gj + R)); j++)
+        for (let i = Math.max(0, Math.floor(gi - R)); i <= Math.min(nx - 1, Math.ceil(gi + R)); i++) {
+          const q = 1 - Math.hypot(i + 0.5 - gi, j + 0.5 - gj) / R;
+          if (q <= 0) continue;
+          const k = i + j * nx;
+          u[k] += (tu - u[k]) * f0 * q;
+          v[k] += (tv - v[k]) * f0 * q;
+          d[k] = Math.min(3, d[k] + 1.6 * str * q * dt);
+        }
+      vt.acc += dt * 9 * (0.4 + 0.6 * str);
+      for (; vt.acc >= 1; vt.acc--) wisps.push(puff(x + r.range(-0.7, 0.7) * cs, y + r.range(-0.5, 0.5) * cs, 0.2 * (0.6 + 0.4 * str), 0));
+    }
+    // El humo suelto de todo el suelo (sube despacio por sí mismo hasta que el aire lo coge).
+    amb += (dt * e.w) / 110;
+    for (; amb >= 1; amb--) wisps.push(puff(r() * e.w, e.h + r.range(0.3, 1.5) * cs, 0.12, 0.7 * cs));
+
+    // El aire inquieto cambia despacio: se calcula cada pocos pasos.
+    if (steps++ % 4 === 0)
+      for (let j = 0; j < ny; j++)
+        for (let i = 0; i < nx; i++) {
+          const k = i + j * nx;
+          tx[k] = n(i * 0.16, j * 0.16, t * 0.22) * TURB;
+          ty[k] = n(i * 0.16 + 31, j * 0.16, t * 0.22) * TURB * 0.6;
+        }
+    const drag = 1 - DRAG * dt;
+    const decay = 1 - 0.09 * dt;
+    for (let k = 0; k < nx * ny; k++) {
+      let a = (u[k] + tx[k] * dt) * drag;
+      let b = (v[k] + (ty[k] - BUOY * d[k]) * dt) * drag;
+      // Por si acaso (también si algo sale mal): nunca se desboca.
+      if (!(Math.abs(a) < 14)) a = 0;
+      if (!(Math.abs(b) < 14)) b = 0;
+      u[k] = a;
+      v[k] = b;
+      d[k] *= decay;
+    }
+    confine(dt);
+
+    // 2. El aire se lleva a sí mismo y se reparte (así las columnas chocan y se apartan), y luego al humo caliente.
+    u0.set(u);
+    v0.set(v);
+    advect(u, u0, u0, v0, dt);
+    advect(v, v0, u0, v0, dt);
+    project();
+    d0.set(d);
+    advect(d, d0, u, v, dt);
+
+    // 3. Las bocanadas van con el aire (más un temblor fino que la rejilla no ve) y se apagan al acabar su vida.
+    let m = 0;
+    for (const q of wisps) {
+      q.age += dt;
+      if (q.age >= q.life || q.y < -cs * 4) continue;
+      const gx = (q.x - ox) / cs;
+      const gy = q.y / cs;
+      const fine = cs * 0.55 * (0.4 + q.age / q.life);
+      q.x += (sample(u, gx, gy) * cs + n(q.x * 0.011, q.y * 0.011, t * 0.3 + q.sp) * fine) * dt;
+      q.y += (sample(v, gx, gy) * cs - q.lift + n(q.x * 0.011 + 50, q.y * 0.011, t * 0.3 + q.sp) * fine * 0.6) * dt;
+      q.rot += q.spin * dt;
+      wisps[m++] = q;
+    }
+    wisps.length = m;
+  };
+
+  const build = (e: FxEnv) => {
+    cs = Math.max(e.w, e.h) / 54;
+    nx = Math.ceil(e.w / cs) + 4;
+    ny = Math.ceil(e.h / cs) + 3;
+    ox = -2 * cs;
+    const N = nx * ny;
+    [u, v, u0, v0, d, d0, p, dv, w, tx, ty] = Array.from({ length: 11 }, () => new Float32Array(N));
+    // Lo que tarda el humo en cruzar la pantalla (en una alta tarda más).
+    span = clamp((ny - 3) / 3, 8, 18);
+    const nv = Math.round(clamp(e.w / 260, 3, 7));
+    vents = Array.from({ length: nv }, (_, i) => ({ x: (i + 0.5 + r.range(-0.25, 0.25)) / nv, ph: r() * 100, acc: r() }));
+    wisps = [];
+    amb = 0;
+    steps = 0;
+    // Al abrir la página, el humo ya ha subido (no empieza a salir de abajo).
+    for (let i = 0; i < Math.round(span * 12); i++) step(e, i / 12, 1 / 12);
+  };
+  build(env);
+
+  return {
+    resize: build,
+    frame(g, e, t, dt) {
+      step(e, t, dt);
+      const ls = clamp(0.5 * e.dpr, 0.5, 0.75);
+      const W = Math.max(1, Math.round(e.w * ls));
+      const H = Math.max(1, Math.round(e.h * ls));
+      if (!layer || layer.width !== W || layer.height !== H) {
+        layer = document.createElement("canvas");
+        layer.width = W;
+        layer.height = H;
+      }
+      const L = layer.getContext("2d");
+      if (!L) return;
+      L.setTransform(1, 0, 0, 1, 0, 0);
+      L.globalAlpha = 1;
+      L.clearRect(0, 0, W, H);
+      L.imageSmoothingEnabled = true;
+      for (const q of wisps) {
+        const life = q.age / q.life;
+        // Entra suave, se apaga al final de su vida y, algo, al subir.
+        const a = q.a * smooth(0, 1.2, q.age) * (1 - smooth(0.45, 1, life)) * (0.3 + 0.7 * smooth(0, 0.75, q.y / e.h));
+        if (a < 0.004) continue;
+        const sz = (cs * q.big * (0.9 + 3.4 * Math.pow(life, 0.65)) * ls) / WISP_N;
+        const co = Math.cos(q.rot) * sz;
+        const si = Math.sin(q.rot) * sz;
+        L.setTransform(co, si, -si, co, q.x * ls, q.y * ls);
+        L.globalAlpha = Math.min(1, a);
+        L.drawImage(looks[q.look], -WISP_N / 2, -WISP_N / 2);
+      }
+      L.setTransform(1, 0, 0, 1, 0, 0);
+      L.globalAlpha = 1;
+      g.globalCompositeOperation = "source-over";
+      g.imageSmoothingEnabled = true;
+      g.imageSmoothingQuality = "high";
+      g.globalAlpha = (e.dark ? 0.8 : 0.85) * (0.92 + 0.08 * Math.sin(t * 0.3));
+      g.drawImage(layer, 0, 0, e.w, e.h);
       g.globalAlpha = 1;
     },
   };

@@ -193,6 +193,6 @@ export async function deleteDraft(form: FormData) {
     ]);
   }
   revalidatePath("/panel/newsletter");
-  revalidatePath("/panel/newsletter/estadisticas");
+  revalidatePath("/panel");
   redirect("/panel/newsletter?borrada=1");
 }

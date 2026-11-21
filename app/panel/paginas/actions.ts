@@ -36,7 +36,7 @@ export async function createSitePageAction(_: CreatePageState, form: FormData): 
   const r = await createSitePage(creator.id, parsed.data);
   if ("error" in r) return { error: r.error };
   revalidatePath("/panel/paginas");
-  redirect(`/panel/paginas/${r.id}`);
+  redirect(`/panel/pagina?pagina=${encodeURIComponent(r.slug)}`);
 }
 
 const inputSchema = z.object({ content: z.unknown(), slug: z.string().max(100), showInNav: z.boolean() });
@@ -62,13 +62,13 @@ export async function unpublishSitePageAction(form: FormData) {
   const { creator } = await requireCreator();
   const pageId = id.parse(form.get("id"));
   if (await unpublishSitePage(creator.id, pageId)) refreshPublic(creator.username);
-  redirect(`/panel/paginas/${pageId}?despublicada=1`);
+  redirect("/panel/pagina?ver=paginas");
 }
 
 export async function deleteSitePageAction(form: FormData) {
   const { creator } = await requireCreator();
   if (await deleteSitePage(creator.id, id.parse(form.get("id")))) refreshPublic(creator.username);
-  redirect("/panel/paginas?borrada=1");
+  redirect("/panel/pagina?ver=paginas");
 }
 
 export async function moveSitePageAction(form: FormData) {

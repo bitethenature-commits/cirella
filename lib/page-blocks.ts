@@ -26,7 +26,7 @@ export const PAGE_VIDEO_MAX = 1024 ** 3;
 /** La URL firmada a la que redirige /media/video/… vale 12 h (la redirección se cachea 10 min). */
 export const PAGE_VIDEO_URL_TTL_SEC = 43200;
 
-export const BLOCK_KINDS = ["text", "image", "gallery", "video", "photoText", "cards", "quote", "timeline", "model", "pills", "moonCircles"] as const;
+export const BLOCK_KINDS = ["text", "image", "gallery", "video", "photoText", "cards", "quote", "timeline", "model", "pills", "moonCircles", "tiers"] as const;
 export type BlockKind = (typeof BLOCK_KINDS)[number];
 
 export const BLOCK_LABEL: Record<BlockKind, string> = {
@@ -41,6 +41,7 @@ export const BLOCK_LABEL: Record<BlockKind, string> = {
   model: "Modelo interactivo",
   pills: "Enlaces en burbuja",
   moonCircles: "Próximos círculos de la luna",
+  tiers: "Niveles de la comunidad",
 };
 
 /** Burbujas de un bloque «Enlaces en burbuja». */
@@ -171,6 +172,14 @@ const base = {
   look: z.enum(BLOCK_LOOKS).optional().catch(undefined),
   /** Los títulos del bloque (y de sus tarjetas) en dorado. */
   goldTitle: z.boolean().optional().catch(undefined),
+  /**
+   * Su diseño propio (letras, colores, tarjetas, paneles, botones, fotos), encima del de la página: un `Design`
+   * (lib/templates.ts), leído clave a clave con readDesign (lib/page-config.ts) al pintarlo.
+   */
+  // Su diseño propio (lib/templates.ts → Design); se lee con readDesign (lib/page-config.ts).
+  design: z.record(z.string(), z.any()).optional().catch(undefined),
+  /** Solo en la portada: la sección delante de la que va («end», al final). Sin él, donde estaba «Bloques». */
+  at: z.string().max(40).optional().catch(undefined),
 };
 
 function textBlockShape(bodyMax: number) {
@@ -321,6 +330,23 @@ const moonCirclesBlockShape = z.object({
   title: shortText(80).default(""),
 });
 
+/** La etiqueta del nivel más completo, sin cambiarla. */
+export const TIER_BADGE_DEFAULT = "La más elegida";
+
+/**
+ * «Niveles de la comunidad» (la página Hacerte miembro): los niveles de su membresía, uno al lado del otro, sacados
+ * de lo que tiene publicado (su nombre, su precio, su carta y el diseño de cada tarjeta se guardan en cada nivel:
+ * lib/tier-look.ts). Aquí, solo el fondo de ensueño detrás de todos y el texto de la etiqueta del más completo.
+ */
+const tiersBlockShape = z.object({
+  ...base,
+  kind: z.literal("tiers"),
+  title: shortText(80).default(""),
+  /** Un fondo de ensueño detrás de los niveles (bruma, luz y destellos que flotan). */
+  stage: z.boolean().optional().catch(undefined),
+  badge: shortText(40).default(TIER_BADGE_DEFAULT),
+});
+
 export type TextBlock = z.infer<ReturnType<typeof textBlockShape>>;
 export type ImageBlock = z.infer<typeof imageBlockShape>;
 export type GalleryBlock = z.infer<typeof galleryBlockShape>;
@@ -332,7 +358,8 @@ export type TimelineBlock = z.infer<typeof timelineBlockShape>;
 export type ModelBlock = z.infer<typeof modelBlockShape>;
 export type PillsBlock = z.infer<typeof pillsBlockShape>;
 export type MoonCirclesBlock = z.infer<typeof moonCirclesBlockShape>;
-export type ContentBlock = TextBlock | ImageBlock | GalleryBlock | VideoBlock | PhotoTextBlock | CardsBlock | QuoteBlock | TimelineBlock | ModelBlock | PillsBlock | MoonCirclesBlock;
+export type TiersBlock = z.infer<typeof tiersBlockShape>;
+export type ContentBlock = TextBlock | ImageBlock | GalleryBlock | VideoBlock | PhotoTextBlock | CardsBlock | QuoteBlock | TimelineBlock | ModelBlock | PillsBlock | MoonCirclesBlock | TiersBlock;
 
 /** Un bloque de antes (sin `kind`) es un bloque de texto. */
 function withKind(raw: unknown): unknown {
@@ -357,6 +384,7 @@ export function contentBlockSchema(o: { bodyMax: number }) {
         modelBlockShape,
         pillsBlockShape,
         moonCirclesBlockShape,
+        tiersBlockShape,
       ]).superRefine((b, ctx) => {
       const issue = (message: string) => ctx.addIssue({ code: "custom", message });
       switch (b.kind) {
@@ -443,6 +471,7 @@ export function visibleBlocks(blocks: ContentBlock[] | undefined): ContentBlock[
         return b.items.some((i) => i.label.trim() && i.href.trim());
       case "model":
       case "moonCircles":
+      case "tiers":
         return true;
     }
   });
@@ -472,6 +501,7 @@ export function isEmptyBlock(b: ContentBlock): boolean {
     // Un modelo (y los círculos, que se eligen solos) siempre tiene algo que enseñar, aunque no lleve título.
     case "model":
     case "moonCircles":
+    case "tiers":
       return false;
   }
 }
@@ -515,6 +545,8 @@ export function newBlock(kind: BlockKind, id: string): ContentBlock {
       return { id, kind, title: "", items: [newPill()], enabled: true };
     case "moonCircles":
       return { id, kind, title: "", enabled: true };
+    case "tiers":
+      return { id, kind, title: "", badge: TIER_BADGE_DEFAULT, enabled: true };
   }
 }
 

@@ -313,7 +313,7 @@ export async function handleAutomation(event: DomainEvent) {
           productTitle: b.product.title,
           when: b.startAt ? formatSessionDate(b.startAt, s.creator.timezone) : null,
           reason: b.cancelReason ?? "El pago se ha devuelto desde la pasarela.",
-          url: `${base}/panel/solicitudes`,
+          url: `${base}/panel/solicitudes/reserva/${b.id}`,
         }),
       });
       return;

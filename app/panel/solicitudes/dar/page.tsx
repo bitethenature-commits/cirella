@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { peopleLabel } from "@/lib/site-mode";
 import { ArrowLeft } from "lucide-react";
 import { requireCreator } from "@/lib/auth";
 import { tenantDb } from "@/lib/tenant";
@@ -39,8 +40,8 @@ export default async function GiveAccessPage({ searchParams }: { searchParams: P
   }));
   return (
     <div className="max-w-3xl pb-28">
-      <Link href="/panel/solicitudes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Solicitudes
+      <Link href="/panel/clientes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+        <ArrowLeft className="h-4 w-4" /> {peopleLabel()}
       </Link>
       <PageHeader title="Dar acceso" subtitle="A cualquiera que haya hablado contigo, sin formulario. Elige qué le das y escribe su email: le llega el enlace para entrar." />
       {list.length === 0 ? (

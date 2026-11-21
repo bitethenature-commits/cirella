@@ -1,29 +1,55 @@
 import "server-only";
-import { notFound, redirect } from "next/navigation";
-import { requireCreator } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { hasAccountLook, readAccountLook } from "@/lib/account-look";
+import { readCourseLook, readLookPatch, readPieceLook } from "@/lib/course-design";
 import { readDrip } from "@/lib/course-drip";
 import { uploadPolicy } from "@/lib/file-types";
-import { emptyBlock, isBlockKind, parseBlock } from "@/lib/lesson-blocks";
+import { emptyBlock, isBlockKind, parseBlock, readBlock } from "@/lib/lesson-blocks";
 import { lessonPartViews } from "@/lib/lesson-parts";
 import { loadLessonEditor } from "@/lib/lessons";
 import { isPersonalMode } from "@/lib/site-mode";
-import { tenantDb } from "@/lib/tenant";
 import type { EditorPart } from "@/app/panel/productos/[id]/lecciones/part-card";
+import { loadStudioCourse } from "../load";
+import type { BoardModule } from "../structure-board";
+import type { CanvaCourse } from "./course-canva";
 
-/**
- * Todo lo que el editor de lecciones del estudio necesita (lib/lessons.ts → loadLessonEditor) y,
- * para la vista previa y la apertura poco a poco, en qué puesto la verá la alumna: entre las
- * publicadas (más esta, si es un borrador o nueva). `lessonId` null = lección nueva al final de `moduleId`.
- */
-export async function lessonEditorProps(productId: string, lessonId: string | null, moduleId?: string) {
-  const { creator } = await requireCreator();
-  const data = await loadLessonEditor(creator.id, productId, lessonId);
-  if (!data || (lessonId && !data.lesson)) notFound();
-  if (!data.modules.length) redirect(`/panel/cursos/${productId}`);
-  const mod = data.modules.some((m) => m.id === moduleId) ? moduleId! : (data.lesson?.moduleId ?? data.modules[0].id);
+type BoardRow = {
+  id: string;
+  title: string;
+  lessons: {
+    id: string;
+    title: string;
+    durationMin: number | null;
+    published: boolean;
+    dripDays: number | null;
+    parts: { kind: string; data: unknown; file: { kind: string } | null }[];
+  }[];
+};
 
-  // El índice del curso (a la izquierda del editor): módulos y lecciones, como los ve la alumna.
-  const outlineModules = await tenantDb(creator.id).courseModule.findMany({
+/** Los módulos y lecciones como los pinta la estructura en escalera (con los capítulos de cada lección larga). */
+export function toBoardModules(rows: BoardRow[]): BoardModule[] {
+  return rows.map((m) => ({
+    id: m.id,
+    title: m.title,
+    lessons: m.lessons.map((l) => ({
+      id: l.id,
+      title: l.title,
+      durationMin: l.durationMin,
+      views: lessonPartViews(l.parts),
+      published: l.published,
+      dripDays: l.dripDays,
+      chapters: l.parts.flatMap((p) => {
+        const c = p.kind === "CHAPTER" ? readBlock("CHAPTER", p.data) : null;
+        return c ? [{ title: c.title }] : [];
+      }),
+    })),
+  }));
+}
+
+/** Lo que el editor de lecciones necesita del curso: cómo lo ve la alumna (sus colores) y el índice de la izquierda. */
+export async function courseCanvaData(productId: string) {
+  const { user, creator, db, course } = await loadStudioCourse(productId);
+  const rows = await db.courseModule.findMany({
     where: { productId },
     orderBy: { sortOrder: "asc" },
     select: {
@@ -31,64 +57,77 @@ export async function lessonEditorProps(productId: string, lessonId: string | nu
       title: true,
       lessons: {
         orderBy: { sortOrder: "asc" },
-        select: { id: true, title: true, published: true, durationMin: true, parts: { orderBy: { sortOrder: "asc" }, select: { kind: true, file: { select: { kind: true } } } } },
+        select: {
+          id: true,
+          title: true,
+          durationMin: true,
+          published: true,
+          dripDays: true,
+          parts: { orderBy: { sortOrder: "asc" }, select: { kind: true, data: true, file: { select: { kind: true } } } },
+        },
       },
     },
   });
+  const personal = isPersonalMode();
+  // Sus colores del área de alumna (como en «Ver como alumna»): la lección se ve igual que la verá ella.
+  const look = readAccountLook(user.accountLook);
+  const data: CanvaCourse = {
+    id: course.id,
+    title: course.title,
+    imageUrl: course.imageUrl,
+    look: hasAccountLook(look) ? look : null,
+    design: readCourseLook(course.courseDesign),
+    drip: readDrip(course),
+    personal,
+    uploadLabel: uploadPolicy(personal).label,
+  };
+  return { creator, course: data, board: toBoardModules(rows) };
+}
 
-  const ordered = await tenantDb(creator.id).lesson.findMany({
-    where: { productId },
-    orderBy: [{ module: { sortOrder: "asc" } }, { sortOrder: "asc" }],
-    select: { id: true, published: true, moduleId: true },
-  });
-  const published = ordered.filter((l) => l.published);
-  let before: number;
-  if (lessonId) {
-    const at = ordered.findIndex((l) => l.id === lessonId);
-    before = ordered.slice(0, at).filter((l) => l.published).length;
-  } else {
-    // Al final de su módulo: delante quedan las publicadas de los módulos anteriores y las del suyo.
-    const order = data.modules.map((m) => m.id);
-    const upTo = order.indexOf(mod);
-    before = published.filter((l) => order.indexOf(l.moduleId) <= upTo).length;
-  }
-  const isPublished = !!data.lesson?.published;
-  const total = published.length + (isPublished ? 0 : 1);
-
+/**
+ * Todo lo que el editor de una lección necesita (lib/lessons.ts → loadLessonEditor) y en qué puesto la verá la
+ * alumna: entre las publicadas (más esta, si es un borrador). Si la lección ya no existe (borrada desde otra
+ * pantalla), vuelve a la primera del curso.
+ */
+export async function lessonCanvaProps(productId: string, lessonId: string) {
+  const { creator, course, board } = await courseCanvaData(productId);
+  const data = await loadLessonEditor(creator.id, productId, lessonId);
+  if (!data?.lesson) redirect(`/panel/cursos/${productId}/lecciones`);
   const l = data.lesson;
-  const parts = (l?.parts ?? []).flatMap((p, i): EditorPart[] => {
+
+  const ordered = board.flatMap((m) => m.lessons);
+  const at = ordered.findIndex((x) => x.id === l.id);
+  const before = ordered.slice(0, Math.max(0, at)).filter((x) => x.published).length;
+  const total = ordered.filter((x) => x.published).length + (l.published ? 0 : 1);
+
+  const parts = l.parts.flatMap((p, i): EditorPart[] => {
     const key = `p${i}`;
-    if (p.kind === "TEXT") return [{ key, kind: "TEXT", body: p.body ?? "", format: p.bodyFormat === "MD" ? "MD" : null }];
-    if (p.kind === "FILE" && p.fileId) return [{ key, kind: "FILE", fileId: p.fileId }];
-    if (p.kind === "EMBED") return [{ key, kind: "EMBED", url: p.url ?? "" }];
+    const design = readPieceLook(p.design);
+    if (p.kind === "TEXT") return [{ key, kind: "TEXT", body: p.body ?? "", format: p.bodyFormat === "MD" ? "MD" : null, design }];
+    if (p.kind === "FILE" && p.fileId) return [{ key, kind: "FILE", fileId: p.fileId, design }];
+    if (p.kind === "EMBED") return [{ key, kind: "EMBED", url: p.url ?? "", design }];
     if (isBlockKind(p.kind)) {
       const b = parseBlock(p.kind, p.data);
-      return [{ key, ...(b.ok ? b.part : emptyBlock(p.kind)) }];
+      return [{ key, ...(b.ok ? b.part : emptyBlock(p.kind)), design }];
     }
     return [];
   });
-  const personal = isPersonalMode();
+
   return {
-    productId: data.product.id,
-    productTitle: data.product.title,
-    modules: data.modules,
+    course,
+    board,
     files: data.files,
-    lesson: l
-      ? { id: l.id, moduleId: l.moduleId, title: l.title, durationMin: l.durationMin, version: l.version, parts, published: l.published, dripDays: l.dripDays }
-      : // Una lección nueva nace en borrador: se publica cuando está lista.
-        { id: null, moduleId: mod, title: "", durationMin: null, version: null, parts: [], published: false, dripDays: null },
-    uploadLabel: uploadPolicy(personal).label,
-    drip: readDrip(data.product),
-    dripIndex: before,
-    preview: { courseTitle: data.product.title, imageUrl: data.product.imageUrl, personal, number: before + 1, total },
-    outline: {
-      courseTitle: data.product.title,
-      imageUrl: data.product.imageUrl,
-      modules: outlineModules.map((m) => ({
-        id: m.id,
-        title: m.title,
-        lessons: m.lessons.map((x) => ({ id: x.id, title: x.title, published: x.published, durationMin: x.durationMin, views: lessonPartViews(x.parts) })),
-      })),
+    lesson: {
+      id: l.id,
+      moduleId: l.moduleId,
+      title: l.title,
+      durationMin: l.durationMin,
+      version: l.version,
+      parts,
+      published: l.published,
+      dripDays: l.dripDays,
+      design: readLookPatch(l.design),
     },
+    place: { number: before + 1, total, dripIndex: before },
   };
 }

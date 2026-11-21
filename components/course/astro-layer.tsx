@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { RichContent } from "@/components/rich-text/rich-content";
 import { ASPECTS, BODY_INFO, ELEMENT_HUE, HOUSES, SIGNS, type Element } from "@/components/models/data/astrology";
 import type { BirthProfile, ComputedProfile } from "@/lib/birth-profile";
 import { useComputedProfile } from "@/components/models/use-birth-profile";
-import { ASTRO_LAYER_LABEL, FOCUS_BODIES, LAYER_KEYS, LAYER_OPTIONS, MODEL_MODE_HINT, MODEL_MODE_LABEL, LAYER_SYSTEM, layerOption, modesFor, type AstroLayer, type ModelData, type ModelMode } from "@/lib/lesson-blocks";
+import { ASTRO_LAYER_LABEL, FOCUS_BODIES, LAYER_KEYS, LAYER_OPTIONS, MODEL_MODE_HINT, MODEL_MODE_LABEL, LAYER_SYSTEM, layerOption, modelText, modesFor, type AstroLayer, type ModelData, type ModelMode, type ModelTextField } from "@/lib/lesson-blocks";
 import { SystemDiagram, isSystemLayer, systemKeys, systemMine, systemPiece, type LayerCtx, type SystemPiece } from "./system-layers";
 import { WK_CREAM as CREAM, WK_GOLD, WK_INK, WK_MUTED as MUTED } from "./layers/wheel-kit";
 import { DegreeTicks, ElementSymbol, Medallion, MedallionText, MineMark, RingSector, WheelBase, WheelDefs, useWheelIds } from "./layers/wheel-kit";
@@ -120,7 +120,21 @@ const toThird = (s: string) =>
 
 const TOUR_MS = 7000;
 
-export function AstroLayerModel({ data, computed, others = [] }: { data: ModelData; computed: ComputedProfile | null; others?: BirthProfile[] }) {
+export function AstroLayerModel({
+  data,
+  computed,
+  others = [],
+  edit,
+}: {
+  data: ModelData;
+  computed: ComputedProfile | null;
+  others?: BirthProfile[];
+  /**
+   * Solo en el editor del curso: el título, la entrada, el texto de cada pieza y los textos de serie (lo de arriba y,
+   * en la ficha, el nombre, la línea pequeña y el significado), escritos encima.
+   */
+  edit?: { title?: ReactNode; intro?: ReactNode; note?: (key: string) => ReactNode; text?: (key: string, shown: string, base: string, multiline?: boolean) => ReactNode };
+}) {
   // La versión del modelo: la que eligió la dueña en el editor; la alumna puede cambiarla en la barra de modos.
   const [mode, setMode] = useState<ModelMode>(() => (modesFor(data.layer).includes(data.mode ?? "explore") ? (data.mode ?? "explore") : "explore"));
   // Sinastría, pareja y «Comparar»: la otra persona elegida (de las guardadas en «Mi energía») y su carta, calculada aquí.
@@ -161,6 +175,12 @@ export function AstroLayerModel({ data, computed, others = [] }: { data: ModelDa
   const options = LAYER_OPTIONS[data.layer];
   const optionLabel = options && option !== options[0].value ? options.find((o) => o.value === option)?.label : null;
   const otherName = others[otherIndex]?.name ?? "la otra persona";
+  // Los textos de serie, con lo que haya cambiado la dueña encima (lib/lesson-blocks.ts → modelText).
+  const own = (k: string, f: ModelTextField) => modelText(data, k, f);
+  const clueOf = (k: string) => own(k, "kicker") ?? pieceFor(k).kicker;
+  /** Un texto de serie: en el editor, para escribir encima (vacío vuelve al de serie); para la alumna, el que toca. */
+  const txt = (key: string, shown: string, base: string, multiline = false): ReactNode => (edit?.text ? edit.text(key, shown, base, multiline) : shown);
+  const baseLabel = `${ASTRO_LAYER_LABEL[data.layer]}${optionLabel ? ` · ${optionLabel}` : ""}`;
 
   /* ---- Recorrido guiado: avanza solo cada pocos segundos; se para al final o al tocar. ---- */
   const [playing, setPlaying] = useState(false);
@@ -180,7 +200,7 @@ export function AstroLayerModel({ data, computed, others = [] }: { data: ModelDa
     const pool = keys.filter((k) => k !== prev?.target);
     const target = pool[Math.floor(Math.random() * pool.length)] ?? keys[0];
     const n = (prev?.n ?? 0) + (prev?.answered ? 1 : 0);
-    const clue = pieceFor(target).kicker;
+    const clue = clueOf(target);
     const kind = n % 2 === 1 && clue && !clue.includes(pieceFor(target).name) ? "clue" : "name";
     setQuiz({ target, kind, answered: false, wrong: null, n, ok: prev?.ok ?? 0 });
   };
@@ -240,19 +260,20 @@ export function AstroLayerModel({ data, computed, others = [] }: { data: ModelDa
         nameOf={nameOf}
         onPick={pick}
         tour={{ playing, index: keys.indexOf(selected), total: keys.length, toggle: () => setPlaying((p) => !p), restart: () => { setSel(keys[0]); setPlaying(true); } }}
-        quiz={quiz && { ...quiz, question: quiz.kind === "clue" ? `¿Qué pieza es: «${pieceFor(quiz.target).kicker}»?` : `Toca: ${nameOf(quiz.target)}`, wrongName: quiz.wrong ? nameOf(quiz.wrong) : null, next: () => newQuestion(quiz) }}
+        quiz={quiz && { ...quiz, question: quiz.kind === "clue" ? `¿Qué pieza es: «${clueOf(quiz.target)}»?` : `Toca: ${nameOf(quiz.target)}`, wrongName: quiz.wrong ? nameOf(quiz.wrong) : null, next: () => newQuestion(quiz) }}
       />
   );
 
   // Lo de arriba: la capa (y su configuración), el título, la entrada y los modos.
   const header = (
     <>
-        <p className="eyebrow">
-          {ASTRO_LAYER_LABEL[data.layer]}
-          {optionLabel ? ` · ${optionLabel}` : ""}
-        </p>
-        {data.title && <h3 className="display mt-1 text-[1.7rem] leading-tight">{data.title}</h3>}
-        {data.intro && <RichContent text={data.intro} format="MD" legacy="paragraphs" tone="account" className="mt-2 space-y-3 text-[0.98rem] leading-relaxed text-ink/80" />}
+        <p className="eyebrow">{txt("label", data.label?.trim() || baseLabel, baseLabel)}</p>
+        {edit?.title ? <h3 className="display mt-1 text-[1.7rem] leading-tight">{edit.title}</h3> : data.title && <h3 className="display mt-1 text-[1.7rem] leading-tight">{data.title}</h3>}
+        {edit?.intro ? (
+          <div className="mt-2 text-[0.98rem] leading-relaxed text-ink/80">{edit.intro}</div>
+        ) : (
+          data.intro && <RichContent text={data.intro} format="MD" legacy="paragraphs" tone="account" className="mt-2 space-y-3 text-[0.98rem] leading-relaxed text-ink/80" />
+        )}
         {/* Las versiones del modelo. */}
         <div className="mt-3 flex flex-wrap gap-1.5" role="tablist" aria-label="Modo del modelo">
           {modes.map((m) => (
@@ -263,7 +284,7 @@ export function AstroLayerModel({ data, computed, others = [] }: { data: ModelDa
               aria-selected={mode === m}
               title={MODEL_MODE_HINT[m]}
               onClick={() => chooseMode(m)}
-              className={`min-h-9 rounded-full border px-3 text-[0.78rem] font-medium transition ${mode === m ? "border-gold bg-gold text-[#15122a]" : "border-line text-ink/75 hover:border-gold/60 hover:text-ink"}`}
+              className={`min-h-9 rounded-full border px-3 text-[0.78rem] font-medium transition ${mode === m ? "border-gold bg-gold text-[#0B0B0D]" : "border-line text-ink/75 hover:border-gold/60 hover:text-ink"}`}
             >
               {MODE_ICON[m]} {MODEL_MODE_LABEL[m]}
             </button>
@@ -283,6 +304,9 @@ export function AstroLayerModel({ data, computed, others = [] }: { data: ModelDa
           )}
         </div>
   );
+  // La ficha de la pieza elegida: sus textos de serie o los que haya escrito la dueña.
+  const baseTitle = focusName && (data.layer === "signs" || data.layer === "houses") ? `${focusName} en ${piece.name}` : piece.name;
+  const kicker = own(selected, "kicker") ?? piece.kicker;
   const card = (
     <>
         {/* La tarjeta llega hasta los bordes del modelo y tiene siempre el mismo tamaño (no mueve la página al
@@ -309,18 +333,18 @@ export function AstroLayerModel({ data, computed, others = [] }: { data: ModelDa
                     </span>
                   )}
                   <div className="min-w-0">
-                    <p className="display text-[1.4rem] leading-tight">{focusName && (data.layer === "signs" || data.layer === "houses") ? `${focusName} en ${piece.name}` : piece.name}</p>
+                    <p className="display text-[1.4rem] leading-tight">{txt(`${selected}:name`, own(selected, "name") ?? baseTitle, baseTitle)}</p>
                   <div className="mt-1.5 flex flex-wrap gap-1 empty:hidden">
-                    {mineList.includes(selected) && <span className="rounded-full bg-gold px-2.5 py-1 text-[0.65rem] font-semibold text-[#15122a]">★ En tu carta</span>}
-                    {todayList.includes(selected) && <span className="rounded-full bg-[#C9C3E8] px-2.5 py-1 text-[0.65rem] font-semibold text-[#15122a]">☀︎ Hoy en el cielo</span>}
-                    {otherList.includes(selected) && <span className="rounded-full bg-[#7FB8E0] px-2.5 py-1 text-[0.65rem] font-semibold text-[#15122a]">★ {otherName}</span>}
+                    {mineList.includes(selected) && <span className="rounded-full bg-gold px-2.5 py-1 text-[0.65rem] font-semibold text-[#0B0B0D]">★ En tu carta</span>}
+                    {todayList.includes(selected) && <span className="rounded-full bg-[#C9C3E8] px-2.5 py-1 text-[0.65rem] font-semibold text-[#0B0B0D]">☀︎ Hoy en el cielo</span>}
+                    {otherList.includes(selected) && <span className="rounded-full bg-[#7FB8E0] px-2.5 py-1 text-[0.65rem] font-semibold text-[#0B0B0D]">★ {otherName}</span>}
                   </div>
                   </div>
                 </div>
                 <div key={selected} className="min-h-0 flex-1 overflow-y-auto px-5 py-4 [scrollbar-color:#D9CFBC_transparent] [scrollbar-width:thin]">
-                  {piece.kicker && (
+                  {(kicker || edit?.text) && (
                     <>
-                      <p className="text-[0.72rem] font-semibold uppercase leading-relaxed tracking-[0.12em] text-muted">{piece.kicker}</p>
+                      <p className="text-[0.72rem] font-semibold uppercase leading-relaxed tracking-[0.12em] text-muted">{txt(`${selected}:kicker`, kicker, piece.kicker)}</p>
                       <hr className="my-3 border-line" />
                     </>
                   )}
@@ -333,7 +357,7 @@ export function AstroLayerModel({ data, computed, others = [] }: { data: ModelDa
                   {mode === "today" && today && (
                     <p className="mb-3 rounded-xl bg-[#C9C3E8]/25 px-3 py-2 text-[0.88rem] leading-relaxed text-ink">{todayList.includes(selected) ? "Hoy el cielo tiene activa esta pieza: es buen momento para sentirla." : todayList.length ? `Hoy no está activa. Las de hoy: ${todayList.map(nameOf).join(", ")}.` : "En esta capa el cielo de hoy no marca ninguna pieza."}</p>
                   )}
-                  <p className="whitespace-pre-line text-[0.98rem] leading-relaxed text-ink/75">{piece.meaning}</p>
+                  <p className="whitespace-pre-line text-[0.98rem] leading-relaxed text-ink/75">{txt(`${selected}:meaning`, own(selected, "meaning") ?? piece.meaning, piece.meaning, true)}</p>
                   {piece.extra && (
                     <div className="mt-6 border-t border-line pt-5">
                       <div className="flex items-center gap-3">
@@ -342,14 +366,20 @@ export function AstroLayerModel({ data, computed, others = [] }: { data: ModelDa
                             {piece.extra.glyph}
                           </span>
                         )}
-                        <p className="display text-[1.4rem] leading-tight">{piece.extra.name}</p>
+                        <p className="display text-[1.4rem] leading-tight">{txt(`${selected}:xname`, own(selected, "xname") ?? piece.extra.name, piece.extra.name)}</p>
                       </div>
-                      <p className="mt-3 text-[0.72rem] font-semibold uppercase leading-relaxed tracking-[0.12em] text-muted">{piece.extra.kicker}</p>
+                      <p className="mt-3 text-[0.72rem] font-semibold uppercase leading-relaxed tracking-[0.12em] text-muted">
+                        {txt(`${selected}:xkicker`, own(selected, "xkicker") ?? piece.extra.kicker, piece.extra.kicker)}
+                      </p>
                       <hr className="my-3 border-line" />
-                      <p className="whitespace-pre-line text-[0.98rem] leading-relaxed text-ink/75">{piece.extra.meaning}</p>
+                      <p className="whitespace-pre-line text-[0.98rem] leading-relaxed text-ink/75">{txt(`${selected}:xmeaning`, own(selected, "xmeaning") ?? piece.extra.meaning, piece.extra.meaning, true)}</p>
                     </div>
                   )}
-                  {note && <RichContent text={note} format="MD" legacy="paragraphs" tone="account" className="mt-4 space-y-3 border-t border-line pt-4 text-[0.98rem] leading-relaxed text-ink/90" />}
+                  {edit?.note ? (
+                    <div className="mt-4 border-t border-line pt-4 text-[0.98rem] leading-relaxed text-ink/90">{edit.note(selected)}</div>
+                  ) : (
+                    note && <RichContent text={note} format="MD" legacy="paragraphs" tone="account" className="mt-4 space-y-3 border-t border-line pt-4 text-[0.98rem] leading-relaxed text-ink/90" />
+                  )}
                 </div>
               </>
             )}
@@ -424,7 +454,7 @@ function ModeStrip({
   const chips = (ks: string[], tone: string) => (
     <span className="flex flex-wrap gap-1">
       {ks.map((k) => (
-        <button key={k} type="button" onClick={() => onPick(k)} className="rounded-full px-2 py-0.5 text-[0.72rem] font-medium text-[#15122a]" style={{ background: tone }}>
+        <button key={k} type="button" onClick={() => onPick(k)} className="rounded-full px-2 py-0.5 text-[0.72rem] font-medium text-[#0B0B0D]" style={{ background: tone }}>
           {nameOf(k)}
         </button>
       ))}
@@ -742,7 +772,7 @@ function Wheel({
               return (
                 <g key={id} {...tap(id, BODY_INFO[id].name)}>
                   {on && <circle cx={p.x} cy={p.y} r="18" fill={GOLD} opacity="0.45" filter={`url(#${ids.glow})`} />}
-                  <circle cx={p.x} cy={p.y} r={on ? 12 : 9} fill={on ? `url(#${ids.sel})` : "rgb(16 14 38 / .85)"} stroke={on || own ? GOLD : "rgb(255 255 255 / .22)"} strokeWidth={on ? 1 : own ? 0.9 : 0.5} />
+                  <circle cx={p.x} cy={p.y} r={on ? 12 : 9} fill={on ? `url(#${ids.sel})` : "rgb(11 11 13 / .85)"} stroke={on || own ? GOLD : "rgb(255 255 255 / .22)"} strokeWidth={on ? 1 : own ? 0.9 : 0.5} />
                   <text x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central" fontSize={on ? 14.5 : 11.5} fill={on ? GOLD : INK} pointerEvents="none">
                     {BODY_INFO[id].glyph + VS}
                   </text>

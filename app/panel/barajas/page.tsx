@@ -98,7 +98,7 @@ export default async function DecksPage({ searchParams }: { searchParams: Promis
       <p className="mt-6 text-xs text-muted">
         Para enseñar una baraja en tu web, añade un bloque «Modelo interactivo» con el modelo «Oráculo» en{" "}
         <Link href="/panel/pagina" className="underline underline-offset-2">Mi página</Link> o en una de tus{" "}
-        <Link href="/panel/paginas" className="underline underline-offset-2">Páginas</Link> y elige la baraja.
+        <Link href="/panel/pagina?ver=paginas" className="underline underline-offset-2">Páginas</Link> y elige la baraja.
       </p>
     </div>
   );

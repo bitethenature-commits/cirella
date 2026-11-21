@@ -99,6 +99,7 @@ export function ProductForm({
   commissionBps,
   accessModes,
   preview,
+  narrow = false,
   children,
 }: {
   product: EditableProduct;
@@ -109,6 +110,8 @@ export function ProductForm({
   accessModes: AccessMode[];
   /** Vista previa en vivo (product-preview.tsx): lo que no sale del formulario. */
   preview: ProductPreviewContext;
+  /** Dentro de un panel estrecho (Ajustes en Cursos): una sola columna y la vista previa con su botón, a pantalla completa. */
+  narrow?: boolean;
   /** Lo que va debajo del formulario (archivos, lecciones…), en la misma columna que él. */
   children?: ReactNode;
 }) {
@@ -163,9 +166,9 @@ export function ProductForm({
   const closeSheet = useCallback(() => setSheet(false), []);
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_384px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_414px]">
+    <div className={narrow ? "" : "lg:grid lg:grid-cols-[minmax(0,1fr)_384px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_414px]"}>
     <div className="min-w-0">
-    <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-line bg-white/60 px-4 py-2.5 lg:hidden">
+    <div className={`mb-4 flex items-center justify-between gap-3 rounded-2xl border border-line bg-white/60 px-4 py-2.5 ${narrow ? "" : "lg:hidden"}`}>
       <p className="text-sm text-muted">Mira cómo queda mientras escribes.</p>
       <PreviewButton onClick={() => setSheet(true)} />
     </div>
@@ -594,7 +597,7 @@ export function ProductForm({
       </section>
       )}
       {/* En escritorio, siempre a la vista al bajar por el formulario. */}
-      <section className="card z-10 flex flex-col gap-4 p-5 sm:flex-row sm:items-end lg:sticky lg:bottom-4 lg:p-4 lg:shadow-lift">
+      <section className={`card z-10 flex flex-col gap-4 p-5 sm:flex-row sm:items-end ${narrow ? "sticky bottom-0 sm:p-4 shadow-lift" : "lg:sticky lg:bottom-4 lg:p-4 lg:shadow-lift"}`}>
         {simple ? (
           <div className="sm:flex-1">
             <p className="field-label">Estado</p>
@@ -632,12 +635,12 @@ export function ProductForm({
     </div>
 
     {/* Vista previa en vivo: columna fija en escritorio; en el móvil y la tableta, a pantalla completa. */}
-    {desktop && shown && (
+    {desktop && !narrow && shown && (
       <aside className="hidden lg:block">
         <DesktopPreview ctx={preview} product={shown.product} status={shown.status} tab={tab} onTab={setTab} />
       </aside>
     )}
-    {sheet && !desktop && shown && <PreviewSheet ctx={preview} product={shown.product} status={shown.status} tab={tab} onTab={setTab} onClose={closeSheet} />}
+    {sheet && (!desktop || narrow) && shown && <PreviewSheet always={narrow} ctx={preview} product={shown.product} status={shown.status} tab={tab} onTab={setTab} onClose={closeSheet} />}
     </div>
   );
 }

@@ -83,6 +83,7 @@ export function runFx(canvas: HTMLCanvasElement, factory: EffectFactory, contain
     if (force || colorsChanged || !fx) {
       colorKey = key;
       env = next;
+      fx?.dispose?.();
       fx = factory(next);
     } else {
       // Solo ha cambiado el tamaño: las piezas siguen donde iban (salvo un cambio grande, que las reparte otra vez).
@@ -176,6 +177,7 @@ export function runFx(canvas: HTMLCanvasElement, factory: EffectFactory, contain
 
   return () => {
     dead = true;
+    fx?.dispose?.();
     stop();
     ro.disconnect();
     io.disconnect();

@@ -291,7 +291,7 @@ export function MiniBodygraph({
           <path key={`e${q.key}`} d={q.d} stroke="rgb(255 255 255 / .2)" strokeWidth={CHANNEL_BAND + 2} />
         ))}
         {PATHS.map((q) => (
-          <path key={`f${q.key}`} d={q.d} stroke="#1B1840" strokeWidth={CHANNEL_BAND} />
+          <path key={`f${q.key}`} d={q.d} stroke="#1C1C1F" strokeWidth={CHANNEL_BAND} />
         ))}
         {/* Los definidos, de oro con halo; las puertas colgantes, media cinta en su color. */}
         {/* El corredor de integración: las puertas colgantes, solo su rama (bodygraph-layout.ts). */}
@@ -358,7 +358,7 @@ export function MiniBodygraph({
         return (
           <g key={s.id} {...t}>
             {focused && <polygon points={s.points} fill={NIGHT_GOLD} opacity="0.55" filter={`url(#${p}blur)`} />}
-            <polygon points={s.points} fill={isDefined ? ce.hue : "#1E1B45"} stroke={focused ? "#F0D9A4" : isDefined ? "rgb(255 255 255 / .35)" : "rgb(255 255 255 / .38)"} strokeWidth={focused ? 4.5 : 1.4} strokeLinejoin="round" />
+            <polygon points={s.points} fill={isDefined ? ce.hue : "#1D1D20"} stroke={focused ? "#F0D9A4" : isDefined ? "rgb(255 255 255 / .35)" : "rgb(255 255 255 / .38)"} strokeWidth={focused ? 4.5 : 1.4} strokeLinejoin="round" />
             {centreNames && (
               <text x={s.centroid.x} y={s.centroid.y} textAnchor="middle" dominantBaseline="central" fontSize="17" fontWeight={focused ? 700 : 500} fill={STAR} pointerEvents="none" style={{ textShadow: "0 1px 3px rgba(0,0,0,.6)" }}>
                 {ce.name}
@@ -550,7 +550,7 @@ export function HdDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProp
               return (
                 <g {...tap("lunar", HD_AUTHORITIES.lunar.name)}>
                   {on && <circle cx="425" cy="70" r="40" fill={NIGHT_GOLD} opacity="0.35" />}
-                  <circle cx="425" cy="70" r="28" fill="#2A2745" stroke={on ? "#FFF3D4" : "rgb(255 255 255 / .4)"} strokeWidth={on ? 3 : 1.4} />
+                  <circle cx="425" cy="70" r="28" fill="#26262A" stroke={on ? "#FFF3D4" : "rgb(255 255 255 / .4)"} strokeWidth={on ? 3 : 1.4} />
                   <path d="M425 42A28 28 0 0 1 425 98A15 28 0 0 0 425 42Z" fill={on ? "#E9CC8E" : "#F3ECDD"} />
                   <text x="425" y="122" textAnchor="middle" dominantBaseline="central" fontSize="21" fontWeight="700" fill={on ? NIGHT_GOLD : STAR}>
                     {m ? "★ " : ""}Lunar
@@ -658,7 +658,7 @@ function TypesDiagram({ selected, own, tap }: { selected: string; own: Set<strin
             )}
             {k === "manifestor" && (
               <>
-                <circle cx={x} cy={y} r="26" fill="#1E1B45" stroke={ring} strokeWidth="2.2" />
+                <circle cx={x} cy={y} r="26" fill="#1D1D20" stroke={ring} strokeWidth="2.2" />
                 <circle cx={x} cy={y} r="11" fill={`url(#${p}core)`} />
                 {Array.from({ length: 8 }, (_, i) => {
                   const a = (i * Math.PI) / 4;
@@ -676,7 +676,7 @@ function TypesDiagram({ selected, own, tap }: { selected: string; own: Set<strin
             {k === "reflector" && (
               <>
                 <circle cx={x} cy={y} r="34" fill="none" stroke={ring} strokeWidth="1.2" strokeDasharray="3 4" />
-                <circle cx={x} cy={y} r="15" fill="#2A2745" stroke="rgb(255 255 255 / .3)" />
+                <circle cx={x} cy={y} r="15" fill="#26262A" stroke="rgb(255 255 255 / .3)" />
                 <path d={`M${x} ${y - 15}A15 15 0 0 1 ${x} ${y + 15}A8 15 0 0 0 ${x} ${y - 15}Z`} fill="#F3ECDD" />
               </>
             )}

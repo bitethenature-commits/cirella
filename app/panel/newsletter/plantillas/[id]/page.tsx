@@ -19,8 +19,8 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
   const others = await db.newsletterTemplate.findMany({ where: { id: { not: t.id } }, select: { id: true, name: true, design: true }, orderBy: { createdAt: "asc" } });
   return (
     <div>
-      <Link href="/panel/newsletter/plantillas" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Plantillas
+      <Link href="/panel/newsletter#plantillas" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+        <ArrowLeft className="h-4 w-4" /> Newsletter
       </Link>
       <TemplateEditor
         id={t.id}

@@ -9,7 +9,7 @@ import type { CSSProperties } from "react";
 import { z } from "zod";
 import { mixHex, normalizeHex, rgba, textOn, visibleOn } from "./colors";
 import { GEOMETRY_FIGURES, type GeometryFigure } from "./page-blocks";
-import { figureUrl, type FigurePos } from "./sacred-figures";
+import { FIGURE_POS_KEYS, figureUrl, type FigurePos } from "./sacred-figures";
 import { DECOR_KEYS, resolveTheme, themeStyle, type Decor } from "./templates";
 
 export type AccountLook = {
@@ -30,6 +30,9 @@ export type AccountLook = {
   geoOpacity: number;
   /** La figura gira muy despacio. */
   geoSpin: boolean;
+  /** Foto de fondo y cuánto se ve (10–100): solo la del diseño de un curso (lib/course-design.ts); las alumnas no la eligen. */
+  image?: string | null;
+  imageOpacity?: number;
 };
 
 export const EMPTY_ACCOUNT_LOOK: AccountLook = {
@@ -84,7 +87,7 @@ const lookSchema = z.object({
   accent: hex,
   decor: z.enum(DECOR_KEYS).nullable().catch(null),
   geo: z.enum(GEOMETRY_FIGURES).nullable().catch(null),
-  geoPos: z.enum(["corner", "center"]).catch("corner"),
+  geoPos: z.enum(FIGURE_POS_KEYS).catch("corner"),
   geoOpacity: z.number().int().min(6).max(50).catch(18),
   geoSpin: z.boolean().catch(false),
 });
@@ -97,7 +100,7 @@ export function readAccountLook(raw: unknown): AccountLook {
 
 /** ¿Ha elegido algo? (si no, la noche dorada de siempre). */
 export function hasAccountLook(l: AccountLook | null | undefined): l is AccountLook {
-  return !!l && !!(l.bar || l.page || l.page2 || l.accent || l.decor || l.geo);
+  return !!l && !!(l.bar || l.page || l.page2 || l.accent || l.decor || l.geo || l.image);
 }
 
 /** Para comparar dos elecciones (lo que se prueba con lo guardado). */
@@ -110,6 +113,8 @@ export type AccountLookView = {
   style: CSSProperties;
   decor: Decor | null;
   geo: { pos: FigurePos; spin: boolean } | null;
+  /** La foto de fondo (sus variables van en `style`). */
+  photo: boolean;
 };
 
 /**
@@ -176,6 +181,8 @@ export function accountLookView(l: AccountLook | null | undefined): AccountLookV
     "--acc-bar-deep": rgba(B, 95),
     "--acc-bar-on-gold": textOn(barGold, "#1A1408", "#FFFFFF"),
     ...(l.geo ? { "--acc-geo-img": figureUrl(l.geo, gold, l.geoOpacity * 2) } : {}),
+    // La ruta ya viene comprobada (lib/course-design.ts → richImageSrc): solo /media/… o /demo/….
+    ...(l.image ? { "--acc-photo": `url("${l.image}")`, "--acc-photo-o": String((l.imageOpacity ?? 40) / 100) } : {}),
     ...fx,
   };
   return {
@@ -183,5 +190,6 @@ export function accountLookView(l: AccountLook | null | undefined): AccountLookV
     style: style as CSSProperties,
     decor: l.decor,
     geo: l.geo ? { pos: l.geoPos, spin: l.geoSpin } : null,
+    photo: !!l.image,
   };
 }

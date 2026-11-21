@@ -121,6 +121,8 @@
 /* Revelado al hacer scroll (ver components/reveal.tsx) */
 [data-reveal] { opacity: 0; transform: translateY(16px); transition: opacity .9s cubic-bezier(.2,.7,.2,1), transform .9s cubic-bezier(.2,.7,.2,1); transition-delay: var(--reveal-delay, 0ms); }
 [data-reveal].is-visible { opacity: 1; transform: none; }
+/* En el editor de Mi página (la web en su marco) no hay nada que revelar: todo a la vista para escribir encima. */
+html[data-canva-frame] [data-reveal] { opacity: 1; transform: none; transition: none; }
 @media (prefers-reduced-motion: reduce) {
   [data-reveal] { opacity: 1; transform: none; transition: none; }
   :not(:where(.cp-decor, .cp-decor *)), :not(:where(.cp-decor, .cp-decor *))::before, :not(:where(.cp-decor, .cp-decor *))::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
@@ -183,15 +185,29 @@
   animation: twinkle 9s ease-in-out infinite alternate;
   opacity: .6;
 }
-/* Las vistas previas de los modelos en el panel (/panel/modelos): de noche, pero sin el cielo fijo de toda la pantalla. */
+/* Las vistas previas de los modelos en el panel (/panel/modelos): en negro, sin el cielo fijo de toda la pantalla. */
 .acc-root.acc-preview::before { display: none; }
-.acc-root.acc-preview { background-attachment: scroll; }
+.acc-root.acc-preview {
+  --color-cream: #141416; --color-paper: #0b0b0d; --color-sand: #232326; --color-muted: #a9a49a;
+  background: #0b0b0d;
+}
 .acc-root > header { background: rgb(10 9 32 / .72); }
 .acc-root :is(.bg-white, .card, .input, .btn-outline) { background-color: rgb(24 21 52 / .88); }
 .acc-root .bg-paper { background-color: rgb(19 17 44 / .72); }
 .acc-root [data-astro-layer] { backdrop-filter: blur(6px); }
 /* Las ruedas y láminas de los modelos, iluminadas como una luna sobre el cielo. */
 .acc-root [data-astro-layer] svg { filter: drop-shadow(0 0 28px rgb(212 181 122 / .22)); }
+/* Los modelos de las lecciones, siempre sobre negro (más sobrios que la noche índigo), también en los cursos claros:
+   dentro, letras claras. --acc-surface también, para que el diseño del curso (más abajo) los pinte igual. */
+:is([data-astro-layer], [data-block="main"], [data-block="chart"]).bg-paper {
+  --color-ink: #f1ebdf; --color-ink-2: #e2d9c7; --color-ink-3: #cfc4ae; --color-muted: #a9a49a;
+  --color-line: rgb(255 255 255 / .11); --color-paper: #0b0b0d; --color-cream: #141416; --color-sand: #232326;
+  --acc-surface: #0b0b0d;
+  background-color: #0b0b0d; color: var(--color-ink);
+}
+:is([data-astro-layer], [data-block="main"], [data-block="chart"]) :is(.bg-white, .input, .btn-outline) { --acc-surface: #151517; background-color: #151517; }
+.acc-root.acc-preview :is(.bg-white, .card, .input, .btn-outline) { background-color: #151517; }
+.acc-root.acc-preview .bg-paper { background-color: #0b0b0d; }
 
 /* Una lámina clara para los dibujos del modelo por partes que no son una rueda. */
 .model-plate {
@@ -212,6 +228,8 @@
   isolation: isolate;
   overflow-x: clip;
 }
+/* Una sección o un bloque con su diseño propio (components/creator-page/design-scope.tsx): sus letras y colores. */
+.cp-scope { color: var(--c-text); font-family: var(--font-body); }
 .cp-display { font-family: var(--font-display); font-weight: var(--display-weight); letter-spacing: -0.01em; line-height: 1.04; }
 .cp-muted { color: var(--c-muted); }
 .cp-faint { color: var(--c-faint); }
@@ -226,10 +244,10 @@
   transition: transform .5s cubic-bezier(.2,.7,.2,1), border-color .3s, box-shadow .5s;
   overflow: hidden;
 }
-.cp[data-card="glass"] .cp-card { backdrop-filter: blur(16px) saturate(130%); -webkit-backdrop-filter: blur(16px) saturate(130%); }
-.cp[data-card="solid"] .cp-card { box-shadow: 0 1px 2px rgb(0 0 0 / .03), 0 18px 40px -28px rgb(0 0 0 / .25); border-color: transparent; }
-.cp[data-card="outline"] .cp-card { background: transparent; }
-.cp[data-card="editorial"] .cp-card { background: color-mix(in oklab, var(--c-bg) 70%, #fff); border-color: transparent; }
+:is(.cp, .cp-scope)[data-card="glass"] .cp-card { backdrop-filter: blur(16px) saturate(130%); -webkit-backdrop-filter: blur(16px) saturate(130%); }
+:is(.cp, .cp-scope)[data-card="solid"] .cp-card { box-shadow: 0 1px 2px rgb(0 0 0 / .03), 0 18px 40px -28px rgb(0 0 0 / .25); border-color: transparent; }
+:is(.cp, .cp-scope)[data-card="outline"] .cp-card { background: transparent; }
+:is(.cp, .cp-scope)[data-card="editorial"] .cp-card { background: color-mix(in oklab, var(--c-bg) 70%, #fff); border-color: transparent; }
 @media (hover: hover) {
   .cp-card-hover:hover { transform: translateY(-3px); border-color: color-mix(in oklab, var(--c-text) 26%, transparent); box-shadow: 0 30px 60px -36px rgb(0 0 0 / .45); }
   .cp-card-hover:hover .cp-img { transform: scale(1.035); }
@@ -263,7 +281,7 @@
   font-weight: 550; font-size: .95rem;
   transition: transform .3s cubic-bezier(.2,.7,.2,1), border-color .3s, background .3s;
 }
-.cp[data-card="glass"] .cp-link { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+:is(.cp, .cp-scope)[data-card="glass"] .cp-link { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 .cp-link:hover { transform: translateY(-2px); border-color: color-mix(in oklab, var(--c-text) 30%, transparent); }
 .cp-link[data-highlight="true"] { background: var(--c-accent); color: var(--c-accent-text); border-color: transparent; }
 
@@ -319,7 +337,11 @@
   mask-image: linear-gradient(to bottom, #000, transparent 60%);
 }
 
-.cp-cover-fade { background: linear-gradient(to bottom, transparent 0%, color-mix(in oklab, var(--c-bg) 40%, transparent) 55%, var(--c-bg) 100%); }
+/* La foto de portada se funde con la página (su fondo y su movimiento asoman por debajo): un degradado suave, sin corte. */
+.cp-cover {
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 30%, rgb(0 0 0 / .62) 58%, rgb(0 0 0 / .24) 80%, rgb(0 0 0 / .06) 92%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 30%, rgb(0 0 0 / .62) 58%, rgb(0 0 0 / .24) 80%, rgb(0 0 0 / .06) 92%, transparent 100%);
+}
 
 /* Modelos interactivos (components/models): panel que entra suave, figuras que se dibujan al verse
    y cuerpos que aparecen. Sin animación con «reducir movimiento». */
@@ -383,7 +405,7 @@
   .panel-side { background: var(--panel-side-bg, color-mix(in oklab, var(--color-cream) 40%, transparent)); color: var(--panel-side-text, var(--color-ink)); }
   .panel-nav-link { color: color-mix(in oklab, var(--panel-side-text, var(--color-ink)) 75%, transparent); }
   .panel-nav-link:hover { background: var(--panel-side-hover, var(--color-sand)); color: var(--panel-side-text, var(--color-ink)); }
-  .panel-nav-link[aria-current="page"] { background: var(--panel-accent, var(--color-ink)); color: var(--panel-accent-text, var(--color-cream)); }
+  .panel-nav-link:is([aria-current="page"], [aria-pressed="true"], [aria-checked="true"]) { background: var(--panel-accent, var(--color-ink)); color: var(--panel-accent-text, var(--color-cream)); }
   .panel-root .btn-primary { background: var(--panel-accent, var(--color-ink)); color: var(--panel-accent-text, var(--color-cream)); }
   .panel-root .btn-primary:hover { background: var(--panel-accent-hover, var(--color-ink-2)); }
 }
@@ -442,8 +464,45 @@
 .panel-night .panel-nav-link { color: #cfc8e4; }
 .panel-night .panel-nav-link svg { color: #d9bf8c; }
 .panel-night .panel-nav-link:hover { background: rgb(217 191 140 / .1); color: #f3ecdd; }
-.panel-night .panel-nav-link[aria-current="page"] { background: linear-gradient(135deg, #ecd3a0, #b8955a); color: #1a1408; box-shadow: 0 8px 22px -10px rgb(217 191 140 / .7); }
-.panel-night .panel-nav-link[aria-current="page"] svg { color: currentColor; }
+.panel-night .panel-nav-link:is([aria-current="page"], [aria-pressed="true"], [aria-checked="true"]) { background: linear-gradient(135deg, #ecd3a0, #b8955a); color: #1a1408; box-shadow: 0 8px 22px -10px rgb(217 191 140 / .7); }
+.panel-night .panel-nav-link:is([aria-current="page"], [aria-pressed="true"], [aria-checked="true"]) svg { color: currentColor; }
+
+/* ───────────── El marco del panel: pestañas en los 4 bordes (app/panel/frame.tsx) ─────────────
+   Salen del borde: sin raya del lado que lo toca. Los colores, los de .panel-side y .panel-nav-link. */
+.panel-tab { border: 1px solid color-mix(in oklab, var(--panel-side-text, var(--color-ink)) 16%, transparent); box-shadow: 0 14px 34px -16px rgb(0 0 0 / .5); }
+.panel-night .panel-tab { border-color: rgb(217 191 140 / .3); }
+.panel-tab-top { border-top-width: 0; }
+.panel-tab-left { border-left-width: 0; }
+.panel-tab-bottom { border-bottom-width: 0; }
+.panel-tab-title { color: var(--panel-side-text, var(--color-ink)); }
+.panel-tab > .panel-nav-link, .panel-night .panel-tab > .panel-nav-link { border-radius: 0; }
+.panel-night .panel-tab-title { color: #f1e3c2; }
+/* Arriba a la izquierda (su nombre y Actualidades): deja sitio a lo que cuelga a la derecha del mismo borde, el
+   estado de su web con Canva (--panel-top-right, app/panel/frame.tsx) o, en los editores, su barra (--canva-bar,
+   app/panel/canva/canva-ui.tsx). En los editores, lo de la derecha del panel no sale: su barra ya lo lleva. */
+.panel-top-left { max-width: max(7rem, calc(100vw - var(--canva-bar, 0px) - var(--panel-top-right, 0px) - 2rem)); }
+@media (min-width: 40rem) { .panel-top-left { max-width: max(7rem, calc(100vw - var(--canva-bar, 0px) - var(--panel-top-right, 0px) - 3.75rem)); } }
+html:has([data-canva]) [data-panel-top-right] { display: none; }
+/* El botón de Canva (arriba a la derecha): dorado en cualquier diseño del panel. */
+.panel-canva-btn {
+  display: inline-flex; align-items: center; gap: .4rem; height: 2.25rem; padding: 0 1rem; border-radius: 999px;
+  background: linear-gradient(135deg, #ecd3a0, #c49f62); color: #1a1408; font-size: .875rem; font-weight: 600;
+  box-shadow: 0 1px 0 rgb(255 255 255 / .35) inset, 0 10px 24px -12px rgb(217 191 140 / .75); transition: filter .2s;
+}
+.panel-canva-btn:hover { filter: brightness(1.07); }
+.panel-canva-btn svg { color: currentColor; }
+/* El aviso de Mi página: en pantallas grandes, una pestaña que sale del borde de abajo. */
+@media (min-width: 80rem) { .panel-tab.canva-notice { border-bottom-width: 0; } }
+.panel-veil { background: rgb(6 5 18 / .45); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); animation: panel-fade .2s ease-out both; }
+.panel-drop { animation: panel-drop .24s cubic-bezier(.2, .8, .2, 1) both; }
+.panel-rise { animation: panel-rise .2s ease-out both; }
+@keyframes panel-fade { from { opacity: 0; } }
+@keyframes panel-drop { from { opacity: 0; transform: translateY(-8px); } }
+@keyframes panel-rise { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .panel-veil, .panel-drop, .panel-rise { animation: none; } }
+/* La rueda de Inicio (app/panel/stats-wheel.tsx): lo destacado, en oro claro sobre la noche; en un diseño claro, en tinta. */
+.wheel-strong { fill: currentColor; }
+.panel-night .wheel-strong, .pd[data-mode="dark"] .wheel-strong { fill: #F0D9A4; }
 
 /* Tarjetas, superficies y campos: cristal de noche con un filo dorado. */
 .panel-night :is(.card, .bg-white):not(.cp *, .cp) {
@@ -635,16 +694,374 @@
 .portal.is-locked:hover > :not(.portal-img):not(.portal-veil):not(.portal-arch):not(.portal-rays):not(.portal-bottom) { opacity: .85; }
 @keyframes lock-glow { 0%, 100% { filter: drop-shadow(0 0 8px rgb(233 204 142 / .35)); } 50% { filter: drop-shadow(0 0 20px rgb(240 217 164 / .8)); } }
 @media (prefers-reduced-motion: reduce) { .portal, .portal.is-locked .portal-lock { animation: none; } }
-/* El mismo portal en la web, el área y el panel (components/creator-page/tier-portal.tsx): sus propios colores. */
-.tier-portal { color: #f1ebdf; background-color: #0d0c22; }
-.tier-portal-title { color: #f1ebdf; font-weight: 300; letter-spacing: .005em; text-shadow: 0 0 28px rgb(212 181 122 / .18); }
-.tier-portal-intro { color: rgb(241 235 223 / .8); }
-.tier-portal-muted { color: #a7a2c2; }
-.tier-portal-badge { color: #2a1e0c; background: linear-gradient(135deg, #f7e5b8, #c9a45f); }
-.tier-portal-includes, .tier-portal-box { background: rgb(255 255 255 / .05); border: 1px solid rgb(233 204 142 / .22); }
-.tier-portal-ghost { color: #f0d9a4; border: 1px solid rgb(233 204 142 / .5); transition: background-color .3s, border-color .3s; }
-.tier-portal-ghost:hover { background: rgb(233 204 142 / .1); border-color: rgb(240 217 164 / .85); }
-.tier-portal.is-highlight { border-color: rgb(240 217 164 / .75); box-shadow: 0 0 60px -14px rgb(233 204 142 / .5), 0 40px 80px -40px rgb(0 0 0 / .95); }
+/* ───────────── Tarjetas de miembro (components/creator-page/tier-portal.tsx y tier-scenes.tsx) ─────────────
+   La misma tarjeta en la web, el área de alumna y el panel. Sus colores salen de su diseño (lib/tier-look.ts →
+   --tp-bg, --tp-sky, --tp-gold…); sin él, la noche y el oro de siempre. La luz de cada paisaje sale del icono
+   (--tp-eye: pt-16 más la mitad del círculo). */
+.tier-portal {
+  --tpb: var(--tp-bg, #0d0c22);
+  --tps: var(--tp-sky, #8462cc);
+  --tpg: var(--tp-gold, #d4b57a);
+  --tph: var(--tp-gold-hi, #f7e5b8);
+  --tpo: var(--tp-gold-lo, #c9a45f);
+  --tpl: color-mix(in oklab, var(--tpg) 65%, var(--tph));
+  --tpt: var(--tp-text, #f1ebdf);
+  --tp-light: color-mix(in oklab, var(--tps) 55%, white);
+  --tp-fog: color-mix(in oklab, color-mix(in oklab, var(--tpt) 50%, var(--tps)) 28%, transparent);
+  --tp-eye: 6rem;
+  color: var(--tpt); background-color: var(--tpb);
+}
+.tier-portal.portal.is-open { border-color: color-mix(in oklab, var(--tpl) 38%, transparent); }
+.tier-portal.portal.is-open:hover { border-color: color-mix(in oklab, var(--tph) 85%, transparent); box-shadow: 0 0 60px -10px color-mix(in oklab, var(--tpl) 55%, transparent), 0 40px 80px -40px rgb(0 0 0 / .95); }
+.tier-portal .portal-img { opacity: var(--tp-photo, .55); }
+.tier-portal.portal.is-open:hover .portal-img { opacity: min(1, calc(var(--tp-photo, .55) + .15)); }
+.tier-portal .portal-veil {
+  opacity: var(--tp-veil, 1);
+  background: radial-gradient(90% 55% at 50% 0%, var(--tp-glow, rgb(132 98 204 / .45)), transparent 70%), linear-gradient(180deg, color-mix(in oklab, var(--tpb) 25%, transparent) 0%, color-mix(in oklab, var(--tpb) 78%, transparent) 55%, color-mix(in oklab, var(--tpb) 96%, transparent) 100%);
+}
+.tier-portal .portal-arch { border-color: color-mix(in oklab, var(--tpl) 32%, transparent); }
+.tier-portal .portal-emblem { background: radial-gradient(circle at 35% 30%, color-mix(in oklab, var(--tph) 30%, transparent), color-mix(in oklab, var(--tpl) 8%, transparent)); border-color: color-mix(in oklab, var(--tpl) 55%, transparent); box-shadow: 0 0 30px -6px color-mix(in oklab, var(--tpl) 60%, transparent); }
+.tier-portal .portal-cta, .tier-portal-badge { color: var(--tp-on-gold, #2a1e0c); background: linear-gradient(135deg, var(--tph, #f7e5b8), var(--tpo, #c9a45f)); }
+.tier-portal .portal-cta { box-shadow: 0 0 0 1px color-mix(in oklab, var(--tph) 60%, transparent) inset, 0 12px 30px -10px color-mix(in oklab, var(--tpg) 80%, transparent); }
+.tier-portal-title { color: var(--tpt, #f1ebdf); font-weight: 300; letter-spacing: .005em; text-shadow: 0 0 28px color-mix(in oklab, var(--tpg, #d4b57a) 18%, transparent); }
+.tier-portal-intro { color: color-mix(in oklab, var(--tpt, #f1ebdf) 80%, transparent); }
+.tier-portal-muted { color: var(--tp-muted, #a7a2c2); }
+.tier-portal-includes, .tier-portal-box { background: color-mix(in oklab, var(--tpt, #f1ebdf) 5%, transparent); border: 1px solid color-mix(in oklab, var(--tpl, #e9cc8e) 22%, transparent); }
+.tier-portal-ghost { color: var(--tph, #f0d9a4); border: 1px solid color-mix(in oklab, var(--tpl, #e9cc8e) 50%, transparent); transition: background-color .3s, border-color .3s; }
+.tier-portal-ghost:hover { background: color-mix(in oklab, var(--tpl, #e9cc8e) 10%, transparent); border-color: color-mix(in oklab, var(--tph, #f0d9a4) 85%, transparent); }
+.tier-portal.portal.is-highlight { border-color: color-mix(in oklab, var(--tph) 75%, transparent); box-shadow: 0 0 60px -14px color-mix(in oklab, var(--tpl) 50%, transparent), 0 40px 80px -40px rgb(0 0 0 / .95); }
+.tp-gold { color: var(--tpg, #d4b57a); }
+.tp-rule { background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--tpg, #d4b57a) 70%, transparent), transparent); }
+.tp-figure { animation: tp-spin 40s linear infinite, plat-glow 4s ease-in-out infinite alternate; }
+
+/* Con paisaje dibujado: el velo deja ver la parte de arriba y oscurece la de abajo (donde va el texto largo), el texto
+   lleva una sombra suave y los círculos de los iconos son oscuros (se leen sobre la luz). */
+.tier-portal[data-drawn] .portal-veil { background: linear-gradient(180deg, transparent 0, transparent calc(var(--tp-eye) + 3rem), color-mix(in oklab, var(--tpb) 40%, transparent) calc(var(--tp-eye) + 9rem), color-mix(in oklab, var(--tpb) 72%, transparent) 62%, color-mix(in oklab, var(--tpb) 86%, transparent) 100%); }
+.tier-portal[data-drawn] > .relative, .tier-portal[data-drawn] .portal-bottom { text-shadow: 0 1px 10px color-mix(in oklab, var(--tpb) 90%, transparent), 0 0 2px color-mix(in oklab, var(--tpb) 70%, transparent); }
+.tier-portal[data-drawn] .tier-portal-title { text-shadow: 0 0 28px color-mix(in oklab, var(--tpg) 18%, transparent), 0 2px 14px color-mix(in oklab, var(--tpb) 92%, transparent); }
+.tier-portal[data-drawn] .portal-emblem { background: radial-gradient(circle at 50% 45%, color-mix(in oklab, var(--tpb) 62%, transparent), color-mix(in oklab, var(--tpb) 88%, transparent)); }
+
+/* El 3D: con ratón, la tarjeta se inclina hacia él (--tp-mx, --tp-my: components/creator-page/tier-motion.tsx), cada capa
+   se mueve según su profundidad (--d) y un brillo sigue al ratón. Quieta, sin transformar (el texto, nítido). */
+.tier-portal[data-tilt] { animation-fill-mode: backwards; transition: transform .45s cubic-bezier(.2,.7,.2,1), box-shadow .6s, border-color .6s; }
+.tier-portal.portal.is-open[data-tilt]:hover { transform: perspective(1100px) rotateX(calc(var(--tp-my, 0) * -4deg)) rotateY(calc(var(--tp-mx, 0) * 5deg)) translateY(-6px); }
+.tp-glare { position: absolute; inset: 0; z-index: 2; pointer-events: none; border-radius: inherit; opacity: 0; transition: opacity .6s; mix-blend-mode: soft-light; background: radial-gradient(circle at calc(50% + var(--tp-mx, 0) * 40%) calc(30% + var(--tp-my, 0) * 40%), rgb(255 255 255 / .16), transparent 46%); }
+.tier-portal.is-open[data-tilt]:hover .tp-glare { opacity: 1; }
+.tp-scene { position: absolute; inset: 0; z-index: -20; pointer-events: none; overflow: hidden; border-radius: inherit; container-type: inline-size; transform-origin: 50% var(--tp-eye); transition: transform 1.6s cubic-bezier(.2,.7,.2,1); }
+.tier-portal.is-open:hover .tp-scene { transform: scale(1.04); }
+.tp-l, .tp-fx { transform: translate3d(calc(var(--tp-mx, 0) * var(--d, 0) * -1.2px), calc(var(--tp-my, 0) * var(--d, 0) * -.7px), 0); transition: transform .7s cubic-bezier(.2,.7,.2,1); }
+.tp-l { position: absolute; inset: 0; }
+.tp-l > * { position: absolute; display: block; }
+.tp-sky { position: absolute; inset: 0; }
+/* Lo que se mueve encima (components/decor-fx, el mismo que en la web): encima del velo, debajo del texto. */
+.tp-fx { --d: 6; position: absolute; inset: 0; z-index: -5; pointer-events: none; overflow: hidden; border-radius: inherit; }
+
+/* Piezas que comparten los paisajes. */
+.tp-ground { left: -5%; width: 110%; top: var(--tp-eye); height: calc(100% - var(--tp-eye)); overflow: visible; }
+.tp-band { left: -6%; width: 112%; top: calc(var(--tp-eye) + var(--y)); bottom: -2px; color: var(--c); }
+.tp-band > svg { position: absolute; left: 0; top: 0; width: 100%; height: var(--h, 2.5rem); fill: currentColor; overflow: visible; }
+.tp-band::after { content: ""; position: absolute; left: 0; right: 0; top: calc(var(--h, 2.5rem) - 1px); bottom: 0; background: linear-gradient(currentColor, var(--c2)); }
+.tp-ridge-line { fill: none; stroke: var(--tp-light); stroke-opacity: .55; stroke-width: 1.2; }
+.tp-mist { left: -25%; width: 150%; height: 5rem; background: radial-gradient(28% 50% at 22% 50%, var(--tp-fog), transparent 72%), radial-gradient(32% 46% at 55% 42%, var(--tp-fog), transparent 72%), radial-gradient(26% 52% at 86% 56%, var(--tp-fog), transparent 72%); animation: tp-drift 22s ease-in-out infinite alternate; }
+.tp-mist-1 { top: calc(var(--tp-eye) - 1.2rem); }
+.tp-mist-2 { top: 40%; opacity: .75; animation-duration: 28s; animation-direction: alternate-reverse; }
+.tp-mist-3 { top: 68%; opacity: .55; animation-duration: 34s; }
+.tp-stars {
+  inset: 0 0 45% 0; opacity: .75; animation: tp-twinkle 4s ease-in-out infinite alternate;
+  background-image: radial-gradient(1.2px 1.2px at 12% 18%, #fff, transparent), radial-gradient(1px 1px at 28% 8%, #fff, transparent), radial-gradient(1.4px 1.4px at 72% 14%, #fff, transparent), radial-gradient(1px 1px at 86% 30%, #fff, transparent), radial-gradient(1.2px 1.2px at 64% 38%, #fff, transparent), radial-gradient(1px 1px at 20% 44%, #fff, transparent), radial-gradient(1.3px 1.3px at 40% 26%, #fff, transparent), radial-gradient(1px 1px at 90% 52%, #fff, transparent), radial-gradient(1px 1px at 8% 60%, #fff, transparent), radial-gradient(1.2px 1.2px at 56% 6%, #fff, transparent);
+}
+.tp-stars-2 { transform: scaleX(-1) translateY(6%); animation-delay: -2s; }
+.tp-moon {
+  left: 50%; top: var(--tp-eye); width: 5.6rem; height: 5.6rem; margin: -2.8rem 0 0 -2.8rem; border-radius: 999px;
+  background: radial-gradient(circle at 42% 38%, #fffdf4 0, color-mix(in oklab, var(--tps) 30%, #f4f1e6) 60%, color-mix(in oklab, var(--tps) 40%, transparent) 69%, transparent 71%);
+  box-shadow: 0 0 50px 14px color-mix(in oklab, var(--tps) 32%, transparent), 0 0 120px 40px color-mix(in oklab, var(--tps) 14%, transparent);
+  animation: tp-breathe 8s ease-in-out infinite alternate;
+}
+.tp-moon-big { width: 7.4rem; height: 7.4rem; margin: -3.7rem 0 0 -3.7rem; }
+.tp-sun { left: 50%; top: var(--tp-eye); width: 9rem; height: 9rem; margin: -4.5rem 0 0 -4.5rem; border-radius: 999px; background: radial-gradient(circle, color-mix(in oklab, var(--tps) 30%, white) 0 30%, color-mix(in oklab, var(--tps) 50%, transparent) 48%, transparent 70%); animation: tp-breathe 6s ease-in-out infinite alternate; }
+.tp-pines { left: -4%; width: 108%; height: 12rem; top: calc(var(--tp-hz) - 12rem); fill: color-mix(in oklab, var(--tpb) 80%, black); }
+.tp-pines.tp-mirror { top: var(--tp-hz); transform: scaleY(-1); opacity: .25; -webkit-mask-image: linear-gradient(to top, #000, transparent 70%); mask-image: linear-gradient(to top, #000, transparent 70%); }
+
+/* Bosque de ensueño: la luz al fondo, rayos, árboles en perspectiva, el camino de baldosas hacia la luz, niebla,
+   motas que suben y pájaros que salen de la luz. */
+[data-scene="forest"] .tp-sky {
+  background:
+    radial-gradient(circle at 50% var(--tp-eye), color-mix(in oklab, var(--tps) 45%, white) 0, color-mix(in oklab, var(--tps) 70%, transparent) 2.6rem, color-mix(in oklab, var(--tps) 22%, transparent) 7rem, transparent 13rem),
+    linear-gradient(180deg, color-mix(in oklab, var(--tps) 26%, var(--tpb)) 0%, color-mix(in oklab, var(--tps) 14%, var(--tpb)) 30%, var(--tpb) 75%);
+  animation: tp-breathe 7s ease-in-out infinite alternate;
+}
+[data-scene="forest"] .tp-beams {
+  inset: 0;
+  background: conic-gradient(from 120deg at 50% var(--tp-eye), transparent 0deg, color-mix(in oklab, var(--tp-light) 16%, transparent) 10deg, transparent 18deg 30deg, color-mix(in oklab, var(--tp-light) 13%, transparent) 37deg, transparent 44deg 56deg, color-mix(in oklab, var(--tp-light) 15%, transparent) 62deg, transparent 69deg 82deg, color-mix(in oklab, var(--tp-light) 11%, transparent) 90deg, transparent 98deg 112deg, color-mix(in oklab, var(--tp-light) 13%, transparent) 118deg, transparent 125deg 360deg);
+  -webkit-mask-image: radial-gradient(circle at 50% var(--tp-eye), #000, transparent 75%); mask-image: radial-gradient(circle at 50% var(--tp-eye), #000, transparent 75%);
+  animation: tp-breathe 9s ease-in-out infinite alternate-reverse;
+}
+[data-scene="forest"] .tp-treeline { left: -5%; width: 110%; top: calc(var(--tp-eye) - 2.3rem); height: 4.6rem; fill: color-mix(in oklab, var(--tps) 38%, var(--tpb)); opacity: .7; -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent); mask-image: linear-gradient(to bottom, #000 55%, transparent); }
+[data-scene="forest"] .tp-trunks-far { fill: color-mix(in oklab, var(--tps) 34%, var(--tpb)); opacity: .55; }
+[data-scene="forest"] .tp-trunks-mid { fill: color-mix(in oklab, var(--tps) 16%, var(--tpb)); opacity: .9; }
+[data-scene="forest"] .tp-trunks-near { fill: color-mix(in oklab, var(--tpb) 82%, black); }
+[data-scene="forest"] .tp-path { fill: var(--tp-light); fill-opacity: .38; stroke: var(--tp-light); filter: drop-shadow(0 0 6px color-mix(in oklab, var(--tps) 45%, transparent)); -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / .75) 35%, rgb(0 0 0 / .4) 100%); mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / .75) 35%, rgb(0 0 0 / .4) 100%); }
+[data-scene="forest"] .tp-bushes { left: -6%; width: 112%; bottom: -2px; height: 5.5rem; fill: color-mix(in oklab, var(--tpb) 85%, black); }
+.tp-mote { bottom: -2%; border-radius: 999px; background: var(--tp-light); box-shadow: 0 0 6px 1px color-mix(in oklab, var(--tp-light) 70%, transparent); opacity: 0; animation: tp-rise 12s linear infinite; }
+.tp-bird { left: 50%; top: var(--tp-eye); width: 16px; height: 8px; margin: -4px 0 0 -8px; fill: none; stroke: color-mix(in oklab, var(--tpb) 60%, black); stroke-width: 1.4; stroke-linecap: round; opacity: 0; animation: tp-fly-out 14s ease-in infinite; }
+.tp-bird path { transform-box: fill-box; transform-origin: 50% 70%; animation: tp-flap .45s ease-in-out infinite alternate; }
+.tp-bird-0 { --bx: -42cqw; --by: -3.5rem; }
+.tp-bird-1 { --bx: 44cqw; --by: -2rem; animation-delay: -5s; }
+.tp-bird-2 { --bx: -30cqw; --by: 3rem; animation-delay: -9.5s; }
+
+/* Mar de nubes: el sol en el icono, capas de nubes y escalones que flotan hacia la luz. */
+[data-scene="clouds"] { --tp-cloud-1: color-mix(in oklab, var(--tps) 55%, white); --tp-cloud-2: color-mix(in oklab, var(--tps) 72%, var(--tpb)); --tp-cloud-3: color-mix(in oklab, var(--tps) 48%, var(--tpb)); --tp-cloud-4: color-mix(in oklab, var(--tps) 28%, var(--tpb)); }
+[data-scene="clouds"] .tp-sky { background: radial-gradient(circle at 50% var(--tp-eye), white 0, color-mix(in oklab, var(--tps) 40%, white) 1.8rem, color-mix(in oklab, var(--tps) 60%, transparent) 5rem, transparent 12rem), linear-gradient(180deg, color-mix(in oklab, var(--tps) 18%, var(--tpb)) 0%, color-mix(in oklab, var(--tps) 62%, var(--tpb)) calc(var(--tp-eye) + 1rem), color-mix(in oklab, var(--tps) 40%, var(--tpb)) 60%, var(--tpb) 100%); }
+[data-scene="clouds"] .tp-band > svg { filter: drop-shadow(0 -2px 4px rgb(255 255 255 / .3)); }
+.tp-step {
+  --w: calc(var(--f) * 34cqw);
+  width: var(--w); height: calc(var(--f) * 5.5cqw); margin-left: calc(var(--w) / -2);
+  top: calc(var(--tp-eye) + 1.4rem + (100% - var(--tp-eye) - 1.4rem) * var(--f) * .8);
+  border-radius: 40%;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--tps) 35%, white), color-mix(in oklab, var(--tps) 60%, var(--tpb)));
+  box-shadow: 0 calc(var(--f) * 7px) 0 color-mix(in oklab, var(--tps) 35%, var(--tpb)), 0 calc(var(--f) * 18px) 22px -6px color-mix(in oklab, var(--tpb) 70%, transparent), 0 0 calc(var(--f) * 20px) color-mix(in oklab, var(--tps) 40%, transparent);
+  animation: tp-bob 6s ease-in-out infinite alternate;
+}
+
+/* Lago de luna: la luna detrás del icono, estrellas, montañas, el agua con su reflejo y pinos a los lados. */
+[data-scene="lake"] { --tp-hz: calc(var(--tp-eye) + 3.2rem); }
+[data-scene="lake"] .tp-sky { background: linear-gradient(180deg, color-mix(in oklab, var(--tps) 10%, var(--tpb)) 0%, color-mix(in oklab, var(--tps) 30%, var(--tpb)) var(--tp-hz), color-mix(in oklab, var(--tps) 12%, var(--tpb)) calc(var(--tp-hz) + 1px), var(--tpb) 100%); }
+[data-scene="lake"] .tp-water { left: 0; right: 0; top: var(--tp-hz); bottom: 0; background: repeating-linear-gradient(180deg, transparent 0 9px, color-mix(in oklab, var(--tps) 10%, transparent) 9px 10px), linear-gradient(180deg, color-mix(in oklab, var(--tps) 22%, var(--tpb)), var(--tpb) 70%); }
+[data-scene="lake"] .tp-glint { left: 50%; top: var(--tp-hz); bottom: 0; width: 40%; margin-left: -20%; opacity: .5; background: repeating-linear-gradient(180deg, var(--tp-light) 0 2px, transparent 2px 8px); clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%); -webkit-mask-image: linear-gradient(to bottom, #000, transparent 85%); mask-image: linear-gradient(to bottom, #000, transparent 85%); animation: tp-glint 3.2s ease-in-out infinite alternate; }
+[data-scene="lake"] .tp-peaks { left: -5%; width: 110%; top: calc(var(--tp-hz) - 4.5rem); height: 4.5rem; fill: color-mix(in oklab, var(--tps) 22%, var(--tpb)); }
+[data-scene="lake"] .tp-peaks.tp-mirror { top: var(--tp-hz); transform: scaleY(-1); opacity: .3; -webkit-mask-image: linear-gradient(to top, #000, transparent); mask-image: linear-gradient(to top, #000, transparent); }
+[data-scene="lake"] .tp-hills { left: -5%; width: 110%; top: calc(var(--tp-hz) - 2rem); height: 2rem; fill: color-mix(in oklab, var(--tps) 10%, var(--tpb)); }
+
+/* Aurora: luces del norte que ondean, montañas nevadas, la nieve y pinos delante. */
+[data-scene="aurora"] { --tp-hz: calc(var(--tp-eye) + 4rem); --tp-aur2: color-mix(in oklab, var(--tps) 45%, #8f6bff); }
+[data-scene="aurora"] .tp-sky { background: radial-gradient(120% 40% at 50% var(--tp-hz), color-mix(in oklab, var(--tps) 22%, transparent), transparent 70%), linear-gradient(180deg, color-mix(in oklab, var(--tps) 8%, var(--tpb)) 0, color-mix(in oklab, var(--tps) 18%, var(--tpb)) var(--tp-hz), var(--tpb) 80%); }
+.tp-aurora {
+  left: -10%; width: 120%; top: 0; height: calc(var(--tp-hz) + 1rem); fill: var(--tps); opacity: .55; mix-blend-mode: screen; filter: blur(3px); transform-origin: 50% 100%;
+  -webkit-mask-image: linear-gradient(to bottom, rgb(0 0 0 / .1), #000 70%, rgb(0 0 0 / .2)), repeating-linear-gradient(90deg, #000 0 3px, rgb(0 0 0 / .45) 3px 7px); -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to bottom, rgb(0 0 0 / .1), #000 70%, rgb(0 0 0 / .2)), repeating-linear-gradient(90deg, #000 0 3px, rgb(0 0 0 / .45) 3px 7px); mask-composite: intersect;
+  animation: tp-aurora 14s ease-in-out infinite alternate;
+}
+.tp-aurora-1 { fill: var(--tp-aur2); opacity: .45; animation-duration: 18s; animation-delay: -6s; }
+.tp-aurora-2 { opacity: .35; animation-duration: 22s; animation-delay: -11s; }
+.tp-snowpeaks { left: -5%; width: 110%; top: calc(var(--tp-hz) - 5.5rem); height: 5.5rem; fill: color-mix(in oklab, var(--tps) 14%, color-mix(in oklab, var(--tpt) 26%, var(--tpb))); }
+.tp-snownear { left: -5%; width: 110%; top: calc(var(--tp-hz) - 3rem); height: 3rem; fill: color-mix(in oklab, var(--tpt) 12%, var(--tpb)); }
+.tp-snowcap { fill: color-mix(in oklab, var(--tpt) 85%, var(--tps)); opacity: .85; }
+.tp-snowline { fill: none; stroke: color-mix(in oklab, var(--tpt) 70%, var(--tps)); stroke-width: 1.2; opacity: .6; }
+.tp-snowfield { left: 0; right: 0; top: var(--tp-hz); bottom: 0; background: linear-gradient(180deg, color-mix(in oklab, var(--tpt) 14%, var(--tpb)), color-mix(in oklab, var(--tpt) 22%, var(--tpb)) 55%, color-mix(in oklab, var(--tpt) 10%, var(--tpb))); }
+[data-scene="aurora"] .tp-pines { top: calc(var(--tp-hz) - 8rem); height: 11rem; }
+
+/* Cosmos: nebulosas que giran despacio, estrellas, un destello en el icono, una luna pequeña y un planeta que brilla. */
+[data-scene="cosmos"] .tp-sky { background: radial-gradient(circle at 50% var(--tp-eye), color-mix(in oklab, var(--tps) 40%, white) 0, color-mix(in oklab, var(--tps) 35%, transparent) 2.5rem, transparent 8rem), var(--tpb); }
+[data-scene="cosmos"] .tp-stars { inset: 0; }
+.tp-neb { border-radius: 999px; filter: blur(8px); opacity: .7; animation: tp-neb 26s ease-in-out infinite alternate; }
+.tp-neb-1 { left: -20%; top: 2%; width: 90%; height: 45%; background: radial-gradient(closest-side, color-mix(in oklab, var(--tps) 55%, transparent), transparent); }
+.tp-neb-2 { right: -25%; top: 18%; width: 95%; height: 50%; background: radial-gradient(closest-side, color-mix(in oklab, color-mix(in oklab, var(--tps) 50%, #ff8fc8) 50%, transparent), transparent); animation-duration: 32s; animation-direction: alternate-reverse; }
+.tp-neb-3 { left: 5%; top: 45%; width: 90%; height: 40%; background: radial-gradient(closest-side, color-mix(in oklab, color-mix(in oklab, var(--tps) 45%, #6fb6ff) 40%, transparent), transparent); animation-duration: 38s; }
+.tp-flare { left: 50%; top: var(--tp-eye); width: 16rem; height: 16rem; margin: -8rem 0 0 -8rem; opacity: .8; background: linear-gradient(90deg, transparent, var(--tp-light) 50%, transparent) 50% 50% / 100% 1.5px no-repeat, linear-gradient(0deg, transparent, var(--tp-light) 50%, transparent) 50% 50% / 1.5px 100% no-repeat, radial-gradient(circle, color-mix(in oklab, var(--tps) 30%, transparent), transparent 40%); animation: tp-breathe 5s ease-in-out infinite alternate; }
+.tp-moonlet { left: 14%; top: 26%; width: 1.6rem; height: 1.6rem; border-radius: 999px; background: radial-gradient(circle at 35% 35%, color-mix(in oklab, var(--tpt) 80%, var(--tps)), color-mix(in oklab, var(--tps) 30%, var(--tpb)) 70%); box-shadow: 0 0 14px color-mix(in oklab, var(--tps) 40%, transparent); }
+.tp-planet {
+  left: -30%; width: 160%; aspect-ratio: 1; top: 58%; border-radius: 999px;
+  background: repeating-linear-gradient(172deg, transparent 0 18px, color-mix(in oklab, var(--tpt) 5%, transparent) 18px 30px), radial-gradient(circle at 50% 0%, color-mix(in oklab, var(--tps) 55%, white) 0, color-mix(in oklab, var(--tps) 60%, var(--tpb)) 6%, color-mix(in oklab, var(--tps) 22%, var(--tpb)) 22%, var(--tpb) 45%);
+  box-shadow: 0 0 40px 8px color-mix(in oklab, var(--tps) 45%, transparent), inset 0 6px 14px color-mix(in oklab, var(--tps) 55%, transparent);
+}
+
+/* Cerezos: el sol al atardecer, colinas con arboledas en flor y dos ramas floridas que enmarcan el icono. */
+[data-scene="sakura"] { --tp-hill-1: color-mix(in oklab, var(--tps) 48%, var(--tpb)); --tp-hill-2: color-mix(in oklab, var(--tps) 26%, var(--tpb)); --tp-hill-3: color-mix(in oklab, var(--tps) 12%, var(--tpb)); --tp-bark: color-mix(in oklab, var(--tpb) 70%, #4a2633); }
+[data-scene="sakura"] .tp-sky { background: radial-gradient(circle at 50% var(--tp-eye), color-mix(in oklab, var(--tps) 35%, white) 0, color-mix(in oklab, var(--tps) 55%, transparent) 3rem, transparent 10rem), linear-gradient(180deg, color-mix(in oklab, var(--tps) 22%, var(--tpb)) 0, color-mix(in oklab, var(--tps) 62%, var(--tpb)) calc(var(--tp-eye) + 2.6rem), var(--tpb) 85%); }
+.tp-groves {
+  left: 0; right: 0; top: calc(var(--tp-eye) + 1.2rem); height: 2rem; opacity: .85;
+  background: radial-gradient(1.4rem 1rem at 12% 60%, color-mix(in oklab, var(--tps) 75%, white), transparent 70%), radial-gradient(1.1rem .8rem at 24% 70%, color-mix(in oklab, var(--tps) 70%, white), transparent 70%), radial-gradient(.9rem .6rem at 34% 78%, color-mix(in oklab, var(--tps) 65%, white), transparent 70%), radial-gradient(.9rem .6rem at 66% 76%, color-mix(in oklab, var(--tps) 65%, white), transparent 70%), radial-gradient(1.2rem .9rem at 78% 62%, color-mix(in oklab, var(--tps) 75%, white), transparent 70%), radial-gradient(1rem .7rem at 88% 72%, color-mix(in oklab, var(--tps) 70%, white), transparent 70%);
+}
+.tp-branch { top: calc(var(--tp-eye) - 2.6rem); width: 50%; aspect-ratio: 120 / 80; }
+.tp-branch-l { left: -3%; }
+.tp-branch-r { right: -3%; transform: scaleX(-1); }
+.tp-bark { fill: none; stroke: var(--tp-bark); stroke-linecap: round; }
+.tp-blossom { fill: color-mix(in oklab, var(--tps) 85%, white); opacity: .92; }
+.tp-blossom-eye { fill: white; opacity: .55; }
+
+/* Jardín encantado: colinas al anochecer con flores que brillan y hierba alta delante. */
+[data-scene="meadow"] { --tp-hill-1: color-mix(in oklab, var(--tps) 40%, var(--tpb)); --tp-hill-2: color-mix(in oklab, var(--tps) 24%, var(--tpb)); --tp-hill-3: color-mix(in oklab, var(--tps) 12%, var(--tpb)); }
+[data-scene="meadow"] .tp-sky { background: radial-gradient(circle at 50% var(--tp-eye), color-mix(in oklab, var(--tph) 70%, white) 0, color-mix(in oklab, var(--tph) 45%, transparent) 2.6rem, transparent 9rem), linear-gradient(180deg, color-mix(in oklab, var(--tps) 12%, var(--tpb)) 0, color-mix(in oklab, var(--tps) 40%, var(--tpb)) calc(var(--tp-eye) + 2rem), var(--tpb) 80%); }
+.tp-bloom {
+  --s: calc(4px + var(--f) * 10px);
+  width: var(--s); height: var(--s); margin-left: calc(var(--s) / -2); border-radius: 999px;
+  top: calc(var(--tp-eye) + 2.2rem + (100% - var(--tp-eye) - 2.2rem) * var(--f));
+  background: radial-gradient(circle, white 0, color-mix(in oklab, var(--tph) 80%, var(--tps)) 35%, transparent 70%);
+  box-shadow: 0 0 calc(var(--s) * 1.4) calc(var(--s) * .3) color-mix(in oklab, var(--tph) 55%, transparent);
+  animation: tp-glow 4s ease-in-out infinite alternate;
+}
+[data-scene="meadow"] .tp-grass { left: -5%; width: 110%; bottom: -2px; height: 3.2rem; fill: color-mix(in oklab, var(--tpb) 80%, black); }
+
+/* Dunas: una luna grande, estrellas y dunas con su cresta iluminada. */
+[data-scene="dunes"] { --tp-dune-1: color-mix(in oklab, var(--tps) 50%, var(--tpb)); --tp-dune-2: color-mix(in oklab, var(--tps) 34%, var(--tpb)); --tp-dune-3: color-mix(in oklab, var(--tps) 20%, var(--tpb)); --tp-dune-4: color-mix(in oklab, var(--tps) 10%, var(--tpb)); }
+[data-scene="dunes"] .tp-sky { background: linear-gradient(180deg, color-mix(in oklab, var(--tps) 6%, var(--tpb)) 0, color-mix(in oklab, var(--tps) 42%, var(--tpb)) calc(var(--tp-eye) + 2.4rem), var(--tpb) 80%); }
+
+/* Fondo del mar: la luz que entra por arriba, reflejos, rayos que se mecen, peces que cruzan, algas y el fondo. */
+[data-scene="sea"] .tp-sky { background: radial-gradient(circle at 50% var(--tp-eye), color-mix(in oklab, var(--tps) 45%, white) 0, color-mix(in oklab, var(--tps) 40%, transparent) 2.8rem, transparent 9rem), linear-gradient(180deg, color-mix(in oklab, var(--tps) 50%, var(--tpb)) 0, color-mix(in oklab, var(--tps) 22%, var(--tpb)) 40%, var(--tpb) 85%); }
+.tp-caustics { left: -10%; right: -10%; top: 0; height: 40%; opacity: .35; background: radial-gradient(circle at 30% 40%, var(--tp-light) 0 1px, transparent 6px) 0 0 / 34px 26px, radial-gradient(circle at 70% 60%, var(--tp-light) 0 1px, transparent 7px) 0 0 / 46px 38px; -webkit-mask-image: linear-gradient(to bottom, #000, transparent); mask-image: linear-gradient(to bottom, #000, transparent); animation: tp-caustic 9s linear infinite; }
+.tp-shafts { left: -20%; right: -20%; top: -2rem; height: 90%; transform-origin: 50% 0; background: conic-gradient(from 150deg at 50% 0%, transparent 0deg, color-mix(in oklab, var(--tps) 28%, transparent) 5deg, transparent 10deg 18deg, color-mix(in oklab, var(--tps) 20%, transparent) 24deg, transparent 30deg 37deg, color-mix(in oklab, var(--tps) 26%, transparent) 42deg, transparent 48deg 55deg, color-mix(in oklab, var(--tps) 18%, transparent) 60deg, transparent 66deg 360deg); -webkit-mask-image: linear-gradient(to bottom, #000, transparent); mask-image: linear-gradient(to bottom, #000, transparent); animation: tp-sway 10s ease-in-out infinite alternate; }
+.tp-fish { left: 0; width: calc(var(--s) * 2.2rem); height: calc(var(--s) * 1.1rem); fill: color-mix(in oklab, var(--tps) 30%, var(--tpb)); opacity: .8; animation: tp-swim 40s linear infinite; }
+.tp-fish svg { display: block; width: 100%; height: 100%; transform: scaleX(-1); }
+.tp-fish-back { animation-name: tp-swim-back; }
+.tp-fish-back svg { transform: none; }
+.tp-seabed { left: -5%; width: 110%; bottom: -2px; height: 3rem; fill: color-mix(in oklab, var(--tps) 12%, var(--tpb)); }
+.tp-kelp { bottom: -2px; width: 2.4rem; margin-left: -1.2rem; fill: color-mix(in oklab, var(--tps) 22%, var(--tpb)); transform-origin: 50% 100%; animation: tp-kelp 6s ease-in-out infinite alternate; }
+.tp-kelp-stem { fill: none; stroke: color-mix(in oklab, var(--tps) 22%, var(--tpb)); stroke-width: 3; }
+
+/* Templo de luz: rayos que se mecen, la flor de la vida girando, escalones hacia la luz y columnas en perspectiva. */
+[data-scene="temple"] .tp-sky { background: radial-gradient(circle at 50% var(--tp-eye), color-mix(in oklab, var(--tps) 45%, white) 0, color-mix(in oklab, var(--tps) 45%, transparent) 3rem, transparent 9rem), linear-gradient(180deg, color-mix(in oklab, var(--tps) 16%, var(--tpb)) 0, color-mix(in oklab, var(--tps) 30%, var(--tpb)) var(--tp-eye), var(--tpb) 85%); }
+.tp-rays2 {
+  left: -20%; right: -20%; top: -2rem; height: 75%; transform-origin: 50% 0;
+  background: conic-gradient(from 150deg at 50% 0%, transparent 0deg, color-mix(in oklab, var(--tp-light) 13%, transparent) 6deg, transparent 12deg 20deg, color-mix(in oklab, var(--tp-light) 10%, transparent) 26deg, transparent 32deg 38deg, color-mix(in oklab, var(--tp-light) 14%, transparent) 44deg, transparent 50deg 56deg, color-mix(in oklab, var(--tp-light) 9%, transparent) 61deg, transparent 66deg 360deg);
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent); mask-image: linear-gradient(to bottom, #000, transparent);
+  animation: tp-sway 12s ease-in-out infinite alternate;
+}
+.tp-flower-of-life { left: 50%; top: var(--tp-eye); width: 13rem; height: 13rem; margin: -6.5rem 0 0 -6.5rem; stroke: color-mix(in oklab, var(--tp-light) 45%, transparent); stroke-width: 1; opacity: .5; animation: tp-spin 90s linear infinite; }
+[data-scene="temple"] .tp-stairs { fill: color-mix(in oklab, var(--tps) 30%, var(--tpb)); stroke: var(--tp-light); -webkit-mask-image: linear-gradient(to bottom, #000, rgb(0 0 0 / .5)); mask-image: linear-gradient(to bottom, #000, rgb(0 0 0 / .5)); }
+.tp-colm {
+  --w: calc(var(--f) * 8cqw);
+  width: var(--w); top: calc(var(--tp-eye) - var(--f) * 15rem); bottom: calc((100% - var(--tp-eye)) * (1 - var(--f) * .96));
+  opacity: calc(.35 + var(--f) * .6);
+  background: linear-gradient(90deg, color-mix(in oklab, var(--tpb) 70%, black), color-mix(in oklab, var(--tps) 22%, var(--tpb)) 45%, color-mix(in oklab, var(--tps) 45%, var(--tpb)) 100%), repeating-linear-gradient(90deg, rgb(255 255 255 / .06) 0 1px, transparent 1px 5px);
+  background-blend-mode: screen;
+}
+.tp-colm::before, .tp-colm::after { content: ""; position: absolute; left: -22%; right: -22%; height: calc(4px + var(--f) * 8px); border-radius: 2px; background: color-mix(in oklab, var(--tps) 40%, var(--tpb)); }
+.tp-colm::before { top: 0; }
+.tp-colm::after { bottom: 0; }
+.tp-colm-l { left: calc(50% - 9cqw - var(--f) * 40cqw - var(--w) / 2); }
+.tp-colm-r { left: calc(50% + 9cqw + var(--f) * 40cqw - var(--w) / 2); transform: scaleX(-1); }
+
+/* ── Los marcos del arco (encima del velo, debajo del texto). Línea fina: la de siempre (.portal-arch). ── */
+.tp-frame { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: inherit; container-type: inline-size; }
+.tp-frame > * { position: absolute; display: block; }
+
+/* Puerta tallada: un marco grueso en relieve (el borde biselado y una banda tallada con cuentas, hojas y la clave),
+   y la puerta hundida: una sombra por dentro. */
+.tier-portal.portal.portal[data-frame="carved"], .tier-portal.portal.portal[data-frame="carved"]:hover {
+  border: 10px solid transparent;
+  background: linear-gradient(var(--tpb), var(--tpb)) padding-box, linear-gradient(160deg, var(--tph) 0%, var(--tpo) 20%, color-mix(in oklab, var(--tpo) 45%, black) 48%, var(--tpo) 76%, var(--tph) 100%) border-box;
+}
+.tier-portal[data-frame="carved"] .portal-arch { display: none; }
+.tp-carve-recess { inset: 5cqw 5cqw .5rem; border-radius: 999px 999px 1.4rem 1.4rem; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tph) 40%, transparent), inset 0 12px 22px -6px rgb(0 0 0 / .6), inset 0 0 30px rgb(0 0 0 / .3); }
+.tp-carve { left: 0; top: 0; width: 100%; height: 52cqw; overflow: visible; filter: drop-shadow(0 1.5px 0 rgb(0 0 0 / .55)) drop-shadow(0 -.5px 0 color-mix(in oklab, var(--tph) 45%, transparent)); }
+.tp-carve-band { fill: color-mix(in oklab, var(--tpo) 55%, var(--tpb)); }
+.tp-carve-line { fill: none; stroke: var(--tph); stroke-width: 1.1; opacity: .85; }
+.tp-carve-leaf path { fill: color-mix(in oklab, var(--tpo) 85%, var(--tph)); stroke: color-mix(in oklab, var(--tpo) 50%, black); stroke-width: .3; }
+.tp-carve-bead { fill: var(--tph); stroke: color-mix(in oklab, var(--tpo) 50%, black); stroke-width: .3; }
+.tp-carve-key > path { fill: color-mix(in oklab, var(--tpo) 70%, var(--tpb)); stroke: var(--tph); stroke-width: .6; }
+.tp-carve-rose { fill: var(--tpo); stroke: var(--tph); stroke-width: .5; }
+.tp-carve-petal { fill: var(--tph); opacity: .85; }
+.tp-carve-side { top: 50cqw; bottom: .5rem; width: 5cqw; background: color-mix(in oklab, var(--tpo) 55%, var(--tpb)); filter: drop-shadow(0 1px 0 rgb(0 0 0 / .5)); }
+.tp-carve-side::before { content: ""; position: absolute; top: 0; bottom: 0; left: 1.2cqw; right: .6cqw; border-left: 1.1px solid color-mix(in oklab, var(--tph) 85%, transparent); border-right: 1.1px solid color-mix(in oklab, var(--tph) 85%, transparent); }
+.tp-carve-side::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 1.9cqw; right: 1.2cqw; background: color-mix(in oklab, var(--tpo) 85%, var(--tph));
+  --tp-motif: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='28' viewBox='0 0 20 28'%3E%3Ccircle cx='10' cy='4' r='2.6'/%3E%3Cellipse cx='10' cy='17' rx='3.6' ry='7'/%3E%3C/svg%3E");
+  -webkit-mask: var(--tp-motif) center top / 100% auto repeat-y; mask: var(--tp-motif) center top / 100% auto repeat-y;
+}
+.tp-carve-l { left: 0; }
+.tp-carve-r { right: 0; transform: scaleX(-1); }
+
+/* Aro de luna: un aro redondo, doble, como una puerta de luna. */
+.tp-gate { left: 8cqw; top: 8cqw; width: 84cqw; height: 84cqw; border-radius: 999px; border: 1.5px solid color-mix(in oklab, var(--tph) 48%, transparent); box-shadow: 0 0 0 5px color-mix(in oklab, var(--tph) 7%, transparent), 0 0 0 6px color-mix(in oklab, var(--tph) 24%, transparent), inset 0 0 50px color-mix(in oklab, var(--tph) 10%, transparent); }
+
+/* Columnas: dos columnas estriadas a los lados, la piedra clave arriba y una doble línea en el arco. */
+.tier-portal[data-frame="columns"] .portal-arch { border: 3px double color-mix(in oklab, var(--tph) 45%, transparent); }
+.tp-key { left: 50%; top: 6px; width: 12px; height: 12px; margin-left: -6px; transform: rotate(45deg); background: linear-gradient(135deg, var(--tph), var(--tpo)); box-shadow: 0 0 10px color-mix(in oklab, var(--tph) 60%, transparent); }
+.tp-col { top: 46cqw; bottom: 1.6rem; width: 4cqw; border-radius: 2px; opacity: .75; background: linear-gradient(90deg, rgb(0 0 0 / .35), transparent 35%, color-mix(in oklab, var(--tph) 14%, transparent) 55%, rgb(0 0 0 / .35)), repeating-linear-gradient(90deg, color-mix(in oklab, var(--tph) 22%, transparent) 0 1px, transparent 1px 4px); }
+.tp-col::before, .tp-col::after { content: ""; position: absolute; left: -30%; right: -30%; height: 7px; border-radius: 2px; background: linear-gradient(180deg, color-mix(in oklab, var(--tph) 45%, transparent), color-mix(in oklab, var(--tpo) 30%, transparent)); }
+.tp-col::before { top: -7px; }
+.tp-col::after { bottom: -7px; }
+.tp-col-l { left: 2.5cqw; }
+.tp-col-r { right: 2.5cqw; }
+
+/* Enredadera: hojas y flores por el arco y por los lados. */
+[data-frame="vine"] { --tp-leaf: color-mix(in oklab, var(--tpg) 35%, #6fbf7f); --tp-bloom: color-mix(in oklab, var(--tph) 45%, #f4b6cf); }
+.tp-vine-top { left: 0; top: 0; width: 100%; height: 60cqw; filter: drop-shadow(0 0 4px color-mix(in oklab, var(--tp-leaf) 45%, transparent)); }
+.tp-stem { fill: none; stroke: color-mix(in oklab, var(--tp-leaf) 70%, var(--tpb)); stroke-width: 1.3; }
+.tp-leaf { fill: color-mix(in oklab, var(--tp-leaf) 80%, transparent); }
+.tp-flower ellipse { fill: var(--tp-bloom); opacity: .9; }
+.tp-flower .tp-flower-eye { fill: var(--tph); }
+.tp-vine-side {
+  top: 58cqw; bottom: 2.2rem; width: 26px; opacity: .8;
+  background: color-mix(in oklab, var(--tp-leaf) 75%, transparent);
+  --tp-vine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='96' viewBox='0 0 26 96'%3E%3Cpath d='M13 0C5 24 21 72 13 96' fill='none' stroke='%23000' stroke-width='1.6'/%3E%3Cellipse cx='8' cy='28' rx='5.5' ry='2.4' transform='rotate(-35 8 28)'/%3E%3Cellipse cx='18' cy='68' rx='5.5' ry='2.4' transform='rotate(35 18 68)'/%3E%3C/svg%3E");
+  -webkit-mask: var(--tp-vine) 0 0 / 26px 96px repeat-y; mask: var(--tp-vine) 0 0 / 26px 96px repeat-y;
+}
+.tp-vine-l { left: calc(6cqw - 13px); }
+.tp-vine-r { right: calc(6cqw - 13px); transform: scaleX(-1); }
+
+/* Las muestras del diseño de cada tarjeta (app/panel/canva/tiers-look.tsx): la tarjeta de verdad, encogida y quieta
+   (se mueve al pasar por encima). */
+.tp-thumb { position: relative; display: block; width: 5.25rem; height: 7rem; overflow: hidden; border-radius: 999px 999px .6rem .6rem; }
+.tp-thumb-sm { width: 4.2rem; height: 5.6rem; }
+.tp-thumb > .tp-thumb-card { position: absolute; left: 0; top: 0; width: 21rem; height: 28rem; transform: scale(.25); transform-origin: 0 0; animation: none; }
+.tp-thumb-sm > .tp-thumb-card { transform: scale(.2); }
+.tp-thumb:not(:hover) * { animation-play-state: paused !important; }
+
+/* ── La sección «Niveles»: más ancha que la página, la rejilla de tarjetas y su fondo de ensueño ── */
+.tp-wide { width: 100%; }
+@media (min-width: 768px) { .tp-wide { width: min(70rem, calc(100vw - 9rem)); margin-left: calc(50% - min(35rem, calc(50vw - 4.5rem))); } }
+.tp-grid { display: grid; gap: 1.5rem; align-items: stretch; justify-content: center; grid-template-columns: minmax(0, 24rem); }
+@media (min-width: 768px) { .tp-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 18.75rem), 22rem)); } }
+.tp-stage {
+  position: relative; isolation: isolate; overflow: hidden; border-radius: 2.5rem; padding: 3.5rem clamp(1rem, 3vw, 2.5rem) 3rem;
+  background: var(--tp-bg, #0d0c22);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tp-gold, #d4b57a) 25%, transparent), 0 40px 90px -50px rgb(0 0 0 / .9);
+}
+.tp-stage::before {
+  content: ""; position: absolute; inset: -25%; z-index: -1;
+  background:
+    radial-gradient(35% 30% at 22% 28%, color-mix(in oklab, var(--tp-gold, #d4b57a) 24%, transparent), transparent 70%),
+    radial-gradient(40% 34% at 78% 24%, color-mix(in oklab, #c9a6ff 30%, transparent), transparent 70%),
+    radial-gradient(50% 36% at 60% 82%, color-mix(in oklab, #ffc9e2 18%, transparent), transparent 70%),
+    radial-gradient(44% 30% at 18% 78%, color-mix(in oklab, #9fd8ff 16%, transparent), transparent 70%);
+  animation: tp-stage 30s ease-in-out infinite alternate;
+}
+.tp-stage::after {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background-image: radial-gradient(1.2px 1.2px at 15px 25px, rgb(255 255 255 / .8), transparent), radial-gradient(1px 1px at 95px 70px, rgb(255 255 255 / .6), transparent), radial-gradient(1.4px 1.4px at 150px 20px, rgb(255 248 220 / .8), transparent), radial-gradient(1px 1px at 60px 130px, rgb(255 255 255 / .55), transparent), radial-gradient(1.2px 1.2px at 170px 115px, rgb(255 255 255 / .7), transparent);
+  background-size: 190px 150px;
+  animation: tp-twinkle 5s ease-in-out infinite alternate;
+}
+.tp-stage .cp-muted { color: var(--tp-muted, #a7a2c2); }
+.tp-stage .cp-faint { color: color-mix(in oklab, var(--tp-text, #f1ebdf) 55%, transparent); }
+.tp-stage .cp-gold { color: var(--tp-gold, #d4b57a); }
+
+/* «Añadir nivel» en Mi página: un arco de puntos con los colores de siempre. */
+.tp-new {
+  color: var(--tp-gold-hi, #f0d9a4);
+  border-color: color-mix(in oklab, var(--tp-gold, #d4b57a) 50%, transparent);
+  background: radial-gradient(80% 50% at 50% 0%, color-mix(in oklab, var(--tp-gold, #d4b57a) 10%, transparent), transparent 70%), color-mix(in oklab, var(--tp-bg, #0d0c22) 88%, transparent);
+  transition: border-color .3s;
+}
+.tp-new:hover { border-color: var(--tp-gold, #d4b57a); }
+.tp-new input { color: var(--tp-text, #f1ebdf); }
+.tp-new input::placeholder { color: inherit; opacity: .45; }
+.tp-new .portal-cta { color: var(--tp-on-gold, #2a1e0c); background: linear-gradient(135deg, var(--tp-gold-hi, #f7e5b8), var(--tp-gold-lo, #c9a45f)); }
+
+@keyframes tp-stage { from { transform: translate(-4%, -3%) rotate(0deg); } to { transform: translate(4%, 3%) rotate(8deg); } }
+@keyframes tp-twinkle { from { opacity: .25; } to { opacity: .85; } }
+@keyframes tp-spin { to { transform: rotate(360deg); } }
+@keyframes tp-breathe { from { opacity: .8; } to { opacity: 1; } }
+@keyframes tp-drift { from { transform: translateX(-7%); } to { transform: translateX(7%); } }
+@keyframes tp-rise { 0% { transform: translate(0, 0); opacity: 0; } 15% { opacity: .85; } 50% { transform: translate(12px, -240px); } 85% { opacity: .6; } 100% { transform: translate(-6px, -470px); opacity: 0; } }
+@keyframes tp-fly-out { 0% { transform: translate(0, 0) scale(.25); opacity: 0; } 12% { opacity: .85; } 80% { opacity: .7; } 100% { transform: translate(var(--bx), var(--by)) scale(1.5); opacity: 0; } }
+@keyframes tp-flap { from { transform: scaleY(1); } to { transform: scaleY(.35); } }
+@keyframes tp-bob { from { transform: translateY(-3px); } to { transform: translateY(3px); } }
+@keyframes tp-glint { from { opacity: .3; transform: translateX(-2px); } to { opacity: .6; transform: translateX(2px); } }
+@keyframes tp-aurora { from { transform: translateX(-4%) skewX(-6deg) scaleY(.92); } to { transform: translateX(4%) skewX(6deg) scaleY(1.06); } }
+@keyframes tp-neb { from { transform: translate(-4%, -2%) rotate(-6deg) scale(1); } to { transform: translate(4%, 3%) rotate(8deg) scale(1.12); } }
+@keyframes tp-glow { from { opacity: .45; } to { opacity: 1; } }
+@keyframes tp-caustic { to { background-position: 34px 26px, -46px 38px; } }
+@keyframes tp-sway { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
+@keyframes tp-swim { from { transform: translateX(-30cqw); } to { transform: translateX(130cqw); } }
+@keyframes tp-swim-back { from { transform: translateX(130cqw); } to { transform: translateX(-30cqw); } }
+@keyframes tp-kelp { from { transform: rotate(-3deg) skewX(-3deg); } to { transform: rotate(3deg) skewX(3deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tp-scene *, .tp-frame *, .tp-stage::before, .tp-stage::after, .tp-figure { animation: none !important; }
+  .tier-portal.is-open:hover .tp-scene, .tp-l, .tp-fx { transform: none !important; }
+}
 
 /* ───────────── Los desplegables de la portada (components/creator-page/home-rows.tsx) ───────────── */
 .cp-emblem {
@@ -1381,12 +1798,12 @@ button.acc-clike:hover { color: #f2a097; }
 
 /* El menú lateral: la sección abierta, enmarcada en oro con doble línea y en cursiva. */
 .panel-night .panel-side { box-shadow: 1px 0 0 rgb(217 191 140 / .22); border-right-color: transparent; }
-.panel-night .panel-nav-link[aria-current="page"] {
+.panel-night .panel-nav-link:is([aria-current="page"], [aria-pressed="true"], [aria-checked="true"]) {
   background: rgb(13 12 34 / .55); color: #ecd3a0;
   font-family: var(--font-display); font-style: italic; font-size: 1rem;
   box-shadow: inset 0 0 0 1px rgb(217 191 140 / .75), inset 0 0 0 3px rgb(13 12 34 / .9), inset 0 0 0 4px rgb(212 181 122 / .35);
 }
-.panel-night .panel-nav-link[aria-current="page"] svg { color: #d9bf8c; }
+.panel-night .panel-nav-link:is([aria-current="page"], [aria-pressed="true"], [aria-checked="true"]) svg { color: #d9bf8c; }
 
 /* La cabecera de cada sección: doble línea dorada, título fino y la estrella en el filete. */
 .panel-night .panel-hero {
@@ -1467,12 +1884,11 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
   box-shadow: inset 0 0 0 2px rgb(13 12 34 / .9), inset 0 0 0 3px rgb(212 181 122 / .3), 0 0 18px -8px rgb(217 191 140 / .7);
 }
 .studio-lnum { display: grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 999px; font-size: .7rem; color: #d9bf8c; border: 1px solid rgb(217 191 140 / .35); }
-.panel-night .studio-module:not(.cp *) {
-  border-radius: 1.5rem; border-color: rgb(217 191 140 / .32);
-  background: radial-gradient(70% 60% at 0% 0%, rgb(212 181 122 / .05), transparent 70%), rgb(22 19 48 / .88);
-  box-shadow: inset 0 0 0 4px rgb(19 17 44 / .9), inset 0 0 0 5px rgb(212 181 122 / .12);
-}
-.panel-night .studio-module li { background: transparent; }
+/* Una lección en borrador, en el índice estrecho del editor: su número con el borde de rayas. */
+.studio-lnum.is-draft { border-style: dashed; border-color: rgb(235 210 156 / .7); color: #ebd29c; }
+/* La estructura del curso en escalera (app/panel/cursos/[id]/structure-board.tsx): la línea de la que cuelgan las
+   lecciones de un módulo y los capítulos de una lección. */
+.studio-tree { border-left: 1px solid rgb(217 191 140 / .3); }
 .studio-fold[open] > summary .panel-emblem { box-shadow: 0 0 0 1px rgb(217 191 140 / .7), 0 0 30px -6px rgb(217 191 140 / .7); }
 
 
@@ -1601,8 +2017,14 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
 .acc-root:is([data-acc-decor], [data-acc-look="light"])::before { display: none; }
 .acc-root[data-acc-look] > .cp-decor { position: fixed; }
 /* La figura de geometría, fina y detrás de todo: grande en una esquina o entera en el centro; si quiere, girando muy despacio. */
+/* Una foto de fondo (el diseño de un curso: lib/course-design.ts), debajo del fondo con movimiento y de la figura. */
+.acc-photo { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--acc-photo) center / cover no-repeat; opacity: var(--acc-photo-o, .4); }
 .acc-geo { position: fixed; z-index: -1; pointer-events: none; background: var(--acc-geo-img) center / contain no-repeat; }
-.acc-geo[data-pos="corner"] { right: -9rem; bottom: -9rem; width: 30rem; height: 30rem; }
+.acc-geo:is([data-pos="corner"], [data-pos="cornerTL"], [data-pos="cornerTR"], [data-pos="cornerBL"]) { width: 30rem; height: 30rem; }
+.acc-geo[data-pos="corner"] { right: -9rem; bottom: -9rem; }
+.acc-geo[data-pos="cornerBL"] { left: -9rem; bottom: -9rem; }
+.acc-geo[data-pos="cornerTR"] { right: -9rem; top: -9rem; }
+.acc-geo[data-pos="cornerTL"] { left: -9rem; top: -9rem; }
 .acc-geo[data-pos="center"] { left: 50%; top: 50%; width: min(94vw, 44rem); aspect-ratio: 1; translate: -50% -50%; }
 .acc-geo[data-spin] { animation: acc-geo-spin 160s linear infinite; }
 @keyframes acc-geo-spin { to { rotate: 360deg; } }
@@ -1807,12 +2229,12 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
 .panel-night .panel-nav-link { color: #cfe0e2; border-radius: 1rem; }
 .panel-night .panel-nav-link svg { color: #d9bf8c; }
 .panel-night .panel-nav-link:hover { background: rgb(60 192 178 / .1); color: #f3ecdd; }
-.panel-night .panel-nav-link[aria-current="page"] {
+.panel-night .panel-nav-link:is([aria-current="page"], [aria-pressed="true"], [aria-checked="true"]) {
   background: linear-gradient(135deg, rgb(48 160 152 / .55), rgb(24 96 100 / .55));
   color: #f4fbfa; font-family: inherit; font-style: normal; font-size: inherit; font-weight: 600;
   box-shadow: inset 0 1px 0 rgb(255 255 255 / .12), inset 0 0 0 1px rgb(110 220 210 / .35), 0 10px 26px -14px rgb(60 192 178 / .8);
 }
-.panel-night .panel-nav-link[aria-current="page"] svg { color: #f4fbfa; }
+.panel-night .panel-nav-link:is([aria-current="page"], [aria-pressed="true"], [aria-checked="true"]) svg { color: #f4fbfa; }
 
 /* Burbujas: tarjetas de cristal con borde fino, brillo arriba y sombra profunda. */
 .panel-night .card:not(.cp *, .cp),
@@ -1906,6 +2328,10 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
 .mail-row[aria-current="true"] { background: rgb(217 191 140 / .14); box-shadow: inset 2px 0 0 #d9bf8c; }
 .mail-side { scrollbar-width: thin; }
 
+/* Mi página: la web llena la pantalla bajo las pestañas del panel. Su cabecera (CreatorShell) baja hasta debajo de
+   ellas para verse y tocarse; su fondo sigue por debajo de las pestañas. */
+html[data-under-tabs] .cp > header.sticky { padding-top: 4.5rem; }
+
 /* Modo Canva (app/panel/canva): los textos de la web que se escriben encima y la barra de cada sección. */
 .canva-text { display: inline-block; min-width: 2ch; max-width: 100%; border-radius: .4rem; outline: 1px dashed transparent; outline-offset: 3px; cursor: text; transition: outline-color .15s, background .15s; }
 .canva-text:hover { outline-color: color-mix(in oklab, var(--c-gold, #d9bf8c) 55%, transparent); }
@@ -1913,9 +2339,19 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
 .canva-text:empty::before { content: attr(data-placeholder); opacity: .45; }
 .canva-section { padding-top: .25rem; outline: 1px dashed transparent; outline-offset: 6px; border-radius: 1rem; transition: outline-color .15s; }
 .canva-section:hover { outline-color: color-mix(in oklab, var(--c-gold, #d9bf8c) 35%, transparent); }
-.canva-section > [data-canva-ui]:first-child { opacity: .35; transition: opacity .15s; }
-.canva-section:hover > [data-canva-ui]:first-child, .canva-section:focus-within > [data-canva-ui]:first-child { opacity: 1; }
-@media (hover: none) { .canva-section > [data-canva-ui]:first-child { opacity: 1; } }
+/* Las flechas, el ojo, la X y el + igual de visibles (sin pasar el ratón, algo menos; nunca lavados). */
+.canva-section > .canva-tools { opacity: .85; transition: opacity .15s; }
+.canva-section:hover > .canva-tools, .canva-section:focus-within > .canva-tools { opacity: 1; }
+.canva-add { opacity: .85; transition: opacity .15s; }
+.canva-add:hover, .canva-add:focus-within, .canva-add[data-open] { opacity: 1; }
+/* Las flechas de cada cosa de una lista: solo al pasar por encima. */
+.canva-order > .canva-order-tools { opacity: 0; pointer-events: none; transition: opacity .15s; }
+.canva-order:hover > .canva-order-tools, .canva-order:focus-within > .canva-order-tools { opacity: 1; pointer-events: auto; }
+@media (hover: none) { .canva-section > .canva-tools, .canva-add, .canva-order > .canva-order-tools { opacity: 1; pointer-events: auto; } }
+/* Lo oculto o vacío sigue en su sitio en el Canva, más tenue (en la web no sale). Al pasar por encima, algo más. */
+.canva-section[data-dim] > :not(.canva-tools):not(.canva-add), .canva-order[data-dim] > :not(.canva-order-tools) { opacity: .38; transition: opacity .2s; }
+.canva-section[data-dim]:hover > :not(.canva-tools):not(.canva-add), .canva-section[data-dim]:focus-within > :not(.canva-tools):not(.canva-add),
+.canva-order[data-dim]:hover > :not(.canva-order-tools), .canva-order[data-dim]:focus-within > :not(.canva-order-tools) { opacity: .7; }
 /* Las partes que se editan en su ventanita (redes, botones, testimonios, códigos, el pie…): al pasar por encima, un
    marco y su botón «Editar». Al pulsarlas (fuera de un texto que se escribe encima) se abre la ventanita. */
 .canva-part { position: relative; cursor: pointer; border-radius: 1rem; outline: 1px dashed transparent; outline-offset: 5px; transition: outline-color .15s; }
@@ -1923,59 +2359,130 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
 .canva-part > .canva-part-chip { opacity: .55; transition: opacity .15s; }
 .canva-part:hover > .canva-part-chip, .canva-part:focus-within > .canva-part-chip { opacity: 1; }
 @media (hover: none) { .canva-part > .canva-part-chip { opacity: 1; } }
+/* El editor de cursos (app/panel/cursos/[id]/lecciones): las pestañas siguen pegadas al borde izquierdo y su índice
+   va justo después (pestañas · índice · lección). Al pasar por una pestaña, sale entera por encima del índice. */
+@media (min-width: 64rem) {
+  html[data-course-index] [data-panel-side-nav] { z-index: 42; }
+}
+/* Cada pieza de la lección: al pasar por encima, su marco; elegida, el marco entero y, pegada a su borde derecho
+   (fuera de ella, en el hueco que deja el editor), su columna de iconos. */
+.canva-piece { position: relative; border-radius: 1rem; outline: 1px dashed transparent; outline-offset: 6px; transition: outline-color .15s; }
+.canva-piece:hover { outline-color: color-mix(in oklab, var(--color-gold) 55%, transparent); }
+.canva-piece[data-active] { outline: 2px solid color-mix(in oklab, var(--color-gold) 85%, transparent); }
+.canva-piece > .canva-piece-tools { position: absolute; left: 100%; top: 0; z-index: 30; padding-left: .625rem; opacity: 0; pointer-events: none; transition: opacity .15s; }
+.canva-piece:hover > .canva-piece-tools, .canva-piece:focus-within > .canva-piece-tools, .canva-piece[data-active] > .canva-piece-tools { opacity: 1; pointer-events: auto; }
+/* Con una elegida, solo su columna (al pasar por otra, su marco; al tocarla, pasa a ser la elegida). */
+[data-lesson-canva]:has(.canva-piece[data-active]) .canva-piece:not([data-active]) > .canva-piece-tools { opacity: 0; pointer-events: none; }
+/* El texto que se escribe encima (inline-rich.tsx): igual que el de la alumna (RichContent, tono «account»). */
+[data-inline-rich] { position: relative; min-height: 1.7em; cursor: text; }
+[data-inline-rich]:focus { outline: none; }
+[data-inline-rich][data-empty]::before { content: attr(data-placeholder); position: absolute; left: 0; top: 0; opacity: .45; pointer-events: none; }
+[data-inline-rich] h3 { font-family: var(--font-display); font-size: 1.6rem; line-height: 1.375; font-weight: 300; letter-spacing: .005em; color: var(--color-ink); }
+[data-inline-rich] h4 { font-size: 1.1rem; line-height: 1.375; font-weight: 600; color: var(--color-ink); }
+[data-inline-rich] blockquote { border-left: 2px solid var(--color-line); padding-left: 1rem; font-style: italic; color: var(--color-muted); }
+[data-inline-rich] ul { list-style: disc; padding-left: 1.25rem; }
+[data-inline-rich] ol { list-style: decimal; padding-left: 1.5rem; }
+[data-inline-rich] li + li { margin-top: .375rem; }
+[data-inline-rich] b { font-weight: 600; }
+[data-inline-rich] a { font-weight: 500; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; overflow-wrap: anywhere; }
+[data-inline-rich] hr { border: 0; border-top: 1px solid var(--color-line); }
+
+/* ───────────── El diseño de los cursos (lib/course-design.ts; components/course/course-look.tsx) ─────────────
+   Las letras de las lecciones (CourseType): la del texto y su tamaño. La de los títulos va en --font-display. Los
+   colores, el fondo, la foto y la figura son los del área de alumna (course-look-apply.tsx). */
+[data-course-font] { font-family: var(--course-font); }
+[data-course-type][data-course-text="s"] [data-rich] { font-size: .94rem; }
+[data-course-type][data-course-text="l"] [data-rich] { font-size: 1.14rem; }
+/* Cada pieza con su diseño (PieceFrame): fondo, borde, esquinas, espacio, sombra y su texto. */
+[data-piece-look] { border-radius: 1rem; }
+[data-piece-look][data-radius="none"] { border-radius: 0; }
+[data-piece-look][data-radius="round"] { border-radius: 1.75rem; }
+[data-piece-look][data-bg="card"] { background: var(--acc-surface, rgb(24 21 52 / .88)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-gold) 22%, transparent); }
+[data-piece-look][data-bg="color"] { background: var(--piece-bg); }
+[data-piece-look][data-border="line"] { border: 1px solid color-mix(in oklab, var(--color-gold) 55%, transparent); }
+[data-piece-look][data-border="double"] { border: 4px double color-mix(in oklab, var(--color-gold) 60%, transparent); }
+[data-piece-look][data-pad="s"] { padding: .75rem 1rem; }
+[data-piece-look][data-pad="m"] { padding: 1.25rem 1.5rem; }
+[data-piece-look][data-pad="l"] { padding: 2rem 2.25rem; }
+@media (max-width: 40rem) { [data-piece-look][data-pad="l"] { padding: 1.5rem 1.25rem; } }
+[data-piece-look][data-shadow] { box-shadow: 0 26px 50px -24px rgb(0 0 0 / .6); }
+[data-piece-look][data-bg="card"][data-shadow] { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-gold) 22%, transparent), 0 26px 50px -24px rgb(0 0 0 / .6); }
+[data-piece-look][data-color] { --color-ink: var(--piece-color); color: var(--piece-color); }
+[data-piece-look][data-size="s"] [data-rich] { font-size: .92rem; }
+[data-piece-look][data-size="m"] [data-rich] { font-size: 1.02rem; }
+[data-piece-look][data-size="l"] [data-rich] { font-size: 1.2rem; }
+[data-piece-look][data-size="xl"] [data-rich] { font-size: 1.42rem; }
+[data-piece-look][data-size] [data-rich] h3 { font-size: 1.55em; }
+[data-piece-look][data-size] [data-rich] h4 { font-size: 1.08em; }
+[data-piece-look][data-align="left"] { text-align: left; }
+[data-piece-look][data-align="center"] { text-align: center; }
+[data-piece-look][data-align="right"] { text-align: right; }
+[data-piece-look][data-align="justify"] { text-align: justify; }
+[data-piece-look][data-font] { --font-display: var(--piece-font); font-family: var(--piece-font); }
 
 /* ───────────── Diseño a medida (Panel › Mi página › Diseño; lib/templates.ts → themeStyle y themeAttrs) ─────────────
    Cada regla solo manda si la dueña ha tocado esa pieza (su data-…): si no, cada página lleva su estilo de siempre. */
 .cp-bg-photo { z-index: -1; opacity: var(--bg-img-o, .3); pointer-events: none; }
 .cp > .cp-decor, .cp > [data-live-design] > .cp-decor { opacity: var(--decor-o, 1); }
-.cp[data-d-italic] .cp-display { font-style: italic; }
-.cp[data-d-upper] .cp-display { text-transform: uppercase; }
-.cp[data-d-spacing] .cp-display { letter-spacing: var(--display-spacing); }
-.cp[data-d-size] .cp-display { zoom: var(--display-zoom); }
+:is(.cp, .cp-scope)[data-d-italic] .cp-display { font-style: italic; }
+:is(.cp, .cp-scope)[data-d-upper] .cp-display { text-transform: uppercase; }
+:is(.cp, .cp-scope)[data-d-spacing] .cp-display { letter-spacing: var(--display-spacing); }
+:is(.cp, .cp-scope)[data-d-size] .cp-display { zoom: var(--display-zoom); }
 
-.cp[data-k] .cp-card {
+:is(.cp, .cp-scope)[data-k] .cp-card {
   position: relative; background: var(--k-bg); border: var(--k-bw) solid var(--k-border); border-radius: var(--r-card);
   box-shadow: var(--k-shadow); backdrop-filter: var(--k-blur); -webkit-backdrop-filter: var(--k-blur);
 }
-.cp[data-k] .cp-card::after { content: ""; position: absolute; inset: 0; z-index: 5; border-radius: inherit; pointer-events: none; box-shadow: var(--k-double); }
-.cp[data-k] .cp-card-hover:hover { border-color: var(--k-border); }
+:is(.cp, .cp-scope)[data-k] .cp-card::after { content: ""; position: absolute; inset: 0; z-index: 5; border-radius: inherit; pointer-events: none; box-shadow: var(--k-double); }
+:is(.cp, .cp-scope)[data-k] .cp-card-hover:hover { border-color: var(--k-border); }
 
-.cp[data-b] :is(.cp-btn, .cp-btn-ghost, .cp-link) {
+:is(.cp, .cp-scope)[data-b] :is(.cp-btn, .cp-btn-ghost, .cp-link) {
   border-radius: var(--r-btn); border: var(--b-bw) solid var(--b-border);
   font-family: var(--b-font); font-weight: var(--b-weight); font-style: var(--b-style); text-transform: var(--b-case); letter-spacing: var(--b-spacing);
   filter: none; transition: transform .2s ease, filter .2s ease, background .2s;
 }
-.cp[data-b] .cp-btn, .cp[data-b] .cp-link[data-highlight="true"] { background: var(--b-bg); color: var(--b-text); box-shadow: var(--b-shadow); }
-.cp[data-b] .cp-btn-ghost, .cp[data-b] .cp-link:not([data-highlight="true"]) { background: transparent; color: var(--c-text); box-shadow: none; }
-.cp[data-b] :is(.cp-btn, .cp-btn-ghost, .cp-link):hover { transform: translateY(-1px); filter: brightness(1.08); border-color: var(--b-border); }
-.cp[data-b] .cp-btn:hover, .cp[data-b] .cp-link[data-highlight="true"]:hover { background: var(--b-bg); color: var(--b-text); }
-.cp[data-b] .cp-btn-ghost:hover, .cp[data-b] .cp-link:not([data-highlight="true"]):hover { color: var(--c-text); }
+:is(.cp, .cp-scope)[data-b] .cp-btn, :is(.cp, .cp-scope)[data-b] .cp-link[data-highlight="true"] { background: var(--b-bg); color: var(--b-text); box-shadow: var(--b-shadow); }
+:is(.cp, .cp-scope)[data-b] .cp-btn-ghost, :is(.cp, .cp-scope)[data-b] .cp-link:not([data-highlight="true"]) { background: transparent; color: var(--c-text); box-shadow: none; }
+:is(.cp, .cp-scope)[data-b] :is(.cp-btn, .cp-btn-ghost, .cp-link):hover { transform: translateY(-1px); filter: brightness(1.08); border-color: var(--b-border); }
+:is(.cp, .cp-scope)[data-b] .cp-btn:hover, :is(.cp, .cp-scope)[data-b] .cp-link[data-highlight="true"]:hover { background: var(--b-bg); color: var(--b-text); }
+:is(.cp, .cp-scope)[data-b] .cp-btn-ghost:hover, :is(.cp, .cp-scope)[data-b] .cp-link:not([data-highlight="true"]):hover { color: var(--c-text); }
 
-.cp[data-img] img:not(.cp-card img):not(.cp-bubble-img):not([data-avatar]):not(.cp-bg-photo):not(.cp-cover-img) { border-radius: var(--img-r); }
-.cp[data-img] :is([data-avatar], .cp-bubble-img) { border-radius: var(--avatar-r); }
+:is(.cp, .cp-scope)[data-img] img:not(.cp-card img):not(.cp-bubble-img):not([data-avatar]):not(.cp-bg-photo):not(.cp-cover-img) { border-radius: var(--img-r); }
+:is(.cp, .cp-scope)[data-img] :is([data-avatar], .cp-bubble-img) { border-radius: var(--avatar-r); }
 
 /* Fotos con marco (.cp-luxe-frame: «Sobre mí», fichas, cabeceras…), Diseño › Fotos: esquinas, forma y marco. */
-.cp[data-img] .cp-luxe-frame { border-radius: var(--img-r); }
-.cp[data-img] .cp-luxe-frame::after { border-radius: max(0px, calc(var(--img-r) - 5px)); }
-.cp[data-photo-shape] .cp-luxe-frame::after { border-radius: inherit; }
+:is(.cp, .cp-scope)[data-img] .cp-luxe-frame { border-radius: var(--img-r); }
+:is(.cp, .cp-scope)[data-img] .cp-luxe-frame::after { border-radius: max(0px, calc(var(--img-r) - 5px)); }
+:is(.cp, .cp-scope)[data-photo-shape] .cp-luxe-frame::after { border-radius: inherit; }
 /* Arco: arriba en medio círculo (los radios se ajustan solos al ancho), abajo recto. */
-.cp[data-photo-shape="arch"] .cp-luxe-frame { border-radius: 999px 999px 0 0; }
-.cp[data-photo-shape="oval"] .cp-luxe-frame { border-radius: 50%; }
-.cp[data-photo-shape="circle"] .cp-luxe-frame { border-radius: 50%; aspect-ratio: 1 / 1; }
-.cp[data-photo-shape="circle"] .cp-luxe-frame > img { height: 100%; object-fit: cover; }
-.cp[data-photo-frame="single"] .cp-luxe-frame { box-shadow: 0 30px 60px -40px color-mix(in oklab, var(--c-gold) 55%, transparent); }
-.cp[data-photo-frame="none"] .cp-luxe-frame { border-color: transparent; box-shadow: 0 30px 60px -40px rgb(0 0 0 / .6); }
-.cp[data-photo-frame="card"] .cp-luxe-frame {
+:is(.cp, .cp-scope)[data-photo-shape="arch"] .cp-luxe-frame { border-radius: 999px 999px 0 0; }
+:is(.cp, .cp-scope)[data-photo-shape="oval"] .cp-luxe-frame { border-radius: 50%; }
+:is(.cp, .cp-scope)[data-photo-shape="circle"] .cp-luxe-frame { border-radius: 50%; aspect-ratio: 1 / 1; }
+:is(.cp, .cp-scope)[data-photo-shape="circle"] .cp-luxe-frame > img { height: 100%; object-fit: cover; }
+:is(.cp, .cp-scope)[data-photo-frame="single"] .cp-luxe-frame { box-shadow: 0 30px 60px -40px color-mix(in oklab, var(--c-gold) 55%, transparent); }
+:is(.cp, .cp-scope)[data-photo-frame="none"] .cp-luxe-frame { border-color: transparent; box-shadow: 0 30px 60px -40px rgb(0 0 0 / .6); }
+:is(.cp, .cp-scope)[data-photo-frame="card"] .cp-luxe-frame {
   border: var(--k-bw, 1px) solid var(--k-border, color-mix(in oklab, var(--c-gold) 55%, transparent));
   box-shadow: var(--k-shadow, 0 18px 40px -28px rgb(0 0 0 / .45));
 }
-.cp:is([data-photo-frame="single"], [data-photo-frame="none"], [data-photo-frame="card"]) .cp-luxe-frame::after { display: none; }
+:is(.cp, .cp-scope):is([data-photo-frame="single"], [data-photo-frame="none"], [data-photo-frame="card"]) .cp-luxe-frame::after { display: none; }
+/* Las burbujas (Accesos) con el mismo marco: una línea dorada, sin marco o como tus tarjetas (la doble, la de siempre). */
+:is(.cp, .cp-scope)[data-photo-frame="single"] .cp-bubble-img {
+  padding: 2px; background: var(--c-gold);
+  box-shadow: 0 16px 30px -18px color-mix(in oklab, var(--c-gold) 60%, transparent);
+}
+:is(.cp, .cp-scope)[data-photo-frame="none"] .cp-bubble-img { padding: 0; background: none; box-shadow: 0 16px 30px -18px rgb(0 0 0 / .6); }
+:is(.cp, .cp-scope)[data-photo-frame="card"] .cp-bubble-img {
+  padding: 0; background: none;
+  border: var(--k-bw, 1px) solid var(--k-border, color-mix(in oklab, var(--c-gold) 55%, transparent));
+  box-shadow: var(--k-shadow, 0 18px 40px -28px rgb(0 0 0 / .45));
+}
 /* «Como tus tarjetas» con un marco de adorno o de neón (Diseño › Tarjetas). */
-.cp[data-photo-frame="card"][data-frame="mask"] .cp-luxe-frame::after {
+:is(.cp, .cp-scope)[data-photo-frame="card"][data-frame="mask"] .cp-luxe-frame::after {
   display: block; inset: 5px; z-index: 6; border: 0; border-radius: inherit;
   background: var(--frame-c); -webkit-mask: var(--frame-mask); mask: var(--frame-mask);
 }
-.cp[data-photo-frame="card"][data-frame="neon"] .cp-luxe-frame {
+:is(.cp, .cp-scope)[data-photo-frame="card"][data-frame="neon"] .cp-luxe-frame {
   border-color: var(--frame-c);
   box-shadow: 0 0 0 1px var(--frame-c), 0 0 18px -2px var(--frame-c);
   animation: cp-neon 3.2s ease-in-out infinite alternate;
@@ -1984,41 +2491,41 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
 /* Paneles dorados (Diseño › Paneles dorados): «Qué incluye», los textos de los métodos, las cartas de las lecturas,
    el panel de cada ficha. A mano: su fondo, borde, esquinas y sombra. Las estrellitas ✦ y la geometría del fondo
    (una figura dibujada en su color: --pg-img, themeStyle) van aparte. */
-.cp[data-pk] :is(.cp-include-panel, .cp-oracle-card, .cp-show-panel) {
+:is(.cp, .cp-scope)[data-pk] :is(.cp-include-panel, .cp-oracle-card, .cp-show-panel) {
   background: radial-gradient(60% 50% at 0% 0%, color-mix(in oklab, var(--pk-border) 8%, transparent), transparent 70%), var(--pk-bg);
   border: var(--pk-bw) solid var(--pk-border); border-radius: var(--r-panel); box-shadow: var(--pk-shadow);
 }
-.cp[data-pk] .cp-oracle-card:hover { border-color: var(--pk-border); box-shadow: var(--pk-shadow); }
-.cp[data-pstars="off"] .cp-include-panel::before, .cp[data-pstars="off"] .cp-include-panel::after { content: none; }
-.cp[data-pgeo] :is(.cp-include-geo, .cp-oracle-geo, .cp-show-geo) { display: none; }
-.cp[data-pgeo]:not([data-pgeo="none"]) :is(.cp-include-panel, .cp-oracle-card, .cp-show-panel) {
+:is(.cp, .cp-scope)[data-pk] .cp-oracle-card:hover { border-color: var(--pk-border); box-shadow: var(--pk-shadow); }
+:is(.cp, .cp-scope)[data-pstars="off"] .cp-include-panel::before, :is(.cp, .cp-scope)[data-pstars="off"] .cp-include-panel::after { content: none; }
+:is(.cp, .cp-scope)[data-pgeo] :is(.cp-include-geo, .cp-oracle-geo, .cp-show-geo) { display: none; }
+:is(.cp, .cp-scope)[data-pgeo]:not([data-pgeo="none"]) :is(.cp-include-panel, .cp-oracle-card, .cp-show-panel) {
   background-image: var(--pg-img), radial-gradient(60% 50% at 0% 0%, color-mix(in oklab, var(--c-gold) 8%, transparent), transparent 70%);
   background-position: var(--pg-pos), 0 0; background-size: var(--pg-size), auto; background-repeat: no-repeat;
 }
 
 /* ───────────── Marcos de tarjetas y botones (lib/frames.ts; themeStyle → --frame-mask, --bframe-mask) ───────────── */
-.cp[data-frame] .cp-card { position: relative; }
-.cp[data-frame="mask"] .cp-card::before {
+:is(.cp, .cp-scope)[data-frame] .cp-card { position: relative; }
+:is(.cp, .cp-scope)[data-frame="mask"] .cp-card::before {
   content: ""; position: absolute; inset: 5px; z-index: 6; pointer-events: none; border-radius: inherit;
   background: var(--frame-c); -webkit-mask: var(--frame-mask); mask: var(--frame-mask);
 }
-.cp[data-frame="neon"] .cp-card {
+:is(.cp, .cp-scope)[data-frame="neon"] .cp-card {
   border-color: var(--frame-c);
   box-shadow: 0 0 0 1px var(--frame-c), 0 0 18px -2px var(--frame-c), inset 0 0 14px -4px var(--frame-c);
   animation: cp-neon 3.2s ease-in-out infinite alternate;
 }
 @keyframes cp-neon { from { filter: brightness(.92); } to { filter: brightness(1.12); } }
 
-.cp[data-bframe] :is(.cp-btn, .cp-btn-ghost, .cp-link) { position: relative; }
-.cp[data-bframe="ends"] :is(.cp-btn, .cp-btn-ghost, .cp-link):not(.w-full) { margin-inline: 1.4em; }
-.cp[data-bframe="ends"] :is(.cp-btn, .cp-btn-ghost, .cp-link)::before {
+:is(.cp, .cp-scope)[data-bframe] :is(.cp-btn, .cp-btn-ghost, .cp-link) { position: relative; }
+:is(.cp, .cp-scope)[data-bframe="ends"] :is(.cp-btn, .cp-btn-ghost, .cp-link):not(.w-full) { margin-inline: 1.4em; }
+:is(.cp, .cp-scope)[data-bframe="ends"] :is(.cp-btn, .cp-btn-ghost, .cp-link)::before {
   content: ""; position: absolute; inset: -8px -1.5em; pointer-events: none;
   background: var(--bframe-c); -webkit-mask: var(--bframe-mask); mask: var(--bframe-mask);
 }
-.cp[data-bframe="dotted"] :is(.cp-btn, .cp-btn-ghost, .cp-link) { outline: 2px dotted var(--bframe-c); outline-offset: 4px; }
-.cp[data-bframe="dashed"] :is(.cp-btn, .cp-btn-ghost, .cp-link) { outline: 1.5px dashed var(--bframe-c); outline-offset: 4px; }
-.cp[data-bframe="double"] :is(.cp-btn, .cp-btn-ghost, .cp-link) { outline: 4px double var(--bframe-c); outline-offset: 3px; }
-.cp[data-bframe="neon"] :is(.cp-btn, .cp-btn-ghost, .cp-link) {
+:is(.cp, .cp-scope)[data-bframe="dotted"] :is(.cp-btn, .cp-btn-ghost, .cp-link) { outline: 2px dotted var(--bframe-c); outline-offset: 4px; }
+:is(.cp, .cp-scope)[data-bframe="dashed"] :is(.cp-btn, .cp-btn-ghost, .cp-link) { outline: 1.5px dashed var(--bframe-c); outline-offset: 4px; }
+:is(.cp, .cp-scope)[data-bframe="double"] :is(.cp-btn, .cp-btn-ghost, .cp-link) { outline: 4px double var(--bframe-c); outline-offset: 3px; }
+:is(.cp, .cp-scope)[data-bframe="neon"] :is(.cp-btn, .cp-btn-ghost, .cp-link) {
   box-shadow: 0 0 0 1px var(--bframe-c), 0 0 16px -2px var(--bframe-c), inset 0 0 10px -4px var(--bframe-c);
   animation: cp-neon 2.6s ease-in-out infinite alternate;
 }
@@ -2055,7 +2562,7 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
 /* El menú lateral: un cristal del fondo (o el color que elija), iconos en el color de los detalles. */
 .pd .panel-side { background: var(--panel-side-bg, color-mix(in oklab, var(--c-bg) 72%, transparent)); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 .pd .panel-nav-link svg { color: var(--c-gold); }
-.pd .panel-nav-link[aria-current="page"] svg { color: currentColor; }
+.pd .panel-nav-link:is([aria-current="page"], [aria-pressed="true"], [aria-checked="true"]) svg { color: currentColor; }
 
 /* Tarjetas, superficies y campos. */
 .pd :is(.card, .bg-white):not(.cp *, .cp) { background-color: var(--pd-surface); }

@@ -234,13 +234,13 @@ export function SocialsFields({ cfg, set }: Props) {
   return (
     <section className="card p-5 sm:p-6">
       <h3 className="font-semibold">Redes sociales</h3>
-      <p className="text-xs text-muted">Escribe las que quieras que salgan bajo tu presentación. Vacía una para quitarla.</p>
+      <p className="text-xs text-muted">Escribe las que quieras que salgan bajo tu presentación. Vacía una para quitarla. Para cambiar su orden, pasa por encima de una en la web y usa sus flechas.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        {SOCIAL_KEYS.map((k) => (
+        {[...new Set([...(cfg.socialOrder ?? []), ...SOCIAL_KEYS])].map((k) => (
           <Field key={k} label={SOCIAL_LABEL[k]}>
             <input
               className="input h-10 text-sm"
-              placeholder={k === "email" ? "tu@email.com" : k === "whatsapp" ? "+34 600 000 000" : k === "website" ? "tuweb.com" : "@usuario"}
+              placeholder={k === "email" ? "tu@email.com" : k === "website" ? "tuweb.com" : "@usuario"}
               value={cfg.socials[k] ?? ""}
               onChange={(e) => {
                 const next = { ...cfg.socials };
@@ -266,9 +266,6 @@ export function ContactFields({ cfg, set }: Props) {
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Email de contacto" hint="Sin email, la sección no sale.">
           <input className="input h-10 text-sm" placeholder="tu@email.com" value={cfg.contact.email ?? ""} onChange={(e) => set("contact", { ...cfg.contact, email: e.target.value })} />
-        </Field>
-        <Field label="WhatsApp">
-          <input className="input h-10 text-sm" placeholder="+34 600 000 000" value={cfg.contact.whatsapp ?? ""} onChange={(e) => set("contact", { ...cfg.contact, whatsapp: e.target.value })} />
         </Field>
       </div>
       <TextsFields cfg={cfg} set={set} keys={["contact.email"]} />

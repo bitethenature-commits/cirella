@@ -83,8 +83,8 @@ export function SubtleBody({ chakra = null, nadis = ["ida", "pingala", "sushumna
           <stop offset="100%" stopColor="#F4F1EA" stopOpacity="0" />
         </radialGradient>
         <radialGradient id={`${p}body`} cx="50%" cy="40%" r="65%">
-          <stop offset="0%" stopColor="#3A3470" stopOpacity="0.55" />
-          <stop offset="100%" stopColor="#1A1640" stopOpacity="0.35" />
+          <stop offset="0%" stopColor="#303034" stopOpacity="0.55" />
+          <stop offset="100%" stopColor="#1A1A1D" stopOpacity="0.35" />
         </radialGradient>
         <linearGradient id={`${p}snake`} x1="0" y1="1" x2="0" y2="0">
           <stop offset="0%" stopColor="#E2574C" />
@@ -144,7 +144,7 @@ export function SubtleBody({ chakra = null, nadis = ["ida", "pingala", "sushumna
           <g key={k} {...(tapProps?.(k) ?? (onChakra ? { onClick: () => onChakra(k), style: { cursor: "pointer" } } : {}))}>
             <circle cx={CX} cy={c.y} r="18" fill="transparent" />
             {on && <circle cx={CX} cy={c.y} r="16" fill={c.color} opacity="0.7" filter={`url(#${p}glow)`} />}
-            <circle cx={CX} cy={c.y} r={chakra === k ? 10 : 7.5} fill={c.color} fillOpacity={on ? 1 : 0.75} stroke={chakra === k ? "#FFF6DC" : "#100E26"} strokeWidth={chakra === k ? 1.8 : 1} />
+            <circle cx={CX} cy={c.y} r={chakra === k ? 10 : 7.5} fill={c.color} fillOpacity={on ? 1 : 0.75} stroke={chakra === k ? "#FFF6DC" : "#0B0B0D"} strokeWidth={chakra === k ? 1.8 : 1} />
           </g>
         );
       })}

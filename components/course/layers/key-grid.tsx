@@ -19,7 +19,7 @@ export function KeyGrid({ selected, colorOf, tapKey, legend }: { selected: numbe
             style={{
               background: on ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : c ? `${c}33` : "rgb(255 255 255 / .05)",
               borderColor: on ? "#F0D9A4" : c ? `${c}AA` : "rgb(255 255 255 / .12)",
-              color: on ? "#100E26" : "#FBF6EC",
+              color: on ? "#0B0B0D" : "#FBF6EC",
               cursor: "pointer",
             }}
           >

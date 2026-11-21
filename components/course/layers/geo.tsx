@@ -259,7 +259,7 @@ export function GeoFigure({ els, labels = [], selected, order, mode }: { els: E[
           fill={cur(l.tags) ? "#F7E2AE" : STAR}
           fillOpacity={cur(l.tags) ? 1 : 0.6}
           className={cur(l.tags) ? "geo-fade" : undefined}
-          stroke="#100E26"
+          stroke="#0B0B0D"
           strokeWidth="3"
           paintOrder="stroke"
         >
@@ -769,7 +769,7 @@ export function GeoDiagram({ layer, selected, mine, keys, tap }: DiagramProps & 
             return (
               <g key={k} {...tap(k, TX["geo-tree"][k].name)}>
                 {on && <circle cx={q[0]} cy={q[1]} r="30" fill={`url(#${p}goldglow)`} />}
-                <circle cx={q[0]} cy={q[1]} r="19" fill={on ? `url(#${p}gold)` : "#16132E"} stroke={own.has(k) || on ? "#F7E2AE" : NIGHT_GOLD} strokeWidth={own.has(k) ? 1.8 : 1.1} strokeDasharray={hidden ? "3 3" : undefined} />
+                <circle cx={q[0]} cy={q[1]} r="19" fill={on ? `url(#${p}gold)` : "#161618"} stroke={own.has(k) || on ? "#F7E2AE" : NIGHT_GOLD} strokeWidth={own.has(k) ? 1.8 : 1.1} strokeDasharray={hidden ? "3 3" : undefined} />
                 <text x={q[0]} y={q[1] - 4} textAnchor="middle" dominantBaseline="central" fontSize="10" fontFamily="Georgia, serif" fill={on ? "#2A1E0C" : NIGHT_GOLD} pointerEvents="none">
                   {n || "·"}
                 </text>

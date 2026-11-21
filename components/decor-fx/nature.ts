@@ -905,133 +905,26 @@ function seedView(c: RGB, seedC: RGB, psi: number, dpr: number, seed: number): S
   });
 }
 
-/**
- * La cabeza de un diente de león (el «reloj»): cientos de semillas repartidas en una esfera, cada una con su pico y
- * su vilano abierto hacia fuera, alrededor del receptáculo, con las brácteas vueltas hacia abajo. `blown` (0–1): cuánto
- * se ha llevado ya el viento (por el lado de la derecha).
- */
-function seedHead(o: { c: RGB; seedC: RGB; rec: RGB; bract: RGB; R: number; dpr: number; seed: number; blown: number }): Sprite {
-  const Rp = o.R * o.dpr;
-  const S = Math.ceil(Rp * 2.3);
-  return sprite(S, S, (g) => {
-    const r = rng(o.seed);
-    const cx = S / 2;
-    const cy = S / 2;
-    g.lineCap = "round";
-    const N = Math.round(clamp(o.R * 2.2, 70, 240));
-    const golden = Math.PI * (3 - Math.sqrt(5));
-    const tilt = 0.25;
-    const ct = Math.cos(tilt);
-    const st = Math.sin(tilt);
-    const items: [number, number, number][] = [];
-    for (let k = 0; k < N; k++) {
-      const y = 1 - (2 * (k + 0.5)) / N;
-      const rad = Math.sqrt(1 - y * y);
-      const ph = k * golden;
-      const x = Math.cos(ph) * rad;
-      const z = Math.sin(ph) * rad;
-      if (y < -0.86) continue;
-      if (r() < 0.05 + o.blown * smooth(-0.3, 0.6, x)) continue;
-      items.push([x, y * ct - z * st, y * st + z * ct]);
-    }
-    items.sort((a, b) => a[2] - b[2]);
-    const lw = Math.max(0.45, Rp * 0.0042);
-    const one = (u: [number, number, number]) => {
-      const q = 0.42 + 0.58 * (u[2] * 0.5 + 0.5);
-      const X = (d: number) => cx + u[0] * d;
-      const Y = (d: number) => cy - u[1] * d;
-      g.strokeStyle = rgba(o.seedC, 0.85 * q);
-      g.lineWidth = Math.max(0.8, Rp * 0.022);
-      g.beginPath();
-      g.moveTo(X(Rp * 0.13), Y(Rp * 0.13));
-      g.lineTo(X(Rp * 0.23), Y(Rp * 0.23));
-      g.stroke();
-      g.strokeStyle = rgba(o.c, 0.5 * q);
-      g.lineWidth = lw;
-      g.beginPath();
-      g.moveTo(X(Rp * 0.23), Y(Rp * 0.23));
-      g.lineTo(X(Rp * 0.6), Y(Rp * 0.6));
-      g.stroke();
-      // El vilano: un abanico de hilos que se abre hacia fuera.
-      const ax = X(Rp * 0.6);
-      const ay = Y(Rp * 0.6);
-      const ref: [number, number, number] = Math.abs(u[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
-      let e1: [number, number, number] = [u[1] * ref[2] - u[2] * ref[1], u[2] * ref[0] - u[0] * ref[2], u[0] * ref[1] - u[1] * ref[0]];
-      const m1 = Math.hypot(...e1) || 1;
-      e1 = [e1[0] / m1, e1[1] / m1, e1[2] / m1];
-      const e2: [number, number, number] = [u[1] * e1[2] - u[2] * e1[1], u[2] * e1[0] - u[0] * e1[2], u[0] * e1[1] - u[1] * e1[0]];
-      g.strokeStyle = rgba(o.c, 0.36 * q);
-      g.beginPath();
-      for (let j = 0; j < 20; j++) {
-        const ph = (j / 20) * TAU + r.range(-0.1, 0.1);
-        const be = r.range(1.05, 1.32);
-        const len = Rp * 0.36 * r.range(0.85, 1.05);
-        const cb = Math.cos(be);
-        const sb = Math.sin(be);
-        const dx = cb * u[0] + sb * (Math.cos(ph) * e1[0] + Math.sin(ph) * e2[0]);
-        const dy = cb * u[1] + sb * (Math.cos(ph) * e1[1] + Math.sin(ph) * e2[1]);
-        g.moveTo(ax, ay);
-        g.lineTo(ax + dx * len, ay - dy * len);
-      }
-      g.stroke();
-      g.fillStyle = rgba(o.c, 0.7 * q);
-      g.fillRect(ax - lw, ay - lw, lw * 2, lw * 2);
-    };
-    // Las de atrás, el receptáculo y las brácteas, y luego las de delante.
-    for (const u of items) if (u[2] < 0) one(u);
-    const recR = Rp * 0.16;
-    const rg = g.createRadialGradient(cx - recR * 0.3, cy - recR * 0.3, 0, cx, cy, recR);
-    rg.addColorStop(0, rgba(lighten(o.rec, 0.25), 1));
-    rg.addColorStop(1, rgba(darken(o.rec, 0.3), 1));
-    g.fillStyle = rg;
-    g.beginPath();
-    g.arc(cx, cy, recR, 0, TAU);
-    g.fill();
-    g.strokeStyle = rgba(o.bract, 0.95);
-    for (let i = 0; i < 9; i++) {
-      const a = Math.PI / 2 + ((i - 4) / 4) * 1.1;
-      const sx = cx + Math.cos(a) * recR * 0.7;
-      const sy = cy + Math.sin(a) * recR * 0.7 + recR * 0.3;
-      const len = Rp * r.range(0.28, 0.42);
-      g.lineWidth = Math.max(0.8, Rp * 0.018);
-      g.beginPath();
-      g.moveTo(sx, sy);
-      g.quadraticCurveTo(sx + Math.cos(a) * len * 0.6, sy + len * 0.2, sx + Math.cos(a) * len * 0.5, sy + len);
-      g.stroke();
-    }
-    for (const u of items) if (u[2] >= 0) one(u);
-  });
-}
-
-type Seed = { x: number; y: number; z: number; size: number; lift: number; ph: number; id: number; free: boolean };
-type Clock = { bx: number; by: number; Ls: number; lean: number; R: number; head: Sprite; timer: number; id: number };
+type Seed = { x: number; y: number; z: number; size: number; lift: number; ph: number; id: number };
 
 /**
- * Dientes de león: una flor ya en semilla abajo a la izquierda (y, en pantallas anchas, otra a medio soplar a la
- * derecha) que se mece con el viento y suelta de vez en cuando una semilla; y semillas que viajan con la brisa,
- * suben y bajan con las corrientes y se inclinan colgando de su paraguas, vistas desde distintos ángulos.
+ * Dientes de león: solo las semillas, que viajan con la brisa, suben y bajan con las corrientes y se inclinan
+ * colgando de su paraguas, vistas desde distintos ángulos (las más cercanas, algo desenfocadas).
  */
 const dandelion: EffectFactory = (env) => {
   const r = rng(141);
   const n = makeNoise(141);
   const c = nat(env, hex("#FBFAF6"), env.c.soft, 0.4);
   const seedC = env.dark ? hex("#9A7650") : hex("#6B4F33");
-  const stemC = env.own ? mix(env.c.a, hex("#6F8650"), 0.5) : env.dark ? hex("#6E8A4C") : hex("#5F7A40");
-  const recC = hex("#7C7A4A");
-  const bractC = env.dark ? hex("#5E7A3E") : hex("#55702F");
   const views = Array.from({ length: VIEWS }, (_, i) => seedView(c, seedC, i * VIEW_STEP, env.dpr, 7));
   const nearViews = views.map((v) => blurred(v, 2.2 * env.dpr));
   const halo = glow(lighten(c, 0.2), 64, 0.05, 1.8);
-  const CLOCK_Z = 0.78;
-  let clocks: Clock[] = [];
   let seeds: Seed[] = [];
-  /** Las que se acaban de soltar: se meten en la lista al terminar el fotograma. */
-  const born: Seed[] = [];
   let dir = 1;
 
   const ambient = (e: FxEnv, s: Seed | null, anywhere: boolean): Seed => {
     const kk = Math.max(0.4, e.k);
-    const q = s ?? ({ z: Math.pow(r(), 1.3), id: r() * 100, free: false } as Seed);
+    const q = s ?? ({ z: Math.pow(r(), 1.3), id: r() * 100 } as Seed);
     q.size = r.range(22, 38) * (0.42 + q.z * 0.95) * kk;
     q.lift = r.range(3, 10);
     q.ph = r() * TAU;
@@ -1046,23 +939,7 @@ const dandelion: EffectFactory = (env) => {
     return q;
   };
   const layout = (e: FxEnv) => {
-    const R1 = clamp(Math.min(e.w, e.h) * 0.12, e.contained ? 12 : 42, 112);
-    const spec = [{ R: R1, bx: Math.max(R1 * 0.9, e.w * 0.08), Ls: Math.min(e.h * 0.42, R1 * 2.9), lean: 0.1, blown: 0 }];
-    if (e.w > 760) {
-      const R2 = R1 * 0.72;
-      spec.push({ R: R2, bx: e.w - Math.max(R2 * 1.1, e.w * 0.07), Ls: Math.min(e.h * 0.3, R2 * 2.5), lean: -0.13, blown: 0.75 });
-    }
-    clocks = spec.map((s, i) => ({
-      bx: s.bx,
-      by: e.h + 4,
-      Ls: s.Ls,
-      lean: s.lean,
-      R: s.R,
-      head: seedHead({ c, seedC, rec: recC, bract: bractC, R: s.R, dpr: e.dpr, seed: 50 + i, blown: s.blown }),
-      timer: r.range(2, 6),
-      id: i * 11.3,
-    }));
-    seeds = Array.from({ length: count(e, 7, 8, 20) }, () => ambient(e, null, true)).sort((a, b) => a.z - b.z);
+    seeds = Array.from({ length: count(e, 9, 10, 24) }, () => ambient(e, null, true)).sort((a, b) => a.z - b.z);
   };
   layout(env);
 
@@ -1073,7 +950,7 @@ const dandelion: EffectFactory = (env) => {
     const i0 = Math.min(VIEWS - 2, Math.floor(vi));
     const w1 = vi - i0;
     const rot = 0.25 * n(t * 0.25, s.id, 9) + 0.08 * Math.sin(t * 0.9 + s.ph);
-    const near = s.z > 0.9 && !s.free;
+    const near = s.z > 0.9;
     const a = (0.45 + s.z * 0.5) * (near ? 0.75 : 1);
     const set = near ? nearViews : views;
     if (e.dark) {
@@ -1086,94 +963,21 @@ const dandelion: EffectFactory = (env) => {
     g.setTransform(e.dpr, 0, 0, e.dpr, 0, 0);
   };
 
-  const drawClocks = (g: CanvasRenderingContext2D, e: FxEnv, t: number, dt: number, wn: number) => {
-    for (const ck of clocks) {
-      const sw = ck.lean + 0.03 * Math.sin(t * 0.8 + ck.id) + 0.06 * wn + 0.015 * n(t * 1.6, ck.id, 2);
-      const hx = ck.bx + Math.sin(sw) * ck.Ls;
-      const hy = ck.by - Math.cos(sw) * ck.Ls;
-      const qx = ck.bx + Math.sin(sw * 0.35) * ck.Ls * 0.55;
-      const qy = ck.by - Math.cos(sw * 0.35) * ck.Ls * 0.55;
-      const tx = hx - Math.sin(sw) * ck.R * 0.12;
-      const ty = hy + Math.cos(sw) * ck.R * 0.12;
-      if (e.dark) {
-        g.globalCompositeOperation = "lighter";
-        drawR(g, halo, hx, hy, ck.R * 1.35, 0.13);
-        g.globalCompositeOperation = "source-over";
-      }
-      // El tallo, hueco y verde, con su brillo.
-      g.globalAlpha = 0.95;
-      g.lineCap = "round";
-      g.strokeStyle = rgba(stemC, 1);
-      g.lineWidth = Math.max(1, ck.R * 0.1);
-      g.beginPath();
-      g.moveTo(ck.bx, ck.by);
-      g.quadraticCurveTo(qx, qy, tx, ty);
-      g.stroke();
-      const o = ck.R * 0.018;
-      g.strokeStyle = rgba(lighten(stemC, 0.35), 0.5);
-      g.lineWidth = Math.max(0.5, ck.R * 0.025);
-      g.beginPath();
-      g.moveTo(ck.bx - o, ck.by);
-      g.quadraticCurveTo(qx - o, qy, tx - o, ty);
-      g.stroke();
-      const hs = ck.head.width / e.dpr;
-      drawRot(g, ck.head, e.dpr, hs, hx, hy, hs, sw, 1, 1, 0.95);
-      g.setTransform(e.dpr, 0, 0, e.dpr, 0, 0);
-      // De vez en cuando (más con las rachas) se suelta una semilla por el lado del viento.
-      ck.timer -= dt * (0.6 + Math.max(0, wn) * 1.4);
-      if (ck.timer <= 0) {
-        ck.timer = r.range(4, 9);
-        if (seeds.filter((s) => s.free).length + born.length < 8) {
-          const a = (dir > 0 ? 0 : Math.PI) + dir * r.range(-1.2, 0.5);
-          const q: Seed = {
-            x: hx + Math.cos(a) * ck.R * 0.7,
-            y: hy + Math.sin(a) * ck.R * 0.7,
-            z: CLOCK_Z + 0.01,
-            size: ck.R * 0.95,
-            lift: r.range(4, 10),
-            ph: r() * TAU,
-            id: r() * 100,
-            free: true,
-          };
-          born.push(q);
-        }
-      }
-    }
-    g.globalAlpha = 1;
-  };
-
   return {
     resize: layout,
     frame(g, e, t, dt) {
       const kk = Math.max(0.4, e.k);
       const wv = wind(n, t, 30, 30) * kk;
       dir = wv >= 0 ? 1 : -1;
-      const wn = clamp(wv / kk / 60, -1, 1);
-      for (let i = seeds.length - 1; i >= 0; i--) {
-        const s = seeds[i];
+      for (const s of seeds) {
         const depth = 0.45 + s.z * 0.75;
         s.x += (wv * depth + n(s.x * 0.003, s.y * 0.003, t * 0.1 + s.id) * 26 * kk) * dt;
         s.y += (-s.lift + n(s.x * 0.003 + 40, s.y * 0.003, t * 0.1 + s.id) * 24) * kk * depth * dt;
         const m = s.size;
-        if (s.x > e.w + m || s.x < -m || s.y < -m || s.y > e.h + m) {
-          if (s.free) seeds.splice(i, 1);
-          else ambient(e, s, false);
-        }
+        if (s.x > e.w + m || s.x < -m || s.y < -m || s.y > e.h + m) ambient(e, s, false);
       }
       g.globalCompositeOperation = "source-over";
-      let clocksDone = false;
-      for (const s of seeds) {
-        if (!clocksDone && s.z >= CLOCK_Z) {
-          drawClocks(g, e, t, dt, wn);
-          clocksDone = true;
-        }
-        drawSeed(g, e, s, t);
-      }
-      if (!clocksDone) drawClocks(g, e, t, dt, wn);
-      for (const q of born.splice(0)) {
-        const at = seeds.findIndex((s) => s.z > q.z);
-        seeds.splice(at < 0 ? seeds.length : at, 0, q);
-      }
+      for (const s of seeds) drawSeed(g, e, s, t);
       g.globalAlpha = 1;
     },
   };

@@ -157,7 +157,7 @@ const BLEND: Record<string, { from: SequenceId; to: SequenceId; x1: number; y1: 
   core: { from: "pearl", to: "venus", x1: 1, y1: 0, x2: 0, y2: 1 },
   purpose: { from: "activation", to: "venus", x1: 0, y1: 0, x2: 1, y2: 1 },
 };
-const NIGHT = "#100E26";
+const NIGHT = "#0B0B0D";
 const STAR = "#FBF6EC";
 
 /** Los degradados comunes (con el prefijo de cada dibujo: puede haber varios en una lección). */
@@ -198,8 +198,8 @@ function GkDefs({ p }: { p: string }) {
         <stop offset="100%" stopColor="#000" stopOpacity="0.4" />
       </radialGradient>
       <radialGradient id={`${p}sky`} cx="50%" cy="42%" r="70%">
-        <stop offset="0%" stopColor="#2A2552" />
-        <stop offset="55%" stopColor="#17153A" />
+        <stop offset="0%" stopColor="#232326" />
+        <stop offset="55%" stopColor="#151517" />
         <stop offset="100%" stopColor={NIGHT} />
       </radialGradient>
       <radialGradient id={`${p}goldglow`} cx="50%" cy="50%" r="50%">

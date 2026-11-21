@@ -392,7 +392,7 @@ function shadowCss(s: Shadow, color: string) {
 }
 
 /** Los colores propios de algunos fondos (sin «Color del efecto»): el rosa del cerezo, el otoño, la aurora… */
-const DECOR_TINTS: Partial<Record<Decor, [string, string]>> = {
+export const DECOR_TINTS: Partial<Record<Decor, [string, string]>> = {
   sakura: ["#F29BBE", "#FFD1E1"],
   leaves: ["#D9772B", "#B23F22"],
   borealis: ["#3FE0B0", "#8F6BFF"],

@@ -29,7 +29,7 @@ export async function saveAvailability(rules: z.infer<typeof rulesSchema>, timez
   await db.availabilityRule.deleteMany({});
   if (parsed.data.length) await db.availabilityRule.createMany({ data: parsed.data.map((r) => ({ ...r, creatorId: creator.id })) });
   await prisma.creator.update({ where: { id: creator.id }, data: { timezone: tz } });
-  revalidatePath("/panel/solicitudes");
+  revalidatePath("/panel/clientes");
   revalidatePath("/panel/solicitudes/horario");
   return { ok: true };
 }
@@ -130,7 +130,7 @@ export async function setIntakeByOwner(_: IntakeState, form: FormData): Promise<
     where: { id: order.id },
     data: { intake: parsed.value ? (parsed.value as unknown as Prisma.InputJsonObject) : Prisma.DbNull, intakeUpdatedAt: new Date() },
   });
-  revalidatePath("/panel/solicitudes");
+  revalidatePath("/panel/clientes");
   revalidatePath(`/panel/ventas/${order.id}`);
   for (const b of await db.booking.findMany({ where: { orderId: order.id }, select: { id: true } })) revalidatePath(`/panel/solicitudes/reserva/${b.id}`);
   return { ok: "Datos guardados" };
@@ -208,7 +208,7 @@ export async function giveManually(_: GiveState, form: FormData): Promise<GiveSt
     requestId: d.requestId,
   });
   if (!r.ok) return { error: r.error };
-  revalidatePath("/panel/solicitudes");
+  revalidatePath("/panel/clientes");
   if (r.bookingId) redirect(`/panel/solicitudes/reserva/${r.bookingId}?ok=dada`);
   redirect(`/panel/ventas/${r.orderId}?ok=dada#entrega`);
 }
@@ -220,14 +220,14 @@ export async function addBlockedDate(form: FormData) {
   if (!days) return;
   const reason = String(form.get("reason") ?? "").slice(0, 80) || null;
   await tenantDb(creator.id).blockedDate.createMany({ data: days.map((date) => ({ creatorId: creator.id, date, reason })), skipDuplicates: true });
-  revalidatePath("/panel/solicitudes");
+  revalidatePath("/panel/clientes");
   revalidatePath("/panel/solicitudes/horario");
 }
 
 export async function removeBlockedDate(form: FormData) {
   const { creator } = await requireCreator();
   await tenantDb(creator.id).blockedDate.deleteMany({ where: { id: String(form.get("id")) } });
-  revalidatePath("/panel/solicitudes");
+  revalidatePath("/panel/clientes");
   revalidatePath("/panel/solicitudes/horario");
 }
 
@@ -237,7 +237,7 @@ export async function setBookingStatus(form: FormData) {
   const id = String(form.get("id"));
   const status = z.enum(["COMPLETED"]).parse(form.get("status"));
   await tenantDb(creator.id).booking.updateMany({ where: { id, status: "CONFIRMED" }, data: { status } });
-  revalidatePath("/panel/solicitudes");
+  revalidatePath("/panel/clientes");
 }
 
 export type ChangeState = { error?: string } | undefined;
@@ -298,9 +298,9 @@ export async function changeBooking(_: ChangeState, form: FormData): Promise<Cha
     if (!r.ok) return { error: r.error };
     ok = "cancelada";
   }
-  revalidatePath("/panel/solicitudes");
+  revalidatePath("/panel/clientes");
   revalidatePath("/panel/ventas");
-  redirect(`/panel/solicitudes?ok=${ok}`);
+  redirect(`/panel/solicitudes/reserva/${id}?ok=${ok}`);
 }
 
 /** «Ya la envié»: la lectura «Lo preparo yo» se envía por email (la web no guarda el material). */
@@ -308,5 +308,13 @@ export async function markReadingSent(form: FormData) {
   const { creator } = await requireCreator();
   const orderId = String(form.get("orderId") ?? "");
   await tenantDb(creator.id).order.updateMany({ where: { id: orderId, status: "PAID", productType: "DIGITAL", deliveredAt: null }, data: { deliveredAt: new Date() } });
-  revalidatePath("/panel/solicitudes");
+  revalidatePath("/panel/clientes", "layout");
+}
+
+/** Desmarcar una lectura ya hecha (Personas › Lecturas › Hechas): vuelve a la lista por enviar. */
+export async function unmarkReadingSent(form: FormData) {
+  const { creator } = await requireCreator();
+  const orderId = String(form.get("orderId") ?? "");
+  await tenantDb(creator.id).order.updateMany({ where: { id: orderId, productType: "DIGITAL", deliveredAt: { not: null } }, data: { deliveredAt: null } });
+  revalidatePath("/panel/clientes", "layout");
 }

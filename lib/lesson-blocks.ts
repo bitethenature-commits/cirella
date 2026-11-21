@@ -1,10 +1,12 @@
 /**
  * Partes de las lecciones largas (además de texto, archivo y vídeo; lib/lesson-parts.ts):
- *   · CHAPTER  → empieza un capítulo: la lección se lee capítulo a capítulo, con su índice y su tiempo;
+ *   · CHAPTER  → empieza un capítulo: la lección se lee capítulo a capítulo, con su índice;
  *   · MODEL    → un modelo deconstruido por partes: de la carta astral (signos, casas, planetas, aspectos o
  *                elementos), del bodygraph (centros o las seis líneas del perfil), de las Gene Keys (las
  *                esferas del Camino Dorado o el espectro sombra-don-siddhi) o de la Luna (sus ocho fases).
- *                Se toca una pieza y se lee, con el texto de la dueña;
+ *                Se toca una pieza y se lee, con el texto de la dueña (y sus textos de serie, cambiables: `texts`);
+ *   · MAIN     → uno de los modelos principales entero (carta natal, bodygraph, Gene Keys, Luna, runas,
+ *                oráculo, geometría sagrada o kundalini), como el bloque «Modelo interactivo» de la web;
  *   · MYCHART  → «Tu Marte»: ese planeta en la carta de la alumna (signo, casa y aspectos);
  *   · TODAY    → «Marte hoy»: dónde está hoy ese planeta y qué toca de su carta;
  *   · QUIZ     → repaso: preguntas con varias respuestas y su explicación;
@@ -12,14 +14,16 @@
  * Su contenido va en LessonPart.data (JSON). Puro (solo zod): lo usan el editor, el reproductor y lib/lessons.ts.
  */
 import { z } from "zod";
+import { GEOMETRY_FIGURES, MODEL_KINDS } from "./page-blocks";
 
-export const BLOCK_KINDS = ["CHAPTER", "MODEL", "CHART", "MYCHART", "TODAY", "QUIZ", "GLOSSARY"] as const;
+export const BLOCK_KINDS = ["CHAPTER", "MODEL", "MAIN", "CHART", "MYCHART", "TODAY", "QUIZ", "GLOSSARY"] as const;
 export type BlockKind = (typeof BLOCK_KINDS)[number];
 export const isBlockKind = (k: string): k is BlockKind => (BLOCK_KINDS as readonly string[]).includes(k);
 
 export const BLOCK_LABEL: Record<BlockKind, string> = {
   CHAPTER: "Capítulo",
   MODEL: "Modelo por partes",
+  MAIN: "Modelo",
   CHART: "Carta a mano",
   MYCHART: "En tu carta",
   TODAY: "Hoy en el cielo",
@@ -346,7 +350,7 @@ const TEXT_MAX = 4000;
 const short = (n: number) => z.string().trim().max(n);
 const focus = z.enum(FOCUS_BODIES);
 
-export const chapterSchema = z.object({ title: short(140).min(1, "Pon un título a cada capítulo"), minutes: z.number().int().min(0).max(600).nullable().default(null) });
+export const chapterSchema = z.object({ title: short(140).min(1, "Pon un título a cada capítulo") });
 /** Las versiones de cada modelo por partes: con cuál empieza (la alumna puede cambiar luego en la barra de modos). */
 export const MODEL_MODES = ["explore", "mine", "today", "compare", "tour", "practice"] as const;
 export type ModelMode = (typeof MODEL_MODES)[number];
@@ -399,6 +403,28 @@ export const modelSchema = z.object({
   notes: z.record(z.string().max(20), short(TEXT_MAX)).default({}),
   /** La versión con la que empieza (MODEL_MODES). */
   mode: z.enum(MODEL_MODES).default("explore"),
+  /** Lo de arriba («Las 12 casas»), cambiado por la dueña (sin él, el de serie). */
+  label: short(80).optional(),
+  /** Los textos de serie de cada pieza, cambiados por la dueña: «<pieza>:<campo>» (MODEL_TEXT_FIELDS). */
+  texts: z.record(z.string().max(40), short(TEXT_MAX)).optional(),
+});
+/** Los textos de una pieza del modelo que la dueña puede cambiar: su nombre, la línea pequeña, su significado y los de su ficha de abajo. */
+export const MODEL_TEXT_FIELDS = ["name", "kicker", "meaning", "xname", "xkicker", "xmeaning"] as const;
+export type ModelTextField = (typeof MODEL_TEXT_FIELDS)[number];
+/** El texto cambiado de una pieza (o null: el de serie). */
+export function modelText(data: Pick<ModelData, "texts">, key: string, field: ModelTextField): string | null {
+  return data.texts?.[`${key}:${field}`]?.trim() || null;
+}
+
+/** «Modelo»: uno de los modelos principales entero (los del bloque «Modelo interactivo» de la web). */
+export const mainModelSchema = z.object({
+  model: z.enum(MODEL_KINDS),
+  /** Solo la geometría sagrada: la figura (el título es la frase que va encima). */
+  figure: z.enum(GEOMETRY_FIGURES).default("enneagram"),
+  /** Versión rápida: solo el dibujo (carta natal, bodygraph, Gene Keys y Luna). */
+  quick: z.boolean().default(false),
+  title: short(140).default(""),
+  intro: short(TEXT_MAX).default(""),
 });
 /**
  * «Carta a mano»: la carta natal completa, pero preparada por la dueña para la lección. Parte de una carta
@@ -456,17 +482,19 @@ export const glossarySchema = z.object({ terms: z.array(z.object({ term: short(8
 
 export type ChapterData = z.infer<typeof chapterSchema>;
 export type ModelData = z.infer<typeof modelSchema>;
+export type MainModelData = z.infer<typeof mainModelSchema>;
 export type MyChartData = z.infer<typeof myChartSchema>;
 export type TodayData = z.infer<typeof todaySchema>;
 export type QuizData = z.infer<typeof quizSchema>;
 export type GlossaryData = z.infer<typeof glossarySchema>;
 
-export type BlockDataMap = { CHAPTER: ChapterData; MODEL: ModelData; CHART: CustomChartData; MYCHART: MyChartData; TODAY: TodayData; QUIZ: QuizData; GLOSSARY: GlossaryData };
+export type BlockDataMap = { CHAPTER: ChapterData; MODEL: ModelData; MAIN: MainModelData; CHART: CustomChartData; MYCHART: MyChartData; TODAY: TodayData; QUIZ: QuizData; GLOSSARY: GlossaryData };
 export type BlockPart = { [K in BlockKind]: { kind: K; data: BlockDataMap[K] } }[BlockKind];
 
 const SCHEMAS: { [K in BlockKind]: z.ZodType<BlockDataMap[K], z.ZodTypeDef, unknown> } = {
   CHAPTER: chapterSchema,
   MODEL: modelSchema,
+  MAIN: mainModelSchema,
   CHART: customChartSchema,
   MYCHART: myChartSchema,
   TODAY: todaySchema,
@@ -482,6 +510,16 @@ export function parseBlock(kind: BlockKind, data: unknown): { ok: true; part: Bl
   if (kind === "MODEL") {
     const m = d as ModelData;
     m.notes = Object.fromEntries(Object.entries(m.notes).filter(([k, v]) => LAYER_KEYS[m.layer].includes(k) && /\S/.test(v)));
+    if (!m.label) delete m.label;
+    if (m.texts) {
+      const fields: readonly string[] = MODEL_TEXT_FIELDS;
+      const texts = Object.entries(m.texts).filter(([k, v]) => {
+        const at = k.lastIndexOf(":");
+        return at > 0 && LAYER_KEYS[m.layer].includes(k.slice(0, at)) && fields.includes(k.slice(at + 1)) && /\S/.test(v);
+      });
+      if (texts.length) m.texts = Object.fromEntries(texts);
+      else delete m.texts;
+    }
   }
   if (kind === "QUIZ") for (const q of (d as QuizData).questions) if (q.answer >= q.options.length) return { ok: false, error: "Marca la respuesta correcta de cada pregunta" };
   return { ok: true, part: { kind, data: d } as BlockPart };
@@ -497,9 +535,11 @@ export function readBlock<K extends BlockKind>(kind: K, data: unknown): BlockDat
 export function emptyBlock(kind: BlockKind): BlockPart {
   switch (kind) {
     case "CHAPTER":
-      return { kind, data: { title: "", minutes: null } };
+      return { kind, data: { title: "" } };
     case "MODEL":
       return { kind, data: { layer: "houses", option: null, focus: null, title: "", intro: "", notes: {}, mode: "explore" } };
+    case "MAIN":
+      return { kind, data: mainModelSchema.parse({ model: "chart" }) };
     case "CHART":
       return { kind, data: customChartSchema.parse({}) };
     case "MYCHART":
@@ -513,7 +553,7 @@ export function emptyBlock(kind: BlockKind): BlockPart {
   }
 }
 
-export type LessonChapter<P> = { title: string; minutes: number | null; parts: P[] };
+export type LessonChapter<P> = { title: string; parts: P[] };
 
 /**
  * Parte la lección por sus capítulos: lo que va antes del primero es la entrada. Sin capítulos, null
@@ -526,7 +566,7 @@ export function splitChapters<P extends { kind?: string; data?: unknown }>(parts
   for (const p of parts) {
     if (p.kind === "CHAPTER") {
       const d = readBlock("CHAPTER", p.data);
-      chapters.push({ title: d?.title ?? "Capítulo", minutes: d?.minutes ?? null, parts: [] });
+      chapters.push({ title: d?.title ?? "Capítulo", parts: [] });
     } else if (chapters.length) chapters[chapters.length - 1].parts.push(p);
     else intro.push(p);
   }

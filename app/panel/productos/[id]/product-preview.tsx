@@ -170,7 +170,7 @@ export function DesktopPreview({ ctx, product, status, tab, onTab }: { ctx: Prod
 }
 
 /** Teléfono y tableta: la vista previa a pantalla completa, con su botón para volver al formulario. */
-export function PreviewSheet({ ctx, product, status, tab, onTab, onClose }: { ctx: ProductPreviewContext; product: ProductPageProduct; status: string; tab: PreviewTab; onTab: (t: PreviewTab) => void; onClose: () => void }) {
+export function PreviewSheet({ ctx, product, status, tab, onTab, onClose, always = false }: { ctx: ProductPreviewContext; product: ProductPageProduct; status: string; tab: PreviewTab; onTab: (t: PreviewTab) => void; onClose: () => void; /** También en el ordenador (el formulario está en un panel estrecho). */ always?: boolean }) {
   const notes = previewNotes(ctx, product, status);
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -183,7 +183,7 @@ export function PreviewSheet({ ctx, product, status, tab, onTab, onClose }: { ct
     };
   }, [onClose]);
   return (
-    <div role="dialog" aria-modal="true" aria-label="Vista previa" className="fixed inset-0 z-50 flex flex-col bg-paper animate-fade-in lg:hidden" data-product-preview>
+    <div role="dialog" aria-modal="true" aria-label="Vista previa" className={`fixed inset-0 z-50 flex flex-col bg-paper animate-fade-in ${always ? "" : "lg:hidden"}`} data-product-preview>
       <div className="flex items-center justify-between gap-2 border-b border-line px-3 pb-2 pt-[max(env(safe-area-inset-top),0.5rem)]">
         <button type="button" onClick={onClose} className="btn btn-ghost btn-sm">
           <ArrowLeft className="h-4 w-4" /> Volver

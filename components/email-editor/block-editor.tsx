@@ -637,7 +637,7 @@ function SocialFields({ block: b, style, palette, onChange }: FieldProps<"social
               spellCheck={false}
               maxLength={300}
               value={b.links[n] ?? ""}
-              placeholder={n === "email" ? "hola@tuweb.com" : n === "web" ? "tuweb.com" : n === "whatsapp" ? "+34 600 000 000" : "@tuusuario o enlace"}
+              placeholder={n === "email" ? "hola@tuweb.com" : n === "web" ? "tuweb.com" : "@tuusuario o enlace"}
               onChange={(e) => onChange({ links: { ...b.links, [n]: e.target.value || undefined } })}
             />
           </div>

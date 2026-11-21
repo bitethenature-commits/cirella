@@ -273,7 +273,7 @@ export function MoonDiagram({ layer, selected, mine, tap, ctx }: DiagramProps & 
               </g>
             ) : (
               <g pointerEvents="none">
-                <circle cx={C} cy={C} r="86" fill="rgb(16 14 38 / .85)" stroke="rgb(233 204 142 / .45)" />
+                <circle cx={C} cy={C} r="86" fill="rgb(11 11 13 / .85)" stroke="rgb(233 204 142 / .45)" />
                 {/* En luna llena, el Sol está enfrente: su luz llega desde el signo opuesto. */}
                 {mode === "full" && (
                   <g>
@@ -323,7 +323,7 @@ export function MoonDiagram({ layer, selected, mine, tap, ctx }: DiagramProps & 
               <line x1={C} y1={C - 160} x2={C} y2={C - 72} />
               <line x1={C} y1={C + 72} x2={C} y2={C + 160} />
             </g>
-            <circle cx={C} cy={C} r="72" fill="rgb(16 14 38 / .85)" stroke="rgb(233 204 142 / .45)" pointerEvents="none" />
+            <circle cx={C} cy={C} r="72" fill="rgb(11 11 13 / .85)" stroke="rgb(233 204 142 / .45)" pointerEvents="none" />
             <MoonGlobe p={p} cx={C} cy={C} r={30} phase={natalPh} glow />
           </svg>
         </NightPanel>

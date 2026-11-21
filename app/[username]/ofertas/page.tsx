@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
+import { CfgText, SiteText } from "@/components/creator-page/site-text";
 import { HomeRows, PercentIcon } from "@/components/creator-page/home-rows";
 import { offerRow } from "@/components/creator-page/offer-rows";
 import { TrackOnMount } from "@/components/creator-page/tracking";
@@ -38,15 +39,21 @@ export default async function OfertasPage({ params }: { params: Promise<Params> 
             <PercentIcon />
           </span>
           <div>
-            <p className="cp-eyebrow">Por tiempo limitado</p>
-            <h1 className="cp-display mt-1 text-[2.6rem] leading-tight">{sectionTitle(config, "offers")}</h1>
+            <p className="cp-eyebrow">
+              <SiteText texts={config.texts} k="pg.offers.eyebrow" />
+            </p>
+            <h1 className="cp-display mt-1 text-[2.6rem] leading-tight">
+              <CfgText path="sections.offers.title">{sectionTitle(config, "offers")}</CfgText>
+            </h1>
           </div>
         </div>
         {onSale.length === 0 ? (
           <div className="cp-card mt-8 p-6 text-center">
-            <p className="cp-muted">Ahora mismo no hay ofertas.</p>
+            <p className="cp-muted">
+              <SiteText texts={config.texts} k="pg.offers.empty" />
+            </p>
             <Link href={data.homeHref} className="cp-btn-ghost mt-4">
-              <ArrowLeft className="h-4 w-4" /> Volver a la página
+              <ArrowLeft className="h-4 w-4" /> <SiteText texts={config.texts} k="pg.back" />
             </Link>
           </div>
         ) : (

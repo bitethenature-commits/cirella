@@ -263,7 +263,7 @@ function ReversedStones({ selected, keys, tap, own }: { selected: string; keys: 
       {rows.map((row, ri) => (
         <g key={ri} pointerEvents="none">
           <line x1="6" y1={top(ri)} x2="334" y2={top(ri)} stroke="rgb(233 204 142 / .18)" />
-          <text x="170" y={top(ri)} textAnchor="middle" dominantBaseline="central" fontSize="8.5" letterSpacing="2" fontWeight="700" fill={NIGHT_GOLD} stroke="#17153A" strokeWidth="6" paintOrder="stroke">
+          <text x="170" y={top(ri)} textAnchor="middle" dominantBaseline="central" fontSize="8.5" letterSpacing="2" fontWeight="700" fill={NIGHT_GOLD} stroke="#151517" strokeWidth="6" paintOrder="stroke">
             {AETT_NAME[R(row[0]).aett].toUpperCase()}
           </text>
         </g>
@@ -407,8 +407,8 @@ function Yggdrasil({ selected, own, tap }: { selected: string; own: Set<string>;
       <StoneDefs p={p} />
       <defs>
         <radialGradient id={`${p}medal`} cx="40%" cy="32%" r="75%">
-          <stop offset="0%" stopColor="#2A2550" />
-          <stop offset="100%" stopColor="#100E26" />
+          <stop offset="0%" stopColor="#232326" />
+          <stop offset="100%" stopColor="#0B0B0D" />
         </radialGradient>
         <radialGradient id={`${p}medalOn`} cx="40%" cy="32%" r="75%">
           <stop offset="0%" stopColor="#FBE7B0" />

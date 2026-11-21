@@ -144,7 +144,7 @@ async function seedComboCourses(anaId: string) {
     },
   });
   const aeModule = await prisma.courseModule.create({ data: { creatorId: anaId, productId: astroEnergy.id, title: "Tu cielo y tu energía", sortOrder: 0 } });
-  await seedLesson({ creatorId: anaId, productId: astroEnergy.id, moduleId: aeModule.id, sortOrder: 0, title: "Tu Sol, tu Luna y tu Ascendente", durationMin: 14, parts: [{ text: "Tres puntos de tu carta que cuentan **cómo brillas, cómo sientes y cómo te ven**." }] });
+  await seedLesson({ creatorId: anaId, productId: astroEnergy.id, moduleId: aeModule.id, sortOrder: 0, title: "Tu Sol, tu Luna y tu Ascendente", durationMin: 14, parts: [{ text: "Tres puntos de tu carta que cuentan **cómo brillas, cómo sientes y cómo te ven**.", format: "MD" }] });
   await seedLesson({ creatorId: anaId, productId: astroEnergy.id, moduleId: aeModule.id, sortOrder: 1, title: "Tu energía de hoy", durationMin: 10, parts: [{ text: "Mira qué despierta hoy el cielo en tu carta y elige un pequeño gesto para cuidarte." }] });
 
   const hdGk = await prisma.product.create({
@@ -156,7 +156,7 @@ async function seedComboCourses(anaId: string) {
     },
   });
   const hgModule = await prisma.courseModule.create({ data: { creatorId: anaId, productId: hdGk.id, title: "Tu mapa", sortOrder: 0 } });
-  await seedLesson({ creatorId: anaId, productId: hdGk.id, moduleId: hgModule.id, sortOrder: 0, title: "Tu tipo y tu llave de vida", durationMin: 16, parts: [{ text: "Tu tipo de Human Design y tu primera Gene Key cuentan la misma historia: **cómo te mueves por la vida**." }] });
+  await seedLesson({ creatorId: anaId, productId: hdGk.id, moduleId: hgModule.id, sortOrder: 0, title: "Tu tipo y tu llave de vida", durationMin: 16, parts: [{ text: "Tu tipo de Human Design y tu primera Gene Key cuentan la misma historia: **cómo te mueves por la vida**.", format: "MD" }] });
 }
 
 /** Procesa una imagen de public/demo como una subida real: WebP con variantes en /media/…. */
@@ -1204,7 +1204,7 @@ async function main() {
       { id: "f3", q: "¿Puedo regalar una lectura?", a: "¡Claro! Compra con tu email y escríbeme con el nombre de la persona: le haré llegar su acceso." },
       { id: "f4", q: "¿Puedo cancelar la membresía?", a: "Cuando quieras, desde tu área de cliente. Mantienes el acceso hasta el final del mes pagado." },
     ],
-    contact: { email: "hola@cirella.app", whatsapp: "+34600000000", message: "¿Dudas sobre qué lectura es para ti? Escríbeme y te oriento." },
+    contact: { email: "hola@cirella.app", message: "¿Dudas sobre qué lectura es para ti? Escríbeme y te oriento." },
     // Sin bloques en la portada: la sección «Bloques» sigue en el editor, vacía (no pinta nada).
     blocks: [],
     hidePoweredBy: false,

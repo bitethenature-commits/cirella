@@ -24,10 +24,11 @@ export type FxEnv = {
   c: { a: RGB; b: RGB; a2: RGB; b2: RGB; soft: RGB; bg: RGB; moon: RGB; moonEdge: RGB };
 };
 
-/** Un fondo: lo que hace al cambiar de tamaño y cómo pinta cada fotograma (t y dt en segundos). */
+/** Un fondo: lo que hace al cambiar de tamaño, cómo pinta cada fotograma (t y dt en segundos) y qué suelta al quitarlo. */
 export type Effect = {
   resize?(env: FxEnv): void;
   frame(g: CanvasRenderingContext2D, env: FxEnv, t: number, dt: number): void;
+  dispose?(): void;
 };
 export type EffectFactory = (env: FxEnv) => Effect;
 
@@ -275,6 +276,67 @@ export function noiseTexture(
         d[i + 3] = a;
       }
     g.putImageData(img, 0, 0);
+  });
+}
+
+/**
+ * Como noiseTexture, pero poco a poco (unas filas en cada fotograma, sin parar la página), para las texturas grandes
+ * y finas; `done` la recibe al acabar. Devuelve cómo pararla (si el fondo se rehace antes).
+ */
+export function noiseTextureLater(
+  w: number,
+  h: number,
+  seed: number,
+  pixel: (n: Noise3, u: number, v: number) => [number, number, number, number],
+  done: (s: Sprite) => void,
+  rowsPerFrame = 20,
+): () => void {
+  const n = makeNoise(seed);
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(w));
+  c.height = Math.max(1, Math.round(h));
+  const g = c.getContext("2d");
+  if (!g) return () => {};
+  const W = c.width;
+  const H = c.height;
+  const img = g.createImageData(W, H);
+  const d = img.data;
+  let y = 0;
+  let raf = 0;
+  let dead = false;
+  const step = () => {
+    if (dead) return;
+    const end = Math.min(H, y + rowsPerFrame);
+    for (; y < end; y++)
+      for (let x = 0; x < W; x++) {
+        const [r, gg, b, a] = pixel(n, x / W, y / H);
+        const i = (y * W + x) * 4;
+        d[i] = r;
+        d[i + 1] = gg;
+        d[i + 2] = b;
+        // Un pelín de grano en la transparencia: sin escalones al estirarla.
+        d[i + 3] = a > 2 ? Math.min(255, a + (((x * 7 + y * 13) % 5) - 2)) : a;
+      }
+    if (y < H) raf = requestAnimationFrame(step);
+    else {
+      g.putImageData(img, 0, 0);
+      done(c);
+    }
+  };
+  raf = requestAnimationFrame(step);
+  return () => {
+    dead = true;
+    cancelAnimationFrame(raf);
+  };
+}
+
+/** Una textura al doble de tamaño y desenfocada lo justo: al estirarla luego mucho no se ven los cuadritos. */
+export function soften(src: Sprite, px = 1.3): Sprite {
+  return sprite(src.width * 2, src.height * 2, (g, W, H) => {
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = "high";
+    if (canFilter()) g.filter = `blur(${px}px)`;
+    g.drawImage(src, 0, 0, W, H);
   });
 }
 

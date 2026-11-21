@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { CourseGroups } from "@/components/creator-page/course-groups";
 import { OracleCard } from "@/components/creator-page/oracle-card";
+import { SiteText } from "@/components/creator-page/site-text";
 import { TrackOnMount } from "@/components/creator-page/tracking";
 import { groupCourses } from "@/lib/course-categories";
 import { sectionPageData } from "../section-data";
@@ -32,18 +33,24 @@ export default async function CursosPage({ params }: { params: Promise<Params> }
       <main className="cp-luxe mx-auto max-w-4xl px-4 pb-14 pt-8 sm:pt-12">
         <header className="text-center">
           <p className="cp-eyebrow !tracking-[0.42em]" style={{ color: "var(--c-gold)" }}>
-            Cursos
+            <SiteText texts={config.texts} k="pg.courses.eyebrow" />
           </p>
           <div aria-hidden className="mx-auto mt-4 flex max-w-[14rem] items-center gap-3" style={{ color: "var(--c-gold)" }}>
             <span className="h-px flex-1" style={{ background: "linear-gradient(90deg, transparent, var(--c-gold))" }} />
             <span className="text-xs">✦</span>
             <span className="h-px flex-1" style={{ background: "linear-gradient(270deg, transparent, var(--c-gold))" }} />
           </div>
-          <h1 className="cp-display cp-thin mt-5 text-[2.8rem] leading-[1.05] sm:text-[3.4rem]">Aprende a tu ritmo</h1>
-          <p className="cp-muted cp-thin-text mx-auto mt-4 max-w-md text-[1.08rem] leading-relaxed">Elige el sistema que te llama y escríbeme para empezar.</p>
+          <h1 className="cp-display cp-thin mt-5 text-[2.8rem] leading-[1.05] sm:text-[3.4rem]">
+            <SiteText texts={config.texts} k="pg.courses.title" />
+          </h1>
+          <p className="cp-muted cp-thin-text mx-auto mt-4 max-w-md text-[1.08rem] leading-relaxed">
+            <SiteText texts={config.texts} k="pg.courses.text" multiline />
+          </p>
         </header>
         {groups.length === 0 ? (
-          <p className="cp-muted mt-10 text-center">Pronto habrá cursos aquí.</p>
+          <p className="cp-muted mt-10 text-center">
+            <SiteText texts={config.texts} k="pg.courses.empty" />
+          </p>
         ) : (
           <CourseGroups
             groups={groups.map((g) => ({

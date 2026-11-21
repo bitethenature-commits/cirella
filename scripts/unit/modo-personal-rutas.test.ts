@@ -1,4 +1,4 @@
-import { mobileNav, panelNav, PLATFORM_NAV_FLAGS, PANEL_NAV, MOBILE_NAV } from "../../app/panel/nav-items";
+import { panelNav, PLATFORM_NAV_FLAGS, PANEL_NAV } from "../../app/panel/nav-items";
 import { PERSONAL_THIRD_PARTY_TEXT, currentPersonalPrivacy, parseLegalText, renderPersonalPrivacy } from "../../lib/legal-templates";
 import { isPublicUsernameAllowed, ownerRootRedirect, personalOwnerFromEnv } from "../../lib/personal-routing";
 import { parseSetupArgs, PERSONAL_PLAN, readFlags } from "../../lib/personal-setup";
@@ -53,7 +53,6 @@ const labels = (items: { label: string }[]) => items.map((i) => i.label);
 
 test("menú de la plataforma: el de siempre", () => {
   eq(panelNav(PLATFORM_NAV_FLAGS), PANEL_NAV);
-  eq(mobileNav(PLATFORM_NAV_FLAGS), MOBILE_NAV);
 });
 
 test("menú personal: sin Plan, con Publicaciones y Códigos, «Ventas» es «Inscripciones»", () => {
@@ -74,13 +73,6 @@ test("menú personal: «Cursos» y «Comunidad» justo después de Productos (en
 
 test("menú personal sin sesiones con reserva aquí: sin Reservas", () => {
   eq(hrefs(panelNav({ personal: true, showBookings: false })).includes("/panel/solicitudes"), false);
-});
-
-test("barra del móvil personal: 5 accesos, con Inscripciones y «Más» al final", () => {
-  const items = mobileNav({ personal: true, showBookings: false });
-  eq(items.length, 5);
-  eq(items.at(-1)?.href, "/panel/mas");
-  eq(labels(items).includes("Inscripciones"), true);
 });
 
 // ── Marca

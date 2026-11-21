@@ -7,7 +7,8 @@ import { toPublicProduct } from "@/lib/product-view";
 import { tenantDb } from "@/lib/tenant";
 import { orderTiers } from "@/lib/tiers";
 import { tierFeatureItems } from "@/lib/tier-features";
-import { readTierCard, TIER_CTA_DEFAULT } from "@/lib/tier-card";
+import { readTierCard, readTierEmblem, TIER_CTA_DEFAULT } from "@/lib/tier-card";
+import { readTierLook } from "@/lib/tier-look";
 import { TierCards, type EditableTier } from "./tier-cards";
 import { SpinningSolid } from "@/app/cuenta/spinning-solid";
 import { kindStyle } from "@/app/cuenta/membresias/kind-style";
@@ -223,6 +224,8 @@ async function Cards({ creator }: { creator: CreatorRow }) {
       includesPrevious: includesPrevious?.title ?? null,
       highlight: ordered.length > 1 && t.id === top,
       sales: Math.max(raw._count.orders, raw._count.subscriptions),
+      emblem: readTierEmblem(raw.pageTexts),
+      look: readTierLook(raw.pageTexts),
     };
   });
   return (

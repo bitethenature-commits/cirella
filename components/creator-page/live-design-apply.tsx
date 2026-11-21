@@ -5,14 +5,24 @@ import { DesignBackdrop } from "@/components/design-backdrop";
 import { TemplateDecor } from "@/components/template-decor";
 import { findPiece, LIVE_HOST_ATTR, pieceCss, pieceIdOf, PIECE_SELECTORS, type PieceKind } from "@/lib/pieces";
 import { resolveTheme, themeAttrs, themeStyle, type ResolvedTheme } from "@/lib/templates";
-import type { LiveDesignMessage, LivePickMessage } from "./live-design";
+import type { LiveDesignMessage, LivePickMessage, LiveTextMessage } from "./live-design";
 
 type Live = { host: HTMLElement; theme: ResolvedTheme; starOpacity: number };
 
 /** El marco al pasar por encima de una pieza que se puede tocar, y el de la que se está cambiando. */
 const PICK_CSS =
   "[data-live-hover]{outline:2px dashed rgba(217,191,140,.95) !important;outline-offset:3px !important;cursor:pointer !important}" +
-  "[data-live-picked]{outline:2px solid #d9bf8c !important;outline-offset:3px !important}";
+  "[data-live-picked]{outline:2px solid #d9bf8c !important;outline-offset:3px !important}" +
+  // Los textos que se escriben encima (Mi página): una raya suave, más fuerte al pasar y al escribir.
+  "[data-edit][contenteditable]{outline:1px dashed rgba(217,191,140,.6);outline-offset:3px;border-radius:3px;cursor:text}" +
+  "[data-edit][contenteditable]:hover{outline-color:rgba(217,191,140,.95)}" +
+  "[data-edit][contenteditable]:focus{outline:2px solid #d9bf8c;background:rgba(217,191,140,.1)}";
+
+/** Lo escrito en un texto: en una línea, o en varias sin huecos de más. */
+function typed(el: HTMLElement): string {
+  const raw = (el.innerText ?? "").replace(/ /g, " ");
+  return el.hasAttribute("data-edit-multi") ? raw.replace(/\n{3,}/g, "\n\n").trim() : raw.replace(/\s+/g, " ").trim();
+}
 
 /** La pieza que hay bajo el dedo: un botón antes que nada; si no, la más cercana (una foto antes que su tarjeta). */
 function pickable(t: EventTarget | null, root: HTMLElement): { el: Element; kind: PieceKind } | null {
@@ -58,6 +68,56 @@ export default function LiveDesignApply() {
     const clearHover = () => {
       hovered?.removeAttribute("data-live-hover");
       hovered = null;
+    };
+
+    /** Los textos con marca: se escriben encima mientras el editor lo pide (y dejan de hacerlo si no). */
+    const before = new WeakMap<HTMLElement, string>();
+    const paintTexts = () => {
+      const on = !!last?.editTexts;
+      document.querySelectorAll<HTMLElement>("[data-edit]").forEach((el) => {
+        if (on && !el.hasAttribute("contenteditable")) {
+          try {
+            el.contentEditable = "plaintext-only";
+          } catch {
+            el.contentEditable = "true";
+          }
+          el.spellcheck = true;
+          before.set(el, typed(el));
+        } else if (!on && el.hasAttribute("contenteditable")) {
+          el.removeAttribute("contenteditable");
+        }
+      });
+    };
+    const editable = (t: EventTarget | null) => {
+      const el = t instanceof HTMLElement ? t.closest<HTMLElement>("[data-edit][contenteditable]") : null;
+      return el && last?.editTexts ? el : null;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      const el = editable(e.target);
+      if (!el) return;
+      if (e.key === "Enter" && !el.hasAttribute("data-edit-multi")) {
+        e.preventDefault();
+        el.blur();
+      }
+      if (e.key === "Escape") {
+        el.innerText = before.get(el) ?? el.innerText;
+        el.blur();
+      }
+    };
+    const onBlur = (e: FocusEvent) => {
+      const el = editable(e.target);
+      if (!el) return;
+      const value = typed(el);
+      if (value === before.get(el)) return;
+      before.set(el, value);
+      let vars: LiveTextMessage["vars"];
+      try {
+        vars = el.dataset.editVars ? JSON.parse(el.dataset.editVars) : undefined;
+      } catch {
+        vars = undefined;
+      }
+      const msg: LiveTextMessage = { type: "cirella:text", target: el.dataset.edit ?? "", value, vars };
+      window.parent.postMessage(msg, window.location.origin);
     };
 
     /** Las piezas sueltas que se están cambiando (las publicadas, apagadas) y el marco de la elegida. */
@@ -117,6 +177,8 @@ export default function LiveDesignApply() {
       const r = root();
       if (!r) return;
       last = msg;
+      // Mi página: la cabecera de la web baja hasta debajo de las pestañas del panel (globals.css).
+      document.documentElement.toggleAttribute("data-under-tabs", !!msg.underTabs);
       if (!msg.picking) clearHover();
       const theme = resolveTheme(null, msg.design, msg.allowCustom);
       // Las variables y los interruptores del diseño nuevo, en lugar de los publicados.
@@ -143,6 +205,7 @@ export default function LiveDesignApply() {
       const h = host;
       setLive((prev) => ({ host: h, theme, starOpacity: prev?.starOpacity ?? stars ?? 0.7 }));
       paintPieces();
+      paintTexts();
     };
 
     // Si la página pinta algo más tarde (un modelo, una lista), sus piezas se vuelven a buscar.
@@ -151,7 +214,10 @@ export default function LiveDesignApply() {
       const real = list.some((m) => m.type === "childList" && !(m.target as Element).closest?.(`[${LIVE_HOST_ATTR}], .cp-decor`));
       if (!real) return;
       window.clearTimeout(timer);
-      timer = window.setTimeout(paintPieces, 150);
+      timer = window.setTimeout(() => {
+        paintPieces();
+        paintTexts();
+      }, 150);
     });
     const r0 = root();
     if (r0) watch.observe(r0, { childList: true, subtree: true });
@@ -160,6 +226,8 @@ export default function LiveDesignApply() {
     document.documentElement.addEventListener("mouseleave", clearHover);
     document.addEventListener("click", onClick, true);
     document.addEventListener("submit", stopSubmit, true);
+    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("focusout", onBlur, true);
     window.addEventListener("message", onMessage);
     // Ya está lista: que el editor mande el diseño.
     window.parent.postMessage({ type: "cirella:design-ready" }, window.location.origin);
@@ -170,6 +238,8 @@ export default function LiveDesignApply() {
       document.documentElement.removeEventListener("mouseleave", clearHover);
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("submit", stopSubmit, true);
+      document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("focusout", onBlur, true);
       window.removeEventListener("message", onMessage);
       pickStyle.remove();
       piecesStyle.remove();

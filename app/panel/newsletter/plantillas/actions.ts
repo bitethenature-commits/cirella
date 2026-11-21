@@ -13,7 +13,9 @@ import { requireNewsletterOwner } from "../guard";
  * esquinas). Nunca guardan textos: al usarlas, la newsletter empieza vacía con ese aspecto.
  */
 
+// El creador de cada plantilla está en /panel/newsletter/plantillas/[id]; la lista, abajo de la pestaña Newsletter.
 const PATH = "/panel/newsletter/plantillas";
+const HOME = "/panel/newsletter";
 
 const nameSchema = z.string().trim().min(1, "Ponle un nombre a la plantilla.").max(80, "El nombre: máximo 80 caracteres");
 
@@ -33,7 +35,7 @@ export async function saveTemplate(id: string, p: { name: string; style: unknown
   if (!name.success) return { ok: false, error: name.error.issues[0].message };
   const r = await tenantDb(creator.id).newsletterTemplate.updateMany({ where: { id }, data: { name: name.data, design: { v: 1, style: readStyle(p.style), blocks: [] } } });
   if (!r.count) return { ok: false, error: "Esta plantilla ya no existe." };
-  revalidatePath(PATH);
+  revalidatePath(HOME);
   return { ok: true };
 }
 
@@ -41,9 +43,9 @@ export async function duplicateTemplate(form: FormData) {
   const { creator } = await requireNewsletterOwner();
   const db = tenantDb(creator.id);
   const t = await db.newsletterTemplate.findFirst({ where: { id: String(form.get("id") ?? "") } });
-  if (!t) redirect(PATH);
+  if (!t) redirect(`${HOME}#plantillas`);
   const copy = await db.newsletterTemplate.create({ data: { creatorId: creator.id, name: `${t.name} (copia)`.slice(0, 80), subject: "", design: styleOnly(t.design) } });
-  revalidatePath(PATH);
+  revalidatePath(HOME);
   redirect(`${PATH}/${copy.id}`);
 }
 
@@ -51,8 +53,8 @@ export async function duplicateTemplate(form: FormData) {
 export async function deleteTemplate(form: FormData) {
   const { creator } = await requireNewsletterOwner();
   await tenantDb(creator.id).newsletterTemplate.deleteMany({ where: { id: String(form.get("id") ?? "") } });
-  revalidatePath(PATH);
-  redirect(`${PATH}?aviso=${encodeURIComponent("Plantilla borrada. Las newsletters hechas con ella no cambian.")}`);
+  revalidatePath(HOME);
+  redirect(`${HOME}?aviso=${encodeURIComponent("Plantilla borrada. Las newsletters hechas con ella no cambian.")}#plantillas`);
 }
 
 /** «Usar en una newsletter»: un borrador vacío con el aspecto de la plantilla. */
@@ -60,7 +62,7 @@ export async function startFromTemplate(form: FormData) {
   const { creator } = await requireNewsletterOwner();
   const db = tenantDb(creator.id);
   const t = await db.newsletterTemplate.findFirst({ where: { id: String(form.get("id") ?? "") } });
-  if (!t) redirect(PATH);
+  if (!t) redirect(`${HOME}#plantillas`);
   const c = await db.campaign.create({
     data: { creatorId: creator.id, subject: "", design: lookDesign((t.design as { style?: unknown } | null)?.style), segment: { kind: "all" }, templateId: t.id },
   });
@@ -76,6 +78,6 @@ export async function saveCampaignAsTemplate(campaignId: string, name: string): 
   const c = await db.campaign.findFirst({ where: { id: campaignId } });
   if (!c) return { ok: false, error: "No encontrada." };
   const t = await db.newsletterTemplate.create({ data: { creatorId: creator.id, name: clean.data, subject: "", design: styleOnly(c.design) } });
-  revalidatePath(PATH);
+  revalidatePath(HOME);
   return { ok: true, id: t.id };
 }

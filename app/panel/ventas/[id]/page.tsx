@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { peopleLabel } from "@/lib/site-mode";
 import { notFound } from "next/navigation";
 import { ArrowLeft, UserMinus } from "lucide-react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
@@ -147,12 +148,12 @@ async function SignupDetail({ creatorId, orderId, given }: { creatorId: string; 
   const active = !!access && access.status === "ACTIVE" && (!access.expiresAt || access.expiresAt > new Date());
   return (
     <div className="max-w-2xl">
-      <Link href="/panel/ventas" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> Inscripciones</Link>
+      <Link href={o.customer ? `/panel/clientes/${o.customer.id}` : "/panel/clientes"} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> {o.customer ? `Ficha de ${(o.buyerName ?? o.buyerEmail).split(" ")[0]}` : peopleLabel()}</Link>
       {given && <div className="mt-4"><Flash ok="Hecho. Le hemos enviado un email con su enlace." /></div>}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <h1 className="display min-w-0 flex-1 text-[2rem] leading-tight">{o.product.emoji} {o.productTitle}</h1>
         <Badge tone={active ? "success" : "neutral"}>{active ? "Con acceso" : "Acceso retirado"}</Badge>
-        <DeleteButton action={deleteOrderAction} id={o.id} variant="link" what={o.productTitle} message={`¿Borrar esta venta de «${o.productTitle}»? ${o.buyerName ?? o.buyerEmail} pierde el acceso y desaparece de Ventas. No se puede deshacer.`} />
+        <DeleteButton action={deleteOrderAction} id={o.id} fields={o.customer ? { back: `/panel/clientes/${o.customer.id}?ok=Borrada.` } : undefined} variant="link" what={o.productTitle} message={`¿Borrar esta venta de «${o.productTitle}»? ${o.buyerName ?? o.buyerEmail} pierde el acceso y desaparece de Ventas. No se puede deshacer.`} />
       </div>
       <dl className="card mt-5 divide-y divide-line text-sm">
         <Row label="Persona">

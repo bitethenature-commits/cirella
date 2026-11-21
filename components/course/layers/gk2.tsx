@@ -515,7 +515,7 @@ function ShadowBalance({ selected, tap, n }: { selected: Face; tap: Tap; n: numb
         return (
           <g key={f} {...tap(f, face.name)} style={{ transition: "transform .5s ease" }}>
             {on && <circle cx={x} cy={y} r="46" fill={`url(#${p}goldglow)`} />}
-            <circle cx={x} cy={y} r="36" fill={on ? (f === "gift" ? `url(#${p}gold)` : face.color) : "#1E1B45"} stroke={face.color} strokeWidth="2" />
+            <circle cx={x} cy={y} r="36" fill={on ? (f === "gift" ? `url(#${p}gold)` : face.color) : "#1D1D20"} stroke={face.color} strokeWidth="2" />
             <text x={x} y={y - 6} textAnchor="middle" dominantBaseline="central" fontSize="8" letterSpacing="1" fill={on ? NIGHT : face.color} fontWeight="700">
               {f === "gift" ? "DON" : f === "repressive" ? "REPRIMIDA" : "REACTIVA"}
             </text>

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { BUTTON_FRAMES, buttonFrameKind, buttonFrameMask, CARD_FRAMES, cardFrameMask, type ButtonFrameKey, type CardFrameKey } from "./frames";
 import { GEOMETRY_FIGURES } from "./page-blocks";
-import { figurePlacement, figureUrl } from "./sacred-figures";
+import { FIGURE_POS_KEYS, figurePlacement, figureUrl } from "./sacred-figures";
 
 /**
  * Piezas sueltas con su propio aspecto: una tarjeta, un panel dorado o un botón concretos de una página, elegidos
@@ -56,7 +56,7 @@ export const pieceSchema = z.object({
   /** Solo paneles: sin estrellitas ✦ en las esquinas (false). */
   stars: z.boolean().optional(),
   geo: z.enum(["none", ...GEOMETRY_FIGURES]).optional(),
-  geoPos: z.enum(["corner", "center"]).optional(),
+  geoPos: z.enum(FIGURE_POS_KEYS).optional(),
   geoOpacity: int(0, 100),
   geoColor: hex,
   /** Solo fotos: su forma y la línea de su marco (la de siempre es doble). */

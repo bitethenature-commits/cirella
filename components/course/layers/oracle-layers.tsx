@@ -265,8 +265,8 @@ function CardDefs({ p }: { p: string }) {
       <NightDefs p={p} />
       <defs>
         <linearGradient id={`${p}card`} x1="0" y1="0" x2="0.4" y2="1">
-          <stop offset="0%" stopColor="#2A2456" />
-          <stop offset="100%" stopColor="#130F2E" />
+          <stop offset="0%" stopColor="#232326" />
+          <stop offset="100%" stopColor="#0F0F11" />
         </linearGradient>
         <linearGradient id={`${p}cardOn`} x1="0" y1="0" x2="0.4" y2="1">
           <stop offset="0%" stopColor="#FBE7B0" />
@@ -437,7 +437,7 @@ function ColorWheel({ keys, selected, tap, own }: { keys: string[]; selected: st
         const on = k === selected;
         return (
           <g key={k} {...tap(k, COLORS[k].name)}>
-            <path d={sec(i, on ? 158 : 150, 104)} fill={COLORS[k].hex} fillOpacity={on ? 1 : 0.78} stroke={on ? "#FFF1C8" : own.has(k) ? NIGHT_GOLD : "#100E26"} strokeWidth={on ? 2 : own.has(k) ? 1.6 : 1} />
+            <path d={sec(i, on ? 158 : 150, 104)} fill={COLORS[k].hex} fillOpacity={on ? 1 : 0.78} stroke={on ? "#FFF1C8" : own.has(k) ? NIGHT_GOLD : "#0B0B0D"} strokeWidth={on ? 2 : own.has(k) ? 1.6 : 1} />
           </g>
         );
       })}
@@ -476,9 +476,9 @@ function ElementStar({ p, selected, tap, own }: { p: string; selected: string; t
         return (
           <g key={k} {...tap(k, e.name)}>
             {on && <circle cx={x} cy={y} r="40" fill={`url(#${p}goldglow)`} />}
-            <circle cx={x} cy={y} r="27" fill={on ? e.color : "#16132E"} fillOpacity={on ? 0.9 : 1} stroke={own.has(k) || on ? "#F7E2AE" : e.color} strokeWidth={on || own.has(k) ? 2 : 1.2} />
-            {sym(k, x, y - 4, on ? "#100E26" : e.color)}
-            <text x={x} y={y + 15} textAnchor="middle" fontSize="6.5" fontWeight={700} letterSpacing="0.6" fill={on ? "#100E26" : STAR} pointerEvents="none">
+            <circle cx={x} cy={y} r="27" fill={on ? e.color : "#161618"} fillOpacity={on ? 0.9 : 1} stroke={own.has(k) || on ? "#F7E2AE" : e.color} strokeWidth={on || own.has(k) ? 2 : 1.2} />
+            {sym(k, x, y - 4, on ? "#0B0B0D" : e.color)}
+            <text x={x} y={y + 15} textAnchor="middle" fontSize="6.5" fontWeight={700} letterSpacing="0.6" fill={on ? "#0B0B0D" : STAR} pointerEvents="none">
               {e.name.replace(/^(El|La) /, "").toUpperCase()}
             </text>
           </g>

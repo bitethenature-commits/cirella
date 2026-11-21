@@ -4,6 +4,7 @@ import { DeliveryAlert } from "@/components/ui/delivery-alert";
 import { Flash } from "@/components/ui/flash";
 import { readDrip } from "@/lib/course-drip";
 import { uploadPolicy } from "@/lib/file-types";
+import { readBlock } from "@/lib/lesson-blocks";
 import { fileUsage, lessonPartViews } from "@/lib/lesson-parts";
 import { isPersonalMode } from "@/lib/site-mode";
 import { FilesManager } from "../../productos/[id]/files-manager";
@@ -35,7 +36,7 @@ export default async function CourseStudioPage({ params, searchParams }: { param
             durationMin: true,
             published: true,
             dripDays: true,
-            parts: { orderBy: { sortOrder: "asc" }, select: { kind: true, fileId: true, file: { select: { kind: true } } } },
+            parts: { orderBy: { sortOrder: "asc" }, select: { kind: true, fileId: true, data: true, file: { select: { kind: true } } } },
           },
         },
       },
@@ -68,7 +69,19 @@ export default async function CourseStudioPage({ params, searchParams }: { param
           modules={modules.map((m) => ({
             id: m.id,
             title: m.title,
-            lessons: m.lessons.map((l) => ({ id: l.id, title: l.title, durationMin: l.durationMin, views: lessonPartViews(l.parts), published: l.published, dripDays: l.dripDays })),
+            lessons: m.lessons.map((l) => ({
+              id: l.id,
+              title: l.title,
+              durationMin: l.durationMin,
+              views: lessonPartViews(l.parts),
+              published: l.published,
+              dripDays: l.dripDays,
+              // Los capítulos de la lección (si es larga), en su orden: salen debajo de ella.
+              chapters: l.parts.flatMap((p) => {
+                const c = p.kind === "CHAPTER" ? readBlock("CHAPTER", p.data) : null;
+                return c ? [{ title: c.title }] : [];
+              }),
+            })),
           }))}
         />
       </div>

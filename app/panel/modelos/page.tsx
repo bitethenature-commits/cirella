@@ -61,7 +61,7 @@ export default async function ModelsPage() {
   // Los modelos completos: con los colores de su web, dónde los usa (portada y páginas) y sus barajas publicadas.
   const [site, pages, decks, lessonRows] = await Promise.all([
     getPublicCreator(creator.username, true),
-    db.sitePage.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, draft: true, status: true } }),
+    db.sitePage.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, slug: true, draft: true, status: true } }),
     getPublishedOracleDecks(creator.id),
     db.lesson.findMany({ orderBy: [{ productId: "asc" }, { sortOrder: "asc" }], select: { id: true, title: true, product: { select: { title: true } } } }),
   ]);
@@ -72,7 +72,7 @@ export default async function ModelsPage() {
     for (const b of blocks) if (b.kind === "model") uses.push({ kind: b.model, where, href, draft, quick: !!b.quick, deck: b.model === "oracle" ? (decks.find((d) => d.id === b.deck)?.name ?? null) : null, figure: b.model === "geometry" ? b.figure : null });
   };
   if (site) addUses(site.config.blocks ?? [], "Portada", "/panel/pagina", false);
-  for (const p of pages) addUses(readSitePageContent(p.draft, p.title).blocks, p.title, `/panel/paginas/${p.id}`, p.status !== "PUBLISHED");
+  for (const p of pages) addUses(readSitePageContent(p.draft, p.title).blocks, p.title, `/panel/pagina?pagina=${encodeURIComponent(p.slug)}`, p.status !== "PUBLISHED");
 
   const own = profiles.find((p) => p.isOwn) ?? null;
   const others = profiles.filter((p) => !p.isOwn).map((p) => ({ name: p.name, date: p.date, time: p.time, place: p.place }));

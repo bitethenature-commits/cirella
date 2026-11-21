@@ -1,28 +1,26 @@
 /**
  * «Personalizar mi panel» (Ajustes): colores del panel como variables CSS (con texto legible sobre
- * el acento y la barra), lectura tolerante de lo guardado y orden/visibilidad del menú, de la barra
- * de abajo del móvil y de las tarjetas de Inicio.
+ * el acento y las pestañas), lectura tolerante de lo guardado y orden/visibilidad del menú (cada sección en
+ * su borde del panel).
  */
-import { mobileNav, mobileNavFor, panelNav, panelNavFor } from "../../app/panel/nav-items";
+import { frameSlot, panelNav, panelNavFor } from "../../app/panel/nav-items";
 import { contrastRatio } from "../../lib/colors";
-import { EMPTY_PANEL_PREFS, HOME_CARDS, orderHome, orderNav, panelSideVars, parsePanelPrefs, readPanelPrefs } from "../../lib/panel-prefs";
+import { EMPTY_PANEL_PREFS, orderNav, panelSideVars, parsePanelPrefs, readPanelPrefs } from "../../lib/panel-prefs";
 import { eq, ok, test } from "./harness";
 
 const FLAGS = { personal: true, sales: false, showBookings: true };
 
-test("un orden guardado antes de Cursos y Comunidad: las dos salen al final, sin mover la barra de abajo", () => {
+test("un orden guardado antes de Cursos y Comunidad: las dos salen al final", () => {
   const before = panelNav(FLAGS).filter((i) => i.href !== "/panel/cursos" && i.href !== "/panel/comunidad").map((i) => i.href);
   const nav = { order: before, hidden: [] };
   eq(panelNavFor(FLAGS, nav).map((i) => i.href).slice(-2), ["/panel/cursos", "/panel/comunidad"]);
-  eq(mobileNavFor(FLAGS, nav).map((i) => i.href).slice(0, 4), before.slice(0, 4));
 });
 
-test("sin preferencias: ninguna variable (el panel de siempre) y el menú y la barra de siempre", () => {
+test("sin preferencias: ninguna variable (el panel de siempre) y el menú de siempre", () => {
   eq(panelSideVars(null), {});
   eq(readPanelPrefs(null), EMPTY_PANEL_PREFS);
   eq(readPanelPrefs("basura"), EMPTY_PANEL_PREFS);
   eq(panelNavFor(FLAGS, null), panelNav(FLAGS));
-  eq(mobileNavFor(FLAGS, null), mobileNav(FLAGS));
 });
 
 test("la barra del menú con su texto legible", () => {
@@ -42,7 +40,6 @@ test("lo guardado: colores solo hex, Inicio y Ajustes nunca ocultos, rutas del p
   eq(p.design, { background: "#aabbcc", cardFrame: "vine" });
   eq(p.sidebar, null);
   eq(p.nav, { order: ["/panel/newsletter", "/panel"], hidden: ["/panel/codigos"] });
-  eq(p.home, ["atajos", "resumen"]);
   ok(!parsePanelPrefs({ sidebar: "javascript:x" }).ok);
   ok(parsePanelPrefs({ design: null, sidebar: null, nav: null, home: [] }).ok);
   eq(readPanelPrefs({ design: {} }).design, null);
@@ -58,16 +55,12 @@ test("orden del menú: su orden, ocultas fuera, nuevas en su sitio de siempre", 
   ok(r.visible.some((i) => i.href === "/panel"), "Inicio no se oculta");
 });
 
-test("barra de abajo: las 4 primeras visibles de su orden + «Más», con nombres cortos", () => {
-  const nav = { order: ["/panel", "/panel/newsletter", "/panel/automatizaciones", "/panel/pagina", "/panel/productos"], hidden: ["/panel/automatizaciones"] };
-  const bar = mobileNavFor(FLAGS, nav);
-  eq(bar.map((i) => i.href), ["/panel", "/panel/newsletter", "/panel/pagina", "/panel/productos", "/panel/mas"]);
-  eq(bar[2].label, "Página");
-  ok(!panelNavFor(FLAGS, nav).some((i) => i.href === "/panel/automatizaciones"), "oculta también en la barra lateral");
-  eq(panelNavFor(FLAGS, nav).length, panelNav(FLAGS).length - 1);
-});
-
-test("orden de Inicio: el suyo y las que falten al final", () => {
-  eq(orderHome([]), HOME_CARDS.map((c) => c.key));
-  eq(orderHome(["atajos", "pasos"]), ["atajos", "pasos", "resumen", "cifras", "graficos"]);
+test("cada sección en su borde: lo que ofrece a la izquierda, Personas y Newsletter abajo a la izquierda, lo demás en Ajustes", () => {
+  const slot = (s: string) => panelNav(FLAGS).filter((i) => frameSlot(i) === s).map((i) => i.href);
+  eq(slot("home"), ["/panel"]);
+  eq(slot("left"), ["/panel/comunidad", "/panel/circulos", "/panel/cursos", "/panel/sesiones", "/panel/portal"]);
+  eq(slot("corner"), ["/panel/clientes", "/panel/newsletter"]);
+  eq(slot("settings"), ["/panel/modelos", "/panel/barajas", "/panel/ajustes"]);
+  const nav = { order: [], hidden: ["/panel/cursos"] };
+  ok(!panelNavFor(FLAGS, nav).some((i) => i.href === "/panel/cursos"), "oculta, también en su borde");
 });

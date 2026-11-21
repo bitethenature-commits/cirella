@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Columns2, Eye, EyeOff, Film, Image as ImageIcon, Images, LayoutGrid, Loader2, Milestone, Moon, Orbit, Pill, Plus, Quote, Trash2, Type, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Columns2, Crown, Eye, EyeOff, Film, Image as ImageIcon, Images, LayoutGrid, Loader2, Milestone, Moon, Orbit, Pill, Plus, Quote, Trash2, Type, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { uploadImageInfo } from "@/components/ui/image-upload";
@@ -35,7 +35,7 @@ import { CardsBlockFields, ModelBlockFields, MoonCirclesBlockFields, PhotoTextBl
  */
 export type BlocksUpdate = ContentBlock[] | ((prev: ContentBlock[]) => ContentBlock[]);
 
-const ICON: Record<BlockKind, typeof Type> = { text: Type, image: ImageIcon, gallery: Images, video: Film, photoText: Columns2, cards: LayoutGrid, quote: Quote, timeline: Milestone, model: Orbit, pills: Pill, moonCircles: Moon };
+const ICON: Record<BlockKind, typeof Type> = { text: Type, image: ImageIcon, gallery: Images, video: Film, photoText: Columns2, cards: LayoutGrid, quote: Quote, timeline: Milestone, model: Orbit, pills: Pill, moonCircles: Moon, tiers: Crown };
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -202,6 +202,7 @@ export function BlocksEditor({
             {b.kind === "model" && <ModelBlockFields block={b} oracleDecks={oracleDecks} onUpdate={(fn) => update<ModelBlock>(b.id, fn)} />}
             {b.kind === "pills" && <PillsBlockFields block={b} linkTargets={linkTargets} onUpdate={(fn) => update<PillsBlock>(b.id, fn)} />}
             {b.kind === "moonCircles" && <MoonCirclesBlockFields block={b} onUpdate={(fn) => update<MoonCirclesBlock>(b.id, fn)} />}
+            {b.kind === "tiers" && <p className="text-sm text-muted">Los niveles se escriben encima, en Mi página: toca el nombre, el precio, lo que incluye o el icono de cada uno.</p>}
             {errors[b.id] && <p className="text-xs text-rose" role="alert">{errors[b.id]}</p>}
           </div>
         );

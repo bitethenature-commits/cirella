@@ -188,7 +188,7 @@ export function AccessManager({
       )}
       {total > rows.length && (
         <p className="text-xs text-muted">
-          Se muestran las {rows.length} últimas de {total}. La lista completa está en <a href="/panel/ventas" className="underline underline-offset-2">Inscripciones</a>.
+          Se muestran las {rows.length} últimas de {total}. Lo de cada persona está en <a href="/panel/clientes" className="underline underline-offset-2">su ficha</a>.
         </p>
       )}
     </section>

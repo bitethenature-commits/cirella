@@ -60,10 +60,24 @@ function Calculated({ model, profile, compact }: { model: GatedModel; profile: B
  * Dentro de un ModelGateScope (versión rápida), el perfil sale de ahí y la barra la pinta su hermana
  * ModelGateBelow, debajo de la caja. En el oráculo, `gate` añade «Más barajas».
  * `compact`: versión rápida (solo el dibujo; chart, bodygraph, geneKeys y lunar).
+ * `profile`: en las lecciones, la carta que la alumna guardó en «Mi energía» (los cuatro calculados salen con ella).
  */
-export function InteractiveModel({ model, deck, gate, compact = false }: { model: Exclude<ModelKind, "geometry">; deck?: OracleDeckView | null; gate?: ModelGateInfo | null; compact?: boolean }) {
+export function InteractiveModel({
+  model,
+  deck,
+  gate,
+  compact = false,
+  profile,
+}: {
+  model: Exclude<ModelKind, "geometry">;
+  deck?: OracleDeckView | null;
+  gate?: ModelGateInfo | null;
+  compact?: boolean;
+  profile?: BirthProfile | null;
+}) {
   const scope = useModelGate();
   if (isGatedModel(model)) {
+    if (profile) return <Calculated model={model} profile={profile} compact={compact} />;
     if (gate && scope && scope.model === model) return <Calculated model={model} profile={scope.active?.profile} compact={compact} />;
     if (gate) return <ModelGate model={model} gate={gate}>{(profile) => <Calculated model={model} profile={profile} compact={compact} />}</ModelGate>;
   }

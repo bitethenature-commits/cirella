@@ -3,11 +3,11 @@
 import { useId, type ReactNode } from "react";
 
 /**
- * El cielo de noche de los dibujos del modelo por partes (Human Design, Gene Keys…): un panel con degradado
- * índigo, filo dorado y estrellas fijas. Va igual sobre el curso de noche que en la vista previa clara.
+ * El cielo de noche de los dibujos del modelo por partes (Human Design, Gene Keys…): un panel negro,
+ * con filo dorado y estrellas fijas. Va igual sobre el curso de noche que en la vista previa clara.
  */
 
-export const NIGHT = "#100E26";
+export const NIGHT = "#0B0B0D";
 export const STAR = "#FBF6EC";
 export const NIGHT_GOLD = "#E9CC8E";
 export const NIGHT_RED = "#E36B5F";

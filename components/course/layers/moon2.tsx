@@ -701,7 +701,7 @@ function ReturnRing({ c, selected, tap, keys, sh }: { c: LayerCtx["c"]; selected
         return (
           <g key={i} {...tap(String(i), r ? `Retorno del ${fmtShort(r.at)}` : "Retorno lunar")}>
             {on && <circle cx={x} cy={y} r="22" fill={`url(#${p}goldglow)`} />}
-            <circle cx={x} cy={y} r={on ? 15 : 12} fill={on ? `url(#${p}gold)` : "#1E1B45"} stroke={NIGHT_GOLD} strokeOpacity={on ? 1 : 0.5} />
+            <circle cx={x} cy={y} r={on ? 15 : 12} fill={on ? `url(#${p}gold)` : "#1D1D20"} stroke={NIGHT_GOLD} strokeOpacity={on ? 1 : 0.5} />
             {r && <MoonGlobe p={p} cx={x} cy={y - (on ? 0 : 0)} r={on ? 0 : 7} phase={r.elong / 360} />}
             <text x={C + 152 * Math.cos(a)} y={C + 152 * Math.sin(a)} textAnchor="middle" dominantBaseline="central" fontSize="7.5" fontWeight={on ? 700 : 500} fill={on ? NIGHT_GOLD : STAR} pointerEvents="none">
               {r ? fmtShort(r.at) : ""}
@@ -893,7 +893,7 @@ function MoonCombos({ selected, tap, c }: { selected: string; tap: Tap; c: Layer
   const { s, h } = parseMoonCombo(selected.includes("|") ? selected : "0|1");
   const m = natalMoonOf(c);
   const btn = (on: boolean, mineHere: boolean) =>
-    `flex min-h-9 w-full items-center gap-2 rounded-xl border px-2.5 text-left text-[0.8rem] transition ${on ? "border-gold bg-gold text-[#15122a] font-semibold" : mineHere ? "border-gold/60" : "border-line hover:border-gold/50"}`;
+    `flex min-h-9 w-full items-center gap-2 rounded-xl border px-2.5 text-left text-[0.8rem] transition ${on ? "border-gold bg-gold text-[#0B0B0D] font-semibold" : mineHere ? "border-gold/60" : "border-line hover:border-gold/50"}`;
   return (
     <div className="grid grid-cols-2 gap-2">
       <div className="space-y-1">

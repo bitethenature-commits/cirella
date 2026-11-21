@@ -21,11 +21,12 @@ import { formatPrice } from "@/lib/money";
 import { postPath } from "@/lib/posts";
 import {
   NEWSLETTER_FORM_DEFAULTS,
-  SOCIAL_KEYS,
+  socialList,
   safeHref,
   sectionTitle,
   socialHref,
   visibleTextBlocks,
+  homeLayout,
   type PageConfig,
   type SectionKey,
 } from "@/lib/page-config";
@@ -50,6 +51,8 @@ import { PostCard } from "./post-card";
 import { PieceStyles } from "./piece-styles";
 import { ShowMore } from "@/components/ui/show-more";
 import { SectionFolds, type Fold } from "./section-dropdown";
+import { DesignScope } from "./design-scope";
+import { visibleBlocks } from "@/lib/page-blocks";
 import { TestimonialsRotator } from "./testimonials-rotator";
 import { OracleCard } from "./oracle-card";
 import { HomeRows, MegaphoneIcon, PercentIcon, PortalNoteIcon } from "./home-rows";
@@ -141,6 +144,33 @@ const HOME_COURSES = 3;
 /** Secciones plegables seguidas («Actualidades», «Portal», «Ofertas»): juntas, como una lista de filas. */
 /** Los desplegables de la portada: van todos juntos en una fila (components/creator-page/section-dropdown.tsx). */
 const FOLD_KEYS: ReadonlySet<SectionKey> = new Set(["posts", "portal", "offers", "gifts"]);
+
+/** En el Canva, lo que dice una sección vacía (en la web no sale). */
+const EMPTY_NOTE: Partial<Record<SectionKey, string>> = {
+  bubbles: "Aún no hay accesos: toca aquí para añadir el primero.",
+  systems: "Aún no hay sistemas: toca aquí para añadir el primero.",
+  readings: "Aún no hay tarjetas: toca aquí para ponerlas.",
+  codes: "Aún no hay códigos: toca aquí para añadir el primero.",
+  testimonials: "Aún no hay testimonios: toca aquí para añadir el primero.",
+  faq: "Aún no hay preguntas: toca aquí para añadir la primera.",
+  contact: "Falta tu email de contacto: toca aquí para ponerlo.",
+  about: "Aún no tiene título: toca aquí para escribirlo.",
+  products: "Sale sola cuando publiques uno.",
+  sessions: "Sale sola cuando publiques una.",
+  courses: "Sale sola cuando publiques uno.",
+  memberships: "Sale sola cuando publiques una.",
+};
+/** Las secciones vacías que se rellenan en su ventanita (al tocarlas, se abre). */
+const EMPTY_PART: Partial<Record<SectionKey, CanvaPart>> = { bubbles: "bubbles", systems: "systems", readings: "readings", codes: "codes", testimonials: "testimonials", faq: "faq", contact: "contact", about: "about" };
+/** Las que llevan título en la web. */
+const HEADED = new Set<SectionKey>(["systems", "readings", "codes", "testimonials", "faq", "products", "sessions", "courses", "memberships"]);
+/** Lo que dice cada desplegable vacío en el Canva. */
+const EMPTY_FOLD: Record<string, { id: string; note: string }> = {
+  posts: { id: "actualidades", note: "Aún no hay novedades: salen solas cuando publicas algo nuevo." },
+  portal: { id: "portal", note: "Aún no hay noticias en el portal." },
+  offers: { id: "ofertas", note: "No hay ofertas ahora: sale sola cuando pones algo en oferta." },
+  gifts: { id: "gifts", note: "Aún no hay gifts: se añaden en su página (Mis páginas › Gifts)." },
+};
 
 const SECTION_TYPE: Partial<Record<SectionKey, ProductType>> = {
   products: "DIGITAL",
@@ -389,6 +419,52 @@ export function CreatorPageView(props: Props) {
         return null;
     }
   };
+  /** Canva: un desplegable que ahora no tiene nada (sale igual, más tenue, con lo que falta). */
+  const emptyFold = (key: SectionKey): Fold => {
+    const icon = "h-10 w-10";
+    const e = EMPTY_FOLD[key] ?? { id: key, note: "" };
+    return {
+      id: e.id,
+      title: ST(key),
+      countLabel: "Vacío",
+      stamps: [],
+      icon:
+        key === "posts" ? <MegaphoneIcon className={icon} /> : key === "portal" ? <PortalNoteIcon className={icon} /> : key === "offers" ? <PercentIcon className={icon} /> : <Gift className={icon} strokeWidth={1.15} />,
+      content: <p className="cp-muted text-[0.92rem]">{e.note}</p>,
+    };
+  };
+  /** Los desplegables, en su orden, y dónde van juntos: donde está el primero que se ve (si no hay, el primero). */
+  const foldList = config.sections.filter((s) => FOLD_KEYS.has(s.key) && !s.removed);
+  const foldAnchor = (foldList.find((s) => s.enabled) ?? foldList[0])?.key;
+  /** Canva: una sección vacía (en la web no sale), con su título y lo que le falta. Al tocarla se abre su ventanita. */
+  const emptySection = (key: SectionKey): ReactNode => {
+    const box = (
+      <section key={key} className="mt-14">
+        {HEADED.has(key) && <SectionHeading title={ST(key)} />}
+        <div className="cp-muted mt-5 rounded-2xl border border-dashed p-6 text-center text-sm" style={{ borderColor: "var(--c-line)" }}>
+          {EMPTY_NOTE[key] ?? "Aún no hay nada que enseñar aquí."}
+        </div>
+      </section>
+    );
+    const part = EMPTY_PART[key];
+    return part ? P(part, box) : box;
+  };
+  /** Canva: las que se pintan para escribirlas aunque en la web no salgan (sin título o sin bloques). */
+  const emptyAnyway = (key: SectionKey) => (key === "about" ? !config.about?.title : key === "blocks" ? !visibleTextBlocks(config).length : key === "links" ? !links.length : false);
+  /** Una sección con su diseño propio (su «Diseño» en Mi página), encima del de la portada. */
+  const scoped = (key: string, node: ReactNode): ReactNode =>
+    node ? (
+      <DesignScope base={theme.design} design={config.sectionThemes?.[key]} allowCustom={props.allowCustom}>
+        {node}
+      </DesignScope>
+    ) : (
+      node
+    );
+  /** La cabecera (nombre, foto, frase, redes): con su diseño propio y, en el Canva, su botón «Diseño». */
+  const H = (node: ReactNode): ReactNode => {
+    const s = scoped("header", node);
+    return edit ? edit.header(s) : s;
+  };
 
   const renderSection = (key: SectionKey) => {
     const type = SECTION_TYPE[key];
@@ -436,33 +512,9 @@ export function CreatorPageView(props: Props) {
       );
     }
     switch (key) {
-      case "blocks": {
-        const blocks = visibleTextBlocks(config);
-        if (edit)
-          return (
-            <section key={key} id="bloques" className="mt-14 space-y-4">
-              <SectionHeading title={ST(key)} />
-              {edit.blocks()}
-            </section>
-          );
-        if (!blocks.length) return null;
-        const heading = sectionTitle(config, key);
-        return (
-          <section key={key} id="bloques" className="mt-14 space-y-4" {...reveal}>
-            {heading && <SectionHeading title={heading} />}
-            <ContentBlocks
-              blocks={blocks}
-              username={username}
-              titleLevel={heading ? 3 : 2}
-              hiddenSlugs={hiddenSlugs}
-              siteOrigin={props.siteOrigin}
-              oracleDecks={props.oracleDecks}
-              modelGate={personal && !preview ? { username, creatorName: config.displayName, privacyHref: creatorLegalHref(username, "privacidad") } : null}
-              moonCircles={nextMoonCircles(products)}
-            />
-          </section>
-        );
-      }
+      case "blocks":
+        // Ya no es una sección: cada bloque va en su sitio entre las secciones (homeLayout, abajo).
+        return null;
       case "bubbles": {
         const bubbles = (config.bubbles ?? []).filter((b) => !linksToProduct(b.url, username, hiddenSlugs, props.siteOrigin));
         if (!bubbles.length) return null;
@@ -487,10 +539,18 @@ export function CreatorPageView(props: Props) {
                 </a>
               );
               return edit ? (
-                <div key={b.id} className="flex flex-col items-center">
-                  {a}
-                  {L(`bubble:${b.id}:url`, b.url)}
-                </div>
+                <Fragment key={b.id}>
+                  {edit.item(
+                    "bubbles",
+                    b.id,
+                    bubbles.map((x) => x.id),
+                    <div className="flex flex-col items-center">
+                      {a}
+                      {L(`bubble:${b.id}:url`, b.url)}
+                    </div>,
+                    "x",
+                  )}
+                </Fragment>
               ) : (
                 a
               );
@@ -503,13 +563,35 @@ export function CreatorPageView(props: Props) {
       case "offers":
       case "gifts": {
         // Los cuatro desplegables van juntos en una fila (como «Sistemas»), donde está el primero de ellos.
-        const keys = config.sections.filter((s) => s.enabled && FOLD_KEYS.has(s.key)).map((s) => s.key);
-        if (keys[0] !== key) return null;
-        const list = keys.map(foldFor).filter((x): x is Fold => !!x);
-        if (!list.length) return null;
+        if (key !== foldAnchor) return null;
+        if (edit) {
+          // En el Canva salen todos: los ocultos y los que ahora no tienen nada, más tenues.
+          const all = foldList.filter((s) => personal || s.key !== "portal");
+          const ids = all.map((s) => s.key);
+          const list = all.map((s) => {
+            const f = foldFor(s.key);
+            return { f: f ?? emptyFold(s.key), hidden: !s.enabled, empty: !f };
+          });
+          return (
+            <section key="desplegables" id="desplegables" className="mt-14">
+              <SectionFolds
+                folds={list.map((x) => x.f)}
+                username={username}
+                preview={preview}
+                editing
+                wrap={(i, node) => edit.item("folds", ids[i], ids, node, "x", { hidden: list[i].hidden, empty: list[i].empty })}
+              />
+            </section>
+          );
+        }
+        const shown = foldList.filter((s) => s.enabled).flatMap((s) => {
+          const f = foldFor(s.key);
+          return f ? [f] : [];
+        });
+        if (!shown.length) return null;
         return (
           <section key="desplegables" id="desplegables" className="mt-14" {...reveal}>
-            <SectionFolds folds={list} username={username} preview={preview} editing={!!edit} />
+            <SectionFolds folds={shown} username={username} preview={preview} />
           </section>
         );
       }
@@ -518,7 +600,10 @@ export function CreatorPageView(props: Props) {
         if (!a || (!a.title && !edit)) return null;
         const href = a.url || path("actualidades");
         // La forma y el marco, en Diseño › Fotos; el tamaño y el lado, en la tarjeta.
-        const frame = `cp-luxe-frame relative mx-auto block w-full max-w-[20rem] sm:mx-0 sm:shrink-0 ${ABOUT_PHOTO[a.imageSize ?? "tall"]}`;
+        const size = ABOUT_PHOTO[a.imageSize ?? "tall"];
+        // Su ancho va en lo de fuera: en el Canva, la caja de «Cambiar foto» (si no, la foto se queda sin ancho).
+        const place = `mx-auto w-full max-w-[20rem] sm:mx-0 sm:shrink-0 ${size.width}`;
+        const frame = `cp-luxe-frame relative mx-auto block w-full max-w-[20rem] sm:mx-0 sm:shrink-0 ${size.aspect} ${size.width}`;
         return P(
           "about",
           <section key={key} id="sobre-mi" className="mt-16" {...reveal}>
@@ -527,13 +612,13 @@ export function CreatorPageView(props: Props) {
               {edit
                 ? edit.image(
                     "about.image",
-                    <span className={frame}>
+                    <span className={`cp-luxe-frame relative block w-full ${size.aspect}`}>
                       {a.image && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={a.image} alt="" className="cp-img absolute inset-0 h-full w-full object-cover" />
+                        <img src={a.image} srcSet={imageSrcSet(a.image)} sizes="(min-width: 640px) 290px, 92vw" alt="" className="cp-img absolute inset-0 h-full w-full object-cover" />
                       )}
                     </span>,
-                    { removable: true },
+                    { removable: true, className: place },
                   )
                 : a.image && (
                 <span className={frame}>
@@ -579,10 +664,18 @@ export function CreatorPageView(props: Props) {
                 );
                 if (edit)
                   return (
-                    <div key={sys.id} className="flex flex-col items-center gap-2 text-center">
-                      {inner}
-                      {L(`system:${sys.id}:url`, sys.url)}
-                    </div>
+                    <Fragment key={sys.id}>
+                      {edit.item(
+                        "systems",
+                        sys.id,
+                        systems.map((s) => s.id),
+                        <div className="flex flex-col items-center gap-2 text-center">
+                          {inner}
+                          {L(`system:${sys.id}:url`, sys.url)}
+                        </div>,
+                        "x",
+                      )}
+                    </Fragment>
                   );
                 return sys.url ? (
                   <a key={sys.id} href={safeHref(sys.url)} className="group flex flex-col items-center gap-2 text-center" title={sys.text || undefined} {...(isExternal(sys.url) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
@@ -667,7 +760,15 @@ export function CreatorPageView(props: Props) {
             <CodesCarousel>
               {codes.map((c) => (
                 <div key={c.id} className="w-[72%] shrink-0 snap-start sm:w-[45%] md:w-[calc((100%-1.5rem)/3)]">
-                  {P(`code:${c.id}`, <DiscountCodeCard code={c} trackCreatorId={trackId} />)}
+                  {edit
+                    ? edit.item(
+                        "codes",
+                        c.id,
+                        codes.map((x) => x.id),
+                        P(`code:${c.id}`, <DiscountCodeCard code={c} trackCreatorId={trackId} />),
+                        "x",
+                      )
+                    : P(`code:${c.id}`, <DiscountCodeCard code={c} trackCreatorId={trackId} />)}
                 </div>
               ))}
             </CodesCarousel>
@@ -675,7 +776,19 @@ export function CreatorPageView(props: Props) {
         );
       }
       case "links":
-        if (!links.length) return null;
+        if (!links.length)
+          // Canva: un botón de muestra, tenue, para poner el primero.
+          return edit
+            ? P(
+                "links",
+                <section key={key} className="mt-9 space-y-3">
+                  <span className="cp-link" style={{ borderStyle: "dashed" }}>
+                    <span>Añade tu primer botón</span>
+                    <Plus className="h-4 w-4 shrink-0 opacity-70" />
+                  </span>
+                </section>,
+              )
+            : null;
         return P(
           "links",
           <section key={key} className="mt-9 space-y-3" {...reveal}>
@@ -703,7 +816,32 @@ export function CreatorPageView(props: Props) {
           "testimonials",
           <section key={key} className="mt-16" {...reveal}>
             <SectionHeading title={ST(key)} />
-            <TestimonialsRotator items={config.testimonials} />
+            {/* En el Canva, todos uno debajo de otro para escribirlos y ordenarlos; en la web, van pasando uno a uno. */}
+            {edit ? (
+              <div className="mt-6 space-y-8">
+                {config.testimonials.map((t) => (
+                  <Fragment key={t.id}>
+                    {edit.item(
+                      "testimonials",
+                      t.id,
+                      config.testimonials.map((x) => x.id),
+                      <figure className="mx-auto max-w-xl text-center">
+                        <blockquote className="cp-display text-[1.45rem] leading-snug sm:text-[1.7rem]">
+                          “{T(`testimonial:${t.id}:quote`, t.quote, { multiline: true, placeholder: "Lo que dijo" })}”
+                        </blockquote>
+                        <figcaption className="mt-3 text-sm">
+                          <span className="font-semibold">{T(`testimonial:${t.id}:author`, t.author, { placeholder: "Nombre" })}</span>
+                          <span className="cp-muted"> · {T(`testimonial:${t.id}:role`, t.role ?? "", { placeholder: "Quién es (opcional)" })}</span>
+                        </figcaption>
+                      </figure>,
+                      "y",
+                    )}
+                  </Fragment>
+                ))}
+              </div>
+            ) : (
+              <TestimonialsRotator items={config.testimonials} />
+            )}
           </section>,
         );
       case "faq":
@@ -716,10 +854,18 @@ export function CreatorPageView(props: Props) {
             {edit ? (
             <div className="mt-4 divide-y" style={{ borderColor: "var(--c-line)" }}>
               {config.faqs.map((f) => (
-                <div key={f.id} className="py-3" style={{ borderColor: "var(--c-line)" }}>
-                  <p className="py-1 text-[0.98rem] font-medium">{T(`faq:${f.id}:q`, f.q, { placeholder: "Pregunta" })}</p>
-                  <p className="cp-muted pb-2 pr-8 text-[0.92rem] leading-relaxed">{T(`faq:${f.id}:a`, f.a, { multiline: true, placeholder: "Respuesta" })}</p>
-                </div>
+                <Fragment key={f.id}>
+                  {edit.item(
+                    "faq",
+                    f.id,
+                    config.faqs.map((x) => x.id),
+                    <div className="py-3" style={{ borderColor: "var(--c-line)" }}>
+                      <p className="py-1 text-[0.98rem] font-medium">{T(`faq:${f.id}:q`, f.q, { placeholder: "Pregunta" })}</p>
+                      <p className="cp-muted pb-2 pr-8 text-[0.92rem] leading-relaxed">{T(`faq:${f.id}:a`, f.a, { multiline: true, placeholder: "Respuesta" })}</p>
+                    </div>,
+                    "y",
+                  )}
+                </Fragment>
               ))}
             </div>
             ) : (
@@ -789,7 +935,7 @@ export function CreatorPageView(props: Props) {
     }
   };
 
-  const socials = SOCIAL_KEYS.filter((k) => config.socials[k]);
+  const socials = socialList(config);
 
   return (
     <>
@@ -808,18 +954,17 @@ export function CreatorPageView(props: Props) {
       {edit ? (
         edit.image(
           "coverUrl",
-          <div className={`relative w-full overflow-hidden ${config.coverUrl ? "h-[14vh] min-h-[112px] sm:h-[18vh] sm:min-h-[150px]" : "h-14 sm:h-16"}`}>
+          <div className={`relative w-full overflow-hidden ${config.coverUrl ? "cp-cover h-[14vh] min-h-[112px] sm:h-[18vh] sm:min-h-[150px]" : "h-14 sm:h-16"}`}>
             {config.coverUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={config.coverUrl} alt="" className="cp-cover-img h-full w-full scale-105 object-cover" />
             )}
-            {config.coverUrl && <div className="cp-cover-fade absolute inset-0" />}
           </div>,
           { label: config.coverUrl ? "Cambiar portada" : "Añadir portada", removable: true },
         )
       ) : config.coverUrl ? (
         // Portada baja: la presentación empieza arriba del todo (la foto asoma detrás de la cara).
-        <div className="relative h-[14vh] min-h-[112px] w-full overflow-hidden sm:h-[18vh] sm:min-h-[150px]">
+        <div className="cp-cover relative h-[14vh] min-h-[112px] w-full overflow-hidden sm:h-[18vh] sm:min-h-[150px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={config.coverUrl}
@@ -830,7 +975,6 @@ export function CreatorPageView(props: Props) {
             alt=""
             className="cp-cover-img h-full w-full scale-105 object-cover"
           />
-          <div className="cp-cover-fade absolute inset-0" />
         </div>
       ) : (
         <div className="h-14 sm:h-16" />
@@ -838,6 +982,7 @@ export function CreatorPageView(props: Props) {
 
       <main className="relative mx-auto w-full max-w-[44rem] px-5 pb-16">
         {/* Presentación */}
+        {H(
         <header className={`flex flex-col items-center text-center ${config.coverUrl ? "-mt-14 sm:-mt-20" : "pt-2 sm:pt-4"}`}>
           <div className="rounded-full p-[3px]" style={{ background: "linear-gradient(135deg, var(--c-gold), var(--c-accent))" }}>
             <div className="rounded-full p-[3px]" style={{ background: "var(--c-bg)" }}>
@@ -865,31 +1010,83 @@ export function CreatorPageView(props: Props) {
                   + Redes sociales
                 </span>
               )}
-              {socials.map((k) => (
-                <a
-                  key={k}
-                  href={socialHref(k, config.socials[k]!)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={k}
-                  className="grid h-10 w-10 place-items-center rounded-full border transition hover:-translate-y-0.5"
-                  style={{ borderColor: "var(--c-line)" }}
-                >
-                  <SocialIcon name={k} className="h-[18px] w-[18px]" />
-                </a>
-              ))}
+              {socials.map((k) => {
+                const a = (
+                  <a
+                    key={k}
+                    href={socialHref(k, config.socials[k]!)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={k}
+                    title={edit ? `${config.socials[k]} · toca para cambiarla` : undefined}
+                    className="grid h-10 w-10 place-items-center rounded-full border transition hover:-translate-y-0.5"
+                    style={{ borderColor: "var(--c-line)" }}
+                  >
+                    <SocialIcon name={k} className="h-[18px] w-[18px]" />
+                  </a>
+                );
+                // Canva: con sus flechas para cambiarla de sitio; al tocarla se abren todas para cambiarlas.
+                return edit ? <Fragment key={k}>{edit.item("socials", k, socials, a, "x")}</Fragment> : a;
+              })}
+              {edit && socials.length > 0 && (
+                <span className="cp-faint grid h-10 w-10 place-items-center rounded-full border border-dashed" style={{ borderColor: "var(--c-line)" }} title="Añadir otra red">
+                  <Plus className="h-4 w-4" />
+                </span>
+              )}
             </div>,
             )}
-        </header>
+        </header>,
+        )}
 
         {config.sections
-          .filter((s) => s.key === "links" && s.enabled)
-          .map((s) => (edit ? <Fragment key={s.key}>{edit.section(s.key, renderSection(s.key))}</Fragment> : renderSection(s.key)))}
+          .filter((s) => s.key === "links" && !s.removed && (s.enabled || !!edit))
+          .map((s) =>
+            edit ? (
+              <Fragment key={s.key}>{edit.section(s.key, scoped("links", renderSection(s.key)), { hidden: !s.enabled, empty: emptyAnyway(s.key) })}</Fragment>
+            ) : (
+              <Fragment key={s.key}>{scoped("links", renderSection(s.key))}</Fragment>
+            ),
+          )}
 
         {/* El antiguo «Destacado» ya no se pinta aparte: cada producto sale en su sección (Product.featured no hace nada aquí). */}
-        {config.sections
-          .filter((s) => s.enabled && s.key !== "links")
-          .map((s) => (edit ? <Fragment key={s.key}>{edit.section(s.key, renderSection(s.key))}</Fragment> : renderSection(s.key)))}
+        {/* Las secciones y, entre ellas, sus bloques (Texto, Tarjetas, Cita…), cada uno en su sitio. */}
+        {homeLayout(config).map((item) => {
+          if (item.kind === "block") {
+            const b = item.block;
+            if (edit) return <Fragment key={`b:${b.id}`}>{edit.block(b)}</Fragment>;
+            if (!visibleBlocks([b]).length) return null;
+            return (
+              <div key={`b:${b.id}`} className="mt-14" {...reveal}>
+                <ContentBlocks
+                  blocks={[b]}
+                  username={username}
+                  titleLevel={2}
+                  hiddenSlugs={hiddenSlugs}
+                  siteOrigin={props.siteOrigin}
+                  oracleDecks={props.oracleDecks}
+                  modelGate={personal && !preview ? { username, creatorName: config.displayName, privacyHref: creatorLegalHref(username, "privacidad") } : null}
+                  moonCircles={nextMoonCircles(products)}
+                  designBase={props.allowCustom ? theme.design : undefined}
+                />
+              </div>
+            );
+          }
+          const key = item.key;
+          const s = config.sections.find((x) => x.key === key)!;
+          const fold = FOLD_KEYS.has(key);
+          // Los desplegables van juntos donde está el primero; su diseño, el del grupo («folds»).
+          if (fold && key !== foldAnchor) return null;
+          const scope = fold ? "folds" : key;
+          if (!edit) return s.enabled ? <Fragment key={key}>{scoped(scope, renderSection(key))}</Fragment> : null;
+          // En el Canva, todas en su sitio: las ocultas y las vacías también (más tenues).
+          if (key === "newsletter") return null;
+          const node = renderSection(key);
+          return (
+            <Fragment key={key}>
+              {edit.section(key, scoped(scope, node ?? emptySection(key)), { hidden: !fold && !s.enabled, empty: !fold && (node == null || emptyAnyway(key)) })}
+            </Fragment>
+          );
+        })}
 
         {edit?.footer}
 
@@ -1001,14 +1198,17 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
   );
 }
 
-/** Curso en pequeño (sección «Cursos» de la portada): la imagen, el título y el precio; toda la tarjeta lleva a su ficha. */
-function CourseMiniCard({ p, username }: { p: PublicProduct; username: string }) {
+/**
+ * Curso en pequeño (sección «Cursos» de la portada): la imagen, el título y el precio; toda la tarjeta lleva a su
+ * ficha. En el panel (los borradores de Cursos), `href` lleva a su estudio.
+ */
+export function CourseMiniCard({ p, username, href }: { p: PublicProduct; username: string; href?: string }) {
   const mode = p.accessMode ?? "PAID";
   const topics = courseCategoriesOf(p.courseCategory);
   const external = mode === "EXTERNAL" && !!p.externalUrl;
   const price = mode === "FREE_EMAIL" ? "Gratis" : external && p.priceCents <= 0 ? null : formatPrice(p.sale ? p.sale.priceCents : p.priceCents, p.currency, p.billingInterval);
   return (
-    <Link href={`/${username}/${p.slug}`} className="cp-card cp-card-hover group flex h-full flex-col overflow-hidden" data-course-mini={p.slug}>
+    <Link href={href ?? `/${username}/${p.slug}`} className="cp-card cp-card-hover group flex h-full flex-col overflow-hidden" data-course-mini={p.slug}>
       <span className="cp-photo-bubble cp-photo-in relative block aspect-[4/3]">
         <ProductImage src={p.imageUrl} emoji={p.emoji} title={p.title} sizes="(min-width: 640px) 220px, 46vw" />
         {/* El icono (o los iconos) del tema del curso, en dorado, como en las tarjetas grandes. */}
@@ -1077,10 +1277,10 @@ const tone = (color: string, amount: number): Tone => ({
 const TONE_READING = tone("var(--c-gold)", 14);
 const TONE_SESSION = tone("var(--c-accent)", 22);
 /** El tamaño de la foto de «Sobre mí» (y su ancho en el ordenador). */
-const ABOUT_PHOTO: Record<"tall" | "portrait" | "square", string> = {
-  tall: "aspect-[9/16] sm:w-[36%]",
-  portrait: "aspect-[3/4] sm:w-[38%]",
-  square: "aspect-square sm:w-[40%]",
+const ABOUT_PHOTO: Record<"tall" | "portrait" | "square", { aspect: string; width: string }> = {
+  tall: { aspect: "aspect-[9/16]", width: "sm:w-[36%]" },
+  portrait: { aspect: "aspect-[3/4]", width: "sm:w-[38%]" },
+  square: { aspect: "aspect-square", width: "sm:w-[40%]" },
 };
 const TONE_CIRCLES = tone("color-mix(in oklab, var(--c-text) 70%, var(--c-accent))", 10);
 

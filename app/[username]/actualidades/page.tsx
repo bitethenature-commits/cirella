@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
+import { SiteText } from "@/components/creator-page/site-text";
 import { SectionHeading } from "@/components/creator-page/creator-page-view";
 import { HomeRows, MegaphoneIcon } from "@/components/creator-page/home-rows";
 import { TrackOnMount } from "@/components/creator-page/tracking";
@@ -61,14 +62,18 @@ export default async function ActualidadesPage({ params }: { params: Promise<Par
             <MegaphoneIcon />
           </span>
           <div>
-            <p className="cp-eyebrow">Lo nuevo de la web</p>
-            <h1 className="cp-display mt-1 text-[2.6rem] leading-tight">Actualidades</h1>
+            <p className="cp-eyebrow">
+              <SiteText texts={config.texts} k="pg.news.eyebrow" />
+            </p>
+            <h1 className="cp-display mt-1 text-[2.6rem] leading-tight">
+              <SiteText texts={config.texts} k="pg.news.title" />
+            </h1>
           </div>
         </div>
 
         {posts.length > 0 && (
           <section className="cp-luxe mt-10" aria-label="Publicaciones">
-            <SectionHeading title="Publicaciones" />
+            <SectionHeading title={<SiteText texts={config.texts} k="pg.news.posts" />} />
             <div className="mt-5">
               <HomeRows
                 fallbackImage={config.coverUrl ?? config.avatarUrl ?? null}
@@ -94,16 +99,20 @@ export default async function ActualidadesPage({ params }: { params: Promise<Par
         {posts.length > 0 && news.length > 0 && (
           <div className="mt-14 flex items-center gap-4">
             <span aria-hidden className="h-px flex-1 bg-[color-mix(in_oklab,var(--c-gold)_45%,transparent)]" />
-            <p className="cp-eyebrow">Lo nuevo de la web</p>
+            <p className="cp-eyebrow">
+              <SiteText texts={config.texts} k="pg.news.divider" />
+            </p>
             <span aria-hidden className="h-px flex-1 bg-[color-mix(in_oklab,var(--c-gold)_45%,transparent)]" />
           </div>
         )}
 
         {news.length === 0 && posts.length > 0 ? null : news.length === 0 ? (
           <div className="cp-card mt-8 p-6 text-center">
-            <p className="cp-muted">Todavía no hay novedades.</p>
+            <p className="cp-muted">
+              <SiteText texts={config.texts} k="pg.news.empty" />
+            </p>
             <Link href={data.homeHref} className="cp-btn-ghost mt-4">
-              <ArrowLeft className="h-4 w-4" /> Volver a la página
+              <ArrowLeft className="h-4 w-4" /> <SiteText texts={config.texts} k="pg.back" />
             </Link>
           </div>
         ) : (

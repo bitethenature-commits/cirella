@@ -22,6 +22,8 @@ export default async function SubscriberCard({ params }: { params: Promise<{ id:
   const db = tenantDb(creator.id);
   const s = await db.subscriber.findFirst({ where: { id } });
   if (!s) notFound();
+  // Si tiene ficha en Personas, la flecha vuelve a ella; si no, a Personas.
+  const ficha = await db.customer.findFirst({ where: { email: { equals: s.email, mode: "insensitive" } }, select: { id: true } });
   const received = await db.campaignRecipient.findMany({
     where: { subscriberId: s.id },
     include: { campaign: { select: { id: true, subject: true, startedAt: true } } },
@@ -47,8 +49,8 @@ export default async function SubscriberCard({ params }: { params: Promise<{ id:
 
   return (
     <div>
-      <Link href="/panel/newsletter/suscriptoras" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Suscriptoras
+      <Link href={ficha ? `/panel/clientes/${ficha.id}` : "/panel/clientes"} className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+        <ArrowLeft className="h-4 w-4" /> {ficha ? "Su ficha" : "Personas"}
       </Link>
       <PageHeader
         title={s.name || s.email}

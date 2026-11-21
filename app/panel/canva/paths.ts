@@ -9,6 +9,7 @@ import { isSiteTextKey, withSiteText } from "@/lib/site-texts";
  *   about.eyebrow|title|text|linkLabel|url|image
  *   readings.session|reading.eyebrow|title|text · readings.circlesTitle
  *   link:<id>:label|url · bubble:<id>:label|url|image · system:<id>:title|url · faq:<id>:q|a
+ *   testimonial:<id>:quote|author|role
  * Devuelve la configuración nueva (sin tocar la de entrada).
  */
 export function setPath(cfg: PageConfig, path: string, value: string | null): PageConfig {
@@ -61,6 +62,12 @@ export function setPath(cfg: PageConfig, path: string, value: string | null): Pa
       return { ...cfg, systems: (cfg.systems ?? []).map((s) => (s.id === id ? { ...s, [field]: v } : s)) };
     case "faq":
       return { ...cfg, faqs: cfg.faqs.map((f) => (f.id === id ? { ...f, [field]: v } : f)) };
+    case "testimonial": {
+      // Sin nombre no se puede quedar (lo pide la web): se deja el que tenía.
+      if (field === "author" && !v.trim()) return cfg;
+      const text = v.slice(0, field === "quote" ? 500 : 80);
+      return { ...cfg, testimonials: cfg.testimonials.map((t) => (t.id === id ? { ...t, [field]: field === "role" ? text || undefined : text } : t)) };
+    }
   }
   return cfg;
 }

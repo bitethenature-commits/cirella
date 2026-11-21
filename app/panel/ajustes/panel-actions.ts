@@ -15,7 +15,7 @@ const ownImage = (u: string | null | undefined) => (u && (u.startsWith("/media/"
 const cleanDesign = (d: Design): Design => (d.backgroundImageUrl ? { ...d, backgroundImageUrl: ownImage(d.backgroundImageUrl) } : d);
 
 /**
- * «Diseño de mi panel»: guarda su diseño, la barra del menú y el orden del menú y de Inicio. Solo los suyos (la
+ * «Diseño de mi panel»: guarda su diseño, el color de las pestañas y el orden del menú. Solo los suyos (la
  * cuenta con la que ha entrado): nunca toca a otra creadora ni a su web pública. `designs`: sus plantillas (las
  * mismas que en el Diseño de la web), si las ha cambiado desde aquí; se guardan en su borrador de la web.
  */
@@ -24,7 +24,7 @@ export async function savePanelPrefs(raw: unknown, designs?: PageConfig["designs
   const p = parsePanelPrefs(raw);
   if (!p.ok) return p;
   const value = { ...p.value, design: p.value.design ? cleanDesign(p.value.design) : null };
-  const empty = !value.design && !value.sidebar && !value.nav && !value.home.length;
+  const empty = !value.design && !value.sidebar && !value.nav;
   const data: Prisma.CreatorUpdateInput = { panelPrefs: empty ? Prisma.DbNull : (value as unknown as Prisma.InputJsonValue) };
   if (designs) {
     const draft = creator.pageDraft && typeof creator.pageDraft === "object" && !Array.isArray(creator.pageDraft) ? (creator.pageDraft as Record<string, unknown>) : {};

@@ -13,7 +13,8 @@ import { formatDate } from "@/lib/tz";
 import { freeMemberships } from "../free-memberships";
 import { Thumb } from "../ui";
 import { TierPortal } from "@/components/creator-page/tier-portal";
-import { readTierCard } from "@/lib/tier-card";
+import { readTierCard, readTierEmblem } from "@/lib/tier-card";
+import { readTierLook } from "@/lib/tier-look";
 
 /**
  * «Mis membresías»: los niveles de la comunidad como tres portales (Esencia, Plena, Luna completa). Los que
@@ -85,6 +86,8 @@ export default async function MyMemberships() {
               href={href}
               open={open}
               level={i}
+              emblem={readTierEmblem(d.pageTexts)}
+              look={readTierLook(d.pageTexts)}
               image={d.imageUrl}
               title={t.title}
               intro={phrase}

@@ -1,9 +1,11 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
 import { DRIP_MAX_DAYS, DRIP_MODES } from "@/lib/course-drip";
+import { EMPTY_COURSE_LOOK, readCourseLook } from "@/lib/course-design";
 import { asCourseCategory } from "@/lib/course-categories";
 import { productDeliveryIssue } from "@/lib/delivery";
 import { isLastPublishedLesson, LESSON_LAST_PUBLISHED } from "@/lib/lessons";
@@ -46,6 +48,38 @@ export async function setStudioCourseCategory(productId: string, value: string):
   refresh(productId);
   revalidatePath("/[username]/cursos", "page");
   return { ok: value ? "Temática guardada" : "Sin temática" };
+}
+
+// ───────────── Título ─────────────
+
+/** El título del curso, escrito encima en el editor (como en su ficha: de 2 a 100 letras). */
+export async function renameStudioCourse(productId: string, raw: string): Promise<StudioResult> {
+  const { creator, db } = await ctx();
+  const name = typeof raw === "string" ? raw.replace(/\s+/g, " ").trim() : "";
+  if (name.length < 2) return { error: "El título del curso es demasiado corto" };
+  if (name.length > 100) return { error: "El título del curso admite 100 letras" };
+  const course = await db.product.findFirst({ where: { id: productId, type: "COURSE" }, select: { id: true } });
+  if (!course) return { error: "Curso no encontrado" };
+  await db.product.updateMany({ where: { id: productId }, data: { title: name } });
+  refresh(productId);
+  revalidatePath("/cuenta/cursos");
+  revalidatePath("/[username]/cursos", "page");
+  revalidatePath(`/${creator.username}`);
+  return { ok: "Título guardado" };
+}
+
+// ───────────── Diseño ─────────────
+
+/** El diseño de todas las lecciones del curso (lib/course-design.ts); vacío = los colores del área de cada alumna. */
+export async function saveCourseLook(productId: string, raw: unknown): Promise<StudioResult> {
+  const { db } = await ctx();
+  const course = await db.product.findFirst({ where: { id: productId, type: "COURSE" }, select: { id: true } });
+  if (!course) return { error: "Curso no encontrado" };
+  const look = readCourseLook(raw);
+  const empty = JSON.stringify(look) === JSON.stringify(EMPTY_COURSE_LOOK);
+  await db.product.updateMany({ where: { id: productId }, data: { courseDesign: empty ? Prisma.DbNull : (look as Prisma.InputJsonValue) } });
+  revalidatePath(`/cuenta/cursos/${productId}`);
+  return { ok: "Diseño guardado" };
 }
 
 // ───────────── Módulos ─────────────
@@ -117,7 +151,51 @@ export async function reorderCourse(productId: string, layout: unknown): Promise
   return { ok: "Orden guardado" };
 }
 
+/**
+ * Mover un capítulo de una lección (arrastrándolo en el índice): el capítulo entero, con todo lo que tiene dentro
+ * hasta el siguiente, pasa de `from` a `to` (contando `to` sin él). Lo de antes del primer capítulo no se mueve. La
+ * versión de la lección sube, para que un editor abierto en otra pantalla no pise el orden nuevo sin avisar.
+ */
+export async function moveLessonChapter(lessonId: string, from: number, to: number): Promise<StudioResult> {
+  const { creator } = await ctx();
+  const creatorId = creator.id;
+  if (![from, to].every((n) => Number.isInteger(n) && n >= 0 && n < 200)) return { error: "No hemos podido leer el nuevo orden. Recarga la página." };
+  const l = await prisma.lesson.findFirst({
+    where: { id: lessonId, creatorId },
+    select: { productId: true, parts: { orderBy: { sortOrder: "asc" }, select: { id: true, kind: true } } },
+  });
+  if (!l) return { error: "Lección no encontrada" };
+  const starts = l.parts.flatMap((p, i) => (p.kind === "CHAPTER" ? [i] : []));
+  if (from >= starts.length || to >= starts.length) return { error: "La lección ha cambiado en otra pantalla. Recarga la página." };
+  if (from === to) return { ok: "Orden guardado" };
+  const head = l.parts.slice(0, starts[0]);
+  const blocks = starts.map((s, k) => l.parts.slice(s, starts[k + 1] ?? l.parts.length));
+  const [moved] = blocks.splice(from, 1);
+  blocks.splice(to, 0, moved);
+  const order = [...head, ...blocks.flat()];
+  await prisma.$transaction([
+    ...order.map((p, i) => prisma.lessonPart.updateMany({ where: { id: p.id, creatorId, lessonId }, data: { sortOrder: i } })),
+    prisma.lesson.updateMany({ where: { id: lessonId, creatorId }, data: { version: { increment: 1 } } }),
+  ]);
+  refresh(l.productId);
+  return { ok: "Orden de los capítulos guardado" };
+}
+
 // ───────────── Lecciones ─────────────
+
+/**
+ * «Añadir lección»: una lección nueva al final del módulo, en borrador y vacía («Lección nueva»), para abrirla al
+ * momento en el editor (allí se escribe su título encima y todo se guarda solo).
+ */
+export async function addStudioLesson(productId: string, moduleId: string): Promise<StudioResult & { lessonId?: string }> {
+  const { creator, db } = await ctx();
+  const mod = await db.courseModule.findFirst({ where: { id: moduleId, productId, product: { type: "COURSE" } }, select: { id: true } });
+  if (!mod) return { error: "Módulo no encontrado. Recarga la página." };
+  const count = await db.lesson.count({ where: { moduleId } });
+  const lesson = await db.lesson.create({ data: { creatorId: creator.id, productId, moduleId, title: "Lección nueva", kind: "TEXT", sortOrder: count, published: false } });
+  refresh(productId);
+  return { ok: "Lección añadida", lessonId: lesson.id };
+}
 
 export async function setLessonPublished(id: string, published: boolean): Promise<StudioResult> {
   const { db, creator } = await ctx();
@@ -158,11 +236,26 @@ export async function duplicateLesson(id: string): Promise<StudioResult & { less
         sortOrder: l.sortOrder + 1,
         published: false,
         dripDays: l.dripDays,
+        design: l.design === null ? Prisma.DbNull : (l.design as Prisma.InputJsonValue),
       },
     });
+    const json = (v: Prisma.JsonValue) => (v === null ? Prisma.DbNull : (v as Prisma.InputJsonValue));
     if (l.parts.length)
       await tx.lessonPart.createMany({
-        data: l.parts.map((p) => ({ creatorId, productId: l.productId, lessonId: copy.id, sortOrder: p.sortOrder, kind: p.kind, body: p.body, bodyFormat: p.bodyFormat, fileId: p.fileId, url: p.url })),
+        // También el contenido de los capítulos y las piezas interactivas (data) y el diseño de cada pieza.
+        data: l.parts.map((p) => ({
+          creatorId,
+          productId: l.productId,
+          lessonId: copy.id,
+          sortOrder: p.sortOrder,
+          kind: p.kind,
+          body: p.body,
+          bodyFormat: p.bodyFormat,
+          fileId: p.fileId,
+          url: p.url,
+          data: json(p.data),
+          design: json(p.design),
+        })),
       });
     return { id: copy.id, productId: l.productId };
   });

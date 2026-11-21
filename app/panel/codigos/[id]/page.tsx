@@ -20,7 +20,7 @@ export default async function EditDiscountCodePage({ params }: { params: Promise
   const state = codeState(code);
   return (
     <div className="mx-auto max-w-3xl">
-      <Link href="/panel/codigos" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+      <Link href="/panel/pagina?ver=codigos" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
         <ArrowLeft className="h-4 w-4" /> Códigos
       </Link>
       <PageHeader title={code.brand} subtitle={<Badge tone={state === "ACTIVE" ? "success" : state === "EXPIRED" ? "warning" : "neutral"}>{CODE_STATE_LABEL[state]}</Badge>} />

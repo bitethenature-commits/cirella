@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, BarChart3, Eye, ListTree, Settings2, UsersRound } from "lucide-react";
+import { ArrowLeft, BarChart3, Eye, ListTree, Pencil, Settings2, UsersRound } from "lucide-react";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { deleteProduct } from "../../productos/actions";
 import { Badge } from "../../ui";
@@ -36,6 +36,9 @@ export function StudioHeader({ course, tab }: { course: { id: string; title: str
         </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href={`/panel/cursos/${course.id}/lecciones`} className="btn btn-primary btn-sm" title="Las lecciones sobre la vista de alumna">
+            <Pencil className="h-4 w-4" /> Editar lecciones
+          </Link>
           <Link href={`/cuenta/cursos/${course.id}`} target="_blank" className="btn btn-outline btn-sm" data-view-as-student>
             <Eye className="h-4 w-4" /> Ver como alumna
           </Link>

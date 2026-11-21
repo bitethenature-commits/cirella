@@ -78,9 +78,25 @@ export function figureUrl(figure: GeometryFigure, color: string, strength: numbe
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
-/** Dónde va la figura de fondo: grande en una esquina (saliéndose un poco) o entera en el centro. */
-export type FigurePos = "corner" | "center";
-export const FIGURE_POS: Record<FigurePos, string> = { corner: "En una esquina", center: "En el centro" };
+/**
+ * Dónde va la figura de fondo: grande en una de las cuatro esquinas (saliéndose un poco) o entera en el centro.
+ * «corner» es la de abajo a la derecha (la de siempre, así lo guardado sigue igual).
+ */
+export const FIGURE_POS_KEYS = ["cornerTL", "cornerTR", "cornerBL", "corner", "center"] as const;
+export type FigurePos = (typeof FIGURE_POS_KEYS)[number];
+export const FIGURE_POS: Record<FigurePos, string> = {
+  cornerTL: "Arriba a la izquierda",
+  cornerTR: "Arriba a la derecha",
+  cornerBL: "Abajo a la izquierda",
+  corner: "Abajo a la derecha",
+  center: "En el centro",
+};
+const FIGURE_AT: Record<Exclude<FigurePos, "center">, string> = {
+  cornerTL: "left -4.5rem top -4.5rem",
+  cornerTR: "right -4.5rem top -4.5rem",
+  cornerBL: "left -4.5rem bottom -4.5rem",
+  corner: "right -4.5rem bottom -4.5rem",
+};
 export function figurePlacement(pos: FigurePos): { position: string; size: string } {
-  return pos === "center" ? { position: "50% 50%", size: "contain" } : { position: "right -4.5rem bottom -4.5rem", size: "19rem 19rem" };
+  return pos === "center" ? { position: "50% 50%", size: "contain" } : { position: FIGURE_AT[pos] ?? FIGURE_AT.corner, size: "19rem 19rem" };
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
+import { CfgText, SiteText } from "@/components/creator-page/site-text";
 import type { PublicProduct } from "@/components/creator-page/creator-page-view";
 import { OracleCard } from "@/components/creator-page/oracle-card";
 import { TrackOnMount } from "@/components/creator-page/tracking";
@@ -42,28 +43,36 @@ export function BookingStepsPage({ data, kind }: { data: NonNullable<Awaited<Ret
     <CreatorShell page={kind === "reading" ? "lecturas" : "sesiones"} username={creator.username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages}>
       <main className="mx-auto max-w-3xl px-4 pb-14 pt-8 sm:pt-12">
         <Link href={`${data.homeHref}#lecturas`} className="cp-muted inline-flex items-center gap-1.5 text-sm">
-          <ArrowLeft className="h-4 w-4" /> Volver
+          <ArrowLeft className="h-4 w-4" /> <SiteText texts={config.texts} k="pg.booking.back" />
         </Link>
 
         <header className="mt-8 text-center">
           <p className="cp-eyebrow !tracking-[0.42em]" style={{ color: "var(--c-gold)" }}>
-            {card?.eyebrow || d.eyebrow}
+            <CfgText path={`readings.${kind}.eyebrow`}>{card?.eyebrow || d.eyebrow}</CfgText>
           </p>
           <GoldRule className="mt-4" />
-          <h1 className="cp-display cp-thin mt-5 text-[2.8rem] leading-[1.05] sm:text-[3.4rem]">{card?.title || d.title}</h1>
-          <p className="cp-muted cp-thin-text mx-auto mt-4 max-w-md text-[1.08rem] leading-relaxed">{card?.text || d.text}</p>
+          <h1 className="cp-display cp-thin mt-5 text-[2.8rem] leading-[1.05] sm:text-[3.4rem]">
+            <CfgText path={`readings.${kind}.title`}>{card?.title || d.title}</CfgText>
+          </h1>
+          <p className="cp-muted cp-thin-text mx-auto mt-4 max-w-md text-[1.08rem] leading-relaxed">
+            <CfgText path={`readings.${kind}.text`} multiline>
+              {card?.text || d.text}
+            </CfgText>
+          </p>
         </header>
 
         <section aria-labelledby="pasos" className="mt-14">
           <h2 id="pasos" className="cp-display cp-thin text-[1.9rem] italic">
-            Cómo reservar
+            <SiteText texts={config.texts} k="pg.booking.how" />
           </h2>
           <span aria-hidden className="mt-3 block h-px w-24" style={{ background: "linear-gradient(90deg, var(--c-gold), transparent)" }} />
           <ol className="cp-steps-line mt-5">
             {steps.map((s, i) => (
               <li key={i} className="flex items-baseline gap-5 py-4">
                 <span className="cp-roman">{ROMAN[i] ?? i + 1}</span>
-                <span className="cp-thin-text text-[1.05rem] leading-relaxed">{s}</span>
+                <span className="cp-thin-text text-[1.05rem] leading-relaxed">
+                  <CfgText path={`readings.${kind}.steps.${i}`}>{s}</CfgText>
+                </span>
               </li>
             ))}
           </ol>
@@ -72,12 +81,14 @@ export function BookingStepsPage({ data, kind }: { data: NonNullable<Awaited<Ret
         <section aria-labelledby="productos" className="mt-16">
           <div className="text-center">
             <h2 id="productos" className="cp-display cp-thin text-[2.3rem]">
-              {kind === "reading" ? "Lecturas" : "Sesiones"}
+              <SiteText texts={config.texts} k={kind === "reading" ? "pg.readings.title" : "pg.sessions.title"} />
             </h2>
             <GoldRule className="mt-3 !max-w-[8rem]" />
           </div>
           {products.length === 0 ? (
-            <p className="cp-muted mt-6 text-center">Ahora mismo no hay {kind === "reading" ? "lecturas" : "sesiones"} disponibles.</p>
+            <p className="cp-muted mt-6 text-center">
+              <SiteText texts={config.texts} k={kind === "reading" ? "pg.readings.empty" : "pg.sessions.empty"} />
+            </p>
           ) : (
             <div className="mx-auto mt-8 grid max-w-[16rem] gap-5 sm:max-w-none sm:grid-cols-2 md:grid-cols-3">
               {products.map((p) => (

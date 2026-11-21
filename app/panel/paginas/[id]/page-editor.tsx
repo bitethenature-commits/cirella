@@ -14,7 +14,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { PAGE_BLOCKS_MAX, PAGE_TEXT_MAX, withoutEmptyBlocks } from "@/lib/page-blocks";
 import type { PageConfig } from "@/lib/page-config";
-import { GIFTS_SLUG, isFixedPageSlug, sitePagePath, type SitePageContent } from "@/lib/site-pages";
+import { COMMUNITY_SLUG, GIFTS_SLUG, isFixedPageSlug, sitePagePath, type SitePageContent } from "@/lib/site-pages";
 import { slugify } from "@/lib/slug";
 import type { OracleDeckView } from "@/components/models/data/oracle";
 import { addSitePageButtonAction, deleteSitePageAction, publishSitePageAction, saveSitePageDraft, unpublishSitePageAction } from "../actions";
@@ -67,7 +67,7 @@ export function SitePageEditor(props: Props) {
   const [uploading, setUploading] = useState(false);
   // La 1:1 y Gifts: su dirección es fija y no se borran (lib/site-pages.ts).
   const oneToOne = isFixedPageSlug(props.slug);
-  const fixedName = props.slug === GIFTS_SLUG ? "Gifts" : "la 1:1";
+  const fixedName = props.slug === GIFTS_SLUG ? "Gifts" : props.slug === COMMUNITY_SLUG ? "Hacerte miembro" : "la 1:1";
 
   const dirty = JSON.stringify({ c: content, slug, n: showInNav }) !== saved;
   const unpublished = JSON.stringify(content) !== publishedJson;
@@ -212,7 +212,7 @@ export function SitePageEditor(props: Props) {
   return (
     <div>
       <div className="min-w-0">
-        <Link href="/panel/paginas" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+        <Link href="/panel/pagina?ver=paginas" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
           <ArrowLeft className="h-4 w-4" /> Páginas
         </Link>
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -337,7 +337,7 @@ export function SitePageEditor(props: Props) {
                   </form>
                 )}
                 {(
-                <ConfirmForm action={deleteSitePageAction} message={oneToOne ? `¿Borrar la página de ${fixedName}? No vuelve a crearse. En tu web, su sección enseña el texto de partida hasta que la quites en Mi página › Secciones.` : `¿Borrar «${props.initial.title}»? Su dirección dejará de funcionar.`}>
+                <ConfirmForm action={deleteSitePageAction} message={oneToOne ? `¿Borrar la página de ${fixedName}? No vuelve a crearse. En tu web, su sección enseña el texto de partida hasta que la ocultes en tu portada (Mi página).` : `¿Borrar «${props.initial.title}»? Su dirección dejará de funcionar.`}>
                   <input type="hidden" name="id" value={props.id} />
                   <button className="btn btn-ghost btn-sm h-10 text-rose">
                     <Trash2 className="h-4 w-4" /> Borrar página

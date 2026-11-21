@@ -144,6 +144,8 @@ export type RichInline =
   | { t: "text"; v: string }
   | { t: "b" | "i"; c: RichInline[] }
   | { t: "a"; href: string; external: boolean; c: RichInline[] }
+  /** Unas palabras de otro color: «[texto]{#RRGGBB}» (el editor de lecciones, como en Canva). */
+  | { t: "c"; color: string; c: RichInline[] }
   | { t: "br" };
 
 export type RichBlock =
@@ -369,6 +371,32 @@ function readLink(line: string, i: number): { end: number; text: string; href: s
   return link ? { end: k + 1, text, ...link } : null;
 }
 
+const COLOR_TAIL = /^\{(#[0-9a-fA-F]{6})\}/;
+
+/**
+ * Intenta leer «[texto]{#RRGGBB}» empezando en `i` (un «[»): el texto puede llevar enlaces dentro («[[x](url)]{#…}»),
+ * así que los corchetes se cuentan. Solo un color hex: nunca otra cosa en el estilo.
+ */
+function readColor(line: string, i: number): { end: number; text: string; color: string } | null {
+  let depth = 1;
+  let j = i + 1;
+  const max = Math.min(line.length, i + 1 + LINK_TEXT_MAX + LINK_HREF_MAX);
+  for (; j < max; j++) {
+    const ch = line[j];
+    if (ch === "\\") {
+      j++;
+      continue;
+    }
+    if (ch === "[") depth++;
+    else if (ch === "]" && --depth === 0) break;
+  }
+  if (depth !== 0 || j >= line.length) return null;
+  const m = COLOR_TAIL.exec(line.slice(j + 1, j + 10));
+  const text = line.slice(i + 1, j);
+  if (!m || !text.trim()) return null;
+  return { end: j + 1 + m[0].length, text, color: m[1].toUpperCase() };
+}
+
 /** Recorta un enlace automático: puntuación final (como trimUrl) y marcas «*»/«_» del final. */
 function trimMdUrl(raw: string): string {
   let url = raw;
@@ -403,8 +431,8 @@ function autolinkPieces(text: string, out: Piece[]) {
   if (last < text.length) out.push({ k: "text", v: text.slice(last) });
 }
 
-/** Trozos de una línea: texto (con marcas), caracteres escapados (literales) y enlaces (atómicos). */
-function scanPieces(line: string, links: boolean): Piece[] {
+/** Trozos de una línea: texto (con marcas), caracteres escapados (literales), enlaces y colores (atómicos). */
+function scanPieces(line: string, links: boolean, colors: boolean): Piece[] {
   const out: Piece[] = [];
   let buf = "";
   const flush = () => {
@@ -425,8 +453,17 @@ function scanPieces(line: string, links: boolean): Piece[] {
       const link = readLink(line, i);
       if (link) {
         flush();
-        out.push({ k: "atom", node: { t: "a", href: link.href, external: link.external, c: parseInlineWith(link.text, false) } });
+        out.push({ k: "atom", node: { t: "a", href: link.href, external: link.external, c: parseInlineWith(link.text, false, false) } });
         i = link.end - 1;
+        continue;
+      }
+    }
+    if (colors && ch === "[") {
+      const col = readColor(line, i);
+      if (col) {
+        flush();
+        out.push({ k: "atom", node: { t: "c", color: col.color, c: parseInlineWith(col.text, links, false) } });
+        i = col.end - 1;
         continue;
       }
     }
@@ -448,10 +485,10 @@ function pushText(target: RichInline[], v: string) {
   else target.push({ t: "text", v });
 }
 
-function parseInlineWith(line: string, links: boolean): RichInline[] {
+function parseInlineWith(line: string, links: boolean, colors: boolean): RichInline[] {
   // 1) trozos; 2) separa las tiradas de «*» y «_» del texto normal.
   const flat: ({ k: "text"; v: string } | { k: "atom"; node: RichInline } | { k: "run"; ch: "*" | "_"; raw: string })[] = [];
-  for (const p of scanPieces(line, links)) {
+  for (const p of scanPieces(line, links, colors)) {
     if (p.k === "atom" || (p.k === "text" && p.literal)) {
       flat.push(p.k === "atom" ? p : { k: "text", v: p.v });
       continue;
@@ -522,7 +559,7 @@ function parseInlineWith(line: string, links: boolean): RichInline[] {
 }
 
 function parseInline(line: string): RichInline[] {
-  return parseInlineWith(line, true);
+  return parseInlineWith(line, true, true);
 }
 
 // ── Texto plano ──

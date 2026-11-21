@@ -90,6 +90,9 @@ export function richToEmailHtml(
         return `<strong style="font-weight:600">${inline(n.c)}</strong>`;
       case "i":
         return `<em>${inline(n.c)}</em>`;
+      case "c":
+        // Un hex ya comprobado (lib/rich-text.ts → readColor).
+        return `<span style="color:${n.color}">${inline(n.c)}</span>`;
       case "a": {
         const safe = safeLinkHref(n.href);
         if (!safe) return esc(plain(n.c));

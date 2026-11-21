@@ -8,8 +8,9 @@ import { Flash } from "@/components/ui/flash";
 import { deleteMessage } from "@/lib/delete-copy";
 import { deleteProduct } from "../productos/actions";
 import { uploadImageInfo } from "@/components/ui/image-upload";
-import { TIER_CTA_MAX, TIER_FEATURES_MAX, TIER_ICON_KEYS, TIER_INTRO_MAX } from "@/lib/tier-card";
+import { TIER_CTA_MAX, TIER_FEATURES_MAX, TIER_ICON_KEYS, TIER_INTRO_MAX, type TierEmblem } from "@/lib/tier-card";
 import type { TierFeature } from "@/lib/tier-features";
+import type { TierLook } from "@/lib/tier-look";
 import { saveTierCard, type TierCardState } from "./actions";
 
 export type EditableTier = {
@@ -32,6 +33,10 @@ export type EditableTier = {
   cta: string;
   includesPrevious: string | null;
   highlight: boolean;
+  /** El icono del nivel (se elige en Mi página › Hacerte miembro); sin él, el de su nivel. */
+  emblem?: TierEmblem;
+  /** El diseño de su tarjeta (Mi página › Hacerte miembro, su pincel): con un paisaje dibujado, la foto no se ve. */
+  look?: TierLook;
 };
 
 type View = "web" | "area";
@@ -149,20 +154,26 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
 
       <TierPortal
         level={level}
+        emblem={tier.emblem}
+        look={tier.look}
+        tilt={false}
         image={image}
         open
         badge={web && tier.highlight ? "La más elegida" : null}
         className={`!transform-none ${web && tier.highlight ? "is-highlight" : ""}`}
         ariaLabel={`Portal de ${title}`}
         media={
-          <button
-            type="button"
-            onClick={() => fileInput.current?.click()}
-            className="absolute right-5 top-[22%] z-10 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[color:var(--n-gold,#d4b57a)]/50 bg-black/45 px-3 text-xs font-semibold text-[color:var(--n-gold-hi,#f0d9a4)] backdrop-blur transition hover:bg-black/65"
-          >
-            {upload !== null ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
-            {upload !== null ? (upload < 100 ? `${upload} %` : "Optimizando…") : image ? "Cambiar la foto" : "Poner foto"}
-          </button>
+          // Con un paisaje dibujado la foto no se ve: el botón solo sale si la tarjeta enseña su foto.
+          (!tier.look || tier.look.scene === "photo") && (
+            <button
+              type="button"
+              onClick={() => fileInput.current?.click()}
+              className="absolute right-5 top-[22%] z-10 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[color:var(--n-gold,#d4b57a)]/50 bg-black/45 px-3 text-xs font-semibold text-[color:var(--n-gold-hi,#f0d9a4)] backdrop-blur transition hover:bg-black/65"
+            >
+              {upload !== null ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+              {upload !== null ? (upload < 100 ? `${upload} %` : "Optimizando…") : image ? "Cambiar la foto" : "Poner foto"}
+            </button>
+          )
         }
         title={<input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} required aria-label="Nombre del nivel" className={`w-full px-2 text-center [font:inherit] ${inline}`} />}
         intro={

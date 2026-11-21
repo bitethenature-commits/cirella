@@ -73,8 +73,10 @@ export function makeStars(env: FxEnv, r: Rng, density = 260, opts: { bright?: nu
   }
   stars.sort((a, b) => a.ci - b.ci);
 
-  // Sobre un fondo claro las estrellas no brillan: se ven como puntitos del color suave del diseño.
-  const colors = env.dark ? STAR_COLORS : STAR_COLORS.map((c) => mix(c, env.c.soft, 0.85));
+  // Con «Color del efecto», las estrellas son de ese color (unas más claras, otras con el segundo tono, para que no
+  // sean todas iguales). Sobre un fondo claro no brillan: se ven como puntitos del color suave del diseño.
+  const base = env.own ? STAR_COLORS.map((c, i) => mix(c, i % 2 ? env.c.b : env.c.a, 0.82)) : STAR_COLORS;
+  const colors = env.dark ? base : base.map((c) => mix(c, env.c.soft, 0.85));
   const glows = colors.map((c) => glow(c, 24 * env.dpr, 0.08, 2.6));
   const crosses = colors.map((c) => spikes(c, 40 * env.dpr));
   const bright = clamp(env.starO / 0.7, 0.2, 1.4);

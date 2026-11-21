@@ -5,6 +5,7 @@ import { legacyDesign } from "./legacy-looks";
 import { BUTTON_FRAME_KEYS, CARD_FRAME_KEYS } from "./frames";
 import { DECOR_KEYS, FONT_KEYS, type Design } from "./templates";
 import { readSiteTexts, SITE_TEXT_MAX } from "./site-texts";
+import { FIGURE_POS_KEYS } from "./sacred-figures";
 
 /**
  * Contenido editable de la página pública de una creadora.
@@ -79,8 +80,7 @@ export const NEWSLETTER_FORM_DEFAULTS = {
 export const SECTION_MANAGE_HREF: Partial<Record<SectionKey, { href: string; label: string }>> = {
   portal: { href: "/panel/portal", label: "Portal de Noticias" },
   offers: { href: "/panel/sesiones", label: "Sesiones y lecturas (cada una con su oferta)" },
-  codes: { href: "/panel/codigos", label: "Códigos" },
-  gifts: { href: "/panel/paginas", label: "Páginas → Gifts" },
+  gifts: { href: "/panel/pagina?pagina=gifts", label: "Mis páginas → Gifts" },
   readings: { href: "/panel/sesiones", label: "Sesiones y lecturas" },
   products: { href: "/panel/sesiones", label: "Sesiones y lecturas" },
   sessions: { href: "/panel/sesiones", label: "Sesiones y lecturas" },
@@ -152,7 +152,7 @@ export const TEXT_BLOCKS_MAX = HOME_BLOCKS_MAX;
 export const TEXT_BLOCK_BODY_MAX = HOME_TEXT_MAX;
 const homeBlockSchema = contentBlockSchema({ bodyMax: TEXT_BLOCK_BODY_MAX });
 
-export const SOCIAL_KEYS = ["instagram", "tiktok", "telegram", "youtube", "whatsapp", "email", "website"] as const;
+export const SOCIAL_KEYS = ["instagram", "tiktok", "telegram", "youtube", "email", "website"] as const;
 export type SocialKey = (typeof SOCIAL_KEYS)[number];
 
 export const SOCIAL_LABEL: Record<SocialKey, string> = {
@@ -160,10 +160,18 @@ export const SOCIAL_LABEL: Record<SocialKey, string> = {
   tiktok: "TikTok",
   telegram: "Telegram",
   youtube: "YouTube",
-  whatsapp: "WhatsApp",
   email: "Email",
   website: "Web",
 };
+
+/** Solo las redes que existen (las de antes, como WhatsApp, se quitan al leer). */
+const onlySocialKeys = (v: unknown) =>
+  v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).filter(([k]) => (SOCIAL_KEYS as readonly string[]).includes(k))) : v;
+
+/** Las redes que tiene, en su orden (el que eligió en Mi página y, después, las demás). */
+export function socialList(c: { socials: Partial<Record<SocialKey, string>>; socialOrder?: SocialKey[] }): SocialKey[] {
+  return [...new Set([...(c.socialOrder ?? []), ...SOCIAL_KEYS])].filter((k) => c.socials[k]?.trim());
+}
 
 const color = z
   .string()
@@ -251,7 +259,7 @@ export const designSchema = z.object({
   panelDouble: flag,
   panelStars: flag,
   panelGeo: z.enum(["keep", "none", ...GEOMETRY_FIGURES]).nullable().optional(),
-  panelGeoPos: z.enum(["corner", "center"]).nullable().optional(),
+  panelGeoPos: z.enum(FIGURE_POS_KEYS).nullable().optional(),
   panelGeoOpacity: num(0, 100),
   panelGeoColor: color,
   fontPair: z.string().max(20).nullable().optional(),
@@ -321,10 +329,12 @@ export const pageConfigSchema = z.object({
   pageThemes: z.record(z.string().max(80), designSchema).default({}),
   /** Piezas sueltas con su propio aspecto (una tarjeta, un panel o un botón), página a página (lib/pieces.ts). */
   pieces: piecesSchema.default({}),
+  /** El diseño propio de cada sección de la portada («header», la cabecera, o su clave), encima del de la portada. */
+  sectionThemes: z.record(z.string().max(80), designSchema).optional(),
   /** Las plantillas que ha creado la dueña. */
   designs: z.array(savedDesignSchema).max(SAVED_DESIGNS_MAX).default([]),
   sections: z
-    .array(z.object({ key: z.enum(SECTION_KEYS), enabled: z.boolean(), title: shortText(60).optional() }))
+    .array(z.object({ key: z.enum(SECTION_KEYS), enabled: z.boolean(), title: shortText(60).optional(), /** Quitada en Mi página (vuelve con el +, con lo que tenía). */ removed: z.boolean().optional() }))
     .default([]),
   links: z
     .array(
@@ -337,7 +347,9 @@ export const pageConfigSchema = z.object({
     )
     .max(12)
     .default([]),
-  socials: z.record(z.enum(SOCIAL_KEYS), shortText(200)).default({}),
+  socials: z.preprocess(onlySocialKeys, z.record(z.enum(SOCIAL_KEYS), shortText(200))).default({}),
+  /** El orden de las redes bajo su presentación (las que no están, detrás). */
+  socialOrder: z.preprocess((v) => (Array.isArray(v) ? v.filter((k) => (SOCIAL_KEYS as readonly string[]).includes(k)) : v), z.array(z.enum(SOCIAL_KEYS)).max(SOCIAL_KEYS.length)).optional(),
   testimonials: z
     .array(z.object({ id: z.string().max(40), author: shortText(80), role: shortText(80).optional(), quote: shortText(500) }))
     .max(12)
@@ -347,7 +359,7 @@ export const pageConfigSchema = z.object({
     .max(20)
     .default([]),
   contact: z
-    .object({ email: shortText(200).optional(), whatsapp: shortText(40).optional(), message: shortText(300).optional() })
+    .object({ email: shortText(200).optional(), message: shortText(300).optional() })
     .default({}),
   // Bloques de la portada: texto con formato, imagen, galería, vídeo, foto y texto, tarjetas, cita y
   // trayectoria (lib/page-blocks.ts). Los de antes (sin `kind`) son de texto.
@@ -468,6 +480,7 @@ export function readPageConfig(raw: unknown, fallbackName = "Mi página"): PageC
       template: "custom",
       theme: legacyDesign(r.template, r.theme) ?? readDesign(r.theme),
       pageThemes: readPageThemes(r.pageThemes),
+      sectionThemes: readPageThemes(r.sectionThemes),
       pieces: readPieces(r.pieces),
       texts: readSiteTexts(r.texts),
       ...("designs" in r ? { designs: readList(r.designs, savedDesignSchema, SAVED_DESIGNS_MAX) } : {}),
@@ -518,6 +531,32 @@ export function visibleTextBlocks(cfg: Pick<PageConfig, "blocks">): ContentBlock
   return visibleBlocks(cfg.blocks);
 }
 
+/** Lo que va en la portada, en su orden: sus secciones y, entre ellas, sus bloques (Texto, Tarjetas, Cita…). */
+export type HomeItem = { kind: "section"; key: SectionKey } | { kind: "block"; block: ContentBlock };
+
+/**
+ * La portada en su orden (sin «links», que va siempre arriba, ni la antigua sección «Bloques»): cada bloque va
+ * delante de la sección que dice su `at` («end», al final). Los de antes (sin `at`) van donde estaba «Bloques» y,
+ * si esa sección estaba oculta, ocultos. Las secciones quitadas no salen, pero sus bloques siguen en su sitio.
+ */
+export function homeLayout(cfg: Pick<PageConfig, "sections" | "blocks">): HomeItem[] {
+  const keys = cfg.sections.map((s) => s.key);
+  const bi = keys.indexOf("blocks");
+  const legacyAt = (bi >= 0 ? keys.slice(bi + 1).find((k) => k !== "links") : undefined) ?? "end";
+  const legacyOn = cfg.sections.find((s) => s.key === "blocks")?.enabled !== false;
+  const anchor = (b: ContentBlock) => (b.at && (b.at === "end" || (keys as string[]).includes(b.at)) && b.at !== "blocks" && b.at !== "links" ? b.at : legacyAt);
+  const blocks = (cfg.blocks ?? []).map((b) => (b.at || legacyOn ? b : { ...b, enabled: false }));
+  const out: HomeItem[] = [];
+  const blocksAt = (at: string) => blocks.filter((b) => anchor(b) === at).forEach((block) => out.push({ kind: "block", block }));
+  for (const s of cfg.sections) {
+    if (s.key === "links" || s.key === "blocks") continue;
+    blocksAt(s.key);
+    if (!s.removed) out.push({ kind: "section", key: s.key });
+  }
+  blocksAt("end");
+  return out;
+}
+
 export function sectionTitle(cfg: PageConfig, key: SectionKey) {
   const s = cfg.sections.find((x) => x.key === key);
   return s?.title || SECTION_META[key].defaultTitle;
@@ -536,8 +575,6 @@ export function socialHref(key: SocialKey, value: string) {
       return `https://t.me/${handle}`;
     case "youtube":
       return `https://youtube.com/@${handle}`;
-    case "whatsapp":
-      return `https://wa.me/${handle.replace(/[^\d]/g, "")}`;
     case "email":
       return `mailto:${v}`;
     case "website":

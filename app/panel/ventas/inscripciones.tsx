@@ -1,27 +1,15 @@
 import Link from "next/link";
-import { BookOpen, Check, Crown, Download, LayoutGrid, Lock, Mail, MonitorPlay, Moon, Sparkles, UserRound, UsersRound } from "lucide-react";
+import { BookOpen, Crown, Download, LayoutGrid, Mail, MonitorPlay, Moon, UserRound, UsersRound } from "lucide-react";
 import { SpinningSolid } from "@/app/cuenta/spinning-solid";
-import { ConfirmForm } from "@/components/ui/confirm-form";
-import { DeleteButton } from "@/components/ui/delete-button";
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
 import { formatNumber } from "@/lib/money";
-import { formatDate } from "@/lib/tz";
-import { Badge, CounterCard, PageHeader, PersonDot } from "../ui";
-import { deleteOrderAction, denySignupMember, renewSignupMember } from "./actions";
+import { CounterCard, PageHeader, PersonDot } from "../ui";
+import { renewsSoon, SignupItem } from "./signup-item";
 import { listSignups, RENEW_SOON_DAYS, signupFilters, SIGNUPS_PAGE, type SignupRow } from "./signups-data";
-
-/** Lo que es cada cosa, en palabras. */
-const kindOf = (r: SignupRow) =>
-  r.productType === "MEMBERSHIP" ? "Membresía" : r.moonCircle ? "Círculo de la luna" : r.productType === "COURSE" ? "Curso" : r.productType === "SESSION" ? "Sesión" : "Lectura";
-const kindIcon = (r: SignupRow) =>
-  r.productType === "MEMBERSHIP" ? <Crown className="h-4 w-4" /> : r.moonCircle ? <Moon className="h-4 w-4" /> : r.productType === "COURSE" ? <BookOpen className="h-4 w-4" /> : r.productType === "SESSION" ? <MonitorPlay className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />;
 
 /** Una persona con todo lo suyo (sus inscripciones, de la más urgente a la más antigua). */
 type Person = { email: string; name: string | null; customerId: string | null; newsletter: boolean; newsletterPending: boolean; rows: SignupRow[] };
-
-/** «Quedan 12 días», «Queda 1 día», «Vence hoy». */
-const daysText = (d: number) => (d <= 0 ? "Vence hoy" : d === 1 ? "Queda 1 día" : `Quedan ${d} días`);
 
 /**
  * «Inscripciones»: quién se ha apuntado a qué y a quién has dado acceso tú. Filtros en orden: las
@@ -47,7 +35,7 @@ export async function SignupsView({
   const { rows, total } = await listSignups(creatorId, { since: null, productIds: ids, take: SIGNUPS_PAGE, timeZone: timezone });
   const people = new Set(rows.map((r) => r.email)).size;
   const newsletter = new Set(rows.filter((r) => r.newsletter).map((r) => r.email)).size;
-  const soon = (r: SignupRow) => r.productType === "MEMBERSHIP" && r.daysLeft != null && r.daysLeft <= RENEW_SOON_DAYS;
+  const soon = renewsSoon;
   const soonCount = rows.filter(soon).length;
   const members = new Set(rows.filter((r) => r.productType === "MEMBERSHIP" && r.active).map((r) => r.email)).size;
   // Agrupadas por persona (su email): la que tiene algo a punto de vencer, arriba; después, la última que se apuntó.
@@ -63,17 +51,6 @@ export async function SignupsView({
     byPerson.set(key, p);
   }
   const personList = [...byPerson.values()];
-  const day = (d: Date) => formatDate(d, { day: "numeric", month: "short", year: "numeric" }, timezone);
-  /** El acceso de una inscripción, dicho claro. */
-  const accessText = (r: SignupRow): { text: string; tone: "success" | "warning" | "neutral" | "danger" } => {
-    if (r.active) {
-      if (r.expiresAt && r.daysLeft != null) return { text: `Con acceso · ${daysText(r.daysLeft).toLowerCase()} (hasta el ${day(r.expiresAt)})`, tone: soon(r) ? "warning" : "success" };
-      return { text: "Con acceso · sin fecha de fin", tone: "success" };
-    }
-    if (r.accessStatus === "REVOKED") return { text: "Acceso quitado", tone: "danger" };
-    if (r.accessStatus === "EXPIRED" || r.accessStatus === "ACTIVE") return { text: r.expiresAt ? `Acceso terminado el ${day(r.expiresAt)}` : "Acceso terminado", tone: "neutral" };
-    return { text: "Sin acceso todavía", tone: "neutral" };
-  };
 
   const base = personal ? "/panel/ventas" : "/panel/ventas?estado=inscripciones";
   const href = (key: string | null) => (key ? `${base}${base.includes("?") ? "&" : "?"}filtro=${encodeURIComponent(key)}` : base);
@@ -185,48 +162,9 @@ export async function SignupsView({
                   )}
                 </header>
                 <ul className="divide-y divide-line">
-                  {p.rows.map((r) => {
-                    const urgent = soon(r);
-                    const a = accessText(r);
-                    return (
-                      <li key={r.orderId} className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 text-sm md:px-5 ${urgent ? "bg-[#fbf3e2]" : ""}`}>
-                        <Link href={`/panel/ventas/${r.orderId}`} className="flex min-w-0 flex-1 items-center gap-3 hover:underline-offset-2">
-                          <span className="panel-emblem h-9 w-9 shrink-0">{kindIcon(r)}</span>
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium">
-                              {r.productEmoji} {r.productTitle}
-                            </span>
-                            <span className="block truncate text-xs text-muted">
-                              {kindOf(r)} · {r.origin}
-                              {r.paidAt ? ` · desde el ${day(r.paidAt)}` : ""}
-                            </span>
-                          </span>
-                        </Link>
-                        <span className="flex flex-wrap items-center justify-end gap-2">
-                          <Badge tone={a.tone}>{a.text}</Badge>
-                          {r.productType === "MEMBERSHIP" && r.accessId && (urgent || !r.active) && (
-                            <form action={renewSignupMember}>
-                              <input type="hidden" name="accessId" value={r.accessId} />
-                              <input type="hidden" name="back" value={here} />
-                              <button className="btn btn-outline btn-sm">
-                                <Check className="h-4 w-4" /> Ha pagado
-                              </button>
-                            </form>
-                          )}
-                          {urgent && r.accessId && (
-                            <ConfirmForm action={denySignupMember} message={`¿Denegar el acceso a ${r.name ?? r.email}? Dejará de entrar en «${r.productTitle}» ahora mismo. Si paga, pulsa «Ha pagado» y vuelve a entrar.`}>
-                              <input type="hidden" name="accessId" value={r.accessId} />
-                              <input type="hidden" name="back" value={here} />
-                              <button className="btn btn-ghost btn-sm text-[#9b2c2c] hover:bg-[#9b2c2c]/10">
-                                <Lock className="h-4 w-4" /> Denegar acceso
-                              </button>
-                            </ConfirmForm>
-                          )}
-                          <DeleteButton action={deleteOrderAction} id={r.orderId} what={r.productTitle} fields={{ back: here }} message={`¿Borrar la inscripción de ${r.name ?? r.email} en «${r.productTitle}»? Pierde el acceso y desaparece de la lista. No se puede deshacer.`} />
-                        </span>
-                      </li>
-                    );
-                  })}
+                  {p.rows.map((r) => (
+                    <SignupItem key={r.orderId} r={r} back={here} timezone={timezone} />
+                  ))}
                 </ul>
               </article>
             );

@@ -112,14 +112,13 @@ export const STYLE_LABEL: Record<EmailStyle["radius"], string> = { none: "Rectas
 
 export type Align = "left" | "center" | "right";
 export type TitleSize = "s" | "m" | "l" | "xl";
-export type SocialNetwork = "instagram" | "tiktok" | "youtube" | "telegram" | "whatsapp" | "web" | "email";
-export const SOCIAL_NETWORKS: SocialNetwork[] = ["instagram", "tiktok", "youtube", "telegram", "whatsapp", "web", "email"];
+export type SocialNetwork = "instagram" | "tiktok" | "youtube" | "telegram" | "web" | "email";
+export const SOCIAL_NETWORKS: SocialNetwork[] = ["instagram", "tiktok", "youtube", "telegram", "web", "email"];
 export const SOCIAL_NETWORK_LABEL: Record<SocialNetwork, string> = {
   instagram: "Instagram",
   tiktok: "TikTok",
   youtube: "YouTube",
   telegram: "Telegram",
-  whatsapp: "WhatsApp",
   web: "Web",
   email: "Email",
 };
@@ -349,7 +348,8 @@ const blockSchema = z.discriminatedUnion("t", [
   z.object({
     id,
     t: z.literal("social"),
-    links: z.record(z.enum(SOCIAL_NETWORKS as [SocialNetwork, ...SocialNetwork[]]), shortText(300)).catch({}),
+    // Las redes que ya no hay (WhatsApp) se quitan al leer, sin perder las demás.
+    links: z.preprocess((v) => (v && typeof v === "object" ? Object.fromEntries(Object.entries(v).filter(([k]) => (SOCIAL_NETWORKS as string[]).includes(k))) : v), z.record(z.enum(SOCIAL_NETWORKS as [SocialNetwork, ...SocialNetwork[]]), shortText(300))).catch({}),
     align: align3.catch("center"),
     color: optColor,
     ...band,

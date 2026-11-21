@@ -1,4 +1,5 @@
 import type { Decor } from "@/lib/templates";
+import { nebulaPixel, type NebulaJob } from "./nebula-paint";
 import { makeStars } from "./stars";
 import {
   addMode,
@@ -15,9 +16,11 @@ import {
   makeNoise,
   mix,
   noiseTexture,
+  noiseTextureLater,
   rgba,
   rng,
   smooth,
+  soften,
   sprite,
   TAU,
   type EffectFactory,
@@ -38,9 +41,10 @@ const band = (u: number, v: number) => {
 function milkyWay(env: FxEnv): Sprite {
   const W = 220;
   const H = Math.max(60, Math.round((W * env.h) / env.w));
-  const warm = hex("#FFE9CF");
-  const cool = hex("#C9D6FF");
-  return noiseTexture(W, H, 7, (n, u, v) => {
+  // Con «Color del efecto», el polvo de luz también es de ese color.
+  const warm = env.own ? lighten(env.c.b, 0.35) : hex("#FFE9CF");
+  const cool = env.own ? lighten(env.c.a, 0.2) : hex("#C9D6FF");
+  const tex = noiseTexture(W, H, 7, (n, u, v) => {
     const b = band(u, v);
     if (b < 0.01) return [0, 0, 0, 0];
     const x = u * 4 * (env.w / env.h);
@@ -51,6 +55,8 @@ function milkyWay(env: FxEnv): Sprite {
     const c = mix(cool, warm, clamp(cloud * 1.2 - 0.2));
     return [c[0], c[1], c[2], Math.round(clamp(a) * 120)];
   });
+  // Estirada con cuidado: sin cuadritos.
+  return soften(tex, 1.4);
 }
 
 const stars: EffectFactory = (env) => {
@@ -348,33 +354,119 @@ const moon: EffectFactory = (env) => {
 
 /* ───────────── Nebulosa ───────────── */
 
-function nebulaLayer(env: FxEnv, seed: number, c1: RGB, c2: RGB, sparse: boolean): Sprite {
-  const W = 230;
-  const H = Math.max(80, Math.round((W * env.h) / env.w));
-  const asp = W / H;
-  return noiseTexture(W, H, seed, (n, u, v) => {
-    const x = u * 2.3 * asp;
-    const y = v * 2.3;
-    const q = fbm(n, x, y, 0, 3);
-    const q2 = fbm(n, x + 5.2, y + 1.3, 1, 3);
-    const w = fbm(n, x + 1.7 * q, y + 1.7 * q2, 2, 5);
-    let dens = smooth(sparse ? 0.12 : -0.08, sparse ? 0.75 : 0.62, w);
-    const dust = smooth(0.18, 0.58, fbm(n, x * 1.9 + 9, y * 1.9, 3, 4));
-    dens *= 1 - 0.7 * dust;
-    const col = mix(c1, c2, smooth(-0.4, 0.5, q));
-    const hot = lighten(col, dens * dens * 0.55);
-    return [hot[0], hot[1], hot[2], Math.round(clamp(dens) * 235)];
-  });
+/** Una capa pintada aparte (nebula.worker.ts): como mucho dos a la vez en toda la página, las demás esperan. */
+type Paint = { job: NebulaJob; done: (s: Sprite) => void; fail: () => void; w?: Worker; dead?: boolean };
+const paintQueue: Paint[] = [];
+let painting = 0;
+
+function pumpPaint() {
+  while (painting < 2 && paintQueue.length) {
+    const p = paintQueue.shift() as Paint;
+    let w: Worker;
+    try {
+      w = new Worker(new URL("./nebula.worker.ts", import.meta.url));
+    } catch {
+      p.fail();
+      continue;
+    }
+    painting++;
+    p.w = w;
+    w.onmessage = (ev: MessageEvent<{ data: Uint8ClampedArray<ArrayBuffer>; W: number; H: number }>) => {
+      endPaint(p);
+      if (p.dead) return;
+      const { data, W, H } = ev.data;
+      p.done(sprite(W, H, (g) => g.putImageData(new ImageData(data, W, H), 0, 0)));
+    };
+    w.onerror = () => {
+      endPaint(p);
+      if (!p.dead) p.fail();
+    };
+    w.postMessage(p.job);
+  }
+}
+function endPaint(p: Paint) {
+  if (!p.w) return;
+  p.w.terminate();
+  p.w = undefined;
+  painting--;
+  pumpPaint();
+}
+/** Manda pintar una capa aparte; devuelve cómo pararla (si el fondo se rehace o se quita antes). */
+function paintLater(job: NebulaJob, done: (s: Sprite) => void, fail: () => void): () => void {
+  const p: Paint = { job, done, fail };
+  paintQueue.push(p);
+  pumpPaint();
+  return () => {
+    p.dead = true;
+    const i = paintQueue.indexOf(p);
+    if (i >= 0) paintQueue.splice(i, 1);
+    endPaint(p);
+  };
 }
 
+/** Una capa rápida (pequeña, para que se vea ya mientras se pinta la de verdad), estirada con cuidado. */
+function quickLayer(env: FxEnv, seed: number, c1: RGB, c2: RGB, sparse: boolean): Sprite {
+  const W = 200;
+  const H = Math.max(70, Math.round((W * env.h) / env.w));
+  return soften(noiseTexture(W, H, seed, nebulaPixel(c1, c2, sparse, W / H, false)), 1.6);
+}
+
+type NebulaLayer = { quick: Sprite | null; fine: Sprite | null; at: number };
+
+/**
+ * Nebulosa: dos capas de gas de colores (la de atrás más rala) que se mecen muy despacio, con las estrellas
+ * delante. Primero sale una versión rápida y suave; a los pocos segundos llega la de verdad, pintada aparte a
+ * tamaño real (nítida, con sus hilos y su polvo), y se funde con la otra.
+ */
 const nebula: EffectFactory = (env) => {
   const r = rng(41);
   let field = makeStars(env, r, 240, { bright: 1.6 });
-  let layers: Sprite[] = [];
+  let layers: NebulaLayer[] = [];
+  let stops: (() => void)[] = [];
+  let gen = 0;
+  let now = 0;
+  const halt = () => {
+    for (const s of stops) s();
+    stops = [];
+  };
   const make = (e: FxEnv) => {
-    layers = [nebulaLayer(e, 3, e.c.a, e.c.b, false)];
-    // La segunda capa, un fotograma después (para no pararlo todo al empezar).
-    requestAnimationFrame(() => layers.push(nebulaLayer(e, 12, e.c.b2, e.c.a, true)));
+    const mine = ++gen;
+    halt();
+    const specs: [number, RGB, RGB, boolean][] = [
+      [3, e.c.a, e.c.b, false],
+      [12, e.c.b2, e.c.a, true],
+    ];
+    layers = specs.map(() => ({ quick: null, fine: null, at: 0 }));
+    layers[0].quick = quickLayer(e, ...specs[0]);
+    // La segunda capa rápida, un fotograma después (para no pararlo todo al empezar).
+    const raf = requestAnimationFrame(() => {
+      if (mine === gen) layers[1].quick = quickLayer(e, ...specs[1]);
+    });
+    stops.push(() => cancelAnimationFrame(raf));
+    if (e.w < 280) return;
+    // Un poco más grande que la pantalla (por lo que se mece), y se pinta casi a su tamaño: nada estirado.
+    const W = Math.round(clamp(e.w * 1.1, 300, 1600));
+    const H = Math.max(120, Math.round((W * e.h) / e.w));
+    // Un respiro antes (al arrastrar un color se rehace muchas veces).
+    const wait = window.setTimeout(() => {
+      if (mine !== gen) return;
+      specs.forEach(([seed, c1, c2, sparse], i) => {
+        const set = (s: Sprite) => {
+          if (mine !== gen) return;
+          layers[i].fine = s;
+          layers[i].at = now;
+        };
+        // Si el navegador no deja pintar aparte: poco a poco aquí, más pequeña.
+        const here = () => {
+          if (mine !== gen) return;
+          const w2 = Math.round(clamp(e.w / 3, 300, 560));
+          const h2 = Math.max(120, Math.round((w2 * e.h) / e.w));
+          stops.push(noiseTextureLater(w2, h2, seed, nebulaPixel(c1, c2, sparse, w2 / h2), (s) => set(soften(s, 1.1))));
+        };
+        stops.push(paintLater({ W, H, seed, c1, c2, sparse }, set, here));
+      });
+    }, 450);
+    stops.push(() => window.clearTimeout(wait));
   };
   make(env);
   return {
@@ -382,20 +474,37 @@ const nebula: EffectFactory = (env) => {
       field = makeStars(e, rng(41), 240, { bright: 1.6 });
       make(e);
     },
+    dispose() {
+      gen++;
+      halt();
+    },
     frame(g, e, t, dt) {
+      now = t;
       g.globalCompositeOperation = e.dark ? "lighter" : "source-over";
+      g.imageSmoothingEnabled = true;
+      g.imageSmoothingQuality = "high";
       layers.forEach((l, i) => {
-        const s = 1.25 + 0.04 * Math.sin(t * 0.045 + i * 2);
+        const s = 1.1 + 0.015 * Math.sin(t * 0.045 + i * 2);
         const w = e.w * s;
         const h = e.h * s;
-        const ox = (e.w - w) / 2 + Math.sin(t * 0.021 + i * 1.7) * e.w * 0.04;
-        const oy = (e.h - h) / 2 + Math.cos(t * 0.017 + i) * e.h * 0.035;
-        g.globalAlpha = (e.dark ? (i ? 0.38 : 0.62) : i ? 0.22 : 0.34) * (0.9 + 0.1 * Math.sin(t * 0.13 + i * 3));
+        const ox = (e.w - w) / 2 + Math.sin(t * 0.021 + i * 1.7) * e.w * 0.02;
+        const oy = (e.h - h) / 2 + Math.cos(t * 0.017 + i) * e.h * 0.02;
+        const base = (e.dark ? (i ? 0.4 : 0.66) : i ? 0.24 : 0.36) * (0.9 + 0.1 * Math.sin(t * 0.13 + i * 3));
+        // La nítida entra fundiéndose con la rápida (y la rápida se suelta al acabar).
+        const m = l.fine ? smooth(0, 1.4, t - l.at) : 0;
+        if (m >= 1) l.quick = null;
         g.save();
         g.translate(e.w / 2, e.h / 2);
-        g.rotate(Math.sin(t * 0.008 + i) * 0.04);
+        g.rotate(Math.sin(t * 0.008 + i) * 0.012);
         g.translate(-e.w / 2, -e.h / 2);
-        g.drawImage(l, ox, oy, w, h);
+        if (l.quick && m < 1) {
+          g.globalAlpha = base * (1 - m);
+          g.drawImage(l.quick, ox, oy, w, h);
+        }
+        if (l.fine && m > 0) {
+          g.globalAlpha = base * m;
+          g.drawImage(l.fine, ox, oy, w, h);
+        }
         g.restore();
       });
       g.globalAlpha = 1;
@@ -416,7 +525,7 @@ const SHAPES: [number, number][][] = [
 const constellation: EffectFactory = (env) => {
   const r = rng(51);
   let field = makeStars(env, r, 230);
-  const starC = env.dark ? hex("#F4F6FF") : env.c.soft;
+  const starC = env.own ? (env.dark ? lighten(env.c.a, 0.3) : env.c.a) : env.dark ? hex("#F4F6FF") : env.c.soft;
   const lineC = env.c.b;
   const big = glow(env.dark ? lighten(env.c.b2, 0.3) : env.c.b, 22 * env.dpr, 0.1, 2.4);
   const tw = SHAPES.map((s) => s.map(() => [r() * TAU, 0.8 + r() * 1.6]));

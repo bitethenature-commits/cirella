@@ -431,6 +431,9 @@ model Product {
   // "LESSON" = cada lección el día que diga su Lesson.dripDays (null = desde el primer día).
   dripMode       String?
   dripEveryDays  Int?
+  // Cursos: el diseño de sus lecciones (lib/course-design.ts → CourseLook): fondo, colores, fondo con
+  // movimiento, figura, foto y letras. Lo ven así sus alumnas. null = los colores del área de cada alumna.
+  courseDesign   Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -524,6 +527,8 @@ model Lesson {
   published   Boolean          @default(true)
   // «Disponible a los N días» desde que la alumna se apunta (solo con Product.dripMode = "LESSON").
   dripDays    Int?
+  // Su propio diseño, encima del del curso (lib/course-design.ts → solo lo que cambia). null = como el curso.
+  design      Json?
   parts       LessonPart[]
   progress    LessonProgress[]
   views       LessonView[]
@@ -553,6 +558,8 @@ model LessonPart {
   url        String? // EMBED: enlace de YouTube o Vimeo (https)
   // CHAPTER, MODEL, MYCHART, TODAY, QUIZ, GLOSSARY: su contenido (lib/lesson-parts.ts → lessonPartSchema)
   data       Json?
+  // Su diseño (lib/course-design.ts → PieceLook): fondo, borde, esquinas, color, tamaño y letra. null = sin nada.
+  design     Json?
 
   @@index([creatorId, productId])
   @@index([lessonId, sortOrder])

@@ -44,12 +44,17 @@ export const RENEW_SOON_DAYS = 5;
  * Quién se ha apuntado a qué: los pedidos de 0 € (gratis con email o acceso dado a mano) de la
  * creadora, con si acepta novedades por email y si mantiene el acceso. Siempre con tenantDb.
  */
-export async function listSignups(creatorId: string, opts: { since: Date | null; productId?: string | null; productIds?: string[] | null; take?: number; timeZone?: string }) {
+export async function listSignups(
+  creatorId: string,
+  opts: { since: Date | null; productId?: string | null; productIds?: string[] | null; take?: number; timeZone?: string; customerId?: string },
+) {
   const db = tenantDb(creatorId);
   const where = {
     status: "PAID",
     paymentProvider: { in: [...NO_CHARGE_PROVIDERS] },
     ...(opts.since ? { paidAt: { gte: opts.since } } : {}),
+    // Las de una persona (su ficha en Clientes).
+    ...(opts.customerId ? { customerId: opts.customerId } : {}),
     ...(opts.productId ? { productId: opts.productId } : opts.productIds ? { productId: { in: opts.productIds } } : {}),
   };
   const [orders, total] = await Promise.all([

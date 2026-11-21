@@ -212,7 +212,7 @@ export function ExtraDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramP
             {(all ? [0, 1, 2] : [0]).map((row) => (
               <g key={row} pointerEvents="none">
                 <line x1="6" y1={top(row) - 6} x2="334" y2={top(row) - 6} stroke="rgb(233 204 142 / .18)" />
-                <text x="170" y={top(row) - 6} textAnchor="middle" dominantBaseline="central" fontSize="8.5" letterSpacing="2" fontWeight="700" fill={NIGHT_GOLD} stroke="#17153A" strokeWidth="6" paintOrder="stroke">
+                <text x="170" y={top(row) - 6} textAnchor="middle" dominantBaseline="central" fontSize="8.5" letterSpacing="2" fontWeight="700" fill={NIGHT_GOLD} stroke="#151517" strokeWidth="6" paintOrder="stroke">
                   {AETT_NAME[list[row * cols].aett].toUpperCase()}
                 </text>
               </g>
@@ -256,7 +256,7 @@ export function ExtraDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramP
               return (
                 <g key={k} {...tap(k, pos.name)}>
                   <Stone p={p} x={x} y={y} w={spread === "five" ? 62 : 78} h={spread === "five" ? 52 : 70} glyph={String(i + 1)} on={on} />
-                  <text x={x} y={y + (spread === "five" ? 37 : 50)} textAnchor="middle" fontSize="10" fill={on ? NIGHT_GOLD : STAR} fillOpacity={on ? 1 : 0.8} fontWeight={on ? 700 : 500} stroke="#17153A" strokeWidth="4" paintOrder="stroke">
+                  <text x={x} y={y + (spread === "five" ? 37 : 50)} textAnchor="middle" fontSize="10" fill={on ? NIGHT_GOLD : STAR} fillOpacity={on ? 1 : 0.8} fontWeight={on ? 700 : 500} stroke="#151517" strokeWidth="4" paintOrder="stroke">
                     {pos.name}
                   </text>
                 </g>

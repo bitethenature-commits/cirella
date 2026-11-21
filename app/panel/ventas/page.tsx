@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Download, Receipt } from "lucide-react";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { EmptyState } from "@/components/ui/empty";
@@ -33,7 +34,9 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
   // es como en la plataforma (con la pestaña de inscripciones) pero sin comisión.
   const personal = isPersonalMode();
   const onlySignups = signupsOnly();
-  if (onlySignups || sp.estado === "inscripciones")
+  // Sin cobros, las inscripciones están en la ficha de cada persona (Clientes).
+  if (onlySignups) redirect(sp.ok ? `/panel/clientes?${new URLSearchParams({ ok: sp.ok })}` : "/panel/clientes");
+  if (sp.estado === "inscripciones")
     return <SignupsView creatorId={creator.id} timezone={creator.timezone} filter={sp.filtro || sp.producto || null} personal={onlySignups} ok={sp.ok} />;
   // «Pagados» incluye los reembolsados en parte (siguen PAID); «Reembolsados», todo lo que tiene devoluciones.
   const filter =

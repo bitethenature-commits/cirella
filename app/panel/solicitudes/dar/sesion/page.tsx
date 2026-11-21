@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { peopleLabel } from "@/lib/site-mode";
 import { ArrowLeft } from "lucide-react";
 import { requireCreator } from "@/lib/auth";
 import { readIntakeConfig } from "@/lib/intake";
@@ -21,7 +22,7 @@ export default async function GivePage({ searchParams }: { searchParams: Promise
   ]);
   return (
     <div className="max-w-2xl pb-28">
-      <Link href="/panel/solicitudes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> Solicitudes</Link>
+      <Link href="/panel/clientes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> {peopleLabel()}</Link>
       <PageHeader title="Dar una sesión o lectura" subtitle="Para regalarla o apuntar una que te han pagado por otro lado. Le llega el email con su enlace, como si la hubiera comprado." />
       {products.length === 0 ? (
         <p className="card p-5 text-sm text-muted">

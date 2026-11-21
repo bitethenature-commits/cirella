@@ -11,7 +11,7 @@ import { captureError } from "@/lib/monitoring";
 import { tenantDb } from "@/lib/tenant";
 import { blockMembership, renewMembership } from "@/lib/membership-renewal";
 import { parseMoneyToCents } from "@/lib/money";
-import { parseTierCard } from "@/lib/tier-card";
+import { parseTierCard, readTierEmblem } from "@/lib/tier-card";
 import type { Prisma } from "@prisma/client";
 
 /** Tick verde en Miembros: ha pagado, otro periodo más (lib/membership-renewal.ts). */
@@ -188,6 +188,9 @@ export async function saveTierCard(_: TierCardState, form: FormData): Promise<Ti
   const card = parseTierCard(form.get("card"));
   if (!card) return { error: "No se ha podido leer la carta" };
   const prev = product.pageTexts && typeof product.pageTexts === "object" && !Array.isArray(product.pageTexts) ? (product.pageTexts as Record<string, unknown>) : {};
+  // El icono del nivel se elige en Mi página: si aquí no viene, se queda el que tenía.
+  const prevEmblem = readTierEmblem(prev);
+  if (!card.tier.emblem && prevEmblem) card.tier.emblem = prevEmblem;
   await db.product.update({
     where: { id: product.id },
     data: {

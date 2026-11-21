@@ -8,31 +8,28 @@ import { ColorField } from "@/components/email-editor/color-field";
 import { usePanelPreview } from "@/components/panel-design-root";
 import { useLeaveGuard } from "@/components/ui/use-leave-guard";
 import type { PageConfig } from "@/lib/page-config";
-import { BOTTOM_BAR_SLOTS, HOME_CARDS, LOCKED_NAV, orderHome, orderNav, panelDesign, type PanelPrefs } from "@/lib/panel-prefs";
+import { LOCKED_NAV, orderNav, panelDesign, type PanelPrefs } from "@/lib/panel-prefs";
 import { DesignEditor } from "../pagina/design-editor";
 import { savePanelPrefs } from "./panel-actions";
 
-type NavEntry = { href: string; label: string };
+/** Una sección del menú y el borde del panel donde va («Arriba», «Izquierda»…). */
+type NavEntry = { href: string; label: string; edge: string };
 
 /**
  * «Diseño de mi panel» (Ajustes): el panel con su propio diseño, pieza a pieza, con el mismo editor que la web
- * (y las mismas plantillas), que se ve en vivo sobre el panel entero mientras se diseña; el color de la barra
- * del menú; el orden y la visibilidad de las secciones del menú (↑ ↓ y ojo, sin arrastrar: va bien en el
- * iPhone) y el orden de las tarjetas de Inicio.
+ * (y las mismas plantillas), que se ve en vivo sobre el panel entero mientras se diseña; el color de las
+ * pestañas del menú y el orden y la visibilidad de las secciones del menú (↑ ↓ y ojo, sin arrastrar: va bien en
+ * el iPhone). Cada sección sigue en su borde: el orden cambia su sitio dentro de él.
  */
 export function PanelLook({
   initial,
   web,
   nav: allNav,
-  home: withHome,
-  currentBottom,
 }: {
   initial: PanelPrefs;
   /** Su web (borrador): de aquí salen sus plantillas, su nombre y su foto para las muestras. */
   web: PageConfig;
   nav: NavEntry[];
-  home: boolean;
-  currentBottom: string[];
 }) {
   const router = useRouter();
   const setPreview = usePanelPreview();
@@ -43,8 +40,6 @@ export function PanelLook({
   const [order, setOrder] = useState<string[]>([...startNav.visible, ...startNav.hidden].map((i) => i.href));
   const [hidden, setHidden] = useState<string[]>(startNav.hidden.map((i) => i.href));
   const [navTouched, setNavTouched] = useState(!!initial.nav);
-  const [homeOrder, setHomeOrder] = useState<string[]>(orderHome(initial.home));
-  const [homeTouched, setHomeTouched] = useState(initial.home.length > 0);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, start] = useTransition();
 
@@ -56,14 +51,12 @@ export function PanelLook({
 
   // ¿Hay cambios sin guardar? Se avisa antes de salir (lo que no se guarda se pierde).
   const current = (p: PanelPrefs) => JSON.stringify({ ...p, designs: cfg.designs });
-  const snap = current({ design: panelDesign(cfg.theme), sidebar, nav: navTouched ? { order, hidden } : null, home: homeTouched ? homeOrder : [] });
+  const snap = current({ design: panelDesign(cfg.theme), sidebar, nav: navTouched ? { order, hidden } : null });
   const savedSnap = useRef<string | null>(null);
   savedSnap.current ??= snap;
   useLeaveGuard(snap !== savedSnap.current, "Tienes cambios sin guardar en tu panel. ¿Salir sin guardar?");
 
   const items = order.map((h) => allNav.find((n) => n.href === h)!).filter(Boolean);
-  const visible = items.filter((i) => !hidden.includes(i.href));
-  const bottom = new Set(visible.slice(0, BOTTOM_BAR_SLOTS).map((i) => i.href));
 
   const moveNav = (i: number, dir: -1 | 1) => {
     const j = i + dir;
@@ -76,14 +69,6 @@ export function PanelLook({
   const toggle = (href: string) => {
     setHidden((h) => (h.includes(href) ? h.filter((x) => x !== href) : [...h, href]));
     setNavTouched(true);
-  };
-  const moveHome = (i: number, dir: -1 | 1) => {
-    const j = i + dir;
-    if (j < 0 || j >= homeOrder.length) return;
-    const next = [...homeOrder];
-    [next[i], next[j]] = [next[j], next[i]];
-    setHomeOrder(next);
-    setHomeTouched(true);
   };
 
   const save = (prefs: PanelPrefs) =>
@@ -109,14 +94,14 @@ export function PanelLook({
           </p>
         </div>
         <ColorField
-          label="Barra del menú (en el ordenador)"
+          label="Pestañas del menú (los bordes del panel)"
           value={sidebar ?? undefined}
           fallback={(cfg.theme.background as string | undefined) ?? "#0B0E1F"}
           palette={["#0B0E1F", "#1B1D3A", "#EFE9FA", "#F1E2D6", "#E3EADF", "#FFFFFF"]}
           clearable
           onChange={(v) => setSidebar(v ?? null)}
         />
-        <p className="text-xs text-muted">Vacía: la del diseño. El texto de la barra se elige solo para que se lea.</p>
+        <p className="text-xs text-muted">Vacío: el del diseño. El texto de las pestañas se elige solo para que se lea.</p>
       </section>
 
       <DesignEditor cfg={cfg} setCfg={setCfg} target="general" setTarget={() => {}} pages={[]} allowCustom panel />
@@ -126,10 +111,8 @@ export function PanelLook({
         <div className="space-y-3">
           <h3 className="text-sm font-semibold">Orden del menú</h3>
           <p className="text-xs text-muted">
-            Sube y baja las secciones y oculta las que no uses. En el móvil, <strong className="text-ink">las 4 primeras van a la barra de abajo</strong> y el resto, a «Más». Inicio y
-            Ajustes no se pueden ocultar.
-            {!navTouched && ` Ahora mismo tu barra de abajo es la de siempre (${currentBottom.join(", ")}); al guardar este orden, serán las 4 primeras.`}
-            {" "}Con el orden de siempre, el menú va por bloques (Mi web, Lo que ofreces, Personas…); con tu propio orden, va sin bloques.
+            Sube y baja las secciones y oculta las que no uses. Cada una sigue en su borde del panel (lo dice su etiqueta): el orden cambia su sitio{" "}
+            <strong className="text-ink">dentro de ese borde</strong>. Inicio y Ajustes no se pueden ocultar.
           </p>
           {navTouched && (
             <button
@@ -142,7 +125,7 @@ export function PanelLook({
                 setNavTouched(false);
               }}
             >
-              <RotateCcw className="h-3.5 w-3.5" /> Volver al orden de siempre (por bloques)
+              <RotateCcw className="h-3.5 w-3.5" /> Volver al orden de siempre
             </button>
           )}
           <ul className="space-y-1.5" data-testid="nav-order">
@@ -152,7 +135,7 @@ export function PanelLook({
               return (
                 <li key={it.href} className={`flex items-center gap-1 rounded-xl border px-2 py-1 ${off ? "border-dashed border-line bg-paper opacity-60" : "border-line bg-white"}`} data-nav={it.href}>
                   <span className="min-w-0 flex-1 truncate pl-1 text-sm font-medium">{it.label}</span>
-                  {bottom.has(it.href) && <span className="chip shrink-0 !h-5 !text-[0.62rem]">Barra de abajo</span>}
+                  <span className="chip shrink-0 !h-5 !text-[0.62rem]">{it.edge}</span>
                   <SmallButton label={`Subir ${it.label}`} onClick={() => moveNav(i, -1)} disabled={i === 0}><ArrowUp className="h-4 w-4" /></SmallButton>
                   <SmallButton label={`Bajar ${it.label}`} onClick={() => moveNav(i, 1)} disabled={i === items.length - 1}><ArrowDown className="h-4 w-4" /></SmallButton>
                   {locked ? (
@@ -167,27 +150,10 @@ export function PanelLook({
             })}
           </ul>
         </div>
-
-        {/* ── Inicio ── */}
-        {withHome && (
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold">Orden de Inicio</h3>
-            <p className="text-xs text-muted">Lo que ves primero al entrar en tu panel.</p>
-            <ul className="space-y-1.5" data-testid="home-order">
-              {homeOrder.map((k, i) => (
-                <li key={k} className="flex items-center gap-1 rounded-xl border border-line bg-white px-2 py-1">
-                  <span className="min-w-0 flex-1 truncate pl-1 text-sm font-medium">{HOME_CARDS.find((c) => c.key === k)?.label}</span>
-                  <SmallButton label={`Subir ${k}`} onClick={() => moveHome(i, -1)} disabled={i === 0}><ArrowUp className="h-4 w-4" /></SmallButton>
-                  <SmallButton label={`Bajar ${k}`} onClick={() => moveHome(i, 1)} disabled={i === homeOrder.length - 1}><ArrowDown className="h-4 w-4" /></SmallButton>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </section>
 
-      {/* Guardar, siempre a mano mientras se diseña. */}
-      <div className="card sticky bottom-20 z-20 space-y-2 p-3 lg:bottom-4">
+      {/* Guardar, siempre a mano mientras se diseña (encima de las pestañas de abajo). */}
+      <div className="card sticky bottom-16 z-20 space-y-2 p-3">
         {notice && (
           <p role="status" className={`rounded-xl px-4 py-2 text-sm ${notice.ok ? "bg-[#e7f3ec] text-[#2f6b4a]" : "bg-[#fbe9e6] text-[#9a3a2e]"}`}>
             {notice.text}
@@ -198,7 +164,7 @@ export function PanelLook({
             type="button"
             className="btn btn-primary"
             disabled={busy}
-            onClick={() => save({ design: panelDesign(cfg.theme), sidebar, nav: navTouched ? { order, hidden } : null, home: homeTouched ? homeOrder : [] })}
+            onClick={() => save({ design: panelDesign(cfg.theme), sidebar, nav: navTouched ? { order, hidden } : null })}
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Guardar mi panel
           </button>
@@ -214,9 +180,7 @@ export function PanelLook({
               setOrder(def.visible.map((i) => i.href));
               setHidden([]);
               setNavTouched(false);
-              setHomeOrder(orderHome([]));
-              setHomeTouched(false);
-              save({ design: null, sidebar: null, nav: null, home: [] });
+              save({ design: null, sidebar: null, nav: null });
             }}
           >
             <RotateCcw className="h-4 w-4" /> Panel de siempre

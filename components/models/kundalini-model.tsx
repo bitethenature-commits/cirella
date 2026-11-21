@@ -15,7 +15,7 @@ import { SubtleBody } from "./kundalini-figure";
 
 const GOLD = "#E9CC8E";
 const STAR = "#FBF6EC";
-const NIGHT_BG = "radial-gradient(120% 90% at 50% 0%, #2A2456 0%, #151231 55%, #0E0C22 100%)";
+const NIGHT_BG = "radial-gradient(120% 90% at 50% 0%, #232326 0%, #141416 55%, #0B0B0D 100%)";
 const EXAMPLE_DATE = "1990-07-14";
 
 type Layer = "chakras" | "nadis" | "serpent" | "knots";
@@ -33,7 +33,7 @@ function Chip({ on, children, onClick }: { on: boolean; children: React.ReactNod
       onClick={onClick}
       aria-pressed={on}
       className="min-h-9 rounded-full border px-3 text-[0.78rem] font-semibold transition"
-      style={{ background: on ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : "rgb(255 255 255 / .05)", color: on ? "#15122a" : STAR, borderColor: on ? "#F0D9A4" : "rgb(233 204 142 / .3)" }}
+      style={{ background: on ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : "rgb(255 255 255 / .05)", color: on ? "#0B0B0D" : STAR, borderColor: on ? "#F0D9A4" : "rgb(233 204 142 / .3)" }}
     >
       {children}
     </button>
@@ -129,7 +129,7 @@ function SubtlePart() {
               setRising(true);
             }}
             className="min-h-10 rounded-full px-4 text-[0.85rem] font-semibold"
-            style={{ background: "linear-gradient(135deg, #F0D9A4, #C8A86E)", color: "#15122a", boxShadow: "0 0 18px rgb(233 204 142 / .35)" }}
+            style={{ background: "linear-gradient(135deg, #F0D9A4, #C8A86E)", color: "#0B0B0D", boxShadow: "0 0 18px rgb(233 204 142 / .35)" }}
           >
             {rise >= 1 ? "↺ Volver a la raíz" : rising ? "Subiendo…" : "✦ Despertar la kundalini"}
           </button>
@@ -186,8 +186,8 @@ function BodiesWheel({ have, selected, onPick }: { have: Map<number, string[]>; 
         return (
           <g key={n} role="button" tabIndex={0} aria-label={BODIES[String(n)].name} onClick={() => onPick(n)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onPick(n)} style={{ cursor: "pointer", outline: "none" }}>
             {mine && <circle cx={x} cy={y} r="26" fill={GOLD} opacity="0.18" />}
-            <circle cx={x} cy={y} r="20" fill={on ? GOLD : "#1A1640"} stroke={mine || on ? "#F7E2AE" : "rgb(233 204 142 / .4)"} strokeWidth={mine ? 2 : 1} />
-            <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize="15" fontFamily="Georgia, serif" fill={on ? "#15122a" : STAR}>
+            <circle cx={x} cy={y} r="20" fill={on ? GOLD : "#1A1A1D"} stroke={mine || on ? "#F7E2AE" : "rgb(233 204 142 / .4)"} strokeWidth={mine ? 2 : 1} />
+            <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize="15" fontFamily="Georgia, serif" fill={on ? "#0B0B0D" : STAR}>
               {n}
             </text>
             {mine && (
@@ -241,7 +241,7 @@ function BodiesPart({ initialDate }: { initialDate: string | null }) {
               const n = nums[k];
               const on = n === sel;
               return (
-                <button key={k} type="button" onClick={() => setSel(n)} className="rounded-2xl border px-1 py-3 text-center transition" style={{ borderColor: on ? "#F0D9A4" : "rgb(233 204 142 / .3)", background: on ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : "rgb(255 255 255 / .04)", color: on ? "#15122a" : STAR }}>
+                <button key={k} type="button" onClick={() => setSel(n)} className="rounded-2xl border px-1 py-3 text-center transition" style={{ borderColor: on ? "#F0D9A4" : "rgb(233 204 142 / .3)", background: on ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : "rgb(255 255 255 / .04)", color: on ? "#0B0B0D" : STAR }}>
                   <span className="block text-[0.58rem] font-bold uppercase tracking-[0.12em] opacity-80">{SHORT[k]}</span>
                   <span className="mt-1 block font-serif text-[1.7rem] leading-none">{n}</span>
                 </button>

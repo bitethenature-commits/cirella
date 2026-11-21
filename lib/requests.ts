@@ -20,7 +20,7 @@ import { formatSessionDate, labelToMinutes, zonedTimeToUtc } from "./tz";
 /**
  * Solicitudes: la web no cobra. En vez de pagar, la clienta rellena un formulario (sus datos, un
  * mensaje y, en una sesión, el día y la hora que quiere) y le llega a la dueña por email y a
- * /panel/solicitudes. Lo hablan por email y, cuando la dueña confirma, se entrega como un acceso dado
+ * /panel/clientes (pestaña «Nuevas»). Lo hablan por email y, cuando la dueña confirma, se entrega como un acceso dado
  * a mano: cuenta de la clienta, acceso al curso, reserva, emails y su área (fulfillOrder).
  *
  * Una solicitud es un pedido de 0 € («manual») con status REQUESTED: su hora queda guardada
@@ -129,7 +129,7 @@ export async function createRequest(input: {
         p(`<strong>${esc(order.buyerName ?? order.buyerEmail)}</strong> quiere <strong>${esc(product.title)}</strong>.`) +
         detailsTable(lines) +
         p(`Respóndele a este email para hablar del pago. Cuando esté, confírmalo en el panel y recibirá el acceso${slotStart ? " y la reserva" : ""}.`),
-      cta: { label: "Ver la solicitud", url: `${appUrl()}/panel/solicitudes` },
+      cta: { label: "Ver la solicitud", url: `${appUrl()}/panel/clientes` },
     }),
   });
   const rs = await automationSetting(product.creatorId, "REQUEST_RECEIVED");

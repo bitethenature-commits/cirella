@@ -11,7 +11,7 @@ export default async function NewSitePage() {
   await requireCreator();
   return (
     <div className="mx-auto max-w-2xl">
-      <Link href="/panel/paginas" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+      <Link href="/panel/pagina?ver=paginas" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
         <ArrowLeft className="h-4 w-4" /> Páginas
       </Link>
       <PageHeader title="Nueva página" subtitle="Elige cómo empezar: luego cambias los textos y añades imágenes, galerías o vídeos." />

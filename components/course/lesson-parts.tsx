@@ -2,8 +2,10 @@ import { Download, ExternalLink, Link2 } from "lucide-react";
 import { MediaViewBase, type MediaFile } from "@/components/media/media-view-base";
 import { VideoEmbed } from "@/components/media/video-embed";
 import { RichContent } from "@/components/rich-text/rich-content";
+import type { PieceLook } from "@/lib/course-design";
 import type { PartView } from "@/lib/lesson-parts";
 import { videoEmbed } from "@/lib/video-embed";
+import { PieceFrame } from "./course-look";
 
 export type PlayerPart = {
   id: string;
@@ -15,6 +17,8 @@ export type PlayerPart = {
   /** Tipo guardado (TEXT, FILE, EMBED o una parte de lección larga: lib/lesson-blocks.ts) y su contenido. */
   kind?: string;
   data?: unknown;
+  /** Su diseño (lib/course-design.ts): fondo, borde, texto… */
+  design?: PieceLook | null;
 };
 
 /** Fila «Descargar» bajo un audio o un PDF (para escucharlo sin conexión o imprimirlo). */
@@ -56,66 +60,75 @@ function OpenVideo({ url }: { url: string }) {
 export function LessonParts({ parts, lessonTitle, courseTitle, poster, personal }: { parts: PlayerPart[]; lessonTitle: string; courseTitle: string; poster: string | null; personal: boolean }) {
   return (
     <div className="space-y-6">
-      {parts.map((p) => {
-        const f = p.file;
-        switch (p.view) {
-          case "TEXT":
-            return p.body ? (
-              <RichContent
-                key={p.id}
-                text={p.body}
-                format={p.bodyFormat}
-                legacy="paragraphs"
-                tone="account"
-                headingLevel={3}
-                className="space-y-4 text-[1.02rem] leading-relaxed text-ink/85"
-              />
-            ) : null;
-          case "EMBED":
-            return p.url ? (
-              <div key={p.id} className={videoEmbed(p.url) ? "overflow-hidden rounded-3xl bg-black" : ""}>
-                {videoEmbed(p.url) ? <VideoEmbed url={p.url} title={lessonTitle} /> : <OpenVideo url={p.url} />}
-              </div>
-            ) : null;
-          case "VIDEO":
-            return f ? (
-              <div key={p.id} className="overflow-hidden rounded-3xl bg-black">
-                <MediaViewBase personal={personal} file={f} title={lessonTitle} poster={poster} />
-              </div>
-            ) : null;
-          case "AUDIO":
-            return f ? (
-              <div key={p.id} className="space-y-2">
-                <div className="overflow-hidden rounded-3xl bg-ink px-4 py-5 text-cream">
-                  <MediaViewBase personal={personal} file={f} title={`${lessonTitle} · ${courseTitle}`} artwork={poster} />
-                </div>
-                <DownloadRow fileId={f.id} name={f.name} label="Descargar audio" />
-              </div>
-            ) : null;
-          case "PDF":
-            return f ? (
-              <div key={p.id} className="space-y-2">
-                <MediaViewBase personal={personal} file={f} title={lessonTitle} />
-                <DownloadRow fileId={f.id} name={f.name} label="Descargar PDF" />
-              </div>
-            ) : null;
-          case "IMAGE":
-            return f ? <MediaViewBase personal={personal} key={p.id} file={{ ...f, name: f.name.replace(/\.[a-z0-9]+$/i, "") || f.name }} title={lessonTitle} /> : null;
-          case "DOWNLOAD":
-            if (!f) return null;
-            if (f.kind === "LINK")
-              return (
-                <a key={p.id} href={`/api/download/${f.id}`} target="_blank" rel="noopener noreferrer" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
-                  <Link2 className="h-5 w-5 text-lavender-deep" />
-                  <span className="flex-1 text-sm font-medium">{f.name}</span>
-                  <span className="flex items-center gap-1 text-xs text-muted">
-                    <ExternalLink className="h-3.5 w-3.5" /> Abrir enlace
-                  </span>
-                </a>
-              );
-            return <MediaViewBase personal={personal} key={p.id} file={f} title={lessonTitle} />;
-        }
-      })}
+      {parts.map((p) => (
+        // Con su diseño, dentro de su caja; sin él, tal cual.
+        <PieceFrame key={p.id} look={p.design}>
+          <PartBody p={p} lessonTitle={lessonTitle} courseTitle={courseTitle} poster={poster} personal={personal} />
+        </PieceFrame>
+      ))}
     </div>
   );
+}
+
+/** Una parte, como la ve la alumna (null si aún está vacía). */
+export function PartBody({ p, lessonTitle, courseTitle, poster, personal }: { p: PlayerPart; lessonTitle: string; courseTitle: string; poster: string | null; personal: boolean }) {
+  const f = p.file;
+  switch (p.view) {
+    case "TEXT":
+      return p.body ? (
+        <RichContent
+          key={p.id}
+          text={p.body}
+          format={p.bodyFormat}
+          legacy="paragraphs"
+          tone="account"
+          headingLevel={3}
+          className="space-y-4 text-[1.02rem] leading-relaxed text-ink/85"
+        />
+      ) : null;
+    case "EMBED":
+      return p.url ? (
+        <div key={p.id} className={videoEmbed(p.url) ? "overflow-hidden rounded-3xl bg-black" : ""}>
+          {videoEmbed(p.url) ? <VideoEmbed url={p.url} title={lessonTitle} /> : <OpenVideo url={p.url} />}
+        </div>
+      ) : null;
+    case "VIDEO":
+      return f ? (
+        <div key={p.id} className="overflow-hidden rounded-3xl bg-black">
+          <MediaViewBase personal={personal} file={f} title={lessonTitle} poster={poster} />
+        </div>
+      ) : null;
+    case "AUDIO":
+      return f ? (
+        <div key={p.id} className="space-y-2">
+          <div className="overflow-hidden rounded-3xl bg-ink px-4 py-5 text-cream">
+            <MediaViewBase personal={personal} file={f} title={`${lessonTitle} · ${courseTitle}`} artwork={poster} />
+          </div>
+          <DownloadRow fileId={f.id} name={f.name} label="Descargar audio" />
+        </div>
+      ) : null;
+    case "PDF":
+      return f ? (
+        <div key={p.id} className="space-y-2">
+          <MediaViewBase personal={personal} file={f} title={lessonTitle} />
+          <DownloadRow fileId={f.id} name={f.name} label="Descargar PDF" />
+        </div>
+      ) : null;
+    case "IMAGE":
+      return f ? <MediaViewBase personal={personal} key={p.id} file={{ ...f, name: f.name.replace(/\.[a-z0-9]+$/i, "") || f.name }} title={lessonTitle} /> : null;
+    case "DOWNLOAD":
+      if (!f) return null;
+      if (f.kind === "LINK")
+        return (
+          <a key={p.id} href={`/api/download/${f.id}`} target="_blank" rel="noopener noreferrer" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
+            <Link2 className="h-5 w-5 text-lavender-deep" />
+            <span className="flex-1 text-sm font-medium">{f.name}</span>
+            <span className="flex items-center gap-1 text-xs text-muted">
+              <ExternalLink className="h-3.5 w-3.5" /> Abrir enlace
+            </span>
+          </a>
+        );
+      return <MediaViewBase personal={personal} key={p.id} file={f} title={lessonTitle} />;
+  }
+  return null;
 }

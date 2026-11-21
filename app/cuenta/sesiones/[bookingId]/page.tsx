@@ -1,12 +1,11 @@
 import { isPersonalMode } from "@/lib/site-mode";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarPlus, CalendarX, Clock, Mail, MessageCircle, Video } from "lucide-react";
+import { ArrowLeft, CalendarPlus, CalendarX, Clock, Mail, Video } from "lucide-react";
 import { requireBuyerFor } from "@/lib/buyer-access";
 import { creatorBrief } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
-import { socialHref } from "@/lib/page-config";
 import { BOOKING_STATUS_LABEL } from "@/lib/types";
 import { capitalize, formatSessionDate, sessionWhen } from "@/lib/tz";
 import { IntakeEditCard } from "@/components/booking/intake-edit-card";
@@ -146,7 +145,6 @@ export default async function BookingDetail({ params }: { params: Promise<{ book
 
       <div className="mt-6 flex flex-wrap gap-2 text-sm">
         {c.email && <a href={`mailto:${c.email}`} className="btn btn-ghost btn-sm"><Mail className="h-4 w-4" /> Escribir a {c.displayName}</a>}
-        {c.whatsapp && <a href={socialHref("whatsapp", c.whatsapp)} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm"><MessageCircle className="h-4 w-4" /> WhatsApp</a>}
       </div>
     </div>
   );

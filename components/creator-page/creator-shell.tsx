@@ -30,8 +30,13 @@ export function CreatorShell({
   page,
   editText,
   editNewsletterButton,
+  editName,
+  editAvatar,
 }: {
   username: string;
+  /** En el Canva: su nombre y su foto de la cabecera, escritos y cambiados encima (son los de la portada). */
+  editName?: React.ReactNode;
+  editAvatar?: React.ReactNode;
   /** En el Canva: los textos fijos (pie, newsletter, entrar) escritos encima. */
   editText?: TextEdit;
   /** En el Canva: el texto del botón de la newsletter del pie, escrito encima. */
@@ -73,10 +78,17 @@ export function CreatorShell({
               <ArrowLeft className="h-4 w-4" />
             </Link>
           )}
-          <Link href={home} className="flex min-w-0 items-center gap-2.5">
-            <Avatar src={config.avatarUrl} name={config.displayName} className="h-8 w-8 text-xs" />
-            <span className="truncate text-sm font-semibold">{config.displayName}</span>
-          </Link>
+          {editName ? (
+            <div className="flex min-w-0 items-center gap-2.5">
+              {editAvatar ?? <Avatar src={config.avatarUrl} name={config.displayName} className="h-8 w-8 text-xs" />}
+              <span className="min-w-0 text-sm font-semibold">{editName}</span>
+            </div>
+          ) : (
+            <Link href={home} className="flex min-w-0 items-center gap-2.5">
+              <Avatar src={config.avatarUrl} name={config.displayName} className="h-8 w-8 text-xs" />
+              <span className="truncate text-sm font-semibold">{config.displayName}</span>
+            </Link>
+          )}
           {showAccount && <AccountEntry username={username} personal={personal} variant="header" texts={config.texts} editText={editText} />}
         </div>
       </header>

@@ -14,7 +14,7 @@ const MODULE_TITLE = "Los planetas, uno a uno";
 
 type Part = { kind: "TEXT"; body: string } | BlockPart;
 const text = (body: string): Part => ({ kind: "TEXT", body });
-const chapter = (title: string, minutes: number): Part => ({ kind: "CHAPTER", data: { title, minutes } });
+const chapter = (title: string): Part => ({ kind: "CHAPTER", data: { title } });
 
 const SIGNS_NOTES: Record<string, string> = {
   "0": "**Domicilio.** Marte está en su casa: actúa sin pedir permiso, rápido y de frente. El reto es terminar lo que empieza y no confundir valentía con prisa.",
@@ -75,7 +75,7 @@ export const MARS_PARTS: Part[] = [
   text(
     "Esta lección es larga a propósito: **Marte** es una de las energías que más cambia tu vida cuando la entiendes. Ve a tu ritmo, capítulo a capítulo. Se guarda dónde lo dejas.",
   ),
-  chapter("Mito y símbolo", 12),
+  chapter("Mito y símbolo"),
   text(`## El dios de la guerra… y de la primavera
 
 En Roma, **Marte** era el dios de la guerra, pero antes fue el dios de los campos y de la primavera: la fuerza que rompe la tierra para que salga la semilla. Por eso su mes es **marzo**, cuando todo empieza.
@@ -85,7 +85,7 @@ Su símbolo ♂︎ es un círculo (el espíritu) con una flecha que sale hacia f
 - Su color es el rojo; su metal, el hierro (el de tu sangre).
 - Tarda unos **dos años** en dar la vuelta al zodiaco: pasa casi dos meses en cada signo.
 - Cada dos años y poco se vuelve **retrógrado** unas diez semanas.`),
-  chapter("Qué rige en ti", 15),
+  chapter("Qué rige en ti"),
   text(`Marte habla de **cómo vas a por lo que quieres**. En tu carta describe:
 
 - **Tu energía y tu fuerza física**: cuánta tienes y cómo la gastas.
@@ -96,16 +96,16 @@ Su símbolo ♂︎ es un círculo (el espíritu) con una flecha que sale hacia f
 
 Un Marte bien vivido es iniciativa sana; reprimido, se vuelve cansancio, rabia escondida o dolores. Mira cómo se relaciona con los demás planetas: toca cada uno.`),
   { kind: "MODEL", data: { option: null, mode: "explore", layer: "planets", focus: "mars", title: "Marte y los demás planetas", intro: "Cada planeta es una parte de ti. Toca uno para ver cómo se relaciona con Marte.", notes: PLANET_NOTES } },
-  chapter("Marte en los 12 signos", 40),
+  chapter("Marte en los 12 signos"),
   text("El **signo** dice *cómo* actúa tu Marte: su estilo. Hay signos donde está muy a gusto (domicilio y exaltación) y otros donde le cuesta (exilio y caída). Recorre los doce: el tuyo sale marcado."),
   { kind: "MODEL", data: { option: null, mode: "explore", layer: "signs", focus: "mars", title: "El estilo de tu fuerza", intro: "", notes: SIGNS_NOTES } },
-  chapter("Marte en las 12 casas", 35),
+  chapter("Marte en las 12 casas"),
   text("La **casa** dice *dónde* pones tu energía: en qué parte de la vida actúas, compites y te defiendes. Sin hora de nacimiento no hay casas: entonces quédate con el signo."),
   { kind: "MODEL", data: { option: null, mode: "explore", layer: "houses", focus: "mars", title: "Dónde pones tu energía", intro: "", notes: HOUSES_NOTES } },
-  chapter("Sus aspectos", 30),
+  chapter("Sus aspectos"),
   text("Los **aspectos** son las conversaciones de Marte con otros planetas: el ángulo entre ellos dice si se ayudan, chocan o se funden. Toca cada línea: el ángulo, el significado y cómo lo vive Marte."),
   { kind: "MODEL", data: { option: null, mode: "explore", layer: "aspects", focus: "mars", title: "Cómo conversa Marte", intro: "", notes: ASPECT_NOTES } },
-  chapter("Dignidades y elementos", 15),
+  chapter("Dignidades y elementos"),
   text(`Cada planeta se siente más o menos cómodo según el signo:
 
 - **Domicilio**: Aries (y Escorpio, en la tradición). En casa.
@@ -115,17 +115,17 @@ Un Marte bien vivido es iniciativa sana; reprimido, se vuelve cansancio, rabia e
 
 No es «bueno» o «malo»: un Marte en caída enseña a defender sin herir. El **elemento** del signo te da la primera pista de su ritmo.`),
   { kind: "MODEL", data: { option: null, mode: "explore", layer: "elements", focus: "mars", title: "Marte en los cuatro elementos", intro: "", notes: ELEMENT_NOTES } },
-  chapter("Marte retrógrado", 15),
+  chapter("Marte retrógrado"),
   text(`Cada dos años, Marte parece ir hacia atrás unas diez semanas. **Retrógrado** es una ilusión óptica desde la Tierra, pero su lectura es clara: la energía se vuelve hacia dentro.
 
 - Si naciste con Marte retrógrado (℞), tu fuerza se revisa antes de salir: piensas la acción, la rumias, y cuando actúas, va en serio.
 - Cuando Marte está retrógrado en el cielo es buen momento para **revisar, terminar y recuperar fuerzas**, no para empezar guerras ni grandes proyectos.`),
-  chapter("Tu Marte", 20),
+  chapter("Tu Marte"),
   { kind: "MYCHART", data: { focus: "mars", title: "" } },
   text("Lee despacio tu Marte: el signo, la casa y sus aspectos. ¿En qué momentos de tu vida lo reconoces? Anota tres situaciones en las que actuaste así."),
-  chapter("Marte hoy en el cielo", 10),
+  chapter("Marte hoy en el cielo"),
   { kind: "TODAY", data: { focus: "mars", title: "" } },
-  chapter("Práctica y diario", 20),
+  chapter("Práctica y diario"),
   text(`## Ejercicio: tu mapa de la fuerza
 
 1. Escribe en una hoja tu Marte: signo, casa y aspectos.
@@ -134,7 +134,7 @@ No es «bueno» o «malo»: un Marte en caída enseña a defender sin herir. El 
 4. Elige **un gesto** para dar cauce a tu Marte esta semana: un deporte, una conversación pendiente, empezar algo.
 
 > Marte no se calma reprimiéndolo: se calma dándole un camino.`),
-  chapter("Repaso", 10),
+  chapter("Repaso"),
   {
     kind: "QUIZ",
     data: {

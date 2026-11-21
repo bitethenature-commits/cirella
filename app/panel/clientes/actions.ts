@@ -14,6 +14,6 @@ export async function deleteCustomerAction(form: FormData) {
   const { creator } = await requireCreator();
   const id = z.string().min(1).max(40).parse(form.get("id"));
   await deleteCustomerHard(creator.id, id);
-  for (const p of ["/panel/clientes", "/panel/ventas", "/panel/solicitudes", "/panel/comunidad", "/panel"]) revalidatePath(p);
+  for (const p of ["/panel/clientes", "/panel/ventas", "/panel/comunidad", "/panel"]) revalidatePath(p);
   redirect("/panel/clientes?borrada=1");
 }

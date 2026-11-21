@@ -3,12 +3,10 @@
 import { Check, Copy, Lock, Pencil, RotateCcw, Save, Trash2, Undo2 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { CreatorShell } from "@/components/creator-page/creator-shell";
-import { Avatar } from "@/components/creator-page/product-art";
 import { TemplatePreview } from "@/components/template-preview";
 import { askConfirm, askText } from "@/components/ui/ask-confirm";
 import { ImageUpload } from "@/components/ui/image-upload";
-import { SAVED_DESIGNS_MAX, type PageConfig } from "@/lib/page-config";
+import { designFor, SAVED_DESIGNS_MAX, type PageConfig } from "@/lib/page-config";
 import { SECTION_PAGES, SECTION_PAGE_TITLE } from "@/lib/site-sections";
 import { PIECE_KIND_LABEL } from "@/lib/pieces";
 import { FIGURE_POS } from "@/lib/sacred-figures";
@@ -49,6 +47,31 @@ import {
 /** Qué se diseña: toda la web («general»), la portada («home») o una página (su clave: «cursos», el slug…). */
 export type DesignTarget = string;
 
+/** Los grupos del diseño (para enseñar solo algunos: los fondos arriba, lo de una sección en su «Diseño»). */
+export type DesignGroup = "colores" | "fondo" | "movimiento" | "letras" | "tarjetas" | "paneles" | "botones" | "fotos";
+
+/** Las filas principales de cada grupo (con `fields`, un grupo sale si tiene alguna). */
+const GROUP_KEYS: Record<DesignGroup, DesignKey[]> = {
+  colores: ["text", "muted", "accent", "accentText", "gold"],
+  fondo: ["bgType", "background", "bg2", "bgAngle", "backgroundImageUrl", "bgImageOpacity"],
+  movimiento: ["decor", "decorOpacity", "decorColor", "decorAlways"],
+  letras: ["fontDisplay", "displayWeight", "displayItalic", "displayUpper", "displaySize", "displaySpacing", "fontBody"],
+  tarjetas: ["cardStyle", "cardCustom", "cardFrame"],
+  paneles: ["panelCustom", "panelStars", "panelGeo"],
+  botones: ["btnCustom", "btnFrame"],
+  fotos: ["imgCustom", "imgRadius", "avatarShape", "photoShape", "photoFrame"],
+};
+
+/** Lo que va con otra fila: lo de «a mano» con su interruptor, el color de un marco con el marco… */
+const FOLLOWS: Partial<Record<DesignKey, DesignKey>> = Object.fromEntries([
+  ...(["cardBg", "cardBorder", "cardBgOpacity", "cardBorderWidth", "cardRadius", "cardShadow", "cardDouble", "cardBlur"] as const).map((k) => [k, "cardCustom"]),
+  ...(["cardFrameColor", "cardFrameSize"] as const).map((k) => [k, "cardFrame"]),
+  ...(["btnStyle", "btnBg", "btnText", "btnBorder", "btnBorderWidth", "btnRadius", "btnFont", "btnWeight", "btnItalic", "btnUpper", "btnDouble", "btnShadow"] as const).map((k) => [k, "btnCustom"]),
+  ...(["btnFrameColor"] as const).map((k) => [k, "btnFrame"]),
+  ...(["panelBg", "panelBorder", "panelBgOpacity", "panelBorderWidth", "panelRadius", "panelShadow", "panelDouble"] as const).map((k) => [k, "panelCustom"]),
+  ...(["panelGeoPos", "panelGeoOpacity", "panelGeoColor"] as const).map((k) => [k, "panelGeo"]),
+]);
+
 /** Las páginas que pueden tener su propio diseño (además de toda la web). */
 export function designTargets(pages: { title: string; slug: string }[]): { key: DesignTarget; label: string }[] {
   const fixed = new Set<string>(SECTION_PAGES);
@@ -78,9 +101,27 @@ export function DesignEditor({
   allowCustom,
   panel = false,
   pieceTools,
+  only,
+  groups,
+  scope,
+  fields,
 }: {
+  /** Solo estos grupos (en Mi página, el «Diseño» de arriba: los fondos). Sin plantillas. */
+  groups?: DesignGroup[];
+  /**
+   * El diseño propio de una sección o un bloque (su «Diseño» en Mi página), encima del de la página `target`: sin
+   * «Qué diseñas», piezas ni plantillas; «Como la página» vuelve a lo de la página.
+   */
+  scope?: { design: Design; onChange: (next: Design) => void };
+  /**
+   * Solo estas filas (el «Diseño» de una sección: lo que de verdad cambia algo en ella, app/panel/canva/design-probe.ts).
+   * Un grupo sin ninguna, no sale.
+   */
+  fields?: ReadonlySet<DesignKey>;
   /** Diseñar el panel (Ajustes), no la web: sin «Qué diseñas» (solo hay uno). */
   panel?: boolean;
+  /** Mi página: solo la página que se está viendo o toda la web (dos botones en lugar de la lista). */
+  only?: { key: DesignTarget; label: string };
   /**
    * Las piezas sueltas de la página elegida (lib/pieces.ts): si se pueden tocar en la vista en vivo (la página se ve
    * de verdad) y abrir la ventanita de una (app/panel/pagina/piece-sheet.tsx).
@@ -94,21 +135,30 @@ export function DesignEditor({
   allowCustom: boolean;
 }) {
   const targets = designTargets(pages);
-  const targetLabel = panel ? "tu panel" : (targets.find((t) => t.key === target)?.label ?? target);
-  const general = cfg.theme;
-  const patch = target === "general" ? null : (cfg.pageThemes[target] ?? {});
+  const targetLabel = panel ? "tu panel" : only && target === only.key ? only.label : (targets.find((t) => t.key === target)?.label ?? target);
+  // Con `scope`, lo de debajo es la página entera (la web con lo de esa página) y lo propio, lo de la sección.
+  const general = scope ? designFor(cfg, target === "general" ? null : target) : cfg.theme;
+  const patch = scope ? scope.design : target === "general" ? null : (cfg.pageThemes[target] ?? {});
   const eff: Design = patch ? { ...general, ...patch } : general;
   const val = <K extends DesignKey>(k: K) => designValue(eff, k);
   const own = (k: DesignKey) => (patch ? patch[k] !== undefined && patch[k] !== null : false);
+  // Lo de dentro de «a mano» (y el color de un marco…) sale con su interruptor.
+  const can = (k: DesignKey) => !fields || fields.has(k) || (!!FOLLOWS[k] && fields.has(FOLLOWS[k]));
+  const canAny = (ks: DesignKey[]) => ks.some(can);
+  const show = (g: DesignGroup) => (!groups || groups.includes(g)) && (!fields || canAny(GROUP_KEYS[g]));
+  const resetLabel = scope ? "Como la página" : "Como toda la web";
 
   const setD = (p: Partial<Design>) =>
-    setCfg((c) =>
-      target === "general" ? { ...c, theme: { ...c.theme, ...p } } : { ...c, pageThemes: { ...c.pageThemes, [target]: { ...(c.pageThemes[target] ?? {}), ...p } } },
-    );
-  /** Vuelve a lo de toda la web (en una página) o a lo de base (en toda la web). */
-  const resetD = (keys: DesignKey[]) =>
+    scope
+      ? scope.onChange({ ...scope.design, ...p })
+      : setCfg((c) =>
+          target === "general" ? { ...c, theme: { ...c.theme, ...p } } : { ...c, pageThemes: { ...c.pageThemes, [target]: { ...(c.pageThemes[target] ?? {}), ...p } } },
+        );
+  /** Vuelve a lo de toda la web (en una página) o a lo de base (en toda la web); en una sección, a lo de la página. */
+  const resetD = (keys: DesignKey[]) => {
+    const strip = (d: Design) => Object.fromEntries(Object.entries(d).filter(([k]) => !keys.includes(k as DesignKey))) as Design;
+    if (scope) return scope.onChange(strip(scope.design));
     setCfg((c) => {
-      const strip = (d: Design) => Object.fromEntries(Object.entries(d).filter(([k]) => !keys.includes(k as DesignKey))) as Design;
       if (target === "general") return { ...c, theme: strip(c.theme) };
       const next = strip(c.pageThemes[target] ?? {});
       const all = { ...c.pageThemes };
@@ -116,6 +166,7 @@ export function DesignEditor({
       else delete all[target];
       return { ...c, pageThemes: all };
     });
+  };
 
   if (!allowCustom)
     return (
@@ -132,8 +183,8 @@ export function DesignEditor({
   /** ¿Esta página cambia alguna de estas piezas? (punto dorado y «Como toda la web»). */
   const changed = (keys: DesignKey[]) => !!patch && keys.some(own);
 
-  const color = (k: DesignKey, label: string, hint?: string) => (
-    <Row label={label} changed={changed([k])} onReset={() => resetD([k])} hint={hint}>
+  const color = (k: DesignKey, label: string, hint?: string) => !can(k) ? null : (
+    <Row resetLabel={resetLabel} label={label} changed={changed([k])} onReset={() => resetD([k])} hint={hint}>
       <div className="flex items-center gap-3 rounded-xl border border-line bg-white p-2 pr-3">
         <input type="color" value={(val(k) as string) || "#888888"} onChange={(e) => setD({ [k]: e.target.value })} className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0" aria-label={label} />
         <input
@@ -147,16 +198,16 @@ export function DesignEditor({
       </div>
     </Row>
   );
-  const slider = (k: DesignKey, label: string, min: number, max: number, unit: string, step = 1, show?: (n: number) => string) => (
-    <Row label={label} changed={changed([k])} onReset={() => resetD([k])}>
+  const slider = (k: DesignKey, label: string, min: number, max: number, unit: string, step = 1, show?: (n: number) => string) => !can(k) ? null : (
+    <Row resetLabel={resetLabel} label={label} changed={changed([k])} onReset={() => resetD([k])}>
       <div className="flex items-center gap-3">
         <input type="range" min={min} max={max} step={step} value={val(k) as number} onChange={(e) => setD({ [k]: Number(e.target.value) })} className="flex-1 accent-[#c9a46a]" aria-label={label} />
         <span className="w-16 text-right text-xs tabular-nums text-muted">{show ? show(val(k) as number) : `${val(k)}${unit}`}</span>
       </div>
     </Row>
   );
-  const choice = <T extends string>(k: DesignKey, label: string, options: Record<T, string>) => (
-    <Row label={label} changed={changed([k])} onReset={() => resetD([k])}>
+  const choice = <T extends string>(k: DesignKey, label: string, options: Record<T, string>) => !can(k) ? null : (
+    <Row resetLabel={resetLabel} label={label} changed={changed([k])} onReset={() => resetD([k])}>
       <div className="flex flex-wrap gap-1.5">
         {(Object.keys(options) as T[]).map((o) => (
           <button key={o} type="button" onClick={() => setD({ [k]: o })} className={`rounded-full border px-3 py-1.5 text-xs transition ${val(k) === o ? "border-ink bg-ink text-cream" : "border-line bg-white hover:border-ink/30"}`}>
@@ -166,17 +217,18 @@ export function DesignEditor({
       </div>
     </Row>
   );
-  const toggle = (k: DesignKey, label: string, hint?: string) => (
-    <Row label={label} changed={changed([k])} onReset={() => resetD([k])} hint={hint}>
+  const toggle = (k: DesignKey, label: string, hint?: string) => !can(k) ? null : (
+    <Row resetLabel={resetLabel} label={label} changed={changed([k])} onReset={() => resetD([k])} hint={hint}>
       <button type="button" role="switch" aria-checked={!!val(k)} onClick={() => setD({ [k]: !val(k) })} className={`relative h-6 w-11 rounded-full transition ${val(k) ? "bg-gold" : "bg-line"}`}>
         <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${val(k) ? "left-[1.375rem]" : "left-0.5"}`} />
       </button>
     </Row>
   );
   const font = (k: "fontDisplay" | "fontBody", label: string) => {
+    if (!can(k)) return null;
     const f = FONTS[val(k)];
     return (
-      <Row label={label} changed={changed([k])} onReset={() => resetD([k])}>
+      <Row resetLabel={resetLabel} label={label} changed={changed([k])} onReset={() => resetD([k])}>
         <select className="input h-10 text-sm" value={val(k)} onChange={(e) => setD({ [k]: e.target.value as FontKey })}>
           {(Object.keys(FONT_CATEGORIES) as FontCategory[]).map((cat) => (
             <optgroup key={cat} label={FONT_CATEGORIES[cat]}>
@@ -196,8 +248,8 @@ export function DesignEditor({
       </Row>
     );
   };
-  const weights = (k: "displayWeight" | "btnWeight", fontKey: FontKey, label: string) => (
-    <Row label={label} changed={changed([k])} onReset={() => resetD([k])}>
+  const weights = (k: "displayWeight" | "btnWeight", fontKey: FontKey, label: string) => !can(k) ? null : (
+    <Row resetLabel={resetLabel} label={label} changed={changed([k])} onReset={() => resetD([k])}>
       <div className="flex flex-wrap gap-1.5">
         {[300, 400, 500, 600, 700].map((w) => {
           const has = (FONTS[fontKey].w as readonly number[]).includes(w);
@@ -238,17 +290,42 @@ export function DesignEditor({
     <div className="space-y-5">
       {fontsLink && <link rel="stylesheet" href={fontsLink} precedence="default" />}
 
-      {!panel && (
+      {!panel && !scope && (
       <section className="card p-5 sm:p-6">
-        <label htmlFor="design-target" className="font-semibold">Qué diseñas</label>
-        <select id="design-target" className="input mt-2 h-11" value={target} onChange={(e) => setTarget(e.target.value)}>
-          {targets.map((t) => (
-            <option key={t.key} value={t.key}>
-              {t.label}
-              {t.key !== "general" && cfg.pageThemes[t.key] ? " · con diseño propio" : ""}
-            </option>
-          ))}
-        </select>
+        {only ? (
+          <>
+            <p className="font-semibold">Qué diseñas</p>
+            <div role="radiogroup" aria-label="Qué diseñas" className="mt-2 grid grid-cols-2 gap-1 rounded-2xl bg-sand p-1 text-sm">
+              {[
+                { key: only.key, label: `Solo «${only.label}»` },
+                { key: "general", label: "Toda la web" },
+              ].map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={target === t.key}
+                  onClick={() => setTarget(t.key)}
+                  className={`truncate rounded-xl px-3 py-2 font-medium transition ${target === t.key ? "bg-white shadow-soft" : "text-muted hover:text-ink"}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <label htmlFor="design-target" className="font-semibold">Qué diseñas</label>
+            <select id="design-target" className="input mt-2 h-11" value={target} onChange={(e) => setTarget(e.target.value)}>
+              {targets.map((t) => (
+                <option key={t.key} value={t.key}>
+                  {t.label}
+                  {t.key !== "general" && cfg.pageThemes[t.key] ? " · con diseño propio" : ""}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
         <p className="mt-2 text-xs text-muted">
           {target === "general"
             ? "Lo que cambies aquí sale en todas las páginas. Luego, en cada página, puedes cambiar solo lo que quieras."
@@ -278,7 +355,7 @@ export function DesignEditor({
           <h3 className="font-semibold">Solo una tarjeta, una foto o un botón</h3>
           <p className="mt-1 text-xs text-muted">
             {pieceTools.canPick
-              ? "Toca en la vista en vivo una tarjeta, un panel dorado, una foto o un botón y cámbiale solo a esa pieza la forma, los colores, el marco o la geometría. En el móvil, ábrela con «Vista previa»."
+              ? "Toca en tu web una tarjeta, un panel dorado, una foto o un botón y cámbiale solo a esa pieza la forma, los colores, el marco o la geometría."
               : "Esta página aún no se ve en la web: cuando esté publicada, sale de verdad en la vista en vivo y puedes tocar sus tarjetas y botones."}
           </p>
           {pieces.length > 0 && (
@@ -299,6 +376,7 @@ export function DesignEditor({
         </section>
       )}
 
+      {!scope && !groups && (
       <section className="card p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-semibold">Mis plantillas</h3>
@@ -360,8 +438,9 @@ export function DesignEditor({
           <p className="mt-2 text-sm text-muted">Aún no tienes plantillas. Diseña abajo a tu gusto y guárdalo con un nombre: luego lo aplicas a toda la web o a cualquier página con un clic.</p>
         )}
       </section>
+      )}
 
-      <Group title="Colores">
+      <Group title="Colores" when={show("colores")}>
         <div className="grid gap-x-4 sm:grid-cols-2">
           {color("text", "Texto")}
           {color("muted", "Texto suave", "Vacío: un tono del texto.")}
@@ -371,21 +450,21 @@ export function DesignEditor({
         </div>
       </Group>
 
-      <Group title="Fondo">
+      <Group title="Fondo" when={show("fondo")}>
         {choice("bgType", "Tipo de fondo", BG_TYPES)}
         <div className="grid gap-x-4 sm:grid-cols-2">
           {color("background", val("bgType") === "solid" ? "Color de fondo" : "Primer color")}
           {val("bgType") !== "solid" && color("bg2", "Segundo color")}
         </div>
         {val("bgType") === "gradient" && slider("bgAngle", "Dirección del degradado", 0, 360, "°")}
-        <Row label={"Foto de fondo"} changed={changed(["backgroundImageUrl"])} onReset={() => resetD(["backgroundImageUrl"])}>
+        <Row resetLabel={resetLabel} label={"Foto de fondo"} changed={changed(["backgroundImageUrl"])} onReset={() => resetD(["backgroundImageUrl"])}>
           <ImageUpload shape="wide" value={val("backgroundImageUrl") || null} onChange={(v) => setD({ backgroundImageUrl: v ?? (target === "general" ? null : "") })} label="Añadir foto de fondo" />
         </Row>
         {!!val("backgroundImageUrl") && slider("bgImageOpacity", "Cuánto se ve la foto", 0, 100, "%")}
       </Group>
 
-      <Group title="Fondo con movimiento">
-        <Row label={"Efecto"} changed={changed(["decor"])} onReset={() => resetD(["decor"])}>
+      <Group title="Fondo con movimiento" when={show("movimiento")}>
+        <Row resetLabel={resetLabel} label={"Efecto"} changed={changed(["decor"])} onReset={() => resetD(["decor"])}>
           <div className="space-y-3">
             {(Object.keys(DECOR_GROUPS) as DecorGroup[]).map((g) => (
               <div key={g}>
@@ -411,7 +490,7 @@ export function DesignEditor({
         )}
       </Group>
 
-      <Group title="Letras">
+      <Group title="Letras" when={show("letras")}>
         {font("fontDisplay", "Letra de los títulos")}
         {weights("displayWeight", val("fontDisplay"), "Grosor de los títulos")}
         <div className="grid gap-x-4 sm:grid-cols-2">
@@ -423,7 +502,7 @@ export function DesignEditor({
         {font("fontBody", "Letra de los textos")}
       </Group>
 
-      <Group title="Tarjetas">
+      <Group title="Tarjetas" when={show("tarjetas")}>
         {choice("cardStyle", "Estilo", CARD_STYLES)}
         {toggle("cardCustom", "Diseñar las tarjetas a mano", "Apagado: cada página lleva sus tarjetas de siempre (la portada, con doble línea dorada).")}
         {!!val("cardCustom") && (
@@ -442,7 +521,8 @@ export function DesignEditor({
             </div>
           </>
         )}
-        <Row label={"Marco"} changed={changed(["cardFrame"])} onReset={() => resetD(["cardFrame"])}>
+        {can("cardFrame") && (<>
+        <Row resetLabel={resetLabel} label={"Marco"} changed={changed(["cardFrame"])} onReset={() => resetD(["cardFrame"])}>
           <FramePicker
             items={CARD_FRAMES}
             value={val("cardFrame")}
@@ -456,10 +536,11 @@ export function DesignEditor({
             {val("cardFrame") !== "neon" && slider("cardFrameSize", "Tamaño de los adornos", 20, 140, " px")}
           </>
         )}
+        </>)}
       </Group>
 
       {!panel && (
-      <Group title="Paneles dorados">
+      <Group title="Paneles dorados" when={show("paneles")}>
         <p className="pt-1 text-xs text-muted">
           Los recuadros con doble borde dorado y estrellitas ✦: «Qué incluye» de las fichas, los textos de las páginas de tus métodos, las cartas de las lecturas y el panel de cada ficha.
         </p>
@@ -481,7 +562,7 @@ export function DesignEditor({
         {choice("panelGeo", "Geometría de fondo", PANEL_GEOS)}
         {val("panelGeo") !== "keep" && val("panelGeo") !== "none" && (
           <>
-            {choice("panelGeoPos", "Dónde", FIGURE_POS)}
+            {choice("panelGeoPos", "Dónde va la figura", FIGURE_POS)}
             {slider("panelGeoOpacity", "Cuánto se ve", 4, 60, "%")}
             {color("panelGeoColor", "Color de la geometría", "Vacío: el de los detalles.")}
           </>
@@ -489,7 +570,7 @@ export function DesignEditor({
       </Group>
       )}
 
-      <Group title="Botones">
+      <Group title="Botones" when={show("botones")}>
         {toggle("btnCustom", "Diseñar los botones a mano", "Apagado: cada página lleva sus botones de siempre.")}
         {!!val("btnCustom") && (
           <>
@@ -511,7 +592,8 @@ export function DesignEditor({
             {choice("btnShadow", "Sombra", SHADOWS)}
           </>
         )}
-        <Row label={"Marco"} changed={changed(["btnFrame"])} onReset={() => resetD(["btnFrame"])}>
+        {can("btnFrame") && (<>
+        <Row resetLabel={resetLabel} label={"Marco"} changed={changed(["btnFrame"])} onReset={() => resetD(["btnFrame"])}>
           <FramePicker
             items={BUTTON_FRAMES}
             value={val("btnFrame")}
@@ -520,16 +602,17 @@ export function DesignEditor({
           />
         </Row>
         {val("btnFrame") !== "none" && color("btnFrameColor", "Color del marco")}
+        </>)}
       </Group>
 
-      <Group title="Fotos">
+      <Group title="Fotos" when={show("fotos")}>
         {toggle("imgCustom", "Diseñar las fotos a mano", "Las esquinas, la forma y el marco de las fotos (también la de «Sobre mí»).")}
         {!!val("imgCustom") && (
           <>
             {slider("imgRadius", "Esquinas de las fotos", 0, 60, " px", 1, (n) => (n >= 60 ? "Redondas" : `${n} px`))}
             {choice("avatarShape", "Forma de tu foto y de las burbujas", AVATAR_SHAPES)}
             {choice("photoShape", "Forma de las fotos con marco («Sobre mí», fichas, páginas)", PHOTO_SHAPES)}
-            {choice("photoFrame", "Marco de esas fotos", PHOTO_FRAMES)}
+            {choice("photoFrame", "Marco de esas fotos y de las burbujas", PHOTO_FRAMES)}
           </>
         )}
       </Group>
@@ -538,7 +621,7 @@ export function DesignEditor({
 }
 
 /** Una fila: su nombre y, en una página con un cambio propio, «Como toda la web». */
-function Row({ label, changed, onReset, children, hint }: { label: string; changed: boolean; onReset: () => void; children: ReactNode; hint?: string }) {
+function Row({ label, changed, onReset, children, hint, resetLabel = "Como toda la web" }: { label: string; changed: boolean; onReset: () => void; children: ReactNode; hint?: string; resetLabel?: string }) {
   return (
     <div className="py-2.5">
       <div className="mb-1.5 flex items-center justify-between gap-2">
@@ -548,7 +631,7 @@ function Row({ label, changed, onReset, children, hint }: { label: string; chang
         </span>
         {changed && (
           <button type="button" onClick={onReset} className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink">
-            <Undo2 className="h-3 w-3" /> Como toda la web
+            <Undo2 className="h-3 w-3" /> {resetLabel}
           </button>
         )}
       </div>
@@ -619,7 +702,8 @@ export function ButtonFrameSwatch({ frame }: { frame: ButtonFrameKey }) {
   );
 }
 
-function Group({ title, children }: { title: string; children: ReactNode }) {
+function Group({ title, children, when = true }: { title: string; children: ReactNode; when?: boolean }) {
+  if (!when) return null;
   return (
     <details open className="card group p-5 sm:p-6">
       <summary className="flex cursor-pointer list-none items-center justify-between font-semibold">
@@ -628,51 +712,5 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
       </summary>
       <div className="mt-2 divide-y divide-line">{children}</div>
     </details>
-  );
-}
-
-/** La vista en vivo de una página que no es la portada: una muestra con títulos, textos, tarjetas, botones y fotos. */
-export function DesignSample({ config, page, allowCustom, personal, username }: { config: PageConfig; page: string; allowCustom: boolean; personal: boolean; username: string }) {
-  // translateZ: lo que en la web va fijo a la pantalla (la foto de fondo, el movimiento) se queda dentro de la vista previa.
-  return (
-    <div className="[transform:translateZ(0)]">
-    <CreatorShell username={username} config={config} allowCustom={allowCustom} personal={personal} page={page} showAccount={false} showNewsletter={false}>
-      <main className="mx-auto max-w-xl px-5 pb-6 pt-8">
-        <div className="flex flex-col items-center text-center">
-          <Avatar src={config.avatarUrl} name={config.displayName} className="h-20 w-20" />
-          <p className="cp-eyebrow mt-4">Ejemplo</p>
-          <h1 className="cp-display mt-2 text-[2.4rem] leading-[1.05]">Un título de página</h1>
-          <p className="cp-muted mt-3 text-[1.02rem] leading-relaxed">Así se ven los textos de esta página, con su letra, sus colores y su fondo.</p>
-          <div className="mt-5 flex flex-wrap justify-center gap-2">
-            <span className="cp-btn">Reservar</span>
-            <span className="cp-btn-ghost">Saber más</span>
-          </div>
-        </div>
-        <div className="mt-8 grid gap-3">
-          {["Lectura de carta", "Sesión 1:1"].map((t, i) => (
-            <div key={t} className="cp-card">
-              <div className="h-28 w-full" style={{ background: i ? "linear-gradient(135deg, var(--c-gold), var(--c-bg2))" : "linear-gradient(135deg, var(--c-bg2), var(--c-accent))" }} />
-              <div className="p-4">
-                <p className="cp-display text-xl">{t}</p>
-                <p className="cp-muted mt-1 text-sm">Una tarjeta de ejemplo · {i ? "120" : "49"} €</p>
-              </div>
-            </div>
-          ))}
-          <div className="cp-include-panel">
-            <p className="cp-display text-xl">Un panel dorado</p>
-            <p className="cp-muted mt-1 text-sm">Con su doble borde, sus estrellitas y, si quieres, geometría de fondo.</p>
-          </div>
-          <span className="cp-link" data-highlight="true">
-            <span>✨ Un botón destacado</span>
-            <span>↗</span>
-          </span>
-          <span className="cp-link">
-            <span>Un enlace</span>
-            <span>↗</span>
-          </span>
-        </div>
-      </main>
-    </CreatorShell>
-    </div>
   );
 }

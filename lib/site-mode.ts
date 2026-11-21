@@ -39,6 +39,11 @@ export function isPersonalMode() {
   return siteMode() === "personal";
 }
 
+/** El nombre de la sección de la gente (/panel/clientes): «Personas» en la web personal, «Clientes» en la plataforma. */
+export function peopleLabel() {
+  return isPersonalMode() ? "Personas" : "Clientes";
+}
+
 /**
  * Usuario de la dueña de la web. null en modo plataforma. En modo personal es obligatorio (assertEnv
  * no deja arrancar sin él): si aun así falta, se lanza en vez de enseñar la web de otra persona.

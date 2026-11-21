@@ -1,8 +1,7 @@
-import { LifeBuoy, Mail, MessageCircle } from "lucide-react";
+import { LifeBuoy, Mail } from "lucide-react";
 import { requireBuyerFull } from "@/lib/buyer-access";
 import { creatorBrief } from "@/lib/customer";
 import { prisma } from "@/lib/db";
-import { socialHref } from "@/lib/page-config";
 import { getSettings } from "@/lib/settings";
 import { isPersonalMode } from "@/lib/site-mode";
 import { SESSION_CHANGE_NOTICE_HOURS } from "@/lib/legal";
@@ -27,7 +26,7 @@ const FAQ = [
 const FAQ_PERSONAL = [
   ["¿Dónde está mi contenido?", "Todo está en tu cuenta: los cursos en «Mis cursos» y lo que guardas y comentas en la estrella y el chat del menú."],
   ["No me llega el email de acceso", "Revisa la carpeta de spam o promociones. También puedes pedir un nuevo enlace desde «Entrar»."],
-  ["Lo compré en otra web, ¿cómo entro?", "Cuando se confirme tu compra te llegará un email con tu enlace de acceso. Si no te llega en un día, escribe por email o WhatsApp desde esta página."],
+  ["Lo compré en otra web, ¿cómo entro?", "Cuando se confirme tu compra te llegará un email con tu enlace de acceso. Si no te llega en un día, escribe por email desde esta página."],
   ["¿Cómo dejo de recibir novedades?", "Con el enlace del final de cualquier email de novedades o desde tu perfil."],
 ];
 
@@ -88,7 +87,6 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
             <div key={c.id} className="card flex flex-wrap items-center gap-3 p-4">
               <p className="flex-1 font-semibold">{c.displayName}</p>
               {c.email && <a href={`mailto:${c.email}`} className="btn btn-outline btn-sm"><Mail className="h-4 w-4" /> Email</a>}
-              {c.whatsapp && <a href={socialHref("whatsapp", c.whatsapp)} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm"><MessageCircle className="h-4 w-4" /> WhatsApp</a>}
             </div>
           );
         })}

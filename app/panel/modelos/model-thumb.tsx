@@ -32,7 +32,7 @@ export function ModelThumb({ children, className = "", onClick }: { children: Re
       ref={box}
       onClick={onClick}
       aria-hidden
-      className={`relative h-28 w-40 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-line bg-[#0d0c22] sm:h-32 sm:w-48 ${className}`}
+      className={`relative h-28 w-40 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-line bg-[#0b0b0d] sm:h-32 sm:w-48 ${className}`}
     >
       {visible ? (
         <div inert className="pointer-events-none absolute left-0 top-0 origin-top-left select-none" style={{ width: INNER, transform: `scale(${scale})` }}>
