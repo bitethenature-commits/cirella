@@ -7,7 +7,6 @@ import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
 import * as RT from "./email/refund-templates";
 import { dispatchEvents, recordEvents } from "./events";
-import { issueCorrectiveInvoiceTx } from "./invoices/issue";
 import { formatMoney } from "./money";
 import { revokeOrderAccess } from "./order-links";
 import { captureAlert, captureError } from "./monitoring";
@@ -21,12 +20,13 @@ import {
   stripeReason,
   toWithdrawalInput,
   withdrawalEligibility,
+  type MembershipTerms,
   type RefundReason,
   type WithdrawalBlock,
 } from "./refund-math";
 import { truncateError } from "./reliability";
-import { refundTaxFields } from "./tax";
 import { formatDate, formatSessionDate } from "./tz";
+import { DEFAULT_OWNER_TZ, withdrawalDeadline } from "./withdrawal";
 
 /**
  * Reembolsos (totales o parciales) y desistimientos.
@@ -158,6 +158,7 @@ export async function refundOrder(req: RefundRequest, deps: { provider?: Payment
     result = await provider.refund({
       paymentRef: order.paymentRef,
       amountCents: refund.amountCents,
+      currency: order.currency,
       refundApplicationFee: true,
       idempotencyKey: `refund_${refund.id}`,
       reason: stripeReason(req.reason),
@@ -239,14 +240,16 @@ async function sendRefundEmails(refund: Refund, partial: boolean, cancelled: { s
   const toBuyer = { to: order.buyerEmail, creatorId: order.creatorId, dedupeKey: `refund:${refund.id}` };
 
   if (refund.reason === "WITHDRAWAL") {
-    await enqueueEmail({ ...toBuyer, template: "WITHDRAWAL_RECEIPT", ...RT.withdrawalReceiptEmail({ creatorName, productTitle: order.productTitle, amount, url: buyerUrl }) });
+    // Membresía: se devuelve la parte de los días no disfrutados y termina ya (art. 108.3).
+    const membership = order.productType === "MEMBERSHIP";
+    await enqueueEmail({ ...toBuyer, template: "WITHDRAWAL_RECEIPT", ...RT.withdrawalReceiptEmail({ creatorName, productTitle: order.productTitle, amount, url: buyerUrl, membership }) });
     await enqueueEmail({
       to: order.creator.contactEmail || order.creator.user.email,
       userId: order.creator.userId,
       creatorId: order.creatorId,
       template: "WITHDRAWAL_CREATOR",
       dedupeKey: `withdrawal:${order.id}`,
-      ...RT.withdrawalCreatorEmail({ buyer: order.buyerName || order.buyerEmail, productTitle: order.productTitle, amount, url: `${appUrl()}/panel/ventas/${order.id}` }),
+      ...RT.withdrawalCreatorEmail({ buyer: order.buyerName || order.buyerEmail, productTitle: order.productTitle, amount, url: `${appUrl()}/panel/ventas/${order.id}`, membership }),
     });
   } else if (cancelled.length) {
     const startAt = cancelled[0].startAt;
@@ -286,11 +289,8 @@ export async function markRefundSucceeded(refundId: string): Promise<boolean> {
     const refund = await tx.refund.findUniqueOrThrow({ where: { id: refundId } });
     const order = await tx.order.findUniqueOrThrow({ where: { id: refund.orderId }, include: { customer: { select: { userId: true } } } });
     const full = order.refundedCents + refund.amountCents >= order.amountCents;
-    // IVA devuelto en proporción. Si vende Cirella, ese IVA sale de su cuenta y no de la creadora.
-    const tax = refundTaxFields(order, refund.amountCents);
-    const platformTax = order.taxSeller === "PLATFORM" ? tax.taxCents : 0;
-    // Libro: importes en negativo, así las sumas son netas (lib/dac7-data.ts cuenta con ello).
-    const refundTx = await tx.transaction.create({
+    // Libro: importes en negativo, así las sumas son netas.
+    await tx.transaction.create({
       data: {
         creatorId: order.creatorId,
         orderId: order.id,
@@ -299,16 +299,12 @@ export async function markRefundSucceeded(refundId: string): Promise<boolean> {
         description: `Reembolso · ${order.productTitle}`,
         amountCents: -refund.amountCents,
         platformFeeCents: -refund.platformFeeCents,
-        netCents: -(refund.amountCents - refund.platformFeeCents) - platformTax,
+        netCents: -(refund.amountCents - refund.platformFeeCents),
         currency: refund.currency,
-        ...tax,
         provider: refund.provider,
         providerRef: refund.providerRef,
       },
     });
-    // Rectificativa de la factura de la venta (si la tenía), en la misma transacción.
-    const charge = await tx.transaction.findFirst({ where: { orderId: order.id, type: "CHARGE" }, orderBy: { createdAt: "asc" }, select: { id: true } });
-    if (charge) await issueCorrectiveInvoiceTx(tx, { refundTransactionId: refundTx.id, originalTransactionId: charge.id });
     await tx.order.update({
       where: { id: order.id },
       data: {
@@ -431,7 +427,7 @@ export function findRenewalCharge(provider: string, paymentRef: string) {
 /**
  * Reembolso (desde el panel de Stripe) o contracargo perdido de una RENOVACIÓN. Las renovaciones no
  * tienen pedido ni fila Refund (Refund.orderId es obligatorio), así que se contabiliza directamente:
- * fila REFUND en negativo, rectificativa de la factura de la renovación, gasto de la clienta y, si
+ * fila REFUND en negativo, gasto de la clienta y, si
  * se devuelve entera la del periodo en curso, fin de la membresía y del acceso. Idempotente por la
  * clave única refund:{renovación}:{referencia}. null si el cobro no es de ninguna renovación.
  */
@@ -454,10 +450,8 @@ async function syncRenewalRefund(i: ProviderRefundUpdate): Promise<{ creatorId: 
       const amount = Math.min(i.amountCents, refundableCents({ amountCents: renewal.amountCents, reservedCents }));
       if (amount <= 0) return false;
       const split = computeRefundSplit({ amountCents: renewal.amountCents, platformFeeCents: renewal.platformFeeCents, reservedCents, reservedFeeCents }, amount);
-      const tax = refundTaxFields(renewal, amount);
-      const platformTax = renewal.taxSeller === "PLATFORM" ? -tax.taxCents : 0;
       const sub = renewal.subscriptionId ? await tx.subscription.findUnique({ where: { id: renewal.subscriptionId } }) : null;
-      const refundTx = await tx.transaction.create({
+      await tx.transaction.create({
         data: {
           creatorId: renewal.creatorId,
           subscriptionId: renewal.subscriptionId,
@@ -465,15 +459,13 @@ async function syncRenewalRefund(i: ProviderRefundUpdate): Promise<{ creatorId: 
           description: i.reason === "DISPUTE_LOST" ? "Contracargo perdido · renovación de membresía" : "Reembolso · renovación de membresía",
           amountCents: -amount,
           platformFeeCents: -split.feeCents,
-          netCents: -(amount - split.feeCents) - platformTax,
+          netCents: -(amount - split.feeCents),
           currency: renewal.currency,
-          ...tax,
           provider: renewal.provider,
           providerRef: i.providerRef,
           idempotencyKey: key,
         },
       });
-      await issueCorrectiveInvoiceTx(tx, { refundTransactionId: refundTx.id, originalTransactionId: renewal.id });
       if (sub) {
         await tx.customer.update({ where: { id: sub.customerId }, data: { totalSpentCents: { decrement: amount } } });
         await tx.analyticsEvent.create({
@@ -543,12 +535,12 @@ async function reviveFailedRefund(r: Refund) {
 }
 
 /** Texto para la compradora cuando no puede desistir. */
-export function withdrawalBlockMessage(reason: WithdrawalBlock, paidAt: Date | null) {
+export function withdrawalBlockMessage(reason: WithdrawalBlock, paidAt: Date | null, timezone: string = DEFAULT_OWNER_TZ) {
   switch (reason) {
     case "EXPIRED":
-      return `El plazo de ${WITHDRAWAL_DAYS} días para desistir terminó el ${formatDate(new Date((paidAt ?? new Date()).getTime() + WITHDRAWAL_DAYS * 86_400_000), { day: "numeric", month: "long" })}.`;
+      return `El plazo de ${WITHDRAWAL_DAYS} días para desistir terminó el ${formatDate(withdrawalDeadline(paidAt ?? new Date(), timezone), { day: "numeric", month: "long" }, timezone)}.`;
     case "WAIVED":
-      return "Renunciaste al desistimiento para tener acceso inmediato y ya has empezado a usar el contenido.";
+      return "Al comprar pediste el acceso inmediato (o que se preparara ya) y renunciaste al desistimiento.";
     case "SESSION_HELD":
       return "La sesión ya se ha realizado.";
     case "PENDING":
@@ -557,22 +549,60 @@ export function withdrawalBlockMessage(reason: WithdrawalBlock, paidAt: Date | n
       return "Esta compra ya está reembolsada.";
     case "NOT_PAID":
       return "Esta compra no se puede desistir.";
+    case "DELIVERED":
+      return "Ya has recibido tu lectura preparada para ti: no se puede desistir.";
+    case "WORKSHOP":
+      return "Los talleres tienen fecha fija y no admiten desistimiento (art. 103 l) de la Ley General para la Defensa de los Consumidores y Usuarios).";
+    case "MEMBERSHIP_ENDED":
+      return "Esta membresía ya ha terminado.";
+    case "RENEWED":
+      return "El desistimiento solo vale para el primer pago de la membresía, no para las renovaciones. Puedes cancelarla desde tu cuenta.";
   }
 }
 
 /**
- * La compradora desiste (14 días). Solo sobre sus propios pedidos: el id, su email y su usuaria
- * tienen que coincidir. Se devuelve todo lo que queda, se retira el acceso y se cancela la sesión.
+ * Suscripciones creadas por estos pedidos de membresía (Subscription.orderId), para su desistimiento:
+ * periodo en curso, si sigue viva y si ya se ha renovado alguna vez (un movimiento RENEWAL).
  */
-export async function withdrawOrder(i: { orderId: string; userId: string; email: string; now?: Date }, deps: { provider?: PaymentProvider } = {}): Promise<RefundResult> {
+export async function membershipTermsFor(orderIds: string[]): Promise<Map<string, MembershipTerms>> {
+  const out = new Map<string, MembershipTerms>();
+  if (!orderIds.length) return out;
+  const subs = await prisma.subscription.findMany({
+    where: { orderId: { in: orderIds } },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, orderId: true, status: true, currentPeriodStart: true, currentPeriodEnd: true },
+  });
+  if (!subs.length) return out;
+  const renewals = await prisma.transaction.groupBy({ by: ["subscriptionId"], where: { subscriptionId: { in: subs.map((s) => s.id) }, type: "RENEWAL" }, _count: true });
+  const renewed = new Set(renewals.map((r) => r.subscriptionId));
+  for (const s of subs)
+    out.set(s.orderId!, { periodStart: s.currentPeriodStart, periodEnd: s.currentPeriodEnd, live: LIVE_SUBSCRIPTION.includes(s.status), renewed: renewed.has(s.id) });
+  return out;
+}
+
+/**
+ * La compradora desiste (14 días). Solo sobre sus propios pedidos: el id, su email y su usuaria
+ * tienen que coincidir. Se retira el acceso y se cancela la sesión; se devuelve todo lo que queda o,
+ * en una membresía, la parte de los días no disfrutados (la suscripción termina ya).
+ * `expectedCents`: el importe que vio en «Desistir»; si al tramitarlo ya es otro (ha cambiado el
+ * día), no se hace nada y se le enseña el nuevo.
+ */
+export async function withdrawOrder(
+  i: { orderId: string; userId: string; email: string; now?: Date; expectedCents?: number | null },
+  deps: { provider?: PaymentProvider } = {},
+): Promise<RefundResult> {
   const order = await prisma.order.findFirst({
     where: { id: i.orderId, buyerEmail: i.email.toLowerCase(), customer: { userId: i.userId } },
-    include: { bookings: { select: { status: true, startAt: true } }, refunds: { select: { status: true } } },
+    include: { bookings: { select: { status: true, startAt: true } }, refunds: { select: { status: true } }, creator: { select: { timezone: true } } },
   });
   if (!order) return NOT_FOUND;
   if (isNoChargeOrder(order)) return NO_CHARGE;
-  const e = withdrawalEligibility(toWithdrawalInput(order), i.now ?? new Date());
-  if (!e.eligible) return { ok: false, code: "NOT_REFUNDABLE", error: withdrawalBlockMessage(e.reason, order.paidAt) };
+  const tz = order.creator.timezone;
+  const membership = order.productType === "MEMBERSHIP" ? ((await membershipTermsFor([order.id])).get(order.id) ?? null) : null;
+  const e = withdrawalEligibility(toWithdrawalInput({ ...order, timezone: tz, membership }), i.now ?? new Date());
+  if (!e.eligible) return { ok: false, code: "NOT_REFUNDABLE", error: withdrawalBlockMessage(e.reason, order.paidAt, tz) };
+  if (i.expectedCents != null && i.expectedCents !== e.amountCents)
+    return { ok: false, code: "AMOUNT", error: `El importe a devolver ahora es ${money(e.amountCents, order.currency)}. Revísalo y vuelve a confirmarlo.` };
   return refundOrder(
     { orderId: order.id, actor: { kind: "customer", userId: i.userId }, amountCents: e.amountCents, reason: "WITHDRAWAL", revokeAccess: true, cancelBooking: true },
     deps,

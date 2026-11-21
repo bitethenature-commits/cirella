@@ -66,7 +66,7 @@ async function main() {
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" }, include: { user: true } });
   const anaActor = { kind: "creator" as const, creatorId: ana.id, userId: ana.userId };
   const session = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, slug: "sesion-1-1" } });
-  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED" } });
+  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "AUTOMATIC" } });
   const membership = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "MEMBERSHIP", status: "PUBLISHED" } });
   // Huecos del final de la agenda: lejos de los que usan las pruebas e2e.
   const slots = (await getAvailableSlots(session)).days.flatMap((d) => d.slots).reverse();
@@ -286,9 +286,6 @@ async function cleanup() {
       },
     }),
     prisma.access.deleteMany({ where: { userId: { in: userIds } } }),
-    // Facturas de las compras de prueba (primero se sueltan las F3/rectificativas de su original).
-    prisma.invoice.updateMany({ where: { recipientEmail: { startsWith: TAG } }, data: { relatedInvoiceId: null } }),
-    prisma.invoice.deleteMany({ where: { recipientEmail: { startsWith: TAG } } }),
     prisma.transaction.deleteMany({ where: { OR: [{ orderId: { in: orderIds } }, { subscriptionId: { in: subs } }] } }),
     prisma.refund.deleteMany({ where: { orderId: { in: orderIds } } }),
     prisma.booking.deleteMany({ where: { id: { in: bookingIds } } }),

@@ -5,8 +5,12 @@ import { limitUpload } from "@/lib/limits";
 import { UploadError, createUpload } from "@/lib/uploads";
 
 const schema = z.object({
-  purpose: z.enum(["image", "file"]),
+  purpose: z.enum(["image", "file", "video", "portal"]),
+  graphic: z.boolean().optional(),
+  email: z.boolean().optional(),
+  audio: z.boolean().optional(),
   productId: z.string().max(40).optional(),
+  orderId: z.string().max(40).optional(),
   name: z.string().min(1).max(200),
   contentType: z.string().max(100),
   size: z.number().int().positive(),
@@ -16,7 +20,12 @@ const schema = z.object({
  * Paso 1 de una subida (ver lib/uploads.ts): devuelve la URL firmada a la que el navegador sube
  * el archivo directamente y el billete para completarla.
  *   { purpose: "image" }                → imagen pública (avatar, portada, producto)
- *   { purpose: "file", productId }      → contenido privado de un producto
+ *   { purpose: "file", productId }      → contenido privado de un producto (también la grabación y el workbook de un círculo)
+ *   { purpose: "video" }                → vídeo de un bloque de la página (solo la web personal)
+ *   { purpose: "video", audio: true }   → vídeo o audio de una publicación (solo la web personal)
+ *   { purpose: "portal" }               → vídeo, audio o foto privados del Portal de Noticias
+ *   graphic: true                       → imagen con el perfil «graphic» (gráficos de Canva)
+ *   email: true                         → imagen para un email (JPEG o PNG: Outlook no enseña WebP)
  */
 export async function POST(req: Request) {
   const user = await getCurrentUser();

@@ -3,13 +3,14 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createSession, destroySession, getCurrentUser, hashPassword, revokeOtherSessions, safeNext, sendMagicLink, verifyPassword } from "@/lib/auth";
-import { sessionSatisfies } from "@/lib/auth-utils";
+import { completeLogin, createSession, destroySession, getCurrentUser, hashPassword, revokeOtherSessions, safeNext, sendMagicLink, verifyPassword } from "@/lib/auth";
 import { requestClient } from "@/lib/client-ip";
 import { prisma } from "@/lib/db";
 import { homeFor } from "@/lib/home";
 import { clearLoginLimit, limitLogin, limitMagicLink, limitSignup } from "@/lib/limits";
 import { isPersonalMode } from "@/lib/site-mode";
+import { forgetDevices } from "@/lib/two-factor";
+import { notifyTwoFactorChange } from "@/lib/two-factor-notify";
 
 export type FormState = { error?: string; ok?: string; email?: string } | undefined;
 
@@ -84,14 +85,12 @@ export async function signIn(_: FormState, form: FormData): Promise<FormState> {
   if (!user || !user.passwordHash || !valid) return { error: "Email o contraseña incorrectos.", email };
   await clearLoginLimit(email);
   if (user.status === "BLOCKED") return { error: "Esta cuenta está bloqueada. Escríbenos si crees que es un error.", email };
-  // La contraseña solo «verifica» la sesión si el email ya está confirmado.
+  // La contraseña solo «verifica» la sesión si el email ya está confirmado. Con la verificación en
+  // dos pasos, completeLogin pide antes el código; el área de cliente sin el email confirmado pide
+  // un enlace (finishLogin).
   const verified = !!user.emailVerifiedAt;
-  await createSession(user.id, { verified });
   const next = form.get("next") ? safeNext(String(form.get("next")), "") : "";
-  const dest = next || (await homeFor(user.id));
-  // El área de cliente necesita el email confirmado: se pide con un enlace.
-  if (!sessionSatisfies({ verified, scoped: false }, dest)) redirect(`/entrar?next=${encodeURIComponent(dest)}&motivo=confirmar`);
-  redirect(dest);
+  return completeLogin(user.id, { verified, next, method: "PASSWORD" });
 }
 
 const MAGIC_LINK_SENT = "Te hemos enviado un enlace. Ábrelo desde este móvil u ordenador y pulsa «Entrar».";
@@ -121,6 +120,8 @@ export async function setPassword(_: FormState, form: FormData): Promise<FormSta
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(parsed.data) } });
   await revokeOtherSessions(user.id);
+  // Una contraseña nueva olvida los dispositivos recordados de la verificación en dos pasos.
+  if ((await forgetDevices(user.id)) > 0 || user.totpEnabledAt) await notifyTwoFactorChange(user.id, "password");
   redirect(safeNext(String(form.get("next") ?? ""), "") || (await homeFor(user.id)));
 }
 

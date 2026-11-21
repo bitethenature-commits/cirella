@@ -17,14 +17,28 @@ export function mediaUrl(creatorId: string, id: string) {
   return `/media/${creatorId}/${id}.webp`;
 }
 
-/** srcset con las variantes de una imagen procesada; undefined si la URL no tiene variantes. */
-export function imageSrcSet(url: string | null | undefined): string | undefined {
+/**
+ * srcset con las variantes de una imagen procesada; undefined si la URL no tiene variantes. Con
+ * `width` (el ancho real de la imagen guardada, si se conoce), las variantes que no son más pequeñas
+ * que ella sobran y la original lleva su ancho de verdad.
+ */
+export function imageSrcSet(url: string | null | undefined, width?: number | null): string | undefined {
   if (!url || !MEDIA_URL_RE.test(url)) return undefined;
   const base = url.slice(0, -".webp".length);
-  return [...MEDIA_VARIANT_WIDTHS.map((w) => `${base}-w${w}.webp ${w}w`), `${url} ${MEDIA_MAX_WIDTH}w`].join(", ");
+  const full = width && width > 0 ? Math.min(width, MEDIA_MAX_WIDTH) : MEDIA_MAX_WIDTH;
+  return [...MEDIA_VARIANT_WIDTHS.filter((w) => w < full).map((w) => `${base}-w${w}.webp ${w}w`), `${url} ${full}w`].join(", ");
 }
 
 /** Ruta relativa válida bajo /media/ (la que se pide al almacenamiento como public/{ruta}). */
 export function isMediaPath(rel: string) {
   return MEDIA_PATH_RE.test(rel);
+}
+
+/**
+ * ¿Hay que renovar ya una URL firmada de vídeo o audio? Sí cuando le quedan menos de `marginSec`
+ * (15 min por defecto). Con el reloj del móvil atrasado respecto a la firma (now < issuedAt), no.
+ */
+export function needsMediaRefresh(issuedAtMs: number, ttlSec: number, nowMs: number, marginSec = 900): boolean {
+  if (nowMs < issuedAtMs) return false;
+  return nowMs >= issuedAtMs + (ttlSec - marginSec) * 1000;
 }

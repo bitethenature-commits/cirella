@@ -1,6 +1,8 @@
 import "server-only";
 import type { Creator } from "@prisma/client";
 import { prisma } from "./db";
+import { openLessonIds } from "./course-access";
+import { accessSource, includedProductsForUser } from "./membership-access";
 import { readPageConfig } from "./page-config";
 
 export function creatorBrief(c: Pick<Creator, "id" | "username" | "displayName" | "pagePublished" | "pageDraft" | "timezone" | "contactEmail">) {
@@ -12,7 +14,6 @@ export function creatorBrief(c: Pick<Creator, "id" | "username" | "displayName" 
     avatarUrl: cfg.avatarUrl,
     timezone: c.timezone,
     email: cfg.contact.email || c.contactEmail,
-    whatsapp: cfg.contact.whatsapp,
   };
 }
 
@@ -24,7 +25,7 @@ const activeAccess = (userId: string) => ({
 
 /** Todo lo que una compradora tiene, de todas las creadoras a las que ha comprado. */
 export async function getCustomerLibrary(userId: string) {
-  const [accesses, progress, bookings, subscriptions] = await Promise.all([
+  const [accesses, progress, bookings, subscriptions, included] = await Promise.all([
     prisma.access.findMany({
       where: activeAccess(userId),
       orderBy: { createdAt: "desc" },
@@ -33,27 +34,33 @@ export async function getCustomerLibrary(userId: string) {
           include: {
             creator: true,
             files: { orderBy: { sortOrder: "asc" } },
-            _count: { select: { lessons: true } },
+            _count: { select: { lessons: { where: { published: true } } } },
           },
         },
       },
     }),
-    prisma.lessonProgress.groupBy({ by: ["productId"], where: { userId }, _count: { _all: true } }),
+    prisma.lessonProgress.groupBy({ by: ["productId"], where: { userId, lesson: { published: true } }, _count: { _all: true } }),
     prisma.booking.findMany({
       where: { userId, status: { in: ["CONFIRMED", "PENDING_SCHEDULE", "COMPLETED"] } },
       orderBy: [{ startAt: { sort: "asc", nulls: "first" } }], // pendientes de fecha primero
       include: { product: true, creator: true },
     }),
     prisma.subscription.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, include: { product: true, creator: true } }),
+    includedProductsForUser(userId),
   ]);
   const done = new Map(progress.map((p) => [p.productId, p._count._all]));
-  const courses = accesses
-    .filter((a) => a.product.type === "COURSE")
-    .map((a) => {
-      const total = a.product._count.lessons;
-      const completed = done.get(a.productId) ?? 0;
-      return { product: a.product, creator: creatorBrief(a.product.creator), total, completed, percent: total ? Math.round((completed / total) * 100) : 0 };
-    });
+  const courseRow = (product: { id: string; creator: Creator; _count: { lessons: number } }) => {
+    const total = product._count.lessons;
+    const completed = done.get(product.id) ?? 0;
+    return { creator: creatorBrief(product.creator), total, completed, percent: total ? Math.round((completed / total) * 100) : 0 };
+  };
+  const direct = accesses.filter((a) => a.product.type === "COURSE").map((a) => ({ product: a.product, ...courseRow(a.product), via: null as { productId: string; title: string } | null, until: a.expiresAt }));
+  // Cursos incluidos en sus membresías (si también lo compró, vale la compra).
+  const own = new Set(direct.map((c) => c.product.id));
+  const viaMembership = included
+    .filter((i) => !own.has(i.product.id))
+    .map((i) => ({ product: { ...i.product, files: [] }, ...courseRow(i.product), via: i.via, until: i.until }));
+  const courses = [...direct, ...viaMembership];
   const digital = accesses.filter((a) => a.product.type === "DIGITAL").map((a) => ({ product: a.product, creator: creatorBrief(a.product.creator), files: a.product.files, since: a.createdAt }));
   const now = new Date();
   const upcoming = bookings.filter((b) => b.status === "PENDING_SCHEDULE" || (b.status === "CONFIRMED" && b.startAt && b.startAt >= new Date(now.getTime() - 2 * 3600_000)));
@@ -68,8 +75,48 @@ export async function getCustomerLibrary(userId: string) {
   };
 }
 
-/** Comprueba que la usuaria tiene acceso vigente a un producto. */
+/**
+ * Comprueba que la usuaria tiene acceso vigente a un producto: directo o por una membresía que lo
+ * incluye (lib/membership-access.ts). La fecha de fin se comprueba en cada llamada.
+ */
 export async function hasAccess(userId: string, productId: string) {
-  const a = await prisma.access.findFirst({ where: { ...activeAccess(userId), productId } });
-  return !!a;
+  return !!(await accessSource(userId, productId));
+}
+
+/**
+ * Materiales de los cursos para «Mis archivos»: PDF, audios, imágenes y otros archivos (los vídeos
+ * se ven en la lección y los enlaces no se descargan), cada uno con la primera lección que lo usa
+ * (por orden de módulo y de lección). `courses` viene de getCustomerLibrary (acceso ya comprobado).
+ */
+export async function courseMaterials(userId: string, courses: { product: { id: string; title: string }; creator: ReturnType<typeof creatorBrief> }[]) {
+  const ids = courses.map((c) => c.product.id);
+  if (!ids.length) return [];
+  // Lecciones abiertas para ella (publicadas y ya disponibles, lib/course-access.ts): un material que
+  // solo está en borradores o en lecciones que aún no tocan no se lista (tampoco se abriría).
+  const open = new Set<string>();
+  for (const id of ids) for (const l of (await openLessonIds(userId, id)) ?? []) open.add(l);
+  const files = await prisma.productFile.findMany({
+    where: { productId: { in: ids }, kind: { in: ["PDF", "AUDIO", "IMAGE", "OTHER"] } },
+    orderBy: [{ productId: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  const uses = files.length
+    ? await prisma.lessonPart.findMany({
+        where: { productId: { in: ids }, kind: "FILE", fileId: { in: files.map((f) => f.id) } },
+        select: { fileId: true, lesson: { select: { id: true, title: true, sortOrder: true, module: { select: { sortOrder: true } } } } },
+      })
+    : [];
+  const first = new Map<string, (typeof uses)[number]["lesson"]>();
+  const used = new Set(uses.map((u) => u.fileId));
+  for (const u of uses) {
+    if (!open.has(u.lesson.id)) continue;
+    const had = first.get(u.fileId!);
+    const before = !had || u.lesson.module.sortOrder < had.module.sortOrder || (u.lesson.module.sortOrder === had.module.sortOrder && u.lesson.sortOrder < had.sortOrder);
+    if (before) first.set(u.fileId!, u.lesson);
+  }
+  const byId = new Map(courses.map((c) => [c.product.id, c]));
+  return files.filter((f) => !used.has(f.id) || first.has(f.id)).map((f) => {
+    const c = byId.get(f.productId)!;
+    const l = first.get(f.id);
+    return { ...f, productTitle: c.product.title, creator: c.creator, lesson: l ? { id: l.id, title: l.title, href: `/cuenta/cursos/${f.productId}?leccion=${l.id}` } : null };
+  });
 }

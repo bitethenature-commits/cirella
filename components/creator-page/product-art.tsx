@@ -62,9 +62,10 @@ export function Avatar({
     .join("");
   if (src)
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} srcSet={imageSrcSet(src)} sizes={sizes} alt={name} decoding="async" className={`${className} rounded-full object-cover`} />;
+    return <img src={src} srcSet={imageSrcSet(src)} sizes={sizes} alt={name} decoding="async" data-avatar className={`${className} rounded-full object-cover`} />;
   return (
     <div
+      data-avatar
       className={`${className} grid place-items-center rounded-full`}
       style={{ background: "var(--c-accent)", color: "var(--c-accent-text)" }}
       aria-label={name}

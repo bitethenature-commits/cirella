@@ -3,7 +3,7 @@ export type ProductType = (typeof PRODUCT_TYPES)[number];
 
 export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
   DIGITAL: "Producto digital",
-  SESSION: "Sesión / servicio",
+  SESSION: "Sesión",
   COURSE: "Curso",
   MEMBERSHIP: "Membresía",
 };
@@ -15,12 +15,22 @@ export const PRODUCT_TYPE_HINT: Record<ProductType, string> = {
   MEMBERSHIP: "Contenido privado con suscripción mensual",
 };
 
+/** Botón de lo que se pide escribiendo (la web no cobra: lib/requests.ts). */
 export const DEFAULT_CTA: Record<ProductType, string> = {
-  DIGITAL: "Comprar",
-  SESSION: "Reservar",
-  COURSE: "Ver curso",
-  MEMBERSHIP: "Unirme",
+  DIGITAL: "Escríbeme para pedirlo",
+  SESSION: "Escríbeme para reservar",
+  COURSE: "Escríbeme y te apunto",
+  MEMBERSHIP: "Escríbeme para unirte",
 };
+
+/** Textos de botón de cuando se pagaba en la web: se cambian por la invitación a escribir. */
+const LEGACY_CTA = new Set(["Comprar", "Reservar", "Ver curso", "Unirme", "Solicitar", "Solicitar cita", "Apuntarme"]);
+
+/** Botón de un producto «con solicitud»: el texto propio de la dueña o la invitación a escribir. */
+export function requestCta(type: string, ctaLabel: string | null | undefined): string {
+  const own = ctaLabel?.trim();
+  return own && !LEGACY_CTA.has(own) ? own : (DEFAULT_CTA[type as ProductType] ?? "Escríbeme");
+}
 
 export const ORDER_STATUS_LABEL: Record<string, string> = {
   PENDING: "Pendiente",
@@ -29,6 +39,8 @@ export const ORDER_STATUS_LABEL: Record<string, string> = {
   FAILED: "Fallido",
   REFUNDED: "Reembolsado",
   ABANDONED: "Abandonado",
+  REQUESTED: "Solicitud",
+  DECLINED: "Descartada",
 };
 
 export const PAYOUT_STATUS_LABEL: Record<string, string> = {
@@ -46,12 +58,6 @@ export const DISPUTE_STATUS_LABEL: Record<string, string> = {
   LOST: "Contracargo perdido",
 };
 
-export const SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
-  ACTIVE: "Activa",
-  PAST_DUE: "Pago pendiente",
-  CANCELED: "Cancelada",
-};
-
 export const BOOKING_STATUS_LABEL: Record<string, string> = {
   PENDING_SCHEDULE: "Pendiente de fecha",
   CONFIRMED: "Confirmada",
@@ -59,15 +65,12 @@ export const BOOKING_STATUS_LABEL: Record<string, string> = {
   COMPLETED: "Completada",
 };
 
+/**
+ * Solo para Lesson.kind (copia de compatibilidad calculada desde las partes, ver lib/lesson-parts.ts).
+ * La interfaz usa partView/partsLabel.
+ */
 export const LESSON_KINDS = ["VIDEO", "AUDIO", "PDF", "TEXT", "EXERCISE"] as const;
 export type LessonKind = (typeof LESSON_KINDS)[number];
-export const LESSON_KIND_LABEL: Record<LessonKind, string> = {
-  VIDEO: "Vídeo",
-  AUDIO: "Audio",
-  PDF: "PDF",
-  TEXT: "Lectura",
-  EXERCISE: "Ejercicio",
-};
 
 /**
  * Eventos de métricas (AnalyticsEvent.type). Sin cookies: el visitante del día lo calcula el servidor.
@@ -97,6 +100,11 @@ export type CodeEventType = (typeof CODE_EVENT_TYPES)[number];
 
 export function isCodeEvent(type: string): type is CodeEventType {
   return (CODE_EVENT_TYPES as readonly string[]).includes(type);
+}
+
+/** «1 lección», «3 lecciones». */
+export function lessonsLabel(n: number): string {
+  return `${n} ${n === 1 ? "lección" : "lecciones"}`;
 }
 
 /** Duración de un curso: «45 min», «1 h», «1,5 h» (coma decimal, como el resto de la web). */

@@ -6,10 +6,11 @@ import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { normalizeTaxId, SESSION_CHANGE_NOTICE_HOURS, validatePostalCode, validateTaxId } from "@/lib/legal";
-import { renderCreatorLegalTemplates, renderPersonalPrivacy, type CreatorLegalDocs } from "@/lib/legal-templates";
+import { currentLegalKind } from "@/lib/commerce";
+import { renderCreatorLegalTemplates, renderPersonalPrivacy, renderPersonalSalesTemplates, type CreatorLegalDocs } from "@/lib/legal-templates";
+import { paymentProviderKeys } from "@/lib/payments";
 import { legalIdentityOf } from "@/lib/legal-snapshot";
 import { getSettings } from "@/lib/settings";
-import { isPersonalMode } from "@/lib/site-mode";
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -79,14 +80,19 @@ const MAX_DOC_LENGTH = 20_000;
 export async function saveLegalDocs(form: FormData) {
   const { creator } = await requireCreator();
   const { platformName } = await getSettings();
-  const template = renderCreatorLegalTemplates({
-    identity: legalIdentityOf(creator),
-    displayName: creator.displayName,
-    platformName,
-    changeNoticeHours: SESSION_CHANGE_NOTICE_HOURS,
-  });
-  // Modo personal: la privacidad parte de su propia plantilla (sin plataforma ni pagos aquí).
-  if (isPersonalMode()) template.privacy = renderPersonalPrivacy({ displayName: creator.displayName });
+  // Plantillas de la web: la de la plataforma, la personal que cobra (sin plataforma) o, si no cobra,
+  // solo la privacidad personal (sin plataforma ni pagos aquí).
+  const kind = currentLegalKind();
+  const template =
+    kind === "personal-sales"
+      ? renderPersonalSalesTemplates({ displayName: creator.displayName, changeNoticeHours: SESSION_CHANGE_NOTICE_HOURS, paymentKeys: paymentProviderKeys() })
+      : renderCreatorLegalTemplates({
+          identity: legalIdentityOf(creator),
+          displayName: creator.displayName,
+          platformName,
+          changeNoticeHours: SESSION_CHANGE_NOTICE_HOURS,
+        });
+  if (kind === "personal") template.privacy = renderPersonalPrivacy({ displayName: creator.displayName });
   const reset = String(form.get("reset") ?? "");
   if (reset) {
     const key = DOC_KEYS.find((k) => k === reset);

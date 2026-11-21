@@ -91,7 +91,7 @@ test("producción con PAYMENT_PROVIDER=simulated → prohibido", () =>
   hasError({ ...PROD_OK, PAYMENT_PROVIDER: "simulated" }, "PAYMENT_PROVIDER=simulated está prohibido"));
 test("sin PAYMENT_PROVIDER → error", () => hasError({ ...PROD_OK, PAYMENT_PROVIDER: undefined }, "Falta PAYMENT_PROVIDER"));
 test("sin PAYMENT_PROVIDER también en local", () => hasError({ ...DEV_OK, PAYMENT_PROVIDER: "" }, "Falta PAYMENT_PROVIDER"));
-test("PAYMENT_PROVIDER desconocido → error", () => hasError({ ...DEV_OK, PAYMENT_PROVIDER: "paypal" }, "PAYMENT_PROVIDER solo admite"));
+test("PAYMENT_PROVIDER desconocido → error", () => hasError({ ...DEV_OK, PAYMENT_PROVIDER: "bizum" }, "PAYMENT_PROVIDER solo admite"));
 
 // ── APP_URL en producción ──
 for (const [url, fragment] of [
@@ -189,7 +189,7 @@ test("seedGuardErrors: BD local de la demo → sin errores", () =>
 
 // ── Pasarela de pago ──
 test("selectPaymentProviderKey sin valor → lanza", () => throws(() => selectPaymentProviderKey(undefined, "development"), /Falta PAYMENT_PROVIDER/));
-test("selectPaymentProviderKey desconocida → lanza", () => throws(() => selectPaymentProviderKey("paypal", "development"), /no existe/));
+test("selectPaymentProviderKey desconocida → lanza", () => throws(() => selectPaymentProviderKey("bizum", "development"), /no existe/));
 test("selectPaymentProviderKey simulated en producción → lanza", () => throws(() => selectPaymentProviderKey("simulated", "production"), /prohibido/));
 test("selectPaymentProviderKey simulated en staging → lanza", () => throws(() => selectPaymentProviderKey("simulated", "staging"), /prohibido/));
 test("selectPaymentProviderKey simulated en test", () => eq(selectPaymentProviderKey("simulated", "test"), "simulated"));
@@ -214,15 +214,15 @@ test("modo personal en staging → válido", () => isValid({ ...PERSONAL_OK, APP
 test("modo personal con Stripe completo → válido", () => isValid({ ...PROD_OK, SITE_MODE: "personal", OWNER_USERNAME: "ana" }));
 test("modo personal en local con none → válido", () => isValid({ ...DEV_OK, SITE_MODE: "personal", OWNER_USERNAME: "ana", PAYMENT_PROVIDER: "none" }));
 test("modo personal en local con pagos simulados → válido", () => isValid({ ...DEV_OK, SITE_MODE: "personal", OWNER_USERNAME: "ana" }));
-test("OWNER_USERNAME con @ y mayúsculas se normaliza → válido", () => isValid({ ...PERSONAL_OK, OWNER_USERNAME: "@Ana" }));
+test("OWNER_USERNAME con @ y mayúsculas se normaliza → válido", () => isValid({ ...PERSONAL_OK, OWNER_USERNAME: "@Cirella" }));
 test("modo personal sin OWNER_USERNAME → error", () => hasError({ ...PERSONAL_OK, OWNER_USERNAME: undefined }, "Falta OWNER_USERNAME"));
 test("modo personal con OWNER_USERNAME en blanco → error", () => hasError({ ...PERSONAL_OK, OWNER_USERNAME: "  " }, "Falta OWNER_USERNAME"));
 test("modo personal en local sin OWNER_USERNAME → error", () =>
   hasError({ ...DEV_OK, SITE_MODE: "personal", PAYMENT_PROVIDER: "none" }, "Falta OWNER_USERNAME"));
-for (const [user, fragment] of [["ab", "mínimo 3"], ["ana luna!", "solo letras"], ["admin", "reservado"]] as const)
+for (const [user, fragment] of [["ab", "mínimo 3"], ["cirella!", "solo letras"], ["admin", "reservado"]] as const)
   test(`OWNER_USERNAME=${user} → error`, () => hasError({ ...PERSONAL_OK, OWNER_USERNAME: user }, fragment));
 test("modo personal sin PAYMENT_PROVIDER → error que sugiere none", () =>
-  hasError({ ...PERSONAL_OK, PAYMENT_PROVIDER: undefined }, "«none» en modo personal"));
+  hasError({ ...PERSONAL_OK, PAYMENT_PROVIDER: undefined }, "«none» si esta web no cobra"));
 test("modo personal en producción con pagos simulados → prohibido", () =>
   hasError({ ...PERSONAL_OK, PAYMENT_PROVIDER: "simulated" }, "PAYMENT_PROVIDER=simulated está prohibido"));
 test("modo personal en producción con DEMO_MODE=true → prohibido", () => hasError({ ...PERSONAL_OK, DEMO_MODE: "true" }, "DEMO_MODE=true está prohibido"));
@@ -230,7 +230,7 @@ test("modo personal en producción con email de log → error", () => hasError({
 test("modo personal en producción sin S3 → error", () => hasError({ ...PERSONAL_OK, STORAGE_DRIVER: undefined }, "STORAGE_DRIVER=s3"));
 test("modo personal en producción sin CLIENT_IP_HEADER → error", () => hasError({ ...PERSONAL_OK, CLIENT_IP_HEADER: undefined }, "Falta CLIENT_IP_HEADER"));
 test("modo personal en producción con secretos cortos → error", () => hasError({ ...PERSONAL_OK, APP_SECRET: "corto" }, "APP_SECRET debe tener"));
-test("modo personal en producción con APP_URL http → error", () => hasError({ ...PERSONAL_OK, APP_URL: "http://analuna.es" }, "https://"));
+test("modo personal en producción con APP_URL http → error", () => hasError({ ...PERSONAL_OK, APP_URL: "http://cirella.app" }, "https://"));
 test("modo personal: solo una clave de Turnstile → error", () => hasError({ ...PERSONAL_OK, TURNSTILE_SITE_KEY: "x" }, "las dos claves de Turnstile"));
 test("modo personal con Stripe a medias → error", () =>
   hasError({ ...PERSONAL_OK, PAYMENT_PROVIDER: "stripe" }, "Falta STRIPE_SECRET_KEY"));
@@ -243,6 +243,10 @@ test("plataforma explícita en producción con none → error", () =>
 test("plataforma en staging con none → error", () => hasError({ ...PROD_OK, APP_ENV: "staging", PAYMENT_PROVIDER: "none" }, "solo se admite en modo personal"));
 test("plataforma en local con none → válido", () => isValid({ ...DEV_OK, PAYMENT_PROVIDER: "none" }));
 test("plataforma no exige OWNER_USERNAME", () => isValid({ ...PROD_OK, SITE_MODE: "platform" }));
+// OWNER_EMAIL / OWNER_NAME (opcionales): con ellos, `npm run deploy` crea la cuenta de la dueña.
+test("modo personal con OWNER_EMAIL y OWNER_NAME → válido", () => isValid({ ...PERSONAL_OK, OWNER_EMAIL: "ana@example.com", OWNER_NAME: "Cirella" }));
+test("modo personal con OWNER_EMAIL mal escrito → error", () => hasError({ ...PERSONAL_OK, OWNER_EMAIL: "ana@" }, "OWNER_EMAIL no es un email válido"));
+test("modo personal con OWNER_NAME de más de 80 caracteres → error", () => hasError({ ...PERSONAL_OK, OWNER_NAME: "a".repeat(81) }, "OWNER_NAME es demasiado largo"));
 test("SITE_MODE desconocido → error", () => hasError({ ...DEV_OK, SITE_MODE: "solo" }, "SITE_MODE solo admite"));
 test("validateEnv guarda SITE_MODE y OWNER_USERNAME", () => {
   const r = validateEnv(PERSONAL_OK);

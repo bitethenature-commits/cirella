@@ -78,10 +78,6 @@ export async function initMonitoring() {
   }
 }
 
-export function monitoringEnabled() {
-  return !!holder.__cirellaSentry;
-}
-
 type ErrorContext = { area: string; tags?: Record<string, string>; extra?: Record<string, unknown> };
 
 /** Error inesperado: siempre a la consola y, si está configurado, a Sentry. Nunca lanza. */

@@ -40,10 +40,12 @@ async function lastEmailLink(to: string, template: string, label: string, since:
   return { url: href.replace(/&amp;/g, "&"), html: m.html };
 }
 
-/** Casillas obligatorias del checkout: condiciones de venta y renuncia al desistimiento. */
+/** Casillas obligatorias del checkout: condiciones de venta y la del desistimiento. */
 async function acceptConsents(page: Page) {
   await page.getByLabel(/He leído y acepto/).check();
-  await page.getByLabel(/Quiero acceder ya|Solicito que la sesión/).check();
+  // La casilla del desistimiento la piden lo digital, los cursos, las membresías y los talleres (no las sesiones individuales).
+  const waiver = page.getByLabel(/Quiero acceder ya|Quiero que se prepare ya|Entiendo que este taller|Quiero empezar ya/);
+  if (await waiver.count()) await waiver.check();
 }
 
 async function buy(page: Page, path: string, name: string, email: string) {
@@ -74,7 +76,7 @@ test.describe.serial("Acceso a la cuenta", () => {
     // Nada de lo que Laura ya tenía: ni su reserva (con su videollamada), ni su curso, ni su PDF.
     await page.goto(`/cuenta/sesiones/${booking.id}`);
     await expect(page).toHaveURL(/\/ana\/entrar/);
-    await expect(page.getByText("Enlace de la videollamada")).toHaveCount(0);
+    await expect(page.getByText(/Enlace de (la videollamada|Zoom)/)).toHaveCount(0);
     await page.goto(`/cuenta/cursos/${course.id}`);
     await expect(page).toHaveURL(/\/ana\/entrar/);
     expect((await page.request.get(`/api/download/${oldPdf.id}`, { maxRedirects: 0 })).status()).not.toBe(200);
@@ -137,7 +139,7 @@ test.describe.serial("Acceso a la cuenta", () => {
     await page.goto(`/cuenta/cursos/${course.id}`);
     await expect(page).toHaveURL(/\/ana\/entrar\?next=/);
     await expect(page.getByRole("heading", { name: "Entra a tu área" })).toBeVisible();
-    await expect(page.getByText("Ana Luna").first()).toBeVisible();
+    await expect(page.getByText("Cirella").first()).toBeVisible();
     await expect(page.locator("input[type=password]")).toHaveCount(0);
     await expect(page.getByText("¿Aún no tienes página?")).toHaveCount(0);
 
@@ -146,7 +148,7 @@ test.describe.serial("Acceso a la cuenta", () => {
     await page.getByRole("button", { name: "Enviarme el enlace" }).click();
     await expect(page.getByText(/Te hemos enviado un enlace/)).toBeVisible();
     const { url, html } = await lastEmailLink("laura@example.com", "MAGIC_LINK", "Entrar a mi cuenta", since);
-    expect(html).toContain("Ana Luna");
+    expect(html).toContain("Cirella");
     await page.goto(url);
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await page.waitForURL(`**/cuenta/cursos/${course.id}`);
@@ -230,7 +232,7 @@ test.describe.serial("Acceso a la cuenta", () => {
     await prisma.user.update({ where: { id: ana.id }, data: { emailVerifiedAt: null } });
     try {
       await page.context().clearCookies();
-      await demoLogin(page, "Ana Luna");
+      await demoLogin(page, "Cirella");
       await expect(page.getByText("Confirma tu email")).toBeVisible();
       since = new Date();
       await page.getByRole("button", { name: "Reenviarme el enlace" }).click();
@@ -256,9 +258,10 @@ test.describe.serial("Acceso a la cuenta", () => {
       await other.waitForURL("**/cuenta");
 
       await page.goto("/cuenta/perfil");
-      await page.fill("input[name=password]", "nueva12345");
-      await page.getByRole("button", { name: "Guardar cambios" }).click();
-      await expect(page.getByText("Perfil y contraseña actualizados")).toBeVisible();
+      await page.getByLabel("Contraseña actual").fill("demo1234");
+      await page.getByLabel("Contraseña nueva").fill("nueva12345");
+      await page.getByRole("button", { name: "Cambiar contraseña" }).click();
+      await expect(page.getByText("Contraseña cambiada. Hemos cerrado tus otras sesiones.")).toBeVisible();
 
       await other.goto("/cuenta");
       await expect(other).toHaveURL(/\/entrar/);
@@ -272,11 +275,11 @@ test.describe.serial("Acceso a la cuenta", () => {
 
   test("un enlace personal de otra cuenta pregunta antes de cambiar de sesión", async ({ page }) => {
     expect(receiptLink).not.toBe("");
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(receiptLink);
     await page.waitForURL("**/auth/enlace/cambiar**");
     await expect(page.getByRole("heading", { name: "Este enlace es de otra cuenta" })).toBeVisible();
-    await page.getByRole("link", { name: /Seguir como Ana/ }).click();
+    await page.getByRole("link", { name: /Seguir como Cirella/ }).click();
     await page.waitForURL("**/panel");
 
     await page.goto(receiptLink);

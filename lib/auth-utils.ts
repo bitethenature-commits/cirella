@@ -1,3 +1,10 @@
+/**
+ * Pista para la interfaz («Mi área» en vez de «Entrar» en la página pública, components/creator-page/
+ * account-entry.tsx). No es httpOnly ni lleva identidad: ninguna guarda la lee y falsearla solo
+ * cambia la etiqueta. Así la página pública sigue en caché (no lee cookies en el servidor).
+ */
+export const HINT_COOKIE = "cirella_hola";
+
 /** Solo acepta rutas internas (evita open redirects como "//x.com", "/\\x.com" o con caracteres de control). */
 export function safeNext(next: string | null | undefined, fallback = "/cuenta") {
   if (!next || !next.startsWith("/") || next.startsWith("//") || /[\\\u0000-\u001f\u007f]/.test(next)) return fallback;
@@ -17,10 +24,10 @@ export function orderTargetPath(order: { id: string; productType: string; produc
 }
 
 /** A qué apunta una ruta de detalle de /cuenta (para saber de qué creadora es o si entra en un alcance). */
-export function cuentaRefFromPath(path: string): { kind: "product" | "booking" | "order"; id: string } | null {
-  const m = path.split(/[?#]/)[0].match(/^\/cuenta\/(cursos|membresias|sesiones|pedidos)\/([^/]+)(?:\/.*)?$/);
+export function cuentaRefFromPath(path: string): { kind: "product" | "booking" | "order" | "file"; id: string } | null {
+  const m = path.split(/[?#]/)[0].match(/^\/cuenta\/(cursos|membresias|sesiones|pedidos|archivos)\/([^/]+)(?:\/.*)?$/);
   if (!m) return null;
-  const kind = m[1] === "sesiones" ? "booking" : m[1] === "pedidos" ? "order" : "product";
+  const kind = m[1] === "sesiones" ? "booking" : m[1] === "pedidos" ? "order" : m[1] === "archivos" ? "file" : "product";
   return { kind, id: m[2] };
 }
 
@@ -64,4 +71,55 @@ export function maskEmail(email: string) {
 
 export function addDays(d: Date, n: number) {
   return new Date(d.getTime() + n * 86_400_000);
+}
+
+/**
+ * «iPhone · Safari», «Mac · Chrome», «Android · Chrome»… a partir del User-Agent, para los avisos de
+ * acceso y la lista de dispositivos recordados. Nunca lleva versiones ni la IP.
+ */
+export function deviceLabel(ua: string | null | undefined): string {
+  const s = ua ?? "";
+  if (!s.trim()) return "Navegador desconocido";
+  const os = /iPhone/.test(s)
+    ? "iPhone"
+    : /iPad/.test(s)
+      ? "iPad"
+      : /Android/.test(s)
+        ? "Android"
+        : /Macintosh|Mac OS X/.test(s)
+          ? "Mac"
+          : /Windows/.test(s)
+            ? "Windows"
+            : /Linux|CrOS/.test(s)
+              ? "Linux"
+              : null;
+  const browser = /Edg\//.test(s)
+    ? "Edge"
+    : /Firefox\/|FxiOS\//.test(s)
+      ? "Firefox"
+      : /CriOS\/|Chrome\//.test(s)
+        ? "Chrome"
+        : /Safari\//.test(s)
+          ? "Safari"
+          : null;
+  if (!os && !browser) return "Navegador desconocido";
+  return [os, browser].filter(Boolean).join(" · ");
+}
+
+/**
+ * ¿Cuenta esta sesión? Con la verificación en dos pasos activada, una sesión de cuenta sin el
+ * segundo factor (mfa) no vale; las limitadas a un pedido no abren el panel y no se tocan.
+ */
+export function sessionUsable(s: { orderId: string | null; mfa: boolean; user: { totpEnabledAt: Date | null } }) {
+  return !(!s.orderId && s.user.totpEnabledAt && !s.mfa);
+}
+
+/** ¿Lleva la cabecera Cookie la pista de sesión abierta? (solo para la etiqueta «Mi área»). */
+export function hasHintCookie(cookieHeader: string | null | undefined) {
+  return (cookieHeader ?? "").split(";").some((c) => c.trim() === `${HINT_COOKIE}=1`);
+}
+
+/** Enlace y etiqueta de la entrada al área de alumnas de la página pública. */
+export function accountEntryLink(username: string, signedIn: boolean) {
+  return signedIn ? { href: "/cuenta", label: "Mi área" } : { href: `/${username}/entrar?next=%2Fcuenta`, label: "Entrar" };
 }

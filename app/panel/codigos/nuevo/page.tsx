@@ -11,11 +11,11 @@ export default async function NewDiscountCodePage() {
   await requireCreator();
   return (
     <div className="mx-auto max-w-3xl">
-      <Link href="/panel/codigos" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+      <Link href="/panel/pagina?ver=codigos" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
         <ArrowLeft className="h-4 w-4" /> Códigos
       </Link>
       <PageHeader title="Nuevo código" />
-      <CodeForm code={{ id: null, brand: "", code: "", description: "", url: "", imageUrl: null, expiresOn: "", active: true }} />
+      <CodeForm code={{ id: null, brand: "", code: "", description: "", url: "", imageUrl: null, images: [], recommendations: [], expiresOn: "", active: true }} />
     </div>
   );
 }

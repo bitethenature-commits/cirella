@@ -66,7 +66,7 @@ export function parseSetupArgs(argv: string[], env: { SITE_MODE?: string; OWNER_
   const wanted = normalizeUsername(flags.username ?? "") || owner;
   if (!wanted) errors.push("Falta el usuario: pon OWNER_USERNAME en la configuración (o --username).");
   else {
-    const problem = validateUsername(wanted);
+    const problem = validateUsername(wanted, { personal: true });
     if (problem) errors.push(`El usuario «${wanted}» no vale: ${problem.toLowerCase()}.`);
     if (owner && wanted !== owner) errors.push(`--username (${wanted}) no coincide con OWNER_USERNAME (${owner}). Tienen que ser el mismo.`);
   }

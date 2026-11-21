@@ -9,11 +9,9 @@ import { legalIdentityComplete } from "@/lib/legal";
 import { legalIdentityOf } from "@/lib/legal-snapshot";
 import { payoutView } from "@/lib/payouts";
 import { getSettings } from "@/lib/settings";
-import { asTaxMode, asVatStatus } from "@/lib/tax";
 import { defaultPageConfig, readPageConfig } from "@/lib/page-config";
 import { planFeatures } from "@/lib/plans";
 import { isPersonalMode } from "@/lib/site-mode";
-import { TEMPLATE_KEYS, type TemplateKey } from "@/lib/templates";
 import type { ProductType } from "@/lib/types";
 import { OnboardingWizard, type WizardInit } from "./wizard";
 
@@ -32,9 +30,8 @@ export default async function OnboardingPage() {
   // Modo personal: nadie crea páginas nuevas (la cuenta de la dueña la crea `npm run personal:setup`).
   if (isPersonalMode()) redirect("/entrar?error=cerrado");
 
-  const [categories, templates, defaultPlan, settings] = await Promise.all([
+  const [categories, defaultPlan, settings] = await Promise.all([
     prisma.category.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
-    prisma.template.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     prisma.plan.findFirst({ where: { isDefault: true } }),
     getSettings(),
   ]);
@@ -67,8 +64,7 @@ export default async function OnboardingPage() {
     username: creator?.username ?? (signup.username || "").toLowerCase().replace(/[^a-z0-9._-]/g, ""),
     config,
     categoryId: creator?.categoryId ?? null,
-    categories: categories.map((c) => ({ id: c.id, name: c.name, emoji: c.emoji, defaultTemplate: c.defaultTemplate })),
-    templates: templates.map((t) => t.key).filter((k): k is TemplateKey => (TEMPLATE_KEYS as readonly string[]).includes(k)),
+    categories: categories.map((c) => ({ id: c.id, name: c.name, emoji: c.emoji })),
     product: {
       productId: p?.id ?? null,
       type: (p?.type as ProductType) ?? features.productTypes[0] ?? "DIGITAL",
@@ -87,7 +83,6 @@ export default async function OnboardingPage() {
     allowedTypes: features.productTypes,
     commissionBps: plan.commissionBps,
     planName: plan.name,
-    tax: { mode: asTaxMode(settings.taxMode), country: creator?.legalCountry ?? "ES", vatStatus: asVatStatus(creator?.vatStatus) },
     payout: creator
       ? payoutView(creator, { supportEmail: settings.supportEmail })
       : payoutView({ status: "ACTIVE", payoutProvider: null, payoutStatus: "NONE", payoutChargesEnabled: false, payoutPayoutsEnabled: false, payoutRequirements: null }),

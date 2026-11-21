@@ -31,62 +31,20 @@ export interface StorageDriver {
   put(key: string, body: Buffer, o: { contentType: string; cacheControl?: string }): Promise<void>;
   /** Borra los objetos que existan; los que no, se ignoran. */
   delete(keys: string[]): Promise<void>;
+  // ── Subidas por partes (solo la web personal: vídeos de hasta 4 GB) ──
+  /** Empieza una subida por partes. */
+  createMultipart(key: string, o: { contentType: string }): Promise<{ uploadId: string }>;
+  /** URL firmada para subir la parte n (empieza en 1) con PUT, con su tamaño exacto firmado. */
+  presignPart(key: string, uploadId: string, n: number, o: { contentLength: number; expiresInSec: number }): Promise<{ url: string; headers: Record<string, string> }>;
+  /** Junta las partes recibidas (todas, de la 1 a la última, sin huecos) en el objeto final. */
+  completeMultipart(key: string, uploadId: string): Promise<void>;
+  /** Cancela la subida y borra las partes recibidas. */
+  abortMultipart(key: string, uploadId: string): Promise<void>;
 }
 
-export const IMAGE_TYPES: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/gif": "gif",
-};
+// Tablas de tipos (sin dependencias de servidor, también las usa el panel): lib/file-types.ts.
+export { DOWNLOAD_TTL_SEC, IMAGE_TYPES, INLINE_MEDIA_TTL_SEC, mimeFromExt, PRIVATE_TYPES, privateFileType } from "../file-types";
 
-export const PRIVATE_TYPES: Record<string, { ext: string; kind: string }> = {
-  "application/pdf": { ext: "pdf", kind: "PDF" },
-  "audio/mpeg": { ext: "mp3", kind: "AUDIO" },
-  "audio/mp4": { ext: "m4a", kind: "AUDIO" },
-  "audio/x-m4a": { ext: "m4a", kind: "AUDIO" },
-  "audio/wav": { ext: "wav", kind: "AUDIO" },
-  "audio/x-wav": { ext: "wav", kind: "AUDIO" },
-  "video/mp4": { ext: "mp4", kind: "VIDEO" },
-  "image/jpeg": { ext: "jpg", kind: "IMAGE" },
-  "image/png": { ext: "png", kind: "IMAGE" },
-  "application/epub+zip": { ext: "epub", kind: "OTHER" },
-  "application/zip": { ext: "zip", kind: "OTHER" },
-};
-
-/**
- * Tipos que algunos navegadores y sistemas dan a los mismos formatos (Chrome y Edge en Windows
- * llaman «application/x-zip-compressed» al ZIP, otros «audio/wave» al WAV…).
- */
-const PRIVATE_TYPE_ALIASES: Record<string, string> = {
-  "application/x-zip-compressed": "application/zip",
-  "application/x-zip": "application/zip",
-  "audio/wave": "audio/wav",
-  "audio/vnd.wave": "audio/wav",
-  "audio/mp3": "audio/mpeg",
-  "audio/x-mpeg": "audio/mpeg",
-};
-
-/**
- * Tipo canónico (clave de PRIVATE_TYPES) de un archivo de producto, o null si no se admite.
- * Si el navegador no sabe el tipo (vacío o «application/octet-stream», p. ej. un EPUB en un
- * Windows sin lector), lo deduce de la extensión del nombre.
- */
-export function privateFileType(contentType: string, name: string): string | null {
-  const ct = contentType.split(";")[0].trim().toLowerCase();
-  if (PRIVATE_TYPES[ct]) return ct;
-  if (PRIVATE_TYPE_ALIASES[ct]) return PRIVATE_TYPE_ALIASES[ct];
-  if (ct === "" || ct === "application/octet-stream") {
-    const guess = mimeFromExt(name);
-    if (PRIVATE_TYPES[guess]) return guess;
-  }
-  return null;
-}
-
-/** Enlace de descarga: 10 minutos. */
-export const DOWNLOAD_TTL_SEC = 600;
-/** Vídeo y audio de un curso reproducidos en la página: 3 horas, para poder pausar y adelantar. */
-export const INLINE_MEDIA_TTL_SEC = 10800;
 
 /** ProductFile.storageKey es relativo a «private/». */
 export const privateKey = (storageKey: string) => `private/${storageKey}`;
@@ -118,16 +76,6 @@ export function storage(): StorageDriver {
     driver = createLocalDriver(path.resolve(process.cwd(), e.STORAGE_DIR), storageSecret);
   }
   return driver;
-}
-
-export function mimeFromExt(rel: string) {
-  const ext = rel.split(".").pop()?.toLowerCase();
-  const map: Record<string, string> = {
-    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif",
-    pdf: "application/pdf", mp3: "audio/mpeg", m4a: "audio/mp4", wav: "audio/wav", mp4: "video/mp4",
-    epub: "application/epub+zip", zip: "application/zip",
-  };
-  return map[ext ?? ""] ?? "application/octet-stream";
 }
 
 export { contentDisposition, isSafeKey, parseRange, signToken, verifyToken } from "./signing";

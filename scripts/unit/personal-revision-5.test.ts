@@ -12,7 +12,7 @@ test("todo segmento estático de /<usuaria>/ que pueda ser un slug está reserva
     .filter((d) => d.isDirectory() && !d.name.startsWith("["))
     .map((d) => d.name)
     .filter((name) => slugify(name) === name);
-  ok(segments.includes("novedades"), "debe existir app/[username]/novedades");
+  ok(segments.includes("actualidades"), "debe existir app/[username]/actualidades (antes «novedades»)");
   for (const s of segments) ok(RESERVED_PRODUCT_SLUGS.has(s), `«${s}» debe estar en RESERVED_PRODUCT_SLUGS`);
 });
 

@@ -15,10 +15,10 @@ import { reconcileCheckout } from "./events";
  * La usan /api/payments/return y las acciones del simulador (que no pueden redirigir a una ruta
  * de API sin perder las cookies de la sesión).
  */
-export async function checkoutReturnPath(ref: string): Promise<string> {
+export async function checkoutReturnPath(ref: string, via?: string | null): Promise<string> {
   let result: Awaited<ReturnType<typeof reconcileCheckout>>;
   try {
-    result = await reconcileCheckout(ref);
+    result = await reconcileCheckout(ref, via);
   } catch (e) {
     captureError(e, { area: "payments", tags: { op: "vuelta" }, extra: { ref } });
     // Sin poder consultar la pasarela: si el pedido existe, la página de gracias muestra su estado.

@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import type { TaxMode } from "./tax";
+import type { NewsSenderSettings, SendingDomain } from "./sending-rules";
 
 /**
  * Ajustes globales editables desde /admin/ajustes (clave → JSON).
@@ -11,8 +11,6 @@ export const SETTING_DEFAULTS = {
   referralRewardType: "FREE_MONTH" as "FREE_MONTH" | "CREDIT" | "COMMISSION_DISCOUNT",
   referralRewardValue: 1, // meses gratis | céntimos de crédito | puntos básicos de descuento
   referralDiscountMonths: 3, // duración del descuento de comisión
-  // DAC7 / modelo 238: tipos de producto que cuentan como «servicios personales» (a confirmar con la asesoría)
-  dac7ReportableTypes: ["SESSION"] as string[],
   // Identidad legal de la plataforma (LSSI art. 10): /aviso-legal, /privacidad y /terminos.
   // Vacíos = «Pendiente de completar».
   legalCompanyName: "",
@@ -20,9 +18,21 @@ export const SETTING_DEFAULTS = {
   legalAddress: "",
   legalRegistry: "",
   privacyEmail: "", // si está vacío, se muestra supportEmail
-  // Política de IVA (/admin/impuestos): PLATFORM_DIGITAL = Cirella vende los productos digitales,
-  // cursos y membresías (opción A); CREATOR = cada creadora vende lo suyo. Ver lib/tax.
-  taxMode: "PLATFORM_DIGITAL" as TaxMode,
+  // Newsletter (lib/newsletter-send.ts y la bandeja de salida): emails al día que caben en el plan de
+  // Resend (el gratuito: 100 al día y 3000 al mes, contando TODOS los emails). null = automático:
+  // 100 en la web personal que envía con Resend, sin límite en lo demás (plataforma, demo y pruebas).
+  // 0 = sin límite. La reserva queda siempre para los transaccionales (accesos, recibos, enlaces).
+  emailDailyCap: null as number | null,
+  emailTransactionalReserve: 20,
+  // Envío de la newsletter (/panel/newsletter/ajustes): dominio propio conectado a Resend y remitente.
+  // Vacíos = lo de siempre (NEWSLETTER_FROM o EMAIL_FROM, el nombre de la creadora y su email de contacto).
+  sendingDomain: null as SendingDomain | null,
+  newsSender: { name: "", address: "", replyTo: "" } as NewsSenderSettings,
+  // Los looks de Cirella ya se copiaron como plantillas de la dueña (una sola vez: luego se borran como cualquiera).
+  newsletterLooksSeeded: false,
+  // Mensaje del pie de todas las newsletters (/panel/newsletter/ajustes). Vacío = el de siempre
+  // (defaultFooterMessage). Detrás van siempre solos «Darme de baja» y los datos legales.
+  newsletterFooterText: "",
 };
 
 export type PlatformSettings = typeof SETTING_DEFAULTS;

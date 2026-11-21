@@ -13,11 +13,10 @@ export const ADMIN_NAV = [
   ["/admin/productos", "Productos"],
   ["/admin/planes", "Planes"],
   ["/admin/categorias", "Categorías"],
-  ["/admin/disenos", "Diseños"],
   ["/admin/bloqueados", "Bloqueados"],
-  ["/admin/impuestos", "Impuestos"],
   ["/admin/reportes", "Reportes"],
   ["/admin/ajustes", "Ajustes"],
+  ["/admin/seguridad", "Seguridad"],
 ] as const;
 
 /** Modo personal: solo lo que necesita una persona (envíos que fallaron y ajustes de la web). */
@@ -25,6 +24,7 @@ export const PERSONAL_ADMIN_NAV = [
   ["/admin", "Resumen"],
   ["/admin/envios", "Envíos fallidos"],
   ["/admin/ajustes", "Ajustes"],
+  ["/admin/seguridad", "Seguridad"],
   ["/panel", "Mi panel"],
 ] as const;
 

@@ -6,9 +6,11 @@ import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireCreator } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { creatorLegalHref } from "@/lib/legal";
+import { creatorLegalHref, LEGAL_TEMPLATE_VERSION } from "@/lib/legal";
 import { legalIdentityOf } from "@/lib/legal-snapshot";
-import { currentLegalDocs, currentPersonalPrivacy } from "@/lib/legal-templates";
+import { currentLegalKind } from "@/lib/commerce";
+import { acceptedLegalDocs } from "@/lib/legal-templates";
+import { paymentProviderKeys } from "@/lib/payments";
 import { getSettings } from "@/lib/settings";
 import { isPersonalMode } from "@/lib/site-mode";
 import { PageHeader } from "../../ui";
@@ -23,10 +25,11 @@ export default async function LegalSettingsPage({ searchParams }: { searchParams
   const sp = await searchParams;
   // Se lee la fila actual: la de la sesión puede ser anterior al último guardado.
   const [creator, { platformName }] = await Promise.all([prisma.creator.findUniqueOrThrow({ where: { id: session.id } }), getSettings()]);
-  const docs = currentLegalDocs(creator, platformName);
-  // Modo personal: aquí no se vende nada; solo aviso legal y privacidad (con su propia plantilla).
+  // Modo personal sin cobros: aquí no se vende nada; solo aviso legal y privacidad (con su propia
+  // plantilla). Si cobra, sus condiciones de venta (sin plataforma) además.
+  const kind = currentLegalKind();
   const personal = isPersonalMode();
-  if (personal) docs.privacy = currentPersonalPrivacy(creator);
+  const docs = acceptedLegalDocs(creator, platformName, kind, paymentProviderKeys());
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -59,15 +62,19 @@ export default async function LegalSettingsPage({ searchParams }: { searchParams
 
       <section className="card space-y-4 p-5 sm:p-6">
         <div>
-          <h2 className="flex items-center gap-2 font-semibold"><FileText className="h-4 w-4" /> {personal ? "Tu política de privacidad" : "Tus condiciones y políticas"}</h2>
+          <h2 className="flex items-center gap-2 font-semibold"><FileText className="h-4 w-4" /> {kind === "personal" ? "Tu política de privacidad" : "Tus condiciones y políticas"}</h2>
           <p className="mt-1 text-sm text-muted">
-            Partimos de plantillas pensadas para España. Puedes adaptarlas; te recomendamos revisarlas con tu asesoría. Lo que escribas aquí es responsabilidad tuya.
+            Partimos de plantillas pensadas para España. Puedes adaptarlas. Lo que escribas aquí es responsabilidad tuya.
+          </p>
+          <p role="note" className="mt-3 rounded-xl border border-gold bg-gold-soft px-3 py-2 text-sm text-ink">
+            <strong>Borrador: revísalo con tu asesoría</strong> antes de vender. Plantillas versión {LEGAL_TEMPLATE_VERSION}
+            {kind !== "personal" ? " (incluyen la renuncia obligatoria al desistimiento en lo digital, las sesiones a partir del día 15, los talleres sin desistimiento y el reembolso proporcional de las membresías)" : ""}.
           </p>
         </div>
         <LegalDocsEditor
           docs={docs}
           custom={{ terms: creator.legalTerms !== null, refunds: creator.legalRefunds !== null, privacy: creator.legalPrivacy !== null }}
-          only={personal ? ["privacy"] : undefined}
+          only={kind === "personal" ? ["privacy"] : undefined}
         />
       </section>
     </div>

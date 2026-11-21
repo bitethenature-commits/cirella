@@ -11,13 +11,13 @@ import { getSession, hasCheckoutCookie } from "@/lib/auth";
 import { maskEmail, orderTargetPath } from "@/lib/auth-utils";
 import { prisma } from "@/lib/db";
 import { isInstantDelivery } from "@/lib/delivery";
-import { getPlatformIssuer } from "@/lib/invoices/issuer";
 import { sellerStatement } from "@/lib/legal";
 import { isDemoMode } from "@/lib/env";
 import { formatPrice } from "@/lib/money";
 import { orderRef } from "@/lib/order-ref";
 import { getPublicCreator } from "@/lib/public";
-import { capitalize, formatSessionDate } from "@/lib/tz";
+import { capitalize, sessionWhen } from "@/lib/tz";
+import { asksIntake, intakeMissing, readIntakeAnswers, readIntakeConfig } from "@/lib/intake";
 
 export const metadata: Metadata = { title: "Compra completada", robots: { index: false } };
 
@@ -33,16 +33,12 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
   if (!order || !["PAID", "PENDING", "PROCESSING", "FAILED"].includes(order.status)) notFound();
   // Un acceso sin cobro (gratis con email o dado a mano) no pasa por aquí: llega por email.
   if (isNoChargeOrder(order)) notFound();
-  // Pie «Vende: …» con quién vende este pedido (instantánea fiscal), como en el checkout y el recibo.
-  const sellerName = sellerStatement(
-    order.taxSeller,
-    { ...data.creator, displayName: data.config.displayName },
-    order.taxSeller === "PLATFORM" ? await getPlatformIssuer() : null,
-  ).name;
+  // Pie «Vende: …», como en el checkout y el recibo.
+  const sellerName = sellerStatement({ ...data.creator, displayName: data.config.displayName }).name;
   const pending = order.status === "PROCESSING" || (order.status === "PENDING" && !!order.checkoutRef);
   if (pending || order.status === "FAILED" || order.status === "PENDING")
     return (
-      <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} back={false} personal={data.personal} sellerName={sellerName}>
+      <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} back={false} personal={data.personal} signupsOnly={data.signupsOnly} sellerName={sellerName}>
         <main className="mx-auto max-w-md px-5 pb-20 pt-12 text-center">
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-full" style={{ background: "var(--c-line)" }}>
             {pending ? <Loader2 className="h-8 w-8 animate-spin" /> : <AlertCircle className="h-8 w-8" />}
@@ -100,10 +96,12 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
         : order.productType === "SESSION" && booking
           ? booking.startAt ? "Ver mi reserva" : "Elegir fecha y hora"
           : "Acceder a mi contenido";
-  const next = { href: canSee ? orderTargetPath(order, booking?.id) : `/auth/pedido/${order.id}`, label };
+  const intakeCfg = readIntakeConfig(order.product.intake);
+  const missingData = asksIntake(order.product.type, order.product.deliveryMode, intakeCfg) && intakeMissing(intakeCfg, readIntakeAnswers(order.intake));
+  const next = { href: canSee ? `${orderTargetPath(order, booking?.id)}${missingData ? "#datos" : ""}` : `/auth/pedido/${order.id}`, label };
 
   return (
-    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} back={false} personal={data.personal} sellerName={sellerName}>
+    <CreatorShell username={username} config={data.config} allowCustom={data.allowCustom} back={false} personal={data.personal} signupsOnly={data.signupsOnly} sellerName={sellerName}>
       <main className="mx-auto max-w-md px-5 pb-20 pt-12 text-center">
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-full animate-fade-up" style={{ background: "var(--c-accent)", color: "var(--c-accent-text)" }}>
           <Check className="h-8 w-8" strokeWidth={2.5} />
@@ -128,10 +126,20 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
           <div className="cp-card mt-3 flex items-center gap-3 p-4 text-left text-sm" data-reveal>
             <CalendarCheck className="cp-gold h-5 w-5 shrink-0" />
             <span>
-              <span className="block font-semibold">{capitalize(formatSessionDate(booking.startAt, data.creator.timezone))}</span>
+              <span className="block font-semibold">{capitalize(sessionWhen(booking.startAt, booking.customerTimezone, data.creator.timezone))}</span>
               <span className="cp-muted">
                 Te hemos enviado la confirmación por email{reminder ? " y te recordaremos la sesión antes de que empiece" : ""}.
               </span>
+            </span>
+          </div>
+        )}
+
+        {missingData && (
+          <div className="cp-card mt-3 flex items-start gap-3 p-4 text-left text-sm" data-reveal style={{ borderColor: "var(--c-gold)" }}>
+            <Sparkles className="cp-gold mt-0.5 h-5 w-5 shrink-0" />
+            <span>
+              <span className="block font-semibold">Completa tus datos para la lectura</span>
+              <span className="cp-muted">Puedes enviarlos desde tu {booking ? "reserva" : "compra"} (el botón de abajo) o desde el enlace de tu email.</span>
             </span>
           </div>
         )}

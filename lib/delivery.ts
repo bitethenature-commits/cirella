@@ -4,7 +4,7 @@
  * Un producto solo se puede publicar si quien lo compre va a recibir algo:
  *   · DIGITAL automático  → al menos un archivo o enlace;
  *   · DIGITAL personal    → instrucciones que expliquen qué recibirá y cuándo (la creadora lo prepara);
- *   · COURSE              → al menos una lección;
+ *   · COURSE              → al menos una lección publicada (los borradores no cuentan);
  *   · MEMBERSHIP          → sin publicaciones solo es un aviso (una comunidad nueva puede empezar vacía);
  *   · SESSION             → se entrega sola (la reserva).
  * Un producto que se paga fuera (accessMode EXTERNAL) lo entrega la otra web: nunca bloquea.
@@ -34,8 +34,9 @@ export type DeliveryIssueCode = "NO_CONTENT" | "NO_INSTRUCTIONS" | "NO_LESSONS" 
 export type DeliveryIssue = { code: DeliveryIssueCode; blocking: boolean; anchor: "entrega" | "lecciones" | "publicaciones" };
 
 /** Solo un producto digital puede prepararse a mano para cada clienta. */
-export function normalizeDeliveryMode(type: string, mode: string | null | undefined): DeliveryMode {
-  return type === "DIGITAL" && mode === "PERSONAL" ? "PERSONAL" : "AUTOMATIC";
+export function normalizeDeliveryMode(type: string, _mode?: string | null): DeliveryMode {
+  // Las lecturas se envían siempre por email: la web no guarda sus archivos.
+  return type === "DIGITAL" ? "PERSONAL" : "AUTOMATIC";
 }
 
 export function deliveryIssue(f: DeliveryFacts): DeliveryIssue | null {
@@ -45,7 +46,7 @@ export function deliveryIssue(f: DeliveryFacts): DeliveryIssue | null {
   switch (f.type) {
     case "DIGITAL":
       if (normalizeDeliveryMode(f.type, f.deliveryMode) === "PERSONAL")
-        return (f.instructions ?? "").trim().length < MIN_PERSONAL_INSTRUCTIONS ? { code: "NO_INSTRUCTIONS", blocking: true, anchor: "entrega" } : null;
+        return (f.instructions ?? "").trim().length < MIN_PERSONAL_INSTRUCTIONS ? { code: "NO_INSTRUCTIONS", blocking: false, anchor: "entrega" } : null;
       return f.files === 0 ? { code: "NO_CONTENT", blocking: true, anchor: "entrega" } : null;
     case "COURSE":
       return f.lessons === 0 ? { code: "NO_LESSONS", blocking: true, anchor: "lecciones" } : null;
@@ -76,10 +77,10 @@ export function deliveryIssueCopy(issue: DeliveryIssue, productTitle: string): {
       };
     case "NO_LESSONS":
       return {
-        title: `«${t}» no tiene lecciones`,
-        text: "Añade al menos una lección para poder publicarlo.",
-        cta: "Añadir lecciones",
-        publishError: "No se puede publicar todavía: añade al menos una lección.",
+        title: `«${t}» no tiene lecciones publicadas`,
+        text: "Añade al menos una lección y publícala para poder publicar el curso.",
+        cta: "Abrir en Cursos",
+        publishError: "No se puede publicar todavía: añade al menos una lección publicada.",
       };
     case "NO_POSTS":
       return {
@@ -92,6 +93,8 @@ export function deliveryIssueCopy(issue: DeliveryIssue, productTitle: string): {
 }
 
 export function deliveryIssueHref(productId: string, issue: DeliveryIssue): string {
+  // Las lecciones se preparan en el estudio de cursos.
+  if (issue.anchor === "lecciones") return `/panel/cursos/${productId}`;
   return `/panel/productos/${productId}#${issue.anchor}`;
 }
 
@@ -123,7 +126,7 @@ export function checkoutDeliveryBadge(type: string, deliveryMode: string): strin
 // ───────────── Con base de datos (siempre con el cliente del tenant) ─────────────
 
 /** Fragmento de `include`/`select` de Prisma con lo que hace falta contar. */
-export const DELIVERY_COUNT = { _count: { select: { files: true, lessons: true, posts: true } } } as const;
+export const DELIVERY_COUNT = { _count: { select: { files: true, lessons: { where: { published: true } }, posts: true } } } as const;
 
 export function deliveryFacts(p: {
   type: string;

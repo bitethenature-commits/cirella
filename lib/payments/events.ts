@@ -11,12 +11,13 @@ import { syncPayoutAccount } from "../payouts";
 import { findRenewalCharge, syncProviderRefund } from "../refunds";
 import { truncateError } from "../reliability";
 import { recordRenewalFailure, settleRenewalCharge } from "../subscriptions";
-import { paymentProvider, paymentProviderByKey } from "./index";
+import { isPaymentProviderEnabled, paymentProvider, paymentProviderByKey } from "./index";
+import { renewalPeriodKey } from "./renewal";
 import { WebhookSignatureError, type PaymentState, type PaymentStatus, type PaymentUpdate } from "./provider";
 
 /**
- * Lo que dice la pasarela → cambios en Cirella. Es la única puerta: el webhook de Stripe, la vuelta
- * de la compradora (/api/payments/return) y las páginas del simulador acaban en applyPaymentUpdate.
+ * Lo que dice la pasarela → cambios en Cirella. Es la única puerta: los webhooks de Stripe y PayPal,
+ * la vuelta de la compradora (/api/payments/return) y las páginas del simulador acaban en applyPaymentUpdate.
  * Todo es idempotente (los avisos se repiten y llegan desordenados) y nunca se entrega un pago
  * cuyo importe, moneda o cuenta de destino no coincide con el pedido.
  */
@@ -26,14 +27,23 @@ export const AMOUNT_MISMATCH = "IMPORTE_O_CUENTA_NO_COINCIDE";
 /** Pedidos ya cobrados: un segundo cobro para ellos es un duplicado y se devuelve. */
 const SETTLED = ["PAID", "REFUNDED", "PARTIALLY_REFUNDED"];
 
-type Applied = { orderId?: string; creatorId?: string; ignored?: boolean };
+/** state: el estado del pago ya aplicado (tras cobrarlo, si estaba aprobado sin cobrar). */
+type Applied = { orderId?: string; creatorId?: string; ignored?: boolean; state?: PaymentState };
 
 export async function applyPaymentUpdate(u: PaymentUpdate, providerKey: string): Promise<Applied> {
   switch (u.kind) {
-    case "payment":
-      if (u.status.metadata.orderId) return applyOrderPayment(u.status, providerKey);
-      if (u.status.metadata.subscriptionId) return applySubscriptionPayment(u.status);
+    case "payment": {
+      let status = u.status;
+      // Aprobado y sin cobrar (PayPal): se cobra solo si el pedido sigue esperando este pago.
+      if (status.approved) {
+        const completed = await completeApprovedCheckout(status, providerKey);
+        if (!completed) return { ignored: true };
+        status = completed;
+      }
+      if (status.metadata.orderId) return { ...(await applyOrderPayment(status, providerKey)), state: status.state };
+      if (status.metadata.subscriptionId) return { ...(await applySubscriptionPayment(status, providerKey)), state: status.state };
       return { ignored: true };
+    }
     case "refund": {
       // Reembolsos pedidos desde Cirella (cambian de estado) o hechos desde el panel de Stripe.
       const r = await syncProviderRefund({
@@ -47,7 +57,7 @@ export async function applyPaymentUpdate(u: PaymentUpdate, providerKey: string):
       return r ?? { ignored: true };
     }
     case "dispute":
-      return applyDispute(u);
+      return applyDispute(u, providerKey);
     case "account": {
       const status = await syncPayoutAccount(u.accountId);
       return status ? {} : { ignored: true };
@@ -55,6 +65,31 @@ export async function applyPaymentUpdate(u: PaymentUpdate, providerKey: string):
     case "ignored":
       return { ignored: true };
   }
+}
+
+/**
+ * Cobra un pago que la compradora ya aprobó en la pasarela (PayPal) si su pedido de la web sigue
+ * esperándolo: mismo checkout, misma pasarela y sin pagar, ni sustituido por otro pedido (cambió de
+ * método o de datos), ni una renovación ya cobrada por otra vía. Así no se cobra dos veces a quien
+ * abandonó un pago y luego pagó de otra forma. null = no se cobra.
+ */
+async function completeApprovedCheckout(s: PaymentStatus, providerKey: string): Promise<PaymentStatus | null> {
+  const provider = paymentProviderByKey(providerKey);
+  if (!provider.completeCheckout || !s.checkoutRef) return null;
+  if (s.metadata.orderId) {
+    const order = await prisma.order.findUnique({
+      where: { id: s.metadata.orderId },
+      select: { status: true, paymentProvider: true, checkoutRef: true, recoverySkipped: true },
+    });
+    if (!order || order.paymentProvider !== providerKey || order.checkoutRef !== s.checkoutRef) return null;
+    const waiting = order.status === "PENDING" || (order.status === "ABANDONED" && order.recoverySkipped !== "sustituido");
+    if (!waiting) return null;
+  } else if (s.metadata.subscriptionId) {
+    // «Pagar ahora» de una renovación: solo si ese periodo sigue pendiente.
+    const sub = await prisma.subscription.findUnique({ where: { id: s.metadata.subscriptionId }, select: { status: true, provider: true, currentPeriodEnd: true } });
+    if (!sub || sub.provider !== providerKey || sub.status !== "PAST_DUE" || renewalPeriodKey(sub.currentPeriodEnd) !== s.metadata.periodKey) return null;
+  } else return null;
+  return provider.completeCheckout(s.checkoutRef);
 }
 
 async function applyOrderPayment(s: PaymentStatus, providerKey: string): Promise<Applied> {
@@ -86,7 +121,7 @@ async function applyOrderPayment(s: PaymentStatus, providerKey: string): Promise
   if (s.state === "succeeded") {
     if (!s.ref) return ids;
     if (SETTLED.includes(order.status)) {
-      if (order.paymentRef !== s.ref) await refundDuplicate(order.id, s.ref);
+      if (order.paymentRef !== s.ref) await refundDuplicate(order.id, s.ref, providerKey);
       // Mismo cobro avisado otra vez (p. ej. payment_intent.succeeded tras checkout.session.completed):
       // si trae la tarjeta guardada y la membresía aún no la tenía, se completa. Sin ella las
       // renovaciones fallarían y la membresía acabaría cancelada.
@@ -104,7 +139,7 @@ async function applyOrderPayment(s: PaymentStatus, providerKey: string): Promise
     });
     const r = await fulfillOrder(order.id, s.ref, { customerRef: s.customerRef, paymentMethodRef: s.paymentMethodRef });
     // Otra llamada entregó el pedido a la vez con otro cobro: este segundo cobro se devuelve.
-    if (r.alreadyPaid && r.order.paymentRef !== s.ref) await refundDuplicate(order.id, s.ref);
+    if (r.alreadyPaid && r.order.paymentRef !== s.ref) await refundDuplicate(order.id, s.ref, providerKey);
     return ids;
   }
 
@@ -143,23 +178,26 @@ async function applyOrderPayment(s: PaymentStatus, providerKey: string): Promise
   return ids; // requires_action: la compradora sigue en la página de pago
 }
 
-/** Segundo cobro para un pedido ya pagado (dos pestañas, doble clic…): se devuelve entero. */
-async function refundDuplicate(orderId: string, ref: string) {
+/** Segundo cobro para un pedido ya pagado (dos pestañas, doble clic…): se devuelve entero, por la pasarela que lo cobró. */
+async function refundDuplicate(orderId: string, ref: string, providerKey: string) {
   captureAlert("Cobro duplicado de un pedido ya pagado: se reembolsa", { area: "payments", level: "error", fingerprint: ["cobro-duplicado"], extra: { orderId, ref } });
-  const r = await paymentProvider().refund({ paymentRef: ref, refundApplicationFee: true, idempotencyKey: `dup:${ref}`, metadata: { orderId, reason: "duplicado" } });
+  const r = await paymentProviderByKey(providerKey).refund({ paymentRef: ref, refundApplicationFee: true, idempotencyKey: `dup:${ref}`, metadata: { orderId, reason: "duplicado" } });
   if (!r.ok) throw new Error(`No se ha podido reembolsar el cobro duplicado ${ref}: ${r.error}`);
 }
 
 /** Renovación pagada con la clienta delante («Pagar ahora») o confirmada más tarde por el banco. */
-async function applySubscriptionPayment(s: PaymentStatus): Promise<Applied> {
+async function applySubscriptionPayment(s: PaymentStatus, providerKey: string): Promise<Applied> {
   const sub = await prisma.subscription.findUnique({
     where: { id: s.metadata.subscriptionId },
     include: { creator: { select: { payoutAccountId: true } } },
   });
   if (!sub) return { ignored: true };
   const ids = { creatorId: sub.creatorId };
+  // La suscripción se cobra siempre por su pasarela: un pago de otra no es suyo.
   const matches =
-    s.amountCents === sub.priceCents && (s.destinationAccount == null || s.destinationAccount === sub.creator.payoutAccountId);
+    sub.provider === providerKey &&
+    s.amountCents === sub.priceCents &&
+    (s.destinationAccount == null || s.destinationAccount === sub.creator.payoutAccountId);
   if (!matches) {
     captureAlert("Renovación que no coincide con su suscripción", { area: "payments", level: "error", fingerprint: ["pago-no-coincide"], extra: { subscriptionId: sub.id, ref: s.ref } });
     return ids;
@@ -178,9 +216,9 @@ async function applySubscriptionPayment(s: PaymentStatus): Promise<Applied> {
   return ids;
 }
 
-async function applyDispute(u: Extract<PaymentUpdate, { kind: "dispute" }>): Promise<Applied> {
-  const order = await prisma.order.findFirst({ where: { paymentRef: u.paymentRef }, include: { creator: { include: { user: true } } } });
-  if (!order) return applyRenewalDispute(u);
+async function applyDispute(u: Extract<PaymentUpdate, { kind: "dispute" }>, providerKey: string): Promise<Applied> {
+  const order = await prisma.order.findFirst({ where: { paymentRef: u.paymentRef, paymentProvider: providerKey }, include: { creator: { include: { user: true } } } });
+  if (!order) return applyRenewalDispute(u, providerKey);
   const ids = { orderId: order.id, creatorId: order.creatorId };
   await prisma.order.update({ where: { id: order.id }, data: { disputeStatus: u.status, disputedAt: order.disputedAt ?? new Date() } });
   if (u.status === "OPEN")
@@ -206,8 +244,7 @@ async function applyDispute(u: Extract<PaymentUpdate, { kind: "dispute" }>): Pro
 }
 
 /** Contracargo de una renovación de membresía: su cobro no tiene pedido, se busca en el libro. */
-async function applyRenewalDispute(u: Extract<PaymentUpdate, { kind: "dispute" }>): Promise<Applied> {
-  const provider = paymentProvider().key;
+async function applyRenewalDispute(u: Extract<PaymentUpdate, { kind: "dispute" }>, provider: string): Promise<Applied> {
   const renewal = await findRenewalCharge(provider, u.paymentRef);
   if (!renewal) {
     captureAlert("Contracargo de un cobro que no es de ningún pedido ni renovación", {
@@ -277,13 +314,18 @@ async function recoverLostDispute(u: Extract<PaymentUpdate, { kind: "dispute" }>
 
 /**
  * Vuelta de la compradora desde la pasarela (o el simulador): pregunta el estado real a la
- * pasarela (la URL no demuestra nada) y lo aplica como si fuera un aviso.
+ * pasarela (la URL no demuestra nada) y lo aplica como si fuera un aviso. La pasarela es la del
+ * pedido con ese checkout; si no hay pedido («Pagar ahora» de una renovación), la que dice la
+ * vuelta (`via`) si está activa; si no, la principal.
  */
-export async function reconcileCheckout(ref: string): Promise<{ orderId?: string; subscriptionId?: string; state: PaymentState }> {
-  const provider = paymentProvider();
+export async function reconcileCheckout(ref: string, via?: string | null): Promise<{ orderId?: string; subscriptionId?: string; state: PaymentState }> {
+  const order = await prisma.order.findUnique({ where: { checkoutRef: ref }, select: { paymentProvider: true } });
+  const key = order?.paymentProvider ?? (via && isPaymentProviderEnabled(via) ? via : paymentProvider().key);
+  const provider = paymentProviderByKey(key);
   const status = await provider.getPaymentStatus(ref);
-  await applyPaymentUpdate({ kind: "payment", status }, provider.key);
-  return { orderId: status.metadata.orderId, subscriptionId: status.metadata.subscriptionId, state: status.state };
+  const applied = await applyPaymentUpdate({ kind: "payment", status }, provider.key);
+  // Si se ha cobrado ahora (PayPal), el estado es el de después de cobrar.
+  return { orderId: status.metadata.orderId, subscriptionId: status.metadata.subscriptionId, state: applied.state ?? status.state };
 }
 
 /**
@@ -322,10 +364,10 @@ export async function processPaymentEvent(provider: string, eventId: string, typ
   }
 }
 
-/** POST /api/webhooks/stripe. 400 si la firma no vale; 500 si algo falla, para que Stripe reintente. */
-export async function processWebhook(providerKey: "stripe", rawBody: string, headers: Headers): Promise<{ status: 200 | 400 | 500; body: string }> {
-  const provider = paymentProvider();
-  if (provider.key !== providerKey) return { status: 400, body: "Pasarela no configurada" };
+/** POST /api/webhooks/stripe y /api/webhooks/paypal. 400 si la firma no vale; 500 si algo falla, para que la pasarela reintente. */
+export async function processWebhook(providerKey: "stripe" | "paypal", rawBody: string, headers: Headers): Promise<{ status: 200 | 400 | 500; body: string }> {
+  if (!isPaymentProviderEnabled(providerKey)) return { status: 400, body: "Pasarela no configurada" };
+  const provider = paymentProviderByKey(providerKey);
   let parsed;
   try {
     parsed = await provider.parseWebhook(rawBody, headers);

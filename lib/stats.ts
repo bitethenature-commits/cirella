@@ -1,6 +1,6 @@
 import { NO_CHARGE_PROVIDERS } from "./access-mode";
 import { orderFigures } from "./refund-math";
-import { isPersonalMode } from "./site-mode";
+import { signupsOnly } from "./commerce";
 import { tenantDb } from "./tenant";
 import { addDaysToKey, dateKeyInTz, zonedTimeToUtc, formatInTz } from "./tz";
 
@@ -43,7 +43,7 @@ export async function getDashboardStats(creatorId: string, range: RangeKey, tz: 
     await Promise.all([
       db.order.findMany({
         where: { status: { in: ["PAID", "REFUNDED"] }, ...CHARGED, ...(when ? { paidAt: when } : {}) },
-        select: { status: true, amountCents: true, platformFeeCents: true, refundedCents: true, refundedFeeCents: true, taxCents: true, taxSeller: true, productId: true, productTitle: true, paidAt: true },
+        select: { status: true, amountCents: true, platformFeeCents: true, refundedCents: true, refundedFeeCents: true, productId: true, productTitle: true, paidAt: true },
       }),
       db.order.findMany({
         where: { status: "PAID", ...NO_CHARGE, ...(when ? { paidAt: when } : {}) },
@@ -184,9 +184,9 @@ export async function getAdvancedStats(creatorId: string, range: RangeKey, tz: s
     db.product.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, title: true, emoji: true, type: true, priceCents: true } }),
   ]);
   const count = (t: string) => byType.find((x) => x.type === t)?._count._all ?? 0;
-  // Web personal: no hay checkout ni compras aquí; el final del embudo son las inscripciones
-  // (SIGNUP, gratis con email) y los clics que llevan a la web externa donde se paga.
-  const funnel = isPersonalMode()
+  // Web personal sin cobros: no hay checkout ni compras aquí; el final del embudo son las
+  // inscripciones (SIGNUP, gratis con email) y los clics que llevan a la web externa donde se paga.
+  const funnel = signupsOnly()
     ? [
         { key: "PAGE_VIEW", label: "Visitas", value: count("PAGE_VIEW") },
         { key: "PRODUCT_VIEW", label: "Vistas de producto", value: count("PRODUCT_VIEW") },

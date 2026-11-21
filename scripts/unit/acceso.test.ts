@@ -16,6 +16,8 @@ for (const [path, want] of [
   ["/cuenta/membresias/m1", { kind: "product", id: "m1" }],
   ["/cuenta/sesiones/b1/ics", { kind: "booking", id: "b1" }],
   ["/cuenta/pedidos/o1", { kind: "order", id: "o1" }],
+  ["/cuenta/archivos/f1", { kind: "file", id: "f1" }],
+  ["/cuenta/archivos", null],
   ["/cuenta", null],
   ["/cuenta/compras", null],
   ["/panel", null],
@@ -61,11 +63,11 @@ test("magicLinkEmail: el de entrar dura 1 hora y pide pulsar «Entrar»", () => 
   ok(m.html.includes("1 hora") && m.html.includes("Entrar a mi cuenta"));
 });
 test("magicLinkEmail: el de confirmar explica «No he sido yo» y lleva la marca", () => {
-  const m = magicLinkEmail({ url: "https://x", creatorName: "Ana Luna", purpose: "VERIFY_SIGNUP" });
+  const m = magicLinkEmail({ url: "https://x", creatorName: "Cirella", purpose: "VERIFY_SIGNUP" });
   eq(m.subject, "Confirma tu email en Cirella");
-  ok(m.html.includes("No he sido yo") && m.html.includes("Ana Luna") && m.html.includes("Confirmar mi email"));
+  ok(m.html.includes("No he sido yo") && m.html.includes("Cirella") && m.html.includes("Confirmar mi email"));
 });
 test("purchaseReceiptEmail pinta la nota del enlace personal escapada", () => {
-  const m = purchaseReceiptEmail({ creatorName: "Ana", productTitle: "PDF", amount: "9 €", orderId: "o1", accountUrl: "https://x/auth/enlace?t=a", linkNote: "Este enlace es personal <b>" });
+  const m = purchaseReceiptEmail({ creatorName: "Cirella", productTitle: "PDF", amount: "9 €", orderId: "o1", accountUrl: "https://x/auth/enlace?t=a", linkNote: "Este enlace es personal <b>" });
   ok(m.html.includes("Este enlace es personal &lt;b&gt;") && m.html.includes("No necesitas contraseña"));
 });

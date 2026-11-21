@@ -2,7 +2,8 @@
  * Generadores de archivos de demostración (sin dependencias):
  *   · makePdf  → PDF real con portada y texto (fuentes estándar, WinAnsi)
  *   · makeWav  → audio de meditación (cuenco tibetano sintetizado)
- *   · makeVideo → vídeo corto con ffmpeg (si está instalado)
+ *   · makeVideo → vídeo corto con ffmpeg (si está instalado), en MP4 o en MOV (como los del iPhone)
+ *   · makeM4a   → audio AAC en .m4a (como una grabación de Zoom o de Notas de voz), con ffmpeg
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -159,12 +160,12 @@ export function makeWav(seconds = 30, sampleRate = 22050) {
 }
 
 /** Vídeo corto (zoom lento sobre una imagen + audio). Devuelve null si no hay ffmpeg. */
-export function makeVideo(imagePath: string, seconds = 16): Buffer | null {
+export function makeVideo(imagePath: string, seconds = 16, container: "mp4" | "mov" = "mp4"): Buffer | null {
   try {
     if (!existsSync(imagePath)) return null;
     const dir = mkdtempSync(path.join(tmpdir(), "cirella-"));
     const wav = path.join(dir, "a.wav");
-    const out = path.join(dir, "v.mp4");
+    const out = path.join(dir, `v.${container}`);
     writeFileSync(wav, makeWav(seconds));
     execFileSync(
       "ffmpeg",
@@ -183,6 +184,20 @@ export function makeVideo(imagePath: string, seconds = 16): Buffer | null {
       ],
       { stdio: "pipe", timeout: 120000 },
     );
+    return readFileSync(out);
+  } catch {
+    return null;
+  }
+}
+
+/** Audio AAC en .m4a a partir del cuenco sintetizado. Devuelve null si no hay ffmpeg. */
+export function makeM4a(seconds = 30): Buffer | null {
+  try {
+    const dir = mkdtempSync(path.join(tmpdir(), "cirella-"));
+    const wav = path.join(dir, "a.wav");
+    const out = path.join(dir, "a.m4a");
+    writeFileSync(wav, makeWav(seconds));
+    execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", wav, "-c:a", "aac", "-b:a", "64k", "-movflags", "+faststart", out], { stdio: "pipe", timeout: 60000 });
     return readFileSync(out);
   } catch {
     return null;

@@ -19,6 +19,7 @@ const ERRORS: Record<string, string> = {
   enlace: "El enlace ha caducado o ya se usó. Pide uno nuevo.",
   caducado: "Este enlace personal ha caducado. Pide uno nuevo y te llegará al momento.",
   bloqueada: "Tu cuenta está bloqueada. Escríbenos si crees que es un error.",
+  codigo: "Ha pasado demasiado tiempo o ha habido demasiados intentos. Vuelve a entrar.",
   cerrado: "En esta web no se pueden crear páginas nuevas. Si ya tienes acceso a algún contenido, entra con tu email.",
 };
 
@@ -28,14 +29,14 @@ const MOTIVOS: Record<string, string> = {
 };
 
 const DEMO = [
-  { email: "ana@cirella.app", label: "Ana Luna", role: "Creadora · plan Pro" },
-  { email: "laura@example.com", label: "Laura Martín", role: "Clienta de Ana" },
+  { email: "ana@cirella.app", label: "Cirella", role: "Creadora · plan Pro" },
+  { email: "laura@example.com", label: "Laura Martín", role: "Clienta de Cirella" },
   { email: "admin@cirella.app", label: "Superadmin", role: "Plataforma" },
 ];
 
-/** Modo personal (con la demo, la dueña es Ana): sin planes ni plataforma en las etiquetas. */
+/** Modo personal (con la demo, la dueña es Cirella): sin planes ni plataforma en las etiquetas. */
 const DEMO_PERSONAL = [
-  { email: "ana@cirella.app", label: "Ana Luna", role: "Dueña de la web" },
+  { email: "ana@cirella.app", label: "Cirella", role: "Dueña de la web" },
   { email: "laura@example.com", label: "Laura Martín", role: "Alumna" },
   { email: "admin@cirella.app", label: "Administración", role: "Envíos y ajustes" },
 ];
@@ -68,7 +69,7 @@ export default async function EntrarPage({ searchParams }: { searchParams: Promi
           demo={demo}
           personal={personal}
           initialError={sp.error ? ERRORS[sp.error] : undefined}
-          notice={motivo ? MOTIVOS[motivo] : undefined}
+          notice={motivo ? (personal && motivo === "completa" ? "Para ver todo lo tuyo, confirma que eres tú con un enlace a tu email." : MOTIVOS[motivo]) : undefined}
           defaultMode={(buyer && sp.modo !== "contrasena") || sp.modo === "enlace" || motivo === "confirmar" ? "magic" : "password"}
           defaultEmail={motivo === "confirmar" && s ? s.user.email : undefined}
         />

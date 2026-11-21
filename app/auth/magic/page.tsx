@@ -22,6 +22,13 @@ export default async function MagicLinkPage({ searchParams }: { searchParams: Pr
   if (!link) redirect(creator ? `/${creator.username}/entrar?error=enlace` : "/entrar?error=enlace");
   const masked = maskEmail(link.email);
   const verify = link.purpose === "VERIFY_SIGNUP";
+  // Alta de alumna y cambio de email: un solo botón (POST), con su texto.
+  const special =
+    link.purpose === "REGISTER"
+      ? { title: "Confirma tu email para entrar", text: <>Vas a crear tu área con <strong>{masked}</strong>.</>, button: "Confirmar y entrar" }
+      : link.purpose === "CHANGE_EMAIL"
+        ? { title: "Confirma tu nuevo email", text: <>Tu cuenta pasará a usar <strong>{masked}</strong>.</>, button: "Confirmar el cambio" }
+        : null;
 
   return (
     <AuthFrame username={creator?.username}>
@@ -29,10 +36,12 @@ export default async function MagicLinkPage({ searchParams }: { searchParams: Pr
         <form action={confirmMagicLink} className={branded ? "text-center" : ""}>
           <input type="hidden" name="token" value={token} />
           <h1 className={branded ? "cp-display text-[2.4rem] leading-tight" : "display text-[2.6rem] leading-tight"}>
-            {verify ? "¿Has creado tú esta cuenta?" : "Entra a tu cuenta"}
+            {special ? special.title : verify ? "¿Has creado tú esta cuenta?" : "Entra a tu cuenta"}
           </h1>
           <p className={`mt-3 ${branded ? "cp-muted" : "text-sm text-muted"}`}>
-            {verify ? (
+            {special ? (
+              special.text
+            ) : verify ? (
               <>Se ha creado una cuenta de Cirella con <strong>{masked}</strong>.</>
             ) : (
               <>Vas a entrar como <strong>{masked}</strong>.</>
@@ -54,7 +63,7 @@ export default async function MagicLinkPage({ searchParams }: { searchParams: Pr
           ) : (
             <>
               <SubmitButton className={branded ? "cp-btn mt-8 h-14 w-full text-base" : "btn btn-primary btn-lg mt-8 w-full"} pendingLabel="Entrando…">
-                Entrar
+                {special ? special.button : "Entrar"}
               </SubmitButton>
               <p className={`mt-4 text-xs ${branded ? "cp-muted" : "text-muted"}`}>Este paso evita que los antivirus del correo gasten tu enlace.</p>
             </>

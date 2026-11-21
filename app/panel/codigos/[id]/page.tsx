@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { requireCreator } from "@/lib/auth";
-import { CODE_STATE_LABEL, codeState, dateKeyFromExpiry } from "@/lib/discount-codes";
+import { CODE_STATE_LABEL, codeState, dateKeyFromExpiry, readCodePhotos, readCodeRecommendations } from "@/lib/discount-codes";
 import { tenantDb } from "@/lib/tenant";
 import { Badge, PageHeader } from "../../ui";
 import { deleteDiscountCode } from "../actions";
@@ -20,7 +20,7 @@ export default async function EditDiscountCodePage({ params }: { params: Promise
   const state = codeState(code);
   return (
     <div className="mx-auto max-w-3xl">
-      <Link href="/panel/codigos" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+      <Link href="/panel/pagina?ver=codigos" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
         <ArrowLeft className="h-4 w-4" /> Códigos
       </Link>
       <PageHeader title={code.brand} subtitle={<Badge tone={state === "ACTIVE" ? "success" : state === "EXPIRED" ? "warning" : "neutral"}>{CODE_STATE_LABEL[state]}</Badge>} />
@@ -32,6 +32,8 @@ export default async function EditDiscountCodePage({ params }: { params: Promise
           description: code.description ?? "",
           url: code.url,
           imageUrl: code.imageUrl,
+          images: readCodePhotos(code.images),
+          recommendations: readCodeRecommendations(code.recommendations),
           expiresOn: dateKeyFromExpiry(code.expiresAt, creator.timezone),
           active: code.active,
         }}

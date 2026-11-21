@@ -19,15 +19,30 @@ import { nextAttemptAt, truncateError } from "./reliability";
  * un evento puede ejecutarse más de una vez.
  */
 
+/**
+ * Por qué se confirma (o vuelve a confirmar) una reserva: decide qué emails salen. Sin `change` = un
+ * evento de antes de existir este campo: solo los emails de la clienta, como entonces.
+ *   new: compra · manual: la dueña la da a mano · scheduled: la clienta elige fecha tras pagar ·
+ *   rescheduled: la clienta la cambia · proposal_answered: elige tras «Proponer otra fecha» ·
+ *   moved: la dueña mueve el taller.
+ */
+export type BookingChange = "new" | "manual" | "scheduled" | "rescheduled" | "proposal_answered" | "moved";
+
 export type DomainEvent =
   | { type: "order.paid"; orderId: string }
   | { type: "customer.created"; customerId: string }
-  | { type: "booking.confirmed"; bookingId: string }
+  | { type: "booking.confirmed"; bookingId: string; change?: BookingChange }
+  // Cambió el enlace de la videollamada de una reserva (aviso a la clienta y recordatorios de nuevo).
+  | { type: "booking.updated"; bookingId: string; what: "meeting_url" }
+  // La clienta ha completado o corregido sus datos para la lectura (aviso a la dueña).
+  | { type: "intake.updated"; orderId: string; first: boolean }
   | { type: "subscription.created"; subscriptionId: string }
   | { type: "subscription.canceled"; subscriptionId: string }
+  // La suscripción ha terminado de verdad (y con ella el acceso): aviso a la miembro.
+  | { type: "subscription.ended"; subscriptionId: string; reason: "period_end" | "payment_failed" }
   | { type: "checkout.abandoned"; orderId: string }
   // Reembolsos y cambios de reserva (lib/refunds.ts, lib/booking-changes.ts). Sus emails se envían
-  // directamente; los eventos quedan para quien tenga que reaccionar (p. ej. la factura rectificativa).
+  // directamente; los eventos quedan para quien tenga que reaccionar.
   | { type: "order.refunded"; orderId: string; refundId: string }
   | { type: "booking.cancelled"; bookingId: string }
   | { type: "booking.reschedule_requested"; bookingId: string };

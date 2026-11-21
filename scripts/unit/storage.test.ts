@@ -110,3 +110,14 @@ test("S3 presignPut firma content-type y content-length", async () => {
   eq(u.searchParams.has("x-amz-checksum-crc32"), false, "sin suma de comprobación en la URL");
   eq(headers, { "Content-Type": "application/pdf" });
 });
+test("S3 presignPart: path-style, firma content-length, uploadId y partNumber", async () => {
+  const { url, headers } = await s3.presignPart("private/c1/v.mov", "up-123", 7, { contentLength: 16 * 1024 * 1024, expiresInSec: 3600 });
+  const u = new URL(url);
+  eq(u.pathname, "/b/private/c1/v.mov");
+  ok((u.searchParams.get("X-Amz-SignedHeaders")?.split(";") ?? []).includes("content-length"), "content-length firmado");
+  eq(u.searchParams.get("uploadId"), "up-123");
+  eq(u.searchParams.get("partNumber"), "7");
+  eq(u.searchParams.get("X-Amz-Expires"), "3600");
+  eq(u.searchParams.has("x-amz-checksum-crc32"), false, "sin suma de comprobación en la URL");
+  eq(headers, {});
+});

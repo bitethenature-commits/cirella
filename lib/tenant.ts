@@ -10,7 +10,7 @@ import { prisma } from "./db";
  *   · el `data` de las creaciones
  *
  * Así, aunque un id llegue manipulado desde el cliente (p. ej. el id de un
- * producto de María en una petición de Ana), la consulta simplemente no
+ * producto de María en una petición de Cirella), la consulta simplemente no
  * encuentra nada. Todo el código del panel de creadora usa este cliente.
  *
  * Reglas para mantenerlo seguro:
@@ -24,8 +24,20 @@ export const TENANT_MODELS = new Set<Prisma.ModelName>([
   "ProductFile",
   "CourseModule",
   "Lesson",
+  "LessonPart",
   "LessonProgress",
+  "LessonView",
   "MembershipPost",
+  "EmailClick",
+  "MembershipComment",
+  "MembershipPostLike",
+  "MembershipCommentLike",
+  "LessonComment",
+  "LessonCommentLike",
+  "LessonSave",
+  "MembershipPostView",
+  "MembershipPostSave",
+  "ProductInclusion",
   "Customer",
   "Order",
   "Transaction",
@@ -33,16 +45,27 @@ export const TENANT_MODELS = new Set<Prisma.ModelName>([
   "Booking",
   "AvailabilityRule",
   "BlockedDate",
+  "AvailabilityOverride",
   "Subscription",
   "AnalyticsEvent",
   "Automation",
   "EmailMessage",
   "Refund",
   "LegalSnapshot",
-  "Invoice",
   "RecoveryOptOut",
   "Post",
+  "PortalItem",
   "DiscountCode",
+  "SitePage",
+  "Subscriber",
+  "Campaign",
+  "CampaignRecipient",
+  "NewsletterTemplate",
+  "CalendarNote",
+  "OracleDeck",
+  "OracleCard",
+  "BirthProfile",
+  "SectionSeen",
 ]);
 
 const WHERE_OPS = new Set([

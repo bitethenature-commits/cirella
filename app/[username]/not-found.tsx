@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useCreatorBranding, usePersonalMode } from "@/components/creator-page/branding-context";
+import { useCreatorBranding, usePersonalMode, useSignupsOnly } from "@/components/creator-page/branding-context";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { LogoMark } from "@/components/logo";
 import { SiteMark } from "@/components/site-brand-context";
@@ -12,10 +12,11 @@ import { SiteMark } from "@/components/site-brand-context";
 export default function CreatorNotFound() {
   const branding = useCreatorBranding();
   const personal = usePersonalMode();
+  const signupsOnly = useSignupsOnly();
   if (branding) {
     const { username, config, allowCustom } = branding;
     return (
-      <CreatorShell username={username} config={config} allowCustom={allowCustom} back={false} personal={personal}>
+      <CreatorShell username={username} config={config} allowCustom={allowCustom} back={false} personal={personal} signupsOnly={signupsOnly}>
         <main className="relative mx-auto max-w-md px-6 py-20 text-center">
           <h1 className="cp-display text-3xl">Este contenido ya no está disponible</h1>
           <p className="cp-muted mt-3">Puede que el enlace haya cambiado o que {config.displayName} lo haya retirado.</p>

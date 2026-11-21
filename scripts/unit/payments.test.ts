@@ -116,7 +116,7 @@ function fakeStripe(over: { paymentIntentsCreate?: () => unknown } = {}) {
   return { client, calls };
 }
 
-const cfg = { webhookSecrets: [WHSEC, WHSEC_CONNECT], onBehalfOf: false };
+const cfg = { webhookSecrets: [WHSEC, WHSEC_CONNECT], onBehalfOf: false, connect: true };
 
 const membershipPayment: StartPaymentInput = {
   orderId: "ord_1",

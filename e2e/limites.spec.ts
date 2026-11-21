@@ -13,7 +13,9 @@ const OK_CARD = "4242 4242 4242 4242";
 
 async function acceptConsents(page: Page) {
   await page.getByLabel(/He leído y acepto/).check();
-  await page.getByLabel(/Quiero acceder ya|Solicito que la sesión/).check();
+  // La casilla del desistimiento la piden lo digital, los cursos, las membresías y los talleres (no las sesiones individuales).
+  const waiver = page.getByLabel(/Quiero acceder ya|Quiero que se prepare ya|Entiendo que este taller|Quiero empezar ya/);
+  if (await waiver.count()) await waiver.check();
 }
 
 test.describe.serial("Login con contraseña", () => {

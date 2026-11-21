@@ -1,132 +1,176 @@
 import Link from "next/link";
-import { Download, UsersRound } from "lucide-react";
+import { BookOpen, Crown, Download, LayoutGrid, Mail, MonitorPlay, Moon, UserRound, UsersRound } from "lucide-react";
+import { SpinningSolid } from "@/app/cuenta/spinning-solid";
 import { EmptyState } from "@/components/ui/empty";
+import { Flash } from "@/components/ui/flash";
 import { formatNumber } from "@/lib/money";
-import { formatDate } from "@/lib/tz";
-import { Badge, PageHeader, Stat } from "../ui";
-import { listSignups, signupProducts, SIGNUPS_PAGE } from "./signups-data";
+import { CounterCard, PageHeader, PersonDot } from "../ui";
+import { renewsSoon, SignupItem } from "./signup-item";
+import { listSignups, RENEW_SOON_DAYS, signupFilters, SIGNUPS_PAGE, type SignupRow } from "./signups-data";
 
-const RANGES = [
-  ["month", "Este mes"],
-  ["30d", "Últimos 30 días"],
-  ["all", "Total"],
-] as const;
+/** Una persona con todo lo suyo (sus inscripciones, de la más urgente a la más antigua). */
+type Person = { email: string; name: string | null; customerId: string | null; newsletter: boolean; newsletterPending: boolean; rows: SignupRow[] };
 
 /**
- * «Inscripciones»: quién se ha apuntado a qué (gratis con email) y a quién has dado acceso tú. En la
- * web personal es la página de «Ventas»; en la plataforma, una pestaña más cuando las hay.
+ * «Inscripciones»: quién se ha apuntado a qué y a quién has dado acceso tú. Filtros en orden: las
+ * membresías, los círculos de la luna que salen en la web, los cursos y lo online. Las membresías
+ * enseñan los días que les quedan; a 5 días o menos salen arriba con «Ha pagado» y «Denegar acceso».
  */
 export async function SignupsView({
   creatorId,
   timezone,
-  range,
-  since,
-  productId,
+  filter,
   personal,
+  ok,
 }: {
   creatorId: string;
   timezone: string;
-  range: string;
-  since: Date | null;
-  productId: string | null;
+  filter: string | null;
   personal: boolean;
+  ok?: string | null;
 }) {
-  const [{ rows, total }, products] = await Promise.all([listSignups(creatorId, { since, productId, take: SIGNUPS_PAGE }), signupProducts(creatorId)]);
+  const { groups, products } = await signupFilters(creatorId);
+  const current = filter && products.has(filter) ? filter : null;
+  const ids = current ? products.get(current)! : null;
+  const { rows, total } = await listSignups(creatorId, { since: null, productIds: ids, take: SIGNUPS_PAGE, timeZone: timezone });
   const people = new Set(rows.map((r) => r.email)).size;
   const newsletter = new Set(rows.filter((r) => r.newsletter).map((r) => r.email)).size;
-  const fromForm = rows.filter((r) => r.origin === "Formulario").length;
-  // Enlaces que conservan el resto de filtros.
-  const qs = (over: Record<string, string | null>) => {
-    const p = new URLSearchParams();
-    if (!personal) p.set("estado", "inscripciones");
-    const merged = { rango: range, producto: productId, ...over };
-    for (const [k, v] of Object.entries(merged)) if (v) p.set(k, v);
-    return `?${p.toString()}`;
-  };
-  const csv = `/panel/ventas/csv${qs({}).replace("?", "?tipo=inscripciones&")}`;
+  const soon = renewsSoon;
+  const soonCount = rows.filter(soon).length;
+  const members = new Set(rows.filter((r) => r.productType === "MEMBERSHIP" && r.active).map((r) => r.email)).size;
+  // Agrupadas por persona (su email): la que tiene algo a punto de vencer, arriba; después, la última que se apuntó.
+  const byPerson = new Map<string, Person>();
+  for (const r of rows) {
+    const key = r.email.toLowerCase();
+    const p = byPerson.get(key) ?? { email: r.email, name: null, customerId: null, newsletter: false, newsletterPending: false, rows: [] };
+    p.name ??= r.name;
+    p.customerId ??= r.customerId;
+    p.newsletter ||= r.newsletter;
+    p.newsletterPending ||= r.newsletterPending;
+    p.rows.push(r);
+    byPerson.set(key, p);
+  }
+  const personList = [...byPerson.values()];
+
+  const base = personal ? "/panel/ventas" : "/panel/ventas?estado=inscripciones";
+  const href = (key: string | null) => (key ? `${base}${base.includes("?") ? "&" : "?"}filtro=${encodeURIComponent(key)}` : base);
+  const here = href(current);
+  const single = current && ids?.length === 1 ? `&producto=${ids[0]}` : "";
+  const csv = `/panel/ventas/csv?tipo=inscripciones&rango=all${single}`;
+
+  const chip = (on: boolean) =>
+    `inline-flex min-h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition ${
+      on ? "border-ink bg-ink text-cream" : "border-line bg-white/70 text-ink hover:border-ink/40"
+    }`;
+  const groupIcon = (title: string) =>
+    title.startsWith("Círculos") ? <Moon className="h-4 w-4" /> : title.startsWith("Cursos") ? <BookOpen className="h-4 w-4" /> : <UsersRound className="h-4 w-4" />;
 
   return (
     <div>
       <PageHeader
         title="Inscripciones"
-        subtitle="Quién se ha apuntado a qué, con su email y si quiere recibir tus novedades."
+        subtitle="Cada persona con todo lo suyo: a qué tiene acceso, desde cuándo y hasta cuándo."
         actions={
-          <>
-            <div className="inline-flex rounded-full bg-sand p-1 text-xs sm:text-sm">
-              {RANGES.map(([k, l]) => (
-                <Link key={k} href={qs({ rango: k })} className={`rounded-full px-3 py-1.5 font-medium transition ${range === k ? "bg-white shadow-soft" : "text-muted hover:text-ink"}`}>
-                  {l}
-                </Link>
-              ))}
-            </div>
-            <a href={csv} className="btn btn-outline btn-sm" download>
-              <Download className="h-4 w-4" /> Descargar CSV
-            </a>
-          </>
+          <a href={csv} className="btn btn-outline btn-sm" download>
+            <Download className="h-4 w-4" /> Descargar CSV
+          </a>
         }
       />
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Inscripciones" value={formatNumber(total)} accent />
-        <Stat label="Personas" value={formatNumber(people)} hint={total > rows.length ? `En las ${rows.length} últimas` : undefined} />
-        <Stat label="Con el formulario" value={formatNumber(fromForm)} hint="El resto se lo diste tú" />
-        {/* En el formulario gratis la casilla solo cuenta cuando la persona lo confirma desde su email. */}
-        <Stat label="Quieren novedades" value={formatNumber(newsletter)} hint={personal ? "Lo confirmaron por email" : "Marcaron la casilla"} />
+      <Flash ok={ok} />
+
+      <div className="mb-7 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <CounterCard icon={<UsersRound className="h-5 w-5" />} label="Personas" value={formatNumber(people)} hint={total > rows.length ? `En las ${rows.length} últimas inscripciones` : "Cada una, una sola vez"} on />
+        <CounterCard icon={<LayoutGrid className="h-5 w-5" />} label="Inscripciones" value={formatNumber(total)} hint="Todo a lo que se han apuntado" />
+        <CounterCard icon={<Crown className="h-5 w-5" />} label="Con membresía" value={formatNumber(members)} hint={soonCount ? `${soonCount} vencen pronto` : "Con acceso ahora"} alert={soonCount > 0} />
+        <CounterCard icon={<Mail className="h-5 w-5" />} label="Quieren novedades" value={formatNumber(newsletter)} hint={personal ? "Lo confirmaron por email" : "Marcaron la casilla"} />
       </div>
-      {products.length > 1 && (
-        <div className="mb-4 flex flex-wrap gap-1.5">
-          <Link href={qs({ producto: null })} className={`rounded-full px-3 py-1.5 text-sm ${!productId ? "bg-ink text-cream" : "bg-sand text-muted hover:text-ink"}`}>
-            Todos
+
+      {/* Los filtros, en orden: todas → membresías → círculos de la luna → cursos y online. */}
+      <nav aria-label="Filtrar inscripciones" className="card mb-6 divide-y divide-line">
+        <div className="flex flex-wrap items-center gap-3 p-4">
+          <Link href={href(null)} className={chip(!current)} aria-current={!current ? "page" : undefined}>
+            <LayoutGrid className="h-4 w-4" /> Todas
           </Link>
-          {products.map((p) => (
-            <Link key={p.id} href={qs({ producto: p.id })} className={`rounded-full px-3 py-1.5 text-sm ${productId === p.id ? "bg-ink text-cream" : "bg-sand text-muted hover:text-ink"}`}>
-              {p.emoji} {p.title} · {p.count}
-            </Link>
-          ))}
+        </div>
+        {groups.map((g) => (
+          <div key={g.title} className="flex flex-wrap items-center gap-x-4 gap-y-2.5 p-4">
+            <p className="flex w-full items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted sm:w-44">
+              {groupIcon(g.title)} {g.title}
+            </p>
+            <div className="flex flex-1 flex-wrap gap-2">
+              {g.chips.map((c, i) => {
+                const on = current === c.key;
+                return (
+                  <Link key={c.key} href={href(c.key)} className={chip(on)} aria-current={on ? "page" : undefined}>
+                    {c.level != null ? (
+                      <SpinningSolid level={c.level} offset={i * 1.3} speed={0.2} className={`h-5 w-5 ${on ? "text-gold" : "text-[#a8761d]"}`} />
+                    ) : c.key === "online" ? (
+                      <MonitorPlay className="h-4 w-4" />
+                    ) : c.key === "cursos" ? (
+                      <BookOpen className="h-4 w-4" />
+                    ) : c.emoji ? (
+                      <span aria-hidden>{c.emoji}</span>
+                    ) : (
+                      <Moon className="h-4 w-4" />
+                    )}
+                    {c.label}
+                    <span className={`tabular-nums ${on ? "text-cream/70" : "text-muted"}`}>{c.count}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      {soonCount > 0 && (
+        <p className="mb-3 rounded-xl border border-[#e7cf9b] bg-[#fbf3e2] px-4 py-3 text-sm text-[#7a5514]">
+          <strong>{soonCount === 1 ? "1 membresía vence" : `${soonCount} membresías vencen`} en {RENEW_SOON_DAYS} días o menos.</strong> Están arriba del todo: si ha pagado, pulsa «Ha pagado»; si no, «Denegar acceso».
+        </p>
+      )}
+
+      {rows.length === 0 ? (
+        <div className="card p-6">
+          <EmptyState icon={<UsersRound className="h-5 w-5" />} title="Nadie todavía">
+            Cuando confirmes una solicitud o des acceso a alguien, aparecerá aquí.
+          </EmptyState>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {personList.map((p) => {
+            const anyUrgent = p.rows.some(soon);
+            const live = p.rows.filter((r) => r.active).length;
+            return (
+              <article key={p.email} className={`card overflow-hidden ${anyUrgent ? "!border-[#d9a441]" : ""}`} data-person={p.email}>
+                <header className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3.5 md:px-5">
+                  <PersonDot name={p.name} email={p.email} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-serif text-[1.2rem] font-semibold leading-tight">{p.name ?? p.email}</p>
+                    <p className="truncate text-xs text-muted">
+                      {p.email}
+                      {p.newsletter ? " · Quiere novedades" : p.newsletterPending ? " · Novedades: pendiente de confirmar" : ""}
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted">
+                    {live === 0 ? "Sin nada activo" : live === 1 ? "1 acceso activo" : `${live} accesos activos`}
+                    {p.rows.length > live ? ` · ${p.rows.length - live} terminado${p.rows.length - live === 1 ? "" : "s"}` : ""}
+                  </span>
+                  {p.customerId && (
+                    <Link href={`/panel/clientes/${p.customerId}`} className="btn btn-ghost btn-sm">
+                      <UserRound className="h-4 w-4" /> Ficha
+                    </Link>
+                  )}
+                </header>
+                <ul className="divide-y divide-line">
+                  {p.rows.map((r) => (
+                    <SignupItem key={r.orderId} r={r} back={here} timezone={timezone} />
+                  ))}
+                </ul>
+              </article>
+            );
+          })}
         </div>
       )}
-      <div className="card overflow-hidden">
-        <div className="hidden grid-cols-[1.2fr_1.3fr_0.8fr_0.7fr_0.6fr] gap-4 border-b border-line bg-paper px-5 py-2.5 text-xs font-semibold text-muted md:grid">
-          <span>Persona</span>
-          <span>Producto</span>
-          <span>Fecha</span>
-          <span>Origen</span>
-          <span className="text-right">Acceso</span>
-        </div>
-        <ul className="divide-y divide-line">
-          {rows.map((r) => (
-            <li key={r.orderId}>
-              <Link
-                href={`/panel/ventas/${r.orderId}`}
-                className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 px-4 py-3.5 text-sm transition hover:bg-paper md:grid-cols-[1.2fr_1.3fr_0.8fr_0.7fr_0.6fr] md:items-center md:px-5"
-              >
-                <span className="min-w-0">
-                  <span className="block truncate font-medium">{r.name ?? r.email}</span>
-                  <span className="block truncate text-xs text-muted">
-                    {r.name ? r.email : ""}
-                    {r.newsletter ? `${r.name ? " · " : ""}Quiere novedades` : r.newsletterPending ? `${r.name ? " · " : ""}Novedades: pendiente de confirmar` : ""}
-                  </span>
-                </span>
-                <span className="hidden min-w-0 truncate md:block">{r.productEmoji} {r.productTitle}</span>
-                <span className="hidden text-muted md:block">{r.paidAt ? formatDate(r.paidAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }, timezone) : "—"}</span>
-                <span className="hidden text-muted md:block">{r.origin}</span>
-                <span className="flex items-center justify-end gap-2">
-                  <Badge tone={r.active ? "success" : "neutral"}>{r.active ? "Con acceso" : "Retirado"}</Badge>
-                </span>
-                <span className="col-span-2 truncate text-xs text-muted md:hidden">
-                  {r.productEmoji} {r.productTitle} · {r.paidAt ? formatDate(r.paidAt, { day: "numeric", month: "short" }, timezone) : "—"} · {r.origin}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-        {rows.length === 0 && (
-          <div className="p-6">
-            <EmptyState icon={<UsersRound className="h-5 w-5" />} title="Nadie se ha apuntado en este periodo">
-              Cuando alguien deje su email en un producto gratis, o le des acceso desde un producto, aparecerá aquí.
-            </EmptyState>
-          </div>
-        )}
-      </div>
       {total > rows.length && <p className="mt-3 text-xs text-muted">Se muestran las {rows.length} más recientes. El CSV las incluye todas.</p>}
     </div>
   );

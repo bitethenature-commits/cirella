@@ -29,6 +29,7 @@ test("la guía del modo personal (Railway): migraciones antes de arrancar, cron 
   ok(/Pre-deploy Command[\s\S]{0,80}npm run deploy/.test(guide), "falta npm run deploy en el Pre-deploy Command");
   ok(guide.includes("**Every 5 minutes**") && 5 < CRON_STALE_MINUTES, "el cron de la guía debe ir más rápido que CRON_STALE_MINUTES");
   ok(guide.includes('CLIENT_IP_HEADER="x-real-ip"'), "falta CLIENT_IP_HEADER=x-real-ip");
+  ok(guide.includes('OWNER_EMAIL="tu@email.com"') && guide.includes("Pide un enlace para entrar"), "la cuenta se crea en el despliegue con OWNER_EMAIL");
   ok(!guide.includes("`*/5 * * * *` por `0 5 * * *`"), "la guía ya no cambia vercel.json (Railway no lo usa)");
 });
 

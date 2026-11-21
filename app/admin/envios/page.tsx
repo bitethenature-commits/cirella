@@ -35,6 +35,7 @@ const EVENT_LABEL: Record<string, string> = {
   "booking.confirmed": "Reserva confirmada",
   "subscription.created": "Nueva suscripción",
   "subscription.canceled": "Suscripción cancelada",
+  "subscription.ended": "Membresía terminada",
   "checkout.abandoned": "Compra abandonada",
 };
 

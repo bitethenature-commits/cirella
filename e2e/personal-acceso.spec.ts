@@ -98,12 +98,11 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
     // En la demo los emails no salen: el buzón de demostración está a un clic.
     await expect(page.getByRole("link", { name: /Abrir el buzón de demostración/ })).toHaveAttribute("href", "/dev/correo");
 
-    const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail: lucia }, include: { transactions: true, invoices: true } });
+    const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail: lucia }, include: { transactions: true } });
     expect(order.paymentProvider).toBe("free");
     expect(order.amountCents).toBe(0);
-    expect(order.taxCents + order.platformFeeCents).toBe(0);
+    expect(order.platformFeeCents).toBe(0);
     expect(order.transactions).toHaveLength(0);
-    expect(order.invoices).toHaveLength(0);
 
     const mail = await accessEmailLink(lucia, "Empezar el curso");
     expect(mail.subject).toBe("Ya tienes acceso a «Mini-curso gratis: tu carta natal en 3 pasos»");
@@ -111,7 +110,7 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
     // El enlace personal abre una sesión limitada a este acceso y lleva directo al curso.
     await page.goto(mail.url);
     await page.waitForURL(`**/cuenta/cursos/${order.productId}**`);
-    await expect(page.getByText("Paso 1 · Tu Sol: dónde brillas").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Paso 1 · Tu Sol: dónde brillas", level: 2 })).toBeVisible();
   });
 
   test("repetir con el mismo email reenvía el enlace y no duplica", async ({ page }) => {
@@ -152,7 +151,7 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
     await expect(page.getByText("Pago en calendly.com").first()).toBeVisible();
     await expect(page.getByText("IVA incluido")).toHaveCount(0);
     const button = page.getByRole("link", { name: /Reservar en Calendly/ }).first();
-    await expect(button).toHaveAttribute("href", "https://calendly.com/ana-luna/revolucion-solar");
+    await expect(button).toHaveAttribute("href", "https://calendly.com/cirella/revolucion-solar");
     await expect(button).toHaveAttribute("target", "_blank");
     const popup = page.waitForEvent("popup");
     await button.click();

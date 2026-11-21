@@ -5,20 +5,17 @@
  *   · el aviso de la sesión llega sin tarjeta y el del PaymentIntent después: la membresía la guarda;
  *   · dos cobros del mismo periodo de renovación: el segundo se devuelve; el mismo aviso repetido no;
  *     un cobro para una suscripción cancelada mientras pagaba, también se devuelve;
- *   · un reembolso hecho fuera de Cirella sobre una renovación se contabiliza (fila REFUND,
- *     rectificativa) una sola vez y, si es la renovación en curso entera, termina la membresía;
+ *   · un reembolso hecho fuera de Cirella sobre una renovación se contabiliza (fila REFUND) una sola vez y, si es la renovación en curso entera, termina la membresía;
  *   · un contracargo abierto sobre una renovación avisa a la creadora;
  *   · dos pedidos pagados de la misma membresía: una sola suscripción y el segundo se reembolsa;
  *   · a quien ya es miembro no se le manda «¿Te quedaste a medias?»;
- *   · la factura completa no acepta otro país que el de la compra;
  *   · markFirstAccess anota el primer acceso una sola vez (desde ahí vale la renuncia).
- * Crea compradoras de prueba sobre Ana (seed) y borra todo lo que crea.
+ * Crea compradoras de prueba sobre Cirella (seed) y borra todo lo que crea.
  */
 import "./load-env";
 import Module from "node:module";
 import { prisma } from "../lib/db";
 import { emitAbandoned } from "../lib/abandoned";
-import { InvoiceError, issueFullInvoiceForOrder } from "../lib/invoices/issue";
 import { createPendingOrder } from "../lib/orders";
 import { paymentProvider } from "../lib/payments";
 import { applyPaymentUpdate } from "../lib/payments/events";
@@ -57,8 +54,8 @@ const paid = (o: OrderLike, ref: string, extra: Partial<PaymentStatus> = {}): Pa
   ...extra,
 });
 
-async function newOrder(productId: string, label: string, extra: { buyerCountry?: string } = {}) {
-  const o = await createPendingOrder({ productId, buyerEmail: email(label), buyerName: `Prueba ${label}`, ...extra });
+async function newOrder(productId: string, label: string) {
+  const o = await createPendingOrder({ productId, buyerEmail: email(label), buyerName: `Prueba ${label}` });
   created.orders.push(o.id);
   return o;
 }
@@ -66,7 +63,7 @@ async function newOrder(productId: string, label: string, extra: { buyerCountry?
 async function main() {
   check("la pasarela de la prueba es la simulada", paymentProvider().key === "simulated");
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" }, include: { user: true } });
-  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED" } });
+  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "AUTOMATIC" } });
   const membership = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "MEMBERSHIP", status: "PUBLISHED" } });
 
   const provider = paymentProvider();
@@ -122,12 +119,6 @@ async function main() {
     const refundRows = await prisma.transaction.findMany({ where: { subscriptionId: sub.id, type: "REFUND" } });
     check("reembolso de una renovación: no se ignora", !r1.ignored && r1.creatorId === ana.id, r1);
     check("…una sola fila REFUND en negativo aunque el aviso se repita", refundRows.length === 1 && refundRows[0].amountCents === -renewalTx.amountCents, refundRows);
-    const saleInvoice = await prisma.invoice.findUnique({ where: { dedupeKey: `sale:${renewalTx.id}` } });
-    if (saleInvoice)
-      check(
-        "…con la rectificativa de la factura de la renovación",
-        (await prisma.invoice.count({ where: { relatedInvoiceId: saleInvoice.id, type: { in: ["R1", "R5"] } } })) === 1,
-      );
     sub = await prisma.subscription.findUniqueOrThrow({ where: { id: sub.id } });
     const access = await prisma.access.findFirst({ where: { subscriptionId: sub.id } });
     check("…devuelta entera la renovación en curso: la membresía termina", sub.status === "CANCELED" && access?.status === "REVOKED", { sub: sub.status, access: access?.status });
@@ -169,14 +160,9 @@ async function main() {
     });
     check("…ningún «¿Te quedaste a medias?»", (await prisma.emailMessage.count({ where: { template: "ABANDONED_CHECKOUT", to: email("doble") } })) === 0);
 
-    // ── 8. Factura completa: el país es el de la compra ──
-    const o5 = await newOrder(digital.id, "factura", { buyerCountry: "ES" });
+    // ── 8. Una compra de un producto digital ──
+    const o5 = await newOrder(digital.id, "factura");
     await applyPaymentUpdate({ kind: "payment", status: paid(o5, `sim_ch_${TAG}_F`) }, "simulated");
-    const wrong = await issueFullInvoiceForOrder(o5.id, { name: "Société Lune", taxId: "FR12345678901", address: "1 rue de la Paix, Paris", country: "FR" }).then(
-      () => "emitida",
-      (e) => (e instanceof InvoiceError ? e.message : String(e)),
-    );
-    check("factura con otro país que el de la compra: no se emite", wrong.includes("debe ser el de la compra"), wrong);
 
     // ── 9. Primer acceso (descarga, publicaciones): se anota una vez ──
     const buyer = await prisma.user.findUniqueOrThrow({ where: { email: email("factura") } });
@@ -214,8 +200,6 @@ async function cleanup() {
       where: { OR: [{ to: { startsWith: TAG } }, { dedupeKey: { contains: TAG } }, ...orderIds.map((id) => ({ dedupeKey: { contains: id } }))] },
     }),
     prisma.access.deleteMany({ where: { userId: { in: userIds } } }),
-    prisma.invoice.updateMany({ where: { OR: [{ recipientEmail: { startsWith: TAG } }, { orderId: { in: orderIds } }] }, data: { relatedInvoiceId: null } }),
-    prisma.invoice.deleteMany({ where: { OR: [{ recipientEmail: { startsWith: TAG } }, { orderId: { in: orderIds } }, { dedupeKey: { in: txIds.map((id) => `sale:${id}`) } }] } }),
     prisma.refund.deleteMany({ where: { orderId: { in: orderIds } } }),
     prisma.transaction.deleteMany({ where: { id: { in: txIds } } }),
     prisma.subscription.deleteMany({ where: { id: { in: subs } } }),

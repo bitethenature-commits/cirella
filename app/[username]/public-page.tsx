@@ -4,6 +4,7 @@ import { CreatorPageView } from "@/components/creator-page/creator-page-view";
 import { TrackOnMount } from "@/components/creator-page/tracking";
 import { Reveal } from "@/components/reveal";
 import { appUrl } from "@/lib/env";
+import { oracleDecksForBlocks } from "@/lib/oracle-decks";
 import { getPublicCreator } from "@/lib/public";
 import { isPublicUsernameAllowed } from "@/lib/personal-routing";
 import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
@@ -62,6 +63,8 @@ export async function CreatorPublicPage({ username }: { username: string }) {
 
   const { creator, config, products } = data;
   const personal = isPersonalMode();
+  // Las barajas propias de sus bloques «Oráculo» (la de serie no necesita nada).
+  const oracleDecks = await oracleDecksForBlocks(creator.id, config.blocks ?? []);
   const url = creatorPageUrl(creator.username);
   const jsonLd = {
     "@context": "https://schema.org",
@@ -71,8 +74,8 @@ export async function CreatorPublicPage({ username }: { username: string }) {
     url,
     image: config.avatarUrl ? `${appUrl()}${config.avatarUrl}` : undefined,
     sameAs: Object.values(config.socials).filter((v) => v?.startsWith("http")),
-    // Lo mismo que enseñan las tarjetas: en la web personal no se ofrece nada de pago aquí.
-    makesOffer: products.filter((p) => !personal || p.accessMode !== "PAID").map((p) => ({
+    // Lo mismo que enseñan las tarjetas: en la web personal sin cobros no se ofrece nada de pago aquí.
+    makesOffer: products.map((p) => ({
       "@type": "Offer",
       name: p.title,
       price: (p.priceCents / 100).toFixed(2),
@@ -95,9 +98,15 @@ export async function CreatorPublicPage({ username }: { username: string }) {
         sellerName={creator.legalName}
         posts={data.posts}
         postCount={data.postCount}
+        news={data.news}
+        portal={data.portal}
+        gifts={data.gifts}
         discountCodes={data.discountCodes}
         personal={personal}
+        signupsOnly={data.signupsOnly}
         siteOrigin={appUrl()}
+        pages={data.pages}
+        oracleDecks={oracleDecks}
       />
       {/* Las visitas de la propia creadora se descartan en /api/track; las de ?embed=1, en el navegador. */}
       <TrackOnMount creatorId={creator.id} type="PAGE_VIEW" />

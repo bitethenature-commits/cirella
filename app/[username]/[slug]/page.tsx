@@ -1,25 +1,19 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { moonCircleSky, moonSkyFor } from "@/lib/moon-circle-sky";
+import { readMoonChoice } from "@/lib/product-texts";
 import { notFound } from "next/navigation";
-import { CalendarDays, Clock, Download, ExternalLink, FileText, Headphones, Infinity as InfinityIcon, Lock, Mail, PlayCircle, RefreshCcw, ShieldCheck, Sparkles, Video, Zap } from "lucide-react";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
-import { ProductImage } from "@/components/creator-page/product-art";
-import { TrackedLink, TrackOnMount } from "@/components/creator-page/tracking";
-import { asAccessMode, externalButtonLabel, externalHost } from "@/lib/access-mode";
+import { ProductPageView } from "@/components/creator-page/product-page-view";
+import { TrackOnMount } from "@/components/creator-page/tracking";
+import { asAccessMode } from "@/lib/access-mode";
 import { getCurrentUser } from "@/lib/auth";
-import { digitalContentText, isInstantDelivery } from "@/lib/delivery";
 import { appUrl, isDemoMode } from "@/lib/env";
-import { getPlatformIssuer } from "@/lib/invoices/issuer";
-import { creatorLegalHref, legalIdentityComplete, sellerStatement, sessionChangePolicyText } from "@/lib/legal";
-import { formatPrice } from "@/lib/money";
+import { legalIdentityComplete, sellerStatement } from "@/lib/legal";
 import { getPublicProduct } from "@/lib/product-page";
+import { readProductTestimonials } from "@/lib/product-testimonials";
 import { isPersonalMode } from "@/lib/site-mode";
-import { decideTax } from "@/lib/tax";
-import { getTaxMode } from "@/lib/tax/server";
-import { DEFAULT_CTA, formatCourseLength, LESSON_KIND_LABEL, PRODUCT_TYPE_LABEL, type LessonKind, type ProductType } from "@/lib/types";
-import { formatDate } from "@/lib/tz";
-import { ClaimForm } from "./acceso/claim-form";
-import { ExternalButton } from "./acceso/external-button";
+import { isGroupSession, seatsTaken } from "@/lib/booking";
+import { prisma } from "@/lib/db";
 
 type Params = { username: string; slug: string };
 
@@ -37,37 +31,6 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   };
 }
 
-const KIND_ICON: Record<string, typeof Video> = { VIDEO: Video, AUDIO: Headphones, PDF: FileText, TEXT: FileText, EXERCISE: Sparkles, IMAGE: FileText, LINK: Download, OTHER: Download };
-
-/** Pinta el texto de la descripción respetando párrafos y viñetas «•». */
-function RichText({ text }: { text: string }) {
-  const blocks = text.split(/\n{2,}/);
-  return (
-    <div className="space-y-4">
-      {blocks.map((b, i) => {
-        const lines = b.split("\n");
-        const bullets = lines.filter((l) => l.trim().startsWith("•"));
-        const intro = lines.filter((l) => !l.trim().startsWith("•"));
-        return (
-          <div key={i}>
-            {intro.length > 0 && <p className="cp-muted leading-relaxed">{intro.join(" ")}</p>}
-            {bullets.length > 0 && (
-              <ul className="mt-3 space-y-2">
-                {bullets.map((l, j) => (
-                  <li key={j} className="flex gap-3">
-                    <span className="cp-gold mt-[0.35rem] text-xs">✦</span>
-                    <span>{l.replace(/^\s*•\s*/, "")}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 export default async function ProductPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ embed?: string }> }) {
   const { username, slug } = await params;
   const sp = await searchParams;
@@ -78,278 +41,52 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   if (!data.creator.published && !isOwner) notFound();
 
   const { product: p, config, creator } = data;
-  const type = p.type as ProductType;
   // Cómo se consigue (lib/access-mode.ts): pago aquí, gratis con email o pago en otra web.
   const accessMode = asAccessMode(p.accessMode);
-  const personalSite = isPersonalMode();
-  // En la web personal nada se cobra aquí: un producto de pago en la web no se ofrece.
-  if (personalSite && accessMode === "PAID" && !isOwner) notFound();
-  const paid = accessMode === "PAID" && !personalSite;
-  const free = accessMode === "FREE_EMAIL";
-  const external = accessMode === "EXTERNAL" && !!p.externalUrl;
-  const externalSite = external ? externalHost(p.externalUrl) : null;
-  const cta = free ? p.ctaLabel || "Quiero el acceso gratis" : external ? externalButtonLabel(p) : p.ctaLabel || DEFAULT_CTA[type];
-  const price = free ? "Gratis" : formatPrice(p.priceCents, p.currency, p.billingInterval);
-  // El precio de lo que se paga fuera es informativo y opcional: sin precio, no se muestra.
-  const showPrice = !external || p.priceCents > 0;
-  const checkoutHref = `/${username}/${p.slug}/checkout`;
+  // En la web personal sin cobros nada se cobra aquí: un producto de pago en la web no se ofrece.
+  const paid = accessMode === "PAID";
   const clickEvent = isOwner ? null : { creatorId: creator.id, type: "PRODUCT_CLICK" as const, productId: p.id };
-  const lessons = p.modules.reduce((a, m) => a + m.lessons.length, 0);
-  const minutes = p.modules.reduce((a, m) => a + m.lessons.reduce((x, l) => x + (l.durationMin ?? 0), 0), 0);
-  // Lo que se promete tiene que ser verdad: archivos y enlaces por separado, y «preparado para ti» si lo hace la creadora.
-  const personal = type === "DIGITAL" && !isInstantDelivery(type, p.deliveryMode);
-  const content = digitalContentText(p.files);
-  const contentPerk = content ? [{ icon: Download, text: content }] : [];
-  // Quién vende este producto según la política de IVA (lo mismo que dirán el checkout y el recibo).
-  const taxSeller = decideTax({
-    mode: await getTaxMode(),
-    productType: p.type,
-    deliveryMode: p.deliveryMode,
-    buyerCountry: null,
-    creator: { country: creator.legalCountry, vatStatus: creator.vatStatus },
-  }).seller;
-  const seller = sellerStatement(taxSeller, { ...creator, displayName: config.displayName }, taxSeller === "PLATFORM" ? await getPlatformIssuer() : null);
-
-  // Lo que pasa al pulsar el botón, según cómo se consigue.
-  const afterCta = free ? "con tu email" : "tras el pago";
-  const externalPerk = externalSite ? [{ icon: ExternalLink, text: `${type === "SESSION" ? "Reserva y pago" : "Pago"} en ${externalSite}` }] : [];
-  const perks: { icon: typeof Zap; text: string }[] =
-    type === "DIGITAL"
-      ? personal
-        ? [{ icon: Sparkles, text: "Preparado personalmente para ti" }, { icon: Mail, text: `Recibirás los siguientes pasos por email${free ? "" : " al pagar"}` }, ...contentPerk, ...externalPerk]
-        : external
-          ? [...contentPerk, ...externalPerk]
-          : [{ icon: Zap, text: `Acceso inmediato ${afterCta}` }, ...contentPerk, { icon: InfinityIcon, text: "Disponible siempre en tu cuenta" }]
-      : type === "SESSION"
-        ? external
-          ? [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: "Por videollamada" }, ...externalPerk]
-          : [{ icon: Clock, text: `${p.durationMin ?? 60} minutos` }, { icon: Video, text: "Por videollamada" }, { icon: CalendarDays, text: "Eliges día y hora al reservar" }, { icon: RefreshCcw, text: sessionChangePolicyText() }]
-        : type === "COURSE"
-          ? [
-              { icon: PlayCircle, text: `${lessons} ${lessons === 1 ? "lección" : "lecciones"}${minutes ? ` · ${formatCourseLength(minutes)}` : ""}` },
-              { icon: Sparkles, text: "A tu ritmo, con progreso guardado" },
-              ...(external ? externalPerk : [{ icon: InfinityIcon, text: free ? "Gratis y para siempre" : "Acceso de por vida" }]),
-            ]
-          : free
-            ? [{ icon: Sparkles, text: "Contenido exclusivo para la comunidad" }, { icon: Mail, text: "Entras con tu email" }, { icon: Lock, text: "Acceso privado" }]
-            : external
-              ? [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, ...externalPerk]
-              : [{ icon: Sparkles, text: "Contenido exclusivo cada mes" }, { icon: RefreshCcw, text: "Cancela cuando quieras" }, { icon: Lock, text: "Acceso privado mientras estés suscrita" }];
-  const buttonClass = "cp-btn mt-6 hidden w-full md:flex";
-  // Un solo formulario: en móvil queda justo bajo el precio y la barra fija lleva a él. Sin los
-  // datos legales completos no se ofrece: la privacidad que se acepta no diría quién trata los datos
-  // (el servidor tampoco lo admite, lib/free-access.ts).
-  const claim = !free ? null : !legalIdentityComplete(creator) ? (
-    <div className="cp-card px-4 py-3 text-sm">
-      <p>Todavía no puedes apuntarte: falta completar los datos legales de esta página.</p>
-      {isOwner && (
-        <Link href="/panel/ajustes/legal" className="mt-2 inline-block font-semibold underline underline-offset-4">
-          Completar mis datos legales
-        </Link>
-      )}
-    </div>
-  ) : (
-    <ClaimForm
-      productId={p.id}
-      productTitle={p.title}
-      cta={cta}
-      responsible={creator.legalName || config.displayName}
-      privacyHref={creatorLegalHref(username, "privacidad")}
-      processorName={personalSite ? null : data.platformName}
-      creatorDisplayName={config.displayName}
-      demo={isDemoMode()}
-    />
-  );
+  // Quién vende (lo mismo que dirán el checkout y el recibo).
+  const seller = sellerStatement({ ...creator, displayName: config.displayName });
+  const sellerNamed = !!creator.legalName;
+  // Taller en directo: plazas al momento (la página es dinámica).
+  const seatsLeft = isGroupSession(p) && p.eventStartAt && p.capacity != null ? Math.max(0, p.capacity - (await seatsTaken(prisma, p.id))) : null;
 
   return (
-    <CreatorShell username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} sellerName={paid && (creator.legalName || seller.platformSells) ? seller.name : null}>
-      <main className="mx-auto max-w-5xl px-4 pb-36 pt-4 md:grid md:grid-cols-[1.1fr_0.9fr] md:gap-10 md:pb-20 md:pt-10">
-        <div>
-          <div className="cp-card relative aspect-[4/3] overflow-hidden">
-            <ProductImage src={p.imageUrl} emoji={p.emoji} title={p.title} />
-          </div>
-        </div>
-
-        <div className="mt-7 md:mt-0">
-          <p className="cp-eyebrow">
-            {p.emoji} {PRODUCT_TYPE_LABEL[type]}
-          </p>
-          <h1 className="cp-display mt-3 text-[2.5rem] sm:text-[3rem]">{p.title}</h1>
-          {p.summary && <p className="cp-muted mt-3 text-[1.02rem] leading-relaxed">{p.summary}</p>}
-          {showPrice && <p className="mt-6 text-3xl font-semibold tracking-tight">{price}</p>}
-          {paid ? (
-            <p className="cp-muted text-xs">{data.summary.vatIncluded ? "IVA incluido" : "Precio final"}</p>
-          ) : external && externalSite ? (
-            <p className={`cp-muted text-xs ${showPrice ? "" : "mt-6"}`}>Pago en {externalSite}</p>
-          ) : null}
-          {personalSite && accessMode === "PAID" && (
-            <p className="mt-4 rounded-xl px-3 py-2.5 text-sm" style={{ background: "var(--c-line)" }}>
-              Solo lo ves tú: en tu web los productos no se cobran aquí. Edítalo y elige «Gratis con email» o «Pago en otra web» para mostrarlo.
-            </p>
-          )}
-          {paid && (creator.legalName || seller.platformSells) && (
-            <p className="cp-faint mt-2 text-xs">
-              Vende: {seller.line} ·{" "}
-              <Link href={creatorLegalHref(username, "condiciones")} className="underline underline-offset-4">Condiciones</Link> ·{" "}
-              <Link href={creatorLegalHref(username, "reembolsos")} className="underline underline-offset-4">Reembolsos</Link>
-            </p>
-          )}
-
-          {paid ? (
-            <TrackedLink href={checkoutHref} event={clickEvent} className={buttonClass}>
-              {cta} · {price}
-            </TrackedLink>
-          ) : external ? (
-            <ExternalButton href={p.externalUrl!} label={cta} className={buttonClass} event={clickEvent} />
-          ) : null}
-          {claim && (
-            <div id="acceso" className="mt-6 scroll-mt-20">
-              {claim}
-            </div>
-          )}
-
-          <ul className="mt-7 grid gap-2.5">
-            {perks.map((k) => (
-              <li key={k.text} className="flex items-center gap-3 text-sm">
-                <span className="grid h-8 w-8 place-items-center rounded-full border" style={{ borderColor: "var(--c-line)" }}>
-                  <k.icon className="cp-gold h-4 w-4" />
-                </span>
-                {k.text}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="md:col-span-2">
-          {p.description && (
-            <section className="mt-12 max-w-2xl">
-              <h2 className="cp-display text-[1.9rem]">Qué incluye</h2>
-              <div className="mt-4 text-[0.98rem]">
-                <RichText text={p.description} />
-              </div>
-            </section>
-          )}
-
-          {personal && p.instructions && (
-            <section className="mt-12 max-w-2xl">
-              <h2 className="cp-display text-[1.9rem]">Cómo lo recibes</h2>
-              <p className="cp-muted mt-4 whitespace-pre-line leading-relaxed">{p.instructions}</p>
-            </section>
-          )}
-
-          {type === "COURSE" && p.modules.length > 0 && (
-            <section className="mt-12 max-w-2xl">
-              <h2 className="cp-display text-[1.9rem]">Programa</h2>
-              <div className="mt-5 space-y-3">
-                {p.modules.map((m, i) => (
-                  <div key={m.id} className="cp-card p-5">
-                    <p className="cp-eyebrow">Módulo {i + 1}</p>
-                    <p className="cp-display mt-1 text-[1.4rem]">{m.title}</p>
-                    <ul className="mt-3 space-y-2">
-                      {m.lessons.map((l) => {
-                        const Icon = KIND_ICON[l.kind] ?? FileText;
-                        return (
-                          <li key={l.id} className="flex items-center gap-3 text-sm">
-                            <Icon className="cp-muted h-4 w-4 shrink-0" />
-                            <span className="flex-1">{l.title}</span>
-                            <span className="cp-faint text-xs">
-                              {LESSON_KIND_LABEL[l.kind as LessonKind]}
-                              {l.durationMin ? ` · ${l.durationMin} min` : ""}
-                            </span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {type === "DIGITAL" && p.files.length > 0 && (
-            <section className="mt-12 max-w-2xl">
-              <h2 className="cp-display text-[1.9rem]">{p.files.some((f) => f.kind === "LINK") ? "Qué recibes" : "Archivos"}</h2>
-              <ul className="mt-4 space-y-2">
-                {p.files.map((f) => {
-                  const Icon = KIND_ICON[f.kind] ?? FileText;
-                  return (
-                    <li key={f.id} className="cp-card flex items-center gap-3 px-4 py-3 text-sm">
-                      <Icon className="cp-gold h-4 w-4" />
-                      <span className="flex-1">{f.name}</span>
-                      <Lock className="cp-faint h-3.5 w-3.5" />
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          )}
-
-          {type === "MEMBERSHIP" && p.posts.length > 0 && (
-            <section className="mt-12 max-w-2xl">
-              <h2 className="cp-display text-[1.9rem]">Lo último en la comunidad</h2>
-              <ul className="mt-4 space-y-2">
-                {p.posts.map((post) => (
-                  <li key={post.id} className="cp-card flex items-center gap-3 px-4 py-3.5 text-sm">
-                    <Lock className="cp-gold h-4 w-4" />
-                    <span className="flex-1">{post.title}</span>
-                    <span className="cp-faint text-xs">{formatDate(post.publishedAt, { day: "numeric", month: "short" }, creator.timezone)}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {config.testimonials.length > 0 && (
-            <section className="mt-12 max-w-2xl">
-              <figure className="cp-card p-6">
-                <blockquote className="cp-display text-[1.35rem] leading-snug">“{config.testimonials[0].quote}”</blockquote>
-                <figcaption className="cp-muted mt-3 text-sm">— {config.testimonials[0].author}</figcaption>
-              </figure>
-            </section>
-          )}
-
-          <p className="cp-muted mt-10 flex items-center gap-2 text-xs">
-            <ShieldCheck className="h-4 w-4" />
-            {paid ? (
-              <span>
-                Pago seguro · No necesitas crear una cuenta para comprar ·{" "}
-                <Link href={creatorLegalHref(username, "condiciones")} className="underline underline-offset-4">Condiciones de venta</Link>
-              </span>
-            ) : free ? (
-              <span>
-                Gratis · Solo necesitas tu email ·{" "}
-                <Link href={creatorLegalHref(username, "privacidad")} className="underline underline-offset-4">Privacidad</Link>
-              </span>
-            ) : (
-              <span>{externalSite ? `El pago se hace en ${externalSite}, fuera de esta web.` : "El pago se hace fuera de esta web."}</span>
-            )}
-          </p>
-        </div>
-      </main>
-
-      {/* CTA fijo en móvil */}
-      <div
-        className="fixed inset-x-0 bottom-0 z-30 border-t px-4 pb-[max(env(safe-area-inset-bottom),0.9rem)] pt-3 backdrop-blur-xl md:hidden"
-        style={{ borderColor: "var(--c-line)", background: "color-mix(in oklab, var(--c-bg) 85%, transparent)" }}
-      >
-        <div className="flex items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs" style={{ color: "var(--c-muted)" }}>{p.title}</p>
-            {showPrice ? <p className="text-lg font-semibold">{price}</p> : externalSite && <p className="text-sm font-semibold">Pago en {externalSite}</p>}
-          </div>
-          {paid ? (
-            <TrackedLink href={checkoutHref} event={clickEvent} className="cp-btn">
-              {cta}
-            </TrackedLink>
-          ) : external ? (
-            <ExternalButton href={p.externalUrl!} label={cta} className="cp-btn" event={clickEvent} />
-          ) : free ? (
-            <a href="#acceso" className="cp-btn">
-              {cta}
-            </a>
-          ) : null}
-        </div>
-      </div>
+    <CreatorShell page="productos" username={username} config={config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} pages={data.pages} sellerName={paid && sellerNamed ? seller.name : null}>
+      <ProductPageView
+        username={username}
+        product={{
+          ...p,
+          includes: p.includes
+            .map((i) => i.includedProduct)
+            .filter((ip) => ip.status !== "ARCHIVED" && ip.creatorId === p.creatorId)
+            .map((ip) => ({ id: ip.id, title: ip.title, slug: ip.slug, status: ip.status, lessons: ip._count.lessons })),
+        }}
+        timeZone={creator.timezone}
+        signupsOnly={data.signupsOnly}
+        seller={{ line: seller.line, named: sellerNamed }}
+        seatsLeft={seatsLeft}
+        testimonials={(() => {
+          const own = readProductTestimonials(p.testimonials);
+          return own.length ? own : config.testimonials;
+        })()}
+        moonSky={(() => {
+          if (!p.moonCircle || !p.groupSession) return null;
+          // La luna elegida en el estudio; si no, la de su fecha.
+          const m = readMoonChoice(p.pageTexts);
+          return m ? moonSkyFor(m.phase, m.sign, m.phrase, p.eventStartAt) : p.eventStartAt ? moonCircleSky(p.eventStartAt) : null;
+        })()}
+        claim={{
+          legalComplete: legalIdentityComplete(creator),
+          isOwner,
+          responsible: creator.legalName || config.displayName,
+          processorName: isPersonalMode() ? null : data.platformName,
+          creatorDisplayName: config.displayName,
+          demo: isDemoMode(),
+        }}
+        clickEvent={clickEvent}
+      />
       <TrackOnMount creatorId={creator.id} type="PRODUCT_VIEW" productId={p.id} disabled={isOwner || sp.embed === "1"} />
     </CreatorShell>
   );

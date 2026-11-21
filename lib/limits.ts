@@ -1,4 +1,5 @@
 import { isLocalDevIp } from "./client-ip";
+import { isPersonalMode } from "./site-mode";
 import { hit, peek, resetKey, retryAfterText, rlKey, type Rule } from "./rate-limit";
 import { turnstileEnabled, turnstileSiteKey, verifyTurnstile } from "./turnstile";
 
@@ -23,6 +24,13 @@ export const RULES = {
   magicIp: { limit: 10, windowSec: HOUR },
   // Altas de cuenta nuevas.
   signupIp: { limit: 10, windowSec: HOUR },
+  // Verificación en dos pasos: códigos por cuenta (15 min y día) y por conexión. El del día no se
+  // reinicia al acertar: frena a quien alterna sus intentos con los aciertos de la dueña.
+  twoFactorUser: { limit: 5, windowSec: 15 * MIN },
+  twoFactorUserDay: { limit: 20, windowSec: 24 * HOUR },
+  twoFactorIp: { limit: 30, windowSec: 15 * MIN },
+  // Cambios de email pedidos desde el perfil (cada uno manda dos emails).
+  emailChangeUser: { limit: 3, windowSec: 24 * HOUR },
   // Intentos de pago. El de conexión es holgado: con el CGNAT de las operadoras móviles muchas
   // compradoras comparten IP. Lo que de verdad frena el probar tarjetas son los rechazos.
   checkoutEmail: { limit: 5, windowSec: 10 * MIN },
@@ -31,6 +39,10 @@ export const RULES = {
   checkoutFail: { limit: 5, windowSec: 10 * MIN },
   // Subidas por creadora (montar un curso con muchas lecciones son muchas subidas seguidas).
   uploadCreator: { limit: 30, windowSec: HOUR },
+  // Web personal: una sola dueña que paga su propio R2 y monta cursos enteros de una sentada.
+  uploadCreatorPersonal: { limit: 120, windowSec: HOUR },
+  // Partes de las subidas por partes (web personal): un vídeo de 4 GB son 256 partes.
+  uploadParts: { limit: 600, windowSec: HOUR },
   // Horarios de una sesión (calcula 28 días de huecos en cada petición).
   slotsIp: { limit: 60, windowSec: MIN },
   // Visitas: el mismo evento de la misma persona cuenta una vez cada 30 minutos…
@@ -44,6 +56,13 @@ export const RULES = {
   // (CGNAT de las operadoras móviles, una clase que se apunta desde la misma wifi).
   freeClaimEmail: { limit: 5, windowSec: HOUR },
   freeClaimIp: { limit: 20, windowSec: HOUR },
+  // Comunidad: comentarios y «me gusta» por persona.
+  // Newsletter: el formulario de la página (por email y por conexión) y las pruebas de la dueña.
+  newsletterEmail: { limit: 5, windowSec: HOUR },
+  newsletterIp: { limit: 20, windowSec: HOUR },
+  newsletterTest: { limit: 10, windowSec: HOUR },
+  commentUser: { limit: 20, windowSec: HOUR },
+  likeUser: { limit: 300, windowSec: HOUR },
 } satisfies Record<string, Rule>;
 
 /** Pagos rechazados a partir de los cuales el checkout pide el captcha (si está configurado). */
@@ -88,6 +107,30 @@ export async function limitMagicLink(email: string, ipHash: string): Promise<Ver
 export async function limitSignup(ipHash: string): Promise<Verdict> {
   const ip = await hitConnection("signup-ip", ipHash, RULES.signupIp);
   if (!ip.ok) return denied((t) => `Demasiados registros desde esta conexión. Prueba de nuevo en ${t}.`, ip.retryAfterSec);
+  return OK;
+}
+
+/** Antes de comprobar un código de la verificación en dos pasos (login y volver a confirmar). */
+export async function limitTwoFactor(userId: string, ipHash: string): Promise<Verdict> {
+  const msg = (t: string) => `Demasiados intentos. Espera ${t} y vuelve a probar.`;
+  const ip = await hitConnection("2fa-ip", ipHash, RULES.twoFactorIp);
+  if (!ip.ok) return denied(msg, ip.retryAfterSec);
+  const short = await hit(rlKey("2fa-user", userId), RULES.twoFactorUser);
+  if (!short.ok) return denied(msg, short.retryAfterSec);
+  const day = await hit(rlKey("2fa-user-day", userId), RULES.twoFactorUserDay);
+  if (!day.ok) return denied(msg, day.retryAfterSec);
+  return OK;
+}
+
+/** Al acertar el código vuelve a cero la ventana corta (la del día, no). */
+export async function clearTwoFactorLimit(userId: string): Promise<void> {
+  await resetKey(rlKey("2fa-user", userId));
+}
+
+/** «Cambiar email» del perfil: por cuenta (3 al día). */
+export async function limitEmailChange(userId: string): Promise<Verdict> {
+  const r = await hit(rlKey("email-change", userId), RULES.emailChangeUser);
+  if (!r.ok) return denied((t) => `Ya has pedido varios cambios de email. Vuelve a intentarlo en ${t}.`, r.retryAfterSec);
   return OK;
 }
 
@@ -165,12 +208,51 @@ export async function limitFreeClaim(email: string, ipHash: string): Promise<Ver
   return OK;
 }
 
+// ── Newsletter ──
+
+/** «Apuntarme» del formulario de la página: por conexión y por email. */
+export async function limitNewsletterSignup(email: string, ipHash: string): Promise<Verdict> {
+  const ip = await hitConnection("nl-signup-ip", ipHash, RULES.newsletterIp);
+  if (!ip.ok) return denied((t) => `Demasiados intentos desde esta conexión. Prueba de nuevo en ${t}.`, ip.retryAfterSec);
+  const byEmail = await hit(rlKey("nl-signup-email", email), RULES.newsletterEmail);
+  if (!byEmail.ok) return denied((t) => `Ya te hemos enviado el email de confirmación. Revisa tu bandeja de entrada y la carpeta de spam, o vuelve a intentarlo en ${t}.`, byEmail.retryAfterSec);
+  return OK;
+}
+
+/** «Enviarme una prueba» de la dueña. */
+export async function limitNewsletterTest(creatorId: string): Promise<Verdict> {
+  const r = await hit(rlKey("nl-test", creatorId), RULES.newsletterTest);
+  if (!r.ok) return denied((t) => `Has enviado muchas pruebas seguidas. Espera ${t}.`, r.retryAfterSec);
+  return OK;
+}
+
+// ── Comunidad ──
+
+export async function limitComment(userId: string): Promise<Verdict> {
+  const r = await hit(rlKey("comment", userId), RULES.commentUser);
+  if (!r.ok) return denied((t) => `Has comentado mucho en poco tiempo. Espera ${t}.`, r.retryAfterSec);
+  return OK;
+}
+
+export async function limitLike(userId: string): Promise<Verdict> {
+  const r = await hit(rlKey("like", userId), RULES.likeUser);
+  if (!r.ok) return denied((t) => `Demasiados «me gusta» seguidos. Espera ${t}.`, r.retryAfterSec);
+  return OK;
+}
+
 // ── Subidas, horarios y visitas ──
 
 /** Se cuenta al pedir la URL de subida (/api/upload/sign), no al completarla. */
 export async function limitUpload(creatorId: string): Promise<Verdict> {
-  const r = await hit(rlKey("upload", creatorId), RULES.uploadCreator);
+  const r = await hit(rlKey("upload", creatorId), isPersonalMode() ? RULES.uploadCreatorPersonal : RULES.uploadCreator);
   if (!r.ok) return denied((t) => `Has subido muchos archivos en poco tiempo. Espera ${t} y sigue subiendo.`, r.retryAfterSec);
+  return OK;
+}
+
+/** Firmas de partes de una subida por partes (web personal). */
+export async function limitUploadParts(creatorId: string): Promise<Verdict> {
+  const r = await hit(rlKey("upload-parts", creatorId), RULES.uploadParts);
+  if (!r.ok) return denied((t) => `Demasiadas partes en poco tiempo. Espera ${t} y vuelve a intentarlo.`, r.retryAfterSec);
   return OK;
 }
 

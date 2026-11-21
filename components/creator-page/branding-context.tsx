@@ -16,13 +16,31 @@ export type CreatorBranding = {
 const CreatorBrandingContext = createContext<CreatorBranding>(null);
 /** Web personal (SITE_MODE=personal): la portada es la página de la dueña y no hay registro. */
 const PersonalModeContext = createContext(false);
+/** Web personal sin cobros: el pie no lleva condiciones de venta. */
+const SignupsOnlyContext = createContext(false);
 
-export function CreatorBrandingProvider({ value, personal = false, children }: { value: CreatorBranding; personal?: boolean; children: React.ReactNode }) {
+export function CreatorBrandingProvider({
+  value,
+  personal = false,
+  signupsOnly = false,
+  children,
+}: {
+  value: CreatorBranding;
+  personal?: boolean;
+  signupsOnly?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <PersonalModeContext.Provider value={personal}>
-      <CreatorBrandingContext.Provider value={value}>{children}</CreatorBrandingContext.Provider>
+      <SignupsOnlyContext.Provider value={signupsOnly}>
+        <CreatorBrandingContext.Provider value={value}>{children}</CreatorBrandingContext.Provider>
+      </SignupsOnlyContext.Provider>
     </PersonalModeContext.Provider>
   );
+}
+
+export function useSignupsOnly() {
+  return useContext(SignupsOnlyContext);
 }
 
 export function useCreatorBranding() {

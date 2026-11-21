@@ -225,7 +225,7 @@ async function trackLimits() {
 /** Email de compra abandonada: solo para checkouts reales. */
 async function recovery() {
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
-  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED" } });
+  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "AUTOMATIC" } });
   const order = async (label: string, opts: { visitorId?: string | null; ipHash?: string | null; buyer?: string } = {}) => {
     const o = await createPendingOrder({
       productId: digital.id,

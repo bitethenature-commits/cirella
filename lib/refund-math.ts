@@ -1,5 +1,6 @@
 import { formatMoney, parseMoneyToCents } from "./money";
 import { ORDER_STATUS_LABEL } from "./types";
+import { DEFAULT_OWNER_TZ, membershipWithdrawalRefund, WITHDRAWAL_DAYS, withdrawalDeadline, type MembershipRefund } from "./withdrawal";
 
 /**
  * Cuentas de reembolsos y desistimientos. Puro (sin BD): lo usan el servicio de reembolsos
@@ -12,7 +13,7 @@ import { ORDER_STATUS_LABEL } from "./types";
  *   · Un reembolso parcial deja el pedido en PAID; el total lo pasa a REFUNDED.
  */
 
-export const WITHDRAWAL_DAYS = 14;
+export { WITHDRAWAL_DAYS };
 
 export type RefundReason = "CUSTOMER_REQUEST" | "WITHDRAWAL" | "SESSION_CANCELLED" | "DUPLICATE" | "DISPUTE_LOST" | "OTHER";
 
@@ -71,9 +72,33 @@ export type WithdrawalInput = {
   withdrawalWaived: boolean;
   hasPendingRefund: boolean;
   booking?: { status: string; startAt: Date | null } | null;
+  /** La dueña ya le ha entregado la lectura preparada para ella (Order.deliveredAt). */
+  delivered?: boolean;
+  /** Zona de la dueña: los 14 días se cuentan en ella (lib/withdrawal.ts). Por defecto, Madrid. */
+  timezone?: string | null;
+  /** Casilla marcada en el checkout (Order.waiverKind): un taller comprado con WORKSHOP_FIXED_DATE no se desiste. */
+  waiverKind?: string | null;
+  /**
+   * Membresía: la suscripción que creó este pedido (Subscription.orderId). Sin ella (o ya terminada)
+   * no hay nada que desistir; si ya se ha renovado, el pedido inicial no da derecho (las renovaciones no lo tienen).
+   */
+  membership?: MembershipTerms | null;
 };
 
-export type WithdrawalBlock = "NOT_PAID" | "EXPIRED" | "WAIVED" | "SESSION_HELD" | "ALREADY_REFUNDED" | "PENDING";
+/** Estado de la suscripción de un pedido de membresía, para su desistimiento. */
+export type MembershipTerms = { periodStart: Date; periodEnd: Date; live: boolean; renewed: boolean };
+
+export type WithdrawalBlock =
+  | "NOT_PAID"
+  | "EXPIRED"
+  | "WAIVED"
+  | "SESSION_HELD"
+  | "ALREADY_REFUNDED"
+  | "PENDING"
+  | "DELIVERED"
+  | "WORKSHOP"
+  | "MEMBERSHIP_ENDED"
+  | "RENEWED";
 
 /**
  * Primer acceso de la compradora al contenido (descarga, reproducción o publicaciones), anotado en
@@ -94,52 +119,85 @@ export function toWithdrawalInput(o: {
   amountCents: number;
   refundedCents: number;
   waiverAcceptedAt: Date | null;
+  /** Versión del texto aceptado: sin ella, es una renuncia de antes de 2026-10-25 (ver abajo). */
+  waiverVersion?: string | null;
   metadata?: unknown;
+  deliveredAt?: Date | null;
   bookings: { status: string; startAt: Date | null }[];
   refunds: { status: string }[];
+  /** Zona de la dueña (Creator.timezone). */
+  timezone?: string | null;
+  waiverKind?: string | null;
+  /** Membresía: su suscripción (lib/refunds.ts → membershipTermsFor). */
+  membership?: MembershipTerms | null;
 }): WithdrawalInput {
+  // Renuncia del checkout actual (con versión): «quiero acceder ya / que se prepare ya y pierdo el
+  // derecho», que cuenta desde el pago porque el acceso (o la preparación) empieza al pagar.
+  // Las de antes decían «al empezar el acceso o la descarga» (art. 103.m): solo cuentan desde que
+  // abrió algo. En las sesiones manda la reserva.
+  const waived =
+    !!o.waiverAcceptedAt && (o.productType === "SESSION" || !!o.waiverVersion || accessStartedAt(o.metadata) !== null);
   return {
     status: o.status,
     paidAt: o.paidAt,
     productType: o.productType,
     amountCents: o.amountCents,
     refundedCents: o.refundedCents,
-    // La renuncia de acceso inmediato solo cuenta «al empezar el acceso o la descarga» (es lo que
-    // aceptó, art. 103.m): si aún no ha abierto nada, puede desistir. En las sesiones manda la reserva.
-    withdrawalWaived: !!o.waiverAcceptedAt && (o.productType === "SESSION" || accessStartedAt(o.metadata) !== null),
+    withdrawalWaived: waived,
     hasPendingRefund: o.refunds.some((r) => r.status === "PENDING"),
     booking: o.bookings[0] ?? null,
+    ...(o.deliveredAt ? { delivered: true } : {}),
+    ...(o.timezone ? { timezone: o.timezone } : {}),
+    ...(o.waiverKind ? { waiverKind: o.waiverKind } : {}),
+    ...(o.productType === "MEMBERSHIP" ? { membership: o.membership ?? null } : {}),
   };
 }
 
 /**
- * ¿Puede la compradora desistir? (TRLGDCU arts. 102-108; pendiente de validar con la abogada)
- *   · 14 días naturales desde el pago;
+ * ¿Puede la compradora desistir? (TRLGDCU arts. 102-108; pendiente de validar con la asesoría)
+ *   · 14 días naturales desde el pago: hasta las 23:59 del día 14 (el del pago es el día 0) en la
+ *     zona de la dueña (lib/withdrawal.ts → withdrawalDeadline);
+ *   · los talleres comprados con su casilla (fecha fija, art. 103.l) nunca;
  *   · una sesión ya empezada o realizada no admite desistimiento;
- *   · el contenido digital, los cursos y las membresías tampoco si renunció expresamente al
- *     desistimiento para tener acceso inmediato y ya ha empezado a acceder;
- *   · si se puede, se devuelve todo lo que queda por devolver.
+ *   · el contenido digital (también «Lo preparo yo») y los cursos tampoco si renunció expresamente
+ *     al desistimiento en el checkout (obligatorio para pagarlos);
+ *   · las membresías sí, solo desde el pedido inicial y mientras no se haya renovado: se devuelve la
+ *     parte de los días no disfrutados del periodo (art. 108.3, membershipWithdrawalRefund) y la
+ *     suscripción termina en ese momento;
+ *   · en lo demás se devuelve todo lo que queda por devolver.
  */
 export function withdrawalEligibility(
   o: WithdrawalInput,
   now: Date,
-): { eligible: true; deadline: Date; amountCents: number } | { eligible: false; reason: WithdrawalBlock } {
+): { eligible: true; deadline: Date; amountCents: number; proportional?: MembershipRefund } | { eligible: false; reason: WithdrawalBlock } {
   if (o.status === "REFUNDED") return { eligible: false, reason: "ALREADY_REFUNDED" };
   if (o.status !== "PAID" || !o.paidAt) return { eligible: false, reason: "NOT_PAID" };
   if (o.hasPendingRefund) return { eligible: false, reason: "PENDING" };
-  const deadline = new Date(o.paidAt.getTime() + WITHDRAWAL_DAYS * 86_400_000);
+  if (o.productType === "SESSION" && o.waiverKind === "WORKSHOP_FIXED_DATE") return { eligible: false, reason: "WORKSHOP" };
+  const deadline = withdrawalDeadline(o.paidAt, o.timezone || DEFAULT_OWNER_TZ);
   if (now > deadline) return { eligible: false, reason: "EXPIRED" };
   if (o.productType === "SESSION" && o.booking && (o.booking.status === "COMPLETED" || (o.booking.startAt && o.booking.startAt <= now)))
     return { eligible: false, reason: "SESSION_HELD" };
-  if (["DIGITAL", "COURSE", "MEMBERSHIP"].includes(o.productType) && o.withdrawalWaived) return { eligible: false, reason: "WAIVED" };
-  const amountCents = o.amountCents - o.refundedCents;
-  if (amountCents <= 0) return { eligible: false, reason: "ALREADY_REFUNDED" };
-  return { eligible: true, deadline, amountCents };
+  // Lectura preparada para ella y ya entregada: sus condiciones dicen «mientras no la recibas».
+  if (o.productType === "DIGITAL" && o.delivered) return { eligible: false, reason: "DELIVERED" };
+  const remaining = o.amountCents - o.refundedCents;
+  if (o.productType === "MEMBERSHIP") {
+    const m = o.membership;
+    if (!m || !m.live || m.periodEnd <= now) return { eligible: false, reason: "MEMBERSHIP_ENDED" };
+    if (m.renewed) return { eligible: false, reason: "RENEWED" };
+    const proportional = membershipWithdrawalRefund({ amountCents: o.amountCents, periodStart: m.periodStart, periodEnd: m.periodEnd, now, timezone: o.timezone });
+    const amountCents = Math.min(remaining, proportional.refundCents);
+    if (amountCents <= 0) return { eligible: false, reason: "ALREADY_REFUNDED" };
+    return { eligible: true, deadline, amountCents, proportional };
+  }
+  if (["DIGITAL", "COURSE"].includes(o.productType) && o.withdrawalWaived) return { eligible: false, reason: "WAIVED" };
+  if (remaining <= 0) return { eligible: false, reason: "ALREADY_REFUNDED" };
+  return { eligible: true, deadline, amountCents: remaining };
 }
 
 /**
  * Cifras de un pedido descontando lo reembolsado. `counts` = cuenta como venta en las estadísticas
- * (pagado y no devuelto del todo). Lo usan el panel, el admin y los informes (DAC7, facturas).
+ * (pagado y no devuelto del todo). Lo usan el panel, el admin y los informes.
  */
 export function orderFigures(o: {
   status: string;
@@ -147,22 +205,14 @@ export function orderFigures(o: {
   platformFeeCents: number;
   refundedCents: number;
   refundedFeeCents: number;
-  /** IVA incluido en el precio y quién lo declara (lib/tax). Si vende Cirella, no es de la creadora. */
-  taxCents?: number;
-  taxSeller?: string | null;
 }) {
   const settled = o.status === "PAID" || o.status === "REFUNDED";
   const gross = settled ? o.amountCents - o.refundedCents : 0;
   const fee = settled ? o.platformFeeCents - o.refundedFeeCents : 0;
-  // IVA de lo que queda tras los reembolsos (se devuelve en proporción).
-  const tax = o.taxCents && o.amountCents ? Math.round((o.taxCents * gross) / o.amountCents) : 0;
-  const platformTax = o.taxSeller === "PLATFORM" ? tax : 0;
   return {
     gross,
     fee,
-    tax,
-    platformTax,
-    net: gross - fee - platformTax,
+    net: gross - fee,
     refunded: o.refundedCents,
     partial: o.status === "PAID" && o.refundedCents > 0,
     counts: settled && gross > 0,
