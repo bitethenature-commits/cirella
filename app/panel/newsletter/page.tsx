@@ -15,6 +15,7 @@ import { CAMPAIGN_STATUS, segmentLabel, type Tone } from "./labels";
 import { NewsletterTabs } from "./tabs";
 import { createTemplate, deleteTemplate, duplicateTemplate, startFromTemplate } from "./plantillas/actions";
 import { ensureStarterTemplates } from "./plantillas/seed";
+import { Tr } from "@/lib/i18n/client";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,7 @@ export default async function NewsletterPage({ searchParams }: { searchParams: P
       )}
 
       {/* Tus newsletters, arriba del todo, por carpetas */}
-      <h2 className="eyebrow mb-3 !text-ink">Tus newsletters</h2>
+      <h2 className="eyebrow mb-3 !text-ink"><Tr s={"Tus newsletters"} /></h2>
       <div className="space-y-3">
         {FOLDERS.map((f) => {
           const list = campaigns.filter((c) => (f.statuses as readonly string[]).includes(c.status));
@@ -72,7 +73,7 @@ export default async function NewsletterPage({ searchParams }: { searchParams: P
                 <ChevronDown className="nl-folder-chev h-4 w-4 text-muted transition" />
               </summary>
               {list.length === 0 ? (
-                <p className="border-t border-line px-4 py-4 text-sm text-muted">{f.empty}</p>
+                <p className="border-t border-line px-4 py-4 text-sm text-muted"><Tr s={f.empty} /></p>
               ) : (
                 <ul className="divide-y divide-line border-t border-line">
                   {list.map((c) => {
@@ -88,12 +89,12 @@ export default async function NewsletterPage({ searchParams }: { searchParams: P
                         <Link href={`/panel/newsletter/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3.5 hover:bg-paper">
                           <Mail className="h-4 w-4 shrink-0 text-muted" />
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium">{c.subject || "Sin asunto"}</span>
+                            <span className="block truncate text-sm font-medium">{c.subject || <Tr s={"Sin asunto"} />}</span>
                             <span className="block truncate text-xs text-muted">
                               {segmentLabel(c.segment, titles)} · {when}
                             </span>
                           </span>
-                          {f.key === "enviadas" && <Badge tone={st.tone}>{st.label}</Badge>}
+                          {f.key === "enviadas" && <Badge tone={st.tone}><Tr s={st.label} /></Badge>}
                         </Link>
                         <DeleteButton
                           action={deleteDraft}
@@ -120,8 +121,8 @@ export default async function NewsletterPage({ searchParams }: { searchParams: P
       </div>
 
       {/* Crear una newsletter */}
-      <h2 className="mb-1 mt-12 font-serif text-2xl">Crear una newsletter</h2>
-      <p className="mb-5 text-sm text-muted">Elige el aspecto y empieza a escribir. El email empieza vacío; el fondo, los colores y las letras los cambias cuando quieras.</p>
+      <h2 className="mb-1 mt-12 font-serif text-2xl"><Tr s={"Crear una newsletter"} /></h2>
+      <p className="mb-5 text-sm text-muted"><Tr s={"Elige el aspecto y empieza a escribir. El email empieza vacío; el fondo, los colores y las letras los cambias cuando quieras."} /></p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {looks.map((l) => (
           <form key={l.id} action={createCampaign}>
@@ -139,16 +140,15 @@ export default async function NewsletterPage({ searchParams }: { searchParams: P
       {/* Tus plantillas, abajo del todo */}
       <section id="plantillas" className="mt-12 scroll-mt-20">
         <div className="mb-1 flex flex-wrap items-center gap-3">
-          <h2 className="flex-1 font-serif text-2xl">Plantillas</h2>
+          <h2 className="flex-1 font-serif text-2xl"><Tr s={"Plantillas"} /></h2>
           <form action={createTemplate}>
             <SubmitButton className="btn btn-primary btn-sm">
-              <Plus className="h-4 w-4" /> Nueva plantilla
-            </SubmitButton>
+              <Plus className="h-4 w-4" />{" "}<Tr s={"Nueva plantilla"} /></SubmitButton>
           </form>
         </div>
-        <p className="mb-5 text-sm text-muted">El aspecto de tus newsletters: fondo con geometría, colores, burbujas y letras. Todas son tuyas: cámbialas o bórralas cuando quieras. Las newsletters ya hechas con ellas no cambian.</p>
+        <p className="mb-5 text-sm text-muted"><Tr s={"El aspecto de tus newsletters: fondo con geometría, colores, burbujas y letras. Todas son tuyas: cámbialas o bórralas cuando quieras. Las newsletters ya hechas con ellas no cambian."} /></p>
         {myTemplates.length === 0 ? (
-          <div className="card p-8 text-center text-sm text-muted">No tienes plantillas. Crea una con «Nueva plantilla».</div>
+          <div className="card p-8 text-center text-sm text-muted"><Tr s={"No tienes plantillas. Crea una con «Nueva plantilla»."} /></div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {myTemplates.map((t) => (
@@ -159,29 +159,25 @@ export default async function NewsletterPage({ searchParams }: { searchParams: P
                 <div className="flex flex-1 flex-col p-4">
                   <p className="truncate font-serif text-lg">{t.name}</p>
                   {t._count.campaigns > 0 && (
-                    <p className="text-xs text-muted">
-                      Usada en {t._count.campaigns} newsletter{t._count.campaigns === 1 ? "" : "s"}
+                    <p className="text-xs text-muted"><Tr s={"Usada en"} />{" "}{t._count.campaigns}{" "}<Tr s={"newsletter"} /><Tr s={t._count.campaigns === 1 ? "" : "s"} />
                     </p>
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
                     <form action={startFromTemplate}>
                       <input type="hidden" name="id" value={t.id} />
                       <SubmitButton className="btn btn-primary btn-sm">
-                        <Send className="h-4 w-4" /> Usar
-                      </SubmitButton>
+                        <Send className="h-4 w-4" />{" "}<Tr s={"Usar"} /></SubmitButton>
                     </form>
                     <Link href={`/panel/newsletter/plantillas/${t.id}`} className="btn btn-outline btn-sm">
-                      <PenLine className="h-4 w-4" /> Editar
-                    </Link>
+                      <PenLine className="h-4 w-4" />{" "}<Tr s={"Editar"} /></Link>
                     <form action={duplicateTemplate}>
                       <input type="hidden" name="id" value={t.id} />
                       <SubmitButton className="btn btn-ghost btn-sm">
-                        <Copy className="h-4 w-4" /> Duplicar
-                      </SubmitButton>
+                        <Copy className="h-4 w-4" />{" "}<Tr s={"Duplicar"} /></SubmitButton>
                     </form>
                     <ConfirmForm action={deleteTemplate} message={`¿Borrar la plantilla «${t.name}»? No se puede deshacer. Las newsletters hechas con ella no cambian.`}>
                       <input type="hidden" name="id" value={t.id} />
-                      <button className="btn btn-ghost btn-sm text-rose">Borrar</button>
+                      <button className="btn btn-ghost btn-sm text-rose"><Tr s={"Borrar"} /></button>
                     </ConfirmForm>
                   </div>
                 </div>

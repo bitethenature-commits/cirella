@@ -28,7 +28,7 @@ export default async function OnboardingPage() {
   });
   if (creator?.onboardedAt) redirect("/panel");
   // Modo personal: nadie crea páginas nuevas (la cuenta de la dueña la crea `npm run personal:setup`).
-  if (isPersonalMode()) redirect("/entrar?error=cerrado");
+  if (isPersonalMode()) redirect("/login?error=cerrado");
 
   const [categories, defaultPlan, settings] = await Promise.all([
     prisma.category.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
@@ -43,7 +43,7 @@ export default async function OnboardingPage() {
   } catch {}
 
   const p = creator?.products[0];
-  // Dónde retomar el asistente (10 pasos: 1 es /registro). Paso 7 si el producto aún no tiene
+  // Dónde retomar el asistente (10 pasos: 1 es /signup). Paso 7 si el producto aún no tiene
   // precio; paso 8 si al digital le falta la entrega y aún no ha empezado con los cobros (al volver
   // del formulario de Stripe sigue en el paso 9 aunque eligiera «más tarde»).
   const resumeStep = () => {

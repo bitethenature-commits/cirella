@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getPublicCreator } from "@/lib/public";
 import { resolveTheme } from "@/lib/templates";
+import { Tr } from "@/lib/i18n/client";
 
 export const size = { width: 64, height: 64 };
 export const contentType = "image/png";
@@ -14,7 +15,7 @@ export default async function Icon({ params }: { params: Promise<{ username: str
   return new ImageResponse(
     (
       <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 32, background: t.colors.bg, color: t.colors.gold, fontSize: 40, fontFamily: "serif" }}>
-        {letter}
+        <Tr s={letter} />
       </div>
     ),
     size,

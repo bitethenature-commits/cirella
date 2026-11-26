@@ -10,6 +10,7 @@ import { tenantDb } from "@/lib/tenant";
 import { formatDateTime } from "@/lib/tz";
 import { Badge, Locked } from "../ui";
 import { saveAutomation } from "./actions";
+import { Tr } from "@/lib/i18n/client";
 
 type Tone = "success" | "warning" | "neutral" | "danger";
 
@@ -85,7 +86,7 @@ export async function AutomaticEmails({ creator }: { creator: { id: string; plan
         return (
           <section key={g.title}>
             <h2 className="eyebrow mb-1 !text-ink">{g.title}</h2>
-            <p className="mb-3 text-sm text-muted">{g.text}</p>
+            <p className="mb-3 text-sm text-muted"><Tr s={g.text} /></p>
             <div className="grid gap-3 md:grid-cols-2">
               {list.map((t) => {
                 const meta = AUTOMATIONS[t];
@@ -102,10 +103,10 @@ export async function AutomaticEmails({ creator }: { creator: { id: string; plan
                       <span className="auto-icon"><Icon className="h-5 w-5" strokeWidth={1.5} /></span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="font-display text-lg leading-tight">{meta.label}</p>
-                          {meta.essential ? <Badge tone="success">Siempre</Badge> : enabled ? <Badge tone="success">Activa</Badge> : <Badge>Apagada</Badge>}
+                          <p className="font-display text-lg leading-tight"><Tr s={meta.label} /></p>
+                          {meta.essential ? <Badge tone="success"><Tr s={"Siempre"} /></Badge> : enabled ? <Badge tone="success"><Tr s={"Activa"} /></Badge> : <Badge><Tr s={"Apagada"} /></Badge>}
                         </div>
-                        <p className="mt-1 text-sm text-muted">{meta.description}</p>
+                        <p className="mt-1 text-sm text-muted"><Tr s={meta.description} /></p>
                         {delay && enabled && <p className="mt-2 text-xs font-medium text-gold">✦ {whenText(delay, minutes)}</p>}
                       </div>
                     </div>
@@ -113,25 +114,23 @@ export async function AutomaticEmails({ creator }: { creator: { id: string; plan
                       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
                         {writable && (
                           <Link href={`/panel/newsletter/automatizaciones/emails/${t}`} className="btn btn-primary btn-sm">
-                            <PenLine className="h-4 w-4" /> Escribir el email
-                          </Link>
+                            <PenLine className="h-4 w-4" />{" "}<Tr s={"Escribir el email"} /></Link>
                         )}
-                        {writable && (row?.design || row?.subject) && <Badge tone="dark">Tu versión</Badge>}
+                        {writable && (row?.design || row?.subject) && <Badge tone="dark"><Tr s={"Tu versión"} /></Badge>}
                         {pro && (!meta.essential || delay || !writable) && (
                           <details className="auto-settings w-full">
-                            <summary className="cursor-pointer text-xs font-semibold text-muted hover:text-ink">Cuándo y cómo</summary>
+                            <summary className="cursor-pointer text-xs font-semibold text-muted hover:text-ink"><Tr s={"Cuándo y cómo"} /></summary>
                             <div className="mt-3 space-y-3">
                               {!meta.essential && (
                                 <label className="flex items-center gap-2 text-sm">
-                                  <input type="checkbox" name="enabled" defaultChecked={enabled} className="accent-[#D9BF8C]" /> Encendida
-                                </label>
+                                  <input type="checkbox" name="enabled" defaultChecked={enabled} className="accent-[#D9BF8C]" />{" "}<Tr s={"Encendida"} /></label>
                               )}
                               {meta.essential && <input type="hidden" name="enabled" value="on" />}
                               {delay && (
                                 <label className="flex flex-wrap items-center gap-2 text-sm">
-                                  {delay.before}
+                                  <Tr s={delay.before} />
                                   <input type="number" name="delay" min={delay.min} max={delay.max} defaultValue={Math.round(minutes / delay.unit)} className="input h-9 w-20 text-sm" />
-                                  {delay.after}
+                                  <Tr s={delay.after} />
                                 </label>
                               )}
                               {!writable && <input name="subject" defaultValue={row?.subject ?? ""} placeholder="Asunto personalizado (opcional)" className="input h-9 text-base sm:text-sm" />}
@@ -150,7 +149,7 @@ export async function AutomaticEmails({ creator }: { creator: { id: string; plan
                                   placeholder="Tu mensaje (opcional)"
                                 />
                               )}
-                              <SubmitButton className="btn btn-primary btn-sm">Guardar</SubmitButton>
+                              <SubmitButton className="btn btn-primary btn-sm"><Tr s={"Guardar"} /></SubmitButton>
                             </div>
                           </details>
                         )}
@@ -165,7 +164,7 @@ export async function AutomaticEmails({ creator }: { creator: { id: string; plan
       })}
 
       <section>
-        <h2 className="eyebrow mb-3 !text-ink">Últimos emails</h2>
+        <h2 className="eyebrow mb-3 !text-ink"><Tr s={"Últimos emails"} /></h2>
         <div className="card divide-y divide-line">
           {log.map((m) => {
             // En cola tras algún intento fallido: se está reintentando, no está «programado».
@@ -175,18 +174,18 @@ export async function AutomaticEmails({ creator }: { creator: { id: string; plan
               <div key={m.id} className="flex items-center gap-3 px-4 py-3 text-sm">
                 <Mail className="h-4 w-4 shrink-0 text-muted" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{m.subject}</p>
-                  <p className="truncate text-xs text-muted">{m.to} · {formatDateTime(m.status === "SENT" && m.sentAt ? m.sentAt : m.sendAt)}</p>
-                  {m.status === "FAILED" && <p className="mt-0.5 text-xs text-[#9a3a2e]">{failedNote}</p>}
-                  {retrying && <p className="mt-0.5 text-xs text-muted">El proveedor de email ha fallado; se reintenta solo ({formatDateTime(m.sendAt)}).</p>}
+                  <p className="truncate font-medium"><Tr s={m.subject} /></p>
+                  <p className="truncate text-xs text-muted"><Tr s={m.to} /> · {formatDateTime(m.status === "SENT" && m.sentAt ? m.sentAt : m.sendAt)}</p>
+                  {m.status === "FAILED" && <p className="mt-0.5 text-xs text-[#9a3a2e]"><Tr s={failedNote} /></p>}
+                  {retrying && <p className="mt-0.5 text-xs text-muted"><Tr s={"El proveedor de email ha fallado; se reintenta solo ("} />{formatDateTime(m.sendAt)}).</p>}
                 </div>
                 <span title={m.status === "FAILED" ? failedNote : undefined}>
-                  <Badge tone={st.tone}>{st.label}</Badge>
+                  <Badge tone={st.tone}><Tr s={st.label} /></Badge>
                 </span>
               </div>
             );
           })}
-          {log.length === 0 && <p className="p-5 text-sm text-muted">Aún no se ha enviado ningún email.</p>}
+          {log.length === 0 && <p className="p-5 text-sm text-muted"><Tr s={"Aún no se ha enviado ningún email."} /></p>}
         </div>
       </section>
     </div>

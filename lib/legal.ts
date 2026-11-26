@@ -237,6 +237,8 @@ export function sessionChangePolicyText(hours: number = SESSION_CHANGE_NOTICE_HO
 
 export type LegalSection = "aviso" | "condiciones" | "reembolsos" | "privacidad" | "cookies";
 
+/** La página legal de la creadora: /legal en la web personal (sin su usuario delante), /<usuaria>/legal en la plataforma. */
 export function creatorLegalHref(username: string, section?: LegalSection): string {
-  return `/${username}/legal${section ? `#${section}` : ""}`;
+  const base = process.env.NEXT_PUBLIC_SITE_MODE?.trim() === "personal" ? "/legal" : `/${username}/legal`;
+  return `${base}${section ? `#${section}` : ""}`;
 }

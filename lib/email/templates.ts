@@ -12,6 +12,9 @@ import { orderRef } from "../order-ref";
 import { siteMode, type SiteMode } from "../site-mode";
 import { esc, MAIL, p } from "./html";
 import { richToEmailHtml } from "./rich-html";
+import { et, mailLocale } from "@/lib/i18n/email";
+import type { Locale } from "@/lib/i18n/config";
+import { tr } from "@/lib/i18n/dict";
 
 /** Marcador del nombre de la web personal en asuntos y cuerpos (lo sustituye enqueueEmail). */
 export const SITE_NAME_TOKEN = "{{nombre-de-la-web}}";
@@ -22,17 +25,17 @@ export const SITE_NAME_TOKEN = "{{nombre-de-la-web}}";
  */
 export const AREA_LINK_TOKEN = "{{tu-area}}";
 
-/** Pie «Tu área: …/cuenta» de la web personal (lo pone enqueueEmail en lugar de AREA_LINK_TOKEN). */
-export function areaLinkFooter(appUrl: string) {
-  const url = `${appUrl}/cuenta`;
-  return `<p style="font-size:13px;color:#A99FC2;margin:20px 4px 0;line-height:1.6">Tu área: <a href="${esc(url)}" style="color:#E8DFCB">${esc(url.replace(/^https?:\/\//, ""))}</a></p>`;
+/** Pie «Tu área: …/area» de la web personal (lo pone enqueueEmail en lugar de AREA_LINK_TOKEN). */
+export function areaLinkFooter(appUrl: string, locale: Locale = "es") {
+  const url = `${appUrl}/area`;
+  return `<p style="font-size:13px;color:#A99FC2;margin:20px 4px 0;line-height:1.6">${tr(locale, "Tu área:")} <a href="${esc(url)}" style="color:#E8DFCB">${esc(url.replace(/^https?:\/\//, ""))}</a></p>`;
 }
 
 /** Nombre de la marca y pie por defecto de los emails según el modo del sitio. Puro. */
 export function emailBranding(mode: SiteMode): { name: string; footer: string } {
   return mode === "personal"
     ? { name: SITE_NAME_TOKEN, footer: "" }
-    : { name: "Cirella", footer: "Enviado con Cirella · Convierte tu perfil social en tu negocio." };
+    : { name: "Cirella", footer: et("Enviado con Cirella · Convierte tu perfil social en tu negocio.") };
 }
 
 /** Nombre de la web en los emails: «Cirella» en la plataforma, el de la dueña en la web personal. */
@@ -73,7 +76,7 @@ export function layout(opts: {
   const title = opts.title
     ? `<h1 style="font-family:${serif};font-weight:400;font-size:28px;line-height:1.2;margin:0;color:${MAIL.head};text-align:center">${esc(opts.title)}</h1><p style="margin:12px 0 24px;text-align:center;font-size:11px;letter-spacing:.5em;color:${MAIL.gold}">— ✦ —</p>`
     : "";
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting">
+  return `<!doctype html><html lang="${mailLocale()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting">
 <meta name="color-scheme" content="dark light"><meta name="supported-color-schemes" content="dark light">
 <style>body{margin:0;padding:0;-webkit-text-size-adjust:100%}a{color:${MAIL.gold}}strong{color:${MAIL.strong}}@media (max-width:560px){.mail-card{padding:30px 20px!important}.mail-outer{padding:28px 10px!important}}</style>
 </head><body style="margin:0;padding:0;background:${MAIL.bg};font-family:${sans};color:${MAIL.text}" bgcolor="${MAIL.bg}">
@@ -105,63 +108,63 @@ export function magicLinkEmail(o: { url: string; creatorName?: string; purpose?:
   // Desde el candado del Portal de Noticias: confirma la newsletter, crea (o abre) su cuenta y entra.
   if (o.purpose === "REGISTER" && o.via === "portal")
     return {
-      subject: "Confirma tu suscripción y entra al Portal de Noticias",
+      subject: et("Confirma tu suscripción y entra al Portal de Noticias"),
       html: layout({
         brand: o.creatorName,
-        title: `Hola${o.name ? `, ${o.name}` : ""}`,
+        title: et("Hola{name}", { name: o.name ? `, ${o.name}` : "" }),
         body:
-          p(`Confirma que quieres recibir la newsletter de ${esc(o.creatorName ?? platformName())}. Al confirmarlo entras en tu área y se abre el Portal de Noticias con todo su contenido gratis.`) +
-          note("El enlace funciona durante 24 horas y solo una vez. Si no has sido tú, ignora este mensaje: no se creará nada ni te apuntaremos a nada."),
-        cta: { label: "Confirmar y ver el portal", url: o.url },
+          p(et("Confirma que quieres recibir la newsletter de {creatorName}. Al confirmarlo entras en tu área y se abre el Portal de Noticias con todo su contenido gratis.", { creatorName: esc(o.creatorName ?? platformName()) })) +
+          note(et("El enlace funciona durante 24 horas y solo una vez. Si no has sido tú, ignora este mensaje: no se creará nada ni te apuntaremos a nada.")),
+        cta: { label: et("Confirmar y ver el portal"), url: o.url },
       }),
     };
   // Desde «Calcular con mis datos» de un modelo (carta natal, Diseño Humano…): lo mismo, y vuelve a esa página.
   if (o.purpose === "REGISTER" && o.via === "carta")
     return {
-      subject: "Confirma tu suscripción y calcula tu carta",
+      subject: et("Confirma tu suscripción y calcula tu carta"),
       html: layout({
         brand: o.creatorName,
-        title: `Hola${o.name ? `, ${o.name}` : ""}`,
+        title: et("Hola{name}", { name: o.name ? `, ${o.name}` : "" }),
         body:
-          p(`Confirma que quieres recibir la newsletter de ${esc(o.creatorName ?? platformName())}. Al confirmarlo entras en tu área y vuelves a la página en la que estabas, lista para calcular tu carta con tus datos.`) +
-          note("El enlace funciona durante 24 horas y solo una vez. Si no has sido tú, ignora este mensaje: no se creará nada ni te apuntaremos a nada."),
-        cta: { label: "Confirmar y calcular mi carta", url: o.url },
+          p(et("Confirma que quieres recibir la newsletter de {creatorName}. Al confirmarlo entras en tu área y vuelves a la página en la que estabas, lista para calcular tu carta con tus datos.", { creatorName: esc(o.creatorName ?? platformName()) })) +
+          note(et("El enlace funciona durante 24 horas y solo una vez. Si no has sido tú, ignora este mensaje: no se creará nada ni te apuntaremos a nada.")),
+        cta: { label: et("Confirmar y calcular mi carta"), url: o.url },
       }),
     };
   if (o.purpose === "REGISTER")
     return {
-      subject: "Confirma tu email para entrar",
+      subject: et("Confirma tu email para entrar"),
       html: layout({
         brand: o.creatorName,
-        title: `Hola${o.name ? `, ${o.name}` : ""}`,
+        title: et("Hola{name}", { name: o.name ? `, ${o.name}` : "" }),
         body:
-          p(`Confirma que este email es tuyo para crear tu área en ${esc(o.creatorName ?? platformName())}. Pulsa el botón y después «Confirmar y entrar».`) +
-          note("El enlace funciona durante 24 horas y solo una vez. Si no has sido tú, ignora este mensaje: no se creará nada."),
+          p(et("Confirma que este email es tuyo para crear tu área en {creatorName}. Pulsa el botón y después «Confirmar y entrar».", { creatorName: esc(o.creatorName ?? platformName()) })) +
+          note(et("El enlace funciona durante 24 horas y solo una vez. Si no has sido tú, ignora este mensaje: no se creará nada.")),
         cta: { label: "Confirmar y entrar", url: o.url },
       }),
     };
   if (o.purpose === "VERIFY_SIGNUP")
     return {
-      subject: `Confirma tu email en ${platformName()}`,
+      subject: et("Confirma tu email en {platformName}", { platformName: platformName() }),
       html: layout({
         brand: o.creatorName,
-        title: "¿Has creado tú esta cuenta?",
+        title: et("¿Has creado tú esta cuenta?"),
         body:
-          p(`Alguien acaba de crear una cuenta de ${esc(platformName())} con este email y una contraseña. Si has sido tú, confírmalo para proteger tu cuenta y poder recuperarla si olvidas la contraseña.`) +
-          note("¿No has sido tú? Abre el enlace y pulsa «No he sido yo»: cerraremos ese acceso y entrarás tú con este email."),
+          p(et("Alguien acaba de crear una cuenta de {platformName} con este email y una contraseña. Si has sido tú, confírmalo para proteger tu cuenta y poder recuperarla si olvidas la contraseña.", { platformName: esc(platformName()) })) +
+          note(et("¿No has sido tú? Abre el enlace y pulsa «No he sido yo»: cerraremos ese acceso y entrarás tú con este email.")),
         // La etiqueta la buscan las pruebas (scripts/unit/acceso.test.ts, e2e/acceso-cuenta.spec.ts).
-        cta: { label: "Confirmar mi email", url: o.url },
+        cta: { label: et("Confirmar mi email"), url: o.url },
       }),
     };
   return {
-    subject: "Tu enlace para entrar",
+    subject: et("Tu enlace para entrar"),
     html: layout({
       brand: o.creatorName,
-      title: "Entra a tu cuenta",
+      title: et("Entra a tu cuenta"),
       body:
-        p("Pulsa el botón y después «Entrar». El enlace funciona durante 1 hora y solo una vez.") +
-        note("Si no lo has pedido tú, ignora este mensaje: nadie podrá entrar sin abrirlo."),
-      cta: { label: "Entrar a mi cuenta", url: o.url },
+        p(et("Pulsa el botón y después «Entrar». El enlace funciona durante 1 hora y solo una vez.")) +
+        note(et("Si no lo has pedido tú, ignora este mensaje: nadie podrá entrar sin abrirlo.")),
+      cta: { label: et("Entrar a mi cuenta"), url: o.url },
     }),
   };
 }
@@ -171,9 +174,9 @@ export function welcomeCreatorEmail(o: { name: string; pageUrl: string; panelUrl
     subject: `Bienvenida a ${platformName()}, ${o.name}`,
     html: layout({
       title: `Bienvenida, ${o.name} ✨`,
-      body: p("Tu espacio ya está creado. Desde tu panel puedes añadir productos, personalizar tu página y ver tus ventas.") +
-        p(`Tu enlace para la bio: <strong>${esc(o.pageUrl.replace(/^https?:\/\//, ""))}</strong>`),
-      cta: { label: "Ir a mi panel", url: o.panelUrl },
+      body: p(et("Tu espacio ya está creado. Desde tu panel puedes añadir productos, personalizar tu página y ver tus ventas.")) +
+        p(et("Tu enlace para la bio: <strong>{replace}</strong>", { replace: esc(o.pageUrl.replace(/^https?:\/\//, "")) })),
+      cta: { label: et("Ir a mi panel"), url: o.panelUrl },
     }),
   };
 }
@@ -185,11 +188,11 @@ export function welcomeCreatorEmail(o: { name: string; pageUrl: string; panelUrl
  */
 export function welcomeCustomerEmail(o: { name?: string | null; creatorName: string; accountUrl: string; message?: string | null; messageFormat?: string | null; introHtml?: string | null }) {
   return {
-    subject: `Bienvenida a la comunidad de ${o.creatorName}`,
+    subject: et("Bienvenida a la comunidad de {creatorName}", { creatorName: o.creatorName }),
     html: layout({
       brand: o.creatorName,
       // Con su diseño, el email entero es suyo (también el saludo).
-      title: o.introHtml ? "" : `Hola${o.name ? `, ${o.name}` : ""}`,
+      title: o.introHtml ? "" : et("Hola{name}", { name: o.name ? `, ${o.name}` : "" }),
       // En la web personal no se compra (gratis con email o pagado fuera): «todo lo tuyo».
       // El mensaje de la creadora puede llevar formato (lib/email/rich-html.ts); el de siempre, no.
       body: o.introHtml ? o.introHtml : o.message
@@ -197,11 +200,11 @@ export function welcomeCustomerEmail(o: { name?: string | null; creatorName: str
         : p(
             esc(
               siteMode() === "personal"
-                ? `Gracias por confiar en ${o.creatorName}. Todo lo tuyo estará siempre disponible en tu cuenta.`
-                : `Gracias por confiar en ${o.creatorName}. Todo lo que compres estará siempre disponible en tu cuenta.`,
+                ? et("Gracias por confiar en {creatorName}. Todo lo tuyo estará siempre disponible en tu cuenta.", { creatorName: o.creatorName })
+                : et("Gracias por confiar en {creatorName}. Todo lo que compres estará siempre disponible en tu cuenta.", { creatorName: o.creatorName }),
             ),
           ),
-      cta: { label: "Ver mi cuenta", url: o.accountUrl },
+      cta: { label: et("Ver mi cuenta"), url: o.accountUrl },
     }),
   };
 }
@@ -231,7 +234,7 @@ export function purchaseReceiptEmail(o: {
   legalUrl?: string;
   /** Copia de las condiciones en soporte duradero, al final del email (texto plano). */
   conditions?: { terms: string; refunds: string };
-  /** Detalle de la compra (/cuenta/pedidos/…). */
+  /** Detalle de la compra (/area/orders/…). */
   receiptUrl?: string | null;
   introHtml?: string | null;
 }) {
@@ -240,20 +243,20 @@ export function purchaseReceiptEmail(o: {
   const legal =
     (o.waiver
       ? p(
-          `<span style="font-size:13px">Confirmación de tu consentimiento sobre el desistimiento: el ${esc(o.waiver.at)} marcaste «${esc(o.waiver.text)}»${o.waiver.version ? ` (texto ${esc(o.waiver.version)})` : ""}.</span>`,
+          et("<span style=\"font-size:13px\">Confirmación de tu consentimiento sobre el desistimiento: el {at} marcaste «{text}»{version}.</span>", { at: esc(o.waiver.at), text: esc(o.waiver.text), version: o.waiver.version ? ` (texto ${esc(o.waiver.version)})` : "" }),
         )
       : "") +
     (o.withdrawalUntil
-      ? p(`<span style="font-size:13px">Puedes desistir hasta el ${esc(o.withdrawalUntil)} (incluido) desde tu área: te devolvemos todo y se libera la fecha.</span>`)
+      ? p(et("<span style=\"font-size:13px\">Puedes desistir hasta el {withdrawalUntil} (incluido) desde tu área: te devolvemos todo y se libera la fecha.</span>", { withdrawalUntil: esc(o.withdrawalUntil) }))
       : "") +
     (o.membershipWithdrawalUntil
       ? p(
-          `<span style="font-size:13px">Puedes desistir hasta el ${esc(o.membershipWithdrawalUntil)} (incluido) desde tu área: te devolvemos la parte proporcional de los días que no hayas disfrutado y la membresía termina en ese momento. Las renovaciones no dan un nuevo plazo.</span>`,
+          et("<span style=\"font-size:13px\">Puedes desistir hasta el {membershipWithdrawalUntil} (incluido) desde tu área: te devolvemos la parte proporcional de los días que no hayas disfrutado y la membresía termina en ese momento. Las renovaciones no dan un nuevo plazo.</span>", { membershipWithdrawalUntil: esc(o.membershipWithdrawalUntil) }),
         )
       : "") +
     (o.changePolicy ? p(`<span style="font-size:13px">${esc(o.changePolicy)}</span>`) : "") +
     (o.legalUrl
-      ? p(`<span style="font-size:13px">Condiciones aceptadas: <a href="${esc(o.legalUrl)}" style="color:#E8DFCB">ver la versión que aceptaste</a></span>`)
+      ? p(et("<span style=\"font-size:13px\">Condiciones aceptadas: <a href=\"{legalUrl}\" style=\"color:#E8DFCB\">ver la versión que aceptaste</a></span>", { legalUrl: esc(o.legalUrl) }))
       : "");
   const appendix = o.conditions
     ? `<div style="font-size:11px;line-height:1.5;color:#A99FC2;white-space:pre-wrap;border-top:1px solid #3A3354;margin-top:24px;padding-top:12px">${esc(
@@ -261,23 +264,23 @@ export function purchaseReceiptEmail(o: {
       )}</div>`
     : "";
   return {
-    subject: `Compra confirmada: ${o.productTitle}`,
+    subject: et("Compra confirmada: {productTitle}", { productTitle: o.productTitle }),
     html: layout({
       brand: o.creatorName,
-      title: "Compra completada",
+      title: et("Compra completada"),
       body:
-        (o.introHtml || p(`Hola${o.name ? ` ${esc(o.name)}` : ""}, gracias por tu compra.`)) +
+        (o.introHtml || p(et("Hola{name}, gracias por tu compra.", { name: o.name ? ` ${esc(o.name)}` : "" }))) +
         `<table style="width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:14px">
           <tr><td style="padding:8px 0;color:#A99FC2">Producto</td><td style="padding:8px 0;text-align:right">${esc(o.productTitle)}</td></tr>
           <tr><td style="padding:8px 0;color:#A99FC2;border-top:1px solid #3A3354">Total</td><td style="padding:8px 0;text-align:right;border-top:1px solid #3A3354"><strong>${esc(o.amount)}</strong></td></tr>
           <tr><td style="padding:8px 0;color:#A99FC2;border-top:1px solid #3A3354">Pedido</td><td style="padding:8px 0;text-align:right;border-top:1px solid #3A3354;font-family:monospace;font-size:12px">${esc(orderRef(o.orderId))}</td></tr>
 
-          ${o.seller ? row("Vende", [o.seller.line, o.seller.address, o.seller.email].filter(Boolean).map(esc).join("<br>")) : ""}
+          ${o.seller ? row(et("Vende"), [o.seller.line, o.seller.address, o.seller.email].filter(Boolean).map(esc).join("<br>")) : ""}
         </table>` +
 
-        p("Pulsa el botón para abrir tu compra. No necesitas contraseña.") +
+        p(et("Pulsa el botón para abrir tu compra. No necesitas contraseña.")) +
         (o.instructions ? p(`<em>${esc(o.instructions)}</em>`) : ""),
-      cta: { label: "Acceder a mi contenido", url: o.accountUrl },
+      cta: { label: et("Acceder a mi contenido"), url: o.accountUrl },
       afterCta:
         note(o.linkNote) +
         (o.receiptUrl ? p(`<a href="${esc(o.receiptUrl)}" style="color:#E8DFCB;font-size:14px">Ver el detalle de tu compra</a>`) : "") +
@@ -306,29 +309,29 @@ export function accessGrantedEmail(o: {
 }) {
   const prepared = o.productType === "DIGITAL" && o.deliveryMode === "PERSONAL";
   const what = prepared
-    ? `${esc(o.creatorName)} la está preparando; te avisaremos cuando esté lista.`
+    ? et("{creatorName} la está preparando; te avisaremos cuando esté lista.", { creatorName: esc(o.creatorName) })
     : o.productType === "COURSE"
-      ? "Avanza a tu ritmo: tu progreso se guarda automáticamente."
+      ? et("Avanza a tu ritmo: tu progreso se guarda automáticamente.")
       : o.productType === "MEMBERSHIP"
-        ? "Ya formas parte de la comunidad: entra cuando quieras para ver lo último."
-        : "Lo tienes listo para descargar o abrir cuando quieras.";
-  const label = prepared ? "Ver mi compra" : o.productType === "COURSE" ? "Empezar el curso" : o.productType === "MEMBERSHIP" ? "Entrar en la comunidad" : "Acceder a mi contenido";
+        ? et("Ya formas parte de la comunidad: entra cuando quieras para ver lo último.")
+        : et("Lo tienes listo para descargar o abrir cuando quieras.");
+  const label = prepared ? et("Ver mi compra") : o.productType === "COURSE" ? et("Empezar el curso") : o.productType === "MEMBERSHIP" ? et("Entrar en la comunidad") : et("Acceder a mi contenido");
   return {
-    subject: `Ya tienes acceso a «${o.productTitle}»`,
+    subject: et("Ya tienes acceso a «{productTitle}»", { productTitle: o.productTitle }),
     html: layout({
       brand: o.creatorName,
-      title: "Ya tienes acceso",
+      title: et("Ya tienes acceso"),
       body:
-        (o.introHtml || p(`Hola${o.name ? ` ${esc(o.name)}` : ""}, ya puedes entrar en <strong>${esc(o.productTitle)}</strong>. ${what}`)) +
-        p("Pulsa el botón para abrirlo. No necesitas contraseña.") +
-        (o.until ? p(`Tu acceso dura hasta el <strong>${esc(o.until)}</strong> (incluido).`) : "") +
+        (o.introHtml || p(et("Hola{name}, ya puedes entrar en <strong>{productTitle}</strong>. {what}", { name: o.name ? ` ${esc(o.name)}` : "", productTitle: esc(o.productTitle), what: what }))) +
+        p(et("Pulsa el botón para abrirlo. No necesitas contraseña.")) +
+        (o.until ? p(et("Tu acceso dura hasta el <strong>{until}</strong> (incluido).", { until: esc(o.until) })) : "") +
         (o.instructions ? p(`<em>${esc(o.instructions)}</em>`) : ""),
       cta: { label, url: o.url },
       afterCta:
         note(o.linkNote) +
         (o.newsletterUrl
-          ? p(`Marcaste que quieres recibir las novedades de ${esc(o.creatorName)} por email. Confírmalo aquí (si no lo pediste tú, no hagas nada y no recibirás ninguna):`) +
-            p(`<a href="${esc(o.newsletterUrl)}" style="color:#D9BF8C;font-weight:600">Confirmar que quiero recibir novedades</a>`)
+          ? p(et("Marcaste que quieres recibir las novedades de {creatorName} por email. Confírmalo aquí (si no lo pediste tú, no hagas nada y no recibirás ninguna):", { creatorName: esc(o.creatorName) })) +
+            p(et("<a href=\"{newsletterUrl}\" style=\"color:#D9BF8C;font-weight:600\">Confirmar que quiero recibir novedades</a>", { newsletterUrl: esc(o.newsletterUrl) }))
           : ""),
     }),
   };
@@ -336,21 +339,21 @@ export function accessGrantedEmail(o: {
 
 export function courseAccessEmail(o: { creatorName: string; courseTitle: string; url: string; linkNote?: string; introHtml?: string | null }) {
   return {
-    subject: `Ya tienes acceso a «${o.courseTitle}»`,
+    subject: et("Ya tienes acceso a «{courseTitle}»", { courseTitle: o.courseTitle }),
     html: layout({
       brand: o.creatorName,
-      title: "Tu curso te espera",
-      body: o.introHtml || p(`Ya puedes empezar <strong>${esc(o.courseTitle)}</strong>. Avanza a tu ritmo: tu progreso se guarda automáticamente.`),
-      cta: { label: "Empezar el curso", url: o.url },
+      title: et("Tu curso te espera"),
+      body: o.introHtml || p(et("Ya puedes empezar <strong>{courseTitle}</strong>. Avanza a tu ritmo: tu progreso se guarda automáticamente.", { courseTitle: esc(o.courseTitle) })),
+      cta: { label: et("Empezar el curso"), url: o.url },
       afterCta: note(o.linkNote),
     }),
   };
 }
 
 function reminderText(minutes: number) {
-  if (minutes % 1440 === 0) return minutes === 1440 ? "24 horas" : `${minutes / 1440} días`;
-  if (minutes % 60 === 0) return minutes === 60 ? "1 hora" : `${minutes / 60} horas`;
-  return `${minutes} minutos`;
+  if (minutes % 1440 === 0) return minutes === 1440 ? et("24 horas") : et("{minutes} días", { minutes: minutes / 1440 });
+  if (minutes % 60 === 0) return minutes === 60 ? et("1 hora") : et("{n} horas", { n: minutes / 60 });
+  return et("{n} minutos", { n: minutes });
 }
 
 export function bookingConfirmedEmail(o: {
@@ -373,27 +376,27 @@ export function bookingConfirmedEmail(o: {
   introHtml?: string | null;
 }) {
   const extra =
-    (o.intakeUrl ? p(`<strong>Completa tus datos para la lectura.</strong> <a href="${esc(o.intakeUrl)}">Enviar mis datos</a>`) : "") +
-    (o.icsUrl ? p(`<a href="${esc(o.icsUrl)}" style="color:#D9BF8C">Añadir a mi calendario</a>`) : "");
+    (o.intakeUrl ? p(et("<strong>Completa tus datos para la lectura.</strong> <a href=\"{intakeUrl}\">Enviar mis datos</a>", { intakeUrl: esc(o.intakeUrl) })) : "") +
+    (o.icsUrl ? p(et("<a href=\"{icsUrl}\" style=\"color:#D9BF8C\">Añadir a mi calendario</a>", { icsUrl: esc(o.icsUrl) })) : "");
   return {
     subject:
       o.variant === "moved" && o.when
-        ? `Tu taller cambia de fecha · ${o.when}`
+        ? et("Tu taller cambia de fecha · {when}", { when: o.when })
         : o.variant === "seat" && o.when
-          ? `Tu plaza en «${o.productTitle}» · ${o.when}`
+          ? et("Tu plaza en «{productTitle}» · {when}", { productTitle: o.productTitle, when: o.when })
           : o.when
-            ? `Reserva confirmada · ${o.when}`
-            : `Elige la fecha de tu sesión`,
+            ? et("Reserva confirmada · {when}", { when: o.when })
+            : et("Elige la fecha de tu sesión"),
     html: layout({
       brand: o.creatorName,
-      title: o.variant === "moved" ? "Tu taller cambia de fecha" : o.variant === "seat" ? "Tienes tu plaza" : o.when ? "Tu sesión está reservada" : "Elige fecha para tu sesión",
+      title: o.variant === "moved" ? et("Tu taller cambia de fecha") : o.variant === "seat" ? et("Tienes tu plaza") : o.when ? et("Tu sesión está reservada") : et("Elige fecha para tu sesión"),
       body: (o.introHtml ?? "") + (o.when
         ? p(`<strong>${esc(o.productTitle)}</strong><br>${esc(o.when)}`) +
-          (o.meetingUrl ? p(`${esc(o.meetingLabel ?? "Enlace de la videollamada")}: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : "") +
-          (o.reminderMinutes ? p(`Te enviaremos un recordatorio ${reminderText(o.reminderMinutes)} antes.`) : "") +
+          (o.meetingUrl ? p(`${esc(o.meetingLabel ?? et("Enlace de la videollamada"))}: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : "") +
+          (o.reminderMinutes ? p(et("Te enviaremos un recordatorio {reminderText} antes.", { reminderText: reminderText(o.reminderMinutes) })) : "") +
           extra
-        : p(`Tu pago de <strong>${esc(o.productTitle)}</strong> está confirmado. Entra en tu cuenta para elegir el día y la hora que mejor te vengan.`) + extra),
-      cta: { label: o.when ? "Ver detalles" : "Elegir fecha", url: o.url },
+        : p(et("Tu pago de <strong>{productTitle}</strong> está confirmado. Entra en tu cuenta para elegir el día y la hora que mejor te vengan.", { productTitle: esc(o.productTitle) })) + extra),
+      cta: { label: o.when ? et("Ver detalles") : et("Elegir fecha"), url: o.url },
       afterCta: note(o.linkNote),
     }),
   };
@@ -412,16 +415,16 @@ export function sessionReminderEmail(o: {
   introHtml?: string | null;
 }) {
   return {
-    subject: `Recordatorio: tu sesión ${o.when}`,
+    subject: et("Recordatorio: tu sesión {when}", { when: o.when }),
     html: layout({
       brand: o.creatorName,
-      title: "Nos vemos pronto",
+      title: et("Nos vemos pronto"),
       body:
         (o.introHtml ?? "") +
-        p(`Te recordamos tu sesión <strong>${esc(o.productTitle)}</strong>: ${esc(o.when)}.`) +
-        (o.meetingUrl ? p(`${o.meetingLabel ? esc(o.meetingLabel) : "Enlace"}: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : "") +
-        (o.intakeUrl ? p(`<strong>Todavía faltan tus datos para la lectura.</strong> <a href="${esc(o.intakeUrl)}">Enviar mis datos</a>`) : ""),
-      cta: { label: "Ver detalles", url: o.url },
+        p(et("Te recordamos tu sesión <strong>{productTitle}</strong>: {when}.", { productTitle: esc(o.productTitle), when: esc(o.when) })) +
+        (o.meetingUrl ? p(`${o.meetingLabel ? esc(o.meetingLabel) : et("Enlace")}: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : "") +
+        (o.intakeUrl ? p(et("<strong>Todavía faltan tus datos para la lectura.</strong> <a href=\"{intakeUrl}\">Enviar mis datos</a>", { intakeUrl: esc(o.intakeUrl) })) : ""),
+      cta: { label: et("Ver detalles"), url: o.url },
       afterCta: note(o.linkNote),
     }),
   };
@@ -434,33 +437,33 @@ export function newSaleCreatorEmail(o: { productTitle: string; amount: string; b
         .join("")}</table>`
     : "";
   return {
-    subject: `Nueva venta: ${o.productTitle} · ${o.amount}`,
+    subject: et("Nueva venta: {productTitle} · {amount}", { productTitle: o.productTitle, amount: o.amount }),
     html: layout({
-      title: "¡Nueva venta! 🎉",
-      body: p(`<strong>${esc(o.buyer)}</strong> ha comprado <strong>${esc(o.productTitle)}</strong> por ${esc(o.amount)}.`) + rows,
-      cta: { label: "Ver en mi panel", url: o.url },
+      title: et("¡Nueva venta! 🎉"),
+      body: p(et("<strong>{buyer}</strong> ha comprado <strong>{productTitle}</strong> por {amount}.", { buyer: esc(o.buyer), productTitle: esc(o.productTitle), amount: esc(o.amount) })) + rows,
+      cta: { label: et("Ver en mi panel"), url: o.url },
     }),
   };
 }
 
 export function newSubscriptionCreatorEmail(o: { productTitle: string; buyer: string; url: string }) {
   return {
-    subject: `Nueva suscripción a ${o.productTitle}`,
+    subject: et("Nueva suscripción a {productTitle}", { productTitle: o.productTitle }),
     html: layout({
-      title: "Tu comunidad crece",
-      body: p(`<strong>${esc(o.buyer)}</strong> se ha unido a <strong>${esc(o.productTitle)}</strong>.`),
-      cta: { label: "Ver suscripciones", url: o.url },
+      title: et("Tu comunidad crece"),
+      body: p(et("<strong>{buyer}</strong> se ha unido a <strong>{productTitle}</strong>.", { buyer: esc(o.buyer), productTitle: esc(o.productTitle) })),
+      cta: { label: et("Ver suscripciones"), url: o.url },
     }),
   };
 }
 
 export function subscriptionCanceledCreatorEmail(o: { productTitle: string; buyer: string; until: string; url: string }) {
   return {
-    subject: `Cancelación en ${o.productTitle}`,
+    subject: et("Cancelación en {productTitle}", { productTitle: o.productTitle }),
     html: layout({
-      title: "Una suscripción se ha cancelado",
-      body: p(`<strong>${esc(o.buyer)}</strong> ha cancelado su suscripción a <strong>${esc(o.productTitle)}</strong>. Mantendrá el acceso hasta el ${esc(o.until)}.`),
-      cta: { label: "Ver en mi panel", url: o.url },
+      title: et("Una suscripción se ha cancelado"),
+      body: p(et("<strong>{buyer}</strong> ha cancelado su suscripción a <strong>{productTitle}</strong>. Mantendrá el acceso hasta el {until}.", { buyer: esc(o.buyer), productTitle: esc(o.productTitle), until: esc(o.until) })),
+      cta: { label: et("Ver en mi panel"), url: o.url },
     }),
   };
 }
@@ -471,15 +474,15 @@ export function subscriptionCanceledCreatorEmail(o: { productTitle: string; buye
  */
 export function abandonedCheckoutEmail(o: { creatorName: string; productTitle: string; url: string; message?: string | null; messageFormat?: string | null; optOutUrl: string; introHtml?: string | null }) {
   return {
-    subject: `¿Te quedaste a medias con «${o.productTitle}»?`,
+    subject: et("¿Te quedaste a medias con «{productTitle}»?", { productTitle: o.productTitle }),
     html: layout({
       brand: o.creatorName,
-      title: o.introHtml ? "" : "Lo guardamos para ti",
+      title: o.introHtml ? "" : et("Lo guardamos para ti"),
       body: o.introHtml ? o.introHtml : o.message
         ? richToEmailHtml(o.message, o.messageFormat)
-        : p(esc(`Vimos que empezaste a comprar ${o.productTitle} pero no terminaste. Si tuviste alguna duda, responde a este email.`)),
-      cta: { label: "Completar mi compra", url: o.url },
-      footer: `Te escribimos porque empezaste una compra con ${esc(o.creatorName)}. ¿No quieres más recordatorios así? <a href="${esc(o.optOutUrl)}" style="color:#A99FC2">Darme de baja</a>.`,
+        : p(esc(et("Vimos que empezaste a comprar {productTitle} pero no terminaste. Si tuviste alguna duda, responde a este email.", { productTitle: o.productTitle }))),
+      cta: { label: et("Completar mi compra"), url: o.url },
+      footer: et("Te escribimos porque empezaste una compra con {creatorName}. ¿No quieres más recordatorios así? <a href=\"{optOutUrl}\" style=\"color:#A99FC2\">Darme de baja</a>.", { creatorName: esc(o.creatorName), optOutUrl: esc(o.optOutUrl) }),
     }),
   };
 }
@@ -488,13 +491,13 @@ export function abandonedCheckoutEmail(o: { creatorName: string; productTitle: s
 
 export function payoutActiveEmail(o: { name: string; panelUrl: string }) {
   return {
-    subject: "Ya puedes cobrar tus ventas ✨",
+    subject: et("Ya puedes cobrar tus ventas ✨"),
     html: layout({
-      title: `Todo listo, ${o.name}`,
+      title: et("Todo listo, {name}", { name: o.name }),
       body:
-        p("Stripe ha verificado tu cuenta de cobro: desde ahora tus clientas ya pueden comprar y el dinero de cada venta llega a tu banco automáticamente.") +
-        p(`<span style="color:#A99FC2;font-size:13px">El primer ingreso suele tardar unos 7 días; después, Stripe te transfiere a diario.</span>`),
-      cta: { label: "Ver mis cobros", url: o.panelUrl },
+        p(et("Stripe ha verificado tu cuenta de cobro: desde ahora tus clientas ya pueden comprar y el dinero de cada venta llega a tu banco automáticamente.")) +
+        p(et("<span style=\"color:#A99FC2;font-size:13px\">El primer ingreso suele tardar unos 7 días; después, Stripe te transfiere a diario.</span>")),
+      cta: { label: et("Ver mis cobros"), url: o.panelUrl },
     }),
   };
 }
@@ -502,71 +505,71 @@ export function payoutActiveEmail(o: { name: string; panelUrl: string }) {
 export function payoutActionRequiredEmail(o: { name: string; missing: string[]; deadline?: string | null; url: string }) {
   const items = o.missing.length ? `<ul style="margin:0 0 12px;padding-left:20px">${o.missing.map((m) => `<li>${esc(m)}</li>`).join("")}</ul>` : "";
   return {
-    subject: "Stripe necesita un dato más para activar tus cobros",
+    subject: et("Stripe necesita un dato más para activar tus cobros"),
     html: layout({
-      title: `${o.name}, te falta un paso`,
+      title: et("{name}, te falta un paso", { name: o.name }),
       body:
-        p(`Stripe, la plataforma con la que cobras, necesita ${o.missing.length === 1 ? "esto" : "estos datos"} para ${o.deadline ? `antes del ${esc(o.deadline)}` : "poder activar tus cobros"}:`) +
+        p(et("Stripe, la plataforma con la que cobras, necesita {length} para {deadline}:", { length: o.missing.length === 1 ? "esto" : et("estos datos"), deadline: o.deadline ? et("antes del {deadline}", { deadline: esc(o.deadline) }) : et("poder activar tus cobros") })) +
         items +
-        p("Hasta entonces nadie puede comprar tus productos. Son un par de minutos."),
-      cta: { label: "Completar en Stripe", url: o.url },
+        p(et("Hasta entonces nadie puede comprar tus productos. Son un par de minutos.")),
+      cta: { label: et("Completar en Stripe"), url: o.url },
     }),
   };
 }
 
 export function payoutRejectedEmail(o: { name: string; supportEmail: string }) {
   return {
-    subject: "Hay un problema con tu cuenta de cobro",
+    subject: et("Hay un problema con tu cuenta de cobro"),
     html: layout({
-      title: "Stripe no ha podido verificar tu cuenta",
+      title: et("Stripe no ha podido verificar tu cuenta"),
       body:
-        p(`Hola, ${esc(o.name)}. Stripe ha rechazado la verificación de tu cuenta de cobro, así que de momento no podemos aceptar pagos en tu página.`) +
-        p(`Escríbenos a <a href="mailto:${esc(o.supportEmail)}">${esc(o.supportEmail)}</a> y lo revisamos contigo.`),
+        p(et("Hola, {name}. Stripe ha rechazado la verificación de tu cuenta de cobro, así que de momento no podemos aceptar pagos en tu página.", { name: esc(o.name) })) +
+        p(et("Escríbenos a <a href=\"mailto:{supportEmail}\">{supportEmail2}</a> y lo revisamos contigo.", { supportEmail: esc(o.supportEmail), supportEmail2: esc(o.supportEmail) })),
     }),
   };
 }
 
 export function paymentFailedEmail(o: { creatorName: string; productTitle: string; retryUrl: string }) {
   return {
-    subject: "Tu pago no se ha completado",
+    subject: et("Tu pago no se ha completado"),
     html: layout({
       brand: o.creatorName,
-      title: "El pago no se ha completado",
+      title: et("El pago no se ha completado"),
       body:
-        p(`Tu banco no ha confirmado el pago de <strong>${esc(o.productTitle)}</strong>, así que no se te ha cobrado nada.`) +
-        p("Puedes intentarlo de nuevo con la misma tarjeta o con otra."),
-      cta: { label: "Intentarlo de nuevo", url: o.retryUrl },
+        p(et("Tu banco no ha confirmado el pago de <strong>{productTitle}</strong>, así que no se te ha cobrado nada.", { productTitle: esc(o.productTitle) })) +
+        p(et("Puedes intentarlo de nuevo con la misma tarjeta o con otra.")),
+      cta: { label: et("Intentarlo de nuevo"), url: o.retryUrl },
     }),
   };
 }
 
 export function renewalFailedEmail(o: { creatorName: string; productTitle: string; payUrl: string; nextAttempt?: string | null }) {
   return {
-    subject: "No hemos podido renovar tu membresía",
+    subject: et("No hemos podido renovar tu membresía"),
     html: layout({
       brand: o.creatorName,
-      title: "Tu renovación no se ha podido cobrar",
+      title: et("Tu renovación no se ha podido cobrar"),
       body:
-        p(`Tu banco ha rechazado el cobro de la renovación de <strong>${esc(o.productTitle)}</strong>.`) +
+        p(et("Tu banco ha rechazado el cobro de la renovación de <strong>{productTitle}</strong>.", { productTitle: esc(o.productTitle) })) +
         p(
           o.nextAttempt
-            ? `Mantienes el acceso: volveremos a intentarlo el ${esc(o.nextAttempt)}. Si prefieres, puedes pagar ahora con otra tarjeta.`
-            : "Puedes pagar ahora con otra tarjeta para no perder el acceso.",
+            ? et("Mantienes el acceso: volveremos a intentarlo el {nextAttempt}. Si prefieres, puedes pagar ahora con otra tarjeta.", { nextAttempt: esc(o.nextAttempt) })
+            : et("Puedes pagar ahora con otra tarjeta para no perder el acceso."),
         ),
-      cta: { label: "Pagar ahora", url: o.payUrl },
+      cta: { label: et("Pagar ahora"), url: o.payUrl },
     }),
   };
 }
 
 export function disputeOpenedEmail(o: { productTitle: string; amount: string; buyer: string; url: string }) {
   return {
-    subject: "Una clienta ha reclamado un cargo a su banco",
+    subject: et("Una clienta ha reclamado un cargo a su banco"),
     html: layout({
-      title: "Contracargo abierto",
+      title: et("Contracargo abierto"),
       body:
-        p(`<strong>${esc(o.buyer)}</strong> ha pedido a su banco que anule el cargo de <strong>${esc(o.productTitle)}</strong> (${esc(o.amount)}).`) +
-        p("Stripe nos pedirá pruebas de la entrega (emails, accesos, reserva). Si tienes conversaciones con la clienta, guárdalas: te escribiremos si las necesitamos."),
-      cta: { label: "Ver la venta", url: o.url },
+        p(et("<strong>{buyer}</strong> ha pedido a su banco que anule el cargo de <strong>{productTitle}</strong> ({amount}).", { buyer: esc(o.buyer), productTitle: esc(o.productTitle), amount: esc(o.amount) })) +
+        p(et("Stripe nos pedirá pruebas de la entrega (emails, accesos, reserva). Si tienes conversaciones con la clienta, guárdalas: te escribiremos si las necesitamos.")),
+      cta: { label: et("Ver la venta"), url: o.url },
     }),
   };
 }
@@ -575,7 +578,7 @@ export function disputeOpenedEmail(o: { productTitle: string; amount: string; bu
 
 /** Pie de los avisos de la comunidad: por qué le llega y cómo dejar de recibirlos (un clic). */
 function communityFooter(membershipTitle: string, optOutUrl: string) {
-  return `Recibes este aviso porque eres miembro de «${esc(membershipTitle)}». ¿No quieres más avisos de publicaciones? <a href="${esc(optOutUrl)}" style="color:#A99FC2">Darme de baja</a>.`;
+  return et("Recibes este aviso porque eres miembro de «{membershipTitle}». ¿No quieres más avisos de publicaciones? <a href=\"{optOutUrl}\" style=\"color:#A99FC2\">Darme de baja</a>.", { membershipTitle: esc(membershipTitle), optOutUrl: esc(optOutUrl) });
 }
 
 /**
@@ -602,7 +605,7 @@ export function memberPostEmail(o: {
         p(`<span style="color:#A99FC2;font-size:13px">${esc(o.kindLabel ? `${o.kindLabel} · ` : "")}${esc(o.creatorName)} ha publicado en «${esc(o.membershipTitle)}»</span>`) +
         (o.excerpt ? p(esc(o.excerpt)) : "") +
         (o.attachments ? p(`<strong>${esc(o.attachments)}</strong>`) : ""),
-      cta: { label: "Leer la publicación", url: o.url },
+      cta: { label: et("Leer la publicación"), url: o.url },
       afterCta: note(o.linkNote),
       footer: communityFooter(o.membershipTitle, o.optOutUrl),
     }),
@@ -612,11 +615,11 @@ export function memberPostEmail(o: {
 /** A la dueña: alguien ha comentado en su comunidad. */
 export function newCommentCreatorEmail(o: { membershipTitle: string; postTitle: string; author: string; excerpt: string; url: string }) {
   return {
-    subject: `Nuevo comentario en «${o.postTitle}»`,
+    subject: et("Nuevo comentario en «{postTitle}»", { postTitle: o.postTitle }),
     html: layout({
-      title: "Nuevo comentario",
+      title: et("Nuevo comentario"),
       body:
-        p(`<strong>${esc(o.author)}</strong> ha comentado en «${esc(o.postTitle)}» (${esc(o.membershipTitle)}):`) +
+        p(et("<strong>{author}</strong> ha comentado en «{postTitle}» ({membershipTitle}):", { author: esc(o.author), postTitle: esc(o.postTitle), membershipTitle: esc(o.membershipTitle) })) +
         p(`<span style="white-space:pre-line">${esc(o.excerpt)}</span>`),
       cta: { label: "Ver y responder", url: o.url },
     }),
@@ -627,12 +630,12 @@ export function newCommentCreatorEmail(o: { membershipTitle: string; postTitle: 
 export function commentReplyEmail(o: { creatorName: string; replierName?: string; membershipTitle: string; postTitle: string; excerpt: string; url: string; optOutUrl: string }) {
   const who = o.replierName || o.creatorName;
   return {
-    subject: `${who} ha respondido a tu comentario`,
+    subject: et("{who} ha respondido a tu comentario", { who: who }),
     html: layout({
       brand: o.creatorName,
-      title: `${who} te ha respondido`,
-      body: p(`En «${esc(o.postTitle)}»:`) + p(`<span style="white-space:pre-line">${esc(o.excerpt)}</span>`),
-      cta: { label: "Ver la conversación", url: o.url },
+      title: et("{who} te ha respondido", { who: who }),
+      body: p(et("En «{postTitle}»:", { postTitle: esc(o.postTitle) })) + p(`<span style="white-space:pre-line">${esc(o.excerpt)}</span>`),
+      cta: { label: et("Ver la conversación"), url: o.url },
       footer: communityFooter(o.membershipTitle, o.optOutUrl),
     }),
   };
@@ -641,12 +644,12 @@ export function commentReplyEmail(o: { creatorName: string; replierName?: string
 /** A quien escribió un comentario: a alguien le ha gustado. */
 export function commentLikedEmail(o: { creatorName: string; likerName: string; placeTitle: string; groupTitle: string; excerpt: string; url: string; optOutUrl: string }) {
   return {
-    subject: `A ${o.likerName} le ha gustado tu comentario`,
+    subject: et("A {likerName} le ha gustado tu comentario", { likerName: o.likerName }),
     html: layout({
       brand: o.creatorName,
-      title: "Le ha gustado tu comentario",
-      body: p(`A <strong>${esc(o.likerName)}</strong> le ha gustado lo que escribiste en «${esc(o.placeTitle)}»:`) + p(`<span style="white-space:pre-line">${esc(o.excerpt)}</span>`),
-      cta: { label: "Ver la conversación", url: o.url },
+      title: et("Le ha gustado tu comentario"),
+      body: p(et("A <strong>{likerName}</strong> le ha gustado lo que escribiste en «{placeTitle}»:", { likerName: esc(o.likerName), placeTitle: esc(o.placeTitle) })) + p(`<span style="white-space:pre-line">${esc(o.excerpt)}</span>`),
+      cta: { label: et("Ver la conversación"), url: o.url },
       footer: communityFooter(o.groupTitle, o.optOutUrl),
     }),
   };
@@ -657,23 +660,23 @@ export function accessEndingEmail(o: { creatorName: string; productTitle: string
   // Membresía que se paga por email: aviso para renovarla (si no, se cierra ese día).
   if (o.membership)
     return {
-      subject: `Tu membresía «${o.productTitle}» vence el ${o.until}`,
+      subject: et("Tu membresía «{productTitle}» vence el {until}", { productTitle: o.productTitle, until: o.until }),
       html: layout({
         brand: o.creatorName,
-        title: "Es hora de renovar",
+        title: et("Es hora de renovar"),
         body:
-          p(`Tu membresía <strong>${esc(o.productTitle)}</strong> vence el <strong>${esc(o.until)}</strong> (incluido).`) +
-          p(`Para seguir dentro, responde a este email y ${esc(o.creatorName)} te dirá cómo hacer el pago. Si no se renueva, ese día se cerrará el acceso.`),
+          p(et("Tu membresía <strong>{productTitle}</strong> vence el <strong>{until}</strong> (incluido).", { productTitle: esc(o.productTitle), until: esc(o.until) })) +
+          p(et("Para seguir dentro, responde a este email y {creatorName} te dirá cómo hacer el pago. Si no se renueva, ese día se cerrará el acceso.", { creatorName: esc(o.creatorName) })),
       }),
     };
   return {
-    subject: `Tu acceso a «${o.productTitle}» termina el ${o.until}`,
+    subject: et("Tu acceso a «{productTitle}» termina el {until}", { productTitle: o.productTitle, until: o.until }),
     html: layout({
       brand: o.creatorName,
-      title: "Tu acceso termina pronto",
+      title: et("Tu acceso termina pronto"),
       body:
-        p(`Tu acceso a <strong>${esc(o.productTitle)}</strong> termina el <strong>${esc(o.until)}</strong> (incluido). Hasta entonces puedes entrar como siempre.`) +
-        (o.cta ? "" : p(`Si quieres seguir, responde a este email y ${esc(o.creatorName)} te dirá cómo.`)),
+        p(et("Tu acceso a <strong>{productTitle}</strong> termina el <strong>{until}</strong> (incluido). Hasta entonces puedes entrar como siempre.", { productTitle: esc(o.productTitle), until: esc(o.until) })) +
+        (o.cta ? "" : p(et("Si quieres seguir, responde a este email y {creatorName} te dirá cómo.", { creatorName: esc(o.creatorName) }))),
       cta: o.cta ?? undefined,
     }),
   };
@@ -682,13 +685,13 @@ export function accessEndingEmail(o: { creatorName: string; productTitle: string
 /** El día que termina un acceso con fecha. */
 export function accessEndedEmail(o: { creatorName: string; productTitle: string; cta?: { label: string; url: string } | null }) {
   return {
-    subject: `Tu acceso a «${o.productTitle}» ha terminado`,
+    subject: et("Tu acceso a «{productTitle}» ha terminado", { productTitle: o.productTitle }),
     html: layout({
       brand: o.creatorName,
-      title: "Tu acceso ha terminado",
+      title: et("Tu acceso ha terminado"),
       body:
-        p(`Tu acceso a <strong>${esc(o.productTitle)}</strong> ha terminado. Gracias por haber estado ahí.`) +
-        (o.cta ? "" : p(`Si quieres volver, responde a este email y ${esc(o.creatorName)} te dirá cómo.`)),
+        p(et("Tu acceso a <strong>{productTitle}</strong> ha terminado. Gracias por haber estado ahí.", { productTitle: esc(o.productTitle) })) +
+        (o.cta ? "" : p(et("Si quieres volver, responde a este email y {creatorName} te dirá cómo.", { creatorName: esc(o.creatorName) }))),
       cta: o.cta ?? undefined,
     }),
   };
@@ -697,11 +700,11 @@ export function accessEndedEmail(o: { creatorName: string; productTitle: string;
 /** A la dueña: ha terminado el acceso con fecha de alguien. */
 export function accessEndedCreatorEmail(o: { productTitle: string; person: string; ended: string; url: string }) {
   return {
-    subject: `Ha terminado el acceso de ${o.person} a «${o.productTitle}»`,
+    subject: et("Ha terminado el acceso de {person} a «{productTitle}»", { person: o.person, productTitle: o.productTitle }),
     html: layout({
-      title: "Acceso terminado",
-      body: p(`El acceso de <strong>${esc(o.person)}</strong> a «${esc(o.productTitle)}» terminó el ${esc(o.ended)}, como pusiste al dárselo. Ya no puede entrar y le hemos avisado.`),
-      cta: { label: "Ampliar su acceso", url: o.url },
+      title: et("Acceso terminado"),
+      body: p(et("El acceso de <strong>{person}</strong> a «{productTitle}» terminó el {ended}, como pusiste al dárselo. Ya no puede entrar y le hemos avisado.", { person: esc(o.person), productTitle: esc(o.productTitle), ended: esc(o.ended) })),
+      cta: { label: et("Ampliar su acceso"), url: o.url },
     }),
   };
 }
@@ -710,13 +713,13 @@ export function accessEndedCreatorEmail(o: { productTitle: string; person: strin
 export function membershipEndedEmail(o: { creatorName: string; productTitle: string; reason: "period_end" | "payment_failed"; rejoinUrl?: string | null }) {
   const failed = o.reason === "payment_failed";
   return {
-    subject: failed ? `Tu membresía «${o.productTitle}» se ha cancelado` : `Tu membresía «${o.productTitle}» ha terminado`,
+    subject: failed ? et("Tu membresía «{productTitle}» se ha cancelado", { productTitle: o.productTitle }) : et("Tu membresía «{productTitle}» ha terminado", { productTitle: o.productTitle }),
     html: layout({
       brand: o.creatorName,
-      title: failed ? "Tu membresía se ha cancelado" : "Tu membresía ha terminado",
+      title: failed ? et("Tu membresía se ha cancelado") : et("Tu membresía ha terminado"),
       body: failed
-        ? p(`Tu membresía <strong>${esc(o.productTitle)}</strong> se ha cancelado porque no hemos podido cobrar la renovación. Ya no tienes acceso a su contenido ni a lo que incluía.`)
-        : p(`Tu membresía <strong>${esc(o.productTitle)}</strong> ha terminado, como pediste al cancelarla. Ya no tienes acceso a su contenido ni a lo que incluía.`),
+        ? p(et("Tu membresía <strong>{productTitle}</strong> se ha cancelado porque no hemos podido cobrar la renovación. Ya no tienes acceso a su contenido ni a lo que incluía.", { productTitle: esc(o.productTitle) }))
+        : p(et("Tu membresía <strong>{productTitle}</strong> ha terminado, como pediste al cancelarla. Ya no tienes acceso a su contenido ni a lo que incluía.", { productTitle: esc(o.productTitle) })),
       cta: o.rejoinUrl ? { label: "Volver a unirme", url: o.rejoinUrl } : undefined,
     }),
   };
@@ -727,70 +730,70 @@ export function membershipEndedEmail(o: { creatorName: string; productTitle: str
 
 export function loginAlertEmail(o: { when: string; device: string; settingsUrl: string }) {
   return {
-    subject: "Nuevo acceso a tu panel",
+    subject: et("Nuevo acceso a tu panel"),
     html: layout({
-      title: "Nuevo acceso a tu panel",
+      title: et("Nuevo acceso a tu panel"),
       body:
-        p(`Alguien ha entrado en tu panel de ${esc(platformName())}:`) +
+        p(et("Alguien ha entrado en tu panel de {platformName}:", { platformName: esc(platformName()) })) +
         p(`<strong>${esc(o.device)}</strong> · ${esc(o.when)}`) +
-        p("Si has sido tú, no tienes que hacer nada.") +
-        note("¿No has sido tú? Cambia tu contraseña ahora: cerraremos las demás sesiones. Y activa la verificación en dos pasos si aún no la tienes."),
-      cta: { label: "Revisar mi seguridad", url: o.settingsUrl },
+        p(et("Si has sido tú, no tienes que hacer nada.")) +
+        note(et("¿No has sido tú? Cambia tu contraseña ahora: cerraremos las demás sesiones. Y activa la verificación en dos pasos si aún no la tienes.")),
+      cta: { label: et("Revisar mi seguridad"), url: o.settingsUrl },
     }),
   };
 }
 
 export type TwoFactorEvent = "enabled" | "disabled" | "codes" | "devices" | "reset" | "recovery_used" | "password";
 
-const TWO_FACTOR_COPY: Record<TwoFactorEvent, { subject: string; body: string }> = {
-  enabled: { subject: "Has activado la verificación en dos pasos", body: "Desde ahora, además de tu contraseña o del enlace, te pediremos el código de tu app al entrar. Hemos cerrado tus demás sesiones." },
-  disabled: { subject: "Has desactivado la verificación en dos pasos", body: "Ya no te pediremos el código de tu app al entrar. Puedes volver a activarla cuando quieras." },
-  codes: { subject: "Tienes códigos de recuperación nuevos", body: "Has generado códigos de recuperación nuevos: los anteriores ya no sirven. También hemos olvidado tus dispositivos recordados." },
-  devices: { subject: "Hemos olvidado tus dispositivos recordados", body: "La próxima vez que entres desde cualquier dispositivo te pediremos el código de tu app." },
-  reset: { subject: "Se ha desactivado la verificación en dos pasos desde el servidor", body: "Quien gestiona tu web ha desactivado la verificación en dos pasos y ha cerrado todas tus sesiones. Entra con tu contraseña o con un enlace y vuelve a activarla en Ajustes › Seguridad." },
-  recovery_used: { subject: "Has entrado con un código de recuperación", body: "Has usado uno de tus códigos de recuperación para entrar. Si has cambiado de móvil, vuelve a configurar la app de códigos." },
-  password: { subject: "Has cambiado tu contraseña", body: "Has cambiado tu contraseña y hemos olvidado tus dispositivos recordados: te pediremos el código de tu app la próxima vez." },
-};
+const twoFactorCopy = (): Record<TwoFactorEvent, { subject: string; body: string }> => ({
+  enabled: { subject: et("Has activado la verificación en dos pasos"), body: et("Desde ahora, además de tu contraseña o del enlace, te pediremos el código de tu app al entrar. Hemos cerrado tus demás sesiones.") },
+  disabled: { subject: et("Has desactivado la verificación en dos pasos"), body: et("Ya no te pediremos el código de tu app al entrar. Puedes volver a activarla cuando quieras.") },
+  codes: { subject: et("Tienes códigos de recuperación nuevos"), body: et("Has generado códigos de recuperación nuevos: los anteriores ya no sirven. También hemos olvidado tus dispositivos recordados.") },
+  devices: { subject: et("Hemos olvidado tus dispositivos recordados"), body: et("La próxima vez que entres desde cualquier dispositivo te pediremos el código de tu app.") },
+  reset: { subject: et("Se ha desactivado la verificación en dos pasos desde el servidor"), body: et("Quien gestiona tu web ha desactivado la verificación en dos pasos y ha cerrado todas tus sesiones. Entra con tu contraseña o con un enlace y vuelve a activarla en Ajustes › Seguridad.") },
+  recovery_used: { subject: et("Has entrado con un código de recuperación"), body: et("Has usado uno de tus códigos de recuperación para entrar. Si has cambiado de móvil, vuelve a configurar la app de códigos.") },
+  password: { subject: et("Has cambiado tu contraseña"), body: et("Has cambiado tu contraseña y hemos olvidado tus dispositivos recordados: te pediremos el código de tu app la próxima vez.") },
+});
 
 export function twoFactorChangedEmail(o: { event: TwoFactorEvent; remaining?: number; settingsUrl: string }) {
-  const copy = TWO_FACTOR_COPY[o.event];
-  const left = o.remaining !== undefined ? p(`Te ${o.remaining === 1 ? "queda" : "quedan"} <strong>${o.remaining}</strong> ${o.remaining === 1 ? "código" : "códigos"} de recuperación.`) : "";
+  const copy = twoFactorCopy()[o.event];
+  const left = o.remaining !== undefined ? p(o.remaining === 1 ? et("Te queda <strong>1</strong> código de recuperación.") : et("Te quedan <strong>{n}</strong> códigos de recuperación.", { n: o.remaining })) : "";
   return {
     subject: copy.subject,
     html: layout({
       title: copy.subject,
-      body: p(esc(copy.body)) + left + note("¿No has sido tú? Cambia tu contraseña y revisa quién puede leer tu email."),
-      cta: { label: "Ver mi seguridad", url: o.settingsUrl },
+      body: p(esc(copy.body)) + left + note(et("¿No has sido tú? Cambia tu contraseña y revisa quién puede leer tu email.")),
+      cta: { label: et("Ver mi seguridad"), url: o.settingsUrl },
     }),
   };
 }
 
 export function twoFactorFailuresEmail(o: { when: string; device: string; settingsUrl: string }) {
   return {
-    subject: "Alguien ha intentado entrar en tu panel",
+    subject: et("Alguien ha intentado entrar en tu panel"),
     html: layout({
-      title: "Alguien ha intentado entrar en tu panel",
+      title: et("Alguien ha intentado entrar en tu panel"),
       body:
-        p("Alguien ha escrito bien tu contraseña (o ha abierto tu enlace para entrar) pero no el código de tu app.") +
+        p(et("Alguien ha escrito bien tu contraseña (o ha abierto tu enlace para entrar) pero no el código de tu app.")) +
         p(`<strong>${esc(o.device)}</strong> · ${esc(o.when)}`) +
-        p("Si no has sido tú, cambia tu contraseña cuanto antes y revisa quién puede leer tu email."),
-      cta: { label: "Cambiar mi contraseña", url: o.settingsUrl },
+        p(et("Si no has sido tú, cambia tu contraseña cuanto antes y revisa quién puede leer tu email.")),
+      cta: { label: et("Cambiar mi contraseña"), url: o.settingsUrl },
     }),
   };
 }
 
-// ── Cambio de email del área de alumnas (lib/magic-links.ts, app/cuenta/actions.ts) ──
+// ── Cambio de email del área de alumnas (lib/magic-links.ts, app/area/actions.ts) ──
 
 export function emailChangeConfirmEmail(o: { url: string; creatorName?: string }) {
   return {
-    subject: "Confirma tu nuevo email",
+    subject: et("Confirma tu nuevo email"),
     html: layout({
       brand: o.creatorName,
-      title: "Confirma tu nuevo email",
+      title: et("Confirma tu nuevo email"),
       body:
-        p("Has pedido usar este email en tu cuenta. Pulsa el botón y después «Confirmar el cambio».") +
-        note("El enlace funciona durante 24 horas y solo una vez. Si no lo has pedido tú, ignora este mensaje: no cambiará nada."),
-      cta: { label: "Confirmar el cambio", url: o.url },
+        p(et("Has pedido usar este email en tu cuenta. Pulsa el botón y después «Confirmar el cambio».")) +
+        note(et("El enlace funciona durante 24 horas y solo una vez. Si no lo has pedido tú, ignora este mensaje: no cambiará nada.")),
+      cta: { label: et("Confirmar el cambio"), url: o.url },
     }),
   };
 }
@@ -798,12 +801,12 @@ export function emailChangeConfirmEmail(o: { url: string; creatorName?: string }
 /** Al email de antes, al pedir el cambio. */
 export function emailChangeRequestedEmail(o: { newEmailMasked: string }) {
   return {
-    subject: "Se ha pedido cambiar el email de tu cuenta",
+    subject: et("Se ha pedido cambiar el email de tu cuenta"),
     html: layout({
-      title: "Se ha pedido cambiar el email de tu cuenta",
+      title: et("Se ha pedido cambiar el email de tu cuenta"),
       body:
-        p(`Alguien con tu sesión abierta ha pedido cambiar el email de tu cuenta a <strong>${esc(o.newEmailMasked)}</strong>.`) +
-        p("El cambio solo se hará si se confirma desde ese email. Si no has sido tú, cambia tu contraseña y responde a este mensaje."),
+        p(et("Alguien con tu sesión abierta ha pedido cambiar el email de tu cuenta a <strong>{newEmailMasked}</strong>.", { newEmailMasked: esc(o.newEmailMasked) })) +
+        p(et("El cambio solo se hará si se confirma desde ese email. Si no has sido tú, cambia tu contraseña y responde a este mensaje.")),
     }),
   };
 }
@@ -811,12 +814,12 @@ export function emailChangeRequestedEmail(o: { newEmailMasked: string }) {
 /** Al email de antes, cuando el cambio ya se ha hecho. */
 export function emailChangedEmail(o: { newEmailMasked: string }) {
   return {
-    subject: "El email de tu cuenta ha cambiado",
+    subject: et("El email de tu cuenta ha cambiado"),
     html: layout({
-      title: "El email de tu cuenta ha cambiado",
+      title: et("El email de tu cuenta ha cambiado"),
       body:
-        p(`Desde ahora tu cuenta usa <strong>${esc(o.newEmailMasked)}</strong> para entrar y para los avisos.`) +
-        p("¿No has sido tú? Responde a este email cuanto antes."),
+        p(et("Desde ahora tu cuenta usa <strong>{newEmailMasked}</strong> para entrar y para los avisos.", { newEmailMasked: esc(o.newEmailMasked) })) +
+        p(et("¿No has sido tú? Responde a este email cuanto antes.")),
     }),
   };
 }
@@ -824,11 +827,11 @@ export function emailChangedEmail(o: { newEmailMasked: string }) {
 /** Al email nuevo cuando ya es de otra cuenta (no se dice en la web, para no revelar qué emails existen). */
 export function emailTakenEmail(o: { loginUrl: string }) {
   return {
-    subject: "Ya tienes una cuenta con este email",
+    subject: et("Ya tienes una cuenta con este email"),
     html: layout({
-      title: "Ya tienes una cuenta con este email",
-      body: p("Alguien ha intentado usar este email en otra cuenta, pero ya hay una cuenta con él. Si eres tú, entra con este email directamente: no hace falta cambiar nada."),
-      cta: { label: "Entrar", url: o.loginUrl },
+      title: et("Ya tienes una cuenta con este email"),
+      body: p(et("Alguien ha intentado usar este email en otra cuenta, pero ya hay una cuenta con él. Si eres tú, entra con este email directamente: no hace falta cambiar nada.")),
+      cta: { label: et("Entrar"), url: o.loginUrl },
     }),
   };
 }
@@ -853,17 +856,17 @@ export function moonCircleReminderEmail(o: {
       `<p style="margin:8px 0 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:15px;line-height:1.6;color:${MAIL.gold}">${esc(o.sky.phrase)}</p></div>`
     : "";
   return {
-    subject: o.sky ? `Mañana nos vemos bajo la ${o.sky.title} ✦` : `Recordatorio: ${o.productTitle}`,
+    subject: o.sky ? et("Mañana nos vemos bajo la {title} ✦", { title: o.sky.title }) : `Recordatorio: ${o.productTitle}`,
     html: layout({
       brand: o.creatorName,
-      title: "Tu círculo de la luna",
+      title: et("Tu círculo de la luna"),
       preheader: o.sky ? o.sky.phrase : null,
       body:
         (o.introHtml ?? "") +
         moon +
         p(`<strong>${esc(o.productTitle)}</strong><br>${esc(o.when)}`) +
-        (o.meetingUrl ? p(`${esc(o.meetingLabel ?? "Enlace de la videollamada")}: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : ""),
-      cta: { label: "Ver detalles", url: o.url },
+        (o.meetingUrl ? p(`${esc(o.meetingLabel ?? et("Enlace de la videollamada"))}: <a href="${esc(o.meetingUrl)}">${esc(o.meetingUrl)}</a>`) : ""),
+      cta: { label: et("Ver detalles"), url: o.url },
       afterCta: note(o.linkNote),
     }),
   };
@@ -872,16 +875,16 @@ export function moonCircleReminderEmail(o: {
 /** «Gracias tras la sesión»: un gracias y que le cuente cómo le fue (respondiendo). */
 export function sessionThanksEmail(o: { name?: string | null; creatorName: string; productTitle: string; url: string; introHtml?: string | null }) {
   return {
-    subject: `Gracias por tu tiempo${o.name ? `, ${o.name}` : ""} ✦`,
+    subject: et("Gracias por tu tiempo{name} ✦", { name: o.name ? `, ${o.name}` : "" }),
     html: layout({
       brand: o.creatorName,
-      title: o.introHtml ? "" : `Gracias${o.name ? `, ${o.name}` : ""}`,
+      title: o.introHtml ? "" : et("Gracias{name}", { name: o.name ? `, ${o.name}` : "" }),
       body:
         o.introHtml ||
-        p(`Ha sido un regalo compartir <strong>${esc(o.productTitle)}</strong> contigo. Tómate unos días para dejar que se asiente todo lo que vimos.`) +
-          p("Si te apetece, respóndeme a este email y cuéntame cómo te has quedado: lo leo yo, con calma.") +
+        p(et("Ha sido un regalo compartir <strong>{productTitle}</strong> contigo. Tómate unos días para dejar que se asiente todo lo que vimos.", { productTitle: esc(o.productTitle) })) +
+          p(et("Si te apetece, respóndeme a este email y cuéntame cómo te has quedado: lo leo yo, con calma.")) +
           `<p style="margin:22px 0 0;font-family:Georgia,serif;font-style:italic;font-size:18px;color:${MAIL.gold}">Un abrazo, ${esc(o.creatorName.split(" ")[0])}</p>`,
-      cta: { label: "Ver lo mío", url: o.url },
+      cta: { label: et("Ver lo mío"), url: o.url },
     }),
   };
 }
@@ -889,21 +892,21 @@ export function sessionThanksEmail(o: { name?: string | null; creatorName: strin
 /** «Te echo de menos»: un email cariñoso para volver a su área, con lo que sigue teniendo. */
 export function missYouEmail(o: { name?: string | null; creatorName: string; url: string; items: string[]; introHtml?: string | null }) {
   const list = o.items.length
-    ? `<div style="margin:20px 0;padding:16px 18px;border:1px solid ${MAIL.goldLine};border-radius:16px;background:${MAIL.box}"><p style="margin:0 0 8px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:${MAIL.gold}">Sigue siendo tuyo</p>${o.items
+    ? et("<div style=\"margin:20px 0;padding:16px 18px;border:1px solid {goldLine};border-radius:16px;background:{box}\"><p style=\"margin:0 0 8px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:{gold}\">Sigue siendo tuyo</p>{join}</div>", { goldLine: MAIL.goldLine, box: MAIL.box, gold: MAIL.gold, join: o.items
         .slice(0, 5)
         .map((i) => `<p style="margin:4px 0;color:${MAIL.strong}">✦ ${esc(i)}</p>`)
-        .join("")}</div>`
+        .join("") })
     : "";
   return {
-    subject: `Te echo de menos${o.name ? `, ${o.name}` : ""} ✦`,
+    subject: et("Te echo de menos{name} ✦", { name: o.name ? `, ${o.name}` : "" }),
     html: layout({
       brand: o.creatorName,
-      title: o.introHtml ? "" : `Hola${o.name ? `, ${o.name}` : ""}`,
+      title: o.introHtml ? "" : et("Hola{name}", { name: o.name ? `, ${o.name}` : "" }),
       body:
         (o.introHtml ||
-          p("Hace tiempo que no pasas por tu área y quería escribirte. Todo lo tuyo sigue ahí, esperándote a tu ritmo.") +
-            p("Si necesitas algo o te has quedado con alguna duda, respóndeme a este email.")) + list,
-      cta: { label: "Volver a mi área", url: o.url },
+          p(et("Hace tiempo que no pasas por tu área y quería escribirte. Todo lo tuyo sigue ahí, esperándote a tu ritmo.")) +
+            p(et("Si necesitas algo o te has quedado con alguna duda, respóndeme a este email."))) + list,
+      cta: { label: et("Volver a mi área"), url: o.url },
     }),
   };
 }

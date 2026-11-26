@@ -51,7 +51,7 @@ export type WizardInit = {
   legal: { defaults: Partial<LegalIdentity>; contactFallback: string; complete: boolean };
 };
 
-/** Pasos del alta: 1 es /registro y el asistente va del 2 al 10. */
+/** Pasos del alta: 1 es /signup y el asistente va del 2 al 10. */
 const TOTAL = 10;
 const EMOJIS = ["🌙", "✨", "🔮", "🧬", "🔑", "💫", "🌿", "🧘", "🪷", "📖", "🎧", "☀️"];
 const PRICE_SUGGESTIONS = [19, 29, 49, 79, 120];
@@ -288,10 +288,10 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                   <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-ink" />
                   <span>
                     Acepto los{" "}
-                    <a href="/terminos" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Términos del servicio</a> y el{" "}
-                    <a href="/terminos#encargo" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Encargo de tratamiento de datos</a> de
+                    <a href="/terms" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Términos del servicio</a> y el{" "}
+                    <a href="/terms#encargo" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Encargo de tratamiento de datos</a> de
                     Cirella y he leído la{" "}
-                    <a href="/privacidad" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Política de privacidad</a>.
+                    <a href="/privacy" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Política de privacidad</a>.
                   </span>
                 </label>
               </Step>

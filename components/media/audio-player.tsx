@@ -4,6 +4,7 @@ import { INLINE_MEDIA_TTL_SEC } from "@/lib/file-types";
 import { clock, useResumePosition, useSignedMedia } from "./use-signed-media";
 import type { PlayerFile } from "./video-player";
 import { CalmAudio } from "./calm-audio";
+import { Tr } from "@/lib/i18n/client";
 
 
 /**
@@ -108,14 +109,13 @@ function AudioUi({ audioRef, file, src, title, artwork, resumeAt, ended }: Inner
               el.currentTime = resumeAt;
               el.play().catch(() => {});
             }}
-          >
-            Seguir donde lo dejaste ({clock(resumeAt)})
+          ><Tr s={"Seguir donde lo dejaste ("} />{clock(resumeAt)})
           </button>
         </div>
       )}
       {ended && (
         <p className="mt-3 text-center text-sm text-cream" role="alert">
-          {ended}
+          <Tr s={ended} />
         </p>
       )}
     </div>

@@ -1,3 +1,4 @@
+import { productPath } from "@/lib/public-paths";
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db";
 import { appUrl } from "@/lib/env";
@@ -16,17 +17,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     select: {
       username: true,
       updatedAt: true,
-      products: { where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } },
+      products: { where: { status: "PUBLISHED" }, select: { slug: true, type: true, updatedAt: true } },
       posts: { where: publicPostWhere(), select: { slug: true, updatedAt: true }, orderBy: { publishedAt: "desc" } },
       sitePages: { where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } },
     },
   });
   return [
     { url: base, changeFrequency: "weekly", priority: 1 },
-    ...["/terminos", "/privacidad", "/aviso-legal"].map((path) => ({ url: `${base}${path}`, changeFrequency: "monthly" as const, priority: 0.3 })),
+    ...["/terms", "/privacy", "/legal-notice"].map((path) => ({ url: `${base}${path}`, changeFrequency: "monthly" as const, priority: 0.3 })),
     ...creators.flatMap((c) => [
       { url: `${base}/${c.username}`, lastModified: c.updatedAt, priority: 0.8 },
-      ...c.products.map((p) => ({ url: `${base}/${c.username}/${p.slug}`, lastModified: p.updatedAt, priority: 0.6 })),
+      ...c.products.map((p) => ({ url: `${base}${productPath(c.username, p)}`, lastModified: p.updatedAt, priority: 0.6 })),
       ...postEntries(base, c.username, c.posts),
       ...c.sitePages.map((p) => ({ url: `${base}/${c.username}/p/${p.slug}`, lastModified: p.updatedAt, priority: 0.6 })),
     ]),
@@ -40,7 +41,7 @@ async function personalSitemap(base: string, owner: string): Promise<MetadataRou
     select: {
       updatedAt: true,
       // Lo de pago no se ofrece aquí: su ficha es un 404 para las visitas.
-      products: { where: { status: "PUBLISHED", accessMode: { not: "PAID" } }, select: { slug: true, updatedAt: true } },
+      products: { where: { status: "PUBLISHED", accessMode: { not: "PAID" } }, select: { slug: true, type: true, updatedAt: true } },
       posts: { where: publicPostWhere(), select: { slug: true, updatedAt: true }, orderBy: { publishedAt: "desc" } },
       sitePages: { where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } },
     },
@@ -48,11 +49,11 @@ async function personalSitemap(base: string, owner: string): Promise<MetadataRou
   if (!c) return [{ url: `${base}/`, changeFrequency: "weekly", priority: 1 }];
   return [
     { url: `${base}/`, lastModified: c.updatedAt, changeFrequency: "weekly", priority: 1 },
-    // Sus páginas extra viven en la raíz (/sobre-mi), que es su dirección canónica.
+    // Sus páginas extra viven en la raíz (/aboutme), que es su dirección canónica.
     ...c.sitePages.map((p) => ({ url: `${base}/${p.slug}`, lastModified: p.updatedAt, priority: 0.7 })),
     // Las páginas de la portada nueva, también en la raíz (lib/site-sections.ts).
-    ...(["comunidad", "cursos", "lecturas", "sesiones", "portal"] as const).map((p) => ({ url: `${base}${sectionPagePath(owner, p, true)}`, priority: 0.6 })),
-    ...c.products.map((p) => ({ url: `${base}/${owner}/${p.slug}`, lastModified: p.updatedAt, priority: 0.7 })),
+    ...(["comunidad", "cursos", "lecturas", "sesiones"] as const).map((p) => ({ url: `${base}${sectionPagePath(owner, p, true)}`, priority: 0.6 })),
+    ...c.products.map((p) => ({ url: `${base}${productPath(owner, p)}`, lastModified: p.updatedAt, priority: 0.7 })),
     ...postEntries(base, owner, c.posts, true),
   ];
 }

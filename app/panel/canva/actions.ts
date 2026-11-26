@@ -1,5 +1,6 @@
 "use server";
 
+import { translateSoon } from "@/lib/i18n/content";
 import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireCreator } from "@/lib/auth";
@@ -17,6 +18,7 @@ import { isOwnImageSrc } from "@/lib/page-blocks";
 import { hasPaymentProvider } from "@/lib/payments";
 import { canSellType } from "@/lib/plans";
 import { getPublicCreator } from "@/lib/public";
+import { readAreaDesign } from "@/lib/area-design";
 import { readTierCard, type TierEmblem } from "@/lib/tier-card";
 import { parseTierLook } from "@/lib/tier-look";
 import type { TierFeature } from "@/lib/tier-features";
@@ -41,6 +43,7 @@ async function patchHome(patch: (cfg: Raw) => Raw): Promise<Result> {
   const pagePublished = apply(creator.pagePublished);
   if (!pageDraft && !pagePublished) return { ok: false, error: "guarda antes tu portada" };
   await prisma.creator.update({ where: { id: creator.id }, data: { ...(pageDraft ? { pageDraft } : {}), ...(pagePublished ? { pagePublished } : {}) } });
+  translateSoon(creator.id, true);
   revalidatePath(`/${creator.username}`, "layout");
   revalidatePath("/panel", "layout");
   if (isPersonalMode()) revalidatePath("/", "layout");
@@ -184,7 +187,7 @@ function refreshTiers(username: string) {
   revalidatePath(`/${username}`, "layout");
   if (isPersonalMode()) revalidatePath("/", "layout");
   revalidatePath("/panel/comunidad");
-  revalidatePath("/cuenta/membresias");
+  revalidatePath("/area/membership");
 }
 
 /**
@@ -215,6 +218,7 @@ export async function saveCanvaTier(input: CanvaTierInput): Promise<Result> {
     data: { title, imageUrl, priceCents: storedPriceCents(mode, priceCents), pageTexts: { ...prev, tier: card } as unknown as Prisma.InputJsonObject },
   });
   refreshTiers(creator.username);
+  translateSoon(creator.id, true);
   return { ok: true };
 }
 
@@ -292,4 +296,21 @@ export async function createCanvaTier(input: { title: string; price: string; int
   const data = await getPublicCreator(creator.username, true);
   const tiers = await webTiers(creator.id, creator.username, data?.products ?? [], { href: data?.personal ? "/" : `/${creator.username}`, texts: data?.config.texts });
   return { ok: true, tiers };
+}
+
+/**
+ * Mi página › Área de alumna, Cursos y Membresías por dentro: los colores para todas sus alumnas (lib/area-design.ts).
+ * Los niveles solo pueden ser membresías suyas. Las páginas del área son dinámicas: se ve al volver a abrirlas.
+ */
+export async function saveAreaDesign(input: unknown): Promise<Result> {
+  const { creator } = await requireCreator();
+  const design = readAreaDesign(input);
+  const ids = Object.keys(design.tiers);
+  if (ids.length) {
+    const mine = await prisma.product.findMany({ where: { id: { in: ids }, creatorId: creator.id, type: "MEMBERSHIP" }, select: { id: true } });
+    const ok = new Set(mine.map((m) => m.id));
+    for (const id of ids) if (!ok.has(id)) delete design.tiers[id];
+  }
+  await prisma.creator.update({ where: { id: creator.id }, data: { areaDesign: design as unknown as Prisma.InputJsonValue } });
+  return { ok: true };
 }

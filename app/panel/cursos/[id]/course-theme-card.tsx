@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { CategoryIcons } from "@/components/creator-page/category-icons";
 import { COURSE_CATEGORIES, COURSE_CATEGORY_LABEL, COURSE_CATEGORY_SEP, courseCategoriesOf, type CourseCategory } from "@/lib/course-categories";
 import { setStudioCourseCategory } from "../actions";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * «Temática del curso» en el estudio: los iconos de cada temática para marcar una o varias (un curso
@@ -11,6 +12,7 @@ import { setStudioCourseCategory } from "../actions";
  * panel y de la web.
  */
 export function CourseThemeCard({ productId, initial }: { productId: string; initial: string | null }) {
+  const t = useT();
   const [picked, setPicked] = useState<CourseCategory[]>(() => courseCategoriesOf(initial));
   const [msg, setMsg] = useState<{ ok?: string; error?: string } | null>(null);
   const [saving, start] = useTransition();
@@ -29,9 +31,7 @@ export function CourseThemeCard({ productId, initial }: { productId: string; ini
   return (
     <section className="card p-4" aria-labelledby="tematica-titulo" data-course-theme>
       <div className="flex items-center justify-between gap-2">
-        <h3 id="tematica-titulo" className="text-[0.66rem] font-medium uppercase tracking-[0.3em] text-gold" title="Toca una o varias: el curso sale en su temática en «Cursos» del panel y de tu web.">
-          Temática
-        </h3>
+        <h3 id="tematica-titulo" className="text-[0.66rem] font-medium uppercase tracking-[0.3em] text-gold" title={t("Toca una o varias: el curso sale en su temática en «Cursos» del panel y de tu web.")}><Tr s={"Temática"} /></h3>
         {saving && <Loader2 className="h-4 w-4 animate-spin text-muted" />}
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -49,13 +49,13 @@ export function CourseThemeCard({ productId, initial }: { productId: string; ini
               <span className={on ? "text-gold" : ""}>
                 <CategoryIcons categories={[c]} size={1.5} />
               </span>
-              <span className="text-[0.66rem] font-semibold leading-tight">{COURSE_CATEGORY_LABEL[c]}</span>
+              <span className="text-[0.66rem] font-semibold leading-tight"><Tr s={COURSE_CATEGORY_LABEL[c]} /></span>
             </button>
           );
         })}
       </div>
-      {msg?.error && <p className="mt-2 text-xs text-[#9a3a2e]">{msg.error}</p>}
-      {msg?.ok && !saving && <p className="mt-2 text-xs text-[#2f6b4a]">{msg.ok}</p>}
+      {msg?.error && <p className="mt-2 text-xs text-[#9a3a2e]"><Tr s={msg.error} /></p>}
+      {msg?.ok && !saving && <p className="mt-2 text-xs text-[#2f6b4a]"><Tr s={msg.ok} /></p>}
     </section>
   );
 }

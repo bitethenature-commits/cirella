@@ -4,6 +4,7 @@ import { BookOpen, ChevronDown } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import type { CourseCategory } from "@/lib/course-categories";
 import { CategoryIcons } from "./category-icons";
+import { Tr } from "@/lib/i18n/client";
 
 export type CourseGroupView = { key: string; label: string; categories: CourseCategory[]; count: number; cards: ReactNode };
 
@@ -58,9 +59,9 @@ export function CourseGroups({ groups, name = "metodos", tone = "page", empty }:
               </span>
               <span className="min-w-0 flex-1">
                 <h2 id={name === "metodos" ? `metodo-${g.key}` : `${name}-t-${g.key}`} className={`${t.display} m-0 text-[1.5rem] leading-tight sm:text-[1.75rem]`}>
-                  {g.label}
+                  <Tr s={g.label} />
                 </h2>
-                <span className={`${t.muted} block text-sm tabular-nums`}>{g.count === 0 ? "Próximamente" : `${g.count} ${g.count === 1 ? "curso" : "cursos"}`}</span>
+                <span className={`${t.muted} block text-sm tabular-nums`}>{g.count === 0 ? <Tr s={"Próximamente"} /> : `${g.count} ${g.count === 1 ? "curso" : "cursos"}`}</span>
               </span>
               <ChevronDown aria-hidden className="h-5 w-5 shrink-0 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
             </summary>

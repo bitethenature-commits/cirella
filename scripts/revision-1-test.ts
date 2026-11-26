@@ -24,7 +24,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
 }
 
 async function main() {
-  const { linkAction } = await import("../app/auth/enlace/open-link");
+  const { linkAction } = await import("../app/auth/link/open-link");
   const s = (userId: string, verified: boolean, orderId: string | null = null) => ({ user: { id: userId }, verified, orderId });
   const cases = [
     ["su cuenta sin confirmar → va a la compra, sin cambiar de sesión", s("u1", false), "ir"],

@@ -1,6 +1,7 @@
 "use client";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Eye, EyeOff, Palette, Plus, X, type LucideIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Lo que sale encima de la web en Mi página para ordenarla y cambiarla (sin tapar la web):
@@ -17,7 +18,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 const dot =
   "grid h-7 w-7 place-items-center rounded-full border border-[#e9cc8e]/45 bg-[#0e0e10]/90 text-[#f3e2b3] shadow transition hover:bg-[#26262b] disabled:pointer-events-none disabled:opacity-30";
 
-function Dot({ label, onClick, disabled, children, className = "" }: { label: string; onClick?: (() => void) | null; disabled?: boolean; children: ReactNode; className?: string }) {
+export function Dot({ label, onClick, disabled, children, className = "" }: { label: string; onClick?: (() => void) | null; disabled?: boolean; children: ReactNode; className?: string }) {
   return (
     <button type="button" className={`${dot} ${className}`} aria-label={label} title={label} disabled={disabled || !onClick} onClick={() => onClick?.()}>
       {children}
@@ -32,7 +33,7 @@ const arrowBtn =
  * Las dos flechas juntas en una sola cápsula (↑ ↓ en columna o ← → en fila), con una rayita entre medias. La que no
  * se puede usar (la primera no sube, la última no baja) se queda en su sitio, apagada: la cápsula no cambia.
  */
-function ArrowPair({ axis, prevLabel, nextLabel, onPrev, onNext }: { axis: "x" | "y"; prevLabel: string; nextLabel: string; onPrev: (() => void) | null; onNext: (() => void) | null }) {
+export function ArrowPair({ axis, prevLabel, nextLabel, onPrev, onNext }: { axis: "x" | "y"; prevLabel: string; nextLabel: string; onPrev: (() => void) | null; onNext: (() => void) | null }) {
   const row = axis === "x";
   const [Prev, Next] = row ? [ArrowLeft, ArrowRight] : [ArrowUp, ArrowDown];
   return (
@@ -61,7 +62,7 @@ export function ToolPill({ label, on = false, icon: Icon, onClick, title }: { la
       }`}
     >
       {Icon && <Icon className="h-3.5 w-3.5" />}
-      {label}
+      <Tr s={label} />
     </button>
   );
 }
@@ -130,6 +131,7 @@ export function SectionTools({
   add?: AddChoice[];
   onAdd?: (key: string) => void;
 }) {
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const top = useContentTop(ref);
   const right = !!(onToggle || onRemove || note || extra || onDesign);
@@ -147,7 +149,7 @@ export function SectionTools({
               </Dot>
             )}
             {onRemove && (
-              <Dot label={removeLabel ?? `Quitar «${label}» (vuelve con el +)`} onClick={onRemove} className="hover:!bg-rose-900/80">
+              <Dot label={t(removeLabel ?? `Quitar «${label}» (vuelve con el +)`)} onClick={onRemove} className="hover:!bg-rose-900/80">
                 <X className="h-3.5 w-3.5" />
               </Dot>
             )}
@@ -158,11 +160,11 @@ export function SectionTools({
               </Dot>
             )}
           </div>
-          {note && <span className="hidden whitespace-nowrap rounded-full bg-[#0e0e10]/90 px-2 py-0.5 text-[0.65rem] font-semibold text-[#f3e2b3] shadow md:block">{note}</span>}
+          {note && <span className="hidden whitespace-nowrap rounded-full bg-[#0e0e10]/90 px-2 py-0.5 text-[0.65rem] font-semibold text-[#f3e2b3] shadow md:block"><Tr s={note} /></span>}
           {/* «Diseño» arriba y, bajo una raya, sus estilos (Título dorado, Panel dorado, Tarjeta, Sin burbuja). */}
           {(extra || onDesign) && (
             <div className="hidden flex-col items-start gap-1 md:flex">
-              {onDesign && <ToolPill icon={Palette} label="Diseño" title={`Diseño de «${label}»: letras, colores, tarjetas…`} onClick={onDesign} />}
+              {onDesign && <ToolPill icon={Palette} label={t("Diseño")} title={`Diseño de «${label}»: letras, colores, tarjetas…`} onClick={onDesign} />}
               {onDesign && extra && <span aria-hidden className="my-1 h-px self-stretch bg-[#e9cc8e]/40" />}
               {extra}
             </div>
@@ -181,6 +183,7 @@ export function SectionTools({
  * (Texto, Foto y texto, Tarjetas…) o una de las que se quitaron.
  */
 export function AddSection({ options, onAdd, style }: { options: AddChoice[]; onAdd: (key: string) => void; style?: CSSProperties }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -219,8 +222,8 @@ export function AddSection({ options, onAdd, style }: { options: AddChoice[]; on
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        aria-label="Añadir una sección aquí"
-        title="Añadir una sección aquí"
+        aria-label={t("Añadir una sección aquí")}
+        title={t("Añadir una sección aquí")}
         className="grid h-8 w-8 place-items-center rounded-full border border-[#e9cc8e]/70 bg-[#0e0e10]/90 text-[#e9cc8e] shadow-lg transition hover:scale-105 hover:bg-[#26262b]"
       >
         <Plus className="h-4 w-4" />
@@ -231,8 +234,8 @@ export function AddSection({ options, onAdd, style }: { options: AddChoice[]; on
           className="absolute left-0 top-full mt-2 max-h-[26rem] w-[min(34rem,calc(100vw-2.5rem))] overflow-y-auto rounded-2xl border border-[#e9cc8e]/35 bg-[#0b0b0d] p-3 text-left text-[#f1ebdf] shadow-2xl"
         >
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[#d9b46a]">¿Qué añades?</p>
-            <button type="button" onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-white/10" aria-label="Cerrar">
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[#d9b46a]"><Tr s={"¿Qué añades?"} /></p>
+            <button type="button" onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-white/10" aria-label={t("Cerrar")}>
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -242,7 +245,7 @@ export function AddSection({ options, onAdd, style }: { options: AddChoice[]; on
                 const Icon = o.icon;
                 return (
                   <button key={o.key} type="button" role="menuitem" onClick={() => pick(o.key)} className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-left text-sm hover:bg-white/10">
-                    {Icon && <Icon className="h-4 w-4 shrink-0 text-[#d9b46a]" />} {o.label}
+                    {Icon && <Icon className="h-4 w-4 shrink-0 text-[#d9b46a]" />} <Tr s={o.label} />
                   </button>
                 );
               })}
@@ -250,16 +253,16 @@ export function AddSection({ options, onAdd, style }: { options: AddChoice[]; on
           )}
           {back.length > 0 && (
             <>
-              <p className="mb-1 mt-3 border-t border-white/10 px-1 pt-3 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[#d9b46a]/80">Volver a poner</p>
+              <p className="mb-1 mt-3 border-t border-white/10 px-1 pt-3 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[#d9b46a]/80"><Tr s={"Volver a poner"} /></p>
               {back.map((o) => (
                 <button key={o.key} type="button" role="menuitem" onClick={() => pick(o.key)} className="block w-full rounded-xl px-3 py-2 text-left transition hover:bg-white/10">
-                  <span className="block text-sm font-semibold">{o.label}</span>
-                  {o.hint && <span className="mt-0.5 block text-xs leading-snug text-white/60">{o.hint}</span>}
+                  <span className="block text-sm font-semibold"><Tr s={o.label} /></span>
+                  {o.hint && <span className="mt-0.5 block text-xs leading-snug text-white/60"><Tr s={o.hint} /></span>}
                 </button>
               ))}
             </>
           )}
-          {!options.length && <p className="px-1 py-2 text-sm text-white/70">No hay nada más que añadir aquí.</p>}
+          {!options.length && <p className="px-1 py-2 text-sm text-white/70"><Tr s={"No hay nada más que añadir aquí."} /></p>}
         </div>
       )}
     </div>

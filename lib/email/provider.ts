@@ -5,7 +5,7 @@ import { resendProvider } from "./providers/resend";
 
 /**
  * Proveedor de envío de emails (EMAIL_PROVIDER):
- *   · "log"    → desarrollo y demo: no envía nada (los emails se leen en /dev/correo) y simula
+ *   · "log"    → desarrollo y demo: no envía nada (los emails se leen en /dev/email) y simula
  *                fallos con direcciones +fallo (transitorio) y +rebote (permanente).
  *   · "resend" → producción: API de Resend por fetch, con Idempotency-Key.
  * lib/env.ts impide usar "log" en producción y exige RESEND_API_KEY y EMAIL_FROM con "resend".

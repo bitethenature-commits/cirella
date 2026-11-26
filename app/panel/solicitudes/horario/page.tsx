@@ -10,12 +10,15 @@ import { PageHeader } from "../../ui";
 import { addBlockedDate, removeBlockedDate, removeOverride } from "../reservas-actions";
 import { AvailabilityEditor } from "../availability";
 import { SpecialHoursForm, TimeBlockForm } from "./special-dates";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 const dayLabel = (key: string, opts: Intl.DateTimeFormatOptions = { weekday: "short", day: "numeric", month: "short" }) =>
   new Date(`${key}T12:00:00Z`).toLocaleDateString("es-ES", { ...opts, timeZone: "UTC" }).replace(/\./g, "");
 
 /** Tu horario: semanal, fechas especiales (viajes, días sueltos) y lo que bloqueas. */
 export default async function SchedulePage() {
+  const t = await getT();
   const { creator } = await requireCreator();
   const db = tenantDb(creator.id);
   const today = dateKeyInTz(new Date(), creator.timezone);
@@ -30,18 +33,18 @@ export default async function SchedulePage() {
   return (
     <div className="max-w-3xl space-y-8 pb-10">
       <Link href="/panel/clientes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> {peopleLabel()}</Link>
-      <PageHeader title="Tu horario" subtitle="Tus clientas solo ven huecos dentro de tu horario. La duración, el margen y la antelación se configuran en cada sesión." />
+      <PageHeader title={t("Tu horario")} subtitle={t("Tus clientas solo ven huecos dentro de tu horario. La duración, el margen y la antelación se configuran en cada sesión.")} />
       <TzDriftNotice ownerTz={creator.timezone} />
 
       <section className="card space-y-4 p-5 sm:p-6">
-        <h2 className="font-semibold">Horario semanal</h2>
+        <h2 className="font-semibold"><Tr s={"Horario semanal"} /></h2>
         <AvailabilityEditor initial={rules.map((r) => ({ weekday: r.weekday, startMinute: r.startMinute, endMinute: r.endMinute }))} timezone={creator.timezone} />
       </section>
 
       <section id="especiales" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
         <div>
-          <h2 className="font-semibold">Fechas especiales</h2>
-          <p className="mt-1 text-sm text-muted">Para viajes o días sueltos: esos días trabajas en estas horas y no se usa tu horario semanal.</p>
+          <h2 className="font-semibold"><Tr s={"Fechas especiales"} /></h2>
+          <p className="mt-1 text-sm text-muted"><Tr s={"Para viajes o días sueltos: esos días trabajas en estas horas y no se usa tu horario semanal."} /></p>
         </div>
         {special.size > 0 && (
           <ul className="divide-y divide-line rounded-xl border border-line bg-white">
@@ -49,7 +52,7 @@ export default async function SchedulePage() {
               <li key={date} className="flex items-center gap-3 p-3 text-sm">
                 <span className="min-w-0 flex-1">
                   <strong>{dayLabel(date)}</strong> · {specialHoursLabel(date, rows, rows[0].timezone, creator.timezone)}
-                  {rows[0].note && <span className="text-muted"> · {rows[0].note}</span>}
+                  {rows[0].note && <span className="text-muted"> · <Tr s={rows[0].note} /></span>}
                 </span>
                 <form action={removeOverride}>
                   <input type="hidden" name="date" value={date} />
@@ -65,42 +68,42 @@ export default async function SchedulePage() {
 
       <section className="card space-y-4 p-5 sm:p-6">
         <div>
-          <h2 className="font-semibold">Días y horas bloqueados</h2>
-          <p className="mt-1 text-sm text-muted">Vacaciones, un retiro o un recado: ese tiempo no se ofrece a nadie.</p>
+          <h2 className="font-semibold"><Tr s={"Días y horas bloqueados"} /></h2>
+          <p className="mt-1 text-sm text-muted"><Tr s={"Vacaciones, un retiro o un recado: ese tiempo no se ofrece a nadie."} /></p>
         </div>
         <form action={addBlockedDate} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
           <div>
-            <label className="field-label" htmlFor="bd-from">Bloquear desde</label>
+            <label className="field-label" htmlFor="bd-from"><Tr s={"Bloquear desde"} /></label>
             <input id="bd-from" type="date" name="date" min={today} required className="input h-11 sm:w-44" />
           </div>
           <div>
-            <label className="field-label" htmlFor="bd-to">Hasta <span className="font-normal text-muted">(opcional)</span></label>
+            <label className="field-label" htmlFor="bd-to"><Tr s={"Hasta"} />{" "}<span className="font-normal text-muted"><Tr s={"(opcional)"} /></span></label>
             <input id="bd-to" type="date" name="to" min={today} className="input h-11 sm:w-44" />
           </div>
-          <input name="reason" placeholder="Motivo (opcional): vacaciones, retiro…" className="input h-11 flex-1" />
-          <button className="btn btn-outline h-11"><CalendarX className="h-4 w-4" /> Bloquear días</button>
+          <input name="reason" placeholder={t("Motivo (opcional): vacaciones, retiro…")} className="input h-11 flex-1" />
+          <button className="btn btn-outline h-11"><CalendarX className="h-4 w-4" />{" "}<Tr s={"Bloquear días"} /></button>
         </form>
         <div className="flex flex-wrap gap-2">
           {blocked.map((d) => (
             <form key={d.id} action={removeBlockedDate} className="inline-flex items-center gap-2 rounded-full border border-line bg-white py-1 pl-3 pr-1 text-sm">
               <input type="hidden" name="id" value={d.id} />
               {dayLabel(d.date)}
-              {d.reason && <span className="text-muted">· {d.reason}</span>}
-              <button className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand" aria-label="Desbloquear"><X className="h-3 w-3" /></button>
+              {d.reason && <span className="text-muted">· <Tr s={d.reason} /></span>}
+              <button className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand" aria-label={t("Desbloquear")}><X className="h-3 w-3" /></button>
             </form>
           ))}
           {blocks.map((b) => (
             <form key={b.id} action={removeOverride} className="inline-flex items-center gap-2 rounded-full border border-line bg-white py-1 pl-3 pr-1 text-sm">
               <input type="hidden" name="id" value={b.id} />
               {dayLabel(b.date)} · {specialHoursLabel(b.date, [b], b.timezone, creator.timezone)}
-              {b.note && <span className="text-muted">· {b.note}</span>}
-              <button className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand" aria-label="Desbloquear horas"><X className="h-3 w-3" /></button>
+              {b.note && <span className="text-muted">· <Tr s={b.note} /></span>}
+              <button className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand" aria-label={t("Desbloquear horas")}><X className="h-3 w-3" /></button>
             </form>
           ))}
-          {blocked.length === 0 && blocks.length === 0 && <p className="text-sm text-faint">Nada bloqueado.</p>}
+          {blocked.length === 0 && blocks.length === 0 && <p className="text-sm text-faint"><Tr s={"Nada bloqueado."} /></p>}
         </div>
         <div className="border-t border-line pt-4">
-          <p className="mb-3 text-sm font-semibold">Bloquear unas horas</p>
+          <p className="mb-3 text-sm font-semibold"><Tr s={"Bloquear unas horas"} /></p>
           <TimeBlockForm today={today} />
         </div>
       </section>

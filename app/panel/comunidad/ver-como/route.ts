@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const id = (params.get("nivel") ?? "").slice(0, 40);
   const tier = id ? await tenantDb(creator.id).product.findFirst({ where: { id, type: "MEMBERSHIP" }, select: { id: true } }) : null;
   if (!tier) return NextResponse.redirect(new URL("/panel/comunidad", base));
-  const res = NextResponse.redirect(new URL(`/cuenta/membresias/${tier.id}`, base));
+  const res = NextResponse.redirect(new URL(`/area/membership/${tier.id}`, base));
   res.cookies.set(VIEW_AS_COOKIE, tier.id, { httpOnly: true, sameSite: "lax", path: "/", maxAge: VIEW_AS_MAX_AGE, secure: base.startsWith("https://") });
   return res;
 }

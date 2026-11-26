@@ -1,12 +1,12 @@
 "use client";
 
 import { useLayoutEffect } from "react";
-import { useAccountLookPreview } from "@/app/cuenta/look-root";
+import { useAccountLookPreview } from "@/app/area/look-root";
 import type { AccountLook } from "@/lib/account-look";
 
 /**
  * Los colores, el fondo y la foto del diseño de un curso en toda el área de alumna mientras se está en él (como
- * «Colores de mi área», app/cuenta/look-root.tsx); al salir, vuelven los suyos. null = los suyos.
+ * «Colores de mi área», app/area/look-root.tsx); al salir, vuelven los suyos. null = los suyos.
  */
 export function CourseLookApply({ look }: { look: AccountLook | null }) {
   const preview = useAccountLookPreview();

@@ -4,6 +4,7 @@ import { dateKeyInTz, formatDate } from "@/lib/tz";
 import { loadStudioCourse } from "../load";
 import { StudioHeader } from "../studio-header";
 import { StudentsView } from "./students-view";
+import { Tr } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Alumnas del curso" };
 
@@ -43,9 +44,7 @@ export default async function CourseStudentsPage({ params }: { params: Promise<{
           lastActivity: s.lastActivity ? activity(s.lastActivity, now, tz) : null,
         }))}
       />
-      <p className="mt-4 text-xs text-muted">
-        Cuenta las lecciones publicadas. Quien tiene el curso por una membresía lo conserva mientras su membresía esté activa. Para dar o quitar el acceso a mano, ve a «Ajustes del producto».
-      </p>
+      <p className="mt-4 text-xs text-muted"><Tr s={"Cuenta las lecciones publicadas. Quien tiene el curso por una membresía lo conserva mientras su membresía esté activa. Para dar o quitar el acceso a mano, ve a «Ajustes del producto»."} /></p>
     </div>
   );
 }

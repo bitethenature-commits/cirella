@@ -6,6 +6,7 @@ import type { PieceLook } from "@/lib/course-design";
 import type { PartView } from "@/lib/lesson-parts";
 import { videoEmbed } from "@/lib/video-embed";
 import { PieceFrame } from "./course-look";
+import { Tr } from "@/lib/i18n/client";
 
 export type PlayerPart = {
   id: string;
@@ -26,8 +27,8 @@ function DownloadRow({ fileId, name, label }: { fileId: string; name: string; la
   return (
     <a href={`/api/download/${fileId}`} className="flex min-h-11 items-center gap-3 rounded-2xl border border-line px-4 py-2.5 text-sm transition hover:bg-sand">
       <Download className="h-4 w-4 shrink-0 text-lavender-deep" />
-      <span className="min-w-0 flex-1 truncate">{name}</span>
-      <span className="shrink-0 text-xs font-semibold text-muted">{label}</span>
+      <span className="min-w-0 flex-1 truncate"><Tr s={name} /></span>
+      <span className="shrink-0 text-xs font-semibold text-muted"><Tr s={label} /></span>
     </a>
   );
 }
@@ -46,8 +47,7 @@ function OpenVideo({ url }: { url: string }) {
   if (!/^https?:\/\//i.test(url)) return null;
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" className="btn btn-outline">
-      <ExternalLink className="h-4 w-4" /> Abrir el vídeo
-    </a>
+      <ExternalLink className="h-4 w-4" />{" "}<Tr s={"Abrir el vídeo"} /></a>
   );
 }
 
@@ -55,7 +55,7 @@ function OpenVideo({ url }: { url: string }) {
  * Las partes de una lección en el orden que eligió la dueña. Cada archivo pasa por MediaViewBase
  * (/api/stream y /api/download comprueban el acceso en cada petición); el texto, por RichContent
  * (sin HTML). Nada de dangerouslySetInnerHTML. Puro (sin servidor): lo pinta el reproductor de
- * /cuenta/cursos y la vista previa del editor de lecciones del panel. `personal`: modo del sitio.
+ * /area/courses y la vista previa del editor de lecciones del panel. `personal`: modo del sitio.
  */
 export function LessonParts({ parts, lessonTitle, courseTitle, poster, personal }: { parts: PlayerPart[]; lessonTitle: string; courseTitle: string; poster: string | null; personal: boolean }) {
   return (
@@ -122,10 +122,9 @@ export function PartBody({ p, lessonTitle, courseTitle, poster, personal }: { p:
         return (
           <a key={p.id} href={`/api/download/${f.id}`} target="_blank" rel="noopener noreferrer" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
             <Link2 className="h-5 w-5 text-lavender-deep" />
-            <span className="flex-1 text-sm font-medium">{f.name}</span>
+            <span className="flex-1 text-sm font-medium"><Tr s={f.name} /></span>
             <span className="flex items-center gap-1 text-xs text-muted">
-              <ExternalLink className="h-3.5 w-3.5" /> Abrir enlace
-            </span>
+              <ExternalLink className="h-3.5 w-3.5" />{" "}<Tr s={"Abrir enlace"} /></span>
           </a>
         );
       return <MediaViewBase personal={personal} key={p.id} file={f} title={lessonTitle} />;

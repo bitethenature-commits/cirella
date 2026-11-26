@@ -34,9 +34,9 @@ async function main() {
   const welcomeBefore = await prisma.automation.findUnique({ where: { creatorId_trigger: { creatorId: ana.id, trigger: "WELCOME" } } });
   try {
     // ── Columnas ──
-    const legacyRows = await prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*)::bigint AS n FROM "Post" WHERE "bodyFormat" IS NOT NULL AND slug NOT IN ('eclipse-de-octubre', 'luna-llena-que-soltar', 'nueva-lectura-de-gene-keys')`;
+    const legacyRows = await prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*)::bigint AS n FROM "Post" WHERE "bodyFormat" IS NOT NULL AND slug NOT IN ('october-eclipse', 'full-moon-letting-go', 'new-gene-keys-reading')`;
     check("las publicaciones de antes (salvo las de la demo con formato) siguen con formato NULL", Number(legacyRows[0].n) === 0, legacyRows);
-    const seedMd = await prisma.post.findFirst({ where: { creatorId: ana.id, slug: "eclipse-de-octubre" } });
+    const seedMd = await prisma.post.findFirst({ where: { creatorId: ana.id, slug: "october-eclipse" } });
     check("la publicación de la demo «Eclipse de octubre» es MD", seedMd?.bodyFormat === "MD");
 
     const now = new Date();

@@ -44,6 +44,7 @@ import {
 import { cornerCss, patternCss } from "@/lib/email-patterns";
 import { BlockSettings } from "./block-editor";
 import { StylePanel } from "./style-panel";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /** Las variables, en palabras: lo que se cambia solo en cada email. */
 const VAR_LABEL: Record<keyof EmailVars, string> = {
@@ -103,17 +104,13 @@ function Photo({ url, onChange, className = "", label = "Añadir foto" }: { url:
           className="flex h-full min-h-40 w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[#D9BF8C]/50 bg-[#D9BF8C]/5 text-sm text-[#D9BF8C]"
         >
           <ImagePlus className="h-7 w-7" strokeWidth={1.3} />
-          {label}
+          <Tr s={label} />
         </button>
       )}
       {url && (
         <div className="absolute inset-x-0 bottom-3 flex justify-center gap-2">
-          <button type="button" onClick={() => input.current?.click()} className="rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">
-            Cambiar foto
-          </button>
-          <button type="button" onClick={() => onChange("")} className="rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">
-            Quitar
-          </button>
+          <button type="button" onClick={() => input.current?.click()} className="rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur"><Tr s={"Cambiar foto"} /></button>
+          <button type="button" onClick={() => onChange("")} className="rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur"><Tr s={"Quitar"} /></button>
         </div>
       )}
       {busy && (
@@ -121,7 +118,7 @@ function Photo({ url, onChange, className = "", label = "Añadir foto" }: { url:
           <Loader2 className="h-7 w-7 animate-spin" />
         </div>
       )}
-      {error && <p className="absolute inset-x-2 top-2 rounded-lg bg-red-600/90 px-2 py-1 text-center text-xs text-white">{error}</p>}
+      {error && <p className="absolute inset-x-2 top-2 rounded-lg bg-red-600/90 px-2 py-1 text-center text-xs text-white"><Tr s={error} /></p>}
       <input
         ref={input}
         type="file"
@@ -418,13 +415,12 @@ export function InlineEmailEditor(p: {
           onClick={() => setAdding(adding === at ? null : at)}
           className="inline-flex items-center gap-1 rounded-full border border-[#D9BF8C]/30 px-3 py-1 text-[0.72rem] text-[#D9BF8C]/80 opacity-60 transition hover:opacity-100"
         >
-          <Plus className="h-3.5 w-3.5" /> Añadir aquí
-        </button>
+          <Plus className="h-3.5 w-3.5" />{" "}<Tr s={"Añadir aquí"} /></button>
         {adding === at && (
           <div className="absolute top-full z-20 mt-1 grid w-[min(22rem,90vw)] grid-cols-2 gap-1 rounded-2xl border border-line bg-white p-2 text-ink shadow-lift sm:grid-cols-3">
             {ADD.map((t) => (
               <button key={t} type="button" onClick={() => add(at, t)} className="rounded-xl px-2.5 py-2 text-left text-sm hover:bg-sand">
-                {BLOCK_LABEL[t]}
+                <Tr s={BLOCK_LABEL[t]} />
               </button>
             ))}
           </div>
@@ -450,7 +446,7 @@ export function InlineEmailEditor(p: {
         {wide && (
           <aside className="mail-side sticky top-20 max-h-[calc(100dvh-6rem)] space-y-4 overflow-y-auto">
             <div className="card p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted">Bloques</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted"><Tr s={"Bloques"} /></p>
               <div className="grid grid-cols-2 gap-1.5">
                 {ADD.map((t) => {
                   const Icon = BLOCK_ICON[t];
@@ -467,18 +463,18 @@ export function InlineEmailEditor(p: {
                       className="mail-tool flex cursor-grab flex-col items-center gap-1 rounded-xl px-1.5 py-2.5 text-center text-[0.72rem] font-medium active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Icon className="h-4 w-4" strokeWidth={1.6} />
-                      {BLOCK_LABEL[t]}
+                      <Tr s={BLOCK_LABEL[t]} />
                     </button>
                   );
                 })}
               </div>
-              <p className="mt-2 text-[0.7rem] leading-snug text-muted">{full ? `Máximo ${EMAIL_BLOCKS_MAX} bloques.` : "Arrástralo al email o tócalo."}</p>
+              <p className="mt-2 text-[0.7rem] leading-snug text-muted">{full ? `Máximo ${EMAIL_BLOCKS_MAX} bloques.` : <Tr s={"Arrástralo al email o tócalo."} />}</p>
             </div>
 
             <div className="card p-3" onDragOver={(e) => dragging.current && blocks.length === 0 && (e.preventDefault(), setDropAt({ at: 0, zone: "list" }))} onDrop={drop}>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted">Estructura</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted"><Tr s={"Estructura"} /></p>
               {blocks.length === 0 ? (
-                <p className="text-xs text-muted">Aún no hay bloques.</p>
+                <p className="text-xs text-muted"><Tr s={"Aún no hay bloques."} /></p>
               ) : (
                 <ol className="space-y-0.5">
                   {blocks.map((b, i) => {
@@ -499,8 +495,8 @@ export function InlineEmailEditor(p: {
                           <GripVertical className="h-3.5 w-3.5 shrink-0 opacity-40" />
                           <Icon className="h-3.5 w-3.5 shrink-0 opacity-70" />
                           <span className="min-w-0 flex-1 truncate">
-                            <span className="font-semibold">{BLOCK_LABEL[b.t]}</span>
-                            {sum && <span className="text-muted"> · {sum}</span>}
+                            <span className="font-semibold"><Tr s={BLOCK_LABEL[b.t]} /></span>
+                            {sum && <span className="text-muted"> · <Tr s={sum} /></span>}
                           </span>
                         </button>
                         {dropAt?.zone === "list" && dropAt.at === blocks.length && i === blocks.length - 1 && <DropLine />}
@@ -518,20 +514,20 @@ export function InlineEmailEditor(p: {
           <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted">
             {p.vars.length > 0 && (
               <>
-                <span>Toca para ponerlo donde escribes:</span>
+                <span><Tr s={"Toca para ponerlo donde escribes:"} /></span>
                 {p.vars.map((k) => (
                   <button key={k} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => insertVar(k)} className="chip" title={`Se cambia solo por ${VAR_LABEL[k]?.toLowerCase() ?? k}`}>
-                    {VAR_LABEL[k] ?? k} <code className="opacity-60">{`{${k}}`}</code>
+                    <Tr s={VAR_LABEL[k] ?? k} /> <code className="opacity-60">{`{${k}}`}</code>
                   </button>
                 ))}
               </>
             )}
             <span className="ml-auto inline-flex gap-1">
               <button type="button" onClick={undo} disabled={!canUndo} className="btn btn-ghost btn-sm disabled:opacity-30" aria-label="Deshacer" title="Deshacer (Ctrl+Z)">
-                <Undo2 className="h-4 w-4" /> <span className="hidden sm:inline">Deshacer</span>
+                <Undo2 className="h-4 w-4" /> <span className="hidden sm:inline"><Tr s={"Deshacer"} /></span>
               </button>
               <button type="button" onClick={redo} disabled={!canRedo} className="btn btn-ghost btn-sm disabled:opacity-30" aria-label="Rehacer" title="Rehacer (Ctrl+Y)">
-                <Redo2 className="h-4 w-4" /> <span className="hidden sm:inline">Rehacer</span>
+                <Redo2 className="h-4 w-4" /> <span className="hidden sm:inline"><Tr s={"Rehacer"} /></span>
               </button>
             </span>
           </div>
@@ -545,11 +541,10 @@ export function InlineEmailEditor(p: {
           >
             {/* Como en el buzón: de quién y el asunto. */}
             <div className="border-b border-[#3A3354] bg-[#120F30] px-4 py-3 text-sm sm:px-6">
-              <p className="text-xs text-[#A99FC2]">
-                De: <span className="text-[#E8DFCB]">{p.brand}</span>
+              <p className="text-xs text-[#A99FC2]"><Tr s={"De:"} />{" "}<span className="text-[#E8DFCB]"><Tr s={p.brand} /></span>
               </p>
               <label className="mt-1 flex items-center gap-2">
-                <span className="shrink-0 text-xs text-[#A99FC2]">Asunto:</span>
+                <span className="shrink-0 text-xs text-[#A99FC2]"><Tr s={"Asunto:"} /></span>
                 <input
                   type="text"
                   value={p.subject}
@@ -573,7 +568,7 @@ export function InlineEmailEditor(p: {
               <div className="mx-auto max-w-[560px]">
                 <div className="mb-6 text-center font-serif">
                   <p className="text-[0.62rem] tracking-[0.6em] text-[#D9BF8C]">✦ ✦ ✦</p>
-                  <p className="mt-2 text-[1.5rem] tracking-[0.08em] text-[#F3E3BF]">{p.brand}</p>
+                  <p className="mt-2 text-[1.5rem] tracking-[0.08em] text-[#F3E3BF]"><Tr s={p.brand} /></p>
                 </div>
                 <div className="rounded-[24px] border border-[#6E5B3A] p-[5px]">
                   <div
@@ -587,12 +582,10 @@ export function InlineEmailEditor(p: {
                     onDrop={drop}
                   >
                     {p.mode === "intro" && blocks.length === 0 && (
-                      <p className="mb-2 text-center text-xs text-[#A99FC2]">Tu texto va aquí arriba, antes de lo que el email pone solo. Añade un bloque si quieres escribir algo.</p>
+                      <p className="mb-2 text-center text-xs text-[#A99FC2]"><Tr s={"Tu texto va aquí arriba, antes de lo que el email pone solo. Añade un bloque si quieres escribir algo."} /></p>
                     )}
                     {wide && blocks.length === 0 && (
-                      <div className="rounded-2xl border border-dashed border-[#D9BF8C]/40 px-4 py-10 text-center text-sm text-[#A99FC2]">
-                        Arrastra aquí un bloque de la izquierda, o tócalo.
-                      </div>
+                      <div className="rounded-2xl border border-dashed border-[#D9BF8C]/40 px-4 py-10 text-center text-sm text-[#A99FC2]"><Tr s={"Arrastra aquí un bloque de la izquierda, o tócalo."} /></div>
                     )}
                     <AddHere at={0} />
                     {blocks.map((b, i) => (
@@ -626,7 +619,7 @@ export function InlineEmailEditor(p: {
                                 <GripVertical className="h-3.5 w-3.5" />
                               </span>
                             )}
-                            <span className="px-2 text-[0.68rem] font-semibold text-muted">{BLOCK_LABEL[b.t]}</span>
+                            <span className="px-2 text-[0.68rem] font-semibold text-muted"><Tr s={BLOCK_LABEL[b.t]} /></span>
                             <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="grid h-7 w-7 place-items-center rounded-full hover:bg-sand disabled:opacity-30" aria-label="Subir">
                               <ArrowUp className="h-3.5 w-3.5" />
                             </button>
@@ -652,8 +645,8 @@ export function InlineEmailEditor(p: {
                     {/* Lo que el email pone solo */}
                     {p.fixed && (
                       <div className="mt-4 rounded-2xl border border-dashed border-[#D9BF8C]/35 px-4 py-4 text-center">
-                        <p className="text-[0.62rem] uppercase tracking-[0.3em] text-[#D9BF8C]">Esto lo pone el email solo</p>
-                        <p className="mt-1.5 text-[0.82rem] leading-relaxed text-[#A99FC2]">{p.fixed}</p>
+                        <p className="text-[0.62rem] uppercase tracking-[0.3em] text-[#D9BF8C]"><Tr s={"Esto lo pone el email solo"} /></p>
+                        <p className="mt-1.5 text-[0.82rem] leading-relaxed text-[#A99FC2]"><Tr s={p.fixed} /></p>
                       </div>
                     )}
                   </div>
@@ -670,7 +663,7 @@ export function InlineEmailEditor(p: {
             {editing ? (
               <div className="card p-3">
                 <div className="mb-3 flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold">Ajustes · {BLOCK_LABEL[editing.t]}</p>
+                  <p className="text-sm font-semibold"><Tr s={"Ajustes ·"} />{" "}<Tr s={BLOCK_LABEL[editing.t]} /></p>
                   <button type="button" onClick={() => setSelected(null)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-sand" aria-label="Cerrar los ajustes" title="Volver al estilo del email (Esc)">
                     <X className="h-4 w-4" />
                   </button>
@@ -680,7 +673,7 @@ export function InlineEmailEditor(p: {
             ) : (
               <div className="space-y-2">
                 <StylePanel value={style} palette={p.palette} onChange={(s) => commit({ ...p.value, style: s }, true)} defaultOpen />
-                <p className="px-1 text-[0.7rem] leading-snug text-muted">Toca un bloque del email para cambiar sus ajustes. Los colores del texto y los botones se ven en «Cómo le llega».</p>
+                <p className="px-1 text-[0.7rem] leading-snug text-muted"><Tr s={"Toca un bloque del email para cambiar sus ajustes. Los colores del texto y los botones se ven en «Cómo le llega»."} /></p>
               </div>
             )}
           </aside>
@@ -692,15 +685,13 @@ export function InlineEmailEditor(p: {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6" onClick={() => setSheet(false)}>
           <div className="max-h-[88dvh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-4 text-ink shadow-lift sm:rounded-3xl sm:p-5" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
-              <p className="font-semibold">Ajustes · {BLOCK_LABEL[editing.t]}</p>
+              <p className="font-semibold"><Tr s={"Ajustes ·"} />{" "}<Tr s={BLOCK_LABEL[editing.t]} /></p>
               <button type="button" onClick={() => setSheet(false)} className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand" aria-label="Cerrar">
                 <X className="h-4 w-4" />
               </button>
             </div>
             {settingsFor(editing)}
-            <button type="button" onClick={() => setSheet(false)} className="btn btn-primary mt-4 w-full">
-              Listo
-            </button>
+            <button type="button" onClick={() => setSheet(false)} className="btn btn-primary mt-4 w-full"><Tr s={"Listo"} /></button>
           </div>
         </div>
       )}
@@ -710,20 +701,21 @@ export function InlineEmailEditor(p: {
 
 /** Un bloque tal y como sale en el email, con lo que se escribe encima. */
 function BlockOnMail({ block: b, look, patch, onSettings }: { block: EmailBlock; look: EmailStyle; patch: (c: Partial<EmailBlock>) => void; onSettings: () => void }) {
+  const t = useT();
   switch (b.t) {
     case "title":
       return (
         <Grow
           value={b.text}
           onChange={(text) => patch({ text })}
-          placeholder="Un título"
-          label="Título"
+          placeholder={t("Un título")}
+          label={t("Título")}
           maxLength={200}
           className={`font-serif text-[1.75rem] leading-tight text-[#F3E3BF] ${alignClass(b.align)}`}
         />
       );
     case "text":
-      return <Body value={b.body} onChange={(body) => patch({ body })} label="Texto" />;
+      return <Body value={b.body} onChange={(body) => patch({ body })} label={t("Texto")} />;
     case "button":
       return (
         <div className={alignClass(b.align)}>
@@ -732,8 +724,8 @@ function BlockOnMail({ block: b, look, patch, onSettings }: { block: EmailBlock;
               type="text"
               value={b.label}
               onChange={(e) => patch({ label: e.target.value })}
-              placeholder="Texto del botón"
-              aria-label="Texto del botón"
+              placeholder={t("Texto del botón")}
+              aria-label={t("Texto del botón")}
               maxLength={60}
               size={Math.max(12, b.label.length + 2)}
               className="rounded-full bg-transparent px-4 py-2 text-center text-[0.8rem] font-bold uppercase tracking-[0.14em] text-[#1A1408] outline-none placeholder:text-[#1A1408]/40 focus:ring-2 focus:ring-[#1A1408]/30"
@@ -743,8 +735,8 @@ function BlockOnMail({ block: b, look, patch, onSettings }: { block: EmailBlock;
             type="text"
             value={b.href}
             onChange={(e) => patch({ href: e.target.value })}
-            placeholder="Enlace del botón: https://…"
-            aria-label="Enlace del botón"
+            placeholder={t("Enlace del botón: https://…")}
+            aria-label={t("Enlace del botón")}
             className={`mx-auto mt-2 block w-full max-w-sm px-2 py-1 text-center text-xs text-[#A99FC2] ${inline}`}
           />
         </div>
@@ -752,9 +744,9 @@ function BlockOnMail({ block: b, look, patch, onSettings }: { block: EmailBlock;
     case "image":
       return <Photo url={b.url} onChange={(url) => patch({ url })} className={b.width === "narrow" ? "mx-auto max-w-[70%]" : ""} />;
     case "divider":
-      return <p className="py-2 text-center text-[0.7rem] tracking-[0.5em] text-[#D9BF8C]">{b.style === "stars" ? "✦ ✦ ✦" : "— ✦ —"}</p>;
+      return <p className="py-2 text-center text-[0.7rem] tracking-[0.5em] text-[#D9BF8C]"><Tr s={b.style === "stars" ? "✦ ✦ ✦" : "— ✦ —"} /></p>;
     case "spacer":
-      return <div className={b.size === "s" ? "h-3" : b.size === "l" ? "h-12" : "h-6"} aria-label="Espacio" />;
+      return <div className={b.size === "s" ? "h-3" : b.size === "l" ? "h-12" : "h-6"} aria-label={t("Espacio")} />;
     case "spotlight":
       return (
         <div className="rounded-2xl border-l-2 px-4 py-4" style={{ borderColor: b.accent, ...patternCss({ bg: b.bg, pattern: look.bubblePattern, patternColor: look.patternColor, patternStrength: look.patternStrength }) }}>
@@ -763,13 +755,13 @@ function BlockOnMail({ block: b, look, patch, onSettings }: { block: EmailBlock;
               type="text"
               value={b.icon}
               onChange={(e) => patch({ icon: e.target.value })}
-              aria-label="Icono"
+              aria-label={t("Icono")}
               maxLength={4}
               className={`w-10 px-1 py-0.5 text-center text-lg ${inline}`}
             />
             <div className="min-w-0 flex-1">
-              <Grow value={b.title} onChange={(title) => patch({ title })} placeholder="Título del destacado" label="Título del destacado" maxLength={120} className="font-serif text-[1.25rem] text-[#F3E3BF]" />
-              <Body value={b.body} onChange={(body) => patch({ body })} label="Texto del destacado" placeholder="Lo que no se tiene que perder…" />
+              <Grow value={b.title} onChange={(title) => patch({ title })} placeholder={t("Título del destacado")} label={t("Título del destacado")} maxLength={120} className="font-serif text-[1.25rem] text-[#F3E3BF]" />
+              <Body value={b.body} onChange={(body) => patch({ body })} label={t("Texto del destacado")} placeholder={t("Lo que no se tiene que perder…")} />
             </div>
           </div>
         </div>
@@ -777,11 +769,11 @@ function BlockOnMail({ block: b, look, patch, onSettings }: { block: EmailBlock;
     case "hero":
       return (
         <div className="relative overflow-hidden rounded-2xl">
-          <Photo url={b.image} onChange={(image) => patch({ image })} className="min-h-56" label="Foto de fondo" />
+          <Photo url={b.image} onChange={(image) => patch({ image })} className="min-h-56" label={t("Foto de fondo")} />
           <div className="pointer-events-none absolute inset-0 bg-black/40" />
           <div className={`absolute inset-x-4 top-1/2 -translate-y-1/2 space-y-1 ${b.align === "center" ? "text-center" : ""}`}>
-            <Grow value={b.title} onChange={(title) => patch({ title })} placeholder="Título de la portada" label="Título de la portada" maxLength={120} className="font-serif text-[1.8rem] leading-tight text-white" />
-            <Grow value={b.subtitle} onChange={(subtitle) => patch({ subtitle })} placeholder="Subtítulo" label="Subtítulo de la portada" maxLength={200} className="text-[0.95rem] text-white/85" />
+            <Grow value={b.title} onChange={(title) => patch({ title })} placeholder={t("Título de la portada")} label={t("Título de la portada")} maxLength={120} className="font-serif text-[1.8rem] leading-tight text-white" />
+            <Grow value={b.subtitle} onChange={(subtitle) => patch({ subtitle })} placeholder={t("Subtítulo")} label={t("Subtítulo de la portada")} maxLength={200} className="text-[0.95rem] text-white/85" />
           </div>
         </div>
       );
@@ -797,8 +789,8 @@ function Summary({ block: b, onSettings }: { block: EmailBlock; onSettings: () =
   return (
     <button type="button" onClick={onSettings} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#D9BF8C]/30 px-4 py-4 text-left text-sm text-[#E8DFCB] hover:border-[#D9BF8C]/60">
       <span>
-        <span className="block text-[0.62rem] uppercase tracking-[0.3em] text-[#D9BF8C]">{BLOCK_LABEL[b.t]}</span>
-        {text}
+        <span className="block text-[0.62rem] uppercase tracking-[0.3em] text-[#D9BF8C]"><Tr s={BLOCK_LABEL[b.t]} /></span>
+        <Tr s={text} />
       </span>
       <Settings2 className="h-4 w-4 text-[#D9BF8C]" />
     </button>

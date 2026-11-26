@@ -27,6 +27,7 @@ import {
 import { truncateError } from "./reliability";
 import { formatDate, formatSessionDate } from "./tz";
 import { DEFAULT_OWNER_TZ, withdrawalDeadline } from "./withdrawal";
+import { inMail } from "@/lib/i18n/email";
 
 /**
  * Reembolsos (totales o parciales) y desistimientos.
@@ -236,40 +237,42 @@ async function sendRefundEmails(refund: Refund, partial: boolean, cancelled: { s
   const order = await prisma.order.findUniqueOrThrow({ where: { id: refund.orderId }, include: { creator: { include: { user: true } } } });
   const creatorName = order.creator.displayName;
   const amount = money(refund.amountCents, refund.currency);
-  const buyerUrl = `${appUrl()}/cuenta/compras`;
+  const buyerUrl = `${appUrl()}/area/purchases`;
   const toBuyer = { to: order.buyerEmail, creatorId: order.creatorId, dedupeKey: `refund:${refund.id}` };
 
   if (refund.reason === "WITHDRAWAL") {
     // Membresía: se devuelve la parte de los días no disfrutados y termina ya (art. 108.3).
     const membership = order.productType === "MEMBERSHIP";
-    await enqueueEmail({ ...toBuyer, template: "WITHDRAWAL_RECEIPT", ...RT.withdrawalReceiptEmail({ creatorName, productTitle: order.productTitle, amount, url: buyerUrl, membership }) });
+    await enqueueEmail({ ...toBuyer, template: "WITHDRAWAL_RECEIPT", ...(await inMail(order.buyerEmail, () => RT.withdrawalReceiptEmail({ creatorName, productTitle: order.productTitle, amount, url: buyerUrl, membership }))) });
     await enqueueEmail({
       to: order.creator.contactEmail || order.creator.user.email,
       userId: order.creator.userId,
       creatorId: order.creatorId,
       template: "WITHDRAWAL_CREATOR",
       dedupeKey: `withdrawal:${order.id}`,
-      ...RT.withdrawalCreatorEmail({ buyer: order.buyerName || order.buyerEmail, productTitle: order.productTitle, amount, url: `${appUrl()}/panel/ventas/${order.id}`, membership }),
+      ...(await inMail(order.creator.contactEmail || order.creator.user.email, () => RT.withdrawalCreatorEmail({ buyer: order.buyerName || order.buyerEmail, productTitle: order.productTitle, amount, url: `${appUrl()}/panel/ventas/${order.id}`, membership }))),
     });
   } else if (cancelled.length) {
     const startAt = cancelled[0].startAt;
     await enqueueEmail({
       ...toBuyer,
       template: "BOOKING_CANCELLED",
-      ...RT.bookingCancelledEmail({
-        creatorName,
-        productTitle: order.productTitle,
-        when: startAt ? formatSessionDate(startAt, order.creator.timezone) : null,
-        reason: refund.note,
-        refundAmount: amount,
-        url: buyerUrl,
-      }),
+      ...(await inMail(order.buyerEmail, () =>
+        RT.bookingCancelledEmail({
+          creatorName,
+          productTitle: order.productTitle,
+          when: startAt ? formatSessionDate(startAt, order.creator.timezone) : null,
+          reason: refund.note,
+          refundAmount: amount,
+          url: buyerUrl,
+        }),
+      )),
     });
   } else {
     await enqueueEmail({
       ...toBuyer,
       template: "REFUND_ISSUED",
-      ...RT.refundIssuedEmail({ creatorName, productTitle: order.productTitle, amount, partial, accessRevoked: refund.revokeAccess, note: refund.note, url: buyerUrl }),
+      ...(await inMail(order.buyerEmail, () => RT.refundIssuedEmail({ creatorName, productTitle: order.productTitle, amount, partial, accessRevoked: refund.revokeAccess, note: refund.note, url: buyerUrl }))),
     });
   }
 }
@@ -350,7 +353,7 @@ export async function markRefundFailed(refundId: string, error: string): Promise
     creatorId: o.creatorId,
     template: "REFUND_FAILED",
     dedupeKey: `refund-failed:${r.id}`,
-    ...RT.refundFailedCreatorEmail({ buyer: o.buyerName || o.buyerEmail, productTitle: o.productTitle, amount: money(r.amountCents, r.currency), error, url: `${appUrl()}/panel/ventas/${o.id}` }),
+    ...(await inMail(o.creator.contactEmail || o.creator.user.email, () => RT.refundFailedCreatorEmail({ buyer: o.buyerName || o.buyerEmail, productTitle: o.productTitle, amount: money(r.amountCents, r.currency), error, url: `${appUrl()}/panel/ventas/${o.id}` }))),
   });
   return true;
 }

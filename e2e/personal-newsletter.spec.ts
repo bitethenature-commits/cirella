@@ -73,9 +73,9 @@ async function mailLink(to: string, template: string, label: string) {
 }
 
 async function loginAna(page: Page) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: "Cirella" }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 test.describe.serial("Web personal · newsletter", () => {
@@ -124,7 +124,7 @@ test.describe.serial("Web personal · newsletter", () => {
     await page.getByRole("button", { name: "Añadir bloque" }).click();
     await page.getByRole("group", { name: "Añadir bloque" }).getByRole("button", { name: /^Botón/ }).click();
     await page.getByLabel("Texto del botón").fill("Reservar mi plaza");
-    await page.getByRole("textbox", { name: "Enlace", exact: true }).fill("/ana/lectura-de-human-design");
+    await page.getByRole("textbox", { name: "Enlace", exact: true }).fill("/ana/human-design-reading");
     await expect(page.getByTestId("save-state")).toHaveText(/Guardado/, { timeout: 20_000 });
 
     await page.getByRole("tab", { name: "Vista previa" }).click();
@@ -151,7 +151,7 @@ test.describe.serial("Web personal · newsletter", () => {
     expect(sent.status).toBe("SENT");
     expect(sent.subject).toBe(`Luna nueva ${TAG}`);
     expect(sent.html).toContain("Cirella");
-    expect((sent.headers as Record<string, string>)["List-Unsubscribe"]).toContain("/baja/newsletter/un-clic?t=");
+    expect((sent.headers as Record<string, string>)["List-Unsubscribe"]).toContain("/unsubscribe/newsletter/one-click?t=");
 
     const ctx = await browser.newContext();
     const reader = await ctx.newPage();
@@ -180,7 +180,7 @@ test.describe.serial("Web personal · newsletter", () => {
 
     const ctx = await browser.newContext();
     const v = await ctx.newPage();
-    await v.goto("/ana/mini-curso-tu-carta-en-3-pasos");
+    await v.goto("/ana/natal-chart-in-3-steps");
     await v.fill("#claim-name", "Rosa");
     await v.fill("#claim-email", rosa);
     await v.getByLabel(/política de privacidad/).check();
@@ -200,9 +200,9 @@ test.describe.serial("Web personal · newsletter", () => {
   });
 
   test("en la plataforma no hay newsletter (ni en el menú ni en la página)", async ({ page }) => {
-    await page.goto(`${PLATFORM}/entrar`);
+    await page.goto(`${PLATFORM}/login`);
     await page.locator("form", { hasText: "Cirella" }).getByRole("button").click();
-    await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+    await page.waitForURL((u) => !u.pathname.startsWith("/login"));
     await page.goto(`${PLATFORM}/panel/mas`);
     await expect(page.getByRole("link", { name: "Automatizaciones" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Newsletter" })).toHaveCount(0);

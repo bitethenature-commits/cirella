@@ -40,7 +40,7 @@ export async function purgeOldPortalItems(now: Date, creatorId?: string): Promis
     try {
       revalidatePath("/");
       revalidatePath(`/${c.username}`);
-      revalidatePath(`/${c.username}/portal`);
+      revalidatePath("/[username]/portal/[id]", "page");
     } catch {
       // Fuera de una petición (scripts): no hay caché que refrescar.
     }

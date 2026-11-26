@@ -1,5 +1,6 @@
 import { Trash2 } from "lucide-react";
 import { ConfirmForm } from "./confirm-form";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * La papelera de las listas del panel: pregunta antes y manda el id (y lo que haga falta) a la
@@ -32,11 +33,11 @@ export function DeleteButton({
       {fields && Object.entries(fields).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
       {variant === "button" ? (
         <button className="btn btn-danger btn-sm" aria-label={aria}>
-          <Trash2 className="h-4 w-4" /> {label}
+          <Trash2 className="h-4 w-4" /> <Tr s={label} />
         </button>
       ) : variant === "link" ? (
         <button className="inline-flex items-center gap-1 text-rose hover:underline" aria-label={aria}>
-          <Trash2 className="h-3.5 w-3.5" /> {label}
+          <Trash2 className="h-3.5 w-3.5" /> <Tr s={label} />
         </button>
       ) : (
         <button className="grid h-8 w-8 place-items-center rounded-lg text-rose opacity-80 hover:bg-rose/10 hover:opacity-100" aria-label={aria} title={label}>

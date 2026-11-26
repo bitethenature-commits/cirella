@@ -231,15 +231,6 @@ export async function removeBlockedDate(form: FormData) {
   revalidatePath("/panel/solicitudes/horario");
 }
 
-/** Marca como realizada una sesión confirmada. Cancelar y cambiar de fecha van por changeBooking. */
-export async function setBookingStatus(form: FormData) {
-  const { creator } = await requireCreator();
-  const id = String(form.get("id"));
-  const status = z.enum(["COMPLETED"]).parse(form.get("status"));
-  await tenantDb(creator.id).booking.updateMany({ where: { id, status: "CONFIRMED" }, data: { status } });
-  revalidatePath("/panel/clientes");
-}
-
 export type ChangeState = { error?: string } | undefined;
 
 const changeSchema = z.object({

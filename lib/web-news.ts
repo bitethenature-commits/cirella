@@ -1,5 +1,8 @@
+import { productPath } from "@/lib/public-paths";
+import { INTL_LOCALE, type Locale } from "./i18n/config";
+import { tr } from "./i18n/dict";
 import "server-only";
-import { postCover } from "@/app/cuenta/membresias/cover";
+import { postCover } from "@/app/area/membership/cover";
 import { prisma } from "./db";
 import { visibleMemberPostWhere } from "./community-rules";
 import { readCodePhotos, visibleCodeWhere } from "./discount-codes";
@@ -56,10 +59,16 @@ export async function webNews(o: {
   now?: Date;
   /** Cuántos días sale cada novedad (Creator.newsDays); null = siempre. Las más viejas se cuentan en `older`. */
   maxAgeDays?: number | null;
+  /** El idioma de la web (lib/i18n): las etiquetas y las fechas. Sin él, en español. */
+  locale?: Locale;
   /** Las que ella ha quitado (Creator.newsRemoved): no salen ni se cuentan. */
   removed?: string[];
+  /** Sus textos (títulos, resúmenes) en el idioma de la web (lib/i18n/content.ts). */
+  translate?: (s: string) => string;
 }): Promise<{ items: NewsItem[]; older: number }> {
   const now = o.now ?? new Date();
+  const tx = o.translate ?? ((s: string) => s);
+  const txn = (s: string | null) => (s ? tx(s) : s);
   const take = o.limit ?? 40;
   const cutoff = o.maxAgeDays ? new Date(now.getTime() - o.maxAgeDays * DAY) : null;
   const [posts, products, codes] = await Promise.all([
@@ -85,9 +94,9 @@ export async function webNews(o: {
       key: `m-${p.id}`,
       at: p.publishedAt.toISOString(),
       kind: "member",
-      label: `${MEMBER_LABEL[p.kind] ?? "Nuevo"} en ${p.product.title}`,
-      title: p.title,
-      text: `Para miembros de ${p.product.title}.`,
+      label: tr(o.locale ?? "es", "{what} en {where}", { what: tr(o.locale ?? "es", MEMBER_LABEL[p.kind] ?? "Nuevo"), where: tx(p.product.title) }),
+      title: tx(p.title),
+      text: tr(o.locale ?? "es", "Para miembros de {name}.", { name: tx(p.product.title) }),
       href: `/api/novedades/abrir?p=${p.id}`,
       image: postCover(p).src,
     });
@@ -102,9 +111,9 @@ export async function webNews(o: {
         at: new Date(t - DAY).toISOString(),
         kind: "circle",
         label: "Mañana · círculo de la luna",
-        title: p.title,
+        title: tx(p.title),
         text: "Ven sin ser miembro: apúntate a este círculo.",
-        href: `/${o.username}/${p.slug}`,
+        href: `${productPath(o.username, p)}`,
         image: p.imageUrl,
       });
       continue;
@@ -115,9 +124,9 @@ export async function webNews(o: {
       at: p.createdAt.toISOString(),
       kind,
       label: { course: "Nuevo curso", reading: "Nueva lectura", workshop: "Nuevo taller", session: "Nueva sesión" }[kind],
-      title: p.title,
-      text: p.summary,
-      href: `/${o.username}/${p.slug}`,
+      title: tx(p.title),
+      text: txn(p.summary),
+      href: `${productPath(o.username, p)}`,
       image: p.imageUrl,
     });
   }
@@ -128,7 +137,7 @@ export async function webNews(o: {
       kind: "code",
       label: "Nuevo código de descuento",
       title: c.brand,
-      text: c.description,
+      text: txn(c.description),
       href: o.codesHref,
       image: c.imageUrl ?? readCodePhotos(c.images)[0]?.src ?? null,
     });
@@ -143,7 +152,14 @@ export async function webNews(o: {
     items: fresh
       .sort((a, b) => (a.at < b.at ? 1 : -1))
       .slice(0, take)
-      .map((i) => ({ ...i, dateLabel: formatDate(new Date(i.at), { day: "numeric", month: "short" }, o.timeZone).replace(".", "") })),
+      .map((i) => ({
+        ...i,
+        label: tr(o.locale ?? "es", i.label),
+        text: i.kind === "circle" && i.text ? tr(o.locale ?? "es", i.text) : i.text,
+        dateLabel: o.locale && o.locale !== "es"
+          ? new Intl.DateTimeFormat(INTL_LOCALE[o.locale], { day: "numeric", month: "short", timeZone: o.timeZone }).format(new Date(i.at))
+          : formatDate(new Date(i.at), { day: "numeric", month: "short" }, o.timeZone).replace(".", ""),
+      })),
     older: kept.length - fresh.length + oldPosts,
   };
 }

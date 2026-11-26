@@ -5,7 +5,7 @@ import { uploadImageInfo } from "@/components/ui/image-upload";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AddSection, SectionTools, ToolPill, type AddChoice } from "@/app/panel/canva/order-tools";
 import type { DesignGroup } from "@/app/panel/pagina/design-editor";
-import { ContentBlocks } from "@/components/creator-page/content-blocks";
+import { ContentBlocks, photoTextCols } from "@/components/creator-page/content-blocks";
 import type { PublicProduct } from "@/components/creator-page/creator-page-view";
 import { DesignScope } from "@/components/creator-page/design-scope";
 import type { OracleDecks } from "@/components/models/data/oracle";
@@ -32,6 +32,7 @@ import type { Design } from "@/lib/templates";
 import { BlocksEditor, type BlocksUpdate } from "./blocks-editor";
 import { LinkInput, type LinkTarget } from "./link-input";
 import type { OracleDeckOption } from "./rich-block-fields";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Los bloques de una página escritos sobre la propia web (Mi página): cada bloque se ve como en la web y sus títulos
@@ -113,18 +114,12 @@ function PhotoSlot({ image, className, onChange, extra }: { image: PageImage | n
           className="cp-gold absolute inset-0 flex flex-col items-center justify-center gap-2 border border-dashed text-sm"
           style={{ borderColor: "color-mix(in oklab, var(--c-gold) 45%, transparent)", borderRadius: "inherit", background: "color-mix(in oklab, var(--c-gold) 6%, transparent)" }}
         >
-          <ImagePlus className="h-7 w-7" strokeWidth={1.3} />
-          Añadir foto
-        </button>
+          <ImagePlus className="h-7 w-7" strokeWidth={1.3} /><Tr s={"Añadir foto"} /></button>
       )}
       {image && (
         <div className="absolute inset-x-0 bottom-3 flex flex-wrap justify-center gap-2 opacity-90 transition group-hover/photo:opacity-100">
-          <button type="button" onClick={() => input.current?.click()} className="rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">
-            Cambiar foto
-          </button>
-          <button type="button" onClick={() => onChange(null)} className="rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">
-            Quitar
-          </button>
+          <button type="button" onClick={() => input.current?.click()} className="rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur"><Tr s={"Cambiar foto"} /></button>
+          <button type="button" onClick={() => onChange(null)} className="rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur"><Tr s={"Quitar"} /></button>
           {extra}
         </div>
       )}
@@ -133,7 +128,7 @@ function PhotoSlot({ image, className, onChange, extra }: { image: PageImage | n
           <Loader2 className="h-7 w-7 animate-spin" />
         </div>
       )}
-      {error && <p className="absolute inset-x-2 top-2 rounded-lg bg-red-600/90 px-2 py-1 text-center text-xs text-white">{error}</p>}
+      {error && <p className="absolute inset-x-2 top-2 rounded-lg bg-red-600/90 px-2 py-1 text-center text-xs text-white"><Tr s={error} /></p>}
       <input
         ref={input}
         type="file"
@@ -183,25 +178,25 @@ const LOOK_ORDER: BlockLook[] = ["panel", "card", "bare"];
 
 /** Sus estilos a la derecha del bloque (pantallas anchas), bajo «Diseño»: Título dorado, Panel dorado, Tarjeta y Sin burbuja. */
 function StylePills({ b, pageLook, onPatch }: { b: ContentBlock; pageLook: BlockLook; onPatch: Patch }) {
+  const t = useT();
   return (
     <>
-      {HAS_TITLE.has(b.kind) && <ToolPill icon={Sparkles} label="Título dorado" on={!!b.goldTitle} onClick={() => onPatch((x) => ({ ...x, goldTitle: !x.goldTitle }))} />}
+      {HAS_TITLE.has(b.kind) && <ToolPill icon={Sparkles} label={t("Título dorado")} on={!!b.goldTitle} onClick={() => onPatch((x) => ({ ...x, goldTitle: !x.goldTitle }))} />}
       {HAS_LOOK.has(b.kind) &&
-        LOOK_ORDER.map((l) => <ToolPill key={l} label={BLOCK_LOOK_LABEL[l]} on={(b.look ?? pageLook) === l} onClick={() => onPatch((x) => ({ ...x, look: l }))} />)}
+        LOOK_ORDER.map((l) => <ToolPill key={l} label={t(BLOCK_LOOK_LABEL[l])} on={(b.look ?? pageLook) === l} onClick={() => onPatch((x) => ({ ...x, look: l }))} />)}
     </>
   );
 }
 
 /** Sus estilos dentro de su «Diseño» (también en el móvil, donde no salen a la derecha). */
 export function BlockStyleFields({ b, pageLook, onPatch }: { b: ContentBlock; pageLook: BlockLook; onPatch: Patch }) {
+  const t = useT();
   if (!HAS_LOOK.has(b.kind) && !HAS_TITLE.has(b.kind)) return null;
   return (
     <section className="card space-y-3 p-5">
-      <h3 className="font-semibold">Estilo</h3>
+      <h3 className="font-semibold"><Tr s={"Estilo"} /></h3>
       {HAS_TITLE.has(b.kind) && (
-        <label className="flex items-center justify-between gap-3 text-sm font-medium">
-          Título dorado
-          <button
+        <label className="flex items-center justify-between gap-3 text-sm font-medium"><Tr s={"Título dorado"} /><button
             type="button"
             role="switch"
             aria-checked={!!b.goldTitle}
@@ -213,7 +208,7 @@ export function BlockStyleFields({ b, pageLook, onPatch }: { b: ContentBlock; pa
         </label>
       )}
       {HAS_LOOK.has(b.kind) && (
-        <div role="radiogroup" aria-label="Estilo" className="grid grid-cols-3 gap-1 rounded-2xl bg-sand p-1 text-sm">
+        <div role="radiogroup" aria-label={t("Estilo")} className="grid grid-cols-3 gap-1 rounded-2xl bg-sand p-1 text-sm">
           {LOOK_ORDER.map((l) => (
             <button
               key={l}
@@ -223,7 +218,7 @@ export function BlockStyleFields({ b, pageLook, onPatch }: { b: ContentBlock; pa
               onClick={() => onPatch((x) => ({ ...x, look: l }))}
               className={`rounded-xl px-2 py-2 font-medium transition ${(b.look ?? pageLook) === l ? "bg-white shadow-soft" : "text-muted hover:text-ink"}`}
             >
-              {BLOCK_LOOK_LABEL[l]}
+              <Tr s={BLOCK_LOOK_LABEL[l]} />
             </button>
           ))}
         </div>
@@ -280,19 +275,20 @@ export function CanvaBlock({
   onDesign: () => void;
   className?: string;
 }) {
+  const t = useT();
   const label = BLOCK_LABEL[b.kind];
   const pageLook = pageLookOf(view.mode);
   return (
     <div className={`canva-section relative ${b.kind === "tiers" ? "tp-wide" : ""} ${className}`} data-dim={b.enabled ? undefined : ""} data-edit-block={b.kind} data-scope={`b:${b.id}`}>
       <SectionTools
-        label={label}
+        label={t(label)}
         up={up}
         down={down}
         hidden={!b.enabled}
         onToggle={onToggle}
         onRemove={onRemove}
         removeLabel={`Quitar «${label}» (se borra)`}
-        note={b.enabled ? undefined : "Oculto"}
+        note={t(b.enabled ? undefined : t("Oculto"))}
         extra={<StylePills b={b} pageLook={pageLook} onPatch={onPatch} />}
         onDesign={onDesign}
         add={add}
@@ -340,25 +336,26 @@ export function BlockContent({
   onUploadingChange?: (uploading: boolean) => void;
   oracleDecks: OracleDeckOption[];
 }) {
+  const t = useT();
   if (b.kind === "text" || b.kind === "photoText")
     return (
       <section className="card space-y-3 p-5 sm:p-6">
         <div>
-          <h3 className="font-semibold">El botón</h3>
-          <p className="text-xs text-muted">Sale debajo del texto. Sin texto, no sale.</p>
+          <h3 className="font-semibold"><Tr s={"El botón"} /></h3>
+          <p className="text-xs text-muted"><Tr s={"Sale debajo del texto. Sin texto, no sale."} /></p>
         </div>
         <label className="block">
-          <span className="field-label">Texto del botón</span>
+          <span className="field-label"><Tr s={"Texto del botón"} /></span>
           <input
             className="input h-10 text-sm"
-            placeholder="Por ejemplo: Reservar"
+            placeholder={t("Por ejemplo: Reservar")}
             value={b.buttonLabel ?? ""}
             maxLength={40}
             onChange={(e) => onPatch((x) => ({ ...x, buttonLabel: e.target.value }) as ContentBlock)}
           />
         </label>
         <div>
-          <span className="field-label">Adónde lleva</span>
+          <span className="field-label"><Tr s={"Adónde lleva"} /></span>
           <LinkInput value={b.buttonUrl ?? ""} onChange={(v) => onPatch((x) => ({ ...x, buttonUrl: v }) as ContentBlock)} ariaLabel="Enlace del botón" targets={linkTargets} />
         </div>
       </section>
@@ -467,8 +464,8 @@ export function InlineBlocks({
       ))}
       <div className="relative min-h-16" data-canva-ui>
         <AddSection options={choices} onAdd={(key) => insert(blocks.length, key)} style={{ top: 16 }} />
-        {!blocks.length && <p className="cp-muted pl-12 pt-5 text-sm md:pl-0">Añade la primera sección con el +.</p>}
-        {full && <p className="cp-muted pt-5 text-center text-xs">Máximo {max} secciones</p>}
+        {!blocks.length && <p className="cp-muted pl-12 pt-5 text-sm md:pl-0"><Tr s={"Añade la primera sección con el +."} /></p>}
+        {full && <p className="cp-muted pt-5 text-center text-xs"><Tr s={"Máximo"} />{" "}{max}{" "}<Tr s={"secciones"} /></p>}
       </div>
     </>
   );
@@ -492,6 +489,7 @@ type EditProps = {
 
 /** El título de un bloque escrito encima: centrado con su estrella y su raya en los estilos de lujo. */
 function EdTitle({ value, onChange, luxe, placeholder = "Título (opcional)" }: { value: string; onChange: (v: string) => void; luxe: boolean; placeholder?: string }) {
+  const t = useT();
   if (luxe)
     return (
       <div className="cp-section-heading">
@@ -499,7 +497,7 @@ function EdTitle({ value, onChange, luxe, placeholder = "Título (opcional)" }: 
           ✦
         </span>
         <h2 className="cp-display cp-thin text-[2.2rem] leading-tight sm:text-[2.6rem]">
-          <Grow value={value} onChange={onChange} placeholder={placeholder} maxLength={80} label="Título del bloque" className="text-center" />
+          <Grow value={value} onChange={onChange} placeholder={t(placeholder)} maxLength={80} label={t("Título del bloque")} className="text-center" />
         </h2>
         <div aria-hidden className="cp-section-rule">
           <span />
@@ -510,30 +508,30 @@ function EdTitle({ value, onChange, luxe, placeholder = "Título (opcional)" }: 
     );
   return (
     <h2 className="cp-display text-[1.75rem] leading-tight sm:text-[2rem]">
-      <Grow value={value} onChange={onChange} placeholder={placeholder} maxLength={80} label="Título del bloque" />
+      <Grow value={value} onChange={onChange} placeholder={t(placeholder)} maxLength={80} label={t("Título del bloque")} />
     </h2>
   );
 }
 
 /** El texto con formato, escrito sobre la web (la barra de formato con los colores de la web). */
 function EdBody({ value, format, onChange, bodyMax, center }: { value: string; format?: string | null; onChange: (v: string) => void; bodyMax: number; center?: boolean }) {
+  const t = useT();
   return (
     <div className={`studio-rte page-rte ${center ? "text-left" : ""}`}>
-      <RichTextEditor ariaLabel="Texto del bloque" placeholder="Escribe aquí…" value={value} initialFormat={format ?? null} onChange={onChange} maxLength={bodyMax} tools="basic" headings preview={false} tone="page" headingLevel={3} rows={3} />
+      <RichTextEditor ariaLabel="Texto del bloque" placeholder={t("Escribe aquí…")} value={value} initialFormat={format ?? null} onChange={onChange} maxLength={bodyMax} tools="basic" headings preview={false} tone="page" headingLevel={3} rows={3} />
     </div>
   );
 }
 
 /** El botón tal y como sale: al tocarlo se cambian su texto y adónde lleva. */
 function ButtonPreview({ label, onOpen, sacred }: { label?: string; onOpen: () => void; sacred?: boolean }) {
+  const t = useT();
   return label ? (
-    <button type="button" onClick={onOpen} className={sacred ? "cp-sacred-btn" : "cp-btn-ghost"} title="Cambiar el botón">
-      {sacred ? <span className="cp-sacred-label">{label}</span> : label}
+    <button type="button" onClick={onOpen} className={sacred ? "cp-sacred-btn" : "cp-btn-ghost"} title={t("Cambiar el botón")}>
+      {sacred ? <span className="cp-sacred-label"><Tr s={label} /></span> : label}
     </button>
   ) : (
-    <button type="button" onClick={onOpen} className="cp-faint text-xs underline underline-offset-4">
-      + Añadir un botón
-    </button>
+    <button type="button" onClick={onOpen} className="cp-faint text-xs underline underline-offset-4"><Tr s={"+ Añadir un botón"} /></button>
   );
 }
 
@@ -548,6 +546,7 @@ function Empty({ children, onOpen }: { children: ReactNode; onOpen: () => void }
 }
 
 function EditableBlock(p: EditProps) {
+  const t = useT();
   const { b, mode, onPatch, onOpen, bodyMax } = p;
   const look = b.look;
   // Igual que en la web (content-blocks.tsx): el estilo del bloque manda sobre el de la página.
@@ -571,34 +570,32 @@ function EditableBlock(p: EditProps) {
             <EdBody value={b.body} format={b.format} onChange={(v) => onPatch((x) => ({ ...x, body: v, format: "MD" }) as ContentBlock)} bodyMax={bodyMax} center={bare} />
           </div>
           <div className={`mt-6 flex ${bare ? "justify-center" : ""}`}>
-            <ButtonPreview label={b.buttonLabel} onOpen={onOpen} sacred={bare} />
+            <ButtonPreview label={t(b.buttonLabel)} onOpen={onOpen} sacred={bare} />
           </div>
         </div>,
       );
     case "photoText":
       return wrap(
-        <div className={bare ? "grid items-center gap-5 sm:grid-cols-2 sm:gap-10" : "cp-card grid items-center p-3 sm:grid-cols-2 sm:p-4"}>
+        <div className={`${photoTextCols(b.imageSide)} ${bare ? "grid items-center gap-4 sm:grid-cols-2 sm:gap-10" : "cp-card grid items-center gap-1 p-2 sm:grid-cols-2 sm:gap-0 sm:p-4"}`}>
           <PhotoSlot
             image={b.image}
-            className={`aspect-[9/16] ${bare ? "cp-luxe-frame" : "cp-photo-bubble"} mx-auto w-full max-w-[20rem] ${b.imageSide === "right" ? "sm:order-last" : ""}`}
+            className={`aspect-[9/16] ${bare ? "cp-luxe-frame" : "cp-photo-bubble"} w-full sm:mx-auto sm:max-w-[20rem] ${b.imageSide === "right" ? "order-last" : ""}`}
             onChange={(image) => set("image", image)}
             extra={
               <button
                 type="button"
                 onClick={() => onPatch((x) => (x.kind === "photoText" ? { ...x, imageSide: x.imageSide === "right" ? "left" : "right" } : x))}
                 className="hidden rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur sm:inline-block"
-              >
-                Cambiar de lado
-              </button>
+              ><Tr s={"Cambiar de lado"} /></button>
             }
           />
-          <div className={`flex flex-col justify-center ${bare ? "" : "p-6 sm:p-7"}`}>
+          <div className={`flex min-w-0 flex-col justify-center ${bare ? "" : "p-3 sm:p-7"}`}>
             <EdTitle value={b.title} onChange={(v) => set("title", v)} luxe={false} />
             <div className="mt-4">
               <EdBody value={b.body} format={b.format} onChange={(v) => onPatch((x) => ({ ...x, body: v, format: "MD" }) as ContentBlock)} bodyMax={bodyMax} />
             </div>
             <div className="mt-5">
-              <ButtonPreview label={b.buttonLabel} onOpen={onOpen} />
+              <ButtonPreview label={t(b.buttonLabel)} onOpen={onOpen} />
             </div>
           </div>
         </div>,
@@ -620,14 +617,14 @@ function EditableBlock(p: EditProps) {
                   type="button"
                   onClick={() => onPatch((x) => (x.kind === "cards" ? { ...x, cards: x.cards.filter((_, j) => j !== i) } : x))}
                   className="absolute right-2 top-2 z-[2] grid h-8 w-8 place-items-center rounded-full bg-black/40 text-white opacity-70 hover:opacity-100"
-                  aria-label="Quitar tarjeta"
+                  aria-label={t("Quitar tarjeta")}
                 >
                   <X className="h-4 w-4" />
                 </button>
                 <PhotoSlot image={c.image} className={`w-full ${fancy ? "cp-gift-photo aspect-[4/5]" : "cp-photo-bubble cp-photo-in aspect-[4/3]"}`} onChange={(image) => patchCard(i, { image })} />
                 <div className={`flex w-full flex-1 flex-col ${fancy ? "items-center px-5 py-8 text-center" : "p-5"}`}>
                   <h3 data-card-title className={`cp-display w-full ${fancy ? "cp-thin mt-3 text-[1.7rem] italic" : "text-[1.3rem]"} leading-tight`}>
-                    <Grow value={c.title} onChange={(v) => setCard(i, "title", v)} placeholder="Título" maxLength={80} label="Título de la tarjeta" className={fancy ? "text-center" : ""} />
+                    <Grow value={c.title} onChange={(v) => setCard(i, "title", v)} placeholder={t("Título")} maxLength={80} label={t("Título de la tarjeta")} className={fancy ? "text-center" : ""} />
                   </h3>
                   {fancy && (
                     <span aria-hidden className="cp-section-rule mt-3 !w-24">
@@ -636,26 +633,26 @@ function EditableBlock(p: EditProps) {
                       <span />
                     </span>
                   )}
-                  <Grow value={c.text} onChange={(v) => setCard(i, "text", v)} placeholder="Texto corto" maxLength={240} label="Texto de la tarjeta" className={`cp-muted mt-2 text-[0.95rem] leading-relaxed ${fancy ? "cp-thin-text text-center" : ""}`} />
+                  <Grow value={c.text} onChange={(v) => setCard(i, "text", v)} placeholder={t("Texto corto")} maxLength={240} label={t("Texto de la tarjeta")} className={`cp-muted mt-2 text-[0.95rem] leading-relaxed ${fancy ? "cp-thin-text text-center" : ""}`} />
                   <input
                     value={c.price ?? ""}
                     onChange={(e) => patchCard(i, { price: e.target.value })}
                     maxLength={40}
-                    placeholder="Precio (opcional)"
-                    aria-label="Precio de la tarjeta"
+                    placeholder={t("Precio (opcional)")}
+                    aria-label={t("Precio de la tarjeta")}
                     className={`cp-gold cp-display mt-3 w-full px-2 py-0.5 text-[1.3rem] ${fancy ? "text-center" : ""} ${inline}`}
                   />
                   {fancy && c.href && (
                     <span className="cp-gift-cta mt-4" aria-hidden>
-                      {/^mailto:/i.test(c.href) ? "Pedirlo" : "Ver más"} <span>✦</span>
+                      {/^mailto:/i.test(c.href) ? t("Pedirlo") : t("Ver más")} <span>✦</span>
                     </span>
                   )}
                   <input
                     value={c.href ?? ""}
                     onChange={(e) => patchCard(i, { href: e.target.value || undefined })}
                     maxLength={500}
-                    placeholder="Enlace del botón: https://… o mailto:tu@email (opcional)"
-                    aria-label="Enlace de la tarjeta"
+                    placeholder={t("Enlace del botón: https://… o mailto:tu@email (opcional)")}
+                    aria-label={t("Enlace de la tarjeta")}
                     className={`cp-faint mt-3 w-full px-2 py-1 text-[0.72rem] ${fancy ? "text-center" : ""} ${inline}`}
                   />
                 </div>
@@ -665,8 +662,7 @@ function EditableBlock(p: EditProps) {
           {b.cards.length < CARDS_MAX && (
             <div className="mt-4 flex flex-wrap justify-center gap-3">
               <button type="button" onClick={() => onPatch((x) => (x.kind === "cards" ? { ...x, cards: [...x.cards, newCard()] } : x))} className="cp-btn-ghost">
-                <Plus className="h-4 w-4" /> Añadir tarjeta
-              </button>
+                <Plus className="h-4 w-4" />{" "}<Tr s={"Añadir tarjeta"} /></button>
             </div>
           )}
         </section>,
@@ -680,14 +676,14 @@ function EditableBlock(p: EditProps) {
               “
             </span>
             <blockquote className="cp-display cp-thin text-[1.75rem] italic leading-snug sm:text-[2.2rem]">
-              <Grow value={b.text} onChange={(v) => set("text", v)} placeholder="Tu frase" maxLength={600} label="La frase" className="text-center" />
+              <Grow value={b.text} onChange={(v) => set("text", v)} placeholder={t("Tu frase")} maxLength={600} label={t("La frase")} className="text-center" />
             </blockquote>
             <div aria-hidden className="cp-section-rule mt-6">
               <span />
               <i>✦</i>
               <span />
             </div>
-            <input value={b.author ?? ""} onChange={(e) => set("author", e.target.value)} placeholder="Quién lo dice (opcional)" maxLength={120} aria-label="Autora" className={`cp-gold mx-auto mt-4 block w-64 px-2 py-1 text-center text-[0.78rem] uppercase tracking-[0.4em] ${inline}`} />
+            <input value={b.author ?? ""} onChange={(e) => set("author", e.target.value)} placeholder={t("Quién lo dice (opcional)")} maxLength={120} aria-label={t("Autora")} className={`cp-gold mx-auto mt-4 block w-64 px-2 py-1 text-center text-[0.78rem] uppercase tracking-[0.4em] ${inline}`} />
           </figure>
         ) : (
           <figure className={`relative px-7 pb-8 pt-12 text-center sm:px-12 ${luxe ? "cp-include-panel" : "cp-card"}`}>
@@ -695,9 +691,9 @@ function EditableBlock(p: EditProps) {
               “
             </span>
             <blockquote className="cp-display text-[1.45rem] leading-snug sm:text-[1.7rem]">
-              <Grow value={b.text} onChange={(v) => set("text", v)} placeholder="Tu frase" maxLength={600} label="La frase" className="text-center" />
+              <Grow value={b.text} onChange={(v) => set("text", v)} placeholder={t("Tu frase")} maxLength={600} label={t("La frase")} className="text-center" />
             </blockquote>
-            <input value={b.author ?? ""} onChange={(e) => set("author", e.target.value)} placeholder="— Quién lo dice (opcional)" maxLength={120} aria-label="Autora" className={`cp-eyebrow mx-auto mt-5 block w-64 px-2 py-1 text-center ${inline}`} />
+            <input value={b.author ?? ""} onChange={(e) => set("author", e.target.value)} placeholder={t("— Quién lo dice (opcional)")} maxLength={120} aria-label={t("Autora")} className={`cp-eyebrow mx-auto mt-5 block w-64 px-2 py-1 text-center ${inline}`} />
           </figure>
         ),
       );
@@ -726,20 +722,20 @@ function EditableBlock(p: EditProps) {
                 </span>
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
-                    <input value={it.label} onChange={(e) => setItem(i, "label", e.target.value)} placeholder="Año o número" maxLength={40} aria-label="Etiqueta" className={`cp-display cp-gold w-full px-2 text-[2rem] leading-none sm:text-[2.4rem] ${inline}`} />
+                    <input value={it.label} onChange={(e) => setItem(i, "label", e.target.value)} placeholder={t("Año o número")} maxLength={40} aria-label={t("Etiqueta")} className={`cp-display cp-gold w-full px-2 text-[2rem] leading-none sm:text-[2.4rem] ${inline}`} />
                     <p className="cp-display cp-thin mt-2 text-[1.45rem] leading-snug">
-                      <Grow value={it.title} onChange={(v) => setItem(i, "title", v)} placeholder="Título" maxLength={100} label="Título del hito" />
+                      <Grow value={it.title} onChange={(v) => setItem(i, "title", v)} placeholder={t("Título")} maxLength={100} label={t("Título del hito")} />
                     </p>
-                    <Grow value={it.text} onChange={(v) => setItem(i, "text", v)} placeholder="Texto" maxLength={400} label="Texto del hito" className="cp-muted cp-thin-text mt-1.5 text-[0.98rem] leading-relaxed" />
+                    <Grow value={it.text} onChange={(v) => setItem(i, "text", v)} placeholder={t("Texto")} maxLength={400} label={t("Texto del hito")} className="cp-muted cp-thin-text mt-1.5 text-[0.98rem] leading-relaxed" />
                   </div>
                   <div className="flex shrink-0 flex-col gap-1 opacity-70">
-                    <button type="button" disabled={i === 0} onClick={() => moveItem(i, -1)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-white/10 disabled:opacity-25" aria-label="Subir">
+                    <button type="button" disabled={i === 0} onClick={() => moveItem(i, -1)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-white/10 disabled:opacity-25" aria-label={t("Subir")}>
                       <ArrowUp className="h-4 w-4" />
                     </button>
-                    <button type="button" disabled={i === b.items.length - 1} onClick={() => moveItem(i, 1)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-white/10 disabled:opacity-25" aria-label="Bajar">
+                    <button type="button" disabled={i === b.items.length - 1} onClick={() => moveItem(i, 1)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-white/10 disabled:opacity-25" aria-label={t("Bajar")}>
                       <ArrowDown className="h-4 w-4" />
                     </button>
-                    <button type="button" onClick={() => onPatch((x) => (x.kind === "timeline" ? { ...x, items: x.items.filter((_, j) => j !== i) } : x))} className="grid h-8 w-8 place-items-center rounded-full hover:bg-white/10" aria-label="Quitar">
+                    <button type="button" onClick={() => onPatch((x) => (x.kind === "timeline" ? { ...x, items: x.items.filter((_, j) => j !== i) } : x))} className="grid h-8 w-8 place-items-center rounded-full hover:bg-white/10" aria-label={t("Quitar")}>
                       <X className="h-4 w-4" />
                     </button>
                   </div>
@@ -750,8 +746,7 @@ function EditableBlock(p: EditProps) {
           {b.items.length < TIMELINE_MAX && (
             <div className="mt-6 flex justify-center">
               <button type="button" onClick={() => onPatch((x) => (x.kind === "timeline" ? { ...x, items: [...x.items, newTimelineItem()] } : x))} className="cp-btn-ghost">
-                <Plus className="h-4 w-4" /> Añadir paso
-              </button>
+                <Plus className="h-4 w-4" />{" "}<Tr s={"Añadir paso"} /></button>
             </div>
           )}
         </section>,
@@ -770,12 +765,12 @@ function EditableBlock(p: EditProps) {
                   <input
                     value={it.label}
                     onChange={(e) => onPatch((x) => (x.kind === "pills" ? { ...x, items: x.items.map((p, j) => (j === i ? { ...p, label: e.target.value } : p)) } : x))}
-                    placeholder="Texto del enlace"
+                    placeholder={t("Texto del enlace")}
                     maxLength={60}
-                    aria-label="Texto del enlace"
+                    aria-label={t("Texto del enlace")}
                     className={`w-full px-2 py-1 text-center text-[0.95rem] font-semibold ${inline}`}
                   />
-                  <button type="button" onClick={() => onPatch((x) => (x.kind === "pills" ? { ...x, items: x.items.filter((_, j) => j !== i) } : x))} className="ml-1 grid h-7 w-7 shrink-0 place-items-center rounded-full opacity-60 hover:opacity-100" aria-label="Quitar">
+                  <button type="button" onClick={() => onPatch((x) => (x.kind === "pills" ? { ...x, items: x.items.filter((_, j) => j !== i) } : x))} className="ml-1 grid h-7 w-7 shrink-0 place-items-center rounded-full opacity-60 hover:opacity-100" aria-label={t("Quitar")}>
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -785,12 +780,9 @@ function EditableBlock(p: EditProps) {
           <div className="mt-4 flex flex-wrap justify-center gap-3">
             {b.items.length < PILLS_MAX && (
               <button type="button" onClick={() => onPatch((x) => (x.kind === "pills" ? { ...x, items: [...x.items, newPill()] } : x))} className="cp-btn-ghost">
-                <Plus className="h-4 w-4" /> Añadir enlace
-              </button>
+                <Plus className="h-4 w-4" />{" "}<Tr s={"Añadir enlace"} /></button>
             )}
-            <button type="button" onClick={onOpen} className="cp-faint text-xs underline underline-offset-4">
-              Cambiar adónde lleva cada uno
-            </button>
+            <button type="button" onClick={onOpen} className="cp-faint text-xs underline underline-offset-4"><Tr s={"Cambiar adónde lleva cada uno"} /></button>
           </div>
         </nav>,
       );
@@ -798,21 +790,21 @@ function EditableBlock(p: EditProps) {
       return (
         <section data-gold-title={b.goldTitle ? "" : undefined} className="cp-line rounded-[var(--r-card)] border border-dashed p-5 text-center">
           <h3 className="cp-eyebrow">
-            <input value={b.title} onChange={(e) => set("title", e.target.value)} placeholder="Los próximos círculos de la luna" maxLength={80} aria-label="Título" className={`w-full px-2 py-1 text-center ${inline}`} />
+            <input value={b.title} onChange={(e) => set("title", e.target.value)} placeholder={t("Los próximos círculos de la luna")} maxLength={80} aria-label={t("Título")} className={`w-full px-2 py-1 text-center ${inline}`} />
           </h3>
-          <p className="cp-muted mt-2 text-[0.85rem]">Aquí salen solos tus dos próximos círculos de la luna, con su fecha, el precio y «Apuntarme».</p>
+          <p className="cp-muted mt-2 text-[0.85rem]"><Tr s={"Aquí salen solos tus dos próximos círculos de la luna, con su fecha, el precio y «Apuntarme»."} /></p>
         </section>
       );
     case "tiers":
       return (
         <section data-gold-title={b.goldTitle ? "" : undefined}>
           <div className="mb-10 text-center">
-            <EdTitle value={b.title} onChange={(v) => set("title", v)} luxe={bare || luxe} placeholder="Título encima de los niveles (opcional)" />
+            <EdTitle value={b.title} onChange={(v) => set("title", v)} luxe={bare || luxe} placeholder={t("Título encima de los niveles (opcional)")} />
           </div>
           {p.renderTiers ? (
             p.renderTiers(b, onPatch)
           ) : (
-            <p className="cp-line cp-muted rounded-[var(--r-card)] border border-dashed p-5 text-center text-[0.85rem]">Aquí salen tus niveles de la comunidad.</p>
+            <p className="cp-line cp-muted rounded-[var(--r-card)] border border-dashed p-5 text-center text-[0.85rem]"><Tr s={"Aquí salen tus niveles de la comunidad."} /></p>
           )}
         </section>
       );
@@ -823,7 +815,7 @@ function EditableBlock(p: EditProps) {
       if (empty)
         return (
           <Empty onOpen={onOpen}>
-            {b.kind === "image" ? "Añade la imagen" : b.kind === "gallery" ? "Añade las fotos de la galería" : "Añade el vídeo"}
+            {b.kind === "image" ? t("Añade la imagen") : b.kind === "gallery" ? t("Añade las fotos de la galería") : t("Añade el vídeo")}
           </Empty>
         );
       return (
@@ -832,8 +824,7 @@ function EditableBlock(p: EditProps) {
             <ContentBlocks blocks={[b]} username={p.username} titleLevel={2} hiddenSlugs={p.hiddenSlugs} siteOrigin={p.siteOrigin} oracleDecks={p.oracleDecks} moonCircles={p.moonCircles} bare={mode.bare} luxe={mode.luxe} />
           </div>
           <button type="button" onClick={onOpen} className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white">
-            <Pencil className="h-3.5 w-3.5" /> Cambiar
-          </button>
+            <Pencil className="h-3.5 w-3.5" />{" "}<Tr s={"Cambiar"} /></button>
         </div>
       );
     }

@@ -1,6 +1,7 @@
 "use client";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n/client";
 
 /**
  * Imagen que se amplía al tocarla: se abre en un <dialog> a pantalla completa con pellizco (1–5×),
@@ -33,6 +34,7 @@ export function ZoomableImage({
   width?: number;
   height?: number;
 }) {
+  const t = useT();
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const stage = useRef<HTMLDivElement>(null);
@@ -136,9 +138,9 @@ export function ZoomableImage({
 
   return (
     <>
-      <button ref={trigger} type="button" onClick={open} className={`block w-full cursor-zoom-in ${className}`} aria-label={alt ? `Ampliar imagen: ${alt}` : "Ampliar imagen"}>
+      <button ref={trigger} type="button" onClick={open} className={`block w-full cursor-zoom-in ${className}`} aria-label={alt ? `Ampliar imagen: ${alt}` : t("Ampliar imagen")}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} srcSet={srcSet} sizes={sizes} alt={alt} width={width} height={height} loading="lazy" decoding="async" className={`h-auto w-full ${imgClassName}`} />
+        <img src={src} srcSet={srcSet} sizes={sizes} alt={t(alt)} width={width} height={height} loading="lazy" decoding="async" className={`h-auto w-full ${imgClassName}`} />
       </button>
       <dialog
         ref={dialog}
@@ -161,7 +163,7 @@ export function ZoomableImage({
             src={src}
             srcSet={srcSet}
             sizes="100vw"
-            alt={alt}
+            alt={t(alt)}
             // Diferida: el <dialog> cerrado no se pinta y así su imagen grande no se descarga hasta abrirlo.
             loading="lazy"
             decoding="async"
@@ -179,7 +181,7 @@ export function ZoomableImage({
           type="button"
           onClick={close}
           className="absolute right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] grid h-11 w-11 place-items-center rounded-full bg-white/15 text-white hover:bg-white/25"
-          aria-label="Cerrar"
+          aria-label={t("Cerrar")}
         >
           <X className="h-5 w-5" />
         </button>

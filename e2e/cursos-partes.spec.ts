@@ -30,9 +30,9 @@ const TITLE = `${TAG} Lección completa`;
 
 async function demoLogin(page: Page, label: string, base = PERSONAL) {
   await page.context().clearCookies();
-  await page.goto(`${base}/entrar`);
+  await page.goto(`${base}/login`);
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 /** Acepta los confirm() y los avisos al salir; guarda los mensajes. */
@@ -58,7 +58,7 @@ const files = { video: "", audio: "", image: "", pdf: "" };
 
 test.beforeAll(async () => {
   anaId = (await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } })).id;
-  const course = await prisma.product.findFirstOrThrow({ where: { creatorId: anaId, slug: "curso-conocete-tu-energia" }, include: { files: true } });
+  const course = await prisma.product.findFirstOrThrow({ where: { creatorId: anaId, slug: "know-your-energy" }, include: { files: true } });
   courseId = course.id;
   files.pdf = course.files.find((f) => f.name === "Cuaderno de trabajo.pdf")!.id;
   lauraId = (await prisma.user.findUniqueOrThrow({ where: { email: "laura@example.com" } })).id;
@@ -83,7 +83,7 @@ test.describe.serial("Lecciones por partes · web personal (iPhone)", () => {
     await page.goto(`/panel/cursos/${courseId}`);
     const firstModule = page.locator("[data-structure-board] [data-module]").first();
     await firstModule.getByRole("link", { name: "Añadir lección" }).click();
-    await page.waitForURL(/\/panel\/cursos\/[^/]+\/lecciones\/nueva\?modulo=/);
+    await page.waitForURL(/\/panel\/courses\/[^/]+\/lecciones\/nueva\?modulo=/);
     await page.getByLabel("Título de la lección").fill(TITLE);
     // Las lecciones nuevas nacen en borrador: se publica para que la vea Laura.
     await page.getByRole("radiogroup", { name: "Estado de la lección" }).getByText("Publicada").click();
@@ -213,7 +213,7 @@ test.describe.serial("Lecciones por partes · web personal (iPhone)", () => {
   test("la alumna ve el vídeo arriba y el resto en orden; la lección es un solo paso", async ({ page }) => {
     await demoLogin(page, "Laura Martín");
     const videoRequest = page.waitForRequest((r) => r.url().includes(`/api/download/${files.video}?inline=1`));
-    await page.goto(`/cuenta/cursos/${courseId}?leccion=${lessonId}`);
+    await page.goto(`/area/courses/${courseId}?leccion=${lessonId}`);
     const article = page.locator("article");
     await expect(article.getByRole("heading", { name: TITLE, level: 2 })).toBeVisible();
     await videoRequest;
@@ -247,19 +247,19 @@ test.describe.serial("Lecciones por partes · web personal (iPhone)", () => {
 
   test("«Mis archivos»: audio, imagen y PDF con su lección; el vídeo no", async ({ page }) => {
     await demoLogin(page, "Laura Martín");
-    await page.goto("/cuenta/archivos");
+    await page.goto("/area/files");
     for (const name of [`${TAG}-zoom.m4a`, `${TAG}-lamina.png`]) {
       const row = page.locator("div.flex.items-center.gap-4", { hasText: name });
-      await expect(row.getByRole("link", { name: `Lección: ${TITLE}` })).toHaveAttribute("href", `/cuenta/cursos/${courseId}?leccion=${lessonId}`);
+      await expect(row.getByRole("link", { name: `Lección: ${TITLE}` })).toHaveAttribute("href", `/area/courses/${courseId}?leccion=${lessonId}`);
     }
     const cuaderno = page.locator("div.flex.items-center.gap-4", { hasText: "Cuaderno de trabajo.pdf" });
-    await expect(cuaderno.getByRole("link", { name: /^Lección: / })).toHaveAttribute("href", new RegExp(`/cuenta/cursos/${courseId}\\?leccion=`));
+    await expect(cuaderno.getByRole("link", { name: /^Lección: / })).toHaveAttribute("href", new RegExp(`/area/courses/${courseId}\\?leccion=`));
     await expect(page.getByText(`${TAG}-clase.mov`)).toHaveCount(0);
   });
 
   test("lista de lecciones plegable en el móvil", async ({ page }) => {
     await demoLogin(page, "Laura Martín");
-    await page.goto(`/cuenta/cursos/${courseId}?leccion=${lessonId}`);
+    await page.goto(`/area/courses/${courseId}?leccion=${lessonId}`);
     const outline = page.locator("[data-outline-mobile]");
     await expect(outline.locator("summary")).toHaveText(/Lecciones del curso · \d+ de \d+ completadas/);
     await expect(page.locator("[data-outline-desktop]")).toBeHidden();
@@ -283,7 +283,7 @@ test.describe.serial("Lecciones por partes · web personal (iPhone)", () => {
     await page.waitForURL(new RegExp(`/panel/cursos/${courseId}/lecciones/${lessonId}$`));
     await expect(page.locator("[data-part]")).toHaveCount(4);
     await demoLogin(page, "Laura Martín");
-    await page.goto(`/cuenta/cursos/${courseId}?leccion=${lessonId}`);
+    await page.goto(`/area/courses/${courseId}?leccion=${lessonId}`);
     await expect(page.locator("article h2")).toBeVisible();
     await expect(page.locator("article audio")).toHaveCount(0);
   });
@@ -293,7 +293,7 @@ test.describe.serial("Lecciones por partes · plataforma", () => {
   test.use({ baseURL: PLATFORM });
 
   test("programa público, PDF con «Descargar PDF», texto de antes y el programa del panel", async ({ page }) => {
-    await page.goto("/ana/curso-conocete-tu-energia");
+    await page.goto("/ana/know-your-energy");
     const program = page.locator("section", { has: page.getByRole("heading", { name: "Programa" }) });
     await expect(program.locator("li", { hasText: "Sol, Luna y Ascendente" })).toContainText("Lectura · 12 min");
     await expect(program.locator("li", { hasText: "Ejercicio: dibuja tu mapa" })).toContainText("Texto + PDF · 20 min");
@@ -305,7 +305,7 @@ test.describe.serial("Lecciones por partes · plataforma", () => {
 
     await demoLogin(page, "Laura Martín", PLATFORM);
     const ejercicio = await prisma.lesson.findFirstOrThrow({ where: { productId: courseId, title: "Ejercicio: dibuja tu mapa" } });
-    await page.goto(`/cuenta/cursos/${courseId}?leccion=${ejercicio.id}`);
+    await page.goto(`/area/courses/${courseId}?leccion=${ejercicio.id}`);
     const article = page.locator("article");
     const textFirst = await page.evaluate(() => {
       const p = document.querySelector("article p:not(.eyebrow)");
@@ -316,7 +316,7 @@ test.describe.serial("Lecciones por partes · plataforma", () => {
     await expect(article.getByRole("link", { name: /Descargar PDF/ })).toHaveAttribute("href", `/api/download/${files.pdf}`);
 
     const sol = await prisma.lesson.findFirstOrThrow({ where: { productId: courseId, title: "Sol, Luna y Ascendente" } });
-    await page.goto(`/cuenta/cursos/${courseId}?leccion=${sol.id}`);
+    await page.goto(`/area/courses/${courseId}?leccion=${sol.id}`);
     const paragraphs = page.locator("article div.space-y-4 > p");
     await expect(paragraphs).toHaveCount(2);
     expect(await page.locator("article [data-rich]").count()).toBe(0);

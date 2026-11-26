@@ -8,6 +8,7 @@ import { BirthForm, type BirthData } from "./chart-birth-form";
 import { ChartModel } from "./chart-model";
 import { ASPECT_BY_ID, BODY_INFO } from "./data/astrology";
 import { NIGHT_CHART_STYLE } from "./night-chart-style";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * El editor de la «Carta a mano» (lib/lesson-blocks.ts → customChartSchema): la carta de partida, los ajustes
@@ -21,6 +22,7 @@ const VS = "︎";
 export const pointGlyph = (p: CustomPoint) => (p === "asc" ? "AC" : p === "mc" ? "MC" : BODY_INFO[p].glyph + VS);
 
 export function CustomChartEditor({ value, onChange, previewStyle }: { value: CustomChartData; onChange: (v: CustomChartData) => void; previewStyle?: CSSProperties }) {
+  const t = useT();
   const [formOpen, setFormOpen] = useState(false);
   const base = value.base ?? EXAMPLE_BASE;
   const set = (patch: Partial<CustomChartData>) => onChange({ ...value, ...patch });
@@ -33,30 +35,28 @@ export function CustomChartEditor({ value, onChange, previewStyle }: { value: Cu
       {/* La carta de partida. */}
       <div className="rounded-xl border border-line px-3 py-2.5 text-sm">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-muted">Carta de partida:</span>
-          <strong>{value.base ? base.name || "Sin nombre" : "La de ejemplo (Cirella)"}</strong>
+          <span className="text-muted"><Tr s={"Carta de partida:"} /></span>
+          <strong><Tr s={value.base ? base.name || t("Sin nombre") : t("La de ejemplo (Cirella)")} /></strong>
           <span className="text-muted">
-            · {base.date.split("-").reverse().join("/")} {base.timeKnown ? base.time : "sin hora"} · {base.place}
+            · {base.date.split("-").reverse().join("/")} <Tr s={base.timeKnown ? base.time : t("sin hora")} /> · <Tr s={base.place} />
           </span>
           <span className="ml-auto flex gap-2">
             <button type="button" className="btn btn-outline btn-sm" onClick={() => setFormOpen((o) => !o)}>
-              {formOpen ? "Cerrar" : "Cambiar"}
+              {formOpen ? t("Cerrar") : t("Cambiar")}
             </button>
             {value.base && (
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => set({ base: null })}>
-                Volver al ejemplo
-              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => set({ base: null })}><Tr s={"Volver al ejemplo"} /></button>
             )}
           </span>
         </div>
-        <p className="mt-1 text-xs text-muted">Los puntos que no muevas salen como en esta carta. Si mueves todos, da igual cuál sea.</p>
+        <p className="mt-1 text-xs text-muted"><Tr s={"Los puntos que no muevas salen como en esta carta. Si mueves todos, da igual cuál sea."} /></p>
         {formOpen && (
           <div className="mt-3">
             <BirthForm
               initial={{ name: base.name, date: base.date, time: base.time, timeKnown: base.timeKnown, place: { label: base.place, detail: "", lat: base.lat, lon: base.lon, tz: base.tz } }}
-              title="La carta de partida"
-              note="Puedes usar unos datos reales o inventados."
-              submitLabel="Usar esta carta"
+              title={t("La carta de partida")}
+              note={t("Puedes usar unos datos reales o inventados.")}
+              submitLabel={t("Usar esta carta")}
               onCancel={() => setFormOpen(false)}
               onSubmit={(d: BirthData) => {
                 set({ base: { name: d.name, date: d.date, time: d.time, timeKnown: d.timeKnown, place: d.place.label, lat: d.place.lat, lon: d.place.lon, tz: d.place.tz } });
@@ -70,11 +70,11 @@ export function CustomChartEditor({ value, onChange, previewStyle }: { value: Cu
       {/* Los ajustes. */}
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="block text-sm">
-          <span className="mb-1 block font-medium">Nombre en la carta</span>
-          <input className="input text-base sm:text-sm" value={value.name} maxLength={60} placeholder="Carta de la lección" onChange={(e) => set({ name: e.target.value })} />
+          <span className="mb-1 block font-medium"><Tr s={"Nombre en la carta"} /></span>
+          <input className="input text-base sm:text-sm" value={value.name} maxLength={60} placeholder={t("Carta de la lección")} onChange={(e) => set({ name: e.target.value })} />
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block font-medium">Casas</span>
+          <span className="mb-1 block font-medium"><Tr s={"Casas"} /></span>
           <select className="input text-base sm:text-sm" value={value.houseSystem} onChange={(e) => set({ houseSystem: e.target.value as HouseSystem })}>
             {(Object.keys(HOUSE_SYSTEM_NAME) as HouseSystem[]).map((h) => (
               <option key={h} value={h}>
@@ -84,38 +84,36 @@ export function CustomChartEditor({ value, onChange, previewStyle }: { value: Cu
           </select>
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block font-medium">Nodos</span>
+          <span className="mb-1 block font-medium"><Tr s={"Nodos"} /></span>
           <select className="input text-base sm:text-sm" value={value.node} onChange={(e) => set({ node: e.target.value as "mean" | "true" })}>
-            <option value="mean">Medios</option>
-            <option value="true">Verdaderos</option>
+            <option value="mean"><Tr s={"Medios"} /></option>
+            <option value="true"><Tr s={"Verdaderos"} /></option>
           </select>
         </label>
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-        <span className="font-medium">Aspectos:</span>
+        <span className="font-medium"><Tr s={"Aspectos:"} /></span>
         {CHART_ASPECTS.map((a) => (
           <label key={a} className="inline-flex items-center gap-1.5">
             <input type="checkbox" checked={value.aspects.includes(a)} onChange={() => set({ aspects: toggle(value.aspects, a) })} />
-            <span style={{ color: ASPECT_BY_ID[a].color }}>{ASPECT_BY_ID[a].glyph + VS}</span> {ASPECT_BY_ID[a].name}
+            <span style={{ color: ASPECT_BY_ID[a].color }}>{ASPECT_BY_ID[a].glyph + VS}</span> <Tr s={ASPECT_BY_ID[a].name} />
           </label>
         ))}
       </div>
       <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
         <label className="inline-flex items-center gap-2">
-          <input type="checkbox" checked={value.showHouses} onChange={(e) => set({ showHouses: e.target.checked })} /> Con casas y ejes
-        </label>
+          <input type="checkbox" checked={value.showHouses} onChange={(e) => set({ showHouses: e.target.checked })} />{" "}<Tr s={"Con casas y ejes"} /></label>
         <label className="inline-flex items-center gap-2">
-          <input type="checkbox" checked={value.lockSettings} onChange={(e) => set({ lockSettings: e.target.checked })} /> La alumna no puede cambiar casas ni nodos
-        </label>
+          <input type="checkbox" checked={value.lockSettings} onChange={(e) => set({ lockSettings: e.target.checked })} />{" "}<Tr s={"La alumna no puede cambiar casas ni nodos"} /></label>
       </div>
 
       {/* La carta: se edita encima, arrastrando cada punto; al tocarlo, su burbuja. */}
       <div>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span className="font-medium">Mueve los puntos sobre la carta</span>
+          <span className="font-medium"><Tr s={"Mueve los puntos sobre la carta"} /></span>
           {manualCount > 0 && (
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => set({ positions: {}, retro: [] })}>
-              <RotateCcw className="h-3.5 w-3.5" /> Quitar todo lo movido ({manualCount})
+              <RotateCcw className="h-3.5 w-3.5" />{" "}<Tr s={"Quitar todo lo movido ("} />{manualCount})
             </button>
           )}
         </div>
@@ -124,7 +122,7 @@ export function CustomChartEditor({ value, onChange, previewStyle }: { value: Cu
             <ChartModel custom={value} onCustomChange={onChange} />
           </section>
         </div>
-        <p className="mt-2 text-xs text-muted">Así la verá tu alumna, sin poder moverla. Lo que no muevas sale como en la carta de partida.</p>
+        <p className="mt-2 text-xs text-muted"><Tr s={"Así la verá tu alumna, sin poder moverla. Lo que no muevas sale como en la carta de partida."} /></p>
       </div>
     </div>
   );

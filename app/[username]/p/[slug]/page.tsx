@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { barePage, hiddenProductSlugs, SitePageView } from "@/components/creator-page/site-page-view";
 import { TrackOnMount } from "@/components/creator-page/tracking";
 import { appUrl } from "@/lib/env";
@@ -7,7 +7,10 @@ import { richToPlain } from "@/lib/rich-text";
 import type { SitePageContent } from "@/lib/site-pages";
 import { getPublicSitePage } from "@/lib/site-pages.server";
 import { nextMoonCircles } from "@/lib/moon-circles";
+import { localTx } from "@/lib/i18n/content";
 import { oracleDecksForBlocks } from "@/lib/oracle-decks";
+import { renamedPageSlug } from "@/lib/renamed-slugs";
+import { getT } from "@/lib/i18n/server";
 
 type Params = { username: string; slug: string };
 
@@ -27,7 +30,7 @@ function description(content: SitePageContent): string {
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { username, slug } = await params;
   const found = await getPublicSitePage(username, slug);
-  if (!found) return { title: "Página no encontrada" };
+  if (!found) return { title: (await getT())("Página no encontrada") };
   const { data, content, url } = found;
   const title = `${content.seoTitle || content.title} · ${data.config.displayName}`;
   const desc = description(content) || undefined;
@@ -48,9 +51,15 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 export default async function SitePagePublic({ params }: { params: Promise<Params> }) {
   const { username, slug } = await params;
   const found = await getPublicSitePage(username, slug);
-  if (!found) notFound();
+  if (!found) {
+    // Un nombre de antes (lib/renamed-slugs.ts: «sobre-mi» → /aboutme): lleva al nuevo.
+    const renamed = renamedPageSlug(slug);
+    const moved = renamed ? await getPublicSitePage(username, renamed) : null;
+    if (moved) permanentRedirect(moved.path);
+    notFound();
+  }
   const { data, content, page, path, url } = found;
-  const oracleDecks = await oracleDecksForBlocks(data.creator.id, content.blocks);
+  const oracleDecks = await oracleDecksForBlocks(data.creator.id, content.blocks, await localTx(data.creator.id));
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebPage",

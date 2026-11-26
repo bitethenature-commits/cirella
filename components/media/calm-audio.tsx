@@ -2,6 +2,7 @@
 
 import { Pause, Play, RotateCcw, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useT } from "@/lib/i18n/client";
 
 const SPEEDS = [1, 1.25, 1.5, 2] as const;
 const speedLabel = (s: number) => `${s.toLocaleString("es-ES")}×`;
@@ -41,6 +42,7 @@ export function CalmAudio({
   preload?: "none" | "metadata";
   className?: string;
 }) {
+  const t = useT();
   const own = useRef<HTMLAudioElement>(null);
   const ref = audioRef ?? own;
   const [playing, setPlaying] = useState(false);
@@ -99,13 +101,13 @@ export function CalmAudio({
   const dot = { x: 50 + R * Math.sin(f * 2 * Math.PI), y: 50 - R * Math.cos(f * 2 * Math.PI) };
   const controls = (
     <div className="-ml-2 mt-1.5 flex items-center gap-0.5 text-[0.78rem] opacity-80">
-      <button type="button" onClick={() => skip(-15)} className="calm-btn inline-flex min-h-9 items-center gap-1 rounded-full px-2.5" aria-label="Retroceder 15 segundos">
+      <button type="button" onClick={() => skip(-15)} className="calm-btn inline-flex min-h-9 items-center gap-1 rounded-full px-2.5" aria-label={t("Retroceder 15 segundos")}>
         <RotateCcw className="h-3.5 w-3.5" /> 15 s
       </button>
       <button type="button" onClick={nextSpeed} className="calm-btn min-h-9 min-w-11 rounded-full px-2.5 font-serif tabular-nums" aria-label={`Velocidad ${speedLabel(speed)}`}>
         {speedLabel(speed)}
       </button>
-      <button type="button" onClick={() => skip(15)} className="calm-btn inline-flex min-h-9 items-center gap-1 rounded-full px-2.5" aria-label="Avanzar 15 segundos">
+      <button type="button" onClick={() => skip(15)} className="calm-btn inline-flex min-h-9 items-center gap-1 rounded-full px-2.5" aria-label={t("Avanzar 15 segundos")}>
         15 s <RotateCw className="h-3.5 w-3.5" />
       </button>
     </div>
@@ -132,7 +134,7 @@ export function CalmAudio({
               el.currentTime = Number(e.target.value);
               setTime(el.currentTime);
             }}
-            aria-label="Posición del audio"
+            aria-label={t("Posición del audio")}
             aria-valuetext={`${clock(time)} de ${clock(duration)}`}
             className="calm-line mt-2 block w-full"
             style={{ ["--f" as string]: `${f * 100}%` }}
@@ -162,7 +164,7 @@ export function CalmAudio({
           className="absolute inset-0 h-full w-full cursor-pointer touch-none"
           role="slider"
           tabIndex={0}
-          aria-label="Posición del audio"
+          aria-label={t("Posición del audio")}
           aria-valuemin={0}
           aria-valuemax={Number.isFinite(duration) ? Math.round(duration) : 0}
           aria-valuenow={Math.round(time)}
@@ -201,13 +203,13 @@ export function CalmAudio({
           <span className="opacity-50"> / {clock(duration)}</span>
         </p>
         <div className="-ml-2 mt-1.5 flex items-center gap-0.5 text-[0.78rem] opacity-80">
-          <button type="button" onClick={() => skip(-15)} className="calm-btn inline-flex min-h-9 items-center gap-1 rounded-full px-2.5" aria-label="Retroceder 15 segundos">
+          <button type="button" onClick={() => skip(-15)} className="calm-btn inline-flex min-h-9 items-center gap-1 rounded-full px-2.5" aria-label={t("Retroceder 15 segundos")}>
             <RotateCcw className="h-3.5 w-3.5" /> 15 s
           </button>
           <button type="button" onClick={nextSpeed} className="calm-btn min-h-9 min-w-11 rounded-full px-2.5 font-serif tabular-nums" aria-label={`Velocidad ${speedLabel(speed)}`}>
             {speedLabel(speed)}
           </button>
-          <button type="button" onClick={() => skip(15)} className="calm-btn inline-flex min-h-9 items-center gap-1 rounded-full px-2.5" aria-label="Avanzar 15 segundos">
+          <button type="button" onClick={() => skip(15)} className="calm-btn inline-flex min-h-9 items-center gap-1 rounded-full px-2.5" aria-label={t("Avanzar 15 segundos")}>
             15 s <RotateCw className="h-3.5 w-3.5" />
           </button>
         </div>

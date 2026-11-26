@@ -6,6 +6,7 @@ import { spreadLongitudes } from "@/lib/natal-chart";
 import { C, VS, pt, sector, type Tap } from "./common";
 import { aspectOf, type Planet, type Pos } from "./astro2-calc";
 import { DegreeTicks, WK_GOLD as GOLD, WK_INK as INK, WheelBase, WheelDefs, useWheelIds } from "./wheel-kit";
+import { useT, Tr } from "@/lib/i18n/client";
 
 /**
  * La doble rueda de la sinastría y de los tránsitos, con el aire de la carta natal: los signos con sus grados,
@@ -57,6 +58,7 @@ export function BiWheel({
   innerLabel: string;
   orbScale?: number;
 }) {
+  const t = useT();
   const ids = useWheelIds();
   const [hit, setHit] = useState<number | null>(null);
   const shownO = useMemo(() => spreadLongitudes(outer.map((p) => p.lon), 9), [outer]);
@@ -116,7 +118,7 @@ export function BiWheel({
                 {z.d}°
               </text>
               <text x={pt(disp, O_MIN).x} y={pt(disp, O_MIN).y} textAnchor="middle" dominantBaseline="central" fontSize="5" fill={INK} fillOpacity="0.6">
-                {pad2(z.m)}′{p.retro ? "℞" : ""}
+                {pad2(z.m)}′<Tr s={p.retro ? "℞" : ""} />
               </text>
             </>
           ) : (
@@ -131,7 +133,7 @@ export function BiWheel({
 
   return (
     <>
-      <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="Doble rueda">
+      <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={t("Doble rueda")}>
         <WheelDefs ids={ids} />
         <WheelBase ids={ids} r={R_OUT} />
         {SIGNS.map((g, i) => {
@@ -189,8 +191,8 @@ export function BiWheel({
         {picked
           ? `${glyph(picked.a.id)} ${name(picked.a.id)} ${outerLabel} · ${picked.glyph}${VS} ${picked.name.toLowerCase()} · ${glyph(picked.b.id)} ${innerLabel} ${name(picked.b.id)} · orbe ${Math.floor(picked.orb)}°${pad2(Math.round((picked.orb % 1) * 60) % 60)}′`
           : lines.length
-            ? "Toca una línea de aspecto para destacarla."
-            : "No hay aspectos entre las dos cartas."}
+            ? t("Toca una línea de aspecto para destacarla.")
+            : t("No hay aspectos entre las dos cartas.")}
       </p>
     </>
   );

@@ -1,7 +1,7 @@
 import type { EmailProvider } from "../provider";
 
 /**
- * Proveedor de desarrollo y demo: no envía nada (los emails se guardan y se leen en /dev/correo).
+ * Proveedor de desarrollo y demo: no envía nada (los emails se guardan y se leen en /dev/email).
  * Para probar los reintentos simula fallos según la dirección:
  *   · ana+fallo@…  → fallo transitorio del proveedor (se reintenta)
  *   · ana+rebote@… → dirección rechazada (fallo permanente)

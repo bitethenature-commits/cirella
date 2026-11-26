@@ -25,7 +25,7 @@ export function sampleAutomaticEmail(
   const when = formatSessionDate(new Date(Date.now() + 7 * 86_400_000), c.timezone);
   const vars = { nombre: "Laura", mi_nombre: c.displayName, producto: o.productTitle, fecha: when, luna: "Luna llena en Tauro" };
   const introHtml = edit.design?.blocks.length ? renderDesignHtml(edit.design, { baseUrl: base, vars }) : null;
-  const url = `${base}/cuenta`;
+  const url = `${base}/area`;
   let mail: { subject: string; html: string };
   switch (trigger) {
     case "WELCOME":
@@ -48,7 +48,7 @@ export function sampleAutomaticEmail(
       mail = T.sessionReminderEmail({ creatorName: c.displayName, productTitle: o.productTitle, when, url, meetingUrl: "https://zoom.us/j/123456789", meetingLabel: "Enlace de Zoom", introHtml });
       break;
     case "ABANDONED_CHECKOUT":
-      mail = T.abandonedCheckoutEmail({ creatorName: c.displayName, productTitle: o.productTitle, url, optOutUrl: `${base}/baja/recordatorios`, introHtml });
+      mail = T.abandonedCheckoutEmail({ creatorName: c.displayName, productTitle: o.productTitle, url, optOutUrl: `${base}/unsubscribe/reminders`, introHtml });
       break;
     case "REQUEST_RECEIVED":
       mail = { subject: `He recibido tu mensaje ✦ ${o.productTitle}`, html: receivedEmailHtml({ brand: c.displayName, buyer: "Laura", productTitle: o.productTitle, when, price: null, message: "Hola, me encantaría reservar contigo. ¡Gracias!", introHtml }) };

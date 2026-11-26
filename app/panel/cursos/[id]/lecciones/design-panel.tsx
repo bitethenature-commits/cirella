@@ -22,6 +22,7 @@ import { GEOMETRY_FIGURES, GEOMETRY_LABEL } from "@/lib/page-blocks";
 import { FIGURE_POS, type FigurePos } from "@/lib/sacred-figures";
 import { DECOR_GROUPS, DECORS, FONT_CATEGORIES, FONTS, FONT_KEYS, fontsHref, type Decor, type DecorGroup, type FontCategory, type FontKey } from "@/lib/templates";
 import { saveCourseLook } from "../../actions";
+import { Tr, useT } from "@/lib/i18n/client";
 
 export type LookSave = { kind: "idle" | "saving" | "saved" } | { kind: "error"; error: string };
 
@@ -136,7 +137,7 @@ export function Segmented<T extends string>({ value, onChange, options, label }:
 function Amount({ value, onChange, min, max, label }: { value: number; onChange: (v: number) => void; min: number; max: number; label: string }) {
   return (
     <label className="flex items-center gap-3 text-[0.8rem] text-muted">
-      {label}
+      <Tr s={label} />
       <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="flex-1 accent-[var(--color-gold)]" />
     </label>
   );
@@ -152,9 +153,7 @@ function TemplateCard({ name, look, on, onClick }: { name: string; look: CourseL
         className={`relative flex h-16 items-end justify-between overflow-hidden rounded-xl border px-2.5 pb-2 transition ${on ? "border-gold ring-2 ring-gold/60" : "border-line group-hover:border-gold/60"}`}
         style={{ background: bg }}
       >
-        <span className="text-[1.35rem] leading-none" style={{ fontFamily: look.fontTitle ? FONTS[look.fontTitle].css : "var(--font-display)", color: light ? "#2a2238" : "#f3eee4" }}>
-          Aa
-        </span>
+        <span className="text-[1.35rem] leading-none" style={{ fontFamily: look.fontTitle ? FONTS[look.fontTitle].css : "var(--font-display)", color: light ? "#2a2238" : "#f3eee4" }}><Tr s={"Aa"} /></span>
         <span className="h-3 w-3 rounded-full" style={{ background: look.accent ?? "#D4B57A" }} aria-hidden />
       </span>
       <span className={`mt-1 block truncate text-[0.75rem] ${on ? "font-semibold text-gold" : "text-muted"}`}>{name}</span>
@@ -205,14 +204,13 @@ export function CourseDesignPanel({
       <p className="-mt-2 text-[0.75rem] leading-relaxed text-muted">
         {own
           ? hasLookPatch(patch)
-            ? "Esta lección lleva su propio diseño, encima del del curso."
-            : "Lo que cambies aquí, solo para esta lección. Lo demás sigue como el curso."
-          : "Así verán tus alumnas todas las lecciones (cada lección puede llevar el suyo)."}
+            ? <Tr s={"Esta lección lleva su propio diseño, encima del del curso."} />
+            : <Tr s={"Lo que cambies aquí, solo para esta lección. Lo demás sigue como el curso."} />
+          : <Tr s={"Así verán tus alumnas todas las lecciones (cada lección puede llevar el suyo)."} />}
       </p>
       {own && hasLookPatch(patch) && (
         <button type="button" className="btn btn-ghost btn-sm -mt-2" onClick={() => setPatch({})}>
-          <RotateCcw className="h-4 w-4" /> Como el curso
-        </button>
+          <RotateCcw className="h-4 w-4" />{" "}<Tr s={"Como el curso"} /></button>
       )}
 
       <LookPart title="Diseños listos" hint="Uno con un toque; después, cambia lo que quieras.">
@@ -227,12 +225,12 @@ export function CourseDesignPanel({
         <Swatches value={eff.page} onChange={(v) => set("page", v)} colors={ACC_PAGE_COLORS} />
         <div className="mt-3">
           <Pill on={!!eff.page2} onClick={() => set("page2", eff.page2 ? null : "#3B1F5E")}>
-            {eff.page2 ? "Con degradado" : "Añadir degradado"}
+            {eff.page2 ? <Tr s={"Con degradado"} /> : <Tr s={"Añadir degradado"} />}
           </Pill>
         </div>
         {eff.page2 && (
           <div className="mt-3">
-            <p className="mb-2 text-[0.75rem] text-muted">Segundo color del degradado</p>
+            <p className="mb-2 text-[0.75rem] text-muted"><Tr s={"Segundo color del degradado"} /></p>
             <Swatches value={eff.page2} onChange={(v) => set("page2", v)} colors={ACC_PAGE_COLORS} />
           </div>
         )}
@@ -250,9 +248,9 @@ export function CourseDesignPanel({
           </div>
         ) : null}
         <button type="button" className="btn btn-outline btn-sm mt-2" disabled={busy} onClick={() => file.current?.click()}>
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />} {eff.image ? "Cambiar foto" : "Subir una foto"}
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />} {eff.image ? <Tr s={"Cambiar foto"} /> : <Tr s={"Subir una foto"} />}
         </button>
-        {photoError && <p className="mt-1.5 text-xs text-[#f2a99f]">{photoError}</p>}
+        {photoError && <p className="mt-1.5 text-xs text-[#f2a99f]"><Tr s={photoError} /></p>}
         <input
           ref={file}
           type="file"
@@ -277,7 +275,7 @@ export function CourseDesignPanel({
 
       <LookPart title="Fondo con movimiento">
         <select className="input text-base sm:text-sm" value={eff.decor ?? ""} onChange={(e) => set("decor", (e.target.value || null) as Decor | null)} aria-label="Fondo con movimiento">
-          <option value="">Las estrellas de siempre</option>
+          <option value=""><Tr s={"Las estrellas de siempre"} /></option>
           {DECOR_GROUP_LIST.map(([g, name]) => (
             <optgroup key={g} label={name}>
               {DECORS.filter((d) => d.group === g).map((d) => (
@@ -292,12 +290,10 @@ export function CourseDesignPanel({
 
       <LookPart title="Geometría" hint="Una figura fina detrás de todo.">
         <div className="flex flex-wrap gap-2">
-          <Pill on={!eff.geo} onClick={() => set("geo", null)}>
-            Ninguna
-          </Pill>
+          <Pill on={!eff.geo} onClick={() => set("geo", null)}><Tr s={"Ninguna"} /></Pill>
           {GEOMETRY_FIGURES.map((f) => (
             <Pill key={f} on={eff.geo === f} onClick={() => set("geo", f)}>
-              {GEOMETRY_LABEL[f]}
+              <Tr s={GEOMETRY_LABEL[f]} />
             </Pill>
           ))}
         </div>
@@ -306,13 +302,11 @@ export function CourseDesignPanel({
             <div className="flex flex-wrap gap-2">
               {(Object.entries(FIGURE_POS) as [FigurePos, string][]).map(([k, label]) => (
                 <Pill key={k} on={eff.geoPos === k} onClick={() => set("geoPos", k)}>
-                  {label}
+                  <Tr s={label} />
                 </Pill>
               ))}
             </div>
-            <Pill on={eff.geoSpin} onClick={() => set("geoSpin", !eff.geoSpin)}>
-              Que gire despacio
-            </Pill>
+            <Pill on={eff.geoSpin} onClick={() => set("geoSpin", !eff.geoSpin)}><Tr s={"Que gire despacio"} /></Pill>
             <Amount label="Cuánto se ve" min={6} max={50} value={eff.geoOpacity} onChange={(v) => set("geoOpacity", v)} />
           </div>
         )}
@@ -325,15 +319,15 @@ export function CourseDesignPanel({
       <LookPart title="Letras">
         <div className="space-y-2.5">
           <div>
-            <p className="mb-1 text-[0.75rem] text-muted">Títulos</p>
+            <p className="mb-1 text-[0.75rem] text-muted"><Tr s={"Títulos"} /></p>
             <FontSelect label="Letra de los títulos" value={eff.fontTitle} onChange={(v) => set("fontTitle", v)} auto="La de siempre" />
           </div>
           <div>
-            <p className="mb-1 text-[0.75rem] text-muted">Texto</p>
+            <p className="mb-1 text-[0.75rem] text-muted"><Tr s={"Texto"} /></p>
             <FontSelect label="Letra del texto" value={eff.fontText} onChange={(v) => set("fontText", v)} auto="La de siempre" />
           </div>
           <div>
-            <p className="mb-1 text-[0.75rem] text-muted">Tamaño del texto</p>
+            <p className="mb-1 text-[0.75rem] text-muted"><Tr s={"Tamaño del texto"} /></p>
             <Segmented<TextSize>
               label="Tamaño del texto"
               value={eff.textSize}
@@ -366,6 +360,7 @@ export const SIZE_LABEL: Record<PieceSize, string> = { s: "Pequeño", m: "Normal
  * esquinas, su sombra y, si lleva texto, su color, su tamaño, su alineación y su letra. Solo para ella.
  */
 export function PieceDesignPanel({ look, onChange, text }: { look: PieceLook | null | undefined; onChange: (l: PieceLook | null) => void; text: boolean }) {
+  const t = useT();
   const l = look ?? EMPTY_PIECE_LOOK;
   const set = <K extends keyof PieceLook>(k: K, v: PieceLook[K]) => {
     const next = { ...l, [k]: v };
@@ -374,9 +369,9 @@ export function PieceDesignPanel({ look, onChange, text }: { look: PieceLook | n
   const framed = l.bg !== "none" || l.border !== "none";
   return (
     <div className="space-y-5">
-      <LookPart title="Fondo">
+      <LookPart title={t("Fondo")}>
         <Segmented
-          label="Fondo de la pieza"
+          label={t("Fondo de la pieza")}
           value={l.bg}
           onChange={(v) => onChange(hasPieceLook({ ...l, bg: v, bgColor: v === "color" ? (l.bgColor ?? "#F6EFE3") : null }) ? { ...l, bg: v, bgColor: v === "color" ? (l.bgColor ?? "#F6EFE3") : null } : null)}
           options={[
@@ -388,14 +383,14 @@ export function PieceDesignPanel({ look, onChange, text }: { look: PieceLook | n
         {l.bg === "color" && (
           <div className="mt-3 space-y-3">
             <Swatches value={l.bgColor} onChange={(v) => set("bgColor", v ?? "#F6EFE3")} colors={PIECE_COLORS} />
-            <Amount label="Cuánto se ve" min={10} max={100} value={l.bgOpacity} onChange={(v) => set("bgOpacity", v)} />
+            <Amount label={t("Cuánto se ve")} min={10} max={100} value={l.bgOpacity} onChange={(v) => set("bgOpacity", v)} />
           </div>
         )}
       </LookPart>
 
-      <LookPart title="Borde">
+      <LookPart title={t("Borde")}>
         <Segmented
-          label="Borde de la pieza"
+          label={t("Borde de la pieza")}
           value={l.border}
           onChange={(v) => set("border", v)}
           options={[
@@ -406,9 +401,9 @@ export function PieceDesignPanel({ look, onChange, text }: { look: PieceLook | n
         />
       </LookPart>
 
-      <LookPart title="Esquinas">
+      <LookPart title={t("Esquinas")}>
         <Segmented
-          label="Esquinas de la pieza"
+          label={t("Esquinas de la pieza")}
           value={l.radius}
           onChange={(v) => set("radius", v)}
           options={[
@@ -420,9 +415,9 @@ export function PieceDesignPanel({ look, onChange, text }: { look: PieceLook | n
       </LookPart>
 
       {framed && (
-        <LookPart title="Espacio por dentro">
+        <LookPart title={t("Espacio por dentro")}>
           <Segmented<TextSize>
-            label="Espacio por dentro"
+            label={t("Espacio por dentro")}
             value={l.pad}
             onChange={(v) => set("pad", v)}
             options={[
@@ -434,50 +429,43 @@ export function PieceDesignPanel({ look, onChange, text }: { look: PieceLook | n
         </LookPart>
       )}
 
-      <Pill on={l.shadow} onClick={() => set("shadow", !l.shadow)}>
-        Con sombra
-      </Pill>
+      <Pill on={l.shadow} onClick={() => set("shadow", !l.shadow)}><Tr s={"Con sombra"} /></Pill>
 
       {text && (
         <>
-          <LookPart title="Color del texto">
+          <LookPart title={t("Color del texto")}>
             <Swatches value={l.color} onChange={(v) => set("color", v)} colors={PIECE_COLORS} auto="Como la lección" />
           </LookPart>
-          <LookPart title="Tamaño del texto">
+          <LookPart title={t("Tamaño del texto")}>
             <div className="flex flex-wrap gap-2">
-              <Pill on={l.size === null} onClick={() => set("size", null)}>
-                Como la lección
-              </Pill>
+              <Pill on={l.size === null} onClick={() => set("size", null)}><Tr s={"Como la lección"} /></Pill>
               {(Object.keys(SIZE_LABEL) as PieceSize[]).map((s) => (
                 <Pill key={s} on={l.size === s} onClick={() => set("size", s)}>
-                  {SIZE_LABEL[s]}
+                  <Tr s={SIZE_LABEL[s]} />
                 </Pill>
               ))}
             </div>
           </LookPart>
-          <LookPart title="Alineación">
+          <LookPart title={t("Alineación")}>
             <div className="flex flex-wrap gap-2">
-              <Pill on={l.align === null} onClick={() => set("align", null)}>
-                Como la lección
-              </Pill>
+              <Pill on={l.align === null} onClick={() => set("align", null)}><Tr s={"Como la lección"} /></Pill>
               {ALIGN_OPTIONS.map((a) => (
-                <Pill key={a.value} on={l.align === a.value} onClick={() => set("align", a.value)} title={a.label}>
+                <Pill key={a.value} on={l.align === a.value} onClick={() => set("align", a.value)} title={t(a.label)}>
                   <a.icon className="h-4 w-4" aria-hidden />
-                  <span className="sr-only">{a.label}</span>
+                  <span className="sr-only"><Tr s={a.label} /></span>
                 </Pill>
               ))}
             </div>
           </LookPart>
-          <LookPart title="Letra">
-            <FontSelect label="Letra de la pieza" value={l.font} onChange={(v) => set("font", v)} auto="Como la lección" />
+          <LookPart title={t("Letra")}>
+            <FontSelect label={t("Letra de la pieza")} value={l.font} onChange={(v) => set("font", v)} auto="Como la lección" />
           </LookPart>
         </>
       )}
 
       {hasPieceLook(look) && (
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange(null)}>
-          <RotateCcw className="h-4 w-4" /> Quitar su diseño
-        </button>
+          <RotateCcw className="h-4 w-4" />{" "}<Tr s={"Quitar su diseño"} /></button>
       )}
     </div>
   );

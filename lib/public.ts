@@ -16,6 +16,10 @@ import { formatDate } from "./tz";
 import { PRODUCT_TYPES, type ProductType } from "./types";
 import type { PublicDiscountCode, PublicPost, PublicProduct } from "@/components/creator-page/creator-page-view";
 import { webNews } from "./web-news";
+import { localizeConfig } from "./i18n/localize-config";
+import { getLocale } from "./i18n/server";
+import { getContentTranslator } from "./i18n/content";
+import { mapTexts, txField } from "./i18n/content-walk";
 
 /** La dueña de la web personal tiene todo desbloqueado (sin planes): lo que pinta su página. */
 const ALL_FEATURES: PlanFeatures = {
@@ -44,7 +48,11 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
   const signupsOnly = personal && !hasPaymentProvider();
   const features = personal ? ALL_FEATURES : planFeatures(creator.plan);
   const raw = draft ? creator.pageDraft : (creator.pagePublished ?? creator.pageDraft);
-  const config = readPageConfig(raw, creator.displayName);
+  // La web pública, en el idioma de quien la ve (lib/i18n): los textos fijos y los suyos traducidos (tx). El
+  // borrador (Canva y vistas previas del panel) va siempre tal cual.
+  const locale = draft ? "es" : await getLocale();
+  const tx = draft ? (s: string) => s : await getContentTranslator(creator.id, locale);
+  const config = draft ? readPageConfig(raw, creator.displayName) : localizeConfig(readPageConfig(raw, creator.displayName), locale, tx);
   const now = new Date();
   const [rows, postRows, postCount, codeRows, settings, pageRows, portalRows] = await Promise.all([
     prisma.product.findMany({
@@ -82,25 +90,25 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
     // Un taller ya celebrado no se ofrece en la página.
     .filter((p) => !(p.type === "SESSION" && p.groupSession && (!p.eventStartAt || p.eventStartAt <= now)))
     .map((p) =>
-      toPublicProduct(p, {
+      toPublicProduct(translateProduct(p, tx), {
         lessons: p._count.lessons,
         timeZone: creator.timezone,
         now,
         updatedAt: p.updatedAt,
       }),
     );
-  const posts = postRows.map((p) => toPublicPost(p, creator.timezone));
+  const posts = postRows.map((p) => toPublicPost(translatePost(p, tx), creator.timezone));
   // «Gifts»: la página publicada desde Páginas o, mientras no lo esté, la de partida.
   const giftsRow = await prisma.sitePage.findFirst({ where: { creatorId: creator.id, slug: GIFTS_SLUG, status: "PUBLISHED" }, select: { title: true, published: true } });
-  const gifts = giftsPreview(giftsRow?.published ? readSitePageContent(giftsRow.published, giftsRow.title) : giftsContent(config.contact.email || null));
+  const gifts = giftsPreview(mapTexts(giftsRow?.published ? readSitePageContent(giftsRow.published, giftsRow.title) : giftsContent(config.contact.email || null), tx));
   // «Actualidades»: lo que se va subiendo a la web (lib/web-news.ts).
-  const { items: news, older: newsOlder } = await webNews({ creatorId: creator.id, username: creator.username, publicProductIds: products.map((p) => p.id), codesHref: "#codigos", timeZone: creator.timezone, maxAgeDays: creator.newsDays, removed: creator.newsRemoved });
-  const portal: PublicPortalItem[] = portalRows.map((i) => publicPortalItem(i, false, creator.timezone));
+  const { items: news, older: newsOlder } = await webNews({ creatorId: creator.id, username: creator.username, publicProductIds: products.map((p) => p.id), codesHref: "#codigos", timeZone: creator.timezone, maxAgeDays: creator.newsDays, removed: creator.newsRemoved, locale, translate: tx });
+  const portal: PublicPortalItem[] = portalRows.map((i) => publicPortalItem(translatePortalItem(i, tx), false, creator.timezone));
   const discountCodes: PublicDiscountCode[] = codeRows.map((c) => ({
     id: c.id,
     brand: c.brand,
     code: c.code,
-    description: c.description,
+    description: txField(c.description, tx),
     url: c.url,
     imageUrl: c.imageUrl,
     photos: readCodePhotos(c.images),
@@ -124,7 +132,7 @@ export const getPublicCreator = cache(async (username: string, draft = false) =>
     gifts,
     discountCodes,
     /** Páginas extra publicadas del pie de la web («Sobre mí», «Preguntas frecuentes»…). */
-    pages: pageRows.map((p) => ({ href: sitePagePath(creator.username, p.slug, personal), title: p.publishedTitle || p.title })),
+    pages: pageRows.map((p) => ({ href: sitePagePath(creator.username, p.slug, personal), title: tx(p.publishedTitle || p.title) })),
     features,
     personal,
     signupsOnly,
@@ -185,7 +193,7 @@ function toPublicPost(
   };
 }
 
-/** Lista de publicaciones visibles de una creadora (/<usuaria>/actualidades), paginada. */
+/** Lista de publicaciones visibles de una creadora (/<usuaria>/news), paginada. */
 export async function getPublicPostList(creatorId: string, timeZone: string, page = 1) {
   const now = new Date();
   const where = { creatorId, ...publicPostWhere(now) };
@@ -236,4 +244,30 @@ export async function getAdjacentPosts(creatorId: string, publishedAt: Date, id:
     prisma.post.findFirst({ where: { ...base, publishedAt: { gt: publishedAt, lte: new Date() } }, orderBy: { publishedAt: "asc" }, select }),
   ]);
   return { older, newer };
+}
+
+type Tx = (s: string) => string;
+
+/** Sus textos de un producto en el idioma de la web (lib/i18n/content.ts). */
+export function translateProduct<T extends { title: string; summary: string | null; description: string | null; ctaLabel: string | null; saleLabel: string | null; externalLabel: string | null; pageTexts?: unknown }>(p: T, tx: Tx): T {
+  return {
+    ...p,
+    ...("pageTexts" in p ? { pageTexts: mapTexts(p.pageTexts, tx) } : {}),
+    title: tx(p.title),
+    summary: txField(p.summary, tx),
+    description: txField(p.description, tx),
+    ctaLabel: txField(p.ctaLabel, tx),
+    saleLabel: txField(p.saleLabel, tx),
+    externalLabel: txField(p.externalLabel, tx),
+  };
+}
+
+/** Sus textos de una actualidad en el idioma de la web. */
+export function translatePost<T extends { title: string; excerpt: string | null; body: string; ctaLabel?: string | null }>(p: T, tx: Tx): T {
+  return { ...p, title: tx(p.title), excerpt: txField(p.excerpt, tx), body: txField(p.body, tx), ctaLabel: txField(p.ctaLabel, tx) };
+}
+
+/** Sus textos de una noticia del portal en el idioma de la web. */
+export function translatePortalItem<T extends { title: string; summary: string | null; body: string | null; linkLabel: string | null }>(i: T, tx: Tx): T {
+  return { ...i, title: tx(i.title), summary: txField(i.summary, tx), body: txField(i.body, tx), linkLabel: txField(i.linkLabel, tx) };
 }

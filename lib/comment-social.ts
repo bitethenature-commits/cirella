@@ -13,6 +13,7 @@ import { captureError } from "./monitoring";
 import { readPageConfig } from "./page-config";
 import { truncateWords } from "./rich-text";
 import { tenantDb } from "./tenant";
+import { inMail } from "@/lib/i18n/email";
 
 /**
  * Lo social de los comentarios, en las membresías y en las lecciones de los cursos:
@@ -31,7 +32,7 @@ export type CommentKind = "post" | "lesson";
 const brandName = (c: { displayName: string; pagePublished: unknown; pageDraft: unknown }) =>
   readPageConfig((c.pagePublished ?? c.pageDraft) as never, c.displayName).displayName || c.displayName;
 
-export const lessonPath = (productId: string, lessonId: string) => `/cuenta/cursos/${productId}?leccion=${lessonId}`;
+export const lessonPath = (productId: string, lessonId: string) => `/area/courses/${productId}?leccion=${lessonId}`;
 
 // ── «Me gusta» en un comentario ──
 
@@ -98,7 +99,7 @@ async function notifyCommentLike(kind: CommentKind, likeId: string) {
     template: "COMMENT_LIKE",
     dedupeKey: `clike:${kind}:${comment.id}:${row.userId}`,
     headers: postOptOutHeaders(customer.id),
-    ...T.commentLikedEmail({
+    ...(await inMail(customer.email, async () => T.commentLikedEmail({
       creatorName: brandName(product.creator),
       likerName: await likerName(comment.creatorId, row.userId),
       placeTitle,
@@ -106,7 +107,7 @@ async function notifyCommentLike(kind: CommentKind, likeId: string) {
       excerpt: truncateWords(comment.body, 300),
       url,
       optOutUrl: postOptOutUrl(customer.id),
-    }),
+    }))),
   });
 }
 
@@ -120,6 +121,8 @@ export async function lessonComments(lessonId: string, viewerId: string) {
     include: {
       likes: { where: { userId: viewerId }, select: { id: true } },
       _count: { select: { likes: true, replies: { where: { status: "VISIBLE" } } } },
+      // Su frase junto a su nombre (Mi perfil).
+      user: { select: { tagline: true } },
     },
   });
   return rows.filter((c) => c.status === "VISIBLE" || c._count.replies > 0);
@@ -188,13 +191,13 @@ async function notifyNewLessonComment(commentId: string) {
     creatorId: c.creatorId,
     template: "COMMENT_NEW",
     dedupeKey: `lcomment:${c.id}`,
-    ...T.newCommentCreatorEmail({
+    ...(await inMail(s.creator.contactEmail || s.creator.user.email, async () => T.newCommentCreatorEmail({
       membershipTitle: c.lesson.product.title,
       postTitle: c.lesson.title,
       author: c.authorName,
       excerpt: truncateWords(c.body, 400),
       url: `${appUrl()}/panel/cursos/comentarios#c-${c.id}`,
-    }),
+    }))),
   });
 }
 
@@ -215,7 +218,7 @@ async function notifyLessonReply(replyId: string) {
     template: "COMMENT_REPLY",
     dedupeKey: `lreply:${r.id}`,
     headers: postOptOutHeaders(customer.id),
-    ...T.commentReplyEmail({
+    ...(await inMail(customer.email, async () => T.commentReplyEmail({
       creatorName: brandName(creator),
       replierName: r.authorName,
       membershipTitle: r.lesson.product.title,
@@ -223,7 +226,7 @@ async function notifyLessonReply(replyId: string) {
       excerpt: truncateWords(r.body, 400),
       url: `${appUrl()}${lessonPath(r.productId, r.lessonId)}#c-${r.id}`,
       optOutUrl: postOptOutUrl(customer.id),
-    }),
+    }))),
   });
 }
 

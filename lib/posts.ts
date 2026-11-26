@@ -21,7 +21,7 @@ export const POST_EXCERPT_MAX = 300;
 export const POST_BODY_MAX = 20_000;
 /** Publicaciones en la sección «Actualidades» de la portada (tarjetas verticales). */
 export const POSTS_ON_PAGE = 2;
-/** Publicaciones por página en /<usuaria>/actualidades (agrupadas por mes). */
+/** Publicaciones por página en /<usuaria>/news (agrupadas por mes). */
 export const POSTS_PER_PAGE = 24;
 /** Texto del botón de una publicación (llamada a la acción) y su código de descuento. */
 export const POST_CTA_LABEL_MAX = 40;
@@ -49,7 +49,7 @@ export const postFormSchema = z.object({
   // Formato del texto (lib/rich-text.ts): tolerante, "" o desconocido = texto de antes; ausente = el guardado.
   bodyFormat: z.string().max(8).optional().transform(parseTextFormat),
   imageUrl: z.string().max(500).optional(),
-  status: z.enum(POST_STATUSES, { errorMap: () => ({ message: "Elige si es un borrador o se publica" }) }),
+  status: z.enum(POST_STATUSES, { error: "Elige si es un borrador o se publica" }),
   publishedOn: z
     .string()
     .trim()
@@ -145,13 +145,14 @@ export function readingMinutes(body: string, format?: string | null): number {
   return Math.max(1, Math.round(words / 200));
 }
 
+/** Una publicación: /news/<publicación> en la web personal (sin el usuario delante), /<usuaria>/news/<publicación> en la plataforma. */
 export function postPath(username: string, slug: string): string {
-  return `/${username}/actualidades/${slug}`;
+  return process.env.NEXT_PUBLIC_SITE_MODE?.trim() === "personal" ? `/news/${slug}` : `/${username}/news/${slug}`;
 }
 
 /** Lista pública de publicaciones (la página «Actualidades»). */
 export function postsListPath(username: string, personal = false): string {
-  return personal ? "/actualidades" : `/${username}/actualidades`;
+  return personal ? "/news" : `/${username}/news`;
 }
 
 /** Vídeo o audio de una publicación: un archivo subido (/media/video/…) o un enlace de YouTube/Vimeo. */

@@ -6,7 +6,7 @@ import { signToken, verifyToken } from "./storage/signing";
 /**
  * Baja de los emails de compra abandonada (LSSI art. 21.2: cada comunicación comercial lleva un
  * medio sencillo y gratuito para oponerse). Cada email de recuperación lleva un enlace firmado a
- * /baja/recordatorios y las cabeceras List-Unsubscribe de la baja en un clic; la baja vale para
+ * /unsubscribe/reminders y las cabeceras List-Unsubscribe de la baja en un clic; la baja vale para
  * todos los recordatorios de esa creadora a ese email.
  *
  * El enlace solo lleva el id del pedido (no el email) y está firmado con APP_SECRET, así que no se
@@ -26,12 +26,12 @@ export function optOutToken(orderId: string, now = Date.now()) {
 }
 
 export function optOutUrl(orderId: string) {
-  return `${appUrl()}/baja/recordatorios?t=${encodeURIComponent(optOutToken(orderId))}`;
+  return `${appUrl()}/unsubscribe/reminders?t=${encodeURIComponent(optOutToken(orderId))}`;
 }
 
 /** Dirección de la baja «en un clic» (RFC 8058): el gestor de correo hace un POST, sin abrir la página. */
 export function optOutOneClickUrl(orderId: string) {
-  return `${appUrl()}/baja/recordatorios/un-clic?t=${encodeURIComponent(optOutToken(orderId))}`;
+  return `${appUrl()}/unsubscribe/reminders/one-click?t=${encodeURIComponent(optOutToken(orderId))}`;
 }
 
 /**

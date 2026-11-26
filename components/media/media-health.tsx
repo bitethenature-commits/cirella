@@ -1,4 +1,5 @@
 import { videoWeight } from "@/lib/file-types";
+import { useT, Tr } from "@/lib/i18n/client";
 
 /**
  * Datos y avisos de un vídeo o audio subido (Materiales del curso y editor de lecciones): duración,
@@ -28,11 +29,11 @@ export function formatDuration(sec: number) {
 /** Aviso que se despliega con su explicación (sin tecnicismos salvo la palabra HEVC). */
 function Chip({ label, tone = "neutral", help }: { label: string; tone?: "neutral" | "warn"; help?: string }) {
   const cls = tone === "warn" ? "border-[#ecdcb8] bg-[#fbf5e8] text-[#7a5a1c]" : "border-line bg-sand/60 text-muted";
-  if (!help) return <span className={`inline-flex rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold ${cls}`}>{label}</span>;
+  if (!help) return <span className={`inline-flex rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold ${cls}`}><Tr s={label} /></span>;
   return (
     <details className="group">
-      <summary className={`inline-flex cursor-pointer list-none rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold ${cls}`}>{label}</summary>
-      <p className="mt-1.5 max-w-md text-xs leading-relaxed text-muted">{help}</p>
+      <summary className={`inline-flex cursor-pointer list-none rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold ${cls}`}><Tr s={label} /></summary>
+      <p className="mt-1.5 max-w-md text-xs leading-relaxed text-muted"><Tr s={help} /></p>
     </details>
   );
 }
@@ -43,12 +44,13 @@ export const HEAVY_HELP = "Expórtalo en 1080p (o 720p) con InShot: tus alumnas 
 
 /** Chips de un vídeo o audio; nada para el resto. */
 export function MediaHealth({ file, duration = true }: { file: HealthFile; duration?: boolean }) {
+  const t = useT();
   if (file.kind !== "VIDEO" && file.kind !== "AUDIO") return null;
   const chips = [];
   if (duration && file.durationSec) chips.push(<Chip key="d" label={formatDuration(file.durationSec)} />);
-  if (file.kind === "VIDEO" && file.width && file.height && file.height > file.width) chips.push(<Chip key="v" label="Vertical" />);
-  if (file.videoCodec === "HEVC") chips.push(<Chip key="h" label="HEVC" tone="warn" help={HEVC_HELP} />);
+  if (file.kind === "VIDEO" && file.width && file.height && file.height > file.width) chips.push(<Chip key="v" label={t("Vertical")} />);
+  if (file.videoCodec === "HEVC") chips.push(<Chip key="h" label={t("HEVC")} tone="warn" help={HEVC_HELP} />);
   if (file.kind === "VIDEO" && videoWeight(file.sizeBytes, file.durationSec) === "heavy")
-    chips.push(<Chip key="p" label="Muy pesado para el móvil" tone="warn" help={HEAVY_HELP} />);
+    chips.push(<Chip key="p" label={t("Muy pesado para el móvil")} tone="warn" help={HEAVY_HELP} />);
   return chips.length ? <div className="flex flex-wrap items-start gap-1.5 pt-1">{chips}</div> : null;
 }

@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/tz";
 import { Badge } from "../ui";
 import { deleteOrderAction, denySignupMember, renewSignupMember } from "./actions";
 import { RENEW_SOON_DAYS, type SignupRow } from "./signups-data";
+import { Tr } from "@/lib/i18n/client";
 
 /** Lo que es cada cosa, en palabras. */
 export const kindOf = (r: SignupRow) =>
@@ -41,23 +42,22 @@ export function SignupItem({ r, back, timezone }: { r: SignupRow; back: string; 
         <span className="panel-emblem h-9 w-9 shrink-0">{kindIcon(r)}</span>
         <span className="min-w-0">
           <span className="block truncate font-medium">
-            {r.productEmoji} {r.productTitle}
+            <Tr s={r.productEmoji} /> <Tr s={r.productTitle} />
           </span>
           <span className="block truncate text-xs text-muted">
-            {kindOf(r)} · {r.origin}
+            {kindOf(r)} · <Tr s={r.origin} />
             {r.paidAt ? ` · desde el ${day(r.paidAt)}` : ""}
           </span>
         </span>
       </Link>
       <span className="flex flex-wrap items-center justify-end gap-2">
-        <Badge tone={a.tone}>{a.text}</Badge>
+        <Badge tone={a.tone}><Tr s={a.text} /></Badge>
         {r.productType === "MEMBERSHIP" && r.accessId && (urgent || !r.active) && (
           <form action={renewSignupMember}>
             <input type="hidden" name="accessId" value={r.accessId} />
             <input type="hidden" name="back" value={back} />
             <button className="btn btn-outline btn-sm">
-              <Check className="h-4 w-4" /> Ha pagado
-            </button>
+              <Check className="h-4 w-4" />{" "}<Tr s={"Ha pagado"} /></button>
           </form>
         )}
         {urgent && r.accessId && (
@@ -65,8 +65,7 @@ export function SignupItem({ r, back, timezone }: { r: SignupRow; back: string; 
             <input type="hidden" name="accessId" value={r.accessId} />
             <input type="hidden" name="back" value={back} />
             <button className="btn btn-ghost btn-sm text-[#9b2c2c] hover:bg-[#9b2c2c]/10">
-              <Lock className="h-4 w-4" /> Denegar acceso
-            </button>
+              <Lock className="h-4 w-4" />{" "}<Tr s={"Denegar acceso"} /></button>
           </ConfirmForm>
         )}
         <DeleteButton action={deleteOrderAction} id={r.orderId} what={r.productTitle} fields={{ back }} message={`¿Borrar la inscripción de ${r.name ?? r.email} en «${r.productTitle}»? Pierde el acceso y desaparece de la lista. No se puede deshacer.`} />

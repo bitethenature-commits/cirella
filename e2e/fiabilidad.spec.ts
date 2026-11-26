@@ -11,9 +11,9 @@ const stamp = Date.now().toString().slice(-6);
 const buyerEmail = `paula+fallo${stamp}@example.com`;
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 /** Casillas obligatorias del checkout: condiciones de venta y la del desistimiento. */
@@ -31,7 +31,7 @@ test.describe.serial("Fiabilidad", () => {
     await page.fill("#email", buyerEmail);
     await acceptConsents(page);
     await page.getByRole("button", { name: /Pagar/ }).click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
   });
 

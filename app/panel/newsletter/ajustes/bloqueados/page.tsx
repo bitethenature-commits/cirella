@@ -7,6 +7,7 @@ import { PageHeader } from "../../../ui";
 import { requireNewsletterOwner } from "../../guard";
 import { blockEmail } from "../actions";
 import { BlockedList } from "../blocked-list";
+import { Tr } from "@/lib/i18n/client";
 
 export const dynamic = "force-dynamic";
 
@@ -48,36 +49,35 @@ export default async function BlockedPage({ searchParams }: { searchParams: Prom
   return (
     <div>
       <Link href="/panel/newsletter/ajustes" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Ajustes mail
-      </Link>
+        <ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Ajustes mail"} /></Link>
       <PageHeader title="Bloqueados" subtitle="No reciben tu newsletter ni tus automatizaciones. Los rebotes y el spam llegan solos con el webhook de Resend." />
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex flex-wrap rounded-full bg-sand p-1 text-sm">
           {Object.entries(KINDS).map(([k, v]) => (
             <Link key={k} href={href({ tipo: k })} aria-current={k === tipo ? "page" : undefined} className={`rounded-full px-3.5 py-1.5 font-medium ${k === tipo ? "bg-white shadow-soft" : "text-muted"}`}>
-              {v.label}
+              <Tr s={v.label} />
             </Link>
           ))}
         </div>
         <form className="ml-auto flex gap-2">
           {tipo !== "todos" && <input type="hidden" name="tipo" value={tipo} />}
           <input name="q" defaultValue={q} placeholder="Buscar email" className="input h-10 w-56 text-base sm:text-sm" aria-label="Buscar email" />
-          <button className="btn btn-outline btn-sm">Buscar</button>
+          <button className="btn btn-outline btn-sm"><Tr s={"Buscar"} /></button>
         </form>
       </div>
-      <p className="mt-3 text-sm text-muted">{formatNumber(total)} {total === 1 ? "dirección" : "direcciones"}</p>
-      {rows.length ? <BlockedList rows={rows} /> : <p className="card mt-3 p-5 text-sm text-muted">No hay ninguna{q ? " con esa búsqueda" : ""}.</p>}
+      <p className="mt-3 text-sm text-muted">{formatNumber(total)} {total === 1 ? <Tr s={"dirección"} /> : "direcciones"}</p>
+      {rows.length ? <BlockedList rows={rows} /> : <p className="card mt-3 p-5 text-sm text-muted"><Tr s={"No hay ninguna"} />{q ? <Tr s={" con esa búsqueda"} /> : ""}.</p>}
       {pages > 1 && (
         <div className="mt-4 flex items-center justify-center gap-3 text-sm">
-          {page > 1 && <Link href={href({ p: page - 1 })} className="btn btn-outline btn-sm">Anterior</Link>}
-          <span className="text-muted">Página {page} de {pages}</span>
-          {page < pages && <Link href={href({ p: page + 1 })} className="btn btn-outline btn-sm">Siguiente</Link>}
+          {page > 1 && <Link href={href({ p: page - 1 })} className="btn btn-outline btn-sm"><Tr s={"Anterior"} /></Link>}
+          <span className="text-muted"><Tr s={"Página"} />{" "}{page}{" "}<Tr s={"de"} />{" "}{pages}</span>
+          {page < pages && <Link href={href({ p: page + 1 })} className="btn btn-outline btn-sm"><Tr s={"Siguiente"} /></Link>}
         </div>
       )}
       <form action={blockEmail} className="card mt-5 flex flex-wrap items-center gap-2 p-4">
-        <p className="w-full text-sm font-semibold">Bloquear una dirección</p>
+        <p className="w-full text-sm font-semibold"><Tr s={"Bloquear una dirección"} /></p>
         <input name="email" type="email" required placeholder="email@ejemplo.com" className="input h-10 min-w-0 flex-1 text-base sm:text-sm" aria-label="Email que quieres bloquear" />
-        <SubmitButton className="btn btn-outline btn-sm">Bloquear</SubmitButton>
+        <SubmitButton className="btn btn-outline btn-sm"><Tr s={"Bloquear"} /></SubmitButton>
       </form>
     </div>
   );

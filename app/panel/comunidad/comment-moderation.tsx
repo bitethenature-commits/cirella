@@ -6,6 +6,7 @@ import { ConfirmForm } from "@/components/ui/confirm-form";
 import { COMMENT_MAX } from "@/lib/community-rules";
 import { blockCommenter, deleteCommentAsOwner, hideComment, ownerReply, type ReplyState } from "./actions";
 import { deleteLessonCommentAsOwner, hideLessonComment, ownerLessonReply } from "../cursos/comentarios/actions";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /** Comentarios de una publicación (Comunidad) o de una lección (Cursos › Comentarios). */
 type Place = "post" | "lesson";
@@ -31,6 +32,7 @@ export type StudioComment = {
 };
 
 function ReplyForm({ place, postId, parentId, onDone, placeholder }: { place: Place; postId: string; parentId?: string; onDone?: () => void; placeholder: string }) {
+  const t = useT();
   const [state, action, pending] = useActionState<ReplyState, FormData>(ACTIONS[place].reply, undefined);
   const [text, setText] = useState("");
   useEffect(() => {
@@ -51,7 +53,7 @@ function ReplyForm({ place, postId, parentId, onDone, placeholder }: { place: Pl
     >
       <input type="hidden" name={ACTIONS[place].field} value={postId} />
       {parentId && <input type="hidden" name="parentId" value={parentId} />}
-      <label className="sr-only" htmlFor={`r-${parentId ?? postId}`}>{placeholder}</label>
+      <label className="sr-only" htmlFor={`r-${parentId ?? postId}`}><Tr s={placeholder} /></label>
       <textarea
         id={`r-${parentId ?? postId}`}
         name="body"
@@ -61,57 +63,56 @@ function ReplyForm({ place, postId, parentId, onDone, placeholder }: { place: Pl
         autoFocus={!!parentId}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder={placeholder}
+        placeholder={t(placeholder)}
         className="input min-h-11 flex-1 resize-y py-2.5 text-sm"
       />
       <button type="submit" className="btn btn-primary btn-sm min-h-11" disabled={pending || !text.trim()}>
-        {pending && <Loader2 className="h-4 w-4 animate-spin" />} {parentId ? "Responder" : "Comentar"}
+        {pending && <Loader2 className="h-4 w-4 animate-spin" />} {parentId ? t("Responder") : t("Comentar")}
       </button>
-      {state?.error && <p className="text-sm text-rose" role="alert">{state.error}</p>}
+      {state?.error && <p className="text-sm text-rose" role="alert"><Tr s={state.error} /></p>}
     </form>
   );
 }
 
 function CommentRow({ place, c, postId, reply }: { place: Place; c: StudioComment; postId: string; reply?: boolean }) {
+  const t = useT();
   const [replying, setReplying] = useState(false);
   const hidden = c.status === "HIDDEN";
   const removed = c.status === "REMOVED";
   return (
     <li id={`sc-${c.id}`} className={reply ? "border-l-2 border-line pl-3" : ""} data-studio-comment={c.status}>
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-        <span className={`font-semibold ${removed ? "" : "text-ink"}`}>{c.authorName}</span>
-        {c.byOwner && !removed && <span className="rounded-full bg-ink px-2 py-0.5 text-[0.65rem] font-semibold text-cream">Autora</span>}
-        {hidden && <span className="rounded-full border border-[#ecdcb8] bg-[#fbf5e8] px-2 py-0.5 text-[0.65rem] font-semibold text-[#7a5a1c]">Oculto · solo lo ves tú</span>}
-        {c.blocked && !c.byOwner && <span className="rounded-full border border-[#ecd2cd] px-2 py-0.5 text-[0.65rem] font-semibold text-rose">No puede comentar</span>}
+        <span className={`font-semibold ${removed ? "" : "text-ink"}`}><Tr s={c.authorName} /></span>
+        {c.byOwner && !removed && <span className="rounded-full bg-ink px-2 py-0.5 text-[0.65rem] font-semibold text-cream"><Tr s={"Autora"} /></span>}
+        {hidden && <span className="rounded-full border border-[#ecdcb8] bg-[#fbf5e8] px-2 py-0.5 text-[0.65rem] font-semibold text-[#7a5a1c]"><Tr s={"Oculto · solo lo ves tú"} /></span>}
+        {c.blocked && !c.byOwner && <span className="rounded-full border border-[#ecd2cd] px-2 py-0.5 text-[0.65rem] font-semibold text-rose"><Tr s={"No puede comentar"} /></span>}
         <span>{c.when}</span>
         {!!c.likes && !removed && <span className="inline-flex items-center gap-0.5 text-rose">♥ {c.likes}</span>}
       </p>
       {removed ? (
-        <p className="mt-1 text-sm italic text-muted">Comentario eliminado</p>
+        <p className="mt-1 text-sm italic text-muted"><Tr s={"Comentario eliminado"} /></p>
       ) : (
-        <p className={`mt-1 whitespace-pre-line break-words text-sm leading-relaxed ${hidden ? "text-muted line-through decoration-ink/20" : ""}`}>{c.body}</p>
+        <p className={`mt-1 whitespace-pre-line break-words text-sm leading-relaxed ${hidden ? "text-muted line-through decoration-ink/20" : ""}`}><Tr s={c.body} /></p>
       )}
       <div className="mt-1 flex flex-wrap gap-0.5">
         {!removed && !reply && !hidden && (
           <button type="button" onClick={() => setReplying((v) => !v)} className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-muted hover:bg-sand hover:text-ink" aria-label={`Responder a ${c.authorName}`}>
-            <Reply className="h-3.5 w-3.5" /> Responder
-          </button>
+            <Reply className="h-3.5 w-3.5" />{" "}<Tr s={"Responder"} /></button>
         )}
         {!removed && !c.byOwner && (
           <form action={ACTIONS[place].hide}>
             <input type="hidden" name="commentId" value={c.id} />
             <input type="hidden" name="hidden" value={hidden ? "0" : "1"} />
             <button className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-muted hover:bg-sand hover:text-ink" aria-label={hidden ? `Volver a mostrar el comentario de ${c.authorName}` : `Ocultar el comentario de ${c.authorName}`}>
-              {hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />} {hidden ? "Mostrar" : "Ocultar"}
+              {hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />} {hidden ? t("Mostrar") : t("Ocultar")}
             </button>
           </form>
         )}
         {!removed && (
-          <ConfirmForm action={ACTIONS[place].remove} message="¿Borrar este comentario? Nadie lo verá más.">
+          <ConfirmForm action={ACTIONS[place].remove} message={t("¿Borrar este comentario? Nadie lo verá más.")}>
             <input type="hidden" name="commentId" value={c.id} />
             <button className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-muted hover:bg-sand hover:text-rose" aria-label={`Borrar el comentario de ${c.authorName}`}>
-              <Trash2 className="h-3.5 w-3.5" /> Borrar
-            </button>
+              <Trash2 className="h-3.5 w-3.5" />{" "}<Tr s={"Borrar"} /></button>
           </ConfirmForm>
         )}
         {!c.byOwner && (
@@ -149,13 +150,14 @@ function CommentRow({ place, c, postId, reply }: { place: Place; c: StudioCommen
  * comentarios nuevos en las últimas 48 h. El texto se pinta siempre como texto.
  */
 export function CommentModeration({ place = "post", postId, comments, fresh }: { place?: Place; postId: string; comments: StudioComment[]; fresh: boolean }) {
+  const t = useT();
   const [open, setOpen] = useState(fresh);
   const count = comments.reduce((n, c) => n + (c.status === "REMOVED" ? 0 : 1) + c.replies.filter((r) => r.status !== "REMOVED").length, 0);
   return (
     <div className="border-t border-line pt-3">
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold hover:bg-sand">
-        <MessageCircle className="h-4 w-4" /> {count ? `Comentarios (${count})` : "Comentar"}
-        {fresh && <span className="rounded-full bg-rose px-1.5 text-[0.65rem] font-semibold text-white">Nuevos</span>}
+        <MessageCircle className="h-4 w-4" /> {count ? `Comentarios (${count})` : t("Comentar")}
+        {fresh && <span className="rounded-full bg-rose px-1.5 text-[0.65rem] font-semibold text-white"><Tr s={"Nuevos"} /></span>}
       </button>
       {open && (
         <div className="mt-3 space-y-4">
@@ -166,7 +168,7 @@ export function CommentModeration({ place = "post", postId, comments, fresh }: {
               ))}
             </ul>
           )}
-          <ReplyForm place={place} postId={postId} placeholder="Escribe un comentario como autora…" />
+          <ReplyForm place={place} postId={postId} placeholder={t("Escribe un comentario como autora…")} />
         </div>
       )}
     </div>

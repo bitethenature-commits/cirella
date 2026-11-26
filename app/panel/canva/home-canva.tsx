@@ -43,6 +43,7 @@ import { PagesMenu } from "./pages-menu";
 import { setPath } from "./paths";
 import { useDevice } from "./web-frame";
 import type { PanelPage } from "./web-pages";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /** Lo que necesita la portada para pintarse y editarse. */
 export type HomeEditor = {
@@ -589,9 +590,7 @@ export function HomeCanva({
       notice={
         pendingDraft && (
           <p>
-            <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#e9cc8e] align-middle" aria-hidden />
-            Aquí ves también lo que cambiaste sin publicar: se publica con tu primer cambio.
-          </p>
+            <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#e9cc8e] align-middle" aria-hidden /><Tr s={"Aquí ves también lo que cambiaste sin publicar: se publica con tu primer cambio."} /></p>
         )
       }
     >
@@ -674,13 +673,13 @@ function PartSheet({
           {editor.personal && <NewsletterFields {...p} />}
           <section className="card space-y-4 p-5 sm:p-6">
             <div>
-              <h3 className="font-semibold">Enlaces legales y firma</h3>
-              <p className="text-xs text-muted">Valen para todas tus páginas. Los enlaces legales salen siempre (lo pide la ley): aquí solo cambias su nombre. Vacío = el de siempre.</p>
+              <h3 className="font-semibold"><Tr s={"Enlaces legales y firma"} /></h3>
+              <p className="text-xs text-muted"><Tr s={"Valen para todas tus páginas. Los enlaces legales salen siempre (lo pide la ley): aquí solo cambias su nombre. Vacío = el de siempre."} /></p>
             </div>
             <TextsFields {...p} keys={["legal.aviso", "legal.condiciones", "legal.privacidad", "legal.cookies", "footer.signature"]} />
           </section>
           <section className="card space-y-4 p-5 sm:p-6">
-            <h3 className="font-semibold">Entrar en el área</h3>
+            <h3 className="font-semibold"><Tr s={"Entrar en el área"} /></h3>
             <TextsFields {...p} keys={["account.enter", "account.mine", "account.footerIn", editor.personal ? "account.footerPersonal" : "account.footer", "account.signup"]} />
           </section>
         </>
@@ -693,11 +692,8 @@ function PartSheet({
   const code = id === "new" ? NEW_CODE : codes.find((c) => c.id === id);
   if (!code)
     return (
-      <p className="text-sm text-muted">
-        Este código ya no existe.{" "}
-        <button type="button" onClick={() => open("codes")} className="font-semibold underline underline-offset-4">
-          Ver todos
-        </button>
+      <p className="text-sm text-muted"><Tr s={"Este código ya no existe."} />{" "}
+        <button type="button" onClick={() => open("codes")} className="font-semibold underline underline-offset-4"><Tr s={"Ver todos"} /></button>
       </p>
     );
   return (
@@ -711,9 +707,7 @@ function PartSheet({
         }}
       />
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4">
-        <button type="button" onClick={() => open("codes")} className="btn btn-ghost btn-sm">
-          Todos los códigos
-        </button>
+        <button type="button" onClick={() => open("codes")} className="btn btn-ghost btn-sm"><Tr s={"Todos los códigos"} /></button>
         {code.id && (
           <button
             type="button"
@@ -725,8 +719,7 @@ function PartSheet({
               open("codes");
             }}
           >
-            <Trash2 className="h-4 w-4" /> Borrar código
-          </button>
+            <Trash2 className="h-4 w-4" />{" "}<Tr s={"Borrar código"} /></button>
         )}
       </div>
     </>
@@ -735,6 +728,7 @@ function PartSheet({
 
 /** Todos los códigos (también los ocultos y caducados): cambiar uno, subirlo, bajarlo, ocultarlo o añadir otro. */
 function CodesList({ codes, open, refresh }: { codes: CanvaCode[]; open: (part: CanvaPart | null) => void; refresh: () => void }) {
+  const t = useT();
   const [busy, setBusy] = useState<string | null>(null);
   const run = async (id: string, fn: (fd: FormData) => Promise<void>, dir?: "up" | "down") => {
     setBusy(id);
@@ -751,36 +745,35 @@ function CodesList({ codes, open, refresh }: { codes: CanvaCode[]; open: (part: 
   const tool = "grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-25";
   return (
     <section className="card p-5 sm:p-6">
-      <p className="text-xs text-muted">Las marcas que recomiendas, en el orden de tu web. Pulsa una para cambiarla (con sus fotos y recomendaciones). Las ocultas y las caducadas no salen.</p>
+      <p className="text-xs text-muted"><Tr s={"Las marcas que recomiendas, en el orden de tu web. Pulsa una para cambiarla (con sus fotos y recomendaciones). Las ocultas y las caducadas no salen."} /></p>
       <div className="mt-4 space-y-2">
         {codes.map((c, i) => (
           <div key={c.id} className="flex items-center gap-1.5 rounded-xl border border-line bg-white p-2.5">
             <button type="button" onClick={() => open(`code:${c.id}`)} className="min-w-0 flex-1 px-1 text-left">
-              <span className="block truncate text-sm font-semibold">{c.brand}</span>
+              <span className="block truncate text-sm font-semibold"><Tr s={c.brand} /></span>
               <span className="block truncate text-xs text-muted">
-                <span className="font-mono">{c.code}</span> · {c.stateLabel}
+                <span className="font-mono">{c.code}</span> · <Tr s={c.stateLabel} />
               </span>
             </button>
             {busy === c.id && <Loader2 className="h-4 w-4 animate-spin text-muted" />}
-            <button type="button" className={tool} disabled={i === 0 || !!busy} onClick={() => run(c.id, moveDiscountCode, "up")} aria-label="Subir">
+            <button type="button" className={tool} disabled={i === 0 || !!busy} onClick={() => run(c.id, moveDiscountCode, "up")} aria-label={t("Subir")}>
               <ArrowUp className="h-3.5 w-3.5" />
             </button>
-            <button type="button" className={tool} disabled={i === codes.length - 1 || !!busy} onClick={() => run(c.id, moveDiscountCode, "down")} aria-label="Bajar">
+            <button type="button" className={tool} disabled={i === codes.length - 1 || !!busy} onClick={() => run(c.id, moveDiscountCode, "down")} aria-label={t("Bajar")}>
               <ArrowDown className="h-3.5 w-3.5" />
             </button>
-            <button type="button" className={tool} disabled={!!busy} onClick={() => run(c.id, toggleDiscountCode)} aria-label={c.active ? "Ocultar" : "Mostrar"} title={c.active ? "Ocultar" : "Mostrar"}>
+            <button type="button" className={tool} disabled={!!busy} onClick={() => run(c.id, toggleDiscountCode)} aria-label={c.active ? t("Ocultar") : t("Mostrar")} title={c.active ? t("Ocultar") : t("Mostrar")}>
               {c.active ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
             </button>
-            <button type="button" className={tool} onClick={() => open(`code:${c.id}`)} aria-label="Cambiar">
+            <button type="button" className={tool} onClick={() => open(`code:${c.id}`)} aria-label={t("Cambiar")}>
               <Pencil className="h-3.5 w-3.5" />
             </button>
           </div>
         ))}
-        {!codes.length && <p className="text-sm text-muted">Aún no tienes códigos.</p>}
+        {!codes.length && <p className="text-sm text-muted"><Tr s={"Aún no tienes códigos."} /></p>}
       </div>
       <button type="button" onClick={() => open("code:new")} className="btn btn-outline btn-sm mt-3">
-        <Plus className="h-4 w-4" /> Añadir código
-      </button>
+        <Plus className="h-4 w-4" />{" "}<Tr s={"Añadir código"} /></button>
     </section>
   );
 }

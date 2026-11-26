@@ -7,6 +7,7 @@ import { CalmAudio } from "@/components/media/calm-audio";
 import type { PostMedia } from "@/lib/posts";
 import { PageVideo } from "./page-video";
 import { VideoFacade } from "./video-facade";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * El vídeo o el audio de una publicación de «Actualidades», que se ve con cuenta. Mientras no se sabe, y para
@@ -30,6 +31,7 @@ export function PostMediaGate({
   durationSec: number | null;
   signupHref: string;
 }) {
+  const t = useT();
   const [state, setState] = useState<{ s: "loading" } | { s: "locked" } | { s: "open"; media: PostMedia }>({ s: "loading" });
   useEffect(() => {
     let alive = true;
@@ -80,16 +82,14 @@ export function PostMediaGate({
           {video ? <Play className="ml-1 h-8 w-8 fill-current" /> : <Headphones className="h-8 w-8" />}
         </Link>
         <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] opacity-85">
-          {video ? "Vídeo" : "Audio"}
+          {video ? t("Vídeo") : t("Audio")}
           {mins ? ` · ${mins} min` : ""}
         </p>
         {state.s === "locked" && (
           <>
-            <p className="cp-display max-w-md text-[1.5rem] leading-tight sm:text-[1.8rem]">{video ? "Crea tu cuenta para verlo" : "Crea tu cuenta para escucharlo"}</p>
-            <Link href={signupHref} className="cp-btn mt-1">
-              Crear mi cuenta
-            </Link>
-            <p className="text-xs opacity-75">¿Ya la tienes? Entra y vuelves aquí.</p>
+            <p className="cp-display max-w-md text-[1.5rem] leading-tight sm:text-[1.8rem]">{video ? t("Crea tu cuenta para verlo") : t("Crea tu cuenta para escucharlo")}</p>
+            <Link href={signupHref} className="cp-btn mt-1"><Tr s={"Crear mi cuenta"} /></Link>
+            <p className="text-xs opacity-75"><Tr s={"¿Ya la tienes? Entra y vuelves aquí."} /></p>
           </>
         )}
       </div>

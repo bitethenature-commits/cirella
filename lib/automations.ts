@@ -1,3 +1,5 @@
+import { creatorLegalHref } from "@/lib/legal";
+import { productPath, loginPath } from "@/lib/public-paths";
 import { isNoChargeOrder } from "./access-mode";
 import { orderTargetPath } from "./auth-utils";
 import { prisma } from "./db";
@@ -51,6 +53,7 @@ export type { DomainEvent } from "./events";
 
 export { AUTOMATIONS, automationDefaultOn, type AutomationTrigger } from "./automation-catalog";
 import { AUTOMATIONS, automationDefaultOn, type AutomationTrigger } from "./automation-catalog";
+import { inMail } from "@/lib/i18n/email";
 
 /** Configuración de una automatización para una creadora (también la usan el cron de caducidades y la comunidad). */
 export async function automationSetting(creatorId: string, trigger: AutomationTrigger) {
@@ -121,7 +124,7 @@ export async function sendAccessEmail(orderId: string, dedupeKey: string) {
     creatorId: order.creatorId,
     template: "ACCESS_GRANTED",
     dedupeKey,
-    ...withCustomSubject(T.accessGrantedEmail({
+    ...(await inMail(order.buyerEmail, async () => withCustomSubject(T.accessGrantedEmail({
       introHtml: custom.introHtml,
       // Sin el nombre que escribió cualquiera en el formulario gratis (sale del dominio de la dueña).
       name: accessEmailGreetingName(order),
@@ -137,7 +140,7 @@ export async function sendAccessEmail(orderId: string, dedupeKey: string) {
         const until = isNoChargeOrder(order) ? accessUntil(order.metadata) : null;
         return until ? lastDayText(until, order.creator.timezone) : null;
       })(),
-    }), custom.subject),
+    }), custom.subject))),
   });
 }
 
@@ -167,7 +170,7 @@ export async function handleAutomation(event: DomainEvent) {
         // El recibo está en el detalle de la compra. Si el botón ya lleva allí, es el mismo
         // enlace personal; si no, la dirección normal: la sesión que abre el botón (limitada a este
         // pedido) también la cubre y, sin ella, se pide un enlace de acceso.
-        const receiptPath = `/cuenta/pedidos/${order.id}`;
+        const receiptPath = `/area/orders/${order.id}`;
         const receiptUrl = target === receiptPath ? link.url : `${base}${receiptPath}`;
 
         const custom = customEmail(s, { nombre: firstName(order.buyerName), mi_nombre: name, producto: order.productTitle });
@@ -176,7 +179,7 @@ export async function handleAutomation(event: DomainEvent) {
           creatorId: order.creatorId,
           template: "PURCHASE_RECEIPT",
           dedupeKey: receiptKey,
-          ...withCustomSubject(
+          ...(await inMail(order.buyerEmail, async () => withCustomSubject(
             T.purchaseReceiptEmail({
               introHtml: custom.introHtml,
               name: order.buyerName,
@@ -214,13 +217,13 @@ export async function handleAutomation(event: DomainEvent) {
                   ? formatDate(withdrawalDeadline(order.paidAt, s.creator.timezone), { day: "numeric", month: "long" }, s.creator.timezone)
                   : null,
               changePolicy: order.productType === "SESSION" ? `${sessionChangePolicyText()} desde tu área de cliente.` : null,
-              legalUrl: order.legalSnapshotId ? `${base}/${s.creator.username}/legal?v=${order.legalSnapshotId}` : undefined,
+              legalUrl: order.legalSnapshotId ? `${base}${creatorLegalHref(s.creator.username)}?v=${order.legalSnapshotId}` : undefined,
               conditions: snapshot ? { terms: snapshot.terms, refunds: snapshot.refunds } : undefined,
 
               receiptUrl,
             }),
             custom.subject,
-          ),
+          ))),
         });
       }
       // Aviso de venta a la creadora (notificación de sistema). En la web personal, la de una sesión va
@@ -233,29 +236,29 @@ export async function handleAutomation(event: DomainEvent) {
           creatorId: order.creatorId,
           template: "NEW_SALE",
           dedupeKey: `sale:${order.id}`,
-          ...T.newSaleCreatorEmail({
+          ...(await inMail(s.creator.contactEmail || s.creator.user.email, async () => T.newSaleCreatorEmail({
             productTitle: order.productTitle,
             amount: formatPrice(order.amountCents, order.currency),
             buyer: order.buyerName || order.buyerEmail,
             url: answers && order.productType !== "SESSION" ? `${base}/panel/ventas/${order.id}#entrega` : `${base}/panel/ventas`,
             details: answers && order.productType !== "SESSION" ? intakeLines(answers) : undefined,
-          }),
+          }))),
         });
       if (order.productType === "COURSE") {
         const c = await setting(order.creatorId, "COURSE_ACCESS");
         const courseKey = `course:${order.id}`;
         if (c.enabled && !(await emailAlreadyQueued(courseKey))) {
-          const link = await createOrderLink({ orderId: order.id, path: `/cuenta/cursos/${order.productId}` });
+          const link = await createOrderLink({ orderId: order.id, path: `/area/courses/${order.productId}` });
           const custom = customEmail(c, { mi_nombre: name, producto: order.productTitle });
           await enqueueEmail({
             to: order.buyerEmail,
             creatorId: order.creatorId,
             template: "COURSE_ACCESS",
             dedupeKey: courseKey,
-            ...withCustomSubject(
+            ...(await inMail(order.buyerEmail, async () => withCustomSubject(
               T.courseAccessEmail({ creatorName: name, courseTitle: order.productTitle, url: link.url, linkNote: orderLinkNote(link.expiresAt), introHtml: custom.introHtml }),
               custom.subject,
-            ),
+            ))),
           });
         }
       }
@@ -273,18 +276,18 @@ export async function handleAutomation(event: DomainEvent) {
         template: "WELCOME",
         dedupeKey: `welcome:${customer.id}`,
         sendAt: new Date(Date.now() + s.delayMinutes * 60000),
-        ...withCustomSubject(
+        ...(await inMail(customer.email, async () => withCustomSubject(
           // Sin pedido concreto: el login con su marca (enlace por email, sin contraseña).
           T.welcomeCustomerEmail({
             name: customer.name,
             creatorName: s.creator.displayName,
-            accountUrl: `${base}/${s.creator.username}/entrar?next=%2Fcuenta`,
+            accountUrl: `${base}${loginPath(s.creator.username)}?next=%2Farea`,
             message: s.message,
             messageFormat: s.messageFormat,
             introHtml: custom.introHtml,
           }),
           custom.subject,
-        ),
+        ))),
       });
       return;
     }
@@ -308,13 +311,13 @@ export async function handleAutomation(event: DomainEvent) {
         creatorId: b.creatorId,
         template: "BOOKING_OWNER_CANCELLED",
         dedupeKey: `owner-cancel:${b.id}`,
-        ...BT.ownerCancelledEmail({
+        ...(await inMail(s.creator.contactEmail || s.creator.user.email, async () => BT.ownerCancelledEmail({
           buyer: b.customer.name || b.customer.email,
           productTitle: b.product.title,
           when: b.startAt ? formatSessionDate(b.startAt, s.creator.timezone) : null,
           reason: b.cancelReason ?? "El pago se ha devuelto desde la pasarela.",
           url: `${base}/panel/solicitudes/reserva/${b.id}`,
-        }),
+        }))),
       });
       return;
     }
@@ -330,14 +333,14 @@ export async function handleAutomation(event: DomainEvent) {
           creatorId: b.creatorId,
           template: "MEETING_LINK_CHANGED",
           dedupeKey: key,
-          ...BT.meetingLinkChangedEmail({
+          ...(await inMail(b.customer.email, async () => BT.meetingLinkChangedEmail({
             creatorName: b.creator.displayName,
             productTitle: b.product.title,
-            when: sessionWhen(b.startAt, b.customerTimezone, b.creator.timezone),
+            when: sessionWhen(b.startAt!, b.customerTimezone, b.creator.timezone),
             meetingUrl: b.meetingUrl,
             meetingLabel: meetingLabel(b.meetingUrl),
             ...a,
-          }),
+          }))),
         });
       }
       // Los recordatorios guardan su HTML al programarse: se vuelven a hacer con el enlace nuevo.
@@ -360,13 +363,13 @@ export async function handleAutomation(event: DomainEvent) {
         creatorId: order.creatorId,
         template: "INTAKE_UPDATED",
         dedupeKey: `intake:${order.id}:${slot}`,
-        ...BT.intakeUpdatedOwnerEmail({
+        ...(await inMail(s.creator.contactEmail || s.creator.user.email, async () => BT.intakeUpdatedOwnerEmail({
           buyer: order.buyerName || order.buyerEmail,
           productTitle: order.productTitle,
           first: event.first,
           lines: intakeLines(answers),
           url: order.bookings[0] ? `${base}/panel/solicitudes/reserva/${order.bookings[0].id}` : `${base}/panel/ventas/${order.id}`,
-        }),
+        }))),
       });
       return;
     }
@@ -379,7 +382,8 @@ export async function handleAutomation(event: DomainEvent) {
       if (!s.enabled) return;
       const to = s.creator.contactEmail || s.creator.user.email;
       const buyer = sub.customer.name || sub.customer.email;
-      const mail =
+      // En el idioma de su panel (lib/i18n/email.ts).
+      const mail = await inMail(to, () =>
         trigger === "NEW_SUBSCRIPTION"
           ? T.newSubscriptionCreatorEmail({ productTitle: sub.product.title, buyer, url: `${base}/panel/clientes` })
           : T.subscriptionCanceledCreatorEmail({
@@ -387,7 +391,8 @@ export async function handleAutomation(event: DomainEvent) {
               buyer,
               until: formatDate(sub.currentPeriodEnd, { day: "numeric", month: "long" }, s.creator.timezone),
               url: `${base}/panel/clientes`,
-            });
+            }),
+      );
       await enqueueEmail({ to, creatorId: sub.creatorId, template: trigger, dedupeKey: `${trigger}:${sub.id}`, ...mail });
       return;
     }
@@ -398,14 +403,14 @@ export async function handleAutomation(event: DomainEvent) {
       const sub = await prisma.subscription.findUniqueOrThrow({ where: { id: event.subscriptionId }, include: { product: true, customer: true, creator: true } });
       const s = await setting(sub.creatorId, "ACCESS_ENDING");
       if (!s.enabled) return;
-      const rejoin = sub.product.status === "PUBLISHED" ? `${base}/${sub.creator.username}/${sub.product.slug}` : null;
+      const rejoin = sub.product.status === "PUBLISHED" ? `${base}${productPath(sub.creator.username, sub.product)}` : null;
       await enqueueEmail({
         to: sub.customer.email,
         creatorId: sub.creatorId,
         userId: sub.userId,
         template: "MEMBERSHIP_ENDED",
         dedupeKey: `sub-ended:${sub.id}`,
-        ...T.membershipEndedEmail({ creatorName: sub.creator.displayName, productTitle: sub.product.title, reason: event.reason, rejoinUrl: rejoin }),
+        ...(await inMail(sub.customer.email, async () => T.membershipEndedEmail({ creatorName: sub.creator.displayName, productTitle: sub.product.title, reason: event.reason, rejoinUrl: rejoin }))),
       });
       return;
     }
@@ -427,18 +432,18 @@ export async function handleAutomation(event: DomainEvent) {
         dedupeKey: `abandoned:${order.id}`,
         // Botón «Cancelar suscripción» del propio gestor de correo (baja en un clic, RFC 8058).
         headers: optOutHeaders(order.id),
-        ...withCustomSubject(
+        ...(await inMail(order.buyerEmail, async () => withCustomSubject(
           T.abandonedCheckoutEmail({
             creatorName: s.creator.displayName,
             productTitle: order.productTitle,
-            url: `${base}/${order.creator.username}/${order.product.slug}/checkout`,
+            url: `${base}${productPath(order.creator.username, order.product, "checkout")}`,
             message: s.message,
             messageFormat: s.messageFormat,
             optOutUrl: optOutUrl(order.id),
             introHtml: custom.introHtml,
           }),
           custom.subject,
-        ),
+        ))),
       });
       await prisma.order.update({ where: { id: order.id }, data: { recoveryEmailedAt: new Date() } });
       return;
@@ -457,8 +462,8 @@ function loadBooking(bookingId: string) {
 
 /** Enlace personal a la reserva (con pedido) o el login con su marca (reserva sin pedido). */
 async function bookingAccess(b: { id: string; orderId: string | null; creator: { username: string } }, base: string, validFrom?: Date, hash = "") {
-  const path = `/cuenta/sesiones/${b.id}${hash}`;
-  if (!b.orderId) return { url: `${base}/${b.creator.username}/entrar?next=${encodeURIComponent(path)}`, linkNote: undefined };
+  const path = `/area/sessions/${b.id}${hash}`;
+  if (!b.orderId) return { url: `${base}${loginPath(b.creator.username)}?next=${encodeURIComponent(path)}`, linkNote: undefined };
   const link = await createOrderLink({ orderId: b.orderId, path, validFrom });
   return { url: link.url, linkNote: orderLinkNote(link.expiresAt) };
 }
@@ -495,7 +500,7 @@ export async function sendBookingConfirmation(bookingId: string, change?: Bookin
       creatorId: b.creatorId,
       template: "BOOKING_CONFIRMED",
       dedupeKey: confirmKey,
-      ...BT.manualSessionEmail({
+      ...(await inMail(b.customer.email, async () => BT.manualSessionEmail({
         creatorName: s.creator.displayName,
         productTitle: b.product.title,
         when,
@@ -506,7 +511,7 @@ export async function sendBookingConfirmation(bookingId: string, change?: Bookin
         intakeUrl,
         icsUrl: ics,
         ...access,
-      }),
+      }))),
     });
     return;
   }
@@ -516,7 +521,7 @@ export async function sendBookingConfirmation(bookingId: string, change?: Bookin
     creatorId: b.creatorId,
     template: "BOOKING_CONFIRMED",
     dedupeKey: confirmKey,
-    ...withCustomSubject(
+    ...(await inMail(b.customer.email, async () => withCustomSubject(
       T.bookingConfirmedEmail({
         introHtml: custom.introHtml,
         creatorName: s.creator.displayName,
@@ -532,7 +537,7 @@ export async function sendBookingConfirmation(bookingId: string, change?: Bookin
         ...(change === "moved" ? { variant: "moved" as const } : b.groupSeat ? { variant: "seat" as const } : {}),
       }),
       custom.subject,
-    ),
+    ))),
   });
 }
 
@@ -564,7 +569,7 @@ export async function scheduleSessionReminders(bookingId: string) {
         template: "SESSION_REMINDER",
         dedupeKey: key,
         sendAt: at,
-        ...withCustomSubject(
+        ...(await inMail(b.customer.email, async () => withCustomSubject(
           T.moonCircleReminderEmail({
             introHtml: custom.introHtml,
             creatorName: moon.creator.displayName,
@@ -576,7 +581,7 @@ export async function scheduleSessionReminders(bookingId: string) {
             ...(b.meetingUrl && meetingLabel(b.meetingUrl) !== "Enlace de la videollamada" ? { meetingLabel: meetingLabel(b.meetingUrl) } : {}),
           }),
           custom.subject,
-        ),
+        ))),
       });
     }
   }
@@ -595,10 +600,10 @@ export async function scheduleSessionReminders(bookingId: string) {
         dedupeKey: key,
         sendAt: at,
         replyTo: thanks.creator.contactEmail || thanks.creator.user.email,
-        ...withCustomSubject(
-          T.sessionThanksEmail({ name: firstName(b.customer.name), creatorName: thanks.creator.displayName, productTitle: b.product.title, url: `${base}/cuenta`, introHtml: custom.introHtml }),
+        ...(await inMail(b.customer.email, async () => withCustomSubject(
+          T.sessionThanksEmail({ name: firstName(b.customer.name), creatorName: thanks.creator.displayName, productTitle: b.product.title, url: `${base}/area`, introHtml: custom.introHtml }),
           custom.subject,
-        ),
+        ))),
       });
     }
   }
@@ -618,7 +623,7 @@ export async function scheduleSessionReminders(bookingId: string) {
       template: "SESSION_REMINDER",
       dedupeKey: key,
       sendAt: at,
-      ...withCustomSubject(
+      ...(await inMail(b.customer.email, async () => withCustomSubject(
         T.sessionReminderEmail({
           introHtml: custom.introHtml,
           creatorName: r.creator.displayName,
@@ -630,7 +635,7 @@ export async function scheduleSessionReminders(bookingId: string) {
           ...(intake ? { intakeUrl: (await bookingAccess(b, base, at, "#datos")).url } : {}),
         }),
         custom.subject,
-      ),
+      ))),
     });
   }
 }
@@ -660,7 +665,7 @@ export async function notifyOwnerOfBooking(bookingId: string, change?: BookingCh
     creatorId: b.creatorId,
     template: "BOOKING_OWNER",
     dedupeKey: `owner-booking:${b.id}:${b.startAt?.toISOString() ?? "pending"}`,
-    ...BT.ownerBookingEmail({
+    ...(await inMail(s.creator.contactEmail || s.creator.user.email, async () => BT.ownerBookingEmail({
       kind: change,
       buyer: b.customer.name || b.customer.email,
       productTitle: b.product.title,
@@ -672,6 +677,6 @@ export async function notifyOwnerOfBooking(bookingId: string, change?: BookingCh
       intake: answers ? intakeLines(answers) : [],
       intakeMissing: missingIntake(b),
       url: `${appUrl()}/panel/solicitudes/reserva/${b.id}`,
-    }),
+    }))),
   });
 }

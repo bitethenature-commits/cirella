@@ -43,8 +43,8 @@ function refresh(productIds: (string | null | undefined)[], postId?: string) {
   revalidatePath("/panel/comunidad");
   for (const id of new Set(productIds.filter((x): x is string => !!x))) {
     revalidatePath(`/panel/productos/${id}`);
-    revalidatePath(`/cuenta/membresias/${id}`);
-    if (postId) revalidatePath(`/cuenta/membresias/${id}/${postId}`);
+    revalidatePath(`/area/membership/${id}`);
+    if (postId) revalidatePath(`/area/membership/${id}/${postId}`);
   }
   // «Lo último en la comunidad» de la ficha pública (cacheada).
   revalidatePath("/[username]", "page");
@@ -169,7 +169,7 @@ export async function blockCommenter(form: FormData) {
 export type TierCardState = { ok?: string; error?: string } | undefined;
 
 /**
- * «Cartas» de Comunidad: guarda la carta de un nivel tal como la ve la clienta en /comunidad (foto,
+ * «Cartas» de Comunidad: guarda la carta de un nivel tal como la ve la clienta en /membership (foto,
  * emoji, nombre, frase, precio, lo que incluye y el texto del botón).
  */
 export async function saveTierCard(_: TierCardState, form: FormData): Promise<TierCardState> {
@@ -203,6 +203,6 @@ export async function saveTierCard(_: TierCardState, form: FormData): Promise<Ti
   });
   revalidatePath("/panel/comunidad");
   revalidatePath(`/${creator.username}`, "layout");
-  revalidatePath("/cuenta/membresias");
+  revalidatePath("/area/membership");
   return { ok: `«${title}» guardada` };
 }

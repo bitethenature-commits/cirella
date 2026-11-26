@@ -1,3 +1,4 @@
+import { productPath } from "@/lib/public-paths";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowLeft, ArrowRight, ExternalLink, Pencil, Star } from "lucide-react";
@@ -11,6 +12,8 @@ import { DeleteButton } from "@/components/ui/delete-button";
 import { deleteMessage } from "@/lib/delete-copy";
 import { Badge } from "../ui";
 import { deleteProduct, moveProduct } from "./actions";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 /**
  * Ya no hay página «Productos»: cada cosa se lleva desde su sitio. Lecturas y sesiones 1:1 en
@@ -35,6 +38,7 @@ export function priceLine(p: { accessMode: string; priceCents: number; currency:
 export type CardProduct = {
   id: string;
   slug: string;
+  type: string;
   title: string;
   summary: string | null;
   emoji: string | null;
@@ -53,7 +57,7 @@ export type CardProduct = {
 };
 
 /** Carta grande: la foto en burbuja dorada, el título, el precio y Editar. Con `date`, el día grande encima. */
-export function ProductCard({
+export async function ProductCard({
   p,
   username,
   first,
@@ -73,6 +77,7 @@ export function ProductCard({
   /** Círculo de la luna: su luna y su signo en lugar de la foto, como en la web. */
   sky?: MoonCircleSky | null;
 }) {
+  const t = await getT();
   const past = showDate && p.eventStartAt ? p.eventStartAt.getTime() < Date.now() : false;
   return (
     <li className={`card flex flex-col overflow-hidden ${past ? "opacity-60" : ""}`}>
@@ -89,14 +94,14 @@ export function ProductCard({
       </div>
       <div className="flex flex-1 flex-col p-4">
         <p className="flex items-center gap-1.5 font-serif text-[1.3rem] leading-tight">
-          {p.featured && <Star className="h-3.5 w-3.5 shrink-0 fill-gold text-gold" aria-label="Destacado" />}
+          {p.featured && <Star className="h-3.5 w-3.5 shrink-0 fill-gold text-gold" aria-label={t("Destacado")} />}
           {p.title}
         </p>
         {meta && <p className="mt-1 text-xs text-muted">{meta}</p>}
         <p className="mt-1 text-sm text-gold">{priceLine(p)}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {p.status === "PUBLISHED" ? <Badge tone="success">Visible en la web</Badge> : p.status === "ARCHIVED" ? <Badge>Archivado</Badge> : <Badge tone="warning">Borrador</Badge>}
-          {past && <Badge tone="neutral">Ya pasó</Badge>}
+          {p.status === "PUBLISHED" ? <Badge tone="success"><Tr s={"Visible en la web"} /></Badge> : p.status === "ARCHIVED" ? <Badge><Tr s={"Archivado"} /></Badge> : <Badge tone="warning"><Tr s={"Borrador"} /></Badge>}
+          {past && <Badge tone="neutral"><Tr s={"Ya pasó"} /></Badge>}
         </div>
         <div className="mt-auto flex items-center gap-1 pt-4">
           {!showDate && (
@@ -121,13 +126,12 @@ export function ProductCard({
           )}
           <span className="flex-1" />
           {p.status === "PUBLISHED" && (
-            <Link href={`/${username}/${p.slug}`} target="_blank" className="btn btn-ghost btn-sm" aria-label={`Ver «${p.title}» en la web`}>
+            <Link href={`${productPath(username, p)}`} target="_blank" className="btn btn-ghost btn-sm" aria-label={`Ver «${p.title}» en la web`}>
               <ExternalLink className="h-4 w-4" />
             </Link>
           )}
           <Link href={`/panel/productos/${p.id}`} className="btn btn-outline btn-sm">
-            <Pencil className="h-3.5 w-3.5" /> Editar
-          </Link>
+            <Pencil className="h-3.5 w-3.5" />{" "}<Tr s={"Editar"} /></Link>
           <DeleteButton action={deleteProduct} id={p.id} what={p.title} message={deleteMessage(`«${p.title}»`, p._count.orders)} />
         </div>
       </div>

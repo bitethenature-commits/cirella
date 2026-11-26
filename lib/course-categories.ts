@@ -1,5 +1,5 @@
 /**
- * Categorías de los cursos (Product.courseCategory) para la página /cursos, que los agrupa por el
+ * Categorías de los cursos (Product.courseCategory) para la página /courses, que los agrupa por el
  * método con el que trabaja la dueña. Un curso puede tener varios temas a la vez (p. ej. Astrología +
  * Mi energía): se guardan juntos en el mismo texto, separados por «+» («ASTROLOGIA+MI_ENERGIA»), en
  * el orden de COURSE_CATEGORIES. Puro: lo usan el panel (el selector del curso), la página pública y

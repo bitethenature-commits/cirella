@@ -1,5 +1,6 @@
 "use server";
 
+import { translateSoon } from "@/lib/i18n/content";
 import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireCreator } from "@/lib/auth";
@@ -39,14 +40,8 @@ async function save(input: PageConfig) {
     where: { id: creator.id },
     data: { pageDraft: cfg as unknown as Prisma.InputJsonValue, ...(creator.published ? {} : { displayName: cfg.displayName }) },
   });
+  translateSoon(creator.id, true);
   return { ok: true as const, creator };
-}
-
-export async function saveDraft(cfg: PageConfig) {
-  const r = await save(cfg);
-  if (!r.ok) return { ok: false, error: r.error };
-  revalidatePath("/panel/pagina");
-  return { ok: true, message: "Borrador guardado" };
 }
 
 export async function publishDraft(cfg: PageConfig) {

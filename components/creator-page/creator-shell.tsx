@@ -4,6 +4,7 @@ import { designFor, type PageConfig } from "@/lib/page-config";
 import { resolveTheme, themeAttrs, themeStyle } from "@/lib/templates";
 import { DesignBackdrop } from "@/components/design-backdrop";
 import { AccountEntry } from "./account-entry";
+import { LanguageSwitch } from "./language-switch";
 import { creatorLegalHref } from "@/lib/legal";
 import { LegalLinks } from "./legal-links";
 import { NewsletterSignup } from "./newsletter-signup";
@@ -89,7 +90,11 @@ export function CreatorShell({
               <span className="truncate text-sm font-semibold">{config.displayName}</span>
             </Link>
           )}
-          {showAccount && <AccountEntry username={username} personal={personal} variant="header" texts={config.texts} editText={editText} />}
+          {/* Arriba a la derecha: el idioma y la entrada al área (en el editor, sin el idioma). */}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {!editText && <LanguageSwitch variant="header" />}
+            {showAccount && <AccountEntry username={username} personal={personal} variant="header" texts={config.texts} editText={editText} />}
+          </div>
         </div>
       </header>
       {children}

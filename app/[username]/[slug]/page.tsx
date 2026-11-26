@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { moonCircleSky, moonSkyFor } from "@/lib/moon-circle-sky";
 import { readMoonChoice } from "@/lib/product-texts";
-import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { notFound, permanentRedirect } from "next/navigation";
 import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { ProductPageView } from "@/components/creator-page/product-page-view";
 import { TrackOnMount } from "@/components/creator-page/tracking";
@@ -14,33 +15,55 @@ import { readProductTestimonials } from "@/lib/product-testimonials";
 import { isPersonalMode } from "@/lib/site-mode";
 import { isGroupSession, seatsTaken } from "@/lib/booking";
 import { prisma } from "@/lib/db";
+import { SITE_PATH_HEADER } from "@/lib/personal-routing";
+import { productPath, productSection } from "@/lib/public-paths";
+import { renamedProductSlug } from "@/lib/renamed-slugs";
+import { getT } from "@/lib/i18n/server";
 
 type Params = { username: string; slug: string };
+
+/** La misma query (?utm_source=instagram…) para llevarla a otra dirección. */
+function queryOf(sp: Record<string, string | string[] | undefined>): string {
+  const q = new URLSearchParams(Object.entries(sp).flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => [k, x]) : v == null ? [] : [[k, v]]))).toString();
+  return q ? `?${q}` : "";
+}
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { username, slug } = await params;
   const data = await getPublicProduct(username, slug);
-  if (!data) return { title: "Producto no encontrado" };
+  if (!data) return { title: (await getT())("Producto no encontrado") };
   const title = `${data.product.title} · ${data.config.displayName}`;
   const description = data.product.summary ?? undefined;
   return {
     title,
     description,
     openGraph: { title, description, images: data.product.imageUrl ? [{ url: `${appUrl()}${data.product.imageUrl}` }] : undefined },
-    alternates: { canonical: `${appUrl()}/${username}/${slug}` },
+    alternates: { canonical: `${appUrl()}${productPath(username, data.product)}` },
   };
 }
 
-export default async function ProductPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ embed?: string }> }) {
+export default async function ProductPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { username, slug } = await params;
   const sp = await searchParams;
   const data = await getPublicProduct(username, slug);
-  if (!data) notFound();
+  if (!data) {
+    // Un nombre de antes (lib/renamed-slugs.ts: «curso-conocete-tu-energia»…): lleva al nuevo, con la misma query.
+    const renamed = renamedProductSlug(slug);
+    const moved = renamed ? await getPublicProduct(username, renamed) : null;
+    if (moved) permanentRedirect(`${productPath(username, moved.product)}${queryOf(sp)}`);
+    notFound();
+  }
   const user = await getCurrentUser();
   const isOwner = user?.id === data.creator.userId;
   if (!data.creator.published && !isOwner) notFound();
 
   const { product: p, config, creator } = data;
+  // Web personal: cada producto vive en su sección (/courses/<curso>, /sessions/<sesión>…). Si se llega por otra
+  // dirección (la de antes, /<dueña>/<producto>, o la sección de otro tipo), lleva a la suya con la misma query.
+  if (data.personal) {
+    const seen = (await headers()).get(SITE_PATH_HEADER);
+    if (seen?.split("/")[1] !== productSection(p.type)) permanentRedirect(`${productPath(username, p)}${queryOf(sp)}`);
+  }
   // Cómo se consigue (lib/access-mode.ts): pago aquí, gratis con email o pago en otra web.
   const accessMode = asAccessMode(p.accessMode);
   // En la web personal sin cobros nada se cobra aquí: un producto de pago en la web no se ofrece.
@@ -61,7 +84,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           includes: p.includes
             .map((i) => i.includedProduct)
             .filter((ip) => ip.status !== "ARCHIVED" && ip.creatorId === p.creatorId)
-            .map((ip) => ({ id: ip.id, title: ip.title, slug: ip.slug, status: ip.status, lessons: ip._count.lessons })),
+            .map((ip) => ({ id: ip.id, title: ip.title, slug: ip.slug, type: ip.type, status: ip.status, lessons: ip._count.lessons })),
         }}
         timeZone={creator.timezone}
         signupsOnly={data.signupsOnly}

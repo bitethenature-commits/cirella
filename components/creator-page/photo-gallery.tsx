@@ -3,6 +3,8 @@
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { imageSrcSet } from "@/lib/media-url";
+import { Tr } from "@/lib/i18n/client";
+import { useT } from "@/lib/i18n/client";
 
 export type GalleryPhoto = { src: string; alt: string; width?: number; height?: number };
 
@@ -13,6 +15,7 @@ export type GalleryPhoto = { src: string; alt: string; width?: number; height?: 
  * tocando fuera de la foto; el foco vuelve a la miniatura que la abrió.
  */
 export function PhotoGallery({ photos, label, className = "" }: { photos: GalleryPhoto[]; label: string; className?: string }) {
+  const tt = useT();
   const dialog = useRef<HTMLDialogElement>(null);
   const thumbs = useRef<(HTMLButtonElement | null)[]>([]);
   const [i, setI] = useState(0);
@@ -112,10 +115,10 @@ export function PhotoGallery({ photos, label, className = "" }: { photos: Galler
             />
             {n > 1 && (
               <>
-                <button type="button" onClick={() => go(-1)} aria-label="Foto anterior" className="absolute left-2 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/40 backdrop-blur-md transition hover:bg-black/60">
+                <button type="button" onClick={() => go(-1)} aria-label={tt("Foto anterior")} className="absolute left-2 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/40 backdrop-blur-md transition hover:bg-black/60">
                   <ChevronLeft className="h-5 w-5" />
                 </button>
-                <button type="button" onClick={() => go(1)} aria-label="Foto siguiente" className="absolute right-2 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/40 backdrop-blur-md transition hover:bg-black/60">
+                <button type="button" onClick={() => go(1)} aria-label={tt("Foto siguiente")} className="absolute right-2 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/40 backdrop-blur-md transition hover:bg-black/60">
                   <ChevronRight className="h-5 w-5" />
                 </button>
                 <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/45 px-2.5 py-0.5 text-xs tabular-nums backdrop-blur-md" aria-live="polite">
@@ -123,11 +126,11 @@ export function PhotoGallery({ photos, label, className = "" }: { photos: Galler
                 </span>
               </>
             )}
-            <button type="button" onClick={close} aria-label="Cerrar" className="absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-full bg-black/40 backdrop-blur-md transition hover:bg-black/60">
+            <button type="button" onClick={close} aria-label={tt("Cerrar")} className="absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-full bg-black/40 backdrop-blur-md transition hover:bg-black/60">
               <X className="h-4.5 w-4.5" />
             </button>
           </div>
-          {p.alt && <p className="text-center text-sm text-white/85">{p.alt}</p>}
+          {p.alt && <p className="text-center text-sm text-white/85"><Tr s={p.alt} /></p>}
           {n > 1 && (
             <div className="flex max-w-full gap-2 overflow-x-auto px-1 pb-1 scrollbar-none">
               {photos.map((ph, k) => (

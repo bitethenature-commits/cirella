@@ -76,7 +76,7 @@ async function main() {
   const sent = await prisma.emailMessage.findFirst({ where: { to: email("sigue"), template: "ABANDONED_CHECKOUT" } });
   const automation = await prisma.automation.findUnique({ where: { creatorId_trigger: { creatorId: ana.id, trigger: "ABANDONED_CHECKOUT" } } });
   if (automation && !automation.enabled) console.log("· (Cirella tiene la recuperación desactivada: no se comprueba el email que sí sale)");
-  else check("sin baja, el email sale y lleva el enlace de baja", !!sent && sent.html.includes("/baja/recordatorios?t="), sent?.html?.slice(-600));
+  else check("sin baja, el email sale y lleva el enlace de baja", !!sent && sent.html.includes("/unsubscribe/reminders?t="), sent?.html?.slice(-600));
 
   // El cron: el pedido de quien se dio de baja queda abandonado con motivo «opuesta» y sin aviso.
   await prisma.order.update({ where: { id: out.id }, data: { createdAt: new Date(Date.now() - 3 * 3600_000) } });

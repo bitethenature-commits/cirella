@@ -11,6 +11,7 @@ import { C, VS, listEs, norm, pt, sector, signIndex, type DiagramProps, type Lay
 import { LINES, MiniBodygraph, PERS, sideColorOf } from "./hd";
 import { DEFINITION_EXAMPLES, ExampleBodygraph } from "./hd-examples";
 import { NIGHT, NIGHT_GOLD, NIGHT_RED, NightChips, NightDefs, NightPanel, STAR, Stars, usePrefix } from "./night";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Human Design a fondo, en 9 capas: los circuitos, la definición, la cruz de encarnación, las 4 variables, las
@@ -391,7 +392,7 @@ export function Hd2Diagram({ layer, selected, mine, keys, tap, ctx }: DiagramPro
         <NightPanel>
           <MiniBodygraph hd={hd} channelColor={(k) => (inCi.has(k) ? (defined.has(k) ? NIGHT_GOLD : CIRCUIT_TEXT[ci].color) : null)} dimGate={(n) => !CHANNELS.some((ch) => ch.circuit === ci && (ch.a === n || ch.b === n))} />
           <NightChips items={keys.map((k) => ({ key: k, label: CIRCUIT_LABEL[k as Circuit].split(" — ")[0] }))} selected={selected} mine={own} tap={tap} />
-          <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}>En color, los canales del circuito · en oro, los que tienes definidos</p>
+          <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}><Tr s={"En color, los canales del circuito · en oro, los que tienes definidos"} /></p>
         </NightPanel>
       );
     }
@@ -460,9 +461,7 @@ export function Hd2Diagram({ layer, selected, mine, keys, tap, ctx }: DiagramPro
                   </button>
                 );
               })}
-              <p className="col-span-8 mt-1 text-center text-[0.65rem]" style={{ color: "rgb(251 246 236 / .6)" }}>
-                En dorado, tus puertas
-              </p>
+              <p className="col-span-8 mt-1 text-center text-[0.65rem]" style={{ color: "rgb(251 246 236 / .6)" }}><Tr s={"En dorado, tus puertas"} /></p>
             </div>
             <GateLines gate={g} selected={String(n)} own={mineHere} tap={(k, label) => tap(`${g}.${k}`, label)} />
           </div>
@@ -480,7 +479,7 @@ export function Hd2Diagram({ layer, selected, mine, keys, tap, ctx }: DiagramPro
         <NightPanel>
           <MiniBodygraph hd={hd} centreNames gates={false} focusCentres={new Set([selected as CentreId])} tapCentre={(id) => tap(id, CENTRE_BY_ID[id].name)} />
           <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}>
-            {hd ? `Tus centros abiertos: ${listEs(mine.map((c) => CENTRE_BY_ID[c as CentreId].name)) || "ninguno"}` : "Toca un centro"}
+            {hd ? `Tus centros abiertos: ${listEs(mine.map((c) => CENTRE_BY_ID[c as CentreId].name)) || "ninguno"}` : <Tr s={"Toca un centro"} />}
           </p>
         </NightPanel>
       );
@@ -501,7 +500,7 @@ export function Hd2Diagram({ layer, selected, mine, keys, tap, ctx }: DiagramPro
         <NightPanel>
           <MiniBodygraph hd={hd} centreNames gates={false} focusCentres={new Set([selected as CentreId])} tapCentre={(id) => tap(id, CENTRE_BY_ID[id].name)} />
           <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}>
-            {hd ? `Tus centros definidos: ${listEs(mine.map((c) => CENTRE_BY_ID[c as CentreId].name)) || "ninguno (Reflector)"}` : "Toca un centro"}
+            {hd ? `Tus centros definidos: ${listEs(mine.map((c) => CENTRE_BY_ID[c as CentreId].name)) || "ninguno (Reflector)"}` : <Tr s={"Toca un centro"} />}
           </p>
         </NightPanel>
       );
@@ -530,7 +529,7 @@ export function Hd2Diagram({ layer, selected, mine, keys, tap, ctx }: DiagramPro
               );
             })}
           </div>
-          <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}>En lavanda, el cielo de hoy y los canales que completa contigo</p>
+          <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}><Tr s={"En lavanda, el cielo de hoy y los canales que completa contigo"} /></p>
         </NightPanel>
       );
     }
@@ -545,16 +544,13 @@ export function Hd2Diagram({ layer, selected, mine, keys, tap, ctx }: DiagramPro
             <div className="mb-1 flex justify-center pt-1">
               <select className="input h-9 w-auto text-sm" value={ctx.otherIndex ?? 0} onChange={(e) => ctx.pickOther?.(Number(e.target.value))} aria-label="Con quién comparar">
                 {ctx.others.map((x, i) => (
-                  <option key={i} value={i}>
-                    Con {x.name}
+                  <option key={i} value={i}><Tr s={"Con"} />{" "}{x.name}
                   </option>
                 ))}
               </select>
             </div>
           ) : (
-            <p className="pt-1 text-center text-xs" style={{ color: "rgb(251 246 236 / .7)" }}>
-              Guarda en «Mi energía» los datos de otra persona para comparar.
-            </p>
+            <p className="pt-1 text-center text-xs" style={{ color: "rgb(251 246 236 / .7)" }}><Tr s={"Guarda en «Mi energía» los datos de otra persona para comparar."} /></p>
           )}
           <MiniBodygraph
             hd={hd}
@@ -567,9 +563,7 @@ export function Hd2Diagram({ layer, selected, mine, keys, tap, ctx }: DiagramPro
             centreOn={(id) => !!hd?.definedCentres.has(id) || !!o?.definedCentres.has(id)}
           />
           <NightChips items={keys.map((k) => ({ key: k, label: PARTNER[k as PartnerKey].name }))} selected={selected} mine={own} tap={tap} />
-          <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}>
-            Tus puertas en crema · las de {ctx.others?.[ctx.otherIndex ?? 0]?.name ?? "la otra persona"} en azul
-          </p>
+          <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}><Tr s={"Tus puertas en crema · las de"} />{" "}{ctx.others?.[ctx.otherIndex ?? 0]?.name ?? <Tr s={"la otra persona"} />}{" "}<Tr s={"en azul"} /></p>
         </NightPanel>
       );
     }
@@ -579,10 +573,11 @@ export function Hd2Diagram({ layer, selected, mine, keys, tap, ctx }: DiagramPro
 
 /** La cruz: las cuatro puertas en sus brazos (Soles arriba y abajo de cada lado) y el ángulo en el centro. */
 function CrossDiagram({ hd, selected, tap }: { hd: HumanDesign | null; selected: string; tap: Tap }) {
+  const t = useT();
   const p = usePrefix();
   const POS: Record<string, { x: number; y: number }> = { "p-sun": { x: 170, y: 58 }, "p-earth": { x: 170, y: 282 }, "d-sun": { x: 58, y: 170 }, "d-earth": { x: 282, y: 170 } };
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label="La cruz de encarnación">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label={t("La cruz de encarnación")}>
       <NightDefs p={p} />
       <Stars w={340} h={340} n={36} />
       <circle cx="170" cy="170" r="112" fill="none" stroke="rgb(233 204 142 / .3)" strokeDasharray="2 5" />
@@ -608,11 +603,9 @@ function CrossDiagram({ hd, selected, tap }: { hd: HumanDesign | null; selected:
         );
       })}
       <circle cx="170" cy="170" r="34" fill={NIGHT} stroke="rgb(233 204 142 / .6)" />
-      <text x="170" y="164" textAnchor="middle" fontSize="8" letterSpacing="1.2" fill={NIGHT_GOLD}>
-        CRUZ
-      </text>
+      <text x="170" y="164" textAnchor="middle" fontSize="8" letterSpacing="1.2" fill={NIGHT_GOLD}><Tr s={"CRUZ"} /></text>
       <text x="170" y="178" textAnchor="middle" fontSize="8.5" fill={STAR}>
-        {hd ? CROSS_ANGLE_ES[hd.cross.angle].replace("Cruz de ", "").replace("Ángulo ", "") : "4 puertas"}
+        {hd ? CROSS_ANGLE_ES[hd.cross.angle].replace("Cruz de ", "").replace("Ángulo ", "") : t("4 puertas")}
       </text>
     </svg>
   );
@@ -620,18 +613,17 @@ function CrossDiagram({ hd, selected, tap }: { hd: HumanDesign | null; selected:
 
 /** Las cuatro flechas junto a la cabeza: arriba las de diseño (izquierda) y personalidad (derecha)… */
 function ArrowsDiagram({ hd, selected, tap }: { hd: HumanDesign | null; selected: string; tap: Tap }) {
+  const t = useT();
   const p = usePrefix();
   const POS: Record<ArrowKey, { x: number; y: number }> = { digestion: { x: 95, y: 110 }, environment: { x: 95, y: 200 }, motivation: { x: 245, y: 110 }, perspective: { x: 245, y: 200 } };
   return (
-    <svg viewBox="0 0 340 300" className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label="Las 4 variables">
+    <svg viewBox="0 0 340 300" className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label={t("Las 4 variables")}>
       <NightDefs p={p} />
       <Stars w={340} h={300} n={30} />
       {/* La cabeza y el ajna, como en el bodygraph. */}
       <polygon points="170,60 214,130 126,130" fill="#1D1D20" stroke="rgb(255 255 255 / .35)" strokeWidth="1.4" />
       <polygon points="126,150 214,150 170,220" fill="#1D1D20" stroke="rgb(255 255 255 / .35)" strokeWidth="1.4" />
-      <text x="170" y="250" textAnchor="middle" fontSize="8.5" letterSpacing="1.4" fill="rgb(251 246 236 / .6)">
-        DISEÑO ← · → PERSONALIDAD
-      </text>
+      <text x="170" y="250" textAnchor="middle" fontSize="8.5" letterSpacing="1.4" fill="rgb(251 246 236 / .6)"><Tr s={"DISEÑO ← · → PERSONALIDAD"} /></text>
       {(Object.keys(POS) as ArrowKey[]).map((k) => {
         const { x, y } = POS[k];
         const on = selected === k;
@@ -644,7 +636,7 @@ function ArrowsDiagram({ hd, selected, tap }: { hd: HumanDesign | null; selected
             <rect x={x - 48} y={y - 30} width="96" height="60" rx="14" fill={on ? "rgb(233 204 142 / .14)" : "transparent"} stroke={on ? "#F0D9A4" : "transparent"} />
             <path d={d} fill="none" stroke={on ? NIGHT_GOLD : col} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
             <text x={x} y={y + 22} textAnchor="middle" fontSize="9.5" fontWeight={on ? 700 : 500} fill={on ? NIGHT_GOLD : STAR}>
-              {ARROWS[k].name}
+              <Tr s={ARROWS[k].name} />
             </text>
           </g>
         );
@@ -697,9 +689,10 @@ function GateLines({ gate, selected, own, tap }: { gate: number; selected: strin
 
 /** El mandala: el zodiaco y, dentro, las 64 puertas en su sitio (la 41 empieza en 2° de Acuario). */
 function Mandala({ hd, selected, tap }: { hd: HumanDesign | null; selected: number; tap: Tap }) {
+  const t = useT();
   const p = usePrefix();
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[28rem] select-none" role="group" aria-label="El mandala de las 64 puertas">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[28rem] select-none" role="group" aria-label={t("El mandala de las 64 puertas")}>
       <NightDefs p={p} />
       <Stars w={340} h={340} n={40} />
       {SIGNS.map((s, i) => {

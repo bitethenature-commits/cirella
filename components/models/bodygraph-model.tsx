@@ -8,6 +8,7 @@ import type { BirthProfile, ComputedProfile } from "@/lib/birth-profile";
 import { useComputedProfile } from "./use-birth-profile";
 import { DEFINITION_ES, HD_BODIES, HD_BODY_ES, HD_BODY_GLYPH } from "@/lib/human-design-names";
 import type { Activation, HumanDesign, Side } from "@/lib/human-design-calc";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * El bodygraph como instrumento (portado de la web antigua). Al tocar una puerta se enciende; si las dos
@@ -66,7 +67,7 @@ export function BodygraphModel({
   if (pending)
     return (
       <div className="grid min-h-[24rem] place-items-center" aria-busy="true">
-        <span className="cp-faint text-[0.85rem]">Calculando…</span>
+        <span className="cp-faint text-[0.85rem]"><Tr s={"Calculando…"} /></span>
       </div>
     );
   return <BodygraphView hd={result?.humanDesign ?? null} person={result?.profile} compact={compact} planets={planets} />;
@@ -74,11 +75,12 @@ export function BodygraphModel({
 
 /** Una columna de activaciones: el planeta (símbolo) y su puerta.línea, en el color de su lado. */
 function PlanetColumn({ hd, side, onPick }: { hd: HumanDesign; side: Side; onPick: (gate: number) => void }) {
+  const t = useT();
   const color = side === "design" ? DESIGN_RED : INK;
   const label = side === "design" ? "Diseño" : "Personalidad";
   return (
     <div className={`flex shrink-0 flex-col py-1 ${side === "design" ? "items-start" : "items-end"}`} style={{ color }} role="group" aria-label={`Activaciones de ${label.toLowerCase()}`}>
-      <span className="mb-1.5 text-[0.56rem] font-semibold uppercase tracking-[0.12em] opacity-80 sm:text-[0.64rem]">{side === "design" ? "Diseño" : "Person."}</span>
+      <span className="mb-1.5 text-[0.56rem] font-semibold uppercase tracking-[0.12em] opacity-80 sm:text-[0.64rem]">{side === "design" ? t("Diseño") : t("Person.")}</span>
       <div className="flex flex-1 flex-col justify-between gap-0.5">
         {HD_BODIES.map((b) => {
           const a = hd[side][b];
@@ -91,7 +93,7 @@ function PlanetColumn({ hd, side, onPick }: { hd: HumanDesign; side: Side; onPic
               className={`flex items-center gap-1 rounded px-0.5 text-[0.7rem] leading-tight tabular-nums transition-opacity hover:opacity-70 sm:gap-1.5 sm:text-[0.82rem] ${side === "design" ? "" : "flex-row-reverse"}`}
             >
               <span aria-hidden className="w-3 text-center text-[0.8rem] sm:w-4 sm:text-[0.95rem]">
-                {HD_BODY_GLYPH[b]}
+                <Tr s={HD_BODY_GLYPH[b]} />
               </span>
               <span className="font-semibold">{fmtAct(a)}</span>
             </button>
@@ -103,6 +105,7 @@ function PlanetColumn({ hd, side, onPick }: { hd: HumanDesign; side: Side; onPic
 }
 
 function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | null; person?: BirthProfile; compact?: boolean; planets?: boolean }) {
+  const t = useT();
   const [manual, setActive] = useState<Set<number>>(() => new Set(EXAMPLE_CHARTS[0].gates));
   const active = hd ? hd.gates : manual;
   const [selection, setSelection] = useState<Selection>(null);
@@ -132,7 +135,7 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
       className="cp-model-svg mx-auto block h-auto w-full max-w-[26rem]"
       style={{ color: INK }}
       role="group"
-      aria-label="Bodygraph interactivo con nueve centros, 64 puertas y 36 canales"
+      aria-label={t("Bodygraph interactivo con nueve centros, 64 puertas y 36 canales")}
     >
       <defs>
         <filter id="hd-glow" x="-60%" y="-60%" width="220%" height="220%">
@@ -208,7 +211,7 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
             key={p.key}
             d={p.d}
             style={{ pointerEvents: "stroke" }}
-            {...tap(`Canal ${p.channel.a}–${p.channel.b}, ${p.channel.name}${definedKeys.has(p.key) ? ", definido" : ""}`, () => setSelection({ kind: "channel", channel: p.channel }))}
+            {...tap(`Canal ${p.channel.a}–${p.channel.b}, ${p.channel.name}${definedKeys.has(p.key) ? ", definido" : ""}`, () => setSelection((cur) => (cur?.kind === "channel" && cur.channel === p.channel ? null : { kind: "channel", channel: p.channel })))}
           />
         ))}
       </g>
@@ -222,7 +225,7 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
           return (
             <g
               key={c.id}
-              {...tap(`Centro ${c.name}, ${defined ? "definido" : "abierto"}`, () => setSelection({ kind: "centre", centre: c }))}
+              {...tap(`Centro ${c.name}, ${defined ? "definido" : "abierto"}`, () => setSelection((cur) => (cur?.kind === "centre" && cur.centre === c ? null : { kind: "centre", centre: c })))}
               style={{
                 transform: isSelected ? "scale(1.04)" : undefined,
                 transformOrigin: `${shape.centroid.x}px ${shape.centroid.y}px`,
@@ -326,13 +329,13 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
           {hd ? <ComputedReading hd={hd} name={person?.name} timeKnown={person ? person.time !== null : true} /> : <Reading reading={reading} activeCount={active.size} />}
           <div className="mt-6">
             {hd ? (
-              <PanelIdle title="Toca una puerta, un canal o un centro.">
-                <p>Cada puerta dice qué planeta la activa: en la personalidad (consciente, en el color del texto) o en el diseño (inconsciente, en rojo); a rayas, en los dos.</p>
+              <PanelIdle title={t("Toca una puerta, un canal o un centro.")}>
+                <p><Tr s={"Cada puerta dice qué planeta la activa: en la personalidad (consciente, en el color del texto) o en el diseño (inconsciente, en rojo); a rayas, en los dos."} /></p>
               </PanelIdle>
             ) : (
-            <PanelIdle title="Toca una puerta, un canal o un centro.">
-              <p>Las 64 puertas se encienden y se apagan. Si las dos puertas de un canal están activas, el canal se define y los dos centros que une se rellenan.</p>
-              <p>El tipo, la autoridad y la estrategia se recalculan al instante.</p>
+            <PanelIdle title={t("Toca una puerta, un canal o un centro.")}>
+              <p><Tr s={"Las 64 puertas se encienden y se apagan. Si las dos puertas de un canal están activas, el canal se define y los dos centros que une se rellenan."} /></p>
+              <p><Tr s={"El tipo, la autoridad y la estrategia se recalculan al instante."} /></p>
             </PanelIdle>
             )}
           </div>
@@ -347,19 +350,19 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
       const on = active.has(g.n);
       return (
         <PanelBody id={`gate-${g.n}`}>
-          <PanelHeading kicker={`Puerta ${g.n} · ${centre.name}`} title={g.name} tone={centre.hue} />
-          <p className="mt-4 text-[0.95rem] leading-relaxed opacity-85">{g.theme}</p>
+          <PanelHeading kicker={`Puerta ${g.n} · ${centre.name}`} title={t(g.name)} tone={centre.hue} />
+          <p className="mt-4 text-[0.95rem] leading-relaxed opacity-85"><Tr s={g.theme} /></p>
           <dl className="mt-6">
-            <PanelRow label="Estado" value={on ? "activada" : "sin activar"} />
+            <PanelRow label={t("Estado")} value={on ? "activada" : "sin activar"} />
             {hd && on && (
               <PanelRow
-                label="Activada por"
+                label={t("Activada por")}
                 value={
                   <span className="flex flex-col items-end gap-0.5">
                     {(["personality", "design"] as const).flatMap((side) =>
                       HD_BODIES.filter((b) => hd[side][b].gate === g.n).map((b) => (
                         <span key={`${side}-${b}`} style={{ color: side === "design" ? DESIGN_RED : undefined }}>
-                          {HD_BODY_GLYPH[b]} {HD_BODY_ES[b]} {side === "design" ? "diseño" : "personalidad"} · {fmtAct(hd[side][b])}
+                          <Tr s={HD_BODY_GLYPH[b]} /> <Tr s={HD_BODY_ES[b]} /> {side === "design" ? t("diseño") : "personalidad"} · {fmtAct(hd[side][b])}
                         </span>
                       )),
                     )}
@@ -367,14 +370,14 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
                 }
               />
             )}
-            <PanelRow label="Centro" value={`${centre.name} · ${centre.alias}`} />
+            <PanelRow label={t("Centro")} value={`${centre.name} · ${centre.alias}`} />
             <PanelRow
-              label="Canales"
+              label={t("Canales")}
               value={
                 <span className="flex flex-col items-end gap-1">
                   {channels.map((ch) => (
                     <PanelLink key={channelKey(ch.a, ch.b)} onClick={() => setSelection({ kind: "channel", channel: ch })}>
-                      {ch.a}–{ch.b} {ch.name}
+                      {ch.a}–{ch.b} <Tr s={ch.name} />
                     </PanelLink>
                   ))}
                 </span>
@@ -384,7 +387,7 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
           {!hd && (
           <div className="mt-6 flex flex-wrap gap-2">
             <ToolButton active={on} onClick={() => toggleGate(g.n)}>
-              {on ? "Apagar la puerta" : "Activar la puerta"}
+              {on ? t("Apagar la puerta") : t("Activar la puerta")}
             </ToolButton>
             {channels.map((ch) => {
               const partner = ch.a === g.n ? ch.b : ch.a;
@@ -418,14 +421,14 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
       const defined = definedKeys.has(channelKey(ch.a, ch.b));
       return (
         <PanelBody id={`ch-${channelKey(ch.a, ch.b)}`}>
-          <PanelHeading kicker={`Canal ${ch.a}–${ch.b}`} title={ch.name} />
-          <p className="mt-4 text-[0.95rem] leading-relaxed opacity-85">{ch.gift}</p>
+          <PanelHeading kicker={`Canal ${ch.a}–${ch.b}`} title={t(ch.name)} />
+          <p className="mt-4 text-[0.95rem] leading-relaxed opacity-85"><Tr s={ch.gift} /></p>
           <dl className="mt-6">
-            <PanelRow label="Circuito" value={CIRCUIT_LABEL[ch.circuit]} />
-            <PanelRow label="Conecta" value={`${CENTRE_BY_ID[a.centre].name} ↔ ${CENTRE_BY_ID[b.centre].name}`} />
-            <PanelRow label={`Puerta ${ch.a}`} value={<PanelLink onClick={() => setSelection({ kind: "gate", gate: a })}>{a.name}</PanelLink>} />
-            <PanelRow label={`Puerta ${ch.b}`} value={<PanelLink onClick={() => setSelection({ kind: "gate", gate: b })}>{b.name}</PanelLink>} />
-            <PanelRow label="Estado" value={defined ? "definido" : "abierto"} />
+            <PanelRow label={t("Circuito")} value={CIRCUIT_LABEL[ch.circuit]} />
+            <PanelRow label={t("Conecta")} value={`${CENTRE_BY_ID[a.centre].name} ↔ ${CENTRE_BY_ID[b.centre].name}`} />
+            <PanelRow label={`Puerta ${ch.a}`} value={<PanelLink onClick={() => setSelection({ kind: "gate", gate: a })}><Tr s={a.name} /></PanelLink>} />
+            <PanelRow label={`Puerta ${ch.b}`} value={<PanelLink onClick={() => setSelection({ kind: "gate", gate: b })}><Tr s={b.name} /></PanelLink>} />
+            <PanelRow label={t("Estado")} value={defined ? "definido" : "abierto"} />
           </dl>
           {!hd && (
           <div className="mt-6">
@@ -444,7 +447,7 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
                 })
               }
             >
-              {defined ? "Abrir el canal" : "Definir el canal"}
+              {defined ? t("Abrir el canal") : t("Definir el canal")}
             </ToolButton>
           </div>
           )}
@@ -457,14 +460,14 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
     const gates = GATES.filter((g) => g.centre === c.id);
     return (
       <PanelBody id={`centre-${c.id}`}>
-        <PanelHeading kicker={`Centro · ${c.alias}`} title={c.name} tone={c.hue} />
-        <p className="mt-4 text-[0.95rem] leading-relaxed opacity-85">{c.role}</p>
+        <PanelHeading kicker={`Centro · ${c.alias}`} title={t(c.name)} tone={c.hue} />
+        <p className="mt-4 text-[0.95rem] leading-relaxed opacity-85"><Tr s={c.role} /></p>
         <p className="mt-4 border-l-2 pl-4 text-[0.9rem] leading-relaxed opacity-80" style={{ borderColor: c.hue }}>
-          {defined ? c.defined : c.open}
+          <Tr s={defined ? c.defined : c.open} />
         </p>
         <dl className="mt-6">
-          <PanelRow label="Estado" value={defined ? "definido" : "abierto"} />
-          <PanelRow label="Tipo" value={CENTRE_KIND[c.kind]} />
+          <PanelRow label={t("Estado")} value={defined ? "definido" : "abierto"} />
+          <PanelRow label={t("Tipo")} value={CENTRE_KIND[c.kind]} />
           <PanelRow
             label={`Puertas (${gates.length})`}
             value={
@@ -497,7 +500,7 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
           title={
             <>
               {hd && person?.name ? `${person.name}: ` : ""}
-              {r.type}
+              <Tr s={r.type} />
               {hd ? ` ${hd.profile.label}` : ""}
             </>
           }
@@ -513,23 +516,24 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
       summary = <CompactSummary key={`c${ch.a}-${ch.b}`} title={`Canal ${ch.a}–${ch.b} · ${ch.name}`} text={`${definedKeys.has(channelKey(ch.a, ch.b)) ? "Definido" : "Abierto"}. ${ch.gift}`} />;
     } else {
       const c = selection.centre;
-      summary = <CompactSummary key={`k${c.id}`} tone={c.hue} title={`${c.name} · ${reading.definedCentres.has(c.id) ? "definido" : "abierto"}`} text={c.role} />;
+      summary = <CompactSummary key={`k${c.id}`} tone={c.hue} title={`${c.name} · ${reading.definedCentres.has(c.id) ? "definido" : "abierto"}`} text={t(c.role)} />;
     }
     return (
       <ModelFrame
+      onClear={selection ? () => setSelection(null) : null}
         compact
         diagram={diagram}
         legend={
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5">
             {hd ? (
               <>
-                <LegendDot color={INK} label="Consciente" />
-                <LegendDot color={DESIGN_RED} label="Inconsciente" />
+                <LegendDot color={INK} label={t("Consciente")} />
+                <LegendDot color={DESIGN_RED} label={t("Inconsciente")} />
               </>
             ) : (
-              <LegendDot color={GOLD} label="Canal definido" />
+              <LegendDot color={GOLD} label={t("Canal definido")} />
             )}
-            <LegendDot color="#7FBB42" label="Centro definido" />
+            <LegendDot color="#7FBB42" label={t("Centro definido")} />
           </div>
         }
         panel={null}
@@ -540,6 +544,7 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
 
   return (
     <ModelFrame
+      onClear={selection ? () => setSelection(null) : null}
       toolbar={
         <div className="flex gap-2">
           {!hd && EXAMPLE_CHARTS.map((ex) => (
@@ -552,12 +557,10 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
                 setSelection(null);
               }}
             >
-              {ex.label}
+              <Tr s={ex.label} />
             </ToolButton>
           ))}
-          <ToolButton active={showAllNumbers} onClick={() => setShowAllNumbers((v) => !v)} title="Mostrar los 64 números o solo los de las puertas activas">
-            Números
-          </ToolButton>
+          <ToolButton active={showAllNumbers} onClick={() => setShowAllNumbers((v) => !v)} title={t("Mostrar los 64 números o solo los de las puertas activas")}><Tr s={"Números"} /></ToolButton>
           {!hd && (
             <ToolButton
               onClick={() => {
@@ -565,9 +568,7 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
                 setExample(null);
                 setSelection(null);
               }}
-            >
-              Vaciar
-            </ToolButton>
+            ><Tr s={"Vaciar"} /></ToolButton>
           )}
         </div>
       }
@@ -575,15 +576,15 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
       legend={
         hd ? (
           <div className="flex flex-wrap gap-x-5 gap-y-2">
-            <LegendDot color={INK} label="Personalidad (consciente)" />
-            <LegendDot color={DESIGN_RED} label="Diseño (inconsciente)" />
-            <LegendDot color="#7FBB42" label="Centro definido (con su color)" />
+            <LegendDot color={INK} label={t("Personalidad (consciente)")} />
+            <LegendDot color={DESIGN_RED} label={t("Diseño (inconsciente)")} />
+            <LegendDot color="#7FBB42" label={t("Centro definido (con su color)")} />
           </div>
         ) : (
           <div className="flex flex-wrap gap-x-5 gap-y-2">
-            <LegendDot color={GOLD} label="Puerta activa · canal definido" />
-            <LegendDot color={HALF_GOLD} label="Puerta colgante · media línea" />
-            <LegendDot color="#7FBB42" label="Centro definido (con su color)" />
+            <LegendDot color={GOLD} label={t("Puerta activa · canal definido")} />
+            <LegendDot color={HALF_GOLD} label={t("Puerta colgante · media línea")} />
+            <LegendDot color="#7FBB42" label={t("Centro definido (con su color)")} />
           </div>
         )
       }
@@ -593,16 +594,17 @@ function BodygraphView({ hd, person, compact, planets }: { hd: HumanDesign | nul
 }
 
 function Reading({ reading, activeCount }: { reading: ReturnType<typeof readChart>; activeCount: number }) {
+  const t = useT();
   return (
     <div className="rounded-[calc(var(--r-card)*0.7)] border p-5" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 35%, transparent)", background: "color-mix(in oklab, var(--c-gold) 7%, transparent)" }}>
-      <p className="cp-eyebrow cp-gold">Lectura de este bodygraph</p>
-      <p className="cp-display mt-3 text-[1.6rem] leading-tight">{reading.type}</p>
-      <p className="cp-muted mt-2 text-[0.86rem] leading-relaxed">{reading.typeNote}</p>
+      <p className="cp-eyebrow cp-gold"><Tr s={"Lectura de este bodygraph"} /></p>
+      <p className="cp-display mt-3 text-[1.6rem] leading-tight"><Tr s={reading.type} /></p>
+      <p className="cp-muted mt-2 text-[0.86rem] leading-relaxed"><Tr s={reading.typeNote} /></p>
       <dl className="mt-4">
-        <PanelRow label="Estrategia" value={reading.strategy} />
-        <PanelRow label="Autoridad" value={reading.authority} />
-        <PanelRow label="Cómo decide" value={<span className="cp-muted">{reading.authorityNote}</span>} />
-        <PanelRow label="Definición" value={`${reading.definedChannels.length} canales · ${reading.definedCentres.size} de 9 centros · ${activeCount} puertas`} />
+        <PanelRow label={t("Estrategia")} value={reading.strategy} />
+        <PanelRow label={t("Autoridad")} value={reading.authority} />
+        <PanelRow label={t("Cómo decide")} value={<span className="cp-muted"><Tr s={reading.authorityNote} /></span>} />
+        <PanelRow label={t("Definición")} value={`${reading.definedChannels.length} canales · ${reading.definedCentres.size} de 9 centros · ${activeCount} puertas`} />
       </dl>
     </div>
   );
@@ -610,46 +612,45 @@ function Reading({ reading, activeCount }: { reading: ReturnType<typeof readChar
 
 /** La lectura de una carta calculada: tipo, estrategia, autoridad, perfil, definición, cruz y las 26 activaciones. */
 function ComputedReading({ hd, name, timeKnown }: { hd: HumanDesign; name?: string; timeKnown: boolean }) {
+  const t = useT();
   const r = hd.reading;
   const date = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ");
   return (
     <div className="rounded-[calc(var(--r-card)*0.7)] border p-5" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 35%, transparent)", background: "color-mix(in oklab, var(--c-gold) 7%, transparent)" }}>
-      <p className="cp-eyebrow cp-gold">{name ? `Bodygraph de ${name}` : "Bodygraph calculado"}</p>
+      <p className="cp-eyebrow cp-gold">{name ? `Bodygraph de ${name}` : t("Bodygraph calculado")}</p>
       <p className="cp-display mt-3 text-[1.6rem] leading-tight">
-        {r.type} <span className="cp-muted text-[1.1rem]">{hd.profile.label}</span>
+        <Tr s={r.type} /> <span className="cp-muted text-[1.1rem]"><Tr s={hd.profile.label} /></span>
       </p>
-      <p className="cp-muted mt-2 text-[0.86rem] leading-relaxed">{r.typeNote}</p>
+      <p className="cp-muted mt-2 text-[0.86rem] leading-relaxed"><Tr s={r.typeNote} /></p>
       <dl className="mt-4">
-        <PanelRow label="Estrategia" value={r.strategy} />
-        <PanelRow label="Autoridad" value={r.authority} />
-        <PanelRow label="Cómo decide" value={<span className="cp-muted">{r.authorityNote}</span>} />
-        <PanelRow label="Perfil" value={hd.profile.label} />
-        <PanelRow label="Definición" value={`${DEFINITION_ES[hd.definition]} · ${hd.definedChannels.length} canales · ${hd.definedCentres.size} de 9 centros`} />
-        <PanelRow label="Cruz de encarnación" value={hd.cross.label} />
+        <PanelRow label={t("Estrategia")} value={r.strategy} />
+        <PanelRow label={t("Autoridad")} value={r.authority} />
+        <PanelRow label={t("Cómo decide")} value={<span className="cp-muted"><Tr s={r.authorityNote} /></span>} />
+        <PanelRow label={t("Perfil")} value={hd.profile.label} />
+        <PanelRow label={t("Definición")} value={`${DEFINITION_ES[hd.definition]} · ${hd.definedChannels.length} canales · ${hd.definedCentres.size} de 9 centros`} />
+        <PanelRow label={t("Cruz de encarnación")} value={hd.cross.label} />
       </dl>
       <table className="mt-4 w-full text-[0.82rem] tabular-nums">
         <thead>
           <tr className="cp-eyebrow !text-[0.58rem]">
-            <th className="py-1.5 text-left font-normal" style={{ color: DESIGN_RED }}>Diseño</th>
+            <th className="py-1.5 text-left font-normal" style={{ color: DESIGN_RED }}><Tr s={"Diseño"} /></th>
             <th className="py-1.5 text-center font-normal" />
-            <th className="py-1.5 text-right font-normal">Personalidad</th>
+            <th className="py-1.5 text-right font-normal"><Tr s={"Personalidad"} /></th>
           </tr>
         </thead>
         <tbody>
           {HD_BODIES.map((b) => (
             <tr key={b} className="cp-line border-t">
               <td className="py-1 text-left font-semibold" style={{ color: DESIGN_RED }}>{fmtAct(hd.design[b])}</td>
-              <td className="cp-muted py-1 text-center" title={HD_BODY_ES[b]}>
-                {`${HD_BODY_GLYPH[b]}\uFE0E`} <span className="text-[0.72rem]">{HD_BODY_ES[b]}</span>
+              <td className="cp-muted py-1 text-center" title={t(HD_BODY_ES[b])}>
+                {`${HD_BODY_GLYPH[b]}\uFE0E`} <span className="text-[0.72rem]"><Tr s={HD_BODY_ES[b]} /></span>
               </td>
               <td className="py-1 text-right font-semibold">{fmtAct(hd.personality[b])}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="cp-faint mt-3 text-[0.72rem] leading-relaxed">
-        Personalidad: {date(hd.personalityAt)} UTC · Diseño (Sol 88° antes): {date(hd.designAt)} UTC · Nodo verdadero.
-        {!timeKnown && " Sin hora de nacimiento: calculado a las 12:00; la Luna y las líneas pueden variar."}
+      <p className="cp-faint mt-3 text-[0.72rem] leading-relaxed"><Tr s={"Personalidad:"} />{" "}{date(hd.personalityAt)}{" "}<Tr s={"UTC · Diseño (Sol 88° antes):"} />{" "}{date(hd.designAt)}{" "}<Tr s={"UTC · Nodo verdadero."} />{!timeKnown && t(" Sin hora de nacimiento: calculado a las 12:00; la Luna y las líneas pueden variar.")}
       </p>
     </div>
   );

@@ -7,6 +7,7 @@ import { C, CREAM, GOLD, INK, LINE, MUTED, SAND, VS, degIn, listEs, pt, sector, 
 import { MODALITY_TEXT } from "./texts";
 import { AnglesWheel, ModalityWheel } from "./astro-wheels";
 import { NIGHT_GOLD, NightDefs, NightPanel, OptionChips, STAR, Stars, usePrefix } from "./night";
+import { useT, Tr } from "@/lib/i18n/client";
 
 /**
  * Más capas: de la carta astral, las 3 cualidades y los 4 ángulos; de las runas, las 24 runas en sus
@@ -163,22 +164,22 @@ export function Stone({ p, x, y, w, h, glyph, on, label }: { p: string; x: numbe
       <path d={d} fill="none" stroke={on ? "#D4B57A" : "#7A6142"} strokeOpacity={on ? 1 : 0.45} strokeWidth={on ? 1.6 : 0.6} pointerEvents="none" />
       {/* La runa grabada: la luz en el labio de abajo, la sombra arriba y la tinta (u oro) en el surco. */}
       <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="700" fill="#FFFFFF" opacity="0.75" pointerEvents="none" transform="translate(0.5 0.9)">
-        {glyph}
+        <Tr s={glyph} />
       </text>
       <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="700" fill="#4A321A" opacity="0.45" pointerEvents="none" transform="translate(-0.4 -0.6)">
-        {glyph}
+        <Tr s={glyph} />
       </text>
       {on && (
         <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="700" fill="#F0C978" opacity="0.7" filter={`url(#${p}soft2)`} pointerEvents="none">
-          {glyph}
+          <Tr s={glyph} />
         </text>
       )}
       <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="700" fill={on ? `url(#${p}runeGold)` : "#3A2615"} stroke={on ? "#6B4A1E" : "none"} strokeWidth={on ? 0.5 : 0} pointerEvents="none">
-        {glyph}
+        <Tr s={glyph} />
       </text>
       {label && (
         <text x={x} y={y + h / 2 + 11} textAnchor="middle" fontSize="9" fontWeight={on ? 700 : 500} fill={on ? NIGHT_GOLD : STAR} fillOpacity={on ? 1 : 0.75} pointerEvents="none">
-          {label}
+          <Tr s={label} />
         </text>
       )}
     </>
@@ -186,6 +187,7 @@ export function Stone({ p, x, y, w, h, glyph, on, label }: { p: string; x: numbe
 }
 
 export function ExtraDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProps & { layer: ExtraLayer }) {
+  const t = useT();
   const p = usePrefix();
   const own = new Set(mine);
   switch (layer) {
@@ -206,7 +208,7 @@ export function ExtraDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramP
       const H = 22 + rows * rowH;
       return (
         <NightPanel>
-          <svg viewBox={`0 0 340 ${H}`} className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label="Las runas">
+          <svg viewBox={`0 0 340 ${H}`} className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label={t("Las runas")}>
             <StoneDefs p={p} />
             <Stars w={340} h={H} n={36} />
             {(all ? [0, 1, 2] : [0]).map((row) => (
@@ -223,7 +225,7 @@ export function ExtraDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramP
               const y = top(row) + 8 + stoneH / 2;
               return (
                 <g key={r.id} {...tap(r.id, r.name)}>
-                  <Stone p={p} x={x} y={y} w={w - (all ? 8 : 16)} h={stoneH} glyph={r.glyph + TEXT_VS} on={selected === r.id} label={r.name} />
+                  <Stone p={p} x={x} y={y} w={w - (all ? 8 : 16)} h={stoneH} glyph={r.glyph + TEXT_VS} on={selected === r.id} label={t(r.name)} />
                 </g>
               );
             })}
@@ -243,7 +245,7 @@ export function ExtraDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramP
       return (
         <NightPanel>
           <OptionChips options={(["one", "three", "five"] as const).map((v) => ({ value: v, label: RUNE_SPREADS[v].label }))} value={spread} onPick={ctx.setOption} />
-          <svg viewBox="0 0 340 250" className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label={s.label}>
+          <svg viewBox="0 0 340 250" className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label={t(s.label)}>
             <StoneDefs p={p} />
             <Stars w={340} h={250} n={30} />
             {/* El paño de la tirada: un círculo dorado donde caen las piedras. */}
@@ -257,7 +259,7 @@ export function ExtraDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramP
                 <g key={k} {...tap(k, pos.name)}>
                   <Stone p={p} x={x} y={y} w={spread === "five" ? 62 : 78} h={spread === "five" ? 52 : 70} glyph={String(i + 1)} on={on} />
                   <text x={x} y={y + (spread === "five" ? 37 : 50)} textAnchor="middle" fontSize="10" fill={on ? NIGHT_GOLD : STAR} fillOpacity={on ? 1 : 0.8} fontWeight={on ? 700 : 500} stroke="#151517" strokeWidth="4" paintOrder="stroke">
-                    {pos.name}
+                    <Tr s={pos.name} />
                   </text>
                 </g>
               );

@@ -54,7 +54,7 @@ export function hasQuickVersion(m: ModelKind): m is (typeof QUICK_MODELS)[number
 }
 
 /** Modelos del bloque «Modelo interactivo» (components/models). */
-export const MODEL_KINDS = ["chart", "bodygraph", "geneKeys", "lunar", "runes", "oracle", "geometry", "kundalini"] as const;
+export const MODEL_KINDS = ["chart", "bodygraph", "geneKeys", "lunar", "runes", "oracle", "sacred", "geometry", "kundalini", "dimensions"] as const;
 export type ModelKind = (typeof MODEL_KINDS)[number];
 export const MODEL_LABEL: Record<ModelKind, string> = {
   chart: "Carta natal",
@@ -63,8 +63,10 @@ export const MODEL_LABEL: Record<ModelKind, string> = {
   lunar: "Ciclo lunar y calendario",
   runes: "Tirada de runas",
   oracle: "Oráculo",
-  geometry: "Filosofía · geometría sagrada",
+  sacred: "Filosofía · geometría sagrada",
+  geometry: "Frase con geometría sagrada",
   kundalini: "Kundalini: cuerpo sutil y 10 cuerpos",
+  dimensions: "Las dimensiones del ser (3D a 12D)",
 };
 /** Id de una baraja de oráculo propia (cuid) en el bloque «Oráculo». */
 export const ORACLE_DECK_ID_RE = /^[a-z0-9]{8,40}$/;
@@ -428,11 +430,11 @@ export function contentBlockSchema(o: { bodyMax: number }) {
           break;
       }
     }),
-  ) as unknown as z.ZodType<ContentBlock, z.ZodTypeDef, unknown>;
+  ) as unknown as z.ZodType<ContentBlock, unknown>;
 }
 
 /** Lectura tolerante: los bloques que no valen se descartan uno a uno (y como mucho `max`). */
-export function readBlocks(raw: unknown, schema: z.ZodType<ContentBlock, z.ZodTypeDef, unknown>, max: number): ContentBlock[] {
+export function readBlocks(raw: unknown, schema: z.ZodType<ContentBlock, unknown>, max: number): ContentBlock[] {
   if (!Array.isArray(raw)) return [];
   const out: ContentBlock[] = [];
   const seen = new Set<string>();

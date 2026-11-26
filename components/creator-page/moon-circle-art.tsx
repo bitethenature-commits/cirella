@@ -1,4 +1,5 @@
 import { MOON_KIND_LABEL, type MoonCircleSky } from "@/lib/moon-circle-sky";
+import { Tr } from "@/lib/i18n/client";
 
 /** Estrellas fijas (siempre las mismas: nada cambia entre el servidor y el navegador). */
 const STARS: [number, number, number][] = [
@@ -27,7 +28,7 @@ export function MoonCircleArt({ sky, compact = false }: { sky: MoonCircleSky; co
           <circle key={i} cx={x} cy={y} r={r * 0.35} fill="currentColor" opacity={0.35 + (i % 4) * 0.15} />
         ))}
       </svg>
-      <p className="cp-moonart-eyebrow">{MOON_KIND_LABEL[sky.phase]}</p>
+      <p className="cp-moonart-eyebrow"><Tr s={MOON_KIND_LABEL[sky.phase]} /></p>
       {eclipse ? (
         <EclipseMoon body={eclipse} title={sky.title} />
       ) : (
@@ -67,16 +68,16 @@ export function MoonCircleArt({ sky, compact = false }: { sky: MoonCircleSky; co
       </svg>
       )}
       <p className="cp-moonart-glyph" aria-hidden>
-        {sky.glyph}
+        <Tr s={sky.glyph} />
         {"︎"}
       </p>
-      <p className="cp-moonart-sign">{sky.sign}</p>
+      <p className="cp-moonart-sign"><Tr s={sky.sign} /></p>
       <div className="cp-moonart-rule" aria-hidden>
         <span />
         <i>✦</i>
         <span />
       </div>
-      <p className="cp-moonart-phrase">{sky.phrase}</p>
+      <p className="cp-moonart-phrase"><Tr s={sky.phrase} /></p>
     </div>
   );
 }

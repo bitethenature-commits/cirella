@@ -6,9 +6,12 @@ import { readIntakeConfig } from "@/lib/intake";
 import { tenantDb } from "@/lib/tenant";
 import { PageHeader } from "../../../ui";
 import { GiveForm } from "./give-form";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 /** «Dar una sesión o lectura»: un regalo o algo que le pagaron fuera (Bizum, transferencia). */
 export default async function GivePage({ searchParams }: { searchParams: Promise<{ producto?: string; email?: string }> }) {
+  const t = await getT();
   const { creator } = await requireCreator();
   const sp = await searchParams;
   const db = tenantDb(creator.id);
@@ -23,10 +26,9 @@ export default async function GivePage({ searchParams }: { searchParams: Promise
   return (
     <div className="max-w-2xl pb-28">
       <Link href="/panel/clientes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> {peopleLabel()}</Link>
-      <PageHeader title="Dar una sesión o lectura" subtitle="Para regalarla o apuntar una que te han pagado por otro lado. Le llega el email con su enlace, como si la hubiera comprado." />
+      <PageHeader title={t("Dar una sesión o lectura")} subtitle={t("Para regalarla o apuntar una que te han pagado por otro lado. Le llega el email con su enlace, como si la hubiera comprado.")} />
       {products.length === 0 ? (
-        <p className="card p-5 text-sm text-muted">
-          Primero crea una sesión o una lectura «Lo preparo yo» en <Link href="/panel/sesiones" className="underline">Sesiones y lecturas</Link>.
+        <p className="card p-5 text-sm text-muted"><Tr s={"Primero crea una sesión o una lectura «Lo preparo yo» en"} />{" "}<Link href="/panel/sesiones" className="underline"><Tr s={"Sesiones y lecturas"} /></Link>.
         </p>
       ) : (
         <GiveForm

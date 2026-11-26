@@ -11,6 +11,7 @@ import { storedHeaders } from "./headers";
 import { newsSender } from "../sending-domain";
 import { emailProvider } from "./provider";
 import { AREA_LINK_TOKEN, areaLinkFooter, esc, SITE_NAME_TOKEN } from "./templates";
+import { recipientLocale } from "@/lib/i18n/email";
 
 /**
  * Bandeja de salida de emails.
@@ -19,7 +20,7 @@ import { AREA_LINK_TOKEN, areaLinkFooter, esc, SITE_NAME_TOKEN } from "./templat
  *   · los emails programados (recordatorios, carritos abandonados) son filas
  *     con `sendAt` futuro que procesa /api/cron;
  *   · el envío pasa por un proveedor intercambiable (lib/email/provider.ts: Resend en
- *     producción, registro local en desarrollo y demo, que se lee en /dev/correo);
+ *     producción, registro local en desarrollo y demo, que se lee en /dev/email);
  *   · ningún email se pierde en silencio: si el proveedor falla, se reintenta a 1 min, 5 min,
  *     30 min, 2 h y 12 h (`sendAt` es la hora del siguiente intento). Tras 6 intentos, o si la
  *     dirección se rechaza, queda FAILED («No entregado»), se avisa y aparece en /admin/envios.
@@ -95,7 +96,7 @@ export async function enqueueEmail(input: EnqueueInput) {
   const sender = await senderFor(input, to, site);
   const subject = site ? input.subject.replaceAll(SITE_NAME_TOKEN, site) : input.subject;
   const named = site ? input.html.replaceAll(SITE_NAME_TOKEN, esc(site)) : input.html;
-  const html = named.includes(AREA_LINK_TOKEN) ? named.replaceAll(AREA_LINK_TOKEN, (await isTeamAddress(to)) ? "" : areaLinkFooter(appUrl())) : named;
+  const html = named.includes(AREA_LINK_TOKEN) ? named.replaceAll(AREA_LINK_TOKEN, (await isTeamAddress(to)) ? "" : areaLinkFooter(appUrl(), await recipientLocale(to))) : named;
   let msg;
   try {
     msg = await prisma.emailMessage.create({
@@ -210,7 +211,7 @@ export async function deliverEmail(id: string, now = new Date()): Promise<"sent"
         error: null,
         lockedUntil: null,
         // Enviado de verdad: la copia guardada ya no necesita los tokens de los enlaces (en la BD
-        // solo debe quedar su hash). Con el proveedor "log" se conservan: /dev/correo los abre.
+        // solo debe quedar su hash). Con el proveedor "log" se conservan: /dev/email los abre.
         ...(emailProvider().key !== "log" ? { html: redactLoginTokens(msg.html) } : {}),
       },
     });

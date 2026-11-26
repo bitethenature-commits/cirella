@@ -2,6 +2,7 @@ import {
   Gift,
   GraduationCap,
   Home,
+  Languages,
   Layers,
   Mail,
   Moon,
@@ -9,6 +10,7 @@ import {
   Newspaper,
   Orbit,
   Palette,
+  Percent,
   Receipt,
   Settings,
   Sparkles,
@@ -27,7 +29,6 @@ import { orderNav, type PanelNavPrefs } from "@/lib/panel-prefs";
  * Ajustes, en el desplegable.
  */
 export type NavGroup = "web" | "offer" | "people" | "data";
-export const NAV_GROUPS: Record<NavGroup, string> = { web: "Mi web", offer: "Lo que ofreces", people: "Personas", data: "Datos y modelos" };
 
 export type PanelNavItem = { href: string; label: string; icon: LucideIcon; group?: NavGroup };
 
@@ -38,6 +39,7 @@ export const PANEL_NAV: PanelNavItem[] = [
   { href: "/panel/pagina", label: "Mi página", icon: Palette, group: "web" },
   { href: "/panel/circulos", label: "Círculos de la Luna", icon: Moon, group: "offer" },
   { href: "/panel/sesiones", label: "Sesiones y lecturas", icon: Video, group: "offer" },
+  { href: "/panel/ofertas", label: "Ofertas", icon: Percent, group: "offer" },
   { href: "/panel/clientes", label: "Clientes", icon: Users, group: "people" },
   { href: "/panel/ventas", label: "Ventas", icon: Receipt, group: "people" },
   { href: "/panel/automatizaciones", label: "Automatizaciones", icon: Zap, group: "people" },
@@ -73,6 +75,8 @@ const PERSONAL_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Inicio", icon: Home },
   { href: "/panel/pagina", label: "Mi página", icon: Palette, group: "web" },
   { href: "/panel/actualidades", label: "Actualidades", icon: Newspaper, group: "web" },
+  { href: "/panel/ofertas", label: "Ofertas", icon: Percent, group: "web" },
+  { href: "/panel/traducciones", label: "Traducciones", icon: Languages, group: "web" },
   { href: "/panel/comunidad", label: "Membresía", icon: MessagesSquare, group: "offer" },
   { href: "/panel/circulos", label: "Círculos de la Luna", icon: Moon, group: "offer" },
   { href: "/panel/cursos", label: "Cursos", icon: GraduationCap, group: "offer" },

@@ -24,9 +24,9 @@ test("hasHintCookie: solo con cirella_hola=1", () => {
   ok(!hasHintCookie("cirella_hola=0; x_cirella_hola=1"));
 });
 
-test("accountEntryLink: con sesión «Mi área» a /cuenta; sin ella «Entrar» al login con marca", () => {
-  eq(accountEntryLink("ana", true), { href: "/cuenta", label: "Mi área" });
-  eq(accountEntryLink("ana", false), { href: "/ana/entrar?next=%2Fcuenta", label: "Entrar" });
+test("accountEntryLink: con sesión «Mi área» a /area; sin ella «Entrar» al login con marca", () => {
+  eq(accountEntryLink("ana", true), { href: "/area", label: "Mi área" });
+  eq(accountEntryLink("ana", false), { href: "/ana/login?next=%2Farea", label: "Entrar" });
 });
 
 // ── Datos de los enlaces ──
@@ -61,7 +61,7 @@ test("emails del cambio de email: botón «Confirmar el cambio» y el email enma
     ok(m.html.includes("&lt;i&gt;n•••@x.co"), m.subject);
     ok(!/auth\/magic/.test(m.html), "sin enlaces que cambien nada");
   }
-  ok(emailTakenEmail({ loginUrl: "https://x.test/ana/entrar" }).html.includes("ya hay una cuenta"));
+  ok(emailTakenEmail({ loginUrl: "https://x.test/ana/login" }).html.includes("ya hay una cuenta"));
 });
 
 test("redactLoginTokens tapa los enlaces de alta y de cambio de email", () => {
@@ -73,7 +73,7 @@ test("redactLoginTokens tapa los enlaces de alta y de cambio de email", () => {
 test("pie «Tu área»: el marcador solo sale en la web personal; el enlace va escapado", () => {
   ok(!layout({ title: "x", body: "y" }).includes(AREA_LINK_TOKEN), "en la plataforma no hay marcador");
   const f = areaLinkFooter("https://ana.test");
-  ok(f.includes('href="https://ana.test/cuenta"') && f.includes(">ana.test/cuenta</a>") && f.includes("Tu área"));
+  ok(f.includes('href="https://ana.test/area"') && f.includes(">ana.test/area</a>") && f.includes("Tu área"));
 });
 
 test("la foto de perfil (/media/{usuaria}/{hex}.webp) es una ruta de /media válida", () => {

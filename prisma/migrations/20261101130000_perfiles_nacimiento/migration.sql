@@ -1,4 +1,4 @@
--- Perfiles de nacimiento guardados en «Mi energía» (/cuenta/mi-energia; lib/birth-profiles.ts).
+-- Perfiles de nacimiento guardados en «Mi energía» (/area/energy; lib/birth-profiles.ts).
 -- CreateTable
 CREATE TABLE "BirthProfile" (
     "id" TEXT NOT NULL,

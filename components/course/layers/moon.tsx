@@ -8,6 +8,7 @@ import { MOON_NATAL_HOUSE, MOON_NATAL_SIGN, NORTH_NODE_SIGN, SOUTH_NODE_SIGN } f
 import { NIGHT, NIGHT_GOLD, NightDefs, NightPanel, STAR, Stars, usePrefix } from "./night";
 import { DegreeTicks } from "./wheel-kit";
 import { CelestialDefs, MoonGlobe, SunGlobe } from "./celestial";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Las capas de la Luna: las 8 fases, la Luna en los 12 signos (natal, la del día, la nueva y la llena en
@@ -164,6 +165,7 @@ function GlassSector({ i, r1, r2, on, mine, hue, children, ...rest }: { i: numbe
 }
 
 export function MoonDiagram({ layer, selected, mine, tap, ctx }: DiagramProps & { layer: MoonLayer }) {
+  const t = useT();
   const p = usePrefix();
   /** Tu Luna natal, con la fase en la que naciste (sin carta, una creciente cualquiera). */
   const natalPh = ctx.c ? ctx.c.natalMoon.elong / 360 : 0.3;
@@ -173,15 +175,13 @@ export function MoonDiagram({ layer, selected, mine, tap, ctx }: DiagramProps & 
       const today = phaseIndexToday();
       return (
         <NightPanel>
-          <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="Las 8 fases de la Luna">
+          <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={t("Las 8 fases de la Luna")}>
             <MoonDefs p={p} />
             <Stars w={340} h={340} n={46} />
             <circle cx={C} cy={C} r="122" fill="none" stroke="rgb(233 204 142 / .35)" strokeWidth="0.8" strokeDasharray="1 5" />
             {/* El Sol en el centro: la luz que reciben todas. */}
             <SunGlobe p={p} cx={C} cy={C} r={19} rays={false} />
-            <text x={C} y={C + 36} textAnchor="middle" fontSize="7" letterSpacing="1.6" fill={NIGHT_GOLD}>
-              SOL
-            </text>
+            <text x={C} y={C + 36} textAnchor="middle" fontSize="7" letterSpacing="1.6" fill={NIGHT_GOLD}><Tr s={"SOL"} /></text>
             {EIGHT_PHASES.map((name, i) => {
               const k = String(i);
               const a = (-90 + i * 45) * (Math.PI / 180);
@@ -211,10 +211,9 @@ export function MoonDiagram({ layer, selected, mine, tap, ctx }: DiagramProps & 
           </svg>
           <div className="flex flex-wrap justify-center gap-x-3 pb-1 text-[0.66rem]" style={{ color: "rgb(251 246 236 / .72)" }}>
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: NIGHT_GOLD }} /> La Luna de hoy
-            </span>
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: NIGHT_GOLD }} />{" "}<Tr s={"La Luna de hoy"} /></span>
             <span className="inline-flex items-center gap-1" style={{ color: NIGHT_GOLD }}>
-              ★ <span style={{ color: "rgb(251 246 236 / .72)" }}>Tu Luna al nacer</span>
+              ★ <span style={{ color: "rgb(251 246 236 / .72)" }}><Tr s={"Tu Luna al nacer"} /></span>
             </span>
           </div>
         </NightPanel>
@@ -228,7 +227,7 @@ export function MoonDiagram({ layer, selected, mine, tap, ctx }: DiagramProps & 
       const ph = mode === "new" ? 0 : mode === "full" ? 0.5 : 0.2;
       return (
         <NightPanel>
-          <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={layer === "moon-nodes" ? "Los nodos lunares" : "La Luna en los 12 signos"}>
+          <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={layer === "moon-nodes" ? t("Los nodos lunares") : t("La Luna en los 12 signos")}>
             <MoonDefs p={p} />
             <Stars w={340} h={340} n={40} />
             <circle cx={C} cy={C} r="157" fill="rgb(212 181 122 / .04)" stroke="#D4B57A" strokeOpacity="0.6" strokeWidth="0.8" />
@@ -294,7 +293,7 @@ export function MoonDiagram({ layer, selected, mine, tap, ctx }: DiagramProps & 
     case "moon-houses":
       return (
         <NightPanel>
-          <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="La Luna en las 12 casas">
+          <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={t("La Luna en las 12 casas")}>
             <MoonDefs p={p} />
             <Stars w={340} h={340} n={40} />
             <circle cx={C} cy={C} r="157" fill="rgb(212 181 122 / .04)" stroke="#D4B57A" strokeOpacity="0.6" strokeWidth="0.8" />
@@ -307,7 +306,7 @@ export function MoonDiagram({ layer, selected, mine, tap, ctx }: DiagramProps & 
               return (
                 <GlassSector key={h.n} i={i} r1={74} r2={157} on={on} mine={m} {...tap(k, h.name)}>
                   <text x={mid.x} y={mid.y} textAnchor="middle" dominantBaseline="central" fontSize="16" fontFamily="Georgia, serif" fill={on ? NIGHT_GOLD : STAR} pointerEvents="none">
-                    {ROMAN[i]}
+                    <Tr s={ROMAN[i]} />
                   </text>
                   <text x={kw.x} y={kw.y} textAnchor="middle" dominantBaseline="central" fontSize="5.4" letterSpacing="0.8" fill={on ? NIGHT_GOLD : STAR} fillOpacity={on ? 0.9 : 0.55} pointerEvents="none">
                     {h.keyword.toUpperCase()}

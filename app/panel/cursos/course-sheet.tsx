@@ -2,18 +2,18 @@
 
 import { Loader2 } from "lucide-react";
 import { useLinkStatus } from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback, type ReactNode } from "react";
 import { CanvaSheet } from "../canva/canva-ui";
 
 /**
- * «Ajustes» y «Dar acceso» de un curso: el mismo panel de la derecha que en el Canva, sin salir de Cursos. Lo abre la
- * dirección (?ajustes=<id> o ?acceso=<id>); al cerrarlo, se quita y la lista sigue como estaba (con su filtro).
+ * «Ajustes» y «Dar acceso» de un curso: el mismo panel de la derecha que en el Canva, sin salir de Cursos. Lo abre su
+ * dirección (/panel/cursos/ajustes/<id> o /panel/cursos/acceso/<id>, app/panel/cursos/@hoja); al cerrarlo se vuelve a
+ * /panel/cursos y la lista sigue como estaba (con su filtro).
  */
 export function CourseSheet({ title, wide = false, children }: { title: string; wide?: boolean; children: ReactNode }) {
   const router = useRouter();
-  const path = usePathname();
-  const close = useCallback(() => router.replace(path, { scroll: false }), [router, path]);
+  const close = useCallback(() => router.replace("/panel/cursos", { scroll: false }), [router]);
   return (
     <CanvaSheet title={title} wide={wide} tall footer={false} onClose={close}>
       {children}

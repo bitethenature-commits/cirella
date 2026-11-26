@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Tr } from "@/lib/i18n/client";
 
 type Tip = { top: number; left: number; sub: string; title: string };
 
@@ -52,7 +53,7 @@ export function useHoverTip() {
             style={{ top: tip.top, left: Math.min(tip.left, window.innerWidth - 270) }}
           >
             <span aria-hidden className="absolute -left-[5px] top-1/2 h-2.5 w-2.5 -translate-y-1/2 rotate-45 border-b border-l border-[#e9cc8e]/30 bg-[#0b0b0d]" />
-            {tip.sub && <p className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-[#e9cc8e]">{tip.sub}</p>}
+            {tip.sub && <p className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-[#e9cc8e]"><Tr s={tip.sub} /></p>}
             <p className="mt-0.5 font-serif text-[1.05rem] leading-snug">{tip.title}</p>
           </div>,
           document.body,

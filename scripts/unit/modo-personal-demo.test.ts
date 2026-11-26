@@ -6,7 +6,7 @@
 import { accessModeOptions, linksToProduct, resolveAccessMode } from "../../lib/access-mode";
 import { validateEnv, withHostingDefaults } from "../../lib/env";
 import { buildEnvDrift, buildEnvSnapshot } from "../../lib/security-headers";
-import { formatCourseLength, lessonsLabel } from "../../lib/types";
+import { lessonsLabel } from "../../lib/types";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { eq, ok, test } from "./harness";
@@ -49,10 +49,8 @@ test("otros enlaces se enseñan", () =>
   ));
 test("sin productos ocultos, ningún enlace se quita", () => eq(linksToProduct("/ana/curso-conocete-tu-energia", "ana", new Set()), false));
 
-// ── Duración del curso ──
-test("duración: minutos por debajo de una hora", () => eq([formatCourseLength(30), formatCourseLength(45), formatCourseLength(0.4)], ["30 min", "45 min", "1 min"]));
+// ── Lecciones del curso ──
 test("lecciones: singular y plural", () => eq([lessonsLabel(1), lessonsLabel(3)], ["1 lección", "3 lecciones"]));
-test("duración: horas con coma decimal", () => eq([formatCourseLength(60), formatCourseLength(90), formatCourseLength(135)], ["1 h", "1,5 h", "2,3 h"]));
 
 // ── Variables que fija el build ──
 const BUILD = { APP_URL: "https://tudominio.com", STORAGE_DRIVER: "s3", S3_ENDPOINT: "https://abc.eu.r2.cloudflarestorage.com", SITE_MODE: "personal", PAYMENT_PROVIDER: "none" } as unknown as NodeJS.ProcessEnv;

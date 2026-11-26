@@ -7,6 +7,7 @@ import { capturePoster } from "@/components/ui/video-poster";
 import { videoWeight } from "@/lib/file-types";
 import { embedProblem, PAGE_VIDEO_MAX, videoOrientation, type VideoBlock } from "@/lib/page-blocks";
 import { videoEmbed } from "@/lib/video-embed";
+import { Tr } from "@/lib/i18n/client";
 
 const VIDEO_ACCEPT = "video/mp4,video/quicktime,.mp4,.mov,.m4v";
 
@@ -86,7 +87,7 @@ export function VideoBlockFields({
         <div className="inline-flex rounded-full bg-sand p-1 text-xs font-semibold" role="radiogroup" aria-label="Cómo añadir el vídeo">
           {(["upload", "link"] as const).map((m) => (
             <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={`h-9 rounded-full px-3 ${mode === m ? "bg-white text-ink shadow-soft" : "text-muted"}`}>
-              {m === "upload" ? "Subir vídeo" : "Enlace de YouTube o Vimeo"}
+              {m === "upload" ? <Tr s={"Subir vídeo"} /> : <Tr s={"Enlace de YouTube o Vimeo"} />}
             </button>
           ))}
         </div>
@@ -96,48 +97,42 @@ export function VideoBlockFields({
         progress ? (
           <div className="space-y-2 rounded-xl border border-line bg-paper p-3 text-sm" aria-live="polite">
             <p className="flex items-center gap-2 font-medium">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Subiendo «{progress.name}» · {progress.pct} % · {mb(progress.loaded)} de {mb(progress.total)}
+              <Loader2 className="h-4 w-4 animate-spin" /><Tr s={"Subiendo «"} />{progress.name}» · {progress.pct} % · {mb(progress.loaded)}{" "}<Tr s={"de"} />{" "}{mb(progress.total)}
             </p>
             <div className="h-1.5 overflow-hidden rounded-full bg-sand">
               <div className="h-full bg-ink transition-[width]" style={{ width: `${progress.pct}%` }} />
             </div>
-            <p className="text-xs text-muted">No cierres esta pantalla mientras se sube.</p>
+            <p className="text-xs text-muted"><Tr s={"No cierres esta pantalla mientras se sube."} /></p>
             <button type="button" onClick={() => abort.current?.abort()} className="btn btn-outline btn-sm h-10">
-              <X className="h-4 w-4" /> Cancelar
-            </button>
+              <X className="h-4 w-4" />{" "}<Tr s={"Cancelar"} /></button>
           </div>
         ) : v ? (
           <div className="space-y-2">
             <video src={v.src} poster={b.poster ?? undefined} controls playsInline preload="metadata" className="max-h-72 w-full rounded-xl bg-black" />
-            <p className="text-sm font-medium" data-video-facts>{facts}</p>
-            <p className="text-xs text-muted">Vídeo subido. Pulsa Publicar para que se vea en tu página.</p>
+            <p className="text-sm font-medium" data-video-facts><Tr s={facts} /></p>
+            <p className="text-xs text-muted"><Tr s={"Vídeo subido. Pulsa Publicar para que se vea en tu página."} /></p>
             {v.codec === "HEVC" && (
               <p className="flex gap-2 rounded-lg bg-gold/15 p-2.5 text-xs">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span>
-                  <strong>Formato del iPhone (HEVC).</strong> Puede no verse en algunos navegadores. Para los próximos: Ajustes › Cámara › Formatos › Más compatible.
-                </span>
+                  <strong><Tr s={"Formato del iPhone (HEVC)."} /></strong>{" "}<Tr s={"Puede no verse en algunos navegadores. Para los próximos: Ajustes › Cámara › Formatos › Más compatible."} /></span>
               </p>
             )}
             {videoWeight(v.sizeBytes, v.durationSec) === "heavy" && (
               <p className="flex gap-2 rounded-lg bg-gold/15 p-2.5 text-xs">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span>
-                  <strong>Muy pesado.</strong> Tardará en cargar con datos móviles. Expórtalo a 1080p.
-                </span>
+                  <strong><Tr s={"Muy pesado."} /></strong>{" "}<Tr s={"Tardará en cargar con datos móviles. Expórtalo a 1080p."} /></span>
               </p>
             )}
             <button type="button" onClick={() => onPatch({ upload: null })} className="btn btn-ghost btn-sm h-10 text-rose">
-              <X className="h-4 w-4" /> Quitar vídeo
-            </button>
+              <X className="h-4 w-4" />{" "}<Tr s={"Quitar vídeo"} /></button>
           </div>
         ) : (
           <>
             <button type="button" onClick={() => input.current?.click()} className="btn btn-outline h-11 w-full text-sm">
-              <Film className="h-4 w-4" /> Elegir vídeo
-            </button>
-            <p className="field-hint">MP4 o MOV hasta 1 GB. Mejor en 1080p y de menos de 2 minutos.</p>
+              <Film className="h-4 w-4" />{" "}<Tr s={"Elegir vídeo"} /></button>
+            <p className="field-hint"><Tr s={"MP4 o MOV hasta 1 GB. Mejor en 1080p y de menos de 2 minutos."} /></p>
           </>
         )
       ) : (
@@ -155,25 +150,25 @@ export function VideoBlockFields({
           />
           {provider ? (
             <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-success">
-              <Check className="h-3.5 w-3.5" /> Vídeo de {provider === "youtube" ? "YouTube" : "Vimeo"}
+              <Check className="h-3.5 w-3.5" />{" "}<Tr s={"Vídeo de"} />{" "}{provider === "youtube" ? <Tr s={"YouTube"} /> : <Tr s={"Vimeo"} />}
             </p>
           ) : linkProblem ? (
-            <p className="mt-1.5 text-xs text-rose" role="alert">{linkProblem}</p>
+            <p className="mt-1.5 text-xs text-rose" role="alert"><Tr s={linkProblem} /></p>
           ) : (
-            !personal && <p className="field-hint">Sube el vídeo a YouTube o Vimeo y pega aquí el enlace.</p>
+            !personal && <p className="field-hint"><Tr s={"Sube el vídeo a YouTube o Vimeo y pega aquí el enlace."} /></p>
           )}
         </div>
       )}
 
       {(v || mode === "link") && !progress && (
         <div>
-          <label className="field-label">{v ? "Portada" : "Portada (opcional)"}</label>
+          <label className="field-label">{v ? <Tr s={"Portada"} /> : <Tr s={"Portada (opcional)"} />}</label>
           <ImageUpload shape="wide" value={b.poster} onChange={(url) => onPatch({ poster: url })} label={b.poster ? "Cambiar portada" : "Subir portada"} />
-          {!v && <p className="field-hint">Tu página carga más rápido: el vídeo se abre al pulsar ▶.</p>}
+          {!v && <p className="field-hint"><Tr s={"Tu página carga más rápido: el vídeo se abre al pulsar ▶."} /></p>}
         </div>
       )}
       <input className="input h-10 text-sm" placeholder="Texto bajo el vídeo (opcional)" aria-label="Texto bajo el vídeo" value={b.caption ?? ""} maxLength={300} onChange={(e) => onPatch({ caption: e.target.value || undefined })} />
-      {error && <p className="text-xs text-rose" role="alert">{error}</p>}
+      {error && <p className="text-xs text-rose" role="alert"><Tr s={error} /></p>}
       <input
         ref={input}
         type="file"

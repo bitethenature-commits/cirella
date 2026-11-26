@@ -6,11 +6,14 @@ import { requireCreator } from "@/lib/auth";
 import { tenantDb } from "@/lib/tenant";
 import { PageHeader } from "../../ui";
 import { GiveAccessForm, type GiveProduct } from "./give-access-form";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Dar acceso" };
 
 /** «Dar acceso»: a quien haya hablado contigo directamente, sin solicitud previa. Cualquier producto. */
 export default async function GiveAccessPage({ searchParams }: { searchParams: Promise<{ email?: string }> }) {
+  const t = await getT();
   const { creator } = await requireCreator();
   const sp = await searchParams;
   const db = tenantDb(creator.id);
@@ -43,10 +46,9 @@ export default async function GiveAccessPage({ searchParams }: { searchParams: P
       <Link href="/panel/clientes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
         <ArrowLeft className="h-4 w-4" /> {peopleLabel()}
       </Link>
-      <PageHeader title="Dar acceso" subtitle="A cualquiera que haya hablado contigo, sin formulario. Elige qué le das y escribe su email: le llega el enlace para entrar." />
+      <PageHeader title={t("Dar acceso")} subtitle={t("A cualquiera que haya hablado contigo, sin formulario. Elige qué le das y escribe su email: le llega el enlace para entrar.")} />
       {list.length === 0 ? (
-        <p className="card p-5 text-sm text-muted">
-          Primero crea algún producto en <Link href="/panel/sesiones" className="underline">Sesiones y lecturas</Link>.
+        <p className="card p-5 text-sm text-muted"><Tr s={"Primero crea algún producto en"} />{" "}<Link href="/panel/sesiones" className="underline"><Tr s={"Sesiones y lecturas"} /></Link>.
         </p>
       ) : (
         <GiveAccessForm products={list} customers={customers.map((c) => ({ name: c.name ?? "", email: c.email }))} timeZone={creator.timezone} initialEmail={sp.email} />

@@ -9,6 +9,7 @@ import type { EmailDesign, SocialNetwork } from "@/lib/email-blocks";
 import { peopleCount, type Segment } from "@/lib/newsletter-rules";
 import { previewCampaign, saveCampaign, scheduleCampaign, segmentPreview, sendNow, sendSummary, sendTestCampaign, unscheduleCampaign } from "../actions";
 import { saveCampaignAsTemplate } from "../plantillas/actions";
+import { Tr } from "@/lib/i18n/client";
 
 type Props = {
   id: string;
@@ -116,7 +117,7 @@ export function CampaignEditor(p: Props) {
     <div className="space-y-5">
       <div className="card mx-auto grid max-w-3xl gap-4 p-4 sm:grid-cols-2 sm:p-5">
         <div>
-          <label className="field-label" htmlFor="nl-segment">¿A quién se la mandas?</label>
+          <label className="field-label" htmlFor="nl-segment"><Tr s={"¿A quién se la mandas?"} /></label>
           <select
             id="nl-segment"
             className="input h-11 text-base sm:text-sm"
@@ -127,22 +128,22 @@ export function CampaignEditor(p: Props) {
               else setSegment(v === "member" ? { kind: "member" } : { kind: "all" });
             }}
           >
-            <option value="all">Todas las suscriptoras</option>
-            <option value="member">Miembros de la comunidad</option>
+            <option value="all"><Tr s={"Todas las suscriptoras"} /></option>
+            <option value="member"><Tr s={"Miembros de la comunidad"} /></option>
             {p.products.length > 0 && (
               <optgroup label="Compraron…">
                 {p.products.map((x) => (
-                  <option key={x.id} value={`product:${x.id}`}>Compraron «{x.title}»</option>
+                  <option key={x.id} value={`product:${x.id}`}><Tr s={"Compraron «"} />{x.title}»</option>
                 ))}
               </optgroup>
             )}
           </select>
           <p className="mt-1.5 text-xs text-muted" data-testid="segment-count" aria-live="polite">
-            {count === null ? "Contando…" : `Le llegará a ${peopleCount(count)} (solo las que confirmaron).`}
+            {count === null ? <Tr s={"Contando…"} /> : `Le llegará a ${peopleCount(count)} (solo las que confirmaron).`}
           </p>
         </div>
         <div>
-          <label className="field-label" htmlFor="nl-preheader">Frase junto al asunto <span className="font-normal text-muted">(opcional)</span></label>
+          <label className="field-label" htmlFor="nl-preheader"><Tr s={"Frase junto al asunto"} />{" "}<span className="font-normal text-muted"><Tr s={"(opcional)"} /></span></label>
           <input id="nl-preheader" className="input text-base sm:text-sm" maxLength={150} value={preheader} onChange={(e) => setPreheader(e.target.value)} placeholder="Lo que se lee en la bandeja, al lado del asunto" />
         </div>
       </div>
@@ -169,27 +170,27 @@ export function CampaignEditor(p: Props) {
       <div className="mb-4 flex items-center justify-between gap-3 text-xs text-muted" aria-live="polite">
         <span data-testid="save-state">
           {save === "saved" ? (
-            <span className="inline-flex items-center gap-1"><Check className="h-3.5 w-3.5" /> Guardado</span>
+            <span className="inline-flex items-center gap-1"><Check className="h-3.5 w-3.5" />{" "}<Tr s={"Guardado"} /></span>
           ) : save === "saving" ? (
-            "Guardando…"
+            <Tr s={"Guardando…"} />
           ) : save === "dirty" ? (
-            "Cambios sin guardar"
+            <Tr s={"Cambios sin guardar"} />
           ) : (
-            <span className="text-rose">{saveError}</span>
+            <span className="text-rose"><Tr s={saveError} /></span>
           )}
         </span>
         {save === "conflict" ? (
-          <button type="button" className="btn btn-outline btn-sm" onClick={() => window.location.reload()}>Recargar</button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => window.location.reload()}><Tr s={"Recargar"} /></button>
         ) : (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => void doSave()} disabled={save === "saving"}>Guardar</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => void doSave()} disabled={save === "saving"}><Tr s={"Guardar"} /></button>
         )}
       </div>
       {p.status === "SCHEDULED" && p.scheduledLabel && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#f8efdc] px-4 py-3 text-sm text-[#8a6420]">
-          <span className="inline-flex items-center gap-2"><CalendarClock className="h-4 w-4" /> Programada: sale el {p.scheduledLabel}. Puedes seguir cambiándola hasta entonces.</span>
+          <span className="inline-flex items-center gap-2"><CalendarClock className="h-4 w-4" />{" "}<Tr s={"Programada: sale el"} />{" "}<Tr s={p.scheduledLabel} /><Tr s={". Puedes seguir cambiándola hasta entonces."} /></span>
           <form action={unscheduleCampaign}>
             <input type="hidden" name="id" value={p.id} />
-            <button className="btn btn-outline btn-sm">Quitar la programación</button>
+            <button className="btn btn-outline btn-sm"><Tr s={"Quitar la programación"} /></button>
           </form>
         </div>
       )}
@@ -198,7 +199,7 @@ export function CampaignEditor(p: Props) {
         {(["editar", "vista"] as const).map((t) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 font-medium ${tab === t ? "bg-white shadow-soft" : "text-muted"}`}>
             {t === "editar" ? <PenLine className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            {t === "editar" ? "Escribir encima" : "Cómo le llega"}
+            {t === "editar" ? <Tr s={"Escribir encima"} /> : <Tr s={"Cómo le llega"} />}
           </button>
         ))}
       </div>
@@ -207,22 +208,22 @@ export function CampaignEditor(p: Props) {
         <div>{editor}</div>
       ) : (
         <div className="mx-auto max-w-3xl">
-          {preview ? <EmailPreview html={preview.html} subject={preview.subject} warnings={preview.warnings} /> : <p className="text-sm text-muted">Preparando la vista previa…</p>}
-          <p className="mt-2 text-xs text-muted">Con datos de ejemplo: así le llega, con su nombre puesto.</p>
+          {preview ? <EmailPreview html={preview.html} subject={preview.subject} warnings={preview.warnings} /> : <p className="text-sm text-muted"><Tr s={"Preparando la vista previa…"} /></p>}
+          <p className="mt-2 text-xs text-muted"><Tr s={"Con datos de ejemplo: así le llega, con su nombre puesto."} /></p>
         </div>
       )}
 
       {notice && (
         <p role="status" className={`mt-4 rounded-xl px-4 py-3 text-sm ${notice.kind === "ok" ? "bg-[#e7f3ec] text-[#2f6b4a]" : "bg-[#fbe9e6] text-[#9a3a2e]"}`}>
-          {notice.text}
+          <Tr s={notice.text} />
         </p>
       )}
 
       {confirming && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
           <div className="card w-full max-w-md p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-            <h2 id="confirm-title" className="display text-2xl">¿Enviarla ya?</h2>
-            <p className="mt-2 text-sm text-muted">{confirming}</p>
+            <h2 id="confirm-title" className="display text-2xl"><Tr s={"¿Enviarla ya?"} /></h2>
+            <p className="mt-2 text-sm text-muted"><Tr s={confirming} /></p>
             <div className="mt-5 flex gap-2">
               <button
                 type="button"
@@ -237,9 +238,8 @@ export function CampaignEditor(p: Props) {
                   })
                 }
               >
-                {busy && <Loader2 className="h-4 w-4 animate-spin" />} Enviar
-              </button>
-              <button type="button" className="btn btn-outline" onClick={() => setConfirming(null)}>Cancelar</button>
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}{" "}<Tr s={"Enviar"} /></button>
+              <button type="button" className="btn btn-outline" onClick={() => setConfirming(null)}><Tr s={"Cancelar"} /></button>
             </div>
           </div>
         </div>
@@ -247,7 +247,7 @@ export function CampaignEditor(p: Props) {
 
       {scheduling && (
         <div className="card mt-4 space-y-3 p-4">
-          <p className="text-sm font-semibold">¿Cuándo sale? <span className="font-normal text-muted">(hora de {p.timezoneLabel})</span></p>
+          <p className="text-sm font-semibold"><Tr s={"¿Cuándo sale?"} />{" "}<span className="font-normal text-muted"><Tr s={"(hora de"} />{" "}<Tr s={p.timezoneLabel} />)</span></p>
           <div className="grid grid-cols-2 gap-2">
             <input type="date" aria-label="Día" className="input h-11 text-base" value={date} onChange={(e) => setDate(e.target.value)} />
             <input type="time" aria-label="Hora" className="input h-11 text-base" value={time} onChange={(e) => setTime(e.target.value)} />
@@ -267,10 +267,8 @@ export function CampaignEditor(p: Props) {
                   } else setNotice({ kind: "error", text: r.error });
                 })
               }
-            >
-              Programar
-            </button>
-            <button type="button" className="btn btn-ghost" onClick={() => setScheduling(false)}>Cancelar</button>
+            ><Tr s={"Programar"} /></button>
+            <button type="button" className="btn btn-ghost" onClick={() => setScheduling(false)}><Tr s={"Cancelar"} /></button>
           </div>
         </div>
       )}
@@ -290,8 +288,7 @@ export function CampaignEditor(p: Props) {
               });
             }}
           >
-            <LayoutTemplate className="h-4 w-4" /> Guardar como plantilla
-          </button>
+            <LayoutTemplate className="h-4 w-4" />{" "}<Tr s={"Guardar como plantilla"} /></button>
           <button
             type="button"
             className="btn btn-outline btn-sm"
@@ -303,11 +300,9 @@ export function CampaignEditor(p: Props) {
               })
             }
           >
-            <TestTube2 className="h-4 w-4" /> Enviarme una prueba
-          </button>
+            <TestTube2 className="h-4 w-4" />{" "}<Tr s={"Enviarme una prueba"} /></button>
           <button type="button" className="btn btn-outline btn-sm" disabled={busy} onClick={() => setScheduling((s) => !s)}>
-            <CalendarClock className="h-4 w-4" /> Programar
-          </button>
+            <CalendarClock className="h-4 w-4" />{" "}<Tr s={"Programar"} /></button>
           <button
             type="button"
             className="btn btn-primary btn-sm"
@@ -320,11 +315,10 @@ export function CampaignEditor(p: Props) {
               })
             }
           >
-            <Send className="h-4 w-4" /> Enviar ahora
-          </button>
+            <Send className="h-4 w-4" />{" "}<Tr s={"Enviar ahora"} /></button>
         </div>
       </div>
-      <p className="mt-6 text-xs text-muted">Las pruebas llegan a {p.testTo}, con «[Prueba]» en el asunto.</p>
+      <p className="mt-6 text-xs text-muted"><Tr s={"Las pruebas llegan a"} />{" "}<Tr s={p.testTo} /><Tr s={", con «[Prueba]» en el asunto."} /></p>
     </div>
   );
 }

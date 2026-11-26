@@ -187,7 +187,7 @@ test("imageSrcSet con el ancho real: sin variantes más grandes que la imagen", 
 
 // ── Páginas extra ──
 test("sitePagePath y sitePageSlugBase", () => {
-  eq(sitePagePath("ana", "sobre-mi", true), "/sobre-mi");
+  eq(sitePagePath("ana", "sobre-mi", true), "/aboutme");
   eq(sitePagePath("ana", "sobre-mi", false), "/ana/p/sobre-mi");
   eq(sitePageSlugBase("Sobre mí"), "sobre-mi");
   eq(sitePageSlugBase("¡!", ""), "pagina");
@@ -198,12 +198,12 @@ test("sitePageSlugProblem: rutas de la web, la dueña y formatos no válidos", (
   eq(sitePageSlugProblem("mentoria-3-meses", "ana"), null);
 });
 
-test("ownerPageRewrite: /sobre-mi → la página de la dueña", () => {
-  eq(ownerPageRewrite("/sobre-mi", "ana"), "/ana/p/sobre-mi");
-  eq(ownerPageRewrite("/sobre-mi/", "ana"), "/ana/p/sobre-mi");
-  eq(ownerPageRewrite("/%73obre-mi", "ana"), "/ana/p/sobre-mi");
-  for (const p of ["/ana", "/panel", "/wp-login.php", "/Sobre-Mi", "/maria/yoga", "/", "/_no-existe", "/sobre_mi", "//sobre-mi"]) eq(ownerPageRewrite(p, "ana"), null, p);
-  eq(ownerPageRewrite("/sobre-mi", null), null, "en la plataforma no hay alias en la raíz");
+test("ownerPageRewrite: /aboutme → la página de la dueña", () => {
+  eq(ownerPageRewrite("/aboutme", "ana"), "/ana/p/aboutme");
+  eq(ownerPageRewrite("/aboutme/", "ana"), "/ana/p/aboutme");
+  eq(ownerPageRewrite("/%61boutme", "ana"), "/ana/p/aboutme");
+  for (const p of ["/ana", "/panel", "/wp-login.php", "/AboutMe", "/maria/yoga", "/", "/_no-existe", "/about_me", "//aboutme"]) eq(ownerPageRewrite(p, "ana"), null, p);
+  eq(ownerPageRewrite("/aboutme", null), null, "en la plataforma no hay alias en la raíz");
 });
 
 test("las reglas de otras usuarias no cambian: /maria/yoga sigue siendo ajeno", () => {

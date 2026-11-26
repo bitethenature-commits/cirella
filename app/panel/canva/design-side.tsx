@@ -11,6 +11,7 @@ import { LiveFrame } from "../pagina/live-frame";
 import { PieceSheet, type PickedPiece } from "../pagina/piece-sheet";
 import { saveSiteDesign } from "./actions";
 import { CanvaSheet, oneAtATime, type SaveState } from "./canva-ui";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * «Diseño» en Mi página: en el lateral, al lado de la web, el diseño de la página que se está viendo (o, con un
@@ -77,10 +78,11 @@ export function DesignSheet({
   /** La página se ve de verdad (publicada): sus piezas se pueden tocar. */
   canPick: boolean;
 }) {
+  const t = useT();
   const { page, target, setTarget, picked, setPicked, setOpen } = panel;
   return (
     <>
-      <CanvaSheet title="Diseño" wide onClose={() => setOpen(false)}>
+      <CanvaSheet title={t("Diseño")} wide onClose={() => setOpen(false)}>
         <DesignEditor
           cfg={cfg}
           setCfg={setCfg}
@@ -168,6 +170,7 @@ export function ScopeDesign({
   top?: ReactNode;
   root?: () => HTMLElement | null;
 }) {
+  const t = useT();
   const own = !!design && Object.values(design).some((v) => v !== undefined && v !== null);
   // Lo que cambia algo, mirado una vez al abrir (si cambiara al tocar, las filas saltarían); lo ya cambiado, siempre.
   const [found, setFound] = useState<Set<DesignKey> | null>(null);
@@ -196,13 +199,12 @@ export function ScopeDesign({
         <section className="card flex items-start justify-between gap-3 p-4">
           <p className="text-xs text-muted">
             {empty
-              ? "Esta sección no tiene nada más que cambiar de diseño."
-              : "Solo lo que cambia algo en esta sección, y solo para ella: lo que no toques sigue el diseño de la página (lo cambiado lleva un punto dorado)."}
+              ? t("Esta sección no tiene nada más que cambiar de diseño.")
+              : t("Solo lo que cambia algo en esta sección, y solo para ella: lo que no toques sigue el diseño de la página (lo cambiado lleva un punto dorado).")}
           </p>
           {own && (
             <button type="button" onClick={() => onChange({})} className="btn btn-ghost btn-sm shrink-0">
-              <RotateCcw className="h-3.5 w-3.5" /> Como la página
-            </button>
+              <RotateCcw className="h-3.5 w-3.5" />{" "}<Tr s={"Como la página"} /></button>
           )}
         </section>
       )}

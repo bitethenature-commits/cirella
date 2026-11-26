@@ -12,6 +12,7 @@ import { TIER_CTA_MAX, TIER_FEATURES_MAX, TIER_ICON_KEYS, TIER_INTRO_MAX, type T
 import type { TierFeature } from "@/lib/tier-features";
 import type { TierLook } from "@/lib/tier-look";
 import { saveTierCard, type TierCardState } from "./actions";
+import { Tr, useT } from "@/lib/i18n/client";
 
 export type EditableTier = {
   /** Ventas o suscripciones (para el aviso de borrar). */
@@ -47,7 +48,7 @@ const inline =
 const fit = (v: string, min = 2) => ({ width: `${Math.max(min, v.length) + 0.6}ch` });
 
 /**
- * «Cartas» de Comunidad: los portales de los niveles tal como se ven en la web (/comunidad) y en el área de
+ * «Cartas» de Comunidad: los portales de los niveles tal como se ven en la web (/membership) y en el área de
  * alumno («Mis membresías»). Arriba eliges cuál ver; todo se cambia escribiendo encima y cada nivel se
  * guarda con su botón. Foto y nombre son los mismos en los dos sitios; la frase, una para cada uno.
  */
@@ -70,14 +71,14 @@ export function TierCards({ tiers, circles }: { tiers: EditableTier[]; circles: 
             onClick={() => setView(k)}
             className={`inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold transition ${view === k ? "bg-ink text-cream" : "text-muted hover:text-ink"}`}
           >
-            <Icon className="h-4 w-4" /> {label}
+            <Icon className="h-4 w-4" /> <Tr s={label} />
           </button>
         ))}
       </div>
       <p className="text-sm text-muted">
         {view === "web"
-          ? "Así ven tus niveles quienes visitan tu página de Comunidad. Cambia la foto con su botón y escribe encima de lo que quieras."
-          : "Así los ven tus alumnas en «Mis membresías». La foto y el nombre son los de la web; la frase es solo de aquí."}
+          ? <Tr s={"Así ven tus niveles quienes visitan tu página de Comunidad. Cambia la foto con su botón y escribe encima de lo que quieras."} />
+          : <Tr s={"Así los ven tus alumnas en «Mis membresías». La foto y el nombre son los de la web; la frase es solo de aquí."} />}
       </p>
       <div className="acc-root acc-preview rounded-[2rem] px-4 py-10 sm:px-8">
         <div className="grid items-stretch gap-6 md:grid-cols-[repeat(auto-fit,minmax(min(100%,290px),1fr))]">
@@ -94,6 +95,7 @@ export function TierCards({ tiers, circles }: { tiers: EditableTier[]; circles: 
 }
 
 function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; level: number; view: View; circles: string[] }) {
+  const t = useT();
   const [state, action, pending] = useActionState<TierCardState, FormData>(saveTierCard, undefined);
   const [image, setImage] = useState(tier.imageUrl);
   const [title, setTitle] = useState(tier.title);
@@ -144,7 +146,7 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
         className="hidden"
-        aria-label="Subir la foto"
+        aria-label={t("Subir la foto")}
         onChange={(e) => {
           const f = e.target.files?.[0];
           e.target.value = "";
@@ -171,19 +173,19 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
               className="absolute right-5 top-[22%] z-10 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[color:var(--n-gold,#d4b57a)]/50 bg-black/45 px-3 text-xs font-semibold text-[color:var(--n-gold-hi,#f0d9a4)] backdrop-blur transition hover:bg-black/65"
             >
               {upload !== null ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
-              {upload !== null ? (upload < 100 ? `${upload} %` : "Optimizando…") : image ? "Cambiar la foto" : "Poner foto"}
+              {upload !== null ? (upload < 100 ? `${upload} %` : t("Optimizando…")) : image ? t("Cambiar la foto") : t("Poner foto")}
             </button>
           )
         }
-        title={<input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} required aria-label="Nombre del nivel" className={`w-full px-2 text-center [font:inherit] ${inline}`} />}
+        title={<input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} required aria-label={t("Nombre del nivel")} className={`w-full px-2 text-center [font:inherit] ${inline}`} />}
         intro={
           <textarea
             value={phrase}
             onChange={(e) => setPhrase(e.target.value)}
             maxLength={TIER_INTRO_MAX}
             rows={2}
-            placeholder={web ? "Una frase: para quién es y qué vive dentro." : "La frase del portal en el área de alumno."}
-            aria-label={web ? "Frase en la web" : "Frase en el área de alumno"}
+            placeholder={web ? t("Una frase: para quién es y qué vive dentro.") : t("La frase del portal en el área de alumno.")}
+            aria-label={web ? t("Frase en la web") : t("Frase en el área de alumno")}
             className={`block w-full resize-none px-2 text-center [font:inherit] [field-sizing:content] ${inline}`}
           />
         }
@@ -191,12 +193,12 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
           web ? (
             <span className={portalButton(tier.highlight)}>
               <Mail className="h-4 w-4 shrink-0" />
-              <input value={cta} onChange={(e) => setCta(e.target.value)} maxLength={TIER_CTA_MAX} aria-label="Texto del botón" style={fit(cta, 6)} className={`max-w-full px-1 text-center [font:inherit] ${inline}`} />
+              <input value={cta} onChange={(e) => setCta(e.target.value)} maxLength={TIER_CTA_MAX} aria-label={t("Texto del botón")} style={fit(cta, 6)} className={`max-w-full px-1 text-center [font:inherit] ${inline}`} />
             </span>
           ) : (
             <>
-              <span className="portal-cta inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold">✦ Entrar al portal</span>
-              <p className="mt-3 text-xs text-[color:var(--n-muted,#a7a2c2)]">Quien aún no lo tiene lo ve tenue, con un candado.</p>
+              <span className="portal-cta inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold"><Tr s={"✦ Entrar al portal"} /></span>
+              <p className="mt-3 text-xs text-[color:var(--n-muted,#a7a2c2)]"><Tr s={"Quien aún no lo tiene lo ve tenue, con un candado."} /></p>
             </>
           )
         }
@@ -212,7 +214,7 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
                     inputMode="decimal"
                     placeholder="33"
                     style={fit(price)}
-                    aria-label="Precio en euros"
+                    aria-label={t("Precio en euros")}
                     className={`px-0.5 text-right [font:inherit] ${inline}`}
                   />
                   €
@@ -222,7 +224,7 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
               saleLine={tier.sale?.line}
             />
             <ul className="relative mt-6 w-full space-y-3 text-left text-[0.93rem]">
-              {tier.includesPrevious && <PortalIncludes title={tier.includesPrevious} />}
+              {tier.includesPrevious && <PortalIncludes title={t(tier.includesPrevious)} />}
               {features.map((f, i) => {
                 const Icon = TIER_ICONS[f.icon];
                 return (
@@ -237,14 +239,14 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
                       <Icon className="h-4 w-4" />
                     </button>
                     <span className="min-w-0 flex-1 space-y-1">
-                      <input value={f.title} onChange={(e) => setAt(i, { title: e.target.value })} maxLength={80} placeholder="Qué incluye" aria-label="Qué incluye" className={`block w-full px-1 font-semibold leading-snug ${inline}`} />
+                      <input value={f.title} onChange={(e) => setAt(i, { title: e.target.value })} maxLength={80} placeholder={t("Qué incluye")} aria-label={t("Qué incluye")} className={`block w-full px-1 font-semibold leading-snug ${inline}`} />
                       <textarea
                         value={f.detail ?? ""}
                         onChange={(e) => setAt(i, { detail: e.target.value || null })}
                         maxLength={160}
                         rows={1}
-                        placeholder="Una explicación corta (opcional)"
-                        aria-label="Explicación"
+                        placeholder={t("Una explicación corta (opcional)")}
+                        aria-label={t("Explicación")}
                         className={`tier-portal-muted block w-full resize-none px-1 text-[0.84rem] leading-snug [field-sizing:content] ${inline}`}
                       />
                     </span>
@@ -252,7 +254,7 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
                       <X className="h-3.5 w-3.5" />
                     </button>
                     {iconOpen === i && (
-                      <div className="absolute left-0 top-11 z-30 grid w-[15rem] grid-cols-6 gap-1 rounded-2xl border border-[color:var(--n-gold,#d4b57a)]/40 bg-[color:var(--n-deep,#15122c)] p-2 shadow-2xl" role="listbox" aria-label="Iconos">
+                      <div className="absolute left-0 top-11 z-30 grid w-[15rem] grid-cols-6 gap-1 rounded-2xl border border-[color:var(--n-gold,#d4b57a)]/40 bg-[color:var(--n-deep,#15122c)] p-2 shadow-2xl" role="listbox" aria-label={t("Iconos")}>
                         {TIER_ICON_KEYS.map((k) => {
                           const I = TIER_ICONS[k];
                           return (
@@ -266,7 +268,7 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
                                 setIconOpen(null);
                               }}
                               className={`grid h-9 w-9 place-items-center rounded-xl text-[color:var(--n-gold-hi,#f0d9a4)] transition hover:bg-[color:var(--n-gold,#d4b57a)]/15 ${f.icon === k ? "bg-[color:var(--n-gold,#d4b57a)]/25" : ""}`}
-                              aria-label={k}
+                              aria-label={t(k)}
                             >
                               <I className="h-4 w-4" />
                             </button>
@@ -280,21 +282,20 @@ function TierCardEditor({ tier, level, view, circles }: { tier: EditableTier; le
             </ul>
             {features.length < TIER_FEATURES_MAX && (
               <button type="button" onClick={() => setFeatures((l) => [...l, { title: "", detail: null, icon: "star" }])} className="relative mt-3 inline-flex items-center gap-1.5 self-start text-sm text-[color:var(--n-gold-hi,#f0d9a4)] underline-offset-4 hover:underline">
-                <Plus className="h-4 w-4" /> Añadir lo que incluye
-              </button>
+                <Plus className="h-4 w-4" />{" "}<Tr s={"Añadir lo que incluye"} /></button>
             )}
-            {circles.length > 0 && <PortalCircles circles={circles} note="Salen solos: los círculos de la luna publicados." />}
+            {circles.length > 0 && <PortalCircles circles={circles} note={t("Salen solos: los círculos de la luna publicados.")} />}
           </>
         )}
       </TierPortal>
 
-      {uploadError && <p className="text-center text-sm text-rose">{uploadError}</p>}
+      {uploadError && <p className="text-center text-sm text-rose"><Tr s={uploadError} /></p>}
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1 text-sm">
           <Flash ok={state?.ok} error={state?.error} />
         </div>
         <button type="submit" disabled={pending || upload !== null} className="portal-cta inline-flex min-h-10 items-center gap-2 rounded-full px-5 text-sm font-semibold disabled:opacity-50">
-          {pending && <Loader2 className="h-4 w-4 animate-spin" />} {pending ? "Guardando…" : "Guardar"}
+          {pending && <Loader2 className="h-4 w-4 animate-spin" />} {pending ? t("Guardando…") : t("Guardar")}
         </button>
       </div>
     </form>

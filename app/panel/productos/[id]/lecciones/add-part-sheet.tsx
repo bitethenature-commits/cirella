@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { formatDuration, formatSize } from "@/components/media/media-health";
 import { ADD_PART, type AddPartKind } from "@/lib/lesson-parts";
 import type { EditorFile } from "./part-card";
+import { Tr } from "@/lib/i18n/client";
 
 const NOUN: Record<AddPartKind, string> = { VIDEO: "vídeos", AUDIO: "audios", PDF: "PDF", IMAGE: "imágenes", OTHER: "otros archivos" };
 
@@ -39,8 +40,8 @@ export function AddPartOptions({
         <button type="button" className={row} onClick={() => input.current?.click()}>
           <Upload className="h-5 w-5 shrink-0 text-lavender-deep" />
           <span className="flex-1">
-            <span className="block font-semibold">Subir desde este dispositivo</span>
-            <span className="block text-xs text-muted">{uploadLabel}</span>
+            <span className="block font-semibold"><Tr s={"Subir desde este dispositivo"} /></span>
+            <span className="block text-xs text-muted"><Tr s={uploadLabel} /></span>
           </span>
         </button>
         <input
@@ -61,14 +62,13 @@ export function AddPartOptions({
       {cfg.embed && (
         <button type="button" className={row} onClick={onEmbed}>
           <Link2 className="h-5 w-5 shrink-0 text-lavender-deep" />
-          <span className="flex-1 font-semibold">Pegar un enlace de YouTube o Vimeo</span>
+          <span className="flex-1 font-semibold"><Tr s={"Pegar un enlace de YouTube o Vimeo"} /></span>
         </button>
       )}
 
       <div>
         <p className="flex items-center gap-2 px-3 pb-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-          <FolderOpen className="h-3.5 w-3.5" /> De los materiales del curso
-        </p>
+          <FolderOpen className="h-3.5 w-3.5" />{" "}<Tr s={"De los materiales del curso"} /></p>
         {options.length ? (
           <ul className="space-y-0.5" role="list">
             {options.map((f) => (
@@ -87,7 +87,7 @@ export function AddPartOptions({
             ))}
           </ul>
         ) : (
-          <p className="px-3 py-2 text-sm text-muted">Todavía no hay {NOUN[add]} en los materiales del curso.</p>
+          <p className="px-3 py-2 text-sm text-muted"><Tr s={"Todavía no hay"} />{" "}<Tr s={NOUN[add]} />{" "}<Tr s={"en los materiales del curso."} /></p>
         )}
       </div>
     </div>

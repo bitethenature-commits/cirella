@@ -12,6 +12,7 @@ import { EIGHT_PHASES, FULL_MOON_IN_SIGN, MOON_IN_SIGN, NATAL_PHASE, NEW_MOON_IN
 import { MoonDisc } from "./moon-disc";
 import { CelestialDefs, EarthGlobe, MoonGlobe, SunGlobe } from "@/components/course/layers/celestial";
 import { CompactSummary, GOLD, INK, ModelFrame, PanelBody, PanelHeading, PanelRow, RangeField, ToolButton, cn, usePrefersReducedMotion } from "./model-kit";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * El ciclo lunar: la geometría Sol–Tierra–Luna dentro del zodiaco, el instante elegido explicado, el mes
@@ -150,8 +151,8 @@ function SectionTitle({ kicker, title, children }: { kicker: string; title: stri
   return (
     <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p className="cp-eyebrow cp-gold !text-[0.6rem]">{kicker}</p>
-        <h4 className="cp-display mt-1 text-[1.4rem] leading-tight">{title}</h4>
+        <p className="cp-eyebrow cp-gold !text-[0.6rem]"><Tr s={kicker} /></p>
+        <h4 className="cp-display mt-1 text-[1.4rem] leading-tight"><Tr s={title} /></h4>
       </div>
       {children}
     </div>
@@ -168,6 +169,7 @@ function RoundButton({ label, onClick, children }: { label: string; onClick: () 
 
 /** Buscador de ciudad compacto (la lista de GeoNames de la carta natal). */
 function CityPicker({ value, onChange }: { value: Place; onChange: (p: Place) => void }) {
+  const t = useT();
   const uid = useId();
   const [index, setIndex] = useState<CityIndex | null>(null);
   const [failed, setFailed] = useState(false);
@@ -204,14 +206,13 @@ function CityPicker({ value, onChange }: { value: Place; onChange: (p: Place) =>
   const listId = `${uid}-list`;
   return (
     <div className="relative">
-      <label htmlFor={`${uid}-q`} className="cp-eyebrow mb-1.5 block !text-[0.6rem]">
-        Otra ciudad <span className="normal-case tracking-normal opacity-70">(ahora: {value.label})</span>
+      <label htmlFor={`${uid}-q`} className="cp-eyebrow mb-1.5 block !text-[0.6rem]"><Tr s={"Otra ciudad"} />{" "}<span className="normal-case tracking-normal opacity-70"><Tr s={"(ahora:"} />{" "}<Tr s={value.label} />)</span>
       </label>
       <input
         id={`${uid}-q`}
         className="cp-input !h-10 !text-[0.9rem]"
         value={query}
-        placeholder={failed ? "Lista no disponible" : "Busca tu ciudad o pueblo"}
+        placeholder={failed ? t("Lista no disponible") : t("Busca tu ciudad o pueblo")}
         onFocus={() => {
           load();
           setOpen(true);
@@ -246,8 +247,8 @@ function CityPicker({ value, onChange }: { value: Place; onChange: (p: Place) =>
                 onMouseEnter={() => setActive(k)}
                 className={cn("cursor-pointer px-4 py-2 text-[0.88rem] leading-snug", k === active && "bg-[color-mix(in_oklab,var(--c-gold)_12%,transparent)]")}
               >
-                {p.label}
-                <span className="cp-muted block text-[0.72rem]">{p.detail}</span>
+                <Tr s={p.label} />
+                <span className="cp-muted block text-[0.72rem]"><Tr s={p.detail} /></span>
               </li>
             );
           })}
@@ -523,12 +524,10 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
           <line key={y} x1="-108" y1={y} x2="96" y2={y} stroke="url(#lm-rays)" strokeWidth="0.7" strokeDasharray="3 5" />
         ))}
         <SunGlobe p="lm-" cx={-124} cy={0} r={13} />
-        <text x="-124" y="24" textAnchor="middle" fontSize="6" style={{ fill: GOLD }}>
-          Sol
-        </text>
+        <text x="-124" y="24" textAnchor="middle" fontSize="6" style={{ fill: GOLD }}><Tr s={"Sol"} /></text>
         <text x="-124" y="32" textAnchor="middle" fontSize="5.2" fill="currentColor" opacity="0.8">
           {degIn(st.sunLon)}
-          {glyph(SIGNS[sunSign].glyph)} {SIGNS[sunSign].name}
+          {glyph(SIGNS[sunSign].glyph)} <Tr s={SIGNS[sunSign].name} />
         </text>
 
         {/* Zodiaco: coloreado por elemento; resaltado el signo de la Luna */}
@@ -568,15 +567,12 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
 
         {/* Tierra (con su noche hacia la derecha) */}
         <EarthGlobe p="lm-" cx={0} cy={0} r={11} night={0} />
-        <text y="19" textAnchor="middle" fontSize="5.2" fill="currentColor" opacity="0.75">
-          Tierra
-        </text>
+        <text y="19" textAnchor="middle" fontSize="5.2" fill="currentColor" opacity="0.75"><Tr s={"Tierra"} /></text>
 
         {/* La línea de la Luna hasta su grado */}
         <line x1="0" y1="0" x2={moonTip.x} y2={moonTip.y} stroke="currentColor" strokeOpacity="0.35" strokeWidth="0.5" strokeDasharray="1.5 2" />
         <circle cx={moonTip.x} cy={moonTip.y} r="1.6" fill="#F2EADB" />
-        <text x={moonLabel.x} y={moonLabel.y} textAnchor={labelAnchor} dominantBaseline="central" fontSize="5.6" fill="currentColor">
-          Luna {degIn(st.moonLon)}
+        <text x={moonLabel.x} y={moonLabel.y} textAnchor={labelAnchor} dominantBaseline="central" fontSize="5.6" fill="currentColor"><Tr s={"Luna"} />{" "}{degIn(st.moonLon)}
           {glyph(SIGNS[moonSign].glyph)}
         </text>
 
@@ -586,14 +582,12 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
 
       {/* Lo que vemos de verdad desde la Tierra */}
       <div className="mt-4 flex flex-col items-center text-center">
-        <p className="cp-eyebrow mb-3 !text-[0.6rem]">Visto desde la Tierra</p>
+        <p className="cp-eyebrow mb-3 !text-[0.6rem]"><Tr s={"Visto desde la Tierra"} /></p>
         <MoonDisc phase={st.elong / 360} size={104} />
-        <p className="cp-display mt-4 text-[1.25rem] leading-snug">
-          Luna en <SignGlyph n={moonSign} /> {SIGNS[moonSign].name} · Sol en <SignGlyph n={sunSign} /> {SIGNS[sunSign].name}
+        <p className="cp-display mt-4 text-[1.25rem] leading-snug"><Tr s={"Luna en"} />{" "}<SignGlyph n={moonSign} /> <Tr s={SIGNS[moonSign].name} />{" "}<Tr s={"· Sol en"} />{" "}<SignGlyph n={sunSign} /> <Tr s={SIGNS[sunSign].name} />
         </p>
         <p className="cp-muted mt-1 text-[0.8rem]">
-          {upperFirst(longDay(at))} · {timeInTz(at, TZ)} (hora de España)
-        </p>
+          {upperFirst(longDay(at))} · {timeInTz(at, TZ)}{" "}<Tr s={"(hora de España)"} /></p>
       </div>
 
       <div className="mt-5">
@@ -611,14 +605,10 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
           }}
         />
         <div className={cn("mt-3 flex flex-wrap gap-2", compact && "hidden")}>
-          <ToolButton onClick={() => setMoment(new Date(at.getTime() - DAY))} title="Un día antes">
-            − 1 día
-          </ToolButton>
-          {!reduced && <ToolButton active={playing} onClick={() => setPlaying((v) => !v)}>{playing ? "Detener" : "Dejar correr el ciclo"}</ToolButton>}
-          <ToolButton onClick={() => setMoment(new Date())}>Ahora</ToolButton>
-          <ToolButton onClick={() => setMoment(new Date(at.getTime() + DAY))} title="Un día después">
-            + 1 día
-          </ToolButton>
+          <ToolButton onClick={() => setMoment(new Date(at.getTime() - DAY))} title="Un día antes"><Tr s={"− 1 día"} /></ToolButton>
+          {!reduced && <ToolButton active={playing} onClick={() => setPlaying((v) => !v)}>{playing ? <Tr s={"Detener"} /> : <Tr s={"Dejar correr el ciclo"} />}</ToolButton>}
+          <ToolButton onClick={() => setMoment(new Date())}><Tr s={"Ahora"} /></ToolButton>
+          <ToolButton onClick={() => setMoment(new Date(at.getTime() + DAY))} title="Un día después"><Tr s={"+ 1 día"} /></ToolButton>
         </div>
       </div>
     </div>
@@ -642,29 +632,28 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
     <PanelBody id={name}>
       <PanelHeading kicker={`${Math.round(st.illum * 100)} % iluminada · ${waxing ? "creciente" : "menguante"}`} title={name} />
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {isSuper && syz && <Badge>Superluna · {syz.k === 0 ? "nueva" : "llena"} del {shortDate(syz.at)}</Badge>}
+        {isSuper && syz && <Badge><Tr s={"Superluna ·"} />{" "}<Tr s={syz.k === 0 ? "nueva" : "llena"} />{" "}<Tr s={"del"} />{" "}{shortDate(syz.at)}</Badge>}
         {syz?.eclipse && (
           <Badge>
             {eclipseText(syz.eclipse)} · {when(syz.eclipse.at)}
           </Badge>
         )}
       </div>
-      <p className="cp-display mt-4 text-[1.3rem] italic leading-snug opacity-85">{guidance.intent}</p>
-      <p className="mt-2 text-[0.95rem] leading-relaxed opacity-85">{guidance.practice}</p>
+      <p className="cp-display mt-4 text-[1.3rem] italic leading-snug opacity-85"><Tr s={guidance.intent} /></p>
+      <p className="mt-2 text-[0.95rem] leading-relaxed opacity-85"><Tr s={guidance.practice} /></p>
 
       <div className="cp-line mt-6 rounded-[calc(var(--r-card)*0.7)] border p-5">
-        <p className="cp-eyebrow cp-gold">
-          La Luna en {SIGNS[moonSign].name} <SignGlyph n={moonSign} />
+        <p className="cp-eyebrow cp-gold"><Tr s={"La Luna en"} />{" "}<Tr s={SIGNS[moonSign].name} /> <SignGlyph n={moonSign} />
         </p>
-        <p className="mt-3 text-[0.92rem] leading-relaxed opacity-90">{MOON_IN_SIGN[moonSign]}</p>
+        <p className="mt-3 text-[0.92rem] leading-relaxed opacity-90"><Tr s={MOON_IN_SIGN[moonSign]} /></p>
       </div>
 
       {/* Lo demás (los datos del cielo, la lunación, las ocho estaciones y el porqué), recogido en «Ver más»:
           así se llega antes, bajando, a lo personal y a «Tu energía de hoy». */}
       <details className="group mt-5" data-lunar-more>
         <summary className="cp-line inline-flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-full border px-4 text-[0.82rem] font-semibold [&::-webkit-details-marker]:hidden">
-          <span className="group-open:hidden">Ver más</span>
-          <span className="hidden group-open:inline">Ver menos</span>
+          <span className="group-open:hidden"><Tr s={"Ver más"} /></span>
+          <span className="hidden group-open:inline"><Tr s={"Ver menos"} /></span>
           <ChevronDown aria-hidden className="h-4 w-4 transition-transform group-open:rotate-180" />
         </summary>
 
@@ -678,7 +667,7 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
             label="Próxima fase exacta"
             value={
               <>
-                {phaseOf(nextMain.k)} en <SignPos lon={nextMain.moonLon} />
+                {phaseOf(nextMain.k)}{" "}<Tr s={"en"} />{" "}<SignPos lon={nextMain.moonLon} />
                 <span className="cp-muted block">{when(nextMain.at)}</span>
               </>
             }
@@ -689,8 +678,7 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
             label="Distancia"
             value={
               <>
-                {KM.format(Math.round(st.distKm))} km
-                {distanceNote && <span className="cp-muted block">{distanceNote}</span>}
+                {KM.format(Math.round(st.distKm))}{" "}<Tr s={"km"} />{distanceNote && <span className="cp-muted block"><Tr s={distanceNote} /></span>}
               </>
             }
           />
@@ -699,7 +687,7 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
       </dl>
 
       {/* La lunación en curso: la nueva que la abrió y su llena */}
-      <p className="cp-eyebrow mb-3 mt-7 !text-[0.6rem]">Esta lunación</p>
+      <p className="cp-eyebrow mb-3 mt-7 !text-[0.6rem]"><Tr s={"Esta lunación"} /></p>
       <div className="grid gap-3 sm:grid-cols-2">
         {[
           { k: 0, at: cycle.newAt, sign: newSign, text: NEW_MOON_IN_SIGN[newSign], title: `Luna nueva en ${SIGNS[newSign].name}`, sub: "Sembrar", on: waxing },
@@ -725,19 +713,19 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
             <span className="flex items-center gap-2.5">
               <MoonDisc phase={c.k / 8} size={22} glow={false} label={false} />
               <span className="cp-display text-[1.08rem] leading-tight">
-                {c.title} <SignGlyph n={c.sign} />
+                <Tr s={c.title} /> <SignGlyph n={c.sign} />
               </span>
             </span>
             <span className="cp-eyebrow cp-gold mt-2 block !text-[0.56rem]">
-              {c.sub} · {when(c.at)}
+              <Tr s={c.sub} /> · {when(c.at)}
             </span>
-            <span className="mt-2 block text-[0.86rem] leading-relaxed opacity-85">{c.text}</span>
+            <span className="mt-2 block text-[0.86rem] leading-relaxed opacity-85"><Tr s={c.text} /></span>
           </button>
         ))}
       </div>
 
       {/* Las ocho estaciones, como accesos directos al instante exacto de esta lunación */}
-      <p className="cp-eyebrow mb-3 mt-7 !text-[0.6rem]">Las ocho estaciones de esta lunación</p>
+      <p className="cp-eyebrow mb-3 mt-7 !text-[0.6rem]"><Tr s={"Las ocho estaciones de esta lunación"} /></p>
       <div className="grid grid-cols-4 gap-1.5">
         {EIGHT_PHASES.map((p, k) => {
           const on = p === name;
@@ -755,20 +743,19 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
               className={cn("flex flex-col items-center gap-1.5 rounded-xl border p-2 transition-colors duration-300", on ? "border-[var(--c-gold)] bg-[color-mix(in_oklab,var(--c-gold)_12%,transparent)]" : "border-transparent")}
             >
               <MoonDisc phase={k / 8} size={26} glow={false} label={false} />
-              <span className="cp-muted text-center text-[0.68rem] leading-tight">{PHASE_GUIDANCE[p].intent}</span>
+              <span className="cp-muted text-center text-[0.68rem] leading-tight"><Tr s={PHASE_GUIDANCE[p].intent} /></span>
             </button>
           );
         })}
       </div>
 
       <div className="cp-line mt-6 rounded-[calc(var(--r-card)*0.7)] border p-5">
-        <p className="cp-eyebrow cp-gold">Por qué se ve así</p>
-        <p className="cp-muted mt-3 text-[0.88rem] leading-relaxed">
-          La Luna siempre está iluminada a la mitad: el Sol siempre está a un lado. Lo que cambia es nuestro ángulo de visión: {describeGeometry(st.elong / 360)}
+        <p className="cp-eyebrow cp-gold"><Tr s={"Por qué se ve así"} /></p>
+        <p className="cp-muted mt-3 text-[0.88rem] leading-relaxed"><Tr s={"La Luna siempre está iluminada a la mitad: el Sol siempre está a un lado. Lo que cambia es nuestro ángulo de visión:"} />{" "}{describeGeometry(st.elong / 360)}
         </p>
       </div>
       </details>
-      {!lib && <p className="cp-faint mt-4 text-[0.72rem]">{failed ? "No se ha podido cargar el cielo exacto: se muestra una aproximación." : "Calculando el cielo exacto…"}</p>}
+      {!lib && <p className="cp-faint mt-4 text-[0.72rem]">{failed ? <Tr s={"No se ha podido cargar el cielo exacto: se muestra una aproximación."} /> : <Tr s={"Calculando el cielo exacto…"} />}</p>}
     </PanelBody>
   );
 
@@ -793,9 +780,9 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
           <ChevronLeft className="h-4 w-4" />
         </RoundButton>
         <div className="text-center">
-          <p className="cp-eyebrow cp-gold !text-[0.58rem]">Hora de España</p>
+          <p className="cp-eyebrow cp-gold !text-[0.58rem]"><Tr s={"Hora de España"} /></p>
           <p className="cp-display text-[1.35rem] first-letter:uppercase" aria-live="polite">
-            {MONTHS[cursor.m - 1]} {cursor.y}
+            <Tr s={MONTHS[cursor.m - 1]} /> {cursor.y}
           </p>
         </div>
         <RoundButton label="Mes siguiente" onClick={() => step(1)}>
@@ -805,7 +792,7 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
       <div className="mb-2 grid grid-cols-7 gap-1" aria-hidden>
         {WEEKDAYS.map((d) => (
           <span key={d} className="cp-faint text-center text-[0.68rem] font-semibold">
-            {d}
+            <Tr s={d} />
           </span>
         ))}
       </div>
@@ -874,20 +861,16 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
       </div>
       <div className="cp-muted mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-[0.7rem] leading-snug">
         <span>
-          <span className="cp-gold font-semibold">15:53</span> fase principal exacta
-        </span>
-        <span>→♈︎ 09:12 la Luna cambia de signo</span>
+          <span className="cp-gold font-semibold">15:53</span>{" "}<Tr s={"fase principal exacta"} /></span>
+        <span><Tr s={"→♈︎ 09:12 la Luna cambia de signo"} /></span>
         <span className="inline-flex items-center gap-1">
-          <EclipseMark /> eclipse
-        </span>
+          <EclipseMark />{" "}<Tr s={"eclipse"} /></span>
         <span>
-          <span className="cp-gold">✦</span> superluna
-        </span>
+          <span className="cp-gold">✦</span>{" "}<Tr s={"superluna"} /></span>
         {natal && (
           <span>
-            <span className="cp-gold">☽︎</span> retorno lunar ·{" "}
-            <span className="inline-block h-2.5 w-3.5 rounded-sm align-middle" style={{ background: "color-mix(in oklab, #9DB8D6 30%, transparent)" }} /> la Luna en tu signo natal
-          </span>
+            <span className="cp-gold">☽︎</span>{" "}<Tr s={"retorno lunar ·"} />{" "}
+            <span className="inline-block h-2.5 w-3.5 rounded-sm align-middle" style={{ background: "color-mix(in oklab, #9DB8D6 30%, transparent)" }} />{" "}<Tr s={"la Luna en tu signo natal"} /></span>
         )}
       </div>
     </section>
@@ -901,13 +884,13 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
           at: l.at,
           text: (
             <>
-              <span className={l.k % 2 === 0 ? "font-semibold" : ""}>{phaseOf(l.k)}</span> en <SignPos lon={l.moonLon} />
-              {l.k === 4 && <span className="cp-muted"> · eje con {SIGNS[(signOf(l.moonLon) + 6) % 12].name}</span>}
-              {l.supermoon && <span className="cp-gold"> · superluna ({KM.format(Math.round(l.distKm))} km)</span>}
+              <span className={l.k % 2 === 0 ? "font-semibold" : ""}>{phaseOf(l.k)}</span>{" "}<Tr s={"en"} />{" "}<SignPos lon={l.moonLon} />
+              {l.k === 4 && <span className="cp-muted">{" "}<Tr s={"· eje con"} />{" "}<Tr s={SIGNS[(signOf(l.moonLon) + 6) % 12].name} /></span>}
+              {l.supermoon && <span className="cp-gold">{" "}<Tr s={"· superluna ("} />{KM.format(Math.round(l.distKm))}{" "}<Tr s={"km)"} /></span>}
               {l.eclipse && (
                 <span className="cp-gold">
                   {" "}
-                  · {eclipseText(l.eclipse)} (máximo {timeInTz(l.eclipse.at, TZ)})
+                  · {eclipseText(l.eclipse)}{" "}<Tr s={"(máximo"} />{" "}{timeInTz(l.eclipse.at, TZ)})
                 </span>
               )}
             </>
@@ -916,13 +899,12 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
         ...selectedDay.ingresses.map((i) => ({
           at: i.at,
           text: (
-            <>
-              La Luna entra en <SignGlyph n={i.sign} /> {SIGNS[i.sign].name}
+            <><Tr s={"La Luna entra en"} />{" "}<SignGlyph n={i.sign} /> <Tr s={SIGNS[i.sign].name} />
             </>
           ),
         })),
-        ...selectedDay.apsides.map((a: Apsis) => ({ at: a.at, text: <>{a.kind === "perigee" ? "Perigeo" : "Apogeo"}: la Luna a {KM.format(Math.round(a.km))} km</> })),
-        ...(returns.has(selectedDay.key) ? [{ at: returns.get(selectedDay.key)!, text: <>Retorno de tu Luna natal ({fmtLon(natal!.moon.moonLon)})</> }] : []),
+        ...selectedDay.apsides.map((a: Apsis) => ({ at: a.at, text: <>{a.kind === "perigee" ? <Tr s={"Perigeo"} /> : <Tr s={"Apogeo"} />}<Tr s={": la Luna a"} />{" "}{KM.format(Math.round(a.km))}{" "}<Tr s={"km"} /></> })),
+        ...(returns.has(selectedDay.key) ? [{ at: returns.get(selectedDay.key)!, text: <><Tr s={"Retorno de tu Luna natal ("} />{fmtLon(natal!.moon.moonLon)})</> }] : []),
       ].sort((a, b) => a.at.getTime() - b.at.getTime())
     : [];
 
@@ -940,23 +922,21 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
             ))}
           </ul>
         ) : (
-          <p className="cp-muted text-[0.86rem]">
-            La Luna sigue todo el día en <SignGlyph n={selectedDay.sign} /> {SIGNS[selectedDay.sign].name}, sin fases exactas ni cambios de signo.
-          </p>
+          <p className="cp-muted text-[0.86rem]"><Tr s={"La Luna sigue todo el día en"} />{" "}<SignGlyph n={selectedDay.sign} /> <Tr s={SIGNS[selectedDay.sign].name} /><Tr s={", sin fases exactas ni cambios de signo."} /></p>
         )
       ) : (
-        !lib && <p className="cp-faint text-[0.8rem]">Calculando…</p>
+        !lib && <p className="cp-faint text-[0.8rem]"><Tr s={"Calculando…"} /></p>
       )}
 
       <div className="cp-line mt-5 rounded-[calc(var(--r-card)*0.7)] border p-4">
-        <p className="cp-eyebrow cp-gold !text-[0.6rem]">Salida y puesta de la Luna · {city.label}</p>
+        <p className="cp-eyebrow cp-gold !text-[0.6rem]"><Tr s={"Salida y puesta de la Luna ·"} />{" "}<Tr s={city.label} /></p>
         {riseSet ? (
           <p className="mt-2 text-[0.92rem]">
-            {riseSet.rise ? `Sale a las ${timeInTz(riseSet.rise, city.tz)}` : "Ese día no sale"} · {riseSet.set ? `se pone a las ${timeInTz(riseSet.set, city.tz)}` : "ese día no se pone"}
-            {city.tz !== TZ && <span className="cp-muted"> (hora local)</span>}
+            {riseSet.rise ? `Sale a las ${timeInTz(riseSet.rise, city.tz)}` : <Tr s={"Ese día no sale"} />} · {riseSet.set ? `se pone a las ${timeInTz(riseSet.set, city.tz)}` : <Tr s={"ese día no se pone"} />}
+            {city.tz !== TZ && <span className="cp-muted">{" "}<Tr s={"(hora local)"} /></span>}
           </p>
         ) : (
-          <p className="cp-faint mt-2 text-[0.8rem]">Calculando…</p>
+          <p className="cp-faint mt-2 text-[0.8rem]"><Tr s={"Calculando…"} /></p>
         )}
         <div className="mt-3">
           <CityPicker value={city} onChange={setCity} />
@@ -972,22 +952,20 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
       <SectionTitle kicker="Personal" title="Tu luna natal">
         {!formOpen && !profileKey && ownForm && (
           <ToolButton onClick={() => setFormOpen(true)} active={!!natal}>
-            {natal ? "Cambiar datos" : "Calcular mi luna"}
+            {natal ? <Tr s={"Cambiar datos"} /> : <Tr s={"Calcular mi luna"} />}
           </ToolButton>
         )}
       </SectionTitle>
       {formOpen && !profileKey && ownForm && (
-        <Suspense fallback={<p className="cp-faint text-[0.8rem]">Cargando el formulario…</p>}>
+        <Suspense fallback={<p className="cp-faint text-[0.8rem]"><Tr s={"Cargando el formulario…"} /></p>}>
           <BirthForm initial={natal?.birth} onSubmit={(b) => void submitBirth(b)} onCancel={() => setFormOpen(false)} submitLabel="Ver mi luna" />
         </Suspense>
       )}
       {!formOpen && !natal && !profileKey && (
-        <p className="cp-muted text-[0.88rem] leading-relaxed">
-          Con tu fecha, hora y lugar de nacimiento: la fase en la que naciste, tu signo lunar y, en el calendario, los días en que la Luna vuelve a tu signo y el momento exacto de tu retorno lunar.
-          {ownForm ? " Se calcula en tu navegador; no se guarda ni se envía nada." : " Calcúlala con tus datos desde el botón de arriba."}
+        <p className="cp-muted text-[0.88rem] leading-relaxed"><Tr s={"Con tu fecha, hora y lugar de nacimiento: la fase en la que naciste, tu signo lunar y, en el calendario, los días en que la Luna vuelve a tu signo y el momento exacto de tu retorno lunar."} />{ownForm ? <Tr s={" Se calcula en tu navegador; no se guarda ni se envía nada."} /> : <Tr s={" Calcúlala con tus datos desde el botón de arriba."} />}
         </p>
       )}
-      {!natal && profileKey && <p className="cp-faint text-[0.8rem]">Calculando…</p>}
+      {!natal && profileKey && <p className="cp-faint text-[0.8rem]"><Tr s={"Calculando…"} /></p>}
       {!formOpen && natal && <NatalCard natal={natal} />}
     </section>
   );
@@ -1017,13 +995,13 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
                   <MoonDisc phase={l.k / 8} size={20} glow={false} label={false} />
                   <span className="min-w-0 flex-1">
                     <span className="block text-[0.9rem] leading-snug">
-                      {full ? "Llena" : "Nueva"} en <SignPos lon={l.moonLon} />
-                      {full && <span className="cp-muted hidden text-[0.78rem] sm:inline"> · eje {SIGNS[(s + 6) % 12].name}</span>}
+                      {full ? <Tr s={"Llena"} /> : <Tr s={"Nueva"} />}{" "}<Tr s={"en"} />{" "}<SignPos lon={l.moonLon} />
+                      {full && <span className="cp-muted hidden text-[0.78rem] sm:inline">{" "}<Tr s={"· eje"} />{" "}<Tr s={SIGNS[(s + 6) % 12].name} /></span>}
                     </span>
                     <span className="cp-muted block text-[0.78rem] tabular-nums">{when(l.at)}</span>
                     {(l.supermoon || l.eclipse) && (
                       <span className="mt-1 flex flex-wrap gap-1">
-                        {l.supermoon && <Badge>✦ Superluna</Badge>}
+                        {l.supermoon && <Badge><Tr s={"✦ Superluna"} /></Badge>}
                         {l.eclipse && (
                           <Badge>
                             <span className="mr-1 inline-flex">
@@ -1041,11 +1019,11 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
           })}
         </ol>
       ) : (
-        <p className="cp-faint text-[0.8rem]">{lib ? "Calculando el año…" : failed ? "No disponible." : "Calculando el cielo exacto…"}</p>
+        <p className="cp-faint text-[0.8rem]">{lib ? <Tr s={"Calculando el año…"} /> : failed ? <Tr s={"No disponible."} /> : <Tr s={"Calculando el cielo exacto…"} />}</p>
       )}
       <div className="cp-line mt-4 flex flex-wrap items-center gap-3 border-t pt-4">
         <fieldset className="flex flex-wrap items-center gap-3 text-[0.84rem]">
-          <legend className="sr-only">Tipo de evento en el calendario</legend>
+          <legend className="sr-only"><Tr s={"Tipo de evento en el calendario"} /></legend>
           {(
             [
               ["timed", "Con la hora exacta"],
@@ -1054,18 +1032,14 @@ export function LunarModel({ profile, ownForm = true, compact = false }: { profi
           ).map(([v, label]) => (
             <label key={v} className="flex min-h-10 cursor-pointer items-center gap-2">
               <input type="radio" name="luna-ics" value={v} checked={icsMode === v} onChange={() => setIcsMode(v)} className="h-4 w-4 accent-[var(--c-gold)]" />
-              {label}
+              <Tr s={label} />
             </label>
           ))}
         </fieldset>
         <button type="button" className="cp-btn inline-flex items-center gap-2" onClick={downloadIcs} disabled={!yearList}>
-          <Download className="h-4 w-4" aria-hidden /> Descargar .ics
-        </button>
+          <Download className="h-4 w-4" aria-hidden />{" "}<Tr s={"Descargar .ics"} /></button>
       </div>
-      <p className="cp-faint mt-3 text-[0.72rem] leading-relaxed">
-        Horas de España peninsular (Europe/Madrid; en Canarias, una hora menos). El archivo se crea en tu navegador: sirve para Google Calendar, Apple Calendar u Outlook. Superluna: luna nueva o llena a menos del 10 % del recorrido
-        perigeo–apogeo de esa vuelta (criterio de Richard Nolle). Eclipses visibles en algún lugar de la Tierra.
-      </p>
+      <p className="cp-faint mt-3 text-[0.72rem] leading-relaxed"><Tr s={"Horas de España peninsular (Europe/Madrid; en Canarias, una hora menos). El archivo se crea en tu navegador: sirve para Google Calendar, Apple Calendar u Outlook. Superluna: luna nueva o llena a menos del 10 % del recorrido perigeo–apogeo de esa vuelta (criterio de Richard Nolle). Eclipses visibles en algún lugar de la Tierra."} /></p>
     </section>
   );
 
@@ -1116,8 +1090,8 @@ function Fold({ kicker, title, id, children }: { kicker: string; title: string; 
     <details className="cp-line group rounded-[calc(var(--r-card)*0.7)] border" data-fold={id}>
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
         <span className="min-w-0">
-          <span className="cp-eyebrow cp-gold block">{kicker}</span>
-          <span className="cp-display mt-0.5 block text-[1.35rem] leading-tight">{title}</span>
+          <span className="cp-eyebrow cp-gold block"><Tr s={kicker} /></span>
+          <span className="cp-display mt-0.5 block text-[1.35rem] leading-tight"><Tr s={title} /></span>
         </span>
         <ChevronDown aria-hidden className="h-5 w-5 shrink-0 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
       </summary>
@@ -1127,6 +1101,7 @@ function Fold({ kicker, title, id, children }: { kicker: string; title: string; 
 }
 
 function NatalCard({ natal }: { natal: { birth: BirthData; moon: NatalMoon } }) {
+  const t = useT();
   const { birth, moon } = natal;
   const s = signOf(moon.moonLon);
   const phase: MoonPhaseName = EIGHT_PHASES[moon.phase];
@@ -1140,29 +1115,24 @@ function NatalCard({ natal }: { natal: { birth: BirthData; moon: NatalMoon } }) 
         <div>
           <p className="cp-eyebrow !text-[0.58rem]">
             {birth.name ? `${birth.name} · ` : ""}
-            {born}
-            {birth.timeKnown ? `, ${birth.time}` : " (sin hora)"} · {birth.place.label}
+            <Tr s={born} />
+            {birth.timeKnown ? `, ${birth.time}` : t(" (sin hora)")} · <Tr s={birth.place.label} />
           </p>
           <p className="cp-display mt-1 text-[1.3rem] leading-tight">
-            {phase} · Luna en <SignGlyph n={s} /> {SIGNS[s].name}
+            <Tr s={phase} />{" "}<Tr s={"· Luna en"} />{" "}<SignGlyph n={s} /> <Tr s={SIGNS[s].name} />
           </p>
           <p className="cp-muted mt-1 text-[0.8rem]">
-            {fmtLon(moon.moonLon)} · {Math.round(moon.elong)}° del Sol
-          </p>
+            {fmtLon(moon.moonLon)} · {Math.round(moon.elong)}<Tr s={"° del Sol"} /></p>
         </div>
       </div>
-      <p className="mt-4 text-[0.92rem] leading-relaxed opacity-90">{NATAL_PHASE[phase]}</p>
-      <p className="mt-3 text-[0.92rem] leading-relaxed opacity-90">Tu Luna en {SIGNS[s].name}: {lowerFirst(bodyInSignText(BODY_INFO.moon, SIGNS[s]))}</p>
+      <p className="mt-4 text-[0.92rem] leading-relaxed opacity-90"><Tr s={NATAL_PHASE[phase]} /></p>
+      <p className="mt-3 text-[0.92rem] leading-relaxed opacity-90"><Tr s={"Tu Luna en"} />{" "}<Tr s={SIGNS[s].name} />: {lowerFirst(bodyInSignText(BODY_INFO.moon, SIGNS[s]))}</p>
       {moon.range && (
-        <p className="cp-muted mt-3 text-[0.8rem] leading-relaxed">
-          Sin la hora, se toma el mediodía: ese día la Luna fue de {fmtLon(moon.range.from)} a {fmtLon(moon.range.to)}
+        <p className="cp-muted mt-3 text-[0.8rem] leading-relaxed"><Tr s={"Sin la hora, se toma el mediodía: ese día la Luna fue de"} />{" "}{fmtLon(moon.range.from)} a {fmtLon(moon.range.to)}
           {crosses ? `; cambió de signo, así que tu Luna puede estar en ${SIGNS[signOf(moon.range.from)].name} o en ${SIGNS[signOf(moon.range.to)].name}.` : "."}
         </p>
       )}
-      <p className="cp-muted mt-3 text-[0.8rem] leading-relaxed">
-        La fase natal se cuenta por octavos del ciclo, a la manera de Rudhyar: cada estación empieza en su ángulo exacto (0°, 45°, 90°…). En el calendario, el fondo marca los días en que la Luna pasa por {SIGNS[s].name} y ☽︎ el
-        retorno lunar exacto.
-      </p>
+      <p className="cp-muted mt-3 text-[0.8rem] leading-relaxed"><Tr s={"La fase natal se cuenta por octavos del ciclo, a la manera de Rudhyar: cada estación empieza en su ángulo exacto (0°, 45°, 90°…). En el calendario, el fondo marca los días en que la Luna pasa por"} />{" "}<Tr s={SIGNS[s].name} />{" "}<Tr s={"y ☽︎ el retorno lunar exacto."} /></p>
     </div>
   );
 }

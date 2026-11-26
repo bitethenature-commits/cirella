@@ -6,6 +6,7 @@ import { creatorBrief } from "@/lib/customer";
 import { appUrl } from "@/lib/env";
 import { enqueueEmail } from "@/lib/email/outbox";
 import { esc, layout, p } from "@/lib/email/templates";
+import { et, inMail } from "@/lib/i18n/email";
 import { tenantDb } from "@/lib/tenant";
 
 export type NotifyResult = { ok: true; message: string } | { ok: false; error: string };
@@ -28,9 +29,26 @@ export async function notifyCircleRecording(_prev: NotifyResult | null, form: Fo
   if (!people.length) return { ok: false, error: "Ninguna de las marcadas tiene este círculo." };
 
   const brand = creatorBrief(creator).displayName;
-  const what = video && pdf ? "la grabación y el workbook en PDF" : video ? "la grabación" : "el workbook en PDF";
-  const subject = video ? `Ya tienes la grabación de «${circle.title}»` : `Ya tienes el workbook de «${circle.title}»`;
-  const url = `${appUrl()}/cuenta/sesiones/anteriores`;
+  const url = `${appUrl()}/area/sessions/past`;
+  // En el idioma de cada alumna (lib/i18n/email.ts).
+  const mail = (name: string | undefined) => {
+    const what = video && pdf ? et("la grabación y el workbook en PDF") : video ? et("la grabación") : et("el workbook en PDF");
+    return {
+      subject: video ? et("Ya tienes la grabación de «{title}»", { title: circle.title }) : et("Ya tienes el workbook de «{title}»", { title: circle.title }),
+      html: layout({
+        brand,
+        title: name ? et("Hola, {name}", { name }) : et("Hola"),
+        body:
+          p(et("Ya está en tu área {what} del círculo <strong>«{title}»</strong>.", { what, title: esc(circle.title) })) +
+          p(
+            video
+              ? et("La encuentras en «Círculos y lecturas» → «Círculos anteriores», para verla cuando quieras y todas las veces que quieras.")
+              : et("La encuentras en «Círculos y lecturas» → «Círculos anteriores», para descargarlo cuando quieras y todas las veces que quieras."),
+          ),
+        cta: { label: video ? et("Ver la grabación") : et("Descargar el workbook"), url },
+      }),
+    };
+  };
   const stamp = Date.now();
   for (const r of people) {
     const name = r.name?.split(" ")[0];
@@ -40,15 +58,7 @@ export async function notifyCircleRecording(_prev: NotifyResult | null, form: Fo
       userId: r.userId,
       template: "CIRCLE_RECORDING",
       dedupeKey: `${circleNoticeKey(circle.id)}${r.userId}:${stamp}`,
-      subject,
-      html: layout({
-        brand,
-        title: name ? `Hola, ${name}` : "Hola",
-        body:
-          p(`Ya está en tu área ${what} del círculo <strong>«${esc(circle.title)}»</strong>.`) +
-          p(`La encuentras en «Círculos y lecturas» → «Círculos anteriores», para ${video ? "verla" : "descargarlo"} cuando quieras y todas las veces que quieras.`),
-        cta: { label: video ? "Ver la grabación" : "Descargar el workbook", url },
-      }),
+      ...(await inMail(r.email, () => mail(name))),
     });
   }
   revalidatePath(`/panel/productos/${circle.id}`);

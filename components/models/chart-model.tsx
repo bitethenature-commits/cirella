@@ -42,6 +42,7 @@ import {
   type Modality,
 } from "./data/astrology";
 import { CompactSummary, GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelLink, PanelRow, ToolButton, cn, describeArc, polar, tap, useShown } from "./model-kit";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * La carta natal de verdad: con la fecha, la hora y el lugar de nacimiento calcula (en el navegador, con
@@ -343,7 +344,8 @@ export function ChartModel({
 
   /* ------------------------------------------------------------- acciones */
 
-  const select = (s: Selection) => setSelection(s);
+  // Tocar otra vez lo mismo lo quita (y vuelve la explicación del principio).
+  const select = (s: Selection) => setSelection((cur) => (JSON.stringify(cur) === JSON.stringify(s) ? null : s));
   const selBody = selection?.kind === "body" ? selection.id : selection?.kind === "angle" && (selection.id === "asc" || selection.id === "mc") ? selection.id : null;
   const showExample = () => {
     setBirth(EXAMPLE);
@@ -369,7 +371,7 @@ export function ChartModel({
   };
   const houseLink = (n: number) => (
     <PanelLink onClick={() => select({ kind: "house", n })}>
-      {HOUSES[n - 1].name} · {HOUSES[n - 1].keyword}
+      <Tr s={HOUSES[n - 1].name} /> · <Tr s={HOUSES[n - 1].keyword} />
     </PanelLink>
   );
   const aspectList = (id: ChartPointId) => {
@@ -381,11 +383,11 @@ export function ChartModel({
           const t = ASPECT_BY_ID[a.type];
           return (
             <PanelLink key={`${a.a}-${a.b}`} color={t.color} onClick={() => select({ kind: "aspect", a: a.a, b: a.b })}>
-              {glyph(t.glyph)} {t.name} con {pointName(other)} · {fmtOrb(a.orb)}
+              {glyph(t.glyph)} <Tr s={t.name} />{" "}<Tr s={"con"} />{" "}{pointName(other)} · {fmtOrb(a.orb)}
             </PanelLink>
           );
         })}
-        {!mine.length && <span className="cp-muted">ninguno dentro del orbe</span>}
+        {!mine.length && <span className="cp-muted"><Tr s={"ninguno dentro del orbe"} /></span>}
       </span>
     );
   };
@@ -506,7 +508,7 @@ export function ChartModel({
                 {!isAngleCusp(cusp) && <line x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y} stroke="currentColor" strokeWidth="0.3" opacity="0.4" className="pointer-events-none" />}
                 <text x={tag.x} y={tag.y} textAnchor={anchor} dominantBaseline="central" fontSize="4.4" fill="currentColor" opacity="0.7" className="pointer-events-none select-none">
                   {z.deg}°{glyph(SIGNS[z.sign].glyph)}
-                  {narrow ? "" : `${pad2(z.min)}′`}
+                  <Tr s={narrow ? "" : `${pad2(z.min)}′`} />
                 </text>
               </g>
             );
@@ -556,7 +558,7 @@ export function ChartModel({
               <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} style={{ stroke: GOLD }} strokeWidth={isSelected ? 1.5 : k === "asc" || k === "mc" ? 1.1 : 0.8} strokeLinecap="round" />
               {(k === "asc" || k === "mc") && <circle cx={b.x} cy={b.y} r="1.4" style={{ fill: GOLD }} />}
               <text x={label.x} y={label.y} textAnchor="middle" dominantBaseline="central" fontSize="5.6" fontWeight="600" style={{ fill: GOLD }} className="select-none">
-                {ANGLE_INFO[k].short}
+                <Tr s={ANGLE_INFO[k].short} />
               </text>
             </g>
           );
@@ -620,7 +622,7 @@ export function ChartModel({
                   </text>
                   {(!narrow || body.retro) && (
                     <text x={min.x} y={min.y} textAnchor="middle" dominantBaseline="central" fontSize="3.9" fill="currentColor" opacity="0.65" className="pointer-events-none select-none">
-                      {narrow ? "" : `${pad2(z.min)}′`}
+                      <Tr s={narrow ? "" : `${pad2(z.min)}′`} />
                       {body.retro && <tspan fill="#D0584F">℞</tspan>}
                     </text>
                   )}
@@ -654,26 +656,21 @@ export function ChartModel({
     if (r.status === "ambiguous" && r.alternative) {
       const [first, second] = [r.offsetMinutes, r.alternative.offsetMinutes].map(formatOffset);
       return (
-        <>
-          Esa hora se repitió esa noche (cambio de hora): se usa la {useSecond ? "segunda" : "primera"} vez ({useSecond ? second : first}
+        <><Tr s={"Esa hora se repitió esa noche (cambio de hora): se usa la"} />{" "}<Tr s={useSecond ? "segunda" : "primera"} />{" "}<Tr s={"vez ("} /><Tr s={useSecond ? second : first} />
           ).{" "}
-          <PanelLink onClick={() => setUseSecond(!useSecond)}>
-            Usar la {useSecond ? "primera" : "segunda"} ({useSecond ? first : second})
+          <PanelLink onClick={() => setUseSecond(!useSecond)}><Tr s={"Usar la"} />{" "}<Tr s={useSecond ? "primera" : "segunda"} /> (<Tr s={useSecond ? first : second} />)
           </PanelLink>
         </>
       );
     }
     if (r.status === "gap")
       return (
-        <>
-          Esa hora no existió (los relojes se adelantaron esa noche): se lee con el horario de antes del cambio, que equivale a las{" "}
+        <><Tr s={"Esa hora no existió (los relojes se adelantaron esa noche): se lee con el horario de antes del cambio, que equivale a las"} />{" "}
           {new Intl.DateTimeFormat("es-ES", {
             hour: "2-digit",
             minute: "2-digit",
             timeZone: /^[A-Za-z]/.test(birth.place.tz) && !/^(UTC|GMT)/i.test(birth.place.tz) ? birth.place.tz : "UTC",
-          }).format(resolved.utc)}{" "}
-          del horario nuevo.
-        </>
+          }).format(resolved.utc)}{" "}<Tr s={"del horario nuevo."} /></>
       );
     return null;
   })();
@@ -683,13 +680,10 @@ export function ChartModel({
   if (!birth.timeKnown) {
     const mr = resolved.moonRange;
     notes.push(
-      <>
-        Sin hora de nacimiento: la carta se calcula a las 12:00 y no tiene Ascendente, MC ni casas.
-        {mr && (
+      <><Tr s={"Sin hora de nacimiento: la carta se calcula a las 12:00 y no tiene Ascendente, MC ni casas."} />{mr && (
           <>
-            {" "}
-            Ese día la Luna fue de {fmtPos(mr.from)} a {fmtPos(mr.to)}
-            {signOf(mr.from).n !== signOf(mr.to).n ? ": cambió de signo, así que su signo depende de la hora." : "."}
+            {" "}<Tr s={"Ese día la Luna fue de"} />{" "}{fmtPos(mr.from)} a {fmtPos(mr.to)}
+            {signOf(mr.from).n !== signOf(mr.to).n ? <Tr s={": cambió de signo, así que su signo depende de la hora."} /> : "."}
           </>
         )}
       </>,
@@ -702,28 +696,25 @@ export function ChartModel({
     <div>
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
-          <p className="cp-eyebrow !text-[0.6rem]">{custom ? (isHandmade(custom) ? "Carta preparada a mano" : "Carta preparada") : isExample ? "Carta de ejemplo" : "Carta calculada"}</p>
-          <p className="cp-display mt-1.5 text-[1.5rem] leading-tight">{custom?.name || birth.name || "Tu carta natal"}</p>
+          <p className="cp-eyebrow !text-[0.6rem]">{custom ? (isHandmade(custom) ? <Tr s={"Carta preparada a mano"} /> : <Tr s={"Carta preparada"} />) : isExample ? <Tr s={"Carta de ejemplo"} /> : <Tr s={"Carta calculada"} />}</p>
+          <p className="cp-display mt-1.5 text-[1.5rem] leading-tight">{custom?.name || birth.name || <Tr s={"Tu carta natal"} />}</p>
           <p className={cn("cp-muted mt-1 text-[0.82rem] leading-relaxed", custom && isHandmade(custom) && "hidden")}>
             {longDate(birth.date)}
-            {birth.timeKnown ? `, ${birth.time}` : ", hora desconocida"} · {birth.place.label}
+            {birth.timeKnown ? `, ${birth.time}` : <Tr s={", hora desconocida"} />} · <Tr s={birth.place.label} />
             {birth.place.detail && birth.place.detail !== "Coordenadas" ? ` (${birth.place.detail})` : ""}
           </p>
           <p className={cn("cp-faint mt-0.5 text-[0.72rem]", (compact || (custom && isHandmade(custom))) && "hidden")}>
             {formatCoord(birth.place.lat, "lat")} {formatCoord(birth.place.lon, "lon")} · {birth.timeKnown ? `${formatOffset(resolved.offset)} · ` : ""}
-            {resolved.utc.toISOString().slice(0, 16).replace("T", " ")} UTC
-          </p>
+            {resolved.utc.toISOString().slice(0, 16).replace("T", " ")}{" "}<Tr s={"UTC"} /></p>
         </div>
         <div className="flex flex-wrap gap-2">
           {!formOpen && !fromProfile && ownForm && (
             <button type="button" className="cp-btn !min-h-10 !text-[0.85rem]" onClick={() => setFormOpen(true)}>
-              {isExample ? "Calcular mi carta" : "Cambiar datos"}
+              {isExample ? <Tr s={"Calcular mi carta"} /> : <Tr s={"Cambiar datos"} />}
             </button>
           )}
           {!isExample && !formOpen && !fromProfile && ownForm && (
-            <button type="button" className="cp-btn-ghost !min-h-10 !text-[0.85rem]" onClick={showExample}>
-              Ver el ejemplo
-            </button>
+            <button type="button" className="cp-btn-ghost !min-h-10 !text-[0.85rem]" onClick={showExample}><Tr s={"Ver el ejemplo"} /></button>
           )}
         </div>
       </div>
@@ -763,7 +754,7 @@ export function ChartModel({
       <div className={cn("mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[0.8rem]", (compact || custom?.lockSettings) && "hidden")}>
         {angles && (
           <label className="flex items-center gap-2">
-            <span className="cp-eyebrow !text-[0.58rem]">Casas</span>
+            <span className="cp-eyebrow !text-[0.58rem]"><Tr s={"Casas"} /></span>
             <select
               aria-label="Sistema de casas"
               value={houseSystem}
@@ -779,15 +770,15 @@ export function ChartModel({
           </label>
         )}
         <label className="flex items-center gap-2">
-          <span className="cp-eyebrow !text-[0.58rem]">Nodos</span>
+          <span className="cp-eyebrow !text-[0.58rem]"><Tr s={"Nodos"} /></span>
           <select
             aria-label="Nodos medios o verdaderos"
             value={nodeKind}
             onChange={(e) => setNodeKind(e.target.value as NodeKind)}
             className="cp-line min-h-9 rounded-none border-0 border-b bg-transparent pr-1 text-[0.85rem] text-[var(--c-text)] focus:outline-none [&_option]:bg-[var(--c-bg)]"
           >
-            <option value="mean">Medios</option>
-            <option value="true">Verdaderos</option>
+            <option value="mean"><Tr s={"Medios"} /></option>
+            <option value="true"><Tr s={"Verdaderos"} /></option>
           </select>
         </label>
       </div>
@@ -806,16 +797,11 @@ export function ChartModel({
       return (
         <PanelBody id="idle">
           <PanelIdle title="Toca un planeta, un signo, una casa, un eje o una línea de aspecto.">
-            <p>
-              Los <strong>signos</strong> describen el cómo; los <strong>planetas</strong>, el qué; las <strong>casas</strong>, el dónde. Y los <strong>aspectos</strong>, cómo hablan las partes entre
-              sí.
-            </p>
+            <p><Tr s={"Los"} />{" "}<strong><Tr s={"signos"} /></strong>{" "}<Tr s={"describen el cómo; los"} />{" "}<strong><Tr s={"planetas"} /></strong><Tr s={", el qué; las"} />{" "}<strong><Tr s={"casas"} /></strong><Tr s={", el dónde. Y los"} />{" "}<strong><Tr s={"aspectos"} /></strong><Tr s={", cómo hablan las partes entre sí."} /></p>
             <p>
               {angles
-                ? "El anillo exterior lleva los doce signos; dentro, cada cuerpo en su grado exacto y las casas con el grado de su cúspide. Los ejes dorados son el horizonte (AC–DC) y el meridiano (MC–IC)."
-                : "El anillo exterior lleva los doce signos y, dentro, cada cuerpo en su grado exacto. Sin hora no hay casas ni ejes: la rueda empieza en 0° de Aries, a la izquierda."}{" "}
-              En el centro, los aspectos: en rojo los tensos, en azul y verde los armónicos.
-            </p>
+                ? <Tr s={"El anillo exterior lleva los doce signos; dentro, cada cuerpo en su grado exacto y las casas con el grado de su cúspide. Los ejes dorados son el horizonte (AC–DC) y el meridiano (MC–IC)."} />
+                : <Tr s={"El anillo exterior lleva los doce signos y, dentro, cada cuerpo en su grado exacto. Sin hora no hay casas ni ejes: la rueda empieza en 0° de Aries, a la izquierda."} />}{" "}<Tr s={"En el centro, los aspectos: en rojo los tensos, en azul y verde los armónicos."} /></p>
           </PanelIdle>
           <dl className="mt-6">
             {angles && <PanelRow label="Ascendente" value={signLink(angles.asc)} />}
@@ -835,19 +821,19 @@ export function ChartModel({
       return (
         <PanelBody id={`sign-${s.n}`}>
           <PanelHeading kicker={`Signo · ${s.element} · ${s.modality}`} title={`${glyph(s.glyph)} ${s.name}`} tone={ELEMENT_HUE[s.element]} />
-          <p className="cp-display mt-4 text-[1.2rem] italic opacity-85">«{s.keyword}»</p>
-          <p className="mt-3 text-[0.95rem] leading-relaxed opacity-85">{s.meaning}</p>
+          <p className="cp-display mt-4 text-[1.2rem] italic opacity-85">«<Tr s={s.keyword} />»</p>
+          <p className="mt-3 text-[0.95rem] leading-relaxed opacity-85"><Tr s={s.meaning} /></p>
           <dl className="mt-6">
             <PanelRow label="Elemento" value={s.element} />
             <PanelRow label="Cualidad" value={s.modality} />
-            <PanelRow label="Regente" value={bodyLink(s.rulerId, s.traditional ? <span className="cp-muted"> (tradicional: {BODY_INFO[s.traditional].name})</span> : null)} />
+            <PanelRow label="Regente" value={bodyLink(s.rulerId, s.traditional ? <span className="cp-muted">{" "}<Tr s={"(tradicional:"} />{" "}<Tr s={BODY_INFO[s.traditional].name} />)</span> : null)} />
             <PanelRow
               label="Ocupado por"
               value={
                 inSign.length ? (
                   <span className="flex flex-wrap justify-end gap-x-3 gap-y-1">{inSign.map((b) => bodyLink(b.id))}</span>
                 ) : (
-                  <span className="cp-muted">nadie, y eso no lo hace menos importante</span>
+                  <span className="cp-muted"><Tr s={"nadie, y eso no lo hace menos importante"} /></span>
                 )
               }
             />
@@ -859,12 +845,12 @@ export function ChartModel({
                     <span className="flex flex-wrap justify-end gap-x-3 gap-y-1">
                       {cuspsHere.map(({ n }) => (
                         <PanelLink key={n} onClick={() => select({ kind: "house", n })}>
-                          {HOUSES[n - 1].name}
+                          <Tr s={HOUSES[n - 1].name} />
                         </PanelLink>
                       ))}
                     </span>
                   ) : (
-                    <span className="cp-muted">ninguna (signo interceptado)</span>
+                    <span className="cp-muted"><Tr s={"ninguna (signo interceptado)"} /></span>
                   )
                 }
               />
@@ -883,8 +869,8 @@ export function ChartModel({
       return (
         <PanelBody id={`house-${h.n}`}>
           <PanelHeading kicker={`Casa · ${h.axis}`} title={h.name} />
-          <p className="cp-display mt-4 text-[1.2rem] italic opacity-85">{h.keyword}</p>
-          <p className="mt-3 text-[0.95rem] leading-relaxed opacity-85">{h.meaning}</p>
+          <p className="cp-display mt-4 text-[1.2rem] italic opacity-85"><Tr s={h.keyword} /></p>
+          <p className="mt-3 text-[0.95rem] leading-relaxed opacity-85"><Tr s={h.meaning} /></p>
           <dl className="mt-6">
             <PanelRow label="Cúspide" value={signLink(cusp)} />
             <PanelRow label="Sistema" value={HOUSE_SYSTEM_NAME[chart.houses!.system]} />
@@ -895,8 +881,7 @@ export function ChartModel({
                   <span>
                     {bodyLink(ruler.id)}
                     <span className="cp-muted">
-                      {" "}
-                      en {fmtPos(ruler.lon)}
+                      {" "}<Tr s={"en"} />{" "}{fmtPos(ruler.lon)}
                       {ruler.house ? `, casa ${ruler.house}` : ""}
                     </span>
                   </span>
@@ -909,7 +894,7 @@ export function ChartModel({
                 inHouse.length ? (
                   <span className="flex flex-wrap justify-end gap-x-3 gap-y-1">{inHouse.map((b) => bodyLink(b.id))}</span>
                 ) : (
-                  <span className="cp-muted">vacía: no vives ahí, pero igualmente sucede</span>
+                  <span className="cp-muted"><Tr s={"vacía: no vives ahí, pero igualmente sucede"} /></span>
                 )
               }
             />
@@ -927,11 +912,11 @@ export function ChartModel({
       return (
         <PanelBody id={`body-${b.id}`}>
           <PanelHeading kicker={`${GROUP_LABEL[info.group]}${b.retro ? " · retrógrado" : ""}`} title={`${glyph(info.glyph)} ${info.name}`} />
-          <p className="cp-display mt-4 text-[1.2rem] italic opacity-85">{info.keyword}</p>
-          <p className="mt-3 text-[0.95rem] leading-relaxed opacity-85">{info.meaning}</p>
+          <p className="cp-display mt-4 text-[1.2rem] italic opacity-85"><Tr s={info.keyword} /></p>
+          <p className="mt-3 text-[0.95rem] leading-relaxed opacity-85"><Tr s={info.meaning} /></p>
           <p className="mt-5 border-l-2 pl-4 text-[0.9rem] leading-relaxed opacity-85" style={{ borderColor: ELEMENT_HUE[sign.element] }}>
             <strong>
-              {info.name} en {sign.name}.
+              <Tr s={info.name} />{" "}<Tr s={"en"} />{" "}<Tr s={sign.name} />.
             </strong>{" "}
             {bodyInSignText(info, sign)}
           </p>
@@ -943,15 +928,13 @@ export function ChartModel({
               }}
             >
               <strong>
-                {info.name} en la {HOUSES[b.house - 1].name}.
+                <Tr s={info.name} />{" "}<Tr s={"en la"} />{" "}<Tr s={HOUSES[b.house - 1].name} />.
               </strong>{" "}
               {bodyInHouseText(info, HOUSES[b.house - 1])}
             </p>
           )}
           {b.id === "moon" && resolved.moonRange && (
-            <p className="cp-muted mt-3 text-[0.82rem] leading-relaxed">
-              Sin hora: ese día la Luna fue de {fmtPos(resolved.moonRange.from)} a {fmtPos(resolved.moonRange.to)}. Aquí se muestra a las 12:00.
-            </p>
+            <p className="cp-muted mt-3 text-[0.82rem] leading-relaxed"><Tr s={"Sin hora: ese día la Luna fue de"} />{" "}{fmtPos(resolved.moonRange.from)} a {fmtPos(resolved.moonRange.to)}<Tr s={". Aquí se muestra a las 12:00."} /></p>
           )}
           <dl className="mt-6">
             <PanelRow
@@ -978,7 +961,7 @@ export function ChartModel({
                   <span className="flex flex-wrap justify-end gap-x-3 gap-y-1">
                     {rules.map(({ n }) => (
                       <PanelLink key={n} onClick={() => select({ kind: "house", n })}>
-                        {HOUSES[n - 1].name}
+                        <Tr s={HOUSES[n - 1].name} />
                       </PanelLink>
                     ))}
                   </span>
@@ -999,11 +982,11 @@ export function ChartModel({
       return (
         <PanelBody id={`angle-${k}`}>
           <PanelHeading kicker={`Ángulo · cúspide de la ${HOUSES[a.house - 1].name}`} title={`${a.short} · ${a.name}`} />
-          <p className="cp-display mt-4 text-[1.2rem] italic opacity-85">{a.keyword}</p>
-          <p className="mt-3 text-[0.95rem] leading-relaxed opacity-85">{a.meaning}</p>
+          <p className="cp-display mt-4 text-[1.2rem] italic opacity-85"><Tr s={a.keyword} /></p>
+          <p className="mt-3 text-[0.95rem] leading-relaxed opacity-85"><Tr s={a.meaning} /></p>
           <p className="mt-5 border-l-2 pl-4 text-[0.9rem] leading-relaxed opacity-85" style={{ borderColor: ELEMENT_HUE[sign.element] }}>
             <strong>
-              {a.name} en {sign.name}.
+              <Tr s={a.name} />{" "}<Tr s={"en"} />{" "}<Tr s={sign.name} />.
             </strong>{" "}
             {angleInSignText(sign)}
           </p>
@@ -1015,7 +998,7 @@ export function ChartModel({
                 value={
                   <span className="flex flex-col items-end gap-1">
                     {bodyLink(sign.rulerId)}
-                    {sign.traditional && <span className="cp-muted">tradicional: {bodyLink(sign.traditional)}</span>}
+                    {sign.traditional && <span className="cp-muted"><Tr s={"tradicional:"} />{" "}{bodyLink(sign.traditional)}</span>}
                   </span>
                 }
               />
@@ -1034,9 +1017,8 @@ export function ChartModel({
       return (
         <PanelBody id={`aspect-${asp.a}-${asp.b}`}>
           <PanelHeading kicker={`Aspecto · ${t.angle}° · ${t.nature}`} title={`${pointName(asp.a)} ${t.name.toLowerCase()} ${pointName(asp.b)}`} tone={t.color} />
-          <p className="mt-4 text-[0.95rem] leading-relaxed opacity-85">{t.meaning}</p>
-          <p className="mt-5 border-l-2 pl-4 text-[0.9rem] leading-relaxed opacity-80" style={{ borderColor: t.color }}>
-            Aquí <strong>{kw(asp.a)}</strong> se encuentra con <strong>{kw(asp.b)}</strong>.
+          <p className="mt-4 text-[0.95rem] leading-relaxed opacity-85"><Tr s={t.meaning} /></p>
+          <p className="mt-5 border-l-2 pl-4 text-[0.9rem] leading-relaxed opacity-80" style={{ borderColor: t.color }}><Tr s={"Aquí"} />{" "}<strong>{kw(asp.a)}</strong>{" "}<Tr s={"se encuentra con"} />{" "}<strong>{kw(asp.b)}</strong>.
           </p>
           <dl className="mt-6">
             <PanelRow label="Orbe" value={`${fmtOrb(asp.orb)} de ${asp.maxOrb}° posibles`} />
@@ -1075,13 +1057,13 @@ export function ChartModel({
 
   const positionsTable = (
     <div>
-      <p className="cp-eyebrow !text-[0.6rem]">Posiciones</p>
+      <p className="cp-eyebrow !text-[0.6rem]"><Tr s={"Posiciones"} /></p>
       <table className="mt-3 w-full border-collapse text-[0.86rem]">
         <thead>
           <tr className="cp-muted text-left text-[0.62rem] uppercase tracking-[0.14em]">
-            <th className="pb-2 font-normal">Cuerpo</th>
-            <th className="pb-2 font-normal">Posición</th>
-            {cusps && <th className="pb-2 text-right font-normal">Casa</th>}
+            <th className="pb-2 font-normal"><Tr s={"Cuerpo"} /></th>
+            <th className="pb-2 font-normal"><Tr s={"Posición"} /></th>
+            {cusps && <th className="pb-2 text-right font-normal"><Tr s={"Casa"} /></th>}
           </tr>
         </thead>
         <tbody>
@@ -1118,7 +1100,7 @@ export function ChartModel({
                   >
                     {glyph(s.glyph)}
                   </span>{" "}
-                  {z.deg}°{pad2(z.min)}′ {s.name}
+                  {z.deg}°{pad2(z.min)}′ <Tr s={s.name} />
                   {b?.retro && <span style={{ color: "#D0584F" }}> ℞</span>}
                 </td>
                 {cusps && <td className="py-2 text-right tabular-nums">{b?.house ? HOUSES[b.house - 1].name.replace("Casa ", "") : ""}</td>}
@@ -1128,8 +1110,7 @@ export function ChartModel({
         </tbody>
       </table>
       {cusps && (
-        <p className="cp-muted mt-3 text-[0.75rem] leading-relaxed">
-          Cúspides ({HOUSE_SYSTEM_NAME[chart.houses!.system]}):{" "}
+        <p className="cp-muted mt-3 text-[0.75rem] leading-relaxed"><Tr s={"Cúspides ("} /><Tr s={HOUSE_SYSTEM_NAME[chart.houses!.system]} />):{" "}
           {cusps.map((c, i) => (
             <Fragment key={i}>
               {i > 0 && " · "}
@@ -1147,7 +1128,7 @@ export function ChartModel({
   const gridIds = GRID_ORDER.filter((id) => (id === "asc" || id === "mc" ? !!angles : byId.has(id)));
   const aspectGrid = (
     <div>
-      <p className="cp-eyebrow !text-[0.6rem]">Aspectario</p>
+      <p className="cp-eyebrow !text-[0.6rem]"><Tr s={"Aspectario"} /></p>
       <div className="mt-3 overflow-x-auto pb-1">
         <div className="grid w-full max-w-max" style={{ gridTemplateColumns: `repeat(${gridIds.length}, minmax(1.15rem, 1.45rem))` }} role="table" aria-label="Aspectos entre cada par">
           {gridIds.map((row, i) =>
@@ -1206,12 +1187,12 @@ export function ChartModel({
   const ascSign = angles ? signOf(angles.asc) : null;
   const balanceBlock = (
     <div>
-      <p className="cp-eyebrow !text-[0.6rem]">Elementos y cualidades</p>
-      <p className="cp-muted mt-1 text-[0.75rem]">Del Sol a Plutón (diez cuerpos).</p>
+      <p className="cp-eyebrow !text-[0.6rem]"><Tr s={"Elementos y cualidades"} /></p>
+      <p className="cp-muted mt-1 text-[0.75rem]"><Tr s={"Del Sol a Plutón (diez cuerpos)."} /></p>
       <div className="mt-3 space-y-2">
         {(Object.keys(balance.el) as Element[]).map((el) => (
           <div key={el} className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-3 text-[0.82rem]">
-            <span>{el}</span>
+            <span><Tr s={el} /></span>
             <span
               className="h-1.5 overflow-hidden rounded-full"
               style={{
@@ -1236,7 +1217,7 @@ export function ChartModel({
       <div className="mt-4 space-y-2">
         {(Object.keys(balance.mo) as Modality[]).map((m) => (
           <div key={m} className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-3 text-[0.82rem]">
-            <span className="capitalize">{m}</span>
+            <span className="capitalize"><Tr s={m} /></span>
             <span
               className="h-1.5 overflow-hidden rounded-full"
               style={{
@@ -1267,15 +1248,14 @@ export function ChartModel({
               <span className="flex flex-col items-end gap-1">
                 <span>
                   {bodyLink(ascSign.rulerId)}
-                  <span className="cp-muted"> (regente de {ascSign.name}, el Ascendente)</span>
+                  <span className="cp-muted">{" "}<Tr s={"(regente de"} />{" "}<Tr s={ascSign.name} /><Tr s={", el Ascendente)"} /></span>
                 </span>
                 {byId.get(ascSign.rulerId) && (
-                  <span className="cp-muted">
-                    en {fmtPos(byId.get(ascSign.rulerId)!.lon)}
+                  <span className="cp-muted"><Tr s={"en"} />{" "}{fmtPos(byId.get(ascSign.rulerId)!.lon)}
                     {byId.get(ascSign.rulerId)!.house ? `, casa ${byId.get(ascSign.rulerId)!.house}` : ""}
                   </span>
                 )}
-                {ascSign.traditional && <span className="cp-muted">tradicional: {bodyLink(ascSign.traditional)}</span>}
+                {ascSign.traditional && <span className="cp-muted"><Tr s={"tradicional:"} />{" "}{bodyLink(ascSign.traditional)}</span>}
               </span>
             }
           />
@@ -1289,10 +1269,7 @@ export function ChartModel({
       {positionsTable}
       {aspectGrid}
       {balanceBlock}
-      <p className="cp-faint text-[0.7rem] leading-relaxed">
-        Zodiaco tropical, posiciones geocéntricas aparentes (astronomy-engine; Quirón, de JPL Horizons). Nodo {nodeKind === "true" ? "verdadero" : "medio"} y Lilith media. Orbes: 10° para el Sol y la
-        Luna en conjunción y oposición, 8° el resto de planetas, menos para los puntos y los ángulos.
-      </p>
+      <p className="cp-faint text-[0.7rem] leading-relaxed"><Tr s={"Zodiaco tropical, posiciones geocéntricas aparentes (astronomy-engine; Quirón, de JPL Horizons). Nodo"} />{" "}<Tr s={nodeKind === "true" ? "verdadero" : "medio"} />{" "}<Tr s={"y Lilith media. Orbes: 10° para el Sol y la Luna en conjunción y oposición, 8° el resto de planetas, menos para los puntos y los ángulos."} /></p>
     </div>
   );
 
@@ -1343,6 +1320,7 @@ export function ChartModel({
   if (compact)
     return (
       <ModelFrame
+      onClear={selection ? () => setSelection(null) : null}
         compact
         diagram={
           <div>
@@ -1364,6 +1342,7 @@ export function ChartModel({
 
   return (
     <ModelFrame
+      onClear={selection ? () => setSelection(null) : null}
       toolbar={
         <div className="flex gap-2">
           {ASPECTS.map((a) => (
@@ -1380,7 +1359,7 @@ export function ChartModel({
               }
             >
               <span style={{ color: enabled.has(a.id) ? a.color : undefined }}>{glyph(a.glyph)}</span>
-              <span className="ml-1.5">{a.name}</span>
+              <span className="ml-1.5"><Tr s={a.name} /></span>
             </ToolButton>
           ))}
         </div>
@@ -1409,14 +1388,13 @@ export function ChartModel({
           </div>
           {editing && custom && onCustomChange && (
             <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[0.78rem]">
-              <span className="cp-muted">Arrastra cualquier punto por la rueda. Tócalo para afinarlo.</span>
+              <span className="cp-muted"><Tr s={"Arrastra cualquier punto por la rueda. Tócalo para afinarlo."} /></span>
               {custom.hidden.length > 0 && (
                 <>
-                  <span className="cp-muted">· Escondidos:</span>
+                  <span className="cp-muted"><Tr s={"· Escondidos:"} /></span>
                   {custom.hidden.map((p) => (
                     <button key={p} type="button" className="cp-btn-ghost !min-h-8 !px-2.5 !text-[0.75rem]" onClick={() => onCustomChange({ ...custom, hidden: custom.hidden.filter((x) => x !== p) })}>
-                      {p === "asc" ? "AC" : p === "mc" ? "MC" : glyph(BODY_INFO[p].glyph)} {pointName(p)} · mostrar
-                    </button>
+                      {p === "asc" ? <Tr s={"AC"} /> : p === "mc" ? <Tr s={"MC"} /> : glyph(BODY_INFO[p].glyph)} {pointName(p)}{" "}<Tr s={"· mostrar"} /></button>
                   ))}
                 </>
               )}
@@ -1437,7 +1415,7 @@ export function ChartModel({
         ownerNote ? (
           <div>
             <p className="mb-4 whitespace-pre-line rounded-xl border px-4 py-3 text-[0.92rem] leading-relaxed" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 45%, transparent)", background: "color-mix(in oklab, var(--c-gold) 10%, transparent)" }}>
-              {ownerNote}
+              <Tr s={ownerNote} />
             </p>
             {panel}
           </div>
@@ -1468,6 +1446,7 @@ function PointBubble({
   retro: boolean;
   at: { x: number; y: number };
 }) {
+  const t = useT();
   const manual = custom.positions[point] != null;
   const canRetro = point !== "asc" && point !== "mc" && point !== "node" && point !== "lilith" && point !== "sun" && point !== "moon";
   const canHide = !["sun", "moon", "asc", "mc"].includes(point);
@@ -1482,8 +1461,8 @@ function PointBubble({
   const note = custom.notes[point] ?? "";
   const below = at.y < 50;
   const step = (label: string, deg: number) => (
-    <button type="button" className="cp-line grid h-8 w-8 place-items-center rounded-full border text-[0.95rem] leading-none" onClick={() => move(deg)} aria-label={label}>
-      {deg > 0 ? "+" : "−"}
+    <button type="button" className="cp-line grid h-8 w-8 place-items-center rounded-full border text-[0.95rem] leading-none" onClick={() => move(deg)} aria-label={t(label)}>
+      <Tr s={deg > 0 ? "+" : "−"} />
     </button>
   );
   return (
@@ -1502,26 +1481,26 @@ function PointBubble({
     >
       <div className="flex items-start gap-2">
         <span className="text-[1.3rem] leading-none" style={{ color: "var(--c-gold)" }}>
-          {point === "asc" ? "AC" : point === "mc" ? "MC" : glyph(BODY_INFO[point].glyph)}
+          {point === "asc" ? t("AC") : point === "mc" ? t("MC") : glyph(BODY_INFO[point].glyph)}
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-semibold">{pointName(point)}</p>
           <p className="cp-muted">
             {fmtPos(lon)}
-            {manual ? " · a mano" : " · como en la carta"}
+            {manual ? t(" · a mano") : t(" · como en la carta")}
           </p>
         </div>
-        <button type="button" className="cp-muted -mr-1 -mt-1 grid h-8 w-8 place-items-center rounded-full text-lg" onClick={onClose} aria-label="Cerrar">
+        <button type="button" className="cp-muted -mr-1 -mt-1 grid h-8 w-8 place-items-center rounded-full text-lg" onClick={onClose} aria-label={t("Cerrar")}>
           ×
         </button>
       </div>
       <div className="mt-2.5 flex items-center justify-between gap-2">
-        <span className="cp-muted w-14">Grado</span>
+        <span className="cp-muted w-14"><Tr s={"Grado"} /></span>
         <span className="flex gap-1.5">
           {step("Un grado menos", -1)}
           {step("Un grado más", 1)}
         </span>
-        <span className="cp-muted w-14 text-right">Minuto</span>
+        <span className="cp-muted w-14 text-right"><Tr s={"Minuto"} /></span>
         <span className="flex gap-1.5">
           {step("Un minuto menos", -1 / 60)}
           {step("Un minuto más", 1 / 60)}
@@ -1530,8 +1509,7 @@ function PointBubble({
       <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5">
         {canRetro && (
           <label className="inline-flex items-center gap-1.5">
-            <input type="checkbox" checked={retro} onChange={(e) => setRetro(e.target.checked)} /> Retrógrado ℞
-          </label>
+            <input type="checkbox" checked={retro} onChange={(e) => setRetro(e.target.checked)} />{" "}<Tr s={"Retrógrado ℞"} /></label>
         )}
         {canHide && (
           <button
@@ -1541,21 +1519,17 @@ function PointBubble({
               onChange({ ...custom, hidden: [...custom.hidden.filter((x) => x !== point), point] });
               onClose();
             }}
-          >
-            Esconderlo
-          </button>
+          ><Tr s={"Esconderlo"} /></button>
         )}
         {manual && (
-          <button type="button" className="underline decoration-dotted underline-offset-2" onClick={reset}>
-            Como en la carta
-          </button>
+          <button type="button" className="underline decoration-dotted underline-offset-2" onClick={reset}><Tr s={"Como en la carta"} /></button>
         )}
       </div>
       <textarea
         className="cp-line mt-2.5 min-h-16 w-full rounded-xl border bg-transparent px-2.5 py-2 text-[0.85rem]"
         maxLength={4000}
         value={note}
-        placeholder="El texto que lee la alumna al tocarlo"
+        placeholder={t("El texto que lee la alumna al tocarlo")}
         onChange={(e) => {
           const notes = { ...custom.notes, [point]: e.target.value };
           if (!e.target.value.trim()) delete notes[point];

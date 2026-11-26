@@ -7,6 +7,7 @@ import { bookingCancelledEmail, rescheduledCreatorEmail, rescheduleProposalEmail
 import { emit, recordEvents } from "./events";
 import { createOrderLink } from "./order-links";
 import { ownerWhen, sessionWhen } from "./tz";
+import { inMail } from "@/lib/i18n/email";
 
 /**
  * Cambios de una reserva después de pagarla: cancelarla (la creadora, la clienta al desistir o el
@@ -119,14 +120,14 @@ export async function cancelBooking(
       creatorId: b.creatorId,
       template: "BOOKING_CANCELLED",
       dedupeKey: `booking-cancel:${b.id}`,
-      ...bookingCancelledEmail({
+      ...(await inMail(b.customer.email, async () => bookingCancelledEmail({
         creatorName: b.creator.displayName,
         productTitle: b.product.title,
         when: b.startAt ? sessionWhen(b.startAt, b.customerTimezone, b.creator.timezone) : null,
         reason,
         refundAmount: null,
-        url: `${appUrl()}/cuenta/compras`,
-      }),
+        url: `${appUrl()}/area/purchases`,
+      }))),
     });
   }
   const event = { type: "booking.cancelled" as const, bookingId: i.bookingId };
@@ -166,14 +167,14 @@ export async function requestReschedule(i: { creatorId: string; bookingId: strin
     creatorId: b.creatorId,
     template: "BOOKING_RESCHEDULE",
     dedupeKey: `reschedule:${b.id}:${now.toISOString()}`,
-    ...rescheduleProposalEmail({
+    ...(await inMail(b.customer.email, async () => rescheduleProposalEmail({
       creatorName: b.creator.displayName,
       productTitle: b.product.title,
-      previousWhen: sessionWhen(b.startAt, b.customerTimezone, b.creator.timezone),
+      previousWhen: sessionWhen(b.startAt!, b.customerTimezone, b.creator.timezone),
       note,
       // Enlace personal (solo abre este pedido) para que pueda elegir sin contraseña.
-      url: b.orderId ? (await createOrderLink({ orderId: b.orderId, path: `/cuenta/sesiones/${b.id}` })).url : `${appUrl()}/cuenta/sesiones/${b.id}`,
-    }),
+      url: b.orderId ? (await createOrderLink({ orderId: b.orderId, path: `/area/sessions/${b.id}` })).url : `${appUrl()}/area/sessions/${b.id}`,
+    }))),
   });
   await emit({ type: "booking.reschedule_requested", bookingId: b.id });
   return { ok: true };
@@ -194,11 +195,11 @@ export async function notifyRescheduled(bookingId: string) {
     creatorId: b.creatorId,
     template: "BOOKING_RESCHEDULED",
     dedupeKey: `rescheduled:${b.id}:${b.startAt.toISOString()}`,
-    ...rescheduledCreatorEmail({
+    ...(await inMail(b.creator.contactEmail || b.creator.user.email, async () => rescheduledCreatorEmail({
       buyer: b.customer.name || b.customer.email,
       productTitle: b.product.title,
-      when: ownerWhen(b.startAt, b.creator.timezone, b.customerTimezone),
+      when: ownerWhen(b.startAt!, b.creator.timezone, b.customerTimezone),
       url: `${appUrl()}/panel/solicitudes/reserva/${b.id}`,
-    }),
+    }))),
   });
 }

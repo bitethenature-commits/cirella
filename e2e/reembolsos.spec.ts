@@ -16,17 +16,17 @@ const buyerName = `Olga Cambio${stamp}`;
 const buyerEmail = `olga${stamp}@example.com`;
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 /** Asuntos del buzón de demostración para un destinatario (lo abre la administradora). */
 async function expectMail(page: Page, to: string, subject: string | RegExp) {
   await page.context().clearCookies();
-  await page.goto(`/entrar?next=${encodeURIComponent(`/dev/correo?to=${to}`)}`);
+  await page.goto(`/login?next=${encodeURIComponent(`/dev/email?to=${to}`)}`);
   await page.locator("form", { hasText: "Superadmin" }).getByRole("button").click();
-  await page.waitForURL("**/dev/correo**");
+  await page.waitForURL("**/dev/email**");
   await expect(page.getByText(subject).first()).toBeVisible();
 }
 
@@ -71,7 +71,7 @@ test.describe.serial("Reembolsos y cambios", () => {
 
   test("Proponer otra fecha: la compradora vuelve a elegir y recibe el enlace", async ({ page, browser }) => {
     // Compra de una sesión con fecha (tarjeta 4242).
-    await page.goto("/ana/sesion-1-1/checkout");
+    await page.goto("/ana/one-on-one/checkout");
     await pickDay(page, 4);
     await freeTimes(page).last().click();
     await page.fill("#name", buyerName);
@@ -81,10 +81,10 @@ test.describe.serial("Reembolsos y cambios", () => {
     // Una sesión se reserva a partir del día 15: no hay casilla de renuncia (tiene sus 14 días).
     await expect(page.getByLabel(/Quiero acceder ya|Entiendo que este taller|Quiero empezar ya/)).toHaveCount(0);
     await page.getByRole("button", { name: /Reservar y pagar/ }).click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     // El mismo navegador entra en su cuenta sin contraseña (cookie del checkout).
     await page.getByRole("link", { name: /Ver mi reserva/ }).click();
-    await page.waitForURL("**/cuenta/sesiones/**");
+    await page.waitForURL("**/area/sessions/**");
 
     // Cirella propone otra fecha (en otra sesión del navegador).
     const ana = await (await browser.newContext()).newPage();
@@ -106,7 +106,7 @@ test.describe.serial("Reembolsos y cambios", () => {
     await ana.context().close();
 
     // La compradora ve la propuesta y el calendario para elegir.
-    await page.goto(`/cuenta/sesiones/${bookingId}`);
+    await page.goto(`/area/sessions/${bookingId}`);
     await expect(page.getByText("Cirella te propone cambiar la fecha")).toBeVisible();
     await expect(page.getByText("«¿Te viene bien otro día?»")).toBeVisible();
   });
@@ -132,7 +132,7 @@ test.describe.serial("Reembolsos y cambios", () => {
 
   test("Desistir: Laura desiste de su lectura dentro de los 14 días", async ({ page }) => {
     await demoLogin(page, "Laura Martín");
-    await page.goto("/cuenta/compras");
+    await page.goto("/area/purchases");
     const reading = page.locator(".card > div", { hasText: "Lectura de Human Design" });
     const course = page.locator(".card > div", { hasText: "Conócete a través de tu energía" });
     const guide = page.locator(".card > div", { hasText: "Gene Keys" });
@@ -144,16 +144,16 @@ test.describe.serial("Reembolsos y cambios", () => {
 
     page.once("dialog", (d) => d.accept());
     await reading.getByRole("button", { name: "Desistir" }).click();
-    await page.waitForURL("**/cuenta/compras?ok=desistido");
+    await page.waitForURL("**/area/purchases?ok=desistido");
     await expect(page.getByText(/Hemos tramitado tu desistimiento/)).toBeVisible();
     await expect(reading).toContainText("Reembolsado");
     await expect(reading.getByRole("button", { name: "Desistir" })).toHaveCount(0);
 
-    await page.goto("/cuenta/sesiones");
+    await page.goto("/area/sessions");
     await expect(page.getByText(await lauraSessionLabel())).toHaveCount(0);
 
     await expectMail(page, "laura@example.com", /Hemos recibido tu desistimiento/);
-    await page.goto(`/dev/correo?to=ana@cirella.app`);
+    await page.goto(`/dev/email?to=ana@cirella.app`);
     await expect(page.getByText("Laura Martín ha desistido de «Lectura de Human Design»").first()).toBeVisible();
   });
 });

@@ -43,6 +43,7 @@ import {
   type CardFrameKey,
   type FrameGroup,
 } from "@/lib/frames";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /** Qué se diseña: toda la web («general»), la portada («home») o una página (su clave: «cursos», el slug…). */
 export type DesignTarget = string;
@@ -173,9 +174,9 @@ export function DesignEditor({
       <section className="card flex items-start gap-4 p-5 sm:p-6">
         <Lock className="mt-1 h-5 w-5 text-muted" />
         <div>
-          <p className="font-semibold">Diseño propio</p>
-          <p className="mt-1 text-sm text-muted">Colores, fondos, letras, tarjetas y botones a tu medida: disponible desde el plan Creator.</p>
-          <Link href="/panel/plan" className="btn btn-outline btn-sm mt-3">Ver planes</Link>
+          <p className="font-semibold"><Tr s={"Diseño propio"} /></p>
+          <p className="mt-1 text-sm text-muted"><Tr s={"Colores, fondos, letras, tarjetas y botones a tu medida: disponible desde el plan Creator."} /></p>
+          <Link href="/panel/plan" className="btn btn-outline btn-sm mt-3"><Tr s={"Ver planes"} /></Link>
         </div>
       </section>
     );
@@ -242,8 +243,7 @@ export function DesignEditor({
             </optgroup>
           ))}
         </select>
-        <p className="mt-2 truncate rounded-xl border border-line bg-white px-3 py-2 text-2xl" style={{ fontFamily: f.css }}>
-          Aa · {cfg.displayName || f.name}
+        <p className="mt-2 truncate rounded-xl border border-line bg-white px-3 py-2 text-2xl" style={{ fontFamily: f.css }}><Tr s={"Aa ·"} />{" "}{cfg.displayName || f.name}
         </p>
       </Row>
     );
@@ -255,7 +255,7 @@ export function DesignEditor({
           const has = (FONTS[fontKey].w as readonly number[]).includes(w);
           return (
             <button key={w} type="button" onClick={() => setD({ [k]: w })} className={`rounded-full border px-3 py-1.5 text-xs transition ${val(k) === w ? "border-ink bg-ink text-cream" : "border-line bg-white hover:border-ink/30"} ${has ? "" : "opacity-40"}`} title={has ? undefined : "Esta letra no tiene este grosor: se verá el más parecido"}>
-              {({ 300: "Fina", 400: "Normal", 500: "Media", 600: "Semi", 700: "Negrita" } as Record<number, string>)[w]}
+              <Tr s={({ 300: "Fina", 400: "Normal", 500: "Media", 600: "Semi", 700: "Negrita" } as Record<number, string>)[w]} />
             </button>
           );
         })}
@@ -294,7 +294,7 @@ export function DesignEditor({
       <section className="card p-5 sm:p-6">
         {only ? (
           <>
-            <p className="font-semibold">Qué diseñas</p>
+            <p className="font-semibold"><Tr s={"Qué diseñas"} /></p>
             <div role="radiogroup" aria-label="Qué diseñas" className="mt-2 grid grid-cols-2 gap-1 rounded-2xl bg-sand p-1 text-sm">
               {[
                 { key: only.key, label: `Solo «${only.label}»` },
@@ -308,19 +308,19 @@ export function DesignEditor({
                   onClick={() => setTarget(t.key)}
                   className={`truncate rounded-xl px-3 py-2 font-medium transition ${target === t.key ? "bg-white shadow-soft" : "text-muted hover:text-ink"}`}
                 >
-                  {t.label}
+                  <Tr s={t.label} />
                 </button>
               ))}
             </div>
           </>
         ) : (
           <>
-            <label htmlFor="design-target" className="font-semibold">Qué diseñas</label>
+            <label htmlFor="design-target" className="font-semibold"><Tr s={"Qué diseñas"} /></label>
             <select id="design-target" className="input mt-2 h-11" value={target} onChange={(e) => setTarget(e.target.value)}>
               {targets.map((t) => (
                 <option key={t.key} value={t.key}>
                   {t.label}
-                  {t.key !== "general" && cfg.pageThemes[t.key] ? " · con diseño propio" : ""}
+                  {t.key !== "general" && cfg.pageThemes[t.key] ? <Tr s={" · con diseño propio"} /> : ""}
                 </option>
               ))}
             </select>
@@ -328,7 +328,7 @@ export function DesignEditor({
         )}
         <p className="mt-2 text-xs text-muted">
           {target === "general"
-            ? "Lo que cambies aquí sale en todas las páginas. Luego, en cada página, puedes cambiar solo lo que quieras."
+            ? <Tr s={"Lo que cambies aquí sale en todas las páginas. Luego, en cada página, puedes cambiar solo lo que quieras."} />
             : `Solo para «${targetLabel}». Lo que no toques sigue el diseño de toda la web (los cambios propios llevan un punto dorado).`}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -344,7 +344,7 @@ export function DesignEditor({
             }}
             className="btn btn-ghost btn-sm"
           >
-            <RotateCcw className="h-3.5 w-3.5" /> {target === "general" ? "Empezar de cero" : "Como toda la web"}
+            <RotateCcw className="h-3.5 w-3.5" /> {target === "general" ? <Tr s={"Empezar de cero"} /> : <Tr s={"Como toda la web"} />}
           </button>
         </div>
       </section>
@@ -352,19 +352,19 @@ export function DesignEditor({
 
       {!panel && target !== "general" && pieceTools && (
         <section className="card p-5 sm:p-6">
-          <h3 className="font-semibold">Solo una tarjeta, una foto o un botón</h3>
+          <h3 className="font-semibold"><Tr s={"Solo una tarjeta, una foto o un botón"} /></h3>
           <p className="mt-1 text-xs text-muted">
             {pieceTools.canPick
-              ? "Toca en tu web una tarjeta, un panel dorado, una foto o un botón y cámbiale solo a esa pieza la forma, los colores, el marco o la geometría."
-              : "Esta página aún no se ve en la web: cuando esté publicada, sale de verdad en la vista en vivo y puedes tocar sus tarjetas y botones."}
+              ? <Tr s={"Toca en tu web una tarjeta, un panel dorado, una foto o un botón y cámbiale solo a esa pieza la forma, los colores, el marco o la geometría."} />
+              : <Tr s={"Esta página aún no se ve en la web: cuando esté publicada, sale de verdad en la vista en vivo y puedes tocar sus tarjetas y botones."} />}
           </p>
           {pieces.length > 0 && (
             <ul className="mt-3 space-y-1.5">
               {pieces.map(([id, p]) => (
                 <li key={id} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm">
-                  <span className="shrink-0 rounded-full bg-sand px-2 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide text-muted">{PIECE_KIND_LABEL[p.kind]}</span>
+                  <span className="shrink-0 rounded-full bg-sand px-2 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide text-muted"><Tr s={PIECE_KIND_LABEL[p.kind]} /></span>
                   <button type="button" onClick={() => pieceTools.open({ id, kind: p.kind, label: p.label, img: p.kind === "photo" ? false : undefined })} className="min-w-0 flex-1 truncate text-left hover:underline">
-                    {p.label || "Sin texto"}
+                    {p.label || <Tr s={"Sin texto"} />}
                   </button>
                   <button type="button" onClick={() => dropPiece(id)} className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted hover:bg-sand hover:text-rose" aria-label="Quitar lo propio de esta pieza" title="Quitar lo propio (vuelve a ser como el resto)">
                     <Trash2 className="h-3.5 w-3.5" />
@@ -379,10 +379,9 @@ export function DesignEditor({
       {!scope && !groups && (
       <section className="card p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-semibold">Mis plantillas</h3>
+          <h3 className="font-semibold"><Tr s={"Mis plantillas"} /></h3>
           <button type="button" onClick={(e) => saveAs(e.currentTarget)} className="btn btn-outline btn-sm">
-            <Save className="h-3.5 w-3.5" /> Guardar este diseño como plantilla
-          </button>
+            <Save className="h-3.5 w-3.5" />{" "}<Tr s={"Guardar este diseño como plantilla"} /></button>
         </div>
         {cfg.designs.length ? (
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -394,8 +393,7 @@ export function DesignEditor({
                 <p className="mt-2 truncate text-sm font-semibold">{d.name}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-1">
                   <button type="button" onClick={() => apply(d.theme)} className="inline-flex items-center gap-1 rounded-full bg-ink px-2.5 py-1 text-[0.7rem] font-semibold text-cream">
-                    <Check className="h-3 w-3" /> Aplicar
-                  </button>
+                    <Check className="h-3 w-3" />{" "}<Tr s={"Aplicar"} /></button>
                   <button
                     type="button"
                     aria-label="Renombrar"
@@ -435,7 +433,7 @@ export function DesignEditor({
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-sm text-muted">Aún no tienes plantillas. Diseña abajo a tu gusto y guárdalo con un nombre: luego lo aplicas a toda la web o a cualquier página con un clic.</p>
+          <p className="mt-2 text-sm text-muted"><Tr s={"Aún no tienes plantillas. Diseña abajo a tu gusto y guárdalo con un nombre: luego lo aplicas a toda la web o a cualquier página con un clic."} /></p>
         )}
       </section>
       )}
@@ -468,12 +466,12 @@ export function DesignEditor({
           <div className="space-y-3">
             {(Object.keys(DECOR_GROUPS) as DecorGroup[]).map((g) => (
               <div key={g}>
-                <p className="mb-1.5 text-[0.7rem] font-semibold uppercase tracking-wider text-muted">{DECOR_GROUPS[g]}</p>
+                <p className="mb-1.5 text-[0.7rem] font-semibold uppercase tracking-wider text-muted"><Tr s={DECOR_GROUPS[g]} /></p>
                 <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
                   {DECORS.filter((d) => d.group === g).map((d) => (
                     <button key={d.key} type="button" onClick={() => setD({ decor: d.key })} className={`flex items-center justify-between gap-1 rounded-xl border px-3 py-2 text-left text-xs transition ${val("decor") === d.key ? "border-ink bg-ink text-cream" : "border-line bg-white hover:border-ink/30"}`}>
                       {d.name}
-                      {d.moves && <span className="text-[0.6rem] opacity-60">se mueve</span>}
+                      {d.moves && <span className="text-[0.6rem] opacity-60"><Tr s={"se mueve"} /></span>}
                     </button>
                   ))}
                 </div>
@@ -541,9 +539,7 @@ export function DesignEditor({
 
       {!panel && (
       <Group title="Paneles dorados" when={show("paneles")}>
-        <p className="pt-1 text-xs text-muted">
-          Los recuadros con doble borde dorado y estrellitas ✦: «Qué incluye» de las fichas, los textos de las páginas de tus métodos, las cartas de las lecturas y el panel de cada ficha.
-        </p>
+        <p className="pt-1 text-xs text-muted"><Tr s={"Los recuadros con doble borde dorado y estrellitas ✦: «Qué incluye» de las fichas, los textos de las páginas de tus métodos, las cartas de las lecturas y el panel de cada ficha."} /></p>
         {toggle("panelCustom", "Diseñar los paneles a mano", "Apagado: con su doble borde dorado de siempre.")}
         {!!val("panelCustom") && (
           <>
@@ -622,21 +618,22 @@ export function DesignEditor({
 
 /** Una fila: su nombre y, en una página con un cambio propio, «Como toda la web». */
 function Row({ label, changed, onReset, children, hint, resetLabel = "Como toda la web" }: { label: string; changed: boolean; onReset: () => void; children: ReactNode; hint?: string; resetLabel?: string }) {
+  const t = useT();
   return (
     <div className="py-2.5">
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-sm font-medium">
-          {changed && <span className="h-1.5 w-1.5 rounded-full bg-gold" title="Cambiado solo en esta página" />}
-          {label}
+          {changed && <span className="h-1.5 w-1.5 rounded-full bg-gold" title={t("Cambiado solo en esta página")} />}
+          <Tr s={label} />
         </span>
         {changed && (
           <button type="button" onClick={onReset} className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink">
-            <Undo2 className="h-3 w-3" /> {resetLabel}
+            <Undo2 className="h-3 w-3" /> <Tr s={resetLabel} />
           </button>
         )}
       </div>
       {children}
-      {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-muted"><Tr s={hint} /></p>}
     </div>
   );
 }
@@ -658,7 +655,7 @@ export function FramePicker({
     <div className="space-y-3">
       {groups.map((g) => (
         <div key={g}>
-          <p className="mb-1.5 text-[0.7rem] font-semibold uppercase tracking-wider text-muted">{FRAME_GROUPS[g]}</p>
+          <p className="mb-1.5 text-[0.7rem] font-semibold uppercase tracking-wider text-muted"><Tr s={FRAME_GROUPS[g]} /></p>
           <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
             {Object.entries(items)
               .filter(([, f]) => f.group === g)
@@ -708,7 +705,7 @@ function Group({ title, children, when = true }: { title: string; children: Reac
     <details open className="card group p-5 sm:p-6">
       <summary className="flex cursor-pointer list-none items-center justify-between font-semibold">
         {title}
-        <span className="text-xs font-normal text-muted group-open:hidden">Abrir</span>
+        <span className="text-xs font-normal text-muted group-open:hidden"><Tr s={"Abrir"} /></span>
       </summary>
       <div className="mt-2 divide-y divide-line">{children}</div>
     </details>

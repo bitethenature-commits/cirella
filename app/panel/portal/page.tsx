@@ -11,10 +11,12 @@ import { purgeOldPortalItems } from "@/lib/portal-purge";
 import { isPersonalMode } from "@/lib/site-mode";
 import { formatDate } from "@/lib/tz";
 import { NEWS_DAY_OPTIONS } from "../actualidades/options";
-import { sectionPagePath } from "@/lib/site-sections";
+import { homeFoldPath } from "@/lib/site-sections";
 import { tenantDb } from "@/lib/tenant";
 import { Badge, PageHeader } from "../ui";
 import { deletePortalItem, movePortalItem, setPortalDays, togglePortalItem } from "./actions";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Portal de Noticias" };
 
@@ -23,6 +25,7 @@ export const metadata: Metadata = { title: "Portal de Noticias" };
  * (vídeo, audio, fotos, directo de Zoom o aviso Early Bird). Lista, orden, destacado y estado.
  */
 export default async function PortalAdminPage({ searchParams }: { searchParams: Promise<{ borrado?: string; dias?: string }> }) {
+  const t = await getT();
   const { creator } = await requireCreator();
   const sp = await searchParams;
   // Los que ya pasan de sus días se borran al entrar (y el cron lo hace cada pocos minutos).
@@ -35,18 +38,16 @@ export default async function PortalAdminPage({ searchParams }: { searchParams: 
   return (
     <div>
       <PageHeader
-        title="Portal de Noticias"
-        subtitle="Gratis, pero solo para quien está suscrita a tu newsletter y tiene cuenta en tu web. El destacado sale en grande en tu portada y los dos siguientes, debajo."
+        title={t("Portal de Noticias")}
+        subtitle={t("Gratis, pero solo para quien está suscrita a tu newsletter y tiene cuenta en tu web. El destacado sale en grande en tu portada y los dos siguientes, debajo.")}
         actions={
           <>
             {personal && (
-              <Link href={sectionPagePath(creator.username, "portal", true)} target="_blank" className="btn btn-outline">
-                <ExternalLink className="h-4 w-4" /> Ver el portal
-              </Link>
+              <Link href={homeFoldPath(creator.username, "portal", true)} target="_blank" className="btn btn-outline">
+                <ExternalLink className="h-4 w-4" />{" "}<Tr s={"Ver el portal"} /></Link>
             )}
             <Link href="/panel/portal/nuevo" className="btn btn-primary">
-              <Plus className="h-4 w-4" /> Nuevo
-            </Link>
+              <Plus className="h-4 w-4" />{" "}<Tr s={"Nuevo"} /></Link>
           </>
         }
       />
@@ -54,9 +55,7 @@ export default async function PortalAdminPage({ searchParams }: { searchParams: 
       {sp.dias != null && <Flash ok={Number(sp.dias) > 0 ? `Guardado. Se han borrado ${sp.dias} ${sp.dias === "1" ? "portal viejo" : "portales viejos"}.` : "Guardado."} />}
       {!personal && <Flash error="El portal se desbloquea con tu newsletter, que solo existe en la web personal: aquí no se enseña." />}
       {items.length === 0 ? (
-        <EmptyState icon={<Lock className="h-5 w-5" />} title="Publica lo primero de tu portal" action={<Link href="/panel/portal/nuevo" className="btn btn-primary">Nuevo</Link>}>
-          Un vídeo, un audio, unas fotos, el enlace de un directo o un aviso Early Bird. Quien quiera verlo se suscribe a tu newsletter desde el candado.
-        </EmptyState>
+        <EmptyState icon={<Lock className="h-5 w-5" />} title={t("Publica lo primero de tu portal")} action={<Link href="/panel/portal/nuevo" className="btn btn-primary"><Tr s={"Nuevo"} /></Link>}><Tr s={"Un vídeo, un audio, unas fotos, el enlace de un directo o un aviso Early Bird. Quien quiera verlo se suscribe a tu newsletter desde el candado."} /></EmptyState>
       ) : (
         <>
         {main && <MainPreview item={main} />}
@@ -68,22 +67,20 @@ export default async function PortalAdminPage({ searchParams }: { searchParams: 
               <Hourglass className="h-5 w-5" />
             </span>
             <div>
-              <h2 id="portal-dias-t" className="font-semibold">
-                Los portales se borran a los…
-              </h2>
-              <p className="text-xs text-muted">Cuenta desde que se publican. Se borran del todo, con su vídeo, audio o fotos: no se pueden recuperar. La principal y los borradores no se tocan.</p>
+              <h2 id="portal-dias-t" className="font-semibold"><Tr s={"Los portales se borran a los…"} /></h2>
+              <p className="text-xs text-muted"><Tr s={"Cuenta desde que se publican. Se borran del todo, con su vídeo, audio o fotos: no se pueden recuperar. La principal y los borradores no se tocan."} /></p>
             </div>
           </div>
           <form action={setPortalDays} className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
             {NEWS_DAY_OPTIONS.map((n) => (
               <button key={n} name="days" value={n} className={`studio-pick flex flex-col items-center gap-0.5 rounded-2xl border px-1 py-3 text-center transition ${days === n ? "is-on" : "border-line"}`} aria-pressed={days === n}>
                 <span className={`font-serif text-[1.6rem] leading-none ${days === n ? "text-gold" : ""}`}>{n === 0 ? "∞" : n}</span>
-                <span className="text-[0.68rem] text-muted">{n === 0 ? "No se borran" : "días"}</span>
+                <span className="text-[0.68rem] text-muted">{n === 0 ? t("No se borran") : t("días")}</span>
               </button>
             ))}
           </form>
         </section>
-        <h2 className="mb-3 mt-8 font-semibold">Todo el portal</h2>
+        <h2 className="mb-3 mt-8 font-semibold"><Tr s={"Todo el portal"} /></h2>
         <ul className="space-y-2.5">
           {items.map((it, i) => {
             const kind = asPortalKind(it.kind);
@@ -116,26 +113,26 @@ export default async function PortalAdminPage({ searchParams }: { searchParams: 
                 </div>
                 <Link href={`/panel/portal/${it.id}`} className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 truncate font-semibold">
-                    {it.featured && <Star className="h-3.5 w-3.5 shrink-0 fill-current text-gold" aria-label="Destacado" />}
+                    {it.featured && <Star className="h-3.5 w-3.5 shrink-0 fill-current text-gold" aria-label={t("Destacado")} />}
                     {it.title}
                   </p>
                   <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted">
                     <CalendarDays className="h-3 w-3 shrink-0" />
-                    {formatDate(it.publishedAt ?? it.createdAt, undefined, creator.timezone)} · {PORTAL_KIND_LABEL[kind]}
+                    {formatDate(it.publishedAt ?? it.createdAt, undefined, creator.timezone)} · <Tr s={PORTAL_KIND_LABEL[kind]} />
                     {it.eventAt ? ` · ${eventLabel(it.eventAt, creator.timezone)}` : ""}
                     {files ? ` · ${files} ${files === 1 ? "archivo" : "archivos"}` : ""}
                   </p>
                   <div className="mt-1.5">
-                    <Badge tone={it.status === "PUBLISHED" ? "success" : "warning"}>{it.status === "PUBLISHED" ? "Publicado" : "Borrador"}</Badge>
+                    <Badge tone={it.status === "PUBLISHED" ? "success" : "warning"}>{it.status === "PUBLISHED" ? t("Publicado") : t("Borrador")}</Badge>
                   </div>
                 </Link>
                 <div className="flex shrink-0 flex-wrap justify-end gap-1">
                   <form action={togglePortalItem} className="hidden sm:block">
                     <input type="hidden" name="id" value={it.id} />
-                    <button className="btn btn-ghost btn-sm">{it.status === "PUBLISHED" ? "Pasar a borrador" : "Publicar"}</button>
+                    <button className="btn btn-ghost btn-sm">{it.status === "PUBLISHED" ? t("Pasar a borrador") : t("Publicar")}</button>
                   </form>
                   <Link href={`/panel/portal/${it.id}`} className="btn btn-outline btn-sm">
-                    <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Editar</span>
+                    <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline"><Tr s={"Editar"} /></span>
                   </Link>
                   <DeleteButton action={deletePortalItem} id={it.id} what={it.title} message={`¿Borrar «${it.title}» del portal, con sus archivos? No se puede deshacer.`} />
                 </div>
@@ -145,8 +142,7 @@ export default async function PortalAdminPage({ searchParams }: { searchParams: 
         </ul>
         </>
       )}
-      <p className="mt-6 text-xs text-muted">
-        La sección «Portal de Noticias» se puede mover u ocultar desde <Link href="/panel/pagina" className="underline underline-offset-2">Mi página → Secciones</Link>.
+      <p className="mt-6 text-xs text-muted"><Tr s={"La sección «Portal de Noticias» se puede mover u ocultar desde"} />{" "}<Link href="/panel/pagina" className="underline underline-offset-2"><Tr s={"Mi página → Secciones"} /></Link>.
       </p>
     </div>
   );
@@ -185,19 +181,18 @@ function MainPreview({ item }: { item: PublicPortalItem }) {
       <div className="self-center p-5">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
           <Star className="h-3.5 w-3.5 fill-current text-gold" aria-hidden />
-          <span className="font-semibold uppercase tracking-[0.14em] text-gold">Principal</span>
-          <span>· {PORTAL_KIND_LABEL[item.kind]}</span>
-          {item.eventLabel && <span>· {item.eventLabel}</span>}
+          <span className="font-semibold uppercase tracking-[0.14em] text-gold"><Tr s={"Principal"} /></span>
+          <span>· <Tr s={PORTAL_KIND_LABEL[item.kind]} /></span>
+          {item.eventLabel && <span>· <Tr s={item.eventLabel} /></span>}
         </div>
         <h2 id="portal-main-t" className="mt-2 font-serif text-[1.35rem] leading-tight">
           {item.title}
         </h2>
-        {item.summary && <p className="mt-1.5 text-sm text-muted">{item.summary}</p>}
+        {item.summary && <p className="mt-1.5 text-sm text-muted"><Tr s={item.summary} /></p>}
         {item.kind === "AUDIO" && file && <CalmAudio src={file.url} preload="none" title={item.title} className="mt-4" />}
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Link href={`/panel/portal/${item.id}`} className="btn btn-outline btn-sm">
-            <Pencil className="h-3.5 w-3.5" /> Editar
-          </Link>
+            <Pencil className="h-3.5 w-3.5" />{" "}<Tr s={"Editar"} /></Link>
           <DeleteButton action={deletePortalItem} id={item.id} what={item.title} variant="link" message={`¿Borrar «${item.title}» del portal, con sus archivos? No se puede deshacer.`} />
         </div>
       </div>

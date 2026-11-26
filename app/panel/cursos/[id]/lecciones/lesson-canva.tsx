@@ -42,6 +42,7 @@ import { CourseCanvaShell, type CanvaCourse, type CanvaPanel } from "./course-ca
 import { CourseDesignPanel, PieceDesignPanel, useCourseLook } from "./design-panel";
 import { BlockBar, BlockEdit, MediaBar } from "./piece-edit";
 import { InlineRich } from "./inline-rich";
+import { Tr } from "@/lib/i18n/client";
 
 export type CanvaLesson = {
   id: string;
@@ -82,8 +83,10 @@ const MAIN_BUTTONS: { model: ModelKind; label: string }[] = [
   { model: "lunar", label: "Luna" },
   { model: "runes", label: "Runas" },
   { model: "oracle", label: "Oráculo" },
-  { model: "geometry", label: "Geometría sagrada" },
+  { model: "sacred", label: "Geometría sagrada" },
+  { model: "geometry", label: "Frase con geometría" },
   { model: "kundalini", label: "Kundalini" },
+  { model: "dimensions", label: "Dimensiones del ser" },
 ];
 
 const MEDIA_BUTTONS: { add: AddPartKind; label: string; icon: LucideIcon }[] = [
@@ -237,7 +240,7 @@ export function LessonCanva({
 }) {
   const router = useRouter();
   const base = `/panel/cursos/${course.id}/lecciones`;
-  const viewHref = `/cuenta/cursos/${course.id}?leccion=${lesson.id}`;
+  const viewHref = `/area/courses/${course.id}?leccion=${lesson.id}`;
   const dripByLesson = course.drip.mode === "LESSON";
 
   const [title, setTitle] = useState(lesson.title);
@@ -677,9 +680,9 @@ export function LessonCanva({
     const pp = toPlayer(p, fileById);
     if (!pp)
       return p.kind === "EMBED" ? (
-        <Empty onClick={() => select(p)}>Vídeo sin enlace: pega el de YouTube o Vimeo en la barrita de arriba.</Empty>
+        <Empty onClick={() => select(p)}><Tr s={"Vídeo sin enlace: pega el de YouTube o Vimeo en la barrita de arriba."} /></Empty>
       ) : (
-        <Empty>Este archivo ya no está en los materiales del curso: quítalo de la lección.</Empty>
+        <Empty><Tr s={"Este archivo ya no está en los materiales del curso: quítalo de la lección."} /></Empty>
       );
     return <LessonParts parts={[pp]} lessonTitle={title} courseTitle={courseTitle} poster={course.imageUrl} personal={course.personal} />;
   };
@@ -739,18 +742,18 @@ export function LessonCanva({
 
   const addBar = (
     <div data-canva-ui className="mt-10 rounded-3xl border border-dashed border-gold/45 p-4 sm:p-5" data-lesson-add>
-      <p className="text-sm font-semibold">{hasChapters ? `Añadir al capítulo ${ch + 1}` : "Añadir a la lección"}</p>
+      <p className="text-sm font-semibold">{hasChapters ? `Añadir al capítulo ${ch + 1}` : <Tr s={"Añadir a la lección"} />}</p>
       {room > 0 ? (
         <>
-          <p className="mt-3 text-[0.66rem] font-semibold uppercase tracking-[0.18em] text-muted">Texto</p>
+          <p className="mt-3 text-[0.66rem] font-semibold uppercase tracking-[0.18em] text-muted"><Tr s={"Texto"} /></p>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {TEXT_BUTTONS.map((b) => (
               <button key={b.as} type="button" className="btn btn-outline h-auto min-h-14 px-2 py-2" onClick={() => addText(b.as)}>
-                <span className={b.cls}>{b.label}</span>
+                <span className={b.cls}><Tr s={b.label} /></span>
               </button>
             ))}
           </div>
-          <p className="mt-4 text-[0.66rem] font-semibold uppercase tracking-[0.18em] text-muted">Vídeo, audio y archivos</p>
+          <p className="mt-4 text-[0.66rem] font-semibold uppercase tracking-[0.18em] text-muted"><Tr s={"Vídeo, audio y archivos"} /></p>
           <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
             {MEDIA_BUTTONS.map((b) => (
               <button
@@ -760,41 +763,41 @@ export function LessonCanva({
                 className="btn btn-outline h-auto min-h-14 flex-col gap-1 px-1 py-2 text-xs aria-pressed:border-gold aria-pressed:text-gold"
                 onClick={() => setPanel((cur) => (cur?.kind === "add" && cur.add === b.add ? null : { kind: "add", add: b.add }))}
               >
-                <b.icon className="h-5 w-5" /> {b.label}
+                <b.icon className="h-5 w-5" /> <Tr s={b.label} />
               </button>
             ))}
           </div>
-          <p className="mt-4 text-[0.66rem] font-semibold uppercase tracking-[0.18em] text-muted">Modelos principales</p>
+          <p className="mt-4 text-[0.66rem] font-semibold uppercase tracking-[0.18em] text-muted"><Tr s={"Modelos principales"} /></p>
           <div className="mt-2 flex flex-wrap gap-2">
             {MAIN_BUTTONS.map((b) => (
               <button key={b.model} type="button" className="btn btn-outline btn-sm" title={MODEL_LABEL[b.model]} onClick={() => addBlock("MAIN", b.model)}>
-                <Sparkles className="h-4 w-4" /> {b.label}
+                <Sparkles className="h-4 w-4" /> <Tr s={b.label} />
               </button>
             ))}
           </div>
-          <p className="mt-4 text-[0.66rem] font-semibold uppercase tracking-[0.18em] text-muted">Otros modelos</p>
+          <p className="mt-4 text-[0.66rem] font-semibold uppercase tracking-[0.18em] text-muted"><Tr s={"Otros modelos"} /></p>
           <div className="mt-2 flex flex-wrap gap-2">
             {(["MODEL", "CHART", "MYCHART", "TODAY"] as const).map((k) => (
               <button key={k} type="button" className="btn btn-outline btn-sm" onClick={() => addBlock(k)}>
-                <Sparkles className="h-4 w-4" /> {BLOCK_LABEL[k]}
+                <Sparkles className="h-4 w-4" /> <Tr s={BLOCK_LABEL[k]} />
               </button>
             ))}
           </div>
-          <p className="mt-4 text-[0.66rem] font-semibold uppercase tracking-[0.18em] text-muted">Para repasar</p>
+          <p className="mt-4 text-[0.66rem] font-semibold uppercase tracking-[0.18em] text-muted"><Tr s={"Para repasar"} /></p>
           <div className="mt-2 flex flex-wrap gap-2">
             {(["QUIZ", "GLOSSARY"] as const).map((k) => (
               <button key={k} type="button" className="btn btn-outline btn-sm" onClick={() => addBlock(k)}>
-                <Sparkles className="h-4 w-4" /> {BLOCK_LABEL[k]}
+                <Sparkles className="h-4 w-4" /> <Tr s={BLOCK_LABEL[k]} />
               </button>
             ))}
           </div>
         </>
       ) : (
-        <p className="mt-2 text-sm text-muted">Una lección puede tener hasta {MAX_LESSON_PARTS} partes. Para más, crea otra lección.</p>
+        <p className="mt-2 text-sm text-muted"><Tr s={"Una lección puede tener hasta"} />{" "}{MAX_LESSON_PARTS}{" "}<Tr s={"partes. Para más, crea otra lección."} /></p>
       )}
       {note && (
         <p className="mt-3 text-xs text-muted" aria-live="polite">
-          {note}
+          <Tr s={note} />
         </p>
       )}
     </div>
@@ -815,8 +818,7 @@ export function LessonCanva({
       title={hasChapters ? `Un capítulo nuevo detrás del ${ch + 1}` : "Lo que ya tiene la lección pasa a ser el capítulo 1"}
       onClick={() => addBlock("CHAPTER")}
     >
-      <Plus className="h-4 w-4" /> Añadir capítulo
-    </button>
+      <Plus className="h-4 w-4" />{" "}<Tr s={"Añadir capítulo"} /></button>
   );
 
   const body = hasChapters ? (
@@ -837,28 +839,26 @@ export function LessonCanva({
               </>
             }
           >
-            <p className="eyebrow">
-              Capítulo {ch + 1} de {markers.length}
+            <p className="eyebrow"><Tr s={"Capítulo"} />{" "}{ch + 1}{" "}<Tr s={"de"} />{" "}{markers.length}
             </p>
             <h3 className="display mt-1 text-[1.9rem] leading-tight">
               <EditText value={chData.title} placeholder="Título del capítulo" onCommit={(v) => setChapterTitle(chapterPart.key, v)} />
             </h3>
           </CanvaPiece>
         )}
-        <div className="mt-5 space-y-8">{chapterParts.length ? chapterParts.map((p) => editable(p)) : <p className="text-muted">Este capítulo aún no tiene contenido.</p>}</div>
+        <div className="mt-5 space-y-8">{chapterParts.length ? chapterParts.map((p) => editable(p)) : <p className="text-muted"><Tr s={"Este capítulo aún no tiene contenido."} /></p>}</div>
         {addBar}
         <div className="mt-8 flex flex-wrap items-center gap-2 border-t border-line pt-5">
           {ch > 0 && (
             <button type="button" className="btn btn-primary btn-sm" onClick={() => setChapter(ch - 1)}>
-              <ArrowLeft className="h-4 w-4" /> Cap. {ch} · {chapterOf(ch - 1).title}
+              <ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Cap."} />{" "}{ch} · {chapterOf(ch - 1).title}
             </button>
           )}
           {ch < markers.length - 1 && (
-            <button type="button" className="btn btn-primary btn-sm ml-auto" onClick={() => setChapter(ch + 1)}>
-              Cap. {ch + 2} · {chapterOf(ch + 1).title} <ArrowRight className="h-4 w-4" />
+            <button type="button" className="btn btn-primary btn-sm ml-auto" onClick={() => setChapter(ch + 1)}><Tr s={"Cap."} />{" "}{ch + 2} · {chapterOf(ch + 1).title} <ArrowRight className="h-4 w-4" />
             </button>
           )}
-          {ch === markers.length - 1 && <p className="ml-auto text-sm text-muted">Has llegado al final de la lección ✦</p>}
+          {ch === markers.length - 1 && <p className="ml-auto text-sm text-muted"><Tr s={"Has llegado al final de la lección ✦"} /></p>}
         </div>
         <div className="mt-4">{addChapter}</div>
       </div>
@@ -868,12 +868,12 @@ export function LessonCanva({
       {flat.length ? (
         <div className="space-y-8">{flat.map((p) => editable(p))}</div>
       ) : (
-        !lead && <p className="text-muted">Esta lección aún está vacía. Añade un título, un texto, un vídeo, un audio, un PDF o una imagen.</p>
+        !lead && <p className="text-muted"><Tr s={"Esta lección aún está vacía. Añade un título, un texto, un vídeo, un audio, un PDF o una imagen."} /></p>
       )}
       {addBar}
       <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line pt-5">
         {addChapter}
-        <span className="text-xs text-muted">Para una lección larga: lo que ya tiene pasa a ser el capítulo 1.</span>
+        <span className="text-xs text-muted"><Tr s={"Para una lección larga: lo que ya tiene pasa a ser el capítulo 1."} /></span>
       </div>
     </>
   );
@@ -884,28 +884,28 @@ export function LessonCanva({
     <span className="inline-flex shrink-0 items-center gap-1.5 px-1 text-xs" role="status">
       {uploading ? (
         <>
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> <span className="hidden sm:inline">Subiendo…</span>
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> <span className="hidden sm:inline"><Tr s={"Subiendo…"} /></span>
         </>
       ) : save.kind === "error" ? (
         <button type="button" onClick={() => void doSave()} className="inline-flex items-center gap-1.5 font-semibold text-[#d0675b]" title={`No se ha guardado: ${save.error} Toca para reintentar.`}>
-          <TriangleAlert className="h-3.5 w-3.5 shrink-0" /> <span className="hidden max-w-[16rem] truncate sm:inline">No se ha guardado: {save.error}</span>
+          <TriangleAlert className="h-3.5 w-3.5 shrink-0" /> <span className="hidden max-w-[16rem] truncate sm:inline"><Tr s={"No se ha guardado:"} />{" "}<Tr s={save.error} /></span>
         </button>
       ) : lookError ? (
         <button type="button" onClick={() => void courseLook.flush()} className="inline-flex items-center gap-1.5 font-semibold text-[#d0675b]" title={`No se ha guardado el diseño: ${lookError}. Toca para reintentar.`}>
-          <TriangleAlert className="h-3.5 w-3.5 shrink-0" /> <span className="hidden max-w-[16rem] truncate sm:inline">No se ha guardado el diseño</span>
+          <TriangleAlert className="h-3.5 w-3.5 shrink-0" /> <span className="hidden max-w-[16rem] truncate sm:inline"><Tr s={"No se ha guardado el diseño"} /></span>
         </button>
       ) : !canSave ? (
-        <span className="font-semibold text-[#e9cc8e]">Ponle un título</span>
+        <span className="font-semibold text-[#e9cc8e]"><Tr s={"Ponle un título"} /></span>
       ) : save.kind === "saving" || dirty || leaving || pendingLook ? (
         <>
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> <span className="hidden sm:inline">Guardando…</span>
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> <span className="hidden sm:inline"><Tr s={"Guardando…"} /></span>
         </>
       ) : save.kind === "saved" || courseLook.state.kind === "saved" ? (
         <>
-          <Check className="h-3.5 w-3.5 text-emerald-500" /> <span className="hidden sm:inline">Guardado</span>
+          <Check className="h-3.5 w-3.5 text-emerald-500" /> <span className="hidden sm:inline"><Tr s={"Guardado"} /></span>
         </>
       ) : (
-        <span className="hidden max-w-[20rem] opacity-70 2xl:inline">Escribe encima de la lección: se guarda sola</span>
+        <span className="hidden max-w-[20rem] opacity-70 2xl:inline"><Tr s={"Escribe encima de la lección: se guarda sola"} /></span>
       )}
     </span>
   );
@@ -962,16 +962,12 @@ export function LessonCanva({
   }
 
   const notice = warning ? (
-    <p>{warning}</p>
+    <p><Tr s={warning} /></p>
   ) : !published ? (
     <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
       <span>
-        <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#e9cc8e] align-middle" aria-hidden />
-        Esta lección está en borrador: tus alumnas aún no la ven.
-      </span>
-      <button type="button" className="font-semibold text-[#e9cc8e] underline-offset-2 hover:underline" onClick={() => setPublished(true)}>
-        Publicarla
-      </button>
+        <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#e9cc8e] align-middle" aria-hidden /><Tr s={"Esta lección está en borrador: tus alumnas aún no la ven."} /></span>
+      <button type="button" className="font-semibold text-[#e9cc8e] underline-offset-2 hover:underline" onClick={() => setPublished(true)}><Tr s={"Publicarla"} /></button>
     </p>
   ) : null;
 
@@ -1013,15 +1009,14 @@ export function LessonCanva({
                     return pp ? (
                       <LeadPart key={lead.key} part={pp} lessonTitle={title} poster={course.imageUrl} personal={course.personal} />
                     ) : (
-                      <Empty onClick={() => select(lead)}>Vídeo sin enlace: pega el de YouTube o Vimeo en la barrita de arriba.</Empty>
+                      <Empty onClick={() => select(lead)}><Tr s={"Vídeo sin enlace: pega el de YouTube o Vimeo en la barrita de arriba."} /></Empty>
                     );
                   })()}
                 </div>,
               )}
             {/* «Lección 3 de 9» y, a su lado, el estado (borrador o publicada) y eliminarla. */}
             <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${lead ? "mt-6" : ""}`}>
-              <p className="eyebrow">
-                Lección {place.number} de {place.total}
+              <p className="eyebrow"><Tr s={"Lección"} />{" "}{place.number}{" "}<Tr s={"de"} />{" "}{place.total}
               </p>
               <div className="flex flex-wrap items-center gap-1.5" data-canva-ui>
                 <div className="inline-flex h-7 items-center rounded-full bg-white/90 p-0.5 shadow-soft ring-1 ring-black/5" role="radiogroup" aria-label="Estado de la lección">
@@ -1038,7 +1033,7 @@ export function LessonCanva({
                         className={`inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[0.7rem] font-semibold transition ${on ? (v ? "bg-[#e7f3ec] text-[#2f6b4a]" : "bg-[#f8efdc] text-[#8a6420]") : "text-muted hover:text-ink"}`}
                       >
                         {on && <span className={`h-1.5 w-1.5 rounded-full ${v ? "bg-[#2f6b4a]" : "bg-[#c99a3c]"}`} />}
-                        {v ? "Publicada" : "Borrador"}
+                        {v ? <Tr s={"Publicada"} /> : <Tr s={"Borrador"} />}
                       </button>
                     );
                   })}
@@ -1050,8 +1045,7 @@ export function LessonCanva({
                   className="inline-flex h-7 items-center gap-1.5 rounded-full bg-white/90 px-3 text-[0.7rem] font-semibold text-[#b4473b] shadow-soft ring-1 ring-black/5 transition hover:bg-[#fbeeee] disabled:opacity-60"
                   title="Eliminar esta lección"
                 >
-                  {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />} Eliminar
-                </button>
+                  {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}{" "}<Tr s={"Eliminar"} /></button>
                 {hasLookPatch(design) && (
                   <button
                     type="button"
@@ -1062,8 +1056,7 @@ export function LessonCanva({
                     className="inline-flex h-7 items-center gap-1.5 rounded-full border border-gold/40 px-2.5 text-[0.7rem] font-semibold text-gold"
                     title="Esta lección lleva su propio diseño"
                   >
-                    <Palette className="h-3 w-3" /> Diseño propio
-                  </button>
+                    <Palette className="h-3 w-3" />{" "}<Tr s={"Diseño propio"} /></button>
                 )}
               </div>
             </div>

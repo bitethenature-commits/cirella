@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { PageVideo as PageVideoData } from "@/lib/page-blocks";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Vídeo subido a la página: <video> nativo, nunca en reproducción automática. Con portada no se
@@ -10,6 +11,7 @@ import type { PageVideo as PageVideoData } from "@/lib/page-blocks";
  * sabe reproducir enseña un aviso en vez de un recuadro negro.
  */
 export function PageVideo({ video, poster, title }: { video: PageVideoData; poster: string | null; title: string }) {
+  const t = useT();
   const ref = useRef<HTMLVideoElement>(null);
   const [unsupported, setUnsupported] = useState(false);
   useEffect(() => {
@@ -29,14 +31,12 @@ export function PageVideo({ video, poster, title }: { video: PageVideoData; post
         preload={poster ? "none" : "metadata"}
         controlsList="nodownload"
         x-webkit-airplay="allow"
-        aria-label={title || "Vídeo"}
+        aria-label={t(title || t("Vídeo"))}
         className="h-full w-full"
         onError={() => setUnsupported(true)}
       />
       {unsupported && (
-        <p className="absolute inset-x-0 bottom-0 bg-black/75 px-4 py-3 text-center text-sm text-white">
-          Este vídeo no se puede ver en este navegador. Prueba en otro o desde el móvil.
-        </p>
+        <p className="absolute inset-x-0 bottom-0 bg-black/75 px-4 py-3 text-center text-sm text-white"><Tr s={"Este vídeo no se puede ver en este navegador. Prueba en otro o desde el móvil."} /></p>
       )}
     </div>
   );

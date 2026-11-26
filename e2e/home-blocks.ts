@@ -22,10 +22,10 @@ export const COMO_TRABAJO = {
 
 /** Vídeo subido (con portada), gráfico de los 5 tipos y galería en carrusel de tres imágenes. */
 export async function mediaBlocks(prisma: PrismaClient, creatorId: string) {
-  const about = await prisma.sitePage.findUniqueOrThrow({ where: { creatorId_slug: { creatorId, slug: "sobre-mi" } } });
+  const about = await prisma.sitePage.findUniqueOrThrow({ where: { creatorId_slug: { creatorId, slug: "aboutme" } } });
   const gallery = ((about.published ?? about.draft) as { blocks: { kind: string; image?: Img }[] }).blocks.filter((b) => b.kind === "photoText" && b.image?.alt !== "Cirella sonriendo").slice(0, 3).map((b) => b.image!);
   const hd = gallery.find((i) => i.alt === "Human Design")!;
-  const post = await prisma.post.findFirstOrThrow({ where: { creatorId, slug: "luna-llena-que-soltar" } });
+  const post = await prisma.post.findFirstOrThrow({ where: { creatorId, slug: "full-moon-letting-go" } });
   const media = post.media as { src?: string; poster?: string; width?: number; height?: number; durationSec?: number };
   if (!media.src) throw new Error("La demo no tiene el vídeo subido de «Luna llena» (¿sin ffmpeg al sembrar?)");
   return [
@@ -43,7 +43,7 @@ export async function mediaBlocks(prisma: PrismaClient, creatorId: string) {
       kind: "image",
       title: "",
       image: { ...hd, alt: "Los 5 tipos de Human Design: Manifestador, Generador, Generador Manifestante, Proyector y Reflector", caption: "Mi guía rápida de los 5 tipos" },
-      href: "/ana/lectura-human-design",
+      href: "/ana/human-design-reading",
       enabled: true,
     },
     { id: "galeria-lecturas", kind: "gallery", title: "Así son mis lecturas", layout: "carousel", images: gallery.map(({ caption: _c, ...i }) => i), enabled: true },

@@ -13,11 +13,14 @@ import { DripCard } from "./drip-card";
 import { loadStudioCourse } from "./load";
 import { StructureBoard } from "./structure-board";
 import { StudioHeader } from "./studio-header";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Estudio del curso" };
 
 /** Estudio del curso › Estructura: módulos y lecciones, apertura poco a poco y materiales. */
 export default async function CourseStudioPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ nuevo?: string; leccion?: string }> }) {
+  const t = await getT();
   const { id } = await params;
   const sp = await searchParams;
   const { db, course } = await loadStudioCourse(id);
@@ -54,7 +57,7 @@ export default async function CourseStudioPage({ params, searchParams }: { param
       {sp.leccion === "eliminada" && <Flash ok="Lección eliminada." />}
       {noContent && (
         <div className="mb-5">
-          <DeliveryAlert title="Tus alumnas no ven ninguna lección" text="El curso está publicado pero todas sus lecciones están en borrador. Publica al menos una." cta="Ver lecciones" href="#estructura-titulo" tone="block" />
+          <DeliveryAlert title={t("Tus alumnas no ven ninguna lección")} text={t("El curso está publicado pero todas sus lecciones están en borrador. Publica al menos una.")} cta={t("Ver lecciones")} href="#estructura-titulo" tone="block" />
         </div>
       )}
       {/* Arriba, en una franja: la temática y cómo se abren las lecciones (antes, una columna a la derecha). */}
@@ -91,16 +94,16 @@ export default async function CourseStudioPage({ params, searchParams }: { param
           <span className="panel-emblem h-9 w-9 shrink-0">
             <Paperclip className="h-4 w-4" />
           </span>
-          <span className="font-semibold">Materiales del curso</span>
-          <span className="ml-auto text-xs text-muted">{files.length} {files.length === 1 ? "archivo" : "archivos"}</span>
+          <span className="font-semibold"><Tr s={"Materiales del curso"} /></span>
+          <span className="ml-auto text-xs text-muted">{files.length} <Tr s={files.length === 1 ? "archivo" : "archivos"} /></span>
         </summary>
         <div className="border-t border-line p-4">
         <FilesManager
           productId={course.id}
           files={files}
           limitsLabel={uploadPolicy(isPersonalMode()).label}
-          title="Materiales del curso"
-          hint="Vídeos (MP4 o MOV), audios (M4A o MP3), PDF e imágenes. También puedes subirlos desde cada lección. Un material puede estar en varias lecciones."
+          title={t("Materiales del curso")}
+          hint={t("Vídeos (MP4 o MOV), audios (M4A o MP3), PDF e imágenes. También puedes subirlos desde cada lección. Un material puede estar en varias lecciones.")}
           usage={fileUsage(modules.flatMap((m) => m.lessons.flatMap((l) => l.parts.map((p) => ({ fileId: p.fileId, lessonId: l.id })))))}
         />
         </div>

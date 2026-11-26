@@ -3,6 +3,7 @@ import { Download, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { INLINE_MEDIA_TTL_SEC } from "@/lib/file-types";
 import { clock, useSignedMedia } from "./use-signed-media";
+import { Tr } from "@/lib/i18n/client";
 
 export type PlayerFile = {
   id: string;
@@ -83,17 +84,13 @@ export function VideoPlayer({ file, poster, title }: { file: PlayerFile; poster?
         {showFallback ? (
           <div className="absolute inset-0 grid place-items-center overflow-auto p-5 text-center text-cream" role="alert" data-hevc-fallback>
             <div className="max-w-sm">
-              <p className="text-sm leading-relaxed">
-                Este vídeo está grabado en un formato del iPhone (HEVC) que este navegador no reproduce. Ábrelo en Safari o en tu móvil, o descárgalo.
-              </p>
+              <p className="text-sm leading-relaxed"><Tr s={"Este vídeo está grabado en un formato del iPhone (HEVC) que este navegador no reproduce. Ábrelo en Safari o en tu móvil, o descárgalo."} /></p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <a href={`/api/download/${file.id}`} className="btn btn-light btn-sm">
-                  <Download className="h-4 w-4" /> Descargar
-                </a>
+                  <Download className="h-4 w-4" />{" "}<Tr s={"Descargar"} /></a>
                 {!failed && (
                   <button type="button" className="btn btn-sm border border-cream/40 text-cream" onClick={() => setForced(true)}>
-                    <Play className="h-4 w-4" /> Intentar igualmente
-                  </button>
+                    <Play className="h-4 w-4" />{" "}<Tr s={"Intentar igualmente"} /></button>
                 )}
               </div>
             </div>
@@ -112,7 +109,7 @@ export function VideoPlayer({ file, poster, title }: { file: PlayerFile; poster?
           aria-label={title}
         />
       </div>
-      {status === "forbidden" && <p className="px-4 py-3 text-center text-sm text-cream">Tu acceso a este contenido ha terminado o tu sesión ha caducado. Vuelve a entrar.</p>}
+      {status === "forbidden" && <p className="px-4 py-3 text-center text-sm text-cream"><Tr s={"Tu acceso a este contenido ha terminado o tu sesión ha caducado. Vuelve a entrar."} /></p>}
       {resumeAt !== null && !showFallback && (
         <div className="flex justify-center px-4 py-2">
           <button
@@ -124,8 +121,7 @@ export function VideoPlayer({ file, poster, title }: { file: PlayerFile; poster?
               el.currentTime = resumeAt;
               el.play().catch(() => {});
             }}
-          >
-            Seguir donde lo dejaste ({clock(resumeAt)})
+          ><Tr s={"Seguir donde lo dejaste ("} />{clock(resumeAt)})
           </button>
         </div>
       )}

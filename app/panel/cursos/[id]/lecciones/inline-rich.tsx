@@ -7,6 +7,7 @@ import { normalizeHex } from "@/lib/colors";
 import { LESSON_TEXT_MAX } from "@/lib/lesson-parts";
 import { parseRich, safeLinkHref, type RichBlock, type RichInline } from "@/lib/rich-text";
 import { ALIGN_OPTIONS, SIZE_LABEL } from "./design-panel";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /*
  * El texto de una lección escrito encima, como en Canva: lo que se ve es lo que verá la alumna. Por dentro se guarda
@@ -344,6 +345,7 @@ export function InlineRich({
   onFocus?: () => void;
   placeholder?: string;
 }) {
+  const t = useT();
   const el = useRef<HTMLDivElement>(null);
   const emitted = useRef(value);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -509,42 +511,34 @@ export function InlineRich({
           <div className="absolute bottom-2 left-0 max-w-full">
             <div
               role="toolbar"
-              aria-label="Formato del texto"
+              aria-label={t("Formato del texto")}
               className="flex flex-wrap items-center gap-0.5 rounded-2xl border border-[#e9cc8e]/45 bg-[#0e0e10]/95 p-1 text-[#f3e2b3] shadow-[0_12px_30px_-10px_rgb(0_0_0/.7)] backdrop-blur"
             >
-              <Tb on={fmt.block === "h3"} onClick={() => block("h3")} title="Título">
-                Título
-              </Tb>
-              <Tb on={fmt.block === "h4"} onClick={() => block("h4")} title="Subtítulo">
-                Subtítulo
-              </Tb>
-              <Tb on={fmt.block === "p" || fmt.block === "div"} onClick={() => block("p")} title="Texto">
-                Texto
-              </Tb>
-              <Tb on={fmt.block === "blockquote"} onClick={() => block("blockquote")} title="Cita">
-                Cita
-              </Tb>
+              <Tb on={fmt.block === "h3"} onClick={() => block("h3")} title={t("Título")}><Tr s={"Título"} /></Tb>
+              <Tb on={fmt.block === "h4"} onClick={() => block("h4")} title={t("Subtítulo")}><Tr s={"Subtítulo"} /></Tb>
+              <Tb on={fmt.block === "p" || fmt.block === "div"} onClick={() => block("p")} title={t("Texto")}><Tr s={"Texto"} /></Tb>
+              <Tb on={fmt.block === "blockquote"} onClick={() => block("blockquote")} title={t("Cita")}><Tr s={"Cita"} /></Tb>
               <Sep />
-              <Tb on={fmt.ul} onClick={() => exec("insertUnorderedList")} title="Lista">
+              <Tb on={fmt.ul} onClick={() => exec("insertUnorderedList")} title={t("Lista")}>
                 <List className="h-4 w-4" />
               </Tb>
-              <Tb on={fmt.ol} onClick={() => exec("insertOrderedList")} title="Lista numerada">
+              <Tb on={fmt.ol} onClick={() => exec("insertOrderedList")} title={t("Lista numerada")}>
                 <ListOrdered className="h-4 w-4" />
               </Tb>
               <Sep />
-              <Tb on={fmt.b} onClick={() => exec("bold")} title="Negrita">
+              <Tb on={fmt.b} onClick={() => exec("bold")} title={t("Negrita")}>
                 <Bold className="h-4 w-4" />
               </Tb>
-              <Tb on={fmt.i} onClick={() => exec("italic")} title="Cursiva">
+              <Tb on={fmt.i} onClick={() => exec("italic")} title={t("Cursiva")}>
                 <Italic className="h-4 w-4" />
               </Tb>
-              <Tb on={pop === "color"} onClick={() => setPop(pop === "color" ? null : "color")} title="Color de las letras">
+              <Tb on={pop === "color"} onClick={() => setPop(pop === "color" ? null : "color")} title={t("Color de las letras")}>
                 <Baseline className="h-4 w-4" />
               </Tb>
-              <Tb on={pop === "link" || !!fmt.link} onClick={openLink} title="Enlace">
+              <Tb on={pop === "link" || !!fmt.link} onClick={openLink} title={t("Enlace")}>
                 <Link2 className="h-4 w-4" />
               </Tb>
-              <Tb onClick={() => exec("removeFormat")} title="Quitar el formato">
+              <Tb onClick={() => exec("removeFormat")} title={t("Quitar el formato")}>
                 <RemoveFormatting className="h-4 w-4" />
               </Tb>
               <Sep />
@@ -558,13 +552,13 @@ export function InlineRich({
               >
                 <align.icon className="h-4 w-4" />
               </Tb>
-              <Tb onClick={() => step(-1)} disabled={size === "s"} title="Letra más pequeña">
+              <Tb onClick={() => step(-1)} disabled={size === "s"} title={t("Letra más pequeña")}>
                 <AArrowDown className="h-4 w-4" />
               </Tb>
               <span className="min-w-[4.5rem] text-center text-[0.7rem] font-semibold text-[#f3e2b3]/80" aria-live="polite">
-                {SIZE_LABEL[size]}
+                <Tr s={SIZE_LABEL[size]} />
               </span>
-              <Tb onClick={() => step(1)} disabled={size === "xl"} title="Letra más grande">
+              <Tb onClick={() => step(1)} disabled={size === "xl"} title={t("Letra más grande")}>
                 <AArrowUp className="h-4 w-4" />
               </Tb>
             </div>
@@ -575,7 +569,7 @@ export function InlineRich({
                   <button
                     key={c}
                     type="button"
-                    title={c}
+                    title={t(c)}
                     aria-label={`Color ${c}`}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => exec("foreColor", c)}
@@ -584,11 +578,11 @@ export function InlineRich({
                   />
                 ))}
                 <label
-                  title="Otro color"
+                  title={t("Otro color")}
                   className="relative h-7 w-7 cursor-pointer overflow-hidden rounded-full border border-white/25"
                   style={{ background: "conic-gradient(#f87171, #facc15, #4ade80, #22d3ee, #818cf8, #e879f9, #f87171)" }}
                 >
-                  <input type="color" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label="Otro color" onChange={(e) => exec("foreColor", e.target.value)} />
+                  <input type="color" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label={t("Otro color")} onChange={(e) => exec("foreColor", e.target.value)} />
                 </label>
               </div>
             )}
@@ -619,18 +613,18 @@ export function InlineRich({
                   autoCapitalize="none"
                   spellCheck={false}
                   placeholder="https://… o /mi-pagina"
-                  aria-label="Adónde lleva el enlace"
+                  aria-label={t("Adónde lleva el enlace")}
                   className="h-8 min-w-0 flex-1 rounded-lg border border-[#e9cc8e]/35 bg-black/30 px-2.5 text-sm text-[#f3ecdd] outline-none placeholder:text-[#f3ecdd]/40 focus:border-[#e9cc8e]"
                 />
-                <button type="submit" className={tb} title="Poner el enlace" aria-label="Poner el enlace">
+                <button type="submit" className={tb} title={t("Poner el enlace")} aria-label={t("Poner el enlace")}>
                   <Check className="h-4 w-4" />
                 </button>
                 {fmt.link !== null && (
                   <button
                     type="button"
                     className={tb}
-                    title="Quitar el enlace"
-                    aria-label="Quitar el enlace"
+                    title={t("Quitar el enlace")}
+                    aria-label={t("Quitar el enlace")}
                     onClick={() => {
                       exec("unlink");
                       setPop(null);
@@ -639,10 +633,10 @@ export function InlineRich({
                     <Unlink className="h-4 w-4" />
                   </button>
                 )}
-                <button type="button" className={tb} title="Cerrar" aria-label="Cerrar" onClick={() => setPop(null)}>
+                <button type="button" className={tb} title={t("Cerrar")} aria-label={t("Cerrar")} onClick={() => setPop(null)}>
                   <X className="h-4 w-4" />
                 </button>
-                {linkError && <p className="w-full px-1 text-xs text-[#f2a99f]">{linkError}</p>}
+                {linkError && <p className="w-full px-1 text-xs text-[#f2a99f]"><Tr s={linkError} /></p>}
               </form>
             )}
           </div>
@@ -655,7 +649,7 @@ export function InlineRich({
         spellCheck
         role="textbox"
         aria-multiline="true"
-        aria-label="Texto de la lección"
+        aria-label={t("Texto de la lección")}
         data-rich="md"
         data-inline-rich
         data-placeholder={placeholder}
@@ -684,7 +678,7 @@ export function InlineRich({
           if (e.key === "Escape") e.currentTarget.blur();
         }}
       />
-      {tooLong && <p className="mt-2 text-xs font-semibold text-[#f2a99f]">Este texto es demasiado largo para guardarlo: pártelo en dos.</p>}
+      {tooLong && <p className="mt-2 text-xs font-semibold text-[#f2a99f]"><Tr s={"Este texto es demasiado largo para guardarlo: pártelo en dos."} /></p>}
     </>
   );
 }

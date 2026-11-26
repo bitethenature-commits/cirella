@@ -1,3 +1,4 @@
+import { productPath } from "@/lib/public-paths";
 import { randomBytes } from "node:crypto";
 import { prisma } from "../db";
 import { appUrl } from "../env";
@@ -14,6 +15,7 @@ import { recordRenewalFailure, settleRenewalCharge } from "../subscriptions";
 import { isPaymentProviderEnabled, paymentProvider, paymentProviderByKey } from "./index";
 import { renewalPeriodKey } from "./renewal";
 import { WebhookSignatureError, type PaymentState, type PaymentStatus, type PaymentUpdate } from "./provider";
+import { inMail } from "@/lib/i18n/email";
 
 /**
  * Lo que dice la pasarela → cambios en Cirella. Es la única puerta: los webhooks de Stripe y PayPal,
@@ -95,7 +97,7 @@ async function completeApprovedCheckout(s: PaymentStatus, providerKey: string): 
 async function applyOrderPayment(s: PaymentStatus, providerKey: string): Promise<Applied> {
   const order = await prisma.order.findUnique({
     where: { id: s.metadata.orderId },
-    include: { creator: { select: { payoutAccountId: true, username: true, displayName: true } }, product: { select: { slug: true } } },
+    include: { creator: { select: { payoutAccountId: true, username: true, displayName: true } }, product: { select: { slug: true, type: true } } },
   });
   if (!order) return { ignored: true };
   const ids = { orderId: order.id, creatorId: order.creatorId };
@@ -167,11 +169,11 @@ async function applyOrderPayment(s: PaymentStatus, providerKey: string): Promise
         creatorId: order.creatorId,
         template: "PAYMENT_FAILED",
         dedupeKey: `payfail:${order.id}`,
-        ...paymentFailedEmail({
+        ...(await inMail(order.buyerEmail, () => paymentFailedEmail({
           creatorName: order.creator.displayName,
           productTitle: order.productTitle,
-          retryUrl: `${appUrl()}/${order.creator.username}/${order.product.slug}/checkout?pedido=${order.id}`,
-        }),
+          retryUrl: `${appUrl()}${productPath(order.creator.username, order.product, "checkout")}?pedido=${order.id}`,
+        }))),
       });
     return ids;
   }
@@ -280,15 +282,16 @@ async function notifyDispute(
   d: { productTitle: string; currency: string; buyer: string; creator: { id: string; userId: string; email: string } },
 ) {
   const admins = await prisma.user.findMany({ where: { isAdmin: true, status: "ACTIVE" }, select: { id: true, email: true } });
-  const mail = disputeOpenedEmail({
-    productTitle: d.productTitle,
-    amount: formatPrice(u.amountCents, d.currency),
-    buyer: d.buyer,
-    url: `${appUrl()}/panel/ventas?estado=todos`,
-  });
+  const mail = () =>
+    disputeOpenedEmail({
+      productTitle: d.productTitle,
+      amount: formatPrice(u.amountCents, d.currency),
+      buyer: d.buyer,
+      url: `${appUrl()}/panel/ventas?estado=todos`,
+    });
   const recipients = [{ id: d.creator.userId, email: d.creator.email, creatorId: d.creator.id as string | null }, ...admins.map((a) => ({ ...a, creatorId: null }))];
   for (const r of recipients)
-    await enqueueEmail({ to: r.email, userId: r.id, creatorId: r.creatorId, fromName: null, replyTo: null, template: "DISPUTE_OPENED", dedupeKey: `dispute:${u.disputeRef}:${r.id}`, ...mail });
+    await enqueueEmail({ to: r.email, userId: r.id, creatorId: r.creatorId, fromName: null, replyTo: null, template: "DISPUTE_OPENED", dedupeKey: `dispute:${u.disputeRef}:${r.id}`, ...(await inMail(r.email, mail)) });
 }
 
 /**

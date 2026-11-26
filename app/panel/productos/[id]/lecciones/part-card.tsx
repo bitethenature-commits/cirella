@@ -6,6 +6,7 @@ import type { PieceLook } from "@/lib/course-design";
 import { BLOCK_LABEL, isBlockKind, type BlockPart } from "@/lib/lesson-blocks";
 import { LESSON_TEXT_MAX, PART_VIEW_LABEL, partView, type AddPartKind } from "@/lib/lesson-parts";
 import { videoEmbed } from "@/lib/video-embed";
+import { Tr, useT } from "@/lib/i18n/client";
 
 export type EditorFile = {
   id: string;
@@ -36,24 +37,20 @@ export type PartPatch = { body?: string; format?: "MD" | null; url?: string; dat
 
 /** Aviso en vivo bajo el enlace del vídeo: se ve dentro del curso o se abrirá fuera. */
 function EmbedHint({ url }: { url: string }) {
+  const t = useT();
   const u = url.trim();
   if (!u)
     return (
-      <p className="field-hint">
-        Vimeo: para un vídeo oculto, copia el enlace completo (Compartir › Copiar enlace, con el código del final) y permite tu web en Vimeo › Privacidad › Dónde se puede insertar.
-      </p>
+      <p className="field-hint"><Tr s={"Vimeo: para un vídeo oculto, copia el enlace completo (Compartir › Copiar enlace, con el código del final) y permite tu web en Vimeo › Privacidad › Dónde se puede insertar."} /></p>
     );
   const v = videoEmbed(u);
   if (v)
     return (
       <p className="text-xs font-medium text-success" aria-live="polite">
-        {v.provider === "youtube" ? "YouTube" : v.src.includes("h=") ? "Vimeo · oculto" : "Vimeo"} ✓ Se verá dentro del curso.
-      </p>
+        {v.provider === "youtube" ? t("YouTube") : v.src.includes("h=") ? t("Vimeo · oculto") : t("Vimeo")}{" "}<Tr s={"✓ Se verá dentro del curso."} /></p>
     );
   return (
-    <p className="rounded-lg border border-[#ecdcb8] bg-[#fbf5e8] px-3 py-2 text-xs text-[#7a5a1c]" aria-live="polite" data-video-warning>
-      Este enlace no se puede ver dentro del curso: tus alumnas verán un botón «Abrir el vídeo». Para verlo aquí, usa YouTube o Vimeo (Compartir › Copiar enlace, con el código del final si es oculto).
-    </p>
+    <p className="rounded-lg border border-[#ecdcb8] bg-[#fbf5e8] px-3 py-2 text-xs text-[#7a5a1c]" aria-live="polite" data-video-warning><Tr s={"Este enlace no se puede ver dentro del curso: tus alumnas verán un botón «Abrir el vídeo». Para verlo aquí, usa YouTube o Vimeo (Compartir › Copiar enlace, con el código del final si es oculto)."} /></p>
   );
 }
 
@@ -91,6 +88,7 @@ export function PartFields({
   /** Cambia cuando el texto llega de fuera: el editor de texto vuelve a empezar con su formato. */
   editorKey?: number;
 }) {
+  const t = useT();
   return (
     <>
       {part.kind === "TEXT" && (
@@ -109,7 +107,7 @@ export function PartFields({
           headingLevel={3}
           legacy="paragraphs"
           rows={10}
-          placeholder="Escribe la explicación, las instrucciones del ejercicio…"
+          placeholder={t("Escribe la explicación, las instrucciones del ejercicio…")}
         />
       )}
 
@@ -126,25 +124,21 @@ export function PartFields({
               <MediaHealth file={file} duration={false} />
             </div>
             <a
-              href={file.kind === "LINK" ? (file.url ?? "#") : file.kind === "OTHER" ? `/api/download/${file.id}` : `/cuenta/archivos/${file.id}`}
+              href={file.kind === "LINK" ? (file.url ?? "#") : file.kind === "OTHER" ? `/api/download/${file.id}` : `/area/files/${file.id}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-ghost btn-sm shrink-0"
             >
-              <ExternalLink className="h-3.5 w-3.5" /> Ver
-            </a>
+              <ExternalLink className="h-3.5 w-3.5" />{" "}<Tr s={"Ver"} /></a>
           </div>
         ) : (
           <p className="flex items-center gap-2 text-sm text-rose">
-            <AlertCircle className="h-4 w-4" /> Este archivo ya no está en los materiales del curso. Quítalo de la lección.
-          </p>
+            <AlertCircle className="h-4 w-4" />{" "}<Tr s={"Este archivo ya no está en los materiales del curso. Quítalo de la lección."} /></p>
         ))}
 
       {part.kind === "EMBED" && (
         <div className="space-y-2">
-          <label className="field-label" htmlFor={`embed-${part.key}`}>
-            Enlace de YouTube o Vimeo
-          </label>
+          <label className="field-label" htmlFor={`embed-${part.key}`}><Tr s={"Enlace de YouTube o Vimeo"} /></label>
           <input
             id={`embed-${part.key}`}
             type="url"
@@ -167,15 +161,12 @@ export function PartFields({
           {part.status === "error" ? (
             <div className="space-y-2">
               <p className="text-sm text-rose">
-                «{part.name}»: {part.error}
+                «{part.name}»: <Tr s={part.error} />
               </p>
               <div className="flex gap-2">
                 <button type="button" className="btn btn-outline btn-sm" onClick={onRetry}>
-                  <RotateCcw className="h-4 w-4" /> Reintentar
-                </button>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={onRemove}>
-                  Quitar
-                </button>
+                  <RotateCcw className="h-4 w-4" />{" "}<Tr s={"Reintentar"} /></button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={onRemove}><Tr s={"Quitar"} /></button>
               </div>
             </div>
           ) : (
@@ -186,14 +177,12 @@ export function PartFields({
                     ? `En cola: «${part.name}»`
                     : `Subiendo «${part.name}» · ${part.pct} %${part.total ? ` · ${formatSize(part.loaded)} de ${formatSize(part.total)}` : ""}`}
                 </p>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>
-                  Cancelar
-                </button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}><Tr s={"Cancelar"} /></button>
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sand">
                 <div className="h-full bg-gold transition-[width]" style={{ width: `${part.status === "queued" ? 0 : part.pct}%` }} />
               </div>
-              {part.status === "uploading" && <p className="mt-2 text-xs text-muted">No bloquees el iPhone ni cambies de app mientras se sube.</p>}
+              {part.status === "uploading" && <p className="mt-2 text-xs text-muted"><Tr s={"No bloquees el iPhone ni cambies de app mientras se sube."} /></p>}
             </>
           )}
         </div>

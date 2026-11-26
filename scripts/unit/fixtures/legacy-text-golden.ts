@@ -4,8 +4,8 @@
  * No se edita a mano: si cambia, el texto de antes ya no se pinta exactamente igual.
  *   · links: components/creator-page/rich-text.tsx (con className «cp-muted space-y-3 text-[0.95rem] leading-relaxed mt-3»)
  *   · description: el RichText local de app/[username]/[slug]/page.tsx (vacío si no hay texto)
- *   · paragraphs: el cuerpo de la lección en app/cuenta/cursos/[productId]/page.tsx (vacío si no hay texto)
- *   · preline: el cuerpo de la publicación en app/cuenta/membresias/[productId]/page.tsx
+ *   · paragraphs: el cuerpo de la lección en app/area/courses/[productId]/page.tsx (vacío si no hay texto)
+ *   · preline: el cuerpo de la publicación en app/area/membership/[productId]/page.tsx
  */
 export const LEGACY_LINKS_CLASS = "cp-muted space-y-3 text-[0.95rem] leading-relaxed mt-3";
 

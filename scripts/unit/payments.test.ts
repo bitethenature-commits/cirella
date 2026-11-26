@@ -385,10 +385,10 @@ test("Simulador: 4000 0000 0000 0002 → rechazada", async () => {
   const r = await simulatedProvider.startPayment(simInput("4000000000000002"));
   ok(r.state === "failed" && r.error.includes("rechazado"), JSON.stringify(r));
 });
-test("Simulador: 4000 0027 6000 3184 → confirmar en el banco (/pago-simulado/sim_cs_…)", async () => {
+test("Simulador: 4000 0027 6000 3184 → confirmar en el banco (/test-payment/sim_cs_…)", async () => {
   const r = await simulatedProvider.startPayment(simInput("4000 0027 6000 3184"));
   ok(r.state === "requires_action", JSON.stringify(r));
-  ok(r.checkoutRef.startsWith("sim_cs_") && r.redirectUrl.endsWith(`/pago-simulado/${r.checkoutRef}`), r.redirectUrl);
+  ok(r.checkoutRef.startsWith("sim_cs_") && r.redirectUrl.endsWith(`/test-payment/${r.checkoutRef}`), r.redirectUrl);
   const minutes = (r.expiresAt.getTime() - Date.now()) / 60_000;
   ok(minutes > 29 && minutes <= 30);
 });

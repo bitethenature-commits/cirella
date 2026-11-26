@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { AETT_NAME, RUNES, RUNE_SPREADS, TEXT_VS, type Rune, type RuneSpreadId } from "./data/runes";
 import { GOLD, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelRow, ToolButton, cn, drawDistinct, randomInt, usePrefersReducedMotion } from "./model-kit";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Tirada de runas con el futhark antiguo (24 runas). Se elige la tirada (una, tres o la cruz de cinco),
@@ -32,6 +33,7 @@ const TURN_STAGGER = 260;
 const glyph = (r: Rune) => r.glyph + TEXT_VS;
 
 export function RunesModel() {
+  const t = useT();
   const [spread, setSpread] = useState<RuneSpreadId>("three");
   const [cast, setCast] = useState<Cast[] | null>(null);
   const [open, setOpen] = useState(false);
@@ -72,10 +74,10 @@ export function RunesModel() {
   const five = spread === "five";
 
   const toolbar = (
-    <div className="flex gap-2" role="group" aria-label="Tirada">
+    <div className="flex gap-2" role="group" aria-label={t("Tirada")}>
       {(Object.keys(RUNE_SPREADS) as RuneSpreadId[]).map((s) => (
         <ToolButton key={s} active={spread === s} onClick={() => chooseSpread(s)}>
-          {RUNE_SPREADS[s].label}
+          <Tr s={RUNE_SPREADS[s].label} />
         </ToolButton>
       ))}
     </div>
@@ -128,12 +130,12 @@ export function RunesModel() {
                   </span>
                 </span>
               </button>
-              <p className={cn("cp-eyebrow mt-3 text-center !text-[0.56rem] !tracking-[0.16em]", five ? "max-w-[5.6rem]" : "max-w-[7rem]", on && "!text-[var(--c-gold)]")}>{pos.name}</p>
+              <p className={cn("cp-eyebrow mt-3 text-center !text-[0.56rem] !tracking-[0.16em]", five ? "max-w-[5.6rem]" : "max-w-[7rem]", on && "!text-[var(--c-gold)]")}><Tr s={pos.name} /></p>
               <p className="cp-muted mt-1 min-h-[1.1rem] text-center text-[0.74rem] leading-tight">
                 {shown ? (
                   <>
-                    {rune.name}
-                    {c?.reversed && <span className="cp-faint"> · inv.</span>}
+                    <Tr s={rune.name} />
+                    {c?.reversed && <span className="cp-faint">{" "}<Tr s={"· inv."} /></span>}
                   </>
                 ) : (
                   "\u00a0"
@@ -146,9 +148,9 @@ export function RunesModel() {
 
       <div className="mt-7 flex flex-col items-center gap-3">
         <button type="button" className="cp-btn" onClick={() => throwStones()}>
-          {cast ? "Volver a tirar" : "Tirar las runas"}
+          {cast ? t("Volver a tirar") : t("Tirar las runas")}
         </button>
-        <p className="cp-faint text-center text-[0.74rem] leading-snug">Una herramienta para reflexionar, no para predecir: las runas son un idioma, no una verdad.</p>
+        <p className="cp-faint text-center text-[0.74rem] leading-snug"><Tr s={"Una herramienta para reflexionar, no para predecir: las runas son un idioma, no una verdad."} /></p>
       </div>
     </div>
   );
@@ -156,11 +158,11 @@ export function RunesModel() {
   // El futhark completo, en sus tres familias de ocho, para leer cualquier runa sin tirar.
   const legend = (
     <div>
-      <p className="cp-eyebrow !text-[0.6rem]">El futhark antiguo · las 24 runas</p>
+      <p className="cp-eyebrow !text-[0.6rem]"><Tr s={"El futhark antiguo · las 24 runas"} /></p>
       <div className="mt-3 space-y-3">
         {AETT_NAME.map((aettName, a) => (
           <div key={aettName}>
-            <p className="cp-faint mb-1.5 text-[0.62rem] uppercase tracking-[0.16em]">{aettName}</p>
+            <p className="cp-faint mb-1.5 text-[0.62rem] uppercase tracking-[0.16em]"><Tr s={aettName} /></p>
             <div className="grid grid-cols-8 gap-1">
               {RUNES.map((r, i) =>
                 r.aett !== a ? null : (
@@ -170,7 +172,7 @@ export function RunesModel() {
                     onClick={() => setSel({ kind: "rune", i })}
                     aria-pressed={sel?.kind === "rune" && sel.i === i}
                     aria-label={`${r.name}: ${r.meaning}`}
-                    title={r.name}
+                    title={t(r.name)}
                     className={cn(
                       "grid aspect-square min-h-9 place-items-center rounded-lg border transition-colors duration-300",
                       sel?.kind === "rune" && sel.i === i ? "border-[var(--c-gold)] bg-[color-mix(in_oklab,var(--c-gold)_12%,transparent)]" : "border-transparent hover:border-[var(--c-line)]",
@@ -197,12 +199,12 @@ export function RunesModel() {
     panel = (
       <PanelBody id={`p-${round}-${sel.i}`}>
         <RuneHeader rune={rune} reversed={c.reversed} kicker={`${pos.name} · ${c.reversed ? "invertida (merkstave)" : "del derecho"}`} />
-        <p className="cp-muted mt-2 text-[0.8rem]">{pos.hint}</p>
-        <p className="mt-4 text-[0.95rem] leading-relaxed opacity-90">{c.reversed ? rune.reversed : rune.upright}</p>
+        <p className="cp-muted mt-2 text-[0.8rem]"><Tr s={pos.hint} /></p>
+        <p className="mt-4 text-[0.95rem] leading-relaxed opacity-90"><Tr s={c.reversed ? rune.reversed : rune.upright} /></p>
         {c.reversed && (
           <div className="cp-line mt-5 rounded-[calc(var(--r-card)*0.7)] border p-4">
-            <p className="cp-eyebrow cp-gold !text-[0.6rem]">Del derecho diría</p>
-            <p className="cp-muted mt-2 text-[0.86rem] leading-relaxed">{rune.upright}</p>
+            <p className="cp-eyebrow cp-gold !text-[0.6rem]"><Tr s={"Del derecho diría"} /></p>
+            <p className="cp-muted mt-2 text-[0.86rem] leading-relaxed"><Tr s={rune.upright} /></p>
           </div>
         )}
         <RuneRows rune={rune} />
@@ -210,7 +212,7 @@ export function RunesModel() {
           <div className="mt-5 flex flex-wrap gap-2">
             {cast.map((cc, i) => (
               <ToolButton key={i} active={i === sel.i} onClick={() => setSel({ kind: "position", i })}>
-                {positions[i].name}
+                <Tr s={positions[i].name} />
               </ToolButton>
             ))}
           </div>
@@ -222,25 +224,25 @@ export function RunesModel() {
     panel = (
       <PanelBody id={`r-${sel.i}`}>
         <RuneHeader rune={rune} reversed={false} kicker={`${AETT_NAME[rune.aett]} · runa ${sel.i + 1} de 24`} />
-        <p className="mt-4 text-[0.95rem] leading-relaxed opacity-90">{rune.upright}</p>
+        <p className="mt-4 text-[0.95rem] leading-relaxed opacity-90"><Tr s={rune.upright} /></p>
         <div className="cp-line mt-5 rounded-[calc(var(--r-card)*0.7)] border p-4">
-          <p className="cp-eyebrow cp-gold !text-[0.6rem]">Invertida</p>
-          <p className="cp-muted mt-2 text-[0.86rem] leading-relaxed">{rune.reversed ?? "Es simétrica: se lee igual del derecho y del revés, así que no tiene lectura invertida."}</p>
+          <p className="cp-eyebrow cp-gold !text-[0.6rem]"><Tr s={"Invertida"} /></p>
+          <p className="cp-muted mt-2 text-[0.86rem] leading-relaxed"><Tr s={rune.reversed ?? t("Es simétrica: se lee igual del derecho y del revés, así que no tiene lectura invertida.")} /></p>
         </div>
         <RuneRows rune={rune} />
       </PanelBody>
     );
   } else {
     panel = (
-      <PanelIdle title="Piensa en lo que te ocupa, sin prisa, y tira las piedras.">
-        <p>Elige arriba una tirada: una runa como consejo del día, tres para pasado, presente y camino, o la cruz de cinco.</p>
-        <p>Las piedras caen y se dan la vuelta; toca cualquiera para leerla. También puedes leer cada runa en el alfabeto de abajo.</p>
+      <PanelIdle title={t("Piensa en lo que te ocupa, sin prisa, y tira las piedras.")}>
+        <p><Tr s={"Elige arriba una tirada: una runa como consejo del día, tres para pasado, presente y camino, o la cruz de cinco."} /></p>
+        <p><Tr s={"Las piedras caen y se dan la vuelta; toca cualquiera para leerla. También puedes leer cada runa en el alfabeto de abajo."} /></p>
       </PanelIdle>
     );
   }
 
   // El futhark va al final, debajo de la explicación: lo que ha salido en la tirada se lee justo debajo de las piedras.
-  return <ModelFrame toolbar={toolbar} diagram={diagram} panel={panel} footer={legend} />;
+  return <ModelFrame toolbar={toolbar} diagram={diagram} panel={panel} footer={legend} onClear={sel ? () => setSel(null) : null} />;
 }
 
 function RuneHeader({ rune, reversed, kicker }: { rune: Rune; reversed: boolean; kicker: string }) {
@@ -253,18 +255,19 @@ function RuneHeader({ rune, reversed, kicker }: { rune: Rune; reversed: boolean;
       </span>
       <div className="min-w-0">
         <PanelHeading kicker={kicker} title={rune.name} />
-        <p className="cp-display mt-2 text-[1.12rem] italic leading-snug opacity-80">{rune.meaning}</p>
+        <p className="cp-display mt-2 text-[1.12rem] italic leading-snug opacity-80"><Tr s={rune.meaning} /></p>
       </div>
     </div>
   );
 }
 
 function RuneRows({ rune }: { rune: Rune }) {
+  const t = useT();
   return (
     <dl className="mt-5">
-      <PanelRow label="Sonido" value={`«${rune.sound}»`} />
-      <PanelRow label="Familia" value={AETT_NAME[rune.aett]} />
-      <PanelRow label="Invertida" value={rune.reversed ? "Puede salir invertida" : "Simétrica: no se invierte"} />
+      <PanelRow label={t("Sonido")} value={`«${rune.sound}»`} />
+      <PanelRow label={t("Familia")} value={AETT_NAME[rune.aett]} />
+      <PanelRow label={t("Invertida")} value={rune.reversed ? "Puede salir invertida" : "Simétrica: no se invierte"} />
     </dl>
   );
 }

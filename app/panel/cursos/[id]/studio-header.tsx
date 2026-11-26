@@ -4,6 +4,7 @@ import { DeleteButton } from "@/components/ui/delete-button";
 import { deleteProduct } from "../../productos/actions";
 import { Badge } from "../../ui";
 import { SectionEmblem } from "../../section-emblem";
+import { Tr } from "@/lib/i18n/client";
 
 export type StudioTab = "estructura" | "alumnas" | "datos";
 
@@ -21,8 +22,7 @@ export function StudioHeader({ course, tab }: { course: { id: string; title: str
   return (
     <div className="mb-6">
       <Link href="/panel/cursos" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Cursos
-      </Link>
+        <ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Cursos"} /></Link>
       <div className="panel-hero mt-3 p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="starfield absolute inset-0 -z-10 rounded-[inherit] opacity-40" aria-hidden />
@@ -30,21 +30,18 @@ export function StudioHeader({ course, tab }: { course: { id: string; title: str
         <SectionEmblem className="h-12 w-12 shrink-0" />
         <div className="min-w-0">
           <h1 className="display text-[1.9rem] leading-tight sm:text-[2.2rem]">
-            {course.emoji} {course.title}
+            <Tr s={course.emoji} /> {course.title}
           </h1>
-          <div className="mt-1.5">{course.status === "PUBLISHED" ? <Badge tone="success">Publicado</Badge> : <Badge tone="warning">Borrador · aún no lo ven</Badge>}</div>
+          <div className="mt-1.5">{course.status === "PUBLISHED" ? <Badge tone="success"><Tr s={"Publicado"} /></Badge> : <Badge tone="warning"><Tr s={"Borrador · aún no lo ven"} /></Badge>}</div>
         </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`/panel/cursos/${course.id}/lecciones`} className="btn btn-primary btn-sm" title="Las lecciones sobre la vista de alumna">
-            <Pencil className="h-4 w-4" /> Editar lecciones
-          </Link>
-          <Link href={`/cuenta/cursos/${course.id}`} target="_blank" className="btn btn-outline btn-sm" data-view-as-student>
-            <Eye className="h-4 w-4" /> Ver como alumna
-          </Link>
+            <Pencil className="h-4 w-4" />{" "}<Tr s={"Editar lecciones"} /></Link>
+          <Link href={`/area/courses/${course.id}`} target="_blank" className="btn btn-outline btn-sm" data-view-as-student>
+            <Eye className="h-4 w-4" />{" "}<Tr s={"Ver como alumna"} /></Link>
           <Link href={`/panel/productos/${course.id}`} className="btn btn-ghost btn-sm" title="Precio, página de venta, acceso y publicación">
-            <Settings2 className="h-4 w-4" /> Precio y venta
-          </Link>
+            <Settings2 className="h-4 w-4" />{" "}<Tr s={"Precio y venta"} /></Link>
           <DeleteButton action={deleteProduct} id={course.id} variant="button" label="Borrar el curso" message={`¿Borrar el curso «${course.title}» con todas sus lecciones? Si tiene alumnas, también se borran sus inscripciones y pierden el acceso. No se puede deshacer.`} />
         </div>
         </div>
@@ -52,7 +49,7 @@ export function StudioHeader({ course, tab }: { course: { id: string; title: str
         <nav className="mt-4 flex gap-1.5 overflow-x-auto" aria-label="Secciones del estudio">
           {TABS.map((t) => (
             <Link key={t.key} href={t.href(course.id)} aria-current={t.key === tab ? "page" : undefined} className="studio-tab inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm">
-              <t.icon className="h-4 w-4" /> {t.label}
+              <t.icon className="h-4 w-4" /> <Tr s={t.label} />
             </Link>
           ))}
         </nav>

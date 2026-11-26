@@ -13,6 +13,7 @@ import { SVG, glyph, name } from "./astro2";
 import { MODALITY_HUE } from "./astro-wheels";
 import { MODALITY_TEXT } from "./texts";
 import { WheelBase, WheelDefs, useWheelIds } from "./wheel-kit";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Tres capas más de astrología: el balance de elementos y cualidades comparado con otra persona (dos paneles
@@ -190,6 +191,7 @@ export function Astro3Diagram({ layer, selected, mine, tap, ctx }: DiagramProps 
 
 /** Dos balances iguales, lado a lado: el tuyo y el de la otra persona. */
 function BalanceCompare({ selected, tap, ctx, own }: { selected: string; tap: Tap; ctx: LayerCtx; own: Set<string> }) {
+  const t = useT();
   const ps = planetsOf(ctx.c?.chart);
   const os = planetsOf(ctx.other?.chart);
   const who = ctx.others?.[ctx.otherIndex ?? 0]?.name;
@@ -197,20 +199,19 @@ function BalanceCompare({ selected, tap, ctx, own }: { selected: string; tap: Ta
     <div>
       {ctx.others && ctx.others.length > 0 ? (
         <div className="mb-2 flex justify-center">
-          <select className="input h-9 w-auto text-sm" value={ctx.otherIndex ?? 0} onChange={(e) => ctx.pickOther?.(Number(e.target.value))} aria-label="Con quién comparar">
+          <select className="input h-9 w-auto text-sm" value={ctx.otherIndex ?? 0} onChange={(e) => ctx.pickOther?.(Number(e.target.value))} aria-label={t("Con quién comparar")}>
             {ctx.others.map((o, i) => (
-              <option key={i} value={i}>
-                Con {o.name}
+              <option key={i} value={i}><Tr s={"Con"} />{" "}{o.name}
               </option>
             ))}
           </select>
         </div>
       ) : (
-        <p className="mb-2 text-center text-xs text-muted">Guarda en «Mi energía» los datos de otra persona para comparar.</p>
+        <p className="mb-2 text-center text-xs text-muted"><Tr s={"Guarda en «Mi energía» los datos de otra persona para comparar."} /></p>
       )}
       <div className="grid grid-cols-2 gap-2">
-        <Bars title="Tú" ps={ps} selected={selected} tap={tap} own={own} />
-        <Bars title={who ?? "Otra persona"} ps={os} selected={selected} tap={tap} own={new Set()} />
+        <Bars title={t("Tú")} ps={ps} selected={selected} tap={tap} own={own} />
+        <Bars title={t(who ?? t("Otra persona"))} ps={os} selected={selected} tap={tap} own={new Set()} />
       </div>
     </div>
   );
@@ -226,14 +227,10 @@ function Bars({ title, ps, selected, tap, own }: { title: string; ps: Pos[]; sel
     <svg viewBox="0 0 170 330" className="block h-auto w-full select-none" role="group" aria-label={`Balance: ${title}`}>
       <rect x="0.5" y="0.5" width="169" height="329" rx="18" fill="rgb(255 255 255 / .04)" stroke={GOLD} strokeOpacity="0.5" />
       <text x="85" y="24" textAnchor="middle" fontSize="12" fontFamily="Georgia, serif" fill={INK}>
-        {title}
+        <Tr s={title} />
       </text>
-      <text x="14" y="48" fontSize="6.5" letterSpacing="1.4" fontWeight="700" fill={GOLD}>
-        ELEMENTOS
-      </text>
-      <text x="14" y="212" fontSize="6.5" letterSpacing="1.4" fontWeight="700" fill={GOLD}>
-        CUALIDADES
-      </text>
+      <text x="14" y="48" fontSize="6.5" letterSpacing="1.4" fontWeight="700" fill={GOLD}><Tr s={"ELEMENTOS"} /></text>
+      <text x="14" y="212" fontSize="6.5" letterSpacing="1.4" fontWeight="700" fill={GOLD}><Tr s={"CUALIDADES"} /></text>
       {rows.map((r, i) => {
         const y = i < 4 ? 66 + i * 34 : 230 + (i - 4) * 32;
         const n = b[r.key].length;
@@ -242,8 +239,8 @@ function Bars({ title, ps, selected, tap, own }: { title: string; ps: Pos[]; sel
           <g key={r.key} {...tap(r.key, r.label)}>
             <rect x="6" y={y - 13} width="158" height="27" rx="8" fill={on ? "rgb(212 181 122 / .25)" : "transparent"} />
             <text x="14" y={y + 1} dominantBaseline="central" fontSize="9" fontWeight={on || own.has(r.key) ? 700 : 500} fill={INK}>
-              {own.has(r.key) ? "★ " : ""}
-              {r.label}
+              <Tr s={own.has(r.key) ? "★ " : ""} />
+              <Tr s={r.label} />
             </text>
             <rect x="70" y={y - 5} width="70" height="10" rx="5" fill="rgb(255 255 255 / .1)" />
             {n > 0 && <rect x="70" y={y - 5} width={(Math.min(n, 10) / 10) * 70} height="10" rx="5" fill={r.color} opacity={on ? 1 : 0.75} />}
@@ -259,6 +256,7 @@ function Bars({ title, ps, selected, tap, own }: { title: string; ps: Pos[]; sel
 
 /** Los retrógrados por años: el planeta, sus fechas y la carta de cada fecha (o en doble rueda con la tuya). */
 function RetroDates({ selected, tap, ctx, own }: { selected: string; tap: Tap; ctx: LayerCtx; own: Set<string> }) {
+  const t = useT();
   const [year, setYear] = useState(thisYear);
   const [pick, setPick] = useState(0);
   const [withChart, setWithChart] = useState(false);
@@ -276,18 +274,18 @@ function RetroDates({ selected, tap, ctx, own }: { selected: string; tap: Tap; c
       <div className="mb-2 flex flex-wrap justify-center gap-1.5">
         {RETRO_PLANETS.map((p) => (
           <span key={p} {...tap(p, `${name(p)} retrógrado`)} onClickCapture={() => setPick(0)} className="cursor-pointer rounded-full border px-2.5 py-1 text-[0.72rem] font-semibold" style={chip(p === selected)}>
-            {own.has(p) ? "★ " : ""}
+            <Tr s={own.has(p) ? "★ " : ""} />
             {glyph(p)} {name(p)}
           </span>
         ))}
       </div>
       {/* El año y sus fechas. */}
       <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5 text-[0.75rem]">
-        <button type="button" className="grid h-8 w-8 place-items-center rounded-full border border-line" onClick={() => { setYear((y) => y - 1); setPick(0); }} aria-label="Año anterior">
+        <button type="button" className="grid h-8 w-8 place-items-center rounded-full border border-line" onClick={() => { setYear((y) => y - 1); setPick(0); }} aria-label={t("Año anterior")}>
           ‹
         </button>
         <span className="min-w-[3rem] text-center font-semibold tabular-nums">{year}</span>
-        <button type="button" className="grid h-8 w-8 place-items-center rounded-full border border-line" onClick={() => { setYear((y) => y + 1); setPick(0); }} aria-label="Año siguiente">
+        <button type="button" className="grid h-8 w-8 place-items-center rounded-full border border-line" onClick={() => { setYear((y) => y + 1); setPick(0); }} aria-label={t("Año siguiente")}>
           ›
         </button>
         {periods.map((p, i) => (
@@ -295,22 +293,20 @@ function RetroDates({ selected, tap, ctx, own }: { selected: string; tap: Tap; c
             {fmtShort(p.start)} – {fmtShort(p.end)}
           </button>
         ))}
-        {!periods.length && <span className="text-muted">Ese año no se pone retrógrado.</span>}
+        {!periods.length && <span className="text-muted"><Tr s={"Ese año no se pone retrógrado."} /></span>}
       </div>
       {period && (
         <>
           <RetroWheel planet={selected} sky={sky} natal={both ? natal : []} period={period} />
-          <p className="mt-1 text-center text-[0.75rem] text-ink/80">
-            Del {fmtLong(period.start)} al {fmtLong(period.end)} · de {where(period.lonStart)} a {where(period.lonEnd)}
+          <p className="mt-1 text-center text-[0.75rem] text-ink/80"><Tr s={"Del"} />{" "}{fmtLong(period.start)}{" "}<Tr s={"al"} />{" "}{fmtLong(period.end)}{" "}<Tr s={"· de"} />{" "}{where(period.lonStart)} a {where(period.lonEnd)}
           </p>
           <div className="mt-2 flex justify-center">
             <button type="button" className="rounded-full border px-3 py-1.5 text-[0.75rem] font-semibold disabled:opacity-50" style={chip(withChart)} onClick={() => setWithChart((w) => !w)} disabled={!natal.length}>
-              {withChart ? "Ver solo el cielo de esa fecha" : "Con mi carta"}
+              {withChart ? t("Ver solo el cielo de esa fecha") : t("Con mi carta")}
             </button>
           </div>
           {both && (
-            <p className="mt-1 text-center text-[0.68rem] text-muted">
-              Dentro, tu carta · fuera, el cielo del {fmtShort(period.start)}
+            <p className="mt-1 text-center text-[0.68rem] text-muted"><Tr s={"Dentro, tu carta · fuera, el cielo del"} />{" "}{fmtShort(period.start)}
               {hits.length ? ` · toca tu ${listEs(hits.map((h) => name(h.id)))}` : ""}
             </p>
           )}
@@ -330,7 +326,7 @@ function Combos({ selected, tap, ctx }: { selected: string; tap: Tap; ctx: Layer
   return (
     <div className="grid grid-cols-3 gap-2">
       <div className={col}>
-        <p className="mb-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted">Planeta</p>
+        <p className="mb-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted"><Tr s={"Planeta"} /></p>
         {COMBO_BODIES.map((q) => (
           <button key={q} type="button" className={btn(q === p, false)} {...tap(`${q}|${s}|${h}`, name(q))}>
             <span className="w-4 text-center">{glyph(q)}</span>
@@ -339,28 +335,28 @@ function Combos({ selected, tap, ctx }: { selected: string; tap: Tap; ctx: Layer
         ))}
       </div>
       <div className={col}>
-        <p className="mb-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted">Signo</p>
+        <p className="mb-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted"><Tr s={"Signo"} /></p>
         {SIGNS.map((g) => (
           <button key={g.n} type="button" className={btn(g.n === s, !!natal && signIndex(natal.lon) === g.n)} {...tap(`${p}|${g.n}|${h}`, g.name)}>
             <span className="w-4 text-center" style={{ color: g.n === s ? undefined : ELEMENT_HUE[g.element] }}>
               {g.glyph + "︎"}
             </span>
-            <span className="truncate">{g.name}</span>
+            <span className="truncate"><Tr s={g.name} /></span>
             {!!natal && signIndex(natal.lon) === g.n && <span className="ml-auto text-[0.7rem]">★</span>}
           </button>
         ))}
       </div>
       <div className={col}>
-        <p className="mb-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted">Casa</p>
+        <p className="mb-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted"><Tr s={"Casa"} /></p>
         {HOUSES.map((x) => (
           <button key={x.n} type="button" className={btn(x.n === h, natal?.house === x.n)} {...tap(`${p}|${s}|${x.n}`, x.name)}>
-            <span className="w-6 text-center font-serif">{ROMAN[x.n - 1]}</span>
-            <span className="truncate">{x.keyword}</span>
+            <span className="w-6 text-center font-serif"><Tr s={ROMAN[x.n - 1]} /></span>
+            <span className="truncate"><Tr s={x.keyword} /></span>
             {natal?.house === x.n && <span className="ml-auto text-[0.7rem]">★</span>}
           </button>
         ))}
       </div>
-      <p className="col-span-3 mt-1 text-center text-[0.68rem] text-muted">★ dónde está tu {name(p)} · toca un planeta, un signo y una casa</p>
+      <p className="col-span-3 mt-1 text-center text-[0.68rem] text-muted"><Tr s={"★ dónde está tu"} />{" "}{name(p)}{" "}<Tr s={"· toca un planeta, un signo y una casa"} /></p>
     </div>
   );
 }
@@ -383,6 +379,7 @@ const dm = (lon: number) => {
  * los aspectos entre los dos.
  */
 function RetroWheel({ planet, sky, natal, period }: { planet: string; sky: Pos[]; natal: Pos[]; period: RetroPeriod }) {
+  const t = useT();
   const ids = useWheelIds();
   const two = natal.length > 0;
   const R_GLYPH = two ? 134 : 133;
@@ -511,7 +508,7 @@ function RetroWheel({ planet, sky, natal, period }: { planet: string; sky: Pos[]
               {z.d}°
             </text>
             <text x={pt(disp, R_MIN).x} y={pt(disp, R_MIN).y} textAnchor="middle" dominantBaseline="central" fontSize="5.2" fill={INK} fillOpacity="0.6">
-              {pad2(z.m)}′{p.retro ? "℞" : ""}
+              {pad2(z.m)}′<Tr s={p.retro ? "℞" : ""} />
             </text>
           </g>
         );
@@ -546,7 +543,7 @@ function RetroWheel({ planet, sky, natal, period }: { planet: string; sky: Pos[]
     <p className="mt-1 min-h-[1.25rem] text-center text-[0.75rem] text-ink/80">
       {hit !== null && lines[hit]
         ? `${glyph(lines[hit].a.id)} ${name(lines[hit].a.id)}${two ? " del cielo" : ""} · ${lines[hit].glyph}︎ ${lines[hit].name.toLowerCase()} · ${glyph(lines[hit].b.id)} ${two ? "tu " : ""}${name(lines[hit].b.id)} · orbe ${Math.floor(lines[hit].orb)}°${pad2(Math.round((lines[hit].orb % 1) * 60) % 60)}′`
-        : "Toca una línea de aspecto para destacarla."}
+        : t("Toca una línea de aspecto para destacarla.")}
     </p>
     </>
   );

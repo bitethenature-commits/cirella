@@ -14,10 +14,16 @@ import { ensureCommunityPage, ensureGiftsPage, ensureOneToOnePage, sitePageLinkT
 import { webTiers } from "@/lib/web-tiers.server";
 import { sectionPagePath, type SectionPage } from "@/lib/site-sections";
 import { tenantDb } from "@/lib/tenant";
+import { readAreaDesign } from "@/lib/area-design";
+import { communityTiers } from "@/lib/community-tiers";
+import { hasLookColors, readCourseLook } from "@/lib/course-design";
+import { prisma } from "@/lib/db";
+import { areaProductPath } from "@/lib/public-paths";
+import { AreaCanva, type AreaTier } from "../canva/area-canva";
 import { BuiltinCanva } from "../canva/builtin-canva";
 import { HomeCanva, type CanvaCode } from "../canva/home-canva";
 import { PageCanva } from "../canva/page-canva";
-import { LEGAL_PAGES, WEB_PAGES, type PanelPage } from "../canva/web-pages";
+import { AREA_PAGES, LEGAL_PAGES, WEB_PAGES, type PanelPage } from "../canva/web-pages";
 
 export const metadata: Metadata = { title: "Mi página" };
 
@@ -27,7 +33,7 @@ const MANAGE: Partial<Record<SectionPage | "legal", { href: string; label: strin
   comunidad: { href: "/panel/comunidad", label: "Tu membresía" },
   actualidades: { href: "/panel/actualidades", label: "Actualidades" },
   portal: { href: "/panel/portal", label: "Portal de Noticias" },
-  ofertas: { href: "/panel/sesiones", label: "Sesiones y lecturas (cada una con su oferta)" },
+  ofertas: { href: "/panel/ofertas", label: "Ofertas" },
   sesiones: { href: "/panel/sesiones", label: "Sesiones y lecturas" },
   lecturas: { href: "/panel/sesiones", label: "Sesiones y lecturas" },
   legal: { href: "/panel/ajustes/legal", label: "Tus datos legales" },
@@ -98,6 +104,33 @@ export default async function MiPagina({ searchParams }: { searchParams: Promise
         viewHref={sitePagePath(creator.username, page.slug, personal)}
       />
     );
+  }
+
+  // Lo de dentro (los colores del área, de los cursos y de las membresías): una página de verdad del área al lado.
+  const area = AREA_PAGES.find((a) => a.key === pagina && (personal || !a.personalOnly));
+  if (area) {
+    const saved = await prisma.creator.findUnique({ where: { id: creator.id }, select: { areaDesign: true } });
+    let src: string | null = null;
+    let tiers: AreaTier[] = [];
+    let empty: string | undefined;
+    if (area.key === "_area") src = "/area";
+    else if (area.key === "_cursos") {
+      // Un curso sin diseño propio, que es el que sigue la base (si todos tienen el suyo, el primero).
+      const courses = await db.product.findMany({ where: { type: "COURSE", status: "PUBLISHED" }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, slug: true, type: true, courseDesign: true } });
+      const pick = courses.find((c) => !hasLookColors(readCourseLook(c.courseDesign))) ?? courses[0];
+      src = pick ? areaProductPath(pick) : null;
+      empty = "Aún no tienes cursos publicados: cuando tengas uno, aquí se ve por dentro.";
+    } else {
+      const order = (await communityTiers(creator.id)).map((t) => t.id);
+      const rows = await db.product.findMany({ where: { id: { in: order } }, select: { id: true, slug: true, type: true, title: true } });
+      tiers = order.flatMap((id) => {
+        const r = rows.find((x) => x.id === id);
+        return r ? [{ id: r.id, title: r.title, src: areaProductPath(r) }] : [];
+      });
+      src = tiers[0]?.src ?? null;
+      empty = "Aún no tienes membresías: cuando tengas una, aquí se ve por dentro.";
+    }
+    return <AreaCanva key={area.key} page={area.key} label={area.label} menu={menu} personal={personal} initial={readAreaDesign(saved?.areaDesign)} src={src} tiers={tiers} empty={empty} />;
   }
 
   // Una página que se crea sola o una parte de la legal: se ve de verdad.

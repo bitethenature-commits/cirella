@@ -78,7 +78,7 @@ test("renderDesignHtml: escapa, enlaces absolutos y seguros, variables con y sin
   const d = design([
     { id: "t", t: "title", text: "Hola, {nombre} <b>", align: "center" },
     { id: "x", t: "text", body: "Te espero en **{producto}**. [Mi Instagram](https://instagram.com/ana)" },
-    { id: "i", t: "image", url: "/media/abc123/0123456789abcdef0123.jpg", alt: 'Luna "llena"', href: "/sobre-mi", width: "narrow" },
+    { id: "i", t: "image", url: "/media/abc123/0123456789abcdef0123.jpg", alt: 'Luna "llena"', href: "/aboutme", width: "narrow" },
     { id: "b", t: "button", label: "Reservar", href: "/ana/lectura", align: "center" },
     { id: "s", t: "spacer", size: "l" },
     { id: "d", t: "divider" },
@@ -87,7 +87,7 @@ test("renderDesignHtml: escapa, enlaces absolutos y seguros, variables con y sin
   ok(html.includes("Hola, Laura &lt;3 &lt;b&gt;"), html);
   ok(html.includes("<strong style=\"font-weight:600\">Lectura &amp; más</strong>"), html);
   ok(html.includes(`src="${BASE}/media/abc123/0123456789abcdef0123.jpg"`) && html.includes('alt="Luna &quot;llena&quot;"'));
-  ok(html.includes(`href="${BASE}/sobre-mi"`) && html.includes(`href="${BASE}/ana/lectura"`));
+  ok(html.includes(`href="${BASE}/aboutme"`) && html.includes(`href="${BASE}/ana/lectura"`));
   ok(html.includes("(instagram.com)"), "antiphishing del texto con formato");
   const anon = renderDesignHtml(design([{ id: "t", t: "title", text: "Hola, {nombre}", align: "left" }]), { baseUrl: BASE, vars: {} });
   ok(anon.includes(">Hola</h2>"), anon);
@@ -117,10 +117,10 @@ test("campaignEmail: baja, quién la envía, vista previa oculta, sin «Tu área
     design: defaultCampaignDesign({ siteUrl: `${BASE}/` }),
     baseUrl: BASE,
     vars: { nombre: "Laura", mi_nombre: "Cirella" },
-    footer: { senderName: "Cirella", legalName: "Cirella", legalAddress: "Calle de la Luna 7, 28004 Madrid (España)", legalEmail: "hola@cirella.app", legalUrl: `${BASE}/ana/legal`, unsubscribeUrl: `${BASE}/baja/newsletter?t=abc` },
+    footer: { senderName: "Cirella", legalName: "Cirella", legalAddress: "Calle de la Luna 7, 28004 Madrid (España)", legalEmail: "hola@cirella.app", legalUrl: `${BASE}/ana/legal`, unsubscribeUrl: `${BASE}/unsubscribe/newsletter?t=abc` },
   });
   eq(m.subject, "Luna llena, Laura");
-  ok(m.html.includes(`href="${BASE}/baja/newsletter?t=abc"`) && m.html.includes("Darme de baja"));
+  ok(m.html.includes(`href="${BASE}/unsubscribe/newsletter?t=abc"`) && m.html.includes("Darme de baja"));
   ok(m.html.includes("Cirella (Cirella) · Calle de la Luna 7, 28004 Madrid (España) · hola@cirella.app"));
   ok(m.html.includes("display:none") && m.html.includes("Tres preguntas"));
   ok(!m.html.includes(T.AREA_LINK_TOKEN));
@@ -130,7 +130,7 @@ test("campaignEmail: baja, quién la envía, vista previa oculta, sin «Tu área
 });
 
 test("newsletterConfirmEmail: botón «Sí, quiero recibirla»", () => {
-  const m = newsletterConfirmEmail({ creatorName: "Cirella", url: `${BASE}/novedades/confirmar?t=x`, name: "Eva" });
+  const m = newsletterConfirmEmail({ creatorName: "Cirella", url: `${BASE}/newsletter/confirm?t=x`, name: "Eva" });
   ok(m.subject.includes("Cirella") && m.html.includes(">Sí, quiero recibirla</a>") && m.html.includes("Hola, Eva"));
 });
 
@@ -222,5 +222,5 @@ test("sección «Newsletter»: oculta en una página nueva y en las guardadas an
 test("las pantallas públicas de la newsletter viven en rutas reservadas (el modo personal no las da por 404)", () => {
   const slug = readFileSync("lib/slug.ts", "utf8");
   ok(/"novedades"/.test(slug) && /"baja"/.test(slug));
-  ok(readFileSync("app/baja/newsletter/un-clic/route.ts", "utf8").includes('"ONE_CLICK"'), "solo el POST da de baja");
+  ok(readFileSync("app/unsubscribe/newsletter/one-click/route.ts", "utf8").includes('"ONE_CLICK"'), "solo el POST da de baja");
 });

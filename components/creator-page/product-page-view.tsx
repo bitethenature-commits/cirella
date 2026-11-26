@@ -1,21 +1,22 @@
+import { productPath } from "@/lib/public-paths";
 import Link from "next/link";
-import { BookOpen, CalendarDays, Heart, Clock, Download, ExternalLink, FileText, Headphones, Infinity as InfinityIcon, Lock, Mail, PlayCircle, RefreshCcw, ShieldCheck, Sparkles, Users, Video, Zap } from "lucide-react";
+import { BookOpen, CalendarDays, Heart, Clock, Download, ExternalLink, FileText, Headphones, Infinity as InfinityIcon, Lock, Mail, PlayCircle, ShieldCheck, Sparkles, Users, Video, Zap } from "lucide-react";
 import { RichContent } from "@/components/rich-text/rich-content";
 import { PART_ICON } from "@/components/media/part-icons";
 import { LocalDateTime } from "@/components/booking/local-date-time";
-import { ClaimForm } from "@/app/[username]/[slug]/acceso/claim-form";
-import { ExternalButton } from "@/app/[username]/[slug]/acceso/external-button";
+import { ClaimForm } from "@/app/[username]/[slug]/access/claim-form";
+import { ExternalButton } from "@/app/[username]/[slug]/access/external-button";
 import { asAccessMode, externalButtonLabel, externalHost } from "@/lib/access-mode";
 import { digitalContentText, isInstantDelivery } from "@/lib/delivery";
-import { creatorLegalHref, sessionChangePolicyText, waiverKindFor, withdrawalInfoLine } from "@/lib/legal";
-import { lessonPartViews, partsLabel } from "@/lib/lesson-parts";
+import { creatorLegalHref } from "@/lib/legal";
+import { lessonPartViews } from "@/lib/lesson-parts";
 import { meetingProvider } from "@/lib/meeting-url";
 import { formatPrice } from "@/lib/money";
 import { saleEndsLabel, saleState } from "@/lib/offers";
 import type { ProductViewSource } from "@/lib/product-view";
 import { formatDate } from "@/lib/tz";
-import { requestCta, formatCourseLength, lessonsLabel, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
-import { COURSE_CATEGORY_LABEL, courseCategoriesOf, productTopics, readingLabel } from "@/lib/course-categories";
+import { requestCta, lessonsLabel, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
+import { COURSE_CATEGORY_LABEL, productTopics, readingLabel } from "@/lib/course-categories";
 import { CategoryIcons } from "./category-icons";
 import { ProductImage } from "./product-art";
 import { TrackedLink } from "./tracking";
@@ -25,6 +26,7 @@ import { MoonCircleArt } from "./moon-circle-art";
 import type { MoonCircleSky } from "@/lib/moon-circle-sky";
 import { readPageTexts, studioKindOf } from "@/lib/product-texts";
 import { perkIcon } from "./perk-icons";
+import { Tr } from "@/lib/i18n/client";
 
 /** La raya dorada con la estrellita en medio. */
 function GoldStar({ className = "" }: { className?: string }) {
@@ -48,7 +50,7 @@ export type ProductPageProduct = ProductViewSource & {
   files: { id: string; name: string; kind: string }[];
   modules: { id: string; title: string; lessons: { id: string; title: string; durationMin: number | null; parts: { kind: string; file?: { kind: string } | null }[] }[] }[];
   /** Membresía: lo que incluye (ya sin lo archivado ni lo de otras creadoras). */
-  includes: { id: string; title: string; slug: string; status: string; lessons: number }[];
+  includes: { id: string; title: string; slug: string; type: string; status: string; lessons: number }[];
   /** Membresía: las últimas publicaciones ya visibles. */
   posts: { id: string; title: string; publishedAt: Date }[];
   /** Lecturas, sesiones y círculos: sus frases y pasos propios (lib/product-texts.ts). */
@@ -88,12 +90,12 @@ function RequestSteps() {
   const steps = ["Me escribes", "Te respondo por email", "Pagas y recibes tu acceso"];
   return (
     <div className="mt-6" data-request-steps>
-      <p className="cp-eyebrow text-center !text-[0.6rem]">Sin pagar nada aquí</p>
+      <p className="cp-eyebrow text-center !text-[0.6rem]"><Tr s={"Sin pagar nada aquí"} /></p>
       <ol className="cp-steps mx-auto mt-3 w-fit">
         {steps.map((s, i) => (
           <li key={s}>
             <span className="cp-steps-dot">{i + 1}</span>
-            <span>{s}</span>
+            <span><Tr s={s} /></span>
           </li>
         ))}
       </ol>
@@ -118,9 +120,8 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
   const saleLine = onSale ? [sale!.label, sale!.percentOff && !sale!.label?.includes("%") ? `−${sale!.percentOff} %` : null, saleEndsLabel(sale!.endsAt, timeZone)].filter(Boolean).join(" · ") : null;
   // El precio de lo que se paga fuera es informativo y opcional: sin precio, no se muestra.
   const showPrice = !external || p.priceCents > 0;
-  const checkoutHref = `/${username}/${p.slug}/solicitar`;
+  const checkoutHref = `${productPath(username, p, "request")}`;
   const lessons = p.modules.reduce((a, m) => a + m.lessons.length, 0);
-  const minutes = p.modules.reduce((a, m) => a + m.lessons.reduce((x, l) => x + (l.durationMin ?? 0), 0), 0);
   // Lo que se promete tiene que ser verdad: archivos y enlaces por separado, y «preparado para ti» si lo hace la creadora.
   const personal = type === "DIGITAL" && !isInstantDelivery(type, p.deliveryMode);
   const content = digitalContentText(p.files);
@@ -157,7 +158,7 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
               // Un curso que se paga fuera puede no tener lecciones aquí: entonces no se prometen.
               ...(lessons > 0
                 ? [
-                    { icon: PlayCircle, text: `${lessonsLabel(lessons)}${minutes ? ` · ${formatCourseLength(minutes)}` : ""}` },
+                    { icon: PlayCircle, text: lessonsLabel(lessons) },
                     { icon: Sparkles, text: "A tu ritmo, con progreso guardado" },
                   ]
                 : []),
@@ -180,19 +181,15 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
         : own.perks && studioKind === "circle"
           ? [basePerks[0], { icon: ownIcon(0, Video), text: own.perks[0] }, ...basePerks.slice(2).filter((k) => k.icon === Users)]
           : basePerks;
-  // Información previa sobre el desistimiento (talleres sin él, membresías con reembolso proporcional).
-  const withdrawalInfo = withdrawalInfoLine(waiverKindFor(type, p.deliveryMode, { groupSession: p.groupSession }));
   const buttonClass = "cp-btn mt-6 !hidden w-full md:!flex"; // «!»: .cp-btn (fuera de capa) pisaba «hidden» y en el móvil salía el botón doble
   // Un solo formulario: en móvil queda justo bajo el precio y la barra fija lleva a él. Sin los
   // datos legales completos no se ofrece: la privacidad que se acepta no diría quién trata los datos
   // (el servidor tampoco lo admite, lib/free-access.ts).
   const claim = !free ? null : !claimInfo.legalComplete ? (
     <div className="cp-card px-4 py-3 text-sm">
-      <p>Todavía no puedes apuntarte: falta completar los datos legales de esta página.</p>
+      <p><Tr s={"Todavía no puedes apuntarte: falta completar los datos legales de esta página."} /></p>
       {claimInfo.isOwner && (
-        <Link href="/panel/ajustes/legal" className="mt-2 inline-block font-semibold underline underline-offset-4">
-          Completar mis datos legales
-        </Link>
+        <Link href="/panel/ajustes/legal" className="mt-2 inline-block font-semibold underline underline-offset-4"><Tr s={"Completar mis datos legales"} /></Link>
       )}
     </div>
   ) : (
@@ -228,7 +225,7 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
               <FlowerOfLife className="cp-show-geo" strokeWidth={0.25} />
               <div className="flex items-center gap-3">
                 <span className="cp-show-icon">{topics.length ? <CategoryIcons categories={topics} size={2.6} gap={0.2} /> : <Sparkles className="h-9 w-9" strokeWidth={1.1} />}</span>
-                <span className="cp-eyebrow !tracking-[0.32em]" style={{ color: "var(--c-gold)" }}>{kindWord}</span>
+                <span className="cp-eyebrow !tracking-[0.32em]" style={{ color: "var(--c-gold)" }}><Tr s={kindWord} /></span>
               </div>
               <h1 className="cp-display cp-thin mt-5 text-[2.5rem] leading-[1.05] sm:text-[3rem]">{p.title}</h1>
               <div aria-hidden className="mt-4 flex max-w-[12rem] items-center gap-3" style={{ color: "var(--c-gold)" }}>
@@ -241,17 +238,17 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
                   <CalendarDays className="cp-gold h-5 w-5" strokeWidth={1.4} /> <LocalDateTime iso={workshop.at.toISOString()} ownerTz={timeZone} />
                 </p>
               )}
-              {p.summary && <p className="cp-muted cp-thin-text mt-4 text-[1.05rem] leading-relaxed">{p.summary}</p>}
+              {p.summary && <p className="cp-muted cp-thin-text mt-4 text-[1.05rem] leading-relaxed"><Tr s={p.summary} /></p>}
               <ul className="cp-show-perks mt-6">
                 {perks.map((k, ki) => (
                   <li key={ki}>
                     <k.icon className="h-[1.1rem] w-[1.1rem]" strokeWidth={1.4} />
-                    {k.text}
+                    <Tr s={k.text} />
                   </li>
                 ))}
               </ul>
               {workshop && (workshop.past || full) ? (
-                <p className="cp-show-closed mt-7">{workshop.past ? (p.moonCircle ? "Este círculo ya se celebró." : "Este taller ya se celebró.") : "Completo: no quedan plazas."}</p>
+                <p className="cp-show-closed mt-7">{workshop.past ? (p.moonCircle ? <Tr s={"Este círculo ya se celebró."} /> : <Tr s={"Este taller ya se celebró."} />) : <Tr s={"Completo: no quedan plazas."} />}</p>
               ) : (
                 <SacredButton href={checkoutHref} label={cta} event={clickEvent} ariaLabel={`${cta}: ${p.title}`} className="!mt-7 w-full" />
               )}
@@ -259,15 +256,15 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
               <ol className="grid gap-1.5">
                 {(own.steps ?? ["Me escribes", "Te respondo por email", type === "SESSION" ? "Lo cerramos y te envío el enlace" : type === "COURSE" ? "Lo cerramos y te abro el curso" : "Lo cerramos y te lo envío"]).map((s, i) => (
                   <li key={i} className="flex items-baseline gap-3 text-[0.9rem]">
-                    <span className="cp-roman !w-6 !text-[1.05rem]">{["I", "II", "III"][i]}</span>
-                    <span className="cp-thin-text cp-muted">{s}</span>
+                    <span className="cp-roman !w-6 !text-[1.05rem]"><Tr s={["I", "II", "III"][i]} /></span>
+                    <span className="cp-thin-text cp-muted"><Tr s={s} /></span>
                   </li>
                 ))}
               </ol>
                 <div className="text-right">
-                  {saleLine && <span className="cp-tag mb-2">Oferta · {saleLine}</span>}
+                  {saleLine && <span className="cp-tag mb-2"><Tr s={"Oferta ·"} />{" "}<Tr s={saleLine} /></span>}
                   <p className="cp-show-price" data-price>
-                    {regularPrice && <s className="cp-faint mr-2 text-[1.3rem]">{regularPrice}</s>}
+                    {regularPrice && <s className="cp-faint mr-2 text-[1.3rem]"><Tr s={regularPrice} /></s>}
                     {price}
                   </p>
                 </div>
@@ -291,15 +288,15 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
             ) : (
               p.emoji
             )}{" "}
-            {type === "MEMBERSHIP" ? "Comunidad" : type === "DIGITAL" ? readingLabel(p) : PRODUCT_TYPE_LABEL[type]}
+            {type === "MEMBERSHIP" ? <Tr s={"Comunidad"} /> : type === "DIGITAL" ? readingLabel(p) : PRODUCT_TYPE_LABEL[type]}
           </p>
           <h1 className="cp-display mt-3 text-[2.5rem] sm:text-[3rem]">{p.title}</h1>
-          {p.summary && <p className="cp-muted mt-3 text-[1.02rem] leading-relaxed">{p.summary}</p>}
+          {p.summary && <p className="cp-muted mt-3 text-[1.02rem] leading-relaxed"><Tr s={p.summary} /></p>}
           {showPrice && !paid && (
             <p className="mt-6 text-3xl font-semibold tracking-tight" data-price>
               {regularPrice && (
                 <s className="cp-muted mr-2 text-xl font-normal" data-regular-price>
-                  {regularPrice}
+                  <Tr s={regularPrice} />
                 </s>
               )}
               {price}
@@ -307,12 +304,12 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
           )}
           {saleLine && !paid && (
             <p className="mt-2" data-sale>
-              <span className="cp-tag">Oferta · {saleLine}</span>
+              <span className="cp-tag"><Tr s={"Oferta ·"} />{" "}<Tr s={saleLine} /></span>
             </p>
           )}
-          {onSale && type === "MEMBERSHIP" && <p className="cp-muted mt-2 text-xs">El precio de oferta es el del primer pago. Las renovaciones van al precio normal ({regularPrice}).</p>}
+          {onSale && type === "MEMBERSHIP" && <p className="cp-muted mt-2 text-xs"><Tr s={"El precio de oferta es el del primer pago. Las renovaciones van al precio normal ("} /><Tr s={regularPrice} />).</p>}
           {external && externalSite ? (
-            <p className={`cp-muted text-xs ${showPrice ? "" : "mt-6"}`}>Pago en {externalSite}</p>
+            <p className={`cp-muted text-xs ${showPrice ? "" : "mt-6"}`}><Tr s={"Pago en"} />{" "}<Tr s={externalSite} /></p>
           ) : null}
 
           {workshop && (
@@ -322,29 +319,29 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
           )}
           {workshop && (workshop.past || full) ? (
             <p className="mt-6 rounded-xl px-4 py-3 text-sm font-semibold" style={{ background: "var(--c-line)" }}>
-              {workshop.past ? "Este taller ya se celebró." : "Completo: no quedan plazas."}
+              {workshop.past ? <Tr s={"Este taller ya se celebró."} /> : <Tr s={"Completo: no quedan plazas."} />}
             </p>
           ) : paid ? (
             <div className="cp-invite mt-7" data-invite>
               <div className="cp-invite-ornament" aria-hidden>
                 <span>✦</span>
               </div>
-              <p className="cp-eyebrow mt-4 text-center !text-[0.62rem]">Tu inversión</p>
+              <p className="cp-eyebrow mt-4 text-center !text-[0.62rem]"><Tr s={"Tu inversión"} /></p>
               <p className="cp-display mt-1 text-center text-[2.6rem] leading-none" data-price>
                 {regularPrice && (
                   <s className="cp-muted mr-2 text-[1.4rem]" data-regular-price>
-                    {regularPrice}
+                    <Tr s={regularPrice} />
                   </s>
                 )}
                 {price}
               </p>
               {saleLine && (
                 <p className="mt-3 text-center" data-sale>
-                  <span className="cp-tag">Oferta · {saleLine}</span>
+                  <span className="cp-tag"><Tr s={"Oferta ·"} />{" "}<Tr s={saleLine} /></span>
                 </p>
               )}
               <TrackedLink href={checkoutHref} event={clickEvent} className="cp-btn-invite mt-6 !hidden w-full md:!flex">
-                <Mail className="h-4 w-4" /> <span>{cta}</span> <Sparkles className="h-3.5 w-3.5 opacity-80" />
+                <Mail className="h-4 w-4" /> <span><Tr s={cta} /></span> <Sparkles className="h-3.5 w-3.5 opacity-80" />
               </TrackedLink>
               <RequestSteps />
             </div>
@@ -363,7 +360,7 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
                 <span className="grid h-8 w-8 place-items-center rounded-full border" style={{ borderColor: "var(--c-line)" }}>
                   <k.icon className="cp-gold h-4 w-4" />
                 </span>
-                {k.text}
+                <Tr s={k.text} />
               </li>
             ))}
           </ul>
@@ -376,8 +373,8 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
           {p.description && (
             <section className="mx-auto mt-16 max-w-3xl" aria-labelledby="incluye">
               <div className="text-center">
-                <p className="cp-eyebrow !tracking-[0.4em]" style={{ color: "var(--c-gold)" }}>Para ti</p>
-                <h2 id="incluye" className="cp-display cp-thin mt-2 text-[2.4rem] italic">Qué incluye</h2>
+                <p className="cp-eyebrow !tracking-[0.4em]" style={{ color: "var(--c-gold)" }}><Tr s={"Para ti"} /></p>
+                <h2 id="incluye" className="cp-display cp-thin mt-2 text-[2.4rem] italic"><Tr s={"Qué incluye"} /></h2>
                 <GoldStar className="mt-3" />
               </div>
               <div className="cp-include-panel mt-8">
@@ -389,38 +386,34 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
 
           {personal && p.instructions && (
             <section className="mx-auto mt-14 max-w-3xl text-center" aria-labelledby="recibes">
-              <h2 id="recibes" className="cp-display cp-thin text-[2rem] italic">Cómo lo recibes</h2>
+              <h2 id="recibes" className="cp-display cp-thin text-[2rem] italic"><Tr s={"Cómo lo recibes"} /></h2>
               <GoldStar className="mt-3" />
-              <p className="cp-muted cp-thin-text mx-auto mt-5 max-w-xl whitespace-pre-line text-[1.05rem] leading-relaxed">{p.instructions}</p>
+              <p className="cp-muted cp-thin-text mx-auto mt-5 max-w-xl whitespace-pre-line text-[1.05rem] leading-relaxed"><Tr s={p.instructions} /></p>
             </section>
           )}
 
           {type === "COURSE" && p.modules.length > 0 && (
             <section className="mx-auto mt-16 max-w-3xl" aria-labelledby="programa">
               <div className="text-center">
-                <p className="cp-eyebrow !tracking-[0.4em]" style={{ color: "var(--c-gold)" }}>Paso a paso</p>
-                <h2 id="programa" className="cp-display cp-thin mt-2 text-[2.4rem] italic">Programa</h2>
+                <p className="cp-eyebrow !tracking-[0.4em]" style={{ color: "var(--c-gold)" }}><Tr s={"Paso a paso"} /></p>
+                <h2 id="programa" className="cp-display cp-thin mt-2 text-[2.4rem] italic"><Tr s={"Programa"} /></h2>
                 <GoldStar className="mt-3" />
               </div>
               <div className="mt-8 space-y-4">
                 {p.modules.map((m, i) => (
                   <div key={m.id} className="cp-card p-6 sm:p-7">
                     <div className="flex items-baseline gap-4">
-                      <span className="cp-roman !w-auto !text-[1.6rem]">{["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"][i] ?? i + 1}</span>
+                      <span className="cp-roman !w-auto !text-[1.6rem]"><Tr s={["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"][i] ?? i + 1} /></span>
                       <p className="cp-display cp-thin text-[1.5rem] leading-tight">{m.title}</p>
                     </div>
                     <ul className="cp-lessons mt-4">
                       {m.lessons.map((l) => {
                         const views = lessonPartViews(l.parts);
                         const Icon = views[0] ? PART_ICON[views[0]] : FileText;
-                        const label = partsLabel(views);
                         return (
                           <li key={l.id} className="flex items-center gap-3 text-[0.95rem]">
                             <Icon className="cp-gold h-4 w-4 shrink-0" strokeWidth={1.5} />
                             <span className="flex-1">{l.title}</span>
-                            <span className="cp-faint text-xs">
-                              {[label, l.durationMin ? `${l.durationMin} min` : ""].filter(Boolean).join(" · ")}
-                            </span>
                           </li>
                         );
                       })}
@@ -433,7 +426,7 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
 
           {type === "DIGITAL" && p.files.length > 0 && (
             <section className="mt-12 max-w-2xl">
-              <h2 className="cp-display text-[1.9rem]">{p.files.some((f) => f.kind === "LINK") ? "Qué recibes" : "Archivos"}</h2>
+              <h2 className="cp-display text-[1.9rem]">{p.files.some((f) => f.kind === "LINK") ? <Tr s={"Qué recibes"} /> : <Tr s={"Archivos"} />}</h2>
               <ul className="mt-4 space-y-2">
                 {p.files.map((f) => {
                   const Icon = KIND_ICON[f.kind] ?? FileText;
@@ -451,20 +444,20 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
 
           {type === "MEMBERSHIP" && p.includes.length > 0 && (
             <section className="mt-12 max-w-2xl">
-              <h2 className="cp-display text-[1.9rem]">Con esta membresía también tienes</h2>
+              <h2 className="cp-display text-[1.9rem]"><Tr s={"Con esta membresía también tienes"} /></h2>
               <ul className="mt-4 space-y-2">
                 {p.includes.map((ip) => {
                   const label = (
                     <>
                       <BookOpen className="cp-gold h-4 w-4" />
-                      <span className="flex-1">Curso «{ip.title}» · {ip.lessons} {ip.lessons === 1 ? "lección" : "lecciones"}</span>
-                      {ip.status !== "PUBLISHED" && <span className="cp-faint text-xs">Exclusivo para miembros</span>}
+                      <span className="flex-1"><Tr s={"Curso «"} />{ip.title}» · {ip.lessons} {ip.lessons === 1 ? <Tr s={"lección"} /> : "lecciones"}</span>
+                      {ip.status !== "PUBLISHED" && <span className="cp-faint text-xs"><Tr s={"Exclusivo para miembros"} /></span>}
                     </>
                   );
                   return (
                     <li key={ip.id}>
                       {ip.status === "PUBLISHED" ? (
-                        <Link href={`/${username}/${ip.slug}`} className="cp-card flex items-center gap-3 px-4 py-3.5 text-sm">{label}</Link>
+                        <Link href={`${productPath(username, ip)}`} className="cp-card flex items-center gap-3 px-4 py-3.5 text-sm">{label}</Link>
                       ) : (
                         <div className="cp-card flex items-center gap-3 px-4 py-3.5 text-sm">{label}</div>
                       )}
@@ -477,7 +470,7 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
 
           {type === "MEMBERSHIP" && p.posts.length > 0 && (
             <section className="mt-12 max-w-2xl">
-              <h2 className="cp-display text-[1.9rem]">Lo último en la comunidad</h2>
+              <h2 className="cp-display text-[1.9rem]"><Tr s={"Lo último en la comunidad"} /></h2>
               <ul className="mt-4 space-y-2">
                 {p.posts.map((post) => (
                   <li key={post.id} className="cp-card flex items-center gap-3 px-4 py-3.5 text-sm">
@@ -500,17 +493,15 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
           <p className="cp-muted mt-10 flex items-center gap-2 text-xs">
             <ShieldCheck className="h-4 w-4" />
             {paid ? (
-              <span>
-                Sin pagar nada aquí · Me escribes y lo hablamos por email ·{" "}
-                <Link href={creatorLegalHref(username, "privacidad")} className="underline underline-offset-4">Privacidad</Link>
+              <span><Tr s={"Sin pagar nada aquí · Me escribes y lo hablamos por email ·"} />{" "}
+                <Link href={creatorLegalHref(username, "privacidad")} className="underline underline-offset-4"><Tr s={"Privacidad"} /></Link>
               </span>
             ) : free ? (
-              <span>
-                Gratis · Solo necesitas tu email ·{" "}
-                <Link href={creatorLegalHref(username, "privacidad")} className="underline underline-offset-4">Privacidad</Link>
+              <span><Tr s={"Gratis · Solo necesitas tu email ·"} />{" "}
+                <Link href={creatorLegalHref(username, "privacidad")} className="underline underline-offset-4"><Tr s={"Privacidad"} /></Link>
               </span>
             ) : (
-              <span>{externalSite ? `El pago se hace en ${externalSite}, fuera de esta web.` : "El pago se hace fuera de esta web."}</span>
+              <span>{externalSite ? `El pago se hace en ${externalSite}, fuera de esta web.` : <Tr s={"El pago se hace fuera de esta web."} />}</span>
             )}
           </p>
         </div>
@@ -526,11 +517,11 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
             <p className="truncate text-xs" style={{ color: "var(--c-muted)" }}>{p.title}</p>
             {showPrice ? (
               <p className="text-lg font-semibold">
-                {regularPrice && <s className="cp-muted mr-1.5 text-sm font-normal">{regularPrice}</s>}
+                {regularPrice && <s className="cp-muted mr-1.5 text-sm font-normal"><Tr s={regularPrice} /></s>}
                 {price}
               </p>
             ) : (
-              externalSite && <p className="text-sm font-semibold">Pago en {externalSite}</p>
+              externalSite && <p className="text-sm font-semibold"><Tr s={"Pago en"} />{" "}<Tr s={externalSite} /></p>
             )}
           </div>
           {paid ? (
@@ -539,7 +530,7 @@ export function ProductPageView({ username, product: p, timeZone, seller, seatsL
             <ExternalButton href={p.externalUrl!} label={cta} className="cp-btn" event={clickEvent} />
           ) : free ? (
             <a href="#acceso" className="cp-btn">
-              {cta}
+              <Tr s={cta} />
             </a>
           ) : null}
         </div>
@@ -557,7 +548,7 @@ function CircleHowTo() {
   ];
   return (
     <div className="mt-7 border-t pt-6" style={{ borderColor: "color-mix(in srgb, var(--c-gold) 30%, transparent)" }} data-circle-howto>
-      <p className="cp-eyebrow !tracking-[0.28em]" style={{ color: "var(--c-gold)" }}>Cómo funciona</p>
+      <p className="cp-eyebrow !tracking-[0.28em]" style={{ color: "var(--c-gold)" }}><Tr s={"Cómo funciona"} /></p>
       <ol className="mt-4 grid gap-4">
         {steps.map((s, i) => (
           <li key={i} className="flex gap-3.5">
@@ -566,7 +557,7 @@ function CircleHowTo() {
             </span>
             <span>
               <span className="block text-[0.98rem] font-medium">{s.title}</span>
-              <span className="cp-thin-text cp-muted block text-[0.9rem] leading-relaxed">{s.text}</span>
+              <span className="cp-thin-text cp-muted block text-[0.9rem] leading-relaxed"><Tr s={s.text} /></span>
             </span>
           </li>
         ))}

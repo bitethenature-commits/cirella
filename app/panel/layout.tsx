@@ -23,7 +23,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   const { creator, user } = await requireCreator();
   // Modo personal: el panel es solo de la dueña (otras cuentas de creadora que quedaran en la BD no entran).
   const owner = ownerUsername();
-  if (owner && creator.username !== owner) redirect("/entrar?error=cerrado");
+  if (owner && creator.username !== owner) redirect("/login?error=cerrado");
   const [flags, brand] = await Promise.all([panelNavFlags(creator.id), getSiteBrand()]);
   // «Diseño de mi panel» (Ajustes): su diseño y el orden del menú. Sin nada guardado, el de siempre.
   const prefs = readPanelPrefs(creator.panelPrefs);

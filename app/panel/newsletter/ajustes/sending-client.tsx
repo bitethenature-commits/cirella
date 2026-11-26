@@ -6,12 +6,13 @@ import { useState, useTransition } from "react";
 import { CopyButton } from "@/components/ui/copy-button";
 import { DOMAIN_STATUS, RECORD_HELP, recordShortName, type SendingDomain } from "@/lib/sending-rules";
 import { checkDomain, connectDomain, removeDomain, saveSender, sendSendingTest, type SendingResult } from "./actions";
+import { Tr, useT } from "@/lib/i18n/client";
 
 function Note({ r }: { r: SendingResult | null }) {
   if (!r) return null;
   return (
     <p className={`mt-2 text-xs ${r.ok ? "text-[#2f6b4a]" : "text-rose"}`} role="status">
-      {r.ok ? r.message : r.error}
+      <Tr s={r.ok ? r.message : r.error} />
     </p>
   );
 }
@@ -22,6 +23,7 @@ function Pill({ tone, children }: { tone: "ok" | "wait" | "bad"; children: React
 
 /** Conectar el dominio, ver los registros DNS para copiarlos y comprobarlo. */
 export function DomainCard({ domain, demo, canEdit }: { domain: SendingDomain | null; demo: boolean; canEdit: boolean }) {
+  const t = useT();
   const [name, setName] = useState("");
   const [res, setRes] = useState<SendingResult | null>(null);
   const [pending, start] = useTransition();
@@ -33,8 +35,8 @@ export function DomainCard({ domain, demo, canEdit }: { domain: SendingDomain | 
         <div className="flex items-start gap-3">
           <Globe className="mt-0.5 h-5 w-5 shrink-0 text-muted" />
           <div className="min-w-0 flex-1">
-            <p className="font-semibold">Tu dominio</p>
-            <p className="mt-0.5 text-sm text-muted">Conecta tu dominio para que la newsletter salga desde una dirección tuya (por ejemplo hola@tudominio.es) y no acabe en spam.</p>
+            <p className="font-semibold"><Tr s={"Tu dominio"} /></p>
+            <p className="mt-0.5 text-sm text-muted"><Tr s={"Conecta tu dominio para que la newsletter salga desde una dirección tuya (por ejemplo hola@tudominio.es) y no acabe en spam."} /></p>
             {canEdit ? (
               <form
                 className="mt-3 flex flex-wrap gap-2"
@@ -43,15 +45,14 @@ export function DomainCard({ domain, demo, canEdit }: { domain: SendingDomain | 
                   run(() => connectDomain(name));
                 }}
               >
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="tudominio.es" className="input h-11 min-w-0 flex-1 text-base sm:text-sm" aria-label="Tu dominio" required />
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="tudominio.es" className="input h-11 min-w-0 flex-1 text-base sm:text-sm" aria-label={t("Tu dominio")} required />
                 <button className="btn btn-primary" disabled={pending}>
-                  {pending && <Loader2 className="h-4 w-4 animate-spin" />} Conectar
-                </button>
+                  {pending && <Loader2 className="h-4 w-4 animate-spin" />}{" "}<Tr s={"Conectar"} /></button>
               </form>
             ) : (
-              <p className="mt-2 text-xs text-muted">Solo quien administra la web puede conectarlo.</p>
+              <p className="mt-2 text-xs text-muted"><Tr s={"Solo quien administra la web puede conectarlo."} /></p>
             )}
-            {demo && <p className="mt-2 text-xs text-muted">Modo demostración (sin Resend): verás registros de ejemplo, pero la comprobación mira tu DNS de verdad.</p>}
+            {demo && <p className="mt-2 text-xs text-muted"><Tr s={"Modo demostración (sin Resend): verás registros de ejemplo, pero la comprobación mira tu DNS de verdad."} /></p>}
             <Note r={res} />
           </div>
         </div>
@@ -65,45 +66,43 @@ export function DomainCard({ domain, demo, canEdit }: { domain: SendingDomain | 
       <div className="flex flex-wrap items-center gap-3">
         <Globe className="h-5 w-5 shrink-0 text-muted" />
         <p className="font-semibold">{domain.name}</p>
-        <Pill tone={st.tone}>{st.label}</Pill>
+        <Pill tone={st.tone}><Tr s={st.label} /></Pill>
         {canEdit && (
           <div className="ml-auto flex gap-2">
             <button type="button" className="btn btn-outline btn-sm" disabled={pending} onClick={() => run(checkDomain)}>
-              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Comprobar ahora
-            </button>
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}{" "}<Tr s={"Comprobar ahora"} /></button>
             <button
               type="button"
               className="btn btn-outline btn-sm"
               disabled={pending}
               onClick={async () => (await askConfirm(`¿Quitar ${domain.name}? La newsletter volverá a salir desde la dirección de siempre.${domain.id ? " También se quita de Resend." : ""}`)) && run(removeDomain)}
             >
-              <Trash2 className="h-4 w-4" /> Quitar
-            </button>
+              <Trash2 className="h-4 w-4" />{" "}<Tr s={"Quitar"} /></button>
           </div>
         )}
       </div>
       {domain.status === "verified" ? (
-        <p className="mt-2 text-sm text-muted">Todo listo: Resend puede enviar en nombre de {domain.name}. Elige abajo la dirección.</p>
+        <p className="mt-2 text-sm text-muted"><Tr s={"Todo listo: Resend puede enviar en nombre de"} />{" "}{domain.name}<Tr s={". Elige abajo la dirección."} /></p>
       ) : (
         <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-muted">
-          <li>Entra en united-domains › tu dominio › <strong>Configuración DNS</strong>.</li>
-          <li>Añade cada registro de la tabla: el tipo, el nombre y el valor (con el botón Copiar). En los MX, pon también la prioridad.</li>
-          <li>Vuelve aquí y pulsa «Comprobar ahora». Puede tardar de unos minutos a unas horas; se mira solo cada 10 minutos.</li>
+          <li><Tr s={"Entra en united-domains › tu dominio ›"} />{" "}<strong><Tr s={"Configuración DNS"} /></strong>.</li>
+          <li><Tr s={"Añade cada registro de la tabla: el tipo, el nombre y el valor (con el botón Copiar). En los MX, pon también la prioridad."} /></li>
+          <li><Tr s={"Vuelve aquí y pulsa «Comprobar ahora». Puede tardar de unos minutos a unas horas; se mira solo cada 10 minutos."} /></li>
         </ol>
       )}
-      {demo && <p className="mt-2 text-xs text-muted">Modo demostración: estos registros son de ejemplo. Con Resend configurado verás los tuyos.</p>}
-      {domain.error && <p className="mt-2 text-xs text-rose">{domain.error}</p>}
+      {demo && <p className="mt-2 text-xs text-muted"><Tr s={"Modo demostración: estos registros son de ejemplo. Con Resend configurado verás los tuyos."} /></p>}
+      {domain.error && <p className="mt-2 text-xs text-rose"><Tr s={domain.error} /></p>}
 
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[40rem] text-left text-sm">
           <thead className="text-xs text-muted">
             <tr>
-              <th className="py-2 pr-3 font-medium">Para qué</th>
-              <th className="py-2 pr-3 font-medium">Tipo</th>
-              <th className="py-2 pr-3 font-medium">Nombre</th>
-              <th className="py-2 pr-3 font-medium">Valor</th>
-              <th className="py-2 pr-3 font-medium">Prioridad</th>
-              <th className="py-2 font-medium">Estado</th>
+              <th className="py-2 pr-3 font-medium"><Tr s={"Para qué"} /></th>
+              <th className="py-2 pr-3 font-medium"><Tr s={"Tipo"} /></th>
+              <th className="py-2 pr-3 font-medium"><Tr s={"Nombre"} /></th>
+              <th className="py-2 pr-3 font-medium"><Tr s={"Valor"} /></th>
+              <th className="py-2 pr-3 font-medium"><Tr s={"Prioridad"} /></th>
+              <th className="py-2 font-medium"><Tr s={"Estado"} /></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -113,31 +112,31 @@ export function DomainCard({ domain, demo, canEdit }: { domain: SendingDomain | 
               return (
                 <tr key={i} className="align-top">
                   <td className="py-2.5 pr-3">
-                    <span className="font-semibold">{r.kind}</span>
-                    {r.extra && <span className="ml-1 text-xs text-muted">(recomendado)</span>}
-                    <p className="max-w-[12rem] text-xs text-muted">{RECORD_HELP[r.kind] ?? RECORD_HELP[r.type] ?? ""}</p>
+                    <span className="font-semibold"><Tr s={r.kind} /></span>
+                    {r.extra && <span className="ml-1 text-xs text-muted"><Tr s={"(recomendado)"} /></span>}
+                    <p className="max-w-[12rem] text-xs text-muted"><Tr s={RECORD_HELP[r.kind] ?? RECORD_HELP[r.type] ?? ""} /></p>
                   </td>
-                  <td className="py-2.5 pr-3 font-mono text-xs">{r.type}</td>
+                  <td className="py-2.5 pr-3 font-mono text-xs"><Tr s={r.type} /></td>
                   <td className="py-2.5 pr-3">
                     <span className="flex items-center gap-1.5">
                       <code className="rounded bg-sand px-1.5 py-0.5 text-xs">{short}</code>
-                      <CopyButton text={short} label="Copiar" className="btn btn-outline btn-sm" />
+                      <CopyButton text={t(short)} label={t("Copiar")} className="btn btn-outline btn-sm" />
                     </span>
                   </td>
                   <td className="py-2.5 pr-3">
                     <span className="flex items-center gap-1.5">
-                      <code className="block max-w-[16rem] truncate rounded bg-sand px-1.5 py-0.5 text-xs" title={r.value}>{r.value}</code>
-                      <CopyButton text={r.value} label="Copiar" className="btn btn-outline btn-sm" />
+                      <code className="block max-w-[16rem] truncate rounded bg-sand px-1.5 py-0.5 text-xs" title={t(r.value)}>{r.value}</code>
+                      <CopyButton text={t(r.value)} label={t("Copiar")} className="btn btn-outline btn-sm" />
                     </span>
                   </td>
                   <td className="py-2.5 pr-3 text-xs">{r.priority ?? "—"}</td>
                   <td className="py-2.5 text-xs">
                     {ok ? (
-                      <span className="inline-flex items-center gap-1 text-[#2f6b4a]"><CheckCircle2 className="h-4 w-4" /> Bien</span>
+                      <span className="inline-flex items-center gap-1 text-[#2f6b4a]"><CheckCircle2 className="h-4 w-4" />{" "}<Tr s={"Bien"} /></span>
                     ) : r.seen ? (
-                      <span className="inline-flex items-center gap-1 text-[#8a6420]"><CircleAlert className="h-4 w-4" /> Visto, falta que Resend lo confirme</span>
+                      <span className="inline-flex items-center gap-1 text-[#8a6420]"><CircleAlert className="h-4 w-4" />{" "}<Tr s={"Visto, falta que Resend lo confirme"} /></span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[#8a6420]"><CircleAlert className="h-4 w-4" /> {r.status === "failed" ? "No encontrado" : "Falta"}</span>
+                      <span className="inline-flex items-center gap-1 text-[#8a6420]"><CircleAlert className="h-4 w-4" /> {r.status === "failed" ? t("No encontrado") : t("Falta")}</span>
                     )}
                   </td>
                 </tr>
@@ -146,7 +145,7 @@ export function DomainCard({ domain, demo, canEdit }: { domain: SendingDomain | 
           </tbody>
         </table>
       </div>
-      {domain.checkedAt && <p className="mt-2 text-xs text-muted">Última comprobación: {new Date(domain.checkedAt).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>}
+      {domain.checkedAt && <p className="mt-2 text-xs text-muted"><Tr s={"Última comprobación:"} />{" "}{new Date(domain.checkedAt).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>}
       <Note r={res} />
     </div>
   );
@@ -176,40 +175,38 @@ export function SenderForm(p: {
       }}
     >
       <div>
-        <p className="font-semibold">Remitente</p>
-        <p className="mt-0.5 text-sm text-muted">Lo que ve quien recibe tu newsletter (y tus automatizaciones). Vacío = lo de siempre.</p>
+        <p className="font-semibold"><Tr s={"Remitente"} /></p>
+        <p className="mt-0.5 text-sm text-muted"><Tr s={"Lo que ve quien recibe tu newsletter (y tus automatizaciones). Vacío = lo de siempre."} /></p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="field-label" htmlFor="snd-name">Nombre que se ve</label>
+          <label className="field-label" htmlFor="snd-name"><Tr s={"Nombre que se ve"} /></label>
           <input id="snd-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder={p.fallback.name} className="input h-11 text-base sm:text-sm" disabled={!p.canEdit} />
         </div>
         <div>
-          <label className="field-label" htmlFor="snd-addr">Dirección</label>
+          <label className="field-label" htmlFor="snd-addr"><Tr s={"Dirección"} /></label>
           {p.domain ? (
             <div className="flex items-center gap-1.5">
               <input id="snd-addr" value={local} maxLength={64} onChange={(e) => setLocal(e.target.value.replace(/[\s@<>"]/g, ""))} placeholder="hola" className="input h-11 min-w-0 flex-1 text-base sm:text-sm" disabled={!p.canEdit} />
-              <span className="text-sm text-muted">@{p.domain}</span>
+              <span className="text-sm text-muted">@<Tr s={p.domain} /></span>
             </div>
           ) : (
-            <p className="text-xs text-muted">Conecta antes tu dominio. Ahora sale desde {p.fallback.address}.</p>
+            <p className="text-xs text-muted"><Tr s={"Conecta antes tu dominio. Ahora sale desde"} />{" "}<Tr s={p.fallback.address} />.</p>
           )}
         </div>
         <div className="sm:col-span-2">
-          <label className="field-label" htmlFor="snd-reply">Las respuestas llegan a</label>
+          <label className="field-label" htmlFor="snd-reply"><Tr s={"Las respuestas llegan a"} /></label>
           <input id="snd-reply" type="email" value={replyTo} onChange={(e) => setReplyTo(e.target.value)} placeholder={p.fallback.replyTo} className="input h-11 text-base sm:text-sm" disabled={!p.canEdit} />
         </div>
       </div>
-      <p className="rounded-xl bg-sand px-3 py-2 text-sm">
-        Se verá así: <strong>{shown}</strong>
+      <p className="rounded-xl bg-sand px-3 py-2 text-sm"><Tr s={"Se verá así:"} />{" "}<strong><Tr s={shown} /></strong>
       </p>
-      {p.domain && address && !p.verified && <p className="text-xs text-[#8a6420]">Hasta que {p.domain} esté verificado, sale desde {p.fallback.address}.</p>}
+      {p.domain && address && !p.verified && <p className="text-xs text-[#8a6420]"><Tr s={"Hasta que"} />{" "}<Tr s={p.domain} />{" "}<Tr s={"esté verificado, sale desde"} />{" "}<Tr s={p.fallback.address} />.</p>}
       {p.canEdit ? (
         <button className="btn btn-primary btn-sm" disabled={pending}>
-          {pending && <Loader2 className="h-4 w-4 animate-spin" />} Guardar remitente
-        </button>
+          {pending && <Loader2 className="h-4 w-4 animate-spin" />}{" "}<Tr s={"Guardar remitente"} /></button>
       ) : (
-        <p className="text-xs text-muted">Solo quien administra la web puede cambiarlo.</p>
+        <p className="text-xs text-muted"><Tr s={"Solo quien administra la web puede cambiarlo."} /></p>
       )}
       <Note r={res} />
     </form>
@@ -218,6 +215,7 @@ export function SenderForm(p: {
 
 /** Enviar un email de prueba con el remitente de la newsletter. */
 export function TestEmail({ defaultTo }: { defaultTo: string }) {
+  const t = useT();
   const [to, setTo] = useState(defaultTo);
   const [res, setRes] = useState<SendingResult | null>(null);
   const [pending, start] = useTransition();
@@ -229,13 +227,12 @@ export function TestEmail({ defaultTo }: { defaultTo: string }) {
         start(async () => setRes(await sendSendingTest(to)));
       }}
     >
-      <p className="font-semibold">Email de prueba</p>
-      <p className="mt-0.5 text-sm text-muted">Te llega un email corto con el remitente de tu newsletter, para ver que todo sale bien.</p>
+      <p className="font-semibold"><Tr s={"Email de prueba"} /></p>
+      <p className="mt-0.5 text-sm text-muted"><Tr s={"Te llega un email corto con el remitente de tu newsletter, para ver que todo sale bien."} /></p>
       <div className="mt-3 flex flex-wrap gap-2">
-        <input type="email" value={to} onChange={(e) => setTo(e.target.value)} className="input h-11 min-w-0 flex-1 text-base sm:text-sm" aria-label="Enviar a" required />
+        <input type="email" value={to} onChange={(e) => setTo(e.target.value)} className="input h-11 min-w-0 flex-1 text-base sm:text-sm" aria-label={t("Enviar a")} required />
         <button className="btn btn-primary" disabled={pending}>
-          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar prueba
-        </button>
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{" "}<Tr s={"Enviar prueba"} /></button>
       </div>
       <Note r={res} />
     </form>

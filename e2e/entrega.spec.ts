@@ -23,7 +23,7 @@ const INSTRUCTIONS = "Te envío la interpretación en PDF por email en 3 días";
  * cobros conectados. En el paso 8 ejecuta `delivery`.
  */
 async function onboard(page: Page, username: string, email: string, delivery: (page: Page) => Promise<void>) {
-  await page.goto("/registro");
+  await page.goto("/signup");
   await page.fill("#email", email);
   await page.fill("#password", "secreto123");
   await page.getByRole("button", { name: "Crear mi cuenta" }).click();
@@ -60,7 +60,7 @@ async function onboard(page: Page, username: string, email: string, delivery: (p
   await page.getByLabel("Código postal").fill("28004");
   await page.getByLabel("Ciudad").fill("Madrid");
   await page.getByRole("button", { name: "Conectar con Stripe" }).click();
-  await page.waitForURL("**/pago-simulado/cuenta**");
+  await page.waitForURL("**/test-payment/account**");
   await page.getByRole("button", { name: "Verificar al instante" }).click();
   await page.waitForURL("**/onboarding");
   await expect(page.getByRole("heading", { name: /Todo listo/ })).toBeVisible();
@@ -181,7 +181,7 @@ test.describe("Entrega de productos", () => {
     await expect(buyer.getByText("Para pagar, marca la casilla para que se prepare ya y renuncia al desistimiento")).toBeVisible();
     await buyer.getByLabel(/Quiero que se prepare ya/).check();
     await buyer.getByRole("button", { name: /Pagar 19/ }).click();
-    await buyer.waitForURL(`**/${username}/gracias**`);
+    await buyer.waitForURL(`**/${username}/thanks**`);
     await expect(buyer.getByRole("heading", { name: "Compra completada" })).toBeVisible();
     await expect(buyer.getByText(/lo prepara personalmente para ti/)).toBeVisible();
     await expect(buyer.getByText("Siguientes pasos")).toBeVisible();

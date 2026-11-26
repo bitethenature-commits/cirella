@@ -7,6 +7,7 @@ import { Flash } from "@/components/ui/flash";
 import { ACCESS_END_CHOICES, ACCESS_END_LABEL, accessEndFrom, lastDayText, REMIND_BEFORE_DAYS, type AccessEndChoice } from "@/lib/access-end";
 import { dateKeyInTz } from "@/lib/tz";
 import { grantAccess, revokeAccess, setAccessEnd, type ActionState } from "../actions";
+import { Tr, useT } from "@/lib/i18n/client";
 
 export type AccessRow = {
   orderId: string;
@@ -38,7 +39,7 @@ export function AccessEndFields({ timeZone, idPrefix, choice, setChoice, date, s
     <div className="space-y-2">
       <div className="grid gap-2 sm:grid-cols-2">
         <div>
-          <label className="field-label" htmlFor={`${idPrefix}-end`}>Duración del acceso</label>
+          <label className="field-label" htmlFor={`${idPrefix}-end`}><Tr s={"Duración del acceso"} /></label>
           <select id={`${idPrefix}-end`} name="accessEnd" value={choice} onChange={(e) => setChoice(e.target.value as AccessEndChoice)} className="input h-11 text-base sm:text-sm">
             {ACCESS_END_CHOICES.map((c) => (
               <option key={c} value={c}>{ACCESS_END_LABEL[c]}</option>
@@ -47,24 +48,25 @@ export function AccessEndFields({ timeZone, idPrefix, choice, setChoice, date, s
         </div>
         {choice === "date" && (
           <div>
-            <label className="field-label" htmlFor={`${idPrefix}-date`}>Último día</label>
+            <label className="field-label" htmlFor={`${idPrefix}-date`}><Tr s={"Último día"} /></label>
             <input id={`${idPrefix}-date`} name="accessEndDate" type="date" required min={today} value={date} onChange={(e) => setDate(e.target.value)} className="input h-11 text-base sm:text-sm" />
           </div>
         )}
       </div>
-      {sentence && <p className="text-xs text-muted" data-access-end-sentence>{sentence}</p>}
+      {sentence && <p className="text-xs text-muted" data-access-end-sentence><Tr s={sentence} /></p>}
     </div>
   );
 }
 
 /** «Cambiar fecha» de una fila: otra duración (desde hoy), un día concreto o sin fecha. */
 function ChangeEnd({ row, timeZone }: { row: AccessRow; timeZone: string }) {
+  const t = useT();
   const [state, action, pending] = useActionState<ActionState, FormData>(setAccessEnd, undefined);
   const [choice, setChoice] = useState<AccessEndChoice>("1m");
   const [date, setDate] = useState("");
   return (
     <details className="w-full">
-      <summary className="btn btn-ghost btn-sm inline-flex min-h-10 cursor-pointer list-none"><CalendarClock className="h-4 w-4" /> {row.active ? "Cambiar fecha" : "Volver a dar acceso"}</summary>
+      <summary className="btn btn-ghost btn-sm inline-flex min-h-10 cursor-pointer list-none"><CalendarClock className="h-4 w-4" /> {row.active ? t("Cambiar fecha") : t("Volver a dar acceso")}</summary>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -77,8 +79,7 @@ function ChangeEnd({ row, timeZone }: { row: AccessRow; timeZone: string }) {
         <input type="hidden" name="orderId" value={row.orderId} />
         <AccessEndFields timeZone={timeZone} idPrefix={`chg-${row.orderId}`} choice={choice} setChoice={setChoice} date={date} setDate={setDate} />
         <button type="submit" className="btn btn-primary btn-sm min-h-10" disabled={pending}>
-          {pending && <Loader2 className="h-4 w-4 animate-spin" />} Guardar
-        </button>
+          {pending && <Loader2 className="h-4 w-4 animate-spin" />}{" "}<Tr s={"Guardar"} /></button>
       </form>
     </details>
   );
@@ -104,6 +105,7 @@ export function AccessManager({
   paid?: boolean;
   timeZone: string;
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState<ActionState, FormData>(grantAccess, undefined);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -122,13 +124,13 @@ export function AccessManager({
   return (
     <section id="accesos" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
       <div>
-        <h3 className="font-semibold">Personas con acceso</h3>
+        <h3 className="font-semibold"><Tr s={"Personas con acceso"} /></h3>
         <p className="mt-1 text-sm text-muted">
           {paid
-            ? "Para quien te paga por otra vía (Bizum, transferencia) o para regalar acceso: recibirá un email con su enlace directo."
+            ? t("Para quien te paga por otra vía (Bizum, transferencia) o para regalar acceso: recibirá un email con su enlace directo.")
             : external
-              ? "Cuando alguien te pague en la otra web, dale acceso aquí: recibirá un email con su enlace directo al contenido."
-              : "Quien se apunta con su email aparece aquí. También puedes dar acceso tú a alguien."}
+              ? t("Cuando alguien te pague en la otra web, dale acceso aquí: recibirá un email con su enlace directo al contenido.")
+              : t("Quien se apunta con su email aparece aquí. También puedes dar acceso tú a alguien.")}
         </p>
       </div>
       <Flash ok={state?.ok} error={state?.error} />
@@ -142,19 +144,18 @@ export function AccessManager({
       >
         <input type="hidden" name="productId" value={productId} />
         <div>
-          <label className="field-label" htmlFor="grant-name">Nombre</label>
-          <input id="grant-name" name="name" required minLength={2} maxLength={80} value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder="Nombre" />
+          <label className="field-label" htmlFor="grant-name"><Tr s={"Nombre"} /></label>
+          <input id="grant-name" name="name" required minLength={2} maxLength={80} value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder={t("Nombre")} />
         </div>
         <div>
-          <label className="field-label" htmlFor="grant-email">Email</label>
-          <input id="grant-email" name="email" type="email" required maxLength={200} value={email} onChange={(e) => setEmail(e.target.value)} className="input" placeholder="persona@email.com" />
+          <label className="field-label" htmlFor="grant-email"><Tr s={"Email"} /></label>
+          <input id="grant-email" name="email" type="email" required maxLength={200} value={email} onChange={(e) => setEmail(e.target.value)} className="input" placeholder={t("persona@email.com")} />
         </div>
         <div className="sm:col-span-3 sm:row-start-2">
           <AccessEndFields timeZone={timeZone} idPrefix="grant" choice={choice} setChoice={setChoice} date={date} setDate={setDate} />
         </div>
         <button type="submit" className="btn btn-primary" disabled={pending}>
-          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />} Dar acceso
-        </button>
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}{" "}<Tr s={"Dar acceso"} /></button>
       </form>
 
       {rows.length > 0 ? (
@@ -165,9 +166,9 @@ export function AccessManager({
                 <p className="truncate font-medium">{r.name || r.email}</p>
                 <p className="truncate text-xs text-muted">
                   {r.name ? `${r.email} · ` : ""}
-                  {r.date} · {r.origin}
+                  {r.date} · <Tr s={r.origin} />
                   {r.until && ` · ${r.until}`}
-                  {!r.active && !r.ended && " · Acceso retirado"}
+                  {!r.active && !r.ended && t(" · Acceso retirado")}
                 </p>
               </div>
               {r.active && (
@@ -175,8 +176,7 @@ export function AccessManager({
                   <input type="hidden" name="orderId" value={r.orderId} />
                   <input type="hidden" name="productId" value={productId} />
                   <button className="btn btn-ghost btn-sm" aria-label={`Quitar acceso a ${r.email}`}>
-                    <UserMinus className="h-4 w-4" /> Quitar acceso
-                  </button>
+                    <UserMinus className="h-4 w-4" />{" "}<Tr s={"Quitar acceso"} /></button>
                 </ConfirmForm>
               )}
               {(r.active || r.ended) && <ChangeEnd row={r} timeZone={timeZone} />}
@@ -184,11 +184,10 @@ export function AccessManager({
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-muted">Todavía nadie tiene acceso.</p>
+        <p className="text-sm text-muted"><Tr s={"Todavía nadie tiene acceso."} /></p>
       )}
       {total > rows.length && (
-        <p className="text-xs text-muted">
-          Se muestran las {rows.length} últimas de {total}. Lo de cada persona está en <a href="/panel/clientes" className="underline underline-offset-2">su ficha</a>.
+        <p className="text-xs text-muted"><Tr s={"Se muestran las"} />{" "}{rows.length}{" "}<Tr s={"últimas de"} />{" "}{total}<Tr s={". Lo de cada persona está en"} />{" "}<a href="/panel/clientes" className="underline underline-offset-2"><Tr s={"su ficha"} /></a>.
         </p>
       )}
     </section>

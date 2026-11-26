@@ -6,6 +6,7 @@ import type { AstroLayer } from "@/lib/lesson-blocks";
 import { C, type DiagramProps, type LayerCtx, type SystemPiece, type Tap } from "./common";
 import { GeoFigure, lifePath, numberFig, sunElement, type E } from "./geo";
 import { NIGHT, NIGHT_GOLD, NightChips, NightDefs, NightPanel, OptionChips, STAR, usePrefix } from "./night";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Leer cualquier oráculo, por partes: cómo hacer una lectura, cómo preguntar, las tiradas, los símbolos, los
@@ -319,7 +320,7 @@ function SpreadView({ p, keys, selected, tap }: { p: string; keys: string[]; sel
             </Card>
             {!s.small && (
               <text x={q.x} y={q.y + h / 2 + 11} textAnchor="middle" fontSize="8.5" fontWeight={on ? 700 : 500} fill={on ? NIGHT_GOLD : STAR} fillOpacity={on ? 1 : 0.75} stroke={NIGHT} strokeWidth="3" paintOrder="stroke" pointerEvents="none">
-                {q.name}
+                <Tr s={q.name} />
               </text>
             )}
           </g>
@@ -357,7 +358,7 @@ function StepsRing({ p, keys, selected, tap, names }: { p: string; keys: string[
           {i0 + 1}
         </text>
         <foreignObject x={C - 42} y={C - 6} width="84" height="60" pointerEvents="none">
-          <div style={{ fontSize: 9.5, lineHeight: 1.2, textAlign: "center", color: "#2A1E0C", fontWeight: 700 }}>{names[selected]?.name}</div>
+          <div style={{ fontSize: 9.5, lineHeight: 1.2, textAlign: "center", color: "#2A1E0C", fontWeight: 700 }}><Tr s={names[selected]?.name} /></div>
         </foreignObject>
       </Card>
     </svg>
@@ -365,12 +366,13 @@ function StepsRing({ p, keys, selected, tap, names }: { p: string; keys: string[
 }
 
 function SymbolGrid({ p, keys, selected, tap }: { p: string; keys: string[]; selected: string; tap: Tap }) {
+  const t = useT();
   const cols = 6;
   const cw = 340 / cols;
   const rows = Math.ceil(keys.length / cols);
   const H = rows * 84 + 8;
   return (
-    <svg viewBox={`0 0 340 ${H}`} className={svgCls} role="group" aria-label="Los símbolos">
+    <svg viewBox={`0 0 340 ${H}`} className={svgCls} role="group" aria-label={t("Los símbolos")}>
       <CardDefs p={p} />
       {keys.map((k, i) => {
         const x = cw / 2 + (i % cols) * cw;
@@ -413,7 +415,7 @@ function NumberWheel({ p, keys, selected, tap, own }: { p: string; keys: string[
           <g key={k} {...tap(k, `El ${k}`)}>
             <circle cx={x} cy={y} r="15" fill={on ? `url(#${p}gold)` : "rgb(255 255 255 / .04)"} stroke={own.has(k) || on ? NIGHT_GOLD : "rgb(233 204 142 / .35)"} strokeWidth={own.has(k) ? 1.6 : 1} />
             <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize="13" fontFamily="Georgia, serif" fill={on ? "#2A1E0C" : STAR} pointerEvents="none">
-              {k}
+              <Tr s={k} />
             </text>
           </g>
         );
@@ -423,6 +425,7 @@ function NumberWheel({ p, keys, selected, tap, own }: { p: string; keys: string[
 }
 
 function ColorWheel({ keys, selected, tap, own }: { keys: string[]; selected: string; tap: Tap; own: Set<string> }) {
+  const t = useT();
   const n = keys.length;
   const sec = (i: number, r1: number, r2: number) => {
     const a1 = ((-90 + (i * 360) / n) * Math.PI) / 180;
@@ -432,7 +435,7 @@ function ColorWheel({ keys, selected, tap, own }: { keys: string[]; selected: st
   };
   const c = COLORS[selected];
   return (
-    <svg viewBox="0 0 340 340" className={svgCls} role="group" aria-label="Los colores">
+    <svg viewBox="0 0 340 340" className={svgCls} role="group" aria-label={t("Los colores")}>
       {keys.map((k, i) => {
         const on = k === selected;
         return (
@@ -444,13 +447,14 @@ function ColorWheel({ keys, selected, tap, own }: { keys: string[]; selected: st
       <circle cx={C} cy={C} r="90" fill={c.hex} stroke={NIGHT_GOLD} strokeWidth="1.2" className="geo-fade" key={selected} />
       <circle cx={C} cy={C} r="96" fill="none" stroke={NIGHT_GOLD} strokeOpacity="0.4" />
       <text x={C} y={C} textAnchor="middle" dominantBaseline="central" fontSize="20" fontFamily="Georgia, serif" fill={["white", "yellow", "silver", "gold", "pink"].includes(selected) ? "#2A1E0C" : "#FBF6EC"}>
-        {c.name}
+        <Tr s={c.name} />
       </text>
     </svg>
   );
 }
 
 function ElementStar({ p, selected, tap, own }: { p: string; selected: string; tap: Tap; own: Set<string> }) {
+  const t = useT();
   const pts = Object.values(ELEMENTS).map((e) => [C + 112 * Math.cos((e.ang * Math.PI) / 180), C + 112 * Math.sin((e.ang * Math.PI) / 180)] as [number, number]);
   const order = [0, 2, 4, 1, 3];
   const star = `M${order.map((i) => pts[i].join(" ")).join("L")}Z`;
@@ -466,7 +470,7 @@ function ElementStar({ p, selected, tap, own }: { p: string; selected: string; t
     );
   };
   return (
-    <svg viewBox="0 0 340 340" className={svgCls} role="group" aria-label="Los cinco elementos">
+    <svg viewBox="0 0 340 340" className={svgCls} role="group" aria-label={t("Los cinco elementos")}>
       <NightDefs p={p} />
       <circle cx={C} cy={C} r="140" fill="none" stroke={NIGHT_GOLD} strokeOpacity="0.3" />
       <path d={star} fill="none" stroke={NIGHT_GOLD} strokeOpacity="0.55" strokeWidth="1.2" />
@@ -601,17 +605,17 @@ function QuestionPair({ selected }: { selected: string }) {
       {m ? (
         <>
           <div className="geo-fade rounded-2xl border p-4 text-center" style={{ borderColor: "rgb(233 204 142 / .25)", background: "rgb(255 255 255 / .03)" }}>
-            <p className="text-[0.62rem] font-bold uppercase tracking-[0.16em]" style={{ color: "rgb(251 246 236 / .55)" }}>En vez de</p>
-            <p className="mt-2 font-serif text-[1.02rem] leading-snug line-through decoration-1" style={{ color: "rgb(251 246 236 / .6)" }}>«{m[1]}»</p>
+            <p className="text-[0.62rem] font-bold uppercase tracking-[0.16em]" style={{ color: "rgb(251 246 236 / .55)" }}><Tr s={"En vez de"} /></p>
+            <p className="mt-2 font-serif text-[1.02rem] leading-snug line-through decoration-1" style={{ color: "rgb(251 246 236 / .6)" }}>«<Tr s={m[1]} />»</p>
           </div>
           <div className="geo-fade rounded-2xl border p-4 text-center" style={{ borderColor: "#F0D9A4", background: "linear-gradient(135deg, #F0D9A4, #C8A86E)", boxShadow: "0 0 24px rgb(233 204 142 / .35)" }}>
-            <p className="text-[0.62rem] font-bold uppercase tracking-[0.16em]" style={{ color: "#5A4220" }}>Mejor</p>
-            <p className="mt-2 font-serif text-[1.02rem] leading-snug" style={{ color: "#2A1E0C" }}>«{m[2]}»</p>
+            <p className="text-[0.62rem] font-bold uppercase tracking-[0.16em]" style={{ color: "#5A4220" }}><Tr s={"Mejor"} /></p>
+            <p className="mt-2 font-serif text-[1.02rem] leading-snug" style={{ color: "#2A1E0C" }}>«<Tr s={m[2]} />»</p>
           </div>
         </>
       ) : (
         <div className="geo-fade rounded-2xl border p-5 text-center sm:col-span-2" style={{ borderColor: "#F0D9A4", background: "rgb(233 204 142 / .08)" }}>
-          <p className="font-serif text-[1.1rem] leading-snug" style={{ color: STAR }}>{t.kicker}</p>
+          <p className="font-serif text-[1.1rem] leading-snug" style={{ color: STAR }}><Tr s={t.kicker} /></p>
         </div>
       )}
     </div>

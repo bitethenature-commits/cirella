@@ -10,6 +10,7 @@ import { activeMembersPage } from "./membership-access";
 import { createOrderLink, emailAlreadyQueued, orderLinkNote } from "./order-links";
 import { readPageConfig } from "./page-config";
 import { richToPlain, truncateWords } from "./rich-text";
+import { inMail } from "@/lib/i18n/email";
 
 /**
  * Avisos por email de la comunidad.
@@ -25,7 +26,7 @@ import { richToPlain, truncateWords } from "./rich-text";
 const DAY = 86_400_000;
 const PAGE = 100;
 
-export const postPath = (productId: string, postId: string) => `/cuenta/membresias/${productId}/${postId}`;
+export const postPath = (productId: string, postId: string) => `/area/membership/${productId}/${postId}`;
 
 const brandName = (c: { displayName: string; pagePublished: unknown; pageDraft: unknown }) =>
   readPageConfig((c.pagePublished ?? c.pageDraft) as never, c.displayName).displayName || c.displayName;
@@ -67,7 +68,7 @@ export async function processPostNotifications(o: { postId?: string; budget?: nu
           dedupeKey,
           sendNow: false,
           headers: postOptOutHeaders(m.customerId),
-          ...T.memberPostEmail({
+          ...(await inMail(m.email, async () => T.memberPostEmail({
             creatorName: brandName(creator),
             membershipTitle: post.product.title,
             postTitle: post.title,
@@ -76,8 +77,8 @@ export async function processPostNotifications(o: { postId?: string; budget?: nu
             attachments,
             url: link?.url ?? `${appUrl()}${path}`,
             linkNote: link ? orderLinkNote(link.expiresAt) : null,
-            optOutUrl: postOptOutUrl(m.customerId),
-          }),
+            optOutUrl: postOptOutUrl(m.customerId!),
+          }))),
         });
         made++;
       }
@@ -109,13 +110,13 @@ export async function notifyNewComment(commentId: string) {
     creatorId: c.creatorId,
     template: "COMMENT_NEW",
     dedupeKey: `comment:${c.id}`,
-    ...T.newCommentCreatorEmail({
+    ...(await inMail(s.creator.contactEmail || s.creator.user.email, async () => T.newCommentCreatorEmail({
       membershipTitle: c.post.product.title,
       postTitle: c.post.title,
       author: c.authorName,
       excerpt: truncateWords(c.body, 400),
       url: `${appUrl()}${postPath(c.productId, c.postId)}#c-${c.id}`,
-    }),
+    }))),
   });
 }
 
@@ -136,7 +137,7 @@ export async function notifyReply(replyId: string) {
     template: "COMMENT_REPLY",
     dedupeKey: `reply:${r.id}`,
     headers: postOptOutHeaders(customer.id),
-    ...T.commentReplyEmail({
+    ...(await inMail(customer.email, async () => T.commentReplyEmail({
       creatorName: brandName(creator),
       replierName: r.byOwner ? undefined : r.authorName,
       membershipTitle: r.post.product.title,
@@ -144,6 +145,6 @@ export async function notifyReply(replyId: string) {
       excerpt: truncateWords(r.body, 400),
       url: `${appUrl()}${postPath(r.productId, r.postId)}#c-${r.id}`,
       optOutUrl: postOptOutUrl(customer.id),
-    }),
+    }))),
   });
 }

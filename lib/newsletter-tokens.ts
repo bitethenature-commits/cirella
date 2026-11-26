@@ -5,8 +5,8 @@ import { signToken, verifyToken } from "./storage/signing";
  * Enlaces de la newsletter, como lib/community-optout.ts: firmados con APP_SECRET, con su propio
  * propósito (un enlace de otra baja no sirve aquí) y solo con el id de la suscriptora (nunca el
  * email). No dan acceso a ninguna cuenta.
- *   · Confirmar el alta (doble opt-in): /novedades/confirmar?t=…, 7 días.
- *   · Darse de baja: /baja/newsletter?t=… y la baja «en un clic» (RFC 8058) de la cabecera
+ *   · Confirmar el alta (doble opt-in): /newsletter/confirm?t=…, 7 días.
+ *   · Darse de baja: /unsubscribe/newsletter?t=… y la baja «en un clic» (RFC 8058) de la cabecera
  *     List-Unsubscribe, 5 años (tiene que funcionar cuando encuentre un email antiguo). Lleva la
  *     campaña de la que viene para contar las bajas de cada newsletter.
  */
@@ -21,7 +21,7 @@ export function confirmToken(subscriberId: string, now = Date.now()) {
 }
 
 export function confirmUrl(subscriberId: string) {
-  return `${appUrl()}/novedades/confirmar?t=${encodeURIComponent(confirmToken(subscriberId))}`;
+  return `${appUrl()}/newsletter/confirm?t=${encodeURIComponent(confirmToken(subscriberId))}`;
 }
 
 export function readConfirmToken(token: string | null | undefined, now = Date.now()): string | null {
@@ -34,11 +34,11 @@ export function unsubscribeToken(subscriberId: string, campaignId?: string | nul
 }
 
 export function unsubscribeUrl(subscriberId: string, campaignId?: string | null) {
-  return `${appUrl()}/baja/newsletter?t=${encodeURIComponent(unsubscribeToken(subscriberId, campaignId))}`;
+  return `${appUrl()}/unsubscribe/newsletter?t=${encodeURIComponent(unsubscribeToken(subscriberId, campaignId))}`;
 }
 
 export function oneClickUrl(subscriberId: string, campaignId?: string | null) {
-  return `${appUrl()}/baja/newsletter/un-clic?t=${encodeURIComponent(unsubscribeToken(subscriberId, campaignId))}`;
+  return `${appUrl()}/unsubscribe/newsletter/one-click?t=${encodeURIComponent(unsubscribeToken(subscriberId, campaignId))}`;
 }
 
 /** Botón «Cancelar suscripción» del propio gestor de correo (Gmail y Yahoo lo exigen a los envíos masivos). */

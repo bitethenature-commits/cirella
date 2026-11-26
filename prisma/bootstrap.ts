@@ -4,7 +4,7 @@
  *
  * Idempotente y no destructivo: solo crea lo que falta y nunca borra ni sobrescribe lo que la
  * administradora haya editado en /admin. En la plataforma no crea cuentas: la administradora se
- * registra en /registro y se promociona con `npm run admin:promote -- su@email`.
+ * registra en /signup y se promociona con `npm run admin:promote -- su@email`.
  *
  * Modo personal con OWNER_EMAIL: si la página de la dueña (OWNER_USERNAME) aún no existe, crea su
  * cuenta (administradora, sin contraseña) y su página publicada, como `npm run personal:setup`.
@@ -29,7 +29,7 @@ async function main() {
     else {
       try {
         const { user } = await ensurePersonalOwner(prisma, owner);
-        console.log(`✓ Cuenta de ${user.email} y página «${owner.username}» creadas y publicadas. Entra en /entrar con «Pide un enlace para entrar».`);
+        console.log(`✓ Cuenta de ${user.email} y página «${owner.username}» creadas y publicadas. Entra en /login con «Pide un enlace para entrar».`);
       } catch (e) {
         if (e instanceof OwnerSetupError) {
           console.error(`✗ ${e.message}`);

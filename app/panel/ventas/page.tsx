@@ -17,6 +17,8 @@ import { Badge, PageHeader, Pager, RangeTabs, Stat } from "../ui";
 import { formatDate } from "@/lib/tz";
 import { deleteOrderAction } from "./actions";
 import { SignupsView } from "./inscripciones";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 const TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = { PAID: "success", PENDING: "warning", PROCESSING: "warning", FAILED: "danger", ABANDONED: "neutral", REFUNDED: "neutral" };
 
@@ -25,6 +27,7 @@ const CHARGED = { paymentProvider: { notIn: [...NO_CHARGE_PROVIDERS] } };
 const PAGE = 100;
 
 export default async function SalesPage({ searchParams }: { searchParams: Promise<{ rango?: string; estado?: string; producto?: string; filtro?: string; ok?: string; p?: string }> }) {
+  const t = await getT();
   const { creator } = await requireCreator();
   const sp = await searchParams;
   const range = parseRange(sp.rango);
@@ -92,33 +95,32 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
   return (
     <div>
       <PageHeader
-        title="Ventas"
-        subtitle={personal ? "Cada pedido y lo que recibes." : "Cada pedido, su comisión y lo que recibes."}
+        title={t("Ventas")}
+        subtitle={personal ? t("Cada pedido y lo que recibes.") : t("Cada pedido, su comisión y lo que recibes.")}
         actions={
           <>
             <RangeTabs current={range} base="/panel/ventas" />
             <a href={`/panel/ventas/csv?rango=${range}`} className="btn btn-outline btn-sm" download>
-              <Download className="h-4 w-4" /> Descargar CSV
-            </a>
+              <Download className="h-4 w-4" />{" "}<Tr s={"Descargar CSV"} /></a>
           </>
         }
       />
       <div className={`mb-6 grid grid-cols-2 gap-3 ${personal ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
-        <Stat label="Ingresos brutos" value={formatMoney(gross)} accent hint={refunded > 0 ? `−${formatMoney(refunded, "EUR", { decimals: true })} reembolsados` : undefined} />
-        {!personal && <Stat label="Comisión plataforma" value={formatMoney(fees, "EUR", { decimals: true })} hint={`Plan ${creator.plan.name}`} />}
-        <Stat label="Recibes" value={formatMoney(net, "EUR", { decimals: true })} />
-        <Stat label="Pedidos" value={figures.filter((f) => f.amount - f.refunded > 0).length} />
+        <Stat label={t("Ingresos brutos")} value={formatMoney(gross)} accent hint={refunded > 0 ? `−${formatMoney(refunded, "EUR", { decimals: true })} reembolsados` : undefined} />
+        {!personal && <Stat label={t("Comisión plataforma")} value={formatMoney(fees, "EUR", { decimals: true })} hint={`Plan ${creator.plan.name}`} />}
+        <Stat label={t("Recibes")} value={formatMoney(net, "EUR", { decimals: true })} />
+        <Stat label={t("Pedidos")} value={figures.filter((f) => f.amount - f.refunded > 0).length} />
       </div>
       <div className="mb-4 flex flex-wrap gap-1.5">
         {filters.map(([k, l]) => (
           <Link key={k} href={`/panel/ventas?rango=${range}&estado=${k}`} className={`rounded-full px-3 py-1.5 text-sm ${current === k ? "bg-ink text-cream" : "bg-sand text-muted hover:text-ink"}`}>
-            {l}
+            <Tr s={l} />
           </Link>
         ))}
       </div>
       <div className="card overflow-hidden">
         <div className="hidden grid-cols-[1.4fr_1fr_0.8fr_0.7fr_0.7fr_0.8fr] gap-4 border-b border-line bg-paper px-5 py-2.5 text-xs font-semibold text-muted md:grid">
-          <span>Producto</span><span>Cliente</span><span>Fecha</span><span className="text-right">Importe</span><span className="text-right">Recibes</span><span className="text-right">Estado</span>
+          <span><Tr s={"Producto"} /></span><span><Tr s={"Cliente"} /></span><span><Tr s={"Fecha"} /></span><span className="text-right"><Tr s={"Importe"} /></span><span className="text-right"><Tr s={"Recibes"} /></span><span className="text-right"><Tr s={"Estado"} /></span>
         </div>
         <ul className="divide-y divide-line">
           {orders.map((o) => {
@@ -127,35 +129,35 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
             return (
               <li key={o.id} className="flex items-center pr-2">
                 <Link href={`/panel/ventas/${o.id}`} className="grid min-w-0 flex-1 grid-cols-[1fr_auto] gap-x-4 gap-y-1 px-4 py-3.5 text-sm transition hover:bg-paper md:grid-cols-[1.4fr_1fr_0.8fr_0.7fr_0.7fr_0.8fr] md:items-center md:px-5">
-                  <span className="min-w-0 truncate font-medium">{o.product.emoji} {o.productTitle}<span className="block text-xs font-normal text-muted md:hidden">{o.buyerName ?? o.buyerEmail} · {formatDate(o.paidAt ?? o.createdAt, { day: "numeric", month: "short" }, creator.timezone)}</span></span>
-                  <span className="hidden min-w-0 truncate text-muted md:block">{o.buyerName ?? o.buyerEmail}</span>
+                  <span className="min-w-0 truncate font-medium"><Tr s={o.product.emoji} /> <Tr s={o.productTitle} /><span className="block text-xs font-normal text-muted md:hidden"><Tr s={o.buyerName ?? o.buyerEmail} /> · {formatDate(o.paidAt ?? o.createdAt, { day: "numeric", month: "short" }, creator.timezone)}</span></span>
+                  <span className="hidden min-w-0 truncate text-muted md:block"><Tr s={o.buyerName ?? o.buyerEmail} /></span>
                   <span className="hidden text-muted md:block">{formatDate(o.paidAt ?? o.createdAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }, creator.timezone)}</span>
                   <span className="text-right font-semibold tabular-nums">
                     {formatMoney(o.amountCents, o.currency, { decimals: true })}
-                    {f.refunded > 0 && <span className="block text-[0.68rem] font-normal text-muted">−{formatMoney(f.refunded, o.currency, { decimals: true })} reemb.</span>}
+                    {f.refunded > 0 && <span className="block text-[0.68rem] font-normal text-muted">−{formatMoney(f.refunded, o.currency, { decimals: true })}{" "}<Tr s={"reemb."} /></span>}
                   </span>
                   <span className="hidden text-right tabular-nums text-muted md:block">
                     {f.settled ? (
                       <>
                         {formatMoney(f.net, o.currency, { decimals: true })}
                         {/* Lo que separa el importe de lo que recibes, para que la resta se vea. */}
-                        {f.fee > 0 && <span className="block text-[0.68rem] text-faint">−{formatMoney(f.fee, o.currency, { decimals: true })} comisión</span>}
+                        {f.fee > 0 && <span className="block text-[0.68rem] text-faint">−{formatMoney(f.fee, o.currency, { decimals: true })}{" "}<Tr s={"comisión"} /></span>}
                       </>
                     ) : (
                       "—"
                     )}
                   </span>
-                  <span className="col-span-2 flex justify-start md:col-span-1 md:justify-end"><Badge tone={partial ? "warning" : TONE[o.status]}>{orderStatusLabel(o)}</Badge>{o.disputeStatus && <span className="ml-1.5"><Badge tone={o.disputeStatus === "WON" ? "neutral" : "danger"}>{DISPUTE_STATUS_LABEL[o.disputeStatus]}</Badge></span>}<span className="ml-2 text-xs text-faint md:hidden">{PRODUCT_TYPE_LABEL[o.productType as ProductType]}</span></span>
+                  <span className="col-span-2 flex justify-start md:col-span-1 md:justify-end"><Badge tone={partial ? "warning" : TONE[o.status]}>{orderStatusLabel(o)}</Badge>{o.disputeStatus && <span className="ml-1.5"><Badge tone={o.disputeStatus === "WON" ? "neutral" : "danger"}><Tr s={DISPUTE_STATUS_LABEL[o.disputeStatus]} /></Badge></span>}<span className="ml-2 text-xs text-faint md:hidden"><Tr s={PRODUCT_TYPE_LABEL[o.productType as ProductType]} /></span></span>
                 </Link>
                 <DeleteButton action={deleteOrderAction} id={o.id} what={o.productTitle} message={`¿Borrar esta venta de «${o.productTitle}»? ${o.buyerName ?? o.buyerEmail} pierde el acceso y desaparece de Ventas. No se puede deshacer.`} />
               </li>
             );
           })}
         </ul>
-        {orders.length === 0 && <div className="p-6"><EmptyState icon={<Receipt className="h-5 w-5" />} title="Sin pedidos en este periodo" /></div>}
+        {orders.length === 0 && <div className="p-6"><EmptyState icon={<Receipt className="h-5 w-5" />} title={t("Sin pedidos en este periodo")} /></div>}
       </div>
       <Pager page={page} total={listed} perPage={PAGE} href={(n) => `/panel/ventas?rango=${range}&estado=${current}&p=${n}`} />
-      {current === "abandonados" && <p className="mt-3 text-xs text-muted">Los pedidos que se quedan a medias más de una hora reciben automáticamente un email de recuperación si tienes activa esa automatización.</p>}
+      {current === "abandonados" && <p className="mt-3 text-xs text-muted"><Tr s={"Los pedidos que se quedan a medias más de una hora reciben automáticamente un email de recuperación si tienes activa esa automatización."} /></p>}
     </div>
   );
 }

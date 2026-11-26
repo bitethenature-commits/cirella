@@ -6,6 +6,7 @@ import { enqueueEmail } from "./email/outbox";
 import * as T from "./email/templates";
 import { captureError } from "./monitoring";
 import { emailAlreadyQueued } from "./order-links";
+import { inMail } from "@/lib/i18n/email";
 
 /**
  * Cron «teEchoDeMenos»: a quien sigue teniendo acceso pero lleva días sin entrar en su área (los que
@@ -41,7 +42,7 @@ export async function processMissYou(now = new Date()): Promise<number> {
         if (await emailAlreadyQueued(dedupeKey)) continue;
         const name = user.name?.trim().split(/\s+/)[0] || null;
         const custom = customEmail(s, { nombre: name, mi_nombre: s.creator.displayName });
-        const mail = T.missYouEmail({ name, creatorName: s.creator.displayName, url: `${appUrl()}/cuenta`, items, introHtml: custom.introHtml });
+        const mail = await inMail(user.email, () => T.missYouEmail({ name, creatorName: s.creator.displayName, url: `${appUrl()}/area`, items, introHtml: custom.introHtml }));
         await enqueueEmail({
           to: user.email,
           creatorId,

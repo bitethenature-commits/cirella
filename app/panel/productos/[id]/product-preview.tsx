@@ -14,6 +14,7 @@ import type { PageConfig } from "@/lib/page-config";
 import { toPublicProduct } from "@/lib/product-view";
 import { resolveTheme, themeStyle, themeAttrs } from "@/lib/templates";
 import { TemplateDecor } from "@/components/template-decor";
+import { Tr, useT } from "@/lib/i18n/client";
 
 type Seller = { line: string; name: string; named: boolean };
 
@@ -65,7 +66,7 @@ export function PreviewTabs({ tab, onChange, className = "" }: { tab: PreviewTab
           onClick={() => onChange(t.key)}
           className={`h-8 rounded-full px-4 font-medium transition ${tab === t.key ? "bg-white shadow-soft" : "text-muted"}`}
         >
-          {t.label}
+          <Tr s={t.label} />
         </button>
       ))}
     </div>
@@ -84,6 +85,7 @@ function previewNotes(ctx: ProductPreviewContext, product: ProductPageProduct, s
 
 /** Lo que se ve dentro del teléfono: la tarjeta (como en la portada) o la ficha del producto. */
 function PreviewScene({ ctx, product, tab }: { ctx: ProductPreviewContext; product: ProductPageProduct; tab: PreviewTab }) {
+  const t = useT();
   if (tab === "page") {
     const paid = asAccessMode(product.accessMode) === "PAID" && !ctx.signupsOnly;
     return (
@@ -124,14 +126,14 @@ function PreviewScene({ ctx, product, tab }: { ctx: ProductPreviewContext; produ
       </TemplateDecor>
       <main className="relative mx-auto w-full max-w-[44rem] px-5 pb-16 pt-10">
         <section data-preview-card>
-          <SectionHeading title={ctx.sectionTitle} />
+          <SectionHeading title={t(ctx.sectionTitle)} />
           <div className="mt-5">
             <ProductCard p={card} username={ctx.username} trackCreatorId={null} />
           </div>
         </section>
         {card.sale && (
           <section className="mt-14">
-            <SectionHeading title={ctx.offersTitle} />
+            <SectionHeading title={t(ctx.offersTitle)} />
             <div className="mt-5">
               <OfferCard p={card} username={ctx.username} />
             </div>
@@ -139,7 +141,7 @@ function PreviewScene({ ctx, product, tab }: { ctx: ProductPreviewContext; produ
         )}
         {group && (
           <section className="mt-14">
-            <SectionHeading title="En «Cursos», por tema" />
+            <SectionHeading title={t("En «Cursos», por tema")} />
             <CourseGroups groups={[{ key: group.key, label: group.label, categories: group.categories, count: 1, cards: <ProductCard p={card} username={ctx.username} trackCreatorId={null} /> }]} />
           </section>
         )}
@@ -154,11 +156,11 @@ export function DesktopPreview({ ctx, product, status, tab, onTab }: { ctx: Prod
   return (
     <div className="sticky top-20" data-product-preview>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-xs uppercase tracking-[0.2em] text-muted">Vista previa en vivo</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted"><Tr s={"Vista previa en vivo"} /></p>
         <PreviewTabs tab={tab} onChange={onTab} />
       </div>
       {notes.map((n) => (
-        <p key={n} className="mb-2 rounded-xl bg-sand px-3 py-2 text-xs text-muted">{n}</p>
+        <p key={n} className="mb-2 rounded-xl bg-sand px-3 py-2 text-xs text-muted"><Tr s={n} /></p>
       ))}
       <PhoneFrame screenClassName="h-[min(760px,calc(100dvh-215px))] w-[360px] overflow-hidden xl:w-[390px]">
         <PreviewFrame title="Vista previa del producto" className="block h-full w-full border-0 bg-transparent">
@@ -186,12 +188,11 @@ export function PreviewSheet({ ctx, product, status, tab, onTab, onClose, always
     <div role="dialog" aria-modal="true" aria-label="Vista previa" className={`fixed inset-0 z-50 flex flex-col bg-paper animate-fade-in ${always ? "" : "lg:hidden"}`} data-product-preview>
       <div className="flex items-center justify-between gap-2 border-b border-line px-3 pb-2 pt-[max(env(safe-area-inset-top),0.5rem)]">
         <button type="button" onClick={onClose} className="btn btn-ghost btn-sm">
-          <ArrowLeft className="h-4 w-4" /> Volver
-        </button>
+          <ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Volver"} /></button>
         <PreviewTabs tab={tab} onChange={onTab} />
       </div>
       {notes.map((n) => (
-        <p key={n} className="border-b border-line bg-sand px-4 py-2 text-xs text-muted">{n}</p>
+        <p key={n} className="border-b border-line bg-sand px-4 py-2 text-xs text-muted"><Tr s={n} /></p>
       ))}
       <div className="mx-auto min-h-0 w-full max-w-[430px] flex-1">
         <PreviewFrame title="Vista previa del producto" className="block h-full w-full border-0 bg-transparent">
@@ -206,7 +207,6 @@ export function PreviewSheet({ ctx, product, status, tab, onTab, onClose, always
 export function PreviewButton({ onClick, className = "" }: { onClick: () => void; className?: string }) {
   return (
     <button type="button" onClick={onClick} className={`btn btn-outline btn-sm lg:hidden ${className}`}>
-      <Eye className="h-4 w-4" /> Vista previa
-    </button>
+      <Eye className="h-4 w-4" />{" "}<Tr s={"Vista previa"} /></button>
   );
 }

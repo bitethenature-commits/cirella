@@ -21,6 +21,7 @@ import type { BirthProfile, ComputedProfile } from "@/lib/birth-profile";
 import type { GeneKeysProfile } from "@/lib/human-design-calc";
 import { useComputedProfile } from "./use-birth-profile";
 import { BG, CompactSummary, GOLD, INK, LegendDot, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelRow, ToolButton, cn, tap, useShown } from "./model-kit";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * El perfil hologenético dibujado como la carta de Gene Keys: once esferas sobre el Camino Dorado en sus
@@ -106,7 +107,7 @@ export function GeneKeysModel({ profile, computed, compact = false }: { profile?
   if (pending)
     return (
       <div className="grid min-h-[24rem] place-items-center" aria-busy="true">
-        <span className="cp-faint text-[0.85rem]">Calculando…</span>
+        <span className="cp-faint text-[0.85rem]"><Tr s={"Calculando…"} /></span>
       </div>
     );
   return <GeneKeysView calc={result?.geneKeys ?? null} person={result?.profile} compact={compact} />;
@@ -242,13 +243,13 @@ function GeneKeysView({ calc, person, compact }: { calc: GeneKeysProfile | null;
             <g key={s.id} data-pop="" style={{ ["--d" as string]: `${200 + i * 60}ms` }}>
               {/* Un disco del color del fondo, siempre opaco: separa la esfera de los caminos y no deja verlos a través al atenuarla. */}
               <circle cx={s.x} cy={s.y} r={r + 4} fill={BG} />
-              <g {...tap(`${s.name} (${roles}), llave ${keyLabel(s.id)}`, () => setSelectedId(s.id))} opacity={dimmed(s) ? 0.22 : 1} style={{ transition: "opacity 500ms" }}>
+              <g {...tap(`${s.name} (${roles}), llave ${keyLabel(s.id)}`, () => setSelectedId((cur) => (cur === s.id ? null : s.id)))} opacity={dimmed(s) ? 0.22 : 1} style={{ transition: "opacity 500ms" }}>
                 {isSelected && <circle cx={s.x} cy={s.y} r={R * 2} fill={`url(#gk-halo-${s.sequence})`} />}
                 <circle cx={s.x} cy={s.y} r={r} fill={`url(#gk-fill-${s.id})`} style={{ transition: "r 500ms cubic-bezier(0.16,1,0.3,1)" }} />
                 <circle cx={s.x} cy={s.y} r={r} fill="url(#gk-shade)" style={{ transition: "r 500ms cubic-bezier(0.16,1,0.3,1)" }} />
                 <circle cx={s.x} cy={s.y} r={r} fill="url(#gk-gloss)" stroke={isSelected ? t.glow : "rgba(255,255,255,0.18)"} strokeWidth={isSelected ? 3 : 1} style={{ transition: "r 500ms cubic-bezier(0.16,1,0.3,1)" }} />
                 <text x={s.x} y={s.y - 15} textAnchor="middle" dominantBaseline="central" fontSize={s.name.length > 9 ? 9.5 : 10.5} fill="#FBF6EC" opacity="0.92" className="pointer-events-none select-none">
-                  {s.name}
+                  <Tr s={s.name} />
                 </text>
                 {/* La llave y su línea, grande, como en un perfil real. */}
                 <text x={s.x} y={s.y + 7} textAnchor="middle" dominantBaseline="central" fontSize="23" fontWeight="500" fill="#FBF6EC" className="pointer-events-none select-none" style={{ textShadow: "0 1px 2px rgba(0,0,0,.45)" }}>
@@ -284,7 +285,7 @@ function GeneKeysView({ calc, person, compact }: { calc: GeneKeysProfile | null;
     <PanelBody id="idle">
       {calc && (
         <div className="mb-6 rounded-[calc(var(--r-card)*0.7)] border p-5" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 35%, transparent)", background: "color-mix(in oklab, var(--c-gold) 7%, transparent)" }}>
-          <p className="cp-eyebrow cp-gold">{person?.name ? `Perfil hologenético de ${person.name}` : "Perfil hologenético calculado"}</p>
+          <p className="cp-eyebrow cp-gold">{person?.name ? `Perfil hologenético de ${person.name}` : <Tr s={"Perfil hologenético calculado"} />}</p>
           <dl className="mt-3">
             {sequenceSpheres.map(({ seq, spheres }) => (
               <PanelRow
@@ -294,7 +295,7 @@ function GeneKeysView({ calc, person, compact }: { calc: GeneKeysProfile | null;
                   <span className="flex flex-wrap justify-end gap-x-3 gap-y-1">
                     {spheres.map((sp) => (
                       <button key={sp.id} type="button" onClick={() => setSelectedId(sp.id)} className="tabular-nums underline-offset-4 hover:underline">
-                        {sp.name} <span className="font-semibold">{keyLabel(sp.id)}</span>
+                        <Tr s={sp.name} /> <span className="font-semibold">{keyLabel(sp.id)}</span>
                       </button>
                     ))}
                   </span>
@@ -302,27 +303,27 @@ function GeneKeysView({ calc, person, compact }: { calc: GeneKeysProfile | null;
               />
             ))}
           </dl>
-          {person && person.time === null && <p className="cp-faint mt-3 text-[0.72rem] leading-relaxed">Sin hora de nacimiento: calculado a las 12:00; la Atracción (Luna) y algunas líneas pueden variar.</p>}
+          {person && person.time === null && <p className="cp-faint mt-3 text-[0.72rem] leading-relaxed"><Tr s={"Sin hora de nacimiento: calculado a las 12:00; la Atracción (Luna) y algunas líneas pueden variar."} /></p>}
         </div>
       )}
       <PanelIdle title="Toca una esfera.">
-        <p>Once esferas, tres secuencias. Cada esfera lleva una de las 64 llaves con su línea — y cada llave, la misma fuerza a tres temperaturas: sombra, don y siddhi.</p>
-        <p>Con los controles de arriba puedes destacar una secuencia; al elegir una esfera, leer sus tres frecuencias{calc ? "." : " o poner otra llave."}</p>
+        <p><Tr s={"Once esferas, tres secuencias. Cada esfera lleva una de las 64 llaves con su línea — y cada llave, la misma fuerza a tres temperaturas: sombra, don y siddhi."} /></p>
+        <p><Tr s={"Con los controles de arriba puedes destacar una secuencia; al elegir una esfera, leer sus tres frecuencias"} />{calc ? "." : <Tr s={" o poner otra llave."} />}</p>
       </PanelIdle>
       <div className="mt-6 space-y-5">
         {sequenceSpheres.map(({ seq, spheres }) => (
           <div key={seq.id} className="cp-line border-t pt-4">
             <button type="button" onClick={() => setHighlight(highlight === seq.id ? null : seq.id)} className="flex w-full flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-left">
-              <span className="cp-display text-[1.25rem]">{seq.name}</span>
+              <span className="cp-display text-[1.25rem]"><Tr s={seq.name} /></span>
               <span className="cp-eyebrow !text-[0.6rem]" style={{ color: seq.hue }}>
-                {seq.question}
+                <Tr s={seq.question} />
               </span>
             </button>
-            <p className="cp-muted mt-2 text-[0.86rem] leading-relaxed">{seq.description}</p>
+            <p className="cp-muted mt-2 text-[0.86rem] leading-relaxed"><Tr s={seq.description} /></p>
             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
               {spheres.map((s) => (
                 <button key={s.id} type="button" onClick={() => setSelectedId(s.id)} className="min-h-8 text-[0.8rem] underline-offset-4 opacity-60 hover:underline hover:opacity-100">
-                  {s.name}
+                  <Tr s={s.name} />
                 </button>
               ))}
             </div>
@@ -338,14 +339,14 @@ function GeneKeysView({ calc, person, compact }: { calc: GeneKeysProfile | null;
           {alsoSeq.step ? `También ${alsoSeq.name} · ${SEQUENCE_BY_ID[alsoSeq.sequence].name} · esfera ${alsoSeq.step}` : `Puerta de la ${SEQUENCE_BY_ID[alsoSeq.sequence].name}`}
         </p>
       )}
-      <p className="mt-4 text-[0.95rem] leading-relaxed opacity-85">{selected.meaning}</p>
-      {alsoSeq?.meaning && <p className="mt-3 text-[0.95rem] leading-relaxed opacity-85">{alsoSeq.meaning}</p>}
+      <p className="mt-4 text-[0.95rem] leading-relaxed opacity-85"><Tr s={selected.meaning} /></p>
+      {alsoSeq?.meaning && <p className="mt-3 text-[0.95rem] leading-relaxed opacity-85"><Tr s={alsoSeq.meaning} /></p>}
       <p className="cp-display mt-5 border-l pl-5 text-[1.2rem] italic leading-relaxed opacity-80" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 40%, transparent)" }}>
-        {selected.contemplation}
+        <Tr s={selected.contemplation} />
         {alsoSeq?.contemplation && (
           <>
             <br />
-            {alsoSeq.contemplation}
+            <Tr s={alsoSeq.contemplation} />
           </>
         )}
       </p>
@@ -353,8 +354,7 @@ function GeneKeysView({ calc, person, compact }: { calc: GeneKeysProfile | null;
       {/* Las tres frecuencias de la llave que hay en esta esfera */}
       {selectedKey && (
         <div className="mt-6 rounded-[calc(var(--r-card)*0.7)] border p-5" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 25%, transparent)", background: "color-mix(in oklab, var(--c-gold) 5%, transparent)" }}>
-          <p className="cp-eyebrow cp-gold">
-            Llave {selectedKey.n} · línea {lines[selected.id] ?? 1}
+          <p className="cp-eyebrow cp-gold"><Tr s={"Llave"} />{" "}{selectedKey.n}{" "}<Tr s={"· línea"} />{" "}{lines[selected.id] ?? 1}
           </p>
           <div className="mt-4 space-y-3">
             {(["shadow", "gift", "siddhi"] as Frequency[]).map((f) => (
@@ -366,9 +366,9 @@ function GeneKeysView({ calc, person, compact }: { calc: GeneKeysProfile | null;
                 className={cn("flex min-h-10 w-full items-baseline justify-between gap-4 border-l-2 pl-4 text-left transition-opacity duration-500", frequency === f ? "opacity-100" : "opacity-45 hover:opacity-80")}
                 style={{ borderColor: FREQUENCY_HUE[f] }}
               >
-                <span className="cp-eyebrow !text-[0.6rem]">{FREQUENCY_LABEL[f]}</span>
+                <span className="cp-eyebrow !text-[0.6rem]"><Tr s={FREQUENCY_LABEL[f]} /></span>
                 <span className="cp-display text-[1.3rem]" style={{ color: frequency === f ? FREQUENCY_HUE[f] : undefined }}>
-                  {selectedKey[f]}
+                  <Tr s={selectedKey[f]} />
                 </span>
               </button>
             ))}
@@ -383,9 +383,7 @@ function GeneKeysView({ calc, person, compact }: { calc: GeneKeysProfile | null;
 
       {!calc && (
       <div className="mt-6">
-        <label htmlFor="gk-key" className="cp-eyebrow mb-2 block !text-[0.6rem]">
-          Poner otra llave en esta esfera
-        </label>
+        <label htmlFor="gk-key" className="cp-eyebrow mb-2 block !text-[0.6rem]"><Tr s={"Poner otra llave en esta esfera"} /></label>
         <select id="gk-key" value={profile[selected.id] ?? 1} onChange={(e) => setProfile((p) => ({ ...p, [selected.id]: Number(e.target.value) }))} className="cp-line w-full rounded-none border-0 border-b bg-transparent px-0 pb-3 pt-2 text-[0.95rem] text-[var(--c-text)] focus:border-[color-mix(in_oklab,var(--c-gold)_70%,transparent)] focus:outline-none [&_option]:bg-[var(--c-bg)]">
           {GENE_KEYS.map((k) => (
             <option key={k.n} value={k.n}>
@@ -397,7 +395,7 @@ function GeneKeysView({ calc, person, compact }: { calc: GeneKeysProfile | null;
       )}
 
       <div className="mt-6">
-        <ToolButton onClick={() => setSelectedId(null)}>Volver al resumen</ToolButton>
+        <ToolButton onClick={() => setSelectedId(null)}><Tr s={"Volver al resumen"} /></ToolButton>
       </div>
     </PanelBody>
   );
@@ -420,6 +418,7 @@ function GeneKeysView({ calc, person, compact }: { calc: GeneKeysProfile | null;
     );
     return (
       <ModelFrame
+      onClear={selectedId ? () => setSelectedId(null) : null}
         compact
         diagram={diagram}
         legend={
@@ -437,11 +436,12 @@ function GeneKeysView({ calc, person, compact }: { calc: GeneKeysProfile | null;
 
   return (
     <ModelFrame
+      onClear={selectedId ? () => setSelectedId(null) : null}
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
           {SEQUENCES.map((s) => (
             <ToolButton key={s.id} active={highlight === s.id} onClick={() => setHighlight(highlight === s.id ? null : s.id)}>
-              {SHORT_NAME[s.id]}
+              <Tr s={SHORT_NAME[s.id]} />
             </ToolButton>
           ))}
           {!calc && (
@@ -451,9 +451,7 @@ function GeneKeysView({ calc, person, compact }: { calc: GeneKeysProfile | null;
                 setSelectedId(null);
                 setHighlight(null);
               }}
-            >
-              Restablecer
-            </ToolButton>
+            ><Tr s={"Restablecer"} /></ToolButton>
           )}
         </div>
       }

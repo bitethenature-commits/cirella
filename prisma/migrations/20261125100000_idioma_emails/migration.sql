@@ -1,0 +1,3 @@
+ALTER TABLE "User" ADD COLUMN "locale" TEXT;
+ALTER TABLE "Subscriber" ADD COLUMN "locale" TEXT;
+ALTER TABLE "Order" ADD COLUMN "locale" TEXT;

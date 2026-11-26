@@ -10,6 +10,7 @@ import { CREAM, DESIGN_RED, GOLD, INK, LINE, MUTED, SAND, VS, listEs, type Diagr
 import { NIGHT, NIGHT_GOLD, NIGHT_RED, NightChips, NightDefs, NightPanel, STAR, Stars, usePrefix } from "./night";
 import { ExampleBodygraph, TYPE_EXAMPLES } from "./hd-examples";
 import { HD_AUTHORITIES, HD_AUTHORITY_KEY, HD_PLANET_TEXT, HD_PROFILES, HD_SIDE_TEXT, HD_TYPES, HD_TYPE_KEY, profileAngle, type HdAuthorityKey, type HdTypeKey } from "./texts";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Las capas de Human Design: los 9 centros, las 64 puertas, los 36 canales, los planetas a cada lado
@@ -361,7 +362,7 @@ export function MiniBodygraph({
             <polygon points={s.points} fill={isDefined ? ce.hue : "#1D1D20"} stroke={focused ? "#F0D9A4" : isDefined ? "rgb(255 255 255 / .35)" : "rgb(255 255 255 / .38)"} strokeWidth={focused ? 4.5 : 1.4} strokeLinejoin="round" />
             {centreNames && (
               <text x={s.centroid.x} y={s.centroid.y} textAnchor="middle" dominantBaseline="central" fontSize="17" fontWeight={focused ? 700 : 500} fill={STAR} pointerEvents="none" style={{ textShadow: "0 1px 3px rgba(0,0,0,.6)" }}>
-                {ce.name}
+                <Tr s={ce.name} />
               </text>
             )}
           </g>
@@ -425,7 +426,7 @@ function Legend({ hd }: { hd: HumanDesign | null }) {
   const item = (bg: string, label: string, dashed = false) => (
     <span className="inline-flex items-center gap-1.5">
       <span className="h-2.5 w-2.5 rounded-full" style={{ background: bg, outline: dashed ? `1.5px dashed ${PERS}` : undefined, outlineOffset: dashed ? "1px" : undefined }} />
-      {label}
+      <Tr s={label} />
     </span>
   );
   return (
@@ -439,6 +440,7 @@ function Legend({ hd }: { hd: HumanDesign | null }) {
 }
 
 export function HdDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProps & { layer: HdLayer }) {
+  const t = useT();
   const hd = ctx.c?.humanDesign ?? null;
   const own = new Set(mine);
   const inKeys = new Set(keys);
@@ -474,8 +476,8 @@ export function HdDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProp
       const a = hd?.[sideOf(selected)][bodyOf(selected)];
       const col = (side: "personality" | "design") =>
         keys.some((k) => sideOf(k) === side) && (
-          <div className="flex shrink-0 flex-col justify-between py-1" style={{ color: side === "design" ? NIGHT_RED : PERS }} role="group" aria-label={side === "design" ? "Diseño" : "Personalidad"}>
-            <span className="mb-1 text-center text-[0.55rem] font-semibold uppercase tracking-[0.14em] opacity-80">{side === "design" ? "Diseño" : "Person."}</span>
+          <div className="flex shrink-0 flex-col justify-between py-1" style={{ color: side === "design" ? NIGHT_RED : PERS }} role="group" aria-label={side === "design" ? t("Diseño") : t("Personalidad")}>
+            <span className="mb-1 text-center text-[0.55rem] font-semibold uppercase tracking-[0.14em] opacity-80">{side === "design" ? t("Diseño") : t("Person.")}</span>
             {HD_SIDE_BODIES.map((b) => {
               const k = `${side === "design" ? "d" : "p"}-${b}`;
               const on = k === selected;
@@ -539,7 +541,7 @@ export function HdDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProp
                     </text>
                   )}
                   <text x={l.x} y={l.y} textAnchor="middle" dominantBaseline="central" fontSize={l.size} fontWeight="700" fill={on ? NIGHT : STAR} style={on ? undefined : { textShadow: "0 1px 3px rgba(0,0,0,.7)" }}>
-                    {l.label}
+                    <Tr s={l.label} />
                   </text>
                 </g>
               );
@@ -553,8 +555,7 @@ export function HdDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProp
                   <circle cx="425" cy="70" r="28" fill="#26262A" stroke={on ? "#FFF3D4" : "rgb(255 255 255 / .4)"} strokeWidth={on ? 3 : 1.4} />
                   <path d="M425 42A28 28 0 0 1 425 98A15 28 0 0 0 425 42Z" fill={on ? "#E9CC8E" : "#F3ECDD"} />
                   <text x="425" y="122" textAnchor="middle" dominantBaseline="central" fontSize="21" fontWeight="700" fill={on ? NIGHT_GOLD : STAR}>
-                    {m ? "★ " : ""}Lunar
-                  </text>
+                    <Tr s={m ? "★ " : ""} /><Tr s={"Lunar"} /></text>
                 </g>
               );
             })()}
@@ -579,9 +580,10 @@ export function HdDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProp
 
 /** Las 6 líneas como un hexagrama (la 1 abajo). */
 function LinesStack({ selected, own, tap }: { selected: string; own: Set<string>; tap: Tap }) {
+  const t = useT();
   const p = usePrefix();
   return (
-    <svg viewBox="0 0 320 340" className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label="Las 6 líneas">
+    <svg viewBox="0 0 320 340" className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label={t("Las 6 líneas")}>
       <NightDefs p={p} />
       <Stars w={320} h={340} n={30} />
       {[6, 5, 4, 3, 2, 1].map((n, i) => {
@@ -614,6 +616,7 @@ function LinesStack({ selected, own, tap }: { selected: string; own: Set<string>
 
 /** Los 5 tipos como cinco auras de luz: cada una dibuja cómo se mueve su energía. */
 function TypesDiagram({ selected, own, tap }: { selected: string; own: Set<string>; tap: Tap }) {
+  const t = useT();
   const p = usePrefix();
   const POS: Record<HdTypeKey, { x: number; y: number }> = {
     generator: { x: 160, y: 66 },
@@ -623,7 +626,7 @@ function TypesDiagram({ selected, own, tap }: { selected: string; own: Set<strin
     reflector: { x: 58, y: 144 },
   };
   return (
-    <svg viewBox="0 0 320 330" className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label="Los 5 tipos">
+    <svg viewBox="0 0 320 330" className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label={t("Los 5 tipos")}>
       <NightDefs p={p} />
       <defs>
         <radialGradient id={`${p}core`} cx="40%" cy="35%" r="70%">
@@ -681,8 +684,8 @@ function TypesDiagram({ selected, own, tap }: { selected: string; own: Set<strin
               </>
             )}
             <text x={x} y={y + 58} textAnchor="middle" fontSize="12" fontWeight={on || m ? 700 : 500} fill={on || m ? NIGHT_GOLD : STAR}>
-              {m ? "★ " : ""}
-              {k === "mg" ? "Gen. manifestante" : HD_TYPES[k].name}
+              <Tr s={m ? "★ " : ""} />
+              {k === "mg" ? t("Gen. manifestante") : HD_TYPES[k].name}
             </text>
           </g>
         );
@@ -692,6 +695,7 @@ function TypesDiagram({ selected, own, tap }: { selected: string; own: Set<strin
 }
 
 function ProfilesDiagram({ selected, own, tap }: { selected: string; own: Set<string>; tap: Tap }) {
+  const t = useT();
   const rows = [
     { label: "Ángulo derecho · personal", keys: ["1/3", "1/4", "2/4", "2/5", "3/5", "3/6", "4/6"] },
     { label: "Yuxtaposición · fijo", keys: ["4/1"] },
@@ -702,7 +706,7 @@ function ProfilesDiagram({ selected, own, tap }: { selected: string; own: Set<st
       {rows.map((r) => (
         <div key={r.label}>
           <p className="mb-1.5 text-center text-[0.6rem] font-semibold uppercase tracking-[0.16em]" style={{ color: "rgb(233 204 142 / .8)" }}>
-            {r.label}
+            <Tr s={r.label} />
           </p>
           <div className="flex flex-wrap justify-center gap-1.5">
             {r.keys.map((k) => {
@@ -722,9 +726,9 @@ function ProfilesDiagram({ selected, own, tap }: { selected: string; own: Set<st
                   }}
                 >
                   <span>
-                    {k}
+                    <Tr s={k} />
                     <span className="mt-1 block font-sans text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: on ? "#4D3B18" : m ? NIGHT_GOLD : "rgb(251 246 236 / .55)" }}>
-                      {m ? "★ tuyo" : HD_PROFILES[k].name.split(" / ")[0].slice(0, 6)}
+                      {m ? t("★ tuyo") : HD_PROFILES[k].name.split(" / ")[0].slice(0, 6)}
                     </span>
                   </span>
                 </span>

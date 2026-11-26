@@ -35,6 +35,7 @@ import { EarthGlobe, SolarEclipse, SunGlobe } from "./celestial";
 import { MOON_NATAL_HOUSE, MOON_NATAL_SIGN } from "./texts";
 import { DegreeTicks } from "./wheel-kit";
 import { NIGHT, NIGHT_GOLD, NIGHT_RED, NightChips, NightPanel, STAR, Stars, usePrefix } from "./night";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * La Luna a fondo, en 8 capas: las lunas llenas del año con su nombre, los eclipses (y si tocan tu carta), la
@@ -341,6 +342,7 @@ export function moon2Piece(layer: Moon2Layer, key: string, { c, notes, shift }: 
 /* ------------------------------------------------------------ dibujos */
 
 export function Moon2Diagram(props: DiagramProps & { layer: Moon2Layer }) {
+  const t = useT();
   const { layer, ctx } = props;
   const sh = ctx.shift ?? 0;
   const by = layer === "moon-void" ? "month" : (["moon-full13", "moon-eclipses", "moon-return", "moon-apsides"] as string[]).includes(layer) ? "year" : null;
@@ -353,16 +355,16 @@ export function Moon2Diagram(props: DiagramProps & { layer: Moon2Layer }) {
   return (
     <>
       <div className="mb-2 flex items-center justify-center gap-2 text-[0.85rem]">
-        <button type="button" className="grid h-8 w-8 place-items-center rounded-full border border-line" onClick={() => ctx.setShift?.(sh - 1)} aria-label={by === "year" ? "Año anterior" : "Mes anterior"}>
+        <button type="button" className="grid h-8 w-8 place-items-center rounded-full border border-line" onClick={() => ctx.setShift?.(sh - 1)} aria-label={by === "year" ? t("Año anterior") : t("Mes anterior")}>
           ‹
         </button>
-        <span className="min-w-[9rem] text-center font-semibold capitalize tabular-nums">{label}</span>
-        <button type="button" className="grid h-8 w-8 place-items-center rounded-full border border-line" onClick={() => ctx.setShift?.(sh + 1)} aria-label={by === "year" ? "Año siguiente" : "Mes siguiente"}>
+        <span className="min-w-[9rem] text-center font-semibold capitalize tabular-nums"><Tr s={label} /></span>
+        <button type="button" className="grid h-8 w-8 place-items-center rounded-full border border-line" onClick={() => ctx.setShift?.(sh + 1)} aria-label={by === "year" ? t("Año siguiente") : t("Mes siguiente")}>
           ›
         </button>
         {sh !== 0 && (
           <button type="button" className="rounded-full border border-line px-2.5 py-1 text-[0.72rem]" onClick={() => ctx.setShift?.(0)}>
-            {by === "year" ? "Este año" : "Este mes"}
+            {by === "year" ? t("Este año") : t("Este mes")}
           </button>
         )}
       </div>
@@ -388,7 +390,7 @@ function Moon2Body({ layer, selected, mine, keys, tap, ctx, sh }: DiagramProps &
       const list = eclipsesSoon(sh);
       return (
         <NightPanel>
-          {list.length ? <EclipseView list={list} sel={Math.min(sel, list.length - 1)} tap={tap} c={c} /> : <p className="py-10 text-center text-sm text-muted">Ese año no hay eclipses.</p>}
+          {list.length ? <EclipseView list={list} sel={Math.min(sel, list.length - 1)} tap={tap} c={c} /> : <p className="py-10 text-center text-sm text-muted"><Tr s={"Ese año no hay eclipses."} /></p>}
         </NightPanel>
       );
     }
@@ -462,13 +464,13 @@ function Center({ top, big, bottom, r = 52 }: { top: string; big: string; bottom
     <g pointerEvents="none">
       <circle cx={C} cy={C} r={r} fill={NIGHT} stroke="rgb(233 204 142 / .5)" />
       <text x={C} y={C - 22} textAnchor="middle" fontSize="7" letterSpacing="1.3" fill={NIGHT_GOLD}>
-        {top}
+        <Tr s={top} />
       </text>
       <text x={C} y={C} textAnchor="middle" dominantBaseline="central" fontSize={big.length > 6 ? 15 : 22} fontFamily="Georgia, serif" fill={NIGHT_GOLD}>
-        {big}
+        <Tr s={big} />
       </text>
       <text x={C} y={C + 22} textAnchor="middle" fontSize={bottom.length > 18 ? 5.8 : 7} letterSpacing="0.8" fill={STAR}>
-        {bottom}
+        <Tr s={bottom} />
       </text>
     </g>
   );
@@ -492,11 +494,12 @@ function NatalDots({ c, r = 100 }: { c: LayerCtx["c"]; r?: number }) {
 
 /** Las lunas llenas del año en un círculo, como un calendario: enero arriba, en el sentido del reloj. */
 function FullMoonRing({ selected, own, tap, sh }: { selected: number; own: Set<string>; tap: Tap; sh: number }) {
+  const t = useT();
   const p = usePrefix();
   const list = fullMoonsOfYear(thisYear() + sh);
   const l = list[selected];
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="Las lunas llenas del año">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={t("Las lunas llenas del año")}>
       <MoonDefs p={p} />
       <Stars w={340} h={340} n={44} />
       <circle cx={C} cy={C} r="122" fill="none" stroke="rgb(233 204 142 / .25)" strokeDasharray="2 5" />
@@ -532,9 +535,10 @@ function FullMoonRing({ selected, own, tap, sh }: { selected: number; own: Set<s
 
 /** La rueda del zodiaco con marcas (eclipses…), el eje de los nodos y sus planetas dentro. */
 function ZodiacWheel({ c, marks, axis, tap, center }: { c: LayerCtx["c"]; marks: { key: string; lon: number; glyph: string; color: string; label: string; on: boolean }[]; axis?: number; tap: Tap; center: { top: string; big: string; bottom: string } }) {
+  const t = useT();
   const p = usePrefix();
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="La rueda del zodiaco">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={t("La rueda del zodiaco")}>
       <MoonDefs p={p} />
       <Stars w={340} h={340} n={40} />
       <SignRing />
@@ -639,13 +643,14 @@ function VoidTimeline({ list, selected, tap, now, from, to }: { list: ReturnType
 
 /** Sus doce casas (con sus cúspides reales), la Luna de hoy y la casa elegida en oro. */
 function HouseWheel({ c, selected, tap }: { c: LayerCtx["c"]; selected: number; tap: Tap }) {
+  const t = useT();
   const p = usePrefix();
   const cusps = cuspsOf(c);
   const today = useMemo(() => (cusps ? moonHouseStays(cusps) : []), [cusps]);
   const moonNow = useMemo(() => moonMansionNow().lon, []);
   const cs = cusps ?? Array.from({ length: 12 }, (_, i) => i * 30);
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="La Luna de hoy por tus casas">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={t("La Luna de hoy por tus casas")}>
       <MoonDefs p={p} />
       <Stars w={340} h={340} n={40} />
       <SignRing />
@@ -685,11 +690,12 @@ function HouseWheel({ c, selected, tap }: { c: LayerCtx["c"]; selected: number; 
 
 /** Sus retornos lunares del año, alrededor de su Luna natal. */
 function ReturnRing({ c, selected, tap, keys, sh }: { c: LayerCtx["c"]; selected: number; tap: Tap; keys: string[]; sh: number }) {
+  const t = useT();
   const p = usePrefix();
   const lon = moonLonOf(c);
   const list = lon != null ? lunarReturns(lon, sh) : [];
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="Tus retornos lunares">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={t("Tus retornos lunares")}>
       <MoonDefs p={p} />
       <Stars w={340} h={340} n={40} />
       <circle cx={C} cy={C} r="124" fill="none" stroke="rgb(233 204 142 / .25)" strokeDasharray="2 5" />
@@ -717,11 +723,9 @@ function ReturnRing({ c, selected, tap, keys, sh }: { c: LayerCtx["c"]; selected
       <g pointerEvents="none">
         <circle cx={C} cy={C} r="78" fill={NIGHT} stroke="rgb(233 204 142 / .5)" />
         <MoonGlobe p={p} cx={C} cy={C - 18} r={20} phase={c ? c.natalMoon.elong / 360 : 0.5} glow />
-        <text x={C} y={C + 20} textAnchor="middle" fontSize="7" letterSpacing="1.3" fill={NIGHT_GOLD}>
-          TU LUNA NATAL
-        </text>
+        <text x={C} y={C + 20} textAnchor="middle" fontSize="7" letterSpacing="1.3" fill={NIGHT_GOLD}><Tr s={"TU LUNA NATAL"} /></text>
         <text x={C} y={C + 36} textAnchor="middle" fontSize="11" fontFamily="Georgia, serif" fill={STAR}>
-          {lon != null ? signAt(lon) : "Sin datos"}
+          {lon != null ? signAt(lon) : t("Sin datos")}
         </text>
       </g>
     </svg>
@@ -730,6 +734,7 @@ function ReturnRing({ c, selected, tap, keys, sh }: { c: LayerCtx["c"]; selected
 
 /** La órbita de la Luna: la Tierra en un foco, el perigeo a la izquierda y el apogeo a la derecha. Debajo, la superluna y la microluna a escala. */
 function ApsisOrbit({ selected, tap, sh }: { selected: ApsisKey; tap: Tap; sh: number }) {
+  const t = useT();
   const p = usePrefix();
   const info = apsisInfo(sh);
   const rx = 130;
@@ -744,7 +749,7 @@ function ApsisOrbit({ selected, tap, sh }: { selected: ApsisKey; tap: Tap; sh: n
   const A = { x: cx + rx, y: cy };
   const on = (k: ApsisKey) => selected === k;
   return (
-    <svg viewBox="0 0 340 300" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="Perigeo, apogeo y superlunas">
+    <svg viewBox="0 0 340 300" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={t("Perigeo, apogeo y superlunas")}>
       <MoonDefs p={p} />
       <Stars w={340} h={300} n={34} />
       <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="none" stroke="rgb(233 204 142 / .45)" strokeDasharray="3 4" />
@@ -757,17 +762,15 @@ function ApsisOrbit({ selected, tap, sh }: { selected: ApsisKey; tap: Tap; sh: n
           {on(k) && <circle cx={q.x} cy={q.y} r="16" fill={`url(#${p}goldglow)`} />}
           <circle cx={q.x} cy={q.y} r="6" fill={on(k) ? NIGHT_GOLD : NIGHT} stroke={NIGHT_GOLD} />
           <text x={q.x} y={q.y + 20} textAnchor="middle" fontSize="7.5" letterSpacing="1" fontWeight={on(k) ? 700 : 500} fill={on(k) ? NIGHT_GOLD : STAR}>
-            {label}
+            <Tr s={label} />
           </text>
           <text x={q.x} y={q.y + 31} textAnchor="middle" fontSize="7" fill="rgb(251 246 236 / .6)">
-            {sub}
+            <Tr s={sub} />
           </text>
         </g>
       ))}
       <MoonGlobe p={p} cx={mx} cy={my} r={9} phase={0.5} glow />
-      <text x={mx} y={my - 16} textAnchor="middle" fontSize="7" fill={STAR} pointerEvents="none">
-        hoy
-      </text>
+      <text x={mx} y={my - 16} textAnchor="middle" fontSize="7" fill={STAR} pointerEvents="none"><Tr s={"hoy"} /></text>
       {/* La superluna y la microluna, a escala (14 % de diferencia). */}
       {[
         { k: "supermoon" as const, x: 110, r: 40, label: "SUPERLUNA" },
@@ -778,7 +781,7 @@ function ApsisOrbit({ selected, tap, sh }: { selected: ApsisKey; tap: Tap; sh: n
           <MoonGlobe p={p} cx={x} cy={234} r={r} phase={0.5} glow={k === "supermoon"} />
           <circle cx={x} cy={234} r={r} fill="transparent" stroke={on(k) ? NIGHT_GOLD : "transparent"} strokeWidth="2" />
           <text x={x} y={234 + r + 13} textAnchor="middle" fontSize="7.5" letterSpacing="1" fontWeight={on(k) ? 700 : 500} fill={on(k) ? NIGHT_GOLD : STAR}>
-            {label}
+            <Tr s={label} />
           </text>
         </g>
       ))}
@@ -788,11 +791,12 @@ function ApsisOrbit({ selected, tap, sh }: { selected: ApsisKey; tap: Tap; sh: n
 
 /** Las 28 mansiones dentro del zodiaco, con su Luna natal y la Luna de hoy. */
 function MansionWheel({ c, selected, tap }: { c: LayerCtx["c"]; selected: number; tap: Tap }) {
+  const t = useT();
   const p = usePrefix();
   const now = moonMansionNow();
   const natal = moonLonOf(c);
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="Las 28 mansiones lunares">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={t("Las 28 mansiones lunares")}>
       <MoonDefs p={p} />
       <Stars w={340} h={340} n={40} />
       <SignRing />
@@ -821,7 +825,7 @@ function MansionWheel({ c, selected, tap }: { c: LayerCtx["c"]; selected: number
           <g key={i} pointerEvents="none">
             <MoonGlobe p={p} cx={q.x} cy={q.y} r={7} phase={m.phase} />
             <text x={l.x} y={l.y} textAnchor="middle" dominantBaseline="central" fontSize="6.5" fill={i ? "#C9C3E8" : NIGHT_GOLD}>
-              {m.label}
+              <Tr s={m.label} />
             </text>
           </g>
         );
@@ -833,6 +837,7 @@ function MansionWheel({ c, selected, tap }: { c: LayerCtx["c"]; selected: number
 
 /** El ciclo de los nodos como una ola de 18,6 años: arriba los retornos, abajo los inversos, y su edad de hoy. */
 function NodeWave({ c, selected, tap }: { c: LayerCtx["c"]; selected: number; tap: Tap }) {
+  const t = useT();
   const p = usePrefix();
   const node = natalNodeOf(c);
   const steps = c && node != null ? nodeCycle(c.utc, node) : null;
@@ -844,7 +849,7 @@ function NodeWave({ c, selected, tap }: { c: LayerCtx["c"]; selected: number; ta
     return `${i ? "L" : "M"}${X(a).toFixed(1)} ${Y(a).toFixed(1)}`;
   }).join("");
   return (
-    <svg viewBox="0 0 340 230" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="El ciclo de los nodos">
+    <svg viewBox="0 0 340 230" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={t("El ciclo de los nodos")}>
       <MoonDefs p={p} />
       <Stars w={340} h={230} n={30} />
       <path d={path} fill="none" stroke={NIGHT_GOLD} strokeOpacity="0.6" strokeWidth="1.6" />
@@ -854,15 +859,11 @@ function NodeWave({ c, selected, tap }: { c: LayerCtx["c"]; selected: number; ta
           {a}
         </text>
       ))}
-      <text x="170" y="222" textAnchor="middle" fontSize="7" letterSpacing="1" fill="rgb(251 246 236 / .5)">
-        AÑOS
-      </text>
+      <text x="170" y="222" textAnchor="middle" fontSize="7" letterSpacing="1" fill="rgb(251 246 236 / .5)"><Tr s={"AÑOS"} /></text>
       {age != null && age < 80 && (
         <g pointerEvents="none">
           <line x1={X(age)} y1="52" x2={X(age)} y2="196" stroke="#C9C3E8" strokeDasharray="3 3" />
-          <text x={X(age)} y="46" textAnchor="middle" fontSize="7.5" fill="#C9C3E8">
-            hoy
-          </text>
+          <text x={X(age)} y="46" textAnchor="middle" fontSize="7.5" fill="#C9C3E8"><Tr s={"hoy"} /></text>
         </g>
       )}
       {[1, 2, 3, 4, 5, 6, 7, 8].map((k) => {
@@ -897,7 +898,7 @@ function MoonCombos({ selected, tap, c }: { selected: string; tap: Tap; c: Layer
   return (
     <div className="grid grid-cols-2 gap-2">
       <div className="space-y-1">
-        <p className="mb-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted">Signo</p>
+        <p className="mb-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted"><Tr s={"Signo"} /></p>
         {SIGNS.map((g) => {
           const mineHere = !!m && signIndex(m.lon) === g.n;
           return (
@@ -905,26 +906,26 @@ function MoonCombos({ selected, tap, c }: { selected: string; tap: Tap; c: Layer
               <span className="w-4 text-center" style={{ color: g.n === s ? undefined : ELEMENT_HUE[g.element] }}>
                 {g.glyph + VS}
               </span>
-              <span className="truncate">{g.name}</span>
+              <span className="truncate"><Tr s={g.name} /></span>
               {mineHere && <span className="ml-auto text-[0.7rem]">★</span>}
             </button>
           );
         })}
       </div>
       <div className="space-y-1">
-        <p className="mb-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted">Casa</p>
+        <p className="mb-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted"><Tr s={"Casa"} /></p>
         {HOUSES.map((x) => {
           const mineHere = m?.house === x.n;
           return (
             <button key={x.n} type="button" className={btn(x.n === h, mineHere)} {...tap(`${s}|${x.n}`, `Luna en la casa ${ROMAN[x.n - 1]}`)}>
-              <span className="w-6 text-center font-serif">{ROMAN[x.n - 1]}</span>
-              <span className="truncate">{x.keyword}</span>
+              <span className="w-6 text-center font-serif"><Tr s={ROMAN[x.n - 1]} /></span>
+              <span className="truncate"><Tr s={x.keyword} /></span>
               {mineHere && <span className="ml-auto text-[0.7rem]">★</span>}
             </button>
           );
         })}
       </div>
-      <p className="col-span-2 mt-1 text-center text-[0.68rem] text-muted">★ dónde está tu Luna natal · toca un signo y una casa</p>
+      <p className="col-span-2 mt-1 text-center text-[0.68rem] text-muted"><Tr s={"★ dónde está tu Luna natal · toca un signo y una casa"} /></p>
     </div>
   );
 }
@@ -935,6 +936,7 @@ function MoonCombos({ selected, tap, c }: { selected: string; tap: Tap; c: Layer
  * su grado (los que toca, en oro y unidos al eclipse); debajo, la fecha, la hora, el signo y el nodo.
  */
 function EclipseView({ list, sel, tap, c }: { list: ReturnType<typeof eclipsesSoon>; sel: number; tap: Tap; c: LayerCtx["c"] }) {
+  const t = useT();
   const p = usePrefix();
   const e = list[sel];
   const node = nodeAt(e.at);
@@ -955,8 +957,8 @@ function EclipseView({ list, sel, tap, c }: { list: ReturnType<typeof eclipsesSo
             className="cursor-pointer rounded-full border px-2.5 py-1 font-semibold tabular-nums"
             style={{ background: i === sel ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : "rgb(255 255 255 / .05)", color: i === sel ? NIGHT : STAR, borderColor: i === sel ? "#F0D9A4" : "rgb(255 255 255 / .16)" }}
           >
-            {x.body === "solar" ? "☉" : "☽"}
-            {VS} {fmtShort(x.at)}
+            <Tr s={x.body === "solar" ? "☉" : "☽"} />
+            <Tr s={VS} /> {fmtShort(x.at)}
           </span>
         ))}
       </div>
@@ -1004,9 +1006,9 @@ function EclipseView({ list, sel, tap, c }: { list: ReturnType<typeof eclipsesSo
         <Center top={solar ? "ECLIPSE DE SOL" : "ECLIPSE DE LUNA"} big={fmtShort(e.at)} bottom={`${ECLIPSE_TYPE[e.type].toUpperCase()} · ${sel + 1} DE ${list.length}`} r={58} />
       </svg>
       <p className="mt-1 text-center text-[0.75rem] text-ink/85">
-        {fmtWhen(e.at)} · {signAt(e.lon)} · cerca del Nodo {nearNorth ? "Norte" : "Sur"}
+        {fmtWhen(e.at)} · {signAt(e.lon)}{" "}<Tr s={"· cerca del Nodo"} />{" "}{nearNorth ? t("Norte") : t("Sur")}
       </p>
-      <p className="mt-0.5 text-center text-[0.68rem] text-muted">Toca otra fecha o usa Anterior / Siguiente · en oro, los planetas tuyos que toca</p>
+      <p className="mt-0.5 text-center text-[0.68rem] text-muted"><Tr s={"Toca otra fecha o usa Anterior / Siguiente · en oro, los planetas tuyos que toca"} /></p>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * Perfiles de nacimiento guardados («Mi energía», /cuenta/mi-energia): las relaciones, los textos de
+ * Perfiles de nacimiento guardados («Mi energía», /area/energy): las relaciones, los textos de
  * consentimiento, la validación del formulario (Zod) y el paso de la fila de la BD al perfil que
  * calculan los modelos (lib/birth-profile.ts). Puro (sin BD): lo usan las acciones, la API de acceso,
  * los componentes y la semilla.
@@ -126,11 +126,7 @@ export const birthProfileInputSchema = z
       lon: z.number().finite().min(-180).max(180),
       tz: z.string().trim().min(1).max(64).refine(isZoneLike, "Esa zona horaria no se reconoce"),
     }),
-    consent: z.literal(true, {
-      errorMap: () => ({
-        message: "Marca la casilla para poder guardar los datos",
-      }),
-    }),
+    consent: z.literal(true, { error: "Marca la casilla para poder guardar los datos" }),
   })
   .transform((d) => ({
     ...d,

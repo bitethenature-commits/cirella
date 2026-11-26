@@ -1,3 +1,4 @@
+import { loginPath } from "@/lib/public-paths";
 import "server-only";
 import { notFound, redirect } from "next/navigation";
 import { getSession, type CurrentSession } from "./auth";
@@ -10,11 +11,11 @@ import { courseFileOpenFor } from "./course-access";
 import { circleRecordingAccess } from "./circle-recordings";
 
 /**
- * Guardas del área de cliente (/cuenta, descargas, .ics, huecos).
+ * Guardas del área de cliente (/area, descargas, .ics, huecos).
  *
  * Tres tipos de sesión:
- *   · de cuenta verificada (enlace mágico, o contraseña con el email confirmado) → todo /cuenta;
- *   · de cuenta sin verificar (alta con contraseña sin confirmar) → nada de /cuenta, salvo lo que
+ *   · de cuenta verificada (enlace mágico, o contraseña con el email confirmado) → todo /area;
+ *   · de cuenta sin verificar (alta con contraseña sin confirmar) → nada de /area, salvo lo que
  *     la creadora tiene de sus propios productos;
  *   · limitada a un pedido (tras pagar o desde un enlace personal) → solo ese pedido: su producto,
  *     sus archivos y su reserva.
@@ -58,14 +59,15 @@ async function usernameFor(next: string, creatorId?: string | null) {
 export async function buyerLoginPath(next: string, opts: { motivo?: LoginMotivo; creatorId?: string | null } = {}) {
   const username = await usernameFor(next, opts.creatorId);
   const q = `next=${encodeURIComponent(next)}${opts.motivo ? `&motivo=${opts.motivo}` : ""}`;
-  return username ? `/${username}/entrar?${q}` : `/entrar?${q}`;
+  // Web personal: siempre el de la web (/area/login); en la plataforma, el de la creadora o, si no se sabe, el general.
+  return `${loginPath(username)}?${q}`;
 }
 
 async function firstBookingId(orderId: string) {
   return (await prisma.booking.findFirst({ where: { orderId }, orderBy: { createdAt: "asc" }, select: { id: true } }))?.id ?? null;
 }
 
-/** Ruta de la compra de una sesión limitada (adónde va si intenta abrir /cuenta). */
+/** Ruta de la compra de una sesión limitada (adónde va si intenta abrir /area). */
 export async function scopedTargetPath(order: { id: string; productId: string; productType: string }) {
   return orderTargetPath(order, order.productType === "SESSION" ? await firstBookingId(order.id) : null);
 }

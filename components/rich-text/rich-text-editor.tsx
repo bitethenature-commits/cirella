@@ -17,6 +17,7 @@ import {
 } from "@/lib/rich-text-edit";
 import type { LegacyFlavor } from "./legacy-text";
 import { RichContent, type RichTone } from "./rich-content";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Editor de texto con formato pensado para el iPhone: un <textarea> normal (teclado, dictado,
@@ -249,7 +250,7 @@ export function RichTextEditor({
               className="inline-flex h-11 min-w-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-[0.68rem] font-medium text-ink/80 hover:bg-sand active:bg-sand disabled:opacity-50"
             >
               <Icon className="h-4 w-4" aria-hidden />
-              <span aria-hidden>{label}</span>
+              <span aria-hidden><Tr s={label} /></span>
             </button>
           );
         })}
@@ -259,7 +260,7 @@ export function RichTextEditor({
         <div className="border border-b-0 border-line bg-cream/60 p-3" role="group" aria-label="Añadir un enlace">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="field-label" htmlFor={`${fieldId}-link-text`}>Texto que se ve</label>
+              <label className="field-label" htmlFor={`${fieldId}-link-text`}><Tr s={"Texto que se ve"} /></label>
               <input
                 id={`${fieldId}-link-text`}
                 className="input text-base sm:text-sm"
@@ -269,7 +270,7 @@ export function RichTextEditor({
               />
             </div>
             <div>
-              <label className="field-label" htmlFor={`${fieldId}-link-href`}>Dirección</label>
+              <label className="field-label" htmlFor={`${fieldId}-link-href`}><Tr s={"Dirección"} /></label>
               <input
                 id={`${fieldId}-link-href`}
                 type="text"
@@ -296,16 +297,12 @@ export function RichTextEditor({
           </div>
           {link.error && (
             <p id={`${fieldId}-link-error`} className="mt-2 text-sm text-rose" role="alert">
-              {link.error}
+              <Tr s={link.error} />
             </p>
           )}
           <div className="mt-3 flex gap-2">
-            <button type="button" className="btn btn-primary btn-sm" onClick={confirmLink}>
-              Insertar enlace
-            </button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setLink(null)}>
-              Cancelar
-            </button>
+            <button type="button" className="btn btn-primary btn-sm" onClick={confirmLink}><Tr s={"Insertar enlace"} /></button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setLink(null)}><Tr s={"Cancelar"} /></button>
           </div>
         </div>
       )}
@@ -368,11 +365,11 @@ export function RichTextEditor({
           {upload && (
             <p className="flex items-center gap-1.5 font-medium text-ink" aria-live="polite">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              {upload.pct < 100 ? `Subiendo imagen… ${upload.pct} %` : "Optimizando…"}
+              {upload.pct < 100 ? `Subiendo imagen… ${upload.pct} %` : <Tr s={"Optimizando…"} />}
             </p>
           )}
-          {uploadError && <p className="text-rose" role="alert">{uploadError}</p>}
-          {legacyText && <p className="text-[#7a5a1c]">Este texto es de antes del formato: revisa cómo queda antes de guardar.</p>}
+          {uploadError && <p className="text-rose" role="alert"><Tr s={uploadError} /></p>}
+          {legacyText && <p className="text-[#7a5a1c]"><Tr s={"Este texto es de antes del formato: revisa cómo queda antes de guardar."} /></p>}
           <FormatHelp headings={tools === "full" || headings} highlight={highlight} />
         </div>
         {maxLength ? (
@@ -397,9 +394,7 @@ export function RichTextEditor({
                 /* sin almacenamiento */
               }
             }}
-          >
-            Cómo queda
-            <ChevronDown className={`h-4 w-4 transition ${previewOpen ? "rotate-180" : ""}`} />
+          ><Tr s={"Cómo queda"} /><ChevronDown className={`h-4 w-4 transition ${previewOpen ? "rotate-180" : ""}`} />
           </button>
           {previewOpen && (
             <div className="border-t border-line px-4 py-4 text-[0.98rem] leading-relaxed text-ink/85" data-rte-preview>
@@ -414,7 +409,7 @@ export function RichTextEditor({
                   className="space-y-3"
                 />
               ) : (
-                <p className="text-sm text-muted">Aquí verás el texto con su formato.</p>
+                <p className="text-sm text-muted"><Tr s={"Aquí verás el texto con su formato."} /></p>
               )}
             </div>
           )}
@@ -425,13 +420,11 @@ export function RichTextEditor({
 }
 
 function FormatHelp({ headings, highlight }: { headings: boolean; highlight?: boolean }): ReactNode {
+  const t = useT();
   return (
     <details className="group">
-      <summary className="cursor-pointer select-none font-medium text-ink/70 hover:text-ink">Cómo dar formato</summary>
-      <p className="mt-1 leading-relaxed">
-        **negrita** (o *negrita*, como en WhatsApp) · _cursiva_ ·{highlight ? " ==resaltado== ·" : ""}{headings ? " ## Encabezado · ### Subencabezado ·" : ""} - lista · 1. lista · &gt; cita · --- línea ·
-        [texto](https://…). Un hashtag sin espacio (#astrología) se queda como texto. Deja una línea en blanco entre párrafos.
-      </p>
+      <summary className="cursor-pointer select-none font-medium text-ink/70 hover:text-ink"><Tr s={"Cómo dar formato"} /></summary>
+      <p className="mt-1 leading-relaxed"><Tr s={"**negrita** (o *negrita*, como en WhatsApp) · _cursiva_ ·"} />{highlight ? t(" ==resaltado== ·") : ""}<Tr s={headings ? " ## Encabezado · ### Subencabezado ·" : ""} />{" "}<Tr s={"- lista · 1. lista · > cita · --- línea · [texto](https://…). Un hashtag sin espacio (#astrología) se queda como texto. Deja una línea en blanco entre párrafos."} /></p>
     </details>
   );
 }

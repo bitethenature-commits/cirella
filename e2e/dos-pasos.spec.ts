@@ -47,11 +47,11 @@ function nextCode() {
 }
 
 async function passwordLogin(page: Page) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.fill("#email", ANA);
   await page.fill("#password", "demo1234");
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await page.waitForURL((u) => !(u.pathname === "/entrar"));
+  await page.waitForURL((u) => !(u.pathname === "/login"));
 }
 
 async function logout(page: Page) {
@@ -105,11 +105,11 @@ test.describe.serial("Verificación en dos pasos de la dueña", () => {
 
   test("con contraseña pide el código (teclado numérico, sin zoom) antes del panel", async ({ page }) => {
     await passwordLogin(page);
-    await page.waitForURL("**/entrar/codigo");
+    await page.waitForURL("**/login/code");
     // Sin el código no hay panel.
     await page.goto("/panel");
-    await expect(page).toHaveURL(/\/entrar/);
-    await page.goto("/entrar/codigo");
+    await expect(page).toHaveURL(/\/login/);
+    await page.goto("/login/code");
     const input = page.getByLabel("Código de tu app");
     await expect(input).toHaveAttribute("inputmode", "numeric");
     await expect(input).toHaveAttribute("autocomplete", "one-time-code");
@@ -126,7 +126,7 @@ test.describe.serial("Verificación en dos pasos de la dueña", () => {
 
   test("con el enlace por email también pide el código; el de recuperación vale una vez", async ({ page }) => {
     const since = new Date();
-    await page.goto("/entrar?modo=enlace");
+    await page.goto("/login?modo=enlace");
     await page.getByLabel("Tu email").fill(ANA);
     await page.getByRole("button", { name: "Enviarme el enlace" }).click();
     await expect(page.getByText(/Te hemos enviado un enlace/)).toBeVisible();
@@ -134,7 +134,7 @@ test.describe.serial("Verificación en dos pasos de la dueña", () => {
     const href = m.html.match(/<a href="([^"]+auth\/magic[^"]+)"/)![1].replace(/&amp;/g, "&");
     await page.goto(href);
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
-    await page.waitForURL("**/entrar/codigo");
+    await page.waitForURL("**/login/code");
 
     await useRecovery(page, codes[0].toUpperCase());
     await page.waitForURL("**/panel/ajustes/seguridad?aviso=recuperacion");
@@ -143,14 +143,14 @@ test.describe.serial("Verificación en dos pasos de la dueña", () => {
 
     await logout(page);
     await passwordLogin(page);
-    await page.waitForURL("**/entrar/codigo");
+    await page.waitForURL("**/login/code");
     await useRecovery(page, codes[0]);
     await expect(page.getByText(/Código incorrecto/)).toBeVisible();
   });
 
   test("«Recordar este dispositivo» se salta el código hasta «Olvidar todos»", async ({ page }) => {
     await passwordLogin(page);
-    await page.waitForURL("**/entrar/codigo");
+    await page.waitForURL("**/login/code");
     await page.getByRole("button", { name: /Usa un código de recuperación/ }).click();
     await page.getByLabel("Código de recuperación").fill(codes[1]);
     await expect(page.getByLabel("Recordar este dispositivo 30 días")).toBeChecked();
@@ -172,14 +172,14 @@ test.describe.serial("Verificación en dos pasos de la dueña", () => {
 
     await logout(page);
     await passwordLogin(page);
-    await page.waitForURL("**/entrar/codigo");
+    await page.waitForURL("**/login/code");
     await page.getByRole("button", { name: "Volver a empezar" }).click();
-    await page.waitForURL((u) => u.pathname === "/entrar");
+    await page.waitForURL((u) => u.pathname === "/login");
   });
 
   test("desactivarla pide código y contraseña; después entra sin código", async ({ page }) => {
     await passwordLogin(page);
-    await page.waitForURL("**/entrar/codigo");
+    await page.waitForURL("**/login/code");
     await useRecovery(page, codes[3]);
     await page.waitForURL((u) => u.pathname.startsWith("/panel"));
     await page.goto("/panel/ajustes/seguridad");
@@ -201,9 +201,9 @@ test.describe.serial("Verificación en dos pasos de la dueña", () => {
   });
 
   test("la alumna entra como siempre, sin código", async ({ page }) => {
-    await page.goto("/entrar");
+    await page.goto("/login");
     await page.locator("form", { hasText: "Laura Martín" }).getByRole("button").click();
-    await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
-    await expect(page).toHaveURL(/\/cuenta/);
+    await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+    await expect(page).toHaveURL(/\/area/);
   });
 });

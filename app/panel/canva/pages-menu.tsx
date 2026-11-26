@@ -1,13 +1,14 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ChevronDown, FileText, Files, House, Plus, Scale, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, FileText, Files, GraduationCap, House, Plus, Scale, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { SITE_PAGE_STATE_LABEL, type SitePageState } from "@/lib/site-pages";
 import { deleteSitePageAction, moveSitePageAction } from "../paginas/actions";
 import { canvaHref } from "./canva-ui";
-import { LEGAL_PAGES, pageLabel, WEB_PAGES, type PanelPage } from "./web-pages";
+import { AREA_PAGES, LEGAL_PAGES, pageLabel, WEB_PAGES, type PanelPage } from "./web-pages";
+import { Tr } from "@/lib/i18n/client";
 
 const TONE: Record<SitePageState, string> = {
   DRAFT: "bg-[#f8efdc] text-[#8a6420]",
@@ -60,7 +61,7 @@ export function PagesMenu({ pages, current, personal, initialOpen = false }: { p
         className="panel-nav-link inline-flex h-9 max-w-full items-center gap-2 rounded-full px-2.5 text-sm sm:max-w-[20rem] sm:pl-3.5"
       >
         <Files className="h-4 w-4 shrink-0 sm:hidden" />
-        <span className="panel-tab-title hidden shrink-0 font-serif text-lg leading-none sm:inline">Mis páginas</span>
+        <span className="panel-tab-title hidden shrink-0 font-serif text-lg leading-none sm:inline"><Tr s={"Mis páginas"} /></span>
         <span className="hidden truncate opacity-80 sm:inline">· {pageLabel(current, pages)}</span>
         <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
@@ -106,12 +107,17 @@ export function PagesMenu({ pages, current, personal, initialOpen = false }: { p
                 <DeleteButton action={deleteSitePageAction} id={p.id} what={p.title} message={`¿Borrar «${p.title}»? Su dirección dejará de funcionar.`} />
               </Item>
             ))}
-            {mine.length === 0 && <li className="px-2.5 py-1.5 text-sm text-muted">Aún no tienes páginas tuyas.</li>}
+            {mine.length === 0 && <li className="px-2.5 py-1.5 text-sm text-muted"><Tr s={"Aún no tienes páginas tuyas."} /></li>}
             <li className="pt-1">
               <Link href="/panel/paginas/nueva" className="btn btn-outline btn-sm ml-1.5">
-                <Plus className="h-4 w-4" /> Nueva página
-              </Link>
+                <Plus className="h-4 w-4" />{" "}<Tr s={"Nueva página"} /></Link>
             </li>
+          </Group>
+
+          <Group title="Lo de dentro (alumnas)">
+            {AREA_PAGES.filter((a) => personal || !a.personalOnly).map((a) => (
+              <Item key={a.key} href={canvaHref(a.key)} icon={<GraduationCap className="h-4 w-4" />} label={a.label} on={current === a.key} />
+            ))}
           </Group>
 
           <Group title="Legal">
@@ -141,10 +147,10 @@ function Item({ href, icon, label, on, state, children }: { href: string; icon: 
       <a href={href} aria-current={on ? "page" : undefined} className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-2">
         <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${on ? "bg-ink text-cream" : "bg-white text-muted"}`}>{icon}</span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold">{label}</span>
+          <span className="block truncate text-sm font-semibold"><Tr s={label} /></span>
           {state && state !== "PUBLISHED" && (
             <span className="mt-0.5 flex flex-wrap gap-1">
-              <span className={`rounded-full px-2 py-0.5 text-[0.62rem] font-semibold ${TONE[state]}`}>{SITE_PAGE_STATE_LABEL[state]}</span>
+              <span className={`rounded-full px-2 py-0.5 text-[0.62rem] font-semibold ${TONE[state]}`}><Tr s={SITE_PAGE_STATE_LABEL[state]} /></span>
             </span>
           )}
         </span>

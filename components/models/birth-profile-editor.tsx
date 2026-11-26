@@ -1,16 +1,17 @@
 "use client";
 
 import { useId, useState } from "react";
-import { saveBirthProfile } from "@/app/cuenta/mi-energia/actions";
+import { saveBirthProfile } from "@/app/area/energy/actions";
 import { formToProfile, profileToForm, type BirthProfile } from "@/lib/birth-profile";
 import { BIRTH_RELATIONS, BIRTH_RELATION_LABEL, OTHER_CONSENT_TEXT, OWN_CONSENT_TEXT, type BirthRelation, type SavedBirthProfile } from "@/lib/birth-profiles-rules";
 import { BirthForm } from "./chart-birth-form";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * El formulario de nacimiento (chart-birth-form.tsx) con lo que hace falta para GUARDAR los datos:
  * de quién son (yo, pareja, hijo/a…) y la casilla de consentimiento («Guardo estos datos…» o, si son de
  * otra persona, «Tengo permiso de esta persona…»). Guarda con la acción del servidor (con Zod y la
- * regla de acceso: app/cuenta/mi-energia/actions.ts).
+ * regla de acceso: app/area/energy/actions.ts).
  *
  *   · mode "save" («Mi energía»): siempre guarda; el nombre es obligatorio.
  *   · mode "calc" (el «Calcular con mis datos» de los modelos): calcula y, solo si se marca «Guardar
@@ -36,6 +37,7 @@ export function BirthProfileEditor({
   title?: string;
   autoFocus?: boolean;
 }) {
+  const t = useT();
   const uid = useId();
   const saved = initial && "id" in initial ? initial : null;
   const [relation, setRelation] = useState<BirthRelation | "">(saved ? (saved.isOwn ? "yo" : (saved.relation ?? "")) : ownDefault ? "yo" : "");
@@ -48,17 +50,14 @@ export function BirthProfileEditor({
       {mode === "calc" && (
         <label className="flex min-h-9 cursor-pointer items-start gap-2.5 text-[0.85rem]">
           <input type="checkbox" checked={store} onChange={(e) => setStore(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--c-gold)]" />
-          <span>
-            Guardar estos datos en «Mi energía» <span className="cp-muted">(para no volver a escribirlos)</span>
+          <span><Tr s={"Guardar estos datos en «Mi energía»"} />{" "}<span className="cp-muted"><Tr s={"(para no volver a escribirlos)"} /></span>
           </span>
         </label>
       )}
       {store && (
         <>
           <div>
-            <label htmlFor={`${uid}-rel`} className="cp-eyebrow mb-1.5 block !text-[0.6rem]">
-              ¿De quién son?
-            </label>
+            <label htmlFor={`${uid}-rel`} className="cp-eyebrow mb-1.5 block !text-[0.6rem]"><Tr s={"¿De quién son?"} /></label>
             <select
               id={`${uid}-rel`}
               value={relation}
@@ -68,17 +67,17 @@ export function BirthProfileEditor({
               }}
               className="cp-input !h-11 !text-[0.95rem] [&_option]:bg-[var(--c-bg)]"
             >
-              <option value="">Elige…</option>
+              <option value=""><Tr s={"Elige…"} /></option>
               {BIRTH_RELATIONS.map((r) => (
                 <option key={r} value={r}>
-                  {r === "yo" ? "Míos (yo)" : BIRTH_RELATION_LABEL[r]}
+                  {r === "yo" ? t("Míos (yo)") : BIRTH_RELATION_LABEL[r]}
                 </option>
               ))}
             </select>
           </div>
           <label className="flex cursor-pointer items-start gap-2.5 text-[0.85rem] leading-relaxed">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--c-gold)]" data-consent />
-            <span>{isOwn || !relation ? OWN_CONSENT_TEXT : OTHER_CONSENT_TEXT}</span>
+            <span><Tr s={isOwn || !relation ? OWN_CONSENT_TEXT : OTHER_CONSENT_TEXT} /></span>
           </label>
         </>
       )}
@@ -88,9 +87,9 @@ export function BirthProfileEditor({
   return (
     <BirthForm
       initial={initial ? profileToForm(initial) : undefined}
-      title={title ?? (mode === "save" ? (saved ? "Cambiar los datos" : "Datos de nacimiento") : "Tus datos de nacimiento")}
-      note={store ? "Se guardan en tu cuenta y solo los ves tú. Puedes borrarlos cuando quieras." : "Todo se calcula en tu navegador: no se guarda ni se envía nada."}
-      submitLabel={submitLabel ?? (store ? "Guardar" : "Calcular")}
+      title={t(title ?? (mode === "save" ? (saved ? t("Cambiar los datos") : t("Datos de nacimiento")) : t("Tus datos de nacimiento")))}
+      note={store ? t("Se guardan en tu cuenta y solo los ves tú. Puedes borrarlos cuando quieras.") : t("Todo se calcula en tu navegador: no se guarda ni se envía nada.")}
+      submitLabel={t(submitLabel ?? (store ? t("Guardar") : t("Calcular")))}
       autoFocus={autoFocus}
       nameRequired={store}
       extra={extra}

@@ -21,9 +21,9 @@ const buyer = (label: string) => `${TAG}-${label}@example.com`;
 const MADRID = "Europe/Madrid";
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 async function acceptConsents(page: Page) {
@@ -112,7 +112,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     test.use({ timezoneId: "America/Bogota" });
 
     test("reserva su lectura en su hora, con sus datos de nacimiento, y paga", async ({ page }) => {
-      await page.goto("/ana/lectura-human-design/checkout");
+      await page.goto("/ana/human-design-reading/checkout");
       await expect(page.getByText(/Horas en tu zona: Bogotá \(GMT-5\)/)).toBeVisible();
       await pickDay(page, 3);
       // La primera hora libre de ese día, en hora de Bogotá, es la de la API con ?tz=America/Bogota.
@@ -135,7 +135,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
 
       await page.getByLabel("Lugar de nacimiento").fill("Valencia, España");
       await page.getByRole("button", { name: /Reservar y pagar/ }).click();
-      await page.waitForURL("**/ana/gracias**");
+      await page.waitForURL("**/ana/thanks**");
       await expect(page.getByText(/\(hora de Bogotá\)/)).toBeVisible();
 
       const confirm = await lastMail(buyer("bogota"), "BOOKING_CONFIRMED");
@@ -186,7 +186,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     await expect(page.getByText(/9:00–11:00 en Bali \(\d+:00–\d+:00( del día anterior)? en España\)/).first()).toBeVisible();
 
     const prisma = new PrismaClient();
-    const hd = await prisma.product.findFirstOrThrow({ where: { slug: "lectura-human-design" } });
+    const hd = await prisma.product.findFirstOrThrow({ where: { slug: "human-design-reading" } });
     await prisma.$disconnect();
     const res = await page.request.get(`/api/slots?productId=${hd.id}&tz=Europe/Madrid`);
     const data = (await res.json()) as { days: { date: string; slots: { start: string }[] }[] };
@@ -223,7 +223,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     expect(mail?.html).toContain("Completa tus datos para la lectura");
     const client = await (await browser.newContext({ baseURL: SALES })).newPage();
     await client.goto(ctaUrl(mail!.html));
-    await client.waitForURL("**/cuenta/sesiones/**");
+    await client.waitForURL("**/area/sessions/**");
     await expect(client.getByRole("heading", { name: "Completa tus datos para la lectura" })).toBeVisible();
     await client.getByLabel(/Fecha de nacimiento/).fill("1990-05-10");
     await client.getByText("No sé la hora exacta").click();
@@ -247,7 +247,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     await buyerPage.getByText("No sé la hora exacta").click();
     await acceptConsents(buyerPage);
     await buyerPage.getByRole("button", { name: /^Pagar 45/ }).click();
-    await buyerPage.waitForURL("**/ana/gracias**");
+    await buyerPage.waitForURL("**/ana/thanks**");
 
     await demoLogin(page, "Cirella");
     await page.goto("/panel/solicitudes");
@@ -267,7 +267,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
     expect(mail?.subject).toMatch(/^Tu lectura está lista/);
     await buyerPage.context().clearCookies();
     await buyerPage.goto(ctaUrl(mail!.html));
-    await buyerPage.waitForURL("**/cuenta/pedidos/**");
+    await buyerPage.waitForURL("**/area/orders/**");
     await expect(buyerPage.getByRole("heading", { name: "Tu lectura" })).toBeVisible();
     await expect(buyerPage.getByText("Aquí tienes tu lectura, Inés.")).toBeVisible();
     await expect(buyerPage.locator("audio")).toHaveCount(1);
@@ -285,7 +285,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
       await p.fill("#email", buyer(`taller${n}`));
       await acceptConsents(p);
       await p.getByRole("button", { name: /Reservar y pagar/ }).click();
-      await p.waitForURL("**/ana/gracias**");
+      await p.waitForURL("**/ana/thanks**");
       await p.context().close();
     }
     await page.goto(`/ana/${workshopSlug}`);
@@ -295,7 +295,7 @@ test.describe.serial("Calendario propio: lecturas, horario y talleres", () => {
 
     const prisma = new PrismaClient();
     const w = await prisma.product.findFirstOrThrow({ where: { slug: workshopSlug } });
-    const one = await prisma.product.findFirstOrThrow({ where: { slug: "sesion-1-1" } });
+    const one = await prisma.product.findFirstOrThrow({ where: { slug: "one-on-one" } });
     await prisma.$disconnect();
     const res = await page.request.get(`/api/slots?productId=${one.id}&tz=Europe/Madrid`);
     const data = (await res.json()) as { days: { slots: { start: string }[] }[] };

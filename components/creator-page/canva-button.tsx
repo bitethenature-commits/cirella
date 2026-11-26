@@ -2,11 +2,11 @@
 import { Paintbrush } from "lucide-react";
 import { useEffect, useState } from "react";
 import { hasHintCookie } from "@/lib/auth-utils";
-import { isSectionPage } from "@/lib/site-sections";
+import { asSectionPage } from "@/lib/site-sections";
 import { LIVE_DESIGN_PARAM } from "./live-design";
 
 /**
- * «Canva», abajo a la derecha de la web: solo lo ve la dueña con su sesión abierta. Lleva al modo Canva
+ * «Diseñar», abajo a la derecha de la web: solo lo ve la dueña con su sesión abierta. Lleva al editor
  * (Mi página, app/panel/pagina) de la página en la que está: la portada, una suya, una de las que se crean solas o la legal. La página pública sigue en
  * caché: se pregunta en el navegador (y solo si hay sesión, por la cookie de pista).
  */
@@ -22,17 +22,19 @@ export function CanvaButton({ username, personal }: { username: string; personal
       .then((d: { owner?: boolean }) => alive && setOwner(!!d.owner))
       .catch(() => {});
     // Una página suya: /<usuaria>/p/<dirección> o, en la web personal, /<dirección>; una de las que se crean solas:
-    // /<usuaria>/cursos (o /cursos); la legal: /<usuaria>/legal.
+    // /<usuaria>/courses (o /courses), con su nombre interno (cursos); la legal: /<usuaria>/legal (o /legal).
     const seg = window.location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    const rest = personal ? seg : seg[0] === username ? seg.slice(1) : [];
+    const section = rest.length === 1 ? asSectionPage(rest[0]) : null;
     const slug =
-      seg[1] === "p" && seg[2]
-        ? seg[2]
-        : personal && seg.length === 1 && seg[0] !== username
-          ? seg[0]
-          : seg.length === 2 && seg[1] === "legal"
-            ? "aviso-legal"
-            : seg.length === 2 && isSectionPage(seg[1])
-              ? seg[1]
+      rest[0] === "p" && rest[1]
+        ? rest[1]
+        : rest.length === 1 && rest[0] === "legal"
+          ? "aviso-legal"
+          : section
+            ? section
+            : personal && rest.length === 1
+              ? rest[0]
               : null;
     if (slug) setHref(`/panel/pagina?pagina=${encodeURIComponent(slug)}`);
     return () => {
@@ -47,7 +49,7 @@ export function CanvaButton({ username, personal }: { username: string; personal
       style={{ background: "linear-gradient(115deg, #f6e7bf 0%, #e3c27f 45%, #c49a52 100%)", color: "#1d1838" }}
       data-canva-button
     >
-      <Paintbrush className="h-4 w-4" /> Canva
+      <Paintbrush className="h-4 w-4" /> Diseñar
     </a>
   );
 }

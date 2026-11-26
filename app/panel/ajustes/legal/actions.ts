@@ -17,7 +17,7 @@ type Result = { ok: true } | { ok: false; error: string };
 const back = (k: "ok" | "error", msg: string) => redirect(`/panel/ajustes/legal?${k}=${encodeURIComponent(msg)}`);
 
 const identitySchema = z.object({
-  legalEntityType: z.enum(["INDIVIDUAL", "COMPANY"], { errorMap: () => ({ message: "Elige si eres persona física o empresa" }) }),
+  legalEntityType: z.enum(["INDIVIDUAL", "COMPANY"], { error: "Elige si eres persona física o empresa" }),
   legalName: z.string().trim().min(3, "Escribe tu nombre fiscal completo").max(120, "Escribe tu nombre fiscal completo"),
   legalTaxId: z.string(),
   legalAddress: z.string().trim().min(5, "Escribe tu dirección").max(160, "Escribe tu dirección"),

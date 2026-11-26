@@ -18,8 +18,8 @@ const prisma = new PrismaClient();
 const stamp = `${Date.now()}`.slice(-7);
 const TAG = `personal-acceso-${stamp}`;
 const email = (n: string) => `${TAG}-${n}@example.com`;
-const FREE = "/ana/mini-curso-tu-carta-en-3-pasos";
-const EXTERNAL = "/ana/revolucion-solar";
+const FREE = "/ana/natal-chart-in-3-steps";
+const EXTERNAL = "/ana/solar-return";
 let extProductId = "";
 
 test.beforeAll(async () => {
@@ -66,11 +66,11 @@ async function accessEmailLink(to: string, label: string) {
 }
 
 async function ownerLogin(page: Page) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.fill("#email", "ana@cirella.app");
   await page.fill("#password", "demo1234");
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 test.describe.serial("Modo personal · acceso a los productos", () => {
@@ -96,7 +96,7 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
     await page.getByRole("button", { name: /Quiero el mini-curso/ }).click();
     await expect(page.getByText("¡Listo! Revisa tu email")).toBeVisible();
     // En la demo los emails no salen: el buzón de demostración está a un clic.
-    await expect(page.getByRole("link", { name: /Abrir el buzón de demostración/ })).toHaveAttribute("href", "/dev/correo");
+    await expect(page.getByRole("link", { name: /Abrir el buzón de demostración/ })).toHaveAttribute("href", "/dev/email");
 
     const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail: lucia }, include: { transactions: true } });
     expect(order.paymentProvider).toBe("free");
@@ -109,7 +109,7 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
     expect(mail.html).not.toContain("Enviado con Cirella");
     // El enlace personal abre una sesión limitada a este acceso y lleva directo al curso.
     await page.goto(mail.url);
-    await page.waitForURL(`**/cuenta/cursos/${order.productId}**`);
+    await page.waitForURL(`**/area/courses/${order.productId}**`);
     await expect(page.getByRole("heading", { name: "Paso 1 · Tu Sol: dónde brillas", level: 2 })).toBeVisible();
   });
 
@@ -134,7 +134,7 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
     // El enlace de novedades va después del botón principal.
     expect(access.html.indexOf("Empezar el curso")).toBeLessThan(access.html.indexOf("Confirmar que quiero recibir novedades"));
     await page.goto(confirm.url);
-    await page.waitForURL("**/cuenta/novedades/confirmar?pedido=**");
+    await page.waitForURL("**/area/newsletter/confirm?pedido=**");
     // Abrir el enlace no confirma nada: hace falta el botón.
     expect((await customer()).marketingOptIn).toBe(false);
     await page.getByRole("button", { name: "Sí, quiero recibir novedades" }).click();
@@ -145,7 +145,7 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
   test("pago en otra web: botón a la web externa con el clic medido y sin «IVA incluido»", async ({ page, context }) => {
     // La web externa no se visita de verdad.
     await context.route("https://calendly.com/**", (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<p>Calendly</p>" }));
-    const product = await prisma.product.findFirstOrThrow({ where: { slug: "revolucion-solar" } });
+    const product = await prisma.product.findFirstOrThrow({ where: { slug: "solar-return" } });
     const clicksBefore = await prisma.analyticsEvent.count({ where: { productId: product.id, type: "PRODUCT_CLICK" } });
     await page.goto(EXTERNAL);
     await expect(page.getByText("Pago en calendly.com").first()).toBeVisible();
@@ -160,7 +160,7 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
   });
 
   test("el checkout de pago no existe en la web personal", async ({ page }) => {
-    const r = await page.goto("/ana/lectura-astrologia/checkout");
+    const r = await page.goto("/ana/astrology/checkout");
     expect(page.url()).not.toContain("/checkout");
     expect(r?.status()).toBe(404);
     const r2 = await page.goto(`${FREE}/checkout`);
@@ -170,7 +170,7 @@ test.describe.serial("Modo personal · acceso a los productos", () => {
 
   test("panel: solo gratis o externo, dar y quitar acceso, e inscripciones con CSV", async ({ page }) => {
     await ownerLogin(page);
-    const free = await prisma.product.findFirstOrThrow({ where: { slug: "mini-curso-tu-carta-en-3-pasos" } });
+    const free = await prisma.product.findFirstOrThrow({ where: { slug: "natal-chart-in-3-steps" } });
     await page.goto(`/panel/productos/${free.id}`);
     const modes = page.getByRole("radiogroup", { name: "Cómo se consigue" });
     await expect(modes.getByText("Gratis con email")).toBeVisible();

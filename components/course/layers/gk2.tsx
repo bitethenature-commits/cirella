@@ -12,6 +12,7 @@ import { KeyGrid } from "./key-grid";
 import { DegreeTicks } from "./wheel-kit";
 import { NIGHT, NIGHT_GOLD, NightChips, NightDefs, NightPanel, STAR, Stars, usePrefix } from "./night";
 import { GK_LINES } from "./texts";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Gene Keys a fondo, en 6 capas: los 21 anillos de codones, las 32 compañeras de programación, la rueda de
@@ -284,9 +285,7 @@ export function Gk2Diagram({ layer, selected, mine, keys, tap, ctx }: DiagramPro
             chordColor={ringHue(ring.id)}
             center={{ top: "ANILLO", big: String(ring.keys.length), bottom: ring.name.replace("Anillo ", "").toUpperCase() }}
           />
-          <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}>
-            Toca una llave para ver su anillo · con punto, las de tu perfil
-          </p>
+          <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}><Tr s={"Toca una llave para ver su anillo · con punto, las de tu perfil"} /></p>
         </NightPanel>
       );
     }
@@ -307,9 +306,7 @@ export function Gk2Diagram({ layer, selected, mine, keys, tap, ctx }: DiagramPro
             strong={[a, b]}
             center={{ top: "COMPAÑERAS", big: `${a}·${b}`, bottom: `${KEY_BY_N.get(a)!.gift} · ${KEY_BY_N.get(b)!.gift}`.toUpperCase() }}
           />
-          <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}>
-            En color, tus llaves (por secuencia) · cada línea une una pareja tuya
-          </p>
+          <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}><Tr s={"En color, tus llaves (por secuencia) · cada línea une una pareja tuya"} /></p>
         </NightPanel>
       );
     }
@@ -408,13 +405,14 @@ function KeyWheel({
   zodiac?: boolean;
   bodies?: { lon: number; glyph: string; on: boolean }[];
 }) {
+  const t = useT();
   const p = usePrefix();
   const mid = (n: number) => gateStart(n) + 2.8;
   const R1 = 104;
   const R2 = zodiac ? 140 : 156;
   return (
     // Con planetas (la llave de hoy), la rueda deja sitio fuera para que no toquen el zodiaco.
-    <svg viewBox={bodies.length ? "-26 -26 392 392" : "0 0 340 340"} className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="La rueda de las 64 llaves">
+    <svg viewBox={bodies.length ? "-26 -26 392 392" : "0 0 340 340"} className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={t("La rueda de las 64 llaves")}>
       <NightDefs p={p} />
       <circle cx={C} cy={C} r="160" fill="rgb(212 181 122 / .04)" stroke="#D4B57A" strokeOpacity="0.6" strokeWidth="0.8" />
       {zodiac &&
@@ -462,20 +460,20 @@ function KeyWheel({
           <g key={i} pointerEvents="none">
             <circle cx={q.x} cy={q.y} r={b.on ? 9 : 7.5} fill={b.on ? `url(#${p}gold)` : NIGHT} stroke={NIGHT_GOLD} strokeWidth="1" />
             <text x={q.x} y={q.y} textAnchor="middle" dominantBaseline="central" fontSize="9" fill={b.on ? NIGHT : STAR}>
-              {b.glyph}
+              <Tr s={b.glyph} />
             </text>
           </g>
         );
       })}
       <circle cx={C} cy={C} r="62" fill={NIGHT} stroke="rgb(233 204 142 / .5)" pointerEvents="none" />
       <text x={C} y={C - 30} textAnchor="middle" fontSize="7.5" letterSpacing="1.4" fill={NIGHT_GOLD} pointerEvents="none">
-        {center.top}
+        <Tr s={center.top} />
       </text>
       <text x={C} y={C - 4} textAnchor="middle" dominantBaseline="central" fontSize={center.big.length > 3 ? 22 : 30} fontFamily="Georgia, serif" fill={NIGHT_GOLD} pointerEvents="none">
-        {center.big}
+        <Tr s={center.big} />
       </text>
       <text x={C} y={C + 24} textAnchor="middle" fontSize={center.bottom.length > 22 ? 6 : 7.5} letterSpacing="0.8" fill={STAR} pointerEvents="none">
-        {center.bottom}
+        <Tr s={center.bottom} />
       </text>
     </svg>
   );
@@ -483,17 +481,18 @@ function KeyWheel({
 
 /** La sombra como una balanza: hacia dentro (azul, izquierda), hacia fuera (rojo, derecha) y el don arriba, en medio. */
 function ShadowBalance({ selected, tap, n }: { selected: Face; tap: Tap; n: number }) {
+  const t = useT();
   const p = usePrefix();
   const k = KEY_BY_N.get(n) ?? null;
   const tilt = selected === "repressive" ? -9 : selected === "reactive" ? 9 : 0;
   const dy = 100 * Math.sin((tilt * Math.PI) / 180);
   const POS: Record<Face, { x: number; y: number }> = { repressive: { x: 70, y: 214 - dy }, reactive: { x: 270, y: 214 + dy }, gift: { x: 170, y: 70 } };
   return (
-    <svg viewBox="0 0 340 320" className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label="Las dos caras de la sombra">
+    <svg viewBox="0 0 340 320" className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label={t("Las dos caras de la sombra")}>
       <NightDefs p={p} />
       <Stars w={340} h={320} n={30} />
       <text x="170" y="22" textAnchor="middle" fontSize="8.5" letterSpacing="1.4" fill="rgb(251 246 236 / .65)">
-        {k ? `LLAVE ${k.n} · SOMBRA: ${k.shadow.toUpperCase()}` : "LA SOMBRA"}
+        {k ? `LLAVE ${k.n} · SOMBRA: ${k.shadow.toUpperCase()}` : t("LA SOMBRA")}
       </text>
       {/* El fiel y el brazo de la balanza, que se inclina hacia la cara elegida. */}
       <line x1="170" y1="106" x2="170" y2="262" stroke="rgb(233 204 142 / .55)" strokeWidth="2" />
@@ -505,7 +504,7 @@ function ShadowBalance({ selected, tap, n }: { selected: Face; tap: Tap; n: numb
       </g>
       <circle cx="170" cy="170" r="22" fill={NIGHT} stroke="rgb(233 204 142 / .6)" />
       <text x="170" y="171" textAnchor="middle" dominantBaseline="central" fontSize={k && k.shadow.length > 9 ? 6.5 : 7.5} fill={STAR} pointerEvents="none">
-        {k ? k.shadow.toUpperCase() : "SOMBRA"}
+        {k ? k.shadow.toUpperCase() : t("SOMBRA")}
       </text>
       {(Object.keys(POS) as Face[]).map((f) => {
         const { x, y } = POS[f];
@@ -517,32 +516,29 @@ function ShadowBalance({ selected, tap, n }: { selected: Face; tap: Tap; n: numb
             {on && <circle cx={x} cy={y} r="46" fill={`url(#${p}goldglow)`} />}
             <circle cx={x} cy={y} r="36" fill={on ? (f === "gift" ? `url(#${p}gold)` : face.color) : "#1D1D20"} stroke={face.color} strokeWidth="2" />
             <text x={x} y={y - 6} textAnchor="middle" dominantBaseline="central" fontSize="8" letterSpacing="1" fill={on ? NIGHT : face.color} fontWeight="700">
-              {f === "gift" ? "DON" : f === "repressive" ? "REPRIMIDA" : "REACTIVA"}
+              {f === "gift" ? t("DON") : f === "repressive" ? t("REPRIMIDA") : t("REACTIVA")}
             </text>
             <text x={x} y={y + 9} textAnchor="middle" dominantBaseline="central" fontSize="8.5" fill={on ? NIGHT : STAR}>
-              {word}
+              <Tr s={word} />
             </text>
           </g>
         );
       })}
-      <text x="70" y={268 - dy} textAnchor="middle" fontSize="7.5" fill="rgb(251 246 236 / .55)">
-        callar · encogerse
-      </text>
-      <text x="270" y={268 + dy} textAnchor="middle" fontSize="7.5" fill="rgb(251 246 236 / .55)">
-        reaccionar · culpar
-      </text>
+      <text x="70" y={268 - dy} textAnchor="middle" fontSize="7.5" fill="rgb(251 246 236 / .55)"><Tr s={"callar · encogerse"} /></text>
+      <text x="270" y={268 + dy} textAnchor="middle" fontSize="7.5" fill="rgb(251 246 236 / .55)"><Tr s={"reaccionar · culpar"} /></text>
     </svg>
   );
 }
 
 /** La Secuencia de Venus como un descenso: del Propósito, arriba, al Núcleo, en lo más hondo. */
 function VenusWell({ selected, tap, c }: { selected: string; tap: Tap; c: LayerCtx["c"] }) {
+  const t = useT();
   const p = usePrefix();
   const T = TONE.venus;
   const pos = VENUS_PATH.map((id, i) => ({ id, x: i === 0 ? 170 : i % 2 ? 110 : 230, y: 46 + i * 56 }));
   pos[5].x = 170;
   return (
-    <svg viewBox="0 0 340 380" className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label="La Secuencia de Venus">
+    <svg viewBox="0 0 340 380" className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label={t("La Secuencia de Venus")}>
       <NightDefs p={p} />
       <Stars w={340} h={380} n={32} />
       <path d={`M170 20 C 330 120, 10 220, 170 370`} fill="none" stroke={T.line} strokeOpacity="0.12" strokeWidth="60" strokeLinecap="round" />
@@ -565,7 +561,7 @@ function VenusWell({ selected, tap, c }: { selected: string; tap: Tap; c: LayerC
               {n ? `${n}.${line}` : i}
             </text>
             <text x={q.x === 170 ? q.x + 30 : q.x + side * 30} y={q.y - 4} textAnchor={q.x === 170 ? "start" : side < 0 ? "end" : "start"} fontSize="8.5" letterSpacing="1" fontWeight={on ? 700 : 500} fill={on ? NIGHT_GOLD : STAR}>
-              {label}
+              <Tr s={label} />
             </text>
             <text x={q.x === 170 ? q.x + 30 : q.x + side * 30} y={q.y + 9} textAnchor={q.x === 170 ? "start" : side < 0 ? "end" : "start"} fontSize="7.5" fill="rgb(251 246 236 / .6)">
               {VENUS_DEPTH[q.id].when}

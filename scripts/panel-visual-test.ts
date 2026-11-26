@@ -44,7 +44,7 @@ async function main() {
     check("el email enviado lleva el resaltado", !!(await prisma.emailMessage.findFirst({ where: { creatorId: ana.id, campaignId: sent?.id } }))?.html.includes("background-color:#FCEFB4"));
     check(
       "su email enviado (buzón de la demo) es el del editor visual: foto de fondo, ▶ y la baja",
-      !!mail?.html.includes('background="') && !!mail?.html.includes("v:rect") && !!mail?.html.includes("▶") && !!mail?.html.includes("/baja/newsletter"),
+      !!mail?.html.includes('background="') && !!mail?.html.includes("v:rect") && !!mail?.html.includes("▶") && !!mail?.html.includes("/unsubscribe/newsletter"),
     );
 
     // ── Guardar y leer ──

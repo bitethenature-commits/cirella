@@ -28,9 +28,9 @@ test.afterAll(async () => {
 });
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 test("Cirella ve el mes con sus marcas, abre un día, escribe su nota y sigue ahí al recargar", async ({ page }) => {

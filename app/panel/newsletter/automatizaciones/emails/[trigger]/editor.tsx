@@ -9,6 +9,7 @@ import { EmailPreview } from "@/components/email-editor/email-preview";
 import type { AutomationTrigger } from "@/lib/automation-catalog";
 import type { EmailDesign, EmailVars, SocialNetwork } from "@/lib/email-blocks";
 import { previewAutomaticEmail, restoreOriginalEmail, saveAutomaticEmail, sendAutomaticTest } from "../actions";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * Editor de un email automático: asunto (vacío = el de siempre) y texto con el editor visual, con la
@@ -59,7 +60,7 @@ export function AutomaticEmailEditor(p: {
         {(["editar", "vista"] as const).map((t) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 font-medium ${tab === t ? "bg-white shadow-soft" : "text-muted"}`}>
             {t === "editar" ? <PenLine className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            {t === "editar" ? "Escribir encima" : "Cómo le llega"}
+            {t === "editar" ? <Tr s={"Escribir encima"} /> : <Tr s={"Cómo le llega"} />}
           </button>
         ))}
       </div>
@@ -81,22 +82,20 @@ export function AutomaticEmailEditor(p: {
         />
       ) : (
         <div className="mx-auto max-w-3xl">
-          {preview ? <EmailPreview html={preview.html} subject={preview.subject} warnings={preview.warnings} /> : <p className="text-sm text-muted">Preparando la vista previa…</p>}
-          <p className="mt-2 text-xs text-muted">Con datos de ejemplo: así le llega a ella, con todo lo que el email añade solo.</p>
+          {preview ? <EmailPreview html={preview.html} subject={preview.subject} warnings={preview.warnings} /> : <p className="text-sm text-muted"><Tr s={"Preparando la vista previa…"} /></p>}
+          <p className="mt-2 text-xs text-muted"><Tr s={"Con datos de ejemplo: así le llega a ella, con todo lo que el email añade solo."} /></p>
         </div>
       )}
       {notice && (
         <p role="status" className={`mt-4 rounded-xl px-4 py-3 text-sm ${notice.ok ? "bg-[#e7f3ec] text-[#2f6b4a]" : "bg-[#fbe9e6] text-[#9a3a2e]"}`}>
-          {notice.text}
+          <Tr s={notice.text} />
         </p>
       )}
       <div className="mt-5 flex flex-wrap gap-2">
         <button type="button" className="btn btn-primary" disabled={busy} onClick={() => act(() => saveAutomaticEmail(p.trigger, { subject, design }), true)}>
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Guardar
-        </button>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{" "}<Tr s={"Guardar"} /></button>
         <button type="button" className="btn btn-outline" disabled={busy} onClick={() => act(() => sendAutomaticTest(p.trigger, { subject, design }))}>
-          <TestTube2 className="h-4 w-4" /> Enviarme una prueba
-        </button>
+          <TestTube2 className="h-4 w-4" />{" "}<Tr s={"Enviarme una prueba"} /></button>
         {p.custom && (
           <button
             type="button"
@@ -111,8 +110,7 @@ export function AutomaticEmailEditor(p: {
               });
             }}
           >
-            <RotateCcw className="h-4 w-4" /> Restaurar el original
-          </button>
+            <RotateCcw className="h-4 w-4" />{" "}<Tr s={"Restaurar el original"} /></button>
         )}
       </div>
     </div>

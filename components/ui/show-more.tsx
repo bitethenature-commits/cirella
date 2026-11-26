@@ -2,6 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { Children, useState, type CSSProperties, type ReactNode } from "react";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * Una lista larga (las preguntas frecuentes de la portada, las de Soporte…): se ven las primeras `first` y, debajo,
@@ -35,7 +36,7 @@ export function ShowMore({
       {more && (
         <div className="mt-5 flex justify-center">
           <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={buttonClassName}>
-            {open ? lessLabel : moreLabel}
+            <Tr s={open ? lessLabel : moreLabel} />
             <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
           </button>
         </div>

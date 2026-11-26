@@ -157,19 +157,19 @@ test("memberPostEmail: escapa todo, lleva la baja y el botón, y solo el extract
     postTitle: "<script>alert(1)</script>",
     excerpt: "Hola <b>x</b>",
     attachments: "Incluye: 1 audio",
-    url: "https://x.test/auth/enlace?t=abc",
+    url: "https://x.test/auth/link?t=abc",
     linkNote: "Personal",
-    optOutUrl: "https://x.test/baja/comunidad?t=zzz",
+    optOutUrl: "https://x.test/unsubscribe/membership?t=zzz",
   });
   ok(!m.html.includes("<script>"), "sin <script>");
   ok(m.html.includes("&lt;script&gt;"));
   ok(m.html.includes("Hola &lt;b&gt;x&lt;/b&gt;"));
-  ok(m.html.includes("https://x.test/baja/comunidad?t=zzz"), "enlace de baja");
-  ok(m.html.includes("https://x.test/auth/enlace?t=abc"), "botón");
+  ok(m.html.includes("https://x.test/unsubscribe/membership?t=zzz"), "enlace de baja");
+  ok(m.html.includes("https://x.test/auth/link?t=abc"), "botón");
   ok(m.html.includes("Leer la publicación"));
   eq(m.subject, '<script>alert(1)</script> · Círculo "Luna"');
 });
 
 test("cuentaRefFromPath: la página de una publicación es de la membresía (marca del login)", () => {
-  eq(cuentaRefFromPath("/cuenta/membresias/m1/p1"), { kind: "product", id: "m1" });
+  eq(cuentaRefFromPath("/area/membership/m1/p1"), { kind: "product", id: "m1" });
 });

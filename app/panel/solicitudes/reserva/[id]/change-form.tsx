@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { startTransition, useActionState, useState } from "react";
 import { Flash } from "@/components/ui/flash";
 import { changeBooking, type ChangeState } from "../../reservas-actions";
+import { Tr, useT } from "@/lib/i18n/client";
 
 type Intent = "reschedule" | "cancel_refund" | "cancel_only";
 
@@ -30,6 +31,7 @@ export function ChangeForm({
   /** Web personal: sin comisión de la plataforma de por medio. */
   personal?: boolean;
 }) {
+  const t = useT();
   const [state, action, isPending] = useActionState<ChangeState, FormData>(changeBooking, undefined);
   const [intent, setIntent] = useState<Intent>(when && canPropose ? "reschedule" : refundable > 0 ? "cancel_refund" : "cancel_only");
 
@@ -95,25 +97,25 @@ export function ChangeForm({
                 />
                 <span className="min-w-0 flex-1">
                   <span className={`block font-semibold ${o.key === "cancel_only" ? "text-rose" : ""}`}>{o.title}</span>
-                  <span className="mt-1 block text-sm text-muted">{o.disabled ?? o.help}</span>
+                  <span className="mt-1 block text-sm text-muted"><Tr s={o.disabled ?? o.help} /></span>
                 </span>
               </label>
               {selected && o.key !== "cancel_only" && (
                 <div className="mt-4">
-                  <label htmlFor="change-note" className="field-label">Mensaje para {name} <span className="font-normal text-muted">(opcional)</span></label>
+                  <label htmlFor="change-note" className="field-label"><Tr s={"Mensaje para"} />{" "}{name} <span className="font-normal text-muted"><Tr s={"(opcional)"} /></span></label>
                   <textarea
                     id="change-note"
                     name="note"
                     rows={3}
                     maxLength={500}
                     className="input"
-                    placeholder={o.key === "reschedule" ? "Me ha surgido un imprevisto, ¿te viene bien otro día?" : undefined}
+                    placeholder={o.key === "reschedule" ? t("Me ha surgido un imprevisto, ¿te viene bien otro día?") : undefined}
                   />
                 </div>
               )}
               {selected && o.key === "cancel_only" && (
                 <div className="mt-4">
-                  <label htmlFor="change-reason" className="field-label">Motivo (lo verá {name})</label>
+                  <label htmlFor="change-reason" className="field-label"><Tr s={"Motivo (lo verá"} />{" "}{name})</label>
                   <textarea id="change-reason" name="reason" rows={3} required minLength={5} maxLength={500} className="input" />
                 </div>
               )}
@@ -122,7 +124,7 @@ export function ChangeForm({
         })}
       <button type="submit" disabled={isPending} aria-busy={isPending} className={`btn w-full sm:w-auto ${intent === "cancel_only" ? "btn-danger" : "btn-primary"}`}>
         {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-        {submitLabel[intent]}
+        <Tr s={submitLabel[intent]} />
       </button>
     </form>
   );

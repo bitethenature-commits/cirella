@@ -6,10 +6,12 @@ import { requireCreator } from "@/lib/auth";
 import { tenantDb } from "@/lib/tenant";
 import { PageHeader } from "../../../../ui";
 import { CardForm } from "../../../card-form";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Nueva carta" };
 
 export default async function NewCardPage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await getT();
   const { id } = await params;
   const { creator } = await requireCreator();
   const deck = await tenantDb(creator.id).oracleDeck.findFirst({ where: { id }, select: { id: true, name: true } });
@@ -19,7 +21,7 @@ export default async function NewCardPage({ params }: { params: Promise<{ id: st
       <Link href={`/panel/barajas/${deck.id}`} className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
         <ArrowLeft className="h-4 w-4" /> {deck.name}
       </Link>
-      <PageHeader title="Nueva carta" />
+      <PageHeader title={t("Nueva carta")} />
       <CardForm card={{ id: null, deckId: deck.id, name: "", keyword: "", message: "", question: "", imageUrl: null, imageFrame: null, backImageUrl: null, backFrame: null, motif: "", reversible: false, reversedMessage: "" }} />
     </div>
   );

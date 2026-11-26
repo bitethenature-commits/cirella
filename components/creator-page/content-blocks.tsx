@@ -1,3 +1,4 @@
+import { productPath } from "@/lib/public-paths";
 import { cloneElement, isValidElement, type ComponentType, type ReactElement, type SVGProps } from "react";
 import { ArrowRight, ArrowUpRight, Mail, Moon } from "lucide-react";
 import { ZoomableImage } from "@/components/media/zoomable-image";
@@ -22,6 +23,7 @@ import { VideoFacade } from "./video-facade";
 import type { PublicProduct } from "./creator-page-view";
 import type { WebTiers } from "@/lib/web-tiers";
 import { TiersShow } from "./tiers-block";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * Bloques de la portada y de las páginas extra (lib/page-blocks.ts), con las clases del tema
@@ -98,9 +100,9 @@ export function ContentBlocks({
   const renderOne = (b: ContentBlock, bare: boolean, luxe: boolean) => {
     const title = (text: string) =>
       titleLevel === 3 ? (
-        <h3 className="cp-display text-[1.6rem] leading-tight">{text}</h3>
+        <h3 className="cp-display text-[1.6rem] leading-tight"><Tr s={text} /></h3>
       ) : (
-        <h2 className={`cp-display leading-tight ${bare || luxe ? "cp-thin text-[1.95rem] sm:text-[2.3rem]" : "text-[1.75rem] sm:text-[2rem]"}`}>{text}</h2>
+        <h2 className={`cp-display leading-tight ${bare || luxe ? "cp-thin text-[1.95rem] sm:text-[2.3rem]" : "text-[1.75rem] sm:text-[2rem]"}`}><Tr s={text} /></h2>
       );
     // «Sobre mí» (sin cajas): los títulos de sección centrados, con la estrella y la raya dorada de la portada.
     const luxeTitle = (text: string) => (
@@ -108,7 +110,7 @@ export function ContentBlocks({
         <span className="cp-section-star" aria-hidden>
           ✦
         </span>
-        <h2 className="cp-display cp-thin text-[2.2rem] leading-tight sm:text-[2.6rem]">{text}</h2>
+        <h2 className="cp-display cp-thin text-[2.2rem] leading-tight sm:text-[2.6rem]"><Tr s={text} /></h2>
         <div aria-hidden className="cp-section-rule">
           <span />
           <i>✦</i>
@@ -144,7 +146,7 @@ export function ContentBlocks({
                     <a href={href} className="cp-sacred-btn" {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
                       <span className="cp-sacred-label">
                         {href.startsWith("mailto:") && <Mail className="h-5 w-5" strokeWidth={1.3} />}
-                        {b.buttonLabel}
+                        <Tr s={b.buttonLabel} />
                       </span>
                     </a>
                   </div>
@@ -168,7 +170,7 @@ export function ContentBlocks({
               )}
               {href && b.buttonLabel && (
                 <a href={href} className="cp-btn-ghost mt-5" {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
-                  {b.buttonLabel}
+                  <Tr s={b.buttonLabel} />
                   <ArrowUpRight className="h-4 w-4 opacity-70" />
                 </a>
               )}
@@ -201,7 +203,7 @@ export function ContentBlocks({
                   className="overflow-hidden rounded-[var(--r-card)]"
                 />
               )}
-              {b.image.caption && <figcaption className="cp-muted mt-2 text-center text-[0.85rem]">{b.image.caption}</figcaption>}
+              {b.image.caption && <figcaption className="cp-muted mt-2 text-center text-[0.85rem]"><Tr s={b.image.caption} /></figcaption>}
             </figure>
           );
         }
@@ -213,7 +215,7 @@ export function ContentBlocks({
               {(b.title || (b.layout === "carousel" && images.length > 1)) && (
                 <div className="mb-3 flex items-end justify-between gap-4">
                   {b.title ? title(b.title) : <span />}
-                  {b.layout === "carousel" && images.length > 1 && <span className="cp-faint pb-1 text-xs tabular-nums">{images.length} · desliza →</span>}
+                  {b.layout === "carousel" && images.length > 1 && <span className="cp-faint pb-1 text-xs tabular-nums">{images.length}{" "}<Tr s={"· desliza →"} /></span>}
                 </div>
               )}
               {b.layout === "grid" ? (
@@ -229,7 +231,7 @@ export function ContentBlocks({
                         height={img.height}
                         className="overflow-hidden rounded-[calc(var(--r-card)*0.7)]"
                       />
-                      {img.caption && <figcaption className="cp-muted mt-1 text-center text-xs">{img.caption}</figcaption>}
+                      {img.caption && <figcaption className="cp-muted mt-1 text-center text-xs"><Tr s={img.caption} /></figcaption>}
                     </figure>
                   ))}
                 </div>
@@ -246,7 +248,7 @@ export function ContentBlocks({
                         height={img.height}
                         className="overflow-hidden rounded-[var(--r-card)]"
                       />
-                      {img.caption && <figcaption className="cp-muted mt-2 text-center text-[0.85rem]">{img.caption}</figcaption>}
+                      {img.caption && <figcaption className="cp-muted mt-2 text-center text-[0.85rem]"><Tr s={img.caption} /></figcaption>}
                     </figure>
                   ))}
                 </div>
@@ -269,7 +271,7 @@ export function ContentBlocks({
               <div className="overflow-hidden rounded-[var(--r-card)]">
                 {upload ? <PageVideo video={upload} poster={poster} title={b.title} /> : <VideoFacade url={embed!} poster={poster} title={b.title} />}
               </div>
-              {b.caption && <figcaption className="cp-muted mt-2 text-center text-[0.85rem]">{b.caption}</figcaption>}
+              {b.caption && <figcaption className="cp-muted mt-2 text-center text-[0.85rem]"><Tr s={b.caption} /></figcaption>}
             </figure>
           );
         }
@@ -290,17 +292,17 @@ export function ContentBlocks({
               </div>
             ) : null;
           return (
-            <div key={b.id} className={bare ? "grid items-center gap-5 sm:grid-cols-2 sm:gap-10" : "cp-card grid items-center p-3 sm:grid-cols-2 sm:p-4"} data-block="photo-text" data-side={b.imageSide} {...(bare ? { "data-reveal": "" } : {})}>
-              {bare && heading("block sm:hidden")}
+            <div key={b.id} className={`${photoTextCols(b.imageSide)} ${bare ? "grid items-center gap-4 sm:grid-cols-2 sm:gap-10" : "cp-card grid items-center gap-1 p-2 sm:grid-cols-2 sm:gap-0 sm:p-4"}`} data-block="photo-text" data-side={b.imageSide} {...(bare ? { "data-reveal": "" } : {})}>
+              {bare && heading("col-span-2 block sm:hidden")}
               <div
-                className={`relative aspect-[9/16] ${bare ? "cp-luxe-frame" : "cp-photo-bubble"} mx-auto w-full max-w-[20rem] ${b.imageSide === "right" ? "sm:order-last" : ""}`}
+                className={`relative aspect-[9/16] ${bare ? "cp-luxe-frame" : "cp-photo-bubble"} w-full sm:mx-auto sm:max-w-[20rem] ${b.imageSide === "right" ? "order-last" : ""}`}
               >
                 {/* Foto y texto: siempre en vertical 9:16 (formato reel), un hueco fijo. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={b.image.src}
                   srcSet={imageSrcSet(b.image.src, b.image.width)}
-                  sizes="(min-width: 768px) 352px, calc(100vw - 40px)"
+                  sizes="(min-width: 768px) 352px, 40vw"
                   alt={b.image.alt}
                   width={b.image.width}
                   height={b.image.height}
@@ -309,7 +311,7 @@ export function ContentBlocks({
                   className="absolute inset-0 h-full w-full object-cover"
                 />
               </div>
-              <div className={`flex flex-col justify-center ${bare ? "" : "p-6 sm:p-7"}`}>
+              <div className={`flex min-w-0 flex-col justify-center ${bare ? "" : "p-3 sm:p-7"}`}>
                 {bare ? heading("hidden sm:block") : b.title && title(b.title)}
                 {!bare && luxe && b.title && <span aria-hidden className="cp-luxe-underline" />}
                 {b.body && (
@@ -319,12 +321,12 @@ export function ContentBlocks({
                     legacy="links"
                     tone="page"
                     headingLevel={titleLevel === 3 ? 4 : 3}
-                    className={`cp-muted space-y-3 leading-relaxed ${bare || luxe ? "cp-thin-text text-[1.02rem]" : "text-[0.95rem]"} ${b.title ? (bare ? "sm:mt-5" : luxe ? "mt-5" : "mt-3") : ""}`}
+                    className={`cp-muted space-y-3 leading-relaxed ${bare || luxe ? "cp-thin-text text-[0.9rem] sm:text-[1.02rem]" : "text-[0.85rem] sm:text-[0.95rem]"} ${b.title ? (bare ? "sm:mt-5" : luxe ? "mt-5" : "mt-3") : ""}`}
                   />
                 )}
                 {href && b.buttonLabel && (
                   <a href={href} className="cp-btn-ghost mt-5 self-start" {...target(href)}>
-                    {b.buttonLabel}
+                    <Tr s={b.buttonLabel} />
                     <ArrowUpRight className="h-4 w-4 opacity-70" />
                   </a>
                 )}
@@ -373,11 +375,11 @@ export function ContentBlocks({
                             <i>✦</i>
                             <span />
                           </span>
-                          {c.text && <span className="cp-muted cp-thin-text mt-3 max-w-[15rem] text-[0.98rem] leading-relaxed">{c.text}</span>}
+                          {c.text && <span className="cp-muted cp-thin-text mt-3 max-w-[15rem] text-[0.98rem] leading-relaxed"><Tr s={c.text} /></span>}
                           {c.price && <span className="cp-gold cp-display mt-4 text-[1.35rem]">{c.price}</span>}
                           {href && (
                             <span className="cp-gift-cta mt-5">
-                              {/^mailto:/i.test(href) ? "Pedirlo" : "Ver más"} <span aria-hidden>✦</span>
+                              {/^mailto:/i.test(href) ? <Tr s={"Pedirlo"} /> : <Tr s={"Ver más"} />} <span aria-hidden>✦</span>
                             </span>
                           )}
                         </div>
@@ -387,7 +389,7 @@ export function ContentBlocks({
                             <span data-card-title className="cp-display text-[1.3rem] leading-tight">{c.title}</span>
                             {href && <ArrowUpRight className="cp-faint mt-1 h-4 w-4 shrink-0" aria-hidden />}
                           </span>
-                          {c.text && <span className="cp-muted mt-2 text-[0.9rem] leading-relaxed">{c.text}</span>}
+                          {c.text && <span className="cp-muted mt-2 text-[0.9rem] leading-relaxed"><Tr s={c.text} /></span>}
                           {c.price && <span className="cp-gold mt-3 font-semibold">{c.price}</span>}
                         </div>
                       )}
@@ -414,13 +416,13 @@ export function ContentBlocks({
                 <span aria-hidden className="cp-luxe-quote-mark">
                   “
                 </span>
-                <blockquote className="cp-display cp-thin text-[1.75rem] italic leading-snug sm:text-[2.2rem]">{b.text}</blockquote>
+                <blockquote className="cp-display cp-thin text-[1.75rem] italic leading-snug sm:text-[2.2rem]"><Tr s={b.text} /></blockquote>
                 <div aria-hidden className="cp-section-rule mt-6">
                   <span />
                   <i>✦</i>
                   <span />
                 </div>
-                {b.author && <figcaption className="cp-gold mt-4 text-[0.78rem] uppercase tracking-[0.4em]">{b.author}</figcaption>}
+                {b.author && <figcaption className="cp-gold mt-4 text-[0.78rem] uppercase tracking-[0.4em]"><Tr s={b.author} /></figcaption>}
               </figure>
             );
           return (
@@ -428,8 +430,8 @@ export function ContentBlocks({
               <span aria-hidden className="cp-gold cp-display pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 text-[4.5rem] leading-none">
                 “
               </span>
-              <blockquote className="cp-display text-[1.45rem] leading-snug sm:text-[1.7rem]">{b.text}</blockquote>
-              {b.author && <figcaption className="cp-eyebrow mt-5">— {b.author}</figcaption>}
+              <blockquote className="cp-display text-[1.45rem] leading-snug sm:text-[1.7rem]"><Tr s={b.text} /></blockquote>
+              {b.author && <figcaption className="cp-eyebrow mt-5">— <Tr s={b.author} /></figcaption>}
             </figure>
           );
         case "timeline":
@@ -460,11 +462,11 @@ export function ContentBlocks({
                         </span>
                       )}
                       <div className={odd ? "sm:order-2" : "sm:text-right"}>
-                        {it.label && <p className={`cp-display cp-gold leading-none ${bare ? "cp-luxe-year text-[2.2rem] sm:text-[2.8rem]" : "text-[2.1rem] sm:text-[2.7rem]"}`}>{it.label}</p>}
+                        {it.label && <p className={`cp-display cp-gold leading-none ${bare ? "cp-luxe-year text-[2.2rem] sm:text-[2.8rem]" : "text-[2.1rem] sm:text-[2.7rem]"}`}><Tr s={it.label} /></p>}
                       </div>
                       <div className={`${odd ? "sm:order-1 sm:text-right" : ""} ${it.label ? "mt-2 sm:mt-0" : ""}`}>
                         <p className={`cp-display leading-snug ${bare ? "cp-thin text-[1.45rem] sm:text-[1.6rem]" : "text-[1.35rem] sm:text-[1.5rem]"}`}>{it.title}</p>
-                        {it.text && <p className={`cp-muted mt-1.5 leading-relaxed ${bare ? "cp-thin-text text-[0.98rem]" : "text-[0.93rem]"}`}>{it.text}</p>}
+                        {it.text && <p className={`cp-muted mt-1.5 leading-relaxed ${bare ? "cp-thin-text text-[0.98rem]" : "text-[0.93rem]"}`}><Tr s={it.text} /></p>}
                       </div>
                     </li>
                   );
@@ -483,7 +485,7 @@ export function ContentBlocks({
                 </div>
                 {b.title && <blockquote className="cp-display whitespace-pre-line text-[1.7rem] italic leading-snug sm:text-[2.2rem]">{b.title}</blockquote>}
                 {(b.title || b.intro) && <span aria-hidden className="mt-8 block h-px w-20 bg-[var(--c-gold)] opacity-70" />}
-                {b.intro && <figcaption className="cp-muted mt-6 max-w-md text-[0.95rem] leading-relaxed">{b.intro}</figcaption>}
+                {b.intro && <figcaption className="cp-muted mt-6 max-w-md text-[0.95rem] leading-relaxed"><Tr s={b.intro} /></figcaption>}
               </figure>
             );
         {
@@ -501,7 +503,7 @@ export function ContentBlocks({
                 ) : (
                   title(b.title)
                 ))}
-              {b.intro && <p className={`cp-muted text-[0.95rem] leading-relaxed ${b.title ? "mt-3" : ""}`}>{b.intro}</p>}
+              {b.intro && <p className={`cp-muted text-[0.95rem] leading-relaxed ${b.title ? "mt-3" : ""}`}><Tr s={b.intro} /></p>}
               <div className={b.title || b.intro ? "mt-6" : ""}>
                 <InteractiveModel model={b.model} deck={b.model === "oracle" && b.deck ? oracleDecks?.[b.deck] : undefined} gate={modelGate} compact={quick} />
               </div>
@@ -537,7 +539,7 @@ export function ContentBlocks({
                       className="group flex min-h-14 w-full items-center justify-center gap-2 rounded-full border px-7 py-3 text-center text-[0.95rem] font-semibold sm:px-4 sm:text-[0.9rem] leading-snug transition-colors duration-300 hover:bg-[color-mix(in_oklab,var(--c-gold)_14%,transparent)]"
                       style={{ borderColor: "color-mix(in oklab, var(--c-gold) 45%, transparent)", background: "color-mix(in oklab, var(--c-gold) 6%, transparent)" }}
                     >
-                      <span>{it.label}</span>
+                      <span><Tr s={it.label} /></span>
                       <ArrowRight className="cp-gold h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5" aria-hidden />
                     </a>
                   </li>
@@ -552,9 +554,9 @@ export function ContentBlocks({
             return (
               <section key={b.id} data-block="moon-circles" className="cp-line rounded-[var(--r-card)] border border-dashed p-5 text-center">
                 <p className="cp-eyebrow flex items-center justify-center gap-1.5">
-                  <Moon className="h-3.5 w-3.5" aria-hidden /> {label}
+                  <Moon className="h-3.5 w-3.5" aria-hidden /> <Tr s={label} />
                 </p>
-                <p className="cp-muted mt-2 text-[0.85rem]">Aquí salen solos tus dos próximos círculos de la luna publicados, con su fecha, el precio y «Apuntarme».</p>
+                <p className="cp-muted mt-2 text-[0.85rem]"><Tr s={"Aquí salen solos tus dos próximos círculos de la luna publicados, con su fecha, el precio y «Apuntarme»."} /></p>
               </section>
             );
           const circles = moonCircles.filter((c) => !hiddenSlugs.has(c.slug.toLowerCase()));
@@ -562,7 +564,7 @@ export function ContentBlocks({
           return (
             <section key={b.id} data-block="moon-circles" aria-label={label}>
               <p className="cp-eyebrow flex items-center gap-1.5">
-                <Moon className="h-3.5 w-3.5" aria-hidden /> {label}
+                <Moon className="h-3.5 w-3.5" aria-hidden /> <Tr s={label} />
               </p>
               <ul className="mt-3 grid gap-3 sm:grid-cols-2">
                 {circles.map((c) => {
@@ -571,20 +573,20 @@ export function ContentBlocks({
                   return (
                     <li key={c.id} className="cp-card flex items-center gap-3 p-4" data-moon-circle={c.slug}>
                       <span aria-hidden className="text-[1.6rem] leading-none">
-                        {c.emoji || "🌙"}
+                        <Tr s={c.emoji || "🌙"} />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <a href={`/${username}/${c.slug}`} className="block text-[0.92rem] font-semibold leading-snug underline-offset-4 hover:underline">
+                        <a href={`${productPath(username, c)}`} className="block text-[0.92rem] font-semibold leading-snug underline-offset-4 hover:underline">
                           {c.title}
                         </a>
-                        {c.eventLabel && <span className="cp-muted block text-[0.78rem] leading-snug">{c.eventLabel}</span>}
+                        {c.eventLabel && <span className="cp-muted block text-[0.78rem] leading-snug"><Tr s={c.eventLabel} /></span>}
                         <span className="cp-gold block text-[0.78rem] font-semibold">
-                          {free || price === 0 ? "Gratis" : formatPrice(price, c.currency)}
+                          {free || price === 0 ? <Tr s={"Gratis"} /> : formatPrice(price, c.currency)}
                           {c.sale && <span className="cp-faint font-normal line-through"> {formatPrice(c.sale.regularCents, c.currency)}</span>}
                         </span>
                       </span>
-                      <a href={free ? `/${username}/${c.slug}` : `/${username}/${c.slug}/solicitar`} className="cp-btn shrink-0 !min-h-9 !px-3.5 !text-[0.8rem]" aria-label={`${free ? "Apuntarme" : "Escríbeme para apuntarme"}: ${c.title}`}>
-                        {free ? "Apuntarme" : <><Mail className="h-3.5 w-3.5" /> Quiero ir</>}
+                      <a href={free ? `${productPath(username, c)}` : `${productPath(username, c, "request")}`} className="cp-btn shrink-0 !min-h-9 !px-3.5 !text-[0.8rem]" aria-label={`${free ? "Apuntarme" : "Escríbeme para apuntarme"}: ${c.title}`}>
+                        {free ? <Tr s={"Apuntarme"} /> : <><Mail className="h-3.5 w-3.5" />{" "}<Tr s={"Quiero ir"} /></>}
                       </a>
                     </li>
                   );
@@ -597,8 +599,8 @@ export function ContentBlocks({
           if (!tiers)
             return (
               <section key={b.id} data-block="tiers" className="cp-line rounded-[var(--r-card)] border border-dashed p-5 text-center">
-                <p className="cp-eyebrow">{b.title || "Niveles de la comunidad"}</p>
-                <p className="cp-muted mt-2 text-[0.85rem]">Aquí salen tus niveles de la comunidad, cada uno con su precio, lo que incluye y su botón.</p>
+                <p className="cp-eyebrow">{b.title || <Tr s={"Niveles de la comunidad"} />}</p>
+                <p className="cp-muted mt-2 text-[0.85rem]"><Tr s={"Aquí salen tus niveles de la comunidad, cada uno con su precio, lo que incluye y su botón."} /></p>
               </section>
             );
           return (
@@ -662,4 +664,9 @@ function BlockImg({ img }: { img: PageImage }) {
       className="h-auto w-full"
     />
   );
+}
+
+/** Foto y texto: en el móvil también uno al lado del otro (la foto más estrecha), como en el ordenador. */
+export function photoTextCols(side: string | undefined): string {
+  return side === "right" ? "grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" : "grid-cols-[minmax(0,2fr)_minmax(0,3fr)]";
 }

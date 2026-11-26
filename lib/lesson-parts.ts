@@ -43,7 +43,7 @@ export type LessonPartInput = ({ kind: "TEXT"; body: string; format: "MD" | null
   design?: PieceLook | null;
 };
 
-export const lessonPartSchema: z.ZodType<LessonPartInput, z.ZodTypeDef, unknown> = z.discriminatedUnion("kind", [
+export const lessonPartSchema: z.ZodType<LessonPartInput, unknown> = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("TEXT"),
     body: z.string().max(LESSON_TEXT_MAX, LESSON_TEXT_TOO_LONG),
@@ -54,7 +54,7 @@ export const lessonPartSchema: z.ZodType<LessonPartInput, z.ZodTypeDef, unknown>
     kind: z.literal("EMBED"),
     url: z.string().trim().max(500, "El enlace del vídeo es demasiado largo").regex(/^https?:\/\//i, EMBED_URL_ERROR),
   }),
-]) as z.ZodType<LessonPartInput, z.ZodTypeDef, unknown>;
+]) as z.ZodType<LessonPartInput, unknown>;
 
 /** Lee las partes que envía el editor (JSON). Quita los textos vacíos; errores en castellano. */
 export function parseLessonParts(raw: unknown): { ok: true; parts: LessonPartInput[] } | { ok: false; error: string } {
@@ -125,16 +125,6 @@ export function lessonPartViews(parts: { kind: string; file?: { kind: string } |
     if (!out.includes(v)) out.push(v);
   }
   return out;
-}
-
-const LABEL_WORD: Record<PartView, string> = { VIDEO: "vídeo", AUDIO: "audio", PDF: "PDF", IMAGE: "imagen", TEXT: "texto", EMBED: "vídeo", DOWNLOAD: "archivo", BLOCK: "interactivo" };
-
-/** «Vídeo + texto + PDF»; solo texto → «Lectura» (como siempre); sin partes → "". */
-export function partsLabel(views: PartView[]): string {
-  if (!views.length) return "";
-  if (views.length === 1 && views[0] === "TEXT") return "Lectura";
-  const words = views.map((v) => LABEL_WORD[v]);
-  return words.map((w, i) => (i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w)).join(" + ");
 }
 
 /** Tipo principal (para Lesson.kind): vídeo > audio > PDF (también imagen u otro archivo) > lectura. */

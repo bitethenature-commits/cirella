@@ -27,9 +27,9 @@ test.afterAll(async () => {
 });
 
 async function loginAna(page: Page) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: "Cirella" }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 const addBlock = async (page: Page, name: RegExp) => {
@@ -88,7 +88,7 @@ test.describe.serial("Editor visual y panel a su gusto", () => {
     await addBlock(page, /^Botón/);
     const button = page.locator('[data-block="button"]').last();
     await button.getByLabel("Texto del botón").fill("Reservar mi lectura");
-    await button.getByRole("textbox", { name: "Enlace", exact: true }).fill("/ana/lectura-de-human-design");
+    await button.getByRole("textbox", { name: "Enlace", exact: true }).fill("/ana/human-design-reading");
     await button.getByText("Forma y colores").click();
     await button.getByRole("button", { name: "Solo borde" }).click();
     await button.getByLabel("Todo el ancho").check();

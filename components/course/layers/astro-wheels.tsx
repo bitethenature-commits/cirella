@@ -6,17 +6,19 @@ import { C, VS, norm, pt, sector, signIndex, type Tap } from "./common";
 import { WK_CREAM as CREAM, WK_GOLD as GOLD, WK_INK as INK, WK_MUTED as MUTED } from "./wheel-kit";
 import { MODALITY_TEXT } from "./texts";
 import { DegreeTicks, Medallion, MineMark, RingSector, WheelBase, WheelDefs, useWheelIds } from "./wheel-kit";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /** Las ruedas de las tres cualidades y de los cuatro ángulos, con el mismo acabado que la carta (wheel-kit). */
 
 export const MODALITY_HUE: Record<Modality, string> = { cardinal: "#B5544F", fijo: "#8A7A4E", mutable: "#6E8C9B" };
 
 export function ModalityWheel({ selected, own, tap }: { selected: string; own: Set<string>; tap: Tap }) {
+  const t = useT();
   const ids = useWheelIds();
   const m = selected as Modality;
   const corners = SIGNS.filter((s) => s.modality === m).map((s) => pt(s.n * 30 + 15, 94));
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="Las 3 cualidades">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={t("Las 3 cualidades")}>
       <WheelDefs ids={ids} />
       <WheelBase ids={ids} />
       {SIGNS.map((s, i) => {
@@ -44,7 +46,7 @@ export function ModalityWheel({ selected, own, tap }: { selected: string; own: S
       </g>
       <Medallion ids={ids} r={40}>
         <text x={C} y={C - 4} textAnchor="middle" dominantBaseline="central" fontSize="15" fontFamily="Georgia, serif" fill={GOLD}>
-          {MODALITY_TEXT[m].verb}
+          <Tr s={MODALITY_TEXT[m].verb} />
         </text>
         <text x={C} y={C + 13} textAnchor="middle" dominantBaseline="central" fontSize="6.5" letterSpacing="1.4" fill={INK} fillOpacity="0.7">
           {(own.has(m) ? "★ " : "") + MODALITY_TEXT[m].name.toUpperCase()}
@@ -61,12 +63,13 @@ const ANGLE_LON: Record<AngleKey, number> = { asc: 0, ic: 90, dsc: 180, mc: 270 
  * cada signo quede donde estaba al nacer (con la hora de la alumna, el Medio Cielo cae en su sitio real).
  */
 export function AnglesWheel({ selected, tap, chart }: { selected: string; tap: Tap; chart: ComputedProfile["chart"] | null }) {
+  const t = useT();
   const ids = useWheelIds();
   const a = chart?.angles ?? null;
   const off = a?.asc ?? 0;
   const rel = (k: AngleKey) => (a ? norm(a[k] - off) : ANGLE_LON[k]);
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="Los 4 ángulos">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={t("Los 4 ángulos")}>
       <WheelDefs ids={ids} />
       <WheelBase ids={ids} />
       {/* El zodiaco, girado al Ascendente. */}
@@ -88,12 +91,8 @@ export function AnglesWheel({ selected, tap, chart }: { selected: string; tap: T
       <path d={`M${C - 140} ${C}A140 140 0 0 1 ${C + 140} ${C}Z`} fill="rgb(255 255 255 / .06)" fillOpacity="0.75" pointerEvents="none" />
       <path d={`M${C - 140} ${C}A140 140 0 0 0 ${C + 140} ${C}Z`} fill="rgb(255 255 255 / .1)" fillOpacity="0.6" pointerEvents="none" />
       <DegreeTicks r={140} rot={off} />
-      <text x={C} y={C - 70} textAnchor="middle" fontSize="6" letterSpacing="1.4" fill={MUTED} pointerEvents="none">
-        SOBRE EL HORIZONTE · LO VISIBLE
-      </text>
-      <text x={C} y={C + 74} textAnchor="middle" fontSize="6" letterSpacing="1.4" fill={MUTED} pointerEvents="none">
-        BAJO EL HORIZONTE · LO ÍNTIMO
-      </text>
+      <text x={C} y={C - 70} textAnchor="middle" fontSize="6" letterSpacing="1.4" fill={MUTED} pointerEvents="none"><Tr s={"SOBRE EL HORIZONTE · LO VISIBLE"} /></text>
+      <text x={C} y={C + 74} textAnchor="middle" fontSize="6" letterSpacing="1.4" fill={MUTED} pointerEvents="none"><Tr s={"BAJO EL HORIZONTE · LO ÍNTIMO"} /></text>
       {/* Los dos ejes. */}
       {(
         [
@@ -115,7 +114,7 @@ export function AnglesWheel({ selected, tap, chart }: { selected: string; tap: T
             {on && <circle cx={p.x} cy={p.y} r="27" fill={GOLD} opacity="0.35" filter={`url(#${ids.glow})`} />}
             <circle cx={p.x} cy={p.y} r={on ? 22 : 18} fill={on ? `url(#${ids.sel})` : `url(#${ids.med})`} stroke={on ? `url(#${ids.gold})` : "rgb(255 255 255 / .3)"} strokeWidth={on ? 2 : 1} filter={`url(#${ids.lift})`} />
             <text x={p.x} y={lon != null ? p.y - 5 : p.y} textAnchor="middle" dominantBaseline="central" fontSize="11" fontWeight="700" letterSpacing="0.5" fill={on ? GOLD : INK} pointerEvents="none">
-              {ANGLE_INFO[k].short}
+              <Tr s={ANGLE_INFO[k].short} />
             </text>
             {lon != null && (
               <text x={p.x} y={p.y + 8} textAnchor="middle" dominantBaseline="central" fontSize="10" fill={on ? CREAM : ELEMENT_HUE[SIGNS[signIndex(lon)].element]} pointerEvents="none">

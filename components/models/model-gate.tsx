@@ -9,6 +9,7 @@ import { profileSummary } from "@/lib/birth-profiles-rules";
 import { BirthProfileEditor } from "./birth-profile-editor";
 import { cn } from "./model-kit";
 import { ENERGY_PATH, ModelGateScope, useModelGate, type GatedModel, type ModelGateInfo, type ModelGateState } from "./model-gate-scope";
+import { Tr, useT } from "@/lib/i18n/client";
 
 export type { GatedModel, ModelGateInfo } from "./model-gate-scope";
 
@@ -67,20 +68,18 @@ function InsideBar({ g, anchor, next }: { g: ModelGateState; anchor: string; nex
   const noun = NOUN[g.model];
 
   let bar: ReactNode;
-  if (access === "loading") bar = <p className="cp-faint text-[0.8rem]">Ejemplo · comprobando si puedes calcular con tus datos…</p>;
+  if (access === "loading") bar = <p className="cp-faint text-[0.8rem]"><Tr s={"Ejemplo · comprobando si puedes calcular con tus datos…"} /></p>;
   else if (!unlocked) {
     bar = (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex min-w-0 items-start gap-2 text-[0.88rem] leading-snug">
           <Lock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>
-            <strong className="font-semibold">Regístrate y suscríbete a la newsletter para calcular {noun}.</strong> <span className="cp-muted">Mientras, aquí tienes el ejemplo.</span>
+            <strong className="font-semibold"><Tr s={"Regístrate y suscríbete a la newsletter para calcular"} />{" "}<Tr s={noun} />.</strong> <span className="cp-muted"><Tr s={"Mientras, aquí tienes el ejemplo."} /></span>
           </span>
         </p>
         {panel !== "subscribe" && (
-          <button type="button" className="cp-btn !min-h-10 !text-[0.85rem]" onClick={() => setPanel("subscribe")}>
-            Calcular con mis datos
-          </button>
+          <button type="button" className="cp-btn !min-h-10 !text-[0.85rem]" onClick={() => setPanel("subscribe")}><Tr s={"Calcular con mis datos"} /></button>
         )}
       </div>
     );
@@ -88,17 +87,13 @@ function InsideBar({ g, anchor, next }: { g: ModelGateState; anchor: string; nex
     bar = (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="min-w-0 text-[0.88rem] leading-snug">
-          <span className="cp-eyebrow !text-[0.58rem]">Con tus datos</span>
-          <span className="mt-0.5 block font-semibold">{active.profile.name}</span>
+          <span className="cp-eyebrow !text-[0.58rem]"><Tr s={"Con tus datos"} /></span>
+          <span className="mt-0.5 block font-semibold"><Tr s={active.profile.name} /></span>
           <span className="cp-muted block text-[0.8rem]">{profileSummary(active.profile)}</span>
         </p>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="cp-btn-ghost !min-h-10 !text-[0.85rem]" onClick={() => setPanel(panel === "choose" ? "none" : "choose")} aria-expanded={panel === "choose"}>
-            Usar otros datos
-          </button>
-          <button type="button" className="cp-btn-ghost !min-h-10 !text-[0.85rem]" onClick={() => choose(null)}>
-            Ver el ejemplo
-          </button>
+          <button type="button" className="cp-btn-ghost !min-h-10 !text-[0.85rem]" onClick={() => setPanel(panel === "choose" ? "none" : "choose")} aria-expanded={panel === "choose"}><Tr s={"Usar otros datos"} /></button>
+          <button type="button" className="cp-btn-ghost !min-h-10 !text-[0.85rem]" onClick={() => choose(null)}><Tr s={"Ver el ejemplo"} /></button>
         </div>
       </div>
     );
@@ -106,8 +101,7 @@ function InsideBar({ g, anchor, next }: { g: ModelGateState; anchor: string; nex
     bar = (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="cp-muted flex items-center gap-2 text-[0.85rem]">
-          <Sparkles className="h-4 w-4 shrink-0" aria-hidden /> Estás viendo el ejemplo.
-        </p>
+          <Sparkles className="h-4 w-4 shrink-0" aria-hidden />{" "}<Tr s={"Estás viendo el ejemplo."} /></p>
         {panel === "none" && (
           <button
             type="button"
@@ -116,9 +110,7 @@ function InsideBar({ g, anchor, next }: { g: ModelGateState; anchor: string; nex
               if (own) choose({ id: own.id, profile: own });
               else setPanel(profiles.length ? "choose" : "form");
             }}
-          >
-            Calcular con mis datos
-          </button>
+          ><Tr s={"Calcular con mis datos"} /></button>
         )}
       </div>
     );
@@ -146,24 +138,21 @@ function BelowBar({ g, anchor, next }: { g: ModelGateState; anchor: string; next
   const noun = NOUN[g.model];
   const full = active?.id ? `${ENERGY_PATH[g.model]}?perfil=${encodeURIComponent(active.id)}` : ENERGY_PATH[g.model];
   const fullLink = (
-    <Link href={full} className="cp-gold inline-flex min-h-10 items-center gap-1 text-[0.85rem] underline decoration-dotted underline-offset-4">
-      Ver la versión completa en Mi energía <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+    <Link href={full} className="cp-gold inline-flex min-h-10 items-center gap-1 text-[0.85rem] underline decoration-dotted underline-offset-4"><Tr s={"Ver la versión completa en Mi energía"} />{" "}<ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
     </Link>
   );
 
   let bar: ReactNode;
-  if (access === "loading") bar = <p className="cp-faint min-h-10 content-center text-[0.8rem]">Comprobando si puedes calcular con tus datos…</p>;
+  if (access === "loading") bar = <p className="cp-faint min-h-10 content-center text-[0.8rem]"><Tr s={"Comprobando si puedes calcular con tus datos…"} /></p>;
   else if (!unlocked)
     bar = (
       <>
         {panel !== "subscribe" && (
-          <button type="button" className="cp-btn" onClick={() => setPanel("subscribe")}>
-            Calcular con mis datos
-          </button>
+          <button type="button" className="cp-btn" onClick={() => setPanel("subscribe")}><Tr s={"Calcular con mis datos"} /></button>
         )}
         <p className="cp-muted mt-2 flex max-w-md items-start justify-center gap-1.5 text-[0.82rem] leading-snug">
           <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span>Para calcular {noun}, regístrate y suscríbete a la newsletter. Mientras, arriba tienes el ejemplo.</span>
+          <span><Tr s={"Para calcular"} />{" "}<Tr s={noun} /><Tr s={", regístrate y suscríbete a la newsletter. Mientras, arriba tienes el ejemplo."} /></span>
         </p>
       </>
     );
@@ -171,17 +160,13 @@ function BelowBar({ g, anchor, next }: { g: ModelGateState; anchor: string; next
     bar = (
       <>
         <p className="text-[0.88rem] leading-snug">
-          <span className="cp-eyebrow !text-[0.58rem]">Con tus datos · </span>
-          <span className="font-semibold">{active.profile.name}</span>
+          <span className="cp-eyebrow !text-[0.58rem]"><Tr s={"Con tus datos ·"} />{" "}</span>
+          <span className="font-semibold"><Tr s={active.profile.name} /></span>
           <span className="cp-muted block text-[0.8rem]">{profileSummary(active.profile)}</span>
         </p>
         <div className="mt-3 flex flex-wrap justify-center gap-2">
-          <button type="button" className="cp-btn-ghost !min-h-10 !text-[0.85rem]" onClick={() => setPanel(panel === "choose" ? "none" : "choose")} aria-expanded={panel === "choose"}>
-            Usar otros datos
-          </button>
-          <button type="button" className="cp-btn-ghost !min-h-10 !text-[0.85rem]" onClick={() => choose(null)}>
-            Ver el ejemplo
-          </button>
+          <button type="button" className="cp-btn-ghost !min-h-10 !text-[0.85rem]" onClick={() => setPanel(panel === "choose" ? "none" : "choose")} aria-expanded={panel === "choose"}><Tr s={"Usar otros datos"} /></button>
+          <button type="button" className="cp-btn-ghost !min-h-10 !text-[0.85rem]" onClick={() => choose(null)}><Tr s={"Ver el ejemplo"} /></button>
         </div>
         <div className="mt-1">{fullLink}</div>
       </>
@@ -197,9 +182,7 @@ function BelowBar({ g, anchor, next }: { g: ModelGateState; anchor: string; next
               if (own) choose({ id: own.id, profile: own });
               else setPanel(profiles.length ? "choose" : "form");
             }}
-          >
-            Calcular con mis datos
-          </button>
+          ><Tr s={"Calcular con mis datos"} /></button>
         )}
         <div className="mt-1">{fullLink}</div>
       </>
@@ -216,6 +199,7 @@ function BelowBar({ g, anchor, next }: { g: ModelGateState; anchor: string; next
 }
 
 function GatePanels({ g, anchor, next, framed }: { g: ModelGateState; anchor: string; next?: string; framed?: boolean }) {
+  const t = useT();
   // Debajo de la caja (versión rápida), los paneles van en su propia tarjeta.
   const box = framed ? "cp-card mt-4 p-5 sm:p-6" : "mt-4";
   const { access, unlocked, active, panel, setPanel, own, profiles, choose, refresh, gate } = g;
@@ -248,7 +232,7 @@ function GatePanels({ g, anchor, next, framed }: { g: ModelGateState; anchor: st
         <div className={box}>
           {profiles.length > 0 && (
             <>
-              <p className="cp-eyebrow !text-[0.58rem]">Tus personas guardadas</p>
+              <p className="cp-eyebrow !text-[0.58rem]"><Tr s={"Tus personas guardadas"} /></p>
               <ul className="mt-2 flex flex-wrap gap-2">
                 {profiles.map((p) => (
                   <li key={p.id}>
@@ -258,8 +242,8 @@ function GatePanels({ g, anchor, next, framed }: { g: ModelGateState; anchor: st
                       aria-pressed={active?.id === p.id}
                       className={cn("cp-btn-ghost !min-h-9 !px-3.5 !text-[0.82rem]", active?.id === p.id && "!border-[var(--c-gold)]")}
                     >
-                      <UserRound className="h-3.5 w-3.5" aria-hidden /> {p.name}
-                      {p.isOwn && <span className="cp-faint"> · yo</span>}
+                      <UserRound className="h-3.5 w-3.5" aria-hidden /> <Tr s={p.name} />
+                      {p.isOwn && <span className="cp-faint">{" "}<Tr s={"· yo"} /></span>}
                     </button>
                   </li>
                 ))}
@@ -267,12 +251,8 @@ function GatePanels({ g, anchor, next, framed }: { g: ModelGateState; anchor: st
             </>
           )}
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[0.82rem]">
-            <button type="button" className="cp-gold min-h-9 underline decoration-dotted underline-offset-4" onClick={() => setPanel("form")}>
-              Otros datos
-            </button>
-            <Link href="/cuenta/mi-energia" className="cp-muted min-h-9 content-center underline underline-offset-4">
-              Gestionar en «Mi energía»
-            </Link>
+            <button type="button" className="cp-gold min-h-9 underline decoration-dotted underline-offset-4" onClick={() => setPanel("form")}><Tr s={"Otros datos"} /></button>
+            <Link href="/area/energy" className="cp-muted min-h-9 content-center underline underline-offset-4"><Tr s={"Gestionar en «Mi energía»"} /></Link>
           </div>
         </div>
       )}
@@ -282,7 +262,7 @@ function GatePanels({ g, anchor, next, framed }: { g: ModelGateState; anchor: st
           <BirthProfileEditor
             mode="calc"
             own={!own}
-            submitLabel="Calcular"
+            submitLabel={t("Calcular")}
             onCancel={() => setPanel("none")}
             onDone={(profile, saved) => {
               choose({ id: saved?.id ?? null, profile });

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Settings } from "lucide-react";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * Las pestañas de la Newsletter: Newsletter (tus newsletters, crear una y las plantillas), Automatizaciones y
@@ -24,7 +25,7 @@ export function NewsletterTabs({ current }: { current: (typeof TABS)[number]["hr
             className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 font-medium transition ${t.href === current ? "bg-white shadow-soft" : "text-muted hover:text-ink"}`}
           >
             {t.icon && <t.icon className="h-4 w-4" />}
-            {t.label}
+            <Tr s={t.label} />
           </Link>
         ))}
       </div>

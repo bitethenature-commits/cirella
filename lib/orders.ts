@@ -1,3 +1,4 @@
+import { productPath } from "@/lib/public-paths";
 import "server-only";
 import { effectivePriceCents, orderSaleMeta, renewalPriceCents, type OrderSaleMeta } from "./offers";
 import { asAccessMode, isNoChargeOrder } from "./access-mode";
@@ -21,6 +22,7 @@ import type { ProductType } from "./types";
 import type { IntakeAnswers } from "./intake";
 import { canonicalTimezone } from "./timezones";
 import { Prisma } from "@prisma/client";
+import { requestLocale } from "@/lib/i18n/email";
 
 export class CheckoutError extends Error {}
 
@@ -101,6 +103,7 @@ export async function createPendingOrder(input: {
       productTitle: product.title,
       productType: product.type,
       buyerEmail: input.buyerEmail.toLowerCase(),
+      locale: await requestLocale(),
       buyerName: input.buyerName || null,
       amountCents: priceCents,
       currency: product.currency,
@@ -140,7 +143,7 @@ export async function startOrderPayment(orderId: string, payment: PaymentMethodI
   if (!paidCheckoutOpen()) throw new CheckoutError(NO_ONLINE_PAYMENTS);
   const order = await prisma.order.findUniqueOrThrow({
     where: { id: orderId },
-    include: { creator: true, product: { select: { slug: true, deliveryMode: true, groupSession: true, eventStartAt: true } } },
+    include: { creator: true, product: { select: { slug: true, type: true, deliveryMode: true, groupSession: true, eventStartAt: true } } },
   });
   if (isNoChargeOrder(order)) throw new CheckoutError("Este pedido no se paga.");
   if (order.status === "PAID") {
@@ -190,7 +193,7 @@ export async function startOrderPayment(orderId: string, payment: PaymentMethodI
     saveForFutureUse: order.productType === "MEMBERSHIP",
     payment,
     returnUrl: `${appUrl()}/api/payments/return?via=${provider.key}&ref={REF}`,
-    cancelUrl: `${appUrl()}/${order.creator.username}/${order.product.slug}/checkout?pedido=${order.id}&cancelado=1`,
+    cancelUrl: `${appUrl()}${productPath(order.creator.username, order.product, "checkout")}?pedido=${order.id}&cancelado=1`,
     metadata: { orderId: order.id, creatorId: order.creatorId },
   });
 
@@ -316,7 +319,9 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
     const noCharge = isNoChargeOrder(order);
     const user =
       existingUser ??
-      (await tx.user.create({ data: { email: order.buyerEmail, name: order.buyerName } }));
+      (await tx.user.create({ data: { email: order.buyerEmail, name: order.buyerName, locale: order.locale } }));
+    if (existingUser && order.locale && existingUser.locale !== order.locale && order.paymentProvider !== "free")
+      await tx.user.update({ where: { id: existingUser.id }, data: { locale: order.locale } });
     // El nombre del formulario gratis lo escribe cualquiera con cualquier email: no se pone en una
     // cuenta que ya existía (sí en la ficha de clienta de esta creadora).
     if (existingUser && !existingUser.name && order.buyerName && order.paymentProvider !== "free")
@@ -348,7 +353,7 @@ async function fulfillInTransaction(orderId: string, paymentRef: string, saved: 
         ordersCount: { increment: 1 },
         lastPurchaseAt: now,
         name: prevCustomer?.name ?? order.buyerName ?? user.name,
-        // Una compra sin la casilla no retira un consentimiento anterior: solo se retira desde /cuenta/perfil.
+        // Una compra sin la casilla no retira un consentimiento anterior: solo se retira desde /area/profile.
         ...(optIn && !prevCustomer?.marketingOptIn ? { marketingOptIn: true, marketingOptInAt: now } : {}),
       },
     });

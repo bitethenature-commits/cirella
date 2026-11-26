@@ -3,13 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Eye, EyeOff } from "lucide-react";
-import { AstroLayerModel } from "@/components/course/astro-layer";
+import dynamic from "next/dynamic";
 import { useComputedProfile } from "@/components/models/use-birth-profile";
 import type { BirthProfile } from "@/lib/birth-profile";
 import { LAYER_OPTIONS, LAYER_SYSTEMS, MODEL_MODES, MODEL_MODE_LABEL, modesFor, type AstroLayer, type ModelMode } from "@/lib/lesson-blocks";
 import type { ModelKind } from "@/lib/page-blocks";
 import { FullModels, type FullInfo } from "./full-models";
 import { ModelThumb } from "./model-thumb";
+import { Tr, useT } from "@/lib/i18n/client";
+
+// Los modelos por partes se cargan aparte: la página sale antes y cada miniatura se dibuja al llegar.
+const AstroLayerModel = dynamic(() => import("@/components/course/astro-layer").then((m) => m.AstroLayerModel));
 
 export type LayerRow = {
   layer: AstroLayer;
@@ -24,7 +28,7 @@ export type LayerRow = {
 };
 
 /** Capas con textos que vienen de tradiciones que varían según la escuela: conviene que los revises. */
-const REVIEW = new Set<string>(["kun-bodies", "kun-mantras", "kun-mudras", "geo-sriyantra", "geo-tree", "geo-chakras", "orc-elements", "gk-codons", "gk-shadows", "gk-venus", "moon-full13", "moon-mansions", "moon-transit-houses", "rune-elements", "rune-binds", "rune-yggdrasil", "hd-conditioning", "hd-variables", "astro-decans"]);
+const REVIEW = new Set<string>(["kun-bodies", "kun-mantras", "kun-mudras", "dim-levels", "dim-chakras", "geo-sriyantra", "geo-tree", "geo-chakras", "orc-elements", "gk-codons", "gk-shadows", "gk-venus", "moon-full13", "moon-mansions", "moon-transit-houses", "rune-elements", "rune-binds", "rune-yggdrasil", "hd-conditioning", "hd-variables", "astro-decans"]);
 
 const SYSTEM_TEXT: Record<string, string> = {
   Astrología: "La carta natal pieza a pieza: de los signos y las casas a los tránsitos, la sinastría o los ciclos de la vida.",
@@ -34,6 +38,7 @@ const SYSTEM_TEXT: Record<string, string> = {
   Runas: "Las 24 runas del Futhark: aettir, tiradas, invertidas, elementos y dioses, runas ligadas y Yggdrasil.",
   "Geometría sagrada": "Del punto a la flor de la vida, el cubo de Metatrón, los sólidos platónicos, la proporción áurea, el árbol de la vida, el Sri Yantra, la merkaba, el toro y los chakras, dibujados paso a paso.",
   Kundalini: "La energía y el yoga: los 8 chakras, ida, pingala y sushumna, la serpiente, los nudos, los cierres, los 10 cuerpos y su numerología, mudras, respiración, mantras y la clase.",
+  "Dimensiones del ser": "De la 3D a la 12D: las diez dimensiones una dentro de otra, el paso de la 3D a la 5D, las dimensiones en los chakras y la forma de cada una.",
   "Energía de hoy": "Tu semana día a día: la Luna, la llave del día, la puerta del Sol y, con la carta de la alumna, sus tránsitos y lo que se activa en su diseño.",
   Oráculo: "Leer cualquier oráculo: la lectura paso a paso, las preguntas, las tiradas, los símbolos, los números, los colores, los elementos, las señales y crear tu propia baraja.",
 };
@@ -58,6 +63,7 @@ const FILTERS: { id: Filter; label: string }[] = [
 ];
 
 export function ModelsCatalog({ rows, full, fullInfo, profile, others }: { rows: LayerRow[]; full: { kind: ModelKind; label: string }[]; fullInfo: FullInfo; profile: BirthProfile | null; others: BirthProfile[] }) {
+  const t = useT();
   const [filter, setFilter] = useState<Filter>("all");
   const used = rows.filter((r) => r.lessons.length).length;
   const versions = rows.reduce((a, r) => a + Math.max(1, r.options.length) * modesFor(r.layer).length, 0);
@@ -71,16 +77,16 @@ export function ModelsCatalog({ rows, full, fullInfo, profile, others }: { rows:
     <div className="space-y-10">
       {/* El resumen. */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile label="Modelos completos" value={full.length} hint="En el bloque «Modelo interactivo»" />
-        <Tile label="Modelos por partes" value={rows.length} hint={`${LAYER_SYSTEMS.length} tipos`} />
-        <Tile label="Versiones" value={versions} hint={`Configuraciones × ${MODEL_MODES.length} modos`} />
-        <Tile label="En tus lecciones" value={`${used} de ${rows.length}`} hint={`${rows.length - used} sin usar todavía`} />
+        <Tile label={t("Modelos completos")} value={full.length} hint={t("En el bloque «Modelo interactivo»")} />
+        <Tile label={t("Modelos por partes")} value={rows.length} hint={`${LAYER_SYSTEMS.length} tipos`} />
+        <Tile label={t("Versiones")} value={versions} hint={`Configuraciones × ${MODEL_MODES.length} modos`} />
+        <Tile label={t("En tus lecciones")} value={`${used} de ${rows.length}`} hint={`${rows.length - used} sin usar todavía`} />
       </div>
-      {!profile && <p className="rounded-2xl border border-line bg-sand/60 px-4 py-3 text-sm text-muted">Las vistas previas usan una carta de ejemplo. Guarda tus datos en tu área de alumna («Mi energía») para verlas con la tuya.</p>}
+      {!profile && <p className="rounded-2xl border border-line bg-sand/60 px-4 py-3 text-sm text-muted"><Tr s={"Las vistas previas usan una carta de ejemplo. Guarda tus datos en tu área de alumna («Mi energía») para verlas con la tuya."} /></p>}
 
       {/* 1 · Los modelos completos. */}
       <section>
-        <SectionTitle n="1" title="Modelos completos" text="Los modelos enteros que pones en tu portada o en tus páginas con el bloque «Modelo interactivo». Se ven con los colores de tu web; prueba cada versión." />
+        <SectionTitle n="1" title={t("Modelos completos")} text={t("Los modelos enteros que pones en tu portada o en tus páginas con el bloque «Modelo interactivo». Se ven con los colores de tu web; prueba cada versión.")} />
         <FullModels full={full} info={fullInfo} profile={profile} />
       </section>
 
@@ -88,15 +94,15 @@ export function ModelsCatalog({ rows, full, fullInfo, profile, others }: { rows:
       <section>
         <SectionTitle
           n="2"
-          title="Modelos por partes"
+          title={t("Modelos por partes")}
           text={`Los modelos de tus lecciones, por tipo. Cada uno tiene sus configuraciones y los ${MODEL_MODES.length} modos: ${MODEL_MODES.map((m) => MODEL_MODE_LABEL[m]).join(", ")}.`}
         />
-        <div className="mt-4 flex flex-wrap gap-1.5" role="tablist" aria-label="Filtrar">
+        <div className="mt-4 flex flex-wrap gap-1.5" role="tablist" aria-label={t("Filtrar")}>
           {FILTERS.map((f) => {
             const n = f.id === "all" ? rows.length : rows.filter((r) => (f.id === "unused" ? !r.lessons.length : f.id === "notext" ? r.notes === 0 : REVIEW.has(r.layer))).length;
             return (
               <button key={f.id} type="button" role="tab" aria-selected={filter === f.id} onClick={() => setFilter(f.id)} className={`min-h-9 rounded-full border px-3 text-sm transition ${filter === f.id ? "border-ink bg-ink text-cream" : "border-line hover:border-ink/40"}`}>
-                {f.label} <span className="tabular-nums opacity-60">{n}</span>
+                <Tr s={f.label} /> <span className="tabular-nums opacity-60">{n}</span>
               </button>
             );
           })}
@@ -110,12 +116,11 @@ export function ModelsCatalog({ rows, full, fullInfo, profile, others }: { rows:
               <details key={sys} open className="group rounded-3xl border border-line bg-white">
                 <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-5 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="display text-[1.5rem] leading-tight">{sys}</p>
-                    <p className="text-xs text-muted">{SYSTEM_TEXT[sys]}</p>
+                    <p className="display text-[1.5rem] leading-tight"><Tr s={sys} /></p>
+                    <p className="text-xs text-muted"><Tr s={SYSTEM_TEXT[sys]} /></p>
                   </div>
                   <span className="shrink-0 text-xs tabular-nums text-muted">
-                    {all.length} modelos · {all.filter((r) => r.lessons.length).length} en lecciones
-                  </span>
+                    {all.length}{" "}<Tr s={"modelos ·"} />{" "}{all.filter((r) => r.lessons.length).length}{" "}<Tr s={"en lecciones"} /></span>
                   <ChevronDown className="h-4 w-4 shrink-0 transition group-open:rotate-180" />
                 </summary>
                 <ul className="divide-y divide-line border-t border-line">
@@ -126,18 +131,18 @@ export function ModelsCatalog({ rows, full, fullInfo, profile, others }: { rows:
               </details>
             );
           })}
-          {!shown.length && <p className="text-sm text-muted">Ningún modelo con este filtro.</p>}
+          {!shown.length && <p className="text-sm text-muted"><Tr s={"Ningún modelo con este filtro."} /></p>}
         </div>
       </section>
 
       {/* 3 · Lo que falta. */}
       <section>
-        <SectionTitle n="3" title="Lo que aún no existe" text="Ideas para los siguientes modelos. Pídelos cuando quieras." />
+        <SectionTitle n="3" title={t("Lo que aún no existe")} text={t("Ideas para los siguientes modelos. Pídelos cuando quieras.")} />
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {MISSING.map((m) => (
             <div key={m.title} className="rounded-2xl border border-dashed border-line px-4 py-3">
               <p className="font-semibold">{m.title}</p>
-              <p className="mt-1 text-sm text-muted">{m.text}</p>
+              <p className="mt-1 text-sm text-muted"><Tr s={m.text} /></p>
             </div>
           ))}
         </div>
@@ -149,9 +154,9 @@ export function ModelsCatalog({ rows, full, fullInfo, profile, others }: { rows:
 function Tile({ label, value, hint }: { label: string; value: React.ReactNode; hint: string }) {
   return (
     <div className="rounded-2xl border border-line bg-white px-4 py-3">
-      <p className="text-xs text-muted">{label}</p>
+      <p className="text-xs text-muted"><Tr s={label} /></p>
       <p className="display mt-1 text-[1.9rem] leading-none tabular-nums">{value}</p>
-      <p className="mt-1 text-[0.72rem] text-muted">{hint}</p>
+      <p className="mt-1 text-[0.72rem] text-muted"><Tr s={hint} /></p>
     </div>
   );
 }
@@ -159,16 +164,17 @@ function Tile({ label, value, hint }: { label: string; value: React.ReactNode; h
 function SectionTitle({ n, title, text }: { n: string; title: string; text: string }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gold/20 text-sm font-semibold">{n}</span>
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gold/20 text-sm font-semibold"><Tr s={n} /></span>
       <div>
         <h2 className="display text-[1.8rem] leading-tight">{title}</h2>
-        <p className="mt-1 text-sm text-muted">{text}</p>
+        <p className="mt-1 text-sm text-muted"><Tr s={text} /></p>
       </div>
     </div>
   );
 }
 
 function LayerItem({ row, profile, others, computed }: { row: LayerRow; profile: BirthProfile; others: BirthProfile[]; computed: ReturnType<typeof useComputedProfile>["result"] }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const pct = Math.round((row.notes / Math.max(1, row.pieces)) * 100);
   return (
@@ -180,50 +186,47 @@ function LayerItem({ row, profile, others, computed }: { row: LayerRow; profile:
             {computed ? (
               <AstroLayerModel data={{ layer: row.layer, option: LAYER_OPTIONS[row.layer]?.[0].value ?? null, focus: ["signs", "houses", "aspects"].includes(row.layer) ? "sun" : null, title: "", intro: "", notes: {}, mode: "explore" }} computed={computed} others={others} />
             ) : (
-              <p className="grid min-h-40 place-items-center text-sm opacity-70">Calculando…</p>
+              <p className="grid min-h-40 place-items-center text-sm opacity-70"><Tr s={"Calculando…"} /></p>
             )}
           </div>
         </ModelThumb>
         <div className="min-w-0 flex-1 space-y-1.5">
           <p className="font-semibold">
-            {row.label}
-            {REVIEW.has(row.layer) && <span className="ml-2 rounded-full bg-[#E9A65B]/20 px-2 py-0.5 align-middle text-[0.7rem] font-medium text-ink">Textos por revisar</span>}
-            {!row.lessons.length && <span className="ml-2 rounded-full bg-sand px-2 py-0.5 align-middle text-[0.7rem] font-medium text-muted">Sin usar</span>}
+            <Tr s={row.label} />
+            {REVIEW.has(row.layer) && <span className="ml-2 rounded-full bg-[#E9A65B]/20 px-2 py-0.5 align-middle text-[0.7rem] font-medium text-ink"><Tr s={"Textos por revisar"} /></span>}
+            {!row.lessons.length && <span className="ml-2 rounded-full bg-sand px-2 py-0.5 align-middle text-[0.7rem] font-medium text-muted"><Tr s={"Sin usar"} /></span>}
           </p>
           <p className="text-xs text-muted">
-            {row.pieces} piezas
-            {row.options.length > 0 && ` · ${row.options.length} configuraciones: ${row.options.join(" · ")}`}
+            {row.pieces}{" "}<Tr s={"piezas"} />{row.options.length > 0 && ` · ${row.options.length} configuraciones: ${row.options.join(" · ")}`}
           </p>
-          <p className="text-xs text-muted">
-            Modos: {modesFor(row.layer).map((m) => (row.modes.includes(m) ? `${MODEL_MODE_LABEL[m]} ✓` : MODEL_MODE_LABEL[m])).join(" · ")}
-            {row.modes.length ? "" : ` (los ${modesFor(row.layer).length} disponibles; ninguna lección empieza aún en uno)`}
+          <p className="text-xs text-muted"><Tr s={"Modos:"} />{" "}{modesFor(row.layer).map((m) => (row.modes.includes(m) ? `${MODEL_MODE_LABEL[m]} ✓` : MODEL_MODE_LABEL[m])).join(" · ")}
+            <Tr s={row.modes.length ? "" : ` (los ${modesFor(row.layer).length} disponibles; ninguna lección empieza aún en uno)`} />
           </p>
           {row.lessons.length > 0 && (
-            <p className="text-xs">
-              En:{" "}
+            <p className="text-xs"><Tr s={"En:"} />{" "}
               {row.lessons.map((l, i) => (
                 <span key={l.href}>
                   {i > 0 && " · "}
                   <Link href={l.href} className="underline decoration-gold/60 underline-offset-2 hover:text-gold">
                     {l.title}
                   </Link>{" "}
-                  <span className="text-muted">({l.course})</span>
+                  <span className="text-muted">(<Tr s={l.course} />)</span>
                 </span>
               ))}
             </p>
           )}
           <div className="flex items-center gap-2 text-xs text-muted">
-            <span>Tus textos:</span>
+            <span><Tr s={"Tus textos:"} /></span>
             <span className="h-1.5 w-24 overflow-hidden rounded-full bg-sand">
               <span className="block h-full rounded-full bg-gold" style={{ width: `${pct}%` }} />
             </span>
             <span className="tabular-nums">
-              {row.notes} de {row.pieces}
+              {row.notes}{" "}<Tr s={"de"} />{" "}{row.pieces}
             </span>
           </div>
         </div>
         <button type="button" className="btn btn-outline btn-sm shrink-0" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-          {open ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />} {open ? "Ocultar" : "Ver"}
+          {open ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />} {open ? t("Ocultar") : t("Ver")}
         </button>
       </div>
       {open && <LayerPreview layer={row.layer} profile={profile} others={others} />}
@@ -241,7 +244,7 @@ function LayerPreview({ layer, profile, others }: { layer: AstroLayer; profile: 
     <div className="mt-3 space-y-2">
       {options && (
         <label className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-muted">Configuración:</span>
+          <span className="text-muted"><Tr s={"Configuración:"} /></span>
           <select className="input h-9 w-auto py-0 text-sm" value={option ?? ""} onChange={(e) => setOption(e.target.value)}>
             {options.map((o) => (
               <option key={o.value} value={o.value}>
@@ -253,7 +256,7 @@ function LayerPreview({ layer, profile, others }: { layer: AstroLayer; profile: 
       )}
       <div className="acc-root acc-preview overflow-hidden rounded-3xl p-2 sm:p-3">
         {pending ? (
-          <p className="grid min-h-40 place-items-center text-sm opacity-70">Calculando la carta…</p>
+          <p className="grid min-h-40 place-items-center text-sm opacity-70"><Tr s={"Calculando la carta…"} /></p>
         ) : (
           <AstroLayerModel key={`${layer}-${option}`} data={{ layer, option, focus: wheel ? "sun" : null, title: "", intro: "", notes: {}, mode: "explore" }} computed={result} others={others} />
         )}

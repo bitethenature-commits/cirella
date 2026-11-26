@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
 import { CalendarClock, FilePen, FolderOpen, LayoutGrid, X } from "lucide-react";
-import { SpinningSolid } from "@/app/cuenta/spinning-solid";
+import { SpinningSolid } from "@/app/area/spinning-solid";
+import { Tr } from "@/lib/i18n/client";
 
 export type FolderItem = { id: string; tierId: string; node: ReactNode };
 export type Folder = { key: "programadas" | "borradores"; title: string; hint: string; empty: string; items: FolderItem[] };
@@ -41,7 +42,7 @@ export function QueueFolders({ folders, tiers, startOpen }: { folders: Folder[];
               </span>
               <span className="min-w-0 flex-1">
                 <span className="display block text-[1.35rem] leading-tight text-[color:var(--n-ivory,#f1ebdf)]">{f.title}</span>
-                <span className="block text-xs text-[color:var(--n-muted,#a7a2c2)]">{f.hint}</span>
+                <span className="block text-xs text-[color:var(--n-muted,#a7a2c2)]"><Tr s={f.hint} /></span>
               </span>
               <span className="display text-[2rem] leading-none text-gold tabular-nums">{f.items.length}</span>
             </button>
@@ -71,8 +72,7 @@ export function QueueFolders({ folders, tiers, startOpen }: { folders: Folder[];
               {/* La membresía, para buscar rápido. */}
               <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Membresía">
                 <button type="button" onClick={() => setTier(null)} aria-pressed={!tier} className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition ${!tier ? "border-[color:var(--n-gold,#e9cc8e)] bg-gold/15 text-[color:var(--n-gold-pale,#f7e5b8)]" : "border-gold/25 text-[color:var(--n-lilac,#cfc8e4)] hover:border-gold/50"}`}>
-                  <LayoutGrid className="h-4 w-4" /> Todas
-                </button>
+                  <LayoutGrid className="h-4 w-4" />{" "}<Tr s={"Todas"} /></button>
                 {tiers.map((t, i) => (
                   <button key={t.id} type="button" onClick={() => setTier(t.id)} aria-pressed={tier === t.id} className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition ${tier === t.id ? "border-[color:var(--n-gold,#e9cc8e)] bg-gold/15 text-[color:var(--n-gold-pale,#f7e5b8)]" : "border-gold/25 text-[color:var(--n-lilac,#cfc8e4)] hover:border-gold/50"}`}>
                     <SpinningSolid level={i} offset={i * 1.3} speed={0.2} className="h-5 w-5 text-gold" /> {t.title}
@@ -81,7 +81,7 @@ export function QueueFolders({ folders, tiers, startOpen }: { folders: Folder[];
               </div>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
-              {items.length ? items.map((i) => <div key={i.id}>{i.node}</div>) : <p className="rounded-2xl border border-dashed border-gold/25 px-4 py-10 text-center text-sm text-muted">{folder.empty}</p>}
+              {items.length ? items.map((i) => <div key={i.id}>{i.node}</div>) : <p className="rounded-2xl border border-dashed border-gold/25 px-4 py-10 text-center text-sm text-muted"><Tr s={folder.empty} /></p>}
             </div>
           </div>
         </div>

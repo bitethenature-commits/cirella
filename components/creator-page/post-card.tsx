@@ -4,6 +4,8 @@ import { imageSrcSet } from "@/lib/media-url";
 import { safeHref } from "@/lib/page-config";
 import { postPath } from "@/lib/posts";
 import type { PublicPost } from "./creator-page-view";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 /**
  * Tarjeta vertical de una publicación de «Actualidades» (portada y lista): la portada (foto, o el
@@ -11,7 +13,8 @@ import type { PublicPost } from "./creator-page-view";
  * la acción con el código de descuento. Toda la tarjeta lleva a la publicación; el botón de la llamada
  * a la acción, a su enlace.
  */
-export function PostCard({ post, username, withDate = true }: { post: PublicPost; username: string; withDate?: boolean }) {
+export async function PostCard({ post, username, withDate = true }: { post: PublicPost; username: string; withDate?: boolean }) {
+  const t = await getT();
   const href = postPath(username, post.slug);
   const cta = post.cta;
   const external = cta && !cta.url.startsWith("/");
@@ -41,20 +44,20 @@ export function PostCard({ post, username, withDate = true }: { post: PublicPost
         )}
         {withDate && (
           <time dateTime={new Date(post.publishedAt).toISOString()} className="cp-date-badge" aria-label={post.dateLabel}>
-            <span className="cp-display block text-[2rem] leading-none">{post.dateBadge.day}</span>
-            <span className="cp-gold block text-[0.68rem] font-semibold uppercase tracking-[0.12em]">{post.dateBadge.month}</span>
+            <span className="cp-display block text-[2rem] leading-none"><Tr s={post.dateBadge.day} /></span>
+            <span className="cp-gold block text-[0.68rem] font-semibold uppercase tracking-[0.12em]"><Tr s={post.dateBadge.month} /></span>
           </time>
         )}
         {post.mediaKind && (
           <span className="cp-pill-on-img absolute right-3 top-3">
             {post.mediaKind === "VIDEO" ? <Play className="h-3 w-3 fill-current" /> : <Headphones className="h-3 w-3" />}
-            {post.mediaKind === "VIDEO" ? "Vídeo" : "Audio"}
+            {post.mediaKind === "VIDEO" ? t("Vídeo") : t("Audio")}
           </span>
         )}
       </div>
       <div className="flex flex-1 flex-col gap-2 p-5">
         <h3 className="cp-display text-[1.55rem] leading-[1.1]">{post.title}</h3>
-        {post.excerpt && <p className="cp-muted line-clamp-3 text-[0.88rem] leading-relaxed">{post.excerpt}</p>}
+        {post.excerpt && <p className="cp-muted line-clamp-3 text-[0.88rem] leading-relaxed"><Tr s={post.excerpt} /></p>}
         <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
           {cta ? (
             <a
@@ -62,15 +65,14 @@ export function PostCard({ post, username, withDate = true }: { post: PublicPost
               className="cp-gold relative z-[2] inline-flex items-center gap-1 text-sm font-semibold underline-offset-4 hover:underline"
               {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
             >
-              {cta.label} {external ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
+              <Tr s={cta.label} /> {external ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
             </a>
           ) : (
-            <span className="inline-flex items-center gap-1 text-sm font-semibold">
-              Leer <ArrowRight className="h-3.5 w-3.5" />
+            <span className="inline-flex items-center gap-1 text-sm font-semibold"><Tr s={"Leer"} />{" "}<ArrowRight className="h-3.5 w-3.5" />
             </span>
           )}
           {cta?.code && (
-            <span className="cp-chip-code relative z-[2] !text-[0.72rem]" title="Código de descuento">
+            <span className="cp-chip-code relative z-[2] !text-[0.72rem]" title={t("Código de descuento")}>
               {cta.code}
             </span>
           )}

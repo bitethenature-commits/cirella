@@ -9,6 +9,7 @@ import { ASTRO_LAYER_LABEL, FOCUS_BODIES, LAYER_KEYS, LAYER_OPTIONS, MODEL_MODE_
 import { SystemDiagram, isSystemLayer, systemKeys, systemMine, systemPiece, type LayerCtx, type SystemPiece } from "./system-layers";
 import { WK_CREAM as CREAM, WK_GOLD, WK_INK, WK_MUTED as MUTED } from "./layers/wheel-kit";
 import { DegreeTicks, ElementSymbol, Medallion, MedallionText, MineMark, RingSector, WheelBase, WheelDefs, useWheelIds } from "./layers/wheel-kit";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * El modelo de la carta deconstruido por partes: una sola capa cada vez (los 12 signos, las 12 casas,
@@ -268,7 +269,7 @@ export function AstroLayerModel({
   const header = (
     <>
         <p className="eyebrow">{txt("label", data.label?.trim() || baseLabel, baseLabel)}</p>
-        {edit?.title ? <h3 className="display mt-1 text-[1.7rem] leading-tight">{edit.title}</h3> : data.title && <h3 className="display mt-1 text-[1.7rem] leading-tight">{data.title}</h3>}
+        {edit?.title ? <h3 className="display mt-1 text-[1.7rem] leading-tight">{edit.title}</h3> : data.title && <h3 className="display mt-1 text-[1.7rem] leading-tight"><Tr s={data.title} /></h3>}
         {edit?.intro ? (
           <div className="mt-2 text-[0.98rem] leading-relaxed text-ink/80">{edit.intro}</div>
         ) : (
@@ -286,7 +287,7 @@ export function AstroLayerModel({
               onClick={() => chooseMode(m)}
               className={`min-h-9 rounded-full border px-3 text-[0.78rem] font-medium transition ${mode === m ? "border-gold bg-gold text-[#0B0B0D]" : "border-line text-ink/75 hover:border-gold/60 hover:text-ink"}`}
             >
-              {MODE_ICON[m]} {MODEL_MODE_LABEL[m]}
+              <Tr s={MODE_ICON[m]} /> <Tr s={MODEL_MODE_LABEL[m]} />
             </button>
           ))}
         </div>
@@ -320,8 +321,8 @@ export function AstroLayerModel({
                   <p className="text-3xl" aria-hidden>
                     ✦
                   </p>
-                  <p className="display mt-2 text-[1.4rem] leading-tight">{quiz?.kind === "clue" ? "¿Qué pieza es?" : "¿Dónde está?"}</p>
-                  <p className="mt-2 text-[0.95rem] text-ink/70">Toca la pieza en el dibujo. Aquí verás si has acertado y lo que significa.</p>
+                  <p className="display mt-2 text-[1.4rem] leading-tight">{quiz?.kind === "clue" ? <Tr s={"¿Qué pieza es?"} /> : <Tr s={"¿Dónde está?"} />}</p>
+                  <p className="mt-2 text-[0.95rem] text-ink/70"><Tr s={"Toca la pieza en el dibujo. Aquí verás si has acertado y lo que significa."} /></p>
                 </div>
               </div>
             ) : (
@@ -329,15 +330,15 @@ export function AstroLayerModel({
                 <div className="flex min-h-[4.75rem] shrink-0 items-center gap-3 border-b border-line px-5 py-3">
                   {piece.glyph && (
                     <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gold/15 text-[1.5rem] text-gold" aria-hidden>
-                      {piece.glyph}
+                      <Tr s={piece.glyph} />
                     </span>
                   )}
                   <div className="min-w-0">
                     <p className="display text-[1.4rem] leading-tight">{txt(`${selected}:name`, own(selected, "name") ?? baseTitle, baseTitle)}</p>
                   <div className="mt-1.5 flex flex-wrap gap-1 empty:hidden">
-                    {mineList.includes(selected) && <span className="rounded-full bg-gold px-2.5 py-1 text-[0.65rem] font-semibold text-[#0B0B0D]">★ En tu carta</span>}
-                    {todayList.includes(selected) && <span className="rounded-full bg-[#C9C3E8] px-2.5 py-1 text-[0.65rem] font-semibold text-[#0B0B0D]">☀︎ Hoy en el cielo</span>}
-                    {otherList.includes(selected) && <span className="rounded-full bg-[#7FB8E0] px-2.5 py-1 text-[0.65rem] font-semibold text-[#0B0B0D]">★ {otherName}</span>}
+                    {mineList.includes(selected) && <span className="rounded-full bg-gold px-2.5 py-1 text-[0.65rem] font-semibold text-[#0B0B0D]"><Tr s={"★ En tu carta"} /></span>}
+                    {todayList.includes(selected) && <span className="rounded-full bg-[#C9C3E8] px-2.5 py-1 text-[0.65rem] font-semibold text-[#0B0B0D]"><Tr s={"☀︎ Hoy en el cielo"} /></span>}
+                    {otherList.includes(selected) && <span className="rounded-full bg-[#7FB8E0] px-2.5 py-1 text-[0.65rem] font-semibold text-[#0B0B0D]">★ <Tr s={otherName} /></span>}
                   </div>
                   </div>
                 </div>
@@ -348,14 +349,14 @@ export function AstroLayerModel({
                       <hr className="my-3 border-line" />
                     </>
                   )}
-                  {piece.personal && <p className="mb-3 whitespace-pre-line rounded-xl bg-gold/15 px-3 py-2 text-[0.88rem] leading-relaxed text-ink">{piece.personal}</p>}
+                  {piece.personal && <p className="mb-3 whitespace-pre-line rounded-xl bg-gold/15 px-3 py-2 text-[0.88rem] leading-relaxed text-ink"><Tr s={piece.personal} /></p>}
                   {otherPersonal && (
                     <p className="mb-3 whitespace-pre-line rounded-xl bg-[#7FB8E0]/20 px-3 py-2 text-[0.88rem] leading-relaxed text-ink">
-                      <strong>{otherName}:</strong> {toThird(otherPersonal)}
+                      <strong><Tr s={otherName} />:</strong> {toThird(otherPersonal)}
                     </p>
                   )}
                   {mode === "today" && today && (
-                    <p className="mb-3 rounded-xl bg-[#C9C3E8]/25 px-3 py-2 text-[0.88rem] leading-relaxed text-ink">{todayList.includes(selected) ? "Hoy el cielo tiene activa esta pieza: es buen momento para sentirla." : todayList.length ? `Hoy no está activa. Las de hoy: ${todayList.map(nameOf).join(", ")}.` : "En esta capa el cielo de hoy no marca ninguna pieza."}</p>
+                    <p className="mb-3 rounded-xl bg-[#C9C3E8]/25 px-3 py-2 text-[0.88rem] leading-relaxed text-ink">{todayList.includes(selected) ? <Tr s={"Hoy el cielo tiene activa esta pieza: es buen momento para sentirla."} /> : todayList.length ? `Hoy no está activa. Las de hoy: ${todayList.map(nameOf).join(", ")}.` : <Tr s={"En esta capa el cielo de hoy no marca ninguna pieza."} />}</p>
                   )}
                   <p className="whitespace-pre-line text-[0.98rem] leading-relaxed text-ink/75">{txt(`${selected}:meaning`, own(selected, "meaning") ?? piece.meaning, piece.meaning, true)}</p>
                   {piece.extra && (
@@ -363,7 +364,7 @@ export function AstroLayerModel({
                       <div className="flex items-center gap-3">
                         {piece.extra.glyph && (
                           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gold/15 text-[1.3rem] text-gold" aria-hidden>
-                            {piece.extra.glyph}
+                            <Tr s={piece.extra.glyph} />
                           </span>
                         )}
                         <p className="display text-[1.4rem] leading-tight">{txt(`${selected}:xname`, own(selected, "xname") ?? piece.extra.name, piece.extra.name)}</p>
@@ -384,15 +385,11 @@ export function AstroLayerModel({
               </>
             )}
             <div className="flex shrink-0 items-center justify-between gap-2 border-t border-line px-3 py-2 text-xs">
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => pick(keys[(keys.indexOf(selected) - 1 + keys.length) % keys.length])} disabled={mode === "practice"}>
-                ‹ Anterior
-              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => pick(keys[(keys.indexOf(selected) - 1 + keys.length) % keys.length])} disabled={mode === "practice"}><Tr s={"‹ Anterior"} /></button>
               <span className="tabular-nums text-muted">
-                {keys.indexOf(selected) + 1} de {keys.length}
+                {keys.indexOf(selected) + 1}{" "}<Tr s={"de"} />{" "}{keys.length}
               </span>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => pick(keys[(keys.indexOf(selected) + 1) % keys.length])} disabled={mode === "practice"}>
-                Siguiente ›
-              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => pick(keys[(keys.indexOf(selected) + 1) % keys.length])} disabled={mode === "practice"}><Tr s={"Siguiente ›"} /></button>
             </div>
           </div>
         </div>
@@ -451,6 +448,7 @@ function ModeStrip({
   tour: { playing: boolean; index: number; total: number; toggle: () => void; restart: () => void };
   quiz: { question: string; answered: boolean; wrong: string | null; wrongName: string | null; n: number; ok: number; next: () => void } | null;
 }) {
+  const t = useT();
   const chips = (ks: string[], tone: string) => (
     <span className="flex flex-wrap gap-1">
       {ks.map((k) => (
@@ -463,19 +461,19 @@ function ModeStrip({
   const box = "mt-3 rounded-2xl border border-line px-3 py-2.5 text-[0.85rem] leading-relaxed text-ink/80";
   switch (mode) {
     case "mine":
-      return <p className={box}>{hasChart ? `Solo tus piezas (${mine.length}). Pulsa «Explorar» para verlas todas.` : "Guarda tus datos en «Mi energía» para ver solo lo tuyo."}</p>;
+      return <p className={box}>{hasChart ? `Solo tus piezas (${mine.length}). Pulsa «Explorar» para verlas todas.` : t("Guarda tus datos en «Mi energía» para ver solo lo tuyo.")}</p>;
     case "today":
       return (
         <div className={box}>
           {todayPending ? (
-            "Calculando el cielo de ahora…"
+            t("Calculando el cielo de ahora…")
           ) : today.length ? (
             <span className="flex flex-wrap items-center gap-2">
-              <span>Activo hoy en el cielo:</span>
+              <span><Tr s={"Activo hoy en el cielo:"} /></span>
               {chips(today, "#C9C3E8")}
             </span>
           ) : (
-            "En esta capa el cielo de hoy no marca ninguna pieza; toca las piezas para leerlas."
+            t("En esta capa el cielo de hoy no marca ninguna pieza; toca las piezas para leerlas.")
           )}
         </div>
       );
@@ -488,7 +486,7 @@ function ModeStrip({
           {others.length ? (
             <>
               <label className="flex items-center gap-2">
-                <span>Comparar con</span>
+                <span><Tr s={"Comparar con"} /></span>
                 <select className="input h-9 w-auto py-0 text-sm" value={otherIndex} onChange={(e) => pickOther(Number(e.target.value))}>
                   {others.map((o, i) => (
                     <option key={i} value={i}>
@@ -498,33 +496,33 @@ function ModeStrip({
                 </select>
               </label>
               {!otherReady ? (
-                <p>Calculando su carta…</p>
+                <p><Tr s={"Calculando su carta…"} /></p>
               ) : (
                 <div className="space-y-1.5">
                   {both.length > 0 && (
                     <p className="flex flex-wrap items-center gap-2">
-                      <span>En común:</span>
+                      <span><Tr s={"En común:"} /></span>
                       {chips(both, "#E9CC8E")}
                     </p>
                   )}
                   {onlyMine.length > 0 && (
                     <p className="flex flex-wrap items-center gap-2">
-                      <span>Solo tú:</span>
+                      <span><Tr s={"Solo tú:"} /></span>
                       {chips(onlyMine, "#F0D9A4")}
                     </p>
                   )}
                   {onlyOther.length > 0 && (
                     <p className="flex flex-wrap items-center gap-2">
-                      <span>Solo {others[otherIndex]?.name}:</span>
+                      <span><Tr s={"Solo"} />{" "}<Tr s={others[otherIndex]?.name} />:</span>
                       {chips(onlyOther, "#7FB8E0")}
                     </p>
                   )}
-                  {!both.length && !onlyMine.length && !onlyOther.length && <p>En esta capa no hay piezas que comparar.</p>}
+                  {!both.length && !onlyMine.length && !onlyOther.length && <p><Tr s={"En esta capa no hay piezas que comparar."} /></p>}
                 </div>
               )}
             </>
           ) : (
-            <p>Guarda en «Mi energía» los datos de otra persona (tu pareja, tu hija, una amiga…) para comparar vuestras cartas.</p>
+            <p><Tr s={"Guarda en «Mi energía» los datos de otra persona (tu pareja, tu hija, una amiga…) para comparar vuestras cartas."} /></p>
           )}
         </div>
       );
@@ -532,8 +530,8 @@ function ModeStrip({
     case "tour":
       return (
         <div className={`${box} flex items-center gap-3`}>
-          <button type="button" className="btn btn-outline btn-sm shrink-0" onClick={tour.toggle} aria-label={tour.playing ? "Pausar el recorrido" : "Seguir el recorrido"}>
-            {tour.playing ? "❚❚ Pausa" : "▶︎ Seguir"}
+          <button type="button" className="btn btn-outline btn-sm shrink-0" onClick={tour.toggle} aria-label={tour.playing ? t("Pausar el recorrido") : t("Seguir el recorrido")}>
+            {tour.playing ? t("❚❚ Pausa") : t("▶︎ Seguir")}
           </button>
           <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-gold/15">
             <div className="h-full rounded-full bg-gold transition-[width] duration-500" style={{ width: `${((tour.index + 1) / Math.max(1, tour.total)) * 100}%` }} />
@@ -542,35 +540,30 @@ function ModeStrip({
             {tour.index + 1} / {tour.total}
           </span>
           {!tour.playing && tour.index === tour.total - 1 && (
-            <button type="button" className="btn btn-ghost btn-sm shrink-0" onClick={tour.restart}>
-              Otra vez
-            </button>
+            <button type="button" className="btn btn-ghost btn-sm shrink-0" onClick={tour.restart}><Tr s={"Otra vez"} /></button>
           )}
         </div>
       );
     case "practice":
       return quiz ? (
         <div className={`${box} flex flex-wrap items-center gap-x-3 gap-y-2`}>
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Pregunta {quiz.n + 1}</span>
-          <span className="font-semibold text-ink">{quiz.question}</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted"><Tr s={"Pregunta"} />{" "}{quiz.n + 1}</span>
+          <span className="font-semibold text-ink"><Tr s={quiz.question} /></span>
           {quiz.answered ? (
-            <span className="rounded-full bg-[#9FD08A]/30 px-2.5 py-0.5 text-[0.8rem] font-semibold text-ink">✓ ¡Bien!</span>
+            <span className="rounded-full bg-[#9FD08A]/30 px-2.5 py-0.5 text-[0.8rem] font-semibold text-ink"><Tr s={"✓ ¡Bien!"} /></span>
           ) : quiz.wrongName ? (
-            <span className="rounded-full bg-[#E36B5F]/20 px-2.5 py-0.5 text-[0.8rem] text-ink">✗ Eso es {quiz.wrongName}. Prueba otra vez.</span>
+            <span className="rounded-full bg-[#E36B5F]/20 px-2.5 py-0.5 text-[0.8rem] text-ink"><Tr s={"✗ Eso es"} />{" "}<Tr s={quiz.wrongName} /><Tr s={". Prueba otra vez."} /></span>
           ) : null}
           <span className="ml-auto flex items-center gap-2">
             <span className="tabular-nums text-xs text-muted">
-              {quiz.ok} de {quiz.n + (quiz.answered ? 1 : 0)} a la primera
-            </span>
+              {quiz.ok}{" "}<Tr s={"de"} />{" "}{quiz.n + (quiz.answered ? 1 : 0)}{" "}<Tr s={"a la primera"} /></span>
             {quiz.answered && (
-              <button type="button" className="btn btn-primary btn-sm" onClick={quiz.next}>
-                Otra pregunta
-              </button>
+              <button type="button" className="btn btn-primary btn-sm" onClick={quiz.next}><Tr s={"Otra pregunta"} /></button>
             )}
           </span>
         </div>
       ) : (
-        <p className={box}>Este modelo tiene muy pocas piezas para practicar.</p>
+        <p className={box}><Tr s={"Este modelo tiene muy pocas piezas para practicar."} /></p>
       );
     default:
       return null;
@@ -699,7 +692,7 @@ function Wheel({
             return (
               <RingSector key={h.n} i={i} r1={78} r2={157} fill={angular ? "rgb(212 181 122 / .12)" : i % 2 ? "rgb(255 255 255 / .04)" : "rgb(255 255 255 / .07)"} on={on} ids={ids} {...tap(k, h.name)}>
                 <text x={mid.x} y={mid.y} textAnchor="middle" dominantBaseline="central" fontSize="17" fontFamily="Georgia, serif" fill={on || own ? GOLD : INK} pointerEvents="none">
-                  {ROMAN[i]}
+                  <Tr s={ROMAN[i]} />
                 </text>
                 <text x={kw.x} y={kw.y} textAnchor="middle" dominantBaseline="central" fontSize="5.4" letterSpacing="0.8" fill={on ? CREAM : INK} fillOpacity={on ? 0.9 : 0.55} pointerEvents="none">
                   {h.keyword.toUpperCase()}
@@ -726,7 +719,7 @@ function Wheel({
             const p = pt(l + 9, 68);
             return (
               <text key={t} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central" fontSize="6.5" fontWeight="700" letterSpacing="0.6" fill={GOLD} pointerEvents="none">
-                {t}
+                <Tr s={t} />
               </text>
             );
           })}

@@ -1,5 +1,5 @@
 /**
- * Lo que incluye un nivel de la comunidad, para la página /comunidad: las líneas con viñeta («•», «-» o
+ * Lo que incluye un nivel de la comunidad, para la página /membership: las líneas con viñeta («•», «-» o
  * «*») de la descripción de la membresía (el «Incluye:» de siempre). Sin viñetas, el resumen. Puro.
  */
 export function tierFeatures(description: string | null, summary: string | null, max = 8): string[] {

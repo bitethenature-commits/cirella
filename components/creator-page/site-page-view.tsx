@@ -13,6 +13,7 @@ import type { SiteNavPage } from "./site-nav";
 import type { PublicProduct } from "./creator-page-view";
 import type { WebTiers } from "@/lib/web-tiers";
 import type { TextEdit } from "./home-edit";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * Una página extra con el tema de la web (cabecera con «Volver», su avatar y su nombre; pie con las
@@ -147,7 +148,7 @@ export function SitePageView({
             </div>
             {!edit && (
               <p className="cp-display cp-thin mx-auto mt-5 max-w-xl text-[1.45rem] italic leading-snug sm:text-[1.75rem]" style={{ color: "var(--c-gold)" }}>
-                {method.tagline}
+                <Tr s={method.tagline} />
               </p>
             )}
             {(edit || content.subtitle) && <div className="cp-muted cp-thin-text mx-auto mt-5 max-w-lg whitespace-pre-line text-[1.05rem] leading-relaxed">{edit ? edit.subtitle : content.subtitle}</div>}
@@ -247,7 +248,7 @@ function methodTitle(title: string) {
 
 /** Páginas extra que van sin cajas, con los bloques sueltos sobre el fondo: «Sobre mí», la 1:1, Gifts y Hacerte miembro. */
 export function barePage(slug: string): boolean {
-  return slug === "sobre-mi" || slug === "uno-a-uno" || slug === "gifts" || slug === "comunidad";
+  return slug === "aboutme" || slug === "sobre-mi" || slug === "uno-a-uno" || slug === "gifts" || slug === "comunidad";
 }
 
 /** Productos que no se ven (web personal sin cobros), como en la portada. */

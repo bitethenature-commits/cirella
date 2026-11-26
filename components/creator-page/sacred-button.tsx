@@ -1,5 +1,6 @@
 import { Mail } from "lucide-react";
 import { TrackedLink } from "./tracking";
+import { Tr } from "@/lib/i18n/client";
 
 type TrackPayload = Parameters<typeof TrackedLink>[0]["event"];
 
@@ -39,7 +40,7 @@ export function SacredButton({ href, label, event, ariaLabel, className = "" }: 
     <TrackedLink href={href} event={event} ariaLabel={ariaLabel} className={`cp-sacred-btn ${className}`}>
       <span className="cp-sacred-label">
         <Mail className="h-5 w-5" strokeWidth={1.3} />
-        {label}
+        <Tr s={label} />
       </span>
     </TrackedLink>
   );

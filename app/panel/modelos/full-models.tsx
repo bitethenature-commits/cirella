@@ -5,13 +5,16 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import type { OracleDeckView } from "@/components/models/data/oracle";
-import { SacredGeometry } from "@/components/models/sacred-geometry";
 import { NIGHT_CHART_STYLE } from "@/components/models/night-chart-style";
 import type { BirthProfile } from "@/lib/birth-profile";
 import { customChartSchema, type CustomChartData } from "@/lib/lesson-blocks";
 import { GEOMETRY_FIGURES, GEOMETRY_LABEL, type GeometryFigure, type ModelKind } from "@/lib/page-blocks";
 import { addPartToLesson } from "./actions";
 import { ModelThumb } from "./model-thumb";
+import { Tr, useT } from "@/lib/i18n/client";
+
+// La geometría sagrada solo se dibuja al abrirla: se carga aparte.
+const SacredGeometry = dynamic(() => import("@/components/models/sacred-geometry").then((m) => m.SacredGeometry));
 
 /**
  * Los modelos completos en «Modelos» del panel: cada uno como se ve en su web (con los colores de su
@@ -24,7 +27,7 @@ export type FullInfo = { theme: { style: CSSProperties; card: string; template: 
 function Loading() {
   return (
     <div className="grid min-h-[20rem] place-items-center" aria-busy="true">
-      <span className="cp-faint text-[0.85rem]">Cargando el modelo…</span>
+      <span className="cp-faint text-[0.85rem]"><Tr s={"Cargando el modelo…"} /></span>
     </div>
   );
 }
@@ -34,6 +37,8 @@ const GeneKeysModel = dynamic(() => import("@/components/models/gene-keys-model"
 const LunarModel = dynamic(() => import("@/components/models/lunar-model").then((m) => m.LunarModel), { ssr: false, loading: Loading });
 const RunesModel = dynamic(() => import("@/components/models/runes-model").then((m) => m.RunesModel), { ssr: false, loading: Loading });
 const KundaliniModel = dynamic(() => import("@/components/models/kundalini-model").then((m) => m.KundaliniModel), { ssr: false, loading: Loading });
+const GeometryModel = dynamic(() => import("@/components/models/geometry-model").then((m) => m.GeometryModel), { ssr: false, loading: Loading });
+const DimensionsModel = dynamic(() => import("@/components/models/dimensions-model").then((m) => m.DimensionsModel), { ssr: false, loading: Loading });
 const OracleModel = dynamic(() => import("@/components/models/oracle-model").then((m) => m.OracleModel), { ssr: false, loading: Loading });
 
 type Gated = "chart" | "bodygraph" | "geneKeys" | "lunar";
@@ -82,6 +87,16 @@ const ABOUT: Record<ModelKind, { text: string; has: string[]; also: string | nul
     has: ["La figura en meditación con los 8 chakras", "Ida, pingala y sushumna", "Los tres nudos", "«Despertar»: la serpiente sube de la raíz a la corona", "Los 10 cuerpos: alma, karma, don, destino y camino"],
     also: null,
   },
+  sacred: {
+    text: "La geometría sagrada entera: doce figuras que se dibujan en oro paso a paso, y cada parte se explica al tocarla.",
+    has: ["Del punto a la flor de la vida", "Metatrón y los sólidos platónicos", "La proporción áurea y los números", "El árbol de la vida y el Sri Yantra", "La merkaba, el toro y los chakras"],
+    also: null,
+  },
+  dimensions: {
+    text: "Las dimensiones del ser, de la 3D a la 12D: qué es cada una, el paso de la 3D a la 5D, sus chakras y su forma.",
+    has: ["Las 10 dimensiones, una dentro de otra", "El paso de la 3D a la 5D", "Las dimensiones en los chakras", "La figura de cada dimensión"],
+    also: null,
+  },
   geometry: {
     text: "Una figura de geometría sagrada como fondo de una frase tuya.",
     has: ["5 figuras", "Se dibuja al aparecer", "La frase y una entradilla encima"],
@@ -117,11 +132,14 @@ function versionsOf(kind: ModelKind, decks: OracleDeckView[], profile: BirthProf
       ...decks.flatMap((d) => (d.id ? [{ id: d.id, label: `Tuya · ${d.name}`, hint: `Tu baraja, con ${d.cards.length} cartas.` }] : [])),
     ];
   if (kind === "geometry") return GEOMETRY_FIGURES.map((f) => ({ id: f, label: GEOMETRY_LABEL[f], hint: "Con una frase de ejemplo, como en el bloque de tu página." }));
+  if (kind === "sacred") return [{ id: "full", label: "Completo", hint: "Elige una figura arriba y toca sus partes." }];
+  if (kind === "dimensions") return [{ id: "full", label: "Completo", hint: "Elige una parte arriba y toca cada dimensión." }];
   if (kind === "kundalini") return [{ id: "full", label: "Completa", hint: "El cuerpo sutil y los 10 cuerpos, con una fecha de ejemplo que se puede cambiar." }, ...(profile ? [{ id: "mine", label: "Con tu fecha", hint: `Los 10 cuerpos con tu fecha de «Mi energía» (${profile.name}).` }] : [])];
   return [{ id: "full", label: "Tirada", hint: "Como en tu web: elige la tirada y saca las runas." }];
 }
 
 function FullModel({ kind, label, info, profile }: { kind: ModelKind; label: string; info: FullInfo; profile: BirthProfile | null }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const versions = versionsOf(kind, info.decks, profile);
   const [version, setVersion] = useState(versions[0].id);
@@ -139,25 +157,25 @@ function FullModel({ kind, label, info, profile }: { kind: ModelKind; label: str
       </ModelThumb>
       <button type="button" className="flex min-w-0 flex-1 flex-wrap items-start gap-3 pb-3 text-left sm:pb-0" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold">{label}</p>
-          <p className="text-sm text-muted">{about.text}</p>
+          <p className="font-semibold"><Tr s={label} /></p>
+          <p className="text-sm text-muted"><Tr s={about.text} /></p>
           <p className="mt-1.5 flex flex-wrap gap-1.5 text-[0.72rem]">
             {uses.length ? (
               uses.map((u, i) => (
                 <span key={i} className="rounded-full bg-gold/15 px-2 py-0.5">
-                  {u.where}
-                  {u.draft ? " (borrador)" : ""}
-                  {u.quick ? " · rápida" : ""}
+                  <Tr s={u.where} />
+                  {u.draft ? t(" (borrador)") : ""}
+                  {u.quick ? t(" · rápida") : ""}
                   {u.deck ? ` · ${u.deck}` : ""}
                   {u.figure ? ` · ${GEOMETRY_LABEL[u.figure]}` : ""}
                 </span>
               ))
             ) : (
-              <span className="rounded-full bg-sand px-2 py-0.5 text-muted">No está en tus páginas</span>
+              <span className="rounded-full bg-sand px-2 py-0.5 text-muted"><Tr s={"No está en tus páginas"} /></span>
             )}
-            {about.also && <span className="rounded-full border border-line px-2 py-0.5 text-muted">{about.also}</span>}
+            {about.also && <span className="rounded-full border border-line px-2 py-0.5 text-muted"><Tr s={about.also} /></span>}
             <span className="rounded-full border border-line px-2 py-0.5 text-muted">
-              {versions.length} {versions.length === 1 ? "versión" : "versiones"}
+              {versions.length} {versions.length === 1 ? t("versión") : "versiones"}
             </span>
           </p>
         </div>
@@ -169,36 +187,30 @@ function FullModel({ kind, label, info, profile }: { kind: ModelKind; label: str
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
             <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[0.8rem] text-ink/75">
               {about.has.map((h) => (
-                <li key={h}>✓ {h}</li>
+                <li key={h}>✓ <Tr s={h} /></li>
               ))}
             </ul>
             <div className="flex flex-wrap gap-2 text-sm sm:justify-end">
               {uses[0] ? (
-                <Link href={uses[0].href} className="btn btn-ghost btn-sm">
-                  Editar donde está
-                </Link>
+                <Link href={uses[0].href} className="btn btn-ghost btn-sm"><Tr s={"Editar donde está"} /></Link>
               ) : (
-                <Link href="/panel/pagina" className="btn btn-ghost btn-sm">
-                  Ponerlo en tu portada
-                </Link>
+                <Link href="/panel/pagina" className="btn btn-ghost btn-sm"><Tr s={"Ponerlo en tu portada"} /></Link>
               )}
               {kind === "oracle" && (
-                <Link href="/panel/barajas" className="btn btn-ghost btn-sm">
-                  Tus barajas
-                </Link>
+                <Link href="/panel/barajas" className="btn btn-ghost btn-sm"><Tr s={"Tus barajas"} /></Link>
               )}
             </div>
           </div>
           {versions.length > 1 && (
-            <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Versión">
+            <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={t("Versión")}>
               {versions.map((x) => (
                 <button key={x.id} type="button" role="tab" aria-selected={x.id === v.id} onClick={() => setVersion(x.id)} className={`min-h-9 rounded-full border px-3 text-sm transition ${x.id === v.id ? "border-ink bg-ink text-cream" : "border-line hover:border-ink/40"}`}>
-                  {x.label}
+                  <Tr s={x.label} />
                 </button>
               ))}
             </div>
           )}
-          <p className="text-xs text-muted">{v.hint}</p>
+          <p className="text-xs text-muted"><Tr s={v.hint} /></p>
           {kind === "chart" && v.id === "custom" ? (
             <HandmadeChart info={info} />
           ) : (
@@ -222,7 +234,7 @@ function Preview({ kind, version, decks, profile }: { kind: ModelKind; version: 
             <SacredGeometry key={version} figure={version as GeometryFigure} />
           </div>
         </div>
-        <blockquote className="cp-display whitespace-pre-line text-[1.7rem] italic leading-snug sm:text-[2.2rem]">{SAMPLE_QUOTE}</blockquote>
+        <blockquote className="cp-display whitespace-pre-line text-[1.7rem] italic leading-snug sm:text-[2.2rem]"><Tr s={SAMPLE_QUOTE} /></blockquote>
         <span aria-hidden className="mt-8 block h-px w-20 bg-[var(--c-gold)] opacity-70" />
       </figure>
     );
@@ -241,6 +253,8 @@ function Preview({ kind, version, decks, profile }: { kind: ModelKind; version: 
       const deck = decks.find((d) => d.id === version) ?? null;
       return <OracleModel key={deck?.id ?? "serie"} deck={deck} />;
     }
+    if (kind === "sacred") return <GeometryModel />;
+    if (kind === "dimensions") return <DimensionsModel />;
     if (kind === "kundalini") return <KundaliniModel key={version} date={version === "mine" ? (profile?.date ?? null) : null} />;
     return <RunesModel />;
   })();
@@ -251,6 +265,7 @@ const CustomChartEditor = dynamic(() => import("@/components/models/custom-chart
 
 /** La carta «A mano»: se prepara aquí, con su vista previa con los colores de su web, y se añade a una lección. */
 function HandmadeChart({ info }: { info: FullInfo }) {
+  const t = useT();
   const [value, setValue] = useState<CustomChartData>(() => customChartSchema.parse({}));
   const [lessonId, setLessonId] = useState(info.lessons[0]?.id ?? "");
   const [state, setState] = useState<{ ok: boolean; text: string; href?: string } | null>(null);
@@ -265,12 +280,12 @@ function HandmadeChart({ info }: { info: FullInfo }) {
     <div className="space-y-4">
       <CustomChartEditor value={value} onChange={(v) => { setValue(v); setState(null); }} />
       <div className="rounded-xl border border-line bg-sand/40 px-3 py-3">
-        <p className="text-sm font-medium">Llevarla a una lección</p>
+        <p className="text-sm font-medium"><Tr s={"Llevarla a una lección"} /></p>
         {info.lessons.length ? (
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <select className="input h-10 w-auto max-w-full py-0 text-sm" value={lessonId} onChange={(e) => setLessonId(e.target.value)} aria-label="Lección">
+            <select className="input h-10 w-auto max-w-full py-0 text-sm" value={lessonId} onChange={(e) => setLessonId(e.target.value)} aria-label={t("Lección")}>
               {courses.map((c) => (
-                <optgroup key={c} label={c}>
+                <optgroup key={c} label={t(c)}>
                   {info.lessons.filter((l) => l.course === c).map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.title}
@@ -280,23 +295,21 @@ function HandmadeChart({ info }: { info: FullInfo }) {
               ))}
             </select>
             <button type="button" className="btn btn-primary btn-sm" disabled={pending || !lessonId} onClick={add}>
-              {pending ? "Añadiendo…" : "Añadir a la lección"}
+              {pending ? t("Añadiendo…") : t("Añadir a la lección")}
             </button>
             {state && (
               <span className={`text-sm ${state.ok ? "" : "text-[#B4483E]"}`}>
-                {state.text}{" "}
+                <Tr s={state.text} />{" "}
                 {state.href && (
-                  <Link href={state.href} className="underline">
-                    Abrir la lección
-                  </Link>
+                  <Link href={state.href} className="underline"><Tr s={"Abrir la lección"} /></Link>
                 )}
               </span>
             )}
           </div>
         ) : (
-          <p className="mt-1 text-sm text-muted">Aún no tienes lecciones. Crea un curso y una lección y vuelve aquí.</p>
+          <p className="mt-1 text-sm text-muted"><Tr s={"Aún no tienes lecciones. Crea un curso y una lección y vuelve aquí."} /></p>
         )}
-        <p className="mt-2 text-xs text-muted">También puedes crearla directamente en una lección: en el editor, «Carta a mano».</p>
+        <p className="mt-2 text-xs text-muted"><Tr s={"También puedes crearla directamente en una lección: en el editor, «Carta a mano»."} /></p>
       </div>
     </div>
   );

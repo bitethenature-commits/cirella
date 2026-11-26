@@ -7,6 +7,7 @@ import { Flash } from "@/components/ui/flash";
 import type { AccessEndChoice } from "@/lib/access-end";
 import { grantAccess, type ActionState } from "../../productos/actions";
 import { AccessEndFields } from "../../productos/[id]/access-manager";
+import { Tr, useT } from "@/lib/i18n/client";
 
 export type GiveProduct = {
   id: string;
@@ -32,6 +33,7 @@ const GROUPS: { kind: GiveProduct["kind"]; label: string; icon: typeof Package }
  * email para entrar. Las sesiones y lecturas siguen en «Dar una sesión o lectura» (piden fecha).
  */
 export function GiveAccessForm({ products, customers, timeZone, initialEmail }: { products: GiveProduct[]; customers: { name: string; email: string }[]; timeZone: string; initialEmail?: string }) {
+  const t = useT();
   const [state, action, pending] = useActionState<ActionState, FormData>(grantAccess, undefined);
   const [productId, setProductId] = useState(products.find((p) => p.kind !== "session" && p.kind !== "reading")?.id ?? products[0]?.id ?? "");
   const known = customers.find((c) => c.email === initialEmail);
@@ -52,14 +54,14 @@ export function GiveAccessForm({ products, customers, timeZone, initialEmail }: 
   return (
     <div className="space-y-6">
       <section className="card space-y-4 p-5 sm:p-6">
-        <h2 className="font-semibold">1 · ¿Qué le das?</h2>
+        <h2 className="font-semibold"><Tr s={"1 · ¿Qué le das?"} /></h2>
         {GROUPS.map((g) => {
           const items = products.filter((p) => p.kind === g.kind);
           if (!items.length) return null;
           return (
             <div key={g.kind}>
               <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted">
-                <g.icon className="h-3.5 w-3.5" /> {g.label}
+                <g.icon className="h-3.5 w-3.5" /> <Tr s={g.label} />
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {items.map((p) => {
@@ -76,7 +78,7 @@ export function GiveAccessForm({ products, customers, timeZone, initialEmail }: 
                       className={`rounded-2xl border px-3 py-2.5 text-left text-sm transition ${on ? "border-ink bg-ink text-cream" : "border-line hover:border-ink/40"}`}
                     >
                       <span className="block font-medium leading-snug">{p.title}</span>
-                      {!p.published && <span className={`text-xs ${on ? "text-cream/70" : "text-muted"}`}>Borrador</span>}
+                      {!p.published && <span className={`text-xs ${on ? "text-cream/70" : "text-muted"}`}><Tr s={"Borrador"} /></span>}
                     </button>
                   );
                 })}
@@ -88,12 +90,10 @@ export function GiveAccessForm({ products, customers, timeZone, initialEmail }: 
 
       {chosen && dated ? (
         <section className="card space-y-3 p-5 sm:p-6">
-          <h2 className="font-semibold">2 · Su fecha y sus datos</h2>
+          <h2 className="font-semibold"><Tr s={"2 · Su fecha y sus datos"} /></h2>
           <p className="text-sm text-muted">
-            {chosen.kind === "session" ? "Una sesión lleva día y hora" : "Una lectura lleva sus datos de nacimiento"}: se da desde «Dar una sesión o lectura», con «{chosen.title}» ya elegida.
-          </p>
-          <Link href={`/panel/solicitudes/dar/sesion?producto=${chosen.id}${email ? `&email=${encodeURIComponent(email)}` : ""}`} className="btn btn-primary">
-            Continuar <ArrowRight className="h-4 w-4" />
+            {chosen.kind === "session" ? t("Una sesión lleva día y hora") : t("Una lectura lleva sus datos de nacimiento")}<Tr s={": se da desde «Dar una sesión o lectura», con «"} />{chosen.title}<Tr s={"» ya elegida."} /></p>
+          <Link href={`/panel/solicitudes/dar/sesion?producto=${chosen.id}${email ? `&email=${encodeURIComponent(email)}` : ""}`} className="btn btn-primary"><Tr s={"Continuar"} />{" "}<ArrowRight className="h-4 w-4" />
           </Link>
         </section>
       ) : chosen ? (
@@ -105,13 +105,13 @@ export function GiveAccessForm({ products, customers, timeZone, initialEmail }: 
           }}
           className="card space-y-4 p-5 sm:p-6"
         >
-          <h2 className="font-semibold">2 · ¿A quién?</h2>
+          <h2 className="font-semibold"><Tr s={"2 · ¿A quién?"} /></h2>
           <Flash ok={state?.ok} error={state?.error} />
           <input type="hidden" name="productId" value={chosen.id} />
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="field-label" htmlFor="give-email">Email</label>
-              <input id="give-email" name="email" type="email" required list="give-customers" value={email} onChange={(e) => pickEmail(e.target.value)} className="input" placeholder="su@email.com" autoComplete="off" />
+              <label className="field-label" htmlFor="give-email"><Tr s={"Email"} /></label>
+              <input id="give-email" name="email" type="email" required list="give-customers" value={email} onChange={(e) => pickEmail(e.target.value)} className="input" placeholder={t("su@email.com")} autoComplete="off" />
               <datalist id="give-customers">
                 {customers.map((c) => (
                   <option key={c.email} value={c.email}>{c.name}</option>
@@ -119,18 +119,17 @@ export function GiveAccessForm({ products, customers, timeZone, initialEmail }: 
               </datalist>
             </div>
             <div>
-              <label className="field-label" htmlFor="give-name">Nombre</label>
-              <input id="give-name" name="name" required minLength={2} value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder="Su nombre" />
+              <label className="field-label" htmlFor="give-name"><Tr s={"Nombre"} /></label>
+              <input id="give-name" name="name" required minLength={2} value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder={t("Su nombre")} />
             </div>
           </div>
           <AccessEndFields timeZone={timeZone} idPrefix="give" choice={choice} setChoice={setChoice} date={date} setDate={setDate} />
-          <p className="text-xs text-muted">Le llega un email con el enlace para entrar a «{chosen.title}». No necesita contraseña ni rellenar nada.</p>
+          <p className="text-xs text-muted"><Tr s={"Le llega un email con el enlace para entrar a «"} />{chosen.title}<Tr s={"». No necesita contraseña ni rellenar nada."} /></p>
           {chosen.kind === "membership" && (
-            <p className="rounded-xl bg-sand px-3 py-2 text-xs text-muted">5 días antes de que venza le llega un email para renovar. Ese día se bloquea sola. En Membresía › Miembros ves la cuenta atrás y renuevas con el tick verde cuando pague.</p>
+            <p className="rounded-xl bg-sand px-3 py-2 text-xs text-muted"><Tr s={"5 días antes de que venza le llega un email para renovar. Ese día se bloquea sola. En Membresía › Miembros ves la cuenta atrás y renuevas con el tick verde cuando pague."} /></p>
           )}
           <button type="submit" className="btn btn-primary" disabled={pending}>
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />} Dar acceso
-          </button>
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}{" "}<Tr s={"Dar acceso"} /></button>
         </form>
       ) : null}
     </div>

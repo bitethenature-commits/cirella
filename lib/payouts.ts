@@ -8,6 +8,7 @@ import { isPaymentProviderEnabled, paymentProvider, paymentProviderKey } from ".
 import type { PayoutAccountSnapshot } from "./payments/provider";
 import { getSettings, SETTING_DEFAULTS } from "./settings";
 import { siteMode, type SiteMode } from "./site-mode";
+import { inMail } from "./i18n/email";
 
 /**
  * Cuenta de cobro de cada creadora (Stripe Connect Express, o el simulador en demo).
@@ -248,7 +249,7 @@ async function notifyPayoutStatus(creator: Creator & { user: { email: string } }
   const base = { to: creator.user.email, creatorId: creator.id, userId: creator.userId, fromName: null, replyTo: null };
   const url = `${appUrl()}/panel/ajustes/cobros`;
   if (status === "ACTIVE") {
-    await enqueueEmail({ ...base, template: "PAYOUT_ACTIVE", dedupeKey: `payout:${creator.id}:active`, ...payoutActiveEmail({ name: creator.displayName, panelUrl: url }) });
+    await enqueueEmail({ ...base, template: "PAYOUT_ACTIVE", dedupeKey: `payout:${creator.id}:active`, ...(await inMail(base.to, () => payoutActiveEmail({ name: creator.displayName, panelUrl: url }))) });
   } else if (status === "ACTION_REQUIRED") {
     const keys = [...snap.pastDue, ...snap.currentlyDue].sort();
     const hash = createHash("sha256").update(keys.join(",")).digest("hex").slice(0, 12);
@@ -256,16 +257,18 @@ async function notifyPayoutStatus(creator: Creator & { user: { email: string } }
       ...base,
       template: "PAYOUT_ACTION_REQUIRED",
       dedupeKey: `payout:${creator.id}:action:${hash}`,
-      ...payoutActionRequiredEmail({
-        name: creator.displayName,
-        missing: describeRequirements(keys),
-        deadline: snap.currentDeadline ? formatDeadline(snap.currentDeadline) : null,
-        url,
-      }),
+      ...(await inMail(base.to, () =>
+        payoutActionRequiredEmail({
+          name: creator.displayName,
+          missing: describeRequirements(keys),
+          deadline: snap.currentDeadline ? formatDeadline(snap.currentDeadline) : null,
+          url,
+        }),
+      )),
     });
   } else if (status === "REJECTED") {
     const { supportEmail } = await getSettings();
-    await enqueueEmail({ ...base, template: "PAYOUT_REJECTED", dedupeKey: `payout:${creator.id}:rejected`, ...payoutRejectedEmail({ name: creator.displayName, supportEmail }) });
+    await enqueueEmail({ ...base, template: "PAYOUT_REJECTED", dedupeKey: `payout:${creator.id}:rejected`, ...(await inMail(base.to, () => payoutRejectedEmail({ name: creator.displayName, supportEmail }))) });
   }
 }
 

@@ -20,15 +20,16 @@ import { normalizeUsername, RESERVED_PRODUCT_SLUGS } from "@/lib/slug";
 import { privateKey, storage } from "@/lib/storage";
 import { tenantDb } from "@/lib/tenant";
 import { DEFAULT_CTA, PRODUCT_TYPES, type ProductType } from "@/lib/types";
+import { inMail } from "@/lib/i18n/email";
 
 type Result = { ok: true; data?: Record<string, unknown> } | { ok: false; error: string };
 
 async function currentCreator() {
   // Modo personal: el asistente está cerrado (ver app/onboarding/page.tsx).
-  if (isPersonalMode()) redirect("/entrar?error=cerrado");
+  if (isPersonalMode()) redirect("/login?error=cerrado");
   const user = await requireUser("/onboarding");
   const creator = await prisma.creator.findUnique({ where: { userId: user.id }, include: { plan: true } });
-  if (creator?.status === "BLOCKED") redirect("/entrar?error=bloqueada");
+  if (creator?.status === "BLOCKED") redirect("/login?error=bloqueada");
   return { user, creator };
 }
 
@@ -209,7 +210,7 @@ export async function publishOnboarding(): Promise<Result> {
       to: user.email,
       template: "WELCOME_CREATOR",
       creatorId: creator.id,
-      ...welcomeCreatorEmail({ name: creator.displayName, pageUrl: `${base}/${creator.username}`, panelUrl: `${base}/panel` }),
+      ...(await inMail(user.email, () => welcomeCreatorEmail({ name: creator.displayName, pageUrl: `${base}/${creator.username}`, panelUrl: `${base}/panel` }))),
     });
   }
   redirect("/onboarding/lista");

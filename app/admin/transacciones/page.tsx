@@ -5,6 +5,7 @@ import { Badge, PageHeader } from "../../panel/ui";
 import { AdminTable, td } from "../ui";
 import { formatDate } from "@/lib/tz";
 import { platformOnly } from "../platform-only";
+import { Tr } from "@/lib/i18n/client";
 
 const TYPE: Record<string, string> = { CHARGE: "Cobro", REFUND: "Reembolso", RENEWAL: "Renovación", PLAN_FEE: "Cuota de plan" };
 
@@ -19,9 +20,9 @@ export default async function AdminTransactions() {
         {txs.map((t) => (
           <tr key={t.id}>
             <td className={`${td} text-muted`}>{formatDate(t.createdAt, { day: "numeric", month: "short", year: "2-digit" })}</td>
-            <td className={td}><Badge tone={t.type === "PLAN_FEE" ? "dark" : t.type === "REFUND" ? "danger" : "neutral"}>{TYPE[t.type] ?? t.type}</Badge></td>
+            <td className={td}><Badge tone={t.type === "PLAN_FEE" ? "dark" : t.type === "REFUND" ? "danger" : "neutral"}><Tr s={TYPE[t.type] ?? t.type} /></Badge></td>
             <td className={td}>{t.creator.displayName}</td>
-            <td className={`${td} text-muted`}>{t.description}</td>
+            <td className={`${td} text-muted`}><Tr s={t.description} /></td>
             <td className={`${td} tabular-nums`}>{formatMoney(t.amountCents, t.currency, { decimals: true })}</td>
             <td className={`${td} tabular-nums font-semibold`}>{formatMoney(t.platformFeeCents, t.currency, { decimals: true })}</td>
             <td className={`${td} tabular-nums text-muted`}>{formatMoney(t.netCents, t.currency, { decimals: true })}</td>

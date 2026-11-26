@@ -22,7 +22,7 @@ type PreviewProduct = {
   type: string;
   files: { id: string; name: string; kind: string; postId: string | null }[];
   modules: { id: string; title: string; lessons: { id: string; title: string; durationMin: number | null; published: boolean; parts: { kind: string; file: { kind: string } | null }[] }[] }[];
-  includes: { includedProduct: { id: string; title: string; slug: string; status: string; creatorId: string; _count: { lessons: number } } }[];
+  includes: { includedProduct: { id: string; title: string; slug: string; type: string; status: string; creatorId: string; _count: { lessons: number } } }[];
 };
 
 /**
@@ -77,7 +77,7 @@ export async function productPreviewContext(creator: Creator & { plan: Plan }, p
     includes: product.includes
       .map((i) => i.includedProduct)
       .filter((ip) => ip.status !== "ARCHIVED" && ip.creatorId === product.creatorId)
-      .map((ip) => ({ id: ip.id, title: ip.title, slug: ip.slug, status: ip.status, lessons: ip._count.lessons })),
+      .map((ip) => ({ id: ip.id, title: ip.title, slug: ip.slug, type: ip.type, status: ip.status, lessons: ip._count.lessons })),
     posts,
   };
 }

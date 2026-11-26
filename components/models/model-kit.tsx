@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * Piezas comunes de los modelos interactivos (bloque «Modelo interactivo» de las páginas, lib/page-blocks.ts).
@@ -97,6 +98,7 @@ export function ModelFrame({
   footer,
   compact,
   summary,
+  onClear,
 }: {
   toolbar?: ReactNode;
   diagram: ReactNode;
@@ -109,15 +111,33 @@ export function ModelFrame({
    */
   compact?: boolean;
   summary?: ReactNode;
+  /**
+   * Con algo tocado: quitarlo y volver a la explicación del principio. Sale «Volver a la explicación» y también
+   * vale tocar el dibujo fuera de lo que se puede tocar.
+   */
+  onClear?: (() => void) | null;
 }) {
+  const back = onClear ? (
+    <button type="button" onClick={onClear} className="cp-muted mb-3 inline-flex min-h-9 items-center gap-1.5 text-[0.8rem] font-semibold transition hover:opacity-100" data-model-back>
+      <span aria-hidden>←</span>{" "}<Tr s={"Volver a la explicación"} /></button>
+  ) : null;
+  // Tocar el dibujo fuera de una figura que se pueda tocar quita lo tocado.
+  const clearOutside = (e: React.MouseEvent) => {
+    if (!onClear) return;
+    const t = e.target as Element | null;
+    if (t?.closest?.("[role=\"button\"], button, a, input, select, textarea, label, [data-model-keep]")) return;
+    onClear();
+  };
+  const shownDiagram = <div onClick={clearOutside}>{diagram}</div>;
   if (compact)
     return (
       <div data-compact="">
-        {diagram}
+        {shownDiagram}
         {legend && <div className="mt-4 flex justify-center text-center">{legend}</div>}
         {summary && (
           <div className="cp-line mx-auto mt-4 max-w-md border-t pt-4 text-center text-[0.88rem] leading-snug" aria-live="polite">
             {summary}
+            {back && <div className="mt-1">{back}</div>}
           </div>
         )}
       </div>
@@ -125,9 +145,10 @@ export function ModelFrame({
   return (
     <div>
       {toolbar && <div className="-mx-5 overflow-x-auto px-5 pb-1 scrollbar-none sm:-mx-7 sm:px-7">{toolbar}</div>}
-      <div className={toolbar ? "mt-5" : ""}>{diagram}</div>
+      <div className={toolbar ? "mt-5" : ""}>{shownDiagram}</div>
       {legend && <div className="cp-line mt-5 border-t pt-4">{legend}</div>}
       <div className="cp-line mt-6 border-t pt-6" aria-live="polite">
+        {back}
         {panel}
       </div>
       {footer && <div className="cp-line mt-8 border-t pt-6">{footer}</div>}
@@ -148,9 +169,9 @@ export function PanelHeading({ kicker, title, tone }: { kicker: string; title: s
   return (
     <>
       <p className="cp-eyebrow" style={tone ? { color: tone } : undefined}>
-        {kicker}
+        <Tr s={kicker} />
       </p>
-      <h4 className="cp-display mt-3 text-[1.6rem] leading-tight sm:text-[1.85rem]">{title}</h4>
+      <h4 className="cp-display mt-3 text-[1.6rem] leading-tight sm:text-[1.85rem]"><Tr s={title} /></h4>
     </>
   );
 }
@@ -158,7 +179,7 @@ export function PanelHeading({ kicker, title, tone }: { kicker: string; title: s
 export function PanelRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="cp-line flex items-baseline justify-between gap-5 border-t py-3">
-      <dt className="cp-eyebrow shrink-0 !text-[0.6rem]">{label}</dt>
+      <dt className="cp-eyebrow shrink-0 !text-[0.6rem]"><Tr s={label} /></dt>
       <dd className="text-right text-[0.86rem] leading-relaxed opacity-85">{value}</dd>
     </div>
   );
@@ -180,7 +201,7 @@ export function CompactSummary({ title, text, tone }: { title: ReactNode; text?:
 export function PanelIdle({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
-      <p className="cp-display text-[1.3rem] italic leading-snug opacity-80">{title}</p>
+      <p className="cp-display text-[1.3rem] italic leading-snug opacity-80"><Tr s={title} /></p>
       <div className="cp-muted mt-4 space-y-2.5 text-[0.88rem] leading-relaxed">{children}</div>
     </div>
   );
@@ -190,7 +211,7 @@ export function LegendDot({ color, label }: { color: string; label: string }) {
   return (
     <span className="inline-flex items-center gap-2">
       <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-      <span className="cp-muted text-[0.62rem] uppercase tracking-[0.16em]">{label}</span>
+      <span className="cp-muted text-[0.62rem] uppercase tracking-[0.16em]"><Tr s={label} /></span>
     </span>
   );
 }
@@ -245,8 +266,8 @@ export function RangeField({
   return (
     <div>
       <label htmlFor={id} className="cp-eyebrow flex items-baseline justify-between gap-4 !text-[0.6rem]">
-        <span>{label}</span>
-        <span className="cp-gold normal-case tracking-normal">{valueText}</span>
+        <span><Tr s={label} /></span>
+        <span className="cp-gold normal-case tracking-normal"><Tr s={valueText} /></span>
       </label>
       <input
         id={id}

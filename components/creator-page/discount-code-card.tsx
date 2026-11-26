@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PublicDiscountCode } from "./creator-page-view";
 import { PhotoGallery } from "./photo-gallery";
 import { track } from "./tracking";
+import { Tr } from "@/lib/i18n/client";
 
 /** Copia un texto al portapapeles: la API moderna o, si no está (http, navegadores antiguos), execCommand. */
 async function copyText(text: string): Promise<boolean> {
@@ -80,15 +81,15 @@ export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscoun
           {code.brand.trim().charAt(0).toUpperCase()}
         </span>
       )}
-      <h3 className="mt-3 w-full truncate text-[1rem] font-semibold leading-tight">{code.brand}</h3>
+      <h3 className="mt-3 w-full truncate text-[1rem] font-semibold leading-tight"><Tr s={code.brand} /></h3>
       {/* El mismo sitio dice «Código copiado»: el aviso no mueve nada (siempre dos líneas de alto). */}
       <p className="mt-1 line-clamp-2 min-h-[2.6em] w-full text-[0.82rem] leading-snug" aria-live="polite">
         {state === "copied" ? (
-          <span className="cp-gold font-medium">Código copiado. Pégalo al pagar en la tienda.</span>
+          <span className="cp-gold font-medium"><Tr s={"Código copiado. Pégalo al pagar en la tienda."} /></span>
         ) : state === "manual" ? (
-          <span className="cp-gold font-medium">Mantén pulsado el código para copiarlo.</span>
+          <span className="cp-gold font-medium"><Tr s={"Mantén pulsado el código para copiarlo."} /></span>
         ) : (
-          <span className="cp-muted">{code.description || code.expiresLabel || " "}</span>
+          <span className="cp-muted"><Tr s={code.description || code.expiresLabel || " "} /></span>
         )}
       </p>
       <div className="mt-auto flex w-full flex-col gap-1.5 pt-3">
@@ -114,28 +115,26 @@ export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscoun
             rel="noopener nofollow sponsored"
             className="cp-btn w-full whitespace-nowrap !min-h-[2.4rem] !gap-1 !px-2 !text-[0.95rem]"
             onClick={() => event("CODE_CLICK")}
-          >
-            Ir a la tienda <ArrowUpRight className="h-3.5 w-3.5" />
+          ><Tr s={"Ir a la tienda"} />{" "}<ArrowUpRight className="h-3.5 w-3.5" />
           </a>
         </span>
       </div>
       {!expandable && (
         // Sin «Ver más», su hueco queda vacío: el código y los botones están a la misma altura en todas las tarjetas.
-        <span aria-hidden className="invisible mt-2 inline-flex items-center gap-1 py-1 text-[0.78rem] font-medium">
-          Ver más <ChevronDown className="h-3.5 w-3.5" />
+        <span aria-hidden className="invisible mt-2 inline-flex items-center gap-1 py-1 text-[0.78rem] font-medium"><Tr s={"Ver más"} />{" "}<ChevronDown className="h-3.5 w-3.5" />
         </span>
       )}
       {expandable && (
         <details className="group mt-2 w-full text-left" data-code-details>
           <summary className="cp-muted mx-auto flex w-fit cursor-pointer list-none items-center gap-1 py-1 text-[0.78rem] font-medium [&::-webkit-details-marker]:hidden">
-            <span className="group-open:hidden">Ver más</span>
-            <span className="hidden group-open:inline">Ver menos</span>
+            <span className="group-open:hidden"><Tr s={"Ver más"} /></span>
+            <span className="hidden group-open:inline"><Tr s={"Ver menos"} /></span>
             <ChevronDown aria-hidden className="h-3.5 w-3.5 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
           </summary>
           <div className="pt-2" data-code-more>
             {recs.length > 0 && (
               <div className="mb-3">
-                <p className="cp-display text-center text-[1.15rem] leading-tight">Recomendaciones</p>
+                <p className="cp-display text-center text-[1.15rem] leading-tight"><Tr s={"Recomendaciones"} /></p>
                 <ul className="mt-2 space-y-1.5 text-[0.84rem] leading-snug">
                   {recs.map((r, k) => (
                     <li key={k} className="flex gap-2">
@@ -148,11 +147,11 @@ export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscoun
                           className="group/rec inline-flex min-w-0 items-start gap-1 underline decoration-[color-mix(in_oklab,var(--c-gold)_45%,transparent)] underline-offset-[3px] transition hover:decoration-[var(--c-gold)]"
                           onClick={() => event("CODE_CLICK")}
                         >
-                          <span>{r.text}</span>
+                          <span><Tr s={r.text} /></span>
                           <ArrowUpRight aria-hidden className="cp-gold mt-[0.15em] h-3.5 w-3.5 shrink-0 transition-transform group-hover/rec:-translate-y-0.5 group-hover/rec:translate-x-0.5" />
                         </a>
                       ) : (
-                        <span>{r.text}</span>
+                        <span><Tr s={r.text} /></span>
                       )}
                     </li>
                   ))}

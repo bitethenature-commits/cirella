@@ -9,6 +9,7 @@ import { pieceHasLook, PIECES_MAX, type Piece, type PieceKind } from "@/lib/piec
 import { FIGURE_POS, type FigurePos } from "@/lib/sacred-figures";
 import { designValue, PANEL_GEOS, PHOTO_SHAPES, type Design, type PhotoShape } from "@/lib/templates";
 import { ButtonFrameSwatch, CardFrameSwatch, FramePicker } from "./design-editor";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /** La pieza que se ha tocado en la vista en vivo: su dirección (lib/pieces.ts), qué es, su texto y si es una foto suelta. */
 export type PickedPiece = { id: string; kind: PieceKind; label: string; img?: boolean };
@@ -24,16 +25,15 @@ function Field({ label, own, onReset, hint, children }: { label: string; own: bo
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-sm font-medium">
           {own && <span className="h-1.5 w-1.5 rounded-full bg-gold" />}
-          {label}
+          <Tr s={label} />
         </span>
         {own && (
           <button type="button" onClick={onReset} className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink">
-            <Undo2 className="h-3 w-3" /> Como el resto
-          </button>
+            <Undo2 className="h-3 w-3" />{" "}<Tr s={"Como el resto"} /></button>
         )}
       </div>
       {children}
-      {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-muted"><Tr s={hint} /></p>}
     </div>
   );
 }
@@ -59,6 +59,7 @@ export function PieceSheet({
   design: Design;
   onClose: () => void;
 }) {
+  const t = useT();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !(e.target as HTMLElement | null)?.closest?.("input, textarea, select")) onClose();
@@ -98,24 +99,24 @@ export function PieceSheet({
   };
 
   const colorField = (k: "bg" | "text" | "border" | "frameColor" | "geoColor", label: string, fallback: string, hint?: string) => (
-    <Field label={label} own={p[k] !== undefined} onReset={() => clear(k === "bg" ? ["bg", "bgOpacity"] : [k])} hint={hint}>
+    <Field label={t(label)} own={p[k] !== undefined} onReset={() => clear(k === "bg" ? ["bg", "bgOpacity"] : [k])} hint={t(hint)}>
       <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line bg-white p-2 pr-3">
-        <input type="color" value={p[k] ?? fallback} onChange={(e) => set({ [k]: e.target.value.toUpperCase() })} className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0" aria-label={label} />
-        <span className="font-mono text-xs uppercase text-muted">{p[k] ?? "Como el resto"}</span>
+        <input type="color" value={p[k] ?? fallback} onChange={(e) => set({ [k]: e.target.value.toUpperCase() })} className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0" aria-label={t(label)} />
+        <span className="font-mono text-xs uppercase text-muted"><Tr s={p[k] ?? t("Como el resto")} /></span>
       </label>
     </Field>
   );
   const slider = (k: "bgOpacity" | "borderWidth" | "radius" | "geoOpacity", label: string, min: number, max: number, fallback: number, show: (n: number) => string) => (
-    <Field label={label} own={p[k] !== undefined} onReset={() => clear([k])}>
+    <Field label={t(label)} own={p[k] !== undefined} onReset={() => clear([k])}>
       <div className="flex items-center gap-3">
-        <input type="range" min={min} max={max} value={p[k] ?? fallback} onChange={(e) => set({ [k]: Number(e.target.value) })} className="flex-1 accent-[#c9a46a]" aria-label={label} />
+        <input type="range" min={min} max={max} value={p[k] ?? fallback} onChange={(e) => set({ [k]: Number(e.target.value) })} className="flex-1 accent-[#c9a46a]" aria-label={t(label)} />
         <span className="w-16 text-right text-xs tabular-nums text-muted">{show(p[k] ?? fallback)}</span>
       </div>
     </Field>
   );
   /** `shown`: la que se ve marcada si no se ha elegido ninguna (la que lleva de por sí). */
   const pills = <T extends string>(label: string, value: T | undefined, options: Record<T, string>, onPick: (o: T) => void, onReset: () => void, shown?: T) => (
-    <Field label={label} own={value !== undefined} onReset={onReset}>
+    <Field label={t(label)} own={value !== undefined} onReset={onReset}>
       <div className="flex flex-wrap gap-1.5">
         {(Object.keys(options) as T[]).map((o) => (
           <button key={o} type="button" onClick={() => onPick(o)} className={`rounded-full border px-3 py-1.5 text-xs transition ${(value ?? shown) === o ? "border-ink bg-ink text-cream" : "border-line bg-white hover:border-ink/30"}`}>
@@ -131,22 +132,22 @@ export function PieceSheet({
   return (
     <div
       role="dialog"
-      aria-label={TITLE[kind]}
+      aria-label={t(TITLE[kind])}
       className="fixed inset-x-0 bottom-0 z-[43] flex max-h-[62vh] flex-col rounded-t-2xl border border-line bg-paper/80 text-ink backdrop-blur-xl shadow-[0_30px_80px_-20px_rgb(0_0_0/.75)] animate-fade-up sm:inset-x-auto sm:bottom-[3.6rem] sm:left-12 sm:max-h-[calc(100dvh-8.5rem)] sm:w-[26rem] sm:max-w-[calc(100vw-4.5rem)] sm:rounded-2xl lg:left-16"
     >
       <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-3">
         <div className="min-w-0">
-          <p className="font-semibold">{TITLE[kind]}</p>
-          <p className="truncate text-xs text-muted">{p.label || picked.label || "Sin texto"}</p>
+          <p className="font-semibold"><Tr s={TITLE[kind]} /></p>
+          <p className="truncate text-xs text-muted"><Tr s={p.label || picked.label || t("Sin texto")} /></p>
         </div>
-        <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full hover:bg-sand" aria-label="Cerrar">
+        <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full hover:bg-sand" aria-label={t("Cerrar")}>
           <X className="h-4 w-4" />
         </button>
       </div>
 
       <div className="flex-1 divide-y divide-line overflow-y-auto px-5 py-2">
         {full ? (
-          <p className="py-4 text-sm text-muted">Ya tienes {PIECES_MAX} piezas sueltas en esta página: quita alguna para cambiar otra.</p>
+          <p className="py-4 text-sm text-muted"><Tr s={"Ya tienes"} />{" "}{PIECES_MAX}{" "}<Tr s={"piezas sueltas en esta página: quita alguna para cambiar otra."} /></p>
         ) : kind === "photo" ? (
           <>
             {pills("Forma", p.shape, PHOTO_SHAPES, (o: PhotoShape) => set({ shape: o }), () => clear(["shape"]))}
@@ -155,10 +156,10 @@ export function PieceSheet({
             {colorField("border", "Color del borde", start.border)}
             {slider("borderWidth", "Grosor del borde", 0, 6, 1, (n) => `${n} px`)}
             {picked.img ? (
-              <p className="py-3 text-xs text-muted">En esta foto pequeña no caben adornos: su forma, su línea y su borde.</p>
+              <p className="py-3 text-xs text-muted"><Tr s={"En esta foto pequeña no caben adornos: su forma, su línea y su borde."} /></p>
             ) : (
               <>
-                <Field label="Adorno del marco" own={p.frame !== undefined} onReset={() => clear(["frame", "frameColor"])}>
+                <Field label={t("Adorno del marco")} own={p.frame !== undefined} onReset={() => clear(["frame", "frameColor"])}>
                   <FramePicker items={CARD_FRAMES} value={p.frame ?? ""} onPick={(k) => set({ frame: k })} preview={(k) => <CardFrameSwatch frame={k as CardFrameKey} />} />
                 </Field>
                 {p.frame && p.frame !== "none" && colorField("frameColor", "Color del adorno", gold)}
@@ -173,7 +174,7 @@ export function PieceSheet({
             {colorField("border", "Color del borde", start.border)}
             {slider("borderWidth", "Grosor del borde", 0, 6, 1, (n) => `${n} px`)}
             {slider("radius", "Esquinas", 0, 60, start.radius, (n) => (kind === "button" && n >= 60 ? "Píldora" : `${n} px`))}
-            <Field label="Marco" own={p.frame !== undefined} onReset={() => clear(["frame", "frameColor"])}>
+            <Field label={t("Marco")} own={p.frame !== undefined} onReset={() => clear(["frame", "frameColor"])}>
               {kind === "button" ? (
                 <FramePicker items={BUTTON_FRAMES} value={p.frame ?? ""} onPick={(k) => set({ frame: k })} preview={(k) => <ButtonFrameSwatch frame={k as ButtonFrameKey} />} />
               ) : (
@@ -194,7 +195,7 @@ export function PieceSheet({
               </>
             )}
             {kind === "panel" && (
-              <Field label="Estrellitas ✦ en las esquinas" own={p.stars === false} onReset={() => clear(["stars"])}>
+              <Field label={t("Estrellitas ✦ en las esquinas")} own={p.stars === false} onReset={() => clear(["stars"])}>
                 <button
                   type="button"
                   role="switch"
@@ -213,14 +214,11 @@ export function PieceSheet({
       <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3">
         {saved ? (
           <button type="button" onClick={() => write(null)} className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-rose">
-            <Trash2 className="h-3.5 w-3.5" /> Quitar lo propio
-          </button>
+            <Trash2 className="h-3.5 w-3.5" />{" "}<Tr s={"Quitar lo propio"} /></button>
         ) : (
-          <p className="text-xs text-muted">Lo que cambies, solo en esta pieza.</p>
+          <p className="text-xs text-muted"><Tr s={"Lo que cambies, solo en esta pieza."} /></p>
         )}
-        <button type="button" onClick={onClose} className="btn btn-primary btn-sm">
-          Listo
-        </button>
+        <button type="button" onClick={onClose} className="btn btn-primary btn-sm"><Tr s={"Listo"} /></button>
       </div>
     </div>
   );

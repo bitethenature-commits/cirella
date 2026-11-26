@@ -5,6 +5,7 @@ import type { DaySlots } from "@/lib/slots";
 import { sameOffset, tzCity, tzOffsetLabel } from "@/lib/timezones";
 import { addDaysToKey, capitalize, formatInTz, timeInTz, weekdayOfKey } from "@/lib/tz";
 import { browserTimezone, TimezoneSelect } from "./timezone-select";
+import { Tr, useT } from "@/lib/i18n/client";
 
 type SlotsResponse = {
   timezone: string;
@@ -57,6 +58,7 @@ export function SlotPicker({
   /** «owner»: la dueña mira su propia agenda (resumen sin «tu hora»). */
   viewer?: "client" | "owner";
 }) {
+  const t = useT();
   const [tz, setTz] = useState<string>(initialTz ?? "");
   const [data, setData] = useState<SlotsResponse | null>(null);
   const [error, setError] = useState(false);
@@ -129,19 +131,18 @@ export function SlotPicker({
   if (!tz || !data)
     return (
       <p className={`${colors.muted} flex items-center gap-2 text-sm`} aria-live="polite">
-        <Loader2 className="h-4 w-4 animate-spin" /> Cargando disponibilidad…
-      </p>
+        <Loader2 className="h-4 w-4 animate-spin" />{" "}<Tr s={"Cargando disponibilidad…"} /></p>
     );
-  if (error) return <p className={`${colors.muted} text-sm`}>No hemos podido cargar los horarios. Recarga la página en unos segundos.</p>;
+  if (error) return <p className={`${colors.muted} text-sm`}><Tr s={"No hemos podido cargar los horarios. Recarga la página en unos segundos."} /></p>;
 
   const zoneFooter = (
     <div className={`${colors.faint} mt-3 text-xs`}>
       {changingTz ? (
         <label className="block">
-          <span className="mb-1 block">Horas en tu zona:</span>
+          <span className="mb-1 block"><Tr s={"Horas en tu zona:"} /></span>
           <TimezoneSelect
             value={tz}
-            ariaLabel="Zona horaria"
+            ariaLabel={t("Zona horaria")}
             className={theme === "creator" ? "cp-input h-11 text-sm" : "input h-11 text-sm"}
             onChange={(z) => {
               setTz(z);
@@ -152,10 +153,8 @@ export function SlotPicker({
         </label>
       ) : (
         <p>
-          {viewer === "owner" ? "Horas en" : "Horas en tu zona:"} {tzCity(tz)} ({tzOffsetLabel(tz)}) ·{" "}
-          <button type="button" onClick={() => setChangingTz(true)} className="underline underline-offset-2">
-            Cambiar
-          </button>
+          {viewer === "owner" ? t("Horas en") : t("Horas en tu zona:")} {tzCity(tz)} ({tzOffsetLabel(tz)}) ·{" "}
+          <button type="button" onClick={() => setChangingTz(true)} className="underline underline-offset-2"><Tr s={"Cambiar"} /></button>
         </p>
       )}
     </div>
@@ -163,17 +162,14 @@ export function SlotPicker({
 
   // Por qué no hay días antes: la sesión cae siempre fuera de los 14 días para desistir.
   const day15Note = data.notBefore ? (
-    <p className={`${colors.muted} mb-3 text-xs leading-relaxed`} data-testid="dia-15">
-      Fechas a partir del {formatInTz(new Date(data.notBefore), data.ownerTimezone, { day: "numeric", month: "long" })}: las sesiones que se pagan
-      en la web se reservan desde el día 15 tras la compra, así nunca caen dentro de los 14 días en los que puedes desistir.
-    </p>
+    <p className={`${colors.muted} mb-3 text-xs leading-relaxed`} data-testid="dia-15"><Tr s={"Fechas a partir del"} />{" "}{formatInTz(new Date(data.notBefore), data.ownerTimezone, { day: "numeric", month: "long" })}<Tr s={": las sesiones que se pagan en la web se reservan desde el día 15 tras la compra, así nunca caen dentro de los 14 días en los que puedes desistir."} /></p>
   ) : null;
 
   if (data.days.length === 0)
     return (
       <div>
         {day15Note}
-        <p className={`${colors.muted} text-sm`}>{emptyText}</p>
+        <p className={`${colors.muted} text-sm`}><Tr s={emptyText} /></p>
         {zoneFooter}
       </div>
     );
@@ -207,20 +203,20 @@ export function SlotPicker({
           type="button"
           onClick={() => shiftMonth(-1)}
           disabled={current <= firstMonth}
-          aria-label="Mes anterior"
+          aria-label={t("Mes anterior")}
           className="grid h-11 w-11 place-items-center rounded-full border transition disabled:opacity-30"
           style={colors.line}
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
         <p className="text-sm font-semibold" aria-live="polite">
-          {monthLabel}
+          <Tr s={monthLabel} />
         </p>
         <button
           type="button"
           onClick={() => shiftMonth(1)}
           disabled={current >= lastMonth}
-          aria-label="Mes siguiente"
+          aria-label={t("Mes siguiente")}
           className="grid h-11 w-11 place-items-center rounded-full border transition disabled:opacity-30"
           style={colors.line}
         >
@@ -229,7 +225,7 @@ export function SlotPicker({
       </div>
       <div className={`${colors.faint} mt-3 grid grid-cols-7 text-center text-[0.65rem] font-semibold uppercase tracking-wider`} aria-hidden>
         {["L", "M", "X", "J", "V", "S", "D"].map((d) => (
-          <span key={d}>{d}</span>
+          <span key={d}><Tr s={d} /></span>
         ))}
       </div>
       <div className="mt-1 grid grid-cols-7 gap-1" role="group" aria-label={`Días de ${monthLabel}`}>
@@ -265,7 +261,7 @@ export function SlotPicker({
 
       {selected && (
         <div className="mt-4">
-          <p className={`${colors.muted} mb-2 text-xs`}>Horas libres el {longDay(selected.date)}</p>
+          <p className={`${colors.muted} mb-2 text-xs`}><Tr s={"Horas libres el"} />{" "}{longDay(selected.date)}</p>
           <div role="radiogroup" aria-label={`Horas libres el ${longDay(selected.date)}`} className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {selected.slots.map((s) => {
               const on = value === s.start;
@@ -279,7 +275,7 @@ export function SlotPicker({
                   className="h-11 rounded-xl border text-sm font-medium tabular-nums transition"
                   style={on ? colors.timeOn : colors.line}
                 >
-                  {s.label}
+                  <Tr s={s.label} />
                 </button>
               );
             })}
@@ -290,11 +286,11 @@ export function SlotPicker({
       {chosen && byDate.size > 0 && [...byDate.values()].some((d) => d.slots.some((s) => s.start === value)) && (
         <p className="mt-3 text-sm font-medium" aria-live="polite">
           {capitalize(formatInTz(chosen, tz, { weekday: "long", day: "numeric", month: "long" }))}, {timeInTz(chosen, tz)}
-          {viewer === "client" ? " (tu hora)" : ` (hora de ${tzCity(tz)})`}
+          {viewer === "client" ? t(" (tu hora)") : ` (hora de ${tzCity(tz)})`}
           {!sameOffset(tz, owner, chosen) && (
             <span className={colors.muted}>
               {" "}
-              · {timeInTz(chosen, owner)} en {tzCity(owner)}
+              · {timeInTz(chosen, owner)}{" "}<Tr s={"en"} />{" "}{tzCity(owner)}
             </span>
           )}
         </p>

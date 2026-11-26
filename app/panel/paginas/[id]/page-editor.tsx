@@ -18,6 +18,7 @@ import { COMMUNITY_SLUG, GIFTS_SLUG, isFixedPageSlug, sitePagePath, type SitePag
 import { slugify } from "@/lib/slug";
 import type { OracleDeckView } from "@/components/models/data/oracle";
 import { addSitePageButtonAction, deleteSitePageAction, publishSitePageAction, saveSitePageDraft, unpublishSitePageAction } from "../actions";
+import { Tr } from "@/lib/i18n/client";
 
 type Props = {
   id: string;
@@ -153,14 +154,12 @@ export function SitePageEditor(props: Props) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={content.cover.src} alt="" className="block h-auto w-full rounded-[var(--r-card)]" />
                 <button type="button" onClick={() => set("cover", null)} className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white">
-                  <X className="h-3.5 w-3.5" /> Quitar imagen
-                </button>
+                  <X className="h-3.5 w-3.5" />{" "}<Tr s={"Quitar imagen"} /></button>
               </div>
             ) : (
               <div className="rounded-2xl bg-white/95 p-3 text-ink">
                 <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted">
-                  <ImagePlus className="h-4 w-4" /> Imagen de cabecera (opcional)
-                </p>
+                  <ImagePlus className="h-4 w-4" />{" "}<Tr s={"Imagen de cabecera (opcional)"} /></p>
                 <ImageUpload
                   shape="wide"
                   graphic
@@ -198,14 +197,11 @@ export function SitePageEditor(props: Props) {
   const actions = (small: boolean) => (
     <>
       <button type="button" onClick={() => run("save")} disabled={pending || !dirty} className={`btn btn-outline ${small ? "btn-sm" : ""}`}>
-        {busy === "save" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Guardar
-      </button>
+        {busy === "save" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{" "}<Tr s={"Guardar"} /></button>
       <button type="button" onClick={() => run("preview")} disabled={pending} className={`btn btn-outline ${small ? "btn-sm" : ""}`}>
-        {busy === "preview" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />} Vista previa
-      </button>
+        {busy === "preview" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}{" "}<Tr s={"Vista previa"} /></button>
       <button type="button" onClick={() => run("publish")} disabled={pending || uploading || !(unpublished || dirty)} className={`btn btn-primary ${small ? "btn-sm" : ""}`}>
-        {busy === "publish" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Publicar
-      </button>
+        {busy === "publish" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{" "}<Tr s={"Publicar"} /></button>
     </>
   );
 
@@ -213,14 +209,13 @@ export function SitePageEditor(props: Props) {
     <div>
       <div className="min-w-0">
         <Link href="/panel/pagina?ver=paginas" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-          <ArrowLeft className="h-4 w-4" /> Páginas
-        </Link>
+          <ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Páginas"} /></Link>
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
-            <h1 className="display truncate text-[2.1rem] leading-none sm:text-[2.5rem]">{content.title || "Página"}</h1>
+            <h1 className="display truncate text-[2.1rem] leading-none sm:text-[2.5rem]">{content.title || <Tr s={"Página"} />}</h1>
             <p className="mt-2 flex items-center gap-2 text-sm text-muted" data-page-status>
               <span className={`h-2 w-2 rounded-full ${dirty ? "bg-gold" : status !== "PUBLISHED" || unpublished ? "bg-lavender-deep" : "bg-success"}`} />
-              {dirty ? "Cambios sin guardar" : status !== "PUBLISHED" ? "Borrador guardado · sin publicar" : unpublished ? "Cambios sin publicar" : "Todo publicado"}
+              {dirty ? <Tr s={"Cambios sin guardar"} /> : status !== "PUBLISHED" ? <Tr s={"Borrador guardado · sin publicar"} /> : unpublished ? <Tr s={"Cambios sin publicar"} /> : <Tr s={"Todo publicado"} />}
             </p>
           </div>
           <div className="hidden flex-wrap justify-end gap-2 sm:flex">{actions(false)}</div>
@@ -235,7 +230,7 @@ export function SitePageEditor(props: Props) {
                 onClick={() => setTab(t.key)}
                 className={`shrink-0 rounded-full px-3.5 py-2 text-sm transition ${tab === t.key ? "bg-ink text-cream" : "text-muted hover:bg-sand hover:text-ink"}`}
               >
-                {t.label}
+                <Tr s={t.label} />
               </button>
             ))}
           </div>
@@ -244,7 +239,7 @@ export function SitePageEditor(props: Props) {
         <div className="space-y-5 pb-28 lg:pb-10">
           {tab === "contenido" && (
             <>
-              <p className="text-sm text-muted">Así se ve en tu web: escribe encima. Cada bloque tiene arriba su barra (estilo, título dorado, ajustes, subir, bajar, borrar) y entre bloques puedes añadir otro con «Añadir aquí».</p>
+              <p className="text-sm text-muted"><Tr s={"Así se ve en tu web: escribe encima. Cada bloque tiene arriba su barra (estilo, título dorado, ajustes, subir, bajar, borrar) y entre bloques puedes añadir otro con «Añadir aquí»."} /></p>
               {/* Los enlaces de la web no llevan a ningún sitio mientras editas. */}
               <div
                 className="overflow-hidden rounded-[1.6rem] border border-line shadow-lift [transform:translateZ(0)]"
@@ -261,14 +256,13 @@ export function SitePageEditor(props: Props) {
           {tab === "ajustes" && (
             <>
               <section className="card space-y-3 p-5 sm:p-6">
-                <label htmlFor="sp-slug" className="font-semibold">Dirección</label>
+                <label htmlFor="sp-slug" className="font-semibold"><Tr s={"Dirección"} /></label>
                 {oneToOne ? (
                   <p className="text-sm text-muted">
-                    <span className="font-semibold text-ink">{props.host}{path}</span> · {fixedName} tiene su dirección fija. Mientras no la publiques, en tu web sale la de siempre.
-                  </p>
+                    <span className="font-semibold text-ink"><Tr s={props.host} /><Tr s={path} /></span> · <Tr s={fixedName} />{" "}<Tr s={"tiene su dirección fija. Mientras no la publiques, en tu web sale la de siempre."} /></p>
                 ) : (
                 <div className="flex items-center rounded-xl border border-line bg-white pl-3 text-sm focus-within:border-ink/40">
-                  <span className="shrink-0 text-muted">{prefix}</span>
+                  <span className="shrink-0 text-muted"><Tr s={prefix} /></span>
                   <input
                     id="sp-slug"
                     className="h-11 min-w-0 flex-1 bg-transparent pr-3 outline-none"
@@ -282,35 +276,33 @@ export function SitePageEditor(props: Props) {
                 </div>
                 )}
                 {publishedSlug && slugify(slug) !== publishedSlug && (
-                  <p className="text-xs text-rose">Si la cambias, el enlace que ya compartiste dejará de funcionar.</p>
+                  <p className="text-xs text-rose"><Tr s={"Si la cambias, el enlace que ya compartiste dejará de funcionar."} /></p>
                 )}
                 {status === "PUBLISHED" && <CopyButton text={`${props.origin}${sitePagePath(props.username, publishedSlug ?? slug, props.personal)}`} className="btn btn-outline btn-sm" />}
                 <label className="flex items-start gap-2.5 pt-2 text-sm">
                   <input type="checkbox" checked={showInNav} onChange={(e) => setShowInNav(e.target.checked)} className="mt-0.5 accent-[#0E1024]" />
-                  <span>
-                    Mostrar en el pie de mi web
-                    <span className="block text-xs text-muted">Un enlace a esta página al final de tu portada y de las demás páginas, mientras esté publicada.</span>
+                  <span><Tr s={"Mostrar en el pie de mi web"} /><span className="block text-xs text-muted"><Tr s={"Un enlace a esta página al final de tu portada y de las demás páginas, mientras esté publicada."} /></span>
                   </span>
                 </label>
               </section>
 
               <section className="card space-y-3 p-5 sm:p-6">
-                <h3 className="font-semibold">Cómo se ve al compartir</h3>
-                <p className="text-xs text-muted">En Google, WhatsApp e Instagram. Vacío: el título y el subtítulo de la página.</p>
+                <h3 className="font-semibold"><Tr s={"Cómo se ve al compartir"} /></h3>
+                <p className="text-xs text-muted"><Tr s={"En Google, WhatsApp e Instagram. Vacío: el título y el subtítulo de la página."} /></p>
                 <div>
-                  <label htmlFor="sp-seo-title" className="field-label">Título para buscadores</label>
+                  <label htmlFor="sp-seo-title" className="field-label"><Tr s={"Título para buscadores"} /></label>
                   <input id="sp-seo-title" className="input" value={content.seoTitle} maxLength={70} placeholder={content.title} onChange={(e) => set("seoTitle", e.target.value)} />
                   <p className="field-hint text-right tabular-nums">{content.seoTitle.length}/70</p>
                 </div>
                 <div>
-                  <label htmlFor="sp-seo-desc" className="field-label">Descripción</label>
+                  <label htmlFor="sp-seo-desc" className="field-label"><Tr s={"Descripción"} /></label>
                   <textarea id="sp-seo-desc" className="input" rows={3} value={content.seoDescription} maxLength={160} placeholder={content.subtitle} onChange={(e) => set("seoDescription", e.target.value)} />
                   <p className="field-hint text-right tabular-nums">{content.seoDescription.length}/160</p>
                 </div>
               </section>
 
               <section className="card space-y-3 p-5 sm:p-6">
-                <h3 className="font-semibold">En tu portada</h3>
+                <h3 className="font-semibold"><Tr s={"En tu portada"} /></h3>
                 <button
                   type="button"
                   disabled={pending}
@@ -324,24 +316,22 @@ export function SitePageEditor(props: Props) {
                   }}
                   className="btn btn-outline btn-sm h-10"
                 >
-                  {busy === "button" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Añadir un botón a esta página en mi portada
-                </button>
-                <p className="text-xs text-muted">Se añade a los «Botones principales» del borrador de «Mi página»: publícala para que se vea.</p>
+                  {busy === "button" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}{" "}<Tr s={"Añadir un botón a esta página en mi portada"} /></button>
+                <p className="text-xs text-muted"><Tr s={"Se añade a los «Botones principales» del borrador de «Mi página»: publícala para que se vea."} /></p>
               </section>
 
               <section className="card flex flex-wrap gap-2 p-5 sm:p-6">
                 {status === "PUBLISHED" && (
                   <form action={unpublishSitePageAction}>
                     <input type="hidden" name="id" value={props.id} />
-                    <button className="btn btn-outline btn-sm h-10">Despublicar</button>
+                    <button className="btn btn-outline btn-sm h-10"><Tr s={"Despublicar"} /></button>
                   </form>
                 )}
                 {(
                 <ConfirmForm action={deleteSitePageAction} message={oneToOne ? `¿Borrar la página de ${fixedName}? No vuelve a crearse. En tu web, su sección enseña el texto de partida hasta que la ocultes en tu portada (Mi página).` : `¿Borrar «${props.initial.title}»? Su dirección dejará de funcionar.`}>
                   <input type="hidden" name="id" value={props.id} />
                   <button className="btn btn-ghost btn-sm h-10 text-rose">
-                    <Trash2 className="h-4 w-4" /> Borrar página
-                  </button>
+                    <Trash2 className="h-4 w-4" />{" "}<Tr s={"Borrar página"} /></button>
                 </ConfirmForm>
                 )}
               </section>
@@ -357,7 +347,7 @@ export function SitePageEditor(props: Props) {
 
       {toast && (
         <div role="status" className={`fixed bottom-36 left-1/2 z-50 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-2xl px-4 py-2.5 text-center text-sm font-medium shadow-lift animate-fade-up sm:bottom-8 ${toast.ok ? "bg-ink text-cream" : "bg-rose text-white"}`}>
-          {toast.text}
+          <Tr s={toast.text} />
         </div>
       )}
     </div>

@@ -118,7 +118,7 @@ export async function wallKinds(owner: Owner, productIds: string[], now = new Da
 export async function loadQueue(owner: Owner, tierId: string | null, now = new Date()) {
   const db = tenantDb(owner.id);
   const tierWhere = tierId ? { productId: tierId } : {};
-  // Lo que necesita su tarjeta del área (app/cuenta/membresias/post-card.tsx).
+  // Lo que necesita su tarjeta del área (app/area/membership/post-card.tsx).
   const select = {
     id: true,
     productId: true,

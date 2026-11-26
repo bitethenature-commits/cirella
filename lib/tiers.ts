@@ -53,7 +53,7 @@ export function wouldCreateCycle(edges: InclusionEdge[], productId: string, incl
 
 /**
  * Nivel de cada membresía (1 = la de abajo): cuántas membresías incluye por debajo, más uno. Sirve
- * para ordenar los niveles en /comunidad de menor a mayor.
+ * para ordenar los niveles en /membership de menor a mayor.
  */
 export function tierLevel(edges: InclusionEdge[], membershipId: string, memberships: Set<string>): number {
   return descendantsOf(edges, membershipId).filter((id) => memberships.has(id)).length + 1;

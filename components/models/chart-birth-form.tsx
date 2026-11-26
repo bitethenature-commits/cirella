@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type Keybo
 import { formatCoord, isValidZone } from "@/lib/natal-chart";
 import { fold, loadCities, searchCities, toPlace, type CityIndex, type Place } from "./cities";
 import { cn } from "./model-kit";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Datos de nacimiento de la carta natal: nombre (opcional), fecha, hora (o «No sé la hora») y lugar.
@@ -76,6 +77,7 @@ export function BirthForm({
   /** Al guardar, el nombre hace falta para reconocer los datos: sin «(opcional)». */
   nameRequired?: boolean;
 }) {
+  const t = useT();
   const uid = useId();
   const [name, setName] = useState(initial?.name ?? "");
   const [date, setDate] = useState(initial?.date ?? "");
@@ -196,41 +198,34 @@ export function BirthForm({
         background: "color-mix(in oklab, var(--c-gold) 4%, transparent)",
       }}
     >
-      <p className="cp-display text-[1.35rem] leading-tight">{title}</p>
+      <p className="cp-display text-[1.35rem] leading-tight"><Tr s={title} /></p>
       {note && <p className="cp-muted mt-1 text-[0.8rem] leading-relaxed">{note}</p>}
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <label htmlFor={`${uid}-name`} className={LABEL}>
-            Nombre {!nameRequired && <span className="normal-case tracking-normal opacity-70">(opcional)</span>}
+          <label htmlFor={`${uid}-name`} className={LABEL}><Tr s={"Nombre"} />{" "}{!nameRequired && <span className="normal-case tracking-normal opacity-70"><Tr s={"(opcional)"} /></span>}
           </label>
           <input ref={firstField} id={`${uid}-name`} className={FIELD} value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={60} />
         </div>
         <div>
-          <label htmlFor={`${uid}-date`} className={LABEL}>
-            Fecha
-          </label>
+          <label htmlFor={`${uid}-date`} className={LABEL}><Tr s={"Fecha"} /></label>
           <input id={`${uid}-date`} type="date" className={FIELD} value={date} min={MIN_DATE} max={MAX_DATE} onChange={(e) => setDate(e.target.value)} required />
         </div>
         <div>
-          <label htmlFor={`${uid}-time`} className={LABEL}>
-            Hora local
-          </label>
+          <label htmlFor={`${uid}-time`} className={LABEL}><Tr s={"Hora local"} /></label>
           <input id={`${uid}-time`} type="time" className={cn(FIELD, !timeKnown && "opacity-40")} value={time} disabled={!timeKnown} onChange={(e) => setTime(e.target.value)} />
           {/* Toda la fila marca y desmarca (no solo la casilla). */}
           <label className="cp-line mt-2 flex min-h-10 w-full cursor-pointer select-none items-center gap-2 rounded-[min(var(--r-btn),12px)] border px-3 py-2 text-[0.82rem] transition hover:bg-[color-mix(in_oklab,var(--c-gold)_6%,transparent)]">
             <input type="checkbox" checked={!timeKnown} onChange={(e) => setTimeKnown(!e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--c-gold)]" />
-            <span className="flex-1">No sé la hora</span>
+            <span className="flex-1"><Tr s={"No sé la hora"} /></span>
           </label>
         </div>
 
         <div className="sm:col-span-2">
           <div className="flex items-baseline justify-between gap-3">
-            <label htmlFor={manual ? `${uid}-lat` : `${uid}-place`} className={LABEL}>
-              Lugar de nacimiento
-            </label>
+            <label htmlFor={manual ? `${uid}-lat` : `${uid}-place`} className={LABEL}><Tr s={"Lugar de nacimiento"} /></label>
             <button type="button" onClick={() => setManual(!manual)} className="cp-gold min-h-8 text-[0.78rem] underline decoration-dotted underline-offset-4">
-              {manual ? "Buscar ciudad" : "Coordenadas"}
+              {manual ? t("Buscar ciudad") : t("Coordenadas")}
             </button>
           </div>
           {!manual ? (
@@ -239,7 +234,7 @@ export function BirthForm({
                 id={`${uid}-place`}
                 className={FIELD}
                 value={query}
-                placeholder={index ? "Ciudad o pueblo (p. ej. Sevilla)" : loadError ? "Lista no disponible: usa «Coordenadas»" : "Cargando ciudades…"}
+                placeholder={index ? t("Ciudad o pueblo (p. ej. Sevilla)") : loadError ? t("Lista no disponible: usa «Coordenadas»") : t("Cargando ciudades…")}
                 onChange={(e) => {
                   setQuery(e.target.value);
                   setOpen(true);
@@ -276,44 +271,36 @@ export function BirthForm({
                         onMouseEnter={() => setActive(k)}
                         className={cn("cursor-pointer px-4 py-2.5 text-[0.9rem] leading-snug", k === active && "bg-[color-mix(in_oklab,var(--c-gold)_12%,transparent)]")}
                       >
-                        <span>{p.label}</span>
-                        {alias && <span className="cp-muted"> · {alias}</span>}
-                        <span className="cp-muted block text-[0.75rem]">{p.detail}</span>
+                        <span><Tr s={p.label} /></span>
+                        {alias && <span className="cp-muted"> · <Tr s={alias} /></span>}
+                        <span className="cp-muted block text-[0.75rem]"><Tr s={p.detail} /></span>
                       </li>
                     );
                   })}
                 </ul>
               )}
               {open && index && fold(query.split(",")[0] ?? "").length >= 2 && !results.length && (
-                <p className="cp-muted mt-2 text-[0.8rem]">
-                  No está en la lista (ciudades y pueblos de España de más de 1000 habitantes; de Europa y América, de más de 15 000). Prueba otro nombre o usa «Coordenadas».
-                </p>
+                <p className="cp-muted mt-2 text-[0.8rem]"><Tr s={"No está en la lista (ciudades y pueblos de España de más de 1000 habitantes; de Europa y América, de más de 15 000). Prueba otro nombre o usa «Coordenadas»."} /></p>
               )}
               {place && query === place.label && (
                 <p className="cp-muted mt-2 text-[0.78rem]">
-                  {place.detail} · {formatCoord(place.lat, "lat")} {formatCoord(place.lon, "lon")} · {place.tz}
+                  <Tr s={place.detail} /> · {formatCoord(place.lat, "lat")} {formatCoord(place.lon, "lon")} · <Tr s={place.tz} />
                 </p>
               )}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor={`${uid}-lat`} className="cp-muted mb-1 block text-[0.75rem]">
-                  Latitud (norte +, sur −)
-                </label>
+                <label htmlFor={`${uid}-lat`} className="cp-muted mb-1 block text-[0.75rem]"><Tr s={"Latitud (norte +, sur −)"} /></label>
                 <input id={`${uid}-lat`} className={FIELD} inputMode="decimal" value={lat} placeholder="40,42" onChange={(e) => setLat(e.target.value)} />
               </div>
               <div>
-                <label htmlFor={`${uid}-lon`} className="cp-muted mb-1 block text-[0.75rem]">
-                  Longitud (este +, oeste −)
-                </label>
+                <label htmlFor={`${uid}-lon`} className="cp-muted mb-1 block text-[0.75rem]"><Tr s={"Longitud (este +, oeste −)"} /></label>
                 <input id={`${uid}-lon`} className={FIELD} inputMode="decimal" value={lon} placeholder="−3,70" onChange={(e) => setLon(e.target.value)} />
               </div>
               <div className="col-span-2">
-                <label htmlFor={`${uid}-tz`} className="cp-muted mb-1 block text-[0.75rem]">
-                  Zona horaria (con su historia de cambios de hora) o desfase fijo
-                </label>
-                <input id={`${uid}-tz`} className={FIELD} value={tz} list={`${uid}-zones`} placeholder="Europe/Madrid o UTC+01:00" onChange={(e) => setTz(e.target.value)} autoComplete="off" />
+                <label htmlFor={`${uid}-tz`} className="cp-muted mb-1 block text-[0.75rem]"><Tr s={"Zona horaria (con su historia de cambios de hora) o desfase fijo"} /></label>
+                <input id={`${uid}-tz`} className={FIELD} value={tz} list={`${uid}-zones`} placeholder={t("Europe/Madrid o UTC+01:00")} onChange={(e) => setTz(e.target.value)} autoComplete="off" />
                 <datalist id={`${uid}-zones`}>
                   {zones.map((z) => (
                     <option key={z} value={z} />
@@ -329,27 +316,20 @@ export function BirthForm({
 
       {error && (
         <p role="alert" className="mt-4 text-[0.85rem]" style={{ color: "#D0584F" }}>
-          {error}
+          <Tr s={error} />
         </p>
       )}
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <button type="submit" className="cp-btn" disabled={busy} aria-busy={busy}>
-          {busy ? "Guardando…" : submitLabel}
+          {busy ? t("Guardando…") : submitLabel}
         </button>
         {onCancel && (
-          <button type="button" onClick={onCancel} className="cp-btn-ghost">
-            Cancelar
-          </button>
+          <button type="button" onClick={onCancel} className="cp-btn-ghost"><Tr s={"Cancelar"} /></button>
         )}
       </div>
-      <p className="cp-faint mt-4 text-[0.7rem] leading-relaxed">
-        Datos de ciudades:{" "}
-        <a href="https://www.geonames.org" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2">
-          GeoNames
-        </a>{" "}
-        (CC BY 4.0).
-      </p>
+      <p className="cp-faint mt-4 text-[0.7rem] leading-relaxed"><Tr s={"Datos de ciudades:"} />{" "}
+        <a href="https://www.geonames.org" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2"><Tr s={"GeoNames"} /></a>{" "}<Tr s={"(CC BY 4.0)."} /></p>
     </form>
   );
 }

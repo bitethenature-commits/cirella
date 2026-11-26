@@ -4,6 +4,7 @@ import { appHost } from "@/lib/env";
 import { getPublicCreator } from "@/lib/public";
 import { isPersonalMode } from "@/lib/site-mode";
 import { resolveTheme } from "@/lib/templates";
+import { Tr } from "@/lib/i18n/client";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
@@ -36,10 +37,10 @@ export default async function OgImage({ params }: { params: Promise<{ username: 
           fontFamily: "serif",
         }}
       >
-        <div style={{ display: "flex", fontSize: 26, letterSpacing: 6, textTransform: "uppercase", color: c.gold }}>{tagline}</div>
+        <div style={{ display: "flex", fontSize: 26, letterSpacing: 6, textTransform: "uppercase", color: c.gold }}><Tr s={tagline} /></div>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ fontSize: 110, lineHeight: 1 }}>{name}</div>
-          <div style={{ fontSize: 44, marginTop: 24, fontStyle: "italic", color: c.accent }}>{headline}</div>
+          <div style={{ fontSize: 44, marginTop: 24, fontStyle: "italic", color: c.accent }}><Tr s={headline} /></div>
         </div>
         <div style={{ display: "flex", fontSize: 26, opacity: 0.7 }}>{data?.personal ? appHost() : `${data?.platformName ?? "Cirella"} · /${username}`}</div>
       </div>

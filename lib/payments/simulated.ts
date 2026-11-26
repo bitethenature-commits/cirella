@@ -8,13 +8,13 @@ import type { PaymentProvider, PaymentStatus, PayoutAccountSnapshot, StartPaymen
  *
  * Tarjetas de prueba:
  *   · 4000 0000 0000 0002 → rechazada.
- *   · 4000 0027 6000 3184 → el banco pide confirmar: página /pago-simulado/<ref> con
+ *   · 4000 0027 6000 3184 → el banco pide confirmar: página /test-payment/<ref> con
  *     «Confirmar el pago», «Cancelar» y «El banco tarda (pago pendiente)».
  *   · 4000 0000 0000 0341 → se cobra y se guarda, pero la renovación de la membresía falla.
  *   · Cualquier otra (12+ dígitos) o Apple / Google Pay → aprobada al momento.
  *
  * El «servidor» del simulador es nuestra BD: el estado de un pago es el del pedido y el de una
- * cuenta de cobro, lo que eligió la creadora en /pago-simulado/cuenta. No hay webhooks: sus páginas
+ * cuenta de cobro, lo que eligió la creadora en /test-payment/account. No hay webhooks: sus páginas
  * llaman directamente a applyPaymentUpdate / syncPayoutAccount.
  */
 export const DECLINED_TEST_CARD = "4000000000000002";
@@ -40,7 +40,7 @@ export const simulatedProvider: PaymentProvider = {
     await new Promise((r) => setTimeout(r, 350)); // latencia realista
     if (method === "card" && digits === THREE_DS_TEST_CARD) {
       const checkoutRef = `sim_cs_${hex()}`;
-      return { state: "requires_action", checkoutRef, redirectUrl: `${appUrl()}/pago-simulado/${checkoutRef}`, expiresAt: new Date(Date.now() + CHECKOUT_MINUTES * 60_000) };
+      return { state: "requires_action", checkoutRef, redirectUrl: `${appUrl()}/test-payment/${checkoutRef}`, expiresAt: new Date(Date.now() + CHECKOUT_MINUTES * 60_000) };
     }
     const last4 = method === "card" ? digits.slice(-4) : "4242";
     return {
@@ -97,7 +97,7 @@ export const simulatedProvider: PaymentProvider = {
   },
 
   async payoutOnboardingUrl({ returnUrl }) {
-    return `${appUrl()}/pago-simulado/cuenta?vuelta=${encodeURIComponent(returnUrl)}`;
+    return `${appUrl()}/test-payment/account?vuelta=${encodeURIComponent(returnUrl)}`;
   },
 
   async getPayoutAccount(accountId) {

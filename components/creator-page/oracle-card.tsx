@@ -1,3 +1,4 @@
+import { productPath } from "@/lib/public-paths";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { COURSE_CATEGORY_LABEL, productTopics, type CourseCategory } from "@/lib/course-categories";
@@ -6,6 +7,7 @@ import { CategoryIcons } from "./category-icons";
 import type { PublicProduct } from "./creator-page-view";
 import { ProductImage } from "./product-art";
 import { FlowerOfLife, SacredButton } from "./sacred-button";
+import { Tr } from "@/lib/i18n/client";
 
 /** La palabra en vertical: el sistema (Astrología, Gene Keys…) o, sin tema, qué es. */
 function kindWord(p: PublicProduct): string {
@@ -39,13 +41,13 @@ export function OracleSide({ topics, word }: { topics: CourseCategory[]; word: s
       <span className="cp-oracle-dots" />
       <span className="cp-oracle-emblem">{topics.length ? <CategoryIcons categories={[topics[0]]} size={1.85} /> : <Sparkles className="h-7 w-7" strokeWidth={1.1} />}</span>
       <span className="cp-oracle-dots" />
-      <span className="cp-oracle-word">{word}</span>
+      <span className="cp-oracle-word"><Tr s={word} /></span>
     </div>
   );
 }
 
 /**
- * Tarjeta de un producto como una carta de oráculo (portada, /lecturas, /sesiones): la foto con marco
+ * Tarjeta de un producto como una carta de oráculo (portada, /readings, /sessions): la foto con marco
  * dorado y, a su derecha, el costado con el sistema (OracleSide); debajo, el título, el texto breve,
  * la raya con la estrella, el precio y el botón «Escríbeme». Toda la tarjeta lleva a
  * su ficha; el botón, por encima, al formulario de solicitud (o a la web de pago, o a la ficha si es
@@ -68,8 +70,8 @@ export function OracleCard({
   const free = mode === "FREE_EMAIL";
   const external = mode === "EXTERNAL" && !!p.externalUrl;
   const priceCents = p.sale ? p.sale.priceCents : p.priceCents;
-  const productHref = editHref ?? `/${username}/${p.slug}`;
-  const href = editHref ?? (free ? productHref : external ? p.externalUrl! : `${productHref}/solicitar`);
+  const productHref = editHref ?? `${productPath(username, p)}`;
+  const href = editHref ?? (free ? productHref : external ? p.externalUrl! : `${productHref}/request`);
   const label = free ? "Lo quiero" : external ? "Ver dónde" : p.cardCta || "Escríbeme";
   const event = trackCreatorId ? { creatorId: trackCreatorId, type: "PRODUCT_CLICK" as const, productId: p.id } : null;
   return (
@@ -83,15 +85,15 @@ export function OracleCard({
         <OracleSide topics={topics} word={kindWord(p)} />
       </div>
       <h3 className="cp-oracle-title">{p.title}</h3>
-      {p.summary && <p className="cp-oracle-text">{p.summary}</p>}
+      {p.summary && <p className="cp-oracle-text"><Tr s={p.summary} /></p>}
       <div className="cp-oracle-rule" aria-hidden>
         <span>✦</span>
       </div>
       {(free || priceCents > 0) && (
         <p className="cp-oracle-price">
           {p.sale && <s className="cp-faint mr-2 text-[1.1rem]">{formatPrice(p.sale.regularCents, p.currency)}</s>}
-          {free ? "Gratis" : formatPrice(priceCents, p.currency, p.billingInterval)}
-          {p.meta && p.type === "SESSION" && p.groupSession && <span className="cp-oracle-meta">{p.meta}</span>}
+          {free ? <Tr s={"Gratis"} /> : formatPrice(priceCents, p.currency, p.billingInterval)}
+          {p.meta && p.type === "SESSION" && p.groupSession && <span className="cp-oracle-meta"><Tr s={p.meta} /></span>}
         </p>
       )}
       <SacredButton href={href} label={label} ariaLabel={`${label}: ${p.title}`} event={event} />

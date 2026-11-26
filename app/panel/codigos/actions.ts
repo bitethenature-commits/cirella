@@ -1,5 +1,6 @@
 "use server";
 
+import { translateSoon } from "@/lib/i18n/content";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -48,11 +49,13 @@ async function storeCode(form: FormData): Promise<{ error: string } | { created:
   if (!current) {
     const last = await db.discountCode.findFirst({ orderBy: { sortOrder: "desc" }, select: { sortOrder: true } });
     await db.discountCode.create({ data: { creatorId: creator.id, ...data, sortOrder: (last?.sortOrder ?? 0) + 1 } });
+    translateSoon(creator.id, true);
     refresh(creator.username);
     return { created: true, state: codeState(data) };
   }
   await db.discountCode.update({ where: { id: current.id }, data });
   refresh(creator.username, current.id);
+  translateSoon(creator.id, true);
   return { created: false, state: codeState(data) };
 }
 

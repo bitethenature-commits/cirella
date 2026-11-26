@@ -19,9 +19,9 @@ const TAG = `e2e-cobros-${Date.now()}`;
 const buyer = (label: string) => `${TAG}-${label}@example.com`;
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 async function fillCheckout(page: Page, label: string) {
@@ -72,7 +72,7 @@ test.describe.serial("Web personal que cobra con tarjeta y PayPal", () => {
     await page.waitForURL(/localhost:\d+\/checkoutnow\?token=/);
     await expect(page.getByText("59.00 EUR")).toBeVisible();
     await page.getByRole("button", { name: "Pagar con PayPal" }).click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
     const prisma = new PrismaClient();
     const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail: buyer("paypal") } });
@@ -97,7 +97,7 @@ test.describe.serial("Web personal que cobra con tarjeta y PayPal", () => {
     await page.getByRole("radio", { name: /Tarjeta/ }).click();
     await fillCheckout(page, "tarjeta");
     await page.getByRole("button", { name: /^Pagar 59/ }).click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
   });
 
@@ -128,7 +128,7 @@ test.describe.serial("Web personal que cobra con tarjeta y PayPal", () => {
 
   test("«Mis canales»: cada cosa en grande, sin importes ni facturas", async ({ page }) => {
     await demoLogin(page, "Laura Martín");
-    await page.goto("/cuenta/compras");
+    await page.goto("/area/purchases");
     await expect(page.getByRole("heading", { name: "Mis canales", level: 1 })).toBeVisible();
     await expect(page.getByRole("link", { name: "Mis canales" }).first()).toBeVisible();
     const main = page.locator("main");

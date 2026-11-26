@@ -1,6 +1,7 @@
 import { Download, FileImage } from "lucide-react";
 import { ZoomableImage } from "./zoomable-image";
 import type { PlayerFile } from "./video-player";
+import { Tr } from "@/lib/i18n/client";
 
 /** Por encima de esto no se enseña en la página (un PNG enorme de Canva tumba Safari): solo descarga. */
 const MAX_PREVIEW_BYTES = 40 * 1024 * 1024;
@@ -12,14 +13,13 @@ const MAX_PREVIEW_BYTES = 40 * 1024 * 1024;
 export function ImageViewer({ file }: { file: PlayerFile }) {
   const download = (
     <a href={`/api/download/${file.id}`} className="btn btn-outline btn-sm">
-      <Download className="h-4 w-4" /> Descargar para imprimir
-    </a>
+      <Download className="h-4 w-4" />{" "}<Tr s={"Descargar para imprimir"} /></a>
   );
   if (file.sizeBytes && file.sizeBytes > MAX_PREVIEW_BYTES)
     return (
       <div className="card flex flex-col items-center gap-3 p-6 text-center" data-image-viewer>
         <FileImage className="h-6 w-6 text-lavender-deep" />
-        <p className="text-sm text-muted">Esta imagen es muy grande para verla aquí. Descárgala para verla o imprimirla.</p>
+        <p className="text-sm text-muted"><Tr s={"Esta imagen es muy grande para verla aquí. Descárgala para verla o imprimirla."} /></p>
         {download}
       </div>
     );

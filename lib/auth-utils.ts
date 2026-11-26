@@ -1,3 +1,4 @@
+import { loginPath } from "@/lib/public-paths";
 /**
  * Pista para la interfaz («Mi área» en vez de «Entrar» en la página pública, components/creator-page/
  * account-entry.tsx). No es httpOnly ni lleva identidad: ninguna guarda la lee y falsearla solo
@@ -6,28 +7,28 @@
 export const HINT_COOKIE = "cirella_hola";
 
 /** Solo acepta rutas internas (evita open redirects como "//x.com", "/\\x.com" o con caracteres de control). */
-export function safeNext(next: string | null | undefined, fallback = "/cuenta") {
+export function safeNext(next: string | null | undefined, fallback = "/area") {
   if (!next || !next.startsWith("/") || next.startsWith("//") || /[\\\u0000-\u001f\u007f]/.test(next)) return fallback;
   return next;
 }
 
 // ─── Alcance de las sesiones de compradora ───
 // Funciones puras (sin BD ni cookies): las usan lib/auth.ts, lib/buyer-access.ts, las páginas
-// de /cuenta y las pruebas unitarias.
+// de /area y las pruebas unitarias.
 
-/** Página de /cuenta que abre una compra concreta (destino del botón de «gracias» y de los emails). */
+/** Página de /area que abre una compra concreta (destino del botón de «gracias» y de los emails). */
 export function orderTargetPath(order: { id: string; productType: string; productId: string }, bookingId?: string | null) {
-  if (order.productType === "COURSE") return `/cuenta/cursos/${order.productId}`;
-  if (order.productType === "MEMBERSHIP") return `/cuenta/membresias/${order.productId}`;
-  if (order.productType === "SESSION" && bookingId) return `/cuenta/sesiones/${bookingId}`;
-  return `/cuenta/pedidos/${order.id}`;
+  if (order.productType === "COURSE") return `/area/courses/${order.productId}`;
+  if (order.productType === "MEMBERSHIP") return `/area/membership/${order.productId}`;
+  if (order.productType === "SESSION" && bookingId) return `/area/sessions/${bookingId}`;
+  return `/area/orders/${order.id}`;
 }
 
-/** A qué apunta una ruta de detalle de /cuenta (para saber de qué creadora es o si entra en un alcance). */
+/** A qué apunta una ruta de detalle de /area (para saber de qué creadora es o si entra en un alcance). */
 export function cuentaRefFromPath(path: string): { kind: "product" | "booking" | "order" | "file"; id: string } | null {
-  const m = path.split(/[?#]/)[0].match(/^\/cuenta\/(cursos|membresias|sesiones|pedidos|archivos)\/([^/]+)(?:\/.*)?$/);
+  const m = path.split(/[?#]/)[0].match(/^\/area\/(courses|membership|sessions|orders|files)\/([^/]+)(?:\/.*)?$/);
   if (!m) return null;
-  const kind = m[1] === "sesiones" ? "booking" : m[1] === "pedidos" ? "order" : m[1] === "archivos" ? "file" : "product";
+  const kind = m[1] === "sessions" ? "booking" : m[1] === "orders" ? "order" : m[1] === "files" ? "file" : "product";
   return { kind, id: m[2] };
 }
 
@@ -49,7 +50,7 @@ export function scopeAllows(
 /** Rutas del área de cliente: necesitan una sesión que haya demostrado que el email es suyo. */
 export function isBuyerPath(path: string) {
   const p = path.split(/[?#]/)[0];
-  return p === "/cuenta" || p.startsWith("/cuenta/") || p.startsWith("/api/download/");
+  return p === "/area" || p.startsWith("/area/") || p.startsWith("/api/download/");
 }
 
 /**
@@ -121,5 +122,5 @@ export function hasHintCookie(cookieHeader: string | null | undefined) {
 
 /** Enlace y etiqueta de la entrada al área de alumnas de la página pública. */
 export function accountEntryLink(username: string, signedIn: boolean) {
-  return signedIn ? { href: "/cuenta", label: "Mi área" } : { href: `/${username}/entrar?next=%2Fcuenta`, label: "Entrar" };
+  return signedIn ? { href: "/area", label: "Mi área" } : { href: `${loginPath(username)}?next=%2Farea`, label: "Entrar" };
 }

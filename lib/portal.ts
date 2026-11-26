@@ -1,4 +1,5 @@
 import "server-only";
+import { translatePortalItem } from "./public";
 import { getCurrentUser } from "./auth";
 import { prisma } from "./db";
 import { isUnlocked, publicPortalItem, readPortalMedia, unlockReason, type PortalUnlock, type PublicPortalItem } from "./portal-rules";

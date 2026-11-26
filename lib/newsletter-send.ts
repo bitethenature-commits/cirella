@@ -1,3 +1,4 @@
+import { creatorLegalHref } from "@/lib/legal";
 import "server-only";
 import { prisma } from "./db";
 import { appUrl } from "./env";
@@ -9,6 +10,8 @@ import { brandName, resolveSegment } from "./newsletter";
 import { canSend, parseSegment } from "./newsletter-rules";
 import { getSettings } from "./settings";
 import { unsubscribeHeaders, unsubscribeUrl } from "./newsletter-tokens";
+import { withMailLocale } from "@/lib/i18n/email";
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 
 /**
  * Envío de la newsletter, por la bandeja de salida de siempre (lib/email/outbox.ts).
@@ -47,7 +50,7 @@ export function newsletterFooter(c: CreatorForMail, unsubscribe: string | null):
     legalName: c.legalName,
     legalAddress: formatLegalAddress(c) || null,
     legalEmail: c.legalEmail,
-    legalUrl: `${appUrl()}/${c.username}/legal`,
+    legalUrl: `${appUrl()}${creatorLegalHref(c.username)}`,
     unsubscribeUrl: unsubscribe,
   };
 }
@@ -136,7 +139,7 @@ export async function processCampaigns(now = new Date()): Promise<number> {
       for (const r of batch) {
         const claim = await prisma.campaignRecipient.updateMany({ where: { id: r.id, status: "PENDING" }, data: { status: canSend(r.subscriber.status) ? "QUEUED" : "SKIPPED" } });
         if (!claim.count || !canSend(r.subscriber.status)) continue;
-        const mail = renderCampaignFor(c, c.creator, { id: r.subscriberId, name: r.subscriber.name }, { campaignId: c.id, message });
+        const mail = withMailLocale(isLocale(r.subscriber.locale) ? r.subscriber.locale : DEFAULT_LOCALE, () => renderCampaignFor(c, c.creator, { id: r.subscriberId, name: r.subscriber.name }, { campaignId: c.id, message }));
         const msg = await enqueueEmail({
           to: r.subscriber.email,
           creatorId: c.creatorId,

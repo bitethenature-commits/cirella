@@ -2,6 +2,7 @@
 import { Loader2 } from "lucide-react";
 import { startTransition, useActionState, useCallback, useDeferredValue, useEffect, useRef, useState, type ReactNode } from "react";
 import { Flash } from "@/components/ui/flash";
+import { productPath } from "@/lib/public-paths";
 import { PAID_SESSION_MAX_NOTICE_DAYS, PAID_SESSION_MIN_NOTICE_DAYS, paidSessionNoticeDays } from "@/lib/withdrawal";
 import { ImageUpload } from "@/components/ui/image-upload";
 import {
@@ -29,6 +30,7 @@ import { useDesktop } from "@/components/panel/use-desktop";
 import type { ProductPageProduct } from "@/components/creator-page/product-page-view";
 import { updateProduct, type ActionState } from "../actions";
 import { DesktopPreview, PreviewButton, PreviewSheet, type PreviewTab, type ProductPreviewContext } from "./product-preview";
+import { Tr } from "@/lib/i18n/client";
 
 export type EditableProduct = {
   id: string;
@@ -169,7 +171,7 @@ export function ProductForm({
     <div className={narrow ? "" : "lg:grid lg:grid-cols-[minmax(0,1fr)_384px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_414px]"}>
     <div className="min-w-0">
     <div className={`mb-4 flex items-center justify-between gap-3 rounded-2xl border border-line bg-white/60 px-4 py-2.5 ${narrow ? "" : "lg:hidden"}`}>
-      <p className="text-sm text-muted">Mira cómo queda mientras escribes.</p>
+      <p className="text-sm text-muted"><Tr s={"Mira cómo queda mientras escribes."} /></p>
       <PreviewButton onClick={() => setSheet(true)} />
     </div>
     <form
@@ -194,18 +196,18 @@ export function ProductForm({
         <Flash ok={state?.ok} error={state?.error} />
         <section className="card space-y-4 p-5 sm:p-6">
           <div>
-            <label className="field-label">Título</label>
+            <label className="field-label"><Tr s={"Título"} /></label>
             <input name="title" defaultValue={product.title} className="input" required maxLength={100} />
           </div>
           {product.type === "COURSE" && (
             <CourseCategoryPicker initial={product.courseCategory} />
           )}
           <div>
-            <label className="field-label">Descripción corta <span className="font-normal text-muted">(aparece en la tarjeta)</span></label>
+            <label className="field-label"><Tr s={"Descripción corta"} />{" "}<span className="font-normal text-muted"><Tr s={"(aparece en la tarjeta)"} /></span></label>
             <textarea name="summary" defaultValue={product.summary ?? ""} className="input" rows={2} maxLength={240} />
           </div>
           <div>
-            <label className="field-label" htmlFor="product-description">Descripción completa</label>
+            <label className="field-label" htmlFor="product-description"><Tr s={"Descripción completa"} /></label>
             <RichTextEditor
               id="product-description"
               name="description"
@@ -227,11 +229,11 @@ export function ProductForm({
           </div>
           {!simple && (
           <div>
-            <label className="field-label">Icono</label>
+            <label className="field-label"><Tr s={"Icono"} /></label>
             <div className="flex flex-wrap gap-1.5">
               {EMOJIS.map((e) => (
                 <button key={e} type="button" onClick={() => setEmoji(e)} className={`grid h-9 w-9 place-items-center rounded-lg border text-base ${emoji === e ? "border-ink bg-white" : "border-line bg-white/50"}`}>
-                  {e}
+                  <Tr s={e} />
                 </button>
               ))}
             </div>
@@ -239,14 +241,14 @@ export function ProductForm({
           )}
         </section>
         <section className="card p-5">
-          <label className="field-label">Imagen</label>
+          <label className="field-label"><Tr s={"Imagen"} /></label>
           <ImageUpload value={image} onChange={setImage} />
         </section>
 
         {choosable && <input type="hidden" name="accessMode" value={access} />}
         {choosable && !simple && (
           <section id="acceso" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
-            <h3 className="font-semibold">Cómo se consigue</h3>
+            <h3 className="font-semibold"><Tr s={"Cómo se consigue"} /></h3>
             {options.length > 1 ? (
               <div className={`grid gap-2.5 ${options.length > 2 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`} role="radiogroup" aria-label="Cómo se consigue">
                 {options.map((m) => (
@@ -268,72 +270,72 @@ export function ProductForm({
               </p>
             )}
             {hiddenPaid && access === "PAID" && (
-              <p className="rounded-xl bg-sand px-3 py-2 text-xs text-muted">Este producto se cobraba en la web. En tu web no se cobra nada: elige «{ACCESS_MODE_LABEL[accessModes[0]]}»{accessModes.length > 1 ? ` o «${ACCESS_MODE_LABEL[accessModes[1]]}»` : ""} y guarda para que se vea.</p>
+              <p className="rounded-xl bg-sand px-3 py-2 text-xs text-muted"><Tr s={"Este producto se cobraba en la web. En tu web no se cobra nada: elige «"} /><Tr s={ACCESS_MODE_LABEL[accessModes[0]]} />»{accessModes.length > 1 ? ` o «${ACCESS_MODE_LABEL[accessModes[1]]}»` : ""}{" "}<Tr s={"y guarda para que se vea."} /></p>
             )}
           </section>
         )}
 
         {free ? (
           <section className="card space-y-4 p-5 sm:p-6">
-            <h3 className="font-semibold">Precio</h3>
+            <h3 className="font-semibold"><Tr s={"Precio"} /></h3>
             <input type="hidden" name="price" value="0" />
-            <p className="text-sm text-muted"><strong className="text-ink">Gratis.</strong> Quien deje su nombre y su email recibe el acceso al momento y un email con su enlace.</p>
+            <p className="text-sm text-muted"><strong className="text-ink"><Tr s={"Gratis."} /></strong>{" "}<Tr s={"Quien deje su nombre y su email recibe el acceso al momento y un email con su enlace."} /></p>
             <div className="sm:max-w-xs">
-              <label className="field-label">Texto del botón</label>
+              <label className="field-label"><Tr s={"Texto del botón"} /></label>
               <input name="ctaLabel" defaultValue={product.ctaLabel ?? ""} className="input" maxLength={30} placeholder="Quiero el acceso gratis" />
             </div>
           </section>
         ) : external ? (
           <section className="card space-y-4 p-5 sm:p-6">
-            <h3 className="font-semibold">Dónde se paga</h3>
+            <h3 className="font-semibold"><Tr s={"Dónde se paga"} /></h3>
             <div>
-              <label className="field-label" htmlFor="externalUrl">Enlace de la web de pago o reserva</label>
+              <label className="field-label" htmlFor="externalUrl"><Tr s={"Enlace de la web de pago o reserva"} /></label>
               <input id="externalUrl" name="externalUrl" type="url" value={externalUrl} onChange={(e) => setExternalUrl(e.target.value)} className="input" placeholder="https://pay.hotmart.com/…" required />
-              <p className="field-hint">Hotmart, PayPal, Bizum, Calendly… El botón de tu página abre este enlace.</p>
+              <p className="field-hint"><Tr s={"Hotmart, PayPal, Bizum, Calendly… El botón de tu página abre este enlace."} /></p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="field-label" htmlFor="externalLabel">Texto del botón</label>
+                <label className="field-label" htmlFor="externalLabel"><Tr s={"Texto del botón"} /></label>
                 <input id="externalLabel" name="externalLabel" defaultValue={product.externalLabel ?? ""} className="input" maxLength={EXTERNAL_LABEL_MAX} placeholder={defaultExternalLabel(product.type, externalUrl)} />
               </div>
               <div>
-                <label className="field-label">Precio <span className="font-normal text-muted">(opcional, informativo)</span>{isMembership ? " por periodo" : ""}</label>
+                <label className="field-label"><Tr s={"Precio"} />{" "}<span className="font-normal text-muted"><Tr s={"(opcional, informativo)"} /></span>{isMembership ? <Tr s={" por periodo"} /> : ""}</label>
                 <input name="price" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d,.]/g, ""))} inputMode="decimal" className="input" placeholder="Sin precio" />
-                <p className="field-hint">Se muestra en tu página con «Pago en …». Si lo dejas vacío, solo se ve el botón.</p>
+                <p className="field-hint"><Tr s={"Se muestra en tu página con «Pago en …». Si lo dejas vacío, solo se ve el botón."} /></p>
               </div>
             </div>
             {isMembership && <input type="hidden" name="billingInterval" value={product.billingInterval ?? "month"} />}
           </section>
         ) : (
         <section className="card space-y-4 p-5 sm:p-6">
-          <h3 className="font-semibold">Precio</h3>
+          <h3 className="font-semibold"><Tr s={"Precio"} /></h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="field-label">Precio final (€){isMembership ? " por periodo" : ""}</label>
+              <label className="field-label"><Tr s={"Precio final (€)"} />{isMembership ? <Tr s={" por periodo"} /> : ""}</label>
               <input name="price" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d,.]/g, ""))} inputMode="decimal" className="input text-lg font-semibold" placeholder="49" />
-              <p className="field-hint">Se ve en tu página. La clienta te envía una solicitud y el pago lo acordáis por email.</p>
+              <p className="field-hint"><Tr s={"Se ve en tu página. La clienta te envía una solicitud y el pago lo acordáis por email."} /></p>
             </div>
             {isMembership && (
               <label className="flex items-start gap-2.5 rounded-2xl border border-line bg-paper p-3 text-sm sm:col-span-2">
                 <input type="hidden" name="pagedReadingField" value="1" />
                 <input type="checkbox" name="pagedReading" defaultChecked={product.pagedReading} className="mt-0.5 h-4 w-4 accent-[#0E1024]" />
                 <span>
-                  <span className="font-semibold">Lectura a página entera</span>
-                  <span className="block text-xs text-muted">Para textos largos con fotos: cada publicación se lee como una página, con «Anterior» y «Siguiente», un calendario para ir a una fecha y «Guardar» (sale en sus Favoritos, la estrella del menú).</span>
+                  <span className="font-semibold"><Tr s={"Lectura a página entera"} /></span>
+                  <span className="block text-xs text-muted"><Tr s={"Para textos largos con fotos: cada publicación se lee como una página, con «Anterior» y «Siguiente», un calendario para ir a una fecha y «Guardar» (sale en sus Favoritos, la estrella del menú)."} /></span>
                 </span>
               </label>
             )}
             {isMembership && (
               <div>
-                <label className="field-label">Periodo</label>
+                <label className="field-label"><Tr s={"Periodo"} /></label>
                 <select name="billingInterval" defaultValue={product.billingInterval ?? "month"} className="input">
-                  <option value="month">Mensual</option>
-                  <option value="year">Anual</option>
+                  <option value="month"><Tr s={"Mensual"} /></option>
+                  <option value="year"><Tr s={"Anual"} /></option>
                 </select>
               </div>
             )}
             <div>
-              <label className="field-label">Texto del botón</label>
+              <label className="field-label"><Tr s={"Texto del botón"} /></label>
               <input name="ctaLabel" defaultValue={product.ctaLabel ?? ""} className="input" maxLength={30} placeholder="Comprar" />
             </div>
           </div>
@@ -342,30 +344,27 @@ export function ProductForm({
           <div className="rounded-2xl border border-line bg-paper p-4" id="oferta">
             <input type="hidden" name="saleForm" value="1" />
             <label className="flex items-center gap-2.5 text-sm font-semibold">
-              <input type="checkbox" name="saleOn" checked={saleOn} onChange={(e) => setSaleOn(e.target.checked)} className="h-4 w-4 accent-[#0E1024]" />
-              Poner en oferta
-            </label>
+              <input type="checkbox" name="saleOn" checked={saleOn} onChange={(e) => setSaleOn(e.target.checked)} className="h-4 w-4 accent-[#0E1024]" /><Tr s={"Poner en oferta"} /></label>
             {saleOn && (
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="field-label" htmlFor="sale-price">Precio de oferta (€)</label>
+                  <label className="field-label" htmlFor="sale-price"><Tr s={"Precio de oferta (€)"} /></label>
                   <input id="sale-price" name="salePrice" value={salePrice} onChange={(e) => setSalePrice(e.target.value.replace(/[^\d,.]/g, ""))} inputMode="decimal" className="input" placeholder="39" />
-                  {saleCents > 0 && cents > 0 && saleCents < cents && <p className="field-hint">−{Math.round((1 - saleCents / cents) * 100)} % sobre {formatMoney(cents)}</p>}
+                  {saleCents > 0 && cents > 0 && saleCents < cents && <p className="field-hint">−{Math.round((1 - saleCents / cents) * 100)}{" "}<Tr s={"% sobre"} />{" "}{formatMoney(cents)}</p>}
                 </div>
                 <div>
-                  <label className="field-label" htmlFor="sale-label">Etiqueta <span className="font-normal text-muted">(opcional)</span></label>
+                  <label className="field-label" htmlFor="sale-label"><Tr s={"Etiqueta"} />{" "}<span className="font-normal text-muted"><Tr s={"(opcional)"} /></span></label>
                   <input id="sale-label" name="saleLabel" defaultValue={product.saleLabel ?? ""} maxLength={SALE_LABEL_MAX} className="input" placeholder="Early Bird" />
                 </div>
                 <div>
-                  <label className="field-label" htmlFor="sale-start">Empieza <span className="font-normal text-muted">(vacío = ya)</span></label>
+                  <label className="field-label" htmlFor="sale-start"><Tr s={"Empieza"} />{" "}<span className="font-normal text-muted"><Tr s={"(vacío = ya)"} /></span></label>
                   <input id="sale-start" name="saleStart" type="date" defaultValue={product.saleStart} className="input h-11" />
                 </div>
                 <div>
-                  <label className="field-label" htmlFor="sale-end">Termina <span className="font-normal text-muted">(último día; vacío = sin fin)</span></label>
+                  <label className="field-label" htmlFor="sale-end"><Tr s={"Termina"} />{" "}<span className="font-normal text-muted"><Tr s={"(último día; vacío = sin fin)"} /></span></label>
                   <input id="sale-end" name="saleEnd" type="date" defaultValue={product.saleEnd} className="input h-11" />
                 </div>
-                <p className="field-hint sm:col-span-2">
-                  Se ve con el precio normal tachado en tu página, en la ficha y al pagar.{isMembership ? " En una membresía, el precio de oferta es el del primer pago: las renovaciones van al precio normal." : ""}
+                <p className="field-hint sm:col-span-2"><Tr s={"Se ve con el precio normal tachado en tu página, en la ficha y al pagar."} />{isMembership ? <Tr s={" En una membresía, el precio de oferta es el del primer pago: las renovaciones van al precio normal."} /> : ""}
                 </p>
               </div>
             )}
@@ -376,7 +375,7 @@ export function ProductForm({
 
         {isSession && !externalSession && simple && (
           <section id="sesion" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
-            <h3 className="font-semibold">{circle ? "El círculo" : "La sesión"}</h3>
+            <h3 className="font-semibold">{circle ? <Tr s={"El círculo"} /> : <Tr s={"La sesión"} />}</h3>
             <input type="hidden" name="groupSession" value={circle ? "on" : ""} />
             <input type="hidden" name="bufferMin" value={product.bufferMin ?? 15} />
             {circle ? (
@@ -385,24 +384,24 @@ export function ProductForm({
                 <input type="hidden" name="minNoticeHours" value={0} />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="field-label" htmlFor="event-date">Día</label>
+                    <label className="field-label" htmlFor="event-date"><Tr s={"Día"} /></label>
                     <input id="event-date" name="eventDate" type="date" defaultValue={product.eventDate} className="input h-11" />
                   </div>
                   <div>
-                    <label className="field-label" htmlFor="event-time">Hora ({product.ownerTimezone.split("/").pop()?.replace(/_/g, " ")})</label>
+                    <label className="field-label" htmlFor="event-time"><Tr s={"Hora ("} />{product.ownerTimezone.split("/").pop()?.replace(/_/g, " ")})</label>
                     <input id="event-time" name="eventTime" type="time" step={300} defaultValue={product.eventTime} className="input h-11" />
                   </div>
                   <div>
-                    <label className="field-label" htmlFor="event-duration">Duración (min)</label>
+                    <label className="field-label" htmlFor="event-duration"><Tr s={"Duración (min)"} /></label>
                     <input id="event-duration" name="durationMin" type="number" min={10} max={480} defaultValue={product.durationMin ?? 90} className="input h-11" />
                   </div>
                   <div>
-                    <label className="field-label" htmlFor="event-capacity">Plazas <span className="font-normal text-muted">(vacío = sin límite)</span></label>
+                    <label className="field-label" htmlFor="event-capacity"><Tr s={"Plazas"} />{" "}<span className="font-normal text-muted"><Tr s={"(vacío = sin límite)"} /></span></label>
                     <input id="event-capacity" name="capacity" type="number" min={1} max={500} defaultValue={product.capacity ?? ""} className="input h-11" />
                   </div>
                 </div>
                 <div>
-                  <label className="field-label" htmlFor="meeting">Enlace de Zoom</label>
+                  <label className="field-label" htmlFor="meeting"><Tr s={"Enlace de Zoom"} /></label>
                   <input id="meeting" name="meetingUrl" type="url" inputMode="url" defaultValue={product.meetingUrl ?? ""} className="input h-11" placeholder="https://us02web.zoom.us/j/…" />
                 </div>
               </>
@@ -416,10 +415,10 @@ export function ProductForm({
                 <input type="hidden" name="horizonDays" value={String(product.horizonDays ?? HORIZON_DEFAULT_DAYS)} />
                 <input type="hidden" name="meetingUrl" value={product.meetingUrl ?? ""} />
                 <div className="sm:max-w-[12rem]">
-                  <label className="field-label" htmlFor="session-duration">Duración (min)</label>
+                  <label className="field-label" htmlFor="session-duration"><Tr s={"Duración (min)"} /></label>
                   <input id="session-duration" name="durationMin" type="number" min={10} max={480} defaultValue={product.durationMin ?? 60} className="input h-11" />
                 </div>
-                <p className="field-hint">El día, la hora y el enlace de Zoom los cerráis por email.</p>
+                <p className="field-hint"><Tr s={"El día, la hora y el enlace de Zoom los cerráis por email."} /></p>
               </>
             )}
           </section>
@@ -427,18 +426,18 @@ export function ProductForm({
 
         {isSession && externalSession && (
           <section className="card space-y-4 p-5 sm:p-6">
-            <h3 className="font-semibold">Sesión</h3>
+            <h3 className="font-semibold"><Tr s={"Sesión"} /></h3>
             <div className="sm:max-w-[12rem]">
-              <label className="field-label">Duración (min)</label>
+              <label className="field-label"><Tr s={"Duración (min)"} /></label>
               <input name="durationMin" type="number" min={10} max={480} defaultValue={product.durationMin ?? 60} className="input" />
             </div>
-            <p className="field-hint">La fecha, la hora y la videollamada las gestiona la web de reservas.</p>
+            <p className="field-hint"><Tr s={"La fecha, la hora y la videollamada las gestiona la web de reservas."} /></p>
           </section>
         )}
 
         {isSession && !externalSession && !simple && (
           <section id="sesion" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
-            <h3 className="font-semibold">{group ? "Taller en directo" : "Sesión"}</h3>
+            <h3 className="font-semibold">{group ? <Tr s={"Taller en directo"} /> : <Tr s={"Sesión"} />}</h3>
             <input type="hidden" name="groupSession" value={group ? "on" : ""} />
             <div role="radiogroup" aria-label="Tipo de sesión" className="inline-flex rounded-full bg-sand p-1 text-sm">
               {[
@@ -454,49 +453,47 @@ export function ProductForm({
                   onClick={() => setGroup(o.v)}
                   className={`h-9 rounded-full px-4 font-medium transition disabled:opacity-40 ${group === o.v ? "bg-white shadow-soft" : "text-muted"}`}
                 >
-                  {o.label}
+                  <Tr s={o.label} />
                 </button>
               ))}
             </div>
-            {product.hasBookings && <p className="field-hint">Ya tiene reservas: no se puede cambiar entre individual y taller.</p>}
+            {product.hasBookings && <p className="field-hint"><Tr s={"Ya tiene reservas: no se puede cambiar entre individual y taller."} /></p>}
             {group ? (
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="field-label" htmlFor="event-date">Fecha</label>
+                  <label className="field-label" htmlFor="event-date"><Tr s={"Fecha"} /></label>
                   <input id="event-date" name="eventDate" type="date" defaultValue={product.eventDate} className="input h-11" />
                 </div>
                 <div>
-                  <label className="field-label" htmlFor="event-time">Hora (tu zona: {product.ownerTimezone.split("/").pop()?.replace(/_/g, " ")})</label>
+                  <label className="field-label" htmlFor="event-time"><Tr s={"Hora (tu zona:"} />{" "}{product.ownerTimezone.split("/").pop()?.replace(/_/g, " ")})</label>
                   <input id="event-time" name="eventTime" type="time" step={300} defaultValue={product.eventTime} className="input h-11" />
                 </div>
                 <div>
-                  <label className="field-label" htmlFor="event-duration">Duración (min)</label>
+                  <label className="field-label" htmlFor="event-duration"><Tr s={"Duración (min)"} /></label>
                   <input id="event-duration" name="durationMin" type="number" min={10} max={480} defaultValue={product.durationMin ?? 90} className="input h-11" />
                 </div>
                 <div>
-                  <label className="field-label" htmlFor="event-capacity">Plazas <span className="font-normal text-muted">(vacío = sin límite)</span></label>
+                  <label className="field-label" htmlFor="event-capacity"><Tr s={"Plazas"} />{" "}<span className="font-normal text-muted"><Tr s={"(vacío = sin límite)"} /></span></label>
                   <input id="event-capacity" name="capacity" type="number" min={1} max={500} defaultValue={product.capacity ?? ""} className="input h-11" />
                 </div>
                 <input type="hidden" name="bufferMin" value={product.bufferMin ?? 15} />
                 <input type="hidden" name="minNoticeHours" value={0} />
                 <label className="flex items-center gap-2.5 text-sm sm:col-span-2">
-                  <input type="checkbox" name="moonCircle" defaultChecked={product.moonCircle} className="h-4 w-4 accent-[#0E1024]" />
-                  Es un círculo de la luna (sale en tu portada para apuntarse sin ser miembro)
-                </label>
+                  <input type="checkbox" name="moonCircle" defaultChecked={product.moonCircle} className="h-4 w-4 accent-[#0E1024]" /><Tr s={"Es un círculo de la luna (sale en tu portada para apuntarse sin ser miembro)"} /></label>
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="field-label">Duración (min)</label>
+                  <label className="field-label"><Tr s={"Duración (min)"} /></label>
                   <input name="durationMin" type="number" min={10} max={480} defaultValue={product.durationMin ?? 60} className="input h-11" />
                 </div>
                 <div>
-                  <label className="field-label">Margen entre sesiones</label>
+                  <label className="field-label"><Tr s={"Margen entre sesiones"} /></label>
                   <input name="bufferMin" type="number" min={0} max={240} defaultValue={product.bufferMin ?? 15} className="input h-11" />
                 </div>
                 {access === "PAID" ? (
                   <div>
-                    <label className="field-label" htmlFor="notice-days">Antelación mínima (días desde la compra)</label>
+                    <label className="field-label" htmlFor="notice-days"><Tr s={"Antelación mínima (días desde la compra)"} /></label>
                     <input
                       id="notice-days"
                       name="minNoticeDays"
@@ -509,36 +506,34 @@ export function ProductForm({
                   </div>
                 ) : (
                   <div>
-                    <label className="field-label">Antelación mínima (h)</label>
+                    <label className="field-label"><Tr s={"Antelación mínima (h)"} /></label>
                     <input name="minNoticeHours" type="number" min={0} max={720} defaultValue={Math.min(product.minNoticeHours ?? 24, 720)} className="input h-11" />
                   </div>
                 )}
                 {access === "PAID" && (
-                  <p className="field-hint sm:col-span-2">
-                    Las sesiones que se pagan en la web se pueden reservar a partir del día {PAID_SESSION_MIN_NOTICE_DAYS} desde la compra: así nunca caen dentro de los 14 días en los que tu clienta puede desistir. Las que das tú a mano no siguen esta regla.
-                  </p>
+                  <p className="field-hint sm:col-span-2"><Tr s={"Las sesiones que se pagan en la web se pueden reservar a partir del día"} />{" "}{PAID_SESSION_MIN_NOTICE_DAYS}{" "}<Tr s={"desde la compra: así nunca caen dentro de los 14 días en los que tu clienta puede desistir. Las que das tú a mano no siguen esta regla."} /></p>
                 )}
                 <div>
-                  <label className="field-label" htmlFor="horizon">Se puede reservar hasta</label>
+                  <label className="field-label" htmlFor="horizon"><Tr s={"Se puede reservar hasta"} /></label>
                   <select id="horizon" name="horizonDays" defaultValue={String(product.horizonDays ?? HORIZON_DEFAULT_DAYS)} className="input h-11">
                     {HORIZON_CHOICES.map((d) => (
-                      <option key={d} value={d}>{horizonLabel(d)} por delante</option>
+                      <option key={d} value={d}>{horizonLabel(d)}{" "}<Tr s={"por delante"} /></option>
                     ))}
                   </select>
                 </div>
               </div>
             )}
             <div>
-              <label className="field-label" htmlFor="meeting">Enlace de Zoom</label>
+              <label className="field-label" htmlFor="meeting"><Tr s={"Enlace de Zoom"} /></label>
               <input id="meeting" name="meetingUrl" type="url" inputMode="url" defaultValue={product.meetingUrl ?? ""} className="input h-11" placeholder="https://us02web.zoom.us/j/…" />
-              <p className="field-hint">Se envía con la confirmación y los recordatorios. Puedes poner otro en cada reserva. {group ? "" : "Tus días y horarios se configuran en Solicitudes → Tu horario."}</p>
+              <p className="field-hint"><Tr s={"Se envía con la confirmación y los recordatorios. Puedes poner otro en cada reserva."} />{" "}{group ? "" : <Tr s={"Tus días y horarios se configuran en Solicitudes → Tu horario."} />}</p>
             </div>
           </section>
         )}
 
         {asksData && !externalSession && !simple && (
           <section id="datos" className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
-            <h3 className="font-semibold">Datos que pides</h3>
+            <h3 className="font-semibold"><Tr s={"Datos que pides"} /></h3>
             <IntakeConfigEditor initial={product.intake} customPrivacy={product.customPrivacy} />
           </section>
         )}
@@ -550,20 +545,20 @@ export function ProductForm({
           </>
         ) : (
         <section id={isDigital ? "entrega" : undefined} className="card scroll-mt-24 space-y-4 p-5 sm:p-6">
-          <h3 className="font-semibold">{isDigital ? "Entrega" : free ? "Después de apuntarse" : "Después de la compra"}</h3>
+          <h3 className="font-semibold">{isDigital ? <Tr s={"Entrega"} /> : free ? <Tr s={"Después de apuntarse"} /> : <Tr s={"Después de la compra"} />}</h3>
           {isDigital ? (
             <>
               <input type="hidden" name="deliveryMode" value="PERSONAL" />
-              <p className="rounded-2xl bg-sand px-4 py-3 text-sm text-muted">Las lecturas se las envías tú por email: la web no guarda archivos. Aquí solo cuentas qué recibirá y cuándo.</p>
+              <p className="rounded-2xl bg-sand px-4 py-3 text-sm text-muted"><Tr s={"Las lecturas se las envías tú por email: la web no guarda archivos. Aquí solo cuentas qué recibirá y cuándo."} /></p>
             </>
           ) : (
             <input type="hidden" name="deliveryMode" value="AUTOMATIC" />
           )}
           <div>
             {personal ? (
-              <label className="field-label" htmlFor="instructions">¿Qué recibirá y cuándo?</label>
+              <label className="field-label" htmlFor="instructions"><Tr s={"¿Qué recibirá y cuándo?"} /></label>
             ) : (
-              <label className="field-label" htmlFor="instructions">Instrucciones para tu clienta <span className="font-normal text-muted">(opcional)</span></label>
+              <label className="field-label" htmlFor="instructions"><Tr s={"Instrucciones para tu clienta"} />{" "}<span className="font-normal text-muted"><Tr s={"(opcional)"} /></span></label>
             )}
             <textarea
               id="instructions"
@@ -579,7 +574,7 @@ export function ProductForm({
                   : "Ej.: Responde al email con tu fecha, hora y lugar de nacimiento."
               }
             />
-            {personal && <p className="field-hint">Lo verá en la ficha del producto, en el email {free || external ? "de acceso" : "de compra"} y en su cuenta. Tú se lo envías por email.</p>}
+            {personal && <p className="field-hint"><Tr s={"Lo verá en la ficha del producto, en el email"} />{" "}{free || external ? <Tr s={"de acceso"} /> : <Tr s={"de compra"} />}{" "}<Tr s={"y en su cuenta. Tú se lo envías por email."} /></p>}
           </div>
         </section>
         )}
@@ -589,9 +584,9 @@ export function ProductForm({
         <input type="hidden" name="slug" value={product.slug} />
       ) : (
       <section className="card p-5">
-        <label className="field-label">Enlace</label>
+        <label className="field-label"><Tr s={"Enlace"} /></label>
         <div className="flex items-center rounded-xl border border-line bg-white pl-3 text-sm">
-          <span className="shrink-0 text-muted">{host}/{username}/</span>
+          <span className="shrink-0 text-muted"><Tr s={host} />{productPath(username, { slug: "", type: product.type })}</span>
           <input name="slug" defaultValue={product.slug} className="h-10 min-w-0 flex-1 bg-transparent pr-3 outline-none" />
         </div>
       </section>
@@ -600,7 +595,7 @@ export function ProductForm({
       <section className={`card z-10 flex flex-col gap-4 p-5 sm:flex-row sm:items-end ${narrow ? "sticky bottom-0 sm:p-4 shadow-lift" : "lg:sticky lg:bottom-4 lg:p-4 lg:shadow-lift"}`}>
         {simple ? (
           <div className="sm:flex-1">
-            <p className="field-label">Estado</p>
+            <p className="field-label"><Tr s={"Estado"} /></p>
             <input type="hidden" name="status" value={status} />
             <div className="grid grid-cols-2 gap-2">
               {(
@@ -612,8 +607,8 @@ export function ProductForm({
                 <label key={value} className={`studio-pick flex cursor-pointer items-start gap-2.5 rounded-xl border p-2.5 transition ${status === value ? "is-on" : "border-line"}`}>
                   <input type="radio" checked={status === value} onChange={() => setStatus(value)} className="mt-1" />
                   <span>
-                    <span className="block text-sm font-semibold">{label}</span>
-                    <span className="block text-xs text-muted">{hint}</span>
+                    <span className="block text-sm font-semibold"><Tr s={label} /></span>
+                    <span className="block text-xs text-muted"><Tr s={hint} /></span>
                   </span>
                 </label>
               ))}
@@ -621,14 +616,14 @@ export function ProductForm({
           </div>
         ) : (
         <div className="sm:flex-1">
-          <label className="field-label">Estado</label>
+          <label className="field-label"><Tr s={"Estado"} /></label>
           <select name="status" defaultValue={product.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT"} className="input">
-            <option value="PUBLISHED">Publicado en mi página</option>
-            <option value="DRAFT">Borrador (oculto)</option>
+            <option value="PUBLISHED"><Tr s={"Publicado en mi página"} /></option>
+            <option value="DRAFT"><Tr s={"Borrador (oculto)"} /></option>
           </select>
         </div>
         )}
-        <button type="submit" className="btn btn-primary w-full sm:w-auto sm:min-w-40" disabled={isPending}>{isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando…</> : "Guardar"}</button>
+        <button type="submit" className="btn btn-primary w-full sm:w-auto sm:min-w-40" disabled={isPending}>{isPending ? <><Loader2 className="h-4 w-4 animate-spin" />{" "}<Tr s={"Guardando…"} /></> : <Tr s={"Guardar"} />}</button>
       </section>
     </form>
     {children && <div className="mt-5 space-y-5">{children}</div>}
@@ -663,17 +658,17 @@ function CourseCategoryPicker({ initial }: { initial: string | null }) {
   const toggle = (c: CourseCategory) => setPicked((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : COURSE_CATEGORIES.filter((x) => x === c || prev.includes(x))));
   return (
     <fieldset>
-      <legend className="field-label">Temas</legend>
+      <legend className="field-label"><Tr s={"Temas"} /></legend>
       <input type="hidden" name="courseCategory" value={picked.join(COURSE_CATEGORY_SEP)} />
       <div className="flex flex-wrap gap-2">
         {COURSE_CATEGORIES.map((c) => (
           <label key={c} className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition ${picked.includes(c) ? "border-ink bg-ink text-cream" : "border-line hover:bg-sand"}`}>
             <input type="checkbox" name="courseCategoryPick" value={c} checked={picked.includes(c)} onChange={() => toggle(c)} className="sr-only" />
-            {COURSE_CATEGORY_LABEL[c]}
+            <Tr s={COURSE_CATEGORY_LABEL[c]} />
           </label>
         ))}
       </div>
-      <p className="field-hint">Marca uno o varios. Tu página de cursos los agrupa por tema; si marcas varios (por ejemplo, Astrología y Mi energía), el curso sale en su propio grupo con los iconos de los dos.</p>
+      <p className="field-hint"><Tr s={"Marca uno o varios. Tu página de cursos los agrupa por tema; si marcas varios (por ejemplo, Astrología y Mi energía), el curso sale en su propio grupo con los iconos de los dos."} /></p>
     </fieldset>
   );
 }

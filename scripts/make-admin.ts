@@ -1,7 +1,7 @@
 /**
  * Convierte una cuenta ya registrada en administradora de la plataforma.
  *   npm run admin:promote -- tu@email.com
- * La cuenta se crea antes de forma normal en /registro: ninguna contraseña pasa por la terminal.
+ * La cuenta se crea antes de forma normal en /signup: ninguna contraseña pasa por la terminal.
  */
 import "./load-env";
 import { PrismaClient } from "@prisma/client";
@@ -19,7 +19,7 @@ async function main() {
   const email = parsed.data;
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
-    console.error(`✗ No existe ninguna cuenta con ese email. Regístrate primero en ${appUrl()}/registro y vuelve a ejecutar este comando.`);
+    console.error(`✗ No existe ninguna cuenta con ese email. Regístrate primero en ${appUrl()}/signup y vuelve a ejecutar este comando.`);
     process.exit(1);
   }
   if (user.isAdmin) {

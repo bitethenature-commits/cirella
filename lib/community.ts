@@ -227,7 +227,7 @@ export async function getMemberPost(postId: string, viewer: Viewer, now = new Da
       _count: { select: { likes: true } },
       comments: {
         orderBy: { createdAt: "asc" },
-        include: { likes: { where: { userId: viewer.userId }, select: { id: true } }, _count: { select: { likes: true, replies: { where: { status: "VISIBLE" } } } } },
+        include: { likes: { where: { userId: viewer.userId }, select: { id: true } }, _count: { select: { likes: true, replies: { where: { status: "VISIBLE" } } } }, user: { select: { tagline: true } } },
       },
     },
   });

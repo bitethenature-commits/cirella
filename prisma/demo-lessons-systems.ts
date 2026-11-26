@@ -144,8 +144,8 @@ Repite el ciclo tres meses y compara.`),
 
 export async function seedSystemLessons(prisma: PrismaClient, creatorId: string): Promise<number> {
   let n = 0;
-  if (await seedDemoLesson(prisma, creatorId, { courseSlug: "human-design-desde-cero", moduleTitle: "Tu bodygraph por dentro", title: "Tus 9 centros y tu perfil", minutes: 145, parts: HD_PARTS })) n++;
-  if (await seedDemoLesson(prisma, creatorId, { courseSlug: "gene-keys-secuencia-de-activacion", moduleTitle: "El Camino Dorado", title: "Esfera a esfera", minutes: 135, parts: GK_PARTS })) n++;
-  if (await seedDemoLesson(prisma, creatorId, { courseSlug: "especial-tu-ano-lunar", moduleTitle: "El ritmo de la Luna", title: "Las 8 fases de la Luna", minutes: 120, parts: MOON_PARTS })) n++;
+  if (await seedDemoLesson(prisma, creatorId, { courseSlug: "human-design-basics", moduleTitle: "Tu bodygraph por dentro", title: "Tus 9 centros y tu perfil", minutes: 145, parts: HD_PARTS })) n++;
+  if (await seedDemoLesson(prisma, creatorId, { courseSlug: "gene-keys-activation", moduleTitle: "El Camino Dorado", title: "Esfera a esfera", minutes: 135, parts: GK_PARTS })) n++;
+  if (await seedDemoLesson(prisma, creatorId, { courseSlug: "lunar-year", moduleTitle: "El ritmo de la Luna", title: "Las 8 fases de la Luna", minutes: 120, parts: MOON_PARTS })) n++;
   return n;
 }

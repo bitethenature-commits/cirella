@@ -21,9 +21,9 @@ async function visibleText(page: Page) {
 }
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 test.describe.serial("Modo personal", () => {
@@ -70,14 +70,14 @@ test.describe.serial("Modo personal", () => {
   });
 
   test("el favicon de las páginas de la web (login, panel…) es el de Cirella", async ({ page }) => {
-    await page.goto("/entrar");
+    await page.goto("/login");
     await expect(page.locator('link[rel="icon"]').first()).toHaveAttribute("href", /\/ana\/icon/);
     await expect(page.locator('link[rel="icon"][href*="icon.svg"]')).toHaveCount(0);
   });
 
   test("registro cerrado y login con la marca de Cirella", async ({ page }) => {
-    await page.goto("/registro?ref=CIRELLA");
-    await page.waitForURL("**/entrar");
+    await page.goto("/signup?ref=CIRELLA");
+    await page.waitForURL("**/login");
     await expect(page).toHaveTitle("Entrar · Cirella");
     await expect(page.getByRole("link", { name: "Cirella inicio" })).toBeVisible();
     await expect(page.getByText("¿Aún no tienes página?")).toHaveCount(0);
@@ -86,9 +86,9 @@ test.describe.serial("Modo personal", () => {
   });
 
   test("las páginas legales de la plataforma llevan a la de Cirella, sin condiciones de venta", async ({ page }) => {
-    await page.goto("/terminos");
+    await page.goto("/terms");
     await page.waitForURL("**/ana/legal**");
-    await page.goto("/privacidad");
+    await page.goto("/privacy");
     await page.waitForURL("**/ana/legal**");
     await expect(page.getByRole("heading", { name: "Aviso legal y privacidad", level: 1 })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Privacidad", level: 2 })).toBeVisible();
@@ -103,10 +103,10 @@ test.describe.serial("Modo personal", () => {
   test("el asistente de alta está cerrado para una clienta con sesión", async ({ page }) => {
     await demoLogin(page, "Laura Martín");
     await page.goto("/onboarding");
-    await page.waitForURL("**/entrar?error=cerrado");
+    await page.waitForURL("**/login?error=cerrado");
     await expect(page.getByText("En esta web no se pueden crear páginas nuevas")).toBeVisible();
     // El área de clienta lleva la marca de Cirella.
-    await page.goto("/cuenta");
+    await page.goto("/area");
     await expect(page.getByRole("link", { name: "Cirella inicio" })).toBeVisible();
     expect(await visibleText(page)).not.toContain("Cirella");
   });

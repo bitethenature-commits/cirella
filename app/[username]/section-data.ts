@@ -6,8 +6,8 @@ import { sectionPagePath, type SectionPage } from "@/lib/site-sections";
 import { ownerUsername } from "@/lib/site-mode";
 
 /**
- * Datos comunes de las páginas de la portada (/<usuaria>/actualidades, /portal, /comunidad, /cursos,
- * /lecturas, /sesiones; en la web personal, en la raíz): la creadora publicada (en modo personal,
+ * Datos comunes de las páginas de la portada (/<usuaria>/news, /portal, /membership, /courses,
+ * /readings, /sessions; en la web personal, en la raíz): la creadora publicada (en modo personal,
  * solo la dueña; el layout también lo comprueba, pero la página se pinta a la vez) y las direcciones de
  * su página. null = 404.
  */

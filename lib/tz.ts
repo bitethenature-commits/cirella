@@ -6,6 +6,16 @@
 
 import { sameOffset, tzCity } from "./timezones";
 
+/**
+ * Idioma de las fechas: español, salvo cuando alguien da otro. Los emails lo dan (el de quien los recibe,
+ * lib/i18n/email.ts); así «martes, 12 de noviembre» sale «Dienstag, 12. November» a quien lee en alemán.
+ */
+let dateLocaleSource: () => string | undefined = () => undefined;
+export function setDateLocaleSource(fn: () => string | undefined) {
+  dateLocaleSource = fn;
+}
+const intlLocale = () => dateLocaleSource() ?? "es-ES";
+
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** Un formateador por zona: crearlos es lo caro y el calendario calcula miles de horas. */
@@ -83,7 +93,7 @@ export function labelToMinutes(label: string) {
 }
 
 export function formatInTz(date: Date, timeZone: string, opts: Intl.DateTimeFormatOptions) {
-  return new Intl.DateTimeFormat("es-ES", { timeZone, ...opts }).format(date);
+  return new Intl.DateTimeFormat(intlLocale(), { timeZone, ...opts }).format(date);
 }
 
 /** "lunes, 12 de octubre · 17:00" */
@@ -104,7 +114,10 @@ export function formatSessionDate(date: Date, timeZone: string, withWeekday = tr
 export function sessionWhen(start: Date, tz: string | null | undefined, ownerTz: string) {
   const zone = tz || ownerTz;
   const base = formatSessionDate(start, zone);
-  return sameOffset(zone, ownerTz, start) ? base : `${base} (hora de ${tzCity(zone)})`;
+  if (sameOffset(zone, ownerTz, start)) return base;
+  const loc = intlLocale();
+  const city = tzCity(zone);
+  return `${base} (${loc.startsWith("de") ? `Ortszeit ${city}` : loc.startsWith("en") ? `${city} time` : `hora de ${city}`})`;
 }
 
 /** Solo la hora en una zona: «11:00». */
@@ -136,11 +149,11 @@ export function formatDate(
   opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" },
   timeZone = "Europe/Madrid",
 ) {
-  return new Intl.DateTimeFormat("es-ES", { timeZone, ...opts }).format(date);
+  return new Intl.DateTimeFormat(intlLocale(), { timeZone, ...opts }).format(date);
 }
 
 export function formatDateTime(date: Date) {
-  return new Intl.DateTimeFormat("es-ES", {
+  return new Intl.DateTimeFormat(intlLocale(), {
     timeZone: "Europe/Madrid",
     day: "numeric",
     month: "short",

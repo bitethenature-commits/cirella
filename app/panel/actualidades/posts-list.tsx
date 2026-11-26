@@ -7,11 +7,14 @@ import { tenantDb } from "@/lib/tenant";
 import { formatDate } from "@/lib/tz";
 import { Badge } from "../ui";
 import { deletePost, togglePostStatus } from "../publicaciones/actions";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 const TONE = { DRAFT: "warning", SCHEDULED: "neutral", PUBLISHED: "success" } as const;
 
 /** «Tus publicaciones» dentro de Actualidades: las que escribes a mano (lista, estado y accesos rápidos). */
 export async function PostsList({ creator }: { creator: { id: string; username: string; timezone: string } }) {
+  const t = await getT();
   const posts = await tenantDb(creator.id).post.findMany({
     orderBy: [{ publishedAt: { sort: "desc", nulls: "first" } }, { createdAt: "desc" }],
     select: { id: true, title: true, slug: true, imageUrl: true, status: true, publishedAt: true, createdAt: true },
@@ -22,11 +25,9 @@ export async function PostsList({ creator }: { creator: { id: string; username: 
       {posts.length === 0 ? (
         <EmptyState
           icon={<Newspaper className="h-5 w-5" />}
-          title="Escribe tu primera publicación"
-          action={<Link href="/panel/publicaciones/nueva" className="btn btn-primary">Nueva publicación</Link>}
-        >
-          Cuenta una novedad, comparte un artículo o anuncia algo. Aparecerá en la sección «Actualidades» de tu página.
-        </EmptyState>
+          title={t("Escribe tu primera publicación")}
+          action={<Link href="/panel/publicaciones/nueva" className="btn btn-primary"><Tr s={"Nueva publicación"} /></Link>}
+        ><Tr s={"Cuenta una novedad, comparte un artículo o anuncia algo. Aparecerá en la sección «Actualidades» de tu página."} /></EmptyState>
       ) : (
         <ul className="space-y-2.5">
           {posts.map((p) => {
@@ -48,7 +49,7 @@ export async function PostsList({ creator }: { creator: { id: string; username: 
                     {state === "DRAFT" ? `Creada el ${formatDate(p.createdAt, { day: "numeric", month: "short" }, creator.timezone)}` : state === "SCHEDULED" ? `Se publica el ${date}` : date}
                   </p>
                   <div className="mt-1.5">
-                    <Badge tone={TONE[state]}>{POST_STATE_LABEL[state]}</Badge>
+                    <Badge tone={TONE[state]}><Tr s={POST_STATE_LABEL[state]} /></Badge>
                   </div>
                 </Link>
                 <div className="flex shrink-0 flex-wrap justify-end gap-1">
@@ -63,10 +64,10 @@ export async function PostsList({ creator }: { creator: { id: string; username: 
                   )}
                   <form action={togglePostStatus} className="hidden sm:block">
                     <input type="hidden" name="id" value={p.id} />
-                    <button className="btn btn-ghost btn-sm">{p.status === "PUBLISHED" ? "Pasar a borrador" : "Publicar"}</button>
+                    <button className="btn btn-ghost btn-sm">{p.status === "PUBLISHED" ? t("Pasar a borrador") : t("Publicar")}</button>
                   </form>
                   <Link href={`/panel/publicaciones/${p.id}`} className="btn btn-outline btn-sm">
-                    <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Editar</span>
+                    <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline"><Tr s={"Editar"} /></span>
                   </Link>
                   <DeleteButton action={deletePost} id={p.id} what={p.title} message={`¿Borrar «${p.title}»? No se puede deshacer.`} />
                 </div>

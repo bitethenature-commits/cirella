@@ -67,9 +67,9 @@ test.afterAll(async () => {
 });
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 /** Fechas (AAAA-MM-DD) de todos los días libres del calendario, mes a mes. */
@@ -88,7 +88,7 @@ async function allFreeDates(page: Page): Promise<string[]> {
 test.describe.serial("Desistimiento", () => {
   test("lo digital no se paga sin la casilla de renuncia", async ({ page }) => {
     const email = `${TAG}-curso@example.com`;
-    await page.goto("/ana/curso-conocete-tu-energia/checkout");
+    await page.goto("/ana/know-your-energy/checkout");
     await page.fill("#name", "Rita Renuncia");
     await page.fill("#email", email);
     await page.getByLabel(/He leído y acepto/).check();
@@ -115,7 +115,7 @@ test.describe.serial("Desistimiento", () => {
     expect(await prisma.order.count({ where: { buyerEmail: email, status: "PAID" } })).toBe(0);
     await box.check();
     await page.getByRole("button", { name: /Reservar y pagar/ }).click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail: email, status: "PAID" } });
     expect(order.waiverKind).toBe("WORKSHOP_FIXED_DATE");
     expect(order.waiverText).toMatch(/^Entiendo que este taller se celebra en una fecha fija/);
@@ -124,7 +124,7 @@ test.describe.serial("Desistimiento", () => {
 
   test("membresía: sin «Quiero empezar ya» no se paga; «Desistir» devuelve lo proporcional y la termina", async ({ page }) => {
     const email = `${TAG}-socia@example.com`;
-    await page.goto("/ana/luna-completa/checkout");
+    await page.goto("/ana/full-moon/checkout");
     await expect(page.getByTestId("withdrawal-info")).toContainText("te devolvemos la parte proporcional de los días que no hayas disfrutado");
     await page.fill("#name", "Sara Socia");
     await page.fill("#email", email);
@@ -136,7 +136,7 @@ test.describe.serial("Desistimiento", () => {
     expect(await prisma.order.count({ where: { buyerEmail: email, status: "PAID" } })).toBe(0);
     await box.check();
     await page.getByRole("button", { name: /Unirme/ }).click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail: email, status: "PAID" } });
     expect(order.waiverKind).toBe("MEMBERSHIP_START");
     const sub = await prisma.subscription.findFirstOrThrow({ where: { orderId: order.id } });
@@ -146,12 +146,12 @@ test.describe.serial("Desistimiento", () => {
     // Entra con su cuenta (email confirmado y contraseña) a «Mis compras».
     await prisma.user.update({ where: { email }, data: { passwordHash: await hash("demo1234", 10), emailVerifiedAt: new Date() } });
     await page.context().clearCookies();
-    await page.goto("/entrar");
+    await page.goto("/login");
     await page.fill("#email", email);
     await page.fill("#password", "demo1234");
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
-    await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
-    await page.goto("/cuenta/compras");
+    await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+    await page.goto("/area/purchases");
     const row = page.locator(".card > div", { hasText: "Luna completa" });
     await expect(row).toContainText(`hoy te devolveríamos ${euros}`);
     let message = "";
@@ -160,7 +160,7 @@ test.describe.serial("Desistimiento", () => {
       void d.accept();
     });
     await row.getByRole("button", { name: "Desistir" }).click();
-    await page.waitForURL("**/cuenta/compras?ok=desistido");
+    await page.waitForURL("**/area/purchases?ok=desistido");
     expect(message).toContain(`Te devolveremos ${euros}`);
     expect(message).toContain(`los ${expected.unusedDays} días que no has disfrutado de los ${expected.totalDays} del periodo pagado`);
     expect(message).toContain("Tu membresía terminará ahora");
@@ -173,7 +173,7 @@ test.describe.serial("Desistimiento", () => {
 
   test("calendario de una sesión pagada: ningún día antes del día 15", async ({ page }) => {
     const day15 = dateKeyInTz(earliestPaidSessionStart(new Date(), TZ), TZ);
-    await page.goto("/ana/sesion-1-1/checkout");
+    await page.goto("/ana/one-on-one/checkout");
     await expect(page.getByTestId("dia-15")).toContainText("se reservan desde el día 15 tras la compra");
     const dates = await allFreeDates(page);
     expect(dates.length).toBeGreaterThan(0);
@@ -183,16 +183,16 @@ test.describe.serial("Desistimiento", () => {
   test("«Prefiero elegir la fecha después del pago»: al elegirla, también desde el día 15 de su compra", async ({ page }) => {
     const email = `despues${stamp}@example.com`;
     const day15 = dateKeyInTz(earliestPaidSessionStart(new Date(), TZ), TZ);
-    await page.goto("/ana/sesion-1-1/checkout");
+    await page.goto("/ana/one-on-one/checkout");
     await page.getByLabel("Prefiero elegir la fecha después del pago").check();
     await page.fill("#name", "Dora Después");
     await page.fill("#email", email);
     await page.getByLabel(/He leído y acepto/).check();
     await expect(page.getByLabel(/Quiero acceder ya|Entiendo que este taller|Quiero empezar ya/)).toHaveCount(0);
     await page.getByRole("button", { name: /Reservar y pagar/ }).click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     await page.getByRole("link", { name: /Elegir fecha y hora/ }).click();
-    await page.waitForURL("**/cuenta/sesiones/**");
+    await page.waitForURL("**/area/sessions/**");
     const dates = await allFreeDates(page);
     expect(dates.length).toBeGreaterThan(0);
     for (const d of dates) expect(d >= day15, `${d} es antes del día 15 (${day15})`).toBe(true);
@@ -202,7 +202,7 @@ test.describe.serial("Desistimiento", () => {
 
   test("«Mis canales» de Laura: «Desistir» solo en su sesión en plazo", async ({ page }) => {
     await demoLogin(page, "Laura Martín");
-    await page.goto("/cuenta/compras");
+    await page.goto("/area/purchases");
     const row = (title: string) => page.locator(".card > div", { hasText: title });
     await expect(row("Lectura de Human Design").getByRole("button", { name: "Desistir" })).toBeVisible();
     await expect(row("Lectura de Human Design")).toContainText(/Puedes desistir hasta el \d+ de \p{L}+ \(incluido\)/u);
@@ -215,7 +215,7 @@ test.describe.serial("Desistimiento", () => {
   });
 
   test("producto: la regla del día 15 explicada y sin bajar de 15 días", async ({ page }) => {
-    const p = await prisma.product.findFirstOrThrow({ where: { slug: "sesion-1-1", creator: { username: "ana" } } });
+    const p = await prisma.product.findFirstOrThrow({ where: { slug: "one-on-one", creator: { username: "ana" } } });
     await demoLogin(page, "Cirella");
     await page.goto(`/panel/productos/${p.id}`);
     await expect(page.getByText("Las sesiones que se pagan en la web se pueden reservar a partir del día 15 desde la compra: así nunca caen dentro de los 14 días en los que tu clienta puede desistir.")).toBeVisible();

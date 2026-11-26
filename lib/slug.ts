@@ -7,17 +7,23 @@ export const RESERVED_USERNAMES = new Set([
   "favicon.ico", "robots.txt", "sitemap.xml", "cirella", "plataforma", "pedido",
   "vista-previa", "aviso-legal", "cookies", "contrasena", "pago-simulado",
   "icon.svg", "baja", "novedades",
-  // Páginas de la web de la dueña en la raíz (web personal): lib/site-sections.ts.
-  "actualidades", "portal", "ofertas", "comunidad", "cursos", "lecturas", "sesiones", "uno-a-uno", "gifts",
+  // Las direcciones en inglés de la web (2026-11): área de alumna, entrar, legal, bajas, pagos de prueba…
+  "area", "password", "logout", "thanks", "legal-notice", "privacy", "terms", "unsubscribe", "newsletter", "test-payment",
+  // Páginas de la web de la dueña en la raíz (web personal): lib/site-sections.ts (y sus nombres de antes).
+  "news", "portal", "offers", "membership", "courses", "readings", "sessions", "1on1", "gifts",
+  "actualidades", "ofertas", "comunidad", "cursos", "lecturas", "sesiones", "uno-a-uno",
+  // Los idiomas delante de la dirección (lib/i18n/config.ts): /en/…, /es/… (y /de por si acaso).
+  "de", "en", "es",
 ]);
 
-// Segmentos que no pueden usarse como slug de producto (colisionan con rutas).
-// «actualidades» es la lista de publicaciones (/<usuaria>/actualidades; «novedades», su dirección de antes,
-// redirige allí), «p», las páginas extra (/<usuaria>/p/<página>), y el resto, las páginas de la portada
+// Segmentos que no pueden usarse como slug de producto (colisionan con rutas de /<usuaria>/…).
+// «news» es la lista de publicaciones (/<usuaria>/news; «actualidades» y «novedades», sus direcciones de antes,
+// redirigen allí), «p», las páginas extra (/<usuaria>/p/<página>), y el resto, las páginas de la portada
 // nueva (lib/site-sections.ts).
 export const RESERVED_PRODUCT_SLUGS = new Set([
-  "gracias", "checkout", "opengraph-image", "icon", "cuenta", "entrar", "legal", "novedades", "p",
-  "actualidades", "portal", "ofertas", "comunidad", "cursos", "lecturas", "sesiones", "uno-a-uno", "gifts",
+  "thanks", "checkout", "opengraph-image", "icon", "login", "legal", "p", "area",
+  "news", "portal", "offers", "membership", "courses", "readings", "sessions", "1on1", "gifts",
+  "gracias", "cuenta", "entrar", "novedades", "actualidades", "ofertas", "comunidad", "cursos", "lecturas", "sesiones", "uno-a-uno",
 ]);
 
 export function slugify(input: string) {

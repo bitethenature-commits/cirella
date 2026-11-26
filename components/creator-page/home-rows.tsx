@@ -67,7 +67,7 @@ export type HomeRowData = {
   icon: ReactNode;
   eyebrow: ReactNode;
   title: string;
-  text?: string | null;
+  text?: ReactNode;
   /** A la derecha: el precio de una oferta… (sin él, la flecha). */
   aside?: ReactNode;
   /** Sobre la foto: el candado, el −30 %… */

@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { Tr } from "@/lib/i18n/client";
 
 export type PickerMoon = { title: string; date: string; time: string };
 
@@ -67,7 +68,7 @@ export function WhenPicker({
             <ChevronLeft className="h-4 w-4" />
           </button>
           <p className="display text-[1.35rem] font-light capitalize text-[color:var(--n-ivory,#f1ebdf)]">
-            {MONTHS[m - 1]} <span className="text-[color:var(--n-gold,#d4b57a)]">{y}</span>
+            <Tr s={MONTHS[m - 1]} /> <span className="text-[color:var(--n-gold,#d4b57a)]">{y}</span>
           </p>
           <button type="button" onClick={() => shift(1)} className="grid h-9 w-9 place-items-center rounded-full text-[color:var(--n-gold,#d4b57a)] hover:bg-[color:var(--n-gold,#d4b57a)]/10" aria-label="Mes siguiente">
             <ChevronRight className="h-4 w-4" />
@@ -77,7 +78,7 @@ export function WhenPicker({
         <div className="grid grid-cols-7 text-center text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-[color:var(--n-gold,#d4b57a)]/70" aria-hidden>
           {WEEKDAYS.map((w) => (
             <span key={w} className="py-1.5">
-              {w}
+              <Tr s={w} />
             </span>
           ))}
         </div>
@@ -104,7 +105,7 @@ export function WhenPicker({
                 } ${inMonth ? "" : "opacity-35"}`}
               >
                 {Number(k.slice(8))}
-                {moon && <span className="absolute -bottom-0.5 text-[0.55rem] leading-none" aria-hidden>{moon.title.startsWith("Eclipse") ? "🌘" : moon.title.startsWith("Luna nueva") ? "🌑" : "🌕"}</span>}
+                {moon && <span className="absolute -bottom-0.5 text-[0.55rem] leading-none" aria-hidden><Tr s={moon.title.startsWith("Eclipse") ? "🌘" : moon.title.startsWith("Luna nueva") ? "🌑" : "🌕"} /></span>}
               </button>
             );
           })}
@@ -114,8 +115,7 @@ export function WhenPicker({
       <div className="space-y-3">
         <label className="block">
           <span className="flex items-center gap-1.5 text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-[color:var(--n-gold,#d4b57a)]">
-            <Clock className="h-3.5 w-3.5" /> La hora
-          </span>
+            <Clock className="h-3.5 w-3.5" />{" "}<Tr s={"La hora"} /></span>
           <input
             type="time"
             value={time}
@@ -127,12 +127,11 @@ export function WhenPicker({
         </label>
         <p className="rounded-2xl border border-[color:var(--n-gold,#d4b57a)]/20 bg-[color:var(--n-gold,#d4b57a)]/[.06] px-4 py-3 text-sm text-[color:var(--n-ivory,#f1ebdf)]/85" aria-live="polite">
           {day && time ? (
-            <>
-              Saldrá el <strong className="font-semibold text-[color:var(--n-gold-hi,#f0d9a4)]">{pretty(day)}</strong> a las <strong className="font-semibold text-[color:var(--n-gold-hi,#f0d9a4)]">{time}</strong>
-              <span className="mt-0.5 block text-xs text-[color:var(--n-muted,#a7a2c2)]">Hora de {cityLabel}. Hasta entonces, nadie más la ve.</span>
+            <><Tr s={"Saldrá el"} />{" "}<strong className="font-semibold text-[color:var(--n-gold-hi,#f0d9a4)]">{pretty(day)}</strong>{" "}<Tr s={"a las"} />{" "}<strong className="font-semibold text-[color:var(--n-gold-hi,#f0d9a4)]">{time}</strong>
+              <span className="mt-0.5 block text-xs text-[color:var(--n-muted,#a7a2c2)]"><Tr s={"Hora de"} />{" "}<Tr s={cityLabel} /><Tr s={". Hasta entonces, nadie más la ve."} /></span>
             </>
           ) : (
-            <span className="text-[color:var(--n-muted,#a7a2c2)]">Elige el día en el calendario y luego la hora.</span>
+            <span className="text-[color:var(--n-muted,#a7a2c2)]"><Tr s={"Elige el día en el calendario y luego la hora."} /></span>
           )}
         </p>
       </div>

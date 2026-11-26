@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * Comprobación invisible de Cloudflare Turnstile. Solo se ve si Cloudflare necesita que la persona
@@ -71,7 +72,7 @@ export function Turnstile({ siteKey, onToken }: { siteKey: string; onToken: (tok
   return (
     <div>
       <div ref={ref} />
-      <p className="cp-faint text-xs">Comprobación de seguridad de Cloudflare.</p>
+      <p className="cp-faint text-xs"><Tr s={"Comprobación de seguridad de Cloudflare."} /></p>
     </div>
   );
 }

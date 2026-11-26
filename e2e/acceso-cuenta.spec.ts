@@ -20,13 +20,13 @@ test.afterAll(async () => {
 });
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 async function passwordLogin(page: Page, email: string, password = "demo1234") {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.fill("#email", email);
   await page.fill("#password", password);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
@@ -54,7 +54,7 @@ async function buy(page: Page, path: string, name: string, email: string) {
   await page.fill("#email", email);
   await acceptConsents(page);
   await page.getByRole("button", { name: /Pagar/ }).click();
-  await page.waitForURL("**/gracias**");
+  await page.waitForURL("**/thanks**");
   await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
 }
 
@@ -64,27 +64,27 @@ test.describe.serial("Acceso a la cuenta", () => {
   test("la sesión de una compra solo abre ese pedido, aunque la cuenta ya existiera", async ({ page }) => {
     const laura = await prisma.user.findUniqueOrThrow({ where: { email: "laura@example.com" } });
     const booking = await prisma.booking.findFirstOrThrow({ where: { userId: laura.id, startAt: { not: null } } });
-    const course = await prisma.product.findFirstOrThrow({ where: { slug: "curso-conocete-tu-energia" } });
+    const course = await prisma.product.findFirstOrThrow({ where: { slug: "know-your-energy" } });
     const oldPdf = await prisma.productFile.findFirstOrThrow({ where: { product: { slug: "gene-keys" } } });
 
-    await buy(page, "/ana/lectura-astrologia/checkout", "Laura Martín", "laura@example.com");
+    await buy(page, "/ana/astrology/checkout", "Laura Martín", "laura@example.com");
     await page.getByRole("link", { name: /Acceder a mi contenido/ }).click();
-    await page.waitForURL("**/cuenta/pedidos/**");
+    await page.waitForURL("**/area/orders/**");
     await expect(page.getByText("Estás viendo solo esta compra.")).toBeVisible();
     const download = page.getByRole("link", { name: "Descargar" }).first();
     expect((await page.request.get((await download.getAttribute("href"))!)).status()).toBe(200);
     // Nada de lo que Laura ya tenía: ni su reserva (con su videollamada), ni su curso, ni su PDF.
-    await page.goto(`/cuenta/sesiones/${booking.id}`);
-    await expect(page).toHaveURL(/\/ana\/entrar/);
+    await page.goto(`/area/sessions/${booking.id}`);
+    await expect(page).toHaveURL(/\/ana\/login/);
     await expect(page.getByText(/Enlace de (la videollamada|Zoom)/)).toHaveCount(0);
-    await page.goto(`/cuenta/cursos/${course.id}`);
-    await expect(page).toHaveURL(/\/ana\/entrar/);
+    await page.goto(`/area/courses/${course.id}`);
+    await expect(page).toHaveURL(/\/ana\/login/);
     expect((await page.request.get(`/api/download/${oldPdf.id}`, { maxRedirects: 0 })).status()).not.toBe(200);
   });
 
   test("el enlace mágico no lo gasta un GET: se entra con «Entrar» y solo una vez", async ({ page }) => {
     const since = new Date();
-    await page.goto("/entrar");
+    await page.goto("/login");
     await page.getByRole("button", { name: "Enlace por email" }).click();
     await page.fill("#ml-email", "laura@example.com");
     await page.getByRole("button", { name: "Enviarme el enlace" }).click();
@@ -99,10 +99,10 @@ test.describe.serial("Acceso a la cuenta", () => {
     await page.goto(url);
     await expect(page.getByRole("heading", { name: "Entra a tu cuenta" })).toBeVisible();
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
-    await page.waitForURL("**/cuenta");
+    await page.waitForURL("**/area");
     await expect(page.getByRole("heading", { name: "Hola, Laura" })).toBeVisible();
     await page.goto(url);
-    await expect(page).toHaveURL(/\/entrar\?error=enlace/);
+    await expect(page).toHaveURL(/\/login\?error=enlace/);
   });
 
   test("el enlace personal del recibo abre la compra sin contraseña y caduca con la marca", async ({ page, browser }) => {
@@ -114,11 +114,11 @@ test.describe.serial("Acceso a la cuenta", () => {
 
     const other = await (await browser.newContext()).newPage();
     await other.goto(url);
-    await other.waitForURL("**/cuenta/pedidos/**");
+    await other.waitForURL("**/area/orders/**");
     await expect(other.getByText("Estás viendo solo esta compra.")).toBeVisible();
     await expect(other.getByRole("heading", { name: "Gene Keys" })).toBeVisible();
-    await other.goto("/cuenta/compras");
-    await expect(other).toHaveURL(/\/ana\/entrar/);
+    await other.goto("/area/purchases");
+    await expect(other).toHaveURL(/\/ana\/login/);
     await expect(other.getByText("Para ver todas tus compras")).toBeVisible();
 
     const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail: email } });
@@ -126,7 +126,7 @@ test.describe.serial("Acceso a la cuenta", () => {
     await prisma.orderLink.updateMany({ where: { orderId: order.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
     try {
       await other.goto(url);
-      await expect(other).toHaveURL(/\/ana\/entrar/);
+      await expect(other).toHaveURL(/\/ana\/login/);
       await expect(other.getByText("Este enlace personal ha caducado")).toBeVisible();
     } finally {
       for (const l of links) await prisma.orderLink.update({ where: { id: l.id }, data: { expiresAt: l.expiresAt } });
@@ -135,9 +135,9 @@ test.describe.serial("Acceso a la cuenta", () => {
   });
 
   test("login con la marca de la creadora: solo enlace por email y vuelta al mismo curso", async ({ page }) => {
-    const course = await prisma.product.findFirstOrThrow({ where: { slug: "curso-conocete-tu-energia" } });
-    await page.goto(`/cuenta/cursos/${course.id}`);
-    await expect(page).toHaveURL(/\/ana\/entrar\?next=/);
+    const course = await prisma.product.findFirstOrThrow({ where: { slug: "know-your-energy" } });
+    await page.goto(`/area/courses/${course.id}`);
+    await expect(page).toHaveURL(/\/ana\/login\?next=/);
     await expect(page.getByRole("heading", { name: "Entra a tu área" })).toBeVisible();
     await expect(page.getByText("Cirella").first()).toBeVisible();
     await expect(page.locator("input[type=password]")).toHaveCount(0);
@@ -151,7 +151,7 @@ test.describe.serial("Acceso a la cuenta", () => {
     expect(html).toContain("Cirella");
     await page.goto(url);
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
-    await page.waitForURL(`**/cuenta/cursos/${course.id}`);
+    await page.waitForURL(`**/area/courses/${course.id}`);
     await expect(page.getByRole("heading", { name: course.title })).toBeVisible();
   });
 
@@ -159,18 +159,18 @@ test.describe.serial("Acceso a la cuenta", () => {
     const carmen = await prisma.user.findUniqueOrThrow({ where: { email: "carmen@example.com" } });
     const since = new Date();
     try {
-      await page.goto("/registro");
+      await page.goto("/signup");
       await page.fill("#email", "carmen@example.com");
       await page.fill("#password", "intrusa1234");
       await page.getByRole("button", { name: "Crear mi cuenta" }).click();
       await expect(page.getByText(/Ya tienes una cuenta con este email/)).toBeVisible();
-      await page.goto("/cuenta");
-      await expect(page).toHaveURL(/\/entrar/);
+      await page.goto("/area");
+      await expect(page).toHaveURL(/\/login/);
 
       const { url } = await lastEmailLink("carmen@example.com", "MAGIC_LINK", "Entrar a mi cuenta", since);
       await page.goto(url);
       await page.getByRole("button", { name: "Entrar", exact: true }).click();
-      await page.waitForURL("**/contrasena**");
+      await page.waitForURL("**/password**");
       await expect(page.getByRole("heading", { name: "Crea tu contraseña" })).toBeVisible();
       await page.fill("#password", "carmen12345");
       await page.getByRole("button", { name: "Guardar contraseña" }).click();
@@ -183,39 +183,39 @@ test.describe.serial("Acceso a la cuenta", () => {
   test("secuestro previo: «No he sido yo» cierra el acceso de quien registró el email", async ({ page, browser }) => {
     const email = `x${stamp}@example.com`;
     const since = new Date();
-    await page.goto("/registro");
+    await page.goto("/signup");
     await page.fill("#email", email);
     await page.fill("#password", "secreto123");
     await page.getByRole("button", { name: "Crear mi cuenta" }).click();
     await page.waitForURL("**/onboarding");
     // Sin confirmar el email no hay área de cliente.
-    await page.goto("/cuenta");
-    await expect(page).toHaveURL(/\/entrar.*motivo=confirmar/);
+    await page.goto("/area");
+    await expect(page).toHaveURL(/\/login.*motivo=confirmar/);
 
     const { url } = await lastEmailLink(email, "VERIFY_EMAIL", "Confirmar mi email", since);
     const owner = await (await browser.newContext()).newPage();
     await owner.goto(url);
     await expect(owner.getByRole("heading", { name: "¿Has creado tú esta cuenta?" })).toBeVisible();
     await owner.getByRole("button", { name: "No he sido yo" }).click();
-    await owner.waitForURL("**/contrasena?motivo=seguridad**");
+    await owner.waitForURL("**/password?motivo=seguridad**");
     await expect(owner.getByText(/hemos borrado la contraseña anterior/)).toBeVisible();
     await owner.context().close();
 
     await page.goto("/onboarding");
-    await expect(page).toHaveURL(/\/entrar/);
+    await expect(page).toHaveURL(/\/login/);
     await passwordLogin(page, email, "secreto123");
     // La contraseña borrada ya no entra. El mensaje es el genérico (no revela que la cuenta existe
     // sin contraseña) y la pista para entrar con un enlace está siempre en el formulario.
     await expect(page.getByText("Email o contraseña incorrectos.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Pide un enlace para entrar" })).toBeVisible();
-    await expect(page).toHaveURL(/\/entrar/);
+    await expect(page).toHaveURL(/\/login/);
   });
 
   test("alta normal: «Sí, he sido yo» sigue dentro y quita el aviso «Confirma tu email» del panel", async ({ page }) => {
     // Alta nueva: el onboarding no espera a la confirmación.
     const email = `y${stamp}@example.com`;
     let since = new Date();
-    await page.goto("/registro");
+    await page.goto("/signup");
     await page.fill("#email", email);
     await page.fill("#password", "secreto123");
     await page.getByRole("button", { name: "Crear mi cuenta" }).click();
@@ -224,7 +224,7 @@ test.describe.serial("Acceso a la cuenta", () => {
     await page.goto(link.url);
     await page.getByRole("button", { name: "Sí, he sido yo" }).click();
     await page.waitForURL("**/onboarding");
-    await page.goto("/cuenta");
+    await page.goto("/area");
     await expect(page.getByRole("heading", { name: /Hola/ })).toBeVisible();
 
     // Creadora sin confirmar: aviso en el panel y «Reenviarme el enlace».
@@ -253,19 +253,19 @@ test.describe.serial("Acceso a la cuenta", () => {
     const other = await (await browser.newContext()).newPage();
     try {
       await passwordLogin(page, "laura@example.com");
-      await page.waitForURL("**/cuenta");
+      await page.waitForURL("**/area");
       await passwordLogin(other, "laura@example.com");
-      await other.waitForURL("**/cuenta");
+      await other.waitForURL("**/area");
 
-      await page.goto("/cuenta/perfil");
+      await page.goto("/area/profile");
       await page.getByLabel("Contraseña actual").fill("demo1234");
       await page.getByLabel("Contraseña nueva").fill("nueva12345");
       await page.getByRole("button", { name: "Cambiar contraseña" }).click();
       await expect(page.getByText("Contraseña cambiada. Hemos cerrado tus otras sesiones.")).toBeVisible();
 
-      await other.goto("/cuenta");
-      await expect(other).toHaveURL(/\/entrar/);
-      await page.goto("/cuenta");
+      await other.goto("/area");
+      await expect(other).toHaveURL(/\/login/);
+      await page.goto("/area");
       await expect(page.getByRole("heading", { name: "Hola, Laura" })).toBeVisible();
     } finally {
       await prisma.user.update({ where: { id: laura.id }, data: { passwordHash: laura.passwordHash ?? (await hash("demo1234", 10)) } });
@@ -277,15 +277,15 @@ test.describe.serial("Acceso a la cuenta", () => {
     expect(receiptLink).not.toBe("");
     await demoLogin(page, "Cirella");
     await page.goto(receiptLink);
-    await page.waitForURL("**/auth/enlace/cambiar**");
+    await page.waitForURL("**/auth/link/change**");
     await expect(page.getByRole("heading", { name: "Este enlace es de otra cuenta" })).toBeVisible();
     await page.getByRole("link", { name: /Seguir como Cirella/ }).click();
     await page.waitForURL("**/panel");
 
     await page.goto(receiptLink);
-    await page.waitForURL("**/auth/enlace/cambiar**");
+    await page.waitForURL("**/auth/link/change**");
     await page.getByRole("button", { name: "Salir y abrir el enlace" }).click();
-    await page.waitForURL("**/cuenta/pedidos/**");
+    await page.waitForURL("**/area/orders/**");
     await expect(page.getByText("Estás viendo solo esta compra.")).toBeVisible();
   });
 });

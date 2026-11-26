@@ -14,6 +14,7 @@ import { BarButton, CanvaShell, stopWebLinks } from "@/app/panel/canva/canva-ui"
 import { DeviceToggle, useDevice, type Device } from "@/app/panel/canva/web-frame";
 import { addStudioLesson, addStudioModule } from "../../actions";
 import { StructureBoard, type BoardModule } from "../structure-board";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /** El curso en el editor de lecciones: su nombre, su portada, los colores del área de alumna, su diseño y cómo se abre. */
 export type CanvaCourse = {
@@ -34,7 +35,7 @@ export type CanvaPanel = { title: string; body: ReactNode; footer?: ReactNode; o
 const OUTLINE_KEY = "curso-indice";
 
 /**
- * El área de alumna por dentro (sus colores, su foto, su fondo y su figura), como en app/cuenta/look-root.tsx, con
+ * El área de alumna por dentro (sus colores, su foto, su fondo y su figura), como en app/area/look-root.tsx, con
  * el diseño del curso encima si lo tiene (como en el reproductor: course-look-apply.tsx).
  */
 function StudentArea({ look, children }: { look: AccountLook | null; children: ReactNode }) {
@@ -90,6 +91,7 @@ export function CourseCanvaShell({
   fonts?: (FontKey | null)[];
   children: (device: Device) => ReactNode;
 }) {
+  const t = useT();
   const [device, setDevice] = useDevice();
   const [outline, setOutline] = useState(true);
   const [outlineSheet, setOutlineSheet] = useState(false);
@@ -167,13 +169,13 @@ export function CourseCanvaShell({
       frameClassName={outline ? "lg:pl-[13rem]" : "lg:pl-14"}
       bar={
         <div className="flex items-center gap-1 p-2 sm:gap-1.5">
-          <BarButton icon={PanelLeft} label="Índice" onClick={toggleOutline} active={outline && !open} />
-          <BarButton icon={ListTree} label="Estructura" onClick={() => navigate(`/panel/cursos/${course.id}`)} />
+          <BarButton icon={PanelLeft} label={t("Índice")} onClick={toggleOutline} active={outline && !open} />
+          <BarButton icon={ListTree} label={t("Estructura")} onClick={() => navigate(`/panel/cursos/${course.id}`)} />
           {tools}
           <DeviceToggle device={device} onChange={setDevice} />
           {status}
-          <a href={viewHref} target="_blank" rel="noopener" className="panel-nav-link inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-sm" title="Ver como alumna" aria-label="Ver como alumna">
-            <Eye className="h-4 w-4" /> <span className="hidden xl:inline">Ver como alumna</span>
+          <a href={viewHref} target="_blank" rel="noopener" className="panel-nav-link inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-sm" title={t("Ver como alumna")} aria-label={t("Ver como alumna")}>
+            <Eye className="h-4 w-4" /> <span className="hidden xl:inline"><Tr s={"Ver como alumna"} /></span>
           </a>
         </div>
       }
@@ -186,7 +188,7 @@ export function CourseCanvaShell({
           data-canva-ui
           data-course-index
           role={open ? "dialog" : undefined}
-          aria-label={panel ? panel.title : "Índice del curso"}
+          aria-label={t(panel ? panel.title : t("Índice del curso"))}
           className={`fixed inset-x-0 bottom-0 z-[42] max-h-[72dvh] flex-col rounded-t-2xl border border-b-0 border-line text-ink max-lg:animate-fade-up max-lg:bg-[#0b0b0d]/80 max-lg:shadow-[0_30px_80px_-20px_rgb(0_0_0/.75)] max-lg:backdrop-blur-xl lg:inset-x-auto lg:bottom-[3.6rem] lg:left-[3.75rem] lg:top-[4.25rem] lg:z-[41] lg:max-h-none lg:animate-fade-in ${open ? "lg:w-[21rem] lg:rounded-2xl lg:border lg:border-white/10 lg:bg-[#0b0b0d]/80 lg:shadow-[0_30px_80px_-20px_rgb(0_0_0/.75)] lg:backdrop-blur-xl" : "lg:w-[8.75rem] lg:rounded-none lg:border-0"} ${mobile ? "flex" : "hidden"} ${desk ? "lg:flex" : "lg:hidden"}`}
         >
           {panel ? (
@@ -195,12 +197,11 @@ export function CourseCanvaShell({
                 <div className="min-w-0 flex-1">
                   {outline && (
                     <button type="button" onClick={panel.onClose} className="hidden items-center gap-0.5 text-[0.66rem] font-semibold uppercase tracking-[0.18em] text-muted hover:text-ink lg:inline-flex">
-                      <ChevronLeft className="h-3.5 w-3.5" /> Índice
-                    </button>
+                      <ChevronLeft className="h-3.5 w-3.5" />{" "}<Tr s={"Índice"} /></button>
                   )}
                   <p className="truncate text-[1.05rem] font-semibold leading-tight max-lg:pt-1.5">{panel.title}</p>
                 </div>
-                <button type="button" onClick={panel.onClose} className={`${closeBtn} ${outline ? "lg:hidden" : ""}`} aria-label="Cerrar">
+                <button type="button" onClick={panel.onClose} className={`${closeBtn} ${outline ? "lg:hidden" : ""}`} aria-label={t("Cerrar")}>
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -215,12 +216,12 @@ export function CourseCanvaShell({
                   nombre ya está en la lección. */}
               <div className="flex items-start gap-2 px-4 pb-1 pt-2 lg:hidden">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.66rem] font-semibold uppercase tracking-[0.18em] text-muted">Curso</p>
+                  <p className="text-[0.66rem] font-semibold uppercase tracking-[0.18em] text-muted"><Tr s={"Curso"} /></p>
                   <p className="display truncate text-[1.25rem] leading-tight" title={course.title}>
                     {course.title}
                   </p>
                 </div>
-                <button type="button" onClick={() => setOutlineSheet(false)} className={closeBtn} aria-label="Cerrar el índice">
+                <button type="button" onClick={() => setOutlineSheet(false)} className={closeBtn} aria-label={t("Cerrar el índice")}>
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -248,17 +249,18 @@ export function CourseCanvaShell({
  * primera lección), con el índice a la izquierda como siempre.
  */
 export function CourseCanvaEmpty({ course, board }: { course: CanvaCourse; board: BoardModule[] }) {
+  const t = useT();
   const router = useRouter();
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const first = board[0];
   return (
-    <CourseCanvaShell course={course} board={board} current={null} navigate={(href) => router.push(href)} viewHref={`/cuenta/cursos/${course.id}`}>
+    <CourseCanvaShell course={course} board={board} current={null} navigate={(href) => router.push(href)} viewHref={`/area/courses/${course.id}`}>
       {(device) => (
         <div className={`mx-auto max-w-2xl px-5 pb-32 text-center ${device === "movil" ? "pt-10" : "pt-28"}`}>
           <h1 className="display text-[2.2rem] leading-tight sm:text-[2.8rem]">{course.title}</h1>
-          <p className="mt-4 text-muted">Este curso aún no tiene lecciones.</p>
+          <p className="mt-4 text-muted"><Tr s={"Este curso aún no tiene lecciones."} /></p>
           <div data-canva-ui className="mt-8">
             {first ? (
               <button
@@ -273,8 +275,7 @@ export function CourseCanvaEmpty({ course, board }: { course: CanvaCourse; board
                   })
                 }
               >
-                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Añadir la primera lección
-              </button>
+                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}{" "}<Tr s={"Añadir la primera lección"} /></button>
             ) : (
               <form
                 className="mx-auto flex max-w-md flex-col gap-2 sm:flex-row"
@@ -287,16 +288,13 @@ export function CourseCanvaEmpty({ course, board }: { course: CanvaCourse; board
                   });
                 }}
               >
-                <label className="sr-only" htmlFor="first-module">
-                  Nombre del primer módulo
-                </label>
-                <input id="first-module" value={name} onChange={(e) => setName(e.target.value)} placeholder="Módulo 1" maxLength={120} className="input h-11 flex-1 text-base sm:text-sm" />
+                <label className="sr-only" htmlFor="first-module"><Tr s={"Nombre del primer módulo"} /></label>
+                <input id="first-module" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("Módulo 1")} maxLength={120} className="input h-11 flex-1 text-base sm:text-sm" />
                 <button className="btn btn-primary h-11" disabled={pending}>
-                  {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Añadir el primer módulo
-                </button>
+                  {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}{" "}<Tr s={"Añadir el primer módulo"} /></button>
               </form>
             )}
-            {error && <p className="mt-3 text-sm text-[#f2a99f]">{error}</p>}
+            {error && <p className="mt-3 text-sm text-[#f2a99f]"><Tr s={error} /></p>}
           </div>
         </div>
       )}

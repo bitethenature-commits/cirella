@@ -23,6 +23,7 @@ import { TierDesign, TierStageField, useTierLookSaver } from "./tiers-look";
 import type { PanelPage } from "./web-pages";
 import { useDevice } from "./web-frame";
 import type { WebTiers } from "@/lib/web-tiers";
+import { Tr } from "@/lib/i18n/client";
 
 type Props = Omit<ComponentProps<typeof SitePageEditor>, "publishedJson" | "everPublished" | "publishedSlug" | "notice" | "pages"> & {
   /** Hacerte miembro: sus niveles, para escribirlos encima en su sección. */
@@ -155,9 +156,7 @@ export function PageCanva(props: Props) {
     // eslint-disable-next-line @next/next/no-img-element
     <img src={content.cover.src} alt="" className="block h-auto w-full rounded-[var(--r-card)]" />
   ) : (
-    <div className="grid h-40 w-full place-items-center rounded-[var(--r-card)] border border-dashed text-sm opacity-60" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 50%, transparent)" }}>
-      Imagen de cabecera (opcional)
-    </div>
+    <div className="grid h-40 w-full place-items-center rounded-[var(--r-card)] border border-dashed text-sm opacity-60" style={{ borderColor: "color-mix(in oklab, var(--c-gold) 50%, transparent)" }}><Tr s={"Imagen de cabecera (opcional)"} /></div>
   );
 
   const designBase = useMemo(() => designFor({ theme: design.theme, pageThemes: design.pageThemes }, props.slug), [design.theme, design.pageThemes, props.slug]);
@@ -258,9 +257,7 @@ export function PageCanva(props: Props) {
       notice={
         !published && (
           <p>
-            <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#e9cc8e] align-middle" aria-hidden />
-            Esta página aún no está publicada: con tu primer cambio se publica y ya se ve en tu web.
-          </p>
+            <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#e9cc8e] align-middle" aria-hidden /><Tr s={"Esta página aún no está publicada: con tu primer cambio se publica y ya se ve en tu web."} /></p>
         )
       }
     >

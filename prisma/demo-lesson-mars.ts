@@ -9,7 +9,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import type { BlockPart } from "../lib/lesson-blocks";
 
 export const MARS_LESSON_TITLE = "Marte, tu fuerza";
-const COURSE_SLUG = "tu-carta-y-tu-energia";
+const COURSE_SLUG = "chart-and-energy";
 const MODULE_TITLE = "Los planetas, uno a uno";
 
 type Part = { kind: "TEXT"; body: string } | BlockPart;

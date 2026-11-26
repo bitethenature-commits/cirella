@@ -5,6 +5,7 @@ import { LAYER_KEYS, type AstroLayer } from "@/lib/lesson-blocks";
 import { listEs, type DiagramProps, type LayerCtx, type SystemPiece, type Tap } from "./common";
 import { Stone, StoneDefs } from "./extra";
 import { NIGHT, NIGHT_GOLD, NightChips, NightPanel, OptionChips, STAR, Stars, usePrefix } from "./night";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Las runas a fondo, en 5 capas: las runas invertidas (merkstave), las runas por elemento y por dios o diosa,
@@ -238,6 +239,7 @@ export function Runes2Diagram({ layer, selected, mine, keys, tap, ctx }: Diagram
 
 /** La runa elegida derecha e invertida, grandes; debajo, las 15 que se pueden invertir, ya del revés. */
 function ReversedStones({ selected, keys, tap, own }: { selected: string; keys: string[]; tap: Tap; own: Set<string> }) {
+  const t = useT();
   const p = usePrefix();
   const r = R(selected);
   const cols = 8;
@@ -247,16 +249,14 @@ function ReversedStones({ selected, keys, tap, own }: { selected: string; keys: 
   const top = (row: number) => 176 + row * 86;
   const H = top(rows.length) - 6;
   return (
-    <svg viewBox={`0 0 340 ${H}`} className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label="Las runas invertidas">
+    <svg viewBox={`0 0 340 ${H}`} className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label={t("Las runas invertidas")}>
       <StoneDefs p={p} />
       <Stars w={340} h={H} n={34} />
-      <Stone p={p} x={110} y={76} w={84} h={100} glyph={r.glyph + TEXT_VS} on={false} label="Derecha" />
+      <Stone p={p} x={110} y={76} w={84} h={100} glyph={r.glyph + TEXT_VS} on={false} label={t("Derecha")} />
       <g transform="rotate(180 230 76)">
         <Stone p={p} x={230} y={76} w={84} h={100} glyph={r.glyph + TEXT_VS} on />
       </g>
-      <text x="230" y="146" textAnchor="middle" fontSize="9" fontWeight="700" fill={NIGHT_GOLD}>
-        Invertida
-      </text>
+      <text x="230" y="146" textAnchor="middle" fontSize="9" fontWeight="700" fill={NIGHT_GOLD}><Tr s={"Invertida"} /></text>
       <text x="170" y="80" textAnchor="middle" dominantBaseline="central" fontSize="16" fill="rgb(233 204 142 / .7)">
         ⇄
       </text>
@@ -275,8 +275,8 @@ function ReversedStones({ selected, keys, tap, own }: { selected: string; keys: 
               <Stone p={p} x={x} y={y} w={w - 8} h={40} glyph={G(k)} on={k === selected} />
             </g>
             <text x={x} y={y + 31} textAnchor="middle" fontSize="8.5" fontWeight={k === selected ? 700 : 500} fill={k === selected || own.has(k) ? NIGHT_GOLD : STAR} fillOpacity={k === selected ? 1 : 0.75}>
-              {R(k).name}
-              {own.has(k) ? " ★" : ""}
+              <Tr s={R(k).name} />
+              <Tr s={own.has(k) ? " ★" : ""} />
             </text>
           </g>
         );
@@ -296,7 +296,7 @@ function GroupStones({ group }: { group: { name: string; color: string; runes: s
       <circle cx="170" cy="140" r="112" fill={`${group.color}14`} stroke={group.color} strokeOpacity="0.45" />
       <circle cx="170" cy="140" r="44" fill={NIGHT} stroke={group.color} strokeOpacity="0.8" />
       <text x="170" y="141" textAnchor="middle" dominantBaseline="central" fontSize={group.name.length > 8 ? 11 : 15} fontFamily="Georgia, serif" fill={group.color}>
-        {group.name}
+        <Tr s={group.name} />
       </text>
       {group.runes.map((id, i) => {
         const a = ((i / n) * 360 - 90) * (Math.PI / 180);
@@ -320,13 +320,13 @@ function BigSpread({ keys, selected, tap }: { keys: string[]; selected: string; 
       {nine &&
         ["PASADO", "PRESENTE", "FUTURO"].map((t, i) => (
           <text key={t} x={70 + i * 100} y="258" textAnchor="middle" fontSize="7.5" letterSpacing="1.4" fill="rgb(251 246 236 / .55)">
-            {t}
+            <Tr s={t} />
           </text>
         ))}
       {nine &&
         ["GUÍA", "VISIBLE", "OCULTO"].map((t, i) => (
           <text key={t} x="16" y={52 + i * 80} textAnchor="middle" dominantBaseline="central" fontSize="7" letterSpacing="1.2" fill="rgb(251 246 236 / .55)" transform={`rotate(-90 16 ${52 + i * 80})`}>
-            {t}
+            <Tr s={t} />
           </text>
         ))}
       {keys.map((k, i) => {
@@ -338,7 +338,7 @@ function BigSpread({ keys, selected, tap }: { keys: string[]; selected: string; 
             <Stone p={p} x={pos.x} y={y} w={56} h={nine ? 46 : 40} glyph={String(i + 1)} on={on} />
             {!nine && (
               <text x={pos.x + (pos.x === 170 && i > 2 ? 46 : 0)} y={pos.x === 170 && i > 2 ? y + 3 : y + 34} textAnchor={pos.x === 170 && i > 2 ? "start" : "middle"} fontSize="9" fontWeight={on ? 700 : 500} fill={on ? NIGHT_GOLD : STAR} fillOpacity={on ? 1 : 0.8}>
-                {pos.name}
+                <Tr s={pos.name} />
               </text>
             )}
           </g>
@@ -400,10 +400,11 @@ const leaf = (x: number, y: number, a: number, s = 1) => (
  * la copa con sus hojas y las raíces; los nueve mundos, como medallones grabados con sus runas.
  */
 function Yggdrasil({ selected, own, tap }: { selected: string; own: Set<string>; tap: Tap }) {
+  const t = useT();
   const p = usePrefix();
   const gold = `url(#${p}gold)`;
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[30rem] select-none" role="group" aria-label="Yggdrasil y los nueve mundos">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[30rem] select-none" role="group" aria-label={t("Yggdrasil y los nueve mundos")}>
       <StoneDefs p={p} />
       <defs>
         <radialGradient id={`${p}medal`} cx="40%" cy="32%" r="75%">
@@ -479,7 +480,7 @@ function Yggdrasil({ selected, own, tap }: { selected: string; own: Set<string>;
             </text>
             <text x={w.x} y={w.y + 9.5} textAnchor="middle" fontSize="6.4" fontWeight={700} letterSpacing="0.6" fill={on ? "#3A2615" : STAR} fillOpacity={on ? 1 : 0.9}>
               {w.name.toUpperCase()}
-              {mine ? " ★" : ""}
+              <Tr s={mine ? " ★" : ""} />
             </text>
           </g>
         );

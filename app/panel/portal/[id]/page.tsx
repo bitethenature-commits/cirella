@@ -16,6 +16,7 @@ import { dateKeyInTz, minutesToLabel, zonedParts } from "@/lib/tz";
 import { PageHeader } from "../../ui";
 import { deletePortalItem } from "../actions";
 import { PortalForm } from "../portal-form";
+import { Tr } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Portal de Noticias" };
 
@@ -35,8 +36,7 @@ export default async function EditPortalItemPage({ params, searchParams }: { par
   return (
     <div className="mx-auto max-w-3xl">
       <Link href="/panel/portal" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Portal de Noticias
-      </Link>
+        <ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Portal de Noticias"} /></Link>
       <PageHeader title="Editar" />
       {sp.guardado && SAVED[sp.guardado] && <Flash ok={SAVED[sp.guardado]} />}
       {sp.falta && <Flash error="Sube el archivo antes de publicarlo." />}
@@ -64,8 +64,7 @@ export default async function EditPortalItemPage({ params, searchParams }: { par
       <ConfirmForm action={deletePortalItem} message="¿Borrarlo del portal? Sus archivos también se borran y no se puede deshacer." className="mt-10 border-t border-line pt-6">
         <input type="hidden" name="id" value={item.id} />
         <button className="btn btn-ghost btn-sm text-rose">
-          <Trash2 className="h-4 w-4" /> Borrar
-        </button>
+          <Trash2 className="h-4 w-4" />{" "}<Tr s={"Borrar"} /></button>
       </ConfirmForm>
     </div>
   );

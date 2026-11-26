@@ -1,3 +1,4 @@
+import { creatorLegalHref } from "@/lib/legal";
 import { redirect } from "next/navigation";
 import { ownerUsername } from "@/lib/site-mode";
 
@@ -7,5 +8,5 @@ import { ownerUsername } from "@/lib/site-mode";
  */
 export function redirectToOwnerLegal(section: "aviso" | "privacidad") {
   const owner = ownerUsername();
-  if (owner) redirect(`/${owner}/legal#${section}`);
+  if (owner) redirect(`${creatorLegalHref(owner)}#${section}`);
 }

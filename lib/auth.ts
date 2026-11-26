@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { prisma } from "./db";
+import { isLocale, PANEL_LOCALE_COOKIE } from "./i18n/config";
 import { hashToken } from "./auth-tokens";
 import { deviceLabel, HINT_COOKIE, safeNext, sessionSatisfies, sessionUsable } from "./auth-utils";
 import { homeFor } from "./home";
@@ -34,7 +35,7 @@ const cookieBase = () => ({ httpOnly: true, sameSite: "lax" as const, secure: pr
  *   · verified: quien la abre ha demostrado que el email es suyo (enlace mágico, o contraseña sobre
  *     un email ya confirmado). Es obligatorio: una sesión sin verificar no abre el área de cliente.
  *   · orderId: sesión limitada a un pedido (tras pagar o desde un enlace personal). Solo abre ese
- *     pedido; getCurrentUser() la ignora, así que no sirve para /cuenta completa, /panel ni /admin.
+ *     pedido; getCurrentUser() la ignora, así que no sirve para /area completa, /panel ni /admin.
  *   · mfa: ha pasado el segundo factor. Las sesiones de cuenta de quien tiene la verificación en dos
  *     pasos se abren SOLO con completeLogin / el código (getSession ignora las que no lo llevan).
  * Devuelve el id de la sesión (sha256 del token).
@@ -45,8 +46,10 @@ export async function createSession(userId: string, opts: { verified: boolean; o
   const expiresAt = new Date(Date.now() + ttlMs);
   const id = hashToken(token);
   await prisma.session.create({ data: { id, userId, expiresAt, verified: opts.verified, orderId: opts.orderId ?? null, mfa: !!opts.mfa } });
-  if (!opts.orderId) await prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
+  const updated = opts.orderId ? null : await prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() }, select: { panelLocale: true } });
   const jar = await cookies();
+  // El idioma de su panel, también en un dispositivo nuevo (middleware.ts lo lee de la cookie).
+  if (updated && isLocale(updated.panelLocale)) jar.set(PANEL_LOCALE_COOKIE, updated.panelLocale, { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 * 365 });
   jar.set(SESSION_COOKIE, token, { ...cookieBase(), expires: expiresAt });
   if (!opts.orderId) jar.set(HINT_COOKIE, "1", { ...cookieBase(), httpOnly: false, expires: expiresAt });
   return id;
@@ -56,7 +59,7 @@ export async function createSession(userId: string, opts: { verified: boolean; o
  * Final de todo login completo (contraseña, enlace mágico, demo y el código de la verificación en
  * dos pasos). Si la usuaria tiene la verificación activada y este navegador no es un dispositivo
  * recordado, NO abre sesión: crea el paso «falta el código» (cookie cirella_2fa, 10 min) y lleva a
- * /entrar/codigo. Sin verificación, abre la sesión como siempre.
+ * /login/code. Sin verificación, abre la sesión como siempre.
  */
 export async function completeLogin(userId: string, o: { verified: boolean; next?: string | null; method: LoginMethod }): Promise<never> {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { totpEnabledAt: true } });
@@ -66,7 +69,7 @@ export async function completeLogin(userId: string, o: { verified: boolean; next
     if (!trusted) {
       const token = await createChallenge(userId, { verified: o.verified, redirectTo: o.next ?? null, method: o.method });
       jar.set(TWO_FACTOR_COOKIE, token, { ...cookieBase(), maxAge: 10 * 60 });
-      redirect("/entrar/codigo");
+      redirect("/login/code");
     }
     return finishLogin(userId, { verified: o.verified, next: o.next, mfa: true, alert: false });
   }
@@ -86,7 +89,7 @@ export async function finishLogin(userId: string, o: { verified: boolean; next?:
   }
   const next = o.next ? safeNext(o.next, "") : "";
   const dest = next || (await homeFor(userId));
-  if (!sessionSatisfies({ verified: o.verified, scoped: false }, dest)) redirect(`/entrar?next=${encodeURIComponent(dest)}&motivo=confirmar`);
+  if (!sessionSatisfies({ verified: o.verified, scoped: false }, dest)) redirect(`/login?next=${encodeURIComponent(dest)}&motivo=confirmar`);
   redirect(dest);
 }
 
@@ -140,9 +143,9 @@ export const getCurrentUser = cache(async () => {
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 
-export async function requireUser(next = "/cuenta") {
+export async function requireUser(next = "/area") {
   const user = await getCurrentUser();
-  if (!user) redirect(`/entrar?next=${encodeURIComponent(next)}`);
+  if (!user) redirect(`/login?next=${encodeURIComponent(next)}`);
   return user;
 }
 
@@ -151,7 +154,7 @@ export async function requireCreator(opts: { allowIncompleteOnboarding?: boolean
   const user = await requireUser("/panel");
   const creator = user.creator;
   if (!creator) redirect("/onboarding");
-  if (creator.status === "BLOCKED") redirect("/entrar?error=bloqueada");
+  if (creator.status === "BLOCKED") redirect("/login?error=bloqueada");
   if (!opts.allowIncompleteOnboarding && !creator.onboardedAt) redirect("/onboarding");
   return { user, creator };
 }
@@ -160,7 +163,7 @@ export async function requireCreator(opts: { allowIncompleteOnboarding?: boolean
 export async function requireAdmin() {
   const user = await requireUser("/admin");
   if (!user.isAdmin) redirect("/");
-  if (!user.sessionVerified) redirect("/entrar?next=%2Fadmin&motivo=confirmar");
+  if (!user.sessionVerified) redirect("/login?next=%2Fadmin&motivo=confirmar");
   return user;
 }
 

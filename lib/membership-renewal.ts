@@ -6,6 +6,7 @@ import { appUrl } from "./env";
 import { esc, p } from "./email/html";
 import { enqueueEmail } from "./email/outbox";
 import { layout } from "./email/templates";
+import { et, inMail } from "./i18n/email";
 import { revokeOrderAccess } from "./order-links";
 import { addDaysToKey, dateKeyInTz, zonedTimeToUtc } from "./tz";
 
@@ -59,13 +60,21 @@ export async function renewMembership(creatorId: string, accessId: string, now =
     userId: a.userId,
     template: "MEMBERSHIP_RENEWED",
     dedupeKey: `membership-renewed:${a.id}:${until.getTime()}`,
-    subject: `Tu membresía «${a.product.title}» está renovada`,
-    html: layout({
-      brand: a.creator.displayName,
-      title: "Membresía renovada",
-      body: p(`Gracias${a.user.name ? `, ${esc(a.user.name.split(" ")[0])}` : ""}. Tu membresía <strong>${esc(a.product.title)}</strong> sigue abierta hasta el <strong>${esc(untilText)}</strong> (incluido).`),
-      cta: { label: "Entrar", url: `${appUrl()}/cuenta` },
-    }),
+    ...(await inMail(a.user.email, () => ({
+      subject: et("Tu membresía «{title}» está renovada", { title: a.product.title }),
+      html: layout({
+        brand: a.creator.displayName,
+        title: et("Membresía renovada"),
+        body: p(
+          et("Gracias{name}. Tu membresía <strong>{title}</strong> sigue abierta hasta el <strong>{until}</strong> (incluido).", {
+            name: a.user.name ? `, ${esc(a.user.name.split(" ")[0])}` : "",
+            title: esc(a.product.title),
+            until: esc(untilText),
+          }),
+        ),
+        cta: { label: et("Entrar"), url: `${appUrl()}/area` },
+      }),
+    }))),
   });
   return untilText;
 }

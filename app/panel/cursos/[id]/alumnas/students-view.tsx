@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, UsersRound } from "lucide-react";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export type StudentRow = {
   userId: string;
@@ -28,13 +30,14 @@ function Bar({ value }: { value: number }) {
  * (lecciones publicadas completadas) y cuándo se movió por última vez. Cada fila lleva a su ficha en
  * Clientes. Puro: datos planos (fechas ya escritas).
  */
-export function StudentsView({ rows, total }: { rows: StudentRow[]; total: number }) {
+export async function StudentsView({ rows, total }: { rows: StudentRow[]; total: number }) {
+  const t = await getT();
   if (!rows.length)
     return (
       <div className="card flex flex-col items-center gap-2 px-6 py-12 text-center">
         <UsersRound className="h-6 w-6 text-muted" />
-        <p className="font-semibold">Aún no hay alumnas con acceso</p>
-        <p className="max-w-sm text-sm text-muted">Cuando alguien se apunte, lo compre, se lo des a mano o entre por una membresía que lo incluye, aparecerá aquí con su progreso.</p>
+        <p className="font-semibold"><Tr s={"Aún no hay alumnas con acceso"} /></p>
+        <p className="max-w-sm text-sm text-muted"><Tr s={"Cuando alguien se apunte, lo compre, se lo des a mano o entre por una membresía que lo incluye, aparecerá aquí con su progreso."} /></p>
       </div>
     );
   const started = rows.filter((r) => r.lastActivity || r.completed > 0).length;
@@ -42,8 +45,8 @@ export function StudentsView({ rows, total }: { rows: StudentRow[]; total: numbe
   return (
     <div>
       <p className="mb-3 text-sm text-muted" data-students-summary>
-        {rows.length} {rows.length === 1 ? "alumna con acceso" : "alumnas con acceso"} · {started} {started === 1 ? "ha empezado" : "han empezado"} · {finished}{" "}
-        {finished === 1 ? "lo ha terminado" : "lo han terminado"}
+        {rows.length} {rows.length === 1 ? t("alumna con acceso") : t("alumnas con acceso")} · {started} {started === 1 ? t("ha empezado") : t("han empezado")} · {finished}{" "}
+        {finished === 1 ? t("lo ha terminado") : t("lo han terminado")}
       </p>
       <ul className="card divide-y divide-line overflow-hidden" data-students>
         {rows.map((r) => {
@@ -57,7 +60,7 @@ export function StudentsView({ rows, total }: { rows: StudentRow[]; total: numbe
                 <span className="block truncate font-semibold">{r.name}</span>
                 <span className="block truncate text-xs text-muted">{r.email}</span>
                 <span className="mt-1 block text-[0.72rem] text-faint">
-                  {r.origin} · desde el {r.since}
+                  <Tr s={r.origin} />{" "}<Tr s={"· desde el"} />{" "}<Tr s={r.since} />
                   {r.until ? ` · hasta el ${r.until}` : ""}
                 </span>
               </span>
@@ -71,7 +74,7 @@ export function StudentsView({ rows, total }: { rows: StudentRow[]; total: numbe
                 <span className="mt-1 block">
                   <Bar value={pct} />
                 </span>
-                <span className="mt-1 block truncate text-[0.7rem] text-faint">{r.lastActivity ? `Activa ${r.lastActivity}` : "Sin empezar"}</span>
+                <span className="mt-1 block truncate text-[0.7rem] text-faint">{r.lastActivity ? `Activa ${r.lastActivity}` : t("Sin empezar")}</span>
               </span>
               {r.customerId && <ChevronRight className="hidden h-4 w-4 shrink-0 text-faint sm:block" />}
             </>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { Check, Moon } from "lucide-react";
-import { SpinningSolid } from "@/app/cuenta/spinning-solid";
+import { SpinningSolid } from "@/app/area/spinning-solid";
 import { DecorCanvas } from "@/components/decor-fx/decor-canvas";
 import { TIER_ICONS } from "./tier-icons";
 import { TierMotion } from "./tier-motion";
@@ -10,6 +10,7 @@ import { figurePaths } from "@/lib/sacred-figures";
 import { defaultEmblem, type TierEmblem } from "@/lib/tier-card";
 import { resolveTierLook, tierFxVars, tierLookVars, type ResolvedTierLook, type TierLook } from "@/lib/tier-look";
 import type { TierFeature } from "@/lib/tier-features";
+import { Tr } from "@/lib/i18n/client";
 
 export const LEVEL_NUMERALS = ["I", "II", "III", "IV", "V"];
 
@@ -46,7 +47,7 @@ function Backdrop({ r, live }: { r: ResolvedTierLook; live: boolean }) {
 }
 
 /**
- * La tarjeta en arco de un nivel de la comunidad (su portal): la misma en la web (/comunidad), en el área de alumno
+ * La tarjeta en arco de un nivel de la comunidad (su portal): la misma en la web (/membership), en el área de alumno
  * («Mis membresías») y en el panel (Comunidad → Cartas). Detrás, su diseño propio (lib/tier-look.ts): un paisaje de
  * ensueño dibujado o su foto, lo que se mueve encima, el marco del arco y sus colores; sin diseño, su foto velada o
  * la noche y el oro de siempre. Delante, el icono del nivel girando (un sólido, una figura sagrada o su imagen),
@@ -112,7 +113,7 @@ export function TierPortal({
         </span>
       )}
       {badge && <span className="tier-portal-badge relative mt-4 rounded-full px-3 py-1 text-[0.66rem] font-semibold uppercase tracking-[0.18em]">{badge}</span>}
-      <p className="tp-gold relative mt-5 text-[0.6rem] font-semibold uppercase tracking-[0.32em] opacity-90">Nivel {LEVEL_NUMERALS[level] ?? level + 1}</p>
+      <p className="tp-gold relative mt-5 text-[0.6rem] font-semibold uppercase tracking-[0.32em] opacity-90"><Tr s={"Nivel"} />{" "}<Tr s={LEVEL_NUMERALS[level] ?? level + 1} /></p>
       <h2 className="tier-portal-title display relative mt-2 w-full text-[2.4rem] leading-none md:text-[2.7rem]">{title}</h2>
       <span aria-hidden className="tp-rule relative mt-4 h-px w-16" />
       {intro && <div className="tier-portal-intro relative mt-4 w-full max-w-[17rem] font-serif text-[1.02rem] leading-relaxed">{intro}</div>}
@@ -173,11 +174,11 @@ export function PortalPrice({ price, interval, regular, saleLine }: { price: Rea
   return (
     <div className="relative mt-5">
       <p className="flex items-baseline justify-center gap-1">
-        {regular && <s className="tier-portal-muted mr-1.5 text-sm">{regular}</s>}
+        {regular && <s className="tier-portal-muted mr-1.5 text-sm"><Tr s={regular} /></s>}
         <span className="display text-[2.5rem] font-light leading-none">{price}</span>
-        {interval && <span className="tier-portal-muted text-sm"> /{interval}</span>}
+        {interval && <span className="tier-portal-muted text-sm"> /<Tr s={interval} /></span>}
       </p>
-      {saleLine && <p className="tp-gold mt-1 text-xs font-semibold">{saleLine}</p>}
+      {saleLine && <p className="tp-gold mt-1 text-xs font-semibold"><Tr s={saleLine} /></p>}
     </div>
   );
 }
@@ -190,8 +191,8 @@ export function PortalIncludes({ title }: { title: string }) {
         <Check className="h-4 w-4" />
       </span>
       <span>
-        <strong className="font-semibold">Todo lo de {title}</strong>
-        <span className="tier-portal-muted block text-[0.82rem]">Y además:</span>
+        <strong className="font-semibold"><Tr s={"Todo lo de"} />{" "}{title}</strong>
+        <span className="tier-portal-muted block text-[0.82rem]"><Tr s={"Y además:"} /></span>
       </span>
     </li>
   );
@@ -207,7 +208,7 @@ export function PortalFeature({ f }: { f: TierFeature }) {
       </span>
       <span className="min-w-0">
         <strong className="block font-semibold leading-snug">{f.title}</strong>
-        {f.detail && <span className="tier-portal-muted block text-[0.84rem] leading-snug">{f.detail}</span>}
+        {f.detail && <span className="tier-portal-muted block text-[0.84rem] leading-snug"><Tr s={f.detail} /></span>}
       </span>
     </li>
   );
@@ -218,14 +219,13 @@ export function PortalCircles({ circles, note }: { circles: string[]; note?: str
   return (
     <div className="tier-portal-box relative mt-5 w-full rounded-2xl p-3.5 text-left text-[0.82rem]">
       <p className="tp-gold flex items-center gap-1.5 text-[0.62rem] font-semibold uppercase tracking-[0.24em]">
-        <Moon className="h-3 w-3" /> Próximos círculos
-      </p>
+        <Moon className="h-3 w-3" />{" "}<Tr s={"Próximos círculos"} /></p>
       <ul className="mt-2 space-y-1">
         {circles.map((c, i) => (
-          <li key={i}>{c}</li>
+          <li key={i}><Tr s={c} /></li>
         ))}
       </ul>
-      {note && <p className="tier-portal-muted mt-2 text-[0.72rem] italic">{note}</p>}
+      {note && <p className="tier-portal-muted mt-2 text-[0.72rem] italic"><Tr s={note} /></p>}
     </div>
   );
 }

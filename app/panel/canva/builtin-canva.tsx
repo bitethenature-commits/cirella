@@ -10,6 +10,7 @@ import { DesignLive, DesignSheet, useDesignPanel, useSavedDesign } from "./desig
 import { PagesMenu } from "./pages-menu";
 import { useDevice } from "./web-frame";
 import type { PanelPage } from "./web-pages";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Mi página, una página que se crea sola (Cursos, Hacerte miembro, Ofertas, Sesiones, Aviso legal…): se ve de
@@ -47,6 +48,7 @@ export function BuiltinCanva({
   allowCustom: boolean;
   texts: SiteTexts;
 }) {
+  const t = useT();
   const [state, setState] = useState<SaveState>({ kind: "idle" });
   const [device, setDevice] = useDevice();
   const panel = useDesignPanel(designKey);
@@ -76,7 +78,7 @@ export function BuiltinCanva({
   return (
     <CanvaShell
       device={device}
-      side={panel.open && <DesignSheet panel={panel} cfg={design} setCfg={setDesign} label={label} pages={designPages} allowCustom={allowCustom} canPick />}
+      side={panel.open && <DesignSheet panel={panel} cfg={design} setCfg={setDesign} label={t(label)} pages={designPages} allowCustom={allowCustom} canPick />}
       live={<DesignLive panel={panel} cfg={design} src={src} allowCustom={allowCustom} onText={onText} underTabs={device === "pc"} />}
       bar={
         <CanvaBar
@@ -85,16 +87,15 @@ export function BuiltinCanva({
           viewHref={viewHref}
           device={device}
           setDevice={setDevice}
-          tools={<BarButton icon={Palette} label="Diseño" active={panel.open} onClick={() => panel.setOpen(!panel.open)} />}
+          tools={<BarButton icon={Palette} label={t("Diseño")} active={panel.open} onClick={() => panel.setOpen(!panel.open)} />}
           idle="Escribe encima de los textos con raya: se publica al momento"
         />
       }
       notice={
         manage && (
-          <p>
-            Esta página se hace sola con lo que publicas: aquí cambias sus textos y su diseño.{" "}
+          <p><Tr s={"Esta página se hace sola con lo que publicas: aquí cambias sus textos y su diseño."} />{" "}
             <a href={manage.href} className="panel-tab-title font-semibold underline underline-offset-4">
-              {manage.label}
+              <Tr s={manage.label} />
             </a>
           </p>
         )

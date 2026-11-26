@@ -76,43 +76,6 @@ export const NEWSLETTER_FORM_DEFAULTS = {
   button: "Apuntarme",
 };
 
-/** Secciones que se gestionan fuera del editor (tienen su propia pantalla en el panel). */
-export const SECTION_MANAGE_HREF: Partial<Record<SectionKey, { href: string; label: string }>> = {
-  portal: { href: "/panel/portal", label: "Portal de Noticias" },
-  offers: { href: "/panel/sesiones", label: "Sesiones y lecturas (cada una con su oferta)" },
-  gifts: { href: "/panel/pagina?pagina=gifts", label: "Mis páginas → Gifts" },
-  readings: { href: "/panel/sesiones", label: "Sesiones y lecturas" },
-  products: { href: "/panel/sesiones", label: "Sesiones y lecturas" },
-  sessions: { href: "/panel/sesiones", label: "Sesiones y lecturas" },
-  courses: { href: "/panel/cursos", label: "Cursos" },
-  memberships: { href: "/panel/comunidad", label: "Membresía" },
-};
-
-/** Secciones con página propia en la web («Ver página» en el editor). */
-export const SECTION_VIEW_PAGE: Partial<Record<SectionKey, "actualidades" | "portal" | "ofertas" | "comunidad" | "cursos" | "lecturas" | "uno-a-uno" | "gifts">> = {
-  posts: "actualidades",
-  portal: "portal",
-  offers: "ofertas",
-  gifts: "gifts",
-  memberships: "comunidad",
-  courses: "cursos",
-  readings: "lecturas",
-  sessions: "uno-a-uno",
-};
-
-/** Lo que se edita en otra pestaña del editor de «Mi página». */
-export const SECTION_EDIT_TAB: Partial<Record<SectionKey, "portada" | "bloques" | "enlaces" | "contenido">> = {
-  bubbles: "portada",
-  about: "portada",
-  systems: "portada",
-  readings: "portada",
-  blocks: "bloques",
-  links: "enlaces",
-  contact: "enlaces",
-  testimonials: "contenido",
-  faq: "contenido",
-};
-
 /** Burbujas de «Accesos»: de 1 a 4, en una fila (también en el móvil). */
 export const BUBBLES_MAX = 4;
 /** Tarjetas de «Sistemas con los que trabajo». */
@@ -264,7 +227,7 @@ export const designSchema = z.object({
   panelGeoColor: color,
   fontPair: z.string().max(20).nullable().optional(),
   radius: z.string().max(10).nullable().optional(),
-}) satisfies z.ZodType<Design, z.ZodTypeDef, unknown>;
+}) satisfies z.ZodType<Design, unknown>;
 /** Una plantilla de la dueña: su nombre y su diseño completo. */
 const savedDesignSchema = z.object({ id: z.string().max(40), name: shortText(60).min(1, "Ponle un nombre"), theme: designSchema });
 export const SAVED_DESIGNS_MAX = 40;
@@ -347,7 +310,7 @@ export const pageConfigSchema = z.object({
     )
     .max(12)
     .default([]),
-  socials: z.preprocess(onlySocialKeys, z.record(z.enum(SOCIAL_KEYS), shortText(200))).default({}),
+  socials: z.preprocess(onlySocialKeys, z.partialRecord(z.enum(SOCIAL_KEYS), shortText(200))).default({}),
   /** El orden de las redes bajo su presentación (las que no están, detrás). */
   socialOrder: z.preprocess((v) => (Array.isArray(v) ? v.filter((k) => (SOCIAL_KEYS as readonly string[]).includes(k)) : v), z.array(z.enum(SOCIAL_KEYS)).max(SOCIAL_KEYS.length)).optional(),
   testimonials: z
@@ -420,11 +383,11 @@ export function personalHomeDefaults(displayName: string): Pick<PageConfig, "bub
   const first = displayName.trim().split(/\s+/)[0] || "";
   return {
     bubbles: [
-      { id: "b-sobre-mi", label: "Sobre mí", url: "/sobre-mi", image: null },
-      { id: "b-cursos", label: "Cursos", url: "/cursos", image: null },
-      { id: "b-comunidad", label: "Hacerte miembro", url: "/comunidad", image: null },
+      { id: "b-sobre-mi", label: "Sobre mí", url: "/aboutme", image: null },
+      { id: "b-cursos", label: "Cursos", url: "/courses", image: null },
+      { id: "b-comunidad", label: "Hacerte miembro", url: "/membership", image: null },
     ],
-    about: { eyebrow: "Sobre mí", title: first ? `Hola, soy ${first}` : "Sobre mí", text: "", url: "/sobre-mi", image: null, linkLabel: "Conoce mi historia" },
+    about: { eyebrow: "Sobre mí", title: first ? `Hola, soy ${first}` : "Sobre mí", text: "", url: "/aboutme", image: null, linkLabel: "Conoce mi historia" },
     readings: { reading: { ...READINGS_DEFAULTS.reading }, session: { ...READINGS_DEFAULTS.session }, circlesTitle: READINGS_DEFAULTS.circlesTitle },
   };
 }
@@ -445,7 +408,7 @@ export function designFor(cfg: Pick<PageConfig, "theme"> & Partial<Pick<PageConf
 }
 
 /** Lista guardada leída elemento a elemento: uno estropeado se descarta sin tumbar la página. */
-function readList<T>(raw: unknown, schema: z.ZodType<T, z.ZodTypeDef, unknown>, max: number): T[] | undefined {
+function readList<T>(raw: unknown, schema: z.ZodType<T, unknown>, max: number): T[] | undefined {
   if (raw === undefined) return undefined;
   if (!Array.isArray(raw)) return [];
   const out: T[] = [];
@@ -457,7 +420,7 @@ function readList<T>(raw: unknown, schema: z.ZodType<T, z.ZodTypeDef, unknown>, 
   return out;
 }
 
-function readObject<T>(raw: unknown, schema: z.ZodType<T, z.ZodTypeDef, unknown>): T | null | undefined {
+function readObject<T>(raw: unknown, schema: z.ZodType<T, unknown>): T | null | undefined {
   if (raw === undefined) return undefined;
   const r = schema.safeParse(raw);
   return r.success ? r.data : null;

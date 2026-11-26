@@ -23,6 +23,7 @@
     "admin:promote": "tsx scripts/make-admin.ts",
     "auth:reset-2fa": "tsx --conditions=react-server scripts/reset-2fa.ts",
     "personal:setup": "tsx scripts/personal-setup.ts",
+    "slugs:english": "tsx scripts/english-slugs.ts",
     "media:probe": "tsx scripts/probe-media.ts",
     "test:unit": "tsx scripts/unit-tests.ts",
     "test:isolation": "tsx --conditions=react-server scripts/tenant-isolation-test.ts && tsx scripts/storage-isolation-test.ts",
@@ -57,16 +58,22 @@
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
+  "overrides": {
+    "postcss": "^8.5.33",
+    "effect": "^3.22.5",
+    "deepmerge-ts": "^8.0.2"
+  },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
     "@aws-sdk/client-s3": "3.1139.0",
     "@aws-sdk/s3-request-presigner": "3.1139.0",
-    "@next/env": "15.5.27",
+    "@next/env": "^15.5.29",
     "@prisma/client": "^6.19.3",
-    "@sentry/nextjs": "10.75.2",
+    "@sentry/nextjs": "^11.16.0",
     "astronomy-engine": "2.1.19",
     "bcryptjs": "^3.0.3",
     "lucide-react": "^1.53.0",
-    "next": "^15.5.27",
+    "next": "^15.5.29",
     "pdfjs-dist": "6.3.289",
     "qrcode-generator": "1.4.4",
     "react": "19.2",
@@ -74,7 +81,7 @@
     "server-only": "^0.0.1",
     "sharp": "0.35.5",
     "stripe": "22.6.2",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",

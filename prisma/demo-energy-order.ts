@@ -22,7 +22,7 @@ const prisma = new PrismaClient();
 (async () => {
   const ana = await prisma.creator.findFirst({ where: { username: "ana" }, select: { id: true } });
   if (!ana) throw new Error("No encuentro la cuenta de Cirella.");
-  const page = await prisma.sitePage.findFirst({ where: { creatorId: ana.id, slug: "mi-energia" } });
+  const page = await prisma.sitePage.findFirst({ where: { creatorId: ana.id, slug: "energy" } });
   if (!page) throw new Error("No encuentro su página «Mi energía».");
   const draft = oracleFirst(page.draft);
   const published = oracleFirst(page.published);

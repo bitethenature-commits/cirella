@@ -2,12 +2,14 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useT } from "@/lib/i18n/client";
 
 /**
  * Carrusel de los códigos de descuento: en el ordenador caben tres juntos y, si hay más, salen dos
  * flechas para pasar; en el móvil se desliza con el dedo. Sin JavaScript se desliza igual.
  */
 export function CodesCarousel({ children }: { children: ReactNode }) {
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const [edge, setEdge] = useState({ start: true, end: true });
 
@@ -35,7 +37,7 @@ export function CodesCarousel({ children }: { children: ReactNode }) {
     <button
       type="button"
       onClick={() => go(dir)}
-      aria-label={dir === 1 ? "Ver los siguientes códigos" : "Ver los códigos anteriores"}
+      aria-label={dir === 1 ? t("Ver los siguientes códigos") : t("Ver los códigos anteriores")}
       className={`absolute top-1/2 z-10 hidden h-9 w-9 -translate-y-1/2 place-items-center rounded-full border transition md:grid ${dir === 1 ? "-right-4" : "-left-4"} ${hidden ? "pointer-events-none opacity-0" : "opacity-100"}`}
       style={{ background: "var(--c-surface)", borderColor: "var(--c-line)", backdropFilter: "blur(10px)" }}
       tabIndex={hidden ? -1 : 0}

@@ -26,7 +26,7 @@ for (const [host, utm, want] of [
 
 // Redirecciones internas seguras
 for (const [next, want] of [
-  ["/cuenta", "/cuenta"], ["//evil.com", "/x"], ["/\\evil.com", "/x"], ["/\t/evil.com", "/x"], ["https://evil.com", "/x"], ["/panel?a=1", "/panel?a=1"],
+  ["/area", "/area"], ["//evil.com", "/x"], ["/\\evil.com", "/x"], ["/\t/evil.com", "/x"], ["https://evil.com", "/x"], ["/panel?a=1", "/panel?a=1"],
 ] as const)
   test(`safeNext(${JSON.stringify(next)})`, () => eq(safeNext(next, "/x"), want));
 

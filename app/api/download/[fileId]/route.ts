@@ -27,7 +27,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ fileId: 
   const access = await checkFileAccess(file);
   if (!access.ok && json) return NextResponse.json({ error: access.reason }, { status: access.reason === "login" ? 401 : 403, headers: NO_STORE });
   if (!access.ok && access.reason === "login")
-    return NextResponse.redirect(new URL(await buyerLoginPath("/cuenta/archivos", { creatorId: file.creatorId }), req.url));
+    return NextResponse.redirect(new URL(await buyerLoginPath("/area/files", { creatorId: file.creatorId }), req.url));
   if (!access.ok) return new NextResponse("No tienes acceso a este contenido", { status: 403 });
   // Desde la primera descarga o reproducción vale su renuncia al desistimiento (acceso inmediato).
   if (!access.isOwner) await markFirstAccess(access.userId, ("accessProductId" in access ? String(access.accessProductId) : file.productId));

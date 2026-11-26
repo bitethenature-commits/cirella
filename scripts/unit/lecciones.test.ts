@@ -17,7 +17,6 @@ import {
   lessonPartViews,
   parseLessonParts,
   partsFromLegacy,
-  partsLabel,
   partView,
   primaryLessonKind,
   splitLead,
@@ -86,20 +85,6 @@ test("lessonPartViews: orden de aparición, sin repetir, YouTube cuenta como ví
     lessonPartViews([{ kind: "EMBED" }, { kind: "TEXT" }, { kind: "FILE", file: { kind: "VIDEO" } }, { kind: "FILE", file: { kind: "PDF" } }, { kind: "TEXT" }]),
     ["VIDEO", "TEXT", "PDF"],
   );
-});
-
-test("partsLabel", () => {
-  const cases: [PartView[], string][] = [
-    [["TEXT"], "Lectura"],
-    [["VIDEO"], "Vídeo"],
-    [["AUDIO"], "Audio"],
-    [["VIDEO", "TEXT", "PDF"], "Vídeo + texto + PDF"],
-    [["AUDIO", "IMAGE"], "Audio + imagen"],
-    [["TEXT", "PDF"], "Texto + PDF"],
-    [["DOWNLOAD"], "Archivo"],
-    [[], ""],
-  ];
-  for (const [views, want] of cases) eq(partsLabel(views), want, views.join(","));
 });
 
 test("primaryLessonKind", () => {

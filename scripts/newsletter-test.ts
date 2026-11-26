@@ -57,7 +57,7 @@ async function main() {
     check("1.º email de confirmación", await sendConfirmation(a.subscriberId));
     check("2.º en la misma hora: no se envía", !(await sendConfirmation(a.subscriberId)));
     const confirmMail = await prisma.emailMessage.findFirst({ where: { to: email("lucia"), template: "NEWSLETTER_CONFIRM" } });
-    check("el email lleva «Sí, quiero recibirla» y /novedades/confirmar", !!confirmMail?.html.includes("Sí, quiero recibirla") && !!confirmMail?.html.includes("/novedades/confirmar?t="));
+    check("el email lleva «Sí, quiero recibirla» y /newsletter/confirm", !!confirmMail?.html.includes("Sí, quiero recibirla") && !!confirmMail?.html.includes("/newsletter/confirm?t="));
     check("sin confirmar, la ficha de clienta no tiene novedades", !(await prisma.customer.findFirstOrThrow({ where: { userId: user.id } })).marketingOptIn);
     const conf = await confirmByToken(confirmToken(a.subscriberId));
     check("«Sí, quiero recibirla» → confirmada", conf?.status === "CONFIRMED");
@@ -83,8 +83,8 @@ async function main() {
     check("retirarlo desde el perfil la da de baja", (await prisma.subscriber.findUniqueOrThrow({ where: { id: a.subscriberId } })).status === "UNSUBSCRIBED");
 
     const one = await subscribe(ana.id, { email: email("oneclick"), ...form(true) });
-    const { GET, POST } = await import("../app/baja/newsletter/un-clic/route");
-    const url = `http://localhost/baja/newsletter/un-clic?t=${encodeURIComponent(unsubscribeToken(one.subscriberId))}`;
+    const { GET, POST } = await import("../app/unsubscribe/newsletter/one-click/route");
+    const url = `http://localhost/unsubscribe/newsletter/one-click?t=${encodeURIComponent(unsubscribeToken(one.subscriberId))}`;
     const g = await GET(new Request(url));
     check("un clic por GET: lleva a la página y no da de baja", g.status === 303 && (await prisma.subscriber.findUniqueOrThrow({ where: { id: one.subscriberId } })).status === "CONFIRMED");
     const ps = await POST(new Request(url, { method: "POST" }));
@@ -144,7 +144,7 @@ async function main() {
     const msgs1 = await prisma.emailMessage.findMany({ where: { campaignId: camp.id } });
     check("la programada empieza sola: 8 destinatarias fijadas", (await prisma.campaignRecipient.count({ where: { campaignId: camp.id } })) === 8);
     check("cupo de 5: entran 5 en la bandeja", msgs1.length === 5 && new Set(msgs1.map((m) => m.to)).size === 5, { r1, n: msgs1.length });
-    check("cada una con su nombre, su baja y List-Unsubscribe, por el canal de la newsletter", msgs1.every((m) => m.stream === "news" && m.html.includes("/baja/newsletter?t=") && m.html.includes("Hola, Persona") && !!(m.headers as Record<string, string>)["List-Unsubscribe"]));
+    check("cada una con su nombre, su baja y List-Unsubscribe, por el canal de la newsletter", msgs1.every((m) => m.stream === "news" && m.html.includes("/unsubscribe/newsletter?t=") && m.html.includes("Hola, Persona") && !!(m.headers as Record<string, string>)["List-Unsubscribe"]));
     await processOutbox(500);
     check("la bandeja las envía", (await prisma.emailMessage.count({ where: { campaignId: camp.id, status: "SENT" } })) === 5);
     const again2 = await Promise.all([processCampaigns(), processCampaigns()]);

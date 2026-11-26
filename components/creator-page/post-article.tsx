@@ -9,13 +9,15 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { PageVideo } from "./page-video";
 import { VideoFacade } from "./video-facade";
 import { PostMediaGate } from "./post-media-gate";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 /**
- * Una publicación entera (página pública /<usuaria>/actualidades/<slug> y vista previa del panel),
+ * Una publicación entera (página pública /<usuaria>/news/<slug> y vista previa del panel),
  * con su vídeo o audio y su llamada a la acción (botón y código de descuento).
  * El cuerpo se pinta sin HTML (components/rich-text/rich-content.tsx), con o sin formato.
  */
-export function PostArticle({
+export async function PostArticle({
   post,
   dateLabel,
   listHref,
@@ -45,6 +47,7 @@ export function PostArticle({
   /** En la web: el vídeo o el audio se ve con cuenta (el resto, un adelanto con «Crear mi cuenta»). */
   gate?: { username: string; slug: string; signupHref: string } | null;
 }) {
+  const t = await getT();
   const minutes = readingMinutes(post.body, post.bodyFormat);
   const media = readPostMedia(post.mediaKind, post.media);
   const cta = post.ctaLabel && post.ctaUrl ? { label: post.ctaLabel, url: post.ctaUrl, code: null as string | null } : null;
@@ -53,18 +56,15 @@ export function PostArticle({
     <article className="mx-auto max-w-2xl px-4 pb-10 pt-8 sm:pt-12">
       <p className="cp-eyebrow">
         {listHref ? (
-          <Link href={listHref} className="underline-offset-4 hover:underline">
-            Actualidades
-          </Link>
+          <Link href={listHref} className="underline-offset-4 hover:underline"><Tr s={"Actualidades"} /></Link>
         ) : (
-          "Actualidades"
+          t("Actualidades")
         )}
       </p>
       <h1 className="cp-display mt-3 text-[2.4rem] leading-[1.05] sm:text-[3rem]">{post.title}</h1>
       <p className="cp-muted mt-3 text-sm">
-        {post.publishedAt ? <time dateTime={post.publishedAt.toISOString()}>{dateLabel}</time> : dateLabel} · {minutes} min de lectura
-      </p>
-      {post.excerpt && <p className="mt-5 text-[1.1rem] leading-relaxed">{post.excerpt}</p>}
+        {post.publishedAt ? <time dateTime={post.publishedAt.toISOString()}>{dateLabel}</time> : dateLabel} · {minutes}{" "}<Tr s={"min de lectura"} /></p>
+      {post.excerpt && <p className="mt-5 text-[1.1rem] leading-relaxed"><Tr s={post.excerpt} /></p>}
       {gate && media && (
         <PostMediaGate
           kind={media.kind}
@@ -104,28 +104,27 @@ export function PostArticle({
           <CalmAudio src={media.src} preload="none" title={post.title} />
         </div>
       )}
-      <RichContent text={post.body} format={post.bodyFormat} legacy="links" tone="page" headingLevel={2} className="mt-8 space-y-5 text-[1.02rem] leading-[1.75]" />
+      <RichContent text={t(post.body)} format={post.bodyFormat} legacy="links" tone="page" headingLevel={2} className="mt-8 space-y-5 text-[1.02rem] leading-[1.75]" />
       {cta && (
         <div className="cp-card mt-8 flex flex-wrap items-center gap-3 p-5" data-post-cta>
           <a href={safeHref(cta.url)} className="cp-btn" {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
-            {cta.label} {external ? <ArrowUpRight className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
+            <Tr s={cta.label} /> {external ? <ArrowUpRight className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
           </a>
           {cta.code && (
             <span className="inline-flex items-center gap-2">
               <span className="cp-chip-code" aria-label={`Código de descuento ${cta.code}`}>{cta.code}</span>
-              <CopyButton text={cta.code} label="Copiar código" className="cp-btn-ghost !min-h-0 !px-3 !py-1.5 text-xs" />
+              <CopyButton text={cta.code} label={t("Copiar código")} className="cp-btn-ghost !min-h-0 !px-3 !py-1.5 text-xs" />
             </span>
           )}
         </div>
       )}
 
       {(older || newer || listHref) && (
-        <nav aria-label="Más actualidades" className="mt-12 grid gap-3 border-t pt-8 sm:grid-cols-2" style={{ borderColor: "var(--c-line)" }}>
+        <nav aria-label={t("Más actualidades")} className="mt-12 grid gap-3 border-t pt-8 sm:grid-cols-2" style={{ borderColor: "var(--c-line)" }}>
           {newer ? (
             <Link href={newer.href} className="cp-card cp-card-hover block p-4">
               <span className="cp-faint flex items-center gap-1.5 text-xs">
-                <ArrowLeft className="h-3.5 w-3.5" /> Más reciente
-              </span>
+                <ArrowLeft className="h-3.5 w-3.5" />{" "}<Tr s={"Más reciente"} /></span>
               <span className="mt-1 block font-semibold leading-snug">{newer.title}</span>
             </Link>
           ) : (
@@ -133,16 +132,13 @@ export function PostArticle({
           )}
           {older && (
             <Link href={older.href} className="cp-card cp-card-hover block p-4 sm:text-right">
-              <span className="cp-faint flex items-center gap-1.5 text-xs sm:justify-end">
-                Anterior <ArrowRight className="h-3.5 w-3.5" />
+              <span className="cp-faint flex items-center gap-1.5 text-xs sm:justify-end"><Tr s={"Anterior"} />{" "}<ArrowRight className="h-3.5 w-3.5" />
               </span>
               <span className="mt-1 block font-semibold leading-snug">{older.title}</span>
             </Link>
           )}
           {listHref && (
-            <Link href={listHref} className="cp-btn-ghost justify-self-start sm:col-span-2">
-              Ver todas las actualidades
-            </Link>
+            <Link href={listHref} className="cp-btn-ghost justify-self-start sm:col-span-2"><Tr s={"Ver todas las actualidades"} /></Link>
           )}
         </nav>
       )}

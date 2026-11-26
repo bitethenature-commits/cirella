@@ -4,6 +4,7 @@ import { AudioPlayer } from "./audio-player";
 import { ImageViewer } from "./image-viewer";
 import { PdfViewer } from "./pdf-viewer";
 import { VideoPlayer, type PlayerFile } from "./video-player";
+import { Tr } from "@/lib/i18n/client";
 
 export type MediaFile = PlayerFile & { kind: string };
 
@@ -33,8 +34,7 @@ export function MediaViewBase({ file, title, poster, artwork, personal }: { file
       <FileText className="h-5 w-5 text-lavender-deep" />
       <span className="flex-1 text-sm font-medium">{file.name}</span>
       <span className="flex items-center gap-1 text-xs text-muted">
-        <Download className="h-3.5 w-3.5" /> Descargar
-      </span>
+        <Download className="h-3.5 w-3.5" />{" "}<Tr s={"Descargar"} /></span>
     </a>
   );
 }

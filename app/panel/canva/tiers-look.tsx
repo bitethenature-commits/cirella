@@ -9,6 +9,7 @@ import { resolveTierLook, tierFxLabel, TIER_FRAME_INFO, TIER_FRAMES, TIER_FX, TI
 import type { WebTier, WebTiers } from "@/lib/web-tiers";
 import { saveCanvaTierLook } from "./actions";
 import type { SaveState } from "./canva-ui";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * El diseño de las tarjetas de miembro en Mi página › Hacerte miembro:
@@ -23,16 +24,16 @@ function Field({ label, own, resetLabel, onReset, hint, children }: { label: str
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-sm font-medium">
           {own && <span className="h-1.5 w-1.5 rounded-full bg-gold" />}
-          {label}
+          <Tr s={label} />
         </span>
         {own && (
           <button type="button" onClick={onReset} className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink">
-            <Undo2 className="h-3 w-3" /> {resetLabel}
+            <Undo2 className="h-3 w-3" /> <Tr s={resetLabel} />
           </button>
         )}
       </div>
       {children}
-      {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-muted"><Tr s={hint} /></p>}
     </div>
   );
 }
@@ -42,9 +43,7 @@ export function TierStageField({ b, onPatch }: { b: TiersBlock; onPatch: (fn: (b
   return (
     <section className="card space-y-2 p-5">
       <label className="flex items-center justify-between gap-3 text-sm font-medium">
-        <span>
-          Fondo de ensueño detrás de los niveles
-          <span className="block text-xs font-normal text-muted">Brumas de colores y estrellas que se mueven despacio.</span>
+        <span><Tr s={"Fondo de ensueño detrás de los niveles"} /><span className="block text-xs font-normal text-muted"><Tr s={"Brumas de colores y estrellas que se mueven despacio."} /></span>
         </span>
         <button
           type="button"
@@ -56,7 +55,7 @@ export function TierStageField({ b, onPatch }: { b: TiersBlock; onPatch: (fn: (b
           <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${b.stage ? "left-[1.375rem]" : "left-0.5"}`} />
         </button>
       </label>
-      <p className="text-xs text-muted">El diseño de cada tarjeta se cambia con su pincel, arriba a la derecha de la tarjeta.</p>
+      <p className="text-xs text-muted"><Tr s={"El diseño de cada tarjeta se cambia con su pincel, arriba a la derecha de la tarjeta."} /></p>
     </section>
   );
 }
@@ -172,19 +171,19 @@ export function TierDesign({
   return (
     <>
       <section className="card p-5">
-        <h3 className="font-semibold">Paisaje</h3>
-        <p className="mt-0.5 text-xs text-muted">Lo que se ve dentro del arco. Con el ratón encima, la tarjeta se inclina y el paisaje se mueve en 3D.</p>
+        <h3 className="font-semibold"><Tr s={"Paisaje"} /></h3>
+        <p className="mt-0.5 text-xs text-muted"><Tr s={"Lo que se ve dentro del arco. Con el ratón encima, la tarjeta se inclina y el paisaje se mueve en 3D."} /></p>
         <div role="radiogroup" aria-label="Paisaje" className="mt-3 grid grid-cols-3 gap-x-1 gap-y-2 sm:grid-cols-4">
           {TIER_SCENES.map((s) => (
             <button key={s} type="button" role="radio" aria-checked={r.scene === s} title={TIER_SCENE_INFO[s].hint} onClick={() => change(sceneLook(s))} className={pick(r.scene === s)}>
               <span className="tp-thumb">
                 <TierBackdrop look={sceneLook(s)} image={t.imageUrl} />
               </span>
-              <span className="text-[0.72rem] font-semibold leading-tight">{TIER_SCENE_INFO[s].label}</span>
+              <span className="text-[0.72rem] font-semibold leading-tight"><Tr s={TIER_SCENE_INFO[s].label} /></span>
             </button>
           ))}
         </div>
-        <p className="mt-2 text-xs text-muted">{scene.hint}.</p>
+        <p className="mt-2 text-xs text-muted"><Tr s={scene.hint} />.</p>
         {r.scene === "photo" && (
           <div className="mt-3 rounded-2xl border border-line bg-sand/40 p-3">
             <input
@@ -202,16 +201,14 @@ export function TierDesign({
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className="btn btn-secondary btn-sm">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-                {t.imageUrl ? "Cambiar la foto" : "Subir una foto"}
+                {t.imageUrl ? <Tr s={"Cambiar la foto"} /> : <Tr s={"Subir una foto"} />}
               </button>
               {t.imageUrl && (
-                <button type="button" onClick={() => onPhoto(base, null)} className="text-xs text-muted underline-offset-4 hover:text-ink hover:underline">
-                  Quitar la foto
-                </button>
+                <button type="button" onClick={() => onPhoto(base, null)} className="text-xs text-muted underline-offset-4 hover:text-ink hover:underline"><Tr s={"Quitar la foto"} /></button>
               )}
             </div>
-            {!t.imageUrl && <p className="mt-2 text-xs text-muted">Sin foto, la tarjeta se ve como «Noche y oro».</p>}
-            {error && <p className="mt-2 text-xs text-rose-700">{error}</p>}
+            {!t.imageUrl && <p className="mt-2 text-xs text-muted"><Tr s={"Sin foto, la tarjeta se ve como «Noche y oro»."} /></p>}
+            {error && <p className="mt-2 text-xs text-rose-700"><Tr s={error} /></p>}
             {t.imageUrl && (
               <Field label="Cuánto se ve la foto" own={t.look?.photo != null} resetLabel="Como siempre" onReset={() => set({ photo: undefined })}>
                 <div className="flex items-center gap-3">
@@ -226,23 +223,21 @@ export function TierDesign({
 
       <section className="card p-5">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="font-semibold">Lo que se mueve encima</h3>
+          <h3 className="font-semibold"><Tr s={"Lo que se mueve encima"} /></h3>
           {t.look?.fx && (
             <button type="button" onClick={() => set({ fx: undefined })} className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink">
-              <Undo2 className="h-3 w-3" /> El del paisaje ({tierFxLabel(scene.fx)})
+              <Undo2 className="h-3 w-3" />{" "}<Tr s={"El del paisaje ("} />{tierFxLabel(scene.fx)})
             </button>
           )}
         </div>
-        <p className="mt-0.5 text-xs text-muted">Por toda la tarjeta, detrás del texto.</p>
+        <p className="mt-0.5 text-xs text-muted"><Tr s={"Por toda la tarjeta, detrás del texto."} /></p>
         <div role="radiogroup" aria-label="Lo que se mueve encima" className="mt-3 space-y-2.5">
           <div className="flex flex-wrap gap-1.5">
-            <button type="button" role="radio" aria-checked={r.fx === "none"} onClick={() => set({ fx: "none" })} className={chip(r.fx === "none")}>
-              Nada
-            </button>
+            <button type="button" role="radio" aria-checked={r.fx === "none"} onClick={() => set({ fx: "none" })} className={chip(r.fx === "none")}><Tr s={"Nada"} /></button>
           </div>
           {FX_GROUPS.map((g) => (
             <div key={g.label}>
-              <p className="mb-1 text-[0.7rem] font-semibold uppercase tracking-wide text-muted">{g.label}</p>
+              <p className="mb-1 text-[0.7rem] font-semibold uppercase tracking-wide text-muted"><Tr s={g.label} /></p>
               <div className="flex flex-wrap gap-1.5">
                 {g.keys.map((k) => (
                   <button key={k} type="button" role="radio" aria-checked={r.fx === k} onClick={() => set({ fx: k })} className={chip(r.fx === k)}>
@@ -257,10 +252,10 @@ export function TierDesign({
 
       <section className="card p-5">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="font-semibold">Marco del arco</h3>
+          <h3 className="font-semibold"><Tr s={"Marco del arco"} /></h3>
           {t.look?.frame && (
             <button type="button" onClick={() => set({ frame: undefined })} className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink">
-              <Undo2 className="h-3 w-3" /> El del paisaje ({TIER_FRAME_INFO[scene.frame].label})
+              <Undo2 className="h-3 w-3" />{" "}<Tr s={"El del paisaje ("} /><Tr s={TIER_FRAME_INFO[scene.frame].label} />)
             </button>
           )}
         </div>
@@ -270,19 +265,19 @@ export function TierDesign({
               <span className="tp-thumb tp-thumb-sm">
                 <TierBackdrop look={clean({ ...base, frame: f })} image={t.imageUrl} />
               </span>
-              <span className="text-[0.72rem] font-semibold leading-tight">{TIER_FRAME_INFO[f].label}</span>
+              <span className="text-[0.72rem] font-semibold leading-tight"><Tr s={TIER_FRAME_INFO[f].label} /></span>
             </button>
           ))}
         </div>
       </section>
 
       <section className="card divide-y divide-line px-5 py-2.5">
-        <h3 className="py-2.5 font-semibold">Colores</h3>
+        <h3 className="py-2.5 font-semibold"><Tr s={"Colores"} /></h3>
         {COLOR_FIELDS.map(({ k, label, hint }) => (
           <Field key={k} label={label} own={!!t.look?.[k]} resetLabel={k === "sky" || k === "bg" ? "El del paisaje" : "Como siempre"} onReset={() => set({ [k]: undefined })} hint={hint}>
             <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line bg-white p-2 pr-3">
               <input type="color" value={r[k]} onChange={(e) => set({ [k]: e.target.value.toUpperCase() })} className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0" aria-label={label} />
-              <span className="font-mono text-xs uppercase text-muted">{t.look?.[k] ?? `${colorDefault(k)} · ${k === "sky" || k === "bg" ? "el del paisaje" : "como siempre"}`}</span>
+              <span className="font-mono text-xs uppercase text-muted"><Tr s={t.look?.[k] ?? `${colorDefault(k)} · ${k === "sky" || k === "bg" ? "el del paisaje" : "como siempre"}`} /></span>
             </label>
           </Field>
         ))}
@@ -306,9 +301,7 @@ export function TierDesign({
               setAllDone(true);
             }}
             className="btn btn-secondary w-full"
-          >
-            Usar este diseño en todos los niveles
-          </button>
+          ><Tr s={"Usar este diseño en todos los niveles"} /></button>
           <p className="text-center text-xs text-muted">
             {allDone
               ? `Hecho: los ${others + 1} niveles llevan este diseño.`

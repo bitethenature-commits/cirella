@@ -1,5 +1,5 @@
 /**
- * «Cómo reservar» de /lecturas y /sesiones sin pagos en la web: si la portada guarda los pasos de antes
+ * «Cómo reservar» de /readings y /sessions sin pagos en la web: si la portada guarda los pasos de antes
  * (los de pagar con tarjeta o PayPal), se cambian por los nuevos (todo por email). Los que la dueña
  * haya escrito a su manera no se tocan.
  *   npx tsx prisma/demo-pasos-por-email.ts

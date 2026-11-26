@@ -349,7 +349,7 @@ const blockSchema = z.discriminatedUnion("t", [
     id,
     t: z.literal("social"),
     // Las redes que ya no hay (WhatsApp) se quitan al leer, sin perder las demás.
-    links: z.preprocess((v) => (v && typeof v === "object" ? Object.fromEntries(Object.entries(v).filter(([k]) => (SOCIAL_NETWORKS as string[]).includes(k))) : v), z.record(z.enum(SOCIAL_NETWORKS as [SocialNetwork, ...SocialNetwork[]]), shortText(300))).catch({}),
+    links: z.preprocess((v) => (v && typeof v === "object" ? Object.fromEntries(Object.entries(v).filter(([k]) => (SOCIAL_NETWORKS as string[]).includes(k))) : v), z.partialRecord(z.enum(SOCIAL_NETWORKS as [SocialNetwork, ...SocialNetwork[]]), shortText(300))).catch({}),
     align: align3.catch("center"),
     color: optColor,
     ...band,
@@ -435,10 +435,10 @@ export function emailImagePath(url: string): string | null {
   return /^\/media\/[a-z0-9]+\/[a-f0-9]{20}\.(?:webp|jpg|png)$/.test(url) || /^\/demo\/[\w-]+\.(?:webp|jpg|png)$/.test(url) ? url : null;
 }
 
-/** Página pública «ver vídeo» de un vídeo subido aquí (/media/video/… → /media/ver/…), o null. */
+/** Página pública «ver vídeo» de un vídeo subido aquí (/media/video/… → /media/view/…), o null. */
 export function videoWatchPath(src: string): string | null {
   const m = src.match(/^\/media\/video\/([a-z0-9]{10,40})\/([a-f0-9]{24}\.(?:mp4|mov|m4v))$/);
-  return m ? `/media/ver/${m[1]}/${m[2]}` : null;
+  return m ? `/media/view/${m[1]}/${m[2]}` : null;
 }
 
 /** Color hex válido o el de reserva (para pintar: nunca llega al HTML otra cosa). */

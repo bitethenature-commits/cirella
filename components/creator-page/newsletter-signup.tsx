@@ -1,4 +1,5 @@
 "use client";
+import { useT, Tr } from "@/lib/i18n/client";
 
 import Link from "next/link";
 import { CheckCircle2, Loader2 } from "lucide-react";
@@ -46,6 +47,7 @@ export function NewsletterSignup({
   /** En el Canva: el texto del botón escrito encima (el botón no envía nada). */
   editButton?: ReactNode;
 }) {
+  const tt = useT();
   const t = (key: SiteTextKey, vars?: TextVars): ReactNode => {
     const v = siteText(texts, key, vars);
     return editText ? editText(key, v, vars) : v;
@@ -62,7 +64,7 @@ export function NewsletterSignup({
       </span>
     ) : (
       <button type="submit" disabled={pending} className={className}>
-        {pending && <Loader2 className="h-4 w-4 animate-spin" />} {button}
+        {pending && <Loader2 className="h-4 w-4 animate-spin" />} <Tr s={button} />
       </button>
     );
   if (state?.ok)
@@ -71,12 +73,10 @@ export function NewsletterSignup({
         <CheckCircle2 className="cp-gold mx-auto h-8 w-8" />
         <p className="cp-display mt-2 text-[1.45rem] leading-tight">{t("nl.doneTitle")}</p>
         <p className="cp-muted mt-1.5 text-sm leading-relaxed">
-          Te hemos enviado un email a {state.email}. Pulsa «Sí, quiero recibirla» y ya estarás dentro. Si no lo ves, mira en spam o en promociones.
+          {tt("Te hemos enviado un email a {email}. Pulsa «Sí, quiero recibirla» y ya estarás dentro. Si no lo ves, mira en spam o en promociones.", { email: state.email ?? "" })}
         </p>
         {demo && (
-          <Link href="/dev/correo" className="mt-3 inline-block text-sm font-semibold underline-offset-2 hover:underline">
-            Abrir el buzón de demostración →
-          </Link>
+          <Link href="/dev/email" className="mt-3 inline-block text-sm font-semibold underline-offset-2 hover:underline"><Tr s={"Abrir el buzón de demostración →"} /></Link>
         )}
       </div>
     );
@@ -91,22 +91,21 @@ export function NewsletterSignup({
     <form action={preview ? undefined : action} onSubmit={preview ? (e) => e.preventDefault() : undefined} className={`relative ${variant === "section" ? "cp-card p-6 sm:p-8" : "w-full max-w-md text-left"}`} data-testid={`newsletter-${variant}`}>
       <input type="hidden" name="where" value={variant} />
       <div aria-hidden className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
-        <label>
-          Web <input type="text" name="website" tabIndex={-1} autoComplete="off" defaultValue="" />
+        <label><Tr s={"Web"} />{" "}<input type="text" name="website" tabIndex={-1} autoComplete="off" defaultValue="" />
         </label>
       </div>
       {variant === "section" ? (
         <>
           {title && <h2 className="cp-display text-[1.9rem] leading-tight sm:text-[2.2rem]">{title}</h2>}
-          {text && <p className="cp-muted mt-2 text-[0.95rem] leading-relaxed">{text}</p>}
+          {text && <p className="cp-muted mt-2 text-[0.95rem] leading-relaxed"><Tr s={text} /></p>}
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <div>
               <Label className="mb-1.5 block text-xs font-medium" htmlFor={editText ? undefined : `${id}-name`}>{t("nl.name")}</Label>
-              <input id={`${id}-name`} name="name" maxLength={80} autoComplete="given-name" className="cp-input" placeholder="Tu nombre" />
+              <input id={`${id}-name`} name="name" maxLength={80} autoComplete="given-name" className="cp-input" placeholder={tt("Tu nombre")} />
             </div>
             <div>
               <Label className="mb-1.5 block text-xs font-medium" htmlFor={editText ? undefined : `${id}-email`}>{t("nl.email")}</Label>
-              <input id={`${id}-email`} name="email" type="email" required maxLength={200} autoComplete="email" inputMode="email" className="cp-input" placeholder="tu@email.com" />
+              <input id={`${id}-email`} name="email" type="email" required maxLength={200} autoComplete="email" inputMode="email" className="cp-input" placeholder={tt("tu@email.com")} />
             </div>
           </div>
           {submit("cp-btn mt-4 h-12 w-full justify-center sm:w-auto")}
@@ -115,7 +114,7 @@ export function NewsletterSignup({
         <>
           <Label className="mb-1.5 block text-sm font-semibold" htmlFor={editText ? undefined : `${id}-email`}>{title || t("nl.footerTitle")}</Label>
           <div className="flex gap-2">
-            <input id={`${id}-email`} name="email" type="email" required maxLength={200} autoComplete="email" inputMode="email" className="cp-input min-w-0 flex-1" placeholder="tu@email.com" />
+            <input id={`${id}-email`} name="email" type="email" required maxLength={200} autoComplete="email" inputMode="email" className="cp-input min-w-0 flex-1" placeholder={tt("tu@email.com")} />
             {submit("cp-btn h-12 shrink-0 justify-center")}
           </div>
         </>
@@ -126,7 +125,7 @@ export function NewsletterSignup({
           <span>{t("nl.portal")}</span>
         </p>
       )}
-      {state?.error && <p className="mt-2 text-sm text-[#b4443a]" role="alert">{state.error}</p>}
+      {state?.error && <p className="mt-2 text-sm text-[#b4443a]" role="alert"><Tr s={state.error} /></p>}
       {small}
     </form>
   );

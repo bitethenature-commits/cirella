@@ -16,10 +16,10 @@ import { addDaysToKey, dateKeyInTz, zonedTimeToUtc } from "../lib/tz";
 
 export const DEMO_STUDENT_EMAIL = "elena@example.com";
 
-const COURSES = ["human-design-desde-cero", "tu-carta-y-tu-energia", "curso-conocete-tu-energia"];
-const READING = "lectura-de-tu-ano";
-const SESSION = "sesion-1-1";
-const MEMBERSHIP = "esencia";
+const COURSES = ["human-design-basics", "chart-and-energy", "know-your-energy"];
+const READING = "year-reading";
+const SESSION = "one-on-one";
+const MEMBERSHIP = "essence";
 
 const READING_MESSAGE = `Hola, Elena:
 

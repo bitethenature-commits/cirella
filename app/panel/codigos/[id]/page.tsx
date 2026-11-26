@@ -9,10 +9,13 @@ import { tenantDb } from "@/lib/tenant";
 import { Badge, PageHeader } from "../../ui";
 import { deleteDiscountCode } from "../actions";
 import { CodeForm } from "../code-form";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Código de descuento" };
 
 export default async function EditDiscountCodePage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await getT();
   const { id } = await params;
   const { creator } = await requireCreator();
   const code = await tenantDb(creator.id).discountCode.findFirst({ where: { id } });
@@ -21,9 +24,8 @@ export default async function EditDiscountCodePage({ params }: { params: Promise
   return (
     <div className="mx-auto max-w-3xl">
       <Link href="/panel/pagina?ver=codigos" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Códigos
-      </Link>
-      <PageHeader title={code.brand} subtitle={<Badge tone={state === "ACTIVE" ? "success" : state === "EXPIRED" ? "warning" : "neutral"}>{CODE_STATE_LABEL[state]}</Badge>} />
+        <ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Códigos"} /></Link>
+      <PageHeader title={t(code.brand)} subtitle={<Badge tone={state === "ACTIVE" ? "success" : state === "EXPIRED" ? "warning" : "neutral"}><Tr s={CODE_STATE_LABEL[state]} /></Badge>} />
       <CodeForm
         code={{
           id: code.id,
@@ -38,11 +40,10 @@ export default async function EditDiscountCodePage({ params }: { params: Promise
           active: code.active,
         }}
       />
-      <ConfirmForm action={deleteDiscountCode} message="¿Borrar este código? Desaparece de tu página y no se puede deshacer." className="mt-10 border-t border-line pt-6">
+      <ConfirmForm action={deleteDiscountCode} message={t("¿Borrar este código? Desaparece de tu página y no se puede deshacer.")} className="mt-10 border-t border-line pt-6">
         <input type="hidden" name="id" value={code.id} />
         <button className="btn btn-ghost btn-sm text-rose">
-          <Trash2 className="h-4 w-4" /> Borrar código
-        </button>
+          <Trash2 className="h-4 w-4" />{" "}<Tr s={"Borrar código"} /></button>
       </ConfirmForm>
     </div>
   );

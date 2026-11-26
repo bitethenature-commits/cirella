@@ -5,7 +5,7 @@ import { signToken, verifyToken } from "./storage/signing";
 /**
  * Baja de los avisos por email de la comunidad (publicaciones nuevas y respuestas de la dueña a sus
  * comentarios). Como lib/recovery-optout.ts: cada aviso lleva en el pie un enlace firmado a
- * /baja/comunidad y las cabeceras List-Unsubscribe de la baja «en un clic» (RFC 8058).
+ * /unsubscribe/membership y las cabeceras List-Unsubscribe de la baja «en un clic» (RFC 8058).
  *
  * El enlace solo lleva el id de la clienta (Customer: una persona en la comunidad de UNA creadora),
  * firmado con APP_SECRET y con su propio propósito: un enlace de otra baja no sirve aquí.
@@ -20,11 +20,11 @@ export function postOptOutToken(customerId: string, now = Date.now()) {
 }
 
 export function postOptOutUrl(customerId: string) {
-  return `${appUrl()}/baja/comunidad?t=${encodeURIComponent(postOptOutToken(customerId))}`;
+  return `${appUrl()}/unsubscribe/membership?t=${encodeURIComponent(postOptOutToken(customerId))}`;
 }
 
 export function postOptOutOneClickUrl(customerId: string) {
-  return `${appUrl()}/baja/comunidad/un-clic?t=${encodeURIComponent(postOptOutToken(customerId))}`;
+  return `${appUrl()}/unsubscribe/membership/one-click?t=${encodeURIComponent(postOptOutToken(customerId))}`;
 }
 
 /** Cabeceras para el botón «Cancelar suscripción» del propio gestor de correo. */

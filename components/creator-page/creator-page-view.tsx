@@ -1,9 +1,10 @@
+import { productPath } from "@/lib/public-paths";
 import Link from "next/link";
-import { Fragment, type ComponentType, type CSSProperties, type ReactNode, type SVGProps } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import type { CanvaPart, HomeEdit, TextEdit } from "./home-edit";
 import { siteText, type SiteTextKey, type TextVars } from "@/lib/site-texts";
-import { ArrowRight, ArrowUpRight, ExternalLink, FileText, Gift, Layers, Mail, Moon, Plus, Sparkles, Video } from "lucide-react";
-import { courseCategoriesLabel, courseCategoriesOf, productTopics, readingLabel } from "@/lib/course-categories";
+import { ArrowRight, ArrowUpRight, ExternalLink, FileText, Gift, Mail, Moon, Plus, Video } from "lucide-react";
+import { productTopics, readingLabel } from "@/lib/course-categories";
 import { AstrologyIcon } from "./astrology-icon";
 import { CategoryIcons } from "./category-icons";
 import { EnergyIcon } from "./energy-icon";
@@ -18,7 +19,6 @@ import { SiteNav, type SiteNavPage } from "./site-nav";
 import { externalButtonLabel, linksToProduct } from "@/lib/access-mode";
 import { imageSrcSet } from "@/lib/media-url";
 import { formatPrice } from "@/lib/money";
-import { postPath } from "@/lib/posts";
 import {
   NEWSLETTER_FORM_DEFAULTS,
   socialList,
@@ -33,7 +33,10 @@ import {
 import { designFor, READINGS_DEFAULTS } from "@/lib/page-config";
 import type { PublicPortalItem } from "@/lib/portal-rules";
 import type { GiftsPreview } from "@/lib/site-pages";
-import { sectionPagePath } from "@/lib/site-sections";
+import { giftPath, sectionPagePath } from "@/lib/site-sections";
+import { MoreRows } from "./more-rows";
+import { LanguageSwitch } from "./language-switch";
+import { Tr } from "@/lib/i18n/client";
 import { resolveTheme, themeAttrs, themeStyle } from "@/lib/templates";
 import { DesignBackdrop } from "@/components/design-backdrop";
 import { requestCta, type ProductType } from "@/lib/types";
@@ -47,7 +50,6 @@ import type { CodePhoto, CodeRecommendation } from "@/lib/discount-codes";
 import type { OracleDecks } from "@/components/models/data/oracle";
 import { Avatar, ProductImage } from "./product-art";
 import { PortalSection } from "./portal-section";
-import { PostCard } from "./post-card";
 import { PieceStyles } from "./piece-styles";
 import { ShowMore } from "@/components/ui/show-more";
 import { SectionFolds, type Fold } from "./section-dropdown";
@@ -55,6 +57,7 @@ import { DesignScope } from "./design-scope";
 import { visibleBlocks } from "@/lib/page-blocks";
 import { TestimonialsRotator } from "./testimonials-rotator";
 import { OracleCard } from "./oracle-card";
+import { CourseMiniCard } from "./course-mini-card";
 import { HomeRows, MegaphoneIcon, PercentIcon, PortalNoteIcon } from "./home-rows";
 import { offerRow } from "./offer-rows";
 import type { NewsItem } from "@/lib/web-news";
@@ -138,7 +141,7 @@ const TYPE_EYEBROW: Record<ProductType, string> = {
   MEMBERSHIP: "Comunidad",
 };
 
-/** Cursos que salen en la portada (los demás, en su página «/cursos»). */
+/** Cursos que salen en la portada (los demás, en su página «/courses»). */
 const HOME_COURSES = 3;
 
 /** Secciones plegables seguidas («Actualidades», «Portal», «Ofertas»): juntas, como una lista de filas. */
@@ -249,9 +252,9 @@ export function CreatorPageView(props: Props) {
       if (!body) return text;
       return (
         <>
-          {lead}
+          <Tr s={lead} />
           {edit.text(`text:${key}`, body, { commit: (v) => (v ? join(lead + v + trail) : "") })}
-          {trail}
+          <Tr s={trail} />
         </>
       );
     };
@@ -274,7 +277,6 @@ export function CreatorPageView(props: Props) {
   // Ni un botón hacia lo que no se ve: en la web personal sin cobros, un enlace a un producto oculto daría 404.
   const hiddenSlugs = new Set<string>();
   const links = config.links.filter((l) => !linksToProduct(l.url, username, hiddenSlugs, props.siteOrigin));
-  const posts = props.posts ?? [];
   const codes = props.discountCodes ?? [];
   // El diseño de la web con los cambios de la portada encima (Panel › Mi página › Diseño).
   const theme = resolveTheme(null, designFor(config, "home"), props.allowCustom);
@@ -294,11 +296,11 @@ export function CreatorPageView(props: Props) {
       case "posts": {
         // «Actualidades»: lo nuevo de la web (membresías, cursos, lecturas, códigos, el próximo círculo…).
         const all = props.news ?? [];
-        // Solo lo reciente (30 días): sin agobiar con todo lo que hay. Si no hay nada reciente, lo último.
+        // Se ven las tres últimas y «Ver más» abre el resto aquí mismo (no hay página de actualidades). El número
+        // cuenta solo lo reciente (30 días).
         const since = Date.now() - 30 * 86_400_000;
         const recent = all.filter((n) => Date.parse(n.at) >= since);
-        const news = (recent.length ? recent : all).slice(0, 3);
-        if (!news.length) return null;
+        if (!all.length) return null;
         return {
           id: "actualidades",
           section: "posts",
@@ -307,10 +309,11 @@ export function CreatorPageView(props: Props) {
           stamps: recent.map((n) => Date.parse(n.at)),
           icon: <MegaphoneIcon className={icon} />,
           content: (
-            <>
-              <HomeRows
+            <MoreRows
+                first={3}
+                moreLabel={TX("news.all")}
                 fallbackImage={fallbackImage}
-                rows={news.map((n) => ({
+                rows={all.map((n) => ({
                   key: n.key,
                   href: n.href,
                   image: n.image,
@@ -318,17 +321,13 @@ export function CreatorPageView(props: Props) {
                   eyebrow: (
                     <>
                       <span>{n.dateLabel}</span>
-                      <span>· {n.label}</span>
+                      <span>· <Tr s={n.label} /></span>
                     </>
                   ),
                   title: n.title,
                   text: n.text,
                 }))}
               />
-              <Link href={path("actualidades")} className="cp-btn-ghost mt-4 w-full">
-                {TX("news.all")} <ArrowRight className="h-4 w-4" />
-              </Link>
-            </>
           ),
         };
       }
@@ -371,14 +370,8 @@ export function CreatorPageView(props: Props) {
           stamps: onSale.map((p) => Date.parse(p.sale!.startedAt)),
           icon: <PercentIcon className={icon} />,
           content: (
-            <>
-              <HomeRows fallbackImage={fallbackImage} rows={onSale.slice(0, 1).map((p) => offerRow(p, username))} />
-              {onSale.length > 1 && (
-                <Link href={path("ofertas")} className="cp-btn-ghost mt-4 w-full">
-                  {TX("offers.more")} <ArrowRight className="h-4 w-4" />
-                </Link>
-              )}
-            </>
+            // La primera y «Ver más» abre las demás aquí mismo (no hay página de ofertas).
+            <MoreRows first={1} moreLabel={TX("offers.more")} fallbackImage={fallbackImage} rows={onSale.map((p) => offerRow(p, username))} />
           ),
         };
       }
@@ -386,7 +379,6 @@ export function CreatorPageView(props: Props) {
         // «Gifts»: lo que hace para regalar (calendarios, manualidades…), de su página (Páginas → Gifts).
         const g = props.gifts;
         if (!g?.items.length) return null;
-        const href = path("gifts");
         return {
           id: "gifts",
           title: ST(key),
@@ -395,12 +387,16 @@ export function CreatorPageView(props: Props) {
           icon: <Gift className={icon} strokeWidth={1.15} />,
           content: (
             <>
-              {g.subtitle && <p className="cp-muted mb-3 text-[0.92rem]">{g.subtitle}</p>}
-              <HomeRows
+              {g.subtitle && <p className="cp-muted mb-3 text-[0.92rem]"><Tr s={g.subtitle} /></p>}
+              {/* Los tres primeros y «Ver más» abre los demás aquí mismo; cada regalo abre su página. */}
+              <MoreRows
+                first={3}
+                moreLabel={TX("gifts.all")}
                 fallbackImage={fallbackImage}
                 rows={g.items.map((it, n) => ({
                   key: `gift-${n}`,
-                  href,
+                  // Cada regalo abre su página (/gifts/<regalo>).
+                  href: giftPath(username, it.slug, !!personal),
                   image: it.image,
                   icon: <Gift className="h-7 w-7 opacity-80" strokeWidth={1.3} />,
                   eyebrow: <span>{TX("gifts.eyebrow")}</span>,
@@ -408,9 +404,6 @@ export function CreatorPageView(props: Props) {
                   text: it.text,
                 }))}
               />
-              <Link href={href} className="cp-btn-ghost mt-4 w-full">
-                {TX("gifts.all")} <ArrowRight className="h-4 w-4" />
-              </Link>
             </>
           ),
         };
@@ -430,7 +423,7 @@ export function CreatorPageView(props: Props) {
       stamps: [],
       icon:
         key === "posts" ? <MegaphoneIcon className={icon} /> : key === "portal" ? <PortalNoteIcon className={icon} /> : key === "offers" ? <PercentIcon className={icon} /> : <Gift className={icon} strokeWidth={1.15} />,
-      content: <p className="cp-muted text-[0.92rem]">{e.note}</p>,
+      content: <p className="cp-muted text-[0.92rem]"><Tr s={e.note} /></p>,
     };
   };
   /** Los desplegables, en su orden, y dónde van juntos: donde está el primero que se ve (si no hay, el primero). */
@@ -442,7 +435,7 @@ export function CreatorPageView(props: Props) {
       <section key={key} className="mt-14">
         {HEADED.has(key) && <SectionHeading title={ST(key)} />}
         <div className="cp-muted mt-5 rounded-2xl border border-dashed p-6 text-center text-sm" style={{ borderColor: "var(--c-line)" }}>
-          {EMPTY_NOTE[key] ?? "Aún no hay nada que enseñar aquí."}
+          {EMPTY_NOTE[key] ?? <Tr s={"Aún no hay nada que enseñar aquí."} />}
         </div>
       </section>
     );
@@ -471,7 +464,7 @@ export function CreatorPageView(props: Props) {
     if (type) {
       const items = products.filter((p) => p.type === type);
       if (!items.length) return null;
-      // Cursos: con más de uno, su página propia los agrupa por método (/cursos).
+      // Cursos: con más de uno, su página propia los agrupa por método (/courses).
       const more =
         key === "courses" && courseCount > 1 ? (
           <Link href={path("cursos")} className="cp-btn-ghost mt-5 w-full">
@@ -602,20 +595,21 @@ export function CreatorPageView(props: Props) {
         // La forma y el marco, en Diseño › Fotos; el tamaño y el lado, en la tarjeta.
         const size = ABOUT_PHOTO[a.imageSize ?? "tall"];
         // Su ancho va en lo de fuera: en el Canva, la caja de «Cambiar foto» (si no, la foto se queda sin ancho).
-        const place = `mx-auto w-full max-w-[20rem] sm:mx-0 sm:shrink-0 ${size.width}`;
-        const frame = `cp-luxe-frame relative mx-auto block w-full max-w-[20rem] sm:mx-0 sm:shrink-0 ${size.aspect} ${size.width}`;
+        // En el móvil también al lado del texto (más estrecha), como en el ordenador.
+        const place = `shrink-0 ${size.width}`;
+        const frame = `cp-luxe-frame relative block shrink-0 ${size.aspect} ${size.width}`;
         return P(
           "about",
           <section key={key} id="sobre-mi" className="mt-16" {...reveal}>
             {/* Sin caja: solo la imagen lleva las esquinas redondeadas. */}
-            <a href={safeHref(href)} className={`group flex flex-col gap-5 sm:items-center sm:gap-8 ${a.imageSide === "left" ? "sm:flex-row" : "sm:flex-row-reverse"}`} {...(isExternal(href) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+            <a href={safeHref(href)} className={`group flex items-center gap-4 sm:gap-8 ${a.imageSide === "left" ? "flex-row" : "flex-row-reverse"}`} {...(isExternal(href) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
               {edit
                 ? edit.image(
                     "about.image",
                     <span className={`cp-luxe-frame relative block w-full ${size.aspect}`}>
                       {a.image && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={a.image} srcSet={imageSrcSet(a.image)} sizes="(min-width: 640px) 290px, 92vw" alt="" className="cp-img absolute inset-0 h-full w-full object-cover" />
+                        <img src={a.image} srcSet={imageSrcSet(a.image)} sizes="(min-width: 640px) 290px, 40vw" alt="" className="cp-img absolute inset-0 h-full w-full object-cover" />
                       )}
                     </span>,
                     { removable: true, className: place },
@@ -623,14 +617,14 @@ export function CreatorPageView(props: Props) {
                 : a.image && (
                 <span className={frame}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={a.image} srcSet={imageSrcSet(a.image)} sizes="(min-width: 640px) 290px, 92vw" alt="" loading="lazy" decoding="async" className="cp-img absolute inset-0 h-full w-full object-cover group-hover:scale-[1.035]" />
+                  <img src={a.image} srcSet={imageSrcSet(a.image)} sizes="(min-width: 640px) 290px, 40vw" alt="" loading="lazy" decoding="async" className="cp-img absolute inset-0 h-full w-full object-cover group-hover:scale-[1.035]" />
                 </span>
               )}
-              <span className="flex flex-1 flex-col justify-center gap-2">
+              <span className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 sm:gap-2">
                 {(a.eyebrow || edit) && <span className="cp-eyebrow">{T("about.eyebrow", a.eyebrow ?? "", { placeholder: "Antetítulo" })}</span>}
-                <span className="cp-display text-[2rem] leading-[1.05] sm:text-[2.3rem]">{T("about.title", a.title, { placeholder: "Título" })}</span>
-                {(a.text || edit) && <span className="cp-muted text-[0.95rem] leading-relaxed">{T("about.text", a.text ?? "", { multiline: true, placeholder: "Texto" })}</span>}
-                <span className="cp-gold mt-1 inline-flex items-center gap-1 text-sm font-semibold">
+                <span className="cp-display text-[1.6rem] leading-[1.05] sm:text-[2.3rem]">{T("about.title", a.title, { placeholder: "Título" })}</span>
+                {(a.text || edit) && <span className="cp-muted text-[0.85rem] leading-relaxed sm:text-[0.95rem]">{T("about.text", a.text ?? "", { multiline: true, placeholder: "Texto" })}</span>}
+                <span className="cp-gold mt-1 inline-flex items-center gap-1 text-[0.8rem] font-semibold sm:text-sm">
                   {T("about.linkLabel", a.linkLabel || "Conoce mi historia")} <ArrowRight className="h-3.5 w-3.5" />
                 </span>
               </span>
@@ -728,14 +722,14 @@ export function CreatorPageView(props: Props) {
                   {circles.map((c) => (
                     <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-3" style={{ borderColor: "var(--c-line)" }}>
                       <span className="min-w-0">
-                        <Link href={`/${username}/${c.slug}`} className="block font-semibold underline-offset-4 hover:underline">
+                        <Link href={`${productPath(username, c)}`} className="block font-semibold underline-offset-4 hover:underline">
                           {c.title}
                         </Link>
-                        <span className="cp-muted block text-[0.82rem]">{c.eventLabel}</span>
-                        {c.sale && <span className="cp-gold block text-[0.78rem]">{formatPrice(c.sale.priceCents, c.currency)} · antes {formatPrice(c.sale.regularCents, c.currency)}</span>}
+                        <span className="cp-muted block text-[0.82rem]"><Tr s={c.eventLabel} /></span>
+                        {c.sale && <span className="cp-gold block text-[0.78rem]">{formatPrice(c.sale.priceCents, c.currency)}{" "}<Tr s={"· antes"} />{" "}{formatPrice(c.sale.regularCents, c.currency)}</span>}
                       </span>
                       <TrackedLink
-                        href={(c.accessMode ?? "PAID") === "FREE_EMAIL" ? `/${username}/${c.slug}` : `/${username}/${c.slug}/solicitar`}
+                        href={(c.accessMode ?? "PAID") === "FREE_EMAIL" ? `${productPath(username, c)}` : `${productPath(username, c, "request")}`}
                         event={trackId ? { creatorId: trackId, type: "PRODUCT_CLICK" as const, productId: c.id } : null}
                         className="cp-btn shrink-0 !min-h-[2.5rem] !text-[0.85rem]"
                         ariaLabel={`${(c.accessMode ?? "PAID") === "FREE_EMAIL" ? siteText(config.texts, "circles.free") : siteText(config.texts, "circles.paid")}: ${c.title}`}
@@ -783,7 +777,7 @@ export function CreatorPageView(props: Props) {
                 "links",
                 <section key={key} className="mt-9 space-y-3">
                   <span className="cp-link" style={{ borderStyle: "dashed" }}>
-                    <span>Añade tu primer botón</span>
+                    <span><Tr s={"Añade tu primer botón"} /></span>
                     <Plus className="h-4 w-4 shrink-0 opacity-70" />
                   </span>
                 </section>,
@@ -873,10 +867,10 @@ export function CreatorPageView(props: Props) {
               {config.faqs.map((f) => (
                 <details key={f.id} className="group py-1" style={{ borderColor: "var(--c-line)" }}>
                   <summary className="flex cursor-pointer items-center justify-between gap-4 py-4 text-[0.98rem] font-medium">
-                    {f.q}
+                    <Tr s={f.q} />
                     <Plus className="cp-faq-icon h-4 w-4 shrink-0 opacity-70" />
                   </summary>
-                  <p className="cp-muted pb-5 pr-8 text-[0.92rem] leading-relaxed">{f.a}</p>
+                  <p className="cp-muted pb-5 pr-8 text-[0.92rem] leading-relaxed"><Tr s={f.a} /></p>
                 </details>
               ))}
             </ShowMore>
@@ -945,8 +939,9 @@ export function CreatorPageView(props: Props) {
       <DesignBackdrop theme={theme} contained={!!preview} />
       <TemplateDecor decor={theme.decor} contained={!!preview} />
 
-      {/* Barra superior discreta: solo la entrada al área (sin el @usuario) */}
-      <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-end px-4 pt-[max(env(safe-area-inset-top),0.75rem)]">
+      {/* Barra superior discreta: el idioma y la entrada al área (sin el @usuario). En el editor, sin el idioma. */}
+      <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-end gap-2 px-4 pt-[max(env(safe-area-inset-top),0.75rem)]">
+        {!edit && !preview && <LanguageSwitch variant="pill" />}
         <AccountEntry username={username} personal={personal} variant="pill" texts={config.texts} editText={TE} />
       </div>
 
@@ -1006,9 +1001,7 @@ export function CreatorPageView(props: Props) {
               "socials",
             <div className="mt-6 flex items-center gap-2">
               {!socials.length && (
-                <span className="cp-faint rounded-full border border-dashed px-3.5 py-2 text-xs" style={{ borderColor: "var(--c-line)" }}>
-                  + Redes sociales
-                </span>
+                <span className="cp-faint rounded-full border border-dashed px-3.5 py-2 text-xs" style={{ borderColor: "var(--c-line)" }}><Tr s={"+ Redes sociales"} /></span>
               )}
               {socials.map((k) => {
                 const a = (
@@ -1111,7 +1104,7 @@ export function CreatorPageView(props: Props) {
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 transition hover:opacity-100"
               style={{ borderColor: "var(--c-line)", opacity: 0.75 }}
             >
-              <span className="cp-gold">✦</span> Powered by <span className="font-semibold">{props.platformName}</span>
+              <span className="cp-gold">✦</span>{" "}<Tr s={"Powered by"} />{" "}<span className="font-semibold"><Tr s={props.platformName} /></span>
             </a>
           )}
         </footer>,
@@ -1127,16 +1120,16 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
   const free = mode === "FREE_EMAIL";
   const external = mode === "EXTERNAL" && !!p.externalUrl;
   const cta = free
-    ? p.ctaLabel || "Acceder gratis"
+    ? p.ctaLabel || null
     : external
       ? externalButtonLabel({ type: p.type, externalLabel: p.externalLabel ?? null, externalUrl: p.externalUrl ?? null })
       : requestCta(p.type, p.ctaLabel);
-  const productHref = `/${username}/${p.slug}`;
+  const productHref = `${productPath(username, p)}`;
   const topics = p.type === "COURSE" || p.type === "DIGITAL" ? productTopics(p) : [];
   const event = trackCreatorId ? { creatorId: trackCreatorId, type: "PRODUCT_CLICK" as const, productId: p.id } : null;
   // Gratis: «Gratis». Pago fuera: el precio (informativo, si lo hay) y dónde se paga. Pago aquí: el precio.
-  const price = free ? "Gratis" : external && p.priceCents <= 0 ? null : formatPrice(p.sale ? p.sale.priceCents : p.priceCents, p.currency, p.billingInterval);
-  const priceNote = external ? (p.externalHost ? `Pago en ${p.externalHost}` : "Pago en otra web") : null;
+  const price = free ? <Tr s="Gratis" /> : external && p.priceCents <= 0 ? null : formatPrice(p.sale ? p.sale.priceCents : p.priceCents, p.currency, p.billingInterval);
+  const priceNote = external ? p.externalHost ? <Tr s="Pago en {host}" vars={{ host: p.externalHost }} /> : <Tr s="Pago en otra web" /> : null;
   return (
     <article className="cp-card cp-card-hover group flex h-full flex-col">
       <Link href={productHref} className="cp-photo-bubble cp-photo-in relative block aspect-[4/3]">
@@ -1146,20 +1139,20 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
           style={{ background: "color-mix(in oklab, var(--c-bg) 72%, transparent)", color: "var(--c-text)", backdropFilter: "blur(10px)" }}
         >
           {/* Un curso con tema lleva el icono de su tema (o sus temas) en dorado; si no, su emoji. */}
-          {topics.length ? <CategoryIcons categories={topics} size={1.05} className="cp-gold" gap={0.1} /> : p.emoji && <span aria-hidden>{p.emoji}</span>}
-          {p.type === "DIGITAL" ? readingLabel(p) : TYPE_EYEBROW[p.type as ProductType]}
-          {p.meta ? <span className="cp-muted normal-case tracking-normal">· {p.meta}</span> : null}
+          {topics.length ? <CategoryIcons categories={topics} size={1.05} className="cp-gold" gap={0.1} /> : p.emoji && <span aria-hidden><Tr s={p.emoji} /></span>}
+          {p.type === "DIGITAL" ? readingLabel(p) : <Tr s={TYPE_EYEBROW[p.type as ProductType]} />}
+          {p.meta ? <span className="cp-muted normal-case tracking-normal">· <Tr s={p.meta} /></span> : null}
         </span>
         {large && (
           <span className="absolute right-3 top-3 rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em]" style={{ background: "var(--c-gold)", color: "var(--c-bg)" }}>
-            Destacado
+            <Tr s="Destacado" />
           </span>
         )}
       </Link>
       <div className={`flex flex-1 flex-col ${large ? "p-5 sm:p-7" : "p-5"}`}>
         <Link href={productHref} className="block">
           <h3 className={`cp-display ${large ? "text-[1.85rem] sm:text-[2.3rem]" : "text-[1.55rem]"}`}>{p.title}</h3>
-          {p.summary && <p className={`cp-muted mt-2 leading-relaxed ${large ? "text-[0.95rem]" : "line-clamp-2 text-[0.88rem]"}`}>{p.summary}</p>}
+          {p.summary && <p className={`cp-muted mt-2 leading-relaxed ${large ? "text-[0.95rem]" : "line-clamp-2 text-[0.88rem]"}`}><Tr s={p.summary} /></p>}
         </Link>
         <div className="mt-auto flex items-center justify-between gap-3 pt-5">
           <p className="min-w-0 text-lg font-semibold tracking-tight">
@@ -1173,21 +1166,21 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
             {priceNote && <span className={`cp-faint block font-normal ${price ? "text-[0.7rem]" : "text-xs"}`}>{priceNote}</span>}
           </p>
           {external ? (
-            <TrackedAnchor href={p.externalUrl!} event={event} className="cp-btn shrink-0" ariaLabel={`${cta}: ${p.title}`}>
-              {cta}
+            <TrackedAnchor href={p.externalUrl!} event={event} className="cp-btn shrink-0" ariaLabel={`${cta ?? ""}: ${p.title}`}>
+              <Tr s={cta} />
               <ExternalLink className="h-4 w-4" />
             </TrackedAnchor>
           ) : (
-            <TrackedLink href={free ? productHref : `${productHref}/solicitar`} event={event} className="cp-btn shrink-0" ariaLabel={`${cta}: ${p.title}`}>
+            <TrackedLink href={free ? productHref : `${productHref}/request`} event={event} className="cp-btn shrink-0" ariaLabel={`${cta ?? ""}: ${p.title}`}>
               {free ? (
                 <>
-                  {cta}
+                  {cta ?? <Tr s="Acceder gratis" />}
                   <ArrowRight className="h-4 w-4" />
                 </>
               ) : (
                 <>
                   <Mail className="h-4 w-4" />
-                  {cta === requestCta(p.type, null) ? "Escríbeme" : cta}
+                  {cta === requestCta(p.type, null) ? <Tr s="Escríbeme" /> : cta}
                 </>
               )}
             </TrackedLink>
@@ -1195,47 +1188,6 @@ export function ProductCard({ p, large = false, username, trackCreatorId }: { p:
         </div>
       </div>
     </article>
-  );
-}
-
-/**
- * Curso en pequeño (sección «Cursos» de la portada): la imagen, el título y el precio; toda la tarjeta lleva a su
- * ficha. En el panel (los borradores de Cursos), `href` lleva a su estudio.
- */
-export function CourseMiniCard({ p, username, href }: { p: PublicProduct; username: string; href?: string }) {
-  const mode = p.accessMode ?? "PAID";
-  const topics = courseCategoriesOf(p.courseCategory);
-  const external = mode === "EXTERNAL" && !!p.externalUrl;
-  const price = mode === "FREE_EMAIL" ? "Gratis" : external && p.priceCents <= 0 ? null : formatPrice(p.sale ? p.sale.priceCents : p.priceCents, p.currency, p.billingInterval);
-  return (
-    <Link href={href ?? `/${username}/${p.slug}`} className="cp-card cp-card-hover group flex h-full flex-col overflow-hidden" data-course-mini={p.slug}>
-      <span className="cp-photo-bubble cp-photo-in relative block aspect-[4/3]">
-        <ProductImage src={p.imageUrl} emoji={p.emoji} title={p.title} sizes="(min-width: 640px) 220px, 46vw" />
-        {/* El icono (o los iconos) del tema del curso, en dorado, como en las tarjetas grandes. */}
-        {topics.length > 0 && (
-          <span
-            className="absolute left-2 top-2 inline-flex items-center rounded-full px-2 py-1"
-            style={{ background: "color-mix(in oklab, var(--c-bg) 72%, transparent)", backdropFilter: "blur(10px)" }}
-            title={courseCategoriesLabel(topics)}
-          >
-            <CategoryIcons categories={topics} size={1.45} className="cp-gold" gap={0.15} />
-          </span>
-        )}
-        {p.sale && (
-          <span className="absolute right-2 top-2 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold" style={{ background: "var(--c-gold)", color: "var(--c-bg)" }}>
-            −{p.sale.percentOff} %
-          </span>
-        )}
-      </span>
-      <span className="flex flex-1 flex-col gap-1 p-3">
-        <span className="cp-display line-clamp-2 text-[1.05rem] leading-tight">{p.title}</span>
-        <span className="mt-auto pt-1 text-[0.85rem] font-semibold">
-          {p.sale && <s className="cp-muted mr-1 font-normal">{formatPrice(p.sale.regularCents, p.currency)}</s>}
-          {price}
-          {external && p.externalHost && <span className="cp-faint block text-[0.68rem] font-normal">Pago en {p.externalHost}</span>}
-        </span>
-      </span>
-    </Link>
   );
 }
 
@@ -1249,14 +1201,14 @@ function saleTag(sale: NonNullable<PublicProduct["sale"]>) {
 export function OfferCard({ p, username }: { p: PublicProduct; username: string }) {
   const sale = p.sale!;
   return (
-    <Link href={`/${username}/${p.slug}`} className="cp-card cp-card-hover flex flex-col gap-1.5 p-5" data-offer={p.slug}>
+    <Link href={`${productPath(username, p)}`} className="cp-card cp-card-hover flex flex-col gap-1.5 p-5" data-offer={p.slug}>
       <span className="cp-tag">{saleTag(sale)}</span>
       <span className="cp-display mt-1.5 text-[1.5rem] leading-tight">{p.title}</span>
       <span className="text-[0.95rem]">
         <s className="cp-muted">{formatPrice(sale.regularCents, p.currency, p.billingInterval)}</s>{" "}
         <strong className="text-[1.15rem]">{formatPrice(sale.priceCents, p.currency, p.billingInterval)}</strong>
       </span>
-      {p.billingInterval && <span className="cp-faint text-[0.72rem]">El precio de oferta es el del primer pago; después, el normal.</span>}
+      {p.billingInterval && <span className="cp-faint text-[0.72rem]"><Tr s={"El precio de oferta es el del primer pago; después, el normal."} /></span>}
     </Link>
   );
 }
@@ -1278,9 +1230,9 @@ const TONE_READING = tone("var(--c-gold)", 14);
 const TONE_SESSION = tone("var(--c-accent)", 22);
 /** El tamaño de la foto de «Sobre mí» (y su ancho en el ordenador). */
 const ABOUT_PHOTO: Record<"tall" | "portrait" | "square", { aspect: string; width: string }> = {
-  tall: { aspect: "aspect-[9/16]", width: "sm:w-[36%]" },
-  portrait: { aspect: "aspect-[3/4]", width: "sm:w-[38%]" },
-  square: { aspect: "aspect-square", width: "sm:w-[40%]" },
+  tall: { aspect: "aspect-[9/16]", width: "w-[38%] sm:w-[36%]" },
+  portrait: { aspect: "aspect-[3/4]", width: "w-[40%] sm:w-[38%]" },
+  square: { aspect: "aspect-square", width: "w-[40%] sm:w-[40%]" },
 };
 const TONE_CIRCLES = tone("color-mix(in oklab, var(--c-text) 70%, var(--c-accent))", 10);
 
@@ -1301,7 +1253,7 @@ export function SectionHeading({ title, count }: { title: ReactNode; count?: num
         <i>✦</i>
         <span />
       </div>
-      {count != null && count > 1 && <span className="cp-faint mt-2 block text-[0.68rem] uppercase tracking-[0.3em] tabular-nums md:hidden">{count} · desliza</span>}
+      {count != null && count > 1 && <span className="cp-faint mt-2 block text-[0.68rem] uppercase tracking-[0.3em] tabular-nums md:hidden">{count}{" "}<Tr s={"· desliza"} /></span>}
     </div>
   );
 }

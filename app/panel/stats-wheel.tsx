@@ -1,9 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useId, useState, useTransition } from "react";
-
-export type WheelMetric = "visitas" | "inscripciones" | "clics" | "newsletter";
+import { useId, useState } from "react";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /** Un signo de la rueda: su temporada del último año y lo que pasó en ella. */
 export type WheelSector = {
@@ -20,14 +18,6 @@ export type WheelSector = {
   progress: number;
 };
 
-type Option = { value: string; label: string };
-
-const UNIT: Record<WheelMetric, [string, string]> = {
-  visitas: ["visitante", "visitantes"],
-  inscripciones: ["inscripción", "inscripciones"],
-  clics: ["clic", "clics"],
-  newsletter: ["alta", "altas"],
-};
 
 // La rueda: 400 × 400, centro en 200. De fuera adentro: el anillo de los signos, el de las cifras, las barras y el centro.
 const C = 200;
@@ -51,42 +41,15 @@ const glyph = (g: string) => `${g}︎`;
 const num = (n: number) => n.toLocaleString("es-ES");
 
 /**
- * Inicio: la rueda del zodiaco con sus estadísticas, como un modelo astrológico. Cada signo es su temporada del
- * último año; la barra (su área) es lo que pasó en ella. Al pasar por encima o tocar un signo, el centro dice su
- * cifra. Debajo, los filtros (cambian la dirección: se puede guardar o compartir).
+ * Al final de Inicio: la rueda del zodiaco con los visitantes únicos del último año. Cada signo es su temporada; la
+ * barra (su área) es lo que pasó en ella. Al pasar por encima o tocar un signo, el centro dice su cifra. Sin filtros:
+ * las estadísticas con detalle están arriba, en las gráficas.
  */
-export function StatsWheel({
-  sectors,
-  metric,
-  labels,
-  source,
-  product,
-  sources,
-  products,
-}: {
-  sectors: WheelSector[];
-  metric: WheelMetric;
-  labels: Record<WheelMetric, string>;
-  source: string;
-  product: string;
-  sources: Option[];
-  products: Option[];
-}) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
+export function StatsWheel({ sectors, label = "Visitantes únicos" }: { sectors: WheelSector[]; label?: string }) {
+  const t = useT();
   const [hover, setHover] = useState<number | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
   const id = useId().replace(/[^a-zA-Z0-9]/g, "");
-
-  const go = (patch: Partial<Record<"m" | "origen" | "producto", string>>) => {
-    const next = { m: metric, origen: source, producto: product, ...patch };
-    const p = new URLSearchParams();
-    if (next.m && next.m !== "visitas") p.set("m", next.m);
-    if (next.origen) p.set("origen", next.origen);
-    if (next.producto) p.set("producto", next.producto);
-    const q = p.toString();
-    start(() => router.push(q ? `/panel?${q}` : "/panel", { scroll: false }));
-  };
 
   const total = sectors.reduce((a, s) => a + s.value, 0);
   const max = Math.max(1, ...sectors.map((s) => s.value));
@@ -95,17 +58,17 @@ export function StatsWheel({
   const shown = hover ?? picked;
   const focus = shown == null ? null : sectors.find((s) => s.sign === shown) ?? null;
   const current = sectors.find((s) => s.current);
-  const [one, many] = UNIT[metric];
+  const [one, many] = ["visitante", "visitantes"];
   const big = focus ? focus.value : total;
 
   return (
-    <section aria-label="Tus estadísticas en la rueda del zodiaco" className="mx-auto max-w-3xl">
-      <div className={`relative transition-opacity ${pending ? "opacity-60" : ""}`}>
+    <div>
+      <div className="relative">
         <svg
           viewBox="0 0 400 400"
-          className="mx-auto block w-full max-w-[min(36rem,calc(100dvh-15rem))] text-ink"
+          className="mx-auto block w-full max-w-[22rem] text-ink"
           role="img"
-          aria-label={`${labels[metric]} en el último año: ${num(total)}. ${sectors.map((s) => `${s.name} (${s.dates}): ${num(s.value)}`).join(". ")}.`}
+          aria-label={`${label} en el último año: ${num(total)}. ${sectors.map((s) => `${s.name} (${s.dates}): ${num(s.value)}`).join(". ")}.`}
           onMouseLeave={() => setHover(null)}
         >
           <defs>
@@ -202,75 +165,23 @@ export function StatsWheel({
           <circle cx={C} cy={C} r={R_IN - 4} fill="currentColor" fillOpacity="0.04" stroke={GOLD} strokeOpacity="0.6" strokeWidth="0.8" pointerEvents="none" />
           <g pointerEvents="none" textAnchor="middle" fill="currentColor">
             <text x={C} y={C - 22} fontSize="8.5" letterSpacing="1.4" fillOpacity="0.7">
-              {focus ? `${glyph(focus.glyph)} ${focus.name.toUpperCase()}` : "ÚLTIMO AÑO"}
+              {focus ? `${glyph(focus.glyph)} ${focus.name.toUpperCase()}` : t("ÚLTIMO AÑO")}
             </text>
             <text x={C} y={C + 6} fontSize={big >= 100000 ? 20 : big >= 10000 ? 24 : 30} className="wheel-strong font-serif">
               {num(big)}
             </text>
             <text x={C} y={C + 22} fontSize="8.5" fillOpacity="0.8">
-              {big === 1 ? one : many}
+              <Tr s={big === 1 ? one : many} />
             </text>
             <text x={C} y={C + 35} fontSize="7.5" fillOpacity="0.6">
-              {focus ? `${focus.dates}${focus.current ? " · en curso" : ""}` : labels[metric]}
+              {focus ? `${focus.dates}${focus.current ? " · en curso" : ""}` : label}
             </text>
           </g>
         </svg>
       </div>
 
-      <p className="mt-2 text-center text-xs text-muted">Cada signo es su temporada del último año. Toca uno para ver su cifra en el centro.</p>
-
-      {/* Filtros: qué se cuenta, de dónde llegan y de qué producto */}
-      <div className="mt-5 space-y-3">
-        <div className="flex justify-center">
-          <div role="radiogroup" aria-label="Qué se cuenta" className="inline-flex flex-wrap justify-center gap-1 rounded-[1.4rem] bg-sand p-1 text-sm">
-            {(["visitas", "inscripciones", "clics", "newsletter"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                role="radio"
-                aria-checked={metric === m}
-                onClick={() => metric !== m && go(m === "newsletter" ? { m, origen: "" } : { m })}
-                className={`whitespace-nowrap rounded-full px-3.5 py-2 font-medium transition ${metric === m ? "bg-white shadow-soft" : "text-muted hover:text-ink"}`}
-              >
-                {labels[m]}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <label className="sr-only" htmlFor={`${id}src`}>De dónde vienen</label>
-          <select
-            id={`${id}src`}
-            className="input !h-10 !w-auto !py-0 text-sm disabled:opacity-50"
-            value={source}
-            disabled={metric === "newsletter"}
-            title={metric === "newsletter" ? "La newsletter no sabe de dónde llegan" : undefined}
-            onChange={(e) => go({ origen: e.target.value })}
-          >
-            <option value="">De todas partes</option>
-            {sources.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-          <label className="sr-only" htmlFor={`${id}prod`}>Producto</label>
-          <select id={`${id}prod`} className="input !h-10 !w-auto max-w-[16rem] !py-0 text-sm" value={product} onChange={(e) => go({ producto: e.target.value })}>
-            <option value="">Todos los productos</option>
-            {products.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        {metric === "newsletter" && (
-          <p className="text-center text-xs text-muted">
-            Cuenta a quien confirmó su alta en cada temporada. Con un producto: quien se apuntó al pedirlo gratis o al comprarlo.
-          </p>
-        )}
-      </div>
-    </section>
+      <p className="mt-2 text-center text-xs text-muted"><Tr s={"Cada signo es su temporada del último año. Toca uno para ver su cifra en el centro."} /></p>
+    </div>
   );
 }
 
@@ -292,7 +203,7 @@ function TodayMark({ deg }: { deg: number }) {
     <g pointerEvents="none">
       <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#F0D9A4" strokeWidth="1.2" />
       <circle cx={b.x} cy={b.y} r="3.2" fill="#F0D9A4" stroke="#A9874A" strokeWidth="0.8">
-        <title>Hoy</title>
+        <title><Tr s={"Hoy"} /></title>
       </circle>
     </g>
   );

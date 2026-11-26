@@ -1,4 +1,5 @@
 import { parseRichText } from "@/lib/rich-text";
+import { Tr } from "@/lib/i18n/client";
 
 export const LINK_CLASS = "font-medium underline decoration-1 underline-offset-4 [overflow-wrap:anywhere] hover:opacity-80";
 
@@ -20,11 +21,11 @@ export function LegacyText({ text, flavor, className = "" }: { text: string; fla
     return text ? (
       <div className="mt-4 space-y-4 text-[1.02rem] leading-relaxed text-ink/85">
         {text.split(/\n{2,}/).map((p, i) => (
-          <p key={i}>{p}</p>
+          <p key={i}><Tr s={p} /></p>
         ))}
       </div>
     ) : null;
-  return <p className="mt-3 whitespace-pre-line text-[0.98rem] leading-relaxed text-ink/80">{text}</p>;
+  return <p className="mt-3 whitespace-pre-line text-[0.98rem] leading-relaxed text-ink/80"><Tr s={text} /></p>;
 }
 
 /** Pinta el texto de la descripción respetando párrafos y viñetas «•». */
@@ -73,14 +74,14 @@ export function LegacyLinks({ text, className = "", paragraphClassName = "" }: {
               {j > 0 && <br />}
               {segments.map((s, k) =>
                 s.kind === "text" ? (
-                  <span key={k}>{s.text}</span>
+                  <span key={k}><Tr s={s.text} /></span>
                 ) : s.email ? (
                   <a key={k} href={s.href} className={LINK_CLASS}>
-                    {s.text}
+                    <Tr s={s.text} />
                   </a>
                 ) : (
                   <a key={k} href={s.href} target="_blank" rel="noopener nofollow" className={LINK_CLASS}>
-                    {s.text}
+                    <Tr s={s.text} />
                   </a>
                 ),
               )}

@@ -5,6 +5,7 @@ import { Flash } from "@/components/ui/flash";
 import { ImageUpload, uploadImageInfo } from "@/components/ui/image-upload";
 import { CODE_BRAND_MAX, CODE_CODE_MAX, CODE_DESCRIPTION_MAX, CODE_PHOTOS_MAX, CODE_REC_TEXT_MAX, CODE_RECS_MAX, CODE_URL_MAX, type CodePhoto, type CodeRecommendation } from "@/lib/discount-codes";
 import { saveDiscountCode, saveDiscountCodeInline, type CodeActionState } from "./actions";
+import { Tr, useT } from "@/lib/i18n/client";
 
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
 
@@ -26,6 +27,7 @@ export type EditableCode = {
 
 /** Formulario de un código de descuento: crear (sin id) o editar. */
 export function CodeForm({ code, onSaved }: { code: EditableCode; /** En el Canva: se guarda sin salir de la web (`created`: era nuevo). */ onSaved?: (created: boolean) => void }) {
+  const t = useT();
   const [state, action, pending] = useActionState<CodeActionState, FormData>(async (prev, fd) => {
     if (!onSaved) return saveDiscountCode(prev, fd);
     const r = await saveDiscountCodeInline(prev, fd);
@@ -55,11 +57,11 @@ export function CodeForm({ code, onSaved }: { code: EditableCode; /** En el Canv
       <section className="card space-y-4 p-5 sm:p-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="field-label" htmlFor="code-brand">Marca</label>
-            <input id="code-brand" name="brand" className="input" required maxLength={CODE_BRAND_MAX} defaultValue={code.brand} placeholder="Ej.: Velas Alba" />
+            <label className="field-label" htmlFor="code-brand"><Tr s={"Marca"} /></label>
+            <input id="code-brand" name="brand" className="input" required maxLength={CODE_BRAND_MAX} defaultValue={code.brand} placeholder={t("Ej.: Velas Alba")} />
           </div>
           <div>
-            <label className="field-label" htmlFor="code-code">Código</label>
+            <label className="field-label" htmlFor="code-code"><Tr s={"Código"} /></label>
             <input
               id="code-code"
               name="code"
@@ -67,64 +69,62 @@ export function CodeForm({ code, onSaved }: { code: EditableCode; /** En el Canv
               required
               maxLength={CODE_CODE_MAX}
               defaultValue={code.code}
-              placeholder="ANA15"
+              placeholder={t("ANA15")}
               autoCapitalize="characters"
               autoCorrect="off"
               spellCheck={false}
             />
-            <p className="field-hint">Tal cual lo dio la marca (sin espacios).</p>
+            <p className="field-hint"><Tr s={"Tal cual lo dio la marca (sin espacios)."} /></p>
           </div>
         </div>
         <div>
-          <label className="field-label" htmlFor="code-description">Descripción corta <span className="font-normal text-muted">(opcional)</span></label>
-          <input id="code-description" name="description" className="input" maxLength={CODE_DESCRIPTION_MAX} defaultValue={code.description} placeholder="Ej.: 15 % en velas de soja para tus rituales" />
+          <label className="field-label" htmlFor="code-description"><Tr s={"Descripción corta"} />{" "}<span className="font-normal text-muted"><Tr s={"(opcional)"} /></span></label>
+          <input id="code-description" name="description" className="input" maxLength={CODE_DESCRIPTION_MAX} defaultValue={code.description} placeholder={t("Ej.: 15 % en velas de soja para tus rituales")} />
         </div>
         <div>
-          <label className="field-label" htmlFor="code-url">Enlace a la tienda</label>
+          <label className="field-label" htmlFor="code-url"><Tr s={"Enlace a la tienda"} /></label>
           <input id="code-url" name="url" type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" className="input" required maxLength={CODE_URL_MAX} defaultValue={code.url} placeholder="https://…" />
-          <p className="field-hint">Es el botón «Ir a la tienda». Si la marca te dio un enlace de afiliada, pégalo aquí.</p>
+          <p className="field-hint"><Tr s={"Es el botón «Ir a la tienda». Si la marca te dio un enlace de afiliada, pégalo aquí."} /></p>
         </div>
       </section>
 
       <section className="card space-y-4 p-5 sm:p-6">
         <div className="grid gap-5 sm:grid-cols-[auto_1fr] sm:items-start">
           <div>
-            <p className="field-label">Logo <span className="font-normal text-muted">(opcional)</span></p>
-            <ImageUpload shape="circle" value={image} onChange={setImage} label="Logo" />
+            <p className="field-label"><Tr s={"Logo"} />{" "}<span className="font-normal text-muted"><Tr s={"(opcional)"} /></span></p>
+            <ImageUpload shape="circle" value={image} onChange={setImage} label={t("Logo")} />
           </div>
           <div className="space-y-4">
             <div>
-              <label className="field-label" htmlFor="code-expires">Válido hasta <span className="font-normal text-muted">(opcional)</span></label>
+              <label className="field-label" htmlFor="code-expires"><Tr s={"Válido hasta"} />{" "}<span className="font-normal text-muted"><Tr s={"(opcional)"} /></span></label>
               <input id="code-expires" name="expiresOn" type="date" className="input" defaultValue={code.expiresOn} />
-              <p className="field-hint">Al día siguiente deja de verse en tu página. Vacío = no caduca.</p>
+              <p className="field-hint"><Tr s={"Al día siguiente deja de verse en tu página. Vacío = no caduca."} /></p>
             </div>
             <label className="flex items-center gap-2.5 text-sm">
-              <input type="checkbox" name="active" defaultChecked={code.active} className="h-4 w-4 accent-[#0E1024]" />
-              Visible en mi página
-            </label>
+              <input type="checkbox" name="active" defaultChecked={code.active} className="h-4 w-4 accent-[#0E1024]" /><Tr s={"Visible en mi página"} /></label>
           </div>
         </div>
       </section>
 
       <section className="card space-y-3 p-5 sm:p-6">
         <div>
-          <p className="field-label">Recomendaciones <span className="font-normal text-muted">(opcional)</span></p>
-          <p className="field-hint">Lo que recomiendas de esta marca. Salen en una lista al pulsar «Ver más» en tu página; si pegas el enlace del producto, cada una lleva a su producto.</p>
+          <p className="field-label"><Tr s={"Recomendaciones"} />{" "}<span className="font-normal text-muted"><Tr s={"(opcional)"} /></span></p>
+          <p className="field-hint"><Tr s={"Lo que recomiendas de esta marca. Salen en una lista al pulsar «Ver más» en tu página; si pegas el enlace del producto, cada una lleva a su producto."} /></p>
         </div>
         <CodeRecsField recs={recs} onChange={setRecs} />
       </section>
 
       <section className="card space-y-3 p-5 sm:p-6">
         <div>
-          <p className="field-label">Fotos de lo que te gusta de esta marca <span className="font-normal text-muted">(opcional)</span></p>
-          <p className="field-hint">Se ven al desplegar el código en tu página. Describe cada foto (para quien no puede verla).</p>
+          <p className="field-label"><Tr s={"Fotos de lo que te gusta de esta marca"} />{" "}<span className="font-normal text-muted"><Tr s={"(opcional)"} /></span></p>
+          <p className="field-hint"><Tr s={"Se ven al desplegar el código en tu página. Describe cada foto (para quien no puede verla)."} /></p>
         </div>
         <CodePhotosField photos={photos} onChange={setPhotos} onUploading={setUploading} />
       </section>
 
       <button type="submit" className="btn btn-primary" disabled={pending || uploading} aria-busy={pending}>
         {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-        {code.id ? "Guardar cambios" : "Añadir código"}
+        {code.id ? t("Guardar cambios") : t("Añadir código")}
       </button>
     </form>
   );
@@ -134,6 +134,7 @@ type RecRow = { text: string; url: string };
 
 /** Recomendaciones del código: añadir filas (texto y enlace opcional), ordenarlas y quitarlas. */
 function CodeRecsField({ recs, onChange }: { recs: RecRow[]; onChange: (f: (prev: RecRow[]) => RecRow[]) => void }) {
+  const t = useT();
   const move = (i: number, dir: -1 | 1) =>
     onChange((prev) => {
       const j = i + dir;
@@ -152,7 +153,7 @@ function CodeRecsField({ recs, onChange }: { recs: RecRow[]; onChange: (f: (prev
               <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
                 <input
                   className="input h-10 text-sm"
-                  placeholder="Ej.: Vela de lavanda para luna llena"
+                  placeholder={t("Ej.: Vela de lavanda para luna llena")}
                   aria-label={`Recomendación ${i + 1}`}
                   value={r.text}
                   maxLength={CODE_REC_TEXT_MAX}
@@ -164,7 +165,7 @@ function CodeRecsField({ recs, onChange }: { recs: RecRow[]; onChange: (f: (prev
                   inputMode="url"
                   autoCapitalize="none"
                   autoCorrect="off"
-                  placeholder="Enlace al producto (opcional) https://…"
+                  placeholder={t("Enlace al producto (opcional) https://…")}
                   aria-label={`Enlace de la recomendación ${i + 1}`}
                   value={r.url}
                   maxLength={CODE_URL_MAX}
@@ -172,24 +173,24 @@ function CodeRecsField({ recs, onChange }: { recs: RecRow[]; onChange: (f: (prev
                 />
               </div>
               <div className="flex shrink-0 flex-col sm:flex-row">
-                <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Subir recomendación"><ArrowUp className="h-3.5 w-3.5" /></button>
-                <button type="button" disabled={i === recs.length - 1} onClick={() => move(i, 1)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Bajar recomendación"><ArrowDown className="h-3.5 w-3.5" /></button>
+                <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label={t("Subir recomendación")}><ArrowUp className="h-3.5 w-3.5" /></button>
+                <button type="button" disabled={i === recs.length - 1} onClick={() => move(i, 1)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label={t("Bajar recomendación")}><ArrowDown className="h-3.5 w-3.5" /></button>
               </div>
-              <button type="button" onClick={() => onChange((prev) => prev.filter((_, n) => n !== i))} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Quitar recomendación"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={() => onChange((prev) => prev.filter((_, n) => n !== i))} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label={t("Quitar recomendación")}><X className="h-4 w-4" /></button>
             </li>
           ))}
         </ul>
       )}
       <button type="button" onClick={() => onChange((prev) => [...prev, { text: "", url: "" }])} disabled={recs.length >= CODE_RECS_MAX} className="btn btn-outline btn-sm h-10">
-        <Plus className="h-4 w-4" /> Añadir recomendación
-      </button>
-      <p className="field-hint">Hasta {CODE_RECS_MAX} recomendaciones.</p>
+        <Plus className="h-4 w-4" />{" "}<Tr s={"Añadir recomendación"} /></button>
+      <p className="field-hint"><Tr s={"Hasta"} />{" "}{CODE_RECS_MAX}{" "}<Tr s={"recomendaciones."} /></p>
     </div>
   );
 }
 
 /** Fotos del código: subir varias (de 2 en 2), su descripción, el orden y quitar. */
 function CodePhotosField({ photos, onChange, onUploading }: { photos: CodePhoto[]; onChange: (f: (prev: CodePhoto[]) => CodePhoto[]) => void; onUploading: (v: boolean) => void }) {
+  const t = useT();
   const input = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -242,30 +243,29 @@ function CodePhotosField({ photos, onChange, onUploading }: { photos: CodePhoto[
               <img src={p.src} alt="" className="h-16 w-16 shrink-0 rounded-lg bg-sand object-cover" />
               <input
                 className="input h-10 min-w-0 flex-1 text-sm"
-                placeholder="Descripción de la foto"
+                placeholder={t("Descripción de la foto")}
                 aria-label={`Descripción de la foto ${i + 1}`}
                 value={p.alt}
                 maxLength={300}
                 onChange={(e) => set((prev) => prev.map((x, n) => (n === i ? { ...x, alt: e.target.value } : x)))}
               />
               <div className="flex shrink-0 flex-col sm:flex-row">
-                <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Subir foto"><ArrowUp className="h-3.5 w-3.5" /></button>
-                <button type="button" disabled={i === photos.length - 1} onClick={() => move(i, 1)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Bajar foto"><ArrowDown className="h-3.5 w-3.5" /></button>
+                <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label={t("Subir foto")}><ArrowUp className="h-3.5 w-3.5" /></button>
+                <button type="button" disabled={i === photos.length - 1} onClick={() => move(i, 1)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label={t("Bajar foto")}><ArrowDown className="h-3.5 w-3.5" /></button>
               </div>
-              <button type="button" onClick={() => set((prev) => prev.filter((_, n) => n !== i))} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label="Quitar foto"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={() => set((prev) => prev.filter((_, n) => n !== i))} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label={t("Quitar foto")}><X className="h-4 w-4" /></button>
             </li>
           ))}
         </ul>
       )}
       {status ? (
-        <p className="flex items-center gap-2 text-xs font-medium" aria-live="polite"><Loader2 className="h-4 w-4 animate-spin" /> {status}</p>
+        <p className="flex items-center gap-2 text-xs font-medium" aria-live="polite"><Loader2 className="h-4 w-4 animate-spin" /> <Tr s={status} /></p>
       ) : (
         <button type="button" onClick={() => input.current?.click()} disabled={photos.length >= CODE_PHOTOS_MAX} className="btn btn-outline btn-sm h-10">
-          <Plus className="h-4 w-4" /> Añadir fotos
-        </button>
+          <Plus className="h-4 w-4" />{" "}<Tr s={"Añadir fotos"} /></button>
       )}
-      {error && <p role="alert" className="text-xs font-medium text-rose">{error}</p>}
-      <p className="field-hint">Hasta {CODE_PHOTOS_MAX} fotos. PNG, JPG o WebP.</p>
+      {error && <p role="alert" className="text-xs font-medium text-rose"><Tr s={error} /></p>}
+      <p className="field-hint"><Tr s={"Hasta"} />{" "}{CODE_PHOTOS_MAX}{" "}<Tr s={"fotos. PNG, JPG o WebP."} /></p>
       <input
         ref={input}
         type="file"

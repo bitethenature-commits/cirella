@@ -9,6 +9,8 @@ import { asDeckStatus } from "@/lib/oracle-rules";
 import { tenantDb } from "@/lib/tenant";
 import { Badge, PageHeader } from "../ui";
 import { deleteDeck, moveDeck, toggleDeck } from "./actions";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Barajas" };
 
@@ -17,6 +19,7 @@ export const metadata: Metadata = { title: "Barajas" };
  * «Modelo interactivo → Oráculo» de su portada o de una página extra; en borrador no se ve.
  */
 export default async function DecksPage({ searchParams }: { searchParams: Promise<{ borrada?: string }> }) {
+  const t = await getT();
   const { creator } = await requireCreator();
   const sp = await searchParams;
   const decks = await tenantDb(creator.id).oracleDeck.findMany({
@@ -26,19 +29,16 @@ export default async function DecksPage({ searchParams }: { searchParams: Promis
   return (
     <div>
       <PageHeader
-        title="Barajas"
-        subtitle="Tus propias barajas de oráculo, con tus imágenes y tus textos. Publica una y elígela en el bloque «Modelo interactivo → Oráculo» de tu página."
+        title={t("Barajas")}
+        subtitle={t("Tus propias barajas de oráculo, con tus imágenes y tus textos. Publica una y elígela en el bloque «Modelo interactivo → Oráculo» de tu página.")}
         actions={
           <Link href="/panel/barajas/nueva" className="btn btn-primary">
-            <Plus className="h-4 w-4" /> Nueva baraja
-          </Link>
+            <Plus className="h-4 w-4" />{" "}<Tr s={"Nueva baraja"} /></Link>
         }
       />
       {sp.borrada && <Flash ok="Baraja borrada. Donde la usabas sale ahora el Oráculo de la Luna de serie." />}
       {decks.length === 0 ? (
-        <EmptyState icon={<Layers className="h-5 w-5" />} title="Crea tu primera baraja" action={<Link href="/panel/barajas/nueva" className="btn btn-primary">Nueva baraja</Link>}>
-          Ponle nombre, sube el reverso y añade tus cartas. Mientras no la publiques, en tu web sigue saliendo el Oráculo de la Luna de serie.
-        </EmptyState>
+        <EmptyState icon={<Layers className="h-5 w-5" />} title={t("Crea tu primera baraja")} action={<Link href="/panel/barajas/nueva" className="btn btn-primary"><Tr s={"Nueva baraja"} /></Link>}><Tr s={"Ponle nombre, sube el reverso y añade tus cartas. Mientras no la publiques, en tu web sigue saliendo el Oráculo de la Luna de serie."} /></EmptyState>
       ) : (
         <ul className="space-y-2.5">
           {decks.map((d, i) => {
@@ -73,20 +73,20 @@ export default async function DecksPage({ searchParams }: { searchParams: Promis
                 <Link href={`/panel/barajas/${d.id}`} className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{d.name}</p>
                   <p className="mt-0.5 truncate text-xs text-muted">
-                    {d._count.cards} {d._count.cards === 1 ? "carta" : "cartas"}
+                    {d._count.cards} <Tr s={d._count.cards === 1 ? "carta" : "cartas"} />
                     {d.description ? ` · ${d.description}` : ""}
                   </p>
                   <div className="mt-1.5">
-                    <Badge tone={status === "PUBLISHED" ? "success" : "warning"}>{status === "PUBLISHED" ? "Publicada" : "Borrador"}</Badge>
+                    <Badge tone={status === "PUBLISHED" ? "success" : "warning"}>{status === "PUBLISHED" ? t("Publicada") : t("Borrador")}</Badge>
                   </div>
                 </Link>
                 <div className="flex shrink-0 flex-wrap justify-end gap-1">
                   <form action={toggleDeck} className="hidden sm:block">
                     <input type="hidden" name="id" value={d.id} />
-                    <button className="btn btn-ghost btn-sm">{status === "PUBLISHED" ? "Pasar a borrador" : "Publicar"}</button>
+                    <button className="btn btn-ghost btn-sm">{status === "PUBLISHED" ? t("Pasar a borrador") : t("Publicar")}</button>
                   </form>
                   <Link href={`/panel/barajas/${d.id}`} className="btn btn-outline btn-sm">
-                    <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Editar</span>
+                    <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline"><Tr s={"Editar"} /></span>
                   </Link>
                   <DeleteButton action={deleteDeck} id={d.id} what={d.name} message={`¿Borrar la baraja «${d.name}» con todas sus cartas? No se puede deshacer.`} />
                 </div>
@@ -95,11 +95,9 @@ export default async function DecksPage({ searchParams }: { searchParams: Promis
           })}
         </ul>
       )}
-      <p className="mt-6 text-xs text-muted">
-        Para enseñar una baraja en tu web, añade un bloque «Modelo interactivo» con el modelo «Oráculo» en{" "}
-        <Link href="/panel/pagina" className="underline underline-offset-2">Mi página</Link> o en una de tus{" "}
-        <Link href="/panel/pagina?ver=paginas" className="underline underline-offset-2">Páginas</Link> y elige la baraja.
-      </p>
+      <p className="mt-6 text-xs text-muted"><Tr s={"Para enseñar una baraja en tu web, añade un bloque «Modelo interactivo» con el modelo «Oráculo» en"} />{" "}
+        <Link href="/panel/pagina" className="underline underline-offset-2"><Tr s={"Mi página"} /></Link>{" "}<Tr s={"o en una de tus"} />{" "}
+        <Link href="/panel/pagina?ver=paginas" className="underline underline-offset-2"><Tr s={"Páginas"} /></Link>{" "}<Tr s={"y elige la baraja."} /></p>
     </div>
   );
 }

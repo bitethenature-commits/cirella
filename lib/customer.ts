@@ -117,6 +117,6 @@ export async function courseMaterials(userId: string, courses: { product: { id: 
   return files.filter((f) => !used.has(f.id) || first.has(f.id)).map((f) => {
     const c = byId.get(f.productId)!;
     const l = first.get(f.id);
-    return { ...f, productTitle: c.product.title, creator: c.creator, lesson: l ? { id: l.id, title: l.title, href: `/cuenta/cursos/${f.productId}?leccion=${l.id}` } : null };
+    return { ...f, productTitle: c.product.title, creator: c.creator, lesson: l ? { id: l.id, title: l.title, href: `/area/courses/${f.productId}?leccion=${l.id}` } : null };
   });
 }

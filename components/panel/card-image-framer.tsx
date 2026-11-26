@@ -3,6 +3,7 @@ import { Move, RotateCcw } from "lucide-react";
 import { useRef, useState } from "react";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { cardFrameStyle, cardFrameText, DEFAULT_CARD_FRAME, parseCardFrame, type CardFrame } from "@/components/models/data/oracle";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Una cara de una carta de oráculo (anverso o reverso): subir la imagen y ajustarla a la carta (5 × 8)
@@ -27,6 +28,7 @@ export function CardImageFramer({
   frame: string | null;
   frameName: string;
 }) {
+  const t = useT();
   const [frame, setFrame] = useState<CardFrame>(() => parseCardFrame(initialFrame));
   const box = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; fx: number; fy: number } | null>(null);
@@ -59,7 +61,7 @@ export function CardImageFramer({
       <input type="hidden" name={frameName} value={image ? text : ""} />
       <div className="grid gap-4 sm:grid-cols-[minmax(0,13rem)_auto] sm:items-start">
         <div>
-          <ImageUpload value={image} onChange={(v) => (onImage(v), setFrame(DEFAULT_CARD_FRAME))} label={uploadLabel} fit="contain" graphic />
+          <ImageUpload value={image} onChange={(v) => (onImage(v), setFrame(DEFAULT_CARD_FRAME))} label={t(uploadLabel)} fit="contain" graphic />
           {hint && <p className="field-hint">{hint}</p>}
         </div>
         {image && (
@@ -71,16 +73,15 @@ export function CardImageFramer({
               onPointerMove={onMove}
               onPointerUp={onUp}
               onPointerCancel={onUp}
-              aria-label="Arrastra para mover la imagen dentro de la carta"
+              aria-label={t("Arrastra para mover la imagen dentro de la carta")}
               data-card-framer
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={image} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full select-none" style={cardFrameStyle(text)} />
               <span className="pointer-events-none absolute bottom-1.5 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[0.62rem] text-white">
-                <Move className="h-3 w-3" /> Arrastra
-              </span>
+                <Move className="h-3 w-3" />{" "}<Tr s={"Arrastra"} /></span>
             </div>
-            <div className="inline-flex rounded-full bg-sand p-0.5 text-xs" role="group" aria-label="Cómo se ajusta">
+            <div className="inline-flex rounded-full bg-sand p-0.5 text-xs" role="group" aria-label={t("Cómo se ajusta")}>
               {(
                 [
                   ["cover", "Rellenar"],
@@ -88,17 +89,14 @@ export function CardImageFramer({
                 ] as const
               ).map(([k, l]) => (
                 <button key={k} type="button" onClick={() => put({ fit: k })} aria-pressed={frame.fit === k} className={`rounded-full px-3 py-1 font-semibold transition ${frame.fit === k ? "bg-ink text-cream" : "text-muted hover:text-ink"}`}>
-                  {l}
+                  <Tr s={l} />
                 </button>
               ))}
             </div>
-            <label className="flex w-40 items-center gap-2 text-xs text-muted">
-              Zoom
-              <input type="range" min={100} max={300} step={5} value={frame.zoom} onChange={(e) => put({ zoom: Number(e.target.value) })} className="min-w-0 flex-1 accent-[#c8a86e]" aria-label="Zoom de la imagen" />
+            <label className="flex w-40 items-center gap-2 text-xs text-muted"><Tr s={"Zoom"} /><input type="range" min={100} max={300} step={5} value={frame.zoom} onChange={(e) => put({ zoom: Number(e.target.value) })} className="min-w-0 flex-1 accent-[#c8a86e]" aria-label={t("Zoom de la imagen")} />
             </label>
             <button type="button" onClick={() => setFrame(DEFAULT_CARD_FRAME)} className="inline-flex items-center gap-1 text-xs text-muted underline-offset-2 hover:text-ink hover:underline">
-              <RotateCcw className="h-3 w-3" /> Centrar
-            </button>
+              <RotateCcw className="h-3 w-3" />{" "}<Tr s={"Centrar"} /></button>
           </div>
         )}
       </div>

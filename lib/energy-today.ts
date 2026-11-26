@@ -1,5 +1,5 @@
 /**
- * «Tu energía de hoy» («Mi energía», /cuenta/mi-energia): el cielo de hoy leído sobre un perfil ya
+ * «Tu energía de hoy» («Mi energía», /area/energy): el cielo de hoy leído sobre un perfil ya
  * calculado (lib/birth-profile.ts → computeAll), en los cuatro sistemas, y una síntesis de los cuatro.
  * Puro (sin React, sin red): se calcula en el navegador.
  *
@@ -416,7 +416,7 @@ export function energyToday(c: ComputedProfile, now = new Date()): EnergyToday {
   };
 }
 
-export type EnergySystem = "astrologia" | "diseno-humano" | "gene-keys" | "luna";
+export type EnergySystem = "astrology" | "human-design" | "gene-keys" | "moon";
 
 export interface EnergySynthesis {
   lines: { system: EnergySystem; label: string; text: string }[];
@@ -450,10 +450,10 @@ export function energySynthesis(e: EnergyToday): EnergySynthesis {
   const overall = `${base} ${waxing ? "La Luna crece: suma, empieza, riega lo sembrado." : "La Luna mengua: suelta, ordena, descansa."}`;
   return {
     lines: [
-      { system: "astrologia", label: "Astrología", text: astro },
-      { system: "diseno-humano", label: "Human Design", text: hd },
+      { system: "astrology", label: "Astrología", text: astro },
+      { system: "human-design", label: "Human Design", text: hd },
       { system: "gene-keys", label: "Gene Keys", text: gk },
-      { system: "luna", label: "Luna", text: moon },
+      { system: "moon", label: "Luna", text: moon },
     ],
     overall,
   };

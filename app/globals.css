@@ -483,6 +483,14 @@ html[data-canva-frame] [data-reveal] { opacity: 1; transform: none; transition: 
 .panel-top-left { max-width: max(7rem, calc(100vw - var(--canva-bar, 0px) - var(--panel-top-right, 0px) - 2rem)); }
 @media (min-width: 40rem) { .panel-top-left { max-width: max(7rem, calc(100vw - var(--canva-bar, 0px) - var(--panel-top-right, 0px) - 3.75rem)); } }
 html:has([data-canva]) [data-panel-top-right] { display: none; }
+/* En los editores del móvil no caben su nombre, Actualidades y la barra del editor: arriba a la izquierda queda solo
+   su foto (o el símbolo), que sigue llevando a Inicio, y la barra se estrecha para quedar a su lado sin taparla. */
+@media (max-width: 47.99rem) {
+  html:has([data-canva]) .panel-top-left [data-top-tab],
+  html:has([data-canva]) .panel-top-left .panel-tab-title { display: none; }
+  html:has([data-canva]) .panel-top-left .panel-nav-link { padding-left: .75rem; padding-right: .75rem; }
+  [data-canva] > [data-canva-ui].panel-tab-top { max-width: calc(100vw - 6rem); }
+}
 /* El botón de Canva (arriba a la derecha): dorado en cualquier diseño del panel. */
 .panel-canva-btn {
   display: inline-flex; align-items: center; gap: .4rem; height: 2.25rem; padding: 0 1rem; border-radius: 999px;
@@ -1515,20 +1523,23 @@ a:hover > .cp-photo-bubble img, .cp-card-hover:hover .cp-photo-bubble img { tran
 .acc-root .input:focus { border-color: var(--color-gold); box-shadow: 0 0 0 4px rgb(212 181 122 / .12); }
 .acc-root .chip { background: transparent; color: var(--color-gold); border: 1px solid color-mix(in oklab, var(--color-gold) 55%, transparent); }
 .acc-root .eyebrow { color: var(--color-gold); letter-spacing: .3em; }
-.acc-tab {
-  position: relative; flex-shrink: 0; border-radius: 999px; padding: .5rem .95rem; font-size: .875rem;
-  color: var(--color-muted); border: 1px solid transparent; transition: color .2s, border-color .2s;
-}
-.acc-tab:hover { color: var(--color-gold); }
-.acc-tab[data-active="true"] {
-  color: var(--color-gold); font-family: var(--font-display); font-style: italic; font-size: 1rem;
-  border-color: color-mix(in oklab, var(--color-gold) 75%, transparent);
-  box-shadow: inset 0 0 0 2px rgb(13 12 34 / .9), inset 0 0 0 3px rgb(212 181 122 / .35);
-}
+/* ───────────── El marco del área de alumna (app/cuenta/frame.tsx): las pestañas del panel, en la noche dorada ─────────────
+   Con sus colores (Ajustes › Colores de mi área) salen de su barra: ver «.acc-frame» más abajo. */
+.acc-frame { --panel-side-text: var(--color-ink); }
+.acc-frame .panel-side { background: rgb(10 9 32 / .8); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.acc-frame .panel-tab { border-color: color-mix(in oklab, var(--color-gold) 30%, transparent); }
+.acc-frame .panel-nav-link { color: color-mix(in oklab, var(--color-ink) 80%, transparent); }
+.acc-frame .panel-nav-link svg { color: var(--color-gold); }
+.acc-frame .panel-nav-link:hover { background: color-mix(in oklab, var(--color-gold) 10%, transparent); color: var(--color-ink); }
+.acc-frame .panel-nav-link[aria-current="page"] { background: linear-gradient(135deg, #f3dcab, #c49f62); color: #1a1408; box-shadow: 0 8px 22px -10px rgb(212 181 122 / .7); }
+.acc-frame .panel-nav-link[aria-current="page"] svg { color: currentColor; }
+.acc-frame .panel-tab-title { color: #f1e3c2; font-weight: 300; }
+.acc-frame .panel-rise > .panel-nav-link { border-radius: .75rem; }
+/* El nombre de arriba no llega a «Mi panel» (arriba a la derecha): si no cabe, se corta con «…». */
+.acc-top-left { max-width: calc(100vw - 4.75rem); }
+@media (min-width: 40rem) { .acc-top-left { max-width: calc(100vw - 11rem); } }
 
 /* ───────────── Favoritos y comentarios: un escritorio con carpetas y ventanas ───────────── */
-.acc-tab-sep { flex-shrink: 0; width: 1px; margin: .55rem .3rem; background: color-mix(in oklab, var(--color-gold) 35%, transparent); }
-.acc-tab-icon { display: inline-grid; place-items: center; width: 2.6rem; height: 2.4rem; padding: 0; }
 .acc-badge {
   position: absolute; top: -.15rem; right: -.2rem; display: grid; place-items: center; min-width: 1.15rem; height: 1.15rem; padding: 0 .3rem;
   border-radius: 999px; font: 600 .62rem/1 ui-sans-serif, system-ui, sans-serif; font-style: normal; color: #1a1408;
@@ -1716,10 +1727,20 @@ button.acc-clike:hover { color: #f2a097; }
 .acc-energy .cp-btn-ghost, .acc-energy .cp-btn {
   font-family: var(--font-display); font-style: italic; font-weight: 400; letter-spacing: .02em;
   border: 1px solid color-mix(in oklab, var(--c-gold) 75%, transparent);
+  /* Fondo oscuro: el texto va dorado (el de los botones rellenos, oscuro, no se veía). */
+  color: var(--c-gold);
   background: color-mix(in oklab, var(--c-bg) 70%, transparent);
   box-shadow: inset 0 0 0 3px color-mix(in oklab, var(--c-bg) 85%, transparent), inset 0 0 0 4px color-mix(in oklab, var(--c-gold) 40%, transparent);
 }
 .acc-energy .cp-btn-ghost:hover, .acc-energy .cp-btn:hover { color: var(--c-gold); }
+/* Gana también al diseño de botones de la web ([data-b]): ese texto es para el botón dorado relleno y aquí, sobre el
+   fondo oscuro, no se veía (Barajar en runas y oráculo). */
+.acc-energy :is(.cp, .cp-scope)[data-b] :is(.cp-btn, .cp-btn-ghost), .acc-energy :is(.cp, .cp-scope)[data-b] :is(.cp-btn, .cp-btn-ghost):hover {
+  color: var(--c-gold);
+  background: color-mix(in oklab, var(--c-bg) 70%, transparent);
+  border-color: color-mix(in oklab, var(--c-gold) 75%, transparent);
+  box-shadow: inset 0 0 0 3px color-mix(in oklab, var(--c-bg) 85%, transparent), inset 0 0 0 4px color-mix(in oklab, var(--c-gold) 40%, transparent);
+}
 .acc-energy .cp-eyebrow { letter-spacing: .32em; }
 
 
@@ -1733,8 +1754,6 @@ button.acc-clike:hover { color: #f2a097; }
   100% { transform: perspective(60px) rotateY(360deg) rotateZ(0deg) translateY(0); }
 }
 @keyframes plat-glow { from { filter: drop-shadow(0 0 3px rgb(233 204 142 / .35)); } to { filter: drop-shadow(0 0 9px rgb(233 204 142 / .85)); } }
-.acc-tab-ico { display: inline-grid; place-items: center; color: var(--color-gold); opacity: .85; }
-.acc-tab[data-active="true"] .acc-tab-ico { opacity: 1; filter: drop-shadow(0 0 5px rgb(212 181 122 / .6)); }
 @media (prefers-reduced-motion: reduce) { .plat-move { animation: none; } }
 
 
@@ -1753,7 +1772,7 @@ button.acc-clike:hover { color: #f2a097; }
 .acc-empty::after { bottom: 1rem; right: 1.2rem; }
 .acc-empty-halo {
   position: absolute; left: 50%; top: 4.6rem; width: 11rem; height: 11rem; margin-left: -5.5rem; margin-top: -3rem; z-index: -1; border-radius: 999px;
-  background: radial-gradient(circle, rgb(240 217 164 / .28), transparent 65%);
+  background: radial-gradient(circle, var(--ap-glow, rgb(240 217 164 / .28)), transparent 65%);
   animation: acc-halo 5s ease-in-out infinite alternate;
 }
 .acc-empty-book { animation: acc-float 5s ease-in-out infinite; filter: drop-shadow(0 0 14px rgb(212 181 122 / .55)); }
@@ -2014,6 +2033,8 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
    de lib/account-look.ts y data-acc-look="dark|light". Aquí, los colores fijos de la noche dorada pasan a ser
    esas variables. Sin data-acc-look, todo como siempre. */
 .acc-root[data-acc-look] { background: var(--acc-bg); background-attachment: fixed; }
+/* Lo que era lila (barras de progreso, iconos, «Estás viendo el curso como alumna»…) sigue los detalles elegidos. */
+:is(.acc-root, body)[data-acc-look] { --color-lavender: color-mix(in oklab, var(--color-gold) 55%, transparent); --color-lavender-deep: var(--color-gold); }
 .acc-root:is([data-acc-decor], [data-acc-look="light"])::before { display: none; }
 .acc-root[data-acc-look] > .cp-decor { position: fixed; }
 /* La figura de geometría, fina y detrás de todo: grande en una esquina o entera en el centro; si quiere, girando muy despacio. */
@@ -2056,9 +2077,16 @@ a.counter-card:hover { transform: translateY(-2px); border-color: rgb(200 168 11
 .acc-root[data-acc-look] .acc-star { text-shadow: 0 0 12px color-mix(in oklab, var(--color-gold) 60%, transparent); }
 .acc-root[data-acc-look="light"] .kind-text { color: var(--k-dark); }
 
-/* El menú: la pestaña encendida, sus iconos y el numerito. */
-.acc-root[data-acc-look] .acc-tab[data-active="true"] { box-shadow: inset 0 0 0 2px var(--acc-deep), inset 0 0 0 3px color-mix(in oklab, var(--color-gold) 35%, transparent); }
-.acc-root[data-acc-look] .acc-tab[data-active="true"] .acc-tab-ico { filter: drop-shadow(0 0 5px color-mix(in oklab, var(--color-gold) 60%, transparent)); }
+/* Las pestañas del menú (app/cuenta/frame.tsx) con el color de su barra: la letra, los detalles y los filos salen de ella;
+   la pestaña encendida, de su dorado. */
+.acc-root[data-acc-look] .acc-frame {
+  --color-ink: var(--acc-bar-ink); --color-ink-2: var(--acc-bar-ink); --color-ink-3: var(--acc-bar-ink);
+  --color-muted: var(--acc-bar-muted); --color-gold: var(--acc-bar-gold); --color-line: var(--acc-bar-line);
+  --acc-deep: var(--acc-bar-deep); --acc-on-gold: var(--acc-bar-on-gold);
+}
+.acc-root[data-acc-look] .acc-frame .panel-side { background: var(--acc-bar); }
+.acc-root[data-acc-look] .acc-frame .panel-nav-link[aria-current="page"] { background: var(--color-gold); color: var(--acc-on-gold); box-shadow: 0 8px 22px -10px color-mix(in oklab, var(--color-gold) 70%, transparent); }
+.acc-root[data-acc-look] .acc-frame .panel-tab-title { color: var(--color-ink); }
 :is(.acc-root, body)[data-acc-look] :is(.acc-badge, .acc-new, .acc-win-icon, .pill-fav[data-on="true"]) {
   color: var(--acc-on-gold); background: linear-gradient(135deg, color-mix(in oklab, var(--color-gold) 62%, #fff), var(--color-gold));
 }
@@ -2663,3 +2691,16 @@ html[data-under-tabs] .cp > header.sticky { padding-top: 4.5rem; }
   --n-deep: color-mix(in oklab, var(--c-text) 6%, var(--c-bg));
 }
 .cp { --n-gold-hi: initial; --n-gold-pale: initial; --n-gold: initial; --n-ivory: initial; --n-lilac: initial; --n-muted: initial; --n-deep: initial; }
+
+/* ── Las ventanas del Canva (Diseño, una pieza, el área…): transparentes, para ver la web detrás ── */
+[data-canva] [role="dialog"] {
+  background: rgb(8 8 12 / .34) !important;
+  backdrop-filter: blur(1.5px) saturate(1.05) !important; -webkit-backdrop-filter: blur(1.5px) saturate(1.05) !important;
+  text-shadow: 0 1px 2px rgb(0 0 0 / .85);
+}
+[data-canva] [role="dialog"] :is(.card, details.card, [data-stat]) {
+  background: rgb(10 10 14 / .22) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+[data-canva] [role="dialog"] :is(.input, .bg-white, .bg-paper, .bg-sand, [class*="bg-white/"]) { background-color: rgb(10 10 14 / .38) !important; }

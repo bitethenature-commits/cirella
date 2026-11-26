@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { UPLOAD_CANCELLED, uploadFile } from "@/components/ui/upload-client";
 import { PAGE_VIDEO_MAX } from "@/lib/page-blocks";
 import type { PostMedia } from "@/lib/posts";
+import { Tr, useT } from "@/lib/i18n/client";
 
 const ACCEPT = "video/mp4,video/quicktime,.mp4,.mov,.m4v,audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,.mp3,.m4a,.wav";
 
@@ -13,6 +14,7 @@ const ACCEPT = "video/mp4,video/quicktime,.mp4,.mov,.m4v,audio/mpeg,audio/mp4,au
  * como JSON en el campo `media` y el servidor lo vuelve a comprobar (lib/posts.ts → readPostMedia).
  */
 export function PostMediaField({ initial, personal }: { initial: PostMedia | null; personal: boolean }) {
+  const t = useT();
   const [media, setMedia] = useState<PostMedia | null>(initial);
   const [link, setLink] = useState(initial && "embedUrl" in initial ? initial.embedUrl : "");
   const [progress, setProgress] = useState<{ name: string; pct: number } | null>(null);
@@ -50,17 +52,16 @@ export function PostMediaField({ initial, personal }: { initial: PostMedia | nul
       {media && "src" in media ? (
         <div className="flex items-center gap-3 rounded-xl border border-line bg-white p-3 text-sm">
           {media.kind === "AUDIO" ? <Headphones className="h-5 w-5 text-muted" /> : <Film className="h-5 w-5 text-muted" />}
-          <span className="min-w-0 flex-1 truncate">{media.kind === "AUDIO" ? "Audio subido" : "Vídeo subido"}</span>
-          <button type="button" onClick={() => setMedia(null)} className="btn btn-ghost btn-sm text-rose" aria-label="Quitar el vídeo o audio">
-            <Trash2 className="h-4 w-4" /> Quitar
-          </button>
+          <span className="min-w-0 flex-1 truncate">{media.kind === "AUDIO" ? t("Audio subido") : t("Vídeo subido")}</span>
+          <button type="button" onClick={() => setMedia(null)} className="btn btn-ghost btn-sm text-rose" aria-label={t("Quitar el vídeo o audio")}>
+            <Trash2 className="h-4 w-4" />{" "}<Tr s={"Quitar"} /></button>
         </div>
       ) : progress ? (
         <div className="rounded-xl border border-line bg-white p-3 text-sm" role="status">
           <div className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="min-w-0 flex-1 truncate">Subiendo «{progress.name}» · {progress.pct} %</span>
-            <button type="button" onClick={() => abort.current?.abort()} className="text-muted hover:text-ink" aria-label="Cancelar la subida">
+            <span className="min-w-0 flex-1 truncate"><Tr s={"Subiendo «"} />{progress.name}» · {progress.pct} %</span>
+            <button type="button" onClick={() => abort.current?.abort()} className="text-muted hover:text-ink" aria-label={t("Cancelar la subida")}>
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -72,22 +73,21 @@ export function PostMediaField({ initial, personal }: { initial: PostMedia | nul
         <>
           {personal && (
             <div>
-              <input ref={input} type="file" accept={ACCEPT} className="hidden" aria-label="Subir vídeo o audio" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+              <input ref={input} type="file" accept={ACCEPT} className="hidden" aria-label={t("Subir vídeo o audio")} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
               <button type="button" onClick={() => input.current?.click()} className="btn btn-outline btn-sm">
-                <Film className="h-4 w-4" /> Subir vídeo o audio
-              </button>
-              <p className="field-hint">MP4 o MOV (vídeo), MP3, M4A o WAV (audio). Hasta 1 GB.</p>
+                <Film className="h-4 w-4" />{" "}<Tr s={"Subir vídeo o audio"} /></button>
+              <p className="field-hint"><Tr s={"MP4 o MOV (vídeo), MP3, M4A o WAV (audio). Hasta 1 GB."} /></p>
             </div>
           )}
           <div>
-            <label className="field-label" htmlFor="post-media-link">{personal ? "O pega un enlace de YouTube o Vimeo" : "Enlace de YouTube o Vimeo"}</label>
+            <label className="field-label" htmlFor="post-media-link">{personal ? t("O pega un enlace de YouTube o Vimeo") : t("Enlace de YouTube o Vimeo")}</label>
             <input id="post-media-link" className="input" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://youtu.be/…" maxLength={500} />
           </div>
         </>
       )}
       {error && (
         <p role="alert" className="text-sm text-rose">
-          {error}
+          <Tr s={error} />
         </p>
       )}
     </div>

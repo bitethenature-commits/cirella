@@ -11,8 +11,11 @@ import { getSettings } from "@/lib/settings";
 import { PageHeader } from "../../ui";
 import { openPayoutDashboard } from "./actions";
 import { isPersonalMode } from "@/lib/site-mode";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export default async function PayoutsPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
+  const t = await getT();
   // Modo personal: aquí no se cobra nada (lo de pago se cobra en otras webs).
   if (isPersonalMode()) redirect("/panel/ajustes");
   const { creator: session } = await requireCreator();
@@ -24,30 +27,23 @@ export default async function PayoutsPage({ searchParams }: { searchParams: Prom
   return (
     <div className="max-w-3xl space-y-6">
       <Link href="/panel/ajustes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Ajustes
-      </Link>
-      <PageHeader title="Cobros" subtitle="Tu cuenta de cobro con Stripe." />
+        <ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Ajustes"} /></Link>
+      <PageHeader title={t("Cobros")} subtitle={t("Tu cuenta de cobro con Stripe.")} />
       <Flash ok={sp.ok} error={sp.error} />
 
       <section className="card p-5 sm:p-6">
-        <h2 className="mb-4 flex items-center gap-2 font-semibold"><CreditCard className="h-4 w-4" /> Cuenta de cobro</h2>
+        <h2 className="mb-4 flex items-center gap-2 font-semibold"><CreditCard className="h-4 w-4" />{" "}<Tr s={"Cuenta de cobro"} /></h2>
         {!legalIdentityComplete(creator) && (
-          <p className="mb-4 rounded-xl bg-[#f8efdc] px-4 py-3 text-sm text-[#8a6420]">
-            Antes de activar los cobros, <Link href="/panel/ajustes/legal" className="font-semibold underline underline-offset-2">completa tus datos legales</Link>: la
-            ley obliga a mostrar quién vende.
-          </p>
+          <p className="mb-4 rounded-xl bg-[#f8efdc] px-4 py-3 text-sm text-[#8a6420]"><Tr s={"Antes de activar los cobros,"} />{" "}<Link href="/panel/ajustes/legal" className="font-semibold underline underline-offset-2"><Tr s={"completa tus datos legales"} /></Link><Tr s={": la ley obliga a mostrar quién vende."} /></p>
         )}
         <PayoutStatusCard creator={creator} supportEmail={settings.supportEmail} />
         {creator.payoutStatus === "ACTIVE" && (
           <form action={openPayoutDashboard} className="mt-4">
-            <SubmitButton className="btn btn-outline btn-sm" pendingLabel="Abriendo…">
-              <ExternalLink className="h-3.5 w-3.5" /> Ver mis cobros y transferencias en Stripe
-            </SubmitButton>
+            <SubmitButton className="btn btn-outline btn-sm" pendingLabel={t("Abriendo…")}>
+              <ExternalLink className="h-3.5 w-3.5" />{" "}<Tr s={"Ver mis cobros y transferencias en Stripe"} /></SubmitButton>
           </form>
         )}
-        <p className="mt-4 text-xs text-muted">
-          Cada venta se cobra con Stripe: Cirella descuenta su comisión y Stripe transfiere el resto a tu banco. Tus datos bancarios y tu documento los guarda Stripe.
-        </p>
+        <p className="mt-4 text-xs text-muted"><Tr s={"Cada venta se cobra con Stripe: Cirella descuenta su comisión y Stripe transfiere el resto a tu banco. Tus datos bancarios y tu documento los guarda Stripe."} /></p>
       </section>
     </div>
   );

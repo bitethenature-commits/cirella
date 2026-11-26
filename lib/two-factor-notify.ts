@@ -7,6 +7,7 @@ import { appUrl } from "./env";
 import { isPersonalMode } from "./site-mode";
 import { disableTwoFactor } from "./two-factor";
 import { formatDate } from "./tz";
+import { inMail } from "@/lib/i18n/email";
 
 /**
  * Avisos por email de la verificación en dos pasos (bandeja de salida, con dedupeKey). Sin cookies:
@@ -44,7 +45,7 @@ export async function notifyNewLogin(userId: string, o: { device: string; sessio
       template: "LOGIN_ALERT",
       userId: u.id,
       dedupeKey: `login:${key}`,
-      ...loginAlertEmail({ when: when(u), device: o.device, settingsUrl: `${appUrl()}${u.creator ? "/panel/ajustes#contrasena" : securityPath(u)}` }),
+      ...(await inMail(u.email, () => loginAlertEmail({ when: when(u), device: o.device, settingsUrl: `${appUrl()}${u.creator ? "/panel/ajustes#contrasena" : securityPath(u)}` }))),
     });
   } catch (e) {
     console.error("Aviso de acceso no enviado", e);
@@ -62,7 +63,7 @@ export async function notifyTwoFactorChange(userId: string, event: TwoFactorEven
       template: "TWO_FACTOR_CHANGED",
       userId: u.id,
       dedupeKey: `2fa:${u.id}:${event}:${minute}:${o.remaining ?? ""}`,
-      ...twoFactorChangedEmail({ event, remaining: o.remaining, settingsUrl: `${appUrl()}${securityPath(u)}` }),
+      ...(await inMail(u.email, () => twoFactorChangedEmail({ event, remaining: o.remaining, settingsUrl: `${appUrl()}${securityPath(u)}` }))),
     });
   } catch (e) {
     console.error("Aviso de la verificación en dos pasos no enviado", e);
@@ -79,7 +80,7 @@ export async function notifyTwoFactorFailures(userId: string, o: { challengeId: 
       template: "TWO_FACTOR_FAILURES",
       userId: u.id,
       dedupeKey: `2fa-fail:${o.challengeId.slice(0, 24)}`,
-      ...twoFactorFailuresEmail({ when: when(u), device: o.device, settingsUrl: `${appUrl()}${u.creator ? "/panel/ajustes#contrasena" : securityPath(u)}` }),
+      ...(await inMail(u.email, () => twoFactorFailuresEmail({ when: when(u), device: o.device, settingsUrl: `${appUrl()}${u.creator ? "/panel/ajustes#contrasena" : securityPath(u)}` }))),
     });
   } catch (e) {
     console.error("Aviso de intentos fallidos no enviado", e);

@@ -187,14 +187,14 @@ const https = z
   .string()
   .trim()
   .max(600, "El enlace es demasiado largo")
-  .refine((v) => !v || /^https:\/\/[^\s]+$/i.test(v) || /^\/[^\s/][^\s]*$/.test(v), "El enlace debe empezar por https:// (o ser una página de tu web, como /cursos)")
+  .refine((v) => !v || /^https:\/\/[^\s]+$/i.test(v) || /^\/[^\s/][^\s]*$/.test(v), "El enlace debe empezar por https:// (o ser una página de tu web, como /courses)")
   .default("");
 
 /** Formulario del panel. `media` llega como JSON con los billetes firmados de los archivos subidos. */
 export const portalFormSchema = z
   .object({
     id: z.string().max(40).optional().transform((v) => v || undefined),
-    kind: z.enum(PORTAL_KINDS, { errorMap: () => ({ message: "Elige el tipo" }) }),
+    kind: z.enum(PORTAL_KINDS, { error: "Elige el tipo" }),
     title: z.string().trim().min(2, "Escribe un título").max(PORTAL_TITLE_MAX, `El título admite ${PORTAL_TITLE_MAX} caracteres`),
     summary: z.string().trim().max(PORTAL_SUMMARY_MAX, `El texto corto admite ${PORTAL_SUMMARY_MAX} caracteres`).default(""),
     body: z.string().trim().max(PORTAL_BODY_MAX, `El texto admite ${PORTAL_BODY_MAX} caracteres`).default(""),

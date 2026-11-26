@@ -4,6 +4,7 @@ import type { TiersBlock } from "@/lib/page-blocks";
 import type { WebTiers } from "@/lib/web-tiers";
 import { PortalCircles, PortalFeature, PortalIncludes, PortalPrice, TierPortal, portalButton } from "./tier-portal";
 import { TrackedLink } from "./tracking";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * La sección «Niveles de la comunidad» (lib/page-blocks.ts → TiersBlock): las tarjetas de los niveles una al lado de
@@ -28,7 +29,7 @@ export function TiersFrame({ b, wide = false, children, after }: { b: Pick<Tiers
 
 /** Los niveles en la web: cada uno con su precio, lo que incluye, su botón y, en el más completo, los próximos círculos. */
 export function TiersShow({ b, data }: { b: TiersBlock; data: WebTiers }) {
-  if (!data.tiers.length) return <p className="cp-muted text-center">{data.empty}</p>;
+  if (!data.tiers.length) return <p className="cp-muted text-center"><Tr s={data.empty} /></p>;
   return (
     <TiersFrame
       b={b}
@@ -36,9 +37,9 @@ export function TiersShow({ b, data }: { b: TiersBlock; data: WebTiers }) {
       after={
         data.note && (
           <p className="cp-muted mt-10 text-center text-sm">
-            {data.note.text}{" "}
+            <Tr s={data.note.text} />{" "}
             <a href={data.note.href} className="cp-gold underline underline-offset-4">
-              {data.note.link}
+              <Tr s={data.note.link} />
             </a>
             .
           </p>
@@ -68,10 +69,10 @@ export function TiersShow({ b, data }: { b: TiersBlock; data: WebTiers }) {
             >
               {t.paid ? (
                 <>
-                  <Mail className="h-4 w-4" /> {t.cta}
+                  <Mail className="h-4 w-4" /> <Tr s={t.cta} />
                 </>
               ) : (
-                <>Unirme a {t.title}</>
+                <><Tr s={"Unirme a"} />{" "}{t.title}</>
               )}
             </TrackedLink>
           }

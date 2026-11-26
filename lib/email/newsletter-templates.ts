@@ -7,17 +7,18 @@ import { renderSubject } from "./blocks-html";
 import { designEmailHtml } from "./design-layout";
 import { esc, p } from "./html";
 import { layout } from "./templates";
+import { et } from "@/lib/i18n/email";
 
 export function newsletterConfirmEmail(o: { creatorName: string; url: string; name?: string | null }) {
   return {
-    subject: `Confirma que quieres recibir la newsletter de ${o.creatorName}`,
+    subject: et("Confirma que quieres recibir la newsletter de {creatorName}", { creatorName: o.creatorName }),
     html: layout({
       brand: o.creatorName,
-      title: `Hola${o.name ? `, ${o.name}` : ""}`,
+      title: et("Hola{name}", { name: o.name ? `, ${o.name}` : "" }),
       body:
-        p(`Para empezar a recibir la newsletter de ${esc(o.creatorName)}, confirma que este email es tuyo.`) +
-        p(`<span style="color:#A99FC2;font-size:13px">Si no lo has pedido tú, ignora este email: no te escribiremos.</span>`),
-      cta: { label: "Sí, quiero recibirla", url: o.url },
+        p(et("Para empezar a recibir la newsletter de {creatorName}, confirma que este email es tuyo.", { creatorName: esc(o.creatorName) })) +
+        p(et("<span style=\"color:#A99FC2;font-size:13px\">Si no lo has pedido tú, ignora este email: no te escribiremos.</span>")),
+      cta: { label: et("Sí, quiero recibirla"), url: o.url },
       areaLink: false,
     }),
   };
@@ -40,7 +41,7 @@ export type NewsletterFooter = {
 
 /** El mensaje del pie de siempre (si no ha escrito el suyo en Ajustes › Envío). */
 export function defaultFooterMessage(senderName: string) {
-  return `Recibes este email porque te apuntaste a la newsletter de ${senderName}. ¿Ya no quieres recibirla?`;
+  return et("Recibes este email porque te apuntaste a la newsletter de {senderName}. ¿Ya no quieres recibirla?", { senderName: senderName });
 }
 
 /** El mensaje que sale de verdad: el suyo o, si está vacío, el de siempre. */
@@ -54,13 +55,13 @@ export function newsletterFooterHtml(f: NewsletterFooter): string {
     .map((s) => esc(s!))
     .join(" · ");
   const unsub = f.unsubscribeUrl
-    ? `<a href="${esc(f.unsubscribeUrl)}" style="color:#8A8698">Darme de baja</a>`
-    : `<span style="text-decoration:underline">Darme de baja</span> (en la prueba no hace nada)`;
+    ? et("<a href=\"{unsubscribeUrl}\" style=\"color:#8A8698\">Darme de baja</a>", { unsubscribeUrl: esc(f.unsubscribeUrl) })
+    : et("<span style=\"text-decoration:underline\">Darme de baja</span> (en la prueba no hace nada)");
   return (
     (f.reason
-      ? `Recibes este email porque ${esc(f.reason)}. ¿No quieres recibir más emails como este? ${unsub}.`
+      ? et("Recibes este email porque {reason}. ¿No quieres recibir más emails como este? {unsub}.", { reason: esc(f.reason), unsub: unsub })
       : `${esc(footerMessage(f.message, f.senderName)).replace(/\n/g, "<br>")} ${unsub}.`) +
-    `<br>${who} · <a href="${esc(f.legalUrl)}" style="color:#8A8698">Aviso legal y privacidad</a>`
+    et("<br>{who} · <a href=\"{legalUrl}\" style=\"color:#8A8698\">Aviso legal y privacidad</a>", { who: who, legalUrl: esc(f.legalUrl) })
   );
 }
 
@@ -75,7 +76,7 @@ export function campaignEmail(o: {
   footer: NewsletterFooter;
   test?: boolean;
 }) {
-  const subject = renderSubject(o.subject, o.vars) || "Newsletter";
+  const subject = renderSubject(o.subject, o.vars) || et("Newsletter");
   return {
     subject: o.test ? `[Prueba] ${subject}` : subject,
     // Con el estilo del editor visual (lib/email/design-layout.ts); el pie legal, el de siempre.

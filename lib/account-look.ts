@@ -2,8 +2,8 @@
  * «Colores de mi área» (Ajustes del área de alumna): cada alumna cambia el color de la barra de arriba, el de la
  * página (claro u oscuro, con degradado si quiere), el de los detalles (líneas, botones, iconos), el fondo con
  * movimiento y una figura de geometría sagrada detrás. Se guarda en User.accountLook (JSON); sin nada elegido,
- * la noche dorada de siempre. Puro: lo usan el servidor (app/cuenta/layout.tsx) y el navegador (el editor y la
- * vista al momento, app/cuenta/look-root.tsx). Las variables las recoge globals.css, «Los colores de cada alumna».
+ * la noche dorada de siempre. Puro: lo usan el servidor (app/area/layout.tsx) y el navegador (el editor y la
+ * vista al momento, app/area/look-root.tsx). Las variables las recoge globals.css, «Los colores de cada alumna».
  */
 import type { CSSProperties } from "react";
 import { z } from "zod";
@@ -95,7 +95,8 @@ const lookSchema = z.object({
 /** Lo guardado (o lo que llega al guardar), tolerante: lo que no se entiende vuelve a lo de siempre. */
 export function readAccountLook(raw: unknown): AccountLook {
   const r = lookSchema.safeParse(raw && typeof raw === "object" ? raw : {});
-  return r.success ? r.data : { ...EMPTY_ACCOUNT_LOOK };
+  // Sin figura de geometría: se quitó del área (lo guardado de antes también la pierde).
+  return r.success ? { ...r.data, geo: null } : { ...EMPTY_ACCOUNT_LOOK };
 }
 
 /** ¿Ha elegido algo? (si no, la noche dorada de siempre). */

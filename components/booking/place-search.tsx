@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState, type KeyboardEvent } from "react";
 import { fold, loadCities, searchCities, toPlace, type CityIndex } from "@/components/models/cities";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * El buscador de ciudades de «Mi energía» (components/models/chart-birth-form.tsx, la lista de GeoNames) para el
@@ -27,6 +28,7 @@ export function PlaceSearch({
   theme: "creator" | "app";
   invalid?: Record<string, unknown>;
 }) {
+  const t = useT();
   const listId = useId();
   const [index, setIndex] = useState<CityIndex | null>(null);
   const [failed, setFailed] = useState(false);
@@ -81,7 +83,7 @@ export function PlaceSearch({
         autoCapitalize="words"
         maxLength={120}
         required={required}
-        placeholder={index ? "Busca tu ciudad o pueblo (p. ej. Sevilla)" : failed ? "Ciudad y país (p. ej. Sevilla, España)" : "Cargando ciudades…"}
+        placeholder={index ? t("Busca tu ciudad o pueblo (p. ej. Sevilla)") : failed ? t("Ciudad y país (p. ej. Sevilla, España)") : t("Cargando ciudades…")}
         value={value}
         onChange={(e) => {
           onChange(e.target.value);
@@ -120,16 +122,16 @@ export function PlaceSearch({
                 onMouseEnter={() => setActive(k)}
                 className={`cursor-pointer px-4 py-2.5 text-[0.9rem] leading-snug ${k === active ? optionOn : ""}`}
               >
-                <span>{p.label}</span>
-                {alias && <span className={muted}> · {alias}</span>}
-                <span className={`${muted} block text-[0.75rem]`}>{p.detail}</span>
+                <span><Tr s={p.label} /></span>
+                {alias && <span className={muted}> · <Tr s={alias} /></span>}
+                <span className={`${muted} block text-[0.75rem]`}><Tr s={p.detail} /></span>
               </li>
             );
           })}
         </ul>
       )}
       {open && index && fold(query).length >= 2 && !results.length && (
-        <p className={`${muted} mt-2 text-[0.8rem]`}>No está en la lista: escríbelo tal cual (ciudad y país) y seguimos.</p>
+        <p className={`${muted} mt-2 text-[0.8rem]`}><Tr s={"No está en la lista: escríbelo tal cual (ciudad y país) y seguimos."} /></p>
       )}
     </div>
   );

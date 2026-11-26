@@ -6,6 +6,7 @@ import { brandPalette } from "@/lib/email-starters";
 import { tenantDb } from "@/lib/tenant";
 import { requireNewsletterOwner } from "../../guard";
 import { TemplateEditor } from "./template-editor";
+import { Tr } from "@/lib/i18n/client";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +21,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
   return (
     <div>
       <Link href="/panel/newsletter#plantillas" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Newsletter
-      </Link>
+        <ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Newsletter"} /></Link>
       <TemplateEditor
         id={t.id}
         name={t.name}

@@ -24,9 +24,9 @@ const POST_TITLE = `Novedad con formato ${stamp}`;
 
 async function demoLogin(page: Page, label: string) {
   await page.context().clearCookies();
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 /** Selecciona un trozo del texto del <textarea>. */
@@ -145,7 +145,7 @@ test.describe.serial("Texto con formato", () => {
     const post = await prisma.post.findFirstOrThrow({ where: { creatorId: anaId, title: POST_TITLE } });
     expect(post.bodyFormat).toBe("MD");
 
-    await page.goto(`/ana/actualidades/${post.slug}`);
+    await page.goto(`/ana/news/${post.slug}`);
     const article = page.locator("article");
     await expect(article.getByRole("heading", { name: "Mi consejo", level: 2 })).toBeVisible();
     await expect(article.locator("strong", { hasText: "mundo" })).toBeVisible();
@@ -178,7 +178,7 @@ test.describe.serial("Texto con formato", () => {
     expect(saved.body).toBe(legacy.body);
 
     // Lección nueva sin texto (solo el título), y una lección de antes a la que solo se cambia el título.
-    const course = await prisma.product.findFirstOrThrow({ where: { creatorId: anaId, slug: "curso-conocete-tu-energia" }, include: { modules: { orderBy: { sortOrder: "asc" }, include: { lessons: { orderBy: { sortOrder: "asc" } } } } } });
+    const course = await prisma.product.findFirstOrThrow({ where: { creatorId: anaId, slug: "know-your-energy" }, include: { modules: { orderBy: { sortOrder: "asc" }, include: { lessons: { orderBy: { sortOrder: "asc" } } } } } });
     await page.goto(`/panel/cursos/${course.id}`);
     const firstModule = page.locator("[data-structure-board] [data-module]").first();
     await firstModule.getByRole("link", { name: "Añadir lección" }).click();
@@ -207,7 +207,7 @@ test.describe.serial("Texto con formato", () => {
   });
 
   test("lección con formato: Laura ve h3 y lista numerada; la de antes, igual que siempre", async ({ page }) => {
-    const course = await prisma.product.findFirstOrThrow({ where: { creatorId: anaId, slug: "curso-conocete-tu-energia" } });
+    const course = await prisma.product.findFirstOrThrow({ where: { creatorId: anaId, slug: "know-your-energy" } });
     const lesson = await prisma.lesson.findFirstOrThrow({ where: { productId: course.id, title: "Ejercicio: dibuja tu mapa" } });
     restore.lessons.push(await snapshotLesson(lesson.id));
     await demoLogin(page, "Cirella");
@@ -221,12 +221,12 @@ test.describe.serial("Texto con formato", () => {
     expect(saved.parts[0].bodyFormat).toBe("MD");
 
     await demoLogin(page, "Laura Martín");
-    await page.goto(`/cuenta/cursos/${course.id}?leccion=${lesson.id}`);
+    await page.goto(`/area/courses/${course.id}?leccion=${lesson.id}`);
     await expect(page.getByRole("heading", { name: "Cómo hacerlo", level: 3 })).toBeVisible();
     await expect(page.locator("article ol li")).toHaveCount(2);
 
     const legacyLesson = await prisma.lesson.findFirstOrThrow({ where: { productId: course.id, title: { startsWith: "Sol, Luna y Ascendente" } } });
-    await page.goto(`/cuenta/cursos/${course.id}?leccion=${legacyLesson.id}`);
+    await page.goto(`/area/courses/${course.id}?leccion=${legacyLesson.id}`);
     const paragraphs = page.locator("article div.space-y-4 > p");
     await expect(paragraphs).toHaveCount(2);
     expect(await page.locator("article [data-rich]").count()).toBe(0);
@@ -234,12 +234,12 @@ test.describe.serial("Texto con formato", () => {
   });
 
   test("demo: «Qué incluye» con ✦ y la novedad con formato de la semilla", async ({ page }) => {
-    await page.goto("/ana/mini-curso-tu-carta-en-3-pasos");
+    await page.goto("/ana/natal-chart-in-3-steps");
     const includes = page.locator("section", { has: page.getByRole("heading", { name: "Qué incluye" }) });
     await expect(includes.getByText("✦").first()).toBeVisible();
     await expect(includes.getByText("3 lecciones de lectura (10 minutos cada una)")).toBeVisible();
 
-    await page.goto("/ana/actualidades/eclipse-de-octubre");
+    await page.goto("/ana/news/october-eclipse");
     await expect(page.getByRole("heading", { name: "Mi consejo para estos días", level: 2 })).toBeVisible();
     await expect(page.locator("article strong", { hasText: "No tomes decisiones grandes en caliente." })).toBeVisible();
     const description = await page.locator('meta[name="description"]').getAttribute("content");
@@ -271,7 +271,7 @@ test.describe.serial("Texto con formato", () => {
 
     await page.context().clearCookies();
     const to = `${TAG}-bienvenida@example.com`;
-    await page.goto("/ana/mini-curso-tu-carta-en-3-pasos");
+    await page.goto("/ana/natal-chart-in-3-steps");
     await page.fill("#claim-name", "Prueba Formato");
     await page.fill("#claim-email", to);
     await page.getByLabel(/política de privacidad/).check();

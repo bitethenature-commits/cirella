@@ -1,5 +1,5 @@
 /**
- * La carta de un nivel de la comunidad (/comunidad) tal como la deja la dueña en su panel
+ * La carta de un nivel de la comunidad (/membership) tal como la deja la dueña en su panel
  * (Comunidad → Cartas) o en Mi página: la frase de debajo del nombre, lo que incluye (cada cosa con su
  * título, su explicación y su icono), el texto del botón y el icono del nivel (una figura que gira o
  * una imagen suya). Se guarda en Product.pageTexts; sin guardar, sale lo de su descripción

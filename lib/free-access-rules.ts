@@ -63,7 +63,7 @@ export function newsletterPending(metadata: unknown, optedIn: boolean): boolean 
 }
 
 /** Página donde confirma las novedades (se abre con el enlace personal del email de acceso). */
-export const NEWSLETTER_CONFIRM_PATH = "/cuenta/novedades/confirmar";
+export const NEWSLETTER_CONFIRM_PATH = "/area/newsletter/confirm";
 
 export function newsletterConfirmPath(orderId: string): string {
   return `${NEWSLETTER_CONFIRM_PATH}?pedido=${encodeURIComponent(orderId)}`;

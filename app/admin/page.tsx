@@ -8,8 +8,11 @@ import { getPlatformOverview } from "@/lib/platform-stats";
 import { isPersonalMode } from "@/lib/site-mode";
 import { getDeliveryHealth } from "@/lib/watchdog";
 import { PageHeader, Stat } from "../panel/ui";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export default async function AdminHome({ searchParams }: { searchParams: Promise<{ ok?: string }> }) {
+  const t = await getT();
   await requireAdmin();
   const sp = await searchParams;
   if (isPersonalMode()) return <PersonalAdminHome ok={sp.ok} />;
@@ -17,33 +20,33 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
   const pending = delivery.failedEmails + delivery.deadEvents;
   return (
     <div className="space-y-6">
-      <PageHeader title="Resumen de la plataforma" subtitle="Todas las creadoras, ventas e ingresos." />
+      <PageHeader title={t("Resumen de la plataforma")} subtitle={t("Todas las creadoras, ventas e ingresos.")} />
       <Flash ok={sp.ok} />
       <DeliveryWarning pending={pending} cronStopped={delivery.cronStopped} />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Ingresos de la plataforma" value={formatMoney(s.platformRevenue)} hint={`${formatMoney(s.commissions)} comisiones · ${formatMoney(s.planRevenue)} planes`} accent />
-        <Stat label="Volumen vendido (GMV)" value={formatMoney(s.gmv)} hint={`${formatNumber(s.orders)} pedidos`} />
-        <Stat label="MRR de planes" value={formatMoney(s.platformMrr)} hint="Suscripciones de creadoras" />
-        <Stat label="Creadoras" value={s.creators} hint={`${s.publishedCreators} publicadas · ${s.blockedCreators} bloqueadas`} />
-        <Stat label="Clientes" value={s.customers} hint="Compradoras únicas" />
-        <Stat label="Membresías activas" value={s.activeSubs} />
-        <Stat label="Usuarios bloqueados" value={s.blockedUsers} hint={<Link href="/admin/bloqueados" className="underline">Ver</Link>} />
-        <Stat label="Comisión media" value={s.gmv ? `${((s.commissions / s.gmv) * 100).toFixed(1)} %` : "—"} />
+        <Stat label={t("Ingresos de la plataforma")} value={formatMoney(s.platformRevenue)} hint={`${formatMoney(s.commissions)} comisiones · ${formatMoney(s.planRevenue)} planes`} accent />
+        <Stat label={t("Volumen vendido (GMV)")} value={formatMoney(s.gmv)} hint={`${formatNumber(s.orders)} pedidos`} />
+        <Stat label={t("MRR de planes")} value={formatMoney(s.platformMrr)} hint={t("Suscripciones de creadoras")} />
+        <Stat label={t("Creadoras")} value={s.creators} hint={`${s.publishedCreators} publicadas · ${s.blockedCreators} bloqueadas`} />
+        <Stat label={t("Clientes")} value={s.customers} hint={t("Compradoras únicas")} />
+        <Stat label={t("Membresías activas")} value={s.activeSubs} />
+        <Stat label={t("Usuarios bloqueados")} value={s.blockedUsers} hint={<Link href="/admin/bloqueados" className="underline"><Tr s={"Ver"} /></Link>} />
+        <Stat label={t("Comisión media")} value={s.gmv ? `${((s.commissions / s.gmv) * 100).toFixed(1)} %` : "—"} />
       </div>
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <section className="card p-5 sm:p-6">
-          <h2 className="mb-5 font-semibold">Ingresos de la plataforma por mes</h2>
-          <BarChart title="Ingresos de la plataforma" axis="money" data={s.series.map((m) => ({ key: m.key, label: m.label, value: m.commissions + m.planFees, display: `${formatMoney(m.commissions + m.planFees)} (${formatMoney(m.commissions)} comisiones)` }))} />
-          <h2 className="mb-5 mt-8 font-semibold">GMV por mes</h2>
-          <BarChart title="GMV" axis="money" height={120} color="var(--color-gold)" data={s.series.map((m) => ({ key: m.key, label: m.label, value: m.gmv, display: formatMoney(m.gmv) }))} />
+          <h2 className="mb-5 font-semibold"><Tr s={"Ingresos de la plataforma por mes"} /></h2>
+          <BarChart title={t("Ingresos de la plataforma")} axis="money" data={s.series.map((m) => ({ key: m.key, label: m.label, value: m.commissions + m.planFees, display: `${formatMoney(m.commissions + m.planFees)} (${formatMoney(m.commissions)} comisiones)` }))} />
+          <h2 className="mb-5 mt-8 font-semibold"><Tr s={"GMV por mes"} /></h2>
+          <BarChart title={t("GMV")} axis="money" height={120} color="var(--color-gold)" data={s.series.map((m) => ({ key: m.key, label: m.label, value: m.gmv, display: formatMoney(m.gmv) }))} />
         </section>
         <div className="space-y-4">
           <section className="card p-5 sm:p-6">
-            <h2 className="mb-4 font-semibold">Creadoras por plan</h2>
+            <h2 className="mb-4 font-semibold"><Tr s={"Creadoras por plan"} /></h2>
             <HBars rows={s.byPlan.map((p) => ({ label: p.plan.name, value: p.count, display: String(p.count), sub: formatMoney(p.plan.priceMonthlyCents) + "/mes" }))} />
           </section>
           <section className="card p-5 sm:p-6">
-            <h2 className="mb-4 font-semibold">Top creadoras</h2>
+            <h2 className="mb-4 font-semibold"><Tr s={"Top creadoras"} /></h2>
             <ul className="space-y-2.5 text-sm">
               {s.topCreators.map((c) => (
                 <li key={c.id} className="flex items-center justify-between gap-3">
@@ -72,7 +75,7 @@ function DeliveryWarning({ pending, cronStopped }: { pending: number; cronStoppe
             .join(" · ")}
         </span>
       </p>
-      <Link href="/admin/envios" className="btn btn-outline btn-sm shrink-0">Ver envíos fallidos</Link>
+      <Link href="/admin/envios" className="btn btn-outline btn-sm shrink-0"><Tr s={"Ver envíos fallidos"} /></Link>
     </div>
   );
 }
@@ -82,6 +85,7 @@ function DeliveryWarning({ pending, cronStopped }: { pending: number; cronStoppe
  * solo si algo no ha llegado y los ajustes de la web.
  */
 async function PersonalAdminHome({ ok }: { ok?: string }) {
+  const t = await getT();
   const delivery = await getDeliveryHealth();
   const pending = delivery.failedEmails + delivery.deadEvents;
   const cards = [
@@ -91,7 +95,7 @@ async function PersonalAdminHome({ ok }: { ok?: string }) {
   ];
   return (
     <div className="space-y-6">
-      <PageHeader title="Administración" subtitle="Lo técnico de tu web: los emails que no han llegado y los ajustes." />
+      <PageHeader title={t("Administración")} subtitle={t("Lo técnico de tu web: los emails que no han llegado y los ajustes.")} />
       <Flash ok={ok} />
       <DeliveryWarning pending={pending} cronStopped={delivery.cronStopped} />
       <div className="grid gap-3 sm:grid-cols-3">
@@ -100,7 +104,7 @@ async function PersonalAdminHome({ ok }: { ok?: string }) {
             <c.icon className="h-5 w-5 text-lavender-deep" />
             <span className="min-w-0">
               <span className="block text-sm font-semibold">{c.title}</span>
-              <span className="block text-xs text-muted">{c.text}</span>
+              <span className="block text-xs text-muted"><Tr s={c.text} /></span>
             </span>
             <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-faint" />
           </Link>

@@ -37,11 +37,11 @@ test.afterAll(async () => {
 });
 
 async function ownerLogin(page: Page) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.fill("#email", "ana@cirella.app");
   await page.fill("#password", "demo1234");
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 test.describe.serial("Modo personal · detalles de la demo", () => {
@@ -52,17 +52,17 @@ test.describe.serial("Modo personal · detalles de la demo", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cfg = structuredClone((before ?? ana.pageDraft) as any);
     cfg.links = [
-      { id: "l1", label: `✨ Empieza aquí ${stamp}`, url: "/ana/curso-conocete-tu-energia", highlight: true },
+      { id: "l1", label: `✨ Empieza aquí ${stamp}`, url: "/ana/know-your-energy", highlight: true },
       { id: "l2", label: `Podcast «Cielo interior» ${stamp}`, url: "https://open.spotify.com" },
     ];
-    cfg.bubbles = [...(cfg.bubbles ?? []).slice(0, 2), { id: "b-oculto", label: `Curso ${stamp}`, url: "/ana/curso-conocete-tu-energia", image: null }];
+    cfg.bubbles = [...(cfg.bubbles ?? []).slice(0, 2), { id: "b-oculto", label: `Curso ${stamp}`, url: "/ana/know-your-energy", image: null }];
     cfg.sections = cfg.sections.map((x: { key: string; enabled: boolean }) => (x.key === "links" ? { ...x, enabled: true } : x));
     await prisma.creator.update({ where: { id: ana.id }, data: { pagePublished: cfg } });
     try {
       await page.goto("/");
       await expect(page.getByRole("heading", { name: "Cirella", level: 1 })).toBeVisible();
-      // /ana/curso-conocete-tu-energia en la web personal sin cobros da 404: ni botón ni burbuja.
-      await expect(page.locator('a[href="/ana/curso-conocete-tu-energia"]')).toHaveCount(0);
+      // /ana/know-your-energy en la web personal sin cobros da 404: ni botón ni burbuja.
+      await expect(page.locator('a[href="/ana/know-your-energy"]')).toHaveCount(0);
       await expect(page.getByText(/Empieza aquí/)).toHaveCount(0);
       await expect(page.getByText(`Curso ${stamp}`)).toHaveCount(0);
       // Los demás siguen ahí.
@@ -74,16 +74,16 @@ test.describe.serial("Modo personal · detalles de la demo", () => {
   });
 
   test("la duración del mini-curso se escribe en minutos", async ({ page }) => {
-    await page.goto("/ana/mini-curso-tu-carta-en-3-pasos");
+    await page.goto("/ana/natal-chart-in-3-steps");
     await expect(page.getByText("3 lecciones · 30 min").first()).toBeVisible();
     await expect(page.getByText("0.5 h")).toHaveCount(0);
   });
 
   test("el login no habla de compras (el general y el de «Mi área»)", async ({ page }) => {
-    await page.goto("/entrar");
+    await page.goto("/login");
     await expect(page.getByText("¿No tienes contraseña?")).toBeVisible();
     await expect(page.getByText(/compr/i)).toHaveCount(0);
-    for (const path of ["/ana/entrar?next=%2Fcuenta", "/ana/entrar?next=%2Fcuenta&motivo=completa", "/ana/entrar?next=%2Fcuenta&motivo=confirmar"]) {
+    for (const path of ["/ana/login?next=%2Farea", "/ana/login?next=%2Farea&motivo=completa", "/ana/login?next=%2Farea&motivo=confirmar"]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { name: "Entra a tu área" })).toBeVisible();
       await expect(page.getByText(/compr/i), path).toHaveCount(0);
@@ -99,10 +99,10 @@ test.describe.serial("Modo personal · detalles de la demo", () => {
     const block = (id: string, buttonUrl: string) => ({ id, title: `Bloque ${id} ${stamp}`, body: "Texto del bloque.", buttonLabel: `Botón ${id}`, buttonUrl, enabled: true });
     cfg.blocks = [
       ...(cfg.blocks ?? []),
-      block("oculto", "/ana/curso-conocete-tu-energia"),
+      block("oculto", "/ana/know-your-energy"),
       // Sin https:// y con la dirección de la propia web: la página lo pinta como https://localhost:3101/…
-      block("sin-esquema", `${new URL(PERSONAL).host}/ana/curso-conocete-tu-energia`),
-      block("visible", "/ana/mini-curso-tu-carta-en-3-pasos"),
+      block("sin-esquema", `${new URL(PERSONAL).host}/ana/know-your-energy`),
+      block("visible", "/ana/natal-chart-in-3-steps"),
     ];
     if (!cfg.sections?.some((x: { key: string }) => x.key === "blocks")) cfg.sections = [...(cfg.sections ?? []), { key: "blocks", enabled: true }];
     else cfg.sections = cfg.sections.map((x: { key: string; enabled: boolean }) => (x.key === "blocks" ? { ...x, enabled: true } : x));
@@ -113,7 +113,7 @@ test.describe.serial("Modo personal · detalles de la demo", () => {
         await expect(page.getByText(`Bloque ${id} ${stamp}`)).toBeVisible();
         await expect(page.getByRole("link", { name: `Botón ${id}` })).toHaveCount(0);
       }
-      await expect(page.getByRole("link", { name: "Botón visible" })).toHaveAttribute("href", "/ana/mini-curso-tu-carta-en-3-pasos");
+      await expect(page.getByRole("link", { name: "Botón visible" })).toHaveAttribute("href", "/ana/natal-chart-in-3-steps");
     } finally {
       await prisma.creator.update({ where: { id: ana.id }, data: { pagePublished: before === null ? Prisma.DbNull : (before as Prisma.InputJsonValue) } });
     }
@@ -129,7 +129,7 @@ test.describe.serial("Modo personal · detalles de la demo", () => {
     // «Ver» va oculto con CSS en el móvil: se busca por su dirección (cuenta aunque no se vea).
     await expect(row.locator(`a[href="/ana/${TAG}"]`)).toHaveCount(0);
     const free = page.locator(".card", { hasText: "Mini-curso gratis" });
-    await expect(free.locator('a[href="/ana/mini-curso-tu-carta-en-3-pasos"]')).toHaveCount(1);
+    await expect(free.locator('a[href="/ana/natal-chart-in-3-steps"]')).toHaveCount(1);
 
     // «Orden de productos» del editor: solo lo que se ve en la página.
     await page.goto("/panel/pagina");

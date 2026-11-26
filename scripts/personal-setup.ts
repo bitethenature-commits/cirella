@@ -91,7 +91,7 @@ async function main() {
   console.log(`✓ Plan «${plan.name}»: comisión 0 % y todas las funciones.`);
   console.log(`✓ Cuenta ${email}: administradora${passwordHash ? ", contraseña guardada" : ""}${result.existed ? " (ya existía: puesta al día)" : " (nueva)"}.`);
   console.log(`✓ Página «${creator.displayName}» (${username}): publicada y lista.`);
-  console.log(`\nEntra en ${appUrl()}/entrar con tu email y tu contraseña. Tu página está en ${appUrl()}/`);
+  console.log(`\nEntra en ${appUrl()}/login con tu email y tu contraseña. Tu página está en ${appUrl()}/`);
 }
 
 main()

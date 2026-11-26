@@ -31,7 +31,7 @@ CREATE INDEX "PortalItem_creatorId_status_sortOrder_idx" ON "PortalItem"("creato
 
 ALTER TABLE "PortalItem" ADD CONSTRAINT "PortalItem_creatorId_fkey" FOREIGN KEY ("creatorId") REFERENCES "Creator"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- Rutas nuevas de la web (/<usuaria>/actualidades, /portal, /comunidad, /cursos, /lecturas, /sesiones):
+-- Rutas nuevas de la web (/<usuaria>/news, /portal, /membership, /courses, /readings, /sessions):
 -- se renombran los productos que usaban uno de esos slugs, como en 20261016100000.
 UPDATE "Product" p SET "slug" = CASE
   WHEN NOT EXISTS (SELECT 1 FROM "Product" q WHERE q."creatorId" = p."creatorId" AND q."slug" = p."slug" || '-1') THEN p."slug" || '-1'

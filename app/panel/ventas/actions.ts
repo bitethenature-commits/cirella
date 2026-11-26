@@ -17,7 +17,7 @@ const refundSchema = z.object({
   orderId: z.string().min(1),
   mode: z.enum(["full", "partial"]),
   amount: z.string().max(20).optional(),
-  reason: z.enum(CREATOR_REFUND_REASONS, { errorMap: () => ({ message: "Elige un motivo" }) }),
+  reason: z.enum(CREATOR_REFUND_REASONS, { error: "Elige un motivo" }),
   note: z.string().trim().max(500, "El mensaje es demasiado largo (máx. 500 caracteres)").optional(),
   revoke: z.literal("on").optional(),
 });

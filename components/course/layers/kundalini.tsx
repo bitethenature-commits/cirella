@@ -5,6 +5,7 @@ import { SubtleBody } from "@/components/models/kundalini-figure";
 import type { AstroLayer } from "@/lib/lesson-blocks";
 import { C, type DiagramProps, type LayerCtx, type SystemPiece, type Tap } from "./common";
 import { NIGHT_GOLD, NightChips, NightDefs, NightPanel, STAR, usePrefix } from "./night";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Kundalini por partes: los 8 chakras, los canales, la serpiente, los tres nudos, los cierres, los 10 cuerpos
@@ -83,7 +84,7 @@ function MudraView({ k }: { k: string }) {
     const meet = { x: fingers[target].x + 9, y: 176 };
     return (
       <svg viewBox="0 0 340 300" className={svgCls} role="img" aria-label={m.name}>
-        <g fill="rgb(233 204 142 / .1)" stroke={NIGHT_GOLD} strokeWidth="1.4" strokeLinejoin="round">
+        <g fill="rgb(233 204 142 / .1)" stroke={NIGHT_GOLD} strokeWidth="1.1" strokeLinejoin="round">
           <path d="M128 176Q126 260 170 268Q218 268 222 226L222 176Z" />
           {fingers.map((f, i) =>
             i === target ? (
@@ -104,14 +105,14 @@ function MudraView({ k }: { k: string }) {
   }
   const shape: Record<string, React.ReactNode> = {
     prayer: (
-      <g fill="rgb(233 204 142 / .1)" stroke={NIGHT_GOLD} strokeWidth="1.4">
+      <g fill="rgb(233 204 142 / .1)" stroke={NIGHT_GOLD} strokeWidth="1.1">
         <path d="M168 70Q150 72 148 120L146 230Q150 250 168 252Z" />
         <path d="M172 70Q190 72 192 120L194 230Q190 250 172 252Z" />
         <circle cx="170" cy="250" r="10" fill="#F7E2AE" opacity="0.3" />
       </g>
     ),
     venus: (
-      <g fill="none" stroke={NIGHT_GOLD} strokeWidth="1.4">
+      <g fill="none" stroke={NIGHT_GOLD} strokeWidth="1.1">
         {[0, 1, 2, 3].map((i) => (
           <g key={i}>
             <path d={`M110 ${110 + i * 26}Q170 ${96 + i * 26} 230 ${118 + i * 26}`} />
@@ -123,14 +124,14 @@ function MudraView({ k }: { k: string }) {
       </g>
     ),
     bear: (
-      <g fill="rgb(233 204 142 / .1)" stroke={NIGHT_GOLD} strokeWidth="1.4">
+      <g fill="rgb(233 204 142 / .1)" stroke={NIGHT_GOLD} strokeWidth="1.1">
         <path d="M80 150Q80 120 120 120H168Q176 120 176 132V140Q176 150 166 150H150V172H120Q80 172 80 150Z" />
         <path d="M260 160Q260 190 220 190H172Q164 190 164 178V170Q164 160 174 160H190V138H220Q260 138 260 160Z" />
         <path d="M150 160H190" stroke="#F7E2AE" strokeWidth="2.4" />
       </g>
     ),
     dhyani: (
-      <g fill="rgb(233 204 142 / .1)" stroke={NIGHT_GOLD} strokeWidth="1.4">
+      <g fill="rgb(233 204 142 / .1)" stroke={NIGHT_GOLD} strokeWidth="1.1">
         <path d="M90 170Q170 260 250 170Q240 200 170 214Q100 200 90 170Z" />
         <path d="M100 176Q170 236 240 176" />
         <path d="M150 168Q170 140 190 168" fill="none" stroke="#F7E2AE" strokeWidth="2" />
@@ -193,20 +194,14 @@ function BreathView({ k }: { k: string }) {
         {nostril === "M" && <path d="M162 98Q170 92 178 98Q170 104 162 98Z" fill="#E36B5F" />}
       </g>
       <text x="140" y="80" textAnchor="end" fontSize="8" fill={STAR} fillOpacity="0.7">
-        {nostril === "M" ? "la lengua" : "izquierda"}
+        {nostril === "M" ? <Tr s={"la lengua"} /> : "izquierda"}
       </text>
       {nostril !== "M" && (
-        <text x="200" y="80" fontSize="8" fill={STAR} fillOpacity="0.7">
-          derecha
-        </text>
+        <text x="200" y="80" fontSize="8" fill={STAR} fillOpacity="0.7"><Tr s={"derecha"} /></text>
       )}
       <line x1={x0} y1={y0} x2={x0 + W} y2={y0} stroke={NIGHT_GOLD} strokeOpacity="0.25" />
-      <text x={x0} y={y0 - 56} fontSize="7.5" fill={STAR} fillOpacity="0.6">
-        aire dentro
-      </text>
-      <text x={x0} y={y0 + 62} fontSize="7.5" fill={STAR} fillOpacity="0.6">
-        aire fuera
-      </text>
+      <text x={x0} y={y0 - 56} fontSize="7.5" fill={STAR} fillOpacity="0.6"><Tr s={"aire dentro"} /></text>
+      <text x={x0} y={y0 + 62} fontSize="7.5" fill={STAR} fillOpacity="0.6"><Tr s={"aire fuera"} /></text>
       <path key={k} d={`M${pts.join("L")}`} fill="none" stroke="#F7E2AE" strokeWidth="1.8" pathLength={1} className="geo-draw" style={{ animationDuration: "2.4s" }} />
     </svg>
   );
@@ -227,9 +222,11 @@ function MantraView({ k }: { k: string }) {
         const y = 70 + row * 70;
         return (
           <g key={`${k}-${i}`} className="geo-fade" style={{ animationDelay: `${i * 0.35}s` }}>
-            <circle cx={x} cy={y} r="30" fill="rgb(233 204 142 / .08)" stroke={NIGHT_GOLD} strokeOpacity="0.6" />
-            <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={w.length > 4 ? 15 : 18} fontFamily="Georgia, serif" fill="#F7E2AE">
-              {w}
+            <circle cx={x} cy={y} r="34" fill="rgb(233 204 142 / .07)" />
+            <circle cx={x} cy={y} r="30" fill="#121214" stroke={NIGHT_GOLD} strokeOpacity="0.55" strokeWidth="0.9" />
+            <circle cx={x} cy={y} r="26" fill="none" stroke={NIGHT_GOLD} strokeOpacity="0.18" strokeWidth="0.6" />
+            <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={w.length > 4 ? 15 : 18} fontFamily="Georgia, 'Times New Roman', serif" fontStyle="italic" fill="#F7E2AE">
+              <Tr s={w} />
             </text>
           </g>
         );
@@ -239,10 +236,11 @@ function MantraView({ k }: { k: string }) {
 }
 
 function ClassView({ keys, selected, tap }: { keys: string[]; selected: string; tap: Tap }) {
+  const t = useT();
   const total = keys.reduce((a, k) => a + CLASS_PARTS[k].min, 0);
   let x = 16;
   return (
-    <svg viewBox="0 0 340 150" className={svgCls} role="group" aria-label="Una clase de Kundalini Yoga">
+    <svg viewBox="0 0 340 150" className={svgCls} role="group" aria-label={t("Una clase de Kundalini Yoga")}>
       {keys.map((k, i) => {
         const w = (CLASS_PARTS[k].min / total) * 308;
         const x1 = x;
@@ -255,67 +253,88 @@ function ClassView({ keys, selected, tap }: { keys: string[]; selected: string; 
               {i + 1}
             </text>
             <text x={x1 + w / 2} y={i % 2 ? 112 : 34} textAnchor="middle" fontSize="7.5" fill={on ? NIGHT_GOLD : STAR} fillOpacity={on ? 1 : 0.7} fontWeight={on ? 700 : 500}>
-              {CLASS_PARTS[k].name}
+              <Tr s={CLASS_PARTS[k].name} />
             </text>
           </g>
         );
       })}
-      <text x={C} y="140" textAnchor="middle" fontSize="8" fill={STAR} fillOpacity="0.55">
-        una clase de unos 60-90 minutos
-      </text>
+      <text x={C} y="140" textAnchor="middle" fontSize="8" fill={STAR} fillOpacity="0.55"><Tr s={"una clase de unos 60-90 minutos"} /></text>
     </svg>
   );
 }
 
 function BodiesRing({ p, keys, selected, tap, own }: { p: string; keys: string[]; selected: string; tap: Tap; own: Set<string> }) {
+  const t = useT();
+  const R = 126;
+  const at = (i: number, r = R) => {
+    const a = ((-90 + (i * 360) / keys.length) * Math.PI) / 180;
+    return [C + r * Math.cos(a), C + r * Math.sin(a)] as const;
+  };
+  // La estrella fina que une los once cuerpos.
+  const star = keys.map((_, i) => at((i * 4) % keys.length, R - 22));
   return (
-    <svg viewBox="0 0 340 340" className={svgCls} role="group" aria-label="Los 10 cuerpos">
-      <circle cx={C} cy={C} r="128" fill="none" stroke={NIGHT_GOLD} strokeOpacity="0.3" strokeDasharray="2 5" />
+    <svg viewBox="0 0 340 340" className={svgCls} role="group" aria-label={t("Los 10 cuerpos")}>
+      <circle cx={C} cy={C} r={R + 30} fill={`url(#${p}heart)`} />
+      <circle cx={C} cy={C} r={R} fill="none" stroke={NIGHT_GOLD} strokeOpacity="0.28" strokeWidth="0.7" />
+      <circle cx={C} cy={C} r={R - 22} fill="none" stroke={NIGHT_GOLD} strokeOpacity="0.12" strokeWidth="0.6" />
+      <path d={`M${star.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join("L")}Z`} fill="none" stroke={NIGHT_GOLD} strokeOpacity="0.14" strokeWidth="0.6" />
       {keys.map((k, i) => {
-        const a = ((-90 + (i * 360) / keys.length) * Math.PI) / 180;
-        const x = C + 128 * Math.cos(a);
-        const y = C + 128 * Math.sin(a);
+        const [x, y] = at(i);
         const on = k === selected;
         const mine = own.has(k);
         return (
           <g key={k} {...tap(k, BODIES[k].name)}>
-            {on && <circle cx={x} cy={y} r="30" fill={`url(#${p}goldglow)`} />}
-            <circle cx={x} cy={y} r="20" fill={on ? `url(#${p}gold)` : "#1A1A1D"} stroke={mine || on ? "#F7E2AE" : "rgb(233 204 142 / .4)"} strokeWidth={mine ? 2 : 1} />
-            <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize="15" fontFamily="Georgia, serif" fill={on ? "#0B0B0D" : STAR} pointerEvents="none">
-              {k}
+            {on && <circle cx={x} cy={y} r="32" fill={`url(#${p}goldglow)`} />}
+            <circle cx={x} cy={y} r="19" fill={on ? `url(#${p}gold)` : "#141416"} stroke={mine || on ? "#F7E2AE" : "rgb(233 204 142 / .4)"} strokeWidth={mine ? 1.6 : 0.9} />
+            <circle cx={x} cy={y} r="19" fill={`url(#${p}gloss)`} opacity={on ? 0.5 : 0.15} pointerEvents="none" />
+            <text x={x} y={y + 0.5} textAnchor="middle" dominantBaseline="central" fontSize="15" fontFamily="Georgia, 'Times New Roman', serif" fill={on ? "#0B0B0D" : STAR} pointerEvents="none">
+              <Tr s={k} />
             </text>
           </g>
         );
       })}
-      <text x={C} y={C - 8} textAnchor="middle" fontSize="40" fontFamily="Georgia, serif" fill={NIGHT_GOLD}>
-        {selected}
-      </text>
-      <text x={C} y={C + 22} textAnchor="middle" fontSize="9.5" fontWeight={700} letterSpacing="1" fill={STAR}>
-        {BODIES[selected]?.name.split(" · ")[1].toUpperCase()}
-      </text>
+      {BODIES[selected] && (
+        <>
+          <text x={C} y={C - 8} textAnchor="middle" fontSize="44" fontFamily="Georgia, 'Times New Roman', serif" fill={NIGHT_GOLD}>
+            <Tr s={selected} />
+          </text>
+          <text x={C} y={C + 22} textAnchor="middle" fontSize="9.5" letterSpacing="2" fill={STAR} fillOpacity="0.85">
+            {BODIES[selected].name.split(" · ")[1].toUpperCase()}
+          </text>
+        </>
+      )}
     </svg>
   );
 }
 
 function NumbersView({ c, selected, tap }: { c: LayerCtx["c"]; selected: string; tap: Tap }) {
+  const t = useT();
   const n = numsOf(c);
   const keys = Object.keys(POSITIONS);
   return (
-    <svg viewBox="0 0 340 170" className={svgCls} role="group" aria-label="Tus cinco números">
+    <svg viewBox="0 0 340 170" className={svgCls} role="group" aria-label={t("Tus cinco números")}>
+      <defs>
+        <linearGradient id="kunTile" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#F0D9A4" />
+          <stop offset="100%" stopColor="#C8A86E" />
+        </linearGradient>
+      </defs>
       {keys.map((k, i) => {
         const x = 36 + i * 67;
         const on = k === selected;
         const v = n?.[k as keyof typeof n];
         return (
           <g key={k} {...tap(k, POSITIONS[k].name)}>
-            <rect x={x - 28} y="30" width="56" height="96" rx="12" fill={on ? "#E9CC8E" : "rgb(255 255 255 / .04)"} stroke={on ? "#FFF1C8" : "rgb(233 204 142 / .4)"} />
-            <text x={x} y="50" textAnchor="middle" fontSize="7.5" fontWeight={700} letterSpacing="1" fill={on ? "#0B0B0D" : NIGHT_GOLD}>
+            {on && <rect x={x - 33} y="25" width="66" height="106" rx="16" fill="#E9CC8E" opacity="0.18" />}
+            <rect x={x - 28} y="30" width="56" height="96" rx="14" fill={on ? "url(#kunTile)" : "rgb(255 255 255 / .03)"} stroke={on ? "#FFF1C8" : "rgb(233 204 142 / .35)"} strokeWidth="0.9" />
+            <rect x={x - 24} y="34" width="48" height="88" rx="11" fill="none" stroke={on ? "#0B0B0D" : "rgb(233 204 142 / .12)"} strokeOpacity={on ? 0.25 : 1} strokeWidth="0.6" />
+            <text x={x} y="50" textAnchor="middle" fontSize="7" letterSpacing="1.4" fill={on ? "#0B0B0D" : NIGHT_GOLD}>
               {SHORT[k].toUpperCase()}
             </text>
-            <text x={x} y="88" textAnchor="middle" dominantBaseline="central" fontSize="30" fontFamily="Georgia, serif" fill={on ? "#0B0B0D" : STAR}>
+            <text x={x} y="88" textAnchor="middle" dominantBaseline="central" fontSize="30" fontFamily="Georgia, 'Times New Roman', serif" fill={on ? "#0B0B0D" : STAR}>
               {v ?? "·"}
             </text>
-            <text x={x} y="146" textAnchor="middle" fontSize="6.5" fill={STAR} fillOpacity="0.6">
+            <text x={x} y="146" textAnchor="middle" fontSize="7" fontFamily="Georgia, 'Times New Roman', serif" fontStyle="italic" fill={STAR} fillOpacity="0.65">
               {POSITIONS[k].kicker.split(" ").slice(0, 3).join(" ")}
             </text>
           </g>

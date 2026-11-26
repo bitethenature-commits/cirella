@@ -5,7 +5,7 @@ import { CreatorShell } from "@/components/creator-page/creator-shell";
 import { SiteText } from "@/components/creator-page/site-text";
 import { LegalText } from "@/components/legal-text";
 import { getCurrentUser } from "@/lib/auth";
-import { formatLegalAddress, legalIdentityComplete, taxIdLabel } from "@/lib/legal";
+import { formatLegalAddress, legalIdentityComplete, taxIdLabel, creatorLegalHref } from "@/lib/legal";
 import { getLegalSnapshot, legalIdentityOf } from "@/lib/legal-snapshot";
 import { currentLegalKind, signupsOnly } from "@/lib/commerce";
 import {
@@ -20,6 +20,9 @@ import { paymentProviderKeys } from "@/lib/payments";
 import { getPublicCreator } from "@/lib/public";
 import { isPublicUsernameAllowed } from "@/lib/personal-routing";
 import { ownerUsername } from "@/lib/site-mode";
+import { Tr } from "@/lib/i18n/client";
+import { localTx } from "@/lib/i18n/content";
+import { getT } from "@/lib/i18n/server";
 
 type Params = { username: string };
 
@@ -44,6 +47,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
  * como se aceptó (LegalSnapshotContent.personal / .sales).
  */
 export default async function CreatorLegalPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ v?: string }> }) {
+  const t = await getT();
   const { username } = await params;
   const sp = await searchParams;
   // Modo personal: solo la dueña (el layout también lo comprueba, pero la página se pinta a la vez).
@@ -67,6 +71,10 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
   const sells = kind !== "personal";
   const privacy = docs.privacy;
   const complete = legalIdentityComplete(identity);
+  // Sus textos propios, con la IA (corregibles en Traducciones); los de partida, con el diccionario.
+  const tx = await localTx(creator.id);
+  const own = new Set([creator.legalTerms, creator.legalRefunds, creator.legalPrivacy].filter((x): x is string => !!x));
+  const legal = (s: string) => (own.has(s) ? tx(s) : t(s));
 
   const rows: [string, string][] = [
     ["Titular", identity.legalName ?? ""],
@@ -88,19 +96,16 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
 
         {snapshot && (
           <p className="cp-card mt-6 px-4 py-3 text-sm">
-            <strong>{snapshot.personal && !snapshot.sales ? "Versión aceptada al apuntarte" : "Versión aceptada en tu compra"}</strong> · en vigor desde el{" "}
-            {snapshot.createdAt.toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short", timeZone: creator.timezone })}. Es la copia exacta de lo que
-            aceptaste; la versión actual puede ser distinta. <Link href={`/${username}/legal`} className="underline underline-offset-4">Ver la versión actual</Link>
+            <strong>{snapshot.personal && !snapshot.sales ? t("Versión aceptada al apuntarte") : t("Versión aceptada en tu compra")}</strong>{" "}<Tr s={"· en vigor desde el"} />{" "}
+            {snapshot.createdAt.toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short", timeZone: creator.timezone })}<Tr s={". Es la copia exacta de lo que aceptaste; la versión actual puede ser distinta."} />{" "}<Link href={`${creatorLegalHref(username)}`} className="underline underline-offset-4"><Tr s={"Ver la versión actual"} /></Link>
           </p>
         )}
 
         {!complete && (
           <div className="cp-card mt-6 px-4 py-3 text-sm">
-            <p>{personal ? "Los datos legales de esta página todavía no están completos." : "Esta creadora todavía no ha completado sus datos legales."}</p>
+            <p>{personal ? t("Los datos legales de esta página todavía no están completos.") : t("Esta creadora todavía no ha completado sus datos legales.")}</p>
             {isOwner && (
-              <Link href="/panel/ajustes/legal" className="mt-2 inline-block font-semibold underline underline-offset-4">
-                Completar mis datos legales
-              </Link>
+              <Link href="/panel/ajustes/legal" className="mt-2 inline-block font-semibold underline underline-offset-4"><Tr s={"Completar mis datos legales"} /></Link>
             )}
           </div>
         )}
@@ -114,16 +119,13 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
               <dl className="cp-card mt-4 divide-y text-sm" style={{ borderColor: "var(--c-line)" }}>
                 {rows.map(([label, value]) => (
                   <div key={label} className="flex flex-col gap-0.5 px-4 py-2.5 sm:flex-row sm:justify-between sm:gap-4" style={{ borderColor: "var(--c-line)" }}>
-                    <dt className="cp-muted">{label}</dt>
-                    <dd className="sm:text-right">{value || "Pendiente de completar"}</dd>
+                    <dt className="cp-muted"><Tr s={label} /></dt>
+                    <dd className="sm:text-right"><Tr s={value || t("Pendiente de completar")} /></dd>
                   </div>
                 ))}
               </dl>
               {!personal && (
-                <p className="cp-muted mt-3 text-sm">
-                  Plataforma: <Link href="/aviso-legal" className="underline underline-offset-4">{platformName}</Link> presta el servicio tecnológico de esta página y
-                  de los pagos; no es parte de las compras.
-                </p>
+                <p className="cp-muted mt-3 text-sm"><Tr s={"Plataforma:"} />{" "}<Link href="/legal-notice" className="underline underline-offset-4"><Tr s={platformName} /></Link>{" "}<Tr s={"presta el servicio tecnológico de esta página y de los pagos; no es parte de las compras."} /></p>
               )}
             </section>
 
@@ -134,7 +136,7 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
                 <SiteText texts={config.texts} k="pg.legal.condiciones" />
               </h2>
                   <div className="mt-4">
-                    <LegalText text={docs.terms} />
+                    <LegalText text={legal(docs.terms)} />
                   </div>
                 </section>
 
@@ -143,10 +145,10 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
                 <SiteText texts={config.texts} k="pg.legal.reembolsos" />
               </h2>
                   <div className="mt-4">
-                    <LegalText text={docs.refunds} />
+                    <LegalText text={legal(docs.refunds)} />
                   </div>
-                  <h3 className="mt-8 text-[0.95rem] font-semibold">Formulario de desistimiento</h3>
-                  <p className="cp-muted mt-1 text-sm">Puedes copiarlo y enviarlo por email. No es obligatorio usarlo.</p>
+                  <h3 className="mt-8 text-[0.95rem] font-semibold"><Tr s={"Formulario de desistimiento"} /></h3>
+                  <p className="cp-muted mt-1 text-sm"><Tr s={"Puedes copiarlo y enviarlo por email. No es obligatorio usarlo."} /></p>
                   <pre className="cp-card mt-3 whitespace-pre-wrap p-4 font-sans text-sm">{WITHDRAWAL_FORM_TEXT}</pre>
                 </section>
               </>
@@ -157,7 +159,7 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
                 <SiteText texts={config.texts} k="pg.legal.privacidad" />
               </h2>
               <div className="mt-4">
-                <LegalText text={`${privacyResponsibleLine(identity)}\n\n${privacy}`} />
+                <LegalText text={`${privacyResponsibleLine(identity)}\n\n${legal(privacy)}`} />
               </div>
             </section>
 
@@ -176,12 +178,12 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
                 <SiteText texts={config.texts} k="pg.legal.otras" />
               </h2>
                 <div className="mt-4">
-                  <LegalText text={sells ? PERSONAL_SALES_THIRD_PARTY_TEXT : PERSONAL_THIRD_PARTY_TEXT} />
+                  <LegalText text={t(sells ? PERSONAL_SALES_THIRD_PARTY_TEXT : PERSONAL_THIRD_PARTY_TEXT)} />
                 </div>
               </section>
             )}
 
-            <p className="cp-faint text-xs">{personal ? "Estos textos los publica la titular de esta página y son responsabilidad suya." : "Estos textos los publica la vendedora y son responsabilidad suya."}</p>
+            <p className="cp-faint text-xs">{personal ? t("Estos textos los publica la titular de esta página y son responsabilidad suya.") : t("Estos textos los publica la vendedora y son responsabilidad suya.")}</p>
           </div>
         )}
       </main>

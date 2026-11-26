@@ -1,5 +1,6 @@
 "use server";
 
+import { translateSoon } from "@/lib/i18n/content";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -95,12 +96,15 @@ export async function createProduct(form: FormData) {
   // pago en otra web).
   const accessMode = defaultAccessMode(siteMode(), type, hasPaymentProvider());
   const title = moon ? "Nuevo círculo de la luna" : group ? "Nuevo taller en directo" : type === "DIGITAL" ? "Nueva lectura" : titles[type];
+  // Su dirección, en inglés y sencilla (/courses/new-course…); se cambia en sus ajustes.
+  const slugs: Record<ProductType, string> = { DIGITAL: "new-product", SESSION: "new-session", COURSE: "new-course", MEMBERSHIP: "new-membership" };
+  const slugBase = moon ? "new-circle" : group ? "new-live-workshop" : type === "DIGITAL" ? "new-reading" : slugs[type];
   const product = await db.product.create({
     data: {
       creatorId: creator.id,
       type,
       title,
-      slug: await uniqueProductSlug(creator.id, title),
+      slug: await uniqueProductSlug(creator.id, slugBase),
       groupSession: group,
       moonCircle: moon,
       priceCents: 0,
@@ -167,7 +171,7 @@ const productSchema = z.object({
   accessMode: z.enum(ACCESS_MODES).optional(),
   externalUrl: z.string().trim().max(600).optional(),
   externalLabel: z.string().trim().max(EXTERNAL_LABEL_MAX, `El texto del botón admite ${EXTERNAL_LABEL_MAX} caracteres`).optional(),
-  // Cursos: método para la página /cursos. Talleres: «Círculo de la luna».
+  // Cursos: método para la página /courses. Talleres: «Círculo de la luna».
   // Uno o varios temas («ASTROLOGIA+MI_ENERGIA»).
   courseCategory: z.string().max(120).optional(),
   moonCircle: z.string().optional(),
@@ -348,7 +352,7 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
       joinLabel: String(form.get("joinLabel") ?? ""),
       pageTexts: form.get("pageTexts"),
     });
-    revalidatePath("/cuenta/membresias", "layout");
+    revalidatePath("/area/membership", "layout");
   }
   if (product.type === "SESSION" && meetingUrl !== product.meetingUrl) {
     const n = await applyProductMeetingUrl({ creatorId: creator.id, productId: product.id, previous: product.meetingUrl, next: meetingUrl });
@@ -356,6 +360,7 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
   }
   refresh(product.id);
   revalidatePath(`/${creator.username}`);
+  translateSoon(creator.id, true);
   if (notes.length) return { ok: `${d.status === "PUBLISHED" ? "Guardado y publicado." : "Guardado."} ${notes.join(" ")}` };
   // En la web personal sin cobros lo que se cobraba en la web se guarda tal cual, pero no se ve: se dice.
   if (accessMode === "PAID" && siteMode() === "personal" && !hasPaymentProvider()) {
@@ -492,9 +497,9 @@ export async function saveInclusions(_: ActionState, form: FormData): Promise<Ac
   if (picked.length) await db.productInclusion.createMany({ data: picked.map((c) => ({ creatorId: creator.id, productId: membership.id, includedProductId: c.id })) });
   refresh(membership.id);
   for (const c of picked) revalidatePath(`/panel/productos/${c.id}`);
-  revalidatePath("/cuenta/cursos");
-  revalidatePath("/cuenta/membresias");
-  revalidatePath("/[username]/comunidad", "page");
+  revalidatePath("/area/courses");
+  revalidatePath("/area/membership");
+  revalidatePath("/[username]/membership", "page");
   const courses = picked.filter((p) => p.type === "COURSE").length;
   const tiers = picked.length - courses;
   if (!picked.length) return { ok: "Guardado. Esta membresía no incluye ningún curso ni otro nivel." };
@@ -593,24 +598,12 @@ export async function saveLesson(_: LessonActionState, form: FormData): Promise<
     });
     refresh(r.productId);
     revalidatePath(`/panel/cursos/${r.productId}`, "layout");
-    revalidatePath(`/cuenta/cursos/${r.productId}`);
+    revalidatePath(`/area/courses/${r.productId}`);
     return { ok: "Lección guardada", lessonId: r.lessonId, version: r.version, warning: r.warning ?? undefined };
   } catch (e) {
     if (e instanceof LessonSaveError) return { error: e.message };
     throw e;
   }
-}
-
-/** Elimina una lección (y su progreso). Con back=curso, vuelve al programa del curso. */
-export async function deleteLesson(form: FormData) {
-  const { db } = await ctx();
-  const l = await db.lesson.findFirst({ where: { id: String(form.get("id")) } });
-  if (!l) return;
-  await guardLastDeliverable(db, l.productId, { lessons: l.published ? 1 : 0 }, "lecciones");
-  await db.lesson.deleteMany({ where: { id: l.id } });
-  refresh(l.productId);
-  revalidatePath(`/panel/cursos/${l.productId}`, "layout");
-  if (form.get("back") === "curso") redirect(`/panel/cursos/${l.productId}?leccion=eliminada`);
 }
 
 export async function moveLesson(form: FormData) {

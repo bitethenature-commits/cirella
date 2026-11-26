@@ -2,6 +2,7 @@
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { uploadFile } from "./upload-client";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /** Sube una imagen (se optimiza en el servidor) y devuelve su URL /media/…. */
 export async function uploadImage(file: File, onProgress?: (pct: number) => void): Promise<string> {
@@ -44,6 +45,7 @@ export function ImageUpload({
   /** Círculo pequeño (las burbujas de «Accesos»). */
   small?: boolean;
 }) {
+  const t = useT();
   const ownInput = useRef<HTMLInputElement>(null);
   const input = inputRef ?? ownInput;
   const [busy, setBusy] = useState(false);
@@ -65,19 +67,17 @@ export function ImageUpload({
           ) : (
             <span className="flex flex-col items-center gap-2 text-sm">
               <ImagePlus className="h-6 w-6" />
-              {label}
+              <Tr s={label} />
             </span>
           )}
           {busy && (
             <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-white/75 text-xs font-medium text-ink" aria-live="polite">
               <Loader2 className="h-6 w-6 animate-spin" />
-              {pct < 100 ? `${pct} %` : "Optimizando…"}
+              {pct < 100 ? `${pct} %` : t("Optimizando…")}
             </span>
           )}
           {value && !busy && (
-            <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent py-2 text-center text-xs font-medium text-white opacity-0 transition group-hover:opacity-100">
-              Cambiar
-            </span>
+            <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent py-2 text-center text-xs font-medium text-white opacity-0 transition group-hover:opacity-100"><Tr s={"Cambiar"} /></span>
           )}
         </button>
         {value && (
@@ -85,7 +85,7 @@ export function ImageUpload({
             type="button"
             onClick={() => onChange(null)}
             className="absolute -right-1 -top-1 grid h-7 w-7 place-items-center rounded-full border border-line bg-white text-muted shadow-soft hover:text-ink"
-            aria-label="Quitar imagen"
+            aria-label={t("Quitar imagen")}
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -114,7 +114,7 @@ export function ImageUpload({
           }
         }}
       />
-      {error && <p className="mt-2 text-center text-xs text-rose">{error}</p>}
+      {error && <p className="mt-2 text-center text-xs text-rose"><Tr s={error} /></p>}
     </div>
   );
 }

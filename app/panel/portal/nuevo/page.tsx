@@ -9,6 +9,7 @@ import { isPersonalMode } from "@/lib/site-mode";
 import { sitePageLinkTargets } from "@/lib/site-pages.server";
 import { PageHeader } from "../../ui";
 import { PortalForm } from "../portal-form";
+import { Tr } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Nuevo en el portal" };
 
@@ -21,8 +22,7 @@ export default async function NewPortalItemPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <Link href="/panel/portal" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Portal de Noticias
-      </Link>
+        <ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Portal de Noticias"} /></Link>
       <PageHeader title="Nuevo en el portal" />
       <PortalForm
         theme={theme}

@@ -12,6 +12,7 @@ import { addDaysToKey, dateKeyInTz, zonedTimeToUtc } from "@/lib/tz";
 import { VS, type DiagramProps, type LayerCtx, type SystemPiece } from "./common";
 import { MoonDefs, MoonGlobe } from "./moon";
 import { NIGHT_GOLD, NightPanel, STAR, usePrefix } from "./night";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Tu energía de hoy, por partes: «Tu semana». Siete días seguidos (desde hoy, o desde el día que elijas con
@@ -86,6 +87,7 @@ export function dayPiece(_layer: DayLayer, key: string, { c, shift }: LayerCtx):
 /* ------------------------------------------------------------ el dibujo */
 
 export function DayDiagram({ selected, keys, tap, ctx }: DiagramProps & { layer: DayLayer }) {
+  const t = useT();
   const p = usePrefix();
   const sh = ctx.shift ?? 0;
   const days = keys.map((k) => ({ k, n: sh + Number(k.slice(1)), s: skyOf(sh + Number(k.slice(1)), ctx.c) }));
@@ -97,26 +99,24 @@ export function DayDiagram({ selected, keys, tap, ctx }: DiagramProps & { layer:
   return (
     <NightPanel>
       <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5 text-[0.85rem]">
-        <button type="button" className={btn} onClick={() => ctx.setShift?.(sh - 7)} aria-label="Semana anterior">
+        <button type="button" className={btn} onClick={() => ctx.setShift?.(sh - 7)} aria-label={t("Semana anterior")}>
           «
         </button>
-        <button type="button" className={btn} onClick={() => ctx.setShift?.(sh - 1)} aria-label="Día anterior">
+        <button type="button" className={btn} onClick={() => ctx.setShift?.(sh - 1)} aria-label={t("Día anterior")}>
           ‹
         </button>
-        <span className="min-w-[9rem] text-center font-semibold tabular-nums">{label}</span>
-        <button type="button" className={btn} onClick={() => ctx.setShift?.(sh + 1)} aria-label="Día siguiente">
+        <span className="min-w-[9rem] text-center font-semibold tabular-nums"><Tr s={label} /></span>
+        <button type="button" className={btn} onClick={() => ctx.setShift?.(sh + 1)} aria-label={t("Día siguiente")}>
           ›
         </button>
-        <button type="button" className={btn} onClick={() => ctx.setShift?.(sh + 7)} aria-label="Semana siguiente">
+        <button type="button" className={btn} onClick={() => ctx.setShift?.(sh + 7)} aria-label={t("Semana siguiente")}>
           »
         </button>
         {sh !== 0 && (
-          <button type="button" className="rounded-full border border-line px-2.5 py-1 text-[0.72rem]" onClick={() => ctx.setShift?.(0)}>
-            Hoy
-          </button>
+          <button type="button" className="rounded-full border border-line px-2.5 py-1 text-[0.72rem]" onClick={() => ctx.setShift?.(0)}><Tr s={"Hoy"} /></button>
         )}
       </div>
-      <svg viewBox="0 0 340 196" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label="Tu semana">
+      <svg viewBox="0 0 340 196" className="mx-auto block h-auto w-full max-w-[46rem] select-none" role="group" aria-label={t("Tu semana")}>
         <MoonDefs p={p} />
         <defs>
           <linearGradient id={`${p}dcard`} x1="0" y1="0" x2="0.3" y2="1">
@@ -139,7 +139,7 @@ export function DayDiagram({ selected, keys, tap, ctx }: DiagramProps & { layer:
               {on && <rect x={x - W / 2 - 2} y="2" width={W + 4} height="192" rx="12" fill={`url(#${p}goldglow)`} />}
               <rect x={x - W / 2 + 2.5} y="8" width={W - 5} height="180" rx="9" fill={on ? `url(#${p}dcardOn)` : `url(#${p}dcard)`} stroke={on ? "#FFF1C8" : today ? NIGHT_GOLD : "rgb(233 204 142 / .35)"} strokeWidth={on || today ? 1.4 : 0.8} />
               <text x={x} y="24" textAnchor="middle" fontSize="7" fontWeight={700} letterSpacing="1" fill={ink} fillOpacity={on ? 1 : 0.7} pointerEvents="none">
-                {today ? "HOY" : fmt(s.at, { weekday: "short" }).replace(".", "").toUpperCase()}
+                {today ? t("HOY") : fmt(s.at, { weekday: "short" }).replace(".", "").toUpperCase()}
               </text>
               <text x={x} y="44" textAnchor="middle" fontSize="18" fontFamily="Georgia, serif" fill={on ? "#2A1E0C" : NIGHT_GOLD} pointerEvents="none">
                 {fmt(s.at, { day: "numeric" })}
@@ -149,9 +149,7 @@ export function DayDiagram({ selected, keys, tap, ctx }: DiagramProps & { layer:
                 {SIGNS[s.moonSign].glyph + VS}
               </text>
               <line x1={x - 14} y1="120" x2={x + 14} y2="120" stroke={on ? "#7A5A26" : NIGHT_GOLD} strokeOpacity="0.4" />
-              <text x={x} y="136" textAnchor="middle" fontSize="6" letterSpacing="0.6" fill={ink} fillOpacity="0.7" pointerEvents="none">
-                LLAVE
-              </text>
+              <text x={x} y="136" textAnchor="middle" fontSize="6" letterSpacing="0.6" fill={ink} fillOpacity="0.7" pointerEvents="none"><Tr s={"LLAVE"} /></text>
               <text x={x} y="150" textAnchor="middle" fontSize="13" fontFamily="Georgia, serif" fill={ink} pointerEvents="none">
                 {s.gate}
               </text>
@@ -162,8 +160,7 @@ export function DayDiagram({ selected, keys, tap, ctx }: DiagramProps & { layer:
           );
         })}
       </svg>
-      <p className="mt-1 text-center text-[0.68rem]" style={{ color: "rgb(251 246 236 / .6)" }}>
-        Luna y su signo · la llave del día (y la puerta del Sol) · {ctx.c ? "✦ tránsitos a tu carta" : "puerta.línea del Sol"}
+      <p className="mt-1 text-center text-[0.68rem]" style={{ color: "rgb(251 246 236 / .6)" }}><Tr s={"Luna y su signo · la llave del día (y la puerta del Sol) ·"} />{" "}{ctx.c ? t("✦ tránsitos a tu carta") : t("puerta.línea del Sol")}
       </p>
     </NightPanel>
   );

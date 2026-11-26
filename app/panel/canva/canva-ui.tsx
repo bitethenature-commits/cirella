@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { askText } from "@/components/ui/ask-confirm";
 import { uploadImage } from "@/components/ui/image-upload";
 import { DeviceBox, DeviceToggle, WebFrame, type Device } from "./web-frame";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Las piezas de «Mi página» (la web con todo editable encima): la barra de arriba, la web a pantalla completa (o en
@@ -56,6 +57,7 @@ export function CanvaBar({
   /** Lo que dice la barra mientras no se está publicando nada. */
   idle?: string;
 }) {
+  const t = useT();
   return (
     <div className="flex items-center gap-1 p-2 sm:gap-1.5">
       {menu}
@@ -64,22 +66,22 @@ export function CanvaBar({
       <span className="inline-flex shrink-0 items-center gap-1.5 px-1 text-xs empty:hidden" role="status">
         {state.kind === "saving" || state.kind === "pending" ? (
           <>
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> <span className="hidden sm:inline">Publicando…</span>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> <span className="hidden sm:inline"><Tr s={"Publicando…"} /></span>
           </>
         ) : state.kind === "ok" ? (
           <>
-            <Check className="h-3.5 w-3.5 text-emerald-500" /> <span className="hidden sm:inline">Publicado</span>
+            <Check className="h-3.5 w-3.5 text-emerald-500" /> <span className="hidden sm:inline"><Tr s={"Publicado"} /></span>
           </>
         ) : state.kind === "error" ? (
           <span className="inline-flex items-center gap-1.5 font-semibold text-[#d0675b]" title={`No se ha publicado: ${state.error}`}>
-            <TriangleAlert className="h-3.5 w-3.5 shrink-0" /> <span className="hidden max-w-[16rem] truncate sm:inline">No se ha publicado: {state.error}</span>
+            <TriangleAlert className="h-3.5 w-3.5 shrink-0" /> <span className="hidden max-w-[16rem] truncate sm:inline"><Tr s={"No se ha publicado:"} />{" "}<Tr s={state.error} /></span>
           </span>
         ) : (
-          <span className="hidden max-w-[20rem] opacity-70 2xl:inline">{idle}</span>
+          <span className="hidden max-w-[20rem] opacity-70 2xl:inline"><Tr s={idle} /></span>
         )}
       </span>
-      <a href={viewHref} target="_blank" rel="noopener" className="panel-nav-link inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-sm" title="Ver la web" aria-label="Ver la web">
-        <ExternalLink className="h-4 w-4" /> <span className="hidden xl:inline">Ver la web</span>
+      <a href={viewHref} target="_blank" rel="noopener" className="panel-nav-link inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-sm" title={t("Ver la web")} aria-label={t("Ver la web")}>
+        <ExternalLink className="h-4 w-4" /> <span className="hidden xl:inline"><Tr s={"Ver la web"} /></span>
       </a>
     </div>
   );
@@ -90,7 +92,7 @@ export function BarButton({ icon: Icon, label, onClick, href, active }: { icon: 
   const cls = "panel-nav-link inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-sm";
   const inner = (
     <>
-      <Icon className="h-4 w-4" /> <span className="hidden lg:inline">{label}</span>
+      <Icon className="h-4 w-4" /> <span className="hidden lg:inline"><Tr s={label} /></span>
     </>
   );
   return href ? (
@@ -212,13 +214,14 @@ export function EditText({ value, onCommit, multiline = false, placeholder }: { 
         });
       }}
     >
-      {value}
+      <Tr s={value} />
     </span>
   );
 }
 
 /** Una foto de la web con «Cambiar foto» (y «Quitar» si se puede dejar sin ella). */
 export function EditImage({ children, onChange, onFile, round = false, label, removable = false, hasImage, className = "" }: { children: ReactNode; onChange: (url: string | null) => void; /** Subir la foto a su manera (p. ej. con sus medidas). */ onFile?: (file: File) => Promise<void>; round?: boolean; label?: string; removable?: boolean; hasImage: boolean; /** Su sitio y su ancho en la web. */ className?: string }) {
+  const t = useT();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -232,14 +235,14 @@ export function EditImage({ children, onChange, onFile, round = false, label, re
           className="inline-flex items-center gap-1.5 rounded-full bg-[#0e0e10]/90 px-3 py-1.5 text-xs font-semibold text-[#f3e2b3] shadow-lg"
         >
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
-          {round ? "" : label ?? (hasImage ? "Cambiar foto" : "Añadir foto")}
+          <Tr s={round ? "" : label ?? (hasImage ? t("Cambiar foto") : t("Añadir foto"))} />
         </button>
         {removable && hasImage && (
-          <button type="button" onClick={() => onChange(null)} className="inline-flex items-center gap-1 rounded-full bg-black/70 px-2.5 py-1.5 text-xs font-semibold text-white shadow-lg" aria-label="Quitar la foto">
-            <X className="h-3.5 w-3.5" /> {round ? "" : "Quitar"}
+          <button type="button" onClick={() => onChange(null)} className="inline-flex items-center gap-1 rounded-full bg-black/70 px-2.5 py-1.5 text-xs font-semibold text-white shadow-lg" aria-label={t("Quitar la foto")}>
+            <X className="h-3.5 w-3.5" /> <Tr s={round ? "" : t("Quitar")} />
           </button>
         )}
-        {error && <span className="w-full text-center text-xs font-semibold text-[#f2a99f]">{error}</span>}
+        {error && <span className="w-full text-center text-xs font-semibold text-[#f2a99f]"><Tr s={error} /></span>}
       </span>
       <input
         ref={input}
@@ -268,19 +271,19 @@ export function EditImage({ children, onChange, onFile, round = false, label, re
 
 /** El botón para cambiar un enlace (con sus páginas y productos como sugerencias). */
 export function EditLink({ url, onChange, suggestions }: { url: string; onChange: (v: string) => void; suggestions: { value: string; label: string }[] }) {
+  const t = useT();
   return (
     <button
       type="button"
       data-canva-ui
       onClick={async (e) => {
-        const next = await askText("¿Adónde lleva?", url, { from: e.currentTarget, placeholder: "/sobre-mi o https://…", suggestions });
+        const next = await askText("¿Adónde lleva?", url, { from: e.currentTarget, placeholder: "/aboutme o https://…", suggestions });
         if (next !== null && next !== url) onChange(next);
       }}
       className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#e9cc8e]/60 bg-[#0e0e10]/85 px-2.5 py-1 text-[0.7rem] font-semibold text-[#f3e2b3] shadow"
-      title={url || "Sin enlace"}
+      title={t(url || t("Sin enlace"))}
     >
-      <Link2 className="h-3 w-3" /> Enlace
-    </button>
+      <Link2 className="h-3 w-3" />{" "}<Tr s={"Enlace"} /></button>
   );
 }
 
@@ -310,7 +313,7 @@ export function PartFrame({ label, onOpen, className, children }: { label: strin
         }}
         className="canva-part-chip absolute right-0 top-0 z-30 inline-flex -translate-y-1/2 items-center gap-1 rounded-full border border-[#e9cc8e]/50 bg-[#0e0e10]/90 px-2.5 py-1 text-[0.7rem] font-semibold text-[#f3e2b3] shadow"
       >
-        <Pencil className="h-3 w-3" /> {label}
+        <Pencil className="h-3 w-3" /> <Tr s={label} />
       </button>
       {children}
     </div>
@@ -349,6 +352,7 @@ export function CanvaSheet({
   tall?: boolean;
   children: ReactNode;
 }) {
+  const t = useT();
   useEscape(onClose);
   return (
     <aside
@@ -359,17 +363,15 @@ export function CanvaSheet({
     >
       <div className="flex items-center justify-between border-b border-line px-5 py-3">
         <p className="font-semibold">{title}</p>
-        <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand" aria-label="Cerrar">
+        <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand" aria-label={t("Cerrar")}>
           <X className="h-4 w-4" />
         </button>
       </div>
       <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">{children}</div>
       {footer === true ? (
         <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3">
-          <p className="text-xs text-muted">Se publica solo al momento.</p>
-          <button type="button" onClick={onClose} className="btn btn-primary btn-sm">
-            Listo
-          </button>
+          <p className="text-xs text-muted"><Tr s={"Se publica solo al momento."} /></p>
+          <button type="button" onClick={onClose} className="btn btn-primary btn-sm"><Tr s={"Listo"} /></button>
         </div>
       ) : footer ? (
         <div className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3 sm:px-5">{footer}</div>
@@ -383,6 +385,7 @@ export function CanvaSheet({
  * `size`: «full», casi toda la pantalla; «md», una ventana mediana.
  */
 export function CanvaOverlay({ title, onClose, size = "md", children }: { title: ReactNode; onClose: () => void; size?: "full" | "md"; children: ReactNode }) {
+  const t = useT();
   useEscape(onClose);
   return (
     <div
@@ -397,7 +400,7 @@ export function CanvaOverlay({ title, onClose, size = "md", children }: { title:
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line px-5 py-3">
           <div className="min-w-0 font-semibold">{title}</div>
-          <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full hover:bg-sand" aria-label="Cerrar">
+          <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full hover:bg-sand" aria-label={t("Cerrar")}>
             <X className="h-4 w-4" />
           </button>
         </div>

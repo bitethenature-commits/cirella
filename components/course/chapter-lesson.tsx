@@ -9,6 +9,7 @@ import { CHAPTER_GO, CHAPTER_NOW } from "./chapter-events";
 import { PieceFrame } from "./course-look";
 import { LessonBlock, type BlockContext } from "./lesson-blocks";
 import { LessonParts, type PlayerPart } from "./lesson-parts";
+import { Tr } from "@/lib/i18n/client";
 
 export type ChapterContext = {
   /** Perfil propio de la alumna en «Mi energía» (null si aún no lo ha guardado). */
@@ -114,25 +115,23 @@ export function ChapterLesson({
       {intro.length > 0 && current === 0 && <div className="mb-8">{body(intro)}</div>}
       {hasIndex ? (
         <div>
-          <p className="eyebrow">
-            Capítulo {current + 1} de {chapters.length}
+          <p className="eyebrow"><Tr s={"Capítulo"} />{" "}{current + 1}{" "}<Tr s={"de"} />{" "}{chapters.length}
           </p>
-          <h3 className="display mt-1 text-[1.9rem] leading-tight">{ch.title}</h3>
+          <h3 className="display mt-1 text-[1.9rem] leading-tight"><Tr s={ch.title} /></h3>
           <div className="mt-5" key={current}>
-            {ch.parts.length ? body(ch.parts) : <p className="text-muted">Este capítulo aún no tiene contenido.</p>}
+            {ch.parts.length ? body(ch.parts) : <p className="text-muted"><Tr s={"Este capítulo aún no tiene contenido."} /></p>}
           </div>
           <div className="mt-8 flex flex-wrap items-center gap-2 border-t border-line pt-5">
             {current > 0 && (
               <button type="button" className="btn btn-primary btn-sm" onClick={() => setCurrent(current - 1)}>
-                <ArrowLeft className="h-4 w-4" /> Cap. {current} · {chapters[current - 1].title}
+                <ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Cap."} />{" "}{current} · <Tr s={chapters[current - 1].title} />
               </button>
             )}
             {current < chapters.length - 1 && (
-              <button type="button" className="btn btn-primary btn-sm ml-auto" onClick={() => setCurrent(current + 1)}>
-                Cap. {current + 2} · {chapters[current + 1].title} <ArrowRight className="h-4 w-4" />
+              <button type="button" className="btn btn-primary btn-sm ml-auto" onClick={() => setCurrent(current + 1)}><Tr s={"Cap."} />{" "}{current + 2} · <Tr s={chapters[current + 1].title} /> <ArrowRight className="h-4 w-4" />
               </button>
             )}
-            {current === chapters.length - 1 && <p className="ml-auto text-sm text-muted">Has llegado al final de la lección ✦</p>}
+            {current === chapters.length - 1 && <p className="ml-auto text-sm text-muted"><Tr s={"Has llegado al final de la lección ✦"} /></p>}
           </div>
         </div>
       ) : (

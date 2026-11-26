@@ -166,7 +166,7 @@ test("csvCell entrecomilla los textos con «;» (fórmula escondida tras el sepa
 test("scrubEvent: quita la query de la ruta, de la URL y el referer (tokens de los enlaces)", () => {
   const e = scrubEvent({
     request: {
-      url: "https://cirella.app/auth/enlace?t=SECRETO",
+      url: "https://cirella.app/auth/link?t=SECRETO",
       query_string: "t=SECRETO",
       cookies: { a: "b" },
       data: "iban=ES00",
@@ -176,17 +176,17 @@ test("scrubEvent: quita la query de la ruta, de la URL y el referer (tokens de l
   });
   ok(!JSON.stringify(e).includes("SECRETO"), JSON.stringify(e));
   eq(e.contexts?.nextjs?.request_path, "/auth/magic");
-  eq(e.request?.url, "https://cirella.app/auth/enlace");
+  eq(e.request?.url, "https://cirella.app/auth/link");
   eq(e.request?.headers, { "user-agent": "ua" });
 });
 
 // ── Copia de los emails: sin tokens una vez enviados ──
 
 test("redactLoginTokens tacha los tokens de enlaces personales y mágicos", () => {
-  const html = `<a href="https://cirella.app/auth/enlace?t=abc_DEF-123">Ver</a> <a href="https://cirella.app/auth/magic?token=xyz-789">Entrar</a> <a href="https://cirella.app/ana">Cirella</a>`;
+  const html = `<a href="https://cirella.app/auth/link?t=abc_DEF-123">Ver</a> <a href="https://cirella.app/auth/magic?token=xyz-789">Entrar</a> <a href="https://cirella.app/ana">Cirella</a>`;
   const out = redactLoginTokens(html);
   ok(!out.includes("abc_DEF-123") && !out.includes("xyz-789"), out);
-  ok(out.includes("/auth/enlace?t=[redactado]") && out.includes("/auth/magic?token=[redactado]") && out.includes("https://cirella.app/ana"), out);
+  ok(out.includes("/auth/link?t=[redactado]") && out.includes("/auth/magic?token=[redactado]") && out.includes("https://cirella.app/ana"), out);
 });
 
 // ── Entorno: VERCEL_ENV=production manda ──

@@ -11,8 +11,11 @@ import { PageHeader } from "../ui";
 import { changePlan } from "./actions";
 import { formatDate } from "@/lib/tz";
 import { isPersonalMode } from "@/lib/site-mode";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export default async function PlanPage({ searchParams }: { searchParams: Promise<{ elegir?: string; ok?: string; error?: string }> }) {
+  const t = await getT();
   // Modo personal: sin planes (la dueña tiene el plan «Personal», sin comisión y con todo).
   if (isPersonalMode()) redirect("/panel");
   const { creator } = await requireCreator();
@@ -26,16 +29,16 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   return (
     <div>
       <PageHeader
-        title="Tu plan"
-        subtitle={<>Estás en <strong>{creator.plan.name}</strong> · {products}{creator.plan.maxProducts != null ? ` de ${creator.plan.maxProducts}` : ""} productos · comisión {(creator.plan.commissionBps / 100).toLocaleString("es-ES")} %{creator.planRenewsAt ? ` · se renueva el ${formatDate(creator.planRenewsAt, { day: "numeric", month: "long" }, creator.timezone)}` : ""}</>}
+        title={t("Tu plan")}
+        subtitle={<><Tr s={"Estás en"} />{" "}<strong>{creator.plan.name}</strong> · {products}{creator.plan.maxProducts != null ? ` de ${creator.plan.maxProducts}` : ""}{" "}<Tr s={"productos · comisión"} />{" "}{(creator.plan.commissionBps / 100).toLocaleString("es-ES")} %{creator.planRenewsAt ? ` · se renueva el ${formatDate(creator.planRenewsAt, { day: "numeric", month: "long" }, creator.timezone)}` : ""}</>}
       />
       <Flash ok={sp.ok} error={sp.error} />
       {(creator.creditCents > 0 || discountActive) && (
         <div className="mb-6 flex items-center gap-3 rounded-2xl border border-gold/40 bg-gold-soft/40 p-4 text-sm">
           <Gift className="h-5 w-5 text-gold" />
           <span>
-            {creator.creditCents > 0 && <>Tienes <strong>{formatMoney(creator.creditCents, "EUR", { decimals: true })}</strong> de crédito por referidos. </>}
-            {discountActive && <>Comisión reducida en {(creator.commissionDiscountBps / 100).toLocaleString("es-ES")} puntos hasta el {(creator.commissionDiscountUntil ? formatDate(creator.commissionDiscountUntil, { day: "numeric", month: "numeric", year: "numeric" }, creator.timezone) : undefined)}.</>}
+            {creator.creditCents > 0 && <><Tr s={"Tienes"} />{" "}<strong>{formatMoney(creator.creditCents, "EUR", { decimals: true })}</strong>{" "}<Tr s={"de crédito por referidos."} />{" "}</>}
+            {discountActive && <><Tr s={"Comisión reducida en"} />{" "}{(creator.commissionDiscountBps / 100).toLocaleString("es-ES")}{" "}<Tr s={"puntos hasta el"} />{" "}{(creator.commissionDiscountUntil ? formatDate(creator.commissionDiscountUntil, { day: "numeric", month: "numeric", year: "numeric" }, creator.timezone) : undefined)}.</>}
           </span>
         </div>
       )}
@@ -45,19 +48,19 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           const suggested = sp.elegir === p.key && !current;
           return (
             <div key={p.id} className={`relative flex flex-col rounded-3xl border p-6 ${current ? "border-ink bg-ink text-cream" : suggested ? "border-lavender-deep bg-white ring-2 ring-lavender-deep/30" : "border-line bg-white"}`}>
-              {current && <span className="absolute -top-3 left-6 rounded-full bg-gold px-3 py-1 text-xs font-semibold text-ink">Tu plan</span>}
+              {current && <span className="absolute -top-3 left-6 rounded-full bg-gold px-3 py-1 text-xs font-semibold text-ink"><Tr s={"Tu plan"} /></span>}
               <p className="display text-3xl">{p.name}</p>
-              <p className={`text-sm ${current ? "text-cream/60" : "text-muted"}`}>{p.tagline}</p>
-              <p className="mt-5 text-3xl font-semibold tracking-tight">{formatMoney(p.priceMonthlyCents)}<span className={`text-base font-normal ${current ? "text-cream/60" : "text-muted"}`}>/mes</span></p>
+              <p className={`text-sm ${current ? "text-cream/60" : "text-muted"}`}><Tr s={p.tagline} /></p>
+              <p className="mt-5 text-3xl font-semibold tracking-tight">{formatMoney(p.priceMonthlyCents)}<span className={`text-base font-normal ${current ? "text-cream/60" : "text-muted"}`}><Tr s={"/mes"} /></span></p>
               <ul className="mt-5 flex-1 space-y-2 text-sm">
                 {planBullets(p).map((b) => (
-                  <li key={b} className="flex gap-2"><Check className={`mt-0.5 h-4 w-4 shrink-0 ${current ? "text-gold" : "text-sage"}`} />{b}</li>
+                  <li key={b} className="flex gap-2"><Check className={`mt-0.5 h-4 w-4 shrink-0 ${current ? "text-gold" : "text-sage"}`} /><Tr s={b} /></li>
                 ))}
               </ul>
               {!current && (
                 <form action={changePlan} className="mt-6">
                   <input type="hidden" name="plan" value={p.key} />
-                  <SubmitButton className={`btn w-full ${suggested ? "btn-primary" : "btn-outline"}`} pendingLabel="Procesando…">
+                  <SubmitButton className={`btn w-full ${suggested ? "btn-primary" : "btn-outline"}`} pendingLabel={t("Procesando…")}>
                     {p.sortOrder > creator.plan.sortOrder ? `Mejorar a ${p.name}` : `Cambiar a ${p.name}`}
                   </SubmitButton>
                 </form>
@@ -66,7 +69,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           );
         })}
       </div>
-      <p className="mt-4 text-xs text-muted">Pago de la suscripción simulado en esta demo. Si cambias a un plan con menos funciones, tus productos se conservan: los que no estén incluidos se ocultan de tu página hasta que vuelvas a mejorar.</p>
+      <p className="mt-4 text-xs text-muted"><Tr s={"Pago de la suscripción simulado en esta demo. Si cambias a un plan con menos funciones, tus productos se conservan: los que no estén incluidos se ocultan de tu página hasta que vuelvas a mejorar."} /></p>
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getContentTranslator } from "@/lib/i18n/content";
+import { getLocale } from "@/lib/i18n/server";
 import { maskEmail } from "@/lib/auth-utils";
 import { prisma } from "@/lib/db";
 import { isPublicUsernameAllowed } from "@/lib/personal-routing";

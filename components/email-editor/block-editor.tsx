@@ -22,6 +22,7 @@ import { normalizeLinkInput } from "@/lib/rich-text-edit";
 import { videoEmbed } from "@/lib/video-embed";
 import { ColorField } from "./color-field";
 import { FontSelect, Segmented } from "./style-panel";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Los ajustes de un bloque del email (colores, tamaños, enlaces, fotos, vídeo…). Los usa el editor
@@ -63,7 +64,7 @@ function LinkInput({ id, value, onChange, placeholder }: { id: string; value: st
         }}
         aria-invalid={!!error}
       />
-      {error && <p className="mt-1 text-xs text-rose" role="alert">{error}</p>}
+      {error && <p className="mt-1 text-xs text-rose" role="alert"><Tr s={error} /></p>}
     </div>
   );
 }
@@ -73,7 +74,7 @@ function More({ children, label = "Colores y letra" }: { children: React.ReactNo
   return (
     <details className="group rounded-xl border border-line bg-paper/60 px-3 py-1">
       <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-xs font-semibold text-muted [&::-webkit-details-marker]:hidden">
-        <Sparkles className="h-3.5 w-3.5" /> {label}
+        <Sparkles className="h-3.5 w-3.5" /> <Tr s={label} />
         <span className="ml-auto transition group-open:rotate-180">▾</span>
       </summary>
       <div className="space-y-3 pb-3 pt-1">{children}</div>
@@ -82,16 +83,17 @@ function More({ children, label = "Colores y letra" }: { children: React.ReactNo
 }
 
 function AlignPicker({ value, onChange, three = true }: { value: Align; onChange: (v: Align) => void; three?: boolean }) {
+  const t = useT();
   const options: { v: Align; label: string }[] = [
     { v: "left", label: "Izquierda" },
     { v: "center", label: "Centrado" },
     ...(three ? [{ v: "right" as const, label: "Derecha" }] : []),
   ];
   return (
-    <div className="inline-flex rounded-full bg-sand p-1 text-xs" role="group" aria-label="Alineación">
+    <div className="inline-flex rounded-full bg-sand p-1 text-xs" role="group" aria-label={t("Alineación")}>
       {options.map((a) => (
         <button key={a.v} type="button" onClick={() => onChange(a.v)} className={`min-h-8 rounded-full px-3 py-1.5 font-medium ${value === a.v ? "bg-white shadow-soft" : "text-muted"}`} aria-pressed={value === a.v}>
-          {a.label}
+          <Tr s={a.label} />
         </button>
       ))}
     </div>
@@ -106,17 +108,18 @@ type FieldProps<T extends EmailBlockType> = {
 };
 
 function BlockFields(p: { block: EmailBlock; style: EmailStyle; palette: string[]; videoUploads: boolean; onChange: (patch: Partial<EmailBlock>) => void }) {
+  const t = useT();
   const { block: b, style, palette, onChange } = p;
   const fid = `blk-${b.id}`;
   switch (b.t) {
     case "title":
       return (
         <div className="space-y-2">
-          <input id={fid} aria-label="Título" className="input text-base" maxLength={140} value={b.text} placeholder="Hola, {nombre}" onChange={(e) => onChange({ text: e.target.value })} />
+          <input id={fid} aria-label={t("Título")} className="input text-base" maxLength={140} value={b.text} placeholder={t("Hola, {nombre}")} onChange={(e) => onChange({ text: e.target.value })} />
           <AlignPicker value={b.align} onChange={(align) => onChange({ align })} />
           <More>
             <Segmented
-              label="Tamaño"
+              label={t("Tamaño")}
               value={b.size ?? "m"}
               options={[
                 { v: "s", label: "S" },
@@ -126,20 +129,20 @@ function BlockFields(p: { block: EmailBlock; style: EmailStyle; palette: string[
               ]}
               onChange={(size) => onChange({ size })}
             />
-            <ColorField label="Color del título" value={b.color} fallback={style.heading} palette={palette} against={b.bg ?? style.content} large clearable onChange={(color) => onChange({ color })} />
-            <ColorField label="Fondo del título" value={b.bg} fallback={style.content} palette={palette} clearable onChange={(bg) => onChange({ bg })} />
-            <FontSelect label="Tipo de letra" value={b.font} allowDefault="El de los títulos" onChange={(font) => onChange({ font })} />
+            <ColorField label={t("Color del título")} value={b.color} fallback={style.heading} palette={palette} against={b.bg ?? style.content} large clearable onChange={(color) => onChange({ color })} />
+            <ColorField label={t("Fondo del título")} value={b.bg} fallback={style.content} palette={palette} clearable onChange={(bg) => onChange({ bg })} />
+            <FontSelect label={t("Tipo de letra")} value={b.font} allowDefault="El de los títulos" onChange={(font) => onChange({ font })} />
           </More>
         </div>
       );
     case "text":
       return (
         <div className="space-y-2">
-          <RichTextEditor ariaLabel="Texto" value={b.body} initialFormat="MD" onChange={(body) => onChange({ body })} maxLength={EMAIL_TEXT_MAX} tools="basic" headings highlight preview={false} rows={4} placeholder="Escribe aquí…" />
+          <RichTextEditor ariaLabel="Texto" value={b.body} initialFormat="MD" onChange={(body) => onChange({ body })} maxLength={EMAIL_TEXT_MAX} tools="basic" headings highlight preview={false} rows={4} placeholder={t("Escribe aquí…")} />
           <More>
             <AlignPicker value={b.align ?? "left"} onChange={(align) => onChange({ align })} />
             <Segmented
-              label="Tamaño de la letra"
+              label={t("Tamaño de la letra")}
               value={b.size ?? "m"}
               options={[
                 { v: "s", label: "Pequeña" },
@@ -148,10 +151,10 @@ function BlockFields(p: { block: EmailBlock; style: EmailStyle; palette: string[
               ]}
               onChange={(size) => onChange({ size: size === "m" ? undefined : size })}
             />
-            <ColorField label="Color de la letra" value={b.color} fallback={style.text} palette={palette} against={b.band ?? style.content} clearable onChange={(color) => onChange({ color })} />
-            <FontSelect label="Tipo de letra" value={b.font} allowDefault="La del texto" onChange={(font) => onChange({ font })} />
-            <ColorField label="Color del resaltado" value={b.highlight} fallback={DEFAULT_HIGHLIGHT} palette={[DEFAULT_HIGHLIGHT, "#F9D9E3", "#DDF2E3", "#E4DEFA", ...palette]} against={b.color ?? style.text} clearable onChange={(highlight) => onChange({ highlight })} />
-            <p className="text-xs text-muted">Para resaltar unas palabras, selecciónalas y pulsa «Resaltar» (o escríbelas entre ==así==).</p>
+            <ColorField label={t("Color de la letra")} value={b.color} fallback={style.text} palette={palette} against={b.band ?? style.content} clearable onChange={(color) => onChange({ color })} />
+            <FontSelect label={t("Tipo de letra")} value={b.font} allowDefault="La del texto" onChange={(font) => onChange({ font })} />
+            <ColorField label={t("Color del resaltado")} value={b.highlight} fallback={DEFAULT_HIGHLIGHT} palette={[DEFAULT_HIGHLIGHT, "#F9D9E3", "#DDF2E3", "#E4DEFA", ...palette]} against={b.color ?? style.text} clearable onChange={(highlight) => onChange({ highlight })} />
+            <p className="text-xs text-muted"><Tr s={"Para resaltar unas palabras, selecciónalas y pulsa «Resaltar» (o escríbelas entre ==así==)."} /></p>
             <BandFields block={b} style={style} palette={palette} onChange={onChange} />
           </More>
         </div>
@@ -164,7 +167,7 @@ function BlockFields(p: { block: EmailBlock; style: EmailStyle; palette: string[
       return (
         <div className="space-y-2">
           <Segmented
-            label="Estilo"
+            label={t("Estilo")}
             value={b.style ?? "line"}
             options={[
               { v: "line", label: "Línea" },
@@ -173,15 +176,15 @@ function BlockFields(p: { block: EmailBlock; style: EmailStyle; palette: string[
             ]}
             onChange={(s) => onChange({ style: s === "line" ? undefined : s })}
           />
-          <ColorField label="Color del separador" value={b.color} fallback={b.style === "stars" ? style.accent : "#E9E2D3"} palette={palette} clearable onChange={(color) => onChange({ color })} />
+          <ColorField label={t("Color del separador")} value={b.color} fallback={b.style === "stars" ? style.accent : "#E9E2D3"} palette={palette} clearable onChange={(color) => onChange({ color })} />
         </div>
       );
     case "spacer":
       return (
-        <select aria-label="Tamaño del espacio" className="input h-11 text-base sm:text-sm" value={b.size} onChange={(e) => onChange({ size: e.target.value as "s" | "m" | "l" })}>
-          <option value="s">Pequeño</option>
-          <option value="m">Mediano</option>
-          <option value="l">Grande</option>
+        <select aria-label={t("Tamaño del espacio")} className="input h-11 text-base sm:text-sm" value={b.size} onChange={(e) => onChange({ size: e.target.value as "s" | "m" | "l" })}>
+          <option value="s"><Tr s={"Pequeño"} /></option>
+          <option value="m"><Tr s={"Mediano"} /></option>
+          <option value="l"><Tr s={"Grande"} /></option>
         </select>
       );
     case "hero":
@@ -199,6 +202,7 @@ function BlockFields(p: { block: EmailBlock; style: EmailStyle; palette: string[
 
 /** Botón grande para subir una imagen del email (JPEG/PNG para que la vean todos los buzones). */
 function ImagePicker({ value, onChange, label, testId, narrow, onUploaded }: { value: string; onChange: (url: string) => void; label: string; testId: string; narrow?: boolean; onUploaded?: (url: string) => Promise<string | null> }) {
+  const t = useT();
   const input = useRef<HTMLInputElement>(null);
   const [pct, setPct] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -214,12 +218,12 @@ function ImagePicker({ value, onChange, label, testId, narrow, onUploaded }: { v
           <img src={value} alt="" className={`h-auto ${narrow ? "max-w-[320px]" : "w-full"}`} />
         ) : (
           <span className="flex flex-col items-center gap-1.5 py-6">
-            <ImagePlus className="h-6 w-6" /> {label}
+            <ImagePlus className="h-6 w-6" /> <Tr s={label} />
           </span>
         )}
         {pct !== null && (
           <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-white/80 text-xs font-medium text-ink" aria-live="polite">
-            <Loader2 className="h-5 w-5 animate-spin" /> {pct < 100 ? `${pct} %` : "Optimizando…"}
+            <Loader2 className="h-5 w-5 animate-spin" /> {pct < 100 ? `${pct} %` : t("Optimizando…")}
           </span>
         )}
       </button>
@@ -228,7 +232,7 @@ function ImagePicker({ value, onChange, label, testId, narrow, onUploaded }: { v
         type="file"
         accept={RICH_IMAGE_ACCEPT}
         className="hidden"
-        aria-label={label}
+        aria-label={t(label)}
         data-testid={testId}
         onChange={async (e) => {
           const f = e.target.files?.[0];
@@ -249,38 +253,39 @@ function ImagePicker({ value, onChange, label, testId, narrow, onUploaded }: { v
           }
         }}
       />
-      {error && <p className="text-xs text-rose" role="alert">{error}</p>}
+      {error && <p className="text-xs text-rose" role="alert"><Tr s={error} /></p>}
     </div>
   );
 }
 
 function ImageFields({ block: b, style, palette, onChange }: FieldProps<"image">) {
+  const t = useT();
   const fid = `blk-${b.id}`;
   return (
     <div className="space-y-2">
-      <ImagePicker value={b.url} onChange={(url) => onChange({ url })} label="Imagen" testId={`${fid}-file`} narrow={b.width === "narrow"} />
+      <ImagePicker value={b.url} onChange={(url) => onChange({ url })} label={t("Imagen")} testId={`${fid}-file`} narrow={b.width === "narrow"} />
       <div className="grid gap-2 sm:grid-cols-2">
         <div>
-          <label className="field-label" htmlFor={`${fid}-alt`}>Qué se ve (texto alternativo)</label>
-          <input id={`${fid}-alt`} className="input text-base sm:text-sm" maxLength={200} value={b.alt} placeholder="Luna llena sobre el mar" onChange={(e) => onChange({ alt: e.target.value })} />
+          <label className="field-label" htmlFor={`${fid}-alt`}><Tr s={"Qué se ve (texto alternativo)"} /></label>
+          <input id={`${fid}-alt`} className="input text-base sm:text-sm" maxLength={200} value={b.alt} placeholder={t("Luna llena sobre el mar")} onChange={(e) => onChange({ alt: e.target.value })} />
         </div>
         <div>
-          <label className="field-label" htmlFor={`${fid}-href`}>Enlace al pulsarla (opcional)</label>
+          <label className="field-label" htmlFor={`${fid}-href`}><Tr s={"Enlace al pulsarla (opcional)"} /></label>
           <LinkInput id={`${fid}-href`} value={b.href ?? ""} onChange={(href) => onChange({ href: href || undefined })} placeholder="/mi-curso o https://…" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <select aria-label="Ancho de la imagen" className="input h-11 text-base sm:text-sm" value={b.width} onChange={(e) => onChange({ width: e.target.value as "full" | "narrow" })}>
-          <option value="full">Todo el ancho</option>
-          <option value="narrow">Más pequeña, centrada</option>
+        <select aria-label={t("Ancho de la imagen")} className="input h-11 text-base sm:text-sm" value={b.width} onChange={(e) => onChange({ width: e.target.value as "full" | "narrow" })}>
+          <option value="full"><Tr s={"Todo el ancho"} /></option>
+          <option value="narrow"><Tr s={"Más pequeña, centrada"} /></option>
         </select>
-        <select aria-label="Esquinas de la imagen" className="input h-11 text-base sm:text-sm" value={b.radius ?? "l"} onChange={(e) => onChange({ radius: e.target.value === "l" ? undefined : (e.target.value as "none" | "s") })}>
-          <option value="l">Esquinas redondeadas</option>
-          <option value="s">Un poco redondeadas</option>
-          <option value="none">Esquinas rectas</option>
+        <select aria-label={t("Esquinas de la imagen")} className="input h-11 text-base sm:text-sm" value={b.radius ?? "l"} onChange={(e) => onChange({ radius: e.target.value === "l" ? undefined : (e.target.value as "none" | "s") })}>
+          <option value="l"><Tr s={"Esquinas redondeadas"} /></option>
+          <option value="s"><Tr s={"Un poco redondeadas"} /></option>
+          <option value="none"><Tr s={"Esquinas rectas"} /></option>
         </select>
       </div>
-      <More label="Fondo">
+      <More label={t("Fondo")}>
         <BandFields block={b} style={style} palette={palette} onChange={onChange} />
       </More>
     </div>
@@ -288,23 +293,24 @@ function ImageFields({ block: b, style, palette, onChange }: FieldProps<"image">
 }
 
 function ButtonFields({ block: b, style, palette, onChange }: FieldProps<"button">) {
+  const t = useT();
   const fid = `blk-${b.id}`;
   return (
     <div className="space-y-2">
       <div className="grid gap-2 sm:grid-cols-2">
         <div>
-          <label className="field-label" htmlFor={`${fid}-label`}>Texto del botón</label>
-          <input id={`${fid}-label`} className="input text-base sm:text-sm" maxLength={40} value={b.label} placeholder="Reservar mi lectura" onChange={(e) => onChange({ label: e.target.value })} />
+          <label className="field-label" htmlFor={`${fid}-label`}><Tr s={"Texto del botón"} /></label>
+          <input id={`${fid}-label`} className="input text-base sm:text-sm" maxLength={40} value={b.label} placeholder={t("Reservar mi lectura")} onChange={(e) => onChange({ label: e.target.value })} />
         </div>
         <div>
-          <label className="field-label" htmlFor={`${fid}-href`}>Enlace</label>
+          <label className="field-label" htmlFor={`${fid}-href`}><Tr s={"Enlace"} /></label>
           <LinkInput id={`${fid}-href`} value={b.href} onChange={(href) => onChange({ href })} placeholder="/mi-curso o https://…" />
         </div>
       </div>
       <AlignPicker value={b.align} onChange={(align) => onChange({ align })} />
-      <More label="Forma y colores">
+      <More label={t("Forma y colores")}>
         <Segmented
-          label="Forma"
+          label={t("Forma")}
           value={b.style ?? "pill"}
           options={[
             { v: "pill", label: "Redondo" },
@@ -314,12 +320,11 @@ function ButtonFields({ block: b, style, palette, onChange }: FieldProps<"button
           onChange={(s) => onChange({ style: s === "pill" ? undefined : s })}
         />
         <label className="flex min-h-11 items-center gap-2 text-sm">
-          <input type="checkbox" className="h-5 w-5" checked={!!b.full} onChange={(e) => onChange({ full: e.target.checked || undefined })} /> Todo el ancho
-        </label>
-        <ColorField label="Color del botón" value={b.bg} fallback={style.accent} palette={palette} clearable onChange={(bg) => onChange({ bg })} />
-        <BandFields block={b} style={style} palette={palette} onChange={onChange} label="Fondo detrás del botón" />
+          <input type="checkbox" className="h-5 w-5" checked={!!b.full} onChange={(e) => onChange({ full: e.target.checked || undefined })} />{" "}<Tr s={"Todo el ancho"} /></label>
+        <ColorField label={t("Color del botón")} value={b.bg} fallback={style.accent} palette={palette} clearable onChange={(bg) => onChange({ bg })} />
+        <BandFields block={b} style={style} palette={palette} onChange={onChange} label={t("Fondo detrás del botón")} />
         <ColorField
-          label="Color de la letra del botón"
+          label={t("Color de la letra del botón")}
           value={b.color}
           fallback={b.style === "outline" ? (b.bg ?? style.accent) : "#FFFFFF"}
           palette={palette}
@@ -333,48 +338,49 @@ function ButtonFields({ block: b, style, palette, onChange }: FieldProps<"button
 }
 
 function HeroFields({ block: b, style, palette, onChange }: FieldProps<"hero">) {
+  const t = useT();
   const fid = `blk-${b.id}`;
   return (
     <div className="space-y-3">
-      <ImagePicker value={b.image} onChange={(image) => onChange({ image })} label="Foto de fondo" testId={`${fid}-file`} />
+      <ImagePicker value={b.image} onChange={(image) => onChange({ image })} label={t("Foto de fondo")} testId={`${fid}-file`} />
       {b.image && (
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange({ image: "" })}>Quitar la foto (solo color)</button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange({ image: "" })}><Tr s={"Quitar la foto (solo color)"} /></button>
       )}
       <div>
-        <label className="field-label" htmlFor={`${fid}-title`}>Título de la portada</label>
-        <input id={`${fid}-title`} className="input text-base" maxLength={120} value={b.title} placeholder="Luna llena en Tauro" onChange={(e) => onChange({ title: e.target.value })} />
+        <label className="field-label" htmlFor={`${fid}-title`}><Tr s={"Título de la portada"} /></label>
+        <input id={`${fid}-title`} className="input text-base" maxLength={120} value={b.title} placeholder={t("Luna llena en Tauro")} onChange={(e) => onChange({ title: e.target.value })} />
       </div>
       <div>
-        <label className="field-label" htmlFor={`${fid}-sub`}>Subtítulo</label>
-        <input id={`${fid}-sub`} className="input text-base sm:text-sm" maxLength={240} value={b.subtitle} placeholder="Lo que trae y cómo aprovecharla" onChange={(e) => onChange({ subtitle: e.target.value })} />
+        <label className="field-label" htmlFor={`${fid}-sub`}><Tr s={"Subtítulo"} /></label>
+        <input id={`${fid}-sub`} className="input text-base sm:text-sm" maxLength={240} value={b.subtitle} placeholder={t("Lo que trae y cómo aprovecharla")} onChange={(e) => onChange({ subtitle: e.target.value })} />
       </div>
       {b.image && (
         <div>
-          <label className="field-label" htmlFor={`${fid}-alt`}>Qué se ve en la foto (texto alternativo)</label>
-          <input id={`${fid}-alt`} className="input text-base sm:text-sm" maxLength={200} value={b.alt} placeholder="El mar al atardecer" onChange={(e) => onChange({ alt: e.target.value })} />
+          <label className="field-label" htmlFor={`${fid}-alt`}><Tr s={"Qué se ve en la foto (texto alternativo)"} /></label>
+          <input id={`${fid}-alt`} className="input text-base sm:text-sm" maxLength={200} value={b.alt} placeholder={t("El mar al atardecer")} onChange={(e) => onChange({ alt: e.target.value })} />
         </div>
       )}
       <div className="grid gap-2 sm:grid-cols-2">
         <div>
-          <label className="field-label" htmlFor={`${fid}-blabel`}>Botón de la portada (opcional)</label>
-          <input id={`${fid}-blabel`} className="input text-base sm:text-sm" maxLength={40} value={b.buttonLabel ?? ""} placeholder="Reservar mi lectura" onChange={(e) => onChange({ buttonLabel: e.target.value || undefined })} />
+          <label className="field-label" htmlFor={`${fid}-blabel`}><Tr s={"Botón de la portada (opcional)"} /></label>
+          <input id={`${fid}-blabel`} className="input text-base sm:text-sm" maxLength={40} value={b.buttonLabel ?? ""} placeholder={t("Reservar mi lectura")} onChange={(e) => onChange({ buttonLabel: e.target.value || undefined })} />
         </div>
         <div>
-          <label className="field-label" htmlFor={`${fid}-bhref`}>Enlace del botón de la portada</label>
+          <label className="field-label" htmlFor={`${fid}-bhref`}><Tr s={"Enlace del botón de la portada"} /></label>
           <LinkInput id={`${fid}-bhref`} value={b.buttonHref ?? ""} onChange={(v) => onChange({ buttonHref: v || undefined })} placeholder="/mi-curso o https://…" />
         </div>
       </div>
-      <More label="Colores, tamaño y letra">
-        <ColorField label="Color de la capa (y de reserva)" value={b.overlay} fallback={style.accent} palette={palette} onChange={(overlay) => onChange({ overlay: overlay ?? style.accent })} />
+      <More label={t("Colores, tamaño y letra")}>
+        <ColorField label={t("Color de la capa (y de reserva)")} value={b.overlay} fallback={style.accent} palette={palette} onChange={(overlay) => onChange({ overlay: overlay ?? style.accent })} />
         {b.image && (
           <label className="block text-sm">
-            <span className="field-label">Oscurecer la foto: {b.opacity} %</span>
-            <input type="range" min={0} max={90} step={5} value={b.opacity} onChange={(e) => onChange({ opacity: Number(e.target.value) })} className="w-full" aria-label="Opacidad de la capa" />
+            <span className="field-label"><Tr s={"Oscurecer la foto:"} />{" "}{b.opacity} %</span>
+            <input type="range" min={0} max={90} step={5} value={b.opacity} onChange={(e) => onChange({ opacity: Number(e.target.value) })} className="w-full" aria-label={t("Opacidad de la capa")} />
           </label>
         )}
-        <ColorField label="Color del texto de la portada" value={b.color} fallback="#FFFFFF" palette={palette} against={b.overlay} large onChange={(color) => onChange({ color: color ?? "#FFFFFF" })} />
+        <ColorField label={t("Color del texto de la portada")} value={b.color} fallback="#FFFFFF" palette={palette} against={b.overlay} large onChange={(color) => onChange({ color: color ?? "#FFFFFF" })} />
         <Segmented
-          label="Alto"
+          label={t("Alto")}
           value={b.height}
           options={[
             { v: "s", label: "Bajo" },
@@ -384,14 +390,14 @@ function HeroFields({ block: b, style, palette, onChange }: FieldProps<"hero">) 
           onChange={(height) => onChange({ height })}
         />
         <AlignPicker value={b.align} three={false} onChange={(align) => onChange({ align: align === "right" ? "center" : align })} />
-        <FontSelect label="Tipo de letra del título" value={b.font} allowDefault="El de los títulos" onChange={(font) => onChange({ font })} />
+        <FontSelect label={t("Tipo de letra del título")} value={b.font} allowDefault="El de los títulos" onChange={(font) => onChange({ font })} />
         {b.buttonLabel && (
           <>
-            <ColorField label="Color del botón de la portada" value={b.buttonBg} fallback={b.color} palette={palette} clearable onChange={(buttonBg) => onChange({ buttonBg })} />
-            <ColorField label="Letra del botón de la portada" value={b.buttonColor} fallback={b.overlay} palette={palette} against={b.buttonBg ?? b.color} clearable onChange={(buttonColor) => onChange({ buttonColor })} />
+            <ColorField label={t("Color del botón de la portada")} value={b.buttonBg} fallback={b.color} palette={palette} clearable onChange={(buttonBg) => onChange({ buttonBg })} />
+            <ColorField label={t("Letra del botón de la portada")} value={b.buttonColor} fallback={b.overlay} palette={palette} against={b.buttonBg ?? b.color} clearable onChange={(buttonColor) => onChange({ buttonColor })} />
           </>
         )}
-        <p className="text-xs text-muted">Si un buzón no enseña la foto (Outlook a veces), sale el color de la capa: elige uno con el que se lea el texto.</p>
+        <p className="text-xs text-muted"><Tr s={"Si un buzón no enseña la foto (Outlook a veces), sale el color de la capa: elige uno con el que se lea el texto."} /></p>
       </More>
     </div>
   );
@@ -400,26 +406,25 @@ function HeroFields({ block: b, style, palette, onChange }: FieldProps<"hero">) 
 const ICONS = ["✨", "🌕", "🌙", "☾", "★", "💜", "📅", "🎁", "🔮", "🌿"];
 
 function SpotlightFields({ block: b, style, palette, onChange }: FieldProps<"spotlight">) {
+  const t = useT();
   const fid = `blk-${b.id}`;
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Icono">
+      <div className="flex flex-wrap items-center gap-1" role="group" aria-label={t("Icono")}>
         {ICONS.map((ic) => (
           <button key={ic} type="button" aria-pressed={b.icon === ic} onClick={() => onChange({ icon: ic })} className={`grid h-10 w-10 place-items-center rounded-xl text-lg ${b.icon === ic ? "bg-white shadow-soft ring-1 ring-ink" : "hover:bg-sand"}`}>
-            {ic}
+            <Tr s={ic} />
           </button>
         ))}
-        <button type="button" aria-pressed={!b.icon} onClick={() => onChange({ icon: "" })} className={`h-10 rounded-xl px-3 text-xs ${!b.icon ? "bg-white shadow-soft ring-1 ring-ink" : "text-muted hover:bg-sand"}`}>
-          Sin icono
-        </button>
+        <button type="button" aria-pressed={!b.icon} onClick={() => onChange({ icon: "" })} className={`h-10 rounded-xl px-3 text-xs ${!b.icon ? "bg-white shadow-soft ring-1 ring-ink" : "text-muted hover:bg-sand"}`}><Tr s={"Sin icono"} /></button>
       </div>
       <div>
-        <label className="field-label" htmlFor={`${fid}-title`}>Título del destacado</label>
-        <input id={`${fid}-title`} className="input text-base" maxLength={120} value={b.title} placeholder="Ritual de esta semana" onChange={(e) => onChange({ title: e.target.value })} />
+        <label className="field-label" htmlFor={`${fid}-title`}><Tr s={"Título del destacado"} /></label>
+        <input id={`${fid}-title`} className="input text-base" maxLength={120} value={b.title} placeholder={t("Ritual de esta semana")} onChange={(e) => onChange({ title: e.target.value })} />
       </div>
-      <RichTextEditor ariaLabel="Texto del destacado" value={b.body} initialFormat="MD" onChange={(body) => onChange({ body })} maxLength={2000} tools="basic" preview={false} rows={3} placeholder="Lo que quieres que no se pierda…" />
+      <RichTextEditor ariaLabel="Texto del destacado" value={b.body} initialFormat="MD" onChange={(body) => onChange({ body })} maxLength={2000} tools="basic" preview={false} rows={3} placeholder={t("Lo que quieres que no se pierda…")} />
       <Segmented
-        label="Borde"
+        label={t("Borde")}
         value={b.border}
         options={[
           { v: "left", label: "Línea a la izquierda" },
@@ -428,16 +433,17 @@ function SpotlightFields({ block: b, style, palette, onChange }: FieldProps<"spo
         ]}
         onChange={(border) => onChange({ border })}
       />
-      <More label="Colores">
-        <ColorField label="Fondo del destacado" value={b.bg} fallback="#F4EFFC" palette={palette} onChange={(bg) => onChange({ bg: bg ?? "#F4EFFC" })} />
-        <ColorField label="Color del borde y del título" value={b.accent} fallback="#6B58C4" palette={palette} against={b.bg} large onChange={(accent) => onChange({ accent: accent ?? "#6B58C4" })} />
-        <ColorField label="Color del texto del destacado" value={b.color} fallback={style.text} palette={palette} against={b.bg} clearable onChange={(color) => onChange({ color })} />
+      <More label={t("Colores")}>
+        <ColorField label={t("Fondo del destacado")} value={b.bg} fallback="#F4EFFC" palette={palette} onChange={(bg) => onChange({ bg: bg ?? "#F4EFFC" })} />
+        <ColorField label={t("Color del borde y del título")} value={b.accent} fallback="#6B58C4" palette={palette} against={b.bg} large onChange={(accent) => onChange({ accent: accent ?? "#6B58C4" })} />
+        <ColorField label={t("Color del texto del destacado")} value={b.color} fallback={style.text} palette={palette} against={b.bg} clearable onChange={(color) => onChange({ color })} />
       </More>
     </div>
   );
 }
 
 function VideoFields({ block: b, style, palette, onChange, uploads }: FieldProps<"video"> & { uploads: boolean }) {
+  const t = useT();
   const fid = `blk-${b.id}`;
   const [mode, setMode] = useState<"link" | "upload">(b.src ? "upload" : "link");
   const [busy, setBusy] = useState<string | null>(null);
@@ -471,7 +477,7 @@ function VideoFields({ block: b, style, palette, onChange, uploads }: FieldProps
     <div className="space-y-3">
       {uploads && (
         <Segmented
-          label="El vídeo"
+          label={t("El vídeo")}
           value={mode}
           options={[
             { v: "link", label: "Enlace de YouTube o Vimeo" },
@@ -485,7 +491,7 @@ function VideoFields({ block: b, style, palette, onChange, uploads }: FieldProps
       )}
       {mode === "link" ? (
         <div>
-          <label className="field-label" htmlFor={`${fid}-url`}>Enlace del vídeo</label>
+          <label className="field-label" htmlFor={`${fid}-url`}><Tr s={"Enlace del vídeo"} /></label>
           <input
             id={`${fid}-url`}
             className="input text-base sm:text-sm"
@@ -505,20 +511,20 @@ function VideoFields({ block: b, style, palette, onChange, uploads }: FieldProps
               else void coverFromLink(b.url);
             }}
           />
-          <p className="mt-1 text-xs text-muted">Traemos su miniatura y le ponemos el ▶. Al pulsarla se abre el vídeo.</p>
+          <p className="mt-1 text-xs text-muted"><Tr s={"Traemos su miniatura y le ponemos el ▶. Al pulsarla se abre el vídeo."} /></p>
         </div>
       ) : (
         <div className="space-y-1">
           <button type="button" className="btn btn-outline w-full" disabled={!!busy} onClick={() => videoInput.current?.click()}>
-            <Film className="h-4 w-4" /> {b.src ? "Cambiar el vídeo" : "Subir vídeo (MP4 o MOV)"}
+            <Film className="h-4 w-4" /> {b.src ? t("Cambiar el vídeo") : t("Subir vídeo (MP4 o MOV)")}
           </button>
-          {b.src && <p className="text-xs text-muted">Vídeo subido ✓. En el email sale su portada; al pulsarla se abre una página de tu web que lo reproduce.</p>}
+          {b.src && <p className="text-xs text-muted"><Tr s={"Vídeo subido ✓. En el email sale su portada; al pulsarla se abre una página de tu web que lo reproduce."} /></p>}
           <input
             ref={videoInput}
             type="file"
             accept="video/mp4,video/quicktime,.mp4,.mov,.m4v"
             className="hidden"
-            aria-label="Vídeo"
+            aria-label={t("Vídeo")}
             data-testid={`${fid}-video`}
             onChange={async (e) => {
               const f = e.target.files?.[0];
@@ -550,24 +556,24 @@ function VideoFields({ block: b, style, palette, onChange, uploads }: FieldProps
       )}
       {busy && (
         <p className="flex items-center gap-2 text-xs text-muted" aria-live="polite">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> {busy}
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> <Tr s={busy} />
         </p>
       )}
-      {error && <p className="text-xs text-rose" role="alert">{error}</p>}
+      {error && <p className="text-xs text-rose" role="alert"><Tr s={error} /></p>}
       <div>
-        <p className="field-label">Portada (con el ▶)</p>
-        <ImagePicker value={b.cover} onChange={(cover) => onChange({ cover })} label="Portada del vídeo" testId={`${fid}-cover`} onUploaded={withPlay} />
-        <p className="mt-1 text-xs text-muted">Pulsa para subir otra portada: le ponemos el ▶ encima.</p>
+        <p className="field-label"><Tr s={"Portada (con el ▶)"} /></p>
+        <ImagePicker value={b.cover} onChange={(cover) => onChange({ cover })} label={t("Portada del vídeo")} testId={`${fid}-cover`} onUploaded={withPlay} />
+        <p className="mt-1 text-xs text-muted"><Tr s={"Pulsa para subir otra portada: le ponemos el ▶ encima."} /></p>
       </div>
       <div>
-        <label className="field-label" htmlFor={`${fid}-title`}>Texto del enlace</label>
-        <input id={`${fid}-title`} className="input text-base sm:text-sm" maxLength={120} value={b.title} placeholder="Ver el vídeo" onChange={(e) => onChange({ title: e.target.value })} />
+        <label className="field-label" htmlFor={`${fid}-title`}><Tr s={"Texto del enlace"} /></label>
+        <input id={`${fid}-title`} className="input text-base sm:text-sm" maxLength={120} value={b.title} placeholder={t("Ver el vídeo")} onChange={(e) => onChange({ title: e.target.value })} />
       </div>
       <div>
-        <label className="field-label" htmlFor={`${fid}-caption`}>Nota debajo (opcional)</label>
-        <input id={`${fid}-caption`} className="input text-base sm:text-sm" maxLength={200} value={b.caption ?? ""} placeholder="Dura 2 minutos" onChange={(e) => onChange({ caption: e.target.value || undefined })} />
+        <label className="field-label" htmlFor={`${fid}-caption`}><Tr s={"Nota debajo (opcional)"} /></label>
+        <input id={`${fid}-caption`} className="input text-base sm:text-sm" maxLength={200} value={b.caption ?? ""} placeholder={t("Dura 2 minutos")} onChange={(e) => onChange({ caption: e.target.value || undefined })} />
       </div>
-      <More label="Fondo">
+      <More label={t("Fondo")}>
         <BandFields block={b} style={style} palette={palette} onChange={onChange} />
       </More>
     </div>
@@ -575,22 +581,23 @@ function VideoFields({ block: b, style, palette, onChange, uploads }: FieldProps
 }
 
 function ColumnsFields({ block: b, style, palette, onChange }: FieldProps<"columns">) {
+  const t = useT();
   const fid = `blk-${b.id}`;
   return (
     <div className="space-y-3">
-      <ImagePicker value={b.image} onChange={(image) => onChange({ image })} label="Imagen de la columna" testId={`${fid}-file`} />
+      <ImagePicker value={b.image} onChange={(image) => onChange({ image })} label={t("Imagen de la columna")} testId={`${fid}-file`} />
       <div className="grid gap-2 sm:grid-cols-2">
         <div>
-          <label className="field-label" htmlFor={`${fid}-alt`}>Qué se ve en la imagen</label>
+          <label className="field-label" htmlFor={`${fid}-alt`}><Tr s={"Qué se ve en la imagen"} /></label>
           <input id={`${fid}-alt`} className="input text-base sm:text-sm" maxLength={200} value={b.alt} onChange={(e) => onChange({ alt: e.target.value })} />
         </div>
         <div>
-          <label className="field-label" htmlFor={`${fid}-href`}>Enlace de la imagen (opcional)</label>
+          <label className="field-label" htmlFor={`${fid}-href`}><Tr s={"Enlace de la imagen (opcional)"} /></label>
           <LinkInput id={`${fid}-href`} value={b.href ?? ""} onChange={(href) => onChange({ href: href || undefined })} placeholder="/mi-curso o https://…" />
         </div>
       </div>
       <Segmented
-        label="La imagen va"
+        label={t("La imagen va")}
         value={b.side}
         options={[
           { v: "left", label: "A la izquierda" },
@@ -599,22 +606,22 @@ function ColumnsFields({ block: b, style, palette, onChange }: FieldProps<"colum
         onChange={(side) => onChange({ side })}
       />
       <div>
-        <label className="field-label" htmlFor={`${fid}-title`}>Título de la columna</label>
+        <label className="field-label" htmlFor={`${fid}-title`}><Tr s={"Título de la columna"} /></label>
         <input id={`${fid}-title`} className="input text-base sm:text-sm" maxLength={120} value={b.title} onChange={(e) => onChange({ title: e.target.value })} />
       </div>
       <RichTextEditor ariaLabel="Texto de la columna" value={b.body} initialFormat="MD" onChange={(body) => onChange({ body })} maxLength={2000} tools="basic" preview={false} rows={3} />
       <div className="grid gap-2 sm:grid-cols-2">
         <div>
-          <label className="field-label" htmlFor={`${fid}-blabel`}>Botón (opcional)</label>
+          <label className="field-label" htmlFor={`${fid}-blabel`}><Tr s={"Botón (opcional)"} /></label>
           <input id={`${fid}-blabel`} className="input text-base sm:text-sm" maxLength={40} value={b.buttonLabel ?? ""} onChange={(e) => onChange({ buttonLabel: e.target.value || undefined })} />
         </div>
         <div>
-          <label className="field-label" htmlFor={`${fid}-bhref`}>Enlace del botón de la columna</label>
+          <label className="field-label" htmlFor={`${fid}-bhref`}><Tr s={"Enlace del botón de la columna"} /></label>
           <LinkInput id={`${fid}-bhref`} value={b.buttonHref ?? ""} onChange={(v) => onChange({ buttonHref: v || undefined })} placeholder="/mi-curso o https://…" />
         </div>
       </div>
-      <p className="text-xs text-muted">En el móvil, la imagen y el texto se ponen uno encima del otro.</p>
-      <More label="Fondo">
+      <p className="text-xs text-muted"><Tr s={"En el móvil, la imagen y el texto se ponen uno encima del otro."} /></p>
+      <More label={t("Fondo")}>
         <BandFields block={b} style={style} palette={palette} onChange={onChange} />
       </More>
     </div>
@@ -622,13 +629,14 @@ function ColumnsFields({ block: b, style, palette, onChange }: FieldProps<"colum
 }
 
 function SocialFields({ block: b, style, palette, onChange }: FieldProps<"social">) {
+  const t = useT();
   const fid = `blk-${b.id}`;
   return (
     <div className="space-y-2">
       <div className="grid gap-2 sm:grid-cols-2">
         {SOCIAL_NETWORKS.map((n) => (
           <div key={n}>
-            <label className="field-label" htmlFor={`${fid}-${n}`}>{SOCIAL_NETWORK_LABEL[n]}</label>
+            <label className="field-label" htmlFor={`${fid}-${n}`}><Tr s={SOCIAL_NETWORK_LABEL[n]} /></label>
             <input
               id={`${fid}-${n}`}
               className="input text-base sm:text-sm"
@@ -637,15 +645,15 @@ function SocialFields({ block: b, style, palette, onChange }: FieldProps<"social
               spellCheck={false}
               maxLength={300}
               value={b.links[n] ?? ""}
-              placeholder={n === "email" ? "hola@tuweb.com" : n === "web" ? "tuweb.com" : "@tuusuario o enlace"}
+              placeholder={n === "email" ? t("hola@tuweb.com") : n === "web" ? "tuweb.com" : t("@tuusuario o enlace")}
               onChange={(e) => onChange({ links: { ...b.links, [n]: e.target.value || undefined } })}
             />
           </div>
         ))}
       </div>
       <AlignPicker value={b.align} onChange={(align) => onChange({ align })} />
-      <ColorField label="Color de los enlaces" value={b.color} fallback={style.accent} palette={palette} against={b.band ?? style.content} clearable onChange={(color) => onChange({ color })} />
-      <More label="Fondo">
+      <ColorField label={t("Color de los enlaces")} value={b.color} fallback={style.accent} palette={palette} against={b.band ?? style.content} clearable onChange={(color) => onChange({ color })} />
+      <More label={t("Fondo")}>
         <BandFields block={b} style={style} palette={palette} onChange={onChange} />
       </More>
     </div>
@@ -657,13 +665,14 @@ function SocialFields({ block: b, style, palette, onChange }: FieldProps<"social
  * se elige color, el margen y las esquinas no salen.
  */
 function BandFields({ block: b, style, palette, onChange, label = "Fondo del bloque" }: { block: Extract<EmailBlock, Band>; style: EmailStyle; palette: string[]; onChange: (patch: Partial<EmailBlock>) => void; label?: string }) {
+  const t = useT();
   return (
     <div className="space-y-2" data-testid="band-fields">
-      <ColorField label={label} value={b.band} fallback={style.content} palette={palette} clearable onChange={(band) => onChange(band ? { band } : { band: undefined, bandPad: undefined, bandRound: undefined })} />
+      <ColorField label={t(label)} value={b.band} fallback={style.content} palette={palette} clearable onChange={(band) => onChange(band ? { band } : { band: undefined, bandPad: undefined, bandRound: undefined })} />
       {b.band && (
         <>
           <Segmented
-            label="Margen del fondo"
+            label={t("Margen del fondo")}
             value={b.bandPad ?? "m"}
             options={[
               { v: "s", label: "S" },
@@ -673,8 +682,7 @@ function BandFields({ block: b, style, palette, onChange, label = "Fondo del blo
             onChange={(bandPad) => onChange({ bandPad: bandPad === "m" ? undefined : bandPad })}
           />
           <label className="flex min-h-11 items-center gap-2 text-sm">
-            <input type="checkbox" className="h-5 w-5" checked={!!b.bandRound} onChange={(e) => onChange({ bandRound: e.target.checked || undefined })} /> Esquinas redondeadas
-          </label>
+            <input type="checkbox" className="h-5 w-5" checked={!!b.bandRound} onChange={(e) => onChange({ bandRound: e.target.checked || undefined })} />{" "}<Tr s={"Esquinas redondeadas"} /></label>
         </>
       )}
     </div>

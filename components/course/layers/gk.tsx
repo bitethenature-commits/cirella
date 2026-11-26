@@ -7,6 +7,7 @@ import { LAYER_KEYS, type AstroLayer } from "@/lib/lesson-blocks";
 import { listEs, type DiagramProps, type LayerCtx, type SystemPiece } from "./common";
 import { GK_LINES } from "./texts";
 import { KeyGrid } from "./key-grid";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Las capas de las Gene Keys: las esferas del Camino Dorado (con los números de la alumna dentro), las tres
@@ -254,13 +255,11 @@ function SpheresBySequence({ c, selected, tap }: { c: LayerCtx["c"]; selected: s
   return (
     <NightPanel>
       <div className="mb-1 flex flex-wrap justify-center gap-1.5 pt-1">
-        <button type="button" onClick={() => setSeq(null)} className="rounded-full border px-2.5 py-1 text-[0.72rem] font-semibold" style={chip(!seq)}>
-          Todas
-        </button>
+        <button type="button" onClick={() => setSeq(null)} className="rounded-full border px-2.5 py-1 text-[0.72rem] font-semibold" style={chip(!seq)}><Tr s={"Todas"} /></button>
         {SEQUENCES.map((q) => (
           <button key={q.id} type="button" onClick={() => setSeq(q.id)} className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.72rem] font-semibold" style={chip(seq === q.id)}>
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: TONE[q.id].base }} />
-            {SHORT[q.id]}
+            <Tr s={SHORT[q.id]} />
           </button>
         ))}
       </div>
@@ -271,11 +270,12 @@ function SpheresBySequence({ c, selected, tap }: { c: LayerCtx["c"]; selected: s
 
 /** El Camino Dorado: los caminos en el color de su secuencia y cada esfera de cristal con su llave dentro. */
 export function GoldenPath({ c, lit, selected, onSphere }: { c: LayerCtx["c"]; lit: (s: Sphere) => boolean; selected: (s: Sphere) => boolean; onSphere: (s: Sphere) => Record<string, unknown> }) {
+  const t = useT();
   const p = usePrefix();
   const pos = (id: string) => SPHERE_BY_ID[id];
   const R = 38;
   return (
-    <svg viewBox={`${GK_VIEWBOX.x} ${GK_VIEWBOX.y - 10} ${GK_VIEWBOX.w} ${GK_VIEWBOX.h + 20}`} className="mx-auto block h-auto w-full max-w-[30rem] select-none" role="group" aria-label="El Camino Dorado">
+    <svg viewBox={`${GK_VIEWBOX.x} ${GK_VIEWBOX.y - 10} ${GK_VIEWBOX.w} ${GK_VIEWBOX.h + 20}`} className="mx-auto block h-auto w-full max-w-[30rem] select-none" role="group" aria-label={t("El Camino Dorado")}>
       <GkDefs p={p} />
       <Flower cx={GK_CENTER.x} cy={GK_CENTER.y} r={58} reach={330} opacity={0.08} />
       <g strokeLinecap="round">
@@ -306,7 +306,7 @@ export function GoldenPath({ c, lit, selected, onSphere }: { c: LayerCtx["c"]; l
             {k ? (
               <>
                 <text x={s.x} y={s.y - 13} textAnchor="middle" dominantBaseline="central" fontSize={s.name.length > 9 ? 9.5 : 10.5} fill={STAR} opacity="0.85" pointerEvents="none">
-                  {s.name}
+                  <Tr s={s.name} />
                 </text>
                 <text x={s.x} y={s.y + 8} textAnchor="middle" dominantBaseline="central" fontSize="24" fontWeight="500" fill={STAR} pointerEvents="none" style={{ textShadow: "0 1px 2px rgba(0,0,0,.5)" }}>
                   {k}.{c!.geneKeys.lines[s.id]}
@@ -314,7 +314,7 @@ export function GoldenPath({ c, lit, selected, onSphere }: { c: LayerCtx["c"]; l
               </>
             ) : (
               <text x={s.x} y={s.y} textAnchor="middle" dominantBaseline="central" fontSize={s.name.length > 9 ? 10 : 11.5} fill={STAR} pointerEvents="none">
-                {s.name}
+                <Tr s={s.name} />
               </text>
             )}
           </g>
@@ -343,7 +343,7 @@ export function SequenceLegend({ active, onPick }: { active: string | null; onPi
             style={{ borderColor: on ? TONE[s.id].glow : "rgb(255 255 255 / .16)", background: on ? `${TONE[s.id].base}55` : "rgb(255 255 255 / .05)", color: STAR, cursor: onPick ? "pointer" : undefined }}
           >
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: `radial-gradient(circle at 35% 30%, ${TONE[s.id].glow}, ${TONE[s.id].base})`, boxShadow: on ? `0 0 8px ${TONE[s.id].light}` : undefined }} />
-            {SHORT[s.id]}
+            <Tr s={SHORT[s.id]} />
           </span>
         );
       })}
@@ -364,6 +364,7 @@ function FrequencyMark({ f, x, y, s, color }: { f: "shadow" | "gift" | "siddhi";
 }
 
 export function GkDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProps & { layer: GkLayer }) {
+  const t = useT();
   const own = new Set(mine);
   const c = ctx.c;
   switch (layer) {
@@ -385,7 +386,7 @@ export function GkDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProp
       return (
         <NightPanel>
           <div className="grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
-            <KeyGrid selected={n} colorOf={(x) => colors.get(x) ?? null} tapKey={(x) => tap(`${x}:${f}`, `Llave ${x}`)} legend="En color, tus llaves (por secuencia)" />
+            <KeyGrid selected={n} colorOf={(x) => colors.get(x) ?? null} tapKey={(x) => tap(`${x}:${f}`, `Llave ${x}`)} legend={t("En color, tus llaves (por secuencia)")} />
             <SpectrumLadder n={n} selected={f} tap={(fr, l) => tap(`${n}:${fr}`, l)} />
           </div>
         </NightPanel>
@@ -399,6 +400,7 @@ export function GkDiagram({ layer, selected, mine, keys, tap, ctx }: DiagramProp
 
 /** Las 64 llaves en una retícula de 8 × 8: las de la alumna, de cristal en el color de su secuencia; la elegida, con halo dorado, y su compañera de programación, con un filete dorado. */
 function KeysGrid({ selected, keys, tap, c }: { selected: string; keys: string[]; tap: DiagramProps["tap"]; c: LayerCtx["c"] }) {
+  const t = useT();
   const p = usePrefix();
   const inKeys = new Set(keys);
   const seqOf = new Map<number, SequenceId>();
@@ -407,7 +409,7 @@ function KeysGrid({ selected, keys, tap, c }: { selected: string; keys: string[]
   const cell = 41;
   return (
     <NightPanel>
-      <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label="Las 64 llaves">
+      <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[26rem] select-none" role="group" aria-label={t("Las 64 llaves")}>
         <GkDefs p={p} />
         <Stars w={340} h={340} n={40} />
         {Array.from({ length: 64 }, (_, i) => {
@@ -442,8 +444,7 @@ function KeysGrid({ selected, keys, tap, c }: { selected: string; keys: string[]
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pb-1 text-[0.68rem]" style={{ color: "rgb(251 246 236 / .7)" }}>
         {c && <SequenceLegend active={null} />}
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-full border border-dashed" style={{ borderColor: "#E9CC8E" }} /> compañera de programación
-        </span>
+          <span className="h-3 w-3 rounded-full border border-dashed" style={{ borderColor: "#E9CC8E" }} />{" "}<Tr s={"compañera de programación"} /></span>
       </div>
     </NightPanel>
   );
@@ -476,8 +477,7 @@ function SpectrumLadder({ n, selected, tap }: { n: number; selected: Freq; tap: 
         </linearGradient>
       </defs>
       <ellipse cx="250" cy="44" rx="80" ry="30" fill={`url(#${p}goldglow)`} />
-      <text x="20" y="30" fontSize="11" fontWeight="700" letterSpacing="1.4" fill="#E9CC8E">
-        LLAVE {n}
+      <text x="20" y="30" fontSize="11" fontWeight="700" letterSpacing="1.4" fill="#E9CC8E"><Tr s={"LLAVE"} />{" "}{n}
       </text>
       {/* La escalera: cada peldaño, más arriba y más a la derecha. */}
       {STEPS.map((st) => {
@@ -493,20 +493,19 @@ function SpectrumLadder({ n, selected, tap }: { n: number; selected: Freq; tap: 
               {SPECTRUM[st.f].name.toUpperCase()}
             </text>
             <text x={st.x + 38} y={st.y + 48} fontSize="18" fontFamily="Georgia, serif" fill={st.text}>
-              {k[st.f]}
+              <Tr s={k[st.f]} />
             </text>
           </g>
         );
       })}
-      <text x="20" y="312" fontSize="8.5" fill="rgb(251 246 236 / .6)">
-        De la sombra al siddhi: la misma energía, a otra frecuencia.
-      </text>
+      <text x="20" y="312" fontSize="8.5" fill="rgb(251 246 236 / .6)"><Tr s={"De la sombra al siddhi: la misma energía, a otra frecuencia."} /></text>
     </svg>
   );
 }
 
 /** Sombra, don y siddhi como una pirámide de luz: de la sombra densa abajo a la luz del siddhi arriba. */
 function SpectrumPyramid({ selected, tap, c, option }: { selected: string; tap: DiagramProps["tap"]; c: LayerCtx["c"]; option: string | null }) {
+  const t = useT();
   const p = usePrefix();
   const sphereId = option && SPHERE_BY_ID[option] ? option : "lifework";
   const k = c ? KEY_BY_N.get(c.geneKeys.keys[sphereId]) : null;
@@ -518,7 +517,7 @@ function SpectrumPyramid({ selected, tap, c, option }: { selected: string; tap: 
   ];
   return (
     <NightPanel>
-      <svg viewBox="0 0 320 320" className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label="Sombra, don y siddhi">
+      <svg viewBox="0 0 320 320" className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label={t("Sombra, don y siddhi")}>
         <GkDefs p={p} />
         <defs>
           <linearGradient id={`${p}siddhi`} x1="0" y1="0" x2="0" y2="1">
@@ -551,11 +550,11 @@ function SpectrumPyramid({ selected, tap, c, option }: { selected: string; tap: 
               <path d={d} fill={b.fill} stroke={on ? "#F0D9A4" : "rgb(255 255 255 / .18)"} strokeWidth={on ? 2.2 : 0.8} strokeLinejoin="round" />
               <FrequencyMark f={b.key} x={160 - (b.top + b.bottom) / 2 + 22} y={b.y + b.h / 2} s={7} color={b.mark} />
               <text x="164" y={word ? b.y + b.h / 2 - 9 : b.y + b.h / 2} textAnchor="middle" dominantBaseline="central" fontSize="19" fontFamily="Georgia, serif" fill={b.text}>
-                {SPECTRUM[b.key].name}
+                <Tr s={SPECTRUM[b.key].name} />
               </text>
               {word && (
                 <text x="164" y={b.y + b.h / 2 + 13} textAnchor="middle" dominantBaseline="central" fontSize="12" fill={b.sub}>
-                  {word}
+                  <Tr s={word} />
                 </text>
               )}
             </g>
@@ -568,10 +567,11 @@ function SpectrumPyramid({ selected, tap, c, option }: { selected: string; tap: 
 
 /** Las seis líneas como un hexagrama del I Ching (la 1 abajo): a la derecha, las esferas de la alumna que la tienen. */
 function LinesHexagram({ selected, own, tap, c }: { selected: string; own: Set<string>; tap: DiagramProps["tap"]; c: LayerCtx["c"] }) {
+  const t = useT();
   const p = usePrefix();
   return (
     <NightPanel>
-      <svg viewBox="0 0 320 340" className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label="Las 6 líneas">
+      <svg viewBox="0 0 320 340" className="mx-auto block h-auto w-full max-w-[24rem] select-none" role="group" aria-label={t("Las 6 líneas")}>
         <GkDefs p={p} />
         <Stars w={320} h={340} n={30} />
         {[6, 5, 4, 3, 2, 1].map((n, i) => {

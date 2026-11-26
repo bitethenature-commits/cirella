@@ -84,7 +84,7 @@ async function Landing({ searchParams }: { searchParams: Promise<{ ref?: string 
     if (ref) q.set("ref", ref);
     if (extra) q.set("plan", extra);
     const s = q.toString();
-    return `/registro${s ? `?${s}` : ""}`;
+    return `/signup${s ? `?${s}` : ""}`;
   };
   const host = appHost();
 
@@ -109,7 +109,7 @@ async function Landing({ searchParams }: { searchParams: Promise<{ ref?: string 
             <p className="mt-6 max-w-xl text-[1.05rem] leading-relaxed text-cream/75">
               Tu página, tu tienda, tus reservas, tus cursos y tu comunidad. Tus clientas compran desde Instagram en segundos y reciben su contenido al instante.
             </p>
-            <form action="/registro" className="mt-8 flex max-w-md flex-col gap-3 sm:flex-row">
+            <form action="/signup" className="mt-8 flex max-w-md flex-col gap-3 sm:flex-row">
               {ref && <input type="hidden" name="ref" value={ref} />}
               <label className="flex h-12 flex-1 items-center rounded-full border border-white/15 bg-white/10 pl-4 text-sm backdrop-blur focus-within:border-lavender">
                 <span className="text-cream/55">{host}/</span>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { energyAccess } from "@/lib/birth-profiles";
-import { getPublishedOracleDecks } from "@/lib/oracle-decks";
+import { getLocalizedOracleDecks } from "@/lib/oracle-decks";
 import { isPublicUsernameAllowed } from "@/lib/personal-routing";
 import { ownerUsername } from "@/lib/site-mode";
 
@@ -19,5 +19,5 @@ export async function GET(req: Request) {
   const access = await energyAccess();
   if (!access || access.owner.username !== username.toLowerCase()) return NextResponse.json({ unlocked: false, decks: [] }, { status: 404, headers });
   if (!access.viewer.unlocked) return NextResponse.json({ unlocked: false, decks: [] }, { status: 403, headers });
-  return NextResponse.json({ unlocked: true, decks: await getPublishedOracleDecks(access.owner.id) }, { headers });
+  return NextResponse.json({ unlocked: true, decks: await getLocalizedOracleDecks(access.owner.id) }, { headers });
 }

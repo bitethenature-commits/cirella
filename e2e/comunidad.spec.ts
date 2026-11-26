@@ -34,11 +34,11 @@ function runJob(job: "comunidad" | "caducidades") {
 }
 
 async function login(page: Page, email: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.fill("#email", email);
   await page.fill("#password", "demo1234");
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 const href = (html: string, label: string) => html.match(new RegExp(`<a href="([^"]+)"[^>]*>${label}</a>`))?.[1]?.replace(/&amp;/g, "&") ?? "";
@@ -58,8 +58,8 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
 
   test.beforeAll(async () => {
     const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
-    circleId = (await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, slug: "luna-completa" } })).id;
-    courseId = (await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, slug: "curso-conocete-tu-energia" } })).id;
+    circleId = (await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, slug: "full-moon" } })).id;
+    courseId = (await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, slug: "know-your-energy" } })).id;
     const u = await prisma.user.findUniqueOrThrow({ where: { email: "lucia@example.com" } });
     lucia = { id: u.id, passwordHash: u.passwordHash, emailVerifiedAt: u.emailVerifiedAt };
     luciaAccess = await prisma.access.findFirstOrThrow({ where: { userId: u.id, productId: circleId }, select: { id: true, expiresAt: true } });
@@ -95,7 +95,7 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
     await page.goto(`/panel/productos/${circleId}`);
     await expect(page.getByText("Publicaciones de la comunidad")).toBeVisible();
     await page.getByRole("link", { name: "Nueva publicación" }).click();
-    await page.waitForURL(/\/panel\/comunidad\?nivel=/);
+    await page.waitForURL(/\/panel\/membership\?nivel=/);
     // El compositor sale abierto y con el nivel de la ficha elegido.
     await expect(page.getByRole("radio", { name: /Luna completa/ })).toBeChecked();
     await page.getByLabel("Título").fill(`${TAG} Meditación de luna llena`);
@@ -107,7 +107,7 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
     await page.getByLabel("Día y hora").fill(localValue(new Date(Date.now() + 3600_000)));
     await expect(page.getByText(/Se publicará el .* \(hora de Madrid\)/)).toBeVisible();
     await page.getByRole("button", { name: "Programar", exact: true }).click();
-    await page.waitForURL(/\/panel\/comunidad\?tab=programadas/);
+    await page.waitForURL(/\/panel\/membership\?tab=programadas/);
     await expect(page.getByText(/Programada para el/).first()).toBeVisible();
     postId = (await prisma.membershipPost.findFirstOrThrow({ where: { title: `${TAG} Meditación de luna llena` } })).id;
     await expect(page.locator(`[data-queue-post="${postId}"]`)).toBeVisible();
@@ -123,7 +123,7 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
     await prisma.membershipPost.update({ where: { id: postId }, data: { publishedAt: new Date(Date.now() - 60_000) } });
     runJob("comunidad");
     const mail = await prisma.emailMessage.findFirstOrThrow({ where: { to: "lucia@example.com", template: "MEMBER_POST", dedupeKey: `post:${postId}:${lucia.id}` } });
-    expect((mail.headers as Record<string, string>)["List-Unsubscribe"]).toContain("/baja/comunidad/un-clic");
+    expect((mail.headers as Record<string, string>)["List-Unsubscribe"]).toContain("/unsubscribe/membership/one-click");
     expect(mail.html).toContain("Incluye: 1 audio (14 min)");
 
     const { ctx, page: member } = await newPage(browser);
@@ -138,7 +138,7 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
 
   test("Comentarios y moderación", async ({ page, browser }) => {
     await login(page, "lucia@example.com");
-    await page.goto(`/cuenta/membresias/${circleId}/${postId}`);
+    await page.goto(`/area/membership/${circleId}/${postId}`);
     await expect(page.getByText(/Se publicará como «Lucía T\.»/)).toBeVisible();
     await page.getByPlaceholder("Escribe un comentario…").fill(`Gracias, Cirella ${TAG}`);
     await page.getByRole("button", { name: "Publicar comentario" }).click();
@@ -150,7 +150,7 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
 
     const owner = await newPage(browser);
     await login(owner.page, "ana@cirella.app");
-    await owner.page.goto(`/cuenta/membresias/${circleId}/${postId}`);
+    await owner.page.goto(`/area/membership/${circleId}/${postId}`);
     await owner.page.getByRole("button", { name: "Responder a Lucía T." }).click();
     await owner.page.getByPlaceholder("Escribe tu respuesta…").fill("¡Gracias a ti, Lucía!");
     await owner.page.getByRole("button", { name: "Responder", exact: true }).click();
@@ -191,7 +191,7 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
     expect(await prisma.emailMessage.count({ where: { dedupeKey: `post:${p2.id}:${lucia.id}` } })).toBe(0);
 
     await login(page, "lucia@example.com");
-    await page.goto(`/cuenta/membresias/${circleId}`);
+    await page.goto(`/area/membership/${circleId}`);
     await expect(page.getByText("Desactivados")).toBeVisible();
     await page.getByRole("button", { name: "Activar" }).click();
     await expect(page.getByText("Activados")).toBeVisible();
@@ -252,30 +252,30 @@ test.describe.serial("Comunidad: publicaciones, avisos, comentarios y fin de acc
     await owner.ctx.close();
 
     await login(page, "lucia@example.com");
-    await page.goto("/cuenta/cursos");
+    await page.goto("/area/courses");
     await expect(page.getByText("Incluido en «Luna completa» mientras tu membresía esté activa")).toBeVisible();
-    await page.goto(`/cuenta/membresias/${circleId}`);
+    await page.goto(`/area/membership/${circleId}`);
     await expect(page.getByText("Incluido en tu membresía")).toBeVisible();
-    await page.goto(`/cuenta/cursos/${courseId}`);
+    await page.goto(`/area/courses/${courseId}`);
     await expect(page.getByRole("heading", { name: "Conócete a través de tu energía" })).toBeVisible();
 
     await prisma.access.update({ where: { id: luciaAccess.id }, data: { expiresAt: new Date(Date.now() - 60_000) } });
-    await page.goto(`/cuenta/cursos/${courseId}`);
-    await expect(page).toHaveURL(/\/cuenta\/cursos$/);
+    await page.goto(`/area/courses/${courseId}`);
+    await expect(page).toHaveURL(/\/area\/courses$/);
     await prisma.access.update({ where: { id: luciaAccess.id }, data: { expiresAt: luciaAccess.expiresAt } });
   });
 
   test("Plataforma: la ficha no enseña las programadas y la comunidad sembrada se ve", async ({ page }) => {
-    await page.goto(`${PLATFORM}/ana/luna-completa`);
+    await page.goto(`${PLATFORM}/ana/full-moon`);
     await expect(page.getByText("Lo último en la comunidad")).toBeVisible();
     await expect(page.getByText("Venus entra en Escorpio")).toHaveCount(0);
 
-    await page.goto(`${PLATFORM}/entrar`);
+    await page.goto(`${PLATFORM}/login`);
     await page.fill("#email", "lucia@example.com");
     await page.fill("#password", "demo1234");
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
-    await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
-    await page.goto(`${PLATFORM}/cuenta/membresias/${circleId}`);
+    await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+    await page.goto(`${PLATFORM}/area/membership/${circleId}`);
     await page.getByRole("link", { name: /Luna nueva en Libra/ }).click();
     await expect(page.getByText(/Mis tres intenciones ya están escritas/)).toBeVisible();
     await expect(page.locator('[data-post-file="PDF"]')).toHaveCount(1);

@@ -10,9 +10,9 @@ import { tierFeatureItems } from "@/lib/tier-features";
 import { readTierCard, readTierEmblem, TIER_CTA_DEFAULT } from "@/lib/tier-card";
 import { readTierLook } from "@/lib/tier-look";
 import { TierCards, type EditableTier } from "./tier-cards";
-import { SpinningSolid } from "@/app/cuenta/spinning-solid";
-import { kindStyle } from "@/app/cuenta/membresias/kind-style";
-import { PostCover } from "@/app/cuenta/membresias/post-card";
+import { SpinningSolid } from "@/app/area/spinning-solid";
+import { kindStyle } from "@/app/area/membership/kind-style";
+import { PostCover } from "@/app/area/membership/post-card";
 import { EmptyState } from "@/components/ui/empty";
 import { Flash } from "@/components/ui/flash";
 import { ConfirmForm } from "@/components/ui/confirm-form";
@@ -22,7 +22,7 @@ import { nextMoonDates } from "@/lib/moon-dates";
 import { isPersonalMode } from "@/lib/site-mode";
 import { tzCity } from "@/lib/timezones";
 import { formatDate } from "@/lib/tz";
-import { PostCardBody } from "@/app/cuenta/membresias/post-card";
+import { PostCardBody } from "@/app/area/membership/post-card";
 import { Badge, PageHeader, Stat } from "../ui";
 import { blockMember, deleteStudioPost, publishNow, renewMember, togglePin } from "./actions";
 import { createProduct } from "../productos/actions";
@@ -30,18 +30,20 @@ import type { MemberRow } from "./data";
 
 /** Cuenta atrás de una membresía que se paga por email: verde, ámbar los últimos 5 días, roja vencida. */
 function Countdown({ r }: { r: MemberRow }) {
-  if (r.blocked) return <span className="rounded-full bg-[#f3dcd8] px-2.5 py-1 text-xs font-semibold text-[#8a3b31]">Bloqueada</span>;
+  if (r.blocked) return <span className="rounded-full bg-[#f3dcd8] px-2.5 py-1 text-xs font-semibold text-[#8a3b31]"><Tr s={"Bloqueada"} /></span>;
   if (r.daysLeft === null) return null;
   const d = r.daysLeft;
   const text = d < 0 ? `Vencida hace ${-d} ${-d === 1 ? "día" : "días"}` : d === 0 ? "Vence hoy" : `Quedan ${d} ${d === 1 ? "día" : "días"}`;
   const tone = d < 0 ? "bg-[#f3dcd8] text-[#8a3b31]" : d <= 5 ? "bg-[#f7e7c4] text-[#6b4a0c]" : "bg-[#dcefe2] text-[#2f5f43]";
-  return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ${tone}`} data-countdown={d}>{text}</span>;
+  return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ${tone}`} data-countdown={d}><Tr s={text} /></span>;
 }
 import { CommentModeration } from "./comment-moderation";
 import { Composer } from "./composer";
 import { Reschedule } from "./reschedule";
 import { QueueFolders } from "./queue-folders";
 import { emptyComposerPost, loadComposerPost, loadMembers, loadQueue, loadStats, loadTiers, loadWall, wallKinds } from "./data";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Membresía" };
 
@@ -85,11 +87,9 @@ export default async function CommunityStudio({ searchParams }: { searchParams: 
         <EmptyState icon={<UsersRound className="h-5 w-5" />} title="Todavía no tienes comunidad" action={
             <form action={createProduct}>
               <input type="hidden" name="type" value="MEMBERSHIP" />
-              <button className="btn btn-primary">Crear una membresía</button>
+              <button className="btn btn-primary"><Tr s={"Crear una membresía"} /></button>
             </form>
-          }>
-          Crea una membresía (o varias, como niveles) y aquí podrás publicar para tus miembros, programar, moderar los comentarios y ver quién está dentro.
-        </EmptyState>
+          }><Tr s={"Crea una membresía (o varias, como niveles) y aquí podrás publicar para tus miembros, programar, moderar los comentarios y ver quién está dentro."} /></EmptyState>
       </div>
     );
 
@@ -129,8 +129,8 @@ export default async function CommunityStudio({ searchParams }: { searchParams: 
             className="com-section"
           >
             <t.icon className="h-5 w-5" strokeWidth={1.4} />
-            <span className="com-section-name">{t.label}</span>
-            <span className="com-section-hint">{t.hint}</span>
+            <span className="com-section-name"><Tr s={t.label} /></span>
+            <span className="com-section-hint"><Tr s={t.hint} /></span>
           </Link>
         ))}
       </nav>
@@ -140,7 +140,7 @@ export default async function CommunityStudio({ searchParams }: { searchParams: 
         {tab !== "miembros" && (
           <Link href={q({ nivel: undefined, antes: undefined, ok: undefined, t: undefined, tipo: undefined })} aria-current={!tierId ? "true" : undefined} className="com-tier com-tier-all">
             <LayoutGrid className="h-6 w-6" strokeWidth={1.3} />
-            <span className="com-tier-name">Todas</span>
+            <span className="com-tier-name"><Tr s={"Todas"} /></span>
           </Link>
         )}
         {tiers.map((t, i) => {
@@ -149,7 +149,7 @@ export default async function CommunityStudio({ searchParams }: { searchParams: 
             <Link key={t.id} href={q({ nivel: t.id, antes: undefined, ok: undefined, t: undefined, tipo: undefined })} aria-current={on ? "true" : undefined} className="com-tier">
               <SpinningSolid level={i} offset={i * 1.3} speed={on ? 0.45 : 0.2} className="h-9 w-9" />
               <span className="com-tier-name">{t.title}</span>
-              <span className="com-tier-meta">Nivel {["I", "II", "III", "IV", "V"][i] ?? i + 1} · {composerTiers.find((c) => c.id === t.id)?.readers ?? 0} dentro</span>
+              <span className="com-tier-meta"><Tr s={"Nivel"} />{" "}<Tr s={["I", "II", "III", "IV", "V"][i] ?? i + 1} /> · {composerTiers.find((c) => c.id === t.id)?.readers ?? 0}{" "}<Tr s={"dentro"} /></span>
             </Link>
           );
         })}
@@ -182,7 +182,7 @@ type Tiers = Awaited<ReturnType<typeof loadTiers>>["tiers"];
 
 
 
-// ── Cartas: los niveles tal como se ven en /comunidad ──
+// ── Cartas: los niveles tal como se ven en /membership ──
 
 type CreatorRow = Awaited<ReturnType<typeof requireCreator>>["creator"];
 
@@ -230,9 +230,7 @@ async function Cards({ creator }: { creator: CreatorRow }) {
   });
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted">
-        Las cartas de tus niveles en <Link href={`/${creator.username}/comunidad`} className="font-semibold underline underline-offset-4">tu página de Comunidad</Link>. Y los mismos portales que ven tus alumnas en su área. Lo que cambies aquí es lo que se ve.
-      </p>
+      <p className="text-sm text-muted"><Tr s={"Las cartas de tus niveles en"} />{" "}<Link href={`/${creator.username}/membership`} className="font-semibold underline underline-offset-4"><Tr s={"tu página de Comunidad"} /></Link><Tr s={". Y los mismos portales que ven tus alumnas en su área. Lo que cambies aquí es lo que se ve."} /></p>
       <TierCards tiers={tiers} circles={circles} />
     </div>
   );
@@ -250,13 +248,12 @@ async function Wall({ owner, tiers, tierId, composer, before, kind, search, q }:
       {kinds.length > 1 && (
         <nav className="com-kinds" aria-label="Tipo de publicación">
           <Link href={q({ tipo: undefined, antes: undefined, ok: undefined, t: undefined })} aria-current={!kind ? "true" : undefined} className="com-kind">
-            <LayoutGrid className="h-4 w-4" /> Todo
-          </Link>
+            <LayoutGrid className="h-4 w-4" />{" "}<Tr s={"Todo"} /></Link>
           {kinds.map((k) => {
             const st = kindStyle(k);
             return (
               <Link key={k} href={q({ tipo: k, antes: undefined, ok: undefined, t: undefined })} aria-current={kind === k ? "true" : undefined} className="com-kind" style={{ "--k-light": st.light } as React.CSSProperties}>
-                <st.Icon className="h-4 w-4" /> {st.plural}
+                <st.Icon className="h-4 w-4" /> <Tr s={st.plural} />
               </Link>
             );
           })}
@@ -269,18 +266,15 @@ async function Wall({ owner, tiers, tierId, composer, before, kind, search, q }:
         <Search className="h-4 w-4 shrink-0 text-gold" aria-hidden />
         <input name="buscar" defaultValue={search ?? ""} placeholder="Buscar en las publicaciones…" aria-label="Buscar en las publicaciones" className="min-w-0 flex-1 bg-transparent text-[0.95rem] outline-none placeholder:text-faint" />
         {search && (
-          <Link href={q({ buscar: undefined, antes: undefined })} className="text-xs text-muted hover:text-ink">
-            Quitar
-          </Link>
+          <Link href={q({ buscar: undefined, antes: undefined })} className="text-xs text-muted hover:text-ink"><Tr s={"Quitar"} /></Link>
         )}
       </form>
       {composer}
       {tier && (
-        <p className="text-sm text-muted">
-          Así lo ve alguien de «{tier.title}»{tier.includes.length ? `: lo suyo y lo de ${tier.includes.map((id) => `«${tiers.find((t) => t.id === id)?.title}»`).join(" y ")}` : ""}.
+        <p className="text-sm text-muted"><Tr s={"Así lo ve alguien de «"} />{tier.title}»{tier.includes.length ? `: lo suyo y lo de ${tier.includes.map((id) => `«${tiers.find((t) => t.id === id)?.title}»`).join(" y ")}` : ""}.
         </p>
       )}
-      {wall.posts.length === 0 && <p className="rounded-2xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted">{search ? `Nada con «${search}».` : before ? "No hay publicaciones anteriores." : "Todavía no hay nada publicado aquí. Empieza con una bienvenida."}</p>}
+      {wall.posts.length === 0 && <p className="rounded-2xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted">{search ? `Nada con «${search}».` : before ? <Tr s={"No hay publicaciones anteriores."} /> : <Tr s={"Todavía no hay nada publicado aquí. Empieza con una bienvenida."} />}</p>}
       {wall.posts.map((post) => (
         <article key={post.id} className="com-post vip-glass vip-post relative overflow-hidden rounded-[1.6rem] p-4 sm:p-6" data-studio-post={post.id}>
           <div className="flex gap-4 sm:gap-6">
@@ -290,21 +284,21 @@ async function Wall({ owner, tiers, tierId, composer, before, kind, search, q }:
             </div>
           </div>
           <div className="com-post-tools mt-4 flex flex-wrap gap-1 pt-3">
-            <Link href={`/cuenta/membresias/${post.productId}/${post.id}`} className="btn btn-ghost btn-sm min-h-10"><ExternalLink className="h-4 w-4" /> Abrir</Link>
+            <Link href={`/area/membership/${post.productId}/${post.id}`} className="btn btn-ghost btn-sm min-h-10"><ExternalLink className="h-4 w-4" />{" "}<Tr s={"Abrir"} /></Link>
             {post.kind === "CIRCULO_LUNAR" ? (
-              <Link href={post.circleProductId ? `/panel/productos/${post.circleProductId}` : "/panel/circulos"} className="btn btn-ghost btn-sm min-h-10"><Moon className="h-4 w-4" /> Editar en Círculos de la luna</Link>
+              <Link href={post.circleProductId ? `/panel/productos/${post.circleProductId}` : "/panel/circulos"} className="btn btn-ghost btn-sm min-h-10"><Moon className="h-4 w-4" />{" "}<Tr s={"Editar en Círculos de la luna"} /></Link>
             ) : (
-              <Link href={`/panel/comunidad?tab=muro&editar=${post.id}#publicar`} className="btn btn-ghost btn-sm min-h-10"><Pencil className="h-4 w-4" /> Editar</Link>
+              <Link href={`/panel/comunidad?tab=muro&editar=${post.id}#publicar`} className="btn btn-ghost btn-sm min-h-10"><Pencil className="h-4 w-4" />{" "}<Tr s={"Editar"} /></Link>
             )}
             <form action={togglePin}>
               <input type="hidden" name="postId" value={post.id} />
-              <button className="btn btn-ghost btn-sm min-h-10">{post.pinned ? <><PinOff className="h-4 w-4" /> Quitar de arriba</> : <><Pin className="h-4 w-4" /> Fijar arriba</>}</button>
+              <button className="btn btn-ghost btn-sm min-h-10">{post.pinned ? <><PinOff className="h-4 w-4" />{" "}<Tr s={"Quitar de arriba"} /></> : <><Pin className="h-4 w-4" />{" "}<Tr s={"Fijar arriba"} /></>}</button>
             </form>
             {!post.circleProductId && (
               <ConfirmForm action={deleteStudioPost} message="¿Eliminar esta publicación? Se borrarán también sus archivos y comentarios.">
                 <input type="hidden" name="postId" value={post.id} />
                 <input type="hidden" name="tab" value="muro" />
-                <button className="btn btn-ghost btn-sm min-h-10 hover:text-rose"><Trash2 className="h-4 w-4" /> Eliminar</button>
+                <button className="btn btn-ghost btn-sm min-h-10 hover:text-rose"><Trash2 className="h-4 w-4" />{" "}<Tr s={"Eliminar"} /></button>
               </ConfirmForm>
             )}
           </div>
@@ -313,8 +307,8 @@ async function Wall({ owner, tiers, tierId, composer, before, kind, search, q }:
           </div>
         </article>
       ))}
-      {wall.nextBefore && <Link href={q({ antes: wall.nextBefore, ok: undefined, t: undefined })} className="btn btn-outline min-h-11 w-full">Ver publicaciones anteriores</Link>}
-      {before && <Link href={q({ antes: undefined })} className="block text-center text-sm font-semibold text-muted hover:text-ink">Volver a lo último</Link>}
+      {wall.nextBefore && <Link href={q({ antes: wall.nextBefore, ok: undefined, t: undefined })} className="btn btn-outline min-h-11 w-full"><Tr s={"Ver publicaciones anteriores"} /></Link>}
+      {before && <Link href={q({ antes: undefined })} className="block text-center text-sm font-semibold text-muted hover:text-ink"><Tr s={"Volver a lo último"} /></Link>}
     </div>
   );
 }
@@ -336,11 +330,11 @@ async function Queue({ owner, tiers, composer, picker, folder }: { owner: Owner;
       </div>
       <div className="com-post-tools mt-4 flex flex-wrap gap-1 pt-3">
         <Reschedule postId={p.id} at={at} label={label} {...picker} />
-        <Link href={`/panel/comunidad?tab=publicar&editar=${p.id}#publicar`} className="btn btn-ghost btn-sm min-h-10"><Pencil className="h-4 w-4" /> Editar</Link>
-        <Link href={`/cuenta/membresias/${p.productId}/${p.id}`} className="btn btn-ghost btn-sm min-h-10"><Eye className="h-4 w-4" /> Verla en el área</Link>
+        <Link href={`/panel/comunidad?tab=publicar&editar=${p.id}#publicar`} className="btn btn-ghost btn-sm min-h-10"><Pencil className="h-4 w-4" />{" "}<Tr s={"Editar"} /></Link>
+        <Link href={`/area/membership/${p.productId}/${p.id}`} className="btn btn-ghost btn-sm min-h-10"><Eye className="h-4 w-4" />{" "}<Tr s={"Verla en el área"} /></Link>
         <ConfirmForm action={publishNow} message="¿Publicarla ahora? La verán tus miembros desde este momento.">
           <input type="hidden" name="postId" value={p.id} />
-          <button className="btn btn-ghost btn-sm min-h-10"><Send className="h-4 w-4" /> Publicar ahora</button>
+          <button className="btn btn-ghost btn-sm min-h-10"><Send className="h-4 w-4" />{" "}<Tr s={"Publicar ahora"} /></button>
         </ConfirmForm>
         <ConfirmForm action={deleteStudioPost} message="¿Eliminar esta publicación? Se borrarán también sus archivos.">
           <input type="hidden" name="postId" value={p.id} />
@@ -397,16 +391,13 @@ async function Members({ owner, tiers, tierId }: { owner: Owner; tiers: Tiers; t
         <Stat label="Terminadas" value={counts.expired} />
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted">
-          Cuenta atrás de cada una: 5 días antes le llega un email para renovar y el día que vence se bloquea sola. Tick verde = ha pagado (otro periodo); X = bloquear ya.
+        <p className="text-sm text-muted"><Tr s={"Cuenta atrás de cada una: 5 días antes le llega un email para renovar y el día que vence se bloquea sola. Tick verde = ha pagado (otro periodo); X = bloquear ya."} /></p>
+        <p className="text-sm text-muted"><Tr s={"En «"} />{tier.title}<Tr s={"» directamente"} />{tier.includedBy.length ? `. Quienes están en ${tier.includedBy.map((id) => `«${tiers.find((t) => t.id === id)?.title}»`).join(" y ")} también leen lo de este nivel` : ""}.
         </p>
-        <p className="text-sm text-muted">
-          En «{tier.title}» directamente{tier.includedBy.length ? `. Quienes están en ${tier.includedBy.map((id) => `«${tiers.find((t) => t.id === id)?.title}»`).join(" y ")} también leen lo de este nivel` : ""}.
-        </p>
-        <Link href="/panel/solicitudes/dar" className="btn btn-outline btn-sm min-h-10"><UserPlus className="h-4 w-4" /> Dar acceso a mano</Link>
+        <Link href="/panel/solicitudes/dar" className="btn btn-outline btn-sm min-h-10"><UserPlus className="h-4 w-4" />{" "}<Tr s={"Dar acceso a mano"} /></Link>
       </div>
       {rows.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted">Nadie en «{tier.title}» todavía.</p>
+        <p className="rounded-2xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted"><Tr s={"Nadie en «"} />{tier.title}<Tr s={"» todavía."} /></p>
       ) : (
         <ul className="card divide-y divide-line" aria-label={`Miembros de ${tier.title}`}>
           {rows.map((r) => (
@@ -416,8 +407,8 @@ async function Members({ owner, tiers, tierId }: { owner: Owner; tiers: Tiers; t
                 <p className="truncate text-xs text-muted">{r.email}</p>
               </div>
               <div className="text-xs text-muted sm:w-40">
-                <p>Desde el {r.since}</p>
-                <p>{r.until}</p>
+                <p><Tr s={"Desde el"} />{" "}<Tr s={r.since} /></p>
+                <p><Tr s={r.until} /></p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Countdown r={r} />
@@ -441,9 +432,9 @@ async function Members({ owner, tiers, tierId }: { owner: Owner; tiers: Tiers; t
                     )}
                   </>
                 )}
-                <Badge tone={STATUS[r.status].tone}>{STATUS[r.status].label}</Badge>
-                <span className={`text-xs ${r.manual ? "font-semibold text-ink" : "text-muted"}`}>{r.origin}</span>
-                {r.customerId && <Link href={`/panel/clientes/${r.customerId}`} className="btn btn-ghost btn-sm min-h-10" aria-label={`Ver ficha de ${r.name} en Clientes`}>Ficha</Link>}
+                <Badge tone={STATUS[r.status].tone}><Tr s={STATUS[r.status].label} /></Badge>
+                <span className={`text-xs ${r.manual ? "font-semibold text-ink" : "text-muted"}`}><Tr s={r.origin} /></span>
+                {r.customerId && <Link href={`/panel/clientes/${r.customerId}`} className="btn btn-ghost btn-sm min-h-10" aria-label={`Ver ficha de ${r.name} en Clientes`}><Tr s={"Ficha"} /></Link>}
               </div>
             </li>
           ))}
@@ -456,33 +447,34 @@ async function Members({ owner, tiers, tierId }: { owner: Owner; tiers: Tiers; t
 // ── Datos ──
 
 async function Data({ owner, tierId }: { owner: Owner; tierId: string | null }) {
+  const t = await getT();
   const { posts, totals } = await loadStats(owner, tierId);
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-2">
-        <Stat label="Vistas" value={totals.views} hint="Personas que la abrieron" />
-        <Stat label="Me gusta" value={totals.likes} />
-        <Stat label="Comentarios" value={totals.comments} />
+        <Stat label={t("Vistas")} value={totals.views} hint={t("Personas que la abrieron")} />
+        <Stat label={t("Me gusta")} value={totals.likes} />
+        <Stat label={t("Comentarios")} value={totals.comments} />
       </div>
       {posts.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted">Cuando publiques, aquí verás cómo le va a cada publicación.</p>
+        <p className="rounded-2xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted"><Tr s={"Cuando publiques, aquí verás cómo le va a cada publicación."} /></p>
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[34rem] text-sm">
             <thead>
               <tr className="border-b border-line text-left text-xs text-muted">
-                <th className="px-4 py-2.5 font-semibold">Publicación</th>
-                <th className="px-2 py-2.5 text-right font-semibold">Vistas</th>
-                <th className="px-2 py-2.5 text-right font-semibold">Me gusta</th>
-                <th className="px-2 py-2.5 text-right font-semibold">Coment.</th>
-                <th className="px-4 py-2.5 text-right font-semibold">Aviso</th>
+                <th className="px-4 py-2.5 font-semibold"><Tr s={"Publicación"} /></th>
+                <th className="px-2 py-2.5 text-right font-semibold"><Tr s={"Vistas"} /></th>
+                <th className="px-2 py-2.5 text-right font-semibold"><Tr s={"Me gusta"} /></th>
+                <th className="px-2 py-2.5 text-right font-semibold"><Tr s={"Coment."} /></th>
+                <th className="px-4 py-2.5 text-right font-semibold"><Tr s={"Aviso"} /></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {posts.map((p) => (
                 <tr key={p.id} data-stats-post={p.id}>
                   <td className="max-w-0 px-4 py-2.5">
-                    <Link href={`/cuenta/membresias/${p.productId}/${p.id}`} className="block truncate font-semibold hover:underline">{p.pinnedAt && <Pin className="mr-1 inline h-3 w-3" />}{p.title}</Link>
+                    <Link href={`/area/membership/${p.productId}/${p.id}`} className="block truncate font-semibold hover:underline">{p.pinnedAt && <Pin className="mr-1 inline h-3 w-3" />}{p.title}</Link>
                     <span className="text-xs text-muted">{p.product.title} · {formatDate(p.publishedAt, { day: "numeric", month: "short" }, owner.timezone)}</span>
                   </td>
                   <td className="px-2 py-2.5 text-right tabular-nums">{p._count.views}</td>
@@ -495,7 +487,7 @@ async function Data({ owner, tierId }: { owner: Owner; tierId: string | null }) 
           </table>
         </div>
       )}
-      <p className="text-xs text-faint">Vistas: personas distintas que abrieron la publicación desde su área (sin contarte a ti). Se cuentan desde que existe el estudio.</p>
+      <p className="text-xs text-faint"><Tr s={"Vistas: personas distintas que abrieron la publicación desde su área (sin contarte a ti). Se cuentan desde que existe el estudio."} /></p>
     </div>
   );
 }

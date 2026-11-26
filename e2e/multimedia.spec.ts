@@ -31,9 +31,9 @@ const tmp = mkdtempSync(path.join(tmpdir(), "cirella-e2e-media-"));
 
 async function demoLogin(page: Page, label: string) {
   await page.context().clearCookies();
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 let anaId = "";
@@ -43,7 +43,7 @@ const created = { lessons: [] as string[], files: [] as string[], sessions: [] a
 
 test.beforeAll(async () => {
   anaId = (await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } })).id;
-  courseId = (await prisma.product.findFirstOrThrow({ where: { creatorId: anaId, slug: "curso-conocete-tu-energia" } })).id;
+  courseId = (await prisma.product.findFirstOrThrow({ where: { creatorId: anaId, slug: "know-your-energy" } })).id;
   lauraId = (await prisma.user.findUniqueOrThrow({ where: { email: "laura@example.com" } })).id;
 });
 
@@ -114,7 +114,7 @@ test.describe.serial("Multimedia", () => {
     expect(lesson.durationMin).toBe(3);
 
     await demoLogin(page, "Laura Martín");
-    await page.goto(`/cuenta/cursos/${courseId}?leccion=${lesson.id}`);
+    await page.goto(`/area/courses/${courseId}?leccion=${lesson.id}`);
     const box = page.locator("[data-video-player] > div").first();
     await expect(box).toHaveAttribute("style", /aspect-ratio: ?1080 \/ 1920/);
     const hevc = await page.evaluate(() => document.createElement("video").canPlayType('video/mp4; codecs="hvc1.1.6.L93.B0"'));
@@ -129,7 +129,7 @@ test.describe.serial("Multimedia", () => {
   test("audio de la web personal: /api/stream con Range, velocidad y acceso retirado", async ({ page }) => {
     const lesson = await prisma.lesson.findFirstOrThrow({ where: { productId: courseId, title: "Estrategia y autoridad" }, include: { file: true } });
     await demoLogin(page, "Laura Martín");
-    await page.goto(`/cuenta/cursos/${courseId}?leccion=${lesson.id}`);
+    await page.goto(`/area/courses/${courseId}?leccion=${lesson.id}`);
     const audio = page.locator("[data-audio-player] audio");
     await expect(audio).toHaveAttribute("src", `/api/stream/${lesson.file!.id}`);
     await page.waitForFunction(() => (document.querySelector("[data-audio-player] audio") as HTMLAudioElement | null)?.readyState! >= 1);
@@ -164,10 +164,10 @@ test.describe.serial("Multimedia", () => {
     const lesson = await prisma.lesson.findFirstOrThrow({ where: { productId: courseId, title: "Estrategia y autoridad" }, include: { file: true } });
     await page.clock.install();
     await page.context().clearCookies();
-    await page.goto(`${PLATFORM}/entrar`);
+    await page.goto(`${PLATFORM}/login`);
     await page.locator("form", { hasText: "Laura Martín" }).getByRole("button").click();
-    await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
-    await page.goto(`${PLATFORM}/cuenta/cursos/${courseId}?leccion=${lesson.id}`);
+    await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+    await page.goto(`${PLATFORM}/area/courses/${courseId}?leccion=${lesson.id}`);
     const audio = page.locator("[data-audio-player] audio");
     await expect(audio).toHaveAttribute("src", `/api/download/${lesson.file!.id}?inline=1`);
     await page.waitForFunction(() => (document.querySelector("[data-audio-player] audio") as HTMLAudioElement | null)?.readyState! >= 1);
@@ -193,7 +193,7 @@ test.describe.serial("Multimedia", () => {
     expect(worker.headers()["content-type"]).toMatch(/javascript/);
     const lesson = await prisma.lesson.findFirstOrThrow({ where: { productId: courseId, title: "Ejercicio: dibuja tu mapa" }, include: { file: true } });
     await demoLogin(page, "Laura Martín");
-    await page.goto(`/cuenta/cursos/${courseId}?leccion=${lesson.id}`);
+    await page.goto(`/area/courses/${courseId}?leccion=${lesson.id}`);
     const viewer = page.locator("[data-pdf-viewer]");
     await viewer.scrollIntoViewIfNeeded();
     await expect(viewer.getByText(/^Página 1 de \d+$/)).toBeVisible();
@@ -211,11 +211,11 @@ test.describe.serial("Multimedia", () => {
     const order = await prisma.order.findFirstOrThrow({ where: { productId: gk.id, customer: { userId: lauraId } } });
     const pdf = gk.files.find((f) => f.kind === "PDF")!;
     await demoLogin(page, "Laura Martín");
-    await page.goto(`/cuenta/pedidos/${order.id}`);
+    await page.goto(`/area/orders/${order.id}`);
     await page.locator("li", { hasText: pdf.name }).getByRole("link", { name: "Ver" }).click();
-    await page.waitForURL(`**/cuenta/archivos/${pdf.id}`);
+    await page.waitForURL(`**/area/files/${pdf.id}`);
     await expect(page.locator('[data-pdf-page="1"] canvas')).toBeVisible();
-    await expect(page.locator("main").getByRole("link", { name: "Mis archivos" }).first()).toHaveAttribute("href", "/cuenta/archivos");
+    await expect(page.locator("main").getByRole("link", { name: "Mis archivos" }).first()).toHaveAttribute("href", "/area/files");
 
     // Sesión limitada a ese pedido (la de justo después de pagar).
     const token = randomBytes(32).toString("base64url");
@@ -224,8 +224,8 @@ test.describe.serial("Multimedia", () => {
     created.sessions.push(id);
     await page.context().clearCookies();
     await page.context().addCookies([{ name: "cirella_session", value: token, url: PERSONAL }]);
-    await page.goto(`/cuenta/archivos/${pdf.id}`);
-    await expect(page.getByRole("link", { name: "Volver a tu compra" })).toHaveAttribute("href", `/cuenta/pedidos/${order.id}`);
+    await page.goto(`/area/files/${pdf.id}`);
+    await expect(page.getByRole("link", { name: "Volver a tu compra" })).toHaveAttribute("href", `/area/orders/${order.id}`);
     await expect(page.locator('[data-pdf-page="1"] canvas')).toBeVisible();
 
     // Un archivo de otro producto (el curso, que no es de este pedido) no se enseña.
@@ -237,7 +237,7 @@ test.describe.serial("Multimedia", () => {
     const png = await sharp({ create: { width: 600, height: 400, channels: 3, background: { r: 200, g: 170, b: 110 } } }).png().toBuffer();
     const file = await privateFile(`${TAG}-ficha.png`, "IMAGE", "image/png", png, "png");
     await demoLogin(page, "Laura Martín");
-    await page.goto(`/cuenta/archivos/${file.id}`);
+    await page.goto(`/area/files/${file.id}`);
     const img = page.locator("[data-image-viewer] button img");
     await expect(img).toHaveAttribute("src", `/api/stream/${file.id}`);
     const res = await page.request.get(`/api/stream/${file.id}`);
@@ -287,12 +287,12 @@ test.describe.serial("Multimedia", () => {
     expect(loom.parts.map((p) => [p.kind, p.url])).toEqual([["EMBED", "https://www.loom.com/share/abc123"]]);
 
     await demoLogin(page, "Laura Martín");
-    await page.goto(`/cuenta/cursos/${courseId}?leccion=${vimeo.id}`);
+    await page.goto(`/area/courses/${courseId}?leccion=${vimeo.id}`);
     const frame = page.locator("article iframe");
     await expect(frame).toHaveAttribute("src", /player\.vimeo\.com\/video\/76979871\?h=abcdef1234&dnt=1/);
-    await page.goto(`/cuenta/cursos/${courseId}?leccion=${shorts.id}`);
+    await page.goto(`/area/courses/${courseId}?leccion=${shorts.id}`);
     await expect(frame).toHaveAttribute("src", /^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/);
-    await page.goto(`/cuenta/cursos/${courseId}?leccion=${loom.id}`);
+    await page.goto(`/area/courses/${courseId}?leccion=${loom.id}`);
     await expect(page.getByRole("link", { name: "Abrir el vídeo" })).toHaveAttribute("href", "https://www.loom.com/share/abc123");
   });
 
@@ -338,9 +338,9 @@ test.describe.serial("Multimedia", () => {
     const plat = path.join(tmp, `${TAG}-plataforma.mp4`);
     writeFileSync(plat, Buffer.alloc(70 * 1024 * 1024, 3));
     await page.context().clearCookies();
-    await page.goto(`${PLATFORM}/entrar`);
+    await page.goto(`${PLATFORM}/login`);
     await page.locator("form", { hasText: "Cirella" }).getByRole("button").click();
-    await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+    await page.waitForURL((u) => !u.pathname.startsWith("/login"));
     await page.goto(`${PLATFORM}/panel/productos/${courseId}`);
     await expect(page.getByText(/Hasta 1 GB por archivo/).first()).toBeVisible();
     const before = { ...calls };

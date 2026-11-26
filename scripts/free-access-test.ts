@@ -84,9 +84,9 @@ async function main() {
     const mails = await prisma.emailMessage.findMany({ where: { to: lucia } });
     const accessMail = mails.find((m) => m.template === "ACCESS_GRANTED");
     check("email «Ya tienes acceso a «X»»", accessMail?.subject === `Ya tienes acceso a «${free.title}»`, mails.map((m) => m.subject));
-    check("con el enlace personal directo al curso", !!accessMail && /\/auth\/enlace\?t=/.test(accessMail.html) && (await prisma.orderLink.count({ where: { orderId: order.id, path: `/cuenta/cursos/${free.id}` } })) === 1);
+    check("con el enlace personal directo al curso", !!accessMail && /\/auth\/enlace\?t=/.test(accessMail.html) && (await prisma.orderLink.count({ where: { orderId: order.id, path: `/area/courses/${free.id}` } })) === 1);
     check("el email de acceso lleva el botón para confirmar las novedades", !!accessMail?.html.includes("Confirmar que quiero recibir novedades") &&
-      (await prisma.orderLink.count({ where: { orderId: order.id, path: `/cuenta/novedades/confirmar?pedido=${order.id}` } })) === 1);
+      (await prisma.orderLink.count({ where: { orderId: order.id, path: `/area/newsletter/confirm?pedido=${order.id}` } })) === 1);
     check("…y no saluda con el nombre escrito en el formulario", !!accessMail && !accessMail.html.includes("Lucía"));
     check("otra persona no puede confirmar sus novedades", !(await confirmNewsletter({ orderId: order.id, userId: ana.userId })));
     check("confirmarlas desde su sesión", await confirmNewsletter({ orderId: order.id, userId: order.customer!.userId }));
@@ -157,7 +157,7 @@ async function main() {
     // ── Acceso a mano ──
     check(
       "una sesión externa no admite acceso a mano",
-      await rejects(() => grantManualAccess({ creatorId: ana.id, productId: external.id, name: "X", email: email("sesion"), grantedByUserId: ana.userId }), FreeAccessError, /sesiones/),
+      await rejects(() => grantManualAccess({ creatorId: ana.id, productId: external.id, name: "X", email: email("sesion"), grantedByUserId: ana.userId }), FreeAccessError, /sessions/),
     );
     check(
       "un producto de pago en la web no admite acceso a mano",

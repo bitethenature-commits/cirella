@@ -13,6 +13,8 @@ import { dateKeyInTz } from "@/lib/tz";
 import { Badge, PageHeader } from "../../ui";
 import { deletePost } from "../actions";
 import { PostForm } from "../post-form";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Publicación" };
 
@@ -22,6 +24,7 @@ const SAVED: Record<string, string> = {
 };
 
 export default async function EditPostPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ guardada?: string }> }) {
+  const t = await getT();
   const { id } = await params;
   const sp = await searchParams;
   const { creator } = await requireCreator();
@@ -32,16 +35,14 @@ export default async function EditPostPage({ params, searchParams }: { params: P
   return (
     <div className="mx-auto max-w-3xl">
       <Link href="/panel/actualidades" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Actualidades
-      </Link>
+        <ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Actualidades"} /></Link>
       <PageHeader
-        title="Editar publicación"
-        subtitle={<Badge tone={state === "PUBLISHED" ? "success" : state === "DRAFT" ? "warning" : "neutral"}>{POST_STATE_LABEL[state]}</Badge>}
+        title={t("Editar publicación")}
+        subtitle={<Badge tone={state === "PUBLISHED" ? "success" : state === "DRAFT" ? "warning" : "neutral"}><Tr s={POST_STATE_LABEL[state]} /></Badge>}
         actions={
           state === "PUBLISHED" ? (
             <Link href={postPath(creator.username, post.slug)} target="_blank" className="btn btn-outline btn-sm">
-              <ExternalLink className="h-4 w-4" /> Ver en tu página
-            </Link>
+              <ExternalLink className="h-4 w-4" />{" "}<Tr s={"Ver en tu página"} /></Link>
           ) : null
         }
       />
@@ -67,11 +68,10 @@ export default async function EditPostPage({ params, searchParams }: { params: P
           ctaCode: post.ctaCode ?? "",
         }}
       />
-      <ConfirmForm action={deletePost} message="¿Borrar esta publicación? Desaparece de tu página y no se puede deshacer." className="mt-10 border-t border-line pt-6">
+      <ConfirmForm action={deletePost} message={t("¿Borrar esta publicación? Desaparece de tu página y no se puede deshacer.")} className="mt-10 border-t border-line pt-6">
         <input type="hidden" name="id" value={post.id} />
         <button className="btn btn-ghost btn-sm text-rose">
-          <Trash2 className="h-4 w-4" /> Borrar publicación
-        </button>
+          <Trash2 className="h-4 w-4" />{" "}<Tr s={"Borrar publicación"} /></button>
       </ConfirmForm>
     </div>
   );

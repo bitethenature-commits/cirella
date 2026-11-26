@@ -1,5 +1,6 @@
 "use server";
 
+import { translateSoon } from "@/lib/i18n/content";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -46,7 +47,10 @@ async function save(pageId: string, input: SitePageInput, publish: boolean): Pro
   const parsed = inputSchema.safeParse(input);
   if (!id.safeParse(pageId).success || !parsed.success) return { ok: false, error: "No se pudo guardar" };
   const r = await saveSitePage(creator.id, pageId, input, { publish });
-  if (r.ok) refreshPublic(creator.username);
+  if (r.ok) {
+    refreshPublic(creator.username);
+    translateSoon(creator.id, true);
+  }
   return r;
 }
 

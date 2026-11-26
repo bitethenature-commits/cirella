@@ -16,6 +16,7 @@ import { firstPeriodEnd } from "./membership-renewal";
 import { fulfillOrder, type SessionOrderMeta } from "./orders";
 import { canonicalTimezone } from "./timezones";
 import { formatSessionDate, labelToMinutes, zonedTimeToUtc } from "./tz";
+import { et, inMail, requestLocale } from "@/lib/i18n/email";
 
 /**
  * Solicitudes: la web no cobra. En vez de pagar, la clienta rellena un formulario (sus datos, un
@@ -85,6 +86,7 @@ export async function createRequest(input: {
         productTitle: product.title,
         productType: product.type,
         buyerEmail: input.email.trim().toLowerCase(),
+        locale: await requestLocale(),
         buyerName: input.name.trim() || null,
         status: REQUESTED,
         amountCents: 0,
@@ -116,21 +118,31 @@ export async function createRequest(input: {
     ...(meta.message ? [{ label: "Mensaje", value: meta.message }] : []),
     ...(input.intake ? intakeLines(input.intake) : []),
   ].filter((l) => l.value);
+  const ownerTo = product.creator.contactEmail || product.creator.user.email;
+  const buyer = order.buyerName ?? order.buyerEmail;
+  // En el idioma de su panel (lib/i18n/email.ts).
+  const ownerMail = await inMail(ownerTo, () => ({
+    subject: et("Nueva solicitud: {buyer} · {productTitle}", { buyer, productTitle: product.title }),
+    html: layout({
+      title: et("Nueva solicitud"),
+      body:
+        p(et("<strong>{buyer}</strong> quiere <strong>{productTitle}</strong>.", { buyer: esc(buyer), productTitle: esc(product.title) })) +
+        detailsTable(lines) +
+        p(
+          slotStart
+            ? et("Respóndele a este email para hablar del pago. Cuando esté, confírmalo en el panel y recibirá el acceso y la reserva.")
+            : et("Respóndele a este email para hablar del pago. Cuando esté, confírmalo en el panel y recibirá el acceso."),
+        ),
+      cta: { label: et("Ver la solicitud"), url: `${appUrl()}/panel/clientes` },
+    }),
+  }));
   await enqueueEmail({
-    to: product.creator.contactEmail || product.creator.user.email,
+    to: ownerTo,
     creatorId: product.creatorId,
     template: "REQUEST_OWNER",
     dedupeKey: `request-owner:${order.id}`,
     replyTo: order.buyerEmail,
-    subject: `Nueva solicitud: ${order.buyerName ?? order.buyerEmail} · ${product.title}`,
-    html: layout({
-      title: "Nueva solicitud",
-      body:
-        p(`<strong>${esc(order.buyerName ?? order.buyerEmail)}</strong> quiere <strong>${esc(product.title)}</strong>.`) +
-        detailsTable(lines) +
-        p(`Respóndele a este email para hablar del pago. Cuando esté, confírmalo en el panel y recibirá el acceso${slotStart ? " y la reserva" : ""}.`),
-      cta: { label: "Ver la solicitud", url: `${appUrl()}/panel/clientes` },
-    }),
+    ...ownerMail,
   });
   const rs = await automationSetting(product.creatorId, "REQUEST_RECEIVED");
   if (rs.enabled) {
@@ -146,16 +158,18 @@ export async function createRequest(input: {
       template: "REQUEST_RECEIVED",
       dedupeKey: `request-received:${order.id}`,
       replyTo: product.creator.contactEmail || product.creator.user.email,
-      subject: custom.subject || `He recibido tu mensaje ✦ ${product.title}`,
-      html: receivedEmailHtml({
-        brand: product.creator.displayName,
-        buyer: order.buyerName,
-        productTitle: product.title,
-        when,
-        price,
-        message: meta.message ?? null,
-        introHtml: custom.introHtml,
-      }),
+      ...(await inMail(order.buyerEmail, () => ({
+        subject: custom.subject || et("He recibido tu mensaje ✦ {title}", { title: product.title }),
+        html: receivedEmailHtml({
+          brand: product.creator.displayName,
+          buyer: order.buyerName,
+          productTitle: product.title,
+          when,
+          price,
+          message: meta.message ?? null,
+          introHtml: custom.introHtml,
+        }),
+      }))),
     });
   }
   return order;
@@ -171,9 +185,9 @@ export function receivedEmailHtml(o: { brand: string; buyer: string | null; prod
   const muted = "#A99FC2";
   const box = (inner: string) => `<div style="margin:18px 0;padding:16px 18px;border:1px solid #6E5B3A;border-radius:14px;background:#211D49">${inner}</div>`;
   const steps = [
-    ["1", "Me has escrito", "Ya tengo tu mensaje."],
-    ["2", "Te respondo", "En persona, desde este mismo correo."],
-    ["3", "Lo cerramos", "Te cuento cómo pagar y recibes tu acceso."],
+    ["1", et("Me has escrito"), et("Ya tengo tu mensaje.")],
+    ["2", et("Te respondo"), et("En persona, desde este mismo correo.")],
+    ["3", et("Lo cerramos"), et("Te cuento cómo pagar y recibes tu acceso.")],
   ]
     .map(
       ([n, t, d], i) =>
@@ -182,17 +196,17 @@ export function receivedEmailHtml(o: { brand: string; buyer: string | null; prod
     .join("");
   return layout({
     brand: o.brand,
-    title: "He recibido tu mensaje",
-    preheader: "Te responderé muy pronto, en persona, desde este mismo correo.",
+    title: et("He recibido tu mensaje"),
+    preheader: et("Te responderé muy pronto, en persona, desde este mismo correo."),
     body:
       (o.introHtml ||
-        p(`Hola${o.buyer ? ` ${esc(o.buyer.split(" ")[0])}` : ""},`) +
-          p(`gracias por escribirme. Me ha llegado tu mensaje sobre <strong>${esc(o.productTitle)}</strong>${o.price ? ` <span style="color:${muted}">(${esc(o.price)})</span>` : ""} y te responderé muy pronto desde este mismo correo.`)) +
-      (o.when ? box(`<span style="color:${muted};font-size:12px;letter-spacing:.12em;text-transform:uppercase">Tu hora, guardada</span><br><strong style="font-size:16px">${esc(o.when)}</strong><br><span style="color:${muted};font-size:13px">Te la guardo mientras lo hablamos.</span>`) : "") +
-      (o.message ? box(`<span style="color:${muted};font-size:12px;letter-spacing:.12em;text-transform:uppercase">Tu mensaje</span><br><span style="font-style:italic;white-space:pre-line">${esc(o.message)}</span>`) : "") +
+        p(et("Hola{name},", { name: o.buyer ? ` ${esc(o.buyer.split(" ")[0])}` : "" })) +
+          p(et("gracias por escribirme. Me ha llegado tu mensaje sobre <strong>{title}</strong>{price} y te responderé muy pronto desde este mismo correo.", { title: esc(o.productTitle), price: o.price ? ` <span style="color:${muted}">(${esc(o.price)})</span>` : "" }))) +
+      (o.when ? box(`<span style="color:${muted};font-size:12px;letter-spacing:.12em;text-transform:uppercase">${et("Tu hora, guardada")}</span><br><strong style="font-size:16px">${esc(o.when)}</strong><br><span style="color:${muted};font-size:13px">${et("Te la guardo mientras lo hablamos.")}</span>`) : "") +
+      (o.message ? box(`<span style="color:${muted};font-size:12px;letter-spacing:.12em;text-transform:uppercase">${et("Tu mensaje")}</span><br><span style="font-style:italic;white-space:pre-line">${esc(o.message)}</span>`) : "") +
       `<table role="presentation" style="width:100%;border-collapse:collapse;margin:8px 0 14px">${steps}</table>` +
-      p("Aquí no se paga nada: cuando lo hablemos te diré cómo hacerlo, con calma.") +
-      `<p style="margin:22px 0 0;font-family:Georgia,serif;font-style:italic;font-size:18px;color:${gold}">Con cariño, ${esc(first)}</p>`,
+      p(et("Aquí no se paga nada: cuando lo hablemos te diré cómo hacerlo, con calma.")) +
+      `<p style="margin:22px 0 0;font-family:Georgia,serif;font-style:italic;font-size:18px;color:${gold}">${et("Con cariño, {name}", { name: esc(first) })}</p>`,
     areaLink: false,
   });
 }

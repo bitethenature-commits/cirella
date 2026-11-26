@@ -14,6 +14,6 @@ export async function GET(req: Request) {
   if (!post) return NextResponse.redirect(new URL("/", u));
   const s = await getBuyerSession();
   const member = !!s && !s.scope && (s.user.creator?.id === post.creatorId || !!(await accessSource(s.user.id, post.productId)));
-  const to = member ? `/cuenta/membresias/${post.productId}/${post.id}` : `/${post.product.creator.username}/comunidad`;
+  const to = member ? `/area/membership/${post.productId}/${post.id}` : `/${post.product.creator.username}/membership`;
   return NextResponse.redirect(new URL(to, u));
 }

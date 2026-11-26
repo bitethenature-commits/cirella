@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import { ImageUpload } from "@/components/ui/image-upload";
 import type { ImageBlock } from "@/lib/page-blocks";
 import { LinkInput, type LinkTarget } from "./link-input";
+import { Tr } from "@/lib/i18n/client";
 
 /** Bloque «Imagen»: el gráfico entero (contain), su descripción, pie, enlace y título opcionales. */
 export function ImageBlockFields({
@@ -21,7 +22,7 @@ export function ImageBlockFields({
     <>
       {status ? (
         <p className="flex aspect-[4/3] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-line text-xs font-medium" aria-live="polite">
-          <Loader2 className="h-5 w-5 animate-spin" /> {status}
+          <Loader2 className="h-5 w-5 animate-spin" /> <Tr s={status} />
         </p>
       ) : (
         <ImageUpload
@@ -33,11 +34,11 @@ export function ImageBlockFields({
           label="Subir imagen"
         />
       )}
-      <p className="field-hint">PNG o JPG. Desde Canva: Compartir › Descargar › PNG.</p>
+      <p className="field-hint"><Tr s={"PNG o JPG. Desde Canva: Compartir › Descargar › PNG."} /></p>
       {b.image && (
         <>
           <div>
-            <label className="field-label">Descripción de la imagen</label>
+            <label className="field-label"><Tr s={"Descripción de la imagen"} /></label>
             <textarea
               className="input text-sm"
               rows={2}
@@ -46,7 +47,7 @@ export function ImageBlockFields({
               maxLength={300}
               onChange={(e) => onPatch({ image: { ...b.image!, alt: e.target.value } })}
             />
-            <p className="field-hint">Escribe el texto que sale en la imagen: así lo leen Google y quien usa lector de pantalla.</p>
+            <p className="field-hint"><Tr s={"Escribe el texto que sale en la imagen: así lo leen Google y quien usa lector de pantalla."} /></p>
           </div>
           <input
             className="input h-10 text-sm"

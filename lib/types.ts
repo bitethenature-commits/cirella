@@ -67,7 +67,7 @@ export const BOOKING_STATUS_LABEL: Record<string, string> = {
 
 /**
  * Solo para Lesson.kind (copia de compatibilidad calculada desde las partes, ver lib/lesson-parts.ts).
- * La interfaz usa partView/partsLabel.
+ * La interfaz usa partView.
  */
 export const LESSON_KINDS = ["VIDEO", "AUDIO", "PDF", "TEXT", "EXERCISE"] as const;
 export type LessonKind = (typeof LESSON_KINDS)[number];
@@ -107,8 +107,3 @@ export function lessonsLabel(n: number): string {
   return `${n} ${n === 1 ? "lección" : "lecciones"}`;
 }
 
-/** Duración de un curso: «45 min», «1 h», «1,5 h» (coma decimal, como el resto de la web). */
-export function formatCourseLength(minutes: number): string {
-  if (minutes < 60) return `${Math.max(1, Math.round(minutes))} min`;
-  return `${(Math.round(minutes / 6) / 10).toLocaleString("es-ES")} h`;
-}

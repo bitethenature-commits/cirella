@@ -7,6 +7,7 @@ import { BUILTIN_ORACLE_DECK, type OracleDeckView } from "./data/oracle";
 import { loadAccess, type AccessData, type ModelGateInfo } from "./model-gate-scope";
 import { cn } from "./model-kit";
 import { OracleModel } from "./oracle-model";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * El oráculo en las páginas públicas de la web personal: la baraja del bloque (o la de serie) la usa todo
@@ -28,6 +29,7 @@ async function loadDecks(username: string): Promise<OracleDeckView[] | null> {
 }
 
 export function OracleWithDecks({ deck, gate }: { deck: OracleDeckView | null; gate: ModelGateInfo }) {
+  const t = useT();
   const base = deck && deck.cards.length ? deck : BUILTIN_ORACLE_DECK;
   const [selected, setSelected] = useState<OracleDeckView>(base);
   const [open, setOpen] = useState(false);
@@ -65,28 +67,27 @@ export function OracleWithDecks({ deck, gate }: { deck: OracleDeckView | null; g
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="min-w-0 text-[0.88rem] leading-snug">
-            <span className="cp-eyebrow !text-[0.58rem]">Baraja</span>
-            <span className="mt-0.5 block font-semibold">{selected.name}</span>
+            <span className="cp-eyebrow !text-[0.58rem]"><Tr s={"Baraja"} /></span>
+            <span className="mt-0.5 block font-semibold"><Tr s={selected.name} /></span>
           </p>
           <button type="button" className="cp-btn-ghost !min-h-10 !text-[0.85rem]" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-            <Layers className="h-4 w-4" aria-hidden /> Más barajas
-          </button>
+            <Layers className="h-4 w-4" aria-hidden />{" "}<Tr s={"Más barajas"} /></button>
         </div>
 
-        {open && access === "loading" && <p className="cp-faint mt-3 text-[0.8rem]">Comprobando tu acceso…</p>}
+        {open && access === "loading" && <p className="cp-faint mt-3 text-[0.8rem]"><Tr s={"Comprobando tu acceso…"} /></p>}
 
         {open && access !== "loading" && !unlocked && (
           <div className="mt-4">
             <p className="mb-3 flex items-start gap-2 text-[0.86rem] leading-snug">
               <Lock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
               <span>
-                <strong className="font-semibold">Las demás barajas son para suscriptoras.</strong> <span className="cp-muted">Regístrate y suscríbete a la newsletter para elegirlas; esta la puedes usar siempre.</span>
+                <strong className="font-semibold"><Tr s={"Las demás barajas son para suscriptoras."} /></strong> <span className="cp-muted"><Tr s={"Regístrate y suscríbete a la newsletter para elegirlas; esta la puedes usar siempre."} /></span>
               </span>
             </p>
             <NewsletterUnlockForm
               id="mas-barajas-form"
               what="elegir otras barajas"
-              label="Suscríbete para elegir otras barajas"
+              label={t("Suscríbete para elegir otras barajas")}
               access={access}
               creatorName={gate.creatorName}
               privacyHref={gate.privacyHref}
@@ -106,11 +107,11 @@ export function OracleWithDecks({ deck, gate }: { deck: OracleDeckView | null; g
         {open && unlocked && (
           <div className="mt-4">
             {decks === "loading" || decks === null ? (
-              <p className="cp-faint text-[0.8rem]">Cargando tus barajas…</p>
+              <p className="cp-faint text-[0.8rem]"><Tr s={"Cargando tus barajas…"} /></p>
             ) : options.length < 2 ? (
-              <p className="cp-muted text-[0.85rem]">Por ahora esta es la única baraja publicada.</p>
+              <p className="cp-muted text-[0.85rem]"><Tr s={"Por ahora esta es la única baraja publicada."} /></p>
             ) : (
-              <ul className="flex flex-wrap gap-2" aria-label="Elegir baraja">
+              <ul className="flex flex-wrap gap-2" aria-label={t("Elegir baraja")}>
                 {options.map((d) => (
                   <li key={d.id ?? "serie"}>
                     <button
@@ -122,7 +123,7 @@ export function OracleWithDecks({ deck, gate }: { deck: OracleDeckView | null; g
                       }}
                       className={cn("cp-btn-ghost !min-h-9 !px-3.5 !text-[0.82rem]", selected.id === d.id && "!border-[var(--c-gold)]")}
                     >
-                      {d.name}
+                      <Tr s={d.name} />
                       <span className="cp-faint"> · {d.cards.length}</span>
                     </button>
                   </li>

@@ -103,9 +103,9 @@ test("título: color, fondo, tamaño, alineación y tipo de letra", () => {
 });
 
 test("texto: color, tipo de letra, alineación y tamaño", () => {
-  const out = html([{ id: "x", t: "text", body: "Hola **{nombre}** [web](/sobre-mi)", color: "#333333", font: "lora", align: "center", size: "l" }]);
+  const out = html([{ id: "x", t: "text", body: "Hola **{nombre}** [web](/aboutme)", color: "#333333", font: "lora", align: "center", size: "l" }]);
   ok(out.includes("color:#333333") && out.includes("font-family:Lora,Georgia,serif") && out.includes("text-align:center") && out.includes("font-size:17px"), out);
-  ok(out.includes("Laura") && out.includes(`href="${BASE}/sobre-mi"`), out);
+  ok(out.includes("Laura") && out.includes(`href="${BASE}/aboutme"`), out);
 });
 
 test("botón «a prueba de balas»: relleno, solo borde y todo el ancho", () => {
@@ -125,8 +125,8 @@ test("vídeo: portada con enlace a YouTube o a la página «ver vídeo»; sin po
   const yt = html([{ id: "v", t: "video", url: "https://youtu.be/dQw4w9WgXcQ", src: "", cover: IMG, title: "Mira esto" }]);
   ok(yt.includes(`href="https://youtu.be/dQw4w9WgXcQ"`) && yt.includes(`src="${BASE}${IMG}"`) && yt.includes("Mira esto"), yt);
   const own = html([{ id: "v", t: "video", url: "", src: VIDEO, cover: "", title: "" }]);
-  ok(own.includes(`href="${BASE}/media/ver/cabc1234567/0123456789abcdef01234567.mp4"`) && own.includes('bgcolor="#0E1024"') && own.includes("Ver el vídeo"), own);
-  eq(videoWatchPath(VIDEO), "/media/ver/cabc1234567/0123456789abcdef01234567.mp4");
+  ok(own.includes(`href="${BASE}/media/view/cabc1234567/0123456789abcdef01234567.mp4"`) && own.includes('bgcolor="#0E1024"') && own.includes("Ver el vídeo"), own);
+  eq(videoWatchPath(VIDEO), "/media/view/cabc1234567/0123456789abcdef01234567.mp4");
   eq(videoWatchPath("/media/video/x/../y.mp4"), null);
   eq(html([{ id: "v", t: "video", url: "", src: "", cover: IMG, title: "x" }]), "", "sin vídeo no sale nada");
 });
@@ -174,8 +174,8 @@ test("plantilla de la newsletter: estilo, ancho, fuentes web con reserva, sin «
   ok(out.includes("max-width:680px") && out.includes('bgcolor="#14163A"') && out.includes("fonts.googleapis.com/css2?family=Cormorant+Garamond") && out.includes(".hf{font-family:Georgia,serif!important}"), "estilo");
   ok(out.includes('<meta name="color-scheme" content="light">') && out.includes("PIE LEGAL") && out.includes("display:none") && out.includes("Pre"), "meta y pie");
   eq(webFontsLink(["georgia", "helvetica"]), "");
-  const m = campaignEmail({ brand: "Cirella", subject: "Hola {nombre}", design: d, baseUrl: BASE, vars: { nombre: "Eva" }, footer: { senderName: "Cirella", legalUrl: `${BASE}/ana/legal`, unsubscribeUrl: `${BASE}/baja/newsletter?t=x` } });
-  ok(m.subject === "Hola Eva" && m.html.includes(`href="${BASE}/baja/newsletter?t=x"`) && m.html.includes("Darme de baja"), m.subject);
+  const m = campaignEmail({ brand: "Cirella", subject: "Hola {nombre}", design: d, baseUrl: BASE, vars: { nombre: "Eva" }, footer: { senderName: "Cirella", legalUrl: `${BASE}/ana/legal`, unsubscribeUrl: `${BASE}/unsubscribe/newsletter?t=x` } });
+  ok(m.subject === "Hola Eva" && m.html.includes(`href="${BASE}/unsubscribe/newsletter?t=x"`) && m.html.includes("Darme de baja"), m.subject);
 });
 
 test("paleta de la marca: su acento primero y los neutros, sin repetir", () => {

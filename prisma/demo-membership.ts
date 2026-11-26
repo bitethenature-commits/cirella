@@ -36,15 +36,15 @@ type Post = {
 };
 
 const TIER_TEXTS: Record<string, { summary: string; description: string }> = {
-  "esencia": {
+  "essence": {
     "summary": "Un texto energético cada semana para vivir el cielo con calma.",
     "description": "La puerta de entrada a la comunidad: cada semana, un texto para leer el cielo y llevarlo a tu día a día.\n\nIncluye:\n• Un texto energético cada semana: la lectura del cielo de esos días y una práctica sencilla para vivirla\n• Cancela cuando quieras"
   },
-  "plena": {
+  "full": {
     "summary": "Todo lo de Esencia, más podcast, meditaciones, Astroweather, masterclases y ceremonias.",
     "description": "Para vivir la comunidad a fondo, con la voz y en directo.\n\nIncluye:\n• Podcast privado: episodios para escuchar con calma donde quieras\n• Meditaciones guiadas: en audio, para cada fase de la luna y para tu día a día\n• Astroweather cada semana: el clima astrológico en vídeo y en audio\n• Masterclases: en directo y después grabadas, o directamente en vídeo\n• Ceremonias en directo: cacao, equinoccios, lunas llenas… y su grabación después\n• Cancela cuando quieras"
   },
-  "luna-completa": {
+  "full-moon": {
     "summary": "Todo lo de Plena y, además, los círculos de cada luna nueva y luna llena.",
     "description": "El nivel más completo de la comunidad: vivimos juntas cada luna.\n\nIncluye:\n• Círculos de la luna en directo: en cada luna nueva y cada luna llena, por Zoom\n• La grabación de cada círculo: por si no puedes venir ese día\n• Cancela cuando quieras"
   }
@@ -241,8 +241,8 @@ async function duration(data: Buffer, mime: string) {
 }
 
 export async function seedDemoMembership(prisma: PrismaClient, anaId: string) {
-  const tiers = await prisma.product.findMany({ where: { creatorId: anaId, type: "MEMBERSHIP", slug: { in: ["esencia", "plena", "luna-completa"] } }, select: { id: true, slug: true } });
-  const id = (t: Post["tier"]) => tiers.find((x) => x.slug === (t === "luna" ? "luna-completa" : t))?.id;
+  const tiers = await prisma.product.findMany({ where: { creatorId: anaId, type: "MEMBERSHIP", slug: { in: ["essence", "full", "full-moon"] } }, select: { id: true, slug: true } });
+  const id = (t: Post["tier"]) => tiers.find((x) => x.slug === { esencia: "essence", plena: "full", luna: "full-moon" }[t])?.id;
   if (!id("esencia") || !id("plena")) {
     console.log("  (Sin las membresías Esencia y Plena: no se crean los ejemplos)");
     return;

@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode 
 import { RichContent } from "@/components/rich-text/rich-content";
 import { BUILTIN_ORACLE_DECK, cardFrameStyle, ORACLE_SPREADS, type OracleCardView, type OracleDeckView, type OracleMotif, type OracleSpreadId } from "./data/oracle";
 import { GOLD, INK, ModelFrame, PanelBody, PanelHeading, PanelIdle, PanelRow, ToolButton, cn, drawDistinct, polar, randomInt, usePrefersReducedMotion } from "./model-kit";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * «Oráculo de la Luna»: una baraja propia de 28 cartas (data/oracle.ts) con motivos dibujados en código.
@@ -99,7 +100,7 @@ export function OracleModel({ deck }: { deck?: OracleDeckView | null }) {
     <div className="flex gap-2" role="group" aria-label="Tirada">
       {spreads.map((s) => (
         <ToolButton key={s} active={spread === s} onClick={() => chooseSpread(s)}>
-          {ORACLE_SPREADS[s].label}
+          <Tr s={ORACLE_SPREADS[s].label} />
         </ToolButton>
       ))}
     </div>
@@ -151,7 +152,7 @@ export function OracleModel({ deck }: { deck?: OracleDeckView | null }) {
                 </span>
               </span>
             </button>
-            <p className={cn("cp-eyebrow mt-3 text-center !text-[0.56rem] !tracking-[0.16em]", on && "!text-[var(--c-gold)]")}>{pos.name}</p>
+            <p className={cn("cp-eyebrow mt-3 text-center !text-[0.56rem] !tracking-[0.16em]", on && "!text-[var(--c-gold)]")}><Tr s={pos.name} /></p>
           </div>
         );
       })}
@@ -164,15 +165,13 @@ export function OracleModel({ deck }: { deck?: OracleDeckView | null }) {
       <div className="mt-7 flex flex-col items-center gap-3">
         <div className="flex flex-wrap justify-center gap-2">
           <button type="button" className="cp-btn" onClick={() => shuffle()} disabled={phase === "shuffling"} aria-disabled={phase === "shuffling"}>
-            {phase === "shuffling" ? (cutting ? "Cortando…" : "Barajando…") : phase === "dealt" ? "Barajar de nuevo" : "Barajar y repartir"}
+            {phase === "shuffling" ? (cutting ? <Tr s={"Cortando…"} /> : <Tr s={"Barajando…"} />) : phase === "dealt" ? <Tr s={"Barajar de nuevo"} /> : <Tr s={"Barajar y repartir"} />}
           </button>
           {phase === "dealt" && hidden > 0 && cards.length > 1 && (
-            <button type="button" className="cp-btn-ghost" onClick={revealAll}>
-              Dar la vuelta a todas
-            </button>
+            <button type="button" className="cp-btn-ghost" onClick={revealAll}><Tr s={"Dar la vuelta a todas"} /></button>
           )}
         </div>
-        <p className="cp-faint text-center text-[0.74rem] leading-snug">Una herramienta para reflexionar, no para predecir: el oráculo es un espejo, no un destino.</p>
+        <p className="cp-faint text-center text-[0.74rem] leading-snug"><Tr s={"Una herramienta para reflexionar, no para predecir: el oráculo es un espejo, no un destino."} /></p>
       </div>
     </div>
   );
@@ -187,16 +186,16 @@ export function OracleModel({ deck }: { deck?: OracleDeckView | null }) {
     panel = (
       <PanelBody id={`${round}-${sel}`}>
         <PanelHeading kicker={kicker} title={card.name} />
-        <p className="cp-muted mt-2 text-[0.8rem]">{pos.hint}</p>
+        <p className="cp-muted mt-2 text-[0.8rem]"><Tr s={pos.hint} /></p>
         {card.messageFormat === "MD" ? (
           <RichContent text={message} format="MD" legacy="paragraphs" tone="page" headingLevel={4} className="mt-4 space-y-3 text-[0.95rem] leading-relaxed opacity-90" />
         ) : (
-          <p className="mt-4 text-[0.95rem] leading-relaxed opacity-90">{message}</p>
+          <p className="mt-4 text-[0.95rem] leading-relaxed opacity-90"><Tr s={message} /></p>
         )}
         {card.question && (
           <div className="cp-line mt-6 rounded-[calc(var(--r-card)*0.7)] border p-5">
-            <p className="cp-eyebrow cp-gold !text-[0.6rem]">Para quedarte pensando</p>
-            <p className="cp-display mt-3 text-[1.25rem] italic leading-snug opacity-90">{card.question}</p>
+            <p className="cp-eyebrow cp-gold !text-[0.6rem]"><Tr s={"Para quedarte pensando"} /></p>
+            <p className="cp-display mt-3 text-[1.25rem] italic leading-snug opacity-90"><Tr s={card.question} /></p>
           </div>
         )}
         <dl className="mt-5">
@@ -208,7 +207,7 @@ export function OracleModel({ deck }: { deck?: OracleDeckView | null }) {
           <div className="mt-5 flex flex-wrap gap-2">
             {positions.map((p, i) => (
               <ToolButton key={p.name} active={i === sel} onClick={() => flip(i)}>
-                {revealed[i] ? p.name : `${p.name} · boca abajo`}
+                <Tr s={revealed[i] ? p.name : `${p.name} · boca abajo`} />
               </ToolButton>
             ))}
           </div>
@@ -218,20 +217,20 @@ export function OracleModel({ deck }: { deck?: OracleDeckView | null }) {
   } else if (phase === "dealt") {
     panel = (
       <PanelIdle title="Las cartas están sobre la mesa.">
-        <p>Toca una para darle la vuelta. Léela despacio y quédate con la pregunta más que con la respuesta.</p>
+        <p><Tr s={"Toca una para darle la vuelta. Léela despacio y quédate con la pregunta más que con la respuesta."} /></p>
       </PanelIdle>
     );
   } else {
     panel = (
       <PanelIdle title={builtin ? `${d.name}: ${CARDS.length} cartas, una por cada noche del ciclo.` : `${d.name}: ${CARDS.length} ${CARDS.length === 1 ? "carta" : "cartas"}.`}>
-        {!builtin && d.description && <p>{d.description}</p>}
-        <p>{spreads.length > 1 ? "Elige una carta o tres (situación, consejo y resultado)." : "Saca una carta."} Respira, piensa en lo que te ocupa y baraja.</p>
-        <p>Cada carta trae un mensaje breve y una pregunta para llevarte. No hay cartas buenas ni malas.</p>
+        {!builtin && d.description && <p><Tr s={d.description} /></p>}
+        <p>{spreads.length > 1 ? <Tr s={"Elige una carta o tres (situación, consejo y resultado)."} /> : <Tr s={"Saca una carta."} />}{" "}<Tr s={"Respira, piensa en lo que te ocupa y baraja."} /></p>
+        <p><Tr s={"Cada carta trae un mensaje breve y una pregunta para llevarte. No hay cartas buenas ni malas."} /></p>
       </PanelIdle>
     );
   }
 
-  return <ModelFrame toolbar={toolbar} diagram={diagram} panel={panel} />;
+  return <ModelFrame toolbar={toolbar} diagram={diagram} panel={panel} onClear={phase === "dealt" && sel !== null ? () => setSel(null) : null} />;
 }
 
 /** Reverso común: la imagen de la baraja o, sin ella, marco doble, luna creciente y un cielo de puntos. */
@@ -291,8 +290,8 @@ function CardFront({ card, reversed, selected, small }: { card: OracleCardView; 
           <Motif motif={card.motif} />
         </span>
         <span className="relative mt-auto mb-[11%] px-[10%] text-center">
-          {card.keyword && <span className={cn("cp-eyebrow block !tracking-[0.18em] cp-gold", small ? "!text-[0.42rem] sm:!text-[0.5rem]" : "!text-[0.56rem]")}>{card.keyword}</span>}
-          <span className={cn("cp-display mt-1 block leading-[1.1]", small ? "text-[0.74rem] sm:text-[0.95rem]" : "text-[1.15rem]")}>{card.name}</span>
+          {card.keyword && <span className={cn("cp-eyebrow block !tracking-[0.18em] cp-gold", small ? "!text-[0.42rem] sm:!text-[0.5rem]" : "!text-[0.56rem]")}><Tr s={card.keyword} /></span>}
+          <span className={cn("cp-display mt-1 block leading-[1.1]", small ? "text-[0.74rem] sm:text-[0.95rem]" : "text-[1.15rem]")}><Tr s={card.name} /></span>
         </span>
       </span>
     </span>

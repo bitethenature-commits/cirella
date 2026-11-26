@@ -18,6 +18,8 @@ import { SignupItem } from "../../ventas/signup-item";
 import { listSignups } from "../../ventas/signups-data";
 import { deleteCustomerAction } from "../actions";
 import { ANSWERED_INCLUDE, ANSWERED_WHERE, AnsweredRow, PENDING_INCLUDE, RequestCard } from "../solicitudes";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 /**
  * La ficha de una persona: sus solicitudes (las nuevas, para contestar aquí, y las ya respondidas), sus
@@ -25,6 +27,7 @@ import { ANSWERED_INCLUDE, ANSWERED_WHERE, AnsweredRow, PENDING_INCLUDE, Request
  * «Denegar acceso» y borrar). En la web que cobra, sus pedidos con el importe.
  */
 export default async function CustomerDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
+  const t = await getT();
   const { id } = await params;
   const sp = await searchParams;
   const { creator } = await requireCreator();
@@ -61,30 +64,27 @@ export default async function CustomerDetail({ params, searchParams }: { params:
         <div className="flex-1">
           <h1 className="display text-[2.2rem] leading-tight">{c.name ?? c.email}</h1>
           <p className="text-sm text-muted">
-            {c.email} · {personal ? "desde" : "clienta desde"} {formatDate(c.createdAt, { day: "numeric", month: "long", year: "numeric" }, tz)}
+            {c.email} · <Tr s={personal ? "desde" : t("clienta desde")} /> {formatDate(c.createdAt, { day: "numeric", month: "long", year: "numeric" }, tz)}
           </p>
           <p className="mt-0.5 text-xs text-muted">
             {c.marketingOptIn
               ? `Acepta novedades por email${c.marketingOptInAt ? ` desde el ${formatDate(c.marketingOptInAt, { day: "numeric", month: "long", year: "numeric" }, tz)}` : ""}`
-              : "No ha aceptado recibir novedades"}
+              : t("No ha aceptado recibir novedades")}
           </p>
         </div>
         <a href={`mailto:${c.email}`} className="btn btn-outline btn-sm">
-          <Mail className="h-4 w-4" /> Escribir
-        </a>
+          <Mail className="h-4 w-4" />{" "}<Tr s={"Escribir"} /></a>
         <Link href={`/panel/solicitudes/dar?email=${encodeURIComponent(c.email)}`} className="btn btn-primary btn-sm">
-          <UserPlus className="h-4 w-4" /> Dar acceso
-        </Link>
+          <UserPlus className="h-4 w-4" />{" "}<Tr s={"Dar acceso"} /></Link>
         {isPersonalMode() &&
           (subscriber ? (
-            <Link href={`/panel/newsletter/suscriptoras/${subscriber.id}`} className="btn btn-outline btn-sm" title={subscriber.status === "CONFIRMED" ? "Suscrita a tu newsletter" : "Está en tu lista, pero no la recibe"}>
-              <Newspaper className="h-4 w-4" /> Newsletter
-              {subscriber.status === "CONFIRMED" ? <Check className="h-4 w-4 text-[#2f8a5b]" strokeWidth={3} /> : <X className="h-4 w-4 text-[#B4473C]" strokeWidth={3} />}
+            <Link href={`/panel/newsletter/suscriptoras/${subscriber.id}`} className="btn btn-outline btn-sm" title={subscriber.status === "CONFIRMED" ? t("Suscrita a tu newsletter") : t("Está en tu lista, pero no la recibe")}>
+              <Newspaper className="h-4 w-4" />{" "}<Tr s={"Newsletter"} />{subscriber.status === "CONFIRMED" ? <Check className="h-4 w-4 text-[#2f8a5b]" strokeWidth={3} /> : <X className="h-4 w-4 text-[#B4473C]" strokeWidth={3} />}
             </Link>
           ) : (
             // Sin alta en la newsletter no hay página: solo se apunta ella (hace falta su consentimiento).
-            <span className="btn btn-outline btn-sm cursor-default opacity-60" title="No está en tu newsletter. Solo se puede apuntar ella.">
-              <Newspaper className="h-4 w-4" /> Newsletter <X className="h-4 w-4 text-[#B4473C]" strokeWidth={3} />
+            <span className="btn btn-outline btn-sm cursor-default opacity-60" title={t("No está en tu newsletter. Solo se puede apuntar ella.")}>
+              <Newspaper className="h-4 w-4" />{" "}<Tr s={"Newsletter"} />{" "}<X className="h-4 w-4 text-[#B4473C]" strokeWidth={3} />
             </span>
           ))}
         <DeleteButton action={deleteCustomerAction} id={c.id} variant="button" what={c.name ?? c.email} message={`¿Borrar a ${c.name ?? c.email} con todas sus ventas, inscripciones, reservas y accesos? Deja de entrar en lo que tenía. No se puede deshacer.`} />
@@ -94,9 +94,9 @@ export default async function CustomerDetail({ params, searchParams }: { params:
       </div>
       {!personal && (
         <div className="mt-6 grid grid-cols-3 gap-3">
-          <Stat label="Total gastado" value={formatMoney(c.totalSpentCents)} accent />
-          <Stat label="Compras" value={c.ordersCount} />
-          <Stat label="Última compra" value={(c.lastPurchaseAt ? formatDate(c.lastPurchaseAt, { day: "numeric", month: "short" }, tz) : undefined) ?? "—"} />
+          <Stat label={t("Total gastado")} value={formatMoney(c.totalSpentCents)} accent />
+          <Stat label={t("Compras")} value={c.ordersCount} />
+          <Stat label={t("Última compra")} value={(c.lastPurchaseAt ? formatDate(c.lastPurchaseAt, { day: "numeric", month: "short" }, tz) : undefined) ?? "—"} />
         </div>
       )}
 
@@ -104,7 +104,7 @@ export default async function CustomerDetail({ params, searchParams }: { params:
       {pending.length > 0 && (
         <section className="mt-6">
           <h2 className="mb-3 flex items-center gap-2 font-semibold">
-            <Inbox className="h-4 w-4" /> {pending.length === 1 ? "Solicitud por contestar" : `${pending.length} solicitudes por contestar`}
+            <Inbox className="h-4 w-4" /> {pending.length === 1 ? t("Solicitud por contestar") : `${pending.length} solicitudes por contestar`}
           </h2>
           <div className="grid gap-5">
             {pending.map((o) => (
@@ -114,7 +114,7 @@ export default async function CustomerDetail({ params, searchParams }: { params:
         </section>
       )}
       <section className="card mt-6 overflow-hidden">
-        <h2 className="px-5 pt-5 font-semibold">Solicitudes</h2>
+        <h2 className="px-5 pt-5 font-semibold"><Tr s={"Solicitudes"} /></h2>
         {answered.length > 0 ? (
           <ul className="mt-2 divide-y divide-line">
             {answered.map((o) => (
@@ -122,20 +122,20 @@ export default async function CustomerDetail({ params, searchParams }: { params:
             ))}
           </ul>
         ) : (
-          <p className="px-5 pb-5 pt-2 text-sm text-muted">{pending.length ? "Todavía no le has contestado ninguna." : "No te ha pedido nada desde la web."}</p>
+          <p className="px-5 pb-5 pt-2 text-sm text-muted">{pending.length ? t("Todavía no le has contestado ninguna.") : t("No te ha pedido nada desde la web.")}</p>
         )}
       </section>
 
       {c.subscriptions.length > 0 && (
         <section className="card mt-4 p-5">
-          <h2 className="font-semibold">Membresías</h2>
+          <h2 className="font-semibold"><Tr s={"Membresías"} /></h2>
           {c.subscriptions.map((s) => (
             <p key={s.id} className="mt-2 flex items-center justify-between text-sm">
               <span>
                 {s.product.title} · {formatPrice(s.priceCents, "EUR", s.interval)}
               </span>
               <Badge tone={s.status === "ACTIVE" ? (s.cancelAtPeriodEnd ? "warning" : "success") : "neutral"}>
-                {s.status === "ACTIVE" ? (s.cancelAtPeriodEnd ? "Cancela al final del periodo" : "Activa") : "Finalizada"}
+                {s.status === "ACTIVE" ? (s.cancelAtPeriodEnd ? t("Cancela al final del periodo") : t("Activa")) : t("Finalizada")}
               </Badge>
             </p>
           ))}
@@ -143,23 +143,23 @@ export default async function CustomerDetail({ params, searchParams }: { params:
       )}
       {c.bookings.length > 0 && (
         <section className="card mt-4 p-5">
-          <h2 className="font-semibold">Sesiones</h2>
+          <h2 className="font-semibold"><Tr s={"Sesiones"} /></h2>
           {c.bookings.map((b) => (
             <p key={b.id} className="mt-2 flex items-center justify-between gap-3 text-sm">
               <Link href={`/panel/solicitudes/reserva/${b.id}`} className="flex min-w-0 items-center gap-2 hover:underline">
                 <CalendarClock className="h-4 w-4 shrink-0 text-muted" />
                 <span className="truncate">
-                  {b.product.title} · {b.startAt ? capitalize(formatSessionDate(b.startAt, tz)) : "sin fecha"}
+                  {b.product.title} · {b.startAt ? capitalize(formatSessionDate(b.startAt, tz)) : t("sin fecha")}
                 </span>
               </Link>
-              <Badge>{BOOKING_STATUS_LABEL[b.status]}</Badge>
+              <Badge><Tr s={BOOKING_STATUS_LABEL[b.status]} /></Badge>
             </p>
           ))}
         </section>
       )}
       {signups ? (
         <section className="card mt-4 overflow-hidden">
-          <h2 className="px-5 pt-5 font-semibold">Inscripciones</h2>
+          <h2 className="px-5 pt-5 font-semibold"><Tr s={"Inscripciones"} /></h2>
           {signups.rows.length > 0 ? (
             <ul className="mt-2 divide-y divide-line">
               {signups.rows.map((r) => (
@@ -167,22 +167,22 @@ export default async function CustomerDetail({ params, searchParams }: { params:
               ))}
             </ul>
           ) : (
-            <p className="px-5 pb-5 pt-2 text-sm text-muted">Todavía no tiene nada. Con «Dar acceso» le das un curso, la membresía o lo que quieras.</p>
+            <p className="px-5 pb-5 pt-2 text-sm text-muted"><Tr s={"Todavía no tiene nada. Con «Dar acceso» le das un curso, la membresía o lo que quieras."} /></p>
           )}
         </section>
       ) : (
         <section className="card mt-4 p-5">
-          <h2 className="font-semibold">Pedidos</h2>
+          <h2 className="font-semibold"><Tr s={"Pedidos"} /></h2>
           {c.orders.map((o) => (
             <p key={o.id} className="mt-2 flex items-center justify-between gap-3 text-sm">
               <span className="min-w-0 truncate">
                 <Link href={`/panel/ventas/${o.id}`} className="hover:underline">
-                  {o.productTitle}
+                  <Tr s={o.productTitle} />
                 </Link>{" "}
                 <span className="text-muted">· {formatDate(o.createdAt, { day: "numeric", month: "short" }, tz)}</span>
               </span>
               {isNoChargeOrder(o) ? (
-                <span className="shrink-0 text-muted">Gratis · {NO_CHARGE_LABEL[o.paymentProvider as NoChargeProvider]}</span>
+                <span className="shrink-0 text-muted"><Tr s={"Gratis ·"} />{" "}<Tr s={NO_CHARGE_LABEL[o.paymentProvider as NoChargeProvider]} /></span>
               ) : (
                 <span className="shrink-0 font-semibold tabular-nums">
                   {formatMoney(o.amountCents, o.currency, { decimals: true })} <span className="font-normal text-muted">{orderStatusLabel(o)}</span>

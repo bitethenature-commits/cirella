@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { INTAKE_LONG_MAX, INTAKE_SHORT_MAX, type IntakeConfig } from "@/lib/intake";
 import { PlaceSearch } from "./place-search";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * Campos de «Datos para tu lectura» (nombres intake.*: los lee lib/intake.ts → parseIntakeAnswers).
@@ -46,8 +47,7 @@ export function IntakeFields({
       {config.birth !== "off" && (
         <>
           <div>
-            <label className={label} htmlFor={`${idPrefix}-birthDate`}>
-              Fecha de nacimiento{!req && <span className="font-normal opacity-70"> (opcional)</span>}
+            <label className={label} htmlFor={`${idPrefix}-birthDate`}><Tr s={"Fecha de nacimiento"} />{!req && <span className="font-normal opacity-70">{" "}<Tr s={"(opcional)"} /></span>}
             </label>
             <input
               id={`${idPrefix}-birthDate`}
@@ -64,9 +64,7 @@ export function IntakeFields({
             />
           </div>
           <div>
-            <label className={label} htmlFor={`${idPrefix}-birthTime`}>
-              Hora de nacimiento
-            </label>
+            <label className={label} htmlFor={`${idPrefix}-birthTime`}><Tr s={"Hora de nacimiento"} /></label>
             <input
               id={`${idPrefix}-birthTime`}
               name="intake.birthTime"
@@ -91,13 +89,11 @@ export function IntakeFields({
                 onChange={(e) => set("intake.birthTimeUnknown", e.target.checked)}
                 className="h-5 w-5 shrink-0"
               />
-              <span className="flex-1">No sé la hora exacta</span>
+              <span className="flex-1"><Tr s={"No sé la hora exacta"} /></span>
             </label>
           </div>
           <div>
-            <label className={label} htmlFor={`${idPrefix}-birthPlace`}>
-              Lugar de nacimiento
-            </label>
+            <label className={label} htmlFor={`${idPrefix}-birthPlace`}><Tr s={"Lugar de nacimiento"} /></label>
             <PlaceSearch
               id={`${idPrefix}-birthPlace`}
               name="intake.birthPlace"
@@ -116,8 +112,8 @@ export function IntakeFields({
         return (
           <div key={q.id}>
             <label className={label} htmlFor={`${idPrefix}-q-${q.id}`}>
-              {q.label}
-              {!q.required && <span className="font-normal opacity-70"> (opcional)</span>}
+              <Tr s={q.label} />
+              {!q.required && <span className="font-normal opacity-70">{" "}<Tr s={"(opcional)"} /></span>}
             </label>
             {q.long ? (
               <textarea
@@ -146,7 +142,7 @@ export function IntakeFields({
           </div>
         );
       })}
-      {ownerName && !forOwner && <p className={hint}>Solo lo verá {ownerName} para preparar {you}lectura.</p>}
+      {ownerName && !forOwner && <p className={hint}><Tr s={"Solo lo verá"} />{" "}<Tr s={ownerName} />{" "}<Tr s={"para preparar"} />{" "}<Tr s={you} /><Tr s={"lectura."} /></p>}
     </div>
   );
 }

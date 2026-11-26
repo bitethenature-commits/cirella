@@ -16,7 +16,7 @@ const schema = z.object({
 });
 
 /**
- * «Crear mi cuenta» de la web personal (pestaña de /{dueña}/entrar). No crea nada: envía un enlace
+ * «Crear mi cuenta» de la web personal (pestaña de /{dueña}/login). No crea nada: envía un enlace
  * (LoginToken REGISTER con el nombre y la casilla de novedades) y la cuenta se crea o se abre al
  * confirmarlo (lib/magic-links.ts → applyRegistration). La respuesta es la misma exista o no el
  * email (nadie puede averiguar quién tiene cuenta). En la plataforma no existe.
@@ -36,7 +36,7 @@ export async function registerStudent(_: StudentSignupState, form: FormData): Pr
   if (!signup.ok) return { error: signup.message, ...echo };
   const link = await limitMagicLink(email, ipHash);
   if (!link.ok) return { error: link.message, ...echo };
-  await sendMagicLink(email, "/cuenta?bienvenida=1", {
+  await sendMagicLink(email, "/area?bienvenida=1", {
     creatorId: owner.id,
     purpose: "REGISTER",
     name,

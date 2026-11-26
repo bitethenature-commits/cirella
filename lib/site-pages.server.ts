@@ -1,5 +1,9 @@
+import { productPath } from "@/lib/public-paths";
+import { getContentTranslator } from "./i18n/content";
+import { mapTexts } from "./i18n/content-walk";
+import { getLocale } from "./i18n/server";
 import "server-only";
-import { SECTION_PAGE_TITLE, SECTION_PAGES, sectionPagePath } from "./site-sections";
+import { FOLD_ONLY_PAGES, SECTION_PAGE_TITLE, SECTION_PAGES, sectionPagePath } from "./site-sections";
 import type { Prisma } from "@prisma/client";
 import { cache } from "react";
 import { updateDraft } from "./creator";
@@ -113,7 +117,7 @@ export async function saveSitePage(creatorId: string, id: string, input: SitePag
   content.blocks = clean.blocks;
 
   const creator = await creatorOf(creatorId);
-  // La 1:1 y Gifts no cambian de dirección (/uno-a-uno, /gifts).
+  // La 1:1 y Gifts no cambian de dirección (/1on1, /gifts).
   const fixed = isFixedPageSlug(current.slug);
   const wanted = fixed ? current.slug : sitePageSlugBase(content.title, input.slug);
   const problem = fixed ? null : sitePageSlugProblem(wanted, creator.username);
@@ -271,12 +275,12 @@ export async function sitePageLinkTargets(creatorId: string, username: string, p
   const db = tenantDb(creatorId);
   const [pages, products] = await Promise.all([
     db.sitePage.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { title: true, slug: true } }),
-    db.product.findMany({ where: { status: "PUBLISHED" }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { title: true, slug: true } }),
+    db.product.findMany({ where: { status: "PUBLISHED" }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { title: true, slug: true, type: true } }),
   ]);
   return [
     { label: "Portada", href: personal ? "/" : `/${username}` },
-    ...SECTION_PAGES.filter((p) => personal || p !== "portal").map((p) => ({ label: SECTION_PAGE_TITLE[p], href: sectionPagePath(username, p, personal) })),
+    ...SECTION_PAGES.filter((p) => !FOLD_ONLY_PAGES.includes(p)).map((p) => ({ label: SECTION_PAGE_TITLE[p], href: sectionPagePath(username, p, personal) })),
     ...pages.map((p) => ({ label: `Página: ${p.title}`, href: sitePagePath(username, p.slug, personal) })),
-    ...products.map((p) => ({ label: `Producto: ${p.title}`, href: `/${username}/${p.slug}` })),
+    ...products.map((p) => ({ label: `Producto: ${p.title}`, href: `${productPath(username, p)}` })),
   ];
 }

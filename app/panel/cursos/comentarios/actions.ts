@@ -9,8 +9,8 @@ type ReplyState = { ok?: boolean; error?: string; at?: number } | undefined;
 
 const refresh = (productId: string) => {
   revalidatePath("/panel/cursos/comentarios");
-  revalidatePath(`/cuenta/cursos/${productId}`);
-  revalidatePath("/cuenta/archivos");
+  revalidatePath(`/area/courses/${productId}`);
+  revalidatePath("/area/files");
 };
 
 /** Responder (o comentar) en una lección como autora. */

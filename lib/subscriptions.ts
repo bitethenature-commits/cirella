@@ -12,6 +12,7 @@ import { isPersonalMode } from "./site-mode";
 import { effectiveCommissionBps } from "./plans";
 import { planFeeKey, renewalKey } from "./reliability";
 import { computeSaleAmounts } from "./sale-amounts";
+import { inMail } from "@/lib/i18n/email";
 
 /** Suscripciones vivas: al día o con una renovación pendiente de cobro (con acceso mientras se reintenta). */
 const LIVE = ["ACTIVE", "PAST_DUE"];
@@ -314,12 +315,12 @@ export async function recordRenewalFailure(
     userId: sub.userId,
     template: "RENEWAL_FAILED",
     dedupeKey: `renewfail:${sub.id}:${renewalPeriodKey(sub.currentPeriodEnd)}:${attempts}`,
-    ...renewalFailedEmail({
+    ...(await inMail(sub.customer.email, () => renewalFailedEmail({
       creatorName: sub.creator.displayName,
       productTitle: sub.product.title,
-      payUrl: `${appUrl()}/cuenta/membresias/${sub.productId}`,
+      payUrl: `${appUrl()}/area/membership/${sub.productId}`,
       nextAttempt: next.toLocaleDateString("es-ES", { day: "numeric", month: "long", timeZone: sub.creator.timezone }),
-    }),
+    }))),
   });
   return true;
 }

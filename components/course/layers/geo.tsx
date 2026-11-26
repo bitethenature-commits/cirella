@@ -4,7 +4,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { SIGNS, type Element } from "@/components/models/data/astrology";
 import type { AstroLayer } from "@/lib/lesson-blocks";
 import { C, signIndex, type DiagramProps, type LayerCtx, type SystemPiece } from "./common";
-import { NIGHT_GOLD, NightChips, NightDefs, NightPanel, STAR, usePrefix } from "./night";
+import { Astrolabe, NIGHT_GOLD, NightChips, NightDefs, NightPanel, STAR, usePrefix } from "./night";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Geometría sagrada por partes: del punto y el círculo a la vesica, la flor de la vida, el cubo de Metatrón,
@@ -190,14 +191,14 @@ export function geoPiece(layer: GeoLayer, key: string, ctx: LayerCtx): SystemPie
 
 /* ------------------------------------------------------------ cómo se dibuja */
 
-type P = [number, number];
-const circ = (x: number, y: number, r: number) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0`;
-const poly = (pts: P[], close = true) => `M${pts.map((p) => `${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join("L")}${close ? "Z" : ""}`;
-const line = (a: P, b: P) => poly([a, b], false);
-const at = (r: number, deg: number, cx = C, cy = C): P => [cx + r * Math.cos((deg * Math.PI) / 180), cy + r * Math.sin((deg * Math.PI) / 180)];
-const ngon = (n: number, r: number, rot = -90, cx = C, cy = C): P[] => Array.from({ length: n }, (_, i) => at(r, rot + (360 / n) * i, cx, cy));
+export type P = [number, number];
+export const circ = (x: number, y: number, r: number) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0`;
+export const poly = (pts: P[], close = true) => `M${pts.map((p) => `${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join("L")}${close ? "Z" : ""}`;
+export const line = (a: P, b: P) => poly([a, b], false);
+export const at = (r: number, deg: number, cx = C, cy = C): P => [cx + r * Math.cos((deg * Math.PI) / 180), cy + r * Math.sin((deg * Math.PI) / 180)];
+export const ngon = (n: number, r: number, rot = -90, cx = C, cy = C): P[] => Array.from({ length: n }, (_, i) => at(r, rot + (360 / n) * i, cx, cy));
 /** Un polígono estrellado {n/k} (o, si no sale de un trazo, varios polígonos). */
-function starPath(n: number, k: number, r: number, rot = -90, cx = C, cy = C) {
+export function starPath(n: number, k: number, r: number, rot = -90, cx = C, cy = C) {
   const v = ngon(n, r, rot, cx, cy);
   const g = gcd(n, k);
   const parts: string[] = [];
@@ -218,54 +219,97 @@ type L = { x: number; y: number; t: string; tags: string[]; size?: number; ancho
  * Pinta las piezas. «build»: se ve todo hasta la pieza elegida (como al construir); «focus»: se ve todo y la
  * elegida brilla; «only»: solo la elegida (y la base). Lo de la pieza elegida se dibuja paso a paso.
  */
-export function GeoFigure({ els, labels = [], selected, order, mode }: { els: E[]; labels?: L[]; selected: string; order: string[]; mode: "build" | "focus" | "only" }) {
-  const idx = order.indexOf(selected);
-  const visible = (tags: string[]) => tags.includes("base") || (mode === "build" ? tags.some((t) => order.indexOf(t) <= idx && order.indexOf(t) >= 0) : mode === "only" ? tags.includes(selected) : true);
-  const cur = (tags: string[]) => tags.includes(selected);
+export function GeoFigure({
+  p,
+  els,
+  labels = [],
+  selected,
+  show,
+  order,
+  mode,
+}: {
+  /** El prefijo de los degradados (NightDefs): con él, el trazo es de oro con degradado y lo elegido lleva halo. */
+  p?: string;
+  els: E[];
+  labels?: L[];
+  /** La pieza elegida (brilla). Vacía: nada tocado, la figura entera se dibuja sola, en calma. */
+  selected: string;
+  /** Hasta dónde se ve (si no, lo elegido): sin nada tocado, la parte de la figura que se enseña. */
+  show?: string;
+  order: string[];
+  mode: "build" | "focus" | "only";
+}) {
+  const idle = !selected;
+  const view = show ?? selected;
+  // Sin nada tocado y con una parte para enseñar: solo esa (o hasta esa, si la figura se construye).
+  const m = idle && show && mode === "focus" ? "only" : mode;
+  const idx = order.indexOf(view);
+  const visible = (tags: string[]) =>
+    tags.includes("base") ||
+    (idle && !show) ||
+    (m === "build" ? tags.some((t) => order.indexOf(t) <= idx && order.indexOf(t) >= 0) : m === "only" ? tags.includes(view) : true);
+  const cur = (tags: string[]) => !idle && tags.includes(selected);
   const shown = els.filter((e) => visible(e.tags));
-  const moving = shown.filter((e) => cur(e.tags));
-  const step = Math.min(0.2, 2.4 / Math.max(1, moving.length));
+  const moving = idle ? shown : shown.filter((e) => cur(e.tags));
+  const step = Math.min(0.2, (idle ? 3.2 : 2.4) / Math.max(1, moving.length));
+  const gold = p ? `url(#${p}line)` : NIGHT_GOLD;
+  // El halo de lo elegido, solo si no son demasiadas piezas (el girasol tiene cientos).
+  const glow = !!p && !idle && moving.length <= 90;
   let k = 0;
   return (
     <g fill="none" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none">
+      {glow && (
+        <g filter={`url(#${p}soft)`} opacity="0.55">
+          {moving.map((e, i) => (
+            <path key={`g${i}`} d={e.d} stroke={e.color ?? "#F7E2AE"} strokeWidth={(e.w ?? 1) * 3.2} className="geo-fade" />
+          ))}
+        </g>
+      )}
       {shown.map((e, i) => {
         const on = cur(e.tags);
+        const anim = on || idle;
         const base = e.tags.includes("base") && !on;
-        const delay = on ? k++ * step : 0;
+        const delay = anim ? k++ * step : 0;
         return (
           <path
             key={i}
             d={e.d}
             pathLength={1}
-            className={on ? "geo-draw" : undefined}
-            style={on ? { animationDelay: `${delay}s` } : undefined}
+            className={anim ? "geo-draw" : undefined}
+            style={anim ? { animationDelay: `${delay}s`, animationDuration: idle ? "1.6s" : undefined } : undefined}
             fill={e.fill ? e.fill : "none"}
-            fillOpacity={e.fill ? (on ? 0.3 : 0.12) : undefined}
-            stroke={e.color ?? (on ? "#F7E2AE" : NIGHT_GOLD)}
-            strokeOpacity={on ? 1 : base ? 0.22 : mode === "focus" ? 0.3 : 0.55}
-            strokeWidth={(e.w ?? 1.1) * (on ? 1.5 : 1)}
+            fillOpacity={e.fill ? (on ? 0.28 : 0.1) : undefined}
+            stroke={e.color ?? (on ? "#FFF3D2" : gold)}
+            strokeOpacity={on ? 1 : idle ? (base ? 0.3 : 0.85) : base ? 0.2 : m === "focus" ? 0.28 : 0.55}
+            strokeWidth={(e.w ?? 1) * (on ? 1.35 : 0.85)}
             strokeDasharray={e.dash}
           />
         );
       })}
-      {labels.filter((l) => visible(l.tags) && (mode !== "build" || cur(l.tags))).map((l, i) => (
-        <text
-          key={`l${i}`}
-          x={l.x}
-          y={l.y}
-          textAnchor={l.anchor ?? "middle"}
-          dominantBaseline="central"
-          fontSize={l.size ?? 9}
-          fill={cur(l.tags) ? "#F7E2AE" : STAR}
-          fillOpacity={cur(l.tags) ? 1 : 0.6}
-          className={cur(l.tags) ? "geo-fade" : undefined}
-          stroke="#0B0B0D"
-          strokeWidth="3"
-          paintOrder="stroke"
-        >
-          {l.t}
-        </text>
-      ))}
+      {!idle &&
+        labels
+          .filter((l) => visible(l.tags) && (m !== "build" || cur(l.tags)))
+          .map((l, i) => (
+            <text
+              key={`l${i}`}
+              x={l.x}
+              y={l.y}
+              textAnchor={l.anchor ?? "middle"}
+              dominantBaseline="central"
+              fontSize={l.size ?? 9.5}
+              fontFamily="Georgia, 'Times New Roman', serif"
+              fontStyle="italic"
+              letterSpacing="0.3"
+              fill={cur(l.tags) ? "#F7E2AE" : STAR}
+              fillOpacity={cur(l.tags) ? 1 : 0.6}
+              className={cur(l.tags) ? "geo-fade" : undefined}
+              stroke="#0B0B0D"
+              strokeWidth="3"
+              paintOrder="stroke"
+            >
+              <Tr s={l.t} />
+            </text>
+          ))}
     </g>
   );
 }
@@ -507,10 +551,13 @@ function torusFig(): { els: E[]; labels: L[] } {
   const R = 58;
   const els: E[] = [];
   for (let i = 0; i < 24; i++) els.push({ d: circ(...at(R, i * 15), R), tags: ["shape", "everywhere"], w: 0.7 });
-  els.push({ d: line([C, 20], [C, 320]), tags: ["flow", "vortex"], w: 0.8, dash: "3 4" });
-  for (const s of [1, 1.35, 1.7]) {
-    els.push({ d: `M${C} ${C}C${C - 80 * s} ${C - 120 * s} ${C - 150 * s} ${C + 60 * s} ${C} ${C}`, tags: ["flow"], w: 1.2 });
-    els.push({ d: `M${C} ${C}C${C + 80 * s} ${C - 120 * s} ${C + 150 * s} ${C + 60 * s} ${C} ${C}`, tags: ["flow"], w: 1.2 });
+  els.push({ d: line([C, 26], [C, 314]), tags: ["flow", "vortex"], w: 0.8, dash: "2 5" });
+  // Las líneas del campo: salen por arriba, rodean la forma por fuera y vuelven a entrar por abajo (dentro del marco).
+  for (const s of [0.55, 0.8, 1.05]) {
+    for (const g of [1, -1]) {
+      const x = C + g * 140 * s;
+      els.push({ d: `M${C} ${C}C${C} ${C - 118 * s} ${x} ${C - 118 * s} ${x} ${C}C${x} ${C + 118 * s} ${C} ${C + 118 * s} ${C} ${C}`, tags: ["flow"], w: 1.1 });
+    }
   }
   els.push({ d: `M${C} ${C + 14}C${C - 30} ${C - 6} ${C - 14} ${C - 26} ${C} ${C - 12}C${C + 14} ${C - 26} ${C + 30} ${C - 6} ${C} ${C + 14}Z`, tags: ["heart"], fill: "#E36B5F", color: "#F2A097", w: 1.4 });
   for (const sgn of [-1, 1]) {
@@ -550,13 +597,18 @@ function chakraFig(): E[] {
     const r = 14;
     els.push({ d: circ(C, y, r), tags: t, color: ch.color, fill: ch.color });
     const n = ch.petals;
+    // Los pétalos del loto: almendras finas, con un poco de su color dentro.
     for (let j = 0; j < n; j++) {
       const th = -90 + j * (360 / n);
-      const dd = Math.min(28, 150 / n);
+      const dd = Math.min(26, 140 / n);
+      const len = n > 12 ? 7 : n === 2 ? 15 : 9.5;
       const p1 = at(r, th - dd, C, y);
-      const tip = at(r + (n > 12 ? 7 : n === 2 ? 14 : 9), th, C, y);
+      const c1 = at(r + len * 0.75, th - dd * 0.95, C, y);
+      const tip = at(r + len, th, C, y);
+      const c2 = at(r + len * 0.75, th + dd * 0.95, C, y);
       const p2 = at(r, th + dd, C, y);
-      els.push({ d: `M${p1[0]} ${p1[1]}Q${tip[0]} ${tip[1]} ${p2[0]} ${p2[1]}`, tags: t, color: ch.color, w: 0.9 });
+      const f = (q: P) => `${q[0].toFixed(2)} ${q[1].toFixed(2)}`;
+      els.push({ d: `M${f(p1)}Q${f(c1)} ${f(tip)}Q${f(c2)} ${f(p2)}`, tags: t, color: ch.color, fill: ch.color, w: 0.8 });
     }
     const inner = 9;
     if (ch.k === "root") els.push({ d: poly(ngon(4, inner * 1.3, -45, C, y)), tags: t, color: ch.color }, { d: poly(ngon(3, inner * 0.8, 90, C, y)), tags: t, color: ch.color });
@@ -650,40 +702,78 @@ function Wire({ id, a, S, cx = C, cy = C, on = true, color, flip = false, draw =
   );
 }
 
-function Platonic({ selected, run }: { selected: string; run: number }) {
+const SOLID_NAME: Record<string, string> = { tetra: "fuego", cube: "tierra", octa: "aire", ico: "agua", dodeca: "éter" };
+
+function Platonic({ selected, run, p }: { selected: string; run: number; p: string }) {
+  const t = useT();
   const a = useSpin();
+  const one = selected in SOLIDS;
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[34rem] select-none" role="img" aria-label="Los sólidos platónicos">
-      <circle cx={C} cy={C} r="150" fill="none" stroke={NIGHT_GOLD} strokeOpacity="0.25" />
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[34rem] select-none" role="img" aria-label={t("Los sólidos platónicos")}>
+      <NightDefs p={p} />
+      <Astrolabe p={p} />
       <g key={`${selected}-${run}`}>
-        <Wire id={selected} a={a} S={118} draw />
+        {one ? (
+          <>
+            <circle cx={C} cy={C} r="122" fill="none" stroke={NIGHT_GOLD} strokeOpacity="0.22" strokeDasharray="1 4" />
+            <g filter={`url(#${p}soft)`} opacity="0.5">
+              <Wire id={selected} a={a} S={118} />
+            </g>
+            <Wire id={selected} a={a} S={118} draw />
+          </>
+        ) : (
+          // Sin nada tocado: los cinco, girando despacio en un pentágono.
+          (["tetra", "cube", "octa", "ico", "dodeca"] as const).map((id, i) => {
+            const q = at(100, -90 + i * 72);
+            return (
+              <g key={id}>
+                <Wire id={id} a={a + i * 0.7} S={34} cx={q[0]} cy={q[1]} draw />
+                <text x={q[0]} y={q[1] + 50} textAnchor="middle" fontSize="10" fontFamily="Georgia, 'Times New Roman', serif" fontStyle="italic" fill={STAR} fillOpacity="0.7" className="geo-fade">
+                  <Tr s={SOLID_NAME[id]} />
+                </text>
+              </g>
+            );
+          })
+        )}
       </g>
     </svg>
   );
 }
 
-function Merkaba({ selected, run }: { selected: string; run: number }) {
+function Merkaba({ selected, run, p }: { selected: string; run: number; p: string }) {
+  const t = useT();
   const a = useSpin(0.4);
-  const sunOn = selected === "sun" || selected === "star" || selected === "spin";
-  const earthOn = selected === "earth" || selected === "star" || selected === "spin";
+  const idle = !selected;
+  const turning = selected === "spin" || idle;
+  const sunOn = idle || selected === "sun" || selected === "star" || selected === "spin";
+  const earthOn = idle || selected === "earth" || selected === "star" || selected === "spin";
   return (
-    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[34rem] select-none" role="img" aria-label="La merkaba">
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[34rem] select-none" role="img" aria-label={t("La merkaba")}>
+      <NightDefs p={p} />
+      <Astrolabe p={p} />
       <g key={`${selected}-${run}`}>
         {selected === "body" && (
           <g fill="none" stroke="#F7E2AE" pointerEvents="none">
-            <circle cx={C} cy={C} r="140" pathLength={1} className="geo-draw" strokeWidth="1.4" />
-            <ellipse cx={C} cy={C + 8} rx="160" ry="22" pathLength={1} className="geo-draw" style={{ animationDelay: ".4s" }} strokeWidth="1.2" />
-            <circle cx={C} cy={C} r="6" fill="#E36B5F" stroke="none" className="geo-fade" />
+            <circle cx={C} cy={C} r="140" pathLength={1} className="geo-draw" strokeWidth="1.2" />
+            <ellipse cx={C} cy={C + 8} rx="156" ry="20" pathLength={1} className="geo-draw" style={{ animationDelay: ".4s" }} strokeWidth="1" />
+            <circle cx={C} cy={C} r="16" fill="#E36B5F" opacity="0.35" filter={`url(#${p}soft)`} stroke="none" className="geo-fade" />
+            <circle cx={C} cy={C} r="5" fill="#E36B5F" stroke="none" className="geo-fade" />
           </g>
         )}
         {selected === "spin" && (
-          <g fill="none" stroke="#F7E2AE" strokeWidth="1.2" pointerEvents="none">
-            <path d={`M${C - 120} ${C - 120}A170 40 0 0 1 ${C + 120} ${C - 120}`} pathLength={1} className="geo-draw" />
-            <path d={`M${C + 120} ${C + 130}A170 40 0 0 1 ${C - 120} ${C + 130}`} pathLength={1} className="geo-draw" style={{ animationDelay: ".3s" }} />
+          <g fill="none" stroke="#F7E2AE" strokeWidth="1" pointerEvents="none">
+            <path d={`M${C - 120} ${C - 118}A170 40 0 0 1 ${C + 120} ${C - 118}`} pathLength={1} className="geo-draw" />
+            <path d={`M${C + 120} ${C + 128}A170 40 0 0 1 ${C - 120} ${C + 128}`} pathLength={1} className="geo-draw" style={{ animationDelay: ".3s" }} />
           </g>
         )}
-        <Wire id="tetra" a={selected === "spin" ? a : 0.6} S={120} on={sunOn || selected === "body"} color={sunOn ? "#F7D27A" : undefined} draw={selected === "sun" || selected === "star"} />
-        <Wire id="tetra" a={selected === "spin" ? -a : 0.6} S={120} on={earthOn || selected === "body"} color={earthOn ? "#B8D8F2" : undefined} flip draw={selected === "earth"} />
+        {(sunOn || earthOn) && !idle && (
+          <g filter={`url(#${p}soft)`} opacity="0.45">
+            {sunOn && <Wire id="tetra" a={turning ? a : 0.6} S={120} color="#F7D27A" />}
+            {earthOn && <Wire id="tetra" a={turning ? -a : 0.6} S={120} color="#B8D8F2" flip />}
+          </g>
+        )}
+        <Wire id="tetra" a={turning ? a : 0.6} S={120} on={sunOn || selected === "body"} color={sunOn ? "#F7D27A" : undefined} draw={idle || selected === "sun" || selected === "star"} />
+        <Wire id="tetra" a={turning ? -a : 0.6} S={120} on={earthOn || selected === "body"} color={earthOn ? "#B8D8F2" : undefined} flip draw={idle || selected === "earth"} />
       </g>
     </svg>
   );
@@ -691,59 +781,73 @@ function Merkaba({ selected, run }: { selected: string; run: number }) {
 
 /* ------------------------------------------------------------ el dibujo */
 
+/** Sin nada tocado: la parte de la figura que se enseña entera (si no está, la figura completa). */
+const IDLE_SHOW: Partial<Record<GeoLayer, string>> = {
+  "geo-circle": "diameter",
+  "geo-vesica": "triangle",
+  "geo-flower": "flower",
+  "geo-golden": "spiral",
+  "geo-torus": "shape",
+};
+
+/** Sin nada tocado en los números: los polígonos del 3 al 9, uno sobre otro, como una rosa. */
+function numbersRose(): E[] {
+  const R = 96;
+  const out: E[] = [{ d: circ(C, C, R), tags: ["all"], w: 0.8 }, { d: circ(C, C, 3), tags: ["all"], fill: NIGHT_GOLD }];
+  for (let n = 3; n <= 9; n++) out.push({ d: poly(ngon(n, R)), tags: ["all"], w: 0.9 });
+  return out;
+}
+
 export function GeoDiagram({ layer, selected, mine, keys, tap }: DiagramProps & { layer: GeoLayer }) {
+  const t = useT();
   const p = usePrefix();
   const [run, setRun] = useState(0);
   const own = new Set(mine);
   const order = keys;
+  const show = selected ? undefined : IDLE_SHOW[layer];
   let body: ReactNode = null;
-  const svg = (children: ReactNode, h = 340) => (
-    <svg viewBox={`0 0 340 ${h}`} className="mx-auto block h-auto w-full max-w-[34rem] select-none" role="img" aria-label={TX[layer][selected]?.name ?? ""}>
+  const svg = (children: ReactNode, frame = true) => (
+    <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[34rem] select-none" role="img" aria-label={t(TX[layer][selected]?.name ?? GEO_TITLE[layer])}>
       <NightDefs p={p} />
+      {frame && <Astrolabe p={p} />}
       <g key={`${selected}-${run}`}>{children}</g>
     </svg>
   );
+  const fig = (f: { els: E[]; labels: L[] }, mode: "build" | "focus" | "only", frame = true) =>
+    svg(<GeoFigure p={p} els={f.els} labels={f.labels} selected={selected} show={show} order={order} mode={mode} />, frame);
   switch (layer) {
-    case "geo-circle": {
-      const f = circleFig();
-      body = svg(<GeoFigure els={f.els} labels={f.labels} selected={selected} order={order} mode="build" />);
+    case "geo-circle":
+      body = fig(circleFig(), "build");
       break;
-    }
-    case "geo-vesica": {
-      const f = vesicaFig();
-      body = svg(<GeoFigure els={f.els} labels={f.labels} selected={selected} order={order} mode="build" />);
+    case "geo-vesica":
+      body = fig(vesicaFig(), "build");
       break;
-    }
-    case "geo-flower": {
-      const f = flowerFig();
-      body = svg(<GeoFigure els={f.els} labels={f.labels} selected={selected} order={order} mode="only" />);
+    case "geo-flower":
+      body = fig(flowerFig(), "only");
       break;
-    }
-    case "geo-metatron": {
-      const f = metatronFig();
-      body = svg(<GeoFigure els={f.els} labels={f.labels} selected={selected} order={order} mode="focus" />);
+    case "geo-metatron":
+      body = fig(metatronFig(), "focus");
       break;
-    }
-    case "geo-golden": {
-      const f = goldenFig();
-      body = svg(<GeoFigure els={f.els} labels={f.labels} selected={selected} order={order} mode="only" />);
+    case "geo-golden":
+      body = fig(goldenFig(), "only", false);
       break;
-    }
     case "geo-numbers": {
       body = (
-        <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[34rem] select-none" role="group" aria-label="Los números y sus formas">
+        <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[34rem] select-none" role="group" aria-label={t("Los números y sus formas")}>
           <NightDefs p={p} />
+          <Astrolabe p={p} r={164} />
           <g key={`${selected}-${run}`}>
-            <GeoFigure els={numberFig(Number(selected))} selected={selected} order={order} mode="only" />
+            {selected ? <GeoFigure p={p} els={numberFig(Number(selected))} selected={selected} order={order} mode="only" /> : <GeoFigure p={p} els={numbersRose()} selected="" order={order} mode="focus" />}
           </g>
           {keys.map((k, i) => {
-            const q = at(148, -90 + i * 40);
+            const q = at(146, -90 + i * 40);
             const on = k === selected;
             return (
               <g key={k} {...tap(k, `El ${k}`)}>
-                <circle cx={q[0]} cy={q[1]} r="15" fill={on ? `url(#${p}gold)` : "rgb(255 255 255 / .04)"} stroke={own.has(k) || on ? NIGHT_GOLD : "rgb(233 204 142 / .35)"} strokeWidth={own.has(k) ? 1.6 : 1} />
-                <text x={q[0]} y={q[1]} textAnchor="middle" dominantBaseline="central" fontSize="14" fontFamily="Georgia, serif" fill={on ? "#2A1E0C" : STAR} pointerEvents="none">
-                  {k}
+                {on && <circle cx={q[0]} cy={q[1]} r="22" fill={`url(#${p}goldglow)`} />}
+                <circle cx={q[0]} cy={q[1]} r="14.5" fill={on ? `url(#${p}gold)` : "#121214"} stroke={own.has(k) || on ? "#F7E2AE" : "rgb(233 204 142 / .45)"} strokeWidth={own.has(k) ? 1.5 : 0.9} />
+                <text x={q[0]} y={q[1] + 0.5} textAnchor="middle" dominantBaseline="central" fontSize="14" fontFamily="Georgia, 'Times New Roman', serif" fill={on ? "#2A1E0C" : STAR} pointerEvents="none">
+                  <Tr s={k} />
                 </text>
               </g>
             );
@@ -754,12 +858,23 @@ export function GeoDiagram({ layer, selected, mine, keys, tap }: DiagramProps & 
     }
     case "geo-tree": {
       body = (
-        <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[30rem] select-none" role="group" aria-label="El árbol de la vida">
+        <svg viewBox="0 0 340 340" className="mx-auto block h-auto w-full max-w-[30rem] select-none" role="group" aria-label={t("El árbol de la vida")}>
           <NightDefs p={p} />
+          {/* Los tres pilares, muy suaves: el Rigor, el Equilibrio y la Misericordia. */}
+          <g pointerEvents="none" stroke={NIGHT_GOLD} strokeOpacity="0.1" strokeWidth="14" strokeLinecap="round">
+            <line x1="98" y1="72" x2="98" y2="232" />
+            <line x1="170" y1="30" x2="170" y2="312" />
+            <line x1="242" y1="72" x2="242" y2="232" />
+          </g>
           <g key={`t-${run}`} fill="none" pointerEvents="none">
             {TREE_PATHS.map(([a, b], i) => {
               const hit = a === selected || b === selected;
-              return <path key={i} d={line(TREE_POS[a], TREE_POS[b])} pathLength={1} className="geo-draw" style={{ animationDelay: `${i * 0.05}s` }} stroke={hit ? "#F7E2AE" : NIGHT_GOLD} strokeOpacity={hit ? 1 : 0.45} strokeWidth={hit ? 2 : 1.1} />;
+              return (
+                <g key={i}>
+                  {hit && <path d={line(TREE_POS[a], TREE_POS[b])} stroke="#F7E2AE" strokeWidth="4" opacity="0.45" filter={`url(#${p}soft)`} />}
+                  <path d={line(TREE_POS[a], TREE_POS[b])} pathLength={1} className="geo-draw" style={{ animationDelay: `${i * 0.05}s` }} stroke={hit ? "#FFF3D2" : `url(#${p}line)`} strokeOpacity={hit ? 1 : selected ? 0.4 : 0.6} strokeWidth={hit ? 1.6 : 0.9} />
+                </g>
+              );
             })}
           </g>
           {Object.entries(TREE_POS).map(([k, q]) => {
@@ -768,12 +883,13 @@ export function GeoDiagram({ layer, selected, mine, keys, tap }: DiagramProps & 
             const n = ["keter", "chokmah", "binah", "chesed", "gevurah", "tiferet", "netzach", "hod", "yesod", "malkuth"].indexOf(k) + 1;
             return (
               <g key={k} {...tap(k, TX["geo-tree"][k].name)}>
-                {on && <circle cx={q[0]} cy={q[1]} r="30" fill={`url(#${p}goldglow)`} />}
-                <circle cx={q[0]} cy={q[1]} r="19" fill={on ? `url(#${p}gold)` : "#161618"} stroke={own.has(k) || on ? "#F7E2AE" : NIGHT_GOLD} strokeWidth={own.has(k) ? 1.8 : 1.1} strokeDasharray={hidden ? "3 3" : undefined} />
-                <text x={q[0]} y={q[1] - 4} textAnchor="middle" dominantBaseline="central" fontSize="10" fontFamily="Georgia, serif" fill={on ? "#2A1E0C" : NIGHT_GOLD} pointerEvents="none">
+                {on && <circle cx={q[0]} cy={q[1]} r="32" fill={`url(#${p}goldglow)`} />}
+                <circle cx={q[0]} cy={q[1]} r="19" fill={on ? `url(#${p}gold)` : "#121214"} stroke={own.has(k) || on ? "#F7E2AE" : `url(#${p}line)`} strokeOpacity={on || own.has(k) ? 1 : 0.75} strokeWidth={own.has(k) ? 1.6 : 1} strokeDasharray={hidden ? "2.5 3" : undefined} />
+                <circle cx={q[0]} cy={q[1]} r="19" fill={`url(#${p}gloss)`} opacity={on ? 0.5 : 0.18} pointerEvents="none" />
+                <text x={q[0]} y={q[1] - 4} textAnchor="middle" dominantBaseline="central" fontSize="10" fontFamily="Georgia, 'Times New Roman', serif" fill={on ? "#2A1E0C" : NIGHT_GOLD} pointerEvents="none">
                   {n || "·"}
                 </text>
-                <text x={q[0]} y={q[1] + 8} textAnchor="middle" dominantBaseline="central" fontSize="5.6" letterSpacing="0.4" fontWeight={700} fill={on ? "#2A1E0C" : STAR} pointerEvents="none">
+                <text x={q[0]} y={q[1] + 8} textAnchor="middle" dominantBaseline="central" fontSize="5.4" letterSpacing="0.6" fontWeight={600} fill={on ? "#2A1E0C" : STAR} fillOpacity={on ? 1 : 0.8} pointerEvents="none">
                   {TX["geo-tree"][k].name.split(" · ")[0].toUpperCase()}
                 </text>
               </g>
@@ -784,32 +900,34 @@ export function GeoDiagram({ layer, selected, mine, keys, tap }: DiagramProps & 
       break;
     }
     case "geo-sriyantra":
-      body = svg(<GeoFigure els={sriFig()} selected={selected} order={order} mode="build" />);
+      body = svg(<GeoFigure p={p} els={sriFig()} selected={selected} order={order} mode="build" />);
       break;
     case "geo-merkaba":
-      body = <Merkaba selected={selected} run={run} />;
+      body = <Merkaba selected={selected} run={run} p={p} />;
       break;
     case "geo-platonic":
-      body = <Platonic selected={selected} run={run} />;
+      body = <Platonic selected={selected} run={run} p={p} />;
       break;
-    case "geo-torus": {
-      const f = torusFig();
-      body = svg(<GeoFigure els={f.els} labels={f.labels} selected={selected} order={order} mode="focus" />);
+    case "geo-torus":
+      body = fig(torusFig(), "focus");
       break;
-    }
     case "geo-chakras":
       body = svg(
         <>
-          <GeoFigure els={chakraFig()} selected={selected} order={order} mode="focus" />
-          {CHAKRA.map((ch, i) => (
-            <g key={ch.k} {...tap(ch.k, TX["geo-chakras"][ch.k].name)}>
-              <rect x={C - 34} y={300 - i * 44 - 22} width="68" height="44" fill="transparent" />
-              <text x={C + 44} y={300 - i * 44} dominantBaseline="central" fontSize="8.5" fontWeight={ch.k === selected ? 700 : 500} fill={ch.k === selected ? "#F7E2AE" : STAR} fillOpacity={ch.k === selected ? 1 : 0.7}>
-                {TX["geo-chakras"][ch.k].name.split(" · ")[1]}
-              </text>
-            </g>
-          ))}
+          <GeoFigure p={p} els={chakraFig()} selected={selected} order={order} mode="focus" />
+          {CHAKRA.map((ch, i) => {
+            const on = ch.k === selected;
+            return (
+              <g key={ch.k} {...tap(ch.k, TX["geo-chakras"][ch.k].name)}>
+                <rect x={C - 34} y={300 - i * 44 - 22} width="150" height="44" fill="transparent" />
+                <text x={C + 44} y={300 - i * 44} dominantBaseline="central" fontSize="10" fontFamily="Georgia, 'Times New Roman', serif" fontStyle="italic" fill={on ? "#F7E2AE" : STAR} fillOpacity={on ? 1 : 0.7}>
+                  <Tr s={TX["geo-chakras"][ch.k].name.split(" · ")[1]} />
+                </text>
+              </g>
+            );
+          })}
         </>,
+        false,
       );
       break;
   }
@@ -818,11 +936,47 @@ export function GeoDiagram({ layer, selected, mine, keys, tap }: DiagramProps & 
     <NightPanel>
       {body}
       {!tappable && <NightChips items={keys.map((k) => ({ key: k, label: TX[layer][k].name }))} selected={selected} mine={own} tap={tap} />}
-      <div className="mt-1 flex justify-center">
-        <button type="button" onClick={() => setRun((r) => r + 1)} className="rounded-full border px-3 py-1 text-[0.72rem] font-semibold" style={{ borderColor: "rgb(233 204 142 / .35)", color: STAR }}>
-          ↻ Volver a dibujar
-        </button>
+      <div className="mt-2 flex justify-center">
+        <button
+          type="button"
+          data-model-keep=""
+          onClick={() => setRun((r) => r + 1)}
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-full border px-4 text-[0.66rem] uppercase tracking-[0.18em] transition hover:opacity-100"
+          style={{ borderColor: "rgb(233 204 142 / .3)", color: NIGHT_GOLD, opacity: 0.85 }}
+        ><Tr s={"↻ Volver a dibujar"} /></button>
       </div>
     </NightPanel>
   );
 }
+
+/** El nombre de cada figura (para leerla sin vista y para el modelo principal). */
+export const GEO_TITLE: Record<GeoLayer, string> = {
+  "geo-circle": "El punto y el círculo",
+  "geo-vesica": "La vesica piscis",
+  "geo-flower": "La flor de la vida",
+  "geo-metatron": "El cubo de Metatrón",
+  "geo-platonic": "Los sólidos platónicos",
+  "geo-golden": "La proporción áurea",
+  "geo-numbers": "Los números y sus formas",
+  "geo-tree": "El árbol de la vida",
+  "geo-sriyantra": "El Sri Yantra",
+  "geo-merkaba": "La merkaba",
+  "geo-torus": "El toro",
+  "geo-chakras": "Los chakras y sus formas",
+};
+
+/** Lo que se cuenta de cada figura antes de tocar nada (el modelo principal). */
+export const GEO_INTRO: Record<GeoLayer, string> = {
+  "geo-circle": "Toda la geometría sagrada empieza igual: un punto y, alrededor, un círculo. Con un compás y una regla, y nada más, salen todas las demás figuras. Toca cada parte para ver cómo nace.",
+  "geo-vesica": "Dos círculos iguales, cada uno con su centro en el borde del otro. Donde se cruzan nace la almendra de la que salen el triángulo, el cuadrado y todas las formas.",
+  "geo-flower": "De siete círculos a diecinueve: la semilla, el huevo, la flor y el fruto de la vida. Está grabada en templos de medio mundo y guarda dentro casi todas las formas sagradas.",
+  "geo-metatron": "Trece círculos y setenta y ocho líneas: el mapa de la materia. Dentro se esconden los cinco sólidos que, según Platón, construyen todo lo que existe.",
+  "geo-platonic": "Los únicos cinco cuerpos con todas las caras, aristas y ángulos iguales. Platón los unió a los elementos: fuego, tierra, aire, agua y éter.",
+  "geo-golden": "1,618…: la proporción que el ojo siente como armonía. La ves en las conchas, en las flores, en las galaxias y en tu propio cuerpo.",
+  "geo-numbers": "Cada número tiene su forma: el uno es el punto, el tres el triángulo, el seis el hexágono… Toca un número para ver su figura.",
+  "geo-tree": "Diez esferas y veintidós senderos: el mapa de la cábala para ir de lo más alto a lo más concreto, y de vuelta. Toca una esfera.",
+  "geo-sriyantra": "Nueve triángulos entrelazados alrededor de un punto: el yantra más venerado de la India, para meditar de fuera hacia dentro.",
+  "geo-merkaba": "Dos tetraedros encajados, uno que sube y otro que baja: el vehículo de luz de muchas meditaciones.",
+  "geo-torus": "La forma de la energía que sale, da la vuelta y vuelve a entrar: del campo del corazón a las galaxias.",
+  "geo-chakras": "Cada chakra tiene su forma y su número de pétalos: del cuadrado de la raíz al loto de mil pétalos de la corona.",
+};

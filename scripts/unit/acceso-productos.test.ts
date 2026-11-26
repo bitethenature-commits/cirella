@@ -109,9 +109,9 @@ test("layout con marca propia y pie vacío: no pinta pie", () => {
   ok(html.includes("Cirella") && !html.includes("Enviado con"), html);
 });
 test("email de acceso: asunto «Ya tienes acceso a «X»» y botón directo al curso", () => {
-  const m = accessGrantedEmail({ name: "Lucía", creatorName: "Cirella", productTitle: "Mini-curso", productType: "COURSE", url: "https://a.es/auth/enlace?t=1", linkNote: "Personal" });
+  const m = accessGrantedEmail({ name: "Lucía", creatorName: "Cirella", productTitle: "Mini-curso", productType: "COURSE", url: "https://a.es/auth/link?t=1", linkNote: "Personal" });
   eq(m.subject, "Ya tienes acceso a «Mini-curso»");
-  ok(m.html.includes(">Empezar el curso</a>") && m.html.includes("https://a.es/auth/enlace?t=1"), m.html);
+  ok(m.html.includes(">Empezar el curso</a>") && m.html.includes("https://a.es/auth/link?t=1"), m.html);
   ok(!/IVA|factura|Total/.test(m.html), "sin importes, IVA ni factura");
 });
 test("email de acceso: membresía y descarga con su botón", () => {

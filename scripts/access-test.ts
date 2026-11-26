@@ -39,7 +39,7 @@ const HOUR = 3_600_000;
 async function token(to: string, purpose: "LOGIN" | "VERIFY_SIGNUP" = "LOGIN", opts: { redirectTo?: string; expiresAt?: Date } = {}) {
   const t = randomBytes(24).toString("base64url");
   await prisma.loginToken.create({
-    data: { email: to, tokenHash: hashToken(t), purpose, redirectTo: opts.redirectTo ?? "/auth/continuar", expiresAt: opts.expiresAt ?? new Date(Date.now() + HOUR) },
+    data: { email: to, tokenHash: hashToken(t), purpose, redirectTo: opts.redirectTo ?? "/auth/continue", expiresAt: opts.expiresAt ?? new Date(Date.now() + HOUR) },
   });
   return t;
 }
@@ -82,7 +82,7 @@ async function main() {
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     check("la primera prueba del email borra la contraseña previa", after.passwordHash === null && !!after.emailVerifiedAt);
     check("…y todas las sesiones anteriores", (await prisma.session.count({ where: { userId: user.id } })) === 0);
-    check("…y pide crear una contraseña nueva", r?.redirectTo === `/contrasena?motivo=seguridad&next=${encodeURIComponent("/onboarding")}`, r?.redirectTo);
+    check("…y pide crear una contraseña nueva", r?.redirectTo === `/password?motivo=seguridad&next=${encodeURIComponent("/onboarding")}`, r?.redirectTo);
   }
 
   // ── «Sí, he sido yo» ──
@@ -97,7 +97,7 @@ async function main() {
     check("«Sí, he sido yo» confirma el email y conserva la contraseña", !!after.emailVerifiedAt && after.passwordHash === user.passwordHash);
     check("…solo su sesión pasa a verificada", (await prisma.session.findUnique({ where: { id: own.id } }))?.verified === true);
     check("…y las demás sin confirmar dejan de valer", (await prisma.session.count({ where: { id: other.id } })) === 0);
-    check("…sin desvío a «Crea tu contraseña»", r?.redirectTo === "/auth/continuar", r?.redirectTo);
+    check("…sin desvío a «Crea tu contraseña»", r?.redirectTo === "/auth/continue", r?.redirectTo);
   }
 
   // ── «Sí, he sido yo» desde otro navegador: no prueba que la contraseña sea suya ──
@@ -109,7 +109,7 @@ async function main() {
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     check("«Sí» sin la sesión de quien registró: confirma el email pero borra la contraseña", !!after.emailVerifiedAt && after.passwordHash === null);
     check("…y cierra las sesiones de quien la registró", (await prisma.session.count({ where: { userId: user.id } })) === 0);
-    check("…y pide crear una contraseña nueva", r?.redirectTo.startsWith("/contrasena?motivo=seguridad") === true, r?.redirectTo);
+    check("…y pide crear una contraseña nueva", r?.redirectTo.startsWith("/password?motivo=seguridad") === true, r?.redirectTo);
   }
 
   // ── «No he sido yo» ──
@@ -119,7 +119,7 @@ async function main() {
     const r = await consumeMagicLink(t, "no");
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     check("«No he sido yo» borra la contraseña y las sesiones de quien la creó", after.passwordHash === null && (await prisma.session.count({ where: { userId: user.id } })) === 0);
-    check("…y la dueña entra a crear la suya", !!r?.redirectTo.startsWith("/contrasena?motivo=seguridad"), r?.redirectTo);
+    check("…y la dueña entra a crear la suya", !!r?.redirectTo.startsWith("/password?motivo=seguridad"), r?.redirectTo);
   }
 
   // ── Email ya confirmado ──
@@ -129,7 +129,7 @@ async function main() {
     await session(user.id, { verified: false });
     const r = await consumeMagicLink(await token(user.email));
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
-    check("con el email ya confirmado se conserva la contraseña", after.passwordHash === user.passwordHash && r?.redirectTo === "/auth/continuar");
+    check("con el email ya confirmado se conserva la contraseña", after.passwordHash === user.passwordHash && r?.redirectTo === "/auth/continue");
     const left = await prisma.session.findMany({ where: { userId: user.id } });
     check("…y solo caen las sesiones sin verificar", left.length === 1 && left[0].id === kept.id);
   }
@@ -142,7 +142,7 @@ async function main() {
     const [login, verify] = await prisma.loginToken.findMany({ where: { email: to }, orderBy: { createdAt: "asc" } });
     const mails = await prisma.emailMessage.findMany({ where: { to }, orderBy: { createdAt: "asc" } });
     check("el enlace pedido desde la página de Cirella lleva su marca", login.creatorId === ana.id && mails[0]?.template === "MAGIC_LINK" && mails[0].html.includes(ana.displayName));
-    check("…y nunca un destino externo", login.redirectTo === "/auth/continuar", login.redirectTo);
+    check("…y nunca un destino externo", login.redirectTo === "/auth/continue", login.redirectTo);
     const hours = (verify.expiresAt.getTime() - verify.createdAt.getTime()) / HOUR;
     check("«Confirma tu email» dura 72 h y usa su plantilla", verify.purpose === "VERIFY_SIGNUP" && Math.round(hours) === 72 && mails[1]?.template === "VERIFY_EMAIL", { hours, t: mails[1]?.template });
     const minutes = (login.expiresAt.getTime() - login.createdAt.getTime()) / 60_000;
@@ -160,11 +160,11 @@ async function main() {
     );
     const links = await prisma.orderLink.findMany({ where: { orderId: o.id } });
     check("el recibo y el acceso al curso llevan un enlace personal cada uno", links.length === 2, links.length);
-    check("…que abren el curso", links.every((l) => l.path === `/cuenta/cursos/${course.id}`));
+    check("…que abren el curso", links.every((l) => l.path === `/area/courses/${course.id}`));
     const days = (links[0].expiresAt.getTime() - links[0].createdAt.getTime()) / 86_400_000;
     check("…durante 14 días", Math.round(days) === 14, days);
     const receipt = await prisma.emailMessage.findFirstOrThrow({ where: { dedupeKey: `receipt:${o.id}` } });
-    check("el recibo enlaza a /auth/enlace con la nota «personal»", receipt.html.includes("/auth/enlace?t=") && receipt.html.includes("Este enlace es personal"));
+    check("el recibo enlaza a /auth/link con la nota «personal»", receipt.html.includes("/auth/link?t=") && receipt.html.includes("Este enlace es personal"));
     await handleAutomation({ type: "order.paid", orderId: o.id });
     check("reprocesar el evento no crea enlaces que nadie recibe", (await prisma.orderLink.count({ where: { orderId: o.id } })) === 2);
 
@@ -173,9 +173,9 @@ async function main() {
     check("el enlace del recibo resuelve al pedido", ok?.status === "ok" && ok.order.id === o.id);
     await prisma.orderLink.updateMany({ where: { orderId: o.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
     const expired = await resolveOrderLink(t);
-    check("caducado, dice de qué creadora es y adónde iba", expired?.status === "expired" && expired.username === "ana" && expired.path === `/cuenta/cursos/${course.id}`);
+    check("caducado, dice de qué creadora es y adónde iba", expired?.status === "expired" && expired.username === "ana" && expired.path === `/area/courses/${course.id}`);
     await prisma.order.update({ where: { id: o.id }, data: { status: "REFUNDED" } });
-    const fresh = await createOrderLink({ orderId: o.id, path: `/cuenta/pedidos/${o.id}` });
+    const fresh = await createOrderLink({ orderId: o.id, path: `/area/orders/${o.id}` });
     check("un pedido reembolsado no abre nada", (await resolveOrderLink(new URL(fresh.url).searchParams.get("t")!)) === null);
   }
 
@@ -188,8 +188,8 @@ async function main() {
     const recent = await token(user.email, "LOGIN", { expiresAt: new Date(Date.now() - HOUR) });
     await token(user.email, "LOGIN", { expiresAt: new Date(Date.now() - 2 * 86_400_000) });
     const day = 86_400_000;
-    const keep = await prisma.orderLink.create({ data: { tokenHash: hashToken(`${TAG}-keep`), orderId: order, path: "/cuenta", expiresAt: new Date(Date.now() - 2 * day) } });
-    await prisma.orderLink.create({ data: { tokenHash: hashToken(`${TAG}-old`), orderId: order, path: "/cuenta", expiresAt: new Date(Date.now() - 31 * day) } });
+    const keep = await prisma.orderLink.create({ data: { tokenHash: hashToken(`${TAG}-keep`), orderId: order, path: "/area", expiresAt: new Date(Date.now() - 2 * day) } });
+    await prisma.orderLink.create({ data: { tokenHash: hashToken(`${TAG}-old`), orderId: order, path: "/area", expiresAt: new Date(Date.now() - 31 * day) } });
     await purgeExpiredAuth();
     check("borra las sesiones caducadas y conserva las vigentes", (await prisma.session.findMany({ where: { userId: user.id } })).map((s) => s.id).join() === live.id);
     check(

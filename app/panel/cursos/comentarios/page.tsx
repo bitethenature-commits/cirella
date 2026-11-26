@@ -7,6 +7,7 @@ import { tenantDb } from "@/lib/tenant";
 import { formatDate } from "@/lib/tz";
 import { CommentModeration, type StudioComment } from "../../comunidad/comment-moderation";
 import { PageHeader } from "../../ui";
+import { Tr } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Comentarios de los cursos" };
 
@@ -55,8 +56,7 @@ export default async function CourseCommentsPage() {
   return (
     <div>
       <Link href="/panel/cursos" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Cursos
-      </Link>
+        <ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Cursos"} /></Link>
       <PageHeader
         title="Comentarios"
         subtitle={list.length ? `Lo que escriben tus alumnas en las lecciones${freshCount ? ` · ${freshCount} con comentarios nuevos` : ""}.` : "Aquí saldrá lo que escriban tus alumnas en las lecciones."}
@@ -69,11 +69,10 @@ export default async function CourseCommentsPage() {
             <section key={t.lessonId} className="card p-5" data-lesson-thread={t.lessonId}>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="eyebrow">{t.courseTitle}</p>
-                  <h2 className="mt-1 font-semibold">{t.lessonTitle}</h2>
+                  <p className="eyebrow"><Tr s={t.courseTitle} /></p>
+                  <h2 className="mt-1 font-semibold"><Tr s={t.lessonTitle} /></h2>
                 </div>
-                <Link href={`/cuenta/cursos/${t.productId}?leccion=${t.lessonId}`} className="inline-flex items-center gap-1 text-xs font-semibold text-lavender-deep hover:underline">
-                  Ver la lección <ArrowUpRight className="h-3.5 w-3.5" />
+                <Link href={`/area/courses/${t.productId}?leccion=${t.lessonId}`} className="inline-flex items-center gap-1 text-xs font-semibold text-lavender-deep hover:underline"><Tr s={"Ver la lección"} />{" "}<ArrowUpRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
               <div className="mt-3">

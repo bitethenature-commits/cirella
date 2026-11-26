@@ -1,5 +1,6 @@
 "use server";
 
+import { translateSoon } from "@/lib/i18n/content";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -21,7 +22,7 @@ export type PortalActionState = { ok?: string; error?: string } | undefined;
 function refresh(username: string, id?: string) {
   revalidatePath("/");
   revalidatePath(`/${username}`);
-  revalidatePath(`/${username}/portal`);
+  revalidatePath("/[username]/portal/[id]", "page");
   revalidatePath("/panel/portal");
   if (id) revalidatePath(`/panel/portal/${id}`);
 }
@@ -90,6 +91,7 @@ export async function savePortalItem(_: PortalActionState, form: FormData): Prom
     const count = await db.portalItem.count();
     const item = await db.portalItem.create({ data: { creatorId: creator.id, sortOrder: count, ...data } });
     refresh(creator.username);
+    translateSoon(creator.id, true);
     redirect(`/panel/portal/${item.id}?guardado=${d.status === "PUBLISHED" ? "publicado" : "borrador"}`);
   }
   await db.portalItem.update({ where: { id: current.id }, data });
@@ -97,6 +99,7 @@ export async function savePortalItem(_: PortalActionState, form: FormData): Prom
   const gone = before.filter((b) => !media.some((m) => m.key === b.key)).map((b) => privateKey(b.key));
   if (gone.length) await storage().delete(gone).catch(() => {});
   refresh(creator.username, current.id);
+  translateSoon(creator.id, true);
   return { ok: d.status === "PUBLISHED" ? "Guardado y publicado en tu portal." : "Guardado como borrador: no se ve en tu web." };
 }
 
@@ -150,4 +153,5 @@ export async function togglePortalItem(form: FormData) {
   if (publish && mediaKindFor(asPortalKind(item.kind)) && !readPortalMedia(item.media).length) redirect(`/panel/portal/${item.id}?falta=archivo`);
   await db.portalItem.update({ where: { id: item.id }, data: { status: publish ? "PUBLISHED" : "DRAFT", publishedAt: publish ? new Date() : null } });
   refresh(creator.username, item.id);
+  translateSoon(creator.id, true);
 }

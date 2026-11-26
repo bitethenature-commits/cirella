@@ -8,7 +8,7 @@ import { expect, test, type Page } from "@playwright/test";
  *   · «Crear mi cuenta» → email «Confirma tu email para entrar» → «Confirmar y entrar» → su área con
  *     la bienvenida, la contraseña opcional y «Aún no tienes nada: mira los cursos»;
  *   · el perfil: nombre, foto, contraseña y cambio de email confirmado desde el email nuevo;
- *   · lo que consigue después con ese email aparece en su área; /registro sigue cerrado.
+ *   · lo que consigue después con ese email aparece en su área; /signup sigue cerrado.
  * Deja los datos de demostración como estaban.
  */
 
@@ -51,11 +51,11 @@ async function mailLink(to: string, template: string, label: string) {
 }
 
 async function passwordLogin(page: Page, email: string, password: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.fill("#email", email);
   await page.fill("#password", password);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 test.describe.serial("Web personal · área de alumnas", () => {
@@ -67,7 +67,7 @@ test.describe.serial("Web personal · área de alumnas", () => {
     expect(box!.height).toBeGreaterThanOrEqual(44);
     await expect(page.getByRole("link", { name: "¿Aún no tienes cuenta? Créala" })).toBeVisible();
     await entry.click();
-    await page.waitForURL("**/ana/entrar?next=%2Fcuenta");
+    await page.waitForURL("**/ana/login?next=%2Farea");
     await page.getByRole("link", { name: "Crear mi cuenta" }).click();
     await page.waitForURL("**modo=alta");
     await expect(page.getByRole("heading", { name: "Crea tu cuenta" })).toBeVisible();
@@ -83,7 +83,7 @@ test.describe.serial("Web personal · área de alumnas", () => {
     await page.goto(await mailLink(lucia, "REGISTER", "Confirmar y entrar"));
     await expect(page.getByRole("heading", { name: "Confirma tu email para entrar" })).toBeVisible();
     await page.getByRole("button", { name: "Confirmar y entrar" }).click();
-    await page.waitForURL("**/cuenta?bienvenida=1");
+    await page.waitForURL("**/area?bienvenida=1");
     await expect(page.getByRole("heading", { name: "Bienvenida, Lucía. Ya tienes tu área." })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Aún no tienes nada: mira los cursos" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Mini-curso/ }).first()).toBeVisible();
@@ -95,16 +95,16 @@ test.describe.serial("Web personal · área de alumnas", () => {
     // Contraseña opcional desde la bienvenida.
     await page.getByLabel(/Crea una contraseña/).fill("lucia-12345");
     await page.getByRole("button", { name: "Guardar contraseña" }).click();
-    await page.waitForURL((u) => u.pathname === "/cuenta" && !u.search);
+    await page.waitForURL((u) => u.pathname === "/area" && !u.search);
 
-    // Con la sesión abierta, la página pública dice «Mi área» y lleva a /cuenta.
+    // Con la sesión abierta, la página pública dice «Mi área» y lleva a /area.
     await page.goto("/");
     await expect(page.getByTestId("account-entry")).toHaveText("Mi área");
-    await expect(page.getByTestId("account-entry")).toHaveAttribute("href", "/cuenta");
+    await expect(page.getByTestId("account-entry")).toHaveAttribute("href", "/area");
   });
 
   test("lo que consigue con su email aparece en su área; las fichas de producto también tienen «Entrar»", async ({ page }) => {
-    await page.goto("/ana/mini-curso-tu-carta-en-3-pasos");
+    await page.goto("/ana/natal-chart-in-3-steps");
     await expect(page.getByTestId("account-entry")).toHaveText("Entrar");
     await page.fill("#claim-name", "Lucía");
     await page.fill("#claim-email", lucia);
@@ -112,14 +112,14 @@ test.describe.serial("Web personal · área de alumnas", () => {
     await page.getByRole("button", { name: /Quiero el mini-curso/ }).click();
     await expect(page.getByText("¡Listo! Revisa tu email")).toBeVisible();
     await passwordLogin(page, lucia, "lucia-12345");
-    await page.goto("/cuenta");
+    await page.goto("/area");
     await expect(page.getByRole("heading", { name: "Aún no tienes nada: mira los cursos" })).toHaveCount(0);
     await expect(page.getByText(/Mini-curso/).first()).toBeVisible();
   });
 
   test("perfil: nombre, foto y cambio de email confirmado desde el email nuevo", async ({ page }) => {
     await passwordLogin(page, lucia, "lucia-12345");
-    await page.goto("/cuenta/perfil");
+    await page.goto("/area/profile");
     await page.getByLabel("Nombre").fill("Lucía Sol");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(page.getByText("Perfil actualizado")).toBeVisible();
@@ -146,7 +146,7 @@ test.describe.serial("Web personal · área de alumnas", () => {
     await page.goto(await mailLink(nuevo, "EMAIL_CHANGE_CONFIRM", "Confirmar el cambio"));
     await expect(page.getByRole("heading", { name: "Confirma tu nuevo email" })).toBeVisible();
     await page.getByRole("button", { name: "Confirmar el cambio" }).click();
-    await page.waitForURL("**/cuenta/perfil?ok=email");
+    await page.waitForURL("**/area/profile?ok=email");
     await expect(page.getByText("Tu email ha cambiado.")).toBeVisible();
     await expect(page.getByText(nuevo).first()).toBeVisible();
     expect(await prisma.emailMessage.count({ where: { to: lucia, template: "EMAIL_CHANGED" } })).toBe(1);
@@ -161,8 +161,8 @@ test.describe.serial("Web personal · área de alumnas", () => {
 
   test("los emails a la alumna llevan «Tu área» y el registro de páginas sigue cerrado", async ({ page }) => {
     const m = await prisma.emailMessage.findFirstOrThrow({ where: { to: lucia, template: "REGISTER" } });
-    expect(m.html).toMatch(/Tu área: <a href="[^"]+\/cuenta"/);
-    await page.goto("/registro");
-    await expect(page).toHaveURL(/\/entrar/);
+    expect(m.html).toMatch(/Tu área: <a href="[^"]+\/area"/);
+    await page.goto("/signup");
+    await expect(page).toHaveURL(/\/login/);
   });
 });

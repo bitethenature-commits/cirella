@@ -7,6 +7,7 @@ import { UPLOAD_CANCELLED, uploadFile } from "@/components/ui/upload-client";
 import { formatDuration, formatSize, MediaHealth } from "@/components/media/media-health";
 import { PRIVATE_ACCEPT } from "@/lib/file-types";
 import { addLinkFile, deleteFile } from "../actions";
+import { Tr, useT } from "@/lib/i18n/client";
 
 type F = {
   id: string;
@@ -41,6 +42,7 @@ export function FilesManager({
   /** Cursos: en cuántas lecciones está cada archivo (lib/lesson-parts.ts → fileUsage). */
   usage?: Record<string, number>;
 }) {
+  const t = useT();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ name: string; pct: number; loaded: number; total: number } | null>(null);
@@ -94,31 +96,27 @@ export function FilesManager({
         <div>
           <h3 className="font-semibold">{title}</h3>
           <p className="text-xs text-muted">
-            {hint} {limitsLabel}
+            <Tr s={hint} /> <Tr s={limitsLabel} />
           </p>
         </div>
         <button type="button" onClick={() => input.current?.click()} disabled={busy} className="btn btn-outline btn-sm">
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Subir archivos
-        </button>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}{" "}<Tr s={"Subir archivos"} /></button>
         <input ref={input} type="file" multiple className="hidden" onChange={(e) => e.target.files && upload(e.target.files)} accept={PRIVATE_ACCEPT} />
       </div>
       {progress && (
         <div className="mt-3 rounded-xl border border-line bg-paper p-3" aria-live="polite">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <p className="min-w-0 flex-1 text-sm text-muted">
-              Subiendo «{progress.name}» · {progress.pct} %{progress.total ? ` · ${formatSize(progress.loaded)} de ${formatSize(progress.total)}` : ""}
+            <p className="min-w-0 flex-1 text-sm text-muted"><Tr s={"Subiendo «"} />{progress.name}» · {progress.pct} %{progress.total ? ` · ${formatSize(progress.loaded)} de ${formatSize(progress.total)}` : ""}
             </p>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => abort.current?.abort()}>
-              Cancelar
-            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => abort.current?.abort()}><Tr s={"Cancelar"} /></button>
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sand">
             <div className="h-full bg-ink transition-[width]" style={{ width: `${progress.pct}%` }} />
           </div>
-          <p className="mt-2 text-xs text-muted">No bloquees el iPhone ni cambies de app mientras se sube.</p>
+          <p className="mt-2 text-xs text-muted"><Tr s={"No bloquees el iPhone ni cambies de app mientras se sube."} /></p>
         </div>
       )}
-      {error && <p className="mt-3 text-sm text-rose">{error}</p>}
+      {error && <p className="mt-3 text-sm text-rose"><Tr s={error} /></p>}
       <ul className="mt-4 divide-y divide-line rounded-xl border border-line">
         {files.map((f) => {
           const Icon = ICON[f.kind] ?? FileText;
@@ -130,17 +128,15 @@ export function FilesManager({
                 <MediaHealth file={f} />
                 {!!usage?.[f.id] && (
                   <span className="mt-1 inline-flex rounded-full border border-line bg-paper px-2 py-0.5 text-[0.7rem] font-semibold text-muted">
-                    {usage[f.id] === 1 ? "En 1 lección" : `En ${usage[f.id]} lecciones`}
+                    {usage[f.id] === 1 ? t("En 1 lección") : `En ${usage[f.id]} lecciones`}
                   </span>
                 )}
               </div>
-              <span className="shrink-0 text-xs text-faint">{f.kind === "LINK" ? "Enlace" : f.sizeBytes ? formatSize(f.sizeBytes) : ""}</span>
+              <span className="shrink-0 text-xs text-faint">{f.kind === "LINK" ? t("Enlace") : f.sizeBytes ? formatSize(f.sizeBytes) : ""}</span>
               {/* «Ver» abre o descarga el archivo (como siempre); «Vista previa», el visor de las alumnas. */}
-              <a href={f.kind === "LINK" ? f.url ?? "#" : `/api/download/${f.id}`} className="shrink-0 text-xs font-semibold text-muted hover:text-ink">Ver</a>
+              <a href={f.kind === "LINK" ? f.url ?? "#" : `/api/download/${f.id}`} className="shrink-0 text-xs font-semibold text-muted hover:text-ink"><Tr s={"Ver"} /></a>
               {PREVIEWABLE.has(f.kind) && (
-                <a href={`/cuenta/archivos/${f.id}`} className="shrink-0 text-xs font-semibold text-muted hover:text-ink">
-                  Vista previa
-                </a>
+                <a href={`/area/files/${f.id}`} className="shrink-0 text-xs font-semibold text-muted hover:text-ink"><Tr s={"Vista previa"} /></a>
               )}
               {/* Si está en lecciones, se pregunta: al borrarlo desaparece de ellas. */}
               <ConfirmForm
@@ -153,13 +149,13 @@ export function FilesManager({
             </li>
           );
         })}
-        {files.length === 0 && <li className="px-3.5 py-6 text-center text-sm text-muted">Todavía no hay archivos.</li>}
+        {files.length === 0 && <li className="px-3.5 py-6 text-center text-sm text-muted"><Tr s={"Todavía no hay archivos."} /></li>}
       </ul>
       <form action={addLinkFile} className="mt-3 flex flex-col gap-2 sm:flex-row">
         <input type="hidden" name="productId" value={productId} />
-        <input name="name" required placeholder="Nombre del enlace (p. ej. Grabación en Vimeo)" className="input h-10 text-base sm:flex-1 sm:text-sm" />
+        <input name="name" required placeholder={t("Nombre del enlace (p. ej. Grabación en Vimeo)")} className="input h-10 text-base sm:flex-1 sm:text-sm" />
         <input name="url" type="url" required placeholder="https://…" className="input h-10 text-base sm:flex-1 sm:text-sm" />
-        <button className="btn btn-ghost btn-sm shrink-0"><Link2 className="h-4 w-4" /> Añadir enlace</button>
+        <button className="btn btn-ghost btn-sm shrink-0"><Link2 className="h-4 w-4" />{" "}<Tr s={"Añadir enlace"} /></button>
       </form>
     </section>
   );

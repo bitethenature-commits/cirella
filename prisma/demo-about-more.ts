@@ -29,7 +29,7 @@ const prisma = new PrismaClient();
 (async () => {
   const ana = await prisma.creator.findFirst({ where: { username: "ana" }, select: { id: true } });
   if (!ana) throw new Error("No encuentro la cuenta de Cirella.");
-  const page = await prisma.sitePage.findFirst({ where: { creatorId: ana.id, slug: "sobre-mi" } });
+  const page = await prisma.sitePage.findFirst({ where: { creatorId: ana.id, slug: "aboutme" } });
   if (!page) throw new Error("No encuentro su página «Sobre mí».");
   const draft = withBlock(page.draft);
   const published = withBlock(page.published);

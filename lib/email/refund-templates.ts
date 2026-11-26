@@ -1,4 +1,5 @@
 import { esc, layout, p } from "./templates";
+import { et } from "@/lib/i18n/email";
 
 /**
  * Emails de cambios de una compra: otra fecha, sesión cancelada, reembolso y desistimiento.
@@ -6,49 +7,49 @@ import { esc, layout, p } from "./templates";
  */
 
 const muted = (s: string) => `<span style="color:#A99FC2;font-size:13px">${s}</span>`;
-const quote = (who: string, text: string) => p(`Mensaje de ${esc(who)}: <em>«${esc(text)}»</em>`);
-const ARRIVES = "Lo verás en tu tarjeta en 5-10 días hábiles.";
+const quote = (who: string, text: string) => p(et("Mensaje de {who}: <em>«{text}»</em>", { who: esc(who), text: esc(text) }));
+const arrives = () => et("Lo verás en tu tarjeta en 5-10 días hábiles.");
 
 export function rescheduleProposalEmail(o: { creatorName: string; productTitle: string; previousWhen: string; note: string | null; url: string }) {
   return {
-    subject: `${o.creatorName} te propone cambiar la fecha de tu sesión`,
+    subject: et("{creatorName} te propone cambiar la fecha de tu sesión", { creatorName: o.creatorName }),
     html: layout({
       brand: o.creatorName,
-      title: "Elige una nueva fecha",
+      title: et("Elige una nueva fecha"),
       body:
-        p(`Tu sesión «${esc(o.productTitle)}» del ${esc(o.previousWhen)} ha quedado libre. Tu pago sigue en pie: solo tienes que elegir otro hueco que te venga bien.`) +
+        p(et("Tu sesión «{productTitle}» del {previousWhen} ha quedado libre. Tu pago sigue en pie: solo tienes que elegir otro hueco que te venga bien.", { productTitle: esc(o.productTitle), previousWhen: esc(o.previousWhen) })) +
         (o.note ? quote(o.creatorName, o.note) : ""),
-      cta: { label: "Elegir nueva fecha", url: o.url },
+      cta: { label: et("Elegir nueva fecha"), url: o.url },
     }),
   };
 }
 
 export function bookingCancelledEmail(o: { creatorName: string; productTitle: string; when: string | null; reason: string | null; refundAmount: string | null; url: string }) {
   return {
-    subject: `Tu sesión «${o.productTitle}» se ha cancelado`,
+    subject: et("Tu sesión «{productTitle}» se ha cancelado", { productTitle: o.productTitle }),
     html: layout({
       brand: o.creatorName,
-      title: "Sesión cancelada",
+      title: et("Sesión cancelada"),
       body:
-        p(`${esc(o.creatorName)} ha cancelado tu sesión «${esc(o.productTitle)}»${o.when ? ` del ${esc(o.when)}` : ""}.`) +
-        (o.reason ? p(`Motivo: <em>«${esc(o.reason)}»</em>`) : "") +
-        (o.refundAmount ? p(`Te hemos devuelto <strong>${esc(o.refundAmount)}</strong>. ${ARRIVES}`) : ""),
-      cta: { label: "Ver mis compras", url: o.url },
+        p(et("{creatorName} ha cancelado tu sesión «{productTitle}»{when}.", { creatorName: esc(o.creatorName), productTitle: esc(o.productTitle), when: o.when ? ` del ${esc(o.when)}` : "" })) +
+        (o.reason ? p(et("Motivo: <em>«{reason}»</em>", { reason: esc(o.reason) })) : "") +
+        (o.refundAmount ? p(et("Te hemos devuelto <strong>{refundAmount}</strong>. {arrives}", { refundAmount: esc(o.refundAmount), arrives: arrives() })) : ""),
+      cta: { label: et("Ver mis compras"), url: o.url },
     }),
   };
 }
 
 export function refundIssuedEmail(o: { creatorName: string; productTitle: string; amount: string; partial: boolean; accessRevoked: boolean; note: string | null; url: string }) {
   return {
-    subject: `Te hemos devuelto ${o.amount} de «${o.productTitle}»`,
+    subject: et("Te hemos devuelto {amount} de «{productTitle}»", { amount: o.amount, productTitle: o.productTitle }),
     html: layout({
       brand: o.creatorName,
-      title: "Reembolso en camino",
+      title: et("Reembolso en camino"),
       body:
-        p(`${esc(o.creatorName)} te ha devuelto <strong>${esc(o.amount)}</strong>${o.partial ? " de tu compra" : ""} de «${esc(o.productTitle)}». ${ARRIVES}`) +
-        (o.accessRevoked ? p("Ya no tendrás acceso a este contenido.") : "") +
+        p(et("{creatorName} te ha devuelto <strong>{amount}</strong>{partial} de «{productTitle}». {arrives}", { creatorName: esc(o.creatorName), amount: esc(o.amount), partial: o.partial ? et(" de tu compra") : "", productTitle: esc(o.productTitle), arrives: arrives() })) +
+        (o.accessRevoked ? p(et("Ya no tendrás acceso a este contenido.")) : "") +
         (o.note ? quote(o.creatorName, o.note) : ""),
-      cta: { label: "Ver mis compras", url: o.url },
+      cta: { label: et("Ver mis compras"), url: o.url },
     }),
   };
 }
@@ -56,53 +57,53 @@ export function refundIssuedEmail(o: { creatorName: string; productTitle: string
 /** Acuse de recibo del desistimiento (TRLGDCU art. 106.4: hay que confirmarlo sin demora). */
 export function withdrawalReceiptEmail(o: { creatorName: string; productTitle: string; amount: string; url: string; membership?: boolean }) {
   return {
-    subject: `Hemos recibido tu desistimiento de «${o.productTitle}»`,
+    subject: et("Hemos recibido tu desistimiento de «{productTitle}»", { productTitle: o.productTitle }),
     html: layout({
       brand: o.creatorName,
-      title: "Desistimiento recibido",
+      title: et("Desistimiento recibido"),
       body:
         p(
-          `Has ejercido tu derecho de desistimiento de «${esc(o.productTitle)}». Te devolvemos <strong>${esc(o.amount)}</strong>${o.membership ? ", la parte proporcional de los días que no has disfrutado," : ""} por el mismo medio de pago; lo verás en 5-10 días hábiles.`,
+          et("Has ejercido tu derecho de desistimiento de «{productTitle}». Te devolvemos <strong>{amount}</strong>{membership} por el mismo medio de pago; lo verás en 5-10 días hábiles.", { productTitle: esc(o.productTitle), amount: esc(o.amount), membership: o.membership ? et(", la parte proporcional de los días que no has disfrutado,") : "" }),
         ) +
-        (o.membership ? p("Tu membresía ha terminado hoy: ya no se renovará ni se te cobrará nada más.") : "") +
-        p(muted("Guarda este email: es el acuse de recibo de tu desistimiento.")),
-      cta: { label: "Ver mis compras", url: o.url },
+        (o.membership ? p(et("Tu membresía ha terminado hoy: ya no se renovará ni se te cobrará nada más.")) : "") +
+        p(muted(et("Guarda este email: es el acuse de recibo de tu desistimiento."))),
+      cta: { label: et("Ver mis compras"), url: o.url },
     }),
   };
 }
 
 export function withdrawalCreatorEmail(o: { buyer: string; productTitle: string; amount: string; url: string; membership?: boolean }) {
   return {
-    subject: `${o.buyer} ha desistido de «${o.productTitle}»`,
+    subject: et("{buyer} ha desistido de «{productTitle}»", { buyer: o.buyer, productTitle: o.productTitle }),
     html: layout({
-      title: "Desistimiento de una compra",
-      body: p(`${esc(o.buyer)} ha ejercido su derecho de desistimiento de «${esc(o.productTitle)}» dentro del plazo de 14 días. Le hemos devuelto <strong>${esc(o.amount)}</strong>${o.membership ? " (la parte proporcional de los días que no ha disfrutado) y su membresía ha terminado" : " y retirado el acceso"}.`),
-      cta: { label: "Ver el pedido", url: o.url },
+      title: et("Desistimiento de una compra"),
+      body: p(et("{buyer} ha ejercido su derecho de desistimiento de «{productTitle}» dentro del plazo de 14 días. Le hemos devuelto <strong>{amount}</strong>{membership}.", { buyer: esc(o.buyer), productTitle: esc(o.productTitle), amount: esc(o.amount), membership: o.membership ? et(" (la parte proporcional de los días que no ha disfrutado) y su membresía ha terminado") : et(" y retirado el acceso") })),
+      cta: { label: et("Ver el pedido"), url: o.url },
     }),
   };
 }
 
 export function refundFailedCreatorEmail(o: { buyer: string; productTitle: string; amount: string; error: string; url: string }) {
   return {
-    subject: "No se ha podido completar un reembolso",
+    subject: et("No se ha podido completar un reembolso"),
     html: layout({
-      title: "Reembolso fallido",
+      title: et("Reembolso fallido"),
       body:
-        p(`La pasarela no ha podido devolver <strong>${esc(o.amount)}</strong> a ${esc(o.buyer)} por «${esc(o.productTitle)}».`) +
+        p(et("La pasarela no ha podido devolver <strong>{amount}</strong> a {buyer} por «{productTitle}».", { amount: esc(o.amount), buyer: esc(o.buyer), productTitle: esc(o.productTitle) })) +
         p(`Motivo: ${esc(o.error)}`) +
-        p("Puedes volver a intentarlo desde el pedido. Si el acceso ya se había retirado, sigue retirado."),
-      cta: { label: "Ver el pedido", url: o.url },
+        p(et("Puedes volver a intentarlo desde el pedido. Si el acceso ya se había retirado, sigue retirado.")),
+      cta: { label: et("Ver el pedido"), url: o.url },
     }),
   };
 }
 
 export function rescheduledCreatorEmail(o: { buyer: string; productTitle: string; when: string; url: string }) {
   return {
-    subject: `${o.buyer} ha elegido nueva fecha`,
+    subject: et("{buyer} ha elegido nueva fecha", { buyer: o.buyer }),
     html: layout({
-      title: "Nueva fecha elegida",
-      body: p(`${esc(o.buyer)} ha elegido nueva fecha para «${esc(o.productTitle)}»: <strong>${esc(o.when)}</strong>.`),
-      cta: { label: "Ver mis reservas", url: o.url },
+      title: et("Nueva fecha elegida"),
+      body: p(et("{buyer} ha elegido nueva fecha para «{productTitle}»: <strong>{when}</strong>.", { buyer: esc(o.buyer), productTitle: esc(o.productTitle), when: esc(o.when) })),
+      cta: { label: et("Ver mis reservas"), url: o.url },
     }),
   };
 }

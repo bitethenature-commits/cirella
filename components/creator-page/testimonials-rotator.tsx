@@ -2,6 +2,8 @@
 
 import { ChevronDown } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Tr } from "@/lib/i18n/client";
+import { useT } from "@/lib/i18n/client";
 
 type Testimonial = { id: string; quote: string; author: string; role?: string | null };
 
@@ -16,6 +18,7 @@ const EVERY_MS = 7000;
  * su sistema). Sin JavaScript se ve la primera.
  */
 export function TestimonialsRotator({ items }: { items: Testimonial[] }) {
+  const tt = useT();
   const [i, setI] = useState(0);
   const [hover, setHover] = useState(false);
   const [open, setOpen] = useState(false);
@@ -54,25 +57,25 @@ export function TestimonialsRotator({ items }: { items: Testimonial[] }) {
         {/* Cuatro líneas de alto siempre; las cortas quedan centradas en ese hueco. */}
         <div className={`flex flex-col justify-center ${open ? "" : "h-[calc(4*1.375*1.45rem)] sm:h-[calc(4*1.375*1.7rem)]"}`}>
           <blockquote ref={quoteRef} className={`cp-display text-[1.45rem] leading-snug sm:text-[1.7rem] ${open ? "" : "line-clamp-4"}`}>
-            “{t.quote}”
+            “<Tr s={t.quote} />”
           </blockquote>
         </div>
         {/* El hueco de «Leer más» está siempre (vacío si no hace falta): la altura no cambia. */}
         <div className="h-8">
           {(long || open) && (
             <button type="button" onClick={() => setOpen((o) => !o)} className="cp-gold inline-flex items-center gap-1 py-1.5 text-sm font-semibold" aria-expanded={open}>
-              {open ? "Leer menos" : "Leer más"}
+              {open ? <Tr s={"Leer menos"} /> : <Tr s={"Leer más"} />}
               <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
             </button>
           )}
         </div>
         <figcaption className="mt-2 text-sm">
-          <span className="font-semibold">{t.author}</span>
-          {t.role && <span className="cp-muted"> · {t.role}</span>}
+          <span className="font-semibold"><Tr s={t.author} /></span>
+          {t.role && <span className="cp-muted"> · <Tr s={t.role} /></span>}
         </figcaption>
       </figure>
       {n > 1 && (
-        <div className="mt-5 flex justify-center gap-1" role="group" aria-label="Elegir opinión">
+        <div className="mt-5 flex justify-center gap-1" role="group" aria-label={tt("Elegir opinión")}>
           {items.map((x, k) => (
             <button
               key={x.id}

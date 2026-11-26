@@ -110,7 +110,7 @@ async function main() {
     await processAccessExpiry();
     check("7 días antes: un solo aviso ACCESS_ENDING", (await prisma.emailMessage.count({ where: { to: email("carmen"), template: "ACCESS_ENDING" } })) === 1);
     const carmen = await prisma.user.findUniqueOrThrow({ where: { email: email("carmen") } });
-    await prisma.orderLink.create({ data: { tokenHash: `${TAG}-hash`, orderId: o2.id, path: `/cuenta/membresias/${club.id}`, expiresAt: new Date(Date.now() + D) } });
+    await prisma.orderLink.create({ data: { tokenHash: `${TAG}-hash`, orderId: o2.id, path: `/area/membership/${club.id}`, expiresAt: new Date(Date.now() + D) } });
     const past = new Date(Date.now() - 60_000);
     await prisma.access.update({ where: { id: a2.id }, data: { expiresAt: past } });
     await prisma.$executeRaw`UPDATE "Order" SET "metadata" = "metadata" || jsonb_build_object('accessUntil', ${past.toISOString()}::text) WHERE "id" = ${o2.id}`;
@@ -182,8 +182,8 @@ async function main() {
     check("un aviso por miembro (Laura y Otto), ni Pía (baja) ni la dueña", mails.length === 2 && mails.every((m) => [email("laura"), email("otto")].includes(m.to)), mails.map((m) => m.to));
     const ottoMail = mails.find((m) => m.to === email("otto"));
     const h = ottoMail?.headers as Record<string, string> | null;
-    check("en cola (masivo), con List-Unsubscribe y enlace personal a la publicación", ottoMail?.status === "QUEUED" && !!h?.["List-Unsubscribe"] && ottoMail.html.includes("/auth/enlace?t="));
-    const link = await prisma.orderLink.findFirst({ where: { orderId: otto.orderId, path: `/cuenta/membresias/${club.id}/${live.postId}` } });
+    check("en cola (masivo), con List-Unsubscribe y enlace personal a la publicación", ottoMail?.status === "QUEUED" && !!h?.["List-Unsubscribe"] && ottoMail.html.includes("/auth/link?t="));
+    const link = await prisma.orderLink.findFirst({ where: { orderId: otto.orderId, path: `/area/membership/${club.id}/${live.postId}` } });
     check("el enlace abre la publicación", !!link);
     const done = await prisma.membershipPost.findUniqueOrThrow({ where: { id: live.postId } });
     check("notifiedAt y notifiedCount", !!done.notifiedAt && done.notifiedCount === 2, done);

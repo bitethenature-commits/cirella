@@ -130,7 +130,7 @@ async function main() {
   // ── 6. Cambio de fecha de la clienta: un aviso a la dueña ──
   const T2 = at(D5, 18);
   await prisma.booking.update({ where: { id: booking.id }, data: { previousStartAt: booking.startAt, startAt: new Date(T2), endAt: new Date(Date.parse(T2) + 3600_000) } });
-  // Como scheduleBooking (app/cuenta/actions.ts): suelta los avisos de la fecha anterior.
+  // Como scheduleBooking (app/area/actions.ts): suelta los avisos de la fecha anterior.
   await releaseBookingEmails(booking.id);
   await emit({ type: "booking.confirmed", bookingId: booking.id, change: "rescheduled" });
   await emit({ type: "booking.confirmed", bookingId: booking.id, change: "rescheduled" });

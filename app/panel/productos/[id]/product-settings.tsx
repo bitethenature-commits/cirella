@@ -1,3 +1,4 @@
+import { productPath } from "@/lib/public-paths";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, Trash2 } from "lucide-react";
@@ -44,6 +45,8 @@ import { requestCta } from "@/lib/types";
 import { HORIZON_DEFAULT_DAYS } from "@/lib/slots";
 import { resolveTheme, themeStyle } from "@/lib/templates";
 import { paidSessionNoticeDays } from "@/lib/withdrawal";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export type ProductSettingsNotes = { nuevo?: string; error?: string; acceso?: string; leccion?: string; avisadas?: string; publicacion?: string };
 
@@ -53,6 +56,7 @@ export type ProductSettingsNotes = { nuevo?: string; error?: string; acceso?: st
  * (la vista previa, a pantalla completa con su botón).
  */
 export async function ProductSettings({ id, sp = {}, inSheet = false }: { id: string; sp?: ProductSettingsNotes; inSheet?: boolean }) {
+  const t = await getT();
   const { creator } = await requireCreator();
   const db = tenantDb(creator.id);
   const product = await db.product.findFirst({
@@ -72,7 +76,7 @@ export async function ProductSettings({ id, sp = {}, inSheet = false }: { id: st
       posts: { select: { status: true, publishedAt: true } },
       includes: {
         orderBy: { createdAt: "asc" },
-        select: { includedProductId: true, includedProduct: { select: { id: true, title: true, slug: true, status: true, creatorId: true, _count: { select: { lessons: { where: { published: true } } } } } } },
+        select: { includedProductId: true, includedProduct: { select: { id: true, title: true, slug: true, type: true, status: true, creatorId: true, _count: { select: { lessons: { where: { published: true } } } } } } },
       },
       includedIn: { select: { product: { select: { id: true, title: true } } } },
       _count: { select: { orders: { where: { status: "PAID" } } } },
@@ -139,15 +143,13 @@ export async function ProductSettings({ id, sp = {}, inSheet = false }: { id: st
           )}
           <span className="flex-1" />
           {product.status === "PUBLISHED" && (
-            <Link href={`/${creator.username}/${product.slug}`} target="_blank" className="btn btn-outline btn-sm">
-              <ExternalLink className="h-4 w-4" /> Ver en la web
-            </Link>
+            <Link href={`${productPath(creator.username, product)}`} target="_blank" className="btn btn-outline btn-sm">
+              <ExternalLink className="h-4 w-4" />{" "}<Tr s={"Ver en la web"} /></Link>
           )}
           <ConfirmForm action={deleteProduct} message={deleteMessage("esta lectura o sesión", product._count.orders)}>
             <input type="hidden" name="id" value={product.id} />
             <button className="btn btn-danger btn-sm">
-              <Trash2 className="h-4 w-4" /> Borrar
-            </button>
+              <Trash2 className="h-4 w-4" />{" "}<Tr s={"Borrar"} /></button>
           </ConfirmForm>
         </div>
         {sp.nuevo && <Flash ok="Creado como borrador. Rellénalo paso a paso y ponlo visible al guardar." />}
@@ -203,8 +205,8 @@ export async function ProductSettings({ id, sp = {}, inSheet = false }: { id: st
               productId={product.id}
               files={product.files.filter((f) => !f.postId)}
               limitsLabel={uploadPolicy(mode === "personal").label}
-              title="Grabación y workbook"
-              hint="Cuando termine el círculo, sube aquí el vídeo grabado (MP4 o MOV) y el workbook en PDF. Lo ven en su área, en «Círculos y lecturas» → «Círculos anteriores», las que se apuntaron y las miembros que ya lo eran ese día."
+              title={t("Grabación y workbook")}
+              hint={t("Cuando termine el círculo, sube aquí el vídeo grabado (MP4 o MOV) y el workbook en PDF. Lo ven en su área, en «Círculos y lecturas» → «Círculos anteriores», las que se apuntaron y las miembros que ya lo eran ese día.")}
             />
             <CircleNotify
               circle={{ id: product.id, creatorId: creator.id, title: product.title, eventStartAt: product.eventStartAt, durationMin: product.durationMin }}
@@ -216,7 +218,7 @@ export async function ProductSettings({ id, sp = {}, inSheet = false }: { id: st
     );
   }
 
-  const statusBadge = product.status === "PUBLISHED" ? <Badge tone="success">Publicado</Badge> : product.status === "ARCHIVED" ? <Badge>Archivado</Badge> : <Badge tone="warning">Borrador</Badge>;
+  const statusBadge = product.status === "PUBLISHED" ? <Badge tone="success"><Tr s={"Publicado"} /></Badge> : product.status === "ARCHIVED" ? <Badge><Tr s={"Archivado"} /></Badge> : <Badge tone="warning"><Tr s={"Borrador"} /></Badge>;
   const counts = managesAccess
     ? `${accessTotal} ${accessTotal === 1 ? "persona con acceso" : "personas con acceso"}${paidSales ? ` · ${paidSales} ${paidSales === 1 ? "venta" : "ventas"}` : ""}`
     : `${product._count.orders} ventas`;
@@ -232,25 +234,25 @@ export async function ProductSettings({ id, sp = {}, inSheet = false }: { id: st
           // En el panel de Cursos el título ya está arriba del panel: solo el estado y las cifras.
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             {statusBadge}
-            <span className="text-xs text-muted">{counts}</span>
+            <span className="text-xs text-muted"><Tr s={counts} /></span>
           </div>
         ) : (
           <div>
-            <p className="eyebrow">{PRODUCT_TYPE_LABEL[type]}</p>
-            <h1 className="display mt-1 text-[2.3rem] leading-tight">{product.emoji} {product.title}</h1>
+            <p className="eyebrow"><Tr s={PRODUCT_TYPE_LABEL[type]} /></p>
+            <h1 className="display mt-1 text-[2.3rem] leading-tight"><Tr s={product.emoji} /> {product.title}</h1>
             <div className="mt-2 flex items-center gap-2">
               {statusBadge}
-              <span className="text-xs text-muted">{counts}</span>
+              <span className="text-xs text-muted"><Tr s={counts} /></span>
             </div>
           </div>
         )}
         <div className="flex gap-2">
           {product.status === "PUBLISHED" && (
-            <Link href={`/${creator.username}/${product.slug}`} target="_blank" className="btn btn-outline btn-sm"><ExternalLink className="h-4 w-4" /> Ver</Link>
+            <Link href={`${productPath(creator.username, product)}`} target="_blank" className="btn btn-outline btn-sm"><ExternalLink className="h-4 w-4" />{" "}<Tr s={"Ver"} /></Link>
           )}
           <ConfirmForm action={deleteProduct} message={deleteMessage(`«${product.title}» y todo su contenido`, product._count.orders)}>
             <input type="hidden" name="id" value={product.id} />
-            <button className="btn btn-danger btn-sm"><Trash2 className="h-4 w-4" /> Borrar</button>
+            <button className="btn btn-danger btn-sm"><Trash2 className="h-4 w-4" />{" "}<Tr s={"Borrar"} /></button>
           </ConfirmForm>
         </div>
       </div>
@@ -265,7 +267,7 @@ export async function ProductSettings({ id, sp = {}, inSheet = false }: { id: st
       {sp.error === "acceso" && <Flash error="No hemos encontrado ese acceso." />}
       {issue && issueCopy && !(type === "SESSION" && !product.groupSession) && (
         <div className="mb-5">
-          <DeliveryAlert title={issueCopy.title} text={issueCopy.text} cta={issueCopy.cta} href={`#${issue.anchor}`} tone={issue.blocking ? "block" : "warn"} />
+          <DeliveryAlert title={issueCopy.title} text={t(issueCopy.text)} cta={t(issueCopy.cta)} href={`#${issue.anchor}`} tone={issue.blocking ? "block" : "warn"} />
         </div>
       )}
 
@@ -295,15 +297,12 @@ export async function ProductSettings({ id, sp = {}, inSheet = false }: { id: st
           <AccessManager productId={product.id} rows={accessRows} total={accessTotal} external={accessMode === "EXTERNAL"} paid={accessMode === "PAID"} timeZone={creator.timezone} />
         )}
         {product.includedIn.length > 0 && (
-          <p className="rounded-2xl border border-line bg-paper px-4 py-3 text-sm text-muted">
-            Incluido en: {product.includedIn.map((i, n) => (
+          <p className="rounded-2xl border border-line bg-paper px-4 py-3 text-sm text-muted"><Tr s={"Incluido en:"} />{" "}{product.includedIn.map((i, n) => (
               <span key={i.product.id}>
                 {n > 0 && ", "}
                 <Link href={`/panel/productos/${i.product.id}#incluye`} className="font-semibold text-ink underline-offset-2 hover:underline">«{i.product.title}»</Link>
               </span>
-            ))}
-            . Sus miembros lo ven mientras su membresía esté activa.
-          </p>
+            ))}<Tr s={". Sus miembros lo ven mientras su membresía esté activa."} /></p>
         )}
         {type === "COURSE" && (
           <>
@@ -311,8 +310,8 @@ export async function ProductSettings({ id, sp = {}, inSheet = false }: { id: st
               productId={product.id}
               files={product.files}
               limitsLabel={uploadPolicy(mode === "personal").label}
-              title="Materiales del curso"
-              hint="Vídeos (MP4 o MOV), audios (M4A o MP3), PDF e imágenes. También puedes subirlos desde cada lección."
+              title={t("Materiales del curso")}
+              hint={t("Vídeos (MP4 o MOV), audios (M4A o MP3), PDF e imágenes. También puedes subirlos desde cada lección.")}
               usage={fileUsage(product.modules.flatMap((m) => m.lessons.flatMap((l) => l.parts.map((p) => ({ fileId: p.fileId, lessonId: l.id })))))}
             />
             <div id="lecciones" className="scroll-mt-24">

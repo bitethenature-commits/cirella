@@ -9,17 +9,18 @@ import { Flash } from "@/components/ui/flash";
 import { uploadImageInfo } from "@/components/ui/image-upload";
 import { UPLOAD_CANCELLED, uploadFile, type UploadedFile } from "@/components/ui/upload-client";
 import { MoonCircleArt } from "@/components/creator-page/moon-circle-art";
-import { SpinningSolid } from "@/app/cuenta/spinning-solid";
-import { postCover } from "@/app/cuenta/membresias/cover";
-import { KindBadge, kindStyle } from "@/app/cuenta/membresias/kind-style";
-import { postSky } from "@/app/cuenta/membresias/post-sky";
-import { Ornament } from "@/app/cuenta/membresias/vip";
+import { SpinningSolid } from "@/app/area/spinning-solid";
+import { postCover } from "@/app/area/membership/cover";
+import { KindBadge, kindStyle, ka } from "@/app/area/membership/kind-style";
+import { postSky } from "@/app/area/membership/post-sky";
+import { Ornament } from "@/app/area/membership/vip";
 import { ATTACHMENTS_MAX, BODY_MAX, isLivePostKind, MEMBER_POST_KIND_LABEL, SUMMARY_MAX, TITLE_MAX, type MemberPostKind, type MemberPostWhen } from "@/lib/community-rules";
 import { fileMarker, splitBody } from "@/lib/post-blocks";
 import { richToPlain, truncateWords } from "@/lib/rich-text";
 import { tzCity } from "@/lib/timezones";
 import { saveStudioPost, type ComposerState } from "./actions";
 import { WhenPicker } from "./when-picker";
+import { Tr } from "@/lib/i18n/client";
 
 export type ComposerPost = {
   id: string | null;
@@ -255,14 +256,14 @@ export function Composer({
   const coverBusy = coverUpload !== null && (
     <span className="absolute inset-0 z-[4] grid place-items-center bg-black/60 text-sm text-white">
       <span className="flex items-center gap-2">
-        <Loader2 className="h-5 w-5 animate-spin" /> {coverUpload < 100 ? `${coverUpload} %` : "Optimizando…"}
+        <Loader2 className="h-5 w-5 animate-spin" /> {coverUpload < 100 ? `${coverUpload} %` : <Tr s={"Optimizando…"} />}
       </span>
     </span>
   );
   const coverHover = (
     <span className="absolute inset-0 z-[3] grid place-items-center bg-black/0 text-white opacity-0 transition group-hover/cover:bg-black/40 group-hover/cover:opacity-100">
       <span className="flex flex-col items-center gap-1 text-sm font-semibold">
-        <ImagePlus className="h-6 w-6" /> {cover ? "Cambiar la foto" : "Poner tu foto"}
+        <ImagePlus className="h-6 w-6" /> {cover ? <Tr s={"Cambiar la foto"} /> : <Tr s={"Poner tu foto"} />}
       </span>
     </span>
   );
@@ -282,7 +283,7 @@ export function Composer({
           ] as const
         ).map(([k, label, Icon]) => (
           <button key={k} type="button" disabled={uploading} onClick={() => add(k, i)} className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-gold/30 px-3.5 text-sm font-semibold text-[color:var(--n-gold-hi,#f0d9a4)] transition hover:border-gold/70 hover:bg-gold/10 disabled:opacity-40">
-            <Icon className="h-4 w-4" /> {label}
+            <Icon className="h-4 w-4" /> <Tr s={label} />
           </button>
         ))}
         {!always && (
@@ -377,29 +378,26 @@ export function Composer({
 
       {editing && (
         <div className="flex items-center justify-between gap-3">
-          <p className="display text-[1.5rem] leading-tight">Editar «{post.title}»</p>
+          <p className="display text-[1.5rem] leading-tight"><Tr s={"Editar «"} />{post.title}»</p>
           <Link href={closeHref} className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-gold/30 px-4 text-sm font-semibold text-muted hover:text-ink">
-            <X className="h-4 w-4" /> Cerrar sin guardar
-          </Link>
+            <X className="h-4 w-4" />{" "}<Tr s={"Cerrar sin guardar"} /></Link>
         </div>
       )}
 
       {/* 1 · Para qué membresía. */}
       <section aria-labelledby="c-tier">
-        <p id="c-tier" className="mb-3 text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold">✦ ¿Para qué membresía? ✦</p>
+        <p id="c-tier" className="mb-3 text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold"><Tr s={"✦ ¿Para qué membresía? ✦"} /></p>
         <div className="com-tiers is-picker" role="radiogroup" aria-labelledby="c-tier">
           {tiers.map((t, i) => (
             <button key={t.id} type="button" role="radio" aria-checked={tierId === t.id} onClick={() => setTierId(t.id)} className={`com-tier ${tierId === t.id ? "is-picked" : ""}`}>
               <SpinningSolid level={i} offset={i * 1.3} speed={tierId === t.id ? 0.5 : 0.15} className="h-10 w-10" />
               <span className="com-tier-name">{t.title}</span>
-              <span className="com-tier-meta">Nivel {LEVELS[i] ?? i + 1}</span>
+              <span className="com-tier-meta"><Tr s={"Nivel"} />{" "}<Tr s={LEVELS[i] ?? i + 1} /></span>
             </button>
           ))}
         </div>
         {tier && (
-          <p className="mt-2 text-center text-xs text-muted" data-tier-hint>
-            La verán quienes estén en {joinNames([tier.title, ...tier.inheritedBy])} · {tier.readers} {tier.readers === 1 ? "persona" : "personas"} ahora.
-          </p>
+          <p className="mt-2 text-center text-xs text-muted" data-tier-hint><Tr s={"La verán quienes estén en"} />{" "}{joinNames([tier.title, ...tier.inheritedBy])} · {tier.readers} <Tr s={tier.readers === 1 ? "persona" : "personas"} />{" "}<Tr s={"ahora."} /></p>
         )}
       </section>
 
@@ -420,22 +418,22 @@ export function Composer({
                 className="inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition"
                 style={
                   on
-                    ? { color: "#fff", borderColor: ks.light, background: `linear-gradient(135deg, ${ks.color}, ${ks.color}aa)`, boxShadow: `0 0 0 1px ${ks.light}66, 0 0 24px -6px ${ks.color}` }
-                    : { color: ks.light, borderColor: `${ks.light}40`, background: "rgb(255 255 255 / .02)" }
+                    ? { color: "#fff", borderColor: ks.light, background: `linear-gradient(135deg, ${ks.color}, ${ka(ks.color, "aa")})`, boxShadow: `0 0 0 1px ${ka(ks.light, "66")}, 0 0 24px -6px ${ks.color}` }
+                    : { color: ks.light, borderColor: `${ka(ks.light, "40")}`, background: "rgb(255 255 255 / .02)" }
                 }
               >
-                <ks.Icon className="h-4 w-4" /> {k.label ?? MEMBER_POST_KIND_LABEL[k.kind]}
+                <ks.Icon className="h-4 w-4" /> <Tr s={k.label ?? MEMBER_POST_KIND_LABEL[k.kind]} />
               </button>
             );
           })}
         </div>
-        <p className="pt-2 text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold">✦ En el muro ✦</p>
+        <p className="pt-2 text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold"><Tr s={"✦ En el muro ✦"} /></p>
         <div
           className="vip-glass vip-post relative rounded-[1.6rem] p-4 sm:p-6"
-          style={{ backgroundImage: `radial-gradient(120% 90% at 0% 0%, ${s.color}2e, transparent 55%), linear-gradient(160deg, rgb(36 31 78 / .78), rgb(18 16 44 / .86))` }}
+          style={{ backgroundImage: `radial-gradient(120% 90% at 0% 0%, ${ka(s.color, "2e")}, transparent 55%), linear-gradient(160deg, rgb(36 31 78 / .78), rgb(18 16 44 / .86))` }}
           data-kind={kind}
         >
-          <span aria-hidden className="absolute inset-x-6 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${s.light}aa, transparent)` }} />
+          <span aria-hidden className="absolute inset-x-6 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${ka(s.light, "aa")}, transparent)` }} />
           <div className="flex gap-4 sm:gap-6">
             {sky ? (
               <div className="post-cover relative w-24 shrink-0 self-stretch overflow-hidden rounded-[1.1rem] sm:w-44" style={{ minHeight: "9rem" }}>
@@ -445,7 +443,7 @@ export function Composer({
               <button type="button" onClick={pickCover} className="post-cover group/cover relative w-24 shrink-0 self-stretch overflow-hidden rounded-[1.1rem] sm:w-44" style={{ minHeight: "9rem" }} aria-label={cover ? "Cambiar la foto" : "Poner tu foto"}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={shownCover.src} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                <span aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 55%, ${s.color}55)` }} />
+                <span aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 55%, ${ka(s.color, "55")})` }} />
                 {coverHover}
                 {coverBusy}
               </button>
@@ -464,7 +462,7 @@ export function Composer({
               <input value={title} onChange={(e) => setTitle(e.target.value)} required minLength={2} maxLength={TITLE_MAX} placeholder="El título" aria-label="Título" className={`display post-title mt-3 w-full px-1 text-[1.75rem] leading-[1.1] sm:text-[1.95rem] ${inline}`} />
               {eventLine && (
                 <p className="kind-text mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold" style={{ background: s.soft, "--k-light": s.light, "--k-dark": s.color } as React.CSSProperties}>
-                  <CalendarDays className="h-4 w-4" /> {eventLine}
+                  <CalendarDays className="h-4 w-4" /> <Tr s={eventLine} />
                 </p>
               )}
               <textarea
@@ -480,9 +478,9 @@ export function Composer({
           </div>
         </div>
 
-        <p className="pt-4 text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold">✦ Al abrirla ✦</p>
+        <p className="pt-4 text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold"><Tr s={"✦ Al abrirla ✦"} /></p>
         <article>
-          <div className="relative overflow-hidden rounded-[2rem]" style={{ boxShadow: `0 0 0 1px ${s.light}33, 0 40px 80px -40px ${s.color}` }}>
+          <div className="relative overflow-hidden rounded-[2rem]" style={{ boxShadow: `0 0 0 1px ${ka(s.light, "33")}, 0 40px 80px -40px ${s.color}` }}>
             {sky ? (
               <div className="relative aspect-[4/3] w-full sm:aspect-[16/10]">
                 <MoonCircleArt sky={sky} />
@@ -498,12 +496,11 @@ export function Composer({
             )}
             {cover && !sky && (
               <button type="button" onClick={() => setCover(null)} className="absolute right-3 top-3 z-[5] inline-flex min-h-9 items-center gap-1 rounded-full bg-black/55 px-3 text-xs font-semibold text-white backdrop-blur hover:bg-black/75">
-                <X className="h-3.5 w-3.5" /> Quitar la foto
-              </button>
+                <X className="h-3.5 w-3.5" />{" "}<Tr s={"Quitar la foto"} /></button>
             )}
           </div>
-          {sky && <p className="mt-2 text-center text-xs text-muted">El círculo de la luna lleva su luna y su signo en lugar de foto (según su fecha).</p>}
-          <header className="vip-hero relative isolate mx-3 -mt-16 rounded-[2rem] px-6 py-9 text-center sm:mx-8 sm:-mt-24 sm:px-10 sm:py-12" style={{ backgroundImage: `radial-gradient(90% 80% at 50% 0%, ${s.color}40, transparent 65%), linear-gradient(180deg, rgb(30 26 66 / .85), rgb(13 12 34 / .92))` }}>
+          {sky && <p className="mt-2 text-center text-xs text-muted"><Tr s={"El círculo de la luna lleva su luna y su signo en lugar de foto (según su fecha)."} /></p>}
+          <header className="vip-hero relative isolate mx-3 -mt-16 rounded-[2rem] px-6 py-9 text-center sm:mx-8 sm:-mt-24 sm:px-10 sm:py-12" style={{ backgroundImage: `radial-gradient(90% 80% at 50% 0%, ${ka(s.color, "40")}, transparent 65%), linear-gradient(180deg, rgb(30 26 66 / .85), rgb(13 12 34 / .92))` }}>
             <div className="flex justify-center"><KindBadge kind={kind} big /></div>
             <p className="mt-3 text-[0.7rem] uppercase tracking-[0.24em] text-muted">{fmt({ weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
             <textarea value={title} onChange={(e) => setTitle(e.target.value.replace(/\n/g, " "))} maxLength={TITLE_MAX} rows={1} placeholder="El título" aria-label="Título" className={`vip-gold display mx-auto mt-3 block w-full max-w-2xl resize-none px-2 text-center text-[2.3rem] leading-[1.05] [field-sizing:content] sm:text-[3rem] ${inline}`} />
@@ -512,8 +509,8 @@ export function Composer({
           {liveKind && (
             <div className="mt-6 space-y-2 rounded-2xl p-3" style={{ background: s.soft }}>
               <p className="kind-text flex items-center gap-1.5 text-sm font-semibold" style={{ "--k-light": s.light, "--k-dark": s.color } as React.CSSProperties}>
-                <CalendarDays className="h-4 w-4" /> Cuándo es {kind === "CEREMONIA" ? "la ceremonia" : kind === "MASTERCLASS" ? "la masterclass" : "el directo"}{" "}
-                <span className="font-normal text-muted">(hora de {tzCity(timeZone)})</span>
+                <CalendarDays className="h-4 w-4" />{" "}<Tr s={"Cuándo es"} />{" "}{kind === "CEREMONIA" ? <Tr s={"la ceremonia"} /> : kind === "MASTERCLASS" ? <Tr s={"la masterclass"} /> : <Tr s={"el directo"} />}{" "}
+                <span className="font-normal text-muted"><Tr s={"(hora de"} />{" "}{tzCity(timeZone)})</span>
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 <input name="eventDate" type="date" aria-label="Día del encuentro" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="input h-11 [color-scheme:dark]" />
@@ -521,14 +518,13 @@ export function Composer({
               </div>
               {(kind === "MASTERCLASS" || kind === "CEREMONIA") && (
                 <p className="text-xs text-muted">
-                  {kind === "MASTERCLASS" ? "Si es solo un vídeo, deja la fecha vacía. " : ""}Pasada la fecha, se verá como grabación: añade el vídeo cuando lo tengas.
-                </p>
+                  {kind === "MASTERCLASS" ? <Tr s={"Si es solo un vídeo, deja la fecha vacía. "} /> : ""}<Tr s={"Pasada la fecha, se verá como grabación: añade el vídeo cuando lo tengas."} /></p>
               )}
             </div>
           )}
 
           {/* El enlace (Zoom, YouTube, Spotify…): sale como el botón de la publicación. */}
-          <label className="mt-6 flex min-h-11 w-full items-center gap-2 rounded-full px-4 text-sm font-semibold text-white sm:w-fit sm:min-w-[24rem]" style={{ background: `linear-gradient(135deg, ${s.color}, ${s.color}bb)`, boxShadow: `0 0 0 1px ${s.light}88, 0 10px 30px -8px ${s.color}` }}>
+          <label className="mt-6 flex min-h-11 w-full items-center gap-2 rounded-full px-4 text-sm font-semibold text-white sm:w-fit sm:min-w-[24rem]" style={{ background: `linear-gradient(135deg, ${s.color}, ${ka(s.color, "bb")})`, boxShadow: `0 0 0 1px ${ka(s.light, "88")}, 0 10px 30px -8px ${s.color}` }}>
             <ExternalLink className="h-4 w-4 shrink-0" />
             <input name="mediaUrl" type="url" defaultValue={post.mediaUrl} aria-label="Enlace (opcional)" placeholder="Enlace (opcional): Zoom, YouTube, Spotify…" className="min-w-0 flex-1 bg-transparent py-2 outline-none placeholder:text-white/60" />
           </label>
@@ -564,7 +560,7 @@ export function Composer({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={b.url} alt="" className="my-4 w-full rounded-[1.6rem]" />
                       {!cover && shownCover.fromBody && shownCover.src === b.url && (
-                        <figcaption className="-mt-2 text-center text-xs text-muted">Como no has puesto foto arriba, esta sale de portada (y no se repite aquí).</figcaption>
+                        <figcaption className="-mt-2 text-center text-xs text-muted"><Tr s={"Como no has puesto foto arriba, esta sale de portada (y no se repite aquí)."} /></figcaption>
                       )}
                     </figure>
                   )}
@@ -581,13 +577,10 @@ export function Composer({
               <div className="rounded-2xl border border-gold/30 bg-white/[.03] p-3" aria-live="polite">
                 <div className="flex items-center gap-3">
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gold" />
-                  <p className="min-w-0 flex-1 truncate text-sm text-muted">
-                    Subiendo «{busy.label}» · {busy.pct} %
+                  <p className="min-w-0 flex-1 truncate text-sm text-muted"><Tr s={"Subiendo «"} /><Tr s={busy.label} />» · {busy.pct} %
                   </p>
                   {abort.current && (
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => abort.current?.abort()}>
-                      Cancelar
-                    </button>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => abort.current?.abort()}><Tr s={"Cancelar"} /></button>
                   )}
                 </div>
                 <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
@@ -598,7 +591,7 @@ export function Composer({
             <div className="pt-3">{addBar(blocks.length, true)}</div>
             {error && (
               <p className="text-center text-sm text-rose" role="alert">
-                {error}
+                <Tr s={error} />
               </p>
             )}
           </div>
@@ -608,7 +601,7 @@ export function Composer({
 
       {/* 3 · Antes de publicar. */}
       <section className="rounded-[2rem] border border-gold/30 bg-[color:var(--n-deep,#0b0a1c)] p-5 shadow-[0_40px_80px_-40px_rgb(0_0_0/.9)] sm:p-7" aria-labelledby="c-more">
-        <p id="c-more" className="text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold">✦ Antes de publicar ✦</p>
+        <p id="c-more" className="text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold"><Tr s={"✦ Antes de publicar ✦"} /></p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <GoldToggle name="notify" defaultChecked={post.notify} disabled={live} icon={<Bell className="h-4 w-4" />} title="Avisar por email" hint={notifiedNote ?? (live ? "Ya está publicada: no se vuelve a avisar." : "Les llega un email cuando sale.")} />
           {live && post.notify && <input type="hidden" name="notify" value="on" />}
@@ -618,8 +611,8 @@ export function Composer({
 
       {/* 4 · Abajo del todo: cuándo sale. */}
       <section className="rounded-[2rem] border border-gold/40 bg-gradient-to-b from-[color:var(--n-deep,#14112e)] to-[color:var(--n-deep,#0b0a1c)] p-5 shadow-[0_0_60px_-20px_rgb(212_181_122/.35)] sm:p-7" aria-labelledby="c-when">
-        <p id="c-when" className="text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold">✦ ¿Cuándo sale? ✦</p>
-        {live && <p className="mt-1 text-center text-xs text-muted">Ya la ven tus miembros.</p>}
+        <p id="c-when" className="text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold"><Tr s={"✦ ¿Cuándo sale? ✦"} /></p>
+        {live && <p className="mt-1 text-center text-xs text-muted"><Tr s={"Ya la ven tus miembros."} /></p>}
         <div className={`mt-5 grid gap-3 ${live ? "sm:grid-cols-2" : "sm:grid-cols-3"}`} role="radiogroup" aria-labelledby="c-when">
           {(live
             ? ([
@@ -645,8 +638,8 @@ export function Composer({
                 }`}
               >
                 <Icon className={`h-5 w-5 ${on ? "text-[color:var(--n-gold-hi,#f0d9a4)]" : "text-gold/70"}`} />
-                <span className={`display text-[1.3rem] leading-none ${on ? "italic" : ""}`}>{label}</span>
-                <span className="text-xs text-[color:var(--n-muted,#a7a2c2)]">{hint}</span>
+                <span className={`display text-[1.3rem] leading-none ${on ? "italic" : ""}`}><Tr s={label} /></span>
+                <span className="text-xs text-[color:var(--n-muted,#a7a2c2)]"><Tr s={hint} /></span>
               </button>
             );
           })}
@@ -665,7 +658,7 @@ export function Composer({
             disabled={pending || uploading || (when === "schedule" && !scheduled)}
             className="portal-cta mx-auto flex min-h-14 w-full max-w-sm items-center justify-center gap-2 rounded-full px-8 text-base font-semibold disabled:opacity-50"
           >
-            {pending && <Loader2 className="h-4 w-4 animate-spin" />} {uploading ? "Esperando a la subida…" : submitLabel}
+            {pending && <Loader2 className="h-4 w-4 animate-spin" />} {uploading ? <Tr s={"Esperando a la subida…"} /> : submitLabel}
           </button>
           <p className="text-center text-xs text-[color:var(--n-muted,#a7a2c2)]">{tier ? `En ${tier.title}` : ""}</p>
         </div>
@@ -681,7 +674,7 @@ function GoldToggle({ name, defaultChecked, disabled, title, hint, icon }: { nam
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-gold/40 text-[color:var(--n-gold-hi,#f0d9a4)]">{icon}</span>
       <span className="min-w-0 flex-1">
         <span className="block font-semibold text-[color:var(--n-ivory,#f1ebdf)]">{title}</span>
-        <span className="block text-xs text-[color:var(--n-muted,#a7a2c2)]">{hint}</span>
+        <span className="block text-xs text-[color:var(--n-muted,#a7a2c2)]"><Tr s={hint} /></span>
       </span>
       <input type="checkbox" name={name} defaultChecked={defaultChecked} disabled={disabled} className="peer sr-only" />
       <span aria-hidden className="relative h-6 w-11 shrink-0 rounded-full bg-white/10 ring-1 ring-gold/30 transition after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-[color:var(--n-muted,#a7a2c2)] after:transition peer-checked:bg-gradient-to-r peer-checked:from-[#c9a45f] peer-checked:to-[#f0d9a4] peer-checked:after:translate-x-5 peer-checked:after:bg-[#2a1e0c]" />

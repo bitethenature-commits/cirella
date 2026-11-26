@@ -9,6 +9,7 @@ import { tenantDb } from "@/lib/tenant";
 import { PageHeader } from "../../../../ui";
 import { requireNewsletterOwner } from "../../../guard";
 import { AutomaticEmailEditor } from "./editor";
+import { Tr } from "@/lib/i18n/client";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +28,7 @@ export default async function AutomaticEmailPage({ params }: { params: Promise<{
   return (
     <div>
       <Link href="/panel/newsletter/automatizaciones" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Automatizaciones
-      </Link>
+        <ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Automatizaciones"} /></Link>
       <PageHeader title={AUTOMATIONS[t].label} subtitle={AUTOMATIONS[t].description} />
       <AutomaticEmailEditor
         trigger={t}

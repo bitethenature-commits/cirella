@@ -20,14 +20,6 @@ export function formatNumber(n: number) {
   return new Intl.NumberFormat("es-ES").format(n);
 }
 
-export function formatPercent(ratio: number, digits = 1) {
-  return new Intl.NumberFormat("es-ES", {
-    style: "percent",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: digits,
-  }).format(ratio);
-}
-
 /** Convierte "49", "49,90", "49.90", "1.200" o "1.234,56" (formato español) a céntimos. */
 export function parseMoneyToCents(input: string | number): number {
   if (typeof input === "number") return Math.round(input * 100);

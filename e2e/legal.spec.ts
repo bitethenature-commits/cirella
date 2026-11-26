@@ -23,9 +23,9 @@ test.afterAll(async () => {
 });
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 test.describe.serial("Cumplimiento legal", () => {
@@ -50,7 +50,7 @@ test.describe.serial("Cumplimiento legal", () => {
     await page.getByLabel(/Quiero acceder ya al contenido/).check();
     await page.getByLabel(/Quiero recibir novedades/).check();
     await pay.click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
 
     const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail } });
@@ -80,10 +80,10 @@ test.describe.serial("Cumplimiento legal", () => {
   });
 
   test("sesiones: la política de cambios está junto al total y en la ficha", async ({ page }) => {
-    await page.goto("/ana/sesion-1-1");
+    await page.goto("/ana/one-on-one");
     await expect(page.getByText("Vende: Cirella", { exact: false }).first()).toBeVisible();
     await expect(page.getByText("Cambios gratis hasta 24 h antes de la sesión")).toBeVisible();
-    await page.goto("/ana/sesion-1-1/checkout");
+    await page.goto("/ana/one-on-one/checkout");
     await expect(page.getByText(/Cambios gratis hasta 24 h antes/)).toBeVisible();
     // Sin casilla de renuncia: se reserva a partir del día 15 y tiene sus 14 días para desistir.
     await expect(page.getByText(/Tienes 14 días desde la compra para desistir/)).toBeVisible();
@@ -104,22 +104,22 @@ test.describe.serial("Cumplimiento legal", () => {
   });
 
   test("páginas legales de la plataforma, pie de la portada y registro", async ({ page }) => {
-    for (const [path, h1] of [["/terminos", "Términos del servicio para creadoras"], ["/privacidad", "Política de privacidad"], ["/aviso-legal", "Aviso legal"]]) {
+    for (const [path, h1] of [["/terms", "Términos del servicio para creadoras"], ["/privacy", "Política de privacidad"], ["/legal-notice", "Aviso legal"]]) {
       const res = await page.goto(path);
       expect(res?.status()).toBe(200);
       await expect(page.getByRole("heading", { level: 1, name: h1 })).toBeVisible();
     }
-    await page.goto("/terminos#encargo");
+    await page.goto("/terms#encargo");
     await expect(page.locator("#encargo")).toHaveText("Encargo de tratamiento (art. 28 RGPD)");
-    await page.goto("/aviso-legal");
+    await page.goto("/legal-notice");
     await expect(page.getByText("Cirella Demo S.L.")).toBeVisible();
 
     await page.goto("/");
     const footer = page.locator("footer").last();
     for (const name of ["Términos", "Privacidad", "Aviso legal"]) await expect(footer.getByRole("link", { name })).toBeVisible();
-    await page.goto("/registro");
-    await expect(page.getByRole("link", { name: "Términos del servicio" })).toHaveAttribute("href", "/terminos");
-    await expect(page.getByRole("link", { name: "Política de privacidad" })).toHaveAttribute("href", "/privacidad");
+    await page.goto("/signup");
+    await expect(page.getByRole("link", { name: "Términos del servicio" })).toHaveAttribute("href", "/terms");
+    await expect(page.getByRole("link", { name: "Política de privacidad" })).toHaveAttribute("href", "/privacy");
   });
 
   test("las visitas se miden sin cookies ni nada guardado en el navegador", async ({ browser }) => {
@@ -177,7 +177,7 @@ test.describe.serial("Cumplimiento legal", () => {
     // La compradora entra con un enlace por email (su cuenta no tiene contraseña).
     const buyer = await (await browser.newContext()).newPage();
     const since = new Date();
-    await buyer.goto("/entrar");
+    await buyer.goto("/login");
     await buyer.getByRole("button", { name: "Enlace por email" }).click();
     await buyer.fill("#ml-email", buyerEmail);
     await buyer.getByRole("button", { name: "Enviarme el enlace" }).click();
@@ -186,9 +186,9 @@ test.describe.serial("Cumplimiento legal", () => {
     const url = mail.html.match(/<a href="([^"]+)"[^>]*>Entrar a mi cuenta<\/a>/)![1].replace(/&amp;/g, "&");
     await buyer.goto(url);
     await buyer.getByRole("button", { name: "Entrar", exact: true }).click();
-    await buyer.waitForURL("**/cuenta");
+    await buyer.waitForURL("**/area");
 
-    await buyer.goto("/cuenta/perfil");
+    await buyer.goto("/area/profile");
     const card = buyer.getByRole("region", { name: "Novedades por email" });
     await expect(card.getByText("Cirella")).toBeVisible();
     await card.getByRole("button", { name: "Dejar de recibir" }).click();

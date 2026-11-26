@@ -12,6 +12,7 @@ import { EIGHT_PHASES } from "@/components/models/data/moon";
 import { MODALITY_HUE } from "./astro-wheels";
 import { BiWheel } from "./biwheel";
 import { DegreeTicks, Medallion, MedallionText, MineMark, RingSector, WheelBase, WheelDefs, useWheelIds } from "./wheel-kit";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * La astrología a fondo, en 13 capas: dignidades, regencias, los 6 ejes, hemisferios y cuadrantes, figuras de
@@ -317,8 +318,8 @@ function Picker({ items, selected, mine, tap }: { items: { key: string; label: s
             className="rounded-full border px-2.5 py-1 text-[0.72rem] font-semibold transition"
             style={{ background: on ? "linear-gradient(135deg, #F0D9A4, #C8A86E)" : "rgb(255 255 255 / .06)", color: on ? "#0B0B0D" : undefined, borderColor: on ? "#F0D9A4" : mine.has(it.key) ? "rgb(233 204 142 / .6)" : "rgb(200 168 110 / .3)", cursor: "pointer" }}
           >
-            {mine.has(it.key) ? "★ " : ""}
-            {it.label}
+            <Tr s={mine.has(it.key) ? "★ " : ""} />
+            <Tr s={it.label} />
           </span>
         );
       })}
@@ -363,7 +364,7 @@ export function Astro2Diagram({ layer, selected, mine, keys, tap, ctx }: Diagram
                   <g key={i} pointerEvents="none">
                     <circle cx={q.x} cy={q.y} r="9.5" fill={color[k]} stroke="rgb(255 255 255 / .14)" strokeWidth="1.2" />
                     <text x={q.x} y={q.y} textAnchor="middle" dominantBaseline="central" fontSize="9" fontWeight="700" fill="#FFF7E6">
-                      {DIGNITY_TEXT[k].short}
+                      <Tr s={DIGNITY_TEXT[k].short} />
                     </text>
                   </g>
                 );
@@ -373,7 +374,7 @@ export function Astro2Diagram({ layer, selected, mine, keys, tap, ctx }: Diagram
             54,
           )}
           <Picker items={planetItems(TEN_PLANETS)} selected={selected} mine={own} tap={tap} />
-          <p className="mt-2 text-center text-[0.68rem] text-muted">D domicilio · E exaltación · X exilio · C caída</p>
+          <p className="mt-2 text-center text-[0.68rem] text-muted"><Tr s={"D domicilio · E exaltación · X exilio · C caída"} /></p>
         </div>
       );
     }
@@ -427,7 +428,7 @@ export function Astro2Diagram({ layer, selected, mine, keys, tap, ctx }: Diagram
                   <g key={house.n} pointerEvents="none">
                     <path d={sector(i * 30, i * 30 + 30, 70, 157)} fill={lit ? "rgb(212 181 122 / .25)" : i % 2 ? "rgb(255 255 255 / .04)" : "rgb(255 255 255 / .04)"} stroke="rgb(255 255 255 / .14)" strokeWidth="1.4" />
                     <text x={mid.x} y={mid.y} textAnchor="middle" dominantBaseline="central" fontSize="14" fontFamily="Georgia, serif" fill={lit ? GOLD : INK}>
-                      {ROMAN[i]}
+                      <Tr s={ROMAN[i]} />
                     </text>
                   </g>
                 );
@@ -489,7 +490,7 @@ export function Astro2Diagram({ layer, selected, mine, keys, tap, ctx }: Diagram
         <div>
           <RetroLoop ids={ids} planet={selected} todayRetro={!!t?.retro} />
           <Picker items={planetItems(keys)} selected={selected} mine={own} tap={tap} />
-          <p className="mt-2 text-center text-[0.68rem] text-muted">★ retrógrado en tu carta · hoy retrógrados: {today.filter((x) => x.retro).map((x) => name(x.id)).join(", ") || "ninguno"}</p>
+          <p className="mt-2 text-center text-[0.68rem] text-muted"><Tr s={"★ retrógrado en tu carta · hoy retrógrados:"} />{" "}{today.filter((x) => x.retro).map((x) => name(x.id)).join(", ") || "ninguno"}</p>
         </div>
       );
     }
@@ -525,7 +526,7 @@ export function Astro2Diagram({ layer, selected, mine, keys, tap, ctx }: Diagram
       return (
         <div>
           <BiWheel outer={today} inner={ps} focus={{ side: "outer", id: selected }} tapOuter={(id) => tap(id, `${name(id)} hoy`)} outerLabel="del cielo" innerLabel="tu" orbScale={0.5} />
-          <p className="mt-1 text-center text-[0.68rem] text-muted">Fuera, el cielo de hoy · dentro, tu carta</p>
+          <p className="mt-1 text-center text-[0.68rem] text-muted"><Tr s={"Fuera, el cielo de hoy · dentro, tu carta"} /></p>
         </div>
       );
     case "astro-progress": {
@@ -552,7 +553,7 @@ export function Astro2Diagram({ layer, selected, mine, keys, tap, ctx }: Diagram
             44,
           )}
           <Picker items={keys.map((k) => ({ key: k, label: PROGRESS[k].name }))} selected={selected} mine={own} tap={tap} />
-          <p className="mt-2 text-center text-[0.68rem] text-muted">Dentro, tu carta natal · fuera, {selected === "sr" ? "la Luna de tu revolución solar" : "hoy, progresado"}</p>
+          <p className="mt-2 text-center text-[0.68rem] text-muted"><Tr s={"Dentro, tu carta natal · fuera,"} />{" "}{selected === "sr" ? <Tr s={"la Luna de tu revolución solar"} /> : <Tr s={"hoy, progresado"} />}</p>
         </div>
       );
     }
@@ -616,9 +617,9 @@ function RetroLoop({ ids, planet, todayRetro }: { ids: ReturnType<typeof useWhee
       ))}
       <path d={path} fill="none" stroke={GOLD} strokeWidth="2.4" strokeDasharray="5 5" />
       <path d={path} fill="none" stroke={GOLD} strokeWidth="6" strokeOpacity="0.15" />
-      <text x="40" y="232" fontSize="9" fill={MUTED}>avanza</text>
-      <text x="196" y="208" fontSize="9" fill="#D0584F">retrocede ℞</text>
-      <text x="262" y="86" fontSize="9" fill={MUTED}>sigue</text>
+      <text x="40" y="232" fontSize="9" fill={MUTED}><Tr s={"avanza"} /></text>
+      <text x="196" y="208" fontSize="9" fill="#D0584F"><Tr s={"retrocede ℞"} /></text>
+      <text x="262" y="86" fontSize="9" fill={MUTED}><Tr s={"sigue"} /></text>
       <circle cx="218" cy="170" r="17" fill={`url(#${ids.sel})`} stroke={`url(#${ids.gold})`} strokeWidth="1.8" filter={`url(#${ids.lift})`} />
       <text x="218" y="170" textAnchor="middle" dominantBaseline="central" fontSize="16" fill={GOLD}>
         {glyph(planet)}
@@ -632,10 +633,11 @@ function RetroLoop({ ids, planet, todayRetro }: { ids: ReturnType<typeof useWhee
 
 /** La línea de la vida (0-90 años) con las edades de cada ciclo y la edad de la alumna. */
 function CycleLine({ selected, tap, age, own }: { selected: string; tap: Tap; age: number | null; own: Set<string> }) {
+  const t = useT();
   const x = (a: number) => 24 + (a / 90) * 292;
   const rows = Object.entries(CYCLES);
   return (
-    <svg viewBox="0 0 340 300" className={SVG} role="group" aria-label="Los ciclos de la vida">
+    <svg viewBox="0 0 340 300" className={SVG} role="group" aria-label={t("Los ciclos de la vida")}>
       <rect x="0" y="0" width="340" height="300" rx="24" fill="rgb(255 255 255 / .04)" stroke={GOLD} strokeOpacity="0.5" />
       {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90].map((a) => (
         <g key={a}>
@@ -648,8 +650,7 @@ function CycleLine({ selected, tap, age, own }: { selected: string; tap: Tap; ag
       {age != null && (
         <g>
           <line x1={x(age)} y1="20" x2={x(age)} y2="272" stroke={GOLD} strokeWidth="1.6" strokeDasharray="3 3" />
-          <text x={x(age)} y="16" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={GOLD}>
-            tú · {Math.floor(age)}
+          <text x={x(age)} y="16" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={GOLD}><Tr s={"tú ·"} />{" "}{Math.floor(age)}
           </text>
         </g>
       )}
@@ -671,8 +672,8 @@ function CycleLine({ selected, tap, age, own }: { selected: string; tap: Tap; ag
               </g>
             ))}
             <text x="12" y={y + 12} fontSize="7.5" fill={on ? INK : MUTED} fontWeight={on || own.has(k) ? 700 : 400}>
-              {own.has(k) ? "★ " : ""}
-              {cy.glyph} {cy.name}
+              <Tr s={own.has(k) ? "★ " : ""} />
+              <Tr s={cy.glyph} /> <Tr s={cy.name} />
             </text>
           </g>
         );
@@ -683,6 +684,7 @@ function CycleLine({ selected, tap, age, own }: { selected: string; tap: Tap; ag
 
 /** Dos cartas a la vez: dentro la tuya, fuera la de la otra persona, con los aspectos del planeta elegido. */
 function Synastry({ ids, ps, selected, tap, ctx, wheel }: { ids: ReturnType<typeof useWheelIds>; ps: Pos[]; selected: string; tap: Tap; ctx: LayerCtx; wheel: (c: React.ReactNode, m?: React.ReactNode, r?: number) => React.ReactNode }) {
+  const t = useT();
   const os = planetsOf(ctx.other?.chart);
   const p = ps.find((x) => x.id === selected);
   const hits = p ? os.filter((q) => aspectOf(p.lon, q.lon, 0.8)) : [];
@@ -690,25 +692,25 @@ function Synastry({ ids, ps, selected, tap, ctx, wheel }: { ids: ReturnType<type
     <div>
       {ctx.others && ctx.others.length > 0 ? (
         <div className="mb-2 flex justify-center">
-          <select className="input h-9 w-auto text-sm" value={ctx.otherIndex ?? 0} onChange={(e) => ctx.pickOther?.(Number(e.target.value))} aria-label="Con quién comparar">
+          <select className="input h-9 w-auto text-sm" value={ctx.otherIndex ?? 0} onChange={(e) => ctx.pickOther?.(Number(e.target.value))} aria-label={t("Con quién comparar")}>
             {ctx.others.map((o, i) => (
-              <option key={i} value={i}>
-                Con {o.name}
+              <option key={i} value={i}><Tr s={"Con"} />{" "}{o.name}
               </option>
             ))}
           </select>
         </div>
       ) : (
-        <p className="mb-2 text-center text-xs text-muted">Guarda en «Mi energía» los datos de otra persona para comparar.</p>
+        <p className="mb-2 text-center text-xs text-muted"><Tr s={"Guarda en «Mi energía» los datos de otra persona para comparar."} /></p>
       )}
       <BiWheel outer={os} inner={ps} focus={{ side: "inner", id: selected }} tapInner={(id) => tap(id, `Tu ${name(id)}`)} outerLabel={`de ${ctx.others?.[ctx.otherIndex ?? 0]?.name ?? "la otra persona"}`} innerLabel="tu" />
-      <p className="mt-2 text-center text-[0.68rem] text-muted">Dentro, tu carta · fuera, la de {ctx.others?.[ctx.otherIndex ?? 0]?.name ?? "la otra persona"}</p>
+      <p className="mt-2 text-center text-[0.68rem] text-muted"><Tr s={"Dentro, tu carta · fuera, la de"} />{" "}<Tr s={ctx.others?.[ctx.otherIndex ?? 0]?.name ?? t("la otra persona")} /></p>
     </div>
   );
 }
 
 /** El balance: cuántos planetas hay de cada elemento y de cada cualidad. */
 function BalanceBars({ selected, tap, ps, own }: { selected: string; tap: Tap; ps: Pos[]; own: Set<string> }) {
+  const t = useT();
   const b = balanceOf(ps);
   const rows: { key: string; label: string; color: string }[] = [
     ...(["Fuego", "Tierra", "Aire", "Agua"] as Element[]).map((e) => ({ key: e, label: e, color: ELEMENT_HUE[e] })),
@@ -716,14 +718,10 @@ function BalanceBars({ selected, tap, ps, own }: { selected: string; tap: Tap; p
   ];
   const max = Math.max(4, ...rows.map((r) => b[r.key].length));
   return (
-    <svg viewBox="0 0 340 320" className={SVG} role="group" aria-label="Tu balance">
+    <svg viewBox="0 0 340 320" className={SVG} role="group" aria-label={t("Tu balance")}>
       <rect x="0" y="0" width="340" height="320" rx="24" fill="rgb(255 255 255 / .04)" stroke={GOLD} strokeOpacity="0.5" />
-      <text x="20" y="28" fontSize="8" letterSpacing="1.6" fontWeight="700" fill={GOLD}>
-        ELEMENTOS
-      </text>
-      <text x="20" y="196" fontSize="8" letterSpacing="1.6" fontWeight="700" fill={GOLD}>
-        CUALIDADES
-      </text>
+      <text x="20" y="28" fontSize="8" letterSpacing="1.6" fontWeight="700" fill={GOLD}><Tr s={"ELEMENTOS"} /></text>
+      <text x="20" y="196" fontSize="8" letterSpacing="1.6" fontWeight="700" fill={GOLD}><Tr s={"CUALIDADES"} /></text>
       {rows.map((r, i) => {
         const y = i < 4 ? 46 + i * 34 : 214 + (i - 4) * 34;
         const n = b[r.key].length;
@@ -733,8 +731,8 @@ function BalanceBars({ selected, tap, ps, own }: { selected: string; tap: Tap; p
           <g key={r.key} {...tap(r.key, r.label)}>
             <rect x="12" y={y - 13} width="316" height="28" rx="9" fill={on ? "rgb(212 181 122 / .25)" : "transparent"} />
             <text x="22" y={y + 1} dominantBaseline="central" fontSize="11" fontWeight={on || own.has(r.key) ? 700 : 500} fill={INK}>
-              {own.has(r.key) ? "★ " : ""}
-              {r.label}
+              <Tr s={own.has(r.key) ? "★ " : ""} />
+              <Tr s={r.label} />
             </text>
             <rect x="100" y={y - 6} width="200" height="12" rx="6" fill="rgb(255 255 255 / .1)" />
             {n > 0 && <rect x="100" y={y - 6} width={w} height="12" rx="6" fill={r.color} opacity={on ? 1 : 0.75} />}

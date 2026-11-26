@@ -3,6 +3,7 @@ import { ZoomableImage } from "@/components/media/zoomable-image";
 import { imageSrcSet } from "@/lib/media-url";
 import { isRich, parseRich, type RichBlock, type RichInline } from "@/lib/rich-text";
 import { LegacyText, LINK_CLASS, type LegacyFlavor } from "./legacy-text";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * Texto de la creadora, con o sin formato. Sin formato (null) → el texto «de antes», pintado
@@ -10,7 +11,7 @@ import { LegacyText, LINK_CLASS, type LegacyFlavor } from "./legacy-text";
  * elementos de React: solo nodos de texto (nunca HTML), enlaces de safeLinkHref e imágenes propias.
  *
  *   tone="page"     dentro del tema de la página pública (variables --c-*: cp-display, cp-gold…)
- *   tone="account"  en el panel y en /cuenta (colores de la app)
+ *   tone="account"  en el panel y en /area (colores de la app)
  *   headingLevel    nivel del «## » (el «### » va un nivel por debajo) para que anide bien
  *
  * Sin hooks: sirve en componentes de servidor y de cliente (la vista previa del editor).
@@ -124,7 +125,7 @@ function renderInline(nodes: RichInline[]): ReactNode {
   return nodes.map((n, i) => {
     switch (n.t) {
       case "text":
-        return <Fragment key={i}>{n.v}</Fragment>;
+        return <Fragment key={i}><Tr s={n.v} /></Fragment>;
       case "br":
         return <br key={i} />;
       case "b":

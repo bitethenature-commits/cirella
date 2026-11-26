@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { mixHex, rgba, visibleOn } from "./colors";
+import { contrastRatio, mixHex, rgba, visibleOn } from "./colors";
 import { buttonFrameKind, buttonFrameMask, cardFrameMask, CARD_FRAMES, type ButtonFrameKey, type CardFrameKey } from "./frames";
 import type { GeometryFigure } from "./page-blocks";
 import { figurePlacement, figureUrl, type FigurePos } from "./sacred-figures";
@@ -500,7 +500,12 @@ export function themeStyle(theme: ResolvedTheme): CSSProperties {
     const style = v("btnStyle");
     const b = v("btnBg");
     s["--b-bg"] = style === "filled" ? b : style === "soft" ? `color-mix(in oklab, ${b} 18%, transparent)` : "transparent";
-    s["--b-text"] = v("btnText");
+    // Sin relleno (contorno o suave), el texto va sobre la página: si su color no se ve ahí (un texto oscuro pensado
+    // para un botón dorado relleno, sobre la noche), va del color del borde, que sí se ve.
+    const txt = v("btnText");
+    const onPage = style !== "filled";
+    const hidden = onPage && Math.min(contrastRatio(txt, c.bg), contrastRatio(txt, c.bg2)) < 3;
+    s["--b-text"] = hidden ? visibleOn(v("btnBorder"), [c.bg, c.bg2], 3) : txt;
     s["--b-border"] = v("btnBorder");
     s["--b-bw"] = px(v("btnBorderWidth"));
     s["--b-font"] = v("btnFont") === "display" ? "var(--font-display)" : "var(--font-body)";

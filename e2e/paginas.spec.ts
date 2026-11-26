@@ -9,7 +9,7 @@ import { COMO_TRABAJO, mediaBlocks, withHomeBlocks } from "./home-blocks";
  * plataforma en el 3100):
  *   · la portada con bloques de prueba (la demo no trae ninguno; e2e/home-blocks.ts): su vídeo
  *     subido (302 firmado y Range → 206), su gráfico y su galería; «Sobre mí» en el pie y en
- *     /sobre-mi; la de borrador da 404;
+ *     /aboutme; la de borrador da 404;
  *   · «Nueva página» de principio a fin desde el móvil: negrita, imagen de Canva (1080×1920 con sus
  *     medidas y srcset), publicar, /<slug> y /ana/p/<slug> con canonical a la raíz;
  *   · borrador y publicado, vista previa «solo tú la ves», despublicar (404) y el sitemap;
@@ -32,9 +32,9 @@ const SLUG = `mi-historia-${stamp}`;
 
 async function demoLogin(page: Page, label: string, base = PERSONAL) {
   await page.context().clearCookies();
-  await page.goto(`${base}/entrar`);
+  await page.goto(`${base}/login`);
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 async function canvaPng() {
@@ -97,17 +97,17 @@ test.describe.serial("Editor de la página y páginas extra", () => {
     await expect(blocks.getByText("3 · desliza →")).toBeVisible();
 
     const nav = page.getByRole("navigation", { name: "Páginas" });
-    await expect(nav.getByRole("link", { name: "Sobre mí" })).toHaveAttribute("href", "/sobre-mi");
+    await expect(nav.getByRole("link", { name: "Sobre mí" })).toHaveAttribute("href", "/aboutme");
     await expect(nav.getByRole("link", { name: "Preguntas frecuentes" })).toHaveCount(0);
 
-    await page.goto("/sobre-mi");
+    await page.goto("/aboutme");
     await expect(page.getByRole("heading", { name: "Sobre mí", level: 1 })).toBeVisible();
     await expect(page.locator("main strong", { hasText: "8 años" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Mis métodos" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Mi formación" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: /Descubre Human Design/ })).toHaveAttribute("href", /human-design$/);
     await expect(page).toHaveTitle(/Sobre Cirella · Astrología y Human Design/);
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${PERSONAL}/sobre-mi`);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${PERSONAL}/aboutme`);
     await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /Quién soy/);
     expect((await request.get("/preguntas-frecuentes")).status()).toBe(404);
   });
@@ -181,7 +181,7 @@ test.describe.serial("Editor de la página y páginas extra", () => {
     expect((await request.get(`/${SLUG}?utm_source=instagram`)).status()).toBe(200);
     expect((await request.get("/no-existe-esta")).status()).toBe(404);
     expect((await request.get("/maria")).status()).toBe(404);
-    expect((await request.get("/maria/yoga-terapeutico")).status()).toBe(404);
+    expect((await request.get("/maria/therapeutic-yoga")).status()).toBe(404);
     expect((await request.get(`/${SLUG.toUpperCase()}`)).status()).toBe(404);
     const owner = await request.get("/ana", { maxRedirects: 0 });
     expect(owner.status()).toBe(307);
@@ -195,7 +195,7 @@ test.describe.serial("Editor de la página y páginas extra", () => {
     expect((await request.get(`/${SLUG}`)).status()).toBe(404);
     expect((await request.get(`/ana/p/${SLUG}`)).status()).toBe(404);
     expect(await (await request.get("/sitemap.xml")).text()).not.toContain(`/${SLUG}</loc>`);
-    expect(await (await request.get("/sitemap.xml")).text()).toContain(`${PERSONAL}/sobre-mi</loc>`);
+    expect(await (await request.get("/sitemap.xml")).text()).toContain(`${PERSONAL}/aboutme</loc>`);
   });
 
   test("portada: vídeo de YouTube que no carga nada hasta pulsar ▶, Instagram no vale y un HEVC subido avisa", async ({ page, context }) => {

@@ -190,12 +190,3 @@ export function expiryLabel(expiresAt: Date | null, timeZone: string, now = new 
   const sameYear = zonedParts(last, timeZone).year === zonedParts(now, timeZone).year;
   return `Válido hasta el ${formatInTz(last, timeZone, { day: "numeric", month: "long", ...(sameYear ? {} : { year: "numeric" }) })}`;
 }
-
-/** «tienda.com» de «https://www.tienda.com/…». */
-export function shopHost(url: string): string | null {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "") || null;
-  } catch {
-    return null;
-  }
-}

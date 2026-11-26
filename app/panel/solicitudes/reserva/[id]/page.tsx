@@ -20,6 +20,8 @@ import { clearIntake, setIntakeByOwner } from "../../reservas-actions";
 import { deleteBookingAction } from "../../actions";
 import { ChangeForm } from "./change-form";
 import { MeetingForm } from "./meeting-form";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 const OK: Record<string, string> = {
   dada: "Sesión dada. Le hemos enviado un email.",
@@ -31,6 +33,7 @@ const OK: Record<string, string> = {
 
 /** La reserva: cuándo (en su hora y en la de la clienta), Zoom, datos para la lectura, grabación y cambios. */
 export default async function BookingPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string }> }) {
+  const t = await getT();
   const { id } = await params;
   const sp = await searchParams;
   const { creator } = await requireCreator();
@@ -56,40 +59,39 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
 
   return (
     <div className="max-w-2xl space-y-5 pb-10">
-      <Link href={`/panel/clientes/${b.customer.id}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> Ficha de {firstName}</Link>
+      <Link href={`/panel/clientes/${b.customer.id}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Ficha de"} />{" "}<Tr s={firstName} /></Link>
       {sp.ok && OK[sp.ok] && <Flash ok={OK[sp.ok]} />}
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-muted">{b.product.emoji} {b.product.title}</p>
+          <p className="text-sm text-muted"><Tr s={b.product.emoji} /> {b.product.title}</p>
           <h1 className="display mt-1 text-[2.2rem] leading-tight">{name}</h1>
         </div>
-        <DeleteButton action={deleteBookingAction} id={b.id} fields={{ back: `/panel/clientes/${b.customer.id}` }} variant="button" label="Borrar la reserva" message={`¿Borrar la reserva de ${name} en «${b.product.title}»? Se borra también su venta y su hora vuelve a quedar libre. No se le envía nada. No se puede deshacer.`} />
+        <DeleteButton action={deleteBookingAction} id={b.id} fields={{ back: `/panel/clientes/${b.customer.id}` }} variant="button" label={t("Borrar la reserva")} message={`¿Borrar la reserva de ${name} en «${b.product.title}»? Se borra también su venta y su hora vuelve a quedar libre. No se le envía nada. No se puede deshacer.`} />
       </div>
 
       <section className="card p-5">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-lg font-semibold">{when ?? "Sin fecha"}</p>
+            <p className="text-lg font-semibold"><Tr s={when ?? t("Sin fecha")} /></p>
             {forHer && <p className="text-sm text-muted">{capitalize(forHer)}</p>}
           </div>
-          <Badge tone={b.status === "CONFIRMED" ? "success" : b.status === "CANCELLED" ? "danger" : "neutral"}>{BOOKING_STATUS_LABEL[b.status]}</Badge>
+          <Badge tone={b.status === "CONFIRMED" ? "success" : b.status === "CANCELLED" ? "danger" : "neutral"}><Tr s={BOOKING_STATUS_LABEL[b.status]} /></Badge>
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {b.groupSeat && <span className="chip">Taller</span>}
-          {o?.paymentProvider === "manual" && <span className="chip">{meta.manual === "paid_elsewhere" ? `Pagada fuera${meta.paidNote ? ` · ${meta.paidNote}` : ""}` : "Regalo"}</span>}
+          {b.groupSeat && <span className="chip"><Tr s={"Taller"} /></span>}
+          {o?.paymentProvider === "manual" && <span className="chip">{meta.manual === "paid_elsewhere" ? `Pagada fuera${meta.paidNote ? ` · ${meta.paidNote}` : ""}` : t("Regalo")}</span>}
         </div>
         <p className="mt-3 text-sm text-muted">
           <a href={`mailto:${b.customer.email}`} className="underline underline-offset-2">{b.customer.email}</a>
         </p>
         {o && o.paymentProvider !== "manual" && (
-          <p className="mt-1 text-sm text-muted">
-            Pagó {formatMoney(o.amountCents, o.currency, { decimals: true })}
+          <p className="mt-1 text-sm text-muted"><Tr s={"Pagó"} />{" "}{formatMoney(o.amountCents, o.currency, { decimals: true })}
             {o.refundedCents > 0 && ` · ya reembolsados ${formatMoney(o.refundedCents, o.currency, { decimals: true })}`}
             {" · "}
-            <Link href={`/panel/ventas/${o.id}`} className="underline underline-offset-2">Ver el pedido</Link>
+            <Link href={`/panel/ventas/${o.id}`} className="underline underline-offset-2"><Tr s={"Ver el pedido"} /></Link>
           </p>
         )}
-        {b.status === "CANCELLED" && b.cancelReason && <p className="mt-2 text-sm text-muted">Motivo: «{b.cancelReason}»</p>}
+        {b.status === "CANCELLED" && b.cancelReason && <p className="mt-2 text-sm text-muted"><Tr s={"Motivo: «"} /><Tr s={b.cancelReason} />»</p>}
       </section>
 
       {changeable && (
@@ -106,18 +108,18 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
             locked={false}
             action={setIntakeByOwner}
             hidden={{ orderId: o.id }}
-            title="Datos para la lectura"
+            title={t("Datos para la lectura")}
             forOwner
           />
           {(answers || b.customerNotes) && (
             <section className="card flex flex-wrap items-center gap-2 p-5">
-              {b.customerNotes && <p className="w-full text-sm"><span className="text-muted">Notas: </span>«{b.customerNotes}»</p>}
-              {answers && <CopyButton text={intakeAsText(answers)} label="Copiar" copiedLabel="Copiado" className="btn btn-outline btn-sm h-11" />}
+              {b.customerNotes && <p className="w-full text-sm"><span className="text-muted"><Tr s={"Notas:"} />{" "}</span>«<Tr s={b.customerNotes} />»</p>}
+              {answers && <CopyButton text={intakeAsText(answers)} label={t("Copiar")} copiedLabel="Copiado" className="btn btn-outline btn-sm h-11" />}
               {answers && (
                 <ConfirmForm action={clearIntake} message={`¿Borrar los datos para la lectura de ${firstName}? No se puede deshacer.`}>
                   <input type="hidden" name="orderId" value={o.id} />
                   <input type="hidden" name="back" value={`/panel/solicitudes/reserva/${b.id}`} />
-                  <button className="btn btn-ghost btn-sm h-11 text-rose">Borrar datos</button>
+                  <button className="btn btn-ghost btn-sm h-11 text-rose"><Tr s={"Borrar datos"} /></button>
                 </ConfirmForm>
               )}
             </section>
@@ -131,7 +133,7 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
       )}
 
 
-      <h2 className="display pt-3 text-[1.6rem]">Cambiar o cancelar</h2>
+      <h2 className="display pt-3 text-[1.6rem]"><Tr s={"Cambiar o cancelar"} /></h2>
       {changeable ? (
         <ChangeForm
           bookingId={b.id}
@@ -143,9 +145,8 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
           personal={isPersonalMode()}
         />
       ) : (
-        <p className="text-sm text-muted">
-          Esta sesión ya está {BOOKING_STATUS_LABEL[b.status].toLowerCase()}.{" "}
-          <Link href={`/panel/clientes/${b.customer.id}`} className="underline underline-offset-2">Volver a su ficha</Link>
+        <p className="text-sm text-muted"><Tr s={"Esta sesión ya está"} />{" "}{BOOKING_STATUS_LABEL[b.status].toLowerCase()}.{" "}
+          <Link href={`/panel/clientes/${b.customer.id}`} className="underline underline-offset-2"><Tr s={"Volver a su ficha"} /></Link>
         </p>
       )}
     </div>

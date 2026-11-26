@@ -375,16 +375,16 @@ const RUNES_ADVANCED: DemoPart[] = [
 
 export async function seedDeepLessons(prisma: PrismaClient, creatorId: string): Promise<number> {
   const lessons = [
-    { courseSlug: "human-design-desde-cero", moduleTitle: "Tu carta entera", title: "Planetas, puertas y canales", minutes: 280, parts: HD_DEEP },
-    { courseSlug: "human-design-desde-cero", moduleTitle: "Tu diseño a fondo", title: "Tu diseño a fondo", minutes: 220, parts: HD_ADVANCED },
-    { courseSlug: "gene-keys-secuencia-de-activacion", moduleTitle: "Las llaves por colores", title: "Las 64 llaves y sus colores", minutes: 220, parts: GK_DEEP },
-    { courseSlug: "gene-keys-secuencia-de-activacion", moduleTitle: "Tus llaves a fondo", title: "Tus llaves a fondo", minutes: 150, parts: GK_ADVANCED },
-    { courseSlug: "especial-tu-ano-lunar", moduleTitle: "La Luna en tu carta", title: "La Luna en signos, casas y nodos", minutes: 195, parts: MOON_DEEP },
-    { courseSlug: "especial-tu-ano-lunar", moduleTitle: "La Luna a fondo", title: "La Luna a fondo", minutes: 175, parts: MOON_ADVANCED },
-    { courseSlug: "tu-carta-y-tu-energia", moduleTitle: "La estructura de la carta", title: "Cualidades y ángulos", minutes: 70, parts: ASTRO_DEEP },
-    { courseSlug: "tu-carta-y-tu-energia", moduleTitle: "La carta a fondo", title: "La carta a fondo", minutes: 295, parts: ASTRO_ADVANCED },
-    { courseSlug: "curso-conocete-tu-energia", moduleTitle: "Las runas", title: "Las 24 runas y sus tiradas", minutes: 100, parts: RUNES_DEEP },
-    { courseSlug: "curso-conocete-tu-energia", moduleTitle: "Las runas a fondo", title: "Las runas a fondo", minutes: 135, parts: RUNES_ADVANCED },
+    { courseSlug: "human-design-basics", moduleTitle: "Tu carta entera", title: "Planetas, puertas y canales", minutes: 280, parts: HD_DEEP },
+    { courseSlug: "human-design-basics", moduleTitle: "Tu diseño a fondo", title: "Tu diseño a fondo", minutes: 220, parts: HD_ADVANCED },
+    { courseSlug: "gene-keys-activation", moduleTitle: "Las llaves por colores", title: "Las 64 llaves y sus colores", minutes: 220, parts: GK_DEEP },
+    { courseSlug: "gene-keys-activation", moduleTitle: "Tus llaves a fondo", title: "Tus llaves a fondo", minutes: 150, parts: GK_ADVANCED },
+    { courseSlug: "lunar-year", moduleTitle: "La Luna en tu carta", title: "La Luna en signos, casas y nodos", minutes: 195, parts: MOON_DEEP },
+    { courseSlug: "lunar-year", moduleTitle: "La Luna a fondo", title: "La Luna a fondo", minutes: 175, parts: MOON_ADVANCED },
+    { courseSlug: "chart-and-energy", moduleTitle: "La estructura de la carta", title: "Cualidades y ángulos", minutes: 70, parts: ASTRO_DEEP },
+    { courseSlug: "chart-and-energy", moduleTitle: "La carta a fondo", title: "La carta a fondo", minutes: 295, parts: ASTRO_ADVANCED },
+    { courseSlug: "know-your-energy", moduleTitle: "Las runas", title: "Las 24 runas y sus tiradas", minutes: 100, parts: RUNES_DEEP },
+    { courseSlug: "know-your-energy", moduleTitle: "Las runas a fondo", title: "Las runas a fondo", minutes: 135, parts: RUNES_ADVANCED },
   ];
   let n = 0;
   for (const l of lessons) if (await seedDemoLesson(prisma, creatorId, l)) n++;

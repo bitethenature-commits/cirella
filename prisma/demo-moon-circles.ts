@@ -23,7 +23,7 @@ const prisma = new PrismaClient();
     .slice(0, 4);
   let made = 0;
   for (const [i, m] of moons.entries()) {
-    const slug = `circulo-${m.phase === "new" ? "luna-nueva" : "luna-llena"}-${m.date}`;
+    const slug = `${m.phase === "new" ? "new-moon" : "full-moon"}-${m.date}`;
     if (await prisma.product.findFirst({ where: { creatorId: ana.id, slug }, select: { id: true } })) continue;
     await prisma.product.create({
       data: {

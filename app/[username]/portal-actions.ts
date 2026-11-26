@@ -8,7 +8,7 @@ import { requestClient } from "@/lib/client-ip";
 import { limitMagicLink, limitNewsletterSignup } from "@/lib/limits";
 import { brandName, subscribe } from "@/lib/newsletter";
 import { newsletterConsentText } from "@/lib/newsletter-rules";
-import { sectionPagePath } from "@/lib/site-sections";
+import { homeFoldPath } from "@/lib/site-sections";
 import { getOwnerCreator, isPersonalMode } from "@/lib/site-mode";
 
 export type PortalAccessState = { sent?: string; unlocked?: true; error?: string; name?: string; email?: string } | undefined;
@@ -16,7 +16,7 @@ export type PortalAccessState = { sent?: string; unlocked?: true; error?: string
 const schema = z.object({
   name: z.string().trim().min(1, "Escribe tu nombre").max(80, "El nombre es demasiado largo"),
   email: z.string().trim().toLowerCase().max(200).email("Revisa tu email"),
-  consent: z.literal("on", { errorMap: () => ({ message: "Marca la casilla para recibir la newsletter" }) }),
+  consent: z.literal("on", { error: "Marca la casilla para recibir la newsletter" }),
   // Campo trampa invisible: una persona lo deja vacío.
   website: z.string().max(200).optional(),
 });
@@ -32,7 +32,7 @@ const schema = z.object({
  * Solo en la web personal (la newsletter es de la dueña).
  *
  * También lo usan los modelos de las páginas de los métodos («Calcular con mis datos») y «Mi energía»
- * (/cuenta/mi-energia), con la misma regla: `next` = la página a la que volver (una ruta interna; si no,
+ * (/area/energy), con la misma regla: `next` = la página a la que volver (una ruta interna; si no,
  * el portal) y `via=carta` = el email habla de calcular la carta en vez del portal.
  */
 export async function requestPortalAccess(_: PortalAccessState, form: FormData): Promise<PortalAccessState> {
@@ -40,7 +40,8 @@ export async function requestPortalAccess(_: PortalAccessState, form: FormData):
   const owner = await getOwnerCreator();
   if (!owner) return { error: "El portal no está disponible." };
   const consentText = newsletterConsentText(brandName(owner));
-  const portal = sectionPagePath(owner.username, "portal", true);
+  // Sin página propia: el desplegable del portal en la portada.
+  const portal = homeFoldPath(owner.username, "portal", true);
   const next = safeNext(String(form.get("next") ?? ""), "") || portal;
   const via = form.get("via") === "carta" ? "carta" : "portal";
   const user = await getCurrentUser();

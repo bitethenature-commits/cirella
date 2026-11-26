@@ -7,11 +7,11 @@ import { asCourseCategory, groupCourses } from "../../lib/course-categories";
 import { nextMoonDates } from "../../lib/moon-dates";
 import { checkSaleInput, effectivePriceCents, orderSaleMeta, readOrderSale, renewalPriceCents, saleEndsLabel, saleState } from "../../lib/offers";
 import { personalHomeDefaults, readPageConfig, SECTION_KEYS, withAllSections } from "../../lib/page-config";
-import { legacyPostsRedirect, ownerPageRewrite } from "../../lib/personal-routing";
+import { legacyRedirect, ownerPageRewrite } from "../../lib/personal-routing";
 import { eventLabel, homePortalItems, isUnlocked, publicPortalItem, unlockReason } from "../../lib/portal-rules";
 import { groupPostsByMonth, postDateBadge, postPath, postsListPath, readPostMedia } from "../../lib/posts";
 import { RESERVED_PRODUCT_SLUGS, RESERVED_USERNAMES } from "../../lib/slug";
-import { SECTION_PAGES, sectionPagePath } from "../../lib/site-sections";
+import { SECTION_PAGES, SECTION_PATH, sectionPagePath } from "../../lib/site-sections";
 import { tierFeatures } from "../../lib/tier-features";
 import { ancestorsOf, descendantsOf, orderTiers, wouldCreateCycle } from "../../lib/tiers";
 import { eq, ok, test } from "./harness";
@@ -205,7 +205,7 @@ test("secciones: el orden por defecto de una página nueva es el de la portada n
 test("readPageConfig: una burbuja estropeada se descarta sin tumbar la página; imágenes de fuera no", () => {
   const cfg = readPageConfig({
     displayName: "Cirella",
-    bubbles: [{ id: "a", label: "Sobre mí", url: "/sobre-mi", image: "/media/a.webp" }, { id: "b", label: "", url: "" }, { id: "c", label: "Cursos", url: "/cursos", image: "https://evil.example/x.png" }],
+    bubbles: [{ id: "a", label: "Sobre mí", url: "/aboutme", image: "/media/a.webp" }, { id: "b", label: "", url: "" }, { id: "c", label: "Cursos", url: "/courses", image: "https://evil.example/x.png" }],
     about: { title: "Hola", image: 7 },
     systems: "no es una lista",
   });
@@ -214,7 +214,7 @@ test("readPageConfig: una burbuja estropeada se descarta sin tumbar la página; 
   eq(cfg.about, null);
   eq(cfg.systems, []);
   const d = personalHomeDefaults("Cirella");
-  eq(d.bubbles?.map((b) => b.url), ["/sobre-mi", "/cursos", "/comunidad"]);
+  eq(d.bubbles?.map((b) => b.url), ["/aboutme", "/courses", "/membership"]);
   eq(d.about?.title, "Hola, soy Cirella");
 });
 
@@ -248,26 +248,43 @@ test("readPostMedia: solo archivos propios de /media/video o enlaces de YouTube/
   eq(readPostMedia("VIDEO", "{roto"), null);
 });
 
-test("rutas: /actualidades en la web personal, /<usuaria>/actualidades y las antiguas /novedades redirigen", () => {
-  eq(postsListPath("ana", true), "/actualidades");
-  eq(postsListPath("ana"), "/ana/actualidades");
-  eq(postPath("ana", "eclipse"), "/ana/actualidades/eclipse");
-  eq(ownerPageRewrite("/actualidades", "ana"), "/ana/actualidades");
-  eq(ownerPageRewrite("/actualidades/eclipse", "ana"), "/ana/actualidades/eclipse");
-  eq(ownerPageRewrite("/comunidad", "ana"), "/ana/comunidad");
-  eq(ownerPageRewrite("/cursos/x", "ana"), null);
-  eq(ownerPageRewrite("/sobre-mi", "ana"), "/ana/p/sobre-mi");
-  eq(legacyPostsRedirect("/novedades", "ana"), "/actualidades");
-  eq(legacyPostsRedirect("/ana/novedades", "ana"), "/actualidades");
-  eq(legacyPostsRedirect("/ana/novedades/eclipse", "ana"), "/ana/actualidades/eclipse");
-  eq(legacyPostsRedirect("/maria/novedades", null), "/maria/actualidades");
-  eq(legacyPostsRedirect("/novedades/confirmar", "ana"), null, "la confirmación de la newsletter no cambia");
-  eq(legacyPostsRedirect("/novedades", null), null);
-  eq(legacyPostsRedirect("/cuenta/novedades/confirmar", null), null);
+test("rutas: /news en la web personal, /<usuaria>/news y las antiguas en español redirigen", () => {
+  eq(postsListPath("ana", true), "/news");
+  eq(postsListPath("ana"), "/ana/news");
+  eq(postPath("ana", "eclipse"), "/ana/news/eclipse");
+  eq(ownerPageRewrite("/news", "ana"), "/ana/news");
+  eq(ownerPageRewrite("/news/eclipse", "ana"), "/ana/news/eclipse");
+  eq(ownerPageRewrite("/membership", "ana"), "/ana/membership");
+  eq(ownerPageRewrite("/courses/x", "ana"), "/ana/x");
+  eq(ownerPageRewrite("/courses/x/checkout", "ana"), "/ana/x/checkout");
+  eq(ownerPageRewrite("/sessions/x/request", "ana"), "/ana/x/request");
+  eq(ownerPageRewrite("/courses/x/otra", "ana"), null);
+  eq(ownerPageRewrite("/area/login", "ana"), "/ana/login");
+  eq(ownerPageRewrite("/legal", "ana"), "/ana/legal");
+  eq(ownerPageRewrite("/aboutme", "ana"), "/ana/p/aboutme");
+  eq(legacyRedirect("/novedades", "ana"), "/news");
+  eq(legacyRedirect("/cursos", "ana"), "/courses");
+  eq(legacyRedirect("/uno-a-uno", "ana"), "/1on1");
+  eq(legacyRedirect("/actualidades/eclipse", "ana"), "/news/eclipse");
+  eq(legacyRedirect("/ana/novedades", "ana"), "/news");
+  eq(legacyRedirect("/ana/novedades/eclipse", "ana"), "/news/eclipse");
+  eq(legacyRedirect("/ana/courses", "ana"), "/courses");
+  eq(legacyRedirect("/ana/entrar", "ana"), "/area/login");
+  eq(legacyRedirect("/ana/p/sobre-mi", "ana"), "/sobre-mi");
+  eq(legacyRedirect("/ana/mi-curso", "ana"), null, "el producto lo lleva a su sección su página");
+  eq(legacyRedirect("/maria/novedades", null), "/maria/news");
+  eq(legacyRedirect("/maria/cursos", null), "/maria/courses");
+  eq(legacyRedirect("/maria/entrar", null), "/maria/login");
+  eq(legacyRedirect("/maria/mi-curso/solicitar", null), "/maria/mi-curso/request");
+  eq(legacyRedirect("/newsletter/confirm", "ana"), null, "la confirmación de la newsletter no cambia");
+  eq(legacyRedirect("/novedades", null), null);
+  eq(legacyRedirect("/panel/cursos", null), null, "el panel no cambia");
+  eq(legacyRedirect("/area/newsletter/confirm", null), null);
   for (const p of SECTION_PAGES) {
-    ok(RESERVED_USERNAMES.has(p) && RESERVED_PRODUCT_SLUGS.has(p), `«${p}» reservado`);
-    eq(sectionPagePath("ana", p, true), `/${p}`);
-    eq(sectionPagePath("ana", p, false), `/ana/${p}`);
+    const path = SECTION_PATH[p];
+    ok(RESERVED_USERNAMES.has(path) && RESERVED_PRODUCT_SLUGS.has(path), `«${path}» reservado`);
+    eq(sectionPagePath("ana", p, true), `/${path}`);
+    eq(sectionPagePath("ana", p, false), `/ana/${path}`);
   }
 });
 

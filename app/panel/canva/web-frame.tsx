@@ -3,6 +3,7 @@
 import { Monitor, Smartphone } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useT } from "@/lib/i18n/client";
 
 export type Device = "pc" | "movil";
 
@@ -22,6 +23,7 @@ function isStyle(n: Node): n is HTMLElement {
  * los mismos estilos que la página (y los que vayan llegando).
  */
 export function WebFrame({ device, children }: { device: Device; children: ReactNode }) {
+  const t = useT();
   const frame = useRef<HTMLIFrameElement>(null);
   const [mount, setMount] = useState<HTMLElement | null>(null);
 
@@ -104,7 +106,7 @@ export function WebFrame({ device, children }: { device: Device; children: React
 
   return (
     <DeviceBox device={device}>
-      <iframe ref={frame} srcDoc={SKELETON} title="Tu web" className="block h-full w-full border-0 bg-black" />
+      <iframe ref={frame} srcDoc={SKELETON} title={t("Tu web")} className="block h-full w-full border-0 bg-black" />
       {mount && createPortal(children, mount)}
     </DeviceBox>
   );
@@ -130,13 +132,14 @@ export function DeviceBox({ device, children }: { device: Device; children: Reac
 
 /** Ordenador o móvil (en la pantalla de un móvil no hace falta: ya se ve como en el móvil). */
 export function DeviceToggle({ device, onChange }: { device: Device; onChange: (d: Device) => void }) {
+  const t = useT();
   const opt = (d: Device, label: string, Icon: typeof Monitor) => (
     <button
       type="button"
       role="radio"
       aria-checked={device === d}
-      aria-label={label}
-      title={label}
+      aria-label={t(label)}
+      title={t(label)}
       onClick={() => onChange(d)}
       className="panel-nav-link grid h-9 w-9 place-items-center rounded-full"
     >
@@ -144,7 +147,7 @@ export function DeviceToggle({ device, onChange }: { device: Device; onChange: (
     </button>
   );
   return (
-    <div role="radiogroup" aria-label="Cómo se ve" className="hidden shrink-0 items-center gap-0.5 md:inline-flex">
+    <div role="radiogroup" aria-label={t("Cómo se ve")} className="hidden shrink-0 items-center gap-0.5 md:inline-flex">
       {opt("pc", "Ordenador", Monitor)}
       {opt("movil", "Móvil", Smartphone)}
     </div>

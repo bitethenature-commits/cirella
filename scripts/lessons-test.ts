@@ -240,7 +240,7 @@ async function main() {
     const pdfRow = mine.find((f) => f.id === pdf.id);
     check(
       "courseMaterials: la primera lección por orden de módulo y lección, con su enlace",
-      firstUse.length >= 1 && pdfRow?.lesson?.id === firstUse[0].id && pdfRow.lesson.href === `/cuenta/cursos/${course.id}?leccion=${firstUse[0].id}`,
+      firstUse.length >= 1 && pdfRow?.lesson?.id === firstUse[0].id && pdfRow.lesson.href === `/area/courses/${course.id}?leccion=${firstUse[0].id}`,
       pdfRow?.lesson,
     );
     check("courseMaterials: un archivo sin lección → lesson null", mine.find((f) => f.id === zip.id)?.lesson === null);

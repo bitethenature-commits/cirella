@@ -11,7 +11,7 @@ export const SETTING_DEFAULTS = {
   referralRewardType: "FREE_MONTH" as "FREE_MONTH" | "CREDIT" | "COMMISSION_DISCOUNT",
   referralRewardValue: 1, // meses gratis | céntimos de crédito | puntos básicos de descuento
   referralDiscountMonths: 3, // duración del descuento de comisión
-  // Identidad legal de la plataforma (LSSI art. 10): /aviso-legal, /privacidad y /terminos.
+  // Identidad legal de la plataforma (LSSI art. 10): /legal-notice, /privacy y /terms.
   // Vacíos = «Pendiente de completar».
   legalCompanyName: "",
   legalTaxId: "",

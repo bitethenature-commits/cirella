@@ -28,7 +28,7 @@ function refresh(productId: string) {
   revalidatePath("/panel/cursos");
   revalidatePath(`/panel/cursos/${productId}`, "layout");
   revalidatePath(`/panel/productos/${productId}`);
-  revalidatePath(`/cuenta/cursos/${productId}`);
+  revalidatePath(`/area/courses/${productId}`);
   // La ficha pública lista el programa (ISR).
   revalidatePath("/[username]", "page");
 }
@@ -46,7 +46,7 @@ export async function setStudioCourseCategory(productId: string, value: string):
   if (!course) return { error: "Curso no encontrado" };
   await db.product.updateMany({ where: { id: productId }, data: { courseCategory: asCourseCategory(value) } });
   refresh(productId);
-  revalidatePath("/[username]/cursos", "page");
+  revalidatePath("/[username]/courses", "page");
   return { ok: value ? "Temática guardada" : "Sin temática" };
 }
 
@@ -62,8 +62,8 @@ export async function renameStudioCourse(productId: string, raw: string): Promis
   if (!course) return { error: "Curso no encontrado" };
   await db.product.updateMany({ where: { id: productId }, data: { title: name } });
   refresh(productId);
-  revalidatePath("/cuenta/cursos");
-  revalidatePath("/[username]/cursos", "page");
+  revalidatePath("/area/courses");
+  revalidatePath("/[username]/courses", "page");
   revalidatePath(`/${creator.username}`);
   return { ok: "Título guardado" };
 }
@@ -78,7 +78,7 @@ export async function saveCourseLook(productId: string, raw: unknown): Promise<S
   const look = readCourseLook(raw);
   const empty = JSON.stringify(look) === JSON.stringify(EMPTY_COURSE_LOOK);
   await db.product.updateMany({ where: { id: productId }, data: { courseDesign: empty ? Prisma.DbNull : (look as Prisma.InputJsonValue) } });
-  revalidatePath(`/cuenta/cursos/${productId}`);
+  revalidatePath(`/area/courses/${productId}`);
   return { ok: "Diseño guardado" };
 }
 

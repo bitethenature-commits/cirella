@@ -16,11 +16,12 @@ import { CARD_CTA_MAX, PERK_ICON_KEYS, type PageTexts, type StudioKind } from "@
 import { PERK_ICONS, perkIcon } from "@/components/creator-page/perk-icons";
 import { OracleSide } from "@/components/creator-page/oracle-card";
 import { updateProduct, type ActionState } from "../actions";
-import { PostCardBody, PostCover, type CardPost } from "@/app/cuenta/membresias/post-card";
-import { KindBadge, kindStyle } from "@/app/cuenta/membresias/kind-style";
-import { Ornament, SacredFlower } from "@/app/cuenta/membresias/vip";
+import { PostCardBody, PostCover, type CardPost } from "@/app/area/membership/post-card";
+import { KindBadge, kindStyle, ka } from "@/app/area/membership/kind-style";
+import { Ornament, SacredFlower } from "@/app/area/membership/vip";
 import { formatDate, formatSessionDate, labelToMinutes, zonedTimeToUtc } from "@/lib/tz";
 import { tzCity } from "@/lib/timezones";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /** Su publicación en la membresía (círculo de la luna). */
 export type StudioCirclePost = {
@@ -86,14 +87,13 @@ function Step({ n, title, hint, children, id }: { n: number; title: string; hint
   return (
     <section id={id} className="scroll-mt-24" aria-labelledby={`${id}-t`}>
       <div className="text-center">
-        <p className="cp-eyebrow !tracking-[0.4em]" style={{ color: "var(--c-gold)" }}>
-          Paso {ROMAN[n - 1]}
+        <p className="cp-eyebrow !tracking-[0.4em]" style={{ color: "var(--c-gold)" }}><Tr s={"Paso"} />{" "}<Tr s={ROMAN[n - 1]} />
         </p>
         <h2 id={`${id}-t`} className="cp-display cp-thin mt-2 text-[2.1rem] italic">
           {title}
         </h2>
         <GoldStar className="mt-3" />
-        <p className="cp-muted mx-auto mt-3 max-w-md text-sm">{hint}</p>
+        <p className="cp-muted mx-auto mt-3 max-w-md text-sm"><Tr s={hint} /></p>
       </div>
       <div className="mt-8">{children}</div>
     </section>
@@ -146,6 +146,7 @@ export function ReadingStudio({
   template: string;
   circlePost?: StudioCirclePost;
 }) {
+  const t = useT();
   const [state, action, pending] = useActionState<ActionState, FormData>(updateProduct, undefined);
   const kind = product.kind;
   const session = kind === "session";
@@ -240,14 +241,14 @@ export function ReadingStudio({
   const photoOverlay = (
     <span className="absolute inset-0 z-[3] grid place-items-center bg-black/0 text-white opacity-0 transition hover:bg-black/40 hover:opacity-100">
       <span className="flex flex-col items-center gap-1.5 text-sm font-semibold">
-        <ImagePlus className="h-6 w-6" /> {image ? "Cambiar la foto" : "Subir la foto"}
+        <ImagePlus className="h-6 w-6" /> {image ? t("Cambiar la foto") : t("Subir la foto")}
       </span>
     </span>
   );
   const busy = upload !== null && (
     <span className="absolute inset-0 z-[4] grid place-items-center bg-black/60 text-sm text-white">
       <span className="flex items-center gap-2">
-        <Loader2 className="h-5 w-5 animate-spin" /> {upload < 100 ? `${upload} %` : "Optimizando…"}
+        <Loader2 className="h-5 w-5 animate-spin" /> {upload < 100 ? `${upload} %` : t("Optimizando…")}
       </span>
     </span>
   );
@@ -259,7 +260,7 @@ export function ReadingStudio({
   };
   const setAt = (list: string[], i: number, v: string) => list.map((x, k) => (k === i ? v : x));
   const priceInput = () => (
-    <input value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d,.]/g, "").slice(0, 7))} inputMode="decimal" placeholder="79" style={fit(price)} className={`px-0.5 text-right ${inline}`} aria-label="Precio en euros" />
+    <input value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d,.]/g, "").slice(0, 7))} inputMode="decimal" placeholder="79" style={fit(price)} className={`px-0.5 text-right ${inline}`} aria-label={t("Precio en euros")} />
   );
 
   return (
@@ -326,7 +327,7 @@ export function ReadingStudio({
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
         className="hidden"
-        aria-label="Subir la foto"
+        aria-label={t("Subir la foto")}
         onChange={(e) => {
           const f = e.target.files?.[0];
           e.target.value = "";
@@ -337,29 +338,29 @@ export function ReadingStudio({
       <div className="cp-luxe relative mx-auto max-w-5xl space-y-20 px-4 pb-36 pt-10 sm:px-8">
         {/* I · El tipo (o, en un círculo, cuándo es) */}
         {circle ? (
-          <Step n={1} id="cuando" title={product.moonCircle ? "¿Cuándo es el círculo?" : "¿Cuándo es el taller?"} hint={product.moonCircle ? "El día y la hora salen en su página, en la comunidad y en tu portada." : "El día y la hora salen en su ficha."}>
+          <Step n={1} id="cuando" title={product.moonCircle ? t("¿Cuándo es el círculo?") : t("¿Cuándo es el taller?")} hint={product.moonCircle ? t("El día y la hora salen en su página, en la comunidad y en tu portada.") : t("El día y la hora salen en su ficha.")}>
             <div className="cp-card mx-auto grid max-w-2xl gap-4 p-6 sm:grid-cols-2">
               <label className="block">
-                <span className="cp-eyebrow mb-1.5 block !text-[0.6rem]">Día</span>
+                <span className="cp-eyebrow mb-1.5 block !text-[0.6rem]"><Tr s={"Día"} /></span>
                 <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className={field} />
               </label>
               <label className="block">
-                <span className="cp-eyebrow mb-1.5 block !text-[0.6rem]">Hora</span>
+                <span className="cp-eyebrow mb-1.5 block !text-[0.6rem]"><Tr s={"Hora"} /></span>
                 <input type="time" step={300} value={eventTime} onChange={(e) => setEventTime(e.target.value)} className={field} />
               </label>
               <label className="block">
-                <span className="cp-eyebrow mb-1.5 block !text-[0.6rem]">Plazas (vacío = sin límite)</span>
+                <span className="cp-eyebrow mb-1.5 block !text-[0.6rem]"><Tr s={"Plazas (vacío = sin límite)"} /></span>
                 <input value={capacity} onChange={(e) => setCapacity(e.target.value.replace(/\D/g, "").slice(0, 3))} inputMode="numeric" placeholder="12" className={field} />
               </label>
               <label className="block">
-                <span className="cp-eyebrow mb-1.5 block !text-[0.6rem]">Enlace de Zoom</span>
+                <span className="cp-eyebrow mb-1.5 block !text-[0.6rem]"><Tr s={"Enlace de Zoom"} /></span>
                 <input type="url" value={meetingUrl} onChange={(e) => setMeetingUrl(e.target.value)} placeholder="https://us02web.zoom.us/j/…" className={field} />
               </label>
             </div>
           </Step>
         ) : (
-          <Step n={1} id="tipo" title={session ? "¿De qué es la sesión?" : "¿De qué es la lectura?"} hint="Elige uno o varios sistemas. En la carta sale el primero; en la ficha, todos (por ejemplo «Lectura de Astrología + Mi energía»).">
-            <div className="mx-auto grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-5" role="group" aria-label="Sistemas">
+          <Step n={1} id="tipo" title={session ? t("¿De qué es la sesión?") : t("¿De qué es la lectura?")} hint={t("Elige uno o varios sistemas. En la carta sale el primero; en la ficha, todos (por ejemplo «Lectura de Astrología + Mi energía»).")}>
+            <div className="mx-auto grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-5" role="group" aria-label={t("Sistemas")}>
               {TOPICS.map((c) => {
                 const on = topics.includes(c);
                 return (
@@ -373,7 +374,7 @@ export function ReadingStudio({
                     style={on ? { boxShadow: "inset 0 0 0 1px var(--c-gold), 0 0 28px -8px color-mix(in oklab, var(--c-gold) 60%, transparent)" } : undefined}
                   >
                     <CategoryIcons categories={[c]} size={2.4} className={on ? "cp-gold" : "cp-muted"} />
-                    <span className={`cp-display text-[1.1rem] ${on ? "cp-gold" : ""}`}>{COURSE_CATEGORY_LABEL[c]}</span>
+                    <span className={`cp-display text-[1.1rem] ${on ? "cp-gold" : ""}`}><Tr s={COURSE_CATEGORY_LABEL[c]} /></span>
                   </button>
                 );
               })}
@@ -382,12 +383,12 @@ export function ReadingStudio({
         )}
 
         {!ready ? (
-          <p className="cp-muted text-center text-sm italic">Elige al menos un sistema y aparece la carta para rellenarla.</p>
+          <p className="cp-muted text-center text-sm italic"><Tr s={"Elige al menos un sistema y aparece la carta para rellenarla."} /></p>
         ) : (
           <>
             {/* II · Su luna (círculo de la luna: no tiene carta ni foto) o la carta */}
             {moonMode ? (
-              <Step n={2} id="luna" title="Su luna" hint="En su página, en lugar de una foto, sale su luna: nueva, llena o eclipse, en su signo, con una frase. Así sale en tu web.">
+              <Step n={2} id="luna" title={t("Su luna")} hint={t("En su página, en lugar de una foto, sale su luna: nueva, llena o eclipse, en su signo, con una frase. Así sale en tu web.")}>
                 <div className="grid gap-10 md:grid-cols-[minmax(0,330px)_1fr] md:items-start">
                   <div className="mx-auto w-full max-w-[330px] md:mx-0">
                     <div className="cp-show-photo">
@@ -396,8 +397,8 @@ export function ReadingStudio({
                   </div>
                   <div className="space-y-7">
                     <div>
-                      <p className="cp-eyebrow mb-3 !text-[0.65rem]">La luna</p>
-                      <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="La luna">
+                      <p className="cp-eyebrow mb-3 !text-[0.65rem]"><Tr s={"La luna"} /></p>
+                      <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label={t("La luna")}>
                         {MOON_KINDS.map((v) => [v, MOON_KIND_LABEL[v], MOON_KIND_ICON[v]] as const).map(([v, label, icon]) => {
                           const on = moonPhase === v;
                           return (
@@ -411,17 +412,17 @@ export function ReadingStudio({
                               style={on ? { boxShadow: "inset 0 0 0 1px var(--c-gold), 0 0 28px -8px color-mix(in oklab, var(--c-gold) 60%, transparent)" } : undefined}
                             >
                               <span className="text-[1.6rem] leading-none" aria-hidden>
-                                {icon}
+                                <Tr s={icon} />
                               </span>
-                              <span className={`cp-display text-[1.3rem] ${on ? "cp-gold" : ""}`}>{label}</span>
+                              <span className={`cp-display text-[1.3rem] ${on ? "cp-gold" : ""}`}><Tr s={label} /></span>
                             </button>
                           );
                         })}
                       </div>
                     </div>
                     <div>
-                      <p className="cp-eyebrow mb-3 !text-[0.65rem]">El signo</p>
-                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-6" role="radiogroup" aria-label="El signo">
+                      <p className="cp-eyebrow mb-3 !text-[0.65rem]"><Tr s={"El signo"} /></p>
+                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-6" role="radiogroup" aria-label={t("El signo")}>
                         {SIGNS.map((s, i) => {
                           const on = moonSign === s;
                           return (
@@ -435,42 +436,42 @@ export function ReadingStudio({
                               style={on ? { boxShadow: "inset 0 0 0 1px var(--c-gold), 0 0 22px -8px color-mix(in oklab, var(--c-gold) 60%, transparent)" } : undefined}
                             >
                               <span className={`text-[1.5rem] leading-none ${on ? "cp-gold" : "cp-muted"}`} aria-hidden>
-                                {SIGN_GLYPHS[i]}
+                                <Tr s={SIGN_GLYPHS[i]} />
                                 {"︎"}
                               </span>
-                              <span className={`text-[0.72rem] ${on ? "cp-gold font-semibold" : ""}`}>{s}</span>
+                              <span className={`text-[0.72rem] ${on ? "cp-gold font-semibold" : ""}`}><Tr s={s} /></span>
                             </button>
                           );
                         })}
                       </div>
                       {sky && (sky.phase !== moonPhase || sky.sign !== moonSign) && (
                         <button type="button" onClick={() => pickMoon(sky.phase, sky.sign)} className="cp-gold mt-3 inline-flex items-center gap-1.5 text-sm underline underline-offset-4">
-                          <Sparkles className="h-4 w-4" /> Poner la de su fecha: {sky.title}
+                          <Sparkles className="h-4 w-4" />{" "}<Tr s={"Poner la de su fecha:"} />{" "}{sky.title}
                         </button>
                       )}
                     </div>
                     <label className="block">
-                      <span className="cp-eyebrow mb-2 block !text-[0.65rem]">La frase de su luna</span>
-                      <textarea value={moonText} onChange={(e) => setMoonText(e.target.value)} maxLength={240} rows={3} className={`cp-thin-text w-full resize-none px-3 py-2 text-[1rem] italic leading-relaxed ${inline}`} aria-label="La frase de su luna" />
+                      <span className="cp-eyebrow mb-2 block !text-[0.65rem]"><Tr s={"La frase de su luna"} /></span>
+                      <textarea value={moonText} onChange={(e) => setMoonText(e.target.value)} maxLength={240} rows={3} className={`cp-thin-text w-full resize-none px-3 py-2 text-[1rem] italic leading-relaxed ${inline}`} aria-label={t("La frase de su luna")} />
                     </label>
                   </div>
                 </div>
               </Step>
             ) : (
-            <Step n={2} id="carta" title="La carta" hint="Así sale en tu web: la foto, el título, el texto breve y el precio. Toca la foto para subirla y escribe encima.">
+            <Step n={2} id="carta" title={t("La carta")} hint={t("Así sale en tu web: la foto, el título, el texto breve y el precio. Toca la foto para subirla y escribe encima.")}>
               <div className="mx-auto max-w-[16rem]">
                 <article className="cp-oracle-card">
                   <FlowerOfLife className="cp-oracle-geo" strokeWidth={0.18} />
                   <div className="cp-oracle-top">
-                    <button type="button" onClick={pickPhoto} className="cp-oracle-photo relative block text-left" aria-label={image ? "Cambiar la foto" : "Subir la foto"}>
+                    <button type="button" onClick={pickPhoto} className="cp-oracle-photo relative block text-left" aria-label={image ? t("Cambiar la foto") : t("Subir la foto")}>
                       <ProductImage src={image} emoji={product.emoji} title={title} sizes="300px" />
                       {photoOverlay}
                       {busy}
                     </button>
                     <OracleSide topics={topics} word={word} />
                   </div>
-                  <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} required placeholder="Lectura de carta natal" className={`cp-oracle-title relative z-[2] block w-full px-2 ${inline}`} aria-label="Título de la carta" />
-                  <textarea value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={240} rows={3} placeholder="Un texto breve: qué es y para quién." className={`cp-oracle-text relative z-[2] w-full resize-none px-2 ${inline}`} aria-label="Texto breve de la carta" />
+                  <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} required placeholder={t("Lectura de carta natal")} className={`cp-oracle-title relative z-[2] block w-full px-2 ${inline}`} aria-label={t("Título de la carta")} />
+                  <textarea value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={240} rows={3} placeholder={t("Un texto breve: qué es y para quién.")} className={`cp-oracle-text relative z-[2] w-full resize-none px-2 ${inline}`} aria-label={t("Texto breve de la carta")} />
                   <div className="cp-oracle-rule" aria-hidden>
                     <span>✦</span>
                   </div>
@@ -480,9 +481,9 @@ export function ReadingStudio({
                       <span>€</span>
                     </span>
                   </p>
-                  <EditableButton value={cardCta} onChange={setCardCta} label="Texto del botón de la carta" />
+                  <EditableButton value={cardCta} onChange={setCardCta} label={t("Texto del botón de la carta")} />
                 </article>
-                {uploadError && <p className="mt-3 text-center text-sm text-rose">{uploadError}</p>}
+                {uploadError && <p className="mt-3 text-center text-sm text-rose"><Tr s={uploadError} /></p>}
               </div>
             </Step>
             )}
@@ -491,45 +492,44 @@ export function ReadingStudio({
             <Step
               n={3}
               id="ficha"
-              title="Su página"
-              hint={moonMode ? "Su página tal como sale en tu web: todo lo que ves se puede cambiar. La luna se cambia en el paso II." : "Las dos burbujas de su ficha: todo lo que ves se puede cambiar. Aquí va el título; el texto breve y el precio son los mismos de la carta."}
+              title={t("Su página")}
+              hint={moonMode ? t("Su página tal como sale en tu web: todo lo que ves se puede cambiar. La luna se cambia en el paso II.") : t("Las dos burbujas de su ficha: todo lo que ves se puede cambiar. Aquí va el título; el texto breve y el precio son los mismos de la carta.")}
             >
               <div className="grid gap-10 md:grid-cols-[minmax(0,330px)_1fr] md:items-start">
                 <div className="mx-auto w-full max-w-[330px] md:mx-0">
                   {moonMode ? (
-                    <a href="#luna" className="cp-show-photo block" aria-label="Cambiar la luna">
+                    <a href="#luna" className="cp-show-photo block" aria-label={t("Cambiar la luna")}>
                       <MoonCircleArt sky={chosenSky} />
                     </a>
                   ) : (
-                    <button type="button" onClick={pickPhoto} className="cp-show-photo relative block w-full text-left" aria-label={image ? "Cambiar la foto" : "Subir la foto"}>
+                    <button type="button" onClick={pickPhoto} className="cp-show-photo relative block w-full text-left" aria-label={image ? t("Cambiar la foto") : t("Subir la foto")}>
                       <ProductImage src={image} emoji={product.emoji} title={title} sizes="330px" />
                       {photoOverlay}
                       {busy}
                     </button>
                   )}
                 </div>
-                <section className="cp-show-panel" aria-label="Burbuja de arriba">
+                <section className="cp-show-panel" aria-label={t("Burbuja de arriba")}>
                   <FlowerOfLife className="cp-show-geo" strokeWidth={0.25} />
                   <div className="flex items-center gap-3">
                     <span className="cp-show-icon">{topics.length ? <CategoryIcons categories={topics} size={topics.length > 2 ? 1.8 : 2.6} gap={0.2} /> : <Sparkles className="h-9 w-9" strokeWidth={1.1} />}</span>
                     <span className="cp-eyebrow !tracking-[0.32em]" style={{ color: "var(--c-gold)" }}>
-                      {kindWord}
+                      <Tr s={kindWord} />
                     </span>
                   </div>
-                  <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} required placeholder="Lectura de carta natal" className={`cp-display cp-thin relative z-[2] mt-5 w-full px-1 text-[2.5rem] leading-[1.05] ${inline}`} aria-label="Título" />
+                  <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} required placeholder={t("Lectura de carta natal")} className={`cp-display cp-thin relative z-[2] mt-5 w-full px-1 text-[2.5rem] leading-[1.05] ${inline}`} aria-label={t("Título")} />
                   <GoldStar left className="mt-4" />
                   {circle && dateLine && (
                     <p className="mt-4 flex items-center gap-2.5 text-[1.05rem] first-letter:uppercase">
-                      <CalendarDays className="cp-gold h-5 w-5" strokeWidth={1.4} /> <span className="first-letter:uppercase">{dateLine}</span>
+                      <CalendarDays className="cp-gold h-5 w-5" strokeWidth={1.4} /> <span className="first-letter:uppercase"><Tr s={dateLine} /></span>
                     </p>
                   )}
-                  <textarea value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={240} rows={3} placeholder="Un texto breve: qué es y para quién." className={`cp-muted cp-thin-text relative z-[2] mt-4 w-full resize-none px-1 text-[1.05rem] leading-relaxed ${inline}`} aria-label="Texto breve" />
+                  <textarea value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={240} rows={3} placeholder={t("Un texto breve: qué es y para quién.")} className={`cp-muted cp-thin-text relative z-[2] mt-4 w-full resize-none px-1 text-[1.05rem] leading-relaxed ${inline}`} aria-label={t("Texto breve")} />
                   <ul className="cp-show-perks relative z-[2] mt-6">
                     {kind !== "reading" && (
                       <li>
                         <Clock className="h-[1.1rem] w-[1.1rem] shrink-0" strokeWidth={1.4} />
-                        <input value={duration} onChange={(e) => setDuration(e.target.value.replace(/\D/g, "").slice(0, 3))} inputMode="numeric" style={fit(duration)} className={`shrink-0 px-0.5 text-right ${inline}`} aria-label="Duración en minutos" /> minutos
-                      </li>
+                        <input value={duration} onChange={(e) => setDuration(e.target.value.replace(/\D/g, "").slice(0, 3))} inputMode="numeric" style={fit(duration)} className={`shrink-0 px-0.5 text-right ${inline}`} aria-label={t("Duración en minutos")} />{" "}<Tr s={"minutos"} /></li>
                     )}
                     {perks.map((text, i) => {
                       const Icon = iconOf(i);
@@ -546,7 +546,7 @@ export function ReadingStudio({
                           </button>
                           <input value={text} onChange={(e) => setPerks((l) => setAt(l, i, e.target.value))} maxLength={80} className={`min-w-0 flex-1 px-1 ${inline}`} aria-label={`Frase ${i + 1}`} />
                           {iconOpen === i && (
-                            <div className="absolute left-0 top-10 z-30 grid w-[17rem] grid-cols-6 gap-1 rounded-2xl p-2 shadow-2xl ring-1 ring-[color-mix(in_oklab,var(--c-gold)_40%,transparent)]" style={{ background: "color-mix(in oklab, var(--c-bg) 96%, #000)" }} role="listbox" aria-label="Iconos">
+                            <div className="absolute left-0 top-10 z-30 grid w-[17rem] grid-cols-6 gap-1 rounded-2xl p-2 shadow-2xl ring-1 ring-[color-mix(in_oklab,var(--c-gold)_40%,transparent)]" style={{ background: "color-mix(in oklab, var(--c-bg) 96%, #000)" }} role="listbox" aria-label={t("Iconos")}>
                               {PERK_ICON_KEYS.map((k) => {
                                 const I = PERK_ICONS[k];
                                 const on = icons[i] === k;
@@ -561,7 +561,7 @@ export function ReadingStudio({
                                       setIconOpen(null);
                                     }}
                                     className={`grid h-10 w-10 place-items-center rounded-xl transition hover:bg-[color-mix(in_oklab,var(--c-gold)_16%,transparent)] ${on ? "bg-[color-mix(in_oklab,var(--c-gold)_22%,transparent)]" : ""}`}
-                                    aria-label={k}
+                                    aria-label={t(k)}
                                   >
                                     <I className="h-5 w-5" strokeWidth={1.4} />
                                   </button>
@@ -574,16 +574,16 @@ export function ReadingStudio({
                     })}
                     {circle && capacity && (
                       <li className="opacity-70">
-                        <Users className="h-[1.1rem] w-[1.1rem] shrink-0" strokeWidth={1.4} /> Quedan {capacity} plazas <span className="text-xs">(se cuenta sola)</span>
+                        <Users className="h-[1.1rem] w-[1.1rem] shrink-0" strokeWidth={1.4} />{" "}<Tr s={"Quedan"} />{" "}<Tr s={capacity} />{" "}<Tr s={"plazas"} />{" "}<span className="text-xs"><Tr s={"(se cuenta sola)"} /></span>
                       </li>
                     )}
                   </ul>
-                  <EditableButton value={cta} onChange={setCta} className="!mt-7 w-full" label="Texto del botón de la ficha" />
+                  <EditableButton value={cta} onChange={setCta} className="!mt-7 w-full" label={t("Texto del botón de la ficha")} />
                   <div className="mt-5 flex items-end justify-between gap-4">
                     <ol className="grid min-w-0 flex-1 gap-1.5">
                       {steps.map((s, i) => (
                         <li key={i} className="flex items-baseline gap-3 text-[0.9rem]">
-                          <span className="cp-roman !w-6 shrink-0 !text-[1.05rem]">{ROMAN[i]}</span>
+                          <span className="cp-roman !w-6 shrink-0 !text-[1.05rem]"><Tr s={ROMAN[i]} /></span>
                           <input value={s} onChange={(e) => setSteps((l) => setAt(l, i, e.target.value))} maxLength={80} className={`cp-thin-text cp-muted relative z-[2] min-w-0 flex-1 px-1 ${inline}`} aria-label={`Paso ${ROMAN[i]}`} />
                         </li>
                       ))}
@@ -598,10 +598,8 @@ export function ReadingStudio({
 
               <div className="mx-auto mt-16 max-w-3xl">
                 <div className="text-center">
-                  <p className="cp-eyebrow !tracking-[0.4em]" style={{ color: "var(--c-gold)" }}>
-                    Para ti
-                  </p>
-                  <p className="cp-display cp-thin mt-2 text-[2.4rem] italic">Qué incluye</p>
+                  <p className="cp-eyebrow !tracking-[0.4em]" style={{ color: "var(--c-gold)" }}><Tr s={"Para ti"} /></p>
+                  <p className="cp-display cp-thin mt-2 text-[2.4rem] italic"><Tr s={"Qué incluye"} /></p>
                   <GoldStar className="mt-3" />
                 </div>
                 <div className="cp-include-panel mt-8">
@@ -621,7 +619,7 @@ export function ReadingStudio({
                       legacy="description"
                       rows={8}
                       ariaLabel="Qué incluye"
-                      placeholder={"Qué es y cómo es.\n\nIncluye:\n- Primer punto\n- Segundo punto"}
+                      placeholder={t("Qué es y cómo es.\n\nIncluye:\n- Primer punto\n- Segundo punto")}
                     />
                   </div>
                 </div>
@@ -633,22 +631,22 @@ export function ReadingStudio({
               <Step
                 n={4}
                 id="membresia"
-                title="En la membresía"
+                title={t("En la membresía")}
                 hint={
                   circlePost.tier
                     ? `Así lo ven las de «${circlePost.tier}»: su tarjeta en el feed y su página. El título, la luna y la fecha son los de arriba; aquí escribes su texto y el botón del enlace.`
-                    : "Cuando tengas una membresía, este círculo saldrá también dentro de ella, así."
+                    : t("Cuando tengas una membresía, este círculo saldrá también dentro de ella, así.")
                 }
               >
                 <div className="acc-root acc-preview space-y-12 overflow-hidden rounded-[2rem] p-4 text-left sm:p-8">
                   {/* La tarjeta del feed */}
                   <div>
-                    <p className="mb-3 text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold">✦ Su tarjeta en el feed ✦</p>
+                    <p className="mb-3 text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold"><Tr s={"✦ Su tarjeta en el feed ✦"} /></p>
                     <div
                       className="vip-glass vip-post relative min-h-11 overflow-hidden rounded-[1.6rem] p-4 sm:p-6"
-                      style={{ backgroundImage: `radial-gradient(120% 90% at 0% 0%, ${ks.color}2e, transparent 55%), linear-gradient(160deg, rgb(36 31 78 / .78), rgb(18 16 44 / .86))` }}
+                      style={{ backgroundImage: `radial-gradient(120% 90% at 0% 0%, ${ka(ks.color, "2e")}, transparent 55%), linear-gradient(160deg, rgb(36 31 78 / .78), rgb(18 16 44 / .86))` }}
                     >
-                      <span aria-hidden className="absolute inset-x-6 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${ks.light}aa, transparent)` }} />
+                      <span aria-hidden className="absolute inset-x-6 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${ka(ks.light, "aa")}, transparent)` }} />
                       <div className="flex gap-4 sm:gap-6">
                         <PostCover post={cardPost} />
                         <div className="min-w-0 flex-1">
@@ -660,59 +658,59 @@ export function ReadingStudio({
 
                   {/* Su página */}
                   <div>
-                    <p className="mb-3 text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold">✦ Su página ✦</p>
-                    <div className="relative overflow-hidden rounded-[2rem]" style={{ boxShadow: `0 0 0 1px ${ks.light}33, 0 40px 80px -40px ${ks.color}` }}>
-                      <a href="#luna" className="relative block aspect-[4/3] w-full sm:aspect-[16/10]" aria-label="Cambiar la luna">
+                    <p className="mb-3 text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold"><Tr s={"✦ Su página ✦"} /></p>
+                    <div className="relative overflow-hidden rounded-[2rem]" style={{ boxShadow: `0 0 0 1px ${ka(ks.light, "33")}, 0 40px 80px -40px ${ks.color}` }}>
+                      <a href="#luna" className="relative block aspect-[4/3] w-full sm:aspect-[16/10]" aria-label={t("Cambiar la luna")}>
                         <MoonCircleArt sky={chosenSky} />
                       </a>
                     </div>
                     <header
                       className="vip-hero relative isolate mx-3 -mt-16 overflow-hidden rounded-[2rem] px-6 py-9 text-center sm:mx-8 sm:-mt-24 sm:px-10 sm:py-12"
-                      style={{ backgroundImage: `radial-gradient(90% 80% at 50% 0%, ${ks.color}40, transparent 65%), linear-gradient(180deg, rgb(30 26 66 / .85), rgb(13 12 34 / .92))` }}
+                      style={{ backgroundImage: `radial-gradient(90% 80% at 50% 0%, ${ka(ks.color, "40")}, transparent 65%), linear-gradient(180deg, rgb(30 26 66 / .85), rgb(13 12 34 / .92))` }}
                     >
                       <SacredFlower className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[26rem] w-[26rem] -translate-x-1/2 -translate-y-1/2 opacity-25" />
                       <div className="flex justify-center">
                         <KindBadge kind="CIRCULO_LUNAR" big />
                       </div>
-                      <p className="mt-3 text-[0.7rem] uppercase tracking-[0.24em] text-muted">{publishedLine}</p>
+                      <p className="mt-3 text-[0.7rem] uppercase tracking-[0.24em] text-muted"><Tr s={publishedLine} /></p>
                       <input
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         maxLength={100}
-                        aria-label="Título"
+                        aria-label={t("Título")}
                         className={`vip-gold display mx-auto mt-3 block w-full max-w-2xl px-2 text-center text-[2.3rem] leading-[1.05] sm:text-[3rem] ${inline}`}
                       />
                       <Ornament className="mt-5" />
                     </header>
                     {cardPost.eventAt && (
                       <p className="mt-6 flex w-fit items-center gap-1.5 rounded-full px-4 py-2 font-semibold" style={{ background: ks.soft, color: ks.light }}>
-                        <CalendarDays className="h-4 w-4" /> {formatSessionDate(cardPost.eventAt, circlePost.timeZone)} (hora de {tzCity(circlePost.timeZone)})
+                        <CalendarDays className="h-4 w-4" /> {formatSessionDate(cardPost.eventAt, circlePost.timeZone)}{" "}<Tr s={"(hora de"} />{" "}{tzCity(circlePost.timeZone)})
                       </p>
                     )}
                     <div className="mt-4">
                       <span
                         className="inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white"
-                        style={{ background: `linear-gradient(135deg, ${ks.color}, ${ks.color}bb)`, boxShadow: `0 0 0 1px ${ks.light}88, 0 10px 30px -8px ${ks.color}` }}
+                        style={{ background: `linear-gradient(135deg, ${ks.color}, ${ka(ks.color, "bb")})`, boxShadow: `0 0 0 1px ${ka(ks.light, "88")}, 0 10px 30px -8px ${ks.color}` }}
                       >
                         <ExternalLink className="h-4 w-4 shrink-0" />
                         <input
                           value={joinLabel}
                           onChange={(e) => setJoinLabel(e.target.value)}
                           maxLength={40}
-                          aria-label="Texto del botón del enlace"
+                          aria-label={t("Texto del botón del enlace")}
                           style={fit(joinLabel, 8)}
                           className={`px-1 text-white ${inline}`}
                         />
                       </span>
-                      {!meetingUrl && <p className="mt-2 text-xs text-muted">Pon el enlace de Zoom en el paso I para que el botón salga.</p>}
+                      {!meetingUrl && <p className="mt-2 text-xs text-muted"><Tr s={"Pon el enlace de Zoom en el paso I para que el botón salga."} /></p>}
                     </div>
                     <textarea
                       value={postBody}
                       onChange={(e) => setPostBody(e.target.value)}
                       maxLength={20000}
                       rows={6}
-                      placeholder="Nos vemos en el círculo para vivir esta luna juntas…"
-                      aria-label="Texto de la publicación"
+                      placeholder={t("Nos vemos en el círculo para vivir esta luna juntas…")}
+                      aria-label={t("Texto de la publicación")}
                       className={`vip-article mt-10 w-full px-3 py-2 font-serif text-[1.22rem] leading-[1.85] text-ink/90 [field-sizing:content] ${inline}`}
                     />
                     <Ornament className="mt-12" />
@@ -722,12 +720,12 @@ export function ReadingStudio({
             )}
 
             {/* Opiniones */}
-            <Step n={moonMode ? 5 : 4} id="opiniones" title="Lo que dicen" hint="Sus opiniones. Salen bajo su ficha, una cada vez. Sin ninguna, salen las de tu portada.">
+            <Step n={moonMode ? 5 : 4} id="opiniones" title={t("Lo que dicen")} hint={t("Sus opiniones. Salen bajo su ficha, una cada vez. Sin ninguna, salen las de tu portada.")}>
               <div className="mx-auto max-w-2xl space-y-8">
                 {quotes.map((q) => (
                   <figure key={q.id} className="relative text-center">
-                    <blockquote className="cp-display text-[1.45rem] leading-snug sm:text-[1.6rem]">“{q.quote}”</blockquote>
-                    <figcaption className="mt-2 text-sm font-semibold">{q.author}</figcaption>
+                    <blockquote className="cp-display text-[1.45rem] leading-snug sm:text-[1.6rem]">“<Tr s={q.quote} />”</blockquote>
+                    <figcaption className="mt-2 text-sm font-semibold"><Tr s={q.author} /></figcaption>
                     <button type="button" onClick={() => setQuotes((l) => l.filter((x) => x.id !== q.id))} className="cp-muted absolute -right-2 -top-2 grid h-8 w-8 place-items-center rounded-full border border-[color-mix(in_oklab,var(--c-gold)_40%,transparent)] hover:text-[var(--c-gold)]" aria-label={`Borrar la opinión de ${q.author}`}>
                       <X className="h-4 w-4" />
                     </button>
@@ -736,12 +734,11 @@ export function ReadingStudio({
                 ))}
                 {quotes.length < PRODUCT_TESTIMONIALS_MAX && (
                   <div className="cp-card space-y-3 p-5">
-                    <textarea value={newQuote} onChange={(e) => setNewQuote(e.target.value)} maxLength={500} rows={3} placeholder="«Por fin entiendo mi carta sin perderme…»" className={`cp-display w-full px-2 text-center text-[1.3rem] ${inline}`} aria-label="Opinión" />
-                    <input value={newAuthor} onChange={(e) => setNewAuthor(e.target.value)} maxLength={80} placeholder="Nombre (por ejemplo, Marta)" className={`w-full px-2 py-1 text-center text-sm ${inline}`} aria-label="Quién lo dice" />
+                    <textarea value={newQuote} onChange={(e) => setNewQuote(e.target.value)} maxLength={500} rows={3} placeholder={t("«Por fin entiendo mi carta sin perderme…»")} className={`cp-display w-full px-2 text-center text-[1.3rem] ${inline}`} aria-label={t("Opinión")} />
+                    <input value={newAuthor} onChange={(e) => setNewAuthor(e.target.value)} maxLength={80} placeholder={t("Nombre (por ejemplo, Marta)")} className={`w-full px-2 py-1 text-center text-sm ${inline}`} aria-label={t("Quién lo dice")} />
                     <div className="flex justify-center">
                       <button type="button" onClick={addQuote} disabled={!newQuote.trim()} className="cp-btn !mt-0 disabled:opacity-40">
-                        <Plus className="h-4 w-4" /> Añadir opinión
-                      </button>
+                        <Plus className="h-4 w-4" />{" "}<Tr s={"Añadir opinión"} /></button>
                     </div>
                   </div>
                 )}
@@ -754,7 +751,7 @@ export function ReadingStudio({
       {/* Guardar: siempre a la vista. */}
       <div className="sticky bottom-0 z-20 border-t border-[color-mix(in_oklab,var(--c-gold)_30%,transparent)] px-4 py-3 backdrop-blur-xl" style={{ background: "color-mix(in oklab, var(--c-bg) 88%, transparent)" }}>
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3">
-          <div className="flex gap-1.5" role="radiogroup" aria-label="Estado">
+          <div className="flex gap-1.5" role="radiogroup" aria-label={t("Estado")}>
             {(
               [
                 ["DRAFT", "Borrador"],
@@ -762,7 +759,7 @@ export function ReadingStudio({
               ] as const
             ).map(([v, label]) => (
               <button key={v} type="button" role="radio" aria-checked={status === v} onClick={() => setStatus(v)} className={`rounded-full border px-3.5 py-1.5 text-sm transition ${status === v ? "border-[var(--c-gold)] text-[var(--c-gold)]" : "cp-muted border-transparent"}`}>
-                {label}
+                <Tr s={label} />
               </button>
             ))}
           </div>
@@ -770,7 +767,7 @@ export function ReadingStudio({
             <Flash ok={state?.ok} error={state?.error} />
           </div>
           <button type="submit" disabled={pending || upload !== null || !ready} className="cp-btn !mt-0 disabled:opacity-50">
-            {pending && <Loader2 className="h-4 w-4 animate-spin" />} {pending ? "Guardando…" : "Guardar"}
+            {pending && <Loader2 className="h-4 w-4 animate-spin" />} {pending ? t("Guardando…") : t("Guardar")}
           </button>
         </div>
       </div>

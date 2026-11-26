@@ -7,6 +7,7 @@ import { OracleCard } from "@/components/creator-page/oracle-card";
 import { TrackOnMount } from "@/components/creator-page/tracking";
 import { READINGS_DEFAULTS } from "@/lib/page-config";
 import type { sectionPageData } from "./section-data";
+import { Tr } from "@/lib/i18n/client";
 
 /** Lo que es «lectura» y lo que es «sesión» (lib/channel-kind.ts): las lecturas que prepara ella y las sesiones en directo. */
 export function isReadingProduct(p: PublicProduct): boolean {

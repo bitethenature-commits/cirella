@@ -37,6 +37,9 @@ model User {
   id              String    @id @default(cuid())
   email           String    @unique
   name            String?
+  // Idioma de sus emails (de | en | es): el de la web cuando se registró, compró o entró. null = alemán.
+  locale          String?
+  panelLocale     String? // idioma del panel y de sus avisos por email (de | en | es); null = español
   passwordHash    String?
   isAdmin         Boolean   @default(false)
   status          String    @default("ACTIVE") // ACTIVE | BLOCKED
@@ -56,6 +59,8 @@ model User {
   // Foto de perfil de la alumna (/media/{userId}/{hex}.webp, pública e inmutable como las de las
   // creadoras). null = iniciales.
   avatarUrl       String?
+  /// Su frase, junto a su nombre en los comentarios (Mi perfil, en el área).
+  tagline         String?
   // Los colores de su área de alumna (Ajustes › Colores de mi área, lib/account-look.ts): la barra, la página,
   // los detalles, el fondo con movimiento y la geometría. null = la noche dorada de siempre.
   accountLook     Json?
@@ -262,6 +267,9 @@ model Creator {
   // «Personalizar mi panel» (Ajustes): colores del panel, orden y visibilidad del menú y de las
   // tarjetas de Inicio. Solo del panel de la dueña, nunca de su web. Ver lib/panel-prefs.ts.
   panelPrefs     Json?
+  // Los colores de lo de dentro para todas sus alumnas (Mi página › Área de alumna, Cursos y Membresías): el área,
+  // la base de los cursos y la de las membresías (y la propia de cada nivel). Ver lib/area-design.ts.
+  areaDesign     Json?
   // «Actualidades»: cuántos días sale cada novedad en la lista de la web (null = siempre). Las que pasan
   // de ahí se quitan de la lista y se cuentan («y 12 actualidades más»).
   newsDays       Int?
@@ -337,6 +345,7 @@ model Creator {
   posts                 Post[]
   discountCodes         DiscountCode[]
   portalItems           PortalItem[]
+  textTranslations      TextTranslation[]
   oracleDecks           OracleDeck[]
   oracleCards           OracleCard[]
   birthProfiles         BirthProfile[]
@@ -865,6 +874,30 @@ model PortalItem {
   @@index([creatorId, status, sortOrder])
 }
 
+// Sus textos de la web en los tres idiomas (lib/i18n/content.ts): uno por texto distinto, tal cual lo escribió
+// (en el idioma que sea). La IA saca los otros dos; lo que ella corrige a mano (manual) no se vuelve a pisar.
+// Si cambia el texto, es otro texto: se traduce de nuevo.
+model TextTranslation {
+  id        String   @id @default(cuid())
+  creatorId String
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  hash      String // sha256 del texto original
+  source    String // el texto tal cual
+  lang      String? // idioma del original: de | en | es (lo dice la IA)
+  de        String?
+  en        String?
+  es        String?
+  manual    String[] @default([]) // idiomas corregidos a mano
+  status    String   @default("PENDING") // PENDING | WORKING | DONE | FAILED
+  error     String?
+  tries     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([creatorId, hash])
+  @@index([creatorId, status])
+}
+
 // Códigos de descuento de otras marcas que la creadora recomienda en su página.
 model DiscountCode {
   id          String    @id @default(cuid())
@@ -1049,6 +1082,7 @@ model Order {
   productTitle     String // instantánea en el momento de la compra
   productType      String
   buyerEmail       String
+  locale           String? // idioma de la web al comprar: el de sus emails
   buyerName        String?
   // PENDING | PROCESSING (pago pendiente de confirmar) | PAID | FAILED | REFUNDED | ABANDONED
   status           String    @default("PENDING")
@@ -1561,6 +1595,7 @@ model Subscriber {
   creator               Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   email                 String // minúsculas
   name                  String?
+  locale                String? // idioma de sus emails (el de la web al apuntarse); null = alemán
   status                String    @default("PENDING") // PENDING | CONFIRMED | UNSUBSCRIBED | BOUNCED | COMPLAINED
   // FORM (formulario de la página) | FREEBIE | CHECKOUT | SIGNUP | PROFILE | IMPORT | MIGRATED | MANUAL
   source                String

@@ -9,6 +9,7 @@ import { addDaysToKey, dateKeyInTz, formatDate, timeInTz } from "@/lib/tz";
 import { Pager, PersonDot } from "../ui";
 import { deleteSubscriber } from "../newsletter/suscriptoras/actions";
 import { deleteCustomerAction } from "./actions";
+import { Tr } from "@/lib/i18n/client";
 
 const PAGE = 100;
 const HERE = "/panel/clientes";
@@ -144,13 +145,11 @@ export async function PeopleList({ creatorId, tz, q, az, page, label }: { creato
           <span className="panel-emblem h-10 w-10">
             <Users className="h-5 w-5" />
           </span>
-          {label}
+          <Tr s={label} />
           <span className="font-sans text-sm font-normal text-muted">{all.length}</span>
         </h2>
         <nav aria-label="Orden" className="ml-auto flex rounded-full border border-line bg-white/70 p-1">
-          <Link href={q ? `${HERE}?${new URLSearchParams({ q })}` : HERE} className={sortLink(!az)} aria-current={!az ? "page" : undefined}>
-            Recientes
-          </Link>
+          <Link href={q ? `${HERE}?${new URLSearchParams({ q })}` : HERE} className={sortLink(!az)} aria-current={!az ? "page" : undefined}><Tr s={"Recientes"} /></Link>
           <Link href={`${HERE}?${new URLSearchParams({ ...(q ? { q } : {}), orden: "az" })}`} className={sortLink(az)} aria-current={az ? "page" : undefined}>
             A–Z
           </Link>
@@ -163,7 +162,7 @@ export async function PeopleList({ creatorId, tz, q, az, page, label }: { creato
       </form>
 
       {shown.length === 0 ? (
-        <p className="card p-6 text-sm text-muted">{q ? "Nadie con ese nombre o email." : "Todavía no hay nadie. Cuando alguien se apunte, te pida algo o le des acceso, aparecerá aquí."}</p>
+        <p className="card p-6 text-sm text-muted">{q ? <Tr s={"Nadie con ese nombre o email."} /> : <Tr s={"Todavía no hay nadie. Cuando alguien se apunte, te pida algo o le des acceso, aparecerá aquí."} />}</p>
       ) : (
         <div className="card divide-y divide-line">
           {shown.map((e) => {
@@ -199,10 +198,8 @@ export async function PeopleList({ creatorId, tz, q, az, page, label }: { creato
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-                      <span className={`min-w-0 max-w-full truncate ${fresh ? "font-bold" : "font-semibold"}`}>{who}</span>
-                      {newsletter && (<span className="inline-flex items-center gap-0.5 text-xs text-muted" title={sub ? (NEWSLETTER_STATE[sub.status] ?? "No está en tu newsletter") : "No está en tu newsletter"}>
-                        Newsletter
-                        {subscribed ? <Check className="h-3.5 w-3.5 text-[#2f8a5b]" strokeWidth={3} aria-label="sí" /> : <X className="h-3.5 w-3.5 text-[#B4473C]" strokeWidth={3} aria-label="no" />}
+                      <span className={`min-w-0 max-w-full truncate ${fresh ? "font-bold" : "font-semibold"}`}><Tr s={who} /></span>
+                      {newsletter && (<span className="inline-flex items-center gap-0.5 text-xs text-muted" title={sub ? (NEWSLETTER_STATE[sub.status] ?? "No está en tu newsletter") : "No está en tu newsletter"}><Tr s={"Newsletter"} />{subscribed ? <Check className="h-3.5 w-3.5 text-[#2f8a5b]" strokeWidth={3} aria-label="sí" /> : <X className="h-3.5 w-3.5 text-[#B4473C]" strokeWidth={3} aria-label="no" />}
                       </span>)}
                       {stars && (
                         <span className="inline-flex items-center gap-px text-[#c9962e]" title={`Membresía: ${stars.title}`} aria-label={`Membresía ${stars.title}: ${stars.level} ${stars.level === 1 ? "estrella" : "estrellas"}`}>
@@ -213,12 +210,12 @@ export async function PeopleList({ creatorId, tz, q, az, page, label }: { creato
                       )}
                       {n != null && (
                         <span className="text-xs text-muted">
-                          {n} {n === 1 ? "inscripción" : "inscripciones"}
+                          {n} {n === 1 ? <Tr s={"inscripción"} /> : "inscripciones"}
                         </span>
                       )}
                       <span className={`ml-auto shrink-0 text-xs ${fresh ? "font-semibold text-ink" : "text-muted"}`}>{whenText(when, now, tz)}</span>
                     </span>
-                    <span className={`block truncate text-sm ${fresh ? "text-ink" : "text-muted"}`}>{preview}</span>
+                    <span className={`block truncate text-sm ${fresh ? "text-ink" : "text-muted"}`}><Tr s={preview} /></span>
                   </span>
                 </Link>
                 {e.kind === "customer" ? (

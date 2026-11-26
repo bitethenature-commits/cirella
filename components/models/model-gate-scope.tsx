@@ -108,10 +108,10 @@ export function ModelGateScope({ model, gate, children }: { model: GatedModel; g
   return <GateContext.Provider value={value}>{children}</GateContext.Provider>;
 }
 
-/** Dirección de la versión completa de cada modelo en «Mi energía» (app/cuenta/mi-energia/systems.ts). */
+/** Dirección de la versión completa de cada modelo en «Mi energía» (app/area/energy/systems.ts). */
 export const ENERGY_PATH: Record<GatedModel, string> = {
-  chart: "/cuenta/mi-energia/astrologia",
-  bodygraph: "/cuenta/mi-energia/diseno-humano",
-  geneKeys: "/cuenta/mi-energia/gene-keys",
-  lunar: "/cuenta/mi-energia/luna",
+  chart: "/area/energy/astrology",
+  bodygraph: "/area/energy/human-design",
+  geneKeys: "/area/energy/gene-keys",
+  lunar: "/area/energy/moon",
 };

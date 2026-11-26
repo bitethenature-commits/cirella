@@ -10,5 +10,5 @@ export async function saveCirclePack(form: FormData) {
   const raw = String(form.get("price") ?? "").trim();
   await saveCirclePackPrice(creator.id, raw ? parseMoneyToCents(raw) : null);
   revalidatePath("/panel/circulos");
-  revalidatePath("/cuenta/sesiones");
+  revalidatePath("/area/sessions");
 }

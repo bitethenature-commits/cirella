@@ -4,6 +4,7 @@ import { ShieldCheck } from "lucide-react";
 import { dismissTwoFactorBanner } from "@/app/panel/ajustes/seguridad/actions";
 import { isPersonalMode } from "@/lib/site-mode";
 import { TWO_FACTOR_BANNER_COOKIE } from "@/lib/two-factor";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * Web personal: aviso del panel para que la dueña active la verificación en dos pasos. Nunca se
@@ -15,12 +16,11 @@ export async function TwoFactorBanner({ user }: { user: { totpEnabledAt: Date | 
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm">
       <p className="flex items-center gap-2">
-        <ShieldCheck className="h-4 w-4 shrink-0" /> Protege tu panel: activa la verificación en dos pasos.
-      </p>
+        <ShieldCheck className="h-4 w-4 shrink-0" />{" "}<Tr s={"Protege tu panel: activa la verificación en dos pasos."} /></p>
       <div className="flex items-center gap-2">
-        <Link href="/panel/ajustes/seguridad" className="btn btn-primary btn-sm min-h-9">Activarla</Link>
+        <Link href="/panel/ajustes/seguridad" className="btn btn-primary btn-sm min-h-9"><Tr s={"Activarla"} /></Link>
         <form action={dismissTwoFactorBanner}>
-          <button className="btn btn-ghost btn-sm min-h-9">Ahora no</button>
+          <button className="btn btn-ghost btn-sm min-h-9"><Tr s={"Ahora no"} /></button>
         </form>
       </div>
     </div>

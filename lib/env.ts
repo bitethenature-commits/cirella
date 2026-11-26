@@ -38,7 +38,7 @@ const text = z.preprocess(blankToUndefined, z.string().optional());
 const oneOf = <const T extends readonly [string, ...string[]]>(name: string, values: T) =>
   z.preprocess(
     blankToUndefined,
-    z.enum(values, { errorMap: () => ({ message: `${name} solo admite ${values.map((v) => `"${v}"`).join(" o ")}.` }) }).optional(),
+    z.enum(values, { error: `${name} solo admite ${values.map((v) => `"${v}"`).join(" o ")}.` }).optional(),
   );
 
 /** Pasarelas que se pueden combinar en PAYMENT_PROVIDER (separadas por comas). */
@@ -288,7 +288,7 @@ export function validateEnv(raw: RawEnv): EnvValidation {
     }
     if (p.DEMO_MODE === "true")
       errors.push(
-        "DEMO_MODE=true está prohibido en producción: abriría el buzón /dev/correo con los enlaces de acceso de todo el mundo y los botones para entrar como administradora. Quita la variable.",
+        "DEMO_MODE=true está prohibido en producción: abriría el buzón /dev/email con los enlaces de acceso de todo el mundo y los botones para entrar como administradora. Quita la variable.",
       );
     if (providers.includes("simulated"))
       errors.push("PAYMENT_PROVIDER=simulated está prohibido en producción: los pagos no se cobrarían y el contenido se entregaría gratis. Usa PAYMENT_PROVIDER=stripe.");
@@ -372,7 +372,12 @@ export function isProductionLike() {
   return productionLike(appEnv());
 }
 
-/** Modo demo (accesos rápidos, buzón /dev/correo): solo si se activa explícitamente y nunca en producción. */
+/** El banco de mentira del pago simulado (/test-payment): nunca en producción, aunque llegue una referencia. */
+export function simulatedBankAllowed() {
+  return !isProductionLike() && process.env.VERCEL_ENV !== "production";
+}
+
+/** Modo demo (accesos rápidos, buzón /dev/email): solo si se activa explícitamente y nunca en producción. */
 export function isDemoMode() {
   // VERCEL_ENV lo fija la plataforma: en la producción de Vercel nunca hay demo, diga lo que diga APP_ENV.
   return env().DEMO_MODE === "true" && !isProductionLike() && process.env.VERCEL_ENV !== "production";

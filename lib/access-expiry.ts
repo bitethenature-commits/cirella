@@ -1,3 +1,4 @@
+import { productPath } from "@/lib/public-paths";
 import "server-only";
 import { accessGrantedAt } from "./free-access-rules";
 import { lastDayText, REMIND_BEFORE_DAYS, shouldRemindEnding } from "./access-end";
@@ -8,6 +9,7 @@ import { enqueueEmail } from "./email/outbox";
 import * as T from "./email/templates";
 import { captureError } from "./monitoring";
 import { emailAlreadyQueued, revokeOrderAccess } from "./order-links";
+import { inMail } from "@/lib/i18n/email";
 
 /**
  * Cron «caducidades»: accesos con fecha de fin que no son de una suscripción (los que dio la dueña a
@@ -48,13 +50,13 @@ export async function processAccessExpiry(now = new Date()): Promise<number> {
         userId: a.userId,
         template: "ACCESS_ENDING",
         dedupeKey,
-        ...T.accessEndingEmail({
+        ...(await inMail(a.user.email, () => T.accessEndingEmail({
           creatorName: c.displayName,
           productTitle: a.product.title,
           until: lastDayText(a.expiresAt!, c.timezone, now),
           membership: a.product.type === "MEMBERSHIP",
           cta: a.product.type === "MEMBERSHIP" ? null : buyAgain(a.product, c.username),
-        }),
+        }))),
       });
       done++;
     } catch (e) {
@@ -78,7 +80,7 @@ export async function processAccessExpiry(now = new Date()): Promise<number> {
           userId: a.userId,
           template: "ACCESS_ENDED",
           dedupeKey: `access-ended:${key}`,
-          ...T.accessEndedEmail({ creatorName: c.displayName, productTitle: a.product.title, cta: a.product.type === "MEMBERSHIP" ? null : buyAgain(a.product, c.username) }),
+          ...(await inMail(a.user.email, () => T.accessEndedEmail({ creatorName: c.displayName, productTitle: a.product.title, cta: a.product.type === "MEMBERSHIP" ? null : buyAgain(a.product, c.username) }))),
         });
       if ((await automationSetting(a.creatorId, "MEMBER_ENDED")).enabled) {
         const customer = await prisma.customer.findUnique({ where: { creatorId_userId: { creatorId: a.creatorId, userId: a.userId } }, select: { name: true } });
@@ -87,12 +89,12 @@ export async function processAccessExpiry(now = new Date()): Promise<number> {
           creatorId: a.creatorId,
           template: "ACCESS_ENDED_OWNER",
           dedupeKey: `access-ended-owner:${key}`,
-          ...T.accessEndedCreatorEmail({
+          ...(await inMail(c.contactEmail || c.user.email, () => T.accessEndedCreatorEmail({
             productTitle: a.product.title,
             person: customer?.name || a.user.name || a.user.email,
             ended: lastDayText(a.expiresAt!, c.timezone, now),
             url: a.product.type === "MEMBERSHIP" ? `${appUrl()}/panel/comunidad?tab=miembros&nivel=${a.productId}` : `${appUrl()}/panel/productos/${a.productId}#accesos`,
-          }),
+          }))),
         });
       }
     } catch (e) {
@@ -105,5 +107,5 @@ export async function processAccessExpiry(now = new Date()): Promise<number> {
 /** Botón del aviso: la ficha pública si se puede volver a conseguir ahí; si no, que responda al email. */
 function buyAgain(product: { status: string; slug: string; type: string }, username: string) {
   if (product.status !== "PUBLISHED") return null;
-  return { label: product.type === "MEMBERSHIP" ? "Volver a unirme" : "Ver cómo seguir", url: `${appUrl()}/${username}/${product.slug}` };
+  return { label: product.type === "MEMBERSHIP" ? "Volver a unirme" : "Ver cómo seguir", url: `${appUrl()}${productPath(username, product)}` };
 }

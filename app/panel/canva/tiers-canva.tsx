@@ -1,7 +1,7 @@
 "use client";
 import { Loader2, Mail, Paintbrush, Plus, Upload, X } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
-import { SpinningSolid } from "@/app/cuenta/spinning-solid";
+import { SpinningSolid } from "@/app/area/spinning-solid";
 import { TIER_ICONS } from "@/components/creator-page/tier-icons";
 import { PortalCircles, PortalIncludes, PortalPrice, TierPortal, portalButton } from "@/components/creator-page/tier-portal";
 import { TiersFrame } from "@/components/creator-page/tiers-block";
@@ -13,6 +13,7 @@ import type { TierFeature } from "@/lib/tier-features";
 import type { WebTier, WebTiers } from "@/lib/web-tiers";
 import { createCanvaTier, saveCanvaTier } from "./actions";
 import type { SaveState } from "./canva-ui";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * «Hacerte miembro» en Mi página: la sección de los niveles con cada nivel escrito encima, tal como sale en la web.
@@ -97,11 +98,8 @@ export function TiersCanva({
     <TiersFrame
       b={b}
       after={
-        <p data-canva-ui className="cp-faint mt-8 text-center text-xs">
-          Para borrar un nivel o ver quién está dentro, ve a{" "}
-          <a href="/panel/comunidad" target="_top" className="underline underline-offset-4">
-            Comunidad
-          </a>
+        <p data-canva-ui className="cp-faint mt-8 text-center text-xs"><Tr s={"Para borrar un nivel o ver quién está dentro, ve a"} />{" "}
+          <a href="/panel/comunidad" target="_top" className="underline underline-offset-4"><Tr s={"Comunidad"} /></a>
           .
         </p>
       }
@@ -227,16 +225,16 @@ function TierEditor({
           {emblemOpen && (
             <div data-canva-ui className={`${pop} left-1/2 top-[8.4rem] w-[16.5rem] -translate-x-1/2`} role="dialog" aria-label="Icono del nivel">
               <div className="mb-1.5 flex items-center justify-between px-1">
-                <p className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-[var(--tpg,#d4b57a)]">Icono del nivel</p>
+                <p className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-[var(--tpg,#d4b57a)]"><Tr s={"Icono del nivel"} /></p>
                 <button type="button" onClick={() => setEmblemOpen(false)} className="grid h-7 w-7 place-items-center rounded-full hover:bg-white/10" aria-label="Cerrar">
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <p className="px-1 text-[0.7rem] opacity-70">Sólidos que giran</p>
+              <p className="px-1 text-[0.7rem] opacity-70"><Tr s={"Sólidos que giran"} /></p>
               <div className="mt-1 grid grid-cols-5 gap-1">
                 {TIER_SOLIDS.map((k) => option({ kind: "solid", key: k }, TIER_SOLID_LABEL[k], <SpinningSolid level={t.level} solid={k} className="h-7 w-7" speed={0.3} />))}
               </div>
-              <p className="mt-2.5 px-1 text-[0.7rem] opacity-70">Geometría sagrada</p>
+              <p className="mt-2.5 px-1 text-[0.7rem] opacity-70"><Tr s={"Geometría sagrada"} /></p>
               <div className="mt-1 grid grid-cols-5 gap-1">
                 {GEOMETRY_FIGURES.map((k) =>
                   option(
@@ -248,7 +246,7 @@ function TierEditor({
                   ),
                 )}
               </div>
-              <p className="mt-2.5 px-1 text-[0.7rem] opacity-70">Tu imagen</p>
+              <p className="mt-2.5 px-1 text-[0.7rem] opacity-70"><Tr s={"Tu imagen"} /></p>
               <div className="mt-1 flex items-center gap-2 px-1">
                 {t.emblem.kind === "image" && (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -256,10 +254,10 @@ function TierEditor({
                 )}
                 <button type="button" onClick={() => emblemInput.current?.click()} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[color-mix(in_oklab,var(--tpg,#d4b57a)_50%,transparent)] px-3 text-xs font-semibold hover:bg-white/10">
                   {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                  {t.emblem.kind === "image" ? "Cambiar la imagen" : "Subir una imagen"}
+                  {t.emblem.kind === "image" ? <Tr s={"Cambiar la imagen"} /> : <Tr s={"Subir una imagen"} />}
                 </button>
               </div>
-              {error && <p className="mt-2 rounded-lg bg-red-900/70 px-2 py-1 text-xs text-white">{error}</p>}
+              {error && <p className="mt-2 rounded-lg bg-red-900/70 px-2 py-1 text-xs text-white"><Tr s={error} /></p>}
             </div>
           )}
         </>
@@ -284,7 +282,7 @@ function TierEditor({
                 <input value={t.cta} onChange={(e) => onPatch({ cta: e.target.value.slice(0, TIER_CTA_MAX) })} aria-label="Texto del botón" style={fit(t.cta, 6)} className={`max-w-full px-1 text-center [font:inherit] ${inline}`} />
               </>
             ) : (
-              <>Unirme a {t.title}</>
+              <><Tr s={"Unirme a"} />{" "}{t.title}</>
             )}
           </span>
         </>
@@ -302,7 +300,7 @@ function TierEditor({
               aria-label={`Precio en ${currency}`}
               className={`px-0.5 text-right [font:inherit] ${inline}`}
             />
-            {currency}
+            <Tr s={currency} />
           </>
         }
         interval={t.interval}
@@ -370,8 +368,7 @@ function TierEditor({
       </ul>
       {t.features.length < TIER_FEATURES_MAX && (
         <button type="button" onClick={() => onPatch({ features: [...t.features, { title: "", detail: null, icon: "star" }] })} className="tp-gold relative mt-3 inline-flex items-center gap-1.5 self-start text-sm underline-offset-4 hover:underline">
-          <Plus className="h-4 w-4" /> Añadir lo que incluye
-        </button>
+          <Plus className="h-4 w-4" />{" "}<Tr s={"Añadir lo que incluye"} /></button>
       )}
       {circles.length > 0 && <PortalCircles circles={circles} note="Salen solos: los círculos de la luna publicados." />}
     </TierPortal>
@@ -392,6 +389,7 @@ function TierEditor({
 
 /** «Añadir nivel»: un arco de puntos que, al tocarlo, pide el nombre, el precio y cada cuánto se paga. */
 function NewTier({ first, onCreated, onState }: { first: boolean; onCreated: (tiers: WebTiers) => void; onState: (s: SaveState) => void }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
@@ -426,8 +424,8 @@ function NewTier({ first, onCreated, onState }: { first: boolean; onCreated: (ti
           <span className="grid h-14 w-14 place-items-center rounded-full border border-current">
             <Plus className="h-6 w-6" />
           </span>
-          <span className="display text-[1.6rem] leading-tight">{first ? "Crear el primer nivel" : "Añadir nivel"}</span>
-          <span className="max-w-[14rem] text-xs opacity-75">{first ? "Tu primera membresía: luego escribes encima todo lo demás." : "Una membresía nueva por encima de las que tienes: incluye todo lo del nivel anterior."}</span>
+          <span className="display text-[1.6rem] leading-tight">{first ? t("Crear el primer nivel") : t("Añadir nivel")}</span>
+          <span className="max-w-[14rem] text-xs opacity-75">{first ? t("Tu primera membresía: luego escribes encima todo lo demás.") : t("Una membresía nueva por encima de las que tienes: incluye todo lo del nivel anterior.")}</span>
         </button>
       ) : (
         <form
@@ -437,18 +435,18 @@ function NewTier({ first, onCreated, onState }: { first: boolean; onCreated: (ti
             if (!busy) void create();
           }}
         >
-          <p className="display text-center text-[1.5rem] leading-tight">{first ? "Tu primer nivel" : "Nivel nuevo"}</p>
+          <p className="display text-center text-[1.5rem] leading-tight">{first ? t("Tu primer nivel") : t("Nivel nuevo")}</p>
           <label className="block">
-            <span className="mb-1 block text-xs opacity-80">Nombre del nivel</span>
-            <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, 100))} placeholder="Por ejemplo: Luna completa" className={field} autoFocus required minLength={2} />
+            <span className="mb-1 block text-xs opacity-80"><Tr s={"Nombre del nivel"} /></span>
+            <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, 100))} placeholder={t("Por ejemplo: Luna completa")} className={field} autoFocus required minLength={2} />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs opacity-80">Precio (€)</span>
+            <span className="mb-1 block text-xs opacity-80"><Tr s={"Precio (€)"} /></span>
             <input value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d,.]/g, "").slice(0, 7))} inputMode="decimal" placeholder="33" className={field} required />
           </label>
           <div>
-            <span className="mb-1 block text-xs opacity-80">Se paga</span>
-            <div role="radiogroup" aria-label="Se paga" className="grid grid-cols-2 gap-1 rounded-xl border border-[color-mix(in_oklab,var(--tp-gold,#d4b57a)_40%,transparent)] p-1 text-sm">
+            <span className="mb-1 block text-xs opacity-80"><Tr s={"Se paga"} /></span>
+            <div role="radiogroup" aria-label={t("Se paga")} className="grid grid-cols-2 gap-1 rounded-xl border border-[color-mix(in_oklab,var(--tp-gold,#d4b57a)_40%,transparent)] p-1 text-sm">
               {(
                 [
                   ["month", "Cada mes"],
@@ -456,19 +454,16 @@ function NewTier({ first, onCreated, onState }: { first: boolean; onCreated: (ti
                 ] as const
               ).map(([k, label]) => (
                 <button key={k} type="button" role="radio" aria-checked={every === k} onClick={() => setEvery(k)} className={`rounded-lg px-2 py-1.5 font-medium transition ${every === k ? "bg-[var(--tp-gold,#d4b57a)] text-[#2a1e0c]" : "opacity-80 hover:opacity-100"}`}>
-                  {label}
+                  <Tr s={label} />
                 </button>
               ))}
             </div>
           </div>
-          {error && <p className="rounded-lg bg-red-900/70 px-2 py-1 text-xs text-white">{error}</p>}
+          {error && <p className="rounded-lg bg-red-900/70 px-2 py-1 text-xs text-white"><Tr s={error} /></p>}
           <div className="flex items-center justify-between gap-2 pt-1">
-            <button type="button" onClick={() => setOpen(false)} className="text-sm opacity-80 underline-offset-4 hover:underline">
-              Cancelar
-            </button>
+            <button type="button" onClick={() => setOpen(false)} className="text-sm opacity-80 underline-offset-4 hover:underline"><Tr s={"Cancelar"} /></button>
             <button type="submit" disabled={busy} className="portal-cta inline-flex min-h-10 items-center gap-2 rounded-full px-5 text-sm font-semibold disabled:opacity-60">
-              {busy && <Loader2 className="h-4 w-4 animate-spin" />} Crear nivel
-            </button>
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}{" "}<Tr s={"Crear nivel"} /></button>
           </div>
         </form>
       )}

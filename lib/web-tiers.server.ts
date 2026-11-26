@@ -1,3 +1,4 @@
+import { productPath } from "@/lib/public-paths";
 import "server-only";
 import type { PublicProduct } from "@/components/creator-page/creator-page-view";
 import type { WebTiers } from "./web-tiers";
@@ -65,7 +66,7 @@ export async function webTiers(creatorId: string, username: string, products: Pu
         cta: own?.cta || TIER_CTA_DEFAULT,
         area: own?.area ?? "",
         paid: mode === "PAID",
-        href: mode === "PAID" ? `/${username}/${t.slug}/solicitar` : mode === "EXTERNAL" && t.externalUrl ? t.externalUrl : `/${username}/${t.slug}`,
+        href: mode === "PAID" ? `${productPath(username, t, "request")}` : mode === "EXTERNAL" && t.externalUrl ? t.externalUrl : `${productPath(username, t)}`,
         includesPrevious: includesPrevious?.title ?? null,
         highlight: ordered.length > 1 && t.id === top,
         level: i,

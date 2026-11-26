@@ -12,6 +12,8 @@ import { Badge, PersonDot } from "../ui";
 import { PeopleList } from "./people-list";
 import { ReadingsChecklist } from "./lecturas";
 import { PENDING_INCLUDE, RequestCard, type PendingRequest } from "./solicitudes";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: peopleLabel() };
 
@@ -24,6 +26,7 @@ const HERE = "/panel/clientes";
  * historial, está en su ficha.
  */
 export default async function PeoplePage({ searchParams }: { searchParams: Promise<{ q?: string; orden?: string; borrada?: string; p?: string; ok?: string; error?: string }> }) {
+  const t = await getT();
   const sp = await searchParams;
   const { creator } = await requireCreator();
   const tz = creator.timezone;
@@ -38,7 +41,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
 
   return (
     <div>
-      <h1 className="sr-only">{label}</h1>
+      <h1 className="sr-only"><Tr s={label} /></h1>
       <Flash ok={sp.borrada ? "Borrada, con todo lo suyo." : sp.ok} error={sp.error} />
 
       {/* Móvil: los botones, las solicitudes y las lecturas, uno detrás de otro. Escritorio: solicitudes a la
@@ -46,26 +49,21 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_17rem] lg:grid-rows-[auto_1fr]">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 lg:col-start-2 lg:row-start-1 lg:flex-col lg:items-end">
           <Link href="/panel/solicitudes/dar" className="btn btn-primary">
-            <UserPlus className="h-4 w-4" /> Dar acceso
-          </Link>
+            <UserPlus className="h-4 w-4" />{" "}<Tr s={"Dar acceso"} /></Link>
           <Link href="/panel/solicitudes/dar/sesion" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-            <Gift className="h-4 w-4" /> Dar una sesión o lectura
-          </Link>
+            <Gift className="h-4 w-4" />{" "}<Tr s={"Dar una sesión o lectura"} /></Link>
           <Link href="/panel/solicitudes/horario" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-            <CalendarRange className="h-4 w-4" /> Tu horario
-          </Link>
+            <CalendarRange className="h-4 w-4" />{" "}<Tr s={"Tu horario"} /></Link>
         </div>
 
-        <section className="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1" aria-label="Solicitudes">
+        <section className="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1" aria-label={t("Solicitudes")}>
           <h2 className="mb-4 flex items-center gap-2.5 font-serif text-[1.5rem] font-semibold leading-tight">
             <span className="panel-emblem h-10 w-10">
               <Inbox className="h-5 w-5" />
-            </span>
-            Solicitudes
-            {pending.length > 0 && <span className="rounded-full bg-[#B4473C] px-2.5 py-0.5 font-sans text-xs font-bold text-white">{pending.length}</span>}
+            </span><Tr s={"Solicitudes"} />{pending.length > 0 && <span className="rounded-full bg-[#B4473C] px-2.5 py-0.5 font-sans text-xs font-bold text-white">{pending.length}</span>}
           </h2>
           {people.size === 0 ? (
-            <p className="card p-5 text-sm text-muted">No hay solicitudes nuevas. Cuando alguien te pida algo desde tu web, te llegará un email y saldrá aquí.</p>
+            <p className="card p-5 text-sm text-muted"><Tr s={"No hay solicitudes nuevas. Cuando alguien te pida algo desde tu web, te llegará un email y saldrá aquí."} /></p>
           ) : (
             <NewRequests people={people} creatorId={creator.id} tz={tz} />
           )}
@@ -76,7 +74,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
         </div>
       </div>
 
-      <PeopleList creatorId={creator.id} tz={tz} q={sp.q?.trim() || ""} az={sp.orden === "az"} page={Math.max(1, Number(sp.p) || 1)} label={label} />
+      <PeopleList creatorId={creator.id} tz={tz} q={sp.q?.trim() || ""} az={sp.orden === "az"} page={Math.max(1, Number(sp.p) || 1)} label={t(label)} />
     </div>
   );
 }
@@ -120,30 +118,29 @@ async function NewRequests({ people, creatorId, tz }: { people: Map<string, Pend
             <div className="mb-3 flex flex-wrap items-center gap-3">
               <PersonDot name={who} email={reqs[0].buyerEmail} className="h-12 w-12 text-lg" />
               <div className="min-w-0 flex-1">
-                <p className="truncate font-serif text-[1.35rem] font-semibold leading-tight">{who ?? reqs[0].buyerEmail}</p>
-                <p className="truncate text-xs text-muted">{reqs[0].buyerEmail}</p>
+                <p className="truncate font-serif text-[1.35rem] font-semibold leading-tight"><Tr s={who ?? reqs[0].buyerEmail} /></p>
+                <p className="truncate text-xs text-muted"><Tr s={reqs[0].buyerEmail} /></p>
               </div>
-              {reqs.length > 1 && <Badge tone="warning">{reqs.length} solicitudes suyas</Badge>}
+              {reqs.length > 1 && <Badge tone="warning">{reqs.length}{" "}<Tr s={"solicitudes suyas"} /></Badge>}
               {ficha && (
                 <Link href={`/panel/clientes/${ficha}`} className="btn btn-ghost btn-sm">
-                  <UserRound className="h-4 w-4" /> Ficha
-                </Link>
+                  <UserRound className="h-4 w-4" />{" "}<Tr s={"Ficha"} /></Link>
               )}
             </div>
             <div className="mb-4 flex flex-wrap items-center gap-1.5 text-xs">
               {live.length === 0 && past.length === 0 ? (
-                <span className="text-muted">Es nueva: todavía no tiene nada contigo.</span>
+                <span className="text-muted"><Tr s={"Es nueva: todavía no tiene nada contigo."} /></span>
               ) : (
                 <>
-                  <span className="mr-1 text-muted">Ya tiene:</span>
+                  <span className="mr-1 text-muted"><Tr s={"Ya tiene:"} /></span>
                   {live.map((a, n) => (
                     <Badge key={`v${n}`} tone="success">
-                      {a.label}
+                      <Tr s={a.label} />
                       {a.until ? ` · hasta el ${shortDay(a.until)}` : ""}
                     </Badge>
                   ))}
-                  {live.length === 0 && <span className="text-muted">nada activo ahora.</span>}
-                  {past.length > 0 && <span className="ml-1 text-muted">Tuvo: {past.map((a) => a.label).join(", ")}</span>}
+                  {live.length === 0 && <span className="text-muted"><Tr s={"nada activo ahora."} /></span>}
+                  {past.length > 0 && <span className="ml-1 text-muted"><Tr s={"Tuvo:"} />{" "}{past.map((a) => a.label).join(", ")}</span>}
                 </>
               )}
             </div>

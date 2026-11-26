@@ -1,4 +1,4 @@
-import { simulatedIdentityFields, maskTaxId } from "../../app/pago-simulado/cuenta/identity";
+import { simulatedIdentityFields, maskTaxId } from "../../app/test-payment/account/identity";
 import { safeHeaders, storedHeaders } from "../../lib/email/headers";
 import { previewEmailHtml } from "../../lib/email/preview";
 import { buildResendRequest } from "../../lib/email/providers/resend";
@@ -6,7 +6,7 @@ import { eq, ok, test } from "./harness";
 
 // ── Baja en un clic (RFC 8058): cabeceras del email ──
 
-const LIST = { "List-Unsubscribe": "<https://cirella.app/baja/recordatorios/un-clic?t=abc>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" };
+const LIST = { "List-Unsubscribe": "<https://cirella.app/unsubscribe/reminders/one-click?t=abc>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" };
 
 test("safeHeaders deja pasar solo las cabeceras de baja", () => {
   eq(safeHeaders({ ...LIST, Bcc: "otra@example.com", "X-Lo-Que-Sea": "1" }), LIST);

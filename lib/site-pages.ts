@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { contentBlockSchema, newBlock, PAGE_BLOCKS_MAX, PAGE_TEXT_MAX, pageImageSchema, readBlocks, type ContentBlock, type PageImage } from "./page-blocks";
+import { FOLD_ONLY_PAGES, homeFoldPath, SECTION_PATH, type SectionPage } from "./site-sections";
 import { RESERVED_USERNAMES, SITE_PAGE_SLUG_RE, slugify } from "./slug";
 
 /**
@@ -13,8 +14,8 @@ import { RESERVED_USERNAMES, SITE_PAGE_SLUG_RE, slugify } from "./slug";
 export const SITE_PAGES_MAX = 30;
 
 /**
- * La página «1:1» (/uno-a-uno): una página más de Páginas, con su dirección fija (no se cambia ni se
- * borra). Mientras no se publique, la web enseña la 1:1 de siempre (app/[username]/uno-a-uno).
+ * La página «1:1» (/1on1): una página más de Páginas, con su dirección fija (no se cambia ni se
+ * borra). Mientras no se publique, la web enseña la 1:1 de siempre (app/[username]/1on1).
  */
 export const ONE_TO_ONE_SLUG = "uno-a-uno";
 
@@ -26,7 +27,7 @@ export const ONE_TO_ONE_SLUG = "uno-a-uno";
 export const GIFTS_SLUG = "gifts";
 
 /**
- * «Hacerte miembro» (/comunidad): los niveles de la comunidad. Una página más de Páginas con su dirección fija, que
+ * «Hacerte miembro» (/membership): los niveles de la comunidad. Una página más de Páginas con su dirección fija, que
  * se escribe en Mi página como la 1:1: su título, su entradilla, sus secciones y, en la sección «Niveles de la
  * comunidad», cada nivel (nombre, precio, icono, lo que incluye, botón) y su diseño (colores y arco).
  */
@@ -95,16 +96,31 @@ export function giftsContent(email: string | null): SitePageContent {
   return { title: "Gifts", subtitle: "Calendarios, manualidades y regalos para los tuyos, hechos por mí.", cover: null, blocks, seoTitle: "Gifts", seoDescription: "" };
 }
 
-/** Lo que enseña el desplegable «Gifts» de la portada: las tarjetas de la página (las 3 primeras con título). */
-export type GiftsPreview = { title: string; subtitle: string; items: { title: string; text: string; image: string | null }[]; total: number };
+/** Lo que enseña el desplegable «Gifts» de la portada: las tarjetas de la página con título (se ven 3 y «Ver más»). */
+export type GiftsPreview = { title: string; subtitle: string; items: { title: string; text: string; image: string | null; slug: string }[]; total: number };
 export function giftsPreview(content: SitePageContent): GiftsPreview {
-  const cards = content.blocks.flatMap((b) => (b.enabled && b.kind === "cards" ? b.cards : [])).filter((c) => c.title.trim());
+  const cards = giftCards(content);
   return {
     title: content.title,
     subtitle: content.subtitle,
-    items: cards.slice(0, 3).map((c) => ({ title: c.title, text: c.text, image: c.image?.src ?? null })),
+    items: cards.map((c) => ({ title: c.title, text: c.text, image: c.image?.src ?? null, slug: c.slug })),
     total: cards.length,
   };
+}
+
+/**
+ * Los regalos de la página «Gifts» (las tarjetas con título), cada uno con su dirección sacada del título
+ * (/gifts/calendarios-lunares): la de su página propia. Si dos se llaman igual, el segundo lleva «-2».
+ */
+export function giftCards(content: SitePageContent) {
+  const cards = content.blocks.flatMap((b) => (b.enabled && b.kind === "cards" ? b.cards : [])).filter((c) => c.title.trim());
+  const used = new Map<string, number>();
+  return cards.map((c) => {
+    const base = slugify(c.title) || "regalo";
+    const n = (used.get(base) ?? 0) + 1;
+    used.set(base, n);
+    return { ...c, slug: n > 1 ? `${base}-${n}` : base };
+  });
 }
 
 /** El contenido de partida de la 1:1: lo mismo que la 1:1 de siempre, en bloques que se pueden editar. */
@@ -204,7 +220,7 @@ export type SitePageContent = {
 /** Lee el JSON guardado sin fallar: los bloques que no valen se descartan uno a uno. */
 export function readSitePageContent(raw: unknown, fallbackTitle: string): SitePageContent {
   const obj = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-  const field = <T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, v: unknown, fallback: T): T => {
+  const field = <T>(schema: z.ZodType<T, unknown>, v: unknown, fallback: T): T => {
     const r = schema.safeParse(v);
     return r.success ? r.data : fallback;
   };
@@ -220,8 +236,13 @@ export function readSitePageContent(raw: unknown, fallbackTitle: string): SitePa
 
 /** Dirección de una página extra (la canónica). */
 export function sitePagePath(username: string, slug: string, personal: boolean): string {
-  // La 1:1 vive en su sección de siempre (/uno-a-uno), no en /p/.
-  if (isFixedPageSlug(slug)) return personal ? `/${slug}` : `/${username}/${slug}`;
+  // Las fijas (1:1, Hacerte miembro, Gifts) viven en su sección (/1on1, /membership, /gifts), no en /p/.
+  if (isFixedPageSlug(slug)) {
+    // Gifts no tiene página: su desplegable de la portada (cada regalo sí tiene la suya).
+    if ((FOLD_ONLY_PAGES as readonly string[]).includes(slug)) return homeFoldPath(username, slug, personal);
+    const seg = SECTION_PATH[slug as SectionPage] ?? slug;
+    return personal ? `/${seg}` : `/${username}/${seg}`;
+  }
   return personal ? `/${slug}` : `/${username}/p/${slug}`;
 }
 

@@ -7,9 +7,9 @@ import { env } from "./env";
  * formato estructurado. Sin SDK de navegador: el bundle del cliente no cambia.
  *
  * Privacidad: a Sentry solo van ids (pedido, email, evento), nunca emails ni nombres;
- * sendDefaultPii está desactivado y beforeSend (scrubEvent) borra cookies, cabeceras de
+ * dataCollection lo desactiva todo y beforeSend (scrubEvent) borra cookies, cabeceras de
  * autorización, el cuerpo de las peticiones (formularios con IBAN o NIF) y la query de las URLs
- * (los enlaces personales y mágicos llevan el token ahí: /auth/enlace?t=…, /auth/magic?token=…).
+ * (los enlaces personales y mágicos llevan el token ahí: /auth/link?t=…, /auth/magic?token=…).
  */
 
 type ScrubbableEvent = {
@@ -67,7 +67,9 @@ export async function initMonitoring() {
       dsn,
       environment: env().APP_ENV,
       tracesSampleRate: 0,
-      sendDefaultPii: false,
+      // Nada personal (Sentry 11 lo recoge todo si no se dice): ni datos de la usuaria, ni cookies, cabeceras,
+      // cuerpos o parámetros de las peticiones. Lo que llega pasa además por scrubEvent.
+      dataCollection: { userInfo: false, cookies: false, httpHeaders: false, httpBodies: [], urlQueryParams: false, graphQL: { document: false, variables: false }, genAI: { inputs: false, outputs: false } },
       beforeSend: (event) => scrubEvent(event),
     });
     holder.__cirellaSentry = mod;

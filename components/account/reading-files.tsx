@@ -2,6 +2,8 @@ import Link from "next/link";
 import { BookOpen, Download, ExternalLink, Eye, FileText, Headphones, Image as ImageIcon, Video } from "lucide-react";
 import type { ReactNode } from "react";
 import { MediaView } from "@/components/media/media-view";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 /**
  * Las partes de una lectura (o de cualquier compra con archivos) como tarjetas de la web: primero lo que se
@@ -35,7 +37,8 @@ const META: Record<string, { icon: ReactNode; eyebrow: string; hint: string }> =
   LINK: { icon: <ExternalLink className="h-5 w-5" />, eyebrow: "Enlace", hint: "Se abre en otra pestaña." },
 };
 
-export function ReadingFiles({ files, title, artwork, back, linkHref }: { files: FileLike[]; title: string; artwork?: string | null; back: string; linkHref?: (f: FileLike) => string }) {
+export async function ReadingFiles({ files, title, artwork, back, linkHref }: { files: FileLike[]; title: string; artwork?: string | null; back: string; linkHref?: (f: FileLike) => string }) {
+  const t = await getT();
   const media = files.filter((f) => f.kind === "AUDIO" || f.kind === "VIDEO");
   const rest = files.filter((f) => f.kind !== "AUDIO" && f.kind !== "VIDEO");
   let step = 0;
@@ -50,11 +53,11 @@ export function ReadingFiles({ files, title, artwork, back, linkHref }: { files:
               <Step n={step} />
               <div className="min-w-0 flex-1">
                 <p className="text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-gold">
-                  {m.eyebrow}
+                  <Tr s={m.eyebrow} />
                   {mins(f.durationSec) && ` · ${mins(f.durationSec)}`}
                 </p>
                 <h3 className="display mt-0.5 text-[1.5rem] leading-tight text-[#f6f1e7]">{nice(f.name)}</h3>
-                <p className="mt-1 text-sm text-[rgb(246_241_231/.65)]">{m.hint}</p>
+                <p className="mt-1 text-sm text-[rgb(246_241_231/.65)]"><Tr s={m.hint} /></p>
               </div>
             </div>
             <div className="py-4">
@@ -62,7 +65,7 @@ export function ReadingFiles({ files, title, artwork, back, linkHref }: { files:
             </div>
             <div className="flex justify-end border-t border-[rgb(255_255_255/.08)] px-5 py-3 sm:px-6">
               <a href={`/api/download/${f.id}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[rgb(246_241_231/.75)] hover:text-gold">
-                <Download className="h-3.5 w-3.5" /> Descargar {size(f.sizeBytes) && `· ${size(f.sizeBytes)}`}
+                <Download className="h-3.5 w-3.5" />{" "}<Tr s={"Descargar"} />{" "}{size(f.sizeBytes) && `· ${size(f.sizeBytes)}`}
               </a>
             </div>
           </article>
@@ -79,26 +82,24 @@ export function ReadingFiles({ files, title, artwork, back, linkHref }: { files:
                 <div className="flex items-start gap-3.5">
                   <Step n={step} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-gold">{m.eyebrow}</p>
+                    <p className="text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-gold"><Tr s={m.eyebrow} /></p>
                     <h3 className="display mt-0.5 text-[1.35rem] leading-tight [overflow-wrap:anywhere]">{nice(f.name)}</h3>
-                    {m.hint && <p className="mt-1 text-sm text-muted">{m.hint}</p>}
+                    {m.hint && <p className="mt-1 text-sm text-muted"><Tr s={m.hint} /></p>}
                   </div>
                 </div>
                 <div className="mt-5 flex flex-wrap items-center gap-2 pt-1">
                   {link ? (
                     <a href={linkHref ? linkHref(f) : (f.url ?? "#")} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm">
-                      <ExternalLink className="h-3.5 w-3.5" /> Abrir
-                    </a>
+                      <ExternalLink className="h-3.5 w-3.5" />{" "}<Tr s={"Abrir"} /></a>
                   ) : (
                     <>
                       {VIEWABLE.has(f.kind) && (
-                        <Link href={`/cuenta/archivos/${f.id}?volver=${encodeURIComponent(back)}`} className="btn btn-primary btn-sm">
-                          <Eye className="h-3.5 w-3.5" /> {f.kind === "PDF" ? "Abrir la guía" : "Ver"}
+                        <Link href={`/area/files/${f.id}?volver=${encodeURIComponent(back)}`} className="btn btn-primary btn-sm">
+                          <Eye className="h-3.5 w-3.5" /> {f.kind === "PDF" ? t("Abrir la guía") : t("Ver")}
                         </Link>
                       )}
                       <a href={`/api/download/${f.id}`} className="btn btn-ghost btn-sm">
-                        <Download className="h-3.5 w-3.5" /> Descargar
-                      </a>
+                        <Download className="h-3.5 w-3.5" />{" "}<Tr s={"Descargar"} /></a>
                       {size(f.sizeBytes) && <span className="ml-auto text-xs text-muted">{size(f.sizeBytes)}</span>}
                     </>
                   )}

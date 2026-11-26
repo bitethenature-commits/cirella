@@ -349,7 +349,7 @@ async function buyerScopeIsolation(ana: CreatorRow, maria: CreatorRow) {
   check("…ni la reserva de Carmen con Cirella (otro pedido)", anaBooking.orderId !== mariaOrder.id && !scopeAllows(scope, { bookingOrderId: anaBooking.orderId }));
   check("…ni otro pedido de Cirella", !scopeAllows(scope, { orderId: anaOrder.id }));
 
-  const link = await createOrderLink({ orderId: mariaOrder.id, path: `/cuenta/pedidos/${mariaOrder.id}` });
+  const link = await createOrderLink({ orderId: mariaOrder.id, path: `/area/orders/${mariaOrder.id}` });
   const other = await createOrderLink({ orderId: anaOrder.id, path: "//evil.example/robo" });
   const tag = `isolation-scope-${Date.now()}`;
   const sessions = await Promise.all(
@@ -360,9 +360,9 @@ async function buyerScopeIsolation(ana: CreatorRow, maria: CreatorRow) {
   try {
     const res = await resolveOrderLink(new URL(link.url).searchParams.get("t")!);
     check("el enlace personal resuelve al pedido de María", res?.status === "ok" && res.order.creatorId === maria.id && res.order.id === mariaOrder.id);
-    check("…con una ruta interna", res?.status === "ok" && res.link.path === `/cuenta/pedidos/${mariaOrder.id}`);
+    check("…con una ruta interna", res?.status === "ok" && res.link.path === `/area/orders/${mariaOrder.id}`);
     const forged = await resolveOrderLink(new URL(other.url).searchParams.get("t")!);
-    check("una ruta externa se sustituye por la de la compra", forged?.status === "ok" && forged.link.path === `/cuenta/pedidos/${anaOrder.id}`);
+    check("una ruta externa se sustituye por la de la compra", forged?.status === "ok" && forged.link.path === `/area/orders/${anaOrder.id}`);
     check("un token inventado no resuelve nada", (await resolveOrderLink("inventado")) === null);
 
     await revokeOrderAccess(mariaOrder.id);

@@ -8,6 +8,7 @@ import { tenantDb } from "@/lib/tenant";
 import { PageHeader } from "../../../../ui";
 import { deleteCard } from "../../../actions";
 import { CardForm } from "../../../card-form";
+import { Tr } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Editar carta" };
 
@@ -42,8 +43,7 @@ export default async function EditCardPage({ params }: { params: Promise<{ id: s
       <ConfirmForm action={deleteCard} message={`¿Borrar la carta «${card.name}»? No se puede deshacer.`} className="mt-10 border-t border-line pt-6">
         <input type="hidden" name="id" value={card.id} />
         <button className="btn btn-ghost btn-sm text-rose">
-          <Trash2 className="h-4 w-4" /> Borrar la carta
-        </button>
+          <Trash2 className="h-4 w-4" />{" "}<Tr s={"Borrar la carta"} /></button>
       </ConfirmForm>
     </div>
   );

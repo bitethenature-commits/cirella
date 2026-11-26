@@ -5,6 +5,7 @@ import type { ModelKind } from "@/lib/page-blocks";
 import type { BirthProfile } from "@/lib/birth-profile";
 import type { OracleDeckView } from "./data/oracle";
 import { useModelGate, type GatedModel, type ModelGateInfo } from "./model-gate-scope";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * Los modelos interactivos del bloque «Modelo interactivo» (lib/page-blocks.ts). Cada uno se carga aparte
@@ -14,7 +15,7 @@ import { useModelGate, type GatedModel, type ModelGateInfo } from "./model-gate-
 function Loading() {
   return (
     <div className="grid min-h-[24rem] place-items-center" aria-busy="true">
-      <span className="cp-faint text-[0.85rem]">Cargando el modelo…</span>
+      <span className="cp-faint text-[0.85rem]"><Tr s={"Cargando el modelo…"} /></span>
     </div>
   );
 }
@@ -32,6 +33,8 @@ const ModelGate = dynamic(() => import("./model-gate").then((m) => m.ModelGate),
 /** La barra de «Calcular con mis datos» de la versión rápida, debajo de la caja (dentro de un ModelGateScope). */
 export const ModelGateBelow = dynamic(() => import("./model-gate").then((m) => () => <m.ModelGateBar variant="below" />), { ssr: false, loading: LoadingBar });
 const KundaliniModel = dynamic(() => import("./kundalini-model").then((m) => m.KundaliniModel), { ssr: false, loading: Loading });
+const GeometryModel = dynamic(() => import("./geometry-model").then((m) => m.GeometryModel), { ssr: false, loading: Loading });
+const DimensionsModel = dynamic(() => import("./dimensions-model").then((m) => m.DimensionsModel), { ssr: false, loading: Loading });
 const OracleModel = dynamic(() => import("./oracle-model").then((m) => m.OracleModel), { ssr: false, loading: Loading });
 // El oráculo con «Más barajas» (solo con cuenta y newsletter) en las páginas públicas de la web personal.
 const OracleWithDecks = dynamic(() => import("./oracle-decks-gate").then((m) => m.OracleWithDecks), { ssr: false, loading: Loading });
@@ -94,6 +97,10 @@ export function InteractiveModel({
       return <RunesModel />;
     case "kundalini":
       return <KundaliniModel />;
+    case "sacred":
+      return <GeometryModel />;
+    case "dimensions":
+      return <DimensionsModel />;
     case "oracle":
       // Otra baraja, otra tirada: se empieza de cero.
       return gate ? <OracleWithDecks deck={deck ?? null} gate={gate} /> : <OracleModel key={deck?.id ?? "serie"} deck={deck} />;

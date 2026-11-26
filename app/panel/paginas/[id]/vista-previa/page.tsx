@@ -10,6 +10,7 @@ import { getPublicCreator } from "@/lib/public";
 import { isPersonalMode } from "@/lib/site-mode";
 import { readSitePageContent, sitePagePath } from "@/lib/site-pages";
 import { tenantDb } from "@/lib/tenant";
+import { Tr } from "@/lib/i18n/client";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Vista previa", robots: { index: false } };
@@ -25,10 +26,8 @@ export default async function SitePagePreview({ params }: { params: Promise<{ id
   return (
     <>
       <div className="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-ink px-4 py-2 text-center text-xs text-cream">
-        <span>Vista previa del borrador · solo tú la ves</span>
-        <Link href={`/panel/paginas/${page.id}`} className="font-semibold underline underline-offset-2">
-          Volver a editar
-        </Link>
+        <span><Tr s={"Vista previa del borrador · solo tú la ves"} /></span>
+        <Link href={`/panel/paginas/${page.id}`} className="font-semibold underline underline-offset-2"><Tr s={"Volver a editar"} /></Link>
       </div>
       <SitePageView
         username={creator.username}

@@ -5,6 +5,9 @@ import { SiteBrandProvider } from "@/components/site-brand-context";
 import { getSiteBrand } from "@/lib/site-brand";
 import { toClientSiteBrand } from "@/lib/site-brand-client";
 import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
+import { OG_LOCALE } from "@/lib/i18n/config";
+import { LocaleProvider } from "@/lib/i18n/client";
+import { getLocale } from "@/lib/i18n/server";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -27,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(appUrl()),
     title: { default: name, template: "%s" },
-    openGraph: { siteName: name || undefined, type: "website", locale: "es_ES" },
+    openGraph: { siteName: name || undefined, type: "website", locale: OG_LOCALE[await getLocale()] },
     ...(owner ? { icons: { icon: [{ url: `/${owner}/icon`, type: "image/png", sizes: "64x64" }] } } : {}),
   };
 }
@@ -52,9 +55,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Web personal: las pantallas de error (componentes cliente) muestran la marca de la dueña.
   const personal = isPersonalMode();
   const brand = personal ? toClientSiteBrand(true, await getSiteBrand().catch(() => null)) : null;
+  // El idioma de la página (lib/i18n): el de la dirección (/en, /es) o el alemán.
+  const locale = await getLocale();
   return (
-    <html lang="es" className={fontVariables}>
-      <body>{personal ? <SiteBrandProvider value={brand}>{children}</SiteBrandProvider> : children}</body>
+    <html lang={locale} className={fontVariables}>
+      <body>
+        <LocaleProvider locale={locale}>{personal ? <SiteBrandProvider value={brand}>{children}</SiteBrandProvider> : children}</LocaleProvider>
+      </body>
     </html>
   );
 }

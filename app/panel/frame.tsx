@@ -4,8 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronUp, Copy, ExternalLink, LogOut, Settings, ShieldCheck, ShoppingBag } from "lucide-react";
+import { PanelLanguage } from "@/components/panel/panel-language";
 import type { PanelNavPrefs } from "@/lib/panel-prefs";
 import { EDGE_LABEL, frameSlot, panelNavFor, type FrameSlot, type PanelNavFlags, type PanelNavItem } from "./nav-items";
+import { Tr, useT } from "@/lib/i18n/client";
 
 // Por tramos: «/panel/pagina» no se marca en «/panel/paginas».
 const isActive = (path: string, href: string) => (href === "/panel" ? path === "/panel" : path === href || path.startsWith(`${href}/`));
@@ -35,7 +37,7 @@ export type FrameSite = {
  * - Arriba a la izquierda, la etiqueta con su nombre en grande, que cuelga del borde y lleva a Inicio; a su lado,
  *   las pestañas de su web (Actualidades).
  * - Arriba a la derecha, en todas las secciones: cómo está su web, «Ver la web», copiar su enlace y el botón dorado
- *   de Canva (Mi página).
+ *   «Diseñar» (Mi página).
  * - En el borde izquierdo, lo que ofrece (Membresía, Círculos, Cursos, Sesiones, Portal): pestañas que salen
  *   del borde, medio escondidas, con el icono arriba y el nombre debajo (en el móvil, solo el icono).
  * - Abajo a la izquierda, Personas y Newsletter.
@@ -92,13 +94,14 @@ function useDismiss(open: boolean, close: () => void, box: React.RefObject<HTMLE
 /**
  * Arriba a la izquierda: su nombre en grande, colgando del borde, que lleva a Inicio; a su lado, las pestañas de su
  * web (Actualidades), que cuelgan del mismo borde (en el móvil, solo el icono). Se acorta para no pisar lo de la
- * derecha (globals.css → .panel-top-left).
+ * derecha (globals.css → .panel-top-left). En los editores del móvil queda solo su foto (o el símbolo).
  */
 function TopLeft({ name, mark, items, path, badges }: { name: string; mark: ReactNode; items: PanelNavItem[]; path: string; badges: Record<string, number> }) {
+  const t = useT();
   return (
-    <nav aria-label="Inicio y tu web" className="panel-top-left fixed left-3 top-0 z-[46] flex items-start gap-1.5 sm:left-6">
+    <nav aria-label={t("Inicio y tu web")} className="panel-top-left fixed left-3 top-0 z-[46] flex items-start gap-1.5 sm:left-6">
       <div className="panel-side panel-tab panel-tab-top min-w-0 overflow-hidden rounded-b-[1.6rem]">
-        <Link href="/panel" title="Inicio" className="panel-nav-link flex items-center gap-3 px-4 pb-3.5 pt-4 sm:px-5">
+        <Link href="/panel" title={t("Inicio")} className="panel-nav-link flex items-center gap-3 px-4 pb-3.5 pt-4 sm:px-5">
           <span className="shrink-0">{mark}</span>
           <span className="panel-tab-title display min-w-0 truncate text-[1.65rem] leading-none sm:text-[2rem]">{name}</span>
           {!!badges["/panel"] && <NavBadge n={badges["/panel"]} />}
@@ -108,10 +111,10 @@ function TopLeft({ name, mark, items, path, badges }: { name: string; mark: Reac
         const active = isActive(path, i.href);
         const Icon = i.icon;
         return (
-          <div key={i.href} className={`panel-side panel-tab panel-tab-top shrink-0 overflow-hidden rounded-b-2xl transition-transform ${active ? "" : "-translate-y-1 hover:translate-y-0"}`}>
-            <Link href={i.href} aria-current={active ? "page" : undefined} title={i.label} className="panel-nav-link flex items-center gap-2 px-3 pb-2.5 pt-3.5 text-xs font-medium sm:px-4 sm:text-sm">
+          <div key={i.href} data-top-tab className={`panel-side panel-tab panel-tab-top shrink-0 overflow-hidden rounded-b-2xl transition-transform ${active ? "" : "-translate-y-1 hover:translate-y-0"}`}>
+            <Link href={i.href} aria-current={active ? "page" : undefined} title={t(i.label)} className="panel-nav-link flex items-center gap-2 px-3 pb-2.5 pt-3.5 text-xs font-medium sm:px-4 sm:text-sm">
               <Icon className="h-4 w-4 shrink-0" />
-              <span className="sr-only sm:not-sr-only">{i.label}</span>
+              <span className="sr-only sm:not-sr-only"><Tr s={i.label} /></span>
               {!!badges[i.href] && <NavBadge n={badges[i.href]} />}
             </Link>
           </div>
@@ -123,10 +126,11 @@ function TopLeft({ name, mark, items, path, badges }: { name: string; mark: Reac
 
 /**
  * Arriba a la derecha, en todas las secciones: cómo está su web (publicada o borrador), «Ver la web», copiar su
- * enlace y el botón dorado de Canva (Mi página). En los editores (la web y los cursos) no sale: allí ocupa este
+ * enlace y el botón dorado «Diseñar» (Mi página). En los editores (la web y los cursos) no sale: allí ocupa este
  * sitio la barra del editor, que ya lleva el estado y «Ver la web» (globals.css → [data-panel-top-right]).
  */
 function TopRight({ site, canva }: { site: FrameSite; canva: PanelNavItem | undefined }) {
+  const t = useT();
   const box = useRef<HTMLDivElement>(null);
   // Lo de la izquierda se acorta para no pisarlo: le deja su ancho (0 cuando no se ve).
   useEffect(() => {
@@ -147,27 +151,26 @@ function TopRight({ site, canva }: { site: FrameSite; canva: PanelNavItem | unde
   const CanvaIcon = canva?.icon;
   return (
     <div ref={box} data-panel-top-right className="panel-side panel-tab panel-tab-top fixed right-3 top-0 z-[44] flex items-center gap-1 rounded-b-[1.6rem] p-2 sm:right-6 sm:gap-1.5">
-      <span className="hidden h-9 items-center gap-2 pl-2 pr-1 text-sm sm:inline-flex" title={status}>
+      <span className="hidden h-9 items-center gap-2 pl-2 pr-1 text-sm sm:inline-flex" title={t(status)}>
         <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
-        <span className="panel-tab-title">{site.published ? "Publicada" : "Borrador"}</span>
+        <span className="panel-tab-title">{site.published ? t("Publicada") : t("Borrador")}</span>
       </span>
       <Link
         href={site.published ? site.publicHref : "/vista-previa"}
         target="_blank"
-        title={site.published ? "Ver la web" : "Ver la web (vista previa: aún está en borrador)"}
-        aria-label="Ver la web"
+        title={site.published ? t("Ver la web") : t("Ver la web (vista previa: aún está en borrador)")}
+        aria-label={t("Ver la web")}
         className="panel-nav-link relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-sm"
       >
         <ExternalLink className="h-4 w-4 shrink-0" />
-        <span className="hidden lg:inline">Ver la web</span>
+        <span className="hidden lg:inline"><Tr s={"Ver la web"} /></span>
         {/* En el móvil no cabe el estado: su punto, encima del icono. */}
-        <span className={`absolute right-1 top-1 h-2 w-2 rounded-full sm:hidden ${dot}`} title={status} aria-hidden />
+        <span className={`absolute right-1 top-1 h-2 w-2 rounded-full sm:hidden ${dot}`} title={t(status)} aria-hidden />
       </Link>
       <CopyLink url={site.url} />
       {canva && CanvaIcon && (
-        <Link href={canva.href} className="panel-canva-btn ml-0.5 shrink-0" title="Editar tu web como en Canva">
-          <CanvaIcon className="h-4 w-4 shrink-0" /> Canva
-        </Link>
+        <Link href={canva.href} className="panel-canva-btn ml-0.5 shrink-0" title={t("Diseña tu web: textos, fotos y colores, encima de la propia página")}>
+          <CanvaIcon className="h-4 w-4 shrink-0" />{" "}<Tr s={"Diseñar"} /></Link>
       )}
     </div>
   );
@@ -175,6 +178,7 @@ function TopRight({ site, canva }: { site: FrameSite; canva: PanelNavItem | unde
 
 /** Copiar el enlace de su web: solo el icono (al copiar, un ✓ un momento). */
 function CopyLink({ url }: { url: string }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -194,8 +198,8 @@ function CopyLink({ url }: { url: string }) {
     <button
       type="button"
       onClick={() => void copy()}
-      title={copied ? "¡Copiado!" : "Copiar el enlace de tu web"}
-      aria-label={copied ? "Enlace copiado" : "Copiar el enlace de tu web"}
+      title={copied ? t("¡Copiado!") : t("Copiar el enlace de tu web")}
+      aria-label={copied ? t("Enlace copiado") : t("Copiar el enlace de tu web")}
       className="panel-nav-link hidden h-9 w-9 shrink-0 place-items-center rounded-full sm:grid"
     >
       {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -210,9 +214,10 @@ function CopyLink({ url }: { url: string }) {
  * En el móvil, solo el icono.
  */
 function LeftTabs({ items, path, badges }: { items: PanelNavItem[]; path: string; badges: Record<string, number> }) {
+  const t = useT();
   if (!items.length) return null;
   return (
-    <nav aria-label="Lo que ofreces" className="pointer-events-none fixed left-0 top-1/2 z-40 flex max-h-[calc(100dvh-10.5rem)] -translate-y-1/2 flex-col gap-1.5 overflow-y-auto py-2 pr-4 [scrollbar-width:none]" data-panel-side-nav>
+    <nav aria-label={t("Lo que ofreces")} className="pointer-events-none fixed left-0 top-1/2 z-40 flex max-h-[calc(100dvh-10.5rem)] -translate-y-1/2 flex-col gap-1.5 overflow-y-auto py-2 pr-4 [scrollbar-width:none]" data-panel-side-nav>
       {items.map((i) => {
         const active = isActive(path, i.href);
         const Icon = i.icon;
@@ -221,9 +226,9 @@ function LeftTabs({ items, path, badges }: { items: PanelNavItem[]; path: string
             key={i.href}
             className={`panel-side panel-tab panel-tab-left pointer-events-auto shrink-0 overflow-hidden rounded-r-2xl transition-transform duration-200 lg:w-[5rem] lg:-translate-x-7 lg:hover:translate-x-0 lg:focus-within:translate-x-0 ${active ? "" : "max-lg:-translate-x-1 max-lg:hover:translate-x-0"}`}
           >
-            <Link href={i.href} aria-current={active ? "page" : undefined} title={i.label} className="panel-nav-link relative flex flex-col items-center gap-2.5 px-2.5 py-3 lg:gap-1.5 lg:px-1.5">
+            <Link href={i.href} aria-current={active ? "page" : undefined} title={t(i.label)} className="panel-nav-link relative flex flex-col items-center gap-2.5 px-2.5 py-3 lg:gap-1.5 lg:px-1.5">
               <Icon className="h-4 w-4 shrink-0" />
-              <span className="sr-only lg:not-sr-only lg:max-w-full lg:truncate lg:text-[0.72rem] lg:font-medium lg:leading-tight">{EDGE_LABEL[i.href] ?? i.label}</span>
+              <span className="sr-only lg:not-sr-only lg:max-w-full lg:truncate lg:text-[0.72rem] lg:font-medium lg:leading-tight"><Tr s={EDGE_LABEL[i.href] ?? i.label} /></span>
               {!!badges[i.href] && <NavBadge n={badges[i.href]} className="!h-4 !min-w-4 !px-1 !text-[0.6rem]" />}
             </Link>
           </div>
@@ -235,11 +240,12 @@ function LeftTabs({ items, path, badges }: { items: PanelNavItem[]; path: string
 
 /** Abajo a la izquierda: Personas y Newsletter (y Ventas si cobra), saliendo del borde de abajo. */
 function CornerTabs({ items, path, badges }: { items: PanelNavItem[]; path: string; badges: Record<string, number> }) {
+  const t = useT();
   if (!items.length) return null;
   // En el móvil, con más de dos, solo los iconos (si no, no caben junto a Ajustes).
   const compact = items.length > 2;
   return (
-    <nav aria-label="Personas" className="fixed bottom-0 left-3 z-40 flex items-end gap-1.5 sm:left-6">
+    <nav aria-label={t("Personas")} className="fixed bottom-0 left-3 z-40 flex items-end gap-1.5 sm:left-6">
       {items.map((i) => {
         const active = isActive(path, i.href);
         const Icon = i.icon;
@@ -248,11 +254,11 @@ function CornerTabs({ items, path, badges }: { items: PanelNavItem[]; path: stri
             <Link
               href={i.href}
               aria-current={active ? "page" : undefined}
-              title={i.label}
+              title={t(i.label)}
               className="panel-nav-link flex items-center gap-2 px-3 pb-[calc(0.8rem+env(safe-area-inset-bottom))] pt-2.5 text-xs font-medium sm:px-4 sm:text-sm"
             >
               <Icon className="h-4 w-4 shrink-0" />
-              <span className={compact ? "sr-only sm:not-sr-only" : ""}>{i.label}</span>
+              <span className={compact ? "sr-only sm:not-sr-only" : ""}><Tr s={i.label} /></span>
               {!!badges[i.href] && <NavBadge n={badges[i.href]} />}
             </Link>
           </div>
@@ -279,25 +285,23 @@ function SettingsTab({ items, path, site, personal }: { items: PanelNavItem[]; p
             const Icon = i.icon;
             return (
               <Link key={i.href} href={i.href} onClick={close} aria-current={isActive(path, i.href) ? "page" : undefined} className={row}>
-                <Icon className="h-4 w-4 shrink-0" /> {i.label}
+                <Icon className="h-4 w-4 shrink-0" /> <Tr s={i.label} />
               </Link>
             );
           })}
           <div className="my-1.5 border-t border-line/60" />
+          <PanelLanguage />
           {site.admin && (
             <Link href="/admin" onClick={close} className={row}>
-              <ShieldCheck className="h-4 w-4 shrink-0" /> Administración
-            </Link>
+              <ShieldCheck className="h-4 w-4 shrink-0" />{" "}<Tr s={"Administración"} /></Link>
           )}
           {!personal && (
-            <Link href="/cuenta" onClick={close} className={row}>
-              <ShoppingBag className="h-4 w-4 shrink-0" /> Mis compras como clienta
-            </Link>
+            <Link href="/area" onClick={close} className={row}>
+              <ShoppingBag className="h-4 w-4 shrink-0" />{" "}<Tr s={"Mis compras como clienta"} /></Link>
           )}
-          <form action="/auth/salir" method="post">
+          <form action="/auth/logout" method="post">
             <button className={row}>
-              <LogOut className="h-4 w-4 shrink-0" /> Cerrar sesión
-            </button>
+              <LogOut className="h-4 w-4 shrink-0" />{" "}<Tr s={"Cerrar sesión"} /></button>
           </form>
         </div>
       )}
@@ -311,7 +315,7 @@ function SettingsTab({ items, path, site, personal }: { items: PanelNavItem[]; p
           className="panel-nav-link flex items-center gap-2 px-3 pb-[calc(0.8rem+env(safe-area-inset-bottom))] pt-2.5 text-xs font-medium sm:px-4 sm:text-sm"
         >
           <Settings className="h-4 w-4 shrink-0" />
-          <span className="sr-only sm:not-sr-only">Ajustes</span>
+          <span className="sr-only sm:not-sr-only"><Tr s={"Ajustes"} /></span>
           <ChevronUp className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? "" : "rotate-180"}`} />
         </button>
       </div>

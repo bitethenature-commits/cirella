@@ -1,4 +1,5 @@
 "use client";
+import { loginPath } from "@/lib/public-paths";
 import Link from "next/link";
 import { useSyncExternalStore, type ReactNode } from "react";
 import { siteText, type SiteTextKey, type SiteTexts } from "@/lib/site-texts";
@@ -33,7 +34,7 @@ export function AccountEntry({ username, personal = false, variant, texts, editT
           {t(signedIn ? "account.footerIn" : personal ? "account.footerPersonal" : "account.footer")}
         </Link>
         {personal && !signedIn && (
-          <Link href={`/${username}/entrar?modo=alta`} className="cp-muted inline-flex min-h-11 items-center underline-offset-4 hover:underline">
+          <Link href={`${loginPath(username)}?modo=alta`} className="cp-muted inline-flex min-h-11 items-center underline-offset-4 hover:underline">
             {t("account.signup")}
           </Link>
         )}

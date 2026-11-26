@@ -25,9 +25,9 @@ const POST_TITLE = `Publicación de prueba ${stamp}`;
 const CODE = `E2E${stamp}`;
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 /** Espera la respuesta de /api/track a un evento de ese tipo (así se sabe qué contestó el servidor). */
@@ -69,8 +69,8 @@ test.describe.serial("Modo personal · contenido", () => {
     const news = page.locator("#actualidades");
     await expect(news.getByRole("heading", { name: "Actualidades" })).toBeVisible();
     await news.locator("> details > summary").click();
-    await expect(news.getByRole("link", { name: /Eclipse de octubre/ })).toHaveAttribute("href", "/ana/actualidades/eclipse-de-octubre");
-    await expect(news.getByRole("link", { name: /Ver todas/ })).toHaveAttribute("href", "/actualidades");
+    await expect(news.getByRole("link", { name: /Eclipse de octubre/ })).toHaveAttribute("href", "/ana/news/october-eclipse");
+    await expect(news.getByRole("link", { name: /Ver todas/ })).toHaveAttribute("href", "/news");
 
     const codes = page.locator("#codigos");
     await expect(codes.getByRole("heading", { name: "Códigos de descuento" })).toBeVisible();
@@ -99,7 +99,7 @@ test.describe.serial("Modo personal · contenido", () => {
     expect(text).not.toContain("Powered by");
     expect(text).not.toContain("IVA incluido");
     // Las sesiones (también las que se pagan fuera) están en su página, con los pasos para reservar.
-    await page.goto("/sesiones");
+    await page.goto("/sessions");
     await expect(page.getByRole("heading", { name: "Cómo reservar" })).toBeVisible();
     const external = page.locator("article", { hasText: "Revolución solar" }).first();
     await expect(external.getByText("Pago en calendly.com")).toBeVisible();
@@ -169,24 +169,24 @@ test.describe.serial("Modo personal · contenido", () => {
   });
 
   test("actualidades: la lista y cada publicación con su SEO, sin HTML y con enlaces automáticos", async ({ page }) => {
-    await page.goto("/actualidades");
+    await page.goto("/news");
     await expect(page.getByRole("heading", { name: "Actualidades", level: 1 })).toBeVisible();
     await expect(page.getByRole("link", { name: /Abro plazas en el Círculo Lunar/ })).toBeVisible();
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${PERSONAL}/actualidades`);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${PERSONAL}/news`);
 
     await page.getByRole("link", { name: /Eclipse de octubre/ }).click();
-    await page.waitForURL("**/ana/actualidades/eclipse-de-octubre");
+    await page.waitForURL("**/ana/news/october-eclipse");
     await expect(page.getByRole("heading", { name: "Eclipse de octubre: qué cierra y qué empieza", level: 1 })).toBeVisible();
     await expect(page).toHaveTitle(/Eclipse de octubre.*Cirella/);
     await expect(page.locator('meta[property="og:type"]')).toHaveAttribute("content", "article");
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${PERSONAL}/ana/actualidades/eclipse-de-octubre`);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${PERSONAL}/ana/news/october-eclipse`);
     await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(1);
     expect(await page.locator("body").innerText()).not.toContain("Powered by");
 
-    await page.goto("/ana/actualidades/nuevo-circulo-lunar");
+    await page.goto("/ana/news/moon-circle-open");
     await expect(page.locator('a[href="mailto:hola@cirella.app"]')).toBeVisible();
 
-    expect((await page.request.get("/ana/actualidades/no-existe")).status()).toBe(404);
+    expect((await page.request.get("/ana/news/no-existe")).status()).toBe(404);
     expect((await page.request.get("/maria/actualidades")).status()).toBe(404);
   });
 
@@ -204,7 +204,7 @@ test.describe.serial("Modo personal · contenido", () => {
     await expect(page.getByText("Borrador guardado")).toBeVisible();
     const editUrl = page.url().split("?")[0];
 
-    await page.goto("/actualidades");
+    await page.goto("/news");
     await expect(page.getByText(POST_TITLE)).toHaveCount(0);
 
     // Vista previa del borrador (solo la dueña).
@@ -232,7 +232,7 @@ test.describe.serial("Modo personal · contenido", () => {
     await page.getByRole("button", { name: "Borrar publicación" }).click();
     await page.waitForURL("**/panel/publicaciones?borrada=1");
     await expect(page.getByText(POST_TITLE)).toHaveCount(0);
-    for (const path of ["/", "/actualidades"]) {
+    for (const path of ["/", "/news"]) {
       await page.goto(path);
       await expect(page.getByText(POST_TITLE)).toHaveCount(0);
     }

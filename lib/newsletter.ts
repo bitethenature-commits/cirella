@@ -8,6 +8,7 @@ import { activeAccessWhere } from "./membership-access";
 import { readPageConfig } from "./page-config";
 import { canSend, type Segment, type SubscriberSource, type SubscriberStatus, type UnsubscribeVia } from "./newsletter-rules";
 import { confirmUrl, readConfirmToken, readUnsubscribeToken } from "./newsletter-tokens";
+import { requestLocale, inMail } from "@/lib/i18n/email";
 
 /**
  * Suscriptoras de la newsletter de cada creadora (Subscriber). Este módulo es el único que las
@@ -54,7 +55,7 @@ export async function subscribe(creatorId: string, i: SubscribeInput, db: Db = p
   if (!prev) {
     const status: SubscriberStatus = i.confirmed ? "CONFIRMED" : "PENDING";
     const row = await db.subscriber.create({
-      data: { creatorId, email, name: i.name?.trim() || null, status, source: i.source, sourceRef: i.sourceRef ?? null, ...consent, confirmedAt: i.confirmed ? at : null },
+      data: { creatorId, email, name: i.name?.trim() || null, locale: await requestLocale(), status, source: i.source, sourceRef: i.sourceRef ?? null, ...consent, confirmedAt: i.confirmed ? at : null },
     });
     if (i.confirmed) await mirror(db, creatorId, email, true, at);
     return { subscriberId: row.id, status, needsConfirmation: !i.confirmed };
@@ -140,7 +141,7 @@ export async function sendConfirmation(subscriberId: string, now = new Date()): 
     creatorId: s.creatorId,
     template: "NEWSLETTER_CONFIRM",
     dedupeKey: `nl-confirm:${s.id}:${Math.floor(now.getTime() / HOUR)}`,
-    ...newsletterConfirmEmail({ creatorName: brandName(s.creator), url: confirmUrl(s.id), name: s.name }),
+    ...(await inMail(s.email, () => newsletterConfirmEmail({ creatorName: brandName(s.creator), url: confirmUrl(s.id), name: s.name }))),
   });
   return true;
 }
@@ -159,7 +160,7 @@ export function confirmTarget(token: string | null | undefined) {
 }
 
 /**
- * «Sí, quiero recibirla» (POST de /novedades/confirmar). Solo una pendiente pasa a confirmada:
+ * «Sí, quiero recibirla» (POST de /newsletter/confirm). Solo una pendiente pasa a confirmada:
  * repetirlo no hace nada y un enlace antiguo no resucita a quien se dio de baja después.
  */
 export async function confirmByToken(token: string, now = new Date()): Promise<ConfirmTarget | null> {

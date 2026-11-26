@@ -46,6 +46,7 @@ export const ASTRO_LAYERS = [
   "geo-circle", "geo-vesica", "geo-flower", "geo-metatron", "geo-platonic", "geo-golden", "geo-numbers", "geo-tree", "geo-sriyantra", "geo-merkaba", "geo-torus", "geo-chakras",
   "day-week",
   "kun-chakras", "kun-nadis", "kun-serpent", "kun-granthis", "kun-bandhas", "kun-bodies", "kun-numbers", "kun-mudras", "kun-breath", "kun-mantras", "kun-class",
+  "dim-levels", "dim-shift", "dim-chakras", "dim-geometry",
   "orc-reading", "orc-questions", "orc-spreads", "orc-symbols", "orc-numbers", "orc-colors", "orc-elements", "orc-signals", "orc-create",
 ] as const;
 export type AstroLayer = (typeof ASTRO_LAYERS)[number];
@@ -148,6 +149,10 @@ export const ASTRO_LAYER_LABEL: Record<AstroLayer, string> = {
   "kun-breath": "La respiración (pranayama)",
   "kun-mantras": "Los mantras",
   "kun-class": "Una clase de Kundalini Yoga",
+  "dim-levels": "Las 10 dimensiones (3D a 12D)",
+  "dim-shift": "El paso de la 3D a la 5D",
+  "dim-chakras": "Las dimensiones y los chakras",
+  "dim-geometry": "La forma de cada dimensión",
   "orc-reading": "Cómo hacer una lectura",
   "orc-questions": "Cómo hacer la pregunta",
   "orc-spreads": "Las tiradas de oráculo",
@@ -159,12 +164,12 @@ export const ASTRO_LAYER_LABEL: Record<AstroLayer, string> = {
   "orc-create": "Crea tu propio oráculo",
 };
 
-export const LAYER_SYSTEMS = ["Astrología", "Human Design", "Gene Keys", "Luna", "Runas", "Geometría sagrada", "Oráculo", "Energía de hoy", "Kundalini"] as const;
+export const LAYER_SYSTEMS = ["Astrología", "Human Design", "Gene Keys", "Luna", "Runas", "Geometría sagrada", "Oráculo", "Energía de hoy", "Kundalini", "Dimensiones del ser"] as const;
 export type LayerSystem = (typeof LAYER_SYSTEMS)[number];
 
 /** De qué sistema es cada capa (el editor las agrupa así). */
 export const LAYER_SYSTEM = Object.fromEntries(
-  ASTRO_LAYERS.map((l) => [l, l.startsWith("hd-") ? "Human Design" : l.startsWith("gk-") ? "Gene Keys" : l.startsWith("moon-") ? "Luna" : l.startsWith("rune-") ? "Runas" : l.startsWith("geo-") ? "Geometría sagrada" : l.startsWith("orc-") ? "Oráculo" : l.startsWith("day-") ? "Energía de hoy" : l.startsWith("kun-") ? "Kundalini" : "Astrología"]),
+  ASTRO_LAYERS.map((l) => [l, l.startsWith("hd-") ? "Human Design" : l.startsWith("gk-") ? "Gene Keys" : l.startsWith("moon-") ? "Luna" : l.startsWith("rune-") ? "Runas" : l.startsWith("geo-") ? "Geometría sagrada" : l.startsWith("orc-") ? "Oráculo" : l.startsWith("day-") ? "Energía de hoy" : l.startsWith("kun-") ? "Kundalini" : l.startsWith("dim-") ? "Dimensiones del ser" : "Astrología"]),
 ) as Record<AstroLayer, LayerSystem>;
 
 /**
@@ -332,6 +337,10 @@ export const LAYER_KEYS: Record<AstroLayer, string[]> = {
   "kun-breath": ["long","fire","left","right","alt","seg","sitali","hold"],
   "kun-mantras": ["adi","satnam","wahe","satanama","ramadasa","ekongkar","closing"],
   "kun-class": ["tunein","warmup","kriya","relax","meditation","closing"],
+  "dim-levels": ["3","4","5","6","7","8","9","10","11","12"],
+  "dim-shift": ["bridge","fear","separation","time","being","trust","signs"],
+  "dim-chakras": ["3","4","5","6","7","8","9","10","11","12"],
+  "dim-geometry": ["3","4","5","6","7","8","9","10","11","12"],
   "day-week": ["d0", "d1", "d2", "d3", "d4", "d5", "d6"],
   "orc-reading": ["space","intention","question","shuffle","draw","first","story","journal","close"],
   "orc-questions": ["open","self","now","how","one","decision","daily","avoid"],
@@ -386,7 +395,7 @@ export function modesFor(layer: AstroLayer): readonly ModelMode[] {
   // Tu semana: solo explorar (cada día es una pieza, no hay nada que adivinar).
   if (LAYER_SYSTEM[layer] === "Energía de hoy") return MODEL_MODES.filter((m) => m === "explore");
   // Runas: sin «Solo lo tuyo», «Hoy en el cielo», comparar ni recorrido.
-  if (LAYER_SYSTEM[layer] === "Runas" || LAYER_SYSTEM[layer] === "Geometría sagrada" || LAYER_SYSTEM[layer] === "Oráculo" || LAYER_SYSTEM[layer] === "Kundalini") return MODEL_MODES.filter((m) => m !== "tour" && m !== "compare" && m !== "mine" && m !== "today");
+  if (LAYER_SYSTEM[layer] === "Runas" || LAYER_SYSTEM[layer] === "Geometría sagrada" || LAYER_SYSTEM[layer] === "Oráculo" || LAYER_SYSTEM[layer] === "Kundalini" || LAYER_SYSTEM[layer] === "Dimensiones del ser") return MODEL_MODES.filter((m) => m !== "tour" && m !== "compare" && m !== "mine" && m !== "today");
   if (LAYER_SYSTEM[layer] !== "Astrología") return MODEL_MODES;
   // Los balances y los tránsitos de hoy (que ya son el cielo de hoy) no tienen «Hoy en el cielo».
   const noToday = layer === "astro-balance" || layer === "astro-balance-compare" || layer === "astro-transits";
@@ -453,7 +462,7 @@ export const customChartSchema = z.object({
   /** La carta de partida; null = la de ejemplo. */
   base: customBaseSchema.nullable().default(null),
   /** Longitud (0–360) de cada punto colocado a mano; los demás, como en la carta de partida. */
-  positions: z.record(z.enum(CUSTOM_POINTS), z.number().min(0).lt(360)).default({}),
+  positions: z.partialRecord(z.enum(CUSTOM_POINTS), z.number().min(0).lt(360)).default({}),
   /** Puntos colocados a mano que van retrógrados. */
   retro: z.array(z.enum(CUSTOM_POINTS)).max(20).default([]),
   /** Puntos que no se ven (el Sol, la Luna y los ángulos siempre se ven). */
@@ -466,7 +475,7 @@ export const customChartSchema = z.object({
   /** La alumna no puede cambiar las casas ni los nodos. */
   lockSettings: z.boolean().default(false),
   /** El texto de la dueña para cada punto: sale al tocarlo. */
-  notes: z.record(z.enum(CUSTOM_POINTS), short(TEXT_MAX)).default({}),
+  notes: z.partialRecord(z.enum(CUSTOM_POINTS), short(TEXT_MAX)).default({}),
 });
 export type CustomChartData = z.infer<typeof customChartSchema>;
 
@@ -491,7 +500,7 @@ export type GlossaryData = z.infer<typeof glossarySchema>;
 export type BlockDataMap = { CHAPTER: ChapterData; MODEL: ModelData; MAIN: MainModelData; CHART: CustomChartData; MYCHART: MyChartData; TODAY: TodayData; QUIZ: QuizData; GLOSSARY: GlossaryData };
 export type BlockPart = { [K in BlockKind]: { kind: K; data: BlockDataMap[K] } }[BlockKind];
 
-const SCHEMAS: { [K in BlockKind]: z.ZodType<BlockDataMap[K], z.ZodTypeDef, unknown> } = {
+const SCHEMAS: { [K in BlockKind]: z.ZodType<BlockDataMap[K], unknown> } = {
   CHAPTER: chapterSchema,
   MODEL: modelSchema,
   MAIN: mainModelSchema,

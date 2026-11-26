@@ -13,6 +13,7 @@ import {
   type PageConfig,
 } from "@/lib/page-config";
 import { SITE_TEXT_MAX, SITE_TEXTS, type SiteTextKey } from "@/lib/site-texts";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Los campos de cada parte de la portada (accesos, «Sobre mí», sistemas, lecturas, botones, redes, contacto,
@@ -29,9 +30,9 @@ export const uid = () => Math.random().toString(36).slice(2, 10);
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="field-label">{label}</label>
+      <label className="field-label"><Tr s={label} /></label>
       {children}
-      {hint && <p className="field-hint">{hint}</p>}
+      {hint && <p className="field-hint"><Tr s={hint} /></p>}
     </div>
   );
 }
@@ -40,7 +41,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 function Pills<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: Record<T, string>; onChange: (v: T) => void }) {
   return (
     <div>
-      <p className="field-label">{label}</p>
+      <p className="field-label"><Tr s={label} /></p>
       <div className="flex flex-wrap gap-1.5">
         {(Object.keys(options) as T[]).map((o) => (
           <button key={o} type="button" onClick={() => onChange(o)} className={`rounded-full border px-3 py-1.5 text-xs transition ${value === o ? "border-ink bg-ink text-cream" : "border-line bg-white hover:border-ink/30"}`}>
@@ -54,6 +55,7 @@ function Pills<T extends string>({ label, value, options, onChange }: { label: s
 
 /** Subir, bajar y quitar una fila de una lista. */
 function RowTools<T>({ list, i, onChange, label }: { list: T[]; i: number; onChange: (next: T[]) => void; label: string }) {
+  const t = useT();
   const swap = (j: number) => {
     const a = [...list];
     [a[i], a[j]] = [a[j], a[i]];
@@ -61,77 +63,79 @@ function RowTools<T>({ list, i, onChange, label }: { list: T[]; i: number; onCha
   };
   return (
     <div className="flex items-center justify-end gap-1">
-      <button type="button" disabled={i === 0} onClick={() => swap(i - 1)} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Subir"><ArrowUp className="h-3.5 w-3.5" /></button>
-      <button type="button" disabled={i === list.length - 1} onClick={() => swap(i + 1)} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label="Bajar"><ArrowDown className="h-3.5 w-3.5" /></button>
-      <button type="button" onClick={() => onChange(list.filter((_, n) => n !== i))} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label={label}><Trash2 className="h-3.5 w-3.5" /></button>
+      <button type="button" disabled={i === 0} onClick={() => swap(i - 1)} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label={t("Subir")}><ArrowUp className="h-3.5 w-3.5" /></button>
+      <button type="button" disabled={i === list.length - 1} onClick={() => swap(i + 1)} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand disabled:opacity-20" aria-label={t("Bajar")}><ArrowDown className="h-3.5 w-3.5" /></button>
+      <button type="button" onClick={() => onChange(list.filter((_, n) => n !== i))} className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-sand hover:text-rose" aria-label={t(label)}><Trash2 className="h-3.5 w-3.5" /></button>
     </div>
   );
 }
 
 export function BubblesFields({ cfg, set, linkTargets }: WithLinks) {
+  const t = useT();
   const all = cfg.bubbles ?? [];
   return (
     <section className="card p-5 sm:p-6" aria-labelledby="ed-bubbles">
-      <h3 id="ed-bubbles" className="font-semibold">Accesos</h3>
-      <p className="text-xs text-muted">Burbujas redondas con foto bajo tu presentación, en una fila (de 1 a {BUBBLES_MAX}). Por ejemplo: Sobre mí, Cursos, Hacerte miembro.</p>
+      <h3 id="ed-bubbles" className="font-semibold"><Tr s={"Accesos"} /></h3>
+      <p className="text-xs text-muted"><Tr s={"Burbujas redondas con foto bajo tu presentación, en una fila (de 1 a"} />{" "}{BUBBLES_MAX}<Tr s={"). Por ejemplo: Sobre mí, Cursos, Hacerte miembro."} /></p>
       <div className="mt-4 space-y-2.5">
         {all.map((b, i) => (
           <div key={b.id} className="grid items-center gap-4 rounded-xl border border-line bg-white p-3 sm:grid-cols-[104px_1fr]">
-            <ImageUpload shape="circle" small value={b.image} onChange={(v) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, image: v } : x)))} label="Foto" />
+            <ImageUpload shape="circle" small value={b.image} onChange={(v) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, image: v } : x)))} label={t("Foto")} />
             <div className="space-y-2">
-              <input className="input h-10 text-sm" placeholder="Texto (p. ej. Sobre mí)" maxLength={30} value={b.label} aria-label="Texto de la burbuja" onChange={(e) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, label: e.target.value } : x)))} />
+              <input className="input h-10 text-sm" placeholder={t("Texto (p. ej. Sobre mí)")} maxLength={30} value={b.label} aria-label={t("Texto de la burbuja")} onChange={(e) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, label: e.target.value } : x)))} />
               <LinkInput value={b.url} ariaLabel="Enlace de la burbuja" targets={linkTargets} onChange={(v) => set("bubbles", all.map((x) => (x.id === b.id ? { ...x, url: v } : x)))} />
-              <RowTools list={all} i={i} onChange={(next) => set("bubbles", next)} label="Quitar burbuja" />
+              <RowTools list={all} i={i} onChange={(next) => set("bubbles", next)} label={t("Quitar burbuja")} />
             </div>
           </div>
         ))}
       </div>
-      <button type="button" onClick={() => set("bubbles", [...all, { id: uid(), label: "", url: "", image: null }])} disabled={all.length >= BUBBLES_MAX} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" /> Añadir burbuja</button>
+      <button type="button" onClick={() => set("bubbles", [...all, { id: uid(), label: "", url: "", image: null }])} disabled={all.length >= BUBBLES_MAX} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" />{" "}<Tr s={"Añadir burbuja"} /></button>
     </section>
   );
 }
 
 export function AboutFields({ cfg, set, linkTargets, personal }: WithLinks & { personal: boolean }) {
+  const t = useT();
   return (
     <section className="card space-y-3 p-5 sm:p-6" aria-labelledby="ed-about">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 id="ed-about" className="font-semibold">Tarjeta «Sobre mí»</h3>
-          <p className="text-xs text-muted">Tu foto a la derecha y un texto corto a la izquierda. Toda la tarjeta lleva a tu página «Sobre mí».</p>
+          <h3 id="ed-about" className="font-semibold"><Tr s={"Tarjeta «Sobre mí»"} /></h3>
+          <p className="text-xs text-muted"><Tr s={"Tu foto a la derecha y un texto corto a la izquierda. Toda la tarjeta lleva a tu página «Sobre mí»."} /></p>
         </div>
         {cfg.about ? (
-          <button type="button" onClick={() => set("about", null)} className="btn btn-ghost btn-sm shrink-0">Quitar</button>
+          <button type="button" onClick={() => set("about", null)} className="btn btn-ghost btn-sm shrink-0"><Tr s={"Quitar"} /></button>
         ) : (
-          <button type="button" onClick={() => set("about", { eyebrow: "Sobre mí", title: `Hola, soy ${cfg.displayName.split(" ")[0]}`, text: "", url: personal ? "/sobre-mi" : "", image: cfg.avatarUrl, linkLabel: "Conoce mi historia" })} className="btn btn-outline btn-sm shrink-0"><Plus className="h-4 w-4" /> Añadir</button>
+          <button type="button" onClick={() => set("about", { eyebrow: "Sobre mí", title: `Hola, soy ${cfg.displayName.split(" ")[0]}`, text: "", url: personal ? "/aboutme" : "", image: cfg.avatarUrl, linkLabel: "Conoce mi historia" })} className="btn btn-outline btn-sm shrink-0"><Plus className="h-4 w-4" />{" "}<Tr s={"Añadir"} /></button>
         )}
       </div>
       {cfg.about && (
         <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
           <div className="space-y-2">
-            <input className="input h-10 text-sm" placeholder="Antetítulo (p. ej. Sobre mí)" maxLength={40} aria-label="Antetítulo de la tarjeta Sobre mí" value={cfg.about.eyebrow ?? ""} onChange={(e) => set("about", { ...cfg.about!, eyebrow: e.target.value })} />
-            <input className="input h-10 text-sm" placeholder="Título (p. ej. Hola, soy Cirella)" maxLength={80} aria-label="Título de la tarjeta Sobre mí" value={cfg.about.title} onChange={(e) => set("about", { ...cfg.about!, title: e.target.value })} />
-            <textarea className="input text-sm" rows={3} placeholder="Texto corto" maxLength={400} aria-label="Texto de la tarjeta Sobre mí" value={cfg.about.text} onChange={(e) => set("about", { ...cfg.about!, text: e.target.value })} />
+            <input className="input h-10 text-sm" placeholder={t("Antetítulo (p. ej. Sobre mí)")} maxLength={40} aria-label={t("Antetítulo de la tarjeta Sobre mí")} value={cfg.about.eyebrow ?? ""} onChange={(e) => set("about", { ...cfg.about!, eyebrow: e.target.value })} />
+            <input className="input h-10 text-sm" placeholder={t("Título (p. ej. Hola, soy Cirella)")} maxLength={80} aria-label={t("Título de la tarjeta Sobre mí")} value={cfg.about.title} onChange={(e) => set("about", { ...cfg.about!, title: e.target.value })} />
+            <textarea className="input text-sm" rows={3} placeholder={t("Texto corto")} maxLength={400} aria-label={t("Texto de la tarjeta Sobre mí")} value={cfg.about.text} onChange={(e) => set("about", { ...cfg.about!, text: e.target.value })} />
             <LinkInput value={cfg.about.url} ariaLabel="Enlace de la tarjeta Sobre mí" targets={linkTargets} onChange={(v) => set("about", { ...cfg.about!, url: v })} />
-            <input className="input h-10 text-sm" placeholder="Texto del enlace (Conoce mi historia)" maxLength={40} aria-label="Texto del enlace de Sobre mí" value={cfg.about.linkLabel} onChange={(e) => set("about", { ...cfg.about!, linkLabel: e.target.value })} />
+            <input className="input h-10 text-sm" placeholder={t("Texto del enlace (Conoce mi historia)")} maxLength={40} aria-label={t("Texto del enlace de Sobre mí")} value={cfg.about.linkLabel} onChange={(e) => set("about", { ...cfg.about!, linkLabel: e.target.value })} />
           </div>
-          <ImageUpload value={cfg.about.image} onChange={(v) => set("about", { ...cfg.about!, image: v })} label="Foto" />
+          <ImageUpload value={cfg.about.image} onChange={(v) => set("about", { ...cfg.about!, image: v })} label={t("Foto")} />
         </div>
       )}
       {cfg.about && (
         <div className="space-y-3">
           <Pills
-            label="Tamaño de la foto"
+            label={t("Tamaño de la foto")}
             value={cfg.about.imageSize ?? "tall"}
             options={{ tall: "Alta", portrait: "Retrato", square: "Cuadrada" }}
             onChange={(v) => set("about", { ...cfg.about!, imageSize: v })}
           />
           <Pills
-            label="Lado de la foto (en el ordenador)"
+            label={t("Lado de la foto (en el ordenador)")}
             value={cfg.about.imageSide ?? "right"}
             options={{ right: "Derecha", left: "Izquierda" }}
             onChange={(v) => set("about", { ...cfg.about!, imageSide: v })}
           />
-          <p className="field-hint">La forma de la foto (arco, óvalo, círculo…) y su marco, en Diseño › Fotos.</p>
+          <p className="field-hint"><Tr s={"La forma de la foto (arco, óvalo, círculo…) y su marco, en Diseño › Fotos."} /></p>
         </div>
       )}
     </section>
@@ -139,41 +143,43 @@ export function AboutFields({ cfg, set, linkTargets, personal }: WithLinks & { p
 }
 
 export function SystemsFields({ cfg, set, linkTargets }: WithLinks) {
+  const t = useT();
   const all = cfg.systems ?? [];
   return (
     <section className="card p-5 sm:p-6" aria-labelledby="ed-systems">
-      <h3 id="ed-systems" className="font-semibold">Sistemas con los que trabajo</h3>
-      <p className="text-xs text-muted">Cada sistema con su nombre (el dibujo sale solo según el nombre: Human Design, Astrología, Gene Keys, Luna…) y el enlace a la página de ese método.</p>
+      <h3 id="ed-systems" className="font-semibold"><Tr s={"Sistemas con los que trabajo"} /></h3>
+      <p className="text-xs text-muted"><Tr s={"Cada sistema con su nombre (el dibujo sale solo según el nombre: Human Design, Astrología, Gene Keys, Luna…) y el enlace a la página de ese método."} /></p>
       <div className="mt-4 space-y-2.5">
         {all.map((sys, i) => (
           <div key={sys.id} className="grid gap-3 rounded-xl border border-line bg-white p-3 sm:grid-cols-[140px_1fr]">
-            <ImageUpload value={sys.image} onChange={(v) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, image: v } : x)))} label="Foto" />
+            <ImageUpload value={sys.image} onChange={(v) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, image: v } : x)))} label={t("Foto")} />
             <div className="space-y-2">
-              <input className="input h-10 text-sm" placeholder="Título (p. ej. Human Design)" maxLength={60} aria-label="Título del sistema" value={sys.title} onChange={(e) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, title: e.target.value } : x)))} />
-              <input className="input h-10 text-sm" placeholder="Texto corto" maxLength={200} aria-label="Texto del sistema" value={sys.text} onChange={(e) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, text: e.target.value } : x)))} />
+              <input className="input h-10 text-sm" placeholder={t("Título (p. ej. Human Design)")} maxLength={60} aria-label={t("Título del sistema")} value={sys.title} onChange={(e) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, title: e.target.value } : x)))} />
+              <input className="input h-10 text-sm" placeholder={t("Texto corto")} maxLength={200} aria-label={t("Texto del sistema")} value={sys.text} onChange={(e) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, text: e.target.value } : x)))} />
               <LinkInput value={sys.url} ariaLabel="Enlace del sistema" targets={linkTargets} onChange={(v) => set("systems", all.map((x) => (x.id === sys.id ? { ...x, url: v } : x)))} />
-              <RowTools list={all} i={i} onChange={(next) => set("systems", next)} label="Quitar sistema" />
+              <RowTools list={all} i={i} onChange={(next) => set("systems", next)} label={t("Quitar sistema")} />
             </div>
           </div>
         ))}
       </div>
-      <button type="button" onClick={() => set("systems", [...all, { id: uid(), title: "", text: "", url: "", image: null }])} disabled={all.length >= SYSTEMS_MAX} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" /> Añadir sistema</button>
+      <button type="button" onClick={() => set("systems", [...all, { id: uid(), title: "", text: "", url: "", image: null }])} disabled={all.length >= SYSTEMS_MAX} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" />{" "}<Tr s={"Añadir sistema"} /></button>
     </section>
   );
 }
 
 export function ReadingsFields({ cfg, set }: Props) {
+  const t = useT();
   return (
     <section className="card space-y-4 p-5 sm:p-6" aria-labelledby="ed-readings">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 id="ed-readings" className="font-semibold">Lecturas, sesiones y círculos</h3>
-          <p className="text-xs text-muted">Dos tarjetas que explican cómo funciona cada cosa; cada una abre su página con los pasos y tus productos. Debajo salen tus próximos círculos de la luna (talleres marcados como círculo).</p>
+          <h3 id="ed-readings" className="font-semibold"><Tr s={"Lecturas, sesiones y círculos"} /></h3>
+          <p className="text-xs text-muted"><Tr s={"Dos tarjetas que explican cómo funciona cada cosa; cada una abre su página con los pasos y tus productos. Debajo salen tus próximos círculos de la luna (talleres marcados como círculo)."} /></p>
         </div>
         {cfg.readings ? (
-          <button type="button" onClick={() => set("readings", null)} className="btn btn-ghost btn-sm shrink-0">Quitar</button>
+          <button type="button" onClick={() => set("readings", null)} className="btn btn-ghost btn-sm shrink-0"><Tr s={"Quitar"} /></button>
         ) : (
-          <button type="button" onClick={() => set("readings", { reading: { ...READINGS_DEFAULTS.reading }, session: { ...READINGS_DEFAULTS.session }, circlesTitle: READINGS_DEFAULTS.circlesTitle })} className="btn btn-outline btn-sm shrink-0"><Plus className="h-4 w-4" /> Añadir</button>
+          <button type="button" onClick={() => set("readings", { reading: { ...READINGS_DEFAULTS.reading }, session: { ...READINGS_DEFAULTS.session }, circlesTitle: READINGS_DEFAULTS.circlesTitle })} className="btn btn-outline btn-sm shrink-0"><Plus className="h-4 w-4" />{" "}<Tr s={"Añadir"} /></button>
         )}
       </div>
       {cfg.readings &&
@@ -182,20 +188,20 @@ export function ReadingsFields({ cfg, set }: Props) {
           const put = (patch: Partial<typeof card>) => set("readings", { ...cfg.readings!, [k]: { ...card, ...patch } });
           return (
             <div key={k} className="space-y-2 rounded-xl border border-line bg-white p-3">
-              <p className="text-sm font-semibold">{k === "reading" ? "Lectura (te la preparo yo)" : "Sesión (en directo)"}</p>
+              <p className="text-sm font-semibold">{k === "reading" ? t("Lectura (te la preparo yo)") : t("Sesión (en directo)")}</p>
               <div className="grid gap-2 sm:grid-cols-[140px_1fr]">
-                <input className="input h-10 text-sm" placeholder={READINGS_DEFAULTS[k].eyebrow} maxLength={30} aria-label="Etiqueta" value={card.eyebrow} onChange={(e) => put({ eyebrow: e.target.value })} />
-                <input className="input h-10 text-sm" placeholder={READINGS_DEFAULTS[k].title} maxLength={60} aria-label="Título" value={card.title} onChange={(e) => put({ title: e.target.value })} />
+                <input className="input h-10 text-sm" placeholder={t(READINGS_DEFAULTS[k].eyebrow)} maxLength={30} aria-label={t("Etiqueta")} value={card.eyebrow} onChange={(e) => put({ eyebrow: e.target.value })} />
+                <input className="input h-10 text-sm" placeholder={READINGS_DEFAULTS[k].title} maxLength={60} aria-label={t("Título")} value={card.title} onChange={(e) => put({ title: e.target.value })} />
               </div>
-              <input className="input h-10 text-sm" placeholder={READINGS_DEFAULTS[k].text} maxLength={240} aria-label="Texto" value={card.text} onChange={(e) => put({ text: e.target.value })} />
-              <label className="field-label !mb-0 !mt-1">Pasos para reservar (uno por línea, hasta {STEPS_MAX})</label>
-              <textarea className="input text-sm" rows={4} aria-label="Pasos" value={card.steps.join("\n")} onChange={(e) => put({ steps: e.target.value.split("\n").slice(0, STEPS_MAX) })} />
+              <input className="input h-10 text-sm" placeholder={t(READINGS_DEFAULTS[k].text)} maxLength={240} aria-label={t("Texto")} value={card.text} onChange={(e) => put({ text: e.target.value })} />
+              <label className="field-label !mb-0 !mt-1"><Tr s={"Pasos para reservar (uno por línea, hasta"} />{" "}{STEPS_MAX})</label>
+              <textarea className="input text-sm" rows={4} aria-label={t("Pasos")} value={card.steps.join("\n")} onChange={(e) => put({ steps: e.target.value.split("\n").slice(0, STEPS_MAX) })} />
             </div>
           );
         })}
       {cfg.readings && (
-        <Field label="Título de los círculos de la luna">
-          <input className="input h-10 text-sm" placeholder={READINGS_DEFAULTS.circlesTitle} maxLength={80} value={cfg.readings.circlesTitle} onChange={(e) => set("readings", { ...cfg.readings!, circlesTitle: e.target.value })} />
+        <Field label={t("Título de los círculos de la luna")}>
+          <input className="input h-10 text-sm" placeholder={t(READINGS_DEFAULTS.circlesTitle)} maxLength={80} value={cfg.readings.circlesTitle} onChange={(e) => set("readings", { ...cfg.readings!, circlesTitle: e.target.value })} />
         </Field>
       )}
       {cfg.readings && <TextsFields cfg={cfg} set={set} keys={["readings.steps", "circles.free", "circles.paid"]} />}
@@ -204,43 +210,44 @@ export function ReadingsFields({ cfg, set }: Props) {
 }
 
 export function LinksFields({ cfg, set, linkTargets }: WithLinks) {
+  const t = useT();
   return (
     <section className="card p-5 sm:p-6">
-      <h3 className="font-semibold">Botones principales</h3>
-      <p className="text-xs text-muted">Enlaces destacados bajo tu presentación: podcast, newsletter, un producto concreto…</p>
+      <h3 className="font-semibold"><Tr s={"Botones principales"} /></h3>
+      <p className="text-xs text-muted"><Tr s={"Enlaces destacados bajo tu presentación: podcast, newsletter, un producto concreto…"} /></p>
       <div className="mt-4 space-y-2.5">
         {cfg.links.map((l, i) => (
           <div key={l.id} className="rounded-xl border border-line bg-white p-3">
             <div className="grid gap-2 sm:grid-cols-2">
-              <input className="input h-10 text-sm" placeholder="Texto del botón" value={l.label} onChange={(e) => set("links", cfg.links.map((x) => (x.id === l.id ? { ...x, label: e.target.value } : x)))} />
+              <input className="input h-10 text-sm" placeholder={t("Texto del botón")} value={l.label} onChange={(e) => set("links", cfg.links.map((x) => (x.id === l.id ? { ...x, label: e.target.value } : x)))} />
               <LinkInput value={l.url} ariaLabel="Enlace del botón principal" placeholder="https://… o elige una de tus páginas" targets={linkTargets} onChange={(v) => set("links", cfg.links.map((x) => (x.id === l.id ? { ...x, url: v } : x)))} />
             </div>
             <div className="mt-2 flex items-center gap-2 text-xs">
               <label className="flex items-center gap-1.5">
-                <input type="checkbox" checked={!!l.highlight} onChange={(e) => set("links", cfg.links.map((x) => (x.id === l.id ? { ...x, highlight: e.target.checked } : x)))} className="accent-[#0E1024]" /> Destacado
-              </label>
+                <input type="checkbox" checked={!!l.highlight} onChange={(e) => set("links", cfg.links.map((x) => (x.id === l.id ? { ...x, highlight: e.target.checked } : x)))} className="accent-[#0E1024]" />{" "}<Tr s={"Destacado"} /></label>
               <span className="flex-1" />
-              <RowTools list={cfg.links} i={i} onChange={(next) => set("links", next)} label="Quitar botón" />
+              <RowTools list={cfg.links} i={i} onChange={(next) => set("links", next)} label={t("Quitar botón")} />
             </div>
           </div>
         ))}
       </div>
-      <button type="button" onClick={() => set("links", [...cfg.links, { id: uid(), label: "", url: "" }])} disabled={cfg.links.length >= 12} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" /> Añadir botón</button>
+      <button type="button" onClick={() => set("links", [...cfg.links, { id: uid(), label: "", url: "" }])} disabled={cfg.links.length >= 12} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" />{" "}<Tr s={"Añadir botón"} /></button>
     </section>
   );
 }
 
 export function SocialsFields({ cfg, set }: Props) {
+  const t = useT();
   return (
     <section className="card p-5 sm:p-6">
-      <h3 className="font-semibold">Redes sociales</h3>
-      <p className="text-xs text-muted">Escribe las que quieras que salgan bajo tu presentación. Vacía una para quitarla. Para cambiar su orden, pasa por encima de una en la web y usa sus flechas.</p>
+      <h3 className="font-semibold"><Tr s={"Redes sociales"} /></h3>
+      <p className="text-xs text-muted"><Tr s={"Escribe las que quieras que salgan bajo tu presentación. Vacía una para quitarla. Para cambiar su orden, pasa por encima de una en la web y usa sus flechas."} /></p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {[...new Set([...(cfg.socialOrder ?? []), ...SOCIAL_KEYS])].map((k) => (
-          <Field key={k} label={SOCIAL_LABEL[k]}>
+          <Field key={k} label={t(SOCIAL_LABEL[k])}>
             <input
               className="input h-10 text-sm"
-              placeholder={k === "email" ? "tu@email.com" : k === "website" ? "tuweb.com" : "@usuario"}
+              placeholder={k === "email" ? t("tu@email.com") : k === "website" ? "tuweb.com" : t("@usuario")}
               value={cfg.socials[k] ?? ""}
               onChange={(e) => {
                 const next = { ...cfg.socials };
@@ -257,15 +264,16 @@ export function SocialsFields({ cfg, set }: Props) {
 }
 
 export function ContactFields({ cfg, set }: Props) {
+  const t = useT();
   return (
     <section className="card space-y-3 p-5 sm:p-6">
-      <h3 className="font-semibold">Contacto («Hablemos»)</h3>
-      <Field label="Mensaje">
-        <textarea className="input text-sm" rows={2} placeholder="¿Tienes alguna pregunta? Escríbeme." maxLength={300} value={cfg.contact.message ?? ""} onChange={(e) => set("contact", { ...cfg.contact, message: e.target.value })} />
+      <h3 className="font-semibold"><Tr s={"Contacto («Hablemos»)"} /></h3>
+      <Field label={t("Mensaje")}>
+        <textarea className="input text-sm" rows={2} placeholder={t("¿Tienes alguna pregunta? Escríbeme.")} maxLength={300} value={cfg.contact.message ?? ""} onChange={(e) => set("contact", { ...cfg.contact, message: e.target.value })} />
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Email de contacto" hint="Sin email, la sección no sale.">
-          <input className="input h-10 text-sm" placeholder="tu@email.com" value={cfg.contact.email ?? ""} onChange={(e) => set("contact", { ...cfg.contact, email: e.target.value })} />
+        <Field label={t("Email de contacto")} hint={t("Sin email, la sección no sale.")}>
+          <input className="input h-10 text-sm" placeholder={t("tu@email.com")} value={cfg.contact.email ?? ""} onChange={(e) => set("contact", { ...cfg.contact, email: e.target.value })} />
         </Field>
       </div>
       <TextsFields cfg={cfg} set={set} keys={["contact.email"]} />
@@ -274,23 +282,22 @@ export function ContactFields({ cfg, set }: Props) {
 }
 
 export function NewsletterFields({ cfg, set }: Props) {
+  const t = useT();
   const nl = { ...NEWSLETTER_FORM_DEFAULTS, footer: false, ...cfg.newsletter };
   return (
     <section className="card space-y-3 p-5 sm:p-6" aria-labelledby="nl-form-title">
       <div>
-        <h3 id="nl-form-title" className="font-semibold">Formulario de la newsletter</h3>
-        <p className="text-xs text-muted">Sale debajo de «Hablemos» (si tienes tu email de contacto) y, si quieres, en el pie de todas tus páginas. Quien se apunta recibe un email para confirmarlo y se le abre el Portal de Noticias.</p>
+        <h3 id="nl-form-title" className="font-semibold"><Tr s={"Formulario de la newsletter"} /></h3>
+        <p className="text-xs text-muted"><Tr s={"Sale debajo de «Hablemos» (si tienes tu email de contacto) y, si quieres, en el pie de todas tus páginas. Quien se apunta recibe un email para confirmarlo y se le abre el Portal de Noticias."} /></p>
       </div>
-      <Field label="Texto">
+      <Field label={t("Texto")}>
         <textarea className="input min-h-20 text-base sm:text-sm" maxLength={300} value={nl.text} onChange={(e) => set("newsletter", { ...nl, text: e.target.value })} />
       </Field>
-      <Field label="Texto del botón">
+      <Field label={t("Texto del botón")}>
         <input className="input text-base sm:text-sm" maxLength={30} value={nl.button} onChange={(e) => set("newsletter", { ...nl, button: e.target.value })} />
       </Field>
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" className="h-4 w-4 accent-[#0E1024]" checked={!!cfg.newsletter?.footer} onChange={(e) => set("newsletter", { ...nl, footer: e.target.checked })} />
-        También en el pie de todas mis páginas
-      </label>
+        <input type="checkbox" className="h-4 w-4 accent-[#0E1024]" checked={!!cfg.newsletter?.footer} onChange={(e) => set("newsletter", { ...nl, footer: e.target.checked })} /><Tr s={"También en el pie de todas mis páginas"} /></label>
       <TextsFields cfg={cfg} set={set} keys={["nl.footerTitle", "nl.name", "nl.email", "nl.consent", "nl.privacy", "nl.portal", "nl.doneTitle"]} />
     </section>
   );
@@ -299,8 +306,8 @@ export function NewsletterFields({ cfg, set }: Props) {
 export function TestimonialsFields({ cfg, set }: Props) {
   return (
     <section className="card p-5 sm:p-6">
-      <h3 className="font-semibold">Testimonios</h3>
-      <p className="text-xs text-muted">Lo que dice la gente de ti. Salen uno detrás de otro.</p>
+      <h3 className="font-semibold"><Tr s={"Testimonios"} /></h3>
+      <p className="text-xs text-muted"><Tr s={"Lo que dice la gente de ti. Salen uno detrás de otro."} /></p>
       <div className="mt-4 space-y-2.5">
         {cfg.testimonials.map((t, i) => (
           <div key={t.id} className="space-y-2 rounded-xl border border-line bg-white p-3">
@@ -313,25 +320,26 @@ export function TestimonialsFields({ cfg, set }: Props) {
           </div>
         ))}
       </div>
-      <button type="button" onClick={() => set("testimonials", [...cfg.testimonials, { id: uid(), author: "", quote: "" }])} disabled={cfg.testimonials.length >= 12} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" /> Añadir testimonio</button>
+      <button type="button" onClick={() => set("testimonials", [...cfg.testimonials, { id: uid(), author: "", quote: "" }])} disabled={cfg.testimonials.length >= 12} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" />{" "}<Tr s={"Añadir testimonio"} /></button>
     </section>
   );
 }
 
 export function FaqFields({ cfg, set }: Props) {
+  const t = useT();
   return (
     <section className="card p-5 sm:p-6">
-      <h3 className="font-semibold">Preguntas frecuentes</h3>
+      <h3 className="font-semibold"><Tr s={"Preguntas frecuentes"} /></h3>
       <div className="mt-4 space-y-2.5">
         {cfg.faqs.map((f, i) => (
           <div key={f.id} className="space-y-2 rounded-xl border border-line bg-white p-3">
-            <input className="input h-10 text-sm" placeholder="Pregunta" maxLength={200} value={f.q} onChange={(e) => set("faqs", cfg.faqs.map((x) => (x.id === f.id ? { ...x, q: e.target.value } : x)))} />
-            <textarea className="input text-sm" rows={2} placeholder="Respuesta" maxLength={1000} value={f.a} onChange={(e) => set("faqs", cfg.faqs.map((x) => (x.id === f.id ? { ...x, a: e.target.value } : x)))} />
-            <RowTools list={cfg.faqs} i={i} onChange={(next) => set("faqs", next)} label="Quitar pregunta" />
+            <input className="input h-10 text-sm" placeholder={t("Pregunta")} maxLength={200} value={f.q} onChange={(e) => set("faqs", cfg.faqs.map((x) => (x.id === f.id ? { ...x, q: e.target.value } : x)))} />
+            <textarea className="input text-sm" rows={2} placeholder={t("Respuesta")} maxLength={1000} value={f.a} onChange={(e) => set("faqs", cfg.faqs.map((x) => (x.id === f.id ? { ...x, a: e.target.value } : x)))} />
+            <RowTools list={cfg.faqs} i={i} onChange={(next) => set("faqs", next)} label={t("Quitar pregunta")} />
           </div>
         ))}
       </div>
-      <button type="button" onClick={() => set("faqs", [...cfg.faqs, { id: uid(), q: "", a: "" }])} disabled={cfg.faqs.length >= 20} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" /> Añadir pregunta</button>
+      <button type="button" onClick={() => set("faqs", [...cfg.faqs, { id: uid(), q: "", a: "" }])} disabled={cfg.faqs.length >= 20} className="btn btn-outline btn-sm mt-3"><Plus className="h-4 w-4" />{" "}<Tr s={"Añadir pregunta"} /></button>
     </section>
   );
 }

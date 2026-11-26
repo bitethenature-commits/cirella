@@ -7,7 +7,7 @@ import { useEffect, useId, useMemo, useRef, useState, useTransition } from "reac
 import { PART_ICON } from "@/components/media/part-icons";
 import { useHoverTip } from "@/components/ui/hover-tip";
 import { dripDayFor, dripDayLabel, type DripSettings } from "@/lib/course-drip";
-import { partsLabel, type PartView } from "@/lib/lesson-parts";
+import type { PartView } from "@/lib/lesson-parts";
 import {
   addStudioLesson,
   addStudioModule,
@@ -21,6 +21,7 @@ import {
   setLessonPublished,
   type StudioResult,
 } from "../actions";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /** Un capítulo de una lección larga (su título y sus minutos). */
 export type BoardChapter = { title: string };
@@ -369,39 +370,36 @@ export function StructureBoard({
     <section aria-labelledby={headingId}>
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 id={headingId} className={compact ? "sr-only" : "font-semibold"}>
-            Módulos y lecciones
-          </h2>
+          <h2 id={headingId} className={compact ? "sr-only" : "font-semibold"}><Tr s={"Módulos y lecciones"} /></h2>
           {/* Las cifras, en cápsulas doradas; el orden se cambia arrastrando (desde los puntitos o, en el índice estrecho, la lección entera). */}
           {/* En el índice estrecho del ordenador no caben: solo en el móvil (y en «Estructura»). */}
           <p
             className={`flex flex-wrap gap-1.5 text-xs ${compact ? "lg:hidden" : "mt-2"}`}
             title={compact ? "Arrastra el número de un módulo, una lección o un capítulo para cambiar el orden." : "Arrastra desde los puntitos o usa las flechas para cambiar el orden."}
           >
-            <span className="studio-count">{mods.length} {mods.length === 1 ? "módulo" : "módulos"}</span>
-            <span className="studio-count">{total} {total === 1 ? "lección" : "lecciones"}</span>
-            {drafts > 0 && <span className="studio-count is-draft">{drafts} en borrador</span>}
+            <span className="studio-count">{mods.length} {mods.length === 1 ? <Tr s={"módulo"} /> : <Tr s={"módulos"} />}</span>
+            <span className="studio-count">{total} {total === 1 ? <Tr s={"lección"} /> : "lecciones"}</span>
+            {drafts > 0 && <span className="studio-count is-draft">{drafts}{" "}<Tr s={"en borrador"} /></span>}
           </p>
         </div>
         <p className={`text-xs text-muted ${compact ? "" : "min-h-5"}`} aria-live="polite">
           {pending ? (
             <span className="inline-flex items-center gap-1.5">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Guardando…
-            </span>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />{" "}<Tr s={"Guardando…"} /></span>
           ) : (
             // Estrecho, el aviso de lo movido solo lo oyen los lectores de pantalla.
-            <span className={compact ? "sr-only" : ""}>{announce}</span>
+            <span className={compact ? "sr-only" : ""}><Tr s={announce} /></span>
           )}
         </p>
       </div>
       {msg?.error && (
         <p className={`mt-3 rounded-xl border border-[#f0d2cc] bg-[#fbe9e6] text-[#9a3a2e] ${compact ? "px-3 py-2 text-xs" : "px-4 py-2.5 text-sm"}`} role="alert">
-          {msg.error}
+          <Tr s={msg.error} />
         </p>
       )}
       {msg?.ok && !pending && !compact && (
         <p className={`mt-3 rounded-xl bg-[#e7f3ec] text-[#2f6b4a] ${compact ? "px-3 py-2 text-xs" : "px-4 py-2.5 text-sm"}`} role="status">
-          {msg.ok}
+          <Tr s={msg.ok} />
         </p>
       )}
 
@@ -440,7 +438,7 @@ export function StructureBoard({
                     data-drag-module
                     {...tip.on({ sub: `Módulo ${ROMAN[mi] ?? mi + 1} · ${m.lessons.length} ${m.lessons.length === 1 ? "lección" : "lecciones"}`, title: m.title })}
                   >
-                    {ROMAN[mi] ?? mi + 1}
+                    <Tr s={ROMAN[mi] ?? mi + 1} />
                   </span>
                   <span className="min-w-0 flex-1 truncate px-1 text-sm font-semibold lg:hidden">{m.title}</span>
                 </div>
@@ -457,7 +455,7 @@ export function StructureBoard({
                 >
                   <GripVertical className="h-4 w-4" />
                 </button>
-                <span className="studio-num shrink-0" aria-label={`Módulo ${mi + 1}`}>{ROMAN[mi] ?? mi + 1}</span>
+                <span className="studio-num shrink-0" aria-label={`Módulo ${mi + 1}`}><Tr s={ROMAN[mi] ?? mi + 1} /></span>
                 <ModuleName id={m.id} title={m.title} onSaved={(r) => setMsg(r)} />
                 <button type="button" className={iconBtn} disabled={mi === 0} onClick={() => moveModule(mi, -1)} aria-label={`Subir el módulo «${m.title}»`} data-move-module="up">
                   <ArrowUp className="h-4 w-4" />
@@ -489,7 +487,8 @@ export function StructureBoard({
                   const restIndex = rest.findIndex((x) => x.id === l.id);
                   const lineHere = lessonTarget !== null && drag?.id !== l.id && restIndex === lessonTarget;
                   const lineAfter = lessonTarget !== null && drag?.id !== l.id && restIndex === rest.length - 1 && lessonTarget === rest.length;
-                  const label = partsLabel(l.views);
+                  const draftTag = compact && !l.published;
+                  const dripTag = dripLabels.get(l.id) ?? null;
                   const first = mi === 0 && li === 0;
                   const last = mi === mods.length - 1 && li === m.lessons.length - 1;
                   const open = current?.lessonId === l.id;
@@ -529,7 +528,7 @@ export function StructureBoard({
                         data-drag-lesson={compact ? "" : undefined}
                         {...(compact
                           ? tip.on({
-                              sub: [`Lección ${li + 1}`, l.views.length ? label : "Vacía", l.published ? null : "Borrador", dripLabels.get(l.id) ?? null].filter(Boolean).join(" · "),
+                              sub: [`Lección ${li + 1}`, l.views.length ? null : "Vacía", l.published ? null : "Borrador", dripTag].filter(Boolean).join(" · "),
                               title: l.title,
                             })
                           : {})}
@@ -550,18 +549,15 @@ export function StructureBoard({
                         {/* Estrecho (ordenador): sin su título (sale al pasar el ratón). En el móvil, con él. */}
                         <span className={`min-w-0 flex-1 ${compact ? "lg:hidden" : ""}`}>
                           <span className="line-clamp-2 block font-medium leading-snug">{l.title}</span>
-                          <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-faint">
-                            {l.views.length ? (
-                              <span>
-                                {label}
-                                {!compact && l.durationMin ? ` · ${l.durationMin} min` : ""}
-                              </span>
-                            ) : (
-                              <span className="inline-flex rounded-full border border-[#ecdcb8] bg-[#fbf5e8] px-2 py-0.5 text-[0.7rem] font-semibold text-[#7a5a1c]">Vacía</span>
-                            )}
-                            {compact && !l.published && <span className="font-semibold text-[#ebd29c]">· Borrador</span>}
-                            {dripLabels.get(l.id) && <span className="text-lavender-deep">· {dripLabels.get(l.id)}</span>}
-                          </span>
+                          {(!l.views.length || draftTag || dripTag) && (
+                            <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-faint">
+                              {!l.views.length && (
+                                <span className="inline-flex rounded-full border border-[#ecdcb8] bg-[#fbf5e8] px-2 py-0.5 text-[0.7rem] font-semibold text-[#7a5a1c]"><Tr s={"Vacía"} /></span>
+                              )}
+                              {draftTag && <span className="font-semibold text-[#ebd29c]"><Tr s={"Borrador"} /></span>}
+                              {dripTag && <span className="text-lavender-deep"><Tr s={draftTag ? "· " : ""} /><Tr s={dripTag} /></span>}
+                            </span>
+                          )}
                         </span>
                       </Link>
                       {!compact && (
@@ -576,7 +572,7 @@ export function StructureBoard({
                             data-lesson-status={l.published ? "published" : "draft"}
                           >
                             {busy === `pub-${l.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <span className={`h-1.5 w-1.5 rounded-full ${l.published ? "bg-[#2f6b4a]" : "bg-[#c99a3c]"}`} />}
-                            {l.published ? "Publicada" : "Borrador"}
+                            {l.published ? <Tr s={"Publicada"} /> : <Tr s={"Borrador"} />}
                           </button>
                           <button type="button" className={`${iconBtn} hidden sm:grid`} disabled={first} onClick={() => moveLesson(mi, li, -1)} aria-label={`Subir «${l.title}»`} data-move="up">
                             <ArrowUp className="h-4 w-4" />
@@ -602,15 +598,12 @@ export function StructureBoard({
                           <div role="menu" className="absolute right-0 top-10 z-40 w-60 rounded-2xl border border-line bg-white p-1.5 text-sm shadow-lift animate-fade-in">
                             {!open && (
                               <Link role="menuitem" href={href} onClick={follow(href)} className={menuItem}>
-                                <Pencil className="h-4 w-4 text-muted" /> Editar
-                              </Link>
+                                <Pencil className="h-4 w-4 text-muted" />{" "}<Tr s={"Editar"} /></Link>
                             )}
                             <button role="menuitem" type="button" className={`${menuItem} sm:hidden`} disabled={first} onClick={() => (setMenu(null), moveLesson(mi, li, -1))}>
-                              <ArrowUp className="h-4 w-4 text-muted" /> Subir
-                            </button>
+                              <ArrowUp className="h-4 w-4 text-muted" />{" "}<Tr s={"Subir"} /></button>
                             <button role="menuitem" type="button" className={`${menuItem} sm:hidden`} disabled={last} onClick={() => (setMenu(null), moveLesson(mi, li, 1))}>
-                              <ArrowDown className="h-4 w-4 text-muted" /> Bajar
-                            </button>
+                              <ArrowDown className="h-4 w-4 text-muted" />{" "}<Tr s={"Bajar"} /></button>
                             <button
                               role="menuitem"
                               type="button"
@@ -620,11 +613,9 @@ export function StructureBoard({
                                 run(`dup-${l.id}`, () => duplicateLesson(l.id));
                               }}
                             >
-                              <Copy className="h-4 w-4 text-muted" /> Duplicar
-                            </button>
-                            <a role="menuitem" href={`/cuenta/cursos/${productId}?leccion=${l.id}`} target="_blank" rel="noopener" className={menuItem}>
-                              <Eye className="h-4 w-4 text-muted" /> Ver como alumna
-                            </a>
+                              <Copy className="h-4 w-4 text-muted" />{" "}<Tr s={"Duplicar"} /></button>
+                            <a role="menuitem" href={`/area/courses/${productId}?leccion=${l.id}`} target="_blank" rel="noopener" className={menuItem}>
+                              <Eye className="h-4 w-4 text-muted" />{" "}<Tr s={"Ver como alumna"} /></a>
                             {drip.mode === "LESSON" && <DripDaysField lesson={l} onSaved={(r) => setMsg(r)} />}
                             <button
                               role="menuitem"
@@ -638,8 +629,7 @@ export function StructureBoard({
                                 });
                               }}
                             >
-                              <Trash2 className="h-4 w-4" /> Eliminar
-                            </button>
+                              <Trash2 className="h-4 w-4" />{" "}<Tr s={"Eliminar"} /></button>
                           </div>
                         )}
                       </div>
@@ -674,7 +664,7 @@ export function StructureBoard({
                                   draggable={false}
                                   {...(compact ? tip.on({ sub: `Capítulo ${ci + 1}`, title: c.title }) : {})}
                                 >
-                                  <span className="shrink-0 whitespace-nowrap text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-gold">Cap. {ci + 1}</span>
+                                  <span className="shrink-0 whitespace-nowrap text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-gold"><Tr s={"Cap."} />{" "}{ci + 1}</span>
                                   <span className={`min-w-0 flex-1 truncate ${compact ? "text-[0.82rem] lg:hidden" : ""}`}>{c.title}</span>
                                 </Link>
                               </li>
@@ -688,7 +678,7 @@ export function StructureBoard({
                 {(m.lessons.length === 0 || (rest.length === 0 && drag?.kind === "lesson")) && (
                   <li className="relative py-3 pl-2 text-xs text-muted">
                     {lessonTarget === 0 && <DropLine />}
-                    {drag?.kind === "lesson" ? (compact ? "Suelta aquí" : "Suelta aquí la lección") : compact ? "Sin lecciones" : "Este módulo aún no tiene lecciones."}
+                    {drag?.kind === "lesson" ? (compact ? <Tr s={"Suelta aquí"} /> : <Tr s={"Suelta aquí la lección"} />) : compact ? <Tr s={"Sin lecciones"} /> : <Tr s={"Este módulo aún no tiene lecciones."} />}
                   </li>
                 )}
                 <li className="pt-1">
@@ -710,7 +700,7 @@ export function StructureBoard({
                     {...(compact ? tip.on({ sub: `Módulo ${ROMAN[mi] ?? mi + 1}`, title: "Añadir lección" }) : {})}
                   >
                     {busy === `add-${m.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />}
-                    <span className={compact ? "lg:sr-only" : ""}>Añadir lección</span>
+                    <span className={compact ? "lg:sr-only" : ""}><Tr s={"Añadir lección"} /></span>
                   </button>
                 </li>
               </ul>
@@ -742,13 +732,14 @@ function AddModuleButton({ productId, count, onSaved, tipOn }: { productId: stri
       {...tipOn({ sub: `Módulo ${ROMAN[count] ?? count + 1}`, title: "Añadir módulo" })}
     >
       {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-      <span className="lg:sr-only">Añadir módulo</span>
+      <span className="lg:sr-only"><Tr s={"Añadir módulo"} /></span>
     </button>
   );
 }
 
 /** Nombre del módulo, editable en su sitio: se guarda al salir del campo o con Intro. */
 function ModuleName({ id, title, onSaved }: { id: string; title: string; onSaved: (r: StudioResult) => void }) {
+  const t = useT();
   const [value, setValue] = useState(title);
   const [saving, start] = useTransition();
   useEffect(() => setValue(title), [title]);
@@ -770,7 +761,7 @@ function ModuleName({ id, title, onSaved }: { id: string; title: string; onSaved
         }
       }}
       maxLength={120}
-      aria-label="Nombre del módulo"
+      aria-label={t("Nombre del módulo")}
       disabled={saving}
       className="h-10 min-w-0 flex-1 rounded-lg bg-transparent px-2 text-base font-semibold outline-none hover:bg-sand focus:bg-white focus:ring-1 focus:ring-line sm:text-sm"
     />
@@ -778,6 +769,7 @@ function ModuleName({ id, title, onSaved }: { id: string; title: string; onSaved
 }
 
 function AddModule({ productId, count, compact, onSaved }: { productId: string; count: number; compact: boolean; onSaved: (r: StudioResult) => void }) {
+  const t = useT();
   const [name, setName] = useState("");
   const [saving, start] = useTransition();
   return (
@@ -792,16 +784,16 @@ function AddModule({ productId, count, compact, onSaved }: { productId: string; 
         });
       }}
     >
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder={`Módulo ${count + 1}`} aria-label="Nombre del módulo nuevo" maxLength={120} className="input h-11 flex-1 text-base sm:text-sm" />
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder={`Módulo ${count + 1}`} aria-label={t("Nombre del módulo nuevo")} maxLength={120} className="input h-11 flex-1 text-base sm:text-sm" />
       <button className="btn btn-outline h-11" disabled={saving}>
-        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Añadir módulo
-      </button>
+        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}{" "}<Tr s={"Añadir módulo"} /></button>
     </form>
   );
 }
 
 /** «Disponible a los N días» dentro del menú (apertura por lección). */
 function DripDaysField({ lesson, onSaved }: { lesson: BoardLesson; onSaved: (r: StudioResult) => void }) {
+  const t = useT();
   const [value, setValue] = useState(lesson.dripDays ? String(lesson.dripDays) : "");
   const [saving, start] = useTransition();
   return (
@@ -812,9 +804,7 @@ function DripDaysField({ lesson, onSaved }: { lesson: BoardLesson; onSaved: (r: 
         start(async () => onSaved(await setLessonDripDays(lesson.id, value ? Number(value) : null)));
       }}
     >
-      <label className="text-xs font-semibold" htmlFor={`drip-${lesson.id}`}>
-        Disponible a los … días
-      </label>
+      <label className="text-xs font-semibold" htmlFor={`drip-${lesson.id}`}><Tr s={"Disponible a los … días"} /></label>
       <div className="mt-1.5 flex gap-1.5">
         <input
           id={`drip-${lesson.id}`}
@@ -826,10 +816,10 @@ function DripDaysField({ lesson, onSaved }: { lesson: BoardLesson; onSaved: (r: 
           className="input h-9 w-20 text-base sm:text-sm"
         />
         <button className="btn btn-primary btn-sm h-9" disabled={saving}>
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Guardar"}
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("Guardar")}
         </button>
       </div>
-      <p className="mt-1 text-[0.7rem] text-muted">Vacío o 0: desde el primer día.</p>
+      <p className="mt-1 text-[0.7rem] text-muted"><Tr s={"Vacío o 0: desde el primer día."} /></p>
     </form>
   );
 }

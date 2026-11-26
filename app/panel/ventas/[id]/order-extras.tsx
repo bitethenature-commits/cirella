@@ -4,9 +4,12 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { asksIntake, intakeAsText, readIntakeAnswers, readIntakeConfig } from "@/lib/intake";
 import { tenantDb } from "@/lib/tenant";
 import { clearIntake, setIntakeByOwner } from "../../solicitudes/reservas-actions";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 /** Datos para la lectura de un pedido (el material se envía por email, la web no lo guarda). */
 export async function OrderExtras({ creatorId, orderId }: { creatorId: string; orderId: string }) {
+  const t = await getT();
   const db = tenantDb(creatorId);
   const o = await db.order.findFirst({ where: { id: orderId }, include: { product: { select: { intake: true, deliveryMode: true, groupSession: true, type: true } } } });
   if (!o) return null;
@@ -19,13 +22,13 @@ export async function OrderExtras({ creatorId, orderId }: { creatorId: string; o
     <div className="mt-8 space-y-5">
       {(
         <>
-          <IntakeEditCard config={cfg} answers={answers} locked={false} action={setIntakeByOwner} hidden={{ orderId: o.id }} title="Datos para la lectura" forOwner />
+          <IntakeEditCard config={cfg} answers={answers} locked={false} action={setIntakeByOwner} hidden={{ orderId: o.id }} title={t("Datos para la lectura")} forOwner />
           {answers && (
             <div className="-mt-2 flex flex-wrap gap-2">
-              <CopyButton text={intakeAsText(answers)} label="Copiar" copiedLabel="Copiado" className="btn btn-outline btn-sm h-11" />
+              <CopyButton text={intakeAsText(answers)} label={t("Copiar")} copiedLabel="Copiado" className="btn btn-outline btn-sm h-11" />
               <ConfirmForm action={clearIntake} message={`¿Borrar los datos para la lectura de ${name}? No se puede deshacer.`}>
                 <input type="hidden" name="orderId" value={o.id} />
-                <button className="btn btn-ghost btn-sm h-11 text-rose">Borrar datos</button>
+                <button className="btn btn-ghost btn-sm h-11 text-rose"><Tr s={"Borrar datos"} /></button>
               </ConfirmForm>
             </div>
           )}

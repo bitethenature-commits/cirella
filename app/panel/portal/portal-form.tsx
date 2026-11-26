@@ -7,6 +7,7 @@ import { UPLOAD_CANCELLED, uploadFile } from "@/components/ui/upload-client";
 import { LinkInput, type LinkTarget } from "@/components/panel/blocks/link-input";
 import { mediaKindFor, PORTAL_BODY_MAX, PORTAL_KIND_LABEL, PORTAL_KINDS, PORTAL_PHOTOS_MAX, PORTAL_SUMMARY_MAX, PORTAL_TITLE_MAX, type PortalKind } from "@/lib/portal-rules";
 import { savePortalItem, type PortalActionState } from "./actions";
+import { Tr, useT } from "@/lib/i18n/client";
 
 export type EditablePortalItem = {
   id: string | null;
@@ -74,6 +75,7 @@ function Grow({ name, value, onChange, className = "", placeholder, maxLength, l
  * guardar como billetes firmados; los que ya tenía, por su posición.
  */
 export function PortalForm({ item, linkTargets, moonDates, theme = null }: { item: EditablePortalItem; linkTargets: LinkTarget[]; moonDates: { label: string; date: string; time: string }[]; theme?: PortalTheme }) {
+  const t = useT();
   const [state, action, pending] = useActionState<PortalActionState, FormData>(savePortalItem, undefined);
   const [kind, setKind] = useState<PortalKind>(item.kind);
   const [title, setTitle] = useState(item.title);
@@ -146,10 +148,10 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
       {overlay}
       <button type="button" onClick={pickCover} className="absolute bottom-3 right-3 z-[2] inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">
         {coverPct != null ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
-        {coverPct != null ? `${coverPct} %` : cover ? "Cambiar portada" : "Poner portada"}
+        {coverPct != null ? `${coverPct} %` : cover ? t("Cambiar portada") : t("Poner portada")}
       </button>
       {cover && coverPct == null && (
-        <button type="button" onClick={() => setCover(null)} className="absolute bottom-3 left-3 z-[2] grid h-8 w-8 place-items-center rounded-full bg-black/60 text-white backdrop-blur" aria-label="Quitar portada">
+        <button type="button" onClick={() => setCover(null)} className="absolute bottom-3 left-3 z-[2] grid h-8 w-8 place-items-center rounded-full bg-black/60 text-white backdrop-blur" aria-label={t("Quitar portada")}>
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       )}
@@ -170,16 +172,16 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
       ))}
       {upload ? (
         <p className="cp-muted flex items-center gap-2 text-sm" role="status">
-          <Loader2 className="h-4 w-4 animate-spin" /> Subiendo «{upload.name}» · {upload.pct} %
+          <Loader2 className="h-4 w-4 animate-spin" />{" "}<Tr s={"Subiendo «"} />{upload.name}» · {upload.pct} %
         </p>
       ) : (
         shown.length < max && (
           <button type="button" onClick={pickFile} className="cp-btn-ghost">
-            <Upload className="h-4 w-4" /> {fileLabel}
+            <Upload className="h-4 w-4" /> <Tr s={fileLabel} />
           </button>
         )
       )}
-      <p className="cp-faint text-[0.75rem]">Privado: solo lo abre quien lo tiene desbloqueado. Nadie puede compartir el enlace.</p>
+      <p className="cp-faint text-[0.75rem]"><Tr s={"Privado: solo lo abre quien lo tiene desbloqueado. Nadie puede compartir el enlace."} /></p>
     </div>
   );
 
@@ -200,14 +202,14 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="status" value={status} />
       {featured && <input type="hidden" name="featured" value="on" />}
-      <input ref={input} type="file" accept={fileKind ? ACCEPT[fileKind] : undefined} multiple={kind === "PHOTOS"} className="hidden" aria-label="Subir archivo del portal" onChange={(e) => e.target.files?.length && onFiles(e.target.files)} />
-      <input ref={coverInput} type="file" accept={ACCEPT.IMAGE} className="hidden" aria-label="Subir portada" onChange={(e) => e.target.files?.[0] && onCover(e.target.files[0])} />
+      <input ref={input} type="file" accept={fileKind ? ACCEPT[fileKind] : undefined} multiple={kind === "PHOTOS"} className="hidden" aria-label={t("Subir archivo del portal")} onChange={(e) => e.target.files?.length && onFiles(e.target.files)} />
+      <input ref={coverInput} type="file" accept={ACCEPT.IMAGE} className="hidden" aria-label={t("Subir portada")} onChange={(e) => e.target.files?.[0] && onCover(e.target.files[0])} />
 
       {/* La web: el tipo arriba y la tarjeta tal y como la ven las suscriptoras, escrita encima. */}
       <div className="cp !min-h-0 rounded-[2rem] px-4 py-6 sm:px-8 sm:py-8" style={theme?.style} data-card={theme?.card} data-template={theme?.template}>
-        <p className="cp-eyebrow text-center">Así se ve en tu Portal de Noticias · escribe encima</p>
+        <p className="cp-eyebrow text-center"><Tr s={"Así se ve en tu Portal de Noticias · escribe encima"} /></p>
 
-        <div className="mt-4 flex flex-wrap justify-center gap-2" role="radiogroup" aria-label="Qué es">
+        <div className="mt-4 flex flex-wrap justify-center gap-2" role="radiogroup" aria-label={t("Qué es")}>
           {PORTAL_KINDS.map((k) => {
             const KIcon = KIND_ICON[k];
             const on = kind === k;
@@ -225,7 +227,7 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
                     : { borderColor: "color-mix(in oklab, var(--c-gold) 28%, transparent)", color: "var(--c-muted)" }
                 }
               >
-                <KIcon className="h-4 w-4" /> {PORTAL_KIND_LABEL[k]}
+                <KIcon className="h-4 w-4" /> <Tr s={PORTAL_KIND_LABEL[k]} />
               </button>
             );
           })}
@@ -243,20 +245,20 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
                 <span className="grid h-16 w-16 place-items-center rounded-full border border-white/50 bg-black/40">
                   <Play className="h-7 w-7" />
                 </span>
-                {shown[0] ? <p className="max-w-full truncate text-sm">{shown[0].name}</p> : <p className="text-sm opacity-80">Aquí va el vídeo</p>}
+                {shown[0] ? <p className="max-w-full truncate text-sm">{shown[0].name}</p> : <p className="text-sm opacity-80"><Tr s={"Aquí va el vídeo"} /></p>}
                 {upload ? (
                   <p className="flex items-center gap-2 text-sm" role="status">
                     <Loader2 className="h-4 w-4 animate-spin" /> {upload.pct} %
                   </p>
                 ) : (
                   <button type="button" onClick={pickFile} className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-black">
-                    <Upload className="h-4 w-4" /> {fileLabel}
+                    <Upload className="h-4 w-4" /> <Tr s={fileLabel} />
                   </button>
                 )}
               </div>
               <button type="button" onClick={pickCover} className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">
                 {coverPct != null ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
-                {coverPct != null ? `${coverPct} %` : cover ? "Cambiar portada" : "Portada antes del play"}
+                {coverPct != null ? `${coverPct} %` : cover ? t("Cambiar portada") : t("Portada antes del play")}
               </button>
             </div>
           ) : kind === "PHOTOS" ? (
@@ -285,19 +287,19 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
 
           <div className="p-5 sm:p-6">
             <span className="cp-tag" data-tone={kind === "LIVE" ? "accent" : undefined}>
-              <Icon className="h-3 w-3" /> {PORTAL_KIND_LABEL[kind]}
+              <Icon className="h-3 w-3" /> <Tr s={PORTAL_KIND_LABEL[kind]} />
             </span>
             <h3 className="cp-display mt-2 text-[1.9rem] leading-tight">
-              <Grow name="title" value={title} onChange={setTitle} required maxLength={PORTAL_TITLE_MAX} placeholder="Título (p. ej. Ritual de luna nueva)" label="Título" />
+              <Grow name="title" value={title} onChange={setTitle} required maxLength={PORTAL_TITLE_MAX} placeholder={t("Título (p. ej. Ritual de luna nueva)")} label={t("Título")} />
             </h3>
 
             {kind === "LIVE" && (
               <div className="mt-2 space-y-2">
                 <div className="flex flex-wrap items-center gap-2 text-[0.9rem]">
                   <CalendarDays className="cp-gold h-4 w-4" />
-                  <input name="eventDate" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} aria-label="Día" className={`cp-muted h-9 px-2 [color-scheme:dark] ${inline}`} />
-                  <input name="eventTime" type="time" step={300} value={eventTime} onChange={(e) => setEventTime(e.target.value)} aria-label="Hora (España)" className={`cp-muted h-9 px-2 [color-scheme:dark] ${inline}`} />
-                  <span className="cp-faint text-xs">hora de España</span>
+                  <input name="eventDate" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} aria-label={t("Día")} className={`cp-muted h-9 px-2 [color-scheme:dark] ${inline}`} />
+                  <input name="eventTime" type="time" step={300} value={eventTime} onChange={(e) => setEventTime(e.target.value)} aria-label={t("Hora (España)")} className={`cp-muted h-9 px-2 [color-scheme:dark] ${inline}`} />
+                  <span className="cp-faint text-xs"><Tr s={"hora de España"} /></span>
                 </div>
                 {moonDates.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
@@ -311,7 +313,7 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
                         }}
                         className="cp-line inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[0.75rem]"
                       >
-                        <Moon className="cp-gold h-3 w-3" /> {m.label}
+                        <Moon className="cp-gold h-3 w-3" /> <Tr s={m.label} />
                       </button>
                     ))}
                   </div>
@@ -319,13 +321,13 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
               </div>
             )}
 
-            <Grow name="summary" value={summary} onChange={setSummary} maxLength={PORTAL_SUMMARY_MAX} placeholder="Extracto: se ve también con el candado, para que den ganas de suscribirse (opcional)" label="Extracto" className="cp-muted mt-2 text-[0.92rem] leading-relaxed" />
+            <Grow name="summary" value={summary} onChange={setSummary} maxLength={PORTAL_SUMMARY_MAX} placeholder={t("Extracto: se ve también con el candado, para que den ganas de suscribirse (opcional)")} label={t("Extracto")} className="cp-muted mt-2 text-[0.92rem] leading-relaxed" />
 
             {kind === "AUDIO" && <div className="mt-4">{fileRow}</div>}
-            {kind === "VIDEO" && <p className="cp-faint mt-2 text-[0.75rem]">El vídeo es privado: solo lo abre quien lo tiene desbloqueado.</p>}
-            {kind === "PHOTOS" && <p className="cp-faint mt-2 text-[0.75rem]">Las fotos son privadas: solo las ve quien lo tiene desbloqueado. La portada sale en la lista y desenfocada con el candado: <button type="button" onClick={pickCover} className="underline underline-offset-2">{cover ? "cambiarla" : "ponerla"}</button>.</p>}
+            {kind === "VIDEO" && <p className="cp-faint mt-2 text-[0.75rem]"><Tr s={"El vídeo es privado: solo lo abre quien lo tiene desbloqueado."} /></p>}
+            {kind === "PHOTOS" && <p className="cp-faint mt-2 text-[0.75rem]"><Tr s={"Las fotos son privadas: solo las ve quien lo tiene desbloqueado. La portada sale en la lista y desenfocada con el candado:"} />{" "}<button type="button" onClick={pickCover} className="underline underline-offset-2"><Tr s={cover ? "cambiarla" : "ponerla"} /></button>.</p>}
 
-            <Grow name="body" value={body} onChange={setBody} maxLength={PORTAL_BODY_MAX} placeholder="El texto (solo para suscriptoras)" label="Texto" className="mt-3 min-h-24 text-[0.95rem] leading-relaxed" />
+            <Grow name="body" value={body} onChange={setBody} maxLength={PORTAL_BODY_MAX} placeholder={t("El texto (solo para suscriptoras)")} label={t("Texto")} className="mt-3 min-h-24 text-[0.95rem] leading-relaxed" />
 
             {/* El botón tal y como sale; adónde lleva, debajo */}
             <div className="mt-5 space-y-2">
@@ -335,17 +337,17 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
                   value={linkLabel}
                   onChange={(e) => setLinkLabel(e.target.value)}
                   maxLength={40}
-                  placeholder={kind === "LIVE" ? "Entrar al directo" : "Texto del botón (opcional)"}
-                  aria-label="Texto del botón"
+                  placeholder={kind === "LIVE" ? t("Entrar al directo") : t("Texto del botón (opcional)")}
+                  aria-label={t("Texto del botón")}
                   className="w-48 bg-transparent text-inherit outline-none placeholder:text-current placeholder:opacity-60"
                 />
                 <ArrowUpRight className="h-4 w-4" />
               </span>
               {kind === "LIVE" ? (
-                <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Enlace de Zoom: https://us02web.zoom.us/j/…" maxLength={600} aria-label="Enlace de Zoom" className={`cp-muted block w-full px-2 py-1.5 text-[0.85rem] ${inline}`} />
+                <input value={link} onChange={(e) => setLink(e.target.value)} placeholder={t("Enlace de Zoom: https://us02web.zoom.us/j/…")} maxLength={600} aria-label={t("Enlace de Zoom")} className={`cp-muted block w-full px-2 py-1.5 text-[0.85rem] ${inline}`} />
               ) : (
                 <div className="max-w-md rounded-xl bg-white/95 p-2 text-ink">
-                  <p className="mb-1 px-1 text-[0.7rem] font-semibold text-muted">Adónde lleva el botón (opcional)</p>
+                  <p className="mb-1 px-1 text-[0.7rem] font-semibold text-muted"><Tr s={"Adónde lleva el botón (opcional)"} /></p>
                   <LinkInput value={link} onChange={setLink} ariaLabel="Enlace del botón" targets={linkTargets} className="input" />
                 </div>
               )}
@@ -354,14 +356,14 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
         </article>
         {uploadError && (
           <p role="alert" className="mt-3 text-center text-sm text-rose-400">
-            {uploadError}
+            <Tr s={uploadError} />
           </p>
         )}
       </div>
 
       {/* Antes de publicar */}
       <section className="rounded-[2rem] border border-gold/40 bg-gradient-to-b from-[color:var(--n-deep,#14112e)] to-[color:var(--n-deep,#0b0a1c)] p-5 shadow-[0_0_60px_-20px_rgb(212_181_122/.35)] sm:p-7">
-        <p className="text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold">✦ Antes de publicar ✦</p>
+        <p className="text-center text-[0.64rem] font-semibold uppercase tracking-[0.3em] text-gold"><Tr s={"✦ Antes de publicar ✦"} /></p>
         <button
           type="button"
           aria-pressed={featured}
@@ -372,14 +374,14 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
             <Star className={`h-4 w-4 ${featured ? "fill-current" : ""}`} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block font-semibold text-[color:var(--n-ivory,#f1ebdf)]">Principal</span>
-            <span className="block text-xs text-[color:var(--n-muted,#a7a2c2)]">Sale en grande arriba, en tu portada y en el panel.</span>
+            <span className="block font-semibold text-[color:var(--n-ivory,#f1ebdf)]"><Tr s={"Principal"} /></span>
+            <span className="block text-xs text-[color:var(--n-muted,#a7a2c2)]"><Tr s={"Sale en grande arriba, en tu portada y en el panel."} /></span>
           </span>
           <span className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${featured ? "bg-gold" : "bg-white/15"}`}>
             <span className={`block h-5 w-5 rounded-full bg-white transition ${featured ? "translate-x-5" : ""}`} />
           </span>
         </button>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Estado">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label={t("Estado")}>
           {(
             [
               ["PUBLISHED", "Publicado", "Se ve en tu Portal de Noticias.", Send],
@@ -397,14 +399,14 @@ export function PortalForm({ item, linkTargets, moonDates, theme = null }: { ite
                 className={`flex flex-col items-center gap-2 rounded-[1.4rem] border px-4 py-5 text-center transition ${on ? "border-[color:var(--n-gold,#e9cc8e)] bg-gold/[.12] shadow-[0_0_30px_-10px_rgb(212_181_122/.6)]" : "border-gold/25 hover:border-gold/50"}`}
               >
                 <SIcon className={`h-6 w-6 ${on ? "text-gold" : "text-[color:var(--n-muted,#a7a2c2)]"}`} />
-                <span className={`display text-[1.35rem] leading-none ${on ? "text-[color:var(--n-gold-pale,#f7e5b8)]" : "text-[color:var(--n-ivory,#f1ebdf)]"}`}>{label}</span>
-                <span className="text-xs text-[color:var(--n-muted,#a7a2c2)]">{hint}</span>
+                <span className={`display text-[1.35rem] leading-none ${on ? "text-[color:var(--n-gold-pale,#f7e5b8)]" : "text-[color:var(--n-ivory,#f1ebdf)]"}`}><Tr s={label} /></span>
+                <span className="text-xs text-[color:var(--n-muted,#a7a2c2)]"><Tr s={hint} /></span>
               </button>
             );
           })}
         </div>
         <button type="submit" className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#c9a35f] via-[#e9cc8e] to-[#c9a35f] text-base font-semibold text-[#14112e] shadow-[0_10px_40px_-10px_rgb(212_181_122/.7)] disabled:opacity-60" disabled={pending || !!upload || coverPct != null}>
-          {pending && <Loader2 className="h-4 w-4 animate-spin" />} {item.id ? "Guardar cambios" : status === "PUBLISHED" ? "Publicar" : "Guardar borrador"}
+          {pending && <Loader2 className="h-4 w-4 animate-spin" />} {item.id ? t("Guardar cambios") : status === "PUBLISHED" ? t("Publicar") : t("Guardar borrador")}
         </button>
       </section>
     </form>

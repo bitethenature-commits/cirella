@@ -35,7 +35,7 @@ const TAG = `alumnas-${PERSONAL ? "p" : "x"}-${Date.now()}`;
 const email = (label: string) => `${TAG}-${label}@example.com`;
 const HOUR = 3_600_000;
 
-async function token(to: string, purpose: "REGISTER" | "CHANGE_EMAIL" | "LOGIN", data: object | null, redirectTo = "/cuenta?bienvenida=1") {
+async function token(to: string, purpose: "REGISTER" | "CHANGE_EMAIL" | "LOGIN", data: object | null, redirectTo = "/area?bienvenida=1") {
   const t = randomBytes(24).toString("base64url");
   await prisma.loginToken.create({
     data: { email: to, tokenHash: hashToken(t), purpose, redirectTo, data: data ?? Prisma.JsonNull, expiresAt: new Date(Date.now() + HOUR) },
@@ -57,7 +57,7 @@ async function main() {
   // ── «Crear mi cuenta»: el enlace no crea nada ──
   {
     const to = email("nueva");
-    await sendMagicLink(to, "/cuenta?bienvenida=1", { creatorId: ana.id, purpose: "REGISTER", name: "Lucía", data: reg("Lucía", true) });
+    await sendMagicLink(to, "/area?bienvenida=1", { creatorId: ana.id, purpose: "REGISTER", name: "Lucía", data: reg("Lucía", true) });
     const lt = await prisma.loginToken.findFirst({ where: { email: to }, orderBy: { createdAt: "desc" } });
     const mail = await prisma.emailMessage.findFirst({ where: { to, template: "REGISTER" } });
     check("el alta solo crea el enlace (sin cuenta)", !(await prisma.user.findUnique({ where: { email: to } })) && lt?.purpose === "REGISTER");
@@ -69,7 +69,7 @@ async function main() {
     const r = await consumeMagicLink(t);
     const user = await prisma.user.findUnique({ where: { email: to } });
     const customer = user ? await prisma.customer.findUnique({ where: { creatorId_userId: { creatorId: ana.id, userId: user.id } } }) : null;
-    check("al confirmar: cuenta con nombre y email confirmado, y a /cuenta?bienvenida=1", !!user?.emailVerifiedAt && user.name === "Lucía" && r?.redirectTo === "/cuenta?bienvenida=1");
+    check("al confirmar: cuenta con nombre y email confirmado, y a /area?bienvenida=1", !!user?.emailVerifiedAt && user.name === "Lucía" && r?.redirectTo === "/area?bienvenida=1");
     check("…su ficha de clienta de la dueña con las novedades confirmadas", !!customer && customer.marketingOptIn && !!customer.marketingOptInAt && customer.ordersCount === 0);
     check("…y un customer.created (email de bienvenida)", !!customer && (await createdEvents(customer.id)) === 1);
     check("el enlace no vale dos veces", (await consumeMagicLink(t)) === null);
@@ -124,7 +124,7 @@ async function main() {
     const u = await prisma.user.create({ data: { email: from, emailVerifiedAt: new Date(), name: "Cambio" } });
     await prisma.customer.create({ data: { creatorId: ana.id, userId: u.id, email: from, name: "Cambio" } });
     await session(u.id);
-    const t = await token(to, "CHANGE_EMAIL", { userId: u.id, fromEmail: from }, "/cuenta/perfil?ok=email");
+    const t = await token(to, "CHANGE_EMAIL", { userId: u.id, fromEmail: from }, "/area/profile?ok=email");
     check("peekMagicLink dice que es un cambio de email", (await peekMagicLink(t))?.purpose === "CHANGE_EMAIL");
     check("consumeMagicLink no gasta un cambio de email (no abre sesión)", (await consumeMagicLink(t)) === null && !!(await peekMagicLink(t)));
     const both = await Promise.all([consumeEmailChange(t), consumeEmailChange(t)]);
@@ -152,12 +152,12 @@ async function main() {
     const owner = await prisma.user.findUniqueOrThrow({ where: { id: ana.userId } });
     const toOwner = await enqueueEmail({ to: owner.email, template: "PRUEBA", subject: "x", html, sendNow: false, dedupeKey: `${TAG}-pie-dueña` });
     if (PERSONAL) {
-      check("web personal: los emails a las alumnas terminan con «Tu área: …/cuenta»", /Tu área: <a href="[^"]+\/cuenta"/.test(toStudent.html));
+      check("web personal: los emails a las alumnas terminan con «Tu área: …/area»", /Tu área: <a href="[^"]+\/area"/.test(toStudent.html));
       check("…y los de la dueña no", !toOwner.html.includes("Tu área") && !toOwner.html.includes("{{tu-area}}"));
     } else check("plataforma: sin «Tu área» en los emails", !toStudent.html.includes("Tu área") && !toStudent.html.includes("{{tu-area}}"));
     await prisma.emailMessage.deleteMany({ where: { id: { in: [toStudent.id, toOwner.id] } } });
-    check(PERSONAL ? "web personal: una alumna sin nada va a /cuenta (nunca al onboarding)" : "plataforma: sin nada, al onboarding como siempre",
-      (await homeFor(student.id)) === (PERSONAL ? "/cuenta" : "/onboarding"));
+    check(PERSONAL ? "web personal: una alumna sin nada va a /area (nunca al onboarding)" : "plataforma: sin nada, al onboarding como siempre",
+      (await homeFor(student.id)) === (PERSONAL ? "/area" : "/onboarding"));
   }
 }
 

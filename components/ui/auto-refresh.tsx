@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * Vuelve a pedir la página al servidor cada `seconds` (p. ej. mientras el banco confirma un pago)
@@ -23,5 +24,5 @@ export function AutoRefresh({ seconds = 4, maxSeconds = 120 }: { seconds?: numbe
     return () => clearInterval(t);
   }, [router, seconds, maxSeconds]);
   if (!gaveUp) return null;
-  return <p className="cp-muted mt-4 text-sm">Puedes cerrar esta página: te avisaremos por email.</p>;
+  return <p className="cp-muted mt-4 text-sm"><Tr s={"Puedes cerrar esta página: te avisaremos por email."} /></p>;
 }

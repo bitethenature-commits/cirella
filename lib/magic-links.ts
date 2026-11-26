@@ -10,6 +10,7 @@ import { appUrl } from "./env";
 import { dispatchEvents, recordEvents } from "./events";
 import { readEmailChangeData, readRegisterData, type EmailChangeData, type RegisterData } from "./login-token-data";
 import { syncConsent } from "./newsletter";
+import { requestLocale, inMail } from "@/lib/i18n/email";
 
 export { readEmailChangeData, readRegisterData, type EmailChangeData, type RegisterData };
 
@@ -37,7 +38,7 @@ const PURPOSES: MagicPurpose[] = ["LOGIN", "VERIFY_SIGNUP", "REGISTER", "CHANGE_
  */
 export async function sendMagicLink(
   email: string,
-  redirectTo = "/auth/continuar",
+  redirectTo = "/auth/continue",
   ctx: { creatorId?: string | null; purpose?: MagicPurpose; data?: RegisterData | EmailChangeData; name?: string | null } = {},
 ) {
   const purpose = ctx.purpose ?? "LOGIN";
@@ -55,16 +56,17 @@ export async function sendMagicLink(
       tokenHash: hashToken(token),
       purpose,
       creatorId: creator?.id ?? null,
-      redirectTo: safeNext(redirectTo, "/auth/continuar"),
+      redirectTo: safeNext(redirectTo, "/auth/continue"),
       data: ctx.data ?? Prisma.JsonNull,
       expiresAt: new Date(Date.now() + ttlMs),
     },
   });
   const url = `${appUrl()}/auth/magic?token=${token}`;
-  const mail =
+  const mail = await inMail(email, () =>
     purpose === "CHANGE_EMAIL"
       ? emailChangeConfirmEmail({ url, creatorName: creator?.displayName })
-      : magicLinkEmail({ url, creatorName: creator?.displayName, purpose, name: ctx.name, via: ctx.data && "via" in ctx.data ? ctx.data.via : undefined });
+      : magicLinkEmail({ url, creatorName: creator?.displayName, purpose, name: ctx.name, via: ctx.data && "via" in ctx.data ? ctx.data.via : undefined }),
+  );
   await enqueueEmail({
     to: email,
     template: purpose === "VERIFY_SIGNUP" ? "VERIFY_EMAIL" : purpose === "CHANGE_EMAIL" ? "EMAIL_CHANGE_CONFIRM" : purpose === "REGISTER" ? "REGISTER" : "MAGIC_LINK",
@@ -114,10 +116,11 @@ export async function consumeMagicLink(
   });
   if (used.count !== 1) return null;
   const record = await prisma.loginToken.findUniqueOrThrow({ where: { tokenHash } });
+  const locale = await requestLocale();
   let user = await prisma.user.upsert({
     where: { email: record.email },
-    update: {},
-    create: { email: record.email, emailVerifiedAt: now },
+    update: locale ? { locale } : {},
+    create: { email: record.email, emailVerifiedAt: now, locale },
   });
   if (user.status === "BLOCKED") return null;
 
@@ -146,10 +149,10 @@ export async function consumeMagicLink(
 
   if (record.purpose === "REGISTER") await applyRegistration(user, readRegisterData(record.data), now);
 
-  const redirectTo = safeNext(record.redirectTo, "/auth/continuar");
+  const redirectTo = safeNext(record.redirectTo, "/auth/continue");
   return {
     user: { id: user.id, email: user.email },
-    redirectTo: resetPassword ? `/contrasena?motivo=seguridad&next=${encodeURIComponent(redirectTo)}` : redirectTo,
+    redirectTo: resetPassword ? `/password?motivo=seguridad&next=${encodeURIComponent(redirectTo)}` : redirectTo,
   };
 }
 

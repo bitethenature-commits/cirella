@@ -1,5 +1,6 @@
 "use server";
 
+import { translateSoon } from "@/lib/i18n/content";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -29,8 +30,8 @@ async function uniquePostSlug(db: TenantDb, base: string, exceptId?: string) {
 function refreshPublic(username: string, slugs: string[]) {
   revalidatePath(`/${username}`);
   revalidatePath("/");
-  revalidatePath(`/${username}/actualidades`);
-  for (const s of new Set(slugs)) revalidatePath(`/${username}/actualidades/${s}`);
+  revalidatePath(`/${username}/news`);
+  for (const s of new Set(slugs)) revalidatePath(`/${username}/news/${s}`);
   revalidatePath("/panel/publicaciones");
   revalidatePath("/panel/actualidades");
 }
@@ -72,11 +73,13 @@ export async function savePost(_: PostActionState, form: FormData): Promise<Post
 
   if (!current) {
     const post = await db.post.create({ data: { creatorId: creator.id, ...data } });
+    translateSoon(creator.id, true);
     refreshPublic(creator.username, [slug]);
     redirect(`/panel/publicaciones/${post.id}?guardada=${d.status === "PUBLISHED" ? "publicada" : "borrador"}`);
   }
   await db.post.update({ where: { id: current.id }, data });
   refreshPublic(creator.username, [slug, current.slug]);
+  translateSoon(creator.id, true);
   revalidatePath(`/panel/publicaciones/${current.id}`);
   const ok =
     d.status === "DRAFT"
@@ -111,4 +114,5 @@ export async function togglePostStatus(form: FormData) {
   const publishedAt = resolvePublishedAt({ status, current: post.publishedAt, timeZone: creator.timezone });
   await db.post.update({ where: { id: post.id }, data: { status, publishedAt } });
   refreshPublic(creator.username, [post.slug]);
+  translateSoon(creator.id, true);
 }

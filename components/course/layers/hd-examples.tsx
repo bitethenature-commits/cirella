@@ -4,6 +4,7 @@ import { useMemo, useState, type ComponentProps } from "react";
 import { humanDesignAt, type HumanDesign } from "@/lib/human-design-calc";
 import { MiniBodygraph } from "./hd";
 import { NightChips } from "./night";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * Bodygraphs de ejemplo para los modelos donde enseñar el propio no basta (la definición, los 5 tipos):
@@ -79,9 +80,7 @@ export function ExampleBodygraph({
       <MiniBodygraph hd={hd} {...(hd && extra ? extra(hd) : {})} />
       <NightChips items={items} selected={selected} mine={own} tap={tapChip} />
       {iso && (
-        <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}>
-          Ejemplo {(idx % n) + 1} de {n} · nacimiento del {fmt(iso)} · toca otra vez «{label}» para ver otro
-        </p>
+        <p className="pb-1 text-center text-[0.66rem]" style={{ color: "rgb(251 246 236 / .65)" }}><Tr s={"Ejemplo"} />{" "}{(idx % n) + 1}{" "}<Tr s={"de"} />{" "}{n}{" "}<Tr s={"· nacimiento del"} />{" "}{fmt(iso)}{" "}<Tr s={"· toca otra vez «"} /><Tr s={label} /><Tr s={"» para ver otro"} /></p>
       )}
     </>
   );

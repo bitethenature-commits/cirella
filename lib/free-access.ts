@@ -11,6 +11,7 @@ import { revokeOrderAccess } from "./order-links";
 import { fulfillOrder } from "./orders";
 import { syncConsent } from "./newsletter";
 import { isPersonalMode } from "./site-mode";
+import { requestLocale } from "@/lib/i18n/email";
 
 /**
  * Acceso sin cobro a un producto (Product.accessMode, lib/access-mode.ts):
@@ -29,7 +30,7 @@ import { isPersonalMode } from "./site-mode";
  *
  * Novedades: la casilla del formulario no es consentimiento todavía (cualquiera puede escribir un
  * email ajeno). Se anota como pedida y el email de acceso lleva un botón para confirmarla
- * (confirmNewsletter, desde /cuenta/novedades/confirmar).
+ * (confirmNewsletter, desde /area/newsletter/confirm).
  */
 
 export class FreeAccessError extends Error {}
@@ -154,9 +155,9 @@ export async function revokeManualAccess(input: { creatorId: string; orderId: st
 }
 
 /**
- * «Sí, quiero recibir novedades» del email de acceso (/cuenta/novedades/confirmar): la persona que
+ * «Sí, quiero recibir novedades» del email de acceso (/area/newsletter/confirm): la persona que
  * abre su email confirma lo que marcó en el formulario. Solo su propio pedido y solo si lo pidió.
- * Nunca retira un consentimiento (eso, desde /cuenta/perfil o el enlace de cada email).
+ * Nunca retira un consentimiento (eso, desde /area/profile o el enlace de cada email).
  */
 export async function confirmNewsletter(input: { orderId: string; userId: string }): Promise<boolean> {
   const order = await prisma.order.findUnique({
@@ -250,6 +251,7 @@ async function grantNoCharge(
     const order = await tx.order.create({
       data: {
         ...input.data,
+        locale: await requestLocale(),
         creatorId: product.creatorId,
         productId: product.id,
         productTitle: product.title,
