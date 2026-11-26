@@ -13,13 +13,8 @@ import { getT } from "@/lib/i18n/server";
 
 type Params = { username: string; slug: string };
 
-// Cacheada como la página de la creadora (ISR, 60 s): sin cookies ni searchParams. Publicar,
-// editar o borrar una publicación llama a revalidatePath.
-export const revalidate = 60;
-export const dynamicParams = true;
-export function generateStaticParams(): Params[] {
-  return [];
-}
+// Se hace en cada visita, como la página de la creadora: el idioma llega con cada petición.
+export const dynamic = "force-dynamic";
 
 async function load(username: string, slug: string) {
   // «Actualidades» ya es automática (lib/web-news.ts): las publicaciones escritas a mano no salen en la web.

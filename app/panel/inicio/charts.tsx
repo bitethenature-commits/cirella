@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { formatMoney } from "@/lib/money";
+import { fmtValue, type ValueFormat } from "./format";
 import { Tr } from "@/lib/i18n/client";
 
 /**
@@ -10,16 +10,9 @@ import { Tr } from "@/lib/i18n/client";
  */
 
 export type ChartPoint = { label: string; long: string; value: number };
-export type ValueFormat = "num" | "money" | "pct";
 
 const GOLD = "var(--color-gold)";
 const LINE = "var(--color-line)";
-
-export function fmtValue(v: number, f: ValueFormat = "num") {
-  if (f === "money") return formatMoney(Math.round(v));
-  if (f === "pct") return `${v.toLocaleString("es-ES", { maximumFractionDigits: 1 })} %`;
-  return Math.round(v).toLocaleString("es-ES");
-}
 
 /** Un máximo «redondo» para el eje (1, 2, 5 × 10ⁿ), para que las rayas de guía caigan en cifras limpias. */
 function niceMax(v: number) {
