@@ -63,7 +63,7 @@ export function PhotoGallery({ photos, label, className = "" }: { photos: Galler
             type="button"
             onClick={() => open(k)}
             className="group/thumb block overflow-hidden rounded-[calc(var(--r-card)*0.5)]"
-            aria-label={`Ver foto ${k + 1} de ${n}${ph.alt ? `: ${ph.alt}` : ""}`}
+            aria-label={`${tt("Ver foto {k} de {n}", { k: k + 1, n })}${ph.alt ? `: ${ph.alt}` : ""}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -138,7 +138,7 @@ export function PhotoGallery({ photos, label, className = "" }: { photos: Galler
                   key={`${ph.src}-m${k}`}
                   type="button"
                   onClick={() => setI(k)}
-                  aria-label={`Ir a la foto ${k + 1}`}
+                  aria-label={tt("Ir a la foto {k}", { k: k + 1 })}
                   aria-current={k === i ? "true" : undefined}
                   className={`h-12 w-12 shrink-0 overflow-hidden rounded-lg border-2 transition ${k === i ? "opacity-100" : "border-transparent opacity-55 hover:opacity-90"}`}
                   style={k === i ? { borderColor: "var(--c-gold, #fff)" } : undefined}

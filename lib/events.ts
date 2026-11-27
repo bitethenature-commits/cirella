@@ -37,7 +37,8 @@ export type DomainEvent =
   // La clienta ha completado o corregido sus datos para la lectura (aviso a la dueña).
   | { type: "intake.updated"; orderId: string; first: boolean }
   | { type: "subscription.created"; subscriptionId: string }
-  | { type: "subscription.canceled"; subscriptionId: string }
+  // byMember: la canceló ella desde su área (le llega «Cancelación confirmada»).
+  | { type: "subscription.canceled"; subscriptionId: string; byMember?: boolean }
   // La suscripción ha terminado de verdad (y con ella el acceso): aviso a la miembro.
   | { type: "subscription.ended"; subscriptionId: string; reason: "period_end" | "payment_failed" }
   | { type: "checkout.abandoned"; orderId: string }

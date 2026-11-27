@@ -221,6 +221,7 @@ export async function handleAutomation(event: DomainEvent) {
               conditions: snapshot ? { terms: snapshot.terms, refunds: snapshot.refunds } : undefined,
 
               receiptUrl,
+              course: order.productType === "COURSE",
             }),
             custom.subject,
           ))),
@@ -228,7 +229,10 @@ export async function handleAutomation(event: DomainEvent) {
       }
       // Aviso de venta a la creadora (notificación de sistema). En la web personal, la de una sesión va
       // en el aviso de la reserva (un solo email por reserva pagada) si lo tiene activado.
-      const merged = order.productType === "SESSION" && isPersonalMode() && (await setting(order.creatorId, "BOOKING_OWNER_NOTICE")).enabled;
+      // Y la de una membresía va en «Nueva suscripción» (un solo aviso por miembro nueva).
+      const merged =
+        (order.productType === "SESSION" && isPersonalMode() && (await setting(order.creatorId, "BOOKING_OWNER_NOTICE")).enabled) ||
+        (order.productType === "MEMBERSHIP" && (await setting(order.creatorId, "NEW_SUBSCRIPTION")).enabled);
       const answers = readIntakeAnswers(order.intake);
       if (!merged)
         await enqueueEmail({
@@ -244,24 +248,6 @@ export async function handleAutomation(event: DomainEvent) {
             details: answers && order.productType !== "SESSION" ? intakeLines(answers) : undefined,
           }))),
         });
-      if (order.productType === "COURSE") {
-        const c = await setting(order.creatorId, "COURSE_ACCESS");
-        const courseKey = `course:${order.id}`;
-        if (c.enabled && !(await emailAlreadyQueued(courseKey))) {
-          const link = await createOrderLink({ orderId: order.id, path: `/area/courses/${order.productId}` });
-          const custom = customEmail(c, { mi_nombre: name, producto: order.productTitle });
-          await enqueueEmail({
-            to: order.buyerEmail,
-            creatorId: order.creatorId,
-            template: "COURSE_ACCESS",
-            dedupeKey: courseKey,
-            ...(await inMail(order.buyerEmail, async () => withCustomSubject(
-              T.courseAccessEmail({ creatorName: name, courseTitle: order.productTitle, url: link.url, linkNote: orderLinkNote(link.expiresAt), introHtml: custom.introHtml }),
-              custom.subject,
-            ))),
-          });
-        }
-      }
       return;
     }
 
@@ -378,6 +364,7 @@ export async function handleAutomation(event: DomainEvent) {
     case "subscription.canceled": {
       const sub = await prisma.subscription.findUniqueOrThrow({ where: { id: event.subscriptionId }, include: { product: true, customer: true } });
       const trigger = event.type === "subscription.created" ? "NEW_SUBSCRIPTION" : "SUBSCRIPTION_CANCELED";
+      if (event.type === "subscription.canceled" && event.byMember) await sendCancelConfirmed(sub.id);
       const s = await setting(sub.creatorId, trigger);
       if (!s.enabled) return;
       const to = s.creator.contactEmail || s.creator.user.email;
@@ -449,6 +436,34 @@ export async function handleAutomation(event: DomainEvent) {
       return;
     }
   }
+}
+
+/**
+ * «Cancelación confirmada»: a la miembro, al momento, con lo que canceló, la fecha y la hora en que nos llegó y hasta
+ * cuándo sigue entrando (en Alemania es obligatorio, § 312k BGB). Con «Reactivar» por si se arrepiente.
+ */
+async function sendCancelConfirmed(subscriptionId: string) {
+  const sub = await prisma.subscription.findUnique({ where: { id: subscriptionId }, include: { product: true, customer: true, creator: true } });
+  if (!sub || !sub.canceledAt) return;
+  const s = await setting(sub.creatorId, "CANCEL_CONFIRMED");
+  const tz = sub.creator.timezone;
+  await enqueueEmail({
+    to: sub.customer.email,
+    creatorId: sub.creatorId,
+    userId: sub.userId,
+    template: "CANCEL_CONFIRMED",
+    dedupeKey: `cancel-confirmed:${sub.id}:${sub.canceledAt.getTime()}`,
+    ...(await inMail(sub.customer.email, async () => withCustomSubject(
+      T.cancelConfirmedEmail({
+        creatorName: sub.creator.displayName,
+        productTitle: sub.product.title,
+        receivedAt: formatDate(sub.canceledAt!, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }, tz),
+        until: formatDate(sub.currentPeriodEnd, { day: "numeric", month: "long", year: "numeric" }, tz),
+        url: `${appUrl()}/area/membership/${sub.productId}`,
+      }),
+      s.subject,
+    ))),
+  });
 }
 
 type BookingFull = NonNullable<Awaited<ReturnType<typeof loadBooking>>>;

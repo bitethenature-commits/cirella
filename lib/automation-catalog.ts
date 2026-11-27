@@ -6,14 +6,14 @@ import type { EmailDesign, EmailVars } from "./email-blocks";
 import { isPersonalMode } from "./site-mode";
 
 export const AUTOMATIONS = {
-  PURCHASE_RECEIPT: { label: "Email de compra", description: "Recibo y acceso al contenido para quien compra", audience: "Clienta", essential: true, defaultDelay: 0 },
-  COURSE_ACCESS: { label: "Acceso al curso", description: "Enlace directo al curso tras la compra", audience: "Clienta", essential: true, defaultDelay: 0 },
+  PURCHASE_RECEIPT: { label: "Email de compra", description: "Recibo y acceso al contenido para quien compra", audience: "Clienta", essential: true, defaultDelay: 0, paidOnly: true },
   BOOKING_CONFIRMED: { label: "Confirmación de reserva", description: "Fecha, hora y enlace de la sesión", audience: "Clienta", essential: true, defaultDelay: 0 },
-  NEW_SUBSCRIPTION: { label: "Aviso de nueva suscripción", description: "Te avisamos cuando alguien se une a tu membresía", audience: "Tú", essential: true, defaultDelay: 0 },
-  SUBSCRIPTION_CANCELED: { label: "Aviso de cancelación", description: "Te avisamos cuando alguien cancela su membresía", audience: "Tú", essential: true, defaultDelay: 0 },
+  NEW_SUBSCRIPTION: { label: "Aviso de nueva suscripción", description: "Te avisamos cuando alguien se une a tu membresía", audience: "Tú", essential: true, defaultDelay: 0, paidOnly: true },
+  SUBSCRIPTION_CANCELED: { label: "Aviso de cancelación", description: "Te avisamos cuando alguien cancela su membresía", audience: "Tú", essential: true, defaultDelay: 0, paidOnly: true },
+  CANCEL_CONFIRMED: { label: "Cancelación confirmada", description: "Cuando cancela su membresía le llega al momento la confirmación, con la fecha y la hora, y hasta cuándo sigue entrando", audience: "Clienta", essential: true, defaultDelay: 0, paidOnly: true },
   WELCOME: { label: "Email de bienvenida", description: "Mensaje personal tras la primera compra de una clienta nueva", audience: "Clienta", essential: false, defaultDelay: 10 },
   SESSION_REMINDER: { label: "Recordatorio de sesión", description: "Se envía antes de cada sesión (minutos de antelación)", audience: "Clienta", essential: false, defaultDelay: 1440 },
-  ABANDONED_CHECKOUT: { label: "Recuperación de compra abandonada", description: "Si alguien empieza a pagar y no termina", audience: "Clienta", essential: false, defaultDelay: 60 },
+  ABANDONED_CHECKOUT: { label: "Recuperación de compra abandonada", description: "Si alguien empieza a pagar y no termina", audience: "Clienta", essential: false, defaultDelay: 60, paidOnly: true },
   // Calendario propio: activadas por defecto solo en la web personal (en la plataforma, como siempre).
   BOOKING_OWNER_NOTICE: { label: "Aviso de reservas", description: "Te avisamos de cada reserva, cambio de fecha, cancelación y datos nuevos de tus clientas", audience: "Tú", essential: false, defaultDelay: 0, defaultEnabled: "personal" },
   SESSION_REMINDER_SOON: { label: "Segundo recordatorio", description: "Poco antes de la sesión, con el enlace de Zoom (minutos de antelación)", audience: "Clienta", essential: false, defaultDelay: 60, defaultEnabled: "personal" },
@@ -43,12 +43,18 @@ export const DELAY_FIELDS: Partial<Record<AutomationTrigger, { before: string; a
   MISS_YOU: { before: "Tras", after: "días sin entrar", unit: 1440, min: 7, max: 180 },
 };
 
-/** ¿Está activada si la creadora no la ha tocado? Las del calendario propio, solo en la web personal. */
-/** Las que se enseñan en el panel (la bienvenida a la newsletter, solo en la web personal). */
-export function visibleAutomations(personal: boolean): AutomationTrigger[] {
-  return (Object.keys(AUTOMATIONS) as AutomationTrigger[]).filter((t) => personal || !(AUTOMATIONS[t] as { personalOnly?: boolean }).personalOnly);
+/**
+ * Las que se enseñan en el panel: las de la web personal, solo en ella; las de cobrar en la web (recibo, avisos de
+ * suscripción, compra abandonada), solo si se cobra en la web (`sells`). Si no, nunca salen y no se enseñan.
+ */
+export function visibleAutomations(personal: boolean, sells = true): AutomationTrigger[] {
+  return (Object.keys(AUTOMATIONS) as AutomationTrigger[]).filter((t) => {
+    const meta = AUTOMATIONS[t] as { personalOnly?: boolean; paidOnly?: boolean };
+    return (personal || !meta.personalOnly) && (sells || !meta.paidOnly);
+  });
 }
 
+/** ¿Está activada si la creadora no la ha tocado? Las del calendario propio, solo en la web personal. */
 export function automationDefaultOn(t: AutomationTrigger): boolean {
   const meta = AUTOMATIONS[t] as { defaultEnabled?: boolean | "personal" };
   if (meta.defaultEnabled === "personal") return isPersonalMode();
@@ -93,13 +99,6 @@ export const EDITABLE_EMAILS: Partial<Record<AutomationTrigger, EditableEmail>> 
     subject: "Ya tienes acceso a «{producto}»",
     fixed: "Debajo van solos el botón de acceso, la fecha de fin (si la tiene), tus instrucciones y, si lo pidió, el enlace para confirmar la newsletter.",
     original: () => ({ v: 1, blocks: [text("texto", "Hola, {nombre}, ya puedes entrar en **{producto}**.")] }),
-  },
-  COURSE_ACCESS: {
-    mode: "intro",
-    vars: ["mi_nombre", "producto"],
-    subject: "Ya tienes acceso a «{producto}»",
-    fixed: "Debajo va solo el botón «Empezar el curso».",
-    original: () => ({ v: 1, blocks: [text("texto", "Ya puedes empezar **{producto}**. Avanza a tu ritmo: tu progreso se guarda automáticamente.")] }),
   },
   BOOKING_CONFIRMED: {
     mode: "intro",

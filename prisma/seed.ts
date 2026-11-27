@@ -1600,7 +1600,7 @@ async function main() {
   await prisma.calendarNote.createMany({ data: [...notes].map(([date, body]) => ({ creatorId: ana.id, date, body, format: "MD" })) });
 
   // Automatizaciones (Cirella es Pro: todas activas)
-  const triggers = ["PURCHASE_RECEIPT", "COURSE_ACCESS", "BOOKING_CONFIRMED", "NEW_SUBSCRIPTION", "SUBSCRIPTION_CANCELED", "WELCOME", "SESSION_REMINDER", "ABANDONED_CHECKOUT"];
+  const triggers = ["PURCHASE_RECEIPT", "BOOKING_CONFIRMED", "NEW_SUBSCRIPTION", "SUBSCRIPTION_CANCELED", "WELCOME", "SESSION_REMINDER", "ABANDONED_CHECKOUT"];
   await prisma.automation.createMany({
     data: triggers.map((t) => ({
       creatorId: ana.id, trigger: t, enabled: true,

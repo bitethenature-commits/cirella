@@ -37,8 +37,8 @@ export function sampleAutomaticEmail(
     case "ACCESS_GRANTED":
       mail = T.accessGrantedEmail({ name: "Laura", creatorName: c.displayName, productTitle: o.productTitle, productType: "DIGITAL", url, introHtml });
       break;
-    case "COURSE_ACCESS":
-      mail = T.courseAccessEmail({ creatorName: c.displayName, courseTitle: o.productTitle, url, introHtml });
+    case "CANCEL_CONFIRMED":
+      mail = T.cancelConfirmedEmail({ creatorName: c.displayName, productTitle: o.productTitle, receivedAt: "3 de diciembre de 2026, 10:24", until: "15 de diciembre de 2026", url });
       break;
     case "BOOKING_CONFIRMED":
       mail = T.bookingConfirmedEmail({ creatorName: c.displayName, productTitle: o.productTitle, when, url, meetingUrl: "https://zoom.us/j/123456789", meetingLabel: "Enlace de Zoom", reminderMinutes: 1440, introHtml });

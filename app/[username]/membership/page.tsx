@@ -150,7 +150,7 @@ export default async function ComunidadPage({ params }: { params: Promise<Params
                       href={href}
                       event={{ creatorId: creator.id, type: "PRODUCT_CLICK" as const, productId: t.id }}
                       className={portalButton(highlight)}
-                      ariaLabel={mode === "PAID" ? `${ctaText}: ${t.title}` : `Unirme a ${t.title}`}
+                      ariaLabel={mode === "PAID" ? `${ctaText}: ${t.title}` : `Unirme: ${t.title}`}
                     >
                       {mode === "PAID" ? (
                         <>

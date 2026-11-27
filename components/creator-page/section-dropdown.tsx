@@ -3,6 +3,7 @@
 import { ChevronDown } from "lucide-react";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { unseenLabel, type SeenSection } from "@/lib/section-seen-rules";
+import { Tr } from "@/lib/i18n/client";
 
 type Remote = { sync: true; counts: Record<SeenSection, number> } | { sync: false };
 
@@ -134,7 +135,7 @@ function FoldTab({ fold, username, preview, open, onToggle, editing }: { fold: F
         {count != null && count > 0 && (
           <span data-unseen={count} className="absolute -right-2 -top-1.5 flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full px-1 text-[0.68rem] font-bold leading-none text-white ring-2 ring-[var(--c-bg)]" style={{ background: "#e5484d" }}>
             <span aria-hidden>{count > 9 ? "9+" : count}</span>
-            <span className="sr-only">{unseenLabel(count)}</span>
+            <span className="sr-only"><Tr s={unseenLabel(count)} vars={{ n: count }} /></span>
           </span>
         )}
       </span>

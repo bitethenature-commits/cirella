@@ -236,6 +236,8 @@ export function purchaseReceiptEmail(o: {
   conditions?: { terms: string; refunds: string };
   /** Detalle de la compra (/area/orders/…). */
   receiptUrl?: string | null;
+  /** Un curso: el botón dice «Empezar el curso». */
+  course?: boolean;
   introHtml?: string | null;
 }) {
   const row = (label: string, value: string) =>
@@ -273,17 +275,17 @@ export function purchaseReceiptEmail(o: {
         `<table style="width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:14px">
           <tr><td style="padding:8px 0;color:#A99FC2">Producto</td><td style="padding:8px 0;text-align:right">${esc(o.productTitle)}</td></tr>
           <tr><td style="padding:8px 0;color:#A99FC2;border-top:1px solid #3A3354">Total</td><td style="padding:8px 0;text-align:right;border-top:1px solid #3A3354"><strong>${esc(o.amount)}</strong></td></tr>
-          <tr><td style="padding:8px 0;color:#A99FC2;border-top:1px solid #3A3354">Pedido</td><td style="padding:8px 0;text-align:right;border-top:1px solid #3A3354;font-family:monospace;font-size:12px">${esc(orderRef(o.orderId))}</td></tr>
+          <tr><td style="padding:8px 0;color:#A99FC2;border-top:1px solid #3A3354">${et("Pedido")}</td><td style="padding:8px 0;text-align:right;border-top:1px solid #3A3354;font-family:monospace;font-size:12px">${esc(orderRef(o.orderId))}</td></tr>
 
           ${o.seller ? row(et("Vende"), [o.seller.line, o.seller.address, o.seller.email].filter(Boolean).map(esc).join("<br>")) : ""}
         </table>` +
 
         p(et("Pulsa el botón para abrir tu compra. No necesitas contraseña.")) +
         (o.instructions ? p(`<em>${esc(o.instructions)}</em>`) : ""),
-      cta: { label: et("Acceder a mi contenido"), url: o.accountUrl },
+      cta: { label: o.course ? et("Empezar el curso") : et("Acceder a mi contenido"), url: o.accountUrl },
       afterCta:
         note(o.linkNote) +
-        (o.receiptUrl ? p(`<a href="${esc(o.receiptUrl)}" style="color:#E8DFCB;font-size:14px">Ver el detalle de tu compra</a>`) : "") +
+        (o.receiptUrl ? p(`<a href="${esc(o.receiptUrl)}" style="color:#E8DFCB;font-size:14px">${et("Ver el detalle de tu compra")}</a>`) : "") +
         legal +
         appendix,
     }),
@@ -333,19 +335,6 @@ export function accessGrantedEmail(o: {
           ? p(et("Marcaste que quieres recibir las novedades de {creatorName} por email. Confírmalo aquí (si no lo pediste tú, no hagas nada y no recibirás ninguna):", { creatorName: esc(o.creatorName) })) +
             p(et("<a href=\"{newsletterUrl}\" style=\"color:#D9BF8C;font-weight:600\">Confirmar que quiero recibir novedades</a>", { newsletterUrl: esc(o.newsletterUrl) }))
           : ""),
-    }),
-  };
-}
-
-export function courseAccessEmail(o: { creatorName: string; courseTitle: string; url: string; linkNote?: string; introHtml?: string | null }) {
-  return {
-    subject: et("Ya tienes acceso a «{courseTitle}»", { courseTitle: o.courseTitle }),
-    html: layout({
-      brand: o.creatorName,
-      title: et("Tu curso te espera"),
-      body: o.introHtml || p(et("Ya puedes empezar <strong>{courseTitle}</strong>. Avanza a tu ritmo: tu progreso se guarda automáticamente.", { courseTitle: esc(o.courseTitle) })),
-      cta: { label: et("Empezar el curso"), url: o.url },
-      afterCta: note(o.linkNote),
     }),
   };
 }
@@ -720,7 +709,23 @@ export function membershipEndedEmail(o: { creatorName: string; productTitle: str
       body: failed
         ? p(et("Tu membresía <strong>{productTitle}</strong> se ha cancelado porque no hemos podido cobrar la renovación. Ya no tienes acceso a su contenido ni a lo que incluía.", { productTitle: esc(o.productTitle) }))
         : p(et("Tu membresía <strong>{productTitle}</strong> ha terminado, como pediste al cancelarla. Ya no tienes acceso a su contenido ni a lo que incluía.", { productTitle: esc(o.productTitle) })),
-      cta: o.rejoinUrl ? { label: "Volver a unirme", url: o.rejoinUrl } : undefined,
+      cta: o.rejoinUrl ? { label: et("Volver a unirme"), url: o.rejoinUrl } : undefined,
+    }),
+  };
+}
+
+/** La miembro ha cancelado su membresía: confirmación al momento (§ 312k BGB), con la fecha y la hora y el acceso que le queda. */
+export function cancelConfirmedEmail(o: { creatorName: string; productTitle: string; receivedAt: string; until: string; url: string }) {
+  return {
+    subject: et("Cancelación confirmada: {productTitle}", { productTitle: o.productTitle }),
+    html: layout({
+      brand: o.creatorName,
+      title: et("Tu cancelación está confirmada"),
+      body:
+        p(et("Hemos recibido la cancelación de tu membresía <strong>{productTitle}</strong> el {receivedAt}.", { productTitle: esc(o.productTitle), receivedAt: esc(o.receivedAt) })) +
+        p(et("No se te volverá a cobrar. Sigues teniendo acceso a todo hasta el {until}.", { until: esc(o.until) })) +
+        p(et("Si cambias de idea antes de esa fecha, puedes reactivarla con un clic.")),
+      cta: { label: et("Ver mi membresía"), url: o.url },
     }),
   };
 }

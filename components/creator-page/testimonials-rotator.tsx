@@ -81,7 +81,7 @@ export function TestimonialsRotator({ items }: { items: Testimonial[] }) {
               key={x.id}
               type="button"
               onClick={() => goTo(k)}
-              aria-label={`Opinión ${k + 1} de ${n}`}
+              aria-label={tt("Opinión {k} de {n}", { k: k + 1, n })}
               aria-current={k === i ? "true" : undefined}
               className="grid h-6 w-6 place-items-center"
             >

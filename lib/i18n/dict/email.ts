@@ -253,4 +253,16 @@ export const EMAIL: DictEntries = {
   "Recibes este email porque {reason}. ¿No quieres recibir más emails como este? {unsub}.": { de: "Du bekommst diese E-Mail, weil {reason}. Keine solchen E-Mails mehr? {unsub}.", en: "You're getting this email because {reason}. Don't want more emails like this? {unsub}." },
   "<br>{who} · <a href=\"{legalUrl}\" style=\"color:#8A8698\">Aviso legal y privacidad</a>": { de: "<br>{who} · <a href=\"{legalUrl}\" style=\"color:#8A8698\">Impressum und Datenschutz</a>", en: "<br>{who} · <a href=\"{legalUrl}\" style=\"color:#8A8698\">Legal notice and privacy</a>" },
   "Newsletter": { de: "Newsletter", en: "Newsletter" },
+  // Auditoría (2026-11): «Cancelación confirmada» y textos del recibo.
+  "Pedido": { de: "Bestellung", en: "Order" },
+  "Ver el detalle de tu compra": { de: "Details deines Kaufs ansehen", en: "See your purchase details" },
+  "Volver a unirme": { de: "Wieder beitreten", en: "Join again" },
+  "Cancelación confirmada: {productTitle}": { de: "Kündigung bestätigt: {productTitle}", en: "Cancellation confirmed: {productTitle}" },
+  "Tu cancelación está confirmada": { de: "Deine Kündigung ist bestätigt", en: "Your cancellation is confirmed" },
+  "Hemos recibido la cancelación de tu membresía <strong>{productTitle}</strong> el {receivedAt}.": { de: "Wir haben die Kündigung deiner Mitgliedschaft <strong>{productTitle}</strong> am {receivedAt} erhalten.", en: "We received the cancellation of your membership <strong>{productTitle}</strong> on {receivedAt}." },
+  "No se te volverá a cobrar. Sigues teniendo acceso a todo hasta el {until}.": { de: "Es wird nichts mehr abgebucht. Du hast bis zum {until} weiterhin Zugang zu allem.", en: "You won’t be charged again. You still have access to everything until {until}." },
+  "Si cambias de idea antes de esa fecha, puedes reactivarla con un clic.": { de: "Wenn du es dir vor diesem Datum anders überlegst, kannst du sie mit einem Klick wieder aktivieren.", en: "If you change your mind before then, you can reactivate it with one click." },
+  "Ver mi membresía": { de: "Meine Mitgliedschaft ansehen", en: "See my membership" },
+  "Cancelación confirmada": { de: "Kündigung bestätigt", en: "Cancellation confirmed" },
+  "Cuando cancela su membresía le llega al momento la confirmación, con la fecha y la hora, y hasta cuándo sigue entrando": { de: "Wenn sie ihre Mitgliedschaft kündigt, bekommt sie sofort die Bestätigung mit Datum und Uhrzeit und bis wann sie noch Zugang hat", en: "When she cancels her membership she gets the confirmation straight away, with the date and time and until when she still has access" },
 };

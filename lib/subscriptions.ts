@@ -35,7 +35,7 @@ export async function cancelSubscription(subscriptionId: string, userId: string)
       where: { id: subscriptionId, userId, status: { in: LIVE }, cancelAtPeriodEnd: false },
       data: { cancelAtPeriodEnd: true, canceledAt: new Date() },
     });
-    return c.count ? recordEvents(tx, [{ type: "subscription.canceled", subscriptionId }]) : null;
+    return c.count ? recordEvents(tx, [{ type: "subscription.canceled", subscriptionId, byMember: true }]) : null;
   });
   if (!eventIds) return null;
   await dispatchEvents(eventIds);

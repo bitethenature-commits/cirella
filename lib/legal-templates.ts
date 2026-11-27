@@ -177,7 +177,7 @@ export function personalPaymentMethodsText(keys: readonly string[]): string {
 }
 
 /** Quién procesa los pagos (privacidad de la web personal que cobra). */
-function personalProcessorsText(keys: readonly string[]): string {
+export function personalProcessorsText(keys: readonly string[]): string {
   const names = [keys.includes("stripe") || keys.includes("simulated") ? "Stripe" : null, keys.includes("paypal") ? "PayPal" : null].filter(Boolean);
   if (!names.length) return "Los pagos los procesan pasarelas de pago seguras";
   return `Los pagos los procesa${names.length > 1 ? "n" : ""} ${names.join(" y ")}`;

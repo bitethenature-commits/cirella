@@ -12,6 +12,8 @@ import {
   acceptedLegalDocs,
   PERSONAL_SALES_THIRD_PARTY_TEXT,
   PERSONAL_THIRD_PARTY_TEXT,
+  personalPaymentMethodsText,
+  personalProcessorsText,
   privacyResponsibleLine,
   WITHDRAWAL_FORM_TEXT,
   type LegalKind,
@@ -22,7 +24,9 @@ import { isPublicUsernameAllowed } from "@/lib/personal-routing";
 import { ownerUsername } from "@/lib/site-mode";
 import { Tr } from "@/lib/i18n/client";
 import { localTx } from "@/lib/i18n/content";
-import { getT } from "@/lib/i18n/server";
+import { getLocale, getT } from "@/lib/i18n/server";
+import { translateLegalDoc } from "@/lib/i18n/legal-docs";
+import { SESSION_CHANGE_NOTICE_HOURS } from "@/lib/legal";
 
 type Params = { username: string };
 
@@ -74,7 +78,18 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
   // Sus textos propios, con la IA (corregibles en Traducciones); los de partida, con el diccionario.
   const tx = await localTx(creator.id);
   const own = new Set([creator.legalTerms, creator.legalRefunds, creator.legalPrivacy].filter((x): x is string => !!x));
-  const legal = (s: string) => (own.has(s) ? tx(s) : t(s));
+  // Las plantillas, línea a línea con el diccionario legal (con su nombre, las horas y cómo se paga en sus huecos).
+  const locale = await getLocale();
+  const keys = paymentProviderKeys();
+  const docVars = {
+    nombre: creator.displayName,
+    plataforma: platformName,
+    horas: `${SESSION_CHANGE_NOTICE_HOURS} h`,
+    metodos: personalPaymentMethodsText(keys),
+    procesadores: personalProcessorsText(keys),
+  };
+  const doc = (s: string) => translateLegalDoc(s, locale, docVars);
+  const legal = (s: string) => (own.has(s) ? tx(s) : doc(s));
 
   const rows: [string, string][] = [
     ["Titular", identity.legalName ?? ""],
@@ -97,7 +112,7 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
         {snapshot && (
           <p className="cp-card mt-6 px-4 py-3 text-sm">
             <strong>{snapshot.personal && !snapshot.sales ? t("Versión aceptada al apuntarte") : t("Versión aceptada en tu compra")}</strong>{" "}<Tr s={"· en vigor desde el"} />{" "}
-            {snapshot.createdAt.toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short", timeZone: creator.timezone })}<Tr s={". Es la copia exacta de lo que aceptaste; la versión actual puede ser distinta."} />{" "}<Link href={`${creatorLegalHref(username)}`} className="underline underline-offset-4"><Tr s={"Ver la versión actual"} /></Link>
+            {snapshot.createdAt.toLocaleString({ es: "es-ES", de: "de-DE", en: "en-GB" }[locale], { dateStyle: "long", timeStyle: "short", timeZone: creator.timezone })}<Tr s={". Es la copia exacta de lo que aceptaste; la versión actual puede ser distinta."} />{" "}<Link href={`${creatorLegalHref(username)}`} className="underline underline-offset-4"><Tr s={"Ver la versión actual"} /></Link>
           </p>
         )}
 
@@ -149,7 +164,7 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
                   </div>
                   <h3 className="mt-8 text-[0.95rem] font-semibold"><Tr s={"Formulario de desistimiento"} /></h3>
                   <p className="cp-muted mt-1 text-sm"><Tr s={"Puedes copiarlo y enviarlo por email. No es obligatorio usarlo."} /></p>
-                  <pre className="cp-card mt-3 whitespace-pre-wrap p-4 font-sans text-sm">{WITHDRAWAL_FORM_TEXT}</pre>
+                  <pre className="cp-card mt-3 whitespace-pre-wrap p-4 font-sans text-sm">{doc(WITHDRAWAL_FORM_TEXT)}</pre>
                 </section>
               </>
             )}
@@ -159,7 +174,7 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
                 <SiteText texts={config.texts} k="pg.legal.privacidad" />
               </h2>
               <div className="mt-4">
-                <LegalText text={`${privacyResponsibleLine(identity)}\n\n${legal(privacy)}`} />
+                <LegalText text={`${doc(privacyResponsibleLine(identity))}\n\n${legal(privacy)}`} />
               </div>
             </section>
 
@@ -178,7 +193,7 @@ export default async function CreatorLegalPage({ params, searchParams }: { param
                 <SiteText texts={config.texts} k="pg.legal.otras" />
               </h2>
                 <div className="mt-4">
-                  <LegalText text={t(sells ? PERSONAL_SALES_THIRD_PARTY_TEXT : PERSONAL_THIRD_PARTY_TEXT)} />
+                  <LegalText text={doc(sells ? PERSONAL_SALES_THIRD_PARTY_TEXT : PERSONAL_THIRD_PARTY_TEXT)} />
                 </div>
               </section>
             )}

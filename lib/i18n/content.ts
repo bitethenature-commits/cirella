@@ -9,6 +9,7 @@ import { visibleCodeWhere } from "@/lib/discount-codes";
 import { readPageConfig } from "@/lib/page-config";
 import { GIFTS_SLUG, giftsContent, readSitePageContent } from "@/lib/site-pages";
 import type { Locale } from "./config";
+import { tr } from "./dict";
 import { getLocale } from "./server";
 import { isHumanText, walkTexts } from "./content-walk";
 import { configSourceTexts } from "./localize-config";
@@ -263,14 +264,21 @@ export const getContentTranslator = cache(async (creatorId: string, locale: Loca
     select: { source: true, lang: true, de: true, en: true, es: true, manual: true },
   });
   const map = new Map(rows.map((r) => [r.source, r]));
+  // Sin traducción suya todavía: si es uno de los textos de la web que ya están en el diccionario (los que trae la
+  // web de serie, como «Sobre mí» o «Escríbeme para reservar»), sale el del diccionario en vez del español.
+  const fixed = (t: string, s: string) => {
+    const d = locale === "es" ? t : tr(locale, t);
+    return d === t ? s : d;
+  };
   return (s: string): string => {
     const t = s.trim();
     if (!t) return s;
     const row = map.get(t);
     if (!row) {
       translateSoon(creatorId);
-      return s;
+      return fixed(t, s);
     }
-    return pickTranslation(row, locale, s);
+    const out = pickTranslation(row, locale, s);
+    return out === s && row.lang !== locale ? fixed(t, s) : out;
   };
 });

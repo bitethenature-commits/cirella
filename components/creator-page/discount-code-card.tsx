@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PublicDiscountCode } from "./creator-page-view";
 import { PhotoGallery } from "./photo-gallery";
 import { track } from "./tracking";
-import { Tr } from "@/lib/i18n/client";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /** Copia un texto al portapapeles: la API moderna o, si no está (http, navegadores antiguos), execCommand. */
 async function copyText(text: string): Promise<boolean> {
@@ -40,6 +40,7 @@ async function copyText(text: string): Promise<boolean> {
  * copiar, se selecciona el código para copiarlo a mano.
  */
 export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscountCode; trackCreatorId: string | null }) {
+  const tt = useT();
   const [state, setState] = useState<"idle" | "copied" | "manual">("idle");
   const codeRef = useRef<HTMLElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,7 +73,7 @@ export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscoun
   const expandable = photos.length > 0 || recs.length > 0;
 
   return (
-    <article className="cp-card flex min-w-0 flex-col items-center p-4 text-center" style={{ overflow: "visible" }} aria-label={`Código de descuento de ${code.brand}`} data-code-row={code.code}>
+    <article className="cp-card flex min-w-0 flex-col items-center p-4 text-center" style={{ overflow: "visible" }} aria-label={tt("Código de descuento de {brand}", { brand: code.brand })} data-code-row={code.code}>
       {code.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={code.imageUrl} alt="" loading="lazy" decoding="async" className="h-14 w-14 shrink-0 rounded-full object-cover" />
@@ -99,7 +100,7 @@ export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscoun
           type="button"
           onClick={onCopy}
           className="cp-code-copy group"
-          aria-label={state === "copied" ? `Copiado: ${code.code}` : `Copiar código ${code.code}`}
+          aria-label={state === "copied" ? tt("Copiado: {code}", { code: code.code }) : tt("Copiar código {code}", { code: code.code })}
         >
           <code ref={codeRef} className={`cp-display min-w-0 flex-1 select-all break-all text-center text-[1.08rem] leading-tight ${code.code.length > 12 ? "tracking-[0.06em]" : "tracking-[0.2em]"}`}>
             {code.code}

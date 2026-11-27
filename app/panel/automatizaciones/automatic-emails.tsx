@@ -1,9 +1,10 @@
-import { Bell, BellRing, CalendarCheck, GraduationCap, Heart, HeartHandshake, Hourglass, KeyRound, Mail, MailCheck, MessageCircle, Moon, PenLine, Receipt, ShoppingBag, Sparkles, UserMinus, UserPlus, type LucideIcon } from "lucide-react";
+import { Bell, BellRing, CalendarCheck, CalendarX, Heart, HeartHandshake, Hourglass, KeyRound, Mail, MailCheck, MessageCircle, Moon, PenLine, Receipt, ShoppingBag, Sparkles, UserMinus, UserPlus, type LucideIcon } from "lucide-react";
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
 import { SubmitButton } from "@/components/ui/submit-button";
 import Link from "next/link";
 import { AUTOMATIONS, automationDefaultOn, type AutomationTrigger } from "@/lib/automations";
 import { DELAY_FIELDS, EDITABLE_EMAILS, visibleAutomations } from "@/lib/automation-catalog";
+import { signupsOnly } from "@/lib/commerce";
 import { planFeatures } from "@/lib/plans";
 import { isPersonalMode } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
@@ -34,10 +35,10 @@ const GROUPS = [
 
 const ICONS: Partial<Record<AutomationTrigger, LucideIcon>> = {
   PURCHASE_RECEIPT: Receipt,
-  COURSE_ACCESS: GraduationCap,
   BOOKING_CONFIRMED: CalendarCheck,
   NEW_SUBSCRIPTION: UserPlus,
   SUBSCRIPTION_CANCELED: UserMinus,
+  CANCEL_CONFIRMED: CalendarX,
   WELCOME: Sparkles,
   SESSION_REMINDER: Bell,
   SESSION_REMINDER_SOON: BellRing,
@@ -81,7 +82,7 @@ export async function AutomaticEmails({ creator }: { creator: { id: string; plan
     <div className="space-y-8">
       {!pro && <Locked title="Automatiza tu relación con tus clientas" text="Bienvenida personalizada, recordatorios de sesión y recuperación de compras abandonadas. Los emails esenciales (compra, acceso y reservas) ya se envían en todos los planes." />}
       {GROUPS.map((g) => {
-        const list = visibleAutomations(isPersonalMode()).filter((t) => g.audiences.includes(AUTOMATIONS[t].audience));
+        const list = visibleAutomations(isPersonalMode(), !signupsOnly()).filter((t) => g.audiences.includes(AUTOMATIONS[t].audience));
         if (!list.length) return null;
         return (
           <section key={g.title}>

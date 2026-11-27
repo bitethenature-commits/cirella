@@ -9,6 +9,8 @@ import { FORMS } from "./dict/forms";
 import { EMAIL } from "./dict/email";
 import { PANEL } from "./dict/panel";
 import { MODELS } from "./dict/models";
+import { LEGAL_DOCS } from "./dict/legal-docs";
+import { AUDIT } from "./dict/audit";
 import type { DictEntry } from "./dict/types";
 
 /**
@@ -121,7 +123,7 @@ const BASE: Record<string, DictEntry> = {
 };
 
 /** Todo junto: lo de arriba y lo de cada parte de la web (lib/i18n/dict/*). */
-const DICT: Record<string, DictEntry> = { ...MODELS, ...BASE, ...PUBLIC, ...AUTH, ...LEGAL, ...AREA, ...SITE, ...EXTRA, ...FORMS, ...EMAIL, ...PANEL };
+const DICT: Record<string, DictEntry> = { ...LEGAL_DOCS, ...AUDIT, ...MODELS, ...BASE, ...PUBLIC, ...AUTH, ...LEGAL, ...AREA, ...SITE, ...EXTRA, ...FORMS, ...EMAIL, ...PANEL };
 
 /** Busca el texto tal cual o, si no, sin los espacios de alrededor (y se los vuelve a poner). */
 function lookup(s: string, locale: "de" | "en"): string {

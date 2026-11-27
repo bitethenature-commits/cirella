@@ -112,7 +112,7 @@ export async function PostArticle({
           </a>
           {cta.code && (
             <span className="inline-flex items-center gap-2">
-              <span className="cp-chip-code" aria-label={`Código de descuento ${cta.code}`}>{cta.code}</span>
+              <span className="cp-chip-code" aria-label={t("Código de descuento {code}", { code: cta.code })}>{cta.code}</span>
               <CopyButton text={cta.code} label={t("Copiar código")} className="cp-btn-ghost !min-h-0 !px-3 !py-1.5 text-xs" />
             </span>
           )}
