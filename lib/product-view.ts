@@ -10,7 +10,7 @@ import { channelKindLabel } from "./channel-kind";
 import { saleEndsLabel, saleState } from "./offers";
 import { eventLabel } from "./portal-rules";
 import { readCardCta } from "./product-texts";
-import { formatInTz } from "./tz";
+import { dateLang, formatInTz, shortDayLabel } from "./tz";
 import { lessonsLabel } from "./types";
 
 /** Los campos de un producto que deciden cómo se ve (las columnas de Product con el mismo nombre). */
@@ -48,7 +48,7 @@ export type ProductViewSource = {
 /** «Taller · jue 5 nov · 20:00», «75 min», «7 lecciones»… (lo pequeño junto al tipo en la tarjeta). */
 export function productCardMeta(p: Pick<ProductViewSource, "type" | "groupSession" | "eventStartAt" | "durationMin">, lessons: number, timeZone: string): string | null {
   if (p.type === "SESSION" && p.groupSession && p.eventStartAt)
-    return `Taller · ${formatInTz(p.eventStartAt, timeZone, { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "")} · ${formatInTz(p.eventStartAt, timeZone, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}`;
+    return `${dateLang() === "es" ? "Taller" : "Workshop"} · ${shortDayLabel(p.eventStartAt, timeZone)} · ${formatInTz(p.eventStartAt, timeZone, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}`;
   if (p.type === "SESSION" && p.durationMin) return `${p.durationMin} min`;
   if (p.type === "COURSE" && lessons) return lessonsLabel(lessons);
   return null;

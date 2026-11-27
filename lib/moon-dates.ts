@@ -4,7 +4,7 @@
  * de la luna en la zona de la dueña. Sin BD (lo usan el panel, la demo y las pruebas).
  */
 import { eclipsesBetween, moonPhasesBetween, SIGNS } from "./astro-calendar";
-import { dateKeyInTz, formatInTz } from "./tz";
+import { dateKeyInTz, shortDayLabel } from "./tz";
 
 export type MoonDate = { phase: "new" | "full" | "eclipse"; at: Date; sign: string; title: string; label: string; date: string; time: string };
 
@@ -23,7 +23,7 @@ export function nextMoonDates(from: Date, timeZone: string, count = 4, horizonDa
     const phase = ec ? ("eclipse" as const) : m.phase;
     const sign = SIGNS[Math.floor((((e.lon % 360) + 360) % 360) / 30)];
     const title = `${phase === "eclipse" ? "Eclipse" : phase === "new" ? "Luna nueva" : "Luna llena"} en ${sign}`;
-    const day = formatInTz(e.at, timeZone, { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").replace(",", "");
+    const day = shortDayLabel(e.at, timeZone);
     return [{ phase, at: e.at, sign, title, label: `${title} · ${day}`, date: dateKeyInTz(e.at, timeZone), time: MOON_CIRCLE_TIME }];
   });
 }

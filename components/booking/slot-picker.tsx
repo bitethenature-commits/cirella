@@ -3,9 +3,10 @@ import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { DaySlots } from "@/lib/slots";
 import { sameOffset, tzCity, tzOffsetLabel } from "@/lib/timezones";
-import { addDaysToKey, capitalize, formatInTz, timeInTz, weekdayOfKey } from "@/lib/tz";
+import { addDaysToKey, capitalize, formatInTz, timeInTz, weekdayOfKey, withDateLocale, zoneNote } from "@/lib/tz";
 import { browserTimezone, TimezoneSelect } from "./timezone-select";
-import { Tr, useT } from "@/lib/i18n/client";
+import { Tr, useLocale, useT } from "@/lib/i18n/client";
+import { INTL_LOCALE } from "@/lib/i18n/config";
 
 type SlotsResponse = {
   timezone: string;
@@ -59,6 +60,9 @@ export function SlotPicker({
   viewer?: "client" | "owner";
 }) {
   const t = useT();
+  // Las fechas, en el idioma de la página.
+  const lang = useLocale();
+  const loc = INTL_LOCALE[lang];
   const [tz, setTz] = useState<string>(initialTz ?? "");
   const [data, setData] = useState<SlotsResponse | null>(null);
   const [error, setError] = useState(false);
@@ -162,7 +166,7 @@ export function SlotPicker({
 
   // Por qué no hay días antes: la sesión cae siempre fuera de los 14 días para desistir.
   const day15Note = data.notBefore ? (
-    <p className={`${colors.muted} mb-3 text-xs leading-relaxed`} data-testid="dia-15"><Tr s={"Fechas a partir del"} />{" "}{formatInTz(new Date(data.notBefore), data.ownerTimezone, { day: "numeric", month: "long" })}<Tr s={": las sesiones que se pagan en la web se reservan desde el día 15 tras la compra, así nunca caen dentro de los 14 días en los que puedes desistir."} /></p>
+    <p className={`${colors.muted} mb-3 text-xs leading-relaxed`} data-testid="dia-15"><Tr s={"Fechas a partir del"} />{" "}{withDateLocale(loc, () => formatInTz(new Date(data.notBefore!), data.ownerTimezone, { day: "numeric", month: "long" }))}<Tr s={": las sesiones que se pagan en la web se reservan desde el día 15 tras la compra, así nunca caen dentro de los 14 días en los que puedes desistir."} /></p>
   ) : null;
 
   if (data.days.length === 0)
@@ -182,14 +186,14 @@ export function SlotPicker({
   const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const lead = (weekdayOfKey(monthStart) + 6) % 7; // lunes = 0
   const cells: (string | null)[] = [...Array(lead).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => addDaysToKey(monthStart, i))];
-  const monthLabel = capitalize(new Intl.DateTimeFormat("es-ES", { timeZone: "UTC", month: "long", year: "numeric" }).format(Date.UTC(y, m - 1, 15)));
+  const monthLabel = capitalize(new Intl.DateTimeFormat(loc, { timeZone: "UTC", month: "long", year: "numeric" }).format(Date.UTC(y, m - 1, 15)));
   const shiftMonth = (delta: number) => {
     const d = new Date(Date.UTC(y, m - 1 + delta, 1));
     setMonth(d.toISOString().slice(0, 7));
   };
   const longDay = (key: string) => {
     const [yy, mm, dd] = key.split("-").map(Number);
-    return new Intl.DateTimeFormat("es-ES", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }).format(Date.UTC(yy, mm - 1, dd));
+    return new Intl.DateTimeFormat(loc, { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }).format(Date.UTC(yy, mm - 1, dd));
   };
   const selected = day ? byDate.get(day) : undefined;
   const chosen = value ? new Date(value) : null;
@@ -224,11 +228,11 @@ export function SlotPicker({
         </button>
       </div>
       <div className={`${colors.faint} mt-3 grid grid-cols-7 text-center text-[0.65rem] font-semibold uppercase tracking-wider`} aria-hidden>
-        {["L", "M", "X", "J", "V", "S", "D"].map((d) => (
-          <span key={d}><Tr s={d} /></span>
+        {(lang === "de" ? ["M", "D", "M", "D", "F", "S", "S"] : lang === "en" ? ["M", "T", "W", "T", "F", "S", "S"] : ["L", "M", "X", "J", "V", "S", "D"]).map((d, i) => (
+          <span key={i}>{d}</span>
         ))}
       </div>
-      <div className="mt-1 grid grid-cols-7 gap-1" role="group" aria-label={`Días de ${monthLabel}`}>
+      <div className="mt-1 grid grid-cols-7 gap-1" role="group" aria-label={t("Días de {month}", { month: monthLabel })}>
         {cells.map((key, i) => {
           if (!key) return <span key={`e${i}`} />;
           const d = byDate.get(key);
@@ -247,7 +251,7 @@ export function SlotPicker({
               type="button"
               data-date={key}
               aria-pressed={on}
-              aria-label={`${longDay(key)}: ${count} ${count === 1 ? "hora libre" : "horas libres"}`}
+              aria-label={`${longDay(key)}: ${count} ${count === 1 ? t("hora libre") : t("horas libres")}`}
               onClick={() => setDay(key)}
               className="relative grid h-11 place-items-center rounded-xl border text-sm font-semibold tabular-nums transition"
               style={on ? colors.dayOn : { ...colors.line }}
@@ -262,7 +266,7 @@ export function SlotPicker({
       {selected && (
         <div className="mt-4">
           <p className={`${colors.muted} mb-2 text-xs`}><Tr s={"Horas libres el"} />{" "}{longDay(selected.date)}</p>
-          <div role="radiogroup" aria-label={`Horas libres el ${longDay(selected.date)}`} className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          <div role="radiogroup" aria-label={`${t("Horas libres el")} ${longDay(selected.date)}`} className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {selected.slots.map((s) => {
               const on = value === s.start;
               return (
@@ -285,8 +289,8 @@ export function SlotPicker({
       {zoneFooter}
       {chosen && byDate.size > 0 && [...byDate.values()].some((d) => d.slots.some((s) => s.start === value)) && (
         <p className="mt-3 text-sm font-medium" aria-live="polite">
-          {capitalize(formatInTz(chosen, tz, { weekday: "long", day: "numeric", month: "long" }))}, {timeInTz(chosen, tz)}
-          {viewer === "client" ? t(" (tu hora)") : ` (hora de ${tzCity(tz)})`}
+          {capitalize(withDateLocale(loc, () => formatInTz(chosen, tz, { weekday: "long", day: "numeric", month: "long" })))}, {timeInTz(chosen, tz)}
+          {viewer === "client" ? t(" (tu hora)") : ` ${withDateLocale(loc, () => zoneNote(tzCity(tz)))}`}
           {!sameOffset(tz, owner, chosen) && (
             <span className={colors.muted}>
               {" "}

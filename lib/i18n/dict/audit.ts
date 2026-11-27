@@ -100,6 +100,9 @@ export const AUDIT: DictEntries = {
   "Contracargo perdido": { de: "Rückbuchung verloren", en: "Chargeback lost" },
 
   // ── Etiquetas para lectores de pantalla ──
+  "Días de {month}": { de: "Tage im {month}", en: "Days in {month}" },
+  "hora libre": { de: "freie Zeit", en: "free time" },
+  "horas libres": { de: "freie Zeiten", en: "free times" },
   "Elegir opinión": { de: "Bewertung wählen", en: "Choose a review" },
   "Información legal": { de: "Rechtliche Informationen", en: "Legal information" },
   "Responsable de la web": { de: "Verantwortlich für die Website", en: "Responsible for the website" },

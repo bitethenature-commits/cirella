@@ -7,14 +7,52 @@
 import { sameOffset, tzCity } from "./timezones";
 
 /**
- * Idioma de las fechas: español, salvo cuando alguien da otro. Los emails lo dan (el de quien los recibe,
- * lib/i18n/email.ts); así «martes, 12 de noviembre» sale «Dienstag, 12. November» a quien lee en alemán.
+ * Idioma de las fechas: español, salvo cuando alguien da otro. Lo dan los emails (el de quien los recibe,
+ * lib/i18n/email.ts, que va primero) y las páginas (el de la página, lib/i18n/server.ts); en el navegador,
+ * `withDateLocale`. Así «martes, 12 de noviembre» sale «Dienstag, 12. November» a quien lee en alemán.
  */
-let dateLocaleSource: () => string | undefined = () => undefined;
-export function setDateLocaleSource(fn: () => string | undefined) {
-  dateLocaleSource = fn;
+const dateLocaleSources: (() => string | undefined)[] = [];
+export function setDateLocaleSource(fn: () => string | undefined, first = false) {
+  if (first) dateLocaleSources.unshift(fn);
+  else dateLocaleSources.push(fn);
 }
-const intlLocale = () => dateLocaleSource() ?? "es-ES";
+let forcedDateLocale: string | undefined;
+/** Formatea en un idioma concreto lo que se calcula dentro de `fn` (los componentes del navegador). */
+export function withDateLocale<T>(locale: string, fn: () => T): T {
+  const prev = forcedDateLocale;
+  forcedDateLocale = locale;
+  try {
+    return fn();
+  } finally {
+    forcedDateLocale = prev;
+  }
+}
+const intlLocale = (): string => {
+  if (forcedDateLocale) return forcedDateLocale;
+  for (const fn of dateLocaleSources) {
+    const l = fn();
+    if (l) return l;
+  }
+  return "es-ES";
+};
+/** El idioma de las fechas ahora mismo: «de», «en» o «es». */
+export function dateLang(): "de" | "en" | "es" {
+  const l = intlLocale();
+  return l.startsWith("de") ? "de" : l.startsWith("en") ? "en" : "es";
+}
+
+/** «Mié 9 dic» / «Mi. 9. Dez.» / «Wed 9 Dec»: el día corto de las tarjetas, con mayúscula. */
+export function shortDayLabel(date: Date, timeZone: string): string {
+  const raw = formatInTz(date, timeZone, { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
+  const day = dateLang() === "es" ? raw.replace(/\./g, "") : raw;
+  return day.charAt(0).toUpperCase() + day.slice(1);
+}
+
+/** «(hora de España)» / «(Ortszeit Spanien)» / «(Spain time)». */
+export function zoneNote(place: string): string {
+  const l = dateLang();
+  return `(${l === "de" ? `Ortszeit ${place}` : l === "en" ? `${place} time` : `hora de ${place}`})`;
+}
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -115,9 +153,7 @@ export function sessionWhen(start: Date, tz: string | null | undefined, ownerTz:
   const zone = tz || ownerTz;
   const base = formatSessionDate(start, zone);
   if (sameOffset(zone, ownerTz, start)) return base;
-  const loc = intlLocale();
-  const city = tzCity(zone);
-  return `${base} (${loc.startsWith("de") ? `Ortszeit ${city}` : loc.startsWith("en") ? `${city} time` : `hora de ${city}`})`;
+  return `${base} ${zoneNote(tzCity(zone))}`;
 }
 
 /** Solo la hora en una zona: «11:00». */

@@ -12,7 +12,7 @@
  *     para el primer cobro).
  */
 import { z } from "zod";
-import { formatInTz } from "./tz";
+import { dateLang, formatInTz } from "./tz";
 
 export const SALE_LABEL_MAX = 30;
 /** Precio mínimo de una oferta (como el de publicar un producto de pago). */
@@ -97,7 +97,9 @@ export function saleEndsLabel(endsAt: Date | null, timeZone: string): string | n
   if (!endsAt) return null;
   // El fin es exclusivo: una oferta que termina a las 00:00 del día 11 dura «hasta el 10».
   const last = new Date(endsAt.getTime() - 1);
-  return `hasta el ${formatInTz(last, timeZone, { day: "numeric", month: "long" })}`;
+  const day = formatInTz(last, timeZone, { day: "numeric", month: "long" });
+  const l = dateLang();
+  return l === "de" ? `bis ${day}` : l === "en" ? `until ${day}` : `hasta el ${day}`;
 }
 
 /** Formulario del panel (campos de texto). Fechas «AAAA-MM-DD» (día entero en la zona de la creadora). */

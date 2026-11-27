@@ -12,7 +12,7 @@
  */
 import { z } from "zod";
 import { tzCity } from "./timezones";
-import { formatInTz } from "./tz";
+import { dateLang, formatInTz, shortDayLabel, zoneNote } from "./tz";
 
 export const PORTAL_KINDS = ["VIDEO", "AUDIO", "PHOTOS", "LIVE", "EARLY_BIRD"] as const;
 export type PortalKind = (typeof PORTAL_KINDS)[number];
@@ -141,14 +141,15 @@ export function asPortalKind(k: string): PortalKind {
 
 /** «España» para la hora peninsular; si no, la ciudad de la zona («Bogotá»). */
 export function zonePlace(timeZone: string): string {
-  return timeZone === "Europe/Madrid" ? "España" : tzCity(timeZone);
+  if (timeZone !== "Europe/Madrid") return tzCity(timeZone);
+  const l = dateLang();
+  return l === "de" ? "Spanien" : l === "en" ? "Spain" : "España";
 }
 
-/** «Mié 4 nov · 19:00 (hora de España)»: fecha y hora de un directo o un círculo en la zona de la dueña. */
+/** «Mié 4 nov · 19:00 (hora de España)» (en el idioma de la página): fecha y hora de un directo o un círculo en la zona de la dueña. */
 export function eventLabel(at: Date, timeZone: string): string {
-  const day = formatInTz(at, timeZone, { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").replace(",", "");
   const time = formatInTz(at, timeZone, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-  return `${day.charAt(0).toUpperCase()}${day.slice(1)} · ${time} (hora de ${zonePlace(timeZone)})`;
+  return `${shortDayLabel(at, timeZone)} · ${time} ${zoneNote(zonePlace(timeZone))}`;
 }
 
 export function portalMediaUrl(itemId: string, index: number): string {

@@ -16,11 +16,11 @@ const store = new AsyncLocalStorage<Locale>();
 
 export const mailLocale = (): Locale => store.getStore() ?? "es";
 
-// Las fechas de un email, en su idioma (lib/tz.ts).
+// Las fechas de un email, en su idioma (lib/tz.ts); va antes que el de la página.
 setDateLocaleSource(() => {
   const l = store.getStore();
   return l ? INTL_LOCALE[l] : undefined;
-});
+}, true);
 
 /** Texto fijo de un email, en el idioma de quien lo recibe. */
 export const et = (s: string, vars?: TrVars) => tr(mailLocale(), s, vars);

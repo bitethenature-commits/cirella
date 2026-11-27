@@ -8,7 +8,7 @@
  */
 import { z } from "zod";
 import { isOwnImageSrc, pageImageSchema } from "./page-blocks";
-import { addDaysToKey, dateKeyInTz, formatInTz, zonedParts, zonedTimeToUtc } from "./tz";
+import { addDaysToKey, dateKeyInTz, dateLang, formatInTz, zonedParts, zonedTimeToUtc } from "./tz";
 
 export const CODE_BRAND_MAX = 60;
 export const CODE_CODE_MAX = 40;
@@ -188,5 +188,7 @@ export function expiryLabel(expiresAt: Date | null, timeZone: string, now = new 
   if (!expiresAt) return null;
   const last = new Date(expiresAt.getTime() - 1);
   const sameYear = zonedParts(last, timeZone).year === zonedParts(now, timeZone).year;
-  return `Válido hasta el ${formatInTz(last, timeZone, { day: "numeric", month: "long", ...(sameYear ? {} : { year: "numeric" }) })}`;
+  const day = formatInTz(last, timeZone, { day: "numeric", month: "long", ...(sameYear ? {} : { year: "numeric" }) });
+  const l = dateLang();
+  return l === "de" ? `Gültig bis ${day}` : l === "en" ? `Valid until ${day}` : `Válido hasta el ${day}`;
 }
