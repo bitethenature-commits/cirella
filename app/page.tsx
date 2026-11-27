@@ -18,15 +18,15 @@ import {
 } from "lucide-react";
 import { MarketingFooter, MarketingHeader } from "@/components/marketing";
 import { Reveal } from "@/components/reveal";
-import { TemplatePreview } from "@/components/template-preview";
 import { prisma } from "@/lib/db";
 import { appHost } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
 import { planBullets } from "@/lib/plans";
 import { getSettings } from "@/lib/settings";
 import { ownerUsername } from "@/lib/site-mode";
-import { TEMPLATES, type TemplateKey } from "@/lib/templates";
 import { CreatorPublicPage, creatorPageMetadata } from "./[username]/public-page";
+import { CanvaButton } from "@/components/creator-page/canva-button";
+import { LiveDesign } from "@/components/creator-page/live-design";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +61,15 @@ const AUDIENCE = ["Astrología", "Human Design", "Gene Keys", "Tarot", "Coaching
 export default async function Home({ searchParams }: { searchParams: Promise<{ ref?: string }> }) {
   // Modo personal: el mismo render que /<dueña> (que redirige aquí). Sin landing de la plataforma.
   const owner = ownerUsername();
-  if (owner) return <CreatorPublicPage username={owner} />;
+  if (owner)
+    return (
+      <>
+        <CreatorPublicPage username={owner} />
+        <CanvaButton username={owner} personal />
+        {/* Dentro de la vista en vivo de Diseño: el diseño sin guardar, encima (como en /<usuaria>). */}
+        <LiveDesign />
+      </>
+    );
   return <Landing searchParams={searchParams} />;
 }
 
@@ -76,7 +84,7 @@ async function Landing({ searchParams }: { searchParams: Promise<{ ref?: string 
     if (ref) q.set("ref", ref);
     if (extra) q.set("plan", extra);
     const s = q.toString();
-    return `/registro${s ? `?${s}` : ""}`;
+    return `/signup${s ? `?${s}` : ""}`;
   };
   const host = appHost();
 
@@ -101,7 +109,7 @@ async function Landing({ searchParams }: { searchParams: Promise<{ ref?: string 
             <p className="mt-6 max-w-xl text-[1.05rem] leading-relaxed text-cream/75">
               Tu página, tu tienda, tus reservas, tus cursos y tu comunidad. Tus clientas compran desde Instagram en segundos y reciben su contenido al instante.
             </p>
-            <form action="/registro" className="mt-8 flex max-w-md flex-col gap-3 sm:flex-row">
+            <form action="/signup" className="mt-8 flex max-w-md flex-col gap-3 sm:flex-row">
               {ref && <input type="hidden" name="ref" value={ref} />}
               <label className="flex h-12 flex-1 items-center rounded-full border border-white/15 bg-white/10 pl-4 text-sm backdrop-blur focus-within:border-lavender">
                 <span className="text-cream/55">{host}/</span>
@@ -126,7 +134,7 @@ async function Landing({ searchParams }: { searchParams: Promise<{ ref?: string 
               <div className="relative overflow-hidden rounded-[2.1rem]" style={{ aspectRatio: "390 / 780" }}>
                 <iframe
                   src="/ana?embed=1"
-                  title="Demo: página de Ana Luna"
+                  title="Demo: página de Cirella"
                   className="absolute left-0 top-0 origin-top-left border-0"
                   style={{ width: 390, height: 780, transform: "scale(var(--phone-scale))" }}
                   loading="eager"
@@ -135,7 +143,7 @@ async function Landing({ searchParams }: { searchParams: Promise<{ ref?: string 
               <div className="absolute left-1/2 top-4 h-5 w-20 -translate-x-1/2 rounded-full bg-black" />
             </div>
             <Link href="/ana" className="mt-5 flex items-center justify-center gap-2 text-sm text-cream/80 hover:text-cream">
-              Ver la demo de Ana Luna <ArrowRight className="h-4 w-4" />
+              Ver la demo de Cirella <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>
@@ -201,21 +209,17 @@ async function Landing({ searchParams }: { searchParams: Promise<{ ref?: string 
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end" data-reveal>
           <div className="max-w-xl">
             <p className="eyebrow">Diseños</p>
-            <h2 className="display mt-3 text-4xl sm:text-5xl">Elegante desde el primer minuto.</h2>
-            <p className="mt-4 text-muted">Cinco estilos pensados para tu sector. Cambia de diseño cuando quieras sin perder productos ni textos.</p>
+            <h2 className="display mt-3 text-4xl sm:text-5xl">Tu web, diseñada al detalle.</h2>
+            <p className="mt-4 text-muted">Sin plantillas de serie: tú eliges cada color, el fondo (también con movimiento), las letras, la forma de las tarjetas y de los botones, y cada página puede tener su propio estilo. Guarda tus diseños como plantillas y cámbialos cuando quieras sin perder productos ni textos.</p>
           </div>
         </div>
-        <div className="-mx-5 mt-10 flex snap-x gap-4 overflow-x-auto px-5 pb-4 scrollbar-none lg:mx-0 lg:grid lg:grid-cols-5 lg:px-0">
-          {(Object.keys(TEMPLATES) as TemplateKey[]).map((k, i) => (
-            <figure key={k} className="w-[62%] shrink-0 snap-center sm:w-[38%] lg:w-auto" data-reveal style={{ ["--reveal-delay" as string]: `${i * 60}ms` }}>
-              <TemplatePreview template={k} className="rounded-3xl border border-line shadow-lift" />
-              <figcaption className="mt-3">
-                <p className="font-semibold">{TEMPLATES[k].name}</p>
-                <p className="text-xs text-muted">{TEMPLATES[k].description}</p>
-              </figcaption>
-            </figure>
+        <ul className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {["Colores y fondos con degradado o foto", "22 fondos, muchos con movimiento", "Más de 50 letras para títulos y textos", "Tarjetas, botones y fotos a medida"].map((t, i) => (
+            <li key={t} className="card p-5 text-sm font-semibold" data-reveal style={{ ["--reveal-delay" as string]: `${i * 60}ms` }}>
+              {t}
+            </li>
           ))}
-        </div>
+        </ul>
       </section>
 
       {/* ───────── Precios ───────── */}
@@ -239,10 +243,9 @@ async function Landing({ searchParams }: { searchParams: Promise<{ ref?: string 
                 <p className="mt-6 flex items-baseline gap-1">
                   <span className="text-4xl font-semibold tracking-tight">{formatMoney(p.priceMonthlyCents, p.currency)}</span>
                   <span className={p.highlighted ? "text-cream/60" : "text-muted"}>/mes</span>
-                  {p.priceMonthlyCents > 0 && <span className={`ml-1 text-xs ${p.highlighted ? "text-cream/60" : "text-muted"}`}>IVA incluido</span>}
                 </p>
                 <p className={`mt-1 text-sm ${p.highlighted ? "text-gold" : "text-lavender-deep"}`}>
-                  + {(p.commissionBps / 100).toLocaleString("es-ES")} % por venta (sobre el precio sin IVA)
+                  + {(p.commissionBps / 100).toLocaleString("es-ES")} % por venta
                 </p>
                 <ul className="mt-6 space-y-2.5 text-sm">
                   {planBullets(p).map((b) => (

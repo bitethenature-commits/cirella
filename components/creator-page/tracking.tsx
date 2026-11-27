@@ -2,6 +2,17 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import type { EventType } from "@/lib/types";
+import { useT } from "@/lib/i18n/client";
+
+/**
+ * «Escríbeme para reservar: Sesión 1:1» → el botón (lo de antes de «: ») va del diccionario; el título, tal cual.
+ */
+function useAria(label: string | undefined) {
+  const t = useT();
+  if (!label) return label;
+  const i = label.indexOf(": ");
+  return i > 0 ? `${t(label.slice(0, i))}${label.slice(i)}` : t(label);
+}
 
 /** `codeId`: el código de descuento de CODE_COPY / CODE_CLICK (lib/types.ts). */
 type TrackPayload = { creatorId: string; type: EventType; productId?: string | null; codeId?: string | null };
@@ -55,11 +66,12 @@ export function TrackedLink({
   disabled?: boolean;
   ariaLabel?: string;
 }) {
+  const aria = useAria(ariaLabel);
   return (
     <Link
       href={href}
       className={className}
-      aria-label={ariaLabel}
+      aria-label={aria}
       onClick={() => {
         if (event && !disabled) track(event);
       }}
@@ -85,13 +97,14 @@ export function TrackedAnchor({
   ariaLabel?: string;
   rel?: string;
 }) {
+  const aria = useAria(ariaLabel);
   return (
     <a
       href={href}
       target="_blank"
       rel={rel}
       className={className}
-      aria-label={ariaLabel}
+      aria-label={aria}
       onClick={() => {
         if (event) track(event);
       }}

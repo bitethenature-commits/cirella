@@ -1,4 +1,4 @@
-import { simulatedIdentityFields, maskTaxId } from "../../app/pago-simulado/cuenta/identity";
+import { simulatedIdentityFields, maskTaxId } from "../../app/test-payment/account/identity";
 import { safeHeaders, storedHeaders } from "../../lib/email/headers";
 import { previewEmailHtml } from "../../lib/email/preview";
 import { buildResendRequest } from "../../lib/email/providers/resend";
@@ -6,7 +6,7 @@ import { eq, ok, test } from "./harness";
 
 // ── Baja en un clic (RFC 8058): cabeceras del email ──
 
-const LIST = { "List-Unsubscribe": "<https://cirella.app/baja/recordatorios/un-clic?t=abc>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" };
+const LIST = { "List-Unsubscribe": "<https://cirella.app/unsubscribe/reminders/one-click?t=abc>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" };
 
 test("safeHeaders deja pasar solo las cabeceras de baja", () => {
   eq(safeHeaders({ ...LIST, Bcc: "otra@example.com", "X-Lo-Que-Sea": "1" }), LIST);
@@ -51,22 +51,21 @@ test("maskTaxId deja ver solo los 4 últimos caracteres", () => {
   eq(maskTaxId("123"), "••••");
 });
 
-test("alta simulada con la identidad legal de la creadora (documento e IBAN enmascarados)", () => {
+test("alta simulada con la identidad legal de la creadora (documento enmascarado)", () => {
   const f = simulatedIdentityFields({
     legalEntityType: "INDIVIDUAL",
-    legalName: "Ana Luna Pérez",
+    legalName: "Cirella",
     legalTaxId: "12345678Z",
     legalAddress: "Calle Luna 3",
     legalPostalCode: "08001",
     legalCity: "Barcelona",
     legalCountry: "ES",
-    iban: "ES9121000418450200051332",
   });
   eq(f.map((x) => x.label), ["Nombre y apellidos", "DNI o NIE", "Dirección", "IBAN"]);
-  eq(f[0].value, "Ana Luna Pérez");
+  eq(f[0].value, "Cirella");
   eq(f[1].value, "•••••678Z");
   eq(f[2].value, "Calle Luna 3, 08001 Barcelona (España)");
-  eq(f[3].value, "ES91 •••• •••• 1332");
+  eq(f[3].value, null);
   ok(!JSON.stringify(f).includes("12345678Z"), "el documento no se muestra completo");
 });
 

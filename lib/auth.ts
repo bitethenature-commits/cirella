@@ -1,32 +1,32 @@
 import "server-only";
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
-import bcrypt from "bcryptjs";
 import { prisma } from "./db";
+import { isLocale, PANEL_LOCALE_COOKIE } from "./i18n/config";
 import { hashToken } from "./auth-tokens";
-import { safeNext } from "./auth-utils";
+import { deviceLabel, HINT_COOKIE, safeNext, sessionSatisfies, sessionUsable } from "./auth-utils";
+import { homeFor } from "./home";
+import { createChallenge, isTrustedDevice, type LoginMethod } from "./two-factor";
+import { notifyNewLogin } from "./two-factor-notify";
 
-export { safeNext };
+export { HINT_COOKIE, safeNext };
 export { hashToken, purgeExpiredAuth } from "./auth-tokens";
 export { consumeMagicLink, magicLinkCreatorId, peekMagicLink, sendMagicLink, type MagicPurpose } from "./magic-links";
 
 export const SESSION_COOKIE = "cirella_session";
+/** Paso «falta el código» del login con verificación en dos pasos (lib/two-factor.ts → createChallenge). */
+export const TWO_FACTOR_COOKIE = "cirella_2fa";
+/** «Recordar este dispositivo 30 días»: `${id}.${token}` (lib/two-factor.ts → trustDevice). */
+export const TRUSTED_DEVICE_COOKIE = "cirella_dispositivo";
 /** Permiso de compra del navegador que hizo el pedido: `${orderId}.${token}`. */
 export const CHECKOUT_COOKIE = "cirella_compra";
 const SESSION_DAYS = 30;
 /** La sesión que se abre al pagar dura un día y solo en el navegador que pagó. */
 const CHECKOUT_SESSION_HOURS = 24;
 
-export async function hashPassword(password: string) {
-  return bcrypt.hash(password, 10);
-}
-
-export async function verifyPassword(password: string, hash: string | null | undefined) {
-  if (!hash) return false;
-  return bcrypt.compare(password, hash);
-}
+export { hashPassword, verifyPassword } from "./auth-password";
 
 const cookieBase = () => ({ httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/" });
 
@@ -35,16 +35,62 @@ const cookieBase = () => ({ httpOnly: true, sameSite: "lax" as const, secure: pr
  *   · verified: quien la abre ha demostrado que el email es suyo (enlace mágico, o contraseña sobre
  *     un email ya confirmado). Es obligatorio: una sesión sin verificar no abre el área de cliente.
  *   · orderId: sesión limitada a un pedido (tras pagar o desde un enlace personal). Solo abre ese
- *     pedido; getCurrentUser() la ignora, así que no sirve para /cuenta completa, /panel ni /admin.
+ *     pedido; getCurrentUser() la ignora, así que no sirve para /area completa, /panel ni /admin.
+ *   · mfa: ha pasado el segundo factor. Las sesiones de cuenta de quien tiene la verificación en dos
+ *     pasos se abren SOLO con completeLogin / el código (getSession ignora las que no lo llevan).
+ * Devuelve el id de la sesión (sha256 del token).
  */
-export async function createSession(userId: string, opts: { verified: boolean; orderId?: string | null; ttlHours?: number }) {
+export async function createSession(userId: string, opts: { verified: boolean; orderId?: string | null; ttlHours?: number; mfa?: boolean }) {
   const token = randomBytes(32).toString("base64url");
   const ttlMs = opts.ttlHours ? opts.ttlHours * 3600_000 : SESSION_DAYS * 86400_000;
   const expiresAt = new Date(Date.now() + ttlMs);
-  await prisma.session.create({ data: { id: hashToken(token), userId, expiresAt, verified: opts.verified, orderId: opts.orderId ?? null } });
-  if (!opts.orderId) await prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
+  const id = hashToken(token);
+  await prisma.session.create({ data: { id, userId, expiresAt, verified: opts.verified, orderId: opts.orderId ?? null, mfa: !!opts.mfa } });
+  const updated = opts.orderId ? null : await prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() }, select: { panelLocale: true } });
   const jar = await cookies();
+  // El idioma de su panel, también en un dispositivo nuevo (middleware.ts lo lee de la cookie).
+  if (updated && isLocale(updated.panelLocale)) jar.set(PANEL_LOCALE_COOKIE, updated.panelLocale, { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 * 365 });
   jar.set(SESSION_COOKIE, token, { ...cookieBase(), expires: expiresAt });
+  if (!opts.orderId) jar.set(HINT_COOKIE, "1", { ...cookieBase(), httpOnly: false, expires: expiresAt });
+  return id;
+}
+
+/**
+ * Final de todo login completo (contraseña, enlace mágico, demo y el código de la verificación en
+ * dos pasos). Si la usuaria tiene la verificación activada y este navegador no es un dispositivo
+ * recordado, NO abre sesión: crea el paso «falta el código» (cookie cirella_2fa, 10 min) y lleva a
+ * /login/code. Sin verificación, abre la sesión como siempre.
+ */
+export async function completeLogin(userId: string, o: { verified: boolean; next?: string | null; method: LoginMethod }): Promise<never> {
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { totpEnabledAt: true } });
+  const jar = await cookies();
+  if (user.totpEnabledAt) {
+    const trusted = await isTrustedDevice(userId, jar.get(TRUSTED_DEVICE_COOKIE)?.value);
+    if (!trusted) {
+      const token = await createChallenge(userId, { verified: o.verified, redirectTo: o.next ?? null, method: o.method });
+      jar.set(TWO_FACTOR_COOKIE, token, { ...cookieBase(), maxAge: 10 * 60 });
+      redirect("/login/code");
+    }
+    return finishLogin(userId, { verified: o.verified, next: o.next, mfa: true, alert: false });
+  }
+  return finishLogin(userId, { verified: o.verified, next: o.next, mfa: false, alert: o.method !== "DEMO" });
+}
+
+/**
+ * Abre la sesión y lleva a su sitio: `next` o el destino natural (homeFor). El área de cliente
+ * necesita el email confirmado: si la sesión no lo está, se pide con un enlace. `alert`: avisa por
+ * email del acceso nuevo al panel (lib/two-factor-notify.ts decide si toca).
+ */
+export async function finishLogin(userId: string, o: { verified: boolean; next?: string | null; mfa: boolean; alert: boolean }): Promise<never> {
+  const sessionId = await createSession(userId, { verified: o.verified, mfa: o.mfa });
+  if (o.alert) {
+    const ua = (await headers()).get("user-agent");
+    await notifyNewLogin(userId, { device: deviceLabel(ua), sessionId });
+  }
+  const next = o.next ? safeNext(o.next, "") : "";
+  const dest = next || (await homeFor(userId));
+  if (!sessionSatisfies({ verified: o.verified, scoped: false }, dest)) redirect(`/login?next=${encodeURIComponent(dest)}&motivo=confirmar`);
+  redirect(dest);
 }
 
 /** Cierra todas las demás sesiones del usuario (al fijar o cambiar la contraseña). */
@@ -59,6 +105,7 @@ export async function destroySession() {
   const token = jar.get(SESSION_COOKIE)?.value;
   if (token) await prisma.session.deleteMany({ where: { id: hashToken(token) } });
   jar.delete(SESSION_COOKIE);
+  jar.delete(HINT_COOKIE);
 }
 
 /**
@@ -78,7 +125,11 @@ export const getSession = cache(async () => {
   });
   if (!session || session.expiresAt < new Date()) return null;
   if (session.user.status === "BLOCKED") return null;
-  return { id: session.id, verified: session.verified, orderId: session.orderId, order: session.order, user: session.user };
+  // Verificación en dos pasos: una sesión de cuenta sin el segundo factor no cuenta (se ignora, no se
+  // borra). Así cualquier sitio que abriera una sesión sin pasar por completeLogin falla cerrado.
+  // Las limitadas a un pedido no abren ni el panel ni la administración: no se tocan.
+  if (!sessionUsable(session)) return null;
+  return { id: session.id, verified: session.verified, mfa: session.mfa, orderId: session.orderId, order: session.order, user: session.user };
 });
 
 export type CurrentSession = NonNullable<Awaited<ReturnType<typeof getSession>>>;
@@ -92,9 +143,9 @@ export const getCurrentUser = cache(async () => {
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 
-export async function requireUser(next = "/cuenta") {
+export async function requireUser(next = "/area") {
   const user = await getCurrentUser();
-  if (!user) redirect(`/entrar?next=${encodeURIComponent(next)}`);
+  if (!user) redirect(`/login?next=${encodeURIComponent(next)}`);
   return user;
 }
 
@@ -103,7 +154,7 @@ export async function requireCreator(opts: { allowIncompleteOnboarding?: boolean
   const user = await requireUser("/panel");
   const creator = user.creator;
   if (!creator) redirect("/onboarding");
-  if (creator.status === "BLOCKED") redirect("/entrar?error=bloqueada");
+  if (creator.status === "BLOCKED") redirect("/login?error=bloqueada");
   if (!opts.allowIncompleteOnboarding && !creator.onboardedAt) redirect("/onboarding");
   return { user, creator };
 }
@@ -112,23 +163,8 @@ export async function requireCreator(opts: { allowIncompleteOnboarding?: boolean
 export async function requireAdmin() {
   const user = await requireUser("/admin");
   if (!user.isAdmin) redirect("/");
-  if (!user.sessionVerified) redirect("/entrar?next=%2Fadmin&motivo=confirmar");
+  if (!user.sessionVerified) redirect("/login?next=%2Fadmin&motivo=confirmar");
   return user;
-}
-
-// ─── Acceso tras pagar ───
-
-/**
- * Marca este navegador como el que hace el pedido: guarda el hash de un token en el pedido y el
- * token en una cookie httpOnly de 24 h. Solo ese navegador podrá abrir la sesión limitada al
- * pedido (claimOrderSession), también cuando el pago se confirma después en un webhook o al volver
- * del banco. Solo en Server Actions / Route Handlers, antes de cobrar o de salir a la pasarela.
- */
-export async function rememberCheckout(orderId: string) {
-  const token = randomBytes(24).toString("base64url");
-  await prisma.order.update({ where: { id: orderId }, data: { claimTokenHash: hashToken(token) } });
-  const jar = await cookies();
-  jar.set(CHECKOUT_COOKIE, `${orderId}.${token}`, { ...cookieBase(), maxAge: CHECKOUT_SESSION_HOURS * 3600 });
 }
 
 /** ¿Tiene este navegador el permiso de compra de este pedido? (sin comprobar el token: solo para la UI). */

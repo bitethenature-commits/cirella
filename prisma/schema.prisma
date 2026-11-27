@@ -9,7 +9,7 @@
 //     `tenantDb(creatorId)` (lib/tenant.ts), que inyecta el filtro en cada consulta.
 //   · La identidad (User) es global: una misma persona puede comprar a varias
 //     creadoras. La relación comercial con cada creadora vive en Customer
-//     (scoped por creatorId), de modo que Ana nunca ve los clientes de María.
+//     (scoped por creatorId), de modo que Cirella nunca ve los clientes de María.
 //
 // Los "enums" se guardan como String y se validan en lib/types.ts.
 //
@@ -37,6 +37,9 @@ model User {
   id              String    @id @default(cuid())
   email           String    @unique
   name            String?
+  // Idioma de sus emails (de | en | es): el de la web cuando se registró, compró o entró. null = alemán.
+  locale          String?
+  panelLocale     String? // idioma del panel y de sus avisos por email (de | en | es); null = español
   passwordHash    String?
   isAdmin         Boolean   @default(false)
   status          String    @default("ACTIVE") // ACTIVE | BLOCKED
@@ -45,12 +48,48 @@ model User {
   // Momento en que alguien demostró por primera vez que el email es suyo (enlace mágico o «Sí, he sido yo»).
   // null = cuenta creada con contraseña o por un checkout y aún sin confirmar.
   emailVerifiedAt DateTime?
+  // Verificación en dos pasos (código de una app, lib/totp.ts). totpSecret va cifrado (AES-256-GCM con una
+  // clave derivada de APP_SECRET, «v1:<iv>:<tag>:<cifrado>»). Mientras se configura hay secreto pero
+  // totpEnabledAt es null.
+  totpSecret      String?
+  // null = desactivada. Con fecha, todo inicio de sesión completo pide el código (lib/auth.ts → completeLogin).
+  totpEnabledAt   DateTime?
+  // Último paso de 30 s aceptado: un código ya usado no vale otra vez (anti-repetición).
+  totpLastStep    Int?
+  // Foto de perfil de la alumna (/media/{userId}/{hex}.webp, pública e inmutable como las de las
+  // creadoras). null = iniciales.
+  avatarUrl       String?
+  /// Su frase, junto a su nombre en los comentarios (Mi perfil, en el área).
+  tagline         String?
+  // Los colores de su área de alumna (Ajustes › Colores de mi área, lib/account-look.ts): la barra, la página,
+  // los detalles, el fondo con movimiento y la geometría. null = la noche dorada de siempre.
+  accountLook     Json?
 
-  creator    Creator?
-  sessions   Session[]
-  customerOf Customer[]
-  accesses   Access[]
-  progress   LessonProgress[]
+  creator             Creator?
+  sessions            Session[]
+  customerOf          Customer[]
+  accesses            Access[]
+  progress            LessonProgress[]
+  lessonViews         LessonView[]
+  // Comunidad: comentarios y «me gusta» en las publicaciones de las membresías.
+  memberComments      MembershipComment[]
+  memberLikes         MembershipPostLike[]
+  memberSaves         MembershipPostSave[]
+  // «Me gusta» en comentarios (membresías y lecciones) y comentarios en las lecciones de los cursos.
+  memberCommentLikes  MembershipCommentLike[]
+  lessonComments      LessonComment[]
+  lessonCommentLikes  LessonCommentLike[]
+  lessonSaves         LessonSave[]
+  // Cuándo miró por última vez sus avisos de comentarios (me gusta y respuestas): lo de después es nuevo.
+  commentsSeenAt      DateTime?
+  // Verificación en dos pasos (lib/two-factor.ts).
+  twoFactorCodes      TwoFactorRecoveryCode[]
+  trustedDevices      TrustedDevice[]
+  twoFactorChallenges TwoFactorChallenge[]
+  // «Mi energía» (/cuenta/mi-energia): sus datos de nacimiento y los de otras personas.
+  birthProfiles       BirthProfile[]
+  // Cuándo abrió por última vez cada sección de la portada de una creadora (avisos de novedades).
+  sectionsSeen        SectionSeen[]
 }
 
 model Session {
@@ -67,6 +106,9 @@ model Session {
   // solo abre ese pedido. getCurrentUser() la ignora.
   orderId   String?
   order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  // true = abierta tras pasar el segundo factor (o al activarlo desde esta sesión). Si la usuaria tiene
+  // la verificación en dos pasos, getSession() ignora las sesiones de cuenta con mfa = false.
+  mfa       Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@index([userId])
@@ -74,15 +116,65 @@ model Session {
   @@index([expiresAt])
 }
 
+// Paso intermedio del login: primer factor correcto (contraseña o enlace), falta el código. Nunca es
+// una sesión: solo permite probar el código en /entrar/codigo desde el navegador con la cookie.
+model TwoFactorChallenge {
+  id         String    @id // sha256(token); el token en claro solo vive en la cookie cirella_2fa
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Lo que tendrá la sesión si se supera: verified (como en createSession) y adónde ir.
+  verified   Boolean
+  redirectTo String?
+  method     String // PASSWORD | MAGIC_LINK | DEMO
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Códigos de recuperación de un solo uso (10 por usuaria). Solo se guarda HMAC-SHA256(APP_SECRET, código).
+model TwoFactorRecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// «Recordar este dispositivo 30 días»: solo se salta el código, nunca la contraseña ni el enlace.
+model TrustedDevice {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique // sha256 del token de la cookie cirella_dispositivo
+  label      String // «iPhone · Safari» (lib/auth-utils.ts → deviceLabel)
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
 model LoginToken {
   id         String    @id @default(cuid())
   email      String
   tokenHash  String    @unique
-  purpose    String    @default("LOGIN") // LOGIN | VERIFY_SIGNUP
+  purpose    String    @default("LOGIN") // LOGIN | VERIFY_SIGNUP | REGISTER | CHANGE_EMAIL
   // Solo para la marca del email y de la pantalla «Entrar» (no da permisos). Sin relación
   // con Creator a propósito: es una tabla de autenticación.
   creatorId  String?
   redirectTo String?
+  // Datos del paso que confirma el enlace (lib/magic-links.ts):
+  //   REGISTER     → { name, newsletter, creatorId } (alta de alumna en la web personal)
+  //   CHANGE_EMAIL → { userId, fromEmail } (email = la dirección nueva)
+  data       Json?
   expiresAt  DateTime
   usedAt     DateTime?
   createdAt  DateTime  @default(now())
@@ -137,19 +229,9 @@ model Category {
   slug            String    @unique
   name            String
   emoji           String?
-  defaultTemplate String    @default("mystical")
   active          Boolean   @default(true)
   sortOrder       Int       @default(0)
   creators        Creator[]
-}
-
-model Template {
-  id          String  @id @default(cuid())
-  key         String  @unique // mystical | minimal | luxury | cosmic | editorial
-  name        String
-  description String?
-  active      Boolean @default(true)
-  sortOrder   Int     @default(0)
 }
 
 model PlatformSetting {
@@ -182,6 +264,19 @@ model Creator {
   seoTitle       String?
   seoDescription String?
   contactEmail   String?
+  // «Personalizar mi panel» (Ajustes): colores del panel, orden y visibilidad del menú y de las
+  // tarjetas de Inicio. Solo del panel de la dueña, nunca de su web. Ver lib/panel-prefs.ts.
+  panelPrefs     Json?
+  // Los colores de lo de dentro para todas sus alumnas (Mi página › Área de alumna, Cursos y Membresías): el área,
+  // la base de los cursos y la de las membresías (y la propia de cada nivel). Ver lib/area-design.ts.
+  areaDesign     Json?
+  // «Actualidades»: cuántos días sale cada novedad en la lista de la web (null = siempre). Las que pasan
+  // de ahí se quitan de la lista y se cuentan («y 12 actualidades más»).
+  newsDays       Int?
+  // Actualidades de las que salen solas que ella ha quitado («p-<id>», «d-<id>»…): ya no salen.
+  newsRemoved    String[]  @default([])
+  // «Portal de Noticias»: a los cuántos días se BORRAN los publicados (null = nunca). lib/portal-purge.ts.
+  portalDays     Int?
   timezone       String    @default("Europe/Madrid")
   currency       String    @default("EUR")
   onboardedAt    DateTime?
@@ -197,7 +292,7 @@ model Creator {
   payoutConnectedAt     DateTime? // primera vez que la pasarela permitió cobrar (antes: «conectada»)
 
   // Identidad legal de quien vende (LSSI art. 10). Obligatoria para cobrar: ver legalIdentityComplete()
-  // en lib/legal.ts. La usan también las facturas (IVA) y los datos de DAC7.
+  // en lib/legal.ts.
   legalEntityType String    @default("INDIVIDUAL") // INDIVIDUAL | COMPANY
   legalName       String? // nombre y apellidos o razón social
   legalTaxId      String? // NIF / NIE / CIF normalizado (mayúsculas, sin espacios ni guiones)
@@ -215,18 +310,6 @@ model Creator {
   termsAcceptedAt DateTime?
   termsVersion    String?
 
-  // Situación de IVA (la identidad fiscal es la de arriba: legalName, legalTaxId, legalAddress…)
-  vatStatus        String  @default("NONE") // NONE (no repercute IVA) | STANDARD (repercute) | EXEMPT (exenta)
-  vatExemptionNote String? // motivo de la exención que se imprime en sus facturas
-
-  // DAC7 / modelo 238: solo lo que no aportan los datos legales de arriba
-  birthDate          DateTime? @db.Date
-  iban               String? // normalizado sin espacios, en mayúsculas; nunca se muestra completo
-  dac7RequestedAt    DateTime? // primera petición de datos (primera venta declarable del año)
-  dac7RemindersSent  Int       @default(0)
-  dac7LastReminderAt DateTime?
-  dac7ConfirmedAt    DateTime? // la creadora confirmó que sus datos son correctos
-
   // Calendario externo (preparado para Google Calendar)
   calendarProvider  String?
   calendarAccountId String?
@@ -243,25 +326,37 @@ model Creator {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  products         Product[]
-  customers        Customer[]
-  orders           Order[]
-  transactions     Transaction[]
-  accesses         Access[]
-  bookings         Booking[]
-  availability     AvailabilityRule[]
-  blockedDates     BlockedDate[]
-  subscriptions    Subscription[]
-  events           AnalyticsEvent[]
-  automations      Automation[]
-  referralsMade    Referral[]         @relation("ReferralReferrer")
-  referralReceived Referral?          @relation("ReferralReferred")
-  legalSnapshots   LegalSnapshot[]
-  invoices         Invoice[]
-  refunds          Refund[]
-  recoveryOptOuts  RecoveryOptOut[]
-  posts            Post[]
-  discountCodes    DiscountCode[]
+  products              Product[]
+  customers             Customer[]
+  orders                Order[]
+  transactions          Transaction[]
+  accesses              Access[]
+  bookings              Booking[]
+  availability          AvailabilityRule[]
+  blockedDates          BlockedDate[]
+  subscriptions         Subscription[]
+  events                AnalyticsEvent[]
+  automations           Automation[]
+  referralsMade         Referral[]             @relation("ReferralReferrer")
+  referralReceived      Referral?              @relation("ReferralReferred")
+  legalSnapshots        LegalSnapshot[]
+  refunds               Refund[]
+  recoveryOptOuts       RecoveryOptOut[]
+  posts                 Post[]
+  discountCodes         DiscountCode[]
+  portalItems           PortalItem[]
+  textTranslations      TextTranslation[]
+  oracleDecks           OracleDeck[]
+  oracleCards           OracleCard[]
+  birthProfiles         BirthProfile[]
+  sectionsSeen          SectionSeen[]
+  sitePages             SitePage[]
+  availabilityOverrides AvailabilityOverride[]
+  subscribers           Subscriber[]
+  campaigns             Campaign[]
+  newsletterTemplates   NewsletterTemplate[]
+  campaignRecipients    CampaignRecipient[]
+  calendarNotes         CalendarNote[]
 
   @@index([planId])
   @@index([payoutStatus])
@@ -270,28 +365,31 @@ model Creator {
 // ───────────────────────────── Catálogo ─────────────────────────────
 
 model Product {
-  id              String  @id @default(cuid())
-  creatorId       String
-  creator         Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  type            String // DIGITAL | SESSION | COURSE | MEMBERSHIP
-  slug            String
-  title           String
-  emoji           String?
-  summary         String?
-  description     String?
-  imageUrl        String?
-  priceCents      Int
-  currency        String  @default("EUR")
-  billingInterval String? // "month" | "year" (solo membresías)
-  ctaLabel        String?
+  id                String  @id @default(cuid())
+  creatorId         String
+  creator           Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  type              String // DIGITAL | SESSION | COURSE | MEMBERSHIP
+  slug              String
+  title             String
+  emoji             String?
+  summary           String?
+  description       String?
+  // Formato de `description`: null = texto de antes (párrafos y viñetas «•», se pinta exactamente como siempre);
+  // "MD" = texto con formato (lib/rich-text.ts). Pasa a "MD" cuando la creadora edita el texto con el editor.
+  descriptionFormat String?
+  imageUrl          String?
+  priceCents        Int
+  currency          String  @default("EUR")
+  billingInterval   String? // "month" | "year" (solo membresías)
+  ctaLabel          String?
   // DRAFT | PUBLISHED | ARCHIVED — por defecto borrador: publicar es siempre explícito y pasa por la comprobación de entrega
-  status          String  @default("DRAFT")
+  status            String  @default("DRAFT")
   // AUTOMATIC (archivos/enlaces/lecciones, acceso inmediato) | PERSONAL (la creadora lo prepara para cada clienta;
   // solo DIGITAL, exige `instructions`)
-  deliveryMode    String  @default("AUTOMATIC")
-  featured        Boolean @default(false)
-  sortOrder       Int     @default(0)
-  instructions    String? // qué recibe / próximos pasos tras la compra
+  deliveryMode      String  @default("AUTOMATIC")
+  featured          Boolean @default(false)
+  sortOrder         Int     @default(0)
+  instructions      String? // qué recibe / próximos pasos tras la compra
 
   // Cómo se consigue: PAID (pago en la web; solo modo plataforma) | FREE_EMAIL (gratis con nombre + email)
   // | EXTERNAL (se paga fuera: el botón lleva a externalUrl, p. ej. Hotmart o Calendly)
@@ -302,8 +400,49 @@ model Product {
   // Sesiones
   durationMin    Int?
   bufferMin      Int?
+  // Antelación mínima en horas. En las sesiones individuales que se pagan en la web es en días (× 24)
+  // y nunca menos de 15 días desde la compra (lib/withdrawal.ts → paidSessionNoticeDays).
   minNoticeHours Int?
-  meetingUrl     String?
+  meetingUrl     String? // https (lib/meeting-url.ts): su enlace de Zoom de siempre; cada reserva puede llevar otro
+  // Cuántos días por delante se puede reservar (null = 28, lib/slots.ts → HORIZON_DEFAULT_DAYS; máx. 180).
+  // El mismo horizonte sirve para listar huecos y para volver a comprobarlos al pagar.
+  horizonDays    Int?
+  // Taller en directo: una sesión para varias personas con fecha fija. Cada plaza es una Booking con
+  // groupSeat = true. capacity null = sin límite de plazas.
+  groupSession   Boolean   @default(false)
+  eventStartAt   DateTime?
+  capacity       Int?
+  // Lo que se pregunta al reservar o comprar (lib/intake.ts → IntakeConfig): datos de nacimiento
+  // (off | optional | required) y hasta 8 preguntas suyas. null = nada. Solo SESSION y DIGITAL «Lo preparo yo».
+  intake         Json?
+  // Taller marcado como «Círculo de la luna» (luna nueva o llena): sale en la portada para apuntarse sin
+  // ser miembro. Solo talleres (groupSession).
+  moonCircle     Boolean   @default(false)
+  // Membresía «a página entera» (Esencia): cada publicación se lee como una página, con anterior y siguiente,
+  // un calendario para ir a una fecha y «Guardar» (sale en «Mis archivos»: Favoritos y la carpeta de sus textos).
+  pagedReading   Boolean   @default(false)
+
+  // Oferta (lib/offers.ts): precio rebajado mientras está activa (desde saleStartsAt, si la hay, hasta
+  // saleEndsAt, si la hay). El checkout cobra effectivePriceCents, calculado siempre en el servidor.
+  salePriceCents Int?
+  saleStartsAt   DateTime?
+  saleEndsAt     DateTime?
+  saleLabel      String? // «Early Bird», «Black Friday»…
+
+  // Cursos: método con el que se agrupa en /cursos (lib/course-categories.ts). null = sin categoría.
+  courseCategory String? // ASTROLOGIA | HUMAN_DESIGN | GENE_KEYS | LUNA | MI_ENERGIA | ESPECIAL
+  // Opiniones de esta lectura o sesión ([{ id, quote, author }]); vacío = las de la portada.
+  testimonials   Json?
+  // Textos de su ficha que se pueden cambiar: { perks: [...], steps: [...] } (lib/product-texts.ts).
+  pageTexts      Json?
+  // Cursos: «Abrir las lecciones poco a poco» (lib/course-drip.ts). null = todas a la vez desde que se
+  // apunta; "INTERVAL" = una lección cada `dripEveryDays` días (la primera, el día que se apunta);
+  // "LESSON" = cada lección el día que diga su Lesson.dripDays (null = desde el primer día).
+  dripMode       String?
+  dripEveryDays  Int?
+  // Cursos: el diseño de sus lecciones (lib/course-design.ts → CourseLook): fondo, colores, fondo con
+  // movimiento, figura, foto y letras. Lo ven así sus alumnas. null = los colores del área de cada alumna.
+  courseDesign   Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -316,27 +455,45 @@ model Product {
   accesses      Access[]
   bookings      Booking[]
   subscriptions Subscription[]
+  // Lo que incluye una membresía (sus cursos) y en qué membresías está incluido un curso. Ver ProductInclusion.
+  includes      ProductInclusion[] @relation("ProductIncludes")
+  includedIn    ProductInclusion[] @relation("ProductIncludedIn")
 
   @@unique([creatorId, slug])
   @@index([creatorId, status, sortOrder])
 }
 
 model ProductFile {
-  id         String   @id @default(cuid())
-  creatorId  String
-  productId  String
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name       String
-  kind       String // PDF | AUDIO | VIDEO | IMAGE | LINK | OTHER
-  storageKey String? // clave relativa a «private/» en el almacenamiento (disco local o R2): {creatorId}/{hex}.{ext}
-  url        String? // enlace externo (kind = LINK)
-  mimeType   String?
-  sizeBytes  Int? // ≤ 1 GB (límite de subida), cabe en Int
-  sortOrder  Int      @default(0)
-  createdAt  DateTime @default(now())
-  lessons    Lesson[]
+  id          String          @id @default(cuid())
+  creatorId   String
+  productId   String
+  product     Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name        String
+  kind        String // PDF | AUDIO | VIDEO | IMAGE | LINK | OTHER
+  storageKey  String? // clave relativa a «private/» en el almacenamiento (disco local o R2): {creatorId}/{hex}.{ext}
+  url         String? // enlace externo (kind = LINK)
+  mimeType    String?
+  // Vídeos de hasta 4 GB en la web personal: ya no cabe en Int. Float (DOUBLE PRECISION) es exacto
+  // hasta 2^53 y sigue siendo un number de JS (sin los problemas de BigInt al pasarlo a JSON).
+  sizeBytes   Float?
+  // Leído del propio archivo al completar la subida (lib/media-probe.ts); null = no se pudo leer o no aplica.
+  durationSec Int? // vídeo y audio MP4/MOV/M4A/WAV, en segundos
+  videoCodec  String? // H264 | HEVC | OTHER (solo vídeo). HEVC = formato del iPhone: puede no verse en todos los navegadores
+  width       Int? // tamaño del vídeo tal y como se ve (ya girado: un vertical del iPhone es 1080×1920)
+  height      Int?
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  lessons     Lesson[] // obsoleto: Lesson.fileId (copia de compatibilidad, ver Lesson)
+  lessonParts LessonPart[]
+  // Adjunto de una publicación de la comunidad (null = archivo del producto: entregas, materiales del curso).
+  // Es un archivo de la membresía: lo abre quien tiene acceso a ella, y nunca si la publicación es un
+  // borrador o está programada (checkFileAccess). Una publicación nueva sube sus archivos antes de
+  // guardarse: los que quedan sin publicación más de 24 h se borran solos (purgeOrphanPostFiles).
+  postId      String?
+  post        MembershipPost? @relation(fields: [postId], references: [id], onDelete: SetNull)
 
   @@index([creatorId, productId])
+  @@index([postId])
 }
 
 model CourseModule {
@@ -359,17 +516,63 @@ model Lesson {
   moduleId    String
   module      CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   title       String
-  kind        String // VIDEO | AUDIO | PDF | TEXT | EXERCISE
+  // ── Copia de compatibilidad ──
+  // kind, body, bodyFormat, mediaUrl y fileId se calculan al guardar a partir de las partes
+  // (lib/lesson-parts.ts, legacyLessonColumns). Nadie los lee: sirven para volver a la versión
+  // anterior del código sin perder lo que se ve. Se borrarán en una migración posterior.
+  kind        String // tipo principal: VIDEO | AUDIO | PDF | TEXT | EXERCISE (este último solo en lecciones antiguas)
   body        String?
-  mediaUrl    String? // vídeo/audio externo (YouTube, Vimeo…)
+  bodyFormat  String? // null = texto de antes | "MD" = texto con formato
+  mediaUrl    String? // vídeo externo (YouTube, Vimeo…)
   fileId      String?
   file        ProductFile?     @relation(fields: [fileId], references: [id], onDelete: SetNull)
   durationMin Int?
   sortOrder   Int              @default(0)
+  // Versión del contenido para no pisar cambios hechos desde otro dispositivo (iPhone y Mac a la vez):
+  // el editor envía la que abrió y solo se guarda si sigue siendo la misma. Reordenar no la cambia.
+  version     Int              @default(0)
+  // Borrador (false) o publicada (true). Las alumnas solo ven las publicadas (programa, progreso,
+  // archivos); las de antes quedan publicadas. Una lección nueva del estudio nace en borrador.
+  published   Boolean          @default(true)
+  // «Disponible a los N días» desde que la alumna se apunta (solo con Product.dripMode = "LESSON").
+  dripDays    Int?
+  // Su propio diseño, encima del del curso (lib/course-design.ts → solo lo que cambia). null = como el curso.
+  design      Json?
+  parts       LessonPart[]
   progress    LessonProgress[]
+  views       LessonView[]
+  comments    LessonComment[]
+  saves       LessonSave[]
 
   @@index([creatorId, productId])
   @@index([moduleId])
+}
+
+/// Una parte de una lección: vídeo, audio, texto, PDF, imagen, enlace de YouTube/Vimeo u otro archivo.
+/// La lección entera, con todas sus partes, es un solo punto de progreso (LessonProgress no cambia).
+model LessonPart {
+  id         String       @id @default(cuid())
+  creatorId  String
+  productId  String // el curso, como en LessonProgress: saber qué archivos se usan sin pasar por la lección
+  lessonId   String
+  lesson     Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  sortOrder  Int          @default(0)
+  kind       String // TEXT | FILE | EMBED | CHAPTER | MODEL | MYCHART | TODAY | QUIZ | GLOSSARY
+  body       String? // TEXT
+  bodyFormat String? // TEXT: null = texto de antes (párrafos) | "MD" = texto con formato (lib/rich-text.ts)
+  // FILE: un archivo de los materiales del mismo curso. Cómo se ve lo decide ProductFile.kind
+  // (VIDEO, AUDIO, PDF, IMAGE → visor; LINK, OTHER → botón). Si se borra el archivo, la parte también.
+  fileId     String?
+  file       ProductFile? @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  url        String? // EMBED: enlace de YouTube o Vimeo (https)
+  // CHAPTER, MODEL, MYCHART, TODAY, QUIZ, GLOSSARY: su contenido (lib/lesson-parts.ts → lessonPartSchema)
+  data       Json?
+  // Su diseño (lib/course-design.ts → PieceLook): fondo, borde, esquinas, color, tamaño y letra. null = sin nada.
+  design     Json?
+
+  @@index([creatorId, productId])
+  @@index([lessonId, sortOrder])
+  @@index([fileId])
 }
 
 model LessonProgress {
@@ -386,21 +589,235 @@ model LessonProgress {
   @@index([creatorId, productId])
 }
 
-model MembershipPost {
-  id          String   @id @default(cuid())
-  creatorId   String
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  title       String
-  body        String
-  kind        String   @default("TEXT") // TEXT | AUDIO | VIDEO | EVENT
-  mediaUrl    String?
-  publishedAt DateTime @default(now())
+/// Visitas de una alumna a una lección (una fila por alumna y lección): para «Datos» del estudio de
+/// cursos (quién la abrió, cuántas veces) y la última actividad en «Alumnas». La dueña no cuenta.
+model LessonView {
+  id        String   @id @default(cuid())
+  creatorId String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  count     Int      @default(1)
+  firstAt   DateTime @default(now())
+  lastAt    DateTime @default(now())
+  // Lecciones por capítulos: el último que abrió (0, 1, 2…), para seguir donde lo dejó.
+  chapter   Int?
 
-  @@index([creatorId, productId, publishedAt])
+  @@unique([userId, lessonId])
+  @@index([creatorId, productId])
 }
 
-// Publicaciones con fecha de la página pública (novedades / blog).
+model MembershipPost {
+  id            String    @id @default(cuid())
+  creatorId     String
+  productId     String
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  title         String
+  // La frase de la tarjeta en el muro (sin ella, el principio del texto).
+  summary       String?
+  body          String
+  bodyFormat    String? // null = texto de antes (saltos de línea tal cual) | "MD"
+  // TEXT | AUDIO | VIDEO | EVENT | PODCAST | CEREMONIA | CIRCULO_LUNAR (lib/community-rules.ts)
+  kind          String    @default("TEXT")
+  // Directo, ceremonia o círculo de la luna: cuándo es (lo enseña la publicación; null = sin fecha).
+  eventAt       DateTime?
+  mediaUrl      String?
+  // El texto del botón del enlace («Enlace a Zoom»); null = el de siempre.
+  joinLabel     String?
+  // Círculo de la luna: su luna y su signo ({ phase, sign, phrase }, lib/product-texts.ts → MoonChoice),
+  // que salen en lugar de la foto. Sin ella, la luna de su fecha.
+  moon          Json?
+  // El círculo de la luna (Product) del que sale esta publicación: se crea, cambia y borra con él.
+  circleProductId String? @unique
+  // La foto de portada (/media/… o /demo/…): sale a la izquierda en la tarjeta y arriba al abrirla. Sin ella,
+  // la primera foto del texto o, si no hay, una según el tipo (app/cuenta/membresias/cover.ts).
+  imageUrl      String?
+  // DRAFT: solo la ve la dueña. PUBLISHED: la ven sus miembros desde publishedAt; si es futura, está
+  // «programada» (lib/community-rules.ts → visibleMemberPostWhere: no hace falta ningún cron para verla).
+  status        String    @default("PUBLISHED")
+  publishedAt   DateTime  @default(now())
+  // Aviso por email al publicarse (lib/community-notify.ts). notifiedAt = ya se avisó (o no había que
+  // hacerlo); notifyCursor = último userId avisado (si se corta a mitad, sigue desde ahí);
+  // notifiedCount = emails creados.
+  notify        Boolean   @default(true)
+  notifiedAt    DateTime?
+  notifyCursor  String?
+  notifiedCount Int       @default(0)
+  commentsOpen  Boolean   @default(true)
+  // «Fijar arriba»: sale la primera en los feeds (las fijadas, de la más reciente a la más antigua).
+  pinnedAt      DateTime?
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  files    ProductFile[]
+  comments MembershipComment[]
+  likes    MembershipPostLike[]
+  views    MembershipPostView[]
+  saves    MembershipPostSave[]
+
+  @@index([creatorId, productId, publishedAt])
+  @@index([status, notifiedAt, publishedAt]) // cron de avisos
+}
+
+// Lo que incluye una membresía: cursos que sus miembros ven mientras la membresía siga activa. El
+// acceso NO se copia a Access: se deduce al consultar (lib/membership-access.ts), así que termina
+// exactamente cuando termina el de la membresía (fin del periodo pagado, fecha de fin, reembolso o
+// acceso retirado). Las dos puntas son de la misma creadora (lo garantiza saveInclusions con tenantDb).
+model ProductInclusion {
+  id                String   @id @default(cuid())
+  creatorId         String
+  productId         String // la membresía que incluye
+  product           Product  @relation("ProductIncludes", fields: [productId], references: [id], onDelete: Cascade)
+  includedProductId String // el curso incluido
+  includedProduct   Product  @relation("ProductIncludedIn", fields: [includedProductId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+
+  @@unique([productId, includedProductId])
+  @@index([creatorId, includedProductId])
+}
+
+// Comentario en una publicación de la comunidad. Texto plano (≤ 2000): se pinta como texto, nunca
+// como HTML ni con enlaces.
+model MembershipComment {
+  id         String              @id @default(cuid())
+  creatorId  String
+  productId  String // membresía de la publicación
+  postId     String
+  post       MembershipPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId   String? // respuesta a otro comentario (un solo nivel)
+  parent     MembershipComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies    MembershipComment[] @relation("CommentReplies")
+  body       String
+  // Nombre que ven las demás, fijado al comentar: «Laura M.» (nunca el email) o el de la dueña.
+  authorName String
+  byOwner    Boolean             @default(false)
+  // VISIBLE | HIDDEN (lo oculta la dueña: guarda el texto y lo puede volver a mostrar) | REMOVED (el texto se vacía)
+  status     String              @default("VISIBLE")
+  removedBy  String? // AUTHOR | OWNER
+  createdAt  DateTime            @default(now())
+  likes      MembershipCommentLike[]
+
+  @@index([creatorId, postId, createdAt])
+  @@index([userId])
+}
+
+// «Me gusta» en un comentario de una membresía (avisa a quien lo escribió: en la web y por email).
+model MembershipCommentLike {
+  id        String            @id @default(cuid())
+  creatorId String
+  commentId String
+  comment   MembershipComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime          @default(now())
+
+  @@unique([commentId, userId])
+  @@index([creatorId])
+  @@index([userId])
+}
+
+// Comentario (o respuesta, un solo nivel) en una lección de un curso. Como MembershipComment.
+model LessonComment {
+  id         String              @id @default(cuid())
+  creatorId  String
+  productId  String // el curso
+  lessonId   String
+  lesson     Lesson              @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId   String?
+  parent     LessonComment?      @relation("LessonCommentReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies    LessonComment[]     @relation("LessonCommentReplies")
+  body       String
+  authorName String
+  byOwner    Boolean             @default(false)
+  // VISIBLE | HIDDEN | REMOVED
+  status     String              @default("VISIBLE")
+  removedBy  String?
+  createdAt  DateTime            @default(now())
+  likes      LessonCommentLike[]
+
+  @@index([creatorId, lessonId, createdAt])
+  @@index([creatorId, createdAt])
+  @@index([userId])
+}
+
+// Una lección guardada en favoritos por una alumna (la estrella de la lección): sale en sus Favoritos.
+model LessonSave {
+  id        String   @id @default(cuid())
+  creatorId String
+  productId String
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([lessonId, userId])
+  @@index([userId, createdAt])
+  @@index([creatorId])
+}
+
+model LessonCommentLike {
+  id        String        @id @default(cuid())
+  creatorId String
+  commentId String
+  comment   LessonComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@unique([commentId, userId])
+  @@index([creatorId])
+  @@index([userId])
+}
+
+model MembershipPostLike {
+  id        String         @id @default(cuid())
+  creatorId String
+  postId    String
+  post      MembershipPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([postId, userId])
+  @@index([creatorId, postId])
+}
+
+// Una publicación guardada por una miembro («Guardar» en las membresías a página entera): sale en «Mis
+// archivos», en «Favoritos» y en la carpeta de los textos de su membresía.
+model MembershipPostSave {
+  id        String         @id @default(cuid())
+  creatorId String
+  postId    String
+  post      MembershipPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([postId, userId])
+  @@index([userId, createdAt])
+}
+
+// Quién ha abierto una publicación de la comunidad (una fila por persona: «vistas» = personas que la
+// han leído). Sin la dueña ni su «Ver como miembro». Ligera: sin relación con User (se borra con la publicación).
+model MembershipPostView {
+  id        String         @id @default(cuid())
+  creatorId String
+  postId    String
+  post      MembershipPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime       @default(now())
+
+  @@unique([postId, userId])
+  @@index([creatorId, postId])
+}
+
+// Publicaciones con fecha de la página pública («Actualidades», antes «Novedades»; tipo blog).
 model Post {
   id          String    @id @default(cuid())
   creatorId   String
@@ -409,7 +826,16 @@ model Post {
   title       String
   excerpt     String?
   body        String // texto con párrafos; los enlaces se convierten al mostrarlo
+  bodyFormat  String? // null = texto de antes | "MD"
   imageUrl    String?
+  // Vídeo o audio (lib/posts.ts → PostMedia): VIDEO | AUDIO, y el archivo subido (/media/video/…) o un
+  // enlace de YouTube/Vimeo.
+  mediaKind   String?
+  media       Json?
+  // Llamada a la acción opcional: botón con su enlace (producto, página o web) y un código de descuento.
+  ctaLabel    String?
+  ctaUrl      String?
+  ctaCode     String?
   status      String    @default("DRAFT") // DRAFT | PUBLISHED
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -417,6 +843,59 @@ model Post {
 
   @@unique([creatorId, slug])
   @@index([creatorId, status, publishedAt])
+}
+
+// «Portal de Noticias» (lib/portal-rules.ts): lo que la dueña publica gratis solo para quien está
+// suscrita a su newsletter y tiene cuenta. Lo bloqueado (media, linkUrl, body) solo sale del servidor
+// a quien lo tiene desbloqueado; los archivos son privados (app/api/portal/[id]/[n]).
+model PortalItem {
+  id          String    @id @default(cuid())
+  creatorId   String
+  creator     Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  kind        String // VIDEO | AUDIO | PHOTOS | LIVE | EARLY_BIRD
+  title       String
+  summary     String? // texto corto que se ve aunque esté bloqueado
+  body        String? // texto completo (bloqueado)
+  coverUrl    String? // portada pública (se ve desenfocada mientras está bloqueado)
+  // Archivos privados: [{ key, kind, mime, name, sizeBytes, width?, height?, durationSec? }]
+  media       Json      @default("[]")
+  linkUrl     String? // enlace de Zoom del directo o de la oferta Early Bird (bloqueado)
+  linkLabel   String?
+  eventAt     DateTime? // directo: día y hora
+  // Cuándo se publicó (o se volvió a publicar): el aviso de novedades de la portada cuenta desde aquí.
+  // null en los de antes = createdAt.
+  publishedAt DateTime?
+  featured    Boolean   @default(false) // el grande de arriba en la portada
+  sortOrder   Int       @default(0)
+  status      String    @default("DRAFT") // DRAFT | PUBLISHED
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([creatorId, status, sortOrder])
+}
+
+// Sus textos de la web en los tres idiomas (lib/i18n/content.ts): uno por texto distinto, tal cual lo escribió
+// (en el idioma que sea). La IA saca los otros dos; lo que ella corrige a mano (manual) no se vuelve a pisar.
+// Si cambia el texto, es otro texto: se traduce de nuevo.
+model TextTranslation {
+  id        String   @id @default(cuid())
+  creatorId String
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  hash      String // sha256 del texto original
+  source    String // el texto tal cual
+  lang      String? // idioma del original: de | en | es (lo dice la IA)
+  de        String?
+  en        String?
+  es        String?
+  manual    String[] @default([]) // idiomas corregidos a mano
+  status    String   @default("PENDING") // PENDING | WORKING | DONE | FAILED
+  error     String?
+  tries     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([creatorId, hash])
+  @@index([creatorId, status])
 }
 
 // Códigos de descuento de otras marcas que la creadora recomienda en su página.
@@ -429,6 +908,12 @@ model DiscountCode {
   description String?
   url         String // enlace a la tienda (https)
   imageUrl    String? // logo o imagen de la marca
+  // Fotos de lo que recomienda de esa marca (se ven al desplegar el código en la portada):
+  // [{ src, alt, width, height }] (lib/discount-codes.ts → readCodePhotos).
+  images      Json      @default("[]")
+  // «Recomendaciones» de esa marca (lista que se ve al desplegar el código, cada una con su enlace
+  // opcional al producto): [{ text, url }] (lib/discount-codes.ts → readCodeRecommendations).
+  recommendations Json  @default("[]")
   expiresAt   DateTime? // los caducados no se muestran
   active      Boolean   @default(true)
   sortOrder   Int       @default(0)
@@ -438,23 +923,145 @@ model DiscountCode {
   @@index([creatorId, active, sortOrder])
 }
 
+// Páginas extra de la web de una creadora («Sobre mí», «Preguntas frecuentes»…), cada una con su
+// dirección (/<usuaria>/p/<slug>; en la web personal, también /<slug>) y, como la página principal,
+// un borrador que se edita y una versión publicada, que es la que se ve. El contenido (título,
+// bloques, textos para redes) va en JSON: lib/site-pages.ts.
+model SitePage {
+  id             String    @id @default(cuid())
+  creatorId      String
+  creator        Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  slug           String // minúsculas, números y guiones (SITE_PAGE_SLUG_RE); nunca una ruta reservada de la web
+  title          String // título del borrador, para las listas del panel y las sugerencias de enlaces
+  publishedTitle String? // título de la versión publicada: el que sale en el pie de la web (sin leer el JSON)
+  draft          Json // SitePageContent
+  published      Json? // lo que se ve; null = nunca se ha publicado
+  status         String    @default("DRAFT") // DRAFT (no se ve) | PUBLISHED (se ve `published`). Despublicar conserva `published`.
+  publishedAt    DateTime?
+  showInNav      Boolean   @default(true) // enlace en el pie de su web mientras está publicada
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([creatorId, slug])
+  @@index([creatorId, status, sortOrder])
+}
+
+// Barajas de oráculo propias (Panel → Barajas; lib/oracle-decks.ts). Se usan en el modelo «Oráculo»
+// del bloque «Modelo interactivo»: en borrador no se ven en ningún sitio. Sin baraja elegida, el
+// modelo usa la de serie («Oráculo de la Luna», components/models/data/oracle.ts).
+model OracleDeck {
+  id           String       @id @default(cuid())
+  creatorId    String
+  creator      Creator      @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  name         String
+  slug         String // único por creadora (para enlazarla más adelante desde el área de alumnas)
+  description  String?
+  backImageUrl String? // reverso común de todas las cartas (/media/…); sin él, el reverso dibujado
+  backFrame    String? // ajuste del reverso a la carta («cover 50 50 100»: rellenar o entera, foco x y, zoom)
+  status       String       @default("DRAFT") // DRAFT | PUBLISHED
+  sortOrder    Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  cards        OracleCard[]
+
+  @@unique([creatorId, slug])
+  @@index([creatorId, status, sortOrder])
+}
+
+// Una carta de una baraja propia. creatorId repetido (como en LessonPart) para el aislamiento de
+// tenantDb. El mensaje es texto con formato (lib/rich-text.ts, siempre «MD»).
+model OracleCard {
+  id              String     @id @default(cuid())
+  creatorId       String
+  creator         Creator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  deckId          String
+  deck            OracleDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  name            String
+  keyword         String     @default("")
+  message         String     @default("")
+  question        String     @default("")
+  imageUrl        String? // cara de la carta (/media/…); sin imagen, un motivo dibujado
+  imageFrame      String? // ajuste de la cara a la carta («cover 50 50 100»)
+  backImageUrl    String? // reverso propio de esta carta (sin él, el de la baraja)
+  backFrame       String? // ajuste de su reverso
+  motif           String? // motivo dibujado sin imagen: id de una carta de la baraja de serie; null = según su posición
+  sortOrder       Int        @default(0)
+  reversible      Boolean    @default(false) // puede salir invertida
+  reversedMessage String? // mensaje invertida (sin él, el mensaje de siempre)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([deckId, sortOrder])
+  @@index([creatorId])
+}
+
+// Datos de nacimiento guardados por una alumna en «Mi energía» (lib/birth-profiles.ts): los suyos
+// (isOwn, como mucho uno por alumna y web) y los de otras personas, con su permiso. Se leen siempre
+// por creatorId (tenantDb) Y userId de la sesión: nunca los ve otra usuaria. Borrar quita la fila.
+model BirthProfile {
+  id          String   @id @default(cuid())
+  creatorId   String
+  creator     Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  relation    String? // yo | pareja | hijo | amiga | clienta | otro
+  isOwn       Boolean  @default(false)
+  birthDate   String // AAAA-MM-DD, fecha local del lugar de nacimiento
+  birthTime   String? // HH:MM local; null = no se sabe la hora
+  placeName   String
+  placeDetail String?
+  lat         Float
+  lon         Float
+  tz          String // zona IANA («Europe/Madrid») o desfase fijo («UTC+01:00»)
+  // Cuándo marcó la casilla de consentimiento al guardar (o al cambiar los datos).
+  consentAt   DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([creatorId, userId])
+  @@index([userId])
+}
+
+// Avisos de novedades de la portada (lib/section-seen.ts): cuándo abrió una usuaria con cuenta (y
+// suscrita) cada sección plegable de una creadora («posts», «portal», «offers»). El punto rojo cuenta
+// lo publicado (o la oferta empezada) después; se guarda aquí para que valga en todos sus dispositivos.
+model SectionSeen {
+  id        String   @id @default(cuid())
+  creatorId String
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  section   String // posts | portal | offers
+  seenAt    DateTime
+
+  @@unique([userId, creatorId, section])
+  @@index([creatorId])
+}
+
 // ───────────────────────────── Clientes y ventas ─────────────────────────────
 
 model Customer {
-  id               String    @id @default(cuid())
-  creatorId        String
-  creator          Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  userId           String
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  email            String
-  name             String?
-  marketingOptIn   Boolean   @default(false)
-  marketingOptInAt DateTime? // cuándo dio el consentimiento (null si nunca o si lo retiró)
-  totalSpentCents  Int       @default(0)
-  ordersCount      Int       @default(0)
-  firstPurchaseAt  DateTime?
-  lastPurchaseAt   DateTime?
-  createdAt        DateTime  @default(now())
+  id                 String    @id @default(cuid())
+  creatorId          String
+  creator            Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email              String
+  name               String?
+  marketingOptIn     Boolean   @default(false)
+  marketingOptInAt   DateTime? // cuándo dio el consentimiento (null si nunca o si lo retiró)
+  totalSpentCents    Int       @default(0)
+  ordersCount        Int       @default(0)
+  firstPurchaseAt    DateTime?
+  lastPurchaseAt     DateTime?
+  // Avisos de la comunidad (publicaciones nuevas y respuestas de la dueña a sus comentarios): null = los
+  // recibe. Se da de baja con el enlace del email (lib/community-optout.ts) o desde su comunidad.
+  postEmailsOptOutAt DateTime?
+  // La dueña le ha quitado la posibilidad de comentar (sigue leyendo y dando «me gusta»).
+  commentsBlockedAt  DateTime?
+  createdAt          DateTime  @default(now())
 
   orders        Order[]
   bookings      Booking[]
@@ -475,26 +1082,15 @@ model Order {
   productTitle     String // instantánea en el momento de la compra
   productType      String
   buyerEmail       String
+  locale           String? // idioma de la web al comprar: el de sus emails
   buyerName        String?
   // PENDING | PROCESSING (pago pendiente de confirmar) | PAID | FAILED | REFUNDED | ABANDONED
   status           String    @default("PENDING")
-  amountCents      Int // precio final, SIEMPRE con IVA incluido
+  amountCents      Int // precio final que paga la compradora
   currency         String    @default("EUR")
   commissionBps    Int
   platformFeeCents Int
   netCents         Int
-
-  // ── Impuestos: instantánea fiscal de la venta ──
-  taxSeller      String  @default("CREATOR") // PLATFORM | CREATOR: quién vende a efectos de IVA
-  taxCountry     String? // país de tributación (ISO alfa-2; ES-CN | ES-CE | ES-ML = Canarias, Ceuta, Melilla)
-  taxRateBps     Int     @default(0) // 2100 = 21 %
-  taxCents       Int     @default(0) // IVA incluido en amountCents
-  buyerCountry   String? // país declarado por la compradora
-  ipCountry      String? // país según la IP (prueba de localización OSS)
-  // Datos para «Necesito factura con mi NIF» (null = factura simplificada)
-  billingName    String?
-  billingTaxId   String?
-  billingAddress String?
 
   // ── Pago ──
   paymentProvider     String
@@ -520,26 +1116,33 @@ model Order {
   legalSnapshotId  String?
   legalSnapshot    LegalSnapshot? @relation(fields: [legalSnapshotId], references: [id])
   termsAcceptedAt  DateTime?
-  waiverKind       String? // DIGITAL_IMMEDIATE | SERVICE_IN_PERIOD
+  waiverKind       String? // DIGITAL_IMMEDIATE | DIGITAL_PREPARED | WORKSHOP_FIXED_DATE | MEMBERSHIP_START (antes también SERVICE_IN_PERIOD)
   waiverText       String? // texto literal de la casilla marcada
+  waiverVersion    String? // versión de los textos y huella del texto aceptado: «2026-10-25#1a2b…» (lib/checkout-consents.ts)
   waiverAcceptedAt DateTime?
   marketingOptIn   Boolean        @default(false)
 
-  metadata          Json? // p. ej. { slotStart } para sesiones
-  visitorId         String?
-  source            String?
-  ipHash            String? // HMAC de la IP de quien inició el pago (límites y antiabuso); nunca la IP en claro
-  recoveryEmailedAt DateTime?
+  metadata              Json? // p. ej. { slotStart, buyerTz } para sesiones
+  // Respuestas de la clienta (lib/intake.ts → IntakeAnswers: fecha, hora y lugar de nacimiento y cada
+  // pregunta con su texto de ese momento). Solo las ven ella y la dueña. Se borran solas de los pedidos
+  // sin pagar a los 30 días (lib/cron.ts).
+  intake                Json?
+  intakeUpdatedAt       DateTime?
+  // Entrega personal (la lectura preparada o la grabación de la sesión): primera vez que se envió y el mensaje.
+  deliveredAt           DateTime?
+  visitorId             String?
+  source                String?
+  ipHash                String? // HMAC de la IP de quien inició el pago (límites y antiabuso); nunca la IP en claro
+  recoveryEmailedAt     DateTime?
   // motivo por el que no se envió el email de recuperación: sin-visita | sin-checkout | muchos-emails | ya-avisada
-  recoverySkipped   String?
-  createdAt         DateTime  @default(now())
-  paidAt            DateTime?
+  recoverySkipped       String?
+  createdAt             DateTime  @default(now())
+  paidAt                DateTime?
 
   transactions Transaction[]
   bookings     Booking[]
   sessions     Session[]
   links        OrderLink[]
-  invoices     Invoice[]
   refunds      Refund[]
 
   @@index([creatorId, status, createdAt])
@@ -567,10 +1170,6 @@ model Transaction {
   platformFeeCents Int      @default(0)
   netCents         Int      @default(0)
   currency         String   @default("EUR")
-  taxSeller        String? // PLATFORM | CREATOR (null en PLAN_FEE)
-  taxCountry       String?
-  taxRateBps       Int      @default(0)
-  taxCents         Int      @default(0) // REFUND: negativo, como el resto de importes
   provider         String
   providerRef      String?
   status           String   @default("SUCCEEDED") // SUCCEEDED | FAILED
@@ -598,12 +1197,16 @@ model Access {
   product        Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   orderId        String?
   subscriptionId String?
-  status         String    @default("ACTIVE") // ACTIVE | REVOKED
+  status         String    @default("ACTIVE") // ACTIVE | REVOKED (quitado o reembolsado) | EXPIRED (llegó su fecha de fin)
+  // Fin del acceso: el del periodo pagado (suscripción) o el que puso la dueña al darlo a mano
+  // (Order.metadata.accessUntil). Se comprueba en CADA visita (expiresAt > ahora): el cron
+  // (lib/access-expiry.ts) solo pasa a EXPIRED los que no son de suscripción y avisa por email.
   expiresAt      DateTime?
   createdAt      DateTime  @default(now())
 
   @@unique([userId, productId])
   @@index([creatorId, productId])
+  @@index([status, expiresAt]) // cron de caducidades
 }
 
 // Reembolso de un pedido (total o parcial). Los efectos (retirar acceso, cancelar
@@ -641,7 +1244,8 @@ model Refund {
 
 // Restricción en BD (migración): dos reservas CONFIRMED de la misma creadora no pueden
 // solaparse (Booking_no_overlap, tsrange [start,end)). El margen (bufferMin) lo aplica
-// hasBookingClash bajo un cerrojo por creadora.
+// hasBookingClash bajo un cerrojo por creadora. Las plazas de un taller (groupSeat) comparten hora y
+// quedan fuera de la regla: el hueco del taller lo bloquean lib/booking.ts y hasBookingClash.
 model Booking {
   id                    String    @id @default(cuid())
   creatorId             String
@@ -664,7 +1268,12 @@ model Booking {
   cancelReason          String? // texto que ve la clienta
   rescheduleRequestedAt DateTime? // la creadora ha propuesto otra fecha (status vuelve a PENDING_SCHEDULE)
   rescheduleNote        String?
-  previousStartAt       DateTime? // fecha liberada al proponer otra
+  previousStartAt       DateTime? // fecha liberada al proponer otra (o la anterior cuando la clienta la cambia)
+  // Zona horaria de la clienta (IANA): la de su navegador al reservar o la que puso la dueña. Sus emails,
+  // su área y la página de gracias enseñan la hora en esa zona. null = la de la dueña (reservas de antes).
+  customerTimezone      String?
+  // Plaza de un taller (Product.groupSession): comparte hora con las demás plazas.
+  groupSeat             Boolean   @default(false)
   createdAt             DateTime  @default(now())
 
   @@index([creatorId, startAt])
@@ -692,6 +1301,40 @@ model BlockedDate {
   @@unique([creatorId, date])
 }
 
+// Horario de un día concreto (viajes, días especiales). HOURS = franjas disponibles que SUSTITUYEN al
+// horario semanal de ese día; BLOCK = horas que se quitan de lo disponible ese día. La fecha y los minutos
+// van en `timezone`, que puede no ser la de la creadora («de 9:00 a 13:00, hora de Bali»).
+// Los días enteros siguen siendo BlockedDate.
+model AvailabilityOverride {
+  id          String   @id @default(cuid())
+  creatorId   String
+  creator     Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  date        String // YYYY-MM-DD en `timezone`
+  kind        String // HOURS | BLOCK
+  startMinute Int // minutos desde las 00:00 de `date` en `timezone`
+  endMinute   Int // ≤ 1440, al menos 15 min después de startMinute
+  timezone    String // zona IANA canónica (lib/timezones.ts → canonicalTimezone)
+  note        String? // «Bali», «Retiro»… (máx. 80)
+  createdAt   DateTime @default(now())
+
+  @@index([creatorId, date])
+}
+
+// Diario de la dueña en el calendario de Reservas: una nota por día (YYYY-MM-DD en su zona). Privada:
+// solo la ve ella en el panel.
+model CalendarNote {
+  id        String   @id @default(cuid())
+  creatorId String
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  date      String // YYYY-MM-DD en la zona de la dueña
+  body      String // texto con formato (lib/rich-text.ts); una nota vacía se borra
+  format    String   @default("MD")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([creatorId, date])
+}
+
 // ───────────────────────────── Membresías ─────────────────────────────
 
 model Subscription {
@@ -703,11 +1346,10 @@ model Subscription {
   customerId               String
   customer                 Customer  @relation(fields: [customerId], references: [id])
   userId                   String
-  orderId                  String? // pedido inicial (datos de facturación para las renovaciones)
+  orderId                  String? // pedido inicial
   status                   String    @default("ACTIVE") // ACTIVE | PAST_DUE | CANCELED
   priceCents               Int
   interval                 String    @default("month")
-  buyerCountry             String? // país declarado, para calcular el IVA de cada renovación
   currentPeriodStart       DateTime
   currentPeriodEnd         DateTime
   cancelAtPeriodEnd        Boolean   @default(false)
@@ -761,14 +1403,19 @@ model AnalyticsSalt {
 
 // Preferencias por creadora de cada automatización (ver lib/automations.ts).
 model Automation {
-  id           String  @id @default(cuid())
-  creatorId    String
-  creator      Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  trigger      String // WELCOME | PURCHASE_RECEIPT | COURSE_ACCESS | SESSION_REMINDER | BOOKING_CONFIRMED | NEW_SUBSCRIPTION | SUBSCRIPTION_CANCELED | ABANDONED_CHECKOUT
-  enabled      Boolean @default(true)
-  delayMinutes Int     @default(0)
-  subject      String?
-  message      String?
+  id            String  @id @default(cuid())
+  creatorId     String
+  creator       Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  trigger       String // WELCOME | PURCHASE_RECEIPT | COURSE_ACCESS | SESSION_REMINDER | BOOKING_CONFIRMED | NEW_SUBSCRIPTION | SUBSCRIPTION_CANCELED | ABANDONED_CHECKOUT | BOOKING_OWNER_NOTICE | SESSION_REMINDER_SOON| ACCESS_GRANTED | NEWSLETTER_WELCOME
+  enabled       Boolean @default(true)
+  delayMinutes  Int     @default(0)
+  subject       String?
+  message       String?
+  messageFormat String? // null = texto de antes (un párrafo) | "MD"
+  // Email editado con el editor visual (lib/email-blocks.ts → EmailDesign: bloques de texto, imagen,
+  // botón…). Sustituye al texto del email; la parte fija (botón de acceso, recibo, datos legales) se
+  // añade sola. null = el email original («Restaurar el original» lo vuelve a dejar en null).
+  design        Json?
 
   @@unique([creatorId, trigger])
 }
@@ -784,6 +1431,21 @@ model RecoveryOptOut {
   updatedAt DateTime @default(now()) @updatedAt // última vez que confirmó la baja
 
   @@unique([creatorId, emailHash])
+}
+
+// Clic en un enlace de un email (aviso email.clicked de Resend, si se activa el seguimiento de clics).
+// Una fila por email y enlace: son clics únicos. Para «Clics por enlace» en las estadísticas.
+model EmailClick {
+  id             String   @id @default(cuid())
+  creatorId      String?
+  emailMessageId String
+  campaignId     String?
+  link           String
+  createdAt      DateTime @default(now())
+
+  @@unique([emailMessageId, link])
+  @@index([campaignId])
+  @@index([creatorId, createdAt])
 }
 
 // Bandeja de salida: todo email pasa por aquí (se procesa en /api/cron) con
@@ -808,11 +1470,23 @@ model EmailMessage {
   fromName      String? // nombre visible del remitente (p. ej. la creadora)
   replyTo       String? // respuestas → email de contacto de la creadora
   headers       Json? // cabeceras extra (List-Unsubscribe de los recordatorios, RFC 8058)
+  // tx = transaccional (EMAIL_FROM) | news = newsletter (NEWSLETTER_FROM, o EMAIL_FROM si no hay)
+  stream        String    @default("tx")
+  campaignId    String? // newsletter de la que forma parte (Campaign)
+  // Lo que cuenta el webhook de Resend (/api/webhooks/resend), si está configurado.
+  deliveredAt   DateTime?
+  bouncedAt     DateTime?
+  complainedAt  DateTime?
+  openedAt      DateTime? // solo si se activa el seguimiento de aperturas en Resend (desactivado por defecto)
+  clickedAt     DateTime? // ídem, clics
   createdAt     DateTime  @default(now())
 
   @@index([status, sendAt])
   @@index([status, lockedUntil])
   @@index([creatorId, createdAt])
+  @@index([campaignId, status])
+  @@index([providerId])
+  @@index([status, sentAt])
 }
 
 // Eventos de dominio guardados en la misma transacción que el cambio de negocio.
@@ -865,75 +1539,6 @@ model LegalSnapshot {
   @@unique([creatorId, hash])
 }
 
-// ───────────────────────────── Facturación ─────────────────────────────
-
-// Facturas emitidas. Inmutables: los errores se corrigen con rectificativas (R1/R5)
-// y una simplificada se sustituye con una F3. Tipos según VERI*FACTU.
-model Invoice {
-  id               String    @id @default(cuid())
-  creatorId        String // tenant: la creadora de la venta o la destinataria de la factura de cuotas
-  creator          Creator   @relation(fields: [creatorId], references: [id], onDelete: Restrict)
-  kind             String // SALE (venta a compradora) | FEES (Cirella → creadora: cuota y comisiones)
-  type             String // F1 completa | F2 simplificada | F3 sustituye a F2 | R1 rectificativa | R5 rectificativa de simplificada
-  issuer           String // PLATFORM | CREATOR
-  issuerKey        String // "platform" o creatorId: ámbito de la numeración
-  seriesCode       String // V | S | R (Cirella) · CIR | CIRR (en nombre de la creadora)
-  year             Int
-  number           Int
-  fullNumber       String // V2026-000123
-  issuedAt         DateTime  @default(now())
-  operationDate    DateTime? // fecha de la operación si difiere (cuotas: último día del mes)
-  period           String? // "2026-10" en las facturas FEES
-  orderId          String?
-  order            Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  transactionId    String?
-  buyerUserId      String? // compradora (acceso desde /cuenta)
-  relatedInvoiceId String? // F3 → F2 sustituida · R1/R5 → factura rectificada
-  related          Invoice?  @relation("InvoiceRelated", fields: [relatedInvoiceId], references: [id], onDelete: Restrict)
-  relatedFrom      Invoice[] @relation("InvoiceRelated")
-  // Instantáneas: la factura no cambia aunque cambien los datos
-  issuerName       String
-  issuerTaxId      String?
-  issuerAddress    String?
-  issuerCountry    String
-  recipientName    String?
-  recipientTaxId   String?
-  recipientAddress String?
-  recipientCountry String?
-  recipientEmail   String?
-  currency         String    @default("EUR")
-  lines            Json // [{ description, baseCents, taxCents, totalCents }]
-  baseCents        Int
-  taxRateBps       Int
-  taxCents         Int
-  totalCents       Int
-  taxCountry       String?
-  taxNote          String?
-  // Registro en un sistema VERI*FACTU o servicio certificado (pendiente de decisión: quedan a null)
-  registryRef      String?
-  registryQrUrl    String?
-  dedupeKey        String    @unique // sale:<txId> | full:<orderId> | refund:<txId> | fees:<creatorId>:<yyyy-mm>
-  createdAt        DateTime  @default(now())
-
-  @@unique([issuerKey, seriesCode, year, number])
-  @@index([creatorId, issuedAt])
-  @@index([buyerUserId])
-  @@index([orderId])
-  @@index([issuer, issuedAt])
-}
-
-// Contador correlativo sin huecos: se incrementa en la MISMA transacción que crea la factura
-// (INSERT … ON CONFLICT DO UPDATE … RETURNING). No es de tenant: solo lo usa lib/invoices.
-model InvoiceSeries {
-  id         String @id @default(cuid())
-  issuerKey  String // "platform" | creatorId
-  code       String // V | S | R | CIR | CIRR
-  year       Int
-  nextNumber Int    @default(1)
-
-  @@unique([issuerKey, code, year])
-}
-
 // ───────────────────────────── Infraestructura ─────────────────────────────
 
 // Avisos de la pasarela (webhooks y confirmaciones del simulador): evita procesar dos veces
@@ -978,4 +1583,99 @@ model JobLock {
   lastOkAt       DateTime?
   lastError      String?
   lastResult     Json?
+}
+
+// ───────────────────────────── Newsletter ─────────────────────────────
+
+// Persona apuntada a la newsletter de una creadora (con cuenta o sin ella). lib/newsletter.ts es el
+// único que la escribe y mantiene Customer.marketingOptIn como espejo (las pantallas de siempre).
+model Subscriber {
+  id                    String    @id @default(cuid())
+  creatorId             String
+  creator               Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  email                 String // minúsculas
+  name                  String?
+  locale                String? // idioma de sus emails (el de la web al apuntarse); null = alemán
+  status                String    @default("PENDING") // PENDING | CONFIRMED | UNSUBSCRIBED | BOUNCED | COMPLAINED
+  // FORM (formulario de la página) | FREEBIE | CHECKOUT | SIGNUP | PROFILE | IMPORT | MIGRATED | MANUAL
+  source                String
+  sourceRef             String? // producto, pedido o nombre del archivo importado
+  // Prueba del consentimiento (RGPD art. 7.1): cuándo, con qué texto exacto y desde dónde.
+  consentAt             DateTime?
+  consentText           String?
+  consentMeta           Json? // { form, ipHash?, orderId?, file?, line?, declaredBy? }
+  confirmSentAt         DateTime? // último email de confirmación (doble opt-in)
+  confirmedAt           DateTime?
+  unsubscribedAt        DateTime?
+  unsubscribeVia        String? // LINK | ONE_CLICK | PROFILE | OWNER | BOUNCE | COMPLAINT
+  unsubscribeCampaignId String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  recipients CampaignRecipient[]
+
+  @@unique([creatorId, email])
+  @@index([creatorId, status])
+}
+
+// Una newsletter (campaña): asunto, bloques del editor visual y a quién va.
+model Campaign {
+  id              String    @id @default(cuid())
+  creatorId       String
+  creator         Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  subject         String
+  preheader       String?
+  design          Json // lib/email-blocks.ts → EmailDesign
+  // { kind: "all" } | { kind: "product", productId } | { kind: "member" }
+  segment         Json
+  status          String    @default("DRAFT") // DRAFT | SCHEDULED | SENDING | PAUSED | SENT | CANCELED
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  recipientsCount Int       @default(0)
+  // Plantilla de la que salió (solo para saberlo: la campaña lleva su propia copia del diseño).
+  templateId      String?
+  template        NewsletterTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  version         Int       @default(1) // bloqueo optimista (edita desde el iPhone y el Mac)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  recipients CampaignRecipient[]
+
+  @@index([creatorId, status])
+  @@index([status, scheduledAt])
+}
+
+// Plantilla propia de la newsletter: un diseño para reutilizar. Al usarla, la campaña se lleva una
+// copia: cambiar la plantilla nunca toca las campañas hechas con ella.
+model NewsletterTemplate {
+  id        String     @id @default(cuid())
+  creatorId String
+  creator   Creator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  name      String
+  subject   String     @default("")
+  preheader String?
+  design    Json // lib/email-blocks.ts → EmailDesign
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  campaigns Campaign[]
+
+  @@index([creatorId])
+}
+
+// Destinataria de una campaña, fijada al empezar el envío (la lista no cambia a mitad).
+model CampaignRecipient {
+  id             String     @id @default(cuid())
+  creatorId      String
+  creator        Creator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  campaignId     String
+  campaign       Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  subscriberId   String
+  subscriber     Subscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  status         String     @default("PENDING") // PENDING | QUEUED | SKIPPED
+  emailMessageId String?    @unique
+  createdAt      DateTime   @default(now())
+
+  @@unique([campaignId, subscriberId])
+  @@index([campaignId, status])
 }

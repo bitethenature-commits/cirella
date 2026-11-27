@@ -4,14 +4,14 @@
  *
  *   · el email de recuperación guarda las cabeceras List-Unsubscribe / List-Unsubscribe-Post y el
  *     proveedor las recibe al enviarlo;
- *   · POST a /baja/recordatorios/un-clic da de baja (RFC 8058); un GET no cambia nada, solo lleva a la
+ *   · POST a /unsubscribe/reminders/one-click da de baja (RFC 8058); un GET no cambia nada, solo lleva a la
  *     página con el botón; un enlace manipulado no sirve;
  *   · la baja guarda el hash del email, nunca el email, y repetirla actualiza updatedAt sin duplicar;
  *   · si se da de baja entre el cron y el envío, el pedido queda con el motivo «opuesta».
- * Crea pedidos de prueba sobre Ana (seed) y borra todo lo que crea.
+ * Crea pedidos de prueba sobre Cirella (seed) y borra todo lo que crea.
  */
 import "./load-env";
-import { GET, POST } from "../app/baja/recordatorios/un-clic/route";
+import { GET, POST } from "../app/unsubscribe/reminders/one-click/route";
 import { prisma } from "../lib/db";
 import { handleAutomation } from "../lib/automations";
 import { deliverEmail } from "../lib/email/outbox";
@@ -31,14 +31,14 @@ const email = (label: string) => `${TAG}-${label}@example.com`;
 const created = { orders: [] as string[] };
 
 const oneClick = (t: string, method: "GET" | "POST") =>
-  new Request(`http://localhost:3000/baja/recordatorios/un-clic?t=${encodeURIComponent(t)}`, {
+  new Request(`http://localhost:3000/unsubscribe/reminders/one-click?t=${encodeURIComponent(t)}`, {
     method,
     ...(method === "POST" ? { body: "List-Unsubscribe=One-Click", headers: { "Content-Type": "application/x-www-form-urlencoded" } } : {}),
   });
 
 async function main() {
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
-  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED" } });
+  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "AUTOMATIC" } });
   const newOrder = async (label: string) => {
     const o = await createPendingOrder({ productId: digital.id, buyerEmail: email(label), buyerName: `Prueba ${label}` });
     created.orders.push(o.id);
@@ -54,10 +54,10 @@ async function main() {
   const keep = await newOrder("cabeceras");
   await handleAutomation({ type: "checkout.abandoned", orderId: keep.id });
   const msg = await prisma.emailMessage.findFirst({ where: { to: email("cabeceras"), template: "ABANDONED_CHECKOUT" } });
-  if (automation && !automation.enabled) console.log("· (Ana tiene la recuperación desactivada: no se comprueban las cabeceras del email)");
+  if (automation && !automation.enabled) console.log("· (Cirella tiene la recuperación desactivada: no se comprueban las cabeceras del email)");
   else {
     const stored = msg?.headers as Record<string, string> | null | undefined;
-    check("el email de recuperación guarda List-Unsubscribe", !!stored?.["List-Unsubscribe"]?.includes("/baja/recordatorios/un-clic?t="), stored);
+    check("el email de recuperación guarda List-Unsubscribe", !!stored?.["List-Unsubscribe"]?.includes("/unsubscribe/reminders/one-click?t="), stored);
     check("…y List-Unsubscribe-Post", stored?.["List-Unsubscribe-Post"] === "List-Unsubscribe=One-Click", stored);
 
     // El proveedor recibe las cabeceras al enviar (se reintenta el envío ya hecho en línea).
@@ -80,7 +80,7 @@ async function main() {
   const out = await newOrder("unclic");
   const t = optOutToken(out.id);
   const get = await GET(oneClick(t, "GET"));
-  check("GET lleva a la página de confirmar (303)", get.status === 303 && (get.headers.get("location") ?? "").includes(`/baja/recordatorios?t=${encodeURIComponent(t)}`), get.headers.get("location"));
+  check("GET lleva a la página de confirmar (303)", get.status === 303 && (get.headers.get("location") ?? "").includes(`/unsubscribe/reminders?t=${encodeURIComponent(t)}`), get.headers.get("location"));
   check("…y no da de baja", !(await hasOptedOut(ana.id, email("unclic"))));
 
   const bad = await POST(oneClick(t.slice(0, -2) + (t.endsWith("AA") ? "BB" : "AA"), "POST"));
@@ -104,7 +104,7 @@ async function main() {
   await handleAutomation({ type: "checkout.abandoned", orderId: out.id });
   const after = await prisma.order.findUniqueOrThrow({ where: { id: out.id } });
   const sent = await prisma.emailMessage.count({ where: { to: email("unclic"), template: "ABANDONED_CHECKOUT" } });
-  if (automation && !automation.enabled) console.log("· (Ana tiene la recuperación desactivada: no se comprueba el motivo «opuesta» del envío)");
+  if (automation && !automation.enabled) console.log("· (Cirella tiene la recuperación desactivada: no se comprueba el motivo «opuesta» del envío)");
   else check("el envío no sale y el pedido queda con motivo «opuesta»", sent === 0 && after.recoverySkipped === "opuesta", { sent, skipped: after.recoverySkipped });
 }
 

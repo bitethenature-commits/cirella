@@ -8,6 +8,7 @@ import { POST_STATE_LABEL, postState } from "@/lib/posts";
 import { getPublicCreator } from "@/lib/public";
 import { tenantDb } from "@/lib/tenant";
 import { formatDate } from "@/lib/tz";
+import { Tr } from "@/lib/i18n/client";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Vista previa", robots: { index: false } };
@@ -24,12 +25,10 @@ export default async function PostPreviewPage({ params }: { params: Promise<{ id
   return (
     <>
       <div className="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-ink px-4 py-2 text-center text-xs text-cream">
-        <span>Vista previa · {POST_STATE_LABEL[state].toLowerCase()} · solo tú la ves</span>
-        <Link href={`/panel/publicaciones/${post.id}`} className="font-semibold underline underline-offset-2">
-          Volver a editar
-        </Link>
+        <span><Tr s={"Vista previa ·"} />{" "}{POST_STATE_LABEL[state].toLowerCase()}{" "}<Tr s={"· solo tú la ves"} /></span>
+        <Link href={`/panel/publicaciones/${post.id}`} className="font-semibold underline underline-offset-2"><Tr s={"Volver a editar"} /></Link>
       </div>
-      <CreatorShell username={creator.username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} back={false}>
+      <CreatorShell username={creator.username} config={data.config} allowCustom={data.allowCustom} personal={data.personal} signupsOnly={data.signupsOnly} back={false}>
         <PostArticle
           post={{ ...post, publishedAt: post.publishedAt }}
           dateLabel={state === "DRAFT" && !post.publishedAt ? "Borrador" : formatDate(date, { day: "numeric", month: "long", year: "numeric" }, creator.timezone)}

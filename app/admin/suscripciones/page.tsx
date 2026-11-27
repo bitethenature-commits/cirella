@@ -5,8 +5,11 @@ import { Badge, PageHeader } from "../../panel/ui";
 import { AdminTable, td } from "../ui";
 import { formatDate } from "@/lib/tz";
 import { platformOnly } from "../platform-only";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export default async function AdminSubscriptions() {
+  const t = await getT();
   platformOnly();
   await requireAdmin();
   const [memberships, paying] = await Promise.all([
@@ -16,8 +19,8 @@ export default async function AdminSubscriptions() {
   return (
     <div className="space-y-10">
       <section>
-        <PageHeader title="Suscripciones" subtitle="Planes de las creadoras y membresías de sus clientas." />
-        <h2 className="eyebrow mb-3 !text-ink">Planes de pago de creadoras · MRR {formatMoney(paying.filter((c) => c.status === "ACTIVE").reduce((a, c) => a + c.plan.priceMonthlyCents, 0))}</h2>
+        <PageHeader title={t("Suscripciones")} subtitle={t("Planes de las creadoras y membresías de sus clientas.")} />
+        <h2 className="eyebrow mb-3 !text-ink"><Tr s={"Planes de pago de creadoras · MRR"} />{" "}{formatMoney(paying.filter((c) => c.status === "ACTIVE").reduce((a, c) => a + c.plan.priceMonthlyCents, 0))}</h2>
         <AdminTable head={["Creadora", "Plan", "Precio", "Comisión", "Renovación", "Crédito"]}>
           {paying.map((c) => (
             <tr key={c.id}>
@@ -32,7 +35,7 @@ export default async function AdminSubscriptions() {
         </AdminTable>
       </section>
       <section>
-        <h2 className="eyebrow mb-3 !text-ink">Membresías de clientas</h2>
+        <h2 className="eyebrow mb-3 !text-ink"><Tr s={"Membresías de clientas"} /></h2>
         <AdminTable head={["Clienta", "Membresía", "Creadora", "Precio", "Periodo actual", "Estado"]}>
           {memberships.map((s) => (
             <tr key={s.id}>
@@ -40,8 +43,8 @@ export default async function AdminSubscriptions() {
               <td className={td}>{s.product.title}</td>
               <td className={td}>{s.creator.displayName}</td>
               <td className={td}>{formatPrice(s.priceCents, "EUR", s.interval)}</td>
-              <td className={`${td} text-muted`}>hasta {formatDate(s.currentPeriodEnd, { day: "numeric", month: "numeric", year: "numeric" })}</td>
-              <td className={`${td} text-right`}><Badge tone={s.status === "ACTIVE" ? (s.cancelAtPeriodEnd ? "warning" : "success") : s.status === "PAST_DUE" ? "danger" : "neutral"}>{s.status === "ACTIVE" ? (s.cancelAtPeriodEnd ? "Cancela al final" : "Activa") : s.status === "PAST_DUE" ? "Pago pendiente" : "Finalizada"}</Badge></td>
+              <td className={`${td} text-muted`}><Tr s={"hasta"} />{" "}{formatDate(s.currentPeriodEnd, { day: "numeric", month: "numeric", year: "numeric" })}</td>
+              <td className={`${td} text-right`}><Badge tone={s.status === "ACTIVE" ? (s.cancelAtPeriodEnd ? "warning" : "success") : s.status === "PAST_DUE" ? "danger" : "neutral"}>{s.status === "ACTIVE" ? (s.cancelAtPeriodEnd ? t("Cancela al final") : t("Activa")) : s.status === "PAST_DUE" ? t("Pago pendiente") : t("Finalizada")}</Badge></td>
             </tr>
           ))}
         </AdminTable>

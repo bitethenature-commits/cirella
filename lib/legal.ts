@@ -7,9 +7,10 @@
  */
 
 import { normalizeDeliveryMode } from "./delivery";
+import { isWorkshopProduct } from "./withdrawal";
 
 /** Versión de las plantillas de textos legales de las creadoras (lib/legal-templates.ts). */
-export const LEGAL_TEMPLATE_VERSION = "2026-10b";
+export const LEGAL_TEMPLATE_VERSION = "2026-11b";
 /** Versión de los Términos del servicio de la plataforma que aceptan las creadoras. */
 export const PLATFORM_TERMS_VERSION = "2026-10-15";
 /** La clienta puede cambiar la fecha de una sesión gratis hasta estas horas antes. */
@@ -127,7 +128,7 @@ export function validatePostalCode(country: string, v: string): string | null {
   return s.length >= 2 && s.length <= 10 ? null : "Código postal no válido";
 }
 
-/** «Calle X 1, 28001 Madrid (España)» — aviso legal, recibos y facturas. */
+/** «Calle X 1, 28001 Madrid (España)» — aviso legal y recibos. */
 export function formatLegalAddress(c: Partial<LegalIdentity>): string {
   const city = [c.legalPostalCode, c.legalCity].map((s) => s?.trim()).filter(Boolean).join(" ");
   const line = [c.legalAddress?.trim(), city].filter(Boolean).join(", ");
@@ -139,64 +140,86 @@ export function taxIdLabel(entityType: string | undefined) {
   return entityType === "COMPANY" ? "CIF" : "NIF";
 }
 
-/** «Ana Luna Pérez · NIF 12345678Z» */
+/** «Cirella · NIF 12345678Z» */
 export function sellerLine(c: Partial<LegalIdentity>): string {
   return `${c.legalName ?? ""} · ${taxIdLabel(c.legalEntityType)} ${c.legalTaxId ?? ""}`.trim();
 }
 
-/** Datos de la plataforma como vendedora (lib/invoices/issuer.ts → getPlatformIssuer). */
-export type PlatformSeller = { name: string; taxId: string | null };
-
 /**
- * Quién vende, dicho igual en la ficha del producto, el checkout, el pie de las páginas de compra
- * y «Tu compra» (y en los mismos términos que la factura).
- *
- * Con la política de IVA PLATFORM_DIGITAL, los productos digitales que se entregan solos, los cursos
- * y las membresías los vende la plataforma (art. 9 bis del Reglamento de Ejecución (UE) 282/2011:
- * actúa en nombre propio y por cuenta de la creadora, cobra, factura y declara el IVA). Las sesiones
- * y lo que la creadora prepara a mano los vende ella. `taxSeller` es la decisión de lib/tax
- * (decideTax) o la instantánea del pedido (Order.taxSeller).
- *
- *   · name: corto, para el pie («Cirella Demo S.L., por cuenta de Ana Luna Pérez»).
- *   · line: con los NIF, para la ficha, el checkout y el recibo.
+ * Quién vende (siempre la creadora), dicho igual en la ficha del producto, el checkout, el pie de las
+ * páginas de compra y «Tu compra».
+ *   · name: corto, para el pie («Cirella»).
+ *   · line: con su NIF (LSSI art. 10), para la ficha, el checkout y el recibo.
  */
-export function sellerStatement(
-  taxSeller: string | null | undefined,
-  creator: Partial<LegalIdentity> & { displayName: string },
-  platform: PlatformSeller | null,
-): { name: string; line: string; platformSells: boolean } {
+export function sellerStatement(creator: Partial<LegalIdentity> & { displayName: string }): { name: string; line: string } {
   const creatorName = creator.legalName?.trim() || creator.displayName;
-  if (taxSeller === "PLATFORM" && platform) {
-    const name = platform.name.trim();
-    return {
-      name: `${name}, por cuenta de ${creatorName}`,
-      line: `${name}${platform.taxId ? ` · NIF ${platform.taxId}` : ""}, por cuenta de ${creatorName}`,
-      platformSells: true,
-    };
-  }
-  return { name: creatorName, line: creator.legalName?.trim() ? sellerLine(creator) : creatorName, platformSells: false };
+  return { name: creatorName, line: creator.legalName?.trim() ? sellerLine(creator) : creatorName };
 }
 
-export type WaiverKind = "DIGITAL_IMMEDIATE" | "SERVICE_IN_PERIOD";
+export type WaiverKind = "DIGITAL_IMMEDIATE" | "DIGITAL_PREPARED" | "WORKSHOP_FIXED_DATE" | "MEMBERSHIP_START";
+
+/** Datos del producto que deciden la casilla de un taller (sesión en grupo con fecha fija). */
+export type WorkshopWaiverContext = { groupSession?: boolean | null };
 
 /**
- * Renuncia que pide cada tipo de producto: acceso inmediato (art. 103.m) o servicio en plazo (art. 103.a).
- * Un producto digital que la creadora prepara a mano («Lo preparo yo») no se entrega al momento: no
- * hay acceso inmediato al que renunciar, así que no se pide ninguna renuncia y se puede desistir.
+ * Casilla obligatoria que pide cada compra de pago en la web (TRLGDCU arts. 103 y 108):
+ *   · DIGITAL_IMMEDIATE: descargas y cursos. Acceso en cuanto se paga y renuncia (art. 103.m).
+ *   · DIGITAL_PREPARED: lo que la dueña prepara a mano («Lo preparo yo»). Se empieza a preparar en
+ *     cuanto se paga y se entrega dentro del plazo; renuncia (art. 103.m).
+ *   · WORKSHOP_FIXED_DATE: un taller (sesión en grupo con fecha fija), queden los días que queden.
+ *     Actividad de esparcimiento con fecha de ejecución específica: no hay derecho de desistimiento
+ *     (art. 103.l); la casilla deja constancia de que se le informó antes de pagar.
+ *   · MEMBERSHIP_START: una membresía. Pide empezar ya, dentro del plazo (art. 98.8); NO es una
+ *     renuncia: si desiste en los 14 días se le devuelve la parte de los días no disfrutados
+ *     (art. 108.3, lib/withdrawal.ts → membershipWithdrawalRefund). Las renovaciones no pasan por el
+ *     checkout ni dan un nuevo plazo.
+ *   · null: las sesiones individuales (se reservan a partir del día 15, fuera del plazo): 14 días
+ *     para desistir con el reembolso completo.
+ * Lo gratuito y lo que da la dueña a mano no pasan por el checkout.
  */
-export function waiverKindFor(productType: string, deliveryMode?: string | null): WaiverKind | null {
-  if (productType === "DIGITAL" && normalizeDeliveryMode(productType, deliveryMode) === "PERSONAL") return null;
-  if (productType === "DIGITAL" || productType === "COURSE" || productType === "MEMBERSHIP") return "DIGITAL_IMMEDIATE";
-  if (productType === "SESSION") return "SERVICE_IN_PERIOD";
+export function waiverKindFor(productType: string, deliveryMode?: string | null, workshop?: WorkshopWaiverContext | null): WaiverKind | null {
+  if (productType === "DIGITAL" && normalizeDeliveryMode(productType, deliveryMode) === "PERSONAL") return "DIGITAL_PREPARED";
+  if (productType === "DIGITAL" || productType === "COURSE") return "DIGITAL_IMMEDIATE";
+  if (productType === "MEMBERSHIP") return "MEMBERSHIP_START";
+  if (isWorkshopProduct({ type: productType, groupSession: workshop?.groupSession })) return "WORKSHOP_FIXED_DATE";
   return null;
 }
 
+/** ¿La casilla es una renuncia al desistimiento (lo digital), y no un reconocimiento o una petición? */
+export function isWaiverOfRight(kind: string | null | undefined): boolean {
+  return kind === "DIGITAL_IMMEDIATE" || kind === "DIGITAL_PREPARED";
+}
+
+/**
+ * Textos literales de las casillas. Se guardan tal cual en el pedido con su versión
+ * (WAIVER_TEXT_VERSION) y se citan en el recibo. Si cambias alguno, sube WAIVER_TEXT_VERSION.
+ */
 export const WAIVER_TEXT: Record<WaiverKind, string> = {
   DIGITAL_IMMEDIATE:
-    "Quiero acceder ya al contenido y acepto que, al empezar el acceso o la descarga, pierdo mi derecho de desistimiento de 14 días.",
-  SERVICE_IN_PERIOD:
-    "Solicito que la sesión pueda realizarse dentro del plazo de desistimiento de 14 días. Sé que, una vez realizada, ya no podré desistir.",
+    "Quiero acceder ya al contenido: doy mi consentimiento expreso para recibirlo en cuanto pague, dentro del plazo de desistimiento de 14 días, y acepto que con ello pierdo mi derecho de desistimiento.",
+  DIGITAL_PREPARED:
+    "Quiero que se prepare ya: doy mi consentimiento expreso para que se empiece a preparar en cuanto pague y se me entregue dentro del plazo de desistimiento de 14 días, y acepto que con ello pierdo mi derecho de desistimiento.",
+  WORKSHOP_FIXED_DATE:
+    "Entiendo que este taller se celebra en una fecha fija y que, por ser una actividad de esparcimiento con fecha de realización determinada, no tengo derecho de desistimiento (art. 103 l) de la Ley General para la Defensa de los Consumidores y Usuarios).",
+  MEMBERSHIP_START:
+    "Quiero empezar ya: solicito expresamente acceder a la membresía en cuanto pague, dentro del plazo de desistimiento de 14 días. Sé que si desisto en ese plazo solo se me devolverá la parte proporcional de los días que no haya disfrutado.",
 };
+
+/**
+ * Lo que se dice antes de pagar (ficha del producto y checkout), además de la casilla: la
+ * información precontractual sobre el desistimiento (art. 97.1.l y m) según la casilla que pide
+ * (waiverKindFor). null = nada más que decir aquí.
+ */
+export function withdrawalInfoLine(kind: WaiverKind | null): string | null {
+  if (kind === "WORKSHOP_FIXED_DATE")
+    return "Taller con fecha fija: no tiene derecho de desistimiento (art. 103 l) de la Ley General para la Defensa de los Consumidores y Usuarios).";
+  if (kind === "MEMBERSHIP_START")
+    return "Empiezas en cuanto pagas. Si desistes en los 14 días siguientes al primer pago, te devolvemos la parte proporcional de los días que no hayas disfrutado y la membresía termina en ese momento. Las renovaciones no dan un nuevo plazo; puedes cancelar cuando quieras y mantienes el acceso hasta el final del periodo pagado.";
+  return null;
+}
+
+/** Versión de los textos de las casillas de renuncia (se guarda en Order.waiverVersion junto a su huella). */
+export const WAIVER_TEXT_VERSION = "2026-10-27";
 
 /** Texto de la casilla de condiciones; en suscripciones, con la renovación automática (mes o año). */
 export function termsCheckboxText(o: { sellerName: string; billingInterval: string | null; price: string }): string {
@@ -214,6 +237,8 @@ export function sessionChangePolicyText(hours: number = SESSION_CHANGE_NOTICE_HO
 
 export type LegalSection = "aviso" | "condiciones" | "reembolsos" | "privacidad" | "cookies";
 
+/** La página legal de la creadora: /legal en la web personal (sin su usuario delante), /<usuaria>/legal en la plataforma. */
 export function creatorLegalHref(username: string, section?: LegalSection): string {
-  return `/${username}/legal${section ? `#${section}` : ""}`;
+  const base = process.env.NEXT_PUBLIC_SITE_MODE?.trim() === "personal" ? "/legal" : `/${username}/legal`;
+  return `${base}${section ? `#${section}` : ""}`;
 }

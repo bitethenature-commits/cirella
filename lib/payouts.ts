@@ -4,9 +4,11 @@ import { prisma } from "./db";
 import { appUrl } from "./env";
 import { enqueueEmail } from "./email/outbox";
 import { payoutActionRequiredEmail, payoutActiveEmail, payoutRejectedEmail } from "./email/templates";
-import { paymentProvider, paymentProviderKey } from "./payments";
+import { isPaymentProviderEnabled, paymentProvider, paymentProviderKey } from "./payments";
 import type { PayoutAccountSnapshot } from "./payments/provider";
 import { getSettings, SETTING_DEFAULTS } from "./settings";
+import { siteMode, type SiteMode } from "./site-mode";
+import { inMail } from "./i18n/email";
 
 /**
  * Cuenta de cobro de cada creadora (Stripe Connect Express, o el simulador en demo).
@@ -83,12 +85,31 @@ type PayoutFields = Pick<Creator, "status" | "payoutProvider" | "payoutStatus" |
  * ¿Puede vender? La creadora está activa, Stripe le permite cobrar y su cuenta es de la pasarela
  * con la que cobramos ahora (las cuentas simuladas del seed nunca venden con Stripe). Sin pasarela
  * (PAYMENT_PROVIDER=none) ninguna cuenta coincide: nadie puede cobrar.
+ * En la web personal no hay cuentas de cobro: cobra la dueña con sus propias cuentas de Stripe y/o
+ * PayPal, así que basta con que esté activa y la pasarela también.
  */
 export function canAcceptPayments(
   c: { payoutChargesEnabled: boolean; payoutProvider: string | null; status: string },
   providerKey: string = paymentProviderKey(),
+  mode: SiteMode = siteMode(),
 ): boolean {
+  if (mode === "personal") return c.status === "ACTIVE" && providerKey !== "none" && isPaymentProviderEnabled(providerKey);
   return c.status === "ACTIVE" && c.payoutChargesEnabled && c.payoutProvider === providerKey;
+}
+
+/**
+ * Adónde va un cobro con esta pasarela: la cuenta Express de la creadora (plataforma, cargos de
+ * destino) o, en la web personal, ninguna (`null`: cobro directo en la cuenta de la dueña).
+ * null si ahora no puede cobrar con ella.
+ */
+export function chargeDestination(
+  c: { payoutAccountId: string | null; payoutChargesEnabled: boolean; payoutProvider: string | null; status: string },
+  providerKey: string,
+  mode: SiteMode = siteMode(),
+): { destination: string | null } | null {
+  if (!canAcceptPayments(c, providerKey, mode)) return null;
+  if (mode === "personal") return { destination: null };
+  return c.payoutAccountId ? { destination: c.payoutAccountId } : null;
 }
 
 /** Requisitos guardados (instantánea de la pasarela sin el id de cuenta). */
@@ -228,7 +249,7 @@ async function notifyPayoutStatus(creator: Creator & { user: { email: string } }
   const base = { to: creator.user.email, creatorId: creator.id, userId: creator.userId, fromName: null, replyTo: null };
   const url = `${appUrl()}/panel/ajustes/cobros`;
   if (status === "ACTIVE") {
-    await enqueueEmail({ ...base, template: "PAYOUT_ACTIVE", dedupeKey: `payout:${creator.id}:active`, ...payoutActiveEmail({ name: creator.displayName, panelUrl: url }) });
+    await enqueueEmail({ ...base, template: "PAYOUT_ACTIVE", dedupeKey: `payout:${creator.id}:active`, ...(await inMail(base.to, () => payoutActiveEmail({ name: creator.displayName, panelUrl: url }))) });
   } else if (status === "ACTION_REQUIRED") {
     const keys = [...snap.pastDue, ...snap.currentlyDue].sort();
     const hash = createHash("sha256").update(keys.join(",")).digest("hex").slice(0, 12);
@@ -236,16 +257,18 @@ async function notifyPayoutStatus(creator: Creator & { user: { email: string } }
       ...base,
       template: "PAYOUT_ACTION_REQUIRED",
       dedupeKey: `payout:${creator.id}:action:${hash}`,
-      ...payoutActionRequiredEmail({
-        name: creator.displayName,
-        missing: describeRequirements(keys),
-        deadline: snap.currentDeadline ? formatDeadline(snap.currentDeadline) : null,
-        url,
-      }),
+      ...(await inMail(base.to, () =>
+        payoutActionRequiredEmail({
+          name: creator.displayName,
+          missing: describeRequirements(keys),
+          deadline: snap.currentDeadline ? formatDeadline(snap.currentDeadline) : null,
+          url,
+        }),
+      )),
     });
   } else if (status === "REJECTED") {
     const { supportEmail } = await getSettings();
-    await enqueueEmail({ ...base, template: "PAYOUT_REJECTED", dedupeKey: `payout:${creator.id}:rejected`, ...payoutRejectedEmail({ name: creator.displayName, supportEmail }) });
+    await enqueueEmail({ ...base, template: "PAYOUT_REJECTED", dedupeKey: `payout:${creator.id}:rejected`, ...(await inMail(base.to, () => payoutRejectedEmail({ name: creator.displayName, supportEmail }))) });
   }
 }
 

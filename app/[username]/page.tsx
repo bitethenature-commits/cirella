@@ -3,14 +3,10 @@ import { CreatorPublicPage, creatorPageMetadata } from "./public-page";
 
 type Params = { username: string };
 
-// Página cacheada (ISR, 60 s): no leer cookies ni searchParams aquí; lo personal va en
-// /vista-previa o en componentes cliente. Lo que cambia la página llama a revalidatePath.
+// Se hace en cada visita: el idioma (alemán, /en, /es) llega con cada petición, así que no puede guardarse
+// una sola copia para todas.
 // En modo personal, /<dueña> redirige a «/» en middleware.ts y las demás usuarias dan 404 (layout).
-export const revalidate = 60;
-export const dynamicParams = true;
-export function generateStaticParams(): Params[] {
-  return [];
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { username } = await params;

@@ -44,7 +44,7 @@ async function main() {
   check("el proveedor de email de la prueba es «log»", emailProvider().key === "log");
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
   const maria = await prisma.creator.findUniqueOrThrow({ where: { username: "maria" } });
-  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED" } });
+  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "AUTOMATIC" } });
   const membership = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "MEMBERSHIP" } });
 
   // ── 1. Reintentos con backoff hasta FAILED ──
@@ -213,8 +213,8 @@ async function main() {
   created.emails.push(mariaEmail.id);
   const db = tenantDb(ana.id);
   const anaLog = await db.emailMessage.findMany();
-  check("el registro de envíos de Ana no incluye los de María", anaLog.length > 0 && anaLog.every((m) => m.creatorId === ana.id));
-  check("updateMany sobre un email de María desde Ana afecta 0 filas", (await db.emailMessage.updateMany({ where: { id: mariaEmail.id }, data: { status: "QUEUED" } })).count === 0);
+  check("el registro de envíos de Cirella no incluye los de María", anaLog.length > 0 && anaLog.every((m) => m.creatorId === ana.id));
+  check("updateMany sobre un email de María desde Cirella afecta 0 filas", (await db.emailMessage.updateMany({ where: { id: mariaEmail.id }, data: { status: "QUEUED" } })).count === 0);
 }
 
 async function cleanup() {
@@ -232,9 +232,6 @@ async function cleanup() {
     prisma.emailMessage.deleteMany({ where: { OR: [{ id: { in: created.emails } }, { to: { startsWith: TAG } }, ...orderIds.map((id) => ({ dedupeKey: { contains: id } }))] } }),
     prisma.analyticsEvent.deleteMany({ where: { visitorId: { startsWith: TAG } } }),
     prisma.access.deleteMany({ where: { userId: { in: userIds } } }),
-    // Facturas de las compras de prueba (primero se sueltan las F3/rectificativas de su original).
-    prisma.invoice.updateMany({ where: { recipientEmail: { startsWith: TAG } }, data: { relatedInvoiceId: null } }),
-    prisma.invoice.deleteMany({ where: { recipientEmail: { startsWith: TAG } } }),
     prisma.transaction.deleteMany({ where: { OR: [{ orderId: { in: orderIds } }, { subscriptionId: { in: created.subs } }] } }),
     prisma.subscription.deleteMany({ where: { OR: [{ id: { in: created.subs } }, { userId: { in: userIds } }] } }),
     prisma.order.deleteMany({ where: { id: { in: orderIds } } }),

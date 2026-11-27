@@ -3,6 +3,7 @@
 import { BookOpen, CalendarDays, FileText, Headphones, Link2, Loader2, PenLine, Upload, UsersRound, Video, X } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 import { uploadFile, type UploadedFile } from "@/components/ui/upload-client";
+import { PRIVATE_ACCEPT, uploadPolicy } from "@/lib/file-types";
 import type { ProductType } from "@/lib/types";
 import { addDeliveryLink, removeDeliveryFile } from "./actions";
 
@@ -107,7 +108,7 @@ function DigitalDelivery({ productId, value, onChange }: { productId: string | n
           <Upload className="mt-0.5 h-5 w-5 shrink-0" />
           <span>
             <span className="block text-sm font-semibold">Subir el archivo ahora</span>
-            <span className="mt-1 block text-xs text-muted">PDF, audio, vídeo o ebook. Se descarga justo después de pagar.</span>
+            <span className="mt-1 block text-xs text-muted">PDF, audio, vídeo o ebook. Se descarga justo después de pagar. {uploadPolicy(false).label}</span>
           </span>
         </button>
         {open === "UPLOAD" && (
@@ -120,7 +121,7 @@ function DigitalDelivery({ productId, value, onChange }: { productId: string | n
               type="file"
               className="hidden"
               aria-label="Archivo que se entrega"
-              accept=".pdf,.mp3,.m4a,.wav,.mp4,.jpg,.png,.epub,.zip"
+              accept={PRIVATE_ACCEPT}
               onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
             />
             {uploading && (

@@ -7,7 +7,7 @@ import { eq, ok, test } from "./harness";
 const root = join(__dirname, "..", "..");
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 
-const owner = { username: "ana", displayName: "Ana Luna", avatarUrl: "/media/ana/a.webp", email: "ana@example.com" };
+const owner = { username: "ana", displayName: "Cirella", avatarUrl: "/media/ana/a.webp", email: "ana@example.com" };
 const brand = (personal: boolean, withOwner = true) =>
   resolveSiteBrand({ personal, platformName: "Cirella", supportEmail: "hola@cirella.app", owner: withOwner ? owner : null });
 
@@ -17,7 +17,7 @@ test("marca para las pantallas de error: null en la plataforma (logo de siempre)
 });
 
 test("marca para las pantallas de error en modo personal: nombre y foto de la dueña", () => {
-  eq(toClientSiteBrand(true, brand(true)), { name: "Ana Luna", avatarUrl: "/media/ana/a.webp" });
+  eq(toClientSiteBrand(true, brand(true)), { name: "Cirella", avatarUrl: "/media/ana/a.webp" });
 });
 
 test("modo personal sin dueña o sin BD: sin símbolo, nunca el nombre de la plataforma", () => {

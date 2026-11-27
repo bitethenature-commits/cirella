@@ -1,0 +1,60 @@
+import {
+  BookOpen,
+  CalendarDays,
+  Clock,
+  Compass,
+  Eye,
+  Feather,
+  FileText,
+  Flame,
+  Flower2,
+  Gem,
+  Gift,
+  Headphones,
+  Heart,
+  Infinity as InfinityIcon,
+  Leaf,
+  Mail,
+  MessageCircle,
+  Moon,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Sun,
+  Users,
+  Video,
+  type LucideIcon,
+} from "lucide-react";
+import type { PerkIconKey } from "@/lib/product-texts";
+
+/** El dibujo de cada icono que se puede elegir para las frases de una ficha (lib/product-texts.ts). */
+export const PERK_ICONS: Record<PerkIconKey, LucideIcon> = {
+  mail: Mail,
+  sparkles: Sparkles,
+  heart: Heart,
+  video: Video,
+  calendar: CalendarDays,
+  clock: Clock,
+  star: Star,
+  moon: Moon,
+  sun: Sun,
+  gift: Gift,
+  book: BookOpen,
+  headphones: Headphones,
+  file: FileText,
+  flower: Flower2,
+  gem: Gem,
+  feather: Feather,
+  eye: Eye,
+  compass: Compass,
+  leaf: Leaf,
+  flame: Flame,
+  infinity: InfinityIcon,
+  users: Users,
+  message: MessageCircle,
+  shield: ShieldCheck,
+};
+
+export function perkIcon(key: string | undefined, fallback: LucideIcon): LucideIcon {
+  return (key && PERK_ICONS[key as PerkIconKey]) || fallback;
+}

@@ -9,7 +9,6 @@ import { DELIVERY_COUNT, deliveryFacts, deliveryIssue, deliveryIssueCopy } from 
 import { DEFAULT_FEATURES, type PlanFeatures } from "@/lib/plans";
 import { setSetting } from "@/lib/settings";
 import { slugify } from "@/lib/slug";
-import { TEMPLATE_KEYS } from "@/lib/templates";
 import { PRODUCT_TYPES } from "@/lib/types";
 
 const done = (path: string, msg: string) => {
@@ -103,26 +102,12 @@ export async function saveCategory(form: FormData) {
   const data = {
     name,
     emoji: String(form.get("emoji") ?? "").slice(0, 8) || null,
-    defaultTemplate: z.enum(TEMPLATE_KEYS).catch("mystical").parse(form.get("defaultTemplate")),
     active: form.get("active") === "on",
     sortOrder: Number(form.get("sortOrder") ?? 0) || 0,
   };
   if (id) await prisma.category.update({ where: { id }, data });
   else await prisma.category.create({ data: { ...data, slug: slugify(name), active: true } });
   done("/admin/categorias", "Categoría guardada");
-}
-
-export async function saveTemplateAdmin(form: FormData) {
-  await requireAdmin();
-  const id = String(form.get("id"));
-  const t = await prisma.template.findUniqueOrThrow({ where: { id } });
-  const active = form.get("active") === "on";
-  if (!active && (await prisma.template.count({ where: { active: true } })) <= 1 && t.active) redirect(`/admin/disenos?error=${encodeURIComponent("Debe quedar al menos un diseño activo")}`);
-  await prisma.template.update({
-    where: { id },
-    data: { name: String(form.get("name") ?? t.name).slice(0, 40), description: String(form.get("description") ?? "").slice(0, 160) || null, active, sortOrder: Number(form.get("sortOrder") ?? t.sortOrder) || 0 },
-  });
-  done("/admin/disenos", "Diseño actualizado");
 }
 
 export async function saveSettings(form: FormData) {

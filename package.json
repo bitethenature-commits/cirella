@@ -4,7 +4,9 @@
   "private": true,
   "description": "Cirella — convierte tu perfil social en tu negocio completo, desde un solo enlace.",
   "scripts": {
+    "predev": "node scripts/copy-pdfjs-assets.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/copy-pdfjs-assets.mjs",
     "build": "next build",
     "start": "next start",
     "postinstall": "prisma generate",
@@ -19,7 +21,10 @@
     "deploy": "tsx scripts/check-env.ts && prisma migrate deploy && tsx prisma/bootstrap.ts",
     "check:env": "tsx scripts/check-env.ts",
     "admin:promote": "tsx scripts/make-admin.ts",
+    "auth:reset-2fa": "tsx --conditions=react-server scripts/reset-2fa.ts",
     "personal:setup": "tsx scripts/personal-setup.ts",
+    "slugs:english": "tsx scripts/english-slugs.ts",
+    "media:probe": "tsx scripts/probe-media.ts",
     "test:unit": "tsx scripts/unit-tests.ts",
     "test:isolation": "tsx --conditions=react-server scripts/tenant-isolation-test.ts && tsx scripts/storage-isolation-test.ts",
     "test:concurrency": "tsx --conditions=react-server scripts/booking-concurrency-test.ts",
@@ -28,34 +33,55 @@
     "test:refunds": "tsx --conditions=react-server scripts/refunds-test.ts",
     "test:access": "tsx --conditions=react-server scripts/access-test.ts",
     "test:legal": "tsx --conditions=react-server scripts/legal-test.ts",
-    "test:invoices": "DEMO_MODE=false tsx --conditions=react-server scripts/invoices-test.ts",
     "test:delivery": "tsx --conditions=react-server scripts/delivery-test.ts",
     "test:limits": "TURNSTILE_SITE_KEY=1x00000000000000000000AA TURNSTILE_SECRET_KEY=prueba-limites tsx --conditions=react-server scripts/rate-limit-test.ts",
     "test:seed-guard": "tsx scripts/seed-guard-test.ts",
     "test:startup": "tsx scripts/startup-guard-test.ts",
     "test:optout": "tsx --conditions=react-server scripts/optout-test.ts",
     "test:free-access": "tsx --conditions=react-server scripts/free-access-test.ts",
+    "test:personal-sales": "tsx --conditions=react-server scripts/personal-sales-test.ts",
     "test:revision": "for f in scripts/revision-*-test.ts; do echo \"── $f\"; tsx --conditions=react-server \"$f\" || exit 1; done",
+    "test:rich-text": "tsx --conditions=react-server scripts/rich-text-test.ts",
+    "test:media": "tsx --conditions=react-server scripts/media-test.ts",
+    "test:lessons": "tsx --conditions=react-server scripts/lessons-test.ts",
+    "test:calendar": "tsx --conditions=react-server scripts/calendar-test.ts",
+    "test:withdrawal": "tsx --conditions=react-server scripts/withdrawal-test.ts",
+    "test:calendar-diary": "tsx --conditions=react-server scripts/calendar-diary-test.ts",
+    "test:community": "tsx --conditions=react-server scripts/community-test.ts",
+    "test:pages": "tsx --conditions=react-server scripts/site-pages-test.ts && tsx --conditions=react-server scripts/site-pages-test.ts platform",
+    "test:two-factor": "tsx --conditions=react-server scripts/two-factor-test.ts",
+    "test:student-area": "tsx --conditions=react-server scripts/student-area-test.ts && SITE_MODE=personal OWNER_USERNAME=ana tsx --conditions=react-server scripts/student-area-test.ts",
+    "test:newsletter": "tsx --conditions=react-server scripts/newsletter-test.ts && SITE_MODE=personal OWNER_USERNAME=ana tsx --conditions=react-server scripts/newsletter-test.ts",
+    "test:panel-visual": "tsx --conditions=react-server scripts/panel-visual-test.ts",
     "test:e2e": "playwright test"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
+  "overrides": {
+    "postcss": "^8.5.33",
+    "effect": "^3.22.5",
+    "deepmerge-ts": "^8.0.2"
+  },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
     "@aws-sdk/client-s3": "3.1139.0",
     "@aws-sdk/s3-request-presigner": "3.1139.0",
-    "@next/env": "15.5.27",
+    "@next/env": "^15.5.29",
     "@prisma/client": "^6.19.3",
-    "@sentry/nextjs": "10.75.2",
+    "@sentry/nextjs": "^11.16.0",
+    "astronomy-engine": "2.1.19",
     "bcryptjs": "^3.0.3",
     "lucide-react": "^1.53.0",
-    "next": "^15.5.27",
+    "next": "^15.5.29",
+    "pdfjs-dist": "6.3.289",
+    "qrcode-generator": "1.4.4",
     "react": "19.2",
     "react-dom": "19.2",
     "server-only": "^0.0.1",
     "sharp": "0.35.5",
     "stripe": "22.6.2",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
@@ -67,5 +93,8 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "5.9"
+  },
+  "engines": {
+    "node": ">=22.13"
   }
 }

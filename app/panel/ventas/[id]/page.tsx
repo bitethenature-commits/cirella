@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { peopleLabel } from "@/lib/site-mode";
 import { notFound } from "next/navigation";
 import { ArrowLeft, UserMinus } from "lucide-react";
 import { ConfirmForm } from "@/components/ui/confirm-form";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { isNoChargeOrder, NO_CHARGE_LABEL, type NoChargeProvider } from "@/lib/access-mode";
 import { requireCreator } from "@/lib/auth";
 import { newsletterPending } from "@/lib/free-access-rules";
@@ -13,13 +15,20 @@ import { tenantDb } from "@/lib/tenant";
 import { DISPUTE_STATUS_LABEL, PRODUCT_TYPE_LABEL, type ProductType } from "@/lib/types";
 import { capitalize, formatDateTime, formatSessionDate } from "@/lib/tz";
 import { revokeAccess } from "../../productos/actions";
+import { deleteOrderAction } from "../actions";
 import { Badge } from "../../ui";
+import { OrderExtras } from "./order-extras";
 import { RefundForm } from "./refund-form";
+import { Flash } from "@/components/ui/flash";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 const REFUND_TONE: Record<string, "success" | "warning" | "danger"> = { SUCCEEDED: "success", PENDING: "warning", FAILED: "danger" };
 
-export default async function OrderDetail({ params }: { params: Promise<{ id: string }> }) {
+export default async function OrderDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string }> }) {
+  const t = await getT();
   const { id } = await params;
+  const sp = await searchParams;
   const { creator } = await requireCreator();
   const o = await tenantDb(creator.id).order.findFirst({
     where: { id },
@@ -27,14 +36,12 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
       product: { select: { emoji: true } },
       bookings: true,
       refunds: { orderBy: { createdAt: "desc" } },
-      // IVA devuelto con cada reembolso, tal y como quedó en el libro.
-      transactions: { where: { type: "REFUND", refundId: { not: null } }, select: { amountCents: true, taxCents: true } },
     },
   });
   if (!o) notFound();
-  if (isNoChargeOrder(o)) return <SignupDetail creatorId={creator.id} orderId={o.id} />;
+  if (isNoChargeOrder(o)) return <SignupDetail creatorId={creator.id} orderId={o.id} given={sp.ok === "dada"} />;
   // Cada línea del desglose sale de lo guardado; «Recibes» es exactamente su resta.
-  const f = orderBreakdown(o, o.transactions);
+  const f = orderBreakdown(o);
   const money = (cents: number) => formatMoney(cents, o.currency, { decimals: true });
   const reserved = o.refunds.filter((r) => r.status !== "FAILED").reduce((a, r) => a + r.amountCents, 0);
   const refundable = refundableCents({ amountCents: o.amountCents, reservedCents: reserved });
@@ -54,64 +61,59 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
 
   return (
     <div className="max-w-2xl">
-      <Link href="/panel/ventas" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> Ventas</Link>
+      <Link href="/panel/ventas" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" />{" "}<Tr s={"Ventas"} /></Link>
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <h1 className="display min-w-0 flex-1 text-[2rem] leading-tight">{o.product.emoji} {o.productTitle}</h1>
+        <h1 className="display min-w-0 flex-1 text-[2rem] leading-tight"><Tr s={o.product.emoji} /> <Tr s={o.productTitle} /></h1>
         <Badge tone={o.status === "PAID" && o.refundedCents > 0 ? "warning" : o.status === "PAID" ? "success" : o.status === "FAILED" ? "danger" : "neutral"}>{orderStatusLabel(o)}</Badge>
-        {o.disputeStatus && <Badge tone={o.disputeStatus === "WON" ? "neutral" : "danger"}>{DISPUTE_STATUS_LABEL[o.disputeStatus]}</Badge>}
+        {o.disputeStatus && <Badge tone={o.disputeStatus === "WON" ? "neutral" : "danger"}><Tr s={DISPUTE_STATUS_LABEL[o.disputeStatus]} /></Badge>}
+        <DeleteButton action={deleteOrderAction} id={o.id} variant="link" what={o.productTitle} message={`¿Borrar esta venta de «${o.productTitle}»? ${o.buyerName ?? o.buyerEmail} pierde el acceso y desaparece de Ventas. No se puede deshacer.`} />
       </div>
 
       <dl className="card mt-5 divide-y divide-line text-sm">
-        <Row label="Clienta">
-          {o.customerId ? <Link href={`/panel/clientes/${o.customerId}`} className="underline underline-offset-2">{o.buyerName ?? o.buyerEmail}</Link> : o.buyerEmail}
+        <Row label={t("Clienta")}>
+          {o.customerId ? <Link href={`/panel/clientes/${o.customerId}`} className="underline underline-offset-2"><Tr s={o.buyerName ?? o.buyerEmail} /></Link> : o.buyerEmail}
         </Row>
-        <Row label="Pedido"><span className="font-mono text-xs">{orderRef(o.id)}</span></Row>
-        <Row label="Tipo">{PRODUCT_TYPE_LABEL[o.productType as ProductType] ?? o.productType}</Row>
-        {o.paidAt && <Row label="Fecha de pago">{formatDateTime(o.paidAt)}</Row>}
-        <Row label="Importe" hint={f.saleTax > 0 ? "IVA incluido" : undefined}>{money(o.amountCents)}</Row>
+        <Row label={t("Pedido")}><span className="font-mono text-xs">{orderRef(o.id)}</span></Row>
+        <Row label={t("Tipo")}><Tr s={PRODUCT_TYPE_LABEL[o.productType as ProductType] ?? o.productType} /></Row>
+        {o.paidAt && <Row label={t("Fecha de pago")}>{formatDateTime(o.paidAt)}</Row>}
+        <Row label={t("Importe")}>{money(o.amountCents)}</Row>
         {settled ? (
           <>
-            {f.refunded > 0 && <Row label="Reembolsado">−{money(f.refunded)}</Row>}
-            {o.taxSeller === "PLATFORM" && f.saleTax > 0 && (
-              <Row
-                label="IVA que ingresa Cirella"
-                hint={f.refundedTax > 0 ? `${money(f.saleTax)} de la venta − ${money(f.refundedTax)} devuelto` : "Cirella vende este producto y declara su IVA"}
-              >
-                −{money(f.platformTax)}
-              </Row>
-            )}
-            <Row label="Comisión de Cirella" hint={f.refundedFee > 0 ? `${money(f.saleFee)} − ${money(f.refundedFee)} devuelta con el reembolso` : undefined}>
+            {f.refunded > 0 && <Row label={t("Reembolsado")}>−{money(f.refunded)}</Row>}
+            <Row label={t("Comisión de Cirella")} hint={f.refundedFee > 0 ? `${money(f.saleFee)} − ${money(f.refundedFee)} devuelta con el reembolso` : undefined}>
               −{money(f.fee)}
             </Row>
-            <Row label="Recibes" hint={o.taxSeller !== "PLATFORM" && f.tax > 0 ? `Incluye ${money(f.tax)} de IVA que declaras tú` : undefined}>
+            <Row label={t("Recibes")}>
               <strong>{money(f.net)}</strong>
             </Row>
           </>
         ) : (
-          <Row label="Recibes">—</Row>
+          <Row label={t("Recibes")}>—</Row>
         )}
-        {o.paymentRef && <Row label="Referencia del pago"><span className="font-mono text-xs">{o.paymentRef}</span></Row>}
+        {o.paymentRef && <Row label={t("Referencia del pago")}><span className="font-mono text-xs"><Tr s={o.paymentRef} /></span></Row>}
         {o.bookings[0] && (
-          <Row label="Sesión">
-            {o.bookings[0].startAt ? capitalize(formatSessionDate(o.bookings[0].startAt, creator.timezone)) : "Sin fecha"} ·{" "}
-            <Link href={`/panel/reservas/${o.bookings[0].id}`} className="underline underline-offset-2">Ver la reserva</Link>
+          <Row label={t("Sesión")}>
+            {o.bookings[0].startAt ? capitalize(formatSessionDate(o.bookings[0].startAt, creator.timezone)) : t("Sin fecha")} ·{" "}
+            <Link href={`/panel/solicitudes/reserva/${o.bookings[0].id}`} className="underline underline-offset-2"><Tr s={"Ver la reserva"} /></Link>
           </Row>
         )}
       </dl>
 
+      <OrderExtras creatorId={creator.id} orderId={o.id} />
+
       {o.refunds.length > 0 && (
         <section className="mt-8">
-          <h2 className="eyebrow mb-3 !text-ink">Reembolsos</h2>
+          <h2 className="eyebrow mb-3 !text-ink"><Tr s={"Reembolsos"} /></h2>
           <ul className="card divide-y divide-line text-sm">
             {o.refunds.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-4">
                 <span className="min-w-0 flex-1">
                   <span className="font-semibold tabular-nums">{money(r.amountCents)}</span>
-                  <span className="text-muted"> · {formatDateTime(r.createdAt)} · {r.initiatedBy === "CUSTOMER" ? "Desistimiento de la clienta" : r.initiatedBy === "PROVIDER" ? `${REFUND_REASONS[r.reason as RefundReason] ?? r.reason} (pasarela)` : (REFUND_REASONS[r.reason as RefundReason] ?? r.reason)}</span>
-                  {r.note && <span className="block text-xs text-muted">«{r.note}»</span>}
-                  {r.status === "FAILED" && r.error && <span className="block text-xs text-rose">{r.error}</span>}
+                  <span className="text-muted"> · {formatDateTime(r.createdAt)} · {r.initiatedBy === "CUSTOMER" ? t("Desistimiento de la clienta") : r.initiatedBy === "PROVIDER" ? `${REFUND_REASONS[r.reason as RefundReason] ?? r.reason} (pasarela)` : (REFUND_REASONS[r.reason as RefundReason] ?? r.reason)}</span>
+                  {r.note && <span className="block text-xs text-muted">«<Tr s={r.note} />»</span>}
+                  {r.status === "FAILED" && r.error && <span className="block text-xs text-rose"><Tr s={r.error} /></span>}
                 </span>
-                <Badge tone={REFUND_TONE[r.status]}>{REFUND_STATUS_LABEL[r.status] ?? r.status}</Badge>
+                <Badge tone={REFUND_TONE[r.status]}><Tr s={REFUND_STATUS_LABEL[r.status] ?? r.status} /></Badge>
               </li>
             ))}
           </ul>
@@ -119,7 +121,7 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
       )}
 
       <section className="mt-8">
-        <h2 className="eyebrow mb-3 !text-ink">Reembolsar</h2>
+        <h2 className="eyebrow mb-3 !text-ink"><Tr s={"Reembolsar"} /></h2>
         {settled && o.paymentRef ? (
           <RefundForm
             orderId={o.id}
@@ -130,7 +132,7 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
             doneText={o.status === "REFUNDED" ? "Este pedido ya está reembolsado por completo." : "Hay un reembolso en curso por el resto del pedido."}
           />
         ) : (
-          <p className="text-sm text-muted">Solo se pueden reembolsar pedidos pagados.</p>
+          <p className="text-sm text-muted"><Tr s={"Solo se pueden reembolsar pedidos pagados."} /></p>
         )}
       </section>
     </div>
@@ -138,49 +140,61 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
 }
 
 /** Una inscripción (pedido de 0 €): sin importes, comisión ni reembolsos; se puede quitar el acceso. */
-async function SignupDetail({ creatorId, orderId }: { creatorId: string; orderId: string }) {
+async function SignupDetail({ creatorId, orderId, given }: { creatorId: string; orderId: string; given?: boolean }) {
+  const t = await getT();
   const db = tenantDb(creatorId);
   const o = await db.order.findFirstOrThrow({
     where: { id: orderId },
-    include: { product: { select: { emoji: true } }, customer: { select: { id: true, userId: true, marketingOptIn: true } } },
+    include: { product: { select: { emoji: true } }, customer: { select: { id: true, userId: true, marketingOptIn: true } }, bookings: { select: { id: true, startAt: true }, orderBy: { createdAt: "asc" } } },
   });
+  const meta = (o.metadata ?? {}) as { manual?: string; paidNote?: string };
   const access = o.customer ? await db.access.findFirst({ where: { userId: o.customer.userId, productId: o.productId } }) : null;
   const active = !!access && access.status === "ACTIVE" && (!access.expiresAt || access.expiresAt > new Date());
   return (
     <div className="max-w-2xl">
-      <Link href="/panel/ventas" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> Inscripciones</Link>
+      <Link href={o.customer ? `/panel/clientes/${o.customer.id}` : "/panel/clientes"} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> {o.customer ? `Ficha de ${(o.buyerName ?? o.buyerEmail).split(" ")[0]}` : peopleLabel()}</Link>
+      {given && <div className="mt-4"><Flash ok="Hecho. Le hemos enviado un email con su enlace." /></div>}
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <h1 className="display min-w-0 flex-1 text-[2rem] leading-tight">{o.product.emoji} {o.productTitle}</h1>
-        <Badge tone={active ? "success" : "neutral"}>{active ? "Con acceso" : "Acceso retirado"}</Badge>
+        <h1 className="display min-w-0 flex-1 text-[2rem] leading-tight"><Tr s={o.product.emoji} /> <Tr s={o.productTitle} /></h1>
+        <Badge tone={active ? "success" : "neutral"}>{active ? t("Con acceso") : t("Acceso retirado")}</Badge>
+        <DeleteButton action={deleteOrderAction} id={o.id} fields={o.customer ? { back: `/panel/clientes/${o.customer.id}?ok=Borrada.` } : undefined} variant="link" what={o.productTitle} message={`¿Borrar esta venta de «${o.productTitle}»? ${o.buyerName ?? o.buyerEmail} pierde el acceso y desaparece de Ventas. No se puede deshacer.`} />
       </div>
       <dl className="card mt-5 divide-y divide-line text-sm">
-        <Row label="Persona">
-          {o.customerId ? <Link href={`/panel/clientes/${o.customerId}`} className="underline underline-offset-2">{o.buyerName ?? o.buyerEmail}</Link> : o.buyerEmail}
+        <Row label={t("Persona")}>
+          {o.customerId ? <Link href={`/panel/clientes/${o.customerId}`} className="underline underline-offset-2"><Tr s={o.buyerName ?? o.buyerEmail} /></Link> : o.buyerEmail}
         </Row>
-        <Row label="Email">{o.buyerEmail}</Row>
-        <Row label="Tipo">{PRODUCT_TYPE_LABEL[o.productType as ProductType] ?? o.productType}</Row>
-        {o.paidAt && <Row label="Fecha">{formatDateTime(o.paidAt)}</Row>}
-        <Row label="Origen">{NO_CHARGE_LABEL[o.paymentProvider as NoChargeProvider] ?? o.paymentProvider}</Row>
-        <Row label="Importe">Gratis</Row>
-        <Row label="Novedades por email">
+        <Row label={t("Email")}><Tr s={o.buyerEmail} /></Row>
+        <Row label={t("Tipo")}><Tr s={PRODUCT_TYPE_LABEL[o.productType as ProductType] ?? o.productType} /></Row>
+        {o.paidAt && <Row label={t("Fecha")}>{formatDateTime(o.paidAt)}</Row>}
+        <Row label={t("Origen")}>
+          {meta.manual === "gift" ? t("Regalo") : meta.manual === "paid_elsewhere" ? `Pagada fuera${meta.paidNote ? ` · ${meta.paidNote}` : ""}` : (NO_CHARGE_LABEL[o.paymentProvider as NoChargeProvider] ?? o.paymentProvider)}
+        </Row>
+        {o.bookings[0] && (
+          <Row label={t("Sesión")}>
+            <Link href={`/panel/solicitudes/reserva/${o.bookings[0].id}`} className="underline underline-offset-2"><Tr s={"Ver la reserva"} /></Link>
+          </Row>
+        )}
+        <Row label={t("Importe")}><Tr s={"Gratis"} /></Row>
+        <Row label={t("Novedades por email")}>
           {o.customer?.marketingOptIn
-            ? "Sí"
+            ? t("Sí")
             : newsletterPending(o.metadata, false)
-              ? "Marcó la casilla; pendiente de que lo confirme desde su email"
-              : "No"}
+              ? t("Marcó la casilla; pendiente de que lo confirme desde su email")
+              : t("No")}
         </Row>
-        <Row label="Referencia"><span className="font-mono text-xs">{orderRef(o.id)}</span></Row>
+        <Row label={t("Referencia")}><span className="font-mono text-xs">{orderRef(o.id)}</span></Row>
       </dl>
       <section className="mt-8 flex flex-wrap items-center gap-3">
         {active && (
           <ConfirmForm action={revokeAccess} message={`¿Quitar el acceso a ${o.buyerName ?? o.buyerEmail}? Su enlace dejará de funcionar.`}>
             <input type="hidden" name="orderId" value={o.id} />
             <input type="hidden" name="productId" value={o.productId} />
-            <button className="btn btn-outline btn-sm"><UserMinus className="h-4 w-4" /> Quitar acceso</button>
+            <button className="btn btn-outline btn-sm"><UserMinus className="h-4 w-4" />{" "}<Tr s={"Quitar acceso"} /></button>
           </ConfirmForm>
         )}
-        <Link href={`/panel/productos/${o.productId}#accesos`} className="btn btn-ghost btn-sm">Ver el producto</Link>
+        <Link href={`/panel/productos/${o.productId}#accesos`} className="btn btn-ghost btn-sm"><Tr s={"Ver el producto"} /></Link>
       </section>
+      <OrderExtras creatorId={creatorId} orderId={o.id} />
     </div>
   );
 }
@@ -189,8 +203,8 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
   return (
     <div className="flex items-baseline justify-between gap-4 px-5 py-3">
       <dt className="text-muted">
-        {label}
-        {hint && <span className="block text-xs text-faint">{hint}</span>}
+        <Tr s={label} />
+        {hint && <span className="block text-xs text-faint"><Tr s={hint} /></span>}
       </dt>
       <dd className="min-w-0 text-right tabular-nums">{children}</dd>
     </div>

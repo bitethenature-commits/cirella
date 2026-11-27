@@ -7,9 +7,12 @@ import { mapAccount, mapEvent, mapIntent, mapIntentState, mapSession } from "./s
 const idOf = (v: string | { id: string } | null | undefined) => (typeof v === "string" ? v : (v?.id ?? undefined));
 
 /**
- * Stripe: Checkout alojado + Connect Express con cargos de destino.
- *   · El cobro lo hace la cuenta de Cirella; `application_fee_amount` es su comisión y
- *     `transfer_data.destination` la cuenta Express de la creadora, que recibe el resto.
+ * Stripe: Checkout alojado. Dos formas de cobrar:
+ *   · Plataforma (Connect Express, cargos de destino): el cobro lo hace la cuenta de Cirella;
+ *     `application_fee_amount` es su comisión y `transfer_data.destination` la cuenta Express de la
+ *     creadora, que recibe el resto.
+ *   · Web personal (cobro directo, destinationAccount null): la cuenta es de la dueña y el cobro es
+ *     suyo entero, sin comisión ni transferencia. Los reembolsos no revierten nada.
  *   · La tarjeta (y Apple Pay / Google Pay) se pide en la página de Stripe: 3DS incluido y ningún
  *     dato de tarjeta pasa por nuestro servidor. Solo `card`: nada de métodos que tarden días.
  *   · Las membresías guardan la tarjeta (setup_future_usage=off_session) para las renovaciones.
@@ -49,6 +52,17 @@ export function friendlyStripeError(e: unknown, declined = DECLINED) {
 }
 
 export function createStripeProvider(client: StripeLike = stripeClient(), cfg: StripeConfig = stripeConfig()): PaymentProvider {
+  // Con Connect cada cobro va a una cuenta de creadora; sin Connect, nunca (cobro directo). Un cobro
+  // que no encaja con la configuración no se intenta: el dinero acabaría en la cuenta equivocada.
+  const destinationFits = (destination: string | null) => (cfg.connect ? !!destination : destination == null);
+  const connectFields = (i: { platformFeeCents: number; destinationAccount: string | null }) =>
+    cfg.connect && i.destinationAccount
+      ? {
+          application_fee_amount: i.platformFeeCents,
+          transfer_data: { destination: i.destinationAccount },
+          on_behalf_of: cfg.onBehalfOf ? i.destinationAccount : undefined,
+        }
+      : {};
   return {
     key: "stripe",
     label: "Stripe",
@@ -60,6 +74,7 @@ export function createStripeProvider(client: StripeLike = stripeClient(), cfg: S
       const expiresSec = Math.floor(Date.now() / 1000) + CHECKOUT_MINUTES * 60;
       const expiresAt = new Date(expiresSec * 1000);
       const owner = i.orderId ?? i.subscriptionId ?? "x";
+      if (!destinationFits(i.destinationAccount)) return { state: "failed", error: UNAVAILABLE };
       try {
         const session = await client.checkout.sessions.create(
           {
@@ -74,9 +89,7 @@ export function createStripeProvider(client: StripeLike = stripeClient(), cfg: S
             payment_method_types: ["card"],
             line_items: [{ quantity: 1, price_data: { currency: i.currency.toLowerCase(), unit_amount: i.amountCents, product_data: { name: i.description } } }],
             payment_intent_data: {
-              application_fee_amount: i.platformFeeCents,
-              transfer_data: { destination: i.destinationAccount },
-              on_behalf_of: cfg.onBehalfOf ? i.destinationAccount : undefined,
+              ...connectFields(i),
               setup_future_usage: i.saveForFutureUse ? "off_session" : undefined,
               statement_descriptor_suffix: i.statementSuffix?.slice(0, 22),
               description: i.description,
@@ -112,6 +125,7 @@ export function createStripeProvider(client: StripeLike = stripeClient(), cfg: S
     },
 
     async chargeSaved(i) {
+      if (!destinationFits(i.destinationAccount)) return { state: "failed", error: UNAVAILABLE };
       try {
         const pi = await client.paymentIntents.create(
           {
@@ -121,9 +135,7 @@ export function createStripeProvider(client: StripeLike = stripeClient(), cfg: S
             payment_method: i.paymentMethodRef ?? undefined,
             off_session: true,
             confirm: true,
-            application_fee_amount: i.platformFeeCents,
-            transfer_data: { destination: i.destinationAccount },
-            on_behalf_of: cfg.onBehalfOf ? i.destinationAccount : undefined,
+            ...connectFields(i),
             statement_descriptor_suffix: i.statementSuffix?.slice(0, 22),
             description: i.description,
             metadata: { ...i.metadata, kind: "renewal", subscriptionId: i.subscriptionId ?? "", periodKey: i.periodKey ?? "" },
@@ -153,8 +165,8 @@ export function createStripeProvider(client: StripeLike = stripeClient(), cfg: S
             payment_intent: i.paymentRef,
             amount: i.amountCents,
             // Cargos de destino: se recupera de la cuenta de la creadora lo que se le transfirió.
-            reverse_transfer: true,
-            refund_application_fee: i.refundApplicationFee,
+            // En el cobro directo (web personal) no hubo transferencia ni comisión.
+            ...(cfg.connect ? { reverse_transfer: true, refund_application_fee: i.refundApplicationFee } : {}),
             reason: i.reason,
             metadata: i.metadata,
           },
@@ -171,6 +183,8 @@ export function createStripeProvider(client: StripeLike = stripeClient(), cfg: S
     async recoverDispute(i) {
       // Cargos de destino: Stripe cobra el contracargo perdido a la cuenta de Cirella y NO revierte
       // la transferencia a la creadora. Se recupera su parte con una reversión de la transferencia.
+      // En el cobro directo el contracargo ya sale de la cuenta de la dueña: nada que recuperar.
+      if (!cfg.connect) return { ok: true, reversalRef: null };
       if (!client.transfers) return { ok: false, error: "Cliente de Stripe sin transferencias" };
       try {
         const pi = await client.paymentIntents.retrieve(i.paymentRef, { expand: ["latest_charge"] });

@@ -1,8 +1,9 @@
 /**
  * Modo del sitio (SITE_MODE, lo valida lib/env.ts):
  *   · platform (por defecto): Cirella como plataforma para muchas creadoras, igual que siempre.
- *   · personal: la web de una sola dueña (OWNER_USERNAME). Su página es la portada, no hay registro
- *     de otras creadoras ni cobros en la web (PAYMENT_PROVIDER=none): lo de pago se cobra fuera.
+ *   · personal: la web de una sola dueña (OWNER_USERNAME). Su página es la portada y no hay registro
+ *     de otras creadoras. Cobra con su propia cuenta de Stripe y/o PayPal (PAYMENT_PROVIDER=stripe,paypal)
+ *     o no cobra nada en la web (PAYMENT_PROVIDER=none): entonces lo de pago se cobra fuera.
  *
  * Es el único sitio que decide el modo: el resto del código pregunta con isPersonalMode() y, si
  * necesita a la dueña, con getOwnerCreator().
@@ -36,6 +37,11 @@ export function siteMode(): SiteMode {
 
 export function isPersonalMode() {
   return siteMode() === "personal";
+}
+
+/** El nombre de la sección de la gente (/panel/clientes): «Personas» en la web personal, «Clientes» en la plataforma. */
+export function peopleLabel() {
+  return isPersonalMode() ? "Personas" : "Clientes";
 }
 
 /**

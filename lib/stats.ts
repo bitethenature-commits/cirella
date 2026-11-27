@@ -1,6 +1,5 @@
 import { NO_CHARGE_PROVIDERS } from "./access-mode";
 import { orderFigures } from "./refund-math";
-import { isPersonalMode } from "./site-mode";
 import { tenantDb } from "./tenant";
 import { addDaysToKey, dateKeyInTz, zonedTimeToUtc, formatInTz } from "./tz";
 
@@ -43,7 +42,7 @@ export async function getDashboardStats(creatorId: string, range: RangeKey, tz: 
     await Promise.all([
       db.order.findMany({
         where: { status: { in: ["PAID", "REFUNDED"] }, ...CHARGED, ...(when ? { paidAt: when } : {}) },
-        select: { status: true, amountCents: true, platformFeeCents: true, refundedCents: true, refundedFeeCents: true, taxCents: true, taxSeller: true, productId: true, productTitle: true, paidAt: true },
+        select: { status: true, amountCents: true, platformFeeCents: true, refundedCents: true, refundedFeeCents: true, productId: true, productTitle: true, paidAt: true },
       }),
       db.order.findMany({
         where: { status: "PAID", ...NO_CHARGE, ...(when ? { paidAt: when } : {}) },
@@ -170,52 +169,4 @@ export async function getDashboardStats(creatorId: string, range: RangeKey, tz: 
     topProducts,
     series,
   };
-}
-
-/** Embudo y fuentes de tráfico (estadísticas avanzadas). */
-export async function getAdvancedStats(creatorId: string, range: RangeKey, tz: string) {
-  const db = tenantDb(creatorId);
-  const since = rangeStart(range, tz);
-  const when = since ? { createdAt: { gte: since } } : {};
-  const [byType, bySource, byProduct, products] = await Promise.all([
-    db.analyticsEvent.groupBy({ by: ["type"], where: when, _count: { _all: true } }),
-    db.analyticsEvent.groupBy({ by: ["source"], where: { type: "PAGE_VIEW", ...when }, _count: { _all: true } }),
-    db.analyticsEvent.groupBy({ by: ["productId", "type"], where: { productId: { not: null }, ...when }, _count: { _all: true }, _sum: { amountCents: true } }),
-    db.product.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, title: true, emoji: true, type: true, priceCents: true } }),
-  ]);
-  const count = (t: string) => byType.find((x) => x.type === t)?._count._all ?? 0;
-  // Web personal: no hay checkout ni compras aquí; el final del embudo son las inscripciones
-  // (SIGNUP, gratis con email) y los clics que llevan a la web externa donde se paga.
-  const funnel = isPersonalMode()
-    ? [
-        { key: "PAGE_VIEW", label: "Visitas", value: count("PAGE_VIEW") },
-        { key: "PRODUCT_VIEW", label: "Vistas de producto", value: count("PRODUCT_VIEW") },
-        { key: "PRODUCT_CLICK", label: "Clics en el botón", value: count("PRODUCT_CLICK") },
-        { key: "SIGNUP", label: "Inscripciones", value: count("SIGNUP") },
-      ]
-    : [
-        { key: "PAGE_VIEW", label: "Visitas", value: count("PAGE_VIEW") },
-        { key: "PRODUCT_VIEW", label: "Vistas de producto", value: count("PRODUCT_VIEW") },
-        { key: "PRODUCT_CLICK", label: "Clics en comprar", value: count("PRODUCT_CLICK") },
-        { key: "CHECKOUT_STARTED", label: "Checkout iniciado", value: count("CHECKOUT_STARTED") },
-        { key: "PURCHASE", label: "Compras", value: count("PURCHASE") },
-        // Inscripciones gratis (productos gratis con email): aparte, nunca como compras.
-        ...(count("SIGNUP") > 0 ? [{ key: "SIGNUP", label: "Inscripciones gratis", value: count("SIGNUP") }] : []),
-      ];
-  const sources = bySource
-    .map((s) => ({ source: s.source ?? "direct", value: s._count._all }))
-    .sort((a, b) => b.value - a.value);
-  const perProduct = products.map((p) => {
-    const rows = byProduct.filter((r) => r.productId === p.id);
-    const get = (t: string) => rows.find((r) => r.type === t)?._count._all ?? 0;
-    // Ingresos del producto menos lo devuelto (eventos REFUND, que solo escribe el servidor).
-    const sum = (t: string) => rows.find((r) => r.type === t)?._sum.amountCents ?? 0;
-    const revenue = sum("PURCHASE") - sum("REFUND");
-    const views = get("PRODUCT_VIEW");
-    const purchases = get("PURCHASE");
-    const signups = get("SIGNUP");
-    // Conversión: compras o, en un producto gratis, inscripciones por cada vista.
-    return { ...p, views, clicks: get("PRODUCT_CLICK"), checkouts: get("CHECKOUT_STARTED"), purchases, signups, revenue, conversion: views ? (purchases + signups) / views : 0 };
-  });
-  return { funnel, sources, perProduct };
 }

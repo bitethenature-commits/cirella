@@ -1,5 +1,6 @@
 import { BrandLogo } from "@/components/brand-logo";
 import { getSiteBrand } from "@/lib/site-brand";
+import { Tr } from "@/lib/i18n/client";
 
 // Pantallas de cada visita (leen la sesión y la marca de la BD): nunca se generan al compilar, así
 // el build no necesita la base de datos (en Railway, por ejemplo, no llega a ella durante el build).
@@ -20,7 +21,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
             <div className="starfield absolute inset-0 opacity-60" />
             <div className="absolute inset-x-12 bottom-14">
               <p className="display text-5xl leading-[1.05]">{brand.name}</p>
-              <p className="mt-4 text-sm text-cream/70">Tus cursos, tus contenidos y tus accesos, en un solo sitio.</p>
+              <p className="mt-4 text-sm text-cream/70"><Tr s={"Tus cursos, tus contenidos y tus accesos, en un solo sitio."} /></p>
             </div>
           </>
         ) : (
@@ -30,8 +31,8 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
             <div className="starfield absolute inset-0 opacity-60" />
             <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-transparent" />
             <div className="absolute inset-x-12 bottom-14">
-              <p className="display text-5xl leading-[1.05]">«Mis seguidoras compran desde Instagram en segundos.»</p>
-              <p className="mt-4 text-sm text-cream/70">Ana Luna · Astrología, Human Design y Gene Keys · cuenta de demostración</p>
+              <p className="display text-5xl leading-[1.05]"><Tr s={"«Mis seguidoras compran desde Instagram en segundos.»"} /></p>
+              <p className="mt-4 text-sm text-cream/70"><Tr s={"Cirella · Astrología, Human Design y Gene Keys · cuenta de demostración"} /></p>
             </div>
           </>
         )}

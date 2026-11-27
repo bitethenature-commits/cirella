@@ -1,6 +1,7 @@
 import type { SocialKey } from "@/lib/page-config";
 
-const paths: Record<SocialKey, React.ReactNode> = {
+// WhatsApp ya no es una red de la web (nunca se pone el teléfono): su dibujo queda para compartir un enlace.
+const paths: Record<SocialKey | "whatsapp", React.ReactNode> = {
   instagram: (
     <>
       <rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" strokeWidth="1.7" />
@@ -36,7 +37,7 @@ const paths: Record<SocialKey, React.ReactNode> = {
   ),
 };
 
-export function SocialIcon({ name, className = "h-5 w-5" }: { name: SocialKey; className?: string }) {
+export function SocialIcon({ name, className = "h-5 w-5" }: { name: SocialKey | "whatsapp"; className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden>
       {paths[name]}

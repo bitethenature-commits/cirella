@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
 import { lauraSessionLabel } from "./demo-data";
+import { freeTimes, pickDay } from "./slots";
 
 /**
  * Instagram → página → producto → pago → entrega → clienta recurrente.
@@ -13,15 +14,17 @@ const creatorEmail = `creadora${stamp}@example.com`;
 const buyerEmail = `compradora${stamp}@example.com`;
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
-/** Casillas obligatorias del checkout: condiciones de venta y renuncia al desistimiento. */
+/** Casillas obligatorias del checkout: condiciones de venta y la del desistimiento. */
 async function acceptConsents(page: Page) {
   await page.getByLabel(/He leído y acepto/).check();
-  await page.getByLabel(/Quiero acceder ya|Solicito que la sesión/).check();
+  // La casilla del desistimiento la piden lo digital, los cursos, las membresías y los talleres (no las sesiones individuales).
+  const waiver = page.getByLabel(/Quiero acceder ya|Quiero que se prepare ya|Entiendo que este taller|Quiero empezar ya/);
+  if (await waiver.count()) await waiver.check();
 }
 
 test.describe.serial("Flujo principal", () => {
@@ -29,7 +32,7 @@ test.describe.serial("Flujo principal", () => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toContainText("negocio completo");
     await page.getByRole("link", { name: "Crear mi página" }).first().click();
-    await page.waitForURL("**/registro**");
+    await page.waitForURL("**/signup**");
 
     await page.fill("#email", creatorEmail);
     await page.fill("#password", "secreto123");
@@ -50,7 +53,7 @@ test.describe.serial("Flujo principal", () => {
     await expect(page.getByText("Sube tu foto")).toBeVisible();
     await next.click();
     // 4. Nombre y descripción
-    await page.getByPlaceholder("Ana Luna").fill("Luna Prueba");
+    await page.getByPlaceholder("Cirella").fill("Luna Prueba");
     await page.getByPlaceholder("Astrología · Human Design · Gene Keys").fill("Tarot · Astrología");
     await next.click();
     // 5. Categoría
@@ -92,7 +95,7 @@ test.describe.serial("Flujo principal", () => {
     await expect(page.getByText("Revisa el NIF: la letra no coincide")).toBeVisible();
     await page.getByLabel("NIF / NIE / CIF").fill("12345678Z");
     await page.getByRole("button", { name: "Conectar con Stripe" }).click();
-    await page.waitForURL("**/pago-simulado/cuenta**");
+    await page.waitForURL("**/test-payment/account**");
     await page.getByRole("button", { name: "Verificar al instante" }).click();
     await page.waitForURL("**/onboarding");
     await expect(page.getByText("Pagos activados")).toBeVisible();
@@ -115,22 +118,22 @@ test.describe.serial("Flujo principal", () => {
     await page.fill("#email", buyerEmail);
     await acceptConsents(page);
     await page.getByRole("button", { name: /Pagar 29/ }).click();
-    await page.waitForURL(`**/${username}/gracias**`);
+    await page.waitForURL(`**/${username}/thanks**`);
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
     await expect(page.getByText("Tu contenido está disponible en tu cuenta.")).toBeVisible();
     // Cuenta creada automáticamente tras la compra: la sesión solo abre ESTA compra.
     await page.getByRole("link", { name: /Acceder a mi contenido/ }).click();
-    await page.waitForURL("**/cuenta/pedidos/**");
+    await page.waitForURL("**/area/orders/**");
     await expect(page.getByRole("heading", { name: "Tirada de tarot en PDF" })).toBeVisible();
     await expect(page.getByText("Estás viendo solo esta compra.")).toBeVisible();
     // Para ver todas sus compras tiene que demostrar que el email es suyo.
-    await page.goto("/cuenta/compras");
-    await expect(page).toHaveURL(/\/entrar/);
+    await page.goto("/area/purchases");
+    await expect(page).toHaveURL(/\/login/);
     await expect(page.getByText("Para ver todas tus compras")).toBeVisible();
   });
 
   test("3. La venta aparece en el panel de la creadora", async ({ page }) => {
-    await page.goto("/entrar");
+    await page.goto("/login");
     await page.fill("#email", creatorEmail);
     await page.fill("#password", "secreto123");
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
@@ -141,7 +144,7 @@ test.describe.serial("Flujo principal", () => {
     await expect(page.getByText("Paula Compradora")).toBeVisible();
   });
 
-  test("4. Demo: la clienta de Ana ve su curso (43 %), su sesión y su PDF", async ({ page }) => {
+  test("4. Demo: la clienta de Cirella ve su curso (43 %), su sesión y su PDF", async ({ page }) => {
     await demoLogin(page, "Laura Martín");
     await expect(page.getByRole("heading", { name: "Hola, Laura" })).toBeVisible();
     await expect(page.getByText("Progreso 43%")).toBeVisible();
@@ -153,7 +156,7 @@ test.describe.serial("Flujo principal", () => {
     expect(res.headers()["content-type"]).toContain("pdf");
   });
 
-  test("5. Multi-tenant: Ana no puede abrir productos ni archivos de María; Laura tampoco", async ({ page }) => {
+  test("5. Multi-tenant: Cirella no puede abrir productos ni archivos de María; Laura tampoco", async ({ page }) => {
     const prisma = new PrismaClient();
     const maria = await prisma.creator.findUniqueOrThrow({ where: { username: "maria" } });
     const product = await prisma.product.findFirstOrThrow({ where: { creatorId: maria.id } });
@@ -161,7 +164,7 @@ test.describe.serial("Flujo principal", () => {
     const customer = await prisma.customer.findFirstOrThrow({ where: { creatorId: maria.id } });
     await prisma.$disconnect();
 
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await expect(page).toHaveURL(/\/panel/);
     expect((await page.request.get(`/panel/productos/${product.id}`)).status()).toBe(404);
     expect((await page.request.get(`/panel/clientes/${customer.id}`)).status()).toBe(404);
@@ -174,18 +177,18 @@ test.describe.serial("Flujo principal", () => {
 
   test("6. Seguridad: registrarse con el email de una compradora no da acceso a su cuenta", async ({ page }) => {
     // Carmen compró como invitada: su cuenta no tiene contraseña.
-    await page.goto("/registro");
+    await page.goto("/signup");
     await page.fill("#email", "carmen@example.com");
     await page.fill("#password", "intrusa1234");
     await page.getByRole("button", { name: "Crear mi cuenta" }).click();
     await expect(page.getByText(/Ya tienes una cuenta con este email/)).toBeVisible();
-    await expect(page).toHaveURL(/\/registro/);
-    await page.goto("/cuenta");
-    await expect(page).toHaveURL(/\/entrar/);
+    await expect(page).toHaveURL(/\/signup/);
+    await page.goto("/area");
+    await expect(page).toHaveURL(/\/login/);
   });
 
   test("7. Panel móvil: el menú «Más» abre sin errores", async ({ page }) => {
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     const res = await page.goto("/panel/mas");
     expect(res?.status()).toBe(200);
     await expect(page.getByRole("heading", { name: "Más" })).toBeVisible();
@@ -193,8 +196,8 @@ test.describe.serial("Flujo principal", () => {
   });
 
   test("8. Membresías: no se puede pagar dos veces la misma suscripción", async ({ page }) => {
-    // Lucía ya es miembro del Círculo de Ana.
-    await page.goto("/ana/comunidad-privada/checkout");
+    // Lucía ya es miembro de «Luna completa» (el Círculo de Cirella).
+    await page.goto("/ana/full-moon/checkout");
     await page.fill("#name", "Lucía Torres");
     await page.fill("#email", "lucia@example.com");
     await acceptConsents(page);
@@ -203,11 +206,9 @@ test.describe.serial("Flujo principal", () => {
   });
 
   test("9. Checkout: tras un pago rechazado se conservan los datos y se reserva la hora elegida al reintentar", async ({ page }) => {
-    await page.goto("/ana/sesion-1-1/checkout");
-    const days = page.locator("section button.w-\\[3\\.9rem\\]");
-    await expect(days.first()).toBeVisible();
-    await days.nth(1).click();
-    await page.locator("section .grid.grid-cols-3 button").first().click();
+    await page.goto("/ana/one-on-one/checkout");
+    await pickDay(page, 1);
+    await freeTimes(page).first().click();
     await page.fill("#name", "Rocío Reintento");
     await page.fill("#email", `rocio${stamp}@example.com`);
     await page.fill("input[name=cardNumber]", "4000 0000 0000 0002");
@@ -217,12 +218,18 @@ test.describe.serial("Flujo principal", () => {
     await expect(page.locator("#name")).toHaveValue("Rocío Reintento");
     await expect(page.getByLabel(/He leído y acepto/)).toBeChecked();
     // Cambia de día antes de reintentar: la reserva debe quedar en el día nuevo.
-    await days.nth(2).click();
-    const dayNumber = (await days.nth(2).locator("span").nth(1).textContent())!.trim();
-    await page.locator("section .grid.grid-cols-3 button").first().click();
+    // Tras el rechazo el formulario se vuelve a pintar con la hora del pedido: se elige el día nuevo
+    // cuando ya está quieto (si no, el clic puede perderse) y se comprueba que las horas son las suyas.
+    let dayNumber = "";
+    await expect(async () => {
+      dayNumber = await pickDay(page, 2);
+      await expect(page.getByRole("radiogroup", { name: new RegExp(`Horas libres el .*\\b${dayNumber} de `) })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20_000 });
+    await freeTimes(page).first().click();
+    await expect(freeTimes(page).first()).toBeChecked();
     await page.fill("input[name=cardNumber]", "4242 4242 4242 4242");
     await page.getByRole("button", { name: /Reservar y pagar/ }).click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     await expect(page.getByText(new RegExp(`, ${dayNumber} de `))).toBeVisible();
   });
 });

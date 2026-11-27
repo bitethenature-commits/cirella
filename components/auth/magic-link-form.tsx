@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Flash } from "@/components/ui/flash";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requestMagicLink, type FormState } from "@/app/(auth)/actions";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /**
  * Pedir un enlace para entrar sin contraseña. `variant="creator"` usa las clases cp-* para heredar
@@ -22,6 +23,7 @@ export function MagicLinkForm({
   demo: boolean;
   variant?: "cirella" | "creator";
 }) {
+  const t = useT();
   const [state, action] = useActionState<FormState, FormData>(requestMagicLink, undefined);
   const creator = variant === "creator";
   return (
@@ -30,7 +32,7 @@ export function MagicLinkForm({
       <input type="hidden" name="next" value={next ?? ""} />
       <input type="hidden" name="c" value={creatorUsername ?? ""} />
       <div>
-        <label className={creator ? "mb-1.5 block text-xs font-medium" : "field-label"} htmlFor="ml-email">Tu email</label>
+        <label className={creator ? "mb-1.5 block text-xs font-medium" : "field-label"} htmlFor="ml-email"><Tr s={"Tu email"} /></label>
         <input
           id="ml-email"
           name="email"
@@ -38,20 +40,16 @@ export function MagicLinkForm({
           autoComplete="email"
           required
           className={creator ? "cp-input" : "input"}
-          placeholder="tu@email.com"
+          placeholder={t("tu@email.com")}
           defaultValue={state?.email ?? defaultEmail}
         />
       </div>
-      <SubmitButton className={creator ? "cp-btn h-14 w-full text-base" : "btn btn-primary btn-lg w-full"} pendingLabel="Enviando…">
-        Enviarme el enlace
-      </SubmitButton>
+      <SubmitButton className={creator ? "cp-btn h-14 w-full text-base" : "btn btn-primary btn-lg w-full"} pendingLabel={t("Enviando…")}><Tr s={"Enviarme el enlace"} /></SubmitButton>
       {state?.ok && demo && (
         <Link
-          href="/dev/correo"
+          href="/dev/email"
           className={`block text-center text-sm font-semibold underline-offset-2 hover:underline ${creator ? "" : "text-lavender-deep"}`}
-        >
-          Abrir el buzón de demostración →
-        </Link>
+        ><Tr s={"Abrir el buzón de demostración →"} /></Link>
       )}
     </form>
   );

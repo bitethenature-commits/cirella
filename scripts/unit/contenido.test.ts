@@ -42,7 +42,7 @@ test("rich text: enlaces https, http y www; la puntuación final se queda fuera"
 });
 
 test("rich text: emails como mailto", () => {
-  eq(linkifyLine("Escríbeme a hola@analuna.es.")[1], { kind: "link", text: "hola@analuna.es", href: "mailto:hola@analuna.es", email: true });
+  eq(linkifyLine("Escríbeme a hola@cirella.app.")[1], { kind: "link", text: "hola@cirella.app", href: "mailto:hola@cirella.app", email: true });
 });
 
 test("rich text: nada de javascript: ni HTML", () => {
@@ -163,24 +163,27 @@ test("caducidad: vale todo el día elegido en la zona de la creadora", () => {
 test("withAllSections: las secciones nuevas entran visibles tras la anterior del orden por defecto", () => {
   const old = ["links", "products", "sessions", "courses", "memberships", "testimonials", "faq", "contact"].map((key) => ({ key, enabled: true })) as never;
   const keys = withAllSections(old).map((s) => s.key);
-  eq(keys, ["links", "blocks", "products", "sessions", "courses", "memberships", "posts", "codes", "testimonials", "faq", "contact"]);
+  // Cada sección que falta entra detrás de la que la precede en el orden por defecto de la portada nueva.
+  eq(keys, ["links", "bubbles", "posts", "portal", "offers", "about", "systems", "readings", "products", "sessions", "courses", "codes", "blocks", "memberships", "testimonials", "faq", "newsletter", "contact"]);
   // Respeta el orden elegido y no duplica.
   const custom = withAllSections([{ key: "faq", enabled: false }, { key: "links", enabled: true }, { key: "faq", enabled: true }]);
   eq(custom.filter((s) => s.key === "faq").length, 1);
   eq(custom[0], { key: "faq", enabled: false });
   eq(custom.length, SECTION_KEYS.length);
-  ok(custom.filter((s) => s.key !== "faq" && s.key !== "links").every((s) => s.enabled), "las nuevas, visibles");
+  ok(custom.filter((s) => s.key !== "faq" && s.key !== "links" && s.key !== "newsletter").every((s) => s.enabled), "las nuevas, visibles");
+  // La de la newsletter entra oculta: la activa la dueña.
+  eq(custom.find((s) => s.key === "newsletter")?.enabled, false);
 });
 
 test("readPageConfig: una página guardada antes de los bloques sigue valiendo", () => {
-  const cfg = readPageConfig({ displayName: "Ana", sections: [{ key: "links", enabled: true }] });
-  eq(cfg.displayName, "Ana");
+  const cfg = readPageConfig({ displayName: "Cirella", sections: [{ key: "links", enabled: true }] });
+  eq(cfg.displayName, "Cirella");
   eq(cfg.blocks, []);
   ok(cfg.sections.some((s) => s.key === "posts" && s.enabled));
 });
 
 test("bloques de texto: título o texto obligatorio; botón con texto y enlace", () => {
-  const base = { displayName: "Ana" };
+  const base = { displayName: "Cirella" };
   ok(pageConfigSchema.safeParse({ ...base, blocks: [{ id: "a", title: "Sobre mí", body: "" }] }).success);
   ok(!pageConfigSchema.safeParse({ ...base, blocks: [{ id: "a", title: "", body: "" }] }).success);
   ok(!pageConfigSchema.safeParse({ ...base, blocks: [{ id: "a", title: "x", body: "", buttonLabel: "Reservar" }] }).success);

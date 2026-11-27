@@ -1,5 +1,5 @@
 /**
- * HTML de un email para verlo en el buzón de demostración (/dev/correo), que lo enseña en un iframe
+ * HTML de un email para verlo en el buzón de demostración (/dev/email), que lo enseña en un iframe
  * con sandbox (sin scripts ni formularios). Sin más, un enlace del email («Entrar», «Completar mi
  * compra»…) se abriría dentro del iframe, donde la página no funciona. Con <base target="_top"> los
  * enlaces abren la página de verdad, en la pestaña; el sandbox lo permite al pulsar

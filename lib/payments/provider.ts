@@ -1,6 +1,8 @@
 /**
- * Abstracción de pasarela de pago. Dos implementaciones: `stripe` (producción) y `simulated`
- * (demo y desarrollo, mismo ciclo de vida sin dinero real).
+ * Abstracción de pasarela de pago. Tres implementaciones: `stripe` (producción), `paypal` (solo la
+ * web personal, con la cuenta de PayPal de la dueña) y `simulated` (demo y desarrollo, mismo ciclo
+ * de vida sin dinero real). Una web puede tener varias a la vez (PAYMENT_PROVIDER=stripe,paypal): la
+ * compradora elige en el checkout y cada pedido y suscripción guarda la suya.
  *
  * Flujo de una venta:
  *   1. startOrderPayment (lib/orders.ts) → startPayment: con Stripe se crea un Checkout alojado
@@ -33,7 +35,11 @@ export type StartPaymentInput = {
   customerEmail: string;
   customerRef?: string | null;
   platformFeeCents: number;
-  destinationAccount: string;
+  /**
+   * Cuenta Express de la creadora (cargos de destino de la plataforma). null = cobro directo: la
+   * web personal cobra con su propia cuenta, sin comisión ni transferencia.
+   */
+  destinationAccount: string | null;
   statementSuffix?: string;
   saveForFutureUse: boolean;
   payment: PaymentMethodInput;
@@ -61,6 +67,11 @@ export type PaymentStatus = {
   paymentMethodRef?: string;
   metadata: Record<string, string>;
   error?: string;
+  /**
+   * La compradora ha aprobado el pago pero el dinero aún no se ha cobrado (PayPal). Solo se cobra
+   * con completeCheckout si el pedido sigue esperando ese pago (lib/payments/events.ts).
+   */
+  approved?: boolean;
 };
 
 export type PayoutAccountSnapshot = {
@@ -94,6 +105,8 @@ export type RefundInput = {
   amountCents?: number;
   /** ¿Devuelve Cirella también su comisión? (decisión pendiente, ver docs/pagos-stripe.md) */
   refundApplicationFee: boolean;
+  /** Moneda del cobro original (PayPal la necesita en un reembolso parcial). */
+  currency?: string;
   idempotencyKey: string;
   /** Motivo que ve la pasarela (Stripe lo usa en sus avisos de fraude). */
   reason?: "requested_by_customer" | "duplicate";
@@ -109,12 +122,14 @@ export type ChargeSavedInput = Omit<StartPaymentInput, "payment" | "returnUrl" |
 export type ParsedWebhook = { eventId: string; type: string; accountId: string | null; updates: PaymentUpdate[] };
 
 export interface PaymentProvider {
-  key: "simulated" | "stripe";
+  key: "simulated" | "stripe" | "paypal";
   label: string;
   /** true = el checkout pide la tarjeta en nuestra página (solo el simulador). */
   collectsCardOnSite: boolean;
   startPayment(i: StartPaymentInput): Promise<StartPaymentResult>;
   getPaymentStatus(checkoutOrPaymentRef: string): Promise<PaymentStatus>;
+  /** Cobra un pago aprobado (status.approved). Solo las pasarelas en dos pasos (PayPal). Idempotente. */
+  completeCheckout?(checkoutRef: string): Promise<PaymentStatus>;
   cancelCheckout(checkoutRef: string): Promise<void>;
   chargeSaved(i: ChargeSavedInput): Promise<StartPaymentResult>;
   refund(i: RefundInput): Promise<{ ok: true; refundRef: string; status: "pending" | "succeeded" } | { ok: false; error: string }>;
@@ -131,5 +146,5 @@ export interface PaymentProvider {
   parseWebhook(rawBody: string, headers: Headers): Promise<ParsedWebhook>;
 }
 
-/** La firma del aviso no es válida (o no viene de Stripe): se responde 400. */
+/** La firma del aviso no es válida (o no viene de la pasarela): se responde 400. */
 export class WebhookSignatureError extends Error {}

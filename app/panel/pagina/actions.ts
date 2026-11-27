@@ -1,12 +1,15 @@
 "use server";
 
+import { translateSoon } from "@/lib/i18n/content";
 import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireCreator } from "@/lib/auth";
 import { publishPage } from "@/lib/creator";
 import { prisma } from "@/lib/db";
 import { pageConfigSchema, type PageConfig } from "@/lib/page-config";
+import type { Design } from "@/lib/templates";
 import { planFeatures } from "@/lib/plans";
+import { sanitizeBlocks } from "@/lib/page-blocks.server";
 import { isPersonalMode } from "@/lib/site-mode";
 
 const ownImage = (u: string | null | undefined) => (u && (u.startsWith("/media/") || u.startsWith("/demo/")) ? u : null);
@@ -16,27 +19,29 @@ async function save(input: PageConfig) {
   const parsed = pageConfigSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0].message, creator };
   const features = planFeatures(creator.plan);
+  // Bloques: imágenes y vídeos solo suyos, enlaces de vídeo reconocidos y el texto con
+  // formato sin caracteres de control ni imágenes (los bloques tienen sus propias imágenes).
+  const blocks = sanitizeBlocks(creator.id, parsed.data.blocks ?? []);
+  if ("error" in blocks) return { ok: false as const, error: blocks.error, creator };
+  // Las fotos de fondo, solo suyas («» en una página = sin foto aunque toda la web tenga una).
+  const cleanDesign = (d: Design): Design => (d.backgroundImageUrl ? { ...d, backgroundImageUrl: ownImage(d.backgroundImageUrl) } : d);
   const cfg: PageConfig = {
     ...parsed.data,
     avatarUrl: ownImage(parsed.data.avatarUrl),
     coverUrl: ownImage(parsed.data.coverUrl),
-    theme: { ...parsed.data.theme, backgroundImageUrl: ownImage(parsed.data.theme.backgroundImageUrl) },
+    template: "custom",
+    theme: cleanDesign(parsed.data.theme),
+    pageThemes: Object.fromEntries(Object.entries(parsed.data.pageThemes).map(([k, d]) => [k, cleanDesign(d)])),
+    designs: parsed.data.designs.map((x) => ({ ...x, theme: cleanDesign(x.theme) })),
     hidePoweredBy: features.removeBranding ? parsed.data.hidePoweredBy : false,
+    blocks: blocks.blocks,
   };
-  const tpl = await prisma.template.findFirst({ where: { key: cfg.template, active: true } });
-  if (!tpl) return { ok: false as const, error: "Ese diseño no está disponible", creator };
   await prisma.creator.update({
     where: { id: creator.id },
     data: { pageDraft: cfg as unknown as Prisma.InputJsonValue, ...(creator.published ? {} : { displayName: cfg.displayName }) },
   });
+  translateSoon(creator.id, true);
   return { ok: true as const, creator };
-}
-
-export async function saveDraft(cfg: PageConfig) {
-  const r = await save(cfg);
-  if (!r.ok) return { ok: false, error: r.error };
-  revalidatePath("/panel/pagina");
-  return { ok: true, message: "Borrador guardado" };
 }
 
 export async function publishDraft(cfg: PageConfig) {

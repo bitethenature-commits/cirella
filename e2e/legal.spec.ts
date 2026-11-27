@@ -23,17 +23,17 @@ test.afterAll(async () => {
 });
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 test.describe.serial("Cumplimiento legal", () => {
   test("checkout: quién vende, privacidad y casillas obligatorias sin marcar", async ({ page }) => {
     await page.goto("/ana/gene-keys/checkout");
-    await expect(page.getByText("Vende: Cirella Demo S.L. · NIF B12345674, por cuenta de Ana Luna Pérez")).toBeVisible();
+    await expect(page.getByText("Vende: Cirella Demo S.L. · NIF B12345674, por cuenta de Cirella")).toBeVisible();
     await expect(page.getByRole("link", { name: "Condiciones", exact: true }).first()).toHaveAttribute("href", "/ana/legal#condiciones");
-    await expect(page.getByText(/Responsable: Ana Luna Pérez/)).toBeVisible();
+    await expect(page.getByText(/Responsable: Cirella/)).toBeVisible();
 
     const terms = page.getByLabel(/He leído y acepto/);
     await expect(terms).not.toBeChecked();
@@ -44,25 +44,32 @@ test.describe.serial("Cumplimiento legal", () => {
     await expect(page.getByText("Acepta las condiciones de venta para continuar")).toBeVisible();
     await terms.check();
     await pay.click();
-    await expect(page.getByText("Para acceder ahora necesitamos tu consentimiento de acceso inmediato")).toBeVisible();
+    await expect(page.getByText("Para pagar, marca la casilla de acceso inmediato y renuncia al desistimiento")).toBeVisible();
+    expect(await prisma.order.count({ where: { buyerEmail, status: "PAID" } })).toBe(0);
 
     await page.getByLabel(/Quiero acceder ya al contenido/).check();
     await page.getByLabel(/Quiero recibir novedades/).check();
     await pay.click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
 
     const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail } });
     expect(order.termsAcceptedAt).not.toBeNull();
     expect(order.waiverKind).toBe("DIGITAL_IMMEDIATE");
+    expect(order.waiverText).toMatch(/^Quiero acceder ya al contenido: doy mi consentimiento expreso/);
+    expect(order.waiverVersion).toMatch(/^\d{4}-\d{2}-\d{2}#[0-9a-f]{16}$/);
+    expect(order.waiverAcceptedAt).not.toBeNull();
     expect(order.marketingOptIn).toBe(true);
     expect(order.legalSnapshotId).not.toBeNull();
   });
 
   test("el recibo dice quién vende, qué marcó y enlaza a la versión aceptada", async ({ page }) => {
     const m = await prisma.emailMessage.findFirstOrThrow({ where: { to: buyerEmail, template: "PURCHASE_RECEIPT" }, orderBy: { createdAt: "desc" } });
-    // Gene Keys lo vende Cirella a efectos de IVA (PLATFORM_DIGITAL), por cuenta de Ana, como en el checkout.
-    for (const text of ["por cuenta de Ana Luna Pérez", "B12345674", "Quiero acceder ya al contenido", "CONDICIONES DE VENTA"]) expect(m.html).toContain(text);
+    // Gene Keys lo vende Cirella a efectos de IVA (PLATFORM_DIGITAL), por cuenta de Cirella, como en el checkout.
+    const order = await prisma.order.findFirstOrThrow({ where: { buyerEmail } });
+    // La confirmación de la renuncia en soporte duradero: el texto exacto y su versión.
+    for (const text of ["por cuenta de Cirella", "B12345674", "Confirmación de tu consentimiento", "Quiero acceder ya al contenido", `texto ${order.waiverVersion}`, "CONDICIONES DE VENTA"])
+      expect(m.html).toContain(text);
     const href = m.html.match(/href="([^"]*\/ana\/legal\?v=[^"]+)"/)?.[1];
     expect(href).toBeTruthy();
     await page.goto(href!.replace(/&amp;/g, "&"));
@@ -73,12 +80,14 @@ test.describe.serial("Cumplimiento legal", () => {
   });
 
   test("sesiones: la política de cambios está junto al total y en la ficha", async ({ page }) => {
-    await page.goto("/ana/sesion-1-1");
-    await expect(page.getByText("Vende: Ana Luna Pérez", { exact: false }).first()).toBeVisible();
+    await page.goto("/ana/one-on-one");
+    await expect(page.getByText("Vende: Cirella", { exact: false }).first()).toBeVisible();
     await expect(page.getByText("Cambios gratis hasta 24 h antes de la sesión")).toBeVisible();
-    await page.goto("/ana/sesion-1-1/checkout");
+    await page.goto("/ana/one-on-one/checkout");
     await expect(page.getByText(/Cambios gratis hasta 24 h antes/)).toBeVisible();
-    await expect(page.getByLabel(/Solicito que la sesión pueda realizarse/)).not.toBeChecked();
+    // Sin casilla de renuncia: se reserva a partir del día 15 y tiene sus 14 días para desistir.
+    await expect(page.getByText(/Tienes 14 días desde la compra para desistir/)).toBeVisible();
+    await expect(page.getByLabel(/Quiero acceder ya|Entiendo que este taller|Quiero empezar ya/)).toHaveCount(0);
   });
 
   test("pie legal en la página de la creadora y página legal completa", async ({ page }) => {
@@ -95,22 +104,22 @@ test.describe.serial("Cumplimiento legal", () => {
   });
 
   test("páginas legales de la plataforma, pie de la portada y registro", async ({ page }) => {
-    for (const [path, h1] of [["/terminos", "Términos del servicio para creadoras"], ["/privacidad", "Política de privacidad"], ["/aviso-legal", "Aviso legal"]]) {
+    for (const [path, h1] of [["/terms", "Términos del servicio para creadoras"], ["/privacy", "Política de privacidad"], ["/legal-notice", "Aviso legal"]]) {
       const res = await page.goto(path);
       expect(res?.status()).toBe(200);
       await expect(page.getByRole("heading", { level: 1, name: h1 })).toBeVisible();
     }
-    await page.goto("/terminos#encargo");
+    await page.goto("/terms#encargo");
     await expect(page.locator("#encargo")).toHaveText("Encargo de tratamiento (art. 28 RGPD)");
-    await page.goto("/aviso-legal");
+    await page.goto("/legal-notice");
     await expect(page.getByText("Cirella Demo S.L.")).toBeVisible();
 
     await page.goto("/");
     const footer = page.locator("footer").last();
     for (const name of ["Términos", "Privacidad", "Aviso legal"]) await expect(footer.getByRole("link", { name })).toBeVisible();
-    await page.goto("/registro");
-    await expect(page.getByRole("link", { name: "Términos del servicio" })).toHaveAttribute("href", "/terminos");
-    await expect(page.getByRole("link", { name: "Política de privacidad" })).toHaveAttribute("href", "/privacidad");
+    await page.goto("/signup");
+    await expect(page.getByRole("link", { name: "Términos del servicio" })).toHaveAttribute("href", "/terms");
+    await expect(page.getByRole("link", { name: "Política de privacidad" })).toHaveAttribute("href", "/privacy");
   });
 
   test("las visitas se miden sin cookies ni nada guardado en el navegador", async ({ browser }) => {
@@ -129,7 +138,7 @@ test.describe.serial("Cumplimiento legal", () => {
   test("panel: datos legales con NIF validado y textos editables con «Restaurar plantilla»", async ({ page }) => {
     const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
     try {
-      await demoLogin(page, "Ana Luna");
+      await demoLogin(page, "Cirella");
       await page.goto("/panel/ajustes/legal");
       await expect(page.getByRole("heading", { name: "Datos legales" })).toBeVisible();
       await expect(page.getByText("Completos", { exact: true })).toBeVisible();
@@ -160,7 +169,7 @@ test.describe.serial("Cumplimiento legal", () => {
   });
 
   test("novedades por email: la creadora lo ve y la compradora lo retira desde su cuenta", async ({ page, browser }) => {
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/panel/clientes");
     const row = page.getByRole("link", { name: new RegExp(buyerName) });
     await expect(row.getByText("Novedades ✓")).toBeVisible();
@@ -168,7 +177,7 @@ test.describe.serial("Cumplimiento legal", () => {
     // La compradora entra con un enlace por email (su cuenta no tiene contraseña).
     const buyer = await (await browser.newContext()).newPage();
     const since = new Date();
-    await buyer.goto("/entrar");
+    await buyer.goto("/login");
     await buyer.getByRole("button", { name: "Enlace por email" }).click();
     await buyer.fill("#ml-email", buyerEmail);
     await buyer.getByRole("button", { name: "Enviarme el enlace" }).click();
@@ -177,11 +186,11 @@ test.describe.serial("Cumplimiento legal", () => {
     const url = mail.html.match(/<a href="([^"]+)"[^>]*>Entrar a mi cuenta<\/a>/)![1].replace(/&amp;/g, "&");
     await buyer.goto(url);
     await buyer.getByRole("button", { name: "Entrar", exact: true }).click();
-    await buyer.waitForURL("**/cuenta");
+    await buyer.waitForURL("**/area");
 
-    await buyer.goto("/cuenta/perfil");
+    await buyer.goto("/area/profile");
     const card = buyer.getByRole("region", { name: "Novedades por email" });
-    await expect(card.getByText("Ana Luna")).toBeVisible();
+    await expect(card.getByText("Cirella")).toBeVisible();
     await card.getByRole("button", { name: "Dejar de recibir" }).click();
     await expect(card.getByText("No recibes novedades de ninguna creadora.")).toBeVisible();
     await buyer.context().close();

@@ -13,7 +13,9 @@ const OK_CARD = "4242 4242 4242 4242";
 
 async function acceptConsents(page: Page) {
   await page.getByLabel(/He leído y acepto/).check();
-  await page.getByLabel(/Quiero acceder ya|Solicito que la sesión/).check();
+  // La casilla del desistimiento la piden lo digital, los cursos, las membresías y los talleres (no las sesiones individuales).
+  const waiver = page.getByLabel(/Quiero acceder ya|Quiero que se prepare ya|Entiendo que este taller|Quiero empezar ya/);
+  if (await waiver.count()) await waiver.check();
 }
 
 test.describe.serial("Login con contraseña", () => {
@@ -23,7 +25,7 @@ test.describe.serial("Login con contraseña", () => {
     const email = `nadie${stamp}@example.com`;
     // Cada intento en una página recién cargada: el mensaje que se ve es el de ese intento.
     for (let i = 1; i <= 6; i++) {
-      await page.goto("/entrar");
+      await page.goto("/login");
       await page.fill("#email", email);
       await page.fill("#password", `incorrecta-${i}`);
       await page.getByRole("button", { name: "Entrar", exact: true }).click();
@@ -39,7 +41,7 @@ test.describe.serial("Enlace mágico", () => {
 
   test("3 enlaces para el mismo email y el 4.º se corta", async ({ page }) => {
     for (let i = 1; i <= 4; i++) {
-      await page.goto("/entrar");
+      await page.goto("/login");
       await page.getByRole("button", { name: "Enlace por email" }).click();
       await page.fill("#ml-email", `enlaces${stamp}@example.com`);
       await page.getByRole("button", { name: "Enviarme el enlace" }).click();
@@ -55,7 +57,7 @@ test.describe.serial("Checkout: pagos rechazados", () => {
 
   test("5 rechazos con el mismo email y el 6.º intento se bloquea, también con una tarjeta buena", async ({ page }) => {
     const attempt = async (card: string) => {
-      await page.goto("/ana/lectura-astrologia/checkout");
+      await page.goto("/ana/astrology/checkout");
       await page.fill("#name", "Prueba Rechazos");
       await page.fill("#email", `rechazos${stamp}@example.com`);
       await page.getByPlaceholder("Número de tarjeta").fill(card);
@@ -79,13 +81,13 @@ test.describe.serial("Checkout: otra compradora", () => {
   test.use({ extraHTTPHeaders: { "x-forwarded-for": "203.0.113.74" } });
 
   test("desde otra conexión y con otro email, la compra sale bien", async ({ page }) => {
-    await page.goto("/ana/lectura-astrologia/checkout");
+    await page.goto("/ana/astrology/checkout");
     await page.fill("#name", "Prueba Ajena");
     await page.fill("#email", `ajena${stamp}@example.com`);
     await page.getByPlaceholder("Número de tarjeta").fill(OK_CARD);
     await acceptConsents(page);
     await page.getByRole("button", { name: /Pagar/ }).click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
   });
 });
@@ -97,7 +99,7 @@ test.describe.serial("Horarios", () => {
     await page.route("**/api/slots**", (route) =>
       route.fulfill({ status: 429, headers: { "Retry-After": "30" }, contentType: "application/json", body: JSON.stringify({ error: "Demasiadas peticiones. Espera un momento." }) }),
     );
-    await page.goto("/ana/sesion-1-1/checkout");
+    await page.goto("/ana/one-on-one/checkout");
     await expect(page.getByText("No hemos podido cargar los horarios. Recarga la página en unos segundos.")).toBeVisible();
     await expect(page.getByText(/No hay huecos disponibles/)).toHaveCount(0);
     // El resto del checkout sigue ahí.

@@ -10,6 +10,8 @@ import { Badge, PageHeader } from "../../panel/ui";
 import { setCreatorPlan, setCreatorStatus } from "../actions";
 import { AdminTable, td } from "../ui";
 import { platformOnly } from "../platform-only";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 const PAYOUT_TONE: Record<PayoutStatus, "success" | "warning" | "danger" | "neutral"> = {
   ACTIVE: "success",
@@ -31,6 +33,7 @@ const FUNNEL: [PayoutStatus, string][] = [
 ];
 
 export default async function AdminCreators({ searchParams }: { searchParams: Promise<{ ok?: string; q?: string; cobros?: string }> }) {
+  const t = await getT();
   platformOnly();
   await requireAdmin();
   const sp = await searchParams;
@@ -65,22 +68,22 @@ export default async function AdminCreators({ searchParams }: { searchParams: Pr
   );
   return (
     <div>
-      <PageHeader title="Creadoras" subtitle={`${creators.length} espacios`} />
+      <PageHeader title={t("Creadoras")} subtitle={`${creators.length} espacios`} />
       <Flash ok={sp.ok} />
       <p className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted">
-        <span className="font-semibold text-ink">Cobros:</span>
+        <span className="font-semibold text-ink"><Tr s={"Cobros:"} /></span>
         {FUNNEL.map(([status, label], i) => (
           <span key={status}>
             <Link href={`/admin/creadoras?cobros=${status}`} className={`underline-offset-4 hover:underline ${payoutFilter === status ? "font-semibold text-ink" : ""}`}>
-              {funnelCount.get(status) ?? 0} {label}
+              {funnelCount.get(status) ?? 0} <Tr s={label} />
             </Link>
             {i < FUNNEL.length - 1 && " ·"}
           </span>
         ))}
-        {payoutFilter && <Link href="/admin/creadoras" className="ml-2 text-xs underline">Quitar filtro</Link>}
+        {payoutFilter && <Link href="/admin/creadoras" className="ml-2 text-xs underline"><Tr s={"Quitar filtro"} /></Link>}
       </p>
       <form className="mb-4">
-        <input name="q" defaultValue={sp.q} placeholder="Buscar por nombre o usuario" className="input h-10 max-w-xs text-sm" />
+        <input name="q" defaultValue={sp.q} placeholder={t("Buscar por nombre o usuario")} className="input h-10 max-w-xs text-sm" />
         {payoutFilter && <input type="hidden" name="cobros" value={payoutFilter} />}
       </form>
       {/* Cabe en 1280 px (área de ~984 px junto a la barra lateral): datos secundarios bajo el nombre,
@@ -102,7 +105,7 @@ export default async function AdminCreators({ searchParams }: { searchParams: Pr
                 <select name="planId" defaultValue={c.planId} aria-label={`Plan de ${c.displayName}`} className="input h-8 w-24 text-xs">
                   {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
-                <button className="btn btn-ghost btn-sm !h-8 !px-2 text-xs">OK</button>
+                <button className="btn btn-ghost btn-sm !h-8 !px-2 text-xs"><Tr s={"OK"} /></button>
               </form>
             </td>
             <td className={`${td} whitespace-nowrap tabular-nums`}>
@@ -112,10 +115,10 @@ export default async function AdminCreators({ searchParams }: { searchParams: Pr
             <td className={`${td} whitespace-nowrap tabular-nums`}>{formatMoney(g.get(c.id)?.amountCents ?? 0)}<span className="block text-xs text-muted">{formatMoney(g.get(c.id)?.platformFeeCents ?? 0, "EUR", { decimals: true })}</span></td>
             <td className={td}>
               <div className="flex flex-col items-start gap-1">
-                {c.status === "BLOCKED" ? <Badge tone="danger">Bloqueada</Badge> : c.published ? <Badge tone="success">Publicada</Badge> : <Badge tone="warning">Sin publicar</Badge>}
+                {c.status === "BLOCKED" ? <Badge tone="danger"><Tr s={"Bloqueada"} /></Badge> : c.published ? <Badge tone="success"><Tr s={"Publicada"} /></Badge> : <Badge tone="warning"><Tr s={"Sin publicar"} /></Badge>}
                 <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted">
-                  <span>Cobros</span>
-                  <Badge tone={PAYOUT_TONE[c.payoutStatus as PayoutStatus] ?? "neutral"}>{PAYOUT_STATUS_LABEL[c.payoutStatus] ?? c.payoutStatus}</Badge>
+                  <span><Tr s={"Cobros"} /></span>
+                  <Badge tone={PAYOUT_TONE[c.payoutStatus as PayoutStatus] ?? "neutral"}><Tr s={PAYOUT_STATUS_LABEL[c.payoutStatus] ?? c.payoutStatus} /></Badge>
                   {c.payoutStatusUpdatedAt && <span className="whitespace-nowrap">{formatDate(c.payoutStatusUpdatedAt)}</span>}
                 </span>
               </div>
@@ -124,7 +127,7 @@ export default async function AdminCreators({ searchParams }: { searchParams: Pr
               <form action={setCreatorStatus}>
                 <input type="hidden" name="id" value={c.id} />
                 <input type="hidden" name="status" value={c.status === "BLOCKED" ? "ACTIVE" : "BLOCKED"} />
-                <button className={`btn btn-sm ${c.status === "BLOCKED" ? "btn-outline" : "btn-danger"}`}>{c.status === "BLOCKED" ? "Reactivar" : "Bloquear"}</button>
+                <button className={`btn btn-sm ${c.status === "BLOCKED" ? "btn-outline" : "btn-danger"}`}>{c.status === "BLOCKED" ? t("Reactivar") : t("Bloquear")}</button>
               </form>
             </td>
           </tr>

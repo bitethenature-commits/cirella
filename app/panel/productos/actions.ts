@@ -1,10 +1,13 @@
 "use server";
 
+import { translateSoon } from "@/lib/i18n/content";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
+  ACCESS_MODE_LABEL,
   ACCESS_MODES,
+  accessModesFor,
   asAccessMode,
   defaultAccessMode,
   EXTERNAL_LABEL_MAX,
@@ -17,13 +20,36 @@ import { requireCreator } from "@/lib/auth";
 import { uniqueProductSlug } from "@/lib/creator";
 import { DELIVERY_MODES, deliveryIssueCopy, normalizeDeliveryMode, productDeliveryIssue } from "@/lib/delivery";
 import { FreeAccessError, grantManualAccess, revokeManualAccess } from "@/lib/free-access";
+import { accessEndFrom, asAccessEndChoice, lastDayText } from "@/lib/access-end";
+import { LESSON_PARTS_JSON_MAX, parseLessonParts } from "@/lib/lesson-parts";
+import { LessonSaveError, saveLessonWithParts } from "@/lib/lessons";
 import { parseMoneyToCents } from "@/lib/money";
+import { cleanRichInput, formatToStore, normalizeNewlines, parseTextFormat } from "@/lib/rich-text";
 import { canSellType } from "@/lib/plans";
+import { hasPaymentProvider } from "@/lib/payments";
 import { siteMode } from "@/lib/site-mode";
 import { RESERVED_PRODUCT_SLUGS } from "@/lib/slug";
 import { privateKey, storage } from "@/lib/storage";
 import { tenantDb, type TenantDb } from "@/lib/tenant";
-import { DEFAULT_CTA, LESSON_KINDS, PRODUCT_TYPES, type ProductType } from "@/lib/types";
+import { wouldCreateCycle } from "@/lib/tiers";
+import { asCourseCategory } from "@/lib/course-categories";
+import { parseDripDays } from "@/lib/course-drip";
+import { readLookPatch } from "@/lib/course-design";
+import { checkSaleInput, saleFormSchema, SALE_LABEL_MAX } from "@/lib/offers";
+import { Prisma } from "@prisma/client";
+import { applyProductMeetingUrl } from "@/lib/booking-changes";
+import { parseIntakeConfigInput } from "@/lib/intake";
+import { parseMeetingUrl } from "@/lib/meeting-url";
+import { deleteProductHard } from "@/lib/hard-delete";
+import { HORIZON_CHOICES } from "@/lib/slots";
+import { addDaysToKey, labelToMinutes, zonedTimeToUtc } from "@/lib/tz";
+import { moveWorkshop, workshopClash } from "@/lib/workshops";
+import { followsDay15Rule, PAID_SESSION_MAX_NOTICE_DAYS, PAID_SESSION_MIN_NOTICE_DAYS, paidSessionNoticeDays } from "@/lib/withdrawal";
+import { DEFAULT_CTA, PRODUCT_TYPES, type ProductType } from "@/lib/types";
+import { productListHref } from "./list-href";
+import { parseProductTestimonials } from "@/lib/product-testimonials";
+import { parsePageTexts, studioKindOf } from "@/lib/product-texts";
+import { deleteCirclePost, syncCirclePost } from "@/lib/circle-post";
 
 export type ActionState = { ok?: string; error?: string } | undefined;
 
@@ -33,7 +59,10 @@ async function ctx() {
 }
 
 function refresh(id?: string) {
-  revalidatePath("/panel/productos");
+  revalidatePath("/panel/sesiones");
+  revalidatePath("/panel/circulos");
+  revalidatePath("/panel/cursos");
+  revalidatePath("/panel/comunidad");
   if (id) revalidatePath(`/panel/productos/${id}`);
   // La página pública está cacheada (ISR): reordenar, archivar o borrar debe verse ya.
   revalidatePath("/[username]", "page");
@@ -50,36 +79,58 @@ async function deleteStoredFiles(storageKeys: (string | null)[]) {
 export async function createProduct(form: FormData) {
   const { creator, db } = await ctx();
   const type = z.enum(PRODUCT_TYPES).parse(form.get("type"));
+  // «Taller en directo»: una sesión con fecha fija para varias personas.
+  const group = type === "SESSION" && form.get("group") === "1";
+  // «Nuevo círculo» (Círculos de la Luna): un taller marcado como círculo de la luna.
+  const moon = group && form.get("moon") === "1";
   if (!canSellType(creator.plan, type)) redirect("/panel/plan");
   const count = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
-  if (creator.plan.maxProducts != null && count >= creator.plan.maxProducts) redirect("/panel/productos?limite=1");
+  if (creator.plan.maxProducts != null && count >= creator.plan.maxProducts) redirect(`${productListHref({ type, groupSession: group })}?limite=1`);
   const titles: Record<ProductType, string> = {
     DIGITAL: "Nuevo producto digital",
     SESSION: "Nueva sesión",
     COURSE: "Nuevo curso",
     MEMBERSHIP: "Nueva membresía",
   };
-  // En la web personal nada se cobra aquí: gratis con email (o, una sesión, pago en otra web).
-  const accessMode = defaultAccessMode(siteMode(), type);
+  // En la web personal con cobros, de pago en la web; sin cobros, gratis con email (o, una sesión,
+  // pago en otra web).
+  const accessMode = defaultAccessMode(siteMode(), type, hasPaymentProvider());
+  const title = moon ? "Nuevo círculo de la luna" : group ? "Nuevo taller en directo" : type === "DIGITAL" ? "Nueva lectura" : titles[type];
+  // Su dirección, en inglés y sencilla (/courses/new-course…); se cambia en sus ajustes.
+  const slugs: Record<ProductType, string> = { DIGITAL: "new-product", SESSION: "new-session", COURSE: "new-course", MEMBERSHIP: "new-membership" };
+  const slugBase = moon ? "new-circle" : group ? "new-live-workshop" : type === "DIGITAL" ? "new-reading" : slugs[type];
   const product = await db.product.create({
     data: {
       creatorId: creator.id,
       type,
-      title: titles[type],
-      slug: await uniqueProductSlug(creator.id, titles[type]),
+      title,
+      slug: await uniqueProductSlug(creator.id, slugBase),
+      groupSession: group,
+      moonCircle: moon,
       priceCents: 0,
       status: "DRAFT",
+      // Una lectura nace ya como «Lo preparo yo» (se entrega por email): así sale en «Dar una sesión o
+      // lectura» y en el área de la alumna aunque todavía no se haya guardado nunca.
+      deliveryMode: normalizeDeliveryMode(type),
       accessMode,
       ctaLabel: accessMode === "FREE_EMAIL" ? FREE_CTA : DEFAULT_CTA[type],
       sortOrder: count + 1,
       billingInterval: type === "MEMBERSHIP" ? "month" : null,
       durationMin: type === "SESSION" ? 60 : null,
       bufferMin: type === "SESSION" ? 15 : null,
-      minNoticeHours: type === "SESSION" ? 24 : null,
-      emoji: { DIGITAL: "✨", SESSION: "🔮", COURSE: "📖", MEMBERSHIP: "💫" }[type],
+      // Sesión individual de pago en la web: 15 días desde la compra (lib/withdrawal.ts).
+      minNoticeHours: type === "SESSION" ? (group ? 0 : accessMode === "PAID" ? PAID_SESSION_MIN_NOTICE_DAYS * 24 : 24) : null,
+      emoji: group ? "🌙" : { DIGITAL: "✨", SESSION: "🔮", COURSE: "📖", MEMBERSHIP: "💫" }[type],
+      // «Nuevo curso» desde una temática de Cursos: ya con ella.
+      ...(type === "COURSE" ? { courseCategory: asCourseCategory(form.get("courseCategory")) } : {}),
     },
   });
   if (type === "COURSE") await db.courseModule.create({ data: { creatorId: creator.id, productId: product.id, title: "Módulo 1", sortOrder: 0 } });
+  // «Nuevo curso» desde Cursos: se abre directamente en el estudio.
+  if (type === "COURSE" && form.get("next") === "cursos") {
+    revalidatePath("/panel/cursos");
+    redirect(`/panel/cursos/${product.id}?nuevo=1`);
+  }
   redirect(`/panel/productos/${product.id}?nuevo=1`);
 }
 
@@ -92,6 +143,8 @@ const productSchema = z.object({
   emoji: z.string().max(8).optional(),
   summary: z.string().trim().max(240).optional(),
   description: z.string().trim().max(5000).optional(),
+  // Formato de la descripción (lib/rich-text.ts): tolerante; "" = texto de antes, ausente = el guardado.
+  descriptionFormat: z.string().max(8).optional().transform(parseTextFormat),
   imageUrl: z.string().max(500).optional(),
   price: z.string(),
   ctaLabel: z.string().trim().max(30).optional(),
@@ -102,14 +155,29 @@ const productSchema = z.object({
   durationMin: z.coerce.number().int().min(10).max(480).optional(),
   bufferMin: z.coerce.number().int().min(0).max(240).optional(),
   minNoticeHours: z.coerce.number().int().min(0).max(24 * 30).optional(),
-  meetingUrl: z.string().trim().max(300).optional(),
+  // Sesión individual que se paga en la web: antelación en días desde la compra (mínimo 15).
+  minNoticeDays: z.coerce.number({ message: "Escribe la antelación en días" }).int("Escribe la antelación en días enteros").optional(),
+  meetingUrl: z.string().trim().max(600).optional(),
+  // Calendario propio (lib/slots.ts, lib/intake.ts, talleres).
+  horizonDays: z.string().max(4).optional(),
+  groupSession: z.string().optional(),
+  eventDate: z.string().max(10).optional(),
+  eventTime: z.string().max(5).optional(),
+  capacity: z.string().max(4).optional(),
+  intake: z.string().max(4000, "Demasiadas preguntas o demasiado largas").optional(),
   billingInterval: z.enum(["month", "year"]).optional(),
   deliveryMode: z.enum(DELIVERY_MODES).optional(),
   // Cómo se consigue (lib/access-mode.ts). En la plataforma el formulario no lo envía: se conserva.
   accessMode: z.enum(ACCESS_MODES).optional(),
   externalUrl: z.string().trim().max(600).optional(),
   externalLabel: z.string().trim().max(EXTERNAL_LABEL_MAX, `El texto del botón admite ${EXTERNAL_LABEL_MAX} caracteres`).optional(),
-});
+  // Cursos: método para la página /courses. Talleres: «Círculo de la luna».
+  // Uno o varios temas («ASTROLOGIA+MI_ENERGIA»).
+  courseCategory: z.string().max(120).optional(),
+  moonCircle: z.string().optional(),
+  pagedReadingField: z.string().optional(),
+  pagedReading: z.string().optional(),
+}).merge(saleFormSchema);
 
 export async function updateProduct(_: ActionState, form: FormData): Promise<ActionState> {
   const { creator, db } = await ctx();
@@ -122,7 +190,7 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
     const active = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
     if (active >= creator.plan.maxProducts) return { error: `Has llegado al límite de ${creator.plan.maxProducts} productos de tu plan. Archiva otro o mejora tu plan.` };
   }
-  const accessMode = resolveAccessMode(d.accessMode, product.accessMode, siteMode(), product.type);
+  const accessMode = resolveAccessMode(d.accessMode, product.accessMode, siteMode(), product.type, hasPaymentProvider());
   const priceCents = storedPriceCents(accessMode, parseMoneyToCents(d.price));
   const priceError = d.status === "PUBLISHED" ? publishPriceError(accessMode, priceCents) : null;
   if (priceError) return { error: priceError };
@@ -150,8 +218,66 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
     wantedSlug !== product.slug || RESERVED_PRODUCT_SLUGS.has(wantedSlug)
       ? await uniqueProductSlug(creator.id, wantedSlug, product.id)
       : product.slug;
-  if (d.meetingUrl && !/^https?:\/\//.test(d.meetingUrl)) return { error: "El enlace de videollamada debe empezar por https://" };
+  // Sesiones: enlace de Zoom (solo https), horizonte, taller y datos que se piden.
+  const meeting = parseMeetingUrl(d.meetingUrl);
+  if (product.type === "SESSION" && !meeting.ok) return { error: meeting.error };
+  const meetingUrl = meeting.ok ? meeting.url : null;
+  const horizonDays = d.horizonDays && (HORIZON_CHOICES as readonly number[]).includes(Number(d.horizonDays)) ? Number(d.horizonDays) : null;
+  const seatsSold = product.type === "SESSION" ? await db.booking.count({ where: { productId: product.id, status: { in: ["CONFIRMED", "COMPLETED", "PENDING_SCHEDULE"] } } }) : 0;
+  const wantsGroup = product.type === "SESSION" && (d.groupSession === undefined ? product.groupSession : d.groupSession === "on");
+  if (product.type === "SESSION" && wantsGroup !== product.groupSession && seatsSold > 0)
+    return { error: wantsGroup ? "Esta sesión ya tiene reservas: crea un taller nuevo." : "Este taller ya tiene plazas vendidas: no se puede convertir en sesión individual." };
+  let eventStartAt: Date | null = product.eventStartAt;
+  let capacity: number | null = product.capacity;
+  if (wantsGroup) {
+    if (d.eventDate || d.eventTime) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d.eventDate ?? "") || !/^\d{2}:\d{2}$/.test(d.eventTime ?? "")) return { error: "Escribe el día y la hora del taller" };
+      eventStartAt = zonedTimeToUtc(d.eventDate!, labelToMinutes(d.eventTime!), creator.timezone);
+    }
+    capacity = d.capacity ? Number(d.capacity) : null;
+    if (capacity !== null && (!Number.isInteger(capacity) || capacity < 1 || capacity > 500)) return { error: "Las plazas van de 1 a 500 (vacío = sin límite)" };
+    if (d.status === "PUBLISHED" && (!eventStartAt || eventStartAt <= new Date())) return { error: "Pon una fecha futura del taller para publicarlo" };
+  }
+  // Antelación: en una sesión individual que se paga en la web, días desde la compra y nunca menos
+  // de 15 (lib/withdrawal.ts); en el resto, horas como siempre.
+  let minNoticeHours = d.minNoticeHours ?? (wantsGroup ? 0 : 24);
+  if (product.type === "SESSION" && followsDay15Rule({ type: product.type, groupSession: wantsGroup, accessMode })) {
+    const days = d.minNoticeDays ?? paidSessionNoticeDays(product);
+    if (days < PAID_SESSION_MIN_NOTICE_DAYS)
+      return { error: `La antelación mínima de una sesión que se paga en la web es de ${PAID_SESSION_MIN_NOTICE_DAYS} días: así nunca cae dentro de los 14 días en los que tu clienta puede desistir.` };
+    if (days > PAID_SESSION_MAX_NOTICE_DAYS) return { error: `La antelación mínima puede ser de ${PAID_SESSION_MAX_NOTICE_DAYS} días como mucho` };
+    minNoticeHours = days * 24;
+  }
+  const dateChanged = wantsGroup && !!eventStartAt && eventStartAt.getTime() !== product.eventStartAt?.getTime();
+  if (dateChanged) {
+    const clash = await workshopClash(creator.id, eventStartAt!, new Date(eventStartAt!.getTime() + (d.durationMin ?? 60) * 60000), product.id);
+    if (clash) return { error: `Esa hora choca con ${clash.label}` };
+  }
+  let intakeJson: Prisma.InputJsonValue | typeof Prisma.DbNull | undefined;
+  if (d.intake !== undefined) {
+    const cfg = parseIntakeConfigInput(d.intake);
+    if (!cfg.ok) return { error: cfg.error };
+    intakeJson = cfg.value ? (cfg.value as unknown as Prisma.InputJsonObject) : Prisma.DbNull;
+  }
   if (d.imageUrl && !d.imageUrl.startsWith("/media/") && !d.imageUrl.startsWith("/demo/")) return { error: "Imagen no válida" };
+  // Oferta (lib/offers.ts): solo en lo que se paga en la web. Las fechas son días enteros en su zona:
+  // empieza a las 00:00 del día de inicio y termina al acabar el día de fin.
+  let saleData: { salePriceCents: number | null; saleStartsAt: Date | null; saleEndsAt: Date | null; saleLabel: string | null } | null = null;
+  if (accessMode === "PAID" && form.get("saleForm") === "1") {
+    const sale = checkSaleInput({
+      on: d.saleOn,
+      priceCents,
+      salePriceCents: d.salePrice ? parseMoneyToCents(d.salePrice) : null,
+      starts: d.saleStart ? zonedTimeToUtc(d.saleStart, 0, creator.timezone) : null,
+      ends: d.saleEnd ? zonedTimeToUtc(addDaysToKey(d.saleEnd, 1), 0, creator.timezone) : null,
+    });
+    if (!sale.ok) return { error: sale.error };
+    saleData = sale.value
+      ? { ...sale.value, saleLabel: d.saleLabel?.slice(0, SALE_LABEL_MAX) || null }
+      : { salePriceCents: null, saleStartsAt: null, saleEndsAt: null, saleLabel: null };
+  }
+  const description = d.description ? normalizeNewlines(d.description) : null;
+  const descriptionFormat = formatToStore(description, d.descriptionFormat, product.descriptionFormat);
   const featured = d.featured === "on";
   if (featured && !product.featured) await db.product.updateMany({ where: { featured: true }, data: { featured: false } });
   await db.product.update({
@@ -160,7 +286,8 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
       title: d.title,
       emoji: d.emoji || null,
       summary: d.summary || null,
-      description: d.description || null,
+      description: description && descriptionFormat ? cleanRichInput(description, { creatorId: creator.id, images: true }) : description,
+      descriptionFormat,
       imageUrl: d.imageUrl || null,
       priceCents,
       ctaLabel: d.ctaLabel || (accessMode === "FREE_EMAIL" ? FREE_CTA : DEFAULT_CTA[product.type as ProductType]),
@@ -173,16 +300,73 @@ export async function updateProduct(_: ActionState, form: FormData): Promise<Act
       deliveryMode,
       slug,
       ...(product.type === "SESSION"
-        ? { durationMin: d.durationMin ?? 60, bufferMin: d.bufferMin ?? 15, minNoticeHours: d.minNoticeHours ?? 24, meetingUrl: d.meetingUrl || null }
+        ? {
+            durationMin: d.durationMin ?? 60,
+            bufferMin: d.bufferMin ?? 15,
+            minNoticeHours,
+            meetingUrl,
+            horizonDays,
+            groupSession: wantsGroup,
+            eventStartAt: wantsGroup ? (dateChanged && seatsSold > 0 ? product.eventStartAt : eventStartAt) : null,
+            capacity: wantsGroup ? capacity : null,
+          }
         : {}),
+      ...(intakeJson !== undefined && (product.type === "SESSION" || product.type === "DIGITAL") ? { intake: intakeJson } : {}),
+      ...(saleData ?? {}),
+      ...((product.type === "COURSE" || product.type === "DIGITAL" || product.type === "SESSION") && d.courseCategory !== undefined ? { courseCategory: asCourseCategory(d.courseCategory) } : {}),
+      // Estudio: las frases y los pasos de su ficha.
+      ...((product.type === "DIGITAL" || product.type === "SESSION") && form.get("pageTextsField") === "1"
+        ? (() => {
+            const t = parsePageTexts(form.get("pageTexts"), studioKindOf({ type: product.type, groupSession: wantsGroup })!);
+            return t ? { pageTexts: t as unknown as Prisma.InputJsonObject } : {};
+          })()
+        : {}),
+      // Estudio de lecturas y sesiones: sus propias opiniones (vacío = las de la portada).
+      ...((product.type === "DIGITAL" || product.type === "SESSION") && form.get("testimonialsField") === "1"
+        ? { testimonials: parseProductTestimonials(form.get("testimonials")) as unknown as Prisma.InputJsonArray }
+        : {}),
+      ...(product.type === "SESSION" ? { moonCircle: wantsGroup && d.moonCircle === "on" } : {}),
       ...(product.type === "MEMBERSHIP" ? { billingInterval: d.billingInterval ?? "month" } : {}),
+      ...(product.type === "MEMBERSHIP" && d.pagedReadingField ? { pagedReading: d.pagedReading === "on" } : {}),
     },
   });
+  // Con plazas vendidas, mover el taller avisa a cada asistente (lib/workshops.ts).
+  const notes: string[] = [];
+  if (dateChanged && seatsSold > 0) {
+    const m = await moveWorkshop({ creatorId: creator.id, productId: product.id, startAt: eventStartAt! });
+    if (!m.ok) return { error: m.error };
+    notes.push(`Hemos avisado del cambio de fecha a ${m.moved} ${m.moved === 1 ? "asistente" : "asistentes"}.`);
+  }
+  // Círculo de la luna: su publicación en la membresía va con él (lib/circle-post.ts).
+  if (product.type === "SESSION" && wantsGroup && d.moonCircle === "on" && form.get("circlePostField") === "1") {
+    await syncCirclePost({
+      creatorId: creator.id,
+      productId: product.id,
+      title: d.title,
+      published: d.status === "PUBLISHED",
+      // La fecha nueva también con plazas vendidas: moveWorkshop ya ha movido el círculo (si fallaba,
+      // se ha salido antes). Con la de antes, sus miembros verían el círculo el día equivocado.
+      eventAt: eventStartAt,
+      meetingUrl,
+      body: String(form.get("postBody") ?? ""),
+      joinLabel: String(form.get("joinLabel") ?? ""),
+      pageTexts: form.get("pageTexts"),
+    });
+    revalidatePath("/area/membership", "layout");
+  }
+  if (product.type === "SESSION" && meetingUrl !== product.meetingUrl) {
+    const n = await applyProductMeetingUrl({ creatorId: creator.id, productId: product.id, previous: product.meetingUrl, next: meetingUrl });
+    if (n) notes.push(`Hemos enviado el enlace nuevo a ${n} ${n === 1 ? "clienta" : "clientas"}.`);
+  }
   refresh(product.id);
   revalidatePath(`/${creator.username}`);
-  // En la web personal lo que se cobraba en la web se guarda tal cual, pero no se ve: se dice.
-  if (accessMode === "PAID" && siteMode() === "personal")
-    return { ok: "Guardado. No se ve en tu página: en tu web no se cobra nada. Elige «Gratis con email» o «Pago en otra web» para que aparezca." };
+  translateSoon(creator.id, true);
+  if (notes.length) return { ok: `${d.status === "PUBLISHED" ? "Guardado y publicado." : "Guardado."} ${notes.join(" ")}` };
+  // En la web personal sin cobros lo que se cobraba en la web se guarda tal cual, pero no se ve: se dice.
+  if (accessMode === "PAID" && siteMode() === "personal" && !hasPaymentProvider()) {
+    const choices = accessModesFor("personal", product.type).map((m) => `«${ACCESS_MODE_LABEL[m]}»`).join(" o ");
+    return { ok: `Guardado. No se ve en tu página: en tu web no se cobra nada. Elige ${choices} para que aparezca.` };
+  }
   return { ok: d.status === "PUBLISHED" ? "Guardado y publicado en tu página" : "Guardado como borrador" };
 }
 
@@ -193,53 +377,34 @@ export async function moveProduct(form: FormData) {
   const list = await db.product.findMany({ where: { status: { not: "ARCHIVED" } }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] });
   const i = list.findIndex((p) => p.id === id);
   let j = i + dir;
-  // Desde el editor solo se ven los productos publicados: saltamos los ocultos.
-  if (form.get("visible") === "1") while (j >= 0 && j < list.length && list[j].status !== "PUBLISHED") j += dir;
+  // Desde el editor solo se ven los productos de la página: saltamos los ocultos (borradores y, en la
+  // web personal, lo que se cobraba en la web).
+  const signupsOnly = false;
+  const hidden = (p: (typeof list)[number]) => p.status !== "PUBLISHED" || (signupsOnly && asAccessMode(p.accessMode) === "PAID");
+  // «sameType»: dentro de su grupo (en la página cada tipo sale en su sección), saltando los de otro tipo.
+  const other = (p: (typeof list)[number]) => form.get("sameType") === "1" && i >= 0 && p.type !== list[i].type;
+  if (form.get("visible") === "1" || form.get("sameType") === "1") while (j >= 0 && j < list.length && ((form.get("visible") === "1" && hidden(list[j])) || other(list[j]))) j += dir;
   if (i < 0 || j < 0 || j >= list.length) return;
   [list[i], list[j]] = [list[j], list[i]];
   await Promise.all(list.map((p, idx) => db.product.update({ where: { id: p.id }, data: { sortOrder: idx + 1 } })));
   refresh();
 }
 
-export async function setProductStatus(form: FormData) {
-  const { creator, db } = await ctx();
-  const id = String(form.get("id"));
-  const status = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).parse(form.get("status"));
-  const product = await db.product.findFirst({ where: { id } });
-  if (!product) return;
-  if (product.status === "ARCHIVED" && status !== "ARCHIVED" && creator.plan.maxProducts != null) {
-    const active = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
-    if (active >= creator.plan.maxProducts) redirect("/panel/productos?limite=1");
-  }
-  const accessMode = asAccessMode(product.accessMode);
-  if (
-    status === "PUBLISHED" &&
-    (publishPriceError(accessMode, product.priceCents) ||
-      (accessMode === "EXTERNAL" && !product.externalUrl) ||
-      !canSellType(creator.plan, product.type as ProductType))
-  )
-    redirect(`/panel/productos/${id}`);
-  if (status === "PUBLISHED") {
-    const issue = (await productDeliveryIssue(db, id))?.issue;
-    if (issue?.blocking) redirect(`/panel/productos/${id}?error=sin-entrega#${issue.anchor}`);
-  }
-  await db.product.update({ where: { id }, data: { status } });
-  refresh(id);
-}
-
 export async function deleteProduct(form: FormData) {
-  const { db } = await ctx();
+  const { db, creator } = await ctx();
   const id = String(form.get("id"));
-  const orders = await db.order.count({ where: { productId: id } });
-  // Con ventas no se borra (las clientas mantienen su acceso): se archiva.
-  if (orders > 0) await db.product.update({ where: { id }, data: { status: "ARCHIVED", featured: false } });
-  else {
-    const files = await db.productFile.findMany({ where: { productId: id, storageKey: { not: null } }, select: { storageKey: true } });
-    await db.product.deleteMany({ where: { id } });
-    await deleteStoredFiles(files.map((f) => f.storageKey));
-  }
+  const back = productListHref((await db.product.findFirst({ where: { id }, select: { type: true, groupSession: true } })) ?? { type: "DIGITAL" });
+  // Se borra de verdad, también con ventas: se van con él sus ventas, reservas y accesos (lib/hard-delete.ts).
+  const files = await db.productFile.findMany({ where: { productId: id, storageKey: { not: null } }, select: { storageKey: true } });
+  await deleteProductHard(creator.id, id);
+  await deleteStoredFiles(files.map((f) => f.storageKey));
+  // Borrar el círculo borra también su publicación en la membresía.
+  await deleteCirclePost(creator.id, id);
   refresh();
-  redirect("/panel/productos");
+  revalidatePath("/panel/ventas");
+  revalidatePath("/panel/clientes");
+  revalidatePath("/panel/clientes");
+  redirect(back);
 }
 
 /**
@@ -257,6 +422,8 @@ const grantSchema = z.object({
   productId: z.string().min(1),
   name: z.string().trim().min(2, "Escribe su nombre").max(80),
   email: z.string().trim().toLowerCase().max(200).email("Revisa el email"),
+  accessEnd: z.unknown().transform(asAccessEndChoice),
+  accessEndDate: z.string().max(10).optional(),
 });
 
 /**
@@ -268,18 +435,77 @@ export async function grantAccess(_: ActionState, form: FormData): Promise<Actio
   const parsed = grantSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
+  // «Duración del acceso»: el último día (incluido) cuenta en su zona horaria.
+  const end = accessEndFrom({ choice: d.accessEnd, date: d.accessEndDate, now: new Date(), timeZone: creator.timezone });
+  if (!end.ok) return { error: end.error };
   try {
-    const r = await grantManualAccess({ creatorId: creator.id, productId: d.productId, name: d.name, email: d.email, grantedByUserId: user.id });
+    const r = await grantManualAccess({ creatorId: creator.id, productId: d.productId, name: d.name, email: d.email, grantedByUserId: user.id, until: end.until });
     refresh(d.productId);
     revalidatePath("/panel/ventas");
     revalidatePath("/panel/clientes");
+    const until = end.until ? ` hasta el ${lastDayText(end.until, creator.timezone)}` : "";
     return {
-      ok: r.status === "granted" ? `Listo: ${d.email} ya tiene acceso y le hemos enviado el enlace.` : `${d.email} ya tenía acceso: le hemos vuelto a enviar el enlace.`,
+      ok: r.status === "granted" ? `Listo: ${d.email} ya tiene acceso${until} y le hemos enviado el enlace.` : `${d.email} ya tenía acceso${until ? `: ahora lo tiene${until}` : ""}. Le hemos vuelto a enviar el enlace.`,
     };
   } catch (e) {
     if (e instanceof FreeAccessError) return { error: e.message };
     throw e;
   }
+}
+
+/**
+ * «Cambiar fecha» de un acceso dado a mano (o devolverlo tras terminar): lo vuelve a dar con la
+ * nueva fecha de fin (o sin fecha). Le llega otra vez el email con su enlace.
+ */
+export async function setAccessEnd(_: ActionState, form: FormData): Promise<ActionState> {
+  const { user, creator } = await requireCreator();
+  const db = tenantDb(creator.id);
+  const orderId = String(form.get("orderId") ?? "");
+  const order = await db.order.findFirst({ where: { id: orderId, paymentProvider: { in: ["free", "manual"] }, status: "PAID" }, select: { productId: true, buyerEmail: true, buyerName: true } });
+  if (!order) return { error: "No hemos encontrado ese acceso." };
+  const end = accessEndFrom({ choice: asAccessEndChoice(form.get("accessEnd")), date: String(form.get("accessEndDate") ?? ""), now: new Date(), timeZone: creator.timezone });
+  if (!end.ok) return { error: end.error };
+  try {
+    await grantManualAccess({ creatorId: creator.id, productId: order.productId, name: order.buyerName ?? order.buyerEmail, email: order.buyerEmail, grantedByUserId: user.id, until: end.until });
+  } catch (e) {
+    if (e instanceof FreeAccessError) return { error: e.message };
+    throw e;
+  }
+  refresh(order.productId);
+  revalidatePath("/panel/ventas");
+  return { ok: end.until ? `Fecha cambiada: ${order.buyerEmail} tiene acceso hasta el ${lastDayText(end.until, creator.timezone)}.` : `${order.buyerEmail} tiene acceso sin fecha de fin.` };
+}
+
+/**
+ * «Qué incluye esta membresía»: los cursos que tendrán sus miembros mientras la membresía siga
+ * activa. Solo cursos suyos (tenantDb) y no archivados; el acceso se deduce al consultar
+ * (lib/membership-access.ts), no se copia.
+ */
+export async function saveInclusions(_: ActionState, form: FormData): Promise<ActionState> {
+  const { creator, db } = await ctx();
+  const productId = String(form.get("productId") ?? "");
+  const membership = await db.product.findFirst({ where: { id: productId, type: "MEMBERSHIP" }, select: { id: true } });
+  if (!membership) return { error: "Membresía no encontrada" };
+  const wanted = [...new Set(form.getAll("included").map(String))].filter((id) => id !== membership.id).slice(0, 50);
+  // Cursos y otras membresías (niveles de abajo), suyos y no archivados.
+  const picked = wanted.length ? await db.product.findMany({ where: { id: { in: wanted }, type: { in: ["COURSE", "MEMBERSHIP"] }, status: { not: "ARCHIVED" } }, select: { id: true, type: true, title: true } }) : [];
+  // Sin ciclos: un nivel no puede incluir a otro que ya lo incluye (lib/tiers.ts).
+  const others = await db.productInclusion.findMany({ where: { NOT: { productId: membership.id } }, select: { productId: true, includedProductId: true } });
+  const loop = picked.find((p) => p.type === "MEMBERSHIP" && wouldCreateCycle(others, membership.id, p.id));
+  if (loop) return { error: `«${loop.title}» ya incluye esta membresía: no puede incluirse a la vez (sería un círculo).` };
+  await db.productInclusion.deleteMany({ where: { productId: membership.id } });
+  if (picked.length) await db.productInclusion.createMany({ data: picked.map((c) => ({ creatorId: creator.id, productId: membership.id, includedProductId: c.id })) });
+  refresh(membership.id);
+  for (const c of picked) revalidatePath(`/panel/productos/${c.id}`);
+  revalidatePath("/area/courses");
+  revalidatePath("/area/membership");
+  revalidatePath("/[username]/membership", "page");
+  const courses = picked.filter((p) => p.type === "COURSE").length;
+  const tiers = picked.length - courses;
+  if (!picked.length) return { ok: "Guardado. Esta membresía no incluye ningún curso ni otro nivel." };
+  return {
+    ok: `Guardado. ${[courses ? `Tus miembros ya ven ${courses === 1 ? "este curso" : "estos cursos"} en «Mis cursos»` : "", tiers ? `leen también ${tiers === 1 ? "el otro nivel" : "los otros niveles"}` : ""].filter(Boolean).join(" y ")}.`,
+  };
 }
 
 /** «Quitar acceso»: el acceso de esa persona pasa a retirado y sus enlaces dejan de funcionar. */
@@ -318,75 +544,66 @@ export async function addLinkFile(form: FormData) {
   refresh(productId);
 }
 
-// ───────────── Curso ─────────────
-
-export async function addModule(form: FormData) {
-  const { creator, db } = await ctx();
-  const productId = String(form.get("productId"));
-  if (!(await db.product.findFirst({ where: { id: productId, type: "COURSE" } }))) return;
-  const count = await db.courseModule.count({ where: { productId } });
-  await db.courseModule.create({ data: { creatorId: creator.id, productId, title: String(form.get("title") || `Módulo ${count + 1}`).slice(0, 120), sortOrder: count } });
-  refresh(productId);
-}
-
-export async function renameModule(form: FormData) {
-  const { db } = await ctx();
-  const id = String(form.get("id"));
-  const m = await db.courseModule.findFirst({ where: { id } });
-  if (!m) return;
-  await db.courseModule.update({ where: { id }, data: { title: String(form.get("title") || m.title).slice(0, 120) } });
-  refresh(m.productId);
-}
-
-export async function deleteModule(form: FormData) {
-  const { db } = await ctx();
-  const m = await db.courseModule.findFirst({ where: { id: String(form.get("id")) } });
-  if (!m) return;
-  await guardLastDeliverable(db, m.productId, { lessons: await db.lesson.count({ where: { moduleId: m.id } }) }, "lecciones");
-  await db.courseModule.deleteMany({ where: { id: m.id } });
-  refresh(m.productId);
-}
-
 const lessonSchema = z.object({
-  id: z.string().optional(),
-  moduleId: z.string(),
-  title: z.string().trim().min(1, "Ponle un título a la lección").max(140),
-  kind: z.enum(LESSON_KINDS),
-  body: z.string().max(20000).optional(),
-  mediaUrl: z.string().trim().max(500).optional(),
-  fileId: z.string().optional(),
-  durationMin: z.coerce.number().int().min(0).max(600).optional(),
+  id: z.string().max(40).optional(),
+  moduleId: z.string().min(1, "Módulo no encontrado").max(40),
+  title: z.string().trim().min(1, "Ponle un título a la lección").max(140, "El título admite 140 caracteres"),
+  // "" = automática (la suma de los vídeos y audios).
+  durationMin: z.union([z.literal(""), z.coerce.number().int().min(0, "Revisa la duración").max(600, "La duración admite hasta 600 minutos")]).optional(),
+  version: z.coerce.number().int().min(0).optional(),
+  parts: z.string().max(LESSON_PARTS_JSON_MAX + 1),
+  // Estudio de cursos: borrador ("0") o publicada ("1") y «Disponible a los N días» ("" = el primer día).
+  published: z.enum(["0", "1"]).optional(),
+  dripDays: z.string().max(4).optional(),
+  // Editor de cursos: su propio diseño (JSON, lib/course-design.ts → readLookPatch; "{}" = como el curso).
+  design: z.string().max(4000).optional(),
 });
 
-export async function saveLesson(_: ActionState, form: FormData): Promise<ActionState> {
-  const { creator, db } = await ctx();
+function lookPatchOf(raw: string): ReturnType<typeof readLookPatch> {
+  try {
+    return readLookPatch(JSON.parse(raw));
+  } catch {
+    return {};
+  }
+}
+
+export type LessonActionState = { ok?: string; error?: string; warning?: string; lessonId?: string; version?: number } | undefined;
+
+/** Lo que enviaba el editor de antes (una pestaña abierta desde antes de actualizar). */
+const OLD_LESSON_FORM = "Hemos actualizado el editor de lecciones. Recarga la página para seguir.";
+
+/**
+ * Guarda una lección con sus partes (vídeo, audio, texto, PDF, imágenes…) desde el editor de
+ * /panel/productos/<id>/lecciones/…. Toda la validación está en lib/lessons.ts.
+ */
+export async function saveLesson(_: LessonActionState, form: FormData): Promise<LessonActionState> {
+  const { creator } = await ctx();
+  if (!form.has("parts")) return { error: OLD_LESSON_FORM };
   const parsed = lessonSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
-  const mod = await db.courseModule.findFirst({ where: { id: d.moduleId } });
-  if (!mod) return { error: "Módulo no encontrado" };
-  if (d.fileId && !(await db.productFile.findFirst({ where: { id: d.fileId, productId: mod.productId } }))) return { error: "Archivo no válido" };
-  if (d.mediaUrl && !/^https?:\/\//.test(d.mediaUrl)) return { error: "El enlace debe empezar por https://" };
-  const data = { title: d.title, kind: d.kind, body: d.body || null, mediaUrl: d.mediaUrl || null, fileId: d.fileId || null, durationMin: d.durationMin || null };
-  if (d.id) {
-    const lesson = await db.lesson.findFirst({ where: { id: d.id } });
-    if (!lesson) return { error: "Lección no encontrada" };
-    await db.lesson.update({ where: { id: lesson.id }, data });
-  } else {
-    const count = await db.lesson.count({ where: { moduleId: mod.id } });
-    await db.lesson.create({ data: { ...data, creatorId: creator.id, productId: mod.productId, moduleId: mod.id, sortOrder: count } });
+  const parts = parseLessonParts(d.parts);
+  if (!parts.ok) return { error: parts.error };
+  try {
+    const r = await saveLessonWithParts(creator.id, {
+      id: d.id || undefined,
+      moduleId: d.moduleId,
+      title: d.title,
+      durationMin: typeof d.durationMin === "number" && d.durationMin > 0 ? d.durationMin : null,
+      version: d.version ?? null,
+      parts: parts.parts,
+      published: d.published === undefined ? undefined : d.published === "1",
+      dripDays: d.dripDays === undefined ? undefined : parseDripDays(d.dripDays),
+      design: d.design === undefined ? undefined : lookPatchOf(d.design),
+    });
+    refresh(r.productId);
+    revalidatePath(`/panel/cursos/${r.productId}`, "layout");
+    revalidatePath(`/area/courses/${r.productId}`);
+    return { ok: "Lección guardada", lessonId: r.lessonId, version: r.version, warning: r.warning ?? undefined };
+  } catch (e) {
+    if (e instanceof LessonSaveError) return { error: e.message };
+    throw e;
   }
-  refresh(mod.productId);
-  return { ok: "Lección guardada" };
-}
-
-export async function deleteLesson(form: FormData) {
-  const { db } = await ctx();
-  const l = await db.lesson.findFirst({ where: { id: String(form.get("id")) } });
-  if (!l) return;
-  await guardLastDeliverable(db, l.productId, { lessons: 1 }, "lecciones");
-  await db.lesson.deleteMany({ where: { id: l.id } });
-  refresh(l.productId);
 }
 
 export async function moveLesson(form: FormData) {
@@ -404,25 +621,3 @@ export async function moveLesson(form: FormData) {
 
 // ───────────── Membresía ─────────────
 
-export async function addPost(_: ActionState, form: FormData): Promise<ActionState> {
-  const { creator, db } = await ctx();
-  const productId = String(form.get("productId"));
-  const title = String(form.get("title") ?? "").trim().slice(0, 160);
-  const body = String(form.get("body") ?? "").trim().slice(0, 10000);
-  const kind = z.enum(["TEXT", "AUDIO", "VIDEO", "EVENT"]).catch("TEXT").parse(form.get("kind"));
-  const mediaUrl = String(form.get("mediaUrl") ?? "").trim();
-  if (!title || !body) return { error: "Escribe un título y un texto" };
-  if (mediaUrl && !/^https?:\/\//.test(mediaUrl)) return { error: "El enlace debe empezar por https://" };
-  if (!(await db.product.findFirst({ where: { id: productId, type: "MEMBERSHIP" } }))) return { error: "Membresía no encontrada" };
-  await db.membershipPost.create({ data: { creatorId: creator.id, productId, title, body, kind, mediaUrl: mediaUrl || null } });
-  refresh(productId);
-  return { ok: "Publicado para tus miembros" };
-}
-
-export async function deletePost(form: FormData) {
-  const { db } = await ctx();
-  const p = await db.membershipPost.findFirst({ where: { id: String(form.get("id")) } });
-  if (!p) return;
-  await db.membershipPost.deleteMany({ where: { id: p.id } });
-  refresh(p.productId);
-}

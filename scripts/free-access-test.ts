@@ -13,7 +13,7 @@
  *   · las novedades no cuentan hasta confirmarlas desde el email (también al repetir el formulario);
  *   · el nombre del formulario no llega al saludo del email ni a una cuenta que ya existía;
  *   · una membresía gratis sobre una suscripción vieja (sin renovar y caducada) da el acceso.
- * Usa emails y productos temporales de Ana y deja la BD como estaba.
+ * Usa emails y productos temporales de Cirella y deja la BD como estaba.
  */
 import "./load-env";
 import { prisma } from "../lib/db";
@@ -71,10 +71,10 @@ async function main() {
     const lucia = email("lucia");
     const r1 = await claimFreeAccess({ productId: free.id, name: "Lucía", email: lucia.toUpperCase(), newsletter: true, ipHash: "prueba" });
     check("primera vez: acceso concedido", r1.status === "granted", r1);
-    const order = await prisma.order.findUniqueOrThrow({ where: { id: r1.orderId }, include: { customer: true, transactions: true, invoices: true } });
+    const order = await prisma.order.findUniqueOrThrow({ where: { id: r1.orderId }, include: { customer: true, transactions: true } });
     check("pedido de 0 € «free» pagado, con el email en minúsculas", order.status === "PAID" && order.paymentProvider === "free" && order.amountCents === 0 && order.buyerEmail === lucia, order);
-    check("sin IVA ni comisión", order.taxCents === 0 && order.platformFeeCents === 0 && order.commissionBps === 0 && order.netCents === 0);
-    check("sin transacción de cobro ni factura", order.transactions.length === 0 && order.invoices.length === 0);
+    check("sin comisión", order.platformFeeCents === 0 && order.commissionBps === 0 && order.netCents === 0);
+    check("sin transacción de cobro", order.transactions.length === 0);
     check("sin referencia de pago (no hay nada que reembolsar)", order.paymentRef === null);
     check("guarda la versión de los textos legales y la privacidad aceptada", !!order.legalSnapshotId && !!(order.metadata as { privacyAcceptedAt?: string })?.privacyAcceptedAt);
     check("la casilla de novedades no es consentimiento todavía", order.customer?.marketingOptIn === false && order.marketingOptIn === false, order.customer);
@@ -84,9 +84,9 @@ async function main() {
     const mails = await prisma.emailMessage.findMany({ where: { to: lucia } });
     const accessMail = mails.find((m) => m.template === "ACCESS_GRANTED");
     check("email «Ya tienes acceso a «X»»", accessMail?.subject === `Ya tienes acceso a «${free.title}»`, mails.map((m) => m.subject));
-    check("con el enlace personal directo al curso", !!accessMail && /\/auth\/enlace\?t=/.test(accessMail.html) && (await prisma.orderLink.count({ where: { orderId: order.id, path: `/cuenta/cursos/${free.id}` } })) === 1);
+    check("con el enlace personal directo al curso", !!accessMail && /\/auth\/enlace\?t=/.test(accessMail.html) && (await prisma.orderLink.count({ where: { orderId: order.id, path: `/area/courses/${free.id}` } })) === 1);
     check("el email de acceso lleva el botón para confirmar las novedades", !!accessMail?.html.includes("Confirmar que quiero recibir novedades") &&
-      (await prisma.orderLink.count({ where: { orderId: order.id, path: `/cuenta/novedades/confirmar?pedido=${order.id}` } })) === 1);
+      (await prisma.orderLink.count({ where: { orderId: order.id, path: `/area/newsletter/confirm?pedido=${order.id}` } })) === 1);
     check("…y no saluda con el nombre escrito en el formulario", !!accessMail && !accessMail.html.includes("Lucía"));
     check("otra persona no puede confirmar sus novedades", !(await confirmNewsletter({ orderId: order.id, userId: ana.userId })));
     check("confirmarlas desde su sesión", await confirmNewsletter({ orderId: order.id, userId: order.customer!.userId }));
@@ -157,7 +157,7 @@ async function main() {
     // ── Acceso a mano ──
     check(
       "una sesión externa no admite acceso a mano",
-      await rejects(() => grantManualAccess({ creatorId: ana.id, productId: external.id, name: "X", email: email("sesion"), grantedByUserId: ana.userId }), FreeAccessError, /sesiones/),
+      await rejects(() => grantManualAccess({ creatorId: ana.id, productId: external.id, name: "X", email: email("sesion"), grantedByUserId: ana.userId }), FreeAccessError, /sessions/),
     );
     check(
       "un producto de pago en la web no admite acceso a mano",
@@ -170,7 +170,7 @@ async function main() {
     await prisma.productFile.create({ data: { creatorId: ana.id, productId: extDigital.id, name: "Guía en PDF", kind: "LINK", url: "https://example.com/guia.pdf" } });
     const maria = await prisma.creator.findUniqueOrThrow({ where: { username: "maria" } });
     check(
-      "otra creadora no puede dar acceso a un producto de Ana",
+      "otra creadora no puede dar acceso a un producto de Cirella",
       await rejects(() => grantManualAccess({ creatorId: maria.id, productId: extDigital.id, name: "X", email: email("ajena"), grantedByUserId: maria.userId }), FreeAccessError, /no encontrado/),
     );
     const eva = email("eva");

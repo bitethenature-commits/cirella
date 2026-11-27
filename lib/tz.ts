@@ -4,20 +4,77 @@
  * las reservas se guardan en UTC.
  */
 
+import { sameOffset, tzCity } from "./timezones";
+
+/**
+ * Idioma de las fechas: español, salvo cuando alguien da otro. Lo dan los emails (el de quien los recibe,
+ * lib/i18n/email.ts, que va primero) y las páginas (el de la página, lib/i18n/server.ts); en el navegador,
+ * `withDateLocale`. Así «martes, 12 de noviembre» sale «Dienstag, 12. November» a quien lee en alemán.
+ */
+const dateLocaleSources: (() => string | undefined)[] = [];
+export function setDateLocaleSource(fn: () => string | undefined, first = false) {
+  if (first) dateLocaleSources.unshift(fn);
+  else dateLocaleSources.push(fn);
+}
+let forcedDateLocale: string | undefined;
+/** Formatea en un idioma concreto lo que se calcula dentro de `fn` (los componentes del navegador). */
+export function withDateLocale<T>(locale: string, fn: () => T): T {
+  const prev = forcedDateLocale;
+  forcedDateLocale = locale;
+  try {
+    return fn();
+  } finally {
+    forcedDateLocale = prev;
+  }
+}
+const intlLocale = (): string => {
+  if (forcedDateLocale) return forcedDateLocale;
+  for (const fn of dateLocaleSources) {
+    const l = fn();
+    if (l) return l;
+  }
+  return "es-ES";
+};
+/** El idioma de las fechas ahora mismo: «de», «en» o «es». */
+export function dateLang(): "de" | "en" | "es" {
+  const l = intlLocale();
+  return l.startsWith("de") ? "de" : l.startsWith("en") ? "en" : "es";
+}
+
+/** «Mié 9 dic» / «Mi. 9. Dez.» / «Wed 9 Dec»: el día corto de las tarjetas, con mayúscula. */
+export function shortDayLabel(date: Date, timeZone: string): string {
+  const raw = formatInTz(date, timeZone, { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
+  const day = dateLang() === "es" ? raw.replace(/\./g, "") : raw;
+  return day.charAt(0).toUpperCase() + day.slice(1);
+}
+
+/** «(hora de España)» / «(Ortszeit Spanien)» / «(Spain time)». */
+export function zoneNote(place: string): string {
+  const l = dateLang();
+  return `(${l === "de" ? `Ortszeit ${place}` : l === "en" ? `${place} time` : `hora de ${place}`})`;
+}
+
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+/** Un formateador por zona: crearlos es lo caro y el calendario calcula miles de horas. */
+const partsFormatters = new Map<string, Intl.DateTimeFormat>();
+
 export function zonedParts(date: Date, timeZone: string) {
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    weekday: "short",
-  });
+  let fmt = partsFormatters.get(timeZone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      weekday: "short",
+    });
+    partsFormatters.set(timeZone, fmt);
+  }
   const parts = Object.fromEntries(fmt.formatToParts(date).map((p) => [p.type, p.value]));
   return {
     year: Number(parts.year),
@@ -74,7 +131,7 @@ export function labelToMinutes(label: string) {
 }
 
 export function formatInTz(date: Date, timeZone: string, opts: Intl.DateTimeFormatOptions) {
-  return new Intl.DateTimeFormat("es-ES", { timeZone, ...opts }).format(date);
+  return new Intl.DateTimeFormat(intlLocale(), { timeZone, ...opts }).format(date);
 }
 
 /** "lunes, 12 de octubre · 17:00" */
@@ -88,17 +145,51 @@ export function formatSessionDate(date: Date, timeZone: string, withWeekday = tr
   return `${day} · ${time}`;
 }
 
+/**
+ * La hora de una sesión para la clienta, en su zona: «martes, 12 de noviembre · 11:00 (hora de Bogotá)».
+ * Sin «(hora de …)» cuando su zona tiene la misma hora que la de la dueña en ese momento.
+ */
+export function sessionWhen(start: Date, tz: string | null | undefined, ownerTz: string) {
+  const zone = tz || ownerTz;
+  const base = formatSessionDate(start, zone);
+  if (sameOffset(zone, ownerTz, start)) return base;
+  return `${base} ${zoneNote(tzCity(zone))}`;
+}
+
+/** Solo la hora en una zona: «11:00». */
+export function timeInTz(start: Date, tz: string) {
+  return formatInTz(start, tz, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+}
+
+/**
+ * La hora de una sesión para la dueña, en la suya, y la de la clienta si es distinta:
+ * «jueves, 13 de noviembre · 17:00 · para ella, 11:00 en Bogotá».
+ */
+export function ownerWhen(start: Date, ownerTz: string, clientTz: string | null | undefined) {
+  const base = formatSessionDate(start, ownerTz);
+  if (!clientTz || sameOffset(clientTz, ownerTz, start)) return base;
+  return `${base} · ${clientTimeNote(start, ownerTz, clientTz)}`;
+}
+
+/** «para ella, 11:00 en Bogotá» (con el día si cambia: «para ella, mié 12, 23:00 en Bogotá»). Vacío si es la misma hora. */
+export function clientTimeNote(start: Date, ownerTz: string, clientTz: string | null | undefined) {
+  if (!clientTz || sameOffset(clientTz, ownerTz, start)) return "";
+  const sameDay = dateKeyInTz(start, clientTz) === dateKeyInTz(start, ownerTz);
+  const day = sameDay ? "" : `${formatInTz(start, clientTz, { weekday: "short", day: "numeric" }).replace(".", "")}, `;
+  return `para ella, ${day}${timeInTz(start, clientTz)} en ${tzCity(clientTz)}`;
+}
+
 /** Fecha en la zona horaria de la creadora (por defecto, la de la plataforma), nunca en la del servidor. */
 export function formatDate(
   date: Date,
   opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" },
   timeZone = "Europe/Madrid",
 ) {
-  return new Intl.DateTimeFormat("es-ES", { timeZone, ...opts }).format(date);
+  return new Intl.DateTimeFormat(intlLocale(), { timeZone, ...opts }).format(date);
 }
 
 export function formatDateTime(date: Date) {
-  return new Intl.DateTimeFormat("es-ES", {
+  return new Intl.DateTimeFormat(intlLocale(), {
     timeZone: "Europe/Madrid",
     day: "numeric",
     month: "short",

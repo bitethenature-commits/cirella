@@ -7,7 +7,7 @@ import { UploadError, completeUpload } from "@/lib/uploads";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-/** Paso 2 de una subida (ver lib/uploads.ts): comprueba lo subido y lo guarda → { url } o { file }. */
+/** Paso 2 de una subida (ver lib/uploads.ts): comprueba lo subido y lo guarda → { url, width, height }, { file } o { video }. */
 export async function POST(req: Request) {
   const user = await getCurrentUser();
   const creator = user?.creator;

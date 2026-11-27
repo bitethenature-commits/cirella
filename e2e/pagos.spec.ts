@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 /**
  * Cobros (pasarela simulada): confirmación del banco (3DS), pago pendiente, cancelación y
  * reintento; estados de la cuenta de cobro de una creadora; «Pagar ahora» de una renovación;
- * datos fiscales e informe de DAC7; y las rutas que solo existen con una pasarela concreta.
+ * y las rutas que solo existen con una pasarela concreta.
  * Cada prueba deja los datos de demostración como estaban.
  */
 
@@ -14,23 +14,25 @@ const stamp = Date.now().toString().slice(-6);
 const THREE_DS = "4000 0027 6000 3184";
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
-/** Casillas obligatorias del checkout: condiciones de venta y renuncia al desistimiento. */
+/** Casillas obligatorias del checkout: condiciones de venta y la del desistimiento. */
 async function acceptConsents(page: Page) {
   await page.getByLabel(/He leído y acepto/).check();
-  await page.getByLabel(/Quiero acceder ya|Solicito que la sesión/).check();
+  // La casilla del desistimiento la piden lo digital, los cursos, las membresías y los talleres (no las sesiones individuales).
+  const waiver = page.getByLabel(/Quiero acceder ya|Quiero que se prepare ya|Entiendo que este taller|Quiero empezar ya/);
+  if (await waiver.count()) await waiver.check();
 }
 
 async function passwordLogin(page: Page, email: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.fill("#email", email);
   await page.fill("#password", "demo1234");
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 async function startCheckout(page: Page, path: string, name: string, email: string, card: string) {
@@ -48,46 +50,46 @@ test.afterAll(async () => {
 
 test.describe.serial("Pagos", () => {
   test("pago con confirmación del banco (3DS) → compra completada y acceso", async ({ page }) => {
-    await startCheckout(page, "/ana/lectura-astrologia/checkout", "Rosa Banco", `rosa${stamp}@example.com`, THREE_DS);
-    await page.waitForURL("**/pago-simulado/**");
+    await startCheckout(page, "/ana/astrology/checkout", "Rosa Banco", `rosa${stamp}@example.com`, THREE_DS);
+    await page.waitForURL("**/test-payment/**");
     await expect(page.getByRole("heading", { name: "Confirma el pago en la app de tu banco" })).toBeVisible();
     await expect(page.getByText(/Lectura de Astrología/)).toBeVisible();
     await page.getByRole("button", { name: "Confirmar el pago" }).click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
     // La cookie del checkout demuestra que es el mismo navegador: entra sin contraseña.
     await page.getByRole("link", { name: /Acceder a mi contenido/ }).click();
-    await page.waitForURL("**/cuenta/pedidos/**");
+    await page.waitForURL("**/area/orders/**");
     await expect(page.getByText("Lectura de Astrología").first()).toBeVisible();
   });
 
   test("pago pendiente: el banco tarda y la confirmación llega después", async ({ page }) => {
-    await startCheckout(page, "/ana/lectura-astrologia/checkout", "Elena Espera", `elena${stamp}@example.com`, THREE_DS);
-    await page.waitForURL("**/pago-simulado/**");
+    await startCheckout(page, "/ana/astrology/checkout", "Elena Espera", `elena${stamp}@example.com`, THREE_DS);
+    await page.waitForURL("**/test-payment/**");
     const bankUrl = page.url();
     await page.getByRole("button", { name: "El banco tarda (pago pendiente)" }).click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     await expect(page.getByRole("heading", { name: "Pago pendiente de confirmar" })).toBeVisible();
     await page.goto(bankUrl);
     await expect(page.getByText("el pago está pendiente")).toBeVisible();
     await page.getByRole("button", { name: "Confirmar el pago" }).click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
   });
 
   test("cancelar en el banco → de vuelta al checkout con los datos, y reintento con otra tarjeta", async ({ page }) => {
     const email = `nerea${stamp}@example.com`;
-    await startCheckout(page, "/ana/lectura-astrologia/checkout", "Nerea Cancela", email, THREE_DS);
-    await page.waitForURL("**/pago-simulado/**");
+    await startCheckout(page, "/ana/astrology/checkout", "Nerea Cancela", email, THREE_DS);
+    await page.waitForURL("**/test-payment/**");
     await page.getByRole("button", { name: "Cancelar" }).click();
-    await page.waitForURL("**/lectura-astrologia/checkout**");
+    await page.waitForURL("**/astrology/checkout**");
     await expect(page.getByText(/No se ha completado el pago/)).toBeVisible();
     await expect(page.locator("#name")).toHaveValue("Nerea Cancela");
     await expect(page.locator("#email")).toHaveValue(email);
     await page.getByPlaceholder("Número de tarjeta").fill("4242 4242 4242 4242");
     await acceptConsents(page);
     await page.getByRole("button", { name: /Pagar/ }).click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     await expect(page.getByRole("heading", { name: "Compra completada" })).toBeVisible();
     const orders = await prisma.order.findMany({ where: { buyerEmail: email } });
     expect(orders.map((o) => o.status)).toEqual(["PAID"]);
@@ -115,7 +117,7 @@ test.describe.serial("Pagos", () => {
       await page.reload();
       await expect(page.getByText("Sin conectar").first()).toBeVisible();
       await page.getByRole("button", { name: "Conectar con Stripe" }).click();
-      await page.waitForURL("**/pago-simulado/cuenta**");
+      await page.waitForURL("**/test-payment/account**");
       await expect(page.getByRole("heading", { name: "Verifica tu identidad" })).toBeVisible();
       await page.getByRole("button", { name: "Falta un documento" }).click();
       await page.waitForURL("**/panel/ajustes/cobros**");
@@ -126,14 +128,14 @@ test.describe.serial("Pagos", () => {
       // Nadie puede comprar mientras tanto.
       const visitor = await browser.newContext();
       const buyer = await visitor.newPage();
-      await buyer.goto("/sofia/guia-bio-instagram/checkout");
+      await buyer.goto("/sofia/instagram-bio-guide/checkout");
       await expect(buyer.getByText("Las compras de este producto aún no están disponibles.")).toBeVisible();
       await expect(buyer.getByRole("button", { name: /Pagar/ })).toBeDisabled();
       await visitor.close();
 
       await page.goto("/panel/ajustes/cobros");
       await page.getByRole("button", { name: "Completar en Stripe" }).click();
-      await page.waitForURL("**/pago-simulado/cuenta**");
+      await page.waitForURL("**/test-payment/account**");
       await page.getByRole("button", { name: "Verificar al instante" }).click();
       await page.waitForURL("**/panel/ajustes/cobros**");
       await expect(page.getByText("Cuenta de cobro activada: ya puedes vender")).toBeVisible();
@@ -155,9 +157,9 @@ test.describe.serial("Pagos", () => {
         data: { status: "PAST_DUE", renewalAttempts: 1, nextRenewalAttemptAt: new Date(Date.now() + 86_400_000), lastRenewalError: "La tarjeta ha sido rechazada." },
       });
       await passwordLogin(page, "lucia@example.com");
-      await page.goto("/cuenta/membresias");
+      await page.goto("/area/membership");
       await expect(page.getByText("Pago pendiente · actualiza tu tarjeta")).toBeVisible();
-      await page.goto(`/cuenta/membresias/${sub.productId}`);
+      await page.goto(`/area/membership/${sub.productId}`);
       await expect(page.getByText("No hemos podido renovar tu membresía")).toBeVisible();
       await page.getByRole("button", { name: /Pagar ahora/ }).click();
       await expect(page.getByText("Pago recibido. ¡Gracias!")).toBeVisible();
@@ -184,51 +186,10 @@ test.describe.serial("Pagos", () => {
     }
   });
 
-  test("DAC7: datos fiscales de la creadora e informe para la asesoría", async ({ page }) => {
-    const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
-    try {
-      await demoLogin(page, "Ana Luna");
-      await page.goto("/panel");
-      await expect(page.getByText("Completa tus datos fiscales")).toBeVisible();
-      await page.goto("/panel/ajustes/cobros");
-      await page.fill("#iban", "ES00 1234");
-      await page.getByRole("button", { name: "Guardar datos fiscales" }).click();
-      await expect(page.getByText(/Revisa el IBAN/)).toBeVisible();
-      await page.fill("#iban", "ES91 2100 0418 4502 0005 1332");
-      await page.fill("#birthDate", "1990-05-20");
-      await page.getByLabel("Confirmo que mis datos fiscales son correctos").check();
-      await page.getByRole("button", { name: "Guardar datos fiscales" }).click();
-      await expect(page.getByText("Datos fiscales guardados")).toBeVisible();
-      await expect(page.getByText("ES91 •••• •••• 1332").first()).toBeVisible();
-      await expect(page.getByText("2100 0418 4502")).toHaveCount(0);
-
-      await page.context().clearCookies();
-      await demoLogin(page, "Superadmin");
-      const year = new Date().getFullYear();
-      await page.goto(`/admin/reportes/dac7?anio=${year}`);
-      await expect(page.getByRole("heading", { name: `DAC7 · ${year}` })).toBeVisible();
-      const row = page.locator("tr", { hasText: "@ana" });
-      await expect(row).toBeVisible();
-      // Con la identidad legal del seed y el IBAN, la fecha y la confirmación de arriba, ya están completos.
-      await expect(row.getByText("Completos")).toBeVisible();
-      const csv = await page.request.get(`/admin/reportes/dac7/csv?anio=${year}`);
-      expect(csv.status()).toBe(200);
-      expect(csv.headers()["content-type"]).toContain("text/csv");
-      const header = (await csv.text()).split("\n")[0];
-      expect(header).toContain("nif");
-      expect(header).toContain("iban");
-      await page.goto("/admin/creadoras");
-      await expect(page.getByText(/Cobros:/)).toBeVisible();
-      await expect(page.locator("th", { hasText: "Cobros" })).toHaveCount(1);
-    } finally {
-      await prisma.creator.update({ where: { id: ana.id }, data: { iban: ana.iban, birthDate: ana.birthDate, dac7ConfirmedAt: ana.dac7ConfirmedAt } });
-    }
-  });
-
   test("rutas de cada pasarela: sin webhook de Stripe con el simulador y simulador solo con sesión", async ({ page, request }) => {
     const webhook = await request.post("/api/webhooks/stripe", { data: "{}", headers: { "stripe-signature": "t=1,v1=x" } });
     expect(webhook.status()).toBe(404);
-    await page.goto("/pago-simulado/cuenta");
-    await page.waitForURL("**/entrar**");
+    await page.goto("/test-payment/account");
+    await page.waitForURL("**/login**");
   });
 });

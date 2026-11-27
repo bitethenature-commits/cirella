@@ -1,11 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { blockMembership, renewMembership } from "@/lib/membership-renewal";
 import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { CREATOR_REFUND_REASONS, parseRefundAmount, refundableCents } from "@/lib/refund-math";
 import { refundOrder } from "@/lib/refunds";
+import { deleteOrderHard } from "@/lib/hard-delete";
 import { tenantDb } from "@/lib/tenant";
 
 export type RefundState = { ok?: string; error?: string } | undefined;
@@ -14,7 +17,7 @@ const refundSchema = z.object({
   orderId: z.string().min(1),
   mode: z.enum(["full", "partial"]),
   amount: z.string().max(20).optional(),
-  reason: z.enum(CREATOR_REFUND_REASONS, { errorMap: () => ({ message: "Elige un motivo" }) }),
+  reason: z.enum(CREATOR_REFUND_REASONS, { error: "Elige un motivo" }),
   note: z.string().trim().max(500, "El mensaje es demasiado largo (máx. 500 caracteres)").optional(),
   revoke: z.literal("on").optional(),
 });
@@ -47,7 +50,7 @@ export async function refundOrderAction(_: RefundState, form: FormData): Promise
     revokeAccess: revoke,
     cancelBooking: revoke && order.productType === "SESSION",
   });
-  for (const path of ["/panel", "/panel/ventas", `/panel/ventas/${order.id}`, "/panel/reservas"]) revalidatePath(path);
+  for (const path of ["/panel", "/panel/ventas", `/panel/ventas/${order.id}`, "/panel/clientes"]) revalidatePath(path);
   if (!r.ok) return { error: r.error };
   const name = (order.buyerName ?? order.buyerEmail).split(" ")[0];
   return {
@@ -56,4 +59,47 @@ export async function refundOrderAction(_: RefundState, form: FormData): Promise
         ? `Reembolso de ${formatMoney(r.amountCents, order.currency, { decimals: true })} completado. Hemos avisado a ${name}.`
         : "Reembolso en curso. Te avisaremos si la pasarela lo rechaza.",
   };
+}
+
+/** Vuelve a Inscripciones con el mismo filtro y un aviso. */
+function backToSignups(form: FormData, ok: string): never {
+  const back = String(form.get("back") ?? "");
+  const safe = (back.startsWith("/panel/ventas") || back.startsWith("/panel/clientes")) && !back.startsWith("//");
+  const url = new URL(safe ? back : "/panel/clientes", "http://x");
+  url.searchParams.set("ok", ok);
+  redirect(`${url.pathname}${url.search}`);
+}
+
+/** «Ha pagado» en Inscripciones: otro periodo más de la membresía (lib/membership-renewal.ts). */
+export async function renewSignupMember(form: FormData) {
+  const { creator } = await requireCreator();
+  const until = await renewMembership(creator.id, String(form.get("accessId") ?? ""));
+  for (const path of ["/panel/ventas", "/panel/clientes", "/panel/comunidad"]) revalidatePath(path);
+  backToSignups(form, `Renovada hasta el ${until}. Le hemos enviado un email.`);
+}
+
+/** «Denegar acceso» en Inscripciones: no ha pagado, se bloquea ya (con «Ha pagado» vuelve a entrar). */
+export async function denySignupMember(form: FormData) {
+  const { creator } = await requireCreator();
+  await blockMembership(creator.id, String(form.get("accessId") ?? ""));
+  for (const path of ["/panel/ventas", "/panel/clientes", "/panel/comunidad"]) revalidatePath(path);
+  backToSignups(form, "Acceso denegado. Si paga, pulsa «Ha pagado» y vuelve a entrar.");
+}
+
+/** Vuelta segura después de borrar: solo a una página del panel. */
+const backTo = (raw: FormDataEntryValue | null, fallback: string) => {
+  const s = String(raw ?? "");
+  return s.startsWith("/panel/") && !s.startsWith("//") ? s : fallback;
+};
+
+/**
+ * «Borrar» una venta, inscripción o solicitud: se va con sus cobros, reservas y acceso (quien la
+ * tenía deja de entrar). No se puede deshacer (lib/hard-delete.ts).
+ */
+export async function deleteOrderAction(form: FormData) {
+  const { creator } = await requireCreator();
+  const id = z.string().min(1).max(40).parse(form.get("id"));
+  await deleteOrderHard(creator.id, id);
+  for (const p of ["/panel/ventas", "/panel/clientes", "/panel/sesiones", "/panel/cursos", "/panel/circulos", "/panel/comunidad", "/panel"]) revalidatePath(p);
+  redirect(backTo(form.get("back"), `/panel/ventas?ok=${encodeURIComponent("Borrada.")}`));
 }

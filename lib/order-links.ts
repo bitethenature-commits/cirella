@@ -24,9 +24,9 @@ export async function createOrderLink(input: { orderId: string; path: string; va
   const token = randomBytes(32).toString("base64url");
   const expiresAt = addDays(input.validFrom ?? new Date(), ORDER_LINK_DAYS);
   await prisma.orderLink.create({
-    data: { tokenHash: hashToken(token), orderId: input.orderId, path: safeNext(input.path, `/cuenta/pedidos/${input.orderId}`), expiresAt },
+    data: { tokenHash: hashToken(token), orderId: input.orderId, path: safeNext(input.path, `/area/orders/${input.orderId}`), expiresAt },
   });
-  return { url: `${appUrl()}/auth/enlace?t=${token}`, expiresAt };
+  return { url: `${appUrl()}/auth/link?t=${token}`, expiresAt };
 }
 
 export type ResolvedOrderLink =

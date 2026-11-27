@@ -1,7 +1,9 @@
 # Tu web personal con Cirella («modo personal»)
 
 Esta guía es para poner Cirella en internet **solo para ti**: una única web, tu enlace de la bio,
-sin comisiones, sin planes, sin IVA y sin cobros dentro de la web. Está escrita para hacerla sin
+sin comisiones ni planes. Primero la publicas sin cobros dentro de la web y, cuando quieras,
+activas los cobros con tarjeta (Stripe) y PayPal con tus propias cuentas
+([cobros-stripe-paypal.md](cobros-stripe-paypal.md)). Está escrita para hacerla sin
 saber programar. Calcula **una tarde** la primera vez y ve paso a paso: cada apartado termina
 con una comprobación para que sepas que va bien.
 
@@ -18,17 +20,24 @@ con una comprobación para que sepas que va bien.
   descuento. Es el enlace que pones en Instagram, TikTok o Telegram.
 - **Cursos y contenidos gratis con email**: la persona deja su nombre y su email, entra al
   momento y le llega un email con su enlace de acceso.
-- **Productos de pago que se cobran fuera** (Hotmart, PayPal, Bizum, Calendly…): la ficha
+- **Cobros en tu web con tarjeta y PayPal** (cuando los actives, con tus cuentas de Stripe y
+  PayPal): cursos, descargas, lecturas con fecha y membresías que se pagan aquí y se desbloquean
+  solas, con su email, renovaciones y reembolsos ([cobros-stripe-paypal.md](cobros-stripe-paypal.md)).
+- **Productos de pago que se cobran fuera** (Hotmart, Calendly…): la ficha
   enseña el precio y un botón que lleva a esa web. Si el contenido está alojado aquí (por ejemplo
   un curso), desde tu panel le das acceso a quien te haya pagado.
-- **Publicaciones con fecha** (novedades, tipo blog) y **códigos de descuento** de otras marcas,
-  con botón «Copiar código».
+- **Publicaciones con fecha** («Actualidades», tipo blog, con vídeo o audio y un botón), un
+  **Portal de Noticias** gratis para tus suscriptoras, **ofertas** con fecha, tu **comunidad en
+  niveles** y **códigos de descuento** de otras marcas, con botón «Copiar código».
+- **Tu propia newsletter** (sin MailerLite ni nada aparte): formulario en tu página, lista de
+  suscriptoras con doble confirmación, campañas con un editor visual, y los emails automáticos
+  (bienvenida, compra, recordatorios…) escritos con tus palabras ([Tu newsletter](#tu-newsletter)).
 - **Tu panel** (`/panel`) para gestionarlo todo desde el móvil, y una **administración** mínima
   (`/admin`) para ver si algún email no ha llegado.
 
-Lo que **no** hay en modo personal: registro de otras creadoras, planes, comisiones, IVA,
-facturas, Stripe, el «Powered by Cirella» ni las páginas legales de la plataforma. Tu web enseña
-tu nombre (el de tu página) en todas partes.
+Lo que **no** hay en modo personal: registro de otras creadoras, planes, comisiones de la web,
+el «Powered by Cirella» ni las páginas legales de la plataforma. Tu web enseña tu nombre (el de tu
+página) en todas partes. El IVA y las facturas solo aparecen si activas los cobros en tu web.
 
 ---
 
@@ -61,13 +70,44 @@ de unos 200 MB son unos 100 GB, alrededor de 1,5 $ al mes.
    cuantos valores (direcciones, claves); apúntalos ahí con su nombre en MAYÚSCULAS tal y como
    aparecen en esta guía. **No los compartas ni los pegues en ningún sitio público.**
 2. Decide tu **usuario**: una palabra en minúsculas, sin espacios ni acentos (por ejemplo
-   `analuna`). Es interno: tus productos estarán en `tudominio.com/analuna/nombre-del-producto`.
+   `cirella`). Es interno: tus productos estarán en `tudominio.com/cirella/nombre-del-producto`.
    En esta guía lo llamamos `OWNER_USERNAME`.
 3. Ten a mano tu **dominio**. Si aún no tienes, cómpralo en cualquier proveedor de dominios.
 4. Crea una cuenta en **GitHub** (github.com) si no tienes. La persona que tiene el código de
    Cirella te lo pasará a tu cuenta (un *fork* o una copia del repositorio). Railway lo leerá de
-   ahí.
+   ahí. La copia tiene que incluir la rama **`main`**: si haces un *fork*, quita la marca de
+   «Copy the … branch only» (o pide a quien te pasa el código que ponga `main` como rama
+   principal antes).
 5. Ten a mano una **tarjeta**: Railway y Cloudflare te la pedirán al darte de alta.
+
+---
+
+## Atajo: publícala primero sin dominio
+
+Si aún no tienes dominio, o quieres verla funcionando antes de decidir, puedes publicarla en una
+dirección gratuita de Railway (`algo.up.railway.app`) y añadir tu dominio más adelante. Sigue los
+pasos normales con estos cambios:
+
+- **Paso 1 (R2):** deja la regla CORS para el final del paso 5, cuando sepas tu dirección de
+  Railway, y pon esa en `AllowedOrigins` (por ejemplo `"https://mi-web.up.railway.app"`).
+- **Paso 2 (Resend):** crea la cuenta **con tu email** y salta lo del dominio (puntos 2 y 3). Crea
+  la clave (punto 4) y usa este remitente, que funciona sin dominio:
+  `EMAIL_FROM="Tu Nombre <onboarding@resend.dev>"`. Mientras no verifiques un dominio, Resend solo
+  entrega emails **a tu propio email** (el de tu cuenta de Resend): pon ese en `OWNER_EMAIL`. Tú
+  podrás entrar y probarlo todo; los emails a otras personas (por ejemplo, el de acceso a un curso
+  gratis) no saldrán hasta que pongas el dominio.
+- **Paso 5 (Railway):** antes de conectar el código, en **Settings → Networking** pulsa
+  **Generate Domain** y copia la dirección que te da: es tu `APP_URL`
+  (`https://mi-web.up.railway.app`, sin barra al final). Si todavía no te deja generarla, conecta
+  el código igualmente, genérala, pon `APP_URL` y pulsa **Deploy** otra vez.
+- **Salta el paso 6 (dominio)** y, si quieres, el 9 (copias) hasta que la uses de verdad. El paso 8
+  (tareas automáticas) hazlo igualmente: son dos minutos.
+- En todos los pasos, donde ponga `https://tudominio.com` usa tu dirección de Railway.
+
+**Cuando tengas dominio:** haz el paso 6, verifica el dominio en Resend (paso 2, puntos 2 y 3) y
+cambia en Railway `APP_URL` por `https://tudominio.com` y `EMAIL_FROM` por un remitente de tu
+dominio; en R2 añade el dominio a la regla CORS, y en cron-job.org cambia la dirección. Pulsa
+**Deploy** y listo: tu contenido sigue ahí.
 
 ---
 
@@ -97,6 +137,9 @@ de unos 200 MB son unos 100 GB, alrededor de 1,5 $ al mes.
    Sin esto, las fotos y archivos no se podrán subir desde tu panel.
 6. En **Settings → Object lifecycle rules → Add rule**: prefijo `incoming/`, borrar a **1 día**
    (son fotos que se empezaron a subir y no se terminaron).
+   Añade otra regla, sin prefijo: **Abort incomplete multipart uploads** a **1 día** (los vídeos
+   grandes se suben por partes; si una subida se corta y no se reintenta, sus partes se borran
+   solas). La regla CORS de arriba no cambia: las partes también se suben con `PUT`.
 7. No actives el acceso público del bucket: la web sirve las imágenes ella misma.
 
 En el paso 9 crearás un segundo bucket, solo para las copias de seguridad.
@@ -117,7 +160,7 @@ En el paso 9 crearás un segundo bucket, solo para las copias de seguridad.
 4. **API Keys → Create API Key** (permiso *Sending access*). Apunta la clave como
    **`RESEND_API_KEY`** (empieza por `re_`).
 5. Decide el remitente de tus emails y apúntalo como **`EMAIL_FROM`**, con tu nombre y una
-   dirección de tu dominio, así: `Ana Luna <hola@tudominio.com>`.
+   dirección de tu dominio, así: `Cirella <hola@tudominio.com>`.
 
 **Comprobación:** el dominio aparece como **Verified** en Resend.
 
@@ -157,8 +200,8 @@ caracteres cada una.
    pendientes, pulsa su botón **Deploy** para aplicarlos.
 
 **Comprobación:** en tu proyecto está el servicio **Postgres** y, en su pestaña **Variables**,
-aparecen (entre otras) `DATABASE_URL` y `DATABASE_PUBLIC_URL`. No hace falta copiarlas ahora:
-la web leerá la primera por su nombre, y la segunda la usarás en el paso 7.
+aparecen (entre otras) `DATABASE_URL` y `DATABASE_PUBLIC_URL`. No hace falta copiarlas: la web
+leerá la primera por su nombre (la segunda solo hace falta para la alternativa del paso 7).
 
 ---
 
@@ -173,14 +216,16 @@ se conecta el código.
    nombre a `web`.
 2. Abre su pestaña **Variables**, pulsa **Raw Editor** (para pegarlas todas de una vez) y pega
    este bloque. Antes, cambia cada `PEGA_AQUI_…` por el valor que apuntaste con ese nombre, y
-   `tudominio.com`, `analuna`, `Ana Luna` y `mi-web-archivos` por los tuyos. Deja las comillas
+   `tudominio.com`, `cirella`, `tu@email.com`, `Cirella` y `mi-web-archivos` por los tuyos. Deja las comillas
    y no toques las líneas de `DATABASE_URL` y `DIRECT_URL`. Después, guarda.
 
    ```bash
    APP_ENV="production"
    APP_URL="https://tudominio.com"
    SITE_MODE="personal"
-   OWNER_USERNAME="analuna"
+   OWNER_USERNAME="cirella"
+   OWNER_EMAIL="tu@email.com"
+   OWNER_NAME="Cirella"
    PAYMENT_PROVIDER="none"
    DEMO_MODE="false"
    DATABASE_URL="${{Postgres.DATABASE_URL}}"
@@ -189,7 +234,7 @@ se conecta el código.
    CRON_SECRET="PEGA_AQUI_TU_CRON_SECRET"
    EMAIL_PROVIDER="resend"
    RESEND_API_KEY="PEGA_AQUI_TU_RESEND_API_KEY"
-   EMAIL_FROM="Ana Luna <hola@tudominio.com>"
+   EMAIL_FROM="Cirella <hola@tudominio.com>"
    STORAGE_DRIVER="s3"
    S3_ENDPOINT="PEGA_AQUI_TU_S3_ENDPOINT"
    S3_BUCKET="mi-web-archivos"
@@ -205,8 +250,10 @@ se conecta el código.
    | `APP_ENV` | `production` |
    | `APP_URL` | `https://tudominio.com`: tu dominio de verdad, sin barra al final |
    | `SITE_MODE` | `personal` |
-   | `OWNER_USERNAME` | tu usuario (paso «Antes de empezar»), p. ej. `analuna` |
-   | `PAYMENT_PROVIDER` | `none` |
+   | `OWNER_USERNAME` | tu usuario (paso «Antes de empezar»), p. ej. `cirella` |
+   | `OWNER_EMAIL` | tu email: con él entrarás en tu panel (paso 7) |
+   | `OWNER_NAME` | tu nombre, el que se verá en tu página (lo puedes cambiar después) |
+   | `PAYMENT_PROVIDER` | `none` (sin cobros en la web; cuando tengas Stripe y PayPal, `stripe,paypal`: ver [cobros-stripe-paypal.md](cobros-stripe-paypal.md)) |
    | `DEMO_MODE` | `false` |
    | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}`, escrito tal cual |
    | `DIRECT_URL` | `${{Postgres.DATABASE_URL}}`, la misma |
@@ -214,7 +261,7 @@ se conecta el código.
    | `CRON_SECRET` | la segunda clave del paso 3 |
    | `EMAIL_PROVIDER` | `resend` |
    | `RESEND_API_KEY` | la de Resend (paso 2) |
-   | `EMAIL_FROM` | p. ej. `Ana Luna <hola@tudominio.com>` |
+   | `EMAIL_FROM` | p. ej. `Cirella <hola@tudominio.com>` |
    | `STORAGE_DRIVER` | `s3` |
    | `S3_ENDPOINT` | la de R2 con `.eu.` (paso 1) |
    | `S3_BUCKET` | el nombre del bucket (paso 1) |
@@ -229,7 +276,8 @@ se conecta el código.
    - `CLIENT_IP_HEADER` le dice a la web dónde mira Railway la dirección (IP) de cada visita;
      Railway la pone siempre él mismo, así que nadie la puede falsear. Sirve para frenar a
      quien intente adivinar contraseñas.
-   - No hacen falta las claves de Stripe ni de Turnstile.
+   - Con `PAYMENT_PROVIDER="none"` no hacen falta las claves de Stripe, PayPal ni Turnstile. Los
+     cobros se activan después, cuando quieras ([cobros-stripe-paypal.md](cobros-stripe-paypal.md)).
    - El archivo `vercel.json` que hay en el código es para otro hosting: Railway no lo usa y no
      hay que tocarlo.
 
@@ -254,8 +302,9 @@ se conecta el código.
 
    Si los puntos 3 o 4 no te aparecen todavía, hazlos justo después del siguiente.
 5. En **Settings → Source**, conecta tu repositorio de GitHub (el de Cirella) y comprueba que la
-   rama es **`main`**. Si Railway te pide permiso para ver tus repositorios de GitHub, dáselo
-   (basta con el de Cirella).
+   rama es **`main`** (si no aparece, tu copia no la tiene: mira el punto 4 de «Antes de
+   empezar»). Si Railway te pide permiso para ver tus repositorios de GitHub, dáselo (basta con
+   el de Cirella).
 
    Railway solo publica esa rama: cada vez que cambie en GitHub, vuelve a publicar la web él
    solo. Lo que se pruebe en otras ramas no se publica ni toca tu base de datos.
@@ -272,8 +321,8 @@ se conecta el código.
 **Comprobación:** en **Deployments**, el último despliegue sale en verde. Abre
 `https://<tu-dirección>.up.railway.app/api/health`: tiene que poner `"db":"ok"` (la web habla
 con la base de datos). De momento verás también `"ok":false` y `"retrasado"`: es normal hasta
-el paso 8. Si abres esa dirección sin más, verás una página de «no encontrada»: también es
-normal, tu cuenta todavía no existe (paso 7).
+el paso 8. Si abres esa dirección sin más, verás tu página, todavía con el contenido de ejemplo
+(en el registro del despliegue sale «✓ Cuenta de tu@email.com y página … creadas y publicadas»).
 
 Si el despliegue sale en rojo, ábrelo en **Deployments → View logs**: al final del registro
 está qué variable revisar. Corrígela en **Variables** y pulsa **Deploy** otra vez.
@@ -317,11 +366,33 @@ con tu contraseña, porque para el navegador son dos webs distintas.)
 
 ---
 
-## Paso 7 · Crear tu cuenta
+## Paso 7 · Entrar por primera vez
 
-Esto se hace **una vez**, desde tu ordenador. Crea tu usuario (con tu contraseña), te hace
-administradora, crea tu página publicada y te pone el plan «Personal» (comisión 0 y todas las
-funciones). Se puede repetir sin miedo: no duplica nada (sirve también para cambiar la contraseña).
+No tienes que instalar nada: tu cuenta se crea sola en el primer despliegue (con `OWNER_EMAIL` y
+`OWNER_NAME` del paso 5). Eres la administradora, tu página está publicada y tienes el plan
+«Personal» (comisión 0 y todas las funciones). Los despliegues siguientes ya no la tocan.
+
+1. Abre `https://tudominio.com/entrar` y pulsa **«Pide un enlace para entrar»**.
+2. Escribe tu email (el de `OWNER_EMAIL`) y abre el email que te llega: el botón te deja dentro
+   de tu panel.
+3. Si quieres entrar también con contraseña: **Ajustes → Contraseña → Crear contraseña**.
+4. Recomendado: activa la **verificación en dos pasos** (**Ajustes → Seguridad**), un código de
+   tu móvil además de la contraseña o del enlace. Cómo se configura en el iPhone y qué hacer si
+   pierdes el móvil: [seguridad-dos-pasos.md](seguridad-dos-pasos.md).
+
+**Comprobación:** estás en tu panel y tu página se ve en `https://tudominio.com` (todavía con
+el contenido de ejemplo: en el paso 10 la preparas).
+
+> El usuario de tu página es el de `OWNER_USERNAME` y no se cambia desde el panel. Si algún día
+> quieres otro, cámbialo en Railway (servicio **web** → **Variables**) y pulsa **Deploy**: con
+> `OWNER_EMAIL` puesto, tu página pasa al usuario nuevo con todo su contenido. Los enlaces a tus
+> productos cambian (`tudominio.com/<usuario nuevo>/…`): actualiza los que tengas compartidos.
+
+<details>
+<summary>Alternativa: crear la cuenta desde tu ordenador (con contraseña)</summary>
+
+Solo si prefieres no usar `OWNER_EMAIL`. Sirve también para cambiar la contraseña si no puedes
+entrar por email.
 
 1. Instala **Node.js** (versión «LTS») desde [nodejs.org](https://nodejs.org).
 2. Descarga el código: en GitHub, en tu repositorio, botón verde **Code → Download ZIP**.
@@ -329,21 +400,28 @@ funciones). Se puede repetir sin miedo: no duplica nada (sirve también para cam
 3. En Railway, abre **Postgres → Variables** y copia el valor de **`DATABASE_PUBLIC_URL`**. Es
    la dirección de tu base de datos para conectarte desde fuera de Railway (la otra,
    `DATABASE_URL`, solo funciona dentro de Railway).
-4. Dentro de la carpeta del código crea un archivo de texto llamado exactamente **`.env`** (con
-   el punto delante, sin `.txt` al final; en el Bloc de notas de Windows, *Guardar como* → tipo
-   *Todos los archivos*) con estas cinco líneas, con tus valores:
+4. Abre una terminal en la carpeta del código (Mac: clic derecho sobre la carpeta → *Nuevo
+   terminal en la carpeta*; Windows: dentro de la carpeta, escribe `cmd` en la barra de
+   direcciones y pulsa Intro).
+5. Crea en esa carpeta un archivo de texto llamado exactamente **`.env`** (con el punto delante y
+   nada detrás):
+   - **Mac**: en la terminal escribe `touch .env && open -e .env`. Se abre vacío en TextEdit, ya
+     como texto simple.
+   - **Windows**: en la terminal escribe `notepad .env` y di que sí cuando pregunte si quieres
+     crearlo.
+
+   **Pega** (no lo escribas a mano: TextEdit cambia las comillas) estas cinco líneas, cambia los
+   valores por los tuyos y guarda (Cmd+S o Ctrl+S):
 
    ```bash
    DATABASE_URL="la DATABASE_PUBLIC_URL de Railway"
    DIRECT_URL="la DATABASE_PUBLIC_URL de Railway (otra vez la misma)"
    SITE_MODE="personal"
-   OWNER_USERNAME="analuna"
+   OWNER_USERNAME="cirella"
    APP_URL="https://tudominio.com"
    ```
 
-5. Abre una terminal en esa carpeta (Mac: clic derecho sobre la carpeta → *Nuevo terminal en la
-   carpeta*; Windows: dentro de la carpeta, escribe `cmd` en la barra de direcciones y pulsa
-   Intro) y escribe:
+6. En la misma terminal escribe:
 
    ```bash
    npm install
@@ -352,16 +430,10 @@ funciones). Se puede repetir sin miedo: no duplica nada (sirve también para cam
 
    Te pedirá una **contraseña** (mínimo 8 caracteres) dos veces. Mientras la escribes no se ve
    nada en la pantalla: es normal.
-6. Verás tres líneas con ✓. **Borra el archivo `.env`** de tu ordenador cuando termines (tiene la
-   dirección de tu base de datos).
+7. Verás tres líneas con ✓. **Borra el archivo `.env`** cuando termines (tiene la dirección de tu
+   base de datos): en la misma terminal, `rm .env` en Mac o `del .env` en Windows.
 
-**Comprobación:** entra en `https://tudominio.com/entrar` con tu email y tu contraseña. Llegas a
-tu panel. Tu página ya se ve en `https://tudominio.com`.
-
-> El usuario de tu página es el de `OWNER_USERNAME` y no se cambia desde el panel. Si algún día
-> quieres otro, cambia la variable en Railway (servicio **web** → **Variables**), vuelve a
-> ejecutar este paso con el mismo email (y el usuario nuevo en tu `.env`) y pulsa **Deploy** en
-> la barra de cambios pendientes: Railway vuelve a publicar la web.
+</details>
 
 ---
 
@@ -442,9 +514,15 @@ servicio en Railway → **Deployments → View logs**: el registro dice qué fal
 clave o la versión de `PG_VERSION`).
 
 **Restaurar una copia** es una tarea técnica. Si algún día hace falta, quien te ayude descarga
-ese archivo y lo vuelca en la base de datos con `pg_restore` o `psql`, usando tu
-`DATABASE_PUBLIC_URL`. Tiene más detalle en «Copias de seguridad» de
-[despliegue.md](despliegue.md).
+de `mi-web-copias` el archivo `.tar.gz` del día que quieras, lo descomprime y lo vuelca con un
+`pg_restore` de la misma versión que tu Postgres (o más nueva), usando tu `DATABASE_PUBLIC_URL`:
+
+```bash
+gunzip backup-….tar.gz
+pg_restore --clean --if-exists --no-owner -d "tu DATABASE_PUBLIC_URL" backup-….tar
+```
+
+(La copia es un `pg_dump` en formato *tar*: con `psql` no se puede restaurar.)
 
 ---
 
@@ -456,10 +534,11 @@ Desde tu panel (`https://tudominio.com/panel`, también en el móvil):
    con actividad profesional y sale en tu **aviso legal y privacidad**
    (`tudominio.com/<tu usuario>/legal`), que se enlaza en el pie de tu página. La privacidad
    parte de una plantilla que puedes adaptar; revísala con tu asesoría.
-2. **Mi página**: foto, nombre, frase, enlaces, redes, bloques de texto (sobre mí, servicios…) y
-   el diseño. El nombre de tu página es el que se ve en el login, el panel y los emails. Al
+2. **Mi página**: foto, nombre, frase, enlaces, redes, bloques (textos, imágenes, galerías y
+   vídeos; ver «Tu página: imágenes de Canva, vídeos y páginas extra») y el diseño. El nombre de tu página es el que se ve en el login, el panel y los emails. Al
    pulsar **Publicar** también pasa a la página «no encontrada» (la que sale si alguien escribe
-   mal una dirección).
+   mal una dirección). Tras cada actualización de la web, esa página se pone al día sola en
+   unos minutos (con las tareas automáticas del paso 8).
 3. **Productos**: elige cómo se consigue cada uno:
    - **Gratis con email**: un curso, una guía, una meditación… La persona deja su nombre y su
      email y entra al momento. Hasta que completes el punto 1 (datos legales) el formulario no
@@ -479,7 +558,344 @@ Desde tu panel (`https://tudominio.com/panel`, también en el móvil):
 tu página como la verá cualquiera. Apúntate a un producto gratis con otro email tuyo: te llega
 el email con el enlace de acceso.
 
+### Tus lecturas y tu calendario
+
+Con los cobros activados, tus sesiones se reservan y se pagan en tu web, con tu propio calendario:
+no hace falta Calendly ni Google Calendar. Tú trabajas con tu enlace de Zoom y todo se avisa por email.
+
+1. **Tu horario** (**Reservas → Tu horario**): las franjas de cada día de la semana y tu zona
+   horaria. Si viajas, en **Fechas especiales** pon desde qué día hasta cuál trabajas y en qué
+   horas, en la zona del sitio donde estés («de 9:00 a 13:00, hora de Bali»): esos días no se usa
+   tu horario semanal. Para unas vacaciones, **Bloquear días** (desde–hasta); para un médico,
+   **Bloquear unas horas**. Si tu móvil está en otra zona, el panel te lo recuerda.
+2. **Tu enlace de Zoom**: en la app de Zoom, **Reuniones → tu sala personal → Copiar
+   invitación**, y pega solo el enlace (`https://…zoom.us/j/…`) en cada sesión (**Productos →
+   la sesión → Enlace de Zoom**). Le llega a tu clienta con la confirmación y los recordatorios.
+   En cada reserva puedes poner otro y marcar «Avisar por email».
+3. **Datos de nacimiento**: en cada sesión o lectura, **Datos que pides**: fecha, hora y lugar de
+   nacimiento (no / opcional / obligatorio) y hasta 8 preguntas tuyas. Se piden al pagar; tu
+   clienta los puede corregir desde su área y tú los ves en la reserva con **Copiar** (para tu
+   programa de astrología). Si tu texto de privacidad es personalizado, añade que los pides.
+4. **Cuánto por delante**: en cada sesión, **Se puede reservar hasta** (2 semanas a 6 meses).
+5. **Dar una sesión** (**Reservas → Dar una sesión o lectura**): para un regalo o algo que te
+   pagaron por Bizum o transferencia (la factura la emites tú). Elige un hueco de tu agenda,
+   cualquier otra hora o «que la elija ella». Le llega el email con su enlace.
+6. **Enviar una lectura grabada**: en la reserva, **Enviar la grabación** (o en **Reservas →
+   Lecturas por entregar**). Sube el audio o el vídeo desde **Fotos** o **Archivos** del iPhone
+   (hasta 4 GB; no cierres la pantalla mientras sube), escribe un mensaje y pulsa **Enviar**. Tu
+   clienta la escucha en su área y le llega «Tu lectura está lista».
+7. **Talleres**: **Productos → Nuevo → Taller en directo**: fecha, hora, plazas y Zoom. Ves las
+   asistentes en el producto; después sube la grabación y pulsa **Avisar de la grabación**.
+8. **Avisos** (**Automatizaciones**): «Aviso de reservas» (te avisa de cada reserva, cambio de
+   fecha y datos nuevos) y «Segundo recordatorio» (60 minutos antes, con el Zoom) vienen
+   activados; puedes cambiar los minutos o desactivarlos.
+
+9. **El calendario** (arriba en **Reservas**): el mes en tu zona horaria con lo que hay cada día
+   (sesiones, talleres, tus notas, días y horas bloqueados) y el cielo: lunas nuevas 🌑 y llenas 🌕,
+   eclipses, conjunciones ☌ (Sol, Luna, planetas, Quirón, Ceres, Palas, Juno, Vesta, Eris, Nodo
+   Norte medio y Lilith media) y cuando un planeta se pone retrógrado o directo ℞. Toca un día para
+   ver todo con la hora, el signo y el grado, lo que va retrógrado y dónde está cada cosa («Hoy en
+   el cielo»), y para escribir tu nota del día (se guarda sola; solo la ves tú). Las conjunciones de
+   la Luna y las estaciones de los asteroides solo salen al abrir el día. Con **Qué mostrar**
+   (Planetas · Luna · Asteroides · Puntos) escondes lo que no quieras ver; se recuerda en ese móvil
+   u ordenador.
+
+Mientras una clienta está pagando en Stripe o PayPal, esa hora queda guardada (hasta unos 30
+minutos): así dos personas no pagan la misma hora. Si el pago falla, la hora vuelve a estar libre.
+
+### Tu página: imágenes de Canva, vídeos y páginas extra
+
+En **Mi página → Bloques** (y en cada página extra) añades, en el orden que quieras:
+
+- **Imagen**: un gráfico de Canva (**Compartir → Descargar → PNG**, mejor de 1080 px de ancho o
+  más). En «Descripción de la imagen» escribe el texto que sale en el gráfico: así lo leen Google
+  y quien usa lector de pantalla. Si no le pones enlace, al tocarla se abre en grande para leerla.
+- **Galería**: hasta 12 imágenes, en carrusel (se desliza) o en cuadrícula.
+- **Vídeo**: súbelo desde Fotos o Archivos (MP4 o MOV hasta 1 GB) o pega un enlace de YouTube o
+  Vimeo. Para un vídeo de bienvenida: menos de 2 minutos, el iPhone en **Más compatible** y
+  exportado a **1080p**. La portada sale sola de un fotograma; puedes cambiarla. Nunca se
+  reproduce solo: tu página abre rápido desde Instagram.
+
+**Páginas extra** (**Páginas → Nueva página**): «Sobre mí», «Preguntas frecuentes» o en blanco,
+con los mismos bloques. Cada una tiene su dirección (por ejemplo `tudominio.com/sobre-mi`, en
+**Ajustes** con «Copiar enlace»), su borrador y su **Publicar**. Las publicadas salen en el pie de
+tu web; con **«Añadir un botón a esta página en mi portada»** sale también arriba, entre tus
+botones. Pega `tudominio.com/sobre-mi` en tu bio o en una historia.
+
+**Modelo interactivo** («Añadir modelo interactivo» en los bloques): elige **Carta natal**,
+**Bodygraph (Human Design)**, **Gene Keys (perfil hologenético)**, **Ciclo lunar y calendario** o
+**Filosofía · geometría sagrada**, con un título y una frase opcionales. Quien visita tu página lo
+toca y se explica solo (también en el móvil); se carga aparte, así que no hace más lenta la página.
+El ciclo lunar usa el cielo real (fase de hoy, signo y próximas lunas). La geometría sagrada es una
+figura a trazo fino detrás de tu frase (eneagrama, cubo de Metatrón, flor de la vida…). Con
+«reducir movimiento» activado en el teléfono, nada se anima.
+
+### Tu portada: accesos, actualidades, portal, ofertas y más
+
+Tu portada, de arriba abajo (cada sección se puede mover u ocultar en **Mi página → Secciones**):
+tu presentación (portada, foto, nombre, frase y redes, como siempre), los **botones principales**
+(si los quieres), los **Accesos**, **Actualidades**, el **Portal de Noticias**, **Ofertas**, la
+tarjeta **Sobre mí**, **Sistemas con los que trabajo**, **Lecturas, sesiones y círculos**,
+**Cursos**, **Códigos de descuento** y, al final, testimonios, preguntas frecuentes, newsletter y
+contacto. Lo que no tiene contenido no se ve.
+
+- **Accesos** (**Mi página → Accesos y tarjetas**): de 1 a 4 burbujas redondas con foto, en una fila
+  también en el móvil. Por ejemplo «Sobre mí», «Cursos» (`/cursos`) y «Hacerte miembro»
+  (`/comunidad`). En el mismo sitio editas la tarjeta **Sobre mí** (foto a la derecha, título y texto
+  a la izquierda; toda la tarjeta lleva a tu página «Sobre mí»), los **Sistemas** (cada uno con su
+  foto, un texto corto y el enlace a su página: créala en **Páginas**) y los textos y pasos de
+  **Lecturas** y **Sesiones**.
+- **Actualidades** (antes «Novedades»; **Panel → Publicaciones**): tus 2 últimas salen en la portada
+  como tarjetas con la fecha en grande; «Ver todas» lleva a `tudominio.com/actualidades`, agrupadas
+  por meses. Cada publicación puede llevar un **vídeo o un audio** (súbelo o pega un enlace de YouTube
+  o Vimeo) y un **botón** a un producto, una página o una web, con un **código de descuento** al lado.
+  Las direcciones de antes (`/novedades`) llevan solas a las nuevas.
+- **Portal de Noticias** (**Panel → Portal de Noticias**): vídeos, audios, fotos, el enlace de un
+  directo de Zoom (con día y hora) o un aviso **Early Bird**, gratis pero solo para quien está
+  suscrita a tu newsletter **y** ha entrado en su cuenta. El **destacado** sale en grande en la
+  portada (con la portada desenfocada y el candado «Suscríbete a mi newsletter para ver el vídeo»)
+  y los dos siguientes, debajo; todo está en `tudominio.com/portal`. Quien rellena el candado
+  (nombre, email y la casilla de la newsletter) recibe un email: al pulsar «Confirmar y entrar»
+  queda suscrita, se crea su cuenta si no la tenía, entra y vuelve al portal ya abierto. Los
+  archivos y los enlaces nunca llegan a quien no lo tiene desbloqueado.
+- **Ofertas** (en cada producto, **Precio → Poner en oferta**): precio de oferta, fechas de inicio y
+  de fin (opcionales) y una etiqueta («Early Bird»). Mientras dura, tus tarjetas, la ficha y el
+  pago enseñan el precio de antes tachado, el de oferta y hasta cuándo, y se cobra el de oferta con
+  tarjeta y con PayPal (también en el recibo y la factura). La sección «Ofertas» de la portada
+  lista lo que está en oferta y desaparece sola cuando no hay nada. En una **membresía**, la oferta
+  es el precio del **primer pago**: las renovaciones van al precio normal.
+- **Lecturas, sesiones y círculos**: dos tarjetas («Lectura»: la preparas tú y le llega grabada o
+  en PDF; «Sesión»: en directo por Zoom, elige día y hora). Cada una abre su página
+  (`/lecturas`, `/sesiones`) con los pasos para reservar y tus productos de ese tipo. Debajo salen
+  los próximos **círculos de la luna**: talleres en directo marcados como «Es un círculo de la
+  luna» (en el producto del taller), con la fecha y la hora de España y «Apuntarme» (sin ser
+  miembro; el desistimiento de los talleres es el de siempre).
+- **Cursos**: con más de un curso, la portada lleva a `tudominio.com/cursos`, donde se agrupan por
+  **Método** (Astrología, Human Design, Gene Keys, Luna, Mi energía y Especiales; lo eliges en la ficha de
+  cada curso).
+
+### Comunidad en niveles
+
+`tudominio.com/comunidad` enseña tus membresías una al lado de otra, de la más sencilla a la más
+completa, con su precio, lo que incluye cada una (las líneas con viñeta de su descripción) e
+«Incluye todo lo de…» en las de arriba, y el botón para unirse (el pago de siempre).
+
+Para montar los niveles, en la membresía de arriba marca en **Qué incluye esta membresía** las de
+abajo (y los cursos que quieras). Quien está en un nivel lee también las publicaciones y los cursos
+de los niveles que incluye, mientras su acceso siga vigente (si termina, deja de verlos al momento).
+Un nivel no puede incluir a otro que ya lo incluye. Además de texto, audio, vídeo y directo, las
+publicaciones pueden ser **Podcast**, **Ceremonia** o **Círculo de la luna**, con su día y hora (el
+editor te propone las próximas luna nueva y luna llena).
+
+### Vídeos y audios desde el iPhone
+
+- **Formato**: en el iPhone, **Ajustes → Cámara → Formatos → Más compatible** y **Vídeo HDR**
+  desactivado. Así graba en MP4 (H.264), que se ve en todos los navegadores. Si un vídeo sale
+  con el aviso **«HEVC»** en Materiales, se ve en iPhone, iPad y Mac pero puede no verse en
+  algunos navegadores de ordenador o Android: expórtalo con **InShot** (MP4) o vuelve a grabarlo
+  con «Más compatible».
+- **Peso**: el aviso **«Muy pesado para el móvil»** sale cuando el vídeo pasa de unos 12 Mbps
+  (por ejemplo 2,3 GB en 10 minutos). Exporta en **1080p** (o 720p) con InShot: tus alumnas lo
+  verán sin cortes con datos.
+- **Subir**: hasta 4 GB por vídeo. Mejor desde la app **Archivos** o desde el Mac, con wifi; no
+  bloquees el iPhone ni cambies de app mientras sube (la barra lo recuerda y tiene «Cancelar»).
+- **Audio**: mejor M4A o MP3 que WAV (una hora en WAV son unos 635 MB).
+- **Vimeo**: para un vídeo oculto, copia el enlace completo (**Compartir → Copiar enlace**, con el
+  código del final) y en Vimeo → **Privacidad → Dónde se puede insertar** permite tu dominio.
+  Cualquier otro enlace (Loom, Drive…) se guarda, pero tus alumnas verán un botón «Abrir el vídeo».
+
 ---
+
+## Cómo entran tus alumnas
+
+- **Dónde está el botón**: arriba a la derecha de tu página (y de cada producto, checkout y
+  confirmación) hay un botón **«Entrar»**; si ya ha entrado antes en ese móvil, pone **«Mi área»**.
+  En el pie también: «¿Ya tienes acceso? Entra en tu área · ¿Aún no tienes cuenta? Créala». Los
+  emails que les llegan (accesos, recibos, recordatorios…) terminan con «Tu área: tudominio.com/cuenta».
+- **Crear su cuenta**: en «Entrar» hay una segunda pestaña, **«Crear mi cuenta»**: nombre, email y
+  la casilla (sin marcar) de tus novedades. Le llega un email «Confirma tu email para entrar»;
+  al pulsar «Confirmar y entrar» entra en su área y puede crear una contraseña si quiere. Nada se
+  crea hasta que confirma el email. Aparece en **Clientes** con «Se registró» y recibe tu email de
+  bienvenida (Automatizaciones), si lo tienes activado.
+- **Entrar**: con un enlace por email (sin contraseña) o con su contraseña, si se la ha creado.
+- **Sus compras e inscripciones**: todo lo que consiga con el mismo email aparece en su área,
+  también lo de antes de crear la cuenta.
+- **Su perfil** (**Mi perfil**): nombre, foto (opcional), cambiar el email (se confirma desde el
+  email nuevo y avisamos al de antes), contraseña y tus novedades (apuntarse o darse de baja).
+  Si quiere que se borren sus datos (RGPD), te escribe: el borrado desde su área aún no existe.
+
+## Tu comunidad
+
+En **Productos → tu membresía → Publicaciones de la comunidad → Nueva publicación**:
+
+- Escribe el texto y añade **audios, vídeos, PDF o imágenes** (hasta 10) con «Añadir audio, vídeo,
+  PDF o imagen». Solo los ven tus miembros.
+- **Cuándo**: «Publicar ahora», «Programar» (eliges día y hora; se publica sola) o «Borrador».
+  Puedes editarla, cambiar la hora o borrarla cuando quieras. «Vista previa» te enseña cómo la ven.
+- **Avisar por email**: cada miembro recibe un email con el principio de la publicación y su
+  enlace directo. Quien no quiera más avisos se da de baja con el enlace del email (o desde su
+  comunidad). Con el plan gratuito de Resend (100 emails al día) caben unos 80 miembros por
+  publicación: si tienes más, pasa a Resend Pro o desmarca «Avisar por email».
+- **Comentarios**: tus miembros comentan y dan «me gusta»; tú respondes (sale «Autora»), borras
+  cualquier comentario o dejas sin comentar a alguien desde la publicación en el panel. Te llega un
+  email con cada comentario (lo puedes apagar en Automatizaciones → «Comentarios nuevos»).
+- **Qué incluye esta membresía**: marca tus cursos y tus miembros los tendrán en «Mis cursos»
+  mientras su membresía esté activa. Al terminar, dejan de verlos.
+- **Acceso con fecha de fin** (un programa de 3 meses, alguien que te paga por Bizum, un regalo):
+  en «Personas con acceso» elige «Duración del acceso». Le avisamos 7 días antes y ese día se cierra
+  solo; tú recibes un aviso con «Ampliar su acceso». «Cambiar fecha» la alarga o la quita.
+- Las membresías de pago terminan solas al final del periodo pagado si la cancelan, o si no se
+  puede cobrar la renovación.
+
+Te recomendamos añadir a tu texto de privacidad que en la comunidad se muestra tu nombre y el de
+quien comenta (nombre e inicial) y que enviamos avisos por email de las publicaciones.
+
+---
+
+## Tu newsletter
+
+Tu newsletter sale **desde tu dominio, con Resend** (la misma cuenta del paso 2), sin ninguna
+herramienta más. Todo está en **Panel → Newsletter**:
+
+- **Campañas**: «Nueva newsletter» → asunto, «Texto de vista previa» y los bloques (título, texto
+  con negrita, listas y enlaces, imagen, botón, separador y espacio). Las imágenes de Canva se
+  suben desde Fotos o Archivos y se guardan en JPEG o PNG (Outlook no enseña WebP). Escribe
+  `{nombre}` y saldrá el nombre de cada persona (si no lo sabemos, «Hola, {nombre}» queda «Hola»).
+  «Vista previa» enseña el email tal cual (móvil y ordenador), «Enviarme una prueba» te lo manda a
+  ti con «[Prueba]» en el asunto, «A quién» elige todas, una etiqueta, quien compró un producto o
+  los miembros de la comunidad, y luego «Enviar ahora» o «Programar» (día y hora de Madrid).
+  Antes de enviar te dice a cuántas personas va y qué día terminará con tu límite diario.
+- **Editor visual**: además de esos bloques, **Portada** (foto de fondo con una capa de color,
+  título, subtítulo y botón), **Destacado** (un recuadro de color con icono para lo importante),
+  **Vídeo**, **Dos columnas** (imagen y texto; en el móvil se ponen una encima de otra) y **Redes
+  sociales**. Cada bloque tiene «Colores y letra» (color, tamaño, alineación y tipo de letra) y los
+  botones, su forma (redondo, recto o solo borde) y «Todo el ancho». En **«Estilo del email»**
+  eliges los fondos, los colores del texto, los títulos, los enlaces y los botones, los tipos de
+  letra, las esquinas y el ancho; los colores de tu marca (Mi página) salen los primeros y, si un
+  texto no se va a leer bien sobre su fondo, te avisa. **«Plantillas»** te da tres diseños de
+  partida con tus colores: «Luna llena», «Novedades» y «Lanzamiento».
+- **Qué ve cada buzón**: los buzones no reproducen vídeo; en el email sale su portada con un ▶ y,
+  al pulsarla, se abre YouTube/Vimeo o, si lo subiste aquí, una página de tu web que lo reproduce
+  (con una dirección imposible de adivinar). La miniatura de YouTube y Vimeo se trae sola; si no se
+  puede, sube tú una portada. Los tipos de letra con ✦ (Playfair, Cormorant, Lora, Montserrat) se
+  ven en el Mail del iPhone y en Apple Mail; Gmail y Outlook enseñan uno parecido (Georgia o
+  Helvetica). Outlook de escritorio no redondea esquinas y a veces no enseña la capa de color de la
+  portada: por eso la portada siempre lleva su color de reserva. Cada email sale también en texto
+  plano (mejora la entrega).
+- **Suscriptoras**: quién está, desde cuándo y con qué texto aceptó (la prueba que pide el RGPD),
+  etiquetas, «Añadir a mano» (le llega un email para confirmar), **Importar CSV** de tu
+  herramienta anterior (columnas `email`, `nombre`, `fecha_consentimiento`, `etiquetas`; sin fecha
+  de consentimiento no se importa) y **Exportar CSV**.
+- **Emails automáticos**: la bienvenida, el email de compra, el de acceso a lo gratis, el del curso,
+  la confirmación de reserva, los recordatorios, el de compra abandonada y la bienvenida a la
+  newsletter. Cambias asunto y texto con el mismo editor (con `{nombre}`, `{producto}`, `{fecha}`…),
+  ves la vista previa con datos de ejemplo y, si te arrepientes, **«Restaurar el original»**. Lo
+  importante (el botón de acceso, el recibo, la fecha de la sesión, los enlaces legales) se añade
+  solo.
+- **El formulario para apuntarse**: Mi página → Secciones → activa **«Newsletter»** (y, si quieres,
+  «También en el pie de todas mis páginas»). Quien se apunta recibe «Confirma que quieres recibir la
+  newsletter» y no cuenta hasta que pulsa «Sí, quiero recibirla» (doble opt-in). Quien marca la
+  casilla de novedades al crear su cuenta, al pagar o en lo gratis también entra en la lista.
+
+### Los registros DNS en united-domains
+
+Tu correo está en united-domains y **sigue allí**: no toques tus registros MX ni el SPF que ya
+tiene tu dominio. Resend usa un subdominio propio (`send`) para los rebotes, así que no choca con tu
+buzón. En el paso 2 ya añadiste tu dominio a Resend; si no lo hiciste, hazlo ahora (**Domains → Add
+Domain**, región **Ireland (eu-west-1)**). Resend te enseña exactamente estos registros; cópialos
+en united-domains → **Portfolio** (tus dominios) → tu dominio → **DNS** (o «DNS-Einstellungen»)
+→ **Añadir registro**. En «Subdominio» (o «Host») va solo la parte de delante, sin tu dominio:
+
+| Tipo | Subdominio | Valor | Para qué |
+|---|---|---|---|
+| TXT | `resend._domainkey` | `p=MIGfMA0GCSq…` (la clave larga que te da Resend) | **DKIM**: firma tus emails |
+| MX | `send` | `feedback-smtp.eu-west-1.amazonses.com` (prioridad **10**) | rebotes (*Return-Path*) |
+| TXT | `send` | `v=spf1 include:amazonses.com ~all` | **SPF** del subdominio de envío |
+| TXT | `_dmarc` | `v=DMARC1; p=none; rua=mailto:hola@tudominio.com` | **DMARC** (Gmail y Yahoo lo exigen) |
+
+- Si Resend te enseña el DKIM como **CNAME** (algunas cuentas lo tienen así), crea los CNAME que
+  te dé, tal cual, en lugar del TXT.
+- **DMARC**: si ya tienes un registro `_dmarc`, no crees otro (solo puede haber uno). Empieza con
+  `p=none`; cuando lleves unas semanas enviando sin problemas puedes subirlo a `p=quarantine`.
+- **SPF**: el `include:amazonses.com` va en `send`, **no** en el registro de tu dominio a secas
+  (allí está el de tu correo de united-domains; solo puede haber un SPF por nombre).
+- Vuelve a Resend y pulsa **Verify**. Puede tardar de minutos a una hora. Cuando ponga
+  **Verified**, ya está.
+
+**Respuestas a tu buzón**: los emails salen desde la dirección de `EMAIL_FROM` (por ejemplo
+`Cirella <hola@tudominio.com>`) y llevan como *Responder a* tu **email de contacto**
+(Ajustes). Pon ahí tu buzón de united-domains y las respuestas a cualquier newsletter o email
+automático te llegarán a él.
+
+**Remitente propio para la newsletter (opcional)**: añade en Railway la variable
+`NEWSLETTER_FROM`, por ejemplo `Cirella <newsletter@tudominio.com>`, y la newsletter saldrá desde
+ahí (los emails de acceso y recibos siguen saliendo desde `EMAIL_FROM`). Con el plan gratuito de
+Resend usa una dirección del **mismo dominio** (solo admite un dominio); con Resend Pro puedes
+verificar un subdominio aparte (`news.tudominio.com`, con sus propios registros) para que una
+newsletter marcada como spam nunca afecte a tus emails de acceso.
+
+### Rebotes y quejas (webhook de Resend)
+
+Para que las direcciones que no existen y quien marca «es spam» se den de baja solas:
+
+1. Resend → **Webhooks → Add Endpoint**. URL: `https://tudominio.com/api/webhooks/resend`.
+   Eventos: `email.delivered`, `email.bounced` y `email.complained`.
+2. Abre el webhook y copia su **Signing Secret** (empieza por `whsec_`).
+3. En Railway, servicio **web** → **Variables**: `RESEND_WEBHOOK_SECRET` = ese valor. Se vuelve
+   a publicar sola.
+
+Con el webhook, cada campaña enseña **Entregadas, Rebotadas, Quejas y Bajas** (las bajas se cuentan
+siempre, con o sin webhook). Panel → Newsletter → **Envío** te dice si está activado.
+
+**Aperturas y clics**: vienen **desactivados**, a propósito. Medirlos usa un píxel y enlaces de
+seguimiento, que en España y Alemania necesitan el consentimiento expreso de quien lee (y Apple
+Mail abre todos los emails solo, así que las aperturas no dicen mucho). Si aun así los quieres,
+actívalos en Resend → tu dominio → *Open/Click tracking*, añade los eventos `email.opened` y
+`email.clicked` al webhook y menciónalo en tu texto de privacidad: el panel los enseñará.
+
+### Cuánto puedes enviar (plan gratuito de Resend)
+
+- **100 emails al día y 3000 al mes**, contando **todos** (accesos, recibos, recordatorios y
+  newsletter), **un dominio** y unas **2 peticiones por segundo**.
+- La web no se pasa: la newsletter sale **por tandas** dentro de un **límite diario de 100**, del
+  que siempre deja **20 para los emails importantes** (enlaces para entrar, accesos, recibos), que
+  nunca esperan. Lo que no cabe hoy sale mañana, solo (con las tareas automáticas del paso 8), y
+  entre email y email espera medio segundo para no pasar del límite por segundo de Resend.
+- Con 80 al día, una lista de 400 personas tarda 5 días. Cuando la lista crezca, **Resend Pro**
+  (unos 20 $/mes, 50 000 al mes, sin límite diario) y en Panel → Newsletter → **Envío** sube el
+  límite (o ponlo a 0: sin límite).
+- Los avisos de la comunidad y las invitaciones a confirmar de una importación también van por
+  tandas, dentro del mismo límite.
+
+### Lo legal
+
+- **Doble opt-in** en el formulario y en lo que añades a mano o importas sin prueba; se guarda la
+  fecha, el texto exacto que aceptó y desde dónde (lo ves en cada suscriptora).
+- **Cada newsletter lleva** «Darme de baja» en el pie y el botón «Cancelar suscripción» del propio
+  Gmail o Apple Mail (baja en un clic), y **quién la envía**: tu nombre legal, tu dirección y tu
+  email de Ajustes → **Datos legales**. Si facturas con una empresa (una LLC, una SL), pon ahí su
+  nombre y su dirección y saldrán en el pie de cada newsletter.
+- **Importar**: solo personas que aceptaron recibir tu newsletter y con la fecha en que lo hicieron.
+  Quien se dio de baja, rebotó o se quejó no se vuelve a añadir nunca.
+- **Tu texto de privacidad**: añade que usas el email de quien se apunta para enviarle tu newsletter
+  (base legal: su consentimiento), que se envía con Resend (proveedor de envío de emails, con los
+  datos en su región de Irlanda) y que puede darse de baja en
+  cualquier momento con el enlace de cada email.
+- Lo gratis **nunca** depende de apuntarse a la newsletter: la casilla es aparte y sin marcar.
+
+---
+
+## Tu panel a tu gusto
+
+En **Ajustes → Personalizar mi panel** cambias los colores **de tu panel** (tu web no cambia): el
+acento (botones y la sección en la que estás), el fondo (claro, crema u oscuro) y la barra lateral
+del ordenador, con cuatro estilos listos («Luna», «Tierra», «Lavanda» y «Noche») o tus colores. El
+texto encima se elige solo para que se lea. Mientras eliges, el panel entero ya se ve así; pulsa
+**«Guardar mi panel»** y se verá igual en el móvil y en el ordenador.
+
+Debajo ordenas el menú con ↑ y ↓ y ocultas con el ojo las secciones que no uses (Inicio y Ajustes
+no se pueden ocultar). En el móvil, **las 4 primeras van a la barra de abajo** y el resto, a
+«Más». También puedes ordenar las tarjetas de Inicio. **«Restaurar»** lo deja todo como venía.
 
 ## Mantenimiento
 
@@ -502,7 +918,7 @@ el email con el enlace de acceso.
 
 ## Probarlo antes en tu ordenador (opcional)
 
-Con los datos de demostración (la página de ejemplo de Ana Luna) y Postgres en local (ver el
+Con los datos de demostración (la página de ejemplo de Cirella) y Postgres en local (ver el
 README, «Puesta en marcha»), añade a tu `.env`:
 
 ```bash
@@ -511,8 +927,8 @@ OWNER_USERNAME="ana"
 PAYMENT_PROVIDER="none"
 ```
 
-y arranca con `npm run setup && npm run dev`. En `http://localhost:3000` verás la página de Ana
-como portada; entra en `/entrar` con «Ana Luna» (acceso de demostración).
+y arranca con `npm run setup && npm run dev`. En `http://localhost:3000` verás la página de Cirella
+como portada; entra en `/entrar` con «Cirella» (acceso de demostración).
 
 ---
 

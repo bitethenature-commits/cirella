@@ -1,4 +1,4 @@
-import { mobileNav, panelNav, PLATFORM_NAV_FLAGS, PANEL_NAV, MOBILE_NAV } from "../../app/panel/nav-items";
+import { panelNav, PLATFORM_NAV_FLAGS, PANEL_NAV } from "../../app/panel/nav-items";
 import { PERSONAL_THIRD_PARTY_TEXT, currentPersonalPrivacy, parseLegalText, renderPersonalPrivacy } from "../../lib/legal-templates";
 import { isPublicUsernameAllowed, ownerRootRedirect, personalOwnerFromEnv } from "../../lib/personal-routing";
 import { parseSetupArgs, PERSONAL_PLAN, readFlags } from "../../lib/personal-setup";
@@ -13,7 +13,7 @@ for (const [mode, owner] of [
   [undefined, "ana"],
   ["platform", "ana"],
   ["personal", "ana"],
-  ["personal", " @Ana "],
+  ["personal", " @Cirella "],
   ["personal", ""],
   [" personal ", "ana"],
   ["Personal", "ana"],
@@ -24,7 +24,7 @@ for (const [mode, owner] of [
 // ── /<dueña> → «/»; lo demás no se toca
 for (const [path, owner, want] of [
   ["/ana", "ana", "/"],
-  ["/Ana", "ana", "/"],
+  ["/Cirella", "ana", "/"],
   ["/ana/", "ana", "/"],
   ["/%41na", "ana", "/"],
   ["/ana", null, null],
@@ -53,7 +53,6 @@ const labels = (items: { label: string }[]) => items.map((i) => i.label);
 
 test("menú de la plataforma: el de siempre", () => {
   eq(panelNav(PLATFORM_NAV_FLAGS), PANEL_NAV);
-  eq(mobileNav(PLATFORM_NAV_FLAGS), MOBILE_NAV);
 });
 
 test("menú personal: sin Plan, con Publicaciones y Códigos, «Ventas» es «Inscripciones»", () => {
@@ -63,29 +62,28 @@ test("menú personal: sin Plan, con Publicaciones y Códigos, «Ventas» es «In
   eq(hrefs(items).includes("/panel/codigos"), true);
   eq(items.find((i) => i.href === "/panel/ventas")?.label, "Inscripciones");
   eq(labels(items).includes("Ventas"), false);
-  eq(hrefs(items).includes("/panel/reservas"), true);
+  eq(hrefs(items).includes("/panel/solicitudes"), true);
+});
+
+test("menú personal: «Cursos» y «Comunidad» justo después de Productos (en la plataforma, no)", () => {
+  const h = hrefs(panelNav({ personal: true, showBookings: true }));
+  eq(h.slice(h.indexOf("/panel/productos"), h.indexOf("/panel/productos") + 3), ["/panel/productos", "/panel/cursos", "/panel/comunidad"]);
+  eq(hrefs(PANEL_NAV).includes("/panel/cursos"), false);
 });
 
 test("menú personal sin sesiones con reserva aquí: sin Reservas", () => {
-  eq(hrefs(panelNav({ personal: true, showBookings: false })).includes("/panel/reservas"), false);
-});
-
-test("barra del móvil personal: 5 accesos, con Inscripciones y «Más» al final", () => {
-  const items = mobileNav({ personal: true, showBookings: false });
-  eq(items.length, 5);
-  eq(items.at(-1)?.href, "/panel/mas");
-  eq(labels(items).includes("Inscripciones"), true);
+  eq(hrefs(panelNav({ personal: true, showBookings: false })).includes("/panel/solicitudes"), false);
 });
 
 // ── Marca
 const base = { platformName: "Cirella", supportEmail: "hola@cirella.app" };
-const owner = { username: "ana", displayName: "Ana Luna", avatarUrl: "/media/a.webp", email: "ana@analuna.es" };
+const owner = { username: "ana", displayName: "Cirella", avatarUrl: "/media/a.webp", email: "ana@cirella.app" };
 
 test("marca en la plataforma: el nombre de la plataforma", () =>
   eq(resolveSiteBrand({ ...base, personal: false, owner: null }), { personal: false, name: "Cirella", avatarUrl: null, ownerUsername: null, supportEmail: "hola@cirella.app" }));
 
 test("marca en modo personal: el nombre y la foto de la página de la dueña", () =>
-  eq(resolveSiteBrand({ ...base, personal: true, owner }), { personal: true, name: "Ana Luna", avatarUrl: "/media/a.webp", ownerUsername: "ana", supportEmail: "ana@analuna.es" }));
+  eq(resolveSiteBrand({ ...base, personal: true, owner }), { personal: true, name: "Cirella", avatarUrl: "/media/a.webp", ownerUsername: "ana", supportEmail: "ana@cirella.app" }));
 
 test("marca en modo personal con el nombre vacío: el usuario", () => eq(resolveSiteBrand({ ...base, personal: true, owner: { ...owner, displayName: "  " } }).name, "ana"));
 
@@ -93,7 +91,7 @@ test("marca en modo personal sin la cuenta creada todavía: la de la plataforma"
 
 // ── Textos legales en modo personal
 test("privacidad personal: sin plataforma ni Stripe, con los pagos fuera y los derechos", () => {
-  const text = renderPersonalPrivacy({ displayName: "Ana Luna" });
+  const text = renderPersonalPrivacy({ displayName: "Cirella" });
   eq(/Cirella|Stripe/.test(text), false);
   eq(text.includes("Pagos en otras webs"), true);
   eq(text.includes("www.aepd.es"), true);
@@ -101,8 +99,8 @@ test("privacidad personal: sin plataforma ni Stripe, con los pagos fuera y los d
 });
 
 test("privacidad personal: manda el texto propio de la dueña", () => {
-  eq(currentPersonalPrivacy({ displayName: "Ana", legalPrivacy: "## Mío\nTexto" }), "## Mío\nTexto");
-  eq(currentPersonalPrivacy({ displayName: "Ana", legalPrivacy: null }), renderPersonalPrivacy({ displayName: "Ana" }));
+  eq(currentPersonalPrivacy({ displayName: "Cirella", legalPrivacy: "## Mío\nTexto" }), "## Mío\nTexto");
+  eq(currentPersonalPrivacy({ displayName: "Cirella", legalPrivacy: null }), renderPersonalPrivacy({ displayName: "Cirella" }));
 });
 
 test("aviso de otras webs: habla de afiliación y de dónde se compra", () => {
@@ -114,12 +112,12 @@ test("aviso de otras webs: habla de afiliación y de dónde se compra", () => {
 const personalEnv = { SITE_MODE: "personal", OWNER_USERNAME: "ana" };
 
 test("readFlags: --clave valor y --clave=valor", () =>
-  eq(readFlags(["--email", "a@b.es", "--name=Ana Luna", "--password", "x y z", "--suelto"]), { email: "a@b.es", name: "Ana Luna", password: "x y z", suelto: "" }));
+  eq(readFlags(["--email", "a@b.es", "--name=Cirella", "--password", "x y z", "--suelto"]), { email: "a@b.es", name: "Cirella", password: "x y z", suelto: "" }));
 
 test("personal:setup: datos correctos", () =>
-  eq(parseSetupArgs(["--email", " Ana@Example.com ", "--name", "Ana Luna"], personalEnv), {
+  eq(parseSetupArgs(["--email", " Cirella@Example.com ", "--name", "Cirella"], personalEnv), {
     ok: true,
-    args: { email: "ana@example.com", username: "ana", name: "Ana Luna", password: null },
+    args: { email: "ana@example.com", username: "ana", name: "Cirella", password: null },
   }));
 
 test("personal:setup: se niega en modo plataforma", () => {

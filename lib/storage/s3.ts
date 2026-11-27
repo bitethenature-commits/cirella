@@ -4,12 +4,17 @@
  * a la red), así que se prueban sin conexión (scripts/unit/storage.test.ts).
  */
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListPartsCommand,
   PutObjectCommand,
   S3Client,
   S3ServiceException,
+  UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { StorageDriver } from "./index";
@@ -98,6 +103,38 @@ export function createS3Driver(c: S3Config): StorageDriver {
 
     async put(key, body, o) {
       await client.send(new PutObjectCommand({ Bucket, Key: key, Body: body, ContentType: o.contentType, CacheControl: o.cacheControl }));
+    },
+
+    async createMultipart(key, o) {
+      const r = await client.send(new CreateMultipartUploadCommand({ Bucket, Key: key, ContentType: o.contentType }));
+      if (!r.UploadId) throw new Error("El almacenamiento no devolvió el id de la subida por partes");
+      return { uploadId: r.UploadId };
+    },
+
+    async presignPart(key, uploadId, n, o) {
+      const cmd = new UploadPartCommand({ Bucket, Key: key, UploadId: uploadId, PartNumber: n, ContentLength: o.contentLength });
+      // Tamaño exacto firmado: una parte de otro tamaño se rechaza. El navegador no necesita leer
+      // el ETag (se piden con ListParts al completar), así que la regla CORS de R2 no cambia.
+      const url = await getSignedUrl(client, cmd, { expiresIn: o.expiresInSec, signableHeaders: new Set(["content-length"]) });
+      return { url, headers: {} };
+    },
+
+    async completeMultipart(key, uploadId) {
+      const parts: { ETag: string; PartNumber: number }[] = [];
+      let marker: string | undefined;
+      for (let page = 0; page < 20; page++) {
+        const r = await client.send(new ListPartsCommand({ Bucket, Key: key, UploadId: uploadId, PartNumberMarker: marker }));
+        for (const p of r.Parts ?? []) if (p.ETag && p.PartNumber) parts.push({ ETag: p.ETag, PartNumber: p.PartNumber });
+        if (!r.IsTruncated) break;
+        marker = r.NextPartNumberMarker;
+      }
+      parts.sort((a, b) => a.PartNumber - b.PartNumber);
+      if (!parts.length || parts.some((p, i) => p.PartNumber !== i + 1)) throw new Error("Faltan partes de la subida");
+      await client.send(new CompleteMultipartUploadCommand({ Bucket, Key: key, UploadId: uploadId, MultipartUpload: { Parts: parts } }));
+    },
+
+    async abortMultipart(key, uploadId) {
+      await client.send(new AbortMultipartUploadCommand({ Bucket, Key: key, UploadId: uploadId }));
     },
 
     async delete(keys) {

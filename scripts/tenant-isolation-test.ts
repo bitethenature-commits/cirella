@@ -10,14 +10,10 @@ import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { scopeAllows } from "../lib/auth-utils";
 import { prisma } from "../lib/db";
-import { yearOf } from "../lib/dac7";
-import { dac7ForCreator, dac7Report } from "../lib/dac7-data";
 import { listDeliveryIssues, productDeliveryIssue } from "../lib/delivery";
 import { RULES, limitUpload } from "../lib/limits";
 import { resetKey, rlKey } from "../lib/rate-limit";
 import { recoveryFacts } from "../lib/recovery-guard";
-import { canViewInvoice } from "../lib/invoices/access";
-import { nextInvoiceNumber } from "../lib/invoices/numbering";
 import { createPendingOrder } from "../lib/orders";
 import { cancelBooking, requestReschedule } from "../lib/booking-changes";
 import { ensureLegalSnapshot, getLegalSnapshot } from "../lib/legal-snapshot";
@@ -57,18 +53,37 @@ async function main() {
 
   // Lecturas
   const products = await db.product.findMany();
-  check("findMany solo devuelve productos de Ana", products.length > 0 && products.every((p) => p.creatorId === ana.id));
+  check("findMany solo devuelve productos de Cirella", products.length > 0 && products.every((p) => p.creatorId === ana.id));
   check("findFirst con id de producto de María → null", (await db.product.findFirst({ where: { id: mariaProduct.id } })) === null);
   check("findUnique con id de pedido de María → null", (await db.order.findUnique({ where: { id: mariaOrder.id } })) === null);
   check("findUnique con id de clienta de María → null", (await db.customer.findUnique({ where: { id: mariaCustomer.id } })) === null);
   check("archivos privados de María invisibles", (await db.productFile.findFirst({ where: { id: mariaFile.id } })) === null);
   const customers = await db.customer.findMany();
-  check("clientes: solo la relación con Ana (Carmen compra a ambas, pero son filas distintas)", customers.every((c) => c.creatorId === ana.id) && !customers.some((c) => c.id === mariaCustomer.id));
+  check("clientes: solo la relación con Cirella (Carmen compra a ambas, pero son filas distintas)", customers.every((c) => c.creatorId === ana.id) && !customers.some((c) => c.id === mariaCustomer.id));
   const agg = await db.order.aggregate({ _sum: { amountCents: true }, where: { status: "PAID" } });
   const real = await prisma.order.aggregate({ _sum: { amountCents: true }, where: { status: "PAID", creatorId: ana.id } });
-  check("aggregate de ventas = solo ventas de Ana", agg._sum.amountCents === real._sum.amountCents);
+  check("aggregate de ventas = solo ventas de Cirella", agg._sum.amountCents === real._sum.amountCents);
   const groups = await db.analyticsEvent.groupBy({ by: ["creatorId"] });
-  check("groupBy de analytics solo ve el tenant de Ana", groups.length === 1 && groups[0].creatorId === ana.id);
+  check("groupBy de analytics solo ve el tenant de Cirella", groups.length === 1 && groups[0].creatorId === ana.id);
+  // Calendario propio: fechas especiales y entregas de Cirella (sembradas) invisibles para María.
+  const mariaDb = tenantDb(maria.id);
+  const anaOverride = await prisma.availabilityOverride.findFirstOrThrow({ where: { creatorId: ana.id } });
+  check("María no ve las fechas especiales de Cirella", (await mariaDb.availabilityOverride.findFirst({ where: { id: anaOverride.id } })) === null);
+  check("María no puede borrar una fecha especial de Cirella", (await mariaDb.availabilityOverride.deleteMany({ where: { id: anaOverride.id } })).count === 0);
+  // Diario del calendario de Cirella (sembrado): privado.
+  const anaNote = await prisma.calendarNote.findFirstOrThrow({ where: { creatorId: ana.id } });
+  check("María no ve las notas del calendario de Cirella", (await mariaDb.calendarNote.findFirst({ where: { id: anaNote.id } })) === null && (await mariaDb.calendarNote.count({ where: { date: anaNote.date } })) === 0);
+  check("María no puede cambiar ni borrar una nota de Cirella", (await mariaDb.calendarNote.updateMany({ where: { id: anaNote.id }, data: { body: "x" } })).count === 0 && (await mariaDb.calendarNote.deleteMany({ where: { id: anaNote.id } })).count === 0);
+  // Un upsert de María con la clave de Cirella crea (o cambia) la nota de María, nunca la de Cirella.
+  await mariaDb.calendarNote.upsert({ where: { creatorId_date: { creatorId: maria.id, date: anaNote.date } }, create: { creatorId: maria.id, date: anaNote.date, body: "de María" }, update: { body: "de María" } });
+  check("la nota de Cirella sigue intacta tras el upsert de María", (await prisma.calendarNote.findUniqueOrThrow({ where: { id: anaNote.id } })).body === anaNote.body);
+  await prisma.calendarNote.deleteMany({ where: { creatorId: maria.id, date: anaNote.date } });
+  // Comunidad: comentarios y «me gusta» sembrados de Cirella invisibles e intocables para María.
+  const anaComment = await prisma.membershipComment.findFirstOrThrow({ where: { creatorId: ana.id } });
+  const anaLike = await prisma.membershipPostLike.findFirstOrThrow({ where: { creatorId: ana.id } });
+  check("María no ve los comentarios ni los «me gusta» de Cirella", (await mariaDb.membershipComment.findFirst({ where: { id: anaComment.id } })) === null && (await mariaDb.membershipPostLike.count({ where: { id: anaLike.id } })) === 0);
+  check("María no puede borrar ni cambiar un comentario de Cirella", (await mariaDb.membershipComment.updateMany({ where: { id: anaComment.id }, data: { body: "x" } })).count === 0 && (await mariaDb.membershipPostLike.deleteMany({ where: { id: anaLike.id } })).count === 0);
+  check("María no ve qué incluyen las membresías de Cirella", (await mariaDb.productInclusion.count({ where: { creatorId: ana.id } })) === 0);
   check("count de reservas no incluye las de otras", (await db.booking.count()) === (await prisma.booking.count({ where: { creatorId: ana.id } })));
 
   // Escrituras (el siguiente "prisma:error" es esperado: Prisma rechaza el update)
@@ -86,35 +101,44 @@ async function main() {
   const forged = await db.product.create({
     data: { creatorId: maria.id, type: "DIGITAL", slug: `isolation-${Date.now()}`, title: "Intento", priceCents: 100, status: "DRAFT" },
   });
-  check("create con creatorId ajeno se reasigna a Ana", forged.creatorId === ana.id);
+  check("create con creatorId ajeno se reasigna a Cirella", forged.creatorId === ana.id);
   await db.product.delete({ where: { id: forged.id } });
   const still = await prisma.product.findUniqueOrThrow({ where: { id: mariaProduct.id } });
   check("el producto de María sigue intacto", still.title === mariaProduct.title);
 
-  // Tablas de reembolsos, condiciones legales y facturas: filas de María invisibles para Ana
+  // Partes de las lecciones (LessonPart): María con un curso temporal; Cirella solo ve las suyas y una
+  // parte creada con el creatorId de María se queda a nombre de Cirella.
+  {
+    const t = `isolation-lp-${Date.now()}`;
+    const mc = await prisma.product.create({ data: { creatorId: maria.id, type: "COURSE", slug: t, title: "Curso de María", priceCents: 0 } });
+    try {
+      const mm = await prisma.courseModule.create({ data: { creatorId: maria.id, productId: mc.id, title: "M", sortOrder: 0 } });
+      const ml = await prisma.lesson.create({ data: { creatorId: maria.id, productId: mc.id, moduleId: mm.id, title: "L", kind: "TEXT", sortOrder: 0 } });
+      const mp = await prisma.lessonPart.create({ data: { creatorId: maria.id, productId: mc.id, lessonId: ml.id, sortOrder: 0, kind: "TEXT", body: "de María" } });
+      const anaParts = await db.lessonPart.findMany();
+      check("partes de lección: Cirella solo ve las suyas (y María tiene alguna)", anaParts.length > 0 && anaParts.every((p) => p.creatorId === ana.id) && !anaParts.some((p) => p.id === mp.id));
+      check("findFirst de una parte de María → null", (await db.lessonPart.findFirst({ where: { id: mp.id } })) === null);
+      check("deleteMany de una parte de María → 0 filas", (await db.lessonPart.deleteMany({ where: { id: mp.id } })).count === 0);
+      const fp = await db.lessonPart.create({ data: { creatorId: maria.id, productId: mc.id, lessonId: ml.id, sortOrder: 1, kind: "TEXT", body: "intento" } });
+      check("create de una parte con creatorId ajeno se reasigna a Cirella", fp.creatorId === ana.id);
+    } finally {
+      await prisma.product.delete({ where: { id: mc.id } });
+    }
+  }
+
+  // Tablas de reembolsos y condiciones legales: filas de María invisibles para Cirella
   const tag = `isolation-${Date.now()}`;
   const snapshot = await prisma.legalSnapshot.create({ data: { creatorId: maria.id, hash: tag, content: { terms: "x" } } });
   const refund = await prisma.refund.create({
     data: { creatorId: maria.id, orderId: mariaOrder.id, amountCents: 100, reason: "OTHER", initiatedBy: "CREATOR", provider: "simulated" },
   });
-  const invoice = await prisma.invoice.create({
-    data: {
-      creatorId: maria.id, kind: "SALE", type: "F2", issuer: "CREATOR", issuerKey: maria.id, seriesCode: "CIR", year: 2000, number: 1,
-      fullNumber: tag, issuerName: "María Sol", issuerCountry: "ES", lines: [], baseCents: 100, taxRateBps: 0, taxCents: 0, totalCents: 100, dedupeKey: tag,
-    },
-  });
   try {
     check("condiciones legales de María invisibles", (await db.legalSnapshot.findFirst({ where: { id: snapshot.id } })) === null);
     check("reembolsos de María invisibles", (await db.refund.findUnique({ where: { id: refund.id } })) === null);
-    check("findMany/count de reembolsos: solo los de Ana", (await db.refund.findMany()).every((r) => r.creatorId === ana.id) && (await db.refund.count()) === (await prisma.refund.count({ where: { creatorId: ana.id } })));
-    check("facturas de María invisibles", (await db.invoice.findFirst({ where: { id: invoice.id } })) === null);
-    check("count de facturas no incluye las de otras", (await db.invoice.count()) === (await prisma.invoice.count({ where: { creatorId: ana.id } })));
+    check("findMany/count de reembolsos: solo los de Cirella", (await db.refund.findMany()).every((r) => r.creatorId === ana.id) && (await db.refund.count()) === (await prisma.refund.count({ where: { creatorId: ana.id } })));
     const ur = await db.refund.updateMany({ where: { id: refund.id }, data: { status: "SUCCEEDED" } });
     check("updateMany sobre reembolso de María afecta 0 filas", ur.count === 0);
-    const di = await db.invoice.deleteMany({ where: { id: invoice.id } });
-    check("deleteMany sobre factura de María afecta 0 filas", di.count === 0);
   } finally {
-    await prisma.invoice.delete({ where: { id: invoice.id } });
     await prisma.refund.delete({ where: { id: refund.id } });
     await prisma.legalSnapshot.delete({ where: { id: snapshot.id } });
   }
@@ -123,8 +147,6 @@ async function main() {
   await paymentsIsolation(ana, maria);
   await refundsIsolation(ana, maria);
   await buyerScopeIsolation(ana, maria);
-  await invoicesIsolation(ana, maria);
-  await invoiceNumbering();
   await deliveryIsolation(ana, maria);
   await limitsIsolation(ana, maria);
   await optOutIsolation(ana, maria);
@@ -136,7 +158,7 @@ async function main() {
 
 type CreatorRow = Awaited<ReturnType<typeof prisma.creator.findUniqueOrThrow>>;
 
-/** Bajas de los recordatorios (RecoveryOptOut): las de María no se ven ni se tocan desde el panel de Ana. */
+/** Bajas de los recordatorios (RecoveryOptOut): las de María no se ven ni se tocan desde el panel de Cirella. */
 async function optOutIsolation(ana: CreatorRow, maria: CreatorRow) {
   const db = tenantDb(ana.id);
   const hash = createHash("sha256").update(`aislamiento-baja-${Date.now()}@example.com`).digest("hex");
@@ -152,7 +174,7 @@ async function optOutIsolation(ana: CreatorRow, maria: CreatorRow) {
   }
 }
 
-/** Publicaciones y códigos de descuento: los de María no se ven, cambian ni borran desde el panel de Ana. */
+/** Publicaciones y códigos de descuento: los de María no se ven, cambian ni borran desde el panel de Cirella. */
 async function contentIsolation(ana: CreatorRow, maria: CreatorRow) {
   const db = tenantDb(ana.id);
   const tag = `isolation-contenido-${Date.now()}`;
@@ -162,25 +184,25 @@ async function contentIsolation(ana: CreatorRow, maria: CreatorRow) {
   try {
     check("publicaciones de María invisibles", (await db.post.findFirst({ where: { id: post.id } })) === null);
     check("findUnique de una publicación de María por (creadora, slug) → null", (await db.post.findUnique({ where: { creatorId_slug: { creatorId: maria.id, slug: tag } } })) === null);
-    check("findMany de publicaciones: solo las de Ana", (await db.post.findMany()).every((p) => p.creatorId === ana.id));
-    check("count de publicaciones = las de Ana", (await db.post.count()) === (await prisma.post.count({ where: { creatorId: ana.id } })));
+    check("findMany de publicaciones: solo las de Cirella", (await db.post.findMany()).every((p) => p.creatorId === ana.id));
+    check("count de publicaciones = las de Cirella", (await db.post.count()) === (await prisma.post.count({ where: { creatorId: ana.id } })));
     const up = await db.post.updateMany({ where: { id: post.id }, data: { title: "hackeada" } });
     check("updateMany sobre una publicación de María afecta 0 filas", up.count === 0);
     const dp = await db.post.deleteMany({ where: { id: post.id } });
     check("deleteMany sobre una publicación de María afecta 0 filas", dp.count === 0);
     const fp = await db.post.create({ data: { creatorId: maria.id, slug: tag, title: "Intento", body: "x" } });
     forged.push(fp.id);
-    check("create de una publicación con creatorId ajeno se reasigna a Ana", fp.creatorId === ana.id);
+    check("create de una publicación con creatorId ajeno se reasigna a Cirella", fp.creatorId === ana.id);
 
     check("códigos de María invisibles", (await db.discountCode.findFirst({ where: { id: code.id } })) === null);
-    check("findMany de códigos: solo los de Ana", (await db.discountCode.findMany()).every((c) => c.creatorId === ana.id));
-    check("count de códigos = los de Ana", (await db.discountCode.count()) === (await prisma.discountCode.count({ where: { creatorId: ana.id } })));
+    check("findMany de códigos: solo los de Cirella", (await db.discountCode.findMany()).every((c) => c.creatorId === ana.id));
+    check("count de códigos = los de Cirella", (await db.discountCode.count()) === (await prisma.discountCode.count({ where: { creatorId: ana.id } })));
     const uc = await db.discountCode.updateMany({ where: { id: code.id }, data: { code: "HACK" } });
     check("updateMany sobre un código de María afecta 0 filas", uc.count === 0);
     const dc = await db.discountCode.deleteMany({ where: { id: code.id } });
     check("deleteMany sobre un código de María afecta 0 filas", dc.count === 0);
     const fc = await db.discountCode.create({ data: { creatorId: maria.id, brand: "Intento", code: "X", url: "https://example.com" } });
-    check("create de un código con creatorId ajeno se reasigna a Ana", fc.creatorId === ana.id);
+    check("create de un código con creatorId ajeno se reasigna a Cirella", fc.creatorId === ana.id);
     await prisma.discountCode.delete({ where: { id: fc.id } });
     const still = await Promise.all([prisma.post.findUniqueOrThrow({ where: { id: post.id } }), prisma.discountCode.findUniqueOrThrow({ where: { id: code.id } })]);
     check("la publicación y el código de María siguen intactos", still[0].title === post.title && still[1].code === code.code);
@@ -202,10 +224,10 @@ async function legalIsolation(ana: CreatorRow, maria: CreatorRow) {
     check("getLegalSnapshot(ana, versión de María) → null", (await getLegalSnapshot(ana.id, mariaSnap.id)) === null);
     check("getLegalSnapshot(maria, su versión) → sus textos", (await getLegalSnapshot(maria.id, mariaSnap.id))?.identity.legalName === maria.legalName);
     check("findFirst de la versión de María → null", (await db.legalSnapshot.findFirst({ where: { id: mariaSnap.id } })) === null);
-    check("findMany de versiones: solo las de Ana", (await db.legalSnapshot.findMany()).every((r) => r.creatorId === ana.id));
+    check("findMany de versiones: solo las de Cirella", (await db.legalSnapshot.findMany()).every((r) => r.creatorId === ana.id));
     const forged = await db.legalSnapshot.create({ data: { creatorId: maria.id, hash: `isolation-${Date.now()}`, content: {} } });
     forgedId = forged.id;
-    check("create de una versión con creatorId ajeno se reasigna a Ana", forged.creatorId === ana.id);
+    check("create de una versión con creatorId ajeno se reasigna a Cirella", forged.creatorId === ana.id);
     const del = await db.legalSnapshot.deleteMany({ where: { id: mariaSnap.id } });
     check("deleteMany sobre la versión de María afecta 0 filas", del.count === 0);
   } finally {
@@ -214,57 +236,7 @@ async function legalIsolation(ana: CreatorRow, maria: CreatorRow) {
   }
 }
 
-/** Facturas (las de cuotas del seed): Ana nunca ve, cambia ni crea facturas de María. */
-async function invoicesIsolation(ana: CreatorRow, maria: CreatorRow) {
-  const db = tenantDb(ana.id);
-  const mariaInvoice = await prisma.invoice.findFirst({ where: { creatorId: maria.id, kind: "FEES" } });
-  const anaInvoice = await prisma.invoice.findFirst({ where: { creatorId: ana.id, kind: "FEES" } });
-  check("el seed tiene facturas de cuotas de Ana y de María", !!mariaInvoice && !!anaInvoice);
-  if (!mariaInvoice || !anaInvoice) return;
-  check("findMany de facturas: solo las de Ana", (await db.invoice.findMany()).every((i) => i.creatorId === ana.id));
-  check("findUnique con el id de una factura de María → null", (await db.invoice.findUnique({ where: { id: mariaInvoice.id } })) === null);
-  check("count de facturas = las de Ana", (await db.invoice.count()) === (await prisma.invoice.count({ where: { creatorId: ana.id } })));
-  const u = await db.invoice.updateMany({ where: { id: mariaInvoice.id }, data: { taxNote: "manipulada" } });
-  check("updateMany sobre una factura de María afecta 0 filas", u.count === 0 && (await prisma.invoice.findUniqueOrThrow({ where: { id: mariaInvoice.id } })).taxNote === mariaInvoice.taxNote);
-  const tag = `isolation-fees-${Date.now()}`;
-  const forged = await db.invoice.create({
-    data: {
-      creatorId: maria.id, kind: "FEES", type: "F2", issuer: "PLATFORM", issuerKey: tag, seriesCode: "S", year: 2000, number: 1,
-      fullNumber: tag, issuerName: "Cirella", issuerCountry: "ES", lines: [], baseCents: 0, taxRateBps: 0, taxCents: 0, totalCents: 0, dedupeKey: tag,
-    },
-  });
-  try {
-    check("create de una factura con creatorId de María se reasigna a Ana", forged.creatorId === ana.id);
-  } finally {
-    await prisma.invoice.delete({ where: { id: forged.id } });
-  }
-  // /facturas/[id]: Ana (creadora) no abre la factura de cuotas de María.
-  const asAna = { userId: ana.userId, isAdmin: false, creatorId: ana.id, email: "ana@cirella.app" };
-  check("canViewInvoice: Ana no ve la factura de cuotas de María", !canViewInvoice(asAna, mariaInvoice) && canViewInvoice(asAna, anaInvoice));
-}
-
-/** Numeración correlativa: sin repetidos con 20 facturas a la vez y sin huecos si se deshace la transacción. */
-async function invoiceNumbering() {
-  const key = `test-iso-${Date.now()}`;
-  try {
-    const numbers = await Promise.all(Array.from({ length: 20 }, () => prisma.$transaction((tx) => nextInvoiceNumber(tx, key, "V", 2099))));
-    check("20 números a la vez: 1..20 sin repetir", [...numbers].sort((a, b) => a - b).join(",") === Array.from({ length: 20 }, (_, i) => i + 1).join(","));
-    await prisma
-      .$transaction(async (tx) => {
-        await nextInvoiceNumber(tx, key, "V", 2099);
-        throw new Error("deshacer");
-      })
-      .catch(() => null);
-    const next = await prisma.$transaction((tx) => nextInvoiceNumber(tx, key, "V", 2099));
-    check("una transacción deshecha no consume número", next === 21);
-    const other = await prisma.$transaction((tx) => nextInvoiceNumber(tx, key, "S", 2099));
-    check("cada serie numera por separado", other === 1);
-  } finally {
-    await prisma.invoiceSeries.deleteMany({ where: { issuerKey: key } });
-  }
-}
-
-/** Cobros: un pago, una cuenta de cobro o un informe de DAC7 nunca cruzan de una creadora a otra. */
+/** Cobros: un pago o una cuenta de cobro nunca cruzan de una creadora a otra. */
 async function paymentsIsolation(ana: CreatorRow, maria: CreatorRow) {
   const tag = `isolation-pago-${Date.now()}`;
   const mariaDigital = await prisma.product.findFirstOrThrow({ where: { creatorId: maria.id, type: "DIGITAL", status: "PUBLISHED" } });
@@ -273,7 +245,7 @@ async function paymentsIsolation(ana: CreatorRow, maria: CreatorRow) {
   const anaPayout = await prisma.creator.findUniqueOrThrow({ where: { id: ana.id }, select: payoutFields });
   const mariaPayout = await prisma.creator.findUniqueOrThrow({ where: { id: maria.id }, select: payoutFields });
   try {
-    // Un pago del pedido de María que va a la cuenta de Ana (metadatos manipulados) no se entrega.
+    // Un pago del pedido de María que va a la cuenta de Cirella (metadatos manipulados) no se entrega.
     await applyPaymentUpdate(
       {
         kind: "payment",
@@ -285,29 +257,15 @@ async function paymentsIsolation(ana: CreatorRow, maria: CreatorRow) {
     check("pago hacia la cuenta de otra creadora: el pedido no se paga", after.status === "PENDING");
     check("…ni da acceso ni crea clienta en ningún tenant", (await prisma.access.count({ where: { orderId: order.id } })) === 0 && (await prisma.customer.count({ where: { email: `${tag}@example.com` } })) === 0);
 
-    // La cuenta de cobro de Ana solo cambia la fila de Ana.
+    // La cuenta de cobro de Cirella solo cambia la fila de Cirella.
     await syncPayoutAccount(ana.payoutAccountId!, {
       accountId: ana.payoutAccountId!, chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true,
       currentlyDue: [], pastDue: [], eventuallyDue: ["individual.id_number"], pendingVerification: [], disabledReason: null, currentDeadline: null,
     });
     const anaNow = await prisma.creator.findUniqueOrThrow({ where: { id: ana.id }, select: payoutFields });
     const mariaNow = await prisma.creator.findUniqueOrThrow({ where: { id: maria.id }, select: payoutFields });
-    check("sincronizar la cuenta de Ana actualiza a Ana", anaNow.payoutStatus === "ACTIVE" && anaNow.payoutRequirements !== null);
+    check("sincronizar la cuenta de Cirella actualiza a Cirella", anaNow.payoutStatus === "ACTIVE" && anaNow.payoutRequirements !== null);
     check("…y deja la cuenta de cobro de María intacta", JSON.stringify(mariaNow) === JSON.stringify(mariaPayout));
-
-    // DAC7: los totales de cada creadora son solo sus movimientos.
-    const year = yearOf(new Date());
-    const ownSessions = (creatorId: string) =>
-      prisma.transaction.count({ where: { creatorId, type: "CHARGE", status: "SUCCEEDED", order: { productType: "SESSION", paidAt: { gte: new Date(Date.UTC(year, 0, 1) - 3_600_000) } } } });
-    const anaDac7 = await dac7ForCreator(ana.id, year);
-    check("DAC7 de Ana: solo cuenta sus sesiones", anaDac7.agg.total.activities === (await ownSessions(ana.id)));
-    const report = await dac7Report(year);
-    const ids = report.map((r) => r.creator.id);
-    check("informe DAC7: una fila por creadora", new Set(ids).size === ids.length);
-    const anaRow = report.find((r) => r.creator.id === ana.id);
-    const mariaRow = report.find((r) => r.creator.id === maria.id);
-    check("informe DAC7: la fila de Ana coincide con su panel", !!anaRow && JSON.stringify(anaRow.agg) === JSON.stringify(anaDac7.agg));
-    check("informe DAC7: la fila de María solo tiene lo suyo", (mariaRow?.agg.total.activities ?? 0) === (await ownSessions(maria.id)));
 
     // «Pagar ahora» busca la suscripción por la usuaria de la sesión: con otra usuaria, nada.
     const sub = await prisma.subscription.findFirst({ where: { creatorId: ana.id } });
@@ -327,7 +285,7 @@ async function paymentsIsolation(ana: CreatorRow, maria: CreatorRow) {
   }
 }
 
-/** Reembolsos, desistimientos y cambios de reserva: Ana no toca nada de María; Laura, nada de Carmen. */
+/** Reembolsos, desistimientos y cambios de reserva: Cirella no toca nada de María; Laura, nada de Carmen. */
 async function refundsIsolation(ana: CreatorRow, maria: CreatorRow) {
   let providerCalls = 0;
   const provider: PaymentProvider = {
@@ -344,7 +302,7 @@ async function refundsIsolation(ana: CreatorRow, maria: CreatorRow) {
     { provider },
   );
   const after = await prisma.order.findUniqueOrThrow({ where: { id: mariaOrder.id } });
-  check("Ana no puede reembolsar un pedido de María (NOT_FOUND)", !r.ok && r.code === "NOT_FOUND");
+  check("Cirella no puede reembolsar un pedido de María (NOT_FOUND)", !r.ok && r.code === "NOT_FOUND");
   check("…ni se llama a la pasarela ni se crea un Refund", providerCalls === 0 && (await prisma.refund.count({ where: { orderId: mariaOrder.id } })) === 0);
   check("…y el pedido de María sigue igual", after.status === before.status && after.refundedCents === before.refundedCents);
 
@@ -353,7 +311,7 @@ async function refundsIsolation(ana: CreatorRow, maria: CreatorRow) {
   const w = await withdrawOrder({ orderId: mariaOrder.id, userId: laura.id, email: laura.email }, { provider });
   check("Laura no puede desistir de una compra de Carmen (NOT_FOUND)", !w.ok && w.code === "NOT_FOUND" && providerCalls === 0);
 
-  // Reserva temporal de María: Ana no puede cancelarla ni moverla.
+  // Reserva temporal de María: Cirella no puede cancelarla ni moverla.
   const start = new Date(Date.now() + 40 * 86_400_000);
   const mariaProduct = await prisma.product.findFirstOrThrow({ where: { creatorId: maria.id } });
   const booking = await prisma.booking.create({
@@ -366,7 +324,7 @@ async function refundsIsolation(ana: CreatorRow, maria: CreatorRow) {
     const c = await cancelBooking({ creatorId: ana.id, bookingId: booking.id, by: "CREATOR", reason: "intento", notify: true });
     const m = await requestReschedule({ creatorId: ana.id, bookingId: booking.id, note: null });
     const still = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
-    check("Ana no puede cancelar ni mover una reserva de María", !c.ok && !m.ok);
+    check("Cirella no puede cancelar ni mover una reserva de María", !c.ok && !m.ok);
     check("…y la reserva de María sigue intacta", still.status === "CONFIRMED" && still.startAt?.getTime() === start.getTime() && !still.rescheduleRequestedAt);
   } finally {
     await prisma.booking.delete({ where: { id: booking.id } });
@@ -381,17 +339,17 @@ async function refundsIsolation(ana: CreatorRow, maria: CreatorRow) {
 async function buyerScopeIsolation(ana: CreatorRow, maria: CreatorRow) {
   const carmen = await prisma.user.findUniqueOrThrow({ where: { email: "carmen@example.com" } });
   const mariaOrder = await prisma.order.findFirstOrThrow({ where: { creatorId: maria.id, status: "PAID", customer: { userId: carmen.id } }, include: { customer: true } });
-  // Otro pedido pagado (de Ana) para comprobar que revocar uno no toca los demás.
+  // Otro pedido pagado (de Cirella) para comprobar que revocar uno no toca los demás.
   const anaOrder = await prisma.order.findFirstOrThrow({ where: { creatorId: ana.id, status: "PAID", customerId: { not: null } }, include: { customer: true } });
   const anaProduct = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id } });
   const anaBooking = await prisma.booking.findFirstOrThrow({ where: { creatorId: ana.id, userId: carmen.id } });
   const scope = { orderId: mariaOrder.id, productId: mariaOrder.productId };
   check("alcance del pedido de Carmen a María: abre ese pedido y su producto", scopeAllows(scope, { orderId: mariaOrder.id }) && scopeAllows(scope, { productId: mariaOrder.productId }));
-  check("…pero no un producto de Ana", !scopeAllows(scope, { productId: anaProduct.id }));
-  check("…ni la reserva de Carmen con Ana (otro pedido)", anaBooking.orderId !== mariaOrder.id && !scopeAllows(scope, { bookingOrderId: anaBooking.orderId }));
-  check("…ni otro pedido de Ana", !scopeAllows(scope, { orderId: anaOrder.id }));
+  check("…pero no un producto de Cirella", !scopeAllows(scope, { productId: anaProduct.id }));
+  check("…ni la reserva de Carmen con Cirella (otro pedido)", anaBooking.orderId !== mariaOrder.id && !scopeAllows(scope, { bookingOrderId: anaBooking.orderId }));
+  check("…ni otro pedido de Cirella", !scopeAllows(scope, { orderId: anaOrder.id }));
 
-  const link = await createOrderLink({ orderId: mariaOrder.id, path: `/cuenta/pedidos/${mariaOrder.id}` });
+  const link = await createOrderLink({ orderId: mariaOrder.id, path: `/area/orders/${mariaOrder.id}` });
   const other = await createOrderLink({ orderId: anaOrder.id, path: "//evil.example/robo" });
   const tag = `isolation-scope-${Date.now()}`;
   const sessions = await Promise.all(
@@ -402,9 +360,9 @@ async function buyerScopeIsolation(ana: CreatorRow, maria: CreatorRow) {
   try {
     const res = await resolveOrderLink(new URL(link.url).searchParams.get("t")!);
     check("el enlace personal resuelve al pedido de María", res?.status === "ok" && res.order.creatorId === maria.id && res.order.id === mariaOrder.id);
-    check("…con una ruta interna", res?.status === "ok" && res.link.path === `/cuenta/pedidos/${mariaOrder.id}`);
+    check("…con una ruta interna", res?.status === "ok" && res.link.path === `/area/orders/${mariaOrder.id}`);
     const forged = await resolveOrderLink(new URL(other.url).searchParams.get("t")!);
-    check("una ruta externa se sustituye por la de la compra", forged?.status === "ok" && forged.link.path === `/cuenta/pedidos/${anaOrder.id}`);
+    check("una ruta externa se sustituye por la de la compra", forged?.status === "ok" && forged.link.path === `/area/orders/${anaOrder.id}`);
     check("un token inventado no resuelve nada", (await resolveOrderLink("inventado")) === null);
 
     await revokeOrderAccess(mariaOrder.id);
@@ -442,9 +400,9 @@ async function deliveryIsolation(ana: CreatorRow, maria: CreatorRow) {
   try {
     const issues = await listDeliveryIssues(tenantDb(ana.id));
     const owners = await prisma.product.findMany({ where: { id: { in: issues.map((x) => x.product.id) } }, select: { creatorId: true } });
-    check("listDeliveryIssues(Ana) incluye su borrador sin entrega", issues.some((x) => x.product.id === anaDraft.id && x.issue.code === "NO_CONTENT"));
-    check("…y solo productos de Ana", owners.length === issues.length && owners.every((o) => o.creatorId === ana.id));
-    check("productDeliveryIssue(Ana) con el id de un producto de María → null", (await productDeliveryIssue(tenantDb(ana.id), mariaDraft.id)) === null);
+    check("listDeliveryIssues(Cirella) incluye su borrador sin entrega", issues.some((x) => x.product.id === anaDraft.id && x.issue.code === "NO_CONTENT"));
+    check("…y solo productos de Cirella", owners.length === issues.length && owners.every((o) => o.creatorId === ana.id));
+    check("productDeliveryIssue(Cirella) con el id de un producto de María → null", (await productDeliveryIssue(tenantDb(ana.id), mariaDraft.id)) === null);
   } finally {
     await prisma.product.deleteMany({ where: { id: { in: [anaDraft.id, mariaDraft.id] } } });
   }
@@ -457,14 +415,14 @@ async function limitsIsolation(ana: CreatorRow, maria: CreatorRow) {
   try {
     const anaUploads = [];
     for (let i = 0; i < RULES.uploadCreator.limit + 1; i++) anaUploads.push(await limitUpload(ana.id));
-    check("limitUpload: Ana agota sus 30 subidas y la 31.ª se deniega", anaUploads.slice(0, 30).every((v) => v.ok) && !anaUploads[30].ok);
+    check("limitUpload: Cirella agota sus 30 subidas y la 31.ª se deniega", anaUploads.slice(0, 30).every((v) => v.ok) && !anaUploads[30].ok);
     check("…mientras María sigue pudiendo subir", (await limitUpload(maria.id)).ok);
   } finally {
     await Promise.all(uploadKeys.map(resetKey));
   }
 
-  // Un pedido de Ana cuya visitante solo abrió el checkout en la página de María (mismo id de
-  // producto incluso): no cuenta como checkout real para el email de recuperación de Ana.
+  // Un pedido de Cirella cuya visitante solo abrió el checkout en la página de María (mismo id de
+  // producto incluso): no cuenta como checkout real para el email de recuperación de Cirella.
   const visitorId = `isolation-recovery-${Date.now()}`;
   const anaProduct = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL" } });
   await prisma.analyticsEvent.create({ data: { creatorId: maria.id, type: "CHECKOUT_STARTED", productId: anaProduct.id, visitorId, createdAt: new Date(Date.now() - 60_000) } });
@@ -472,7 +430,7 @@ async function limitsIsolation(ana: CreatorRow, maria: CreatorRow) {
     const facts = await recoveryFacts({
       id: visitorId, creatorId: ana.id, productId: anaProduct.id, buyerEmail: `${visitorId}@example.com`, visitorId, ipHash: null, createdAt: new Date(),
     });
-    check("recuperación: el checkout abierto en el tenant de María no vale para un pedido de Ana", facts.hasVisitor && !facts.startedCheckout);
+    check("recuperación: el checkout abierto en el tenant de María no vale para un pedido de Cirella", facts.hasVisitor && !facts.startedCheckout);
   } finally {
     await prisma.analyticsEvent.deleteMany({ where: { visitorId } });
   }

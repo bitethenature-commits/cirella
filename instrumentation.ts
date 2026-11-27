@@ -30,7 +30,7 @@ export async function register() {
       );
   }
   if (e.DEMO_MODE === "true")
-    console.warn(`[cirella] Modo demo activo: ${e.PAYMENT_PROVIDER === "simulated" ? "pagos simulados, " : ""}buzón /dev/correo y accesos rápidos.`);
+    console.warn(`[cirella] Modo demo activo: ${e.PAYMENT_PROVIDER === "simulated" ? "pagos simulados, " : ""}buzón /dev/email y accesos rápidos.`);
   const { initMonitoring } = await import("./lib/monitoring");
   await initMonitoring();
 }

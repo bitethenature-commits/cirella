@@ -1,8 +1,10 @@
 "use client";
-import { ArrowUpRight, Check, Copy } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { PublicDiscountCode } from "./creator-page-view";
+import { PhotoGallery } from "./photo-gallery";
 import { track } from "./tracking";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /** Copia un texto al portapapeles: la API moderna o, si no está (http, navegadores antiguos), execCommand. */
 async function copyText(text: string): Promise<boolean> {
@@ -31,11 +33,14 @@ async function copyText(text: string): Promise<boolean> {
 }
 
 /**
- * Tarjeta de un código de descuento de otra marca: «Copiar código» (con aviso «Copiado») e «Ir a
- * la tienda». Los dos clics se miden en /api/track sin cookies. Si el navegador no deja copiar, se
- * selecciona el código para copiarlo a mano.
+ * Un código de descuento de otra marca, en una tarjeta vertical (en el ordenador caben tres juntas; si
+ * hay más, la portada las pone en carrusel): el logo, la marca y dos líneas de descripción; debajo, el
+ * código entero, «Copiar» e «Ir a la tienda». Si la marca tiene fotos, «Ver más» (un <details> nativo)
+ * enseña solo las fotos de lo que recomienda, que al tocarlas se abren en una galería encima de la web. Los dos clics se miden en /api/track sin cookies. Si el navegador no deja
+ * copiar, se selecciona el código para copiarlo a mano.
  */
 export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscountCode; trackCreatorId: string | null }) {
+  const tt = useT();
   const [state, setState] = useState<"idle" | "copied" | "manual">("idle");
   const codeRef = useRef<HTMLElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -62,63 +67,102 @@ export function DiscountCodeCard({ code, trackCreatorId }: { code: PublicDiscoun
     timer.current = setTimeout(() => setState("idle"), ok ? 2200 : 6000);
   };
 
+  const photos = code.photos ?? [];
+  const recs = code.recommendations ?? [];
+  // «Ver más» enseña las recomendaciones y las fotos: sale si la marca tiene alguna de las dos.
+  const expandable = photos.length > 0 || recs.length > 0;
+
   return (
-    <article className="cp-card flex h-full flex-col p-5" aria-label={`Código de descuento de ${code.brand}`}>
-      <div className="flex items-center gap-3">
-        {code.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={code.imageUrl} alt="" loading="lazy" decoding="async" className="h-11 w-11 shrink-0 rounded-full object-cover" />
+    <article className="cp-card flex min-w-0 flex-col items-center p-4 text-center" style={{ overflow: "visible" }} aria-label={tt("Código de descuento de {brand}", { brand: code.brand })} data-code-row={code.code}>
+      {code.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={code.imageUrl} alt="" loading="lazy" decoding="async" className="h-14 w-14 shrink-0 rounded-full object-cover" />
+      ) : (
+        <span aria-hidden className="cp-display grid h-14 w-14 shrink-0 place-items-center rounded-full text-2xl" style={{ background: "color-mix(in oklab, var(--c-accent) 22%, transparent)" }}>
+          {code.brand.trim().charAt(0).toUpperCase()}
+        </span>
+      )}
+      <h3 className="mt-3 w-full truncate text-[1rem] font-semibold leading-tight"><Tr s={code.brand} /></h3>
+      {/* El mismo sitio dice «Código copiado»: el aviso no mueve nada (siempre dos líneas de alto). */}
+      <p className="mt-1 line-clamp-2 min-h-[2.6em] w-full text-[0.82rem] leading-snug" aria-live="polite">
+        {state === "copied" ? (
+          <span className="cp-gold font-medium"><Tr s={"Código copiado. Pégalo al pagar en la tienda."} /></span>
+        ) : state === "manual" ? (
+          <span className="cp-gold font-medium"><Tr s={"Mantén pulsado el código para copiarlo."} /></span>
         ) : (
-          <span
-            aria-hidden
-            className="cp-display grid h-11 w-11 shrink-0 place-items-center rounded-full text-lg"
-            style={{ background: "color-mix(in oklab, var(--c-accent) 22%, transparent)" }}
-          >
-            {code.brand.trim().charAt(0).toUpperCase()}
-          </span>
+          <span className="cp-muted"><Tr s={code.description || code.expiresLabel || " "} /></span>
         )}
-        <div className="min-w-0">
-          <h3 className="truncate text-[1.02rem] font-semibold">{code.brand}</h3>
-          {code.expiresLabel && <p className="cp-faint text-xs">{code.expiresLabel}</p>}
-        </div>
-      </div>
-      {code.description && <p className="cp-muted mt-3 text-[0.9rem] leading-relaxed">{code.description}</p>}
-      <div className="mt-auto pt-4">
-        <div className="flex flex-wrap items-stretch gap-2">
-          {/* Sin truncate: un código largo (hasta 40 caracteres) se parte en varias líneas y se ve entero, nunca recortado.
-              Uno corto cabe siempre en una línea: si no hay sitio al lado, el botón pasa debajo. */}
-          <code
-            ref={codeRef}
-            className={`flex flex-1 select-all items-center justify-center break-all rounded-xl border border-dashed px-3 py-2 text-center font-mono text-base font-semibold ${code.code.length > 16 ? "tracking-[0.04em]" : "tracking-[0.12em]"}`}
-            style={{ borderColor: "color-mix(in oklab, var(--c-text) 35%, transparent)", minWidth: `min(100%, ${Math.ceil(code.code.length * 1.2) + 3}ch)` }}
-          >
+      </p>
+      <div className="mt-auto flex w-full flex-col gap-1.5 pt-3">
+        {/* El código con el icono de copiar dentro, a la derecha: al tocarlo se copia. Uno largo (hasta
+            40 caracteres) se parte: se ve entero, nunca recortado. */}
+        <button
+          type="button"
+          onClick={onCopy}
+          className="cp-code-copy group"
+          aria-label={state === "copied" ? tt("Copiado: {code}", { code: code.code }) : tt("Copiar código {code}", { code: code.code })}
+        >
+          <code ref={codeRef} className={`cp-display min-w-0 flex-1 select-all break-all text-center text-[1.08rem] leading-tight ${code.code.length > 12 ? "tracking-[0.06em]" : "tracking-[0.2em]"}`}>
             {code.code}
           </code>
-          <button type="button" onClick={onCopy} className="cp-btn-ghost shrink-0" aria-label={state === "copied" ? `Copiado: ${code.code}` : `Copiar código ${code.code}`}>
-            {/* Los dos textos ocupan el mismo sitio: el botón no cambia de ancho al copiar y nada salta de línea. */}
-            <span className="grid place-items-center">
-              <span className={`col-start-1 row-start-1 inline-flex items-center gap-1.5 ${state === "copied" ? "invisible" : ""}`}>
-                <Copy className="h-4 w-4" /> Copiar código
-              </span>
-              <span className={`col-start-1 row-start-1 inline-flex items-center gap-1.5 ${state === "copied" ? "" : "invisible"}`}>
-                <Check className="h-4 w-4" /> Copiado
-              </span>
-            </span>
-          </button>
-        </div>
-        <p className="cp-faint mt-1.5 min-h-[1rem] text-xs" aria-live="polite">
-          {state === "copied" ? "Código copiado. Pégalo al pagar en la tienda." : state === "manual" ? "Mantén pulsado el código para copiarlo." : ""}
-        </p>
-        <a
-          href={code.url}
-          target="_blank"
-          rel="noopener nofollow sponsored"
-          className="cp-btn mt-2 w-full"
-          onClick={() => event("CODE_CLICK")}
-        >
-          Ir a la tienda <ArrowUpRight className="h-4 w-4" />
-        </a>
+          <span className="cp-code-copy-icon" aria-hidden>
+            {state === "copied" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+          </span>
+        </button>
+        <span className="flex">
+          <a
+            href={code.url}
+            target="_blank"
+            rel="noopener nofollow sponsored"
+            className="cp-btn w-full whitespace-nowrap !min-h-[2.4rem] !gap-1 !px-2 !text-[0.95rem]"
+            onClick={() => event("CODE_CLICK")}
+          ><Tr s={"Ir a la tienda"} />{" "}<ArrowUpRight className="h-3.5 w-3.5" />
+          </a>
+        </span>
       </div>
+      {!expandable && (
+        // Sin «Ver más», su hueco queda vacío: el código y los botones están a la misma altura en todas las tarjetas.
+        <span aria-hidden className="invisible mt-2 inline-flex items-center gap-1 py-1 text-[0.78rem] font-medium"><Tr s={"Ver más"} />{" "}<ChevronDown className="h-3.5 w-3.5" />
+        </span>
+      )}
+      {expandable && (
+        <details className="group mt-2 w-full text-left" data-code-details>
+          <summary className="cp-muted mx-auto flex w-fit cursor-pointer list-none items-center gap-1 py-1 text-[0.78rem] font-medium [&::-webkit-details-marker]:hidden">
+            <span className="group-open:hidden"><Tr s={"Ver más"} /></span>
+            <span className="hidden group-open:inline"><Tr s={"Ver menos"} /></span>
+            <ChevronDown aria-hidden className="h-3.5 w-3.5 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
+          </summary>
+          <div className="pt-2" data-code-more>
+            {recs.length > 0 && (
+              <div className="mb-3">
+                <p className="cp-display text-center text-[1.15rem] leading-tight"><Tr s={"Recomendaciones"} /></p>
+                <ul className="mt-2 space-y-1.5 text-[0.84rem] leading-snug">
+                  {recs.map((r, k) => (
+                    <li key={k} className="flex gap-2">
+                      <span aria-hidden className="cp-gold mt-[0.42em] h-1 w-1 shrink-0 rounded-full bg-current" />
+                      {r.url ? (
+                        <a
+                          href={r.url}
+                          target="_blank"
+                          rel="noopener nofollow sponsored"
+                          className="group/rec inline-flex min-w-0 items-start gap-1 underline decoration-[color-mix(in_oklab,var(--c-gold)_45%,transparent)] underline-offset-[3px] transition hover:decoration-[var(--c-gold)]"
+                          onClick={() => event("CODE_CLICK")}
+                        >
+                          <span><Tr s={r.text} /></span>
+                          <ArrowUpRight aria-hidden className="cp-gold mt-[0.15em] h-3.5 w-3.5 shrink-0 transition-transform group-hover/rec:-translate-y-0.5 group-hover/rec:translate-x-0.5" />
+                        </a>
+                      ) : (
+                        <span><Tr s={r.text} /></span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {photos.length > 0 && <PhotoGallery photos={photos} label={`Lo que me gusta de ${code.brand}`} />}
+          </div>
+        </details>
+      )}
     </article>
   );
 }

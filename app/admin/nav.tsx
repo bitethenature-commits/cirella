@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Tr } from "@/lib/i18n/client";
 
 export const ADMIN_NAV = [
   ["/admin", "Resumen"],
@@ -13,11 +14,10 @@ export const ADMIN_NAV = [
   ["/admin/productos", "Productos"],
   ["/admin/planes", "Planes"],
   ["/admin/categorias", "Categorías"],
-  ["/admin/disenos", "Diseños"],
   ["/admin/bloqueados", "Bloqueados"],
-  ["/admin/impuestos", "Impuestos"],
   ["/admin/reportes", "Reportes"],
   ["/admin/ajustes", "Ajustes"],
+  ["/admin/seguridad", "Seguridad"],
 ] as const;
 
 /** Modo personal: solo lo que necesita una persona (envíos que fallaron y ajustes de la web). */
@@ -25,6 +25,7 @@ export const PERSONAL_ADMIN_NAV = [
   ["/admin", "Resumen"],
   ["/admin/envios", "Envíos fallidos"],
   ["/admin/ajustes", "Ajustes"],
+  ["/admin/seguridad", "Seguridad"],
   ["/panel", "Mi panel"],
 ] as const;
 
@@ -36,7 +37,7 @@ export function AdminNav({ personal = false }: { personal?: boolean }) {
         const active = href === "/admin" ? path === "/admin" : path.startsWith(href);
         return (
           <Link key={href} href={href} className={`shrink-0 rounded-xl px-3 py-2 text-sm transition ${active ? "bg-cream text-ink" : "text-cream/70 hover:bg-white/10 hover:text-cream"}`}>
-            {label}
+            <Tr s={label} />
           </Link>
         );
       })}

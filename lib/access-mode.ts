@@ -1,6 +1,7 @@
 /**
  * Cómo se consigue un producto (Product.accessMode):
- *   · PAID: se paga en la web (Stripe o el simulador). Solo en modo plataforma.
+ *   · PAID: se paga en la web (Stripe, PayPal o el simulador) y el acceso llega solo. En la
+ *     plataforma siempre; en la web personal, solo si tiene pasarela (PAYMENT_PROVIDER≠none).
  *   · FREE_EMAIL: gratis con nombre + email. Crea un pedido de 0 € (paymentProvider «free») y da el
  *     acceso por el mismo camino que una compra (lib/free-access.ts → fulfillOrder).
  *   · EXTERNAL: se paga fuera (Hotmart, PayPal, Calendly…). El botón lleva a externalUrl; si el
@@ -9,19 +10,20 @@
  * Puro (sin BD ni `server-only`): lo usan el panel, la ficha pública, los componentes de cliente y
  * las pruebas unitarias.
  */
+import { safeHref } from "./page-config";
 import type { SiteMode } from "./site-mode";
 
 export const ACCESS_MODES = ["PAID", "FREE_EMAIL", "EXTERNAL"] as const;
 export type AccessMode = (typeof ACCESS_MODES)[number];
 
 export const ACCESS_MODE_LABEL: Record<AccessMode, string> = {
-  PAID: "Pago en la web",
+  PAID: "Con solicitud",
   FREE_EMAIL: "Gratis con email",
   EXTERNAL: "Pago en otra web",
 };
 
 export const ACCESS_MODE_HINT: Record<AccessMode, string> = {
-  PAID: "Se cobra aquí con tarjeta.",
+  PAID: "Se ve el precio y te llega un formulario de solicitud; lo habláis por email y tú confirmas para dar el acceso.",
   FREE_EMAIL: "Nombre y email → acceso al momento y un email con el enlace.",
   EXTERNAL: "El botón lleva a la web donde se paga o se reserva (Hotmart, PayPal, Calendly…).",
 };
@@ -35,7 +37,7 @@ export function asAccessMode(v: string | null | undefined): AccessMode {
 export const NO_CHARGE_PROVIDERS = ["free", "manual"] as const;
 export type NoChargeProvider = (typeof NO_CHARGE_PROVIDERS)[number];
 
-/** Pedido de 0 € sin cobro: sin IVA, comisión, factura, transacción ni reembolso. */
+/** Pedido de 0 € sin cobro: sin comisión, transacción ni reembolso. */
 export function isNoChargeOrder(o: { paymentProvider: string }): boolean {
   return (NO_CHARGE_PROVIDERS as readonly string[]).includes(o.paymentProvider);
 }
@@ -48,17 +50,20 @@ export function hostsContent(type: string): boolean {
 }
 
 /**
- * Modos que ofrece el formulario del producto. En la web personal nada se cobra aquí: lo gratuito
- * con email (salvo las sesiones) o lo que se paga fuera. En la plataforma, lo de siempre.
+ * Modos que ofrece el formulario del producto. En la plataforma, lo de siempre (de pago). En la web
+ * personal, lo gratuito con email (salvo las sesiones) y lo que se paga fuera y, si la web cobra
+ * (`sells`: tiene Stripe y/o PayPal), también el pago en la web, que va primero.
  */
-export function accessModesFor(mode: SiteMode, type: string): AccessMode[] {
+export function accessModesFor(mode: SiteMode, type: string, _sells = false): AccessMode[] {
   if (mode !== "personal") return ["PAID"];
-  return hostsContent(type) ? ["FREE_EMAIL", "EXTERNAL"] : ["EXTERNAL"];
+  const offSite: AccessMode[] = hostsContent(type) ? ["FREE_EMAIL", "EXTERNAL"] : ["EXTERNAL"];
+  // La web no cobra: «Con solicitud» (PAID) siempre se puede elegir y va primero.
+  return ["PAID", ...offSite];
 }
 
 /** Modo de un producto nuevo. */
-export function defaultAccessMode(mode: SiteMode, type: string): AccessMode {
-  return accessModesFor(mode, type)[0];
+export function defaultAccessMode(mode: SiteMode, type: string, sells = false): AccessMode {
+  return accessModesFor(mode, type, sells)[0];
 }
 
 /**
@@ -68,8 +73,8 @@ export function defaultAccessMode(mode: SiteMode, type: string): AccessMode {
  * personal un producto de pago en la web sigue de pago (y oculto) hasta que la dueña elija otro,
  * en vez de regalarse al guardar cualquier otro cambio.
  */
-export function resolveAccessMode(requested: string | null | undefined, current: string | null | undefined, mode: SiteMode, type: string): AccessMode {
-  const allowed = accessModesFor(mode, type);
+export function resolveAccessMode(requested: string | null | undefined, current: string | null | undefined, mode: SiteMode, type: string, sells = false): AccessMode {
+  const allowed = accessModesFor(mode, type, sells);
   const want = requested ? asAccessMode(requested) : null;
   const now = asAccessMode(current);
   if (want && (allowed.includes(want) || want === now)) return want;
@@ -82,9 +87,9 @@ export function accessModeOptions(allowed: readonly AccessMode[], current: Acces
   return allowed.includes(current) ? [...allowed] : [current, ...allowed];
 }
 
-/** En la web personal, lo que se cobraba en la web no se ve: se explica así en el formulario. */
+/** En la web personal sin cobros, lo que se cobraba en la web no se ve: se explica así en el formulario. */
 export const HIDDEN_PAID_LABEL = "Oculto: se cobraba en la web";
-export const HIDDEN_PAID_HINT = "En tu web no se cobra nada, así que nadie lo ve. Elige otra opción para que aparezca.";
+export const HIDDEN_PAID_HINT = "Tu web no tiene activados los cobros, así que nadie lo ve. Elige otra opción para que aparezca.";
 
 /** Error al publicar por el precio (null si vale). Gratis y externo no exigen precio. */
 export function publishPriceError(accessMode: AccessMode, priceCents: number): string | null {
@@ -146,19 +151,22 @@ export function resendDedupeKey(orderId: string, now = new Date()): string {
 
 /**
  * ¿Lleva este enlace a la ficha de uno de estos productos de la creadora? («/ana/slug»,
- * «/ana/slug/checkout» o, si se conoce la dirección de la web, «https://tudominio.com/ana/slug»).
- * En la web personal así no se enseñan botones que llevan a un producto oculto («no encontrada»).
+ * «/ana/slug/checkout» o, si se conoce la dirección de la web, «https://tudominio.com/ana/slug»,
+ * «tudominio.com/ana/slug» o con www). Se lee como lo pintará la página (safeHref). En la web
+ * personal así no se enseñan botones que llevan a un producto oculto («no encontrada»).
  */
 export function linksToProduct(url: string, username: string, slugs: ReadonlySet<string>, siteOrigin?: string | null): boolean {
   if (!slugs.size) return false;
-  const value = url.trim();
+  const href = safeHref(url);
   let path: string;
-  if (value.startsWith("/") && !value.startsWith("//")) path = value;
+  if (href.startsWith("/") && !href.startsWith("//")) path = href;
   else {
     if (!siteOrigin) return false;
     try {
-      const u = new URL(value);
-      if (u.host.toLowerCase() !== new URL(siteOrigin).host.toLowerCase()) return false;
+      const origin = new URL(siteOrigin);
+      const u = new URL(href, origin);
+      const bare = (host: string) => host.toLowerCase().replace(/^www\./, "");
+      if (!u.host || bare(u.host) !== bare(origin.host)) return false;
       path = u.pathname;
     } catch {
       return false;

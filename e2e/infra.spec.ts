@@ -11,9 +11,9 @@ import sharp from "sharp";
 const stamp = Date.now().toString().slice(-6);
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 /** Avisos de la CSP en la consola (o errores de la página) mientras se navega. */
@@ -32,7 +32,7 @@ async function demoData() {
   const prisma = new PrismaClient();
   try {
     const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
-    const astro = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, slug: "lectura-astrologia" } });
+    const astro = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, slug: "astrology" } });
     const course = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "COURSE", accessMode: "PAID" } });
     const video = await prisma.productFile.findFirst({ where: { creatorId: ana.id, kind: "VIDEO" } });
     return { ana, astro, course, video };
@@ -58,18 +58,18 @@ test.describe.serial("Infraestructura", () => {
     const problems = watchCsp(page);
     const { course } = await demoData();
     await page.goto("/ana");
-    await expect(page.getByRole("heading", { name: "Ana Luna" }).first()).toBeVisible();
-    await page.goto("/ana/lectura-astrologia");
-    await page.goto("/ana/lectura-astrologia/checkout");
+    await expect(page.getByRole("heading", { name: "Cirella" }).first()).toBeVisible();
+    await page.goto("/ana/astrology");
+    await page.goto("/ana/astrology/checkout");
     await page.fill("#name", "Prueba CSP");
     await page.fill("#email", `csp${stamp}@example.com`);
     await page.getByLabel(/He leído y acepto/).check();
     await page.getByLabel(/Quiero acceder ya/).check();
     await page.getByRole("button", { name: /Pagar/ }).click();
-    await page.waitForURL("**/ana/gracias**");
+    await page.waitForURL("**/ana/thanks**");
     await page.context().clearCookies();
     await demoLogin(page, "Laura Martín");
-    await page.goto(`/cuenta/cursos/${course.id}`);
+    await page.goto(`/area/courses/${course.id}`);
     await page.waitForLoadState("networkidle");
     expect(problems).toEqual([]);
   });
@@ -95,7 +95,7 @@ test.describe.serial("Infraestructura", () => {
       expect(res.headers()["cache-control"]).toContain("s-maxage");
       expect(res.headers()["set-cookie"]).toBeUndefined();
     }
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto("/ana");
     await expect(page.getByText("Vista previa del borrador")).toHaveCount(0);
     await page.goto("/vista-previa");
@@ -113,7 +113,7 @@ test.describe.serial("Infraestructura", () => {
   });
 
   test("«vista-previa» no se puede usar como nombre de usuario", async ({ page }) => {
-    await page.goto("/registro");
+    await page.goto("/signup");
     await page.fill("#email", `reservado${stamp}@example.com`);
     await page.fill("#password", "secreto123");
     await page.getByRole("button", { name: "Crear mi cuenta" }).click();
@@ -124,7 +124,7 @@ test.describe.serial("Infraestructura", () => {
 
   test("subir una foto: se endereza, se le quita el GPS y se guarda en WebP con variantes", async ({ page }) => {
     const { ana, astro } = await demoData();
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(`/panel/productos/${astro.id}`);
     const photo = await sharp({ create: { width: 2400, height: 1600, channels: 3, background: { r: 200, g: 150, b: 220 } } })
       .jpeg({ quality: 85 })
@@ -158,7 +158,7 @@ test.describe.serial("Infraestructura", () => {
 
   test("subir un PDF y descargarlo con un enlace temporal", async ({ page }) => {
     const { astro } = await demoData();
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.goto(`/panel/productos/${astro.id}`);
     const name = `material-${stamp}.pdf`;
     const pdf = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(200_000, 32), Buffer.from("\n%%EOF")]);

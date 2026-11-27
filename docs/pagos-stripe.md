@@ -146,13 +146,21 @@ Esas páginas no existen con Stripe real.
   queda en los reembolsos que inicia la creadora y quién absorbe la tarifa de Stripe. Fuera de
   alcance por ahora: un botón para reembolsar renovaciones de membresía desde el panel (los
   reembolsos hechos en Stripe sí se contabilizan) y reembolsos desde /admin.
-- **Desistimiento (abogada)**: reglas en `withdrawalEligibility` (lib/refund-math.ts): 14 días
-  naturales desde el pago; no cabe si la sesión ya empezó o se hizo, ni en digital/cursos/membresías
-  con renuncia expresa en el checkout (`Order.waiverAcceptedAt`, punto #3) una vez empezado el
-  acceso (primera descarga, reproducción o visita a las publicaciones: `Order.metadata.firstAccessAt`);
-  los productos digitales que prepara la creadora («Lo preparo yo») no piden renuncia; si cabe, se devuelve todo
-  lo que queda (también en membresías, sin prorrateo: el art. 108.3 TRLGDCU permitiría cobrar la
-  parte disfrutada). Confirmar también si la creadora puede «Cancelar sin reembolso» una sesión
+- **Desistimiento (abogada)**: reglas en `withdrawalEligibility` (lib/refund-math.ts) y
+  `lib/withdrawal.ts`: 14 días naturales (el del pago no cuenta; hasta las 23:59 del día 14 en la
+  zona de la dueña); no cabe si la sesión ya empezó o se hizo, ni en digital/cursos/«Lo
+  preparo yo», cuya renuncia es obligatoria en el checkout y cuenta desde el pago
+  (`Order.waiverAcceptedAt` + `waiverVersion`; las renuncias de antes, sin versión, solo cuentan
+  desde el primer acceso, `Order.metadata.firstAccessAt`). Las sesiones pagadas en la web se
+  reservan a partir del día 15. Los talleres (fecha fija) no tienen desistimiento (art. 103 l):
+  casilla WORKSHOP_FIXED_DATE obligatoria y sin «Desistir» (los pedidos de antes con
+  SERVICE_IN_PERIOD o sin casilla siguen con las reglas que se les dieron). Las membresías piden
+  «empezar ya» (MEMBERSHIP_START) y, en los 14 días desde el primer pago, se desisten con
+  reembolso proporcional de los días no disfrutados (art. 108.3, `membershipWithdrawalRefund`;
+  reembolso parcial por la pasarela y fin inmediato de la suscripción); nunca las renovaciones. En
+  lo demás se devuelve todo lo que queda. Pendiente de validar: que un taller encaje en «actividades
+  de esparcimiento» del 103 l) y la forma de contar los días disfrutados (el de inicio y el de hoy
+  cuentan enteros). Confirmar también si la creadora puede «Cancelar sin reembolso» una sesión
   pagada (hoy sí, con motivo obligatorio y aviso) o solo cuando la clienta no se presentó.
 - **Factura rectificativa (asesoría, punto #4)**: cada reembolso completado emite el evento
   `order.refunded` {orderId, refundId} para engancharla.

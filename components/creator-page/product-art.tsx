@@ -1,4 +1,5 @@
 import { imageSrcSet } from "@/lib/media-url";
+import { Tr } from "@/lib/i18n/client";
 
 /** Imagen de producto o, si no hay, una composición generativa con el emoji. */
 export function ProductImage({
@@ -38,7 +39,7 @@ export function ProductImage({
       role="img"
     >
       <span className="text-5xl drop-shadow-sm sm:text-6xl" aria-hidden>
-        {emoji || "✦"}
+        <Tr s={emoji || "✦"} />
       </span>
     </div>
   );
@@ -62,15 +63,16 @@ export function Avatar({
     .join("");
   if (src)
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} srcSet={imageSrcSet(src)} sizes={sizes} alt={name} decoding="async" className={`${className} rounded-full object-cover`} />;
+    return <img src={src} srcSet={imageSrcSet(src)} sizes={sizes} alt={name} decoding="async" data-avatar className={`${className} rounded-full object-cover`} />;
   return (
     <div
+      data-avatar
       className={`${className} grid place-items-center rounded-full`}
       style={{ background: "var(--c-accent)", color: "var(--c-accent-text)" }}
       aria-label={name}
     >
       <span className="cp-display text-[2.1em] leading-none" style={{ fontSize: "inherit" }}>
-        <span className="text-3xl">{initials}</span>
+        <span className="text-3xl"><Tr s={initials} /></span>
       </span>
     </div>
   );

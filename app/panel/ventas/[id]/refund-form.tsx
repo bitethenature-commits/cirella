@@ -1,10 +1,12 @@
 "use client";
+import { askConfirm } from "@/components/ui/ask-confirm";
 import { Loader2 } from "lucide-react";
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { Flash } from "@/components/ui/flash";
 import { formatMoney } from "@/lib/money";
 import { CREATOR_REFUND_REASONS, REFUND_REASONS, parseRefundAmount } from "@/lib/refund-math";
 import { refundOrderAction, type RefundState } from "../actions";
+import { Tr, useT } from "@/lib/i18n/client";
 
 /** Reembolso total o parcial de un pedido, con confirmación. */
 export function RefundForm({
@@ -24,6 +26,7 @@ export function RefundForm({
   /** Texto cuando ya no queda nada por devolver. */
   doneText: string;
 }) {
+  const t = useT();
   const [state, action, isPending] = useActionState<RefundState, FormData>(refundOrderAction, undefined);
   const [mode, setMode] = useState<"full" | "partial">("full");
   const [amount, setAmount] = useState("");
@@ -45,7 +48,7 @@ export function RefundForm({
     return (
       <div>
         <Flash ok={state?.ok} error={state?.error} />
-        <p className="text-sm text-muted">{doneText}</p>
+        <p className="text-sm text-muted"><Tr s={doneText} /></p>
       </div>
     );
 
@@ -53,10 +56,10 @@ export function RefundForm({
     <form
       ref={formRef}
       // onSubmit: la confirmación va antes de enviar y, si hay un error, lo escrito se conserva.
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        if (!window.confirm(`¿Devolver ${label ?? "este importe"} a ${name}? No se puede deshacer.`)) return;
         const fd = new FormData(e.currentTarget);
+        if (!(await askConfirm(`¿Devolver ${label ?? "este importe"} a ${name}? No se puede deshacer.`))) return;
         startTransition(() => action(fd));
       }}
       className="card space-y-4 p-5 sm:p-6"
@@ -64,7 +67,7 @@ export function RefundForm({
       <input type="hidden" name="orderId" value={orderId} />
       <Flash ok={state?.ok} error={state?.error} />
       <fieldset className="grid gap-2 sm:grid-cols-2">
-        <legend className="field-label">¿Cuánto devuelves?</legend>
+        <legend className="field-label"><Tr s={"¿Cuánto devuelves?"} /></legend>
         {(
           [
             ["full", `Todo (${refundableLabel})`],
@@ -89,7 +92,7 @@ export function RefundForm({
       </fieldset>
       {mode === "partial" && (
         <div>
-          <label htmlFor="refund-amount" className="field-label">Importe a devolver</label>
+          <label htmlFor="refund-amount" className="field-label"><Tr s={"Importe a devolver"} /></label>
           <div className="relative">
             <input
               id="refund-amount"
@@ -104,17 +107,17 @@ export function RefundForm({
             />
             <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted">€</span>
           </div>
-          {amount && !parsed.ok && <p className="field-hint text-rose">{parsed.error}</p>}
+          {amount && !parsed.ok && <p className="field-hint text-rose"><Tr s={parsed.error} /></p>}
         </div>
       )}
       {effectLabel && (
         <label className="flex cursor-pointer items-start gap-2.5 text-sm">
           <input type="checkbox" name="revoke" checked={revoke} onChange={(e) => setRevoke(e.target.checked)} className="mt-0.5 accent-[var(--color-ink)]" />
-          {effectLabel}
+          <Tr s={effectLabel} />
         </label>
       )}
       <div>
-        <label htmlFor="refund-reason" className="field-label">Motivo</label>
+        <label htmlFor="refund-reason" className="field-label"><Tr s={"Motivo"} /></label>
         <select id="refund-reason" name="reason" className="input" defaultValue="CUSTOMER_REQUEST">
           {CREATOR_REFUND_REASONS.map((r) => (
             <option key={r} value={r}>{REFUND_REASONS[r]}</option>
@@ -122,13 +125,13 @@ export function RefundForm({
         </select>
       </div>
       <div>
-        <label htmlFor="refund-note" className="field-label">Mensaje para {name} <span className="font-normal text-muted">(opcional)</span></label>
+        <label htmlFor="refund-note" className="field-label"><Tr s={"Mensaje para"} />{" "}{name} <span className="font-normal text-muted"><Tr s={"(opcional)"} /></span></label>
         <textarea id="refund-note" name="note" rows={3} maxLength={500} className="input" />
       </div>
-      <p className="text-xs text-muted">Se devuelve a su tarjeta en 5-10 días. La comisión de Cirella se devuelve en proporción.</p>
+      <p className="text-xs text-muted"><Tr s={"Se devuelve a su tarjeta en 5-10 días. La comisión de Cirella se devuelve en proporción."} /></p>
       <button type="submit" disabled={isPending || !parsed.ok} aria-busy={isPending} className="btn btn-primary w-full sm:w-auto">
         {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-        {label ? `Reembolsar ${label}` : "Reembolsar"}
+        {label ? `Reembolsar ${label}` : t("Reembolsar")}
       </button>
     </form>
   );

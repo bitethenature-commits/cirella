@@ -2,7 +2,12 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE, consumeMagicLink, createSession, hashToken } from "@/lib/auth";
+import { SESSION_COOKIE, completeLogin, consumeMagicLink, hashToken, peekMagicLink } from "@/lib/auth";
+import { maskEmail } from "@/lib/auth-utils";
+import { enqueueEmail } from "@/lib/email/outbox";
+import { emailChangedEmail } from "@/lib/email/templates";
+import { consumeEmailChange } from "@/lib/magic-links";
+import { inMail } from "@/lib/i18n/email";
 
 /**
  * «Entrar» de la pantalla del enlace mágico. Solo aquí (un POST) se gasta el enlace: los antivirus
@@ -10,12 +15,28 @@ import { SESSION_COOKIE, consumeMagicLink, createSession, hashToken } from "@/li
  */
 export async function confirmMagicLink(form: FormData) {
   const token = String(form.get("token") ?? "");
+  // Cambio de email: se confirma desde el buzón nuevo; se avisa al de antes y se entra de nuevo
+  // (todas las sesiones se han cerrado; con la verificación en dos pasos se pide el código).
+  if ((await peekMagicLink(token))?.purpose === "CHANGE_EMAIL") {
+    const change = await consumeEmailChange(token);
+    if (change === "taken") redirect("/area/settings?error=email-ocupado");
+    if (!change) redirect("/login?error=enlace");
+    await enqueueEmail({
+      to: change.fromEmail,
+      template: "EMAIL_CHANGED",
+      userId: change.user.id,
+      dedupeKey: `email-changed:${change.user.id}:${change.tokenId}`,
+      ...(await inMail(change.fromEmail, () => emailChangedEmail({ newEmailMasked: maskEmail(change.user.email) }))),
+    });
+    return completeLogin(change.user.id, { verified: true, next: "/area/settings?ok=email", method: "MAGIC_LINK" });
+  }
   const raw = form.get("choice");
   const choice = raw === "no" ? "no" : raw === "yes" ? "yes" : undefined;
   // «Sí, he sido yo» conserva la contraseña solo desde el navegador donde se creó la cuenta.
   const session = (await cookies()).get(SESSION_COOKIE)?.value;
   const r = await consumeMagicLink(token, choice, { currentSessionId: session ? hashToken(session) : null });
-  if (!r) redirect("/entrar?error=enlace");
-  await createSession(r.user.id, { verified: true });
-  redirect(r.redirectTo);
+  if (!r) redirect("/login?error=enlace");
+  // El enlace ya está gastado: con la verificación en dos pasos se pide después el código, así un
+  // email reenviado o robado no basta para abrir el panel.
+  return completeLogin(r.user.id, { verified: true, next: r.redirectTo, method: "MAGIC_LINK" });
 }

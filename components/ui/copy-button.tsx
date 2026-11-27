@@ -1,6 +1,7 @@
 "use client";
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
+import { Tr } from "@/lib/i18n/client";
 
 export function CopyButton({ text, label = "Copiar enlace", className = "btn btn-outline", copiedLabel = "¡Copiado!" }: { text: string; label?: string; className?: string; copiedLabel?: string }) {
   const [copied, setCopied] = useState(false);
@@ -24,7 +25,7 @@ export function CopyButton({ text, label = "Copiar enlace", className = "btn btn
       }}
     >
       {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-      {copied ? copiedLabel : label}
+      <Tr s={copied ? copiedLabel : label} />
     </button>
   );
 }

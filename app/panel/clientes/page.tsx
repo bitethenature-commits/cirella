@@ -1,78 +1,157 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { Search, Users } from "lucide-react";
-import { EmptyState } from "@/components/ui/empty";
+import { CalendarRange, Gift, Inbox, UserPlus, UserRound } from "lucide-react";
+import { Flash } from "@/components/ui/flash";
 import { requireCreator } from "@/lib/auth";
-import { formatMoney } from "@/lib/money";
-import { isPersonalMode } from "@/lib/site-mode";
+import { prisma } from "@/lib/db";
+import { REQUESTED } from "@/lib/requests";
+import { peopleLabel } from "@/lib/site-mode";
 import { tenantDb } from "@/lib/tenant";
-import { Badge, PageHeader, Stat } from "../ui";
+import { formatDate } from "@/lib/tz";
+import { Badge, PersonDot } from "../ui";
+import { PeopleList } from "./people-list";
+import { ReadingsChecklist } from "./lecturas";
+import { PENDING_INCLUDE, RequestCard, type PendingRequest } from "./solicitudes";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
-export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+export const metadata: Metadata = { title: peopleLabel() };
+
+const HERE = "/panel/clientes";
+
+/**
+ * Personas (en la plataforma, «Clientes»). Arriba, las Solicitudes nuevas (para contestar aquí) y, a la
+ * derecha, «Dar acceso» y las Lecturas por enviar (una lista para marcar). Debajo, todas las personas como
+ * mensajes: la de lo último que ha pedido o hecho arriba (o por nombre, A–Z). Lo de cada una, con su
+ * historial, está en su ficha.
+ */
+export default async function PeoplePage({ searchParams }: { searchParams: Promise<{ q?: string; orden?: string; borrada?: string; p?: string; ok?: string; error?: string }> }) {
+  const t = await getT();
+  const sp = await searchParams;
   const { creator } = await requireCreator();
-  const { q } = await searchParams;
-  const db = tenantDb(creator.id);
-  const [customers, total, subs] = await Promise.all([
-    db.customer.findMany({
-      where: q ? { OR: [{ email: { contains: q, mode: "insensitive" } }, { name: { contains: q, mode: "insensitive" } }] } : {},
-      orderBy: { lastPurchaseAt: { sort: "desc", nulls: "last" } },
-      take: 200,
-      include: { subscriptions: { where: { status: "ACTIVE" }, select: { id: true } } },
-    }),
-    db.customer.count(),
-    db.subscription.count({ where: { status: "ACTIVE" } }),
-  ]);
-  const ltv = customers.reduce((a, c) => a + c.totalSpentCents, 0) / Math.max(1, customers.length);
-  const repeat = customers.filter((c) => c.ordersCount > 1).length;
-  // Web personal: aquí no se compra, se apunta (gratis con email) o le das acceso tú.
-  const personal = isPersonalMode();
-  const optIns = personal ? await db.customer.count({ where: { marketingOptIn: true } }) : 0;
+  const tz = creator.timezone;
+  const pending = await prisma.order.findMany({ where: { creatorId: creator.id, status: REQUESTED }, orderBy: { createdAt: "desc" }, include: PENDING_INCLUDE });
+  // Quién pide: sus solicitudes juntas.
+  const people = new Map<string, PendingRequest[]>();
+  for (const o of pending) {
+    const key = o.buyerEmail.toLowerCase();
+    people.set(key, [...(people.get(key) ?? []), o]);
+  }
+  const label = peopleLabel();
+
   return (
     <div>
-      {personal ? (
-        <PageHeader title="Personas" subtitle="Quien se ha apuntado a algo o a quien has dado acceso. Solo tú las ves." />
-      ) : (
-        <PageHeader title="Clientes" subtitle="Solo tú ves a tus clientas. Cada una tiene acceso a su área privada." />
-      )}
-      {personal ? (
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Stat label="Personas" value={total} accent />
-          <Stat label="Repiten" value={repeat} hint="Apuntadas a más de una cosa" />
-          <Stat label="Quieren novedades" value={optIns} hint="Lo confirmaron por email" />
+      <h1 className="sr-only"><Tr s={label} /></h1>
+      <Flash ok={sp.borrada ? "Borrada, con todo lo suyo." : sp.ok} error={sp.error} />
+
+      {/* Móvil: los botones, las solicitudes y las lecturas, uno detrás de otro. Escritorio: solicitudes a la
+          izquierda; a la derecha, los botones y las lecturas. */}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_17rem] lg:grid-rows-[auto_1fr]">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 lg:col-start-2 lg:row-start-1 lg:flex-col lg:items-end">
+          <Link href="/panel/solicitudes/dar" className="btn btn-primary">
+            <UserPlus className="h-4 w-4" />{" "}<Tr s={"Dar acceso"} /></Link>
+          <Link href="/panel/solicitudes/dar/sesion" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+            <Gift className="h-4 w-4" />{" "}<Tr s={"Dar una sesión o lectura"} /></Link>
+          <Link href="/panel/solicitudes/horario" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+            <CalendarRange className="h-4 w-4" />{" "}<Tr s={"Tu horario"} /></Link>
         </div>
-      ) : (
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Clientas" value={total} accent />
-          <Stat label="Repiten" value={repeat} hint="Más de una compra" />
-          <Stat label="Gasto medio" value={formatMoney(Math.round(ltv))} />
-          <Stat label="Miembros activos" value={subs} />
+
+        <section className="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1" aria-label={t("Solicitudes")}>
+          <h2 className="mb-4 flex items-center gap-2.5 font-serif text-[1.5rem] font-semibold leading-tight">
+            <span className="panel-emblem h-10 w-10">
+              <Inbox className="h-5 w-5" />
+            </span><Tr s={"Solicitudes"} />{pending.length > 0 && <span className="rounded-full bg-[#B4473C] px-2.5 py-0.5 font-sans text-xs font-bold text-white">{pending.length}</span>}
+          </h2>
+          {people.size === 0 ? (
+            <p className="card p-5 text-sm text-muted"><Tr s={"No hay solicitudes nuevas. Cuando alguien te pida algo desde tu web, te llegará un email y saldrá aquí."} /></p>
+          ) : (
+            <NewRequests people={people} creatorId={creator.id} tz={tz} />
+          )}
+        </section>
+
+        <div className="lg:col-start-2 lg:row-start-2">
+          <ReadingsChecklist creatorId={creator.id} tz={tz} />
         </div>
-      )}
-      <form className="mb-4 flex max-w-sm items-center gap-2 rounded-full border border-line bg-white px-4">
-        <Search className="h-4 w-4 text-muted" />
-        <input name="q" defaultValue={q} placeholder="Buscar por nombre o email" className="h-10 flex-1 bg-transparent text-sm outline-none" />
-      </form>
-      <div className="card divide-y divide-line">
-        {customers.map((c) => (
-          <Link key={c.id} href={`/panel/clientes/${c.id}`} className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-paper sm:px-5">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sand text-sm font-semibold">{(c.name ?? c.email)[0].toUpperCase()}</div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold">{c.name ?? c.email}</p>
-              <p className="truncate text-xs text-muted">{c.email}</p>
-            </div>
-            {c.marketingOptIn && <Badge tone="success">Novedades ✓</Badge>}
-            <div className="hidden sm:block">{c.subscriptions.length > 0 && <Badge tone="dark">Miembro</Badge>}</div>
-            {personal ? (
-              <p className="text-right text-xs text-muted">{c.ordersCount} {c.ordersCount === 1 ? "inscripción" : "inscripciones"}</p>
-            ) : (
-              <div className="text-right text-sm">
-                <p className="font-semibold tabular-nums">{formatMoney(c.totalSpentCents)}</p>
-                <p className="text-xs text-muted">{c.ordersCount} {c.ordersCount === 1 ? "compra" : "compras"}</p>
-              </div>
-            )}
-          </Link>
-        ))}
       </div>
-      {customers.length === 0 && <EmptyState icon={<Users className="h-5 w-5" />} title={q ? "Sin resultados" : personal ? "Aún no se ha apuntado nadie" : "Aún no tienes clientas"}>{personal ? "Cuando alguien se apunte o le des acceso, aparecerá aquí." : "Cuando alguien compre, aparecerá aquí con su historial."}</EmptyState>}
+
+      <PeopleList creatorId={creator.id} tz={tz} q={sp.q?.trim() || ""} az={sp.orden === "az"} page={Math.max(1, Number(sp.p) || 1)} label={t(label)} />
+    </div>
+  );
+}
+
+/** Las solicitudes nuevas, juntas por persona, con lo que ya tiene contigo. */
+async function NewRequests({ people, creatorId, tz }: { people: Map<string, PendingRequest[]>; creatorId: string; tz: string }) {
+  const db = tenantDb(creatorId);
+  const now = new Date();
+  const users = await prisma.user.findMany({ where: { email: { in: [...people.keys()] } }, select: { id: true, email: true } });
+  const ids = users.map((u) => u.id);
+  const [accesses, customers] = ids.length
+    ? await Promise.all([
+        db.access.findMany({
+          where: { userId: { in: ids } },
+          orderBy: { createdAt: "desc" },
+          select: { userId: true, status: true, expiresAt: true, product: { select: { title: true, emoji: true } } },
+        }),
+        db.customer.findMany({ where: { userId: { in: ids } }, select: { id: true, userId: true } }),
+      ])
+    : [[], []];
+  const emailOf = new Map(users.map((u) => [u.id, u.email.toLowerCase()]));
+  const fichaOf = new Map(customers.map((c) => [emailOf.get(c.userId), c.id]));
+  const hasNow = new Map<string, { label: string; until: Date | null; live: boolean }[]>();
+  for (const a of accesses) {
+    const key = emailOf.get(a.userId);
+    if (!key) continue;
+    const live = a.status === "ACTIVE" && (!a.expiresAt || a.expiresAt > now);
+    hasNow.set(key, [...(hasNow.get(key) ?? []), { label: `${a.product.emoji ? a.product.emoji + " " : ""}${a.product.title}`, until: a.expiresAt, live }]);
+  }
+  const shortDay = (d: Date) => formatDate(d, { day: "numeric", month: "short" }, tz);
+  return (
+    <div className="grid gap-9">
+      {[...people.entries()].map(([key, reqs]) => {
+        const who = reqs.find((o) => o.buyerName)?.buyerName ?? null;
+        const owns = hasNow.get(key) ?? [];
+        const live = owns.filter((a) => a.live);
+        const past = owns.filter((a) => !a.live);
+        const ficha = fichaOf.get(key);
+        return (
+          <section key={key} data-request-person={key}>
+            <div className="mb-3 flex flex-wrap items-center gap-3">
+              <PersonDot name={who} email={reqs[0].buyerEmail} className="h-12 w-12 text-lg" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-serif text-[1.35rem] font-semibold leading-tight"><Tr s={who ?? reqs[0].buyerEmail} /></p>
+                <p className="truncate text-xs text-muted"><Tr s={reqs[0].buyerEmail} /></p>
+              </div>
+              {reqs.length > 1 && <Badge tone="warning">{reqs.length}{" "}<Tr s={"solicitudes suyas"} /></Badge>}
+              {ficha && (
+                <Link href={`/panel/clientes/${ficha}`} className="btn btn-ghost btn-sm">
+                  <UserRound className="h-4 w-4" />{" "}<Tr s={"Ficha"} /></Link>
+              )}
+            </div>
+            <div className="mb-4 flex flex-wrap items-center gap-1.5 text-xs">
+              {live.length === 0 && past.length === 0 ? (
+                <span className="text-muted"><Tr s={"Es nueva: todavía no tiene nada contigo."} /></span>
+              ) : (
+                <>
+                  <span className="mr-1 text-muted"><Tr s={"Ya tiene:"} /></span>
+                  {live.map((a, n) => (
+                    <Badge key={`v${n}`} tone="success">
+                      <Tr s={a.label} />
+                      {a.until ? ` · hasta el ${shortDay(a.until)}` : ""}
+                    </Badge>
+                  ))}
+                  {live.length === 0 && <span className="text-muted"><Tr s={"nada activo ahora."} /></span>}
+                  {past.length > 0 && <span className="ml-1 text-muted"><Tr s={"Tuvo:"} />{" "}{past.map((a) => a.label).join(", ")}</span>}
+                </>
+              )}
+            </div>
+            <div className="grid gap-5">
+              {reqs.map((o) => (
+                <RequestCard key={o.id} o={o} tz={tz} back={HERE} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }

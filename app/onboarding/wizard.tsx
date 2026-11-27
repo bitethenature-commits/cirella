@@ -3,7 +3,6 @@
 import { ArrowLeft, ArrowRight, Check, CreditCard, Loader2, Lock, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CreatorPageView, type PublicProduct } from "@/components/creator-page/creator-page-view";
-import { TemplatePreview } from "@/components/template-preview";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { saveLegalIdentity } from "@/app/panel/ajustes/legal/actions";
 import { LegalIdentityFields } from "@/app/panel/ajustes/legal/legal-identity-fields";
@@ -12,8 +11,8 @@ import type { LegalIdentity } from "@/lib/legal";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import type { PageConfig } from "@/lib/page-config";
 import type { PayoutView } from "@/lib/payouts";
-import { estimateNet, type TaxMode, type VatStatus } from "@/lib/tax";
-import { TEMPLATES, type TemplateKey } from "@/lib/templates";
+import { computeSaleAmounts } from "@/lib/sale-amounts";
+import { designValue, isDark } from "@/lib/templates";
 import { DEFAULT_CTA, PRODUCT_TYPE_HINT, PRODUCT_TYPE_LABEL, PRODUCT_TYPES, type ProductType } from "@/lib/types";
 import {
   checkUsername,
@@ -24,7 +23,7 @@ import {
   saveDelivery,
   saveFirstProduct,
   saveProfile,
-  saveTemplate,
+  saveColors,
   saveUsername,
 } from "./actions";
 import { DeliveryStep, type DeliveryState } from "./delivery-step";
@@ -35,16 +34,13 @@ export type WizardInit = {
   username: string;
   config: PageConfig;
   categoryId: string | null;
-  categories: { id: string; name: string; emoji: string | null; defaultTemplate: string }[];
-  templates: TemplateKey[];
+  categories: { id: string; name: string; emoji: string | null }[];
   product: { productId: string | null; type: ProductType; title: string; summary: string; emoji: string | null; imageUrl: string | null; price: string; durationMin: number };
   /** Cómo se entrega el primer producto (paso 8). */
   delivery: { mode: "AUTOMATIC" | "PERSONAL"; instructions: string; files: { id: string; name: string; kind: string; sizeBytes: number | null }[] };
   allowedTypes: ProductType[];
   commissionBps: number;
   planName: string;
-  /** IVA: política de la plataforma y situación de la creadora, para «Recibirás X». */
-  tax: { mode: TaxMode; country: string; vatStatus: VatStatus };
   /** Estado de la cuenta de cobro (lib/payouts.ts → payoutView). */
   payout: PayoutView;
   demo: boolean;
@@ -55,7 +51,7 @@ export type WizardInit = {
   legal: { defaults: Partial<LegalIdentity>; contactFallback: string; complete: boolean };
 };
 
-/** Pasos del alta: 1 es /registro y el asistente va del 2 al 10. */
+/** Pasos del alta: 1 es /signup y el asistente va del 2 al 10. */
 const TOTAL = 10;
 const EMOJIS = ["🌙", "✨", "🔮", "🧬", "🔑", "💫", "🌿", "🧘", "🪷", "📖", "🎧", "☀️"];
 const PRICE_SUGGESTIONS = [19, 29, 49, 79, 120];
@@ -110,15 +106,9 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
         return run(() => saveProfile({ displayName: cfg.displayName, tagline: cfg.tagline, bio: cfg.bio, avatarUrl: cfg.avatarUrl }));
       case 5:
         if (!categoryId) return setError("Elige una categoría");
-        return run(
-          () => saveCategory(categoryId),
-          (d) => {
-            const suggested = d?.suggestedTemplate as TemplateKey | undefined;
-            if (suggested && init.templates.includes(suggested) && cfg.template === init.config.template) setCfg((c) => ({ ...c, template: suggested }));
-          },
-        );
+        return run(() => saveCategory(categoryId));
       case 6:
-        return run(() => saveTemplate(cfg.template));
+        return run(() => saveColors({ background: designValue(cfg.theme, "background"), accent: designValue(cfg.theme, "accent"), text: designValue(cfg.theme, "text") }));
       case 7:
         // Producto y precio en un solo paso: se crea (o se actualiza) ya con su precio.
         return run(
@@ -207,14 +197,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
               : "Entrega pendiente";
 
   const priceCents = parseMoneyToCents(product.price);
-  const estimate = estimateNet({
-    priceCents,
-    commissionBps: init.commissionBps,
-    productType: product.type,
-    deliveryMode: delivery.choice === "PERSONAL" ? "PERSONAL" : "AUTOMATIC",
-    mode: init.tax.mode,
-    creator: init.tax,
-  });
+  const estimate = computeSaleAmounts(priceCents, init.commissionBps);
 
   const previewProducts: PublicProduct[] = useMemo(
     () =>
@@ -305,10 +288,10 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                   <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-ink" />
                   <span>
                     Acepto los{" "}
-                    <a href="/terminos" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Términos del servicio</a> y el{" "}
-                    <a href="/terminos#encargo" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Encargo de tratamiento de datos</a> de
+                    <a href="/terms" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Términos del servicio</a> y el{" "}
+                    <a href="/terms#encargo" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Encargo de tratamiento de datos</a> de
                     Cirella y he leído la{" "}
-                    <a href="/privacidad" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Política de privacidad</a>.
+                    <a href="/privacy" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Política de privacidad</a>.
                   </span>
                 </label>
               </Step>
@@ -326,7 +309,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                 <div className="space-y-4">
                   <div>
                     <label className="field-label">Nombre</label>
-                    <input className="input" value={cfg.displayName} onChange={(e) => setCfg((c) => ({ ...c, displayName: e.target.value }))} placeholder="Ana Luna" maxLength={80} />
+                    <input className="input" value={cfg.displayName} onChange={(e) => setCfg((c) => ({ ...c, displayName: e.target.value }))} placeholder="Cirella" maxLength={80} />
                   </div>
                   <div>
                     <label className="field-label">Descripción corta</label>
@@ -361,18 +344,18 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
             )}
 
             {step === 6 && (
-              <Step title="Elige tu estilo" text="Podrás cambiarlo cuando quieras sin perder nada.">
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {init.templates.map((t) => (
-                    <button key={t} type="button" onClick={() => setCfg((c) => ({ ...c, template: t }))} className="text-left">
-                      <div className={`overflow-hidden rounded-2xl ring-offset-2 ring-offset-paper transition ${cfg.template === t ? "ring-2 ring-ink" : "ring-1 ring-line"}`}>
-                        <TemplatePreview template={t} name={cfg.displayName || "Tu nombre"} tagline={cfg.tagline || "Tu especialidad"} />
-                      </div>
-                      <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold">
-                        {cfg.template === t && <Check className="h-4 w-4" />} {TEMPLATES[t].name}
-                      </p>
-                    </button>
+              <Step title="Tus colores" text="Empieza con dos colores. Luego, en Mi página › Diseño, lo diseñas todo a tu gusto: fondos, letras, tarjetas, botones…">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {([["background", "Fondo"], ["accent", "Color principal"]] as const).map(([k, label]) => (
+                    <label key={k} className="flex items-center gap-3 rounded-xl border border-line bg-white p-3">
+                      <input type="color" value={designValue(cfg.theme, k)} onChange={(e) => setCfg((c) => ({ ...c, theme: { ...c.theme, [k]: e.target.value, ...(k === "background" ? { bg2: e.target.value, text: isDark(e.target.value) ? "#F3ECDD" : "#1E1B2E" } : { accentText: null }) } }))} className="h-10 w-10 cursor-pointer rounded-lg border-0 bg-transparent p-0" />
+                      <span className="text-sm font-semibold">{label}</span>
+                    </label>
                   ))}
+                </div>
+                <div className="mt-4 rounded-2xl p-6 text-center" style={{ background: designValue(cfg.theme, "background"), color: designValue(cfg.theme, "text") }}>
+                  <p className="text-2xl" style={{ fontFamily: "var(--font-cormorant)" }}>{cfg.displayName || "Tu nombre"}</p>
+                  <span className="mt-3 inline-block rounded-full px-4 py-2 text-sm font-semibold" style={{ background: designValue(cfg.theme, "accent"), color: designValue(cfg.theme, "accentText") }}>Reservar</span>
                 </div>
               </Step>
             )}
@@ -425,7 +408,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                       />
                       <span className="text-xl text-muted">€{product.type === "MEMBERSHIP" ? "/mes" : ""}</span>
                     </div>
-                    <p className="field-hint">Es el precio final que paga tu clienta, con IVA incluido si corresponde.</p>
+                    <p className="field-hint">Es el precio final que paga tu clienta.</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {PRICE_SUGGESTIONS.map((v) => (
                         <button key={v} type="button" onClick={() => setProduct((p) => ({ ...p, price: String(v) }))} className="chip h-8 bg-white ring-1 ring-line hover:ring-ink/30">
@@ -439,9 +422,7 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                           Recibirás <strong>{formatMoney(estimate.netCents, "EUR", { decimals: true })}</strong> por cada venta.
                         </p>
                         <p className="mt-1 text-xs text-muted">
-                          {estimate.taxCents > 0
-                            ? `De ${formatMoney(priceCents, "EUR", { decimals: true })}, IVA incluido: ${formatMoney(estimate.taxCents, "EUR", { decimals: true })} de IVA (${estimate.seller === "PLATFORM" ? "lo declara e ingresa Cirella" : "lo declaras tú"}) y ${formatMoney(estimate.feeCents, "EUR", { decimals: true })} de comisión (${(init.commissionBps / 100).toLocaleString("es-ES")} % sobre el precio sin IVA). `
-                            : `Plan ${init.planName}: comisión del ${(init.commissionBps / 100).toLocaleString("es-ES")} %. `}
+                          {`Plan ${init.planName}: comisión del ${(init.commissionBps / 100).toLocaleString("es-ES")} %. `}
                           Baja al 2 % con el plan Pro.
                         </p>
                       </div>
@@ -575,7 +556,6 @@ export function OnboardingWizard({ init }: { init: WizardInit }) {
                   {[
                     [`${init.host}/${username}`, true],
                     [cfg.avatarUrl ? "Foto de perfil" : "Foto de perfil (pendiente)", !!cfg.avatarUrl],
-                    [`Estilo ${TEMPLATES[cfg.template].name}`, true],
                     [product.title ? `${product.title} · ${formatMoney(priceCents)}` : "Primer producto", !!product.productId],
                     [deliveryLabel, deliverable],
                     [payoutActive ? "Pagos activados" : payout.status === "VERIFYING" ? "Pagos en verificación" : "Pagos sin conectar", payoutActive],

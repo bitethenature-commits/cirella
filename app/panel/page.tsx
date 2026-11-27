@@ -1,427 +1,317 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Check, Newspaper, Palette, Plus, Sparkles, TrendingUp } from "lucide-react";
-import { BarChart } from "@/components/charts";
-import { Dac7Banner, PayoutBanner } from "@/components/panel/payout-status";
-import { DeliveryAlert } from "@/components/ui/delivery-alert";
+import type { ReactNode } from "react";
+import { ELEMENT_HUE, SIGNS, signOf } from "@/components/models/data/astrology";
+import { KEY_BY_N } from "@/components/models/data/gene-keys";
+import { GATE_BY_N } from "@/components/models/data/human-design";
+import { EIGHT_PHASES, PHASE_GUIDANCE } from "@/components/models/data/moon";
+import { PayoutBanner } from "@/components/panel/payout-status";
 import { requireCreator } from "@/lib/auth";
-import { dac7Missing } from "@/lib/dac7";
-import { deliveryIssueCopy, deliveryIssueHref, listDeliveryIssues } from "@/lib/delivery";
-import { legalIdentityComplete } from "@/lib/legal";
-import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
-import { readPageConfig } from "@/lib/page-config";
-import { planFeatures } from "@/lib/plans";
-import { getSettings } from "@/lib/settings";
+import { listBirthProfiles } from "@/lib/birth-profiles";
+import { signupsOnly } from "@/lib/commerce";
+import { activationsAt } from "@/lib/human-design-calc";
+import { moonState } from "@/lib/lunar-sky";
 import { isPersonalMode } from "@/lib/site-mode";
-import { getDashboardStats, parseRange, RANGES } from "@/lib/stats";
 import { tenantDb } from "@/lib/tenant";
-import { capitalize, formatSessionDate } from "@/lib/tz";
-import { panelNavFlags } from "./nav-flags";
-import { PageHeader, RangeTabs, Stat } from "./ui";
+import { dateKeyInTz, formatInTz, zonedTimeToUtc } from "@/lib/tz";
+import { BarChart, HBars, Sparkline, TrendChart } from "./inicio/charts";
+import { fmtValue, type ValueFormat } from "./inicio/format";
+import { NextMoon } from "./inicio/next-moon";
+import { Pending } from "./inicio/pending";
+import { asPeriod, homeStats, PERIODS, type Kpi, type PeriodDays } from "./inicio/stats";
+import { TodayEnergy, type GeneralEnergy } from "./inicio/today-energy";
+import { StatsWheel, type WheelSector } from "./stats-wheel";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
-export default async function PanelHome({ searchParams }: { searchParams: Promise<{ rango?: string }> }) {
-  const { creator } = await requireCreator();
-  const range = parseRange((await searchParams).rango);
-  const s = await getDashboardStats(creator.id, range, creator.timezone);
-  const features = planFeatures(creator.plan);
-  const cfg = readPageConfig(creator.pageDraft, creator.displayName);
-  const db = tenantDb(creator.id);
-  const productCount = await db.product.count({ where: { status: { not: "ARCHIVED" } } });
-  // Productos que no tienen nada que entregar (o una membresía publicada y vacía).
-  const deliveryIssues = await listDeliveryIssues(db);
-  // Gratis con email publicado sin datos legales: nadie puede apuntarse (lib/free-access.ts).
-  const freeBlocked =
-    !legalIdentityComplete(creator) && (await db.product.count({ where: { status: "PUBLISHED", accessMode: "FREE_EMAIL", type: { not: "SESSION" } } })) > 0;
-  const first = cfg.displayName.split(" ")[0];
-  const rangeLabel = { month: "este mes", "30d": "en los últimos 30 días", all: "en total" }[range];
-  // Modo personal: aquí no se cobra nada (sin cobros, DAC7 ni ingresos); se cuentan visitas e inscripciones.
-  const personal = isPersonalMode();
-  if (personal) {
-    const [posts, codes, flags] = await Promise.all([db.post.count(), db.discountCode.count(), panelNavFlags(creator.id)]);
-    const steps = [
-      { done: !!cfg.avatarUrl, label: "Sube tu foto", href: "/panel/pagina" },
-      { done: legalIdentityComplete(creator), label: "Completa tu aviso legal", href: "/panel/ajustes/legal" },
-      { done: cfg.links.length > 0 || Object.keys(cfg.socials).length > 0, label: "Añade tus redes y enlaces", href: "/panel/pagina" },
-      { done: posts > 0, label: "Escribe tu primera publicación", href: "/panel/publicaciones" },
-      { done: codes > 0, label: "Añade un código de descuento", href: "/panel/codigos" },
-      { done: s.pageViews > 0, label: "Pon tu enlace en tu bio", href: "/panel/ajustes#compartir" },
-    ];
-    return (
-      <PersonalHome
-        first={first}
-        range={range}
-        rangeLabel={rangeLabel}
-        s={s}
-        timezone={creator.timezone}
-        showBookings={flags.showBookings}
-        checklist={steps}
-        deliveryIssues={deliveryIssues}
-        freeBlocked={freeBlocked}
-      />
-    );
-  }
-  // DAC7: el aviso sale si faltan datos y ya se le han pedido o vende algo declarable.
-  const dac7Missed = dac7Missing(creator);
-  const { dac7ReportableTypes } = await getSettings();
-  const showDac7 =
-    dac7Missed.length > 0 &&
-    (!!creator.dac7RequestedAt || (await db.product.count({ where: { status: "PUBLISHED", type: { in: dac7ReportableTypes } } })) > 0);
-  const top = s.topProducts[0];
+export const dynamic = "force-dynamic";
 
-  const checklist = [
-    { done: !!cfg.avatarUrl, label: "Sube tu foto", href: "/panel/pagina" },
-    { done: productCount >= 2, label: "Añade un segundo producto", href: "/panel/productos/nuevo" },
-    { done: legalIdentityComplete(creator), label: "Completa tus datos legales", href: "/panel/ajustes/legal" },
-    { done: creator.payoutStatus === "ACTIVE", label: "Activa tus cobros", href: "/panel/ajustes/cobros" },
-    { done: cfg.links.length > 0 || Object.keys(cfg.socials).length > 0, label: "Añade tus redes y enlaces", href: "/panel/pagina" },
-    { done: s.pageViews > 0, label: "Comparte tu enlace en tu bio", href: "/panel/ajustes#compartir" },
-  ];
-  const pending = checklist.filter((c) => !c.done);
+/** Cuándo empieza la temporada de cada signo (mes, día), de Aries a Piscis. */
+const SIGN_START: [number, number][] = [
+  [3, 21], [4, 20], [5, 21], [6, 21], [7, 23], [8, 23], [9, 23], [10, 23], [11, 22], [12, 22], [1, 20], [2, 19],
+];
 
-  return (
-    <div className="space-y-8">
-      <PageHeader
-        title={`Hola, ${first}`}
-        subtitle={<>Así va tu negocio {rangeLabel}.</>}
-        actions={<RangeTabs current={range} base="/panel" />}
-      />
-
-      <div className="space-y-2 empty:hidden">
-        <PayoutBanner creator={creator} />
-        <Dac7Banner missing={dac7Missed} show={showDac7} />
-      </div>
-
-      {freeBlocked && <FreeSignupsBlockedAlert />}
-      <DeliveryAlerts issues={deliveryIssues} />
-
-      {/* Frases resumen */}
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="relative overflow-hidden rounded-3xl bg-ink p-6 text-cream">
-          <div className="starfield absolute inset-0 opacity-40" />
-          <div className="relative">
-            <p className="eyebrow !text-cream/50">{RANGES[range]}</p>
-            <p className="display mt-2 text-[1.9rem] leading-tight">
-              Tu página recibió <span className="text-gold">{formatNumber(s.pageViews)} visitas</span> {rangeLabel}.
-            </p>
-            <p className="mt-2 text-sm text-cream/65">
-              {formatNumber(s.uniqueVisitors)} personas distintas · {formatPercent(s.conversion)} acabaron comprando.
-            </p>
-          </div>
-        </div>
-        <div className="rounded-3xl border border-line bg-white p-6">
-          <p className="eyebrow">Producto estrella</p>
-          {top?.product ? (
-            <>
-              <p className="display mt-2 text-[1.9rem] leading-tight">
-                Tu producto más vendido fue <span className="italic">{top.product.title}</span>.
-              </p>
-              <p className="mt-2 text-sm text-muted">
-                {top.count} {top.count === 1 ? "venta" : "ventas"} · {formatMoney(top.revenue)} {rangeLabel}
-              </p>
-            </>
-          ) : (
-            <p className="display mt-2 text-[1.9rem] leading-tight text-muted">Tu primera venta está cerca. Comparte tu enlace ✨</p>
-          )}
-        </div>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Ingresos" value={formatMoney(s.revenue)} hint={`Recibes ${formatMoney(s.net)} en tu cuenta`} accent />
-        <Stat label="Ventas" value={formatNumber(s.sales)} hint="Productos vendidos" />
-        <Stat label="Clientes" value={formatNumber(range === "all" ? s.totalCustomers : s.newCustomers)} hint={range === "all" ? "En total" : `${s.totalCustomers} en total`} />
-        <Stat label="Conversión" value={formatPercent(s.conversion)} hint={`${formatNumber(s.uniqueVisitors)} visitantes únicos`} />
-        <Stat label="Visitas" value={formatNumber(s.pageViews)} hint={`${formatNumber(s.productViews)} vistas de producto`} />
-        <Stat label="Ingresos recurrentes" value={`${formatMoney(s.mrr)}`} hint="MRR de membresías" />
-        <Stat label="Suscripciones activas" value={formatNumber(s.activeSubscriptions)} />
-        <Stat label="Reservas" value={formatNumber(s.bookingsInRange)} hint={`${s.upcoming.length} próximas${s.pendingSchedule ? ` · ${s.pendingSchedule} sin fecha` : ""}`} />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <section className="card p-5 sm:p-6">
-          <div className="mb-5 flex items-baseline justify-between">
-            <h2 className="font-semibold">Ingresos</h2>
-            <span className="text-xs text-muted">{range === "all" ? "Por mes" : "Por día"}</span>
-          </div>
-          <BarChart
-            title="Ingresos"
-            data={s.series.map((p) => ({ key: p.key, label: p.label, value: p.revenue, display: `${formatMoney(p.revenue)} · ${p.sales} ${p.sales === 1 ? "venta" : "ventas"}` }))}
-            axis="money"
-          />
-          <div className="mb-4 mt-8 flex items-baseline justify-between">
-            <h2 className="font-semibold">Visitas</h2>
-          </div>
-          <BarChart
-            title="Visitas"
-            height={110}
-            color="var(--color-gold)"
-            data={s.series.map((p) => ({ key: p.key, label: p.label, value: p.visits, display: `${p.visits} visitas` }))}
-          />
-        </section>
-
-        <div className="space-y-4">
-          <section className="card p-5 sm:p-6">
-            <h2 className="font-semibold">Productos más vendidos</h2>
-            <ul className="mt-4 space-y-3">
-              {s.topProducts.map((t, i) => (
-                <li key={t.id} className="flex items-center gap-3">
-                  <span className="w-4 text-xs tabular-nums text-faint">{i + 1}</span>
-                  <span className="text-lg">{t.product?.emoji ?? "✦"}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm">{t.product?.title ?? "Producto eliminado"}</span>
-                  <span className="text-right text-sm font-semibold tabular-nums">
-                    {formatMoney(t.revenue)}
-                    <span className="block text-xs font-normal text-muted">{t.count} {t.count === 1 ? "venta" : "ventas"}</span>
-                  </span>
-                </li>
-              ))}
-              {s.topProducts.length === 0 && <li className="text-sm text-muted">Aún no hay ventas en este periodo.</li>}
-            </ul>
-          </section>
-
-          <section className="card p-5 sm:p-6">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">Próximas sesiones</h2>
-              <Link href="/panel/reservas" className="text-xs font-semibold text-muted hover:text-ink">Ver todas</Link>
-            </div>
-            <ul className="mt-4 space-y-3">
-              {s.upcoming.map((b) => (
-                <li key={b.id} className="flex items-center gap-3">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sand"><CalendarDays className="h-4 w-4" /></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{b.customer.name ?? b.customer.email}</p>
-                    <p className="truncate text-xs text-muted">{b.product.title} · {capitalize(formatSessionDate(b.startAt!, creator.timezone, false))}</p>
-                  </div>
-                </li>
-              ))}
-              {s.upcoming.length === 0 && <li className="text-sm text-muted">No hay sesiones próximas.</li>}
-            </ul>
-          </section>
-        </div>
-      </div>
-
-      {pending.length > 0 && (
-        <section className="card p-5 sm:p-6">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-gold" />
-            <h2 className="font-semibold">Siguientes pasos</h2>
-            <span className="text-xs text-muted">{checklist.length - pending.length}/{checklist.length}</span>
-          </div>
-          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-            {checklist.map((c) => (
-              <li key={c.label}>
-                <Link href={c.href} className={`flex items-center gap-3 rounded-xl border px-3.5 py-3 text-sm transition hover:border-ink/30 ${c.done ? "border-line bg-paper text-muted line-through" : "border-line bg-white"}`}>
-                  <span className={`grid h-5 w-5 place-items-center rounded-full ${c.done ? "bg-ink text-cream" : "border border-line"}`}>{c.done && <Check className="h-3 w-3" />}</span>
-                  {c.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Link href="/panel/productos/nuevo" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
-          <Plus className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Nuevo producto</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
-        </Link>
-        <Link href="/panel/pagina" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
-          <Palette className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Editar mi página</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
-        </Link>
-        <Link href={features.analytics === "basic" ? "/panel/plan" : "/panel/estadisticas"} className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
-          <TrendingUp className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Estadísticas</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-/** Hay productos gratis con email publicados, pero sin datos legales nadie puede apuntarse. */
-function FreeSignupsBlockedAlert() {
-  return (
-    <DeliveryAlert
-      title="Nadie puede apuntarse a tus productos gratis"
-      text="Hasta que completes tus datos legales, el formulario no se muestra: tu política de privacidad tiene que decir quién trata los datos."
-      cta="Completar mis datos legales"
-      href="/panel/ajustes/legal"
-    />
-  );
-}
-
-type DeliveryIssues = Awaited<ReturnType<typeof listDeliveryIssues>>;
-
-/** Productos que no tienen nada que entregar (o una membresía publicada y vacía). */
-function DeliveryAlerts({ issues: deliveryIssues }: { issues: DeliveryIssues }) {
-  if (deliveryIssues.length === 0) return null;
-  return (
-    <div className="space-y-2">
-      {deliveryIssues.slice(0, 3).map(({ product, issue }) => {
-        const copy = deliveryIssueCopy(issue, product.title);
-        return (
-          <DeliveryAlert
-            key={product.id}
-            title={copy.title}
-            text={copy.text}
-            cta={copy.cta}
-            href={deliveryIssueHref(product.id, issue)}
-            tone={issue.blocking ? "block" : "warn"}
-          />
-        );
-      })}
-      {deliveryIssues.length > 3 && (
-        <Link href="/panel/productos" className="inline-block text-sm font-semibold text-muted hover:text-ink">
-          Ver los {deliveryIssues.length} productos con avisos
-        </Link>
-      )}
-    </div>
-  );
-}
-
-type Stats = Awaited<ReturnType<typeof getDashboardStats>>;
-type ChecklistItem = { done: boolean; label: string; href: string };
+const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
- * Inicio del panel en modo personal: visitas, inscripciones (lo gratuito con email y los accesos que
- * da la dueña) y clics, sin ingresos, cobros ni planes.
+ * Las 12 últimas temporadas del zodiaco, en su zona horaria: la de ahora (a medias) y las 11 de antes. Cada signo
+ * sale una vez: es su trozo del último año.
  */
-function PersonalHome({
-  first,
-  range,
-  rangeLabel,
-  s,
-  timezone,
-  showBookings,
-  checklist,
-  deliveryIssues,
-  freeBlocked,
-}: {
-  first: string;
-  range: keyof typeof RANGES;
-  rangeLabel: string;
-  s: Stats;
-  timezone: string;
-  showBookings: boolean;
-  checklist: ChecklistItem[];
-  deliveryIssues: DeliveryIssues;
-  freeBlocked: boolean;
-}) {
-  const pending = checklist.filter((c) => !c.done);
-  const top = s.topSignups[0];
+function lastSeasons(tz: string, now: Date) {
+  const today = dateKeyInTz(now, tz);
+  const year = Number(today.slice(0, 4));
+  const starts: { sign: number; key: string }[] = [];
+  for (const y of [year - 1, year, year + 1]) SIGN_START.forEach(([m, d], sign) => starts.push({ sign, key: `${y}-${pad(m)}-${pad(d)}` }));
+  starts.sort((a, b) => a.key.localeCompare(b.key));
+  const cur = starts.findLastIndex((s) => s.key <= today);
+  return starts.slice(cur - 11, cur + 1).map((s, i) => {
+    const from = zonedTimeToUtc(s.key, 0, tz);
+    const end = zonedTimeToUtc(starts[cur - 11 + i + 1].key, 0, tz);
+    return { sign: s.sign, from, end, to: end > now ? now : end, current: i === 11 };
+  });
+}
+
+/** La energía del día para todos: la Luna, el Sol, la puerta del Sol en Human Design y la Llave de Gene Keys. */
+function generalEnergy(now: Date, tz: string): GeneralEnergy {
+  const s = moonState(now);
+  const phase = EIGHT_PHASES[Math.floor(s.elong / 45) % 8];
+  const guide = PHASE_GUIDANCE[phase];
+  const sun = activationsAt(now).sun;
+  const gate = GATE_BY_N.get(sun.gate)!;
+  const key = KEY_BY_N.get(sun.gate)!;
+  return {
+    date: formatInTz(now, tz, { weekday: "long", day: "numeric", month: "long" }),
+    phase,
+    moonSign: SIGNS[signOf(s.moonLon).n].name,
+    intent: guide.intent,
+    practice: guide.practice,
+    illum: s.illum,
+    sunSign: SIGNS[signOf(s.sunLon).n].name,
+    gate: sun.gate,
+    line: sun.line,
+    gateName: gate.name,
+    gateTheme: gate.theme,
+    key: key.n,
+    shadow: key.shadow,
+    gift: key.gift,
+    siddhi: key.siddhi,
+  };
+}
+
+/** La subida o bajada respecto al periodo de antes, con su flecha (no solo el color). En la conversión, en puntos. */
+function Delta({ k, points }: { k: Kpi; points?: boolean }) {
+  if (points) {
+    const d = k.value - k.prev;
+    if (Math.abs(d) < 0.05) return <span className="text-xs text-muted"><Tr s={"= que antes"} /></span>;
+    return (
+      <span className="text-xs font-semibold" style={{ color: d > 0 ? "var(--color-success, #2f8f5b)" : "var(--color-rose, #c4554a)" }}>
+        <Tr s={d > 0 ? "↑" : "↓"} /> {Math.abs(d).toLocaleString("es-ES", { maximumFractionDigits: 1 })}{" "}<Tr s={"pts"} /></span>
+    );
+  }
+  if (!k.prev) return <span className="text-xs text-muted"><Tr s={k.value ? "nuevo" : "—"} /></span>;
+  const pct = Math.round(((k.value - k.prev) / k.prev) * 100);
+  if (pct === 0) return <span className="text-xs text-muted"><Tr s={"= que antes"} /></span>;
   return (
-    <div className="space-y-8">
-      <PageHeader title={`Hola, ${first}`} subtitle={<>Así va tu página {rangeLabel}.</>} actions={<RangeTabs current={range} base="/panel" />} />
+    <span className="text-xs font-semibold" style={{ color: pct > 0 ? "var(--color-success, #2f8f5b)" : "var(--color-rose, #c4554a)" }}>
+      <Tr s={pct > 0 ? "↑" : "↓"} /> {Math.abs(pct)} %
+    </span>
+  );
+}
 
-      {freeBlocked && <FreeSignupsBlockedAlert />}
-      <DeliveryAlerts issues={deliveryIssues} />
-
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="relative overflow-hidden rounded-3xl bg-ink p-6 text-cream">
-          <div className="starfield absolute inset-0 opacity-40" />
-          <div className="relative">
-            <p className="eyebrow !text-cream/50">{RANGES[range]}</p>
-            <p className="display mt-2 text-[1.9rem] leading-tight">
-              Tu página recibió <span className="text-gold">{formatNumber(s.pageViews)} visitas</span> {rangeLabel}.
-            </p>
-            <p className="mt-2 text-sm text-cream/65">
-              {formatNumber(s.uniqueVisitors)} personas distintas · {formatNumber(s.clicks)} clics en tus productos.
-            </p>
-          </div>
+function KpiTile({ label, k, format = "num", points, spark = true }: { label: string; k: Kpi; format?: ValueFormat; points?: boolean; spark?: boolean }) {
+  return (
+    <div className="card flex flex-col p-4">
+      <p className="text-xs text-muted"><Tr s={label} /></p>
+      <p className="mt-1 font-serif text-[1.9rem] leading-none tabular-nums">{fmtValue(k.value, format)}</p>
+      <div className="mt-1.5">
+        <Delta k={k} points={points} />
+      </div>
+      {spark && (
+        <div className="mt-auto pt-2">
+          <Sparkline values={k.series} />
         </div>
-        <div className="rounded-3xl border border-line bg-white p-6">
-          <p className="eyebrow">Lo más pedido</p>
-          {top?.product ? (
-            <>
-              <p className="display mt-2 text-[1.9rem] leading-tight">
-                <span className="italic">{top.product.title}</span>
-              </p>
-              <p className="mt-2 text-sm text-muted">
-                {top.count} {top.count === 1 ? "inscripción" : "inscripciones"} {rangeLabel}
-              </p>
-            </>
-          ) : (
-            <p className="display mt-2 text-[1.9rem] leading-tight text-muted">Tu primera inscripción está cerca. Comparte tu enlace ✨</p>
-          )}
+      )}
+    </div>
+  );
+}
+
+/** Un número sin comparación (los totales de ahora: suscriptoras, miembros). */
+function TotalTile({ label, value, note }: { label: string; value: number; note: string }) {
+  return (
+    <div className="card flex flex-col p-4">
+      <p className="text-xs text-muted"><Tr s={label} /></p>
+      <p className="mt-1 font-serif text-[1.9rem] leading-none tabular-nums">{fmtValue(value)}</p>
+      <p className="mt-1.5 text-xs text-muted"><Tr s={note} /></p>
+    </div>
+  );
+}
+
+function ChartCard({ title, value, children, className = "" }: { title: string; value?: string; children: ReactNode; className?: string }) {
+  return (
+    <section className={`card p-4 sm:p-5 ${className}`} aria-label={title}>
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="font-semibold">{title}</h3>
+        {value && <p className="font-serif text-lg tabular-nums"><Tr s={value} /></p>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+const EmptyChart = ({ text }: { text: string }) => <p className="rounded-2xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted"><Tr s={text} /></p>;
+
+/**
+ * Inicio del panel. Arriba, en grande: su energía de hoy y la próxima luna. Debajo, lo que la espera (Pendientes) y
+ * sus estadísticas con el periodo que elija (7, 30, 90 días o 12 meses), comparadas con el periodo de antes: los
+ * números, la evolución de las visitas, inscripciones, ingresos, newsletter, de dónde llegan, el embudo, lo más visto
+ * y qué días la visitan. Al final, la rueda del zodiaco con los visitantes del último año.
+ */
+export default async function PanelHome({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
+  const t = await getT();
+  const { user, creator } = await requireCreator();
+  const sp = await searchParams;
+  const db = tenantDb(creator.id);
+  const tz = creator.timezone;
+  const now = new Date();
+  const personal = isPersonalMode();
+  const onlySignups = signupsOnly();
+  const days: PeriodDays = asPeriod(sp.p);
+
+  const seasons = lastSeasons(tz, now);
+  const [stats, profiles, seasonValues] = await Promise.all([
+    homeStats({ creatorId: creator.id, tz, days, onlySignups, now }),
+    personal ? listBirthProfiles(creator.id, user.id) : Promise.resolve([]),
+    Promise.all(seasons.map(async (s) => (await db.analyticsEvent.groupBy({ by: ["visitorId"], where: { type: "PAGE_VIEW", createdAt: { gte: s.from, lt: s.to } } })).length)),
+  ]);
+  const own = profiles.find((p) => p.isOwn) ?? null;
+
+  const day = (d: Date, withYear: boolean) => formatInTz(d, tz, { day: "numeric", month: "short", ...(withYear ? { year: "numeric" } : {}) }).replace(/\./g, "");
+  const sectors: WheelSector[] = seasons
+    .map((s, i) => {
+      const sign = SIGNS[s.sign];
+      const last = new Date(s.end.getTime() - 12 * 3600_000);
+      return {
+        sign: s.sign,
+        name: sign.name,
+        glyph: sign.glyph,
+        hue: ELEMENT_HUE[sign.element],
+        dates: `${day(s.from, false)} – ${day(last, true)}`,
+        value: seasonValues[i],
+        current: s.current,
+        progress: s.current ? Math.min(1, (now.getTime() - s.from.getTime()) / (s.end.getTime() - s.from.getTime())) : 1,
+      };
+    })
+    .sort((a, b) => a.sign - b.sign);
+
+  const k = stats.kpis;
+  const sum = (pts: { value: number }[]) => pts.reduce((a, p) => a + p.value, 0);
+  const signupLabel = onlySignups ? "Inscripciones" : "Inscripciones y compras";
+  const period = PERIODS.find((p) => p.days === days)!;
+  const funnelTop = stats.funnel[0].value || 1;
+  const sourcesTotal = sum(stats.sources) || 1;
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6">
+      <h1 className="sr-only"><Tr s={"Inicio"} /></h1>
+      {!personal && (
+        <div className="space-y-2 empty:hidden">
+          <PayoutBanner creator={creator} />
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Visitas" value={formatNumber(s.pageViews)} hint={`${formatNumber(s.productViews)} vistas de producto`} accent />
-        <Stat label="Personas distintas" value={formatNumber(s.uniqueVisitors)} hint="Medidas sin cookies" />
-        <Stat label="Inscripciones" value={formatNumber(s.signups)} hint={`${formatPercent(s.signupConversion)} de las visitas`} />
-        <Stat label="Clientes" value={formatNumber(range === "all" ? s.totalCustomers : s.newCustomers)} hint={range === "all" ? "En total" : `${s.totalCustomers} en total`} />
-      </div>
-
-      <div className={`grid gap-4 ${showBookings ? "lg:grid-cols-[1.4fr_1fr]" : ""}`}>
-        <section className="card p-5 sm:p-6">
-          <div className="mb-5 flex items-baseline justify-between">
-            <h2 className="font-semibold">Visitas</h2>
-            <span className="text-xs text-muted">{range === "all" ? "Por mes" : "Por día"}</span>
-          </div>
-          <BarChart
-            title="Visitas"
-            color="var(--color-gold)"
-            data={s.series.map((p) => ({ key: p.key, label: p.label, value: p.visits, display: `${p.visits} visitas` }))}
-          />
-          <div className="mb-4 mt-8 flex items-baseline justify-between">
-            <h2 className="font-semibold">Inscripciones</h2>
-          </div>
-          <BarChart
-            title="Inscripciones"
-            height={110}
-            data={s.series.map((p) => ({ key: p.key, label: p.label, value: p.signups, display: `${p.signups} ${p.signups === 1 ? "inscripción" : "inscripciones"}` }))}
-          />
-        </section>
-
-        {showBookings && (
-          <section className="card p-5 sm:p-6">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">Próximas sesiones</h2>
-              <Link href="/panel/reservas" className="text-xs font-semibold text-muted hover:text-ink">Ver todas</Link>
-            </div>
-            <ul className="mt-4 space-y-3">
-              {s.upcoming.map((b) => (
-                <li key={b.id} className="flex items-center gap-3">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sand"><CalendarDays className="h-4 w-4" /></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{b.customer.name ?? b.customer.email}</p>
-                    <p className="truncate text-xs text-muted">{b.product.title} · {capitalize(formatSessionDate(b.startAt!, timezone, false))}</p>
-                  </div>
-                </li>
-              ))}
-              {s.upcoming.length === 0 && <li className="text-sm text-muted">No hay sesiones próximas.</li>}
-            </ul>
-          </section>
-        )}
-      </div>
-
-      {pending.length > 0 && (
-        <section className="card p-5 sm:p-6">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-gold" />
-            <h2 className="font-semibold">Siguientes pasos</h2>
-            <span className="text-xs text-muted">{checklist.length - pending.length}/{checklist.length}</span>
-          </div>
-          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-            {checklist.map((c) => (
-              <li key={c.label}>
-                <Link href={c.href} className={`flex items-center gap-3 rounded-xl border px-3.5 py-3 text-sm transition hover:border-ink/30 ${c.done ? "border-line bg-paper text-muted line-through" : "border-line bg-white"}`}>
-                  <span className={`grid h-5 w-5 place-items-center rounded-full ${c.done ? "bg-ink text-cream" : "border border-line"}`}>{c.done && <Check className="h-3 w-3" />}</span>
-                  {c.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Link href="/panel/productos/nuevo" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
-          <Plus className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Nuevo producto</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
-        </Link>
-        <Link href="/panel/publicaciones" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
-          <Newspaper className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Nueva publicación</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
-        </Link>
-        <Link href="/panel/pagina" className="card flex items-center gap-3 p-4 transition hover:shadow-lift">
-          <Palette className="h-5 w-5 text-lavender-deep" /> <span className="text-sm font-semibold">Editar mi página</span> <ArrowRight className="ml-auto h-4 w-4 text-faint" />
-        </Link>
+      {/* En grande: su energía de hoy y la próxima luna */}
+      <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+        <TodayEnergy general={generalEnergy(now, tz)} profile={own} setupHref={personal ? "/area/energy" : null} />
+        <NextMoon tz={tz} now={now} />
       </div>
+
+      <Pending creatorId={creator.id} />
+
+      {/* Estadísticas: el periodo y los números */}
+      <section aria-labelledby="stats-t" className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="stats-t" className="font-serif text-[1.6rem] leading-tight"><Tr s={"Tus estadísticas"} /></h2>
+          <nav aria-label={t("Periodo")} className="inline-flex gap-1 rounded-full border border-line p-1 text-sm">
+            {PERIODS.map((p) => (
+              <Link
+                key={p.days}
+                href={p.days === 30 ? "/panel" : `/panel?p=${p.days}`}
+                scroll={false}
+                aria-current={p.days === days ? "page" : undefined}
+                className={`whitespace-nowrap rounded-full px-3 py-1.5 font-medium transition ${p.days === days ? "bg-gold text-[#1a1408]" : "text-muted hover:text-ink"}`}
+              >
+                <Tr s={p.label} />
+              </Link>
+            ))}
+          </nav>
+        </div>
+        <p className="-mt-2 text-xs text-muted"><Tr s={"Últimos"} />{" "}<Tr s={period.label} /><Tr s={", comparados con los"} />{" "}<Tr s={period.label} />{" "}<Tr s={"de antes."} /></p>
+
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+          <KpiTile label={t("Visitantes únicos")} k={k.visitors} />
+          <KpiTile label={t(signupLabel)} k={k.signups} />
+          {!onlySignups && <KpiTile label={t("Ingresos")} k={k.revenue} format="money" />}
+          <KpiTile label={t("Altas en la newsletter")} k={k.newsletter} />
+          <KpiTile label={t("Clics en productos")} k={k.clicks} />
+          <KpiTile label={t("Conversión (inscripciones / visitantes)")} k={k.conversion} format="pct" points />
+          <TotalTile label={t("Suscriptoras de la newsletter")} value={stats.subscribersTotal} note={t("Confirmadas, ahora mismo")} />
+          <TotalTile label={t("Miembros activos")} value={stats.members} note={t("En tus membresías, ahora mismo")} />
+        </div>
+      </section>
+
+      <ChartCard title={t("Visitantes únicos")} value={fmtValue(k.visitors.value)}>
+        <TrendChart points={stats.visitors} label={t("Visitantes únicos")} />
+      </ChartCard>
+
+      <div className={`grid gap-4 ${onlySignups ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
+        <ChartCard title={t(signupLabel)} value={fmtValue(sum(stats.signups))}>
+          <BarChart points={stats.signups} label={t(signupLabel)} />
+        </ChartCard>
+        {!onlySignups && (
+          <ChartCard title={t("Ingresos")} value={fmtValue(sum(stats.revenue), "money")}>
+            <BarChart points={stats.revenue} label={t("Ingresos")} format="money" />
+          </ChartCard>
+        )}
+        <ChartCard title={t("Altas en la newsletter")} value={fmtValue(sum(stats.newsletter))}>
+          <BarChart points={stats.newsletter} label={t("Altas en la newsletter")} />
+        </ChartCard>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ChartCard title={t("De dónde llegan")}>
+          {stats.sources.length ? (
+            <HBars items={stats.sources.map((s) => ({ ...s, hint: `${Math.round((s.value / sourcesTotal) * 100)} %` }))} />
+          ) : (
+            <EmptyChart text={t("Aún no hay visitas en este periodo.")} />
+          )}
+        </ChartCard>
+        <ChartCard title={t("Del primer vistazo a la inscripción")}>
+          {stats.funnel[0].value ? (
+            <HBars items={stats.funnel.map((f, i) => ({ ...f, hint: i ? `${Math.round((f.value / funnelTop) * 100)} %` : undefined }))} />
+          ) : (
+            <EmptyChart text={t("Aún no hay visitas en este periodo.")} />
+          )}
+        </ChartCard>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ChartCard title={t("Lo más visto")}>
+          {stats.topProducts.length ? (
+            <div className="-mx-1 overflow-x-auto">
+              <table className="w-full min-w-[22rem] text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted">
+                    <th className="px-1 pb-2 font-medium"><Tr s={"Producto"} /></th>
+                    <th className="px-1 pb-2 text-right font-medium"><Tr s={"Visitas"} /></th>
+                    <th className="px-1 pb-2 text-right font-medium"><Tr s={"Clics"} /></th>
+                    <th className="px-1 pb-2 text-right font-medium">{onlySignups ? t("Inscritas") : t("Inscritas o compras")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {stats.topProducts.map((p) => (
+                    <tr key={p.id}>
+                      <td className="max-w-[14rem] truncate px-1 py-2">{p.title}</td>
+                      <td className="px-1 py-2 text-right tabular-nums">{fmtValue(p.views)}</td>
+                      <td className="px-1 py-2 text-right tabular-nums">{fmtValue(p.clicks)}</td>
+                      <td className="px-1 py-2 text-right font-semibold tabular-nums">{fmtValue(p.signups)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyChart text={t("Aún nadie ha abierto tus productos en este periodo.")} />
+          )}
+        </ChartCard>
+        <ChartCard title={t("Qué días te visitan más")}>
+          <BarChart points={stats.weekdays} label={t("Visitantes por día de la semana")} height={170} />
+        </ChartCard>
+      </div>
+
+      {/* Al final, la rueda del zodiaco: los visitantes del último año, por temporadas */}
+      <section className="card p-4 sm:p-6" aria-labelledby="rueda-t">
+        <h3 id="rueda-t" className="mb-3 text-center font-semibold"><Tr s={"Tu año en el zodiaco"} /></h3>
+        <StatsWheel sectors={sectors} />
+      </section>
     </div>
   );
 }

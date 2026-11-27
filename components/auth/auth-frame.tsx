@@ -11,7 +11,7 @@ export async function AuthFrame({ username, children }: { username?: string | nu
   const data = username ? await getPublicCreator(username) : null;
   if (data)
     return (
-      <CreatorShell username={data.creator.username} config={data.config} allowCustom={data.allowCustom} back={false} personal={data.personal}>
+      <CreatorShell username={data.creator.username} config={data.config} allowCustom={data.allowCustom} back={false} personal={data.personal} signupsOnly={data.signupsOnly} showAccount={false} showNewsletter={false}>
         <main className="mx-auto max-w-md px-5 pb-20 pt-12">{children(true)}</main>
       </CreatorShell>
     );

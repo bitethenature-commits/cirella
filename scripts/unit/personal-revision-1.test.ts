@@ -49,9 +49,9 @@ test("novedades: pedidas, pendientes y confirmadas", () => {
   eq(newsletterPending({}, false), false, "no las pidió");
 });
 
-test("newsletterConfirmPath: ruta interna de /cuenta con el pedido", () => {
-  eq(newsletterConfirmPath("ord_1"), "/cuenta/novedades/confirmar?pedido=ord_1");
-  eq(newsletterConfirmPath("a&b"), "/cuenta/novedades/confirmar?pedido=a%26b");
+test("newsletterConfirmPath: ruta interna de /area con el pedido", () => {
+  eq(newsletterConfirmPath("ord_1"), "/area/newsletter/confirm?pedido=ord_1");
+  eq(newsletterConfirmPath("a&b"), "/area/newsletter/confirm?pedido=a%26b");
 });
 
 test("accessEmailGreetingName: sin el nombre del formulario gratis; con el de la dueña o el de una compra", () => {
@@ -61,12 +61,12 @@ test("accessEmailGreetingName: sin el nombre del formulario gratis; con el de la
 });
 
 test("accessGrantedEmail: botón para confirmar las novedades solo si se pidieron", () => {
-  const base = { name: null, creatorName: "Ana Luna", productTitle: "Mini-curso", productType: "COURSE", url: "https://a.es/auth/enlace?t=1" };
+  const base = { name: null, creatorName: "Cirella", productTitle: "Mini-curso", productType: "COURSE", url: "https://a.es/auth/link?t=1" };
   const without = accessGrantedEmail(base).html;
   ok(!without.includes("Confirmar que quiero recibir novedades"));
   ok(without.includes("Hola, ya puedes entrar"), "sin nombre: «Hola, ya puedes entrar…»");
-  const withLink = accessGrantedEmail({ ...base, newsletterUrl: "https://a.es/auth/enlace?t=2&x=1" }).html;
-  ok(withLink.includes('<a href="https://a.es/auth/enlace?t=2&amp;x=1" style="color:#0E1024;font-weight:600">Confirmar que quiero recibir novedades</a>'));
+  const withLink = accessGrantedEmail({ ...base, newsletterUrl: "https://a.es/auth/link?t=2&x=1" }).html;
+  ok(withLink.includes('<a href="https://a.es/auth/link?t=2&amp;x=1" style="color:#0E1024;font-weight:600">Confirmar que quiero recibir novedades</a>'));
   // El botón principal sigue siendo el del contenido (las pruebas e2e lo buscan por su etiqueta).
   ok(withLink.includes(">Empezar el curso</a>"));
   ok(withLink.indexOf("Empezar el curso") < withLink.indexOf("Confirmar que quiero"), "el de novedades va después");
@@ -74,7 +74,7 @@ test("accessGrantedEmail: botón para confirmar las novedades solo si se pidiero
 
 const creator: LegalIdentity & { displayName: string; legalTerms: string | null; legalRefunds: string | null; legalPrivacy: string | null } = {
   legalEntityType: "INDIVIDUAL",
-  legalName: "Ana Luna Pérez",
+  legalName: "Cirella",
   legalTaxId: "12345678Z",
   legalAddress: "Calle de la Luna 7",
   legalPostalCode: "28004",
@@ -82,14 +82,14 @@ const creator: LegalIdentity & { displayName: string; legalTerms: string | null;
   legalCountry: "ES",
   legalEmail: "ana@example.com",
   legalRegistry: null,
-  displayName: "Ana Luna",
+  displayName: "Cirella",
   legalTerms: null,
   legalRefunds: null,
   legalPrivacy: null,
 };
 
 test("acceptedLegalDocs: en la web personal guarda la privacidad personal, sin condiciones de venta", () => {
-  const docs = acceptedLegalDocs(creator, "Cirella", true);
+  const docs = acceptedLegalDocs(creator, "Cirella", "personal");
   eq(docs.terms, "");
   eq(docs.refunds, "");
   eq(docs.privacy, currentPersonalPrivacy(creator));
@@ -97,9 +97,9 @@ test("acceptedLegalDocs: en la web personal guarda la privacidad personal, sin c
 });
 
 test("acceptedLegalDocs: la privacidad personalizada por la dueña es la que se guarda", () => {
-  eq(acceptedLegalDocs({ ...creator, legalPrivacy: "Mi privacidad" }, "Cirella", true).privacy, "Mi privacidad");
+  eq(acceptedLegalDocs({ ...creator, legalPrivacy: "Mi privacidad" }, "Cirella", "personal").privacy, "Mi privacidad");
 });
 
 test("acceptedLegalDocs: en la plataforma, los textos de siempre", () => {
-  eq(acceptedLegalDocs(creator, "Cirella", false), currentLegalDocs(creator, "Cirella"));
+  eq(acceptedLegalDocs(creator, "Cirella", "platform"), currentLegalDocs(creator, "Cirella"));
 });

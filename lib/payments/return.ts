@@ -1,3 +1,4 @@
+import { productPath, thanksPath } from "@/lib/public-paths";
 import "server-only";
 import { claimOrderSession } from "../auth";
 import { prisma } from "../db";
@@ -11,33 +12,33 @@ import { reconcileCheckout } from "./events";
  *     (claimOrderSession); si no, el recibo lleva el enlace personal;
  *   · pendiente → página de gracias, que muestra «Pago pendiente de confirmar»;
  *   · fallido o cancelado → de vuelta al checkout con el mismo pedido;
- *   · renovación de membresía → su página en /cuenta.
+ *   · renovación de membresía → su página en /area.
  * La usan /api/payments/return y las acciones del simulador (que no pueden redirigir a una ruta
  * de API sin perder las cookies de la sesión).
  */
-export async function checkoutReturnPath(ref: string): Promise<string> {
+export async function checkoutReturnPath(ref: string, via?: string | null): Promise<string> {
   let result: Awaited<ReturnType<typeof reconcileCheckout>>;
   try {
-    result = await reconcileCheckout(ref);
+    result = await reconcileCheckout(ref, via);
   } catch (e) {
     captureError(e, { area: "payments", tags: { op: "vuelta" }, extra: { ref } });
     // Sin poder consultar la pasarela: si el pedido existe, la página de gracias muestra su estado.
     const order = await prisma.order.findUnique({ where: { checkoutRef: ref }, include: { creator: { select: { username: true } } } });
-    return order ? `/${order.creator.username}/gracias?pedido=${order.id}` : "/";
+    return order ? `${thanksPath(order.creator.username)}?pedido=${order.id}` : "/";
   }
   if (result.subscriptionId) {
     const sub = await prisma.subscription.findUnique({ where: { id: result.subscriptionId }, select: { productId: true } });
-    return sub ? `/cuenta/membresias/${sub.productId}${result.state === "succeeded" ? "?pago=ok" : ""}` : "/cuenta/membresias";
+    return sub ? `/area/membership/${sub.productId}${result.state === "succeeded" ? "?pago=ok" : ""}` : "/area/membership";
   }
   const order = result.orderId
-    ? await prisma.order.findUnique({ where: { id: result.orderId }, include: { creator: { select: { username: true } }, product: { select: { slug: true } } } })
+    ? await prisma.order.findUnique({ where: { id: result.orderId }, include: { creator: { select: { username: true } }, product: { select: { slug: true, type: true } } } })
     : null;
   if (!order) return "/";
-  const thanks = `/${order.creator.username}/gracias?pedido=${order.id}`;
+  const thanks = `${thanksPath(order.creator.username)}?pedido=${order.id}`;
   if (order.status === "PAID") {
     await claimOrderSession(order.id);
     return thanks;
   }
-  if (order.status === "FAILED") return `/${order.creator.username}/${order.product.slug}/checkout?pedido=${order.id}&cancelado=1`;
+  if (order.status === "FAILED") return `${productPath(order.creator.username, order.product, "checkout")}?pedido=${order.id}&cancelado=1`;
   return thanks;
 }

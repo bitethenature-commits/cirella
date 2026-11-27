@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
 
 /**
@@ -10,7 +10,8 @@ import { expect, test, type Page } from "@playwright/test";
  * Los datos que crea los borra al terminar.
  */
 
-test.use({ baseURL: process.env.E2E_PERSONAL_URL ?? "http://localhost:3101" });
+const PERSONAL = process.env.E2E_PERSONAL_URL ?? "http://localhost:3101";
+test.use({ baseURL: PERSONAL });
 
 const prisma = new PrismaClient();
 const stamp = `${Date.now()}`.slice(-7);
@@ -36,34 +37,86 @@ test.afterAll(async () => {
 });
 
 async function ownerLogin(page: Page) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.fill("#email", "ana@cirella.app");
   await page.fill("#password", "demo1234");
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 test.describe.serial("Modo personal · detalles de la demo", () => {
-  test("la página no enlaza los productos ocultos (el botón destacado de la demo lleva a un curso de pago)", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Ana Luna", level: 1 })).toBeVisible();
-    // «✨ Empieza aquí · Curso Conócete» → /ana/curso-conocete-tu-energia, que en la web personal da 404.
-    await expect(page.locator('a[href="/ana/curso-conocete-tu-energia"]')).toHaveCount(0);
-    await expect(page.getByText(/Empieza aquí/)).toHaveCount(0);
-    // Los demás botones siguen ahí.
-    await expect(page.getByRole("link", { name: /Podcast «Cielo interior»/ })).toBeVisible();
+  test("la página no enlaza los productos ocultos (botones principales y accesos a un curso de pago)", async ({ page }) => {
+    // La demo ya no trae botones principales: se añaden aquí uno a un curso de pago (oculto sin cobros) y otro normal.
+    const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
+    const before = ana.pagePublished;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cfg = structuredClone((before ?? ana.pageDraft) as any);
+    cfg.links = [
+      { id: "l1", label: `✨ Empieza aquí ${stamp}`, url: "/ana/know-your-energy", highlight: true },
+      { id: "l2", label: `Podcast «Cielo interior» ${stamp}`, url: "https://open.spotify.com" },
+    ];
+    cfg.bubbles = [...(cfg.bubbles ?? []).slice(0, 2), { id: "b-oculto", label: `Curso ${stamp}`, url: "/ana/know-your-energy", image: null }];
+    cfg.sections = cfg.sections.map((x: { key: string; enabled: boolean }) => (x.key === "links" ? { ...x, enabled: true } : x));
+    await prisma.creator.update({ where: { id: ana.id }, data: { pagePublished: cfg } });
+    try {
+      await page.goto("/");
+      await expect(page.getByRole("heading", { name: "Cirella", level: 1 })).toBeVisible();
+      // /ana/know-your-energy en la web personal sin cobros da 404: ni botón ni burbuja.
+      await expect(page.locator('a[href="/ana/know-your-energy"]')).toHaveCount(0);
+      await expect(page.getByText(/Empieza aquí/)).toHaveCount(0);
+      await expect(page.getByText(`Curso ${stamp}`)).toHaveCount(0);
+      // Los demás siguen ahí.
+      await expect(page.getByRole("link", { name: new RegExp(`Podcast «Cielo interior» ${stamp}`) })).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "Accesos" }).getByRole("link")).toHaveCount(2);
+    } finally {
+      await prisma.creator.update({ where: { id: ana.id }, data: { pagePublished: before === null ? Prisma.DbNull : (before as Prisma.InputJsonValue) } });
+    }
   });
 
   test("la duración del mini-curso se escribe en minutos", async ({ page }) => {
-    await page.goto("/ana/mini-curso-tu-carta-en-3-pasos");
+    await page.goto("/ana/natal-chart-in-3-steps");
     await expect(page.getByText("3 lecciones · 30 min").first()).toBeVisible();
     await expect(page.getByText("0.5 h")).toHaveCount(0);
   });
 
-  test("el login no habla de compras", async ({ page }) => {
-    await page.goto("/entrar");
+  test("el login no habla de compras (el general y el de «Mi área»)", async ({ page }) => {
+    await page.goto("/login");
     await expect(page.getByText("¿No tienes contraseña?")).toBeVisible();
-    await expect(page.getByText(/Compraste/)).toHaveCount(0);
+    await expect(page.getByText(/compr/i)).toHaveCount(0);
+    for (const path of ["/ana/login?next=%2Farea", "/ana/login?next=%2Farea&motivo=completa", "/ana/login?next=%2Farea&motivo=confirmar"]) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { name: "Entra a tu área" })).toBeVisible();
+      await expect(page.getByText(/compr/i), path).toHaveCount(0);
+    }
+    await expect(page.getByText("Confirma tu email para ver tu contenido.")).toBeVisible();
+  });
+
+  test("un bloque de texto con botón a un producto oculto: se ve el texto, no el botón", async ({ page }) => {
+    const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
+    const before = ana.pagePublished;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cfg = structuredClone((before ?? ana.pageDraft) as any);
+    const block = (id: string, buttonUrl: string) => ({ id, title: `Bloque ${id} ${stamp}`, body: "Texto del bloque.", buttonLabel: `Botón ${id}`, buttonUrl, enabled: true });
+    cfg.blocks = [
+      ...(cfg.blocks ?? []),
+      block("oculto", "/ana/know-your-energy"),
+      // Sin https:// y con la dirección de la propia web: la página lo pinta como https://localhost:3101/…
+      block("sin-esquema", `${new URL(PERSONAL).host}/ana/know-your-energy`),
+      block("visible", "/ana/natal-chart-in-3-steps"),
+    ];
+    if (!cfg.sections?.some((x: { key: string }) => x.key === "blocks")) cfg.sections = [...(cfg.sections ?? []), { key: "blocks", enabled: true }];
+    else cfg.sections = cfg.sections.map((x: { key: string; enabled: boolean }) => (x.key === "blocks" ? { ...x, enabled: true } : x));
+    await prisma.creator.update({ where: { id: ana.id }, data: { pagePublished: cfg } });
+    try {
+      await page.goto("/");
+      for (const id of ["oculto", "sin-esquema"]) {
+        await expect(page.getByText(`Bloque ${id} ${stamp}`)).toBeVisible();
+        await expect(page.getByRole("link", { name: `Botón ${id}` })).toHaveCount(0);
+      }
+      await expect(page.getByRole("link", { name: "Botón visible" })).toHaveAttribute("href", "/ana/natal-chart-in-3-steps");
+    } finally {
+      await prisma.creator.update({ where: { id: ana.id }, data: { pagePublished: before === null ? Prisma.DbNull : (before as Prisma.InputJsonValue) } });
+    }
   });
 
   test("panel: lo que se cobraba en la web sale como oculto y guardarlo no lo regala", async ({ page }) => {
@@ -73,7 +126,18 @@ test.describe.serial("Modo personal · detalles de la demo", () => {
     const row = page.locator(".card", { hasText: `Lectura de prueba ${stamp}` });
     await expect(row.getByText("Oculto: se cobraba en la web")).toBeVisible();
     await expect(row.getByText("Publicado")).toHaveCount(0);
-    await expect(row.getByRole("link", { name: "Ver" })).toHaveCount(0);
+    // «Ver» va oculto con CSS en el móvil: se busca por su dirección (cuenta aunque no se vea).
+    await expect(row.locator(`a[href="/ana/${TAG}"]`)).toHaveCount(0);
+    const free = page.locator(".card", { hasText: "Mini-curso gratis" });
+    await expect(free.locator('a[href="/ana/natal-chart-in-3-steps"]')).toHaveCount(1);
+
+    // «Orden de productos» del editor: solo lo que se ve en la página.
+    await page.goto("/panel/pagina");
+    await page.getByRole("button", { name: "Secciones", exact: true }).click();
+    const order = page.locator("section", { has: page.getByRole("heading", { name: "Orden de productos" }) });
+    await expect(order.getByText("Mini-curso gratis")).toBeVisible();
+    await expect(order.getByText(`Lectura de prueba ${stamp}`)).toHaveCount(0);
+    await expect(order.getByText("Lectura de Astrología")).toHaveCount(0);
 
     await page.goto(`/panel/productos/${paidId}`);
     const modes = page.getByRole("radiogroup", { name: "Cómo se consigue" });
@@ -102,18 +166,18 @@ test.describe.serial("Modo personal · detalles de la demo", () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
     test("el código de descuento no se parte al pulsar «Copiar código»", async ({ page, context }) => {
-      await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: process.env.E2E_PERSONAL_URL ?? "http://localhost:3101" });
+      await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: PERSONAL });
       await page.goto("/");
       const card = page.getByRole("article", { name: "Código de descuento de Velas Alba" });
       await card.scrollIntoViewIfNeeded();
       const code = card.locator("code");
       const before = await code.boundingBox();
-      await card.getByRole("button", { name: "Copiar código ANALUNA15" }).click();
+      await card.getByRole("button", { name: "Copiar código CIRELLA15" }).click();
       await expect(card.getByRole("button", { name: /Copiado/ })).toBeVisible();
       const after = await code.boundingBox();
       expect(after?.height).toBe(before?.height);
       expect(after?.width).toBe(before?.width);
-      // Una sola línea de texto («ANALUNA15», no «ANALUNA1 / 5»).
+      // Una sola línea de texto («CIRELLA15», no «CIRELLA1 / 5»).
       const lines = await code.evaluate((el) => {
         const r = document.createRange();
         r.selectNodeContents(el);

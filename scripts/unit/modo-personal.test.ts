@@ -17,7 +17,7 @@ for (const [value, want] of [
 // Usuario de la dueña: normalizado y solo en modo personal
 for (const [mode, value, want] of [
   ["personal", "ana", "ana"],
-  ["personal", " @Ana ", "ana"],
+  ["personal", " @Cirella ", "ana"],
   ["personal", "", null],
   ["personal", undefined, null],
   ["platform", "ana", null],

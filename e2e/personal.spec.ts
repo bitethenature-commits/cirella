@@ -3,10 +3,10 @@ import { expect, test, type Page } from "@playwright/test";
 /**
  * Modo personal (SITE_MODE=personal, OWNER_USERNAME=ana): la web de una sola dueña.
  * Usa el segundo servidor de playwright.config.ts (puerto 3101, mismo build, misma BD de demo):
- *   · la raíz es la página de Ana (con su título, favicon e imagen para redes) y /ana redirige a «/»;
+ *   · la raíz es la página de Cirella (con su título, favicon e imagen para redes) y /ana redirige a «/»;
  *   · las demás creadoras no existen (404) y no se puede crear una página;
- *   · la marca es «Ana Luna»: sin «Cirella» ni «Powered by» a la vista;
- *   · las páginas legales de la plataforma llevan a la de Ana (aviso legal y privacidad);
+ *   · la marca es «Cirella»: sin «Cirella» ni «Powered by» a la vista;
+ *   · las páginas legales de la plataforma llevan a la de Cirella (aviso legal y privacidad);
  *   · el panel sin planes ni cobros, con Inscripciones, Publicaciones y Códigos;
  *   · la administración reducida a envíos y ajustes.
  * No cambia datos de la demo.
@@ -21,17 +21,17 @@ async function visibleText(page: Page) {
 }
 
 async function demoLogin(page: Page, label: string) {
-  await page.goto("/entrar");
+  await page.goto("/login");
   await page.locator("form", { hasText: label }).getByRole("button").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
 test.describe.serial("Modo personal", () => {
-  test("la raíz es la página de Ana, con su SEO y sin la plataforma", async ({ page }) => {
+  test("la raíz es la página de Cirella, con su SEO y sin la plataforma", async ({ page }) => {
     const res = await page.goto("/");
     expect(res?.status()).toBe(200);
-    await expect(page.getByRole("heading", { name: "Ana Luna", level: 1 })).toBeVisible();
-    await expect(page).toHaveTitle(/Ana Luna/);
+    await expect(page.getByRole("heading", { name: "Cirella", level: 1 })).toBeVisible();
+    await expect(page).toHaveTitle(/Cirella/);
     // La raíz (Next la escribe sin la barra final).
     const root = new RegExp(`^${PERSONAL}/?$`);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", root);
@@ -48,7 +48,7 @@ test.describe.serial("Modo personal", () => {
   test("/ana redirige a la raíz conservando la query", async ({ page }) => {
     await page.goto("/ana?utm_source=instagram");
     expect(page.url()).toBe(`${PERSONAL}/?utm_source=instagram`);
-    await expect(page.getByRole("heading", { name: "Ana Luna", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Cirella", level: 1 })).toBeVisible();
     // Sus productos y su página legal siguen en /ana/…
     const legal = await page.goto("/ana/legal");
     expect(legal?.status()).toBe(200);
@@ -62,33 +62,33 @@ test.describe.serial("Modo personal", () => {
       await expect(page.getByRole("heading", { name: "No encontramos esta página" })).toBeVisible();
       expect(await visibleText(page)).not.toContain("Cirella");
     }
-    // La imagen para redes: la de Ana existe; la de otra creadora, no (nada de una tarjeta «Cirella»).
+    // La imagen para redes: la de Cirella existe; la de otra creadora, no (nada de una tarjeta «Cirella»).
     const og = await page.request.get("/ana/opengraph-image");
     expect(og.status()).toBe(200);
     expect(og.headers()["content-type"]).toContain("image/png");
     expect((await page.request.get("/maria/opengraph-image")).status()).toBe(404);
   });
 
-  test("el favicon de las páginas de la web (login, panel…) es el de Ana", async ({ page }) => {
-    await page.goto("/entrar");
+  test("el favicon de las páginas de la web (login, panel…) es el de Cirella", async ({ page }) => {
+    await page.goto("/login");
     await expect(page.locator('link[rel="icon"]').first()).toHaveAttribute("href", /\/ana\/icon/);
     await expect(page.locator('link[rel="icon"][href*="icon.svg"]')).toHaveCount(0);
   });
 
-  test("registro cerrado y login con la marca de Ana", async ({ page }) => {
-    await page.goto("/registro?ref=ANALUNA");
-    await page.waitForURL("**/entrar");
-    await expect(page).toHaveTitle("Entrar · Ana Luna");
-    await expect(page.getByRole("link", { name: "Ana Luna inicio" })).toBeVisible();
+  test("registro cerrado y login con la marca de Cirella", async ({ page }) => {
+    await page.goto("/signup?ref=CIRELLA");
+    await page.waitForURL("**/login");
+    await expect(page).toHaveTitle("Entrar · Cirella");
+    await expect(page.getByRole("link", { name: "Cirella inicio" })).toBeVisible();
     await expect(page.getByText("¿Aún no tienes página?")).toHaveCount(0);
     await expect(page.getByText("Plataforma")).toHaveCount(0);
     expect(await visibleText(page)).not.toContain("Cirella");
   });
 
-  test("las páginas legales de la plataforma llevan a la de Ana, sin condiciones de venta", async ({ page }) => {
-    await page.goto("/terminos");
+  test("las páginas legales de la plataforma llevan a la de Cirella, sin condiciones de venta", async ({ page }) => {
+    await page.goto("/terms");
     await page.waitForURL("**/ana/legal**");
-    await page.goto("/privacidad");
+    await page.goto("/privacy");
     await page.waitForURL("**/ana/legal**");
     await expect(page.getByRole("heading", { name: "Aviso legal y privacidad", level: 1 })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Privacidad", level: 2 })).toBeVisible();
@@ -103,19 +103,19 @@ test.describe.serial("Modo personal", () => {
   test("el asistente de alta está cerrado para una clienta con sesión", async ({ page }) => {
     await demoLogin(page, "Laura Martín");
     await page.goto("/onboarding");
-    await page.waitForURL("**/entrar?error=cerrado");
+    await page.waitForURL("**/login?error=cerrado");
     await expect(page.getByText("En esta web no se pueden crear páginas nuevas")).toBeVisible();
-    // El área de clienta lleva la marca de Ana.
-    await page.goto("/cuenta");
-    await expect(page.getByRole("link", { name: "Ana Luna inicio" })).toBeVisible();
+    // El área de clienta lleva la marca de Cirella.
+    await page.goto("/area");
+    await expect(page.getByRole("link", { name: "Cirella inicio" })).toBeVisible();
     expect(await visibleText(page)).not.toContain("Cirella");
   });
 
   test("panel de la dueña: sin planes ni cobros, con Inscripciones, Publicaciones y Códigos", async ({ page }) => {
-    await demoLogin(page, "Ana Luna");
+    await demoLogin(page, "Cirella");
     await page.waitForURL("**/panel");
-    await expect(page.getByRole("heading", { name: "Hola, Ana" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Ana Luna inicio" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Hola, Cirella" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Cirella inicio" })).toBeVisible();
     const home = page.locator("main");
     await expect(home.getByText("Inscripciones", { exact: true }).first()).toBeVisible();
     await expect(home.getByText("Activa tus cobros")).toHaveCount(0);

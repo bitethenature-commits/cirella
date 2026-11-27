@@ -50,8 +50,8 @@ const admin = new PrismaClient();
 const db = new PrismaClient({ datasources: { db: { url: SCRATCH_URL } } });
 
 async function counts() {
-  const [plans, categories, templates, users] = await Promise.all([db.plan.count(), db.category.count(), db.template.count(), db.user.count()]);
-  return { plans, categories, templates, users };
+  const [plans, categories, users] = await Promise.all([db.plan.count(), db.category.count(), db.user.count()]);
+  return { plans, categories, users };
 }
 
 async function main() {
@@ -66,7 +66,7 @@ async function main() {
   check("bootstrap en una BD vacía", first.status === 0 && first.output.includes("3 planes, 10 categorías, 5 diseños"), first.output);
   const second = run("tsx", ["prisma/bootstrap.ts"]);
   check("bootstrap es idempotente", second.status === 0, second.output);
-  check("tras dos ejecuciones: 3 planes, 10 categorías, 5 diseños", JSON.stringify(await counts()) === JSON.stringify({ plans: 3, categories: 10, templates: 5, users: 0 }));
+  check("tras dos ejecuciones: 3 planes y 10 categorías", JSON.stringify(await counts()) === JSON.stringify({ plans: 3, categories: 10, users: 0 }));
 
   await db.plan.update({ where: { key: "pro" }, data: { priceMonthlyCents: 3900 } });
   await db.category.delete({ where: { slug: "yoga" } });

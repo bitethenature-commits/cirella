@@ -1,4 +1,5 @@
 import { CheckCircle2, AlertCircle } from "lucide-react";
+import { Tr } from "@/lib/i18n/client";
 
 export function Flash({ ok, error }: { ok?: string | null; error?: string | null }) {
   if (!ok && !error) return null;
@@ -10,7 +11,7 @@ export function Flash({ ok, error }: { ok?: string | null; error?: string | null
       }`}
     >
       {error ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />}
-      <span>{error ?? ok}</span>
+      <span><Tr s={error ?? ok} /></span>
     </div>
   );
 }

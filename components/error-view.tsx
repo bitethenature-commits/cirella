@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RotateCw } from "lucide-react";
 import { SiteMark } from "@/components/site-brand-context";
+import { Tr } from "@/lib/i18n/client";
 
 /**
  * Pantalla de error genérica (solo presentación). La usan los error.tsx de la app:
@@ -43,17 +44,16 @@ export function ErrorView({
     >
       {mark === undefined ? <SiteMark className="h-10 w-10" dark={dark} /> : mark}
       <h1 className="display mt-6 text-balance text-3xl sm:text-4xl">{title}</h1>
-      <p className={`mt-3 max-w-sm text-sm ${dark ? "text-cream/70" : "text-muted"}`}>{text}</p>
+      <p className={`mt-3 max-w-sm text-sm ${dark ? "text-cream/70" : "text-muted"}`}><Tr s={text} /></p>
       {extra && <div className={`mt-3 max-w-sm text-sm ${dark ? "text-cream/70" : "text-muted"}`}>{extra}</div>}
       <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
         <button type="button" onClick={onRetry} className={`btn ${dark ? "btn-light" : "btn-primary"}`}>
-          <RotateCw className="h-4 w-4" /> Reintentar
-        </button>
+          <RotateCw className="h-4 w-4" />{" "}<Tr s={"Reintentar"} /></button>
         <Link href={homeHref} className={dark ? "btn text-cream/80 hover:text-cream" : "btn btn-outline"}>
-          {homeLabel}
+          <Tr s={homeLabel} />
         </Link>
       </div>
-      {digest && <p className={`mt-6 text-xs ${dark ? "text-cream/50" : "text-muted"}`}>Código del error: {digest}</p>}
+      {digest && <p className={`mt-6 text-xs ${dark ? "text-cream/50" : "text-muted"}`}><Tr s={"Código del error:"} />{" "}<Tr s={digest} /></p>}
     </Root>
   );
 }

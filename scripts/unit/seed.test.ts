@@ -1,4 +1,3 @@
-import { estimateNet } from "../../lib/tax";
 import { addDaysToKey, dateKeyInTz, weekdayOfKey, zonedParts } from "../../lib/tz";
 import { ANA_AVAILABILITY, ANA_BLOCKED_IN_DAYS, DEMO_TZ, demoSchedule, nextSessionDay } from "../../prisma/demo-dates";
 import { demoSaleFields } from "../../prisma/demo-sales";
@@ -21,7 +20,7 @@ test("demoSchedule: la sesión de Laura a las 17:00, dentro de su horario, a 3�
     const ahead = daysBetween(today, day);
     ok(ahead >= 3 && ahead <= 9, `${today}: Laura a ${ahead} días`);
     eq(minutesOf(s.lauraAt), 17 * 60, `${today}: hora de Madrid`);
-    ok(fits(day, 17 * 60, 75), `${today}: ${day} fuera del horario de Ana`);
+    ok(fits(day, 17 * 60, 75), `${today}: ${day} fuera del horario de Cirella`);
     ok(!s.blocked.includes(day), `${today}: Laura en un día bloqueado`);
   }
 });
@@ -32,7 +31,7 @@ test("demoSchedule: la sesión de Carmen a las 10:00, después de la de Laura, d
     const day = dateKeyInTz(s.carmenAt, DEMO_TZ);
     ok(daysBetween(dateKeyInTz(s.lauraAt, DEMO_TZ), day) >= 1, `${today}: Carmen no va después de Laura`);
     eq(minutesOf(s.carmenAt), 10 * 60, `${today}: hora de Madrid`);
-    ok(fits(day, 10 * 60, 60), `${today}: ${day} fuera del horario de Ana`);
+    ok(fits(day, 10 * 60, 60), `${today}: ${day} fuera del horario de Cirella`);
     ok(!s.blocked.includes(day), `${today}: Carmen en un día bloqueado`);
     // El recordatorio (24 h antes) sigue programado: nunca un «Programado» de una sesión pasada.
     ok(s.carmenAt.getTime() - 86400_000 > Date.parse(`${today}T23:59:59Z`), `${today}: recordatorio de Carmen ya pasado`);
@@ -64,23 +63,14 @@ test("nextSessionDay salta un día bloqueado y un día sin franja suficiente", (
 });
 
 // ── Ventas de la demo: mismos importes que el checkout ──
-const ana = { legalCountry: "ES", vatStatus: "STANDARD" };
-const maria = { legalCountry: "ES", vatStatus: "NONE" };
 
-test("demoSaleFields: «Gene Keys» (59 €, Pro) recibe lo mismo que una venta nueva y vende Cirella con IVA", () => {
-  const f = demoSaleFields({ mode: "PLATFORM_DIGITAL", product: { type: "DIGITAL", deliveryMode: "AUTOMATIC", priceCents: 5900 }, creator: ana, commissionBps: 200, buyerCountry: "ES" });
-  const e = estimateNet({ priceCents: 5900, commissionBps: 200, productType: "DIGITAL", deliveryMode: "AUTOMATIC", mode: "PLATFORM_DIGITAL", creator: { country: "ES", vatStatus: "STANDARD" } });
-  eq(f.netCents, e.netCents, "«Recibes»");
-  eq([f.taxSeller, f.taxCountry, f.taxRateBps, f.taxCents, f.platformFeeCents], ["PLATFORM", "ES", 2100, 1024, 98]);
-  eq(f.amountCents - f.taxCents - f.platformFeeCents, f.netCents, "total − IVA − comisión");
+test("demoSaleFields: «Gene Keys» (59 €, Pro): comisión del 2 % sobre el precio", () => {
+  const f = demoSaleFields({ product: { priceCents: 5900 }, commissionBps: 200 });
+  eq([f.amountCents, f.platformFeeCents, f.netCents], [5900, 118, 5782]);
+  eq(f.amountCents - f.platformFeeCents, f.netCents, "total − comisión");
 });
 
-test("demoSaleFields: la sesión de Ana la vende ella con su IVA; la comisión sale de la base", () => {
-  const f = demoSaleFields({ mode: "PLATFORM_DIGITAL", product: { type: "SESSION", priceCents: 7900 }, creator: ana, commissionBps: 200, buyerCountry: "ES" });
-  eq([f.taxSeller, f.taxRateBps, f.taxCents, f.platformFeeCents, f.netCents], ["CREATOR", 2100, 1371, 131, 7769]);
-});
-
-test("demoSaleFields: la meditación de María (12 €, Creator) lleva IVA aunque ella no lo repercuta", () => {
-  const f = demoSaleFields({ mode: "PLATFORM_DIGITAL", product: { type: "DIGITAL", priceCents: 1200 }, creator: maria, commissionBps: 500, buyerCountry: "ES" });
-  eq([f.taxSeller, f.taxCents, f.platformFeeCents, f.netCents], ["PLATFORM", 208, 50, 942]);
+test("demoSaleFields: la meditación de María (12 €, Creator): comisión del 5 %", () => {
+  const f = demoSaleFields({ product: { priceCents: 1200 }, commissionBps: 500 });
+  eq([f.platformFeeCents, f.netCents], [60, 1140]);
 });

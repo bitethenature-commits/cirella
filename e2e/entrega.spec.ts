@@ -23,7 +23,7 @@ const INSTRUCTIONS = "Te envío la interpretación en PDF por email en 3 días";
  * cobros conectados. En el paso 8 ejecuta `delivery`.
  */
 async function onboard(page: Page, username: string, email: string, delivery: (page: Page) => Promise<void>) {
-  await page.goto("/registro");
+  await page.goto("/signup");
   await page.fill("#email", email);
   await page.fill("#password", "secreto123");
   await page.getByRole("button", { name: "Crear mi cuenta" }).click();
@@ -36,7 +36,7 @@ async function onboard(page: Page, username: string, email: string, delivery: (p
   await next.click();
   await expect(page.getByText("Sube tu foto")).toBeVisible();
   await next.click();
-  await page.getByPlaceholder("Ana Luna").fill("Vera Tarot");
+  await page.getByPlaceholder("Cirella").fill("Vera Tarot");
   await next.click();
   await page.getByRole("button", { name: /Tarot y oráculos/ }).click();
   await next.click();
@@ -60,7 +60,7 @@ async function onboard(page: Page, username: string, email: string, delivery: (p
   await page.getByLabel("Código postal").fill("28004");
   await page.getByLabel("Ciudad").fill("Madrid");
   await page.getByRole("button", { name: "Conectar con Stripe" }).click();
-  await page.waitForURL("**/pago-simulado/cuenta**");
+  await page.waitForURL("**/test-payment/account**");
   await page.getByRole("button", { name: "Verificar al instante" }).click();
   await page.waitForURL("**/onboarding");
   await expect(page.getByRole("heading", { name: /Todo listo/ })).toBeVisible();
@@ -174,10 +174,14 @@ test.describe("Entrega de productos", () => {
     await buyer.fill("#name", "Irene Compradora");
     await buyer.fill("#email", `irene-${username}@example.com`);
     await buyer.getByLabel(/He leído y acepto/).check();
-    // Hecho para ella: no hay acceso inmediato al que renunciar, así que no se pide la renuncia.
+    // Hecho para ella: no hay acceso inmediato, pero se empieza a preparar al pagar y la renuncia
+    // (su propia casilla) es obligatoria.
     await expect(buyer.getByLabel(/Quiero acceder ya/)).toHaveCount(0);
     await buyer.getByRole("button", { name: /Pagar 19/ }).click();
-    await buyer.waitForURL(`**/${username}/gracias**`);
+    await expect(buyer.getByText("Para pagar, marca la casilla para que se prepare ya y renuncia al desistimiento")).toBeVisible();
+    await buyer.getByLabel(/Quiero que se prepare ya/).check();
+    await buyer.getByRole("button", { name: /Pagar 19/ }).click();
+    await buyer.waitForURL(`**/${username}/thanks**`);
     await expect(buyer.getByRole("heading", { name: "Compra completada" })).toBeVisible();
     await expect(buyer.getByText(/lo prepara personalmente para ti/)).toBeVisible();
     await expect(buyer.getByText("Siguientes pasos")).toBeVisible();

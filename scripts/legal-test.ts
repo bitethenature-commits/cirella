@@ -14,9 +14,8 @@
  */
 import "./load-env";
 import { prisma } from "../lib/db";
-import { parseCheckoutConsents } from "../lib/checkout-consents";
+import { acceptedConsentFields, parseCheckoutConsents } from "../lib/checkout-consents";
 import { ensureLegalSnapshot, getLegalSnapshot } from "../lib/legal-snapshot";
-import { getPlatformIssuer } from "../lib/invoices/issuer";
 import { CheckoutError, createPendingOrder, startOrderPayment } from "../lib/orders";
 import { paymentProvider } from "../lib/payments";
 import { getDailySalt } from "../lib/visitor";
@@ -36,7 +35,7 @@ const errorOf = (p: Promise<unknown>) => p.then(() => "ok", (e) => (e instanceof
 /** Lo que hace la acción del checkout: consentimientos con la versión vigente y pago. */
 async function buy(productId: string, label: string, form: Record<string, string>) {
   const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
-  const consents = parseCheckoutConsents(form, product.type);
+  const consents = parseCheckoutConsents(form, product.type, product.deliveryMode);
   if (!consents.ok) throw new Error(consents.error);
   const order = await createPendingOrder({ productId, buyerEmail: email(label), buyerName: `Prueba ${label}` });
   created.orders.push(order.id);
@@ -49,6 +48,7 @@ async function buy(productId: string, label: string, form: Record<string, string
       termsAcceptedAt: now,
       waiverKind: consents.consents.waiverKind,
       waiverText: consents.consents.waiverText,
+      waiverVersion: consents.consents.waiverVersion,
       waiverAcceptedAt: consents.consents.waiverKind ? now : null,
       marketingOptIn: consents.consents.marketingOptIn,
     },
@@ -60,7 +60,7 @@ async function buy(productId: string, label: string, form: Record<string, string
 async function main() {
   check("pasarela simulada", paymentProvider().key === "simulated");
   const ana = await prisma.creator.findUniqueOrThrow({ where: { username: "ana" } });
-  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED" } });
+  const digital = await prisma.product.findFirstOrThrow({ where: { creatorId: ana.id, type: "DIGITAL", status: "PUBLISHED", deliveryMode: "AUTOMATIC" } });
   const before = new Set((await prisma.legalSnapshot.findMany({ where: { creatorId: ana.id }, select: { id: true } })).map((r) => r.id));
 
   // ── 1. Sin identidad legal no se vende ──
@@ -90,21 +90,14 @@ async function main() {
   check("la clienta acepta novedades, con fecha", customer.marketingOptIn && !!customer.marketingOptInAt);
   const optInAt = customer.marketingOptInAt;
 
-  const platform = await getPlatformIssuer();
   const receipt = await prisma.emailMessage.findFirst({ where: { to: email("novedades"), template: "PURCHASE_RECEIPT" } });
   const html = receipt?.html ?? "";
   for (const [label, text] of [
-    // Con la política por defecto (PLATFORM_DIGITAL) lo digital lo vende Cirella por cuenta de Ana, como dice el checkout.
-    ...(first.order.taxSeller === "PLATFORM"
-      ? ([
-          ["quién vende", `${platform.name}${platform.taxId ? ` · NIF ${platform.taxId}` : ""}, por cuenta de Ana Luna Pérez`],
-          ["el domicilio", platform.address ?? ""],
-        ] as const)
-      : ([
-          ["quién vende", "Ana Luna Pérez · NIF 12345678Z"],
-          ["el domicilio", "28004 Madrid"],
-        ] as const)),
-    ["la renuncia marcada", "marcaste: «Quiero acceder ya al contenido"],
+    // Vende Cirella, como dice el checkout.
+    ["quién vende", "Cirella · NIF 12345678Z"],
+    ["el domicilio", "28004 Madrid"],
+    ["la renuncia marcada", "marcaste «Quiero acceder ya al contenido"],
+    ["la versión del texto de la renuncia", `(texto ${first.order.waiverVersion})`],
     ["la versión aceptada", `/ana/legal?v=${first.snapshot.id}`],
     ["las condiciones", "CONDICIONES DE VENTA"],
   ] as const)
@@ -113,7 +106,7 @@ async function main() {
   // ── 4. Otra compra sin la casilla no retira el consentimiento ──
   const second = await createPendingOrder({ productId: digital.id, buyerEmail: email("novedades"), buyerName: "Prueba novedades" });
   created.orders.push(second.id);
-  await prisma.order.update({ where: { id: second.id }, data: { legalSnapshotId: first.snapshot.id, termsAcceptedAt: new Date(), waiverKind: "DIGITAL_IMMEDIATE", waiverText: "x", waiverAcceptedAt: new Date() } });
+  await prisma.order.update({ where: { id: second.id }, data: { legalSnapshotId: first.snapshot.id, ...acceptedConsentFields(digital, new Date()) } });
   await startOrderPayment(second.id, { method: "card", cardNumber: "4242 4242 4242 4242" });
   customer = await prisma.customer.findUniqueOrThrow({ where: { id: customer.id } });
   check("una compra sin la casilla no retira las novedades", customer.marketingOptIn && customer.marketingOptInAt?.getTime() === optInAt?.getTime());
@@ -158,9 +151,6 @@ async function cleanup() {
     prisma.session.deleteMany({ where: { userId: { in: userIds } } }),
     prisma.analyticsEvent.deleteMany({ where: { visitorId: { in: userIds.map((id) => `user:${id}`) } } }),
     prisma.access.deleteMany({ where: { userId: { in: userIds } } }),
-    // Facturas de las compras de prueba (primero se sueltan las F3/rectificativas de su original).
-    prisma.invoice.updateMany({ where: { recipientEmail: { startsWith: TAG } }, data: { relatedInvoiceId: null } }),
-    prisma.invoice.deleteMany({ where: { recipientEmail: { startsWith: TAG } } }),
     prisma.transaction.deleteMany({ where: { orderId: { in: orderIds } } }),
     prisma.order.deleteMany({ where: { id: { in: orderIds } } }),
     prisma.customer.deleteMany({ where: { userId: { in: userIds } } }),

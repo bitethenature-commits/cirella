@@ -3,13 +3,14 @@
  * siempre las mismas. Las usan también las pruebas e2e para saber qué fecha deben ver.
  * Puro (sin BD): se prueba en scripts/unit/seed.test.ts.
  */
-import { addDaysToKey, weekdayOfKey, zonedTimeToUtc } from "../lib/tz";
+import { addDaysToKey, dateKeyInTz, weekdayOfKey, zonedTimeToUtc } from "../lib/tz";
+import { PAID_SESSION_MIN_NOTICE_DAYS } from "../lib/withdrawal";
 
 export const DEMO_TZ = "Europe/Madrid";
 
 export type DemoAvailability = { weekday: number; startMinute: number; endMinute: number }[];
 
-/** Horario de Ana (0 = domingo): L–J 10–14 y 17–20 · V 10–14. */
+/** Horario de Cirella (0 = domingo): L–J 10–14 y 17–20 · V 10–14. */
 export const ANA_AVAILABILITY: DemoAvailability = [
   ...[1, 2, 3, 4].flatMap((weekday) => [
     { weekday, startMinute: 600, endMinute: 840 },
@@ -18,7 +19,7 @@ export const ANA_AVAILABILITY: DemoAvailability = [
   { weekday: 5, startMinute: 600, endMinute: 840 },
 ];
 
-/** Días bloqueados de Ana («Retiro de otoño»): dentro de dos semanas. */
+/** Días bloqueados de Cirella («Retiro de otoño»): dentro de dos semanas. */
 export const ANA_BLOCKED_IN_DAYS = [14, 15];
 
 /** La sesión de Laura (Lectura de Human Design, 75 min): a las 17:00, como el ejemplo del briefing. */
@@ -58,4 +59,16 @@ export function demoSchedule(today: string) {
     lauraAt: zonedTimeToUtc(lauraDay, LAURA_SESSION.minutes, DEMO_TZ),
     carmenAt: zonedTimeToUtc(carmenDay, CARMEN_SESSION.minutes, DEMO_TZ),
   };
+}
+
+/**
+ * Hace cuántos días se compró una sesión de la demo que es en `sessionAt`: lo justo para que la
+ * sesión caiga el día 15 desde la compra (lib/withdrawal.ts), nunca dentro de sus 14 días para
+ * desistir, y que la compra sea de hace al menos un día. Con la sesión dentro de 3 días, la compra
+ * fue hace 12 y la clienta aún puede desistir 2 días más.
+ */
+export function demoPurchaseDaysAgo(today: string, sessionAt: Date): number {
+  const sessionDay = dateKeyInTz(sessionAt, DEMO_TZ);
+  const until = Math.round((Date.parse(`${sessionDay}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+  return Math.max(1, PAID_SESSION_MIN_NOTICE_DAYS - until);
 }

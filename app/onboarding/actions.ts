@@ -18,18 +18,18 @@ import { canSellType } from "@/lib/plans";
 import { isPersonalMode } from "@/lib/site-mode";
 import { normalizeUsername, RESERVED_PRODUCT_SLUGS } from "@/lib/slug";
 import { privateKey, storage } from "@/lib/storage";
-import { TEMPLATE_KEYS } from "@/lib/templates";
 import { tenantDb } from "@/lib/tenant";
 import { DEFAULT_CTA, PRODUCT_TYPES, type ProductType } from "@/lib/types";
+import { inMail } from "@/lib/i18n/email";
 
 type Result = { ok: true; data?: Record<string, unknown> } | { ok: false; error: string };
 
 async function currentCreator() {
   // Modo personal: el asistente está cerrado (ver app/onboarding/page.tsx).
-  if (isPersonalMode()) redirect("/entrar?error=cerrado");
+  if (isPersonalMode()) redirect("/login?error=cerrado");
   const user = await requireUser("/onboarding");
   const creator = await prisma.creator.findUnique({ where: { userId: user.id }, include: { plan: true } });
-  if (creator?.status === "BLOCKED") redirect("/entrar?error=bloqueada");
+  if (creator?.status === "BLOCKED") redirect("/login?error=bloqueada");
   return { user, creator };
 }
 
@@ -93,17 +93,17 @@ export async function saveCategory(categoryId: string): Promise<Result> {
   const cat = await prisma.category.findFirst({ where: { id: categoryId, active: true } });
   if (!cat) return { ok: false, error: "Elige una categoría" };
   await prisma.creator.update({ where: { id: creator.id }, data: { categoryId: cat.id } });
-  return { ok: true, data: { suggestedTemplate: cat.defaultTemplate } };
+  return { ok: true };
 }
 
-export async function saveTemplate(template: string): Promise<Result> {
+/** Los dos colores con los que empieza su diseño (lo demás lo diseña luego en Mi página › Diseño). */
+export async function saveColors(colors: { background: string; accent: string; text: string }): Promise<Result> {
   const { creator } = await currentCreator();
   if (!creator) return { ok: false, error: "Primero elige tu nombre de usuario" };
-  const t = z.enum(TEMPLATE_KEYS).safeParse(template);
-  if (!t.success) return { ok: false, error: "Elige un estilo" };
-  const active = await prisma.template.findFirst({ where: { key: t.data, active: true } });
-  if (!active) return { ok: false, error: "Ese estilo no está disponible" };
-  await updateDraft(creator.id, (c) => ({ ...c, template: t.data }));
+  const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+  const c = z.object({ background: hex, accent: hex, text: hex }).safeParse(colors);
+  if (!c.success) return { ok: false, error: "Elige tus colores" };
+  await updateDraft(creator.id, (cfg) => ({ ...cfg, theme: { ...cfg.theme, background: c.data.background, bg2: c.data.background, text: c.data.text, accent: c.data.accent, accentText: null } }));
   return { ok: true };
 }
 
@@ -210,7 +210,7 @@ export async function publishOnboarding(): Promise<Result> {
       to: user.email,
       template: "WELCOME_CREATOR",
       creatorId: creator.id,
-      ...welcomeCreatorEmail({ name: creator.displayName, pageUrl: `${base}/${creator.username}`, panelUrl: `${base}/panel` }),
+      ...(await inMail(user.email, () => welcomeCreatorEmail({ name: creator.displayName, pageUrl: `${base}/${creator.username}`, panelUrl: `${base}/panel` }))),
     });
   }
   redirect("/onboarding/lista");

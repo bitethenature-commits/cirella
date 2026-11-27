@@ -5,14 +5,14 @@ import { enqueueEmail } from "./email/outbox";
 import { renewalFailedEmail } from "./email/templates";
 import { dispatchEvents, recordEvents } from "./events";
 import { captureAlert, captureError } from "./monitoring";
-import { hasPaymentProvider, paymentProvider } from "./payments";
+import { hasPaymentProvider, isPaymentProviderEnabled, paymentProviderByKey } from "./payments";
 import { nextRenewalAttempt, renewalPeriodKey } from "./payments/renewal";
-import { canAcceptPayments } from "./payouts";
-import { issueSaleInvoiceTx } from "./invoices/issue";
+import { chargeDestination } from "./payouts";
+import { isPersonalMode } from "./site-mode";
 import { effectiveCommissionBps } from "./plans";
 import { planFeeKey, renewalKey } from "./reliability";
-import { computeSaleAmounts, decideTax, type TaxMode } from "./tax";
-import { getTaxMode } from "./tax/server";
+import { computeSaleAmounts } from "./sale-amounts";
+import { inMail } from "@/lib/i18n/email";
 
 /** Suscripciones vivas: al día o con una renovación pendiente de cobro (con acceso mientras se reintenta). */
 const LIVE = ["ACTIVE", "PAST_DUE"];
@@ -35,7 +35,7 @@ export async function cancelSubscription(subscriptionId: string, userId: string)
       where: { id: subscriptionId, userId, status: { in: LIVE }, cancelAtPeriodEnd: false },
       data: { cancelAtPeriodEnd: true, canceledAt: new Date() },
     });
-    return c.count ? recordEvents(tx, [{ type: "subscription.canceled", subscriptionId }]) : null;
+    return c.count ? recordEvents(tx, [{ type: "subscription.canceled", subscriptionId, byMember: true }]) : null;
   });
   if (!eventIds) return null;
   await dispatchEvents(eventIds);
@@ -55,22 +55,11 @@ function addInterval(date: Date, interval: string) {
   return d;
 }
 
-/**
- * Importes de una renovación con la política de IVA vigente y el país que declaró la compradora:
- * IVA incluido, comisión (sobre la base sin IVA) y lo que retiene Cirella.
- */
-export async function renewalAmounts(
-  sub: { priceCents: number; buyerCountry: string | null; creator: Creator & { plan: Plan } },
-  now: Date,
-  mode?: TaxMode,
-) {
-  const tax = decideTax({
-    mode: mode ?? (await getTaxMode()),
-    productType: "MEMBERSHIP",
-    buyerCountry: sub.buyerCountry,
-    creator: { country: sub.creator.legalCountry, vatStatus: sub.creator.vatStatus, vatExemptionNote: sub.creator.vatExemptionNote },
-  });
-  return { tax, ...computeSaleAmounts(sub.priceCents, effectiveCommissionBps(sub.creator.plan, sub.creator, now), tax) };
+/** Importes de una renovación: la comisión (sobre el precio) y lo que recibe la creadora. */
+export function renewalAmounts(sub: { priceCents: number; creator: Creator & { plan: Plan } }, now: Date) {
+  // La web personal cobra con las cuentas de la dueña: sin comisión.
+  const commissionBps = isPersonalMode() ? 0 : effectiveCommissionBps(sub.creator.plan, sub.creator, now);
+  return computeSaleAmounts(sub.priceCents, commissionBps);
 }
 
 type DueSubscription = Prisma.SubscriptionGetPayload<{ include: { creator: { include: { plan: true } }; product: true; customer: true } }>;
@@ -100,10 +89,9 @@ export async function processRenewals(now = new Date()) {
     take: 200,
   });
   let done = 0;
-  const mode = due.length ? await getTaxMode() : "PLATFORM_DIGITAL";
   for (const sub of due) {
     try {
-      if (await renewOne(sub, now, mode)) done++;
+      if (await renewOne(sub, now)) done++;
     } catch (e) {
       captureError(e, { area: "renovaciones", extra: { subscriptionId: sub.id } });
     }
@@ -111,30 +99,37 @@ export async function processRenewals(now = new Date()) {
   return done;
 }
 
-async function renewOne(sub: DueSubscription, now: Date, mode: TaxMode) {
+async function renewOne(sub: DueSubscription, now: Date) {
   if (sub.cancelAtPeriodEnd) {
     // La condición sobre currentPeriodEnd hace de cerrojo: en Postgres (READ COMMITTED) la segunda
     // ejecución espera a la primera, vuelve a evaluar el WHERE y no actualiza nada.
-    return prisma.$transaction(async (tx) => {
+    // El acceso ya terminó solo al llegar currentPeriodEnd (Access.expiresAt se comprueba en cada
+    // visita); aquí se cierra la suscripción y se avisa a la miembro.
+    const eventIds = await prisma.$transaction(async (tx) => {
       const c = await tx.subscription.updateMany({
         where: { id: sub.id, status: sub.status, currentPeriodEnd: sub.currentPeriodEnd },
         data: { status: "CANCELED", nextRenewalAttemptAt: null },
       });
-      if (!c.count) return false;
+      if (!c.count) return null;
       await tx.access.updateMany({ where: { subscriptionId: sub.id }, data: { status: "REVOKED" } });
-      return true;
+      return recordEvents(tx, [{ type: "subscription.ended", subscriptionId: sub.id, reason: "period_end" }]);
     });
+    if (!eventIds) return false;
+    await dispatchEvents(eventIds);
+    return true;
   }
   const guard = { periodEnd: sub.currentPeriodEnd, attempts: sub.renewalAttempts };
   // Web sin pasarela (modo personal): no se cobra ni se cuenta como intento fallido (eso acabaría
   // cancelando la suscripción y avisando a la clienta de un pago que nunca se intentó).
   if (!hasPaymentProvider()) return false;
-  const provider = paymentProvider();
-  if (!sub.creator.payoutAccountId || !canAcceptPayments(sub.creator, provider.key)) {
+  // Cada membresía se renueva con la pasarela con la que se pagó (tarjeta o PayPal).
+  const target = isPaymentProviderEnabled(sub.provider) ? chargeDestination(sub.creator, sub.provider) : null;
+  if (!target) {
     return recordRenewalFailure(sub.id, "La creadora tiene los cobros pausados.", now, guard);
   }
+  const provider = paymentProviderByKey(sub.provider);
   const periodKey = renewalPeriodKey(sub.currentPeriodEnd);
-  const amounts = await renewalAmounts(sub, now, mode);
+  const amounts = renewalAmounts(sub, now);
   const r = await provider.chargeSaved({
     subscriptionId: sub.id,
     periodKey,
@@ -142,9 +137,9 @@ async function renewOne(sub: DueSubscription, now: Date, mode: TaxMode) {
     currency: sub.product.currency,
     description: `Renovación · ${sub.product.title}`,
     customerEmail: sub.customer.email,
-    // Comisión y, si vende Cirella, también el IVA (no es dinero de la creadora).
-    platformFeeCents: amounts.platformRetainedCents,
-    destinationAccount: sub.creator.payoutAccountId,
+    // La comisión (no es dinero de la creadora).
+    platformFeeCents: amounts.platformFeeCents,
+    destinationAccount: target.destination,
     statementSuffix: sub.creator.username.toUpperCase(),
     customerRef: sub.providerCustomerRef,
     paymentMethodRef: sub.providerPaymentMethodRef,
@@ -157,11 +152,17 @@ async function renewOne(sub: DueSubscription, now: Date, mode: TaxMode) {
   if (r.state === "processing") {
     // El banco confirmará más tarde: lo resuelve el aviso de la pasarela. Por si no llega,
     // se vuelve a mirar mañana (con la misma clave de idempotencia, no se cobra dos veces).
-    const c = await prisma.subscription.updateMany({
-      where: { id: sub.id, currentPeriodEnd: sub.currentPeriodEnd, renewalAttempts: sub.renewalAttempts },
-      data: { nextRenewalAttemptAt: new Date(now.getTime() + 86_400_000) },
+    // Mientras tanto mantiene el acceso hasta ese momento: un pago en camino no la deja fuera.
+    const next = new Date(now.getTime() + 86_400_000);
+    return prisma.$transaction(async (tx) => {
+      const c = await tx.subscription.updateMany({
+        where: { id: sub.id, currentPeriodEnd: sub.currentPeriodEnd, renewalAttempts: sub.renewalAttempts },
+        data: { nextRenewalAttemptAt: next },
+      });
+      if (!c.count) return false;
+      await tx.access.updateMany({ where: { subscriptionId: sub.id, status: "ACTIVE" }, data: { expiresAt: next } });
+      return true;
     });
-    return c.count > 0;
   }
   return recordRenewalFailure(sub.id, (r.state === "failed" && r.error) || "Tu banco pide confirmar el pago.", now, guard);
 }
@@ -181,7 +182,7 @@ export async function applyRenewal(
   if (!sub) return false;
   const now = new Date();
   const next = addInterval(periodEnd, sub.interval);
-  const amounts = await renewalAmounts(sub, now);
+  const amounts = renewalAmounts(sub, now);
   return prisma.$transaction(async (tx) => {
     const c = await tx.subscription.updateMany({
       where: { id: subscriptionId, currentPeriodEnd: periodEnd, status: { in: LIVE } },
@@ -199,7 +200,7 @@ export async function applyRenewal(
     if (!c.count) return false;
     await tx.access.updateMany({ where: { subscriptionId }, data: { expiresAt: next, status: "ACTIVE" } });
     await tx.customer.update({ where: { id: sub.customerId }, data: { totalSpentCents: { increment: sub.priceCents }, lastPurchaseAt: periodEnd } });
-    const renewal = await tx.transaction.create({
+    await tx.transaction.create({
       data: {
         creatorId: sub.creatorId,
         subscriptionId,
@@ -208,16 +209,11 @@ export async function applyRenewal(
         amountCents: sub.priceCents,
         platformFeeCents: amounts.platformFeeCents,
         netCents: amounts.netCents,
-        taxSeller: amounts.tax.seller,
-        taxCountry: amounts.tax.country,
-        taxRateBps: amounts.taxRateBps,
-        taxCents: amounts.taxCents,
         provider: sub.provider,
         providerRef: paymentRef || null,
         idempotencyKey: renewalKey(subscriptionId, periodEnd),
       },
     });
-    await issueSaleInvoiceTx(tx, { transactionId: renewal.id });
     return true;
   });
 }
@@ -258,7 +254,9 @@ export async function settleRenewalCharge(
     fingerprint: ["renovacion-duplicada"],
     extra: { subscriptionId, ref },
   });
-  const r = await paymentProvider().refund({ paymentRef: ref, refundApplicationFee: true, idempotencyKey: `dup:${ref}`, reason: "duplicate", metadata: { subscriptionId, reason: "duplicado" } });
+  const sub = await prisma.subscription.findUnique({ where: { id: subscriptionId }, select: { provider: true } });
+  if (!sub) throw new Error(`Suscripción desconocida al reembolsar el cobro duplicado ${ref}`);
+  const r = await paymentProviderByKey(sub.provider).refund({ paymentRef: ref, refundApplicationFee: true, idempotencyKey: `dup:${ref}`, reason: "duplicate", metadata: { subscriptionId, reason: "duplicado" } });
   if (!r.ok) throw new Error(`No se ha podido reembolsar el cobro duplicado ${ref}: ${r.error}`);
   return "refunded";
 }
@@ -290,7 +288,10 @@ export async function recordRenewalFailure(
       });
       if (!c.count) return null;
       await tx.access.updateMany({ where: { subscriptionId }, data: { status: "REVOKED" } });
-      return recordEvents(tx, [{ type: "subscription.canceled", subscriptionId }]);
+      return recordEvents(tx, [
+        { type: "subscription.canceled", subscriptionId },
+        { type: "subscription.ended", subscriptionId, reason: "payment_failed" },
+      ]);
     });
     if (!eventIds) return false;
     await dispatchEvents(eventIds);
@@ -314,12 +315,12 @@ export async function recordRenewalFailure(
     userId: sub.userId,
     template: "RENEWAL_FAILED",
     dedupeKey: `renewfail:${sub.id}:${renewalPeriodKey(sub.currentPeriodEnd)}:${attempts}`,
-    ...renewalFailedEmail({
+    ...(await inMail(sub.customer.email, () => renewalFailedEmail({
       creatorName: sub.creator.displayName,
       productTitle: sub.product.title,
-      payUrl: `${appUrl()}/cuenta/membresias/${sub.productId}`,
+      payUrl: `${appUrl()}/area/membership/${sub.productId}`,
       nextAttempt: next.toLocaleDateString("es-ES", { day: "numeric", month: "long", timeZone: sub.creator.timezone }),
-    }),
+    }))),
   });
   return true;
 }

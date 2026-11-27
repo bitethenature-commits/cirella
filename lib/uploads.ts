@@ -12,50 +12,107 @@
  * objeto, el producto ni el tamaño entre un paso y otro, ni usar el billete de otra creadora.
  */
 import { randomBytes } from "node:crypto";
-import { storeProcessedImage } from "./images";
+import { HEIC_ERROR, isHeic, MULTIPART_THRESHOLD, planParts, uploadPolicy, type UploadPolicy } from "./file-types";
+import { storeEmailImage, storeImage } from "./images";
+import { PAGE_VIDEO_MAX, pageVideoUrl, type PageVideo } from "./page-blocks";
+import { probeStoredFile, type MediaInfo } from "./media-probe";
+import { isPersonalMode } from "./site-mode";
 import { IMAGE_TYPES, PRIVATE_TYPES, privateFileType, signToken, storage, storageSecret, verifyToken } from "./storage";
 import { tenantDb } from "./tenant";
 
-export type UploadPurpose = "image" | "file";
+/**
+ * image: imagen pública · file: archivo de un producto
+ * · video: vídeo público de la página (bloque «Vídeo»; solo la web personal). Con `audio: true`, también
+ * un audio público (el de una publicación de «Actualidades»).
+ * · portal: archivo privado de un elemento del «Portal de Noticias» (vídeo, audio o foto): solo lo
+ * abre quien lo tiene desbloqueado (app/api/portal/…).
+ */
+export type UploadPurpose = "image" | "file" | "video" | "portal";
 
-export const UPLOAD_LIMITS = { image: 25 * 1024 * 1024, file: 1024 * 1024 * 1024 } as const;
+/** Lectura del vídeo o audio al completar: si tarda más, se guarda sin esos datos. */
+const PROBE_TIMEOUT_MS = 5000;
 
 /** Error que se puede enseñar tal cual a la creadora. */
 export class UploadError extends Error {}
 
 /** Lo que firma el billete de subida. */
-type Ticket = { k: string; c: string; p: UploadPurpose; pid?: string; n: string; ct: string; s: number };
+/** `u`/`ps`: id de la subida por partes y tamaño de cada parte (solo en la web personal). */
+/** `g`: imagen con el perfil «graphic» (gráficos de Canva, lib/images.ts). `e`: imagen para un email (JPEG/PNG). */
+type Ticket = { k: string; c: string; p: UploadPurpose; pid?: string; oid?: string; n: string; ct: string; s: number; u?: string; ps?: number; g?: 1; e?: 1 };
+
+/** Archivo del portal ya subido: va firmado al formulario del panel (así no se puede inventar la clave). */
+type PortalTicket = { p: "portal-media"; c: string; k: string; kind: "VIDEO" | "AUDIO" | "IMAGE"; mime: string; name: string; size: number; w?: number | null; h?: number | null; d?: number | null };
+const PORTAL_MEDIA_TTL_SEC = 24 * 3600;
+
+/** Carpeta del almacenamiento de cada tipo de subida (el billete solo vale bajo la de su creadora). */
+const PREFIX: Record<UploadPurpose, string> = { image: "incoming", file: "private", video: "public/video", portal: "private" };
 
 /** La URL firmada de subida vale 15 minutos; el billete, 1 hora (subidas lentas de archivos grandes). */
 const PUT_TTL_SEC = 900;
 const TICKET_TTL_SEC = 3600;
+/** Por partes: el billete vale 6 h (un vídeo de 4 GB por wifi de casa) y cada URL de parte, 1 h. */
+const MULTIPART_TICKET_TTL_SEC = 6 * 3600;
+const PART_TTL_SEC = 3600;
+/** URLs de parte por petición a /api/upload/parts. */
+export const MAX_PARTS_PER_REQUEST = 10;
+
+export type SingleUpload = { uploadUrl: string; headers: Record<string, string>; ticket: string };
+export type MultipartUpload = { multipart: { partSize: number; partCount: number }; ticket: string };
 
 export async function createUpload(
   creatorId: string,
-  input: { purpose: UploadPurpose; productId?: string; name: string; contentType: string; size: number },
-): Promise<{ uploadUrl: string; headers: Record<string, string>; ticket: string }> {
+  input: { purpose: UploadPurpose; productId?: string; orderId?: string; name: string; contentType: string; size: number; graphic?: boolean; email?: boolean; audio?: boolean },
+  policy: UploadPolicy = uploadPolicy(isPersonalMode()),
+): Promise<SingleUpload | MultipartUpload> {
   const { purpose, size } = input;
   let { contentType } = input;
   if (!Number.isInteger(size) || size <= 0) throw new UploadError("El archivo está vacío");
 
   let key: string;
+  if (isHeic(contentType, input.name)) throw new UploadError(HEIC_ERROR);
   if (purpose === "image") {
     if (!IMAGE_TYPES[contentType]) throw new UploadError("Formato no admitido (usa JPG, PNG, WebP o GIF)");
-    if (size > UPLOAD_LIMITS.image) throw new UploadError("La imagen supera 25 MB");
+    if (size > policy.imageMax) throw new UploadError("La imagen supera 25 MB");
     key = `incoming/${creatorId}/${randomBytes(12).toString("hex")}`;
+  } else if (purpose === "video") {
+    // Vídeo de la página: público (su dirección /media/video/… lleva 96 bits al azar) y solo en la
+    // web personal (en la plataforma, enlace de YouTube o Vimeo: ancho de banda y almacenamiento).
+    if (!isPersonalMode()) throw new UploadError("En tu página, los vídeos se añaden con un enlace de YouTube o Vimeo");
+    const canonical = privateFileType(contentType, input.name);
+    const type = canonical ? PRIVATE_TYPES[canonical] : undefined;
+    const audio = !!input.audio && type?.kind === "AUDIO";
+    if (!canonical || (type?.kind !== "VIDEO" && !audio)) throw new UploadError(input.audio ? "Sube un vídeo (MP4 o MOV) o un audio (MP3, M4A o WAV)" : "Sube un vídeo MP4 o MOV");
+    if (size > PAGE_VIDEO_MAX) throw new UploadError(audio ? "El audio supera 1 GB" : "El vídeo supera 1 GB: expórtalo a 1080p");
+    const ext = /\.m4v$/i.test(input.name) ? "m4v" : type!.ext;
+    key = `public/video/${creatorId}/${randomBytes(12).toString("hex")}.${ext}`;
+    contentType = canonical;
+  } else if (purpose === "portal") {
+    // Portal de Noticias: privado (como un archivo de un producto), sin producto ni pedido.
+    const canonical = privateFileType(contentType, input.name);
+    const type = canonical ? PRIVATE_TYPES[canonical] : undefined;
+    if (!canonical || !type || !["VIDEO", "AUDIO", "IMAGE"].includes(type.kind)) throw new UploadError("Sube un vídeo (MP4, MOV), un audio (MP3, M4A, WAV) o una foto (JPG, PNG, WebP)");
+    if (type.kind === "VIDEO" && size > policy.videoMax) throw new UploadError("El vídeo es demasiado grande. Expórtalo en 1080p");
+    if (type.kind !== "VIDEO" && size > policy.fileMax) throw new UploadError("El archivo supera 1 GB");
+    key = `private/${creatorId}/${randomBytes(12).toString("hex")}.${type.ext}`;
+    contentType = canonical;
   } else {
     // Tipo canónico: es el que se firma para el PUT, va en el billete y acaba en ProductFile.mimeType.
     const canonical = privateFileType(contentType, input.name);
     const type = canonical ? PRIVATE_TYPES[canonical] : undefined;
-    if (!canonical || !type) throw new UploadError("Formato no admitido (PDF, MP3, M4A, WAV, MP4, JPG, PNG, EPUB, ZIP)");
-    if (size > UPLOAD_LIMITS.file) throw new UploadError("El archivo supera 1 GB");
+    if (!canonical || !type) throw new UploadError("Formato no admitido (PDF, MP3, M4A, WAV, MP4, MOV, JPG, PNG, WebP, GIF, EPUB, ZIP)");
+    if (type.kind === "VIDEO" && size > policy.videoMax)
+      throw new UploadError(
+        policy.videoMax > policy.fileMax
+          ? "El vídeo supera 4 GB. Expórtalo en 1080p con InShot o súbelo a Vimeo y pega el enlace"
+          : "El archivo supera 1 GB",
+      );
+    if (type.kind !== "VIDEO" && size > policy.fileMax) throw new UploadError("El archivo supera 1 GB");
     if (!input.productId || !(await tenantDb(creatorId).product.findFirst({ where: { id: input.productId }, select: { id: true } })))
       throw new UploadError("Producto no encontrado");
     key = `private/${creatorId}/${randomBytes(12).toString("hex")}.${type.ext}`;
     contentType = canonical;
   }
 
-  const put = await storage().presignPut(key, { contentType, contentLength: size, expiresInSec: PUT_TTL_SEC });
   const ticket: Ticket = {
     k: key,
     c: creatorId,
@@ -64,18 +121,98 @@ export async function createUpload(
     n: input.name.slice(0, 120),
     ct: contentType,
     s: size,
+    g: purpose === "image" && input.graphic ? 1 : undefined,
+    e: purpose === "image" && input.email ? 1 : undefined,
   };
+  // Web personal: lo grande va por partes (un corte de wifi solo repite la parte que falló).
+  if (purpose !== "image" && policy.multipart && size > MULTIPART_THRESHOLD) {
+    const plan = planParts(size);
+    const { uploadId } = await storage().createMultipart(key, { contentType });
+    return {
+      multipart: { partSize: plan.partSize, partCount: plan.partCount },
+      ticket: signToken({ ...ticket, u: uploadId, ps: plan.partSize } satisfies Ticket, storageSecret(), MULTIPART_TICKET_TTL_SEC),
+    };
+  }
+  const put = await storage().presignPut(key, { contentType, contentLength: size, expiresInSec: PUT_TTL_SEC });
   return { uploadUrl: put.url, headers: put.headers, ticket: signToken(ticket, storageSecret(), TICKET_TTL_SEC) };
 }
 
-export type CompletedUpload = { url: string } | { file: { id: string; name: string; kind: string; sizeBytes: number | null } };
+export type CompletedFile = { id: string; name: string; kind: string; sizeBytes: number | null; durationSec: number | null; videoCodec: string | null };
+export type CompletedImage = { url: string; width: number; height: number };
+export type CompletedVideo = PageVideo;
+export type CompletedPortalMedia = { token: string; kind: "VIDEO" | "AUDIO" | "IMAGE"; name: string; sizeBytes: number };
+export type CompletedUpload = CompletedImage | { file: CompletedFile } | { video: CompletedVideo } | { portal: CompletedPortalMedia };
+
+const fileOut = (f: CompletedFile): CompletedFile => ({ id: f.id, name: f.name, kind: f.kind, sizeBytes: f.sizeBytes, durationSec: f.durationSec, videoCodec: f.videoCodec });
+
+/** Duración, códec y tamaño de un vídeo o audio recién subido (null si no se pudo leer a tiempo). */
+async function probeWithTimeout(key: string, size: number, mime: string): Promise<MediaInfo | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), PROBE_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([probeStoredFile(key, size, mime), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Billete válido y de esta creadora (la clave, bajo su carpeta). */
+function readTicket(creatorId: string, ticket: string): Ticket {
+  const t = verifyToken<Ticket>(ticket, storageSecret());
+  if (!t || t.c !== creatorId || !PREFIX[t.p] || !t.k.startsWith(`${PREFIX[t.p]}/${creatorId}/`))
+    throw new UploadError("La subida ha caducado. Vuelve a intentarlo.");
+  return t;
+}
+
+/** URLs firmadas de las partes pedidas (como mucho 10 por vez), cada una con su tamaño exacto. */
+export async function signUploadParts(creatorId: string, ticket: string, partNumbers: number[]): Promise<{ n: number; url: string; headers: Record<string, string> }[]> {
+  const t = readTicket(creatorId, ticket);
+  if (!t.u || !t.ps || t.p === "image") throw new UploadError("Esta subida no es por partes");
+  const plan = planParts(t.s, t.ps);
+  if (!partNumbers.length || partNumbers.length > MAX_PARTS_PER_REQUEST) throw new UploadError("Pide entre 1 y 10 partes");
+  if (partNumbers.some((n) => !Number.isInteger(n) || n < 1 || n > plan.partCount)) throw new UploadError("Parte no válida");
+  const s = storage();
+  return Promise.all(
+    [...new Set(partNumbers)].map(async (n) => {
+      const r = await s.presignPart(t.k, t.u!, n, { contentLength: plan.sizeOf(n), expiresInSec: PART_TTL_SEC });
+      return { n, url: r.url, headers: r.headers };
+    }),
+  );
+}
+
+/** Cancela una subida (por partes: borra lo recibido). Sin errores: es lo último que hace el navegador. */
+export async function abortUpload(creatorId: string, ticket: string): Promise<void> {
+  const t = readTicket(creatorId, ticket);
+  const s = storage();
+  if (t.u) await s.abortMultipart(t.k, t.u).catch(() => {});
+  // Si ya se registró (se canceló tarde), no se borra un archivo que ya está en el producto.
+  if (t.p === "file" && (await tenantDb(creatorId).productFile.findFirst({ where: { storageKey: t.k.slice("private/".length) }, select: { id: true } }))) return;
+  if (t.p === "portal" && (await tenantDb(creatorId).portalItem.findFirst({ where: { media: { array_contains: [{ key: t.k.slice("private/".length) }] } }, select: { id: true } }))) return;
+  await s.delete([t.k]).catch(() => {});
+}
 
 export async function completeUpload(creatorId: string, ticket: string): Promise<CompletedUpload> {
-  const t = verifyToken<Ticket>(ticket, storageSecret());
-  if (!t || t.c !== creatorId || !t.k.startsWith(`${t.p === "image" ? "incoming" : "private"}/${creatorId}/`))
-    throw new UploadError("La subida ha caducado. Vuelve a intentarlo.");
+  const t = readTicket(creatorId, ticket);
+  if (t.p === "video") return completeVideo(t);
+  if (t.p === "portal") return completePortal(t);
 
   const s = storage();
+  if (t.u) {
+    // Repetir el paso 2 de una subida por partes ya completada: el archivo ya está registrado.
+    const done = await tenantDb(creatorId).productFile.findFirst({ where: { productId: t.pid ?? "", storageKey: t.k.slice("private/".length) } });
+    if (done) return { file: fileOut(done) };
+    if (!(await tenantDb(creatorId).product.findFirst({ where: { id: t.pid ?? "" }, select: { id: true } }))) {
+      await s.abortMultipart(t.k, t.u).catch(() => {});
+      throw new UploadError("Producto no encontrado");
+    }
+    try {
+      await s.completeMultipart(t.k, t.u);
+    } catch {
+      throw new UploadError("No hemos recibido el archivo completo. Vuelve a intentarlo.");
+    }
+  }
   const head = await s.head(t.k);
   if (!head || head.size !== t.s) {
     if (head) await s.delete([t.k]);
@@ -84,8 +221,9 @@ export async function completeUpload(creatorId: string, ticket: string): Promise
 
   if (t.p === "image") {
     try {
-      const url = await storeProcessedImage(creatorId, await s.getBuffer(t.k, UPLOAD_LIMITS.image));
-      return { url };
+      const buf = await s.getBuffer(t.k, uploadPolicy(false).imageMax);
+      if (t.e) return await storeEmailImage(creatorId, buf);
+      return await storeImage(creatorId, buf, { profile: t.g ? "graphic" : "photo" });
     } catch (e) {
       throw new UploadError(e instanceof Error ? e.message : "No hemos podido procesar la imagen");
     } finally {
@@ -103,19 +241,107 @@ export async function completeUpload(creatorId: string, ticket: string): Promise
   const storageKey = t.k.slice("private/".length);
   // Repetir el paso 2 con el mismo billete (doble clic, reintento) no duplica el archivo.
   const existing = await db.productFile.findFirst({ where: { productId, storageKey } });
-  if (existing) return { file: { id: existing.id, name: existing.name, kind: existing.kind, sizeBytes: existing.sizeBytes } };
+  if (existing) return { file: fileOut(existing) };
   const count = await db.productFile.count({ where: { productId } });
+  const kind = PRIVATE_TYPES[t.ct]?.kind ?? "OTHER";
+  const info = kind === "VIDEO" || kind === "AUDIO" ? await probeWithTimeout(t.k, t.s, t.ct) : null;
   const record = await db.productFile.create({
     data: {
       productId,
       name: t.n,
-      kind: PRIVATE_TYPES[t.ct]?.kind ?? "OTHER",
+      kind,
       mimeType: t.ct,
       sizeBytes: t.s,
       storageKey,
+      durationSec: info?.durationSec ?? null,
+      videoCodec: kind === "VIDEO" ? (info?.video?.codec ?? null) : null,
+      width: kind === "VIDEO" ? (info?.video?.width ?? null) : null,
+      height: kind === "VIDEO" ? (info?.video?.height ?? null) : null,
       sortOrder: count,
       creatorId,
     },
   });
-  return { file: { id: record.id, name: record.name, kind: record.kind, sizeBytes: record.sizeBytes } };
+  return { file: fileOut(record) };
 }
+
+/**
+ * Paso 2 del vídeo de la página: el objeto ya está en su sitio (public/video/…); se comprueba que
+ * llegó entero y se leen sus medidas, duración y códec para el bloque. Repetirlo con el mismo billete
+ * (doble clic, reintento) da lo mismo: el objeto ya existe.
+ */
+async function completeVideo(t: Ticket): Promise<CompletedUpload> {
+  const s = storage();
+  let head = await s.head(t.k);
+  if (t.u && (!head || head.size !== t.s)) {
+    try {
+      await s.completeMultipart(t.k, t.u);
+    } catch {
+      throw new UploadError("No hemos recibido el vídeo completo. Vuelve a intentarlo.");
+    }
+    head = await s.head(t.k);
+  }
+  if (!head || head.size !== t.s) {
+    if (head) await s.delete([t.k]);
+    throw new UploadError("No hemos recibido el vídeo completo. Vuelve a intentarlo.");
+  }
+  const info = await probeWithTimeout(t.k, t.s, t.ct);
+  const [cid, file] = t.k.slice("public/video/".length).split("/");
+  return {
+    video: {
+      src: pageVideoUrl(cid, file),
+      width: info?.video?.width ?? null,
+      height: info?.video?.height ?? null,
+      durationSec: info?.durationSec != null ? Math.round(info.durationSec) : null,
+      codec: info?.video?.codec ?? null,
+      sizeBytes: t.s,
+    },
+  };
+}
+
+/**
+ * Paso 2 de un archivo del Portal de Noticias: comprueba que llegó entero, lee la duración y las
+ * medidas, y devuelve un billete firmado con lo subido. El formulario del panel lo envía al guardar
+ * el elemento (readPortalMediaToken): la clave del archivo nunca la elige el navegador.
+ */
+async function completePortal(t: Ticket): Promise<CompletedUpload> {
+  const s = storage();
+  let head = await s.head(t.k);
+  if (t.u && (!head || head.size !== t.s)) {
+    try {
+      await s.completeMultipart(t.k, t.u);
+    } catch {
+      throw new UploadError("No hemos recibido el archivo completo. Vuelve a intentarlo.");
+    }
+    head = await s.head(t.k);
+  }
+  if (!head || head.size !== t.s) {
+    if (head) await s.delete([t.k]);
+    throw new UploadError("No hemos recibido el archivo completo. Vuelve a intentarlo.");
+  }
+  const kind = (PRIVATE_TYPES[t.ct]?.kind ?? "IMAGE") as "VIDEO" | "AUDIO" | "IMAGE";
+  const info = kind === "VIDEO" || kind === "AUDIO" ? await probeWithTimeout(t.k, t.s, t.ct) : null;
+  const ticket: PortalTicket = {
+    p: "portal-media",
+    c: t.c,
+    k: t.k.slice("private/".length),
+    kind,
+    mime: t.ct,
+    name: t.n,
+    size: t.s,
+    w: info?.video?.width ?? null,
+    h: info?.video?.height ?? null,
+    d: info?.durationSec != null ? Math.round(info.durationSec) : null,
+  };
+  return { portal: { token: signToken(ticket, storageSecret(), PORTAL_MEDIA_TTL_SEC), kind, name: t.n, sizeBytes: t.s } };
+}
+
+/**
+ * Lee el billete de un archivo del portal recién subido (lo firma completePortal). null si no es de
+ * esta creadora o ha caducado. Devuelve lo que se guarda en PortalItem.media.
+ */
+export function readPortalMediaToken(creatorId: string, token: string): { key: string; kind: "VIDEO" | "AUDIO" | "IMAGE"; mime: string; name: string; sizeBytes: number; width: number | null; height: number | null; durationSec: number | null } | null {
+  const t = verifyToken<PortalTicket>(token, storageSecret());
+  if (!t || t.p !== "portal-media" || t.c !== creatorId || !t.k.startsWith(`${creatorId}/`)) return null;
+  return { key: t.k, kind: t.kind, mime: t.mime, name: t.name, sizeBytes: t.size, width: t.w ?? null, height: t.h ?? null, durationSec: t.d ?? null };
+}
+

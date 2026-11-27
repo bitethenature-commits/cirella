@@ -1,28 +1,29 @@
-import Link from "next/link";
-import { Download, FileText } from "lucide-react";
+import { Download } from "lucide-react";
 import { requireAdmin } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { getPlatformOverview } from "@/lib/platform-stats";
 import { PageHeader } from "../../panel/ui";
 import { AdminTable, td } from "../ui";
 import { platformOnly } from "../platform-only";
+import { Tr } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export default async function AdminReports() {
+  const t = await getT();
   platformOnly();
   await requireAdmin();
   const s = await getPlatformOverview();
   return (
     <div>
-      <PageHeader title="Reportes" subtitle="Evolución mensual de la plataforma (últimos 6 meses)." actions={
+      <PageHeader title={t("Reportes")} subtitle={t("Evolución mensual de la plataforma (últimos 6 meses).")} actions={
           <>
-            <Link href="/admin/reportes/dac7" className="btn btn-outline"><FileText className="h-4 w-4" /> DAC7 (modelo 238)</Link>
-            <a href="/admin/reportes/csv" className="btn btn-outline"><Download className="h-4 w-4" /> Exportar CSV</a>
+            <a href="/admin/reportes/csv" className="btn btn-outline"><Download className="h-4 w-4" />{" "}<Tr s={"Exportar CSV"} /></a>
           </>
         } />
       <AdminTable head={["Mes", "Nuevas creadoras", "Nuevas clientas", "Pedidos", "GMV", "Comisiones", "Cuotas de plan", "Ingresos plataforma"]} minWidth={900}>
         {[...s.series].reverse().map((m) => (
           <tr key={m.key}>
-            <td className={`${td} font-semibold capitalize`}>{m.label}</td>
+            <td className={`${td} font-semibold capitalize`}><Tr s={m.label} /></td>
             <td className={td}>{m.newCreators}</td>
             <td className={td}>{m.newCustomers}</td>
             <td className={td}>{m.orders}</td>
@@ -33,7 +34,7 @@ export default async function AdminReports() {
           </tr>
         ))}
       </AdminTable>
-      <p className="mt-4 text-xs text-muted">Pregunta de validación del MVP: ¿cuántas creadoras pasan a un plan de pago y cuánto genera la comisión frente a la cuota? Compara «Comisiones» y «Cuotas de plan» mes a mes.</p>
+      <p className="mt-4 text-xs text-muted"><Tr s={"Pregunta de validación del MVP: ¿cuántas creadoras pasan a un plan de pago y cuánto genera la comisión frente a la cuota? Compara «Comisiones» y «Cuotas de plan» mes a mes."} /></p>
     </div>
   );
 }

@@ -1,12 +1,18 @@
+import { productPath } from "@/lib/public-paths";
+import { localePath, type Locale } from "@/lib/i18n/config";
+import { getLocale } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CreatorPageView } from "@/components/creator-page/creator-page-view";
 import { TrackOnMount } from "@/components/creator-page/tracking";
 import { Reveal } from "@/components/reveal";
 import { appUrl } from "@/lib/env";
+import { localTx } from "@/lib/i18n/content";
+import { oracleDecksForBlocks } from "@/lib/oracle-decks";
 import { getPublicCreator } from "@/lib/public";
 import { isPublicUsernameAllowed } from "@/lib/personal-routing";
 import { isPersonalMode, ownerUsername } from "@/lib/site-mode";
+import { getT } from "@/lib/i18n/server";
 
 /**
  * La página pública de una creadora, en un único sitio para sus dos direcciones:
@@ -31,17 +37,20 @@ export function creatorPageUrl(username: string) {
 
 export async function creatorPageMetadata(username: string, opts: { root?: boolean } = {}): Promise<Metadata> {
   const data = await publicPageData(username);
-  if (!data) return { title: "Página no encontrada" };
+  if (!data) return { title: (await getT())("Página no encontrada") };
   const { creator, config } = data;
   const personal = isPersonalMode();
   const siteName = personal ? config.displayName : data.platformName;
   const title = creator.seoTitle || `${config.displayName}${config.tagline ? ` · ${config.tagline}` : ""}`;
   const description = creator.seoDescription || config.bio || config.headline || (personal ? config.displayName : `${config.displayName} en ${data.platformName}`);
-  const url = creatorPageUrl(creator.username);
+  // Cada idioma con su dirección (lib/i18n): la canónica es la del idioma que se ve; Google conoce las tres.
+  const base = creatorPageUrl(creator.username);
+  const at = (l: Locale) => `${appUrl()}${localePath(new URL(base).pathname, l)}`;
+  const url = at(await getLocale());
   const metadata: Metadata = {
     title,
     description,
-    alternates: { canonical: url },
+    alternates: { canonical: url, languages: { de: at("de"), en: at("en"), es: at("es"), "x-default": at("de") } },
     openGraph: { title, description, url, type: "profile", siteName },
     twitter: { card: "summary_large_image", title, description },
   };
@@ -62,6 +71,8 @@ export async function CreatorPublicPage({ username }: { username: string }) {
 
   const { creator, config, products } = data;
   const personal = isPersonalMode();
+  // Las barajas propias de sus bloques «Oráculo» (la de serie no necesita nada).
+  const oracleDecks = await oracleDecksForBlocks(creator.id, config.blocks ?? [], await localTx(creator.id));
   const url = creatorPageUrl(creator.username);
   const jsonLd = {
     "@context": "https://schema.org",
@@ -71,13 +82,13 @@ export async function CreatorPublicPage({ username }: { username: string }) {
     url,
     image: config.avatarUrl ? `${appUrl()}${config.avatarUrl}` : undefined,
     sameAs: Object.values(config.socials).filter((v) => v?.startsWith("http")),
-    // Lo mismo que enseñan las tarjetas: en la web personal no se ofrece nada de pago aquí.
-    makesOffer: products.filter((p) => !personal || p.accessMode !== "PAID").map((p) => ({
+    // Lo mismo que enseñan las tarjetas: en la web personal sin cobros no se ofrece nada de pago aquí.
+    makesOffer: products.map((p) => ({
       "@type": "Offer",
       name: p.title,
       price: (p.priceCents / 100).toFixed(2),
       priceCurrency: p.currency,
-      url: `${appUrl()}/${creator.username}/${p.slug}`,
+      url: `${appUrl()}${productPath(creator.username, p)}`,
     })),
   };
 
@@ -95,9 +106,15 @@ export async function CreatorPublicPage({ username }: { username: string }) {
         sellerName={creator.legalName}
         posts={data.posts}
         postCount={data.postCount}
+        news={data.news}
+        portal={data.portal}
+        gifts={data.gifts}
         discountCodes={data.discountCodes}
         personal={personal}
+        signupsOnly={data.signupsOnly}
         siteOrigin={appUrl()}
+        pages={data.pages}
+        oracleDecks={oracleDecks}
       />
       {/* Las visitas de la propia creadora se descartan en /api/track; las de ?embed=1, en el navegador. */}
       <TrackOnMount creatorId={creator.id} type="PAGE_VIEW" />

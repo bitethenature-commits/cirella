@@ -48,8 +48,17 @@ test("stripeReason: duplicado y el resto", () => eq([stripeReason("DUPLICATE"), 
 const paidAt = new Date("2026-10-01T10:00:00Z");
 const base: WithdrawalInput = { status: "PAID", paidAt, productType: "DIGITAL", amountCents: 5900, refundedCents: 0, withdrawalWaived: false, hasPendingRefund: false, booking: null };
 const at = (days: number) => new Date(paidAt.getTime() + days * DAY);
-test("desistimiento: digital sin renuncia el día 13 → se puede, plazo hasta el día 14", () =>
-  eq(withdrawalEligibility(base, at(13)), { eligible: true, deadline: at(14), amountCents: 5900 }));
+test("desistimiento: digital sin renuncia el día 13 → se puede, plazo hasta las 23:59 del día 14 (Madrid)", () =>
+  eq(withdrawalEligibility(base, at(13)), { eligible: true, deadline: new Date("2026-10-15T21:59:59.999Z"), amountCents: 5900 }));
+test("desistimiento: el día 14 a las 23:00 (Madrid) aún se puede; a las 00:00 del 15, no", () => {
+  eq(withdrawalEligibility(base, new Date("2026-10-15T21:00:00Z")).eligible, true);
+  eq(withdrawalEligibility(base, new Date("2026-10-15T22:00:00Z")), { eligible: false, reason: "EXPIRED" });
+});
+test("desistimiento: los días se cuentan en la zona de la dueña", () => {
+  // 1 de octubre a las 10:00 UTC = 05:00 en Bogotá: su día 14 acaba el 15 a las 23:59 de Bogotá.
+  const r = withdrawalEligibility({ ...base, timezone: "America/Bogota" }, at(13));
+  ok(r.eligible && r.deadline.toISOString() === "2026-10-16T04:59:59.999Z", JSON.stringify(r));
+});
 test("desistimiento: día 15 → EXPIRED", () => eq(withdrawalEligibility(base, at(15)), { eligible: false, reason: "EXPIRED" }));
 test("desistimiento: digital con renuncia → WAIVED", () => eq(withdrawalEligibility({ ...base, withdrawalWaived: true }, at(1)), { eligible: false, reason: "WAIVED" }));
 test("desistimiento: sesión futura → se puede", () =>
@@ -77,7 +86,7 @@ test("toWithdrawalInput: renuncia, reembolso pendiente y reserva", () =>
 
 // Cifras netas y etiquetas
 const fig = { status: "PAID", amountCents: 7900, platformFeeCents: 158, refundedCents: 2000, refundedFeeCents: 40 };
-test("orderFigures: parcial", () => eq(orderFigures(fig), { gross: 5900, fee: 118, tax: 0, platformTax: 0, net: 5782, refunded: 2000, partial: true, counts: true }));
+test("orderFigures: parcial", () => eq(orderFigures(fig), { gross: 5900, fee: 118, net: 5782, refunded: 2000, partial: true, counts: true }));
 test("orderStatusLabel: parcial", () => eq(orderStatusLabel(fig), "Reembolsado parcialmente"));
 test("orderFigures: reembolsado del todo no cuenta", () => {
   const f = orderFigures({ ...fig, status: "REFUNDED", refundedCents: 7900, refundedFeeCents: 158 });
@@ -88,15 +97,15 @@ test("orderFigures: pedido abandonado no suma", () => eq(orderFigures({ ...fig, 
 
 // Emails: el texto de las personas se escapa
 test("bookingCancelledEmail escapa el motivo y lleva el producto en el asunto", () => {
-  const m = bookingCancelledEmail({ creatorName: "Ana", productTitle: "Sesión 1:1", when: null, reason: "<script>alert(1)</script>", refundAmount: "79,00 €", url: "https://x" });
+  const m = bookingCancelledEmail({ creatorName: "Cirella", productTitle: "Sesión 1:1", when: null, reason: "<script>alert(1)</script>", refundAmount: "79,00 €", url: "https://x" });
   ok(!m.html.includes("<script>"), "el html contiene <script>");
   ok(m.html.includes("&lt;script&gt;"), "falta el motivo escapado");
   ok(m.subject.includes("Sesión 1:1"), m.subject);
 });
 test("rescheduleProposalEmail escapa el mensaje", () =>
-  ok(!rescheduleProposalEmail({ creatorName: "Ana", productTitle: "X", previousWhen: "lunes", note: '<img src=x onerror="a">', url: "https://x" }).html.includes("<img")));
+  ok(!rescheduleProposalEmail({ creatorName: "Cirella", productTitle: "X", previousWhen: "lunes", note: '<img src=x onerror="a">', url: "https://x" }).html.includes("<img")));
 test("refundIssuedEmail: parcial y sin acceso", () => {
-  const m = refundIssuedEmail({ creatorName: "Ana", productTitle: "Guía", amount: "5,00 €", partial: true, accessRevoked: true, note: null, url: "https://x" });
+  const m = refundIssuedEmail({ creatorName: "Cirella", productTitle: "Guía", amount: "5,00 €", partial: true, accessRevoked: true, note: null, url: "https://x" });
   ok(m.html.includes("de tu compra") && m.html.includes("Ya no tendrás acceso"), m.html);
   eq(m.subject, "Te hemos devuelto 5,00 € de «Guía»");
 });
