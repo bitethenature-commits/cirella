@@ -159,9 +159,8 @@ const hex = (v: string) => (/^#[0-9a-f]{6}$/i.test(v) ? v.toUpperCase() : "#0000
 
 /** Tamaño de la pieza que se repite (en píxeles del email). */
 export function patternSize(key: PatternKey): { w: number; h: number } | null {
-  if (key === "none") return null;
-  const t = TILES[key];
-  return { w: t.w, h: t.h };
+  const t = key === "none" ? undefined : TILES[key];
+  return t ? { w: t.w, h: t.h } : null;
 }
 
 /** La pieza que se repite, en SVG, con el fondo pintado. `scale` 2 = el doble de píxeles (pantallas retina). */
